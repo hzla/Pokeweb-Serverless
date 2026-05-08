@@ -1,0 +1,245 @@
+.pokemon-list {
+  color: #f2f2f2;
+  margin-left: 18vw;
+  width: 82vw;
+  padding-top: 100px;
+}
+
+.spreadsheet > .expanded-field.field-header {
+  background: #6272a4;
+  left: 18vw;
+  width: 82%;
+  padding-left: 20px;
+  padding-right: 20px;
+  position: fixed;
+  top: 40px;
+  z-index: 10;
+  height: 60px;
+  line-height: 40px;
+}
+
+#headers > .expanded-field > .expanded-field-main {
+  padding-left: 20px;
+}
+
+#headers > .expanded-field.field-header > .expanded-field-main {
+  padding-right: 20px;
+}
+
+.expanded-field-main {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.field-header {
+  background: #34495e;
+  color: #f2f2f2;
+}
+
+.spreadsheet .expanded-field {
+  border: 1px solid transparent;
+}
+
+.spreadsheet > .expanded-field {
+  flex-direction: column;
+  width: 100%;
+}
+
+.expanded-field.filterable {
+  position: relative;
+}
+
+.expanded-field {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #44475a;
+  padding: 10px 0;
+  font-size: 20px;
+  align-items: center;
+  width: 100%;
+}
+
+.expanded-card-content,
+.expanded-card-subcontent {
+  height: auto;
+  width: calc(100% - 20px);
+  margin: 4px 20px 10px 0;
+  border-radius: 20px;
+  justify-content: space-between;
+  display: none;
+  overflow: hidden;
+}
+
+.show-flex {
+  display: flex !important;
+}
+
+.hdr-id,
+.encounter-id,
+.trainer-id {
+  width: 60px;
+}
+
+.hdr-location {
+  width: 200px;
+}
+
+.hdr-script,
+.hdr-texts,
+.hdr-encounters,
+.hdr-matrix {
+  width: 100px;
+}
+
+#headers .expanded-left {
+  width: 33.33%;
+  padding: 22px 36px 26px;
+  border-right: 1px solid #44475a;
+}
+
+#headers .expanded-left:last-child {
+  border-right: 0;
+}
+
+.header-label {
+  color: #f2f2f2;
+  overflow-wrap: anywhere;
+}
+
+.expanded-card-content div:not(.multi).expanded-field div:nth-child(2),
+.expanded-card-subcontent div:not(.multi).expanded-field div:nth-child(2) {
+  color: #1abc9c;
+  background: transparent;
+  border-radius: 0;
+  min-height: 30px;
+  line-height: 30px;
+  padding: 0;
+  text-align: center;
+  min-width: 52px;
+}
+
+#headers .expanded-card-content .expanded-field {
+  min-height: 58px;
+  border-bottom: 0;
+  padding: 6px 0;
+}
+
+[contenteditable="true"]:not(.pokemon-type):not(.btn) {
+  color: #1abc9c;
+  background: transparent !important;
+  outline: none;
+  cursor: pointer;
+  min-height: 24px;
+}
+
+[contenteditable="true"]:focus {
+  border: 1px solid #1abc9c;
+  border-radius: 4px;
+}
+
+[contenteditable="true"].invalid {
+  border: 1px solid red !important;
+}
+
+.move-info {
+  position: absolute;
+  bottom: calc(50% - 15px);
+  left: 160px;
+  height: 30px;
+  width: 30px;
+  cursor: pointer;
+  display: none;
+  border-radius: 30px;
+}
+
+.expanded-field:hover .move-info {
+  display: block;
+}
+
+#headers .expanded-field:hover .move-info {
+  display: block;
+  left: 80px;
+}
+
+.move-info svg {
+  width: 100%;
+  height: 100%;
+}
+
+div.-active svg * {
+  stroke: #bd93f9;
+}
+
+.no-fill.-active svg * {
+  fill: none;
+}
+
+[data-autocomplete] {
+  position: relative;
+  display: block;
+}
+
+[data-autocomplete] .suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 100%;
+  border: 1px solid #ccc;
+  border-top: 0;
+  background: #282a36;
+  z-index: 30;
+  white-space: nowrap;
+  font-size: 13px;
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: normal;
+  line-height: 18px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+[data-autocomplete] .suggestions > div {
+  padding: 4px 7px;
+  cursor: pointer;
+}
+
+[data-autocomplete] .suggestions > div:hover {
+  background: #bd93f9;
+  color: #f2f2f2;
+}
+
+@media only screen and (max-width: 1180px) {
+  .spreadsheet > .expanded-field.field-header {
+    left: 0;
+    position: static;
+    width: 100%;
+  }
+
+  .pokemon-list {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .expanded-field-main {
+    height: auto;
+    line-height: 100%;
+  }
+
+  .field-header .expanded-field-main div {
+    text-overflow: clip;
+    overflow: hidden;
+  }
+
+  .expanded-field {
+    height: auto;
+  }
+
+  #headers .expanded-left {
+    width: 100%;
+    padding: 16px 20px;
+    border-right: 0;
+    border-bottom: 1px solid #44475a;
+  }
+}

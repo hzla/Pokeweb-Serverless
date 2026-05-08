@@ -1,0 +1,203 @@
+import type { FieldSpec } from "./formats";
+import { parseHeaders } from "./headerModel";
+import { GROTTO_ODDS_FIELDS } from "./martGrottoModel";
+import { groupByteLength, OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT, NULL_MAP_ID } from "./overworldModel";
+import type { NarcRecord, NarcStore, ProjectState, RawRecord } from "./projectStore";
+
+export function materializeProjectEdits(project: ProjectState): void {
+  materializeHeaders(project);
+  materializeGrottoOdds(project);
+
+  for (const store of Object.values(project.narcs)) {
+    if (!store || store.dirty.size === 0) continue;
+    if (store.name === "headers" || store.name === "grotto_odds") continue;
+    if (store.name === "overworlds") {
+      materializeOverworlds(store);
+      continue;
+    }
+    if (store.name === "maps") {
+      materializeMaps(store);
+      continue;
+    }
+    if (store.name === "trpok") {
+      materializeTrpok(project, store);
+      continue;
+    }
+    materializeFormattedStore(project, store);
+  }
+}
+
+function materializeHeaders(project: ProjectState): void {
+  const store = project.narcs.headers;
+  const format = project.formats.headers;
+  if (!store || !format || store.dirty.size === 0) return;
+  if (!project.headers) project.headers = parseHeaders(project);
+
+  const rowLength = format.reduce((sum, [size]) => sum + size, 0);
+  const original = store.rawFiles[0] ?? new Uint8Array();
+  const out = new Uint8Array(Math.max(original.length, project.headers.count * rowLength));
+  out.set(original.subarray(0, Math.min(original.length, out.length)));
+  for (let rowId = 1; rowId <= project.headers.count; rowId += 1) {
+    writeFormattedRecord(out, (rowId - 1) * rowLength, format, project.headers.rows[rowId] as RawRecord);
+  }
+  store.rawFiles[0] = out;
+  updateRecordBytes(store, 0, out);
+}
+
+function materializeGrottoOdds(project: ProjectState): void {
+  const store = project.narcs.grotto_odds;
+  if (!store || store.dirty.size === 0 || !project.grottoOdds) return;
+  const out = store.rawFiles[0] ? store.rawFiles[0].slice() : new Uint8Array(GROTTO_ODDS_FIELDS.length);
+  GROTTO_ODDS_FIELDS.forEach((field, index) => {
+    out[index] = Number(project.grottoOdds?.raw[field] ?? out[index] ?? 0) & 0xff;
+  });
+  store.rawFiles[0] = out;
+  updateRecordBytes(store, 0, out);
+}
+
+function materializeFormattedStore(project: ProjectState, store: NarcStore): void {
+  const format = project.formats[store.name];
+  if (!format) return;
+  for (const id of store.dirty) {
+    const record = store.records.get(id);
+    if (!record?.raw) continue;
+    const original = store.rawFiles[id] ?? new Uint8Array(record.bytes.length);
+    const out = original.slice();
+    writeFormattedRecord(out, 0, format, record.raw);
+    store.rawFiles[id] = out;
+    updateRecordBytes(store, id, out, record);
+  }
+}
+
+function materializeTrpok(project: ProjectState, store: NarcStore): void {
+  for (const id of store.dirty) {
+    const record = store.records.get(id);
+    if (!record?.raw) continue;
+    const template = project.trpokInfo[id]?.template ?? 0;
+    const count = project.trpokInfo[id]?.numPokemon ?? 0;
+    const format = trpokFormat(template);
+    const out = new Uint8Array(format.reduce((sum, [size]) => sum + size, 0) * count);
+    let offset = 0;
+    for (let slot = 0; slot < count; slot += 1) {
+      for (const [size, field] of format) {
+        writeInt(out, offset, size, record.raw[`${field}_${slot}`] ?? 0);
+        offset += size;
+      }
+    }
+    store.rawFiles[id] = out;
+    updateRecordBytes(store, id, out, record);
+  }
+}
+
+function materializeOverworlds(store: NarcStore): void {
+  for (const id of store.dirty) {
+    const record = store.records.get(id);
+    if (!record?.raw) continue;
+    const original = store.rawFiles[id] ?? record.bytes ?? new Uint8Array();
+    const footerLength = Number(record.raw.footer_length ?? 0);
+    const originalPayloadLength = overworldPayloadLength(record.raw);
+    const footerStart = Math.min(original.length, Math.max(0, originalPayloadLength));
+    const footer =
+      footerLength > 0
+        ? original.subarray(Math.max(0, original.length - footerLength))
+        : original.subarray(footerStart, original.length);
+    const out = new Uint8Array(originalPayloadLength + footer.length);
+    let offset = 0;
+
+    for (const [size, field] of OVERWORLD_HEADER_FORMAT) {
+      writeInt(out, offset, size, record.raw[field] ?? 0);
+      offset += size;
+    }
+
+    for (const group of ["furniture", "npc", "warp", "trigger"] as const) {
+      const indexes = groupIndexes(record.raw, group);
+      for (const index of indexes) {
+        for (const [size, field] of OVERWORLD_GROUP_FORMATS[group]) {
+          writeInt(out, offset, size, record.raw[`${group}_${index}_${field}`] ?? 0);
+          offset += size;
+        }
+      }
+    }
+
+    out.set(footer, offset);
+    record.raw.footer_length = footer.length;
+    store.rawFiles[id] = out;
+    updateRecordBytes(store, id, out, record);
+  }
+}
+
+function materializeMaps(store: NarcStore): void {
+  for (const id of store.dirty) {
+    const record = store.records.get(id);
+    if (!record?.raw || id === NULL_MAP_ID) continue;
+    const original = store.rawFiles[id] ?? record.bytes ?? new Uint8Array();
+    const out = original.slice();
+    const perOffset = Number(record.raw.per_offset ?? 0);
+    const width = Number(record.raw.width ?? 0);
+    const height = Number(record.raw.height ?? 0);
+    const tileCount = width * height;
+    for (let tileIndex = 0; tileIndex < tileCount; tileIndex += 1) {
+      const layer2 = record.raw[`layer_2_${tileIndex}`];
+      const layer3 = record.raw[`layer_3_${tileIndex}`];
+      if (layer2 !== undefined) writeInt(out, perOffset + 4 + tileIndex * 8 + 4, 2, layer2);
+      if (layer3 !== undefined) writeInt(out, perOffset + 4 + tileIndex * 8 + 6, 2, layer3);
+    }
+    store.rawFiles[id] = out;
+    updateRecordBytes(store, id, out, record);
+  }
+}
+
+function writeFormattedRecord(out: Uint8Array, startOffset: number, format: FieldSpec[], raw: RawRecord): void {
+  let offset = startOffset;
+  for (const [size, field] of format) {
+    if (offset + size > out.length) break;
+    if (raw[field] !== undefined) writeInt(out, offset, size, raw[field]);
+    offset += size;
+  }
+}
+
+function writeInt(out: Uint8Array, offset: number, size: number, value: number): void {
+  let next = Number(value) >>> 0;
+  for (let i = 0; i < size; i += 1) {
+    out[offset + i] = next & 0xff;
+    next >>>= 8;
+  }
+}
+
+function trpokFormat(template: number): FieldSpec[] {
+  const base: FieldSpec[] = [
+    [1, "ivs"],
+    [1, "ability"],
+    [1, "level"],
+    [1, "padding"],
+    [2, "species_id"],
+    [2, "form"],
+  ];
+  if ((template & 2) !== 0) base.push([2, "item_id"]);
+  if ((template & 1) !== 0) base.push([2, "move_1"], [2, "move_2"], [2, "move_3"], [2, "move_4"]);
+  return base;
+}
+
+function updateRecordBytes(store: NarcStore, id: number, bytes: Uint8Array, record = store.records.get(id) as NarcRecord | undefined): void {
+  if (record) record.bytes = bytes;
+}
+
+function overworldPayloadLength(raw: RawRecord): number {
+  return (
+    OVERWORLD_HEADER_FORMAT.reduce((sum, [size]) => sum + size, 0) +
+    Number(raw.furniture_count ?? 0) * groupByteLength("furniture") +
+    Number(raw.npc_count ?? 0) * groupByteLength("npc") +
+    Number(raw.warp_count ?? 0) * groupByteLength("warp") +
+    Number(raw.trigger_count ?? 0) * groupByteLength("trigger")
+  );
+}
+
+function groupIndexes(raw: RawRecord, group: keyof typeof OVERWORLD_GROUP_FORMATS): number[] {
+  const firstField = OVERWORLD_GROUP_FORMATS[group][0][1];
+  const indexes = Object.keys(raw)
+    .map((key) => new RegExp(`^${group}_(\\d+)_${firstField}$`, "u").exec(key)?.[1])
+    .filter((value): value is string => value !== undefined)
+    .map(Number)
+    .sort((a, b) => a - b);
+  return indexes.slice(0, Number(raw[`${group}_count`] ?? indexes.length));
+}

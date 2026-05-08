@@ -1,0 +1,161 @@
+import type { ProjectState } from "./projectStore";
+import { materializeProjectEdits } from "./projectMaterialize";
+import { decompressCode } from "../nds/codeCompression";
+import { NARC } from "../nds/narc";
+import { NintendoDSRom } from "../nds/rom";
+
+const DB_NAME = "pokeweb-serverless";
+const DB_VERSION = 2;
+const PROJECT_STORE_NAME = "projects";
+const ROM_STORE_NAME = "roms";
+const ACTIVE_PROJECT_KEY = "active";
+const ACTIVE_ROM_KEY = "active";
+
+export async function saveActiveProject(project: ProjectState): Promise<void> {
+  if (project.originalRomBytes) {
+    await saveActiveRomBytes(project.originalRomBytes);
+    delete project.originalRomBytes;
+  }
+  materializeProjectEdits(project);
+  const snapshot = persistableProject(project, await hasActiveRomBytes());
+  const db = await openDb();
+  await requestToPromise(db.transaction(PROJECT_STORE_NAME, "readwrite").objectStore(PROJECT_STORE_NAME).put(snapshot, ACTIVE_PROJECT_KEY));
+  db.close();
+}
+
+export async function loadActiveProject(): Promise<ProjectState | undefined> {
+  const db = await openDb();
+  const project = await requestToPromise<ProjectState | undefined>(
+    db.transaction(PROJECT_STORE_NAME, "readonly").objectStore(PROJECT_STORE_NAME).get(ACTIVE_PROJECT_KEY),
+  );
+  db.close();
+  let migratedOriginalRomBytes = false;
+  if (project?.originalRomBytes) {
+    await saveActiveRomBytes(project.originalRomBytes);
+    delete project.originalRomBytes;
+    migratedOriginalRomBytes = true;
+  }
+  if (project) await hydratePersistedProject(project);
+  if (project && migratedOriginalRomBytes) await saveActiveProject(project);
+  return project;
+}
+
+export async function clearActiveProject(): Promise<void> {
+  const db = await openDb();
+  const transaction = db.transaction([PROJECT_STORE_NAME, ROM_STORE_NAME], "readwrite");
+  await Promise.all([
+    requestToPromise(transaction.objectStore(PROJECT_STORE_NAME).delete(ACTIVE_PROJECT_KEY)),
+    requestToPromise(transaction.objectStore(ROM_STORE_NAME).delete(ACTIVE_ROM_KEY)),
+  ]);
+  db.close();
+}
+
+export async function saveActiveRomBytes(bytes: Uint8Array): Promise<void> {
+  const db = await openDb();
+  await requestToPromise(db.transaction(ROM_STORE_NAME, "readwrite").objectStore(ROM_STORE_NAME).put(bytes, ACTIVE_ROM_KEY));
+  db.close();
+}
+
+export async function loadActiveRomBytes(): Promise<Uint8Array | undefined> {
+  const db = await openDb();
+  const bytes = await requestToPromise<Uint8Array | undefined>(db.transaction(ROM_STORE_NAME, "readonly").objectStore(ROM_STORE_NAME).get(ACTIVE_ROM_KEY));
+  db.close();
+  return bytes;
+}
+
+export async function hasActiveRomBytes(): Promise<boolean> {
+  const db = await openDb();
+  const count = await requestToPromise<number>(db.transaction(ROM_STORE_NAME, "readonly").objectStore(ROM_STORE_NAME).count(ACTIVE_ROM_KEY));
+  db.close();
+  return count > 0;
+}
+
+export function debounceProjectSave(delayMs = 350): (project: ProjectState) => void {
+  let timer: number | undefined;
+  return (project: ProjectState) => {
+    if (timer !== undefined) window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      void saveActiveProject(project);
+    }, delayMs);
+  };
+}
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(PROJECT_STORE_NAME)) db.createObjectStore(PROJECT_STORE_NAME);
+      if (!db.objectStoreNames.contains(ROM_STORE_NAME)) db.createObjectStore(ROM_STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("Failed to open IndexedDB"));
+  });
+}
+
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed"));
+  });
+}
+
+function persistableProject(project: ProjectState, compactRawFiles: boolean): ProjectState {
+  const snapshot = structuredClone(project);
+  delete snapshot.originalRomBytes;
+  delete snapshot.headers;
+  delete snapshot.grottoOdds;
+  delete snapshot.texts.messageTexts;
+  delete snapshot.texts.storyTexts;
+  if (compactRawFiles && !snapshot.tms?.dirty) snapshot.arm9 = new Uint8Array();
+  if (compactRawFiles) snapshot.overlays = {};
+  for (const store of Object.values(snapshot.narcs)) {
+    if (!store) continue;
+    store.records = new Map();
+    if (compactRawFiles) {
+      store.rawFiles = store.rawFiles.map((file, index) => (store.dirty.has(index) ? file : new Uint8Array()));
+    }
+  }
+  return snapshot;
+}
+
+async function hydratePersistedProject(project: ProjectState): Promise<void> {
+  const romBytes = await loadActiveRomBytes();
+  if (!romBytes) return;
+  const rom = new NintendoDSRom(romBytes);
+  if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
+
+  for (const store of Object.values(project.narcs)) {
+    if (!store || store.fileId < 0) continue;
+    const hasMissingFiles = store.rawFiles.length === 0 || store.rawFiles.some((file) => file.length === 0);
+    if (!hasMissingFiles) continue;
+    const narc = new NARC(rom.files[store.fileId]);
+    store.rawFiles = narc.files.map((file, index) => (store.rawFiles[index]?.length ? store.rawFiles[index] : file));
+    store.fileCount = store.rawFiles.length;
+  }
+
+  const overlayIds: number[] = [];
+  if (project.narcs.grotto_odds || project.overlays[36]?.length === 0) overlayIds.push(36);
+  if (project.narcs.move_effects_table || project.overlays[167]?.length === 0) overlayIds.push(167);
+  if (project.session.baseRom === "BW2" && overlayIds.length > 0) {
+    const overlays = rom.loadArm9Overlays([...new Set(overlayIds)]);
+    for (const [id, overlay] of overlays) project.overlays[id] = overlay.data;
+  }
+
+  hydrateOverlayBackedStore(project, "grotto_odds", 36);
+  hydrateOverlayBackedStore(project, "move_effects_table", 167);
+}
+
+function hydrateOverlayBackedStore(project: ProjectState, name: "grotto_odds" | "move_effects_table", overlayId: number): void {
+  const store = project.narcs[name];
+  const overlay = project.overlays[overlayId];
+  if (!store || !overlay || (store.rawFiles[0]?.length ?? 0) > 0) return;
+  const offset = overlayTableOffset(project, name);
+  const length = name === "grotto_odds" ? 200 : 2064;
+  store.rawFiles = [overlay.slice(offset, offset + length)];
+}
+
+function overlayTableOffset(project: ProjectState, name: "grotto_odds" | "move_effects_table"): number {
+  if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
+  return project.session.fairy ? 0x00040974 : 0x000407f4;
+}

@@ -1,0 +1,448 @@
+import { EGG_GROUPS, EVO_METHODS, GROWTHS, TYPES, type NarcName } from "./constants";
+import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
+import { getTmNames } from "./tmModel";
+
+export const BASE_STAT_FIELDS = [
+  ["HP", "base_hp"],
+  ["Att", "base_atk"],
+  ["Def", "base_def"],
+  ["Sp Att", "base_spatk"],
+  ["Sp Def", "base_spdef"],
+  ["Speed", "base_speed"],
+] as const;
+
+export const MISC_INTEGER_FIELDS = [
+  ["Catch Rate", "catchrate", 255],
+  ["Exp Yield", "base_exp", 65535],
+  ["Gender", "gender", 255],
+  ["Hatch Rate", "hatch_cycle", 255],
+  ["Happiness", "base_happy", 255],
+  ["# of Forms", "num_forms", 255],
+  ["Height", "height", 65535],
+  ["Weight", "weight", 65535],
+] as const;
+
+export const PERSONAL_TEXT_FIELDS = [
+  ["50% Held Item", "item_1", "items"],
+  ["5% Held Item", "item_2", "items"],
+  ["1% Held Item", "item_3", "items"],
+  ["Egg Group 1", "egg_group_1", "egg_groups"],
+  ["Egg Group 2", "egg_group_2", "egg_groups"],
+  ["Growth Rate", "exp_rate", "growth_rates"],
+] as const;
+
+export const EV_YIELD_FIELDS = [
+  ["HP", "hp_yield"],
+  ["Attack", "atk_yield"],
+  ["Defense", "def_yield"],
+  ["Sp Attack", "spatk_yield"],
+  ["Sp Defense", "spdef_yield"],
+  ["Speed", "speed_yield"],
+] as const;
+
+export type LearnsetMove = {
+  index: number;
+  moveId: number;
+  moveName: string;
+  level: number;
+  type: string;
+  category: string;
+  power: number | string;
+  accuracy: number | string;
+};
+
+export type EvolutionSlot = {
+  index: number;
+  method: string | number;
+  param: number;
+  target: string | number;
+};
+
+export type TmCompatibilitySlot = {
+  kind: "tm" | "hm";
+  index: number;
+  label: string;
+  moveName: string;
+  enabled: boolean;
+};
+
+export type PokemonEditorRecord = {
+  id: number;
+  gen: number;
+  personal: ReadableRecord;
+  rawPersonal: RawRecord;
+  learnset: LearnsetMove[];
+  evolutions: EvolutionSlot[];
+  tmCompatibility: TmCompatibilitySlot[];
+};
+
+export type PokemonSummaryRecord = Omit<PokemonEditorRecord, "learnset" | "evolutions" | "tmCompatibility">;
+
+export type PokemonUpdateResult = {
+  value: string | number;
+  rawValue: number;
+  movePreview?: Pick<LearnsetMove, "type" | "category" | "power" | "accuracy">;
+};
+
+export function getPokemonCount(project: ProjectState): number {
+  return project.narcs.personal?.fileCount ?? 0;
+}
+
+export function getPokemonRecord(project: ProjectState, id: number): PokemonEditorRecord {
+  const summary = getPokemonSummaryRecord(project, id);
+  return {
+    ...summary,
+    learnset: getLearnset(project, id),
+    evolutions: getEvolutions(project, id),
+    tmCompatibility: getPokemonTmCompatibility(project, id),
+  };
+}
+
+export function getPokemonSummaryRecord(project: ProjectState, id: number): PokemonSummaryRecord {
+  const personalRecord = decodeRecord(project, "personal", id);
+  if (!personalRecord.raw || !personalRecord.readable) throw new Error(`Unable to decode Pokemon ${id}`);
+  enrichPersonalReadable(personalRecord.raw, personalRecord.readable);
+  titleizeAbilityFields(personalRecord.readable);
+
+  return {
+    id,
+    gen: pokemonGeneration(id),
+    personal: personalRecord.readable,
+    rawPersonal: personalRecord.raw,
+  };
+}
+
+export function getPokemonTmCompatibility(project: ProjectState, speciesId: number): TmCompatibilitySlot[] {
+  const record = decodeRecord(project, "personal", speciesId);
+  if (!record.raw) throw new Error(`Unable to decode Pokemon ${speciesId}`);
+  const raw = record.raw;
+  const names = getTmNames(project);
+  return [
+    ...Array.from({ length: 95 }, (_, index) => {
+      const number = index + 1;
+      const location = tmBitLocation("tm", number);
+      return {
+        kind: "tm" as const,
+        index: number,
+        label: `TM${number}`,
+        moveName: names.tmNames[index] ?? "",
+        enabled: bitEnabled(raw, location.field, location.bit),
+      };
+    }),
+    ...Array.from({ length: 6 }, (_, index) => {
+      const number = index + 1;
+      const location = tmBitLocation("hm", number);
+      return {
+        kind: "hm" as const,
+        index: number,
+        label: `HM${number}`,
+        moveName: names.hmNames[index] ?? "",
+        enabled: bitEnabled(raw, location.field, location.bit),
+      };
+    }),
+  ];
+}
+
+export function updatePokemonTmCompatibility(project: ProjectState, speciesId: number, kind: "tm" | "hm", index: number, enabled: boolean): void {
+  const record = decodeRecord(project, "personal", speciesId);
+  if (!record.raw || !record.readable) throw new Error(`Unable to update Pokemon ${speciesId}`);
+  const location = tmBitLocation(kind, index);
+  const mask = 2 ** location.bit;
+  const current = record.raw[location.field] ?? 0;
+  const isEnabled = bitEnabled(record.raw, location.field, location.bit);
+  record.raw[location.field] = enabled === isEnabled ? current : enabled ? current + mask : current - mask;
+  record.readable[location.field] = record.raw[location.field];
+  markDirty(project, "personal", speciesId);
+}
+
+export function getMovePreview(project: ProjectState, moveId: number): Pick<LearnsetMove, "type" | "category" | "power" | "accuracy"> {
+  if (!project.narcs.moves || moveId < 0 || moveId >= project.narcs.moves.fileCount) {
+    return { type: "", category: "", power: "", accuracy: "" };
+  }
+  const move = decodeRecord(project, "moves", moveId);
+  return {
+    type: String(move.readable?.type ?? ""),
+    category: String(move.readable?.category ?? ""),
+    power: move.readable?.power ?? "",
+    accuracy: move.readable?.accuracy ?? "",
+  };
+}
+
+export function updatePokemonField(
+  project: ProjectState,
+  speciesId: number,
+  narc: "personal" | "learnset" | "evolution" | "evolutions",
+  field: string,
+  inputValue: string,
+): PokemonUpdateResult {
+  const storeName: NarcName = narc === "evolution" ? "evolutions" : narc === "learnset" ? "learnsets" : narc;
+  const record = decodeRecord(project, storeName, speciesId);
+  if (!record.raw || !record.readable) throw new Error(`Unable to update ${storeName} ${speciesId}`);
+
+  if (storeName === "personal") {
+    const result = updatePersonalField(project, record.raw, record.readable, field, inputValue);
+    markDirty(project, "personal", speciesId);
+    return result;
+  }
+
+  if (storeName === "learnsets") {
+    const result = updateLearnsetField(project, record.raw, record.readable, field, inputValue);
+    markDirty(project, "learnsets", speciesId);
+    return result;
+  }
+
+  const result = updateEvolutionField(project, record.raw, record.readable, field, inputValue);
+  markDirty(project, "evolutions", speciesId);
+  return result;
+}
+
+export function pokemonMatchesSearch(record: PokemonSummaryRecord, searchText: string, generations: Set<number>, types: Set<string>): boolean {
+  if (generations.size > 0 && !generations.has(record.gen)) return false;
+  if (types.size > 0) {
+    const type1 = String(record.personal.type_1 ?? "").toLowerCase();
+    const type2 = String(record.personal.type_2 ?? "").toLowerCase();
+    if (!types.has(type1) && !types.has(type2)) return false;
+  }
+
+  const terms = searchText
+    .split(",")
+    .map((term) => term.trim().toLowerCase())
+    .filter(Boolean);
+  if (terms.length === 0) return true;
+
+  const haystack = JSON.stringify(record).toLowerCase();
+  return terms.some((term) => haystack.includes(term));
+}
+
+export function getPokemonAutofills(project: ProjectState): Record<string, string[]> {
+  return {
+    types: TYPES,
+    abilities: project.texts.banks.abilities ?? [],
+    items: project.texts.banks.items ?? [],
+    egg_groups: EGG_GROUPS,
+    growth_rates: GROWTHS.slice(0, 6),
+    evo_methods: EVO_METHODS,
+    pokemon_names: project.texts.banks.pokedex ?? [],
+    move_names: project.texts.banks.moves ?? [],
+  };
+}
+
+function getLearnset(project: ProjectState, id: number): LearnsetMove[] {
+  if (!project.narcs.learnsets) return [];
+  if (id < 0 || id >= project.narcs.learnsets.fileCount || !project.narcs.learnsets.rawFiles[id]) return [];
+  const record = decodeRecord(project, "learnsets", id);
+  if (!record.raw || !record.readable) return [];
+  const moves: LearnsetMove[] = [];
+  for (let index = 0; index < 25; index += 1) {
+    const moveId = record.raw[`move_id_${index}`];
+    const level = record.raw[`lvl_learned_${index}`];
+    if (moveId === undefined || level === undefined) continue;
+    const preview = getMovePreview(project, moveId);
+    moves.push({
+      index,
+      moveId,
+      moveName: String(record.readable[`move_id_${index}`] ?? moveId),
+      level,
+      ...preview,
+    });
+  }
+  return moves;
+}
+
+function getEvolutions(project: ProjectState, id: number): EvolutionSlot[] {
+  if (!project.narcs.evolutions) return [];
+  if (id < 0 || id >= project.narcs.evolutions.fileCount || !project.narcs.evolutions.rawFiles[id]) return [];
+  const record = decodeRecord(project, "evolutions", id);
+  if (!record.raw || !record.readable) return [];
+  return Array.from({ length: 7 }, (_, index) => {
+    const methodId = record.raw?.[`method_${index}`] ?? 0;
+    const targetId = record.raw?.[`target_${index}`] ?? 0;
+    return {
+      index,
+      method: EVO_METHODS[methodId] ?? methodId,
+      param: record.raw?.[`param_${index}`] ?? 0,
+      target: project.texts.banks.pokedex?.[targetId] ?? targetId,
+    };
+  });
+}
+
+function tmBitLocation(kind: "tm" | "hm", index: number): { field: string; bit: number } {
+  if (kind === "tm") {
+    if (index < 1 || index > 95) throw new Error(`TM index out of range: ${index}`);
+    if (index <= 32) return { field: "tm_1-32", bit: index - 1 };
+    if (index <= 64) return { field: "tm_33-64", bit: index - 33 };
+    return { field: "tm_65-95+hm_1", bit: index - 65 };
+  }
+
+  if (index < 1 || index > 6) throw new Error(`HM index out of range: ${index}`);
+  if (index === 1) return { field: "tm_65-95+hm_1", bit: 31 };
+  return { field: "hm_2-6", bit: index - 2 };
+}
+
+function bitEnabled(raw: RawRecord, field: string, bit: number): boolean {
+  return Math.floor((raw[field] ?? 0) / 2 ** bit) % 2 === 1;
+}
+
+function updatePersonalField(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string, inputValue: string): PokemonUpdateResult {
+  enrichPersonalReadable(raw, readable);
+
+  if (isEvYieldField(field)) {
+    const value = parseInteger(inputValue, 0, 3);
+    raw[field] = value;
+    readable[field] = value;
+    raw.evs = packEvYields(readable);
+    return { value, rawValue: value };
+  }
+
+  if (field === "type_1" || field === "type_2") {
+    const rawValue = findValueIndex(TYPES, inputValue, "type");
+    raw[field] = rawValue;
+    readable[field] = TYPES[rawValue];
+    return { value: readable[field], rawValue };
+  }
+
+  if (field.startsWith("ability_")) {
+    const rawValue = findValueIndex(project.texts.banks.abilities ?? [], inputValue, "ability");
+    raw[field] = rawValue;
+    readable[field] = titleize(project.texts.banks.abilities?.[rawValue] ?? rawValue);
+    return { value: readable[field], rawValue };
+  }
+
+  if (field.startsWith("item_")) {
+    const rawValue = findValueIndex(project.texts.banks.items ?? [], inputValue, "item");
+    raw[field] = rawValue;
+    readable[field] = project.texts.banks.items?.[rawValue] ?? rawValue;
+    return { value: readable[field], rawValue };
+  }
+
+  if (field.startsWith("egg_group_")) {
+    const rawValue = findValueIndex(EGG_GROUPS, inputValue, "egg group");
+    raw[field] = rawValue;
+    readable[field] = EGG_GROUPS[rawValue];
+    return { value: readable[field], rawValue };
+  }
+
+  if (field === "exp_rate") {
+    const rawValue = findValueIndex(GROWTHS.slice(0, 6), inputValue, "growth rate");
+    raw[field] = rawValue;
+    readable[field] = GROWTHS[rawValue];
+    return { value: readable[field], rawValue };
+  }
+
+  const max = personalIntegerMax(field);
+  if (max === undefined) throw new Error(`Unsupported personal field: ${field}`);
+  const value = parseInteger(inputValue, 0, max);
+  raw[field] = value;
+  readable[field] = value;
+  return { value, rawValue: value };
+}
+
+function updateLearnsetField(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string, inputValue: string): PokemonUpdateResult {
+  if (field.startsWith("lvl_learned_")) {
+    const value = parseInteger(inputValue, 0, 100);
+    raw[field] = value;
+    readable[field] = value;
+    return { value, rawValue: value };
+  }
+
+  if (!field.startsWith("move_id_")) throw new Error(`Unsupported learnset field: ${field}`);
+  const rawValue = findValueIndex(project.texts.banks.moves ?? [], inputValue, "move");
+  const value = project.texts.banks.moves?.[rawValue] ?? rawValue;
+  raw[field] = rawValue;
+  readable[field] = value;
+  return { value, rawValue, movePreview: getMovePreview(project, rawValue) };
+}
+
+function updateEvolutionField(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string, inputValue: string): PokemonUpdateResult {
+  if (field.startsWith("method_")) {
+    const rawValue = findValueIndex(EVO_METHODS, inputValue, "evolution method");
+    raw[field] = rawValue;
+    readable[field] = EVO_METHODS[rawValue];
+    return { value: readable[field], rawValue };
+  }
+
+  if (field.startsWith("target_")) {
+    const rawValue = findValueIndex(project.texts.banks.pokedex ?? [], inputValue, "Pokemon");
+    raw[field] = rawValue;
+    readable[field] = project.texts.banks.pokedex?.[rawValue] ?? rawValue;
+    return { value: readable[field], rawValue };
+  }
+
+  if (field.startsWith("param_")) {
+    const value = parseInteger(inputValue, 0, 65535);
+    raw[field] = value;
+    readable[field] = value;
+    return { value, rawValue: value };
+  }
+
+  throw new Error(`Unsupported evolution field: ${field}`);
+}
+
+function enrichPersonalReadable(raw: RawRecord, readable: ReadableRecord): void {
+  if (readable.hp_yield !== undefined) return;
+  let index = 0;
+  const fields = ["hp_yield", "atk_yield", "def_yield", "speed_yield", "spatk_yield", "spdef_yield"];
+  for (const field of fields) {
+    const value = (raw.evs >> index) & 0b11;
+    raw[field] = value;
+    readable[field] = value;
+    index += 2;
+  }
+}
+
+function titleizeAbilityFields(readable: ReadableRecord): void {
+  for (const field of ["ability_1", "ability_2", "ability_3"]) {
+    if (readable[field] !== undefined) readable[field] = titleize(readable[field]);
+  }
+}
+
+function packEvYields(readable: ReadableRecord): number {
+  const fields = ["hp_yield", "atk_yield", "def_yield", "speed_yield", "spatk_yield", "spdef_yield"];
+  return fields.reduce((packed, field, index) => packed | ((Number(readable[field]) & 0b11) << (index * 2)), 0);
+}
+
+function isEvYieldField(field: string): boolean {
+  return EV_YIELD_FIELDS.some(([, name]) => name === field);
+}
+
+function personalIntegerMax(field: string): number | undefined {
+  const stat = BASE_STAT_FIELDS.find(([, name]) => name === field);
+  if (stat) return 255;
+  const misc = MISC_INTEGER_FIELDS.find(([, name]) => name === field);
+  return misc?.[2];
+}
+
+function parseInteger(inputValue: string, min: number, max: number): number {
+  const value = Number(inputValue.trim());
+  if (!Number.isInteger(value) || value < min || value > max) throw new Error(`Value must be an integer between ${min} and ${max}`);
+  return value;
+}
+
+function findValueIndex(values: string[], inputValue: string, label: string): number {
+  const numeric = Number(inputValue.trim());
+  if (Number.isInteger(numeric) && numeric >= 0 && numeric < values.length) return numeric;
+  const normalizedInput = normalizeName(inputValue);
+  const index = values.findIndex((value) => normalizeName(value) === normalizedInput);
+  if (index < 0) throw new Error(`Unknown ${label}: ${inputValue}`);
+  return index;
+}
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/gu, "");
+}
+
+function titleize(value: string | number): string | number {
+  if (typeof value === "number") return value;
+  return value
+    .split(/([\s-]+)/u)
+    .map((part) => (/^[a-z]/iu.test(part) ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part))
+    .join("");
+}
+
+function pokemonGeneration(id: number): number {
+  if (id <= 151) return 1;
+  if (id <= 251) return 2;
+  if (id <= 386) return 3;
+  if (id <= 493) return 4;
+  return 5;
+}

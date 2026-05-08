@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.DS_Store
+.vite/
+*.log
+
+# Local ROMs and generated exports can be very large.
+*.nds
+*.sav
+*.dsv
+exports/
+projects/
+
+src/test/local/
+*.local.test.ts
+*.local.test.tsx

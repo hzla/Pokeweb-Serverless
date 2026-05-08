@@ -1,0 +1,183 @@
+#encounters .field-header {
+  top: 40px;
+}
+
+#encounters > .encounter-card > .expanded-field-main {
+  min-height: 120px;
+  padding: 0 20px;
+}
+
+.encounter-filter .small-filters {
+  color: #cfcfd8;
+  font-size: 16px;
+  line-height: 1.35;
+  margin-top: 28px;
+}
+
+.encounter-locations {
+  text-align: center;
+  width: 160px;
+}
+
+.encounter-wilds {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 60px;
+  width: 50vw;
+}
+
+.field-header .encounter-wilds {
+  margin-bottom: 0;
+}
+
+#encounters .wild {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  width: 120px;
+}
+
+#encounters .wild img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-height: 100px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.expanded-encounter {
+  flex-wrap: wrap;
+}
+
+.expanded-encounter .expanded-left {
+  padding: 14px 22px;
+  width: 50%;
+}
+
+#encounters.spreadsheet .expanded-card-content .expanded-field {
+  border-bottom: 0;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+#encounters .expanded-card-content .field-header {
+  min-height: 42px;
+}
+
+.enc-lvl,
+.enc-form,
+.enc-percent,
+.enc-rate {
+  padding: 5px;
+  text-align: center;
+  width: 50px;
+}
+
+.enc-slot {
+  padding: 5px;
+  text-align: left;
+  width: 200px;
+}
+
+.enc-name {
+  overflow-wrap: anywhere;
+}
+
+#encounters .move-info {
+  bottom: calc(50% - 15px);
+  display: none;
+  height: 30px;
+  left: 80px;
+  position: absolute;
+  width: 30px;
+}
+
+#encounters .move-info.expand-grass {
+  left: 40px;
+}
+
+#encounters .expanded-field:hover .move-info {
+  display: block;
+}
+
+.expanded-tab-icons {
+  bottom: 0;
+  cursor: pointer;
+  display: none;
+  height: 30px;
+  justify-content: space-between;
+  left: 40px;
+  position: absolute;
+  width: 150px;
+}
+
+.expanded-tab-icon {
+  cursor: pointer;
+  height: 30px;
+  width: 30px;
+}
+
+.expanded-tab-icon svg,
+.expanded-tab-icon svg * {
+  fill: #f2f2f2;
+}
+
+.expanded-tab-icon:hover svg *,
+.expanded-tab-icon.-active svg * {
+  fill: #bd93f9;
+}
+
+.expanded-grass {
+  background: rgba(46, 204, 113, 0.2);
+}
+
+.expand-action.expand-grass.-active svg * {
+  fill: rgba(46, 204, 113, 1);
+}
+
+.expanded-water {
+  background: rgba(52, 152, 219, 0.2);
+}
+
+.expand-action.expand-water.-active svg * {
+  fill: rgba(52, 152, 219, 1);
+}
+
+@media only screen and (max-width: 1180px) {
+  #encounters .field-header {
+    display: none;
+  }
+
+  #encounters .multi.field-header {
+    display: flex;
+  }
+
+  .encounter-wilds {
+    margin: 0;
+    width: 100vw;
+  }
+
+  #encounters .wild {
+    width: 20vw;
+  }
+
+  #encounters .move-info.expand-action {
+    bottom: auto;
+    top: 0;
+  }
+
+  #encounters .expanded-card-content {
+    margin-top: 60px;
+  }
+
+  #encounters .expanded-tab-icons {
+    bottom: -50px;
+    left: calc(50vw - 100px);
+  }
+
+  .expanded-encounter .expanded-left {
+    width: 100%;
+  }
+}

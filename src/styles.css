@@ -1,0 +1,270 @@
+:root {
+  background: #282a36;
+  color: #f2f2f2;
+  font-family: Rubik, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+img[src*="pokesprite/"] {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.upload-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #282a36;
+}
+
+.upload-panel {
+  width: min(860px, 100%);
+  background: #383a59;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  padding: 28px;
+  box-shadow: 0 8px 20px rgb(0 0 0 / 20%);
+}
+
+.upload-panel h1 {
+  margin: 0 0 12px;
+  font-size: 36px;
+}
+
+.upload-panel p {
+  margin: 0 0 22px;
+  color: #d6d7e2;
+}
+
+.upload-dropzone {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  border: 1px dashed #bd93f9;
+  background: #282a36;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.upload-dropzone input {
+  width: 100%;
+}
+
+.upload-options {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.upload-status {
+  margin-top: 18px;
+  min-height: 42px;
+  padding: 12px;
+  background: #282a36;
+  border-radius: 6px;
+  color: #f2f2f2;
+}
+
+.narc-picker {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #44475a;
+}
+
+.narc-picker__header {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.narc-picker__header h2 {
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+
+.narc-picker__header p {
+  font-size: 14px;
+  margin: 0;
+}
+
+.narc-picker__grid {
+  display: grid;
+  gap: 8px 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.narc-choice {
+  align-items: center;
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 5px;
+  display: flex;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.narc-choice span {
+  flex: 1;
+  min-width: 0;
+}
+
+.narc-choice em {
+  color: #1abc9c;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.narc-choice.-mandatory {
+  border-color: rgb(26 188 156 / 45%);
+}
+
+@media only screen and (max-width: 780px) {
+  .narc-picker__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .narc-picker__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dirty-indicator {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 60;
+  padding: 10px 12px;
+  background: #1abc9c;
+  color: #101216;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.debug-page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 68px 28px 28px;
+  background: #f4f2ec;
+  color: #1b1d22;
+}
+
+.debug-summary {
+  background: #fff;
+  border: 1px solid #d7d3c8;
+  border-radius: 8px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.debug-summary h1,
+.debug-summary p {
+  margin: 0;
+}
+
+.debug-summary p {
+  margin-top: 8px;
+  color: #5d6570;
+}
+
+.narc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.narc-card {
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid #d7d3c8;
+  background: #fff;
+  border-radius: 8px;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.narc-card:hover {
+  border-color: #477f91;
+}
+
+.narc-card span {
+  font-weight: 700;
+}
+
+.narc-card strong {
+  font-size: 26px;
+}
+
+.narc-card small {
+  color: #5d6570;
+}
+
+.record-panel {
+  margin-top: 18px;
+  background: #15171b;
+  color: #eef2f6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.record-header {
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #303640;
+}
+
+.record-header h2,
+.record-header p {
+  margin: 0;
+}
+
+.record-header p {
+  color: #bbc2cc;
+}
+
+.stepper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.stepper button,
+.stepper input {
+  height: 36px;
+  border: 1px solid #54606f;
+  background: #20242b;
+  color: #fff;
+  border-radius: 6px;
+  padding: 0 10px;
+}
+
+.stepper input {
+  width: 90px;
+}
+
+pre {
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  max-height: 56vh;
+  line-height: 1.5;
+}

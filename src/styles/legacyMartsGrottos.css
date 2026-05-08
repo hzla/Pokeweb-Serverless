@@ -1,0 +1,161 @@
+#marts .field-header,
+#grottos .field-header,
+#grotto-odds .field-header {
+  top: 40px;
+}
+
+#marts > .mart-card > .expanded-field-main,
+#grottos > .grotto-card > .expanded-field-main {
+  min-height: 120px;
+  padding: 0 20px;
+}
+
+.mart-id,
+.grotto-id {
+  width: 60px;
+}
+
+.mart-name,
+.grotto-location {
+  text-align: center;
+  width: 220px;
+}
+
+.mart-inv {
+  line-height: 1.35;
+  width: 52vw;
+}
+
+#marts .move-info,
+#grottos .move-info {
+  bottom: calc(50% - 15px);
+  display: none;
+  height: 30px;
+  left: 80px;
+  position: absolute;
+  width: 30px;
+}
+
+#marts .expanded-field:hover .move-info,
+#grottos .expanded-field:hover .move-info {
+  display: block;
+}
+
+.expanded-mart {
+  flex-wrap: wrap;
+}
+
+.expanded-mart .expanded-left {
+  padding: 22px 36px 26px;
+  width: 50%;
+}
+
+.mart-item {
+  min-width: 200px;
+  text-align: center;
+}
+
+.grotto-wilds {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 60px;
+  width: 50vw;
+}
+
+.field-header .grotto-wilds {
+  margin-bottom: 0;
+}
+
+#grottos .wild {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  width: 120px;
+}
+
+#grottos .wild img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-height: 100px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.expanded-grotto {
+  flex-wrap: wrap;
+}
+
+.expanded-grotto .expanded-left {
+  padding: 14px 22px;
+  width: 50%;
+}
+
+.expanded-grotto .grotto-item {
+  width: 25%;
+}
+
+#grottos.spreadsheet .expanded-card-content .expanded-field,
+#marts.spreadsheet .expanded-card-content .expanded-field {
+  border-bottom: 0;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+#grottos .expanded-card-content .field-header {
+  min-height: 42px;
+}
+
+.grotto-item-name {
+  padding: 5px;
+  text-align: center;
+  width: 100%;
+}
+
+.grotto-odds-filter #back-grottos {
+  margin-top: 30px;
+}
+
+#grotto-odds > .expanded-field > .expanded-field-main {
+  min-height: 54px;
+  padding: 0 20px;
+}
+
+.grotto-name {
+  width: 210px;
+}
+
+.odds-header,
+.odds-item {
+  min-width: 70px;
+  text-align: center;
+}
+
+@media only screen and (max-width: 1180px) {
+  #marts .field-header,
+  #grottos .field-header,
+  #grotto-odds .field-header {
+    display: none;
+  }
+
+  #grottos .multi.field-header {
+    display: flex;
+  }
+
+  .mart-inv,
+  .grotto-wilds {
+    margin: 0;
+    width: 100vw;
+  }
+
+  #grottos .wild {
+    width: 20vw;
+  }
+
+  .expanded-mart .expanded-left,
+  .expanded-grotto .expanded-left,
+  .expanded-grotto .grotto-item {
+    width: 100%;
+  }
+}
