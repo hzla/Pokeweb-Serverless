@@ -1,0 +1,345 @@
+.file-system-page {
+  background: #282a36;
+  color: #f2f2f2;
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  height: 100vh;
+  min-height: 100vh;
+  min-width: 0;
+  padding-top: 44px;
+  width: 100%;
+}
+
+.file-system-sidebar {
+  background: #282a36;
+  border-right: 1px solid #44475a;
+  min-height: calc(100vh - 44px);
+  overflow: auto;
+  box-shadow: 10px 0 10px 0 rgb(0 0 0 / 15%);
+}
+
+.file-system-sidebar__header {
+  border-bottom: 1px solid #44475a;
+  padding: 18px;
+}
+
+.file-system-sidebar__header h1,
+.file-system-sidebar__header p {
+  margin: 0;
+}
+
+.file-system-sidebar__header h1 {
+  font-size: 22px;
+}
+
+.file-system-sidebar__header p {
+  color: #d6d7e2;
+  font-size: 13px;
+  margin-top: 5px;
+}
+
+.file-system-tree {
+  color: #f2f2f2;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  padding: 8px 10px 18px;
+}
+
+.file-system-tree .tf-toolbar,
+.file-system-tree .tf-action {
+  display: none;
+}
+
+.file-system-tree .tf-tree-content {
+  border-left: 1px solid rgb(189 147 249 / 22%);
+  display: grid;
+  gap: 1px;
+  padding-left: 8px;
+}
+
+.file-system-tree .tf-node {
+  border-bottom: 1px solid rgb(68 71 90 / 55%);
+  border-left: 2px solid transparent;
+  border-radius: 4px;
+  color: #f2f2f2;
+  cursor: pointer;
+  min-height: 28px;
+  padding: 4px 8px;
+}
+
+.file-system-tree .tf-node:hover {
+  background: rgb(68 71 90 / 70%);
+  color: #ffffff;
+}
+
+.file-system-tree .tf-node.-selected {
+  background: #44475a;
+  border-left-color: #bd93f9;
+  color: #ffffff;
+}
+
+.file-system-tree .tf-node-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+
+.file-system-detail {
+  min-width: 0;
+  overflow: auto;
+  padding: 24px;
+}
+
+.file-system-detail__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.file-system-detail__header h2,
+.file-system-detail__header p {
+  margin: 0;
+}
+
+.file-system-detail__header h2 {
+  font-size: 22px;
+  overflow-wrap: anywhere;
+}
+
+.file-system-detail__header p {
+  color: #d6d7e2;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.file-system-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.file-system-actions .btn,
+.file-system-hex-toolbar .btn {
+  min-height: 34px;
+}
+
+.file-system-actions .btn.-primary {
+  background: #1abc9c;
+  color: #101216;
+}
+
+.file-system-actions .btn:disabled,
+.file-system-hex-toolbar .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.file-system-hex-toolbar {
+  align-items: center;
+  background: #383a59;
+  border: 1px solid #44475a;
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px;
+}
+
+.file-system-search input {
+  width: 170px;
+}
+
+.file-system-hex-toolbar label {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.file-system-hex-toolbar label span,
+.file-system-hex-toolbar > span {
+  color: #d6d7e2;
+  font-size: 13px;
+}
+
+.file-system-hex-toolbar input {
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 4px;
+  color: #f2f2f2;
+  font: inherit;
+  height: 32px;
+  padding: 5px 8px;
+  width: 112px;
+}
+
+.file-system-hex {
+  background: #1d1f2a;
+  border: 1px solid #44475a;
+  border-radius: 6px;
+  color: #eef2f6;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.hex-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 82px max-content 140px;
+  min-height: 28px;
+}
+
+.hex-offset {
+  color: #9aa4b2;
+}
+
+.hex-bytes {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(16, 32px);
+}
+
+.hex-cell {
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 3px;
+  color: #f7f9fb;
+  font: inherit;
+  height: 24px;
+  padding: 2px 3px;
+  text-align: center;
+  width: 32px;
+}
+
+.hex-cell:focus {
+  border-color: #bd93f9;
+  outline: 2px solid rgb(189 147 249 / 25%);
+}
+
+.hex-cell.-invalid {
+  border-color: #d85f68;
+}
+
+.hex-cell.-match {
+  background: #493b25;
+  border-color: #ffb86c;
+  color: #ffffff;
+}
+
+.hex-ascii {
+  color: #cbd3dd;
+  letter-spacing: 0;
+}
+
+.file-system-status {
+  color: #d6d7e2;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.file-system-empty {
+  align-items: center;
+  background: #383a59;
+  border: 1px solid #44475a;
+  border-radius: 6px;
+  color: #d6d7e2;
+  display: flex;
+  min-height: 160px;
+  padding: 20px;
+}
+
+.narc-reference {
+  background: #383a59;
+  border: 1px solid #44475a;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.narc-reference__header {
+  border-bottom: 1px solid #44475a;
+  padding: 16px;
+}
+
+.narc-reference__header h2,
+.narc-reference__header p {
+  margin: 0;
+}
+
+.narc-reference__header h2 {
+  font-size: 22px;
+}
+
+.narc-reference__header p {
+  color: #d6d7e2;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.narc-reference__table {
+  display: grid;
+  max-height: calc(100vh - 160px);
+  overflow: auto;
+}
+
+.narc-reference__row {
+  align-items: start;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgb(68 71 90 / 70%);
+  color: #f2f2f2;
+  cursor: pointer;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 110px minmax(0, 1fr);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.narc-reference__row:hover {
+  background: #44475a;
+}
+
+.narc-reference__row code {
+  color: #bd93f9;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
+.narc-reference__row span {
+  color: #f2f2f2;
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+@media only screen and (max-width: 900px) {
+  .file-system-page {
+    grid-template-columns: 1fr;
+  }
+
+  .file-system-sidebar {
+    border-bottom: 1px solid #44475a;
+    border-right: 0;
+    min-height: auto;
+    max-height: 42vh;
+  }
+
+  .file-system-detail__header {
+    display: grid;
+  }
+
+  .file-system-actions {
+    justify-content: flex-start;
+  }
+
+  .narc-reference__row {
+    grid-template-columns: 1fr;
+  }
+}

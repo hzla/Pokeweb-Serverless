@@ -1,0 +1,6098 @@
+[
+  {
+    "id": 1,
+    "name": "LoadSPA 1",
+    "emitters": 2,
+    "particles": "2",
+    "description": "Used when a pokemon is healed via healing wish",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 2,
+    "name": "LoadSPA 2",
+    "emitters": 2,
+    "description": "Used when a pokemon is healed via Lunar Dance",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 3,
+    "name": "LoadSPA 3",
+    "emitters": 5,
+    "description": "Pokemon coming out or breaking out of a Master Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 4,
+    "name": "LoadSPA 4",
+    "emitters": 4,
+    "description": "Pokemon coming out or breaking out of a Ultra Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 5,
+    "name": "LoadSPA 5",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Great Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 6,
+    "name": "LoadSPA 6",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Poke Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 7,
+    "name": "LoadSPA 7",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Safari Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 8,
+    "name": "LoadSPA 8",
+    "emitters": 4,
+    "description": "Pokemon coming out or breaking out of a Net Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 9,
+    "name": "LoadSPA 9",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Dive Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 10,
+    "name": "LoadSPA 10",
+    "emitters": 4,
+    "description": "Pokemon coming out or breaking out of a Nest Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 11,
+    "name": "LoadSPA 11",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Repeat Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 12,
+    "name": "LoadSPA 12",
+    "emitters": 5,
+    "description": "Pokemon coming out or breaking out of a Timer Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 13,
+    "name": "LoadSPA 13",
+    "emitters": 4,
+    "description": "Pokemon coming out or breaking out of a Timer Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 14,
+    "name": "LoadSPA 14",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Premier Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 15,
+    "name": "LoadSPA 15",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Dusk Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 16,
+    "name": "LoadSPA 16",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Heal Ball",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 17,
+    "name": "LoadSPA 17",
+    "emitters": 4,
+    "description": "Pokemon coming out or breaking out of a Quick Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 18,
+    "name": "LoadSPA 18",
+    "emitters": 4,
+    "description": "Pokemon coming out or breaking out of a Fast Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 19,
+    "name": "LoadSPA 19",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Level Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 20,
+    "name": "LoadSPA 20",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Lure Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 21,
+    "name": "LoadSPA 21",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Heavy Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 22,
+    "name": "LoadSPA 22",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Love Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 23,
+    "name": "LoadSPA 23",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Friend Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 24,
+    "name": "LoadSPA 24",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Moon Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 25,
+    "name": "LoadSPA 25",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Sport Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 26,
+    "name": "LoadSPA 26",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Park Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 27,
+    "name": "LoadSPA 27",
+    "emitters": 3,
+    "description": "Pokemon coming out or breaking out of a Dream Ball",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 28,
+    "name": "LoadSPA 28",
+    "emitters": 1,
+    "description": "Star icons when a pokemon is caught",
+    "notes": "",
+    "tags": [
+      "light"
+    ]
+  },
+  {
+    "id": 29,
+    "name": "LoadSPA 29",
+    "emitters": 4,
+    "description": "Pokemon gets captured in a Master Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 30,
+    "name": "LoadSPA 30",
+    "emitters": 4,
+    "description": "Pokemon gets captured in a Ultra Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 31,
+    "name": "LoadSPA 31",
+    "emitters": 4,
+    "description": "Pokemon gets captured in a Great Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 32,
+    "name": "LoadSPA 32",
+    "emitters": 4,
+    "description": "Pokemon gets captured in a Poke Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 33,
+    "name": "LoadSPA 33",
+    "description": "Pokemon gets captured in a Safari Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 34,
+    "name": "LoadSPA 34",
+    "emitters": 5,
+    "description": "Pokemon gets captured in a Net Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 35,
+    "name": "LoadSPA 35",
+    "description": "Pokemon gets captured in a Dive Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 36,
+    "name": "LoadSPA 36",
+    "description": "Pokemon gets captured in a Nest Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 37,
+    "name": "LoadSPA 37",
+    "description": "Pokemon gets captured in a Repeat Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 38,
+    "name": "LoadSPA 38",
+    "description": "Pokemon gets captured in a Timer Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 39,
+    "name": "LoadSPA 39",
+    "description": "Pokemon gets captured in a Luxury Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 40,
+    "name": "LoadSPA 40",
+    "description": "Pokemon gets captured in a Premier Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 41,
+    "name": "LoadSPA 41",
+    "emitters": 4,
+    "description": "Pokemon gets captured in a Dusk Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 42,
+    "name": "LoadSPA 42",
+    "description": "Pokemon gets captured in a Heal Ball",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 43,
+    "name": "LoadSPA 43",
+    "emitters": 5,
+    "description": "Pokemon gets captured in a Quick Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 44,
+    "name": "LoadSPA 44",
+    "emitters": 5,
+    "description": "???",
+    "notes": "It seems to be a pokemon catching animation. Just can't tell which pokeball this is suppsed to be",
+    "tags": []
+  },
+  {
+    "id": 45,
+    "name": "LoadSPA 45",
+    "emitters": 4,
+    "description": "Pokemon gets captured in a Dream Ball",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 46,
+    "name": "LoadSPA 46",
+    "emitters": 1,
+    "description": "Master Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 47,
+    "name": "LoadSPA 47",
+    "emitters": 1,
+    "description": "Static Master Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 48,
+    "name": "LoadSPA 48",
+    "emitters": 1,
+    "description": "Master Ball Thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 49,
+    "name": "LoadSPA 49",
+    "emitters": 2,
+    "description": "Master Ball Catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 50,
+    "name": "LoadSPA 50",
+    "emitters": 1,
+    "description": "Ultra Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 51,
+    "name": "LoadSPA 51",
+    "emitters": 1,
+    "description": "Static Ultra Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 52,
+    "name": "LoadSPA 52",
+    "emitters": 1,
+    "description": "Ultra Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 53,
+    "name": "LoadSPA 53",
+    "emitters": 2,
+    "description": "Ultra Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 54,
+    "name": "LoadSPA 54",
+    "emitters": 1,
+    "description": "Great Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 55,
+    "name": "LoadSPA 55",
+    "emitters": 1,
+    "description": "Static Great Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 56,
+    "name": "LoadSPA 56",
+    "emitters": 1,
+    "description": "Great Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 57,
+    "name": "LoadSPA 57",
+    "emitters": 2,
+    "description": "Great Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 58,
+    "name": "LoadSPA 58",
+    "emitters": 1,
+    "description": "Poke Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 59,
+    "name": "LoadSPA 59",
+    "emitters": 1,
+    "description": "Static Poke Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 60,
+    "name": "LoadSPA 60",
+    "emitters": 1,
+    "description": "Poke Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 61,
+    "name": "LoadSPA 61",
+    "emitters": 2,
+    "description": "Poke Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 62,
+    "name": "LoadSPA 62",
+    "emitters": 1,
+    "description": "Safari Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 63,
+    "name": "LoadSPA 63",
+    "emitters": 1,
+    "description": "Static Safari Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 64,
+    "name": "LoadSPA 64",
+    "emitters": 1,
+    "description": "Safari Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 65,
+    "name": "LoadSPA 65",
+    "emitters": 2,
+    "description": "Safari Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 66,
+    "name": "LoadSPA 66",
+    "emitters": 1,
+    "description": "Net Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 67,
+    "name": "LoadSPA 67",
+    "emitters": 1,
+    "description": "Static Net Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 68,
+    "name": "LoadSPA 68",
+    "emitters": 1,
+    "description": "Net Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 69,
+    "name": "LoadSPA 69",
+    "emitters": 2,
+    "description": "Net Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 70,
+    "name": "LoadSPA 70",
+    "emitters": 1,
+    "description": "Dive Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 71,
+    "name": "LoadSPA 71",
+    "emitters": 1,
+    "description": "Static Dive Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 72,
+    "name": "LoadSPA 72",
+    "emitters": 1,
+    "description": "Dive Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 73,
+    "name": "LoadSPA 73",
+    "emitters": 2,
+    "description": "Dive Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 74,
+    "name": "LoadSPA 74",
+    "emitters": 1,
+    "description": "Nest Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 75,
+    "name": "LoadSPA 75",
+    "emitters": 1,
+    "description": "Static Nest Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 76,
+    "name": "LoadSPA 76",
+    "emitters": 1,
+    "description": "Nest Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 77,
+    "name": "LoadSPA 77",
+    "emitters": 2,
+    "description": "Nest Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 78,
+    "name": "LoadSPA 78",
+    "emitters": 1,
+    "description": "Repeat Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 79,
+    "name": "LoadSPA 79",
+    "emitters": 1,
+    "description": "Static Repeat Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 80,
+    "name": "LoadSPA 80",
+    "emitters": 1,
+    "description": "Repeat Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 81,
+    "name": "LoadSPA 81",
+    "emitters": 2,
+    "description": "Repeat Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 82,
+    "name": "LoadSPA 82",
+    "emitters": 1,
+    "description": "Timer Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 83,
+    "name": "LoadSPA 83",
+    "emitters": 1,
+    "description": "Static Timer Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 84,
+    "name": "LoadSPA 84",
+    "emitters": 1,
+    "description": "Timer Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 85,
+    "name": "LoadSPA 85",
+    "emitters": 2,
+    "description": "Timer Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 86,
+    "name": "LoadSPA 86",
+    "emitters": 1,
+    "description": "Luxury Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 87,
+    "name": "LoadSPA 87",
+    "emitters": 1,
+    "description": "Static Luxury Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 88,
+    "name": "LoadSPA 88",
+    "emitters": 1,
+    "description": "Luxury Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 89,
+    "name": "LoadSPA 89",
+    "emitters": 2,
+    "description": "Luxury Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 90,
+    "name": "LoadSPA 90",
+    "emitters": 1,
+    "description": "Premier Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 91,
+    "name": "LoadSPA 91",
+    "emitters": 1,
+    "description": "Static Premier Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 92,
+    "name": "LoadSPA 92",
+    "emitters": 1,
+    "description": "Premier Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 93,
+    "name": "LoadSPA 93",
+    "emitters": 2,
+    "description": "Premier Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 94,
+    "name": "LoadSPA 94",
+    "emitters": 1,
+    "description": "Dusk Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 95,
+    "name": "LoadSPA 95",
+    "emitters": 1,
+    "description": "Static Dusk Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 96,
+    "name": "LoadSPA 96",
+    "emitters": 1,
+    "description": "Dusk Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 97,
+    "name": "LoadSPA 97",
+    "emitters": 2,
+    "description": "Dusk Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 98,
+    "name": "LoadSPA 98",
+    "emitters": 1,
+    "description": "Heal Ball Closing",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 99,
+    "name": "LoadSPA 99",
+    "emitters": 1,
+    "description": "Static Heal Ball",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 100,
+    "name": "LoadSPA 100",
+    "emitters": 1,
+    "description": "Heal Ball thrown",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 101,
+    "name": "LoadSPA 101",
+    "emitters": 2,
+    "description": "Heal Ball catching",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 102,
+    "name": "LoadSPA 102",
+    "emitters": 1,
+    "description": "Quick Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 103,
+    "name": "LoadSPA 103",
+    "emitters": 1,
+    "description": "Static Quick Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 104,
+    "name": "LoadSPA 104",
+    "emitters": 1,
+    "description": "Quick Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 105,
+    "name": "LoadSPA 105",
+    "emitters": 2,
+    "description": "Quick Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 106,
+    "name": "LoadSPA 106",
+    "emitters": 1,
+    "description": "Cherrish Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 107,
+    "name": "LoadSPA 107",
+    "emitters": 1,
+    "description": "Static Cherrish Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 108,
+    "name": "LoadSPA 108",
+    "emitters": 1,
+    "description": "Cherrish Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 109,
+    "name": "LoadSPA 109",
+    "emitters": 2,
+    "description": "Cherrish Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 110,
+    "name": "LoadSPA 110",
+    "emitters": 1,
+    "description": "Fast Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 111,
+    "name": "LoadSPA 111",
+    "emitters": 1,
+    "description": "Static Fast Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 112,
+    "name": "LoadSPA 112",
+    "emitters": 1,
+    "description": "Fast Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 113,
+    "name": "LoadSPA 113",
+    "emitters": 2,
+    "description": "Fast Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 114,
+    "name": "LoadSPA 114",
+    "emitters": 1,
+    "description": "Level Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 115,
+    "name": "LoadSPA 115",
+    "emitters": 1,
+    "description": "Static Level Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 116,
+    "name": "LoadSPA 116",
+    "emitters": 1,
+    "description": "Level Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 117,
+    "name": "LoadSPA 117",
+    "emitters": 2,
+    "description": "Level Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 118,
+    "name": "LoadSPA 118",
+    "emitters": 1,
+    "description": "Lure Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 119,
+    "name": "LoadSPA 119",
+    "emitters": 1,
+    "description": "Static Lure Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 120,
+    "name": "LoadSPA 120",
+    "emitters": 1,
+    "description": "Lure Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 121,
+    "name": "LoadSPA 121",
+    "emitters": 2,
+    "description": "Lure Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 122,
+    "name": "LoadSPA 122",
+    "emitters": 1,
+    "description": "Heavy Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 123,
+    "name": "LoadSPA 123",
+    "emitters": 1,
+    "description": "Static Heavy Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 124,
+    "name": "LoadSPA 124",
+    "emitters": 1,
+    "description": "Heavy Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 125,
+    "name": "LoadSPA 125",
+    "emitters": 2,
+    "description": "Heavy Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 126,
+    "name": "LoadSPA 126",
+    "emitters": 1,
+    "description": "Love Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 127,
+    "name": "LoadSPA 127",
+    "emitters": 1,
+    "description": "Static Love Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 128,
+    "name": "LoadSPA 128",
+    "emitters": 1,
+    "description": "Love Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 129,
+    "name": "LoadSPA 129",
+    "emitters": 2,
+    "description": "Love Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 130,
+    "name": "LoadSPA 130",
+    "emitters": 1,
+    "description": "Friend Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 131,
+    "name": "LoadSPA 131",
+    "emitters": 1,
+    "description": "Static Friend Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 132,
+    "name": "LoadSPA 132",
+    "emitters": 1,
+    "description": "Friend Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 133,
+    "name": "LoadSPA 133",
+    "emitters": 2,
+    "description": "Friend Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 134,
+    "name": "LoadSPA 134",
+    "emitters": 1,
+    "description": "Moon Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 135,
+    "name": "LoadSPA 135",
+    "emitters": 1,
+    "description": "Static Moon Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 136,
+    "name": "LoadSPA 136",
+    "emitters": 1,
+    "description": "Moon Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 137,
+    "name": "LoadSPA 137",
+    "emitters": 2,
+    "description": "Moon Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 138,
+    "name": "LoadSPA 138",
+    "emitters": 1,
+    "description": "Sport Ball Closing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 139,
+    "name": "LoadSPA 139",
+    "emitters": 1,
+    "description": "Static Sport Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 140,
+    "name": "LoadSPA 140",
+    "emitters": 1,
+    "description": "Sport Ball thrown",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 141,
+    "name": "LoadSPA 141",
+    "emitters": 2,
+    "description": "Sport Ball catching",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 142,
+    "name": "LoadSPA 142",
+    "emitters": 1,
+    "description": "Dream Ball Closing",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 143,
+    "name": "LoadSPA 143",
+    "emitters": 1,
+    "description": "Static Dream Ball",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 144,
+    "name": "LoadSPA 144",
+    "emitters": 1,
+    "description": "Dream Ball thrown",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 145,
+    "name": "LoadSPA 145",
+    "emitters": 2,
+    "description": "Dream Ball catching",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 146,
+    "name": "LoadSPA 146",
+    "emitters": 3,
+    "description": "N's Pokemon",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 147,
+    "name": "LoadSPA 147",
+    "emitters": 14,
+    "description": "Clapperboard Closes (Pokestar Studios)",
+    "notes": "Won't Load in the SPA editor",
+    "tags": []
+  },
+  {
+    "id": 148,
+    "name": "LoadSPA 148",
+    "emitters": 1,
+    "description": "Poison effect",
+    "notes": "",
+    "tags": [
+      "poison",
+      "status"
+    ]
+  },
+  {
+    "id": 149,
+    "name": "LoadSPA 149",
+    "emitters": 1,
+    "description": "Confusion effect",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 150,
+    "name": "LoadSPA 150",
+    "emitters": 1,
+    "description": "Affection effect",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 151,
+    "name": "LoadSPA 151",
+    "emitters": 2,
+    "description": "Level Up Animation",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 152,
+    "name": "LoadSPA 152",
+    "emitters": 2,
+    "description": "Item Use Animation",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 153,
+    "name": "LoadSPA 153",
+    "emitters": 1,
+    "description": "Held Item Use Animation",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 154,
+    "name": "LoadSPA 154",
+    "emitters": 2,
+    "description": "Shiny Animation",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 155,
+    "name": "LoadSPA 155",
+    "emitters": 1,
+    "description": "Stat raising effect",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 156,
+    "name": "LoadSPA 156",
+    "emitters": 1,
+    "description": "Stat lowering effect",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 157,
+    "name": "LoadSPA 157",
+    "emitters": 2,
+    "description": "Healing effect from an item",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 158,
+    "name": "LoadSPA 158",
+    "emitters": 2,
+    "description": "Item icon likely for knock off or thief",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 159,
+    "name": "LoadSPA 159",
+    "emitters": 4,
+    "description": "Rainbow (From Fire Pledge/Water Pledge)",
+    "notes": "",
+    "tags": [
+      "water",
+      "fire"
+    ]
+  },
+  {
+    "id": 160,
+    "name": "LoadSPA 160",
+    "emitters": 2,
+    "description": "Sea of Fire (From Fire Pledge/Grass Pledge)",
+    "notes": "",
+    "tags": [
+      "fire",
+      "grass"
+    ]
+  },
+  {
+    "id": 161,
+    "name": "LoadSPA 161",
+    "emitters": 3,
+    "description": "Swamp (From Grass Pledge/Water Pledge)",
+    "notes": "",
+    "tags": [
+      "water",
+      "grass"
+    ]
+  },
+  {
+    "id": 162,
+    "name": "LoadSPA 162",
+    "emitters": 3,
+    "description": "Wonder Launcher Item",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 163,
+    "name": "LoadSPA 163",
+    "emitters": 4,
+    "description": "Pokestar famous effect",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 164,
+    "name": "LoadSPA 164",
+    "emitters": 3,
+    "description": "???",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 165,
+    "name": "LoadSPA 165",
+    "emitters": 2,
+    "description": "Pound",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 166,
+    "name": "LoadSPA 166",
+    "emitters": 2,
+    "description": "Karate Chop",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 167,
+    "name": "LoadSPA 167",
+    "description": "Double-Slap",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 168,
+    "name": "LoadSPA 168",
+    "description": "Comet Punch",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 169,
+    "name": "LoadSPA 169",
+    "description": "Mega Punch",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 170,
+    "name": "LoadSPA 170",
+    "emitters": 4,
+    "description": "Pay Day",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 171,
+    "name": "LoadSPA 171",
+    "emitters": 3,
+    "description": "Fire Punch",
+    "notes": "",
+    "tags": [
+      "fire",
+      "punch"
+    ]
+  },
+  {
+    "id": 172,
+    "name": "LoadSPA 172",
+    "emitters": 3,
+    "description": "Ice Punch",
+    "notes": "",
+    "tags": [
+      "ice",
+      "punch"
+    ]
+  },
+  {
+    "id": 173,
+    "name": "LoadSPA 173",
+    "emitters": 3,
+    "description": "Thunder Punch",
+    "notes": "",
+    "tags": [
+      "electric",
+      "punch"
+    ]
+  },
+  {
+    "id": 174,
+    "name": "LoadSPA 174",
+    "emitters": 3,
+    "description": "Scratch",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 175,
+    "name": "LoadSPA 175",
+    "description": "Visegrip",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 176,
+    "name": "LoadSPA 176",
+    "description": "Guillotine",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 177,
+    "name": "LoadSPA 177",
+    "emitters": 2,
+    "description": "Razor Wind part 1",
+    "notes": "",
+    "tags": [
+      "storm"
+    ]
+  },
+  {
+    "id": 178,
+    "name": "LoadSPA 178",
+    "emitters": 1,
+    "description": "Razor Wind part 2",
+    "notes": "",
+    "tags": [
+      "storm"
+    ]
+  },
+  {
+    "id": 179,
+    "name": "LoadSPA 179",
+    "description": "Sword Dance",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 180,
+    "name": "LoadSPA 180",
+    "description": "Cut",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 181,
+    "name": "LoadSPA 181",
+    "emitters": 2,
+    "description": "Gust",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 182,
+    "name": "LoadSPA 182",
+    "description": "Wing Attack",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 183,
+    "name": "LoadSPA 183",
+    "description": "Whirlwind",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 184,
+    "name": "LoadSPA 184",
+    "emitters": 5,
+    "description": "Fly part 1. Also the part in sky drop where the user lifts the opponent in the air",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 185,
+    "name": "LoadSPA 185",
+    "emitters": 3,
+    "description": "Fly part 2. Sky Drop part 2",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 186,
+    "name": "LoadSPA 186",
+    "emitters": 2,
+    "description": "Bind",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 187,
+    "name": "LoadSPA 187",
+    "description": "Slam",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 188,
+    "name": "LoadSPA 188",
+    "description": "Vine Whip",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 189,
+    "name": "LoadSPA 189",
+    "description": "Stomp/Low Sweep",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 190,
+    "name": "LoadSPA 190",
+    "description": "Double Kick",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 191,
+    "name": "LoadSPA 191",
+    "description": "Mega Kick",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 192,
+    "name": "LoadSPA 192",
+    "emitters": 2,
+    "particles": "3",
+    "description": "Jump Kick",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 193,
+    "name": "LoadSPA 193",
+    "description": "Rolling Kick",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 194,
+    "name": "LoadSPA 194",
+    "description": "Sand Attack",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 195,
+    "name": "LoadSPA 195",
+    "description": "Headbutt",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 196,
+    "name": "LoadSPA 196",
+    "description": "Horn Attack",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 197,
+    "name": "LoadSPA 197",
+    "description": "Fury Attack",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 198,
+    "name": "LoadSPA 198",
+    "description": "Horn Drill",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 199,
+    "name": "LoadSPA 199",
+    "description": "Tackle",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 200,
+    "name": "LoadSPA 200",
+    "description": "Body Slam",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 201,
+    "name": "LoadSPA 201",
+    "description": "Wrap",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 202,
+    "name": "LoadSPA 202",
+    "description": "Take Down",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 203,
+    "name": "LoadSPA 203",
+    "description": "Thrash",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 204,
+    "name": "LoadSPA 204",
+    "description": "Double-Edge",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 205,
+    "name": "LoadSPA 205",
+    "emitters": 3,
+    "description": "Poison Sting",
+    "notes": "",
+    "tags": [
+      "poison",
+      "status"
+    ]
+  },
+  {
+    "id": 206,
+    "name": "LoadSPA 206",
+    "emitters": 3,
+    "description": "Twineedle",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 207,
+    "name": "LoadSPA 207",
+    "emitters": 3,
+    "description": "Pin Missile",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 208,
+    "name": "LoadSPA 208",
+    "emitters": 3,
+    "description": "Leer",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 209,
+    "name": "LoadSPA 209",
+    "emitters": 5,
+    "description": "Bite",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 210,
+    "name": "LoadSPA 210",
+    "emitters": 2,
+    "description": "Growl",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 211,
+    "name": "LoadSPA 211",
+    "emitters": 2,
+    "description": "Roar",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 212,
+    "name": "LoadSPA 212",
+    "emitters": 3,
+    "description": "Sing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 213,
+    "name": "LoadSPA 213",
+    "emitters": 2,
+    "description": "Supersonic",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 214,
+    "name": "LoadSPA 214",
+    "emitters": 2,
+    "description": "Sonic Boom",
+    "notes": "",
+    "tags": [
+      "explosion"
+    ]
+  },
+  {
+    "id": 215,
+    "name": "LoadSPA 215",
+    "emitters": 2,
+    "description": "Disable",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 216,
+    "name": "LoadSPA 216",
+    "emitters": 4,
+    "description": "Acid",
+    "notes": "",
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 217,
+    "name": "LoadSPA 217",
+    "emitters": 1,
+    "description": "Ember/Burn status effect",
+    "notes": "",
+    "tags": [
+      "fire",
+      "status"
+    ]
+  },
+  {
+    "id": 218,
+    "name": "LoadSPA 218",
+    "emitters": 4,
+    "particles": "6",
+    "description": "Flamethrower",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 219,
+    "name": "LoadSPA 219",
+    "emitters": 1,
+    "description": "Mist",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 220,
+    "name": "LoadSPA 220",
+    "description": "Water Gun",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 221,
+    "name": "LoadSPA 221",
+    "emitters": 5,
+    "particles": "5",
+    "description": "Hydro Pump",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 222,
+    "name": "LoadSPA 222",
+    "emitters": 6,
+    "particles": "4",
+    "description": "Surf",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 223,
+    "name": "LoadSPA 223",
+    "description": "Ice Beam",
+    "notes": "",
+    "tags": [
+      "ice",
+      "beam"
+    ]
+  },
+  {
+    "id": 224,
+    "name": "LoadSPA 224",
+    "description": "Blizzard",
+    "notes": "",
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 225,
+    "name": "LoadSPA 225",
+    "description": "Psybeam",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 226,
+    "name": "LoadSPA 226",
+    "description": "Bubble Beam",
+    "notes": "",
+    "tags": [
+      "water",
+      "beam"
+    ]
+  },
+  {
+    "id": 227,
+    "name": "LoadSPA 227",
+    "description": "Aurora Beam",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 228,
+    "name": "LoadSPA 228",
+    "description": "Hyper Beam",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 229,
+    "name": "LoadSPA 229",
+    "description": "Peck",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 230,
+    "name": "LoadSPA 230",
+    "description": "Drill Peck",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 231,
+    "name": "LoadSPA 231",
+    "description": "Submission",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 232,
+    "name": "LoadSPA 232",
+    "description": "Low Kick",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 233,
+    "name": "LoadSPA 233",
+    "description": "Counter",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 234,
+    "name": "LoadSPA 234",
+    "description": "Seismic Toss",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 235,
+    "name": "LoadSPA 235",
+    "description": "Strength",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 236,
+    "name": "LoadSPA 236",
+    "description": "Absorb",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 237,
+    "name": "LoadSPA 237",
+    "description": "Mega Drain",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 238,
+    "name": "LoadSPA 238",
+    "emitters": 3,
+    "description": "Parts of Leech Seed's animation. Left sappling",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 239,
+    "name": "LoadSPA 239",
+    "emitters": 3,
+    "description": "Parts of Leech Seed's animation. Middle sappling",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 240,
+    "name": "LoadSPA 240",
+    "emitters": 3,
+    "description": "Parts of Leech Seed's animation. Right sappling",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 241,
+    "name": "LoadSPA 241",
+    "description": "Growth",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 242,
+    "name": "LoadSPA 242",
+    "description": "Razor Leaf",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 243,
+    "name": "LoadSPA 243",
+    "emitters": 1,
+    "description": "Solar Beam part 1",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 244,
+    "name": "LoadSPA 244",
+    "emitters": 6,
+    "description": "Solar Beam part 2",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 245,
+    "name": "LoadSPA 245",
+    "emitters": 2,
+    "description": "Poison Powder",
+    "notes": "",
+    "tags": [
+      "poison",
+      "status"
+    ]
+  },
+  {
+    "id": 246,
+    "name": "LoadSPA 246",
+    "emitters": 2,
+    "description": "Stun Spore",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 247,
+    "name": "LoadSPA 247",
+    "emitters": 2,
+    "description": "Sleep Powder",
+    "notes": "",
+    "tags": [
+      "status"
+    ]
+  },
+  {
+    "id": 248,
+    "name": "LoadSPA 248",
+    "emitters": 2,
+    "description": "Petal Dance",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 249,
+    "name": "LoadSPA 249",
+    "emitters": 4,
+    "description": "String Shot",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 250,
+    "name": "LoadSPA 250",
+    "emitters": 4,
+    "description": "Dragon Rage",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 251,
+    "name": "LoadSPA 251",
+    "emitters": 2,
+    "description": "Fire Spin",
+    "notes": "",
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 252,
+    "name": "LoadSPA 252",
+    "emitters": 2,
+    "description": "Thunder Shock/Paralysis status effect",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 253,
+    "name": "LoadSPA 253",
+    "emitters": 2,
+    "description": "Thunderbolt 1 (lightning striking down)",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 254,
+    "name": "LoadSPA 254",
+    "emitters": 2,
+    "description": "Thunder bolt 2 (opponent getting electricuted)",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 255,
+    "name": "LoadSPA 255",
+    "emitters": 3,
+    "description": "Thunder Wave",
+    "notes": "",
+    "tags": [
+      "water",
+      "electric"
+    ]
+  },
+  {
+    "id": 256,
+    "name": "LoadSPA 256",
+    "emitters": 2,
+    "description": "Thunder 1 (lightning striking down)",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 257,
+    "name": "LoadSPA 257",
+    "emitters": 2,
+    "description": "Thunder 2 (opponent getting electricuted)",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 258,
+    "name": "LoadSPA 258",
+    "emitters": 1,
+    "description": "Thunder 3 (yellow aura around the ligntning bolt)",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 259,
+    "name": "LoadSPA 259",
+    "emitters": 3,
+    "description": "Rock Throw",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 260,
+    "name": "LoadSPA 260",
+    "emitters": 2,
+    "description": "Earthquake",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 261,
+    "name": "LoadSPA 261",
+    "emitters": 1,
+    "description": "Fissure 1 (rocks)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 262,
+    "name": "LoadSPA 262",
+    "emitters": 1,
+    "description": "Fissure 2 (fissure crack)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 263,
+    "name": "LoadSPA 263",
+    "emitters": 4,
+    "description": "Dig part 1",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 264,
+    "name": "LoadSPA 264",
+    "emitters": 5,
+    "description": "Dig Part 2",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 265,
+    "name": "LoadSPA 265",
+    "emitters": 3,
+    "description": "Toxic",
+    "notes": "",
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 266,
+    "name": "LoadSPA 266",
+    "emitters": 1,
+    "description": "Confusion",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 267,
+    "name": "LoadSPA 267",
+    "emitters": 2,
+    "description": "???",
+    "notes": "I don't think I've seen this animation before. Perhaps it's a leftover beta animation for psychic",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 268,
+    "name": "LoadSPA 268",
+    "emitters": 5,
+    "description": "Hypnosis",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 269,
+    "name": "LoadSPA 269",
+    "emitters": 2,
+    "description": "Agility",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 270,
+    "name": "LoadSPA 270",
+    "emitters": 2,
+    "description": "Quick Attack",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 271,
+    "name": "LoadSPA 271",
+    "emitters": 2,
+    "description": "Rage",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 272,
+    "name": "LoadSPA 272",
+    "emitters": 1,
+    "description": "Teleport",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 273,
+    "name": "LoadSPA 273",
+    "emitters": 2,
+    "description": "Mimic",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 274,
+    "name": "LoadSPA 274",
+    "emitters": 2,
+    "description": "Screech",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 275,
+    "name": "LoadSPA 275",
+    "emitters": 2,
+    "description": "Recover",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 276,
+    "name": "LoadSPA 276",
+    "emitters": 1,
+    "description": "Harden",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 277,
+    "name": "LoadSPA 277",
+    "emitters": 2,
+    "description": "Smokescreen",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 278,
+    "name": "LoadSPA 278",
+    "emitters": 2,
+    "description": "Confuse Ray",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 279,
+    "name": "LoadSPA 279",
+    "emitters": 4,
+    "description": "Withdraw",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 280,
+    "name": "LoadSPA 280",
+    "emitters": 4,
+    "description": "Defense Curl",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 281,
+    "name": "LoadSPA 281",
+    "emitters": 4,
+    "description": "Barrier",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 282,
+    "name": "LoadSPA 282",
+    "emitters": 3,
+    "description": "Light Screen 1 (Screen)",
+    "notes": "",
+    "tags": [
+      "light"
+    ]
+  },
+  {
+    "id": 283,
+    "name": "LoadSPA 283",
+    "emitters": 1,
+    "description": "Light Screen 2 (Screen color)",
+    "notes": "",
+    "tags": [
+      "light"
+    ]
+  },
+  {
+    "id": 284,
+    "name": "LoadSPA 284",
+    "emitters": 2,
+    "description": "Haze",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 285,
+    "name": "LoadSPA 285",
+    "emitters": 3,
+    "description": "Reflect",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 286,
+    "name": "LoadSPA 286",
+    "emitters": 2,
+    "description": "Focus Energy",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 287,
+    "name": "LoadSPA 287",
+    "emitters": 2,
+    "description": "Bide",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 288,
+    "name": "LoadSPA 288",
+    "description": "Metronome",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 289,
+    "name": "LoadSPA 289",
+    "description": "Self-Destruct",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 290,
+    "name": "LoadSPA 290",
+    "description": "Egg Bomb",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 291,
+    "name": "LoadSPA 291",
+    "description": "Lick",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 292,
+    "name": "LoadSPA 292",
+    "description": "Smog",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 293,
+    "name": "LoadSPA 293",
+    "description": "Sludge",
+    "notes": "",
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 294,
+    "name": "LoadSPA 294",
+    "description": "Bone Club",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 295,
+    "name": "LoadSPA 295",
+    "description": "Fire Blast",
+    "notes": "",
+    "tags": [
+      "fire",
+      "explosion"
+    ]
+  },
+  {
+    "id": 296,
+    "name": "LoadSPA 296",
+    "description": "Waterfall",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 297,
+    "name": "LoadSPA 297",
+    "description": "Clamp",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 298,
+    "name": "LoadSPA 298",
+    "description": "Swift",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 299,
+    "name": "LoadSPA 299",
+    "emitters": 3,
+    "description": "Skull Bash",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 300,
+    "name": "LoadSPA 300",
+    "description": "Spike Cannon",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 301,
+    "name": "LoadSPA 301",
+    "description": "Constrict",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 302,
+    "name": "LoadSPA 302",
+    "description": "Amnesia",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 303,
+    "name": "LoadSPA 303",
+    "description": "Kinesis",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 304,
+    "name": "LoadSPA 304",
+    "description": "Soft-Boiled",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 305,
+    "name": "LoadSPA 305",
+    "description": "High Jump Kick",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 306,
+    "name": "LoadSPA 306",
+    "description": "Glare",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 307,
+    "name": "LoadSPA 307",
+    "description": "Dream Eater",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 308,
+    "name": "LoadSPA 308",
+    "description": "Poison Gas",
+    "notes": "",
+    "tags": [
+      "poison",
+      "status"
+    ]
+  },
+  {
+    "id": 309,
+    "name": "LoadSPA 309",
+    "description": "Barrage",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 310,
+    "name": "LoadSPA 310",
+    "description": "Leech Life",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 311,
+    "name": "LoadSPA 311",
+    "description": "Lovely Kiss",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 312,
+    "name": "LoadSPA 312",
+    "emitters": 1,
+    "description": "Sky Attack part 1",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 313,
+    "name": "LoadSPA 313",
+    "emitters": 5,
+    "description": "Sky Attack part 2",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 314,
+    "name": "LoadSPA 314",
+    "emitters": 2,
+    "description": "Bubble",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 315,
+    "name": "LoadSPA 315",
+    "emitters": 3,
+    "description": "Dizzy Punch",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 316,
+    "name": "LoadSPA 316",
+    "emitters": 2,
+    "description": "Spore",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 317,
+    "name": "LoadSPA 317",
+    "description": "Psywave",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 318,
+    "name": "LoadSPA 318",
+    "description": "Splash",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 319,
+    "name": "LoadSPA 319",
+    "description": "Acid Armor",
+    "notes": "",
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 320,
+    "name": "LoadSPA 320",
+    "description": "Crabhammer",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 321,
+    "name": "LoadSPA 321",
+    "description": "Explosion",
+    "notes": "",
+    "tags": [
+      "explosion"
+    ]
+  },
+  {
+    "id": 322,
+    "name": "LoadSPA 322",
+    "description": "Fury Swipes",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 323,
+    "name": "LoadSPA 323",
+    "description": "Bonemerang",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 324,
+    "name": "LoadSPA 324",
+    "emitters": 2,
+    "particles": "2",
+    "description": "Rest/Sleep status effect",
+    "notes": "",
+    "tags": [
+      "status"
+    ]
+  },
+  {
+    "id": 325,
+    "name": "LoadSPA 325",
+    "emitters": 3,
+    "description": "Rock Slide",
+    "notes": "3rd emmiter is also used when a heavy pokemon is sent to battle by a trainer",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 326,
+    "name": "LoadSPA 326",
+    "description": "Hyper Fang",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 327,
+    "name": "LoadSPA 327",
+    "description": "Sharpen",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 328,
+    "name": "LoadSPA 328",
+    "description": "Conversion",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 329,
+    "name": "LoadSPA 329",
+    "emitters": 3,
+    "description": "Tri Attack 1 (Blue Orb, Fire Explosion)",
+    "notes": "",
+    "tags": [
+      "fire",
+      "explosion"
+    ]
+  },
+  {
+    "id": 330,
+    "name": "LoadSPA 330",
+    "emitters": 3,
+    "description": "Tri Attack 2 (Red Orb, Ice effect)",
+    "notes": "",
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 331,
+    "name": "LoadSPA 331",
+    "emitters": 2,
+    "description": "Tri Attack 3 (Yellow Orb, Electric effect)",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 332,
+    "name": "LoadSPA 332",
+    "description": "Super Fang",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 333,
+    "name": "LoadSPA 333",
+    "description": "Slash",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 334,
+    "name": "LoadSPA 334",
+    "description": "Substitute",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 335,
+    "name": "LoadSPA 335",
+    "description": "Struggle",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 336,
+    "name": "LoadSPA 336",
+    "description": "Sketch",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 337,
+    "name": "LoadSPA 337",
+    "emitters": 2,
+    "description": "Triple Kick",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 338,
+    "name": "LoadSPA 338",
+    "emitters": 3,
+    "description": "Thief 1",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 339,
+    "name": "LoadSPA 339",
+    "emitters": 4,
+    "description": "Thief 2 (Item Obtained)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 340,
+    "name": "LoadSPA 340",
+    "emitters": 3,
+    "description": "Spider Web",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 341,
+    "name": "LoadSPA 341",
+    "emitters": 3,
+    "description": "Mind Reader",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 342,
+    "name": "LoadSPA 342",
+    "emitters": 3,
+    "description": "Flame Wheel",
+    "notes": "",
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 343,
+    "name": "LoadSPA 343",
+    "emitters": 2,
+    "description": "Snore",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 344,
+    "name": "LoadSPA 344",
+    "emitters": 1,
+    "description": "Curse",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 345,
+    "name": "LoadSPA 345",
+    "emitters": 4,
+    "description": "Curse (Ghost)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 346,
+    "name": "LoadSPA 346",
+    "emitters": 2,
+    "description": "Flail",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 347,
+    "name": "LoadSPA 347",
+    "emitters": 3,
+    "description": "Conversion 2",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 348,
+    "name": "LoadSPA 348",
+    "emitters": 3,
+    "description": "Aeroblast",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 349,
+    "name": "LoadSPA 349",
+    "emitters": 2,
+    "description": "Cotton Spore",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 350,
+    "name": "LoadSPA 350",
+    "emitters": 3,
+    "description": "Reversal",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 351,
+    "name": "LoadSPA 351",
+    "emitters": 2,
+    "description": "Powder Snow",
+    "notes": "",
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 352,
+    "name": "LoadSPA 352",
+    "description": "Protect",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 353,
+    "name": "LoadSPA 353",
+    "description": "Mach Punch",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 354,
+    "name": "LoadSPA 354",
+    "description": "Scary Face",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 355,
+    "name": "LoadSPA 355",
+    "description": "Feint Attack",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 356,
+    "name": "LoadSPA 356",
+    "description": "Sweet Kiss",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 357,
+    "name": "LoadSPA 357",
+    "description": "Belly Drum",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 358,
+    "name": "LoadSPA 358",
+    "description": "Sludge Bomb",
+    "notes": "",
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 359,
+    "name": "LoadSPA 359",
+    "description": "Mud-Slap",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 360,
+    "name": "LoadSPA 360",
+    "description": "Octazooka",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 361,
+    "name": "LoadSPA 361",
+    "description": "Spikes",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 362,
+    "name": "LoadSPA 362",
+    "description": "Zap Cannon",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 363,
+    "name": "LoadSPA 363",
+    "description": "Foresight",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 364,
+    "name": "LoadSPA 364",
+    "description": "Destiny Bond",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 365,
+    "name": "LoadSPA 365",
+    "description": "Perish Song",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 366,
+    "name": "LoadSPA 366",
+    "description": "Icy Wind/Frozen status effect",
+    "notes": "",
+    "tags": [
+      "ice",
+      "storm"
+    ]
+  },
+  {
+    "id": 367,
+    "name": "LoadSPA 367",
+    "description": "Detect/Telekinesis",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 368,
+    "name": "LoadSPA 368",
+    "description": "Bone Rush",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 369,
+    "name": "LoadSPA 369",
+    "description": "Lock-On",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 370,
+    "name": "LoadSPA 370",
+    "emitters": 3,
+    "description": "Outrage",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 371,
+    "name": "LoadSPA 371",
+    "description": "Sandstorm",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 372,
+    "name": "LoadSPA 372",
+    "emitters": 3,
+    "description": "Giga Drain",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 373,
+    "name": "LoadSPA 373",
+    "description": "Endure",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 374,
+    "name": "LoadSPA 374",
+    "description": "Charm",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 375,
+    "name": "LoadSPA 375",
+    "description": "Rollout",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 376,
+    "name": "LoadSPA 376",
+    "description": "False Swipe",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 377,
+    "name": "LoadSPA 377",
+    "description": "Swagger",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 378,
+    "name": "LoadSPA 378",
+    "description": "Milk Drink",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 379,
+    "name": "LoadSPA 379",
+    "emitters": 6,
+    "description": "Spark/Wild Charge",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 380,
+    "name": "LoadSPA 380",
+    "description": "Fury Cutter",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 381,
+    "name": "LoadSPA 381",
+    "description": "Steel Wing",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 382,
+    "name": "LoadSPA 382",
+    "description": "Mean Look",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 383,
+    "name": "LoadSPA 383",
+    "emitters": 2,
+    "description": "Attract",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 384,
+    "name": "LoadSPA 384",
+    "description": "Sleep Talk",
+    "notes": "",
+    "tags": [
+      "status"
+    ]
+  },
+  {
+    "id": 385,
+    "name": "LoadSPA 385",
+    "description": "Heal Bell",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 386,
+    "name": "LoadSPA 386",
+    "description": "Return",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 387,
+    "name": "LoadSPA 387",
+    "emitters": 4,
+    "description": "Present 1 (the move does damage)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 388,
+    "name": "LoadSPA 388",
+    "emitters": 4,
+    "description": "Present 2 (the move heals the opponent)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 389,
+    "name": "LoadSPA 389",
+    "emitters": 2,
+    "description": "Frustration",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 390,
+    "name": "LoadSPA 390",
+    "description": "Safeguard",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 391,
+    "name": "LoadSPA 391",
+    "emitters": 2,
+    "description": "Pain Split",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 392,
+    "name": "LoadSPA 392",
+    "description": "Sacred Fire",
+    "notes": "",
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 393,
+    "name": "LoadSPA 393",
+    "description": "Dynamic Punch",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 394,
+    "name": "LoadSPA 394",
+    "description": "Megahorn",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 395,
+    "name": "LoadSPA 395",
+    "description": "Dragon Breath",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 396,
+    "name": "LoadSPA 396",
+    "description": "Baton Pass",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 397,
+    "name": "LoadSPA 397",
+    "description": "Encore",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 398,
+    "name": "LoadSPA 398",
+    "description": "Pursuit",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 399,
+    "name": "LoadSPA 399",
+    "description": "Rapid Spin",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 400,
+    "name": "LoadSPA 400",
+    "emitters": 5,
+    "description": "Sweet Scent",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 401,
+    "name": "LoadSPA 401",
+    "emitters": 4,
+    "description": "Iron Tail",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 402,
+    "name": "LoadSPA 402",
+    "emitters": 2,
+    "description": "Metal Claw 1 (left side)",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 403,
+    "name": "LoadSPA 403",
+    "emitters": 2,
+    "description": "Metal Claw 2 (right side)",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 404,
+    "name": "LoadSPA 404",
+    "emitters": 2,
+    "description": "Vital Throw",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 405,
+    "name": "LoadSPA 405",
+    "description": "Morning Sun",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 406,
+    "name": "LoadSPA 406",
+    "description": "Synthesis",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 407,
+    "name": "LoadSPA 407",
+    "description": "Moonlight",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 408,
+    "name": "LoadSPA 408",
+    "description": "Hidden Power",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 409,
+    "name": "LoadSPA 409",
+    "description": "Cross Chop",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 410,
+    "name": "LoadSPA 410",
+    "description": "Twister",
+    "notes": "",
+    "tags": [
+      "storm"
+    ]
+  },
+  {
+    "id": 411,
+    "name": "LoadSPA 411",
+    "description": "Rain Dance",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 412,
+    "name": "LoadSPA 412",
+    "description": "Sunny Day",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 413,
+    "name": "LoadSPA 413",
+    "description": "Crunch",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 414,
+    "name": "LoadSPA 414",
+    "description": "Mirror Coat",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 415,
+    "name": "LoadSPA 415",
+    "description": "Psych Up",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 416,
+    "name": "LoadSPA 416",
+    "emitters": 3,
+    "description": "Extreme Speed",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 417,
+    "name": "LoadSPA 417",
+    "description": "Ancient Power",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 418,
+    "name": "LoadSPA 418",
+    "emitters": 5,
+    "description": "Shadow Ball",
+    "notes": "",
+    "tags": [
+      "dark"
+    ]
+  },
+  {
+    "id": 419,
+    "name": "LoadSPA 419",
+    "emitters": 2,
+    "description": "Rock Smash",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 420,
+    "name": "LoadSPA 420",
+    "emitters": 4,
+    "description": "Whirlpool",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 421,
+    "name": "LoadSPA 421",
+    "emitters": 1,
+    "description": "Beat Up",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 422,
+    "name": "LoadSPA 422",
+    "emitters": 17,
+    "description": "Fake Out",
+    "notes": "There appears to be some animations similar to smelling salt. Perhaps what fake out originally looked like",
+    "tags": []
+  },
+  {
+    "id": 423,
+    "name": "LoadSPA 423",
+    "emitters": 2,
+    "description": "Uproar",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 424,
+    "name": "LoadSPA 424",
+    "emitters": 1,
+    "description": "Stockpile",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 425,
+    "name": "LoadSPA 425",
+    "emitters": 2,
+    "description": "Spit Up",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 426,
+    "name": "LoadSPA 426",
+    "description": "Swallow",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 427,
+    "name": "LoadSPA 427",
+    "description": "Heat Wave",
+    "notes": "",
+    "tags": [
+      "water",
+      "fire"
+    ]
+  },
+  {
+    "id": 428,
+    "name": "LoadSPA 428",
+    "description": "Hail",
+    "notes": "",
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 429,
+    "name": "LoadSPA 429",
+    "description": "Torment",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 430,
+    "name": "LoadSPA 430",
+    "emitters": 2,
+    "description": "Flatter",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 431,
+    "name": "LoadSPA 431",
+    "description": "Will-O-Wisp",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 432,
+    "name": "LoadSPA 432",
+    "description": "Memento",
+    "notes": "Facade",
+    "tags": []
+  },
+  {
+    "id": 433,
+    "name": "LoadSPA 433",
+    "emitters": 4,
+    "description": "Facade",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 434,
+    "name": "LoadSPA 434",
+    "emitters": 5,
+    "description": "Focus Punch",
+    "notes": "This is the animation when the move lands. The start of focus punch is located in a/0/6/6/65",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 435,
+    "name": "LoadSPA 435",
+    "emitters": 6,
+    "description": "Smelling Salts",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 436,
+    "name": "LoadSPA 436",
+    "emitters": 2,
+    "description": "Follow Me",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 437,
+    "name": "LoadSPA 437",
+    "emitters": 4,
+    "description": "Charge",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 438,
+    "name": "LoadSPA 438",
+    "emitters": 4,
+    "description": "Taunt 1 (Player using the move + puff smoke)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 439,
+    "name": "LoadSPA 439",
+    "emitters": 3,
+    "description": "Taunt 2 (Opponent using the move + anger emotes)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 440,
+    "name": "LoadSPA 440",
+    "emitters": 7,
+    "description": "Helping Hand",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 441,
+    "name": "LoadSPA 441",
+    "emitters": 5,
+    "description": "Trick",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 442,
+    "name": "LoadSPA 442",
+    "emitters": 4,
+    "description": "Wish",
+    "notes": "Emitter 1 seems to be unused",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 443,
+    "name": "LoadSPA 443",
+    "description": "Assist",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 444,
+    "name": "LoadSPA 444",
+    "emitters": 3,
+    "description": "Ingrain 1 (left side + absorbing effect)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 445,
+    "name": "LoadSPA 445",
+    "emitters": 2,
+    "description": "Ingrain 2 (right side)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 446,
+    "name": "LoadSPA 446",
+    "description": "Superpower",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 447,
+    "name": "LoadSPA 447",
+    "description": "Magic Coat",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 448,
+    "name": "LoadSPA 448",
+    "description": "Recycle",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 449,
+    "name": "LoadSPA 449",
+    "description": "Revenge",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 450,
+    "name": "LoadSPA 450",
+    "emitters": 4,
+    "description": "Brick Break 1",
+    "notes": "Seems to have unused screen break animations. Likely from when they didn't need 2 seperate LoadSPAs for that",
+    "tags": []
+  },
+  {
+    "id": 451,
+    "name": "LoadSPA 451",
+    "emitters": 5,
+    "description": "Brick Break 2 (Break Screen)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 452,
+    "name": "LoadSPA 452",
+    "description": "Yawn",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 453,
+    "name": "LoadSPA 453",
+    "description": "Knock Off",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 454,
+    "name": "LoadSPA 454",
+    "emitters": 3,
+    "description": "Endeavor",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 455,
+    "name": "LoadSPA 455",
+    "description": "Eruption",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 456,
+    "name": "LoadSPA 456",
+    "emitters": 1,
+    "description": "Skill Swap",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 457,
+    "name": "LoadSPA 457",
+    "emitters": 5,
+    "description": "Imprison",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 458,
+    "name": "LoadSPA 458",
+    "emitters": 2,
+    "description": "Refresh",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 459,
+    "name": "LoadSPA 459",
+    "emitters": 2,
+    "description": "Grudge",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 460,
+    "name": "LoadSPA 460",
+    "emitters": 4,
+    "description": "Sky Drop part 1./Snatch",
+    "notes": "Snatch has a completely unused 2nd animation and parts of that animation was used for Sky Drop instead",
+    "tags": []
+  },
+  {
+    "id": 461,
+    "name": "LoadSPA 461",
+    "emitters": 3,
+    "description": "Dive part 1",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 462,
+    "name": "LoadSPA 462",
+    "emitters": 2,
+    "description": "Dive part 2",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 463,
+    "name": "LoadSPA 463",
+    "emitters": 5,
+    "description": "Arm Thrust",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 464,
+    "name": "LoadSPA 464",
+    "emitters": 1,
+    "description": "Tail Glow",
+    "notes": "",
+    "tags": [
+      "light"
+    ]
+  },
+  {
+    "id": 465,
+    "name": "LoadSPA 465",
+    "emitters": 5,
+    "description": "Luster Purge",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 466,
+    "name": "LoadSPA 466",
+    "description": "Mist Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 467,
+    "name": "LoadSPA 467",
+    "description": "Feather Dance",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 468,
+    "name": "LoadSPA 468",
+    "description": "Teeter Dance",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 469,
+    "name": "LoadSPA 469",
+    "description": "Blaze Kick",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 470,
+    "name": "LoadSPA 470",
+    "emitters": 3,
+    "description": "Mud Sport",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 471,
+    "name": "LoadSPA 471",
+    "description": "Ice Ball",
+    "notes": "",
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 472,
+    "name": "LoadSPA 472",
+    "description": "Needle Arm",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 473,
+    "name": "LoadSPA 473",
+    "description": "Slack Off",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 474,
+    "name": "LoadSPA 474",
+    "description": "Hyper Voice",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 475,
+    "name": "LoadSPA 475",
+    "description": "Poison Fang",
+    "notes": "",
+    "tags": [
+      "poison",
+      "status"
+    ]
+  },
+  {
+    "id": 476,
+    "name": "LoadSPA 476",
+    "emitters": 2,
+    "description": "Crush Claw 1 (Left Side)",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 477,
+    "name": "LoadSPA 477",
+    "emitters": 2,
+    "description": "Crush Claw 2 (Right Side)",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 478,
+    "name": "LoadSPA 478",
+    "description": "Blast Burn",
+    "notes": "",
+    "tags": [
+      "fire",
+      "explosion",
+      "status"
+    ]
+  },
+  {
+    "id": 479,
+    "name": "LoadSPA 479",
+    "description": "Hydro Cannon",
+    "notes": "",
+    "tags": [
+      "water",
+      "beam"
+    ]
+  },
+  {
+    "id": 480,
+    "name": "LoadSPA 480",
+    "description": "Meteor Mash",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 481,
+    "name": "LoadSPA 481",
+    "description": "Astonish",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 482,
+    "name": "LoadSPA 482",
+    "emitters": 5,
+    "description": "Weather Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 483,
+    "name": "LoadSPA 483",
+    "emitters": 5,
+    "description": "Weather Ball Sun",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 484,
+    "name": "LoadSPA 484",
+    "emitters": 5,
+    "description": "Weather Ball Hail",
+    "notes": "",
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 485,
+    "name": "LoadSPA 485",
+    "emitters": 5,
+    "description": "Weather Ball Sand",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 486,
+    "name": "LoadSPA 486",
+    "emitters": 5,
+    "description": "Weather Ball Rain",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 487,
+    "name": "LoadSPA 487",
+    "description": "Aromatherapy",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 488,
+    "name": "LoadSPA 488",
+    "description": "Fake Tears",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 489,
+    "name": "LoadSPA 489",
+    "description": "Air Cutter",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 490,
+    "name": "LoadSPA 490",
+    "emitters": 3,
+    "description": "Overheat",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 491,
+    "name": "LoadSPA 491",
+    "emitters": 2,
+    "description": "Rock Tomb",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 492,
+    "name": "LoadSPA 492",
+    "emitters": 4,
+    "description": "Silver Wind",
+    "notes": "",
+    "tags": [
+      "storm"
+    ]
+  },
+  {
+    "id": 493,
+    "name": "LoadSPA 493",
+    "emitters": 2,
+    "description": "Metal Sound",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 494,
+    "name": "LoadSPA 494",
+    "description": "Grass Whistle",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 495,
+    "name": "LoadSPA 495",
+    "emitters": 1,
+    "description": "Tickle",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 496,
+    "name": "LoadSPA 496",
+    "description": "Cosmic Power",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 497,
+    "name": "LoadSPA 497",
+    "description": "Water Spout",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 498,
+    "name": "LoadSPA 498",
+    "description": "Signal Beam",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 499,
+    "name": "LoadSPA 499",
+    "emitters": 4,
+    "description": "Shadow Punch",
+    "notes": "",
+    "tags": [
+      "dark",
+      "punch"
+    ]
+  },
+  {
+    "id": 500,
+    "name": "LoadSPA 500",
+    "emitters": 1,
+    "description": "Extrasensory",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 501,
+    "name": "LoadSPA 501",
+    "description": "Sky Uppercut",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 502,
+    "name": "LoadSPA 502",
+    "description": "Sand Tomb",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 503,
+    "name": "LoadSPA 503",
+    "description": "Sheer Cold",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 504,
+    "name": "LoadSPA 504",
+    "description": "Muddy Water",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 505,
+    "name": "LoadSPA 505",
+    "description": "Bullet Seed",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 506,
+    "name": "LoadSPA 506",
+    "emitters": 5,
+    "description": "Aerial Ace",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 507,
+    "name": "LoadSPA 507",
+    "description": "Icicle Spear",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 508,
+    "name": "LoadSPA 508",
+    "description": "Iron Defense",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 509,
+    "name": "LoadSPA 509",
+    "description": "Block",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 510,
+    "name": "LoadSPA 510",
+    "emitters": 3,
+    "description": "Howl",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 511,
+    "name": "LoadSPA 511",
+    "emitters": 2,
+    "description": "Dragon Claw 1 (Start of the move)",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 512,
+    "name": "LoadSPA 512",
+    "emitters": 2,
+    "description": "Dragon Claw 2 (Left Side)",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 513,
+    "name": "LoadSPA 513",
+    "emitters": 2,
+    "description": "Dragon Claw 3 (Right Side)",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 514,
+    "name": "LoadSPA 514",
+    "emitters": 9,
+    "description": "Frenzy Plant",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 515,
+    "name": "LoadSPA 515",
+    "description": "Bounce Part 1",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 516,
+    "name": "LoadSPA 516",
+    "description": "Bounce Part 2",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 517,
+    "name": "LoadSPA 517",
+    "emitters": 3,
+    "description": "Mud Shot",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 518,
+    "name": "LoadSPA 518",
+    "emitters": 4,
+    "description": "Poison Tail",
+    "notes": "",
+    "tags": [
+      "poison",
+      "status"
+    ]
+  },
+  {
+    "id": 519,
+    "name": "LoadSPA 519",
+    "description": "Covet 1 (Didn't steal an item)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 520,
+    "name": "LoadSPA 520",
+    "description": "Covet (Item Stolen)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 521,
+    "name": "LoadSPA 521",
+    "description": "Volt Tackle",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 522,
+    "name": "LoadSPA 522",
+    "description": "Magical Leaf",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 523,
+    "name": "LoadSPA 523",
+    "emitters": 3,
+    "description": "Water Sport",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 524,
+    "name": "LoadSPA 524",
+    "description": "Calm Mind",
+    "notes": "",
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 525,
+    "name": "LoadSPA 525",
+    "description": "Leaf Blade",
+    "notes": "",
+    "tags": [
+      "grass",
+      "slash"
+    ]
+  },
+  {
+    "id": 526,
+    "name": "LoadSPA 526",
+    "description": "Dragon Dance",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 527,
+    "name": "LoadSPA 527",
+    "description": "Rock Blast",
+    "notes": "",
+    "tags": [
+      "fire",
+      "rock",
+      "explosion"
+    ]
+  },
+  {
+    "id": 528,
+    "name": "LoadSPA 528",
+    "description": "Shock Wave",
+    "notes": "",
+    "tags": [
+      "water",
+      "electric"
+    ]
+  },
+  {
+    "id": 529,
+    "name": "LoadSPA 529",
+    "description": "Water Pulse",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 530,
+    "name": "LoadSPA 530",
+    "emitters": 3,
+    "description": "Doom Desire",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 531,
+    "name": "LoadSPA 531",
+    "emitters": 6,
+    "description": "Psycho Boost",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 532,
+    "name": "LoadSPA 532",
+    "emitters": 2,
+    "description": "Roost",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 533,
+    "name": "LoadSPA 533",
+    "emitters": 2,
+    "description": "Gravity 1",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 534,
+    "name": "LoadSPA 534",
+    "emitters": 1,
+    "description": "Gravity 2 (Dark Blue Spiral)",
+    "notes": "",
+    "tags": [
+      "dark"
+    ]
+  },
+  {
+    "id": 535,
+    "name": "LoadSPA 535",
+    "emitters": 5,
+    "description": "Miracle Eye",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 536,
+    "name": "LoadSPA 536",
+    "description": "Wake-Up Slap",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 537,
+    "name": "LoadSPA 537",
+    "description": "Hammer Arm",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 538,
+    "name": "LoadSPA 538",
+    "description": "Gyro Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 539,
+    "name": "LoadSPA 539",
+    "emitters": 3,
+    "description": "Healing Wish",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 540,
+    "name": "LoadSPA 540",
+    "description": "Brine",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 541,
+    "name": "LoadSPA 541",
+    "emitters": 4,
+    "description": "Natural Gift",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 542,
+    "name": "LoadSPA 542",
+    "description": "Feint",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 543,
+    "name": "LoadSPA 543",
+    "description": "Pluck",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 544,
+    "name": "LoadSPA 544",
+    "description": "Tailwind",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 545,
+    "name": "LoadSPA 545",
+    "description": "Acupressure",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 546,
+    "name": "LoadSPA 546",
+    "emitters": 4,
+    "description": "Metal Burst",
+    "notes": "",
+    "tags": [
+      "explosion"
+    ]
+  },
+  {
+    "id": 547,
+    "name": "LoadSPA 547",
+    "emitters": 6,
+    "description": "U-Turn 1",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 548,
+    "name": "LoadSPA 548",
+    "emitters": 2,
+    "description": "U-Turn 2 (u-turn user switching out)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 549,
+    "name": "LoadSPA 549",
+    "emitters": 3,
+    "description": "Close Combat",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 550,
+    "name": "LoadSPA 550",
+    "description": "Payback",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 551,
+    "name": "LoadSPA 551",
+    "description": "Assurance",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 552,
+    "name": "LoadSPA 552",
+    "description": "Embargo",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 553,
+    "name": "LoadSPA 553",
+    "emitters": 3,
+    "description": "Fling",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 554,
+    "name": "LoadSPA 554",
+    "emitters": 3,
+    "description": "Psycho Shift",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 555,
+    "name": "LoadSPA 555",
+    "description": "Trump Card",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 556,
+    "name": "LoadSPA 556",
+    "description": "Heal Block",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 557,
+    "name": "LoadSPA 557",
+    "description": "Wring Out",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 558,
+    "name": "LoadSPA 558",
+    "description": "Power Trick",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 559,
+    "name": "LoadSPA 559",
+    "description": "Gastro Acid",
+    "notes": "",
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 560,
+    "name": "LoadSPA 560",
+    "description": "Lucky Chant",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 561,
+    "name": "LoadSPA 561",
+    "description": "Me First",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 562,
+    "name": "LoadSPA 562",
+    "description": "Copycat",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 563,
+    "name": "LoadSPA 563",
+    "description": "Power Swap/Power Split",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 564,
+    "name": "LoadSPA 564",
+    "description": "Guard Swap/Guard Split",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 565,
+    "name": "LoadSPA 565",
+    "description": "Punishment",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 566,
+    "name": "LoadSPA 566",
+    "description": "Last Resort",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 567,
+    "name": "LoadSPA 567",
+    "description": "Worry Seed",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 568,
+    "name": "LoadSPA 568",
+    "description": "Sucker Punch",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 569,
+    "name": "LoadSPA 569",
+    "description": "Toxic Spikes",
+    "notes": "",
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 570,
+    "name": "LoadSPA 570",
+    "emitters": 4,
+    "description": "Heart Swap",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 571,
+    "name": "LoadSPA 571",
+    "description": "Aqua Ring",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 572,
+    "name": "LoadSPA 572",
+    "description": "Magnet Rise",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 573,
+    "name": "LoadSPA 573",
+    "description": "Flare Blitz",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 574,
+    "name": "LoadSPA 574",
+    "description": "Force Palm",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 575,
+    "name": "LoadSPA 575",
+    "description": "Aura Sphere",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 576,
+    "name": "LoadSPA 576",
+    "description": "Rock Polish",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 577,
+    "name": "LoadSPA 577",
+    "description": "Poison Jab",
+    "notes": "",
+    "tags": [
+      "poison",
+      "status"
+    ]
+  },
+  {
+    "id": 578,
+    "name": "LoadSPA 578",
+    "description": "Dark Pulse",
+    "notes": "",
+    "tags": [
+      "dark"
+    ]
+  },
+  {
+    "id": 579,
+    "name": "LoadSPA 579",
+    "description": "Night Slash",
+    "notes": "",
+    "tags": [
+      "dark",
+      "slash"
+    ]
+  },
+  {
+    "id": 580,
+    "name": "LoadSPA 580",
+    "description": "Aqua Tail",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 581,
+    "name": "LoadSPA 581",
+    "description": "Seed Bomb",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 582,
+    "name": "LoadSPA 582",
+    "description": "Air Slash",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 583,
+    "name": "LoadSPA 583",
+    "description": "X-Scissor",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 584,
+    "name": "LoadSPA 584",
+    "description": "Bug Buzz",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 585,
+    "name": "LoadSPA 585",
+    "description": "Dragon Pulse",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 586,
+    "name": "LoadSPA 586",
+    "description": "Dragon Rush",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 587,
+    "name": "LoadSPA 587",
+    "description": "Power Gem",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 588,
+    "name": "LoadSPA 588",
+    "description": "Drain Punch",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 589,
+    "name": "LoadSPA 589",
+    "description": "Vacuum Wave",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 590,
+    "name": "LoadSPA 590",
+    "description": "Focus Blast",
+    "notes": "",
+    "tags": [
+      "fire",
+      "explosion"
+    ]
+  },
+  {
+    "id": 591,
+    "name": "LoadSPA 591",
+    "description": "Energy Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 592,
+    "name": "LoadSPA 592",
+    "description": "Brave Bird",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 593,
+    "name": "LoadSPA 593",
+    "description": "Earth Power",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 594,
+    "name": "LoadSPA 594",
+    "description": "Switcheroo",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 595,
+    "name": "LoadSPA 595",
+    "description": "Giga Impact",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 596,
+    "name": "LoadSPA 596",
+    "description": "Nasty Plot",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 597,
+    "name": "LoadSPA 597",
+    "description": "Bullet Punch",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 598,
+    "name": "LoadSPA 598",
+    "description": "Avalanche",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 599,
+    "name": "LoadSPA 599",
+    "description": "Ice Shard",
+    "notes": "",
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 600,
+    "name": "LoadSPA 600",
+    "description": "Shadow Claw",
+    "notes": "",
+    "tags": [
+      "dark",
+      "slash"
+    ]
+  },
+  {
+    "id": 601,
+    "name": "LoadSPA 601",
+    "description": "Thunder Fang",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 602,
+    "name": "LoadSPA 602",
+    "description": "Ice Fang",
+    "notes": "",
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 603,
+    "name": "LoadSPA 603",
+    "description": "Fire Fang",
+    "notes": "",
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 604,
+    "name": "LoadSPA 604",
+    "description": "Shadow Sneak",
+    "notes": "",
+    "tags": [
+      "dark"
+    ]
+  },
+  {
+    "id": 605,
+    "name": "LoadSPA 605",
+    "description": "Mud Bomb",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 606,
+    "name": "LoadSPA 606",
+    "emitters": 4,
+    "description": "Psycho Cut",
+    "notes": "",
+    "tags": [
+      "slash"
+    ]
+  },
+  {
+    "id": 607,
+    "name": "LoadSPA 607",
+    "emitters": 5,
+    "description": "Zen Headbutt",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 608,
+    "name": "LoadSPA 608",
+    "emitters": 5,
+    "description": "Mirror Shot",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 609,
+    "name": "LoadSPA 609",
+    "emitters": 5,
+    "description": "Flash Cannon 1 (Startup)",
+    "notes": "",
+    "tags": [
+      "light",
+      "beam"
+    ]
+  },
+  {
+    "id": 610,
+    "name": "LoadSPA 610",
+    "emitters": 4,
+    "description": "Flash Cannon 2 (Attack)",
+    "notes": "",
+    "tags": [
+      "light",
+      "beam"
+    ]
+  },
+  {
+    "id": 611,
+    "name": "LoadSPA 611",
+    "emitters": 5,
+    "description": "Rock Climb",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 612,
+    "name": "LoadSPA 612",
+    "emitters": 1,
+    "description": "Defog",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 613,
+    "name": "LoadSPA 613",
+    "emitters": 4,
+    "description": "Draco Meteor",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 614,
+    "name": "LoadSPA 614",
+    "emitters": 4,
+    "description": "Discharge",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 615,
+    "name": "LoadSPA 615",
+    "emitters": 3,
+    "description": "Lava Plume",
+    "notes": "",
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 616,
+    "name": "LoadSPA 616",
+    "emitters": 4,
+    "description": "Leaf Storm",
+    "notes": "",
+    "tags": [
+      "grass",
+      "storm"
+    ]
+  },
+  {
+    "id": 617,
+    "name": "LoadSPA 617",
+    "description": "Power Whip",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 618,
+    "name": "LoadSPA 618",
+    "description": "Rock Wrecker",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 619,
+    "name": "LoadSPA 619",
+    "description": "Cross Poison",
+    "notes": "",
+    "tags": [
+      "poison",
+      "status"
+    ]
+  },
+  {
+    "id": 620,
+    "name": "LoadSPA 620",
+    "description": "Gunk Shot",
+    "notes": "",
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 621,
+    "name": "LoadSPA 621",
+    "description": "Iron Head",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 622,
+    "name": "LoadSPA 622",
+    "description": "Magnet Bomb",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 623,
+    "name": "LoadSPA 623",
+    "description": "Stone Edge",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 624,
+    "name": "LoadSPA 624",
+    "description": "Captivate",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 625,
+    "name": "LoadSPA 625",
+    "description": "Stealth Rock",
+    "notes": "",
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 626,
+    "name": "LoadSPA 626",
+    "description": "Grass Knot",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 627,
+    "name": "LoadSPA 627",
+    "description": "Chatter",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 628,
+    "name": "LoadSPA 628",
+    "description": "Judgment",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 629,
+    "name": "LoadSPA 629",
+    "description": "Bug Bite",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 630,
+    "name": "LoadSPA 630",
+    "description": "Charge Beam",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 631,
+    "name": "LoadSPA 631",
+    "description": "Wood Hammer",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 632,
+    "name": "LoadSPA 632",
+    "description": "Aqua Jet",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 633,
+    "name": "LoadSPA 633",
+    "description": "Attack Order",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 634,
+    "name": "LoadSPA 634",
+    "description": "Defend Order",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 635,
+    "name": "LoadSPA 635",
+    "description": "Heal Order",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 636,
+    "name": "LoadSPA 636",
+    "description": "Head Smash",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 637,
+    "name": "LoadSPA 637",
+    "description": "Double Hit",
+    "notes": "",
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 638,
+    "name": "LoadSPA 638",
+    "description": "Roar of Time",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 639,
+    "name": "LoadSPA 639",
+    "description": "Spacial Rend",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 640,
+    "name": "LoadSPA 640",
+    "description": "Lunar Dance",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 641,
+    "name": "LoadSPA 641",
+    "emitters": 4,
+    "description": "Crush Grip 1 (Hand)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 642,
+    "name": "LoadSPA 642",
+    "emitters": 3,
+    "description": "Crush Grip 2 (Effects)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 643,
+    "name": "LoadSPA 643",
+    "emitters": 3,
+    "particles": "4",
+    "description": "Magma Storm",
+    "notes": "",
+    "tags": [
+      "storm"
+    ]
+  },
+  {
+    "id": 644,
+    "name": "LoadSPA 644",
+    "description": "Dark Void",
+    "notes": "",
+    "tags": [
+      "dark"
+    ]
+  },
+  {
+    "id": 645,
+    "name": "LoadSPA 645",
+    "description": "Seed Flare",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 646,
+    "name": "LoadSPA 646",
+    "description": "Ominous Wind",
+    "notes": "",
+    "tags": [
+      "storm"
+    ]
+  },
+  {
+    "id": 647,
+    "name": "LoadSPA 647",
+    "emitters": 3,
+    "description": "Shadow Force",
+    "notes": "",
+    "tags": [
+      "dark"
+    ]
+  },
+  {
+    "id": 648,
+    "name": "LoadSPA 648",
+    "emitters": 3,
+    "description": "Hone Claws",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 649,
+    "name": "LoadSPA 649",
+    "emitters": 3,
+    "description": "Wide Guard",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 650,
+    "name": "LoadSPA 650",
+    "emitters": 4,
+    "description": "Psyshock",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 651,
+    "name": "LoadSPA 651",
+    "emitters": 5,
+    "description": "Venoshock",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 652,
+    "name": "LoadSPA 652",
+    "emitters": 2,
+    "description": "Autotomize",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 653,
+    "name": "LoadSPA 653",
+    "emitters": 2,
+    "description": "Rage Powder",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 654,
+    "name": "LoadSPA 654",
+    "emitters": 5,
+    "description": "Smack Down",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 655,
+    "name": "LoadSPA 655",
+    "emitters": 4,
+    "description": "Storm Throw",
+    "notes": "",
+    "tags": [
+      "storm"
+    ]
+  },
+  {
+    "id": 656,
+    "name": "LoadSPA 656",
+    "emitters": 4,
+    "description": "Flame Burst",
+    "notes": "",
+    "tags": [
+      "fire",
+      "explosion"
+    ]
+  },
+  {
+    "id": 657,
+    "name": "LoadSPA 657",
+    "emitters": 3,
+    "description": "Sludge Wave",
+    "notes": "",
+    "tags": [
+      "water",
+      "poison"
+    ]
+  },
+  {
+    "id": 658,
+    "name": "LoadSPA 658",
+    "description": "Quiver Dance",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 659,
+    "name": "LoadSPA 659",
+    "description": "Heavy Slam",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 660,
+    "name": "LoadSPA 660",
+    "description": "Synchronoise",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 661,
+    "name": "LoadSPA 661",
+    "emitters": 6,
+    "description": "Electro Ball",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 662,
+    "name": "LoadSPA 662",
+    "emitters": 4,
+    "description": "Soak",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 663,
+    "name": "LoadSPA 663",
+    "emitters": 5,
+    "description": "Flame Charge",
+    "notes": "",
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 664,
+    "name": "LoadSPA 664",
+    "emitters": 7,
+    "description": "Coil",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 665,
+    "name": "LoadSPA 665",
+    "emitters": 7,
+    "description": "Acid Spray",
+    "notes": "",
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 666,
+    "name": "LoadSPA 666",
+    "emitters": 3,
+    "description": "Foul Play",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 667,
+    "name": "LoadSPA 667",
+    "description": "Simple Beam",
+    "notes": "",
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 668,
+    "name": "LoadSPA 668",
+    "description": "Round",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 669,
+    "name": "LoadSPA 669",
+    "description": "Echoed Voice",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 670,
+    "name": "LoadSPA 670",
+    "description": "Chip Away",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 671,
+    "name": "LoadSPA 671",
+    "emitters": 4,
+    "description": "Clear Smog",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 672,
+    "name": "LoadSPA 672",
+    "emitters": 2,
+    "description": "Stored Power",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 673,
+    "name": "LoadSPA 673",
+    "emitters": 5,
+    "description": "Quick Guard",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 674,
+    "name": "LoadSPA 674",
+    "emitters": 3,
+    "description": "Scald",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 675,
+    "name": "LoadSPA 675",
+    "emitters": 4,
+    "description": "Shell Smash",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 676,
+    "name": "LoadSPA 676",
+    "emitters": 2,
+    "description": "Heal Pulse",
+    "notes": "",
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 677,
+    "name": "LoadSPA 677",
+    "emitters": 2,
+    "description": "Hex",
+    "notes": "A white smoke effect is unused",
+    "tags": [
+      "light"
+    ]
+  },
+  {
+    "id": 678,
+    "name": "LoadSPA 678",
+    "emitters": 8,
+    "description": "Shift Gear",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 679,
+    "name": "LoadSPA 679",
+    "emitters": 2,
+    "description": "Circle Throw",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 680,
+    "name": "LoadSPA 680",
+    "emitters": 6,
+    "description": "Incinerate",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 681,
+    "name": "LoadSPA 681",
+    "emitters": 2,
+    "description": "Quash",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 682,
+    "name": "LoadSPA 682",
+    "emitters": 1,
+    "description": "Acrobatics",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 683,
+    "name": "LoadSPA 683",
+    "emitters": 2,
+    "description": "Reflect Type",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 684,
+    "name": "LoadSPA 684",
+    "emitters": 2,
+    "description": "Retaliate",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 685,
+    "name": "LoadSPA 685",
+    "emitters": 3,
+    "description": "Final Gambit",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 686,
+    "name": "LoadSPA 686",
+    "emitters": 2,
+    "description": "Bestow",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 687,
+    "name": "LoadSPA 687",
+    "description": "Inferno",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 688,
+    "name": "LoadSPA 688",
+    "description": "Water Pledge",
+    "notes": "",
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 689,
+    "name": "LoadSPA 689",
+    "description": "Fire Pledge",
+    "notes": "",
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 690,
+    "name": "LoadSPA 690",
+    "description": "Grass Pledge",
+    "notes": "",
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 691,
+    "name": "LoadSPA 691",
+    "description": "Volt Switch",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 692,
+    "name": "LoadSPA 692",
+    "description": "Struggle Bug",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 693,
+    "name": "LoadSPA 693",
+    "description": "Bulldoze",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 694,
+    "name": "LoadSPA 694",
+    "emitters": 5,
+    "description": "Frost Breath",
+    "notes": "",
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 695,
+    "name": "LoadSPA 695",
+    "emitters": 5,
+    "description": "Dragon Tail",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 696,
+    "name": "LoadSPA 696",
+    "emitters": 1,
+    "description": "Work Up",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 697,
+    "name": "LoadSPA 697",
+    "emitters": 5,
+    "description": "Electroweb",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 698,
+    "name": "LoadSPA 698",
+    "emitters": 6,
+    "description": "Drill Run",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 699,
+    "name": "LoadSPA 699",
+    "description": "Dual Chop",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 700,
+    "name": "LoadSPA 700",
+    "description": "Heart Stamp",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 701,
+    "name": "LoadSPA 701",
+    "description": "Horn Leech",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 702,
+    "name": "LoadSPA 702",
+    "description": "Sacred Sword",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 703,
+    "name": "LoadSPA 703",
+    "description": "Razor Shell",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 704,
+    "name": "LoadSPA 704",
+    "description": "Heat Crash",
+    "notes": "",
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 705,
+    "name": "LoadSPA 705",
+    "description": "Leaf Tornado",
+    "notes": "",
+    "tags": [
+      "grass",
+      "storm"
+    ]
+  },
+  {
+    "id": 706,
+    "name": "LoadSPA 706",
+    "description": "Steamroller",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 707,
+    "name": "LoadSPA 707",
+    "description": "Cotton Guard",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 708,
+    "name": "LoadSPA 708",
+    "description": "Night Daze",
+    "notes": "",
+    "tags": [
+      "dark"
+    ]
+  },
+  {
+    "id": 709,
+    "name": "LoadSPA 709",
+    "description": "Psystrike",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 710,
+    "name": "LoadSPA 710",
+    "description": "Tail Slap",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 711,
+    "name": "LoadSPA 711",
+    "emitters": 4,
+    "particles": "3",
+    "description": "Hurricane",
+    "notes": "",
+    "tags": [
+      "storm"
+    ]
+  },
+  {
+    "id": 712,
+    "name": "LoadSPA 712",
+    "description": "Head Charge",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 713,
+    "name": "LoadSPA 713",
+    "description": "Gear Grind",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 714,
+    "name": "LoadSPA 714",
+    "description": "Searing Shot",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 715,
+    "name": "LoadSPA 715",
+    "emitters": 8,
+    "description": "Techno Blast",
+    "notes": "",
+    "tags": [
+      "fire",
+      "explosion"
+    ]
+  },
+  {
+    "id": 716,
+    "name": "LoadSPA 716",
+    "emitters": 8,
+    "description": "Techno Blast (Douse Drive)",
+    "notes": "",
+    "tags": [
+      "fire",
+      "explosion"
+    ]
+  },
+  {
+    "id": 717,
+    "name": "LoadSPA 717",
+    "emitters": 8,
+    "description": "Techno Blast (Shock Drive)",
+    "notes": "",
+    "tags": [
+      "fire",
+      "electric",
+      "explosion"
+    ]
+  },
+  {
+    "id": 718,
+    "name": "LoadSPA 718",
+    "emitters": 8,
+    "description": "Techno Blast (Burn Drive)",
+    "notes": "",
+    "tags": [
+      "fire",
+      "explosion",
+      "status"
+    ]
+  },
+  {
+    "id": 719,
+    "name": "LoadSPA 719",
+    "emitters": 8,
+    "description": "Techno Blast (Chill Drive)",
+    "notes": "",
+    "tags": [
+      "fire",
+      "explosion"
+    ]
+  },
+  {
+    "id": 720,
+    "name": "LoadSPA 720",
+    "description": "Relic Song",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 721,
+    "name": "LoadSPA 721",
+    "description": "Secret Sword",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 722,
+    "name": "LoadSPA 722",
+    "description": "Glaciate",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 723,
+    "name": "LoadSPA 723",
+    "description": "Bolt Strike",
+    "notes": "",
+    "tags": [
+      "electric",
+      "punch"
+    ]
+  },
+  {
+    "id": 724,
+    "name": "LoadSPA 724",
+    "description": "Blue Flare",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 725,
+    "name": "LoadSPA 725",
+    "description": "Fiery Dance",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 726,
+    "name": "LoadSPA 726",
+    "emitters": 4,
+    "description": "Freeze Shock 1 (Startup)",
+    "notes": "",
+    "tags": [
+      "ice",
+      "electric",
+      "status"
+    ]
+  },
+  {
+    "id": 727,
+    "name": "LoadSPA 727",
+    "emitters": 4,
+    "description": "Freeze Shock 2 (Ice Particles)",
+    "notes": "",
+    "tags": [
+      "ice",
+      "electric",
+      "status"
+    ]
+  },
+  {
+    "id": 728,
+    "name": "LoadSPA 728",
+    "emitters": 3,
+    "description": "Freeze Shock 3 (Electric Particles)",
+    "notes": "",
+    "tags": [
+      "ice",
+      "electric",
+      "status"
+    ]
+  },
+  {
+    "id": 729,
+    "name": "LoadSPA 729",
+    "emitters": 3,
+    "description": "Freeze Shock 4 (More Ice Particles)",
+    "notes": "",
+    "tags": [
+      "ice",
+      "electric",
+      "status"
+    ]
+  },
+  {
+    "id": 730,
+    "name": "LoadSPA 730",
+    "emitters": 3,
+    "description": "Ice Burn part 1",
+    "notes": "",
+    "tags": [
+      "fire",
+      "ice",
+      "status"
+    ]
+  },
+  {
+    "id": 731,
+    "name": "LoadSPA 731",
+    "emitters": 6,
+    "description": "Ice Burn part 2",
+    "notes": "",
+    "tags": [
+      "fire",
+      "ice",
+      "status"
+    ]
+  },
+  {
+    "id": 732,
+    "name": "LoadSPA 732",
+    "emitters": 6,
+    "description": "Snarl",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 733,
+    "name": "LoadSPA 733",
+    "description": "Icicle Crash",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 734,
+    "name": "LoadSPA 734",
+    "description": "V-create",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 735,
+    "name": "LoadSPA 735",
+    "description": "Fusion Flare 1",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 736,
+    "name": "LoadSPA 736",
+    "description": "Fusion Flare 2 (Powered Up)",
+    "notes": "",
+    "tags": []
+  },
+  {
+    "id": 737,
+    "name": "LoadSPA 737",
+    "description": "Fusion Bolt 1",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 738,
+    "name": "LoadSPA 738",
+    "description": "Fusion Bolt 2 (Powered Up)",
+    "notes": "",
+    "tags": [
+      "electric"
+    ]
+  }
+]

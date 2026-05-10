@@ -11,6 +11,7 @@ import "./styles/legacyOverworlds.css";
 import "./styles/legacyDocGenerators.css";
 import "./styles/legacyMap3d.css";
 import "./styles/legacyPokemonSprites.css";
+import "./styles/fileSystem.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
@@ -22,6 +23,7 @@ import { loadProjectFromRomFile } from "./pokeweb/loader";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { renderDebugNarcs } from "./ui/debugNarcs";
+import { renderFileSystemEditor } from "./ui/fileSystemEditor";
 import { renderHeaderEditor } from "./ui/headerEditor";
 import { renderEncounterEditor } from "./ui/encounterEditor";
 import { renderItemEditor, renderMoveEditor } from "./ui/moveItemEditor";
@@ -36,6 +38,7 @@ import { renderDocGenerators } from "./ui/docGenerators";
 
 type AppRoute =
   | "upload"
+  | "fileSystem"
   | "headers"
   | "overworlds"
   | "maps3d"
@@ -64,6 +67,7 @@ const OVERWORLD_ROUTE_KEY = "pokeweb-serverless-overworld-id";
 
 const APP_ROUTES: AppRoute[] = [
   "upload",
+  "fileSystem",
   "headers",
   "overworlds",
   "maps3d",
@@ -83,7 +87,7 @@ const APP_ROUTES: AppRoute[] = [
   "debugNarcs",
 ];
 
-const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">, NarcName[]> = {
+const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">, NarcName[]> = {
   headers: ["headers", "message_texts"],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
@@ -222,6 +226,20 @@ function renderApp(): void {
       canVisit("overworlds") ? openOverworld : undefined,
     );
     content.querySelector<HTMLButtonElement>("#debug-narcs-btn")?.addEventListener("click", () => navigate("debugNarcs"));
+    return;
+  }
+
+  if (route === "fileSystem") {
+    content.innerHTML = `<div class="file-system-page"><div class="file-system-empty">Loading file system...</div></div>`;
+    void renderFileSystemEditor(project, content, {
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+    }).catch((error) => {
+      content.innerHTML = `<div class="file-system-page"><div class="file-system-empty">${error instanceof Error ? error.message : String(error)}</div></div>`;
+    });
     return;
   }
 
@@ -423,6 +441,7 @@ function renderNav(): string {
         ${navItem("storyText", "Story Text")}
         ${navItem("infoText", "Info Text")}
         ${navItem("docGenerators", "Doc Generators")}
+        ${navItem("fileSystem", "File System")}
       </div>
       <div class="header-right">
         <a class="header-item ${route === "debugNarcs" ? "-active" : ""}" href="#" data-route="debugNarcs">Debug</a>
@@ -662,6 +681,8 @@ function renderNarcLoadSection(section: NarcLoadSection, mandatoryNarcs: Set<Nar
 
 function hydrateProject(nextProject: ProjectState | undefined): void {
   if (!nextProject) return;
+  nextProject.fileSystem ??= { replacements: {} };
+  nextProject.fileSystem.replacements ??= {};
   if (nextProject.narcs.headers && !nextProject.headers) nextProject.headers = parseHeaders(nextProject);
   nextProject.docs ??= {
     romTitle: nextProject.session.romName,
@@ -684,9 +705,10 @@ function getSelectedNarcs(root: HTMLElement): NarcName[] {
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (!project) return false;
   if (nextRoute === "docGenerators") return true;
+  if (nextRoute === "fileSystem") return hasExportBase;
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
-  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">;
+  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);
 }
 
@@ -695,13 +717,17 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
   const requirements =
     nextRoute === "docGenerators"
       ? []
+      : nextRoute === "fileSystem"
+        ? ([] as NarcName[])
       : nextRoute === "maps3d"
         ? ([] as NarcName[])
-      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">];
+      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">];
   const missing = enabled
     ? ""
-    : nextRoute === "maps3d"
-      ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
+    : nextRoute === "fileSystem"
+      ? ` title="Reload the ROM before opening File System"`
+      : nextRoute === "maps3d"
+        ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
       : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
   const active = route === nextRoute || (nextRoute === "headers" && route === "overworlds");
   return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute)}" ${enabled ? `data-route="${nextRoute}"` : ""}${missing}>${label}</a>`;
@@ -718,7 +744,13 @@ function safeRoute(nextRoute: AppRoute): AppRoute {
 
 function applyRouteState(nextState: AppHistoryState, options: { replace?: boolean; fromHistory?: boolean; clearProject?: boolean } = {}): void {
   const requestedRoute = nextState.route;
-  if (requestedRoute !== "upload" && requestedRoute !== "debugNarcs" && requestedRoute !== "grottoOdds" && !canVisit(requestedRoute)) return;
+  if (
+    requestedRoute !== "upload" &&
+    requestedRoute !== "debugNarcs" &&
+    requestedRoute !== "grottoOdds" &&
+    !canVisit(requestedRoute)
+  )
+    return;
   if (requestedRoute === "grottoOdds" && !canVisit("grottos")) return;
 
   if (requestedRoute === "upload" && options.clearProject) {

@@ -20,6 +20,7 @@ import { attachPokemonInteractions } from "./pokemonInteractions";
 import evoIcon from "../assets/svgs/evo.svg?raw";
 import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import movesIcon from "../assets/svgs/moves.svg?raw";
+import paintIcon from "../assets/svgs/paint.svg?raw";
 import tmsIcon from "../assets/svgs/tms.svg?raw";
 import { publicAsset } from "../assetUrl";
 
@@ -222,7 +223,7 @@ function icon(expand: string, label: string): string {
 }
 
 function spriteIcon(): string {
-  return `<div class="card-icon sprite-editor-action paintbrush-icon" title="Sprite Editor" style="--paintbrush-icon: url('${publicAsset("svgs/paintbrush.png")}')"><span></span></div>`;
+  return `<div class="expand-card card-icon sprite-editor-action paintbrush-icon" title="Sprite Editor">${paintIcon}</div>`;
 }
 
 function typeClass(type: string): string {

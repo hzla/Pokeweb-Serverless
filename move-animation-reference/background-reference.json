@@ -1,0 +1,700 @@
+[
+  {
+    "id": 0,
+    "name": "LoadBackground 0",
+    "moves": [
+      "Explosion"
+    ],
+    "tags": [
+      "explosion"
+    ]
+  },
+  {
+    "id": 3,
+    "name": "LoadBackground 3",
+    "moves": [
+      "Mega Kick"
+    ],
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 6,
+    "name": "LoadBackground 6",
+    "moves": [
+      "Superpower",
+      "Psystrike",
+      "Giga Impact (BW)"
+    ],
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 9,
+    "name": "LoadBackground 9",
+    "moves": [
+      "Head Charge (BW)"
+    ],
+    "tags": []
+  },
+  {
+    "id": 12,
+    "name": "LoadBackground 12",
+    "moves": [
+      "Head Charge"
+    ],
+    "tags": []
+  },
+  {
+    "id": 15,
+    "name": "LoadBackground 15",
+    "moves": [
+      "Double-Edge"
+    ],
+    "tags": []
+  },
+  {
+    "id": 18,
+    "name": "LoadBackground 18",
+    "moves": [
+      "Hydro Pump"
+    ],
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 21,
+    "name": "LoadBackground 21",
+    "moves": [
+      "Gunk Shot"
+    ],
+    "tags": [
+      "poison"
+    ]
+  },
+  {
+    "id": 24,
+    "name": "LoadBackground 24",
+    "moves": [
+      "Focus Blast"
+    ],
+    "tags": [
+      "fire",
+      "explosion"
+    ]
+  },
+  {
+    "id": 27,
+    "name": "LoadBackground 27",
+    "moves": [
+      "Aura Sphere"
+    ],
+    "tags": []
+  },
+  {
+    "id": 30,
+    "name": "LoadBackground 30",
+    "moves": [
+      "Blizzard"
+    ],
+    "tags": [
+      "ice"
+    ]
+  },
+  {
+    "id": 33,
+    "name": "LoadBackground 33",
+    "moves": [
+      "Hyper Beam",
+      "Leaf Storm"
+    ],
+    "tags": [
+      "grass",
+      "beam",
+      "storm"
+    ]
+  },
+  {
+    "id": 36,
+    "name": "LoadBackground 36",
+    "moves": [
+      "Seismic Toss",
+      "Smack Down"
+    ],
+    "tags": []
+  },
+  {
+    "id": 39,
+    "name": "LoadBackground 39",
+    "moves": [
+      "Thunder"
+    ],
+    "tags": [
+      "electric"
+    ]
+  },
+  {
+    "id": 42,
+    "name": "LoadBackground 42",
+    "moves": [
+      "Fissure"
+    ],
+    "tags": []
+  },
+  {
+    "id": 45,
+    "name": "LoadBackground 45",
+    "moves": [
+      "Psychic (BW)"
+    ],
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 48,
+    "name": "LoadBackground 48",
+    "moves": [
+      "Psychic"
+    ],
+    "tags": [
+      "psychic"
+    ]
+  },
+  {
+    "id": 51,
+    "name": "LoadBackground 51",
+    "moves": [
+      "Agility"
+    ],
+    "tags": []
+  },
+  {
+    "id": 54,
+    "name": "LoadBackground 54",
+    "moves": [
+      "Self-Destruct"
+    ],
+    "tags": []
+  },
+  {
+    "id": 57,
+    "name": "LoadBackground 57",
+    "moves": [
+      "Self-Destruct (BW)"
+    ],
+    "tags": []
+  },
+  {
+    "id": 60,
+    "name": "LoadBackground 60",
+    "moves": [
+      "Fire Blast"
+    ],
+    "tags": [
+      "fire",
+      "explosion"
+    ]
+  },
+  {
+    "id": 63,
+    "name": "LoadBackground 63",
+    "moves": [
+      "Waterfall"
+    ],
+    "tags": []
+  },
+  {
+    "id": 66,
+    "name": "LoadBackground 66",
+    "moves": [
+      "Waterfall (BW)"
+    ],
+    "tags": []
+  },
+  {
+    "id": 69,
+    "name": "LoadBackground 69",
+    "moves": [
+      "Nightmare status effect"
+    ],
+    "tags": []
+  },
+  {
+    "id": 72,
+    "name": "LoadBackground 72",
+    "moves": [
+      "Nightmare"
+    ],
+    "tags": []
+  },
+  {
+    "id": 75,
+    "name": "LoadBackground 75",
+    "moves": [
+      "Aeroblast (BW)"
+    ],
+    "tags": []
+  },
+  {
+    "id": 78,
+    "name": "LoadBackground 78",
+    "moves": [
+      "Aeroblast"
+    ],
+    "tags": []
+  },
+  {
+    "id": 81,
+    "name": "LoadBackground 81",
+    "moves": [
+      "Zap Cannon"
+    ],
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 84,
+    "name": "LoadBackground 84",
+    "moves": [
+      "Zap Cannon (BW)"
+    ],
+    "tags": [
+      "beam"
+    ]
+  },
+  {
+    "id": 87,
+    "name": "LoadBackground 87",
+    "moves": [
+      "Volt Tackle (BW)"
+    ],
+    "tags": []
+  },
+  {
+    "id": 90,
+    "name": "LoadBackground 90",
+    "moves": [
+      "Outrage (BW)"
+    ],
+    "tags": []
+  },
+  {
+    "id": 93,
+    "name": "LoadBackground 93",
+    "moves": [
+      "Outrage"
+    ],
+    "tags": []
+  },
+  {
+    "id": 96,
+    "name": "LoadBackground 96",
+    "moves": [
+      "Sacred Fire (BW)"
+    ],
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 99,
+    "name": "LoadBackground 99",
+    "moves": [
+      "Sacred Fire"
+    ],
+    "tags": [
+      "fire"
+    ]
+  },
+  {
+    "id": 102,
+    "name": "LoadBackground 102",
+    "moves": [
+      "DynamicPunch"
+    ],
+    "tags": []
+  },
+  {
+    "id": 105,
+    "name": "LoadBackground 105",
+    "moves": [
+      "Megahorn"
+    ],
+    "tags": []
+  },
+  {
+    "id": 108,
+    "name": "LoadBackground 108",
+    "moves": [
+      "Moonlight"
+    ],
+    "tags": []
+  },
+  {
+    "id": 111,
+    "name": "LoadBackground 111",
+    "moves": [
+      "Extreme Speed"
+    ],
+    "tags": []
+  },
+  {
+    "id": 114,
+    "name": "LoadBackground 114",
+    "moves": [
+      "Whirlpool"
+    ],
+    "tags": []
+  },
+  {
+    "id": 117,
+    "name": "LoadBackground 117",
+    "moves": [
+      "Focus Punch"
+    ],
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 120,
+    "name": "LoadBackground 120",
+    "moves": [
+      "Superpower"
+    ],
+    "tags": []
+  },
+  {
+    "id": 123,
+    "name": "LoadBackground 123",
+    "moves": [
+      "Overheat"
+    ],
+    "tags": []
+  },
+  {
+    "id": 126,
+    "name": "LoadBackground 126",
+    "moves": [
+      "Wish",
+      "Cosmic Power"
+    ],
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 129,
+    "name": "LoadBackground 129",
+    "moves": [
+      "Sky Uppercut (BW)"
+    ],
+    "tags": []
+  },
+  {
+    "id": 132,
+    "name": "LoadBackground 132",
+    "moves": [
+      "Sky Uppercut"
+    ],
+    "tags": []
+  },
+  {
+    "id": 135,
+    "name": "LoadBackground 135",
+    "moves": [
+      "Aerial Ace"
+    ],
+    "tags": []
+  },
+  {
+    "id": 138,
+    "name": "LoadBackground 138",
+    "moves": [
+      "Frenzy Plant"
+    ],
+    "tags": [
+      "grass"
+    ]
+  },
+  {
+    "id": 141,
+    "name": "LoadBackground 141",
+    "moves": [
+      "Volt Tackle"
+    ],
+    "tags": []
+  },
+  {
+    "id": 144,
+    "name": "LoadBackground 144",
+    "moves": [
+      "Water Pulse (BW)"
+    ],
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 147,
+    "name": "LoadBackground 147",
+    "moves": [
+      "Water Pulse"
+    ],
+    "tags": [
+      "water"
+    ]
+  },
+  {
+    "id": 150,
+    "name": "LoadBackground 150",
+    "moves": [
+      "Psycho Boost"
+    ],
+    "tags": []
+  },
+  {
+    "id": 153,
+    "name": "LoadBackground 153",
+    "moves": [
+      "Close Combat"
+    ],
+    "tags": []
+  },
+  {
+    "id": 156,
+    "name": "LoadBackground 156",
+    "moves": [
+      "Flare Blitz"
+    ],
+    "tags": []
+  },
+  {
+    "id": 159,
+    "name": "LoadBackground 159",
+    "moves": [
+      "Sky Attack",
+      "Hydro Cannon",
+      "Brave Bird",
+      "Hurricane"
+    ],
+    "tags": [
+      "water",
+      "beam",
+      "storm"
+    ]
+  },
+  {
+    "id": 162,
+    "name": "LoadBackground 162",
+    "moves": [
+      "Giga Impact"
+    ],
+    "tags": [
+      "punch"
+    ]
+  },
+  {
+    "id": 165,
+    "name": "LoadBackground 165",
+    "moves": [
+      "Trick Room"
+    ],
+    "tags": []
+  },
+  {
+    "id": 168,
+    "name": "LoadBackground 168",
+    "moves": [
+      "Unused Leaf Storm background from gen 4"
+    ],
+    "tags": [
+      "grass",
+      "storm"
+    ]
+  },
+  {
+    "id": 171,
+    "name": "LoadBackground 171",
+    "moves": [
+      "Power Whip (BW)"
+    ],
+    "tags": []
+  },
+  {
+    "id": 174,
+    "name": "LoadBackground 174",
+    "moves": [
+      "Power Whip"
+    ],
+    "tags": []
+  },
+  {
+    "id": 177,
+    "name": "LoadBackground 177",
+    "moves": [
+      "Rock Wrecker"
+    ],
+    "tags": [
+      "rock"
+    ]
+  },
+  {
+    "id": 180,
+    "name": "LoadBackground 180",
+    "moves": [
+      "Head Smash"
+    ],
+    "tags": []
+  },
+  {
+    "id": 183,
+    "name": "LoadBackground 183",
+    "moves": [
+      "Spacial Rend"
+    ],
+    "tags": []
+  },
+  {
+    "id": 186,
+    "name": "LoadBackground 186",
+    "moves": [
+      "Lunar Dance"
+    ],
+    "tags": [
+      "heal"
+    ]
+  },
+  {
+    "id": 189,
+    "name": "LoadBackground 189",
+    "moves": [
+      "Magma Storm"
+    ],
+    "tags": [
+      "storm"
+    ]
+  },
+  {
+    "id": 192,
+    "name": "LoadBackground 192",
+    "moves": [
+      "Dark Void"
+    ],
+    "tags": [
+      "dark"
+    ]
+  },
+  {
+    "id": 195,
+    "name": "LoadBackground 195",
+    "moves": [
+      "Wonder Room"
+    ],
+    "tags": []
+  },
+  {
+    "id": 198,
+    "name": "LoadBackground 198",
+    "moves": [
+      "Magic Room"
+    ],
+    "tags": []
+  },
+  {
+    "id": 201,
+    "name": "LoadBackground 201",
+    "moves": [
+      "Inferno"
+    ],
+    "tags": []
+  },
+  {
+    "id": 204,
+    "name": "LoadBackground 204",
+    "moves": [
+      "Psystrike"
+    ],
+    "tags": []
+  },
+  {
+    "id": 207,
+    "name": "LoadBackground 207",
+    "moves": [
+      "Unknown"
+    ],
+    "tags": []
+  },
+  {
+    "id": 210,
+    "name": "LoadBackground 210",
+    "moves": [
+      "Searing Shot"
+    ],
+    "tags": []
+  },
+  {
+    "id": 213,
+    "name": "LoadBackground 213",
+    "moves": [
+      "Bolt Strike"
+    ],
+    "tags": [
+      "electric",
+      "punch"
+    ]
+  },
+  {
+    "id": 216,
+    "name": "LoadBackground 216",
+    "moves": [
+      "Blue Flare"
+    ],
+    "tags": []
+  },
+  {
+    "id": 219,
+    "name": "LoadBackground 219",
+    "moves": [
+      "Freeze Shock"
+    ],
+    "tags": [
+      "ice",
+      "electric",
+      "status"
+    ]
+  },
+  {
+    "id": 222,
+    "name": "LoadBackground 222",
+    "moves": [
+      "Ice Burn"
+    ],
+    "tags": [
+      "fire",
+      "ice",
+      "status"
+    ]
+  },
+  {
+    "id": 225,
+    "name": "LoadBackground 225",
+    "moves": [
+      "V-Create"
+    ],
+    "tags": []
+  },
+  {
+    "id": 228,
+    "name": "LoadBackground 228",
+    "moves": [
+      "Auto Center (This shows up when both the player and opponent only have 1 pokemon left in a triple battle)"
+    ],
+    "tags": []
+  }
+]

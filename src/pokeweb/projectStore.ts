@@ -1,4 +1,5 @@
 import { readU32 } from "../nds/binary";
+import type { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import type { BaseRom, BaseVersion, NarcName } from "./constants";
 import {
@@ -37,6 +38,7 @@ export type NarcStore = {
   sourcePath: string;
   fileCount: number;
   rawFiles: Uint8Array[];
+  filenames?: Folder;
   records: Map<number, NarcRecord>;
   dirty: Set<number>;
   parseError?: string;
@@ -75,6 +77,10 @@ export type Map3dAreaEditState = Record<
   }
 >;
 
+export type FileSystemEditState = {
+  replacements: Record<number, Uint8Array>;
+};
+
 export type ProjectState = {
   originalRomBytes?: Uint8Array;
   session: SessionSettings;
@@ -96,6 +102,7 @@ export type ProjectState = {
   tms?: TmState;
   docs?: DocGeneratorState;
   map3dAreaEdits?: Map3dAreaEditState;
+  fileSystem?: FileSystemEditState;
 };
 
 export function createNarcStore(name: NarcName, sourcePath: string, fileId: number, narc: NARC): NarcStore {
@@ -105,6 +112,7 @@ export function createNarcStore(name: NarcName, sourcePath: string, fileId: numb
     fileId,
     fileCount: narc.files.length,
     rawFiles: narc.files,
+    filenames: narc.filenames,
     records: new Map(),
     dirty: new Set(),
   };

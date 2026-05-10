@@ -2,6 +2,41 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  height: calc(100vh - 40px);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 24px;
+  scrollbar-gutter: stable;
+}
+
+.map3d-sidebar .filter-input,
+.map3d-field input,
+.map3d-field select {
+  background: #282d3b;
+  border: 1px solid #3b4254;
+  color: #eef2fb;
+}
+
+.map3d-sidebar .filter-input::placeholder {
+  color: #8992a8;
+}
+
+.map3d-sidebar .filter-input:focus,
+.map3d-field input:focus,
+.map3d-field select:focus {
+  border-color: #1abc9c;
+  box-shadow: 0 0 0 2px rgb(26 188 156 / 18%);
+  outline: none;
+}
+
+.map3d-sidebar .filter-input:disabled,
+.map3d-field input:disabled,
+.map3d-field select:disabled {
+  background: #202432;
+  color: #8c95aa;
+  cursor: not-allowed;
+  opacity: 1;
 }
 
 .map3d-zone-select {
@@ -242,6 +277,12 @@
 }
 
 @media only screen and (max-width: 1180px) {
+  .map3d-sidebar {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
   .map3d-view {
     height: 70vh;
     margin-left: 0;

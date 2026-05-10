@@ -5,6 +5,7 @@ import type { NarcName } from "./constants";
 import { loadActiveRomBytes } from "./persistence";
 import { materializeMap3dAreaEdits } from "./map3dModel";
 import { materializeProjectEdits } from "./projectMaterialize";
+import { fileSystemReplacementMap } from "./fileSystemModel";
 import type { ProjectState } from "./projectStore";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -22,7 +23,12 @@ export async function exportModifiedRom(project: ProjectState): Promise<Uint8Arr
     if (!store || store.fileId < 0 || store.dirty.size === 0) continue;
     const source = new NARC(rom.files[store.fileId]);
     source.files = store.rawFiles;
+    if (store.filenames) source.filenames = store.filenames;
     fileReplacements.set(store.fileId, source.save());
+  }
+  const storeFileIds = new Set(Object.values(project.narcs).map((store) => store?.fileId).filter((fileId): fileId is number => fileId !== undefined && fileId >= 0));
+  for (const [fileId, bytes] of fileSystemReplacementMap(project)) {
+    if (!storeFileIds.has(fileId)) fileReplacements.set(fileId, bytes);
   }
   materializeMap3dAreaEdits(project, rom, fileReplacements);
 

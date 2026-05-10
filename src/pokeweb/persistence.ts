@@ -128,9 +128,10 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   for (const store of Object.values(project.narcs)) {
     if (!store || store.fileId < 0) continue;
     const hasMissingFiles = store.rawFiles.length === 0 || store.rawFiles.some((file) => file.length === 0);
-    if (!hasMissingFiles) continue;
+    if (!hasMissingFiles && store.filenames) continue;
     const narc = new NARC(rom.files[store.fileId]);
-    store.rawFiles = narc.files.map((file, index) => (store.rawFiles[index]?.length ? store.rawFiles[index] : file));
+    if (hasMissingFiles) store.rawFiles = narc.files.map((file, index) => (store.rawFiles[index]?.length ? store.rawFiles[index] : file));
+    store.filenames ??= narc.filenames;
     store.fileCount = store.rawFiles.length;
   }
 
