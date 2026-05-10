@@ -4,6 +4,7 @@ import {
   ensureDocs,
   generateCalcDownload,
   generateDexDownloads,
+  generateTextDocsDownload,
   setDocRomTitle,
   type DownloadFile,
 } from "../pokeweb/docGeneratorModel";
@@ -43,6 +44,13 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
           ${missingText(project, dexRequirements())}
         </div>
         <div class="doc-section">
+          <h2>Text Docs</h2>
+          <button class="btn -default doc-action" id="generate-text-docs-btn" type="button" ${missing(project, textDocRequirements()).length ? "disabled" : ""}>
+            Generate Text Docs
+          </button>
+          ${missingText(project, textDocRequirements())}
+        </div>
+        <div class="doc-section">
           <h2>Location Data</h2>
           <div class="doc-action-row">
             <button class="btn -default doc-action" id="trainer-locations-btn" type="button" ${missing(project, trainerLocationRequirements()).length ? "disabled" : ""}>
@@ -66,6 +74,7 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
   const titleInput = root.querySelector<HTMLInputElement>("#rom-title-input");
   const calcButton = root.querySelector<HTMLButtonElement>("#generate-calc-btn");
   const dexButton = root.querySelector<HTMLButtonElement>("#generate-dex-btn");
+  const textDocsButton = root.querySelector<HTMLButtonElement>("#generate-text-docs-btn");
   const trainerLocationsButton = root.querySelector<HTMLButtonElement>("#trainer-locations-btn");
   const itemLocationsButton = root.querySelector<HTMLButtonElement>("#item-locations-btn");
   const status = root.querySelector<HTMLElement>("#doc-status");
@@ -97,6 +106,15 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
       const title = syncTitle() || project.session.romName;
       for (const file of generateDexDownloads(project, title)) downloadFile(file);
       return "Downloaded dex overrides and search index.";
+    });
+  });
+
+  textDocsButton?.addEventListener("click", () => {
+    runAction(status, "Generating text docs", () => {
+      const title = syncTitle() || project.session.romName;
+      downloadFile(generateTextDocsDownload(project, title));
+      options.onDirty?.();
+      return "Downloaded text docs zip.";
     });
   });
 
@@ -138,7 +156,8 @@ function runAction(status: HTMLElement | null, pending: string, action: () => st
 }
 
 function downloadFile(file: DownloadFile): void {
-  const blob = new Blob([file.contents], { type: file.mimeType });
+  const contents: BlobPart = file.contents instanceof Uint8Array ? new Uint8Array(file.contents).buffer as ArrayBuffer : file.contents;
+  const blob = new Blob([contents], { type: file.mimeType });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -164,6 +183,10 @@ function calcRequirements(): NarcName[] {
 
 function dexRequirements(): NarcName[] {
   return ["personal", "learnsets", "evolutions", "moves", "items", "encounters"];
+}
+
+function textDocRequirements(): NarcName[] {
+  return ["personal", "learnsets", "evolutions", "moves", "items", "trdata", "trpok"];
 }
 
 function trainerLocationRequirements(): NarcName[] {

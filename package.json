@@ -6,13 +6,26 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "moveanim:helper": "vite-node scripts/move-animation-helper.ts",
+    "moveanim:index": "vite-node scripts/move-animation-index.ts",
+    "pokemonanim:helper": "vite-node scripts/pokemon-animation-helper.ts"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.42.1",
     "@vitejs/plugin-basic-ssl": "^1.2.0",
+    "gifuct-js": "^2.1.2",
+    "pngjs": "^7.0.0",
+    "three": "^0.184.0",
     "vite": "^5.4.19"
   },
   "devDependencies": {
+    "@types/node": "^25.6.2",
+    "@types/pngjs": "^6.0.5",
+    "@types/three": "^0.184.1",
     "typescript": "^5.8.3",
     "vitest": "^2.1.9"
   }

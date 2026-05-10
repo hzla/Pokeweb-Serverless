@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
-import { generateCalcDownload, enrichItemLocations, enrichTrainerLocations, parseGroundItemScripts } from "../pokeweb/docGeneratorModel";
+import { generateCalcDownload, generateTextDocsDownload, enrichItemLocations, enrichTrainerLocations, parseGroundItemScripts } from "../pokeweb/docGeneratorModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT } from "../pokeweb/overworldModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
@@ -13,6 +13,19 @@ describe("docGeneratorModel", () => {
     expect(file.filename).toBe("voltwhiteplus-calc.js");
     expect(file.contents.startsWith("backup_data = ")).toBe(true);
     expect(file.contents).toContain('"title": "Volt White Plus"');
+  });
+
+  it("packages Pokemon, move, and trainer text docs in one zip", () => {
+    const project = makeProject();
+    const file = generateTextDocsDownload(project, "Volt White Plus");
+    const zipText = new TextDecoder().decode(file.contents);
+
+    expect(file.filename).toBe("voltwhiteplus_text_docs.zip");
+    expect(file.mimeType).toBe("application/zip");
+    expect(zipText).toContain("voltwhiteplus_pokedex.txt");
+    expect(zipText).toContain("voltwhiteplus_moves.txt");
+    expect(zipText).toContain("voltwhiteplus_trainers.txt");
+    expect(zipText).toContain("1 - Bulbasaur");
   });
 
   it("parses global item scripts for StoreInVar/WorkSetConst ground item ids", () => {
@@ -68,7 +81,7 @@ function makeProject(): ProjectState {
       overworlds: makeStore("overworlds", [makeOverworldBytes()], 1),
       scripts: makeStore("scripts", scripts, scripts.length),
       items: makeStore("items", Array.from({ length: 26 }, () => new Uint8Array()), 26),
-      personal: makeStore("personal", [packRows(formats.personal!, [{}]), packRows(formats.personal!, [{ item_1: 25 }])], 2),
+      personal: makeStore("personal", [packRows(formats.personal!, [{}]), packRows(formats.personal!, [{ base_hp: 45, item_1: 25 }])], 2),
       learnsets: makeStore("learnsets", [], 0),
       evolutions: makeStore("evolutions", [], 0),
       moves: makeStore("moves", [], 0),

@@ -1,0 +1,3300 @@
+{
+  "updatedOn": "2026-05-08",
+  "commands": [
+    {
+      "name": "MoveCamera",
+      "opcode": 0,
+      "hex": "0x00",
+      "category": "Camera",
+      "handlerMacro": "CAMERA_MOVE",
+      "description": "Move the battle camera to a preset camera position.",
+      "currentPokewebName": "MoveCamera",
+      "params": [
+        {
+          "index": 0,
+          "name": "type",
+          "currentArg": "p0",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 1,
+          "name": "move_pos",
+          "currentArg": "p1",
+          "description": "Preset camera target/move position."
+        },
+        {
+          "index": 2,
+          "name": "frame",
+          "currentArg": "p2",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 3,
+          "name": "wait",
+          "currentArg": "p3",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 4,
+          "name": "brake",
+          "currentArg": "p4",
+          "description": "Camera/movement braking/easing amount."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "AdjustCamera",
+      "opcode": 1,
+      "hex": "0x01",
+      "category": "Camera",
+      "handlerMacro": "CAMERA_MOVE_COODINATE",
+      "description": "Move the battle camera to explicit coordinates.",
+      "currentPokewebName": "AdjustCamera",
+      "params": [
+        {
+          "index": 0,
+          "name": "type",
+          "currentArg": "p0",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 1,
+          "name": "pos_x",
+          "currentArg": "p1",
+          "description": "X coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 2,
+          "name": "pos_y",
+          "currentArg": "p2",
+          "description": "Y coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 3,
+          "name": "pos_z",
+          "currentArg": "p3",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 4,
+          "name": "tar_x",
+          "currentArg": "p4",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 5,
+          "name": "tar_y",
+          "currentArg": "p5",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 6,
+          "name": "tar_z",
+          "currentArg": "p6",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 7,
+          "name": "frame",
+          "currentArg": "p7",
+          "description": "Frame count."
+        },
+        {
+          "index": 8,
+          "name": "wait",
+          "currentArg": "p8",
+          "description": "Frame count."
+        },
+        {
+          "index": 9,
+          "name": "brake",
+          "currentArg": "p9",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "CameraMoveAngle",
+      "opcode": 2,
+      "hex": "0x02",
+      "category": "Camera",
+      "handlerMacro": "CAMERA_MOVE_ANGLE",
+      "description": "Move the battle camera by polar/spherical angle.",
+      "currentPokewebName": "CMD_2",
+      "params": [
+        {
+          "index": 0,
+          "name": "type",
+          "currentArg": "p0",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 1,
+          "name": "angle_phi",
+          "currentArg": "p1",
+          "description": "Angle value."
+        },
+        {
+          "index": 2,
+          "name": "angle_theta",
+          "currentArg": "p2",
+          "description": "Angle value."
+        },
+        {
+          "index": 3,
+          "name": "frame",
+          "currentArg": "p3",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 4,
+          "name": "wait",
+          "currentArg": "p4",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 5,
+          "name": "brake",
+          "currentArg": "p5",
+          "description": "Camera/movement braking/easing amount."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_2); use CameraMoveAngle for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "ShakeScreen",
+      "opcode": 3,
+      "hex": "0x03",
+      "category": "Camera",
+      "handlerMacro": "CAMERA_SHAKE",
+      "description": "Shake the battle camera.",
+      "currentPokewebName": "ShakeScreen",
+      "params": [
+        {
+          "index": 0,
+          "name": "dir",
+          "currentArg": "p0",
+          "description": "Direction selector."
+        },
+        {
+          "index": 1,
+          "name": "value",
+          "currentArg": "p1",
+          "description": "Immediate value to compare or assign."
+        },
+        {
+          "index": 2,
+          "name": "offset",
+          "currentArg": "p2",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 3,
+          "name": "frame",
+          "currentArg": "p3",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 4,
+          "name": "wait",
+          "currentArg": "p4",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 5,
+          "name": "count",
+          "currentArg": "p5",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "CameraProjection",
+      "opcode": 4,
+      "hex": "0x04",
+      "category": "Camera",
+      "handlerMacro": "CAMERA_PROJECTION",
+      "description": "Change camera projection mode.",
+      "currentPokewebName": "CMD_4",
+      "params": [
+        {
+          "index": 0,
+          "name": "type",
+          "currentArg": "p0",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 1,
+          "name": "pos",
+          "currentArg": "p1",
+          "description": "Target battle position/object selector."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_4); use CameraProjection for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "CameraPosPush",
+      "opcode": 5,
+      "hex": "0x05",
+      "category": "Camera",
+      "handlerMacro": "CAMERA_POS_PUSH",
+      "description": "Push/save the current camera position.",
+      "currentPokewebName": "CMD_5",
+      "params": [],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_5); use CameraPosPush for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "LoadSPA",
+      "opcode": 6,
+      "hex": "0x06",
+      "category": "Particles",
+      "handlerMacro": "PARTICLE_LOAD",
+      "description": "Load a SPA particle archive.",
+      "currentPokewebName": "LoadSPA",
+      "params": [
+        {
+          "index": 0,
+          "name": "datID",
+          "currentArg": "p0",
+          "description": "Archive/data ID. For particle commands this is the SPA datID; BW2 remaps only special ball/capture particle archives at runtime."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "DoSPAAnimation",
+      "opcode": 7,
+      "hex": "0x07",
+      "category": "Particles",
+      "handlerMacro": "PARTICLE_PLAY",
+      "description": "Create one particle emitter from a loaded SPA archive.",
+      "currentPokewebName": "DoSPAAnimation",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "index",
+          "currentArg": "p1",
+          "description": "Resource index inside the loaded SPA archive."
+        },
+        {
+          "index": 2,
+          "name": "start_pos",
+          "currentArg": "p2",
+          "description": "Emitter/start battle position selector."
+        },
+        {
+          "index": 3,
+          "name": "dir_pos",
+          "currentArg": "p3",
+          "description": "Destination/direction battle position selector. If SIDE_NONE (8), start is reused."
+        },
+        {
+          "index": 4,
+          "name": "ofs_y",
+          "currentArg": "p4",
+          "description": "Y offset applied to the command logic and destination positions."
+        },
+        {
+          "index": 5,
+          "name": "dir_angle",
+          "currentArg": "p5",
+          "description": "Extra Y-axis direction angle value; the adjacent dummy field is unused."
+        },
+        {
+          "index": 6,
+          "name": "dummy",
+          "currentArg": "p6",
+          "description": "Unused padding/dummy value read and ignored by the VM."
+        },
+        {
+          "index": 7,
+          "name": "radius",
+          "currentArg": "p7",
+          "description": "Emitter radius multiplier, normally FX32."
+        },
+        {
+          "index": 8,
+          "name": "life",
+          "currentArg": "p8",
+          "description": "Emitter particle-life multiplier, normally FX32."
+        },
+        {
+          "index": 9,
+          "name": "scale",
+          "currentArg": "p9",
+          "description": "Scale multiplier, normally FX32."
+        },
+        {
+          "index": 10,
+          "name": "speed",
+          "currentArg": "p10",
+          "description": "Emitter velocity/speed multiplier, normally FX32."
+        }
+      ],
+      "notes": [
+        "Start and destination are read separately; destination SIDE_NONE (8) is replaced with start. When start and destination differ, the VM rotates the emitter axis toward the destination and updates magnet/convergence targets.",
+        "Radius/life/scale/speed are FX32-style multipliers; 4096 is 1.0."
+      ]
+    },
+    {
+      "name": "DoSPAScreenAnimation",
+      "opcode": 8,
+      "hex": "0x08",
+      "category": "Particles",
+      "handlerMacro": "PARTICLE_PLAY_COORDINATE",
+      "description": "Create one particle emitter using explicit start/direction coordinates.",
+      "currentPokewebName": "DoSPAScreenAnimation",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "index",
+          "currentArg": "p1",
+          "description": "Resource index inside the loaded SPA archive."
+        },
+        {
+          "index": 2,
+          "name": "start_pos_x",
+          "currentArg": "p2",
+          "description": "X coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 3,
+          "name": "start_pos_y",
+          "currentArg": "p3",
+          "description": "Y coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 4,
+          "name": "start_pos_z",
+          "currentArg": "p4",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 5,
+          "name": "dir_pos_x",
+          "currentArg": "p5",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 6,
+          "name": "dir_pos_y",
+          "currentArg": "p6",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 7,
+          "name": "dir_pos_z",
+          "currentArg": "p7",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 8,
+          "name": "ofs_y",
+          "currentArg": "p8",
+          "description": "Y offset applied before emission/rendering."
+        },
+        {
+          "index": 9,
+          "name": "dir_angle",
+          "currentArg": "p9",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 10,
+          "name": "dummy",
+          "currentArg": "p10",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 11,
+          "name": "radius",
+          "currentArg": "p11",
+          "description": "Radius value or multiplier, normally FX32."
+        },
+        {
+          "index": 12,
+          "name": "life",
+          "currentArg": "p12",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 13,
+          "name": "scale",
+          "currentArg": "p13",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 14,
+          "name": "speed",
+          "currentArg": "p14",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "DoSPAAnimation2",
+      "opcode": 9,
+      "hex": "0x09",
+      "category": "Particles",
+      "handlerMacro": "PARTICLE_PLAY_ORTHO",
+      "description": "Create one particle emitter using orthographic projection.",
+      "currentPokewebName": "DoSPAAnimation2",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "index",
+          "currentArg": "p1",
+          "description": "Resource index inside the loaded SPA archive."
+        },
+        {
+          "index": 2,
+          "name": "start_pos",
+          "currentArg": "p2",
+          "description": "Emitter/start battle position selector."
+        },
+        {
+          "index": 3,
+          "name": "dir",
+          "currentArg": "p3",
+          "description": "Direction selector."
+        },
+        {
+          "index": 4,
+          "name": "ofs_x",
+          "currentArg": "p4",
+          "description": "X offset applied before emission/rendering."
+        },
+        {
+          "index": 5,
+          "name": "ofs_y",
+          "currentArg": "p5",
+          "description": "Y offset applied to the command logic and destination positions."
+        },
+        {
+          "index": 6,
+          "name": "ofs_z",
+          "currentArg": "p6",
+          "description": "Z offset applied before emission/rendering."
+        },
+        {
+          "index": 7,
+          "name": "radius",
+          "currentArg": "p7",
+          "description": "Radius value or multiplier, normally FX32."
+        },
+        {
+          "index": 8,
+          "name": "life",
+          "currentArg": "p8",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 9,
+          "name": "scale",
+          "currentArg": "p9",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 10,
+          "name": "speed",
+          "currentArg": "p10",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "DoSPAAllAnimations",
+      "opcode": 10,
+      "hex": "0x0a",
+      "category": "Particles",
+      "handlerMacro": "PARTICLE_PLAY_ALL",
+      "description": "Create emitters for every resource in a loaded SPA archive.",
+      "currentPokewebName": "CMD_a",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "start_pos",
+          "currentArg": "p1",
+          "description": "Emitter/start battle position selector."
+        },
+        {
+          "index": 2,
+          "name": "dir_pos",
+          "currentArg": "p2",
+          "description": "Destination/direction battle position selector. If SIDE_NONE (8), start is reused."
+        },
+        {
+          "index": 3,
+          "name": "ofs_y",
+          "currentArg": "p3",
+          "description": "Y offset applied to the command logic and destination positions."
+        },
+        {
+          "index": 4,
+          "name": "dir_angle",
+          "currentArg": "p4",
+          "description": "Extra Y-axis direction angle value; the adjacent dummy field is unused."
+        },
+        {
+          "index": 5,
+          "name": "proj",
+          "currentArg": "p5",
+          "description": "Projection flag: 0 = perspective, 1 = orthographic."
+        },
+        {
+          "index": 6,
+          "name": "radius",
+          "currentArg": "p6",
+          "description": "Emitter radius multiplier, normally FX32."
+        },
+        {
+          "index": 7,
+          "name": "life",
+          "currentArg": "p7",
+          "description": "Emitter particle-life multiplier, normally FX32."
+        },
+        {
+          "index": 8,
+          "name": "scale",
+          "currentArg": "p8",
+          "description": "Scale multiplier, normally FX32."
+        },
+        {
+          "index": 9,
+          "name": "speed",
+          "currentArg": "p9",
+          "description": "Emitter velocity/speed multiplier, normally FX32."
+        }
+      ],
+      "notes": [
+        "Start and destination are read separately; destination SIDE_NONE (8) is replaced with start. When start and destination differ, the VM rotates the emitter axis toward the destination and updates magnet/convergence targets.",
+        "Radius/life/scale/speed are FX32-style multipliers; 4096 is 1.0.",
+        "Unlike PARTICLE_PLAY, there is no resource-index argument; the command applies to every resource in the loaded SPA.",
+        "Current Pokeweb macro name is generic (CMD_a); use DoSPAAllAnimations for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "DeleteSPA",
+      "opcode": 11,
+      "hex": "0x0b",
+      "category": "Particles",
+      "handlerMacro": "PARTICLE_DELETE",
+      "description": "Delete/unload a loaded particle archive.",
+      "currentPokewebName": "CMD_b",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_b); use DeleteSPA for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "DoSPAProjectileAnimation",
+      "opcode": 12,
+      "hex": "0x0c",
+      "category": "Particles",
+      "handlerMacro": "EMITTER_MOVE",
+      "description": "Create an emitter and move it from a start position to a destination position.",
+      "currentPokewebName": "DoSPAProjectileAnimation",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "index",
+          "currentArg": "p1",
+          "description": "Resource index inside the loaded SPA archive."
+        },
+        {
+          "index": 2,
+          "name": "move_type",
+          "currentArg": "p2",
+          "description": "Emitter movement type; see emitter movement constants below."
+        },
+        {
+          "index": 3,
+          "name": "start_pos",
+          "currentArg": "p3",
+          "description": "Emitter/start battle position selector."
+        },
+        {
+          "index": 4,
+          "name": "end_pos",
+          "currentArg": "p4",
+          "description": "Destination battle position selector."
+        },
+        {
+          "index": 5,
+          "name": "ofs_y",
+          "currentArg": "p5",
+          "description": "Y offset applied to the command logic and destination positions."
+        },
+        {
+          "index": 6,
+          "name": "move_frame",
+          "currentArg": "p6",
+          "description": "Emitter movement duration in frames."
+        },
+        {
+          "index": 7,
+          "name": "top",
+          "currentArg": "p7",
+          "description": "Arc height/top value used by curved emitter movement."
+        },
+        {
+          "index": 8,
+          "name": "life",
+          "currentArg": "p8",
+          "description": "Emitter particle-life multiplier, normally FX32."
+        },
+        {
+          "index": 9,
+          "name": "speed",
+          "currentArg": "p9",
+          "description": "Emitter velocity/speed multiplier, normally FX32."
+        },
+        {
+          "index": 10,
+          "name": "wave",
+          "currentArg": "p10",
+          "description": "Wave count/frequency for wave emitter movement. Zero is corrected to 1 by the command logic."
+        }
+      ],
+      "notes": [
+        "The command expects start and destination to be different. move_type creates an emitter movement callback; wave value 0 is corrected to 1.",
+        "For OFFSET movement, the handler swaps start/destination and then offsets destination by start.",
+        "Important correction for the preview tool: p2 is move_type, p3 is start_pos, and p4 is end_pos. Treating p2 as a position is what makes many projectile effects originate from the wrong side."
+      ]
+    },
+    {
+      "name": "DoSPAProjectileAnimation2",
+      "opcode": 13,
+      "hex": "0x0d",
+      "category": "Particles",
+      "handlerMacro": "EMITTER_MOVE_COORDINATE",
+      "description": "Create a moving emitter from explicit coordinates to a destination position.",
+      "currentPokewebName": "DoSPAProjectileAnimation2",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "index",
+          "currentArg": "p1",
+          "description": "Resource index inside the loaded SPA archive."
+        },
+        {
+          "index": 2,
+          "name": "move_type",
+          "currentArg": "p2",
+          "description": "Emitter movement type; see emitter movement constants below."
+        },
+        {
+          "index": 3,
+          "name": "start_pos_x",
+          "currentArg": "p3",
+          "description": "X coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 4,
+          "name": "start_pos_y",
+          "currentArg": "p4",
+          "description": "Y coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 5,
+          "name": "start_pos_z",
+          "currentArg": "p5",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 6,
+          "name": "end_pos",
+          "currentArg": "p6",
+          "description": "Battle position/object selector."
+        },
+        {
+          "index": 7,
+          "name": "ofs_y",
+          "currentArg": "p7",
+          "description": "Y offset applied before emission/rendering."
+        },
+        {
+          "index": 8,
+          "name": "move_frame",
+          "currentArg": "p8",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 9,
+          "name": "top",
+          "currentArg": "p9",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 10,
+          "name": "life",
+          "currentArg": "p10",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 11,
+          "name": "speed",
+          "currentArg": "p11",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 12,
+          "name": "wave",
+          "currentArg": "p12",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        }
+      ],
+      "notes": [
+        "Uses explicit XYZ start coordinates, then a battle-position selector for the destination."
+      ]
+    },
+    {
+      "name": "DoSPAProjectileAnimation3",
+      "opcode": 14,
+      "hex": "0x0e",
+      "category": "Particles",
+      "handlerMacro": "EMITTER_MOVE_ORTHO",
+      "description": "Create a moving emitter using orthographic projection.",
+      "currentPokewebName": "DoSPAProjectileAnimation3",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "index",
+          "currentArg": "p1",
+          "description": "Resource index inside the loaded SPA archive."
+        },
+        {
+          "index": 2,
+          "name": "move_type",
+          "currentArg": "p2",
+          "description": "Emitter movement type; see emitter movement constants below."
+        },
+        {
+          "index": 3,
+          "name": "start_pos",
+          "currentArg": "p3",
+          "description": "Emitter/start battle position selector."
+        },
+        {
+          "index": 4,
+          "name": "end_pos",
+          "currentArg": "p4",
+          "description": "Destination battle position selector."
+        },
+        {
+          "index": 5,
+          "name": "ofs_y",
+          "currentArg": "p5",
+          "description": "Y offset applied to the command logic and destination positions."
+        },
+        {
+          "index": 6,
+          "name": "move_frame",
+          "currentArg": "p6",
+          "description": "Emitter movement duration in frames."
+        },
+        {
+          "index": 7,
+          "name": "top",
+          "currentArg": "p7",
+          "description": "Arc height/top value used by curved emitter movement."
+        },
+        {
+          "index": 8,
+          "name": "life",
+          "currentArg": "p8",
+          "description": "Emitter particle-life multiplier, normally FX32."
+        },
+        {
+          "index": 9,
+          "name": "speed",
+          "currentArg": "p9",
+          "description": "Emitter velocity/speed multiplier, normally FX32."
+        },
+        {
+          "index": 10,
+          "name": "wave",
+          "currentArg": "p10",
+          "description": "Wave count/frequency for wave emitter movement. Zero is corrected to 1 by the command logic."
+        }
+      ],
+      "notes": [
+        "Creates/uses a personal orthographic particle camera when needed. ATTACKOFS has special offset handling.",
+        "The command expects start and destination to be different. move_type creates an emitter movement callback; wave value 0 is corrected to 1.",
+        "For OFFSET movement, the handler swaps start/destination and then offsets destination by start.",
+        "Same projectile layout as EMITTER_MOVE, but rendered through the orthographic particle path."
+      ]
+    },
+    {
+      "name": "DoSPAProjectileAnimationOrthoCoordinate",
+      "opcode": 15,
+      "hex": "0x0f",
+      "category": "Particles",
+      "handlerMacro": "EMITTER_MOVE_ORTHO_COORDINATE",
+      "description": "Create a moving orthographic emitter from explicit coordinates.",
+      "currentPokewebName": "CMD_f",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "index",
+          "currentArg": "p1",
+          "description": "Resource index inside the loaded SPA archive."
+        },
+        {
+          "index": 2,
+          "name": "move_type",
+          "currentArg": "p2",
+          "description": "Emitter movement type; see emitter movement constants below."
+        },
+        {
+          "index": 3,
+          "name": "start_pos_x",
+          "currentArg": "p3",
+          "description": "X coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 4,
+          "name": "start_pos_y",
+          "currentArg": "p4",
+          "description": "Y coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 5,
+          "name": "start_pos_z",
+          "currentArg": "p5",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 6,
+          "name": "end_pos",
+          "currentArg": "p6",
+          "description": "Battle position/object selector."
+        },
+        {
+          "index": 7,
+          "name": "ofs_y",
+          "currentArg": "p7",
+          "description": "Y offset applied before emission/rendering."
+        },
+        {
+          "index": 8,
+          "name": "move_frame",
+          "currentArg": "p8",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 9,
+          "name": "top",
+          "currentArg": "p9",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 10,
+          "name": "life",
+          "currentArg": "p10",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 11,
+          "name": "speed",
+          "currentArg": "p11",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 12,
+          "name": "scale",
+          "currentArg": "p12",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        }
+      ],
+      "notes": [
+        "Unlike EMITTER_MOVE, the last parameter is scale, not wave. Do not apply wave-count correction to this command.",
+        "Current Pokeweb macro name is generic (CMD_f); use DoSPAProjectileAnimationOrthoCoordinate for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "DoSPACircleAnimation",
+      "opcode": 16,
+      "hex": "0x10",
+      "category": "Particles",
+      "handlerMacro": "EMITTER_CIRCLE_MOVE",
+      "description": "Create an emitter that orbits around a start/target/center anchor.",
+      "currentPokewebName": "DoSPACircleAnimation",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "index",
+          "currentArg": "p1",
+          "description": "Resource index inside the loaded SPA archive."
+        },
+        {
+          "index": 2,
+          "name": "center_pos",
+          "currentArg": "p2",
+          "description": "Circle center selector: attacker left/right, defender left/right, or screen center left/right."
+        },
+        {
+          "index": 3,
+          "name": "radius_h",
+          "currentArg": "p3",
+          "description": "Horizontal radius, normally FX32."
+        },
+        {
+          "index": 4,
+          "name": "radius_v",
+          "currentArg": "p4",
+          "description": "Vertical radius, normally FX32."
+        },
+        {
+          "index": 5,
+          "name": "offset_y",
+          "currentArg": "p5",
+          "description": "Y offset applied before emission/rendering."
+        },
+        {
+          "index": 6,
+          "name": "frame",
+          "currentArg": "p6",
+          "description": "Frame count."
+        },
+        {
+          "index": 7,
+          "name": "wait",
+          "currentArg": "p7",
+          "description": "Frame count."
+        },
+        {
+          "index": 8,
+          "name": "count",
+          "currentArg": "p8",
+          "description": "Repeat count / number of cycles."
+        },
+        {
+          "index": 9,
+          "name": "rotate_after_wait",
+          "currentArg": "p9",
+          "description": "Frame count."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "DoSPAOrthoCircleAnimation",
+      "opcode": 17,
+      "hex": "0x11",
+      "category": "Particles",
+      "handlerMacro": "EMITTER_CIRCLE_MOVE_ORTHO",
+      "description": "Create an orbiting emitter using orthographic projection.",
+      "currentPokewebName": "CMD_11",
+      "params": [
+        {
+          "index": 0,
+          "name": "num",
+          "currentArg": "p0",
+          "description": "Loaded particle archive slot / particle datID used by the VM."
+        },
+        {
+          "index": 1,
+          "name": "index",
+          "currentArg": "p1",
+          "description": "Resource index inside the loaded SPA archive."
+        },
+        {
+          "index": 2,
+          "name": "center_pos",
+          "currentArg": "p2",
+          "description": "Circle center selector: attacker left/right, defender left/right, or screen center left/right."
+        },
+        {
+          "index": 3,
+          "name": "radius_h",
+          "currentArg": "p3",
+          "description": "Horizontal radius, normally FX32."
+        },
+        {
+          "index": 4,
+          "name": "radius_v",
+          "currentArg": "p4",
+          "description": "Vertical radius, normally FX32."
+        },
+        {
+          "index": 5,
+          "name": "offset_y",
+          "currentArg": "p5",
+          "description": "Y offset applied before emission/rendering."
+        },
+        {
+          "index": 6,
+          "name": "frame",
+          "currentArg": "p6",
+          "description": "Frame count."
+        },
+        {
+          "index": 7,
+          "name": "wait",
+          "currentArg": "(not exposed in current macro)",
+          "description": "Frame count."
+        },
+        {
+          "index": 8,
+          "name": "count",
+          "currentArg": "(not exposed in current macro)",
+          "description": "Repeat count / number of cycles."
+        },
+        {
+          "index": 9,
+          "name": "rotate_after_wait",
+          "currentArg": "(not exposed in current macro)",
+          "description": "Frame count."
+        }
+      ],
+      "notes": [
+        "The current Pokeweb macro exposes fewer parameters than the full command form. Scripts using all command parameters need p7, p8, and p9 preserved.",
+        "Current Pokeweb macro exposes 7 argument(s), but the command supports 10.",
+        "Current Pokeweb macro name is generic (CMD_11); use DoSPAOrthoCircleAnimation for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "PokemonMove",
+      "opcode": 18,
+      "hex": "0x12",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_MOVE",
+      "description": "Move a Pokemon sprite/model.",
+      "currentPokewebName": "ShakeSprite",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "move_pos_x",
+          "currentArg": "p2",
+          "description": "Target X delta/coordinate for movement."
+        },
+        {
+          "index": 3,
+          "name": "move_pos_y",
+          "currentArg": "p3",
+          "description": "Target Y delta/coordinate for movement."
+        },
+        {
+          "index": 4,
+          "name": "frame",
+          "currentArg": "p4",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 5,
+          "name": "wait",
+          "currentArg": "p5",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 6,
+          "name": "count",
+          "currentArg": "p6",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "PokemonCircleMove",
+      "opcode": 19,
+      "hex": "0x13",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_CIRCLE_MOVE",
+      "description": "Move a Pokemon in a circular/orbiting path.",
+      "currentPokewebName": "MoveSprite",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "axis",
+          "currentArg": "p1",
+          "description": "Axis selector."
+        },
+        {
+          "index": 2,
+          "name": "shift",
+          "currentArg": "p2",
+          "description": "Phase/position shift for circular movement."
+        },
+        {
+          "index": 3,
+          "name": "radius_h",
+          "currentArg": "p3",
+          "description": "Horizontal radius, normally FX32."
+        },
+        {
+          "index": 4,
+          "name": "radius_v",
+          "currentArg": "p4",
+          "description": "Vertical radius, normally FX32."
+        },
+        {
+          "index": 5,
+          "name": "frame",
+          "currentArg": "p5",
+          "description": "Frame count."
+        },
+        {
+          "index": 6,
+          "name": "rotate_wait",
+          "currentArg": "p6",
+          "description": "Frame count."
+        },
+        {
+          "index": 7,
+          "name": "count",
+          "currentArg": "p7",
+          "description": "Repeat count / number of cycles."
+        },
+        {
+          "index": 8,
+          "name": "rotate_after_wait",
+          "currentArg": "p8",
+          "description": "Frame count."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "PokemonSineMove",
+      "opcode": 20,
+      "hex": "0x14",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_SIN_MOVE",
+      "description": "Move a Pokemon along a sine-wave path.",
+      "currentPokewebName": "CMD_14",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "dir",
+          "currentArg": "p1",
+          "description": "Direction selector."
+        },
+        {
+          "index": 2,
+          "name": "start_angle",
+          "currentArg": "p2",
+          "description": "Starting sine angle."
+        },
+        {
+          "index": 3,
+          "name": "end_angle",
+          "currentArg": "p3",
+          "description": "Ending sine angle."
+        },
+        {
+          "index": 4,
+          "name": "radius",
+          "currentArg": "p4",
+          "description": "Emitter radius multiplier, normally FX32."
+        },
+        {
+          "index": 5,
+          "name": "frame",
+          "currentArg": "p5",
+          "description": "Duration in frames."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_14); use PokemonSineMove for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "PokemonScale",
+      "opcode": 21,
+      "hex": "0x15",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_SCALE",
+      "description": "Scale a Pokemon sprite/model.",
+      "currentPokewebName": "DistortSprite",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "scale_x",
+          "currentArg": "p2",
+          "description": "X scale target/multiplier."
+        },
+        {
+          "index": 3,
+          "name": "scale_y",
+          "currentArg": "p3",
+          "description": "Y scale target/multiplier."
+        },
+        {
+          "index": 4,
+          "name": "frame",
+          "currentArg": "p4",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 5,
+          "name": "wait",
+          "currentArg": "p5",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 6,
+          "name": "count",
+          "currentArg": "p6",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "PokemonRotate",
+      "opcode": 22,
+      "hex": "0x16",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_ROTATE",
+      "description": "Rotate a Pokemon sprite/model.",
+      "currentPokewebName": "TiltSprite",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "rotate",
+          "currentArg": "p2",
+          "description": "Rotation amount/target."
+        },
+        {
+          "index": 3,
+          "name": "frame",
+          "currentArg": "p3",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 4,
+          "name": "wait",
+          "currentArg": "p4",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 5,
+          "name": "count",
+          "currentArg": "p5",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "SpriteOpacity",
+      "opcode": 23,
+      "hex": "0x17",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_ALPHA",
+      "description": "Change Pokemon alpha/opacity.",
+      "currentPokewebName": "SpriteOpacity",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "alpha",
+          "currentArg": "p2",
+          "description": "Alpha/opacity target."
+        },
+        {
+          "index": 3,
+          "name": "frame",
+          "currentArg": "p3",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 4,
+          "name": "wait",
+          "currentArg": "p4",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 5,
+          "name": "count",
+          "currentArg": "p5",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "PokemonMosaic",
+      "opcode": 24,
+      "hex": "0x18",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_MOSAIC",
+      "description": "Apply Pokemon mosaic/pixelation.",
+      "currentPokewebName": "CMD_18",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "mosaic",
+          "currentArg": "p2",
+          "description": "Mosaic/pixelation amount."
+        },
+        {
+          "index": 3,
+          "name": "frame",
+          "currentArg": "p3",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 4,
+          "name": "wait",
+          "currentArg": "p4",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 5,
+          "name": "count",
+          "currentArg": "p5",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_18); use PokemonMosaic for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "PokemonBlinkFlag",
+      "opcode": 25,
+      "hex": "0x19",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_SET_MEPACHI_FLAG",
+      "description": "Control Pokemon blinking/eye animation.",
+      "currentPokewebName": "CMD_19",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "wait",
+          "currentArg": "p2",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 3,
+          "name": "count",
+          "currentArg": "p3",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_19); use PokemonBlinkFlag for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "PokemonAnimationFlag",
+      "opcode": 26,
+      "hex": "0x1a",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_SET_ANM_FLAG",
+      "description": "Control Pokemon animation playback flag.",
+      "currentPokewebName": "FreezeSprite",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "flag",
+          "currentArg": "p1",
+          "description": "Boolean/state flag."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "PokemonPaletteFade",
+      "opcode": 27,
+      "hex": "0x1b",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_PAL_FADE",
+      "description": "Fade/tint Pokemon palette color.",
+      "currentPokewebName": "ChangeColor",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target/background/object selector affected by the palette fade."
+        },
+        {
+          "index": 1,
+          "name": "start_evy",
+          "currentArg": "p1",
+          "description": "Starting fade/tint coefficient."
+        },
+        {
+          "index": 2,
+          "name": "end_evy",
+          "currentArg": "p2",
+          "description": "Ending fade/tint coefficient."
+        },
+        {
+          "index": 3,
+          "name": "wait",
+          "currentArg": "p3",
+          "description": "Duration/wait in frames."
+        },
+        {
+          "index": 4,
+          "name": "r",
+          "currentArg": "p4",
+          "description": "Red component, 0-31."
+        },
+        {
+          "index": 5,
+          "name": "g",
+          "currentArg": "p5",
+          "description": "Green component, 0-31."
+        },
+        {
+          "index": 6,
+          "name": "b",
+          "currentArg": "p6",
+          "description": "Blue component, 0-31."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "PokemonVanish",
+      "opcode": 28,
+      "hex": "0x1c",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_VANISH",
+      "description": "Show or hide a Pokemon.",
+      "currentPokewebName": "ChangeVisibility",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "flag",
+          "currentArg": "p1",
+          "description": "Boolean/state flag."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "PokemonShadowVanish",
+      "opcode": 29,
+      "hex": "0x1d",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_SHADOW_VANISH",
+      "description": "Show or hide a Pokemon shadow.",
+      "currentPokewebName": "CMD_1d",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "flag",
+          "currentArg": "p1",
+          "description": "Boolean/state flag."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_1d); use PokemonShadowVanish for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "PokemonShadowScale",
+      "opcode": 30,
+      "hex": "0x1e",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_SHADOW_SCALE",
+      "description": "Scale a Pokemon shadow.",
+      "currentPokewebName": "CMD_1e",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "scale_x",
+          "currentArg": "p2",
+          "description": "X scale target/multiplier."
+        },
+        {
+          "index": 3,
+          "name": "scale_y",
+          "currentArg": "p3",
+          "description": "Y scale target/multiplier."
+        },
+        {
+          "index": 4,
+          "name": "frame",
+          "currentArg": "p4",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 5,
+          "name": "wait",
+          "currentArg": "p5",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 6,
+          "name": "count",
+          "currentArg": "p6",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_1e); use PokemonShadowScale for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "DeletePokemon",
+      "opcode": 31,
+      "hex": "0x1f",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_DEL",
+      "description": "Remove/delete a Pokemon object from the scene.",
+      "currentPokewebName": "CMD_1f",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_1f); use DeletePokemon for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "SetTrainer",
+      "opcode": 32,
+      "hex": "0x20",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "TRAINER_SET",
+      "description": "Create/show a trainer object.",
+      "currentPokewebName": "CMD_20",
+      "params": [
+        {
+          "index": 0,
+          "name": "index",
+          "currentArg": "p0",
+          "description": "Object slot/index to create or modify."
+        },
+        {
+          "index": 1,
+          "name": "position",
+          "currentArg": "p1",
+          "description": "Trainer/object position selector."
+        },
+        {
+          "index": 2,
+          "name": "pos_x",
+          "currentArg": "p2",
+          "description": "X coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 3,
+          "name": "pos_y",
+          "currentArg": "p3",
+          "description": "Y coordinate, fixed-point where used by scripts."
+        },
+        {
+          "index": 4,
+          "name": "pos_z",
+          "currentArg": "p4",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_20); use SetTrainer for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "MoveTrainer",
+      "opcode": 33,
+      "hex": "0x21",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "TRAINER_MOVE",
+      "description": "Move a trainer object.",
+      "currentPokewebName": "CMD_21",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "move_pos_x",
+          "currentArg": "p2",
+          "description": "Target X delta/coordinate for movement."
+        },
+        {
+          "index": 3,
+          "name": "move_pos_y",
+          "currentArg": "p3",
+          "description": "Target Y delta/coordinate for movement."
+        },
+        {
+          "index": 4,
+          "name": "move_pos_z",
+          "currentArg": "p4",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 5,
+          "name": "frame",
+          "currentArg": "p5",
+          "description": "Frame count."
+        },
+        {
+          "index": 6,
+          "name": "wait",
+          "currentArg": "p6",
+          "description": "Frame count."
+        },
+        {
+          "index": 7,
+          "name": "count",
+          "currentArg": "p7",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_21); use MoveTrainer for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "SetTrainerAnimation",
+      "opcode": 34,
+      "hex": "0x22",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "TRAINER_ANIME_SET",
+      "description": "Set trainer animation.",
+      "currentPokewebName": "CMD_22",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "anm_no",
+          "currentArg": "p1",
+          "description": "Animation number/index."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_22); use SetTrainerAnimation for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "DeleteTrainer",
+      "opcode": 35,
+      "hex": "0x23",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "TRAINER_DEL",
+      "description": "Remove/delete a trainer object.",
+      "currentPokewebName": "CMD_23",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_23); use DeleteTrainer for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "LoadBackground",
+      "opcode": 36,
+      "hex": "0x24",
+      "category": "Scene/Objects",
+      "handlerMacro": "BG_LOAD",
+      "description": "Load a battle background resource.",
+      "currentPokewebName": "LoadBackground",
+      "params": [
+        {
+          "index": 0,
+          "name": "datID",
+          "currentArg": "p0",
+          "description": "Archive/data ID. For particle commands this is the SPA datID; BW2 remaps only special ball/capture particle archives at runtime."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "MoveBackground",
+      "opcode": 37,
+      "hex": "0x25",
+      "category": "Scene/Objects",
+      "handlerMacro": "BG_SCROLL",
+      "description": "Scroll/move a background layer.",
+      "currentPokewebName": "MoveBackground",
+      "params": [
+        {
+          "index": 0,
+          "name": "type",
+          "currentArg": "p0",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 1,
+          "name": "move_pos_x",
+          "currentArg": "p1",
+          "description": "Target X delta/coordinate for movement."
+        },
+        {
+          "index": 2,
+          "name": "move_pos_y",
+          "currentArg": "p2",
+          "description": "Target Y delta/coordinate for movement."
+        },
+        {
+          "index": 3,
+          "name": "frame",
+          "currentArg": "p3",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 4,
+          "name": "wait",
+          "currentArg": "p4",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 5,
+          "name": "count",
+          "currentArg": "p5",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "BackgroundRasterScroll",
+      "opcode": 38,
+      "hex": "0x26",
+      "category": "Scene/Objects",
+      "handlerMacro": "BG_RASTER_SCROLL",
+      "description": "Apply raster-line background scrolling/distortion.",
+      "currentPokewebName": "DistortBackground",
+      "params": [
+        {
+          "index": 0,
+          "name": "type",
+          "currentArg": "p0",
+          "description": "Raster scroll direction/type."
+        },
+        {
+          "index": 1,
+          "name": "radius",
+          "currentArg": "p1",
+          "description": "Sine curve radius/amplitude."
+        },
+        {
+          "index": 2,
+          "name": "line",
+          "currentArg": "p2",
+          "description": "Line interval/line count for the sine curve."
+        },
+        {
+          "index": 3,
+          "name": "wait",
+          "currentArg": "p3",
+          "description": "Duration/wait in frames."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "BackgroundPaletteAnimation",
+      "opcode": 39,
+      "hex": "0x27",
+      "category": "Scene/Objects",
+      "handlerMacro": "BG_PAL_ANM",
+      "description": "Play a background palette animation.",
+      "currentPokewebName": "BackgroundPaletteAnimation",
+      "params": [
+        {
+          "index": 0,
+          "name": "datID",
+          "currentArg": "p0",
+          "description": "Palette animation archive/data ID."
+        },
+        {
+          "index": 1,
+          "name": "trans_pal",
+          "currentArg": "p1",
+          "description": "Destination palette slot."
+        },
+        {
+          "index": 2,
+          "name": "col_count",
+          "currentArg": "p2",
+          "description": "Number of colors to transfer."
+        },
+        {
+          "index": 3,
+          "name": "offset",
+          "currentArg": "p3",
+          "description": "Palette update offset."
+        },
+        {
+          "index": 4,
+          "name": "wait",
+          "currentArg": "p4",
+          "description": "Duration/wait in frames."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "BackgroundPriority",
+      "opcode": 40,
+      "hex": "0x28",
+      "category": "Scene/Objects",
+      "handlerMacro": "BG_PRIORITY",
+      "description": "Set background draw priority.",
+      "currentPokewebName": "BackgroundPriority",
+      "params": [
+        {
+          "index": 0,
+          "name": "pri",
+          "currentArg": "p0",
+          "description": "Draw priority value."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "BackgroundAlpha",
+      "opcode": 41,
+      "hex": "0x29",
+      "category": "Scene/Objects",
+      "handlerMacro": "BG_ALPHA",
+      "description": "Change background alpha/blending.",
+      "currentPokewebName": "BackgroundAlpha",
+      "params": [
+        {
+          "index": 0,
+          "name": "bg_num",
+          "currentArg": "p0",
+          "description": "Background layer number."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "alpha",
+          "currentArg": "p2",
+          "description": "Alpha/opacity target."
+        },
+        {
+          "index": 3,
+          "name": "frame",
+          "currentArg": "p3",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 4,
+          "name": "wait",
+          "currentArg": "p4",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 5,
+          "name": "count",
+          "currentArg": "p5",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "BackgroundPaletteFade",
+      "opcode": 42,
+      "hex": "0x2a",
+      "category": "Scene/Objects",
+      "handlerMacro": "BG_PAL_FADE",
+      "description": "Fade/tint a background palette.",
+      "currentPokewebName": "ChangeBackgroundColor",
+      "params": [
+        {
+          "index": 0,
+          "name": "bg_num",
+          "currentArg": "p0",
+          "description": "Target/background/object selector affected by the palette fade."
+        },
+        {
+          "index": 1,
+          "name": "start_evy",
+          "currentArg": "p1",
+          "description": "Starting fade/tint coefficient."
+        },
+        {
+          "index": 2,
+          "name": "end_evy",
+          "currentArg": "p2",
+          "description": "Ending fade/tint coefficient."
+        },
+        {
+          "index": 3,
+          "name": "wait",
+          "currentArg": "p3",
+          "description": "Duration/wait in frames."
+        },
+        {
+          "index": 4,
+          "name": "r",
+          "currentArg": "p4",
+          "description": "Red component, 0-31."
+        },
+        {
+          "index": 5,
+          "name": "g",
+          "currentArg": "p5",
+          "description": "Green component, 0-31."
+        },
+        {
+          "index": 6,
+          "name": "b",
+          "currentArg": "p6",
+          "description": "Blue component, 0-31."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "BackgroundVisible",
+      "opcode": 43,
+      "hex": "0x2b",
+      "category": "Scene/Objects",
+      "handlerMacro": "BG_VISIBLE",
+      "description": "Show or hide a background layer.",
+      "currentPokewebName": "ApplyBackground",
+      "params": [
+        {
+          "index": 0,
+          "name": "bg_num",
+          "currentArg": "p0",
+          "description": "Background layer number."
+        },
+        {
+          "index": 1,
+          "name": "sw",
+          "currentArg": "p1",
+          "description": "Boolean/state flag."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "WindowMove",
+      "opcode": 44,
+      "hex": "0x2c",
+      "category": "Scene/Objects",
+      "handlerMacro": "WINDOW_MOVE",
+      "description": "Move/open/close a battle window mask.",
+      "currentPokewebName": "CMD_2c",
+      "params": [
+        {
+          "index": 0,
+          "name": "type",
+          "currentArg": "p0",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 1,
+          "name": "horizon",
+          "currentArg": "p1",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 2,
+          "name": "vertical",
+          "currentArg": "p2",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 3,
+          "name": "in_out",
+          "currentArg": "p3",
+          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+        },
+        {
+          "index": 4,
+          "name": "frame",
+          "currentArg": "p4",
+          "description": "Frame count."
+        },
+        {
+          "index": 5,
+          "name": "wait",
+          "currentArg": "p5",
+          "description": "Frame count."
+        },
+        {
+          "index": 6,
+          "name": "flag",
+          "currentArg": "p6",
+          "description": "Boolean/state flag."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_2c); use WindowMove for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "SetObject",
+      "opcode": 45,
+      "hex": "0x2d",
+      "category": "Scene/Objects",
+      "handlerMacro": "OBJ_SET",
+      "description": "Create/show an OBJ sprite.",
+      "currentPokewebName": "CMD_2d",
+      "params": [
+        {
+          "index": 0,
+          "name": "index",
+          "currentArg": "p0",
+          "description": "Object slot/index to create or modify."
+        },
+        {
+          "index": 1,
+          "name": "datID",
+          "currentArg": "p1",
+          "description": "Archive/data ID. For particle commands this is the SPA datID; BW2 remaps only special ball/capture particle archives at runtime."
+        },
+        {
+          "index": 2,
+          "name": "pos",
+          "currentArg": "p2",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 3,
+          "name": "ofs_x",
+          "currentArg": "p3",
+          "description": "X offset applied before emission/rendering."
+        },
+        {
+          "index": 4,
+          "name": "ofs_y",
+          "currentArg": "p4",
+          "description": "Y offset applied to the command logic and destination positions."
+        },
+        {
+          "index": 5,
+          "name": "scale_x",
+          "currentArg": "p5",
+          "description": "X scale target/multiplier."
+        },
+        {
+          "index": 6,
+          "name": "scale_y",
+          "currentArg": "p6",
+          "description": "Y scale target/multiplier."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_2d); use SetObject for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "MoveObject",
+      "opcode": 46,
+      "hex": "0x2e",
+      "category": "Scene/Objects",
+      "handlerMacro": "OBJ_MOVE",
+      "description": "Move an OBJ sprite.",
+      "currentPokewebName": "CMD_2e",
+      "params": [
+        {
+          "index": 0,
+          "name": "index",
+          "currentArg": "p0",
+          "description": "Object slot/index to create or modify."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "move_pos_x",
+          "currentArg": "p2",
+          "description": "Target X delta/coordinate for movement."
+        },
+        {
+          "index": 3,
+          "name": "move_pos_y",
+          "currentArg": "p3",
+          "description": "Target Y delta/coordinate for movement."
+        },
+        {
+          "index": 4,
+          "name": "frame",
+          "currentArg": "p4",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 5,
+          "name": "wait",
+          "currentArg": "p5",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 6,
+          "name": "count",
+          "currentArg": "p6",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_2e); use MoveObject for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "ScaleObject",
+      "opcode": 47,
+      "hex": "0x2f",
+      "category": "Scene/Objects",
+      "handlerMacro": "OBJ_SCALE",
+      "description": "Scale an OBJ sprite.",
+      "currentPokewebName": "CMD_2f",
+      "params": [
+        {
+          "index": 0,
+          "name": "index",
+          "currentArg": "p0",
+          "description": "Object slot/index to create or modify."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "scale_x",
+          "currentArg": "p2",
+          "description": "X scale target/multiplier."
+        },
+        {
+          "index": 3,
+          "name": "scale_y",
+          "currentArg": "p3",
+          "description": "Y scale target/multiplier."
+        },
+        {
+          "index": 4,
+          "name": "frame",
+          "currentArg": "p4",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 5,
+          "name": "wait",
+          "currentArg": "p5",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 6,
+          "name": "count",
+          "currentArg": "p6",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_2f); use ScaleObject for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "SetObjectAnimation",
+      "opcode": 48,
+      "hex": "0x30",
+      "category": "Scene/Objects",
+      "handlerMacro": "OBJ_ANIME_SET",
+      "description": "Set OBJ animation.",
+      "currentPokewebName": "CMD_30",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "anm_no",
+          "currentArg": "p1",
+          "description": "Animation number/index."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_30); use SetObjectAnimation for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "ObjectPaletteFade",
+      "opcode": 49,
+      "hex": "0x31",
+      "category": "Scene/Objects",
+      "handlerMacro": "OBJ_PAL_FADE",
+      "description": "Fade/tint an OBJ palette.",
+      "currentPokewebName": "ObjectPaletteFade",
+      "params": [
+        {
+          "index": 0,
+          "name": "index",
+          "currentArg": "p0",
+          "description": "Target/background/object selector affected by the palette fade."
+        },
+        {
+          "index": 1,
+          "name": "start_evy",
+          "currentArg": "p1",
+          "description": "Starting fade/tint coefficient."
+        },
+        {
+          "index": 2,
+          "name": "end_evy",
+          "currentArg": "p2",
+          "description": "Ending fade/tint coefficient."
+        },
+        {
+          "index": 3,
+          "name": "wait",
+          "currentArg": "p3",
+          "description": "Duration/wait in frames."
+        },
+        {
+          "index": 4,
+          "name": "r",
+          "currentArg": "p4",
+          "description": "Red component, 0-31."
+        },
+        {
+          "index": 5,
+          "name": "g",
+          "currentArg": "p5",
+          "description": "Green component, 0-31."
+        },
+        {
+          "index": 6,
+          "name": "b",
+          "currentArg": "p6",
+          "description": "Blue component, 0-31."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "DeleteObject",
+      "opcode": 50,
+      "hex": "0x32",
+      "category": "Scene/Objects",
+      "handlerMacro": "OBJ_DEL",
+      "description": "Delete an OBJ sprite.",
+      "currentPokewebName": "CMD_32",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_32); use DeleteObject for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "GaugeVanish",
+      "opcode": 51,
+      "hex": "0x33",
+      "category": "Scene/Objects",
+      "handlerMacro": "GAUGE_VANISH",
+      "description": "Show or hide HP/EXP gauge UI.",
+      "currentPokewebName": "CMD_33",
+      "params": [
+        {
+          "index": 0,
+          "name": "flag",
+          "currentArg": "p0",
+          "description": "Boolean/state flag."
+        },
+        {
+          "index": 1,
+          "name": "side",
+          "currentArg": "p1",
+          "description": "Battle side selector, usually attacker/defender."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_33); use GaugeVanish for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "PlaySound",
+      "opcode": 52,
+      "hex": "0x34",
+      "category": "Sound",
+      "handlerMacro": "SE_PLAY",
+      "description": "Play a sound effect.",
+      "currentPokewebName": "PlaySound",
+      "params": [
+        {
+          "index": 0,
+          "name": "se_no",
+          "currentArg": "p0",
+          "description": "Sound effect ID."
+        },
+        {
+          "index": 1,
+          "name": "player",
+          "currentArg": "p1",
+          "description": "Sound player/channel index. Default player is resolved automatically when requested."
+        },
+        {
+          "index": 2,
+          "name": "pan",
+          "currentArg": "p2",
+          "description": "Stereo pan value."
+        },
+        {
+          "index": 3,
+          "name": "wait",
+          "currentArg": "p3",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 4,
+          "name": "pitch",
+          "currentArg": "p4",
+          "description": "Pitch value."
+        },
+        {
+          "index": 5,
+          "name": "vol",
+          "currentArg": "p5",
+          "description": "Volume value."
+        },
+        {
+          "index": 6,
+          "name": "mod_depth",
+          "currentArg": "p6",
+          "description": "Sound modulation depth."
+        },
+        {
+          "index": 7,
+          "name": "mod_speed",
+          "currentArg": "p7",
+          "description": "Sound modulation speed."
+        },
+        {
+          "index": 8,
+          "name": "dummy",
+          "currentArg": "p8",
+          "description": "Unused padding/dummy value read and ignored by the VM."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "StopSound",
+      "opcode": 53,
+      "hex": "0x35",
+      "category": "Sound",
+      "handlerMacro": "SE_STOP",
+      "description": "Stop a sound effect player.",
+      "currentPokewebName": "CMD_35",
+      "params": [
+        {
+          "index": 0,
+          "name": "player",
+          "currentArg": "p0",
+          "description": "Sound player/channel index. Default player is resolved automatically when requested."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_35); use StopSound for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "SoundPan",
+      "opcode": 54,
+      "hex": "0x36",
+      "category": "Sound",
+      "handlerMacro": "SE_PAN",
+      "description": "Animate sound panning.",
+      "currentPokewebName": "SwitchAudioSide",
+      "params": [
+        {
+          "index": 0,
+          "name": "player",
+          "currentArg": "p0",
+          "description": "Sound player/channel index. Default player is resolved automatically when requested."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "start",
+          "currentArg": "p2",
+          "description": "Starting value."
+        },
+        {
+          "index": 3,
+          "name": "end",
+          "currentArg": "p3",
+          "description": "Ending value."
+        },
+        {
+          "index": 4,
+          "name": "start_wait",
+          "currentArg": "p4",
+          "description": "Delay before starting the transition."
+        },
+        {
+          "index": 5,
+          "name": "frame",
+          "currentArg": "p5",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 6,
+          "name": "wait",
+          "currentArg": "p6",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 7,
+          "name": "count",
+          "currentArg": "p7",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "SoundEffect",
+      "opcode": 55,
+      "hex": "0x37",
+      "category": "Sound",
+      "handlerMacro": "SE_EFFECT",
+      "description": "Animate a sound parameter/effect.",
+      "currentPokewebName": "AdjustSound",
+      "params": [
+        {
+          "index": 0,
+          "name": "player",
+          "currentArg": "p0",
+          "description": "Sound player/channel index. Default player is resolved automatically when requested."
+        },
+        {
+          "index": 1,
+          "name": "type",
+          "currentArg": "p1",
+          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+        },
+        {
+          "index": 2,
+          "name": "param",
+          "currentArg": "p2",
+          "description": "Work/parameter selector or value, depending on command."
+        },
+        {
+          "index": 3,
+          "name": "start",
+          "currentArg": "p3",
+          "description": "Starting value."
+        },
+        {
+          "index": 4,
+          "name": "end",
+          "currentArg": "p4",
+          "description": "Ending value."
+        },
+        {
+          "index": 5,
+          "name": "start_wait",
+          "currentArg": "p5",
+          "description": "Delay before starting the transition."
+        },
+        {
+          "index": 6,
+          "name": "frame",
+          "currentArg": "p6",
+          "description": "Duration in frames."
+        },
+        {
+          "index": 7,
+          "name": "wait",
+          "currentArg": "p7",
+          "description": "Delay/wait in frames."
+        },
+        {
+          "index": 8,
+          "name": "count",
+          "currentArg": "p8",
+          "description": "Repeat count / number of cycles."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "EffectEndWait",
+      "opcode": 56,
+      "hex": "0x38",
+      "category": "VM/Flow",
+      "handlerMacro": "EFFECT_END_WAIT",
+      "description": "Wait for pending effect commands to complete.",
+      "currentPokewebName": "LetCMDsFinish",
+      "params": [
+        {
+          "index": 0,
+          "name": "kind",
+          "currentArg": "p0",
+          "description": "Effect wait kind/group."
+        }
+      ],
+      "notes": [
+        "Used heavily before/after background/camera/audio changes to wait for a group/kind of pending commands."
+      ]
+    },
+    {
+      "name": "Wait",
+      "opcode": 57,
+      "hex": "0x39",
+      "category": "VM/Flow",
+      "handlerMacro": "WAIT",
+      "description": "Wait a fixed number of frames.",
+      "currentPokewebName": "Wait",
+      "params": [
+        {
+          "index": 0,
+          "name": "wait",
+          "currentArg": "p0",
+          "description": "Delay/wait in frames."
+        }
+      ],
+      "notes": [
+        "This is a VM wait only; it does not automatically wait for emitters/sounds unless paired with EFFECT_END_WAIT/LetCMDsFinish."
+      ]
+    },
+    {
+      "name": "ControlMode",
+      "opcode": 58,
+      "hex": "0x3a",
+      "category": "VM/Flow",
+      "handlerMacro": "CONTROL_MODE",
+      "description": "Change VM/control mode.",
+      "currentPokewebName": "AudioContainer",
+      "params": [
+        {
+          "index": 0,
+          "name": "mode",
+          "currentArg": "p0",
+          "description": "VM control mode."
+        }
+      ],
+      "notes": [
+        "This is VM control flow, not an audio container. Documented values are 0 = continue and 1 = suspend."
+      ]
+    },
+    {
+      "name": "If",
+      "opcode": 59,
+      "hex": "0x3b",
+      "category": "VM/Flow",
+      "handlerMacro": "IF",
+      "description": "Branch based on a work value.",
+      "currentPokewebName": "CheckMoveUser",
+      "params": [
+        {
+          "index": 0,
+          "name": "work",
+          "currentArg": "p0",
+          "description": "Work/parameter selector or value, depending on command."
+        },
+        {
+          "index": 1,
+          "name": "cond",
+          "currentArg": "p1",
+          "description": "Condition operator used by branch commands."
+        },
+        {
+          "index": 2,
+          "name": "value",
+          "currentArg": "p2",
+          "description": "Immediate value to compare or assign."
+        },
+        {
+          "index": 3,
+          "name": "adrs",
+          "currentArg": "p3",
+          "description": "Branch target label/address."
+        }
+      ],
+      "notes": [
+        "Old/current naming pointed at the move user, but the handler command is a general IF against a work value."
+      ]
+    },
+    {
+      "name": "IfWork",
+      "opcode": 60,
+      "hex": "0x3c",
+      "category": "VM/Flow",
+      "handlerMacro": "IF_WORK",
+      "description": "Branch by comparing two work values.",
+      "currentPokewebName": "CMD_3c",
+      "params": [
+        {
+          "index": 0,
+          "name": "src",
+          "currentArg": "p0",
+          "description": "Work/parameter selector or value, depending on command."
+        },
+        {
+          "index": 1,
+          "name": "cond",
+          "currentArg": "p1",
+          "description": "Condition operator used by branch commands."
+        },
+        {
+          "index": 2,
+          "name": "dst",
+          "currentArg": "p2",
+          "description": "Work/parameter selector or value, depending on command."
+        },
+        {
+          "index": 3,
+          "name": "adrs",
+          "currentArg": "p3",
+          "description": "Branch target label/address."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_3c); use IfWork for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "McssPositionCheck",
+      "opcode": 61,
+      "hex": "0x3d",
+      "category": "VM/Flow",
+      "handlerMacro": "MCSS_POS_CHECK",
+      "description": "Branch/check based on battle position state.",
+      "currentPokewebName": "CMD_3d",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "cond",
+          "currentArg": "p1",
+          "description": "Condition operator used by branch commands."
+        },
+        {
+          "index": 2,
+          "name": "adrs",
+          "currentArg": "p2",
+          "description": "Branch target label/address."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_3d); use McssPositionCheck for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "SetWork",
+      "opcode": 62,
+      "hex": "0x3e",
+      "category": "VM/Flow",
+      "handlerMacro": "SET_WORK",
+      "description": "Set the generic sequence work value.",
+      "currentPokewebName": "CMD_3e",
+      "params": [
+        {
+          "index": 0,
+          "name": "value",
+          "currentArg": "p0",
+          "description": "Immediate value to compare or assign."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_3e); use SetWork for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "GetWork",
+      "opcode": 63,
+      "hex": "0x3f",
+      "category": "VM/Flow",
+      "handlerMacro": "GET_WORK",
+      "description": "Read a work value into the generic sequence work value.",
+      "currentPokewebName": "CMD_3f",
+      "params": [
+        {
+          "index": 0,
+          "name": "work",
+          "currentArg": "p0",
+          "description": "Work/parameter selector or value, depending on command."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_3f); use GetWork for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "SetParam",
+      "opcode": 64,
+      "hex": "0x40",
+      "category": "VM/Flow",
+      "handlerMacro": "SET_PARAM",
+      "description": "Set a named work/parameter value.",
+      "currentPokewebName": "CMD_40",
+      "params": [
+        {
+          "index": 0,
+          "name": "work",
+          "currentArg": "p0",
+          "description": "Work/parameter selector or value, depending on command."
+        },
+        {
+          "index": 1,
+          "name": "param",
+          "currentArg": "p1",
+          "description": "Work/parameter selector or value, depending on command."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_40); use SetParam for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "Substitute",
+      "opcode": 65,
+      "hex": "0x41",
+      "category": "VM/Flow",
+      "handlerMacro": "MIGAWARI",
+      "description": "Handle Substitute doll display/state.",
+      "currentPokewebName": "CMD_41",
+      "params": [
+        {
+          "index": 0,
+          "name": "sw",
+          "currentArg": "p0",
+          "description": "Boolean/state flag."
+        },
+        {
+          "index": 1,
+          "name": "pos",
+          "currentArg": "p1",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 2,
+          "name": "flag",
+          "currentArg": "p2",
+          "description": "Boolean/state flag."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_41); use Substitute for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "Transform",
+      "opcode": 66,
+      "hex": "0x42",
+      "category": "VM/Flow",
+      "handlerMacro": "HENSHIN",
+      "description": "Handle Transform animation/state.",
+      "currentPokewebName": "CMD_42",
+      "params": [],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_42); use Transform for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "PlayPokemonCry",
+      "opcode": 67,
+      "hex": "0x43",
+      "category": "Sound",
+      "handlerMacro": "NAKIGOE",
+      "description": "Play Pokemon cry.",
+      "currentPokewebName": "PlayPokemonCry",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "pitch",
+          "currentArg": "p1",
+          "description": "Pitch value."
+        },
+        {
+          "index": 2,
+          "name": "volume",
+          "currentArg": "p2",
+          "description": "Volume value."
+        },
+        {
+          "index": 3,
+          "name": "chorus_vol",
+          "currentArg": "p3",
+          "description": "Cry chorus volume."
+        },
+        {
+          "index": 4,
+          "name": "chorus_speed",
+          "currentArg": "p4",
+          "description": "Cry chorus speed."
+        },
+        {
+          "index": 5,
+          "name": "play_dir",
+          "currentArg": "p5",
+          "description": "Cry playback direction/side setting."
+        },
+        {
+          "index": 6,
+          "name": "wait",
+          "currentArg": "p6",
+          "description": "Delay/wait in frames."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "name": "BallMode",
+      "opcode": 68,
+      "hex": "0x44",
+      "category": "VM/Flow",
+      "handlerMacro": "BALL_MODE",
+      "description": "Switch ball/capture particle mode.",
+      "currentPokewebName": "CMD_44",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_44); use BallMode for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "SetBallObject",
+      "opcode": 69,
+      "hex": "0x45",
+      "category": "VM/Flow",
+      "handlerMacro": "BALLOBJ_SET",
+      "description": "Create/show a ball OBJ sprite.",
+      "currentPokewebName": "CMD_45",
+      "params": [
+        {
+          "index": 0,
+          "name": "index",
+          "currentArg": "p0",
+          "description": "Object slot/index to create or modify."
+        },
+        {
+          "index": 1,
+          "name": "pos",
+          "currentArg": "p1",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 2,
+          "name": "ofs_x",
+          "currentArg": "p2",
+          "description": "X offset applied before emission/rendering."
+        },
+        {
+          "index": 3,
+          "name": "ofs_y",
+          "currentArg": "p3",
+          "description": "Y offset applied to the command logic and destination positions."
+        },
+        {
+          "index": 4,
+          "name": "scale_x",
+          "currentArg": "p4",
+          "description": "X scale target/multiplier."
+        },
+        {
+          "index": 5,
+          "name": "scale_y",
+          "currentArg": "p5",
+          "description": "Y scale target/multiplier."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_45); use SetBallObject for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "CallSequence",
+      "opcode": 70,
+      "hex": "0x46",
+      "category": "VM/Flow",
+      "handlerMacro": "CALL",
+      "description": "Call another move-animation subroutine/sequence.",
+      "currentPokewebName": "CMD_46",
+      "params": [
+        {
+          "index": 0,
+          "name": "seq_no",
+          "currentArg": "p0",
+          "description": "Sequence/subroutine number."
+        },
+        {
+          "index": 1,
+          "name": "atk_pos",
+          "currentArg": "p1",
+          "description": "Attack position override for called sequence."
+        },
+        {
+          "index": 2,
+          "name": "def_pos",
+          "currentArg": "p2",
+          "description": "Defence position override for called sequence."
+        }
+      ],
+      "notes": [
+        "This is the VM-level subroutine call with attacker/defender overrides. Our current community macro exposes only one argument as CallMoveAnimation; called scripts may still rely on VM context.",
+        "This is the true VM-level CALL and includes attacker/defender position overrides. It is distinct from opcode 74.",
+        "Current Pokeweb macro name is generic (CMD_46); use CallSequence for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "Return",
+      "opcode": 71,
+      "hex": "0x47",
+      "category": "VM/Flow",
+      "handlerMacro": "RETURN",
+      "description": "Return from a called subroutine.",
+      "currentPokewebName": "CMD_47",
+      "params": [],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_47); use Return for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "Jump",
+      "opcode": 72,
+      "hex": "0x48",
+      "category": "VM/Flow",
+      "handlerMacro": "JUMP",
+      "description": "Jump to a label/address.",
+      "currentPokewebName": "CheckMoveUserElse",
+      "params": [
+        {
+          "index": 0,
+          "name": "adrs",
+          "currentArg": "p0",
+          "description": "Branch target label/address."
+        }
+      ],
+      "notes": [
+        "Old naming suggested a move-user conditional else branch, but the command table marks this is an unconditional jump."
+      ]
+    },
+    {
+      "name": "Pause",
+      "opcode": 73,
+      "hex": "0x49",
+      "category": "VM/Flow",
+      "handlerMacro": "PAUSE",
+      "description": "Pause the sequence VM.",
+      "currentPokewebName": "CMD_49",
+      "params": [],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_49); use Pause for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "SequenceJump",
+      "opcode": 74,
+      "hex": "0x4a",
+      "category": "VM/Flow",
+      "handlerMacro": "SEQ_JUMP",
+      "description": "Jump to another sequence.",
+      "currentPokewebName": "CallMoveAnimation",
+      "params": [
+        {
+          "index": 0,
+          "name": "seq_no",
+          "currentArg": "p0",
+          "description": "Sequence/subroutine number."
+        }
+      ],
+      "notes": [
+        "This jumps to another sequence number. It is not the same as CALL opcode 70, which has return semantics and position overrides."
+      ]
+    },
+    {
+      "name": "LandingWait",
+      "opcode": 75,
+      "hex": "0x4b",
+      "category": "VM/Flow",
+      "handlerMacro": "LANDING_WAIT",
+      "description": "Wait for landing-related animation to finish.",
+      "currentPokewebName": "CMD_4b",
+      "params": [
+        {
+          "index": 0,
+          "name": "side",
+          "currentArg": "p0",
+          "description": "Battle side selector, usually attacker/defender."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_4b); use LandingWait for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "ReverseDrawSet",
+      "opcode": 76,
+      "hex": "0x4c",
+      "category": "VM/Flow",
+      "handlerMacro": "REVERSE_DRAW_SET",
+      "description": "Control MCSS reverse draw order.",
+      "currentPokewebName": "CMD_4c",
+      "params": [
+        {
+          "index": 0,
+          "name": "flag",
+          "currentArg": "p0",
+          "description": "Boolean/state flag."
+        }
+      ],
+      "notes": [
+        "Current Pokeweb macro name is generic (CMD_4c); use ReverseDrawSet for new docs/UI labels."
+      ]
+    },
+    {
+      "name": "TerminateMoveScript",
+      "opcode": 77,
+      "hex": "0x4d",
+      "category": "VM/Flow",
+      "handlerMacro": "SEQ_END",
+      "description": "Terminate the move-animation script.",
+      "currentPokewebName": "TerminateMoveScript",
+      "params": [],
+      "notes": [
+        "The handler macro immediately before SEQ_END is LABEL, but LABEL is an assembler helper, not executable opcode 77. Opcode 77 maps to SEQ_END."
+      ]
+    }
+  ]
+}

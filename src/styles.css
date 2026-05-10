@@ -98,6 +98,38 @@ img[src*="pokesprite/"] {
   margin: 0;
 }
 
+.narc-picker__sections {
+  display: grid;
+  gap: 18px;
+}
+
+.narc-section {
+  display: grid;
+  gap: 8px;
+}
+
+.narc-section__header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.narc-section__header h3 {
+  color: #f2f2f2;
+  font-size: 16px;
+  margin: 0;
+}
+
+.narc-section__toggle-label {
+  align-items: center;
+  color: #d6d7e2;
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: 6px;
+}
+
 .narc-picker__grid {
   display: grid;
   gap: 8px 12px;

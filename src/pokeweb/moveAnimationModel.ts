@@ -7,11 +7,27 @@ const ADDRESSES_PER_ENTRY = 0x0e;
 const BATTLE_ANIMATION_OFFSET = 561;
 const END_COMMANDS = new Set(["CallMoveAnimation", "TerminateMoveScript"]);
 
-type CommandDefinition = {
+export type MoveAnimationCommandDefinition = {
   opcode: number;
   name: string;
   params: string[];
   ends: boolean;
+};
+
+export type ParsedMoveAnimationCommand = {
+  label: string;
+  line: string;
+  opcode: number;
+  name: string;
+  params: number[];
+  ends: boolean;
+};
+
+export type ParsedMoveAnimationScript = {
+  count: number;
+  headerLabels: string[];
+  labelOrder: string[];
+  scripts: Map<string, ParsedMoveAnimationCommand[]>;
 };
 
 type AnimationTarget = {
@@ -23,6 +39,11 @@ type AnimationTarget = {
 const COMMANDS = parseCommandMacros(commandMacros);
 const COMMANDS_BY_NAME = new Map(COMMANDS.map((command) => [command.name.toLowerCase(), command]));
 const COMMANDS_BY_OPCODE = new Map(COMMANDS.map((command) => [command.opcode, command]));
+const RGB555_PACKED_COMMANDS = new Set(["ChangeColor", "ChangeBackgroundColor", "ObjectPaletteFade"]);
+
+export function getMoveAnimationCommandDefinitions(): MoveAnimationCommandDefinition[] {
+  return COMMANDS.map((command) => ({ ...command, params: command.params.slice() }));
+}
 
 export function hasMoveAnimationScript(project: ProjectState, moveId: number): boolean {
   return resolveAnimationTarget(project, moveId, false) !== undefined;
@@ -35,8 +56,47 @@ export function decompileMoveAnimation(project: ProjectState, moveId: number): s
   return decompileAnimationBytes(bytes);
 }
 
+export function decompileMoveAnimationBytes(bytes: Uint8Array): string {
+  return decompileAnimationBytes(bytes);
+}
+
 export function compileMoveAnimation(_project: ProjectState, _moveId: number, scriptText: string): Uint8Array {
   return compileAnimationScript(scriptText);
+}
+
+export function parseMoveAnimationScript(scriptText: string): ParsedMoveAnimationScript {
+  const parsed = parseScriptText(scriptText);
+  const scripts = new Map<string, ParsedMoveAnimationCommand[]>();
+  for (const label of parsed.labelOrder) {
+    scripts.set(
+      label,
+      (parsed.bodies.get(label) ?? []).map((line) => {
+        const command = parseCommandLine(label, line);
+        return {
+          label,
+          line,
+          opcode: command.definition.opcode,
+          name: command.definition.name,
+          params: command.params,
+          ends: command.definition.ends,
+        };
+      }),
+    );
+  }
+  return {
+    count: parsed.count,
+    headerLabels: parsed.headerLabels.slice(),
+    labelOrder: parsed.labelOrder.slice(),
+    scripts,
+  };
+}
+
+export function decompileMoveAnimationFile(project: ProjectState, animationId: number): string {
+  const store = project.narcs.move_animations;
+  if (!store) throw new Error("Move animation NARC is not loaded");
+  const bytes = store.rawFiles[animationId];
+  if (!bytes) throw new Error(`Move animation ${animationId} does not exist`);
+  return decompileAnimationBytes(bytes);
 }
 
 export function updateMoveAnimationScript(project: ProjectState, moveId: number, scriptText: string): Uint8Array {
@@ -104,12 +164,13 @@ function decompileAnimationBytes(bytes: Uint8Array): string {
       const command = COMMANDS_BY_OPCODE.get(opcode);
       if (!command) throw new Error(`Unknown animation command opcode: ${opcode}`);
       const params: number[] = [];
-      for (let n = 0; n < command.params.length; n += 1) {
-        if (cursor + 4 > bytes.length) throw new Error(`Command ${command.name} is truncated`);
-        params.push(readI32(bytes, cursor));
-        cursor += 4;
+      for (const width of storedParamWidthsForCommand(command)) {
+        if (cursor + width > bytes.length) throw new Error(`Command ${command.name} is truncated`);
+        params.push(readStoredParam(bytes, cursor, width));
+        cursor += width;
       }
-      out.push(`     ${command.name}${params.length > 0 ? ` ${params.join(", ")}` : " "}`);
+      const scriptParams = decodeStoredParams(command, params);
+      out.push(`     ${command.name}${scriptParams.length > 0 ? ` ${scriptParams.join(", ")}` : " "}`);
       if (command.ends) {
         ended = true;
         break;
@@ -199,21 +260,32 @@ function compileCommandLines(label: string, lines: string[]): Uint8Array {
   const parts: Uint8Array[] = [];
   let terminates = false;
   for (const line of lines) {
-    const match = /^([A-Za-z_][A-Za-z0-9_]*)(?:\s+(.*))?$/u.exec(line);
-    if (!match) throw new Error(`Invalid command line in ${label}: ${line}`);
-    const command = COMMANDS_BY_NAME.get(match[1].toLowerCase());
-    if (!command) throw new Error(`Unknown animation command: ${match[1]}`);
-    const params = parseParams(match[2] ?? "", command.name);
-    if (params.length !== command.params.length) throw new Error(`${command.name} expects ${command.params.length} parameter(s), got ${params.length}`);
+    const { definition: command, params } = parseCommandLine(label, line);
 
-    const bytes = new Uint8Array(2 + params.length * 4);
+    const storedParams = encodeStoredParams(command, params);
+    const paramWidths = storedParamWidthsForCommand(command);
+    const bytes = new Uint8Array(2 + paramWidths.reduce((sum, width) => sum + width, 0));
     writeU16(bytes, 0, command.opcode);
-    params.forEach((value, index) => writeU32(bytes, 2 + index * 4, value >>> 0));
+    let cursor = 2;
+    storedParams.forEach((value, index) => {
+      writeStoredParam(bytes, cursor, value, paramWidths[index] ?? 4);
+      cursor += paramWidths[index] ?? 4;
+    });
     parts.push(bytes);
     if (command.ends) terminates = true;
   }
   if (!terminates) throw new Error(`Script ${label} must include a terminating command`);
   return concatBytes(parts);
+}
+
+function parseCommandLine(label: string, line: string): { definition: MoveAnimationCommandDefinition; params: number[] } {
+  const match = /^([A-Za-z_][A-Za-z0-9_]*)(?:\s+(.*))?$/u.exec(line);
+  if (!match) throw new Error(`Invalid command line in ${label}: ${line}`);
+  const command = COMMANDS_BY_NAME.get(match[1].toLowerCase());
+  if (!command) throw new Error(`Unknown animation command: ${match[1]}`);
+  const params = normalizeScriptParams(command, parseParams(match[2] ?? "", command.name));
+  if (params.length !== command.params.length) throw new Error(`${command.name} expects ${command.params.length} parameter(s), got ${params.length}`);
+  return { definition: command, params };
 }
 
 function bodyTerminates(lines: string[]): boolean {
@@ -233,6 +305,39 @@ function parseParams(input: string, commandName: string): number[] {
     .map((value, index) => parseIntegerToken(value, `${commandName} parameter ${index + 1}`));
 }
 
+function normalizeScriptParams(command: MoveAnimationCommandDefinition, params: number[]): number[] {
+  if (RGB555_PACKED_COMMANDS.has(command.name) && params.length === 5) return decodeStoredParams(command, params);
+  if (command.name === "DistortBackground" && params.length === 4) return [...params, 0, 0];
+  return params;
+}
+
+function storedParamCountForCommand(command: MoveAnimationCommandDefinition): number {
+  return RGB555_PACKED_COMMANDS.has(command.name) ? 5 : command.params.length;
+}
+
+function storedParamWidthsForCommand(command: MoveAnimationCommandDefinition): number[] {
+  if (command.name === "BackgroundPaletteAnimation") return [4, 4, 4, 4, 2];
+  return Array.from({ length: storedParamCountForCommand(command) }, () => 4);
+}
+
+function decodeStoredParams(command: MoveAnimationCommandDefinition, params: number[]): number[] {
+  if (!RGB555_PACKED_COMMANDS.has(command.name)) return params;
+  const rgb = params[4] ?? 0;
+  return [...params.slice(0, 4), rgb & 0x1f, (rgb >>> 5) & 0x1f, (rgb >>> 10) & 0x1f];
+}
+
+function encodeStoredParams(command: MoveAnimationCommandDefinition, params: number[]): number[] {
+  if (!RGB555_PACKED_COMMANDS.has(command.name)) return params;
+  const r = clampRgb5(params[4] ?? 0);
+  const g = clampRgb5(params[5] ?? 0);
+  const b = clampRgb5(params[6] ?? 0);
+  return [...params.slice(0, 4), r | (g << 5) | (b << 10)];
+}
+
+function clampRgb5(value: number): number {
+  return Math.max(0, Math.min(31, Math.round(value)));
+}
+
 function parseIntegerToken(token: string, label: string): number {
   if (!/^[-+]?(?:0x[0-9a-f]+|\d+)$/iu.test(token)) throw new Error(`${label} must be an integer`);
   const sign = token.startsWith("-") ? -1 : 1;
@@ -242,9 +347,9 @@ function parseIntegerToken(token: string, label: string): number {
   return value;
 }
 
-function parseCommandMacros(source: string): CommandDefinition[] {
+function parseCommandMacros(source: string): MoveAnimationCommandDefinition[] {
   const lines = source.split(/\r?\n/u);
-  const commands: CommandDefinition[] = [];
+  const commands: MoveAnimationCommandDefinition[] = [];
   for (let index = 0; index < lines.length; index += 1) {
     const macro = /^\.macro\s+([A-Za-z_][A-Za-z0-9_]*)\s*(.*)$/u.exec(lines[index].trim());
     if (!macro) continue;
@@ -272,6 +377,24 @@ function stripComment(line: string): string {
 
 function readI32(data: Uint8Array, offset: number): number {
   return readU32(data, offset) | 0;
+}
+
+function readI16(data: Uint8Array, offset: number): number {
+  const value = readU16(data, offset);
+  return (value & 0x8000) !== 0 ? value - 0x10000 : value;
+}
+
+function readStoredParam(data: Uint8Array, offset: number, width: number): number {
+  if (width === 2) return readI16(data, offset);
+  return readI32(data, offset);
+}
+
+function writeStoredParam(out: Uint8Array, offset: number, value: number, width: number): void {
+  if (width === 2) {
+    writeU16(out, offset, value & 0xffff);
+    return;
+  }
+  writeU32(out, offset, value >>> 0);
 }
 
 function concatBytes(parts: Uint8Array[]): Uint8Array {

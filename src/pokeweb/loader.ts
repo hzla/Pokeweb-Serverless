@@ -81,7 +81,9 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
 
   onProgress?.("Extracting editor NARCs");
   const editNarcs = [...(version.baseRom === "BW" ? BW_NARCS : BW2_NARCS)].filter(shouldExtract);
-  if (options.expandSprites) editNarcs.push({ path: "a/0/0/4", name: "sprites" });
+  if (options.expandSprites) {
+    editNarcs.push({ path: "a/0/0/4", name: "pokemon_sprites" }, { path: "a/0/0/7", name: "pokemon_icons" });
+  }
   extractNarcSet(rom, project, editNarcs);
 
   if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves")) {

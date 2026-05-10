@@ -21,7 +21,7 @@
 .word \p9
 .endm
 
-.macro CMD_2 p0 p1 p2 p3 p4 p5
+.macro CameraMoveAngle p0 p1 p2 p3 p4 p5
 .hword 2
 .word \p0
 .word \p1
@@ -41,13 +41,13 @@
 .word \p5
 .endm
 
-.macro CMD_4 p0 p1
+.macro CameraProjection p0 p1
 .hword 4
 .word \p0
 .word \p1
 .endm
 
-.macro CMD_5 
+.macro CameraPosPush 
 .hword 5
 .endm
 
@@ -105,7 +105,7 @@
 .word \p10
 .endm
 
-.macro CMD_a p0 p1 p2 p3 p4 p5 p6 p7 p8 p9
+.macro DoSPAAllAnimations p0 p1 p2 p3 p4 p5 p6 p7 p8 p9
 .hword 10
 .word \p0
 .word \p1
@@ -119,7 +119,7 @@
 .word \p9
 .endm
 
-.macro CMD_b p0
+.macro DeleteSPA p0
 .hword 11
 .word \p0
 .endm
@@ -171,7 +171,7 @@
 .word \p10
 .endm
 
-.macro CMD_f p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12
+.macro DoSPAProjectileAnimationOrthoCoordinate p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12
 .hword 15
 .word \p0
 .word \p1
@@ -202,7 +202,7 @@
 .word \p9
 .endm
 
-.macro CMD_11 p0 p1 p2 p3 p4 p5 p6
+.macro DoSPAOrthoCircleAnimation p0 p1 p2 p3 p4 p5 p6
 .hword 17
 .word \p0
 .word \p1
@@ -237,7 +237,7 @@
 .word \p8
 .endm
 
-.macro CMD_14 p0 p1 p2 p3 p4 p5
+.macro PokemonSineMove p0 p1 p2 p3 p4 p5
 .hword 20
 .word \p0
 .word \p1
@@ -278,7 +278,7 @@
 .word \p5
 .endm
 
-.macro CMD_18 p0 p1 p2 p3 p4 p5
+.macro PokemonMosaic p0 p1 p2 p3 p4 p5
 .hword 24
 .word \p0
 .word \p1
@@ -288,7 +288,7 @@
 .word \p5
 .endm
 
-.macro CMD_19 p0 p1 p2 p3
+.macro PokemonBlinkFlag p0 p1 p2 p3
 .hword 25
 .word \p0
 .word \p1
@@ -302,7 +302,7 @@
 .word \p1
 .endm
 
-.macro ChangeColor p0 p1 p2 p3 p4
+.macro ChangeColor p0 p1 p2 p3 p4 p5 p6
 .hword 27
 .word \p0
 .word \p1
@@ -317,13 +317,13 @@
 .word \p1
 .endm
 
-.macro CMD_1d p0 p1
+.macro PokemonShadowVanish p0 p1
 .hword 29
 .word \p0
 .word \p1
 .endm
 
-.macro CMD_1e p0 p1 p2 p3 p4 p5 p6
+.macro PokemonShadowScale p0 p1 p2 p3 p4 p5 p6
 .hword 30
 .word \p0
 .word \p1
@@ -334,12 +334,12 @@
 .word \p6
 .endm
 
-.macro CMD_1f p0
+.macro DeletePokemon p0
 .hword 31
 .word \p0
 .endm
 
-.macro CMD_20 p0 p1 p2 p3 p4
+.macro SetTrainer p0 p1 p2 p3 p4
 .hword 32
 .word \p0
 .word \p1
@@ -348,7 +348,7 @@
 .word \p4
 .endm
 
-.macro CMD_21 p0 p1 p2 p3 p4 p5 p6 p7
+.macro MoveTrainer p0 p1 p2 p3 p4 p5 p6 p7
 .hword 33
 .word \p0
 .word \p1
@@ -360,13 +360,13 @@
 .word \p7
 .endm
 
-.macro CMD_22 p0 p1
+.macro SetTrainerAnimation p0 p1
 .hword 34
 .word \p0
 .word \p1
 .endm
 
-.macro CMD_23 p0
+.macro DeleteTrainer p0
 .hword 35
 .word \p0
 .endm
@@ -396,18 +396,21 @@
 .word \p5
 .endm
 
-.macro CMD_27 p0 p1
+.macro BackgroundPaletteAnimation p0 p1 p2 p3 p4
 .hword 39
 .word \p0
 .word \p1
+.word \p2
+.word \p3
+.word \p4
 .endm
 
-.macro CMD_28 p0
+.macro BackgroundPriority p0
 .hword 40
 .word \p0
 .endm
 
-.macro CMD_29 p0 p1 p2 p3 p4 p5
+.macro BackgroundAlpha p0 p1 p2 p3 p4 p5
 .hword 41
 .word \p0
 .word \p1
@@ -417,7 +420,7 @@
 .word \p5
 .endm
 
-.macro ChangeBackgroundColor p0 p1 p2 p3 p4
+.macro ChangeBackgroundColor p0 p1 p2 p3 p4 p5 p6
 .hword 42
 .word \p0
 .word \p1
@@ -432,7 +435,7 @@
 .word \p1
 .endm
 
-.macro CMD_2c p0 p1 p2 p3 p4 p5 p6
+.macro WindowMove p0 p1 p2 p3 p4 p5 p6
 .hword 44
 .word \p0
 .word \p1
@@ -443,7 +446,7 @@
 .word \p6
 .endm
 
-.macro CMD_2d p0 p1 p2 p3 p4 p5 p6
+.macro SetObject p0 p1 p2 p3 p4 p5 p6
 .hword 45
 .word \p0
 .word \p1
@@ -454,7 +457,7 @@
 .word \p6
 .endm
 
-.macro CMD_2e p0 p1 p2 p3 p4 p5 p6
+.macro MoveObject p0 p1 p2 p3 p4 p5 p6
 .hword 46
 .word \p0
 .word \p1
@@ -465,7 +468,7 @@
 .word \p6
 .endm
 
-.macro CMD_2f p0 p1 p2 p3 p4 p5 p6
+.macro ScaleObject p0 p1 p2 p3 p4 p5 p6
 .hword 47
 .word \p0
 .word \p1
@@ -476,13 +479,13 @@
 .word \p6
 .endm
 
-.macro CMD_30 p0 p1
+.macro SetObjectAnimation p0 p1
 .hword 48
 .word \p0
 .word \p1
 .endm
 
-.macro CMD_31 p0 p1 p2 p3 p4
+.macro ObjectPaletteFade p0 p1 p2 p3 p4 p5 p6
 .hword 49
 .word \p0
 .word \p1
@@ -491,12 +494,12 @@
 .word \p4
 .endm
 
-.macro CMD_32 p0
+.macro DeleteObject p0
 .hword 50
 .word \p0
 .endm
 
-.macro CMD_33 p0 p1
+.macro GaugeVanish p0 p1
 .hword 51
 .word \p0
 .word \p1
@@ -515,7 +518,7 @@
 .word \p8
 .endm
 
-.macro CMD_35 p0
+.macro StopSound p0
 .hword 53
 .word \p0
 .endm
@@ -568,7 +571,7 @@
 .word \p3
 .endm
 
-.macro CMD_3c p0 p1 p2 p3
+.macro IfWork p0 p1 p2 p3
 .hword 60
 .word \p0
 .word \p1
@@ -576,37 +579,37 @@
 .word \p3
 .endm
 
-.macro CMD_3d p0 p1 p2
+.macro McssPositionCheck p0 p1 p2
 .hword 61
 .word \p0
 .word \p1
 .word \p2
 .endm
 
-.macro CMD_3e p0
+.macro SetWork p0
 .hword 62
 .word \p0
 .endm
 
-.macro CMD_3f p0
+.macro GetWork p0
 .hword 63
 .word \p0
 .endm
 
-.macro CMD_40 p0 p1
+.macro SetParam p0 p1
 .hword 64
 .word \p0
 .word \p1
 .endm
 
-.macro CMD_41 p0 p1 p2
+.macro Substitute p0 p1 p2
 .hword 65
 .word \p0
 .word \p1
 .word \p2
 .endm
 
-.macro CMD_42 
+.macro Transform 
 .hword 66
 .endm
 
@@ -621,12 +624,12 @@
 .word \p6
 .endm
 
-.macro CMD_44 p0
+.macro BallMode p0
 .hword 68
 .word \p0
 .endm
 
-.macro CMD_45 p0 p1 p2 p3 p4 p5
+.macro SetBallObject p0 p1 p2 p3 p4 p5
 .hword 69
 .word \p0
 .word \p1
@@ -636,14 +639,14 @@
 .word \p5
 .endm
 
-.macro CMD_46 p0 p1 p2
+.macro CallSequence p0 p1 p2
 .hword 70
 .word \p0
 .word \p1
 .word \p2
 .endm
 
-.macro CMD_47 
+.macro Return 
 .hword 71
 .endm
 
@@ -652,7 +655,7 @@
 .word \p0
 .endm
 
-.macro CMD_49 
+.macro Pause 
 .hword 73
 .endm
 
@@ -661,12 +664,12 @@
 .word \p0
 .endm
 
-.macro CMD_4b p0
+.macro LandingWait p0
 .hword 75
 .word \p0
 .endm
 
-.macro CMD_4c p0
+.macro ReverseDrawSet p0
 .hword 76
 .word \p0
 .endm
@@ -674,4 +677,3 @@
 .macro TerminateMoveScript 
 .hword 77
 .endm
-

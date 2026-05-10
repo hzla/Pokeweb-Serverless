@@ -64,6 +64,17 @@ export type DocGeneratorState = {
   groundItemScriptMap: Record<string, number>;
 };
 
+export type Map3dAreaEditState = Record<
+  string,
+  {
+    buildingsId: number;
+    texturesId: number;
+    srtAnimeIdx: number;
+    patAnimeIdx: number;
+    isExterior: boolean;
+  }
+>;
+
 export type ProjectState = {
   originalRomBytes?: Uint8Array;
   session: SessionSettings;
@@ -74,6 +85,7 @@ export type ProjectState = {
     size: number;
   };
   arm9: Uint8Array;
+  arm9Dirty?: boolean;
   overlays: Partial<Record<number, Uint8Array>>;
   narcs: Partial<Record<NarcName, NarcStore>>;
   texts: TextState;
@@ -83,6 +95,7 @@ export type ProjectState = {
   grottoOdds?: GrottoOddsState;
   tms?: TmState;
   docs?: DocGeneratorState;
+  map3dAreaEdits?: Map3dAreaEditState;
 };
 
 export function createNarcStore(name: NarcName, sourcePath: string, fileId: number, narc: NARC): NarcStore {

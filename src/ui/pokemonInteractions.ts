@@ -5,6 +5,7 @@ import { stripeRows } from "./legacyInteractions";
 
 export type PokemonInteractionOptions = {
   onDirty?: () => void;
+  onOpenSprites?: (speciesId: number) => void;
   renderExpanded: (speciesId: number) => string;
   autofills: Record<string, string[]>;
 };
@@ -45,6 +46,14 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
 
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+    const spriteAction = target.closest<HTMLElement>(".sprite-editor-action");
+    if (spriteAction) {
+      const card = spriteAction.closest<HTMLElement>(".pokemon-card.filterable");
+      const speciesId = Number(card?.dataset.index);
+      if (Number.isInteger(speciesId)) options.onOpenSprites?.(speciesId);
+      return;
+    }
+
     const tmCell = target.closest<HTMLElement>(".cell.tm[data-kind][data-index]");
     if (tmCell) {
       const card = tmCell.closest<HTMLElement>(".pokemon-card.filterable");

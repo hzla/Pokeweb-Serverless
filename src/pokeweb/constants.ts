@@ -28,7 +28,8 @@ export type NarcName =
   | "grotto_odds"
   | "move_effects_table"
   | "starter_sprites"
-  | "sprites";
+  | "pokemon_sprites"
+  | "pokemon_icons";
 
 export type NarcDefinition = {
   path: string;
@@ -51,6 +52,8 @@ export const HEADER_NARCS: NarcDefinition[] = [
 ];
 
 export const BW_NARCS: NarcDefinition[] = [
+  { path: "a/0/0/4", name: "pokemon_sprites" },
+  { path: "a/0/0/7", name: "pokemon_icons" },
   { path: "a/0/1/6", name: "personal" },
   { path: "a/0/0/6", name: "move_spas" },
   { path: "a/0/0/8", name: "maps" },
@@ -70,6 +73,8 @@ export const BW_NARCS: NarcDefinition[] = [
 ];
 
 export const BW2_NARCS: NarcDefinition[] = [
+  { path: "a/0/0/4", name: "pokemon_sprites" },
+  { path: "a/0/0/7", name: "pokemon_icons" },
   { path: "a/0/1/6", name: "personal" },
   { path: "a/0/0/6", name: "move_spas" },
   { path: "a/0/0/8", name: "maps" },

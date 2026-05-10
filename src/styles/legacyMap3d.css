@@ -1,0 +1,250 @@
+.map3d-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.map3d-zone-select {
+  height: 44px;
+}
+
+.map3d-load-button {
+  justify-content: center;
+  min-height: 36px;
+  width: 100%;
+}
+
+.map3d-field {
+  color: #f2f2f2;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.map3d-check {
+  align-items: center;
+  color: #f2f2f2;
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.map3d-check input {
+  accent-color: #1abc9c;
+}
+
+.map3d-layer-grid {
+  display: grid;
+  gap: 10px 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.map3d-layer-grid .map3d-check {
+  min-width: 0;
+}
+
+.map3d-metadata-editor {
+  background: #303448;
+  border: 1px solid #454b62;
+  border-radius: 5px;
+  color: #f2f2f2;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  padding: 10px;
+}
+
+.map3d-metadata-note {
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.map3d-meta-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.map3d-meta-grid-spaced {
+  margin-top: 8px;
+}
+
+.map3d-meta-section-title {
+  border-top: 1px solid #454b62;
+  color: #dfe6e9;
+  font-size: 12px;
+  font-weight: 700;
+  padding-top: 8px;
+}
+
+.map3d-meta-check {
+  align-self: end;
+  min-height: 36px;
+}
+
+.map3d-controls {
+  background: #2f314b;
+  border: 1px solid #44475a;
+  border-radius: 5px;
+  color: #f2f2f2;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 10px;
+}
+
+.map3d-permission-editor {
+  background: #303448;
+  border: 1px solid #454b62;
+  border-radius: 5px;
+  color: #f2f2f2;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  padding: 10px;
+}
+
+.map3d-permission-selected {
+  background: #242837;
+  border: 1px solid #42475d;
+  border-radius: 5px;
+  color: #dfe6e9;
+  font-size: 12px;
+  line-height: 1.45;
+  min-height: 52px;
+  padding: 8px;
+}
+
+.map3d-tile-guide {
+  background: #242837;
+  border: 1px solid #42475d;
+  border-radius: 5px;
+  color: #f2f2f2;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 8px;
+}
+
+.map3d-tile-guide summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.map3d-tile-guide-grid {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.map3d-tile-guide-grid div {
+  display: grid;
+  gap: 2px;
+}
+
+.map3d-tile-guide-grid strong {
+  color: #9ee7d3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.map3d-tile-guide-grid span {
+  color: #dfe6e9;
+}
+
+.map3d-flag-grid {
+  display: grid;
+  gap: 6px 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.map3d-flag-check {
+  font-size: 12px;
+  min-width: 0;
+}
+
+.map3d-flag-check span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map3d-flag-value {
+  background: #242837;
+  border: 1px solid #42475d;
+  border-radius: 5px;
+  color: #dfe6e9;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 7px 8px;
+}
+
+.map3d-warnings {
+  background: #383a59;
+  border: 1px solid #44475a;
+  border-radius: 5px;
+  color: #f2f2f2;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 10px;
+}
+
+.map3d-warnings {
+  color: #ffeaa7;
+  max-height: 35vh;
+  overflow: auto;
+}
+
+.map3d-warnings:empty {
+  display: none;
+}
+
+.map3d-view {
+  background: #20232a;
+  height: calc(100vh - 40px);
+  margin-left: 18vw;
+  padding: 0;
+  position: relative;
+  width: 82vw;
+}
+
+.map3d-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  left: 14px;
+  position: absolute;
+  top: 54px;
+  z-index: 2;
+}
+
+.map3d-toolbar-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.map3d-toolbar .map3d-controls {
+  max-width: 260px;
+}
+
+.map3d-canvas-wrap {
+  height: 100%;
+  overflow: hidden;
+  width: 100%;
+}
+
+.map3d-canvas-wrap canvas {
+  display: block;
+  height: 100%;
+  outline: none;
+  width: 100%;
+}
+
+@media only screen and (max-width: 1180px) {
+  .map3d-view {
+    height: 70vh;
+    margin-left: 0;
+    width: 100%;
+  }
+}

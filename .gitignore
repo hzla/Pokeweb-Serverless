@@ -10,6 +10,13 @@ dist/
 *.dsv
 exports/
 projects/
+move-animation-reference/
+generated/
+work/
+docs/ai-move-animation-workflows.md
+
+# Local agent working notes.
+Agents.md
 
 src/test/local/
 *.local.test.ts

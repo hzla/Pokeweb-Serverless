@@ -1,4 +1,5 @@
 import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
+import movieIconUrl from "../assets/svgs/movie.png";
 import { PROPERTIES, TYPES, CATEGORIES } from "../pokeweb/constants";
 import {
   getItemCount,
@@ -30,6 +31,9 @@ export function renderMoveEditor(project: ProjectState, root: HTMLElement, onDir
       </div>
       <div class="small-filters type-filters">
         ${TYPES.map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
+      </div>
+      <div class="move-command-reference" id="move-command-reference">
+        <div class="move-command-reference-empty">Click a script command to view its parameters here.</div>
       </div>
     </div>
     <div class="pokemon-list pokemon-move-list spreadsheet" id="moves">
@@ -106,7 +110,9 @@ function renderMoveRow(move: MoveRecord): string {
         ${editable("move", "power", move.readable.power, "move-power", { type: "int-255" })}
         ${editable("move", "accuracy", move.readable.accuracy, "move-accuracy", { type: "int-101" })}
         <div class="move-info expand-action expand-move svg no-fill" data-expand="move">${miscDataIcon}</div>
+        <button class="move-animation-row-toggle" type="button" title="Edit animation and particles"><img src="${movieIconUrl}" alt="Edit animation"></button>
       </div>
+      <div class="move-animation-editor" data-loaded="false"></div>
     </div>
   `;
 }
@@ -122,9 +128,7 @@ function renderMoveExpanded(move: MoveRecord): string {
       </div>
       <div class="expanded-right">
         ${MOVE_MISC_FIELDS.map(([label, field, type]) => expandedField(label, editable("move", field, field === "animation" ? move.readable.animation : move.readable[field], "expanded-field-value ev-field", { type }))).join("")}
-        <button class="script-btn move-animation-toggle" type="button">Edit Anim Script</button>
       </div>
-      <div class="move-animation-editor" data-loaded="false"></div>
       <div class="expanded-row expanded-move-props" data-narc="move">
         ${PROPERTIES.map((prop) => `<div class="move-prop svg ${Number(move.readable[prop]) > 0 ? "-active" : ""}" data-field-name="${escapeHtml(prop)}"><img src="${publicAsset(`svgs/${prop}.svg`)}" alt=""><div class="prop-info">${escapeHtml(titleize(prop.replace(/_/gu, " ")))}</div></div>`).join("")}
       </div>

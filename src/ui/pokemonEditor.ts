@@ -30,7 +30,7 @@ const ICONS: Record<string, string> = {
   personal: miscDataIcon,
 };
 
-export function renderPokemonEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
+export function renderPokemonEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenSprites?: (speciesId: number) => void): void {
   root.innerHTML = `
     <div class="pokemon-filter pokemon-filter-personal">
       <div class="filter-title">Search Text</div>
@@ -53,6 +53,7 @@ export function renderPokemonEditor(project: ProjectState, root: HTMLElement, on
 
   attachPokemonInteractions(root, project, {
     onDirty,
+    onOpenSprites,
     renderExpanded: (speciesId) => renderPokemonExpandedSections(project, speciesId),
     autofills: getPokemonAutofills(project),
   });
@@ -105,6 +106,7 @@ function renderPokemonCard(record: PokemonSummaryRecord): string {
         ${icon("tms", "TMs")}
         ${icon("evos", "Evolutions")}
         ${icon("personal", "Personal")}
+        ${spriteIcon()}
       </div>
     </div>
   `;
@@ -217,6 +219,10 @@ function editable(
 
 function icon(expand: string, label: string): string {
   return `<div class="expand-card exp-${expand} card-icon expand-action" data-expand="${expand}" title="${label}">${ICONS[expand]}</div>`;
+}
+
+function spriteIcon(): string {
+  return `<div class="card-icon sprite-editor-action paintbrush-icon" title="Sprite Editor" style="--paintbrush-icon: url('${publicAsset("svgs/paintbrush.png")}')"><span></span></div>`;
 }
 
 function typeClass(type: string): string {

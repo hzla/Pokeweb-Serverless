@@ -3,6 +3,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import type { NarcName } from "./constants";
 import { loadActiveRomBytes } from "./persistence";
+import { materializeMap3dAreaEdits } from "./map3dModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import type { ProjectState } from "./projectStore";
 
@@ -23,10 +24,11 @@ export async function exportModifiedRom(project: ProjectState): Promise<Uint8Arr
     source.files = store.rawFiles;
     fileReplacements.set(store.fileId, source.save());
   }
+  materializeMap3dAreaEdits(project, rom, fileReplacements);
 
   const arm9OverlayTable = patchOverlayFiles(project, rom, fileReplacements);
   const out = rom.save({
-    arm9: project.tms?.dirty ? project.arm9 : undefined,
+    arm9: project.tms?.dirty || project.arm9Dirty ? project.arm9 : undefined,
     arm9OverlayTable,
     files: fileReplacements,
   });

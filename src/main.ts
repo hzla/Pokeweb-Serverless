@@ -9,19 +9,24 @@ import "./styles/legacyMartsGrottos.css";
 import "./styles/legacyText.css";
 import "./styles/legacyOverworlds.css";
 import "./styles/legacyDocGenerators.css";
+import "./styles/legacyMap3d.css";
+import "./styles/legacyPokemonSprites.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, type NarcName } from "./pokeweb/constants";
+import { NARC } from "./nds/narc";
+import { NintendoDSRom } from "./nds/rom";
 import { exportModifiedRom } from "./pokeweb/exportRom";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
 import { loadProjectFromRomFile } from "./pokeweb/loader";
-import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, saveActiveProject } from "./pokeweb/persistence";
-import { getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
+import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, saveActiveProject } from "./pokeweb/persistence";
+import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { renderDebugNarcs } from "./ui/debugNarcs";
 import { renderHeaderEditor } from "./ui/headerEditor";
 import { renderEncounterEditor } from "./ui/encounterEditor";
 import { renderItemEditor, renderMoveEditor } from "./ui/moveItemEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
+import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
 import { renderTmEditor } from "./ui/tmEditor";
 import { renderTrainerEditor } from "./ui/trainerEditor";
 import { renderGrottoEditor, renderGrottoOddsEditor, renderMartEditor } from "./ui/martGrottoEditor";
@@ -33,7 +38,9 @@ type AppRoute =
   | "upload"
   | "headers"
   | "overworlds"
+  | "maps3d"
   | "pokemon"
+  | "pokemonSprites"
   | "trainers"
   | "encounters"
   | "moves"
@@ -49,6 +56,8 @@ type AppRoute =
 type AppHistoryState = {
   route: AppRoute;
   overworldId?: number;
+  pokemonSpriteSpeciesId?: number;
+  pokemonSpriteFormIndex?: number;
 };
 const ROUTE_KEY = "pokeweb-serverless-route";
 const OVERWORLD_ROUTE_KEY = "pokeweb-serverless-overworld-id";
@@ -57,7 +66,9 @@ const APP_ROUTES: AppRoute[] = [
   "upload",
   "headers",
   "overworlds",
+  "maps3d",
   "pokemon",
+  "pokemonSprites",
   "trainers",
   "encounters",
   "moves",
@@ -72,10 +83,11 @@ const APP_ROUTES: AppRoute[] = [
   "debugNarcs",
 ];
 
-const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "docGenerators">, NarcName[]> = {
+const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">, NarcName[]> = {
   headers: ["headers", "message_texts"],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
+  pokemonSprites: ["personal", "pokemon_sprites", "pokemon_icons"],
   trainers: ["trdata", "trpok", "personal", "items", "moves", "trtext_table", "trtext_offsets"],
   encounters: ["encounters"],
   moves: ["moves"],
@@ -92,7 +104,7 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   message_texts: "Message Text",
   story_texts: "Story Text",
   scripts: "Scripts",
-  personal: "Pokemon Personal Data",
+  personal: "Personal Data",
   move_spas: "Move SPAs",
   maps: "Map Layouts",
   matrix: "Matrices",
@@ -112,7 +124,24 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   mart_counts: "Mart Counts",
   grottos: "Hidden Grottoes",
   starter_sprites: "Starter Sprites",
+  pokemon_sprites: "Pokemon Sprites",
+  pokemon_icons: "Pokemon Icons",
 };
+
+type NarcLoadSection = {
+  title: string;
+  names: NarcName[];
+  toggleable?: boolean;
+};
+
+const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
+  { title: "Required", names: [...MANDATORY_NARCS] },
+  { title: "Sprites", names: ["pokemon_sprites", "pokemon_icons", "starter_sprites"], toggleable: true },
+  { title: "Moves", names: ["moves", "move_animations", "battle_animations", "move_spas"], toggleable: true },
+  { title: "Pokemon", names: ["personal", "learnsets", "evolutions"], toggleable: true },
+  { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets"], toggleable: true },
+  { title: "Maps", names: ["maps", "matrix"], toggleable: true },
+];
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app element");
@@ -121,6 +150,8 @@ const appRoot = app;
 let project: ProjectState | undefined;
 let route: AppRoute = "upload";
 let activeOverworldId: number | undefined;
+let activePokemonSpriteSpeciesId: number | undefined;
+let activePokemonSpriteFormIndex = 0;
 let dirty = false;
 let hasExportBase = false;
 const scheduleSave = debounceProjectSave();
@@ -147,6 +178,8 @@ async function boot(): Promise<void> {
   }
   const initialState = routeStateFromUrl() ?? routeStateFromStorage();
   activeOverworldId = initialState.overworldId;
+  activePokemonSpriteSpeciesId = initialState.pokemonSpriteSpeciesId;
+  activePokemonSpriteFormIndex = initialState.pokemonSpriteFormIndex ?? 0;
   route = project ? initialState.route : "upload";
   if (project && route === "upload" && !window.location.hash) route = "headers";
   route = safeRoute(route);
@@ -211,11 +244,43 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "maps3d") {
+    content.innerHTML = `<div class="pokemon-filter map3d-sidebar"><div class="filter-title">Maps 3D</div><div class="map3d-status">Loading viewer...</div></div>`;
+    void import("./ui/map3dEditor").then(({ renderMap3dEditor }) => {
+      if (route === "maps3d" && project) {
+        renderMap3dEditor(project, content, () => {
+          dirty = true;
+          scheduleSave(project!);
+          renderDirtyIndicator();
+        });
+      }
+    });
+    return;
+  }
+
   if (route === "pokemon") {
     renderPokemonEditor(project, content, () => {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
+    }, openPokemonSprites);
+    return;
+  }
+
+  if (route === "pokemonSprites") {
+    if (activePokemonSpriteSpeciesId === undefined) {
+      navigate("pokemon");
+      return;
+    }
+    renderPokemonSpriteEditor(project, content, activePokemonSpriteSpeciesId, activePokemonSpriteFormIndex, {
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+      onBack: () => navigate("pokemon"),
+      onNavigateSpecies: (speciesId) => openPokemonSprites(speciesId, 0),
+      onNavigateForm: (formIndex) => openPokemonSprites(activePokemonSpriteSpeciesId!, formIndex),
     });
     return;
   }
@@ -347,6 +412,7 @@ function renderNav(): string {
     <div id="header">
       <div class="header-left">
         ${navItem("headers", "Headers & Overworlds")}
+        ${navItem("maps3d", "Maps")}
         ${navItem("pokemon", "Pokemon")}
         ${navItem("trainers", "Trainers")}
         ${navItem("encounters", "Encounters")}
@@ -436,8 +502,46 @@ function openOverworld(overworldId: number): void {
   applyRouteState({ route: "overworlds", overworldId });
 }
 
+function openPokemonSprites(speciesId: number, formIndex = 0): void {
+  void openPokemonSpritesAsync(speciesId, formIndex);
+}
+
+async function openPokemonSpritesAsync(speciesId: number, formIndex = 0): Promise<void> {
+  if (!project) return;
+  try {
+    await ensurePokemonSpriteNarcs();
+    applyRouteState({ route: "pokemonSprites", pokemonSpriteSpeciesId: speciesId, pokemonSpriteFormIndex: formIndex });
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function ensurePokemonSpriteNarcs(): Promise<void> {
+  if (!project) return;
+  if (project.narcs.pokemon_sprites && project.narcs.pokemon_icons) return;
+
+  const bytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+  if (!bytes) throw new Error("Pokemon sprite data is not loaded. Reload the ROM once, then open the paintbrush editor again.");
+
+  const rom = new NintendoDSRom(bytes);
+  for (const definition of [
+    { path: "a/0/0/4", name: "pokemon_sprites" as const },
+    { path: "a/0/0/7", name: "pokemon_icons" as const },
+  ]) {
+    if (project.narcs[definition.name]) continue;
+    const fileId = rom.fileId(definition.path);
+    project.session.fileIds[definition.name] = fileId;
+    project.session.blacklist = project.session.blacklist.filter((name) => name !== definition.name);
+    project.narcs[definition.name] = createNarcStore(definition.name, definition.path, fileId, new NARC(rom.files[fileId]));
+  }
+  await saveActiveProject(project);
+}
+
 function renderUpload(root: HTMLElement): void {
   const mandatoryNarcs = new Set<NarcName>(MANDATORY_NARCS);
+  const sectionedNarcs = new Set<NarcName>(NARC_LOAD_SECTIONS.flatMap((section) => section.names));
+  const otherNarcs = SELECTABLE_NARCS.map((definition) => definition.name).filter((name) => !sectionedNarcs.has(name));
+  const narcSections = [...NARC_LOAD_SECTIONS, { title: "Other", names: otherNarcs }];
   root.innerHTML = `
     <section class="upload-page">
       <div class="upload-panel">
@@ -459,17 +563,8 @@ function renderUpload(root: HTMLElement): void {
             </div>
             <button class="btn -default" id="minimal-narcs-btn" type="button">Core Only</button>
           </div>
-          <div class="narc-picker__grid">
-            ${SELECTABLE_NARCS.map((definition) => {
-              const mandatory = mandatoryNarcs.has(definition.name);
-              return `
-                <label class="narc-choice ${mandatory ? "-mandatory" : ""}">
-                  <input class="narc-input" type="checkbox" value="${definition.name}" ${mandatory ? "disabled" : ""} checked />
-                  <span>${NARC_LABELS[definition.name] ?? definition.name}</span>
-                  ${mandatory ? `<em>Required</em>` : ""}
-                </label>
-              `;
-            }).join("")}
+          <div class="narc-picker__sections">
+            ${narcSections.map((section) => renderNarcLoadSection(section, mandatoryNarcs)).join("")}
           </div>
         </div>
         <div class="upload-status" id="status">Waiting for a ROM.</div>
@@ -481,11 +576,39 @@ function renderUpload(root: HTMLElement): void {
   const fairyInput = root.querySelector<HTMLInputElement>("#fairy-input");
   const minimalNarcsButton = root.querySelector<HTMLButtonElement>("#minimal-narcs-btn");
   const status = root.querySelector<HTMLDivElement>("#status");
+  const sectionToggles = [...root.querySelectorAll<HTMLInputElement>(".narc-section__toggle")];
+
+  const syncSectionToggles = () => {
+    sectionToggles.forEach((toggle) => {
+      const section = toggle.closest<HTMLElement>(".narc-section");
+      const checkboxes = [...(section?.querySelectorAll<HTMLInputElement>(".narc-input:not(:disabled)") ?? [])];
+      const checkedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
+      toggle.checked = checkedCount > 0 && checkedCount === checkboxes.length;
+      toggle.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+    });
+  };
+
+  sectionToggles.forEach((toggle) => {
+    toggle.addEventListener("change", () => {
+      const section = toggle.closest<HTMLElement>(".narc-section");
+      section?.querySelectorAll<HTMLInputElement>(".narc-input:not(:disabled)").forEach((checkbox) => {
+        checkbox.checked = toggle.checked;
+      });
+      syncSectionToggles();
+    });
+  });
+
+  root.querySelectorAll<HTMLInputElement>(".narc-input").forEach((checkbox) => {
+    checkbox.addEventListener("change", syncSectionToggles);
+  });
+
+  syncSectionToggles();
 
   minimalNarcsButton?.addEventListener("click", () => {
     root.querySelectorAll<HTMLInputElement>(".narc-input").forEach((checkbox) => {
       if (!checkbox.disabled) checkbox.checked = false;
     });
+    syncSectionToggles();
   });
 
   input?.addEventListener("change", async () => {
@@ -503,6 +626,38 @@ function renderUpload(root: HTMLElement): void {
       statusText(status, error instanceof Error ? error.message : String(error));
     }
   });
+}
+
+function renderNarcLoadSection(section: NarcLoadSection, mandatoryNarcs: Set<NarcName>): string {
+  return `
+    <section class="narc-section">
+      <div class="narc-section__header">
+        <h3>${section.title}</h3>
+        ${
+          section.toggleable
+            ? `<label class="narc-section__toggle-label">
+                <input class="narc-section__toggle" type="checkbox" checked />
+                <span>All</span>
+              </label>`
+            : ""
+        }
+      </div>
+      <div class="narc-picker__grid">
+        ${section.names
+          .map((name) => {
+            const mandatory = mandatoryNarcs.has(name);
+            return `
+              <label class="narc-choice ${mandatory ? "-mandatory" : ""}">
+                <input class="narc-input" type="checkbox" value="${name}" ${mandatory ? "disabled" : ""} checked />
+                <span>${NARC_LABELS[name] ?? name}</span>
+                ${mandatory ? `<em>Required</em>` : ""}
+              </label>
+            `;
+          })
+          .join("")}
+      </div>
+    </section>
+  `;
 }
 
 function hydrateProject(nextProject: ProjectState | undefined): void {
@@ -529,18 +684,25 @@ function getSelectedNarcs(root: HTMLElement): NarcName[] {
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (!project) return false;
   if (nextRoute === "docGenerators") return true;
+  if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
-  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "docGenerators">;
+  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);
 }
 
-function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">, label: string): string {
+function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, label: string): string {
   const enabled = canVisit(nextRoute);
   const requirements =
     nextRoute === "docGenerators"
       ? []
-      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "docGenerators">];
-  const missing = enabled ? "" : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
+      : nextRoute === "maps3d"
+        ? ([] as NarcName[])
+      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">];
+  const missing = enabled
+    ? ""
+    : nextRoute === "maps3d"
+      ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
+      : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
   const active = route === nextRoute || (nextRoute === "headers" && route === "overworlds");
   return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute)}" ${enabled ? `data-route="${nextRoute}"` : ""}${missing}>${label}</a>`;
 }
@@ -549,6 +711,7 @@ function safeRoute(nextRoute: AppRoute): AppRoute {
   if (!project || nextRoute === "upload" || nextRoute === "debugNarcs") return nextRoute;
   if (nextRoute === "grottoOdds") return canVisit("grottos") ? nextRoute : safeRoute("grottos");
   if (nextRoute === "overworlds" && activeOverworldId === undefined) return safeRoute("headers");
+  if (nextRoute === "pokemonSprites" && activePokemonSpriteSpeciesId === undefined) return safeRoute("pokemon");
   if (canVisit(nextRoute)) return nextRoute;
   return canVisit("headers") ? "headers" : "debugNarcs";
 }
@@ -566,6 +729,8 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   }
 
   activeOverworldId = nextState.overworldId;
+  activePokemonSpriteSpeciesId = nextState.pokemonSpriteSpeciesId;
+  activePokemonSpriteFormIndex = nextState.pokemonSpriteFormIndex ?? 0;
   route = safeRoute(project ? requestedRoute : "upload");
   if (route !== "overworlds" && nextState.route !== "overworlds") activeOverworldId = nextState.overworldId;
   syncRouteStorage();
@@ -587,23 +752,31 @@ function syncBrowserHistory(replace: boolean): void {
 }
 
 function currentHistoryState(): AppHistoryState {
-  return route === "overworlds" ? { route, overworldId: activeOverworldId } : { route };
+  if (route === "overworlds") return { route, overworldId: activeOverworldId };
+  if (route === "pokemonSprites") return { route, pokemonSpriteSpeciesId: activePokemonSpriteSpeciesId, pokemonSpriteFormIndex: activePokemonSpriteFormIndex };
+  return { route };
 }
 
 function routeUrl(nextRoute: AppRoute, overworldId = activeOverworldId): string {
   if (nextRoute === "overworlds" && overworldId !== undefined) return `#overworlds/${overworldId}`;
+  if (nextRoute === "pokemonSprites" && activePokemonSpriteSpeciesId !== undefined) {
+    return `#pokemonSprites/${activePokemonSpriteSpeciesId}/${activePokemonSpriteFormIndex}`;
+  }
   return `#${nextRoute}`;
 }
 
 function routeStateFromUrl(): AppHistoryState | undefined {
   const hash = window.location.hash.replace(/^#/u, "");
   if (!hash) return undefined;
-  const [routeName, idText] = hash.split("/");
+  const [routeName, idText, extraText] = hash.split("/");
   if (!isAppRoute(routeName)) return undefined;
-  const overworldId = idText === undefined ? undefined : Number(idText);
+  const id = idText === undefined ? undefined : Number(idText);
+  const formIndex = extraText === undefined ? undefined : Number(extraText);
   return {
     route: routeName,
-    overworldId: Number.isSafeInteger(overworldId) ? overworldId : undefined,
+    overworldId: routeName === "overworlds" && Number.isSafeInteger(id) ? id : undefined,
+    pokemonSpriteSpeciesId: routeName === "pokemonSprites" && Number.isSafeInteger(id) ? id : undefined,
+    pokemonSpriteFormIndex: routeName === "pokemonSprites" && Number.isSafeInteger(formIndex) ? formIndex : undefined,
   };
 }
 
@@ -624,6 +797,8 @@ function routeStateFromHistory(value: unknown): AppHistoryState | undefined {
   return {
     route: maybe.route,
     overworldId: Number.isSafeInteger(maybe.overworldId) ? maybe.overworldId : undefined,
+    pokemonSpriteSpeciesId: Number.isSafeInteger(maybe.pokemonSpriteSpeciesId) ? maybe.pokemonSpriteSpeciesId : undefined,
+    pokemonSpriteFormIndex: Number.isSafeInteger(maybe.pokemonSpriteFormIndex) ? maybe.pokemonSpriteFormIndex : undefined,
   };
 }
 

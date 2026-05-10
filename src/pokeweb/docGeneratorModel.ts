@@ -13,11 +13,19 @@ import { decodeRecord, type DocGeneratorState, type ProjectState, type ReadableR
 import { getTextBank } from "./textModel";
 import { getTrainerCount, getTrainerRecord, type TrainerRecord } from "./trainerModel";
 
-export type DownloadFile = {
+export type TextDownloadFile = {
   filename: string;
   contents: string;
   mimeType: string;
 };
+
+export type BinaryDownloadFile = {
+  filename: string;
+  contents: Uint8Array;
+  mimeType: string;
+};
+
+export type DownloadFile = TextDownloadFile | BinaryDownloadFile;
 
 export type EnrichmentResult = {
   count: number;
@@ -76,7 +84,7 @@ export function setDocRomTitle(project: ProjectState, title: string): void {
   ensureDocs(project).romTitle = title;
 }
 
-export function generateCalcDownload(project: ProjectState, title: string): DownloadFile {
+export function generateCalcDownload(project: ProjectState, title: string): TextDownloadFile {
   const payload = buildCalcPayload(project, title.trim());
   return {
     filename: `${safeFilename(title)}-calc.js`,
@@ -100,6 +108,21 @@ export function generateDexDownloads(project: ProjectState, title: string): Down
       mimeType: "text/javascript",
     },
   ];
+}
+
+export function generateTextDocsDownload(project: ProjectState, title: string): BinaryDownloadFile {
+  const safeTitle = safeFilename(title || project.session.romName);
+  if (project.narcs.headers && project.narcs.overworlds) enrichTrainerLocations(project);
+  const files = [
+    { filename: `${safeTitle}_pokedex.txt`, contents: buildPokemonTextDoc(project, safeTitle) },
+    { filename: `${safeTitle}_moves.txt`, contents: buildMovesTextDoc(project) },
+    { filename: `${safeTitle}_trainers.txt`, contents: buildTrainerTextDoc(project) },
+  ];
+  return {
+    filename: `${safeTitle}_text_docs.zip`,
+    contents: zipStored(files),
+    mimeType: "application/zip",
+  };
 }
 
 export function enrichTrainerLocations(project: ProjectState): EnrichmentResult {
@@ -380,6 +403,96 @@ function buildDexItems(project: ProjectState): Record<string, unknown> {
   }
   addMartDexSources(project, out);
   return out;
+}
+
+function buildPokemonTextDoc(project: ProjectState, safeTitle: string): string {
+  const lines: string[] = [
+    `Pokedex: /${safeTitle}_pokedex.txt`,
+    `Moves: /${safeTitle}_moves.txt`,
+    `Trainers: /${safeTitle}_trainers.txt`,
+  ];
+
+  for (let id = 1; id < getPokemonCount(project); id += 1) {
+    const pok = getPokemonRecord(project, id);
+    if (!pok.personal.base_hp) continue;
+    lines.push(
+      "===================",
+      `${id} - ${titleizeName(pok.personal.name ?? project.texts.banks.pokedex?.[id] ?? `Pokemon ${id}`)}`,
+      "===================",
+      formatTypes(pok.personal),
+      "",
+      formatAbilities(pok.personal),
+      "",
+      formatStats(pok.personal),
+      "",
+    );
+
+    for (const evo of pok.evolutions) {
+      const target = String(evo.target ?? "").replace(/-/gu, "").trim();
+      if (!target || target === "0") continue;
+      lines.push(`Evolves to ${titleizeName(evo.target)} by ${evo.method} / ${evo.param}`);
+    }
+
+    lines.push("", "Level Up:");
+    for (const move of pok.learnset) {
+      lines.push(`${move.level} - ${titleizeName(move.moveName)}`);
+    }
+    lines.push("", "");
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function buildMovesTextDoc(project: ProjectState): string {
+  const lines: string[] = [];
+  for (let id = 0; id < getMoveCount(project); id += 1) {
+    const move = getMoveRecord(project, id);
+    lines.push(
+      "===================",
+      titleizeName(project.texts.banks.moves?.[id] ?? move.readable.name ?? `Move ${id}`),
+      "===================",
+      `${move.readable.power ?? 0}  BP || ${move.readable.accuracy ?? 0} ACC || ${move.readable.category ?? "Status"} || ${move.readable.type ?? "Normal"} || ${move.readable.pp ?? 0} PP`,
+      `Effect: ${move.readable.effect ?? "None"}`,
+      "",
+    );
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function buildTrainerTextDoc(project: ProjectState): string {
+  const trainers: TrainerRecord[] = [];
+  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) {
+    if (!project.narcs.trpok?.rawFiles[trainerId]) continue;
+    const trainer = getTrainerRecord(project, trainerId);
+    if (trainer.party.length > 0) trainers.push(trainer);
+  }
+
+  trainers.sort((a, b) => maxTrainerLevel(a) - maxTrainerLevel(b));
+
+  const lines: string[] = [];
+  let lastLocation = "";
+  for (const trainer of trainers) {
+    const location = ensureDocs(project).trainerLocations[String(trainer.id)]?.[0] ?? "";
+    if (location && location !== lastLocation) {
+      lines.push("-----------------", location, "-----------------", "", ">>>>>>>>>>>>>>>>");
+      lastLocation = location;
+    }
+
+    const trainerName = `${trainer.readable.class ?? ""} ${trainer.readable.name ?? ""}`.trim() || "Trainer";
+    lines.push(`${trainerName} ${trainer.id} (${trainer.readable.battle_type_1 ?? ""}) (${trainer.readable.reward_item ?? "None"})`, "");
+    for (const pok of trainer.party) {
+      const species = titleizeName(pok.speciesName).padEnd(10, " ");
+      const level = `Lv.${pok.level}`.padEnd(6, " ");
+      const item = String(pok.itemName ?? (trainer.hasItems ? "None" : "-")).padEnd(14, " ");
+      const ability = titleizeAbility(pok.abilityName).padEnd(14, " ");
+      const nature = String(pok.nature ?? "").padEnd(8, " ");
+      const moves = pok.moves.map(formatTrainerMoveName).join(", ");
+      lines.push(`${species} ${level} @${item} ${ability} ${nature} ${moves}`);
+    }
+    lines.push("---", "");
+  }
+
+  return `${lines.join("\n")}\n`;
 }
 
 function enrichDerivedItemSources(project: ProjectState): number {
@@ -667,10 +780,139 @@ function titleize(value: unknown): string {
   return titleizeName(value);
 }
 
+function formatTypes(pok: ReadableRecord): string {
+  return unique([pok.type_1, pok.type_2].map((type) => titleizeName(type)).filter(Boolean)).join(" ");
+}
+
+function formatAbilities(pok: ReadableRecord): string {
+  return [pok.ability_1, pok.ability_2, pok.ability_3].map((ability) => titleizeAbility(String(ability ?? "").replace(/-/gu, "").trim())).join(" / ");
+}
+
+function formatStats(pok: ReadableRecord): string {
+  const stats = [
+    ["base_hp", "HP"],
+    ["base_atk", "Atk"],
+    ["base_def", "Def"],
+    ["base_spatk", "SAtk"],
+    ["base_spdef", "SDef"],
+    ["base_speed", "Spd"],
+  ] as const;
+  const values = stats.map(([field]) => Number(pok[field] ?? 0));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return `${stats.map(([field, label]) => `${pok[field] ?? 0} ${label}`).join(" / ")} / (${total}) BST`;
+}
+
+function maxTrainerLevel(trainer: TrainerRecord): number {
+  return trainer.party.reduce((max, pok) => Math.max(max, pok.level), 0);
+}
+
+function formatTrainerMoveName(move: string | number): string {
+  if (move === 0 || move === "0") return "";
+  return titleizeName(move);
+}
+
 function safeFilename(value: string): string {
   return toId(value) || "pokeweb";
 }
 
 function lines(text: string): string[] {
   return text.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+}
+
+function zipStored(files: Array<{ filename: string; contents: string }>): Uint8Array {
+  const encoder = new TextEncoder();
+  const localParts: Uint8Array[] = [];
+  const centralParts: Uint8Array[] = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const name = encoder.encode(file.filename);
+    const data = encoder.encode(file.contents);
+    const crc = crc32(data);
+    const local = new Uint8Array(30 + name.length);
+    writeU32(local, 0, 0x04034b50);
+    writeU16(local, 4, 20);
+    writeU16(local, 6, 0x0800);
+    writeU16(local, 8, 0);
+    writeU16(local, 10, 0);
+    writeU16(local, 12, 0);
+    writeU32(local, 14, crc);
+    writeU32(local, 18, data.length);
+    writeU32(local, 22, data.length);
+    writeU16(local, 26, name.length);
+    writeU16(local, 28, 0);
+    local.set(name, 30);
+    localParts.push(local, data);
+
+    const central = new Uint8Array(46 + name.length);
+    writeU32(central, 0, 0x02014b50);
+    writeU16(central, 4, 20);
+    writeU16(central, 6, 20);
+    writeU16(central, 8, 0x0800);
+    writeU16(central, 10, 0);
+    writeU16(central, 12, 0);
+    writeU16(central, 14, 0);
+    writeU32(central, 16, crc);
+    writeU32(central, 20, data.length);
+    writeU32(central, 24, data.length);
+    writeU16(central, 28, name.length);
+    writeU16(central, 30, 0);
+    writeU16(central, 32, 0);
+    writeU16(central, 34, 0);
+    writeU16(central, 36, 0);
+    writeU32(central, 38, 0);
+    writeU32(central, 42, offset);
+    central.set(name, 46);
+    centralParts.push(central);
+
+    offset += local.length + data.length;
+  }
+
+  const centralOffset = offset;
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const eocd = new Uint8Array(22);
+  writeU32(eocd, 0, 0x06054b50);
+  writeU16(eocd, 4, 0);
+  writeU16(eocd, 6, 0);
+  writeU16(eocd, 8, files.length);
+  writeU16(eocd, 10, files.length);
+  writeU32(eocd, 12, centralSize);
+  writeU32(eocd, 16, centralOffset);
+  writeU16(eocd, 20, 0);
+
+  return concatBytes([...localParts, ...centralParts, eocd]);
+}
+
+function crc32(data: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (const byte of data) crc = CRC32_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+const CRC32_TABLE = Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+  for (let bit = 0; bit < 8; bit += 1) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+  return value >>> 0;
+});
+
+function writeU16(out: Uint8Array, offset: number, value: number): void {
+  out[offset] = value & 0xff;
+  out[offset + 1] = (value >>> 8) & 0xff;
+}
+
+function writeU32(out: Uint8Array, offset: number, value: number): void {
+  out[offset] = value & 0xff;
+  out[offset + 1] = (value >>> 8) & 0xff;
+  out[offset + 2] = (value >>> 16) & 0xff;
+  out[offset + 3] = (value >>> 24) & 0xff;
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
 }

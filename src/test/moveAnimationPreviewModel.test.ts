@@ -1,0 +1,487 @@
+import { describe, expect, it } from "vitest";
+import { writeU16, writeU32 } from "../nds/binary";
+import { NARC } from "../nds/narc";
+import { NintendoDSRom } from "../nds/rom";
+import { compileMoveAnimation, decompileMoveAnimation } from "../pokeweb/moveAnimationModel";
+import { buildMoveAnimationPreview, loadMoveBackground, type MoveAnimationPreview } from "../pokeweb/moveAnimationPreviewModel";
+import { simulateBattleCamera } from "../pokeweb/battleCameraSimulator";
+import { TARGET_BATTLE_ANCHOR, USER_BATTLE_ANCHOR } from "../pokeweb/battlePreviewAnchors";
+import { parseNitroBackground } from "../pokeweb/nitroBg";
+import { parseSpaArchive } from "../pokeweb/nitroSpa";
+import { simulateSplPreview } from "../pokeweb/splEmitterSimulator";
+import type { NarcName } from "../pokeweb/constants";
+import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
+
+describe("moveAnimationPreviewModel", () => {
+  it("builds a frame timeline from waits and SPA commands", async () => {
+    const project = makeProject();
+    const preview = await buildMoveAnimationPreview(
+      project,
+      1,
+      makeScript(`
+     LoadSPA 5
+     Wait 12
+     DoSPAAnimation 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+     TerminateMoveScript
+`),
+      { loadSpaArchive: async () => parseSpaArchive(makeSyntheticSpa()) },
+    );
+
+    expect(preview.spaIds).toEqual([0, 5]);
+    expect(preview.timeline.map((event) => [event.frame, event.command])).toEqual([
+      [0, "LoadSPA"],
+      [0, "Wait"],
+      [12, "DoSPAAnimation"],
+      [12, "TerminateMoveScript"],
+    ]);
+    expect(preview.timeline.find((event) => event.command === "DoSPAAnimation")?.spaId).toBe(0);
+    expect(preview.timeline.find((event) => event.command === "DoSPAAnimation")?.resourceId).toBe(1);
+  });
+
+  it("follows called move animations with a recursion cap", async () => {
+    const project = makeProject();
+    project.narcs.move_animations!.rawFiles[7] = compileMoveAnimation(
+      project,
+      7,
+      makeScript(`
+     LoadSPA 2
+     Wait 3
+     TerminateMoveScript
+`),
+    );
+
+    const preview = await buildMoveAnimationPreview(
+      project,
+      1,
+      makeScript(`
+     LoadSPA 1
+     Wait 2
+     CallMoveAnimation 7
+`),
+      { loadSpaArchive: async () => parseSpaArchive(makeSyntheticSpa()) },
+    );
+
+    expect(preview.spaIds).toEqual([1, 2]);
+    expect(preview.timeline.map((event) => event.command)).toEqual(["LoadSPA", "Wait", "CallMoveAnimation", "LoadSPA", "Wait", "TerminateMoveScript"]);
+    expect(preview.timeline.find((event) => event.command === "LoadSPA" && event.spaId === 2)?.frame).toBe(2);
+  });
+
+  it("lazy-loads only unique SPA IDs referenced by LoadSPA", async () => {
+    const project = makeProject();
+    const loaded: number[] = [];
+
+    await buildMoveAnimationPreview(
+      project,
+      1,
+      makeScript(`
+     LoadSPA 3
+     DoSPAAnimation 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+     LoadSPA 3
+     LoadSPA 4
+     TerminateMoveScript
+`),
+      {
+        loadSpaArchive: async (_project, spaId) => {
+          loaded.push(spaId);
+          return parseSpaArchive(makeSyntheticSpa());
+        },
+      },
+    );
+
+    expect(loaded).toEqual([3, 4]);
+  });
+
+  it("supports background timeline events and lazy-loads only referenced backgrounds", async () => {
+    const project = makeProject();
+    const loaded: number[] = [];
+    const [screen, characters, palette] = makeSyntheticBackgroundFiles();
+
+    const preview = await buildMoveAnimationPreview(
+      project,
+      1,
+      makeScript(`
+     LoadBackground 3
+     MoveBackground 0, 16, -8, 10, 0, 1
+     ChangeBackgroundColor 0, 0, 16, 8, 31
+     ApplyBackground 0, 0
+     TerminateMoveScript
+`),
+      {
+        loadSpaArchive: async () => parseSpaArchive(makeSyntheticSpa()),
+        loadBackground: async (_project, backgroundId) => {
+          loaded.push(backgroundId);
+          return parseNitroBackground(backgroundId, screen, characters, palette);
+        },
+      },
+    );
+
+    expect(loaded).toEqual([3]);
+    expect(preview.backgrounds.get(3)?.width).toBe(16);
+    expect(preview.timeline.map((event) => [event.command, event.status])).toEqual([
+      ["LoadBackground", "supported"],
+      ["MoveBackground", "supported"],
+      ["ChangeBackgroundColor", "supported"],
+      ["ApplyBackground", "supported"],
+      ["TerminateMoveScript", "marker"],
+    ]);
+    expect(preview.timeline.find((event) => event.command === "ChangeBackgroundColor")?.message).toContain("rgb555(31, 0, 0)");
+  });
+
+  it("models camera commands as supported timeline events and shared camera state", async () => {
+    const project = makeProject();
+    const preview = await buildMoveAnimationPreview(
+      project,
+      1,
+      makeScript(`
+     MoveCamera 1, 11, 16, 0, 9
+     LetCMDsFinish 0
+     CameraProjection 1, 11
+     ShakeScreen 2, 256, 0, 4, 0, 2
+     CameraMoveAngle 1, 45, 12, 8, 0, 0
+     AdjustCamera 1, 4096, 8192, 12288, 0, 4096, 0, 6, 0, 0
+     CameraPosPush
+     TerminateMoveScript
+`),
+      { loadSpaArchive: async () => parseSpaArchive(makeSyntheticSpa()) },
+    );
+
+    expect(preview.timeline.filter((event) => event.command.includes("Camera") || event.command === "ShakeScreen").every((event) => event.status === "supported")).toBe(true);
+    expect(preview.timeline.find((event) => event.command === "CameraProjection")?.frame).toBe(16);
+    const zoomed = simulateBattleCamera(preview.timeline, 16);
+    expect(zoomed.backdropZoom).toBeGreaterThan(1);
+    expect(zoomed.lookAt[0]).toBeGreaterThan(0);
+  });
+
+  it("does not treat generic setup camera preset 20 as a target zoom", async () => {
+    const project = makeProject();
+    const preview = await buildMoveAnimationPreview(
+      project,
+      56,
+      makeScript(`
+     MoveCamera 1, 20, 24, 0, 0
+     Wait 24
+     MoveCamera 1, 11, 16, 0, 12
+     TerminateMoveScript
+`),
+      { loadSpaArchive: async () => parseSpaArchive(makeSyntheticSpa()) },
+    );
+
+    const setup = simulateBattleCamera(preview.timeline, 24);
+    const target = simulateBattleCamera(preview.timeline, 40);
+    expect(Math.abs(setup.lookAt[0])).toBeLessThan(3);
+    expect(setup.backdropZoom).toBeCloseTo(1);
+    expect(target.lookAt[0]).toBeGreaterThan(0);
+    expect(target.backdropZoom).toBeGreaterThan(1);
+  });
+
+  it("parses a minimal SPA archive and decodes palette textures", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+
+    expect(archive.resourceCount).toBe(1);
+    expect(archive.textureCount).toBe(1);
+    expect(archive.resources[0].emissionCount).toBe(2);
+    expect(archive.resources[0].textureIndex).toBe(0);
+    expect(archive.textures[0].width).toBe(8);
+    expect(archive.textures[0].height).toBe(8);
+    expect(archive.textures[0].fallback).toBe(false);
+  });
+
+  it("renders Nitro tiled background triples into RGBA", () => {
+    const [screen, characters, palette] = makeSyntheticBackgroundFiles();
+    const background = parseNitroBackground(0, screen, characters, palette);
+
+    expect(background.width).toBe(16);
+    expect(background.height).toBe(16);
+    expect(background.rgba[4]).toBeGreaterThan(200);
+    expect(background.rgba[5]).toBeLessThan(10);
+    expect(background.rgba[6]).toBeLessThan(10);
+  });
+
+  it("simulates SPL particles from emitter data without renderer motion heuristics", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    const preview = {
+      moveId: 1,
+      rootLabel: "SCRIPT_A",
+      frameCount: 60,
+      spaIds: [0],
+      spaArchives: new Map([[0, archive]]),
+      backgrounds: new Map(),
+      warnings: [],
+      timeline: [
+        {
+          id: "synthetic",
+          frame: 0,
+          label: "SCRIPT_A",
+          command: "DoSPAAnimation",
+          params: [0, 0, 0, 0, 0, 0, 0, 0, 4096, 4096, 4096],
+          status: "supported" as const,
+          message: "synthetic",
+          spaId: 0,
+          resourceId: 0,
+        },
+      ],
+    };
+
+    const particles = simulateSplPreview(preview, 2);
+    expect(particles.length).toBeGreaterThan(0);
+    expect(Math.max(...particles.map((particle) => Math.abs(particle.position[0] - USER_BATTLE_ANCHOR[0])))).toBeLessThan(0.001);
+    expect(Math.max(...particles.map((particle) => Math.abs(particle.position[2] - USER_BATTLE_ANCHOR[2])))).toBeLessThan(0.001);
+  });
+
+  it("anchors projectile emitters at the attack side and aims them at defence", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32 + 40, 4096);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0] = {
+      ...preview.timeline[0],
+      command: "DoSPAProjectileAnimation",
+      params: [0, 0, 1, 9, 11, 8192, 81920, 0, 4096, 4096, 0],
+    };
+
+    const particles = simulateSplPreview(preview, 2);
+    expect(particles.length).toBeGreaterThan(0);
+    expect(Math.min(...particles.map((particle) => particle.position[0]))).toBeGreaterThan(USER_BATTLE_ANCHOR[0]);
+    expect(Math.max(...particles.map((particle) => particle.position[2]))).toBeLessThan(USER_BATTLE_ANCHOR[2]);
+    expect(Math.max(...particles.map((particle) => particle.position[0]))).toBeLessThan(TARGET_BATTLE_ANCHOR[0]);
+  });
+
+  it("starts delayed SPL emitters after their delay instead of expiring them early", () => {
+    const bytes = makeSyntheticSpa();
+    writeU16(bytes, 32 + 50, 4);
+    writeU16(bytes, 32 + 60, 5);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+
+    expect(simulateSplPreview(preview, 2)).toHaveLength(0);
+    expect(simulateSplPreview(preview, 5).length).toBeGreaterThan(0);
+  });
+
+  it("adds command-driven DistortSprite hit overlay particles", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    const preview = makeSyntheticPreview(archive);
+    preview.spaIds = [166];
+    preview.timeline.push({
+      id: "distort",
+      frame: 0,
+      label: "SCRIPT_A",
+      command: "DistortSprite",
+      params: [16, 2, 1229, -1229, 2, 1, 1],
+      status: "marker",
+      message: "distort",
+    });
+
+    expect(simulateSplPreview(preview, 3).some((particle) => particle.textureKind === "circle")).toBe(true);
+  });
+
+  it("simulates SPL child particles from child resource blocks", () => {
+    const archive = parseSpaArchive(makeSyntheticChildSpa());
+    const preview = makeSyntheticPreview(archive);
+    const particles = simulateSplPreview(preview, 0);
+
+    expect(archive.resources[0].childResource).toBeDefined();
+    expect(particles.some((particle) => particle.color[1] > 0.9 && particle.color[0] < 0.1)).toBe(true);
+  });
+});
+
+function makeSyntheticPreview(archive: ReturnType<typeof parseSpaArchive>): MoveAnimationPreview {
+  return {
+    moveId: 1,
+    rootLabel: "SCRIPT_A",
+    frameCount: 60,
+    spaIds: [0],
+    spaArchives: new Map([[0, archive]]),
+    backgrounds: new Map(),
+    warnings: [],
+    timeline: [
+      {
+        id: "synthetic",
+        frame: 0,
+        label: "SCRIPT_A",
+        command: "DoSPAAnimation",
+        params: [0, 0, 0, 0, 0, 0, 0, 0, 4096, 4096, 4096],
+        status: "supported" as "supported" | "marker" | "unsupported",
+        message: "synthetic",
+        spaId: 0,
+        resourceId: 0,
+      },
+    ],
+  };
+}
+
+function makeScript(body: string): string {
+  return `
+.include "B2W2_MOVSCRCMD.s"
+.align 4
+
+.word 1 @ Count
+${Array.from({ length: 14 }, () => ".word SCRIPT_A").join("\n")}
+
+SCRIPT_A:
+${body.trimEnd()}
+`;
+}
+
+function makeProject(): ProjectState {
+  return {
+    session: {
+      romName: "test",
+      baseVersion: "W2",
+      baseRom: "BW2",
+      fairy: false,
+      fileIds: { move_animations: 1, battle_animations: 2 },
+      blacklist: [],
+    },
+    romInfo: { title: "test", idCode: "TEST", fileName: "test.nds", size: 0 },
+    arm9: new Uint8Array(),
+    overlays: {},
+    narcs: {
+      move_animations: makeStore("move_animations", Array.from({ length: 16 }, () => new Uint8Array())),
+      battle_animations: makeStore("battle_animations", Array.from({ length: 16 }, () => new Uint8Array())),
+    },
+    texts: { banks: {} },
+    formats: {},
+    trpokInfo: [],
+  };
+}
+
+function makeStore(name: NarcName, rawFiles: Uint8Array[]): NarcStore {
+  return {
+    name,
+    fileId: 1,
+    sourcePath: "test",
+    fileCount: rawFiles.length,
+    rawFiles,
+    records: new Map(),
+    dirty: new Set(),
+  };
+}
+
+function makeSyntheticSpa(): Uint8Array {
+  const out = new Uint8Array(32 + 88 + 32 + 16 + 8);
+  writeU32(out, 0, 0x53504120);
+  writeU32(out, 4, 0x315f3231);
+  writeU16(out, 8, 1);
+  writeU16(out, 10, 1);
+  writeU32(out, 16, 88);
+  writeU32(out, 20, 56);
+  writeU32(out, 24, 32 + 88);
+
+  const resource = 32;
+  writeU32(out, resource + 16, 2 * 4096);
+  writeU16(out, resource + 34, 0x001f);
+  writeU32(out, resource + 44, 4096);
+  writeU16(out, resource + 60, 30);
+  writeU16(out, resource + 62, 45);
+  writeU32(out, resource + 68, 0xff00);
+
+  const texture = 32 + 88;
+  writeU32(out, texture, 0x53505420);
+  writeU32(out, texture + 4, 2 | (1 << 16));
+  writeU32(out, texture + 8, 16);
+  writeU32(out, texture + 12, 48);
+  writeU32(out, texture + 16, 8);
+  writeU32(out, texture + 20, 56);
+  writeU32(out, texture + 24, 0);
+  writeU32(out, texture + 28, 56);
+  out.fill(0x55, texture + 32, texture + 48);
+  writeU16(out, texture + 48, 0x0000);
+  writeU16(out, texture + 50, 0x001f);
+  writeU16(out, texture + 52, 0x03e0);
+  writeU16(out, texture + 54, 0x7c00);
+  return out;
+}
+
+function makeSyntheticChildSpa(): Uint8Array {
+  const out = new Uint8Array(32 + 88 + 20 + 32 + 16 + 8);
+  writeU32(out, 0, 0x53504120);
+  writeU32(out, 4, 0x315f3231);
+  writeU16(out, 8, 1);
+  writeU16(out, 10, 1);
+  writeU32(out, 16, 88);
+  writeU32(out, 20, 56);
+  writeU32(out, 24, 32 + 88 + 20);
+
+  const resource = 32;
+  writeU32(out, resource, 1 << 16);
+  writeU32(out, resource + 16, 1 * 4096);
+  writeU16(out, resource + 34, 0x001f);
+  writeU32(out, resource + 44, 4096);
+  writeU16(out, resource + 60, 30);
+  writeU16(out, resource + 62, 45);
+  writeU32(out, resource + 68, 0xff00);
+
+  const child = 32 + 88;
+  writeU16(out, child, 1 << 6);
+  writeU16(out, child + 4, 4096);
+  writeU16(out, child + 6, 20);
+  out[child + 8] = 0;
+  out[child + 9] = 63;
+  writeU16(out, child + 10, 0x03e0);
+  writeU32(out, child + 12, 2 | (1 << 16));
+
+  const texture = 32 + 88 + 20;
+  writeU32(out, texture, 0x53505420);
+  writeU32(out, texture + 4, 2 | (1 << 16));
+  writeU32(out, texture + 8, 16);
+  writeU32(out, texture + 12, 48);
+  writeU32(out, texture + 16, 8);
+  writeU32(out, texture + 20, 56);
+  writeU32(out, texture + 24, 0);
+  writeU32(out, texture + 28, 56);
+  out.fill(0x55, texture + 32, texture + 48);
+  writeU16(out, texture + 48, 0x0000);
+  writeU16(out, texture + 50, 0x001f);
+  writeU16(out, texture + 52, 0x03e0);
+  writeU16(out, texture + 54, 0x7c00);
+  return out;
+}
+
+function makeSyntheticBackgroundFiles(): [Uint8Array, Uint8Array, Uint8Array] {
+  const screen = new Uint8Array(0x24 + 8);
+  writeAscii(screen, 0, "RCSN");
+  writeU16(screen, 4, 0xfeff);
+  writeU16(screen, 6, 1);
+  writeU32(screen, 8, screen.length);
+  writeU16(screen, 12, 16);
+  writeU16(screen, 14, 1);
+  writeAscii(screen, 16, "NRCS");
+  writeU32(screen, 20, screen.length - 16);
+  writeU16(screen, 24, 16);
+  writeU16(screen, 26, 16);
+  writeU32(screen, 32, 8);
+  writeU16(screen, 36, 1);
+  writeU16(screen, 38, 1);
+  writeU16(screen, 40, 1);
+  writeU16(screen, 42, 1);
+
+  const characters = new Uint8Array(0x30 + 64);
+  writeAscii(characters, 0, "RGCN");
+  writeU16(characters, 4, 0xfeff);
+  writeU16(characters, 6, 1);
+  writeU32(characters, 8, characters.length);
+  writeU16(characters, 12, 16);
+  writeU16(characters, 14, 1);
+  writeAscii(characters, 16, "RAHC");
+  writeU32(characters, 20, characters.length - 16);
+  writeU32(characters, 28, 3);
+  writeU32(characters, 40, 64);
+  for (let offset = 0x30 + 32; offset < characters.length; offset += 1) characters[offset] = 0x11;
+
+  const palette = new Uint8Array(0x28 + 32);
+  writeAscii(palette, 0, "RLCN");
+  writeU16(palette, 4, 0xfeff);
+  writeU16(palette, 6, 1);
+  writeU32(palette, 8, palette.length);
+  writeU16(palette, 12, 16);
+  writeU16(palette, 14, 1);
+  writeAscii(palette, 16, "TTLP");
+  writeU32(palette, 20, palette.length - 16);
+  writeU32(palette, 32, 32);
+  writeU16(palette, 42, 0x001f);
+  return [screen, characters, palette];
+}
+
+function writeAscii(out: Uint8Array, offset: number, value: string): void {
+  for (let index = 0; index < value.length; index += 1) out[offset + index] = value.charCodeAt(index);
+}

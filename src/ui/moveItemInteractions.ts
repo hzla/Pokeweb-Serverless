@@ -7,10 +7,14 @@ import {
   updateMoveField,
   type FieldUpdateResult,
 } from "../pokeweb/moveItemModel";
-import { decompileMoveAnimation, hasMoveAnimationScript, updateMoveAnimationScript } from "../pokeweb/moveAnimationModel";
+import { buildMoveAnimationPreview, loadMoveBackground, loadMoveSpaArchive } from "../pokeweb/moveAnimationPreviewModel";
+import { compileMoveAnimation, decompileMoveAnimation, decompileMoveAnimationBytes, hasMoveAnimationScript, updateMoveAnimationScript } from "../pokeweb/moveAnimationModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
+import { installMoveAnimationPreview, renderMoveBackgroundPreviewCanvas, type MoveAnimationPreviewController } from "./moveAnimationPreview";
+import { installMoveAnimationCodeEditor, type MoveAnimationCommandReference } from "./moveAnimationCodeEditor";
+import { installMoveSpaEditor, type MoveSpaEditorController } from "./moveSpaEditor";
 
 type MoveOptions = {
   onDirty?: () => void;
@@ -88,6 +92,12 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
       return;
     }
 
+    const animationRowToggle = target.closest<HTMLButtonElement>(".move-animation-row-toggle");
+    if (animationRowToggle) {
+      toggleMoveAnimationEditor(card, project, moveId, options);
+      return;
+    }
+
     const icon = target.closest<HTMLElement>(".expand-action");
     if (!icon) return;
     if (!card.querySelector(".expanded-move")) {
@@ -106,6 +116,7 @@ function toggleMoveAnimationEditor(card: HTMLElement, project: ProjectState, mov
   const panel = card.querySelector<HTMLElement>(".move-animation-editor");
   if (!panel) return;
   if (panel.classList.contains("show-flex")) {
+    panel.dispatchEvent(new CustomEvent("move-animation-preview-close"));
     panel.classList.remove("show-flex");
     return;
   }
@@ -133,44 +144,262 @@ function renderMoveAnimationEditor(script: string): string {
     <div class="move-animation-toolbar">
       <button class="script-btn move-animation-apply" type="button">Apply Script</button>
       <button class="script-btn move-animation-revert" type="button">Revert</button>
+      <button class="script-btn move-animation-preview-btn" type="button">Preview</button>
+      <button class="script-btn move-animation-import-bin" type="button">Import Binary</button>
+      <button class="script-btn move-animation-export-bin" type="button">Export Binary</button>
+      <input class="move-animation-import-bin-file" type="file" accept=".bin,.dat,application/octet-stream" hidden>
       <div class="move-animation-status"></div>
     </div>
-    <textarea class="move-animation-text" spellcheck="false">${escapeHtml(script)}</textarea>
+    <textarea class="move-animation-source" hidden>${escapeHtml(script)}</textarea>
+    <div class="move-animation-workspace">
+      <div class="move-animation-script-pane">
+        <div class="move-animation-text"></div>
+      </div>
+      <section class="move-animation-spa-pane" aria-label="SPA particle editor">
+        <div class="move-animation-spa-placeholder">
+          <h4>SPA Particle Editor</h4>
+          <p>Particle resource editing will live here.</p>
+          <div class="move-animation-spa-placeholder-grid">
+            <div>
+              <strong>Archives</strong>
+              <span>Referenced SPA files</span>
+            </div>
+            <div>
+              <strong>Emitters</strong>
+              <span>Particle timing and spawn controls</span>
+            </div>
+            <div>
+              <strong>Textures</strong>
+              <span>Palette and image previews</span>
+            </div>
+            <div>
+              <strong>Preview Sync</strong>
+              <span>Live updates beside the script</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div class="move-animation-preview-host"></div>
   `;
 }
 
 function installMoveAnimationEditor(panel: HTMLElement, project: ProjectState, moveId: number, options: MoveOptions): void {
-  const textarea = panel.querySelector<HTMLTextAreaElement>(".move-animation-text");
+  const editorHost = panel.querySelector<HTMLElement>(".move-animation-text");
+  const source = panel.querySelector<HTMLTextAreaElement>(".move-animation-source");
   const status = panel.querySelector<HTMLElement>(".move-animation-status");
-  let lastGood = textarea?.value ?? "";
+  const previewHost = panel.querySelector<HTMLElement>(".move-animation-preview-host");
+  const spaEditorHost = panel.querySelector<HTMLElement>(".move-animation-spa-pane");
+  const commandReference = document.querySelector<HTMLElement>("#move-command-reference");
+  const editor = editorHost
+    ? installMoveAnimationCodeEditor(editorHost, source?.value ?? "", {
+        onCommandSelected: (reference) => renderCommandReference(commandReference, reference, project),
+      })
+    : undefined;
+  const spaEditor: MoveSpaEditorController | undefined = spaEditorHost
+    ? installMoveSpaEditor(spaEditorHost, project, editor?.getValue() ?? source?.value ?? "", { onDirty: options.onDirty })
+    : undefined;
+  let previewController: MoveAnimationPreviewController | undefined;
+  let lastGood = editor?.getValue() ?? "";
+  const closePreview = () => {
+    previewController?.destroy();
+    previewController = undefined;
+    previewHost?.classList.remove("show-flex");
+  };
+  panel.addEventListener("move-animation-preview-close", closePreview);
   panel.querySelector<HTMLButtonElement>(".move-animation-apply")?.addEventListener("click", () => {
-    if (!textarea) return;
+    if (!editor) return;
     try {
-      updateMoveAnimationScript(project, moveId, textarea.value);
-      lastGood = textarea.value;
+      const scriptText = editor.getValue();
+      updateMoveAnimationScript(project, moveId, scriptText);
+      lastGood = scriptText;
       if (status) {
         status.textContent = "Applied";
         status.classList.remove("-error");
       }
-      textarea.classList.remove("invalid");
+      editor.setInvalid(false);
       options.onDirty?.();
     } catch (error) {
       if (status) {
         status.textContent = error instanceof Error ? error.message : String(error);
         status.classList.add("-error");
       }
-      textarea.classList.add("invalid");
+      editor.setInvalid(true);
     }
   });
   panel.querySelector<HTMLButtonElement>(".move-animation-revert")?.addEventListener("click", () => {
-    if (!textarea) return;
-    textarea.value = lastGood;
-    textarea.classList.remove("invalid");
+    if (!editor) return;
+    editor.setValue(lastGood);
+    editor.setInvalid(false);
     if (status) {
       status.textContent = "";
       status.classList.remove("-error");
     }
   });
+  panel.querySelector<HTMLButtonElement>(".move-animation-preview-btn")?.addEventListener("click", async () => {
+    if (!editor || !previewHost) return;
+    closePreview();
+    previewHost.classList.add("show-flex");
+    previewHost.innerHTML = `<div class="move-animation-preview-loading">Building preview...</div>`;
+    if (status) {
+      status.textContent = "Loading preview";
+      status.classList.remove("-error");
+    }
+    try {
+      const scriptText = editor.getValue();
+      await spaEditor?.ensureReferences(scriptText);
+      const preview = await buildMoveAnimationPreview(project, moveId, scriptText, {
+        loadSpaArchive: async (_project, spaId) => spaEditor?.getArchiveOverride(spaId) ?? loadMoveSpaArchive(project, spaId),
+      });
+      previewController = await installMoveAnimationPreview(previewHost, preview);
+      editor.setInvalid(false);
+      if (status) {
+        status.textContent = "Preview ready";
+        status.classList.remove("-error");
+      }
+    } catch (error) {
+      previewHost.innerHTML = `<div class="move-animation-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
+      editor.setInvalid(true);
+      if (status) {
+        status.textContent = "Preview failed";
+        status.classList.add("-error");
+      }
+    }
+  });
+  const importBinaryInput = panel.querySelector<HTMLInputElement>(".move-animation-import-bin-file");
+  panel.querySelector<HTMLButtonElement>(".move-animation-import-bin")?.addEventListener("click", () => {
+    importBinaryInput?.click();
+  });
+  importBinaryInput?.addEventListener("change", async () => {
+    if (!editor) return;
+    const file = importBinaryInput.files?.[0];
+    importBinaryInput.value = "";
+    if (!file) return;
+    try {
+      const scriptText = decompileMoveAnimationBytes(new Uint8Array(await file.arrayBuffer()));
+      editor.setValue(scriptText);
+      editor.setInvalid(false);
+      await spaEditor?.ensureReferences(scriptText);
+      if (status) {
+        status.textContent = `Imported ${file.name}; Apply Script to save`;
+        status.classList.remove("-error");
+      }
+    } catch (error) {
+      editor.setInvalid(true);
+      if (status) {
+        status.textContent = error instanceof Error ? error.message : String(error);
+        status.classList.add("-error");
+      }
+    }
+  });
+  panel.querySelector<HTMLButtonElement>(".move-animation-export-bin")?.addEventListener("click", () => {
+    if (!editor) return;
+    try {
+      const bytes = compileMoveAnimation(project, moveId, editor.getValue());
+      downloadBytes(bytes, `move_${moveId}_animation.bin`);
+      editor.setInvalid(false);
+      if (status) {
+        status.textContent = "Exported binary";
+        status.classList.remove("-error");
+      }
+    } catch (error) {
+      editor.setInvalid(true);
+      if (status) {
+        status.textContent = error instanceof Error ? error.message : String(error);
+        status.classList.add("-error");
+      }
+    }
+  });
+}
+
+function downloadBytes(bytes: Uint8Array, filename: string): void {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  const blob = new Blob([buffer], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function renderCommandReference(host: HTMLElement | null, reference: MoveAnimationCommandReference, project: ProjectState): void {
+  if (!host) return;
+  const doc = reference.doc;
+  const referenceName =
+    doc.name !== reference.clickedName ? `<div class="move-command-reference-subtitle">Reference name: <code>${escapeHtml(doc.name)}</code></div>` : "";
+  const backgroundId = parseLoadBackgroundId(reference);
+  const previewId = backgroundId === undefined ? "" : `move-bg-preview-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  host.innerHTML = `
+    <div class="move-command-reference-kicker">${escapeHtml(doc.hex)} / ${escapeHtml(doc.category)}</div>
+    <div class="move-command-reference-title">${escapeHtml(reference.clickedName)}</div>
+    ${referenceName}
+    <p>${escapeHtml(doc.description)}</p>
+    ${renderCommandParamList(doc)}
+    ${renderCommandNotes(doc)}
+    ${backgroundId === undefined ? "" : renderBackgroundReferencePreview(backgroundId, previewId)}
+  `;
+  if (backgroundId !== undefined) void hydrateBackgroundReferencePreview(host, project, backgroundId, previewId);
+}
+
+function parseLoadBackgroundId(reference: MoveAnimationCommandReference): number | undefined {
+  if (reference.clickedName !== "LoadBackground") return undefined;
+  const match = /^\s*LoadBackground\s+([-+]?(?:0x[0-9a-f]+|\d+))/iu.exec(reference.lineText);
+  if (!match) return undefined;
+  const value = match[1].toLowerCase().startsWith("0x") ? Number.parseInt(match[1].slice(2), 16) : Number.parseInt(match[1], 10);
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function renderBackgroundReferencePreview(backgroundId: number, previewId: string): string {
+  return `
+    <div class="move-command-background-preview" data-preview-id="${escapeHtml(previewId)}">
+      <div class="move-command-background-preview-title">Background ${backgroundId}</div>
+      <canvas aria-label="Background ${backgroundId} preview"></canvas>
+      <small>Loading background preview...</small>
+    </div>
+  `;
+}
+
+async function hydrateBackgroundReferencePreview(host: HTMLElement, project: ProjectState, backgroundId: number, previewId: string): Promise<void> {
+  const preview = host.querySelector<HTMLElement>(`.move-command-background-preview[data-preview-id="${CSS.escape(previewId)}"]`);
+  const canvas = preview?.querySelector<HTMLCanvasElement>("canvas");
+  const status = preview?.querySelector<HTMLElement>("small");
+  if (!preview || !canvas || !status) return;
+  try {
+    const background = await loadMoveBackground(project, backgroundId);
+    if (!host.contains(preview)) return;
+    renderMoveBackgroundPreviewCanvas(canvas, background);
+    status.textContent = `${background.width}x${background.height}${background.hasTransparency ? " / transparent index 0" : ""}`;
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : String(error);
+    preview.classList.add("-error");
+  }
+}
+
+function renderCommandParamList(doc: MoveAnimationCommandReference["doc"]): string {
+  if (doc.params.length === 0) return `<div class="move-command-reference-empty">Parameters: none.</div>`;
+  return `
+    <div class="move-command-reference-params">
+      ${doc.params
+        .map(
+          (param) => `
+            <div class="move-command-reference-param">
+              <div><span>#${param.index}</span> <code>${escapeHtml(param.currentArg)}</code>${param.name !== param.currentArg ? `<small>${escapeHtml(param.name)}</small>` : ""}</div>
+              <p>${escapeHtml(param.description)}</p>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderCommandNotes(doc: MoveAnimationCommandReference["doc"]): string {
+  if (doc.notes.length === 0) return "";
+  return `<div class="move-command-reference-notes"><div>Notes</div><ul>${doc.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul></div>`;
 }
 
 export function attachItemInteractions(root: HTMLElement, project: ProjectState, options: ItemOptions): void {
