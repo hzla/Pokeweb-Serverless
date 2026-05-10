@@ -95,7 +95,7 @@ function renderExpandedTrainer(trainer: TrainerRecord): string {
         ${expandedField("Heal?", editable("trdata", "heal", trainer.readable.heal, "tr-item", { type: "int-1" }))}
       </div>
       <div class="expanded-right trainer-ai" data-narc="trdata">
-        ${TRAINER_AIS.map((ai) => `<div class="choosable-text choosable-prop ${Number(trainer.readable[ai]) > 0 ? "-active" : ""}" data-field-name="${escapeHtml(ai)}">${escapeHtml(ai)}</div>`).join("")}
+        ${TRAINER_AIS.map((ai) => `<div class="choosable-text choosable-prop ${Number(trainer.readable[ai]) > 0 ? "-active" : ""}" data-field-name="${escapeHtml(ai)}" title="Right click to set for all trainers">${escapeHtml(ai)}</div>`).join("")}
       </div>
       ${renderTrainerTexts(trainer)}
     </div>

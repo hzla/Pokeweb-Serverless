@@ -1,4 +1,12 @@
-import { getTrainerRecord, trainerMatchesSearch, updateTrainerField, updateTrainerPokemonField, addTrainerPokemon, deleteTrainerPokemon } from "../pokeweb/trainerModel";
+import {
+  getTrainerRecord,
+  trainerMatchesSearch,
+  updateTrainerField,
+  updateTrainerPokemonField,
+  addTrainerPokemon,
+  deleteTrainerPokemon,
+  setTrainerAiFlagForAll,
+} from "../pokeweb/trainerModel";
 import { updateTrainerText } from "../pokeweb/trainerTextModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
@@ -85,6 +93,24 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
     updateTrainerField(project, trainerId, input.dataset.fieldName, input.checked);
     replaceTrainerRow(root, project, card, trainerId, options);
     options.onDirty?.();
+  });
+
+  root.addEventListener("contextmenu", (event) => {
+    const target = event.target as HTMLElement;
+    const ai = target.closest<HTMLElement>(".trainer-ai .choosable-text.choosable-prop");
+    const fieldName = ai?.dataset.fieldName;
+    if (!ai || !fieldName) return;
+
+    event.preventDefault();
+    const enabled = !ai.classList.contains("-active");
+    const action = enabled ? "Set" : "Unset";
+    if (!window.confirm(`${action} ${fieldName} AI flag for all trainers?`)) return;
+
+    const updated = setTrainerAiFlagForAll(project, fieldName, enabled);
+    root.querySelectorAll<HTMLElement>(".trainer-ai .choosable-text.choosable-prop").forEach((flag) => {
+      if (flag.dataset.fieldName === fieldName) flag.classList.toggle("-active", enabled);
+    });
+    if (updated > 0) options.onDirty?.();
   });
 
   installEditableFields(root, project, options);

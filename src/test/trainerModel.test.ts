@@ -6,6 +6,7 @@ import {
   calculateTrainerPokemonNature,
   deleteTrainerPokemon,
   getTrainerRecord,
+  setTrainerAiFlagForAll,
   updateTrainerField,
   updateTrainerPokemonField,
 } from "../pokeweb/trainerModel";
@@ -41,6 +42,28 @@ describe("trainerModel", () => {
     expect(trainer.raw.template).toBe(1);
     expect(trainer.raw.ai).toBe(4);
     expect(project.trpokInfo[1]).toEqual({ template: 1, numPokemon: 1 });
+    expect(project.narcs.trdata?.dirty.has(1)).toBe(true);
+  });
+
+  it("sets an AI flag for every trainer while preserving existing flags", () => {
+    const project = makeProject(0);
+    const trainerOne = decodeRecord(project, "trdata", 1);
+    trainerOne.raw!.ai = 4;
+    project.narcs.trdata?.dirty.clear();
+
+    expect(setTrainerAiFlagForAll(project, "Evaluate Attacks")).toBe(2);
+    expect(decodeRecord(project, "trdata", 0).raw?.ai).toBe(2);
+    expect(decodeRecord(project, "trdata", 1).raw?.ai).toBe(6);
+    expect(project.narcs.trdata?.dirty.has(0)).toBe(true);
+    expect(project.narcs.trdata?.dirty.has(1)).toBe(true);
+
+    expect(setTrainerAiFlagForAll(project, "Evaluate Attacks")).toBe(0);
+
+    project.narcs.trdata?.dirty.clear();
+    expect(setTrainerAiFlagForAll(project, "Evaluate Attacks", false)).toBe(2);
+    expect(decodeRecord(project, "trdata", 0).raw?.ai).toBe(0);
+    expect(decodeRecord(project, "trdata", 1).raw?.ai).toBe(4);
+    expect(project.narcs.trdata?.dirty.has(0)).toBe(true);
     expect(project.narcs.trdata?.dirty.has(1)).toBe(true);
   });
 

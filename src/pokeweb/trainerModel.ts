@@ -141,6 +141,29 @@ export function updateTrainerField(project: ProjectState, trainerId: number, fie
   return { value, rawValue, trainer: getTrainerRecord(project, trainerId) };
 }
 
+export function setTrainerAiFlagForAll(project: ProjectState, field: string, enabled = true): number {
+  if (!TRAINER_AIS.includes(field)) throw new Error(`Unsupported trainer AI flag: ${field}`);
+  const rawValue = enabled ? 1 : 0;
+  let updated = 0;
+
+  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) {
+    const record = decodeRecord(project, "trdata", trainerId);
+    if (!record.raw || !record.readable) continue;
+    syncTrainerReadable(project, trainerId, record.raw, record.readable);
+    if (aiFlag(Number(record.raw.ai ?? 0), field) === rawValue) {
+      continue;
+    }
+
+    record.readable[field] = rawValue;
+    record.raw.ai = packAiFlags(record.readable);
+    syncTrainerReadable(project, trainerId, record.raw, record.readable);
+    markDirty(project, "trdata", trainerId);
+    updated += 1;
+  }
+
+  return updated;
+}
+
 export function updateTrainerPokemonField(project: ProjectState, trainerId: number, slot: number, field: string, inputValue: string): TrainerUpdateResult {
   const record = decodeRecord(project, "trpok", trainerId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update trainer Pokemon ${trainerId}:${slot}`);
