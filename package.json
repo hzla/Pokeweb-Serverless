@@ -9,7 +9,8 @@
     "test": "vitest run",
     "moveanim:helper": "vite-node scripts/move-animation-helper.ts",
     "moveanim:index": "vite-node scripts/move-animation-index.ts",
-    "pokemonanim:helper": "vite-node scripts/pokemon-animation-helper.ts"
+    "pokemonanim:helper": "vite-node scripts/pokemon-animation-helper.ts",
+    "gen6sprites:pipeline": "vite-node scripts/gen6-sprite-pipeline.ts"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

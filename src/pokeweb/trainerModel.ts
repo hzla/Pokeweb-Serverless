@@ -1,5 +1,6 @@
 import { BATTLE_TYPES, NATURES, TRAINER_AIS, TRAINER_GENDERS, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
+import { pokemonSpriteSlug } from "./spriteSlug";
 import { getTrainerTextLines, type TrainerTextLine } from "./trainerTextModel";
 import { publicAsset } from "../assetUrl";
 
@@ -489,5 +490,5 @@ function trainerSpritePath(_name: string, trainerClass: string): string {
 }
 
 function spriteSlug(name: string): string {
-  return name.replace(". ", "-").replace(/\s+/gu, "-").replace(/'/gu, "").toLowerCase();
+  return pokemonSpriteSlug(name);
 }

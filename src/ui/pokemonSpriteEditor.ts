@@ -13,13 +13,17 @@ import {
   getPokemonSpriteIndexedImage,
   getPokemonSpriteImage,
   getRigCells,
+  importPokemonAnimationBundle,
   importPokemonSpritePackage,
+  copyPokemonSpriteVariant,
   resolvePokemonSpriteId,
+  scalePokemonAnimationDurations,
   setPokemonIconImage,
   setPokemonIconPaletteAssignment,
   setPokemonPalette,
   setPokemonSpriteImage,
   setRigCells,
+  rewritePokemonAnimationSequences,
   updatePokemonAnimationFrame,
   type PokemonAnimation,
   type PokemonAnimationFrame,
@@ -39,6 +43,17 @@ import {
   type RigCell,
   type RigCellsFile,
 } from "../pokeweb/pokemonSpriteModel";
+import {
+  buildPairedPokemonFlipbookRigsFromGifs,
+  buildPokemonFlipbookRigFromGif,
+  decodePokemonFlipbookGifFrames,
+  defaultPokemonFlipbookImportConfig,
+  type PokemonFlipbookFrameEntry,
+  type PokemonFlipbookImportConfig,
+  type PokemonFlipbookPackingMode,
+  type PokemonFlipbookReport,
+  type PokemonFlipbookSamplingStrategy,
+} from "../pokeweb/pokemonFlipbookRig";
 import { getPokemonCount } from "../pokeweb/pokemonModel";
 import { concatBytes } from "../nds/binary";
 import { parsePokemonCustomSpriteBundle } from "../pokeweb/pokemonSpriteWriters";
@@ -72,11 +87,50 @@ type SpriteEditorState = {
   sidebarCollapsed: boolean;
   selectedCell: number;
   selectedSubCell: boolean;
+  gifFlipbookPackingMode: PokemonFlipbookPackingMode;
+  gifFlipbookStrategy: PokemonFlipbookSamplingStrategy;
+  gifFlipbookSpeedScale: number;
+  gifLoopStartFrame: number;
+  gifLoopEndFrame: number;
+  gifLoopCount: number;
+  gifManualFrames: string;
+  gifViewerFrame: number;
+  gifViewerPlaying: boolean;
+  gifSource?: GifSourceState;
+  gifLoopBase?: GifLoopBase;
+  lastGifImport?: GifImportSummary;
+  spritesExpanded: boolean;
+  palettesExpanded: boolean;
+  iconsExpanded: boolean;
+};
+
+type GifLoopBase = {
+  spriteId: number;
+  side: PokemonAnimationSide;
+  sequences: PokemonAnimationFrameEdit[][];
+};
+
+type GifImportSummary = {
+  spriteId: number;
+  fileName: string;
+  side: PokemonAnimationSide;
+  paletteKind: PokemonPaletteKind;
+  speedScale: number;
+  report: PokemonFlipbookReport;
+};
+
+type GifSourceState = {
+  spriteId: number;
+  side: PokemonAnimationSide;
+  fileName: string;
+  bytes: Uint8Array;
+  frames: PokemonFlipbookFrameEntry[];
 };
 
 type PaletteHighlight = { kind: PokemonPaletteKind; index: number } | undefined;
 type RigDragMode = "move" | "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 type RigCellRect = Pick<RigCell, "cellX" | "cellY" | "width" | "height">;
+type Rect = { x: number; y: number; width: number; height: number };
 type RigDragState = {
   cells: RigCellsFile;
   mode: RigDragMode;
@@ -142,6 +196,9 @@ type AnimationDraftFrame = {
 };
 
 const ANIMATION_STEP_INTERVAL_STORAGE_KEY = "pokeweb.animationStepInterval";
+const GIF_FLIPBOOK_PACKING_MODE_STORAGE_KEY = "pokeweb.gifFlipbookPackingMode";
+const GIF_FLIPBOOK_STRATEGY_STORAGE_KEY = "pokeweb.gifFlipbookStrategy";
+const GIF_FLIPBOOK_SPEED_STORAGE_KEY = "pokeweb.gifFlipbookSpeedScale";
 
 const state: SpriteEditorState = {
   variant: { kind: "sprite", side: "front", gender: "male" },
@@ -163,8 +220,21 @@ const state: SpriteEditorState = {
   sidebarCollapsed: false,
   selectedCell: 0,
   selectedSubCell: false,
+  gifFlipbookPackingMode: readGifFlipbookPackingModePreference(),
+  gifFlipbookStrategy: readGifFlipbookStrategyPreference(),
+  gifFlipbookSpeedScale: readGifFlipbookSpeedPreference(),
+  gifLoopStartFrame: 1,
+  gifLoopEndFrame: 1,
+  gifLoopCount: 1,
+  gifManualFrames: "",
+  gifViewerFrame: 0,
+  gifViewerPlaying: false,
+  spritesExpanded: false,
+  palettesExpanded: false,
+  iconsExpanded: false,
 };
 let animationPlaybackHandle: number | undefined;
+let gifViewerPlaybackHandle: number | undefined;
 let animationDragState: AnimationDragState | undefined;
 let animationDraftFrame: AnimationDraftFrame | undefined;
 let spriteEditorShortcutCleanup: (() => void) | undefined;
@@ -195,7 +265,10 @@ const SPRITE_FILE_LABELS = [
 ] as const;
 
 const ANIMATION_PREVIEW_SCALE = 3;
-const ANIMATION_CANVAS_WIDTH = 440;
+const RIG_ATLAS_WIDTH = 256;
+const RIG_ATLAS_HEIGHT = 128;
+const RIG_WIDTH_TILES = RIG_ATLAS_WIDTH / 8;
+const ANIMATION_CANVAS_WIDTH = 320;
 const ANIMATION_CANVAS_HEIGHT = 400;
 const ANIMATION_PREVIEW_X_OFFSET = 8;
 const ANIMATION_PREVIEW_Y_OFFSET = 114;
@@ -225,7 +298,6 @@ export function renderPokemonSpriteEditor(
       <aside class="pokemon-filter sprite-sidebar ${state.sidebarCollapsed ? "-collapsed" : ""}">
         <button class="sprite-sidebar-toggle" id="sprite-sidebar-toggle" type="button" aria-label="${state.sidebarCollapsed ? "Show sprite sidebar" : "Hide sprite sidebar"}" title="${state.sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}">${state.sidebarCollapsed ? ">" : "<"}</button>
         <div class="sprite-sidebar-content">
-          <button class="btn -default" id="sprite-back" type="button">Back</button>
           <div class="filter-title">Sprite Editor</div>
           <label class="sprite-field">
             <span>Pokemon</span>
@@ -248,9 +320,9 @@ export function renderPokemonSpriteEditor(
               <span>File</span>
               <select id="raw-file-index">${SPRITE_FILE_LABELS.map((label, index) => `<option value="${index}">${index}: ${label}</option>`).join("")}</select>
             </label>
-            <div class="sprite-actions">
-              <button class="btn -default" id="raw-export" type="button">Extract</button>
-              <label class="btn -default file-btn">Replace<input id="raw-import" type="file"></label>
+            <div class="sprite-actions -raw">
+              <button class="btn -default" id="raw-export" type="button">Export</button>
+              <label class="btn -default file-btn">Import<input id="raw-import" type="file"></label>
               <button class="btn -default" id="raw-dump" type="button">Dump All</button>
             </div>
           </div>
@@ -259,59 +331,28 @@ export function renderPokemonSpriteEditor(
         </div>
       </aside>
       <main class="sprite-editor-page ${state.sidebarCollapsed ? "-sidebar-collapsed" : ""}">
-        <section class="sprite-section sprite-preview-section">
-          <div class="sprite-section-header">
-            <h2>Sprites</h2>
-          </div>
-          ${renderPreviewCanvases(entry.hasFemale)}
+        ${renderAnimationSection(project, spriteId)}
+        ${renderRigSection(rigCells)}
+        <section class="sprite-section sprite-preview-section ${state.spritesExpanded ? "" : "-collapsed"}">
+          <button class="sprite-section-toggle" data-toggle-sprite-section="sprites" type="button" aria-expanded="${state.spritesExpanded}">
+            <span>${state.spritesExpanded ? "v" : ">"} Sprites</span>
+          </button>
+          ${state.spritesExpanded ? renderPreviewCanvases(entry.hasFemale) : ""}
         </section>
-        <section class="sprite-section">
-          <div class="sprite-section-header">
-            <h2>Palettes</h2>
-          </div>
-          <div class="palette-columns">
+        <section class="sprite-section ${state.palettesExpanded ? "" : "-collapsed"}">
+          <button class="sprite-section-toggle" data-toggle-sprite-section="palettes" type="button" aria-expanded="${state.palettesExpanded}">
+            <span>${state.palettesExpanded ? "v" : ">"} Palettes</span>
+          </button>
+          ${state.palettesExpanded ? `<div class="palette-columns">
             ${renderPaletteEditor("normal", entry.palette)}
             ${renderPaletteEditor("shiny", entry.shinyPalette)}
-          </div>
+          </div>` : ""}
         </section>
-        <section class="sprite-section">
-          <div class="sprite-section-header animation-section-header">
-            <div class="animation-title-row">
-              <h2>Animation</h2>
-              ${renderAnimationScrubber(project, spriteId)}
-            </div>
-            <div class="sprite-actions -inline">
-              <button class="btn -default" id="animation-apply" type="button">Apply Frame</button>
-            </div>
-          </div>
-          ${renderAnimationEditor(project, spriteId)}
-        </section>
-        <section class="sprite-section">
-          <div class="sprite-section-header">
-            <h2>Rig Cells</h2>
-            <div class="sprite-actions -inline">
-              <button class="btn -default" id="rig-apply" type="button">Apply Cells</button>
-            </div>
-          </div>
-          <div class="rig-editor-grid">
-            <div class="rig-canvas-wrap">
-              <canvas id="rig-cells-canvas" width="768" height="384"></canvas>
-              <div class="rig-canvas-tabs sprite-preview-tabs" role="tablist" aria-label="Rig cell side">
-                <button class="btn -default ${state.rigSide === "front" ? "-active" : ""}" data-rig-side="front" type="button" role="tab" aria-selected="${state.rigSide === "front"}">Front</button>
-                <button class="btn -default ${state.rigSide === "back" ? "-active" : ""}" data-rig-side="back" type="button" role="tab" aria-selected="${state.rigSide === "back"}">Back</button>
-              </div>
-              <div class="rig-canvas-actions">
-                <label class="btn -default file-btn">Import Cells<input id="rig-import-cells" type="file" accept="application/json,.json"></label>
-              </div>
-            </div>
-            <div class="rig-controls">${renderRigControls(rigCells)}</div>
-          </div>
-        </section>
-        <section class="sprite-section">
-          <div class="sprite-section-header">
-            <h2>Icons</h2>
-          </div>
-          <div class="icon-editor-grid">
+        <section class="sprite-section ${state.iconsExpanded ? "" : "-collapsed"}">
+          <button class="sprite-section-toggle" data-toggle-sprite-section="icons" type="button" aria-expanded="${state.iconsExpanded}">
+            <span>${state.iconsExpanded ? "v" : ">"} Icons</span>
+          </button>
+          ${state.iconsExpanded ? `<div class="icon-editor-grid">
             <div class="icon-preview-wrap"><canvas id="pokemon-icon-preview" width="32" height="64"></canvas></div>
             <div class="icon-controls">
               <label class="sprite-field"><span>Icon</span><select id="icon-variant"><option value="male" ${state.iconVariant === "male" ? "selected" : ""}>Male Icon</option><option value="female" ${state.iconVariant === "female" ? "selected" : ""}>Female Icon</option></select></label>
@@ -321,7 +362,7 @@ export function renderPokemonSpriteEditor(
               <label class="btn -default file-btn">Import Icon<input id="icon-import-png" type="file" accept="image/png"></label>
             </div>
             <div class="icon-palettes">${renderIconPalettes(getPokemonIconPalettes(project))}</div>
-          </div>
+          </div>` : ""}
         </section>
       </main>
     `;
@@ -331,7 +372,9 @@ export function renderPokemonSpriteEditor(
     drawIconPreview(project, spriteId);
     drawRigEditor(project, spriteId, rigCells);
     drawAnimationEditor(project, spriteId, root);
+    drawGifViewer(root);
     if (state.animationPlaying) startAnimationPlayback(project, spriteId, root);
+    if (state.gifViewerPlaying) startGifViewerPlayback(root);
   } catch (error) {
     root.innerHTML = `<div class="sprite-editor-error"><button class="btn -default" id="sprite-back" type="button">Back</button><p>${escapeHtml(errorMessage(error))}</p></div>`;
     root.querySelector("#sprite-back")?.addEventListener("click", () => options.onBack?.());
@@ -352,6 +395,14 @@ function attachSpriteEditor(project: ProjectState, root: HTMLElement, speciesId:
     rerender();
   });
   root.querySelector("#sprite-back")?.addEventListener("click", () => options.onBack?.());
+  root.querySelectorAll<HTMLButtonElement>("[data-toggle-sprite-section]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.toggleSpriteSection === "icons") state.iconsExpanded = !state.iconsExpanded;
+      else if (button.dataset.toggleSpriteSection === "palettes") state.palettesExpanded = !state.palettesExpanded;
+      else state.spritesExpanded = !state.spritesExpanded;
+      rerender();
+    });
+  });
   root.querySelector<HTMLSelectElement>("#sprite-species-select")?.addEventListener("change", (event) => {
     const value = Number((event.currentTarget as HTMLSelectElement).value);
     if (Number.isInteger(value)) options.onNavigateSpecies?.(value);
@@ -508,18 +559,681 @@ function attachSpriteEditor(project: ProjectState, root: HTMLElement, speciesId:
     });
   });
 
-  root.querySelectorAll<HTMLButtonElement>("[data-rig-side]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.rigSide = button.dataset.rigSide as "front" | "back";
-      state.selectedCell = 0;
-      state.selectedSubCell = false;
-      rerender();
-    });
-  });
+  installRigSideEvents(project, root, spriteId, options, setStatus, rerender);
   installRigEvents(project, root, spriteId, options, setStatus, rerender);
   installAnimationEvents(project, root, spriteId, options, setStatus, rerender);
   installRawFileEvents(project, root, spriteId, options, setStatus, rerender);
   installBundleImportEvents(project, root, spriteId, options, setStatus, rerender);
+  installGifFlipbookImportEvents(project, root, spriteId, options, setStatus, rerender);
+}
+
+function installGifFlipbookImportEvents(
+  project: ProjectState,
+  root: HTMLElement,
+  spriteId: number,
+  options: RenderOptions,
+  setStatus: (message: string) => void,
+  rerender: () => void,
+): void {
+  const importGif = async (file: File) => {
+    try {
+      setStatus(`Building flipbook rig from ${file.name}...`);
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const config = readGifFlipbookConfig(root);
+      const paletteKind = readGifFlipbookPaletteKind(root);
+      state.gifSource = { spriteId, side: config.side, fileName: file.name, bytes, frames: decodePokemonFlipbookGifFrames(bytes) };
+      state.gifViewerFrame = 0;
+      state.gifViewerPlaying = false;
+      const result = buildPokemonFlipbookRigFromGif(bytes, config);
+      applyGifFlipbookBuildResult(project, spriteId, config, paletteKind, result, file.name);
+      state.gifManualFrames = result.report.selectedSourceFrames.join(", ");
+      const warnings = result.report.warnings.length ? `; ${result.report.warnings.length} warning(s)` : "";
+      setStatus(
+        `Imported ${config.side} ${paletteKind} GIF: ${result.report.uniquePoseCount} pose(s), ${result.report.uniqueTileCount} tile(s), ${result.report.packingMode}, duplicated female variant, max ${result.report.maxOamsPerPose} OAM(s), ${result.report.visibilityValidation.invisibleFrameCount} invisible frame(s)${warnings}`,
+      );
+      options.onDirty?.();
+      refreshGifImportEditorContent(project, root, spriteId, options, setStatus, rerender);
+    } catch (error) {
+      setStatus(errorMessage(error));
+    }
+  };
+  let pairedFrontFile: File | undefined;
+  let pairedBackFile: File | undefined;
+  const setPairedFile = (side: PokemonAnimationSide, file: File | undefined) => {
+    if (side === "front") pairedFrontFile = file;
+    else pairedBackFile = file;
+    const label = root.querySelector<HTMLElement>(`[data-gif-pair-name='${side}']`);
+    if (label) label.textContent = file?.name ?? `Drop ${side} GIF`;
+  };
+  const importPairedGifs = async () => {
+    const frontFile = pairedFrontFile ?? root.querySelector<HTMLInputElement>("#gif-pair-front-import")?.files?.[0];
+    const backFile = pairedBackFile ?? root.querySelector<HTMLInputElement>("#gif-pair-back-import")?.files?.[0];
+    if (!frontFile || !backFile) {
+      setStatus("Choose both a front GIF and a back GIF before importing a paired palette.");
+      return;
+    }
+    try {
+      setStatus(`Building paired flipbook rigs from ${frontFile.name} and ${backFile.name}...`);
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      const singleConfig = readGifFlipbookConfig(root);
+      const pairedConfig = {
+        strategy: singleConfig.strategy,
+        packingMode: singleConfig.packingMode,
+        sourceFramePercent: singleConfig.sourceFramePercent,
+        maxUniqueFrames: singleConfig.maxUniqueFrames,
+        restLoopCount: singleConfig.restLoopCount,
+        includeFinish: singleConfig.includeFinish,
+        maxAtlasTiles: singleConfig.maxAtlasTiles,
+        durationScale: singleConfig.durationScale,
+      };
+      const paletteKind = readGifFlipbookPaletteKind(root);
+      const result = buildPairedPokemonFlipbookRigsFromGifs(
+        new Uint8Array(await frontFile.arrayBuffer()),
+        new Uint8Array(await backFile.arrayBuffer()),
+        pairedConfig,
+      );
+      setPokemonPalette(project, spriteId, paletteKind, result.palette);
+      for (const [side, sideResult] of [["front", result.front], ["back", result.back]] as const) {
+        setPokemonSpriteImage(project, spriteId, { kind: "sprite", side, gender: "male" }, paletteKind, sideResult.sprite);
+        setPokemonSpriteImage(project, spriteId, { kind: "rig", side, gender: "male" }, paletteKind, sideResult.rig);
+        copyPokemonSpriteVariant(project, spriteId, { kind: "sprite", side, gender: "male" }, { kind: "sprite", side, gender: "female" });
+        copyPokemonSpriteVariant(project, spriteId, { kind: "rig", side, gender: "male" }, { kind: "rig", side, gender: "female" });
+        importPokemonAnimationBundle(project, spriteId, sideResult.bundle);
+      }
+      state.gifLoopBase = captureGifLoopBase(project, spriteId, "front");
+      state.gifLoopStartFrame = 1;
+      state.gifLoopEndFrame = Math.max(1, state.gifLoopBase.sequences[0]?.length ?? result.front.report.timelineFrames.length);
+      state.gifLoopCount = 1;
+      state.previewPaletteKind = paletteKind;
+      state.rigSide = "front";
+      state.selectedCell = 0;
+      state.selectedSubCell = false;
+      state.animationSide = "front";
+      state.animationMultiCell = 0;
+      state.animationSequence = 0;
+      state.animationFrame = 0;
+      state.animationTick = 0;
+      state.animationPlaying = false;
+      state.animationActiveNode = -1;
+      state.animationVisibleNode = -1;
+      animationDragState = undefined;
+      animationDraftFrame = undefined;
+      state.lastGifImport = { spriteId, fileName: `${frontFile.name} + ${backFile.name}`, side: "front", paletteKind, speedScale: state.gifFlipbookSpeedScale, report: result.front.report };
+      options.onDirty?.();
+      const warningCount = result.front.report.warnings.length + result.back.report.warnings.length;
+      setStatus(
+        `Imported paired ${paletteKind} GIFs with one palette: front ${result.front.report.uniquePoseCount} pose(s), back ${result.back.report.uniquePoseCount} pose(s), ${warningCount} warning(s)`,
+      );
+      refreshGifImportEditorContent(project, root, spriteId, options, setStatus, rerender);
+    } catch (error) {
+      setStatus(errorMessage(error));
+    }
+  };
+  const drop = root.querySelector<HTMLElement>("#gif-flipbook-drop");
+  const input = root.querySelector<HTMLInputElement>("#gif-flipbook-import");
+  const pairButton = root.querySelector<HTMLButtonElement>("#gif-pair-import");
+  root.querySelectorAll<HTMLButtonElement>("[data-gif-flipbook-side]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.animationSide = button.dataset.gifFlipbookSide === "back" ? "back" : "front";
+      syncGifSegmentedButtons(root, "gifFlipbookSide", state.animationSide);
+      syncGifFlipbookStats(project, root, spriteId);
+    });
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-gif-flipbook-palette]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.previewPaletteKind = button.dataset.gifFlipbookPalette === "shiny" ? "shiny" : "normal";
+      syncGifSegmentedButtons(root, "gifFlipbookPalette", state.previewPaletteKind);
+      drawAllPreviews(project, spriteId, root);
+      drawAnimationEditor(project, spriteId, root);
+    });
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-gif-flipbook-packing-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.gifFlipbookPackingMode = readGifFlipbookPackingModeValue(button.dataset.gifFlipbookPackingMode);
+      writeGifFlipbookPackingModePreference(state.gifFlipbookPackingMode);
+      syncGifSegmentedButtons(root, "gifFlipbookPackingMode", state.gifFlipbookPackingMode);
+    });
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-gif-flipbook-strategy]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const value = button.dataset.gifFlipbookStrategy;
+      state.gifFlipbookStrategy = value === "first-window" || value === "even" ? value : "loop-rest";
+      writeGifFlipbookStrategyPreference(state.gifFlipbookStrategy);
+      syncGifSegmentedButtons(root, "gifFlipbookStrategy", state.gifFlipbookStrategy);
+    });
+  });
+  root.querySelector<HTMLInputElement>("#gif-flipbook-speed-scale")?.addEventListener("input", (event) => {
+    const next = normalizeGifFlipbookSpeedScale(Number((event.currentTarget as HTMLInputElement).value));
+    const label = root.querySelector<HTMLElement>("#gif-flipbook-speed-label");
+    if (label) label.textContent = `${formatSpeedScale(next)}x`;
+    applyGifFlipbookSpeedScale(project, root, spriteId, next, options, setStatus, false);
+  });
+  root.querySelector<HTMLInputElement>("#gif-flipbook-speed-scale")?.addEventListener("change", (event) => {
+    const next = normalizeGifFlipbookSpeedScale(Number((event.currentTarget as HTMLInputElement).value));
+    applyGifFlipbookSpeedScale(project, root, spriteId, next, options, setStatus, true);
+  });
+  root.querySelectorAll<HTMLInputElement>("[data-gif-loop-field]").forEach((input) => {
+    input.addEventListener("change", () => {
+      applyGifTimelineLoop(project, root, spriteId, options, setStatus, rerender);
+    });
+  });
+  root.querySelector("#gif-manual-apply")?.addEventListener("click", () => {
+    applyManualGifSampling(project, root, spriteId, options, setStatus, rerender);
+  });
+  root.querySelector<HTMLInputElement>("#gif-manual-frames")?.addEventListener("change", () => {
+    applyManualGifSampling(project, root, spriteId, options, setStatus, rerender);
+  });
+  root.querySelector<HTMLInputElement>("#gif-viewer-frame")?.addEventListener("input", (event) => {
+    state.gifViewerFrame = clamp(Number((event.currentTarget as HTMLInputElement).value), 0, Math.max(0, (state.gifSource?.frames.length ?? 1) - 1));
+    drawGifViewer(root);
+  });
+  root.querySelector<HTMLInputElement>("#gif-viewer-number")?.addEventListener("change", (event) => {
+    state.gifViewerFrame = clamp(Number((event.currentTarget as HTMLInputElement).value), 0, Math.max(0, (state.gifSource?.frames.length ?? 1) - 1));
+    state.gifViewerPlaying = false;
+    stopGifViewerPlayback();
+    drawGifViewer(root);
+  });
+  root.querySelector("#gif-viewer-prev")?.addEventListener("click", () => {
+    state.gifViewerFrame = clamp(state.gifViewerFrame - 1, 0, Math.max(0, (state.gifSource?.frames.length ?? 1) - 1));
+    state.gifViewerPlaying = false;
+    stopGifViewerPlayback();
+    drawGifViewer(root);
+    syncGifViewerControls(root);
+  });
+  root.querySelector("#gif-viewer-next")?.addEventListener("click", () => {
+    state.gifViewerFrame = clamp(state.gifViewerFrame + 1, 0, Math.max(0, (state.gifSource?.frames.length ?? 1) - 1));
+    state.gifViewerPlaying = false;
+    stopGifViewerPlayback();
+    drawGifViewer(root);
+    syncGifViewerControls(root);
+  });
+  root.querySelector("#gif-viewer-play")?.addEventListener("click", () => {
+    state.gifViewerPlaying = !state.gifViewerPlaying;
+    syncGifViewerControls(root);
+    if (state.gifViewerPlaying) startGifViewerPlayback(root);
+    else stopGifViewerPlayback();
+  });
+  input?.addEventListener("change", async () => {
+    const file = input.files?.[0];
+    if (file) await importGif(file);
+  });
+  pairButton?.addEventListener("click", importPairedGifs);
+  (["front", "back"] as const).forEach((side) => {
+    const pairInput = root.querySelector<HTMLInputElement>(`#gif-pair-${side}-import`);
+    const pairDrop = root.querySelector<HTMLElement>(`#gif-pair-${side}-drop`);
+    pairInput?.addEventListener("change", () => setPairedFile(side, pairInput.files?.[0]));
+    pairDrop?.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      pairDrop.classList.add("-dragging");
+    });
+    pairDrop?.addEventListener("dragleave", () => {
+      pairDrop.classList.remove("-dragging");
+    });
+    pairDrop?.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      pairDrop.classList.remove("-dragging");
+      setPairedFile(side, event.dataTransfer?.files?.[0]);
+      if (pairedFrontFile && pairedBackFile) await importPairedGifs();
+    });
+  });
+  drop?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    drop.classList.add("-dragging");
+  });
+  drop?.addEventListener("dragleave", () => {
+    drop.classList.remove("-dragging");
+  });
+  drop?.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    drop.classList.remove("-dragging");
+    const file = event.dataTransfer?.files?.[0];
+    if (file) await importGif(file);
+  });
+}
+
+function applyGifFlipbookBuildResult(
+  project: ProjectState,
+  spriteId: number,
+  config: PokemonFlipbookImportConfig,
+  paletteKind: PokemonPaletteKind,
+  result: ReturnType<typeof buildPokemonFlipbookRigFromGif>,
+  fileName: string,
+): void {
+  setPokemonPalette(project, spriteId, paletteKind, result.palette);
+  setPokemonSpriteImage(project, spriteId, { kind: "sprite", side: config.side, gender: "male" }, paletteKind, result.sprite);
+  setPokemonSpriteImage(project, spriteId, { kind: "rig", side: config.side, gender: "male" }, paletteKind, result.rig);
+  copyPokemonSpriteVariant(project, spriteId, { kind: "sprite", side: config.side, gender: "male" }, { kind: "sprite", side: config.side, gender: "female" });
+  copyPokemonSpriteVariant(project, spriteId, { kind: "rig", side: config.side, gender: "male" }, { kind: "rig", side: config.side, gender: "female" });
+  importPokemonAnimationBundle(project, spriteId, result.bundle);
+  state.gifLoopBase = captureGifLoopBase(project, spriteId, config.side);
+  state.gifLoopStartFrame = 1;
+  state.gifLoopEndFrame = Math.max(1, state.gifLoopBase.sequences[0]?.length ?? result.report.timelineFrames.length);
+  state.gifLoopCount = 1;
+  state.previewPaletteKind = paletteKind;
+  state.rigSide = config.side;
+  state.selectedCell = 0;
+  state.selectedSubCell = false;
+  state.animationSide = config.side;
+  state.animationMultiCell = 0;
+  state.animationSequence = 0;
+  state.animationFrame = 0;
+  state.animationTick = 0;
+  state.animationPlaying = false;
+  state.animationActiveNode = -1;
+  state.animationVisibleNode = -1;
+  animationDragState = undefined;
+  animationDraftFrame = undefined;
+  state.lastGifImport = { spriteId, fileName, side: config.side, paletteKind, speedScale: state.gifFlipbookSpeedScale, report: result.report };
+}
+
+function applyManualGifSampling(
+  project: ProjectState,
+  root: HTMLElement,
+  spriteId: number,
+  options: RenderOptions,
+  setStatus: (message: string) => void,
+  rerender: () => void,
+): void {
+  try {
+    const source = state.gifSource;
+    if (!source || source.spriteId !== spriteId) throw new Error("Import a GIF first before applying manual frame numbers");
+    const input = root.querySelector<HTMLInputElement>("#gif-manual-frames");
+    state.gifManualFrames = input?.value ?? state.gifManualFrames;
+    const manualFrameNumbers = parseManualGifFrameNumbers(state.gifManualFrames);
+    const config = { ...readGifFlipbookConfig(root), manualFrameNumbers };
+    const paletteKind = readGifFlipbookPaletteKind(root);
+    state.gifSource = { ...source, side: config.side };
+    const result = buildPokemonFlipbookRigFromGif(source.bytes, config);
+    applyGifFlipbookBuildResult(project, spriteId, config, paletteKind, result, source.fileName);
+    state.gifManualFrames = result.report.timelineFrames.join(", ");
+    options.onDirty?.();
+    setStatus(`Applied manual GIF frames: ${result.report.timelineFrames.join(", ")}`);
+    refreshGifImportEditorContent(project, root, spriteId, options, setStatus, rerender);
+  } catch (error) {
+    setStatus(errorMessage(error));
+  }
+}
+
+function parseManualGifFrameNumbers(value: string): number[] {
+  const frames = value
+    .split(/[\s,]+/u)
+    .map((part) => Number(part.trim()))
+    .filter((value) => Number.isInteger(value) && value >= 0);
+  if (!frames.length) throw new Error("Enter at least one GIF frame number for manual sampling");
+  return frames;
+}
+
+function drawGifViewer(root: HTMLElement): void {
+  const canvas = root.querySelector<HTMLCanvasElement>("#gif-viewer-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#1f2333";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const source = state.gifSource;
+  if (!source || !source.frames.length) {
+    ctx.fillStyle = "#c9c9d3";
+    ctx.font = "12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Import a GIF to inspect frames", canvas.width / 2, canvas.height / 2);
+    syncGifViewerControls(root);
+    return;
+  }
+  state.gifViewerFrame = clamp(state.gifViewerFrame, 0, source.frames.length - 1);
+  const frame = source.frames[state.gifViewerFrame];
+  const image = document.createElement("canvas");
+  image.width = frame.width;
+  image.height = frame.height;
+  const imageCtx = image.getContext("2d");
+  if (imageCtx) {
+    imageCtx.putImageData(new ImageData(new Uint8ClampedArray(frame.pixels), frame.width, frame.height), 0, 0);
+    const scale = Math.max(1, Math.floor(Math.min((canvas.width - 16) / frame.width, (canvas.height - 16) / frame.height)));
+    const width = frame.width * scale;
+    const height = frame.height * scale;
+    ctx.drawImage(image, Math.floor((canvas.width - width) / 2), Math.floor((canvas.height - height) / 2), width, height);
+  }
+  syncGifViewerControls(root);
+}
+
+function syncGifViewerControls(root: HTMLElement): void {
+  const source = state.gifSource;
+  const frameCount = source?.frames.length ?? 0;
+  const label = root.querySelector<HTMLElement>("#gif-viewer-label");
+  const range = root.querySelector<HTMLInputElement>("#gif-viewer-frame");
+  const number = root.querySelector<HTMLInputElement>("#gif-viewer-number");
+  const play = root.querySelector<HTMLButtonElement>("#gif-viewer-play");
+  const disabled = frameCount === 0;
+  root.querySelectorAll<HTMLButtonElement>("#gif-viewer-prev, #gif-viewer-play, #gif-viewer-next").forEach((button) => {
+    button.disabled = disabled;
+  });
+  if (range) {
+    range.disabled = disabled;
+    range.max = String(Math.max(0, frameCount - 1));
+    range.value = String(clamp(state.gifViewerFrame, 0, Math.max(0, frameCount - 1)));
+  }
+  if (number) {
+    number.disabled = disabled;
+    number.max = String(Math.max(0, frameCount - 1));
+    number.value = String(clamp(state.gifViewerFrame, 0, Math.max(0, frameCount - 1)));
+  }
+  if (play) play.textContent = state.gifViewerPlaying ? "Pause" : "Play";
+  if (label) {
+    label.textContent = frameCount
+      ? `${state.gifViewerFrame}/${frameCount - 1} · ${source?.fileName ?? "GIF"}`
+      : "No GIF loaded";
+  }
+}
+
+function startGifViewerPlayback(root: HTMLElement): void {
+  stopGifViewerPlayback();
+  const tick = () => {
+    const source = state.gifSource;
+    if (!state.gifViewerPlaying || !source?.frames.length) return;
+    state.gifViewerFrame = (state.gifViewerFrame + 1) % source.frames.length;
+    drawGifViewer(root);
+    const delay = clamp(source.frames[state.gifViewerFrame]?.delayMs ?? 100, 20, 1000);
+    gifViewerPlaybackHandle = window.setTimeout(tick, delay);
+  };
+  tick();
+}
+
+function stopGifViewerPlayback(): void {
+  if (gifViewerPlaybackHandle !== undefined) window.clearTimeout(gifViewerPlaybackHandle);
+  gifViewerPlaybackHandle = undefined;
+}
+
+function installRigSideEvents(
+  project: ProjectState,
+  root: HTMLElement,
+  spriteId: number,
+  options: RenderOptions,
+  setStatus: (message: string) => void,
+  rerender: () => void,
+): void {
+  root.querySelectorAll<HTMLButtonElement>("[data-rig-side]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextSide = button.dataset.rigSide as "front" | "back";
+      if (state.rigSide === nextSide) return;
+      state.rigSide = nextSide;
+      state.selectedCell = 0;
+      state.selectedSubCell = false;
+      refreshRigSectionContent(project, root, spriteId, options, setStatus, rerender);
+    });
+  });
+}
+
+function applyGifFlipbookSpeedScale(
+  project: ProjectState,
+  root: HTMLElement,
+  spriteId: number,
+  nextSpeed: number,
+  options: RenderOptions,
+  setStatus: (message: string) => void,
+  announce: boolean,
+): void {
+  const previous = state.gifFlipbookSpeedScale;
+  const next = normalizeGifFlipbookSpeedScale(nextSpeed);
+  state.gifFlipbookSpeedScale = next;
+  writeGifFlipbookSpeedPreference(next);
+  const lastImport = state.lastGifImport?.spriteId === spriteId ? state.lastGifImport : undefined;
+  if (lastImport && Math.abs(previous - next) > 0.001) {
+    const ratio = previous / next;
+    scalePokemonAnimationDurations(project, spriteId, lastImport.side, ratio);
+    scaleGifLoopBaseDurations(spriteId, lastImport.side, ratio);
+    state.lastGifImport = {
+      ...lastImport,
+      speedScale: next,
+      report: { ...lastImport.report, durationScale: durationScaleForGifSpeed(next) },
+    };
+    syncLastGifSpeedLabel(root, next);
+    if (state.animationSide === lastImport.side) {
+      syncAnimationPreviewAfterDurationChange(project, root, spriteId);
+    }
+    options.onDirty?.();
+  }
+  if (announce) setStatus(`Set imported GIF animation speed to ${formatSpeedScale(next)}x`);
+}
+
+function applyGifTimelineLoop(
+  project: ProjectState,
+  root: HTMLElement,
+  spriteId: number,
+  options: RenderOptions,
+  setStatus: (message: string) => void,
+  rerender: () => void,
+): void {
+  try {
+    const base = ensureGifLoopBase(project, spriteId, state.animationSide);
+    const frameCount = Math.max(1, base.sequences[0]?.length ?? 1);
+    const startInput = root.querySelector<HTMLInputElement>("[data-gif-loop-field='start']");
+    const endInput = root.querySelector<HTMLInputElement>("[data-gif-loop-field='end']");
+    const countInput = root.querySelector<HTMLInputElement>("[data-gif-loop-field='count']");
+    state.gifLoopStartFrame = clamp(Number(startInput?.value ?? state.gifLoopStartFrame), 1, frameCount);
+    state.gifLoopEndFrame = clamp(Number(endInput?.value ?? state.gifLoopEndFrame), state.gifLoopStartFrame, frameCount);
+    state.gifLoopCount = clamp(Number(countInput?.value ?? state.gifLoopCount), 1, 12);
+    if (startInput) startInput.value = String(state.gifLoopStartFrame);
+    if (endInput) endInput.value = String(state.gifLoopEndFrame);
+    if (countInput) countInput.value = String(state.gifLoopCount);
+    const nextSequences = base.sequences.map((sequence) => loopFrameSequence(sequence, state.gifLoopStartFrame, state.gifLoopEndFrame, state.gifLoopCount));
+    rewritePokemonAnimationSequences(project, spriteId, base.side, nextSequences);
+    state.animationSide = base.side;
+    state.animationTick = 0;
+    state.animationFrame = 0;
+    state.animationPlaying = false;
+    options.onDirty?.();
+    refreshAnimationSectionContent(project, root, spriteId, options, setStatus, rerender);
+    setStatus(`Looped frames ${state.gifLoopStartFrame}-${state.gifLoopEndFrame} x${state.gifLoopCount}`);
+  } catch (error) {
+    setStatus(errorMessage(error));
+  }
+}
+
+function loopFrameSequence(sequence: PokemonAnimationFrameEdit[], startFrame: number, endFrame: number, loopCount: number): PokemonAnimationFrameEdit[] {
+  if (sequence.length === 0) return [];
+  const start = clamp(Math.round(startFrame), 1, sequence.length) - 1;
+  const end = clamp(Math.round(endFrame), start + 1, sequence.length);
+  const before = sequence.slice(0, start).map((frame) => ({ ...frame }));
+  const loop = sequence.slice(start, end).map((frame) => ({ ...frame }));
+  const after = sequence.slice(end).map((frame) => ({ ...frame }));
+  return [...before, ...Array.from({ length: Math.max(1, Math.round(loopCount)) }).flatMap(() => loop.map((frame) => ({ ...frame }))), ...after];
+}
+
+function ensureGifLoopBase(project: ProjectState, spriteId: number, side: PokemonAnimationSide): GifLoopBase {
+  if (state.gifLoopBase?.spriteId === spriteId && state.gifLoopBase.side === side) return state.gifLoopBase;
+  state.gifLoopBase = captureGifLoopBase(project, spriteId, side);
+  state.gifLoopStartFrame = 1;
+  state.gifLoopEndFrame = Math.max(1, state.gifLoopBase.sequences[0]?.length ?? 1);
+  state.gifLoopCount = 1;
+  return state.gifLoopBase;
+}
+
+function captureGifLoopBase(project: ProjectState, spriteId: number, side: PokemonAnimationSide): GifLoopBase {
+  const animation = getPokemonAnimation(project, spriteId, side);
+  return {
+    spriteId,
+    side,
+    sequences: animation.sequences.map((sequence) => sequence.frames.map(animationFrameEdit)),
+  };
+}
+
+function scaleGifLoopBaseDurations(spriteId: number, side: PokemonAnimationSide, ratio: number): void {
+  if (state.gifLoopBase?.spriteId !== spriteId || state.gifLoopBase.side !== side) return;
+  state.gifLoopBase = {
+    ...state.gifLoopBase,
+    sequences: state.gifLoopBase.sequences.map((sequence) => sequence.map((frame) => ({ ...frame, duration: clamp(Math.round(frame.duration * ratio), 1, 0xffff) }))),
+  };
+}
+
+function gifLoopBaseFrameCount(project: ProjectState, spriteId: number, side: PokemonAnimationSide): number {
+  try {
+    if (state.gifLoopBase?.spriteId === spriteId && state.gifLoopBase.side === side) return Math.max(1, state.gifLoopBase.sequences[0]?.length ?? 1);
+    return Math.max(1, getPokemonAnimation(project, spriteId, side).sequences[0]?.frames.length ?? 1);
+  } catch {
+    return 1;
+  }
+}
+
+function refreshAnimationSectionContent(
+  project: ProjectState,
+  root: HTMLElement,
+  spriteId: number,
+  options: RenderOptions,
+  setStatus: (message: string) => void,
+  rerender: () => void,
+): void {
+  const animationSection = root.querySelector<HTMLElement>("#sprite-animation-section");
+  if (animationSection) animationSection.outerHTML = renderAnimationSection(project, spriteId);
+  installAnimationEvents(project, root, spriteId, options, setStatus, rerender);
+  installGifFlipbookImportEvents(project, root, spriteId, options, setStatus, rerender);
+  adjustAnimationCanvasDisplaySize(root);
+  drawAnimationEditor(project, spriteId, root);
+  drawGifViewer(root);
+}
+
+function refreshRigSectionContent(
+  project: ProjectState,
+  root: HTMLElement,
+  spriteId: number,
+  options: RenderOptions,
+  setStatus: (message: string) => void,
+  rerender: () => void,
+): void {
+  const rigCells = getRigCells(project, spriteId, state.rigSide);
+  state.selectedCell = clamp(state.selectedCell, 0, Math.max(0, rigCells.cells.length - 1));
+  const rigSection = root.querySelector<HTMLElement>("#sprite-rig-section");
+  if (rigSection) rigSection.outerHTML = renderRigSection(rigCells);
+  installRigSideEvents(project, root, spriteId, options, setStatus, rerender);
+  installRigEvents(project, root, spriteId, options, setStatus, rerender);
+  drawRigEditor(project, spriteId, rigCells);
+}
+
+function syncAnimationPreviewAfterDurationChange(project: ProjectState, root: HTMLElement, spriteId: number): void {
+  try {
+    const animation = getPokemonAnimation(project, spriteId, state.animationSide);
+    const sequence = animation.sequences[state.animationSequence] ?? animation.sequences[0];
+    const maxTick = animationTimelineMaxTick(project, spriteId, animation, sequence);
+    state.animationTick = clamp(state.animationTick, 0, maxTick);
+    state.animationFrame = sequence ? animationPlayerFrameAtTick(sequence, state.animationTick) : 0;
+    const slider = root.querySelector<HTMLInputElement>("#animation-frame");
+    if (slider) slider.max = String(maxTick);
+    syncAnimationFrameControl(root);
+    syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
+    drawAnimationEditor(project, spriteId, root);
+  } catch {
+    // The GIF speed preference still applies to the next import even if the current preview cannot be parsed.
+  }
+}
+
+function syncAnimationPlaybackButton(root: HTMLElement): void {
+  const button = root.querySelector<HTMLButtonElement>("#animation-play");
+  if (!button) return;
+  const label = state.animationPlaying ? "Pause" : "Play";
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+  const icon = button.querySelector<HTMLElement>(".animation-icon");
+  if (!icon) return;
+  icon.classList.toggle("-play", !state.animationPlaying);
+  icon.classList.toggle("-pause", state.animationPlaying);
+}
+
+function syncLastGifSpeedLabel(root: HTMLElement, speedScale: number): void {
+  const label = root.querySelector<HTMLElement>("#last-gif-speed-label");
+  if (label) label.textContent = `${formatSpeedScale(speedScale)}x speed`;
+}
+
+function refreshGifImportEditorContent(
+  project: ProjectState,
+  root: HTMLElement,
+  spriteId: number,
+  options: RenderOptions,
+  setStatus: (message: string) => void,
+  rerender: () => void,
+): void {
+  syncGifFlipbookStats(project, root, spriteId);
+  drawAllPreviews(project, spriteId, root);
+  try {
+    const rigCells = getRigCells(project, spriteId, state.rigSide);
+    state.selectedCell = clamp(state.selectedCell, 0, Math.max(0, rigCells.cells.length - 1));
+    const rigSection = root.querySelector<HTMLElement>("#sprite-rig-section");
+    if (rigSection) rigSection.outerHTML = renderRigSection(rigCells);
+    const animationSection = root.querySelector<HTMLElement>("#sprite-animation-section");
+    if (animationSection) animationSection.outerHTML = renderAnimationSection(project, spriteId);
+    installRigSideEvents(project, root, spriteId, options, setStatus, rerender);
+    installRigEvents(project, root, spriteId, options, setStatus, rerender);
+    installAnimationEvents(project, root, spriteId, options, setStatus, rerender);
+    installGifFlipbookImportEvents(project, root, spriteId, options, setStatus, rerender);
+    adjustAnimationCanvasDisplaySize(root);
+    drawRigEditor(project, spriteId, rigCells);
+    drawAnimationEditor(project, spriteId, root);
+    drawGifViewer(root);
+  } catch {
+    rerender();
+  }
+}
+
+function syncGifFlipbookStats(project: ProjectState, root: HTMLElement, spriteId: number): void {
+  const stats = root.querySelector<HTMLElement>(".gif-flipbook-stats");
+  if (!stats) return;
+  const currentOams = currentSideOamSummary(project, spriteId, state.animationSide);
+  const lastImport = state.lastGifImport?.spriteId === spriteId ? state.lastGifImport : undefined;
+  stats.innerHTML = `
+    <div>
+      <span>Current ${state.animationSide}</span>
+      <strong>${currentOams.maxOamsPerCell}</strong>
+      <small>max OAMs/cell across ${currentOams.cellCount} cell(s)</small>
+    </div>
+    ${lastImport ? renderLastGifImportStats(lastImport) : "<p>No GIF imported in this editor session.</p>"}
+  `;
+  syncGifLoopControlInputs(project, root, spriteId);
+}
+
+function syncGifLoopControlInputs(project: ProjectState, root: HTMLElement, spriteId: number): void {
+  const frameCount = gifLoopBaseFrameCount(project, spriteId, state.animationSide);
+  const start = root.querySelector<HTMLInputElement>("[data-gif-loop-field='start']");
+  const end = root.querySelector<HTMLInputElement>("[data-gif-loop-field='end']");
+  const count = root.querySelector<HTMLInputElement>("[data-gif-loop-field='count']");
+  if (start) {
+    start.max = String(frameCount);
+    start.value = String(clamp(state.gifLoopStartFrame, 1, frameCount));
+  }
+  if (end) {
+    end.max = String(frameCount);
+    end.value = String(clamp(state.gifLoopEndFrame, 1, frameCount));
+  }
+  if (count) count.value = String(clamp(state.gifLoopCount, 1, 12));
+}
+
+function readGifFlipbookConfig(root: HTMLElement): PokemonFlipbookImportConfig {
+  const side = state.animationSide;
+  const config = defaultPokemonFlipbookImportConfig(side);
+  config.strategy = state.gifFlipbookStrategy;
+  config.packingMode = state.gifFlipbookPackingMode;
+  config.sourceFramePercent = clamp(Number(root.querySelector<HTMLInputElement>("#gif-flipbook-source-percent")?.value ?? config.sourceFramePercent), 1, 100);
+  config.maxAtlasTiles = 512;
+  config.durationScale = durationScaleForGifSpeed(state.gifFlipbookSpeedScale);
+  const restLoop = root.querySelector<HTMLSelectElement>("#gif-flipbook-rest-loops")?.value ?? "auto";
+  config.restLoopCount = restLoop === "1" || restLoop === "2" || restLoop === "3" ? (Number(restLoop) as 1 | 2 | 3) : "auto";
+  config.includeFinish = Boolean(root.querySelector<HTMLInputElement>("#gif-flipbook-include-finish")?.checked);
+  return config;
+}
+
+function syncGifSegmentedButtons(root: HTMLElement, datasetKey: "gifFlipbookPackingMode" | "gifFlipbookStrategy" | "gifFlipbookSide" | "gifFlipbookPalette", activeValue: string): void {
+  root.querySelectorAll<HTMLButtonElement>(`[data-${camelToKebab(datasetKey)}]`).forEach((button) => {
+    const isActive = button.dataset[datasetKey] === activeValue;
+    button.classList.toggle("-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function camelToKebab(value: string): string {
+  return value.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`);
+}
+
+function readGifFlipbookPaletteKind(root: HTMLElement): PokemonPaletteKind {
+  return state.previewPaletteKind;
 }
 
 function installSpriteEditorShortcuts(
@@ -743,40 +1457,51 @@ function installAnimationEvents(
   setStatus: (message: string) => void,
   rerender: () => void,
 ): void {
+  const refreshAnimation = () => refreshAnimationSectionContent(project, root, spriteId, options, setStatus, rerender);
   root.querySelectorAll<HTMLButtonElement>("[data-animation-side]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.animationSide = button.dataset.animationSide as PokemonAnimationSide;
+      const nextSide = button.dataset.animationSide as PokemonAnimationSide;
+      if (state.animationSide === nextSide) return;
+      stopAnimationPlayback();
+      state.animationSide = nextSide;
       state.animationSequence = 0;
       state.animationFrame = 0;
       state.animationTick = 0;
       state.animationPlaying = false;
       state.animationActiveNode = -1;
       animationDragState = undefined;
-      rerender();
+      syncGifFlipbookStats(project, root, spriteId);
+      refreshAnimation();
     });
   });
   root.querySelector<HTMLSelectElement>("#animation-sequence")?.addEventListener("change", (event) => {
+    stopAnimationPlayback();
     state.animationSequence = Number((event.currentTarget as HTMLSelectElement).value);
     state.animationActiveNode = -1;
     state.animationFrame = 0;
     state.animationTick = 0;
+    state.animationPlaying = false;
     animationDragState = undefined;
-    rerender();
+    refreshAnimation();
   });
   root.querySelector<HTMLSelectElement>("#animation-multicell")?.addEventListener("change", (event) => {
+    stopAnimationPlayback();
     state.animationMultiCell = Number((event.currentTarget as HTMLSelectElement).value);
     state.animationVisibleNode = -1;
     state.animationActiveNode = -1;
     state.animationTick = 0;
+    state.animationPlaying = false;
     animationDragState = undefined;
-    rerender();
+    refreshAnimation();
   });
   root.querySelector<HTMLSelectElement>("#animation-visible-node")?.addEventListener("change", (event) => {
+    stopAnimationPlayback();
     state.animationVisibleNode = Number((event.currentTarget as HTMLSelectElement).value);
     state.animationActiveNode = state.animationVisibleNode;
     syncAnimationSequenceToVisibleNode(project, spriteId);
+    state.animationPlaying = false;
     animationDragState = undefined;
-    rerender();
+    refreshAnimation();
   });
   root.querySelector<HTMLInputElement>("#animation-frame")?.addEventListener("input", (event) => {
     const animation = getPokemonAnimation(project, spriteId, state.animationSide);
@@ -784,9 +1509,11 @@ function installAnimationEvents(
     state.animationTick = Number((event.currentTarget as HTMLInputElement).value);
     state.animationFrame = sequence ? animationPlayerFrameAtTick(sequence, state.animationTick) : 0;
     state.animationPlaying = false;
+    stopAnimationPlayback();
     drawAnimationEditor(project, spriteId, root);
     syncAnimationFrameControl(root);
     syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
+    syncAnimationPlaybackButton(root);
   });
   root.querySelector<HTMLInputElement>("#animation-frame")?.addEventListener("change", () => {
     syncAnimationFrameControl(root);
@@ -795,12 +1522,25 @@ function installAnimationEvents(
   root.querySelector<HTMLInputElement>("#animation-step-interval")?.addEventListener("change", (event) => {
     state.animationStepInterval = normalizeAnimationStepInterval(Number((event.currentTarget as HTMLInputElement).value));
     writeAnimationStepInterval(state.animationStepInterval);
-    rerender();
+    (event.currentTarget as HTMLInputElement).value = String(state.animationStepInterval);
   });
   root.querySelector("#animation-play")?.addEventListener("click", () => {
     state.animationPlaying = !state.animationPlaying;
-    if (state.animationPlaying) state.animationTick = 0;
-    rerender();
+    if (state.animationPlaying) {
+      stopAnimationPlayback();
+      state.animationTick = 0;
+      const animation = getPokemonAnimation(project, spriteId, state.animationSide);
+      const sequence = animation.sequences[state.animationSequence] ?? animation.sequences[0];
+      state.animationFrame = sequence ? animationPlayerFrameAtTick(sequence, state.animationTick) : 0;
+      syncAnimationFrameControl(root);
+      syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
+      drawAnimationEditor(project, spriteId, root);
+      syncAnimationPlaybackButton(root);
+      startAnimationPlayback(project, spriteId, root);
+    } else {
+      stopAnimationPlayback();
+      syncAnimationPlaybackButton(root);
+    }
   });
   root.querySelector("#animation-step")?.addEventListener("click", () => {
     stepAnimation(project, spriteId, root, setStatus, state.animationStepInterval);
@@ -813,7 +1553,7 @@ function installAnimationEvents(
   });
   root.querySelector("#animation-expand")?.addEventListener("click", () => {
     state.animationExpanded = !state.animationExpanded;
-    rerender();
+    refreshAnimation();
   });
   root.querySelector("#animation-apply")?.addEventListener("click", () => {
     try {
@@ -822,13 +1562,13 @@ function installAnimationEvents(
       clearAnimationDraft(spriteId, state.animationSide, state.animationSequence, state.animationFrame);
       options.onDirty?.();
       setStatus("Applied animation frame");
-      rerender();
+      refreshAnimation();
     } catch (error) {
       setStatus(errorMessage(error));
     }
   });
   root.querySelector("#animation-undo")?.addEventListener("click", () => {
-    performAnimationUndo(project, spriteId, options, setStatus, rerender);
+    performAnimationUndo(project, spriteId, options, setStatus, refreshAnimation);
   });
   root.querySelector("#animation-reset")?.addEventListener("click", () => {
     try {
@@ -841,7 +1581,7 @@ function installAnimationEvents(
       clearAnimationDraft(spriteId, state.animationSide);
       if (hadHistory) options.onDirty?.();
       setStatus("Reset animation edits");
-      rerender();
+      refreshAnimation();
     } catch (error) {
       setStatus(errorMessage(error));
     }
@@ -852,10 +1592,12 @@ function installAnimationEvents(
 function stepAnimation(project: ProjectState, spriteId: number, root: HTMLElement, setStatus: (message: string) => void, deltaTicks: number): void {
   try {
     state.animationPlaying = false;
+    stopAnimationPlayback();
     stepAnimationPlayers(project, spriteId, getPokemonAnimation(project, spriteId, state.animationSide), deltaTicks);
     drawAnimationEditor(project, spriteId, root);
     syncAnimationFrameControl(root);
     syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
+    syncAnimationPlaybackButton(root);
   } catch (error) {
     setStatus(errorMessage(error));
   }
@@ -955,7 +1697,9 @@ function performAnimationKeyboardEdit(
     frame: next,
   };
   state.animationPlaying = false;
+  stopAnimationPlayback();
   syncAnimationInputs(root, next);
+  syncAnimationPlaybackButton(root);
   drawAnimationEditor(project, spriteId, root);
   setStatus("Preview changed. Click Apply Frame to save.");
   return true;
@@ -1023,6 +1767,7 @@ function installAnimationCanvasEvents(
 ): void {
   const canvas = root.querySelector<HTMLCanvasElement>("#sprite-animation-canvas");
   if (!canvas) return;
+  const refreshAnimation = () => refreshAnimationSectionContent(project, root, spriteId, options, setStatus, rerender);
   animationOutsidePointerCleanup?.();
   const onOutsidePointerDown = (event: PointerEvent) => {
     if (!root.isConnected) {
@@ -1048,6 +1793,8 @@ function installAnimationCanvasEvents(
     if (selected && selectedHit && canDragAnimationPart(selected, selectedHit)) {
       event.preventDefault();
       state.animationPlaying = false;
+      stopAnimationPlayback();
+      syncAnimationPlaybackButton(root);
       canvas.setPointerCapture(event.pointerId);
       animationDragState = {
         mode: selectedHit,
@@ -1076,8 +1823,10 @@ function installAnimationCanvasEvents(
     state.animationSequence = hit.sequenceIndex;
     state.animationFrame = hit.frameIndex;
     state.animationPlaying = false;
+    stopAnimationPlayback();
     syncAnimationFrameControl(root);
     syncAnimationInputs(root, hit.frame);
+    syncAnimationPlaybackButton(root);
     drawAnimationEditor(project, spriteId, root);
   });
   canvas.addEventListener("pointermove", (event) => {
@@ -1115,10 +1864,10 @@ function installAnimationCanvasEvents(
         state.animationFrame = drag.frameIndex;
         setStatus("Preview changed. Click Apply Frame to save.");
       }
-      rerender();
+      refreshAnimation();
     } catch (error) {
       setStatus(errorMessage(error));
-      rerender();
+      refreshAnimation();
     }
   };
   canvas.addEventListener("pointerup", endDrag);
@@ -1341,7 +2090,7 @@ function drawRigEditor(project: ProjectState, spriteId: number, cells: RigCellsF
   drawGrid(ctx, canvas.width, canvas.height, 24, "rgb(0 0 0 / 35%)");
   ctx.lineWidth = 2;
   cells.cells.forEach((cell, index) => {
-    drawCell(ctx, cell, index, !state.selectedSubCell && state.selectedCell === index, "#7cff52", 3);
+    drawRigCellOverlay(ctx, project, spriteId, cell, index, !state.selectedSubCell && state.selectedCell === index, "#7cff52", 3);
     if (cell.subCell.width > 0) drawCell(ctx, cell.subCell, index, state.selectedSubCell && state.selectedCell === index, "#ffd84d", 3);
   });
 }
@@ -2231,6 +2980,252 @@ function renderPreviewCanvases(hasFemale: boolean): string {
     .join("");
 }
 
+function renderAnimationSection(project: ProjectState, spriteId: number): string {
+  return `
+    <section class="sprite-section" id="sprite-animation-section">
+      <div class="sprite-section-header animation-section-header">
+        <div class="animation-title-row">
+          <h2>Animation</h2>
+          ${renderAnimationScrubber(project, spriteId)}
+        </div>
+        <div class="sprite-actions -inline">
+          <button class="btn -default" id="animation-apply" type="button">Apply Frame</button>
+        </div>
+      </div>
+      <div class="animation-workbench">
+        ${renderAnimationEditor(project, spriteId)}
+        ${renderGifFlipbookImportControls(project, spriteId)}
+      </div>
+    </section>
+  `;
+}
+
+function renderRigSection(rigCells: RigCellsFile): string {
+  return `
+    <section class="sprite-section" id="sprite-rig-section">
+      <div class="sprite-section-header">
+        <h2>Rig Cells</h2>
+        <div class="sprite-actions -inline">
+          <button class="btn -default" id="rig-apply" type="button">Apply Cells</button>
+        </div>
+      </div>
+      <div class="rig-editor-grid">
+        <div class="rig-canvas-wrap">
+          <canvas id="rig-cells-canvas" width="768" height="384"></canvas>
+          <div class="rig-canvas-tabs sprite-preview-tabs" role="tablist" aria-label="Rig cell side">
+            <button class="btn -default ${state.rigSide === "front" ? "-active" : ""}" data-rig-side="front" type="button" role="tab" aria-selected="${state.rigSide === "front"}">Front</button>
+            <button class="btn -default ${state.rigSide === "back" ? "-active" : ""}" data-rig-side="back" type="button" role="tab" aria-selected="${state.rigSide === "back"}">Back</button>
+          </div>
+          <div class="rig-canvas-actions">
+            <label class="btn -default file-btn">Import Cells<input id="rig-import-cells" type="file" accept="application/json,.json"></label>
+          </div>
+        </div>
+        <div class="rig-controls">${renderRigControls(rigCells)}</div>
+      </div>
+    </section>
+  `;
+}
+
+function renderGifFlipbookImportControls(project: ProjectState, spriteId: number): string {
+  return `
+    <div class="gif-flipbook-panel">
+      <div class="sprite-sidebar-heading">GIF Flipbook</div>
+      <div class="gif-flipbook-row">
+        ${renderGifSideButtons()}
+        ${renderGifPaletteButtons()}
+      </div>
+      <div class="gif-flipbook-row">
+        ${renderGifFlipbookModeButtons()}
+        ${renderGifFlipbookStrategyButtons()}
+      </div>
+      <div class="gif-flipbook-row -numbers">
+        <label class="sprite-field">
+          <span>Source %</span>
+          <input id="gif-flipbook-source-percent" type="number" min="1" max="100" value="100">
+        </label>
+        <label class="sprite-field gif-speed-field">
+          <span>Speed <strong id="gif-flipbook-speed-label">${formatSpeedScale(state.gifFlipbookSpeedScale)}x</strong></span>
+          <input id="gif-flipbook-speed-scale" type="range" min="0.1" max="4" step="0.1" value="${formatSpeedScale(state.gifFlipbookSpeedScale)}">
+        </label>
+      </div>
+      <div class="gif-flipbook-row -timeline">
+        ${renderGifLoopControls(project, spriteId)}
+        <label class="sprite-field">
+          <span>Rest Loops</span>
+          <select id="gif-flipbook-rest-loops">
+            <option value="auto">Auto</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </label>
+        <label class="sprite-field -checkbox">
+          <span>Finish</span>
+          <input id="gif-flipbook-include-finish" type="checkbox" checked title="Append later GIF frames after the repeated idle loop">
+        </label>
+      </div>
+      ${renderGifManualSamplingControls()}
+      <div class="gif-flipbook-row -import">
+        <label class="sprite-bundle-drop gif-flipbook-drop" id="gif-flipbook-drop">
+          <input id="gif-flipbook-import" type="file" accept="image/gif,.gif">
+          <strong>Import GIF</strong>
+          <span>Click or drop animation GIF</span>
+        </label>
+        <div class="gif-pair-import">
+          <div class="sprite-sidebar-heading">Paired Palette Import</div>
+          <div class="gif-pair-drops">
+            <label class="sprite-bundle-drop gif-flipbook-drop -compact" id="gif-pair-front-drop">
+              <input id="gif-pair-front-import" type="file" accept="image/gif,.gif">
+              <strong>Front GIF</strong>
+              <span data-gif-pair-name="front">Drop front GIF</span>
+            </label>
+            <label class="sprite-bundle-drop gif-flipbook-drop -compact" id="gif-pair-back-drop">
+              <input id="gif-pair-back-import" type="file" accept="image/gif,.gif">
+              <strong>Back GIF</strong>
+              <span data-gif-pair-name="back">Drop back GIF</span>
+            </label>
+          </div>
+          <button class="btn -default -full" id="gif-pair-import" type="button">Import Front + Back</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderGifManualSamplingControls(): string {
+  const source = state.gifSource;
+  const frameCount = source?.frames.length ?? 0;
+  return `
+    <div class="gif-flipbook-row -manual">
+      <div class="gif-viewer">
+        <div class="sprite-sidebar-heading">GIF Viewer</div>
+        <canvas id="gif-viewer-canvas" width="192" height="136"></canvas>
+        <div class="gif-viewer-controls">
+          <button class="btn -default" id="gif-viewer-prev" type="button" ${frameCount ? "" : "disabled"}>Prev</button>
+          <button class="btn -default" id="gif-viewer-play" type="button" ${frameCount ? "" : "disabled"}>${state.gifViewerPlaying ? "Pause" : "Play"}</button>
+          <button class="btn -default" id="gif-viewer-next" type="button" ${frameCount ? "" : "disabled"}>Next</button>
+          <span id="gif-viewer-label">${frameCount ? `${state.gifViewerFrame}/${frameCount - 1} · ${escapeHtml(source?.fileName ?? "GIF")}` : "No GIF loaded"}</span>
+        </div>
+        <div class="gif-viewer-scrub">
+          <input id="gif-viewer-frame" type="range" min="0" max="${Math.max(0, frameCount - 1)}" value="${clamp(state.gifViewerFrame, 0, Math.max(0, frameCount - 1))}" ${frameCount ? "" : "disabled"}>
+          <input id="gif-viewer-number" type="number" min="0" max="${Math.max(0, frameCount - 1)}" value="${clamp(state.gifViewerFrame, 0, Math.max(0, frameCount - 1))}" ${frameCount ? "" : "disabled"}>
+        </div>
+      </div>
+      <div class="gif-manual-sampling">
+        <div class="sprite-sidebar-heading">Manual Sampling</div>
+        <label class="sprite-field">
+          <span>Frame Numbers</span>
+          <input id="gif-manual-frames" type="text" value="${escapeHtml(state.gifManualFrames)}" placeholder="0, 4, 8, 12">
+        </label>
+        <button class="btn -default" id="gif-manual-apply" type="button" ${frameCount ? "" : "disabled"}>Apply Manual Frames</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderGifLoopControls(project: ProjectState, spriteId: number): string {
+  const frameCount = gifLoopBaseFrameCount(project, spriteId, state.animationSide);
+  state.gifLoopEndFrame = clamp(state.gifLoopEndFrame, 1, frameCount);
+  state.gifLoopStartFrame = clamp(state.gifLoopStartFrame, 1, state.gifLoopEndFrame);
+  state.gifLoopCount = clamp(state.gifLoopCount, 1, 12);
+  return `
+    <div class="gif-loop-controls">
+      <div class="sprite-sidebar-heading">Timeline Loop</div>
+      <div class="gif-loop-grid">
+        <label class="sprite-field">
+          <span>Start</span>
+          <input data-gif-loop-field="start" type="number" min="1" max="${frameCount}" value="${state.gifLoopStartFrame}">
+        </label>
+        <label class="sprite-field">
+          <span>End</span>
+          <input data-gif-loop-field="end" type="number" min="1" max="${frameCount}" value="${state.gifLoopEndFrame}">
+        </label>
+        <label class="sprite-field">
+          <span>Loops</span>
+          <input data-gif-loop-field="count" type="number" min="1" max="12" value="${state.gifLoopCount}">
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function renderGifFlipbookModeButtons(): string {
+  const options: { value: PokemonFlipbookPackingMode; label: string }[] = [
+    { value: "mcss-safe", label: "Pose Blocks" },
+    { value: "rotated-pose-blocks", label: "Rotated Pose" },
+    { value: "macro-blocks", label: "Macro Blocks" },
+  ];
+  return renderGifSegmentedButtons("Mode", options, state.gifFlipbookPackingMode, "gif-flipbook-packing-mode");
+}
+
+function renderGifSideButtons(): string {
+  return renderGifSegmentedButtons("Side", [
+    { value: "front" as const, label: "Front" },
+    { value: "back" as const, label: "Back" },
+  ], state.animationSide, "gif-flipbook-side");
+}
+
+function renderGifPaletteButtons(): string {
+  return renderGifSegmentedButtons("Palette", [
+    { value: "normal" as const, label: "Normal" },
+    { value: "shiny" as const, label: "Shiny" },
+  ], state.previewPaletteKind, "gif-flipbook-palette");
+}
+
+function renderGifFlipbookStrategyButtons(): string {
+  const options: { value: PokemonFlipbookSamplingStrategy; label: string }[] = [
+    { value: "loop-rest", label: "Loop Rest" },
+    { value: "first-window", label: "Keyframes" },
+    { value: "even", label: "Even" },
+  ];
+  return renderGifSegmentedButtons("Sampling Strategy", options, state.gifFlipbookStrategy, "gif-flipbook-strategy");
+}
+
+function renderGifSegmentedButtons<T extends string>(
+  label: string,
+  options: { value: T; label: string }[],
+  active: T,
+  dataName: "gif-flipbook-packing-mode" | "gif-flipbook-strategy" | "gif-flipbook-side" | "gif-flipbook-palette",
+): string {
+  const dataAttr = `data-${dataName}`;
+  return `
+    <div class="sprite-field gif-segmented-field">
+      <span>${escapeHtml(label)}</span>
+      <div class="gif-segmented-buttons" role="group" aria-label="${escapeHtml(label)}">
+        ${options.map((option) => `
+          <button class="btn -default ${option.value === active ? "-active" : ""}" ${dataAttr}="${escapeHtml(option.value)}" type="button" aria-pressed="${option.value === active}">${escapeHtml(option.label)}</button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderLastGifImportStats(summary: GifImportSummary): string {
+  const report = summary.report;
+  const warningText = report.warnings.length ? `<small>${escapeHtml(report.warnings.join(" | "))}</small>` : "<small>No import warnings.</small>";
+  return `
+    <div>
+      <span>Last Import</span>
+      <strong>${report.maxOamsPerPose}</strong>
+      <small>${escapeHtml(summary.fileName)} ${summary.side}/${summary.paletteKind}; ${report.packingMode}, ${report.uniquePoseCount} pose(s), ${report.uniqueTileCount} tile(s), ${report.visibilityValidation.invisibleFrameCount} invisible</small>
+      <small id="last-gif-speed-label">${formatSpeedScale(summary.speedScale)}x speed</small>
+      ${warningText}
+    </div>
+  `;
+}
+
+function currentSideOamSummary(project: ProjectState, spriteId: number, side: PokemonAnimationSide): { cellCount: number; maxOamsPerCell: number } {
+  try {
+    const cellBank = getPokemonCellBank(project, spriteId, side);
+    return {
+      cellCount: cellBank.cells.length,
+      maxOamsPerCell: Math.max(0, ...cellBank.cells.map((cell) => cell.oams.length)),
+    };
+  } catch {
+    return { cellCount: 0, maxOamsPerCell: 0 };
+  }
+}
+
 function renderPaletteEditor(kind: PokemonPaletteKind, palette: RgbColor[]): string {
   const label = kind === "normal" ? "Normal" : "Shiny";
   return `
@@ -2285,6 +3280,7 @@ function renderSpeciesOptions(project: ProjectState, selectedSpeciesId: number):
 }
 
 function renderFormSelector(forms: ReturnType<typeof getPokemonSpriteFormOptions>, selectedFormIndex: number): string {
+  if (forms.length <= 1) return "";
   if (forms.length < 7) {
     return `
       <div class="sprite-field">
@@ -2567,7 +3563,9 @@ function animationPlayerFrameAtTick(sequence: PokemonAnimation["sequences"][numb
 
 function animationPlayerStateAtTick(sequence: PokemonAnimation["sequences"][number], tick: number): { frameIndex: number; frameStartTick: number } {
   if (sequence.frames.length === 0) return { frameIndex: 0, frameStartTick: 0 };
-  let currentFrame = clamp(sequence.startFrameIndex, 0, sequence.frames.length - 1);
+  // ABNK startFrameIndex is an offset into the shared frame table. After parsing,
+  // sequence.frames is already sliced to local frames, so playback starts at 0.
+  let currentFrame = 0;
   let curFrameTime = 0;
   let frameStartTick = 0;
   let direction: "forward" | "backward" = "forward";
@@ -3197,6 +4195,122 @@ function drawCell(ctx: CanvasRenderingContext2D, cell: RigCell, index: number, s
   ctx.fillText(String(index), cell.cellX * scale + 4, cell.cellY * scale + 18);
 }
 
+function drawRigCellOverlay(
+  ctx: CanvasRenderingContext2D,
+  project: ProjectState,
+  spriteId: number,
+  cell: RigCell,
+  index: number,
+  selected: boolean,
+  color: string,
+  scale: number,
+): void {
+  const chunkRects = macroRigChunkRects(project, spriteId, state.rigSide, index, cell);
+  if (chunkRects.length <= 1) {
+    drawCell(ctx, cell, index, selected, color, scale);
+    return;
+  }
+  ctx.fillStyle = selected ? "rgb(255 255 255 / 45%)" : `${color}4d`;
+  ctx.strokeStyle = selected ? "#ffffff" : color;
+  ctx.lineWidth = selected ? 3 : 2;
+  for (const rect of chunkRects) {
+    ctx.fillRect(rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale);
+    ctx.strokeRect(rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale);
+  }
+  if (selected) {
+    ctx.fillStyle = "#bd93f9";
+    const bounds = unionBounds(chunkRects);
+    if (bounds) {
+      for (const handle of rigRectResizeHandles(bounds)) ctx.fillRect(handle.x * scale - 4, handle.y * scale - 4, 8, 8);
+    }
+  }
+  const label = chunkRects[0]!;
+  ctx.fillStyle = "#111111";
+  ctx.font = "16px sans-serif";
+  ctx.fillText(String(index), label.x * scale + 4, label.y * scale + 18);
+}
+
+function macroRigChunkRects(project: ProjectState, spriteId: number, side: PokemonAnimationSide, cellIndex: number, rigCell: RigCell): Rect[] {
+  if (rigCell.width <= 0 || rigCell.height <= 0) return [];
+  try {
+    const cellBank = getPokemonCellBank(project, spriteId, side);
+    const cell = cellBank.cells[cellIndex];
+    if (!cell) return [];
+    const oamRects = cell.oams
+      .filter((oam) => !oam.disable && oam.width > 0 && oam.height > 0)
+      .map((oam) => ncerOamAtlasRect(cellBank, oam))
+      .filter((rect): rect is Rect => Boolean(rect));
+    if (oamRects.length <= 1) return [];
+    const oamArea = oamRects.reduce((sum, rect) => sum + rect.width * rect.height, 0);
+    const cellArea = Math.max(1, rigCell.width * rigCell.height);
+    if (oamArea / cellArea > 0.72) return [];
+    return mergeRigAtlasRects(oamRects);
+  } catch {
+    return [];
+  }
+}
+
+function ncerOamAtlasRect(cellBank: PokemonCellBank, oam: PokemonCellOam): Rect | undefined {
+  const sourceTilesWide = RIG_WIDTH_TILES;
+  const tileStart = ncerTileStart(oam.characterName, cellBank.mappingMode, oam.characterBits);
+  const x = (tileStart % sourceTilesWide) * 8;
+  const y = Math.floor(tileStart / sourceTilesWide) * 8;
+  if (x < 0 || y < 0 || x >= RIG_ATLAS_WIDTH || y >= RIG_ATLAS_HEIGHT) return undefined;
+  return { x, y, width: oam.width, height: oam.height };
+}
+
+function mergeRigAtlasRects(rects: Rect[]): Rect[] {
+  let merged = rects.slice();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    outer: for (let i = 0; i < merged.length; i += 1) {
+      for (let j = i + 1; j < merged.length; j += 1) {
+        const combined = combineAdjacentRects(merged[i]!, merged[j]!);
+        if (!combined) continue;
+        merged = [...merged.slice(0, i), combined, ...merged.slice(i + 1, j), ...merged.slice(j + 1)];
+        changed = true;
+        break outer;
+      }
+    }
+  }
+  return merged.sort((left, right) => left.y - right.y || left.x - right.x);
+}
+
+function combineAdjacentRects(left: Rect, right: Rect): Rect | undefined {
+  if (left.y === right.y && left.height === right.height && (left.x + left.width === right.x || right.x + right.width === left.x)) {
+    const x = Math.min(left.x, right.x);
+    return { x, y: left.y, width: left.width + right.width, height: left.height };
+  }
+  if (left.x === right.x && left.width === right.width && (left.y + left.height === right.y || right.y + right.height === left.y)) {
+    const y = Math.min(left.y, right.y);
+    return { x: left.x, y, width: left.width, height: left.height + right.height };
+  }
+  return undefined;
+}
+
+function unionBounds(rects: Rect[]): Rect | undefined {
+  if (rects.length === 0) return undefined;
+  const minX = Math.min(...rects.map((rect) => rect.x));
+  const minY = Math.min(...rects.map((rect) => rect.y));
+  const maxX = Math.max(...rects.map((rect) => rect.x + rect.width));
+  const maxY = Math.max(...rects.map((rect) => rect.y + rect.height));
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+function rigRectResizeHandles(rect: Rect): Array<{ x: number; y: number }> {
+  return [
+    { x: rect.x, y: rect.y },
+    { x: rect.x + rect.width / 2, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y },
+    { x: rect.x, y: rect.y + rect.height / 2 },
+    { x: rect.x + rect.width, y: rect.y + rect.height / 2 },
+    { x: rect.x, y: rect.y + rect.height },
+    { x: rect.x + rect.width / 2, y: rect.y + rect.height },
+    { x: rect.x + rect.width, y: rect.y + rect.height },
+  ];
+}
+
 function containsCell(cell: RigCell, x: number, y: number): boolean {
   return x >= cell.cellX && y >= cell.cellY && x < cell.cellX + cell.width && y < cell.cellY + cell.height;
 }
@@ -3328,6 +4442,76 @@ function writeAnimationStepInterval(value: number): void {
 function normalizeAnimationStepInterval(value: number): number {
   if (!Number.isFinite(value)) return 6;
   return Math.max(1, Math.min(999, Math.round(value)));
+}
+
+function readGifFlipbookPackingModePreference(): PokemonFlipbookPackingMode {
+  try {
+    if (typeof localStorage === "undefined") return "mcss-safe";
+    const stored = readGifFlipbookPackingModeValue(localStorage.getItem(GIF_FLIPBOOK_PACKING_MODE_STORAGE_KEY));
+    return stored === "tile-node-dedup" ? "mcss-safe" : stored;
+  } catch {
+    return "mcss-safe";
+  }
+}
+
+function readGifFlipbookPackingModeValue(value: unknown): PokemonFlipbookPackingMode {
+  return value === "macro-blocks" || value === "rotated-pose-blocks" || value === "tile-node-dedup" ? value : "mcss-safe";
+}
+
+function writeGifFlipbookPackingModePreference(value: PokemonFlipbookPackingMode): void {
+  try {
+    if (typeof localStorage !== "undefined") localStorage.setItem(GIF_FLIPBOOK_PACKING_MODE_STORAGE_KEY, value);
+  } catch {
+    // Storage can be unavailable in private contexts; the in-memory state still works.
+  }
+}
+
+function readGifFlipbookStrategyPreference(): PokemonFlipbookSamplingStrategy {
+  try {
+    if (typeof localStorage === "undefined") return "loop-rest";
+    const value = localStorage.getItem(GIF_FLIPBOOK_STRATEGY_STORAGE_KEY);
+    return value === "first-window" || value === "even" ? value : "loop-rest";
+  } catch {
+    return "loop-rest";
+  }
+}
+
+function writeGifFlipbookStrategyPreference(value: PokemonFlipbookSamplingStrategy): void {
+  try {
+    if (typeof localStorage !== "undefined") localStorage.setItem(GIF_FLIPBOOK_STRATEGY_STORAGE_KEY, value);
+  } catch {
+    // Storage can be unavailable in private contexts; the in-memory state still works.
+  }
+}
+
+function readGifFlipbookSpeedPreference(): number {
+  try {
+    if (typeof localStorage === "undefined") return 1;
+    return normalizeGifFlipbookSpeedScale(Number(localStorage.getItem(GIF_FLIPBOOK_SPEED_STORAGE_KEY) ?? 1));
+  } catch {
+    return 1;
+  }
+}
+
+function writeGifFlipbookSpeedPreference(value: number): void {
+  try {
+    if (typeof localStorage !== "undefined") localStorage.setItem(GIF_FLIPBOOK_SPEED_STORAGE_KEY, formatSpeedScale(normalizeGifFlipbookSpeedScale(value)));
+  } catch {
+    // Storage can be unavailable in private contexts; the in-memory state still works.
+  }
+}
+
+function normalizeGifFlipbookSpeedScale(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.round(Math.max(0.1, Math.min(4, value)) * 10) / 10;
+}
+
+function durationScaleForGifSpeed(speedScale: number): number {
+  return clamp(1 / normalizeGifFlipbookSpeedScale(speedScale), 0.25, 16);
+}
+
+function formatSpeedScale(value: number): string {
+  return normalizeGifFlipbookSpeedScale(value).toFixed(1).replace(/\.0$/u, "");
 }
 
 function isUndoShortcut(event: KeyboardEvent): boolean {

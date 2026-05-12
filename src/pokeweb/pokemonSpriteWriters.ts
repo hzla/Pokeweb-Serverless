@@ -33,6 +33,30 @@ export type PokemonAnimationBuildPart = {
   frames?: PokemonAnimationFrameEdit[];
 };
 
+export type PokemonCellBankBuildOam = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  characterName: number;
+};
+
+export type PokemonCellBankBuildCell = {
+  oams: PokemonCellBankBuildOam[];
+};
+
+export type PokemonMultiCellsBuildOptions = {
+  multiCellCopies?: number;
+};
+
+export type PokemonMultiCellBuildNode = {
+  sequenceNumber: number;
+  x: number;
+  y: number;
+  cellAnimationIndex?: number;
+  playMode?: number;
+};
+
 export type PokemonAnimationBuildInput = {
   side: PokemonAnimationSide;
   parts: PokemonAnimationBuildPart[];
@@ -68,12 +92,13 @@ type AnimationSequenceInput = {
 const G2D_HEADER_SIZE = 0x10;
 const CEBK_HEADER_SIZE = 0x18;
 const ABNK_HEADER_SIZE = 0x18;
-const MCBK_HEADER_SIZE = 0x10;
+const MCBK_HEADER_SIZE = 0x14;
 const DEFAULT_FRAME_DURATION = 6;
 const DEFAULT_LOOP_DURATION = 72;
 const CELL_TARGET_TYPE = 1;
 const MULTICELL_TARGET_TYPE = 2;
 const FORWARD_LOOP_MODE = 2;
+const GEN5_CELL_MAPPING_MODE = 4;
 
 const OAM_SIZES = [
   { width: 64, height: 64, shape: 0, size: 3 },
@@ -102,7 +127,7 @@ export function buildPokemonAnimationAssetBundle(input: PokemonAnimationBuildInp
         mode: FORWARD_LOOP_MODE,
         frames: parts.map((part, index) => normalizedPartFrames(part, index, input.frameDuration)),
       }),
-      [(6 + sideOffset) as PokemonAnimationBundleFileIndex]: buildPokemonMultiCellsFile(parts),
+      [(6 + sideOffset) as PokemonAnimationBundleFileIndex]: buildPokemonMultiCellsFile(parts, { multiCellCopies: 2 }),
       [(7 + sideOffset) as PokemonAnimationBundleFileIndex]: buildPokemonMultiCellAnimationFile(input.loopDuration ?? totalLoopDuration(parts, input.frameDuration)),
       [(8 + sideOffset) as PokemonAnimationBundleFileIndex]: buildRigCellsFile({ cells: parts.map(rigCellFromBuildPart), flags: input.flags ?? new Uint8Array(4) }),
     },
@@ -137,7 +162,51 @@ export function buildPokemonCellBankFile(parts: PokemonAnimationBuildPart[]): Ui
   writeU16(payload, 0, normalized.length);
   writeU16(payload, 2, 1);
   writeU32(payload, 4, CEBK_HEADER_SIZE);
-  writeU32(payload, 8, 0);
+  writeU32(payload, 8, GEN5_CELL_MAPPING_MODE);
+  writeU32(payload, 0x0c, 0);
+  writeU32(payload, 0x10, 0);
+  writeU32(payload, 0x14, 0);
+  let offset = CEBK_HEADER_SIZE;
+  for (const cell of cellRecords) {
+    payload.set(cell, offset);
+    offset += cell.length;
+  }
+  for (const oam of oamRecords) {
+    payload.set(oam, offset);
+    offset += oam.length;
+  }
+  return writeG2dFile("RECN", [{ signature: "CEBK", payload }]);
+}
+
+export function buildPokemonCellBankFileFromCells(cells: PokemonCellBankBuildCell[]): Uint8Array {
+  const cellRecords: Uint8Array[] = [];
+  const oamRecords: Uint8Array[] = [];
+  let oamOffset = 0;
+  for (const [cellIndex, cellInput] of cells.entries()) {
+    if (cellInput.oams.length === 0) throw new Error(`Cell ${cellIndex} must contain at least one OAM`);
+    const oams = cellInput.oams.map((oam) => normalizeExplicitOam(oam, cellIndex));
+    const minX = Math.min(...oams.map((oam) => oam.x));
+    const minY = Math.min(...oams.map((oam) => oam.y));
+    const maxX = Math.max(...oams.map((oam) => oam.x + oam.width));
+    const maxY = Math.max(...oams.map((oam) => oam.y + oam.height));
+    const cell = new Uint8Array(0x10);
+    writeU16(cell, 0, oams.length);
+    writeU16(cell, 2, 0);
+    writeU32(cell, 4, oamOffset);
+    writeS16Local(cell, 8, maxX);
+    writeS16Local(cell, 10, maxY);
+    writeS16Local(cell, 12, minX);
+    writeS16Local(cell, 14, minY);
+    cellRecords.push(cell);
+    for (const oam of oams) oamRecords.push(encodeOam(oam));
+    oamOffset += oams.length * 6;
+  }
+
+  const payload = new Uint8Array(CEBK_HEADER_SIZE + cellRecords.length * 0x10 + oamRecords.length * 6);
+  writeU16(payload, 0, cellRecords.length);
+  writeU16(payload, 2, 1);
+  writeU32(payload, 4, CEBK_HEADER_SIZE);
+  writeU32(payload, 8, GEN5_CELL_MAPPING_MODE);
   writeU32(payload, 0x0c, 0);
   writeU32(payload, 0x10, 0);
   writeU32(payload, 0x14, 0);
@@ -173,7 +242,7 @@ export function buildPokemonAnimationFile(input: { targetType: 1 | 2; mode?: num
     const frames = sequence.frames;
     const sequenceOffset = sequenceIndex * 0x10;
     writeU16(sequenceBytes, sequenceOffset, frames.length);
-    writeU16(sequenceBytes, sequenceOffset + 2, frameOffset / 8);
+    writeU16(sequenceBytes, sequenceOffset + 2, 0);
     writeU32(sequenceBytes, sequenceOffset + 4, 1 | (sequence.targetType << 16));
     writeU32(sequenceBytes, sequenceOffset + 8, sequence.mode);
     writeU32(sequenceBytes, sequenceOffset + 0x0c, frameOffset);
@@ -203,28 +272,70 @@ export function buildPokemonAnimationFile(input: { targetType: 1 | 2; mode?: num
   return writeG2dFile(sequences.every((sequence) => sequence.targetType === MULTICELL_TARGET_TYPE) ? "RAMN" : "RNAN", [{ signature: "ABNK", payload }]);
 }
 
-export function buildPokemonMultiCellsFile(parts: PokemonAnimationBuildPart[]): Uint8Array {
+export function buildPokemonMultiCellsFile(parts: PokemonAnimationBuildPart[], options: PokemonMultiCellsBuildOptions = {}): Uint8Array {
   const normalized = "nodeX" in (parts[0] ?? {}) ? (parts as BuildPart[]) : normalizeBuildParts(parts);
   const nodes = normalized
     .map((part, index) => ({ part, index }))
     .sort((left, right) => (left.part.z ?? 0) - (right.part.z ?? 0) || left.index - right.index);
-  const payload = new Uint8Array(MCBK_HEADER_SIZE + 8 + nodes.length * 8);
-  writeU16(payload, 0, 1);
-  writeU16(payload, 2, 0);
+  const multiCellCopies = clampInt(options.multiCellCopies ?? 1, 1, 2);
+  const multiCellRecordSize = multiCellCopies * 8;
+  const hierarchySize = nodes.length * 8 * multiCellCopies;
+  const payload = new Uint8Array(MCBK_HEADER_SIZE + multiCellRecordSize + hierarchySize);
+  writeU16(payload, 0, multiCellCopies);
+  writeU16(payload, 2, 0xbeef);
   writeU32(payload, 4, MCBK_HEADER_SIZE);
-  writeU32(payload, 8, MCBK_HEADER_SIZE + 8);
+  writeU32(payload, 8, MCBK_HEADER_SIZE + multiCellRecordSize);
   writeU32(payload, 0x0c, 0);
-  writeU16(payload, MCBK_HEADER_SIZE, nodes.length);
-  writeU16(payload, MCBK_HEADER_SIZE + 2, normalized.length);
-  writeU32(payload, MCBK_HEADER_SIZE + 4, 0);
-  let offset = MCBK_HEADER_SIZE + 8;
-  nodes.forEach(({ part, index }) => {
-    writeU16(payload, offset, index);
-    writeS16Local(payload, offset + 2, part.nodeX);
-    writeS16Local(payload, offset + 4, part.nodeY);
-    writeU16(payload, offset + 6, ((index & 0xff) << 8) | 0x20);
-    offset += 8;
+  writeU32(payload, 0x10, 0);
+  for (let copyIndex = 0; copyIndex < multiCellCopies; copyIndex += 1) {
+    const recordOffset = MCBK_HEADER_SIZE + copyIndex * 8;
+    writeU16(payload, recordOffset, nodes.length);
+    writeU16(payload, recordOffset + 2, normalized.length);
+    writeU32(payload, recordOffset + 4, copyIndex * nodes.length * 8);
+  }
+  let offset = MCBK_HEADER_SIZE + multiCellRecordSize;
+  for (let copyIndex = 0; copyIndex < multiCellCopies; copyIndex += 1) {
+    nodes.forEach(({ part, index }) => {
+      writeU16(payload, offset, index);
+      writeS16Local(payload, offset + 2, part.nodeX);
+      writeS16Local(payload, offset + 4, part.nodeY);
+      writeU16(payload, offset + 6, ((index & 0xff) << 8) | 0x20);
+      offset += 8;
+    });
+  }
+  return writeG2dFile("RCMN", [{ signature: "MCBK", payload }]);
+}
+
+export function buildPokemonMultiCellsFileFromCells(cells: PokemonMultiCellBuildNode[][]): Uint8Array {
+  const safeCells = cells.length ? cells : [[{ sequenceNumber: 0, x: 0, y: 0 }]];
+  const multiCellRecordSize = safeCells.length * 8;
+  const hierarchySize = safeCells.reduce((sum, nodes) => sum + nodes.length * 8, 0);
+  const payload = new Uint8Array(MCBK_HEADER_SIZE + multiCellRecordSize + hierarchySize);
+  writeU16(payload, 0, safeCells.length);
+  writeU16(payload, 2, 0xbeef);
+  writeU32(payload, 4, MCBK_HEADER_SIZE);
+  writeU32(payload, 8, MCBK_HEADER_SIZE + multiCellRecordSize);
+  writeU32(payload, 0x0c, 0);
+  writeU32(payload, 0x10, 0);
+  let hierarchyOffset = 0;
+  safeCells.forEach((nodes, index) => {
+    const recordOffset = MCBK_HEADER_SIZE + index * 8;
+    writeU16(payload, recordOffset, nodes.length);
+    writeU16(payload, recordOffset + 2, Math.max(1, nodes.length));
+    writeU32(payload, recordOffset + 4, hierarchyOffset);
+    hierarchyOffset += nodes.length * 8;
   });
+  let offset = MCBK_HEADER_SIZE + multiCellRecordSize;
+  for (const nodes of safeCells) {
+    nodes.forEach((node, index) => {
+      const cellAnimationIndex = clampInt(node.cellAnimationIndex ?? index, 0, 0xff);
+      writeU16(payload, offset, clampInt(node.sequenceNumber, 0, 0xffff));
+      writeS16Local(payload, offset + 2, clampInt(Math.round(node.x), -0x8000, 0x7fff));
+      writeS16Local(payload, offset + 4, clampInt(Math.round(node.y), -0x8000, 0x7fff));
+      writeU16(payload, offset + 6, ((cellAnimationIndex & 0xff) << 8) | 0x20 | clampInt(node.playMode ?? 0, 0, 0x0f));
+      offset += 8;
+    });
+  }
   return writeG2dFile("RCMN", [{ signature: "MCBK", payload }]);
 }
 
@@ -234,7 +345,8 @@ export function buildPokemonMultiCellAnimationFile(duration = DEFAULT_LOOP_DURAT
 
 export function buildRigCellsFile(cells: RigCellsFile): Uint8Array {
   const out = new Uint8Array(12 + cells.cells.length * 48 + cells.flags.length);
-  out[0] = cells.cells.length & 0xff;
+  writeU32(out, 0, cells.cells.length);
+  writeRigCellsHeader(out, cells.cells);
   cells.cells.forEach((cell, index) => {
     writeRigCell(out, 12 + index * 48, cell, false);
     writeRigCell(out, 36 + index * 48, cell.subCell, true);
@@ -401,6 +513,23 @@ function oamBlocksForPart(part: BuildPart): OamBlock[] {
   return blocks;
 }
 
+function normalizeExplicitOam(oam: PokemonCellBankBuildOam, cellIndex: number): OamBlock {
+  if (!Number.isInteger(oam.x) || oam.x < -0x100 || oam.x > 0xff) throw new Error(`Cell ${cellIndex} OAM x is outside signed 9-bit range`);
+  if (!Number.isInteger(oam.y) || oam.y < -0x80 || oam.y > 0x7f) throw new Error(`Cell ${cellIndex} OAM y is outside signed 8-bit range`);
+  if (!Number.isInteger(oam.characterName) || oam.characterName < 0 || oam.characterName > 0x3ff) throw new Error(`Cell ${cellIndex} OAM characterName is outside 10-bit range`);
+  const size = OAM_SIZES.find((candidate) => candidate.width === oam.width && candidate.height === oam.height);
+  if (!size) throw new Error(`Cell ${cellIndex} OAM has unsupported dimensions ${oam.width}x${oam.height}`);
+  return {
+    x: oam.x,
+    y: oam.y,
+    width: oam.width,
+    height: oam.height,
+    characterName: oam.characterName,
+    shape: size.shape,
+    size: size.size,
+  };
+}
+
 function isCovered(covered: Uint8Array, width: number, x: number, y: number): boolean {
   return covered[(y / 8) * (width / 8) + x / 8] === 1;
 }
@@ -516,6 +645,34 @@ function writeRigCell(out: Uint8Array, offset: number, cell: RigCell, subCell: b
   writeS32Local(out, offset + 16, Math.round(cell.cellX * 0x1000));
   writeS32Local(out, offset + 20, Math.round(cell.cellY * 0x1000));
   if (!subCell) return;
+}
+
+function writeRigCellsHeader(out: Uint8Array, cells: RigCell[]): void {
+  if (cells.length === 0) return;
+  const bounds = rigCellsBounds(cells);
+  writeU16(out, 4, clampInt(Math.ceil(bounds.maxX - bounds.minX), 0, 0xffff));
+  writeU16(out, 6, clampInt(Math.ceil(bounds.maxY - bounds.minY), 0, 0xffff));
+  writeS16Local(out, 8, Math.round((bounds.minX + bounds.maxX) / 2));
+  writeS16Local(out, 10, Math.round((bounds.minY + bounds.maxY) / 2));
+}
+
+function rigCellsBounds(cells: RigCell[]): { minX: number; minY: number; maxX: number; maxY: number } {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const include = (cell: RigCell | undefined): void => {
+    if (!cell || cell.width <= 0 || cell.height <= 0) return;
+    minX = Math.min(minX, cell.spriteX);
+    maxX = Math.max(maxX, cell.spriteX + cell.width);
+    minY = Math.min(minY, cell.spriteY - cell.height);
+    maxY = Math.max(maxY, cell.spriteY);
+  };
+  for (const cell of cells) {
+    include(cell);
+    include(cell.subCell);
+  }
+  return Number.isFinite(minX) ? { minX, minY, maxX, maxY } : { minX: 0, minY: 0, maxX: 0, maxY: 0 };
 }
 
 function readU32Local(data: Uint8Array, offset: number): number {

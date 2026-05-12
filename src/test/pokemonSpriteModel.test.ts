@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readU32 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import {
@@ -27,7 +28,9 @@ import {
 } from "../pokeweb/pokemonSpriteModel";
 import {
   buildPokemonAnimationAssetBundle,
+  buildPokemonAnimationFile,
   buildPokemonCellBankFile,
+  buildPokemonCellBankFileFromCells,
   packagePokemonAnimationBundle,
   packagePokemonCustomSpriteBundle,
   parsePokemonCustomSpriteBundle,
@@ -195,6 +198,7 @@ describe("pokemonSpriteModel", () => {
 
     const bank = parsePokemonCellBank(file, "front");
 
+    expect(bank.mappingMode).toBe(4);
     expect(bank.cells).toHaveLength(1);
     expect(bank.cells[0]).toMatchObject({ minX: -12, minY: -16, maxX: 28, maxY: 16 });
     expect(bank.cells[0].oams.map((oam) => [oam.width, oam.height])).toEqual([
@@ -202,6 +206,49 @@ describe("pokemonSpriteModel", () => {
       [8, 32],
     ]);
     expect(bank.cells[0].oams[0].characterName).toBe(68);
+  });
+
+  it("builds explicit NCER cells for shared-tile flipbook poses", () => {
+    const file = buildPokemonCellBankFileFromCells([
+      {
+        oams: [
+          { x: -24, y: -16, width: 8, height: 8, characterName: 4 },
+          { x: -16, y: -16, width: 8, height: 8, characterName: 4 },
+        ],
+      },
+      {
+        oams: [{ x: -20, y: -12, width: 16, height: 16, characterName: 12 }],
+      },
+    ]);
+
+    const bank = parsePokemonCellBank(file, "front");
+
+    expect(bank.mappingMode).toBe(4);
+    expect(bank.cells).toHaveLength(2);
+    expect(bank.cells[0]).toMatchObject({ minX: -24, minY: -16, maxX: -8, maxY: -8 });
+    expect(bank.cells[0].oams.map((oam) => oam.characterName)).toEqual([4, 4]);
+    expect(bank.cells[1].oams[0]).toMatchObject({ x: -20, y: -12, width: 16, height: 16, characterName: 12 });
+  });
+
+  it("builds multi-sequence NANR files with local start frame zero", () => {
+    const file = buildPokemonAnimationFile({
+      targetType: 1,
+      frames: [
+        [
+          { duration: 4, cellIndex: 1, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+          { duration: 4, cellIndex: 2, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+        ],
+        [
+          { duration: 4, cellIndex: 3, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+          { duration: 4, cellIndex: 4, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+        ],
+      ],
+    });
+
+    const animation = parsePokemonAnimation(file);
+
+    expect(animation.sequences.map((sequence) => sequence.startFrameIndex)).toEqual([0, 0]);
+    expect(animation.sequences.map((sequence) => sequence.frames.map((frame) => frame.cellIndex))).toEqual([[1, 2], [3, 4]]);
   });
 
   it("builds and imports front NCER/NANR/NMCR/NMAR/NCEC animation bundles", () => {
@@ -239,7 +286,12 @@ describe("pokemonSpriteModel", () => {
     };
 
     expect(parsePokemonAnimation(rawBundle.files[5]!, "front").sequences[0].frames[1]).toMatchObject({ x: 2, y: -1, frameType: "index-srt" });
-    expect(parsePokemonMultiCells(rawBundle.files[6]!, "front").cells[0].nodes).toHaveLength(2);
+    const rawMultiCells = parsePokemonMultiCells(rawBundle.files[6]!, "front");
+    expect(rawMultiCells.cells).toHaveLength(2);
+    expect(rawMultiCells.cells[0].nodes).toHaveLength(2);
+    expect(rawMultiCells.cells[1].nodes).toHaveLength(2);
+    expect(readU32(rawBundle.files[6]!, 0x1c)).toBe(0x14);
+    expect(readU32(rawBundle.files[6]!, 0x28)).toBe(0);
     importPokemonAnimationBundle(project, 1, packagePokemonAnimationBundle(bundle));
 
     expect(project.narcs.pokemon_sprites!.dirty.has(24)).toBe(true);

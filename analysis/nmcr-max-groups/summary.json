@@ -1,0 +1,49 @@
+{
+  "rom": "/path/to/Port-Pokeweb/cleanwhite2.nds",
+  "outDir": "/path/to/Port-Pokeweb/Pokeweb-Serverless/analysis/nmcr-max-groups",
+  "maxGroupCount": 6,
+  "entries": [
+    {
+      "spriteId": 597,
+      "side": "front",
+      "groupCount": 6,
+      "nodeCounts": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "nmarGroups": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "spriteId": 597,
+      "side": "back",
+      "groupCount": 6,
+      "nodeCounts": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "nmarGroups": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    }
+  ]
+}
