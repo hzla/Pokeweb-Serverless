@@ -32,19 +32,18 @@ export class NARC {
     if (fntbMagic !== "BTNF") throw new Error(`Incorrect NARC FNTB magic: ${fntbMagic}`);
     const fntbSize = readU32(data, fntbOffset + 4);
 
-    const fimgOffset = fntbOffset + fntbSize;
-    const fimgMagic = readAscii(data, fimgOffset, 4);
+    const fimgBlock = resolveFimgBlock(data, fntbOffset, fntbSize);
+    const fimgMagic = readAscii(data, fimgBlock.magicOffset, 4);
     if (fimgMagic !== "GMIF") throw new Error(`Incorrect NARC FIMG magic: ${fimgMagic}`);
-    const rawOffset = fimgOffset + 8;
 
     this.files = [];
     for (let i = 0; i < fileCount; i += 1) {
       const start = readU32(data, 0x1c + i * 8);
       const end = readU32(data, 0x20 + i * 8);
-      this.files.push(data.slice(rawOffset + start, rawOffset + end));
+      this.files.push(data.slice(fimgBlock.rawOffset + start, fimgBlock.rawOffset + end));
     }
 
-    this.filenames = loadFnt(data.subarray(fntbOffset + 8, fntbOffset + fntbSize));
+    this.filenames = loadFnt(data.subarray(fntbOffset + 8, fimgBlock.magicOffset));
   }
 
   save(): Uint8Array {
@@ -86,6 +85,21 @@ export class NARC {
     validateSavedNarc(out);
     return out;
   }
+}
+
+function resolveFimgBlock(data: Uint8Array, fntbOffset: number, fntbSize: number): { magicOffset: number; rawOffset: number } {
+  const declaredOffset = fntbOffset + fntbSize;
+  if (readAscii(data, declaredOffset, 4) === "GMIF") return { magicOffset: declaredOffset, rawOffset: declaredOffset + 8 };
+
+  // Some edited Gen 5 ROMs declare a 0x14-byte empty FNTB, put GMIF four
+  // bytes early, and still keep file payload offsets relative to the
+  // declared FIMG data position.
+  const missingFntPaddingOffset = declaredOffset - 4;
+  if (fntbSize >= 4 && readAscii(data, missingFntPaddingOffset, 4) === "GMIF") {
+    return { magicOffset: missingFntPaddingOffset, rawOffset: declaredOffset + 8 };
+  }
+
+  return { magicOffset: declaredOffset, rawOffset: declaredOffset + 8 };
 }
 
 function validateSavedNarc(data: Uint8Array): void {

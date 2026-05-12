@@ -7,6 +7,7 @@ import {
 } from "./constants";
 import { parseHeaders } from "./headerModel";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
+import { pokemonSpriteSlug } from "./spriteSlug";
 
 export type EncounterSeason = (typeof ENCOUNTER_SEASONS)[number];
 export type EncounterGroup = "grass" | "water";
@@ -207,5 +208,5 @@ function parseInteger(value: string, min: number, max: number, field: string): n
 }
 
 export function spriteSlug(name: string): string {
-  return name.replace(". ", "-").toLowerCase();
+  return pokemonSpriteSlug(name);
 }

@@ -12,6 +12,7 @@ exports/
 projects/
 generated/
 work/
+analysis/
 
 # Local agent working notes.
 Agents.md

@@ -18,6 +18,16 @@ describe("Gen V text backend", () => {
     expect(decoded[1][2]).toBe(0x1234);
   });
 
+  it("rejects malformed text banks with impossible table sizes", () => {
+    const malformed = new Uint8Array(16);
+    malformed[0] = 1;
+    malformed[2] = 0xff;
+    malformed[3] = 0xff;
+    malformed[12] = 16;
+
+    expect(() => decodeGen5TextBank(malformed)).toThrow(/exceeds file size/u);
+  });
+
   it("updates text banks in memory, rebuilds bytes, adds and deletes entries, and marks dirty", () => {
     const initial = encodeGen5TextBank([
       ["0_0", "Hello", 0],

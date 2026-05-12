@@ -17,6 +17,7 @@ import {
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
+import { pokemonSpriteSlug } from "../pokeweb/spriteSlug";
 import evoIcon from "../assets/svgs/evo.svg?raw";
 import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import movesIcon from "../assets/svgs/moves.svg?raw";
@@ -83,7 +84,7 @@ function renderPokemonCard(record: PokemonSummaryRecord): string {
       <div class="pokemon-card__info">
         <div class="pokemon-card__header">
           <div class="pokemon-card__img">
-            <img src="${publicAsset(`images/pokesprite/${spriteSlug(name)}.png`)}" alt="" onerror="this.style.display='none'">
+            <img src="${publicAsset(`images/pokesprite/${pokemonSpriteSlug(name)}.png`)}" alt="" onerror="this.style.display='none'">
           </div>
         </div>
         <div class="pokemon-card__name">#${record.id} ${escapeHtml(titleize(name))}</div>
@@ -240,8 +241,4 @@ function titleize(value: string): string {
 function titleizeValue(value: unknown): unknown {
   if (typeof value !== "string") return value;
   return titleize(value);
-}
-
-function spriteSlug(name: string): string {
-  return name.replace(". ", "-").toLowerCase();
 }

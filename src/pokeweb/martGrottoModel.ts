@@ -2,6 +2,7 @@ import grottoLocationsText from "../assets/data/grotto_locations.txt?raw";
 import martLocationsText from "../assets/data/mart_locations.txt?raw";
 import { writeU8 } from "../nds/binary";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
+import { pokemonSpriteSlug } from "./spriteSlug";
 
 export type MartRecord = {
   id: number;
@@ -250,5 +251,5 @@ function commaSearch(record: unknown, searchText: string): boolean {
 }
 
 function spriteSlug(name: string): string {
-  return name.replace(". ", "-").toLowerCase().replace(/[^a-z0-9-]+/gu, "");
+  return pokemonSpriteSlug(name);
 }

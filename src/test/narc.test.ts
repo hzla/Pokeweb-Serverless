@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readAscii, readU32 } from "../nds/binary";
+import { concatBytes, readAscii, readU32, writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 
@@ -34,5 +34,28 @@ describe("NARC", () => {
     expect(readAscii(saved, fntbOffset, 4)).toBe("BTNF");
     expect(readAscii(saved, fimgOffset, 4)).toBe("GMIF");
     expect(() => new NARC(saved)).not.toThrow();
+  });
+
+  it("loads archives with CTRMap-style early GMIF magic", () => {
+    const source = new NARC();
+    source.files = [Uint8Array.of(1, 2, 3), Uint8Array.of(4, 5, 6, 7)];
+
+    const saved = source.save();
+    const fatbSize = readU32(saved, 0x14);
+    const fntbOffset = 0x10 + fatbSize;
+    const fntbSize = readU32(saved, fntbOffset + 4);
+    const fimgOffset = fntbOffset + fntbSize;
+    expect(readAscii(saved, fimgOffset, 4)).toBe("GMIF");
+
+    const ctrMapStyle = concatBytes([saved.subarray(0, fimgOffset + 8), Uint8Array.of(0xaa, 0xbb, 0xcc, 0xdd), saved.subarray(fimgOffset + 8)]);
+    writeU32(ctrMapStyle, fntbOffset + 4, fntbSize + 4);
+    writeU32(ctrMapStyle, 8, ctrMapStyle.length);
+
+    const parsed = new NARC(ctrMapStyle);
+
+    expect(parsed.files.map((file) => [...file])).toEqual([
+      [1, 2, 3],
+      [4, 5, 6, 7],
+    ]);
   });
 });

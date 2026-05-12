@@ -32,6 +32,16 @@ describe("pokemonAnimationAnalysis", () => {
     expect(pixelAt(normalized.frames[0]!, 6, 6)).toEqual([255, 80, 40, 255]);
   });
 
+  it("applies crop offsets as visible sprite translations", () => {
+    const source = makeFrame(32, 32);
+    fillRect(source, 10, 12, 4, 4, [255, 80, 40, 255]);
+
+    const normalized = normalizeAnimationFrames([source], 16, { x: 2, y: -1 });
+
+    expect(normalized.cropBounds).toEqual({ x: 2, y: 7, width: 16, height: 16 });
+    expect(pixelAt(normalized.frames[0]!, 8, 5)).toEqual([255, 80, 40, 255]);
+  });
+
   it("validates Gen 5 palette compatibility and quantizes oversized palettes", () => {
     const frame = makeFrame(20, 1);
     for (let index = 0; index < 17; index += 1) setPixel(frame, index, 0, [index * 10, index * 5, index * 3, 255]);

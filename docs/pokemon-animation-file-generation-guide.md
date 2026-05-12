@@ -33,14 +33,16 @@ The bundle import writes:
 - File 7 or 16: NMAR whole-multi-cell animation.
 - File 8 or 17: NCEC/Frost-style rig-cell metadata.
 
-NCER/NANR/NMCR/NMAR are LZ11-compressed in the bundle. NCEC rig-cell metadata is raw.
+Match vanilla compression per file. NANR files (`5`/`14`) are LZ11-compressed; NCER (`4`/`13`), NMCR (`6`/`15`), NMAR (`7`/`16`), and NCEC (`8`/`17`) are raw. Do not compress the raw sidecar files just because the editor can parse them; the in-game loader expects the vanilla storage pattern.
+
+NMCR must expose two valid multi-cell records. If the custom rig only needs one visual hierarchy, duplicate that hierarchy as multi-cell 1 and keep the node sequence numbers valid. A one-record NMCR can look fine in the editor but let battle intro/idle code read past the hierarchy table, which appears in-game as duplicated sprites, atlas-sheet chunks, or severe lag.
 
 ## Mimikyu Lessons
 
 - The first static bundle was importable but not meaningfully animated because every part had one SRT frame. For real preview value, create a keyed plan with repeated frames per part.
 - Use a shared loop length. Mimikyu had 63 GIF frames at 100ms each, so a first-pass Gen 5 loop used 9 keyframes of 7 ticks each.
 - Keep every part as SRT even if it only translates in V1. This lets the sprite editor rotate/scale it later without converting sequence types.
-- NMCR should contain one multi-cell with all nodes sorted by z-order.
+- NMCR should contain two valid multi-cells with nodes sorted by z-order. For simple first-pass rigs, the second multi-cell may duplicate the first hierarchy.
 - NMAR can be a simple looping sequence selecting multi-cell 0 for the total loop duration.
 - Pivots matter before animation starts. If rotation looks wrong, inspect NCER padded bounds and local pivot assumptions, not only NANR keyframes.
 - Battle placement matters too. Mimikyu initially imported below the expected battle baseline; use Diglett as the lowest allowed visual reference and shift generated rig-cell `spriteY` values upward if any animation frame sits lower.

@@ -8,12 +8,23 @@ export function decodeGen5TextBank(data: Uint8Array): Gen5TextEntry[] {
   const entryCount = readU16(data, 2);
   const blockOffsets: number[] = [];
 
+  if (data.length < 4) throw new Error("Text bank is too small");
+  if (blockCount === 0 || entryCount === 0) return texts;
+  if (12 + blockCount * 4 > data.length) throw new Error("Text bank block table exceeds file size");
+
   for (let i = 0; i < blockCount; i += 1) {
     blockOffsets.push(readU32(data, 12 + i * 4));
   }
 
   for (let blockIndex = 0; blockIndex < blockOffsets.length; blockIndex += 1) {
     const blockOffset = blockOffsets[blockIndex];
+    const blockLength = readU32(data, blockOffset);
+    const blockEnd = blockOffset + blockLength;
+    const tableLength = 4 + entryCount * 8;
+    if (blockOffset + 4 > data.length || blockLength < tableLength || blockEnd > data.length) {
+      throw new Error(`Text bank block ${blockIndex} exceeds file size`);
+    }
+
     const tableOffsets: number[] = [];
     const charCounts: number[] = [];
     const textFlags: number[] = [];
@@ -23,6 +34,9 @@ export function decodeGen5TextBank(data: Uint8Array): Gen5TextEntry[] {
       tableOffsets.push(readU32(data, tableOffset));
       charCounts.push(readU16(data, tableOffset + 4));
       textFlags.push(readU16(data, tableOffset + 6));
+      if (blockOffset + tableOffsets[entryIndex] + charCounts[entryIndex] * 2 > blockEnd) {
+        throw new Error(`Text bank entry ${blockIndex}_${entryIndex} exceeds block size`);
+      }
     }
 
     for (let entryIndex = 0; entryIndex < entryCount; entryIndex += 1) {

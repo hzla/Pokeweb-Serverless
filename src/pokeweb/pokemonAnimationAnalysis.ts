@@ -38,6 +38,7 @@ export type MotionReport = {
 
 export type Box = { x: number; y: number; width: number; height: number };
 export type RgbColor = { r: number; g: number; b: number };
+export type CropOffset = { x?: number; y?: number };
 
 export const NORMALIZED_SPRITE_SIZE = 96;
 export const MAX_GEN5_OPAQUE_COLORS = 15;
@@ -65,7 +66,7 @@ export function decodeGifFrames(bytes: Uint8Array): AnimationAnalysisFrame[] {
   });
 }
 
-export function normalizeAnimationFrames(sourceFrames: AnimationAnalysisFrame[], size = NORMALIZED_SPRITE_SIZE): AnimationCropResult {
+export function normalizeAnimationFrames(sourceFrames: AnimationAnalysisFrame[], size = NORMALIZED_SPRITE_SIZE, offset: CropOffset = {}): AnimationCropResult {
   if (sourceFrames.length === 0) throw new Error("GIF contains no frames");
   const width = sourceFrames[0].width;
   const height = sourceFrames[0].height;
@@ -76,7 +77,12 @@ export function normalizeAnimationFrames(sourceFrames: AnimationAnalysisFrame[],
   const contentBounds = unionBounds(sourceFrames.map((frame) => alphaBounds(frame.pixels, frame.width, frame.height)).filter(Boolean) as Box[]);
   const centerX = contentBounds ? contentBounds.x + contentBounds.width / 2 : width / 2;
   const centerY = contentBounds ? contentBounds.y + contentBounds.height / 2 : height / 2;
-  const cropBounds = { x: Math.round(centerX - size / 2), y: Math.round(centerY - size / 2), width: size, height: size };
+  const cropBounds = {
+    x: Math.round(centerX - size / 2 - (offset.x ?? 0)),
+    y: Math.round(centerY - size / 2 - (offset.y ?? 0)),
+    width: size,
+    height: size,
+  };
   if (contentBounds && (contentBounds.width > size || contentBounds.height > size)) warnings.push(`Visible content is larger than ${size}x${size}; edges may be cropped`);
   const frames = sourceFrames.map((frame, index) => ({
     index,

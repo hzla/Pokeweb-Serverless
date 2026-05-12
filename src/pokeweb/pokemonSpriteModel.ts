@@ -1,6 +1,6 @@
 import { concatBytes, readAscii, readU16, readU32, writeU16 } from "../nds/binary";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
-import { parsePokemonAnimationBundle } from "./pokemonSpriteWriters";
+import { buildPokemonAnimationFile, buildPokemonMultiCellAnimationFile, parsePokemonAnimationBundle } from "./pokemonSpriteWriters";
 
 export type PokemonPaletteKind = "normal" | "shiny";
 export type PokemonSpriteVariant = {
@@ -209,6 +209,13 @@ export function setPokemonSpriteImage(
   writePokemonSpriteFile(project, spriteId, fileIndex, compressLz11Literal(decompressed));
 }
 
+export function copyPokemonSpriteVariant(project: ProjectState, spriteId: number, source: PokemonSpriteVariant, target: PokemonSpriteVariant): void {
+  const entry = getPokemonSpriteEntry(project, spriteId);
+  const sourceFile = entry.files[spriteVariantFileIndex(source)];
+  if (!sourceFile || sourceFile.length === 0) throw new Error("Source sprite variant is empty");
+  writePokemonSpriteFile(project, spriteId, spriteVariantFileIndex(target), sourceFile.slice());
+}
+
 export function getPokemonPalettes(project: ProjectState, spriteId: number): { normal: RgbColor[]; shiny: RgbColor[] } {
   const entry = getPokemonSpriteEntry(project, spriteId);
   return { normal: entry.palette, shiny: entry.shinyPalette };
@@ -324,7 +331,8 @@ export function setRigCells(project: ProjectState, spriteId: number, side: "fron
   const fileIndex = side === "front" ? 8 : 17;
   const out = entry.files[fileIndex].slice();
   if (out.length < 12 + next.cells.length * 48) throw new Error("Rig-cell file is too small for the imported cell count");
-  out[0] = next.cells.length & 0xff;
+  writeU32LE(out, 0, next.cells.length);
+  writeRigCellsHeader(out, next.cells);
   for (let i = 0; i < next.cells.length; i += 1) {
     writeRigCell(out, 12 + i * 48, next.cells[i], false);
     writeRigCell(out, 36 + i * 48, next.cells[i].subCell, true);
@@ -418,9 +426,39 @@ export function updatePokemonAnimationFrame(
   });
 }
 
+export function scalePokemonAnimationDurations(
+  project: ProjectState,
+  spriteId: number,
+  side: PokemonAnimationSide,
+  ratio: number,
+): void {
+  const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+  scaleAnimationFileDurations(project, spriteId, side, animationFileIndex(side), "RNAN", "Animation", safeRatio, true);
+  scaleAnimationFileDurations(project, spriteId, side, multiCellAnimationFileIndex(side), "RAMN", "Multi-cell animation", safeRatio, false);
+}
+
+export function rewritePokemonAnimationSequences(
+  project: ProjectState,
+  spriteId: number,
+  side: PokemonAnimationSide,
+  sequenceFrames: PokemonAnimationFrameEdit[][],
+): PokemonAnimation {
+  const animation = getPokemonAnimation(project, spriteId, side);
+  const sequences = animation.sequences.map((sequence, index) => ({
+    targetType: (sequence.targetType === 2 ? 2 : 1) as 1 | 2,
+    mode: sequence.mode,
+    frames: sequenceFrames[index] ?? sequence.frames.map(animationFrameEdit),
+  }));
+  const raw = buildPokemonAnimationFile(sequences);
+  writePokemonSpriteFile(project, spriteId, animationFileIndex(side), compressLz11Literal(raw));
+  const loopDuration = Math.max(1, sequenceFrames[0]?.reduce((sum, frame) => sum + Math.max(1, Math.round(frame.duration)), 0) ?? 1);
+  writePokemonSpriteFile(project, spriteId, multiCellAnimationFileIndex(side), buildPokemonMultiCellAnimationFile(loopDuration));
+  return parsePokemonAnimation(raw, side);
+}
+
 export function parseRigCells(bytes: Uint8Array): RigCellsFile {
   if (bytes.length === 0) return { cells: [], flags: new Uint8Array() };
-  const count = bytes[0] ?? 0;
+  const count = Math.min(readU32(bytes, 0), Math.max(0, Math.floor((bytes.length - 12) / 48)));
   const cells = Array.from({ length: count }, (_, index) => {
     const offset = 12 + index * 48;
     return {
@@ -475,6 +513,41 @@ export function parsePokemonAnimation(bytes: Uint8Array, side: PokemonAnimationS
     sequences.push({ index, frameCount, startFrameIndex, motionType, targetType, mode, frames });
   }
   return { side, sequences, raw: bytes };
+}
+
+function scaleAnimationFileDurations(
+  project: ProjectState,
+  spriteId: number,
+  side: PokemonAnimationSide,
+  fileIndex: number,
+  signature: "RNAN" | "RAMN",
+  label: string,
+  ratio: number,
+  compress: boolean,
+): void {
+  const entry = getPokemonSpriteEntry(project, spriteId);
+  const file = entry.files[fileIndex];
+  if (!file || file.length === 0) return;
+  const raw = (signature === "RNAN" ? decompressNitro(file) : decompressNitroIfNeeded(file)).slice();
+  const animation = parsePokemonAnimation(raw, side, signature, label);
+  for (const sequence of animation.sequences) {
+    for (const frame of sequence.frames) {
+      writeU16(raw, frame.sequenceFrameOffset + 4, clampInt(Math.round(frame.duration * ratio), 1, 0xffff));
+    }
+  }
+  writePokemonSpriteFile(project, spriteId, fileIndex, compress ? compressLz11Literal(raw) : raw);
+}
+
+function animationFrameEdit(frame: PokemonAnimationFrame): PokemonAnimationFrameEdit {
+  return {
+    duration: frame.duration,
+    cellIndex: frame.cellIndex,
+    x: frame.x,
+    y: frame.y,
+    rotation: frame.rotation,
+    xScale: frame.xScale,
+    yScale: frame.yScale,
+  };
 }
 
 export function parsePokemonMultiCells(bytes: Uint8Array, side: PokemonAnimationSide = "front"): PokemonMultiCells {
@@ -953,6 +1026,35 @@ function writeRigCell(out: Uint8Array, offset: number, cell: RigCell, subCell: b
   writeS32(out, offset + 16, Math.round(cell.cellX * 0x1000));
   writeS32(out, offset + 20, Math.round(cell.cellY * 0x1000));
   if (!subCell) return;
+}
+
+function writeRigCellsHeader(out: Uint8Array, cells: RigCell[]): void {
+  out.fill(0, 4, 12);
+  if (cells.length === 0) return;
+  const bounds = rigCellsBounds(cells);
+  writeU16(out, 4, clampInt(Math.ceil(bounds.maxX - bounds.minX), 0, 0xffff));
+  writeU16(out, 6, clampInt(Math.ceil(bounds.maxY - bounds.minY), 0, 0xffff));
+  writeS16(out, 8, Math.round((bounds.minX + bounds.maxX) / 2));
+  writeS16(out, 10, Math.round((bounds.minY + bounds.maxY) / 2));
+}
+
+function rigCellsBounds(cells: RigCell[]): { minX: number; minY: number; maxX: number; maxY: number } {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const include = (cell: RigCell | undefined): void => {
+    if (!cell || cell.width <= 0 || cell.height <= 0) return;
+    minX = Math.min(minX, cell.spriteX);
+    maxX = Math.max(maxX, cell.spriteX + cell.width);
+    minY = Math.min(minY, cell.spriteY - cell.height);
+    maxY = Math.max(maxY, cell.spriteY);
+  };
+  for (const cell of cells) {
+    include(cell);
+    include(cell.subCell);
+  }
+  return Number.isFinite(minX) ? { minX, minY, maxX, maxY } : { minX: 0, minY: 0, maxX: 0, maxY: 0 };
 }
 
 function emptyRigCell(): RigCell {

@@ -36,7 +36,17 @@ input {
   justify-content: flex-start;
 }
 
+.header-status {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: 0 12px;
+}
+
 .header-right {
+  flex: 0 0 auto;
   max-width: 25vw;
 }
 

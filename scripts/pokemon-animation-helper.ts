@@ -777,7 +777,7 @@ function parseSide(value: string): PokemonAnimationSide {
 }
 
 function shouldCompressAnimationFile(fileIndex: PokemonAnimationBundleFileIndex): boolean {
-  return fileIndex !== 8 && fileIndex !== 17;
+  return fileIndex === 5 || fileIndex === 14;
 }
 
 async function findBundleFile(bundleDir: string, suffix: string): Promise<string> {

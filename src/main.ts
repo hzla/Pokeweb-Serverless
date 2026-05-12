@@ -202,7 +202,6 @@ function renderApp(): void {
   appRoot.innerHTML = `
     ${renderNav()}
     <div id="content-container"></div>
-    ${dirty ? `<div class="dirty-indicator">Unsaved browser edits</div>` : ""}
   `;
 
   const content = document.querySelector<HTMLDivElement>("#content-container");
@@ -443,6 +442,7 @@ function renderNav(): string {
         ${navItem("docGenerators", "Doc Generators")}
         ${navItem("fileSystem", "File System")}
       </div>
+      <div class="header-status" id="header-status">${dirty ? `<div class="dirty-indicator">Unsaved browser edits</div>` : ""}</div>
       <div class="header-right">
         <a class="header-item ${route === "debugNarcs" ? "-active" : ""}" href="#" data-route="debugNarcs">Debug</a>
         <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true" ${
@@ -843,11 +843,8 @@ function statusText(status: HTMLElement | null | undefined, message: string): vo
 }
 
 function renderDirtyIndicator(): void {
-  const existing = appRoot.querySelector(".dirty-indicator");
-  if (dirty && !existing) {
-    appRoot.insertAdjacentHTML("beforeend", `<div class="dirty-indicator">Unsaved browser edits</div>`);
-  }
-  if (!dirty && existing) existing.remove();
+  const headerStatus = appRoot.querySelector<HTMLElement>("#header-status");
+  if (headerStatus) headerStatus.innerHTML = dirty ? `<div class="dirty-indicator">Unsaved browser edits</div>` : "";
 
   const debugLink = appRoot.querySelector<HTMLAnchorElement>("[data-route='debugNarcs']");
   if (debugLink && project) debugLink.textContent = `Debug (${getCachedRecordCount(project)})`;
