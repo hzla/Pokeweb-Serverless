@@ -95,8 +95,8 @@ function refreshKnownTextBank(project: ProjectState, narcName: TextNarcName, ban
   const mapping = mappings.find(([mappedBankId]) => mappedBankId === bankId);
   if (!mapping) return;
   const [, bankName] = mapping;
-  const upper = bankName === "pokedex" || bankName === "moves";
-  project.texts.banks[bankName] = bank.map((entry, index) => cleanDisplayText(entry?.[1] ?? `Entry ${index}`, upper));
+  const nameCase = bankName === "pokedex" || bankName === "moves";
+  project.texts.banks[bankName] = bank.map((entry, index) => cleanDisplayText(entry?.[1] ?? `Entry ${index}`, nameCase));
 }
 
 function getBankShape(bank: Gen5TextEntry[]): { numBlocks: number; numEntries: number } {

@@ -32,6 +32,41 @@ export class Folder {
   }
 }
 
+export function cloneFolder(folder: Folder): Folder {
+  return new Folder({
+    firstId: folder.firstId,
+    files: [...folder.files],
+    folders: folder.folders.map(([name, child]) => [name, cloneFolder(child)]),
+  });
+}
+
+export function addFilePath(root: Folder, path: string, fileId: number): Folder {
+  if (!Number.isInteger(fileId) || fileId < 0) throw new Error(`Invalid file ID: ${fileId}`);
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length === 0) throw new Error("ROM file path cannot be empty");
+  for (const part of parts) validateFntName(part);
+
+  const clone = cloneFolder(root);
+  let folder = clone;
+  for (const folderName of parts.slice(0, -1)) {
+    let child = folder.folders.find(([name]) => name === folderName)?.[1];
+    if (!child) {
+      child = new Folder({ firstId: fileId });
+      folder.folders.push([folderName, child]);
+    }
+    folder = child;
+  }
+
+  const filename = parts[parts.length - 1];
+  if (folder.files.includes(filename)) throw new Error(`ROM file already exists: ${path}`);
+  if (folder.files.length === 0) folder.firstId = fileId;
+  if (folder.firstId + folder.files.length !== fileId) {
+    throw new Error(`Cannot append ${path}: files in an existing folder must remain contiguous at the end of the ROM file table.`);
+  }
+  folder.files.push(filename);
+  return clone;
+}
+
 export function loadFnt(data: Uint8Array): Folder {
   const loadFolder = (folderId: number): Folder => {
     const folder = new Folder();
@@ -110,4 +145,10 @@ export function saveFnt(root: Folder): Uint8Array {
   }
 
   return concatBytes([main, ...tables]);
+}
+
+function validateFntName(name: string): void {
+  if (name.length === 0) throw new Error("ROM file path contains an empty component");
+  if (name.length > 127) throw new Error(`Filename is too long: ${name}`);
+  if (/[\\/]/u.test(name)) throw new Error(`Invalid ROM file path component: ${name}`);
 }

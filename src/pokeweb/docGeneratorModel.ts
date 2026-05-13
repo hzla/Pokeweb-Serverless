@@ -70,11 +70,13 @@ export function ensureDocs(project: ProjectState): DocGeneratorState {
   project.docs ??= {
     romTitle: project.session.romName,
     trainerLocations: {},
+    trainerDiffs: {},
     itemLocations: {},
     groundItemScriptMap: {},
   };
   project.docs.romTitle ||= project.session.romName;
   project.docs.trainerLocations ??= {};
+  project.docs.trainerDiffs ??= {};
   project.docs.itemLocations ??= {};
   project.docs.groundItemScriptMap ??= {};
   return project.docs;
@@ -129,6 +131,7 @@ export function enrichTrainerLocations(project: ProjectState): EnrichmentResult 
   requireNarcs(project, ["headers", "overworlds"]);
   const docs = ensureDocs(project);
   docs.trainerLocations = {};
+  docs.trainerDiffs = {};
   if (!project.headers) project.headers = parseHeaders(project);
 
   const overworlds = project.narcs.overworlds;
@@ -138,17 +141,22 @@ export function enrichTrainerLocations(project: ProjectState): EnrichmentResult 
     const raw = record.raw;
     if (!raw) continue;
     const location = locationForOverworld(project, overworldId);
+    const diff = difficultyForOverworld(project, overworldId);
     const npcCount = Number(raw.npc_count ?? 0);
     for (let npc = 0; npc < npcCount; npc += 1) {
       const scriptId = Number(raw[`npc_${npc}_script_id`] ?? 0);
       if (!((scriptId > 3000 && scriptId < 4000) || (scriptId > 5000 && scriptId < 6000))) continue;
       const trainerId = scriptId % 1000;
-      addUnique(docs.trainerLocations, trainerId, location);
+      addTrainerSource(docs, trainerId, location, diff);
       count += 1;
     }
   }
 
-  return { count, message: `Found ${Object.keys(docs.trainerLocations).length} trainers across ${count} overworld NPCs.` };
+  const scriptCount = enrichTrainerLocationsFromScripts(project, docs);
+  return {
+    count: count + scriptCount,
+    message: `Found ${Object.keys(docs.trainerLocations).length} trainers across ${count} overworld NPCs and ${scriptCount} script battle references.`,
+  };
 }
 
 export function enrichItemLocations(project: ProjectState): EnrichmentResult {
@@ -197,6 +205,30 @@ export function parseGroundItemScripts(bytes: Uint8Array): Map<number, number> {
     }
   });
   return map;
+}
+
+export function parseTrainerBattleScripts(bytes: Uint8Array, maxTrainerId = 65535): number[] {
+  const starts = scriptStarts(bytes);
+  const sorted = [...starts].sort((a, b) => a - b);
+  const trainerIds: number[] = [];
+  starts.forEach((start) => {
+    const end = sorted.find((candidate) => candidate > start) ?? bytes.length;
+    for (let offset = start; offset + 8 <= end; offset += 2) {
+      const command = readU16(bytes, offset);
+      if (command === 0x85 && offset + 8 <= end) {
+        addTrainerIds(trainerIds, maxTrainerId, [readU16(bytes, offset + 2), readU16(bytes, offset + 4)]);
+      } else if (command === 0x86 && offset + 10 <= end) {
+        addTrainerIds(trainerIds, maxTrainerId, [
+          readU16(bytes, offset + 2),
+          readU16(bytes, offset + 4),
+          readU16(bytes, offset + 6),
+        ]);
+      } else if (command === 0x94 && offset + 10 <= end) {
+        addTrainerIds(trainerIds, maxTrainerId, [readU16(bytes, offset + 2), readU16(bytes, offset + 4)]);
+      }
+    }
+  });
+  return unique(trainerIds);
 }
 
 export function buildGroundItemScriptMap(project: ProjectState): Map<number, number> {
@@ -571,6 +603,8 @@ function addMartDexSources(project: ProjectState, out: Record<string, Record<str
 
 function buildFormattedTrainerSets(project: ProjectState): Record<string, Record<string, unknown>> {
   if (!project.narcs.trdata || !project.narcs.trpok || !project.narcs.personal) return {};
+  const docs = ensureDocs(project);
+  if (Object.keys(docs.trainerDiffs).length === 0 && project.narcs.headers && project.narcs.overworlds) enrichTrainerLocations(project);
   const formatted: Record<string, Record<string, unknown>> = {};
   const nameCounts: Record<string, number> = {};
   for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) {
@@ -589,6 +623,7 @@ function buildFormattedTrainerSets(project: ProjectState): Record<string, Record
         ai: trainer.readable.ai ?? trainer.raw.ai ?? 0,
         noCh: false,
         tr_id: trainerId,
+        diff: docs.trainerDiffs[String(trainerId)] ?? 0,
         ivs: { hp: iv, at: iv, df: iv, sa: iv, sd: iv, sp: iv },
         battle_type: trainer.readable.battle_type_1,
         reward_item: trainer.readable.reward_item,
@@ -666,6 +701,28 @@ function scriptStarts(bytes: Uint8Array): number[] {
   return starts;
 }
 
+function enrichTrainerLocationsFromScripts(project: ProjectState, docs: DocGeneratorState): number {
+  const scripts = project.narcs.scripts;
+  if (!scripts || !project.headers) return 0;
+
+  const maxTrainerId = project.narcs.trdata?.fileCount ? project.narcs.trdata.fileCount - 1 : 65535;
+  let count = 0;
+  for (let rowId = 1; rowId <= project.headers.count; rowId += 1) {
+    const row = project.headers.rows[rowId];
+    const scriptId = Number(row.script_id ?? -1);
+    const bytes = scripts.rawFiles[scriptId];
+    if (!bytes?.length) continue;
+
+    const location = String(row.location_name ?? `Header ${rowId - 1}`);
+    const diff = Number(row.difficulty_level_adjustment ?? 0);
+    for (const trainerId of parseTrainerBattleScripts(bytes, maxTrainerId)) {
+      addTrainerSource(docs, trainerId, location, diff);
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function locationForOverworld(project: ProjectState, overworldId: number): string {
   if (!project.headers) project.headers = parseHeaders(project);
   for (let rowId = 1; rowId <= project.headers.count; rowId += 1) {
@@ -673,6 +730,15 @@ function locationForOverworld(project: ProjectState, overworldId: number): strin
     if (Number(row?.overworlds_id ?? row?.map_id) === overworldId) return String(row.location_name ?? `Overworld ${overworldId}`);
   }
   return `Overworld ${overworldId}`;
+}
+
+function difficultyForOverworld(project: ProjectState, overworldId: number): number {
+  if (!project.headers) project.headers = parseHeaders(project);
+  for (let rowId = 1; rowId <= project.headers.count; rowId += 1) {
+    const row = project.headers.rows[rowId];
+    if (Number(row?.overworlds_id ?? row?.map_id) === overworldId) return Number(row.difficulty_level_adjustment ?? 0);
+  }
+  return 0;
 }
 
 function requireNarcs(project: ProjectState, names: Array<keyof ProjectState["narcs"]>): void {
@@ -742,6 +808,19 @@ function generateAliases(index: string[], id: string, name: string, type: string
 function addUnique(target: Record<string, string[]>, id: number, value: string): void {
   const key = String(id);
   target[key] = unique([...(target[key] ?? []), value]);
+}
+
+function addTrainerSource(docs: DocGeneratorState, trainerId: number, location: string, diff: number): void {
+  addUnique(docs.trainerLocations, trainerId, location);
+  const key = String(trainerId);
+  const current = docs.trainerDiffs[key];
+  docs.trainerDiffs[key] = current === undefined ? diff : Math.max(current, diff);
+}
+
+function addTrainerIds(target: number[], maxTrainerId: number, trainerIds: number[]): void {
+  for (const trainerId of trainerIds) {
+    if (trainerId > 0 && trainerId <= maxTrainerId) target.push(trainerId);
+  }
 }
 
 function unique<T>(values: T[]): T[] {

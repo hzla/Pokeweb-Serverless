@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { headerMatchesSearch, parseHeaders, updateHeaderField } from "../pokeweb/headerModel";
+import { getHeaderPackedValue, headerMatchesSearch, parseHeaders, updateHeaderField, updateHeaderPackedField } from "../pokeweb/headerModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("headerModel", () => {
@@ -16,19 +16,23 @@ describe("headerModel", () => {
     expect(headers.count).toBe(2);
     expect(headers.rows[1].index).toBe(0);
     expect(headers.rows[1].location_name).toBe("Accumula Town");
+    expect(headers.rows[1].place_name_id).toBe(1);
     expect(headers.rows[2].index).toBe(1);
     expect(headers.rows[2].matrix_id).toBe(90);
     expect(headers.rows[1].unknown_4).toBeUndefined();
   });
 
   it("parses BW2 unknown_4 from the packed header layout", () => {
-    const project = makeProject("BW2", [{ encounter_id: 136, unknown_4: 192, location_name_id: 2 }]);
+    const project = makeProject("BW2", [{ encounter_id: 136, unknown_4: 192, location_name_id: 2, name_icon: 0xa123 }]);
 
     const headers = parseHeaders(project);
 
     expect(headers.count).toBe(1);
     expect(headers.rows[1].encounter_id).toBe(136);
     expect(headers.rows[1].unknown_4).toBe(192);
+    expect(headers.rows[1].enc_data_id).toBe(49288);
+    expect(headers.rows[1].name_icon_id).toBe(0x123);
+    expect(headers.rows[1].difficulty_level_adjustment).toBe(5);
     expect(headers.rows[1].location_name).toBe("Striaton City");
   });
 
@@ -43,6 +47,66 @@ describe("headerModel", () => {
     expect(location.value).toBe("Striaton City");
     expect(project.headers.rows[1].matrix_id).toBe(99);
     expect(project.headers.rows[1].location_name_id).toBe(2);
+    expect(project.headers.rows[1].place_name_id).toBe(2);
+    expect(project.narcs.headers?.dirty.has(0)).toBe(true);
+  });
+
+  it("updates the 10-bit place name id across its split fields", () => {
+    const project = makeProject("BW2", [{ location_name_id: 1, name_style_id: 0 }]);
+    project.headers = parseHeaders(project);
+
+    updateHeaderField(project, 1, "place_name_id", "513");
+
+    expect(project.headers.rows[1].place_name_id).toBe(513);
+    expect(project.headers.rows[1].location_name_id).toBe(1);
+    expect(project.headers.rows[1].name_style_id).toBe(2);
+  });
+
+  it("updates BW2 encounter data through its combined editor field", () => {
+    const project = makeProject("BW2", [{ encounter_id: 136, unknown_4: 192, location_name_id: 1 }]);
+    project.headers = parseHeaders(project);
+
+    const result = updateHeaderField(project, 1, "enc_data_id", "1035");
+
+    expect(result.value).toBe(1035);
+    expect(project.headers.rows[1].enc_data_id).toBe(1035);
+    expect(project.headers.rows[1].encounter_id).toBe(11);
+    expect(project.headers.rows[1].unknown_4).toBe(4);
+  });
+
+  it("updates the packed name icon and difficulty level fields without losing the other part", () => {
+    const project = makeProject("BW2", [{ name_icon: 0xa123, location_name_id: 1 }]);
+    project.headers = parseHeaders(project);
+
+    updateHeaderField(project, 1, "difficulty_level_adjustment", "3");
+    expect(project.headers.rows[1].name_icon).toBe(0x6123);
+    expect(project.headers.rows[1].name_icon_id).toBe(0x123);
+
+    updateHeaderField(project, 1, "name_icon_id", "1110");
+    expect(project.headers.rows[1].name_icon).toBe(0x6456);
+    expect(project.headers.rows[1].difficulty_level_adjustment).toBe(3);
+  });
+
+  it("updates header packed weather, camera, and movement flags", () => {
+    const project = makeProject("BW2", [{ weather_id: 0, camera_id: 0, unknown_2: 0, flags: 0, name_style_id: 0, location_name_id: 1 }]);
+    project.headers = parseHeaders(project);
+
+    updateHeaderPackedField(project, 1, "weather_camera", "weather", "12");
+    updateHeaderPackedField(project, 1, "weather_camera", "projection", "3");
+    updateHeaderPackedField(project, 1, "weather_camera", "camera", "24");
+    updateHeaderPackedField(project, 1, "map_behavior", "map_change_type", "2");
+    updateHeaderPackedField(project, 1, "map_behavior", "battle_bg_type", "7");
+    updateHeaderPackedField(project, 1, "map_behavior", "dash", true);
+    updateHeaderPackedField(project, 1, "place_name_flags", "show_window", true);
+
+    const row = project.headers.rows[1];
+    expect(getHeaderPackedValue(row, "weather_camera")).toBe(0x30cc);
+    expect(row.weather_id).toBe(204);
+    expect(row.camera_id).toBe(48);
+    expect(getHeaderPackedValue(row, "map_behavior")).toBe(0x08e2);
+    expect(row.unknown_2).toBe(226);
+    expect(row.flags).toBe(8);
+    expect(row.name_style_id).toBe(4);
     expect(project.narcs.headers?.dirty.has(0)).toBe(true);
   });
 

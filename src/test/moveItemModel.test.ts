@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { getItemRecord, getMoveRecord, moveMatchesSearch, updateItemField, updateMoveField } from "../pokeweb/moveItemModel";
+import { getItemRecord, getMoveRecord, moveMatchesSearch, updateItemField, updateItemPackedField, updateMoveField } from "../pokeweb/moveItemModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("moveItemModel", () => {
@@ -53,6 +53,23 @@ describe("moveItemModel", () => {
     expect(item.raw.item_type).toBe(12);
     expect(project.narcs.items?.dirty.has(1)).toBe(true);
     expect(() => updateItemField(project, 1, "market_value", "70000")).toThrow(/between 0 and 65535/u);
+  });
+
+  it("updates packed item flag fields without changing neighboring bits", () => {
+    const project = makeProject();
+
+    updateItemPackedField(project, 1, "status_removal_flag", "poison", true);
+    updateItemPackedField(project, 1, "status_removal_flag", "freeze", true);
+    updateItemPackedField(project, 1, "type_attribute", "important_item", true);
+    updateItemPackedField(project, 1, "type_attribute", "field_pocket", "7");
+    updateItemPackedField(project, 1, "pp_flags", "sp_def_ev", true);
+    updateItemPackedField(project, 1, "pp_flags", "friendship_high", true);
+
+    const item = getItemRecord(project, 1);
+    expect(item.raw.status_removal_flag).toBe(0b00001010);
+    expect(item.raw.type_attribute).toBe((7 << 7) | (1 << 5));
+    expect(item.raw.pp_flags).toBe((1 << 8) | (1 << 12));
+    expect(() => updateItemPackedField(project, 1, "type_attribute", "field_pocket", "16")).toThrow(/between 0 and 15/u);
   });
 });
 

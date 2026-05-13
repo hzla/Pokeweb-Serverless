@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
-import { generateCalcDownload, generateTextDocsDownload, enrichItemLocations, enrichTrainerLocations, parseGroundItemScripts } from "../pokeweb/docGeneratorModel";
+import {
+  generateCalcDownload,
+  generateTextDocsDownload,
+  enrichItemLocations,
+  enrichTrainerLocations,
+  parseGroundItemScripts,
+  parseTrainerBattleScripts,
+} from "../pokeweb/docGeneratorModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT } from "../pokeweb/overworldModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
@@ -35,12 +42,25 @@ describe("docGeneratorModel", () => {
     expect(map.has(7000)).toBe(false);
   });
 
+  it("parses direct trainer battle commands from local script files", () => {
+    expect(parseTrainerBattleScripts(makeTrainerBattleScriptBytes(), 20)).toEqual([7, 6]);
+  });
+
   it("enriches trainer locations from overworld script ids", () => {
     const project = makeProject();
     const result = enrichTrainerLocations(project);
 
-    expect(result.count).toBe(1);
-    expect(project.docs?.trainerLocations).toEqual({ "7": ["Black City"] });
+    expect(result.count).toBe(3);
+    expect(project.docs?.trainerLocations).toEqual({ "6": ["Black City"], "7": ["Black City"] });
+    expect(project.docs?.trainerDiffs).toEqual({ "6": 3, "7": 3 });
+  });
+
+  it("adds trainer difficulty adjustments to generated calc sets", () => {
+    const project = makeProject();
+    const file = generateCalcDownload(project, "Volt White Plus");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].diff).toBe(3);
   });
 
   it("enriches item locations from global item scripts and overworlds", () => {
@@ -62,7 +82,20 @@ function makeProject(): ProjectState {
   if (!headerFormat) throw new Error("Missing header format");
 
   const scripts: Uint8Array[] = Array.from({ length: 1241 }, () => new Uint8Array());
+  scripts[3] = makeTrainerBattleScriptBytes();
   scripts[1240] = makeGroundItemScriptBytes();
+  const trpokFiles: Uint8Array[] = Array.from({ length: 8 }, () => new Uint8Array());
+  trpokFiles[7] = packRows(
+    [
+      [1, "ivs"],
+      [1, "ability"],
+      [1, "level"],
+      [1, "padding"],
+      [2, "species_id"],
+      [2, "form"],
+    ],
+    [{ ivs: 255, ability: 16, level: 42, species_id: 1, form: 0 }],
+  );
 
   return {
     session: {
@@ -77,7 +110,7 @@ function makeProject(): ProjectState {
     arm9: new Uint8Array(),
     overlays: {},
     narcs: {
-      headers: makeStore("headers", [packRows(headerFormat, [{ map_id: 0, location_name_id: 0 }])], 1),
+      headers: makeStore("headers", [packRows(headerFormat, [{ map_id: 0, script_id: 3, location_name_id: 0, name_icon: 0x6000 }])], 1),
       overworlds: makeStore("overworlds", [makeOverworldBytes()], 1),
       scripts: makeStore("scripts", scripts, scripts.length),
       items: makeStore("items", Array.from({ length: 26 }, () => new Uint8Array()), 26),
@@ -87,10 +120,12 @@ function makeProject(): ProjectState {
       moves: makeStore("moves", [], 0),
       trdata: makeStore(
         "trdata",
-        Array.from({ length: 8 }, (_, index) => packRows(formats.trdata!, [index === 7 ? { class: 1, reward_item: 25 } : {}])),
+        Array.from({ length: 8 }, (_, index) =>
+          packRows(formats.trdata!, [index === 7 ? { class: 1, reward_item: 25, num_pokemon: 1 } : {}]),
+        ),
         8,
       ),
-      trpok: makeStore("trpok", [], 0),
+      trpok: makeStore("trpok", trpokFiles, trpokFiles.length),
       marts: makeStore("marts", [packRows(formats.marts!, [{ item_0: 25 }])], 1),
     } as Partial<Record<NarcName, NarcStore>>,
     texts: {
@@ -98,15 +133,15 @@ function makeProject(): ProjectState {
         locations: ["Black City"],
         pokedex: ["None", "Bulbasaur"],
         moves: [],
-        abilities: [],
         items: Array.from({ length: 26 }, (_, index) => (index === 25 ? "Potion" : index === 0 ? "None" : `Item ${index}`)),
+        abilities: ["None", "Overgrow"],
         tr_names: Array.from({ length: 8 }, (_, index) => (index === 7 ? "Dan" : `Trainer ${index}`)),
         tr_classes: ["None", "Ace Trainer"],
       },
     },
     formats,
-    trpokInfo: [],
-    docs: { romTitle: "test-rom", trainerLocations: {}, itemLocations: {}, groundItemScriptMap: {} },
+    trpokInfo: Array.from({ length: 8 }, (_, index) => (index === 7 ? { template: 0, numPokemon: 1 } : { template: 0, numPokemon: 0 })),
+    docs: { romTitle: "test-rom", trainerLocations: {}, trainerDiffs: {}, itemLocations: {}, groundItemScriptMap: {} },
   };
 }
 
@@ -120,6 +155,23 @@ function makeGroundItemScriptBytes(): Uint8Array {
   writeInt(out, 20, 2, 32780);
   writeInt(out, 22, 2, 25);
   writeInt(out, 24, 2, 0x0002);
+  return out;
+}
+
+function makeTrainerBattleScriptBytes(): Uint8Array {
+  const out = new Uint8Array(28);
+  writeInt(out, 0, 4, 4);
+  writeInt(out, 4, 2, 0xfd13);
+  writeInt(out, 8, 2, 0x0085);
+  writeInt(out, 10, 2, 7);
+  writeInt(out, 12, 2, 0);
+  writeInt(out, 14, 2, 1);
+  writeInt(out, 16, 2, 0x0086);
+  writeInt(out, 18, 2, 0);
+  writeInt(out, 20, 2, 6);
+  writeInt(out, 22, 2, 0);
+  writeInt(out, 24, 2, 1);
+  writeInt(out, 26, 2, 0x0002);
   return out;
 }
 

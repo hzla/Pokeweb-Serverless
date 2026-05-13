@@ -7,7 +7,8 @@ import {
   getMoveAutofills,
   getMoveCount,
   getMoveRecord,
-  ITEM_EXPANDED_FIELDS,
+  ITEM_FIELD_LABELS,
+  ITEM_PACKED_FIELDS,
   MOVE_EFFECT_FIELDS,
   MOVE_MISC_FIELDS,
   MOVE_STAT_FIELDS,
@@ -19,6 +20,71 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachItemInteractions, attachMoveInteractions } from "./moveItemInteractions";
 import { publicAsset } from "../assetUrl";
+
+type ItemFieldSpec = readonly [field: string, max: number];
+
+const ITEM_DETAIL_SECTIONS: Array<{ title: string; fields: readonly ItemFieldSpec[] }> = [
+  {
+    title: "Overview",
+    fields: [
+      ["item_type", 255],
+      ["name_order_id", 255],
+      ["gain_values", 255],
+      ["nature_gift_power", 1],
+    ],
+  },
+  {
+    title: "Use Routing",
+    fields: [
+      ["item_group", 255],
+      ["battle_item_group", 255],
+      ["usability_flag", 255],
+      ["consumable_flag", 255],
+      ["type_attribute", 65535],
+    ],
+  },
+  {
+    title: "Battle Behavior",
+    fields: [
+      ["battle_flags", 255],
+      ["berry_flags", 255],
+      ["held_flags", 255],
+      ["unknown_flag_1", 255],
+    ],
+  },
+  {
+    title: "Stat Boosts",
+    fields: [
+      ["hp_atk_boost", 255],
+      ["def_spatk_boost", 255],
+      ["spd_spdef_boost", 255],
+      ["acc_crit_pp_boost", 255],
+    ],
+  },
+  {
+    title: "Recovery And Status",
+    fields: [
+      ["status_removal_flag", 255],
+      ["pp_flags", 65535],
+      ["hp_gain", 255],
+      ["pp_gain", 255],
+    ],
+  },
+  {
+    title: "EV And Friendship",
+    fields: [
+      ["hp_ev_gain", 255],
+      ["atk_ev_gain", 255],
+      ["def_ev_gain", 255],
+      ["spd_ev_gain", 255],
+      ["spatk_ev_gain", 255],
+      ["spdef_ev_gain", 255],
+      ["battle_happiness", 1],
+      ["ow_happiness", 1],
+      ["hold_happiness", 1],
+    ],
+  },
+];
 
 export function renderMoveEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
   root.innerHTML = `
@@ -152,13 +218,62 @@ function renderItemRow(item: ItemRecord): string {
 function renderItemExpanded(item: ItemRecord): string {
   return `
     <div class="expanded-card-content expanded-item">
-      ${ITEM_EXPANDED_FIELDS.map(
-        (column) => `
-          <div class="expanded-left">
-            ${column.map(([max, field]) => expandedField(titleize(field.replace(/_/gu, " ")), editable("item", field, item.readable[field], `item-${field}`, { type: `int-${max}` }), "header-label")).join("")}
-          </div>
-        `,
-      ).join("")}
+      <div class="item-detail-grid">
+        ${ITEM_DETAIL_SECTIONS.map((section) => renderItemDetailSection(item, section.title, section.fields)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderItemDetailSection(item: ItemRecord, title: string, fields: readonly ItemFieldSpec[]): string {
+  return `
+    <section class="item-detail-section">
+      <div class="item-detail-section-title">${escapeHtml(title)}</div>
+      <div class="item-detail-section-fields">
+        ${fields.map(([field, max]) => renderItemExpandedField(item, field, max)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderItemExpandedField(item: ItemRecord, field: string, max: number): string {
+  const label = ITEM_FIELD_LABELS[field] ?? titleize(field.replace(/_/gu, " "));
+  const packedParts = ITEM_PACKED_FIELDS[field];
+  if (!packedParts) {
+    return `
+      <div class="item-detail-field">
+        <label class="item-detail-label">${escapeHtml(label)}</label>
+        ${editable("item", field, item.readable[field], `item-detail-value item-${field}`, { type: `int-${max}` })}
+      </div>
+    `;
+  }
+
+  const value = Number(item.readable[field] ?? 0);
+  const parts = packedParts
+    .map((part) => {
+      const partMax = (1 << part.size) - 1;
+      const partValue = (value >> part.offset) & partMax;
+      if (part.kind === "checkbox") {
+        return `
+          <label class="item-flag-check">
+            <input class="item-flag-checkbox" data-field-name="${escapeHtml(field)}" data-part-key="${escapeHtml(part.key)}" type="checkbox" ${partValue > 0 ? "checked" : ""}>
+            <span>${escapeHtml(part.label)}</span>
+          </label>
+        `;
+      }
+      return `
+        <label class="item-flag-number">
+          <span>${escapeHtml(part.label)}</span>
+          ${editable("item-part", field, partValue, "item-detail-value item-packed-value", { type: `int-${partMax}`, part: part.key })}
+        </label>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="item-detail-field -packed">
+      <div class="item-detail-label">${escapeHtml(label)}</div>
+      <div class="item-flag-editor" data-field-name="${escapeHtml(field)}" data-raw-value="${value}">${parts}</div>
     </div>
   `;
 }
@@ -180,15 +295,16 @@ function expandedField(label: string, value: string, labelClass = "expanded-fiel
 }
 
 function editable(
-  narc: "move" | "item",
+  narc: "move" | "item" | "item-part",
   field: string,
   value: unknown,
   className: string,
-  options: { autofill?: string; type?: string } = {},
+  options: { autofill?: string; type?: string; part?: string } = {},
 ): string {
   const autofill = options.autofill ? ` data-autocomplete-spy data-autofill="${options.autofill}"` : "";
   const type = options.type ? ` data-type="${options.type}"` : "";
-  return `<div autocorrect="off" data-narc="${narc}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}>${escapeHtml(String(value ?? ""))}</div>`;
+  const part = options.part ? ` data-part-key="${escapeHtml(options.part)}"` : "";
+  return `<div autocorrect="off" data-narc="${narc}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}${part}>${escapeHtml(String(value ?? ""))}</div>`;
 }
 
 function inputOptions(value: string): { autofill?: string; type?: string } {

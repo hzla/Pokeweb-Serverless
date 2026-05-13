@@ -2,6 +2,7 @@ import type { FieldSpec } from "./formats";
 import { parseHeaders } from "./headerModel";
 import { GROTTO_ODDS_FIELDS } from "./martGrottoModel";
 import { groupByteLength, OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT, NULL_MAP_ID } from "./overworldModel";
+import { learnsetEntries } from "./pokemonModel";
 import type { NarcRecord, NarcStore, ProjectState, RawRecord } from "./projectStore";
 
 export function materializeProjectEdits(project: ProjectState): void {
@@ -21,6 +22,10 @@ export function materializeProjectEdits(project: ProjectState): void {
     }
     if (store.name === "trpok") {
       materializeTrpok(project, store);
+      continue;
+    }
+    if (store.name === "learnsets") {
+      materializeLearnsets(store);
       continue;
     }
     materializeFormattedStore(project, store);
@@ -64,6 +69,24 @@ function materializeFormattedStore(project: ProjectState, store: NarcStore): voi
     const original = store.rawFiles[id] ?? new Uint8Array(record.bytes.length);
     const out = original.slice();
     writeFormattedRecord(out, 0, format, record.raw);
+    store.rawFiles[id] = out;
+    updateRecordBytes(store, id, out, record);
+  }
+}
+
+function materializeLearnsets(store: NarcStore): void {
+  for (const id of store.dirty) {
+    const record = store.records.get(id);
+    if (!record?.raw) continue;
+    const entries = learnsetEntries(record.raw);
+    const out = new Uint8Array(entries.length * 4 + 4);
+    entries.forEach((entry, index) => {
+      const offset = index * 4;
+      writeInt(out, offset, 2, entry.moveId);
+      writeInt(out, offset + 2, 2, entry.level);
+    });
+    writeInt(out, entries.length * 4, 2, 65535);
+    writeInt(out, entries.length * 4 + 2, 2, 65535);
     store.rawFiles[id] = out;
     updateRecordBytes(store, id, out, record);
   }

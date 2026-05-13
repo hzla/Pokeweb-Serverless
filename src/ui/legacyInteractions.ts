@@ -1,5 +1,5 @@
 import type { ProjectState } from "../pokeweb/projectStore";
-import { headerMatchesSearch, updateHeaderField } from "../pokeweb/headerModel";
+import { HEADER_PACKED_FIELDS, headerMatchesSearch, updateHeaderField, updateHeaderPackedField } from "../pokeweb/headerModel";
 import { scrollRowBelowStickyHeader, selectText } from "./dom";
 
 export type HeaderInteractionOptions = {
@@ -55,28 +55,57 @@ export function attachHeaderInteractions(root: HTMLElement, project: ProjectStat
       const card = field.closest<HTMLElement>(".filterable");
       const rowId = Number(card?.dataset.index);
       const name = field.dataset.fieldName;
-      if (!rowId || !name) return;
+      if (!card || !rowId || !name) return;
 
       const nextValue = field.textContent?.trim() ?? "";
       field.textContent = nextValue;
       if (nextValue === initialValue) return;
 
       try {
-        const result = updateHeaderField(project, rowId, name, nextValue);
-        field.textContent = String(result.value);
+        if (field.dataset.narc === "header-part") {
+          const partKey = field.dataset.partKey;
+          if (!partKey) return;
+          const result = updateHeaderPackedField(project, rowId, name, partKey, nextValue);
+          syncHeaderPackedEditor(card, name, Number(result.value));
+        } else {
+          const result = updateHeaderField(project, rowId, name, nextValue);
+          field.textContent = String(result.value);
+          syncHeaderNameIconFields(card, project, rowId);
+        }
         field.classList.remove("invalid");
         field.style.border = "";
 
         if (name === "location_name") {
           const row = project.headers?.rows[rowId];
-          const locationIdField = card?.querySelector<HTMLElement>("[data-field-name='location_name_id']");
-          if (row && locationIdField) locationIdField.textContent = String(row.location_name_id);
+          const locationIdField = card.querySelector<HTMLElement>("[data-field-name='place_name_id']");
+          if (row && locationIdField) locationIdField.textContent = String(row.place_name_id);
         }
         options.onDirty?.();
       } catch {
         field.textContent = initialValue;
         field.classList.add("invalid");
         field.style.border = "1px solid red";
+      }
+    });
+  });
+
+  root.querySelectorAll<HTMLInputElement>(".header-flag-checkbox").forEach((checkbox) => {
+    if (checkbox.dataset.headerFlagInstalled === "true") return;
+    checkbox.dataset.headerFlagInstalled = "true";
+    checkbox.addEventListener("change", () => {
+      const card = checkbox.closest<HTMLElement>(".filterable");
+      const rowId = Number(card?.dataset.index);
+      const fieldName = checkbox.dataset.fieldName;
+      const partKey = checkbox.dataset.partKey;
+      if (!card || !Number.isInteger(rowId) || !fieldName || !partKey) return;
+      try {
+        const result = updateHeaderPackedField(project, rowId, fieldName, partKey, checkbox.checked);
+        syncHeaderPackedEditor(card, fieldName, Number(result.value));
+        checkbox.classList.remove("invalid");
+        options.onDirty?.();
+      } catch {
+        checkbox.checked = !checkbox.checked;
+        checkbox.classList.add("invalid");
       }
     });
   });
@@ -106,6 +135,15 @@ export function stripeRows(root: HTMLElement): void {
     card.style.background = rowColor;
     if (content) content.style.background = contentColor;
   });
+}
+
+function syncHeaderNameIconFields(card: HTMLElement, project: ProjectState, rowId: number): void {
+  const row = project.headers?.rows[rowId];
+  if (!row) return;
+  for (const fieldName of ["name_icon", "name_icon_id", "difficulty_level_adjustment"]) {
+    const field = card.querySelector<HTMLElement>(`[contenteditable='true'][data-narc='header'][data-field-name='${fieldName}']`);
+    if (field) field.textContent = String(row[fieldName] ?? 0);
+  }
 }
 
 function installAutocomplete(field: HTMLElement, project: ProjectState): void {
@@ -146,5 +184,30 @@ function installAutocomplete(field: HTMLElement, project: ProjectState): void {
     field.textContent = target.textContent ?? "";
     suggestions.hidden = true;
     field.blur();
+  });
+}
+
+function syncHeaderPackedEditor(card: HTMLElement, fieldName: string, rawValue: number): void {
+  const packed = HEADER_PACKED_FIELDS[fieldName];
+  if (!packed) return;
+
+  const editor = card.querySelector<HTMLElement>(`.header-flag-editor[data-field-name='${CSS.escape(fieldName)}']`);
+  if (editor) editor.dataset.rawValue = String(rawValue);
+
+  packed.parts.forEach((part) => {
+    const partMax = (1 << part.size) - 1;
+    const partValue = (rawValue >> part.offset) & partMax;
+    if (part.kind === "checkbox") {
+      const checkbox = card.querySelector<HTMLInputElement>(
+        `.header-flag-checkbox[data-field-name='${CSS.escape(fieldName)}'][data-part-key='${CSS.escape(part.key)}']`,
+      );
+      if (checkbox) checkbox.checked = partValue > 0;
+      return;
+    }
+
+    const valueField = card.querySelector<HTMLElement>(
+      `[contenteditable='true'][data-narc='header-part'][data-field-name='${CSS.escape(fieldName)}'][data-part-key='${CSS.escape(part.key)}']`,
+    );
+    if (valueField) valueField.textContent = String(partValue);
   });
 }

@@ -342,6 +342,34 @@
   padding: 18px 20px;
 }
 
+.expanded-tutors {
+  align-content: flex-start;
+  flex-wrap: wrap;
+  gap: 18px;
+  justify-content: flex-start;
+  padding: 18px 20px;
+}
+
+.tutor-group {
+  border: 1px solid rgba(242, 242, 242, 0.08);
+  border-radius: 8px;
+  box-sizing: border-box;
+  padding: 14px;
+  width: calc(50% - 9px);
+}
+
+.tutor-group h3 {
+  color: #f8f8f2;
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+.tutor-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+}
+
 .expanded-tms .cell.tm {
   border: 1px solid #44475a;
   box-sizing: border-box;
@@ -356,14 +384,61 @@
   width: 20%;
 }
 
+.expanded-tutors .cell.tutor {
+  border: 1px solid #44475a;
+  border-radius: 5px;
+  box-sizing: border-box;
+  color: #f2f2f2;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.35;
+  min-height: 56px;
+  overflow-wrap: anywhere;
+  padding: 9px;
+  text-align: center;
+}
+
 .expanded-tms .cell.tm:hover,
-.expanded-tms .cell.tm.-active {
+.expanded-tms .cell.tm.-active,
+.expanded-tutors .cell.tutor:hover,
+.expanded-tutors .cell.tutor.-active {
   background: #bd93f9;
   color: #f2f2f2;
 }
 
-.expanded-tms .cell.tm.-active {
+.expanded-tms .cell.tm.-active,
+.expanded-tutors .cell.tutor.-active {
   border-color: #bd93f9;
+}
+
+.expanded-egg-moves.show-flex {
+  display: block !important;
+}
+
+.egg-move-panel {
+  width: 100%;
+}
+
+.expanded-egg-moves .expanded-left {
+  border-right: 1px solid #44475a;
+  padding: 16px 24px;
+  width: 50%;
+}
+
+.expanded-egg-moves .expanded-left:last-child {
+  border-right: 0;
+}
+
+.egg-move-row {
+  gap: 10px;
+}
+
+.expanded-empty {
+  color: rgba(242, 242, 242, 0.72);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 22px 24px;
+  width: 100%;
 }
 
 .expanded-personal .expanded-left,
@@ -384,6 +459,34 @@
   padding: 16px 24px;
 }
 
+.expanded-learnset.show-flex {
+  display: block !important;
+}
+
+.learnset-panel {
+  width: 100%;
+}
+
+.learnset-toolbar {
+  align-items: center;
+  border-bottom: 1px solid #44475a;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px 24px;
+}
+
+.learnset-count {
+  color: rgba(242, 242, 242, 0.72);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.learnset-columns {
+  display: flex;
+  width: 100%;
+}
+
 .expanded-evos .expanded-left {
   width: 33.33%;
   padding: 16px 24px;
@@ -397,6 +500,10 @@
   gap: 14px;
   justify-content: flex-start;
   min-height: 44px;
+}
+
+.expanded-card-content .expanded-field.multi.learnset-row {
+  gap: 10px;
 }
 
 .move-level {
@@ -427,6 +534,48 @@
 .move-accuracy {
   min-width: 42px;
   text-align: center;
+}
+
+.learnset-row-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.learnset-icon-button {
+  align-items: center;
+  background: rgba(80, 250, 123, 0.12);
+  border: 1px solid rgba(80, 250, 123, 0.34);
+  border-radius: 4px;
+  color: #50fa7b;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 16px;
+  font-weight: 700;
+  height: 26px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 26px;
+}
+
+.learnset-icon-button:hover {
+  background: rgba(80, 250, 123, 0.22);
+}
+
+.learnset-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.learnset-icon-button.-danger {
+  background: rgba(255, 85, 85, 0.12);
+  border-color: rgba(255, 85, 85, 0.34);
+  color: #ff6b6b;
+}
+
+.learnset-icon-button.-danger:hover {
+  background: rgba(255, 85, 85, 0.2);
 }
 
 .expanded-field-name,
@@ -575,5 +724,9 @@
   .expanded-evos .expanded-left {
     border-right: 0;
     width: 100%;
+  }
+
+  .learnset-columns {
+    display: block;
   }
 }

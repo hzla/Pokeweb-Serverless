@@ -56,7 +56,7 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
             <button class="btn -default doc-action" id="trainer-locations-btn" type="button" ${missing(project, trainerLocationRequirements()).length ? "disabled" : ""}>
               Get Trainer Location Data
             </button>
-            <span>${Object.keys(docs.trainerLocations).length} trainers enriched</span>
+            <span>${Object.keys(docs.trainerLocations).length} trainers enriched, ${Object.keys(docs.trainerDiffs).length} diff values</span>
           </div>
           ${missingText(project, trainerLocationRequirements())}
           <div class="doc-action-row">

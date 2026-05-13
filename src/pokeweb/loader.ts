@@ -15,6 +15,7 @@ import {
 } from "./constants";
 import { getNarcFormats } from "./formats";
 import { parseHeaders } from "./headerModel";
+import { detectPmcInstallFromRom } from "./pmcModel";
 import { createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
 import { cleanDisplayText, decodeGen5TextBank } from "./text";
 import { parseTms } from "./tmModel";
@@ -64,10 +65,12 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
     docs: {
       romTitle: file.name.replace(/\.nds$/iu, ""),
       trainerLocations: {},
+      trainerDiffs: {},
       itemLocations: {},
       groundItemScriptMap: {},
     },
   };
+  project.codeInjection = detectPmcInstallFromRom(rom);
 
   onProgress?.("Extracting header NARCs");
   const selectedNarcs = new Set<NarcName>(options.selectedNarcs ?? []);
@@ -149,10 +152,10 @@ function decodeTextNarcs(project: ProjectState): void {
 
   const banks = project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
   for (const [bankIndex, bankName] of banks) {
-    const upper = bankName === "pokedex" || bankName === "moves";
+    const nameCase = bankName === "pokedex" || bankName === "moves";
     project.texts.banks[bankName] = (messageTexts[bankIndex] ?? []).map((entry, index) => {
       const text = entry?.[1] ?? `Entry ${index}`;
-      return cleanDisplayText(text, upper);
+      return cleanDisplayText(text, nameCase);
     });
   }
 }
@@ -189,6 +192,15 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
         sourcePath: "overlay167:move_effects_table",
         fileCount: 1,
         rawFiles: [overlay167.slice(effectTableOffset, effectTableOffset + 2064)],
+        records: new Map(),
+        dirty: new Set(),
+      };
+      project.narcs.type_chart = {
+        name: "type_chart",
+        fileId: -1,
+        sourcePath: "overlay167:type_chart",
+        fileCount: 1,
+        rawFiles: [overlay167.slice(0x0003dc40, 0x0003dc40 + 17 * 17)],
         records: new Map(),
         dirty: new Set(),
       };

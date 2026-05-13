@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { readU16 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { copyEncounterSeason, getEncounterRecord, updateEncounterField } from "../pokeweb/encounterModel";
+import { copyEncounterSeason, getEncounterRecord, syncEncountersToDexHabitats, updateEncounterField } from "../pokeweb/encounterModel";
 import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 
 describe("encounterModel", () => {
@@ -15,6 +16,8 @@ describe("encounterModel", () => {
     expect(encounter.readable.spring_grass_slot_0).toBe("Bulbasaur");
     expect(encounter.readable.spring_grass_slot_0_form).toBe(2);
     expect(encounter.wilds).toEqual(["Bulbasaur", "Ivysaur"]);
+    expect(encounter.grassWilds).toEqual(["Bulbasaur", "Ivysaur"]);
+    expect(encounter.waterWilds).toEqual(["Ivysaur"]);
   });
 
   it("updates species, form, numeric fields, empty slots, and dirty state", () => {
@@ -62,6 +65,24 @@ describe("encounterModel", () => {
     expect(encounter.readable.summer_grass_slot_0_form).toBe(4);
     expect(project.narcs.encounters?.dirty.has(1)).toBe(true);
   });
+
+  it("syncs BW2 dex habitat entries from encounter pools", async () => {
+    const project = makeProject();
+
+    const result = await syncEncountersToDexHabitats(project);
+    const habitat = project.narcs.habitats?.rawFiles[34];
+
+    expect(result.habitats).toBe(58);
+    expect(habitat).toBeDefined();
+    expect(readU16(habitat!, 8)).toBe(2);
+    expect(readU16(habitat!, 10)).toBe(1);
+    expect(habitat![12]).toBe(1);
+    expect(habitat![15]).toBe(1);
+    expect(readU16(habitat!, 38)).toBe(2);
+    expect(habitat![40]).toBe(1);
+    expect(habitat![41]).toBe(1);
+    expect(project.narcs.habitats?.dirty.has(34)).toBe(true);
+  });
 });
 
 function makeProject(): ProjectState {
@@ -76,6 +97,9 @@ function makeProject(): ProjectState {
       spring_grass_slot_1: 2,
       spring_grass_slot_1_min_level: 6,
       spring_grass_slot_1_max_level: 8,
+      spring_surf_slot_0: 2,
+      spring_surf_slot_0_min_level: 10,
+      spring_surf_slot_0_max_level: 12,
     },
   ]);
 
@@ -93,6 +117,7 @@ function makeProject(): ProjectState {
     overlays: {},
     narcs: {
       encounters: makeStore("encounters", encounters, 2),
+      habitats: makeStore("habitats", new Uint8Array(10 * 58), 58),
     } as Partial<Record<NarcName, NarcStore>>,
     texts: {
       banks: {

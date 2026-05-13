@@ -14,17 +14,34 @@
   margin-top: 28px;
 }
 
+.encounter-habitat-sync {
+  font-size: 15px;
+  line-height: 1.25;
+  margin-top: 18px;
+  white-space: normal;
+  width: 100%;
+}
+
+.encounter-sync-status {
+  color: #8be9fd;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 10px;
+  min-height: 36px;
+}
+
 .encounter-locations {
   text-align: center;
   width: 160px;
 }
 
 .encounter-wilds {
-  align-items: center;
+  align-items: stretch;
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin-bottom: 60px;
+  gap: 12px;
+  margin: 14px 0 60px;
+  min-width: 0;
   width: 50vw;
 }
 
@@ -32,17 +49,59 @@
   margin-bottom: 0;
 }
 
+.encounter-wild-group {
+  border: 1px solid rgba(242, 242, 242, 0.12);
+  border-radius: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  width: 50%;
+}
+
+.encounter-wild-group.-grass {
+  background: rgba(46, 204, 113, 0.08);
+  border-color: rgba(46, 204, 113, 0.82);
+}
+
+.encounter-wild-group.-water {
+  background: rgba(52, 152, 219, 0.08);
+  border-color: rgba(52, 152, 219, 0.82);
+}
+
+.encounter-wild-group-label {
+  color: rgba(242, 242, 242, 0.82);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.encounter-wild-group-sprites {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-height: 76px;
+}
+
+.encounter-empty-wilds {
+  color: rgba(242, 242, 242, 0.5);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 16px 6px;
+}
+
 #encounters .wild {
   align-items: center;
   display: flex;
   justify-content: center;
-  width: 120px;
+  width: 74px;
 }
 
 #encounters .wild img {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  max-height: 100px;
+  max-height: 70px;
   object-fit: contain;
   width: 100%;
 }
@@ -156,7 +215,12 @@
 
   .encounter-wilds {
     margin: 0;
+    flex-direction: column;
     width: 100vw;
+  }
+
+  .encounter-wild-group {
+    width: calc(100% - 40px);
   }
 
   #encounters .wild {

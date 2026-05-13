@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import {
+  addTrainer,
   addTrainerPokemon,
   calculateTrainerPokemonNature,
   deleteTrainerPokemon,
@@ -99,6 +100,28 @@ describe("trainerModel", () => {
     expect(project.trpokInfo[1]).toEqual({ template: 3, numPokemon: 1 });
   });
 
+  it("adds a trainer by cloning trainer data, party data, names, and BW2 text tables", () => {
+    const project = makeProject(3);
+    addTrainerTextFixtures(project);
+
+    const added = addTrainer(project, 1);
+
+    expect(added.id).toBe(2);
+    expect(project.narcs.trdata?.fileCount).toBe(3);
+    expect(project.narcs.trpok?.fileCount).toBe(3);
+    expect(getTrainerRecord(project, 2).party[0]).toMatchObject({ speciesName: "Bulbasaur", level: 5, itemName: "Potion" });
+    expect(project.texts.banks.tr_names?.[2]).toBe("Trainer");
+    expect(project.narcs.trdata?.dirty.has(2)).toBe(true);
+    expect(project.narcs.trpok?.dirty.has(2)).toBe(true);
+    expect(project.narcs.message_texts?.dirty.has(382)).toBe(true);
+
+    const copiedTexts = getTrainerTextLines(project, 2);
+    expect(copiedTexts.find((line) => line.typeId === 0)).toMatchObject({ value: "Battle start", exists: true });
+    expect(copiedTexts.find((line) => line.typeId === 1)).toMatchObject({ value: "Battle loss", exists: true });
+    expect(readU16(project.narcs.trtext_table!.rawFiles[0], 4)).toBe(12);
+    expect(readU16(project.narcs.trtext_offsets!.rawFiles[0], 12)).toBe(2);
+  });
+
   it("calculates Gen V trainer Pokemon natures with the old PID algorithm", () => {
     const project = makeProject(0);
 
@@ -188,10 +211,15 @@ function addTrainerTextFixtures(project: ProjectState): void {
     ["0_1", "Battle loss", 0],
     ["0_2", "Other trainer", 0],
   ];
-  const rawFiles: Uint8Array[] = Array.from({ length: 382 }, () => new Uint8Array(0));
+  const rawFiles: Uint8Array[] = Array.from({ length: 383 }, () => new Uint8Array(0));
   rawFiles[381] = new Uint8Array(encodeGen5TextBank(bank));
+  rawFiles[382] = new Uint8Array(encodeGen5TextBank([["0_0", "None", 0], ["0_1", "Cheren", 0]]));
   const messageTexts: Gen5TextEntry[][] = [];
   messageTexts[381] = [...bank.map((entry) => [...entry] as Gen5TextEntry)];
+  messageTexts[382] = [
+    ["0_0", "None", 0],
+    ["0_1", "Cheren", 0],
+  ];
   project.narcs.message_texts = makeStore("message_texts", rawFiles, rawFiles.length);
   project.texts.messageTexts = messageTexts;
 

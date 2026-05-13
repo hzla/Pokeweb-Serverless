@@ -1,3 +1,4 @@
+import { readU16, writeU16 } from "../nds/binary";
 import { EGG_GROUPS, EVO_METHODS, GROWTHS, TYPES, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTmNames } from "./tmModel";
@@ -40,6 +41,8 @@ export const EV_YIELD_FIELDS = [
   ["Speed", "speed_yield"],
 ] as const;
 
+export const LEARNSET_MAX_MOVES = 25;
+
 export type LearnsetMove = {
   index: number;
   moveId: number;
@@ -66,6 +69,31 @@ export type TmCompatibilitySlot = {
   enabled: boolean;
 };
 
+export type TutorCompatibilitySlot = {
+  group: string;
+  field: string;
+  index: number;
+  label: string;
+  moveName: string;
+  enabled: boolean;
+};
+
+export type TutorCompatibilityGroup = {
+  group: string;
+  label: string;
+  slots: TutorCompatibilitySlot[];
+};
+
+export type EggMoveSlot = {
+  index: number;
+  moveId: number;
+  moveName: string;
+  type: string;
+  category: string;
+  power: number | string;
+  accuracy: number | string;
+};
+
 export type PokemonEditorRecord = {
   id: number;
   gen: number;
@@ -74,9 +102,12 @@ export type PokemonEditorRecord = {
   learnset: LearnsetMove[];
   evolutions: EvolutionSlot[];
   tmCompatibility: TmCompatibilitySlot[];
+  tutorCompatibility: TutorCompatibilityGroup[];
+  eggMoves: EggMoveSlot[];
+  eggMovesLoaded: boolean;
 };
 
-export type PokemonSummaryRecord = Omit<PokemonEditorRecord, "learnset" | "evolutions" | "tmCompatibility">;
+export type PokemonSummaryRecord = Omit<PokemonEditorRecord, "learnset" | "evolutions" | "tmCompatibility" | "tutorCompatibility" | "eggMoves" | "eggMovesLoaded">;
 
 export type PokemonUpdateResult = {
   value: string | number;
@@ -95,6 +126,9 @@ export function getPokemonRecord(project: ProjectState, id: number): PokemonEdit
     learnset: getLearnset(project, id),
     evolutions: getEvolutions(project, id),
     tmCompatibility: getPokemonTmCompatibility(project, id),
+    tutorCompatibility: getPokemonTutorCompatibility(project, id),
+    eggMoves: getPokemonEggMoves(project, id),
+    eggMovesLoaded: Boolean(project.narcs.egg_moves),
   };
 }
 
@@ -153,6 +187,120 @@ export function updatePokemonTmCompatibility(project: ProjectState, speciesId: n
   record.raw[location.field] = enabled === isEnabled ? current : enabled ? current + mask : current - mask;
   record.readable[location.field] = record.raw[location.field];
   markDirty(project, "personal", speciesId);
+}
+
+export function getPokemonTutorCompatibility(project: ProjectState, speciesId: number): TutorCompatibilityGroup[] {
+  if (project.session.baseRom !== "BW2") return [];
+  const record = decodeRecord(project, "personal", speciesId);
+  if (!record.raw) throw new Error(`Unable to decode Pokemon ${speciesId}`);
+  return TUTOR_GROUPS.map((group) => ({
+    group: group.key,
+    label: group.label,
+    slots: group.moves.map((moveName, index) => ({
+      group: group.key,
+      field: group.field,
+      index,
+      label: `${group.shortLabel}${index + 1}`,
+      moveName,
+      enabled: bitEnabled(record.raw as RawRecord, group.field, index),
+    })),
+  }));
+}
+
+export function updatePokemonTutorCompatibility(project: ProjectState, speciesId: number, field: string, index: number, enabled: boolean): void {
+  const group = TUTOR_GROUPS.find((candidate) => candidate.field === field);
+  if (!group) throw new Error(`Unsupported tutor group: ${field}`);
+  if (!Number.isInteger(index) || index < 0 || index >= group.moves.length) throw new Error(`Tutor index out of range: ${index}`);
+  const record = decodeRecord(project, "personal", speciesId);
+  if (!record.raw || !record.readable) throw new Error(`Unable to update Pokemon ${speciesId}`);
+  const mask = 2 ** index;
+  const current = record.raw[field] ?? 0;
+  const isEnabled = bitEnabled(record.raw, field, index);
+  record.raw[field] = enabled === isEnabled ? current : enabled ? current + mask : current - mask;
+  record.readable[field] = record.raw[field];
+  markDirty(project, "personal", speciesId);
+}
+
+export function getPokemonEggMoves(project: ProjectState, speciesId: number): EggMoveSlot[] {
+  const store = project.narcs.egg_moves;
+  if (!store || speciesId < 0 || speciesId >= store.fileCount || !store.rawFiles[speciesId]) return [];
+  return eggMoveIds(store.rawFiles[speciesId] ?? new Uint8Array()).map((moveId, index) => {
+    const preview = getMovePreview(project, moveId);
+    return {
+      index,
+      moveId,
+      moveName: project.texts.banks.moves?.[moveId] ?? `Move ${moveId}`,
+      ...preview,
+    };
+  });
+}
+
+export function updatePokemonEggMove(project: ProjectState, speciesId: number, index: number, inputValue: string): EggMoveSlot[] {
+  const store = project.narcs.egg_moves;
+  if (!store) throw new Error("Egg move NARC is not loaded");
+  const moves = eggMoveIds(store.rawFiles[speciesId] ?? new Uint8Array());
+  if (index < 0 || index >= moves.length) throw new Error(`Egg move row ${index} does not exist`);
+  moves[index] = findValueIndex(project.texts.banks.moves ?? [], inputValue, "move");
+  writeEggMoveIds(project, speciesId, moves);
+  return getPokemonEggMoves(project, speciesId);
+}
+
+export function insertPokemonEggMove(project: ProjectState, speciesId: number, index: number): EggMoveSlot[] {
+  const store = project.narcs.egg_moves;
+  if (!store) throw new Error("Egg move NARC is not loaded");
+  const moves = eggMoveIds(store.rawFiles[speciesId] ?? new Uint8Array());
+  const insertAt = Math.max(0, Math.min(index, moves.length));
+  const template = moves[Math.max(0, insertAt - 1)] ?? moves[insertAt] ?? firstUsableMoveId(project);
+  moves.splice(insertAt, 0, template);
+  writeEggMoveIds(project, speciesId, moves);
+  return getPokemonEggMoves(project, speciesId);
+}
+
+export function appendPokemonEggMove(project: ProjectState, speciesId: number): EggMoveSlot[] {
+  const store = project.narcs.egg_moves;
+  if (!store) throw new Error("Egg move NARC is not loaded");
+  return insertPokemonEggMove(project, speciesId, eggMoveIds(store.rawFiles[speciesId] ?? new Uint8Array()).length);
+}
+
+export function deletePokemonEggMove(project: ProjectState, speciesId: number, index: number): EggMoveSlot[] {
+  const store = project.narcs.egg_moves;
+  if (!store) throw new Error("Egg move NARC is not loaded");
+  const moves = eggMoveIds(store.rawFiles[speciesId] ?? new Uint8Array());
+  if (index < 0 || index >= moves.length) throw new Error(`Egg move row ${index} does not exist`);
+  moves.splice(index, 1);
+  writeEggMoveIds(project, speciesId, moves);
+  return getPokemonEggMoves(project, speciesId);
+}
+
+export function insertPokemonLearnsetMove(project: ProjectState, speciesId: number, index: number): LearnsetMove[] {
+  const record = decodeRecord(project, "learnsets", speciesId);
+  if (!record.raw || !record.readable) throw new Error(`Unable to update learnsets ${speciesId}`);
+  const entries = learnsetEntries(record.raw);
+  if (entries.length >= LEARNSET_MAX_MOVES) throw new Error(`Learnset cannot exceed ${LEARNSET_MAX_MOVES} moves`);
+
+  const insertAt = Math.max(0, Math.min(index, entries.length));
+  const template = entries[Math.max(0, insertAt - 1)] ?? entries[insertAt] ?? { moveId: firstUsableMoveId(project), level: 1 };
+  entries.splice(insertAt, 0, { moveId: template.moveId, level: template.level });
+  applyLearnsetEntries(project, record.raw, record.readable, entries);
+  markDirty(project, "learnsets", speciesId);
+  return getLearnset(project, speciesId);
+}
+
+export function appendPokemonLearnsetMove(project: ProjectState, speciesId: number): LearnsetMove[] {
+  const record = decodeRecord(project, "learnsets", speciesId);
+  if (!record.raw) throw new Error(`Unable to update learnsets ${speciesId}`);
+  return insertPokemonLearnsetMove(project, speciesId, learnsetEntries(record.raw).length);
+}
+
+export function deletePokemonLearnsetMove(project: ProjectState, speciesId: number, index: number): LearnsetMove[] {
+  const record = decodeRecord(project, "learnsets", speciesId);
+  if (!record.raw || !record.readable) throw new Error(`Unable to update learnsets ${speciesId}`);
+  const entries = learnsetEntries(record.raw);
+  if (index < 0 || index >= entries.length) throw new Error(`Learnset row ${index} does not exist`);
+  entries.splice(index, 1);
+  applyLearnsetEntries(project, record.raw, record.readable, entries);
+  markDirty(project, "learnsets", speciesId);
+  return getLearnset(project, speciesId);
 }
 
 export function getMovePreview(project: ProjectState, moveId: number): Pick<LearnsetMove, "type" | "category" | "power" | "accuracy"> {
@@ -233,10 +381,10 @@ function getLearnset(project: ProjectState, id: number): LearnsetMove[] {
   const record = decodeRecord(project, "learnsets", id);
   if (!record.raw || !record.readable) return [];
   const moves: LearnsetMove[] = [];
-  for (let index = 0; index < 25; index += 1) {
+  for (let index = 0; index < LEARNSET_MAX_MOVES; index += 1) {
     const moveId = record.raw[`move_id_${index}`];
     const level = record.raw[`lvl_learned_${index}`];
-    if (moveId === undefined || level === undefined) continue;
+    if (moveId === undefined || level === undefined || moveId === 65535 || (moveId === 0 && level === 0)) break;
     const preview = getMovePreview(project, moveId);
     moves.push({
       index,
@@ -247,6 +395,17 @@ function getLearnset(project: ProjectState, id: number): LearnsetMove[] {
     });
   }
   return moves;
+}
+
+export function learnsetEntries(raw: RawRecord): Array<{ moveId: number; level: number }> {
+  const entries: Array<{ moveId: number; level: number }> = [];
+  for (let index = 0; index < LEARNSET_MAX_MOVES; index += 1) {
+    const moveId = raw[`move_id_${index}`];
+    const level = raw[`lvl_learned_${index}`];
+    if (moveId === undefined || level === undefined || moveId === 65535 || (moveId === 0 && level === 0)) break;
+    entries.push({ moveId, level });
+  }
+  return entries;
 }
 
 function getEvolutions(project: ProjectState, id: number): EvolutionSlot[] {
@@ -278,6 +437,44 @@ function tmBitLocation(kind: "tm" | "hm", index: number): { field: string; bit: 
   if (index === 1) return { field: "tm_65-95+hm_1", bit: 31 };
   return { field: "hm_2-6", bit: index - 2 };
 }
+
+const TUTOR_GROUPS = [
+  {
+    key: "special",
+    label: "Special Tutors",
+    shortLabel: "SP",
+    field: "tutors",
+    moves: ["Draco Meteor", "Grass Pledge", "Fire Pledge", "Water Pledge", "Frenzy Plant", "Blast Burn", "Hydro Cannon"],
+  },
+  {
+    key: "driftveil",
+    label: "Driftveil Tutor",
+    shortLabel: "DR",
+    field: "driftveil_tutor",
+    moves: ["Covet", "Bug Bite", "Drill Run", "Bounce", "Signal Beam", "Iron Head", "Super Fang", "Uproar", "Seed Bomb", "Dual Chop", "Low Kick", "Gunk Shot", "Fire Punch", "Thunder Punch", "Ice Punch"],
+  },
+  {
+    key: "lentimas",
+    label: "Lentimas Tutor",
+    shortLabel: "LE",
+    field: "lentimas_tutor",
+    moves: ["Magic Coat", "Block", "Earth Power", "Foul Play", "Gravity", "Magnet Rise", "Iron Defense", "Last Resort", "Superpower", "Electroweb", "Icy Wind", "Aqua Tail", "Dark Pulse", "Zen Headbutt", "Dragon Pulse", "Hyper Voice", "Iron Tail"],
+  },
+  {
+    key: "humilau",
+    label: "Humilau Tutor",
+    shortLabel: "HU",
+    field: "humilau_tutor",
+    moves: ["Bind", "Snore", "Knock Off", "Synthesis", "Heat Wave", "Role Play", "Heal Bell", "Tailwind", "Sky Attack", "Pain Split", "Giga Drain", "Drain Punch", "Roost"],
+  },
+  {
+    key: "nacrene",
+    label: "Nacrene Tutor",
+    shortLabel: "NA",
+    field: "nacrene_tutor",
+    moves: ["Gastro Acid", "Worry Seed", "Spite", "After You", "Helping Hand", "Trick", "Magic Room", "Wonder Room", "Endeavor", "Outrage", "Recycle", "Snatch", "Stealth Rock", "Skill Swap", "Sleep Talk"],
+  },
+] as const;
 
 function bitEnabled(raw: RawRecord, field: string, bit: number): boolean {
   return Math.floor((raw[field] ?? 0) / 2 ** bit) % 2 === 1;
@@ -351,6 +548,49 @@ function updateLearnsetField(project: ProjectState, raw: RawRecord, readable: Re
   raw[field] = rawValue;
   readable[field] = value;
   return { value, rawValue, movePreview: getMovePreview(project, rawValue) };
+}
+
+function applyLearnsetEntries(project: ProjectState, raw: RawRecord, readable: ReadableRecord, entries: Array<{ moveId: number; level: number }>): void {
+  for (let index = 0; index < LEARNSET_MAX_MOVES; index += 1) {
+    delete raw[`move_id_${index}`];
+    delete raw[`lvl_learned_${index}`];
+    delete readable[`move_id_${index}`];
+    delete readable[`lvl_learned_${index}`];
+  }
+
+  entries.slice(0, LEARNSET_MAX_MOVES).forEach((entry, index) => {
+    raw[`move_id_${index}`] = entry.moveId;
+    raw[`lvl_learned_${index}`] = entry.level;
+    readable[`move_id_${index}`] = project.texts.banks.moves?.[entry.moveId] ?? entry.moveId;
+    readable[`lvl_learned_${index}`] = entry.level;
+  });
+}
+
+function firstUsableMoveId(project: ProjectState): number {
+  const moves = project.texts.banks.moves ?? [];
+  return moves.length > 1 ? 1 : 0;
+}
+
+function eggMoveIds(bytes: Uint8Array): number[] {
+  if (bytes.length < 2) return [];
+  const count = readU16(bytes, 0);
+  const moves: number[] = [];
+  for (let index = 0; index < count && 2 + index * 2 + 1 < bytes.length; index += 1) {
+    moves.push(readU16(bytes, 2 + index * 2));
+  }
+  return moves;
+}
+
+function writeEggMoveIds(project: ProjectState, speciesId: number, moves: number[]): void {
+  const store = project.narcs.egg_moves;
+  if (!store) throw new Error("Egg move NARC is not loaded");
+  const out = new Uint8Array(2 + moves.length * 2);
+  writeU16(out, 0, moves.length);
+  moves.forEach((moveId, index) => writeU16(out, 2 + index * 2, moveId));
+  store.rawFiles[speciesId] = out;
+  store.fileCount = Math.max(store.fileCount, speciesId + 1);
+  store.records.delete(speciesId);
+  markDirty(project, "egg_moves", speciesId);
 }
 
 function updateEvolutionField(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string, inputValue: string): PokemonUpdateResult {

@@ -107,7 +107,7 @@ function persistableProject(project: ProjectState, compactRawFiles: boolean): Pr
   delete snapshot.grottoOdds;
   delete snapshot.texts.messageTexts;
   delete snapshot.texts.storyTexts;
-  if (compactRawFiles && !snapshot.tms?.dirty) snapshot.arm9 = new Uint8Array();
+  if (compactRawFiles && !snapshot.tms?.dirty && !snapshot.arm9Dirty) snapshot.arm9 = new Uint8Array();
   if (compactRawFiles) snapshot.overlays = {};
   for (const store of Object.values(snapshot.narcs)) {
     if (!store) continue;
@@ -137,7 +137,7 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
 
   const overlayIds: number[] = [];
   if (project.narcs.grotto_odds || project.overlays[36]?.length === 0) overlayIds.push(36);
-  if (project.narcs.move_effects_table || project.overlays[167]?.length === 0) overlayIds.push(167);
+  if (project.narcs.move_effects_table || project.narcs.type_chart || project.overlays[167]?.length === 0) overlayIds.push(167);
   if (project.session.baseRom === "BW2" && overlayIds.length > 0) {
     const overlays = rom.loadArm9Overlays([...new Set(overlayIds)]);
     for (const [id, overlay] of overlays) project.overlays[id] = overlay.data;
@@ -145,18 +145,20 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
 
   hydrateOverlayBackedStore(project, "grotto_odds", 36);
   hydrateOverlayBackedStore(project, "move_effects_table", 167);
+  hydrateOverlayBackedStore(project, "type_chart", 167);
 }
 
-function hydrateOverlayBackedStore(project: ProjectState, name: "grotto_odds" | "move_effects_table", overlayId: number): void {
+function hydrateOverlayBackedStore(project: ProjectState, name: "grotto_odds" | "move_effects_table" | "type_chart", overlayId: number): void {
   const store = project.narcs[name];
   const overlay = project.overlays[overlayId];
   if (!store || !overlay || (store.rawFiles[0]?.length ?? 0) > 0) return;
   const offset = overlayTableOffset(project, name);
-  const length = name === "grotto_odds" ? 200 : 2064;
+  const length = name === "grotto_odds" ? 200 : name === "type_chart" ? 17 * 17 : 2064;
   store.rawFiles = [overlay.slice(offset, offset + length)];
 }
 
-function overlayTableOffset(project: ProjectState, name: "grotto_odds" | "move_effects_table"): number {
+function overlayTableOffset(project: ProjectState, name: "grotto_odds" | "move_effects_table" | "type_chart"): number {
   if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
+  if (name === "type_chart") return 0x0003dc40;
   return project.session.fairy ? 0x00040974 : 0x000407f4;
 }

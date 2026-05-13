@@ -19,6 +19,10 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
       <div class="filter-title">Search</div>
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
+      <button class="btn -default trainer-add-button" id="add-trainer-btn" type="button" title="Clone the selected trainer, party, name slot, and dialogue table rows">
+        <span class="svg">${addIcon}</span>
+        Add Trainer
+      </button>
     </div>
     <div class="pokemon-list spreadsheet" id="trainers">
       <div class="expanded-field field-header">
