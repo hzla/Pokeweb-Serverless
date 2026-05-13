@@ -1,4 +1,5 @@
 node_modules/
+node_modules_artifact/
 dist/
 .DS_Store
 .vite/
