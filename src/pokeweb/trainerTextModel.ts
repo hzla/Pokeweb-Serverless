@@ -91,6 +91,32 @@ export function updateTrainerText(project: ProjectState, trainerId: number, type
   return getTrainerTextLines(project, trainerId);
 }
 
+export function addTrainerTextFromTemplate(project: ProjectState, trainerId: number, templateTrainerId: number): void {
+  if (!hasTrainerTextSupport(project)) return;
+  const stores = resolveTrainerTextStores(project);
+  if (!stores) return;
+
+  const rows = parseLineTable(stores.lineTableStore.rawFiles[0] ?? new Uint8Array());
+  const offsets = parseOffsets(stores.offsetStore.rawFiles[0] ?? new Uint8Array());
+  const bank = getTextBank(project, "message_texts", TRAINER_TEXT_BANK_ID);
+  const sourceEntries = rows
+    .map((row, entryIndex) => ({ row, entryIndex, text: bank[entryIndex] }))
+    .filter((entry) => entry.row.trainerId === templateTrainerId && entry.text !== undefined);
+
+  const insertIndex = rows.length;
+  while (offsets.length <= trainerId) offsets.push(insertIndex * 4);
+  offsets[trainerId] = insertIndex * 4;
+
+  for (const source of sourceEntries) {
+    rows.push({ trainerId, typeId: source.row.typeId });
+    bank.push([`0_${bank.length}`, source.text[1], source.text[2] ?? 0]);
+  }
+
+  renumberBank(bank);
+  commitRawTrainerTextTables(project, stores, rows, offsets);
+  commitTextBank(project, "message_texts", TRAINER_TEXT_BANK_ID);
+}
+
 function getTrainerTextContext(project: ProjectState, trainerId: number):
   | {
       stores: TrainerTextStores;
@@ -148,15 +174,18 @@ function deleteTrainerText(project: ProjectState, context: NonNullable<ReturnTyp
 }
 
 function commitTrainerTextTables(project: ProjectState, context: NonNullable<ReturnType<typeof getTrainerTextContext>>): void {
-  context.stores.lineTableStore.rawFiles[0] = serializeLineTable(context.rows);
-  context.stores.lineTableStore.records.clear();
-  markDirty(project, context.stores.lineTableName, 0);
-
-  context.stores.offsetStore.rawFiles[0] = serializeOffsets(context.offsets);
-  context.stores.offsetStore.records.clear();
-  markDirty(project, context.stores.offsetName, 0);
-
+  commitRawTrainerTextTables(project, context.stores, context.rows, context.offsets);
   commitTextBank(project, "message_texts", TRAINER_TEXT_BANK_ID);
+}
+
+function commitRawTrainerTextTables(project: ProjectState, stores: TrainerTextStores, rows: TrainerTextTableRow[], offsets: number[]): void {
+  stores.lineTableStore.rawFiles[0] = serializeLineTable(rows);
+  stores.lineTableStore.records.clear();
+  markDirty(project, stores.lineTableName, 0);
+
+  stores.offsetStore.rawFiles[0] = serializeOffsets(offsets);
+  stores.offsetStore.records.clear();
+  markDirty(project, stores.offsetName, 0);
 }
 
 function resolveTrainerTextStores(project: ProjectState): TrainerTextStores | undefined {

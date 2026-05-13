@@ -4,6 +4,7 @@ import {
   itemMatchesSearch,
   moveMatchesSearch,
   updateItemField,
+  updateItemPackedField,
   updateMoveField,
   type FieldUpdateResult,
 } from "../pokeweb/moveItemModel";
@@ -493,6 +494,45 @@ function installItemEditableFields(root: HTMLElement, project: ProjectState, opt
       initialValue = value;
     }, options.onDirty);
   });
+
+  root.querySelectorAll<HTMLElement>("[contenteditable='true'][data-narc='item-part']").forEach((field) => {
+    if (field.dataset.itemPartEditInstalled === "true") return;
+    field.dataset.itemPartEditInstalled = "true";
+    let initialValue = field.textContent?.trim() ?? "";
+    installEditableHandlers(field, () => {
+      const card = field.closest<HTMLElement>(".item-card");
+      const itemId = Number(card?.dataset.index);
+      const fieldName = field.dataset.fieldName;
+      const partKey = field.dataset.partKey;
+      if (!card || !Number.isInteger(itemId) || !fieldName || !partKey) return false;
+      const result = updateItemPackedField(project, itemId, fieldName, partKey, field.textContent?.trim() ?? "");
+      syncItemPackedEditor(card, fieldName, result.rawValue);
+      return true;
+    }, () => initialValue, (value) => {
+      initialValue = value;
+    }, options.onDirty);
+  });
+
+  root.querySelectorAll<HTMLInputElement>(".item-flag-checkbox").forEach((checkbox) => {
+    if (checkbox.dataset.itemFlagInstalled === "true") return;
+    checkbox.dataset.itemFlagInstalled = "true";
+    checkbox.addEventListener("change", () => {
+      const card = checkbox.closest<HTMLElement>(".item-card");
+      const itemId = Number(card?.dataset.index);
+      const fieldName = checkbox.dataset.fieldName;
+      const partKey = checkbox.dataset.partKey;
+      if (!card || !Number.isInteger(itemId) || !fieldName || !partKey) return;
+      try {
+        const result = updateItemPackedField(project, itemId, fieldName, partKey, checkbox.checked);
+        syncItemPackedEditor(card, fieldName, result.rawValue);
+        checkbox.classList.remove("invalid");
+        options.onDirty?.();
+      } catch {
+        checkbox.checked = !checkbox.checked;
+        checkbox.classList.add("invalid");
+      }
+    });
+  });
 }
 
 function installEditableHandlers(
@@ -544,6 +584,11 @@ function syncMoveRow(card: HTMLElement, result: FieldUpdateResult, fieldName: st
       image.classList.toggle("unchosen", !active);
     });
   }
+}
+
+function syncItemPackedEditor(card: HTMLElement, fieldName: string, rawValue: number): void {
+  const editor = card.querySelector<HTMLElement>(`.item-flag-editor[data-field-name="${CSS.escape(fieldName)}"]`);
+  if (editor) editor.dataset.rawValue = String(rawValue);
 }
 
 function togglePanel(card: HTMLElement, selector: string, icon: HTMLElement): void {

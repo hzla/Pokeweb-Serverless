@@ -305,7 +305,7 @@ function parseEntryId(id: string): { block: number; entry: number; flags: number
   };
 }
 
-export function cleanDisplayText(value: string, upper = false): string {
+export function cleanDisplayText(value: string, nameCase = false): string {
   const cleaned = value
     .replaceAll("―", "")
     .replaceAll("⑮", " F")
@@ -313,5 +313,13 @@ export function cleanDisplayText(value: string, upper = false): string {
     .replaceAll("⒆⒇", "PkMn")
     .replaceAll("é", "e")
     .replace(/[^\x00-\x7F]/gu, "");
-  return upper ? cleaned.toUpperCase() : cleaned;
+  return nameCase ? titleCaseName(cleaned) : cleaned;
+}
+
+function titleCaseName(value: string): string {
+  return value.replace(/[A-Za-z0-9]+/gu, (word) => {
+    if (/^\d+$/u.test(word)) return word;
+    if (word.length === 1) return word.toUpperCase();
+    return word[0].toUpperCase() + word.slice(1).toLowerCase();
+  });
 }

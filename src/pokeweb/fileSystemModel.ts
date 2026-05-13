@@ -15,6 +15,7 @@ export type FileSystemTreeNode = {
 
 export type FileSystemNodeRef =
   | { kind: "folder"; path: string }
+  | { kind: "addedRomFile"; path: string }
   | { kind: "romFile"; fileId: number; path: string }
   | { kind: "narcFile"; parentFileId: number; index: number; path: string; parentPath: string };
 
@@ -35,12 +36,24 @@ type NamedFile = {
 export function ensureFileSystemState(project: ProjectState): NonNullable<ProjectState["fileSystem"]> {
   project.fileSystem ??= { replacements: {} };
   project.fileSystem.replacements ??= {};
+  project.fileSystem.additions ??= {};
   return project.fileSystem;
 }
 
 export function fileSystemReplacementMap(project: ProjectState): Map<number, Uint8Array> {
   const replacements = project.fileSystem?.replacements ?? {};
   return new Map(Object.entries(replacements).map(([id, bytes]) => [Number(id), bytes]));
+}
+
+export function fileSystemAddedFiles(project: ProjectState): Array<{ path: string; bytes: Uint8Array }> {
+  return Object.entries(project.fileSystem?.additions ?? {})
+    .map(([path, bytes]) => ({ path, bytes }))
+    .sort((a, b) => a.path.localeCompare(b.path));
+}
+
+export function addRomFile(project: ProjectState, path: string, bytes: Uint8Array): void {
+  const normalizedPath = normalizeRomPath(path);
+  ensureFileSystemState(project).additions![normalizedPath] = bytes;
 }
 
 export function setRomFileReplacement(project: ProjectState, fileId: number, bytes: Uint8Array): void {
@@ -59,6 +72,7 @@ export function buildFileSystemSnapshot(project: ProjectState, romBytes: Uint8Ar
   const pathRefs = new Map<string, FileSystemNodeRef>();
 
   for (const file of named) addPath(roots, file.path.split("/"), { kind: "romFile", fileId: file.id, path: file.path }, pathRefs);
+  for (const file of fileSystemAddedFiles(project)) addPath(roots, file.path.split("/"), { kind: "addedRomFile", path: file.path }, pathRefs);
 
   const unnamed = rom.files
     .map((_file, fileId) => fileId)
@@ -93,6 +107,7 @@ export function buildFileSystemSnapshot(project: ProjectState, romBytes: Uint8Ar
 
 export function getNodeBytes(project: ProjectState, rom: NintendoDSRom, ref: FileSystemNodeRef): Uint8Array {
   if (ref.kind === "romFile") return getRomFileBytes(project, rom, ref.fileId);
+  if (ref.kind === "addedRomFile") return project.fileSystem?.additions?.[ref.path] ?? new Uint8Array();
   if (ref.kind === "narcFile") return getNarcForRomFile(project, rom, ref.parentFileId).files[ref.index] ?? new Uint8Array();
   return new Uint8Array();
 }
@@ -195,6 +210,7 @@ export function downloadBytes(bytes: Uint8Array, filename: string): void {
 }
 
 export function filenameForRef(project: ProjectState, rom: NintendoDSRom, ref: FileSystemNodeRef): string {
+  if (ref.kind === "addedRomFile") return basename(ref.path);
   if (ref.kind === "romFile") {
     const name = basename(ref.path);
     return tryParseNarc(getRomFileBytes(project, rom, ref.fileId)) ? withExtension(name, ".narc") : name;
@@ -304,6 +320,17 @@ function cloneFolder(folder: Folder): Folder {
 
 function sanitizeFilename(name: string): string {
   return basename(name).replace(/[^\w .-]/gu, "_") || "inserted.bin";
+}
+
+function normalizeRomPath(path: string): string {
+  const normalized = path
+    .replace(/\\/gu, "/")
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("/");
+  if (!normalized) throw new Error("ROM file path cannot be empty");
+  return normalized;
 }
 
 function basename(path: string): string {

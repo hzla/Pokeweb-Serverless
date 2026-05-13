@@ -2,6 +2,7 @@ import { TYPES } from "../pokeweb/constants";
 import {
   BASE_STAT_FIELDS,
   EV_YIELD_FIELDS,
+  LEARNSET_MAX_MOVES,
   MISC_INTEGER_FIELDS,
   PERSONAL_TEXT_FIELDS,
   getPokemonAutofills,
@@ -9,25 +10,32 @@ import {
   getPokemonRecord,
   getPokemonSummaryRecord,
   type EvolutionSlot,
+  type EggMoveSlot,
   type LearnsetMove,
   type PokemonEditorRecord,
   type PokemonSummaryRecord,
   type TmCompatibilitySlot,
+  type TutorCompatibilityGroup,
+  type TutorCompatibilitySlot,
 } from "../pokeweb/pokemonModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
 import { pokemonSpriteSlug } from "../pokeweb/spriteSlug";
 import evoIcon from "../assets/svgs/evo.svg?raw";
+import eggMovesIcon from "../assets/svgs/egg_moves.svg?raw";
 import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import movesIcon from "../assets/svgs/moves.svg?raw";
 import paintIcon from "../assets/svgs/paint.svg?raw";
 import tmsIcon from "../assets/svgs/tms.svg?raw";
+import tutorsIcon from "../assets/svgs/tutors.svg?raw";
 import { publicAsset } from "../assetUrl";
 
 const ICONS: Record<string, string> = {
   learnset: movesIcon,
   tms: tmsIcon,
+  tutors: tutorsIcon,
+  "egg-moves": eggMovesIcon,
   evos: evoIcon,
   personal: miscDataIcon,
 };
@@ -106,6 +114,8 @@ function renderPokemonCard(record: PokemonSummaryRecord): string {
       <div class="personal-icons">
         ${icon("learnset", "Learnset")}
         ${icon("tms", "TMs")}
+        ${icon("tutors", "Tutors")}
+        ${icon("egg-moves", "Egg Moves")}
         ${icon("evos", "Evolutions")}
         ${icon("personal", "Personal")}
         ${spriteIcon()}
@@ -115,6 +125,7 @@ function renderPokemonCard(record: PokemonSummaryRecord): string {
 }
 
 function renderExpanded(record: PokemonEditorRecord): string {
+  const canAddLearnsetMove = record.learnset.length < LEARNSET_MAX_MOVES;
   return `
     <div class="expanded-card-content expanded-personal">
       <div class="expanded-left">
@@ -128,15 +139,29 @@ function renderExpanded(record: PokemonEditorRecord): string {
       </div>
     </div>
     <div class="expanded-card-content expanded-learnset">
-      <div class="expanded-left">
-        ${record.learnset.slice(0, 13).map((move) => renderLearnsetMove(move)).join("")}
-      </div>
-      <div class="expanded-left">
-        ${record.learnset.slice(13).map((move) => renderLearnsetMove(move)).join("")}
+      <div class="learnset-panel">
+        <div class="learnset-toolbar">
+          <button class="btn -default learnset-action" data-learnset-action="append" type="button" ${canAddLearnsetMove ? "" : "disabled"}>Add Move</button>
+          <span class="learnset-count">${record.learnset.length}/${LEARNSET_MAX_MOVES}</span>
+        </div>
+        <div class="learnset-columns">
+          <div class="expanded-left">
+            ${record.learnset.slice(0, 13).map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join("")}
+          </div>
+          <div class="expanded-left">
+            ${record.learnset.slice(13).map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join("")}
+          </div>
+        </div>
       </div>
     </div>
     <div class="expanded-card-content expanded-tms">
       ${record.tmCompatibility.map((slot) => renderTmCompatibility(slot)).join("")}
+    </div>
+    <div class="expanded-card-content expanded-tutors">
+      ${record.tutorCompatibility.length > 0 ? record.tutorCompatibility.map((group) => renderTutorGroup(group)).join("") : renderUnavailablePanel("BW2 tutor compatibility is not available for this ROM.")}
+    </div>
+    <div class="expanded-card-content expanded-egg-moves">
+      ${record.eggMovesLoaded ? renderEggMoves(record.eggMoves) : renderUnavailablePanel("Egg move data was not loaded for this project. Reload with Pokemon data selected.")}
     </div>
     <div class="expanded-card-content expanded-evos">
       ${[[0, 1, 2], [3, 4, 5], [6]].map((indexes) => renderEvolutionColumn(record.evolutions.filter((slot) => indexes.includes(slot.index)))).join("")}
@@ -159,15 +184,19 @@ function renderBaseStat(label: string, field: string, value: unknown): string {
   `;
 }
 
-function renderLearnsetMove(move: LearnsetMove): string {
+function renderLearnsetMove(move: LearnsetMove, canInsert: boolean): string {
   return `
-    <div class="expanded-field multi">
+    <div class="expanded-field multi learnset-row" data-learnset-index="${move.index}">
       <div data-require="move-name" data-narc="learnset" data-field-name="lvl_learned_${move.index}" data-type="int-100" class="move-level" contenteditable="true">${move.level}</div>
       ${editable("learnset", `move_id_${move.index}`, move.moveName, "move-name", { autofill: "move_names", require: "move-level" })}
       <div class="move-type"><button class="btn -${typeClass(move.type)} -active" type="button">${escapeHtml(String(move.type).toUpperCase().slice(0, 3))}</button></div>
       <div class="move-cat">${escapeHtml(String(move.category).slice(0, 3))}</div>
       <div class="move-power">${escapeHtml(String(move.power))}</div>
       <div class="move-accuracy">${escapeHtml(String(move.accuracy))}</div>
+      <div class="learnset-row-actions">
+        <button class="learnset-icon-button" data-learnset-action="insert" data-learnset-index="${move.index + 1}" title="Insert move below" type="button" ${canInsert ? "" : "disabled"}>+</button>
+        <button class="learnset-icon-button -danger" data-learnset-action="delete" data-learnset-index="${move.index}" title="Delete move" type="button">×</button>
+      </div>
     </div>
   `;
 }
@@ -197,6 +226,66 @@ function renderTmCompatibility(slot: TmCompatibilitySlot): string {
   `;
 }
 
+function renderTutorGroup(group: TutorCompatibilityGroup): string {
+  return `
+    <section class="tutor-group">
+      <h3>${escapeHtml(group.label)}</h3>
+      <div class="tutor-grid">
+        ${group.slots.map((slot) => renderTutorCompatibility(slot)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderTutorCompatibility(slot: TutorCompatibilitySlot): string {
+  return `
+    <div class="cell tutor ${slot.enabled ? "-active" : ""}" data-field-name="tutors" data-narc="personal" data-tutor-field="${slot.field}" data-index="${slot.index}">
+      ${escapeHtml(slot.label)}<br>
+      ${escapeHtml(slot.moveName)}
+    </div>
+  `;
+}
+
+function renderEggMoves(moves: EggMoveSlot[]): string {
+  const canInsert = true;
+  return `
+    <div class="learnset-panel egg-move-panel">
+      <div class="learnset-toolbar">
+        <button class="btn -default egg-move-action" data-egg-move-action="append" type="button">Add Move</button>
+        <span class="learnset-count">${moves.length} egg move${moves.length === 1 ? "" : "s"}</span>
+      </div>
+      <div class="learnset-columns">
+        <div class="expanded-left">
+          ${moves.slice(0, Math.ceil(moves.length / 2)).map((move) => renderEggMove(move, canInsert)).join("")}
+        </div>
+        <div class="expanded-left">
+          ${moves.slice(Math.ceil(moves.length / 2)).map((move) => renderEggMove(move, canInsert)).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderEggMove(move: EggMoveSlot, canInsert: boolean): string {
+  return `
+    <div class="expanded-field multi egg-move-row" data-egg-move-index="${move.index}">
+      ${editable("egg_moves", `move_id_${move.index}`, move.moveName, "move-name", { autofill: "move_names" })}
+      <div class="move-type"><button class="btn -${typeClass(move.type)} -active" type="button">${escapeHtml(String(move.type).toUpperCase().slice(0, 3))}</button></div>
+      <div class="move-cat">${escapeHtml(String(move.category).slice(0, 3))}</div>
+      <div class="move-power">${escapeHtml(String(move.power))}</div>
+      <div class="move-accuracy">${escapeHtml(String(move.accuracy))}</div>
+      <div class="learnset-row-actions">
+        <button class="learnset-icon-button" data-egg-move-action="insert" data-egg-move-index="${move.index + 1}" title="Insert move below" type="button" ${canInsert ? "" : "disabled"}>+</button>
+        <button class="learnset-icon-button -danger" data-egg-move-action="delete" data-egg-move-index="${move.index}" title="Delete move" type="button">×</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderUnavailablePanel(message: string): string {
+  return `<div class="expanded-empty">${escapeHtml(message)}</div>`;
+}
+
 function expandedField(label: string, value: string): string {
   return `
     <div class="expanded-field">
@@ -207,7 +296,7 @@ function expandedField(label: string, value: string): string {
 }
 
 function editable(
-  narc: "personal" | "learnset" | "evolution",
+  narc: "personal" | "learnset" | "evolution" | "egg_moves",
   field: string,
   value: unknown,
   className: string,

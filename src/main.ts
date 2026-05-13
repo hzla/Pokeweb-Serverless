@@ -12,6 +12,8 @@ import "./styles/legacyDocGenerators.css";
 import "./styles/legacyMap3d.css";
 import "./styles/legacyPokemonSprites.css";
 import "./styles/fileSystem.css";
+import "./styles/legacyTypes.css";
+import "./styles/codeInjection.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
@@ -23,6 +25,7 @@ import { loadProjectFromRomFile } from "./pokeweb/loader";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { renderDebugNarcs } from "./ui/debugNarcs";
+import { renderCodeInjectionEditor } from "./ui/codeInjectionEditor";
 import { renderFileSystemEditor } from "./ui/fileSystemEditor";
 import { renderHeaderEditor } from "./ui/headerEditor";
 import { renderEncounterEditor } from "./ui/encounterEditor";
@@ -30,6 +33,7 @@ import { renderItemEditor, renderMoveEditor } from "./ui/moveItemEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
 import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
 import { renderTmEditor } from "./ui/tmEditor";
+import { renderTypeChartEditor } from "./ui/typeChartEditor";
 import { renderTrainerEditor } from "./ui/trainerEditor";
 import { renderGrottoEditor, renderGrottoOddsEditor, renderMartEditor } from "./ui/martGrottoEditor";
 import { renderTextEditor } from "./ui/textEditor";
@@ -39,6 +43,7 @@ import { renderDocGenerators } from "./ui/docGenerators";
 type AppRoute =
   | "upload"
   | "fileSystem"
+  | "codeInjection"
   | "headers"
   | "overworlds"
   | "maps3d"
@@ -49,6 +54,7 @@ type AppRoute =
   | "moves"
   | "items"
   | "tms"
+  | "types"
   | "marts"
   | "grottos"
   | "grottoOdds"
@@ -68,6 +74,7 @@ const OVERWORLD_ROUTE_KEY = "pokeweb-serverless-overworld-id";
 const APP_ROUTES: AppRoute[] = [
   "upload",
   "fileSystem",
+  "codeInjection",
   "headers",
   "overworlds",
   "maps3d",
@@ -78,6 +85,7 @@ const APP_ROUTES: AppRoute[] = [
   "moves",
   "items",
   "tms",
+  "types",
   "marts",
   "grottos",
   "grottoOdds",
@@ -87,7 +95,7 @@ const APP_ROUTES: AppRoute[] = [
   "debugNarcs",
 ];
 
-const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">, NarcName[]> = {
+const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">, NarcName[]> = {
   headers: ["headers", "message_texts"],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
@@ -97,6 +105,7 @@ const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "d
   moves: ["moves"],
   items: ["items"],
   tms: ["moves"],
+  types: [],
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
   storyText: ["story_texts"],
@@ -115,6 +124,7 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   overworlds: "Overworlds",
   learnsets: "Learnsets",
   evolutions: "Evolutions",
+  egg_moves: "Egg Moves",
   moves: "Moves",
   move_animations: "Move Animations",
   battle_animations: "Battle Animations",
@@ -127,6 +137,8 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   marts: "Marts",
   mart_counts: "Mart Counts",
   grottos: "Hidden Grottoes",
+  habitats: "Dex Habitats",
+  type_chart: "Type Chart",
   starter_sprites: "Starter Sprites",
   pokemon_sprites: "Pokemon Sprites",
   pokemon_icons: "Pokemon Icons",
@@ -142,7 +154,7 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
   { title: "Required", names: [...MANDATORY_NARCS] },
   { title: "Sprites", names: ["pokemon_sprites", "pokemon_icons", "starter_sprites"], toggleable: true },
   { title: "Moves", names: ["moves", "move_animations", "battle_animations", "move_spas"], toggleable: true },
-  { title: "Pokemon", names: ["personal", "learnsets", "evolutions"], toggleable: true },
+  { title: "Pokemon", names: ["personal", "learnsets", "evolutions", "egg_moves", "habitats"], toggleable: true },
   { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets"], toggleable: true },
   { title: "Maps", names: ["maps", "matrix"], toggleable: true },
 ];
@@ -238,6 +250,15 @@ function renderApp(): void {
       },
     }).catch((error) => {
       content.innerHTML = `<div class="file-system-page"><div class="file-system-empty">${error instanceof Error ? error.message : String(error)}</div></div>`;
+    });
+    return;
+  }
+
+  if (route === "codeInjection") {
+    renderCodeInjectionEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
     });
     return;
   }
@@ -347,6 +368,15 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "types") {
+    renderTypeChartEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
   if (route === "marts") {
     renderMartEditor(project, content, () => {
       dirty = true;
@@ -436,10 +466,12 @@ function renderNav(): string {
         ${navItem("moves", "Moves")}
         ${navItem("items", "Items")}
         ${navItem("tms", "TMs")}
+        ${navItem("types", "Types")}
         ${bw2Links}
         ${navItem("storyText", "Story Text")}
         ${navItem("infoText", "Info Text")}
         ${navItem("docGenerators", "Doc Generators")}
+        ${navItem("codeInjection", "Code Injection")}
         ${navItem("fileSystem", "File System")}
       </div>
       <div class="header-status" id="header-status">${dirty ? `<div class="dirty-indicator">Unsaved browser edits</div>` : ""}</div>
@@ -687,11 +719,13 @@ function hydrateProject(nextProject: ProjectState | undefined): void {
   nextProject.docs ??= {
     romTitle: nextProject.session.romName,
     trainerLocations: {},
+    trainerDiffs: {},
     itemLocations: {},
     groundItemScriptMap: {},
   };
   nextProject.docs.romTitle ||= nextProject.session.romName;
   nextProject.docs.trainerLocations ??= {};
+  nextProject.docs.trainerDiffs ??= {};
   nextProject.docs.itemLocations ??= {};
   nextProject.docs.groundItemScriptMap ??= {};
 }
@@ -706,9 +740,11 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (!project) return false;
   if (nextRoute === "docGenerators") return true;
   if (nextRoute === "fileSystem") return hasExportBase;
+  if (nextRoute === "codeInjection") return hasExportBase && project.session.baseRom === "BW2";
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
+  if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
-  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">;
+  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);
 }
 
@@ -719,16 +755,22 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       ? []
       : nextRoute === "fileSystem"
         ? ([] as NarcName[])
+      : nextRoute === "codeInjection"
+        ? ([] as NarcName[])
       : nextRoute === "maps3d"
         ? ([] as NarcName[])
-      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">];
+      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">];
   const missing = enabled
     ? ""
     : nextRoute === "fileSystem"
       ? ` title="Reload the ROM before opening File System"`
+    : nextRoute === "codeInjection"
+      ? ` title="${project?.session.baseRom === "BW2" ? "Reload the ROM before opening Code Injection" : "PMC is currently Black 2 / White 2 only"}"`
       : nextRoute === "maps3d"
         ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
-      : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
+        : nextRoute === "types"
+          ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
+          : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
   const active = route === nextRoute || (nextRoute === "headers" && route === "overworlds");
   return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute)}" ${enabled ? `data-route="${nextRoute}"` : ""}${missing}>${label}</a>`;
 }

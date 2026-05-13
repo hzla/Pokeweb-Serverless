@@ -1,4 +1,17 @@
-import { getPokemonSummaryRecord, pokemonMatchesSearch, updatePokemonField, updatePokemonTmCompatibility } from "../pokeweb/pokemonModel";
+import {
+  appendPokemonLearnsetMove,
+  appendPokemonEggMove,
+  deletePokemonEggMove,
+  deletePokemonLearnsetMove,
+  getPokemonSummaryRecord,
+  insertPokemonEggMove,
+  insertPokemonLearnsetMove,
+  pokemonMatchesSearch,
+  updatePokemonEggMove,
+  updatePokemonField,
+  updatePokemonTmCompatibility,
+  updatePokemonTutorCompatibility,
+} from "../pokeweb/pokemonModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
@@ -68,6 +81,62 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       return;
     }
 
+    const tutorCell = target.closest<HTMLElement>(".cell.tutor[data-tutor-field][data-index]");
+    if (tutorCell) {
+      const card = tutorCell.closest<HTMLElement>(".pokemon-card.filterable");
+      const speciesId = Number(card?.dataset.index);
+      const field = tutorCell.dataset.tutorField;
+      const index = Number(tutorCell.dataset.index);
+      if (!card || !Number.isInteger(speciesId) || !field || !Number.isInteger(index)) return;
+      const enabled = !tutorCell.classList.contains("-active");
+      updatePokemonTutorCompatibility(project, speciesId, field, index, enabled);
+      tutorCell.classList.toggle("-active", enabled);
+      options.onDirty?.();
+      return;
+    }
+
+    const learnsetAction = target.closest<HTMLElement>("[data-learnset-action]");
+    if (learnsetAction) {
+      const card = learnsetAction.closest<HTMLElement>(".pokemon-card.filterable");
+      const speciesId = Number(card?.dataset.index);
+      const action = learnsetAction.dataset.learnsetAction;
+      const index = Number(learnsetAction.dataset.learnsetIndex);
+      if (!card || !Number.isInteger(speciesId)) return;
+      try {
+        if (action === "append") appendPokemonLearnsetMove(project, speciesId);
+        else if (action === "insert" && Number.isInteger(index)) insertPokemonLearnsetMove(project, speciesId, index);
+        else if (action === "delete" && Number.isInteger(index)) deletePokemonLearnsetMove(project, speciesId, index);
+        else return;
+        refreshExpandedPanels(card, project, speciesId, "learnset", options);
+        options.onDirty?.();
+        stripeRows(root);
+      } catch {
+        learnsetAction.classList.add("invalid");
+      }
+      return;
+    }
+
+    const eggMoveAction = target.closest<HTMLElement>("[data-egg-move-action]");
+    if (eggMoveAction) {
+      const card = eggMoveAction.closest<HTMLElement>(".pokemon-card.filterable");
+      const speciesId = Number(card?.dataset.index);
+      const action = eggMoveAction.dataset.eggMoveAction;
+      const index = Number(eggMoveAction.dataset.eggMoveIndex);
+      if (!card || !Number.isInteger(speciesId)) return;
+      try {
+        if (action === "append") appendPokemonEggMove(project, speciesId);
+        else if (action === "insert" && Number.isInteger(index)) insertPokemonEggMove(project, speciesId, index);
+        else if (action === "delete" && Number.isInteger(index)) deletePokemonEggMove(project, speciesId, index);
+        else return;
+        refreshExpandedPanels(card, project, speciesId, "egg-moves", options);
+        options.onDirty?.();
+        stripeRows(root);
+      } catch {
+        eggMoveAction.classList.add("invalid");
+      }
+      return;
+    }
+
     const icon = target.closest<HTMLElement>(".expand-action");
     if (!icon) return;
     const card = icon.closest<HTMLElement>(".pokemon-card.filterable");
@@ -93,6 +162,15 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
 
   installEditableFields(root, project, options);
   runFilter();
+}
+
+function refreshExpandedPanels(card: HTMLElement, project: ProjectState, speciesId: number, activePanel: string, options: PokemonInteractionOptions): void {
+  card.querySelectorAll<HTMLElement>(".expanded-card-content").forEach((panel) => panel.remove());
+  card.insertAdjacentHTML("beforeend", options.renderExpanded(speciesId));
+  installEditableFields(card, project, options);
+  card.querySelectorAll<HTMLElement>(".card-icon, .expand-action").forEach((item) => item.classList.remove("-active"));
+  card.querySelector<HTMLElement>(`.expanded-${activePanel}`)?.classList.add("show-flex");
+  card.querySelector<HTMLElement>(`.expand-action[data-expand='${CSS.escape(activePanel)}']`)?.classList.add("-active");
 }
 
 export function filterPokemon(
@@ -132,7 +210,7 @@ function installEditableFields(root: HTMLElement, project: ProjectState, options
     field.addEventListener("focusout", () => {
       const card = field.closest<HTMLElement>(".pokemon-card.filterable");
       const speciesId = Number(card?.dataset.index);
-      const narc = field.dataset.narc as "personal" | "learnset" | "evolution" | undefined;
+      const narc = field.dataset.narc as "personal" | "learnset" | "evolution" | "egg_moves" | undefined;
       const fieldName = field.dataset.fieldName;
       if (!card || !Number.isInteger(speciesId) || !narc || !fieldName) return;
 
@@ -141,7 +219,7 @@ function installEditableFields(root: HTMLElement, project: ProjectState, options
       if (nextValue === initialValue) return;
 
       try {
-        const result = updatePokemonField(project, speciesId, narc, fieldName, nextValue);
+        const result = narc === "egg_moves" ? updateEggMoveField(project, speciesId, fieldName, nextValue) : updatePokemonField(project, speciesId, narc, fieldName, nextValue);
         field.textContent = String(result.value);
         field.classList.remove("invalid");
         field.style.border = "";
@@ -154,6 +232,25 @@ function installEditableFields(root: HTMLElement, project: ProjectState, options
       }
     });
   });
+}
+
+function updateEggMoveField(project: ProjectState, speciesId: number, fieldName: string, nextValue: string): ReturnType<typeof updatePokemonField> {
+  const match = /^move_id_(\d+)$/u.exec(fieldName);
+  if (!match) throw new Error(`Unsupported egg move field: ${fieldName}`);
+  const index = Number(match[1]);
+  const rows = updatePokemonEggMove(project, speciesId, index, nextValue);
+  const row = rows[index];
+  if (!row) throw new Error(`Egg move row ${index} does not exist`);
+  return {
+    value: row.moveName,
+    rawValue: row.moveId,
+    movePreview: {
+      type: row.type,
+      category: row.category,
+      power: row.power,
+      accuracy: row.accuracy,
+    },
+  };
 }
 
 function syncVisualFieldState(field: HTMLElement, result: ReturnType<typeof updatePokemonField>): void {

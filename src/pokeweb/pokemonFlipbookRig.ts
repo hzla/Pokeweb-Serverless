@@ -32,6 +32,7 @@ export type PokemonFlipbookImportConfig = {
   includeFinish: boolean;
   maxAtlasTiles: number;
   durationScale: number;
+  downscalePercent: number;
 };
 
 export type PokemonFlipbookReport = {
@@ -39,6 +40,7 @@ export type PokemonFlipbookReport = {
   normalizedFrameCount: number;
   sourceFramePercent: number;
   durationScale: number;
+  downscalePercent: number;
   selectedSourceFrames: number[];
   timelineFrames: number[];
   uniquePoseCount: number;
@@ -139,6 +141,7 @@ export function defaultPokemonFlipbookImportConfig(side: PokemonAnimationSide = 
     includeFinish: true,
     maxAtlasTiles: MAX_ATLAS_TILES,
     durationScale: 1,
+    downscalePercent: 100,
   };
 }
 
@@ -178,7 +181,8 @@ export function buildPokemonFlipbookRigFromFrames(sourceFrames: FrameEntry[], co
 
 function prepareFlipbookFrames(sourceFrames: FrameEntry[], config: PokemonFlipbookImportConfig): PreparedFlipbookFrames {
   if (sourceFrames.length === 0) throw new Error("GIF contains no frames");
-  const normalized = normalizeFrames(sourceFrames);
+  const scaledFrames = scaleFrames(sourceFrames, config.downscalePercent);
+  const normalized = normalizeFrames(scaledFrames);
   const sourceFrameLimit = config.manualFrameNumbers?.length
     ? normalized.length
     : clampInt(Math.ceil(normalized.length * clamp(config.sourceFramePercent, 1, 100) / 100), 1, normalized.length);
@@ -226,6 +230,7 @@ function buildPokemonFlipbookRigFromPrepared(prepared: PreparedFlipbookFrames, c
       normalizedFrameCount: normalized.length,
       sourceFramePercent: config.sourceFramePercent,
       durationScale,
+      downscalePercent: normalizeDownscalePercent(config.downscalePercent),
       selectedSourceFrames: Array.from(new Set(packed.timelineFrames.map((frame) => frame.index))).sort((a, b) => a - b),
       timelineFrames: packed.timelineFrames.map((frame) => frame.index),
       uniquePoseCount: packed.poses.length,
@@ -270,6 +275,30 @@ function normalizeFrames(frames: FrameEntry[]): FrameEntry[] {
     delayMs: frame.delayMs,
     pixels: cropFrame(frame, crop),
   }));
+}
+
+function scaleFrames(frames: FrameEntry[], downscalePercent: number): FrameEntry[] {
+  const percent = normalizeDownscalePercent(downscalePercent);
+  if (percent === 100) return frames;
+  const scale = percent / 100;
+  return frames.map((frame) => {
+    const width = Math.max(1, Math.round(frame.width * scale));
+    const height = Math.max(1, Math.round(frame.height * scale));
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      const sy = clampInt(Math.floor((y + 0.5) / scale), 0, frame.height - 1);
+      for (let x = 0; x < width; x += 1) {
+        const sx = clampInt(Math.floor((x + 0.5) / scale), 0, frame.width - 1);
+        pixels.set(frame.pixels.subarray((sy * frame.width + sx) * 4, (sy * frame.width + sx) * 4 + 4), (y * width + x) * 4);
+      }
+    }
+    return { ...frame, width, height, pixels };
+  });
+}
+
+function normalizeDownscalePercent(value: number | undefined): number {
+  if (!Number.isFinite(value)) return 100;
+  return clampInt(value ?? 100, 5, 100);
 }
 
 function buildTimeline(frames: FrameEntry[], config: PokemonFlipbookImportConfig): {

@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { getPokemonRecord, pokemonMatchesSearch, updatePokemonField, updatePokemonTmCompatibility } from "../pokeweb/pokemonModel";
+import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
+import {
+  appendPokemonEggMove,
+  appendPokemonLearnsetMove,
+  deletePokemonEggMove,
+  deletePokemonLearnsetMove,
+  getPokemonRecord,
+  insertPokemonEggMove,
+  insertPokemonLearnsetMove,
+  pokemonMatchesSearch,
+  updatePokemonEggMove,
+  updatePokemonField,
+  updatePokemonTmCompatibility,
+  updatePokemonTutorCompatibility,
+} from "../pokeweb/pokemonModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("pokemonModel", () => {
@@ -55,6 +69,52 @@ describe("pokemonModel", () => {
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
   });
 
+  it("toggles BW2 tutor compatibility bits from personal data", () => {
+    const project = makeProject();
+
+    updatePokemonTutorCompatibility(project, 1, "driftveil_tutor", 0, true);
+    updatePokemonTutorCompatibility(project, 1, "lentimas_tutor", 16, true);
+
+    const record = getPokemonRecord(project, 1);
+    expect(record.rawPersonal.driftveil_tutor).toBe(1);
+    expect(record.rawPersonal.lentimas_tutor).toBe(2 ** 16);
+    expect(record.tutorCompatibility.find((group) => group.group === "driftveil")?.slots[0]).toMatchObject({ enabled: true, moveName: "Covet" });
+    expect(project.narcs.personal?.dirty.has(1)).toBe(true);
+  });
+
+  it("inserts, appends, updates, and deletes egg move rows", () => {
+    const project = makeProject();
+
+    insertPokemonEggMove(project, 1, 0);
+    updatePokemonEggMove(project, 1, 0, "Vine Whip");
+    appendPokemonEggMove(project, 1);
+    deletePokemonEggMove(project, 1, 1);
+
+    const record = getPokemonRecord(project, 1);
+    expect(record.eggMoves.map((move) => move.moveName)).toEqual(["Vine Whip", "Tackle"]);
+    expect(project.narcs.egg_moves?.rawFiles[1]).toEqual(new Uint8Array([2, 0, 2, 0, 1, 0]));
+    expect(project.narcs.egg_moves?.dirty.has(1)).toBe(true);
+  });
+
+  it("inserts, appends, deletes, and serializes learnset move rows", () => {
+    const project = makeProject();
+
+    insertPokemonLearnsetMove(project, 1, 0);
+    updatePokemonField(project, 1, "learnset", "move_id_0", "Vine Whip");
+    appendPokemonLearnsetMove(project, 1);
+    deletePokemonLearnsetMove(project, 1, 1);
+
+    const record = getPokemonRecord(project, 1);
+    expect(record.learnset.map((move) => [move.moveName, move.level])).toEqual([
+      ["Vine Whip", 1],
+      ["Tackle", 1],
+    ]);
+
+    materializeProjectEdits(project);
+    const bytes = project.narcs.learnsets?.rawFiles[1];
+    expect(bytes).toEqual(new Uint8Array([2, 0, 1, 0, 1, 0, 1, 0, 0xff, 0xff, 0xff, 0xff]));
+  });
+
   it("rejects invalid values and filters by old comma search plus generation/type buttons", () => {
     const project = makeProject();
     const bulbasaur = getPokemonRecord(project, 1);
@@ -86,6 +146,7 @@ function makeProject(): ProjectState {
     { type: 0, category: 1, power: 40, accuracy: 100 },
     { type: 11, category: 1, power: 45, accuracy: 100 },
   ]);
+  const eggMoves = [new Uint8Array([0, 0]), new Uint8Array([1, 0, 1, 0])];
 
   return {
     session: {
@@ -93,7 +154,7 @@ function makeProject(): ProjectState {
       baseVersion: "W2",
       baseRom: "BW2",
       fairy: false,
-      fileIds: { personal: 1, learnsets: 2, evolutions: 3, moves: 4 },
+      fileIds: { personal: 1, learnsets: 2, evolutions: 3, moves: 4, egg_moves: 5 },
       blacklist: [],
     },
     romInfo: { title: "test", idCode: "TEST", fileName: "test.nds", size: personal.length },
@@ -103,6 +164,7 @@ function makeProject(): ProjectState {
       personal: makeStore("personal", personal, 2),
       learnsets: makeStore("learnsets", learnsets, 2),
       evolutions: makeStore("evolutions", evolutions, 2),
+      egg_moves: makeStore("egg_moves", eggMoves, 2),
       moves: makeStore("moves", moves, 3),
     } as Partial<Record<NarcName, NarcStore>>,
     texts: {

@@ -13,6 +13,7 @@ export type NarcName =
   | "overworlds"
   | "learnsets"
   | "evolutions"
+  | "egg_moves"
   | "moves"
   | "move_animations"
   | "battle_animations"
@@ -22,11 +23,13 @@ export type NarcName =
   | "trdata"
   | "trpok"
   | "encounters"
+  | "habitats"
   | "marts"
   | "mart_counts"
   | "grottos"
   | "grotto_odds"
   | "move_effects_table"
+  | "type_chart"
   | "starter_sprites"
   | "pokemon_sprites"
   | "pokemon_icons";
@@ -61,6 +64,7 @@ export const BW_NARCS: NarcDefinition[] = [
   { path: "a/1/2/5", name: "overworlds" },
   { path: "a/0/1/8", name: "learnsets" },
   { path: "a/0/1/9", name: "evolutions" },
+  { path: "a/1/2/3", name: "egg_moves" },
   { path: "a/0/2/1", name: "moves" },
   { path: "a/0/6/6", name: "move_animations" },
   { path: "a/0/6/7", name: "battle_animations" },
@@ -82,6 +86,7 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/1/2/6", name: "overworlds" },
   { path: "a/0/1/8", name: "learnsets" },
   { path: "a/0/1/9", name: "evolutions" },
+  { path: "a/1/2/4", name: "egg_moves" },
   { path: "a/0/2/1", name: "moves" },
   { path: "a/0/2/4", name: "items" },
   { path: "a/0/8/9", name: "trtext_table" },
@@ -89,6 +94,7 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/0/9/1", name: "trdata" },
   { path: "a/0/9/2", name: "trpok" },
   { path: "a/1/2/7", name: "encounters" },
+  { path: "a/2/9/6", name: "habitats" },
   { path: "a/2/8/2", name: "marts" },
   { path: "a/2/8/3", name: "mart_counts" },
   { path: "a/2/7/3", name: "grottos" },

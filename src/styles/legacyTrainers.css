@@ -8,6 +8,21 @@
   line-height: 1.35;
 }
 
+.trainer-add-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.trainer-add-button .svg,
+.trainer-add-button svg {
+  height: 16px;
+  width: 16px;
+}
+
 .trainer-id {
   width: 60px;
 }

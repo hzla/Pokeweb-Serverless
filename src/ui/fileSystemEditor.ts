@@ -3,6 +3,7 @@ import "treeforge/styles/ui.css";
 import bw2NarcInfoText from "../assets/data/bw2_narc_info.txt?raw";
 import { NintendoDSRom } from "../nds/rom";
 import {
+  addRomFile,
   buildFileSystemSnapshot,
   downloadBytes,
   filenameForRef,
@@ -149,7 +150,7 @@ export async function renderFileSystemEditor(project: ProjectState, root: HTMLEl
       icons: { folder: "▸", file: "•" },
     },
     onFileOpen: (node: FileSystemTreeNode) => {
-      if (node.meta?.kind === "romFile" || node.meta?.kind === "narcFile") selectRef(node.meta);
+      if (node.meta?.kind === "romFile" || node.meta?.kind === "narcFile" || node.meta?.kind === "addedRomFile") selectRef(node.meta);
     },
   }) as TreeForgeInstance;
 
@@ -170,17 +171,18 @@ function renderDetail(
     return;
   }
   const dirty = !bytesEqual(cleanBytes, draftBytes);
-  const title = ref.kind === "romFile" ? ref.path : `${ref.parentPath} / ${filenameForRef(project, rom, ref)}`;
+  const title = ref.kind === "narcFile" ? `${ref.parentPath} / ${filenameForRef(project, rom, ref)}` : ref.path;
   const isNarcParent = ref.kind === "romFile" && Boolean(tryParseNarc(getNodeBytes(project, rom, ref)));
   const canNarcInsert = ref.kind === "narcFile" || isNarcParent;
   const targetIndex = ref.kind === "narcFile" ? ref.index : 0;
   const parentFileId = ref.kind === "narcFile" ? ref.parentFileId : ref.kind === "romFile" ? ref.fileId : -1;
+  const fileKindLabel = ref.kind === "romFile" ? `file id ${ref.fileId}` : ref.kind === "narcFile" ? `NARC entry ${ref.index}` : "new ROM file";
 
   root.innerHTML = `
     <div class="file-system-detail__header">
       <div>
         <h2>${escapeHtml(title)}</h2>
-        <p>${formatBytes(draftBytes.length)} · ${ref.kind === "romFile" ? `file id ${ref.fileId}` : `NARC entry ${ref.index}`}</p>
+        <p>${formatBytes(draftBytes.length)} · ${fileKindLabel}</p>
       </div>
       <div class="file-system-actions">
         <button class="btn -default" id="fs-export" type="button">Export</button>
@@ -228,6 +230,7 @@ function renderDetail(
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (ref.kind === "romFile") replaceRomFile(project, rom, ref.fileId, bytes);
     if (ref.kind === "narcFile") replaceNarcFile(project, rom, ref.parentFileId, ref.index, bytes);
+    if (ref.kind === "addedRomFile") addRomFile(project, ref.path, bytes);
     cleanBytes = bytes.slice();
     draftBytes = bytes.slice();
     pageOffset = Math.min(pageOffset, Math.max(0, draftBytes.length - 1));
@@ -259,6 +262,7 @@ function renderDetail(
   root.querySelector<HTMLButtonElement>("#fs-apply")?.addEventListener("click", () => {
     if (ref.kind === "romFile") replaceRomFile(project, rom, ref.fileId, draftBytes.slice());
     if (ref.kind === "narcFile") replaceNarcFile(project, rom, ref.parentFileId, ref.index, draftBytes.slice());
+    if (ref.kind === "addedRomFile") addRomFile(project, ref.path, draftBytes.slice());
     cleanBytes = draftBytes.slice();
     actions.onDirty();
     actions.refreshSnapshot();

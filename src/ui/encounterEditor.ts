@@ -12,6 +12,7 @@ import {
   getEncounterAutofills,
   getEncounterCount,
   getEncounterRecord,
+  syncEncountersToDexHabitats,
   type EncounterGroup,
   type EncounterKind,
   type EncounterRecord,
@@ -35,6 +36,10 @@ export function renderEncounterEditor(project: ProjectState, root: HTMLElement, 
       <div class="filter-title">Search</div>
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
+      <button class="btn -default encounter-habitat-sync" id="sync-habitats-btn" type="button" ${project.session.baseRom === "BW2" ? "" : "disabled"}>
+        Sync Encounters to Dex Habitats
+      </button>
+      <div class="encounter-sync-status" id="encounter-sync-status"></div>
       <div class="small-filters">Tip: You can right click a season icon to copy to other seasons</div>
     </div>
     <div class="pokemon-list spreadsheet" id="encounters">
@@ -55,6 +60,22 @@ export function renderEncounterEditor(project: ProjectState, root: HTMLElement, 
     renderRow: (encounterId) => renderEncounterRow(project, encounterId),
     renderPanel: (encounterId, season, group) => renderEncounterPanel(getEncounterRecord(project, encounterId), season, group),
   });
+
+  const syncButton = root.querySelector<HTMLButtonElement>("#sync-habitats-btn");
+  const syncStatus = root.querySelector<HTMLElement>("#encounter-sync-status");
+  syncButton?.addEventListener("click", async () => {
+    try {
+      syncButton.disabled = true;
+      if (syncStatus) syncStatus.textContent = "Syncing habitat list...";
+      const result = await syncEncountersToDexHabitats(project);
+      onDirty?.();
+      if (syncStatus) syncStatus.textContent = `Synced ${result.habitats} habitats with ${result.species} species entries.`;
+    } catch (error) {
+      if (syncStatus) syncStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      syncButton.disabled = project.session.baseRom !== "BW2";
+    }
+  });
 }
 
 export function renderEncounterRow(project: ProjectState, encounterId: number): string {
@@ -74,7 +95,8 @@ function renderEncounterCard(encounter: EncounterRecord): string {
         <div class="encounter-id">${encounter.id}</div>
         <div class="encounter-locations">${escapeHtml(encounter.locations.join(", "))}</div>
         <div class="encounter-wilds">
-          ${encounter.wilds.map((wild, index) => renderWild(wild, encounter.spriteSlugs[index])).join("")}
+          ${renderWildGroup("grass", "Grass", encounter.grassWilds, encounter.grassSpriteSlugs)}
+          ${renderWildGroup("water", "Water", encounter.waterWilds, encounter.waterSpriteSlugs)}
         </div>
         <div class="move-info expand-action expand-grass svg" data-expand="grass">${grassIcon}</div>
         <div class="move-info expand-action expand-water svg" data-expand="water">${waterIcon}</div>
@@ -128,7 +150,18 @@ function renderEncounterSlot(encounter: EncounterRecord, season: EncounterSeason
   `;
 }
 
-function renderWild(name: string, slug: string): string {
+function renderWildGroup(group: EncounterGroup, label: string, wilds: string[], slugs: string[]): string {
+  return `
+    <div class="encounter-wild-group -${group}">
+      <div class="encounter-wild-group-label">${escapeHtml(label)}</div>
+      <div class="encounter-wild-group-sprites">
+        ${wilds.length > 0 ? wilds.map((wild, index) => renderWild(wild, slugs[index])).join("") : `<div class="encounter-empty-wilds">None</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function renderWild(name: string, slug = "-"): string {
   const missingSprite = publicAsset("images/pokesprite/-.png");
   return `
     <div class="wild">

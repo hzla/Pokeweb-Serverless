@@ -5,6 +5,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import {
+  addRomFile,
   buildFileSystemSnapshot,
   fileSystemReplacementMap,
   insertNarcFiles,
@@ -39,6 +40,21 @@ describe("file system model", () => {
 
     expect([...rom.files[0]]).toEqual([1]);
     expect([...rom.files[1]]).toEqual([8, 7, 6]);
+  });
+
+  it("exports added ROM files and shows them in the filesystem tree", async () => {
+    const romBytes = makeRom([Uint8Array.of(1)], new Folder({ files: ["a.bin"] }));
+    const project = makeProject(romBytes);
+    addRomFile(project, "patches/Test.dll", Uint8Array.of(0xde, 0xad));
+
+    const snapshot = buildFileSystemSnapshot(project, romBytes);
+    expect(snapshot.pathRefs.get("patches/Test.dll")).toMatchObject({ kind: "addedRomFile" });
+
+    const exported = await exportModifiedRom(project);
+    const rom = new NintendoDSRom(exported);
+    expect(rom.fileId("patches/Test.dll")).toBe(1);
+    expect([...rom.getFileByName("patches/Test.dll")]).toEqual([0xde, 0xad]);
+    expect([...rom.files[0]]).toEqual([1]);
   });
 
   it("replaces, inserts, and appends NARC subfiles", () => {

@@ -1,5 +1,5 @@
 import { ByteLike, asUint8Array, readAscii, readU16, readU32, writeU16, writeU32 } from "./binary";
-import { Folder, loadFnt } from "./fnt";
+import { Folder, addFilePath, loadFnt, saveFnt } from "./fnt";
 import { Overlay, loadOverlayTable } from "./code";
 
 export type RomSaveOptions = {
@@ -7,6 +7,7 @@ export type RomSaveOptions = {
   arm9OverlayTable?: Uint8Array;
   arm7OverlayTable?: Uint8Array;
   files?: Map<number, Uint8Array>;
+  addedFiles?: Array<{ path: string; bytes: Uint8Array }>;
 };
 
 export class NintendoDSRom {
@@ -14,6 +15,7 @@ export class NintendoDSRom {
   name: string;
   idCode: string;
   arm9: Uint8Array;
+  arm9RamAddress: number;
   arm7: Uint8Array;
   arm9OverlayTable: Uint8Array;
   arm7OverlayTable: Uint8Array;
@@ -30,6 +32,7 @@ export class NintendoDSRom {
     this.idCode = readAscii(this.data, 12, 4);
 
     const arm9Offset = readU32(this.data, 0x20);
+    this.arm9RamAddress = readU32(this.data, 0x28);
     const arm9Length = readU32(this.data, 0x2c);
     const arm9OverlayOffset = readU32(this.data, 0x50);
     const arm9OverlayLength = readU32(this.data, 0x54);
@@ -76,6 +79,15 @@ export class NintendoDSRom {
 
   save(options: RomSaveOptions = {}): Uint8Array {
     const files = this.files.map((file, id) => options.files?.get(id) ?? file);
+    let fntData = this.fntData;
+    if (options.addedFiles && options.addedFiles.length > 0) {
+      let filenames = this.filenames;
+      for (const file of options.addedFiles) {
+        filenames = addFilePath(filenames, file.path, files.length);
+        files.push(file.bytes);
+      }
+      fntData = saveFnt(filenames);
+    }
     const headerSize = Math.max(readU32(this.data, 0x84) || 0x4000, 0x200);
     const writer = new RomWriter(Math.max(this.data.length, headerSize + files.reduce((sum, file) => sum + align(file.length, 0x200), 0)));
     writer.writeAt(0, this.data.subarray(0, Math.min(headerSize, this.data.length)));
@@ -93,7 +105,7 @@ export class NintendoDSRom {
     const arm9OverlayTable = writeSection(options.arm9OverlayTable ?? this.arm9OverlayTable);
     const arm7 = writeSection(this.arm7);
     const arm7OverlayTable = writeSection(options.arm7OverlayTable ?? this.arm7OverlayTable);
-    const fnt = writeSection(this.fntData);
+    const fnt = writeSection(fntData);
 
     const fatLength = files.length * 8;
     cursor = align(cursor, 0x200);

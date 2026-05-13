@@ -1,7 +1,8 @@
-import { BATTLE_TYPES, NATURES, TRAINER_AIS, TRAINER_GENDERS, type NarcName } from "./constants";
+import { BATTLE_TYPES, BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, NATURES, TRAINER_AIS, TRAINER_GENDERS, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
-import { getTrainerTextLines, type TrainerTextLine } from "./trainerTextModel";
+import { commitTextBank, getTextBank } from "./textModel";
+import { addTrainerTextFromTemplate, getTrainerTextLines, type TrainerTextLine } from "./trainerTextModel";
 import { publicAsset } from "../assetUrl";
 
 export type TrainerPokemonSlot = {
@@ -80,6 +81,44 @@ export function getTrainerAutofills(project: ProjectState): Record<string, strin
     genders: TRAINER_GENDERS,
     move_names: project.texts.banks.moves ?? [],
   };
+}
+
+export function addTrainer(project: ProjectState, templateTrainerId?: number): TrainerRecord {
+  const trdataStore = project.narcs.trdata;
+  const trpokStore = project.narcs.trpok;
+  if (!trdataStore || !trpokStore) throw new Error("Trainer data is not loaded");
+  const trainerId = trdataStore.fileCount;
+  const sourceTrainerId = resolveTemplateTrainerId(project, templateTrainerId);
+  const sourceTrdata = decodeRecord(project, "trdata", sourceTrainerId);
+  const sourceTrpok = decodeRecord(project, "trpok", sourceTrainerId);
+  if (!sourceTrdata.raw || !sourceTrpok.raw) throw new Error(`Unable to clone trainer ${sourceTrainerId}`);
+
+  const trdataBytes = (trdataStore.rawFiles[sourceTrainerId] ?? sourceTrdata.bytes ?? new Uint8Array(trdataRowLength(project))).slice();
+  const trpokBytes = (trpokStore.rawFiles[sourceTrainerId] ?? sourceTrpok.bytes ?? new Uint8Array()).slice();
+  const trdataRaw = cloneRawRecord(sourceTrdata.raw);
+  const trpokRaw = cloneRawRecord(sourceTrpok.raw);
+  const trpokInfo = {
+    template: Number(project.trpokInfo[sourceTrainerId]?.template ?? trdataRaw.template ?? 0),
+    numPokemon: Number(project.trpokInfo[sourceTrainerId]?.numPokemon ?? trdataRaw.num_pokemon ?? 0),
+  };
+
+  trdataStore.rawFiles.push(trdataBytes);
+  trdataStore.fileCount = trdataStore.rawFiles.length;
+  trdataStore.records.set(trainerId, { id: trainerId, bytes: trdataBytes, raw: trdataRaw, readable: {} });
+
+  trpokStore.rawFiles.push(trpokBytes);
+  trpokStore.fileCount = trpokStore.rawFiles.length;
+  trpokStore.records.set(trainerId, { id: trainerId, bytes: trpokBytes, raw: trpokRaw, readable: {} });
+  project.trpokInfo[trainerId] = trpokInfo;
+
+  appendTrainerName(project, trainerId);
+  addTrainerTextFromTemplate(project, trainerId, sourceTrainerId);
+  syncTrainerReadable(project, trainerId, trdataRaw, trdataStore.records.get(trainerId)!.readable!);
+  syncTrainerPokemonReadable(project, trainerId, trpokRaw, trpokStore.records.get(trainerId)!.readable!);
+  markDirty(project, "trdata", trainerId);
+  markDirty(project, "trpok", trainerId);
+
+  return getTrainerRecord(project, trainerId);
 }
 
 export function trainerMatchesSearch(record: TrainerRecord, searchText: string): boolean {
@@ -389,6 +428,39 @@ function syncTrainerPokemonReadable(project: ProjectState, trainerId: number, ra
       }
     }
   }
+}
+
+function resolveTemplateTrainerId(project: ProjectState, templateTrainerId?: number): number {
+  const count = getTrainerCount(project);
+  if (templateTrainerId !== undefined && Number.isInteger(templateTrainerId) && templateTrainerId >= 0 && templateTrainerId < count) return templateTrainerId;
+  return count > 1 ? 1 : 0;
+}
+
+function cloneRawRecord(raw: RawRecord): RawRecord {
+  return Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, Number(value)]));
+}
+
+function trdataRowLength(project: ProjectState): number {
+  return project.formats.trdata?.reduce((sum, [size]) => sum + size, 0) ?? 0;
+}
+
+function appendTrainerName(project: ProjectState, trainerId: number): void {
+  const names = project.texts.banks.tr_names ?? [];
+  while (names.length <= trainerId) names.push("Trainer");
+  names[trainerId] = "Trainer";
+  project.texts.banks.tr_names = names;
+
+  const bankId = trainerNameBankId(project);
+  if (bankId === undefined || !project.narcs.message_texts) return;
+  const bank = getTextBank(project, "message_texts", bankId);
+  while (bank.length <= trainerId) bank.push([`0_${bank.length}`, "Trainer", 0]);
+  bank[trainerId][1] = "Trainer";
+  commitTextBank(project, "message_texts", bankId);
+}
+
+function trainerNameBankId(project: ProjectState): number | undefined {
+  const mappings = project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
+  return mappings.find(([, name]) => name === "tr_names")?.[0];
 }
 
 function getPid(

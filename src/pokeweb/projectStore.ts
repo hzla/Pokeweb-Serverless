@@ -62,6 +62,7 @@ export type TextState = {
 export type DocGeneratorState = {
   romTitle: string;
   trainerLocations: Record<string, string[]>;
+  trainerDiffs: Record<string, number>;
   itemLocations: Record<string, string[]>;
   groundItemScriptMap: Record<string, number>;
 };
@@ -79,6 +80,25 @@ export type Map3dAreaEditState = Record<
 
 export type FileSystemEditState = {
   replacements: Record<number, Uint8Array>;
+  additions?: Record<string, Uint8Array>;
+};
+
+export type CodeInjectionState = {
+  pmc?: {
+    overlayId: number;
+    overlayBaseAddress?: number;
+    overlayPath: string;
+    version?: string;
+    gameId?: string;
+    symbolPath?: string;
+  };
+  modules?: Array<{
+    path: string;
+    target: "patches" | "lib";
+    fileName: string;
+    version?: string;
+    gameId?: string;
+  }>;
 };
 
 export type ProjectState = {
@@ -103,6 +123,7 @@ export type ProjectState = {
   docs?: DocGeneratorState;
   map3dAreaEdits?: Map3dAreaEditState;
   fileSystem?: FileSystemEditState;
+  codeInjection?: CodeInjectionState;
 };
 
 export function createNarcStore(name: NarcName, sourcePath: string, fileId: number, narc: NARC): NarcStore {

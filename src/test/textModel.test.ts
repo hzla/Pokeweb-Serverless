@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
-import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
+import { cleanDisplayText, decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
 import { addTextEntries, deleteLastTextEntries, getTextBank, updateTextEntry } from "../pokeweb/textModel";
 
 describe("Gen V text backend", () => {
@@ -26,6 +26,13 @@ describe("Gen V text backend", () => {
     malformed[12] = 16;
 
     expect(() => decodeGen5TextBank(malformed)).toThrow(/exceeds file size/u);
+  });
+
+  it("formats Pokemon and move display names without changing raw text", () => {
+    expect(cleanDisplayText("SWEET SCENT", true)).toBe("Sweet Scent");
+    expect(cleanDisplayText("MR. MIME", true)).toBe("Mr. Mime");
+    expect(cleanDisplayText("PORYGON-Z", true)).toBe("Porygon-Z");
+    expect(cleanDisplayText("SWEET SCENT", false)).toBe("SWEET SCENT");
   });
 
   it("updates text banks in memory, rebuilds bytes, adds and deletes entries, and marks dirty", () => {

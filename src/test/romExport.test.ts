@@ -25,6 +25,19 @@ describe("ROM export", () => {
     expect([...parsed.files[1]]).toEqual([9, 8, 7, 6, 5]);
   });
 
+  it("appends new named ROM files without shifting existing file IDs", () => {
+    const source = makeRom([Uint8Array.of(1), Uint8Array.of(2)]);
+    const rom = new NintendoDSRom(source);
+
+    const saved = rom.save({ addedFiles: [{ path: "lib/Patch.dll", bytes: Uint8Array.of(0xaa, 0xbb) }] });
+    const parsed = new NintendoDSRom(saved);
+
+    expect([...parsed.files[0]]).toEqual([1]);
+    expect([...parsed.files[1]]).toEqual([2]);
+    expect(parsed.fileId("lib/Patch.dll")).toBe(2);
+    expect([...parsed.getFileByName("lib/Patch.dll")]).toEqual([0xaa, 0xbb]);
+  });
+
   it("materializes aggregate header edits before NARC rebuild", async () => {
     const formats = getNarcFormats("BW2");
     const headerFormat = formats.headers;

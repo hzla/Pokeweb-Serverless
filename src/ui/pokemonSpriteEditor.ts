@@ -90,6 +90,7 @@ type SpriteEditorState = {
   gifFlipbookPackingMode: PokemonFlipbookPackingMode;
   gifFlipbookStrategy: PokemonFlipbookSamplingStrategy;
   gifFlipbookSpeedScale: number;
+  gifFlipbookDownscalePercent: number;
   gifLoopStartFrame: number;
   gifLoopEndFrame: number;
   gifLoopCount: number;
@@ -199,6 +200,7 @@ const ANIMATION_STEP_INTERVAL_STORAGE_KEY = "pokeweb.animationStepInterval";
 const GIF_FLIPBOOK_PACKING_MODE_STORAGE_KEY = "pokeweb.gifFlipbookPackingMode";
 const GIF_FLIPBOOK_STRATEGY_STORAGE_KEY = "pokeweb.gifFlipbookStrategy";
 const GIF_FLIPBOOK_SPEED_STORAGE_KEY = "pokeweb.gifFlipbookSpeedScale";
+const GIF_FLIPBOOK_DOWNSCALE_STORAGE_KEY = "pokeweb.gifFlipbookDownscalePercent";
 
 const state: SpriteEditorState = {
   variant: { kind: "sprite", side: "front", gender: "male" },
@@ -223,6 +225,7 @@ const state: SpriteEditorState = {
   gifFlipbookPackingMode: readGifFlipbookPackingModePreference(),
   gifFlipbookStrategy: readGifFlipbookStrategyPreference(),
   gifFlipbookSpeedScale: readGifFlipbookSpeedPreference(),
+  gifFlipbookDownscalePercent: readGifFlipbookDownscalePreference(),
   gifLoopStartFrame: 1,
   gifLoopEndFrame: 1,
   gifLoopCount: 1,
@@ -626,6 +629,7 @@ function installGifFlipbookImportEvents(
         includeFinish: singleConfig.includeFinish,
         maxAtlasTiles: singleConfig.maxAtlasTiles,
         durationScale: singleConfig.durationScale,
+        downscalePercent: singleConfig.downscalePercent,
       };
       const paletteKind = readGifFlipbookPaletteKind(root);
       const result = buildPairedPokemonFlipbookRigsFromGifs(
@@ -712,6 +716,13 @@ function installGifFlipbookImportEvents(
   root.querySelector<HTMLInputElement>("#gif-flipbook-speed-scale")?.addEventListener("change", (event) => {
     const next = normalizeGifFlipbookSpeedScale(Number((event.currentTarget as HTMLInputElement).value));
     applyGifFlipbookSpeedScale(project, root, spriteId, next, options, setStatus, true);
+  });
+  root.querySelector<HTMLInputElement>("#gif-flipbook-downscale-percent")?.addEventListener("change", (event) => {
+    const next = normalizeGifFlipbookDownscalePercent(Number((event.currentTarget as HTMLInputElement).value));
+    state.gifFlipbookDownscalePercent = next;
+    writeGifFlipbookDownscalePreference(next);
+    (event.currentTarget as HTMLInputElement).value = String(next);
+    setStatus(`Set GIF import downscale to ${next}%`);
   });
   root.querySelectorAll<HTMLInputElement>("[data-gif-loop-field]").forEach((input) => {
     input.addEventListener("change", () => {
@@ -1212,6 +1223,9 @@ function readGifFlipbookConfig(root: HTMLElement): PokemonFlipbookImportConfig {
   config.strategy = state.gifFlipbookStrategy;
   config.packingMode = state.gifFlipbookPackingMode;
   config.sourceFramePercent = clamp(Number(root.querySelector<HTMLInputElement>("#gif-flipbook-source-percent")?.value ?? config.sourceFramePercent), 1, 100);
+  config.downscalePercent = normalizeGifFlipbookDownscalePercent(Number(root.querySelector<HTMLInputElement>("#gif-flipbook-downscale-percent")?.value ?? state.gifFlipbookDownscalePercent));
+  state.gifFlipbookDownscalePercent = config.downscalePercent;
+  writeGifFlipbookDownscalePreference(config.downscalePercent);
   config.maxAtlasTiles = 512;
   config.durationScale = durationScaleForGifSpeed(state.gifFlipbookSpeedScale);
   const restLoop = root.querySelector<HTMLSelectElement>("#gif-flipbook-rest-loops")?.value ?? "auto";
@@ -3043,6 +3057,10 @@ function renderGifFlipbookImportControls(project: ProjectState, spriteId: number
           <span>Source %</span>
           <input id="gif-flipbook-source-percent" type="number" min="1" max="100" value="100">
         </label>
+        <label class="sprite-field">
+          <span>Scale %</span>
+          <input id="gif-flipbook-downscale-percent" type="number" min="5" max="100" step="5" value="${state.gifFlipbookDownscalePercent}">
+        </label>
         <label class="sprite-field gif-speed-field">
           <span>Speed <strong id="gif-flipbook-speed-label">${formatSpeedScale(state.gifFlipbookSpeedScale)}x</strong></span>
           <input id="gif-flipbook-speed-scale" type="range" min="0.1" max="4" step="0.1" value="${formatSpeedScale(state.gifFlipbookSpeedScale)}">
@@ -3207,7 +3225,7 @@ function renderLastGifImportStats(summary: GifImportSummary): string {
     <div>
       <span>Last Import</span>
       <strong>${report.maxOamsPerPose}</strong>
-      <small>${escapeHtml(summary.fileName)} ${summary.side}/${summary.paletteKind}; ${report.packingMode}, ${report.uniquePoseCount} pose(s), ${report.uniqueTileCount} tile(s), ${report.visibilityValidation.invisibleFrameCount} invisible</small>
+      <small>${escapeHtml(summary.fileName)} ${summary.side}/${summary.paletteKind}; ${report.packingMode}, ${report.uniquePoseCount} pose(s), ${report.uniqueTileCount} tile(s), ${report.downscalePercent}% scale, ${report.visibilityValidation.invisibleFrameCount} invisible</small>
       <small id="last-gif-speed-label">${formatSpeedScale(summary.speedScale)}x speed</small>
       ${warningText}
     </div>
@@ -4501,9 +4519,31 @@ function writeGifFlipbookSpeedPreference(value: number): void {
   }
 }
 
+function readGifFlipbookDownscalePreference(): number {
+  try {
+    if (typeof localStorage === "undefined") return 100;
+    return normalizeGifFlipbookDownscalePercent(Number(localStorage.getItem(GIF_FLIPBOOK_DOWNSCALE_STORAGE_KEY) ?? 100));
+  } catch {
+    return 100;
+  }
+}
+
+function writeGifFlipbookDownscalePreference(value: number): void {
+  try {
+    if (typeof localStorage !== "undefined") localStorage.setItem(GIF_FLIPBOOK_DOWNSCALE_STORAGE_KEY, String(normalizeGifFlipbookDownscalePercent(value)));
+  } catch {
+    // Storage can be unavailable in private contexts; the in-memory state still works.
+  }
+}
+
 function normalizeGifFlipbookSpeedScale(value: number): number {
   if (!Number.isFinite(value)) return 1;
   return Math.round(Math.max(0.1, Math.min(4, value)) * 10) / 10;
+}
+
+function normalizeGifFlipbookDownscalePercent(value: number): number {
+  if (!Number.isFinite(value)) return 100;
+  return clamp(Math.round(value), 5, 100);
 }
 
 function durationScaleForGifSpeed(speedScale: number): number {

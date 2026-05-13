@@ -199,6 +199,30 @@ describe("pokemonFlipbookRig", () => {
     expect(slow.report.uniqueTileCount).toBe(normal.report.uniqueTileCount);
   });
 
+  it("downscales frames before cropping and packing", () => {
+    const frames = [makeSizedFrame(0, 96, 96)];
+    fillRect(frames[0], 32, 32, 32, 32, [200, 80, 40, 255]);
+
+    const normal = buildPokemonFlipbookRigFromFrames(frames, {
+      ...defaultPokemonFlipbookImportConfig("front"),
+      packingMode: "mcss-safe",
+      strategy: "first-window",
+      maxUniqueFrames: 1,
+      downscalePercent: 100,
+    });
+    const half = buildPokemonFlipbookRigFromFrames(frames, {
+      ...defaultPokemonFlipbookImportConfig("front"),
+      packingMode: "mcss-safe",
+      strategy: "first-window",
+      maxUniqueFrames: 1,
+      downscalePercent: 50,
+    });
+
+    expect(half.report.downscalePercent).toBe(50);
+    expect(half.report.uniquePoseCount).toBe(normal.report.uniquePoseCount);
+    expect(half.report.uniqueTileCount).toBeLessThan(normal.report.uniqueTileCount);
+  });
+
   it("stores generated animation sidecars with the vanilla compression pattern", () => {
     const frames = Array.from({ length: 3 }, (_, index) => makeFrame(index));
     frames.forEach((frame, index) => fillRect(frame, 18 + index, 20, 12, 10, [200, 80, 40, 255]));

@@ -16,9 +16,18 @@ export type EncounterInteractionOptions = {
   renderRow: (encounterId: number) => string;
 };
 
+type EncounterOpenState = { group?: EncounterGroup; season?: EncounterSeason };
+type EncounterRootState = HTMLElement & {
+  __encounterOptions?: EncounterInteractionOptions;
+  __encounterProject?: ProjectState;
+  __encounterOpenState?: Map<number, EncounterOpenState>;
+};
+
 export function attachEncounterInteractions(root: HTMLElement, project: ProjectState, options: EncounterInteractionOptions): void {
-  (root as HTMLElement & { __encounterOptions?: EncounterInteractionOptions; __encounterProject?: ProjectState }).__encounterOptions = options;
-  (root as HTMLElement & { __encounterOptions?: EncounterInteractionOptions; __encounterProject?: ProjectState }).__encounterProject = project;
+  const stateRoot = root as EncounterRootState;
+  stateRoot.__encounterOptions = options;
+  stateRoot.__encounterProject = project;
+  stateRoot.__encounterOpenState = new Map();
   const searchInput = root.querySelector<HTMLInputElement>("#search-text");
   const searchButton = root.querySelector<HTMLButtonElement>("#search-text-btn");
   const runFilter = () => {
@@ -129,20 +138,22 @@ function replaceEncounterRow(
   card: HTMLElement,
   encounterId: number,
   options: EncounterInteractionOptions,
-  openState: { group?: EncounterGroup; season?: EncounterSeason } = {},
+  openState: EncounterOpenState = {},
 ): void {
+  const state = openState.group ? openState : getStoredOpenState(root, encounterId);
   card.outerHTML = options.renderRow(encounterId);
   const nextCard = root.querySelector<HTMLElement>(`.encounter-card[data-index="${encounterId}"]`);
   if (!nextCard) return;
   installEditableFields(nextCard, project, options);
-  if (openState.group) {
-    const icon = nextCard.querySelector<HTMLElement>(`.expand-${openState.group}`);
+  if (state.group) {
+    const icon = nextCard.querySelector<HTMLElement>(`.expand-${state.group}`);
     if (icon) {
       icon.classList.add("-active");
       nextCard.querySelector<HTMLElement>(".expanded-tab-icons")?.classList.add("show-flex");
-      const season = openState.season ?? "spring";
-      ensureEncounterPanel(nextCard, encounterId, season, openState.group, options)?.classList.add("show-flex");
+      const season = state.season ?? "spring";
+      ensureEncounterPanel(nextCard, encounterId, season, state.group, options)?.classList.add("show-flex");
       nextCard.querySelector<HTMLElement>(`.season-icon[data-show='${season}']`)?.classList.add("-active");
+      rememberOpenState(root, encounterId, { group: state.group, season });
     }
   }
   stripeEncounterRows(root);
@@ -163,7 +174,10 @@ function toggleEncounterGroup(card: HTMLElement, icon: HTMLElement, group: Encou
     icon.classList.add("-active");
     card.querySelector<HTMLElement>(".expanded-tab-icons")?.classList.add("show-flex");
     card.querySelector<HTMLElement>(".season-icon[data-show='spring']")?.classList.add("-active");
+    rememberOpenState(card, encounterId, { group, season: "spring" });
     scrollRowBelowStickyHeader(card);
+  } else {
+    clearOpenState(card, encounterId);
   }
 }
 
@@ -176,6 +190,7 @@ function showEncounterSeason(card: HTMLElement, season: EncounterSeason): void {
   ensureEncounterPanel(card, encounterId, season, group, getOptions(card))?.classList.add("show-flex");
   card.querySelectorAll<HTMLElement>(".season-icon").forEach((item) => item.classList.remove("-active"));
   card.querySelector<HTMLElement>(`.season-icon[data-show='${season}']`)?.classList.add("-active");
+  rememberOpenState(card, encounterId, { group, season });
 }
 
 function ensureEncounterPanel(
@@ -194,20 +209,47 @@ function ensureEncounterPanel(
 }
 
 function getOptions(card: HTMLElement): EncounterInteractionOptions {
-  return (card.closest<HTMLElement>("#content-container") as HTMLElement & { __encounterOptions?: EncounterInteractionOptions }).__encounterOptions!;
+  return getStateRoot(card).__encounterOptions!;
 }
 
 function getProject(card: HTMLElement): ProjectState {
-  return (card.closest<HTMLElement>("#content-container") as HTMLElement & { __encounterProject?: ProjectState }).__encounterProject!;
+  return getStateRoot(card).__encounterProject!;
 }
 
-function getOpenState(card: HTMLElement, fallbackSeason?: EncounterSeason): { group?: EncounterGroup; season?: EncounterSeason } {
-  const group = card.querySelector<HTMLElement>(".expand-action.-active")?.dataset.expand as EncounterGroup | undefined;
+function getOpenState(card: HTMLElement, fallbackSeason?: EncounterSeason): EncounterOpenState {
+  const encounterId = Number(card.dataset.index);
+  const storedState = Number.isInteger(encounterId) ? getStoredOpenState(card, encounterId) : {};
+  const group =
+    (card.querySelector<HTMLElement>(".expand-action.-active")?.dataset.expand as EncounterGroup | undefined) ??
+    storedState.group;
   const season =
     (card.querySelector<HTMLElement>(".season-icon.-active")?.dataset.show as EncounterSeason | undefined) ??
     fallbackSeason ??
+    storedState.season ??
     undefined;
   return { group, season };
+}
+
+function getStateRoot(element: HTMLElement): EncounterRootState {
+  return element.closest<HTMLElement>("#content-container") as EncounterRootState;
+}
+
+function getOpenStateMap(element: HTMLElement): Map<number, EncounterOpenState> {
+  const root = getStateRoot(element);
+  root.__encounterOpenState ??= new Map();
+  return root.__encounterOpenState;
+}
+
+function rememberOpenState(element: HTMLElement, encounterId: number, state: Required<EncounterOpenState>): void {
+  getOpenStateMap(element).set(encounterId, state);
+}
+
+function getStoredOpenState(element: HTMLElement, encounterId: number): EncounterOpenState {
+  return getOpenStateMap(element).get(encounterId) ?? {};
+}
+
+function clearOpenState(element: HTMLElement, encounterId: number): void {
+  getOpenStateMap(element).delete(encounterId);
 }
 
 function stripeEncounterRows(root: HTMLElement): void {

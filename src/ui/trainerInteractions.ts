@@ -1,4 +1,5 @@
 import {
+  addTrainer,
   getTrainerRecord,
   trainerMatchesSearch,
   updateTrainerField,
@@ -33,6 +34,27 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
 
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+    if (target.closest("#add-trainer-btn")) {
+      try {
+        const openTrainer = root.querySelector<HTMLElement>("#trainers .trainer-card .expanded-trainer.show-flex")?.closest<HTMLElement>(".trainer-card");
+        const selectedTrainerId = openTrainer ? Number(openTrainer.dataset.index) : undefined;
+        const trainer = addTrainer(project, selectedTrainerId);
+        const trainers = root.querySelector<HTMLElement>("#trainers");
+        trainers?.insertAdjacentHTML("beforeend", options.renderRow(trainer.id));
+        const nextCard = root.querySelector<HTMLElement>(`.trainer-card[data-index="${trainer.id}"]`);
+        if (nextCard) {
+          installEditableFields(nextCard, project, options);
+          scrollRowBelowStickyHeader(nextCard);
+        }
+        filterTrainers(root, project, searchInput?.value ?? "");
+        stripeRows(root);
+        options.onDirty?.();
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      }
+      return;
+    }
+
     const card = target.closest<HTMLElement>(".trainer-card");
     const trainerId = Number(card?.dataset.index);
     if (!card || !Number.isInteger(trainerId)) return;

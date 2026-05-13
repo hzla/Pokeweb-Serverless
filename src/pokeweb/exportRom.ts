@@ -5,7 +5,8 @@ import type { NarcName } from "./constants";
 import { loadActiveRomBytes } from "./persistence";
 import { materializeMap3dAreaEdits } from "./map3dModel";
 import { materializeProjectEdits } from "./projectMaterialize";
-import { fileSystemReplacementMap } from "./fileSystemModel";
+import { fileSystemAddedFiles, fileSystemReplacementMap } from "./fileSystemModel";
+import { buildCodeInjectionOverlayTable } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -32,11 +33,13 @@ export async function exportModifiedRom(project: ProjectState): Promise<Uint8Arr
   }
   materializeMap3dAreaEdits(project, rom, fileReplacements);
 
-  const arm9OverlayTable = patchOverlayFiles(project, rom, fileReplacements);
+  const patchedOverlayTable = patchOverlayFiles(project, rom, fileReplacements);
+  const arm9OverlayTable = buildCodeInjectionOverlayTable(project, rom, patchedOverlayTable ?? rom.arm9OverlayTable) ?? patchedOverlayTable;
   const out = rom.save({
     arm9: project.tms?.dirty || project.arm9Dirty ? project.arm9 : undefined,
     arm9OverlayTable,
     files: fileReplacements,
+    addedFiles: fileSystemAddedFiles(project),
   });
   return out;
 }
@@ -45,6 +48,7 @@ function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplac
   const overlayReplacements = new Map<number, Uint8Array>();
   patchOverlayBackedStore(project, "grotto_odds", 36, overlayReplacements);
   patchOverlayBackedStore(project, "move_effects_table", 167, overlayReplacements);
+  patchOverlayBackedStore(project, "type_chart", 167, overlayReplacements);
   if (overlayReplacements.size === 0) return undefined;
 
   const table = rom.arm9OverlayTable.slice();
@@ -79,5 +83,6 @@ function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayI
 function overlayTableOffset(project: ProjectState, name: NarcName): number | undefined {
   if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
   if (name === "move_effects_table") return project.session.fairy ? 0x00040974 : 0x000407f4;
+  if (name === "type_chart") return 0x0003dc40;
   return undefined;
 }

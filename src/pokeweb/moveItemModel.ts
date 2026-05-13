@@ -53,6 +53,7 @@ export const ITEM_EXPANDED_FIELDS = [
     [255, "def_spatk_boost"],
     [255, "spd_spdef_boost"],
     [255, "acc_crit_pp_boost"],
+    [65535, "pp_flags"],
     [255, "hp_ev_gain"],
     [255, "atk_ev_gain"],
     [255, "def_ev_gain"],
@@ -72,6 +73,103 @@ export const ITEM_EXPANDED_FIELDS = [
     [255, "unknown_flag_1"],
   ],
 ] as const;
+
+export const ITEM_FIELD_LABELS: Record<string, string> = {
+  item_type: "Item Type",
+  gain_values: "Battle Effect Param",
+  item_group: "Field Use Function",
+  battle_item_group: "Battle Use Function",
+  type_attribute: "Nature Gift / Pocket Flags",
+  name_order_id: "Sort Order ID",
+  nature_gift_power: "Natural Gift Power",
+  battle_happiness: "Low Friendship Gain",
+  ow_happiness: "Mid Friendship Gain",
+  hold_happiness: "High Friendship Gain",
+  hp_atk_boost: "Revive / Attack Boost",
+  def_spatk_boost: "Defense / Sp. Atk Boost",
+  spd_spdef_boost: "Sp. Def / Speed Boost",
+  acc_crit_pp_boost: "Accuracy / Crit / PP Up",
+  pp_flags: "Recovery / EV / Friendship Flags",
+  hp_ev_gain: "HP EV Gain",
+  atk_ev_gain: "Attack EV Gain",
+  def_ev_gain: "Defense EV Gain",
+  spd_ev_gain: "Speed EV Gain",
+  spatk_ev_gain: "Sp. Atk EV Gain",
+  spdef_ev_gain: "Sp. Def EV Gain",
+  hp_gain: "HP Recovery Amount",
+  pp_gain: "PP Recovery Amount",
+  battle_flags: "Held Effect ID",
+  berry_flags: "Pluck Effect ID",
+  held_flags: "Fling Effect ID",
+  usability_flag: "Work Type",
+  consumable_flag: "Consumed On Use",
+  status_removal_flag: "Status / Use Flags",
+  unknown_flag_1: "Fling Power",
+};
+
+export type ItemPackedPart = {
+  key: string;
+  label: string;
+  offset: number;
+  size: number;
+  kind: "checkbox" | "number";
+};
+
+export const ITEM_PACKED_FIELDS: Record<string, readonly ItemPackedPart[]> = {
+  type_attribute: [
+    { key: "natural_gift_type", label: "Natural Gift Type", offset: 0, size: 5, kind: "number" },
+    { key: "important_item", label: "Key/Important Item", offset: 5, size: 1, kind: "checkbox" },
+    { key: "register_button", label: "Register Button", offset: 6, size: 1, kind: "checkbox" },
+    { key: "field_pocket", label: "Field Pocket", offset: 7, size: 4, kind: "number" },
+    { key: "battle_pocket", label: "Battle Pocket", offset: 11, size: 5, kind: "number" },
+  ],
+  status_removal_flag: [
+    { key: "sleep", label: "Cures Sleep", offset: 0, size: 1, kind: "checkbox" },
+    { key: "poison", label: "Cures Poison", offset: 1, size: 1, kind: "checkbox" },
+    { key: "burn", label: "Cures Burn", offset: 2, size: 1, kind: "checkbox" },
+    { key: "freeze", label: "Cures Freeze", offset: 3, size: 1, kind: "checkbox" },
+    { key: "paralysis", label: "Cures Paralysis", offset: 4, size: 1, kind: "checkbox" },
+    { key: "confusion", label: "Cures Confusion", offset: 5, size: 1, kind: "checkbox" },
+    { key: "infatuation", label: "Cures Infatuation", offset: 6, size: 1, kind: "checkbox" },
+    { key: "ability_guard", label: "Ability Guard", offset: 7, size: 1, kind: "checkbox" },
+  ],
+  hp_atk_boost: [
+    { key: "revive", label: "Revives Fainted Pokemon", offset: 0, size: 1, kind: "checkbox" },
+    { key: "revive_all", label: "Revives All Fainted Pokemon", offset: 1, size: 1, kind: "checkbox" },
+    { key: "level_up", label: "Level Up", offset: 2, size: 1, kind: "checkbox" },
+    { key: "evolution", label: "Evolution Stone", offset: 3, size: 1, kind: "checkbox" },
+    { key: "attack_boost", label: "Attack Boost Stages", offset: 4, size: 4, kind: "number" },
+  ],
+  def_spatk_boost: [
+    { key: "defense_boost", label: "Defense Boost Stages", offset: 0, size: 4, kind: "number" },
+    { key: "sp_atk_boost", label: "Sp. Atk Boost Stages", offset: 4, size: 4, kind: "number" },
+  ],
+  spd_spdef_boost: [
+    { key: "sp_def_boost", label: "Sp. Def Boost Stages", offset: 0, size: 4, kind: "number" },
+    { key: "speed_boost", label: "Speed Boost Stages", offset: 4, size: 4, kind: "number" },
+  ],
+  acc_crit_pp_boost: [
+    { key: "accuracy_boost", label: "Accuracy Boost Stages", offset: 0, size: 4, kind: "number" },
+    { key: "critical_boost", label: "Critical Boost Stages", offset: 4, size: 2, kind: "number" },
+    { key: "pp_up", label: "PP Up", offset: 6, size: 1, kind: "checkbox" },
+    { key: "pp_max", label: "PP Max", offset: 7, size: 1, kind: "checkbox" },
+  ],
+  pp_flags: [
+    { key: "pp_recovery", label: "Restores PP", offset: 0, size: 1, kind: "checkbox" },
+    { key: "all_pp_recovery", label: "Restores All Moves PP", offset: 1, size: 1, kind: "checkbox" },
+    { key: "hp_recovery", label: "Restores HP", offset: 2, size: 1, kind: "checkbox" },
+    { key: "hp_ev", label: "Raises HP EV", offset: 3, size: 1, kind: "checkbox" },
+    { key: "attack_ev", label: "Raises Attack EV", offset: 4, size: 1, kind: "checkbox" },
+    { key: "defense_ev", label: "Raises Defense EV", offset: 5, size: 1, kind: "checkbox" },
+    { key: "speed_ev", label: "Raises Speed EV", offset: 6, size: 1, kind: "checkbox" },
+    { key: "sp_atk_ev", label: "Raises Sp. Atk EV", offset: 7, size: 1, kind: "checkbox" },
+    { key: "sp_def_ev", label: "Raises Sp. Def EV", offset: 8, size: 1, kind: "checkbox" },
+    { key: "ev_limit_check", label: "Checks EV Limit", offset: 9, size: 1, kind: "checkbox" },
+    { key: "friendship_low", label: "Applies Low Friendship Gain", offset: 10, size: 1, kind: "checkbox" },
+    { key: "friendship_mid", label: "Applies Mid Friendship Gain", offset: 11, size: 1, kind: "checkbox" },
+    { key: "friendship_high", label: "Applies High Friendship Gain", offset: 12, size: 1, kind: "checkbox" },
+  ],
+};
 
 export type MoveRecord = {
   id: number;
@@ -209,6 +307,24 @@ export function updateItemField(project: ProjectState, itemId: number, field: st
   record.readable[field] = value;
   markDirty(project, "items", itemId);
   return { value, rawValue: value };
+}
+
+export function updateItemPackedField(project: ProjectState, itemId: number, field: string, partKey: string, inputValue: string | boolean): FieldUpdateResult {
+  const record = getItemRecord(project, itemId);
+  const part = ITEM_PACKED_FIELDS[field]?.find((item) => item.key === partKey);
+  const max = itemIntegerMax(field);
+  if (!part || max === undefined) throw new Error(`Unsupported item packed field: ${field}.${partKey}`);
+
+  const partMax = (1 << part.size) - 1;
+  const nextPartValue = part.kind === "checkbox" ? (inputValue ? 1 : 0) : parseInteger(String(inputValue).trim(), 0, partMax, partKey);
+  const current = Number(record.raw[field] ?? 0);
+  const mask = partMax << part.offset;
+  const rawValue = (current & ~mask) | (nextPartValue << part.offset);
+
+  record.raw[field] = rawValue;
+  record.readable[field] = rawValue;
+  markDirty(project, "items", itemId);
+  return { value: rawValue, rawValue };
 }
 
 export function moveMatchesSearch(record: MoveRecord, searchText: string, categories: Set<string>, types: Set<string>): boolean {
