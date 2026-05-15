@@ -23,12 +23,33 @@
 }
 
 .encounter-sync-status {
-  color: #8be9fd;
+  border-radius: 6px;
+  color: #cfcfd8;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.35;
   margin-top: 10px;
   min-height: 36px;
+  padding: 8px;
+}
+
+.encounter-sync-status:empty {
+  display: none;
+}
+
+.encounter-sync-status.-busy {
+  background: rgba(139, 233, 253, 0.14);
+  color: #8be9fd;
+}
+
+.encounter-sync-status.-success {
+  background: rgba(26, 188, 156, 0.18);
+  color: #7ee7cf;
+}
+
+.encounter-sync-status.-error {
+  background: rgba(255, 85, 85, 0.18);
+  color: #ffb3b3;
 }
 
 .encounter-locations {

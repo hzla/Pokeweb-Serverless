@@ -36,10 +36,7 @@ export function renderEncounterEditor(project: ProjectState, root: HTMLElement, 
       <div class="filter-title">Search</div>
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
-      <button class="btn -default encounter-habitat-sync" id="sync-habitats-btn" type="button" ${project.session.baseRom === "BW2" ? "" : "disabled"}>
-        Sync Encounters to Dex Habitats
-      </button>
-      <div class="encounter-sync-status" id="encounter-sync-status"></div>
+      ${renderHabitatSyncControls(project)}
       <div class="small-filters">Tip: You can right click a season icon to copy to other seasons</div>
     </div>
     <div class="pokemon-list spreadsheet" id="encounters">
@@ -63,19 +60,43 @@ export function renderEncounterEditor(project: ProjectState, root: HTMLElement, 
 
   const syncButton = root.querySelector<HTMLButtonElement>("#sync-habitats-btn");
   const syncStatus = root.querySelector<HTMLElement>("#encounter-sync-status");
+  const defaultSyncLabel = syncButton?.textContent?.trim() || "Sync Encounters to Dex Habitats";
   syncButton?.addEventListener("click", async () => {
     try {
       syncButton.disabled = true;
-      if (syncStatus) syncStatus.textContent = "Syncing habitat list...";
+      syncButton.textContent = "Syncing habitats...";
+      setSyncStatus(syncStatus, "Syncing habitat list...", "busy");
       const result = await syncEncountersToDexHabitats(project);
       onDirty?.();
-      if (syncStatus) syncStatus.textContent = `Synced ${result.habitats} habitats with ${result.species} species entries.`;
+      syncButton.textContent = "Habitats synced";
+      setSyncStatus(syncStatus, `Synced ${result.habitats} habitats with ${result.species} species entries. Export the ROM to keep the change.`, "success");
     } catch (error) {
-      if (syncStatus) syncStatus.textContent = error instanceof Error ? error.message : String(error);
+      syncButton.textContent = "Sync failed";
+      setSyncStatus(syncStatus, error instanceof Error ? error.message : String(error), "error");
     } finally {
-      syncButton.disabled = project.session.baseRom !== "BW2";
+      syncButton.disabled = false;
+      window.setTimeout(() => {
+        if (syncButton.textContent !== "Syncing habitats...") syncButton.textContent = defaultSyncLabel;
+      }, 2500);
     }
   });
+}
+
+function renderHabitatSyncControls(project: ProjectState): string {
+  if (project.session.baseRom !== "BW2") return "";
+  return `
+    <button class="btn -default encounter-habitat-sync" id="sync-habitats-btn" type="button">
+      Sync Encounters to Dex Habitats
+    </button>
+    <div class="encounter-sync-status" id="encounter-sync-status" role="status" aria-live="polite"></div>
+  `;
+}
+
+function setSyncStatus(status: HTMLElement | null, message: string, state: "busy" | "success" | "error"): void {
+  if (!status) return;
+  status.textContent = message;
+  status.classList.remove("-busy", "-success", "-error");
+  status.classList.add(`-${state}`);
 }
 
 export function renderEncounterRow(project: ProjectState, encounterId: number): string {
