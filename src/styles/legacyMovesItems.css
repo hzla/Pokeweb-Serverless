@@ -28,6 +28,17 @@
   justify-content: center;
 }
 
+.tm-sync-status {
+  color: #aeb7ca;
+  font-size: 12px;
+  min-height: 16px;
+  text-align: center;
+}
+
+.tm-sync-status.-error {
+  color: #ff7b7b;
+}
+
 .move-filter .cat-filters .btn-3.-default {
   align-items: center;
   background: #f2f2f2;

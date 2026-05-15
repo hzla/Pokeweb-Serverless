@@ -7,6 +7,7 @@ import { materializeMap3dAreaEdits } from "./map3dModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { fileSystemAddedFiles, fileSystemReplacementMap } from "./fileSystemModel";
 import { buildCodeInjectionOverlayTable } from "./pmcModel";
+import { getDirtyStarterOverlayIds } from "./starterModel";
 import type { ProjectState } from "./projectStore";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -49,6 +50,10 @@ function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplac
   patchOverlayBackedStore(project, "grotto_odds", 36, overlayReplacements);
   patchOverlayBackedStore(project, "move_effects_table", 167, overlayReplacements);
   patchOverlayBackedStore(project, "type_chart", 167, overlayReplacements);
+  for (const overlayId of getDirtyStarterOverlayIds(project)) {
+    const overlay = project.overlays[overlayId];
+    if (overlay) overlayReplacements.set(overlayId, overlay);
+  }
   if (overlayReplacements.size === 0) return undefined;
 
   const table = rom.arm9OverlayTable.slice();

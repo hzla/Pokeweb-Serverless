@@ -1,5 +1,6 @@
 import { readAscii, readU32, writeU32 } from "../nds/binary";
 import { NintendoDSRom } from "../nds/rom";
+import { recordGenericChange } from "./actionChangelog";
 import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
@@ -100,6 +101,10 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
     gameId,
     symbolPath: PMC_SYMBOL_PATH,
   };
+
+  recordGenericChange(project, "code_injection", `PMC installed into overlay ${overlayId}${version ? ` (${version})` : ""}.`, "PMC", {
+    key: "code-injection:pmc",
+  });
 
   return { overlayId, overlayBaseAddress, version, gameId, symbolPath: PMC_SYMBOL_PATH };
 }

@@ -1,5 +1,6 @@
 import commandMacros from "../assets/data/B2W2_MOVSCRCMD.s?raw";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { recordGenericChange } from "./actionChangelog";
 import type { NarcName } from "./constants";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 
@@ -105,6 +106,9 @@ export function updateMoveAnimationScript(project: ProjectState, moveId: number,
   target.store.rawFiles[target.index] = bytes;
   target.store.records.delete(target.index);
   markDirty(project, target.storeName, target.index);
+  recordGenericChange(project, "move_animations", `Move animation script ${moveId} changed.`, moveAnimationSubject(project, moveId), {
+    key: `move-animation:${moveId}`,
+  });
   return bytes;
 }
 
@@ -119,6 +123,13 @@ export function copyMoveAnimationScript(project: ProjectState, moveId: number, s
   target.store.rawFiles[target.index] = source.slice();
   target.store.records.delete(target.index);
   markDirty(project, target.storeName, target.index);
+  recordGenericChange(project, "move_animations", `Move animation script ${moveId} copied from animation ${sourceAnimationId}.`, moveAnimationSubject(project, moveId), {
+    key: `move-animation-copy:${moveId}`,
+  });
+}
+
+function moveAnimationSubject(project: ProjectState, moveId: number): string {
+  return project.texts.banks.moves?.[moveId] ?? `Move ${moveId}`;
 }
 
 function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMissing: true): AnimationTarget;

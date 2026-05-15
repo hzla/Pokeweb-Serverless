@@ -39,6 +39,7 @@ describe("moveItemModel", () => {
     expect(move.readable.sound_move).toBe(1);
     expect(project.narcs.moves?.dirty.has(1)).toBe(true);
     expect(moveMatchesSearch(move, "tackle", new Set(["special"]), new Set(["fire"]))).toBe(true);
+    expect(project.actionChangelog?.entries.some((entry) => entry.domain === "moves" && entry.text.includes("Tackle power changed from 40 to 90."))).toBe(true);
   });
 
   it("updates item numeric fields and rejects out-of-range values", () => {
@@ -52,6 +53,7 @@ describe("moveItemModel", () => {
     expect(item.raw.market_value).toBe(500);
     expect(item.raw.item_type).toBe(12);
     expect(project.narcs.items?.dirty.has(1)).toBe(true);
+    expect(project.actionChangelog?.entries.some((entry) => entry.domain === "items" && entry.text.includes("Potion market value changed from 300 to 500."))).toBe(true);
     expect(() => updateItemField(project, 1, "market_value", "70000")).toThrow(/between 0 and 65535/u);
   });
 

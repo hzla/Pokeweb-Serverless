@@ -46,6 +46,7 @@ describe("Gen V text backend", () => {
     expect(getTextBank(project, "message_texts", 0)[1][1]).toBe("Edited\\nLine");
     expect(decodeGen5TextBank(project.narcs.message_texts!.rawFiles[0])[1][1]).toBe("Edited\\nLine");
     expect(project.narcs.message_texts?.dirty.has(0)).toBe(true);
+    expect(project.actionChangelog?.entries.some((entry) => entry.domain === "message_texts" && entry.text.includes("Text Bank 0 entry 1 changed from World to Edited\\nLine."))).toBe(true);
 
     addTextEntries(project, "message_texts", 0, 2);
     expect(getTextBank(project, "message_texts", 0).map((entry) => entry[0])).toEqual(["0_0", "0_1", "0_2", "0_3"]);

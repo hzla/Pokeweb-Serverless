@@ -1,6 +1,7 @@
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { loadActiveRomBytes } from "./persistence";
 import type { BaseRom } from "./constants";
 import type { HeaderRow } from "./headerModel";
@@ -415,6 +416,9 @@ class Map3dLoader {
       container.files[1] = editedTerrain;
       store.rawFiles[chunkId] = packGameFreakContainer(container.signature, container.files);
       markDirty(project, "maps", chunkId);
+      recordGenericChange(project, "maps3d", `${chunkEdits.length} permission tile${chunkEdits.length === 1 ? "" : "s"} changed in chunk ${chunkId}.`, `3D map chunk ${chunkId}`, {
+        key: `map3d-permissions:${chunkId}`,
+      });
     }
   }
 
@@ -598,7 +602,14 @@ export function updateMap3dZoneMetadata(
     updateHeaderField(project, before.rowId, headerField, String(value));
   }
   map3dLoader.clearCache(zoneId);
-  return getMap3dZoneMetadata(project, zoneId);
+  const after = getMap3dZoneMetadata(project, zoneId);
+  for (const [field] of fields) {
+    if (updates[field] === undefined) continue;
+    recordFieldChange(project, "maps3d", `3D map zone ${zoneId}`, map3dFieldLabel(field), before[field], after[field], {
+      key: `map3d-zone:${zoneId}:${field}`,
+    });
+  }
+  return after;
 }
 
 export function updateMap3dAreaMetadata(project: ProjectState, areaId: number, current: Map3dAreaMetadata, updates: Partial<Map3dAreaMetadata>): Map3dAreaMetadata {
@@ -612,6 +623,11 @@ export function updateMap3dAreaMetadata(project: ProjectState, areaId: number, c
   project.map3dAreaEdits ??= {};
   project.map3dAreaEdits[String(areaId)] = next;
   map3dLoader.clearCache();
+  for (const field of Object.keys(updates) as Array<keyof Map3dAreaMetadata>) {
+    recordFieldChange(project, "maps3d", `3D map area ${areaId}`, map3dFieldLabel(field), current[field], next[field], {
+      key: `map3d-area:${areaId}:${field}`,
+    });
+  }
   return next;
 }
 
@@ -734,6 +750,10 @@ export function writeAreaHeader(data: Uint8Array, offset: number, area: Map3dAre
   data[offset + 4] = area.srtAnimeIdx & 0xff;
   data[offset + 5] = area.patAnimeIdx & 0xff;
   data[offset + 6] = area.isExterior ? 1 : 0;
+}
+
+function map3dFieldLabel(field: string | number | symbol): string {
+  return String(field).replace(/([a-z0-9])([A-Z])/gu, "$1 $2").replace(/_/gu, " ").toLowerCase();
 }
 
 export function parseMapReplaceTable(data: Uint8Array): MapReplaceEntry[] {

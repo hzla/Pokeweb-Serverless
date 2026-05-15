@@ -1,5 +1,6 @@
 import effectsText from "../assets/data/effects.txt?raw";
 import resultEffectsText from "../assets/data/result_effects.txt?raw";
+import { recordFieldChange } from "./actionChangelog";
 import { CATEGORIES, EFFECT_CATEGORIES, PROPERTIES, STATS, STATUSES, TARGETS, TYPES } from "./constants";
 import { copyMoveAnimationScript } from "./moveAnimationModel";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
@@ -227,6 +228,8 @@ export function getMoveAutofills(): Record<string, string[]> {
 
 export function updateMoveField(project: ProjectState, moveId: number, field: string, inputValue: string | boolean): FieldUpdateResult {
   const record = getMoveRecord(project, moveId);
+  const originalField = field;
+  const before = record.readable[field];
   const value = typeof inputValue === "boolean" ? inputValue : inputValue.trim();
   let rawValue: number;
   let displayValue: string | number;
@@ -269,6 +272,7 @@ export function updateMoveField(project: ProjectState, moveId: number, field: st
     record.raw.hits = rawValue;
     record.readable.min_hits = minHits;
     record.readable.max_hits = maxHits;
+    recordFieldChange(project, "moves", moveName(project, moveId), moveFieldLabel(originalField), before, next, { key: `move:${moveId}:${originalField}` });
     markDirty(project, "moves", moveId);
     return { value: next, rawValue };
   } else if ((PROPERTIES as readonly string[]).includes(field)) {
@@ -284,6 +288,7 @@ export function updateMoveField(project: ProjectState, moveId: number, field: st
     rawValue = parseInteger(String(value), 0, 65535, field);
     copyMoveAnimationScript(project, moveId, rawValue);
     record.readable.animation = rawValue;
+    recordFieldChange(project, "moves", moveName(project, moveId), "animation", before, rawValue, { key: `move:${moveId}:animation` });
     return { value: rawValue, rawValue };
   } else {
     const max = moveIntegerMax(field);
@@ -294,23 +299,27 @@ export function updateMoveField(project: ProjectState, moveId: number, field: st
 
   record.raw[field] = rawValue;
   syncMoveReadable(project, record.raw, record.readable, moveId);
+  recordFieldChange(project, "moves", moveName(project, moveId), moveFieldLabel(originalField), before, displayValue, { key: `move:${moveId}:${originalField}` });
   markDirty(project, "moves", moveId);
   return { value: displayValue, rawValue };
 }
 
 export function updateItemField(project: ProjectState, itemId: number, field: string, inputValue: string): FieldUpdateResult {
   const record = getItemRecord(project, itemId);
+  const before = record.readable[field];
   const max = itemIntegerMax(field);
   if (max === undefined) throw new Error(`Unsupported item field: ${field}`);
   const value = parseInteger(inputValue.trim(), 0, max, field);
   record.raw[field] = value;
   record.readable[field] = value;
+  recordFieldChange(project, "items", itemName(project, itemId), itemFieldLabel(field), before, value, { key: `item:${itemId}:${field}` });
   markDirty(project, "items", itemId);
   return { value, rawValue: value };
 }
 
 export function updateItemPackedField(project: ProjectState, itemId: number, field: string, partKey: string, inputValue: string | boolean): FieldUpdateResult {
   const record = getItemRecord(project, itemId);
+  const before = record.readable[field];
   const part = ITEM_PACKED_FIELDS[field]?.find((item) => item.key === partKey);
   const max = itemIntegerMax(field);
   if (!part || max === undefined) throw new Error(`Unsupported item packed field: ${field}.${partKey}`);
@@ -323,6 +332,7 @@ export function updateItemPackedField(project: ProjectState, itemId: number, fie
 
   record.raw[field] = rawValue;
   record.readable[field] = rawValue;
+  recordFieldChange(project, "items", itemName(project, itemId), `${itemFieldLabel(field)} ${partKey.replace(/_/gu, " ")}`, before, rawValue, { key: `item:${itemId}:${field}:${partKey}` });
   markDirty(project, "items", itemId);
   return { value: rawValue, rawValue };
 }
@@ -418,4 +428,20 @@ export function titleize(value: string): string {
     .split(/\s+/u)
     .map((part) => (part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part))
     .join(" ");
+}
+
+function moveName(project: ProjectState, moveId: number): string {
+  return project.texts.banks.moves?.[moveId] ?? `Move ${moveId}`;
+}
+
+function itemName(project: ProjectState, itemId: number): string {
+  return project.texts.banks.items?.[itemId] ?? `Item ${itemId}`;
+}
+
+function moveFieldLabel(field: string): string {
+  return field.replace(/_/gu, " ");
+}
+
+function itemFieldLabel(field: string): string {
+  return ITEM_FIELD_LABELS[field] ?? field.replace(/_/gu, " ");
 }

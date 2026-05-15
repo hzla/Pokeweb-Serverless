@@ -8,6 +8,7 @@ import {
 import { writeU16 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { parseHeaders } from "./headerModel";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
@@ -158,6 +159,7 @@ export function updateEncounterField(project: ProjectState, encounterId: number,
   const trimmedValue = inputValue.trim();
   const speciesMatch = SLOT_FIELD_RE.exec(field);
   if (speciesMatch) {
+    const before = record.readable[field] ?? "";
     const speciesId = parsePokemonId(project, trimmedValue);
     const form = speciesId === 0 ? 0 : Number(record.readable[`${field}_form`] ?? 0);
     const rawValue = speciesId + form * 2048;
@@ -165,11 +167,15 @@ export function updateEncounterField(project: ProjectState, encounterId: number,
     record.readable[field] = speciesId === 0 ? "" : (project.texts.banks.pokedex?.[speciesId] ?? String(speciesId));
     record.readable[`${field}_form`] = form;
     markDirty(project, "encounters", encounterId);
+    recordFieldChange(project, "encounters", encounterSubject(project, encounterId), encounterFieldLabel(field), before, record.readable[field], {
+      key: `encounter:${encounterId}:${field}`,
+    });
     return { field, value: record.readable[field], rawValue };
   }
 
   const formMatch = FORM_FIELD_RE.exec(field);
   if (formMatch) {
+    const before = record.readable[field] ?? 0;
     const value = parseInteger(trimmedValue, 0, 100, field);
     const baseField = field.replace(/_form$/u, "");
     const speciesId = (record.raw[baseField] ?? 0) % 2048;
@@ -177,14 +183,21 @@ export function updateEncounterField(project: ProjectState, encounterId: number,
     record.raw[baseField] = rawValue;
     record.readable[field] = value;
     markDirty(project, "encounters", encounterId);
+    recordFieldChange(project, "encounters", encounterSubject(project, encounterId), encounterFieldLabel(field), before, value, {
+      key: `encounter:${encounterId}:${field}`,
+    });
     return { field, value, rawValue };
   }
 
   if (field.endsWith("_rate") || field.endsWith("_min_level") || field.endsWith("_max_level")) {
+    const before = record.readable[field] ?? 0;
     const value = parseInteger(trimmedValue, 0, 100, field);
     record.raw[field] = value;
     record.readable[field] = value;
     markDirty(project, "encounters", encounterId);
+    recordFieldChange(project, "encounters", encounterSubject(project, encounterId), encounterFieldLabel(field), before, value, {
+      key: `encounter:${encounterId}:${field}`,
+    });
     return { field, value, rawValue: value };
   }
 
@@ -206,6 +219,9 @@ export function copyEncounterSeason(project: ProjectState, encounterId: number, 
 
   syncEncounterReadable(project, record.raw, record.readable);
   markDirty(project, "encounters", encounterId);
+  recordGenericChange(project, "encounters", `${seasonLabel(sourceSeason)} encounter data copied to other seasons.`, encounterSubject(project, encounterId), {
+    key: `encounter-season-copy:${encounterId}:${sourceSeason}`,
+  });
   return getEncounterRecord(project, encounterId);
 }
 
@@ -226,6 +242,9 @@ export async function syncEncountersToDexHabitats(project: ProjectState): Promis
   }
   store.fileCount = Math.max(store.fileCount, BW2_HABITAT_ENCOUNTER_POOLS.length);
   store.records.clear();
+  recordGenericChange(project, "habitats", `Dex habitats synced from encounters (${totalSpecies} species across ${BW2_HABITAT_ENCOUNTER_POOLS.length} habitats).`, "Dex habitats", {
+    key: "dex-habitat-sync",
+  });
   return { habitats: BW2_HABITAT_ENCOUNTER_POOLS.length, species: totalSpecies };
 }
 
@@ -400,4 +419,17 @@ function parseInteger(value: string, min: number, max: number, field: string): n
 
 export function spriteSlug(name: string): string {
   return pokemonSpriteSlug(name);
+}
+
+function encounterSubject(project: ProjectState, encounterId: number): string {
+  const locations = deriveLocations(project, encounterId);
+  return locations[0] ?? `Encounter ${encounterId}`;
+}
+
+function encounterFieldLabel(field: string): string {
+  return field.replace(/_/gu, " ");
+}
+
+function seasonLabel(season: EncounterSeason): string {
+  return season[0].toUpperCase() + season.slice(1);
 }

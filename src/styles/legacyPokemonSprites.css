@@ -951,6 +951,90 @@
   grid-template-columns: max-content minmax(420px, 1fr);
 }
 
+.animation-file-tabs {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.animation-file-editor {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.animation-file-header,
+.animation-file-sequence-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.animation-file-header > div,
+.animation-file-sequence-header {
+  justify-content: flex-start;
+}
+
+.animation-file-side {
+  margin-top: 8px;
+}
+
+.animation-file-sequences {
+  display: grid;
+  gap: 14px;
+}
+
+.animation-file-sequence {
+  border: 1px solid #34394b;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.animation-file-table-wrap {
+  overflow-x: auto;
+}
+
+.animation-file-table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+
+.animation-file-table th,
+.animation-file-table td {
+  border-bottom: 1px solid #34394b;
+  padding: 5px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.animation-file-table th {
+  color: #aeb6c7;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.animation-file-table input,
+.animation-file-table select {
+  background: #282d3b;
+  border: 1px solid #3b4254;
+  border-radius: 4px;
+  color: #eef2fb;
+  min-height: 28px;
+  padding: 3px 6px;
+  width: 76px;
+}
+
+.animation-file-table input[type="checkbox"] {
+  min-height: auto;
+  width: auto;
+}
+
+.animation-file-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .animation-canvas-wrap,
 .rig-canvas-wrap {
   display: grid;

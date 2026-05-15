@@ -32,7 +32,17 @@ export type NarcName =
   | "type_chart"
   | "starter_sprites"
   | "pokemon_sprites"
-  | "pokemon_icons";
+  | "pokemon_icons"
+  | "subway_sets"
+  | "subway_trainers"
+  | "pwt_sets_0"
+  | "pwt_sets_3"
+  | "pwt_sets_6"
+  | "pwt_sets_7"
+  | "pwt_map_1"
+  | "pwt_map_2"
+  | "pwt_tr1"
+  | "pwt_tr6";
 
 export type NarcDefinition = {
   path: string;
@@ -74,6 +84,7 @@ export const BW_NARCS: NarcDefinition[] = [
   { path: "a/0/9/2", name: "trdata" },
   { path: "a/0/9/3", name: "trpok" },
   { path: "a/1/2/6", name: "encounters" },
+  { path: "a/2/0/5", name: "starter_sprites" },
 ];
 
 export const BW2_NARCS: NarcDefinition[] = [
@@ -101,6 +112,16 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/0/6/5", name: "move_animations" },
   { path: "a/0/6/6", name: "battle_animations" },
   { path: "a/2/0/2", name: "starter_sprites" },
+  { path: "a/2/1/1", name: "subway_sets" },
+  { path: "a/2/1/2", name: "subway_trainers" },
+  { path: "a/2/5/0", name: "pwt_sets_0" },
+  { path: "a/2/5/1", name: "pwt_map_1" },
+  { path: "a/2/5/2", name: "pwt_map_2" },
+  { path: "a/2/5/3", name: "pwt_sets_3" },
+  { path: "a/2/5/4", name: "pwt_tr1" },
+  { path: "a/2/5/5", name: "pwt_tr6" },
+  { path: "a/2/5/6", name: "pwt_sets_6" },
+  { path: "a/2/5/7", name: "pwt_sets_7" },
 ];
 
 export const MANDATORY_NARCS = HEADER_NARCS.filter((definition) => definition.required).map((definition) => definition.name);

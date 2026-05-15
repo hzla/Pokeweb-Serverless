@@ -1,3 +1,4 @@
+import { recordFieldChange } from "./actionChangelog";
 import type { ProjectState } from "./projectStore";
 import type { FieldSpec } from "./formats";
 
@@ -190,6 +191,7 @@ export function updateHeaderField(project: ProjectState, rowId: number, field: s
   if (!project.headers) project.headers = parseHeaders(project);
   const row = project.headers.rows[rowId];
   if (!row) throw new Error(`Header row ${rowId} does not exist`);
+  const before = row[field];
 
   let nextValue: number | string = value.trim();
   if (field === "location_name") {
@@ -219,6 +221,9 @@ export function updateHeaderField(project: ProjectState, rowId: number, field: s
     }
   }
 
+  recordFieldChange(project, "headers", headerSubject(row, rowId), HEADER_FIELD_LABELS[field] ?? field.replace(/_/gu, " "), before, nextValue, {
+    key: `header:${rowId}:${field}`,
+  });
   project.narcs.headers?.dirty.add(0);
   return { row, field, value: nextValue };
 }
@@ -249,8 +254,15 @@ export function updateHeaderPackedField(project: ProjectState, rowId: number, fi
   });
   if (field === "place_name_flags") row.place_name_id = placeNameId(row);
 
+  recordFieldChange(project, "headers", headerSubject(row, rowId), `${HEADER_FIELD_LABELS[field] ?? field.replace(/_/gu, " ")} ${part.label}`, current, rawValue, {
+    key: `header:${rowId}:${field}:${partKey}`,
+  });
   project.narcs.headers?.dirty.add(0);
   return { row, field, value: rawValue };
+}
+
+function headerSubject(row: HeaderRow, rowId: number): string {
+  return `${row.location_name ?? "Header"} (${rowId})`;
 }
 
 export function headerMatchesSearch(row: HeaderRow, searchText: string): boolean {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { writeU16 } from "../nds/binary";
+import { readU16, writeU16 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { getTmEntries, parseTms, updateTmMove } from "../pokeweb/tmModel";
+import { getTmEntries, parseTms, syncAllTmIcons, updateTmMove } from "../pokeweb/tmModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("tmModel", () => {
@@ -28,11 +28,29 @@ describe("tmModel", () => {
     expect(project.tms.raw.tm_1).toBe(3);
     expect(project.tms.readable.tm_1).toBe("Flamethrower");
     expect(project.tms.dirty).toBe(true);
+    expect(project.arm9Dirty).toBe(true);
     expect(project.arm9[0x8ccb0]).toBe(3);
     expect(project.arm9[0x8ccb1]).toBe(0);
+    expect(readU16(project.arm9, itemGraphicsEntryOffset(328) + 2)).toBe(406);
     expect(() => updateTmMove(project, "tm_2", "Nope")).toThrow(/Unknown move/u);
   });
+
+  it("syncs all TM icon palette indexes from the current TM move types", () => {
+    const project = makeProject();
+    project.tms = parseTms(project);
+    writeU16(project.arm9, itemGraphicsEntryOffset(328) + 2, 402);
+    writeU16(project.arm9, itemGraphicsEntryOffset(420) + 2, 402);
+
+    const changed = syncAllTmIcons(project);
+
+    expect(changed).toBe(2);
+    expect(readU16(project.arm9, itemGraphicsEntryOffset(328) + 2)).toBe(402);
+    expect(readU16(project.arm9, itemGraphicsEntryOffset(420) + 2)).toBe(405);
+    expect(project.arm9Dirty).toBe(true);
+  });
 });
+
+const ITEM_GRAPHICS_TABLE_OFFSET = 0x100;
 
 function makeProject(): ProjectState {
   const formats = getNarcFormats("BW2");
@@ -43,6 +61,8 @@ function makeProject(): ProjectState {
     { type: 9, category: 2, power: 95, accuracy: 100 },
   ]);
   const arm9 = new Uint8Array(0x8ccb0 + 204);
+  writeItemGraphicsAnchor(arm9, ITEM_GRAPHICS_TABLE_OFFSET);
+  for (const itemId of tmItemIds()) writeU16(arm9, itemGraphicsEntryOffset(itemId) + 2, 402);
   writeU16(arm9, 0x8ccb0, 1);
   writeU16(arm9, 0x8ccb0 + 92 * 2, 2);
   writeU16(arm9, 0x8ccb0 + 100 * 2, 3);
@@ -100,4 +120,38 @@ function splitRows(data: Uint8Array, count: number): Uint8Array[] {
 
 function writeInt(out: Uint8Array, offset: number, size: number, value: number): void {
   for (let i = 0; i < size; i += 1) out[offset + i] = Math.floor(value / 2 ** (8 * i)) & 0xff;
+}
+
+function itemGraphicsEntryOffset(itemId: number): number {
+  return ITEM_GRAPHICS_TABLE_OFFSET + itemId * 4;
+}
+
+function writeItemGraphicsAnchor(arm9: Uint8Array, offset: number): void {
+  const rows: Array<readonly [number, number]> = [
+    [0, 0],
+    [2, 3],
+    [4, 5],
+    [6, 7],
+    [8, 9],
+    [10, 11],
+    [12, 13],
+    [14, 15],
+    [16, 17],
+    [18, 19],
+    [20, 19],
+    [21, 22],
+    [23, 22],
+  ];
+  rows.forEach(([cgx, pal], index) => {
+    writeU16(arm9, offset + index * 4, cgx);
+    writeU16(arm9, offset + index * 4 + 2, pal);
+  });
+}
+
+function tmItemIds(): number[] {
+  return [
+    ...Array.from({ length: 92 }, (_, index) => 328 + index),
+    ...Array.from({ length: 6 }, (_, index) => 420 + index),
+    ...Array.from({ length: 3 }, (_, index) => 618 + index),
+  ];
 }

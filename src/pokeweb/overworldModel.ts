@@ -1,4 +1,5 @@
 import type { FieldSpec } from "./formats";
+import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { parseHeaders, type HeaderRow } from "./headerModel";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord } from "./projectStore";
 import spriteHash from "../assets/data/sprite_hash.json";
@@ -180,9 +181,13 @@ export function updateOverworldField(project: ProjectState, overworldId: number,
   if (!record.raw) throw new Error(`Overworld ${overworldId} could not be decoded`);
   const max = overworldFieldMax(field);
   if (max === undefined) throw new Error(`Unsupported overworld field: ${field}`);
+  const before = record.raw[field] ?? 0;
   const next = coerceInt(value, 0, max, field);
   record.raw[field] = next;
   markDirty(project, "overworlds", overworldId);
+  recordFieldChange(project, "overworlds", `Overworld ${overworldId}`, overworldFieldLabel(field), before, next, {
+    key: `overworld:${overworldId}:${field}`,
+  });
   return next;
 }
 
@@ -213,6 +218,9 @@ export function addOverworldNpc(project: ProjectState, overworldId: number): num
   record.raw.npc_count = Number(record.raw.npc_count ?? 0) + 1;
   record.raw.file_length = Number(record.raw.file_length ?? 0) + groupByteLength("npc");
   markDirty(project, "overworlds", overworldId);
+  recordGenericChange(project, "overworlds", `NPC ${nextIndex} added.`, `Overworld ${overworldId}`, {
+    key: `overworld-npc-add:${overworldId}:${nextIndex}`,
+  });
   return nextIndex;
 }
 
@@ -224,6 +232,9 @@ export function deleteOverworldNpc(project: ProjectState, overworldId: number, n
   record.raw.npc_count = Math.max(0, Number(record.raw.npc_count ?? 0) - 1);
   record.raw.file_length = Math.max(0, Number(record.raw.file_length ?? 0) - groupByteLength("npc"));
   markDirty(project, "overworlds", overworldId);
+  recordGenericChange(project, "overworlds", `NPC ${npcIndex} removed.`, `Overworld ${overworldId}`, {
+    key: `overworld-npc-delete:${overworldId}:${npcIndex}`,
+  });
 }
 
 export function updateMapTile(project: ProjectState, mapId: number, tileIndex: number, layer: 2 | 3, value: string | number): number {
@@ -232,8 +243,12 @@ export function updateMapTile(project: ProjectState, mapId: number, tileIndex: n
   const tileCount = Number(record.raw.width ?? 0) * Number(record.raw.height ?? 0);
   if (tileIndex < 0 || tileIndex >= tileCount) throw new Error(`Tile ${tileIndex} is outside map ${mapId}`);
   const next = coerceInt(value, 0, 65535, `layer_${layer}`);
+  const before = record.raw[`layer_${layer}_${tileIndex}`] ?? 0;
   record.raw[`layer_${layer}_${tileIndex}`] = next;
   markDirty(project, "maps", mapId);
+  recordFieldChange(project, "maps", `Map ${mapId}`, `Layer ${layer} tile ${tileIndex}`, before, next, {
+    key: `map-tile:${mapId}:${layer}:${tileIndex}`,
+  });
   return next;
 }
 
@@ -318,6 +333,10 @@ function selectSceneCells(cells: MatrixCell[], headerId: number): MatrixCell[] {
 
 function collectLayer(raw: RawRecord, layer: 2 | 3, count: number): number[] {
   return Array.from({ length: count }, (_value, index) => Number(raw[`layer_${layer}_${index}`] ?? 0));
+}
+
+function overworldFieldLabel(field: string): string {
+  return field.replace(/_/gu, " ");
 }
 
 function npcIndexes(raw: RawRecord): number[] {

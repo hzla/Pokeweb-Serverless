@@ -1,4 +1,5 @@
 import { readU16, writeU16 } from "../nds/binary";
+import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { EGG_GROUPS, EVO_METHODS, GROWTHS, TYPES, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTmNames } from "./tmModel";
@@ -186,6 +187,9 @@ export function updatePokemonTmCompatibility(project: ProjectState, speciesId: n
   const isEnabled = bitEnabled(record.raw, location.field, location.bit);
   record.raw[location.field] = enabled === isEnabled ? current : enabled ? current + mask : current - mask;
   record.readable[location.field] = record.raw[location.field];
+  recordFieldChange(project, "personal", pokemonChangelogSubject(project, speciesId), `${kind.toUpperCase()}${String(index).padStart(2, "0")} compatibility`, isEnabled ? "Yes" : "No", enabled ? "Yes" : "No", {
+    key: `pokemon:${speciesId}:compat:${kind}:${index}`,
+  });
   markDirty(project, "personal", speciesId);
 }
 
@@ -218,6 +222,9 @@ export function updatePokemonTutorCompatibility(project: ProjectState, speciesId
   const isEnabled = bitEnabled(record.raw, field, index);
   record.raw[field] = enabled === isEnabled ? current : enabled ? current + mask : current - mask;
   record.readable[field] = record.raw[field];
+  recordFieldChange(project, "personal", pokemonChangelogSubject(project, speciesId), `${group.label} tutor ${index + 1} compatibility`, isEnabled ? "Yes" : "No", enabled ? "Yes" : "No", {
+    key: `pokemon:${speciesId}:tutor:${field}:${index}`,
+  });
   markDirty(project, "personal", speciesId);
 }
 
@@ -240,8 +247,13 @@ export function updatePokemonEggMove(project: ProjectState, speciesId: number, i
   if (!store) throw new Error("Egg move NARC is not loaded");
   const moves = eggMoveIds(store.rawFiles[speciesId] ?? new Uint8Array());
   if (index < 0 || index >= moves.length) throw new Error(`Egg move row ${index} does not exist`);
+  const before = project.texts.banks.moves?.[moves[index]] ?? moves[index];
   moves[index] = findValueIndex(project.texts.banks.moves ?? [], inputValue, "move");
+  const after = project.texts.banks.moves?.[moves[index]] ?? moves[index];
   writeEggMoveIds(project, speciesId, moves);
+  recordFieldChange(project, "egg_moves", pokemonChangelogSubject(project, speciesId), `egg move ${index + 1}`, before, after, {
+    key: `pokemon:${speciesId}:egg:${index}`,
+  });
   return getPokemonEggMoves(project, speciesId);
 }
 
@@ -253,6 +265,9 @@ export function insertPokemonEggMove(project: ProjectState, speciesId: number, i
   const template = moves[Math.max(0, insertAt - 1)] ?? moves[insertAt] ?? firstUsableMoveId(project);
   moves.splice(insertAt, 0, template);
   writeEggMoveIds(project, speciesId, moves);
+  recordGenericChange(project, "egg_moves", `${pokemonChangelogSubject(project, speciesId)} egg move ${insertAt + 1} was added.`, pokemonChangelogSubject(project, speciesId), {
+    key: `pokemon:${speciesId}:egg-insert:${insertAt}`,
+  });
   return getPokemonEggMoves(project, speciesId);
 }
 
@@ -267,8 +282,12 @@ export function deletePokemonEggMove(project: ProjectState, speciesId: number, i
   if (!store) throw new Error("Egg move NARC is not loaded");
   const moves = eggMoveIds(store.rawFiles[speciesId] ?? new Uint8Array());
   if (index < 0 || index >= moves.length) throw new Error(`Egg move row ${index} does not exist`);
+  const before = project.texts.banks.moves?.[moves[index]] ?? moves[index];
   moves.splice(index, 1);
   writeEggMoveIds(project, speciesId, moves);
+  recordGenericChange(project, "egg_moves", `${pokemonChangelogSubject(project, speciesId)} egg move ${index + 1} (${before}) was removed.`, pokemonChangelogSubject(project, speciesId), {
+    key: `pokemon:${speciesId}:egg-delete:${index}`,
+  });
   return getPokemonEggMoves(project, speciesId);
 }
 
@@ -282,6 +301,9 @@ export function insertPokemonLearnsetMove(project: ProjectState, speciesId: numb
   const template = entries[Math.max(0, insertAt - 1)] ?? entries[insertAt] ?? { moveId: firstUsableMoveId(project), level: 1 };
   entries.splice(insertAt, 0, { moveId: template.moveId, level: template.level });
   applyLearnsetEntries(project, record.raw, record.readable, entries);
+  recordGenericChange(project, "learnsets", `${pokemonChangelogSubject(project, speciesId)} learnset slot ${insertAt + 1} was added.`, pokemonChangelogSubject(project, speciesId), {
+    key: `pokemon:${speciesId}:learnset-insert:${insertAt}`,
+  });
   markDirty(project, "learnsets", speciesId);
   return getLearnset(project, speciesId);
 }
@@ -297,8 +319,12 @@ export function deletePokemonLearnsetMove(project: ProjectState, speciesId: numb
   if (!record.raw || !record.readable) throw new Error(`Unable to update learnsets ${speciesId}`);
   const entries = learnsetEntries(record.raw);
   if (index < 0 || index >= entries.length) throw new Error(`Learnset row ${index} does not exist`);
+  const before = `${project.texts.banks.moves?.[entries[index].moveId] ?? entries[index].moveId} at level ${entries[index].level}`;
   entries.splice(index, 1);
   applyLearnsetEntries(project, record.raw, record.readable, entries);
+  recordGenericChange(project, "learnsets", `${pokemonChangelogSubject(project, speciesId)} learnset slot ${index + 1} (${before}) was removed.`, pokemonChangelogSubject(project, speciesId), {
+    key: `pokemon:${speciesId}:learnset-delete:${index}`,
+  });
   markDirty(project, "learnsets", speciesId);
   return getLearnset(project, speciesId);
 }
@@ -328,18 +354,30 @@ export function updatePokemonField(
   if (!record.raw || !record.readable) throw new Error(`Unable to update ${storeName} ${speciesId}`);
 
   if (storeName === "personal") {
+    const before = record.readable[field];
     const result = updatePersonalField(project, record.raw, record.readable, field, inputValue);
+    recordFieldChange(project, "personal", pokemonChangelogSubject(project, speciesId), pokemonFieldLabel(field), before, result.value, {
+      key: `pokemon:${speciesId}:personal:${field}`,
+    });
     markDirty(project, "personal", speciesId);
     return result;
   }
 
   if (storeName === "learnsets") {
+    const before = record.readable[field];
     const result = updateLearnsetField(project, record.raw, record.readable, field, inputValue);
+    recordFieldChange(project, "learnsets", pokemonChangelogSubject(project, speciesId), pokemonFieldLabel(field), before, result.value, {
+      key: `pokemon:${speciesId}:learnsets:${field}`,
+    });
     markDirty(project, "learnsets", speciesId);
     return result;
   }
 
+  const before = record.readable[field];
   const result = updateEvolutionField(project, record.raw, record.readable, field, inputValue);
+  recordFieldChange(project, "evolutions", pokemonChangelogSubject(project, speciesId), pokemonFieldLabel(field), before, result.value, {
+    key: `pokemon:${speciesId}:evolutions:${field}`,
+  });
   markDirty(project, "evolutions", speciesId);
   return result;
 }
@@ -569,6 +607,14 @@ function applyLearnsetEntries(project: ProjectState, raw: RawRecord, readable: R
 function firstUsableMoveId(project: ProjectState): number {
   const moves = project.texts.banks.moves ?? [];
   return moves.length > 1 ? 1 : 0;
+}
+
+function pokemonChangelogSubject(project: ProjectState, speciesId: number): string {
+  return project.texts.banks.pokedex?.[speciesId] ?? `Pokemon ${speciesId}`;
+}
+
+function pokemonFieldLabel(field: string): string {
+  return field.replace(/_/gu, " ");
 }
 
 function eggMoveIds(bytes: Uint8Array): number[] {

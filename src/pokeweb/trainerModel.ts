@@ -1,3 +1,4 @@
+import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { BATTLE_TYPES, BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, NATURES, TRAINER_AIS, TRAINER_GENDERS, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
@@ -134,6 +135,8 @@ export function trainerMatchesSearch(record: TrainerRecord, searchText: string):
 export function updateTrainerField(project: ProjectState, trainerId: number, field: string, inputValue: string | number | boolean): TrainerUpdateResult {
   const record = decodeRecord(project, "trdata", trainerId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update trainer ${trainerId}`);
+  syncTrainerReadable(project, trainerId, record.raw, record.readable);
+  const before = record.readable[field];
   let rawValue: number;
   let value: string | number;
 
@@ -177,6 +180,7 @@ export function updateTrainerField(project: ProjectState, trainerId: number, fie
   }
 
   syncTrainerReadable(project, trainerId, record.raw, record.readable);
+  recordFieldChange(project, "trdata", trainerChangelogSubject(project, trainerId), trainerFieldLabel(field), before, value, { key: `trainer:${trainerId}:data:${field}` });
   markDirty(project, "trdata", trainerId);
   return { value, rawValue, trainer: getTrainerRecord(project, trainerId) };
 }
@@ -201,6 +205,7 @@ export function setTrainerAiFlagForAll(project: ProjectState, field: string, ena
     updated += 1;
   }
 
+  if (updated > 0) recordGenericChange(project, "trdata", `${field} AI flag set to ${enabled ? "on" : "off"} for ${updated} trainers.`, "Trainer Data", { key: `trainer-ai-all:${field}` });
   return updated;
 }
 
@@ -208,6 +213,8 @@ export function updateTrainerPokemonField(project: ProjectState, trainerId: numb
   const record = decodeRecord(project, "trpok", trainerId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update trainer Pokemon ${trainerId}:${slot}`);
   const suffix = `_${slot}`;
+  syncTrainerPokemonReadable(project, trainerId, record.raw, record.readable);
+  const before = record.readable[field];
   let rawValue: number;
   let value: string | number;
 
@@ -257,6 +264,9 @@ export function updateTrainerPokemonField(project: ProjectState, trainerId: numb
   }
 
   syncTrainerPokemonReadable(project, trainerId, record.raw, record.readable);
+  recordFieldChange(project, "trpok", trainerChangelogSubject(project, trainerId), `Pokemon ${slot + 1} ${trainerFieldLabel(field.replace(suffix, ""))}`, before, value, {
+    key: `trainer:${trainerId}:pokemon:${slot}:${field}`,
+  });
   markDirty(project, "trpok", trainerId);
   return { value, rawValue, slot: getTrainerPokemonSlot(project, trainerId, slot), trainer: getTrainerRecord(project, trainerId) };
 }
@@ -282,6 +292,9 @@ export function addTrainerPokemon(project: ProjectState, trainerId: number): Tra
     for (let move = 1; move <= 4; move += 1) trpok.raw[`move_${move}_${count}`] = 0;
   }
   syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
+  recordGenericChange(project, "trpok", `${trainerChangelogSubject(project, trainerId)} Pokemon ${count + 1} was added.`, trainerChangelogSubject(project, trainerId), {
+    key: `trainer:${trainerId}:pokemon-add:${count}`,
+  });
   markDirty(project, "trdata", trainerId);
   markDirty(project, "trpok", trainerId);
   return getTrainerPokemonSlot(project, trainerId, count);
@@ -315,6 +328,9 @@ export function deleteTrainerPokemon(project: ProjectState, trainerId: number, s
   trdata.readable.num_pokemon = count - 1;
   project.trpokInfo[trainerId] = { template: Number(trdata.raw.template ?? 0), numPokemon: count - 1 };
   syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
+  recordGenericChange(project, "trpok", `${trainerChangelogSubject(project, trainerId)} Pokemon ${slot + 1} was removed.`, trainerChangelogSubject(project, trainerId), {
+    key: `trainer:${trainerId}:pokemon-delete:${slot}`,
+  });
   markDirty(project, "trdata", trainerId);
   markDirty(project, "trpok", trainerId);
   return getTrainerRecord(project, trainerId);
@@ -390,6 +406,15 @@ function setTemplateFlag(project: ProjectState, trainerId: number, field: string
   syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
   markDirty(project, "trdata", trainerId);
   markDirty(project, "trpok", trainerId);
+}
+
+function trainerChangelogSubject(project: ProjectState, trainerId: number): string {
+  const name = project.texts.banks.tr_names?.[trainerId] ?? `Trainer ${trainerId}`;
+  return `${name} (Trainer ${trainerId})`;
+}
+
+function trainerFieldLabel(field: string): string {
+  return field.replace(/_/gu, " ");
 }
 
 function syncTrainerReadable(project: ProjectState, _trainerId: number, raw: RawRecord, readable: ReadableRecord): void {

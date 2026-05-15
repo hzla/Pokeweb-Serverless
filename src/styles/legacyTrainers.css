@@ -353,6 +353,445 @@
   display: block;
 }
 
+.facility-filter select {
+  background: #f7f7f7;
+  border: 1px solid #d5d5d5;
+  border-radius: 4px;
+  color: #222;
+  font: inherit;
+  padding: 8px;
+  width: 100%;
+}
+
+.facility-tabs {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 12px;
+}
+
+.facility-tab.-active {
+  background: #1abc9c;
+  color: #fff;
+}
+
+.facility-select-label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.facility-select-label span {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.facility-set-main {
+  column-gap: 14px;
+  display: grid;
+  grid-template-columns: 44px 230px 130px 120px 110px 260px 56px;
+  justify-content: start;
+  max-width: 100%;
+  width: max-content;
+}
+
+.facility-list#facility-sets .facility-card .expanded-field-main {
+  min-height: 144px;
+}
+
+.facility-card-flash {
+  outline: 3px solid #1abc9c;
+  outline-offset: -3px;
+  transition: outline-color 0.3s ease;
+}
+
+#facility-sets .trainer-id,
+#facility-sets .trainer-name,
+#facility-sets .trainer-poks,
+#facility-sets .trainer-class,
+#facility-sets .trainer-btype,
+#facility-sets .trainer-items,
+#facility-sets .trainer-moves {
+  min-width: 0;
+  padding-left: 0;
+  width: auto;
+}
+
+#facility-sets .trainer-card .trainer-poks,
+#facility-sets .trainer-card .trainer-items,
+#facility-sets .trainer-card .trainer-moves {
+  align-items: center;
+  display: grid;
+  height: auto;
+  justify-content: stretch;
+  line-height: 1.2;
+}
+
+#facility-sets .field-header .trainer-poks,
+#facility-sets .field-header .trainer-items,
+#facility-sets .field-header .trainer-moves {
+  display: block;
+}
+
+.facility-species-cell {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 128px minmax(0, 1fr);
+}
+
+.facility-species-cell img {
+  display: block;
+  height: 128px;
+  image-rendering: pixelated;
+  justify-self: center;
+  object-fit: contain;
+  width: 128px;
+}
+
+.facility-species-cell .tr-item {
+  color: #1abc9c;
+  font-size: 16px;
+  line-height: 1.1;
+  min-width: 0;
+  text-align: left;
+  width: auto;
+}
+
+.facility-choice-main {
+  column-gap: 14px;
+  display: grid;
+  grid-template-columns: 44px 38px 250px 220px 76px minmax(400px, 1fr) 70px;
+  justify-content: start;
+  max-width: 100%;
+  width: 100%;
+}
+
+.facility-list#facility-choices .facility-card .expanded-field-main {
+  min-height: 86px;
+}
+
+#facility-choices .trainer-id,
+#facility-choices .trainer-name,
+#facility-choices .trainer-poks,
+#facility-choices .trainer-class,
+#facility-choices .trainer-btype,
+#facility-choices .trainer-moves,
+#facility-choices .facility-choice-icon-header {
+  min-width: 0;
+  padding-left: 0;
+  width: auto;
+}
+
+#facility-choices .move-info {
+  align-self: center;
+  bottom: auto;
+  display: block;
+  height: 32px;
+  justify-self: center;
+  left: auto;
+  position: static;
+  width: 32px;
+}
+
+#facility-choices .trainer-name,
+#facility-choices .trainer-class,
+#facility-choices .trainer-btype,
+#facility-choices .trainer-moves {
+  align-self: center;
+  line-height: 1.2;
+}
+
+#facility-choices .trainer-name {
+  text-align: left;
+}
+
+#facility-choices .facility-trainer-type-select {
+  align-self: center;
+  background: #f2f2f2;
+  border: 0;
+  border-radius: 6px;
+  color: #222;
+  font: inherit;
+  font-size: 14px;
+  height: 36px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 8px;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+#facility-choices .trainer-class,
+#facility-choices .trainer-btype,
+#facility-choices .trainer-moves {
+  text-align: center;
+}
+
+#facility-choices .facility-setids {
+  align-self: center;
+  min-width: 0;
+  padding-left: 0;
+  width: auto;
+}
+
+.facility-move-list {
+  display: grid;
+  gap: 3px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 7px 0;
+  text-align: left;
+}
+
+.facility-move-list .tr-item {
+  font-size: 14px;
+  line-height: 18px;
+  min-height: 18px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  width: auto;
+}
+
+.facility-ev-summary {
+  align-content: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  padding: 10px 8px;
+}
+
+.facility-ev-chip {
+  background: #f2f2f2;
+  border: 0;
+  border-radius: 6px;
+  color: #333;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 28px;
+  min-width: 104px;
+  padding: 0 6px;
+}
+
+.facility-ev-chip.-active {
+  background: #1abc9c;
+  color: #fff;
+}
+
+.facility-evs {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+}
+
+.facility-setids {
+  align-content: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 7px 0;
+}
+
+.facility-setids span,
+.facility-setid-edit {
+  background: #f2f2f2;
+  border-radius: 4px;
+  color: #222;
+  min-width: 34px;
+  padding: 2px 6px;
+  text-align: center;
+}
+
+.facility-setid-more {
+  align-items: center;
+  background: transparent;
+  color: #cfcfd8;
+  display: inline-flex;
+  font-size: 13px;
+  line-height: 22px;
+  padding: 0 4px;
+}
+
+.facility-setids.-invalid span,
+.facility-setids.-invalid .facility-setid-edit {
+  background: #ffd7d7;
+}
+
+.facility-readonly {
+  color: #cfcfcf;
+  cursor: default;
+  padding-top: 10px;
+}
+
+.facility-choice-fields {
+  align-content: start;
+}
+
+#facility-choices .expanded-trainer {
+  border-radius: 6px;
+  justify-content: flex-start;
+  margin: 2px 8px 6px 0;
+  overflow: visible;
+  padding: 8px 10px 10px;
+  width: calc(100% - 8px);
+}
+
+#facility-choices .expanded-trainer.show-flex {
+  display: block !important;
+}
+
+#facility-choices .expanded-trainer .facility-choice-fields {
+  border-right: 0;
+  padding: 0;
+}
+
+#facility-choices .facility-choice-sets {
+  min-width: 0;
+  width: 100%;
+}
+
+#facility-choices .facility-choice-extras {
+  margin-top: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.facility-choice-section-title {
+  color: #f2f2f2;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  width: 100%;
+}
+
+.facility-empty-inline {
+  color: #cfcfd8;
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+.facility-choice-set-grid {
+  color: #f2f2f2;
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+  line-height: 1.1;
+  width: 100%;
+}
+
+.facility-choice-set-entry {
+  align-items: center;
+  background: rgba(40, 42, 54, 0.42);
+  border: 1px solid rgba(68, 71, 90, 0.75);
+  border-radius: 4px;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  min-height: 34px;
+  padding: 2px 4px;
+}
+
+.facility-choice-set-entry:hover,
+.facility-choice-set-entry:focus-within {
+  border-color: #1abc9c;
+}
+
+.facility-set-missing-label {
+  color: #ffb3b3;
+  width: 100%;
+}
+
+.facility-set-table-id {
+  background: #f2f2f2;
+  border-radius: 4px;
+  color: #222;
+  display: inline-block;
+  font-size: 13px;
+  line-height: 24px;
+  min-width: 0;
+  padding: 0 4px;
+  text-align: center;
+  width: 100%;
+}
+
+.facility-set-jump {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #1abc9c;
+  cursor: pointer;
+  display: inline-grid;
+  font-size: 13px;
+  gap: 6px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  height: 28px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.facility-set-jump:hover,
+.facility-set-jump:focus-visible {
+  color: #bd93f9;
+}
+
+.facility-set-jump img {
+  height: 28px;
+  image-rendering: pixelated;
+  object-fit: contain;
+  width: 28px;
+}
+
+.facility-set-jump span {
+  font: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.facility-warning {
+  color: #b00020;
+  font-size: 12px;
+  padding: 8px;
+}
+
+.facility-raw {
+  margin-top: 8px;
+  width: 100%;
+}
+
+#facility-choices .facility-choice-extras .expanded-field,
+#facility-choices .facility-raw .expanded-field {
+  align-items: center;
+  border-bottom: 0;
+  font-size: 13px;
+  gap: 8px;
+  justify-content: flex-start;
+  padding: 3px 0;
+}
+
+#facility-choices .facility-raw .expanded-trlabel {
+  color: #cfcfd8;
+  flex: 0 0 56px;
+  font-size: 12px;
+}
+
+.facility-hex {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  min-height: 22px;
+  padding: 2px 6px;
+  white-space: normal;
+}
+
+.facility-empty {
+  padding: 24px;
+}
+
 @media only screen and (max-width: 1180px) {
   .trainer-poks {
     padding-left: 74px;

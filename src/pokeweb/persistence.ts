@@ -51,9 +51,14 @@ export async function clearActiveProject(): Promise<void> {
 }
 
 export async function saveActiveRomBytes(bytes: Uint8Array): Promise<void> {
+  const compactBytes = compactRomBytes(bytes);
   const db = await openDb();
-  await requestToPromise(db.transaction(ROM_STORE_NAME, "readwrite").objectStore(ROM_STORE_NAME).put(bytes, ACTIVE_ROM_KEY));
+  await requestToPromise(db.transaction(ROM_STORE_NAME, "readwrite").objectStore(ROM_STORE_NAME).put(compactBytes, ACTIVE_ROM_KEY));
   db.close();
+}
+
+export function compactRomBytes(bytes: Uint8Array): Uint8Array {
+  return new NintendoDSRom(bytes).save();
 }
 
 export async function loadActiveRomBytes(): Promise<Uint8Array | undefined> {

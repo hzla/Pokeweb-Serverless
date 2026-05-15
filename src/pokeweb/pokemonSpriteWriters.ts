@@ -1,5 +1,13 @@
 import { concatBytes, pad4, writeU16, writeU32 } from "../nds/binary";
-import type { PokemonAnimationFrameEdit, PokemonAnimationSide, RigCell, RigCellsFile } from "./pokemonSpriteModel";
+import type {
+  PokemonAnimationFrameEdit,
+  PokemonAnimationSequence,
+  PokemonAnimationSide,
+  PokemonCell,
+  PokemonMultiCell,
+  RigCell,
+  RigCellsFile,
+} from "./pokemonSpriteModel";
 
 export type PokemonAnimationBundleFileIndex = 4 | 5 | 6 | 7 | 8 | 13 | 14 | 15 | 16 | 17;
 
@@ -86,6 +94,8 @@ type OamBlock = {
 type AnimationSequenceInput = {
   targetType: 1 | 2;
   mode: number;
+  motionType?: 0 | 1 | 2;
+  startFrameIndex?: number;
   frames: PokemonAnimationFrameEdit[];
 };
 
@@ -222,11 +232,64 @@ export function buildPokemonCellBankFileFromCells(cells: PokemonCellBankBuildCel
   return writeG2dFile("RECN", [{ signature: "CEBK", payload }]);
 }
 
+export function buildPokemonCellBankFileFromParsed(cellBank: { cells: PokemonCell[]; mappingMode?: number }): Uint8Array {
+  const cellRecords: Uint8Array[] = [];
+  const oamRecords: Uint8Array[] = [];
+  let oamOffset = 0;
+  for (const [cellIndex, cellInput] of cellBank.cells.entries()) {
+    if (cellInput.oams.length === 0) throw new Error(`Cell ${cellIndex} must contain at least one OAM`);
+    const oams = cellInput.oams.map((oam) => normalizeParsedOam(oam, cellIndex));
+    const visibleOams = oams.filter((oam) => !oam.disable);
+    const boundsSource = visibleOams.length ? visibleOams : oams;
+    const minX = Math.min(...boundsSource.map((oam) => oam.x));
+    const minY = Math.min(...boundsSource.map((oam) => oam.y));
+    const maxX = Math.max(...boundsSource.map((oam) => oam.x + oam.width));
+    const maxY = Math.max(...boundsSource.map((oam) => oam.y + oam.height));
+    const cell = new Uint8Array(0x10);
+    writeU16(cell, 0, oams.length);
+    writeU16(cell, 2, clampInt(cellInput.cellAttr, 0, 0xffff));
+    writeU32(cell, 4, oamOffset);
+    writeS16Local(cell, 8, maxX);
+    writeS16Local(cell, 10, maxY);
+    writeS16Local(cell, 12, minX);
+    writeS16Local(cell, 14, minY);
+    cellRecords.push(cell);
+    for (const oam of oams) oamRecords.push(encodeParsedOam(oam));
+    oamOffset += oams.length * 6;
+  }
+
+  const payload = new Uint8Array(CEBK_HEADER_SIZE + cellRecords.length * 0x10 + oamRecords.length * 6);
+  writeU16(payload, 0, cellRecords.length);
+  writeU16(payload, 2, 1);
+  writeU32(payload, 4, CEBK_HEADER_SIZE);
+  writeU32(payload, 8, cellBank.mappingMode ?? GEN5_CELL_MAPPING_MODE);
+  writeU32(payload, 0x0c, 0);
+  writeU32(payload, 0x10, 0);
+  writeU32(payload, 0x14, 0);
+  let offset = CEBK_HEADER_SIZE;
+  for (const cell of cellRecords) {
+    payload.set(cell, offset);
+    offset += cell.length;
+  }
+  for (const oam of oamRecords) {
+    payload.set(oam, offset);
+    offset += oam.length;
+  }
+  return writeG2dFile("RECN", [{ signature: "CEBK", payload }]);
+}
+
 export function buildPokemonAnimationFile(input: { targetType: 1 | 2; mode?: number; frames: PokemonAnimationFrameEdit[][] }): Uint8Array;
+export function buildPokemonAnimationFile(input: PokemonAnimationSequence[]): Uint8Array;
 export function buildPokemonAnimationFile(input: AnimationSequenceInput[]): Uint8Array;
-export function buildPokemonAnimationFile(input: { targetType: 1 | 2; mode?: number; frames: PokemonAnimationFrameEdit[][] } | AnimationSequenceInput[]): Uint8Array {
+export function buildPokemonAnimationFile(input: { targetType: 1 | 2; mode?: number; frames: PokemonAnimationFrameEdit[][] } | Array<AnimationSequenceInput | PokemonAnimationSequence>): Uint8Array {
   const rawSequences: AnimationSequenceInput[] = Array.isArray(input)
-    ? input
+    ? input.map((sequence) => ({
+        targetType: (sequence.targetType === 2 ? 2 : 1) as 1 | 2,
+        mode: sequence.mode,
+        motionType: (sequence.motionType === 0 || sequence.motionType === 2 ? sequence.motionType : 1) as 0 | 1 | 2,
+        startFrameIndex: sequence.startFrameIndex,
+        frames: sequence.frames,
+      }))
     : input.frames.map((frames) => ({ targetType: input.targetType, mode: input.mode ?? FORWARD_LOOP_MODE, frames }));
   const sequences = rawSequences.map((sequence) => ({
     ...sequence,
@@ -240,15 +303,16 @@ export function buildPokemonAnimationFile(input: { targetType: 1 | 2; mode?: num
 
   sequences.forEach((sequence, sequenceIndex) => {
     const frames = sequence.frames;
+    const motionType = sequence.motionType ?? 1;
     const sequenceOffset = sequenceIndex * 0x10;
     writeU16(sequenceBytes, sequenceOffset, frames.length);
-    writeU16(sequenceBytes, sequenceOffset + 2, 0);
-    writeU32(sequenceBytes, sequenceOffset + 4, 1 | (sequence.targetType << 16));
+    writeU16(sequenceBytes, sequenceOffset + 2, clampInt(sequence.startFrameIndex ?? 0, 0, 0xffff));
+    writeU32(sequenceBytes, sequenceOffset + 4, motionType | (sequence.targetType << 16));
     writeU32(sequenceBytes, sequenceOffset + 8, sequence.mode);
     writeU32(sequenceBytes, sequenceOffset + 0x0c, frameOffset);
     for (const frame of frames) {
-      valueOffset = alignValueParts(valueParts, valueOffset, 4);
-      const value = encodeSrtFrame(frame);
+      valueOffset = alignValueParts(valueParts, valueOffset, motionType === 0 ? 2 : 4);
+      const value = encodeAnimationFrame(frame, motionType);
       const frameRecordOffset = frameOffset;
       writeU32(frameBytes, frameRecordOffset, valueOffset);
       writeU16(frameBytes, frameRecordOffset + 4, clampInt(frame.duration, 1, 0xffff));
@@ -335,6 +399,41 @@ export function buildPokemonMultiCellsFileFromCells(cells: PokemonMultiCellBuild
       writeU16(payload, offset + 6, ((cellAnimationIndex & 0xff) << 8) | 0x20 | clampInt(node.playMode ?? 0, 0, 0x0f));
       offset += 8;
     });
+  }
+  return writeG2dFile("RCMN", [{ signature: "MCBK", payload }]);
+}
+
+export function buildPokemonMultiCellsFileFromParsed(cells: PokemonMultiCell[]): Uint8Array {
+  const safeCells = cells.length ? cells : [{ index: 0, cellAnimationCount: 1, nodes: [{ sequenceNumber: 0, x: 0, y: 0, nodeAttr: 0x20, cellAnimationIndex: 0, playMode: 0, visible: true }] }];
+  const multiCellRecordSize = safeCells.length * 8;
+  const hierarchySize = safeCells.reduce((sum, cell) => sum + cell.nodes.length * 8, 0);
+  const payload = new Uint8Array(MCBK_HEADER_SIZE + multiCellRecordSize + hierarchySize);
+  writeU16(payload, 0, safeCells.length);
+  writeU16(payload, 2, 0xbeef);
+  writeU32(payload, 4, MCBK_HEADER_SIZE);
+  writeU32(payload, 8, MCBK_HEADER_SIZE + multiCellRecordSize);
+  writeU32(payload, 0x0c, 0);
+  writeU32(payload, 0x10, 0);
+  let hierarchyOffset = 0;
+  safeCells.forEach((cell, index) => {
+    const recordOffset = MCBK_HEADER_SIZE + index * 8;
+    writeU16(payload, recordOffset, cell.nodes.length);
+    writeU16(payload, recordOffset + 2, Math.max(1, clampInt(cell.cellAnimationCount, 1, 0xffff)));
+    writeU32(payload, recordOffset + 4, hierarchyOffset);
+    hierarchyOffset += cell.nodes.length * 8;
+  });
+  let offset = MCBK_HEADER_SIZE + multiCellRecordSize;
+  for (const cell of safeCells) {
+    for (const node of cell.nodes) {
+      const cellAnimationIndex = clampInt(node.cellAnimationIndex, 0, 0xff);
+      const playMode = clampInt(node.playMode, 0, 0x0f);
+      const visible = node.visible ? 0x20 : 0;
+      writeU16(payload, offset, clampInt(node.sequenceNumber, 0, 0xffff));
+      writeS16Local(payload, offset + 2, clampInt(Math.round(node.x), -0x8000, 0x7fff));
+      writeS16Local(payload, offset + 4, clampInt(Math.round(node.y), -0x8000, 0x7fff));
+      writeU16(payload, offset + 6, ((cellAnimationIndex & 0xff) << 8) | visible | playMode);
+      offset += 8;
+    }
   }
   return writeG2dFile("RCMN", [{ signature: "MCBK", payload }]);
 }
@@ -530,6 +629,23 @@ function normalizeExplicitOam(oam: PokemonCellBankBuildOam, cellIndex: number): 
   };
 }
 
+function normalizeParsedOam(oam: PokemonCell["oams"][number], cellIndex: number): PokemonCell["oams"][number] {
+  if (!Number.isInteger(oam.x) || oam.x < -0x100 || oam.x > 0xff) throw new Error(`Cell ${cellIndex} OAM x is outside signed 9-bit range`);
+  if (!Number.isInteger(oam.y) || oam.y < -0x80 || oam.y > 0x7f) throw new Error(`Cell ${cellIndex} OAM y is outside signed 8-bit range`);
+  if (!Number.isInteger(oam.characterName) || oam.characterName < 0 || oam.characterName > 0x3ff) throw new Error(`Cell ${cellIndex} OAM characterName is outside 10-bit range`);
+  if (!OAM_SIZES.some((candidate) => candidate.width === oam.width && candidate.height === oam.height && candidate.shape === oam.shape && candidate.size === oam.size)) {
+    throw new Error(`Cell ${cellIndex} OAM has unsupported dimensions ${oam.width}x${oam.height}`);
+  }
+  return {
+    ...oam,
+    palette: clampInt(oam.palette, 0, 0x0f),
+    priority: clampInt(oam.priority, 0, 0x03),
+    mode: clampInt(oam.mode, 0, 0x03),
+    matrix: clampInt(oam.matrix, 0, 0x1f),
+    characterBits: oam.characterBits === 8 ? 8 : 4,
+  };
+}
+
 function isCovered(covered: Uint8Array, width: number, x: number, y: number): boolean {
   return covered[(y / 8) * (width / 8) + x / 8] === 1;
 }
@@ -559,14 +675,53 @@ function encodeOam(oam: OamBlock): Uint8Array {
   return out;
 }
 
-function encodeSrtFrame(frame: PokemonAnimationFrameEdit): Uint8Array {
+function encodeParsedOam(oam: PokemonCell["oams"][number]): Uint8Array {
+  const out = new Uint8Array(6);
+  const attr0 =
+    (oam.y & 0xff) |
+    (oam.rotateScale ? 1 << 8 : 0) |
+    ((oam.rotateScale ? oam.doubleSize : oam.disable) ? 1 << 9 : 0) |
+    ((oam.mode & 0x03) << 10) |
+    (oam.mosaic ? 1 << 12 : 0) |
+    (oam.characterBits === 8 ? 1 << 13 : 0) |
+    ((oam.shape & 0x03) << 14);
+  const attr1 =
+    (oam.x & 0x1ff) |
+    (oam.rotateScale ? ((oam.matrix & 0x1f) << 9) : 0) |
+    (!oam.rotateScale && oam.flipX ? 1 << 12 : 0) |
+    (!oam.rotateScale && oam.flipY ? 1 << 13 : 0) |
+    ((oam.size & 0x03) << 14);
+  const attr2 =
+    (oam.characterName & 0x03ff) |
+    ((oam.priority & 0x03) << 10) |
+    ((oam.palette & 0x0f) << 12);
+  writeU16(out, 0, attr0);
+  writeU16(out, 2, attr1);
+  writeU16(out, 4, attr2);
+  return out;
+}
+
+function encodeAnimationFrame(frame: PokemonAnimationFrameEdit, motionType: 0 | 1 | 2): Uint8Array {
+  if (motionType === 0) {
+    const out = new Uint8Array(2);
+    writeU16(out, 0, clampInt(frame.cellIndex, 0, 0xffff));
+    return out;
+  }
+  if (motionType === 2) {
+    const out = new Uint8Array(8);
+    writeU16(out, 0, clampInt(frame.cellIndex, 0, 0xffff));
+    writeU16(out, 2, 0);
+    writeS16Local(out, 4, clampInt(frame.x, -0x8000, 0x7fff));
+    writeS16Local(out, 6, clampInt(frame.y, -0x8000, 0x7fff));
+    return out;
+  }
   const out = new Uint8Array(0x10);
-  writeU16(out, 0, frame.cellIndex);
+  writeU16(out, 0, clampInt(frame.cellIndex, 0, 0xffff));
   writeU16(out, 2, Math.round((((frame.rotation % 360) + 360) % 360) * 65536 / 360) & 0xffff);
   writeS32Local(out, 4, Math.round(clampFinite(frame.xScale, -128, 128, 1) * 0x1000));
   writeS32Local(out, 8, Math.round(clampFinite(frame.yScale, -128, 128, 1) * 0x1000));
-  writeS16Local(out, 0x0c, frame.x);
-  writeS16Local(out, 0x0e, frame.y);
+  writeS16Local(out, 0x0c, clampInt(frame.x, -0x8000, 0x7fff));
+  writeS16Local(out, 0x0e, clampInt(frame.y, -0x8000, 0x7fff));
   return out;
 }
 

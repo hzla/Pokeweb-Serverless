@@ -1,3 +1,4 @@
+import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, type NarcName } from "./constants";
 import { markDirty, type ProjectState } from "./projectStore";
 import { cleanDisplayText, decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "./text";
@@ -46,8 +47,12 @@ export function updateTextEntry(project: ProjectState, narcName: TextNarcName, b
   const bank = getTextBank(project, narcName, bankId);
   const entry = bank[flatEntryIndex];
   if (!entry) throw new Error(`Text entry ${flatEntryIndex} does not exist in bank ${bankId}`);
+  const before = entry[1];
   entry[1] = value;
   commitTextBank(project, narcName, bankId);
+  recordFieldChange(project, narcName, `Text Bank ${bankId}`, `entry ${flatEntryIndex}`, before, value, {
+    key: `text:${narcName}:${bankId}:${flatEntryIndex}`,
+  });
   return entry;
 }
 
@@ -61,6 +66,9 @@ export function addTextEntries(project: ProjectState, narcName: TextNarcName, ba
   }
   sortTextBank(bank);
   commitTextBank(project, narcName, bankId);
+  recordGenericChange(project, narcName, `${count} text entr${count === 1 ? "y" : "ies"} added to bank ${bankId}.`, `Text Bank ${bankId}`, {
+    key: `text-add:${narcName}:${bankId}`,
+  });
 }
 
 export function deleteLastTextEntries(project: ProjectState, narcName: TextNarcName, bankId: number, count: number): void {
@@ -70,6 +78,12 @@ export function deleteLastTextEntries(project: ProjectState, narcName: TextNarcN
   const remaining = bank.filter((entry) => parseTextEntryId(entry[0]).entry < nextEntryCount);
   bank.splice(0, bank.length, ...remaining);
   commitTextBank(project, narcName, bankId);
+  const removed = shape.numEntries - nextEntryCount;
+  if (removed > 0) {
+    recordGenericChange(project, narcName, `${removed} text entr${removed === 1 ? "y" : "ies"} removed from bank ${bankId}.`, `Text Bank ${bankId}`, {
+      key: `text-delete:${narcName}:${bankId}`,
+    });
+  }
 }
 
 export function textBankMatchesSearch(entries: Gen5TextEntry[], searchText: string, ignoreCase = false): boolean {

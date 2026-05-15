@@ -6,6 +6,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom, materializeProjectEdits } from "../pokeweb/exportRom";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { parseHeaders, updateHeaderField } from "../pokeweb/headerModel";
+import { compactRomBytes } from "../pokeweb/persistence";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("ROM export", () => {
@@ -36,6 +37,19 @@ describe("ROM export", () => {
     expect([...parsed.files[1]]).toEqual([2]);
     expect(parsed.fileId("lib/Patch.dll")).toBe(2);
     expect([...parsed.getFileByName("lib/Patch.dll")]).toEqual([0xaa, 0xbb]);
+  });
+
+  it("compacts padded ROM bytes while preserving readable files", () => {
+    const source = makeRom([Uint8Array.of(1, 2, 3), Uint8Array.of(4)]);
+    const padded = new Uint8Array(source.length + 0x2000);
+    padded.set(source);
+
+    const compact = compactRomBytes(padded);
+    const parsed = new NintendoDSRom(compact);
+
+    expect(compact.length).toBeLessThan(padded.length);
+    expect([...parsed.files[0]]).toEqual([1, 2, 3]);
+    expect([...parsed.files[1]]).toEqual([4]);
   });
 
   it("materializes aggregate header edits before NARC rebuild", async () => {

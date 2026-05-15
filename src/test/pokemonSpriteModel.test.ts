@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readU32 } from "../nds/binary";
+import { readU16, readU32 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import {
@@ -12,15 +12,23 @@ import {
   getPokemonMultiCells,
   getPokemonIconImage,
   getPokemonPalettes,
+  getPokemonRigAtlasDimensions,
   getPokemonSpriteImage,
+  getRigCells,
   importPokemonAnimationBundle,
   importPokemonSpritePackage,
   parsePokemonAnimation,
   parsePokemonCellBank,
   parsePokemonMultiCells,
+  parseRigCells,
+  replaceRigCells,
   resolvePokemonSpriteId,
+  setPokemonAnimation,
   setPokemonAnimationFrame,
+  setPokemonCellBank,
   setPokemonIconImage,
+  setPokemonMultiCellAnimation,
+  setPokemonMultiCells,
   setPokemonPalette,
   setPokemonSpriteImage,
   updatePokemonAnimationFrame,
@@ -31,6 +39,9 @@ import {
   buildPokemonAnimationFile,
   buildPokemonCellBankFile,
   buildPokemonCellBankFileFromCells,
+  buildPokemonCellBankFileFromParsed,
+  buildPokemonMultiCellsFileFromParsed,
+  buildRigCellsFile,
   packagePokemonAnimationBundle,
   packagePokemonCustomSpriteBundle,
   parsePokemonCustomSpriteBundle,
@@ -85,6 +96,32 @@ describe("pokemonSpriteModel", () => {
         pixels: new Uint8ClampedArray(95 * 96 * 4),
       }),
     ).toThrow(/96 x 96/u);
+  });
+
+  it("uses expanded rig atlas projects and grows legacy rig image storage", () => {
+    const project = makeProject();
+    project.rigAtlas = { width: 256, height: 256, expanded: true };
+    project.narcs.pokemon_sprites!.rawFiles[22] = makeCompressedRigWithHeader(256, 128);
+
+    expect(getPokemonRigAtlasDimensions(project)).toEqual({ width: 256, height: 256 });
+    const image = getPokemonSpriteImage(project, 1, { kind: "rig", side: "front", gender: "male" }, "normal");
+    expect(image.width).toBe(256);
+    expect(image.height).toBe(256);
+
+    setPokemonSpriteImage(project, 1, { kind: "rig", side: "front", gender: "male" }, "normal", {
+      width: 256,
+      height: 256,
+      pixels: new Uint8ClampedArray(256 * 256 * 4),
+    });
+    const rewritten = decompressNitro(project.narcs.pokemon_sprites!.rawFiles[22]);
+
+    expect(rewritten.length).toBe(48 + 256 * 256 / 2);
+    expect(readU32(rewritten, 8)).toBe(rewritten.length);
+    expect(readU32(rewritten, 0x14)).toBe(0x20 + 256 * 256 / 2);
+    expect(readU16(rewritten, 0x18)).toBe(32);
+    expect(readU16(rewritten, 0x1a)).toBe(32);
+    expect(readU32(rewritten, 0x28)).toBe(256 * 256 / 2);
+    expect(project.narcs.pokemon_sprites!.dirty.has(22)).toBe(true);
   });
 
   it("writes normal and shiny palettes at Frost offsets", () => {
@@ -302,6 +339,125 @@ describe("pokemonSpriteModel", () => {
     expect(getPokemonMultiCellAnimation(project, 1, "front").sequences[0].frames[0]).toMatchObject({ duration: 12, cellIndex: 0 });
   });
 
+  it("round-trips structured NANR and NMAR records without forcing SRT frames", () => {
+    const nanr = parsePokemonAnimation(
+      buildPokemonAnimationFile([
+        {
+          index: 0,
+          frameCount: 1,
+          startFrameIndex: 0,
+          motionType: 0,
+          targetType: 1,
+          mode: 2,
+          frames: [{ duration: 3, cellIndex: 0, x: 9, y: 9, rotation: 90, xScale: 2, yScale: 2, frameType: "index", valueOffset: 0, sequenceFrameOffset: 0 }],
+        },
+        {
+          index: 1,
+          frameCount: 1,
+          startFrameIndex: 0,
+          motionType: 2,
+          targetType: 1,
+          mode: 3,
+          frames: [{ duration: 5, cellIndex: 0, x: -7, y: 8, rotation: 0, xScale: 1, yScale: 1, frameType: "index-t", valueOffset: 0, sequenceFrameOffset: 0 }],
+        },
+      ]),
+      "front",
+    );
+    const rebuiltNanr = parsePokemonAnimation(buildPokemonAnimationFile(nanr.sequences), "front");
+    const nmar = parsePokemonAnimation(
+      buildPokemonAnimationFile([{ ...nanr.sequences[1], targetType: 2, frames: nanr.sequences[1].frames.map((frame) => ({ ...frame, cellIndex: 1 })) }]),
+      "front",
+      "RAMN",
+    );
+
+    expect(rebuiltNanr.sequences.map((sequence) => sequence.motionType)).toEqual([0, 2]);
+    expect(rebuiltNanr.sequences[0].frames[0]).toMatchObject({ frameType: "index", x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 });
+    expect(rebuiltNanr.sequences[1].frames[0]).toMatchObject({ frameType: "index-t", x: -7, y: 8 });
+    expect(nmar.sequences[0]).toMatchObject({ targetType: 2, motionType: 2 });
+    expect(nmar.sequences[0].frames[0].cellIndex).toBe(1);
+  });
+
+  it("round-trips structured NCER, NMCR, and NCEC sidecar records", () => {
+    const cellBank = parsePokemonCellBank(makeNcerFile(), "front");
+    cellBank.mappingMode = 4;
+    cellBank.cells[0].cellAttr = 7;
+    cellBank.cells[0].oams[0].priority = 2;
+    cellBank.cells[0].oams[0].flipY = true;
+    const rebuiltBank = parsePokemonCellBank(buildPokemonCellBankFileFromParsed(cellBank), "front");
+
+    const multiCells = parsePokemonMultiCells(
+      buildPokemonMultiCellsFileFromParsed([
+        {
+          index: 0,
+          cellAnimationCount: 3,
+          nodes: [
+            { sequenceNumber: 0, x: -4, y: 5, nodeAttr: 0, cellAnimationIndex: 2, playMode: 3, visible: false },
+            { sequenceNumber: 1, x: 6, y: -7, nodeAttr: 0, cellAnimationIndex: 1, playMode: 1, visible: true },
+          ],
+        },
+      ]),
+      "front",
+    );
+    const rigCells = parseRigCells(
+      buildRigCellsFile({
+        flags: new Uint8Array([0xaa, 0xbb]),
+        cells: [{ cellX: 8, cellY: 16, width: 24, height: 32, spriteX: -4, spriteY: 12, subCell: { cellX: 40, cellY: 48, width: 8, height: 16, spriteX: 2, spriteY: 3, subCell: undefined as never } }],
+      }),
+    );
+
+    expect(rebuiltBank.mappingMode).toBe(4);
+    expect(rebuiltBank.cells[0]).toMatchObject({ cellAttr: 7, minX: -8, minY: -16, maxX: 16, maxY: 16 });
+    expect(rebuiltBank.cells[0].oams[0]).toMatchObject({ priority: 2, flipY: true });
+    expect(multiCells.cells[0]).toMatchObject({ cellAnimationCount: 3 });
+    expect(multiCells.cells[0].nodes[0]).toMatchObject({ sequenceNumber: 0, x: -4, y: 5, cellAnimationIndex: 2, playMode: 3, visible: false });
+    expect(rigCells.flags).toEqual(new Uint8Array([0xaa, 0xbb]));
+    expect(rigCells.cells[0]).toMatchObject({ cellX: 8, cellY: 16, width: 24, height: 32, spriteX: -4, spriteY: 12 });
+    expect(rigCells.cells[0].subCell).toMatchObject({ cellX: 40, cellY: 48, width: 8, height: 16 });
+  });
+
+  it("applies structured sidecar edits and rejects invalid animation references", () => {
+    const project = makeProject();
+    const animation = getPokemonAnimation(project, 1, "front");
+    animation.sequences[0].frames = [
+      { ...animation.sequences[0].frames[0], duration: 2, cellIndex: 0 },
+      { ...animation.sequences[0].frames[0], duration: 4, cellIndex: 0 },
+      { ...animation.sequences[0].frames[0], duration: 6, cellIndex: 0 },
+    ];
+    animation.sequences[0].frameCount = 3;
+    setPokemonAnimation(project, 1, "front", animation);
+
+    const multiAnimation = getPokemonMultiCellAnimation(project, 1, "front");
+    multiAnimation.sequences[0].frames.push({ ...multiAnimation.sequences[0].frames[0], duration: 5, cellIndex: 1 });
+    multiAnimation.sequences[0].frameCount = 2;
+    setPokemonMultiCellAnimation(project, 1, "front", multiAnimation);
+
+    const multiCells = getPokemonMultiCells(project, 1, "front");
+    multiCells.cells[0].cellAnimationCount = 2;
+    multiCells.cells[0].nodes[0].cellAnimationIndex = 1;
+    setPokemonMultiCells(project, 1, "front", multiCells);
+
+    const cellBank = getPokemonCellBank(project, 1, "front");
+    cellBank.cells[0].oams[0].x = 4;
+    setPokemonCellBank(project, 1, "front", cellBank);
+
+    const rigCells = getRigCells(project, 1, "front");
+    rigCells.flags = new Uint8Array([1, 2, 3, 4, 5, 6]);
+    replaceRigCells(project, 1, "front", rigCells);
+
+    expect(getPokemonAnimation(project, 1, "front").sequences[0].frames.map((frame) => frame.duration)).toEqual([2, 4, 6]);
+    expect(getPokemonMultiCellAnimation(project, 1, "front").sequences[0].frames.map((frame) => frame.cellIndex)).toEqual([0, 1]);
+    expect(getPokemonMultiCells(project, 1, "front").cells[0].nodes[0].cellAnimationIndex).toBe(1);
+    expect(getPokemonCellBank(project, 1, "front").cells[0].oams[0].x).toBe(4);
+    expect(getRigCells(project, 1, "front").flags).toEqual(new Uint8Array([1, 2, 3, 4, 5, 6]));
+    expect(project.narcs.pokemon_sprites!.dirty.has(25)).toBe(true);
+    expect(project.narcs.pokemon_sprites!.dirty.has(26)).toBe(true);
+    expect(project.narcs.pokemon_sprites!.dirty.has(27)).toBe(true);
+
+    const invalid = getPokemonAnimation(project, 1, "front");
+    invalid.sequences[0].frames[0].cellIndex = 99;
+    expect(() => setPokemonAnimation(project, 1, "front", invalid)).toThrow(/missing NCER cell/u);
+  });
+
   it("packages flexible custom sprite bundles with optional images and arbitrary files", () => {
     const bundle = packagePokemonCustomSpriteBundle({
       side: "back",
@@ -339,11 +495,28 @@ function makeProject(): ProjectState {
   spriteFiles[22] = makeCompressedRig();
   spriteFiles[24] = makeNcerFile();
   spriteFiles[25] = compressLz11Literal(makeNanrFile());
+  spriteFiles[26] = buildPokemonMultiCellsFileFromParsed([
+    {
+      index: 0,
+      cellAnimationCount: 2,
+      nodes: [
+        { sequenceNumber: 0, x: 0, y: 0, nodeAttr: 0x20, cellAnimationIndex: 0, playMode: 0, visible: true },
+        { sequenceNumber: 0, x: 8, y: -8, nodeAttr: 0x120, cellAnimationIndex: 1, playMode: 0, visible: true },
+      ],
+    },
+    { index: 1, cellAnimationCount: 1, nodes: [{ sequenceNumber: 0, x: 0, y: 0, nodeAttr: 0x20, cellAnimationIndex: 0, playMode: 0, visible: true }] },
+  ]);
+  spriteFiles[27] = buildPokemonAnimationFile({
+    targetType: 2,
+    frames: [[{ duration: 12, cellIndex: 0, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 }]],
+  });
   spriteFiles[28] = makeRigCellsFile();
   spriteFiles[29] = makeCompressedSprite();
   spriteFiles[31] = makeCompressedRig();
   spriteFiles[33] = makeNcerFile();
   spriteFiles[34] = compressLz11Literal(makeNanrTFile());
+  spriteFiles[35] = spriteFiles[26].slice();
+  spriteFiles[36] = spriteFiles[27].slice();
   spriteFiles[37] = makeRigCellsFile();
   spriteFiles[38] = makePaletteFile();
   spriteFiles[39] = makePaletteFile(true);
@@ -399,6 +572,28 @@ function makeCompressedSprite(): Uint8Array {
 
 function makeCompressedRig(): Uint8Array {
   const out = new Uint8Array(48 + 256 * 128 / 2);
+  out.fill(0x11, 48);
+  return compressLz11Literal(out);
+}
+
+function makeCompressedRigWithHeader(width: number, height: number): Uint8Array {
+  const dataSize = width * height / 2;
+  const out = new Uint8Array(48 + dataSize);
+  out.set([...("RGCN")].map((char) => char.charCodeAt(0)), 0);
+  writeU16(out, 4, 0xfffe);
+  writeU16(out, 6, 1);
+  writeU32(out, 8, out.length);
+  writeU16(out, 0x0c, 0x10);
+  writeU16(out, 0x0e, 1);
+  out.set([...("RAHC")].map((char) => char.charCodeAt(0)), 0x10);
+  writeU32(out, 0x14, 0x20 + dataSize);
+  writeU16(out, 0x18, height / 8);
+  writeU16(out, 0x1a, width / 8);
+  writeU32(out, 0x1c, 3);
+  writeU32(out, 0x20, 0);
+  writeU32(out, 0x24, 1);
+  writeU32(out, 0x28, dataSize);
+  writeU32(out, 0x2c, 24);
   out.fill(0x11, 48);
   return compressLz11Literal(out);
 }
