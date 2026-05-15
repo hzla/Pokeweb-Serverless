@@ -12,6 +12,8 @@ export function renderTmEditor(project: ProjectState, root: HTMLElement, onDirty
       <div class="filter-title">Search Text</div>
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
+      <button class="btn -default" id="sync-tm-icons-btn" type="button">Sync Icons</button>
+      <div class="tm-sync-status" id="tm-sync-status"></div>
       <div class="small-filters cat-filters">
         ${["physical", "special", "status"].map((cat) => `<button class="btn -default btn-3" data-mcat="${cat}" type="button"><img src="${publicAsset(`images/move-${cat}.png`)}" alt="${cat}"></button>`).join("")}
       </div>

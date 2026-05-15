@@ -2,6 +2,7 @@ import { readAscii } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { recordGenericChange } from "./actionChangelog";
 import type { NarcName } from "./constants";
 import type { NarcStore, ProjectState } from "./projectStore";
 
@@ -54,10 +55,16 @@ export function fileSystemAddedFiles(project: ProjectState): Array<{ path: strin
 export function addRomFile(project: ProjectState, path: string, bytes: Uint8Array): void {
   const normalizedPath = normalizeRomPath(path);
   ensureFileSystemState(project).additions![normalizedPath] = bytes;
+  recordGenericChange(project, "file_system", `ROM file added: ${normalizedPath}.`, normalizedPath, {
+    key: `rom-file-add:${normalizedPath}`,
+  });
 }
 
 export function setRomFileReplacement(project: ProjectState, fileId: number, bytes: Uint8Array): void {
   ensureFileSystemState(project).replacements[fileId] = bytes;
+  recordGenericChange(project, "file_system", `ROM file ${fileId} replaced.`, `ROM file ${fileId}`, {
+    key: `rom-file-replace:${fileId}`,
+  });
 }
 
 export function clearRomFileReplacement(project: ProjectState, fileId: number): void {
@@ -133,6 +140,9 @@ export function replaceRomFile(project: ProjectState, rom: NintendoDSRom, fileId
     store.dirty = new Set(narc.files.map((_file, index) => index));
     store.records.clear();
     clearRomFileReplacement(project, fileId);
+    recordGenericChange(project, "file_system", `Loaded editor NARC file ${fileId} replaced.`, `ROM file ${fileId}`, {
+      key: `rom-file-replace:${fileId}`,
+    });
     return;
   }
   void rom;
@@ -147,6 +157,9 @@ export function replaceNarcFile(project: ProjectState, rom: NintendoDSRom, paren
     store.fileCount = store.rawFiles.length;
     store.dirty.add(index);
     store.records.delete(index);
+    recordGenericChange(project, "file_system", `Loaded editor NARC file ${parentFileId}/${index} replaced.`, `NARC file ${parentFileId}/${index}`, {
+      key: `narc-file-replace:${parentFileId}:${index}`,
+    });
     return;
   }
 
@@ -154,6 +167,9 @@ export function replaceNarcFile(project: ProjectState, rom: NintendoDSRom, paren
   if (index < 0 || index >= narc.files.length) throw new Error(`NARC subfile ${index} does not exist.`);
   narc.files[index] = bytes;
   setRomFileReplacement(project, parentFileId, narc.save());
+  recordGenericChange(project, "file_system", `NARC file ${parentFileId}/${index} replaced.`, `NARC file ${parentFileId}/${index}`, {
+    key: `narc-file-replace:${parentFileId}:${index}`,
+  });
 }
 
 export function insertNarcFiles(
@@ -177,9 +193,15 @@ export function insertNarcFiles(
     store.filenames = source.filenames;
     store.records.clear();
     store.dirty = new Set(source.files.map((_file, index) => index));
+    recordGenericChange(project, "file_system", `${files.length} file${files.length === 1 ? "" : "s"} inserted into loaded editor NARC ${parentFileId}.`, `NARC ${parentFileId}`, {
+      key: `narc-file-insert:${parentFileId}:${insertAt}`,
+    });
     return;
   }
   setRomFileReplacement(project, parentFileId, source.save());
+  recordGenericChange(project, "file_system", `${files.length} file${files.length === 1 ? "" : "s"} inserted into NARC ${parentFileId}.`, `NARC ${parentFileId}`, {
+    key: `narc-file-insert:${parentFileId}:${insertAt}`,
+  });
 }
 
 export function isNarcBytes(bytes: Uint8Array): boolean {

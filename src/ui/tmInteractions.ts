@@ -1,4 +1,4 @@
-import { getTmEntries, tmMatchesSearch, updateTmMove, type TmEntry } from "../pokeweb/tmModel";
+import { getTmEntries, syncAllTmIcons, tmMatchesSearch, updateTmMove, type TmEntry } from "../pokeweb/tmModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
@@ -14,6 +14,8 @@ export function attachTmInteractions(root: HTMLElement, project: ProjectState, o
   const activeTypes = new Set<string>();
   const searchInput = root.querySelector<HTMLInputElement>("#search-text");
   const searchButton = root.querySelector<HTMLButtonElement>("#search-text-btn");
+  const syncButton = root.querySelector<HTMLButtonElement>("#sync-tm-icons-btn");
+  const syncStatus = root.querySelector<HTMLElement>("#tm-sync-status");
 
   const runFilter = () => {
     filterTms(root, project, searchInput?.value ?? "", activeCategories, activeTypes);
@@ -23,6 +25,22 @@ export function attachTmInteractions(root: HTMLElement, project: ProjectState, o
   searchButton?.addEventListener("click", runFilter);
   searchInput?.addEventListener("keypress", (event) => {
     if (event.key === "Enter") runFilter();
+  });
+
+  syncButton?.addEventListener("click", () => {
+    try {
+      const changed = syncAllTmIcons(project);
+      if (syncStatus) {
+        syncStatus.textContent = changed > 0 ? `Synced ${changed} icon${changed === 1 ? "" : "s"}` : "Icons already synced";
+        syncStatus.classList.remove("-error");
+      }
+      if (changed > 0) options.onDirty?.();
+    } catch (error) {
+      if (syncStatus) {
+        syncStatus.textContent = error instanceof Error ? error.message : String(error);
+        syncStatus.classList.add("-error");
+      }
+    }
   });
 
   root.querySelectorAll<HTMLButtonElement>(".cat-filters [data-mcat]").forEach((button) => {

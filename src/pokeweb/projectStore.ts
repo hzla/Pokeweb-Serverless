@@ -1,6 +1,7 @@
 import { readU32 } from "../nds/binary";
 import type { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
+import { domainTitle, recordGenericChange } from "./actionChangelog";
 import type { BaseRom, BaseVersion, NarcName } from "./constants";
 import {
   BATTLE_TYPES,
@@ -19,6 +20,7 @@ import {
 import type { FieldSpec, NarcFormatMap } from "./formats";
 import type { HeaderCollection } from "./headerModel";
 import type { GrottoOddsState } from "./martGrottoModel";
+import type { ActionChangelogState } from "./actionChangelog";
 import type { Gen5TextEntry } from "./text";
 import type { TmState } from "./tmModel";
 
@@ -101,6 +103,11 @@ export type CodeInjectionState = {
   }>;
 };
 
+export type StarterState = {
+  speciesIds: number[];
+  dirtyOverlayIds: number[];
+};
+
 export type ProjectState = {
   originalRomBytes?: Uint8Array;
   session: SessionSettings;
@@ -112,6 +119,11 @@ export type ProjectState = {
   };
   arm9: Uint8Array;
   arm9Dirty?: boolean;
+  rigAtlas?: {
+    width: number;
+    height: number;
+    expanded: boolean;
+  };
   overlays: Partial<Record<number, Uint8Array>>;
   narcs: Partial<Record<NarcName, NarcStore>>;
   texts: TextState;
@@ -124,6 +136,8 @@ export type ProjectState = {
   map3dAreaEdits?: Map3dAreaEditState;
   fileSystem?: FileSystemEditState;
   codeInjection?: CodeInjectionState;
+  starters?: StarterState;
+  actionChangelog?: ActionChangelogState;
 };
 
 export function createNarcStore(name: NarcName, sourcePath: string, fileId: number, narc: NARC): NarcStore {
@@ -157,7 +171,19 @@ export function decodeRecord(project: ProjectState, name: NarcName, id: number):
 
 export function markDirty(project: ProjectState, name: NarcName, id: number): void {
   project.narcs[name]?.dirty.add(id);
+  if (GENERIC_DIRTY_DOMAINS.has(name)) {
+    const title = domainTitle(name);
+    recordGenericChange(project, name, `${title} file ${id} changed.`, undefined, { key: `generic-dirty:${name}:${id}` });
+  }
 }
+
+const GENERIC_DIRTY_DOMAINS = new Set<NarcName>([
+  "matrix",
+  "move_spas",
+  "habitats",
+  "starter_sprites",
+  "move_effects_table",
+]);
 
 export function getCachedRecordCount(project: ProjectState): number {
   return Object.values(project.narcs).reduce((sum, store) => sum + (store?.records.size ?? 0), 0);

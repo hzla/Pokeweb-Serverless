@@ -50,6 +50,8 @@ describe("pokemonModel", () => {
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
     expect(project.narcs.learnsets?.dirty.has(1)).toBe(true);
     expect(project.narcs.evolutions?.dirty.has(1)).toBe(true);
+    expect(project.actionChangelog?.entries.map((entry) => entry.domain)).toEqual(expect.arrayContaining(["personal", "learnsets", "evolutions"]));
+    expect(project.actionChangelog?.entries.some((entry) => entry.text.includes("Bulbasaur type 1 changed from Grass to Poison."))).toBe(true);
   });
 
   it("toggles TM/HM compatibility bits without changing TM move names", () => {

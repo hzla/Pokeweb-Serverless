@@ -12,14 +12,20 @@ import {
   getPokemonSpriteFormOptions,
   getPokemonSpriteIndexedImage,
   getPokemonSpriteImage,
+  getPokemonRigAtlasDimensions,
   getRigCells,
   importPokemonAnimationBundle,
   importPokemonSpritePackage,
   copyPokemonSpriteVariant,
+  replaceRigCells,
   resolvePokemonSpriteId,
   scalePokemonAnimationDurations,
+  setPokemonAnimation,
+  setPokemonCellBank,
   setPokemonIconImage,
   setPokemonIconPaletteAssignment,
+  setPokemonMultiCellAnimation,
+  setPokemonMultiCells,
   setPokemonPalette,
   setPokemonSpriteImage,
   setRigCells,
@@ -28,6 +34,7 @@ import {
   type PokemonAnimation,
   type PokemonAnimationFrame,
   type PokemonAnimationFrameEdit,
+  type PokemonAnimationSequence,
   type PokemonAnimationSide,
   type PokemonCell,
   type PokemonCellBank,
@@ -84,6 +91,7 @@ type SpriteEditorState = {
   animationTick: number;
   animationExpanded: boolean;
   animationStepInterval: number;
+  animationTab: AnimationEditorTab;
   sidebarCollapsed: boolean;
   selectedCell: number;
   selectedSubCell: boolean;
@@ -104,6 +112,8 @@ type SpriteEditorState = {
   palettesExpanded: boolean;
   iconsExpanded: boolean;
 };
+
+type AnimationEditorTab = "preview" | "nanr" | "nmar" | "nmcr" | "ncer" | "ncec";
 
 type GifLoopBase = {
   spriteId: number;
@@ -195,6 +205,12 @@ type AnimationDraftFrame = {
   frameIndex: number;
   frame: PokemonAnimationFrame;
 };
+type AnimationFileDraft = {
+  spriteId: number;
+  side: PokemonAnimationSide;
+  tab: "nanr" | "nmar";
+  animation: PokemonAnimation;
+};
 
 const ANIMATION_STEP_INTERVAL_STORAGE_KEY = "pokeweb.animationStepInterval";
 const GIF_FLIPBOOK_PACKING_MODE_STORAGE_KEY = "pokeweb.gifFlipbookPackingMode";
@@ -219,6 +235,7 @@ const state: SpriteEditorState = {
   animationTick: 0,
   animationExpanded: false,
   animationStepInterval: readAnimationStepInterval(),
+  animationTab: "preview",
   sidebarCollapsed: false,
   selectedCell: 0,
   selectedSubCell: false,
@@ -240,6 +257,7 @@ let animationPlaybackHandle: number | undefined;
 let gifViewerPlaybackHandle: number | undefined;
 let animationDragState: AnimationDragState | undefined;
 let animationDraftFrame: AnimationDraftFrame | undefined;
+let animationFileDraft: AnimationFileDraft | undefined;
 let spriteEditorShortcutCleanup: (() => void) | undefined;
 let animationOutsidePointerCleanup: (() => void) | undefined;
 const animationEditHistory: AnimationHistoryEntry[] = [];
@@ -268,9 +286,6 @@ const SPRITE_FILE_LABELS = [
 ] as const;
 
 const ANIMATION_PREVIEW_SCALE = 3;
-const RIG_ATLAS_WIDTH = 256;
-const RIG_ATLAS_HEIGHT = 128;
-const RIG_WIDTH_TILES = RIG_ATLAS_WIDTH / 8;
 const ANIMATION_CANVAS_WIDTH = 320;
 const ANIMATION_CANVAS_HEIGHT = 400;
 const ANIMATION_PREVIEW_X_OFFSET = 8;
@@ -335,12 +350,12 @@ export function renderPokemonSpriteEditor(
       </aside>
       <main class="sprite-editor-page ${state.sidebarCollapsed ? "-sidebar-collapsed" : ""}">
         ${renderAnimationSection(project, spriteId)}
-        ${renderRigSection(rigCells)}
+        ${renderRigSection(project, rigCells)}
         <section class="sprite-section sprite-preview-section ${state.spritesExpanded ? "" : "-collapsed"}">
           <button class="sprite-section-toggle" data-toggle-sprite-section="sprites" type="button" aria-expanded="${state.spritesExpanded}">
             <span>${state.spritesExpanded ? "v" : ">"} Sprites</span>
           </button>
-          ${state.spritesExpanded ? renderPreviewCanvases(entry.hasFemale) : ""}
+          ${state.spritesExpanded ? renderPreviewCanvases(project, entry.hasFemale) : ""}
         </section>
         <section class="sprite-section ${state.palettesExpanded ? "" : "-collapsed"}">
           <button class="sprite-section-toggle" data-toggle-sprite-section="palettes" type="button" aria-expanded="${state.palettesExpanded}">
@@ -583,7 +598,7 @@ function installGifFlipbookImportEvents(
       setStatus(`Building flipbook rig from ${file.name}...`);
       await new Promise((resolve) => window.setTimeout(resolve, 0));
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const config = readGifFlipbookConfig(root);
+      const config = readGifFlipbookConfig(root, project);
       const paletteKind = readGifFlipbookPaletteKind(root);
       state.gifSource = { spriteId, side: config.side, fileName: file.name, bytes, frames: decodePokemonFlipbookGifFrames(bytes) };
       state.gifViewerFrame = 0;
@@ -619,7 +634,7 @@ function installGifFlipbookImportEvents(
     try {
       setStatus(`Building paired flipbook rigs from ${frontFile.name} and ${backFile.name}...`);
       await new Promise((resolve) => window.setTimeout(resolve, 0));
-      const singleConfig = readGifFlipbookConfig(root);
+      const singleConfig = readGifFlipbookConfig(root, project);
       const pairedConfig = {
         strategy: singleConfig.strategy,
         packingMode: singleConfig.packingMode,
@@ -628,6 +643,8 @@ function installGifFlipbookImportEvents(
         restLoopCount: singleConfig.restLoopCount,
         includeFinish: singleConfig.includeFinish,
         maxAtlasTiles: singleConfig.maxAtlasTiles,
+        atlasWidth: singleConfig.atlasWidth,
+        atlasHeight: singleConfig.atlasHeight,
         durationScale: singleConfig.durationScale,
         downscalePercent: singleConfig.downscalePercent,
       };
@@ -852,7 +869,7 @@ function applyManualGifSampling(
     const input = root.querySelector<HTMLInputElement>("#gif-manual-frames");
     state.gifManualFrames = input?.value ?? state.gifManualFrames;
     const manualFrameNumbers = parseManualGifFrameNumbers(state.gifManualFrames);
-    const config = { ...readGifFlipbookConfig(root), manualFrameNumbers };
+    const config = { ...readGifFlipbookConfig(root, project), manualFrameNumbers };
     const paletteKind = readGifFlipbookPaletteKind(root);
     state.gifSource = { ...source, side: config.side };
     const result = buildPokemonFlipbookRigFromGif(source.bytes, config);
@@ -1115,7 +1132,7 @@ function refreshRigSectionContent(
   const rigCells = getRigCells(project, spriteId, state.rigSide);
   state.selectedCell = clamp(state.selectedCell, 0, Math.max(0, rigCells.cells.length - 1));
   const rigSection = root.querySelector<HTMLElement>("#sprite-rig-section");
-  if (rigSection) rigSection.outerHTML = renderRigSection(rigCells);
+  if (rigSection) rigSection.outerHTML = renderRigSection(project, rigCells);
   installRigSideEvents(project, root, spriteId, options, setStatus, rerender);
   installRigEvents(project, root, spriteId, options, setStatus, rerender);
   drawRigEditor(project, spriteId, rigCells);
@@ -1169,7 +1186,7 @@ function refreshGifImportEditorContent(
     const rigCells = getRigCells(project, spriteId, state.rigSide);
     state.selectedCell = clamp(state.selectedCell, 0, Math.max(0, rigCells.cells.length - 1));
     const rigSection = root.querySelector<HTMLElement>("#sprite-rig-section");
-    if (rigSection) rigSection.outerHTML = renderRigSection(rigCells);
+    if (rigSection) rigSection.outerHTML = renderRigSection(project, rigCells);
     const animationSection = root.querySelector<HTMLElement>("#sprite-animation-section");
     if (animationSection) animationSection.outerHTML = renderAnimationSection(project, spriteId);
     installRigSideEvents(project, root, spriteId, options, setStatus, rerender);
@@ -1217,16 +1234,19 @@ function syncGifLoopControlInputs(project: ProjectState, root: HTMLElement, spri
   if (count) count.value = String(clamp(state.gifLoopCount, 1, 12));
 }
 
-function readGifFlipbookConfig(root: HTMLElement): PokemonFlipbookImportConfig {
+function readGifFlipbookConfig(root: HTMLElement, project?: ProjectState): PokemonFlipbookImportConfig {
   const side = state.animationSide;
   const config = defaultPokemonFlipbookImportConfig(side);
+  const rigAtlas = project ? getPokemonRigAtlasDimensions(project) : undefined;
   config.strategy = state.gifFlipbookStrategy;
   config.packingMode = state.gifFlipbookPackingMode;
   config.sourceFramePercent = clamp(Number(root.querySelector<HTMLInputElement>("#gif-flipbook-source-percent")?.value ?? config.sourceFramePercent), 1, 100);
   config.downscalePercent = normalizeGifFlipbookDownscalePercent(Number(root.querySelector<HTMLInputElement>("#gif-flipbook-downscale-percent")?.value ?? state.gifFlipbookDownscalePercent));
   state.gifFlipbookDownscalePercent = config.downscalePercent;
   writeGifFlipbookDownscalePreference(config.downscalePercent);
-  config.maxAtlasTiles = 512;
+  config.atlasWidth = rigAtlas?.width ?? config.atlasWidth;
+  config.atlasHeight = rigAtlas?.height ?? config.atlasHeight;
+  config.maxAtlasTiles = (config.atlasWidth / 8) * (config.atlasHeight / 8);
   config.durationScale = durationScaleForGifSpeed(state.gifFlipbookSpeedScale);
   const restLoop = root.querySelector<HTMLSelectElement>("#gif-flipbook-rest-loops")?.value ?? "auto";
   config.restLoopCount = restLoop === "1" || restLoop === "2" || restLoop === "3" ? (Number(restLoop) as 1 | 2 | 3) : "auto";
@@ -1306,7 +1326,7 @@ function installRigEvents(
     });
   };
   canvas.addEventListener("pointerdown", (event) => {
-    const { x, y } = rigCanvasPoint(canvas, event);
+    const { x, y } = rigCanvasPoint(project, canvas, event);
     const cells = loadCells();
     const hit = hitRigCell(cells, x, y);
     if (!hit) return;
@@ -1329,14 +1349,14 @@ function installRigEvents(
     updateNumeric(cells);
   });
   canvas.addEventListener("pointermove", (event) => {
-    const { x, y } = rigCanvasPoint(canvas, event);
+    const { x, y } = rigCanvasPoint(project, canvas, event);
     if (!drag) {
       const hit = hitRigCell(loadCells(), x, y);
       canvas.style.cursor = hit ? cursorForRigMode(hit.mode) : "default";
       return;
     }
     const cell = selectedRigCell(drag.cells);
-    applyRigDrag(cell, drag, x, y);
+    applyRigDrag(project, cell, drag, x, y);
     drag.moved = true;
     drawRigEditor(project, spriteId, drag.cells, drag);
     updateNumeric(drag.cells);
@@ -1472,6 +1492,16 @@ function installAnimationEvents(
   rerender: () => void,
 ): void {
   const refreshAnimation = () => refreshAnimationSectionContent(project, root, spriteId, options, setStatus, rerender);
+  root.querySelectorAll<HTMLButtonElement>("[data-animation-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextTab = button.dataset.animationTab as AnimationEditorTab;
+      if (state.animationTab === nextTab) return;
+      stopAnimationPlayback();
+      state.animationTab = nextTab;
+      animationDragState = undefined;
+      refreshAnimation();
+    });
+  });
   root.querySelectorAll<HTMLButtonElement>("[data-animation-side]").forEach((button) => {
     button.addEventListener("click", () => {
       const nextSide = button.dataset.animationSide as PokemonAnimationSide;
@@ -1484,10 +1514,12 @@ function installAnimationEvents(
       state.animationPlaying = false;
       state.animationActiveNode = -1;
       animationDragState = undefined;
+      animationFileDraft = undefined;
       syncGifFlipbookStats(project, root, spriteId);
       refreshAnimation();
     });
   });
+  installAnimationFileTabEvents(project, root, spriteId, options, setStatus, refreshAnimation);
   root.querySelector<HTMLSelectElement>("#animation-sequence")?.addEventListener("change", (event) => {
     stopAnimationPlayback();
     state.animationSequence = Number((event.currentTarget as HTMLSelectElement).value);
@@ -1601,6 +1633,258 @@ function installAnimationEvents(
     }
   });
   installAnimationCanvasEvents(project, root, spriteId, options, setStatus, rerender);
+}
+
+function installAnimationFileTabEvents(
+  project: ProjectState,
+  root: HTMLElement,
+  spriteId: number,
+  options: RenderOptions,
+  setStatus: (message: string) => void,
+  refreshAnimation: () => void,
+): void {
+  root.querySelectorAll<HTMLButtonElement>("[data-animation-file-revert]").forEach((button) => {
+    button.addEventListener("click", () => {
+      animationFileDraft = undefined;
+      setStatus("Reverted animation file edits");
+      refreshAnimation();
+    });
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-animation-file-apply]").forEach((button) => {
+    button.addEventListener("click", () => {
+      try {
+        const kind = button.dataset.animationFileApply as AnimationEditorTab;
+        if (kind === "nanr") setPokemonAnimation(project, spriteId, state.animationSide, readAnimationBankEditor(root, project, spriteId, "nanr"));
+        else if (kind === "nmar") setPokemonMultiCellAnimation(project, spriteId, state.animationSide, readAnimationBankEditor(root, project, spriteId, "nmar"));
+        else if (kind === "nmcr") setPokemonMultiCells(project, spriteId, state.animationSide, readNmcrEditor(root, project, spriteId));
+        else if (kind === "ncer") setPokemonCellBank(project, spriteId, state.animationSide, readNcerEditor(root, project, spriteId));
+        else if (kind === "ncec") replaceRigCells(project, spriteId, state.animationSide, readNcecEditor(root, project, spriteId));
+        animationFileDraft = undefined;
+        options.onDirty?.();
+        state.animationFrame = 0;
+        state.animationTick = 0;
+        state.animationPlaying = false;
+        setStatus(`Applied ${kind.toUpperCase()} edits`);
+        refreshAnimation();
+      } catch (error) {
+        setStatus(errorMessage(error));
+      }
+    });
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-animation-frame-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      try {
+        const kind = button.dataset.kind as "nanr" | "nmar";
+        const sequenceIndex = Number(button.dataset.sequence);
+        const frameIndex = Number(button.dataset.frame);
+        const action = button.dataset.animationFrameAction as "insert" | "duplicate" | "delete";
+        const animation = readAnimationBankEditor(root, project, spriteId, kind);
+        const sequence = animation.sequences[sequenceIndex];
+        if (!sequence) throw new Error("Animation sequence is out of range");
+        if (action === "delete") {
+          if (sequence.frames.length <= 1) throw new Error("A sequence must keep at least one frame");
+          sequence.frames.splice(frameIndex, 1);
+        } else {
+          const source = sequence.frames[frameIndex] ?? sequence.frames[sequence.frames.length - 1];
+          if (!source) throw new Error("Animation frame is out of range");
+          sequence.frames.splice(action === "insert" ? frameIndex : frameIndex + 1, 0, cloneAnimationFrameForDraft(source));
+        }
+        sequence.frameCount = sequence.frames.length;
+        animationFileDraft = { spriteId, side: state.animationSide, tab: kind, animation };
+        setStatus("Frame list changed. Click Apply to save.");
+        refreshAnimation();
+      } catch (error) {
+        setStatus(errorMessage(error));
+      }
+    });
+  });
+}
+
+function readAnimationBankEditor(root: HTMLElement, project: ProjectState, spriteId: number, kind: "nanr" | "nmar"): PokemonAnimation {
+  const base = animationFileDraftFor(spriteId, state.animationSide, kind) ?? (kind === "nanr" ? getPokemonAnimation(project, spriteId, state.animationSide) : getPokemonMultiCellAnimation(project, spriteId, state.animationSide));
+  const sequenceElements = Array.from(root.querySelectorAll<HTMLElement>(`[data-animation-file-editor="${kind}"] [data-animation-sequence]`));
+  const sequences: PokemonAnimationSequence[] = sequenceElements.map((element, index) => {
+    const sequenceIndex = Number(element.dataset.animationSequence ?? index);
+    const baseSequence = base.sequences[sequenceIndex] ?? base.sequences[index];
+    const mode = readNumberFromElement(element.querySelector<HTMLInputElement>('[data-animation-sequence-field="mode"]'), baseSequence?.mode ?? 2);
+    const motionType = readNumberFromElement(element.querySelector<HTMLInputElement | HTMLSelectElement>('[data-animation-sequence-field="motionType"]'), baseSequence?.motionType ?? 1);
+    const startFrameIndex = readNumberFromElement(element.querySelector<HTMLInputElement>('[data-animation-sequence-field="startFrameIndex"]'), baseSequence?.startFrameIndex ?? 0);
+    const frames = Array.from(element.querySelectorAll<HTMLElement>("[data-animation-frame-row]")).map((row, frameIndex) => {
+      const baseFrame = baseSequence?.frames[frameIndex] ?? baseSequence?.frames[0];
+      const frame = {
+        duration: readFrameField(row, "duration", baseFrame?.duration ?? 1),
+        cellIndex: readFrameField(row, "cellIndex", baseFrame?.cellIndex ?? 0),
+        x: readFrameField(row, "x", baseFrame?.x ?? 0),
+        y: readFrameField(row, "y", baseFrame?.y ?? 0),
+        rotation: readFrameField(row, "rotation", baseFrame?.rotation ?? 0),
+        xScale: readFrameField(row, "xScale", baseFrame?.xScale ?? 1),
+        yScale: readFrameField(row, "yScale", baseFrame?.yScale ?? 1),
+        frameType: motionType === 0 ? "index" : motionType === 2 ? "index-t" : "index-srt",
+        valueOffset: baseFrame?.valueOffset ?? 0,
+        sequenceFrameOffset: baseFrame?.sequenceFrameOffset ?? 0,
+      } satisfies PokemonAnimationFrame;
+      return frame;
+    });
+    return {
+      index: sequenceIndex,
+      frameCount: frames.length,
+      startFrameIndex,
+      motionType,
+      targetType: kind === "nanr" ? 1 : 2,
+      mode,
+      frames,
+    };
+  });
+  return { side: state.animationSide, raw: base.raw, sequences };
+}
+
+function readNmcrEditor(root: HTMLElement, project: ProjectState, spriteId: number): ReturnType<typeof getPokemonMultiCells> {
+  const base = getPokemonMultiCells(project, spriteId, state.animationSide);
+  const groups = Array.from(root.querySelectorAll<HTMLElement>("[data-nmcr-group]")).map((group, index) => {
+    const groupIndex = Number(group.dataset.nmcrGroup ?? index);
+    const baseCell = base.cells[groupIndex] ?? base.cells[index];
+    const cellAnimationCount = readNumberFromElement(group.querySelector<HTMLInputElement>('[data-nmcr-group-field="cellAnimationCount"]'), baseCell?.cellAnimationCount ?? 1);
+    const nodes = Array.from(group.querySelectorAll<HTMLElement>("[data-nmcr-node-row]")).map((row, nodeIndex) => {
+      const baseNode = baseCell?.nodes[nodeIndex];
+      const visibleInput = row.querySelector<HTMLInputElement>('[data-nmcr-node-field="visible"]');
+      const cellAnimationIndex = readNodeField(row, "cellAnimationIndex", baseNode?.cellAnimationIndex ?? nodeIndex);
+      const playMode = readNodeField(row, "playMode", baseNode?.playMode ?? 0);
+      const visible = visibleInput ? visibleInput.checked : baseNode?.visible ?? true;
+      return {
+        sequenceNumber: readNodeField(row, "sequenceNumber", baseNode?.sequenceNumber ?? 0),
+        x: readNodeField(row, "x", baseNode?.x ?? 0),
+        y: readNodeField(row, "y", baseNode?.y ?? 0),
+        nodeAttr: ((cellAnimationIndex & 0xff) << 8) | (visible ? 0x20 : 0) | (playMode & 0x0f),
+        cellAnimationIndex,
+        playMode,
+        visible,
+      };
+    });
+    return { index: groupIndex, nodes, cellAnimationCount };
+  });
+  return { side: state.animationSide, raw: base.raw, cells: groups };
+}
+
+function readNcerEditor(root: HTMLElement, project: ProjectState, spriteId: number): PokemonCellBank {
+  const base = getPokemonCellBank(project, spriteId, state.animationSide);
+  const mappingMode = readNumberFromElement(root.querySelector<HTMLInputElement>("#ncer-mapping-mode"), base.mappingMode);
+  const cells = Array.from(root.querySelectorAll<HTMLElement>("[data-ncer-cell]")).map((cellElement, index) => {
+    const cellIndex = Number(cellElement.dataset.ncerCell ?? index);
+    const baseCell = base.cells[cellIndex] ?? base.cells[index];
+    const oams = Array.from(cellElement.querySelectorAll<HTMLElement>("[data-ncer-oam-row]")).map((row, oamIndex) => {
+      const baseOam = baseCell?.oams[oamIndex];
+      const objectSize = readSelectValue(row.querySelector<HTMLSelectElement>('[data-ncer-oam-field="objectSize"]'), `${baseOam?.width ?? 8}x${baseOam?.height ?? 8}`);
+      const size = oamSizeFromValue(objectSize);
+      const rotateScale = readCheckbox(row, "rotateScale", baseOam?.rotateScale ?? false);
+      const doubleOrDisable = readCheckbox(row, "doubleSize", rotateScale ? baseOam?.doubleSize ?? false : baseOam?.disable ?? false);
+      return {
+        x: readOamField(row, "x", baseOam?.x ?? 0),
+        y: readOamField(row, "y", baseOam?.y ?? 0),
+        width: size.width,
+        height: size.height,
+        characterName: readOamField(row, "characterName", baseOam?.characterName ?? 0),
+        palette: readOamField(row, "palette", baseOam?.palette ?? 0),
+        flipX: readCheckbox(row, "flipX", baseOam?.flipX ?? false),
+        flipY: readCheckbox(row, "flipY", baseOam?.flipY ?? false),
+        disable: rotateScale ? false : doubleOrDisable,
+        rotateScale,
+        doubleSize: rotateScale ? doubleOrDisable : false,
+        matrix: readOamField(row, "matrix", baseOam?.matrix ?? 0),
+        mode: readOamField(row, "mode", baseOam?.mode ?? 0),
+        mosaic: baseOam?.mosaic ?? false,
+        shape: size.shape,
+        size: size.size,
+        priority: readOamField(row, "priority", baseOam?.priority ?? 0),
+        characterBits: readNumberFromElement(row.querySelector<HTMLSelectElement>('[data-ncer-oam-field="characterBits"]'), baseOam?.characterBits ?? 4) === 8 ? 8 : 4,
+      } satisfies PokemonCellOam;
+    });
+    return {
+      index: cellIndex,
+      nAttribs: oams.length,
+      cellAttr: readNumberFromElement(cellElement.querySelector<HTMLInputElement>('[data-ncer-cell-field="cellAttr"]'), baseCell?.cellAttr ?? 0),
+      minX: baseCell?.minX ?? 0,
+      minY: baseCell?.minY ?? 0,
+      maxX: baseCell?.maxX ?? 0,
+      maxY: baseCell?.maxY ?? 0,
+      oams,
+    };
+  });
+  return { side: state.animationSide, mappingMode, cells, raw: base.raw };
+}
+
+function readNcecEditor(root: HTMLElement, project: ProjectState, spriteId: number): RigCellsFile {
+  const base = getRigCells(project, spriteId, state.animationSide);
+  const flags = parseHexFlags((root.querySelector<HTMLTextAreaElement>("#ncec-flags")?.value ?? "").trim());
+  const cells = Array.from(root.querySelectorAll<HTMLElement>("[data-ncec-cell-row]")).map((row, index) => {
+    const baseCell = base.cells[index] ?? emptyUiRigCell();
+    const baseSubCell = baseCell.subCell ?? emptyUiRigCell();
+    return {
+      cellX: readNcecField(row, "cellX", baseCell.cellX),
+      cellY: readNcecField(row, "cellY", baseCell.cellY),
+      width: readNcecField(row, "width", baseCell.width),
+      height: readNcecField(row, "height", baseCell.height),
+      spriteX: readNcecField(row, "spriteX", baseCell.spriteX),
+      spriteY: readNcecField(row, "spriteY", baseCell.spriteY),
+      subCell: {
+        cellX: readNcecField(row, "subcellX", baseSubCell.cellX),
+        cellY: readNcecField(row, "subcellY", baseSubCell.cellY),
+        width: readNcecField(row, "subwidth", baseSubCell.width),
+        height: readNcecField(row, "subheight", baseSubCell.height),
+        spriteX: readNcecField(row, "subspriteX", baseSubCell.spriteX),
+        spriteY: readNcecField(row, "subspriteY", baseSubCell.spriteY),
+        subCell: emptyUiRigCell(),
+      },
+    };
+  });
+  return { cells, flags };
+}
+
+function cloneAnimationFrameForDraft(frame: PokemonAnimationFrame): PokemonAnimationFrame {
+  return { ...frame, valueOffset: 0, sequenceFrameOffset: 0 };
+}
+
+function readFrameField(row: HTMLElement, field: keyof PokemonAnimationFrameEdit, fallback: number): number {
+  return readNumberFromElement(row.querySelector<HTMLInputElement>(`[data-animation-frame-field="${field}"]`), fallback);
+}
+
+function readNodeField(row: HTMLElement, field: keyof Pick<PokemonMultiCellNode, "sequenceNumber" | "x" | "y" | "cellAnimationIndex" | "playMode">, fallback: number): number {
+  return readNumberFromElement(row.querySelector<HTMLInputElement>(`[data-nmcr-node-field="${field}"]`), fallback);
+}
+
+function readOamField(row: HTMLElement, field: keyof Pick<PokemonCellOam, "x" | "y" | "characterName" | "palette" | "priority" | "matrix" | "mode">, fallback: number): number {
+  return readNumberFromElement(row.querySelector<HTMLInputElement>(`[data-ncer-oam-field="${field}"]`), fallback);
+}
+
+function readNcecField(row: HTMLElement, field: string, fallback: number): number {
+  return readNumberFromElement(row.querySelector<HTMLInputElement>(`[data-ncec-field="${field}"]`), fallback);
+}
+
+function readCheckbox(row: HTMLElement, field: string, fallback: boolean): boolean {
+  const input = row.querySelector<HTMLInputElement>(`[data-ncer-oam-field="${field}"]`);
+  return input ? input.checked : fallback;
+}
+
+function readNumberFromElement(input: HTMLInputElement | HTMLSelectElement | null, fallback: number): number {
+  if (!input) return fallback;
+  const value = Number(input.value);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function readSelectValue(input: HTMLSelectElement | null, fallback: string): string {
+  return input?.value ?? fallback;
+}
+
+function oamSizeFromValue(value: string): (typeof NITRO_OAM_SIZES)[number] {
+  const [widthText, heightText] = value.split("x");
+  const width = Number(widthText);
+  const height = Number(heightText);
+  const size = NITRO_OAM_SIZES.find((candidate) => candidate.width === width && candidate.height === height);
+  if (!size) throw new Error(`Unsupported OAM size ${value}`);
+  return size;
+}
+
+function emptyUiRigCell(): RigCell {
+  return { cellX: 0, cellY: 0, width: 0, height: 0, spriteX: 0, spriteY: 0, subCell: undefined as unknown as RigCell };
 }
 
 function stepAnimation(project: ProjectState, spriteId: number, root: HTMLElement, setStatus: (message: string) => void, deltaTicks: number): void {
@@ -2953,7 +3237,8 @@ function animationDragCursor(mode: AnimationDragMode): string {
   return "nwse-resize";
 }
 
-function renderPreviewCanvases(hasFemale: boolean): string {
+function renderPreviewCanvases(project: ProjectState, hasFemale: boolean): string {
+  const rigAtlas = getPokemonRigAtlasDimensions(project);
   const grouped = [
     { kind: "sprite", title: "", variants: variantOptions(hasFemale).filter((variant) => variant.kind === "sprite") },
     { kind: "rig", title: "Rigs", variants: variantOptions(hasFemale).filter((variant) => variant.kind === "rig") },
@@ -2983,7 +3268,7 @@ function renderPreviewCanvases(hasFemale: boolean): string {
               <label class="btn -default file-btn">Import<input data-import-preview="${variantValue(variant)}" type="file" accept="image/png"></label>
             </div>
           </div>
-          <canvas id="preview-${variantValue(variant)}" data-preview-kind="${variant.kind}" width="${variant.kind === "rig" ? 256 : 96}" height="${variant.kind === "rig" ? 128 : 96}"></canvas>
+          <canvas id="preview-${variantValue(variant)}" data-preview-kind="${variant.kind}" width="${variant.kind === "rig" ? rigAtlas.width : 96}" height="${variant.kind === "rig" ? rigAtlas.height : 96}"></canvas>
         </div>
       `,
             )
@@ -2995,6 +3280,7 @@ function renderPreviewCanvases(hasFemale: boolean): string {
 }
 
 function renderAnimationSection(project: ProjectState, spriteId: number): string {
+  const previewActive = state.animationTab === "preview";
   return `
     <section class="sprite-section" id="sprite-animation-section">
       <div class="sprite-section-header animation-section-header">
@@ -3003,18 +3289,314 @@ function renderAnimationSection(project: ProjectState, spriteId: number): string
           ${renderAnimationScrubber(project, spriteId)}
         </div>
         <div class="sprite-actions -inline">
-          <button class="btn -default" id="animation-apply" type="button">Apply Frame</button>
+          ${previewActive ? `<button class="btn -default" id="animation-apply" type="button">Apply Frame</button>` : ""}
         </div>
       </div>
       <div class="animation-workbench">
-        ${renderAnimationEditor(project, spriteId)}
-        ${renderGifFlipbookImportControls(project, spriteId)}
+        ${renderAnimationTabButtons()}
+        ${previewActive ? `${renderAnimationEditor(project, spriteId)}${renderGifFlipbookImportControls(project, spriteId)}` : renderAnimationFileEditor(project, spriteId, state.animationTab)}
       </div>
     </section>
   `;
 }
 
-function renderRigSection(rigCells: RigCellsFile): string {
+function renderAnimationTabButtons(): string {
+  const tabs: Array<{ value: AnimationEditorTab; label: string }> = [
+    { value: "preview", label: "Preview" },
+    { value: "nanr", label: "NANR" },
+    { value: "nmar", label: "NMAR" },
+    { value: "nmcr", label: "NMCR" },
+    { value: "ncer", label: "NCER" },
+    { value: "ncec", label: "NCEC" },
+  ];
+  return `
+    <div class="animation-file-tabs sprite-preview-tabs" role="tablist" aria-label="Animation editor file tabs">
+      ${tabs
+        .map(
+          (tab) =>
+            `<button class="btn -default ${state.animationTab === tab.value ? "-active" : ""}" data-animation-tab="${tab.value}" type="button" role="tab" aria-selected="${state.animationTab === tab.value}">${tab.label}</button>`,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderAnimationFileEditor(project: ProjectState, spriteId: number, tab: AnimationEditorTab): string {
+  try {
+    const sideControls = renderAnimationFileSideControls();
+    if (tab === "nanr") {
+      const animation = animationFileDraftFor(spriteId, state.animationSide, "nanr") ?? getPokemonAnimation(project, spriteId, state.animationSide);
+      return renderAnimationSequenceEditor("nanr", "NANR Cell Animation", sideControls, animation);
+    }
+    if (tab === "nmar") {
+      const animation = animationFileDraftFor(spriteId, state.animationSide, "nmar") ?? getPokemonMultiCellAnimation(project, spriteId, state.animationSide);
+      return renderAnimationSequenceEditor("nmar", "NMAR Multi-Cell Animation", sideControls, animation);
+    }
+    if (tab === "nmcr") return renderNmcrEditor(sideControls, getPokemonMultiCells(project, spriteId, state.animationSide));
+    if (tab === "ncer") return renderNcerEditor(sideControls, getPokemonCellBank(project, spriteId, state.animationSide));
+    if (tab === "ncec") return renderNcecEditor(sideControls, getRigCells(project, spriteId, state.animationSide));
+    return renderAnimationEditor(project, spriteId);
+  } catch (error) {
+    return `<div class="sprite-editor-error -inline">${escapeHtml(errorMessage(error))}</div>`;
+  }
+}
+
+function renderAnimationFileSideControls(): string {
+  return `
+    <div class="animation-file-side sprite-preview-tabs" role="tablist" aria-label="Animation side">
+      <button class="btn -default ${state.animationSide === "front" ? "-active" : ""}" data-animation-side="front" type="button" role="tab" aria-selected="${state.animationSide === "front"}">Front</button>
+      <button class="btn -default ${state.animationSide === "back" ? "-active" : ""}" data-animation-side="back" type="button" role="tab" aria-selected="${state.animationSide === "back"}">Back</button>
+    </div>
+  `;
+}
+
+function renderAnimationFileActions(kind: AnimationEditorTab): string {
+  return `
+    <div class="sprite-actions -inline">
+      <button class="btn -default" data-animation-file-apply="${kind}" type="button">Apply</button>
+      <button class="btn -default" data-animation-file-revert="${kind}" type="button">Revert</button>
+    </div>
+  `;
+}
+
+function renderAnimationSequenceEditor(kind: "nanr" | "nmar", title: string, sideControls: string, animation: PokemonAnimation): string {
+  return `
+    <div class="animation-file-editor" data-animation-file-editor="${kind}">
+      <div class="animation-file-header">
+        <div>
+          <div class="sprite-sidebar-heading">${title}</div>
+          ${sideControls}
+        </div>
+        ${renderAnimationFileActions(kind)}
+      </div>
+      <div class="animation-file-sequences">
+        ${animation.sequences.map((sequence) => renderAnimationSequenceTable(kind, sequence)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderAnimationSequenceTable(kind: "nanr" | "nmar", sequence: PokemonAnimationSequence): string {
+  return `
+    <div class="animation-file-sequence" data-animation-sequence="${sequence.index}">
+      <div class="animation-file-sequence-header">
+        <strong>Sequence ${sequence.index}</strong>
+        <label class="sprite-field"><span>Mode</span><input data-animation-sequence-field="mode" type="number" value="${sequence.mode}"></label>
+        <label class="sprite-field"><span>Motion</span><select data-animation-sequence-field="motionType">
+          ${[0, 1, 2].map((value) => `<option value="${value}" ${sequence.motionType === value ? "selected" : ""}>${animationMotionTypeLabel(value)}</option>`).join("")}
+        </select></label>
+        <input data-animation-sequence-field="startFrameIndex" type="hidden" value="${sequence.startFrameIndex}">
+      </div>
+      <div class="animation-file-table-wrap">
+        <table class="animation-file-table">
+          <thead><tr><th>Frame</th><th>${kind === "nanr" ? "Cell" : "Group"}</th><th>Duration</th><th>X</th><th>Y</th><th>Rotation</th><th>Scale X</th><th>Scale Y</th><th></th></tr></thead>
+          <tbody>
+            ${sequence.frames
+              .map(
+                (frame, frameIndex) => `
+                  <tr data-animation-frame-row data-sequence="${sequence.index}" data-frame="${frameIndex}">
+                    <td>${frameIndex}</td>
+                    <td><input data-animation-frame-field="cellIndex" type="number" min="0" value="${frame.cellIndex}"></td>
+                    <td><input data-animation-frame-field="duration" type="number" min="1" value="${frame.duration}"></td>
+                    <td><input data-animation-frame-field="x" type="number" value="${frame.x}"></td>
+                    <td><input data-animation-frame-field="y" type="number" value="${frame.y}"></td>
+                    <td><input data-animation-frame-field="rotation" type="number" step="0.1" value="${roundDisplay(frame.rotation)}"></td>
+                    <td><input data-animation-frame-field="xScale" type="number" step="0.05" value="${roundDisplay(frame.xScale)}"></td>
+                    <td><input data-animation-frame-field="yScale" type="number" step="0.05" value="${roundDisplay(frame.yScale)}"></td>
+                    <td class="animation-file-row-actions">
+                      <button class="btn -default" data-animation-frame-action="insert" data-kind="${kind}" data-sequence="${sequence.index}" data-frame="${frameIndex}" type="button">Insert</button>
+                      <button class="btn -default" data-animation-frame-action="duplicate" data-kind="${kind}" data-sequence="${sequence.index}" data-frame="${frameIndex}" type="button">Duplicate</button>
+                      <button class="btn -default sprite-remove-btn" data-animation-frame-action="delete" data-kind="${kind}" data-sequence="${sequence.index}" data-frame="${frameIndex}" type="button" ${sequence.frames.length <= 1 ? "disabled" : ""}>Delete</button>
+                    </td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderNmcrEditor(sideControls: string, multiCells: ReturnType<typeof getPokemonMultiCells>): string {
+  return `
+    <div class="animation-file-editor" data-animation-file-editor="nmcr">
+      <div class="animation-file-header">
+        <div><div class="sprite-sidebar-heading">NMCR Multi-Cell Groups</div>${sideControls}</div>
+        ${renderAnimationFileActions("nmcr")}
+      </div>
+      <div class="animation-file-sequences">
+        ${multiCells.cells
+          .map(
+            (cell) => `
+              <div class="animation-file-sequence" data-nmcr-group="${cell.index}">
+                <div class="animation-file-sequence-header">
+                  <strong>Group ${cell.index}</strong>
+                  <label class="sprite-field"><span>Cell Anims</span><input data-nmcr-group-field="cellAnimationCount" type="number" min="1" value="${cell.cellAnimationCount}"></label>
+                </div>
+                <div class="animation-file-table-wrap">
+                  <table class="animation-file-table">
+                    <thead><tr><th>Node</th><th>Sequence</th><th>X</th><th>Y</th><th>Cell Anim</th><th>Play Mode</th><th>Visible</th></tr></thead>
+                    <tbody>
+                      ${cell.nodes
+                        .map(
+                          (node, nodeIndex) => `
+                            <tr data-nmcr-node-row data-group="${cell.index}" data-node="${nodeIndex}">
+                              <td>${nodeIndex}</td>
+                              <td><input data-nmcr-node-field="sequenceNumber" type="number" min="0" value="${node.sequenceNumber}"></td>
+                              <td><input data-nmcr-node-field="x" type="number" value="${node.x}"></td>
+                              <td><input data-nmcr-node-field="y" type="number" value="${node.y}"></td>
+                              <td><input data-nmcr-node-field="cellAnimationIndex" type="number" min="0" value="${node.cellAnimationIndex}"></td>
+                              <td><input data-nmcr-node-field="playMode" type="number" min="0" max="15" value="${node.playMode}"></td>
+                              <td><input data-nmcr-node-field="visible" type="checkbox" ${node.visible ? "checked" : ""}></td>
+                            </tr>
+                          `,
+                        )
+                        .join("")}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderNcerEditor(sideControls: string, cellBank: PokemonCellBank): string {
+  return `
+    <div class="animation-file-editor" data-animation-file-editor="ncer">
+      <div class="animation-file-header">
+        <div>
+          <div class="sprite-sidebar-heading">NCER Cell Bank</div>
+          ${sideControls}
+          <label class="sprite-field"><span>Mapping</span><input id="ncer-mapping-mode" type="number" value="${cellBank.mappingMode}"></label>
+        </div>
+        ${renderAnimationFileActions("ncer")}
+      </div>
+      <div class="animation-file-sequences">
+        ${cellBank.cells
+          .map(
+            (cell) => `
+              <div class="animation-file-sequence" data-ncer-cell="${cell.index}">
+                <div class="animation-file-sequence-header">
+                  <strong>Cell ${cell.index}</strong>
+                  <label class="sprite-field"><span>Attr</span><input data-ncer-cell-field="cellAttr" type="number" min="0" max="65535" value="${cell.cellAttr}"></label>
+                  <span>${cell.oams.length} OAM</span>
+                </div>
+                <div class="animation-file-table-wrap">
+                  <table class="animation-file-table">
+                    <thead><tr><th>OAM</th><th>X</th><th>Y</th><th>Size</th><th>Tile</th><th>Pal</th><th>Pri</th><th>Flip X</th><th>Flip Y</th><th>Affine</th><th>Dbl/Off</th><th>Matrix</th><th>Mode</th><th>Bits</th></tr></thead>
+                    <tbody>
+                      ${cell.oams
+                        .map(
+                          (oam, oamIndex) => `
+                            <tr data-ncer-oam-row data-cell="${cell.index}" data-oam="${oamIndex}">
+                              <td>${oamIndex}</td>
+                              <td><input data-ncer-oam-field="x" type="number" value="${oam.x}"></td>
+                              <td><input data-ncer-oam-field="y" type="number" value="${oam.y}"></td>
+                              <td><select data-ncer-oam-field="objectSize">${renderOamSizeOptions(oam.width, oam.height)}</select></td>
+                              <td><input data-ncer-oam-field="characterName" type="number" min="0" max="1023" value="${oam.characterName}"></td>
+                              <td><input data-ncer-oam-field="palette" type="number" min="0" max="15" value="${oam.palette}"></td>
+                              <td><input data-ncer-oam-field="priority" type="number" min="0" max="3" value="${oam.priority}"></td>
+                              <td><input data-ncer-oam-field="flipX" type="checkbox" ${oam.flipX ? "checked" : ""}></td>
+                              <td><input data-ncer-oam-field="flipY" type="checkbox" ${oam.flipY ? "checked" : ""}></td>
+                              <td><input data-ncer-oam-field="rotateScale" type="checkbox" ${oam.rotateScale ? "checked" : ""}></td>
+                              <td><input data-ncer-oam-field="doubleSize" type="checkbox" ${oam.rotateScale ? (oam.doubleSize ? "checked" : "") : oam.disable ? "checked" : ""}></td>
+                              <td><input data-ncer-oam-field="matrix" type="number" min="0" max="31" value="${oam.matrix}"></td>
+                              <td><input data-ncer-oam-field="mode" type="number" min="0" max="3" value="${oam.mode}"></td>
+                              <td><select data-ncer-oam-field="characterBits"><option value="4" ${oam.characterBits === 4 ? "selected" : ""}>4</option><option value="8" ${oam.characterBits === 8 ? "selected" : ""}>8</option></select></td>
+                            </tr>
+                          `,
+                        )
+                        .join("")}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderNcecEditor(sideControls: string, rigCells: RigCellsFile): string {
+  const flagText = [...rigCells.flags].map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ");
+  return `
+    <div class="animation-file-editor" data-animation-file-editor="ncec">
+      <div class="animation-file-header">
+        <div><div class="sprite-sidebar-heading">NCEC Rig Cell Metadata</div>${sideControls}</div>
+        ${renderAnimationFileActions("ncec")}
+      </div>
+      <label class="sprite-field -wide"><span>Flags</span><textarea id="ncec-flags">${flagText}</textarea></label>
+      <div class="animation-file-table-wrap">
+        <table class="animation-file-table">
+          <thead><tr><th>Cell</th><th>Cell X</th><th>Cell Y</th><th>Width</th><th>Height</th><th>Sprite X</th><th>Sprite Y</th><th>Sub X</th><th>Sub Y</th><th>Sub W</th><th>Sub H</th><th>Sub Sprite X</th><th>Sub Sprite Y</th></tr></thead>
+          <tbody>
+            ${rigCells.cells
+              .map(
+                (cell, index) => `
+                  <tr data-ncec-cell-row data-cell="${index}">
+                    <td>${index}</td>
+                    ${renderNcecCellInputs(cell, "")}
+                    ${renderNcecCellInputs(cell.subCell, "sub")}
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderNcecCellInputs(cell: RigCell, prefix: "" | "sub"): string {
+  const fields: Array<keyof Pick<RigCell, "cellX" | "cellY" | "width" | "height" | "spriteX" | "spriteY">> = ["cellX", "cellY", "width", "height", "spriteX", "spriteY"];
+  return fields
+    .map((field) => `<td><input data-ncec-field="${prefix}${field}" type="number" step="0.01" value="${roundDisplay(cell[field] ?? 0)}"></td>`)
+    .join("");
+}
+
+function animationMotionTypeLabel(value: number): string {
+  if (value === 0) return "0 Index";
+  if (value === 2) return "2 Translation";
+  return "1 SRT";
+}
+
+function animationFileDraftFor(spriteId: number, side: PokemonAnimationSide, tab: "nanr" | "nmar"): PokemonAnimation | undefined {
+  return animationFileDraft?.spriteId === spriteId && animationFileDraft.side === side && animationFileDraft.tab === tab ? animationFileDraft.animation : undefined;
+}
+
+const NITRO_OAM_SIZES = [
+  { width: 8, height: 8, shape: 0, size: 0 },
+  { width: 16, height: 8, shape: 1, size: 0 },
+  { width: 8, height: 16, shape: 2, size: 0 },
+  { width: 16, height: 16, shape: 0, size: 1 },
+  { width: 32, height: 8, shape: 1, size: 1 },
+  { width: 8, height: 32, shape: 2, size: 1 },
+  { width: 32, height: 32, shape: 0, size: 2 },
+  { width: 32, height: 16, shape: 1, size: 2 },
+  { width: 16, height: 32, shape: 2, size: 2 },
+  { width: 64, height: 64, shape: 0, size: 3 },
+  { width: 64, height: 32, shape: 1, size: 3 },
+  { width: 32, height: 64, shape: 2, size: 3 },
+] as const;
+
+function renderOamSizeOptions(width: number, height: number): string {
+  return NITRO_OAM_SIZES.map((size) => {
+    const value = `${size.width}x${size.height}`;
+    return `<option value="${value}" ${size.width === width && size.height === height ? "selected" : ""}>${value}</option>`;
+  }).join("");
+}
+
+function renderRigSection(project: ProjectState, rigCells: RigCellsFile): string {
+  const rigAtlas = getPokemonRigAtlasDimensions(project);
   return `
     <section class="sprite-section" id="sprite-rig-section">
       <div class="sprite-section-header">
@@ -3025,7 +3607,7 @@ function renderRigSection(rigCells: RigCellsFile): string {
       </div>
       <div class="rig-editor-grid">
         <div class="rig-canvas-wrap">
-          <canvas id="rig-cells-canvas" width="768" height="384"></canvas>
+          <canvas id="rig-cells-canvas" width="${rigAtlas.width * 3}" height="${rigAtlas.height * 3}"></canvas>
           <div class="rig-canvas-tabs sprite-preview-tabs" role="tablist" aria-label="Rig cell side">
             <button class="btn -default ${state.rigSide === "front" ? "-active" : ""}" data-rig-side="front" type="button" role="tab" aria-selected="${state.rigSide === "front"}">Front</button>
             <button class="btn -default ${state.rigSide === "back" ? "-active" : ""}" data-rig-side="back" type="button" role="tab" aria-selected="${state.rigSide === "back"}">Back</button>
@@ -4256,7 +4838,7 @@ function macroRigChunkRects(project: ProjectState, spriteId: number, side: Pokem
     if (!cell) return [];
     const oamRects = cell.oams
       .filter((oam) => !oam.disable && oam.width > 0 && oam.height > 0)
-      .map((oam) => ncerOamAtlasRect(cellBank, oam))
+      .map((oam) => ncerOamAtlasRect(project, cellBank, oam))
       .filter((rect): rect is Rect => Boolean(rect));
     if (oamRects.length <= 1) return [];
     const oamArea = oamRects.reduce((sum, rect) => sum + rect.width * rect.height, 0);
@@ -4268,12 +4850,13 @@ function macroRigChunkRects(project: ProjectState, spriteId: number, side: Pokem
   }
 }
 
-function ncerOamAtlasRect(cellBank: PokemonCellBank, oam: PokemonCellOam): Rect | undefined {
-  const sourceTilesWide = RIG_WIDTH_TILES;
+function ncerOamAtlasRect(project: ProjectState, cellBank: PokemonCellBank, oam: PokemonCellOam): Rect | undefined {
+  const rigAtlas = getPokemonRigAtlasDimensions(project);
+  const sourceTilesWide = rigAtlas.width / 8;
   const tileStart = ncerTileStart(oam.characterName, cellBank.mappingMode, oam.characterBits);
   const x = (tileStart % sourceTilesWide) * 8;
   const y = Math.floor(tileStart / sourceTilesWide) * 8;
-  if (x < 0 || y < 0 || x >= RIG_ATLAS_WIDTH || y >= RIG_ATLAS_HEIGHT) return undefined;
+  if (x < 0 || y < 0 || x >= rigAtlas.width || y >= rigAtlas.height) return undefined;
   return { x, y, width: oam.width, height: oam.height };
 }
 
@@ -4377,15 +4960,17 @@ function rigResizeHandles(cell: RigCell): Array<{ x: number; y: number }> {
   ];
 }
 
-function rigCanvasPoint(canvas: HTMLCanvasElement, event: PointerEvent): { x: number; y: number } {
+function rigCanvasPoint(project: ProjectState, canvas: HTMLCanvasElement, event: PointerEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
+  const rigAtlas = getPokemonRigAtlasDimensions(project);
   return {
-    x: clamp(Math.floor(((event.clientX - rect.left) / rect.width) * 256), 0, 255),
-    y: clamp(Math.floor(((event.clientY - rect.top) / rect.height) * 128), 0, 127),
+    x: clamp(Math.floor(((event.clientX - rect.left) / rect.width) * rigAtlas.width), 0, rigAtlas.width - 1),
+    y: clamp(Math.floor(((event.clientY - rect.top) / rect.height) * rigAtlas.height), 0, rigAtlas.height - 1),
   };
 }
 
-function applyRigDrag(cell: RigCell, drag: RigDragState, x: number, y: number): void {
+function applyRigDrag(project: ProjectState, cell: RigCell, drag: RigDragState, x: number, y: number): void {
+  const rigAtlas = getPokemonRigAtlasDimensions(project);
   const dx = snap8(x - drag.startX);
   const dy = snap8(y - drag.startY);
   const originalRight = drag.original.cellX + drag.original.width;
@@ -4396,15 +4981,15 @@ function applyRigDrag(cell: RigCell, drag: RigDragState, x: number, y: number): 
   let bottom = originalBottom;
 
   if (drag.mode === "move") {
-    left = clamp(snap8(drag.original.cellX + dx), 0, 256 - drag.original.width);
-    top = clamp(snap8(drag.original.cellY + dy), 0, 128 - drag.original.height);
+    left = clamp(snap8(drag.original.cellX + dx), 0, rigAtlas.width - drag.original.width);
+    top = clamp(snap8(drag.original.cellY + dy), 0, rigAtlas.height - drag.original.height);
     right = left + drag.original.width;
     bottom = top + drag.original.height;
   } else {
     if (drag.mode.includes("w")) left = clamp(snap8(drag.original.cellX + dx), 0, originalRight - 8);
-    if (drag.mode.includes("e")) right = clamp(snap8(originalRight + dx), left + 8, 256);
+    if (drag.mode.includes("e")) right = clamp(snap8(originalRight + dx), left + 8, rigAtlas.width);
     if (drag.mode.includes("n")) top = clamp(snap8(drag.original.cellY + dy), 0, originalBottom - 8);
-    if (drag.mode.includes("s")) bottom = clamp(snap8(originalBottom + dy), top + 8, 128);
+    if (drag.mode.includes("s")) bottom = clamp(snap8(originalBottom + dy), top + 8, rigAtlas.height);
   }
 
   cell.cellX = left;

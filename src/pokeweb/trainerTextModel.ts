@@ -1,4 +1,5 @@
 import { readU16, writeU16 } from "../nds/binary";
+import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import type { NarcName } from "./constants";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 import type { Gen5TextEntry } from "./text";
@@ -79,13 +80,25 @@ export function updateTrainerText(project: ProjectState, trainerId: number, type
   const nextValue = value.trim();
 
   if (existingIndex !== undefined) {
-    if (nextValue === "") deleteTrainerText(project, context, trainerId, existingIndex);
+    const before = context.bank[existingIndex]?.[1] ?? "";
+    if (nextValue === "") {
+      deleteTrainerText(project, context, trainerId, existingIndex);
+      recordFieldChange(project, "trainer_text", trainerTextSubject(trainerId), trainerTextLabel(typeId), before, "", {
+        key: `trainer-text:${trainerId}:${typeId}`,
+      });
+    }
     else {
       context.bank[existingIndex][1] = nextValue;
       commitTextBank(project, "message_texts", TRAINER_TEXT_BANK_ID);
+      recordFieldChange(project, "trainer_text", trainerTextSubject(trainerId), trainerTextLabel(typeId), before, nextValue, {
+        key: `trainer-text:${trainerId}:${typeId}`,
+      });
     }
   } else if (nextValue !== "") {
     insertTrainerText(project, context, trainerId, typeId, nextValue);
+    recordFieldChange(project, "trainer_text", trainerTextSubject(trainerId), trainerTextLabel(typeId), "", nextValue, {
+      key: `trainer-text:${trainerId}:${typeId}`,
+    });
   }
 
   return getTrainerTextLines(project, trainerId);
@@ -115,6 +128,9 @@ export function addTrainerTextFromTemplate(project: ProjectState, trainerId: num
   renumberBank(bank);
   commitRawTrainerTextTables(project, stores, rows, offsets);
   commitTextBank(project, "message_texts", TRAINER_TEXT_BANK_ID);
+  recordGenericChange(project, "trainer_text", `Trainer ${trainerId} text copied from trainer ${templateTrainerId}.`, trainerTextSubject(trainerId), {
+    key: `trainer-text-template:${trainerId}`,
+  });
 }
 
 function getTrainerTextContext(project: ProjectState, trainerId: number):
@@ -253,4 +269,12 @@ function renumberBank(bank: Gen5TextEntry[]): void {
   bank.forEach((entry, index) => {
     entry[0] = `0_${index}`;
   });
+}
+
+function trainerTextSubject(trainerId: number): string {
+  return `Trainer ${trainerId}`;
+}
+
+function trainerTextLabel(typeId: number): string {
+  return TRAINER_TEXT_TYPES.find(([id]) => id === typeId)?.[1] ?? `Text type ${typeId}`;
 }

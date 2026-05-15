@@ -25,8 +25,16 @@ img[src*="pokesprite/"] {
   background: #282a36;
 }
 
+.home-panels {
+  align-items: start;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(420px, 860px) minmax(360px, 720px);
+  justify-content: center;
+  width: min(1640px, 100%);
+}
+
 .upload-panel {
-  width: min(860px, 100%);
   background: #383a59;
   border: 1px solid #44475a;
   border-radius: 8px;
@@ -72,6 +80,192 @@ img[src*="pokesprite/"] {
   background: #282a36;
   border-radius: 6px;
   color: #f2f2f2;
+}
+
+.upload-status:empty {
+  display: none;
+}
+
+.changelog-generator {
+  position: sticky;
+  top: 64px;
+}
+
+.changelog-page {
+  align-content: start;
+  display: grid;
+  gap: 18px;
+  padding: 64px 24px 24px;
+  width: min(1100px, 100%);
+}
+
+.changelog-page__header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.changelog-page__header h1 {
+  font-size: 36px;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.changelog-page__header p {
+  color: #bbb;
+  margin: 6px 0 0;
+}
+
+.changelog-generator__header {
+  margin-bottom: 18px;
+}
+
+.changelog-generator__header h2 {
+  font-size: 28px;
+  font-weight: 500;
+  margin: 0 0 6px;
+}
+
+.changelog-generator__header p {
+  font-size: 14px;
+  margin: 0;
+}
+
+.changelog-generator__inputs {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.changelog-file {
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 5px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.changelog-file span {
+  color: #f2f2f2;
+  font-size: 16px;
+}
+
+.changelog-file input {
+  color: #f2f2f2;
+  max-width: 100%;
+}
+
+.changelog-option {
+  margin-bottom: 14px;
+}
+
+.changelog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.changelog-actions .btn:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.changelog-output {
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 5px;
+  color: #f2f2f2;
+  display: block;
+  font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  min-height: 120px;
+  max-height: 180px;
+  overflow: auto;
+  padding: 12px;
+  resize: vertical;
+  width: 100%;
+}
+
+.changelog-tabs {
+  margin-top: 0;
+}
+
+.changelog-tabs:empty {
+  display: none;
+}
+
+.changelog-tab-list {
+  border-bottom: 1px solid #44475a;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.changelog-tab {
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 5px;
+  color: #f2f2f2;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.changelog-tab.-active {
+  border-color: #bd93f9;
+  color: #bd93f9;
+}
+
+.changelog-tab span {
+  color: #1abc9c;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.changelog-tab-panel {
+  display: none;
+  max-height: 58vh;
+  overflow: auto;
+  padding-top: 14px;
+}
+
+.changelog-tab-panel.-active {
+  display: block;
+}
+
+.changelog-subject {
+  border-bottom: 1px solid #44475a;
+  padding: 0 0 14px;
+  margin-bottom: 14px;
+}
+
+.changelog-subject h3 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+
+.changelog-subject ul {
+  display: grid;
+  gap: 7px;
+  line-height: 1.35;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.changelog-changed {
+  color: #8be9fd;
+}
+
+.changelog-empty {
+  background: #282a36;
+  border-radius: 5px;
+  margin-top: 12px;
+  padding: 12px;
 }
 
 .narc-picker {
@@ -165,9 +359,21 @@ img[src*="pokesprite/"] {
 }
 
 @media only screen and (max-width: 780px) {
+  .home-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .changelog-generator {
+    position: static;
+  }
+
   .narc-picker__header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .changelog-generator__inputs {
+    grid-template-columns: 1fr;
   }
 
   .narc-picker__grid {

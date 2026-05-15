@@ -14,6 +14,11 @@ input {
   font: inherit;
 }
 
+button.header-item {
+  background: none;
+  border: 0;
+}
+
 #header {
   display: flex;
   position: fixed;
@@ -80,6 +85,41 @@ input {
 .header-item.disabled:hover {
   color: #f2f2f2;
   border-bottom: 0;
+}
+
+.header-more {
+  position: relative;
+}
+
+.header-more-menu {
+  background: #282a36;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 24%);
+  display: none;
+  min-width: 150px;
+  padding: 6px 0;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 20;
+}
+
+.header-more:hover .header-more-menu,
+.header-more:focus-within .header-more-menu,
+.header-more.-open .header-more-menu {
+  display: block;
+}
+
+.header-more-menu .header-item {
+  display: block;
+  height: auto;
+  line-height: 30px;
+  padding: 0 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.header-left .header-more-menu .header-item {
+  margin: 0;
 }
 
 #content-container {
@@ -214,5 +254,19 @@ input {
 
   .header-left .header-item {
     margin: 0 auto;
+  }
+
+  .header-more {
+    width: 100%;
+  }
+
+  .header-more-menu {
+    position: static;
+    width: 100%;
+  }
+
+  .header-more.-open .header-more-menu .header-item,
+  .header-more:focus-within .header-more-menu .header-item {
+    display: block;
   }
 }

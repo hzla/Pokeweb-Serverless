@@ -3,6 +3,7 @@ import {
   compressLz11Literal,
   type PokemonAnimationSide,
   type RigCell,
+  type RigAtlasDimensions,
   type RgbColor,
   type RgbaImageData,
 } from "./pokemonSpriteModel";
@@ -31,6 +32,8 @@ export type PokemonFlipbookImportConfig = {
   restLoopCount: "auto" | 1 | 2 | 3;
   includeFinish: boolean;
   maxAtlasTiles: number;
+  atlasWidth: number;
+  atlasHeight: number;
   durationScale: number;
   downscalePercent: number;
 };
@@ -130,6 +133,17 @@ const OAM_SIZES = [
   { width: 8, height: 8 },
 ] as const;
 
+function atlasDimensions(config: PokemonFlipbookImportConfig): RigAtlasDimensions {
+  return {
+    width: RIG_WIDTH,
+    height: config.atlasHeight === 256 ? 256 : RIG_HEIGHT,
+  };
+}
+
+function atlasTileCapacity(atlas: RigAtlasDimensions): number {
+  return (atlas.width / TILE_SIZE) * (atlas.height / TILE_SIZE);
+}
+
 export function defaultPokemonFlipbookImportConfig(side: PokemonAnimationSide = "front"): PokemonFlipbookImportConfig {
   return {
     side,
@@ -140,6 +154,8 @@ export function defaultPokemonFlipbookImportConfig(side: PokemonAnimationSide = 
     restLoopCount: "auto",
     includeFinish: true,
     maxAtlasTiles: MAX_ATLAS_TILES,
+    atlasWidth: RIG_WIDTH,
+    atlasHeight: RIG_HEIGHT,
     durationScale: 1,
     downscalePercent: 100,
   };
@@ -192,11 +208,12 @@ function prepareFlipbookFrames(sourceFrames: FrameEntry[], config: PokemonFlipbo
 }
 
 function buildPokemonFlipbookRigFromPrepared(prepared: PreparedFlipbookFrames, config: PokemonFlipbookImportConfig, palette: RgbColor[]): PokemonFlipbookBuildResult {
+  const atlas = atlasDimensions(config);
   const { sourceFrames, normalized, timelineBuild } = prepared;
   const remappedTimeline = timelineBuild.timeline.map((frame) => remapFrameToPalette(frame, palette));
   const groundShiftY = groundClampShiftY(remappedTimeline);
   const remappedSprite = remapFrameToPalette(normalized[0]!, palette);
-  const { packed, warnings: packWarnings } = packWithAdaptiveThinning(remappedTimeline, palette, config, groundShiftY);
+  const { packed, warnings: packWarnings } = packWithAdaptiveThinning(remappedTimeline, palette, config, groundShiftY, atlas);
   const durationScale = clamp(config.durationScale ?? 1, 0.25, 16);
   const loopDuration = packed.timelineFrames.reduce((sum, frame) => sum + gifDelayToAnimDuration(frame.delayMs, durationScale), 0);
   const sideOffset = config.side === "front" ? 0 : 9;
@@ -235,7 +252,7 @@ function buildPokemonFlipbookRigFromPrepared(prepared: PreparedFlipbookFrames, c
       timelineFrames: packed.timelineFrames.map((frame) => frame.index),
       uniquePoseCount: packed.poses.length,
       uniqueTileCount: packed.uniqueTileCount,
-      atlasOccupancyPercent: Math.round((packed.uniqueTileCount / MAX_ATLAS_TILES) * 1000) / 10,
+      atlasOccupancyPercent: Math.round((packed.uniqueTileCount / atlasTileCapacity(atlas)) * 1000) / 10,
       packingMode: packed.mode,
       maxOamsPerPose: Math.max(0, ...packed.poses.map((pose) => pose.oams.length)),
       loopPlan: timelineBuild.loopPlan,
@@ -375,7 +392,7 @@ function buildLoopRestTimeline(
   };
 }
 
-function packWithAdaptiveThinning(timeline: TimelineFrame[], palette: RgbColor[], config: PokemonFlipbookImportConfig, groundShiftY: number): {
+function packWithAdaptiveThinning(timeline: TimelineFrame[], palette: RgbColor[], config: PokemonFlipbookImportConfig, groundShiftY: number, atlas: RigAtlasDimensions): {
   packed: PackedFlipbook;
   warnings: string[];
 } {
@@ -383,20 +400,20 @@ function packWithAdaptiveThinning(timeline: TimelineFrame[], palette: RgbColor[]
   let candidate = timeline;
   let lastFailingCount = timeline.length + 1;
   while (candidate.length >= 1) {
-    const packed = packTimelineCandidate(candidate, palette, config, groundShiftY);
+    const packed = packTimelineCandidate(candidate, palette, config, groundShiftY, atlas);
     if (packedFlipbookFits(packed, config)) {
       let best = { packed, candidate };
       const maxRefineCount = Math.min(lastFailingCount - 1, timeline.length);
       for (let count = maxRefineCount; count > candidate.length; count -= 1) {
         const refinedCandidate = sampleTimelineKeyFrames(timeline, count);
-        const refinedPacked = packTimelineCandidate(refinedCandidate, palette, config, groundShiftY);
+        const refinedPacked = packTimelineCandidate(refinedCandidate, palette, config, groundShiftY, atlas);
         if (packedFlipbookFits(refinedPacked, config)) {
           best = { packed: refinedPacked, candidate: refinedCandidate };
           break;
         }
       }
       if (!config.manualFrameNumbers?.length) {
-        best = refillPackedTimeline(best.candidate, best.packed, timeline, palette, config, groundShiftY);
+        best = refillPackedTimeline(best.candidate, best.packed, timeline, palette, config, groundShiftY, atlas);
       }
       if (best.candidate.length < timeline.length) warnings.push(`Reduced timeline from ${timeline.length} to ${best.candidate.length} frame(s) to fit the tile/OAM budget`);
       return { packed: best.packed, warnings };
@@ -409,14 +426,14 @@ function packWithAdaptiveThinning(timeline: TimelineFrame[], palette: RgbColor[]
   throw new Error(`Unable to fit flipbook into ${config.maxAtlasTiles} atlas tiles with <= ${DEFAULT_MAX_OAMS_PER_POSE} OAMs per pose`);
 }
 
-function packTimelineCandidate(timeline: TimelineFrame[], palette: RgbColor[], config: PokemonFlipbookImportConfig, groundShiftY: number): PackedFlipbook {
+function packTimelineCandidate(timeline: TimelineFrame[], palette: RgbColor[], config: PokemonFlipbookImportConfig, groundShiftY: number, atlas: RigAtlasDimensions): PackedFlipbook {
   return config.packingMode === "tile-node-dedup"
-    ? packTimelineAsTileNodes(timeline, palette, config.maxAtlasTiles, groundShiftY)
+    ? packTimelineAsTileNodes(timeline, palette, config.maxAtlasTiles, groundShiftY, atlas)
     : config.packingMode === "macro-blocks"
-      ? packTimelineAsMacroBlocks(timeline, palette, config.maxAtlasTiles, groundShiftY)
+      ? packTimelineAsMacroBlocks(timeline, palette, config.maxAtlasTiles, groundShiftY, atlas)
       : config.packingMode === "rotated-pose-blocks"
-        ? packTimelineAsRotatedBlocks(timeline, palette, config.maxAtlasTiles, groundShiftY)
-      : packTimelineAsBlocks(timeline, palette, config.maxAtlasTiles, groundShiftY);
+        ? packTimelineAsRotatedBlocks(timeline, palette, config.maxAtlasTiles, groundShiftY, atlas)
+      : packTimelineAsBlocks(timeline, palette, config.maxAtlasTiles, groundShiftY, atlas);
 }
 
 function packedFlipbookFits(packed: PackedFlipbook, config: PokemonFlipbookImportConfig): boolean {
@@ -435,6 +452,7 @@ function refillPackedTimeline(
   palette: RgbColor[],
   config: PokemonFlipbookImportConfig,
   groundShiftY: number,
+  atlas: RigAtlasDimensions,
 ): { candidate: TimelineFrame[]; packed: PackedFlipbook } {
   let best = { candidate, packed };
   const selectedSourceFrames = new Set(best.candidate.map((frame) => frame.index));
@@ -446,7 +464,7 @@ function refillPackedTimeline(
     for (const frame of refillPool) {
       if (selectedSourceFrames.has(frame.index)) continue;
       const nextCandidate = insertTimelineFrameBySourceIndex(best.candidate, frame);
-      const nextPacked = packTimelineCandidate(nextCandidate, palette, config, groundShiftY);
+      const nextPacked = packTimelineCandidate(nextCandidate, palette, config, groundShiftY, atlas);
       if (!packedFlipbookFits(nextPacked, config)) continue;
       if (
         !bestAddition ||
@@ -596,7 +614,8 @@ function buildGroupedMacroBlockFiles(packed: PackedFlipbook, sideOffset: number,
 }
 
 function packTimelineAsTileDictionary(timeline: TimelineFrame[], palette: RgbColor[], maxTiles: number, groundShiftY: number): PackedFlipbook {
-  const rig = emptyImage(RIG_WIDTH, RIG_HEIGHT);
+  const atlas = { width: RIG_WIDTH, height: RIG_HEIGHT };
+  const rig = emptyImage(atlas.width, atlas.height);
   const tileIndexes = new Map<string, number>();
   const poseIndexes = new Map<string, PackedPose>();
   const poses: PackedPose[] = [];
@@ -616,7 +635,7 @@ function packTimelineAsTileDictionary(timeline: TimelineFrame[], palette: RgbCol
           let tileIndex = tileIndexes.get(tile.hash);
           if (tileIndex === undefined) {
             tileIndex = tileIndexes.size;
-            if (tileIndex >= maxTiles || tileIndex >= MAX_ATLAS_TILES) return { rig, poses, timelineFrames, uniqueTileCount: tileIndexes.size + 1, mode: "tile-dedup" };
+            if (tileIndex >= maxTiles || tileIndex >= atlasTileCapacity(atlas)) return { rig, poses, timelineFrames, uniqueTileCount: tileIndexes.size + 1, mode: "tile-dedup" };
             tileIndexes.set(tile.hash, tileIndex);
             blitTile(rig, tile.pixels, tileIndex);
           }
@@ -634,8 +653,8 @@ function packTimelineAsTileDictionary(timeline: TimelineFrame[], palette: RgbCol
   return { rig, poses, timelineFrames, uniqueTileCount: tileIndexes.size + displayTiles, mode: "tile-dedup" };
 }
 
-function packTimelineAsTileNodes(timeline: TimelineFrame[], palette: RgbColor[], maxTiles: number, groundShiftY: number): PackedFlipbook {
-  const rig = emptyImage(RIG_WIDTH, RIG_HEIGHT);
+function packTimelineAsTileNodes(timeline: TimelineFrame[], palette: RgbColor[], maxTiles: number, groundShiftY: number, atlas: RigAtlasDimensions): PackedFlipbook {
+  const rig = emptyImage(atlas.width, atlas.height);
   const tileIndexes = new Map<string, number>();
   const poseIndexes = new Map<string, PackedPose>();
   const poses: PackedPose[] = [];
@@ -656,7 +675,7 @@ function packTimelineAsTileNodes(timeline: TimelineFrame[], palette: RgbColor[],
           let tileIndex = tileIndexes.get(tile.hash);
           if (tileIndex === undefined) {
             tileIndex = tileIndexes.size;
-            if (tileIndex >= maxTiles || tileIndex >= MAX_ATLAS_TILES) return { rig, poses, timelineFrames, uniqueTileCount: tileIndexes.size + 1, mode: "tile-node-dedup" };
+            if (tileIndex >= maxTiles || tileIndex >= atlasTileCapacity(atlas)) return { rig, poses, timelineFrames, uniqueTileCount: tileIndexes.size + 1, mode: "tile-node-dedup" };
             tileIndexes.set(tile.hash, tileIndex);
             blitTile(rig, tile.pixels, tileIndex);
           }
@@ -678,8 +697,8 @@ function packTimelineAsTileNodes(timeline: TimelineFrame[], palette: RgbColor[],
   return { rig, poses, timelineFrames, uniqueTileCount: tileIndexes.size, mode: "tile-node-dedup" };
 }
 
-function packTimelineAsMacroBlocks(timeline: TimelineFrame[], palette: RgbColor[], maxTiles: number, groundShiftY: number): PackedFlipbook {
-  const rig = emptyImage(RIG_WIDTH, RIG_HEIGHT);
+function packTimelineAsMacroBlocks(timeline: TimelineFrame[], palette: RgbColor[], maxTiles: number, groundShiftY: number, atlas: RigAtlasDimensions): PackedFlipbook {
+  const rig = emptyImage(atlas.width, atlas.height);
   const poseIndexes = new Map<string, PackedPose>();
   const poseFrames = new Map<number, TimelineFrame>();
   const poses: PackedPose[] = [];
@@ -717,7 +736,7 @@ function packTimelineAsMacroBlocks(timeline: TimelineFrame[], palette: RgbColor[
     timelineFrames.push({ ...frame, poseIndex: pose.poseIndex, visibleTileCount: 0 });
   }
 
-  const occupied = new Uint8Array(MAX_ATLAS_TILES);
+  const occupied = new Uint8Array(atlasTileCapacity(atlas));
   const chunks = poses
     .flatMap((pose) => (pose.macroChunks ?? []).map((chunk, chunkIndex) => ({ pose, chunk, chunkIndex })))
     .sort((left, right) => {
@@ -730,7 +749,7 @@ function packTimelineAsMacroBlocks(timeline: TimelineFrame[], palette: RgbColor[
   let nextCellIndex = 1;
   for (const item of chunks) {
     const { sourceBounds } = item.chunk;
-    const placement = firstFreeAtlasPlacement(occupied, sourceBounds.width, sourceBounds.height);
+    const placement = firstFreeAtlasPlacement(occupied, sourceBounds.width, sourceBounds.height, atlas);
     const frame = poseFrames.get(item.pose.poseIndex);
     if (!placement || !frame) {
       return { rig, poses, timelineFrames, uniqueTileCount: maxTiles + 1, mode: "macro-blocks" };
@@ -741,7 +760,7 @@ function packTimelineAsMacroBlocks(timeline: TimelineFrame[], palette: RgbColor[
     blitPoseBlock(rig, frame, sourceBounds, placement.x, placement.y, palette);
     markBlockCovered(occupied, RIG_WIDTH, placement.x, placement.y, sourceBounds.width, sourceBounds.height);
     usedTiles += rectTileArea(sourceBounds);
-    if (usedTiles > maxTiles || usedTiles > MAX_ATLAS_TILES) {
+    if (usedTiles > maxTiles || usedTiles > atlasTileCapacity(atlas)) {
       return { rig, poses, timelineFrames, uniqueTileCount: usedTiles, mode: "macro-blocks" };
     }
   }
@@ -771,13 +790,13 @@ function uniqueTileNodeSlots(packed: PackedFlipbook): TileNodeSlot[] {
 
 function addDisplayPoseCopy(rig: RgbaImageData, pose: PackedPose | undefined, frame: TimelineFrame | undefined, palette: RgbColor[], occupiedTiles: number): number {
   if (!pose || !frame) return 0;
-  const covered = new Uint8Array(MAX_ATLAS_TILES);
-  for (let index = 0; index < Math.min(occupiedTiles, MAX_ATLAS_TILES); index += 1) covered[index] = 1;
-  for (let y = 0; y <= RIG_HEIGHT - pose.paddedBounds.height; y += TILE_SIZE) {
-    for (let x = 0; x <= RIG_WIDTH - pose.paddedBounds.width; x += TILE_SIZE) {
-      if (!canPlaceBlock(covered, RIG_WIDTH, x, y, pose.paddedBounds.width, pose.paddedBounds.height)) continue;
+  const covered = new Uint8Array(atlasTileCapacity(rig));
+  for (let index = 0; index < Math.min(occupiedTiles, covered.length); index += 1) covered[index] = 1;
+  for (let y = 0; y <= rig.height - pose.paddedBounds.height; y += TILE_SIZE) {
+    for (let x = 0; x <= rig.width - pose.paddedBounds.width; x += TILE_SIZE) {
+      if (!canPlaceBlock(covered, rig.width, x, y, pose.paddedBounds.width, pose.paddedBounds.height)) continue;
       blitPoseBlock(rig, frame, pose.paddedBounds, x, y, palette);
-      markBlockCovered(covered, RIG_WIDTH, x, y, pose.paddedBounds.width, pose.paddedBounds.height);
+      markBlockCovered(covered, rig.width, x, y, pose.paddedBounds.width, pose.paddedBounds.height);
       pose.atlasBounds = { x, y, width: pose.paddedBounds.width, height: pose.paddedBounds.height };
       return (pose.paddedBounds.width / TILE_SIZE) * (pose.paddedBounds.height / TILE_SIZE);
     }
@@ -785,8 +804,8 @@ function addDisplayPoseCopy(rig: RgbaImageData, pose: PackedPose | undefined, fr
   return 0;
 }
 
-function packTimelineAsBlocks(timeline: TimelineFrame[], palette: RgbColor[], maxTiles: number, groundShiftY: number): PackedFlipbook {
-  const rig = emptyImage(RIG_WIDTH, RIG_HEIGHT);
+function packTimelineAsBlocks(timeline: TimelineFrame[], palette: RgbColor[], maxTiles: number, groundShiftY: number, atlas: RigAtlasDimensions): PackedFlipbook {
+  const rig = emptyImage(atlas.width, atlas.height);
   const poseIndexes = new Map<string, PackedPose>();
   const poses: PackedPose[] = [];
   const timelineFrames: PackedTimelineFrame[] = [];
@@ -802,16 +821,16 @@ function packTimelineAsBlocks(timeline: TimelineFrame[], palette: RgbColor[], ma
       const sourceBounds = alphaBounds(frame);
       if (!sourceBounds) throw new Error(`Source frame ${frame.index} has no visible pixels`);
       const paddedBounds = hardRoundedBounds(sourceBounds, frame.width, frame.height);
-      if (nextX + paddedBounds.width > RIG_WIDTH) {
+      if (nextX + paddedBounds.width > atlas.width) {
         nextX = 0;
         nextY += rowHeight;
         rowHeight = 0;
       }
-      if (nextY + paddedBounds.height > RIG_HEIGHT) return { rig, poses, timelineFrames, uniqueTileCount: maxTiles + 1, mode: "block" };
+      if (nextY + paddedBounds.height > atlas.height) return { rig, poses, timelineFrames, uniqueTileCount: maxTiles + 1, mode: "block" };
       blitPoseBlock(rig, frame, paddedBounds, nextX, nextY, palette);
       const oams = oamsForBlock({ atlasX: nextX, atlasY: nextY, sourceBounds: paddedBounds, groundShiftY });
       usedTiles += (paddedBounds.width / TILE_SIZE) * (paddedBounds.height / TILE_SIZE);
-      if (usedTiles > maxTiles || usedTiles > MAX_ATLAS_TILES) return { rig, poses, timelineFrames, uniqueTileCount: usedTiles, mode: "block" };
+      if (usedTiles > maxTiles || usedTiles > atlasTileCapacity(atlas)) return { rig, poses, timelineFrames, uniqueTileCount: usedTiles, mode: "block" };
       pose = {
         poseIndex: poses.length,
         sourceFrame: frame.index,
@@ -831,12 +850,12 @@ function packTimelineAsBlocks(timeline: TimelineFrame[], palette: RgbColor[], ma
   return { rig, poses, timelineFrames, uniqueTileCount: usedTiles, mode: "block" };
 }
 
-function packTimelineAsRotatedBlocks(timeline: TimelineFrame[], palette: RgbColor[], maxTiles: number, groundShiftY: number): PackedFlipbook {
-  const rig = emptyImage(RIG_WIDTH, RIG_HEIGHT);
+function packTimelineAsRotatedBlocks(timeline: TimelineFrame[], palette: RgbColor[], maxTiles: number, groundShiftY: number, atlas: RigAtlasDimensions): PackedFlipbook {
+  const rig = emptyImage(atlas.width, atlas.height);
   const poseIndexes = new Map<string, PackedPose>();
   const poses: PackedPose[] = [];
   const timelineFrames: PackedTimelineFrame[] = [];
-  const occupied = new Uint8Array(MAX_ATLAS_TILES);
+  const occupied = new Uint8Array(atlasTileCapacity(atlas));
   let usedTiles = 0;
   let usedRotatedPose = false;
 
@@ -847,7 +866,7 @@ function packTimelineAsRotatedBlocks(timeline: TimelineFrame[], palette: RgbColo
       const sourceBounds = alphaBounds(frame);
       if (!sourceBounds) throw new Error(`Source frame ${frame.index} has no visible pixels`);
       const paddedBounds = hardRoundedBounds(sourceBounds, frame.width, frame.height);
-      const placement = chooseRotatedBlockPlacement(occupied, paddedBounds);
+      const placement = chooseRotatedBlockPlacement(occupied, paddedBounds, atlas);
       if (!placement) return { rig, poses, timelineFrames, uniqueTileCount: maxTiles + 1, mode: usedRotatedPose ? "rotated-block" : "block" };
 
       const isRotated = placement.rotated;
@@ -868,7 +887,7 @@ function packTimelineAsRotatedBlocks(timeline: TimelineFrame[], palette: RgbColo
         ? oamsForStoredBlock({ atlasBounds, spriteX: rotatedGeometry.spriteX, spriteY: rotatedGeometry.spriteY })
         : oamsForBlock({ atlasX: placement.x, atlasY: placement.y, sourceBounds: paddedBounds, groundShiftY });
       usedTiles += rectTileArea(atlasBounds);
-      if (usedTiles > maxTiles || usedTiles > MAX_ATLAS_TILES) {
+      if (usedTiles > maxTiles || usedTiles > atlasTileCapacity(atlas)) {
         return { rig, poses, timelineFrames, uniqueTileCount: usedTiles, mode: usedRotatedPose ? "rotated-block" : "block" };
       }
       markBlockCovered(occupied, RIG_WIDTH, atlasBounds.x, atlasBounds.y, atlasBounds.width, atlasBounds.height);
@@ -893,9 +912,9 @@ function packTimelineAsRotatedBlocks(timeline: TimelineFrame[], palette: RgbColo
   return { rig, poses, timelineFrames, uniqueTileCount: usedTiles, mode: usedRotatedPose ? "rotated-block" : "block" };
 }
 
-function chooseRotatedBlockPlacement(occupied: Uint8Array, bounds: Rect): { x: number; y: number; rotated: boolean } | undefined {
-  const upright = firstFreeAtlasPlacement(occupied, bounds.width, bounds.height);
-  const rotated = bounds.width === bounds.height ? undefined : firstFreeAtlasPlacement(occupied, bounds.height, bounds.width);
+function chooseRotatedBlockPlacement(occupied: Uint8Array, bounds: Rect, atlas: RigAtlasDimensions): { x: number; y: number; rotated: boolean } | undefined {
+  const upright = firstFreeAtlasPlacement(occupied, bounds.width, bounds.height, atlas);
+  const rotated = bounds.width === bounds.height ? undefined : firstFreeAtlasPlacement(occupied, bounds.height, bounds.width, atlas);
   if (!upright && !rotated) return undefined;
   if (!upright) return { ...rotated!, rotated: true };
   if (!rotated) return { ...upright, rotated: false };
@@ -1039,10 +1058,10 @@ function tileHasAlpha(frame: FrameEntry, x: number, y: number): boolean {
   return false;
 }
 
-function firstFreeAtlasPlacement(occupied: Uint8Array, width: number, height: number): { x: number; y: number } | undefined {
-  for (let y = 0; y <= RIG_HEIGHT - height; y += TILE_SIZE) {
-    for (let x = 0; x <= RIG_WIDTH - width; x += TILE_SIZE) {
-      if (canPlaceBlock(occupied, RIG_WIDTH, x, y, width, height)) return { x, y };
+function firstFreeAtlasPlacement(occupied: Uint8Array, width: number, height: number, atlas: RigAtlasDimensions): { x: number; y: number } | undefined {
+  for (let y = 0; y <= atlas.height - height; y += TILE_SIZE) {
+    for (let x = 0; x <= atlas.width - width; x += TILE_SIZE) {
+      if (canPlaceBlock(occupied, atlas.width, x, y, width, height)) return { x, y };
     }
   }
   return undefined;

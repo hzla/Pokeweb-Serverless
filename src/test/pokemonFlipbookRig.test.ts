@@ -49,6 +49,26 @@ describe("pokemonFlipbookRig", () => {
     expect(result.report.visibilityValidation.invisibleFrameCount).toBe(0);
   });
 
+  it("uses expanded atlas height when packing imported flipbook rigs", () => {
+    const frames = Array.from({ length: 3 }, (_, index) => makeSizedFrame(index, 96, 96));
+    frames.forEach((frame, index) => fillRect(frame, 0, 0, 96, 96, [80 + index * 40, 120, 210 - index * 30, 255]));
+
+    const result = buildPokemonFlipbookRigFromFrames(frames, {
+      ...defaultPokemonFlipbookImportConfig("front"),
+      packingMode: "mcss-safe",
+      strategy: "first-window",
+      maxUniqueFrames: 3,
+      maxAtlasTiles: 1024,
+      atlasHeight: 256,
+    });
+    const bundle = parsePokemonAnimationBundle(result.bundle);
+    const rigCells = parseRigCells(bundle.files[8] ?? new Uint8Array());
+
+    expect(result.rig).toMatchObject({ width: 256, height: 256 });
+    expect(result.report.uniquePoseCount).toBe(3);
+    expect(rigCells.cells.some((cell) => cell.cellY + cell.height > 128)).toBe(true);
+  });
+
   it("can build a tile-node dedup flipbook with one animated sequence per visible tile node", () => {
     const frames = Array.from({ length: 3 }, (_, index) => makeFrame(index));
     frames.forEach((frame, index) => fillSparseTiles(frame, 0, 0, 48, 48, [80 + index * 20, 180, 80, 255]));

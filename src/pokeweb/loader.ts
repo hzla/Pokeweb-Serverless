@@ -16,7 +16,9 @@ import {
 import { getNarcFormats } from "./formats";
 import { parseHeaders } from "./headerModel";
 import { detectPmcInstallFromRom } from "./pmcModel";
+import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
 import { createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
+import { getStarterOverlayIds } from "./starterModel";
 import { cleanDisplayText, decodeGen5TextBank } from "./text";
 import { parseTms } from "./tmModel";
 
@@ -34,6 +36,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
   onProgress?.("Reading ROM file");
   const bytes = new Uint8Array(await file.arrayBuffer());
   const rom = new NintendoDSRom(bytes);
+  const compactBytes = rom.save();
 
   onProgress?.("Decompressing ARM9");
   const arm9 = decompressCode(rom.arm9);
@@ -41,7 +44,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
   const version = VERSION_BY_ARM9_SAMPLE[sample] ?? { baseVersion: "W2" as const, baseRom: "BW2" as const };
   const formats = getNarcFormats(version.baseRom);
   const project: ProjectState = {
-    originalRomBytes: bytes,
+    originalRomBytes: compactBytes,
     session: {
       romName: file.name.replace(/\.nds$/iu, ""),
       baseVersion: version.baseVersion,
@@ -57,6 +60,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
       size: bytes.length,
     },
     arm9,
+    rigAtlas: detectRigAtlasSettings(rom, arm9),
     overlays: {},
     narcs: {},
     texts: { banks: {} },
@@ -89,7 +93,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
   }
   extractNarcSet(rom, project, editNarcs);
 
-  if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves")) {
+  if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves") || selectedNarcs.has("starter_sprites")) {
     onProgress?.("Extracting overlays");
     extractOverlays(rom, project, selectedNarcs);
   }
@@ -104,6 +108,11 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
   project.tms = parseTms(project);
 
   return project;
+}
+
+function detectRigAtlasSettings(rom: NintendoDSRom, arm9: Uint8Array): ProjectState["rigAtlas"] {
+  const expanded = rom.idCode === "IRDO" && detectWhite2ExpandedRigAtlasPatchState(arm9, rom.arm9RamAddress) === "patched";
+  return { width: 256, height: expanded ? 256 : 128, expanded };
 }
 
 function headerDefinitionsFor(baseRom: BaseRom): NarcDefinition[] {
@@ -164,7 +173,11 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
   const includeAll = selectedNarcs.size === 0;
   const includeGrottos = includeAll || selectedNarcs.has("grottos");
   const includeMoves = includeAll || selectedNarcs.has("moves");
-  const ids = project.session.baseRom === "BW2" ? [includeGrottos ? 36 : undefined, includeMoves ? 167 : undefined].filter((id): id is number => id !== undefined) : [];
+  const includeStarters = includeAll || selectedNarcs.has("starter_sprites");
+  const ids = [
+    ...(project.session.baseRom === "BW2" ? [includeGrottos ? 36 : undefined, includeMoves ? 167 : undefined] : []),
+    ...(includeStarters ? getStarterOverlayIds(project.session.baseRom) : []),
+  ].filter((id): id is number => id !== undefined);
   if (ids.length === 0) return;
   const overlays = rom.loadArm9Overlays(ids);
   for (const [id, overlay] of overlays) project.overlays[id] = overlay.data;

@@ -1,6 +1,7 @@
 import grottoLocationsText from "../assets/data/grotto_locations.txt?raw";
 import martLocationsText from "../assets/data/mart_locations.txt?raw";
 import { writeU8 } from "../nds/binary";
+import { recordFieldChange } from "./actionChangelog";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
 
@@ -101,16 +102,21 @@ export function getGrottoAutofills(project: ProjectState): Record<string, string
 export function updateMartField(project: ProjectState, martId: number, field: string, inputValue: string): FieldUpdateResult {
   if (!/^item_\d+$/u.test(field)) throw new Error(`Unsupported mart field: ${field}`);
   const record = getMartRecord(project, martId);
+  const before = record.readable[field] ?? "";
   const rawValue = findValueIndex(project.texts.banks.items ?? [], inputValue.trim(), "item");
   record.raw[field] = rawValue;
   record.readable[field] = itemName(project, rawValue);
   markDirty(project, "marts", martId);
   syncMartCount(project, martId, record.raw);
+  recordFieldChange(project, "marts", martSubject(record), martFieldLabel(field), before, record.readable[field], {
+    key: `mart:${martId}:${field}`,
+  });
   return { value: record.readable[field], rawValue };
 }
 
 export function updateGrottoField(project: ProjectState, grottoId: number, field: string, inputValue: string): FieldUpdateResult {
   const record = getGrottoRecord(project, grottoId);
+  const before = record.readable[field] ?? "";
   const value = inputValue.trim();
   let rawValue: number;
   let displayValue: string | number;
@@ -131,12 +137,16 @@ export function updateGrottoField(project: ProjectState, grottoId: number, field
   record.raw[field] = rawValue;
   record.readable[field] = displayValue;
   markDirty(project, "grottos", grottoId);
+  recordFieldChange(project, "grottos", grottoSubject(record), grottoFieldLabel(field), before, displayValue, {
+    key: `grotto:${grottoId}:${field}`,
+  });
   return { value: displayValue, rawValue };
 }
 
 export function updateGrottoOddsField(project: ProjectState, field: string, inputValue: string): FieldUpdateResult {
   if (!GROTTO_ODDS_FIELDS.includes(field)) throw new Error(`Unsupported grotto odds field: ${field}`);
   const odds = getGrottoOdds(project);
+  const before = odds.readable[field] ?? 0;
   const rawValue = parseInteger(inputValue.trim(), 0, 100, field);
   odds.raw[field] = rawValue;
   odds.readable[field] = rawValue;
@@ -147,6 +157,9 @@ export function updateGrottoOddsField(project: ProjectState, field: string, inpu
     writeU8(bytes, index, rawValue);
     markDirty(project, "grotto_odds", 0);
   }
+  recordFieldChange(project, "grotto_odds", "Grotto odds", grottoFieldLabel(field), before, rawValue, {
+    key: `grotto-odds:${field}`,
+  });
   return { value: rawValue, rawValue };
 }
 
@@ -252,4 +265,20 @@ function commaSearch(record: unknown, searchText: string): boolean {
 
 function spriteSlug(name: string): string {
   return pokemonSpriteSlug(name);
+}
+
+function martSubject(record: MartRecord): string {
+  return String(record.readable.name ?? `Mart ${record.id}`);
+}
+
+function grottoSubject(record: GrottoRecord): string {
+  return String(record.readable.name ?? `Grotto ${record.id}`);
+}
+
+function martFieldLabel(field: string): string {
+  return field.replace(/_/gu, " ");
+}
+
+function grottoFieldLabel(field: string): string {
+  return field.replace(/_/gu, " ");
 }

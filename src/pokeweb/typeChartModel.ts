@@ -1,3 +1,4 @@
+import { recordFieldChange } from "./actionChangelog";
 import { TYPES } from "./constants";
 import type { ProjectState } from "./projectStore";
 
@@ -66,8 +67,13 @@ export function updateTypeChartValue(project: ProjectState, attackIndex: number,
   const store = project.narcs.type_chart;
   if (!store) return;
   const bytes = store.rawFiles[0]?.slice() ?? new Uint8Array(TYPE_CHART_TYPES.length * TYPE_CHART_TYPES.length);
-  bytes[typeChartOffset(attackIndex, defendIndex)] = value;
+  const offset = typeChartOffset(attackIndex, defendIndex);
+  const before = normalizeEffectiveness(bytes[offset] ?? 4);
+  bytes[offset] = value;
   store.rawFiles[0] = bytes;
+  recordFieldChange(project, "type_chart", "Type Chart", `${TYPE_CHART_TYPES[attackIndex]} vs ${TYPE_CHART_TYPES[defendIndex]}`, effectivenessLabel(before), effectivenessLabel(value), {
+    key: `type-chart:${attackIndex}:${defendIndex}`,
+  });
   store.dirty.add(0);
 }
 

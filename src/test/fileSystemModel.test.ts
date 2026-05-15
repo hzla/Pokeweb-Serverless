@@ -55,6 +55,7 @@ describe("file system model", () => {
     expect(rom.fileId("patches/Test.dll")).toBe(1);
     expect([...rom.getFileByName("patches/Test.dll")]).toEqual([0xde, 0xad]);
     expect([...rom.files[0]]).toEqual([1]);
+    expect(project.actionChangelog?.entries.some((entry) => entry.domain === "file_system" && entry.text === "ROM file added: patches/Test.dll.")).toBe(true);
   });
 
   it("replaces, inserts, and appends NARC subfiles", () => {

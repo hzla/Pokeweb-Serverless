@@ -11,6 +11,7 @@ import "./styles/legacyOverworlds.css";
 import "./styles/legacyDocGenerators.css";
 import "./styles/legacyMap3d.css";
 import "./styles/legacyPokemonSprites.css";
+import "./styles/legacyStarters.css";
 import "./styles/fileSystem.css";
 import "./styles/legacyTypes.css";
 import "./styles/codeInjection.css";
@@ -18,6 +19,8 @@ import "./styles/codeInjection.css";
 import { MANDATORY_NARCS, SELECTABLE_NARCS, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
 import { NintendoDSRom } from "./nds/rom";
+import { generateChangelogFromRomFiles } from "./pokeweb/changelogModel";
+import { ensureActionChangelog, resetActionChangelog } from "./pokeweb/actionChangelog";
 import { exportModifiedRom } from "./pokeweb/exportRom";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
@@ -32,13 +35,22 @@ import { renderEncounterEditor } from "./ui/encounterEditor";
 import { renderItemEditor, renderMoveEditor } from "./ui/moveItemEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
 import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
+import { renderStarterEditor } from "./ui/starterEditor";
 import { renderTmEditor } from "./ui/tmEditor";
 import { renderTypeChartEditor } from "./ui/typeChartEditor";
 import { renderTrainerEditor } from "./ui/trainerEditor";
+import { renderBattleFacilityEditor } from "./ui/battleFacilityEditor";
 import { renderGrottoEditor, renderGrottoOddsEditor, renderMartEditor } from "./ui/martGrottoEditor";
 import { renderTextEditor } from "./ui/textEditor";
 import { renderOverworldEditor } from "./ui/overworldEditor";
 import { renderDocGenerators } from "./ui/docGenerators";
+import {
+  clearChangelogTabs as clearSharedChangelogTabs,
+  downloadTextFile as downloadSharedTextFile,
+  renderActionChangelogPage,
+  renderChangelogTabs as renderSharedChangelogTabs,
+} from "./ui/changelogView";
+import { escapeHtml } from "./ui/dom";
 
 type AppRoute =
   | "upload"
@@ -49,7 +61,9 @@ type AppRoute =
   | "maps3d"
   | "pokemon"
   | "pokemonSprites"
+  | "starters"
   | "trainers"
+  | "facilities"
   | "encounters"
   | "moves"
   | "items"
@@ -61,12 +75,26 @@ type AppRoute =
   | "storyText"
   | "infoText"
   | "docGenerators"
+  | "changelog"
   | "debugNarcs";
 type AppHistoryState = {
   route: AppRoute;
   overworldId?: number;
   pokemonSpriteSpeciesId?: number;
   pokemonSpriteFormIndex?: number;
+};
+type SaveFileHandleLike = {
+  createWritable: () => Promise<{
+    write: (data: Blob) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+};
+type SaveFilePickerOptionsLike = {
+  suggestedName?: string;
+  types?: Array<{
+    description: string;
+    accept: Record<string, string[]>;
+  }>;
 };
 const ROUTE_KEY = "pokeweb-serverless-route";
 const OVERWORLD_ROUTE_KEY = "pokeweb-serverless-overworld-id";
@@ -80,7 +108,9 @@ const APP_ROUTES: AppRoute[] = [
   "maps3d",
   "pokemon",
   "pokemonSprites",
+  "starters",
   "trainers",
+  "facilities",
   "encounters",
   "moves",
   "items",
@@ -92,15 +122,18 @@ const APP_ROUTES: AppRoute[] = [
   "storyText",
   "infoText",
   "docGenerators",
+  "changelog",
   "debugNarcs",
 ];
 
-const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">, NarcName[]> = {
+const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">, NarcName[]> = {
   headers: ["headers", "message_texts"],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
   pokemonSprites: ["personal", "pokemon_sprites", "pokemon_icons"],
+  starters: ["personal", "pokemon_sprites", "starter_sprites", "scripts", "story_texts"],
   trainers: ["trdata", "trpok", "personal", "items", "moves", "trtext_table", "trtext_offsets"],
+  facilities: ["moves", "items"],
   encounters: ["encounters"],
   moves: ["moves"],
   items: ["items"],
@@ -142,6 +175,16 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   starter_sprites: "Starter Sprites",
   pokemon_sprites: "Pokemon Sprites",
   pokemon_icons: "Pokemon Icons",
+  subway_sets: "Battle Subway Sets",
+  subway_trainers: "Battle Subway Trainers",
+  pwt_sets_0: "PWT Sets 0",
+  pwt_sets_3: "PWT Sets 3",
+  pwt_sets_6: "PWT Sets 6",
+  pwt_sets_7: "PWT Sets 7",
+  pwt_map_1: "PWT Map 1",
+  pwt_map_2: "PWT Map 2",
+  pwt_tr1: "PWT 1v1 Choices",
+  pwt_tr6: "PWT 6v6 Choices",
 };
 
 type NarcLoadSection = {
@@ -156,6 +199,11 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
   { title: "Moves", names: ["moves", "move_animations", "battle_animations", "move_spas"], toggleable: true },
   { title: "Pokemon", names: ["personal", "learnsets", "evolutions", "egg_moves", "habitats"], toggleable: true },
   { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets"], toggleable: true },
+  {
+    title: "Battle Facilities",
+    names: ["subway_sets", "subway_trainers", "pwt_sets_0", "pwt_sets_3", "pwt_sets_6", "pwt_sets_7", "pwt_map_1", "pwt_map_2", "pwt_tr1", "pwt_tr6"],
+    toggleable: true,
+  },
   { title: "Maps", names: ["maps", "matrix"], toggleable: true },
 ];
 
@@ -323,8 +371,28 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "starters") {
+    renderStarterEditor(project, content, {
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+    });
+    return;
+  }
+
   if (route === "trainers") {
     renderTrainerEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
+  if (route === "facilities") {
+    renderBattleFacilityEditor(project, content, () => {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
@@ -443,6 +511,15 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "changelog") {
+    renderActionChangelogPage(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
   renderDebugNarcs(project, content, renderDirtyIndicator);
 }
 
@@ -461,26 +538,43 @@ function renderNav(): string {
         ${navItem("headers", "Headers & Overworlds")}
         ${navItem("maps3d", "Maps")}
         ${navItem("pokemon", "Pokemon")}
+        ${navItem("starters", "Starters")}
         ${navItem("trainers", "Trainers")}
         ${navItem("encounters", "Encounters")}
         ${navItem("moves", "Moves")}
         ${navItem("items", "Items")}
         ${navItem("tms", "TMs")}
-        ${navItem("types", "Types")}
         ${bw2Links}
         ${navItem("storyText", "Story Text")}
         ${navItem("infoText", "Info Text")}
         ${navItem("docGenerators", "Doc Generators")}
-        ${navItem("codeInjection", "Code Injection")}
-        ${navItem("fileSystem", "File System")}
+        ${renderMoreMenu()}
       </div>
-      <div class="header-status" id="header-status">${dirty ? `<div class="dirty-indicator">Unsaved browser edits</div>` : ""}</div>
+      <div class="header-status" id="header-status">${dirty ? renderDirtyIndicatorLink() : ""}</div>
       <div class="header-right">
-        <a class="header-item ${route === "debugNarcs" ? "-active" : ""}" href="#" data-route="debugNarcs">Debug</a>
         <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true" ${
           hasExportBase ? "" : `title="Reload the ROM before exporting this older saved project"`
-        }>Download ROM</a>
+        }>Export</a>
         <a class="header-item" href="#" data-route="upload">New</a>
+      </div>
+    </div>
+  `;
+}
+
+function renderMoreMenu(): string {
+  const moreRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
+    ["facilities", "Facilities"],
+    ["types", "Type Chart"],
+    ["changelog", "Changelog"],
+    ["codeInjection", "Code Injection"],
+    ["fileSystem", "File System"],
+  ];
+  const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
+  return `
+    <div class="header-more ${active ? "-active" : ""}">
+      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">More</button>
+      <div class="header-more-menu">
+        ${moreRoutes.map(([moreRoute, label]) => navItem(moreRoute, label)).join("")}
       </div>
     </div>
   `;
@@ -492,6 +586,12 @@ function attachNav(): void {
       event.preventDefault();
       navigate(link.dataset.route as AppRoute);
     });
+  });
+
+  appRoot.querySelector<HTMLButtonElement>(".header-more-trigger")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    const menu = (event.currentTarget as HTMLElement).closest(".header-more");
+    menu?.classList.toggle("-open");
   });
 
   appRoot.querySelector<HTMLDivElement>("#header")?.addEventListener("click", () => {
@@ -515,8 +615,11 @@ function attachNav(): void {
 async function downloadRom(): Promise<void> {
   if (!project) return;
   const link = appRoot.querySelector<HTMLAnchorElement>("[data-export-rom]");
-  const previousText = link?.textContent ?? "Download ROM";
+  const previousText = link?.textContent ?? "Export";
+  const filename = `${project.session.romName || "pokeweb"}-modified.nds`;
   try {
+    const saveHandle = await chooseRomSaveTarget(filename);
+    if (saveHandle === null) return;
     if (link) {
       link.textContent = "Building...";
       link.classList.add("disabled");
@@ -524,14 +627,8 @@ async function downloadRom(): Promise<void> {
     await saveActiveProject(project);
     const bytes = await exportModifiedRom(project);
     const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/octet-stream" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${project.session.romName || "pokeweb"}-modified.nds`;
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (saveHandle) await writeBlobToSaveHandle(saveHandle, blob);
+    else downloadBlob(blob, filename);
     dirty = false;
     renderDirtyIndicator();
   } catch (error) {
@@ -542,6 +639,42 @@ async function downloadRom(): Promise<void> {
       link.classList.toggle("disabled", !hasExportBase);
     }
   }
+}
+
+async function chooseRomSaveTarget(filename: string): Promise<SaveFileHandleLike | undefined | null> {
+  const picker = (window as Window & { showSaveFilePicker?: (options: SaveFilePickerOptionsLike) => Promise<SaveFileHandleLike> }).showSaveFilePicker;
+  if (!picker) return undefined;
+  try {
+    return await picker({
+      suggestedName: filename,
+      types: [
+        {
+          description: "Nintendo DS ROM",
+          accept: { "application/octet-stream": [".nds"] },
+        },
+      ],
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return null;
+    throw error;
+  }
+}
+
+async function writeBlobToSaveHandle(handle: SaveFileHandleLike, blob: Blob): Promise<void> {
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function navigate(nextRoute: AppRoute): void {
@@ -595,36 +728,73 @@ function renderUpload(root: HTMLElement): void {
   const narcSections = [...NARC_LOAD_SECTIONS, { title: "Other", names: otherNarcs }];
   root.innerHTML = `
     <section class="upload-page">
-      <div class="upload-panel">
-        <h1>Pokeweb</h1>
-        <p>Upload a Gen V .nds ROM to parse it locally and open the serverless editors.</p>
-        <label class="upload-dropzone">
-          <span>Upload .nds ROM</span>
-          <input id="rom-input" type="file" accept=".nds" />
-        </label>
-        <label class="upload-options">
-          <input id="fairy-input" type="checkbox" />
-          <span>Fairy ROM offsets</span>
-        </label>
-        <div class="narc-picker">
-          <div class="narc-picker__header">
-            <div>
-              <h2>NARCs to Load</h2>
-              <p>Unchecked optional NARCs are skipped and their editors stay unavailable.</p>
+      <div class="home-panels">
+        <div class="upload-panel">
+          <h1>Pokeweb</h1>
+          <label class="upload-dropzone">
+            <span>Upload .nds ROM</span>
+            <input id="rom-input" type="file" accept=".nds" />
+          </label>
+          <label class="upload-options">
+            <input id="fairy-input" type="checkbox" />
+            <span>Fairy ROM offsets</span>
+          </label>
+          <div class="narc-picker">
+            <div class="narc-picker__header">
+              <div>
+                <h2>NARCs to Load</h2>
+              </div>
+              <button class="btn -default" id="minimal-narcs-btn" type="button">Core Only</button>
             </div>
-            <button class="btn -default" id="minimal-narcs-btn" type="button">Core Only</button>
+            <div class="narc-picker__sections">
+              ${narcSections.map((section) => renderNarcLoadSection(section, mandatoryNarcs)).join("")}
+            </div>
           </div>
-          <div class="narc-picker__sections">
-            ${narcSections.map((section) => renderNarcLoadSection(section, mandatoryNarcs)).join("")}
-          </div>
+          <div class="upload-status" id="status"></div>
         </div>
-        <div class="upload-status" id="status">Waiting for a ROM.</div>
+        <div class="upload-panel changelog-generator">
+          <div class="changelog-generator__header">
+            <div>
+              <h2>Changelog Generator</h2>
+            </div>
+          </div>
+          <div class="changelog-generator__inputs">
+            <label class="changelog-file">
+              <span>Original ROM</span>
+              <input id="changelog-before-input" type="file" accept=".nds" />
+            </label>
+            <label class="changelog-file">
+              <span>Modified ROM</span>
+              <input id="changelog-after-input" type="file" accept=".nds" />
+            </label>
+          </div>
+          <label class="upload-options changelog-option">
+            <input id="changelog-fairy-input" type="checkbox" />
+            <span>Fairy ROM offsets</span>
+          </label>
+          <div class="changelog-actions">
+            <button class="btn -default" id="generate-changelog-btn" type="button">Generate Changelog</button>
+            <button class="btn -default" id="copy-changelog-btn" type="button" disabled>Copy</button>
+            <button class="btn -default" id="download-changelog-btn" type="button" disabled>Download TXT</button>
+          </div>
+          <div class="upload-status" id="changelog-status"></div>
+          <textarea id="changelog-output" class="changelog-output" readonly></textarea>
+          <div id="changelog-tabs" class="changelog-tabs"></div>
+        </div>
       </div>
     </section>
   `;
 
   const input = root.querySelector<HTMLInputElement>("#rom-input");
   const fairyInput = root.querySelector<HTMLInputElement>("#fairy-input");
+  const changelogBeforeInput = root.querySelector<HTMLInputElement>("#changelog-before-input");
+  const changelogAfterInput = root.querySelector<HTMLInputElement>("#changelog-after-input");
+  const changelogFairyInput = root.querySelector<HTMLInputElement>("#changelog-fairy-input");
+  const generateChangelogButton = root.querySelector<HTMLButtonElement>("#generate-changelog-btn");
+  const copyChangelogButton = root.querySelector<HTMLButtonElement>("#copy-changelog-btn");
+  const downloadChangelogButton = root.querySelector<HTMLButtonElement>("#download-changelog-btn");
+  const changelogOutput = root.querySelector<HTMLTextAreaElement>("#changelog-output");
+  const changelogStatus = root.querySelector<HTMLDivElement>("#changelog-status");
   const minimalNarcsButton = root.querySelector<HTMLButtonElement>("#minimal-narcs-btn");
   const status = root.querySelector<HTMLDivElement>("#status");
   const sectionToggles = [...root.querySelectorAll<HTMLInputElement>(".narc-section__toggle")];
@@ -669,6 +839,7 @@ function renderUpload(root: HTMLElement): void {
       statusText(status, "Starting ROM load");
       const selectedNarcs = getSelectedNarcs(root);
       project = await loadProjectFromRomFile(file, { fairy: fairyInput?.checked ?? false, selectedNarcs }, (message) => statusText(status, message));
+      resetActionChangelog(project);
       dirty = false;
       await saveActiveProject(project);
       hasExportBase = true;
@@ -676,6 +847,64 @@ function renderUpload(root: HTMLElement): void {
     } catch (error) {
       statusText(status, error instanceof Error ? error.message : String(error));
     }
+  });
+
+  generateChangelogButton?.addEventListener("click", async () => {
+    const beforeFile = changelogBeforeInput?.files?.[0];
+    const afterFile = changelogAfterInput?.files?.[0];
+    if (!beforeFile || !afterFile) {
+      statusText(changelogStatus, "Please choose both ROM files.");
+      return;
+    }
+
+    try {
+      project = undefined;
+      dirty = false;
+      hasExportBase = false;
+      await clearActiveProject();
+      renderDirtyIndicator();
+      setChangelogBusy(root, true);
+      if (changelogOutput) changelogOutput.value = "";
+      clearSharedChangelogTabs(root);
+      statusText(changelogStatus, "Cleared active editor session");
+      const result = await generateChangelogFromRomFiles(
+        beforeFile,
+        afterFile,
+        { fairy: changelogFairyInput?.checked ?? false },
+        (message) => statusText(changelogStatus, message),
+      );
+      if (changelogOutput) changelogOutput.value = result.text;
+      renderSharedChangelogTabs(root, result.entries);
+      if (copyChangelogButton) copyChangelogButton.disabled = result.text.length === 0;
+      if (downloadChangelogButton) downloadChangelogButton.disabled = result.text.length === 0;
+      statusText(changelogStatus, `Generated ${result.summary.totalChanges} changes.`);
+    } catch (error) {
+      statusText(changelogStatus, error instanceof Error ? error.message : String(error));
+    } finally {
+      setChangelogBusy(root, false);
+      if (changelogBeforeInput) changelogBeforeInput.value = "";
+      if (changelogAfterInput) changelogAfterInput.value = "";
+    }
+  });
+
+  copyChangelogButton?.addEventListener("click", async () => {
+    const text = changelogOutput?.value ?? "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      statusText(changelogStatus, "Copied changelog text.");
+    } catch {
+      changelogOutput?.select();
+      document.execCommand("copy");
+      statusText(changelogStatus, "Copied changelog text.");
+    }
+  });
+
+  downloadChangelogButton?.addEventListener("click", () => {
+    const text = changelogOutput?.value ?? "";
+    if (!text) return;
+    downloadSharedTextFile("pokeweb-changelog.txt", text);
+    statusText(changelogStatus, "Downloaded changelog text.");
   });
 }
 
@@ -713,6 +942,7 @@ function renderNarcLoadSection(section: NarcLoadSection, mandatoryNarcs: Set<Nar
 
 function hydrateProject(nextProject: ProjectState | undefined): void {
   if (!nextProject) return;
+  ensureActionChangelog(nextProject);
   nextProject.fileSystem ??= { replacements: {} };
   nextProject.fileSystem.replacements ??= {};
   if (nextProject.narcs.headers && !nextProject.headers) nextProject.headers = parseHeaders(nextProject);
@@ -738,13 +968,21 @@ function getSelectedNarcs(root: HTMLElement): NarcName[] {
 
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (!project) return false;
+  if (nextRoute === "changelog") return true;
   if (nextRoute === "docGenerators") return true;
   if (nextRoute === "fileSystem") return hasExportBase;
   if (nextRoute === "codeInjection") return hasExportBase && project.session.baseRom === "BW2";
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
+  if (nextRoute === "facilities" && project.session.baseRom !== "BW2") return false;
+  if (nextRoute === "facilities") {
+    return (
+      EDITOR_REQUIREMENTS.facilities.every((name) => project?.narcs[name]) &&
+      Boolean(project.narcs.subway_sets || project.narcs.pwt_sets_0 || project.narcs.pwt_sets_3 || project.narcs.pwt_sets_6 || project.narcs.pwt_sets_7)
+    );
+  }
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
-  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">;
+  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);
 }
 
@@ -759,7 +997,9 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? ([] as NarcName[])
       : nextRoute === "maps3d"
         ? ([] as NarcName[])
-      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d">];
+      : nextRoute === "changelog"
+        ? ([] as NarcName[])
+      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">];
   const missing = enabled
     ? ""
     : nextRoute === "fileSystem"
@@ -770,6 +1010,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
         : nextRoute === "types"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
+        : nextRoute === "facilities"
+          ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves, Items, and at least one facility set NARC" : "Battle facility editing is currently BW2-only"}"`
           : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
   const active = route === nextRoute || (nextRoute === "headers" && route === "overworlds");
   return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute)}" ${enabled ? `data-route="${nextRoute}"` : ""}${missing}>${label}</a>`;
@@ -884,10 +1126,33 @@ function statusText(status: HTMLElement | null | undefined, message: string): vo
   if (status) status.textContent = message;
 }
 
+function setChangelogBusy(root: HTMLElement, busy: boolean): void {
+  const hasText = (root.querySelector<HTMLTextAreaElement>("#changelog-output")?.value ?? "").length > 0;
+  const generateButton = root.querySelector<HTMLButtonElement>("#generate-changelog-btn");
+  const copyButton = root.querySelector<HTMLButtonElement>("#copy-changelog-btn");
+  const downloadButton = root.querySelector<HTMLButtonElement>("#download-changelog-btn");
+  if (generateButton) generateButton.disabled = busy;
+  if (copyButton) copyButton.disabled = busy || !hasText;
+  if (downloadButton) downloadButton.disabled = busy || !hasText;
+  root.querySelectorAll<HTMLInputElement>("#changelog-before-input, #changelog-after-input, #changelog-fairy-input").forEach((input) => {
+    input.disabled = busy;
+  });
+}
+
 function renderDirtyIndicator(): void {
   const headerStatus = appRoot.querySelector<HTMLElement>("#header-status");
-  if (headerStatus) headerStatus.innerHTML = dirty ? `<div class="dirty-indicator">Unsaved browser edits</div>` : "";
+  if (headerStatus) {
+    headerStatus.innerHTML = dirty ? renderDirtyIndicatorLink() : "";
+    headerStatus.querySelector<HTMLAnchorElement>("[data-route='changelog']")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      navigate("changelog");
+    });
+  }
 
   const debugLink = appRoot.querySelector<HTMLAnchorElement>("[data-route='debugNarcs']");
   if (debugLink && project) debugLink.textContent = `Debug (${getCachedRecordCount(project)})`;
+}
+
+function renderDirtyIndicatorLink(): string {
+  return `<a class="dirty-indicator" href="${routeUrl("changelog")}" data-route="changelog">View Changelog</a>`;
 }

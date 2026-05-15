@@ -1,6 +1,14 @@
-import { concatBytes, readAscii, readU16, readU32, writeU16 } from "../nds/binary";
+import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
-import { buildPokemonAnimationFile, buildPokemonMultiCellAnimationFile, parsePokemonAnimationBundle } from "./pokemonSpriteWriters";
+import {
+  buildPokemonAnimationFile,
+  buildPokemonCellBankFileFromParsed,
+  buildPokemonMultiCellAnimationFile,
+  buildPokemonMultiCellsFileFromParsed,
+  buildRigCellsFile,
+  parsePokemonAnimationBundle,
+} from "./pokemonSpriteWriters";
 
 export type PokemonPaletteKind = "normal" | "shiny";
 export type PokemonSpriteVariant = {
@@ -12,6 +20,7 @@ export type PokemonIconVariant = "male" | "female";
 export type RgbColor = { r: number; g: number; b: number };
 export type RgbaImageData = { width: number; height: number; pixels: Uint8ClampedArray };
 export type IndexedImageData = { width: number; height: number; indices: Uint8Array };
+export type RigAtlasDimensions = { width: number; height: number };
 export type PokemonSpriteEntry = {
   spriteId: number;
   files: Uint8Array[];
@@ -121,6 +130,8 @@ const BW_ALT_FORM_SPRITE_START = 652;
 const BW2_ALT_FORM_SPRITE_START = 685;
 const PALETTE_OFFSET = 40;
 const IMAGE_DATA_OFFSET = 48;
+export const DEFAULT_RIG_ATLAS_DIMENSIONS: RigAtlasDimensions = { width: 256, height: 128 };
+export const EXPANDED_RIG_ATLAS_DIMENSIONS: RigAtlasDimensions = { width: 256, height: 256 };
 const TRANSPARENT_ALPHA_THRESHOLD = 128;
 
 const SPRITE_UNSCRAMBLE_RECTS = [
@@ -179,14 +190,15 @@ export function getPokemonSpriteImage(project: ProjectState, spriteId: number, v
   const file = entry.files[spriteVariantFileIndex(variant)];
   if (file.length === 0) throw new Error("This sprite variant is empty");
   const palette = paletteKind === "shiny" ? entry.shinyPalette : entry.palette;
-  return variant.kind === "rig" ? decodeRigImage(decompressNitro(file), palette) : decodeBattleSpriteImage(decompressNitro(file), palette);
+  return variant.kind === "rig" ? decodeRigImage(decompressNitro(file), palette, getPokemonRigAtlasDimensions(project)) : decodeBattleSpriteImage(decompressNitro(file), palette);
 }
 
 export function getPokemonSpriteIndexedImage(project: ProjectState, spriteId: number, variant: PokemonSpriteVariant): IndexedImageData {
   const entry = getPokemonSpriteEntry(project, spriteId);
   const file = entry.files[spriteVariantFileIndex(variant)];
   if (file.length === 0) throw new Error("This sprite variant is empty");
-  return variant.kind === "rig" ? decodeLinear4bppIndices(decompressNitro(file), 256, 128) : decodeBattleSpriteIndices(decompressNitro(file));
+  const rigAtlas = getPokemonRigAtlasDimensions(project);
+  return variant.kind === "rig" ? decodeLinear4bppIndices(decompressNitro(file), rigAtlas.width, rigAtlas.height) : decodeBattleSpriteIndices(decompressNitro(file));
 }
 
 export function setPokemonSpriteImage(
@@ -196,17 +208,24 @@ export function setPokemonSpriteImage(
   paletteKind: PokemonPaletteKind,
   image: RgbaImageData,
 ): void {
-  const expected = variant.kind === "rig" ? { width: 256, height: 128 } : { width: 96, height: 96 };
+  const expected = variant.kind === "rig" ? getPokemonRigAtlasDimensions(project) : { width: 96, height: 96 };
   if (image.width !== expected.width || image.height !== expected.height) {
     throw new Error(`${variant.kind === "rig" ? "Rig" : "Sprite"} image must be ${expected.width} x ${expected.height}`);
   }
   const entry = getPokemonSpriteEntry(project, spriteId);
   const palette = paletteKind === "shiny" ? entry.shinyPalette : entry.palette;
   const fileIndex = spriteVariantFileIndex(variant);
-  const decompressed = decompressNitro(entry.files[fileIndex]).slice();
-  if (variant.kind === "rig") encodeRigImage(decompressed, image, palette);
+  let decompressed: Uint8Array<ArrayBufferLike> = new Uint8Array(decompressNitro(entry.files[fileIndex]));
+  if (variant.kind === "rig") {
+    decompressed = ensureRigImageDataCapacity(decompressed, expected);
+    encodeRigImage(decompressed, image, palette);
+  }
   else encodeBattleSpriteImage(decompressed, image, palette);
   writePokemonSpriteFile(project, spriteId, fileIndex, compressLz11Literal(decompressed));
+}
+
+export function getPokemonRigAtlasDimensions(project: ProjectState): RigAtlasDimensions {
+  return project.rigAtlas?.expanded ? EXPANDED_RIG_ATLAS_DIMENSIONS : DEFAULT_RIG_ATLAS_DIMENSIONS;
 }
 
 export function copyPokemonSpriteVariant(project: ProjectState, spriteId: number, source: PokemonSpriteVariant, target: PokemonSpriteVariant): void {
@@ -214,6 +233,9 @@ export function copyPokemonSpriteVariant(project: ProjectState, spriteId: number
   const sourceFile = entry.files[spriteVariantFileIndex(source)];
   if (!sourceFile || sourceFile.length === 0) throw new Error("Source sprite variant is empty");
   writePokemonSpriteFile(project, spriteId, spriteVariantFileIndex(target), sourceFile.slice());
+  recordGenericChange(project, "pokemon_sprites", `${spriteVariantLabel(target)} copied from ${spriteVariantLabel(source)}.`, pokemonSpriteSubject(project, spriteId), {
+    key: `pokemon-sprite-copy:${spriteId}:${spriteVariantFileIndex(target)}`,
+  });
 }
 
 export function getPokemonPalettes(project: ProjectState, spriteId: number): { normal: RgbColor[]; shiny: RgbColor[] } {
@@ -284,6 +306,7 @@ export function setPokemonIconImage(project: ProjectState, spriteId: number, var
   encodeIconImage(out, image, palette);
   store.rawFiles[fileIndex] = out;
   store.dirty.add(fileIndex);
+  recordPokemonSpriteAsset(project, "pokemon_icons", spriteId, `Icon ${variant} image changed.`);
 }
 
 export function getPokemonIconPalettes(project: ProjectState): RgbColor[][] {
@@ -319,6 +342,9 @@ export function setPokemonIconPaletteAssignment(project: ProjectState, spriteId:
   const value = project.arm9[index] ?? 0;
   project.arm9[index] = variant === "female" ? (value & 0x0f) | (paletteId << 4) : (value & 0xf0) | paletteId;
   project.arm9Dirty = true;
+  recordFieldChange(project, "pokemon_icons", pokemonSpriteSubject(project, spriteId), `${variant} icon palette`, (variant === "female" ? (value >>> 4) & 0x0f : value & 0x0f), paletteId, {
+    key: `pokemon-icon-palette:${spriteId}:${variant}`,
+  });
 }
 
 export function getRigCells(project: ProjectState, spriteId: number, side: "front" | "back"): RigCellsFile {
@@ -342,6 +368,12 @@ export function setRigCells(project: ProjectState, spriteId: number, side: "fron
   out.fill(0, flagPos);
   out.set(next.flags, flagPos);
   writePokemonSpriteFile(project, spriteId, fileIndex, out);
+}
+
+export function replaceRigCells(project: ProjectState, spriteId: number, side: PokemonAnimationSide, next: RigCellsFile): RigCellsFile {
+  const raw = buildRigCellsFile(next);
+  writePokemonSpriteFile(project, spriteId, side === "front" ? 8 : 17, raw);
+  return parseRigCells(raw);
 }
 
 export function getPokemonAnimation(project: ProjectState, spriteId: number, side: PokemonAnimationSide): PokemonAnimation {
@@ -370,6 +402,33 @@ export function getPokemonCellBank(project: ProjectState, spriteId: number, side
   const file = entry.files[cellBankFileIndex(side)];
   if (!file || file.length === 0) throw new Error("This cell bank file is empty");
   return parsePokemonCellBank(decompressNitroIfNeeded(file), side);
+}
+
+export function setPokemonAnimation(project: ProjectState, spriteId: number, side: PokemonAnimationSide, next: PokemonAnimation): PokemonAnimation {
+  validatePokemonAnimationReferences(project, spriteId, side, next, "nanr");
+  const raw = buildPokemonAnimationFile(next.sequences.map((sequence) => ({ ...sequence, targetType: 1 as const })));
+  writePokemonSpriteFile(project, spriteId, animationFileIndex(side), compressLz11Literal(raw));
+  return parsePokemonAnimation(raw, side);
+}
+
+export function setPokemonMultiCellAnimation(project: ProjectState, spriteId: number, side: PokemonAnimationSide, next: PokemonAnimation): PokemonAnimation {
+  validatePokemonAnimationReferences(project, spriteId, side, next, "nmar");
+  const raw = buildPokemonAnimationFile(next.sequences.map((sequence) => ({ ...sequence, targetType: 2 as const })));
+  writePokemonSpriteFile(project, spriteId, multiCellAnimationFileIndex(side), raw);
+  return parsePokemonAnimation(raw, side, "RAMN", "Multi-cell animation");
+}
+
+export function setPokemonMultiCells(project: ProjectState, spriteId: number, side: PokemonAnimationSide, next: PokemonMultiCells): PokemonMultiCells {
+  validatePokemonMultiCellReferences(project, spriteId, side, next);
+  const raw = buildPokemonMultiCellsFileFromParsed(next.cells);
+  writePokemonSpriteFile(project, spriteId, multiCellFileIndex(side), raw);
+  return parsePokemonMultiCells(raw, side);
+}
+
+export function setPokemonCellBank(project: ProjectState, spriteId: number, side: PokemonAnimationSide, next: PokemonCellBank): PokemonCellBank {
+  const raw = buildPokemonCellBankFileFromParsed(next);
+  writePokemonSpriteFile(project, spriteId, cellBankFileIndex(side), raw);
+  return parsePokemonCellBank(raw, side);
 }
 
 export function setPokemonAnimationFrame(
@@ -550,6 +609,39 @@ function animationFrameEdit(frame: PokemonAnimationFrame): PokemonAnimationFrame
   };
 }
 
+function validatePokemonAnimationReferences(
+  project: ProjectState,
+  spriteId: number,
+  side: PokemonAnimationSide,
+  animation: PokemonAnimation,
+  kind: "nanr" | "nmar",
+): void {
+  const targetCount = kind === "nanr" ? getPokemonCellBank(project, spriteId, side).cells.length : getPokemonMultiCells(project, spriteId, side).cells.length;
+  animation.sequences.forEach((sequence, sequenceIndex) => {
+    if (sequence.frames.length === 0) throw new Error(`${kind.toUpperCase()} sequence ${sequenceIndex} must contain at least one frame`);
+    sequence.frames.forEach((frame, frameIndex) => {
+      if (!Number.isInteger(frame.cellIndex) || frame.cellIndex < 0 || frame.cellIndex >= targetCount) {
+        throw new Error(`${kind.toUpperCase()} sequence ${sequenceIndex} frame ${frameIndex} references missing ${kind === "nanr" ? "NCER cell" : "NMCR group"} ${frame.cellIndex}`);
+      }
+    });
+  });
+}
+
+function validatePokemonMultiCellReferences(project: ProjectState, spriteId: number, side: PokemonAnimationSide, multiCells: PokemonMultiCells): void {
+  const sequenceCount = getPokemonAnimation(project, spriteId, side).sequences.length;
+  multiCells.cells.forEach((cell, cellIndex) => {
+    if (cell.cellAnimationCount < 1) throw new Error(`NMCR group ${cellIndex} must have at least one cell animation`);
+    cell.nodes.forEach((node, nodeIndex) => {
+      if (!Number.isInteger(node.sequenceNumber) || node.sequenceNumber < 0 || node.sequenceNumber >= sequenceCount) {
+        throw new Error(`NMCR group ${cellIndex} node ${nodeIndex} references missing NANR sequence ${node.sequenceNumber}`);
+      }
+      if (!Number.isInteger(node.cellAnimationIndex) || node.cellAnimationIndex < 0 || node.cellAnimationIndex >= cell.cellAnimationCount) {
+        throw new Error(`NMCR group ${cellIndex} node ${nodeIndex} cell animation index must be < ${cell.cellAnimationCount}`);
+      }
+    });
+  });
+}
+
 export function parsePokemonMultiCells(bytes: Uint8Array, side: PokemonAnimationSide = "front"): PokemonMultiCells {
   if (readAscii(bytes, 0, 4) !== "RCMN") throw new Error("Multi-cell file is not RCMN/NMCR");
   const mcbk = findNnsBlockPayload(bytes, "MCBK");
@@ -682,12 +774,31 @@ function encodeBattleSpriteImage(data: Uint8Array, image: RgbaImageData, palette
   encodeTiled4bpp(data, scrambled, palette);
 }
 
-function decodeRigImage(data: Uint8Array, palette: RgbColor[]): RgbaImageData {
-  return decodeLinear4bpp(data, 256, 128, palette);
+function decodeRigImage(data: Uint8Array, palette: RgbColor[], dimensions: RigAtlasDimensions): RgbaImageData {
+  return decodeLinear4bpp(data, dimensions.width, dimensions.height, palette);
 }
 
 function encodeRigImage(data: Uint8Array, image: RgbaImageData, palette: RgbColor[]): void {
   encodeLinear4bpp(data, image, palette);
+}
+
+function ensureRigImageDataCapacity(data: Uint8Array, dimensions: RigAtlasDimensions): Uint8Array {
+  const dataSize = dimensions.width * dimensions.height / 2;
+  const requiredLength = IMAGE_DATA_OFFSET + dataSize;
+  if (data.length >= requiredLength) return data;
+  const rahc = findNnsBlockPayload(data, "CHAR") ?? findNnsBlockPayload(data, "RAHC");
+  if (!rahc) throw new Error("Rig image file is missing a RAHC character block");
+
+  const out = new Uint8Array(requiredLength);
+  out.set(data);
+  const blockOffset = rahc.offset - 8;
+  const blockSize = requiredLength - blockOffset;
+  writeU32(out, 8, requiredLength);
+  writeU32(out, blockOffset + 4, blockSize);
+  writeU16(out, rahc.offset, dimensions.height / 8);
+  writeU16(out, rahc.offset + 2, dimensions.width / 8);
+  writeU32(out, rahc.offset + 0x10, dataSize);
+  return out;
 }
 
 function decodeIconImage(data: Uint8Array, palette: RgbColor[]): RgbaImageData {
@@ -824,6 +935,25 @@ function writePokemonSpriteFile(project: ProjectState, spriteId: number, fileInd
   const absoluteIndex = spriteId * SPRITE_FILES_PER_ENTRY + fileIndex;
   store.rawFiles[absoluteIndex] = bytes;
   markDirty(project, "pokemon_sprites", absoluteIndex);
+  recordPokemonSpriteAsset(project, "pokemon_sprites", spriteId, `${spriteFileLabel(fileIndex)} changed.`);
+}
+
+function recordPokemonSpriteAsset(project: ProjectState, domain: string, spriteId: number, text: string): void {
+  recordGenericChange(project, domain, text, pokemonSpriteSubject(project, spriteId), {
+    key: `${domain}:${spriteId}:${text}`,
+  });
+}
+
+function pokemonSpriteSubject(project: ProjectState, spriteId: number): string {
+  return project.texts.banks.pokedex?.[spriteId] ?? `Pokemon sprite ${spriteId}`;
+}
+
+function spriteVariantLabel(variant: PokemonSpriteVariant): string {
+  return `${variant.gender} ${variant.side} ${variant.kind}`;
+}
+
+function spriteFileLabel(fileIndex: number): string {
+  return `Sprite file ${fileIndex}`;
 }
 
 function iconPaletteAssignmentOffset(project: ProjectState): number | undefined {
