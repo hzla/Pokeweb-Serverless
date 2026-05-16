@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readU16, readU32 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import { cleanDisplayText, decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
@@ -12,10 +13,13 @@ describe("Gen V text backend", () => {
       ["0_2c", "ABC", 0],
     ];
 
-    const decoded = decodeGen5TextBank(encodeGen5TextBank(entries));
+    const encoded = encodeGen5TextBank(entries);
+    const decoded = decodeGen5TextBank(encoded);
 
     expect(decoded.map(([id, text]) => [id, text])).toEqual(entries.map(([id, text]) => [id, text]));
-    expect(decoded[1][2]).toBe(0x1234);
+    expect(gameDecryptEntry(encoded, 0, 0)).toBe("Hello\\nWorld");
+    expect(gameDecryptEntry(encoded, 0, 1)).toBe("VAR(1, 2, 3)\\f\\r\\x0001");
+    expect(decoded[1][2]).toBe(getExpectedEncodedTerminator(1, 12));
   });
 
   it("rejects malformed text banks with impossible table sizes", () => {
@@ -76,6 +80,61 @@ function makeProject(messageBank: Uint8Array): ProjectState {
     formats: {},
     trpokInfo: [],
   };
+}
+
+function gameDecryptEntry(data: Uint8Array, blockIndex: number, entryIndex: number): string {
+  const blockOffset = readU32(data, 12 + blockIndex * 4);
+  const tableOffset = blockOffset + 4 + entryIndex * 8;
+  const textOffset = blockOffset + readU32(data, tableOffset);
+  const charCount = readU16(data, tableOffset + 4);
+  let key = getGen5TextEntrySeed(entryIndex);
+  const words: number[] = [];
+  for (let index = 0; index < charCount; index += 1) {
+    words.push(readU16(data, textOffset + index * 2) ^ key);
+    key = rotateLeft16(key, 3);
+  }
+  return renderTestText(words);
+}
+
+function renderTestText(words: number[]): string {
+  let text = "";
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index];
+    if (word === 0xffff) break;
+    if (word === 0xfffe) {
+      text += "\\n";
+    } else if (word === 0xf000) {
+      const kind = words[index + 1];
+      const count = words[index + 2];
+      if (kind === 0xbe00 && count === 0) {
+        text += "\\f";
+      } else if (kind === 0xbe01 && count === 0) {
+        text += "\\r";
+      } else {
+        text += `VAR(${[kind, ...words.slice(index + 3, index + 3 + count)].join(", ")})`;
+      }
+      index += 2 + count;
+    } else if (word < 20 || word > 0xf000) {
+      text += `\\x${word.toString(16).toUpperCase().padStart(4, "0")}`;
+    } else {
+      text += String.fromCharCode(word);
+    }
+  }
+  return text;
+}
+
+function getExpectedEncodedTerminator(entryIndex: number, terminatorIndex: number): number {
+  let key = getGen5TextEntrySeed(entryIndex);
+  for (let index = 0; index < terminatorIndex; index += 1) key = rotateLeft16(key, 3);
+  return 0xffff ^ key;
+}
+
+function getGen5TextEntrySeed(entryIndex: number): number {
+  return (0x2983 * (entryIndex + 3)) & 0xffff;
+}
+
+function rotateLeft16(value: number, count: number): number {
+  return ((value << count) | (value >>> (16 - count))) & 0xffff;
 }
 
 function makeStore(name: NarcName, rawFiles: Uint8Array[]): NarcStore {
