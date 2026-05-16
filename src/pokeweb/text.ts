@@ -109,7 +109,7 @@ export function encodeGen5TextBank(entries: Gen5TextEntry[]): Uint8Array {
       const meta = parseEntryId(entry[0]);
       let codepoints = encodeEscapedStringToCodepoints(entry[1]);
       if (meta.compressed) codepoints = [0xf100, ...compress9Bit([...codepoints, 0xffff])];
-      const encrypted = encryptPlainWordsToEncWords([...codepoints, 0xffff], entry[2] ?? 0);
+      const encrypted = encryptPlainWordsToEncWords([...codepoints, 0xffff], entryIndex);
       encodedEntries.push(encrypted);
       flags.push(meta.flags);
     }
@@ -269,14 +269,22 @@ function encodeEscapedStringToCodepoints(text: string): number[] {
   return codepoints;
 }
 
-function encryptPlainWordsToEncWords(plainWords: number[], initialKey: number): Uint16Array {
+function encryptPlainWordsToEncWords(plainWords: number[], entryIndex: number): Uint16Array {
   const encrypted = new Uint16Array(plainWords.length);
-  let key = (initialKey ^ 0xffff) & 0xffff;
-  for (let index = plainWords.length - 1; index >= 0; index -= 1) {
+  let key = getGen5TextEntrySeed(entryIndex);
+  for (let index = 0; index < plainWords.length; index += 1) {
     encrypted[index] = (plainWords[index] ^ key) & 0xffff;
-    key = ((key >>> 3) | (key << 13)) & 0xffff;
+    key = rotateLeft16(key, 3);
   }
   return encrypted;
+}
+
+function getGen5TextEntrySeed(entryIndex: number): number {
+  return (0x2983 * (entryIndex + 3)) & 0xffff;
+}
+
+function rotateLeft16(value: number, count: number): number {
+  return ((value << count) | (value >>> (16 - count))) & 0xffff;
 }
 
 function groupEntries(entries: Gen5TextEntry[]): Record<number, Record<number, Gen5TextEntry>> {
