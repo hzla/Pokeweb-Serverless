@@ -5,6 +5,7 @@ import {
   updateTrainerField,
   updateTrainerPokemonField,
   addTrainerPokemon,
+  autofillTrainerPokemonMoves,
   deleteTrainerPokemon,
   setTrainerAiFlagForAll,
 } from "../pokeweb/trainerModel";
@@ -95,6 +96,19 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
       deleteTrainerPokemon(project, trainerId, slot);
       replaceTrainerRow(root, project, card, trainerId, options);
       options.onDirty?.();
+      return;
+    }
+
+    if (target.closest(".autofill-btn")) {
+      const slot = Number(target.closest<HTMLElement>(".expanded-pok")?.dataset.subIndex);
+      if (!Number.isInteger(slot)) return;
+      try {
+        autofillTrainerPokemonMoves(project, trainerId, slot);
+        replaceTrainerRow(root, project, card, trainerId, options);
+        options.onDirty?.();
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      }
       return;
     }
 

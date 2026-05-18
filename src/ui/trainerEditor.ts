@@ -141,7 +141,7 @@ function renderTrainerPokemon(trainer: TrainerRecord, pok: TrainerPokemonSlot): 
         ${expandedField("Held Item", editable("trpok", `item_id_${pok.slot}`, trainer.hasItems ? pok.itemName : "", "tr-item", { autofill: "items", check: "has-items" }))}
         ${[1, 2, 3, 4].map((move) => expandedField(`Move ${move}`, editable("trpok", `move_${move}_${pok.slot}`, trainer.hasMoves ? pok.moves[move - 1] : "", "tr-item trpok-mov", { autofill: "move_names", check: "has-moves" }))).join("")}
         <div class="expanded-field btn-field-right multi">
-          <div class="autofill-btn field-btn disabled" data-narc="trpok">Autofill Moves</div>
+          <div class="autofill-btn field-btn" data-narc="trpok">Autofill Moves</div>
           <div class="delete-trpok del-btn field-btn" data-narc="trpok">Delete</div>
         </div>
       </div>
