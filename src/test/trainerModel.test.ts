@@ -4,6 +4,7 @@ import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import {
   addTrainer,
   addTrainerPokemon,
+  autofillTrainerPokemonMoves,
   calculateTrainerPokemonNature,
   deleteTrainerPokemon,
   getTrainerRecord,
@@ -83,6 +84,25 @@ describe("trainerModel", () => {
     expect(decodeRecord(project, "trpok", 1).raw?.ability_0).toBe(33);
     expect(project.narcs.trpok?.dirty.has(1)).toBe(true);
     expect(project.actionChangelog?.entries.some((entry) => entry.domain === "trpok" && entry.text.includes("Pokemon 1 species id changed from Bulbasaur to Ivysaur."))).toBe(true);
+  });
+
+  it("autofills trainer Pokemon moves from the latest learnset moves and enables moves", () => {
+    const project = makeProject(0);
+
+    autofillTrainerPokemonMoves(project, 1, 0);
+
+    const trainer = getTrainerRecord(project, 1);
+    expect(trainer.hasMoves).toBe(true);
+    expect(trainer.raw.template).toBe(1);
+    expect(trainer.party[0].moves).toEqual(["Sleep Powder", "Razor Leaf", "Vine Whip", "Tackle"]);
+    expect(decodeRecord(project, "trpok", 1).raw).toMatchObject({
+      move_1_0: 5,
+      move_2_0: 4,
+      move_3_0: 2,
+      move_4_0: 1,
+    });
+    expect(project.narcs.trdata?.dirty.has(1)).toBe(true);
+    expect(project.narcs.trpok?.dirty.has(1)).toBe(true);
   });
 
   it("adds and deletes trainer Pokemon slots while keeping indexes compact", () => {
@@ -181,7 +201,7 @@ function makeProject(template: number): ProjectState {
       baseVersion: "W2",
       baseRom: "BW2",
       fairy: false,
-      fileIds: { trdata: 1, trpok: 2, personal: 3 },
+      fileIds: { trdata: 1, trpok: 2, personal: 3, learnsets: 4 },
       blacklist: [],
     },
     romInfo: { title: "test", idCode: "TEST", fileName: "test.nds", size: trdata.length },
@@ -191,6 +211,18 @@ function makeProject(template: number): ProjectState {
       trdata: makeStore("trdata", trdata, 2),
       trpok: makeStore("trpok", trpok, 2),
       personal: makeStore("personal", personal, 3),
+      learnsets: makeStore("learnsets", [
+        packLearnset([]),
+        packLearnset([
+          { moveId: 1, level: 1 },
+          { moveId: 2, level: 3 },
+          { moveId: 3, level: 6 },
+          { moveId: 4, level: 4 },
+          { moveId: 5, level: 5 },
+          { moveId: 6, level: 10 },
+        ]),
+        packLearnset([{ moveId: 2, level: 1 }]),
+      ], 3),
     } as Partial<Record<NarcName, NarcStore>>,
     texts: {
       banks: {
@@ -199,12 +231,23 @@ function makeProject(template: number): ProjectState {
         pokedex: ["None", "Bulbasaur", "Ivysaur"],
         abilities: ["None", "Overgrow", "Chlorophyll", "Hidden"],
         items: ["None", "Potion"],
-        moves: ["None", "Tackle", "Vine Whip"],
+        moves: ["None", "Tackle", "Vine Whip", "Growl", "Razor Leaf", "Sleep Powder", "Solar Beam"],
       },
     },
     formats,
     trpokInfo: [{ template: 0, numPokemon: 0 }, { template, numPokemon: 1 }],
   };
+}
+
+function packLearnset(rows: Array<{ moveId: number; level: number }>): Uint8Array {
+  const out = new Uint8Array((25 + 1) * 4);
+  rows.forEach((row, index) => {
+    writeInt(out, index * 4, 2, row.moveId);
+    writeInt(out, index * 4 + 2, 2, row.level);
+  });
+  writeInt(out, rows.length * 4, 2, 65535);
+  writeInt(out, rows.length * 4 + 2, 2, 65535);
+  return out;
 }
 
 function addTrainerTextFixtures(project: ProjectState): void {

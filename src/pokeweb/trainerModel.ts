@@ -5,6 +5,7 @@ import { pokemonSpriteSlug } from "./spriteSlug";
 import { commitTextBank, getTextBank } from "./textModel";
 import { addTrainerTextFromTemplate, getTrainerTextLines, type TrainerTextLine } from "./trainerTextModel";
 import { publicAsset } from "../assetUrl";
+import { learnsetEntries } from "./pokemonModel";
 
 export type TrainerPokemonSlot = {
   slot: number;
@@ -269,6 +270,46 @@ export function updateTrainerPokemonField(project: ProjectState, trainerId: numb
   });
   markDirty(project, "trpok", trainerId);
   return { value, rawValue, slot: getTrainerPokemonSlot(project, trainerId, slot), trainer: getTrainerRecord(project, trainerId) };
+}
+
+export function autofillTrainerPokemonMoves(project: ProjectState, trainerId: number, slot: number): TrainerUpdateResult {
+  if (!project.narcs.learnsets) throw new Error("Learnsets are not loaded");
+  const trdata = decodeRecord(project, "trdata", trainerId);
+  const trpok = decodeRecord(project, "trpok", trainerId);
+  if (!trdata.raw || !trdata.readable || !trpok.raw || !trpok.readable) throw new Error(`Unable to autofill trainer Pokemon ${trainerId}:${slot}`);
+  const count = Number(trdata.raw.num_pokemon ?? 0);
+  if (slot < 0 || slot >= count) throw new Error("Trainer Pokemon slot does not exist");
+
+  const speciesId = Number(trpok.raw[`species_id_${slot}`] ?? 0) % 1024;
+  const level = Number(trpok.raw[`level_${slot}`] ?? 0);
+  if (speciesId <= 0 || speciesId >= project.narcs.learnsets.fileCount || !project.narcs.learnsets.rawFiles[speciesId]) {
+    throw new Error("No learnset is available for this Pokemon");
+  }
+
+  const learnset = decodeRecord(project, "learnsets", speciesId);
+  if (!learnset.raw) throw new Error("No learnset is available for this Pokemon");
+
+  const moves = learnsetEntries(learnset.raw)
+    .filter((entry) => entry.level <= level)
+    .slice(-4)
+    .reverse();
+  setTemplateFlag(project, trainerId, "has_moves", true);
+
+  const before = [1, 2, 3, 4].map((move) => trpok.readable?.[`move_${move}_${slot}`] ?? 0);
+  for (let move = 1; move <= 4; move += 1) {
+    const moveId = moves[move - 1]?.moveId ?? 0;
+    trpok.raw[`move_${move}_${slot}`] = moveId;
+    trpok.readable[`move_${move}_${slot}`] = project.texts.banks.moves?.[moveId] ?? moveId;
+  }
+
+  syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
+  const after = [1, 2, 3, 4].map((move) => trpok.readable?.[`move_${move}_${slot}`] ?? 0);
+  recordFieldChange(project, "trpok", trainerChangelogSubject(project, trainerId), `Pokemon ${slot + 1} moves`, before.join(", "), after.join(", "), {
+    key: `trainer:${trainerId}:pokemon:${slot}:autofill-moves`,
+  });
+  markDirty(project, "trdata", trainerId);
+  markDirty(project, "trpok", trainerId);
+  return { value: after.join(", "), rawValue: moves[0]?.moveId ?? 0, slot: getTrainerPokemonSlot(project, trainerId, slot), trainer: getTrainerRecord(project, trainerId) };
 }
 
 export function addTrainerPokemon(project: ProjectState, trainerId: number): TrainerPokemonSlot {
