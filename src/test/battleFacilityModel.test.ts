@@ -4,8 +4,12 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { writeU16 } from "../nds/binary";
 import {
+  defaultSetLibraryForChoice,
+  getFacilityAreaPoolRecord,
   getFacilityChoiceRecord,
   getFacilitySetRecord,
+  isBossFacilityChoice,
+  updateFacilityAreaPoolValue,
   updateFacilityChoiceField,
   updateFacilitySetField,
   type FacilityChoiceNarcName,
@@ -81,6 +85,76 @@ describe("battleFacilityModel", () => {
     expect(project.narcs.pwt_tr1?.dirty.has(0)).toBe(true);
   });
 
+  it("parses WBT sets, trainer choices, and boss records", () => {
+    const project = makeProject({
+      wbt_sets: [
+        packSet({ species: 1, moves: [1, 2, 3, 4], evSpread: 0, nature: 0, item: 0, form: 0 }),
+        packSet({ species: 2, moves: [2, 3, 4, 5], evSpread: 0b001010, nature: 3, item: 2, form: 0 }),
+        packSet({ species: 1, moves: [5, 4, 3, 2], evSpread: 0, nature: 1, item: 1, form: 0 }),
+      ],
+      wbt_trainers: [packChoice([59, 3, 0, 1, 2]), packChoice([60, 10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), packChoice([61, 20, ...Array.from({ length: 20 }, (_unused, index) => index)])],
+    });
+
+    expect(defaultSetLibraryForChoice(project, "wbt_trainers")).toBe("wbt_sets");
+    expect(getFacilitySetRecord(project, "wbt_sets", 1)).toMatchObject({
+      speciesId: 2,
+      itemId: 2,
+      natureId: 3,
+      evSpread: 10,
+    });
+
+    const boss = getFacilityChoiceRecord(project, "wbt_trainers", 0);
+    expect(boss).toMatchObject({
+      trainerType: 59,
+      count: 3,
+      setIds: [0, 1, 2],
+      byteLength: 10,
+      setLibrary: "wbt_sets",
+    });
+    expect(isBossFacilityChoice(boss)).toBe(true);
+
+    const normal = getFacilityChoiceRecord(project, "wbt_trainers", 1);
+    expect(normal).toMatchObject({ count: 10, byteLength: 24 });
+    expect(isBossFacilityChoice(normal)).toBe(false);
+
+    updateFacilityChoiceField(project, "wbt_trainers", 0, "trainerType", "60");
+    expect(getFacilityChoiceRecord(project, "wbt_trainers", 0).trainerType).toBe(60);
+    expect(project.narcs.wbt_trainers?.dirty.has(0)).toBe(true);
+  });
+
+  it("parses and updates WBT area pool trainer references", () => {
+    const area = new Uint8Array(0x698).fill(0xff);
+    writeU16(area, 0, 1);
+    writeU16(area, 2, 0);
+    writeU16(area, 4, 2);
+    [1, 2, 0, 65000, 3].forEach((value, index) => writeU16(area, 0x60 + index * 2, value));
+    [4, 5, 6].forEach((value, index) => writeU16(area, 0x80 + index * 2, value));
+
+    const project = makeProject({
+      wbt_area_pools: [area],
+      wbt_trainers: [
+        packChoice([0, 1, 0]),
+        packChoice([59, 20, ...Array.from({ length: 20 }, (_unused, index) => index)]),
+        packChoice([60, 20, ...Array.from({ length: 20 }, (_unused, index) => index)]),
+        packChoice([61, 20, ...Array.from({ length: 20 }, (_unused, index) => index)]),
+        packChoice([62, 20, ...Array.from({ length: 20 }, (_unused, index) => index)]),
+        packChoice([63, 20, ...Array.from({ length: 20 }, (_unused, index) => index)]),
+        packChoice([64, 20, ...Array.from({ length: 20 }, (_unused, index) => index)]),
+      ],
+    });
+
+    const record = getFacilityAreaPoolRecord(project, 0);
+    expect(record.recordId).toBe(1);
+    expect(record.pools).toHaveLength(2);
+    expect(record.pools[0]).toMatchObject({ startOffset: 0x60, trainerRefCount: 3 });
+    expect(record.pools[0].values.map((value) => value.isTrainerRef)).toEqual([true, true, false, false, true]);
+    expect(record.pools[0].values[0].trainerTypeName).toBe("Pokemon Fan (Male)");
+
+    updateFacilityAreaPoolValue(project, 0, 0x62, "4");
+    expect(getFacilityAreaPoolRecord(project, 0).pools[0].values[1]).toMatchObject({ value: 4, isTrainerRef: true });
+    expect(project.narcs.wbt_area_pools?.dirty.has(0)).toBe(true);
+  });
+
   it("updates raw hex while preserving record size", () => {
     const project = makeProject({
       pwt_sets_6: [packSet({ species: 1, moves: [1, 2, 3, 4], evSpread: 0, nature: 0, item: 0, form: 0 })],
@@ -95,7 +169,7 @@ describe("battleFacilityModel", () => {
   });
 });
 
-function makeProject(files: Partial<Record<FacilitySetNarcName | FacilityChoiceNarcName, Uint8Array[]>>): ProjectState {
+function makeProject(files: Partial<Record<FacilitySetNarcName | FacilityChoiceNarcName | "wbt_area_pools", Uint8Array[]>>): ProjectState {
   const narcs: Partial<Record<NarcName, NarcStore>> = {};
   for (const [name, rawFiles] of Object.entries(files)) {
     narcs[name as NarcName] = makeStore(name as NarcName, rawFiles);

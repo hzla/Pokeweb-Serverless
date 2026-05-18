@@ -4,8 +4,10 @@ import { NATURES, type NarcName } from "./constants";
 import { markDirty, type ProjectState } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
 
-export type FacilitySetNarcName = "subway_sets" | "pwt_sets_0" | "pwt_sets_3" | "pwt_sets_6" | "pwt_sets_7";
-export type FacilityChoiceNarcName = "subway_trainers" | "pwt_map_1" | "pwt_map_2" | "pwt_tr1" | "pwt_tr6";
+export type BattleFacilityGroup = "subwayPwt" | "wbt";
+export type FacilitySetNarcName = "subway_sets" | "pwt_sets_0" | "pwt_sets_3" | "pwt_sets_6" | "pwt_sets_7" | "wbt_sets";
+export type FacilityChoiceNarcName = "subway_trainers" | "pwt_map_1" | "pwt_map_2" | "pwt_tr1" | "pwt_tr6" | "wbt_trainers";
+export type FacilityAreaPoolNarcName = "wbt_area_pools";
 
 export type BattleFacilitySet = {
   id: number;
@@ -39,6 +41,52 @@ export type BattleFacilityChoiceRecord = {
   invalidSetIds: number[];
 };
 
+export type BattleFacilityRegulationRecord = {
+  id: number;
+  label: string;
+  cupNo: number;
+  ruleNo: number;
+  numLo: number;
+  numHi: number;
+  level: number;
+  levelRange: number;
+  levelRangeName: string;
+  levelTotal: number;
+  battleType: number;
+  battleTypeName: string;
+  battleCount: number;
+  byteLength: number;
+  rawHex: string;
+  note?: string;
+};
+
+export type BattleFacilityAreaPoolValue = {
+  offset: number;
+  value: number;
+  isTrainerRef: boolean;
+  trainerTypeName?: string;
+  setCount?: number;
+  byteLength?: number;
+};
+
+export type BattleFacilityAreaPool = {
+  index: number;
+  startOffset: number;
+  endOffset: number;
+  values: BattleFacilityAreaPoolValue[];
+  trainerRefCount: number;
+};
+
+export type BattleFacilityAreaPoolRecord = {
+  id: number;
+  narc: FacilityAreaPoolNarcName;
+  recordId: number;
+  headerValues: number[];
+  pools: BattleFacilityAreaPool[];
+  byteLength: number;
+  rawHex: string;
+};
+
 export type BattleFacilityAutofills = {
   pokemon_names: string[];
   move_names: string[];
@@ -48,8 +96,12 @@ export type BattleFacilityAutofills = {
   trainer_types: string[];
 };
 
-export const FACILITY_SET_NARCS: FacilitySetNarcName[] = ["subway_sets", "pwt_sets_0", "pwt_sets_3", "pwt_sets_6", "pwt_sets_7"];
-export const FACILITY_CHOICE_NARCS: FacilityChoiceNarcName[] = ["subway_trainers", "pwt_map_1", "pwt_map_2", "pwt_tr1", "pwt_tr6"];
+export const SUBWAY_PWT_SET_NARCS: FacilitySetNarcName[] = ["subway_sets", "pwt_sets_0", "pwt_sets_3", "pwt_sets_6", "pwt_sets_7"];
+export const SUBWAY_PWT_CHOICE_NARCS: FacilityChoiceNarcName[] = ["subway_trainers", "pwt_map_1", "pwt_map_2", "pwt_tr1", "pwt_tr6"];
+export const WBT_SET_NARCS: FacilitySetNarcName[] = ["wbt_sets"];
+export const WBT_CHOICE_NARCS: FacilityChoiceNarcName[] = ["wbt_trainers"];
+export const FACILITY_SET_NARCS: FacilitySetNarcName[] = [...SUBWAY_PWT_SET_NARCS, ...WBT_SET_NARCS];
+export const FACILITY_CHOICE_NARCS: FacilityChoiceNarcName[] = [...SUBWAY_PWT_CHOICE_NARCS, ...WBT_CHOICE_NARCS];
 
 export const FACILITY_SET_LABELS: Record<FacilitySetNarcName, string> = {
   subway_sets: "Battle Subway Sets",
@@ -57,6 +109,7 @@ export const FACILITY_SET_LABELS: Record<FacilitySetNarcName, string> = {
   pwt_sets_3: "PWT Sets 3",
   pwt_sets_6: "PWT Sets 6",
   pwt_sets_7: "PWT Sets 7",
+  wbt_sets: "Black Tower / White Treehollow Sets",
 };
 
 export const FACILITY_CHOICE_LABELS: Record<FacilityChoiceNarcName, string> = {
@@ -65,10 +118,48 @@ export const FACILITY_CHOICE_LABELS: Record<FacilityChoiceNarcName, string> = {
   pwt_map_2: "PWT Map 2",
   pwt_tr1: "PWT 1v1 Choices",
   pwt_tr6: "PWT 6v6 Choices",
+  wbt_trainers: "Black Tower / White Treehollow Trainers",
 };
 
 const EV_STAT_LABELS = ["HP", "Attack", "Defense", "Speed", "Sp. Attack", "Sp. Defense"];
 const SET_RECORD_LENGTH = 0x10;
+const REGULATION_RECORD_LENGTH = 0xbc;
+const WBT_AREA_POOL_RECORD_LENGTH = 0x698;
+const WBT_AREA_POOL_DATA_OFFSET = 0x60;
+const PWT_LEVEL_REGULATION_ID = 37;
+const REGULATION_LEVEL_RANGE_LABELS = ["Normal", "Minimum", "Maximum", "Scale Down", "Set Level", "Scale Up"];
+const REGULATION_BATTLE_TYPE_LABELS = ["Single", "Double", "Triple", "Rotation", "Multi", "Shooter"];
+const REGULATION_LABELS = [
+  "Lv.50 Single",
+  "Lv.50 Double",
+  "Lv.50 Triple",
+  "Lv.50 Rotation",
+  "Lv.50 Multi",
+  "Free Single",
+  "Free Double",
+  "Free Triple",
+  "Free Rotation",
+  "Free Multi",
+  "Standard Single",
+  "Standard Double",
+  "Standard Triple",
+  "Standard Rotation",
+  "Standard Multi",
+  "Random Single",
+  "Random Double",
+  "Random Triple",
+  "Random Rotation",
+  "Random Triple Shooter",
+  "Subway Single",
+  "Subway Double",
+  "Subway Multi",
+  "Debug Battle",
+  "Flat Single",
+  "Flat Double",
+  "Flat Triple",
+  "Flat Rotation",
+  "Flat Multi",
+];
 const ENGLISH_TRAINER_TYPE_NAMES = [
   "Pokemon Trainer (Male)",
   "Pokemon Trainer (Female)",
@@ -177,12 +268,12 @@ const ENGLISH_TRAINER_TYPE_NAMES = [
   "Pokemon Trainer (Female)",
 ];
 
-export function getFacilitySetNarcOptions(project: ProjectState): FacilitySetNarcName[] {
-  return FACILITY_SET_NARCS.filter((name) => Boolean(project.narcs[name]));
+export function getFacilitySetNarcOptions(project: ProjectState, group?: BattleFacilityGroup): FacilitySetNarcName[] {
+  return setNarcsForGroup(group).filter((name) => Boolean(project.narcs[name]));
 }
 
-export function getFacilityChoiceNarcOptions(project: ProjectState): FacilityChoiceNarcName[] {
-  return FACILITY_CHOICE_NARCS.filter((name) => Boolean(project.narcs[name]));
+export function getFacilityChoiceNarcOptions(project: ProjectState, group?: BattleFacilityGroup): FacilityChoiceNarcName[] {
+  return choiceNarcsForGroup(group).filter((name) => Boolean(project.narcs[name]));
 }
 
 export function getFacilityAutofills(project: ProjectState): BattleFacilityAutofills {
@@ -212,6 +303,12 @@ export function getFacilitySetCount(project: ProjectState, narc: FacilitySetNarc
 
 export function getFacilityChoiceCount(project: ProjectState, narc: FacilityChoiceNarcName): number {
   return project.narcs[narc]?.fileCount ?? 0;
+}
+
+export function getFacilityAreaPoolCount(project: ProjectState): number {
+  const store = project.narcs.wbt_area_pools;
+  if (!store) return 0;
+  return store.rawFiles.filter((file) => file.length === WBT_AREA_POOL_RECORD_LENGTH).length;
 }
 
 export function getFacilitySetRecord(project: ProjectState, narc: FacilitySetNarcName, id: number): BattleFacilitySet {
@@ -268,6 +365,51 @@ export function getFacilityChoiceRecord(project: ProjectState, narc: FacilityCho
     rawHex: bytesToHex(bytes),
     setLibrary,
     invalidSetIds,
+  };
+}
+
+export function getFacilityRegulationCount(project: ProjectState): number {
+  return project.narcs.regulations?.fileCount ?? 0;
+}
+
+export function getFacilityRegulationRecord(project: ProjectState, id: number): BattleFacilityRegulationRecord {
+  const bytes = getRawFile(project, "regulations", id);
+  if (bytes.length !== REGULATION_RECORD_LENGTH) throw new Error(`Regulation record ${id} is ${bytes.length} bytes, expected ${REGULATION_RECORD_LENGTH}`);
+  const levelRange = bytes[5] ?? 0;
+  const battleType = bytes[0xba] ?? 0;
+  return {
+    id,
+    label: regulationLabel(id),
+    cupNo: bytes[0] ?? 0,
+    ruleNo: bytes[1] ?? 0,
+    numLo: bytes[2] ?? 0,
+    numHi: bytes[3] ?? 0,
+    level: bytes[4] ?? 0,
+    levelRange,
+    levelRangeName: REGULATION_LEVEL_RANGE_LABELS[levelRange] ?? `Mode ${levelRange}`,
+    levelTotal: readU16(bytes, 6),
+    battleType,
+    battleTypeName: REGULATION_BATTLE_TYPE_LABELS[battleType] ?? `Type ${battleType}`,
+    battleCount: bytes[0xbb] ?? 0,
+    byteLength: bytes.length,
+    rawHex: bytesToHex(bytes),
+    note: id === PWT_LEVEL_REGULATION_ID ? "PWT built-in Lv.25 regulation" : undefined,
+  };
+}
+
+export function getFacilityAreaPoolRecord(project: ProjectState, id: number): BattleFacilityAreaPoolRecord {
+  const bytes = getRawFile(project, "wbt_area_pools", id);
+  if (bytes.length !== WBT_AREA_POOL_RECORD_LENGTH) {
+    throw new Error(`Black Tower / White Treehollow area pool record ${id} is ${bytes.length} bytes, expected ${WBT_AREA_POOL_RECORD_LENGTH}`);
+  }
+  return {
+    id,
+    narc: "wbt_area_pools",
+    recordId: readU16(bytes, 0),
+    headerValues: readU16Values(bytes.subarray(0, Math.min(bytes.length, WBT_AREA_POOL_DATA_OFFSET))),
+    pools: parseWbtAreaPools(project, bytes),
+    byteLength: bytes.length,
+    rawHex: bytesToHex(bytes),
   };
 }
 
@@ -354,6 +496,61 @@ export function updateFacilityChoiceField(
   return afterRecord;
 }
 
+export function updateFacilityRegulationField(project: ProjectState, id: number, field: string, inputValue: string | number): BattleFacilityRegulationRecord {
+  const beforeRecord = getFacilityRegulationRecord(project, id);
+  const bytes = getRawFile(project, "regulations", id).slice();
+  if (bytes.length !== REGULATION_RECORD_LENGTH) throw new Error(`Regulation record ${id} is ${bytes.length} bytes, expected ${REGULATION_RECORD_LENGTH}`);
+
+  if (field === "level") {
+    bytes[4] = parseInteger(String(inputValue), 0, 100);
+  } else if (field === "levelRange") {
+    bytes[5] = parseInteger(String(inputValue), 0, 255);
+  } else if (field === "levelTotal") {
+    writeU16(bytes, 6, parseInteger(String(inputValue), 0, 65535));
+  } else if (field === "numLo") {
+    bytes[2] = parseInteger(String(inputValue), 0, 6);
+  } else if (field === "numHi") {
+    bytes[3] = parseInteger(String(inputValue), 0, 6);
+  } else if (field === "battleType") {
+    bytes[0xba] = parseInteger(String(inputValue), 0, 255);
+  } else if (field === "battleCount") {
+    bytes[0xbb] = parseInteger(String(inputValue), 0, 255);
+  } else if (field === "rawHex") {
+    const next = hexToBytes(String(inputValue), REGULATION_RECORD_LENGTH);
+    bytes.set(next);
+  } else {
+    throw new Error(`Unsupported regulation field: ${field}`);
+  }
+
+  setRawFile(project, "regulations", id, bytes);
+  const afterRecord = getFacilityRegulationRecord(project, id);
+  recordFieldChange(
+    project,
+    "regulations",
+    `Regulation ${id}${afterRecord.note ? ` (${afterRecord.note})` : ""}`,
+    facilityFieldLabel(field),
+    regulationFieldValue(beforeRecord, field),
+    regulationFieldValue(afterRecord, field),
+    { key: `facility-regulation:${id}:${field}` },
+  );
+  return afterRecord;
+}
+
+export function updateFacilityAreaPoolValue(project: ProjectState, id: number, offset: number, inputValue: string | number): BattleFacilityAreaPoolRecord {
+  const beforeRecord = getFacilityAreaPoolRecord(project, id);
+  const bytes = getRawFile(project, "wbt_area_pools", id).slice();
+  if (offset < WBT_AREA_POOL_DATA_OFFSET || offset + 2 > bytes.length || offset % 2 !== 0) throw new Error(`Invalid area-pool value offset: 0x${offset.toString(16)}`);
+  const beforeValue = readU16(bytes, offset);
+  writeU16(bytes, offset, parseInteger(String(inputValue), 0, 65535));
+  setRawFile(project, "wbt_area_pools", id, bytes);
+  const afterRecord = getFacilityAreaPoolRecord(project, id);
+  const afterValue = readU16(bytes, offset);
+  recordFieldChange(project, "wbt_area_pools", `Area pool record ${beforeRecord.recordId}`, `Value @ 0x${offset.toString(16).padStart(4, "0")}`, beforeValue, afterValue, {
+    key: `facility-area-pool:${id}:${offset}`,
+  });
+  return afterRecord;
+}
+
 export function facilitySetMatchesSearch(set: BattleFacilitySet, searchText: string): boolean {
   const haystack = [
     set.id,
@@ -365,6 +562,28 @@ export function facilitySetMatchesSearch(set: BattleFacilitySet, searchText: str
     set.natureName,
     set.form,
     ...set.moves.flatMap((move) => [move.id, move.name]),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return matchesTerms(haystack, searchText);
+}
+
+export function facilityRegulationMatchesSearch(record: BattleFacilityRegulationRecord, searchText: string): boolean {
+  const haystack = [
+    record.id,
+    record.label,
+    record.note,
+    record.cupNo,
+    record.ruleNo,
+    record.numLo,
+    record.numHi,
+    record.level,
+    record.levelRange,
+    record.levelRangeName,
+    record.levelTotal,
+    record.battleType,
+    record.battleTypeName,
+    record.battleCount,
   ]
     .join(" ")
     .toLowerCase();
@@ -387,20 +606,96 @@ export function facilityChoiceMatchesSearch(choice: BattleFacilityChoiceRecord, 
   return matchesTerms(haystack, searchText);
 }
 
+export function facilityAreaPoolMatchesSearch(record: BattleFacilityAreaPoolRecord, searchText: string): boolean {
+  const haystack = [
+    record.id,
+    record.recordId,
+    ...record.headerValues,
+    ...record.pools.flatMap((pool) => [pool.index, pool.startOffset, ...pool.values.flatMap((value) => [value.value, value.trainerTypeName ?? ""])]),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return matchesTerms(haystack, searchText);
+}
+
 export function evStatLabels(): string[] {
   return EV_STAT_LABELS;
+}
+
+export function isBossFacilityChoice(choice: BattleFacilityChoiceRecord): boolean {
+  return choice.narc === "wbt_trainers" && choice.count === 3 && choice.byteLength === 10;
 }
 
 export function defaultSetLibraryForChoice(project: ProjectState, narc: FacilityChoiceNarcName): FacilitySetNarcName | undefined {
   const candidates: FacilitySetNarcName[] =
     narc === "subway_trainers"
       ? ["subway_sets"]
+      : narc === "wbt_trainers"
+        ? ["wbt_sets"]
       : narc === "pwt_tr1"
         ? ["pwt_sets_3", "pwt_sets_0", "pwt_sets_6", "pwt_sets_7"]
       : narc === "pwt_tr6"
         ? ["pwt_sets_6", "pwt_sets_3", "pwt_sets_0", "pwt_sets_7"]
       : ["pwt_sets_0", "pwt_sets_3", "pwt_sets_6", "pwt_sets_7"];
   return candidates.find((name) => Boolean(project.narcs[name]));
+}
+
+function setNarcsForGroup(group?: BattleFacilityGroup): FacilitySetNarcName[] {
+  if (group === "subwayPwt") return SUBWAY_PWT_SET_NARCS;
+  if (group === "wbt") return WBT_SET_NARCS;
+  return FACILITY_SET_NARCS;
+}
+
+function choiceNarcsForGroup(group?: BattleFacilityGroup): FacilityChoiceNarcName[] {
+  if (group === "subwayPwt") return SUBWAY_PWT_CHOICE_NARCS;
+  if (group === "wbt") return WBT_CHOICE_NARCS;
+  return FACILITY_CHOICE_NARCS;
+}
+
+function parseWbtAreaPools(project: ProjectState, bytes: Uint8Array): BattleFacilityAreaPool[] {
+  const pools: BattleFacilityAreaPool[] = [];
+  let offset = WBT_AREA_POOL_DATA_OFFSET;
+  while (offset + 2 <= bytes.length) {
+    while (offset + 2 <= bytes.length && readU16(bytes, offset) === 0xffff) offset += 2;
+    const startOffset = offset;
+    const values: BattleFacilityAreaPoolValue[] = [];
+    while (offset + 2 <= bytes.length) {
+      const value = readU16(bytes, offset);
+      if (value === 0xffff) break;
+      values.push(areaPoolValue(project, offset, value));
+      offset += 2;
+    }
+    const trainerRefCount = values.filter((value) => value.isTrainerRef).length;
+    if (values.length >= 3 && trainerRefCount >= 2) {
+      pools.push({
+        index: pools.length,
+        startOffset,
+        endOffset: offset,
+        values,
+        trainerRefCount,
+      });
+    }
+  }
+  return pools;
+}
+
+function areaPoolValue(project: ProjectState, offset: number, value: number): BattleFacilityAreaPoolValue {
+  const choiceStore = project.narcs.wbt_trainers;
+  if (!choiceStore || value >= choiceStore.fileCount) return { offset, value, isTrainerRef: false };
+  try {
+    const choice = getFacilityChoiceRecord(project, "wbt_trainers", value);
+    const isTrainerRef = choice.byteLength === 44 && choice.count === 20;
+    return {
+      offset,
+      value,
+      isTrainerRef,
+      trainerTypeName: choice.trainerTypeName,
+      setCount: choice.count,
+      byteLength: choice.byteLength,
+    };
+  } catch {
+    return { offset, value, isTrainerRef: false };
+  }
 }
 
 function getRawFile(project: ProjectState, narc: NarcName, id: number): Uint8Array {
@@ -440,8 +735,25 @@ function facilityChoiceFieldValue(record: BattleFacilityChoiceRecord, field: str
   return "";
 }
 
+function regulationFieldValue(record: BattleFacilityRegulationRecord, field: string): string | number {
+  if (field === "level") return record.level;
+  if (field === "levelRange") return record.levelRangeName;
+  if (field === "levelTotal") return record.levelTotal;
+  if (field === "numLo") return record.numLo;
+  if (field === "numHi") return record.numHi;
+  if (field === "battleType") return record.battleTypeName;
+  if (field === "battleCount") return record.battleCount;
+  if (field === "rawHex") return record.rawHex;
+  return "";
+}
+
 function facilityFieldLabel(field: string): string {
   return field.replace(/_/gu, " ");
+}
+
+function regulationLabel(id: number): string {
+  if (id === PWT_LEVEL_REGULATION_ID) return "PWT Built-In Lv.25";
+  return REGULATION_LABELS[id] ?? `Regulation ${id}`;
 }
 
 function labelFromBank(project: ProjectState, bank: string, id: number, fallback: string): string {

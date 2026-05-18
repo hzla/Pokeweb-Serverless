@@ -64,6 +64,7 @@ type AppRoute =
   | "starters"
   | "trainers"
   | "facilities"
+  | "wbtFacilities"
   | "encounters"
   | "moves"
   | "items"
@@ -111,6 +112,7 @@ const APP_ROUTES: AppRoute[] = [
   "starters",
   "trainers",
   "facilities",
+  "wbtFacilities",
   "encounters",
   "moves",
   "items",
@@ -134,6 +136,7 @@ const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "c
   starters: ["personal", "pokemon_sprites", "starter_sprites", "scripts", "story_texts"],
   trainers: ["trdata", "trpok", "personal", "items", "moves", "trtext_table", "trtext_offsets"],
   facilities: ["moves", "items"],
+  wbtFacilities: ["moves", "items"],
   encounters: ["encounters"],
   moves: ["moves"],
   items: ["items"],
@@ -185,6 +188,10 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   pwt_map_2: "PWT Map 2",
   pwt_tr1: "PWT 1v1 Choices",
   pwt_tr6: "PWT 6v6 Choices",
+  regulations: "Battle Regulations",
+  wbt_sets: "Black Tower / White Treehollow Sets",
+  wbt_trainers: "Black Tower / White Treehollow Trainers",
+  wbt_area_pools: "Black Tower / White Treehollow Area Pools",
 };
 
 type NarcLoadSection = {
@@ -201,7 +208,22 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
   { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets"], toggleable: true },
   {
     title: "Battle Facilities",
-    names: ["subway_sets", "subway_trainers", "pwt_sets_0", "pwt_sets_3", "pwt_sets_6", "pwt_sets_7", "pwt_map_1", "pwt_map_2", "pwt_tr1", "pwt_tr6"],
+    names: [
+      "subway_sets",
+      "subway_trainers",
+      "pwt_sets_0",
+      "pwt_sets_3",
+      "pwt_sets_6",
+      "pwt_sets_7",
+      "pwt_map_1",
+      "pwt_map_2",
+      "pwt_tr1",
+      "pwt_tr6",
+      "regulations",
+      "wbt_sets",
+      "wbt_trainers",
+      "wbt_area_pools",
+    ],
     toggleable: true,
   },
   { title: "Maps", names: ["maps", "matrix"], toggleable: true },
@@ -396,7 +418,16 @@ function renderApp(): void {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
-    });
+    }, { group: "subwayPwt" });
+    return;
+  }
+
+  if (route === "wbtFacilities") {
+    renderBattleFacilityEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    }, { group: "wbt" });
     return;
   }
 
@@ -540,6 +571,7 @@ function renderNav(): string {
         ${navItem("pokemon", "Pokemon")}
         ${navItem("starters", "Starters")}
         ${navItem("trainers", "Trainers")}
+        ${renderFacilitiesMenu()}
         ${navItem("encounters", "Encounters")}
         ${navItem("moves", "Moves")}
         ${navItem("items", "Items")}
@@ -563,7 +595,6 @@ function renderNav(): string {
 
 function renderMoreMenu(): string {
   const moreRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
-    ["facilities", "Facilities"],
     ["types", "Type Chart"],
     ["changelog", "Changelog"],
     ["codeInjection", "Code Injection"],
@@ -580,6 +611,22 @@ function renderMoreMenu(): string {
   `;
 }
 
+function renderFacilitiesMenu(): string {
+  const facilityRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
+    ["facilities", "Subway / PWT"],
+    ["wbtFacilities", "Black Tower / White Treehollow"],
+  ];
+  const active = facilityRoutes.some(([facilityRoute]) => route === facilityRoute);
+  return `
+    <div class="header-more ${active ? "-active" : ""}">
+      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Facilities</button>
+      <div class="header-more-menu">
+        ${facilityRoutes.map(([facilityRoute, label]) => navItem(facilityRoute, label)).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function attachNav(): void {
   appRoot.querySelectorAll<HTMLAnchorElement>("[data-route]").forEach((link) => {
     link.addEventListener("click", (event) => {
@@ -588,11 +635,11 @@ function attachNav(): void {
     });
   });
 
-  appRoot.querySelector<HTMLButtonElement>(".header-more-trigger")?.addEventListener("click", (event) => {
+  appRoot.querySelectorAll<HTMLButtonElement>(".header-more-trigger").forEach((trigger) => trigger.addEventListener("click", (event) => {
     event.preventDefault();
     const menu = (event.currentTarget as HTMLElement).closest(".header-more");
     menu?.classList.toggle("-open");
-  });
+  }));
 
   appRoot.querySelector<HTMLDivElement>("#header")?.addEventListener("click", () => {
     if (window.screen.width <= 1180) {
@@ -976,10 +1023,15 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
   if (nextRoute === "facilities" && project.session.baseRom !== "BW2") return false;
   if (nextRoute === "facilities") {
+    const hasFacilityData = Boolean(project.narcs.subway_sets || project.narcs.pwt_sets_0 || project.narcs.pwt_sets_3 || project.narcs.pwt_sets_6 || project.narcs.pwt_sets_7);
     return (
-      EDITOR_REQUIREMENTS.facilities.every((name) => project?.narcs[name]) &&
-      Boolean(project.narcs.subway_sets || project.narcs.pwt_sets_0 || project.narcs.pwt_sets_3 || project.narcs.pwt_sets_6 || project.narcs.pwt_sets_7)
+      Boolean(project.narcs.regulations) ||
+      (EDITOR_REQUIREMENTS.facilities.every((name) => project?.narcs[name]) && hasFacilityData)
     );
+  }
+  if (nextRoute === "wbtFacilities" && project.session.baseRom !== "BW2") return false;
+  if (nextRoute === "wbtFacilities") {
+    return EDITOR_REQUIREMENTS.wbtFacilities.every((name) => project?.narcs[name]) && Boolean(project.narcs.wbt_sets || project.narcs.wbt_trainers || project.narcs.wbt_area_pools);
   }
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
   const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">;
@@ -1012,6 +1064,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
           ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
         : nextRoute === "facilities"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves, Items, and at least one facility set NARC" : "Battle facility editing is currently BW2-only"}"`
+        : nextRoute === "wbtFacilities"
+          ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves, Items, and Black Tower / White Treehollow facility NARCs" : "Battle facility editing is currently BW2-only"}"`
           : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
   const active = route === nextRoute || (nextRoute === "headers" && route === "overworlds");
   return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute)}" ${enabled ? `data-route="${nextRoute}"` : ""}${missing}>${label}</a>`;
