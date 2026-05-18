@@ -16,8 +16,8 @@ import {
 import { parseRpm } from "../pokeweb/rpm";
 import type { ProjectState } from "../pokeweb/projectStore";
 
-const pmcB2 = new Uint8Array(readFileSync(new URL("../../../PMC_B2.rpm", import.meta.url)));
-const pmcW2 = new Uint8Array(readFileSync(new URL("../../../PMC_W2.rpm", import.meta.url)));
+const pmcB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url)));
+const pmcW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url)));
 
 describe("PMC installer", () => {
   it("parses bundled PMC metadata", () => {
