@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import {
+  GEN5_CALC_BRIDGE_CONFIG,
   generateCalcDownload,
+  generateCalcBridgePayload,
   generateTextDocsDownload,
   enrichItemLocations,
   enrichTrainerLocations,
@@ -20,6 +22,22 @@ describe("docGeneratorModel", () => {
     expect(file.filename).toBe("voltwhiteplus-calc.js");
     expect(file.contents.startsWith("backup_data = ")).toBe(true);
     expect(file.contents).toContain('"title": "Volt White Plus"');
+  });
+
+  it("builds Gen 5 Dynamic Calc bridge payloads from generated calc data", () => {
+    const project = makeProject();
+    const payload = generateCalcBridgePayload(project, "Volt White Plus");
+
+    expect(payload).toMatchObject({
+      type: "ddex:calc-sync",
+      config: GEN5_CALC_BRIDGE_CONFIG,
+      fileName: "voltwhiteplus_npoint_data.js",
+      sourceGen: 5,
+      title: "Volt White Plus",
+    });
+    expect(payload.scriptText.startsWith("var backup_data = ")).toBe(true);
+    expect(payload.scriptText.endsWith(";")).toBe(true);
+    expect(payload.scriptText).toContain('"title": "Volt White Plus"');
   });
 
   it("packages Pokemon, move, and trainer text docs in one zip", () => {
@@ -61,6 +79,21 @@ describe("docGeneratorModel", () => {
     const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
 
     expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].diff).toBe(3);
+  });
+
+  it("fills trainer calc moves from learnsets when trainers have no explicit moves", () => {
+    const project = makeProject();
+    const file = generateCalcDownload(project, "Volt White Plus");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].moves).toEqual([
+      "Sleep Powder",
+      "Razor Leaf",
+      "Vine Whip",
+      "Tackle",
+    ]);
+    expect(project.narcs.trdata?.dirty.size).toBe(0);
+    expect(project.narcs.trpok?.dirty.size).toBe(0);
   });
 
   it("enriches item locations from global item scripts and overworlds", () => {
@@ -115,7 +148,27 @@ function makeProject(): ProjectState {
       scripts: makeStore("scripts", scripts, scripts.length),
       items: makeStore("items", Array.from({ length: 26 }, () => new Uint8Array()), 26),
       personal: makeStore("personal", [packRows(formats.personal!, [{}]), packRows(formats.personal!, [{ base_hp: 45, item_1: 25 }])], 2),
-      learnsets: makeStore("learnsets", [], 0),
+      learnsets: makeStore(
+        "learnsets",
+        [
+          new Uint8Array(),
+          packRows(formats.learnsets!, [
+            {
+              move_id_0: 1,
+              lvl_learned_0: 1,
+              move_id_1: 2,
+              lvl_learned_1: 15,
+              move_id_2: 4,
+              lvl_learned_2: 28,
+              move_id_3: 5,
+              lvl_learned_3: 35,
+              move_id_4: 6,
+              lvl_learned_4: 45,
+            },
+          ]),
+        ],
+        2,
+      ),
       evolutions: makeStore("evolutions", [], 0),
       moves: makeStore("moves", [], 0),
       trdata: makeStore(
@@ -132,7 +185,7 @@ function makeProject(): ProjectState {
       banks: {
         locations: ["Black City"],
         pokedex: ["None", "Bulbasaur"],
-        moves: [],
+        moves: ["None", "Tackle", "Vine Whip", "Growl", "Razor Leaf", "Sleep Powder", "Solar Beam"],
         items: Array.from({ length: 26 }, (_, index) => (index === 25 ? "Potion" : index === 0 ? "None" : `Item ${index}`)),
         abilities: ["None", "Overgrow"],
         tr_names: Array.from({ length: 8 }, (_, index) => (index === 7 ? "Dan" : `Trainer ${index}`)),

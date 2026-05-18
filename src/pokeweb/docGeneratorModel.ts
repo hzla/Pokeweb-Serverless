@@ -11,7 +11,7 @@ import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./move
 import { getPokemonCount, getPokemonRecord, getPokemonSummaryRecord } from "./pokemonModel";
 import { decodeRecord, type DocGeneratorState, type ProjectState, type ReadableRecord } from "./projectStore";
 import { getTextBank } from "./textModel";
-import { getTrainerCount, getTrainerRecord, type TrainerRecord } from "./trainerModel";
+import { getAutofilledTrainerPokemonMoveIds, getTrainerCount, getTrainerRecord, type TrainerRecord, type TrainerPokemonSlot } from "./trainerModel";
 
 export type TextDownloadFile = {
   filename: string;
@@ -32,7 +32,42 @@ export type EnrichmentResult = {
   message: string;
 };
 
+export type CalcBridgeConfig = {
+  gen: 5;
+  damageGen: 5;
+  typeChart: 5;
+  critGen: 5;
+  switchIn: 5;
+  gameSwitchIn: 5;
+  sourceType: "full";
+  baseGame: "BW";
+  mechanics: "vanilla";
+  customPoks: true;
+};
+
+export type CalcBridgePayload = {
+  type: "ddex:calc-sync";
+  config: CalcBridgeConfig;
+  fileName: string;
+  sourceGen: 5;
+  scriptText: string;
+  title: string;
+};
+
 type SearchCollection = Record<string, { name?: string; types?: string[]; type?: string; t?: string }>;
+
+export const GEN5_CALC_BRIDGE_CONFIG: CalcBridgeConfig = {
+  gen: 5,
+  damageGen: 5,
+  typeChart: 5,
+  critGen: 5,
+  switchIn: 5,
+  gameSwitchIn: 5,
+  sourceType: "full",
+  baseGame: "BW",
+  mechanics: "vanilla",
+  customPoks: true,
+};
 
 const SHOWDOWN_SUBS: Record<string, string> = {
   Bubblebeam: "Bubble Beam",
@@ -92,6 +127,19 @@ export function generateCalcDownload(project: ProjectState, title: string): Text
     filename: `${safeFilename(title)}-calc.js`,
     contents: `backup_data = ${JSON.stringify(payload, null, 2)};\n`,
     mimeType: "text/javascript",
+  };
+}
+
+export function generateCalcBridgePayload(project: ProjectState, title: string): CalcBridgePayload {
+  const exportTitle = title.trim();
+  const payload = buildCalcPayload(project, exportTitle);
+  return {
+    type: "ddex:calc-sync",
+    config: { ...GEN5_CALC_BRIDGE_CONFIG },
+    fileName: `${safeFilename(exportTitle)}_npoint_data.js`,
+    sourceGen: 5,
+    scriptText: `var backup_data = ${JSON.stringify(payload, null, 2)};`,
+    title: exportTitle,
   };
 }
 
@@ -629,7 +677,7 @@ function buildFormattedTrainerSets(project: ProjectState): Record<string, Record
         reward_item: trainer.readable.reward_item,
         item: pok.itemName ?? "None",
         nature: pok.nature,
-        moves: pok.moves.map((move) => showdownName(move)),
+        moves: calcTrainerMoves(project, trainer, pok).map((move) => showdownName(move)),
         sub_index: pok.slot,
         ability: titleizeAbility(pok.abilityName),
         sprite: trainer.spritePath,
@@ -639,6 +687,17 @@ function buildFormattedTrainerSets(project: ProjectState): Record<string, Record
     }
   }
   return formatted;
+}
+
+function calcTrainerMoves(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot): Array<string | number> {
+  const explicitMoves = pok.moves.filter((move) => Number(move) !== 0 && String(move).trim() !== "" && String(move) !== "0");
+  if (explicitMoves.length > 0) return pok.moves;
+
+  try {
+    return getAutofilledTrainerPokemonMoveIds(project, pok.speciesId, pok.level).map((moveId) => project.texts.banks.moves?.[moveId] ?? moveId);
+  } catch {
+    return trainer.hasMoves ? pok.moves : [];
+  }
 }
 
 function buildSearchIndexJs(overrides: Record<string, unknown>): string {
