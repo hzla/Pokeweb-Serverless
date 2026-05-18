@@ -286,18 +286,12 @@ export function autofillTrainerPokemonMoves(project: ProjectState, trainerId: nu
     throw new Error("No learnset is available for this Pokemon");
   }
 
-  const learnset = decodeRecord(project, "learnsets", speciesId);
-  if (!learnset.raw) throw new Error("No learnset is available for this Pokemon");
-
-  const moves = learnsetEntries(learnset.raw)
-    .filter((entry) => entry.level <= level)
-    .slice(-4)
-    .reverse();
+  const moves = getAutofilledTrainerPokemonMoveIds(project, speciesId, level);
   setTemplateFlag(project, trainerId, "has_moves", true);
 
   const before = [1, 2, 3, 4].map((move) => trpok.readable?.[`move_${move}_${slot}`] ?? 0);
   for (let move = 1; move <= 4; move += 1) {
-    const moveId = moves[move - 1]?.moveId ?? 0;
+    const moveId = moves[move - 1] ?? 0;
     trpok.raw[`move_${move}_${slot}`] = moveId;
     trpok.readable[`move_${move}_${slot}`] = project.texts.banks.moves?.[moveId] ?? moveId;
   }
@@ -309,7 +303,24 @@ export function autofillTrainerPokemonMoves(project: ProjectState, trainerId: nu
   });
   markDirty(project, "trdata", trainerId);
   markDirty(project, "trpok", trainerId);
-  return { value: after.join(", "), rawValue: moves[0]?.moveId ?? 0, slot: getTrainerPokemonSlot(project, trainerId, slot), trainer: getTrainerRecord(project, trainerId) };
+  return { value: after.join(", "), rawValue: moves[0] ?? 0, slot: getTrainerPokemonSlot(project, trainerId, slot), trainer: getTrainerRecord(project, trainerId) };
+}
+
+export function getAutofilledTrainerPokemonMoveIds(project: ProjectState, speciesId: number, level: number): number[] {
+  if (!project.narcs.learnsets) throw new Error("Learnsets are not loaded");
+  const learnsetSpeciesId = speciesId % 1024;
+  if (learnsetSpeciesId <= 0 || learnsetSpeciesId >= project.narcs.learnsets.fileCount || !project.narcs.learnsets.rawFiles[learnsetSpeciesId]) {
+    throw new Error("No learnset is available for this Pokemon");
+  }
+
+  const learnset = decodeRecord(project, "learnsets", learnsetSpeciesId);
+  if (!learnset.raw) throw new Error("No learnset is available for this Pokemon");
+
+  return learnsetEntries(learnset.raw)
+    .filter((entry) => entry.level <= level)
+    .slice(-4)
+    .reverse()
+    .map((entry) => entry.moveId);
 }
 
 export function addTrainerPokemon(project: ProjectState, trainerId: number): TrainerPokemonSlot {
