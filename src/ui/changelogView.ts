@@ -123,7 +123,7 @@ function groupChangelogEntries(entries: RenderableChangelogEntry[]): Array<{ key
     if (domain === "matrix" || domain === "overworlds" || domain === "maps3d") return "maps";
     if (domain === "move_animations" || domain === "battle_animations" || domain === "move_spas") return "animations";
     if (domain === "pokemon_sprites" || domain === "pokemon_icons" || domain === "starter_sprites") return "sprites";
-    if (domain.startsWith("pwt_") || domain.startsWith("subway_") || domain === "facilities") return "facilities";
+    if (domain.startsWith("pwt_") || domain.startsWith("subway_") || domain.startsWith("wbt_") || domain === "facilities") return "facilities";
     return domain;
   };
   const labels: Record<string, string> = {

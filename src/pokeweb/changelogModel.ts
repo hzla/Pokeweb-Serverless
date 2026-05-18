@@ -53,7 +53,7 @@ const SEMANTIC_NARCS = [
   "grotto_odds",
 ] as const satisfies readonly NarcName[];
 
-const GENERIC_NARCS = ["maps", "matrix", "overworlds", "move_animations", "battle_animations", "move_spas"] as const satisfies readonly NarcName[];
+const GENERIC_NARCS = ["maps", "matrix", "overworlds", "move_animations", "battle_animations", "move_spas", "regulations", "wbt_area_pools"] as const satisfies readonly NarcName[];
 
 const CHANGELOG_NARCS: NarcName[] = [...new Set<NarcName>([...MANDATORY_NARCS, ...SEMANTIC_NARCS, ...GENERIC_NARCS])];
 
@@ -76,6 +76,8 @@ const DOMAIN_TITLES: Record<string, string> = {
   move_animations: "Move Animations",
   battle_animations: "Battle Animations",
   move_spas: "Move Particle Files",
+  regulations: "Battle Regulations",
+  wbt_area_pools: "Black Tower / White Treehollow Area Pools",
 };
 
 const PERSONAL_FIELDS: Array<[string, string]> = [

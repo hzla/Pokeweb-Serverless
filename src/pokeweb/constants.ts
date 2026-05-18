@@ -42,7 +42,11 @@ export type NarcName =
   | "pwt_map_1"
   | "pwt_map_2"
   | "pwt_tr1"
-  | "pwt_tr6";
+  | "pwt_tr6"
+  | "regulations"
+  | "wbt_sets"
+  | "wbt_trainers"
+  | "wbt_area_pools";
 
 export type NarcDefinition = {
   path: string;
@@ -122,6 +126,10 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/2/5/5", name: "pwt_tr6" },
   { path: "a/2/5/6", name: "pwt_sets_6" },
   { path: "a/2/5/7", name: "pwt_sets_7" },
+  { path: "a/1/0/6", name: "regulations" },
+  { path: "a/2/6/1", name: "wbt_sets" },
+  { path: "a/2/6/2", name: "wbt_trainers" },
+  { path: "a/2/6/9", name: "wbt_area_pools" },
 ];
 
 export const MANDATORY_NARCS = HEADER_NARCS.filter((definition) => definition.required).map((definition) => definition.name);
