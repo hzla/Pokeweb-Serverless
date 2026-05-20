@@ -27,12 +27,35 @@
   width: 60px;
 }
 
+.trainer-test-team {
+  margin-top: 18px;
+}
+
+.trainer-test-team .filter-title {
+  font-size: 18px;
+}
+
+.trainer-test-team-input {
+  background: transparent;
+  border: 1px solid #44475a;
+  border-radius: 5px;
+  box-sizing: border-box;
+  color: #f2f2f2;
+  font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  min-height: 280px;
+  padding: 10px;
+  resize: vertical;
+  white-space: pre;
+  width: 100%;
+}
+
 #trainers > .trainer-card {
   padding: 0;
   position: relative;
 }
 
 #trainers > .trainer-card > .expanded-field-main {
+  cursor: pointer;
   min-height: 140px;
   padding: 0 20px;
 }
@@ -298,6 +321,35 @@
 .field-btn.disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+button.field-btn {
+  border: 0;
+  font: inherit;
+}
+
+button.field-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.trainer-row-test-btn {
+  border-radius: 5px;
+  display: none;
+  font-size: 13px;
+  height: 28px;
+  left: 160px;
+  line-height: 28px;
+  padding: 0;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  z-index: 5;
+}
+
+#trainers .trainer-card:hover .trainer-row-test-btn {
+  display: block;
 }
 
 .del-btn {

@@ -8,11 +8,17 @@ import { materializeProjectEdits } from "./projectMaterialize";
 import { fileSystemAddedFiles, fileSystemReplacementMap } from "./fileSystemModel";
 import { buildCodeInjectionOverlayTable } from "./pmcModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
+import { getDirtyPatchOverlayIds } from "./romPatchModel";
 import type { ProjectState } from "./projectStore";
 
 export { materializeProjectEdits } from "./projectMaterialize";
 
-export async function exportModifiedRom(project: ProjectState): Promise<Uint8Array> {
+export type ExportModifiedRomOptions = {
+  minimumRomLength?: number;
+  preserveOriginalLength?: boolean;
+};
+
+export async function exportModifiedRom(project: ProjectState, options: ExportModifiedRomOptions = {}): Promise<Uint8Array> {
   const originalRomBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!originalRomBytes) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
@@ -41,6 +47,8 @@ export async function exportModifiedRom(project: ProjectState): Promise<Uint8Arr
     arm9OverlayTable,
     files: fileReplacements,
     addedFiles: fileSystemAddedFiles(project),
+    minimumLength: options.minimumRomLength,
+    preserveOriginalLength: options.preserveOriginalLength,
   });
   return out;
 }
@@ -51,6 +59,10 @@ function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplac
   patchOverlayBackedStore(project, "move_effects_table", 167, overlayReplacements);
   patchOverlayBackedStore(project, "type_chart", 167, overlayReplacements);
   for (const overlayId of getDirtyStarterOverlayIds(project)) {
+    const overlay = project.overlays[overlayId];
+    if (overlay) overlayReplacements.set(overlayId, overlay);
+  }
+  for (const overlayId of getDirtyPatchOverlayIds(project)) {
     const overlay = project.overlays[overlayId];
     if (overlay) overlayReplacements.set(overlayId, overlay);
   }

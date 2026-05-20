@@ -81,6 +81,19 @@ describe("docGeneratorModel", () => {
     expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].diff).toBe(3);
   });
 
+  it("keeps one-based Pokemon and move replacement maps aligned with vanilla names", () => {
+    const project = makeProject();
+    project.texts.banks.pokedex = ["None", "Bulbasaur", "Saplingasaur", "Venusaur", "Charmander"];
+    project.texts.banks.moves = ["None", "Pound", "Karate Chop", "Double Slap", "Meteor Punch"];
+    const file = generateCalcDownload(project, "Volt White Plus");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+
+    expect(payload.pok_replacements).toEqual({ ivysaur: "saplingasaur" });
+    expect(payload.move_replacements).toEqual({ cometpunch: "meteorpunch" });
+    expect(payload.pok_replacements).not.toMatchObject({ ivysaur: "bulbasaur", charmander: "venusaur" });
+    expect(payload.move_replacements).not.toMatchObject({ karatechop: "pound", doubleslap: "karatechop" });
+  });
+
   it("fills trainer calc moves from learnsets when trainers have no explicit moves", () => {
     const project = makeProject();
     const file = generateCalcDownload(project, "Volt White Plus");

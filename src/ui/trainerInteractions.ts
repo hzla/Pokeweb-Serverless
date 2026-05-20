@@ -16,6 +16,7 @@ import { stripeRows } from "./legacyInteractions";
 
 export type TrainerInteractionOptions = {
   onDirty?: () => void;
+  onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>;
   autofills: Record<string, string[]>;
   renderRow: (trainerId: number) => string;
 };
@@ -33,7 +34,7 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
     if (event.key === "Enter") runFilter();
   });
 
-  root.addEventListener("click", (event) => {
+  root.addEventListener("click", async (event) => {
     const target = event.target as HTMLElement;
     if (target.closest("#add-trainer-btn")) {
       try {
@@ -60,15 +61,25 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
     const trainerId = Number(card?.dataset.index);
     if (!card || !Number.isInteger(trainerId)) return;
 
-    if (target.closest(".show-bottom")) {
-      card.querySelector<HTMLElement>(".expanded-trainer")?.classList.toggle("-show-texts");
+    const testBattleButton = target.closest<HTMLButtonElement>(".test-battle-btn");
+    if (testBattleButton && options.onTestBattle) {
+      const previousText = testBattleButton.textContent ?? "Test";
+      const showdownText = root.querySelector<HTMLTextAreaElement>("#test-battle-team-import")?.value ?? "";
+      try {
+        testBattleButton.disabled = true;
+        testBattleButton.textContent = "Building...";
+        await options.onTestBattle(trainerId, showdownText);
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      } finally {
+        testBattleButton.disabled = false;
+        testBattleButton.textContent = previousText;
+      }
       return;
     }
 
-    const expandIcon = target.closest<HTMLElement>(".expand-action");
-    if (expandIcon) {
-      toggleTrainerPanel(card, expandIcon);
-      stripeRows(root);
+    if (target.closest(".show-bottom")) {
+      card.querySelector<HTMLElement>(".expanded-trainer")?.classList.toggle("-show-texts");
       return;
     }
 
@@ -118,6 +129,13 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
       updateTrainerField(project, trainerId, ai.dataset.fieldName, next);
       replaceTrainerRow(root, project, card, trainerId, options);
       options.onDirty?.();
+      return;
+    }
+
+    const mainRow = target.closest<HTMLElement>("#trainers .trainer-card > .expanded-field-main");
+    if (mainRow && !isTrainerRowControl(target)) {
+      toggleTrainerPanel(card);
+      stripeRows(root);
     }
   });
 
@@ -230,7 +248,7 @@ function replaceTrainerRow(root: HTMLElement, project: ProjectState, card: HTMLE
   stripeRows(root);
 }
 
-function toggleTrainerPanel(card: HTMLElement, icon: HTMLElement): void {
+function toggleTrainerPanel(card: HTMLElement): void {
   const target = card.querySelector<HTMLElement>(".expanded-trainer");
   if (!target) return;
   const alreadyOpen = target.classList.contains("show-flex");
@@ -238,7 +256,6 @@ function toggleTrainerPanel(card: HTMLElement, icon: HTMLElement): void {
   card.querySelectorAll<HTMLElement>(".trainer-poks img, .expand-action").forEach((item) => item.classList.remove("-active"));
   if (!alreadyOpen) {
     target.classList.add("show-flex");
-    icon.classList.add("-active");
     scrollRowBelowStickyHeader(card);
   }
 }
@@ -256,6 +273,10 @@ function showTrainerPokemon(card: HTMLElement, preview: HTMLImageElement): void 
     preview.classList.add("-active");
     scrollRowBelowStickyHeader(card);
   }
+}
+
+function isTrainerRowControl(target: HTMLElement): boolean {
+  return Boolean(target.closest("button, input, label, [contenteditable='true'], .add-trpok"));
 }
 
 function installAutocomplete(field: HTMLElement, autofills: Record<string, string[]>): void {

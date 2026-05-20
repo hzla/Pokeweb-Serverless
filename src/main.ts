@@ -15,6 +15,7 @@ import "./styles/legacyStarters.css";
 import "./styles/fileSystem.css";
 import "./styles/legacyTypes.css";
 import "./styles/codeInjection.css";
+import "./styles/legacyPatches.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
@@ -27,9 +28,12 @@ import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
 import { loadProjectFromRomFile } from "./pokeweb/loader";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
+import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
+import { buildTestBattleDownloads } from "./pokeweb/testBattle";
 import { renderDebugNarcs } from "./ui/debugNarcs";
 import { renderCodeInjectionEditor } from "./ui/codeInjectionEditor";
 import { renderFileSystemEditor } from "./ui/fileSystemEditor";
+import { renderPatchesEditor } from "./ui/patchesEditor";
 import { renderHeaderEditor } from "./ui/headerEditor";
 import { renderEncounterEditor } from "./ui/encounterEditor";
 import { renderItemEditor, renderMoveEditor } from "./ui/moveItemEditor";
@@ -56,6 +60,7 @@ type AppRoute =
   | "upload"
   | "fileSystem"
   | "codeInjection"
+  | "patches"
   | "headers"
   | "overworlds"
   | "maps3d"
@@ -104,6 +109,7 @@ const APP_ROUTES: AppRoute[] = [
   "upload",
   "fileSystem",
   "codeInjection",
+  "patches",
   "headers",
   "overworlds",
   "maps3d",
@@ -128,7 +134,7 @@ const APP_ROUTES: AppRoute[] = [
   "debugNarcs",
 ];
 
-const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">, NarcName[]> = {
+const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">, NarcName[]> = {
   headers: ["headers", "message_texts"],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
@@ -333,6 +339,15 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "patches") {
+    renderPatchesEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
   if (route === "overworlds") {
     if (activeOverworldId === undefined) {
       navigate("headers");
@@ -405,11 +420,16 @@ function renderApp(): void {
   }
 
   if (route === "trainers") {
-    renderTrainerEditor(project, content, () => {
-      dirty = true;
-      scheduleSave(project!);
-      renderDirtyIndicator();
-    });
+    renderTrainerEditor(
+      project,
+      content,
+      () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+      (trainerId, showdownText) => launchTestBattle(trainerId, showdownText),
+    );
     return;
   }
 
@@ -597,6 +617,7 @@ function renderMoreMenu(): string {
   const moreRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
     ["types", "Type Chart"],
     ["changelog", "Changelog"],
+    ["patches", "Patches"],
     ["codeInjection", "Code Injection"],
     ["fileSystem", "File System"],
   ];
@@ -685,6 +706,29 @@ async function downloadRom(): Promise<void> {
       link.textContent = previousText;
       link.classList.toggle("disabled", !hasExportBase);
     }
+  }
+}
+
+async function launchTestBattle(trainerId: number, showdownText = ""): Promise<void> {
+  if (!project) return;
+  if (!hasExportBase) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
+  if (project.session.baseRom !== "BW2") throw new Error("Test Battle currently supports Black 2 / White 2 projects only.");
+
+  const emulator = openTestBattleEmulator();
+  const baseName = project.session.romName || "pokeweb";
+  try {
+    await saveActiveProject(project);
+    const { romBytes, saveBytes } = await buildTestBattleDownloads(project, trainerId, { playerTeamText: showdownText });
+    await emulator.launch({
+      romName: `${baseName}-test-battle-trainer-${trainerId}.nds`,
+      saveName: `${baseName}-test-battle-trainer-${trainerId}.sav`,
+      trainerId,
+      romBytes,
+      saveBytes,
+    });
+  } catch (error) {
+    emulator.close();
+    throw error;
   }
 }
 
@@ -992,6 +1036,9 @@ function hydrateProject(nextProject: ProjectState | undefined): void {
   ensureActionChangelog(nextProject);
   nextProject.fileSystem ??= { replacements: {} };
   nextProject.fileSystem.replacements ??= {};
+  nextProject.patches ??= { dirtyOverlayIds: [], applied: {} };
+  nextProject.patches.dirtyOverlayIds ??= [];
+  nextProject.patches.applied ??= {};
   if (nextProject.narcs.headers && !nextProject.headers) nextProject.headers = parseHeaders(nextProject);
   nextProject.docs ??= {
     romTitle: nextProject.session.romName,
@@ -1019,6 +1066,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "docGenerators") return true;
   if (nextRoute === "fileSystem") return hasExportBase;
   if (nextRoute === "codeInjection") return hasExportBase && project.session.baseRom === "BW2";
+  if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
   if (nextRoute === "facilities" && project.session.baseRom !== "BW2") return false;
@@ -1034,7 +1082,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     return EDITOR_REQUIREMENTS.wbtFacilities.every((name) => project?.narcs[name]) && Boolean(project.narcs.wbt_sets || project.narcs.wbt_trainers || project.narcs.wbt_area_pools);
   }
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
-  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">;
+  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);
 }
 
@@ -1047,17 +1095,21 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? ([] as NarcName[])
       : nextRoute === "codeInjection"
         ? ([] as NarcName[])
+      : nextRoute === "patches"
+        ? ([] as NarcName[])
       : nextRoute === "maps3d"
         ? ([] as NarcName[])
       : nextRoute === "changelog"
         ? ([] as NarcName[])
-      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">];
+      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">];
   const missing = enabled
     ? ""
     : nextRoute === "fileSystem"
       ? ` title="Reload the ROM before opening File System"`
     : nextRoute === "codeInjection"
       ? ` title="${project?.session.baseRom === "BW2" ? "Reload the ROM before opening Code Injection" : "PMC is currently Black 2 / White 2 only"}"`
+    : nextRoute === "patches"
+      ? ` title="Reload the ROM before opening Patches"`
       : nextRoute === "maps3d"
         ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
         : nextRoute === "types"

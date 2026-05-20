@@ -8,6 +8,8 @@ export type RomSaveOptions = {
   arm7OverlayTable?: Uint8Array;
   files?: Map<number, Uint8Array>;
   addedFiles?: Array<{ path: string; bytes: Uint8Array }>;
+  minimumLength?: number;
+  preserveOriginalLength?: boolean;
 };
 
 export class NintendoDSRom {
@@ -124,8 +126,11 @@ export class NintendoDSRom {
       writeU32(writer.buffer, fatOffset + id * 8 + 4, cursor);
     });
 
-    const romLength = align(cursor, 4);
+    const compactRomLength = align(cursor, 4);
+    const minimumLength = Math.max(options.preserveOriginalLength ? this.data.length : 0, options.minimumLength ?? 0);
+    const romLength = Math.max(compactRomLength, align(minimumLength, 4));
     const out = writer.trim(romLength);
+    if (options.preserveOriginalLength && romLength > compactRomLength) out.fill(0xff, compactRomLength, romLength);
 
     writeU32(out, 0x20, arm9.offset);
     writeU32(out, 0x2c, arm9.length);

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height" />
+    <title>Pokeweb Test Battle</title>
+  </head>
+  <body>
+    <div id="pokeweb-status" role="status">
+      <strong>Test Battle</strong>
+      <span id="pokeweb-status-text">Waiting for battle data...</span>
+    </div>
+    <div id="pokeweb-controls" aria-label="Emulator controls">
+      <label for="pokeweb-speed">Speed</label>
+      <select id="pokeweb-speed">
+        <option value="1">1x</option>
+        <option value="2">2x</option>
+        <option value="3">3x</option>
+        <option value="4" selected>4x</option>
+        <option value="6">6x</option>
+        <option value="8">8x</option>
+      </select>
+    </div>
+    <pre id="pokeweb-debug-log" aria-label="Test Battle debug log"></pre>
+    <desmond-player id="desmond-player" aria-label="Nintendo DS emulator"></desmond-player>
+
+    <div id="welcome" hidden>
+      <div id="loading">Loading...</div>
+      <div id="loadrom" hidden>
+        <input id="rom" type="file" hidden />
+        <button id="btn-choose-file" type="button">Choose File</button>
+      </div>
+      <span id="ver-info"></span><a id="whats-new" href="#">What's New</a>
+      <a id="a-gamepad" href="#">No Gamepad Detected</a>
+      <p id="p-sns"></p>
+      <div id="pro"></div>
+      <p id="ios-power-hint" hidden></p>
+      <div id="mac-warning" hidden></div>
+    </div>
+
+    <div id="ios-hint" hidden></div>
+
+    <div id="vk-layer" hidden>
+      <div class="vk-rect vk" data-k="menu" id="vk-menu">M</div>
+      <div class="vk-rect vk" data-k="l">L</div>
+      <div class="vk-rect vk" data-k="r">R</div>
+      <div class="vk-round vk" data-k="a">A</div>
+      <div class="vk-round vk" data-k="b">B</div>
+      <div class="vk-round vk" data-k="x">X</div>
+      <div class="vk-round vk" data-k="y">Y</div>
+      <div class="vk-rect vk" data-k="select">SE</div>
+      <div class="vk-rect vk" data-k="start">ST</div>
+      <div class="vk-round vk" data-k="stick" id="vk-stick"></div>
+      <div id="vk-dpad-1" class="vk vk-round-rect"></div>
+      <div id="vk-dpad-2" class="vk vk-round-rect"></div>
+    </div>
+
+    <div id="fps"></div>
+    <div id="msg-layer" hidden>
+      <p id="msg-text"></p>
+    </div>
+
+    <div id="menu" hidden>
+      <button type="button" onclick="uiMenuBack()">Back</button>
+      <div id="cfg-ea">
+        <input type="checkbox" id="cfg-turbo" />
+        <label for="cfg-turbo">Turbo mode</label>
+        <select id="cfg-scale-mode">
+          <option value="0">Pixelated</option>
+          <option value="1">Smooth</option>
+          <option value="2">XBRZ</option>
+        </select>
+      </div>
+      <input type="checkbox" id="cfg-opt" />
+      <input type="checkbox" id="power-save" />
+      <input type="checkbox" id="vk-enabled" />
+      <input type="checkbox" id="cfg-mute-sound" />
+      <select id="vk-direction">
+        <option value="0">Circle-Pad</option>
+        <option value="1">D-Pad</option>
+      </select>
+      <select id="cfg-ls-layout">
+        <option value="0">TB</option>
+        <option value="1">LR 1:1</option>
+        <option value="2">LR X:1</option>
+      </select>
+      <select id="cfg-lang">
+        <option value="0">Japanese</option>
+        <option value="1">English</option>
+        <option value="2">French</option>
+        <option value="3">German</option>
+        <option value="4">Italian</option>
+        <option value="5">Spanish</option>
+      </select>
+      <input type="checkbox" id="cfg-swap-abxy" />
+      <input type="checkbox" id="lid-closed" onchange="window.lidClosed = this.checked" />
+      <div id="menu-savegame" hidden>
+        <input type="file" id="restore-file" onchange="uiSaveRestore()" hidden />
+      </div>
+      <div id="menu-cloud-save" hidden>
+        <span id="span-cloud-id"></span>
+        <button type="button" id="btn-dp-connect">Connect Dropbox</button>
+      </div>
+    </div>
+    <script type="module" src="/src/testBattleEmulatorMain.ts"></script>
+  </body>
+</html>

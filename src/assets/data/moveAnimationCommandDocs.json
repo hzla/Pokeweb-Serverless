@@ -2012,24 +2012,6 @@
           "name": "trans_pal",
           "currentArg": "p1",
           "description": "Destination palette slot."
-        },
-        {
-          "index": 2,
-          "name": "col_count",
-          "currentArg": "p2",
-          "description": "Number of colors to transfer."
-        },
-        {
-          "index": 3,
-          "name": "offset",
-          "currentArg": "p3",
-          "description": "Palette update offset."
-        },
-        {
-          "index": 4,
-          "name": "wait",
-          "currentArg": "p4",
-          "description": "Duration/wait in frames."
         }
       ],
       "notes": []

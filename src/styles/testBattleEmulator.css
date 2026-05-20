@@ -1,0 +1,189 @@
+html,
+body {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  background: #050608;
+  color: #f8fafc;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  user-select: none;
+}
+
+canvas {
+  position: absolute;
+  z-index: 1;
+  image-rendering: pixelated;
+}
+
+#pokeweb-status {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  z-index: 10000;
+  display: grid;
+  gap: 4px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.86);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px);
+}
+
+#pokeweb-status strong {
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+#pokeweb-status span {
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+#pokeweb-status.-error {
+  border-color: rgba(248, 113, 113, 0.65);
+}
+
+#pokeweb-status.-error span {
+  color: #fecaca;
+}
+
+#pokeweb-status.-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+#pokeweb-controls {
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.86);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px);
+  isolation: isolate;
+  pointer-events: auto;
+}
+
+#pokeweb-controls label {
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+#pokeweb-speed {
+  min-width: 72px;
+  color: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  border-radius: 6px;
+  background: #111827;
+  padding: 5px 8px;
+  font: inherit;
+  pointer-events: auto;
+}
+
+#pokeweb-debug-log {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 10;
+  width: min(720px, calc(100vw - 32px));
+  max-height: 34vh;
+  margin: 0;
+  overflow: hidden;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.78);
+  color: #cbd5e1;
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+#msg-layer {
+  position: absolute;
+  left: 0;
+  top: 40vh;
+  z-index: 3;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+#vk-layer,
+#menu {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#vk-layer {
+  z-index: 2;
+  touch-action: none;
+  opacity: 0.3;
+}
+
+#menu {
+  z-index: 4;
+  overflow: hidden scroll;
+  background: rgba(0, 0, 0, 0.44);
+}
+
+.vk {
+  position: absolute;
+  z-index: 1;
+  display: inline-block;
+  color: #000;
+  background-color: #fff;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.vk-round {
+  border-radius: 50%;
+}
+
+.vk-round-rect {
+  border-radius: 0.5em;
+}
+
+#fps {
+  position: absolute;
+  bottom: 20px;
+  z-index: 2;
+  color: #f8fafc;
+}
+
+#desmond-player {
+  position: fixed;
+  inset: 0;
+  display: block;
+  z-index: 1;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+}
+
+@media (max-width: 640px) {
+  #pokeweb-controls {
+    top: auto;
+    bottom: 16px;
+  }
+
+  #pokeweb-debug-log {
+    display: none;
+  }
+}

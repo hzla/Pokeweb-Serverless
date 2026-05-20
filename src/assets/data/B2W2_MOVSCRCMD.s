@@ -396,13 +396,10 @@
 .word \p5
 .endm
 
-.macro BackgroundPaletteAnimation p0 p1 p2 p3 p4
+.macro BackgroundPaletteAnimation p0 p1
 .hword 39
 .word \p0
 .word \p1
-.word \p2
-.word \p3
-.word \p4
 .endm
 
 .macro BackgroundPriority p0

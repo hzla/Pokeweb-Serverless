@@ -4,7 +4,8 @@ import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 import { cameraEventDuration } from "./battleCameraSimulator";
 import { decompileMoveAnimationFile, parseMoveAnimationScript, type ParsedMoveAnimationCommand } from "./moveAnimationModel";
-import { parseNitroBackground, type NitroBackgroundImage } from "./nitroBg";
+import { parseNitroBackground, type NitroBackgroundImage, type NitroBackgroundPaletteAnimation } from "./nitroBg";
+import type { NitroCellEffect } from "./nitroCell";
 import { parseSpaArchive, type SpaArchive } from "./nitroSpa";
 
 const DEFAULT_CALL_DEPTH = 8;
@@ -35,8 +36,63 @@ export type MoveAnimationTimelineEvent = {
   params: number[];
   status: "supported" | "marker" | "unsupported";
   message: string;
+  effectKind?: "spa" | "cell";
   spaId?: number;
   resourceId?: number;
+  particle?: {
+    sourceTarget?: number;
+    destinationTarget?: number;
+    origin?: [number, number, number];
+    axis?: [number, number, number];
+    projectile?: boolean;
+    screen?: boolean;
+    screenPlane?: boolean;
+    lifeMultiplier?: number;
+    scaleMultiplier?: number;
+    speedMultiplier?: number;
+    radiusMultiplier?: number;
+    foreshorten?: boolean;
+    screenRotation?: number;
+    originMotion?: {
+      from: [number, number, number];
+      to: [number, number, number];
+      duration: number;
+      arcHeight?: number;
+      easing?: "linear" | "easeOut";
+      rotation?: {
+        startAngleX: number;
+        endAngleX: number;
+        startAngleY: number;
+        endAngleY: number;
+        radiusX: number;
+        radiusY: number;
+      };
+    };
+    emissionOffsets?: [number, number, number][];
+    forceFollowMotion?: boolean;
+    useResourceAnchor?: boolean;
+    invertResourceYAxis?: boolean;
+    alignToMotion?: boolean;
+    alignDirection?: [number, number, number];
+    alignRotationOffset?: number;
+    beamTrail?: {
+      start: [number, number, number];
+      alpha?: number;
+      scale?: number;
+    };
+    field?: {
+      mode?: number;
+      targetMode?: number;
+      cursor?: number;
+      gravityMagnitude?: [number, number, number];
+      randomMagnitude?: [number, number, number];
+      randomIntervalFrames?: number;
+      magnetTarget?: [number, number, number];
+      magnetForce?: number;
+      convergenceTarget?: [number, number, number];
+      convergenceForce?: number;
+    };
+  };
   textureIndex?: number;
   textureFormat?: number;
   textureSize?: number;
@@ -46,6 +102,38 @@ export type MoveAnimationTimelineEvent = {
   debug?: string;
   sourceMoveId?: number;
   backgroundId?: number;
+  backgroundEffect?: "hgDiagonalBeam";
+  backgroundFrameIndex?: number;
+  actorMotion?: {
+    target: "user" | "target";
+    offset: [number, number, number];
+    duration: number;
+    easing?: "linear" | "easeOut";
+  };
+  cellEffectId?: string;
+  cellEffect?: {
+    charId: number;
+    paletteId: number;
+    cellId: number;
+    animationId: number;
+    supportFuncId: number;
+    origin?: [number, number, number];
+    scale?: number;
+    duration?: number;
+    instances?: Array<{
+      offset: [number, number, number];
+      startFrame?: number;
+      blinkInterval?: number;
+    }>;
+    motion?: {
+      legs: Array<{
+        from: [number, number, number];
+        to: [number, number, number];
+        duration: number;
+        arcHeight?: number;
+      }>;
+    };
+  };
 };
 
 export type MoveAnimationPreviewWarning = {
@@ -62,6 +150,8 @@ export type MoveAnimationPreview = {
   timeline: MoveAnimationTimelineEvent[];
   spaArchives: Map<number, SpaArchive>;
   backgrounds: Map<number, NitroBackgroundImage>;
+  cellEffects?: Map<string, NitroCellEffect>;
+  backgroundPaletteAnimations?: Map<number, NitroBackgroundPaletteAnimation>;
   warnings: MoveAnimationPreviewWarning[];
 };
 
@@ -136,7 +226,7 @@ function hydrateTimelineDebug(
   warnings: MoveAnimationPreviewWarning[],
 ): void {
   for (const event of timeline) {
-    if (!SPA_COMMANDS.has(event.command) || event.spaId === undefined || event.resourceId === undefined) continue;
+    if ((event.effectKind !== "spa" && !SPA_COMMANDS.has(event.command)) || event.spaId === undefined || event.resourceId === undefined) continue;
     const archive = spaArchives.get(event.spaId);
     const resource = archive?.resources[event.resourceId] ?? archive?.resources[0];
     const texture = resource ? archive?.textures[resource.textureIndex] ?? archive?.textures[0] : archive?.textures[0];
@@ -342,7 +432,7 @@ function makeEvent(
 function eventDuration(event: MoveAnimationTimelineEvent): number {
   if (event.command === "Wait") return Math.max(1, event.params[0] ?? 1);
   if (CAMERA_COMMANDS.has(event.command)) return cameraEventDuration(event);
-  if (SPA_COMMANDS.has(event.command)) return 45;
+  if (event.effectKind === "spa" || SPA_COMMANDS.has(event.command)) return 45;
   if (event.command === "MoveBackground" || event.command === "BackgroundAlpha") return Math.max(1, event.params[3] ?? 1, event.params[5] ?? 1);
   if (event.command === "ChangeBackgroundColor") return Math.max(1, event.params[3] ?? 0, Math.abs((event.params[2] ?? 0) - (event.params[1] ?? 0)));
   if (event.command === "ShakeSprite" || event.command === "ShakeScreen") return Math.max(1, event.params[event.params.length - 1] ?? 1);

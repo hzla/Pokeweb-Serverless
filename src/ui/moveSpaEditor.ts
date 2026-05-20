@@ -241,6 +241,7 @@ const FIELD_HELP: Record<string, SpaFieldHelp> = {
 
 export type MoveSpaEditorController = {
   ensureReferences: (scriptText: string) => Promise<void>;
+  setSpaIds: (spaIds: number[], selectedSpaId?: number) => Promise<void>;
   getArchiveOverride: (spaId: number) => SpaArchive | undefined;
   hasDirtyArchives: () => boolean;
 };
@@ -249,8 +250,18 @@ type MoveSpaEditorOptions = {
   onDirty?: () => void;
 };
 
+export type MoveSpaEditorDataSource = {
+  loadArchive: (spaId: number) => Promise<SpaArchive> | SpaArchive;
+  updateArchive: (spaId: number, archive: SpaArchive) => Promise<Uint8Array> | Uint8Array;
+  exportArchive: (spaId: number, archiveOverride?: SpaArchive) => Promise<Uint8Array> | Uint8Array;
+  referencedSpaIds?: (scriptText: string) => number[];
+  emptyLabel?: string;
+  loadingLabel?: string;
+  selectorLabel?: string;
+};
+
 type State = {
-  project: ProjectState;
+  source: MoveSpaEditorDataSource;
   host: HTMLElement;
   spaIds: number[];
   archives: Map<number, SpaArchive>;
@@ -261,6 +272,7 @@ type State = {
   loading: boolean;
   saving: boolean;
   scriptText: string;
+  explicitSpaIds?: number[];
   openSections: Set<string>;
   error?: string;
   status?: string;
@@ -269,8 +281,30 @@ type State = {
 type EditableTarget = "resource" | "scaleAnim" | "colorAnim" | "alphaAnim" | "texAnim" | "child" | "behavior" | "texture";
 
 export function installMoveSpaEditor(host: HTMLElement, project: ProjectState, scriptText: string, options: MoveSpaEditorOptions = {}): MoveSpaEditorController {
+  return installMoveSpaEditorWithSource(
+    host,
+    scriptText,
+    {
+      loadArchive: (spaId) => loadMoveSpaArchive(project, spaId),
+      updateArchive: (spaId, archive) => updateMoveSpaArchive(project, spaId, archive),
+      exportArchive: (spaId, archive) => exportMoveSpaArchive(project, spaId, archive),
+      referencedSpaIds,
+      emptyLabel: "No SPA commands are referenced by the current script.",
+      loadingLabel: "Loading referenced SPA archives...",
+      selectorLabel: "referenced SPA archive",
+    },
+    options,
+  );
+}
+
+export function installMoveSpaEditorWithSource(
+  host: HTMLElement,
+  scriptText: string,
+  source: MoveSpaEditorDataSource,
+  options: MoveSpaEditorOptions = {},
+): MoveSpaEditorController {
   const state: State = {
-    project,
+    source,
     host,
     spaIds: [],
     archives: new Map(),
@@ -318,6 +352,10 @@ export function installMoveSpaEditor(host: HTMLElement, project: ProjectState, s
 
   return {
     ensureReferences: (nextScriptText) => ensureReferences(state, nextScriptText, true),
+    setSpaIds: (spaIds, selectedSpaId) => {
+      state.explicitSpaIds = spaIds.slice();
+      return ensureSpaIds(state, spaIds, true, selectedSpaId);
+    },
     getArchiveOverride: (spaId) => state.archives.get(spaId),
     hasDirtyArchives: () => state.dirtySpaIds.size > 0,
   };
@@ -325,12 +363,24 @@ export function installMoveSpaEditor(host: HTMLElement, project: ProjectState, s
 
 async function ensureReferences(state: State, scriptText: string, preserveExisting: boolean): Promise<void> {
   state.scriptText = scriptText;
-  const spaIds = referencedSpaIds(scriptText);
-  const missing = spaIds.filter((spaId) => !state.archives.has(spaId));
-  if (!missing.length && arrayEqual(spaIds, state.spaIds)) return;
+  state.explicitSpaIds = undefined;
+  const spaIds = (state.source.referencedSpaIds ?? referencedSpaIds)(scriptText);
+  await ensureSpaIds(state, spaIds, preserveExisting);
+}
+
+async function ensureSpaIds(state: State, spaIds: number[], preserveExisting: boolean, selectedSpaId?: number): Promise<void> {
+  const uniqueSpaIds = [...new Set(spaIds.filter((spaId) => Number.isInteger(spaId) && spaId >= 0))].sort((a, b) => a - b);
+  const missing = uniqueSpaIds.filter((spaId) => !state.archives.has(spaId));
+  if (!missing.length && arrayEqual(uniqueSpaIds, state.spaIds)) {
+    if (selectedSpaId !== undefined && state.archives.has(selectedSpaId)) {
+      state.selectedSpaId = selectedSpaId;
+      render(state);
+    }
+    return;
+  }
   state.loading = true;
   state.error = undefined;
-  state.spaIds = spaIds;
+  state.spaIds = uniqueSpaIds;
   if (!preserveExisting) {
     state.archives.clear();
     state.dirtySpaIds.clear();
@@ -338,12 +388,17 @@ async function ensureReferences(state: State, scriptText: string, preserveExisti
   render(state);
   try {
     for (const spaId of missing) {
-      state.archives.set(spaId, cloneArchive(await loadMoveSpaArchive(state.project, spaId)));
+      state.archives.set(spaId, cloneArchive(await state.source.loadArchive(spaId)));
     }
     for (const spaId of [...state.archives.keys()]) {
-      if (!spaIds.includes(spaId) && !state.dirtySpaIds.has(spaId)) state.archives.delete(spaId);
+      if (!uniqueSpaIds.includes(spaId) && !state.dirtySpaIds.has(spaId)) state.archives.delete(spaId);
     }
-    state.selectedSpaId = state.selectedSpaId !== undefined && state.archives.has(state.selectedSpaId) ? state.selectedSpaId : spaIds[0];
+    state.selectedSpaId =
+      selectedSpaId !== undefined && state.archives.has(selectedSpaId)
+        ? selectedSpaId
+        : state.selectedSpaId !== undefined && state.archives.has(state.selectedSpaId)
+          ? state.selectedSpaId
+          : uniqueSpaIds[0];
     state.selectedResourceIndex = 0;
     state.selectedTextureIndex = 0;
   } catch (error) {
@@ -379,7 +434,8 @@ async function handleAction(state: State, action: string, options: MoveSpaEditor
     state.selectedSpaId = undefined;
     state.status = undefined;
     render(state);
-    await ensureReferences(state, state.scriptText, false);
+    if (state.explicitSpaIds) await ensureSpaIds(state, state.explicitSpaIds, false, state.selectedSpaId);
+    else await ensureReferences(state, state.scriptText, false);
     return;
   }
   if (action === "import") {
@@ -393,7 +449,7 @@ async function handleAction(state: State, action: string, options: MoveSpaEditor
     state.status = "Saving SPA edits...";
     render(state);
     try {
-      await updateMoveSpaArchive(state.project, state.selectedSpaId, archive);
+      await state.source.updateArchive(state.selectedSpaId, archive);
       state.dirtySpaIds.delete(state.selectedSpaId);
       state.status = `Saved SPA ${state.selectedSpaId}`;
       options.onDirty?.();
@@ -408,7 +464,7 @@ async function handleAction(state: State, action: string, options: MoveSpaEditor
   }
   if (action === "export") {
     try {
-      const bytes = await exportMoveSpaArchive(state.project, state.selectedSpaId, archive);
+      const bytes = await state.source.exportArchive(state.selectedSpaId, archive);
       downloadBytes(bytes, `spa_${state.selectedSpaId}.spa`);
       state.status = `Exported SPA ${state.selectedSpaId}`;
       render(state);
@@ -493,7 +549,7 @@ function render(state: State): void {
       <div class="move-spa-editor-header">
         <div>
           <h4>SPA Particle Editor${fileLabel}</h4>
-          <span>${state.status ? escapeHtml(state.status) : state.loading ? "Loading referenced SPA archives..." : `${state.spaIds.length} referenced SPA archive${state.spaIds.length === 1 ? "" : "s"}`}</span>
+          <span>${state.status ? escapeHtml(state.status) : state.loading ? escapeHtml(state.source.loadingLabel ?? "Loading SPA archives...") : `${state.spaIds.length} ${escapeHtml(state.source.selectorLabel ?? "SPA archive")}${state.spaIds.length === 1 ? "" : "s"}`}</span>
         </div>
         <div class="move-spa-header-actions">
           <button class="script-btn" data-spa-action="save" type="button" ${canUseSelected && state.dirtySpaIds.has(state.selectedSpaId!) && !state.saving ? "" : "disabled"}>Save SPA Edits</button>
@@ -543,8 +599,8 @@ function renderSelectors(state: State, archive?: SpaArchive): string {
 
 function renderEmptyState(state: State): string {
   if (state.loading) return `<div class="move-spa-empty">Loading particle data...</div>`;
-  if (!state.spaIds.length) return `<div class="move-spa-empty">No SPA commands are referenced by the current script.</div>`;
-  return `<div class="move-spa-empty">Choose a referenced SPA archive to edit particle resources.</div>`;
+  if (!state.spaIds.length) return `<div class="move-spa-empty">${escapeHtml(state.source.emptyLabel ?? "No SPA archive is selected.")}</div>`;
+  return `<div class="move-spa-empty">Choose a SPA archive to edit particle resources.</div>`;
 }
 
 function renderResourceEditor(archive: SpaArchive, resource: SpaResource, selectedTextureIndex: number): string {

@@ -327,7 +327,6 @@ function storedParamCountForCommand(command: MoveAnimationCommandDefinition): nu
 }
 
 function storedParamWidthsForCommand(command: MoveAnimationCommandDefinition): number[] {
-  if (command.name === "BackgroundPaletteAnimation") return [4, 4, 4, 4, 2];
   return Array.from({ length: storedParamCountForCommand(command) }, () => 4);
 }
 
