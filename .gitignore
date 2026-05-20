@@ -8,6 +8,7 @@ dist/
 # Local ROMs and generated exports can be very large.
 *.nds
 *.sav
+!src/assets/testbattle/test.sav
 *.dsv
 exports/
 projects/
@@ -17,6 +18,8 @@ analysis/
 
 # Local agent working notes.
 Agents.md
+docs/hg-animation-parity-checklist.md
+docs/hg-animation-debug-workflow.md
 
 src/test/local/
 *.local.test.ts

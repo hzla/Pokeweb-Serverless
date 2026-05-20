@@ -257,6 +257,164 @@ describe("moveAnimationPreviewModel", () => {
     expect(simulateSplPreview(preview, 5).length).toBeGreaterThan(0);
   });
 
+  it("uses SPL offset position metadata as the rendered sprite anchor", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32 + 76, 1 << 2);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0].particle = { sourceTarget: 17, destinationTarget: 4, axis: [1, 0, 0] };
+
+    const particles = simulateSplPreview(preview, 1);
+    expect(particles[0]?.anchorX).toBe(0.5);
+    expect(particles[0]?.anchorY).toBe(1);
+  });
+
+  it("keeps legacy SPA events center anchored like the old sprite renderer", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32 + 76, 1 << 2);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+
+    const particles = simulateSplPreview(preview, 1);
+    expect(particles[0]?.anchorX).toBe(0.5);
+    expect(particles[0]?.anchorY).toBe(0.5);
+  });
+
+  it("normalizes HG anchored pane resources so fang jaws stay near their target", () => {
+    const bytes = makeSyntheticSpa();
+    const resource = 32;
+    writeU32(bytes, resource + 16, 4096);
+    writeU32(bytes, resource + 8, Math.round(1.561 * 4096));
+    writeU32(bytes, resource + 44, Math.round(2.260 * 4096));
+    writeU32(bytes, resource + 76, 1 << 2);
+    const archive = parseSpaArchive(bytes);
+    archive.resources[0].scaleAnim = { start: 0.25, mid: 2, end: 0.25, curveIn: 0.5, curveOut: 0.5, loop: false };
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0].effectKind = "spa";
+    preview.timeline[0].particle = { sourceTarget: 4, destinationTarget: 4, useResourceAnchor: true, invertResourceYAxis: true };
+
+    const particle = simulateSplPreview(preview, 1)[0];
+    const laterParticle = simulateSplPreview(preview, 24)[0];
+    expect(particle?.anchorY).toBe(1);
+    expect(particle?.scaleY).toBeGreaterThan(29);
+    expect(particle?.scaleY).toBeLessThan(31);
+    expect(laterParticle?.scaleY).toBeCloseTo(particle?.scaleY ?? 0, 5);
+    const startDistance = Math.abs((particle?.position[1] ?? 0) - TARGET_BATTLE_ANCHOR[1]);
+    const laterDistance = Math.abs((laterParticle?.position[1] ?? 0) - TARGET_BATTLE_ANCHOR[1]);
+    expect(startDistance).toBeGreaterThan(10);
+    expect(laterDistance).toBeLessThan(startDistance);
+  });
+
+  it("exposes SPL polygon draw metadata for the preview renderer", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32, (2 << 4) | (1 << 17) | (1 << 19));
+    writeU32(bytes, 32 + 72, 4096 << 8);
+    writeU16(bytes, 32 + 80, 2048);
+    writeU16(bytes, 32 + 82, 1024);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0].particle = { sourceTarget: 17, destinationTarget: 4, axis: [1, 0, 0] };
+
+    const particle = simulateSplPreview(preview, 1)[0];
+    expect(particle).toMatchObject({
+      drawType: 2,
+      polygonRotAxis: 1,
+      polygonReferencePlane: 1,
+      polygonOffsetX: 0.5,
+      polygonOffsetY: 0.25,
+      directionalBillboardScale: 1,
+    });
+    expect(particle?.scaleX).toBeGreaterThan(0);
+    expect(particle?.scaleY).toBeGreaterThan(0);
+  });
+
+  it("renders plain legacy SPA polygon resources as billboards until script operators orient them", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32, 2 << 4);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+
+    const particle = simulateSplPreview(preview, 1)[0];
+    expect(particle?.drawType).toBe(0);
+    expect(particle?.tiltScale).toBe(1);
+  });
+
+  it("preserves plain SPL directional billboards for slash and streak particles", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32, 1 << 4);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+
+    const particle = simulateSplPreview(preview, 1)[0];
+    expect(particle?.drawType).toBe(1);
+    expect(particle?.scaleX).toBeGreaterThan(0);
+    expect(particle?.scaleY).toBeGreaterThan(0);
+  });
+
+  it("builds a camera-facing temporal pane grid for screen-plane HG particles", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32, 3 | (2 << 6));
+    writeU32(bytes, 32 + 16, 16 * 4096);
+    writeU32(bytes, 32 + 20, 2 * 4096);
+    writeU16(bytes, 32 + 28, 4096);
+    writeU32(bytes, 32 + 40, 4096);
+    writeU32(bytes, 32 + 68, 0x0080ff00);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0].particle = { sourceTarget: 3, destinationTarget: 3, screenPlane: true };
+
+    const particles = simulateSplPreview(preview, 0);
+    const laterParticles = simulateSplPreview(preview, 8);
+    expect(particles.length).toBeGreaterThan(0);
+    expect(uniqueRoundedPositions(particles, 0)).toBe(1);
+    expect(uniqueRoundedPositions(particles, 1)).toBe(4);
+    expect(laterParticles.every((particle) => Math.abs(particle.relativePosition[2]) < 0.001)).toBe(true);
+    expect(uniqueRoundedPositions(laterParticles, 0)).toBeGreaterThanOrEqual(9);
+    expect(uniqueRoundedPositions(laterParticles, 1)).toBe(4);
+    expect(positionExtent(laterParticles, 0)).toBeGreaterThan(positionExtent(particles, 0) + 1);
+    expect(positionExtent(laterParticles, 0)).toBeGreaterThan(positionExtent(laterParticles, 1) * 2);
+    expect(positionExtent(laterParticles, 1)).toBeCloseTo(positionExtent(particles, 1), 4);
+    expect(laterParticles[0]?.scaleX ?? 0).toBeGreaterThan(laterParticles[0]?.scaleY ?? 0);
+  });
+
+  it("orders overlapping SPL emitters in reverse creation order while keeping parent-child order local", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    archive.resources = [
+      { ...archive.resources[0], index: 0, drawChildFirst: false },
+      { ...archive.resources[0], index: 1, drawChildFirst: false },
+      { ...archive.resources[0], index: 2, drawChildFirst: true },
+    ];
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline = [0, 1, 2].map((resourceId) => ({
+      ...preview.timeline[0],
+      id: `synthetic-${resourceId}`,
+      resourceId,
+    }));
+
+    const particles = simulateSplPreview(preview, 1);
+    expect([...new Set(particles.map((particle) => particle.resourceIndex))]).toEqual([2, 1, 0]);
+    expect(particles[0].renderLayer).toBe(1);
+  });
+
+  it("keeps command billboard overrides from flattening SPL polygon particles", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32, 2 << 4);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0].particle = {
+      sourceTarget: 17,
+      destinationTarget: 4,
+      axis: [1, 0, 0],
+      foreshorten: false,
+      screenRotation: -0.72,
+    };
+
+    const particle = simulateSplPreview(preview, 1)[0];
+    expect(particle?.drawType).toBe(2);
+    expect(particle?.rotation).toBeCloseTo(0);
+    expect(particle?.tiltScale).toBeLessThan(1);
+  });
+
   it("adds command-driven DistortSprite hit overlay particles", () => {
     const archive = parseSpaArchive(makeSyntheticSpa());
     const preview = makeSyntheticPreview(archive);
@@ -390,6 +548,15 @@ function makeSyntheticSpa(): Uint8Array {
   writeU16(out, texture + 52, 0x03e0);
   writeU16(out, texture + 54, 0x7c00);
   return out;
+}
+
+function uniqueRoundedPositions(particles: ReturnType<typeof simulateSplPreview>, axis: 0 | 1 | 2): number {
+  return new Set(particles.map((particle) => particle.relativePosition[axis].toFixed(3))).size;
+}
+
+function positionExtent(particles: ReturnType<typeof simulateSplPreview>, axis: 0 | 1 | 2): number {
+  const values = particles.map((particle) => particle.relativePosition[axis]);
+  return Math.max(...values) - Math.min(...values);
 }
 
 function makeSyntheticChildSpa(): Uint8Array {

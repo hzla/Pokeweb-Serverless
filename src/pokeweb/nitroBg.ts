@@ -6,6 +6,25 @@ export type NitroBackgroundImage = {
   width: number;
   height: number;
   rgba: Uint8ClampedArray;
+  indexed: NitroBackgroundIndexedData;
+  frameImages?: NitroBackgroundImage[];
+  warnings: string[];
+};
+
+export type NitroBackgroundIndexedData = {
+  entries: Uint16Array;
+  tilePixels: Uint8Array[];
+  palette: NitroPaletteData;
+  transparentIndexZero: boolean;
+};
+
+export type NitroPaletteData = Array<[number, number, number, number]>;
+
+export type NitroBackgroundPaletteAnimation = {
+  datId: number;
+  paletteArcId: number;
+  frames: Array<{ paletteIndex: number; wait: number }>;
+  palettes: NitroPaletteData;
   warnings: string[];
 };
 
@@ -24,8 +43,6 @@ type CharacterData = {
   pixels: Uint8Array[];
 };
 
-type PaletteData = Array<[number, number, number, number]>;
-
 export function parseNitroBackground(
   datId: number,
   screenBytes: Uint8Array,
@@ -36,30 +53,41 @@ export function parseNitroBackground(
   const warnings: string[] = [];
   const screen = parseScreen(screenBytes, warnings);
   const characters = parseCharacters(characterBytes, warnings);
-  const palette = parsePalette(paletteBytes, warnings);
-  const rgba = new Uint8ClampedArray(screen.width * screen.height * 4);
-  let hasTransparency = false;
-
-  for (let tileY = 0; tileY < screen.height / 8; tileY += 1) {
-    for (let tileX = 0; tileX < screen.width / 8; tileX += 1) {
-      const entry = screen.entries[tileY * (screen.width / 8) + tileX] ?? 0;
-      const tileIndex = entry & 0x03ff;
-      const flipX = (entry & 0x0400) !== 0;
-      const flipY = (entry & 0x0800) !== 0;
-      const paletteBank = (entry >>> 12) & 0x0f;
-      const tile = characters.pixels[tileIndex];
-      if (!tile) continue;
-      if (drawTile(rgba, screen.width, tileX * 8, tileY * 8, tile, palette, paletteBank, flipX, flipY, Boolean(options.transparentIndexZero))) {
-        hasTransparency = true;
-      }
-    }
-  }
+  const palette = parseNitroPalette(paletteBytes, warnings);
+  const indexed = {
+    entries: screen.entries,
+    tilePixels: characters.pixels,
+    palette,
+    transparentIndexZero: Boolean(options.transparentIndexZero),
+  };
+  const { rgba, hasTransparency } = renderNitroBackgroundRgba(screen.width, screen.height, indexed);
 
   if (characters.tileCount < Math.max(...screen.entries.map((entry) => entry & 0x03ff), 0) + 1) {
     warnings.push(`Background ${datId} references tiles beyond the character data`);
   }
 
-  return { datId, hasTransparency, width: screen.width, height: screen.height, rgba, warnings };
+  return { datId, hasTransparency, width: screen.width, height: screen.height, rgba, indexed, warnings };
+}
+
+export function parseNitroPalette(bytes: Uint8Array, warnings: string[] = []): NitroPaletteData {
+  if (readAscii(bytes, 0, 4) !== "RLCN") throw new Error("NCLR palette file has an unsupported stamp");
+  const blockOffset = findBlock(bytes, "TTLP");
+  if (blockOffset < 0) throw new Error("NCLR palette file is missing the TTLP block");
+  const dataSize = readU32(bytes, blockOffset + 16);
+  const dataOffset = blockOffset + 24;
+  const colorCount = Math.floor(Math.min(dataSize, Math.max(0, bytes.length - dataOffset)) / 2);
+  const palette: NitroPaletteData = [];
+  for (let index = 0; index < colorCount; index += 1) palette.push(rgb555(readU16(bytes, dataOffset + index * 2)));
+  if (palette.length === 0) palette.push([0, 0, 0, 255]);
+  if (colorCount < dataSize / 2) warnings.push(`NCLR palette data is truncated: ${colorCount * 2}/${dataSize} bytes`);
+  return palette;
+}
+
+export function renderNitroBackgroundImage(background: NitroBackgroundImage, paletteOverride?: NitroPaletteData): Uint8ClampedArray {
+  return renderNitroBackgroundRgba(background.width, background.height, {
+    ...background.indexed,
+    palette: paletteOverride ?? background.indexed.palette,
+  }).rgba;
 }
 
 function parseScreen(bytes: Uint8Array, warnings: string[]): ScreenData {
@@ -132,18 +160,30 @@ function parseCharacters(bytes: Uint8Array, warnings: string[]): CharacterData {
   return { tileCount, pixels };
 }
 
-function parsePalette(bytes: Uint8Array, warnings: string[]): PaletteData {
-  if (readAscii(bytes, 0, 4) !== "RLCN") throw new Error("NCLR palette file has an unsupported stamp");
-  const blockOffset = findBlock(bytes, "TTLP");
-  if (blockOffset < 0) throw new Error("NCLR palette file is missing the TTLP block");
-  const dataSize = readU32(bytes, blockOffset + 16);
-  const dataOffset = blockOffset + 24;
-  const colorCount = Math.floor(Math.min(dataSize, Math.max(0, bytes.length - dataOffset)) / 2);
-  const palette: PaletteData = [];
-  for (let index = 0; index < colorCount; index += 1) palette.push(rgb555(readU16(bytes, dataOffset + index * 2)));
-  if (palette.length === 0) palette.push([0, 0, 0, 255]);
-  if (colorCount < dataSize / 2) warnings.push(`NCLR palette data is truncated: ${colorCount * 2}/${dataSize} bytes`);
-  return palette;
+function renderNitroBackgroundRgba(
+  width: number,
+  height: number,
+  indexed: NitroBackgroundIndexedData,
+): { rgba: Uint8ClampedArray; hasTransparency: boolean } {
+  const rgba = new Uint8ClampedArray(width * height * 4);
+  let hasTransparency = false;
+
+  for (let tileY = 0; tileY < height / 8; tileY += 1) {
+    for (let tileX = 0; tileX < width / 8; tileX += 1) {
+      const entry = indexed.entries[tileY * (width / 8) + tileX] ?? 0;
+      const tileIndex = entry & 0x03ff;
+      const flipX = (entry & 0x0400) !== 0;
+      const flipY = (entry & 0x0800) !== 0;
+      const paletteBank = (entry >>> 12) & 0x0f;
+      const tile = indexed.tilePixels[tileIndex];
+      if (!tile) continue;
+      if (drawTile(rgba, width, tileX * 8, tileY * 8, tile, indexed.palette, paletteBank, flipX, flipY, indexed.transparentIndexZero)) {
+        hasTransparency = true;
+      }
+    }
+  }
+
+  return { rgba, hasTransparency };
 }
 
 function drawTile(
@@ -152,7 +192,7 @@ function drawTile(
   x: number,
   y: number,
   tile: Uint8Array,
-  palette: PaletteData,
+  palette: NitroPaletteData,
   paletteBank: number,
   flipX: boolean,
   flipY: boolean,

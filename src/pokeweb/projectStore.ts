@@ -108,6 +108,14 @@ export type StarterState = {
   dirtyOverlayIds: number[];
 };
 
+export type PatchState = {
+  dirtyOverlayIds: number[];
+  applied?: {
+    removeDustCloudGems?: boolean;
+    removeDustCloudItems?: boolean;
+  };
+};
+
 export type ProjectState = {
   originalRomBytes?: Uint8Array;
   session: SessionSettings;
@@ -137,6 +145,7 @@ export type ProjectState = {
   fileSystem?: FileSystemEditState;
   codeInjection?: CodeInjectionState;
   starters?: StarterState;
+  patches?: PatchState;
   actionChangelog?: ActionChangelogState;
 };
 

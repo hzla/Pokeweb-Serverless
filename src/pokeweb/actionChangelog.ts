@@ -152,6 +152,7 @@ export function domainTitle(domain: string): string {
     wbt_trainers: "Black Tower / White Treehollow Trainers",
     wbt_area_pools: "Black Tower / White Treehollow Area Pools",
     facilities: "Battle Facilities",
+    patches: "Patches",
     file_system: "File System",
     code_injection: "Code Injection",
   };

@@ -113,7 +113,12 @@ function persistableProject(project: ProjectState, compactRawFiles: boolean): Pr
   delete snapshot.texts.messageTexts;
   delete snapshot.texts.storyTexts;
   if (compactRawFiles && !snapshot.tms?.dirty && !snapshot.arm9Dirty) snapshot.arm9 = new Uint8Array();
-  if (compactRawFiles) snapshot.overlays = {};
+  if (compactRawFiles) {
+    const dirtyPatchOverlayIds = new Set(snapshot.patches?.dirtyOverlayIds ?? []);
+    snapshot.overlays = Object.fromEntries(
+      Object.entries(snapshot.overlays).filter(([overlayId]) => dirtyPatchOverlayIds.has(Number(overlayId))),
+    );
+  }
   for (const store of Object.values(snapshot.narcs)) {
     if (!store) continue;
     store.records = new Map();
@@ -143,7 +148,10 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   const overlayIds: number[] = [];
   if (project.narcs.grotto_odds || project.overlays[36]?.length === 0) overlayIds.push(36);
   if (project.narcs.move_effects_table || project.narcs.type_chart || project.overlays[167]?.length === 0) overlayIds.push(167);
-  if (project.session.baseRom === "BW2" && overlayIds.length > 0) {
+  for (const overlayId of project.patches?.dirtyOverlayIds ?? []) {
+    if (!project.overlays[overlayId] || project.overlays[overlayId]?.length === 0) overlayIds.push(overlayId);
+  }
+  if (overlayIds.length > 0) {
     const overlays = rom.loadArm9Overlays([...new Set(overlayIds)]);
     for (const [id, overlay] of overlays) project.overlays[id] = overlay.data;
   }

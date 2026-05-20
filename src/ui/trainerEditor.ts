@@ -1,5 +1,4 @@
 import addIcon from "../assets/svgs/add.svg?raw";
-import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import { publicAsset } from "../assetUrl";
 import { TRAINER_AIS } from "../pokeweb/constants";
 import {
@@ -13,7 +12,7 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachTrainerInteractions } from "./trainerInteractions";
 
-export function renderTrainerEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
+export function renderTrainerEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>): void {
   root.innerHTML = `
     <div class="pokemon-filter trainer-filter">
       <div class="filter-title">Search</div>
@@ -23,6 +22,10 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
         <span class="svg">${addIcon}</span>
         Add Trainer
       </button>
+      <div class="trainer-test-team">
+        <div class="filter-title">Test Team</div>
+        <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import"></textarea>
+      </div>
     </div>
     <div class="pokemon-list spreadsheet" id="trainers">
       <div class="expanded-field field-header">
@@ -42,6 +45,7 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
 
   attachTrainerInteractions(root, project, {
     onDirty,
+    onTestBattle,
     autofills: getTrainerAutofills(project),
     renderRow: (trainerId) => renderTrainerRow(project, trainerId),
   });
@@ -62,7 +66,7 @@ function renderTrainerCard(trainer: TrainerRecord): string {
     <div class="expanded-field filterable trainer-card" data-index="${trainer.id}">
       <div class="expanded-field-main">
         <div class="trainer-id">${trainer.id}</div>
-        <div class="move-info expand-action expand-trainer svg no-fill" data-expand="trainer">${miscDataIcon}</div>
+        <button class="field-btn test-battle-btn trainer-row-test-btn" type="button">Test</button>
         <div class="trainer-name">
           <img src="${trainer.spritePath}" alt="" onerror="this.style.display='none'">
           ${escapeHtml(String(trainer.readable.name ?? `Trainer ${trainer.id}`))}

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readU32 } from "../nds/binary";
+import { NARC } from "../nds/narc";
+import { NintendoDSRom } from "../nds/rom";
 import type { NarcName } from "../pokeweb/constants";
 import { compileMoveAnimation, decompileMoveAnimation, decompileMoveAnimationBytes, updateMoveAnimationScript } from "../pokeweb/moveAnimationModel";
 import { updateMoveField } from "../pokeweb/moveItemModel";
@@ -168,14 +170,14 @@ describe("moveAnimationModel", () => {
 
   it("uses corrected argument counts for background helper commands", () => {
     const project = makeProject();
-    const script = SINGLE_SCRIPT.replace("LoadSPA 165", "DistortBackground 0, 1, 2, 3, 4, 5\n     BackgroundPaletteAnimation 4, 5, 6, 7, 8");
+    const script = SINGLE_SCRIPT.replace("LoadSPA 165", "DistortBackground 0, 1, 2, 3, 4, 5\n     BackgroundPaletteAnimation 4, 5");
     const bytes = compileMoveAnimation(project, 1, script);
     project.narcs.move_animations!.rawFiles[1] = bytes;
 
     const text = decompileMoveAnimation(project, 1);
 
     expect(text).toContain("DistortBackground 0, 1, 2, 3, 4, 5");
-    expect(text).toContain("BackgroundPaletteAnimation 4, 5, 6, 7, 8");
+    expect(text).toContain("BackgroundPaletteAnimation 4, 5");
   });
 
   it("accepts legacy four-argument DistortBackground scripts", () => {

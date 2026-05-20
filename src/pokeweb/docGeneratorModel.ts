@@ -954,7 +954,9 @@ function safeFilename(value: string): string {
 }
 
 function lines(text: string): string[] {
-  return text.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+  const out = text.split(/\r?\n/u).map((line) => line.trim());
+  while (out.at(-1) === "") out.pop();
+  return out;
 }
 
 function zipStored(files: Array<{ filename: string; contents: string }>): Uint8Array {

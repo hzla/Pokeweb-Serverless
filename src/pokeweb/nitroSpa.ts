@@ -106,10 +106,17 @@ export type SpaResource = {
   textureTileCountS: number;
   textureTileCountT: number;
   scaleAnimDir: number;
+  directionalBillboardScale: number;
+  dpolCenter: boolean;
   flipTextureS: boolean;
   flipTextureT: boolean;
+  offsetPos: number;
   polygonX: number;
   polygonY: number;
+  polygonRotAxis: number;
+  polygonReferencePlane: number;
+  drawChildFirst: boolean;
+  cameraOffset: boolean;
   minRotation: number;
   maxRotation: number;
   initAngle: number;
@@ -219,13 +226,20 @@ export function parseSpaArchive(bytes: Uint8Array): SpaArchive {
       baseAlpha: alphaByteToUnit((misc0 >>> 8) & 0xff),
       textureIndex: misc0 >>> 24,
       loopFrames: misc1 & 0xff,
+      directionalBillboardScale: ((misc1 >>> 8) & 0xffff) / 4096,
       textureTileCountS: (misc1 >>> 24) & 0x03,
       textureTileCountT: (misc1 >>> 26) & 0x03,
       scaleAnimDir: (misc1 >>> 28) & 0x07,
+      dpolCenter: (misc1 & (1 << 31)) !== 0,
       flipTextureS: (misc2 & 0x01) !== 0,
       flipTextureT: (misc2 & 0x02) !== 0,
+      offsetPos: (misc2 >>> 2) & 0x07,
       polygonX: fx16(bytes, cursor + 80),
       polygonY: fx16(bytes, cursor + 82),
+      polygonRotAxis: (flags >>> 17) & 0x03,
+      polygonReferencePlane: (flags >>> 19) & 0x01,
+      drawChildFirst: (flags & (1 << 21)) !== 0,
+      cameraOffset: (flags & (1 << 23)) !== 0,
       hasRotation: (flags & (1 << 12)) !== 0,
       randomInitAngle: (flags & (1 << 13)) !== 0,
       followEmitter: (flags & (1 << 15)) !== 0,
@@ -391,18 +405,19 @@ function serializeResource(resource: SpaResource): Uint8Array {
       (airResistance << 16) |
       (clampInt(resource.textureIndex, 0, 255) << 24),
   );
-  const originalMisc1 = resource.rawHeader && resource.rawHeader.length >= 76 ? readU32(resource.rawHeader, 72) : 0;
+  const dpolCenterBit = resource.dpolCenter ? 0x80000000 : 0;
   writeU32(
     out,
     72,
-    (originalMisc1 & 0x00ffff00) |
-      clampInt(resource.loopFrames, 0, 255) |
+    clampInt(resource.loopFrames, 0, 255) |
+      (clampInt(resource.directionalBillboardScale * 4096, 0, 0xffff) << 8) |
       (clampInt(resource.textureTileCountS, 0, 3) << 24) |
       (clampInt(resource.textureTileCountT, 0, 3) << 26) |
-      (clampInt(resource.scaleAnimDir, 0, 7) << 28),
+      (clampInt(resource.scaleAnimDir, 0, 7) << 28) |
+      dpolCenterBit,
   );
   const originalMisc2 = resource.rawHeader && resource.rawHeader.length >= 80 ? readU32(resource.rawHeader, 76) : 0;
-  writeU32(out, 76, (originalMisc2 & ~0x03) | (resource.flipTextureS ? 0x01 : 0) | (resource.flipTextureT ? 0x02 : 0));
+  writeU32(out, 76, (originalMisc2 & ~0x1f) | (resource.flipTextureS ? 0x01 : 0) | (resource.flipTextureT ? 0x02 : 0) | (clampInt(resource.offsetPos, 0, 7) << 2));
   writeFx16(out, 80, resource.polygonX);
   writeFx16(out, 82, resource.polygonY);
 
@@ -422,8 +437,12 @@ function resourceFlags(resource: SpaResource): number {
     (1 << 13) |
     (1 << 15) |
     (1 << 16) |
+    (0x03 << 17) |
+    (1 << 19) |
     (1 << 20) |
+    (1 << 21) |
     (1 << 22) |
+    (1 << 23) |
     (0x3f << 24);
   let flags = resource.flags & ~knownMask;
   flags |= clampInt(resource.emissionType, 0, 15);
@@ -437,8 +456,12 @@ function resourceFlags(resource: SpaResource): number {
   if (resource.randomInitAngle) flags |= 1 << 13;
   if (resource.followEmitter) flags |= 1 << 15;
   if (resource.childResource) flags |= 1 << 16;
+  flags |= clampInt(resource.polygonRotAxis, 0, 3) << 17;
+  flags |= clampInt(resource.polygonReferencePlane, 0, 1) << 19;
   if (resource.randomizeLoopedAnim) flags |= 1 << 20;
+  if (resource.drawChildFirst) flags |= 1 << 21;
   if (resource.hideParent) flags |= 1 << 22;
+  if (resource.cameraOffset) flags |= 1 << 23;
   for (const behavior of firstBehaviors(resource).values()) flags |= 1 << behaviorFlagBit(behavior.type);
   return flags >>> 0;
 }

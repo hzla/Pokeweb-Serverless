@@ -52,6 +52,33 @@ describe("ROM export", () => {
     expect([...parsed.files[1]]).toEqual([4]);
   });
 
+  it("can preserve original ROM length for browser emulator launches", () => {
+    const source = makeRom([Uint8Array.of(1, 2, 3), Uint8Array.of(4)]);
+    const padded = new Uint8Array(source.length + 0x2000);
+    padded.set(source);
+
+    const rom = new NintendoDSRom(padded);
+    const saved = rom.save({ files: new Map([[1, Uint8Array.of(9, 8, 7, 6, 5)]]), preserveOriginalLength: true });
+    const parsed = new NintendoDSRom(saved);
+
+    expect(saved.length).toBe(padded.length);
+    expect(readU32(saved, 0x80)).toBe(padded.length);
+    expect([...parsed.files[1]]).toEqual([9, 8, 7, 6, 5]);
+  });
+
+  it("can pad compact ROMs back to a requested minimum length", () => {
+    const source = makeRom([Uint8Array.of(1, 2, 3), Uint8Array.of(4)]);
+    const targetLength = source.length + 0x4000;
+
+    const rom = new NintendoDSRom(source);
+    const saved = rom.save({ files: new Map([[1, Uint8Array.of(9, 8, 7, 6, 5)]]), minimumLength: targetLength });
+    const parsed = new NintendoDSRom(saved);
+
+    expect(saved.length).toBe(targetLength);
+    expect(readU32(saved, 0x80)).toBe(targetLength);
+    expect([...parsed.files[1]]).toEqual([9, 8, 7, 6, 5]);
+  });
+
   it("materializes aggregate header edits before NARC rebuild", async () => {
     const formats = getNarcFormats("BW2");
     const headerFormat = formats.headers;
