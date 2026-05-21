@@ -29,7 +29,7 @@ import { loadProjectFromRomFile } from "./pokeweb/loader";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
-import { buildTestBattleDownloads } from "./pokeweb/testBattle";
+import { buildMoveTestBattleDownloads, buildTestBattleDownloads } from "./pokeweb/testBattle";
 import { renderDebugNarcs } from "./ui/debugNarcs";
 import { renderCodeInjectionEditor } from "./ui/codeInjectionEditor";
 import { renderFileSystemEditor } from "./ui/fileSystemEditor";
@@ -465,7 +465,7 @@ function renderApp(): void {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
-    });
+    }, (moveId, scriptText) => launchMoveTestBattle(moveId, scriptText));
     return;
   }
 
@@ -723,6 +723,31 @@ async function launchTestBattle(trainerId: number, showdownText = ""): Promise<v
       romName: `${baseName}-test-battle-trainer-${trainerId}.nds`,
       saveName: `${baseName}-test-battle-trainer-${trainerId}.sav`,
       trainerId,
+      testLabel: `trainer ${trainerId} test battle`,
+      romBytes,
+      saveBytes,
+    });
+  } catch (error) {
+    emulator.close();
+    throw error;
+  }
+}
+
+async function launchMoveTestBattle(moveId: number, scriptText: string): Promise<void> {
+  if (!project) return;
+  if (!hasExportBase) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
+  if (project.session.baseRom !== "BW2") throw new Error("Move Test currently supports Black 2 / White 2 projects only.");
+
+  const emulator = openTestBattleEmulator();
+  const baseName = project.session.romName || "pokeweb";
+  try {
+    await saveActiveProject(project);
+    const { romBytes, saveBytes } = await buildMoveTestBattleDownloads(project, moveId, { moveAnimationScriptText: scriptText });
+    await emulator.launch({
+      romName: `${baseName}-test-move-${moveId}.nds`,
+      saveName: `${baseName}-test-move-${moveId}.dsv`,
+      trainerId: moveId,
+      testLabel: `move ${moveId} test battle`,
       romBytes,
       saveBytes,
     });

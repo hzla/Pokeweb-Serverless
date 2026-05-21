@@ -2,6 +2,8 @@ import "./styles.css";
 import "./styles/hgMoveAnimation.css";
 
 import { formatBytes } from "./ui/dom";
+import { buildHgMoveAnimationTestBattleDownloads } from "./pokeweb/hgTestBattle";
+import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
 import {
   appendHgMoveSpaFiles,
   compileHgMoveAnimationScript,
@@ -36,6 +38,7 @@ const HG_ROM_CACHE_DB = "pokeweb-hg-move-animation";
 const HG_ROM_CACHE_VERSION = 1;
 const HG_ROM_CACHE_STORE = "roms";
 const HG_ROM_CACHE_KEY = "latest";
+const HG_EDITOR_PREFS_KEY = "pokeweb-hg-move-animation-editor-prefs";
 
 type CachedHgRom = {
   fileName: string;
@@ -45,10 +48,14 @@ type CachedHgRom = {
 type UiState = {
   project?: HgMoveAnimationRom;
   fileName?: string;
+  romBytes?: Uint8Array;
   activeKind: HgMoveAnimationArchiveKind;
   selectedFileId: number;
+  selectedFileIds: Partial<Record<HgMoveAnimationArchiveKind, number>>;
   sidebarScrollTop: Partial<Record<HgMoveAnimationArchiveKind, number>>;
   filter: string;
+  favoriteOnly: boolean;
+  favorites: Partial<Record<HgMoveAnimationArchiveKind, Set<number>>>;
   editorText: string;
   editorDirty: boolean;
   editorTab: "readable" | "hgEngine";
@@ -59,8 +66,11 @@ type UiState = {
 const state: UiState = {
   activeKind: "move",
   selectedFileId: 0,
+  selectedFileIds: {},
   sidebarScrollTop: {},
   filter: "",
+  favoriteOnly: false,
+  favorites: {},
   editorText: "",
   editorDirty: false,
   editorTab: "readable",
@@ -144,6 +154,10 @@ function renderWorkspace(): void {
           </div>
           <div class="hg-filter">
             <input id="filter" value="${escapeAttr(state.filter)}" placeholder="Filter file IDs" />
+            <label class="hg-favorites-filter">
+              <input id="favorite-only" type="checkbox" ${state.favoriteOnly ? "checked" : ""} />
+              Favorites only
+            </label>
           </div>
           <div class="hg-list">${renderFileList()}</div>
         </aside>
@@ -178,6 +192,7 @@ function renderHeaderActions(): string {
   const archiveLabel = archiveLabelForKind(state.activeKind);
   return `
     <div class="hg-header__actions">
+      <button id="load-new-rom" class="hg-btn">Load New ROM</button>
       ${state.activeKind === "spa" ? `<button id="append-spa" class="hg-btn">Append SPA</button><input id="append-spa-file" type="file" accept=".spa,application/octet-stream" multiple hidden />` : ""}
       <button id="export-bin" class="hg-btn">Export ${state.activeKind === "spa" ? ".spa" : ".bin"}</button>
       <button id="export-narc" class="hg-btn">Export ${archiveLabel}.narc</button>
@@ -193,6 +208,7 @@ function renderScriptPane(byteLength: number, selected: number, selectedName: st
       <div class="hg-header__actions">
         <button id="reset-script" class="hg-btn">Reload</button>
         <button id="preview-script" class="hg-btn">Preview</button>
+        <button id="test-script" class="hg-btn">Test</button>
         <button id="compile-script" class="hg-btn -primary">Compile & Save</button>
       </div>
     </div>
@@ -256,18 +272,21 @@ function renderFileList(): string {
   const archive = project.archives[state.activeKind];
   const selected = clampFileId(state.selectedFileId);
   return archive.narc.files
-    .map((bytes, id) => ({ id, bytes, name: moveListName(project, id) }))
-    .filter((file) => fileMatchesFilter(file.id, file.name, state.filter))
+    .map((bytes, id) => ({ id, bytes, name: moveListName(project, id), favorite: isFavorite(state.activeKind, id) }))
+    .filter((file) => (!state.favoriteOnly || file.favorite) && fileMatchesFilter(file.id, file.name, state.filter))
     .map(
       (file) => `
-        <button class="hg-file ${file.id === selected ? "-active" : ""}" data-file-id="${file.id}">
-          <span class="hg-file__main">
-            <strong>${String(file.id).padStart(3, "0")}</strong>
-            ${state.activeKind === "move" && file.name ? `<em>${escapeHtml(file.name)}</em>` : ""}
-          </span>
-          <small>${formatBytes(file.bytes.length)}</small>
-          ${archive.dirty.has(file.id) ? '<span class="hg-file__dirty">edited</span>' : ""}
-        </button>
+        <div class="hg-file-row ${file.id === selected ? "-active" : ""}">
+          <button class="hg-favorite ${file.favorite ? "-active" : ""}" data-favorite-id="${file.id}" aria-pressed="${file.favorite}" title="${file.favorite ? "Remove from favorites" : "Add to favorites"}">${file.favorite ? "★" : "☆"}</button>
+          <button class="hg-file" data-file-id="${file.id}">
+            <span class="hg-file__main">
+              <strong>${String(file.id).padStart(3, "0")}</strong>
+              ${state.activeKind === "move" && file.name ? `<em>${escapeHtml(file.name)}</em>` : ""}
+            </span>
+            <small>${formatBytes(file.bytes.length)}</small>
+            ${archive.dirty.has(file.id) ? '<span class="hg-file__dirty">edited</span>' : ""}
+          </button>
+        </div>
       `,
     )
     .join("");
@@ -286,14 +305,16 @@ function bindWorkspaceEvents(): void {
       const kind = button.dataset.kind as HgMoveAnimationArchiveKind;
       if (state.activeKind === kind) return;
       captureSidebarScroll();
+      state.selectedFileIds[state.activeKind] = state.selectedFileId;
       state.activeKind = kind;
-      state.selectedFileId = 0;
+      state.selectedFileId = state.selectedFileIds[kind] ?? 0;
       state.filter = "";
       state.editorText = "";
       state.editorDirty = false;
       state.editorTab = "readable";
       clearPreview();
       state.status = { text: "" };
+      persistEditorPrefs();
       render();
     });
   });
@@ -302,6 +323,16 @@ function bindWorkspaceEvents(): void {
     const input = event.currentTarget as HTMLInputElement;
     state.filter = input.value;
     refreshFileList();
+  });
+
+  appRoot.querySelector<HTMLInputElement>("#favorite-only")?.addEventListener("change", (event) => {
+    state.favoriteOnly = (event.currentTarget as HTMLInputElement).checked;
+    persistEditorPrefs();
+    refreshFileList();
+  });
+
+  appRoot.querySelector<HTMLButtonElement>("#load-new-rom")?.addEventListener("click", () => {
+    resetToRomUpload();
   });
 
   bindFileListEvents();
@@ -314,6 +345,15 @@ function bindFileListEvents(): void {
     button.addEventListener("click", () => {
       const fileId = Number(button.dataset.fileId ?? 0);
       selectFile(fileId);
+    });
+  });
+  appRoot.querySelectorAll<HTMLButtonElement>(".hg-favorite").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const fileId = Number(button.dataset.favoriteId ?? 0);
+      toggleFavorite(state.activeKind, fileId);
+      persistEditorPrefs();
+      refreshFileList();
     });
   });
 }
@@ -348,6 +388,10 @@ function bindEditorEvents(): void {
 
   appRoot.querySelector<HTMLButtonElement>("#preview-script")?.addEventListener("click", () => {
     void previewScript({ initialPlaying: true });
+  });
+
+  appRoot.querySelector<HTMLButtonElement>("#test-script")?.addEventListener("click", () => {
+    void launchHgTestBattle();
   });
 
   appRoot.querySelector<HTMLSelectElement>("#scenario-side")?.addEventListener("change", (event) => {
@@ -853,11 +897,16 @@ async function loadRomFile(file: File): Promise<void> {
 
 function loadRomBytes(bytes: Uint8Array, fileName: string, verb: "Loaded" | "Restored"): void {
   const project = loadHgMoveAnimationRom(bytes);
+  const prefs = loadEditorPrefs(fileName, project);
   state.project = project;
   state.fileName = fileName;
-  state.activeKind = "move";
-  state.selectedFileId = 0;
+  state.romBytes = bytes.slice();
+  state.activeKind = prefs.activeKind;
+  state.selectedFileIds = prefs.selectedFileIds;
+  state.selectedFileId = state.selectedFileIds[state.activeKind] ?? 0;
   state.filter = "";
+  state.favoriteOnly = prefs.favoriteOnly;
+  state.favorites = prefs.favorites;
   state.editorText = "";
   state.editorDirty = false;
   state.editorTab = "readable";
@@ -865,10 +914,12 @@ function loadRomBytes(bytes: Uint8Array, fileName: string, verb: "Loaded" | "Res
     text: `${verb} ${project.archives.move.narc.files.length} move animations, ${project.archives.sub.narc.files.length} sub-animations, and ${project.archives.spa.narc.files.length} SPA files.`,
     kind: "ok",
   };
+  state.selectedFileId = clampFileId(state.selectedFileId);
+  state.selectedFileIds[state.activeKind] = state.selectedFileId;
   clearPreview();
   loadSelectedScript();
   render();
-  void previewScript({ initialPlaying: false, statusText: `${verb} preview at frame 0.` });
+  if (isScriptArchiveKind(state.activeKind)) void previewScript({ initialPlaying: false, statusText: `${verb} preview at frame 0.` });
 }
 
 async function restoreLatestRom(): Promise<void> {
@@ -886,13 +937,41 @@ async function restoreLatestRom(): Promise<void> {
   }
 }
 
+function resetToRomUpload(): void {
+  romLoadGeneration += 1;
+  clearPreview();
+  scriptEditor?.destroy();
+  scriptEditor = undefined;
+  spaEditor = undefined;
+  activeCommandReference = undefined;
+  renderedSidebarKind = undefined;
+  state.project = undefined;
+  state.fileName = undefined;
+  state.romBytes = undefined;
+  state.activeKind = "move";
+  state.selectedFileId = 0;
+  state.selectedFileIds = {};
+  state.sidebarScrollTop = {};
+  state.filter = "";
+  state.favoriteOnly = false;
+  state.favorites = {};
+  state.editorText = "";
+  state.editorDirty = false;
+  state.editorTab = "readable";
+  state.scenario = { ...DEFAULT_HG_MOVE_ANIMATION_PREVIEW_SCENARIO };
+  state.status = { text: "Choose a HeartGold or HG-engine ROM to load." };
+  render();
+}
+
 function selectFile(fileId: number): void {
   state.selectedFileId = fileId;
+  state.selectedFileIds[state.activeKind] = fileId;
   state.editorText = "";
   state.editorDirty = false;
   state.editorTab = "readable";
   clearPreview();
   state.status = { text: "" };
+  persistEditorPrefs();
   if (isScriptArchiveKind(state.activeKind)) loadSelectedScript();
   render();
   if (isScriptArchiveKind(state.activeKind)) void previewScript({ initialPlaying: false, statusText: "Loaded preview at frame 0." });
@@ -993,6 +1072,42 @@ function exportRom(): void {
   download(bytes, `${baseName}-edited.nds`);
 }
 
+async function launchHgTestBattle(): Promise<void> {
+  const project = state.project;
+  if (!project) {
+    state.status = { text: "Reload the HeartGold ROM before launching a test.", kind: "error" };
+    render();
+    return;
+  }
+  if (state.activeKind !== "move") {
+    state.status = { text: "Select a move animation before launching a HeartGold test.", kind: "error" };
+    render();
+    return;
+  }
+
+  const emulator = openTestBattleEmulator();
+  const baseName = state.fileName?.replace(/\.nds$/iu, "") || "heartgold";
+  try {
+    state.status = { text: "Building HeartGold test battle..." };
+    render();
+    const { romBytes, saveBytes, saveName } = await buildHgMoveAnimationTestBattleDownloads(project, state.selectedFileId, state.editorText, favoriteMoveIdsForTest());
+    await emulator.launch({
+      romName: `${baseName}-hg-test.nds`,
+      saveName: saveName ?? "testani.dsv",
+      trainerId: state.selectedFileId,
+      testLabel: "HeartGold animation test",
+      romBytes: romBytes.slice(),
+      saveBytes,
+    });
+    state.status = { text: "HeartGold test launched.", kind: "ok" };
+    render();
+  } catch (error) {
+    emulator.close();
+    state.status = { text: error instanceof Error ? error.message : String(error), kind: "error" };
+    render();
+  }
+}
+
 async function appendSpaFiles(files: File[]): Promise<void> {
   try {
     state.status = { text: `Appending ${files.length} SPA file${files.length === 1 ? "" : "s"}...` };
@@ -1022,6 +1137,122 @@ function clampFileId(fileId: number): number {
 function moveListName(project: HgMoveAnimationRom, fileId: number): string {
   if (state.activeKind !== "move") return "";
   return project.moveNames[fileId] ?? "";
+}
+
+type StoredHgEditorPrefs = {
+  activeKind?: unknown;
+  selectedFileIds?: Partial<Record<HgMoveAnimationArchiveKind, unknown>>;
+  favoriteOnly?: unknown;
+  favorites?: Partial<Record<HgMoveAnimationArchiveKind, unknown>>;
+};
+
+type HgEditorPrefs = {
+  activeKind: HgMoveAnimationArchiveKind;
+  selectedFileIds: Partial<Record<HgMoveAnimationArchiveKind, number>>;
+  favoriteOnly: boolean;
+  favorites: Partial<Record<HgMoveAnimationArchiveKind, Set<number>>>;
+};
+
+const HG_ARCHIVE_KINDS: HgMoveAnimationArchiveKind[] = ["move", "sub", "spa"];
+
+function loadEditorPrefs(fileName: string, project: HgMoveAnimationRom): HgEditorPrefs {
+  const stored = readEditorPrefsMap()[editorPrefsKey(fileName, project)] ?? {};
+  const activeKind = isArchiveKind(stored.activeKind) ? stored.activeKind : "move";
+  const selectedFileIds: Partial<Record<HgMoveAnimationArchiveKind, number>> = {};
+  for (const kind of HG_ARCHIVE_KINDS) {
+    const raw = stored.selectedFileIds?.[kind];
+    const parsed = typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
+    selectedFileIds[kind] = clampFileIdForKind(project, kind, parsed ?? 0);
+  }
+  return {
+    activeKind,
+    selectedFileIds,
+    favoriteOnly: stored.favoriteOnly === true,
+    favorites: deserializeFavorites(project, stored.favorites),
+  };
+}
+
+function persistEditorPrefs(): void {
+  const project = state.project;
+  const fileName = state.fileName;
+  if (!project || !fileName) return;
+  try {
+    state.selectedFileIds[state.activeKind] = state.selectedFileId;
+    const prefsMap = readEditorPrefsMap();
+    prefsMap[editorPrefsKey(fileName, project)] = {
+      activeKind: state.activeKind,
+      selectedFileIds: { ...state.selectedFileIds },
+      favoriteOnly: state.favoriteOnly,
+      favorites: serializeFavorites(state.favorites),
+    };
+    localStorage.setItem(HG_EDITOR_PREFS_KEY, JSON.stringify(prefsMap));
+  } catch (error) {
+    console.warn("Failed to persist HG editor preferences", error);
+  }
+}
+
+function readEditorPrefsMap(): Record<string, StoredHgEditorPrefs> {
+  try {
+    const raw = localStorage.getItem(HG_EDITOR_PREFS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, StoredHgEditorPrefs> : {};
+  } catch {
+    return {};
+  }
+}
+
+function editorPrefsKey(fileName: string, project: HgMoveAnimationRom): string {
+  return `${project.romInfo.idCode}:${fileName}`;
+}
+
+function isArchiveKind(value: unknown): value is HgMoveAnimationArchiveKind {
+  return value === "move" || value === "sub" || value === "spa";
+}
+
+function clampFileIdForKind(project: HgMoveAnimationRom, kind: HgMoveAnimationArchiveKind, fileId: number): number {
+  const archive = project.archives[kind];
+  if (archive.narc.files.length === 0) return 0;
+  return Math.max(0, Math.min(archive.narc.files.length - 1, Math.trunc(fileId)));
+}
+
+function deserializeFavorites(
+  project: HgMoveAnimationRom,
+  stored: StoredHgEditorPrefs["favorites"],
+): Partial<Record<HgMoveAnimationArchiveKind, Set<number>>> {
+  const favorites: Partial<Record<HgMoveAnimationArchiveKind, Set<number>>> = {};
+  for (const kind of HG_ARCHIVE_KINDS) {
+    const values = Array.isArray(stored?.[kind]) ? stored[kind] : [];
+    favorites[kind] = new Set(
+      values
+        .filter((value): value is number => typeof value === "number" && Number.isInteger(value))
+        .map((value) => clampFileIdForKind(project, kind, value)),
+    );
+  }
+  return favorites;
+}
+
+function serializeFavorites(favorites: Partial<Record<HgMoveAnimationArchiveKind, Set<number>>>): Partial<Record<HgMoveAnimationArchiveKind, number[]>> {
+  return Object.fromEntries(HG_ARCHIVE_KINDS.map((kind) => [kind, [...(favorites[kind] ?? new Set<number>())].sort((a, b) => a - b)]));
+}
+
+function favoriteSet(kind: HgMoveAnimationArchiveKind): Set<number> {
+  state.favorites[kind] ??= new Set<number>();
+  return state.favorites[kind];
+}
+
+function isFavorite(kind: HgMoveAnimationArchiveKind, fileId: number): boolean {
+  return state.favorites[kind]?.has(fileId) ?? false;
+}
+
+function toggleFavorite(kind: HgMoveAnimationArchiveKind, fileId: number): void {
+  const favorites = favoriteSet(kind);
+  if (favorites.has(fileId)) favorites.delete(fileId);
+  else favorites.add(fileId);
+}
+
+function favoriteMoveIdsForTest(): number[] {
+  return [...(state.favorites.move ?? new Set<number>())].sort((a, b) => a - b);
 }
 
 function isScriptArchiveKind(kind: HgMoveAnimationArchiveKind): kind is HgMoveAnimationScriptArchiveKind {

@@ -9,7 +9,15 @@ import {
   type HgMoveAnimationScriptArchiveKind,
   type ParsedHgMoveAnimationCommand,
 } from "./hgMoveAnimationModel";
-import { convertHgParticleOffset, convertHgRawParticlePosition, hgOperatorAxis, hgOperatorPosition, hgOperatorPositionName } from "./hgParticleOperatorTables";
+import {
+  convertHgParticleOffset,
+  convertHgRawParticlePosition,
+  hgOperatorAxis,
+  hgOperatorEndpointPosition,
+  hgOperatorPosition,
+  hgOperatorPositionName,
+  type HgParticleOperatorEndpoint,
+} from "./hgParticleOperatorTables";
 import type { MoveAnimationPreview, MoveAnimationPreviewWarning, MoveAnimationTimelineEvent } from "./moveAnimationPreviewModel";
 import { parseNitroBackground, parseNitroPalette, type NitroBackgroundImage, type NitroBackgroundPaletteAnimation } from "./nitroBg";
 import { parseNitroCellEffect, type NitroCellEffect } from "./nitroCell";
@@ -36,11 +44,21 @@ const CMD37_USER_BEAM_MODES = new Set([6, 8, 10, 14, 16, 18, 20, 22, 24, 26]);
 const CMD37_END_BEAM_MODES = new Set([7, 9, 11, 15, 17, 19, 21, 23, 25, 27]);
 const CMD37_TARGET_USER = 1;
 const CMD37_TARGET_DEFENDER = 2;
+const EMTFUNC_DUMMY = 0;
+const EMTFUNC_ATTACK_POS = 3;
+const EMTFUNC_DEFENCE_POS = 4;
+const EMTFUNC_FIELD_OPERATOR = 17;
 const EMTFUNC_AT_SIDE = 19;
 const EMTFUNC_DF_SIDE = 20;
+const EMTFUNC_ATTACK_POS_CR = 21;
 const HG_BEAM_SCREEN_ROTATION = -0.72;
+const HG_GUILLOTINE_SPA_ID = 43;
 const HG_BITE_SPA_ID = 75;
+const HG_FOCUS_ENERGY_SPA_ID = 143;
+const HG_POWDER_SNOW_SPA_ID = 201;
+const HG_SHADOW_BALL_SPA_ID = 265;
 const HG_PARTICLE_SCREEN_DOT = 172;
+const HG_SIN360_AMPLITUDE = 4096;
 const HG_CATS_WE_081_FUNC_ID = 1;
 const HG_CATS_WE_081_BLINK_DURATION = 45;
 const HG_CATS_WE_081_HOLD_DURATION = 45;
@@ -55,6 +73,9 @@ const HG_CATS_WE_184_FUNC_ID = 7;
 const HG_CATS_WE_184_DURATION = 40;
 const HG_CATS_WE_199_FUNC_ID = 9;
 const HG_CATS_WE_199_DURATION = 92;
+const HG_CATS_WE_333_FUNC_ID = 17;
+const HG_CATS_WE_333_DEFAULT_DURATION = 10;
+const HG_CATS_WE_333_DEFAULT_HEIGHT = 32;
 const WE_TOOL_M1 = 0x0002;
 const WE_TOOL_M2 = 0x0004;
 const WE_TOOL_E1 = 0x0008;
@@ -72,6 +93,11 @@ const OPERATOR_FLD_AT = 2;
 const OPERATOR_FLD_DF = 3;
 const OPERATOR_FLD_SET_DF = 4;
 const OPERATOR_EX_REVERCE_OFF = 1;
+const OPERATOR_POS_SET = 3;
+const OPERATOR_POS_SP_OFS = 4;
+const OPERATOR_POS_EP_OFS = 5;
+const OPERATOR_POS_AT_SIDE_OFS = 12;
+const OPERATOR_POS_DF_SIDE_OFS = 13;
 const FIELD_OPERATOR_ORDER = [
   0x0000,
   OPERATOR_FLD_GRAVITY_MAG,
@@ -429,6 +455,8 @@ function emitParticleEvent(vm: VmState, command: ParsedHgMoveAnimationCommand): 
     return;
   }
   const destination = command.name.toLowerCase() === "addparticlebasedonbattler" ? opposingTarget(target) : target;
+  const origin = hgEmitterCallbackAnchor(target, vm);
+  const destinationAnchor = command.name.toLowerCase() === "addparticlebasedonbattler" ? hgParticleTargetAnchor(destination, vm) : origin;
   const event = makeHgEvent(vm, command, command.name, command.params, "supported", `${command.name} SPA ${spaId} resource ${resourceId} at target ${target}`, {
     effectKind: "spa",
     spaId,
@@ -436,6 +464,8 @@ function emitParticleEvent(vm: VmState, command: ParsedHgMoveAnimationCommand): 
     particle: {
       sourceTarget: target,
       destinationTarget: destination,
+      origin,
+      destination: destinationAnchor,
       projectile: command.name.toLowerCase() === "addparticlebasedonbattler",
       useResourceAnchor: true,
       invertResourceYAxis: true,
@@ -463,7 +493,7 @@ function emitCellEffectEvent(vm: VmState, command: ParsedHgMoveAnimationCommand)
   const paletteId = command.params[3] ?? loaded?.paletteId ?? charId;
   const cellId = command.params[4] ?? loaded?.cellId ?? charId;
   const animationId = command.params[5] ?? loaded?.animationId ?? cellId;
-  const duration = cellEffectDuration(supportFuncId);
+  const duration = cellEffectDuration(supportFuncId, command);
   const cellEffectId = hgCellEffectKey(charId, paletteId, cellId, animationId);
   const event = makeHgEvent(vm, command, command.name, command.params, "supported", `${command.name} CATS cell effect char ${charId}, palette ${paletteId}, cell ${cellId}, animation ${animationId}`, {
     effectKind: "cell",
@@ -474,21 +504,22 @@ function emitCellEffectEvent(vm: VmState, command: ParsedHgMoveAnimationCommand)
       cellId,
       animationId,
       supportFuncId,
-      origin: cellEffectOrigin(vm, supportFuncId),
+      origin: cellEffectOrigin(vm, supportFuncId, command),
       scale: cellEffectScale(supportFuncId),
       duration,
       instances: cellEffectInstances(supportFuncId),
-      motion: cellEffectMotion(supportFuncId),
+      motion: cellEffectMotion(vm, supportFuncId, command),
     },
   });
   vm.timeline.push(event);
   vm.pendingUntil = Math.max(vm.pendingUntil, vm.frame + duration);
 }
 
-function cellEffectOrigin(vm: VmState, supportFuncId: number): Vec3 {
+function cellEffectOrigin(vm: VmState, supportFuncId: number, command?: ParsedHgMoveAnimationCommand): Vec3 {
   if (supportFuncId === HG_CATS_WE_081_FUNC_ID) return stringShotWebAnchor(TARGET_BATTLE_ANCHOR);
   if (supportFuncId === HG_CATS_WE_155_FUNC_ID) return bonemerangAnchor(USER_BATTLE_ANCHOR);
   if (supportFuncId === HG_CATS_WE_199_FUNC_ID) return lockOnAnchor(TARGET_BATTLE_ANCHOR);
+  if (supportFuncId === HG_CATS_WE_333_FUNC_ID) return icicleSpearMotion(vm, command).from;
   const target = copyAnchor(TARGET_BATTLE_ANCHOR);
   if (supportFuncId === HG_CATS_WE_184_FUNC_ID) {
     const attacker = copyAnchor(vm.scenario.attackerSide === "player" ? USER_BATTLE_ANCHOR : TARGET_BATTLE_ANCHOR);
@@ -504,6 +535,7 @@ function cellEffectScale(supportFuncId: number): number {
   if (supportFuncId === HG_CATS_WE_155_FUNC_ID) return 1.35;
   if (supportFuncId === HG_CATS_WE_184_FUNC_ID) return 1.25;
   if (supportFuncId === HG_CATS_WE_199_FUNC_ID) return 1.1;
+  if (supportFuncId === HG_CATS_WE_333_FUNC_ID) return 1.15;
   return 1;
 }
 
@@ -516,16 +548,29 @@ function cellEffectInstances(supportFuncId: number): NonNullable<MoveAnimationTi
   ];
 }
 
-function cellEffectMotion(supportFuncId: number): NonNullable<MoveAnimationTimelineEvent["cellEffect"]>["motion"] | undefined {
-  if (supportFuncId !== HG_CATS_WE_155_FUNC_ID) return undefined;
-  const user = bonemerangAnchor(USER_BATTLE_ANCHOR);
-  const target = bonemerangAnchor(TARGET_BATTLE_ANCHOR);
-  return {
-    legs: [
-      { from: user, to: target, duration: HG_CATS_WE_155_LEG_DURATION, arcHeight: HG_CATS_WE_155_ARC_HEIGHT },
-      { from: target, to: user, duration: HG_CATS_WE_155_LEG_DURATION, arcHeight: -HG_CATS_WE_155_ARC_HEIGHT },
-    ],
-  };
+function cellEffectMotion(
+  vm: VmState,
+  supportFuncId: number,
+  command?: ParsedHgMoveAnimationCommand,
+): NonNullable<MoveAnimationTimelineEvent["cellEffect"]>["motion"] | undefined {
+  if (supportFuncId === HG_CATS_WE_155_FUNC_ID) {
+    const user = bonemerangAnchor(USER_BATTLE_ANCHOR);
+    const target = bonemerangAnchor(TARGET_BATTLE_ANCHOR);
+    return {
+      legs: [
+        { from: user, to: target, duration: HG_CATS_WE_155_LEG_DURATION, arcHeight: HG_CATS_WE_155_ARC_HEIGHT },
+        { from: target, to: user, duration: HG_CATS_WE_155_LEG_DURATION, arcHeight: -HG_CATS_WE_155_ARC_HEIGHT },
+      ],
+    };
+  }
+  if (supportFuncId === HG_CATS_WE_333_FUNC_ID) {
+    const motion = icicleSpearMotion(vm, command);
+    return {
+      faceMotion: true,
+      legs: [{ from: motion.from, to: motion.to, duration: motion.duration, arcHeight: motion.arcHeight }],
+    };
+  }
+  return undefined;
 }
 
 function bonemerangAnchor(anchor: readonly [number, number, number]): Vec3 {
@@ -540,16 +585,74 @@ function lockOnAnchor(anchor: readonly [number, number, number]): Vec3 {
   return [anchor[0], anchor[1] - 3.5, anchor[2] + 1];
 }
 
-function cellEffectDuration(supportFuncId: number): number {
+function shadowBallChargeAnchor(): Vec3 {
+  const direction = sub(TARGET_BATTLE_ANCHOR, USER_BATTLE_ANCHOR);
+  return [
+    USER_BATTLE_ANCHOR[0] + direction[0] * 0.28,
+    USER_BATTLE_ANCHOR[1] + direction[1] * 0.28 + 2.5,
+    USER_BATTLE_ANCHOR[2] + direction[2] * 0.28,
+  ];
+}
+
+function cellEffectDuration(supportFuncId: number, command?: ParsedHgMoveAnimationCommand): number {
   if (supportFuncId === HG_CATS_WE_081_FUNC_ID) return HG_CATS_WE_081_DURATION;
   if (supportFuncId === HG_CATS_WE_155_FUNC_ID) return HG_CATS_WE_155_DURATION;
   if (supportFuncId === HG_CATS_WE_184_FUNC_ID) return HG_CATS_WE_184_DURATION;
   if (supportFuncId === HG_CATS_WE_199_FUNC_ID) return HG_CATS_WE_199_DURATION;
+  if (supportFuncId === HG_CATS_WE_333_FUNC_ID) return icicleSpearMotionParams(command).duration;
   return PARTICLE_EVENT_DURATION;
 }
 
+function icicleSpearMotion(vm: VmState, command?: ParsedHgMoveAnimationCommand): { from: Vec3; to: Vec3; duration: number; arcHeight: number } {
+  const params = icicleSpearMotionParams(command);
+  const attacker = vm.scenario.attackerSide === "player" ? USER_BATTLE_ANCHOR : TARGET_BATTLE_ANCHOR;
+  const defender = vm.scenario.attackerSide === "player" ? TARGET_BATTLE_ANCHOR : USER_BATTLE_ANCHOR;
+  const direction = defender[0] >= attacker[0] ? 1 : -1;
+  const offset = convertHgScreenDotOffset([params.offsetX * direction, params.offsetY * direction, 0]);
+  const from = bonemerangAnchor(attacker);
+  const target = bonemerangAnchor(defender);
+  return {
+    from,
+    to: [target[0] + offset[0], target[1] + offset[1], target[2] + offset[2]],
+    duration: params.duration,
+    arcHeight: Math.abs(convertHgScreenDotOffset([0, params.height, 0])[1]),
+  };
+}
+
+function icicleSpearMotionParams(command?: ParsedHgMoveAnimationCommand): { offsetX: number; offsetY: number; duration: number; height: number } {
+  const args = cellEffectSupportArgs(command);
+  return {
+    offsetX: args[0] ?? 0,
+    offsetY: args[1] ?? 0,
+    duration: Math.max(1, Math.abs(args[2] ?? HG_CATS_WE_333_DEFAULT_DURATION)),
+    height: Math.abs(args[3] ?? HG_CATS_WE_333_DEFAULT_HEIGHT),
+  };
+}
+
+function cellEffectSupportArgs(command?: ParsedHgMoveAnimationCommand): number[] {
+  if (!command) return [];
+  const count = Math.max(0, command.params[8] ?? 0);
+  return command.params.slice(9, 9 + count);
+}
+
 function applyHgParticlePlacementProfile(event: MoveAnimationTimelineEvent): void {
-  if (event.spaId !== HG_BITE_SPA_ID || !event.particle) return;
+  if (!event.particle) return;
+  if (event.spaId === HG_GUILLOTINE_SPA_ID) applyHgGuillotinePlacementProfile(event);
+  if (event.spaId === HG_BITE_SPA_ID) applyHgBitePlacementProfile(event);
+  if (event.spaId === HG_FOCUS_ENERGY_SPA_ID) applyHgFocusEnergyPlacementProfile(event);
+  if (event.spaId === HG_SHADOW_BALL_SPA_ID) applyHgShadowBallPlacementProfile(event);
+}
+
+function applyHgGuillotinePlacementProfile(event: MoveAnimationTimelineEvent): void {
+  if (!event.particle) return;
+  if (event.resourceId !== 1 && event.resourceId !== 2 && event.resourceId !== 3 && event.resourceId !== 4) return;
+  event.particle.origin = [TARGET_BATTLE_ANCHOR[0], TARGET_BATTLE_ANCHOR[1] - 7, TARGET_BATTLE_ANCHOR[2]];
+  event.particle.anchoredPaneMotionDirection = -1;
+  event.message = `${event.message}; HG Guillotine pincer rises from below with SPL anchor`;
+}
+
+function applyHgBitePlacementProfile(event: MoveAnimationTimelineEvent): void {
+  if (!event.particle) return;
   const center: Vec3 = [TARGET_BATTLE_ANCHOR[0], TARGET_BATTLE_ANCHOR[1] + 3.5, TARGET_BATTLE_ANCHOR[2] + 1.5];
   event.particle.destinationTarget = 4;
   event.particle.foreshorten = false;
@@ -579,6 +682,21 @@ function applyHgParticlePlacementProfile(event: MoveAnimationTimelineEvent): voi
     default:
       break;
   }
+}
+
+function applyHgFocusEnergyPlacementProfile(event: MoveAnimationTimelineEvent): void {
+  if (!event.particle || event.resourceId !== 1) return;
+  event.particle.anchoredPaneMotionDirection = -1;
+  event.message = `${event.message}; HG Focus Energy strip rises from attacker anchor`;
+}
+
+function applyHgShadowBallPlacementProfile(event: MoveAnimationTimelineEvent): void {
+  if (!event.particle) return;
+  if (event.resourceId !== 0 && event.resourceId !== 1 && event.resourceId !== 2 && event.resourceId !== 4) return;
+  event.particle.origin = shadowBallChargeAnchor();
+  event.particle.destinationTarget = 4;
+  event.particle.foreshorten = false;
+  event.message = `${event.message}; HG Shadow Ball charge origin near attacker`;
 }
 
 function emitCallFunctionEvent(vm: VmState, command: ParsedHgMoveAnimationCommand): void {
@@ -628,6 +746,21 @@ function emitCallFunctionEvent(vm: VmState, command: ParsedHgMoveAnimationComman
     vm.pendingUntil = Math.max(vm.pendingUntil, vm.frame + duration);
     return;
   }
+  if (functionId === 65) {
+    const applied = applyStraightEmitterMotion(vm, command, args);
+    vm.timeline.push(
+      makeHgEvent(
+        vm,
+        command,
+        "StraightEmitter",
+        args,
+        applied ? "supported" : "unsupported",
+        applied ? `Straight particle emitter ${args[0] ?? 0}` : `Straight particle emitter ${args[0] ?? 0} could not find a recent particle event`,
+      ),
+    );
+    if (!applied) vm.warnings.push({ frame: vm.frame, command: command.name, message: `callfunction 65 could not find particle emitter ${args[0] ?? 0}` });
+    return;
+  }
   if (functionId === 66) {
     const applied = applyParabolicEmitterMotion(vm, command, args);
     vm.timeline.push(
@@ -666,6 +799,52 @@ function emitCallFunctionEvent(vm: VmState, command: ParsedHgMoveAnimationComman
   vm.warnings.push({ frame: vm.frame, command: command.name, message: `callfunction ${functionId} is shown as a timeline marker only` });
 }
 
+function applyStraightEmitterMotion(vm: VmState, command: ParsedHgMoveAnimationCommand, args: number[]): boolean {
+  const emitterId = Math.max(0, args[0] ?? 0);
+  const offset = convertHgScreenDotOffset([args[1] ?? 0, args[2] ?? 0, 0]);
+  const delay = Math.max(0, Math.abs(args[3] ?? 0));
+  const duration = Math.max(1, Math.abs(args[4] ?? 12));
+  const target = args[6] ?? 0;
+  const loopWindow = Math.max(0, args[7] ?? 0);
+  const dummyLoop = (loopWindow >>> 16) & 0xffff;
+  const rawStopLoop = loopWindow & 0xffff;
+  const freezeAtInitialSample = rawStopLoop !== 0;
+  const wave = args[8] ?? 0;
+  const event =
+    findLatestParticleEventForEmitterSet(vm, emitterId) ??
+    findLatestParticleEventAtCurrentFrame(vm) ??
+    findLatestParticleEventForResource(vm, emitterId) ??
+    findLatestParticleEventForSlot(vm, emitterId) ??
+    findLatestParticleEvent(vm);
+  if (!event?.particle) return false;
+
+  const start = target === 1 ? hgRoleAnchor("defender", vm) : hgRoleAnchor("attacker", vm);
+  const end = target === 1 ? hgRoleAnchor("attacker", vm) : hgRoleAnchor("defender", vm);
+  const origin = event.particle.origin ?? start;
+  const delta = add(sub(end, origin), offset);
+  const startRatio = Math.max(0, Math.min(1, dummyLoop / duration));
+  const from: Vec3 = startRatio <= 0 ? [0, 0, 0] : scaleVec(delta, startRatio);
+  const to = freezeAtInitialSample ? from : delta;
+  const motionDuration = freezeAtInitialSample ? duration : Math.max(1, duration - Math.min(dummyLoop, duration - 1));
+  const waveAmplitude = wave ? Math.abs(convertHgParticleOffset([0, HG_SIN360_AMPLITUDE, 0])[1]) : undefined;
+
+  event.particle.origin = origin;
+  event.particle.destination = end;
+  event.particle.originMotion = { from, to, duration: motionDuration, delay, easing: "linear", waveAmplitude };
+  event.particle.axis = normalize(delta);
+  event.particle.destinationTarget = target === 1 ? 3 : 4;
+  event.particle.forceFollowMotion = !wave;
+  event.particle.alignToMotion = true;
+  event.particle.alignDirection = delta;
+  event.particle.alignRotationOffset = Math.PI;
+  event.particle.projectile = false;
+  event.particle.foreshorten = false;
+  event.message = `${event.message}; straight emitter ${target === 1 ? "target to user" : "user to target"} over ${duration} frame(s)`;
+  event.debug = `${event.debug ? `${event.debug}\n` : ""}callfunction 65 emitter ${emitterId}, offset [${offset.map((value) => value.toFixed(2)).join(", ")}], delay ${delay}, duration ${duration}, height ${args[5] ?? 0}, target ${target}, loopWindow ${loopWindow}, wave ${wave}`;
+  vm.pendingUntil = Math.max(vm.pendingUntil, vm.frame + delay + motionDuration + PARTICLE_EVENT_DURATION);
+  return true;
+}
+
 function applyParabolicEmitterMotion(vm: VmState, command: ParsedHgMoveAnimationCommand, args: number[]): boolean {
   const emitterId = Math.max(0, args[0] ?? 0);
   const offset = convertHgScreenDotOffset([args[1] ?? 0, args[2] ?? 0, 0]);
@@ -673,6 +852,7 @@ function applyParabolicEmitterMotion(vm: VmState, command: ParsedHgMoveAnimation
   const arcHeight = Math.abs(convertHgScreenDotOffset([0, args[5] ?? 64, 0])[1]);
   const event =
     findLatestParticleEventForEmitterSet(vm, emitterId) ??
+    findLatestParticleEventAtCurrentFrame(vm) ??
     findLatestParticleEventForResource(vm, emitterId) ??
     findLatestParticleEventForSlot(vm, emitterId) ??
     findLatestParticleEvent(vm);
@@ -680,9 +860,10 @@ function applyParabolicEmitterMotion(vm: VmState, command: ParsedHgMoveAnimation
 
   const start = event.particle.origin ?? cmd37FallbackOrigin(event);
   const destination = event.particle.destinationTarget ?? opposingTarget(event.particle.sourceTarget ?? 3);
-  const end = destination === event.particle.sourceTarget ? copyAnchor(TARGET_BATTLE_ANCHOR) : hgPreviewAnchor(destination);
+  const end = destination === event.particle.sourceTarget ? hgRoleAnchor("defender", vm) : hgPreviewAnchor(destination, vm);
   const delta = sub(end, start);
   event.particle.origin = start;
+  event.particle.destination = end;
   event.particle.originMotion = { from: offset, to: add(delta, offset), duration, arcHeight, easing: "linear" };
   event.particle.axis = normalize(delta);
   event.particle.destinationTarget = destination === event.particle.sourceTarget ? 4 : destination;
@@ -703,7 +884,7 @@ function applyRotatingEmitterMotion(vm: VmState, command: ParsedHgMoveAnimationC
   const duration = Math.max(1, Math.abs(args[7] ?? 1));
   const target = args[8] ?? 0;
   const particleSlot = args[9] ?? 0;
-  const origin = target === 0 ? copyAnchor(USER_BATTLE_ANCHOR) : copyAnchor(TARGET_BATTLE_ANCHOR);
+  const origin = target === 0 ? hgRoleAnchor("attacker", vm) : hgRoleAnchor("defender", vm);
   const rotation = {
     startAngleX: args[1] ?? 0,
     endAngleX: args[2] ?? args[1] ?? 0,
@@ -716,6 +897,7 @@ function applyRotatingEmitterMotion(vm: VmState, command: ParsedHgMoveAnimationC
   const to = rotatingEmitterOffset(rotation, duration, duration);
   const event =
     findLatestParticleEventForEmitterSet(vm, emitterId) ??
+    findLatestParticleEventAtCurrentFrame(vm) ??
     findLatestParticleEventForResource(vm, emitterId) ??
     findLatestParticleEventForSlot(vm, particleSlot) ??
     findLatestParticleEvent(vm);
@@ -931,23 +1113,23 @@ function applyCmd37ParticleTransform(vm: VmState, command: ParsedHgMoveAnimation
     return;
   }
   if (count < 6) return;
-  const priority = command.params[1] ?? 0;
   const targetMode = command.params[2] ?? 0;
   const positionMode = command.params[3] ?? 0;
   const axisMode = command.params[4] ?? 0;
   const fieldMode = command.params[5] ?? 0;
-  const event = findLatestParticleEventForSlot(vm, priority) ?? findLatestParticleEvent(vm);
+  const event = findLatestParticleEventAtCurrentFrame(vm) ?? findLatestParticleEvent(vm);
   if (!event?.particle) return;
 
   const operatorContext = { attackerSide: vm.scenario.attackerSide, contest: vm.scenario.contest, cameraMode: 0 as const };
-  const origin = hgOperatorPosition(positionMode, targetMode, operatorContext) ?? cmd37Origin(positionMode, event);
+  const origin = hgOperatorPosition(positionMode, targetMode, operatorContext) ?? cmd37Origin(positionMode, targetMode, vm, event);
   const source = origin ?? event.particle.origin ?? cmd37FallbackOrigin(event);
-  const destination = cmd37Destination(axisMode, targetMode);
+  const destination = cmd37Destination(axisMode, targetMode, vm);
   if (origin) event.particle.origin = origin;
+  event.particle.destination = destination;
   if (axisMode !== 0) event.particle.axis = hgOperatorAxis(axisMode, targetMode, operatorContext) ?? normalize(sub(destination, source));
   if (axisMode === 0 && origin) event.particle.screenPlane = true;
   if (targetMode === CMD37_TARGET_DEFENDER || axisMode !== 0) event.particle.destinationTarget = 4;
-  event.particle.field = { ...event.particle.field, mode: fieldMode, targetMode, cursor: 0 };
+  event.particle.field = { ...event.particle.field, mode: fieldMode, targetMode, positionMode, axisMode, cursor: 0 };
 
   if (positionMode === 6 && axisMode === 5 && targetMode === CMD37_TARGET_DEFENDER) {
     applyDefenderSideLaserProfile(event);
@@ -963,6 +1145,10 @@ function applyCmd37ParticleTransform(vm: VmState, command: ParsedHgMoveAnimation
 
 function applyDefenderSideLaserProfile(event: MoveAnimationTimelineEvent): void {
   if (!event.particle) return;
+  if (event.spaId === HG_POWDER_SNOW_SPA_ID) {
+    applyHgPowderSnowPlacementProfile(event);
+    return;
+  }
   const origin: Vec3 = [USER_BATTLE_ANCHOR[0] + 3, USER_BATTLE_ANCHOR[1] + 1, USER_BATTLE_ANCHOR[2]];
   const target: Vec3 = [TARGET_BATTLE_ANCHOR[0] + 4, TARGET_BATTLE_ANCHOR[1] + 1, TARGET_BATTLE_ANCHOR[2]];
   event.particle.origin = origin;
@@ -970,6 +1156,15 @@ function applyDefenderSideLaserProfile(event: MoveAnimationTimelineEvent): void 
   event.particle.destinationTarget = 4;
   event.particle.radiusMultiplier = event.particle.radiusMultiplier ?? 0.35;
   event.particle.beamTrail = { start: origin, alpha: 0.78, scale: 1.25 };
+}
+
+function applyHgPowderSnowPlacementProfile(event: MoveAnimationTimelineEvent): void {
+  if (!event.particle) return;
+  const axis = event.particle.axis ?? normalize(sub(TARGET_BATTLE_ANCHOR, USER_BATTLE_ANCHOR));
+  event.particle.axis = normalize([axis[0], -0.3, axis[2]]);
+  event.particle.foreshorten = false;
+  event.particle.screenRotation = undefined;
+  event.message = `${event.message}; HG Powder Snow broad flake cloud`;
 }
 
 function applyCmd37FieldData(command: ParsedHgMoveAnimationCommand, vm: VmState): void {
@@ -1092,13 +1287,43 @@ function cmd37FieldInterval(command: ParsedHgMoveAnimationCommand): number | und
 }
 
 function applyCmd37Offset(command: ParsedHgMoveAnimationCommand, vm: VmState): void {
-  const event = findLatestParticleEvent(vm);
+  const event = findLatestParticleEventAtCurrentFrame(vm) ?? findLatestParticleEvent(vm);
   if (!event?.particle) return;
-  const offset = convertHgParticleOffset([command.params[2] ?? 0, command.params[3] ?? 0, command.params[4] ?? 0]);
+  const targetMode = event.particle.field?.targetMode ?? CMD37_TARGET_DEFENDER;
+  const positionMode = event.particle.field?.positionMode;
+  const raw = [command.params[2] ?? 0, command.params[3] ?? 0, command.params[4] ?? 0] as Vec3;
+  const reverseSign = cmd37PositionReverseSign(command.params[1] ?? 0, targetMode, vm);
+  if (positionMode === OPERATOR_POS_SET) {
+    const explicit = convertHgRawParticlePosition([raw[0] * reverseSign, raw[1] * reverseSign, raw[2]]);
+    event.particle.origin = explicit;
+    event.message = `${event.message}; cmd37 explicit position ${explicit.map((value) => value.toFixed(2)).join(", ")}`;
+    event.debug = `${event.debug ? `${event.debug}\n` : ""}cmd37 explicit base position from HG particle units [${command.params.slice(2, 5).join(", ")}]`;
+    return;
+  }
+
+  const offsetSign = cmd37PositionModeUsesOffset(positionMode) ? reverseSign : 1;
+  const offset = convertHgParticleOffset(scaleVec(raw, offsetSign));
   const origin = event.particle.origin ?? cmd37FallbackOrigin(event);
   event.particle.origin = add(origin, offset);
   event.message = `${event.message}; cmd37 offset ${offset.map((value) => value.toFixed(2)).join(", ")}`;
   event.debug = `${event.debug ? `${event.debug}\n` : ""}cmd37 offset from HG particle point units [${command.params.slice(2, 5).join(", ")}]`;
+}
+
+function cmd37PositionModeUsesOffset(positionMode: number | undefined): boolean {
+  return (
+    positionMode === OPERATOR_POS_SP_OFS ||
+    positionMode === OPERATOR_POS_EP_OFS ||
+    positionMode === OPERATOR_POS_AT_SIDE_OFS ||
+    positionMode === OPERATOR_POS_DF_SIDE_OFS
+  );
+}
+
+function cmd37PositionReverseSign(exMode: number, targetMode: number, vm: VmState): number {
+  if (exMode === OPERATOR_EX_REVERCE_OFF) return 1;
+  const attackerOnPlayerSide = vm.scenario.attackerSide === "player";
+  const sourceOnAttackerSide = targetMode !== CMD37_TARGET_USER && targetMode !== 3;
+  const sourceOnPlayerSide = sourceOnAttackerSide ? attackerOnPlayerSide : !attackerOnPlayerSide;
+  return sourceOnPlayerSide ? 1 : -1;
 }
 
 function findLatestParticleEventForSlot(vm: VmState, slot: number): MoveAnimationTimelineEvent | undefined {
@@ -1125,6 +1350,15 @@ function findLatestParticleEventForEmitterSet(vm: VmState, emitterId: number): M
   return undefined;
 }
 
+function findLatestParticleEventAtCurrentFrame(vm: VmState): MoveAnimationTimelineEvent | undefined {
+  for (let index = vm.timeline.length - 1; index >= 0; index -= 1) {
+    const event = vm.timeline[index];
+    if (event.frame !== vm.frame) break;
+    if (event.effectKind === "spa" && event.particle) return event;
+  }
+  return undefined;
+}
+
 function findLatestParticleEvent(vm: VmState): MoveAnimationTimelineEvent | undefined {
   for (let index = vm.timeline.length - 1; index >= 0; index -= 1) {
     const event = vm.timeline[index];
@@ -1133,14 +1367,14 @@ function findLatestParticleEvent(vm: VmState): MoveAnimationTimelineEvent | unde
   return undefined;
 }
 
-function cmd37Origin(positionMode: number, event: MoveAnimationTimelineEvent): Vec3 | undefined {
+function cmd37Origin(positionMode: number, targetMode: number, vm: VmState, event: MoveAnimationTimelineEvent): Vec3 | undefined {
   switch (positionMode) {
     case 1:
     case 4:
-      return copyAnchor(USER_BATTLE_ANCHOR);
+      return hgOperatorEndpointPosition("attacker", targetMode, operatorContext(vm));
     case 2:
     case 5:
-      return copyAnchor(TARGET_BATTLE_ANCHOR);
+      return hgOperatorEndpointPosition("defender", targetMode, operatorContext(vm));
     case 3:
       return event.particle?.origin ?? cmd37FallbackOrigin(event);
     case 6:
@@ -1153,7 +1387,7 @@ function cmd37Origin(positionMode: number, event: MoveAnimationTimelineEvent): V
     case 22:
     case 24:
     case 26:
-      return copyAnchor(USER_BATTLE_ANCHOR);
+      return hgOperatorEndpointPosition("attacker", targetMode, operatorContext(vm));
     case 7:
     case 9:
     case 11:
@@ -1164,11 +1398,11 @@ function cmd37Origin(positionMode: number, event: MoveAnimationTimelineEvent): V
     case 23:
     case 25:
     case 27:
-      return copyAnchor(TARGET_BATTLE_ANCHOR);
+      return hgOperatorEndpointPosition("defender", targetMode, operatorContext(vm));
     case 12:
-      return copyAnchor(USER_BATTLE_ANCHOR);
+      return hgOperatorEndpointPosition("attackerSide", targetMode, operatorContext(vm));
     case 13:
-      return copyAnchor(TARGET_BATTLE_ANCHOR);
+      return hgOperatorEndpointPosition("defenderSide", targetMode, operatorContext(vm));
     default:
       return undefined;
   }
@@ -1181,20 +1415,55 @@ function cmd37FallbackOrigin(event: MoveAnimationTimelineEvent): Vec3 {
   return copyAnchor(CENTER_BATTLE_ANCHOR);
 }
 
-function cmd37Destination(axisMode: number, targetMode: number): Vec3 {
-  if (axisMode === 0 && targetMode === CMD37_TARGET_USER) return copyAnchor(USER_BATTLE_ANCHOR);
-  if (axisMode === 0 && targetMode === CMD37_TARGET_DEFENDER) return copyAnchor(TARGET_BATTLE_ANCHOR);
+function cmd37Destination(axisMode: number, targetMode: number, vm: VmState): Vec3 {
+  if (axisMode === 0) return hgOperatorEndpointPosition("defender", targetMode, operatorContext(vm));
   if (axisMode === 8 || axisMode === 17) return copyAnchor(CENTER_BATTLE_ANCHOR);
-  if (axisMode === 2 || axisMode === 7 || axisMode === 9 || axisMode === 11 || axisMode === 13 || axisMode === 15 || axisMode === 17 || axisMode === 19 || axisMode === 21) {
-    return copyAnchor(USER_BATTLE_ANCHOR);
+  if (axisMode === 4) return hgOperatorEndpointPosition("attackerSide", targetMode, operatorContext(vm));
+  if (axisMode === 5) return hgOperatorEndpointPosition("defenderSide", targetMode, operatorContext(vm));
+  if (axisMode === 2 || axisMode === 7 || axisMode === 9 || axisMode === 11 || axisMode === 13 || axisMode === 15 || axisMode === 19 || axisMode === 21) {
+    return hgOperatorEndpointPosition("defender", targetMode, operatorContext(vm));
   }
-  return copyAnchor(TARGET_BATTLE_ANCHOR);
+  return hgOperatorEndpointPosition("attacker", targetMode, operatorContext(vm));
 }
 
-function hgPreviewAnchor(target: number): Vec3 {
-  if (target === 3 || target === EMTFUNC_AT_SIDE) return copyAnchor(USER_BATTLE_ANCHOR);
-  if (target === 4 || target === EMTFUNC_DF_SIDE) return copyAnchor(TARGET_BATTLE_ANCHOR);
-  return copyAnchor(CENTER_BATTLE_ANCHOR);
+function hgPreviewAnchor(target: number, vm: VmState): Vec3 {
+  return hgParticleTargetAnchor(target, vm) ?? copyAnchor(CENTER_BATTLE_ANCHOR);
+}
+
+function hgParticleTargetAnchor(target: number, vm: VmState): Vec3 | undefined {
+  const callbackAnchor = hgEmitterCallbackAnchor(target, vm);
+  if (callbackAnchor) return callbackAnchor;
+  if (target === 17) return copyAnchor(CENTER_BATTLE_ANCHOR);
+  if (target === 3) return hgRoleAnchor("attacker", vm);
+  if (target === 4) return hgRoleAnchor("defender", vm);
+  if (target === 8) return copyAnchor(CENTER_BATTLE_ANCHOR);
+  return undefined;
+}
+
+function hgEmitterCallbackAnchor(callbackId: number, vm: VmState): Vec3 | undefined {
+  switch (callbackId) {
+    case EMTFUNC_ATTACK_POS:
+    case EMTFUNC_ATTACK_POS_CR:
+      return hgRoleAnchor("attacker", vm);
+    case EMTFUNC_DEFENCE_POS:
+      return hgRoleAnchor("defender", vm);
+    case EMTFUNC_AT_SIDE:
+      return hgRoleAnchor("attackerSide", vm);
+    case EMTFUNC_DF_SIDE:
+      return hgRoleAnchor("defenderSide", vm);
+    case EMTFUNC_DUMMY:
+    case EMTFUNC_FIELD_OPERATOR:
+    default:
+      return undefined;
+  }
+}
+
+function hgRoleAnchor(endpoint: HgParticleOperatorEndpoint, vm: VmState): Vec3 {
+  return hgOperatorEndpointPosition(endpoint, CMD37_TARGET_DEFENDER, operatorContext(vm));
+}
+
+function operatorContext(vm: VmState): { attackerSide: "player" | "opponent"; contest?: boolean; cameraMode: 0 } {
+  return { attackerSide: vm.scenario.attackerSide, contest: vm.scenario.contest, cameraMode: 0 };
 }
 
 function cmd37Message(command: ParsedHgMoveAnimationCommand): string {

@@ -86,7 +86,7 @@ const ITEM_DETAIL_SECTIONS: Array<{ title: string; fields: readonly ItemFieldSpe
   },
 ];
 
-export function renderMoveEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
+export function renderMoveEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onTestMove?: (moveId: number, scriptText: string) => Promise<void>): void {
   root.innerHTML = `
     <div class="pokemon-filter move-filter">
       <div class="filter-title">Search Text</div>
@@ -119,6 +119,7 @@ export function renderMoveEditor(project: ProjectState, root: HTMLElement, onDir
 
   attachMoveInteractions(root, project, {
     onDirty,
+    onTestMove,
     autofills: getMoveAutofills(),
     renderExpanded: (moveId) => renderMoveExpanded(getMoveRecord(project, moveId)),
   });

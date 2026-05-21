@@ -239,6 +239,20 @@ export const HG_MOVE_ANIMATION_HELPER_DEFINITIONS: HgMoveAnimationHelperDefiniti
     expandsTo: "callfunction 57",
   },
   {
+    name: "battler_sprite_vanish",
+    params: ["count", "targetFlags", "vanish", "num2", "num3", "num4", "num5", "num6", "num7", "num8", "num9"],
+    description:
+      "Readable alias for callfunction 40, the WEST_SP_WE_SSP_POKE_VANISH helper. It sets the vanish flag on selected battler soft-sprites; 0 shows and 1 hides.",
+    expandsTo: "callfunction 40",
+  },
+  {
+    name: "battler_sprite_scale_updown",
+    params: ["count", "targetFlags", "startScaleX", "endScaleX", "startScaleY", "endScaleY", "baseScale", "waitAndRepeat", "scaleFrames", "num8", "num9"],
+    description:
+      "Readable alias for callfunction 42, the WEST_SP_WE_SSP_POKE_SCALE_UPDOWN helper. It scales the selected battler soft-sprite from start X/Y scale to end X/Y scale, waits, then scales back; waitAndRepeat packs wait frames in the high 16 bits and repeat count in the low 16 bits, while scaleFrames packs scale-up frames high and scale-down frames low.",
+    expandsTo: "callfunction 42",
+  },
+  {
     name: "battler_sprite_slide_x",
     params: ["count", "wait", "offsetX", "targetFlags", "num3", "num4", "num5", "num6", "num7", "num8", "num9"],
     description:
@@ -252,11 +266,32 @@ export const HG_MOVE_ANIMATION_HELPER_DEFINITIONS: HgMoveAnimationHelperDefiniti
     expandsTo: "callfunction 68",
   },
   {
+    name: "particle_emitter_straight",
+    params: ["count", "emitter", "offsetX", "offsetY", "delay", "duration", "height", "target", "loopWindow", "wave", "num9"],
+    description:
+      "Readable alias for callfunction 65, the WEST_SP_EMIT_STRAIGHT helper. It moves a particle emitter linearly between attacker and defender anchors, with optional end offset, delay, target reversal, packed loop-window/start-skip data, and sine wobble.",
+    expandsTo: "callfunction 65",
+  },
+  {
     name: "particle_emitter_rotation",
     params: ["count", "emitter", "startAngleX", "endAngleX", "startAngleY", "endAngleY", "radiusX", "radiusY", "wait", "target", "particleSlot"],
     description:
       "Readable alias for callfunction 72, the WEST_SP_EMIT_ROTATION helper. It moves a particle emitter around the attacker or defender using X/Y angle ranges, radii, duration, target side, and particle slot.",
     expandsTo: "callfunction 72",
+  },
+  {
+    name: "battle_palette_grayscale",
+    params: ["count", "mode", "num1", "num2", "num3", "num4", "num5", "num6", "num7", "num8", "num9"],
+    description:
+      "Readable alias for callfunction 74, the WEST_SP_PALCOL_CHANGE helper. Nonzero mode switches battle palettes to grayscale; 0 restores normal palettes.",
+    expandsTo: "callfunction 74",
+  },
+  {
+    name: "pokemon_oam_view",
+    params: ["count", "captureId", "wait", "bgType", "softPriority", "dropTarget", "callback", "targetSide", "num7", "num8", "num9"],
+    description:
+      "Readable alias for callfunction 75, the WEST_SP_POKE_OAM_VIEW helper. It displays a captured Pokemon OAM/CATS object for wait frames with optional BG priority, soft priority, drop-target priority adjustment, and callback/window behavior.",
+    expandsTo: "callfunction 75",
   },
   {
     name: "particle_resource_setup",
@@ -302,6 +337,17 @@ export const HG_CALLFUNCTION_DEFINITIONS: HgCallFunctionDefinition[] = [
     description: "Function 36: actor shake helper.",
   },
   {
+    id: 40,
+    name: "battler sprite vanish",
+    description: "Function 40: WEST_SP_WE_SSP_POKE_VANISH. Sets the vanish flag on selected battler soft-sprites; 0 shows and 1 hides.",
+  },
+  {
+    id: 42,
+    name: "battler sprite scale up/down",
+    description:
+      "Function 42: WEST_SP_WE_SSP_POKE_SCALE_UPDOWN. Scales the selected battler soft-sprite from start X/Y scale to end X/Y scale, waits, then scales back; argument 6 packs wait frames and repeat count, and argument 7 packs scale-up and scale-down frame counts.",
+  },
+  {
     id: 52,
     name: "battler sprite horizontal slide",
     description:
@@ -311,6 +357,12 @@ export const HG_CALLFUNCTION_DEFINITIONS: HgCallFunctionDefinition[] = [
     id: 57,
     name: "actor slide",
     description: "Function 57: actor slide or movement helper.",
+  },
+  {
+    id: 65,
+    name: "straight particle emitter",
+    description:
+      "Function 65: WEST_SP_EMIT_STRAIGHT. Moves the selected particle emitter in a straight line between attacker and defender particle anchors, optionally reversed, delayed, pre-advanced, frozen, or given a small sine wobble.",
   },
   {
     id: 66,
@@ -327,6 +379,17 @@ export const HG_CALLFUNCTION_DEFINITIONS: HgCallFunctionDefinition[] = [
     name: "particle emitter rotation",
     description:
       "Function 72: WEST_SP_EMIT_ROTATION. Moves a particle emitter around the attacker or defender using X/Y start/end angles, X/Y radii, wait duration, target side, and particle slot.",
+  },
+  {
+    id: 74,
+    name: "battle palette grayscale",
+    description: "Function 74: WEST_SP_PALCOL_CHANGE. Nonzero mode switches battle palettes to grayscale; 0 restores normal palettes.",
+  },
+  {
+    id: 75,
+    name: "Pokemon OAM view",
+    description:
+      "Function 75: WEST_SP_POKE_OAM_VIEW. Displays a captured Pokemon OAM/CATS object for the requested duration, with optional BG priority, soft priority, drop-target priority adjustment, and callback/window behavior.",
   },
   {
     id: 78,

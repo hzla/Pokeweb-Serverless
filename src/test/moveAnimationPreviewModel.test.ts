@@ -246,6 +246,19 @@ describe("moveAnimationPreviewModel", () => {
     expect(Math.max(...particles.map((particle) => particle.position[0]))).toBeLessThan(TARGET_BATTLE_ANCHOR[0]);
   });
 
+  it("keeps SPA-authored particle velocity in preview-world scale", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32 + 40, 4096);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0].particle = { sourceTarget: 3, destinationTarget: 4, axis: [1, 0, 0] };
+
+    const particle = simulateSplPreview(preview, 10)[0];
+    const displacement = (particle?.position[0] ?? USER_BATTLE_ANCHOR[0]) - USER_BATTLE_ANCHOR[0];
+    expect(displacement).toBeGreaterThan(2);
+    expect(displacement).toBeLessThan(8);
+  });
+
   it("starts delayed SPL emitters after their delay instead of expiring them early", () => {
     const bytes = makeSyntheticSpa();
     writeU16(bytes, 32 + 50, 4);
@@ -255,6 +268,19 @@ describe("moveAnimationPreviewModel", () => {
 
     expect(simulateSplPreview(preview, 2)).toHaveLength(0);
     expect(simulateSplPreview(preview, 5).length).toBeGreaterThan(0);
+  });
+
+  it("does not emit one-frame SPL resources twice at the same origin", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32 + 16, 4096);
+    writeU32(bytes, 32 + 68, 0xff01);
+    writeU16(bytes, 32 + 60, 1);
+    writeU16(bytes, 32 + 62, 10);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+
+    expect(simulateSplPreview(preview, 0)).toHaveLength(1);
+    expect(simulateSplPreview(preview, 1)).toHaveLength(1);
   });
 
   it("uses SPL offset position metadata as the rendered sprite anchor", () => {
@@ -296,13 +322,13 @@ describe("moveAnimationPreviewModel", () => {
     const particle = simulateSplPreview(preview, 1)[0];
     const laterParticle = simulateSplPreview(preview, 24)[0];
     expect(particle?.anchorY).toBe(1);
-    expect(particle?.scaleY).toBeGreaterThan(29);
-    expect(particle?.scaleY).toBeLessThan(31);
+    expect(particle?.scaleY).toBeGreaterThan(14);
+    expect(particle?.scaleY).toBeLessThan(16);
     expect(laterParticle?.scaleY).toBeCloseTo(particle?.scaleY ?? 0, 5);
     const startDistance = Math.abs((particle?.position[1] ?? 0) - TARGET_BATTLE_ANCHOR[1]);
     const laterDistance = Math.abs((laterParticle?.position[1] ?? 0) - TARGET_BATTLE_ANCHOR[1]);
-    expect(startDistance).toBeGreaterThan(10);
-    expect(laterDistance).toBeLessThan(startDistance);
+    expect(startDistance).toBeGreaterThan(4);
+    expect(laterDistance).toBeLessThan(8);
   });
 
   it("exposes SPL polygon draw metadata for the preview renderer", () => {
@@ -413,6 +439,29 @@ describe("moveAnimationPreviewModel", () => {
     expect(particle?.drawType).toBe(2);
     expect(particle?.rotation).toBeCloseTo(0);
     expect(particle?.tiltScale).toBeLessThan(1);
+  });
+
+  it("renders command motion-aligned polygon resources as rotated billboards", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32, 2 << 4);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0].particle = {
+      sourceTarget: 3,
+      destinationTarget: 4,
+      axis: [1, 0, 0],
+      alignToMotion: true,
+      alignDirection: [20, 0, 0],
+      alignRotationOffset: -Math.PI / 2,
+      foreshorten: false,
+      forceFollowMotion: true,
+      originMotion: { from: [0, 0, 0], to: [20, 0, 0], duration: 10, easing: "linear" },
+    };
+
+    const particle = simulateSplPreview(preview, 2)[0];
+    expect(particle?.drawType).toBe(0);
+    expect(particle?.rotation).toBeCloseTo(-Math.PI / 2);
+    expect(particle?.tiltScale).toBe(1);
   });
 
   it("adds command-driven DistortSprite hit overlay particles", () => {

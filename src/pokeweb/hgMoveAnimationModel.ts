@@ -210,14 +210,33 @@ const READABLE_CALLFUNCTION_ALIASES = new Map<number, string>([
   [33, "screen_tint"],
   [34, "pokemon_tint"],
   [36, "actor_shake"],
+  [40, "battler_sprite_vanish"],
+  [42, "battler_sprite_scale_updown"],
   [52, "battler_sprite_slide_x"],
   [57, "actor_slide"],
+  [65, "particle_emitter_straight"],
   [68, "screen_shake"],
   [72, "particle_emitter_rotation"],
+  [74, "battle_palette_grayscale"],
+  [75, "pokemon_oam_view"],
   [78, "particle_resource_setup"],
 ]);
 
 const READABLE_CALLFUNCTION_IDS = new Map([...READABLE_CALLFUNCTION_ALIASES].map(([id, name]) => [name, id]));
+const READABLE_PRIMITIVE_ALIASES = new Map<string, string>([
+  ["cmd0c", "work_set"],
+  ["cmd1f", "copy_battler_to_bg2"],
+  ["cmd20", "clear_bg2_battler_copy"],
+  ["cmd3e", "set_sprite_state_byte_a"],
+  ["cmd43", "clear_scratch_params"],
+  ["cmd52", "start_managed_sprite_draw_task"],
+  ["cmd53", "stop_managed_sprite_draw_task"],
+  ["cmd54", "wait_for_input_gate"],
+  ["cmd55", "screen_brightness_pulse"],
+  ["cmd56", "animated_bg_effect_offset_task"],
+  ["cmd57", "branch_on_battle_flag"],
+]);
+const READABLE_PRIMITIVE_COMMANDS = new Map([...READABLE_PRIMITIVE_ALIASES].map(([commandName, alias]) => [alias, commandName]));
 const CMD37_FIELD_ORDER = [0x0000, 0x0002, 0x0004, 0x0008, 0x0010, 0x0020, 0x0040, 0x0080, 0x0100, 0x0200, 0x0400, 0x0800, 0x1000, 0x2000];
 const CMD37_FIELD_ALIAS_BY_BIT = new Map<number, string>([
   [0x0002, "particle_gravity_magnitude"],
@@ -243,6 +262,10 @@ export function getHgMoveAnimationCommandDefinitions(): HgMoveAnimationCommandDe
     branchParams: definition.branchParams?.slice(),
     variable: definition.variable ? { ...definition.variable } : undefined,
   }));
+}
+
+export function getHgMoveAnimationReadableCommandAliases(): Array<{ alias: string; command: string }> {
+  return [...READABLE_PRIMITIVE_COMMANDS].map(([alias, command]) => ({ alias, command }));
 }
 
 export function loadHgMoveAnimationRom(romBytes: Uint8Array): HgMoveAnimationRom {
@@ -571,6 +594,8 @@ function expandToPrimitives(name: string, params: string[]): PrimitiveCommand[] 
   const nan8 = Array.from({ length: 8 }, () => '"NaN"');
   const prim = (commandName: string, values: Array<string | number>): PrimitiveCommand => ({ name: commandName, params: values.map(String) });
   const readableCallfunctionId = READABLE_CALLFUNCTION_IDS.get(lower);
+  const readablePrimitiveCommand = READABLE_PRIMITIVE_COMMANDS.get(lower);
+  if (readablePrimitiveCommand) return [prim(readablePrimitiveCommand, params)];
   if (readableCallfunctionId !== undefined) return [prim("callfunction", [readableCallfunctionId, ...params])];
   if (lower === "particle_metadata") return [prim("cmd37", params)];
   if (lower === "particle_operator") {
@@ -710,6 +735,8 @@ function rewriteHgEngineCommandLineToReadable(line: string, cmd37FieldState: { m
     if (count === 5) return `${indent}${nextCmd37FieldDataAlias(cmd37FieldState)} ${actualParams.join(", ")}`;
     return `${indent}particle_metadata${params.length ? ` ${params.join(", ")}` : ""}`;
   }
+  const primitiveAlias = READABLE_PRIMITIVE_ALIASES.get(lower);
+  if (primitiveAlias) return `${indent}${primitiveAlias}${params.length ? ` ${params.join(", ")}` : ""}`;
   return line;
 }
 

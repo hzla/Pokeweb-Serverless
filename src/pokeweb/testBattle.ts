@@ -2,15 +2,21 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "./exportRom";
 import { getNarcFormats } from "./formats";
+import { compileMoveAnimation } from "./moveAnimationModel";
 import type { ProjectState } from "./projectStore";
-import { patchTestBattleSavePlayerParty } from "./testBattleTeam";
+import { patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty } from "./testBattleTeam";
 
 const TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/test.sav", import.meta.url);
+const HG_ENGINE_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/testani.dsv", import.meta.url);
+const HG_VANILLA_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/vanillagold.dsv", import.meta.url);
 const BW2_HEADERS_NARC_PATH = "a/0/1/2";
 const BW2_TRDATA_NARC_PATH = "a/0/9/1";
 const BW2_TRPOK_NARC_PATH = "a/0/9/2";
 const BW2_OVERWORLDS_NARC_PATH = "a/1/2/6";
+const BW2_MOVE_ANIMATIONS_NARC_PATH = "a/0/1/0";
+const BW2_BATTLE_ANIMATIONS_NARC_PATH = "a/0/1/1";
 const TEST_BATTLE_BASE_TRAINER_ID = 2;
+const BATTLE_ANIMATION_OFFSET = 561;
 const TEST_BATTLE_SCRIPT_ID = 3000 + TEST_BATTLE_BASE_TRAINER_ID;
 const TEST_BATTLE_NPC_SIZE = 36;
 const TEST_BATTLE_HEADER_SIZE = 8;
@@ -51,10 +57,17 @@ const DESMUME_SAVE_TYPES = [
 export type TestBattleDownload = {
   romBytes: Uint8Array;
   saveBytes: Uint8Array;
+  saveName?: string;
 };
+
+export type HgTestBattleSaveKind = "hg-engine" | "vanilla";
 
 export type TestBattleBuildOptions = {
   playerTeamText?: string;
+};
+
+export type MoveTestBattleBuildOptions = {
+  moveAnimationScriptText?: string;
 };
 
 type TestBattleSave = {
@@ -91,6 +104,23 @@ export async function buildTestBattleDownloads(project: ProjectState, trainerId:
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
 }
 
+export async function buildMoveTestBattleDownloads(project: ProjectState, moveId: number, options: MoveTestBattleBuildOptions = {}): Promise<TestBattleDownload> {
+  if (project.session.baseRom !== "BW2") throw new Error("Move Test currently supports Black 2 / White 2 projects only.");
+
+  const [baseRomBytes, save] = await Promise.all([exportModifiedRom(project, { preserveOriginalLength: true }), loadTestBattleSave()]);
+  const movePatchedRom = options.moveAnimationScriptText === undefined ? baseRomBytes : patchMoveAnimationScript(baseRomBytes, project, moveId, options.moveAnimationScriptText);
+  const { romBytes, npc } = patchTestBattleOverworldNpc(movePatchedRom, project, save);
+  const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, save, npc);
+  const patchedSaveBytes = patchTestBattleSavePlayerFirstMove(patchedMapSaveBytes, project, moveId);
+  return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
+}
+
+export async function loadHgAnimationTestBattleSave(kind: HgTestBattleSaveKind): Promise<Uint8Array> {
+  const response = await fetch(kind === "vanilla" ? HG_VANILLA_TEST_BATTLE_SAVE_URL : HG_ENGINE_TEST_BATTLE_SAVE_URL);
+  if (!response.ok) throw new Error(`Failed to load bundled HeartGold animation test save: ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 async function loadTestBattleSave(): Promise<TestBattleSave> {
   const response = await fetch(TEST_BATTLE_SAVE_URL);
   if (!response.ok) throw new Error(`Failed to load bundled test battle save: ${response.status}`);
@@ -99,6 +129,30 @@ async function loadTestBattleSave(): Promise<TestBattleSave> {
     rawSaveBytes,
     ...readTestBattleSavePosition(rawSaveBytes),
   };
+}
+
+function patchMoveAnimationScript(romBytes: Uint8Array, project: ProjectState, moveId: number, scriptText: string): Uint8Array {
+  const target = resolveMoveAnimationTarget(project, moveId);
+  const rom = new NintendoDSRom(romBytes);
+  const fileId =
+    target.storeName === "move_animations"
+      ? project.narcs.move_animations?.fileId ?? project.session.fileIds.move_animations ?? rom.fileId(BW2_MOVE_ANIMATIONS_NARC_PATH)
+      : project.narcs.battle_animations?.fileId ?? project.session.fileIds.battle_animations ?? rom.fileId(BW2_BATTLE_ANIMATIONS_NARC_PATH);
+  const narc = new NARC(rom.files[fileId]);
+  if (!narc.files[target.index]) throw new Error(`${target.storeName} entry ${target.index} does not exist.`);
+  narc.files[target.index] = compileMoveAnimation(project, moveId, scriptText);
+  return rom.save({
+    files: new Map([[fileId, narc.save()]]),
+    preserveOriginalLength: true,
+  });
+}
+
+function resolveMoveAnimationTarget(project: ProjectState, moveId: number): { storeName: "move_animations" | "battle_animations"; index: number } {
+  const storeName = moveId > 559 ? "battle_animations" : "move_animations";
+  const index = moveId > 559 ? moveId - BATTLE_ANIMATION_OFFSET : moveId;
+  const store = project.narcs[storeName];
+  if (!store || index < 0 || index >= store.rawFiles.length) throw new Error(`${storeName} is not loaded for move ${moveId}`);
+  return { storeName, index };
 }
 
 function patchTestBattleTrainerSlot(romBytes: Uint8Array, project: ProjectState, trainerId: number): Uint8Array {

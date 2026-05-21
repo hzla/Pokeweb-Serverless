@@ -172,6 +172,8 @@
 
 .hg-filter {
   border-bottom: 1px solid #44475a;
+  display: grid;
+  gap: 8px;
   padding: 12px;
 }
 
@@ -185,11 +187,52 @@
   width: 100%;
 }
 
+.hg-favorites-filter {
+  align-items: center;
+  color: #d8dae6;
+  display: flex;
+  font-size: 12px;
+  gap: 7px;
+}
+
+.hg-favorites-filter input {
+  width: auto;
+}
+
 .hg-list {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 8px;
+}
+
+.hg-file-row {
+  align-items: center;
+  border-radius: 5px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+}
+
+.hg-file-row:hover,
+.hg-file-row.-active {
+  background: #343748;
+}
+
+.hg-favorite {
+  background: transparent;
+  border: 0;
+  color: #85899e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 17px;
+  height: 32px;
+  line-height: 1;
+  padding: 0;
+}
+
+.hg-favorite:hover,
+.hg-favorite.-active {
+  color: #f8d66d;
 }
 
 .hg-file {
@@ -225,11 +268,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.hg-file:hover,
-.hg-file.-active {
-  background: #343748;
 }
 
 .hg-file small {

@@ -2,6 +2,7 @@ export type TestBattleEmulatorPayload = {
   romName: string;
   saveName: string;
   trainerId: number;
+  testLabel?: string;
   romBytes: Uint8Array;
   saveBytes: Uint8Array;
 };
@@ -36,6 +37,7 @@ export function openTestBattleEmulator(): { launch: (payload: TestBattleEmulator
           romName: payload.romName,
           saveName: payload.saveName,
           trainerId: payload.trainerId,
+          testLabel: payload.testLabel,
           romBuffer,
           saveBuffer,
         },

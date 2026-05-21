@@ -2,7 +2,7 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { EditorState, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate, drawSelection, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
 import { HG_MOVE_ANIMATION_HELPER_BY_NAME, type HgMoveAnimationHelperDefinition } from "../pokeweb/hgMoveAnimationDocs";
-import { getHgMoveAnimationCommandDefinitions, type HgMoveAnimationCommandDefinition } from "../pokeweb/hgMoveAnimationModel";
+import { getHgMoveAnimationCommandDefinitions, getHgMoveAnimationReadableCommandAliases, type HgMoveAnimationCommandDefinition } from "../pokeweb/hgMoveAnimationModel";
 
 export type HgMoveAnimationCodeEditor = {
   destroy: () => void;
@@ -33,6 +33,12 @@ type HighlightRange = { from: number; to: number; mark: Decoration };
 
 const primitiveDefinitions = getHgMoveAnimationCommandDefinitions();
 const primitiveByName = new Map(primitiveDefinitions.map((definition) => [definition.name.toLowerCase(), definition]));
+const readablePrimitiveByName = new Map(
+  getHgMoveAnimationReadableCommandAliases().flatMap((entry) => {
+    const definition = primitiveByName.get(entry.command.toLowerCase());
+    return definition ? [[entry.alias.toLowerCase(), definition] as const] : [];
+  }),
+);
 const helperByName = HG_MOVE_ANIMATION_HELPER_BY_NAME;
 const constants = new Set(["PAN_LEFT", "PAN_RIGHT", "PAN_CENTER", "ANIM_TARGET_USER", "ANIM_TARGET_DEFENDER", "ANIM_TARGET_MISC", "ANIM_TARGET_DEFENDER_SIDE"]);
 
@@ -187,7 +193,7 @@ function addLineDecorations(builder: RangeSetBuilder<Decoration>, lineStart: num
         const from = lineStart + command[1].length;
         const to = from + command[2].length;
         const lower = command[2].toLowerCase();
-        ranges.push({ from, to, mark: primitiveByName.has(lower) ? commandMark : helperByName.has(lower) ? helperMark : unknownCommandMark });
+        ranges.push({ from, to, mark: primitiveByName.has(lower) ? commandMark : readablePrimitiveByName.has(lower) || helperByName.has(lower) ? helperMark : unknownCommandMark });
       }
     }
   }
@@ -230,7 +236,7 @@ function commandReferenceAtSelection(view: EditorView): HgCommandReference | und
   const lower = token.name.toLowerCase();
   return {
     name: token.name,
-    definition: primitiveByName.get(lower),
+    definition: primitiveByName.get(lower) ?? readablePrimitiveByName.get(lower),
     helper: helperByName.get(lower),
     params,
     lineText: token.lineText,
