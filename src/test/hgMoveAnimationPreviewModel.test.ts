@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+import * as fs from "node:fs";
 import { writeU16, writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NARC } from "../nds/narc";
-import { compileHgMoveAnimationScript, loadHgMoveAnimationRom } from "../pokeweb/hgMoveAnimationModel";
+import { compileHgMoveAnimationScript, decompileHgMoveAnimation, loadHgMoveAnimationRom } from "../pokeweb/hgMoveAnimationModel";
 import {
   buildHgMoveAnimationPreview,
   DEFAULT_HG_MOVE_ANIMATION_PREVIEW_SCENARIO,
@@ -162,6 +163,36 @@ a010_155:
     expect(event?.cellEffect?.duration).toBe(20);
   });
 
+  it("adds Icicle Spear CATS cell motion from user to target", async () => {
+    const state = loadHgMoveAnimationRom(makePreviewRom());
+    const preview = await buildHgMoveAnimationPreview(
+      state,
+      "move",
+      333,
+      `
+a010_333:
+    initresources 0, 3, 1, 1, 1, 1, 0, 0
+    loadresources 0, 333
+    loadpalette 0, 333, 1
+    loadcell 0, 333
+    loadcellanm 0, 333
+    addsomething 0, 17, 333, 333, 333, 333, 0, 0, 4, -15, -5, 10, 32
+    end
+`,
+      BASE_SCENARIO,
+    );
+
+    const event = preview.timeline.find((timelineEvent) => timelineEvent.command === "addsomething");
+    const leg = event?.cellEffect?.motion?.legs[0];
+    expect(event?.cellEffect?.supportFuncId).toBe(17);
+    expect(event?.cellEffect?.duration).toBe(10);
+    expect(event?.cellEffect?.motion?.faceMotion).toBe(true);
+    expect(leg?.from[0]).toBeLessThan(0);
+    expect(leg?.to[0]).toBeGreaterThan(0);
+    expect(leg?.duration).toBe(10);
+    expect(leg?.arcHeight).toBeGreaterThan(2);
+  });
+
   it("adds String Shot CATS webbing on the defender and a tight defender-side laser", async () => {
     const state = loadHgMoveAnimationRom(makePreviewRom());
     const preview = await buildHgMoveAnimationPreview(
@@ -319,6 +350,31 @@ a010_113:
     const particles = simulateSplPreview(preview, 2);
     expect(particles.length).toBeGreaterThan(0);
     expect(particles[0].position[0]).toBeLessThan(0);
+  });
+
+  it("anchors emitter callbacks to the source attacker and defender clients", async () => {
+    const state = loadHgMoveAnimationRom(makePreviewRom());
+    const preview = await buildHgMoveAnimationPreview(
+      state,
+      "move",
+      0,
+      `
+a010_000:
+    loadparticle 0, 0
+    addparticle 0, 0, 3
+    addparticle 0, 0, 4
+    addparticle 0, 0, 19
+    addparticle 0, 0, 20
+    end
+`,
+      { ...BASE_SCENARIO, attackerSide: "opponent" },
+    );
+
+    const events = preview.timeline.filter((event) => event.command === "addparticle");
+    expect(events[0].particle?.origin?.[0]).toBeGreaterThan(0);
+    expect(events[1].particle?.origin?.[0]).toBeLessThan(0);
+    expect(events[2].particle?.origin?.[0]).toBeGreaterThan(0);
+    expect(events[3].particle?.origin?.[0]).toBeLessThan(0);
   });
 
   it("warns instead of failing when a loaded SPA is missing from a029", async () => {
@@ -566,9 +622,14 @@ a010_042:
     const emitter = preview.timeline.find((event) => event.command === "addparticle2");
     expect(emitter?.particle?.forceFollowMotion).toBe(true);
     expect(emitter?.particle?.alignToMotion).toBe(true);
-    expect(emitter?.particle?.alignDirection).toEqual([33, 6, -28]);
+    expect(emitter?.particle?.alignDirection?.[0]).toBeCloseTo(33);
+    expect(emitter?.particle?.alignDirection?.[1]).toBeCloseTo(6);
+    expect(emitter?.particle?.alignDirection?.[2]).toBeCloseTo(-28);
     expect(emitter?.particle?.alignRotationOffset).toBeCloseTo(-Math.PI / 2);
-    expect(emitter?.particle?.originMotion).toMatchObject({ from: [0, 0, 0], to: [33, 6, -28], duration: 13, easing: "linear" });
+    expect(emitter?.particle?.originMotion).toMatchObject({ from: [0, 0, 0], duration: 13, easing: "linear" });
+    expect(emitter?.particle?.originMotion?.to[0]).toBeCloseTo(33);
+    expect(emitter?.particle?.originMotion?.to[1]).toBeCloseTo(6);
+    expect(emitter?.particle?.originMotion?.to[2]).toBeCloseTo(-28);
     expect(emitter?.particle?.originMotion?.arcHeight).toBeCloseTo(6.01);
     expect(emitter?.particle?.axis?.[0]).toBeGreaterThan(0);
     expect(preview.timeline.find((event) => event.command === "ParabolicEmitter")?.status).toBe("supported");
@@ -604,6 +665,68 @@ a010_020:
     expect(events[0].actorMotion?.offset[0]).toBeGreaterThan(0);
     expect(events[1].actorMotion?.offset[0]).toBeLessThan(0);
     expect(events[1].frame).toBe(3);
+  });
+
+  it("applies callfunction 65 as straight emitter motion", async () => {
+    const state = loadHgMoveAnimationRom(makePreviewRom());
+    const preview = await buildHgMoveAnimationPreview(
+      state,
+      "move",
+      331,
+      `
+a010_331:
+    loadparticle 0, 0
+    addparticle2 0, 1, 0, ANIM_TARGET_USER
+    callfunction 65, 6, 1, 0, 0, 0, 10, 64
+    end
+`,
+      BASE_SCENARIO,
+    );
+
+    const emitter = preview.timeline.find((event) => event.command === "addparticle2");
+    expect(emitter?.particle?.forceFollowMotion).toBe(true);
+    expect(emitter?.particle?.alignToMotion).toBe(true);
+    expect(emitter?.particle?.alignRotationOffset).toBe(Math.PI);
+    expect(emitter?.particle?.originMotion).toMatchObject({ from: [0, 0, 0], duration: 10, delay: 0, easing: "linear" });
+    expect(emitter?.particle?.originMotion?.to[0]).toBeCloseTo(33);
+    expect(emitter?.particle?.originMotion?.to[1]).toBeCloseTo(6);
+    expect(emitter?.particle?.originMotion?.to[2]).toBeCloseTo(-28);
+    expect(emitter?.particle?.axis?.[0]).toBeGreaterThan(0);
+    expect(preview.timeline.find((event) => event.command === "StraightEmitter")?.status).toBe("supported");
+
+    const earlyMaxX = Math.max(...simulateSplPreview(preview, 1).map((particle) => particle.position[0]));
+    const laterMaxX = Math.max(...simulateSplPreview(preview, 9).map((particle) => particle.position[0]));
+    expect(laterMaxX).toBeGreaterThan(earlyMaxX);
+    expect(laterMaxX).toBeGreaterThan(0);
+  });
+
+  it("applies callfunction 65 sine wave without collapsing emitted particles", async () => {
+    const state = loadHgMoveAnimationRom(makePreviewRom());
+    const preview = await buildHgMoveAnimationPreview(
+      state,
+      "move",
+      149,
+      `
+a010_149:
+    loadparticle 0, 0
+    addparticle2 0, 0, 0, ANIM_TARGET_USER
+    callfunction 65, 9, 0, 0, 0, 0, 19, 64, 0, 0, 1
+    end
+`,
+      BASE_SCENARIO,
+    );
+
+    const emitter = preview.timeline.find((event) => event.command === "addparticle2");
+    expect(emitter?.particle?.forceFollowMotion).toBe(false);
+    expect(emitter?.particle?.alignRotationOffset).toBe(Math.PI);
+    expect(emitter?.particle?.originMotion?.waveAmplitude).toBeGreaterThan(2);
+    expect(preview.timeline.find((event) => event.command === "StraightEmitter")?.status).toBe("supported");
+
+    const particles = simulateSplPreview(preview, 14);
+    const xs = particles.map((particle) => particle.position[0]);
+    const ys = particles.map((particle) => particle.position[1]);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(20);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(3);
   });
 
   it("applies callfunction 72 as rotating emitter motion", async () => {
@@ -731,6 +854,95 @@ a010_000:
     const particle = preview.timeline.find((event) => event.command === "addparticle")?.particle;
     expect(particle?.origin?.[0]).toBeCloseTo(15 + (1720 * 33) / 22304);
     expect(particle?.origin?.[1]).toBeCloseTo(18 - (3440 * 6) / 10992);
+  });
+
+  it("applies cmd37 operator records to the adjacent emitter instead of treating priority as a slot", async () => {
+    const state = loadHgMoveAnimationRom(makePreviewRom());
+    const preview = await buildHgMoveAnimationPreview(
+      state,
+      "move",
+      0,
+      `
+a010_000:
+    loadparticle 0, 0
+    loadparticle 1, 0
+    addparticle 0, 0, ANIM_TARGET_USER
+    addparticle 1, 0, ANIM_TARGET_MISC
+    cmd37 6, 0, 2, 5, 0, 0, 0
+    end
+`,
+      BASE_SCENARIO,
+    );
+
+    const particles = preview.timeline.filter((event) => event.command === "addparticle");
+    expect(particles[0].particle?.origin?.[0]).toBeLessThan(0);
+    expect(particles[1].particle?.origin?.[0]).toBeCloseTo(15);
+    expect(particles[1].particle?.field?.positionMode).toBe(5);
+  });
+
+  it("uses cmd37 target mode to resolve attacker and defender endpoints", async () => {
+    const state = loadHgMoveAnimationRom(makePreviewRom());
+    const preview = await buildHgMoveAnimationPreview(
+      state,
+      "move",
+      0,
+      `
+a010_000:
+    loadparticle 0, 0
+    addparticle 0, 0, ANIM_TARGET_MISC
+    cmd37 6, 0, 1, 2, 0, 0, 0
+    addparticle 0, 0, ANIM_TARGET_MISC
+    cmd37 6, 0, 2, 2, 0, 0, 0
+    end
+`,
+      BASE_SCENARIO,
+    );
+
+    const particles = preview.timeline.filter((event) => event.command === "addparticle");
+    expect(particles[0].particle?.origin?.[0]).toBeLessThan(0);
+    expect(particles[1].particle?.origin?.[0]).toBeGreaterThan(0);
+  });
+
+  it("treats cmd37 count-4 records as explicit base positions for OPERATOR_POS_SET", async () => {
+    const state = loadHgMoveAnimationRom(makePreviewRom());
+    const preview = await buildHgMoveAnimationPreview(
+      state,
+      "move",
+      0,
+      `
+a010_000:
+    loadparticle 0, 0
+    addparticle 0, 0, ANIM_TARGET_MISC
+    cmd37 6, 0, 2, 3, 0, 0, 0
+    cmd37 4, 1, -14936, -5032, 64
+    end
+`,
+      BASE_SCENARIO,
+    );
+
+    const particle = preview.timeline.find((event) => event.command === "addparticle")?.particle;
+    expect(particle?.origin).toEqual([-18, 12, 18]);
+  });
+
+  it("reverses cmd37 position offsets when the source client is on the opposite side", async () => {
+    const state = loadHgMoveAnimationRom(makePreviewRom());
+    const preview = await buildHgMoveAnimationPreview(
+      state,
+      "move",
+      0,
+      `
+a010_000:
+    loadparticle 0, 0
+    addparticle 0, 0, ANIM_TARGET_MISC
+    cmd37 6, 0, 2, 5, 0, 0, 0
+    cmd37 4, 0, 4096, 0, 0
+    end
+`,
+      { ...BASE_SCENARIO, attackerSide: "opponent" },
+    );
+
+    const particle = preview.timeline.find((event) => event.command === "addparticle")?.particle;
+    expect(particle?.origin?.[0]).toBeLessThan(-18);
   });
 
   it("keeps Protect style position-only field operators camera-facing over the user", async () => {

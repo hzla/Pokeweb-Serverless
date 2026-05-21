@@ -5,9 +5,10 @@ import { CENTER_BATTLE_ANCHOR, copyBattleAnchor, TARGET_BATTLE_ANCHOR, USER_BATT
 const FPS = 30;
 const MAX_PARTICLES_PER_EVENT = 256;
 const POSITION_SCALE = 4.5;
+const VELOCITY_STEP_SCALE = 0.3;
 const SPRITE_SCALE = 13.5;
 const HG_ANCHORED_PANE_TARGET_SCALE = 1.1;
-const HG_ANCHORED_PANE_POSITION_SCALE = 0;
+const HG_ANCHORED_PANE_POSITION_SCALE = 1;
 
 type Vec3 = [number, number, number];
 
@@ -144,7 +145,7 @@ class SplEmitter {
     const emitInterval = this.resourceIntervalFrames();
     if (emitInterval <= 0 || this.frame1) {
       this.emit(this.resource.emissionCount);
-    } else if (this.ageFrames <= this.resource.emitterLifeFrames * this.params.lifeMultiplier) {
+    } else if (this.ageFrames < this.resource.emitterLifeFrames * this.params.lifeMultiplier) {
       while (this.emissionTimerFrames >= emitInterval) {
         this.emit(this.resource.emissionCount);
         this.emissionTimerFrames -= emitInterval;
@@ -186,7 +187,7 @@ class SplEmitter {
         const drawType = particleDrawType(this.resource, particle, this.event);
         const directionalBillboard = drawType === 1;
         const advancedPlacement = usesAdvancedParticlePlacement(this.event);
-        const splScale = advancedPlacement || directionalBillboard;
+        const splScale = advancedPlacement || directionalBillboard || isHgAnchoredPaneResource(this.event, this.resource);
         const scaleMultiplier = effectiveScaleMultiplier(this.event, this.resource, this.params);
         const animScale = particleRenderAnimScale(this.event, this.resource, particle);
         const scale = Math.max(0.05, particle.baseScale * animScale * scaleMultiplier * SPRITE_SCALE);
@@ -241,7 +242,12 @@ class SplEmitter {
 
   private renderParticleVelocity(particle: SimParticle): Vec3 {
     const particleVelocity = scaleVec(particle.velocity, POSITION_SCALE);
-    if (!this.event.particle?.forceFollowMotion || !this.event.particle.originMotion) return particleVelocity;
+    if (!this.event.particle?.forceFollowMotion || !this.event.particle.originMotion) {
+      if (this.event.particle?.alignToMotion && length(particleVelocity) < 0.0001 && this.event.particle.alignDirection) {
+        return normalize(this.event.particle.alignDirection);
+      }
+      return particleVelocity;
+    }
     let emitterVelocity = sub(this.emitterPositionAt(this.ageFrames + 1), this.emitterPositionAt(this.ageFrames));
     if (length(emitterVelocity) < 0.0001 && this.ageFrames > 0) emitterVelocity = sub(this.emitterPositionAt(this.ageFrames), this.emitterPositionAt(this.ageFrames - 1));
     if (length(emitterVelocity) < 0.0001 && this.event.particle.alignDirection) {
@@ -253,7 +259,7 @@ class SplEmitter {
 
   private emitterPositionAt(frame: number): Vec3 {
     const basePosScale = POSITION_SCALE * resourceBasePositionMultiplier(this.event, this.resource);
-    return add(scriptEmitterOriginAt(this.event, frame), scaleVec(resourceSpaceVector(this.event, this.resource.emitterBasePos), basePosScale));
+    return add(scriptEmitterOriginAt(this.event, frame), scaleVec(this.resource.emitterBasePos, basePosScale));
   }
 
   private resourceIntervalFrames(): number {
@@ -317,16 +323,16 @@ class SplEmitter {
     const emissionColumn = Math.floor(this.emissionOrdinal / Math.max(1, count));
     const position = this.initialPosition(index, count, localRng, emissionColumn);
     const posNorm = length(position) < 0.00001 ? localRng.unitVector() : normalize(position);
-    const magPos = scaledRange2(this.resource.initVelPosAmplifier * this.params.speedMultiplier, this.resource.variance.initVel, localRng);
+    const magPos = scaledRange2(this.resource.initVelPosAmplifier * this.params.speedMultiplier * VELOCITY_STEP_SCALE, this.resource.variance.initVel, localRng);
     const axisVelocity = this.screenPlaneRegularCellStep(count) === undefined ? this.resource.initVelAxisAmplifier : 0;
-    const magAxis = scaledRange2(axisVelocity * this.params.speedMultiplier, this.resource.variance.initVel, localRng);
+    const magAxis = scaledRange2(axisVelocity * this.params.speedMultiplier * VELOCITY_STEP_SCALE, this.resource.variance.initVel, localRng);
     const velocity = add(add(scaleVec(posNorm, magPos), scaleVec(this.axis, magAxis)), this.particleInitVelocity);
     const color = this.initialColor(localRng);
     const textureIndex = this.initialTexture(localRng);
     return {
       position,
       velocity,
-      emitterPos: this.position,
+      emitterPos: this.emitterPositionAt(this.ageFrames),
       baseScale: scaledRange2(this.resource.baseScale, this.resource.variance.baseScale, localRng),
       animScale: 1,
       color,
@@ -420,11 +426,15 @@ class SplEmitter {
   private applyBehavior(particle: SimParticle, behavior: SpaBehavior): Vec3 {
     switch (behavior.type) {
       case "gravity":
-        return behavior.magnitude;
+        return scaleVec(behavior.magnitude, VELOCITY_STEP_SCALE);
       case "random":
         if (behavior.applyIntervalFrames <= 0 || Math.round(particle.ageFrames) % behavior.applyIntervalFrames === 0) {
           const rng = this.rng.fork(Math.round(particle.ageFrames * 997 + this.emissionOrdinal));
-          return [rng.aroundZero(behavior.magnitude[0]), rng.aroundZero(behavior.magnitude[1]), rng.aroundZero(behavior.magnitude[2])];
+          return [
+            rng.aroundZero(behavior.magnitude[0]) * VELOCITY_STEP_SCALE,
+            rng.aroundZero(behavior.magnitude[1]) * VELOCITY_STEP_SCALE,
+            rng.aroundZero(behavior.magnitude[2]) * VELOCITY_STEP_SCALE,
+          ];
         }
         return [0, 0, 0];
       case "magnet":
@@ -666,12 +676,14 @@ function scriptEmitterOriginAt(event: MoveAnimationTimelineEvent, frame: number)
   const base = scriptEmitterOrigin(event);
   const motion = event.particle?.originMotion;
   if (!motion) return base;
-  if (motion.rotation) return add(base, rotatingMotionOffset(motion.rotation, motion.duration, frame));
+  const localFrame = Math.max(0, frame - Math.max(0, motion.delay ?? 0));
+  if (motion.rotation) return add(base, rotatingMotionOffset(motion.rotation, motion.duration, localFrame));
   const duration = Math.max(1, motion.duration);
-  const t = clamp01(frame / duration);
+  const t = clamp01(localFrame / duration);
   const eased = motion.easing === "linear" ? t : 1 - (1 - t) ** 3;
   const offset = mixVec(motion.from, motion.to, eased);
   if (motion.arcHeight) offset[1] += Math.sin(t * Math.PI) * motion.arcHeight;
+  if (motion.waveAmplitude) offset[1] += Math.sin(t * Math.PI * 2) * motion.waveAmplitude;
   return add(base, offset);
 }
 
@@ -686,10 +698,6 @@ function rotatingMotionOffset(rotation: ParticleRotationMotion, duration: number
 
 function degToRad(degrees: number): number {
   return (degrees * Math.PI) / 180;
-}
-
-function resourceSpaceVector(event: MoveAnimationTimelineEvent, value: Vec3): Vec3 {
-  return event.particle?.invertResourceYAxis ? [value[0], -value[1], value[2]] : value;
 }
 
 function emitterAxis(event: MoveAnimationTimelineEvent, fallback: Vec3): Vec3 {
@@ -761,6 +769,7 @@ function commandSource(event: MoveAnimationTimelineEvent): Vec3 {
 }
 
 function commandDestination(event: MoveAnimationTimelineEvent): Vec3 {
+  if (event.particle?.destination) return event.particle.destination;
   if (event.particle) return hgBattleAnchor(event.particle.destinationTarget ?? event.particle.sourceTarget);
   const layout = spaCommandLayout(event);
   const destination = event.params[layout.destinationParam];
@@ -785,6 +794,7 @@ function particleRenderLayer(resource: SpaResource, particle: SimParticle): numb
 function particleDrawType(resource: SpaResource, particle: SimParticle, event: MoveAnimationTimelineEvent): number {
   const drawType = particle.child?.drawType ?? resource.drawType;
   if (drawType <= 1) return drawType;
+  if (event.particle?.alignToMotion) return 0;
   if (!usesAdvancedParticlePlacement(event)) return 0;
   return drawType;
 }
@@ -830,13 +840,13 @@ function hgAnchoredPaneMotionOffset(event: MoveAnimationTimelineEvent, resource:
   const travelScale = Math.max(0, stableScale - particle.animScale);
   if (travelScale <= 0) return [0, 0, 0];
   const base = particle.baseScale * scaleMultiplier * SPRITE_SCALE;
-  const direction = resource.offsetPos === 2 ? 1 : -1;
+  const direction = event.particle?.anchoredPaneMotionDirection ?? (resource.offsetPos === 2 ? 1 : -1);
   return [0, direction * base * travelScale, 0];
 }
 
 function effectiveScaleMultiplier(event: MoveAnimationTimelineEvent, resource: SpaResource, params: EventParams): number {
   if (!isHgAnchoredPaneResource(event, resource)) return params.scaleMultiplier;
-  const normalized = HG_ANCHORED_PANE_TARGET_SCALE / Math.max(0.001, resource.baseScale);
+  const normalized = HG_ANCHORED_PANE_TARGET_SCALE / Math.max(0.001, resource.baseScale * stableHgAnchoredPaneAnimScale(resource));
   return Math.min(params.scaleMultiplier, normalized);
 }
 
@@ -845,7 +855,7 @@ function resourceBasePositionMultiplier(event: MoveAnimationTimelineEvent, resou
 }
 
 function isHgAnchoredPaneResource(event: MoveAnimationTimelineEvent, resource: SpaResource): boolean {
-  return event.particle?.useResourceAnchor === true && resource.emissionType === 0 && resource.emissionCount === 1 && (resource.offsetPos === 1 || resource.offsetPos === 2);
+  return event.particle?.useResourceAnchor === true && (resource.emissionType === 0 || resource.emissionType === 7) && resource.emissionCount === 1 && (resource.offsetPos === 1 || resource.offsetPos === 2);
 }
 
 function textureAnchorOffsetY(event: MoveAnimationTimelineEvent, resource: SpaResource, archive: SpaArchive, textureIndex: number, anchorY: number): number {

@@ -19,6 +19,7 @@ import { installMoveSpaEditor, type MoveSpaEditorController } from "./moveSpaEdi
 
 type MoveOptions = {
   onDirty?: () => void;
+  onTestMove?: (moveId: number, scriptText: string) => Promise<void>;
   autofills: Record<string, string[]>;
   renderExpanded: (moveId: number) => string;
 };
@@ -146,6 +147,7 @@ function renderMoveAnimationEditor(script: string): string {
       <button class="script-btn move-animation-apply" type="button">Apply Script</button>
       <button class="script-btn move-animation-revert" type="button">Revert</button>
       <button class="script-btn move-animation-preview-btn" type="button">Preview</button>
+      <button class="script-btn move-animation-test-btn" type="button">Test</button>
       <button class="script-btn move-animation-import-bin" type="button">Import Binary</button>
       <button class="script-btn move-animation-export-bin" type="button">Export Binary</button>
       <input class="move-animation-import-bin-file" type="file" accept=".bin,.dat,application/octet-stream" hidden>
@@ -264,6 +266,39 @@ function installMoveAnimationEditor(panel: HTMLElement, project: ProjectState, m
       if (status) {
         status.textContent = "Preview failed";
         status.classList.add("-error");
+      }
+    }
+  });
+  panel.querySelector<HTMLButtonElement>(".move-animation-test-btn")?.addEventListener("click", async () => {
+    if (!editor || !options.onTestMove) return;
+    const button = panel.querySelector<HTMLButtonElement>(".move-animation-test-btn");
+    const previousText = button?.textContent ?? "Test";
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Building...";
+      }
+      if (status) {
+        status.textContent = "Building test";
+        status.classList.remove("-error");
+      }
+      await options.onTestMove(moveId, editor.getValue());
+      editor.setInvalid(false);
+      if (status) {
+        status.textContent = "Test launched";
+        status.classList.remove("-error");
+      }
+    } catch (error) {
+      editor.setInvalid(true);
+      window.alert(error instanceof Error ? error.message : String(error));
+      if (status) {
+        status.textContent = "Test failed";
+        status.classList.add("-error");
+      }
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = previousText;
       }
     }
   });

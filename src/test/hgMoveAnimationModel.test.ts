@@ -13,6 +13,7 @@ import {
   exportHgMoveAnimationArchive,
   exportHgMoveAnimationRom,
   getHgMoveAnimationCommandDefinitions,
+  getHgMoveAnimationReadableCommandAliases,
   loadHgMoveAnimationRom,
   updateHgMoveAnimationFile,
 } from "../pokeweb/hgMoveAnimationModel";
@@ -138,8 +139,13 @@ a010_001:
 a010_001:
     callfunction 36, 5, 6, 0, 1, 8, 264
     callfunction 34, 6, 2, 0, 1, 49930, 10, 10
+    callfunction 40, 2, 2, 1
+    callfunction 42, 8, 258, 100, 80, 100, 140, 100, 1, 327685
     callfunction 52, 3, 3, 24, 258
+    callfunction 65, 6, 1, 0, 0, 0, 10, 64
     callfunction 72, 10, 3, 0, 360, 0, 360, 24, 24, 4, 1, 0
+    callfunction 74, 1, 1
+    callfunction 75, 7, 0, 80, 3, 0, 1, 255, 1
     cmd37 6, 0, 1, 6, 1, 0, 0
     cmd37 3, 4, 5, 6
     end
@@ -150,12 +156,62 @@ a010_001:
 
     expect(readable).toContain('actor_shake 5, 6, 0, 1, 8, 264, "NaN", "NaN", "NaN", "NaN", "NaN"');
     expect(readable).toContain('pokemon_tint 6, 2, 0, 1, 49930, 10, 10, "NaN", "NaN", "NaN", "NaN"');
+    expect(readable).toContain('battler_sprite_vanish 2, 2, 1, "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"');
+    expect(readable).toContain('battler_sprite_scale_updown 8, 258, 100, 80, 100, 140, 100, 1, 327685, "NaN", "NaN"');
     expect(readable).toContain('battler_sprite_slide_x 3, 3, 24, 258, "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"');
+    expect(readable).toContain('particle_emitter_straight 6, 1, 0, 0, 0, 10, 64, "NaN", "NaN", "NaN", "NaN"');
     expect(readable).toContain("particle_emitter_rotation 10, 3, 0, 360, 0, 360, 24, 24, 4, 1, 0");
+    expect(readable).toContain('battle_palette_grayscale 1, 1, "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"');
+    expect(readable).toContain('pokemon_oam_view 7, 0, 80, 3, 0, 1, 255, 1, "NaN", "NaN", "NaN"');
     expect(readable).toContain("moveaxistotarget 0, 1");
     expect(readable).toContain('particle_metadata 3, 4, 5, 6, "NaN", "NaN", "NaN", "NaN", "NaN"');
     expect([...compileHgMoveAnimationScript(readable, { archiveKind: "move", fileId: 1 })]).toEqual([...bytes]);
     expect(decompileHgMoveAnimation(bytes, { archiveKind: "move", fileId: 1 })).toContain("callfunction 36");
+  });
+
+  it("decompiles source-backed primitive opcodes to readable aliases", () => {
+    const bytes = compileHgMoveAnimationScript(
+      `
+a010_001:
+    cmd0C 4, 1
+    cmd1F 1, 0
+    cmd20 0
+    cmd3E 0, 0
+    cmd43
+    cmd52 2, 0, 4
+    cmd53 0
+    cmd54
+    cmd55 0
+    cmd56 3, 0x800001, 3
+    cmd57 119
+    end
+`,
+      { archiveKind: "move", fileId: 1 },
+    );
+    const readable = decompileHgMoveAnimationReadable(bytes, { archiveKind: "move", fileId: 1 });
+
+    expect(readable).toContain("work_set 4, 1");
+    expect(readable).toContain("copy_battler_to_bg2 1, 0");
+    expect(readable).toContain("clear_bg2_battler_copy 0");
+    expect(readable).toContain("set_sprite_state_byte_a 0, 0");
+    expect(readable).toContain("clear_scratch_params");
+    expect(readable).toContain("start_managed_sprite_draw_task 2, 0, 4");
+    expect(readable).toContain("stop_managed_sprite_draw_task 0");
+    expect(readable).toContain("wait_for_input_gate");
+    expect(readable).toContain("screen_brightness_pulse 0");
+    expect(readable).toContain("animated_bg_effect_offset_task 3, 8388609, 3");
+    expect(readable).toContain("branch_on_battle_flag 119");
+    expect([...compileHgMoveAnimationScript(readable, { archiveKind: "move", fileId: 1 })]).toEqual([...bytes]);
+  });
+
+  it("exposes readable primitive aliases for editor command lookup", () => {
+    expect(getHgMoveAnimationReadableCommandAliases()).toEqual(
+      expect.arrayContaining([
+        { alias: "work_set", command: "cmd0c" },
+        { alias: "clear_scratch_params", command: "cmd43" },
+        { alias: "animated_bg_effect_offset_task", command: "cmd56" },
+      ]),
+    );
   });
 
   it("names source-backed cmd37 EX_DATA records in readable output", () => {

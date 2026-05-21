@@ -332,6 +332,7 @@ function createEffects(
       effect.mesh.renderOrder = 50000 + index;
       effect.mesh.position.set(cell.position[0], cell.position[1], cell.position[2]);
       effect.mesh.quaternion.copy(camera.quaternion);
+      effect.mesh.rotateZ(cell.rotation);
       effect.mesh.scale.set(cell.frame.width * cell.scale * 0.18, cell.frame.height * cell.scale * 0.18, 1);
       effect.material.map = texture;
       effect.material.color.setRGB(1, 1, 1);
@@ -431,6 +432,7 @@ function visibleCellEffects(preview: MoveAnimationPreview, frame: number): Array
   scale: number;
   opacity: number;
   sequenceIndex: number;
+  rotation: number;
 }> {
   const out: Array<{
     effect: NonNullable<MoveAnimationPreview["cellEffects"]> extends Map<string, infer T> ? T : never;
@@ -439,6 +441,7 @@ function visibleCellEffects(preview: MoveAnimationPreview, frame: number): Array
     scale: number;
     opacity: number;
     sequenceIndex: number;
+    rotation: number;
   }> = [];
   const targetFrame = Math.max(0, Math.round(frame));
   for (const event of preview.timeline) {
@@ -463,6 +466,7 @@ function visibleCellEffects(preview: MoveAnimationPreview, frame: number): Array
         scale: event.cellEffect.scale ?? 1,
         opacity,
         sequenceIndex: sequence.index,
+        rotation: cellEffectRotation(event, localFrame),
       });
     }
   }
@@ -477,6 +481,17 @@ function cellEffectPosition(event: MoveAnimationPreview["timeline"][number], loc
   if (event.cellEffect?.supportFuncId !== 7) return origin;
   const rate = Math.min(1, Math.max(0, localFrame / 32));
   return [origin[0], origin[1] - rate * 1.8, origin[2]];
+}
+
+function cellEffectRotation(event: MoveAnimationPreview["timeline"][number], localFrame: number): number {
+  const motion = event.cellEffect?.motion;
+  if (!motion?.faceMotion) return 0;
+  const position = cellEffectPosition(event, localFrame);
+  const next = cellEffectPosition(event, localFrame + 1);
+  const dx = next[0] - position[0];
+  const dy = next[1] - position[1];
+  if (Math.hypot(dx, dy) < 0.00001) return 0;
+  return Math.atan2(dy, dx) - Math.PI / 2 + (motion.rotationOffset ?? 0);
 }
 
 function cellEffectSequence(event: MoveAnimationPreview["timeline"][number], localFrame: number): { index: number; frame: number } {

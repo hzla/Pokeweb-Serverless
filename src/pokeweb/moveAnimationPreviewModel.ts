@@ -42,6 +42,7 @@ export type MoveAnimationTimelineEvent = {
   particle?: {
     sourceTarget?: number;
     destinationTarget?: number;
+    destination?: [number, number, number];
     origin?: [number, number, number];
     axis?: [number, number, number];
     projectile?: boolean;
@@ -57,7 +58,9 @@ export type MoveAnimationTimelineEvent = {
       from: [number, number, number];
       to: [number, number, number];
       duration: number;
+      delay?: number;
       arcHeight?: number;
+      waveAmplitude?: number;
       easing?: "linear" | "easeOut";
       rotation?: {
         startAngleX: number;
@@ -72,6 +75,7 @@ export type MoveAnimationTimelineEvent = {
     forceFollowMotion?: boolean;
     useResourceAnchor?: boolean;
     invertResourceYAxis?: boolean;
+    anchoredPaneMotionDirection?: number;
     alignToMotion?: boolean;
     alignDirection?: [number, number, number];
     alignRotationOffset?: number;
@@ -83,6 +87,8 @@ export type MoveAnimationTimelineEvent = {
     field?: {
       mode?: number;
       targetMode?: number;
+      positionMode?: number;
+      axisMode?: number;
       cursor?: number;
       gravityMagnitude?: [number, number, number];
       randomMagnitude?: [number, number, number];
@@ -126,6 +132,8 @@ export type MoveAnimationTimelineEvent = {
       blinkInterval?: number;
     }>;
     motion?: {
+      faceMotion?: boolean;
+      rotationOffset?: number;
       legs: Array<{
         from: [number, number, number];
         to: [number, number, number];

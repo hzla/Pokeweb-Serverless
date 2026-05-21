@@ -89,6 +89,16 @@ export function patchTestBattleSavePlayerParty(saveBytes: Uint8Array, project: P
   return out;
 }
 
+export function patchTestBattleSavePlayerFirstMove(saveBytes: Uint8Array, project: ProjectState, moveId: number): Uint8Array {
+  if (!Number.isInteger(moveId) || moveId < 0 || moveId > 0xffff) throw new Error(`Invalid move ID: ${moveId}`);
+  const out = saveBytes.slice();
+  patchFirstPartyMoveHalf(out, 0, project, moveId);
+  if (out.length >= BW2_SAVE_HALF_OFFSET + BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET + 2) {
+    patchFirstPartyMoveHalf(out, BW2_SAVE_HALF_OFFSET, project, moveId);
+  }
+  return out;
+}
+
 export function decryptPk5Party(encrypted: Uint8Array): Uint8Array {
   const out = encrypted.slice(0, PK5_PARTY_SIZE);
   const pid = readLe32(out, 0);
@@ -286,6 +296,29 @@ function resolveGender(personal: RawRecord, gender?: "M" | "F"): 0 | 1 | 2 {
   if (ratio === 255) return 2;
   if (ratio === 254) return 1;
   return 0;
+}
+
+function patchFirstPartyMoveHalf(out: Uint8Array, halfOffset: number, project: ProjectState, moveId: number): void {
+  const partyOffset = halfOffset + BW2_PARTY_BLOCK_OFFSET;
+  const partyCount = out[partyOffset + 4] ?? out[partyOffset] ?? 0;
+  if (partyCount < 1) throw new Error("The bundled test battle save does not have a party Pokemon in slot 1.");
+
+  const slotOffset = partyOffset + 8;
+  const decrypted = decryptPk5Party(out.subarray(slotOffset, slotOffset + PK5_PARTY_SIZE));
+  if (readLe16(decrypted, 0x08) === 0) throw new Error("The bundled test battle save has an empty party Pokemon slot 1.");
+
+  writeLe16(decrypted, 0x28, moveId);
+  decrypted[0x30] = movePp(project, moveId);
+  out.set(encryptPk5Party(decrypted), slotOffset);
+
+  refreshBlockChecksum(out, halfOffset + BW2_PARTY_BLOCK_OFFSET, BW2_PARTY_BLOCK_LENGTH, halfOffset + BW2_PARTY_CHECKSUM_OFFSET, halfOffset + BW2_PARTY_CHECKSUM_MIRROR);
+  refreshBlockChecksum(
+    out,
+    halfOffset + BW2_CHECKSUM_BLOCK_OFFSET,
+    BW2_CHECKSUM_BLOCK_LENGTH,
+    halfOffset + BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
+    halfOffset + BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
+  );
 }
 
 function patchPartyHalf(out: Uint8Array, halfOffset: number, project: ProjectState, team: ShowdownPokemon[]): void {

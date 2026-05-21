@@ -6,6 +6,7 @@ type TestBattleLoadMessage = {
   romName: string;
   saveName: string;
   trainerId: number;
+  testLabel?: string;
   romBuffer: ArrayBuffer;
   saveBuffer: ArrayBuffer;
 };
@@ -123,8 +124,9 @@ function clampSpeedMultiplier(value: number): number {
 
 async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
   let romUrl: string | undefined;
+  const label = message.testLabel ?? `trainer ${message.trainerId} test battle`;
   try {
-    setStatus(`Loading trainer ${message.trainerId} test battle...`);
+    setStatus(`Loading ${label}...`);
     activeSaveBytes = new Uint8Array(message.saveBuffer);
     desmondWindow.POKEWEB_TEST_BATTLE = {
       disableSavePersistence: true,
@@ -151,7 +153,7 @@ async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
     setStatus("Waiting for emulator frames...");
     await waitForFrameProgress();
     blockUnexpectedNavigation = false;
-    setStatus(`Running trainer ${message.trainerId} test battle.`);
+    setStatus(`Running ${label}.`);
   } catch (error) {
     setError(error instanceof Error ? error.message : String(error));
   } finally {
