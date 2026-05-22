@@ -5,24 +5,20 @@ import { formatBytes } from "./ui/dom";
 import { buildHgMoveAnimationTestBattleDownloads } from "./pokeweb/hgTestBattle";
 import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
 import {
-  appendHgMoveSpaFiles,
-  compileHgMoveAnimationScript,
-  decompileHgMoveAnimation,
-  decompileHgMoveAnimationReadable,
-  exportHgMoveAnimationArchive,
-  exportHgMoveAnimationRom,
-  exportHgMoveSpaFile,
-  loadHgMoveAnimationRom,
-  loadHgMoveSpaArchive,
-  updateHgMoveAnimationFile,
-  updateHgMoveSpaArchive,
-  type HgMoveAnimationArchiveKind,
-  type HgMoveAnimationRom,
-  type HgMoveAnimationScriptArchiveKind,
-} from "./pokeweb/hgMoveAnimationModel";
-import { HG_CALLFUNCTION_BY_ID, HG_PRIMITIVE_COMMAND_BY_NAME, type HgColorParameterGroup } from "./pokeweb/hgMoveAnimationDocs";
+  HG_MOVE_ANIMATION_ADAPTER,
+  archiveForKind,
+  hasArchiveKind,
+  loadGen4MoveAnimationProject,
+  type Gen4MoveAnimationAdapter,
+  type Gen4MoveAnimationArchiveKind,
+  type Gen4MoveAnimationProject,
+  type Gen4MoveAnimationScriptArchiveKind,
+} from "./pokeweb/gen4MoveAnimationAdapter";
 import {
-  buildHgMoveAnimationPreview,
+  type HgMoveAnimationRom,
+} from "./pokeweb/hgMoveAnimationModel";
+import { HG_CALLFUNCTION_BY_ID, HG_MOVE_ANIMATION_HELPER_BY_NAME, HG_PRIMITIVE_COMMAND_BY_NAME, type HgColorParameterGroup } from "./pokeweb/hgMoveAnimationDocs";
+import {
   DEFAULT_HG_MOVE_ANIMATION_PREVIEW_SCENARIO,
   type HgMoveAnimationPreviewScenario,
 } from "./pokeweb/hgMoveAnimationPreviewModel";
@@ -46,16 +42,17 @@ type CachedHgRom = {
 };
 
 type UiState = {
-  project?: HgMoveAnimationRom;
+  project?: Gen4MoveAnimationProject;
+  adapter?: Gen4MoveAnimationAdapter;
   fileName?: string;
   romBytes?: Uint8Array;
-  activeKind: HgMoveAnimationArchiveKind;
+  activeKind: Gen4MoveAnimationArchiveKind;
   selectedFileId: number;
-  selectedFileIds: Partial<Record<HgMoveAnimationArchiveKind, number>>;
-  sidebarScrollTop: Partial<Record<HgMoveAnimationArchiveKind, number>>;
+  selectedFileIds: Partial<Record<Gen4MoveAnimationArchiveKind, number>>;
+  sidebarScrollTop: Partial<Record<Gen4MoveAnimationArchiveKind, number>>;
   filter: string;
   favoriteOnly: boolean;
-  favorites: Partial<Record<HgMoveAnimationArchiveKind, Set<number>>>;
+  favorites: Partial<Record<Gen4MoveAnimationArchiveKind, Set<number>>>;
   editorText: string;
   editorDirty: boolean;
   editorTab: "readable" | "hgEngine";
@@ -78,6 +75,13 @@ const state: UiState = {
   status: { text: "" },
 };
 
+function defaultPreviewScenario(adapter?: Gen4MoveAnimationAdapter): HgMoveAnimationPreviewScenario {
+  return {
+    ...DEFAULT_HG_MOVE_ANIMATION_PREVIEW_SCENARIO,
+    playerAttack: adapter?.id === "platinum" ? false : DEFAULT_HG_MOVE_ANIMATION_PREVIEW_SCENARIO.playerAttack,
+  };
+}
+
 let currentPreview: MoveAnimationPreview | undefined;
 let currentPreviewInitialPlaying = true;
 let scriptEditor: HgMoveAnimationCodeEditor | undefined;
@@ -86,7 +90,7 @@ let activeCommandReference: HgCommandReference | undefined;
 let previewController: MoveAnimationPreviewController | undefined;
 let previewRequest = 0;
 let romLoadGeneration = 0;
-let renderedSidebarKind: HgMoveAnimationArchiveKind | undefined;
+let renderedSidebarKind: Gen4MoveAnimationArchiveKind | undefined;
 
 render();
 void restoreLatestRom();
@@ -107,8 +111,8 @@ function renderUpload(): void {
     <section class="hg-upload">
       <div class="hg-upload__panel">
         <div>
-          <h1>HG Move Animation Editor</h1>
-          <p>Load a HeartGold or HG-engine ROM to inspect and edit /a/0/1/0 move animations and /a/0/6/1 sub-animations.</p>
+          <h1>Gen 4 Move Animation Editor</h1>
+          <p>Load a HeartGold, HG-engine, or Pokemon Platinum ROM. The editor will detect the supported move animation archives automatically.</p>
         </div>
         <label class="hg-dropzone">
           <span>Choose a .nds ROM</span>
@@ -130,7 +134,9 @@ function renderWorkspace(): void {
   scriptEditor = undefined;
   spaEditor = undefined;
   const project = requireProject();
-  const archive = project.archives[state.activeKind];
+  const adapter = requireAdapter();
+  normalizeActiveKind();
+  const archive = archiveForKind(project, state.activeKind);
   const selected = clampFileId(state.selectedFileId);
   state.selectedFileId = selected;
   if (isScriptArchiveKind(state.activeKind) && !state.editorText) loadSelectedScript();
@@ -140,7 +146,7 @@ function renderWorkspace(): void {
     <section class="hg-shell">
       <header class="hg-header">
         <div>
-          <h1>HG Move Animation Editor</h1>
+          <h1>${escapeHtml(adapter.title)}</h1>
           <p>${project.romInfo.title || "Nintendo DS ROM"} (${project.romInfo.idCode}) - ${formatBytes(project.romInfo.size)} - ${state.fileName ?? "loaded ROM"}</p>
         </div>
         ${renderHeaderActions()}
@@ -148,9 +154,7 @@ function renderWorkspace(): void {
       <div class="hg-workspace">
         <aside class="hg-sidebar">
           <div class="hg-tabs">
-            <button class="hg-tab ${state.activeKind === "move" ? "-active" : ""}" data-kind="move">a010 Move</button>
-            <button class="hg-tab ${state.activeKind === "sub" ? "-active" : ""}" data-kind="sub">a061 Sub</button>
-            <button class="hg-tab ${state.activeKind === "spa" ? "-active" : ""}" data-kind="spa">a029 SPA</button>
+            ${adapter.archiveKinds.map((kind) => `<button class="hg-tab ${state.activeKind === kind ? "-active" : ""}" data-kind="${kind}">${escapeHtml(adapter.archiveLabel(kind))} ${escapeHtml(adapter.archiveTitle(kind))}</button>`).join("")}
           </div>
           <div class="hg-filter">
             <input id="filter" value="${escapeAttr(state.filter)}" placeholder="Filter file IDs" />
@@ -173,7 +177,7 @@ function renderWorkspace(): void {
   bindWorkspaceEvents();
   restoreSidebarScroll();
   if (state.activeKind === "spa") mountSpaEditor();
-  else void mountCurrentPreview();
+  else if (adapter.supportsPreview) void mountCurrentPreview();
 }
 
 function captureSidebarScroll(): void {
@@ -189,30 +193,32 @@ function restoreSidebarScroll(): void {
 }
 
 function renderHeaderActions(): string {
-  const archiveLabel = archiveLabelForKind(state.activeKind);
+  const archiveFileName = archiveFileNameForKind(state.activeKind);
   return `
     <div class="hg-header__actions">
       <button id="load-new-rom" class="hg-btn">Load New ROM</button>
       ${state.activeKind === "spa" ? `<button id="append-spa" class="hg-btn">Append SPA</button><input id="append-spa-file" type="file" accept=".spa,application/octet-stream" multiple hidden />` : ""}
       <button id="export-bin" class="hg-btn">Export ${state.activeKind === "spa" ? ".spa" : ".bin"}</button>
-      <button id="export-narc" class="hg-btn">Export ${archiveLabel}.narc</button>
+      <button id="export-narc" class="hg-btn">Export ${archiveFileName}</button>
       <button id="export-rom" class="hg-btn -primary">Export ROM</button>
     </div>
   `;
 }
 
 function renderScriptPane(byteLength: number, selected: number, selectedName: string): string {
+  const adapter = requireAdapter();
+  const scriptKindLabel = state.activeKind === "move" ? "Move animation" : "Sub-animation";
   return `
     <div class="hg-toolbar">
-      <div class="hg-toolbar__meta">${state.activeKind === "move" ? "Move animation" : "Sub-animation"} ${String(selected).padStart(3, "0")}${selectedName ? ` - ${escapeHtml(selectedName)}` : ""} - ${formatBytes(byteLength)}${state.editorDirty ? " - unsaved edits" : ""}</div>
+      <div class="hg-toolbar__meta">${scriptKindLabel} ${String(selected).padStart(3, "0")}${selectedName ? ` - ${escapeHtml(selectedName)}` : ""} - ${formatBytes(byteLength)}${state.editorDirty ? " - unsaved edits" : ""}</div>
       <div class="hg-header__actions">
         <button id="reset-script" class="hg-btn">Reload</button>
-        <button id="preview-script" class="hg-btn">Preview</button>
-        <button id="test-script" class="hg-btn">Test</button>
+        ${adapter.supportsPreview ? `<button id="preview-script" class="hg-btn">Preview</button>` : ""}
+        ${adapter.supportsTestBattle ? `<button id="test-script" class="hg-btn">Test</button>` : ""}
         <button id="compile-script" class="hg-btn -primary">Compile & Save</button>
       </div>
     </div>
-    <div class="hg-scenario">
+    ${adapter.supportsPreview ? `<div class="hg-scenario">
       <label>Side
         <select id="scenario-side">
           <option value="player" ${state.scenario.attackerSide === "player" ? "selected" : ""}>Player</option>
@@ -227,20 +233,20 @@ function renderScriptPane(byteLength: number, selected: number, selectedName: st
       </label>
       <label>Weather <input id="scenario-weather" type="number" min="0" max="4" step="1" value="${state.scenario.weatherIndex}" /></label>
       <label><input id="scenario-contest" type="checkbox" ${state.scenario.contest ? "checked" : ""} /> Contest</label>
-      <label><input id="scenario-player-attack" type="checkbox" ${state.scenario.playerAttack ? "checked" : ""} /> Player attack</label>
-    </div>
+      <label><input id="scenario-player-attack" type="checkbox" ${state.scenario.playerAttack ? "checked" : ""} /> ${adapter.id === "platinum" ? "Friendly fire" : "Player attack"}</label>
+    </div>` : ""}
     <div class="hg-editor-layout">
       <div class="hg-script-editor-shell">
         <div class="hg-script-tabs" role="tablist" aria-label="Script view">
           <button class="hg-script-tab ${state.editorTab === "readable" ? "-active" : ""}" data-script-tab="readable" role="tab">Readable</button>
-          <button class="hg-script-tab ${state.editorTab === "hgEngine" ? "-active" : ""}" data-script-tab="hgEngine" role="tab">HG-engine</button>
+          <button class="hg-script-tab ${state.editorTab === "hgEngine" ? "-active" : ""}" data-script-tab="hgEngine" role="tab">${escapeHtml(adapter.scriptEngineLabel)}</button>
           ${state.editorTab === "hgEngine" ? `<button id="copy-hg-script" class="hg-btn -compact">Copy</button>` : ""}
         </div>
         <div id="script-editor" class="hg-code-editor ${state.editorTab === "hgEngine" ? "-readonly" : ""}"></div>
       </div>
       <aside id="hg-command-info" class="hg-command-info">${renderCommandInfo()}</aside>
     </div>
-    <section class="hg-preview-panel">
+    ${adapter.supportsPreview ? `<section class="hg-preview-panel">
       <div class="hg-preview-panel__header">
         <strong>Animation preview</strong>
         <span>${currentPreview ? `${currentPreview.frameCount} frames - ${currentPreview.spaIds.length} SPA file(s)` : "Compile the current editor text to preview this script."}</span>
@@ -251,14 +257,15 @@ function renderScriptPane(byteLength: number, selected: number, selectedName: st
           : ""
       }
       <div id="hg-preview-host" class="hg-preview-host"></div>
-    </section>
+    </section>` : ""}
   `;
 }
 
 function renderSpaPane(byteLength: number, selected: number): string {
+  const adapter = requireAdapter();
   return `
     <div class="hg-toolbar">
-      <div class="hg-toolbar__meta">SPA particle file ${String(selected).padStart(3, "0")} - ${formatBytes(byteLength)}${requireProject().archives.spa.dirty.has(selected) ? " - edited" : ""}</div>
+      <div class="hg-toolbar__meta">SPA particle file ${String(selected).padStart(3, "0")} - ${formatBytes(byteLength)}${archiveForKind(requireProject(), "spa").dirty.has(selected) ? " - edited" : ""} - ${escapeHtml(adapter.particleArchivePath)}</div>
       <div class="hg-header__actions">
         <button id="reload-spa" class="hg-btn">Reload Editor</button>
       </div>
@@ -269,7 +276,7 @@ function renderSpaPane(byteLength: number, selected: number): string {
 
 function renderFileList(): string {
   const project = requireProject();
-  const archive = project.archives[state.activeKind];
+  const archive = archiveForKind(project, state.activeKind);
   const selected = clampFileId(state.selectedFileId);
   return archive.narc.files
     .map((bytes, id) => ({ id, bytes, name: moveListName(project, id), favorite: isFavorite(state.activeKind, id) }))
@@ -302,7 +309,8 @@ function refreshFileList(): void {
 function bindWorkspaceEvents(): void {
   appRoot.querySelectorAll<HTMLButtonElement>(".hg-tab").forEach((button) => {
     button.addEventListener("click", () => {
-      const kind = button.dataset.kind as HgMoveAnimationArchiveKind;
+      const kind = button.dataset.kind as Gen4MoveAnimationArchiveKind;
+      if (!hasArchiveKind(requireAdapter(), kind)) return;
       if (state.activeKind === kind) return;
       captureSidebarScroll();
       state.selectedFileIds[state.activeKind] = state.selectedFileId;
@@ -467,19 +475,20 @@ function bindSpaEvents(): void {
 function mountSpaEditor(): void {
   const host = appRoot.querySelector<HTMLElement>("#hg-spa-editor");
   const project = state.project;
-  if (!host || !project) return;
+  const adapter = state.adapter;
+  if (!host || !project || !adapter) return;
   const fileId = clampFileId(state.selectedFileId);
   spaEditor = installMoveSpaEditorWithSource(
     host,
     "",
     {
-      loadArchive: (spaId) => loadHgMoveSpaArchive(project, spaId),
-      updateArchive: (spaId, archive) => updateHgMoveSpaArchive(project, spaId, archive),
-      exportArchive: (spaId, archive) => exportHgMoveSpaFile(project, spaId, archive),
+      loadArchive: (spaId) => adapter.loadSpaArchive(project, spaId),
+      updateArchive: (spaId, archive) => adapter.updateSpaArchive(project, spaId, archive),
+      exportArchive: (spaId, archive) => adapter.exportSpaFile(project, spaId, archive),
       referencedSpaIds: () => [],
       emptyLabel: "Choose a SPA file from the list to edit particle resources.",
-      loadingLabel: "Loading HG SPA file...",
-      selectorLabel: "HG SPA file",
+      loadingLabel: `Loading ${adapter.archiveTitle("spa")} file...`,
+      selectorLabel: `${adapter.archiveLabel("spa")} SPA file`,
     },
     {
       onDirty: () => {
@@ -494,6 +503,7 @@ function mountSpaEditor(): void {
 function mountScriptEditor(): void {
   const host = appRoot.querySelector<HTMLElement>("#script-editor");
   if (!host) return;
+  const adapter = requireAdapter();
   scriptEditor?.destroy();
   const readOnly = state.editorTab === "hgEngine";
   scriptEditor = installHgMoveAnimationCodeEditor(host, readOnly ? hgEngineScriptForEditor() : state.editorText, {
@@ -510,17 +520,22 @@ function mountScriptEditor(): void {
       if (panel) panel.innerHTML = renderCommandInfo(reference);
     },
     readOnly,
+    commandDefinitions: adapter.commandDefinitions,
+    readableCommandAliases: adapter.readableCommandAliases,
+    helperByName: adapter.id === "hg" ? HG_MOVE_ANIMATION_HELPER_BY_NAME : new Map(),
+    constants: adapter.id === "hg" ? undefined : new Set(),
   });
 }
 
 function hgEngineScriptForEditor(): string {
   if (!isScriptArchiveKind(state.activeKind)) return "";
+  const adapter = requireAdapter();
   try {
-    const bytes = compileHgMoveAnimationScript(state.editorText, { archiveKind: state.activeKind, fileId: state.selectedFileId });
-    return decompileHgMoveAnimation(bytes, { archiveKind: state.activeKind, fileId: state.selectedFileId });
+    const bytes = adapter.compileScript(state.editorText, state.activeKind, state.selectedFileId);
+    return adapter.decompileEngineScript(bytes, state.activeKind, state.selectedFileId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return `@ HG-engine view cannot be generated until the readable script compiles.\n@ ${message}\n`;
+    return `@ ${adapter.scriptEngineUnavailableComment}\n@ ${message}\n`;
   }
 }
 
@@ -529,7 +544,7 @@ async function copyHgEngineScript(): Promise<void> {
     const text = hgEngineScriptForEditor();
     if (!navigator.clipboard) throw new Error("Clipboard API is not available in this browser context.");
     await navigator.clipboard.writeText(text);
-    state.status = { text: "Copied HG-engine script to clipboard.", kind: "ok" };
+    state.status = { text: `Copied ${requireAdapter().scriptEngineLabel} script to clipboard.`, kind: "ok" };
     const footer = appRoot.querySelector<HTMLElement>(".hg-footer");
     if (footer) {
       footer.textContent = state.status.text;
@@ -547,19 +562,21 @@ async function copyHgEngineScript(): Promise<void> {
 
 function refreshToolbarMeta(): void {
   const project = state.project;
-  const archive = project?.archives[state.activeKind];
+  const adapter = state.adapter;
+  const archive = project ? archiveForKind(project, state.activeKind) : undefined;
   const selected = project ? clampFileId(state.selectedFileId) : state.selectedFileId;
   const selectedName = project && state.activeKind === "move" ? moveListName(project, selected) : "";
   const meta = appRoot.querySelector<HTMLElement>(".hg-toolbar__meta");
   if (!meta || !archive) return;
   if (state.activeKind === "spa") {
-    meta.textContent = `SPA particle file ${String(selected).padStart(3, "0")} - ${formatBytes(archive.narc.files[selected]?.length ?? 0)}${archive.dirty.has(selected) ? " - edited" : ""}`;
+    meta.textContent = `SPA particle file ${String(selected).padStart(3, "0")} - ${formatBytes(archive.narc.files[selected]?.length ?? 0)}${archive.dirty.has(selected) ? " - edited" : ""}${adapter ? ` - ${adapter.particleArchivePath}` : ""}`;
     return;
   }
   meta.textContent = `${state.activeKind === "move" ? "Move animation" : "Sub-animation"} ${String(selected).padStart(3, "0")}${selectedName ? ` - ${selectedName}` : ""} - ${formatBytes(archive.narc.files[selected]?.length ?? 0)}${state.editorDirty ? " - unsaved edits" : ""}`;
 }
 
 function renderCommandInfo(reference?: HgCommandReference): string {
+  const adapter = state.adapter ?? HG_MOVE_ANIMATION_ADAPTER;
   if (!reference) {
     return `
       <div class="hg-command-info__empty">
@@ -589,7 +606,7 @@ function renderCommandInfo(reference?: HgCommandReference): string {
         <span>Unknown</span>
         <strong>${escapeHtml(reference.name)}</strong>
       </div>
-      <p>This name is not in the HG primitive command table or helper macro list. It may fail to compile unless it is defined elsewhere.</p>
+      <p>This name is not in the ${escapeHtml(adapter.scriptEngineLabel)} command table${adapter.id === "hg" ? " or helper macro list" : ""}. It may fail to compile unless it is defined elsewhere.</p>
       <code>${escapeHtml(reference.lineText.trim())}</code>
     `;
   }
@@ -600,19 +617,19 @@ function renderCommandInfo(reference?: HgCommandReference): string {
       <span>Opcode ${opcode}</span>
       <strong>${escapeHtml(definition.name)}</strong>
     </div>
-    <p>${escapeHtml(commandDescription(definition.name))}</p>
+    <p>${escapeHtml(commandDescription(definition.name, adapter))}</p>
     <dl class="hg-command-info__params">
-      ${renderParamRows(definition.params, reference.params, definition.name)}
+      ${renderParamRows(definition.params, reference.params, definition.name, adapter)}
     </dl>
     ${definition.branchParams?.length ? `<div class="hg-command-info__note">Branch parameter(s): ${definition.branchParams.map((index) => definition.params[index] ?? `param${index}`).join(", ")}.</div>` : ""}
     ${definition.variable ? `<div class="hg-command-info__note">Variable length: parameter ${definition.variable.countParam + 1} controls up to ${definition.variable.maxVariableParams} trailing value(s).</div>` : ""}
-    ${renderCommandExtra(definition.name, reference.params)}
+    ${renderCommandExtra(definition.name, reference.params, adapter)}
     ${renderColorControls(reference)}
     <code>${escapeHtml(reference.lineText.trim())}</code>
   `;
 }
 
-function renderParamRows(names: string[], values: string[], commandName: string): string {
+function renderParamRows(names: string[], values: string[], commandName: string, adapter = state.adapter ?? HG_MOVE_ANIMATION_ADAPTER): string {
   if (names.length === 0) return `<div class="hg-command-info__note">No parameters.</div>`;
   return names
     .map((name, index) => {
@@ -622,7 +639,7 @@ function renderParamRows(names: string[], values: string[], commandName: string)
           <dt>${escapeHtml(name)}</dt>
           <dd>
             <strong>${value ? escapeHtml(value) : "missing"}</strong>
-            <span>${escapeHtml(paramDescription(commandName, name, index))}</span>
+            <span>${escapeHtml(paramDescription(commandName, name, index, adapter))}</span>
           </dd>
         </div>
       `;
@@ -630,7 +647,8 @@ function renderParamRows(names: string[], values: string[], commandName: string)
     .join("");
 }
 
-function commandDescription(name: string): string {
+function commandDescription(name: string, adapter = state.adapter ?? HG_MOVE_ANIMATION_ADAPTER): string {
+  if (adapter.id === "platinum") return platinumCommandDescription(name);
   const lower = name.toLowerCase();
   const primitiveNote = HG_PRIMITIVE_COMMAND_BY_NAME.get(lower);
   if (primitiveNote) return `${primitiveNote.inferredName}: ${primitiveNote.description}`;
@@ -674,7 +692,8 @@ function commandDescription(name: string): string {
   return descriptions[lower] ?? "HG primitive animation command.";
 }
 
-function paramDescription(commandName: string, paramName: string, index: number): string {
+function paramDescription(commandName: string, paramName: string, index: number, adapter = state.adapter ?? HG_MOVE_ANIMATION_ADAPTER): string {
+  if (adapter.id === "platinum") return platinumParamDescription(commandName, paramName, index);
   const lowerCommand = commandName.toLowerCase();
   const lower = paramName.toLowerCase();
   const researchedParam = HG_PRIMITIVE_COMMAND_BY_NAME.get(lowerCommand)?.params?.[index];
@@ -704,7 +723,59 @@ function paramDescription(commandName: string, paramName: string, index: number)
   return "Raw numeric parameter.";
 }
 
-function renderCommandExtra(name: string, params: string[]): string {
+function platinumCommandDescription(name: string): string {
+  const lower = name.toLowerCase();
+  const descriptions: Record<string, string> = {
+    delay: "Advances script time by a fixed number of frames.",
+    waitforanimtasks: "Waits for active animation tasks to finish.",
+    beginloop: "Starts a counted script loop.",
+    endloop: "Ends a counted script loop.",
+    end: "Stops the current animation script.",
+    playsoundeffect: "Plays a sound effect by numeric sequence id.",
+    call: "Calls another script label and returns when that label runs Return.",
+    return: "Returns from a Call.",
+    setvar: "Stores a raw numeric value in one of Platinum's script variables.",
+    jump: "Branches to another script label.",
+    jumpifequal: "Branches when a script variable equals a value.",
+    jumpifbattlerside: "Branches based on the selected battler's side.",
+    jumpifweather: "Branches to one of five labels based on field weather.",
+    jumpifcontest: "Branches when the animation runs in contest mode.",
+    jumpiffriendlyfire: "Branches when attacker and defender are on the same side.",
+    loadparticlesystem: "Loads a particle SPA member into a particle system slot.",
+    unloadparticlesystem: "Unloads a particle system slot.",
+    createemitter: "Creates a particle emitter from a loaded particle system.",
+    waitforallemitters: "Waits for particle emitters to finish.",
+    callfunc: "Invokes one of Platinum's battle animation helper functions with variable numeric parameters.",
+    setextraparams: "Stores a variable-length parameter block consumed by the following particle or helper command.",
+    addspritewithfunc: "Creates a sprite and invokes a sprite callback function with variable numeric parameters.",
+  };
+  if (lower.startsWith("nop")) return "No-op command retained for byte-faithful script editing.";
+  return descriptions[lower] ?? "Platinum battle animation command. V1 accepts numeric operands only.";
+}
+
+function platinumParamDescription(commandName: string, paramName: string, index: number): string {
+  const lowerCommand = commandName.toLowerCase();
+  const lower = paramName.toLowerCase();
+  if (lower.includes("addr")) return "Label to branch or call.";
+  if (lower === "frames" || lower.includes("frame")) return "Frame count.";
+  if (lower === "count" || lower.includes("count")) return "Number of following variable parameters.";
+  if (lower === "funcid") return lowerCommand === "addspritewithfunc" ? "Sprite callback function id." : "Battle animation function id.";
+  if (lower === "particlesystem") return "Particle system slot index.";
+  if (lower === "narcmemberid" || lower === "narcmemberindex") return "File id inside the referenced Platinum NARC.";
+  if (lower === "resourceid") return "Resource id inside the loaded SPA.";
+  if (lower === "callbackid") return "Particle callback id.";
+  if (lower === "seqid") return "Sound effect sequence id.";
+  if (lower === "pan" || lower.includes("pan")) return "Stereo pan value.";
+  if (lower.includes("battler")) return "Battler role or side selector.";
+  if (lower.includes("sprite")) return "Sprite manager or sprite id.";
+  if (lower.includes("bg")) return "Battle background id or switch parameter.";
+  if (lower.startsWith("arg")) return "Raw numeric argument.";
+  if (lowerCommand === "jumpifequal" && index < 2) return index === 0 ? "Script variable id." : "Value to compare.";
+  return "Raw numeric parameter.";
+}
+
+function renderCommandExtra(name: string, params: string[], adapter = state.adapter ?? HG_MOVE_ANIMATION_ADAPTER): string {
+  if (adapter.id !== "hg") return name.toLowerCase() === "callfunc" ? `<div class="hg-command-info__note">Function id ${escapeHtml(params[0] ?? "missing")} is passed to Platinum's battle animation script function table.</div>` : "";
   if (name.toLowerCase() !== "callfunction" && name.toLowerCase() !== "cmd36" && name.toLowerCase() !== "cmd37") return "";
   const first = parseNumberLike(params[0]);
   const helper = first === undefined ? undefined : functionIdDescription(first);
@@ -896,7 +967,8 @@ async function loadRomFile(file: File): Promise<void> {
 }
 
 function loadRomBytes(bytes: Uint8Array, fileName: string, verb: "Loaded" | "Restored"): void {
-  const project = loadHgMoveAnimationRom(bytes);
+  const { adapter, project } = loadGen4MoveAnimationProject(bytes);
+  state.adapter = adapter;
   const prefs = loadEditorPrefs(fileName, project);
   state.project = project;
   state.fileName = fileName;
@@ -910,8 +982,9 @@ function loadRomBytes(bytes: Uint8Array, fileName: string, verb: "Loaded" | "Res
   state.editorText = "";
   state.editorDirty = false;
   state.editorTab = "readable";
+  state.scenario = defaultPreviewScenario(adapter);
   state.status = {
-    text: `${verb} ${project.archives.move.narc.files.length} move animations, ${project.archives.sub.narc.files.length} sub-animations, and ${project.archives.spa.narc.files.length} SPA files.`,
+    text: adapter.loadStatus(project, verb),
     kind: "ok",
   };
   state.selectedFileId = clampFileId(state.selectedFileId);
@@ -919,7 +992,7 @@ function loadRomBytes(bytes: Uint8Array, fileName: string, verb: "Loaded" | "Res
   clearPreview();
   loadSelectedScript();
   render();
-  if (isScriptArchiveKind(state.activeKind)) void previewScript({ initialPlaying: false, statusText: `${verb} preview at frame 0.` });
+  if (adapter.supportsPreview && isScriptArchiveKind(state.activeKind)) void previewScript({ initialPlaying: false, statusText: `${verb} preview at frame 0.` });
 }
 
 async function restoreLatestRom(): Promise<void> {
@@ -946,6 +1019,7 @@ function resetToRomUpload(): void {
   activeCommandReference = undefined;
   renderedSidebarKind = undefined;
   state.project = undefined;
+  state.adapter = undefined;
   state.fileName = undefined;
   state.romBytes = undefined;
   state.activeKind = "move";
@@ -958,8 +1032,8 @@ function resetToRomUpload(): void {
   state.editorText = "";
   state.editorDirty = false;
   state.editorTab = "readable";
-  state.scenario = { ...DEFAULT_HG_MOVE_ANIMATION_PREVIEW_SCENARIO };
-  state.status = { text: "Choose a HeartGold or HG-engine ROM to load." };
+  state.scenario = defaultPreviewScenario();
+  state.status = { text: "Choose a HeartGold, HG-engine, or Pokemon Platinum ROM to load." };
   render();
 }
 
@@ -974,7 +1048,7 @@ function selectFile(fileId: number): void {
   persistEditorPrefs();
   if (isScriptArchiveKind(state.activeKind)) loadSelectedScript();
   render();
-  if (isScriptArchiveKind(state.activeKind)) void previewScript({ initialPlaying: false, statusText: "Loaded preview at frame 0." });
+  if (requireAdapter().supportsPreview && isScriptArchiveKind(state.activeKind)) void previewScript({ initialPlaying: false, statusText: "Loaded preview at frame 0." });
 }
 
 async function previewScript(options: { initialPlaying: boolean; statusText?: string } = { initialPlaying: true }): Promise<void> {
@@ -982,10 +1056,12 @@ async function previewScript(options: { initialPlaying: boolean; statusText?: st
   try {
     clearPreview();
     token = previewRequest;
-    state.status = { text: "Building HG animation preview..." };
+    if (!requireAdapter().supportsPreview) throw new Error("Preview support is not available for this game yet.");
+    const adapter = requireAdapter();
+    state.status = { text: `Building ${adapter.id === "platinum" ? "Platinum" : "HG"} animation preview...` };
     render();
     if (!isScriptArchiveKind(state.activeKind)) throw new Error("SPA files do not have script previews.");
-    const preview = await buildHgMoveAnimationPreview(requireProject(), state.activeKind, state.selectedFileId, state.editorText, state.scenario);
+    const preview = await adapter.buildPreview(requireProject(), state.activeKind, state.selectedFileId, state.editorText, state.scenario);
     if (token !== previewRequest) return;
     currentPreview = preview;
     currentPreviewInitialPlaying = options.initialPlaying;
@@ -1021,7 +1097,8 @@ function clearPreview(): void {
 function loadSelectedScript(): void {
   if (!isScriptArchiveKind(state.activeKind)) return;
   const project = requireProject();
-  const archive = project.archives[state.activeKind];
+  const adapter = requireAdapter();
+  const archive = archiveForKind(project, state.activeKind);
   const fileId = clampFileId(state.selectedFileId);
   const bytes = archive.narc.files[fileId];
   if (!bytes) {
@@ -1030,16 +1107,17 @@ function loadSelectedScript(): void {
     state.status = { text: `Animation file ${fileId} is empty or missing.`, kind: "error" };
     return;
   }
-  state.editorText = decompileHgMoveAnimationReadable(bytes, { archiveKind: state.activeKind, fileId });
+  state.editorText = adapter.decompileScript(project, state.activeKind, fileId);
   state.editorDirty = false;
 }
 
 function compileAndSave(): void {
   try {
     if (!isScriptArchiveKind(state.activeKind)) throw new Error("SPA files are saved from the SPA editor.");
-    const bytes = updateHgMoveAnimationFile(requireProject(), state.activeKind, state.selectedFileId, state.editorText);
+    const adapter = requireAdapter();
+    const bytes = adapter.updateScript(requireProject(), state.activeKind, state.selectedFileId, state.editorText);
     state.editorDirty = false;
-    state.status = { text: `Compiled ${formatBytes(bytes.length)} into ${state.activeKind === "move" ? "a010" : "a061"} file ${state.selectedFileId}.`, kind: "ok" };
+    state.status = { text: `Compiled ${formatBytes(bytes.length)} into ${adapter.archiveLabel(state.activeKind)} file ${state.selectedFileId}.`, kind: "ok" };
     render();
   } catch (error) {
     state.status = { text: error instanceof Error ? error.message : String(error), kind: "error" };
@@ -1049,9 +1127,10 @@ function compileAndSave(): void {
 
 function exportSelectedBin(): void {
   try {
+    const adapter = requireAdapter();
     const bytes = state.activeKind === "spa"
-      ? exportHgMoveSpaFile(requireProject(), state.selectedFileId, spaEditor?.getArchiveOverride(state.selectedFileId))
-      : compileHgMoveAnimationScript(state.editorText, { archiveKind: state.activeKind, fileId: state.selectedFileId });
+      ? adapter.exportSpaFile(requireProject(), state.selectedFileId, spaEditor?.getArchiveOverride(state.selectedFileId))
+      : adapter.compileScript(state.editorText, state.activeKind, state.selectedFileId);
     download(bytes, `${archiveLabelForKind(state.activeKind)}_${String(state.selectedFileId).padStart(3, "0")}.${state.activeKind === "spa" ? "spa" : "bin"}`);
     state.status = { text: `Exported selected binary (${formatBytes(bytes.length)}).`, kind: "ok" };
     render();
@@ -1062,13 +1141,13 @@ function exportSelectedBin(): void {
 }
 
 function exportActiveNarc(): void {
-  const bytes = exportHgMoveAnimationArchive(requireProject(), state.activeKind);
-  download(bytes, `${archiveLabelForKind(state.activeKind)}.narc`);
+  const bytes = requireAdapter().exportArchive(requireProject(), state.activeKind);
+  download(bytes, archiveFileNameForKind(state.activeKind));
 }
 
 function exportRom(): void {
-  const bytes = exportHgMoveAnimationRom(requireProject());
-  const baseName = state.fileName?.replace(/\.nds$/iu, "") || "hg-move-animation";
+  const bytes = requireAdapter().exportRom(requireProject());
+  const baseName = state.fileName?.replace(/\.nds$/iu, "") || "move-animation";
   download(bytes, `${baseName}-edited.nds`);
 }
 
@@ -1090,7 +1169,7 @@ async function launchHgTestBattle(): Promise<void> {
   try {
     state.status = { text: "Building HeartGold test battle..." };
     render();
-    const { romBytes, saveBytes, saveName } = await buildHgMoveAnimationTestBattleDownloads(project, state.selectedFileId, state.editorText, favoriteMoveIdsForTest());
+    const { romBytes, saveBytes, saveName } = await buildHgMoveAnimationTestBattleDownloads(project as HgMoveAnimationRom, state.selectedFileId, state.editorText, favoriteMoveIdsForTest());
     await emulator.launch({
       romName: `${baseName}-hg-test.nds`,
       saveName: saveName ?? "testani.dsv",
@@ -1110,12 +1189,13 @@ async function launchHgTestBattle(): Promise<void> {
 
 async function appendSpaFiles(files: File[]): Promise<void> {
   try {
+    const adapter = requireAdapter();
     state.status = { text: `Appending ${files.length} SPA file${files.length === 1 ? "" : "s"}...` };
     const bytes = await Promise.all(files.map(async (file) => new Uint8Array(await file.arrayBuffer())));
-    const appended = appendHgMoveSpaFiles(requireProject(), bytes);
+    const appended = adapter.appendSpaFiles(requireProject(), bytes);
     if (!appended.length) throw new Error("No SPA files were appended.");
     state.selectedFileId = appended[0];
-    state.status = { text: `Appended SPA file${appended.length === 1 ? "" : "s"} ${appended.join(", ")} to a029.`, kind: "ok" };
+    state.status = { text: `Appended SPA file${appended.length === 1 ? "" : "s"} ${appended.join(", ")} to ${adapter.archiveLabel("spa")}.`, kind: "ok" };
     render();
   } catch (error) {
     state.status = { text: error instanceof Error ? error.message : String(error), kind: "error" };
@@ -1123,43 +1203,55 @@ async function appendSpaFiles(files: File[]): Promise<void> {
   }
 }
 
-function requireProject(): HgMoveAnimationRom {
+function requireProject(): Gen4MoveAnimationProject {
   if (!state.project) throw new Error("No ROM is loaded");
   return state.project;
 }
 
+function requireAdapter(): Gen4MoveAnimationAdapter {
+  if (!state.adapter) throw new Error("No ROM is loaded");
+  return state.adapter;
+}
+
+function normalizeActiveKind(): void {
+  const adapter = requireAdapter();
+  if (!hasArchiveKind(adapter, state.activeKind)) {
+    state.activeKind = adapter.archiveKinds[0];
+    state.selectedFileId = state.selectedFileIds[state.activeKind] ?? 0;
+  }
+}
+
 function clampFileId(fileId: number): number {
-  const archive = requireProject().archives[state.activeKind];
+  const archive = archiveForKind(requireProject(), state.activeKind);
   if (archive.narc.files.length === 0) return 0;
   return Math.max(0, Math.min(archive.narc.files.length - 1, fileId));
 }
 
-function moveListName(project: HgMoveAnimationRom, fileId: number): string {
+function moveListName(project: Gen4MoveAnimationProject, fileId: number): string {
   if (state.activeKind !== "move") return "";
-  return project.moveNames[fileId] ?? "";
+  return requireAdapter().moveName(project, fileId);
 }
 
 type StoredHgEditorPrefs = {
   activeKind?: unknown;
-  selectedFileIds?: Partial<Record<HgMoveAnimationArchiveKind, unknown>>;
+  selectedFileIds?: Partial<Record<Gen4MoveAnimationArchiveKind, unknown>>;
   favoriteOnly?: unknown;
-  favorites?: Partial<Record<HgMoveAnimationArchiveKind, unknown>>;
+  favorites?: Partial<Record<Gen4MoveAnimationArchiveKind, unknown>>;
 };
 
 type HgEditorPrefs = {
-  activeKind: HgMoveAnimationArchiveKind;
-  selectedFileIds: Partial<Record<HgMoveAnimationArchiveKind, number>>;
+  activeKind: Gen4MoveAnimationArchiveKind;
+  selectedFileIds: Partial<Record<Gen4MoveAnimationArchiveKind, number>>;
   favoriteOnly: boolean;
-  favorites: Partial<Record<HgMoveAnimationArchiveKind, Set<number>>>;
+  favorites: Partial<Record<Gen4MoveAnimationArchiveKind, Set<number>>>;
 };
 
-const HG_ARCHIVE_KINDS: HgMoveAnimationArchiveKind[] = ["move", "sub", "spa"];
-
-function loadEditorPrefs(fileName: string, project: HgMoveAnimationRom): HgEditorPrefs {
+function loadEditorPrefs(fileName: string, project: Gen4MoveAnimationProject): HgEditorPrefs {
+  const adapter = requireAdapter();
   const stored = readEditorPrefsMap()[editorPrefsKey(fileName, project)] ?? {};
-  const activeKind = isArchiveKind(stored.activeKind) ? stored.activeKind : "move";
-  const selectedFileIds: Partial<Record<HgMoveAnimationArchiveKind, number>> = {};
-  for (const kind of HG_ARCHIVE_KINDS) {
+  const activeKind = isArchiveKind(stored.activeKind) && hasArchiveKind(adapter, stored.activeKind) ? stored.activeKind : "move";
+  const selectedFileIds: Partial<Record<Gen4MoveAnimationArchiveKind, number>> = {};
+  for (const kind of adapter.archiveKinds) {
     const raw = stored.selectedFileIds?.[kind];
     const parsed = typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
     selectedFileIds[kind] = clampFileIdForKind(project, kind, parsed ?? 0);
@@ -1175,7 +1267,8 @@ function loadEditorPrefs(fileName: string, project: HgMoveAnimationRom): HgEdito
 function persistEditorPrefs(): void {
   const project = state.project;
   const fileName = state.fileName;
-  if (!project || !fileName) return;
+  const adapter = state.adapter;
+  if (!project || !fileName || !adapter) return;
   try {
     state.selectedFileIds[state.activeKind] = state.selectedFileId;
     const prefsMap = readEditorPrefsMap();
@@ -1202,26 +1295,26 @@ function readEditorPrefsMap(): Record<string, StoredHgEditorPrefs> {
   }
 }
 
-function editorPrefsKey(fileName: string, project: HgMoveAnimationRom): string {
-  return `${project.romInfo.idCode}:${fileName}`;
+function editorPrefsKey(fileName: string, project: Gen4MoveAnimationProject): string {
+  return `${state.adapter?.id ?? "gen4"}:${project.romInfo.idCode}:${fileName}`;
 }
 
-function isArchiveKind(value: unknown): value is HgMoveAnimationArchiveKind {
+function isArchiveKind(value: unknown): value is Gen4MoveAnimationArchiveKind {
   return value === "move" || value === "sub" || value === "spa";
 }
 
-function clampFileIdForKind(project: HgMoveAnimationRom, kind: HgMoveAnimationArchiveKind, fileId: number): number {
-  const archive = project.archives[kind];
+function clampFileIdForKind(project: Gen4MoveAnimationProject, kind: Gen4MoveAnimationArchiveKind, fileId: number): number {
+  const archive = archiveForKind(project, kind);
   if (archive.narc.files.length === 0) return 0;
   return Math.max(0, Math.min(archive.narc.files.length - 1, Math.trunc(fileId)));
 }
 
 function deserializeFavorites(
-  project: HgMoveAnimationRom,
+  project: Gen4MoveAnimationProject,
   stored: StoredHgEditorPrefs["favorites"],
-): Partial<Record<HgMoveAnimationArchiveKind, Set<number>>> {
-  const favorites: Partial<Record<HgMoveAnimationArchiveKind, Set<number>>> = {};
-  for (const kind of HG_ARCHIVE_KINDS) {
+): Partial<Record<Gen4MoveAnimationArchiveKind, Set<number>>> {
+  const favorites: Partial<Record<Gen4MoveAnimationArchiveKind, Set<number>>> = {};
+  for (const kind of requireAdapter().archiveKinds) {
     const values = Array.isArray(stored?.[kind]) ? stored[kind] : [];
     favorites[kind] = new Set(
       values
@@ -1232,20 +1325,20 @@ function deserializeFavorites(
   return favorites;
 }
 
-function serializeFavorites(favorites: Partial<Record<HgMoveAnimationArchiveKind, Set<number>>>): Partial<Record<HgMoveAnimationArchiveKind, number[]>> {
-  return Object.fromEntries(HG_ARCHIVE_KINDS.map((kind) => [kind, [...(favorites[kind] ?? new Set<number>())].sort((a, b) => a - b)]));
+function serializeFavorites(favorites: Partial<Record<Gen4MoveAnimationArchiveKind, Set<number>>>): Partial<Record<Gen4MoveAnimationArchiveKind, number[]>> {
+  return Object.fromEntries(requireAdapter().archiveKinds.map((kind) => [kind, [...(favorites[kind] ?? new Set<number>())].sort((a, b) => a - b)]));
 }
 
-function favoriteSet(kind: HgMoveAnimationArchiveKind): Set<number> {
+function favoriteSet(kind: Gen4MoveAnimationArchiveKind): Set<number> {
   state.favorites[kind] ??= new Set<number>();
   return state.favorites[kind];
 }
 
-function isFavorite(kind: HgMoveAnimationArchiveKind, fileId: number): boolean {
+function isFavorite(kind: Gen4MoveAnimationArchiveKind, fileId: number): boolean {
   return state.favorites[kind]?.has(fileId) ?? false;
 }
 
-function toggleFavorite(kind: HgMoveAnimationArchiveKind, fileId: number): void {
+function toggleFavorite(kind: Gen4MoveAnimationArchiveKind, fileId: number): void {
   const favorites = favoriteSet(kind);
   if (favorites.has(fileId)) favorites.delete(fileId);
   else favorites.add(fileId);
@@ -1255,14 +1348,19 @@ function favoriteMoveIdsForTest(): number[] {
   return [...(state.favorites.move ?? new Set<number>())].sort((a, b) => a - b);
 }
 
-function isScriptArchiveKind(kind: HgMoveAnimationArchiveKind): kind is HgMoveAnimationScriptArchiveKind {
+function isScriptArchiveKind(kind: Gen4MoveAnimationArchiveKind): kind is Gen4MoveAnimationScriptArchiveKind {
   return kind === "move" || kind === "sub";
 }
 
-function archiveLabelForKind(kind: HgMoveAnimationArchiveKind): string {
-  if (kind === "move") return "a010";
-  if (kind === "sub") return "a061";
-  return "a029";
+function archiveLabelForKind(kind: Gen4MoveAnimationArchiveKind): string {
+  return requireAdapter().archiveLabel(kind);
+}
+
+function archiveFileNameForKind(kind: Gen4MoveAnimationArchiveKind): string {
+  const adapter = requireAdapter();
+  if (adapter.id === "platinum" && kind === "move") return "we.arc";
+  if (adapter.id === "platinum" && kind === "spa") return "waza_particle.narc";
+  return `${adapter.archiveLabel(kind)}.narc`;
 }
 
 function fileMatchesFilter(fileId: number, name: string, filter: string): boolean {

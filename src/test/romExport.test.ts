@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { readU32, writeU32 } from "../nds/binary";
+import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
-import { NARC } from "../nds/narc";
+import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom, materializeProjectEdits } from "../pokeweb/exportRom";
+import { addRomFile } from "../pokeweb/fileSystemModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { parseHeaders, updateHeaderField } from "../pokeweb/headerModel";
 import { compactRomBytes } from "../pokeweb/persistence";
@@ -103,7 +104,74 @@ describe("ROM export", () => {
     expect(exportedNarc.files[0][4]).toBe(99);
     expect(exportedNarc.files[0][26]).toBe(2);
   });
+
+  it("normalizes CTRMap-incompatible early-GMIF NARCs even when they were not edited", async () => {
+    const narc = new NARC();
+    narc.files = [Uint8Array.of(1, 2, 3), Uint8Array.of(4, 5, 6, 7)];
+    const malformed = makeEarlyFimgNarc(narc.save());
+    expect(hasEarlyFimgMagic(malformed)).toBe(true);
+
+    const romBytes = makeRom([malformed, Uint8Array.of(9)]);
+    const project = makeProject(romBytes);
+    addRomFile(project, "extra.narc", malformed);
+
+    const exported = await exportModifiedRom(project);
+    const exportedRom = new NintendoDSRom(exported);
+    const normalized = exportedRom.files[0];
+    const fatbSize = readU32(normalized, 0x14);
+    const fntbOffset = 0x10 + fatbSize;
+    const fntbSize = readU32(normalized, fntbOffset + 4);
+    const fimgOffset = fntbOffset + fntbSize;
+
+    expect(hasEarlyFimgMagic(normalized)).toBe(false);
+    expect(readAscii(normalized, fimgOffset, 4)).toBe("GMIF");
+    expect(new NARC(normalized).files.map((file) => [...file])).toEqual([
+      [1, 2, 3],
+      [4, 5, 6, 7],
+    ]);
+    expect([...exportedRom.files[1]]).toEqual([9]);
+    expect(hasEarlyFimgMagic(exportedRom.getFileByName("extra.narc"))).toBe(false);
+  });
+
+  it("normalizes CTRMap-incompatible FNTB stubs during export", async () => {
+    const narc = new NARC();
+    narc.files = [Uint8Array.of(1, 2, 3)];
+    narc.filenames = new Folder({ files: ["file_0"] });
+    const malformed = makeCtrMapIncompatibleFntbNarc(narc.save());
+    expect(hasCtrMapIncompatibleFntb(malformed)).toBe(true);
+
+    const romBytes = makeRom([malformed]);
+    const exported = await exportModifiedRom(makeProject(romBytes));
+    const normalized = new NintendoDSRom(exported).files[0];
+    const fatbSize = readU32(normalized, 0x14);
+    const fntbOffset = 0x10 + fatbSize;
+
+    expect(hasCtrMapIncompatibleFntb(normalized)).toBe(false);
+    expect(readU16(normalized, fntbOffset + 14)).toBe(1);
+    expect(new NARC(normalized).filenames.idOf("file_0")).toBe(0);
+  });
 });
+
+function makeProject(originalRomBytes: Uint8Array): ProjectState {
+  return {
+    originalRomBytes,
+    session: {
+      romName: "test",
+      baseVersion: "W2",
+      baseRom: "BW2",
+      fairy: false,
+      fileIds: {},
+      blacklist: [],
+    },
+    romInfo: { title: "test", idCode: "TEST", fileName: "test.nds", size: originalRomBytes.length },
+    arm9: Uint8Array.of(1, 2, 3, 4),
+    overlays: {},
+    narcs: {},
+    texts: { banks: {} },
+    formats: {},
+    trpokInfo: [],
+  };
+}
 
 function makeHeaderProject(originalRomBytes: Uint8Array, headersBytes: Uint8Array, formats: ProjectState["formats"], headerFormat: FieldSpec[]): ProjectState {
   const headersStore: NarcStore = {
@@ -166,6 +234,25 @@ function makeRom(files: Uint8Array[]): Uint8Array {
   });
   writeU32(out, 0x80, cursor);
   return out.slice(0, align(cursor, 4));
+}
+
+function makeEarlyFimgNarc(bytes: Uint8Array): Uint8Array {
+  const fatbSize = readU32(bytes, 0x14);
+  const fntbOffset = 0x10 + fatbSize;
+  const fntbSize = readU32(bytes, fntbOffset + 4);
+  const fimgOffset = fntbOffset + fntbSize;
+  const malformed = concatBytes([bytes.subarray(0, fimgOffset + 8), Uint8Array.of(0xaa, 0xbb, 0xcc, 0xdd), bytes.subarray(fimgOffset + 8)]);
+  writeU32(malformed, fntbOffset + 4, fntbSize + 4);
+  writeU32(malformed, 8, malformed.length);
+  return malformed;
+}
+
+function makeCtrMapIncompatibleFntbNarc(bytes: Uint8Array): Uint8Array {
+  const fatbSize = readU32(bytes, 0x14);
+  const fntbOffset = 0x10 + fatbSize;
+  const malformed = bytes.slice();
+  writeU16(malformed, fntbOffset + 14, 0);
+  return malformed;
 }
 
 function packRows(format: FieldSpec[], rows: Array<Record<string, number>>): Uint8Array {
