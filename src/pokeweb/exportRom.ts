@@ -1,5 +1,5 @@
 import { readU32, writeU32 } from "../nds/binary";
-import { NARC } from "../nds/narc";
+import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import type { NarcName } from "./constants";
 import { loadActiveRomBytes } from "./persistence";
@@ -42,15 +42,35 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
 
   const patchedOverlayTable = patchOverlayFiles(project, rom, fileReplacements);
   const arm9OverlayTable = buildCodeInjectionOverlayTable(project, rom, patchedOverlayTable ?? rom.arm9OverlayTable) ?? patchedOverlayTable;
+  normalizeMalformedNarcs(rom, fileReplacements);
+  const addedFiles = fileSystemAddedFiles(project).map((file) => ({ ...file, bytes: normalizeMalformedNarcBytes(file.bytes) }));
   const out = rom.save({
     arm9: project.tms?.dirty || project.arm9Dirty ? project.arm9 : undefined,
     arm9OverlayTable,
     files: fileReplacements,
-    addedFiles: fileSystemAddedFiles(project),
+    addedFiles,
     minimumLength: options.minimumRomLength,
     preserveOriginalLength: options.preserveOriginalLength,
   });
   return out;
+}
+
+function normalizeMalformedNarcs(rom: NintendoDSRom, fileReplacements: Map<number, Uint8Array>): void {
+  for (let fileId = 0; fileId < rom.files.length; fileId += 1) {
+    if (!fileReplacements.has(fileId)) normalizeMalformedNarc(fileReplacements, fileId, rom.files[fileId]);
+  }
+  for (const [fileId, bytes] of [...fileReplacements]) {
+    normalizeMalformedNarc(fileReplacements, fileId, bytes);
+  }
+}
+
+function normalizeMalformedNarc(fileReplacements: Map<number, Uint8Array>, fileId: number, bytes: Uint8Array): void {
+  const normalized = normalizeMalformedNarcBytes(bytes);
+  if (normalized !== bytes) fileReplacements.set(fileId, normalized);
+}
+
+function normalizeMalformedNarcBytes(bytes: Uint8Array): Uint8Array {
+  return hasEarlyFimgMagic(bytes) || hasCtrMapIncompatibleFntb(bytes) ? new NARC(bytes).save() : bytes;
 }
 
 function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplacements: Map<number, Uint8Array>): Uint8Array | undefined {

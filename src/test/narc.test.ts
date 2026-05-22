@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { concatBytes, readAscii, readU32, writeU32 } from "../nds/binary";
+import { concatBytes, readAscii, readU32, writeU16, writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
-import { NARC } from "../nds/narc";
+import { NARC, hasCtrMapIncompatibleFntb } from "../nds/narc";
 
 describe("NARC", () => {
   it("round-trips flat archives", () => {
@@ -57,5 +57,21 @@ describe("NARC", () => {
       [1, 2, 3],
       [4, 5, 6, 7],
     ]);
+  });
+
+  it("detects FNTB stubs that CTRMap rejects", () => {
+    const source = new NARC();
+    source.files = [Uint8Array.of(1, 2, 3)];
+    source.filenames = new Folder({ files: ["file_0"] });
+    const saved = source.save();
+    const fatbSize = readU32(saved, 0x14);
+    const fntbOffset = 0x10 + fatbSize;
+    const ctrMapIncompatible = saved.slice();
+    writeU16(ctrMapIncompatible, fntbOffset + 14, 0);
+
+    expect(hasCtrMapIncompatibleFntb(ctrMapIncompatible)).toBe(true);
+    const normalized = new NARC(ctrMapIncompatible).save();
+    expect(hasCtrMapIncompatibleFntb(normalized)).toBe(false);
+    expect(new NARC(normalized).filenames.idOf("file_0")).toBe(0);
   });
 });

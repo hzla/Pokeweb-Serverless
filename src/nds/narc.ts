@@ -87,6 +87,32 @@ export class NARC {
   }
 }
 
+export function hasEarlyFimgMagic(dataLike: ByteLike): boolean {
+  const data = asUint8Array(dataLike);
+  const fntbOffset = getFntbOffset(data);
+  if (fntbOffset === undefined) return false;
+  const fntbSize = readU32(data, fntbOffset + 4);
+  const declaredOffset = fntbOffset + fntbSize;
+  return readAscii(data, declaredOffset, 4) !== "GMIF" && fntbSize >= 4 && readAscii(data, declaredOffset - 4, 4) === "GMIF";
+}
+
+export function hasCtrMapIncompatibleFntb(dataLike: ByteLike): boolean {
+  const data = asUint8Array(dataLike);
+  const fntbOffset = getFntbOffset(data);
+  if (fntbOffset === undefined) return false;
+  const fntbSize = readU32(data, fntbOffset + 4);
+  if (fntbSize < 16) return true;
+  return readU16(data, fntbOffset + 14) !== 1;
+}
+
+function getFntbOffset(data: Uint8Array): number | undefined {
+  if (readAscii(data, 0, 4) !== "NARC") return undefined;
+  const fatbSize = readU32(data, 0x14);
+  const fntbOffset = 0x10 + fatbSize;
+  if (readAscii(data, fntbOffset, 4) !== "BTNF") return undefined;
+  return fntbOffset;
+}
+
 function resolveFimgBlock(data: Uint8Array, fntbOffset: number, fntbSize: number): { magicOffset: number; rawOffset: number } {
   const declaredOffset = fntbOffset + fntbSize;
   if (readAscii(data, declaredOffset, 4) === "GMIF") return { magicOffset: declaredOffset, rawOffset: declaredOffset + 8 };

@@ -26,21 +26,22 @@ type HgMoveAnimationCodeEditorOptions = {
   onChange: (text: string) => void;
   onCommandSelected: (reference?: HgCommandReference) => void;
   readOnly?: boolean;
+  commandDefinitions?: HgMoveAnimationCommandDefinition[];
+  readableCommandAliases?: Array<{ alias: string; command: string }>;
+  helperByName?: Map<string, HgHelperDefinition>;
+  constants?: Set<string>;
 };
 
 type CommandToken = { name: string; from: number; to: number; lineText: string; lineFrom: number; lineTo: number };
 type HighlightRange = { from: number; to: number; mark: Decoration };
+type EditorContext = {
+  primitiveByName: Map<string, HgMoveAnimationCommandDefinition>;
+  readablePrimitiveByName: Map<string, HgMoveAnimationCommandDefinition>;
+  helperByName: Map<string, HgHelperDefinition>;
+  constants: Set<string>;
+};
 
-const primitiveDefinitions = getHgMoveAnimationCommandDefinitions();
-const primitiveByName = new Map(primitiveDefinitions.map((definition) => [definition.name.toLowerCase(), definition]));
-const readablePrimitiveByName = new Map(
-  getHgMoveAnimationReadableCommandAliases().flatMap((entry) => {
-    const definition = primitiveByName.get(entry.command.toLowerCase());
-    return definition ? [[entry.alias.toLowerCase(), definition] as const] : [];
-  }),
-);
-const helperByName = HG_MOVE_ANIMATION_HELPER_BY_NAME;
-const constants = new Set(["PAN_LEFT", "PAN_RIGHT", "PAN_CENTER", "ANIM_TARGET_USER", "ANIM_TARGET_DEFENDER", "ANIM_TARGET_MISC", "ANIM_TARGET_DEFENDER_SIDE"]);
+const defaultConstants = new Set(["PAN_LEFT", "PAN_RIGHT", "PAN_CENTER", "ANIM_TARGET_USER", "ANIM_TARGET_DEFENDER", "ANIM_TARGET_MISC", "ANIM_TARGET_DEFENDER_SIDE"]);
 
 const commandMark = Decoration.mark({ class: "cm-hg-command", attributes: { style: "color:#8be9c1;font-weight:650" } });
 const helperMark = Decoration.mark({ class: "cm-hg-helper", attributes: { style: "color:#f7d774;font-weight:650" } });
@@ -53,6 +54,7 @@ const stringMark = Decoration.mark({ class: "cm-hg-string", attributes: { style:
 const unknownCommandMark = Decoration.mark({ class: "cm-hg-unknown-command", attributes: { style: "color:#ff8080;text-decoration:underline wavy rgba(255,128,128,.7)" } });
 
 export function installHgMoveAnimationCodeEditor(host: HTMLElement, script: string, options: HgMoveAnimationCodeEditorOptions): HgMoveAnimationCodeEditor {
+  const context = createEditorContext(options);
   const view = new EditorView({
     parent: host,
     doc: script,
@@ -64,11 +66,11 @@ export function installHgMoveAnimationCodeEditor(host: HTMLElement, script: stri
       keymap.of([...defaultKeymap, ...historyKeymap]),
       EditorState.readOnly.of(options.readOnly ?? false),
       EditorView.editable.of(!(options.readOnly ?? false)),
-      hgMoveAnimationHighlighting,
+      createHgMoveAnimationHighlighting(context),
       EditorView.lineWrapping,
       EditorView.updateListener.of((update) => {
         if (update.docChanged) options.onChange(update.state.doc.toString());
-        if (update.docChanged || update.selectionSet) options.onCommandSelected(commandReferenceAtSelection(update.view));
+        if (update.docChanged || update.selectionSet) options.onCommandSelected(commandReferenceAtSelection(update.view, context));
       }),
       EditorView.theme({
         "&": {
@@ -136,7 +138,7 @@ export function installHgMoveAnimationCodeEditor(host: HTMLElement, script: stri
       }),
     ],
   });
-  options.onCommandSelected(commandReferenceAtSelection(view));
+  options.onCommandSelected(commandReferenceAtSelection(view, context));
   return {
     destroy: () => view.destroy(),
     getValue: () => view.state.doc.toString(),
@@ -144,30 +146,50 @@ export function installHgMoveAnimationCodeEditor(host: HTMLElement, script: stri
   };
 }
 
-const hgMoveAnimationHighlighting = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
+function createEditorContext(options: HgMoveAnimationCodeEditorOptions): EditorContext {
+  const primitiveDefinitions = options.commandDefinitions ?? getHgMoveAnimationCommandDefinitions();
+  const primitiveByName = new Map(primitiveDefinitions.map((definition) => [definition.name.toLowerCase(), definition]));
+  const readableAliases = options.readableCommandAliases ?? getHgMoveAnimationReadableCommandAliases();
+  const readablePrimitiveByName = new Map(
+    readableAliases.flatMap((entry) => {
+      const definition = primitiveByName.get(entry.command.toLowerCase());
+      return definition ? [[entry.alias.toLowerCase(), definition] as const] : [];
+    }),
+  );
+  return {
+    primitiveByName,
+    readablePrimitiveByName,
+    helperByName: options.helperByName ?? HG_MOVE_ANIMATION_HELPER_BY_NAME,
+    constants: options.constants ?? defaultConstants,
+  };
+}
 
-    constructor(view: EditorView) {
-      this.decorations = buildDecorations(view);
-    }
+function createHgMoveAnimationHighlighting(context: EditorContext) {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
 
-    update(update: ViewUpdate): void {
-      if (update.docChanged || update.viewportChanged) this.decorations = buildDecorations(update.view);
-    }
-  },
-  {
-    decorations: (plugin) => plugin.decorations,
-  },
-);
+      constructor(view: EditorView) {
+        this.decorations = buildDecorations(view, context);
+      }
 
-function buildDecorations(view: EditorView): DecorationSet {
+      update(update: ViewUpdate): void {
+        if (update.docChanged || update.viewportChanged) this.decorations = buildDecorations(update.view, context);
+      }
+    },
+    {
+      decorations: (plugin) => plugin.decorations,
+    },
+  );
+}
+
+function buildDecorations(view: EditorView, context: EditorContext): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   for (const { from, to } of view.visibleRanges) {
     let pos = from;
     while (pos <= to) {
       const line = view.state.doc.lineAt(pos);
-      addLineDecorations(builder, line.from, line.text);
+      addLineDecorations(builder, line.from, line.text, context);
       if (line.to >= to) break;
       pos = line.to + 1;
     }
@@ -175,7 +197,7 @@ function buildDecorations(view: EditorView): DecorationSet {
   return builder.finish();
 }
 
-function addLineDecorations(builder: RangeSetBuilder<Decoration>, lineStart: number, text: string): void {
+function addLineDecorations(builder: RangeSetBuilder<Decoration>, lineStart: number, text: string, context: EditorContext): void {
   const ranges: HighlightRange[] = [];
   const commentIndex = firstCommentIndex(text);
   const codeEnd = commentIndex >= 0 ? commentIndex : text.length;
@@ -193,7 +215,7 @@ function addLineDecorations(builder: RangeSetBuilder<Decoration>, lineStart: num
         const from = lineStart + command[1].length;
         const to = from + command[2].length;
         const lower = command[2].toLowerCase();
-        ranges.push({ from, to, mark: primitiveByName.has(lower) ? commandMark : readablePrimitiveByName.has(lower) || helperByName.has(lower) ? helperMark : unknownCommandMark });
+        ranges.push({ from, to, mark: context.primitiveByName.has(lower) ? commandMark : context.readablePrimitiveByName.has(lower) || context.helperByName.has(lower) ? helperMark : unknownCommandMark });
       }
     }
   }
@@ -213,7 +235,7 @@ function addLineDecorations(builder: RangeSetBuilder<Decoration>, lineStart: num
     if (!rangeIntersectsAny(from, to, stringRanges)) ranges.push({ from, to, mark: numberMark });
   }
   for (const match of code.matchAll(/[A-Z][A-Z0-9_]+/gu)) {
-    if (match.index === undefined || !constants.has(match[0])) continue;
+    if (match.index === undefined || !context.constants.has(match[0])) continue;
     const from = lineStart + match.index;
     const to = from + match[0].length;
     if (!rangeIntersectsAny(from, to, stringRanges)) ranges.push({ from, to, mark: constantMark });
@@ -229,15 +251,15 @@ function rangeIntersectsAny(from: number, to: number, ranges: Array<{ from: numb
   return ranges.some((range) => from < range.to && to > range.from);
 }
 
-function commandReferenceAtSelection(view: EditorView): HgCommandReference | undefined {
+function commandReferenceAtSelection(view: EditorView, context: EditorContext): HgCommandReference | undefined {
   const token = commandTokenAt(view, view.state.selection.main.head);
   if (!token) return undefined;
   const params = parseParamText(token.lineText);
   const lower = token.name.toLowerCase();
   return {
     name: token.name,
-    definition: primitiveByName.get(lower) ?? readablePrimitiveByName.get(lower),
-    helper: helperByName.get(lower),
+    definition: context.primitiveByName.get(lower) ?? context.readablePrimitiveByName.get(lower),
+    helper: context.helperByName.get(lower),
     params,
     lineText: token.lineText,
     lineFrom: token.lineFrom,
