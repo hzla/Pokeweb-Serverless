@@ -35,20 +35,20 @@
   margin: 6px 0 0;
 }
 
+.patches-main {
+  min-width: 0;
+  padding: 24px;
+}
+
 .patch-card {
   background: #383a59;
   border: 1px solid #44475a;
   border-radius: 8px;
-  grid-column: 2;
-  margin: 0 24px 18px;
+  margin-bottom: 18px;
   max-width: 900px;
   padding: 18px;
   display: grid;
   gap: 18px;
-}
-
-.patches-header + .patch-card {
-  margin-top: 24px;
 }
 
 .patch-card__body {
@@ -112,8 +112,6 @@
 }
 
 .patch-status {
-  grid-column: 2;
-  margin: 0 24px 24px;
   min-height: 22px;
   max-width: 900px;
 }
@@ -142,10 +140,8 @@
     min-height: 0;
   }
 
-  .patch-card,
-  .patch-status {
-    margin-left: 18px;
-    margin-right: 18px;
+  .patches-main {
+    padding: 18px;
   }
 
   .patch-card__body {

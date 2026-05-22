@@ -55,16 +55,18 @@ export function renderPokemonEditor(project: ProjectState, root: HTMLElement, on
       </div>
       <br>
       <div class="small-filters">Tip: You can right click a value to apply to all</div>
-      <div class="filter-title">Evolution Methods</div>
-      <div class="evo-method-list">
-        ${EVO_METHODS.map(
-          (method, index) => `
-            <div class="evo-method-row">
-              <span class="evo-method-id">${index}</span>
-              <span>${escapeHtml(method)}</span>
-            </div>
-          `,
-        ).join("")}
+      <div class="evo-method-info" hidden>
+        <div class="filter-title">Evolution Methods</div>
+        <div class="evo-method-list">
+          ${EVO_METHODS.map(
+            (method, index) => `
+              <div class="evo-method-row">
+                <span class="evo-method-id">${index}</span>
+                <span>${escapeHtml(method)}</span>
+              </div>
+            `,
+          ).join("")}
+        </div>
       </div>
     </div>
     <div class="pokemon-list" id="personals">

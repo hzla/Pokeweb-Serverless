@@ -26,46 +26,49 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           <p>Apply focused ROM-level fixes that do not fit cleanly in a data editor.</p>
         </div>
       </header>
-      <section class="patch-card">
-        <div class="patch-card__body">
-          <div>
-            <h2>Remove Gems from Cave Dust Clouds</h2>
-            <p>Cave dust-cloud item rewards will skip the gem reward branch. Evolution stones and Everstone remain available.</p>
+      <main class="patches-main">
+        <section class="patch-card">
+          <div class="patch-card__body">
+            <div>
+              <h2>Remove Gems from Cave Dust Clouds</h2>
+              <p>Cave dust-cloud item rewards will skip the gem reward branch. Evolution stones and Everstone remain available.</p>
+            </div>
+            <div class="patch-card__meta">
+              <span class="patch-badge ${gemStatus === "patched" ? "-ok" : gemStatus === "unknown" ? "-warn" : ""}">
+                ${dustStatusLabel(gemStatus)}
+              </span>
+              <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
+            </div>
           </div>
-          <div class="patch-card__meta">
-            <span class="patch-badge ${gemStatus === "patched" ? "-ok" : gemStatus === "unknown" ? "-warn" : ""}">
-              ${dustStatusLabel(gemStatus)}
-            </span>
-            <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
+          <div class="patch-card__actions">
+            <button class="btn -default" id="remove-dust-cloud-gems-btn" type="button">Remove Gems from Dust Clouds</button>
           </div>
-        </div>
-        <div class="patch-card__actions">
-          <button class="btn -default" id="remove-dust-cloud-gems-btn" type="button">Remove Gems from Dust Clouds</button>
-        </div>
-      </section>
-      <section class="patch-card">
-        <div class="patch-card__body">
-          <div>
-            <h2>Remove Items from Cave Dust Clouds</h2>
-            <p>Cave dust clouds will always attempt a wild encounter instead of rolling for an item reward.</p>
+        </section>
+        <section class="patch-card">
+          <div class="patch-card__body">
+            <div>
+              <h2>Remove Items from Cave Dust Clouds</h2>
+              <p>Cave dust clouds will always attempt a wild encounter instead of rolling for an item reward.</p>
+            </div>
+            <div class="patch-card__meta">
+              <span class="patch-badge ${itemStatus === "patched" ? "-ok" : itemStatus === "unknown" ? "-warn" : ""}">
+                ${dustStatusLabel(itemStatus)}
+              </span>
+              <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
+            </div>
           </div>
-          <div class="patch-card__meta">
-            <span class="patch-badge ${itemStatus === "patched" ? "-ok" : itemStatus === "unknown" ? "-warn" : ""}">
-              ${dustStatusLabel(itemStatus)}
-            </span>
-            <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
+          <div class="patch-card__actions">
+            <button class="btn -default" id="remove-dust-cloud-items-btn" type="button">Remove Items from Dust Clouds</button>
           </div>
-        </div>
-        <div class="patch-card__actions">
-          <button class="btn -default" id="remove-dust-cloud-items-btn" type="button">Remove Items from Dust Clouds</button>
-        </div>
-      </section>
-      <div class="patch-status ${status?.kind ? `-${status.kind}` : ""}" id="patch-status">${escapeHtml(status?.text ?? "")}</div>
+        </section>
+        <div class="patch-status ${status?.kind ? `-${status.kind}` : ""}" id="patch-status">${escapeHtml(status?.text ?? "")}</div>
+      </main>
     </div>
   `;
 
   root.querySelector<HTMLButtonElement>("#remove-dust-cloud-gems-btn")?.addEventListener("click", async (event) => {
     applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
+      confirmText: "Apply this ROM patch to remove gem rewards from cave dust clouds?",
       loadingText: "Looking for the dust-cloud reward branch...",
       successText: "Removed gem rewards",
       apply: removeDustCloudGemRewards,
@@ -74,6 +77,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
 
   root.querySelector<HTMLButtonElement>("#remove-dust-cloud-items-btn")?.addEventListener("click", async (event) => {
     applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
+      confirmText: "Apply this ROM patch to remove all item rewards from cave dust clouds?",
       loadingText: "Looking for the dust-cloud item/encounter branch...",
       successText: "Removed item rewards",
       apply: removeDustCloudItemRewards,
@@ -101,11 +105,14 @@ async function applyPatchFromButton(
   project: ProjectState,
   onDirty: (() => void) | undefined,
   options: {
+    confirmText: string;
     loadingText: string;
     successText: string;
     apply: (project: ProjectState) => Promise<RomPatchApplyResult>;
   },
 ): Promise<void> {
+  if (!window.confirm(`${options.confirmText}\n\nExport the ROM after applying to keep this change.`)) return;
+
   const previousText = button.textContent ?? "Apply Patch";
   button.disabled = true;
   button.textContent = "Applying...";
