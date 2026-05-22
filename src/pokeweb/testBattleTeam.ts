@@ -1,11 +1,15 @@
-import { NATURES } from "./constants";
+import { NATURES, type BaseRom } from "./constants";
 import { decodeRecord, type ProjectState, type RawRecord } from "./projectStore";
 
-const BW2_PARTY_BLOCK_OFFSET = 0x18e00;
-const BW2_PARTY_BLOCK_LENGTH = 0x534;
-const BW2_PARTY_CHECKSUM_OFFSET = 0x19336;
-const BW2_PARTY_CHECKSUM_MIRROR = 0x25f34;
+const TEST_BATTLE_PARTY_BLOCK_OFFSET = 0x18e00;
+const TEST_BATTLE_PARTY_BLOCK_LENGTH = 0x534;
+const TEST_BATTLE_PARTY_CHECKSUM_OFFSET = 0x19336;
+const TEST_BATTLE_PARTY_CHECKSUM_INDEX = 26;
 const BW2_PLAYER_DATA_BLOCK_OFFSET = 0x19400;
+const BW_CHECKSUM_BLOCK_OFFSET = 0x23f00;
+const BW_CHECKSUM_BLOCK_LENGTH = 0x8c;
+const BW_CHECKSUM_BLOCK_CHECKSUM_OFFSET = 0x23f9a;
+const BW_SAVE_HALF_OFFSET = 0x24000;
 const BW2_CHECKSUM_BLOCK_OFFSET = 0x25f00;
 const BW2_CHECKSUM_BLOCK_LENGTH = 0x94;
 const BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET = 0x25fa2;
@@ -72,29 +76,38 @@ type SaveTrainerIdentity = {
   gender: number;
 };
 
+type TestBattlePartySaveLayout = {
+  saveHalfOffset: number;
+  checksumBlockOffset: number;
+  checksumBlockLength: number;
+  checksumBlockChecksumOffset: number;
+};
+
 export function parseShowdownTeam(project: ProjectState, text: string): ShowdownPokemon[] {
   const drafts = parseShowdownDrafts(text).slice(0, MAX_PARTY_SIZE);
   return drafts.map((draft) => resolveDraftPokemon(project, draft));
 }
 
-export function patchTestBattleSavePlayerParty(saveBytes: Uint8Array, project: ProjectState, playerTeamText: string): Uint8Array {
+export function patchTestBattleSavePlayerParty(saveBytes: Uint8Array, project: ProjectState, playerTeamText: string, baseRom: BaseRom = "BW2"): Uint8Array {
   const team = parseShowdownTeam(project, playerTeamText);
   if (team.length === 0) return saveBytes;
 
+  const layout = getTestBattlePartySaveLayout(baseRom);
   const out = saveBytes.slice();
-  patchPartyHalf(out, 0, project, team);
-  if (out.length >= BW2_SAVE_HALF_OFFSET + BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET + 2) {
-    patchPartyHalf(out, BW2_SAVE_HALF_OFFSET, project, team);
+  patchPartyHalf(out, layout, 0, project, team);
+  if (hasSaveHalf(out, layout)) {
+    patchPartyHalf(out, layout, layout.saveHalfOffset, project, team);
   }
   return out;
 }
 
-export function patchTestBattleSavePlayerFirstMove(saveBytes: Uint8Array, project: ProjectState, moveId: number): Uint8Array {
+export function patchTestBattleSavePlayerFirstMove(saveBytes: Uint8Array, project: ProjectState, moveId: number, baseRom: BaseRom = "BW2"): Uint8Array {
   if (!Number.isInteger(moveId) || moveId < 0 || moveId > 0xffff) throw new Error(`Invalid move ID: ${moveId}`);
+  const layout = getTestBattlePartySaveLayout(baseRom);
   const out = saveBytes.slice();
-  patchFirstPartyMoveHalf(out, 0, project, moveId);
-  if (out.length >= BW2_SAVE_HALF_OFFSET + BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET + 2) {
-    patchFirstPartyMoveHalf(out, BW2_SAVE_HALF_OFFSET, project, moveId);
+  patchFirstPartyMoveHalf(out, layout, 0, project, moveId);
+  if (hasSaveHalf(out, layout)) {
+    patchFirstPartyMoveHalf(out, layout, layout.saveHalfOffset, project, moveId);
   }
   return out;
 }
@@ -298,8 +311,8 @@ function resolveGender(personal: RawRecord, gender?: "M" | "F"): 0 | 1 | 2 {
   return 0;
 }
 
-function patchFirstPartyMoveHalf(out: Uint8Array, halfOffset: number, project: ProjectState, moveId: number): void {
-  const partyOffset = halfOffset + BW2_PARTY_BLOCK_OFFSET;
+function patchFirstPartyMoveHalf(out: Uint8Array, layout: TestBattlePartySaveLayout, halfOffset: number, project: ProjectState, moveId: number): void {
+  const partyOffset = halfOffset + TEST_BATTLE_PARTY_BLOCK_OFFSET;
   const partyCount = out[partyOffset + 4] ?? out[partyOffset] ?? 0;
   if (partyCount < 1) throw new Error("The bundled test battle save does not have a party Pokemon in slot 1.");
 
@@ -311,18 +324,11 @@ function patchFirstPartyMoveHalf(out: Uint8Array, halfOffset: number, project: P
   decrypted[0x30] = movePp(project, moveId);
   out.set(encryptPk5Party(decrypted), slotOffset);
 
-  refreshBlockChecksum(out, halfOffset + BW2_PARTY_BLOCK_OFFSET, BW2_PARTY_BLOCK_LENGTH, halfOffset + BW2_PARTY_CHECKSUM_OFFSET, halfOffset + BW2_PARTY_CHECKSUM_MIRROR);
-  refreshBlockChecksum(
-    out,
-    halfOffset + BW2_CHECKSUM_BLOCK_OFFSET,
-    BW2_CHECKSUM_BLOCK_LENGTH,
-    halfOffset + BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
-    halfOffset + BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
-  );
+  refreshPartyBlockChecksums(out, layout, halfOffset);
 }
 
-function patchPartyHalf(out: Uint8Array, halfOffset: number, project: ProjectState, team: ShowdownPokemon[]): void {
-  const partyOffset = halfOffset + BW2_PARTY_BLOCK_OFFSET;
+function patchPartyHalf(out: Uint8Array, layout: TestBattlePartySaveLayout, halfOffset: number, project: ProjectState, team: ShowdownPokemon[]): void {
+  const partyOffset = halfOffset + TEST_BATTLE_PARTY_BLOCK_OFFSET;
   const trainer = readSaveTrainerIdentity(out, halfOffset);
   const template = firstTemplatePokemon(out, partyOffset);
   out[partyOffset] = team.length;
@@ -341,13 +347,40 @@ function patchPartyHalf(out: Uint8Array, halfOffset: number, project: ProjectSta
     out.set(encryptPk5Party(decrypted), slotOffset);
   }
 
-  refreshBlockChecksum(out, halfOffset + BW2_PARTY_BLOCK_OFFSET, BW2_PARTY_BLOCK_LENGTH, halfOffset + BW2_PARTY_CHECKSUM_OFFSET, halfOffset + BW2_PARTY_CHECKSUM_MIRROR);
+  refreshPartyBlockChecksums(out, layout, halfOffset);
+}
+
+function getTestBattlePartySaveLayout(baseRom: BaseRom): TestBattlePartySaveLayout {
+  if (baseRom === "BW") {
+    return {
+      saveHalfOffset: BW_SAVE_HALF_OFFSET,
+      checksumBlockOffset: BW_CHECKSUM_BLOCK_OFFSET,
+      checksumBlockLength: BW_CHECKSUM_BLOCK_LENGTH,
+      checksumBlockChecksumOffset: BW_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
+    };
+  }
+  return {
+    saveHalfOffset: BW2_SAVE_HALF_OFFSET,
+    checksumBlockOffset: BW2_CHECKSUM_BLOCK_OFFSET,
+    checksumBlockLength: BW2_CHECKSUM_BLOCK_LENGTH,
+    checksumBlockChecksumOffset: BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
+  };
+}
+
+function hasSaveHalf(saveBytes: Uint8Array, layout: TestBattlePartySaveLayout): boolean {
+  return saveBytes.length >= layout.saveHalfOffset + layout.checksumBlockOffset + layout.checksumBlockLength;
+}
+
+function refreshPartyBlockChecksums(out: Uint8Array, layout: TestBattlePartySaveLayout, halfOffset: number): void {
+  const partyChecksum = crc16Ccitt(out.subarray(halfOffset + TEST_BATTLE_PARTY_BLOCK_OFFSET, halfOffset + TEST_BATTLE_PARTY_BLOCK_OFFSET + TEST_BATTLE_PARTY_BLOCK_LENGTH));
+  writeLe16(out, halfOffset + TEST_BATTLE_PARTY_CHECKSUM_OFFSET, partyChecksum);
+  writeLe16(out, halfOffset + layout.checksumBlockOffset + TEST_BATTLE_PARTY_CHECKSUM_INDEX * 2, partyChecksum);
   refreshBlockChecksum(
     out,
-    halfOffset + BW2_CHECKSUM_BLOCK_OFFSET,
-    BW2_CHECKSUM_BLOCK_LENGTH,
-    halfOffset + BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
-    halfOffset + BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
+    halfOffset + layout.checksumBlockOffset,
+    layout.checksumBlockLength,
+    halfOffset + layout.checksumBlockChecksumOffset,
+    halfOffset + layout.checksumBlockChecksumOffset,
   );
 }
 

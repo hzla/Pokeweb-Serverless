@@ -63,6 +63,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               ${status.installed ? "The patch DLL will be staged in patches/." : "Install PMC first, then stage the patch DLL."}
             </div>
           </div>
+          <div class="code-injection-credits" aria-label="Double Battle Fix credits">
+            <span>Implementation credits</span>
+            <strong>Sunk</strong>
+            <strong>Papaya</strong>
+          </div>
         </section>
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">

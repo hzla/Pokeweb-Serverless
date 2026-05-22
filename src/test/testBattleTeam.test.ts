@@ -132,6 +132,22 @@ Jolly Nature
     }
   });
 
+  it("writes BW party checksums using the BW checksum table layout", () => {
+    const project = makeProject();
+    const save = makeSaveWithTemplateParty(0x24000);
+
+    const patched = patchTestBattleSavePlayerParty(save, project, "Bulbasaur\n- Tackle", "BW");
+
+    for (const half of [0, 0x24000]) {
+      const party = half + 0x18e00;
+      expect(patched[party]).toBe(1);
+      expect(patched[party + 4]).toBe(1);
+      expect(readLe16(patched, half + 0x19336)).toBe(crc16Ccitt(patched.subarray(party, party + 0x534)));
+      expect(readLe16(patched, half + 0x23f34)).toBe(readLe16(patched, half + 0x19336));
+      expect(readLe16(patched, half + 0x23f9a)).toBe(crc16Ccitt(patched.subarray(half + 0x23f00, half + 0x23f00 + 0x8c)));
+    }
+  });
+
   it("keeps the save unchanged for an empty import", () => {
     const project = makeProject();
     const save = makeSaveWithTemplateParty();
@@ -180,9 +196,9 @@ function makeProject(): ProjectState {
   };
 }
 
-function makeSaveWithTemplateParty(): Uint8Array {
+function makeSaveWithTemplateParty(saveHalfOffset = 0x26000): Uint8Array {
   const save = new Uint8Array(0x80000);
-  for (const half of [0, 0x26000]) {
+  for (const half of [0, saveHalfOffset]) {
     const player = half + 0x19400;
     save.set(Uint8Array.from([0x41, 0, 0x4e, 0, 0x44, 0, 0x59, 0, 0xff, 0xff, 0, 0, 0, 0, 0, 0]), player + 0x04);
     writeLe32(save, player + 0x14, 0x9abc5678);

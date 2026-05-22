@@ -1,5 +1,6 @@
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { BW2_NARCS, BW_NARCS, HEADER_NARCS, type BaseRom, type NarcDefinition, type NarcName } from "./constants";
 import { exportModifiedRom } from "./exportRom";
 import { getNarcFormats } from "./formats";
 import { compileMoveAnimation } from "./moveAnimationModel";
@@ -7,15 +8,11 @@ import type { ProjectState } from "./projectStore";
 import { patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty } from "./testBattleTeam";
 
 const TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/test.sav", import.meta.url);
+const BW_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/white.dsv", import.meta.url);
 const HG_ENGINE_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/testani.dsv", import.meta.url);
 const HG_VANILLA_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/vanillagold.dsv", import.meta.url);
-const BW2_HEADERS_NARC_PATH = "a/0/1/2";
-const BW2_TRDATA_NARC_PATH = "a/0/9/1";
-const BW2_TRPOK_NARC_PATH = "a/0/9/2";
-const BW2_OVERWORLDS_NARC_PATH = "a/1/2/6";
-const BW2_MOVE_ANIMATIONS_NARC_PATH = "a/0/1/0";
-const BW2_BATTLE_ANIMATIONS_NARC_PATH = "a/0/1/1";
 const TEST_BATTLE_BASE_TRAINER_ID = 2;
+const BW_TEST_BATTLE_FALLBACK_OVERWORLD_ID = 66;
 const BATTLE_ANIMATION_OFFSET = 561;
 const TEST_BATTLE_SCRIPT_ID = 3000 + TEST_BATTLE_BASE_TRAINER_ID;
 const TEST_BATTLE_NPC_SIZE = 36;
@@ -23,16 +20,32 @@ const TEST_BATTLE_HEADER_SIZE = 8;
 const TEST_BATTLE_MMDL_BLOCK_OFFSET = 0x1e200;
 const TEST_BATTLE_MMDL_BLOCK_LENGTH = 0x1400;
 const TEST_BATTLE_MMDL_CHECKSUM_OFFSET = 0x1f602;
-const TEST_BATTLE_MMDL_CHECKSUM_MIRROR = 0x25f52;
-const TEST_BATTLE_CHECKSUM_BLOCK_OFFSET = 0x25f00;
-const TEST_BATTLE_CHECKSUM_BLOCK_LENGTH = 0x94;
-const TEST_BATTLE_CHECKSUM_BLOCK_CHECKSUM_OFFSET = 0x25fa2;
-const TEST_BATTLE_SAVE_HALF_OFFSET = 0x26000;
+const TEST_BATTLE_MMDL_CHECKSUM_INDEX = 41;
+const TEST_BATTLE_EVENTWORK_CHECKSUM_INDEX = 45;
+const TEST_BATTLE_BW_CHECKSUM_BLOCK_OFFSET = 0x23f00;
+const TEST_BATTLE_BW_CHECKSUM_BLOCK_LENGTH = 0x8c;
+const TEST_BATTLE_BW_CHECKSUM_BLOCK_CHECKSUM_OFFSET = 0x23f9a;
+const TEST_BATTLE_BW_EVENTWORK_BLOCK_OFFSET = 0x20100;
+const TEST_BATTLE_BW_EVENTWORK_BLOCK_LENGTH = 0x3ec;
+const TEST_BATTLE_BW_EVENTWORK_CHECKSUM_OFFSET = 0x204ee;
+const TEST_BATTLE_BW_SAVE_HALF_OFFSET = 0x24000;
+const TEST_BATTLE_BW2_CHECKSUM_BLOCK_OFFSET = 0x25f00;
+const TEST_BATTLE_BW2_CHECKSUM_BLOCK_LENGTH = 0x94;
+const TEST_BATTLE_BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET = 0x25fa2;
+const TEST_BATTLE_BW2_EVENTWORK_BLOCK_OFFSET = 0x1ff00;
+const TEST_BATTLE_BW2_EVENTWORK_BLOCK_LENGTH = 0x4e0;
+const TEST_BATTLE_BW2_EVENTWORK_CHECKSUM_OFFSET = 0x203e2;
+const TEST_BATTLE_BW2_SAVE_HALF_OFFSET = 0x26000;
 const TEST_BATTLE_MMDL_SAVEWORK_SIZE = 80;
 const TEST_BATTLE_MMDL_SAVEWORK_COUNT = 64;
 const TEST_BATTLE_EYE_RANGE = 10;
 const TEST_BATTLE_DIRECTION_UP = 0;
 const TEST_BATTLE_EV_TYPE_TRAINER = 1;
+const TEST_BATTLE_TRAINER_FLAG_START = 1420;
+const TEST_BATTLE_EVENTWORK_WORK_BYTES = 318 * 2;
+const TEST_BATTLE_TRAINER_FLAG = TEST_BATTLE_TRAINER_FLAG_START + TEST_BATTLE_BASE_TRAINER_ID;
+const TEST_BATTLE_TRAINER_FLAG_OFFSET = TEST_BATTLE_EVENTWORK_WORK_BYTES + Math.floor(TEST_BATTLE_TRAINER_FLAG / 8);
+const TEST_BATTLE_TRAINER_FLAG_MASK = 1 << (TEST_BATTLE_TRAINER_FLAG % 8);
 const TEST_BATTLE_SAVE_POSITION_BLOCK = 0x19500;
 const DESMUME_DSV_TEXT_FOOTER = "|<--Snip above here to create a raw sav by excluding this DeSmuME savedata footer:";
 const DESMUME_DSV_COOKIE = "|-DESMUME SAVE-|";
@@ -93,25 +106,63 @@ type TestBattleOverworldPatch = {
   npc: Uint8Array;
 };
 
-export async function buildTestBattleDownloads(project: ProjectState, trainerId: number, options: TestBattleBuildOptions = {}): Promise<TestBattleDownload> {
-  if (project.session.baseRom !== "BW2") throw new Error("Test Battle currently supports Black 2 / White 2 projects only.");
+type TestBattleSaveLayout = {
+  saveHalfOffset: number;
+  checksumBlockOffset: number;
+  checksumBlockLength: number;
+  checksumBlockChecksumOffset?: number;
+  eventworkBlockOffset: number;
+  eventworkBlockLength: number;
+  eventworkChecksumOffset?: number;
+};
 
-  const [baseRomBytes, save] = await Promise.all([exportModifiedRom(project, { preserveOriginalLength: true }), loadTestBattleSave()]);
-  const trainerPatchedRom = patchTestBattleTrainerSlot(baseRomBytes, project, trainerId);
-  const { romBytes, npc } = patchTestBattleOverworldNpc(trainerPatchedRom, project, save);
-  const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, save, npc);
-  const patchedSaveBytes = patchTestBattleSavePlayerParty(patchedMapSaveBytes, project, options.playerTeamText ?? "");
+export type TestBattleConfig = {
+  baseRom: BaseRom;
+  saveUrl: URL;
+  fallbackOverworldId?: number;
+  saveLayout: TestBattleSaveLayout;
+  paths: Record<"headers" | "trdata" | "trpok" | "overworlds" | "move_animations" | "battle_animations", string>;
+};
+
+export function getTestBattleConfig(baseRom: BaseRom): TestBattleConfig {
+  const narcs = baseRom === "BW" ? BW_NARCS : BW2_NARCS;
+  return {
+    baseRom,
+    saveUrl: baseRom === "BW" ? BW_TEST_BATTLE_SAVE_URL : TEST_BATTLE_SAVE_URL,
+    fallbackOverworldId: baseRom === "BW" ? BW_TEST_BATTLE_FALLBACK_OVERWORLD_ID : undefined,
+    saveLayout: getTestBattleSaveLayout(baseRom),
+    paths: {
+      headers: pathForNarc(HEADER_NARCS, "headers"),
+      trdata: pathForNarc(narcs, "trdata"),
+      trpok: pathForNarc(narcs, "trpok"),
+      overworlds: pathForNarc(narcs, "overworlds"),
+      move_animations: pathForNarc(narcs, "move_animations"),
+      battle_animations: pathForNarc(narcs, "battle_animations"),
+    },
+  };
+}
+
+export async function buildTestBattleDownloads(project: ProjectState, trainerId: number, options: TestBattleBuildOptions = {}): Promise<TestBattleDownload> {
+  const config = getTestBattleConfig(project.session.baseRom);
+
+  const [baseRomBytes, save] = await Promise.all([exportModifiedRom(project, { preserveOriginalLength: true }), loadTestBattleSave(config)]);
+  const trainerPatchedRom = patchTestBattleTrainerSlot(baseRomBytes, project, config, trainerId);
+  const { romBytes, npc } = patchTestBattleOverworldNpc(trainerPatchedRom, project, config, save);
+  const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, config, save, npc);
+  const patchedFlagSaveBytes = patchTestBattleSaveTrainerFlag(patchedMapSaveBytes, config);
+  const patchedSaveBytes = patchTestBattleSavePlayerParty(patchedFlagSaveBytes, project, options.playerTeamText ?? "", config.baseRom);
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
 }
 
 export async function buildMoveTestBattleDownloads(project: ProjectState, moveId: number, options: MoveTestBattleBuildOptions = {}): Promise<TestBattleDownload> {
-  if (project.session.baseRom !== "BW2") throw new Error("Move Test currently supports Black 2 / White 2 projects only.");
+  const config = getTestBattleConfig(project.session.baseRom);
 
-  const [baseRomBytes, save] = await Promise.all([exportModifiedRom(project, { preserveOriginalLength: true }), loadTestBattleSave()]);
-  const movePatchedRom = options.moveAnimationScriptText === undefined ? baseRomBytes : patchMoveAnimationScript(baseRomBytes, project, moveId, options.moveAnimationScriptText);
-  const { romBytes, npc } = patchTestBattleOverworldNpc(movePatchedRom, project, save);
-  const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, save, npc);
-  const patchedSaveBytes = patchTestBattleSavePlayerFirstMove(patchedMapSaveBytes, project, moveId);
+  const [baseRomBytes, save] = await Promise.all([exportModifiedRom(project, { preserveOriginalLength: true }), loadTestBattleSave(config)]);
+  const movePatchedRom = options.moveAnimationScriptText === undefined ? baseRomBytes : patchMoveAnimationScript(baseRomBytes, project, config, moveId, options.moveAnimationScriptText);
+  const { romBytes, npc } = patchTestBattleOverworldNpc(movePatchedRom, project, config, save);
+  const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, config, save, npc);
+  const patchedFlagSaveBytes = patchTestBattleSaveTrainerFlag(patchedMapSaveBytes, config);
+  const patchedSaveBytes = patchTestBattleSavePlayerFirstMove(patchedFlagSaveBytes, project, moveId, config.baseRom);
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
 }
 
@@ -121,23 +172,23 @@ export async function loadHgAnimationTestBattleSave(kind: HgTestBattleSaveKind):
   return new Uint8Array(await response.arrayBuffer());
 }
 
-async function loadTestBattleSave(): Promise<TestBattleSave> {
-  const response = await fetch(TEST_BATTLE_SAVE_URL);
+async function loadTestBattleSave(config: TestBattleConfig): Promise<TestBattleSave> {
+  const response = await fetch(config.saveUrl);
   if (!response.ok) throw new Error(`Failed to load bundled test battle save: ${response.status}`);
-  const rawSaveBytes = new Uint8Array(await response.arrayBuffer());
+  const rawSaveBytes = rawSaveBytesFromDesmumeDsv(new Uint8Array(await response.arrayBuffer()));
   return {
     rawSaveBytes,
     ...readTestBattleSavePosition(rawSaveBytes),
   };
 }
 
-function patchMoveAnimationScript(romBytes: Uint8Array, project: ProjectState, moveId: number, scriptText: string): Uint8Array {
+function patchMoveAnimationScript(romBytes: Uint8Array, project: ProjectState, config: TestBattleConfig, moveId: number, scriptText: string): Uint8Array {
   const target = resolveMoveAnimationTarget(project, moveId);
   const rom = new NintendoDSRom(romBytes);
   const fileId =
     target.storeName === "move_animations"
-      ? project.narcs.move_animations?.fileId ?? project.session.fileIds.move_animations ?? rom.fileId(BW2_MOVE_ANIMATIONS_NARC_PATH)
-      : project.narcs.battle_animations?.fileId ?? project.session.fileIds.battle_animations ?? rom.fileId(BW2_BATTLE_ANIMATIONS_NARC_PATH);
+      ? project.narcs.move_animations?.fileId ?? project.session.fileIds.move_animations ?? rom.fileId(config.paths.move_animations)
+      : project.narcs.battle_animations?.fileId ?? project.session.fileIds.battle_animations ?? rom.fileId(config.paths.battle_animations);
   const narc = new NARC(rom.files[fileId]);
   if (!narc.files[target.index]) throw new Error(`${target.storeName} entry ${target.index} does not exist.`);
   narc.files[target.index] = compileMoveAnimation(project, moveId, scriptText);
@@ -155,12 +206,12 @@ function resolveMoveAnimationTarget(project: ProjectState, moveId: number): { st
   return { storeName, index };
 }
 
-function patchTestBattleTrainerSlot(romBytes: Uint8Array, project: ProjectState, trainerId: number): Uint8Array {
+function patchTestBattleTrainerSlot(romBytes: Uint8Array, project: ProjectState, config: TestBattleConfig, trainerId: number): Uint8Array {
   if (trainerId === TEST_BATTLE_BASE_TRAINER_ID) return romBytes;
 
   const rom = new NintendoDSRom(romBytes);
-  const trdataFileId = project.narcs.trdata?.fileId ?? project.session.fileIds.trdata ?? rom.fileId(BW2_TRDATA_NARC_PATH);
-  const trpokFileId = project.narcs.trpok?.fileId ?? project.session.fileIds.trpok ?? rom.fileId(BW2_TRPOK_NARC_PATH);
+  const trdataFileId = project.narcs.trdata?.fileId ?? project.session.fileIds.trdata ?? rom.fileId(config.paths.trdata);
+  const trpokFileId = project.narcs.trpok?.fileId ?? project.session.fileIds.trpok ?? rom.fileId(config.paths.trpok);
   const trdata = copyTrainerNarcEntry(rom.files[trdataFileId], trainerId, "trainer data");
   const trpok = copyTrainerNarcEntry(rom.files[trpokFileId], trainerId, "trainer Pokemon");
   return rom.save({
@@ -181,11 +232,11 @@ function copyTrainerNarcEntry(narcBytes: Uint8Array, trainerId: number, label: s
   return narc.save();
 }
 
-function patchTestBattleOverworldNpc(romBytes: Uint8Array, project: ProjectState, save: TestBattleSave): TestBattleOverworldPatch {
+function patchTestBattleOverworldNpc(romBytes: Uint8Array, project: ProjectState, config: TestBattleConfig, save: TestBattleSave): TestBattleOverworldPatch {
   const rom = new NintendoDSRom(romBytes);
-  const overworldsFileId = project.narcs.overworlds?.fileId ?? project.session.fileIds.overworlds ?? rom.fileId(BW2_OVERWORLDS_NARC_PATH);
+  const overworldsFileId = project.narcs.overworlds?.fileId ?? project.session.fileIds.overworlds ?? rom.fileId(config.paths.overworlds);
   const overworlds = new NARC(rom.files[overworldsFileId]);
-  const overworldId = resolveOverworldIdForSaveZone(rom, project, save.zoneId);
+  const overworldId = resolveOverworldIdForSaveZone(rom, project, config, save.zoneId);
   const target = overworlds.files[overworldId];
   if (!target) throw new Error(`Test Battle save zone ${save.zoneId} resolves to overworld ${overworldId}, but that overworld file does not exist.`);
 
@@ -198,8 +249,8 @@ function patchTestBattleOverworldNpc(romBytes: Uint8Array, project: ProjectState
   return {
     npc: patched.npc,
     romBytes: rom.save({
-    files: new Map([[overworldsFileId, overworlds.save()]]),
-    preserveOriginalLength: true,
+      files: new Map([[overworldsFileId, overworlds.save()]]),
+      preserveOriginalLength: true,
     }),
   };
 }
@@ -219,43 +270,133 @@ function appendTestBattleNpc(bytes: Uint8Array, save: TestBattleSave, overworldI
   return { bytes: out, npc };
 }
 
-function resolveOverworldIdForSaveZone(rom: NintendoDSRom, project: ProjectState, zoneId: number): number {
-  const headersFileId = project.narcs.headers?.fileId ?? project.session.fileIds.headers ?? rom.fileId(BW2_HEADERS_NARC_PATH);
-  const headers = new NARC(rom.files[headersFileId]);
-  const headerBytes = headers.files[0];
-  const format = project.formats.headers ?? getNarcFormats("BW2").headers;
-  if (!headerBytes || !format) return zoneId;
+export function resolveTestBattleOverworldIdForSaveZone(rom: NintendoDSRom | undefined, project: ProjectState, config: TestBattleConfig, zoneId: number): number {
+  const fallback = config.fallbackOverworldId ?? zoneId;
+  if (!rom && !project.narcs.headers) return fallback;
+
+  const headersFileId = project.narcs.headers?.fileId ?? project.session.fileIds.headers ?? rom?.fileId(config.paths.headers);
+  if (headersFileId === undefined) return fallback;
+  const headerBytes = project.narcs.headers?.rawFiles[0] ?? (rom ? new NARC(rom.files[headersFileId]).files[0] : undefined);
+  const format = project.formats.headers ?? getNarcFormats(config.baseRom).headers;
+  if (!headerBytes || !format) return fallback;
 
   const rowLength = format.reduce((sum, [size]) => sum + size, 0);
   const mapIdOffset = fieldOffset(format, "map_id");
-  if (mapIdOffset === undefined) return zoneId;
+  if (mapIdOffset === undefined) return fallback;
   const offset = zoneId * rowLength + mapIdOffset;
-  if (offset + 2 > headerBytes.length) return zoneId;
+  if (offset + 2 > headerBytes.length) return fallback;
   return readLe16(headerBytes, offset);
 }
 
-function patchTestBattleSaveMmdl(saveBytes: Uint8Array, save: TestBattleSave, npc: Uint8Array): Uint8Array {
+function resolveOverworldIdForSaveZone(rom: NintendoDSRom, project: ProjectState, config: TestBattleConfig, zoneId: number): number {
+  return resolveTestBattleOverworldIdForSaveZone(rom, project, config, zoneId);
+}
+
+export function rawSaveBytesFromDesmumeDsv(saveBytes: Uint8Array): Uint8Array {
+  if (!hasDesmumeDsvCookie(saveBytes)) return saveBytes;
+  const footerOffset = indexOfBytes(saveBytes, asciiBytes(DESMUME_DSV_TEXT_FOOTER));
+  return footerOffset >= 0 ? saveBytes.slice(0, footerOffset) : saveBytes;
+}
+
+export function testBattleOverworldYFromSaveGridY(gridY: number): number {
+  return gridY * 0x10000;
+}
+
+function getTestBattleSaveLayout(baseRom: BaseRom): TestBattleSaveLayout {
+  if (baseRom === "BW") {
+    return {
+      saveHalfOffset: TEST_BATTLE_BW_SAVE_HALF_OFFSET,
+      checksumBlockOffset: TEST_BATTLE_BW_CHECKSUM_BLOCK_OFFSET,
+      checksumBlockLength: TEST_BATTLE_BW_CHECKSUM_BLOCK_LENGTH,
+      checksumBlockChecksumOffset: TEST_BATTLE_BW_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
+      eventworkBlockOffset: TEST_BATTLE_BW_EVENTWORK_BLOCK_OFFSET,
+      eventworkBlockLength: TEST_BATTLE_BW_EVENTWORK_BLOCK_LENGTH,
+      eventworkChecksumOffset: TEST_BATTLE_BW_EVENTWORK_CHECKSUM_OFFSET,
+    };
+  }
+  return {
+    saveHalfOffset: TEST_BATTLE_BW2_SAVE_HALF_OFFSET,
+    checksumBlockOffset: TEST_BATTLE_BW2_CHECKSUM_BLOCK_OFFSET,
+    checksumBlockLength: TEST_BATTLE_BW2_CHECKSUM_BLOCK_LENGTH,
+    checksumBlockChecksumOffset: TEST_BATTLE_BW2_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
+    eventworkBlockOffset: TEST_BATTLE_BW2_EVENTWORK_BLOCK_OFFSET,
+    eventworkBlockLength: TEST_BATTLE_BW2_EVENTWORK_BLOCK_LENGTH,
+    eventworkChecksumOffset: TEST_BATTLE_BW2_EVENTWORK_CHECKSUM_OFFSET,
+  };
+}
+
+function pathForNarc(definitions: readonly NarcDefinition[], name: NarcName): string {
+  const path = definitions.find((definition) => definition.name === name)?.path;
+  if (!path) throw new Error(`Missing ${name} NARC path for test battles.`);
+  return path;
+}
+
+function indexOfBytes(bytes: Uint8Array, pattern: Uint8Array): number {
+  if (pattern.length === 0 || pattern.length > bytes.length) return -1;
+  for (let offset = 0; offset <= bytes.length - pattern.length; offset += 1) {
+    let found = true;
+    for (let index = 0; index < pattern.length; index += 1) {
+      if (bytes[offset + index] !== pattern[index]) {
+        found = false;
+        break;
+      }
+    }
+    if (found) return offset;
+  }
+  return -1;
+}
+
+function patchTestBattleSaveMmdl(saveBytes: Uint8Array, config: TestBattleConfig, save: TestBattleSave, npc: Uint8Array): Uint8Array {
   const out = saveBytes.slice();
-  patchTestBattleSaveMmdlHalf(out, 0, save, npc);
-  if (out.length >= TEST_BATTLE_SAVE_HALF_OFFSET + TEST_BATTLE_CHECKSUM_BLOCK_CHECKSUM_OFFSET + 2) {
-    patchTestBattleSaveMmdlHalf(out, TEST_BATTLE_SAVE_HALF_OFFSET, save, npc);
+  patchTestBattleSaveMmdlHalf(out, config.saveLayout, 0, save, npc);
+  if (hasSaveHalf(out, config.saveLayout)) {
+    patchTestBattleSaveMmdlHalf(out, config.saveLayout, config.saveLayout.saveHalfOffset, save, npc);
   }
   return out;
 }
 
-function patchTestBattleSaveMmdlHalf(out: Uint8Array, halfOffset: number, save: TestBattleSave, npc: Uint8Array): void {
+function patchTestBattleSaveMmdlHalf(out: Uint8Array, layout: TestBattleSaveLayout, halfOffset: number, save: TestBattleSave, npc: Uint8Array): void {
   const blockOffset = halfOffset + TEST_BATTLE_MMDL_BLOCK_OFFSET;
   const slotOffset = findMmdlSaveSlot(out, blockOffset, npc[0]);
   if (slotOffset === undefined) throw new Error("The bundled test battle save has no free overworld actor save slot.");
 
   writeMmdlSavework(out, slotOffset, save, npc);
-  refreshB2W2BlockChecksum(out, halfOffset + TEST_BATTLE_MMDL_BLOCK_OFFSET, TEST_BATTLE_MMDL_BLOCK_LENGTH, halfOffset + TEST_BATTLE_MMDL_CHECKSUM_OFFSET, halfOffset + TEST_BATTLE_MMDL_CHECKSUM_MIRROR);
-  refreshB2W2BlockChecksum(
+  refreshTestBattleSaveBlockChecksum(
     out,
-    halfOffset + TEST_BATTLE_CHECKSUM_BLOCK_OFFSET,
-    TEST_BATTLE_CHECKSUM_BLOCK_LENGTH,
-    halfOffset + TEST_BATTLE_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
-    halfOffset + TEST_BATTLE_CHECKSUM_BLOCK_CHECKSUM_OFFSET,
+    layout,
+    halfOffset,
+    TEST_BATTLE_MMDL_BLOCK_OFFSET,
+    TEST_BATTLE_MMDL_BLOCK_LENGTH,
+    TEST_BATTLE_MMDL_CHECKSUM_OFFSET,
+    TEST_BATTLE_MMDL_CHECKSUM_INDEX,
+  );
+}
+
+export function patchTestBattleSaveTrainerFlag(saveBytes: Uint8Array, config: TestBattleConfig): Uint8Array {
+  const out = saveBytes.slice();
+  patchTestBattleSaveTrainerFlagHalf(out, config.saveLayout, 0);
+  if (hasSaveHalf(out, config.saveLayout)) {
+    patchTestBattleSaveTrainerFlagHalf(out, config.saveLayout, config.saveLayout.saveHalfOffset);
+  }
+  return out;
+}
+
+export function isTestBattleTrainerFlagSet(saveBytes: Uint8Array, config: TestBattleConfig, halfOffset = 0): boolean {
+  return (saveBytes[halfOffset + config.saveLayout.eventworkBlockOffset + TEST_BATTLE_TRAINER_FLAG_OFFSET] & TEST_BATTLE_TRAINER_FLAG_MASK) !== 0;
+}
+
+function patchTestBattleSaveTrainerFlagHalf(out: Uint8Array, layout: TestBattleSaveLayout, halfOffset: number): void {
+  const flagOffset = halfOffset + layout.eventworkBlockOffset + TEST_BATTLE_TRAINER_FLAG_OFFSET;
+  if (flagOffset >= out.length) throw new Error("The bundled test battle save is too small to contain trainer event flags.");
+  out[flagOffset] &= ~TEST_BATTLE_TRAINER_FLAG_MASK;
+  refreshTestBattleSaveBlockChecksum(
+    out,
+    layout,
+    halfOffset,
+    layout.eventworkBlockOffset,
+    layout.eventworkBlockLength,
+    layout.eventworkChecksumOffset,
+    TEST_BATTLE_EVENTWORK_CHECKSUM_INDEX,
   );
 }
 
@@ -302,10 +443,33 @@ function writeMmdlSavework(out: Uint8Array, offset: number, save: TestBattleSave
   writeLe32(out, offset + 44, save.gridY * 0x10000 + 0x0f);
 }
 
-function refreshB2W2BlockChecksum(out: Uint8Array, blockOffset: number, blockLength: number, checksumOffset: number, checksumMirror: number): void {
+function hasSaveHalf(saveBytes: Uint8Array, layout: TestBattleSaveLayout): boolean {
+  return saveBytes.length >= layout.saveHalfOffset + layout.checksumBlockOffset + layout.checksumBlockLength;
+}
+
+function refreshTestBattleSaveBlockChecksum(
+  out: Uint8Array,
+  layout: TestBattleSaveLayout,
+  halfOffset: number,
+  blockOffset: number,
+  blockLength: number,
+  checksumOffset: number | undefined,
+  checksumIndex: number,
+): void {
+  const checksum = crc16Ccitt(out.subarray(halfOffset + blockOffset, halfOffset + blockOffset + blockLength));
+  if (checksumOffset !== undefined) writeLe16(out, halfOffset + checksumOffset, checksum);
+  writeLe16(out, halfOffset + layout.checksumBlockOffset + checksumIndex * 2, checksum);
+  refreshTestBattleChecksumBlock(out, layout, halfOffset);
+}
+
+function refreshTestBattleChecksumBlock(out: Uint8Array, layout: TestBattleSaveLayout, halfOffset: number): void {
+  if (layout.checksumBlockChecksumOffset === undefined) return;
+  refreshBlockChecksum(out, halfOffset + layout.checksumBlockOffset, layout.checksumBlockLength, halfOffset + layout.checksumBlockChecksumOffset);
+}
+
+function refreshBlockChecksum(out: Uint8Array, blockOffset: number, blockLength: number, checksumOffset: number): void {
   const checksum = crc16Ccitt(out.subarray(blockOffset, blockOffset + blockLength));
   writeLe16(out, checksumOffset, checksum);
-  writeLe16(out, checksumMirror, checksum);
 }
 
 function buildTestBattleNpc(bytes: Uint8Array, layout: OverworldLayout, save: TestBattleSave, template: Uint8Array | undefined): Uint8Array {
@@ -325,7 +489,7 @@ function buildTestBattleNpc(bytes: Uint8Array, layout: OverworldLayout, save: Te
   writeLe16(npc, 26, 0);
   writeLe16(npc, 28, save.gridX);
   writeLe16(npc, 30, clampU16(save.gridZ + 1));
-  writeLe32(npc, 32, save.gridY);
+  writeLe32(npc, 32, testBattleOverworldYFromSaveGridY(save.gridY));
   return npc;
 }
 
@@ -378,7 +542,7 @@ function readFirstNpcSprite(bytes: Uint8Array, layout: OverworldLayout): number 
 
 function readTestBattleSavePosition(saveBytes: Uint8Array): Omit<TestBattleSave, "rawSaveBytes"> {
   if (saveBytes.length < TEST_BATTLE_SAVE_POSITION_BLOCK + 0x90) {
-    throw new Error("Bundled test battle save is too small to contain a BW2 trainer position block.");
+    throw new Error("Bundled test battle save is too small to contain a BW/BW2 trainer position block.");
   }
   return {
     zoneId: readLe32(saveBytes, TEST_BATTLE_SAVE_POSITION_BLOCK + 0x80),
