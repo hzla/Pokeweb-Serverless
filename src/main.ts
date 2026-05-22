@@ -377,6 +377,8 @@ function renderApp(): void {
           renderDirtyIndicator();
         });
       }
+    }).catch((error) => {
+      if (route === "maps3d") renderMap3dEditorLoadError(content, error);
     });
     return;
   }
@@ -572,6 +574,30 @@ function renderApp(): void {
   }
 
   renderDebugNarcs(project, content, renderDirtyIndicator);
+}
+
+function renderMap3dEditorLoadError(root: HTMLElement, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  root.innerHTML = `
+    <div class="pokemon-filter map3d-sidebar">
+      <div class="filter-title">Maps 3D</div>
+      <div class="map3d-load-error">
+        <strong>Map viewer update required</strong>
+        <p>Pokeweb was updated while this tab was open. Refresh to load the current map editor files.</p>
+        <code>${escapeHtml(message)}</code>
+        <button class="btn -default" id="map3d-refresh-app" type="button">Refresh Pokeweb</button>
+      </div>
+    </div>
+  `;
+  root.querySelector<HTMLButtonElement>("#map3d-refresh-app")?.addEventListener("click", async () => {
+    const button = root.querySelector<HTMLButtonElement>("#map3d-refresh-app");
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Refreshing...";
+    }
+    if (project) await saveActiveProject(project);
+    window.location.reload();
+  });
 }
 
 function renderNav(): string {

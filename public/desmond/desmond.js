@@ -3218,6 +3218,7 @@ registerProcessor('my-worklet', MyAudioWorklet)`], {type: "text/javascript"}))).
         }
 
         var prevRunFrameTime = performance.now()
+        var pokewebSpeedFrameCredit = 0
         function emuLoop() {
             window.requestAnimationFrame(emuLoop)
 
@@ -3228,7 +3229,32 @@ registerProcessor('my-worklet', MyAudioWorklet)`], {type: "text/javascript"}))).
                     }
                 }
                 prevRunFrameTime = performance.now()
-                var frameCount = Math.max(1, Math.min(8, (window.POKEWEB_TEST_BATTLE && window.POKEWEB_TEST_BATTLE.speedMultiplier) || 1))
+                var testBattleControl = window.POKEWEB_TEST_BATTLE
+                var frameCount = 0
+                var stepFrames = Math.max(0, Math.floor(Number((testBattleControl && testBattleControl.stepFrames) || 0)))
+                if (stepFrames > 0) {
+                    frameCount = 1
+                    testBattleControl.stepFrames = stepFrames - 1
+                    if (testBattleControl.onStepFrames) {
+                        testBattleControl.onStepFrames(testBattleControl.stepFrames)
+                    }
+                    pokewebSpeedFrameCredit = 0
+                } else if (testBattleControl && testBattleControl.paused) {
+                    pokewebSpeedFrameCredit = 0
+                    return
+                } else {
+                    var requestedSpeed = Number((testBattleControl && testBattleControl.speedMultiplier) || 1)
+                    if (!isFinite(requestedSpeed)) {
+                        requestedSpeed = 1
+                    }
+                    requestedSpeed = Math.max(0.05, Math.min(8, requestedSpeed))
+                    pokewebSpeedFrameCredit += requestedSpeed
+                    frameCount = Math.floor(pokewebSpeedFrameCredit)
+                    pokewebSpeedFrameCredit -= frameCount
+                }
+                if (frameCount < 1) {
+                    return
+                }
                 try {
                     for (var i = 0; i < frameCount; i++) {
                         emuRunFrame()

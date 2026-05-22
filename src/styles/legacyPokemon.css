@@ -29,6 +29,31 @@
   padding-bottom: 20px;
 }
 
+.evo-method-list {
+  border-bottom: 1px solid #44475a;
+  display: grid;
+  gap: 6px;
+  max-height: 34vh;
+  overflow: auto;
+  padding: 0 2px 18px;
+}
+
+.evo-method-row {
+  align-items: start;
+  color: rgba(242, 242, 242, 0.86);
+  display: grid;
+  font-size: 12px;
+  gap: 8px;
+  grid-template-columns: 26px 1fr;
+  line-height: 1.25;
+}
+
+.evo-method-id {
+  color: #1abc9c;
+  font-weight: 700;
+  text-align: right;
+}
+
 .btn-5 {
   margin-top: 5px;
   padding: 10px 0;

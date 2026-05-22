@@ -84,6 +84,7 @@ export type MoveAnimationTimelineEvent = {
       alpha?: number;
       scale?: number;
     };
+    extendToDestination?: boolean;
     field?: {
       mode?: number;
       targetMode?: number;

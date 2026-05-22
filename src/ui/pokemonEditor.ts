@@ -1,4 +1,4 @@
-import { TYPES } from "../pokeweb/constants";
+import { EVO_METHODS, TYPES } from "../pokeweb/constants";
 import {
   BASE_STAT_FIELDS,
   EV_YIELD_FIELDS,
@@ -55,6 +55,17 @@ export function renderPokemonEditor(project: ProjectState, root: HTMLElement, on
       </div>
       <br>
       <div class="small-filters">Tip: You can right click a value to apply to all</div>
+      <div class="filter-title">Evolution Methods</div>
+      <div class="evo-method-list">
+        ${EVO_METHODS.map(
+          (method, index) => `
+            <div class="evo-method-row">
+              <span class="evo-method-id">${index}</span>
+              <span>${escapeHtml(method)}</span>
+            </div>
+          `,
+        ).join("")}
+      </div>
     </div>
     <div class="pokemon-list" id="personals">
       ${renderPokemonCards(project)}
@@ -205,13 +216,14 @@ function renderEvolutionColumn(slots: EvolutionSlot[]): string {
   return `
     <div class="expanded-left">
       ${slots
-        .map(
-          (slot) => `
+        .map((slot) => {
+          const paramOptions = slot.paramAutofill ? { autofill: slot.paramAutofill } : { type: "int-65535" };
+          return `
             ${expandedField("Method", editable("evolution", `method_${slot.index}`, slot.method, "evo-value", { autofill: "evo_methods" }))}
-            ${expandedField("Parameter", editable("evolution", `param_${slot.index}`, slot.param, "evo-value", { type: "int-65535" }))}
+            ${expandedField("Parameter", editable("evolution", `param_${slot.index}`, slot.param, "evo-value", paramOptions))}
             ${expandedField("Evolves to", editable("evolution", `target_${slot.index}`, slot.target, "evo-value", { autofill: "pokemon_names" }))}
-          `,
-        )
+          `;
+        })
         .join("")}
     </div>
   `;

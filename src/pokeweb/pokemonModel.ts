@@ -58,7 +58,9 @@ export type LearnsetMove = {
 export type EvolutionSlot = {
   index: number;
   method: string | number;
-  param: number;
+  param: string | number;
+  paramRaw: number;
+  paramAutofill?: string;
   target: string | number;
 };
 
@@ -114,6 +116,40 @@ export type PokemonUpdateResult = {
   value: string | number;
   rawValue: number;
   movePreview?: Pick<LearnsetMove, "type" | "category" | "power" | "accuracy">;
+};
+
+type EvolutionParamKind = "none" | "level" | "integer" | "item" | "move" | "pokemon" | "ability";
+
+const EVOLUTION_PARAM_KINDS: Partial<Record<number, EvolutionParamKind>> = {
+  0: "none",
+  1: "none",
+  2: "level",
+  3: "level",
+  4: "level",
+  5: "none",
+  6: "item",
+  7: "pokemon",
+  8: "item",
+  9: "level",
+  10: "level",
+  11: "level",
+  12: "level",
+  13: "level",
+  14: "level",
+  15: "level",
+  16: "integer",
+  17: "item",
+  18: "item",
+  19: "item",
+  20: "item",
+  21: "move",
+  22: "pokemon",
+  23: "level",
+  24: "level",
+  25: "none",
+  26: "none",
+  27: "none",
+  28: "none",
 };
 
 export function getPokemonCount(project: ProjectState): number {
@@ -413,6 +449,21 @@ export function getPokemonAutofills(project: ProjectState): Record<string, strin
   };
 }
 
+export function evolutionParamAutofillKey(method: string | number): string | undefined {
+  switch (evolutionParamKind(method)) {
+    case "item":
+      return "items";
+    case "move":
+      return "move_names";
+    case "pokemon":
+      return "pokemon_names";
+    case "ability":
+      return "abilities";
+    default:
+      return undefined;
+  }
+}
+
 function getLearnset(project: ProjectState, id: number): LearnsetMove[] {
   if (!project.narcs.learnsets) return [];
   if (id < 0 || id >= project.narcs.learnsets.fileCount || !project.narcs.learnsets.rawFiles[id]) return [];
@@ -453,11 +504,14 @@ function getEvolutions(project: ProjectState, id: number): EvolutionSlot[] {
   if (!record.raw || !record.readable) return [];
   return Array.from({ length: 7 }, (_, index) => {
     const methodId = record.raw?.[`method_${index}`] ?? 0;
+    const paramRaw = record.raw?.[`param_${index}`] ?? 0;
     const targetId = record.raw?.[`target_${index}`] ?? 0;
     return {
       index,
       method: EVO_METHODS[methodId] ?? methodId,
-      param: record.raw?.[`param_${index}`] ?? 0,
+      param: formatEvolutionParam(project, methodId, paramRaw),
+      paramRaw,
+      paramAutofill: evolutionParamAutofillKey(methodId),
       target: project.texts.banks.pokedex?.[targetId] ?? targetId,
     };
   });
@@ -655,13 +709,63 @@ function updateEvolutionField(project: ProjectState, raw: RawRecord, readable: R
   }
 
   if (field.startsWith("param_")) {
-    const value = parseInteger(inputValue, 0, 65535);
-    raw[field] = value;
+    const slot = /^param_(\d+)$/u.exec(field)?.[1];
+    const method = slot === undefined ? 0 : (raw[`method_${slot}`] ?? 0);
+    const rawValue = parseEvolutionParam(project, method, inputValue);
+    const value = formatEvolutionParam(project, method, rawValue);
+    raw[field] = rawValue;
     readable[field] = value;
-    return { value, rawValue: value };
+    return { value, rawValue };
   }
 
   throw new Error(`Unsupported evolution field: ${field}`);
+}
+
+function evolutionParamKind(method: string | number): EvolutionParamKind {
+  const methodId = typeof method === "number" ? method : EVO_METHODS.findIndex((value) => normalizeName(value) === normalizeName(String(method)));
+  const mapped = EVOLUTION_PARAM_KINDS[methodId];
+  if (mapped) return mapped;
+
+  const label = String(method).toLowerCase();
+  if (label.includes("ability")) return "ability";
+  if (label.includes("move")) return "move";
+  if (label.includes("item") || label.includes("stone")) return "item";
+  if (label.includes("party member") || label.includes("pokemon") || label.includes("pokémon")) return "pokemon";
+  if (label.includes("level")) return "level";
+  if (label.includes("none") || label.includes("trading") || label.includes("happiness")) return "none";
+  return "integer";
+}
+
+function formatEvolutionParam(project: ProjectState, method: string | number, rawValue: number): string | number {
+  switch (evolutionParamKind(method)) {
+    case "item":
+      return project.texts.banks.items?.[rawValue] ?? rawValue;
+    case "move":
+      return project.texts.banks.moves?.[rawValue] ?? rawValue;
+    case "pokemon":
+      return project.texts.banks.pokedex?.[rawValue] ?? rawValue;
+    case "ability":
+      return titleize(project.texts.banks.abilities?.[rawValue] ?? rawValue);
+    default:
+      return rawValue;
+  }
+}
+
+function parseEvolutionParam(project: ProjectState, method: string | number, inputValue: string): number {
+  switch (evolutionParamKind(method)) {
+    case "item":
+      return findValueIndex(project.texts.banks.items ?? [], inputValue, "item");
+    case "move":
+      return findValueIndex(project.texts.banks.moves ?? [], inputValue, "move");
+    case "pokemon":
+      return findValueIndex(project.texts.banks.pokedex ?? [], inputValue, "Pokemon");
+    case "ability":
+      return findValueIndex(project.texts.banks.abilities ?? [], inputValue, "ability");
+    case "level":
+      return parseInteger(inputValue, 0, 100);
+    default:
+      return parseInteger(inputValue, 0, 65535);
+  }
 }
 
 function enrichPersonalReadable(raw: RawRecord, readable: ReadableRecord): void {

@@ -328,7 +328,9 @@ div.-active svg * {
   display: block;
 }
 
-[data-autocomplete] .suggestions {
+[data-autocomplete] .suggestions,
+.expanded-card-content div:not(.multi).expanded-field [data-autocomplete] .suggestions,
+.expanded-card-subcontent div:not(.multi).expanded-field [data-autocomplete] .suggestions {
   position: absolute;
   top: 100%;
   left: 0;
@@ -336,12 +338,15 @@ div.-active svg * {
   border: 1px solid #ccc;
   border-top: 0;
   background: #282a36;
+  box-shadow: 0 10px 22px rgb(0 0 0 / 35%);
+  color: #1abc9c;
   z-index: 30;
   white-space: nowrap;
   font-size: 13px;
   font-family: Helvetica, Arial, sans-serif;
   font-weight: normal;
   line-height: 18px;
+  text-align: left;
   max-height: 220px;
   overflow-y: auto;
 }

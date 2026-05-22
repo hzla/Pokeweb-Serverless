@@ -1138,6 +1138,7 @@ function applyCmd37ParticleTransform(vm: VmState, command: ParsedHgMoveAnimation
   if (CMD37_USER_BEAM_MODES.has(positionMode) || CMD37_END_BEAM_MODES.has(positionMode)) {
     event.particle.foreshorten = false;
     event.particle.screenRotation = HG_BEAM_SCREEN_ROTATION;
+    if (event.spaId !== HG_POWDER_SNOW_SPA_ID) event.particle.extendToDestination = true;
   }
   event.message = `${event.message}; cmd37 ${hgOperatorPositionName(positionMode)} ${axisMode === 0 ? "position" : "axis"}`;
   event.debug = `${event.debug ? `${event.debug}\n` : ""}cmd37 target ${targetMode}, position ${positionMode}, axis ${axisMode}, field ${fieldMode}`;
@@ -1420,10 +1421,7 @@ function cmd37Destination(axisMode: number, targetMode: number, vm: VmState): Ve
   if (axisMode === 8 || axisMode === 17) return copyAnchor(CENTER_BATTLE_ANCHOR);
   if (axisMode === 4) return hgOperatorEndpointPosition("attackerSide", targetMode, operatorContext(vm));
   if (axisMode === 5) return hgOperatorEndpointPosition("defenderSide", targetMode, operatorContext(vm));
-  if (axisMode === 2 || axisMode === 7 || axisMode === 9 || axisMode === 11 || axisMode === 13 || axisMode === 15 || axisMode === 19 || axisMode === 21) {
-    return hgOperatorEndpointPosition("defender", targetMode, operatorContext(vm));
-  }
-  return hgOperatorEndpointPosition("attacker", targetMode, operatorContext(vm));
+  return hgOperatorEndpointPosition("defender", targetMode, operatorContext(vm));
 }
 
 function hgPreviewAnchor(target: number, vm: VmState): Vec3 {

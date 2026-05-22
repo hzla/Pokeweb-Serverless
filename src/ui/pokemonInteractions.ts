@@ -225,6 +225,9 @@ function installEditableFields(root: HTMLElement, project: ProjectState, options
         field.style.border = "";
         syncVisualFieldState(field, result);
         options.onDirty?.();
+        if (narc === "evolution" && fieldName.startsWith("method_")) {
+          refreshExpandedPanels(card, project, speciesId, "evos", options);
+        }
       } catch {
         field.textContent = initialValue;
         field.classList.add("invalid");
