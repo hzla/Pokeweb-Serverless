@@ -22,9 +22,12 @@ type DesmondWindow = Window &
       disableSavePersistence: boolean;
       saveBytes?: Uint8Array;
       speedMultiplier?: number;
+      paused?: boolean;
+      stepFrames?: number;
       onLoadError?: (message: string) => void;
       onLog?: (...values: unknown[]) => void;
       onFrame?: (frameCount: number) => void;
+      onStepFrames?: (stepFrames: number) => void;
     };
     Module?: {
       INITIAL_MEMORY?: number;
@@ -43,12 +46,17 @@ type DesmondWindow = Window &
   };
 
 const DESMOND_INITIAL_MEMORY = 1024 * 1024 * 1024;
-const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-05-18-1607";
+const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-05-20-1710";
 const DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER = 4;
+const MIN_TEST_BATTLE_SPEED_MULTIPLIER = 0.05;
+const MAX_TEST_BATTLE_SPEED_MULTIPLIER = 8;
 const FIRST_FRAME_TIMEOUT_MS = 5000;
 const statusText = document.querySelector<HTMLSpanElement>("#pokeweb-status-text");
 const status = document.querySelector<HTMLDivElement>("#pokeweb-status");
-const speedSelect = document.querySelector<HTMLSelectElement>("#pokeweb-speed");
+const speedSlider = document.querySelector<HTMLInputElement>("#pokeweb-speed");
+const speedValue = document.querySelector<HTMLOutputElement>("#pokeweb-speed-value");
+const pauseButton = document.querySelector<HTMLButtonElement>("#pokeweb-pause");
+const stepButton = document.querySelector<HTMLButtonElement>("#pokeweb-step");
 const controls = document.querySelector<HTMLDivElement>("#pokeweb-controls");
 const sessionId = readSessionId();
 const desmondWindow = window as DesmondWindow;
@@ -61,10 +69,14 @@ let runtimeLoaded = false;
 let activeSaveBytes: Uint8Array | undefined;
 let latestFrameCount = 0;
 let speedMultiplier = DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER;
+let paused = false;
+let pendingStepFrames = 0;
 
 setStatus("Waiting for battle data...");
 shieldControlsFromEmulatorInput();
 installSpeedControl();
+installPlaybackControls();
+setPlaybackControlsEnabled(false);
 installMessageListener();
 startReadyPings();
 
@@ -99,27 +111,73 @@ function notifyReady(): void {
 }
 
 function installSpeedControl(): void {
-  if (!speedSelect) return;
-  speedSelect.value = String(DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER);
-  speedSelect.addEventListener("change", () => {
-    speedMultiplier = clampSpeedMultiplier(Number(speedSelect.value));
-    speedSelect.value = String(speedMultiplier);
-    if (desmondWindow.POKEWEB_TEST_BATTLE) desmondWindow.POKEWEB_TEST_BATTLE.speedMultiplier = speedMultiplier;
-    debugLog(`Emulation speed set to ${speedMultiplier}x.`);
+  if (!speedSlider) return;
+  setSpeedMultiplier(DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER, false);
+  speedSlider.addEventListener("input", () => setSpeedMultiplier(Number(speedSlider.value), false));
+  speedSlider.addEventListener("change", () => setSpeedMultiplier(Number(speedSlider.value), true));
+}
+
+function installPlaybackControls(): void {
+  pauseButton?.addEventListener("click", () => setPaused(!paused, true));
+  stepButton?.addEventListener("click", () => {
+    setPaused(true, false);
+    pendingStepFrames = currentPendingStepFrames() + 1;
+    syncPlaybackState();
+    debugLog("Stepping one frame.");
   });
+  syncPlaybackState();
+}
+
+function setPlaybackControlsEnabled(enabled: boolean): void {
+  if (pauseButton) pauseButton.disabled = !enabled;
+  if (stepButton) stepButton.disabled = !enabled;
 }
 
 function shieldControlsFromEmulatorInput(): void {
   if (!controls) return;
   const stop = (event: Event) => event.stopPropagation();
-  for (const eventName of ["pointerdown", "pointerup", "pointermove", "mousedown", "mouseup", "mousemove", "click", "dblclick", "touchstart", "touchmove", "touchend", "touchcancel"]) {
+  for (const eventName of ["pointerdown", "pointerup", "pointermove", "mousedown", "mouseup", "mousemove", "click", "dblclick", "touchstart", "touchmove", "touchend", "touchcancel", "keydown", "keyup"]) {
     controls.addEventListener(eventName, stop);
   }
 }
 
 function clampSpeedMultiplier(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER;
-  return Math.max(1, Math.min(8, Math.round(value)));
+  return Math.max(MIN_TEST_BATTLE_SPEED_MULTIPLIER, Math.min(MAX_TEST_BATTLE_SPEED_MULTIPLIER, Math.round(value * 20) / 20));
+}
+
+function setSpeedMultiplier(value: number, logChange: boolean): void {
+  speedMultiplier = clampSpeedMultiplier(value);
+  const formatted = formatSpeedMultiplier(speedMultiplier);
+  if (speedSlider) speedSlider.value = formatted;
+  if (speedValue) speedValue.textContent = `${formatted}x`;
+  if (desmondWindow.POKEWEB_TEST_BATTLE) desmondWindow.POKEWEB_TEST_BATTLE.speedMultiplier = speedMultiplier;
+  if (logChange) debugLog(`Emulation speed set to ${formatted}x.`);
+}
+
+function setPaused(value: boolean, logChange: boolean): void {
+  paused = value;
+  syncPlaybackState();
+  if (logChange) debugLog(paused ? "Emulation paused." : "Emulation resumed.");
+}
+
+function currentPendingStepFrames(): number {
+  return Math.max(0, Math.trunc(desmondWindow.POKEWEB_TEST_BATTLE?.stepFrames ?? pendingStepFrames));
+}
+
+function syncPlaybackState(): void {
+  if (pauseButton) {
+    pauseButton.textContent = paused ? "Resume" : "Pause";
+    pauseButton.setAttribute("aria-pressed", String(paused));
+  }
+  if (desmondWindow.POKEWEB_TEST_BATTLE) {
+    desmondWindow.POKEWEB_TEST_BATTLE.paused = paused;
+    desmondWindow.POKEWEB_TEST_BATTLE.stepFrames = pendingStepFrames;
+  }
+}
+
+function formatSpeedMultiplier(value: number): string {
+  return value.toFixed(2).replace(/\.?0+$/u, "");
 }
 
 async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
@@ -132,10 +190,15 @@ async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
       disableSavePersistence: true,
       saveBytes: activeSaveBytes,
       speedMultiplier,
+      paused,
+      stepFrames: pendingStepFrames,
       onLoadError: (loadError) => setError(loadError),
       onLog: (...values) => debugLog(values.map(formatLogValue).join(" ")),
       onFrame: (frameCount) => {
         latestFrameCount = frameCount;
+      },
+      onStepFrames: (stepFrames) => {
+        pendingStepFrames = Math.max(0, Math.trunc(stepFrames));
       },
     };
     debugLog(`Received ROM ${(message.romBuffer.byteLength / 1024 / 1024).toFixed(1)} MiB and save ${message.saveBuffer.byteLength} bytes.`);
@@ -152,6 +215,7 @@ async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
     await loadRom(player, romUrl);
     setStatus("Waiting for emulator frames...");
     await waitForFrameProgress();
+    setPlaybackControlsEnabled(true);
     blockUnexpectedNavigation = false;
     setStatus(`Running ${label}.`);
   } catch (error) {

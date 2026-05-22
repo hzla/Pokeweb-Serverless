@@ -197,7 +197,7 @@ class SplEmitter {
         const [anchorX, anchorY] = useResourceAnchor ? particleAnchor(this.resource, particle.child) : [0.5, 0.5];
         const textureIndex = clampTextureIndex(particle.textureIndex, this.archive);
         const renderVelocity = this.renderParticleVelocity(particle);
-        const relativePosition = scaleVec(particle.position, POSITION_SCALE);
+        const relativePosition = this.renderRelativePosition(particle);
         const anchorMotionOffset = hgAnchoredPaneMotionOffset(this.event, this.resource, particle, scaleMultiplier);
         return {
           eventId: this.event.id,
@@ -255,6 +255,20 @@ class SplEmitter {
       emitterVelocity = scaleVec(normalize(this.event.particle.alignDirection), speed);
     }
     return add(particleVelocity, emitterVelocity);
+  }
+
+  private renderRelativePosition(particle: SimParticle): Vec3 {
+    let localPosition = particle.position;
+    const destination = this.event.particle?.extendToDestination ? this.event.particle.destination : undefined;
+    if (destination) {
+      const start = this.emitterPositionAt(0);
+      const maxDistanceAlongAxis = dot(sub(destination, start), this.axis) / POSITION_SCALE;
+      const distanceAlongAxis = dot(localPosition, this.axis);
+      if (maxDistanceAlongAxis > 0 && distanceAlongAxis > maxDistanceAlongAxis) {
+        localPosition = sub(localPosition, scaleVec(this.axis, distanceAlongAxis - maxDistanceAlongAxis));
+      }
+    }
+    return scaleVec(localPosition, POSITION_SCALE);
   }
 
   private emitterPositionAt(frame: number): Vec3 {
@@ -325,7 +339,10 @@ class SplEmitter {
     const posNorm = length(position) < 0.00001 ? localRng.unitVector() : normalize(position);
     const magPos = scaledRange2(this.resource.initVelPosAmplifier * this.params.speedMultiplier * VELOCITY_STEP_SCALE, this.resource.variance.initVel, localRng);
     const axisVelocity = this.screenPlaneRegularCellStep(count) === undefined ? this.resource.initVelAxisAmplifier : 0;
-    const magAxis = scaledRange2(axisVelocity * this.params.speedMultiplier * VELOCITY_STEP_SCALE, this.resource.variance.initVel, localRng);
+    const magAxis = Math.max(
+      scaledRange2(axisVelocity * this.params.speedMultiplier * VELOCITY_STEP_SCALE, this.resource.variance.initVel, localRng),
+      this.destinationReachAxisVelocity(),
+    );
     const velocity = add(add(scaleVec(posNorm, magPos), scaleVec(this.axis, magAxis)), this.particleInitVelocity);
     const color = this.initialColor(localRng);
     const textureIndex = this.initialTexture(localRng);
@@ -543,6 +560,17 @@ class SplEmitter {
 
   private ensureCrossAxes(): void {
     // The axes are computed in the constructor; this method preserves the emitter lifecycle shape.
+  }
+
+  private destinationReachAxisVelocity(): number {
+    if (!this.event.particle?.extendToDestination || !this.event.particle.destination) return 0;
+    if (this.resource.initVelAxisAmplifier <= 0) return 0;
+    const start = this.emitterPositionAt(0);
+    const delta = sub(this.event.particle.destination, start);
+    const distanceAlongAxis = dot(delta, this.axis);
+    if (distanceAlongAxis <= 0) return 0;
+    const travelFrames = Math.max(1, this.resource.particleLifeFrames * this.params.lifeMultiplier * 0.82);
+    return distanceAlongAxis / POSITION_SCALE / travelFrames;
   }
 }
 

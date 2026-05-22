@@ -159,7 +159,7 @@ type AnimationRenderPart = {
   sequenceIndex: number;
   frameIndex: number;
   frame: PokemonAnimationFrame;
-  cell: PokemonCell;
+  cell: RigCell;
   localBounds: AnimationSelectionBox;
   worldCorners: AnimationCanvasPoint[];
   canvasCorners: AnimationCanvasPoint[];
@@ -2405,7 +2405,7 @@ function drawAnimationEditor(project: ProjectState, spriteId: number, root: HTML
   try {
     const animation = getPokemonAnimation(project, spriteId, state.animationSide);
     const multiCells = getPokemonMultiCells(project, spriteId, state.animationSide);
-    const cellBank = getPokemonCellBank(project, spriteId, state.animationSide);
+    const rigCells = getRigCells(project, spriteId, state.animationSide);
     const rigImage = getPokemonSpriteImage(project, spriteId, rigVariantForSide(state.animationSide), state.previewPaletteKind);
     const usePlayback = state.animationPlaying || state.animationTick > 0;
     const playback = usePlayback ? resolveMultiCellPlayback(project, spriteId, multiCells.cells, multiCells.cells[state.animationMultiCell] ?? multiCells.cells[0], state.animationTick) : undefined;
@@ -2427,7 +2427,7 @@ function drawAnimationEditor(project: ProjectState, spriteId: number, root: HTML
         ctx,
         spriteId,
         rig,
-        cellBank,
+        rigCells,
         animation,
         multiCell,
         node,
@@ -2488,7 +2488,7 @@ function drawAnimationNodeCanvas(
   ctx: CanvasRenderingContext2D,
   spriteId: number,
   rig: HTMLCanvasElement,
-  cellBank: PokemonCellBank,
+  rigCells: RigCellsFile,
   animation: PokemonAnimation,
   multiCell: PokemonMultiCell,
   node: PokemonMultiCellNode,
@@ -2500,9 +2500,9 @@ function drawAnimationNodeCanvas(
   const frameState = sequence ? animationFrameStateForSequence(sequence, tick, usePlayerFrames) : undefined;
   if (!frameState) return;
   const frame = animationPreviewFrame(spriteId, state.animationSide, sequence.index, frameState.frameIndex, frameState.frame);
-  const cell = cellBank.cells[frame.cellIndex];
+  const cell = rigCells.cells[frame.cellIndex];
   if (!cell) return;
-  drawNcerCellCanvas(ctx, rig, cellBank, cell, node.x, node.y, frame, selected);
+  drawMcssRigCellCanvas(ctx, rig, cell, node.x, node.y, frame, selected);
 }
 
 function drawAnimationCellAt(ctx: CanvasRenderingContext2D, rig: HTMLCanvasElement, cell: RigCell, x: number, y: number, frame: PokemonAnimationFrame, selected = false): void {
@@ -2555,11 +2555,48 @@ function drawNcerCellCanvas(
   ctx.restore();
 }
 
+function drawMcssRigCellCanvas(
+  ctx: CanvasRenderingContext2D,
+  rig: HTMLCanvasElement,
+  cell: RigCell,
+  nodeX: number,
+  nodeY: number,
+  frame: PokemonAnimationFrame,
+  selected = false,
+): void {
+  const scale = ANIMATION_PREVIEW_SCALE;
+  const transform = nitroAnimationTransform(frame);
+  const baseX = nodeX + frame.x;
+  const baseY = nodeY + frame.y;
+  const isIdentity = transform.a === 1 && transform.b === 0 && transform.c === 0 && transform.d === 1;
+  const bounds = mcssRigCellVisibleBounds(cell);
+  ctx.save();
+  ctx.translate(canvasAnimationOriginX(ctx), canvasAnimationOriginY(ctx));
+  ctx.scale(scale, scale);
+  ctx.translate(baseX, baseY);
+  if (!isIdentity) {
+    ctx.transform(transform.a, transform.c, transform.b, transform.d, 0, 0);
+  }
+  drawMcssRigCellPartCanvas(ctx, rig, cell);
+  if (cell.subCell.width > 0 && cell.subCell.height > 0) drawMcssRigCellPartCanvas(ctx, rig, cell.subCell);
+  if (selected) {
+    ctx.strokeStyle = "rgb(26 188 156 / 90%)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+  }
+  ctx.restore();
+}
+
+function drawMcssRigCellPartCanvas(ctx: CanvasRenderingContext2D, rig: HTMLCanvasElement, cell: RigCell): void {
+  if (cell.width <= 0 || cell.height <= 0) return;
+  ctx.drawImage(rig, cell.cellX, cell.cellY, cell.width, cell.height, cell.spriteX, -cell.spriteY, cell.width, cell.height);
+}
+
 function animationRenderState(project: ProjectState, spriteId: number, canvas: HTMLCanvasElement): AnimationRenderState | undefined {
   try {
     const animation = getPokemonAnimation(project, spriteId, state.animationSide);
     const multiCells = getPokemonMultiCells(project, spriteId, state.animationSide);
-    const cellBank = getPokemonCellBank(project, spriteId, state.animationSide);
+    const rigCells = getRigCells(project, spriteId, state.animationSide);
     const usePlayback = state.animationPlaying || state.animationTick > 0;
     const fallbackCell = multiCells.cells[state.animationMultiCell] ?? multiCells.cells[0];
     const playback = usePlayback ? resolveMultiCellPlayback(project, spriteId, multiCells.cells, fallbackCell, state.animationTick) : undefined;
@@ -2579,7 +2616,7 @@ function animationRenderState(project: ProjectState, spriteId: number, canvas: H
       const frameState = animationFrameStateForSequence(sequence, nodeTick, usePlayback);
       if (!frameState) continue;
       const frame = animationPreviewFrame(spriteId, state.animationSide, sequence.index, frameState.frameIndex, frameState.frame);
-      const cell = cellBank.cells[frame.cellIndex];
+      const cell = rigCells.cells[frame.cellIndex];
       if (!cell) continue;
       parts.push(animationRenderPart(canvas, nodeIndex, node, sequence.index, frameState.frameIndex, frame, cell, playback?.outerFrame));
     }
@@ -2600,11 +2637,11 @@ function animationRenderPart(
   sequenceIndex: number,
   frameIndex: number,
   frame: PokemonAnimationFrame,
-  cell: PokemonCell,
+  cell: RigCell,
   outerFrame?: PokemonAnimationFrame,
 ): AnimationRenderPart {
   const transform = nitroAnimationTransform(frame);
-  const localBounds = ncerVisibleBounds(cell);
+  const localBounds = mcssRigCellVisibleBounds(cell);
   const baseX = node.x + frame.x;
   const baseY = node.y + frame.y;
   const localCorners = [
@@ -2659,6 +2696,28 @@ function ncerVisibleBounds(cell: PokemonCell): AnimationSelectionBox {
   const minY = Number.isFinite(bounds.minY) ? bounds.minY : cell.minY;
   const maxX = Number.isFinite(bounds.maxX) ? bounds.maxX : cell.maxX;
   const maxY = Number.isFinite(bounds.maxY) ? bounds.maxY : cell.maxY;
+  return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
+}
+
+function mcssRigCellVisibleBounds(cell: RigCell): AnimationSelectionBox {
+  const parts = [cell, cell.subCell].filter((part) => part.width > 0 && part.height > 0);
+  const bounds = parts.reduce(
+    (acc, part) => {
+      const x = part.spriteX;
+      const y = -part.spriteY;
+      return {
+        minX: Math.min(acc.minX, x),
+        minY: Math.min(acc.minY, y),
+        maxX: Math.max(acc.maxX, x + part.width),
+        maxY: Math.max(acc.maxY, y + part.height),
+      };
+    },
+    { minX: Number.POSITIVE_INFINITY, minY: Number.POSITIVE_INFINITY, maxX: Number.NEGATIVE_INFINITY, maxY: Number.NEGATIVE_INFINITY },
+  );
+  const minX = Number.isFinite(bounds.minX) ? bounds.minX : 0;
+  const minY = Number.isFinite(bounds.minY) ? bounds.minY : 0;
+  const maxX = Number.isFinite(bounds.maxX) ? bounds.maxX : minX + 1;
+  const maxY = Number.isFinite(bounds.maxY) ? bounds.maxY : minY + 1;
   return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
 }
 

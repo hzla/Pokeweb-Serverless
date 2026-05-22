@@ -54,6 +54,25 @@ describe("pokemonModel", () => {
     expect(project.actionChangelog?.entries.some((entry) => entry.text.includes("Bulbasaur type 1 changed from Grass to Poison."))).toBe(true);
   });
 
+  it("formats and updates evolution parameters by method type", () => {
+    const project = makeProject();
+
+    const method = updatePokemonField(project, 1, "evolution", "method_0", "Trade with Held Item");
+    const item = updatePokemonField(project, 1, "evolution", "param_0", "Moon Stone");
+
+    let record = getPokemonRecord(project, 1);
+    expect(method.rawValue).toBe(6);
+    expect(item.rawValue).toBe(1);
+    expect(record.evolutions[0]).toMatchObject({ method: "Trade with Held Item", param: "Moon Stone", paramRaw: 1 });
+
+    updatePokemonField(project, 1, "evolution", "method_0", "After Learning Specific Move");
+    const move = updatePokemonField(project, 1, "evolution", "param_0", "Vine Whip");
+
+    record = getPokemonRecord(project, 1);
+    expect(move.rawValue).toBe(2);
+    expect(record.evolutions[0]).toMatchObject({ method: "After Learning Specific Move", param: "Vine Whip", paramRaw: 2 });
+  });
+
   it("toggles TM/HM compatibility bits without changing TM move names", () => {
     const project = makeProject();
 
@@ -173,7 +192,7 @@ function makeProject(): ProjectState {
       banks: {
         pokedex: ["None", "Bulbasaur", "Ivysaur", "Venusaur"],
         abilities: ["None", "overgrow", "chlorophyll", "hidden"],
-        items: ["None"],
+        items: ["None", "Moon Stone"],
         moves: ["None", "Tackle", "Vine Whip"],
       },
     },

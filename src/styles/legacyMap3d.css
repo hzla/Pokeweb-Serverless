@@ -129,6 +129,37 @@
   padding: 10px;
 }
 
+.map3d-load-error {
+  background: #2f314b;
+  border: 1px solid #684450;
+  border-radius: 5px;
+  color: #f2f2f2;
+  display: grid;
+  gap: 10px;
+  line-height: 1.4;
+  padding: 12px;
+}
+
+.map3d-load-error strong {
+  color: #ffd8df;
+  font-size: 14px;
+}
+
+.map3d-load-error p {
+  margin: 0;
+}
+
+.map3d-load-error code {
+  background: #202432;
+  border: 1px solid #44475a;
+  border-radius: 4px;
+  color: #d6d7e2;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  padding: 8px;
+}
+
 .map3d-permission-editor {
   background: #303448;
   border: 1px solid #454b62;

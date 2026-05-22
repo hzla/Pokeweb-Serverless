@@ -62,7 +62,8 @@ canvas {
   right: 16px;
   top: 16px;
   z-index: 10001;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(160px, 28vw) 48px auto auto;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
@@ -82,14 +83,49 @@ canvas {
 }
 
 #pokeweb-speed {
-  min-width: 72px;
+  width: 100%;
+  min-width: 160px;
+  accent-color: #2dd4bf;
+  pointer-events: auto;
+}
+
+#pokeweb-speed-value {
+  color: #f8fafc;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+#pokeweb-pause,
+#pokeweb-step {
+  min-width: 64px;
+  padding: 5px 10px;
   color: #f8fafc;
   border: 1px solid rgba(148, 163, 184, 0.42);
   border-radius: 6px;
-  background: #111827;
-  padding: 5px 8px;
+  background: rgba(17, 24, 39, 0.92);
   font: inherit;
   pointer-events: auto;
+}
+
+#pokeweb-pause:hover,
+#pokeweb-step:hover,
+#pokeweb-pause:focus-visible,
+#pokeweb-step:focus-visible {
+  border-color: rgba(45, 212, 191, 0.72);
+  outline: none;
+}
+
+#pokeweb-pause[aria-pressed="true"] {
+  color: #071313;
+  border-color: rgba(45, 212, 191, 0.82);
+  background: #2dd4bf;
+}
+
+#pokeweb-pause:disabled,
+#pokeweb-step:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 #pokeweb-debug-log {
@@ -181,6 +217,9 @@ canvas {
   #pokeweb-controls {
     top: auto;
     bottom: 16px;
+    left: 16px;
+    right: 16px;
+    grid-template-columns: auto minmax(0, 1fr) 48px auto auto;
   }
 
   #pokeweb-debug-log {
