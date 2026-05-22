@@ -738,7 +738,6 @@ async function downloadRom(): Promise<void> {
 async function launchTestBattle(trainerId: number, showdownText = ""): Promise<void> {
   if (!project) return;
   if (!hasExportBase) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
-  if (project.session.baseRom !== "BW2") throw new Error("Test Battle currently supports Black 2 / White 2 projects only.");
 
   const emulator = openTestBattleEmulator();
   const baseName = project.session.romName || "pokeweb";
@@ -762,7 +761,6 @@ async function launchTestBattle(trainerId: number, showdownText = ""): Promise<v
 async function launchMoveTestBattle(moveId: number, scriptText: string): Promise<void> {
   if (!project) return;
   if (!hasExportBase) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
-  if (project.session.baseRom !== "BW2") throw new Error("Move Test currently supports Black 2 / White 2 projects only.");
 
   const emulator = openTestBattleEmulator();
   const baseName = project.session.romName || "pokeweb";

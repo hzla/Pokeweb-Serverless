@@ -125,6 +125,32 @@
   opacity: 0.55;
 }
 
+.code-injection-credits {
+  align-items: center;
+  background: #282a36;
+  border: 1px solid rgb(98 114 164 / 55%);
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+}
+
+.code-injection-credits span {
+  color: #d6d7e2;
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.code-injection-credits strong {
+  border: 1px solid rgb(105 214 189 / 50%);
+  border-radius: 999px;
+  color: #69d6bd;
+  font-size: 12px;
+  padding: 4px 9px;
+}
+
 .code-injection-module-list {
   display: grid;
   gap: 8px;
