@@ -1116,7 +1116,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "changelog") return true;
   if (nextRoute === "docGenerators") return true;
   if (nextRoute === "fileSystem") return hasExportBase;
-  if (nextRoute === "codeInjection") return hasExportBase && project.session.baseRom === "BW2";
+  if (nextRoute === "codeInjection") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);

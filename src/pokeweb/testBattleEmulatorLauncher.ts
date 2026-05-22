@@ -13,7 +13,7 @@ type ReadyMessage = {
 };
 
 const READY_TIMEOUT_MS = 15000;
-const TEST_BATTLE_EMULATOR_VERSION = "test-battle-desmond-2026-05-18-1607";
+const TEST_BATTLE_EMULATOR_VERSION = "test-battle-desmond-2026-05-21-1535";
 
 export function openTestBattleEmulator(): { launch: (payload: TestBattleEmulatorPayload) => Promise<void>; close: () => void } {
   const sessionId = createSessionId();

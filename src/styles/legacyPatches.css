@@ -1,40 +1,65 @@
 .patches-page {
-  padding: 24px;
   display: grid;
-  gap: 16px;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  min-height: 100vh;
+  padding-top: 44px;
+  width: 100%;
+  background: #282a36;
+  color: #f2f2f2;
 }
 
 .patches-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  border-right: 1px solid #44475a;
+  min-height: calc(100vh - 44px);
+  padding: 22px 18px;
 }
 
 .patches-header h1,
-.patch-card h2 {
+.patches-header p,
+.patch-card h2,
+.patch-card p {
   margin: 0;
 }
 
+.patches-header h1 {
+  font-size: 22px;
+}
+
 .patches-header p,
-.patch-card p {
+.patch-card p,
+.patch-status {
+  color: #d6d7e2;
+  font-size: 13px;
+  line-height: 1.45;
   margin: 6px 0 0;
-  color: #57606a;
 }
 
 .patch-card {
-  border: 1px solid #d8dee4;
+  background: #383a59;
+  border: 1px solid #44475a;
   border-radius: 8px;
-  background: #fff;
-  padding: 16px;
+  grid-column: 2;
+  margin: 0 24px 18px;
+  max-width: 900px;
+  padding: 18px;
   display: grid;
-  gap: 16px;
+  gap: 18px;
+}
+
+.patches-header + .patch-card {
+  margin-top: 24px;
 }
 
 .patch-card__body {
   display: flex;
-  justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
+  justify-content: space-between;
+}
+
+.patch-card h2 {
+  font-size: 22px;
 }
 
 .patch-card__meta {
@@ -42,54 +67,87 @@
   align-items: center;
   gap: 8px;
   white-space: nowrap;
-  color: #57606a;
+  color: #d6d7e2;
 }
 
 .patch-card__actions {
+  align-items: center;
   display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   justify-content: flex-start;
 }
 
+.patch-card__actions .btn.-default {
+  background: #1abc9c;
+  color: #101216;
+}
+
+.patch-card__actions .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .patch-badge {
-  border: 1px solid #d8dee4;
+  background: rgb(255 184 108 / 14%);
+  border: 1px solid rgb(255 184 108 / 45%);
   border-radius: 999px;
-  padding: 3px 8px;
+  color: #ffb86c;
+  flex: 0 0 auto;
   font-size: 12px;
   font-weight: 700;
-  color: #57606a;
-  background: #f6f8fa;
+  padding: 5px 10px;
 }
 
 .patch-badge.-ok {
-  color: #116329;
-  border-color: #aceebb;
-  background: #dafbe1;
+  background: rgb(80 250 123 / 12%);
+  border-color: rgb(80 250 123 / 45%);
+  color: #50fa7b;
 }
 
 .patch-badge.-warn {
-  color: #9a6700;
-  border-color: #f0d98c;
-  background: #fff8c5;
+  background: rgb(255 184 108 / 14%);
+  border-color: rgb(255 184 108 / 45%);
+  color: #ffb86c;
 }
 
 .patch-status {
+  grid-column: 2;
+  margin: 0 24px 24px;
   min-height: 22px;
-  color: #57606a;
+  max-width: 900px;
 }
 
 .patch-status.-ok {
-  color: #116329;
+  color: #50fa7b;
 }
 
 .patch-status.-warn {
-  color: #9a6700;
+  color: #ffb86c;
 }
 
 .patch-status.-error {
-  color: #cf222e;
+  color: #ff5555;
 }
 
 @media (max-width: 720px) {
+  .patches-page {
+    display: block;
+    padding-top: 0;
+  }
+
+  .patches-header {
+    border-bottom: 1px solid #44475a;
+    border-right: 0;
+    min-height: 0;
+  }
+
+  .patch-card,
+  .patch-status {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
   .patch-card__body {
     display: grid;
   }
