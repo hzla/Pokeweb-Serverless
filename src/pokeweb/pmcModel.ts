@@ -40,12 +40,21 @@ export type CodeInjectionDllInstallResult = {
 };
 
 export const PMC_OVERLAY_SIZE = 0x3000;
+export const PMC_OVERLAY_RESERVED_SIZE = 0x8000;
 export const PMC_OVERLAY_ID_PATH = "codeinjection/pmc_overlay.txt";
 export const PMC_RPM_UID = "PMC.rpm";
+export const PMC_PATCHES_KEEP_PATH = "patches/.pokeweb_keep";
 export const PMC_SYMBOL_PATH = "codeinjection/RPMSYM-PMC.rpm";
 
 const PMC_B2_URL = new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url);
 const PMC_W2_URL = new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url);
+const DOUBLE_BATTLE_FIX_B2_URL = new URL("../assets/codeinjection/DoubleBattleFixB2.dll", import.meta.url);
+const DOUBLE_BATTLE_FIX_W2_URL = new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url);
+
+const DOUBLE_BATTLE_FIX_FILENAMES: Record<"B2" | "W2", string> = {
+  B2: "DoubleBattleFixB2.dll",
+  W2: "DoubleBattleFixW2.dll",
+};
 
 export async function installBundledPmc(project: ProjectState): Promise<PmcInstallResult> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
@@ -68,7 +77,7 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   const existingEntry = findOverlayEntry(rom.arm9OverlayTable, overlayId);
   const previousMaxOverlayEnd = maxOverlayEnd(rom.arm9OverlayTable);
   const overlayBaseAddress = existingEntry ? readU32(rom.arm9OverlayTable, existingEntry + 4) : previousMaxOverlayEnd;
-  const heapStart = Math.max(previousMaxOverlayEnd, overlayBaseAddress + PMC_OVERLAY_SIZE);
+  const heapStart = Math.max(previousMaxOverlayEnd, overlayBaseAddress + PMC_OVERLAY_RESERVED_SIZE);
   const overlayPath = overlayPathForId(overlayId);
 
   const heapSymbol =
@@ -91,6 +100,7 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   stageRomPath(project, rom, PMC_OVERLAY_ID_PATH, asciiBytes(String(overlayId)));
   stageRomPath(project, rom, PMC_SYMBOL_PATH, symbolBytes);
   stageRomPath(project, rom, overlayPath, overlayBytes);
+  stageRomPath(project, rom, PMC_PATCHES_KEEP_PATH, asciiBytes("pokeweb"));
 
   project.codeInjection ??= {};
   project.codeInjection.pmc = {
@@ -107,6 +117,26 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   });
 
   return { overlayId, overlayBaseAddress, version, gameId, symbolPath: PMC_SYMBOL_PATH };
+}
+
+export async function stageBundledDoubleBattleFixDll(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
+  if (project.session.baseRom !== "BW2") {
+    throw new Error("The bundled single-NPC double battle fix currently requires the BW2 PMC runtime.");
+  }
+  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
+    throw new Error(`No bundled double battle fix is available for ${project.session.baseVersion}.`);
+  }
+
+  const url = project.session.baseVersion === "B2" ? DOUBLE_BATTLE_FIX_B2_URL : DOUBLE_BATTLE_FIX_W2_URL;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Could not load bundled double battle fix (${response.status})`);
+
+  const fileName = DOUBLE_BATTLE_FIX_FILENAMES[project.session.baseVersion];
+  const result = stageCodeInjectionDll(project, fileName, new Uint8Array(await response.arrayBuffer()), "patches");
+  recordGenericChange(project, "code_injection", `${fileName} staged for single-NPC double trainer battles.`, "Double Battle Fix", {
+    key: "code-injection:double-battle-fix",
+  });
+  return result;
 }
 
 export function getPmcInstallStatus(project: ProjectState): PmcInstallStatus {
@@ -179,6 +209,14 @@ export function listCodeInjectionDlls(project: ProjectState): NonNullable<NonNul
   return modules;
 }
 
+export function detectBundledDoubleBattleFixDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {
+  if (project.session.baseRom !== "BW2") return "unsupported";
+  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") return "unsupported";
+  const fileName = DOUBLE_BATTLE_FIX_FILENAMES[project.session.baseVersion];
+  const path = `patches/${fileName}`;
+  return listCodeInjectionDlls(project).some((module) => module.path === path) ? "patched" : "unpatched";
+}
+
 export function validateCodeInjectionDll(bytes: Uint8Array): void {
   const magic = bytes.length >= 4 ? readAscii(bytes, 0, 4) : "";
   if (magic !== "DLXF") {
@@ -228,7 +266,7 @@ export function buildCodeInjectionOverlayTable(project: ProjectState, rom: Ninte
   const offset = existingEntry ?? table.length - 32;
   writeU32(table, offset, pmc.overlayId);
   writeU32(table, offset + 4, pmc.overlayBaseAddress);
-  writeU32(table, offset + 8, PMC_OVERLAY_SIZE);
+  writeU32(table, offset + 8, PMC_OVERLAY_RESERVED_SIZE);
   writeU32(table, offset + 12, 0);
   writeU32(table, offset + 16, pmc.overlayBaseAddress);
   writeU32(table, offset + 20, pmc.overlayBaseAddress);

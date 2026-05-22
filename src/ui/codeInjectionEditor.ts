@@ -1,10 +1,20 @@
-import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll, type CodeInjectionDllTarget } from "../pokeweb/pmcModel";
+import {
+  detectBundledDoubleBattleFixDll,
+  getPmcInstallStatus,
+  installBundledPmc,
+  listCodeInjectionDlls,
+  stageBundledDoubleBattleFixDll,
+  stageCodeInjectionDll,
+  type CodeInjectionDllTarget,
+} from "../pokeweb/pmcModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
 export function renderCodeInjectionEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
   const status = getPmcInstallStatus(project);
   const modules = listCodeInjectionDlls(project);
+  const doubleBattleFixStatus = detectBundledDoubleBattleFixDll(project);
+  const doubleBattleFixSupported = status.installed && doubleBattleFixStatus !== "unsupported";
   root.innerHTML = `
     <section class="code-injection-page">
       <aside class="code-injection-sidebar">
@@ -29,6 +39,29 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
             <div class="code-injection-note" id="pmc-install-note">Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.</div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Single-NPC Double Battle Fix</h2>
+              <p>${
+                project.session.baseRom === "BW2"
+                  ? "Stages the bundled DLXF patch that fixes common-script trainers changed from Singles to Doubles."
+                  : "A BW build of this DLXF patch is not bundled yet."
+              }</p>
+            </div>
+            <span class="code-injection-status ${doubleBattleFixStatus === "patched" ? "-installed" : ""}">
+              ${doubleBattleFixStatus === "patched" ? "Installed" : doubleBattleFixStatus === "unsupported" ? "Unsupported" : "Not Installed"}
+            </span>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-double-battle-fix-btn" type="button" ${doubleBattleFixSupported ? "" : "disabled"}>
+              Install Double Battle Fix
+            </button>
+            <div class="code-injection-note" id="double-battle-fix-note">
+              ${status.installed ? "The patch DLL will be staged in patches/." : "Install PMC first, then stage the patch DLL."}
+            </div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -85,6 +118,26 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       button.disabled = false;
       button.textContent = previousText;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const doubleBattleButton = root.querySelector<HTMLButtonElement>("#install-double-battle-fix-btn");
+  const doubleBattleNote = root.querySelector<HTMLDivElement>("#double-battle-fix-note");
+  doubleBattleButton?.addEventListener("click", async () => {
+    const previousText = doubleBattleButton.textContent ?? "Install Double Battle Fix";
+    try {
+      doubleBattleButton.disabled = true;
+      doubleBattleButton.textContent = "Installing...";
+      if (doubleBattleNote) doubleBattleNote.textContent = "Loading and staging the bundled double battle patch DLL.";
+      const result = await stageBundledDoubleBattleFixDll(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#double-battle-fix-note");
+      if (refreshedNote) refreshedNote.textContent = `${result.fileName} staged at ${result.path}.`;
+    } catch (error) {
+      doubleBattleButton.disabled = false;
+      doubleBattleButton.textContent = previousText;
+      if (doubleBattleNote) doubleBattleNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 

@@ -364,7 +364,7 @@ export function writeRpm(rpm: RpmModule, options: { writeBss?: boolean; ident?: 
     writer.patchU32(relocationOffsetRef, 0xffffffff);
   }
 
-  writer.patchU32(expandSizeOffset, align(writer.offset + rpm.bssSize, RPM_PADDING));
+  writer.patchU32(expandSizeOffset, align(writer.offset + (writeBss ? 0 : rpm.bssSize), RPM_PADDING));
   writer.patchU32(headerSizeRef, writer.offset - headerSectionStart);
   return writer.toBytes();
 }
@@ -391,6 +391,18 @@ export function writeRelocationDataByType(
     }
     case "THUMB_BRANCH_LINK":
       writeThumbBranchLink(out, offsetForAbsolute(out, absoluteTargetAddress, targetBaseAddress), absoluteTargetAddress, writableAddress);
+      break;
+    case "ARM_BRANCH_LINK":
+      writeArmBranchLink(out, offsetForAbsolute(out, absoluteTargetAddress, targetBaseAddress), absoluteTargetAddress, writableAddress);
+      break;
+    case "THUMB_BRANCH":
+      writeThumbBranch(out, offsetForAbsolute(out, absoluteTargetAddress, targetBaseAddress), absoluteTargetAddress, writableAddress);
+      break;
+    case "ARM_BRANCH":
+      writeArmBranch(out, offsetForAbsolute(out, absoluteTargetAddress, targetBaseAddress), absoluteTargetAddress, writableAddress);
+      break;
+    case "THUMB_BRANCH_SAFESTACK":
+      writeThumbBranchSafestack(out, offsetForAbsolute(out, absoluteTargetAddress, targetBaseAddress), absoluteTargetAddress, writableAddress);
       break;
     case "FULL_COPY":
       writeFullCopy(rpm, relocation, out, absoluteTargetAddress, targetBaseAddress);
@@ -433,13 +445,58 @@ function offsetForAbsolute(out: Uint8Array, absoluteAddress: number, targetBaseA
 }
 
 function writeThumbBranchLink(out: Uint8Array, offset: number, absoluteAddress: number, targetAddress: number): void {
-  const target = targetAddress & 0xfffffffe;
-  const delta = target - (absoluteAddress + 4);
-  if (delta < -0x400000 || delta > 0x3ffffe) throw new Error(`Thumb BL target is out of range: 0x${absoluteAddress.toString(16)} -> 0x${target.toString(16)}`);
+  let delta = targetAddress - (absoluteAddress + 4);
+  if ((targetAddress & 1) === 0 && delta < 0) delta = (delta + 3) & 0xfffffffc;
+  if (delta < -0x400000 || delta > 0x3fffff) {
+    throw new Error(`Thumb BL target is out of range: 0x${absoluteAddress.toString(16)} -> 0x${targetAddress.toString(16)}`);
+  }
   const upper = 0xf000 | ((delta >> 12) & 0x7ff);
-  const lower = 0xf800 | ((delta >> 1) & 0x7ff);
+  const lowerPrefix = (targetAddress & 1) === 0 ? 0xe800 : 0xf800;
+  const lower = lowerPrefix | ((delta >> 1) & 0x7ff);
   writeU16(out, offset, upper);
   writeU16(out, offset + 2, lower);
+}
+
+function writeArmBranchLink(out: Uint8Array, offset: number, absoluteAddress: number, targetAddress: number): void {
+  const delta = targetAddress - (absoluteAddress + 8);
+  if (delta < -0x2000000 || delta > 0x1ffffff) {
+    throw new Error(`ARM BL target is out of range: 0x${absoluteAddress.toString(16)} -> 0x${targetAddress.toString(16)}`);
+  }
+  const instruction =
+    (targetAddress & 1) !== 0 ? 0xfa000000 | (((delta & 2) !== 0 ? 1 : 0) << 24) | ((delta >> 2) & 0xffffff) : 0xeb000000 | ((delta >> 2) & 0xffffff);
+  writeU32(out, offset, instruction >>> 0);
+}
+
+function writeThumbBranch(out: Uint8Array, offset: number, absoluteAddress: number, targetAddress: number): void {
+  const delta = targetAddress - (absoluteAddress + 4);
+  if (Math.abs(delta) < 2048) {
+    writeU16(out, offset, 0xe000 | ((delta >> 1) & 0x7ff));
+    return;
+  }
+  writeU16(out, offset, 0xb500);
+  writeThumbBranchLink(out, offset + 2, absoluteAddress + 2, targetAddress);
+  writeU16(out, offset + 6, 0xbd00);
+}
+
+function writeArmBranch(out: Uint8Array, offset: number, absoluteAddress: number, targetAddress: number): void {
+  const delta = targetAddress - (absoluteAddress + 8);
+  if (delta < -0x2000000 || delta > 0x1ffffff) {
+    throw new Error(`ARM B target is out of range: 0x${absoluteAddress.toString(16)} -> 0x${targetAddress.toString(16)}`);
+  }
+  writeU32(out, offset, (0xea000000 | ((delta >> 2) & 0xffffff)) >>> 0);
+}
+
+function writeThumbBranchSafestack(out: Uint8Array, offset: number, absoluteAddress: number, targetAddress: number): void {
+  const literalOffset = align(offset + 5 * 2, 4);
+  if (literalOffset + 4 > out.length) throw new Error(`Thumb safestack branch literal is outside the target buffer at 0x${absoluteAddress.toString(16)}`);
+  writeU16(out, offset, 0xb410);
+  let literalDelta = absoluteAddress + (literalOffset - offset) - (absoluteAddress + 2) - 4;
+  if ((literalDelta & 3) !== 0) literalDelta += 2;
+  writeU16(out, offset + 2, 0x4800 | (4 << 8) | ((literalDelta >> 2) & 0xff));
+  writeU16(out, offset + 4, 0x4600 | (1 << 7) | (4 << 3) | 4);
+  writeU16(out, offset + 6, 0xbc10);
+  writeU16(out, offset + 8, 0x4700 | (1 << 6) | (4 << 3));
+  writeU32(out, literalOffset, targetAddress);
 }
 
 function readRelativeOffset(bytes: Uint8Array, offset: number, base: number): number {

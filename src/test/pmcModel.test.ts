@@ -1,28 +1,64 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readAscii, readU32, writeU32 } from "../nds/binary";
+import { readAscii, readU16, readU32, writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import {
+  detectBundledDoubleBattleFixDll,
   getPmcInstallStatus,
   installPmcBytes,
   listCodeInjectionDlls,
   PMC_OVERLAY_ID_PATH,
+  PMC_PATCHES_KEEP_PATH,
   PMC_SYMBOL_PATH,
   stageCodeInjectionDll,
   validateCodeInjectionDll,
 } from "../pokeweb/pmcModel";
-import { parseRpm } from "../pokeweb/rpm";
+import { parseRpm, writeRelocationDataByType, writeRpm } from "../pokeweb/rpm";
 import type { ProjectState } from "../pokeweb/projectStore";
 
 const pmcB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url)));
 const pmcW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url)));
+const doubleBattleFixW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url)));
 
 describe("PMC installer", () => {
   it("parses bundled PMC metadata", () => {
     expect(parseRpm(pmcB2).metadata).toMatchObject({ PMCGameID: "B2", PMCVersion: "13.2.4" });
     expect(parseRpm(pmcW2).metadata).toMatchObject({ PMCGameID: "W2", PMCVersion: "13.2.4" });
+  });
+
+  it("does not double-count BSS when writing a packed code RPM", () => {
+    const rpm = {
+      code: Uint8Array.of(1, 2, 3, 4),
+      bssSize: 0x10,
+      baseAddress: 0,
+      symbols: [],
+      relocations: [],
+      metadata: {},
+    };
+
+    const packed = writeRpm(rpm, { writeBss: true });
+
+    expect(readU32(packed, 4)).toBe(packed.length);
+  });
+
+  it("writes Thumb BLX when a Thumb relocation targets ARM code", () => {
+    const rpm = makeRelocationRpm("FUNCTION_ARM", 0x02001000);
+    const out = new Uint8Array(4);
+
+    writeRelocationDataByType(rpm, rpm.relocations[0]!, out, 0x02100000, 0x02100000);
+
+    expect(readU16(out, 2) & 0xf800).toBe(0xe800);
+  });
+
+  it("keeps Thumb BL when a Thumb relocation targets Thumb code", () => {
+    const rpm = makeRelocationRpm("FUNCTION_THM", 0x02001000);
+    const out = new Uint8Array(4);
+
+    writeRelocationDataByType(rpm, rpm.relocations[0]!, out, 0x02100000, 0x02100000);
+
+    expect(readU16(out, 2) & 0xf800).toBe(0xf800);
   });
 
   it("rejects a bundled PMC binary for the wrong BW2 version", () => {
@@ -51,10 +87,12 @@ describe("PMC installer", () => {
     const overlayEntry = 344 * 32;
     expect(rom.arm9OverlayTable.length).toBe(345 * 32);
     expect(readU32(rom.arm9OverlayTable, overlayEntry)).toBe(344);
-    expect(readU32(rom.arm9OverlayTable, overlayEntry + 8)).toBe(0x3000);
+    expect(readU32(rom.arm9OverlayTable, overlayEntry + 8)).toBe(0x8000);
     expect(readU32(rom.arm9OverlayTable, overlayEntry + 24)).toBe(rom.fileId("overlay/overlay_0344.bin"));
     expect(new TextDecoder().decode(rom.getFileByName(PMC_OVERLAY_ID_PATH))).toBe("344");
+    expect(new TextDecoder().decode(rom.getFileByName(PMC_PATCHES_KEEP_PATH))).toBe("pokeweb");
     expect(readAscii(rom.getFileByName("overlay/overlay_0344.bin"), 0x2ff0, 4)).toBe("OVL0");
+    expect(readU32(project.arm9, 0x7b41c)).toBe(result.overlayBaseAddress + 0x8000);
   });
 
   it("stages built DLXF patch and library DLLs after PMC is installed", async () => {
@@ -74,6 +112,18 @@ describe("PMC installer", () => {
     const rom = new NintendoDSRom(exported);
     expect(readAscii(rom.getFileByName("patches/My Patch.dll"), 0, 4)).toBe("DLXF");
     expect(readAscii(rom.getFileByName("lib/Helper.dll"), 0, 4)).toBe("DLXF");
+  });
+
+  it("recognizes the bundled single-NPC double battle fix DLL", () => {
+    const romBytes = makeBw2LikeRom();
+    const project = makeProject(romBytes, "W2");
+    installPmcBytes(project, pmcW2, romBytes);
+
+    expect(detectBundledDoubleBattleFixDll(project)).toBe("unpatched");
+    stageCodeInjectionDll(project, "DoubleBattleFixW2.dll", doubleBattleFixW2, "patches");
+
+    expect(detectBundledDoubleBattleFixDll(project)).toBe("patched");
+    expect(parseRpm(doubleBattleFixW2, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCModulePriority: 4 });
   });
 
   it("rejects Windows DLLs and unconverted RPM modules for user patch upload", () => {
@@ -100,6 +150,17 @@ function makeProject(originalRomBytes: Uint8Array, baseVersion: "B2" | "W2"): Pr
     texts: { banks: {} },
     formats: {},
     trpokInfo: [],
+  };
+}
+
+function makeRelocationRpm(type: "FUNCTION_ARM" | "FUNCTION_THM", address: number) {
+  return {
+    code: new Uint8Array(),
+    bssSize: 0,
+    baseAddress: 0,
+    symbols: [{ name: "target", size: 4, address, type, attributes: 1 << 2 }],
+    relocations: [{ target: { module: "base", address: 0, type: "THUMB_BRANCH_LINK" as const }, sourceSymbolIndex: 0 }],
+    metadata: {},
   };
 }
 
