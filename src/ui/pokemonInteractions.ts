@@ -31,6 +31,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
 
   const runFilter = () => {
     filterPokemon(root, project, searchInput?.value ?? "", activeGenerations, activeTypes);
+    syncEvolutionMethodInfo(root);
     stripeRows(root);
   };
 
@@ -157,10 +158,12 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       icon.classList.add("-active");
       scrollRowBelowStickyHeader(card);
     }
+    syncEvolutionMethodInfo(root);
     stripeRows(root);
   });
 
   installEditableFields(root, project, options);
+  syncEvolutionMethodInfo(root);
   runFilter();
 }
 
@@ -171,6 +174,17 @@ function refreshExpandedPanels(card: HTMLElement, project: ProjectState, species
   card.querySelectorAll<HTMLElement>(".card-icon, .expand-action").forEach((item) => item.classList.remove("-active"));
   card.querySelector<HTMLElement>(`.expanded-${activePanel}`)?.classList.add("show-flex");
   card.querySelector<HTMLElement>(`.expand-action[data-expand='${CSS.escape(activePanel)}']`)?.classList.add("-active");
+  syncEvolutionMethodInfo(card.closest<HTMLElement>("#content-container") ?? document.body);
+}
+
+function syncEvolutionMethodInfo(root: HTMLElement): void {
+  const info = root.querySelector<HTMLElement>(".evo-method-info");
+  if (!info) return;
+  const hasVisibleEvolutionEditor = [...root.querySelectorAll<HTMLElement>(".expanded-evos.show-flex")].some((panel) => {
+    const card = panel.closest<HTMLElement>(".pokemon-card.filterable");
+    return card?.style.display !== "none";
+  });
+  info.hidden = !hasVisibleEvolutionEditor;
 }
 
 export function filterPokemon(
