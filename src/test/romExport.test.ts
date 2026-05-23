@@ -150,6 +150,20 @@ describe("ROM export", () => {
     expect(readU16(normalized, fntbOffset + 14)).toBe(1);
     expect(new NARC(normalized).filenames.idOf("file_0")).toBe(0);
   });
+
+  it("does not abort export when a suspicious NARC-like file cannot be parsed", async () => {
+    const suspicious = makeUnparseableCtrMapIncompatibleNarcLikeFile();
+    expect(hasCtrMapIncompatibleFntb(suspicious)).toBe(true);
+    expect(() => new NARC(suspicious)).toThrow(/Unsupported NARC version/u);
+
+    const romBytes = makeRom([suspicious, Uint8Array.of(7)]);
+    const exported = await exportModifiedRom(makeProject(romBytes));
+    const exportedRom = new NintendoDSRom(exported);
+
+    expect(exported.length).toBeGreaterThan(0);
+    expect([...exportedRom.files[0]]).toEqual([...suspicious]);
+    expect([...exportedRom.files[1]]).toEqual([7]);
+  });
 });
 
 function makeProject(originalRomBytes: Uint8Array): ProjectState {
@@ -253,6 +267,25 @@ function makeCtrMapIncompatibleFntbNarc(bytes: Uint8Array): Uint8Array {
   const malformed = bytes.slice();
   writeU16(malformed, fntbOffset + 14, 0);
   return malformed;
+}
+
+function makeUnparseableCtrMapIncompatibleNarcLikeFile(): Uint8Array {
+  const bytes = new Uint8Array(0x40);
+  bytes.set([0x4e, 0x41, 0x52, 0x43], 0);
+  writeU16(bytes, 4, 0xfeff);
+  writeU16(bytes, 6, 2);
+  writeU32(bytes, 8, bytes.length);
+  writeU16(bytes, 0x0c, 0x10);
+  writeU16(bytes, 0x0e, 3);
+  bytes.set([0x42, 0x54, 0x41, 0x46], 0x10);
+  writeU32(bytes, 0x14, 0x14);
+  writeU32(bytes, 0x18, 1);
+  bytes.set([0x42, 0x54, 0x4e, 0x46], 0x24);
+  writeU32(bytes, 0x28, 0x10);
+  writeU32(bytes, 0x2c, 8);
+  writeU16(bytes, 0x30, 0);
+  writeU16(bytes, 0x32, 0);
+  return bytes;
 }
 
 function packRows(format: FieldSpec[], rows: Array<Record<string, number>>): Uint8Array {
