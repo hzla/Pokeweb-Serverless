@@ -70,7 +70,12 @@ function normalizeMalformedNarc(fileReplacements: Map<number, Uint8Array>, fileI
 }
 
 function normalizeMalformedNarcBytes(bytes: Uint8Array): Uint8Array {
-  return hasEarlyFimgMagic(bytes) || hasCtrMapIncompatibleFntb(bytes) ? new NARC(bytes).save() : bytes;
+  if (!hasEarlyFimgMagic(bytes) && !hasCtrMapIncompatibleFntb(bytes)) return bytes;
+  try {
+    return new NARC(bytes).save();
+  } catch {
+    return bytes;
+  }
 }
 
 function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplacements: Map<number, Uint8Array>): Uint8Array | undefined {

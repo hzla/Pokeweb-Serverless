@@ -720,7 +720,8 @@ async function downloadRom(): Promise<void> {
     }
     await saveActiveProject(project);
     const bytes = await exportModifiedRom(project);
-    const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/octet-stream" });
+    if (bytes.length === 0) throw new Error("Export produced an empty ROM. No file was written.");
+    const blob = bytesBlob(bytes, "application/octet-stream");
     if (saveHandle) await writeBlobToSaveHandle(saveHandle, blob);
     else downloadBlob(blob, filename);
     dirty = false;
@@ -815,6 +816,11 @@ function downloadBlob(blob: Blob, filename: string): void {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function bytesBlob(bytes: Uint8Array, type: string): Blob {
+  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  return new Blob([buffer], { type });
 }
 
 function navigate(nextRoute: AppRoute): void {
