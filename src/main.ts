@@ -712,16 +712,16 @@ async function downloadRom(): Promise<void> {
   const previousText = link?.textContent ?? "Export";
   const filename = `${project.session.romName || "pokeweb"}-modified.nds`;
   try {
-    const saveHandle = await chooseRomSaveTarget(filename);
-    if (saveHandle === null) return;
     if (link) {
       link.textContent = "Building...";
       link.classList.add("disabled");
     }
-    await saveActiveProject(project);
     const bytes = await exportModifiedRom(project);
     if (bytes.length === 0) throw new Error("Export produced an empty ROM. No file was written.");
     const blob = bytesBlob(bytes, "application/octet-stream");
+    await saveActiveProject(project);
+    const saveHandle = await chooseRomSaveTargetForPreparedDownload(filename);
+    if (saveHandle === null) return;
     if (saveHandle) await writeBlobToSaveHandle(saveHandle, blob);
     else downloadBlob(blob, filename);
     dirty = false;
@@ -798,6 +798,15 @@ async function chooseRomSaveTarget(filename: string): Promise<SaveFileHandleLike
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return null;
     throw error;
+  }
+}
+
+async function chooseRomSaveTargetForPreparedDownload(filename: string): Promise<SaveFileHandleLike | undefined | null> {
+  try {
+    return await chooseRomSaveTarget(filename);
+  } catch (error) {
+    console.warn("Save file picker failed after building the ROM; falling back to browser download.", error);
+    return undefined;
   }
 }
 
