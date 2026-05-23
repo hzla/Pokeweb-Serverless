@@ -711,6 +711,7 @@ async function downloadRom(): Promise<void> {
   const link = appRoot.querySelector<HTMLAnchorElement>("[data-export-rom]");
   const previousText = link?.textContent ?? "Export";
   const filename = `${project.session.romName || "pokeweb"}-modified.nds`;
+  let saveStarted = false;
   try {
     if (link) {
       link.textContent = "Building...";
@@ -722,12 +723,19 @@ async function downloadRom(): Promise<void> {
     await saveActiveProject(project);
     const saveHandle = await chooseRomSaveTargetForPreparedDownload(filename);
     if (saveHandle === null) return;
-    if (saveHandle) await writeBlobToSaveHandle(saveHandle, blob);
-    else downloadBlob(blob, filename);
+    saveStarted = true;
+    if (saveHandle) {
+      await writeBlobToSaveHandle(saveHandle, blob);
+      window.alert(`ROM saved successfully:\n\n${filename}`);
+    } else {
+      downloadBlob(blob, filename);
+      window.alert(`ROM export started:\n\n${filename}`);
+    }
     dirty = false;
     renderDirtyIndicator();
   } catch (error) {
-    window.alert(error instanceof Error ? error.message : String(error));
+    const message = saveStarted ? "Saving the exported ROM failed." : "Export failed. No ROM file was saved.";
+    window.alert(`${message}\n\n${errorMessage(error)}`);
   } finally {
     if (link) {
       link.textContent = previousText;
@@ -806,6 +814,7 @@ async function chooseRomSaveTargetForPreparedDownload(filename: string): Promise
     return await chooseRomSaveTarget(filename);
   } catch (error) {
     console.warn("Save file picker failed after building the ROM; falling back to browser download.", error);
+    window.alert(`The system save dialog failed, so Pokeweb will use the browser download flow instead.\n\n${errorMessage(error)}`);
     return undefined;
   }
 }
@@ -830,6 +839,10 @@ function downloadBlob(blob: Blob, filename: string): void {
 function bytesBlob(bytes: Uint8Array, type: string): Blob {
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   return new Blob([buffer], { type });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function navigate(nextRoute: AppRoute): void {
