@@ -13,6 +13,7 @@
     "gen6sprites:pipeline": "vite-node scripts/gen6-sprite-pipeline.ts"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.2",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/language": "^6.12.3",
     "@codemirror/state": "^6.6.0",

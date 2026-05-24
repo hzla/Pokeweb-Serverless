@@ -9,6 +9,7 @@ import {
   decompilePlatinumMoveAnimation,
   exportPlatinumMoveAnimationArchive,
   exportPlatinumMoveAnimationRom,
+  getPlatinumCallFuncAliasDefinitions,
   getPlatinumMoveAnimationCommandDefinitions,
   loadPlatinumMoveAnimationRom,
   updatePlatinumMoveAnimationFile,
@@ -87,6 +88,16 @@ describe("platinumMoveAnimationModel", () => {
     expect(definitions.get("AddSpriteWithFunc")?.variable).toEqual({ countParam: 8, fixedParams: 9, maxVariableParams: 10 });
   });
 
+  it("defines named Platinum CallFunc aliases from script_func_tables.c", () => {
+    const aliases = new Map(getPlatinumCallFuncAliasDefinitions().map((definition) => [definition.name, definition]));
+
+    expect(aliases.has("Func_Shake")).toBe(true);
+    expect(aliases.get("Func_Shake")?.opcode).toBe(45);
+    expect(aliases.get("Func_Shake")?.params).toEqual(["extentX", "extentY", "interval", "amount", "targets"]);
+    expect(aliases.get("Func_MoveEmitterA2BLinear")?.params).toEqual(["emitterID", "offsetX", "offsetY", "startDelay", "frames", "radius", "mode", "params", "curve"]);
+    expect(aliases.get("Func_StatChangeMetal")?.params).toEqual(["mode"]);
+  });
+
   it("accepts the optional source macro operand for RemovePokemonSpriteFromBg", () => {
     const implicit = compilePlatinumMoveAnimationScript("pt_we_001:\n    RemovePokemonSpriteFromBg\n    End\n", { archiveKind: "move", fileId: 1 });
     const explicit = compilePlatinumMoveAnimationScript("pt_we_001:\n    RemovePokemonSpriteFromBg 0\n    End\n", { archiveKind: "move", fileId: 1 });
@@ -148,9 +159,42 @@ pt_we_001:
 
     expect([...compact]).toEqual([...full]);
     const text = decompilePlatinumMoveAnimation(compact, { archiveKind: "move", fileId: 1 });
-    expect(text).toContain('CallFunc 36, 5, 1, 2, 3, 4, 5, "NaN", "NaN", "NaN", "NaN", "NaN"');
+    expect(text).toContain("Func_Shake 1, 2, 3, 4, 5");
     expect(text).toContain('SetExtraParams 4, 6, 7, 8, 9, "NaN", "NaN", "NaN", "NaN"');
     expect(text).toContain('AddSpriteWithFunc 0, 12, 1, 2, 3, 4, 0, 0, 3, 10, 11, 12, "NaN", "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"');
+  });
+
+  it("round-trips named CallFunc aliases including macro-style argument shims", () => {
+    const named = compilePlatinumMoveAnimationScript(
+      `
+pt_we_001:
+    Func_Shake 1, 2, 3, 4, 5
+    Func_MoveBattler 6, 7, 8, 9
+    Func_BattlerPartialDraw 10, 11, 12
+    Func_StatChangeMetal 13
+    End
+`,
+      { archiveKind: "move", fileId: 1 },
+    );
+    const numeric = compilePlatinumMoveAnimationScript(
+      `
+pt_we_001:
+    CallFunc 36, 5, 1, 2, 3, 4, 5
+    CallFunc 57, 4, 9, 7, 8, 6
+    CallFunc 67, 5, 10, 0, 0, 11, 12
+    CallFunc 83, 2, 3, 13
+    End
+`,
+      { archiveKind: "move", fileId: 1 },
+    );
+
+    expect([...named]).toEqual([...numeric]);
+    const text = decompilePlatinumMoveAnimation(numeric, { archiveKind: "move", fileId: 1 });
+    expect(text).toContain("Func_Shake 1, 2, 3, 4, 5");
+    expect(text).toContain("Func_MoveBattler 6, 7, 8, 9");
+    expect(text).toContain("Func_BattlerPartialDraw 10, 11, 12");
+    expect(text).toContain("Func_StatChangeMetal 13");
+    expect([...compilePlatinumMoveAnimationScript(text, { archiveKind: "move", fileId: 1 })]).toEqual([...numeric]);
   });
 
   it("loads Platinum move animation NARCs from a ROM and exports archive/ROM replacements", () => {

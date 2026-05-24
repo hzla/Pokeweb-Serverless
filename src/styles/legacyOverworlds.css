@@ -106,7 +106,7 @@
 
 .overworld-entities {
   pointer-events: none;
-  z-index: 2;
+  z-index: 5;
 }
 
 .overworld-item {
@@ -153,11 +153,46 @@
   z-index: 3;
   display: flex;
   gap: 6px;
+  align-items: center;
 }
 
 .ow-tool {
   background: #44475a;
   min-width: 44px;
+}
+
+.overworld-view-toggle {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #6272a4;
+  border-radius: 4px;
+}
+
+.overworld-view-button {
+  border-radius: 0;
+  min-width: 96px;
+  background: #282a36;
+}
+
+.overworld-view-button.active {
+  background: #1abc9c;
+  color: #282a36;
+  font-weight: 700;
+}
+
+.overworld-map-status {
+  position: absolute;
+  top: 118px;
+  left: 18px;
+  z-index: 3;
+  max-width: min(520px, calc(100% - 36px));
+  padding: 10px 12px;
+  border: 1px solid #6272a4;
+  border-radius: 4px;
+  background: rgba(40, 42, 54, 0.9);
+  color: #f8f8f2;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 .popup-editor {

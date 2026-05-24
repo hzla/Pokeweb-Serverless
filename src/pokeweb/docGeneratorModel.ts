@@ -3,8 +3,18 @@ import vanillaItemsText from "../assets/data/vanilla_items.txt?raw";
 import vanillaMovesText from "../assets/data/vanilla_moves.txt?raw";
 import vanillaPokedexText from "../assets/data/vanilla_pokedex.txt?raw";
 import { readU16, readU32 } from "../nds/binary";
-import { BATTLE_TYPES, CATEGORIES, TYPES } from "./constants";
+import {
+  BATTLE_TYPES,
+  CATEGORIES,
+  ENCOUNTER_GRASS_FIELDS,
+  ENCOUNTER_GRASS_PERCENTAGES,
+  ENCOUNTER_SEASONS,
+  ENCOUNTER_WATER_FIELDS,
+  ENCOUNTER_WATER_PERCENTAGES,
+  TYPES,
+} from "./constants";
 import { getEncounterCount, getEncounterRecord } from "./encounterModel";
+import { parseGen5ScriptEncounters, type Gen5ScriptEncounter } from "./gen5ScriptEncounterModel";
 import { parseHeaders } from "./headerModel";
 import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
@@ -55,6 +65,9 @@ export type CalcBridgePayload = {
 };
 
 type SearchCollection = Record<string, { name?: string; types?: string[]; type?: string; t?: string }>;
+type DexEncounterSlot = { s: string; mn: number; mx?: number };
+type DexEncounterSection = { name?: string; rates: number[]; encs: DexEncounterSlot[] };
+type DexLocationRecord = { name: string; wilds: string[] } & Record<string, string | string[] | DexEncounterSection>;
 
 export const GEN5_CALC_BRIDGE_CONFIG: CalcBridgeConfig = {
   gen: 5,
@@ -426,21 +439,199 @@ function buildDexAbilities(project: ProjectState): Record<string, unknown> {
 }
 
 function buildDexEncounters(project: ProjectState): Record<string, unknown> {
-  if (!project.narcs.encounters) return {};
-  const out: Record<string, unknown> = {};
+  const rates: Record<string, number[]> = {};
+  const out: Record<string, unknown> = { rates };
   const used: Record<string, number> = {};
-  for (let id = 0; id < getEncounterCount(project); id += 1) {
-    const encounter = getEncounterRecord(project, id);
-    const displayName = encounter.locations[0]?.split("(")[0].trim() || `Location ${id}`;
-    let key = toId(displayName);
-    used[key] = (used[key] ?? 0) + 1;
-    if (used[key] > 1) key = `${key}${used[key]}`;
-    out[key] = {
-      name: used[toId(displayName)] > 1 ? `${displayName}${used[toId(displayName)]}` : displayName,
-      wilds: encounter.wilds,
-    };
+  const locationKeys = new Map<string, string>();
+  for (const kind of [...ENCOUNTER_GRASS_FIELDS, ...ENCOUNTER_WATER_FIELDS]) rates[kind] = encounterSlotRates(kind);
+
+  if (project.narcs.encounters) {
+    for (let id = 0; id < getEncounterCount(project); id += 1) {
+      const encounter = getEncounterRecord(project, id);
+      const sections = buildDexEncounterSections(encounter);
+      if (Object.keys(sections).length === 0) continue;
+
+      for (const encType of Object.keys(sections)) rates[encType] ??= encounterSlotRates(baseEncounterKind(encType));
+      for (const displayName of dexEncounterLocationNames(encounter, id)) {
+        const baseKey = toId(displayName) || `location${id}`;
+        used[baseKey] = (used[baseKey] ?? 0) + 1;
+        const key = used[baseKey] > 1 ? `${baseKey}${used[baseKey]}` : baseKey;
+        out[key] = {
+          name: used[baseKey] > 1 ? `${displayName} ${used[baseKey]}` : displayName,
+          wilds: encounter.wilds,
+          ...sections,
+        } satisfies DexLocationRecord;
+        const lookupKey = toId(displayName);
+        if (lookupKey && !locationKeys.has(lookupKey)) locationKeys.set(lookupKey, key);
+      }
+    }
   }
+
+  addScriptDexEncounters(project, out, rates, used, locationKeys);
   return out;
+}
+
+function addScriptDexEncounters(
+  project: ProjectState,
+  out: Record<string, unknown>,
+  rates: Record<string, number[]>,
+  used: Record<string, number>,
+  locationKeys: Map<string, string>,
+): void {
+  const scripts = project.narcs.scripts;
+  if (!scripts) return;
+  if (!project.headers && project.narcs.headers) project.headers = parseHeaders(project);
+  if (!project.headers) return;
+
+  const pokemonCount = getPokemonCount(project);
+  const cache = new Map<number, Gen5ScriptEncounter[]>();
+  for (let rowId = 1; rowId <= project.headers.count; rowId += 1) {
+    const row = project.headers.rows[rowId];
+    const location = String(row.location_name ?? `Header ${rowId - 1}`);
+    const scriptIds = unique([Number(row.script_id ?? -1), Number(row.level_script_id ?? -1)]).filter(
+      (scriptId) => Number.isInteger(scriptId) && scriptId >= 0 && scriptId < scripts.rawFiles.length,
+    );
+
+    for (const scriptId of scriptIds) {
+      const bytes = scripts.rawFiles[scriptId];
+      if (!bytes?.length) continue;
+      let encounters = cache.get(scriptId);
+      if (!encounters) {
+        encounters = parseGen5ScriptEncounters(bytes, project.session.baseRom);
+        cache.set(scriptId, encounters);
+      }
+
+      for (const encounter of encounters) {
+        if (!isExportableScriptEncounter(encounter, pokemonCount)) continue;
+        const record = ensureDexLocationRecord(out, used, locationKeys, location);
+        addScriptEncounterToDexLocation(record, encounter, pokemonNameForDex(project, encounter.speciesId));
+        rates[encounter.kind] ??= [100];
+      }
+    }
+  }
+}
+
+function ensureDexLocationRecord(
+  out: Record<string, unknown>,
+  used: Record<string, number>,
+  locationKeys: Map<string, string>,
+  displayName: string,
+): DexLocationRecord {
+  const lookupKey = toId(displayName);
+  const existingKey = lookupKey ? locationKeys.get(lookupKey) : undefined;
+  if (existingKey && out[existingKey]) return out[existingKey] as DexLocationRecord;
+
+  const baseKey = lookupKey || `location${Object.keys(out).length}`;
+  used[baseKey] = (used[baseKey] ?? 0) + 1;
+  const key = used[baseKey] > 1 ? `${baseKey}${used[baseKey]}` : baseKey;
+  const record = {
+    name: used[baseKey] > 1 ? `${displayName} ${used[baseKey]}` : displayName,
+    wilds: [],
+  } satisfies DexLocationRecord;
+  out[key] = record;
+  if (lookupKey && !locationKeys.has(lookupKey)) locationKeys.set(lookupKey, key);
+  return record;
+}
+
+function addScriptEncounterToDexLocation(record: DexLocationRecord, encounter: Gen5ScriptEncounter, speciesName: string): void {
+  const section = (record[encounter.kind] ??= { rates: [], encs: [] }) as DexEncounterSection;
+  const slot: DexEncounterSlot = { s: speciesName, mn: encounter.level };
+  if (section.encs.some((existing) => existing.s === slot.s && existing.mn === slot.mn && (existing.mx ?? 0) === (slot.mx ?? 0))) {
+    return;
+  }
+  section.encs.push(slot);
+  section.rates.push(100);
+}
+
+function isExportableScriptEncounter(encounter: Gen5ScriptEncounter, pokemonCount: number): boolean {
+  return Number.isInteger(encounter.speciesId) && encounter.speciesId > 0 && encounter.speciesId < pokemonCount;
+}
+
+function pokemonNameForDex(project: ProjectState, speciesId: number): string {
+  return titleizeName(project.texts.banks.pokedex?.[speciesId] ?? `Pokemon ${speciesId}`);
+}
+
+function dexEncounterLocationNames(encounter: ReturnType<typeof getEncounterRecord>, fallbackId: number): string[] {
+  const names = encounter.locations
+    .map((location) => location.replace(/\s*\(\d+\)\s*$/u, "").trim())
+    .filter(Boolean);
+  return names.length > 0 ? unique(names) : [`Location ${fallbackId}`];
+}
+
+function buildDexEncounterSections(encounter: ReturnType<typeof getEncounterRecord>): Record<string, DexEncounterSection> {
+  const sections: Record<string, DexEncounterSection> = {};
+
+  for (const kind of [...ENCOUNTER_GRASS_FIELDS, ...ENCOUNTER_WATER_FIELDS]) {
+    const springSection = buildDexEncounterSection(encounter, "spring", kind);
+    if (springSection.encs.length > 0) sections[kind] = springSection;
+
+    let hasSeasonalVariant = false;
+    for (const season of ENCOUNTER_SEASONS) {
+      if (season === "spring") continue;
+      const seasonSection = buildDexEncounterSection(encounter, season, kind);
+      if (seasonSection.encs.length === 0 || sameEncounterSections(seasonSection, springSection)) continue;
+      const encType = `${season}_${kind}`;
+      sections[encType] = {
+        name: `${titleizeName(season)} ${encounterKindLabel(kind)}`,
+        ...seasonSection,
+      };
+      hasSeasonalVariant = true;
+    }
+
+    if (hasSeasonalVariant && sections[kind]) sections[kind].name = `Spring ${encounterKindLabel(kind)}`;
+  }
+
+  return sections;
+}
+
+function buildDexEncounterSection(
+  encounter: ReturnType<typeof getEncounterRecord>,
+  season: (typeof ENCOUNTER_SEASONS)[number],
+  kind: (typeof ENCOUNTER_GRASS_FIELDS)[number] | (typeof ENCOUNTER_WATER_FIELDS)[number],
+): DexEncounterSection {
+  const encs: DexEncounterSlot[] = [];
+  const rates: number[] = [];
+  const slotRates = encounterSlotRates(kind);
+  const slotCount = (ENCOUNTER_GRASS_FIELDS as readonly string[]).includes(kind) ? 12 : 5;
+  for (let slot = 0; slot < slotCount; slot += 1) {
+    const base = `${season}_${kind}_slot_${slot}`;
+    const species = String(encounter.readable[base] ?? "").trim();
+    if (!species || species === "-") continue;
+    const minLevel = Number(encounter.readable[`${base}_min_level`] ?? 0) || 0;
+    const maxLevel = Number(encounter.readable[`${base}_max_level`] ?? 0) || minLevel;
+    const entry: DexEncounterSlot = { s: titleizeName(species), mn: minLevel };
+    if (maxLevel && maxLevel !== minLevel) entry.mx = maxLevel;
+    encs.push(entry);
+    rates.push(slotRates[slot] ?? 0);
+  }
+  return { rates, encs };
+}
+
+function sameEncounterSections(left: DexEncounterSection, right: DexEncounterSection): boolean {
+  if (left.encs.length !== right.encs.length || left.rates.length !== right.rates.length) return false;
+  for (let index = 0; index < left.encs.length; index += 1) {
+    const leftSlot = left.encs[index];
+    const rightSlot = right.encs[index];
+    if (leftSlot.s !== rightSlot.s || leftSlot.mn !== rightSlot.mn || (leftSlot.mx ?? 0) !== (rightSlot.mx ?? 0)) return false;
+    if (left.rates[index] !== right.rates[index]) return false;
+  }
+  return true;
+}
+
+function encounterSlotRates(kind: string): number[] {
+  return [...((ENCOUNTER_GRASS_FIELDS as readonly string[]).includes(kind) ? ENCOUNTER_GRASS_PERCENTAGES : ENCOUNTER_WATER_PERCENTAGES)];
+}
+
+function baseEncounterKind(encType: string): string {
+  for (const season of ENCOUNTER_SEASONS) {
+    const prefix = `${season}_`;
+    if (encType.startsWith(prefix)) return encType.slice(prefix.length);
+  }
+  return encType;
+}
+
+function encounterKindLabel(kind: string): string {
+  return titleizeName(kind);
 }
 
 function buildDexItems(project: ProjectState): Record<string, unknown> {
@@ -713,7 +904,7 @@ function buildSearchIndexJs(overrides: Record<string, unknown>): string {
   index = index.concat(Object.keys(items).map((id) => `${id} item`));
   index = index.concat(Object.keys(abilities).map((id) => `${id} ability`));
   index = index.concat(TYPES.map((type) => `${toId(type)} type`));
-  index = index.concat(Object.keys(locations).map((id) => `${toId(id)} location`));
+  index = index.concat(Object.keys(locations).filter((id) => id !== "rates").map((id) => `${toId(id)} location`));
   index = index.concat(CATEGORIES.map((category) => `${toId(category)} category`));
 
   for (const [collection, type] of [
@@ -723,7 +914,10 @@ function buildSearchIndexJs(overrides: Record<string, unknown>): string {
     [abilities, "ability"],
     [locations, "location"],
   ] as Array<[SearchCollection, string]>) {
-    for (const [id, data] of Object.entries(collection)) generateAliases(index, id, data.name ?? id, type);
+    for (const [id, data] of Object.entries(collection)) {
+      if (type === "location" && id === "rates") continue;
+      generateAliases(index, id, data.name ?? id, type);
+    }
   }
 
   index = unique(index).sort();

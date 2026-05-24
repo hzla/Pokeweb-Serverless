@@ -4,6 +4,7 @@ import {
   GEN5_CALC_BRIDGE_CONFIG,
   generateCalcDownload,
   generateCalcBridgePayload,
+  generateDexDownloads,
   generateTextDocsDownload,
   enrichItemLocations,
   enrichTrainerLocations,
@@ -94,6 +95,71 @@ describe("docGeneratorModel", () => {
     expect(payload.move_replacements).not.toMatchObject({ karatechop: "pound", doubleslap: "karatechop" });
   });
 
+  it("exports ddex encounter tables with slot rates and levels", () => {
+    const project = makeProject();
+    const [overrideFile, searchIndexFile] = generateDexDownloads(project, "Volt White Plus");
+    const overrideContents = String(overrideFile.contents);
+    const searchIndexContents = String(searchIndexFile.contents);
+    const overrides = JSON.parse(overrideContents.replace(/^overrides = /u, "").replace(/;\n$/u, ""));
+
+    expect(overrides.encs.rates.grass).toEqual([20, 20, 10, 10, 10, 10, 5, 5, 4, 4, 1, 1]);
+    expect(overrides.encs.blackcity).toMatchObject({
+      name: "Black City",
+      grass: {
+        rates: [20, 10],
+        encs: [
+          { s: "Bulbasaur", mn: 5, mx: 7 },
+          { s: "Ivysaur", mn: 6, mx: 8 },
+        ],
+      },
+      gift: {
+        rates: [100, 100],
+        encs: [
+          { s: "Bulbasaur", mn: 10 },
+          { s: "Ivysaur", mn: 1 },
+        ],
+      },
+      static: {
+        rates: [100],
+        encs: [{ s: "Bulbasaur", mn: 12 }],
+      },
+    });
+    expect(overrides.encs.rates.gift).toEqual([100]);
+    expect(overrides.encs.rates.static).toEqual([100]);
+    expect(searchIndexContents).toContain("blackcity");
+    expect(searchIndexContents).not.toContain('"rates","location"');
+  });
+
+  it("exports script encounters from level scripts when a location has no wild table", () => {
+    const project = makeProject();
+    delete project.narcs.encounters;
+    project.headers = {
+      count: 1,
+      rows: {
+        1: { index: 0, location_name: "Black City", script_id: 0, level_script_id: 3 },
+      },
+    } as ProjectState["headers"];
+
+    const [overrideFile] = generateDexDownloads(project, "Volt White Plus");
+    const overrides = JSON.parse(String(overrideFile.contents).replace(/^overrides = /u, "").replace(/;\n$/u, ""));
+
+    expect(overrides.encs.blackcity).toMatchObject({
+      name: "Black City",
+      wilds: [],
+      gift: {
+        rates: [100, 100],
+        encs: [
+          { s: "Bulbasaur", mn: 10 },
+          { s: "Ivysaur", mn: 1 },
+        ],
+      },
+      static: {
+        rates: [100],
+        encs: [{ s: "Bulbasaur", mn: 12 }],
+      },
+    });
+  });
+
   it("fills trainer calc moves from learnsets when trainers have no explicit moves", () => {
     const project = makeProject();
     const file = generateCalcDownload(project, "Volt White Plus");
@@ -156,11 +222,15 @@ function makeProject(): ProjectState {
     arm9: new Uint8Array(),
     overlays: {},
     narcs: {
-      headers: makeStore("headers", [packRows(headerFormat, [{ map_id: 0, script_id: 3, location_name_id: 0, name_icon: 0x6000 }])], 1),
+      headers: makeStore("headers", [packRows(headerFormat, [{ map_id: 0, script_id: 3, encounter_id: 0, location_name_id: 0, name_icon: 0x6000 }])], 1),
       overworlds: makeStore("overworlds", [makeOverworldBytes()], 1),
       scripts: makeStore("scripts", scripts, scripts.length),
       items: makeStore("items", Array.from({ length: 26 }, () => new Uint8Array()), 26),
-      personal: makeStore("personal", [packRows(formats.personal!, [{}]), packRows(formats.personal!, [{ base_hp: 45, item_1: 25 }])], 2),
+      personal: makeStore(
+        "personal",
+        [packRows(formats.personal!, [{}]), packRows(formats.personal!, [{ base_hp: 45, item_1: 25 }]), packRows(formats.personal!, [{}])],
+        3,
+      ),
       learnsets: makeStore(
         "learnsets",
         [
@@ -192,12 +262,28 @@ function makeProject(): ProjectState {
         8,
       ),
       trpok: makeStore("trpok", trpokFiles, trpokFiles.length),
+      encounters: makeStore(
+        "encounters",
+        [
+          packRows(formats.encounters!, [
+            {
+              spring_grass_slot_0: 1,
+              spring_grass_slot_0_min_level: 5,
+              spring_grass_slot_0_max_level: 7,
+              spring_grass_slot_2: 2,
+              spring_grass_slot_2_min_level: 6,
+              spring_grass_slot_2_max_level: 8,
+            },
+          ]),
+        ],
+        1,
+      ),
       marts: makeStore("marts", [packRows(formats.marts!, [{ item_0: 25 }])], 1),
     } as Partial<Record<NarcName, NarcStore>>,
     texts: {
       banks: {
         locations: ["Black City"],
-        pokedex: ["None", "Bulbasaur"],
+        pokedex: ["None", "Bulbasaur", "Ivysaur"],
         moves: ["None", "Tackle", "Vine Whip", "Growl", "Razor Leaf", "Sleep Powder", "Solar Beam"],
         items: Array.from({ length: 26 }, (_, index) => (index === 25 ? "Potion" : index === 0 ? "None" : `Item ${index}`)),
         abilities: ["None", "Overgrow"],
@@ -225,7 +311,7 @@ function makeGroundItemScriptBytes(): Uint8Array {
 }
 
 function makeTrainerBattleScriptBytes(): Uint8Array {
-  const out = new Uint8Array(28);
+  const out = new Uint8Array(54);
   writeInt(out, 0, 4, 4);
   writeInt(out, 4, 2, 0xfd13);
   writeInt(out, 8, 2, 0x0085);
@@ -237,7 +323,20 @@ function makeTrainerBattleScriptBytes(): Uint8Array {
   writeInt(out, 20, 2, 6);
   writeInt(out, 22, 2, 0);
   writeInt(out, 24, 2, 1);
-  writeInt(out, 26, 2, 0x0002);
+  writeInt(out, 26, 2, 0x010c);
+  writeInt(out, 28, 2, 0);
+  writeInt(out, 30, 2, 1);
+  writeInt(out, 32, 2, 0);
+  writeInt(out, 34, 2, 10);
+  writeInt(out, 36, 2, 0x010f);
+  writeInt(out, 38, 2, 0);
+  writeInt(out, 40, 2, 2);
+  writeInt(out, 42, 2, 0);
+  writeInt(out, 44, 2, 0x0174);
+  writeInt(out, 46, 2, 1);
+  writeInt(out, 48, 2, 12);
+  writeInt(out, 50, 2, 0);
+  writeInt(out, 52, 2, 0x0002);
   return out;
 }
 

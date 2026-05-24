@@ -40,8 +40,12 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   }
   materializeMap3dAreaEdits(project, rom, fileReplacements);
 
-  const patchedOverlayTable = patchOverlayFiles(project, rom, fileReplacements);
-  const arm9OverlayTable = buildCodeInjectionOverlayTable(project, rom, patchedOverlayTable ?? rom.arm9OverlayTable) ?? patchedOverlayTable;
+  const baseOverlayTable = project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable;
+  const patchedOverlayTable = patchOverlayFiles(project, rom, fileReplacements, baseOverlayTable);
+  const arm9OverlayTable =
+    buildCodeInjectionOverlayTable(project, rom, patchedOverlayTable ?? baseOverlayTable) ??
+    patchedOverlayTable ??
+    (project.patches?.arm9OverlayTable ? baseOverlayTable : undefined);
   normalizeMalformedNarcs(rom, fileReplacements);
   const addedFiles = fileSystemAddedFiles(project).map((file) => ({ ...file, bytes: normalizeMalformedNarcBytes(file.bytes) }));
   const out = rom.save({
@@ -78,7 +82,7 @@ function normalizeMalformedNarcBytes(bytes: Uint8Array): Uint8Array {
   }
 }
 
-function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplacements: Map<number, Uint8Array>): Uint8Array | undefined {
+function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplacements: Map<number, Uint8Array>, baseTable: Uint8Array): Uint8Array | undefined {
   const overlayReplacements = new Map<number, Uint8Array>();
   patchOverlayBackedStore(project, "grotto_odds", 36, overlayReplacements);
   patchOverlayBackedStore(project, "move_effects_table", 167, overlayReplacements);
@@ -93,7 +97,7 @@ function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplac
   }
   if (overlayReplacements.size === 0) return undefined;
 
-  const table = rom.arm9OverlayTable.slice();
+  const table = baseTable.slice();
   for (let offset = 0; offset + 32 <= table.length; offset += 32) {
     const overlayId = readU32(table, offset);
     const data = overlayReplacements.get(overlayId);

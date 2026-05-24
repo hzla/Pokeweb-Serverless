@@ -274,11 +274,16 @@
 }
 
 [contenteditable="true"]:not(.pokemon-type):not(.btn) {
+  border: 1px solid rgba(242, 242, 242, 0.16);
+  border-radius: 4px;
+  box-sizing: border-box;
   color: #1abc9c;
   background: transparent !important;
   outline: none;
   cursor: pointer;
   min-height: 24px;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 [contenteditable="true"]:focus {

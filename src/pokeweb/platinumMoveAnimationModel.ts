@@ -19,6 +19,12 @@ export type PlatinumMoveAnimationCommandDefinition = {
   };
 };
 
+export type PlatinumCallFuncAliasDefinition = {
+  id: number;
+  name: string;
+  params: string[];
+};
+
 export type PlatinumMoveAnimationArchive = {
   kind: PlatinumMoveAnimationArchiveKind;
   path: string;
@@ -170,6 +176,95 @@ const COMMANDS: PlatinumMoveAnimationCommandDefinition[] = [
 const COMMANDS_BY_NAME = new Map(COMMANDS.map((entry) => [entry.name.toLowerCase(), entry]));
 const COMMANDS_BY_OPCODE = new Map(COMMANDS.map((entry) => [entry.opcode, entry]));
 
+const CALL_FUNC_ALIASES: PlatinumCallFuncAliasDefinition[] = [
+  callFuncAlias(0, "Func_Nop", []),
+  callFuncAlias(1, "Func_AnimExample", []),
+  callFuncAlias(2, "Func_SoundExample", []),
+  callFuncAlias(3, "Func_GenericExample", []),
+  callFuncAlias(4, "Func_RotateMon", ["startAngle", "endAngle", "frames", "mode", "pivotX", "pivotY"]),
+  callFuncAlias(5, "Func_Strength", ["shrinkScale", "growScale", "shrinkFrames", "growFrames"]),
+  callFuncAlias(6, "Func_BulkUp", ["unused"]),
+  callFuncAlias(7, "Func_DoubleTeam", ["unused"]),
+  callFuncAlias(8, "Func_QuickAttack", []),
+  callFuncAlias(9, "Func_DrillPeck", []),
+  callFuncAlias(10, "Func_Submission", ["numRevs", "framesPerRev", "battler"]),
+  callFuncAlias(11, "Func_Confusion", []),
+  callFuncAlias(12, "Func_AcidArmor", []),
+  callFuncAlias(13, "Func_Growth", []),
+  callFuncAlias(14, "Func_Meditate", []),
+  callFuncAlias(15, "Func_Teleport", []),
+  callFuncAlias(16, "Func_Flash", []),
+  callFuncAlias(17, "Func_NightShadeAttacker", []),
+  callFuncAlias(18, "Func_NightShadeDefender", []),
+  callFuncAlias(19, "Func_Splash", []),
+  callFuncAlias(20, "Func_Spite", []),
+  callFuncAlias(21, "Func_Harden", []),
+  callFuncAlias(22, "Func_Minimize", ["unused"]),
+  callFuncAlias(23, "Func_FaintAttack", []),
+  callFuncAlias(24, "Func_Earthquake", ["mode"]),
+  callFuncAlias(25, "Func_PlayfulHops", ["battlerRole"]),
+  callFuncAlias(26, "Func_Nightmare", ["moveAttacker"]),
+  callFuncAlias(27, "Func_Flail", ["mode", "shakeExtentX", "shakeExtentY", "shakeInterval", "shakeAmount"]),
+  callFuncAlias(28, "Func_Magnitude", ["value"]),
+  callFuncAlias(29, "Func_Return", []),
+  callFuncAlias(30, "Func_VitalThrow", []),
+  callFuncAlias(31, "Func_Swagger", []),
+  callFuncAlias(32, "Func_Memento", []),
+  callFuncAlias(33, "Func_FadeBg", ["bgType", "delay", "startAlpha", "endAlpha", "color"]),
+  callFuncAlias(34, "Func_FadeBattlerSprite", ["battler", "fadeStepFrames", "endDelay", "color", "alpha", "holdFrames"]),
+  callFuncAlias(35, "Func_ScalePokemonSprite", ["battlerRole", "spriteAlpha", "startScale", "endScale", "refScale", "cycles", "frames", "sprite"]),
+  callFuncAlias(36, "Func_Shake", ["extentX", "extentY", "interval", "amount", "targets"]),
+  callFuncAlias(37, "Func_Extrasensory", []),
+  callFuncAlias(38, "Func_AlphaFadePokemonSprite", ["targets", "startAlpha", "endAlpha", "bgStartAlpha", "bgEndAlpha", "frames"]),
+  callFuncAlias(39, "Func_OdorSleuth", []),
+  callFuncAlias(40, "Func_HideBattler", ["target", "hide"]),
+  callFuncAlias(41, "Func_FakeOutCurtain", []),
+  callFuncAlias(42, "Func_ScaleBattlerSprite", ["target", "startX", "endX", "startY", "endY", "reference", "cycles", "frames"]),
+  callFuncAlias(43, "Func_FakeOut", []),
+  callFuncAlias(44, "Func_ScrollCustomBg", ["bgID", "startX", "startY", "stepX", "stepY", "reverse", "targetBgAlpha", "slowDownTime"]),
+  callFuncAlias(45, "Func_MuddyWater", ["bgID", "startX", "startY", "stepX", "stepY", "reverse", "targetBgAlpha", "slowDownTime"]),
+  callFuncAlias(46, "Func_Megahorn", []),
+  callFuncAlias(47, "Func_MegahornAttacker", []),
+  callFuncAlias(48, "Func_MegahornDefender", []),
+  callFuncAlias(49, "Func_Surf", ["mode"]),
+  callFuncAlias(50, "Func_BlinkAttacker", ["count", "interval"]),
+  callFuncAlias(51, "Func_MoveBattlerX", ["frames", "offset", "target"]),
+  callFuncAlias(52, "Func_MoveBattlerX2", ["frames", "offset", "target"]),
+  callFuncAlias(53, "Func_ShakeAndScaleAttacker", ["scale1", "scale2", "frames1", "frames2", "holdFrames"]),
+  callFuncAlias(54, "Func_ShakeAndScaleAttacker2", ["scale1X", "scale1Y", "scale1Frames", "scale2X", "scale2Y", "scale2Frames", "holdFrames"]),
+  callFuncAlias(55, "Func_Camouflage", []),
+  callFuncAlias(56, "Func_Superpower", ["a0", "a1"]),
+  callFuncAlias(57, "Func_MoveBattler", ["target", "dx", "dy", "frames"]),
+  callFuncAlias(58, "Func_Mimic", []),
+  callFuncAlias(59, "Func_ShadowPunch", ["unused"]),
+  callFuncAlias(60, "Func_RevolveBattler", ["target", "revs", "framesPerRev"]),
+  callFuncAlias(61, "Func_MoveBattlerOffScreen", ["target", "frames"]),
+  callFuncAlias(62, "Func_MoveBattlerToDefaultPos", ["target"]),
+  callFuncAlias(63, "Func_FadePokemonSprite", ["target", "stepFrames", "stepSize", "startFrac", "endFrac", "color"]),
+  callFuncAlias(64, "Func_BattlerPartialDrawTest", ["arg0", "arg1", "arg2", "arg3", "arg4"]),
+  callFuncAlias(65, "Func_MoveEmitterA2BLinear", ["emitterID", "offsetX", "offsetY", "startDelay", "frames", "radius", "mode", "params", "curve"]),
+  callFuncAlias(66, "Func_MoveEmitterA2BParabolic", ["emitterID", "offsetX", "offsetY", "startDelay", "frames", "radius", "mode", "params", "curve"]),
+  callFuncAlias(67, "Func_BattlerPartialDraw", ["target", "stepSize", "stepInterval"]),
+  callFuncAlias(68, "Func_ShakeBg", ["extentX", "extentY", "interval", "amount", "cycles", "target"]),
+  callFuncAlias(69, "Func_PixelatePokemonSprite", ["sprite", "step", "startX", "startY"]),
+  callFuncAlias(70, "Func_RolePlay", ["unused"]),
+  callFuncAlias(71, "Func_Snatch", ["target"]),
+  callFuncAlias(72, "Func_RevolveEmitter", ["emitterID", "sx", "ex", "sy", "ey", "rx", "ry", "frames", "mode", "particleSystem"]),
+  callFuncAlias(73, "Func_MoveEmitterViewportTop", ["emitterID", "mode", "type", "frames", "startDelay", "params"]),
+  callFuncAlias(74, "Func_SetBgGrayscale", ["grayscale"]),
+  callFuncAlias(75, "Func_SetPokemonSpritePriority", ["sprite", "maxFrames", "bg", "spritePrio", "battlerRole"]),
+  callFuncAlias(76, "Func_ScrollSwitchedBg", ["frames"]),
+  callFuncAlias(77, "Func_MoveBattlerOnOrOffScreen", ["mode", "target", "frames", "a3", "a4"]),
+  callFuncAlias(78, "Func_RenderPokemonSprites", ["frames"]),
+  callFuncAlias(79, "Func_Sketch", ["unused"]),
+  callFuncAlias(80, "Func_StatChangeUp", ["mode"]),
+  callFuncAlias(81, "Func_StatChangeDown", ["mode"]),
+  callFuncAlias(82, "Func_StatChangeHeal", ["mode"]),
+  callFuncAlias(83, "Func_StatChangeMetal", ["mode"]),
+];
+const CALL_FUNC_ALIAS_BY_ID = new Map(CALL_FUNC_ALIASES.map((entry) => [entry.id, entry]));
+const CALL_FUNC_ALIAS_BY_NAME = new Map(CALL_FUNC_ALIASES.map((entry) => [entry.name.toLowerCase(), entry]));
+
 type CompileCommand = {
   offset: number;
   definition: PlatinumMoveAnimationCommandDefinition;
@@ -183,6 +278,22 @@ export function getPlatinumMoveAnimationCommandDefinitions(): PlatinumMoveAnimat
     branchParams: definition.branchParams?.slice(),
     variable: definition.variable ? { ...definition.variable } : undefined,
   }));
+}
+
+export function getPlatinumCallFuncAliasDefinitions(): PlatinumMoveAnimationCommandDefinition[] {
+  return CALL_FUNC_ALIASES.map((alias) => ({
+    opcode: 45,
+    name: alias.name,
+    params: alias.params.slice(),
+  }));
+}
+
+export function platinumCallFuncName(id: number): string | undefined {
+  return CALL_FUNC_ALIAS_BY_ID.get(id)?.name;
+}
+
+export function platinumCallFuncId(name: string): number | undefined {
+  return CALL_FUNC_ALIAS_BY_NAME.get(name.toLowerCase())?.id;
 }
 
 export function loadPlatinumMoveAnimationRom(romBytes: Uint8Array): PlatinumMoveAnimationRom {
@@ -226,6 +337,7 @@ export function decompilePlatinumMoveAnimation(bytes: Uint8Array, options: { arc
     ".thumb",
     "",
     '.include "asm/macros/btlanimcmd.inc"',
+    '.include "asm/macros/btlanimfunc.inc"',
     "",
     `.create "${config.buildDir}/${config.filePrefix}_${padId(options.fileId)}", 0`,
     "",
@@ -257,9 +369,10 @@ export function compilePlatinumMoveAnimationScript(scriptText: string, _options:
       continue;
     }
 
-    const definition = COMMANDS_BY_NAME.get(parsed.name.toLowerCase());
+    const alias = CALL_FUNC_ALIAS_BY_NAME.get(parsed.name.toLowerCase());
+    const definition = alias ? COMMANDS_BY_NAME.get("callfunc") : COMMANDS_BY_NAME.get(parsed.name.toLowerCase());
     if (!definition) throw new Error(`Unknown Platinum animation command: ${parsed.name}`);
-    const params = normalizeCompileParams(definition, parsed.params);
+    const params = alias ? normalizeCallFuncAliasParams(alias, parsed.params) : normalizeCompileParams(definition, parsed.params);
     commands.push({ offset, definition, params });
     offset += 4 * (1 + params.length);
   }
@@ -377,6 +490,10 @@ function command(
   return { opcode, name, params, ...options };
 }
 
+function callFuncAlias(id: number, name: string, params: string[]): PlatinumCallFuncAliasDefinition {
+  return { id, name, params };
+}
+
 function loadArchive(rom: NintendoDSRom, kind: PlatinumMoveAnimationArchiveKind): PlatinumMoveAnimationArchive {
   const config = ARCHIVE_CONFIG[kind];
   const fileId = rom.fileId(config.path);
@@ -435,6 +552,8 @@ function readParamCount(bytes: Uint8Array, offset: number, definition: PlatinumM
 }
 
 function formatCommand(entry: CompileCommand, labelByOffset: Map<number, string>): string {
+  const alias = formatCallFuncAlias(entry);
+  if (alias) return alias;
   const params = entry.definition.variable ? formatVariableParams(entry) : entry.params.slice();
   const formatted = params.map((param, index) => {
     if (isBranchParam(entry.definition, index) && typeof param === "number") {
@@ -444,6 +563,20 @@ function formatCommand(entry: CompileCommand, labelByOffset: Map<number, string>
     return String(param);
   });
   return `${entry.definition.name}${formatted.length > 0 ? ` ${formatted.join(", ")}` : ""}`;
+}
+
+function formatCallFuncAlias(entry: CompileCommand): string | undefined {
+  if (entry.definition.name !== "CallFunc") return undefined;
+  const funcId = entry.params[0];
+  const count = entry.params[1];
+  if (typeof funcId !== "number" || typeof count !== "number") return undefined;
+  const alias = CALL_FUNC_ALIAS_BY_ID.get(funcId);
+  if (!alias) return undefined;
+  const actualArgs = entry.params.slice(2, 2 + count);
+  if (!actualArgs.every((param): param is number => typeof param === "number")) return undefined;
+  const aliasArgs = callFuncActualArgsToAlias(alias, actualArgs);
+  if (!aliasArgs) return undefined;
+  return `${alias.name}${aliasArgs.length > 0 ? ` ${aliasArgs.join(", ")}` : ""}`;
 }
 
 function formatVariableParams(entry: CompileCommand): Array<number | string> {
@@ -478,6 +611,49 @@ function normalizeCompileParams(definition: PlatinumMoveAnimationCommandDefiniti
   if (definition.name === "RemovePokemonSpriteFromBg" && rawParams.length === 0) return [0];
   if (rawParams.length !== definition.params.length) throw new Error(`${definition.name} expects ${definition.params.length} parameter(s), got ${rawParams.length}`);
   return rawParams.map((param, index) => (isBranchParam(definition, index) ? normalizeLabel(param, definition.name, index) : parseExpression(param, `${definition.name} parameter ${index + 1}`)));
+}
+
+function normalizeCallFuncAliasParams(alias: PlatinumCallFuncAliasDefinition, rawParams: string[]): number[] {
+  if (rawParams.length > 10) throw new Error(`${alias.name} accepts at most 10 parameter(s)`);
+  const aliasArgs = rawParams.map((param, index) => parseExpression(param, `${alias.name} parameter ${index + 1}`));
+  const actualArgs = callFuncAliasArgsToActual(alias, aliasArgs);
+  if (actualArgs.length > 10) throw new Error(`${alias.name} expands to more than 10 CallFunc parameter(s)`);
+  return [alias.id, actualArgs.length, ...actualArgs];
+}
+
+function callFuncActualArgsToAlias(alias: PlatinumCallFuncAliasDefinition, args: number[]): number[] | undefined {
+  switch (alias.id) {
+    case 57:
+      return args.length === 4 ? [args[3], args[1], args[2], args[0]] : undefined;
+    case 67:
+      return args.length === 5 && args[1] === 0 && args[2] === 0 ? [args[0], args[3], args[4]] : undefined;
+    case 80:
+    case 81:
+    case 82:
+    case 83:
+      return args.length === 2 && args[0] === alias.id - 80 ? [args[1]] : undefined;
+    default:
+      return args;
+  }
+}
+
+function callFuncAliasArgsToActual(alias: PlatinumCallFuncAliasDefinition, args: number[]): number[] {
+  switch (alias.id) {
+    case 57:
+      if (args.length !== 4) throw new Error(`${alias.name} expects target, dx, dy, frames`);
+      return [args[3], args[1], args[2], args[0]];
+    case 67:
+      if (args.length !== 3) throw new Error(`${alias.name} expects target, stepSize, stepInterval`);
+      return [args[0], 0, 0, args[1], args[2]];
+    case 80:
+    case 81:
+    case 82:
+    case 83:
+      if (args.length !== 1) throw new Error(`${alias.name} expects mode`);
+      return [alias.id - 80, args[0]];
+    default:
+      return args;
+  }
 }
 
 function normalizeVariableParams(definition: PlatinumMoveAnimationCommandDefinition, rawParams: string[]): number[] {

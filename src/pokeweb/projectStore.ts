@@ -110,9 +110,12 @@ export type StarterState = {
 
 export type PatchState = {
   dirtyOverlayIds: number[];
+  arm9OverlayTable?: Uint8Array;
   applied?: {
     removeDustCloudGems?: boolean;
     removeDustCloudItems?: boolean;
+    fairyType?: boolean;
+    fairyModernTypings?: boolean;
   };
 };
 

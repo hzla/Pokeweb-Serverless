@@ -22,6 +22,8 @@ describe("overworldModel", () => {
     const scene = getOverworldScene(project, 0);
 
     expect(scene.locationName).toBe("Black City");
+    expect(scene.headerRowId).toBe(1);
+    expect(scene.header.index).toBe(0);
     expect(scene.matrixId).toBe(0);
     expect(scene.maps).toHaveLength(1);
     expect(scene.maps[0].layer2).toEqual([0, 1, 4, 63]);

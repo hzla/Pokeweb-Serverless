@@ -3,6 +3,7 @@ import { NARC } from "../nds/narc";
 import {
   compilePlatinumMoveAnimationScript,
   parsePlatinumMoveAnimationBinary,
+  platinumCallFuncName,
   type ParsedPlatinumMoveAnimationCommand,
   type PlatinumMoveAnimationRom,
 } from "./platinumMoveAnimationModel";
@@ -392,11 +393,11 @@ function emitCallFuncMarker(vm: VmState, command: ParsedPlatinumMoveAnimationCom
   const args = command.params.slice(2);
   if (functionId === 68 || functionId === 36) {
     const duration = Math.max(1, Math.abs(args[3] ?? args[1] ?? 8));
-    vm.timeline.push(makePlatinumEvent(vm, command, functionId === 68 ? "ShakeScreen" : "ShakeSprite", args, "marker", `CallFunc ${functionId} marker for ${duration} frame(s)`));
+    vm.timeline.push(makePlatinumEvent(vm, command, functionId === 68 ? "ShakeScreen" : "ShakeSprite", args, "marker", `${platinumCallFuncName(functionId) ?? `CallFunc ${functionId}`} marker for ${duration} frame(s)`));
     vm.pendingUntil = Math.max(vm.pendingUntil, vm.frame + duration);
     return;
   }
-  vm.timeline.push(makePlatinumEvent(vm, command, "CallFunc", command.params, "marker", `CallFunc ${functionId} marker`));
+  vm.timeline.push(makePlatinumEvent(vm, command, "CallFunc", command.params, "marker", `${platinumCallFuncName(functionId) ?? `CallFunc ${functionId}`} marker`));
 }
 
 function switchPlatinumBackground(vm: VmState, command: ParsedPlatinumMoveAnimationCommand, backgroundId: number, param: number, displayCommand: string): void {

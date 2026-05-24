@@ -1,7 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { applyRemoveDustCloudGemRewardsToOverlay, applyRemoveDustCloudItemRewardsToOverlay } from "../pokeweb/romPatchModel";
+import { writeU32 } from "../nds/binary";
+import { parseGeneralPatch } from "../pokeweb/generalPatchModel";
+import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
+import {
+  addFairyTypeSupport,
+  applyModernFairyTypings,
+  applyRemoveDustCloudGemRewardsToOverlay,
+  applyRemoveDustCloudItemRewardsToOverlay,
+} from "../pokeweb/romPatchModel";
 
 describe("ROM patches", () => {
+  it("parses bundled general patch sections", () => {
+    const data = new Uint8Array(18);
+    data[0] = 0x7b;
+    data.set([0x74, 0x65, 0x73, 0x74], 1);
+    data[5] = 0x7c;
+    writeU32(data, 6, 5);
+    data[10] = 0x3a;
+    data.set([1, 2, 0x7d, 3, 4], 11);
+    data[16] = 0x7d;
+
+    const sections = parseGeneralPatch(data.subarray(0, 17));
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0].name).toBe("test");
+    expect([...sections[0].payload]).toEqual([1, 2, 0x7d, 3, 4]);
+  });
+
   it("turns the cave dust-cloud gem branch into an unconditional skip", () => {
     const overlay = new Uint8Array([
       0x64, 0x28, 0x0b, 0xd2,
@@ -77,4 +102,99 @@ describe("ROM patches", () => {
     expect(result?.status).toBe("already-applied");
     expect(result?.overlay).toBe(overlay);
   });
+
+  it("updates later-generation Fairy Pokemon and move typings", async () => {
+    const project = makeTypingProject();
+    project.narcs.personal?.records.set(35, {
+      id: 35,
+      bytes: project.narcs.personal.rawFiles[35],
+      raw: { type_1: 0, type_2: 0 },
+      readable: { type_1: "Normal", type_2: "Normal" },
+    });
+
+    const result = await applyModernFairyTypings(project);
+
+    expect(result).toEqual({ changed: true, pokemonChanged: 22, movesChanged: 3 });
+    expect(project.patches?.applied?.fairyModernTypings).toBe(true);
+    expect(project.narcs.personal?.rawFiles[35][6]).toBe(17);
+    expect(project.narcs.personal?.rawFiles[35][7]).toBe(17);
+    expect(project.narcs.personal?.records.get(35)?.raw).toMatchObject({ type_1: 17, type_2: 17 });
+    expect(project.narcs.personal?.records.get(35)?.readable).toMatchObject({ type_1: "Fairy", type_2: "Fairy" });
+    expect(project.narcs.personal?.rawFiles[39][6]).toBe(0);
+    expect(project.narcs.personal?.rawFiles[39][7]).toBe(17);
+    expect(project.narcs.personal?.rawFiles[122][6]).toBe(13);
+    expect(project.narcs.personal?.rawFiles[122][7]).toBe(17);
+    expect(project.narcs.personal?.rawFiles[176][6]).toBe(17);
+    expect(project.narcs.personal?.rawFiles[176][7]).toBe(2);
+    expect(project.narcs.personal?.rawFiles[303][6]).toBe(8);
+    expect(project.narcs.personal?.rawFiles[303][7]).toBe(17);
+    expect(project.narcs.personal?.rawFiles[546][6]).toBe(11);
+    expect(project.narcs.personal?.rawFiles[546][7]).toBe(17);
+    expect(project.narcs.moves?.rawFiles[186][0]).toBe(17);
+    expect(project.narcs.moves?.rawFiles[204][0]).toBe(17);
+    expect(project.narcs.moves?.rawFiles[236][0]).toBe(17);
+    expect(project.narcs.personal?.dirty.has(35)).toBe(true);
+    expect(project.narcs.moves?.dirty.has(186)).toBe(true);
+  });
+
+  it("leaves typings alone when the Fairy typing checkbox is unchecked", async () => {
+    const project = makeTypingProject();
+    project.patches = { dirtyOverlayIds: [], applied: { fairyType: true } };
+
+    const result = await addFairyTypeSupport(project, { updateModernFairyTypings: false });
+
+    expect(result.status).toBe("already-applied");
+    expect(project.patches.applied?.fairyModernTypings).toBeUndefined();
+    expect(project.narcs.personal?.dirty.size).toBe(0);
+    expect(project.narcs.moves?.dirty.size).toBe(0);
+    expect(project.narcs.personal?.rawFiles[35][6]).toBe(0);
+    expect(project.narcs.personal?.rawFiles[35][7]).toBe(0);
+  });
+
+  it("can apply modern Fairy typings after Fairy Type Support is already installed", async () => {
+    const project = makeTypingProject();
+    project.patches = { dirtyOverlayIds: [], applied: { fairyType: true } };
+
+    const result = await addFairyTypeSupport(project, { updateModernFairyTypings: true });
+
+    expect(result.status).toBe("applied");
+    expect(project.patches.applied?.fairyModernTypings).toBe(true);
+    expect(project.narcs.personal?.rawFiles[35][6]).toBe(17);
+    expect(project.narcs.moves?.rawFiles[204][0]).toBe(17);
+  });
 });
+
+function makeTypingProject(): ProjectState {
+  return {
+    session: {
+      romName: "test",
+      baseVersion: "W2",
+      baseRom: "BW2",
+      fairy: true,
+      fileIds: { personal: 0, moves: 1 },
+      blacklist: [],
+    },
+    romInfo: { title: "test", idCode: "TEST", fileName: "test.nds", size: 0 },
+    arm9: new Uint8Array(),
+    overlays: {},
+    narcs: {
+      personal: makeStore("personal", 0, "a/0/1/6", 600, 8),
+      moves: makeStore("moves", 1, "a/0/2/1", 300, 1),
+    },
+    texts: { banks: {} },
+    formats: {},
+    trpokInfo: [],
+  };
+}
+
+function makeStore(name: "personal" | "moves", fileId: number, sourcePath: string, fileCount: number, recordLength: number): NarcStore {
+  return {
+    name,
+    fileId,
+    sourcePath,
+    fileCount,
+    rawFiles: Array.from({ length: fileCount }, () => new Uint8Array(recordLength)),
+    records: new Map(),
+    dirty: new Set(),
+  };
+}

@@ -1,3 +1,4 @@
+import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { EditorState, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate, drawSelection, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
@@ -36,6 +37,7 @@ type CommandToken = { name: string; from: number; to: number; lineText: string; 
 type HighlightRange = { from: number; to: number; mark: Decoration };
 type EditorContext = {
   primitiveByName: Map<string, HgMoveAnimationCommandDefinition>;
+  readableAliases: Array<{ alias: string; definition: HgMoveAnimationCommandDefinition }>;
   readablePrimitiveByName: Map<string, HgMoveAnimationCommandDefinition>;
   helperByName: Map<string, HgHelperDefinition>;
   constants: Set<string>;
@@ -67,6 +69,7 @@ export function installHgMoveAnimationCodeEditor(host: HTMLElement, script: stri
       EditorState.readOnly.of(options.readOnly ?? false),
       EditorView.editable.of(!(options.readOnly ?? false)),
       createHgMoveAnimationHighlighting(context),
+      options.readOnly ? [] : createHgMoveAnimationAutocomplete(context),
       EditorView.lineWrapping,
       EditorView.updateListener.of((update) => {
         if (update.docChanged) options.onChange(update.state.doc.toString());
@@ -150,18 +153,89 @@ function createEditorContext(options: HgMoveAnimationCodeEditorOptions): EditorC
   const primitiveDefinitions = options.commandDefinitions ?? getHgMoveAnimationCommandDefinitions();
   const primitiveByName = new Map(primitiveDefinitions.map((definition) => [definition.name.toLowerCase(), definition]));
   const readableAliases = options.readableCommandAliases ?? getHgMoveAnimationReadableCommandAliases();
-  const readablePrimitiveByName = new Map(
-    readableAliases.flatMap((entry) => {
-      const definition = primitiveByName.get(entry.command.toLowerCase());
-      return definition ? [[entry.alias.toLowerCase(), definition] as const] : [];
-    }),
-  );
+  const resolvedReadableAliases = readableAliases.flatMap((entry) => {
+    const definition = primitiveByName.get(entry.command.toLowerCase());
+    return definition ? [{ alias: entry.alias, definition }] : [];
+  });
+  const readablePrimitiveByName = new Map(resolvedReadableAliases.map((entry) => [entry.alias.toLowerCase(), entry.definition]));
   return {
     primitiveByName,
+    readableAliases: resolvedReadableAliases,
     readablePrimitiveByName,
     helperByName: options.helperByName ?? HG_MOVE_ANIMATION_HELPER_BY_NAME,
     constants: options.constants ?? defaultConstants,
   };
+}
+
+function createHgMoveAnimationAutocomplete(context: EditorContext) {
+  return autocompletion({
+    override: [(completionContext) => hgMoveAnimationCompletions(completionContext, context)],
+  });
+}
+
+function hgMoveAnimationCompletions(completionContext: CompletionContext, context: EditorContext): CompletionResult | null {
+  const line = completionContext.state.doc.lineAt(completionContext.pos);
+  const offset = completionContext.pos - line.from;
+  const commentIndex = firstCommentIndex(line.text);
+  if (commentIndex >= 0 && offset > commentIndex) return null;
+
+  const codeEnd = commentIndex >= 0 ? commentIndex : line.text.length;
+  const codeToCursor = line.text.slice(0, Math.min(offset, codeEnd));
+  if (/^\s*\./u.test(line.text) || /^\s*[A-Za-z_][A-Za-z0-9_]*:/u.test(line.text)) return null;
+
+  const word = completionContext.matchBefore(/[A-Za-z_][A-Za-z0-9_]*/u);
+  if (!word && !completionContext.explicit) return null;
+
+  if (/^\s*[A-Za-z_][A-Za-z0-9_]*$/u.test(codeToCursor) || /^\s*$/u.test(codeToCursor)) {
+    return {
+      from: word?.from ?? completionContext.pos,
+      options: buildHgCommandCompletions(context),
+      validFor: /^[A-Za-z_][A-Za-z0-9_]*$/u,
+    };
+  }
+
+  const options = [...buildLabelCompletions(completionContext.state.doc.toString()), ...buildConstantCompletions(context)];
+  if (!options.length) return null;
+  return {
+    from: word?.from ?? completionContext.pos,
+    options,
+    validFor: /^[A-Za-z_][A-Za-z0-9_]*$/u,
+  };
+}
+
+function buildHgCommandCompletions(context: EditorContext): Completion[] {
+  const options = new Map<string, Completion>();
+  for (const definition of context.primitiveByName.values()) {
+    options.set(definition.name.toLowerCase(), commandCompletion(definition.name, definition.params, "command", `opcode ${definition.opcode}`));
+  }
+  for (const entry of context.readableAliases) {
+    options.set(entry.alias.toLowerCase(), commandCompletion(entry.alias, entry.definition.params, "alias", entry.definition.name));
+  }
+  for (const helper of context.helperByName.values()) {
+    options.set(helper.name.toLowerCase(), commandCompletion(helper.name, helper.params, "helper", helper.expandsTo, helper.description));
+  }
+  return [...options.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function commandCompletion(label: string, params: string[], type: Completion["type"], detailPrefix: string, info?: string): Completion {
+  const signature = params.length ? ` ${params.join(", ")}` : "";
+  return {
+    label,
+    type,
+    detail: `${detailPrefix}${signature}`,
+    info,
+    apply: `${label}${params.length ? " " : ""}`,
+  };
+}
+
+function buildLabelCompletions(text: string): Completion[] {
+  const labels = new Set<string>();
+  for (const match of text.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*):/gmu)) labels.add(match[1]);
+  return [...labels].sort((a, b) => a.localeCompare(b)).map((label) => ({ label, type: "variable", detail: "label" }));
+}
+
+function buildConstantCompletions(context: EditorContext): Completion[] {
+  return [...context.constants].sort((a, b) => a.localeCompare(b)).map((label) => ({ label, type: "constant" }));
 }
 
 function createHgMoveAnimationHighlighting(context: EditorContext) {

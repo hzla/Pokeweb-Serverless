@@ -88,6 +88,20 @@
   opacity: 0.55;
 }
 
+.patch-option {
+  align-items: center;
+  color: #f2f2f2;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.patch-option input {
+  accent-color: #1abc9c;
+  height: 16px;
+  width: 16px;
+}
+
 .patch-badge {
   background: rgb(255 184 108 / 14%);
   border: 1px solid rgb(255 184 108 / 45%);
