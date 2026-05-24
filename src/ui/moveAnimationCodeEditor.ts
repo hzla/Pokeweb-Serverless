@@ -1,3 +1,4 @@
+import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate, drawSelection, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
@@ -64,6 +65,7 @@ export function installMoveAnimationCodeEditor(host: HTMLElement, script: string
       highlightActiveLine(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       moveAnimationHighlighting,
+      createMoveAnimationAutocomplete(),
       moveAnimationInteractions(host, options),
       EditorView.lineWrapping,
       EditorView.theme({
@@ -127,6 +129,65 @@ const moveAnimationHighlighting = ViewPlugin.fromClass(
     decorations: (plugin) => plugin.decorations,
   },
 );
+
+function createMoveAnimationAutocomplete() {
+  return autocompletion({
+    override: [moveAnimationCompletions],
+  });
+}
+
+function moveAnimationCompletions(completionContext: CompletionContext): CompletionResult | null {
+  const line = completionContext.state.doc.lineAt(completionContext.pos);
+  const offset = completionContext.pos - line.from;
+  const commentIndex = line.text.indexOf("@");
+  if (commentIndex >= 0 && offset > commentIndex) return null;
+
+  const codeEnd = commentIndex >= 0 ? commentIndex : line.text.length;
+  const codeToCursor = line.text.slice(0, Math.min(offset, codeEnd));
+  if (/^\s*\./u.test(line.text) || /^\s*[A-Za-z_][A-Za-z0-9_]*:/u.test(line.text)) return null;
+
+  const word = completionContext.matchBefore(/[A-Za-z_][A-Za-z0-9_]*/u);
+  if (!word && !completionContext.explicit) return null;
+
+  if (/^\s*[A-Za-z_][A-Za-z0-9_]*$/u.test(codeToCursor) || /^\s*$/u.test(codeToCursor)) {
+    return {
+      from: word?.from ?? completionContext.pos,
+      options: buildMoveAnimationCommandCompletions(),
+      validFor: /^[A-Za-z_][A-Za-z0-9_]*$/u,
+    };
+  }
+
+  const options = buildMoveAnimationLabelCompletions(completionContext.state.doc.toString());
+  if (!options.length) return null;
+  return {
+    from: word?.from ?? completionContext.pos,
+    options,
+    validFor: /^[A-Za-z_][A-Za-z0-9_]*$/u,
+  };
+}
+
+function buildMoveAnimationCommandCompletions(): Completion[] {
+  const options = new Map<string, Completion>();
+  for (const definition of commandDefinitions) {
+    const doc = commandDocs.get(definition.name.toLowerCase());
+    const params = doc?.params.map((param) => param.name) ?? definition.params;
+    const signature = params.length ? ` ${params.join(", ")}` : "";
+    options.set(definition.name.toLowerCase(), {
+      label: definition.name,
+      type: "command",
+      detail: `opcode ${definition.opcode}${signature}`,
+      info: doc ? `${doc.category}: ${doc.description}` : undefined,
+      apply: `${definition.name}${definition.params.length ? " " : ""}`,
+    });
+  }
+  return [...options.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function buildMoveAnimationLabelCompletions(text: string): Completion[] {
+  const labels = new Set<string>();
+  for (const match of text.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*):/gmu)) labels.add(match[1]);
+  return [...labels].sort((a, b) => a.localeCompare(b)).map((label) => ({ label, type: "variable", detail: "label" }));
+}
 
 function moveAnimationInteractions(host: HTMLElement, options: MoveAnimationCodeEditorOptions): ReturnType<typeof EditorView.domEventHandlers> {
   let tooltip: HTMLButtonElement | undefined;

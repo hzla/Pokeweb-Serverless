@@ -17,6 +17,7 @@ import {
 import {
   type HgMoveAnimationRom,
 } from "./pokeweb/hgMoveAnimationModel";
+import { platinumCallFuncId, platinumCallFuncName } from "./pokeweb/platinumMoveAnimationModel";
 import { HG_CALLFUNCTION_BY_ID, HG_MOVE_ANIMATION_HELPER_BY_NAME, HG_PRIMITIVE_COMMAND_BY_NAME, type HgColorParameterGroup } from "./pokeweb/hgMoveAnimationDocs";
 import {
   DEFAULT_HG_MOVE_ANIMATION_PREVIEW_SCENARIO,
@@ -725,6 +726,7 @@ function paramDescription(commandName: string, paramName: string, index: number,
 
 function platinumCommandDescription(name: string): string {
   const lower = name.toLowerCase();
+  if (lower.startsWith("func_")) return "Named Platinum battle animation helper. The editor compiles this back to a numeric CallFunc command.";
   const descriptions: Record<string, string> = {
     delay: "Advances script time by a fixed number of frames.",
     waitforanimtasks: "Waits for active animation tasks to finish.",
@@ -775,7 +777,19 @@ function platinumParamDescription(commandName: string, paramName: string, index:
 }
 
 function renderCommandExtra(name: string, params: string[], adapter = state.adapter ?? HG_MOVE_ANIMATION_ADAPTER): string {
-  if (adapter.id !== "hg") return name.toLowerCase() === "callfunc" ? `<div class="hg-command-info__note">Function id ${escapeHtml(params[0] ?? "missing")} is passed to Platinum's battle animation script function table.</div>` : "";
+  if (adapter.id !== "hg") {
+    const lower = name.toLowerCase();
+    if (lower === "callfunc") {
+      const id = parseNumberLike(params[0]);
+      const alias = id === undefined ? undefined : platinumCallFuncName(id);
+      return `<div class="hg-command-info__note">Function id ${escapeHtml(params[0] ?? "missing")}${alias ? `: ${escapeHtml(alias)}` : ""} is passed to Platinum's battle animation script function table.</div>`;
+    }
+    if (lower.startsWith("func_")) {
+      const id = platinumCallFuncId(name);
+      return id === undefined ? "" : `<div class="hg-command-info__note">Compiles to CallFunc ${id}.</div>`;
+    }
+    return "";
+  }
   if (name.toLowerCase() !== "callfunction" && name.toLowerCase() !== "cmd36" && name.toLowerCase() !== "cmd37") return "";
   const first = parseNumberLike(params[0]);
   const helper = first === undefined ? undefined : functionIdDescription(first);

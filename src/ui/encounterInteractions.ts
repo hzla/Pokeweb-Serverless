@@ -42,6 +42,8 @@ export function attachEncounterInteractions(root: HTMLElement, project: ProjectS
 
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+    if (target.closest("[data-autocomplete], .suggestions")) return;
+
     const card = target.closest<HTMLElement>(".encounter-card");
     if (!card) return;
 
@@ -120,8 +122,9 @@ function installEditableFields(root: HTMLElement, project: ProjectState, options
 
       try {
         const openState = getOpenState(card);
-        updateEncounterField(project, encounterId, fieldName, nextValue);
-        replaceEncounterRow(root, project, card, encounterId, options, openState);
+        const result = updateEncounterField(project, encounterId, fieldName, nextValue);
+        field.textContent = String(result.value);
+        refreshEncounterRowMain(root, card, encounterId, options, openState);
         options.onDirty?.();
       } catch {
         field.textContent = initialValue;
@@ -155,6 +158,30 @@ function replaceEncounterRow(
       nextCard.querySelector<HTMLElement>(`.season-icon[data-show='${season}']`)?.classList.add("-active");
       rememberOpenState(root, encounterId, { group: state.group, season });
     }
+  }
+  stripeEncounterRows(root);
+}
+
+function refreshEncounterRowMain(
+  root: HTMLElement,
+  card: HTMLElement,
+  encounterId: number,
+  options: EncounterInteractionOptions,
+  openState: EncounterOpenState = {},
+): void {
+  const template = document.createElement("template");
+  template.innerHTML = options.renderRow(encounterId).trim();
+  const nextMain = template.content.querySelector<HTMLElement>(".expanded-field-main");
+  const currentMain = card.querySelector<HTMLElement>(":scope > .expanded-field-main");
+  if (!nextMain || !currentMain) return;
+
+  currentMain.replaceWith(nextMain);
+  if (openState.group) {
+    nextMain.querySelector<HTMLElement>(`.expand-${openState.group}`)?.classList.add("-active");
+    nextMain.querySelector<HTMLElement>(".expanded-tab-icons")?.classList.add("show-flex");
+    const season = openState.season ?? "spring";
+    nextMain.querySelector<HTMLElement>(`.season-icon[data-show='${season}']`)?.classList.add("-active");
+    rememberOpenState(root, encounterId, { group: openState.group, season });
   }
   stripeEncounterRows(root);
 }
@@ -302,8 +329,10 @@ function installAutocomplete(field: HTMLElement, autofills: Record<string, strin
     const target = event.target as HTMLElement;
     if (!target || target.parentElement !== suggestions) return;
     event.preventDefault();
+    event.stopPropagation();
     field.textContent = target.textContent ?? "";
     suggestions.hidden = true;
     field.blur();
   });
+  suggestions.addEventListener("click", (event) => event.stopPropagation());
 }

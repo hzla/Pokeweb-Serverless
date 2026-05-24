@@ -1,6 +1,8 @@
 import {
+  addFairyTypeSupport,
   detectDustCloudGemPatch,
   detectDustCloudItemPatch,
+  detectFairyTypePatch,
   removeDustCloudGemRewards,
   removeDustCloudItemRewards,
   type RomPatchApplyResult,
@@ -18,6 +20,33 @@ let status: PatchStatus | undefined;
 export function renderPatchesEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
   const gemStatus = detectDustCloudGemPatch(project);
   const itemStatus = detectDustCloudItemPatch(project);
+  const fairyStatus = detectFairyTypePatch(project);
+  const fairyPatchCard =
+    fairyStatus === "unsupported"
+      ? ""
+      : `
+        <section class="patch-card">
+          <div class="patch-card__body">
+            <div>
+              <h2>Add Fairy Type Support</h2>
+              <p>Adds Fairy as a battle type and updates the supporting battle, move, Pokémon, and text data used by the ROM.</p>
+            </div>
+            <div class="patch-card__meta">
+              <span class="patch-badge ${fairyStatus === "patched" ? "-ok" : ""}">
+                ${fairyStatusLabel(fairyStatus)}
+              </span>
+              <span>${project.session.baseVersion}</span>
+            </div>
+          </div>
+          <div class="patch-card__actions">
+            <label class="patch-option">
+              <input id="fairy-modern-typings-checkbox" type="checkbox" checked />
+              <span>Update Pokémon and move typings</span>
+            </label>
+            <button class="btn -default" id="add-fairy-type-btn" type="button">Add Fairy Type Support</button>
+          </div>
+        </section>
+      `;
   root.innerHTML = `
     <div class="patches-page">
       <header class="patches-header">
@@ -61,6 +90,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
             <button class="btn -default" id="remove-dust-cloud-items-btn" type="button">Remove Items from Dust Clouds</button>
           </div>
         </section>
+        ${fairyPatchCard}
         <div class="patch-status ${status?.kind ? `-${status.kind}` : ""}" id="patch-status">${escapeHtml(status?.text ?? "")}</div>
       </main>
     </div>
@@ -83,12 +113,28 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
       apply: removeDustCloudItemRewards,
     });
   });
+
+  root.querySelector<HTMLButtonElement>("#add-fairy-type-btn")?.addEventListener("click", async (event) => {
+    const updateModernFairyTypings = root.querySelector<HTMLInputElement>("#fairy-modern-typings-checkbox")?.checked ?? true;
+    applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
+      confirmText: "Apply this ROM patch to add Fairy Type Support?",
+      loadingText: "Applying Fairy Type Support...",
+      successText: "Added Fairy Type Support",
+      apply: (nextProject) => addFairyTypeSupport(nextProject, { updateModernFairyTypings }),
+    });
+  });
 }
 
 function dustStatusLabel(value: ReturnType<typeof detectDustCloudGemPatch>): string {
   if (value === "patched") return "Applied";
   if (value === "unpatched") return "Ready";
   return "Signature unknown";
+}
+
+function fairyStatusLabel(value: ReturnType<typeof detectFairyTypePatch>): string {
+  if (value === "patched") return "Applied";
+  if (value === "unsupported") return "Unsupported";
+  return "Ready";
 }
 
 function setStatus(root: HTMLElement, next: PatchStatus): void {
@@ -121,12 +167,18 @@ async function applyPatchFromButton(
     const result = await options.apply(project);
     if (result.status === "already-applied") {
       status = {
-        text: `Patch already present in overlay ${result.overlayId} at 0x${result.offset.toString(16)}.`,
+        text:
+          result.overlayId !== undefined && result.offset !== undefined
+            ? `Patch already present in overlay ${result.overlayId} at 0x${result.offset.toString(16)}.`
+            : (result.summary ?? "Patch already present."),
         kind: "ok",
       };
     } else {
       status = {
-        text: `${options.successText} in overlay ${result.overlayId} at 0x${result.offset.toString(16)}. Export the ROM to save the patch.`,
+        text:
+          result.overlayId !== undefined && result.offset !== undefined
+            ? `${options.successText} in overlay ${result.overlayId} at 0x${result.offset.toString(16)}. Export the ROM to save the patch.`
+            : `${result.summary ?? options.successText} Export the ROM to save the patch.`,
         kind: "ok",
       };
       onDirty?.();

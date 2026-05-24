@@ -81,7 +81,7 @@ describe("trainerModel", () => {
     const trainer = getTrainerRecord(project, 1);
     expect(trainer.raw.template).toBe(3);
     expect(trainer.party[0]).toMatchObject({ speciesId: 2, itemName: "Potion", abilitySlot: 2, gender: "Female" });
-    expect(decodeRecord(project, "trpok", 1).raw?.ability_0).toBe(33);
+    expect(decodeRecord(project, "trpok", 1).raw?.ability_0).toBe(34);
     expect(project.narcs.trpok?.dirty.has(1)).toBe(true);
     expect(project.actionChangelog?.entries.some((entry) => entry.domain === "trpok" && entry.text.includes("Pokemon 1 species id changed from Bulbasaur to Ivysaur."))).toBe(true);
   });

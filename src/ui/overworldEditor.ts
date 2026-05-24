@@ -14,8 +14,18 @@ import {
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, selectText } from "./dom";
 import { publicAsset } from "../assetUrl";
+import type { OverworldMapRender } from "./overworldMapRenderer";
 
 const TILE_SIZE = 32;
+const MAP_VIEW_SEASON = "spring";
+const WHEEL_ZOOM_STEP = 0.025;
+const MAP_RENDER_CACHE_VERSION = 5;
+const MIN_ZOOM = 0.1;
+const MIN_NPC_SCREEN_SIZE = 18;
+
+type OverworldViewMode = "permissions" | "map";
+
+const mapRenderCache = new Map<string, Promise<OverworldMapRender> | OverworldMapRender>();
 
 export function renderOverworldEditor(
   project: ProjectState,
@@ -55,12 +65,17 @@ export function renderOverworldEditor(
     </div>
     <div class="pokemon-list" id="overworld">
       <div class="overworld-toolbar">
+        <div class="overworld-view-toggle" role="group" aria-label="Overworld view mode">
+          <button class="ow-tool overworld-view-button active" id="view-permissions" type="button">Permissions</button>
+          <button class="ow-tool overworld-view-button" id="view-map" type="button">Map</button>
+        </div>
         <button class="ow-tool" id="zoom-out" type="button">-</button>
         <button class="ow-tool" id="zoom-reset" type="button">100%</button>
         <button class="ow-tool" id="zoom-in" type="button">+</button>
       </div>
       <div class="overworld-stage">
         <canvas class="overworld-map" id="overworld-canvas"></canvas>
+        <div class="overworld-map-status" id="overworld-map-status" hidden></div>
         <div class="overworld-entities" id="overworld-entities"></div>
       </div>
     </div>
@@ -71,6 +86,7 @@ export function renderOverworldEditor(
   const entities = root.querySelector<HTMLDivElement>("#overworld-entities");
   const tileEditor = root.querySelector<HTMLDivElement>("#tile-editor");
   const zoomLabel = root.querySelector<HTMLButtonElement>("#zoom-reset");
+  const mapStatus = root.querySelector<HTMLDivElement>("#overworld-map-status");
   if (!stage || !canvas || !entities) return;
   const entityLayer = entities;
 
@@ -84,11 +100,22 @@ export function renderOverworldEditor(
     dragStartY: 0,
     dragPanX: 0,
     dragPanY: 0,
+    viewMode: "permissions" as OverworldViewMode,
+    mapRender: undefined as OverworldMapRender | undefined,
+    mapRenderError: "",
+    mapRenderLoading: false,
+    mapRenderToken: 0,
   };
 
   const reloadScene = () => {
+    const previousZoneId = associatedMapZoneId(scene);
     scene = getOverworldScene(project, overworldId);
     if (selectedNpc !== undefined && !scene.npcs.some((npc) => npc.index === selectedNpc)) selectedNpc = scene.npcs[0]?.index;
+    if (associatedMapZoneId(scene) !== previousZoneId) {
+      state.mapRender = undefined;
+      state.mapRenderError = "";
+      state.mapRenderToken += 1;
+    }
     renderNpcOverlay();
     fillSidebar();
     draw();
@@ -107,11 +134,11 @@ export function renderOverworldEditor(
 
   const frameScene = (rect = stage.getBoundingClientRect()) => {
     const npc = scene.npcs.find((entry) => entry.index === selectedNpc) ?? scene.npcs[0];
-    const bounds = sceneBounds(scene, npc);
-    const fitZoom = Math.min(1, Math.max(0.35, Math.min(rect.width / Math.max(1, bounds.width * TILE_SIZE), rect.height / Math.max(1, bounds.height * TILE_SIZE)) * 0.85));
-    state.zoom = npc ? Math.max(0.5, fitZoom) : fitZoom;
-    const centerX = npc ? npc.x + 0.5 : bounds.x + bounds.width / 2;
-    const centerY = npc ? npc.y + 0.5 : bounds.y + bounds.height / 2;
+    const bounds = state.viewMode === "map" && state.mapRender ? mapRenderTileBounds(state.mapRender) : sceneBounds(scene, npc);
+    const fitZoom = Math.min(1, Math.max(MIN_ZOOM, Math.min(rect.width / Math.max(1, bounds.width * TILE_SIZE), rect.height / Math.max(1, bounds.height * TILE_SIZE)) * 0.85));
+    state.zoom = fitZoom;
+    const centerX = bounds.x + bounds.width / 2;
+    const centerY = bounds.y + bounds.height / 2;
     state.panX = rect.width / 2 - centerX * TILE_SIZE * state.zoom;
     state.panY = rect.height / 2 - centerY * TILE_SIZE * state.zoom;
     state.framed = true;
@@ -124,7 +151,7 @@ export function renderOverworldEditor(
     const screenY = anchorY ?? rect.height / 2;
     const worldX = (screenX - state.panX) / (TILE_SIZE * state.zoom);
     const worldY = (screenY - state.panY) / (TILE_SIZE * state.zoom);
-    state.zoom = Math.min(3, Math.max(0.35, nextZoom));
+    state.zoom = Math.min(3, Math.max(MIN_ZOOM, nextZoom));
     state.panX = screenX - worldX * TILE_SIZE * state.zoom;
     state.panY = screenY - worldY * TILE_SIZE * state.zoom;
     updateZoomLabel();
@@ -138,7 +165,7 @@ export function renderOverworldEditor(
   const worldToScreen = (x: number, y: number) => ({
     x: state.panX + x * TILE_SIZE * state.zoom,
     y: state.panY + y * TILE_SIZE * state.zoom,
-    size: TILE_SIZE * state.zoom,
+    tileSize: TILE_SIZE * state.zoom,
   });
 
   const screenToWorld = (clientX: number, clientY: number) => {
@@ -156,8 +183,76 @@ export function renderOverworldEditor(
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.clearRect(0, 0, canvas.width / scale, canvas.height / scale);
     ctx.imageSmoothingEnabled = false;
-    for (const map of scene.maps) drawMap(ctx, map, state.zoom, state.panX, state.panY);
+    if (state.viewMode === "map" && state.mapRender) drawTrueMap(ctx, state.mapRender, state.zoom, state.panX, state.panY);
+    else for (const map of scene.maps) drawMap(ctx, map, state.zoom, state.panX, state.panY);
     renderNpcOverlay();
+  };
+
+  const setViewMode = (viewMode: OverworldViewMode) => {
+    state.viewMode = viewMode;
+    selectedTile = undefined;
+    if (tileEditor) tileEditor.style.display = "none";
+    updateViewButtons();
+    updateMapStatus();
+    if (viewMode === "map") {
+      if (state.mapRender) frameScene();
+      void ensureMapRender();
+    } else {
+      frameScene();
+    }
+    draw();
+  };
+
+  const updateViewButtons = () => {
+    root.querySelector<HTMLButtonElement>("#view-permissions")?.classList.toggle("active", state.viewMode === "permissions");
+    root.querySelector<HTMLButtonElement>("#view-map")?.classList.toggle("active", state.viewMode === "map");
+  };
+
+  const updateMapStatus = () => {
+    if (!mapStatus) return;
+    const message = state.mapRenderLoading
+      ? "Loading map view..."
+      : state.viewMode === "map" && state.mapRenderError
+        ? state.mapRenderError
+        : "";
+    mapStatus.hidden = message.length === 0;
+    mapStatus.textContent = message;
+  };
+
+  const ensureMapRender = async () => {
+    if (state.mapRender || state.mapRenderLoading) return;
+    const token = ++state.mapRenderToken;
+    state.mapRenderLoading = true;
+    state.mapRenderError = "";
+    updateMapStatus();
+    draw();
+
+    try {
+      const zoneId = associatedMapZoneId(scene);
+      const key = mapRenderCacheKey(project, overworldId, zoneId);
+      let cached = mapRenderCache.get(key);
+      if (!cached) {
+        cached = Promise.all([import("../pokeweb/map3dModel"), import("./overworldMapRenderer")]).then(([map3dModel, renderer]) =>
+          map3dModel.loadMap3dZone(project, zoneId, { season: MAP_VIEW_SEASON }).then((data) => renderer.renderOverworldMapTopDown(data)),
+        );
+        mapRenderCache.set(key, cached);
+      }
+      const render = await cached;
+      mapRenderCache.set(key, render);
+      if (token !== state.mapRenderToken) return;
+      state.mapRender = render;
+      if (state.viewMode === "map") frameScene();
+    } catch (error) {
+      if (token !== state.mapRenderToken) return;
+      state.mapRenderError = `Map view unavailable: ${error instanceof Error ? error.message : String(error)}`;
+      mapRenderCache.delete(mapRenderCacheKey(project, overworldId, associatedMapZoneId(scene)));
+    } finally {
+      if (token === state.mapRenderToken) {
+        state.mapRenderLoading = false;
+        updateMapStatus();
+        draw();
+      }
+    }
   };
 
   function renderNpcOverlay(): void {
@@ -308,13 +403,16 @@ export function renderOverworldEditor(
   canvas.addEventListener("pointerup", (event) => {
     const moved = Math.abs(event.clientX - state.dragStartX) + Math.abs(event.clientY - state.dragStartY);
     state.draggingMap = false;
-    if (moved < 4) {
+    if (moved < 4 && state.viewMode === "permissions") {
       selectedTile = tileAt(scene, screenToWorld(event.clientX, event.clientY));
       if (selectedTile && tileEditor) {
         tileEditor.style.display = "block";
         root.querySelector<HTMLElement>("#tile-flag")!.textContent = String(selectedTile.layer2);
         root.querySelector<HTMLElement>("#tile-mov")!.textContent = String(selectedTile.layer3);
       }
+    } else if (state.viewMode === "map") {
+      selectedTile = undefined;
+      if (tileEditor) tileEditor.style.display = "none";
     }
   });
   canvas.addEventListener(
@@ -322,7 +420,7 @@ export function renderOverworldEditor(
     (event) => {
       event.preventDefault();
       const rect = stage.getBoundingClientRect();
-      setZoom(state.zoom + (event.deltaY < 0 ? 0.1 : -0.1), event.clientX - rect.left, event.clientY - rect.top);
+      setZoom(state.zoom + (event.deltaY < 0 ? WHEEL_ZOOM_STEP : -WHEEL_ZOOM_STEP), event.clientX - rect.left, event.clientY - rect.top);
     },
     { passive: false },
   );
@@ -337,6 +435,18 @@ export function renderOverworldEditor(
     state.framed = false;
     frameScene();
     draw();
+  });
+  root.querySelector<HTMLButtonElement>("#view-permissions")?.addEventListener("click", () => {
+    setViewMode("permissions");
+  });
+  root.querySelector<HTMLButtonElement>("#view-map")?.addEventListener("click", () => {
+    setViewMode("map");
+  });
+
+  root.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || isEditableTarget(event.target)) return;
+    event.preventDefault();
+    setViewMode(state.viewMode === "permissions" ? "map" : "permissions");
   });
 
   const resizeObserver = new ResizeObserver(resize);
@@ -376,15 +486,52 @@ function drawMap(context: CanvasRenderingContext2D, map: OverworldMapScene, zoom
   context.strokeRect(startX, startY, map.width * size, map.height * size);
 }
 
+function drawTrueMap(context: CanvasRenderingContext2D, render: OverworldMapRender, zoom: number, panX: number, panY: number): void {
+  const placement = mapRenderTileBounds(render);
+  const size = TILE_SIZE * zoom;
+  const startX = panX + placement.x * size;
+  const startY = panY + placement.y * size;
+  const width = placement.width * size;
+  const height = placement.height * size;
+  context.drawImage(render.canvas, startX, startY, width, height);
+  context.strokeStyle = "rgba(189, 147, 249, 0.7)";
+  context.lineWidth = 2;
+  context.strokeRect(startX, startY, width, height);
+}
+
+function mapRenderTileBounds(render: OverworldMapRender): { x: number; y: number; width: number; height: number } {
+  return {
+    x: (render.worldBounds.minX - render.worldOrigin.x) / render.unitsPerTile,
+    y: (render.worldBounds.minZ - render.worldOrigin.z) / render.unitsPerTile,
+    width: render.worldBounds.width / render.unitsPerTile,
+    height: render.worldBounds.height / render.unitsPerTile,
+  };
+}
+
+function mapRenderCacheKey(project: ProjectState, overworldId: number, zoneId: number): string {
+  return `${MAP_RENDER_CACHE_VERSION}:${project.session.baseVersion}:${project.session.romName}:${overworldId}:${zoneId}:${MAP_VIEW_SEASON}`;
+}
+
+function associatedMapZoneId(scene: OverworldScene): number {
+  return Number(scene.header.index);
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(target.tagName);
+}
+
 function renderNpc(
   npc: OverworldNpc,
-  worldToScreen: (x: number, y: number) => { x: number; y: number; size: number },
+  worldToScreen: (x: number, y: number) => { x: number; y: number; tileSize: number },
   selected: boolean,
 ): string {
   const position = worldToScreen(npc.x, npc.y);
+  const size = Math.max(position.tileSize, MIN_NPC_SCREEN_SIZE);
+  const offset = (size - position.tileSize) / 2;
   return `
     <div class="overworld-item ${selected ? "selected" : ""}" data-npc-index="${npc.index}" data-dir="${npc.direction}" title="npc-${npc.index}"
-      style="left:${position.x}px;top:${position.y}px;width:${position.size}px;height:${position.size}px">
+      style="left:${position.x - offset}px;top:${position.y - offset}px;width:${size}px;height:${size}px">
       <img class="overworld-sprite" src="${publicAsset(`images/overworlds/${npc.spriteSlug}.png`)}" alt="" onerror="this.hidden=true;this.parentElement?.classList.add('missing-sprite')" />
       <span>${npc.overworldId}</span>
     </div>
