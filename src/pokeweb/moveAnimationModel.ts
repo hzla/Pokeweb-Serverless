@@ -7,6 +7,8 @@ import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 const ADDRESSES_PER_ENTRY = 0x0e;
 const BATTLE_ANIMATION_OFFSET = 561;
 const END_COMMANDS = new Set(["CallMoveAnimation", "TerminateMoveScript"]);
+const SIMPLE_SCRIPT_COUNT = 1;
+const SIMPLE_SCRIPT_LABEL = "SCRIPT_60";
 
 export type MoveAnimationCommandDefinition = {
   opcode: number;
@@ -41,6 +43,22 @@ const COMMANDS = parseCommandMacros(commandMacros);
 const COMMANDS_BY_NAME = new Map(COMMANDS.map((command) => [command.name.toLowerCase(), command]));
 const COMMANDS_BY_OPCODE = new Map(COMMANDS.map((command) => [command.opcode, command]));
 const RGB555_PACKED_COMMANDS = new Set(["ChangeColor", "ChangeBackgroundColor", "ObjectPaletteFade"]);
+const LEGACY_STORED_PARAM_COUNTS = new Map<number, number>([
+  [17, 7],
+]);
+
+type MoveAnimationStorageMode = "source" | "legacy-pokeweb";
+
+type DecompileAnimationResult = {
+  text: string;
+  usedLegacyWidths: boolean;
+  commandCount: number;
+};
+
+export type MoveAnimationRepairSummary = {
+  moveAnimations: number;
+  battleAnimations: number;
+};
 
 export function getMoveAnimationCommandDefinitions(): MoveAnimationCommandDefinition[] {
   return COMMANDS.map((command) => ({ ...command, params: command.params.slice() }));
@@ -63,6 +81,30 @@ export function decompileMoveAnimationBytes(bytes: Uint8Array): string {
 
 export function compileMoveAnimation(_project: ProjectState, _moveId: number, scriptText: string): Uint8Array {
   return compileAnimationScript(scriptText);
+}
+
+export function repairMoveAnimationScriptBytes(bytes: Uint8Array): Uint8Array {
+  const source = tryDecompileAnimationBytesForMode(bytes, "source");
+  const legacy = tryDecompileAnimationBytesForMode(bytes, "legacy-pokeweb");
+  if (!shouldUseLegacyDecompile(source, legacy)) return bytes;
+  const repaired = compileAnimationScript(legacy!.text);
+  decompileAnimationBytesForMode(repaired, "source");
+  return bytesEqual(bytes, repaired) ? bytes : repaired;
+}
+
+function tryDecompileAnimationBytesForMode(bytes: Uint8Array, storageMode: MoveAnimationStorageMode): DecompileAnimationResult | undefined {
+  try {
+    return decompileAnimationBytesForMode(bytes, storageMode);
+  } catch {
+    return undefined;
+  }
+}
+
+export function repairLegacyMoveAnimationArchives(project: ProjectState): MoveAnimationRepairSummary {
+  const summary: MoveAnimationRepairSummary = { moveAnimations: 0, battleAnimations: 0 };
+  repairMoveAnimationStore(project, "move_animations", "moveAnimations", summary);
+  repairMoveAnimationStore(project, "battle_animations", "battleAnimations", summary);
+  return summary;
 }
 
 export function parseMoveAnimationScript(scriptText: string): ParsedMoveAnimationScript {
@@ -146,6 +188,21 @@ function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMi
 }
 
 function decompileAnimationBytes(bytes: Uint8Array): string {
+  const source = tryDecompileAnimationBytesForMode(bytes, "source");
+  const legacy = tryDecompileAnimationBytesForMode(bytes, "legacy-pokeweb");
+  if (shouldUseLegacyDecompile(source, legacy)) return legacy!.text;
+  if (source) return source.text;
+  if (legacy) return legacy.text;
+  return decompileAnimationBytesForMode(bytes, "source").text;
+}
+
+function shouldUseLegacyDecompile(source: DecompileAnimationResult | undefined, legacy: DecompileAnimationResult | undefined): boolean {
+  if (!legacy?.usedLegacyWidths) return false;
+  if (!source) return true;
+  return legacy.commandCount > source.commandCount;
+}
+
+function decompileAnimationBytesForMode(bytes: Uint8Array, storageMode: MoveAnimationStorageMode): DecompileAnimationResult {
   if (bytes.length < 4) throw new Error("Animation script is too small");
   const count = readU32(bytes, 0);
   const headerEntries = count * ADDRESSES_PER_ENTRY;
@@ -160,38 +217,68 @@ function decompileAnimationBytes(bytes: Uint8Array): string {
     if (!labelByOffset.has(offset)) labelByOffset.set(offset, `SCRIPT_${offset}`);
   }
 
-  const out: string[] = ['.include "B2W2_MOVSCRCMD.s"', ".align 4", "", `.word ${count} @ Count`];
-  for (const offset of offsets) out.push(`.word ${labelByOffset.get(offset)}`);
-  out.push("");
+  const bodies = new Map<string, string[]>();
+  let usedLegacyWidths = false;
+  let commandCount = 0;
+  const sortedOffsets = [...labelByOffset.keys()].sort((a, b) => a - b);
 
   for (const [offset, label] of labelByOffset.entries()) {
     if (offset < headerLength || offset >= bytes.length) throw new Error(`Animation script offset is out of range: ${offset}`);
-    out.push(`${label}:`);
+    const nextOffset = sortedOffsets.find((candidate) => candidate > offset) ?? bytes.length;
+    const lines: string[] = [];
     let cursor = offset;
     let ended = false;
-    while (cursor + 2 <= bytes.length) {
+    while (cursor + 2 <= nextOffset) {
       const opcode = readU16(bytes, cursor);
       cursor += 2;
       const command = COMMANDS_BY_OPCODE.get(opcode);
       if (!command) throw new Error(`Unknown animation command opcode: ${opcode}`);
       const params: number[] = [];
-      for (const width of storedParamWidthsForCommand(command)) {
-        if (cursor + width > bytes.length) throw new Error(`Command ${command.name} is truncated`);
+      const paramWidths = storedParamWidthsForCommand(command, storageMode);
+      usedLegacyWidths ||= storageMode === "legacy-pokeweb" && LEGACY_STORED_PARAM_COUNTS.has(command.opcode);
+      for (const width of paramWidths) {
+        if (cursor + width > nextOffset) throw new Error(`Command ${command.name} is truncated`);
         params.push(readStoredParam(bytes, cursor, width));
         cursor += width;
       }
-      const scriptParams = decodeStoredParams(command, params);
-      out.push(`     ${command.name}${scriptParams.length > 0 ? ` ${scriptParams.join(", ")}` : " "}`);
+      const scriptParams = decodeStoredParams(command, params, storageMode);
+      lines.push(`${command.name}${scriptParams.length > 0 ? ` ${scriptParams.join(", ")}` : ""}`);
+      commandCount += 1;
       if (command.ends) {
         ended = true;
         break;
       }
     }
     if (!ended) throw new Error(`Script ${label} does not terminate`);
+    bodies.set(label, lines);
+  }
+
+  if (isSimpleScriptHeader(count, offsets, headerLength, labelByOffset)) {
+    const label = labelByOffset.get(headerLength);
+    const lines = label ? bodies.get(label) : undefined;
+    if (lines) return { text: `${lines.join("\n")}\n`, usedLegacyWidths, commandCount };
+  }
+
+  const out: string[] = ['.include "B2W2_MOVSCRCMD.s"', ".align 4", "", `.word ${count} @ Count`];
+  for (const offset of offsets) out.push(`.word ${labelByOffset.get(offset)}`);
+  out.push("");
+
+  for (const [offset, label] of labelByOffset.entries()) {
+    out.push(`${label}:`);
+    for (const line of bodies.get(label) ?? []) out.push(`     ${line}`);
     out.push("");
   }
 
-  return out.join("\n").trimEnd() + "\n";
+  return { text: out.join("\n").trimEnd() + "\n", usedLegacyWidths, commandCount };
+}
+
+function isSimpleScriptHeader(count: number, offsets: number[], headerLength: number, labelByOffset: Map<number, string>): boolean {
+  return (
+    count === SIMPLE_SCRIPT_COUNT &&
+    offsets.length === ADDRESSES_PER_ENTRY &&
+    labelByOffset.size === 1 &&
+    offsets.every((offset) => offset === headerLength)
+  );
 }
 
 function compileAnimationScript(scriptText: string): Uint8Array {
@@ -228,7 +315,7 @@ function parseScriptText(scriptText: string): { count: number; headerLabels: str
     .filter((line) => !line.startsWith(".include") && !line.startsWith(".align"));
 
   const countLineIndex = meaningful.findIndex((line) => /^\.word\s+[-+]?(?:0x[0-9a-f]+|\d+)/iu.test(line));
-  if (countLineIndex < 0) throw new Error("Missing .word <count> header");
+  if (countLineIndex < 0) return parseSimpleScriptText(meaningful);
   const countMatch = /^\.word\s+(.+)$/iu.exec(meaningful[countLineIndex]);
   const count = parseIntegerToken(countMatch?.[1]?.trim() ?? "", "script count");
   if (count < 1 || count > 64) throw new Error("Script count must be between 1 and 64");
@@ -265,6 +352,20 @@ function parseScriptText(scriptText: string): { count: number; headerLabels: str
   }
 
   return { count, headerLabels, labelOrder, bodies };
+}
+
+function parseSimpleScriptText(lines: string[]): { count: number; headerLabels: string[]; labelOrder: string[]; bodies: Map<string, string[]> } {
+  if (lines.length === 0) throw new Error("Move animation script is empty");
+  if (lines.some((line) => /^([A-Za-z_][A-Za-z0-9_]*):$/u.test(line))) {
+    throw new Error("Labelled move animation scripts must include the full .word header table");
+  }
+  if (!bodyTerminates(lines)) throw new Error(`Script ${SIMPLE_SCRIPT_LABEL} must include a terminating command`);
+  return {
+    count: SIMPLE_SCRIPT_COUNT,
+    headerLabels: Array.from({ length: ADDRESSES_PER_ENTRY }, () => SIMPLE_SCRIPT_LABEL),
+    labelOrder: [SIMPLE_SCRIPT_LABEL],
+    bodies: new Map([[SIMPLE_SCRIPT_LABEL, lines]]),
+  };
 }
 
 function compileCommandLines(label: string, lines: string[]): Uint8Array {
@@ -318,22 +419,32 @@ function parseParams(input: string, commandName: string): number[] {
 
 function normalizeScriptParams(command: MoveAnimationCommandDefinition, params: number[]): number[] {
   if (RGB555_PACKED_COMMANDS.has(command.name) && params.length === 5) return decodeStoredParams(command, params);
+  if (command.name === "DoSPAOrthoCircleAnimation" && params.length === 7) return [...params, 0, 0, 0];
   if (command.name === "DistortBackground" && params.length === 4) return [...params, 0, 0];
+  if (command.name === "BackgroundPaletteAnimation" && params.length === 5) return params.slice(0, 2);
   return params;
 }
 
-function storedParamCountForCommand(command: MoveAnimationCommandDefinition): number {
+function storedParamCountForCommand(command: MoveAnimationCommandDefinition, storageMode: MoveAnimationStorageMode = "source"): number {
+  if (storageMode === "legacy-pokeweb") return LEGACY_STORED_PARAM_COUNTS.get(command.opcode) ?? storedParamCountForCommand(command, "source");
   return RGB555_PACKED_COMMANDS.has(command.name) ? 5 : command.params.length;
 }
 
-function storedParamWidthsForCommand(command: MoveAnimationCommandDefinition): number[] {
-  return Array.from({ length: storedParamCountForCommand(command) }, () => 4);
+function storedParamWidthsForCommand(command: MoveAnimationCommandDefinition, storageMode: MoveAnimationStorageMode = "source"): number[] {
+  return Array.from({ length: storedParamCountForCommand(command, storageMode) }, () => 4);
 }
 
-function decodeStoredParams(command: MoveAnimationCommandDefinition, params: number[]): number[] {
-  if (!RGB555_PACKED_COMMANDS.has(command.name)) return params;
-  const rgb = params[4] ?? 0;
-  return [...params.slice(0, 4), rgb & 0x1f, (rgb >>> 5) & 0x1f, (rgb >>> 10) & 0x1f];
+function decodeStoredParams(command: MoveAnimationCommandDefinition, params: number[], storageMode: MoveAnimationStorageMode = "source"): number[] {
+  const normalized = decodeLegacyStoredParams(command, params, storageMode);
+  if (!RGB555_PACKED_COMMANDS.has(command.name)) return normalized;
+  const rgb = normalized[4] ?? 0;
+  return [...normalized.slice(0, 4), rgb & 0x1f, (rgb >>> 5) & 0x1f, (rgb >>> 10) & 0x1f];
+}
+
+function decodeLegacyStoredParams(command: MoveAnimationCommandDefinition, params: number[], storageMode: MoveAnimationStorageMode): number[] {
+  if (storageMode !== "legacy-pokeweb") return params;
+  if (command.name === "DoSPAOrthoCircleAnimation" && params.length === 7) return [...params, 0, 0, 0];
+  return params;
 }
 
 function encodeStoredParams(command: MoveAnimationCommandDefinition, params: number[]): number[] {
@@ -416,4 +527,36 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
     offset += part.length;
   }
   return out;
+}
+
+function repairMoveAnimationStore(
+  project: ProjectState,
+  storeName: "move_animations" | "battle_animations",
+  summaryKey: keyof MoveAnimationRepairSummary,
+  summary: MoveAnimationRepairSummary,
+): void {
+  const store = project.narcs[storeName];
+  if (!store) return;
+  store.rawFiles.forEach((bytes, index) => {
+    if (!bytes) return;
+    let repaired: Uint8Array;
+    try {
+      repaired = repairMoveAnimationScriptBytes(bytes);
+    } catch {
+      return;
+    }
+    if (bytesEqual(bytes, repaired)) return;
+    store.rawFiles[index] = repaired;
+    store.records.delete(index);
+    markDirty(project, storeName, index);
+    summary[summaryKey] += 1;
+  });
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
 }

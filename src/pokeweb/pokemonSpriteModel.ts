@@ -128,6 +128,7 @@ export type PokemonCellBank = {
 const SPRITE_FILES_PER_ENTRY = 20;
 const BW_ALT_FORM_SPRITE_START = 652;
 const BW2_ALT_FORM_SPRITE_START = 685;
+const W2U_FORM_SPRITE_START = 724;
 const PALETTE_OFFSET = 40;
 const IMAGE_DATA_OFFSET = 48;
 export const DEFAULT_RIG_ATLAS_DIMENSIONS: RigAtlasDimensions = { width: 256, height: 128 };
@@ -152,6 +153,14 @@ const SPRITE_UNSCRAMBLE_RECTS = [
 ] as const;
 
 export function getPokemonSpriteFormOptions(project: ProjectState, speciesId: number): Array<{ formIndex: number; label: string; spriteId: number }> {
+  const formOwner = findPersonalFormOwner(project, speciesId);
+  if (formOwner) {
+    return [{
+      formIndex: 0,
+      label: `Form ${formOwner.formIndex}`,
+      spriteId: resolvePokemonSpriteId(project, speciesId, 0),
+    }];
+  }
   const record = decodeRecord(project, "personal", speciesId);
   const formCount = Math.max(1, Number(record.raw?.num_forms ?? 1));
   return Array.from({ length: formCount }, (_, formIndex) => ({
@@ -162,12 +171,39 @@ export function getPokemonSpriteFormOptions(project: ProjectState, speciesId: nu
 }
 
 export function resolvePokemonSpriteId(project: ProjectState, speciesId: number, formIndex = 0): number {
-  if (formIndex <= 0) return speciesId;
+  const formSpriteStart = usesW2uExpandedPokegra(project) ? W2U_FORM_SPRITE_START : project.session.baseRom === "BW2" ? BW2_ALT_FORM_SPRITE_START : BW_ALT_FORM_SPRITE_START;
+  if (formIndex <= 0) {
+    const formOwner = findPersonalFormOwner(project, speciesId);
+    return formOwner ? formSpriteStart + formOwner.formSpriteOffset + formOwner.formIndex - 1 : speciesId;
+  }
   const record = decodeRecord(project, "personal", speciesId);
   const formCount = Math.max(1, Number(record.raw?.num_forms ?? 1));
   if (formIndex >= formCount) throw new Error(`Form ${formIndex} is out of range for Pokemon ${speciesId}`);
-  const altStart = project.session.baseRom === "BW2" ? BW2_ALT_FORM_SPRITE_START : BW_ALT_FORM_SPRITE_START;
-  return altStart + Number(record.raw?.form ?? 0) + formIndex - 1;
+  return formSpriteStart + Number(record.raw?.form ?? 0) + formIndex - 1;
+}
+
+function usesW2uExpandedPokegra(project: ProjectState): boolean {
+  return project.session.baseRom === "BW2" && (project.narcs.personal?.fileCount ?? 0) > 1024;
+}
+
+function findPersonalFormOwner(project: ProjectState, speciesId: number): { speciesId: number; formIndex: number; formSpriteOffset: number } | undefined {
+  const store = project.narcs.personal;
+  if (!store || speciesId < 0 || speciesId >= store.fileCount) return undefined;
+  let rangedMatch: { speciesId: number; formIndex: number; formSpriteOffset: number } | undefined;
+  for (let ownerId = 1; ownerId < store.fileCount; ownerId += 1) {
+    if (ownerId === speciesId) continue;
+    const owner = decodeRecord(project, "personal", ownerId);
+    const formCount = Math.max(1, Number(owner.raw?.num_forms ?? 1));
+    const firstFormId = Number(owner.raw?.form_id ?? 0);
+    if (formCount <= 1 || firstFormId <= 0) continue;
+    const formIndex = speciesId - firstFormId + 1;
+    if (formIndex > 0 && formIndex < formCount) {
+      const match = { speciesId: ownerId, formIndex, formSpriteOffset: Number(owner.raw?.form ?? 0) };
+      if (firstFormId === speciesId) return match;
+      rangedMatch ??= match;
+    }
+  }
+  return rangedMatch;
 }
 
 export function getPokemonSpriteEntry(project: ProjectState, spriteId: number): PokemonSpriteEntry {

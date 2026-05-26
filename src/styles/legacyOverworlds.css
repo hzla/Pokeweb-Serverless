@@ -42,6 +42,15 @@
   margin: 28px 0;
 }
 
+.overworld-entity-action-row {
+  margin: 16px 0 0;
+}
+
+.overworld-entity-action-row .ow-btn {
+  width: 100%;
+  background: #6272a4;
+}
+
 .ow-btn,
 .ow-tool {
   border: 0;
@@ -54,17 +63,59 @@
   background: #bd93f9;
 }
 
-#add-npc {
+#add-entity {
   background: #1abc9c;
 }
 
-#del-npc {
+#del-entity {
   background: #e74c3c;
 }
 
-#del-npc:disabled {
+#del-entity:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.overworld-entity-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
+.ow-entity-tab {
+  border: 1px solid #44475a;
+  border-radius: 2px;
+  background: #282a36;
+  color: #f8f8f2;
+  cursor: pointer;
+  padding: 7px 8px;
+  font-size: 14px;
+}
+
+.ow-entity-tab.active {
+  background: #1abc9c;
+  border-color: #1abc9c;
+  color: #282a36;
+  font-weight: 700;
+}
+
+.sidebar-select {
+  min-width: 112px;
+  max-width: 140px;
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 3px;
+  color: #50baa0;
+  padding: 4px 6px;
+}
+
+.overworld-empty-selection {
+  border: 1px solid #44475a;
+  border-radius: 4px;
+  color: #f8f8f2;
+  padding: 10px;
+  margin: 12px 0;
 }
 
 #overworld {
@@ -134,6 +185,34 @@
 
 .overworld-item:not(.missing-sprite) span {
   display: none;
+}
+
+.overworld-grid-entity {
+  border: 2px solid currentColor;
+  color: #f8f8f2;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #000;
+}
+
+.overworld-item.overworld-grid-entity span {
+  display: block;
+  pointer-events: none;
+}
+
+.overworld-furniture {
+  background: rgba(120, 220, 232, 0.65);
+  color: #78dce8;
+}
+
+.overworld-warp {
+  background: rgba(0, 230, 0, 0.22);
+  color: #2ecc71;
+}
+
+.overworld-trigger {
+  background: rgba(0, 0, 255, 0.18);
+  color: #59c2ff;
 }
 
 .overworld-sprite {

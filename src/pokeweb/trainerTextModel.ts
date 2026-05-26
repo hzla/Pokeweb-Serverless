@@ -212,8 +212,8 @@ function resolveTrainerTextStores(project: ProjectState): TrainerTextStores | un
   const loaded = candidates.filter((candidate): candidate is [NarcName, NarcStore] => Boolean(candidate[1]));
   if (loaded.length < 2) return undefined;
 
-  const lineTable = loaded.find(([, store]) => store.sourcePath === "a/0/9/0") ?? loaded.find(([name]) => name === "trtext_table");
-  const offsetTable = loaded.find(([, store]) => store.sourcePath === "a/0/8/9") ?? loaded.find(([name]) => name === "trtext_offsets");
+  const lineTable = loaded.find(([, store]) => store.sourcePath === "a/0/8/9") ?? loaded.find(([name]) => name === "trtext_table");
+  const offsetTable = loaded.find(([, store]) => store.sourcePath === "a/0/9/0") ?? loaded.find(([name]) => name === "trtext_offsets");
   if (!lineTable || !offsetTable || lineTable[0] === offsetTable[0]) return undefined;
   return {
     lineTableName: lineTable[0],

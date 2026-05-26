@@ -13,6 +13,7 @@ import {
   getPokemonIconImage,
   getPokemonPalettes,
   getPokemonRigAtlasDimensions,
+  getPokemonSpriteFormOptions,
   getPokemonSpriteImage,
   getRigCells,
   importPokemonAnimationBundle,
@@ -55,6 +56,15 @@ describe("pokemonSpriteModel", () => {
 
     expect(resolvePokemonSpriteId(project, 1, 0)).toBe(1);
     expect(resolvePokemonSpriteId(project, 1, 1)).toBe(688);
+  });
+
+  it("resolves W2U expanded form personal entries to their form sprite sets", () => {
+    const project = makeW2uProject();
+
+    expect(resolvePokemonSpriteId(project, 448, 1)).toBe(815);
+    expect(resolvePokemonSpriteId(project, 1076, 0)).toBe(815);
+    expect(getPokemonSpriteFormOptions(project, 1076)).toEqual([{ formIndex: 0, label: "Form 1", spriteId: 815 }]);
+    expect(getPokemonSpriteImage(project, 815, { kind: "sprite", side: "front", gender: "male" }, "normal").width).toBe(96);
   });
 
   it("round-trips literal LZ11 data", () => {
@@ -550,6 +560,22 @@ function makeProject(): ProjectState {
     formats,
     trpokInfo: [],
   };
+}
+
+function makeW2uProject(): ProjectState {
+  const project = makeProject();
+  const formats = getNarcFormats("BW2");
+  const rowLength = formats.personal!.reduce((sum, [size]) => sum + size, 0);
+  const personal = Array.from({ length: 1077 }, () => new Uint8Array(rowLength));
+  personal[448] = new Uint8Array(packRows(formats.personal!, [{ form_id: 1076, num_forms: 2, form: 91 }]));
+  personal[1076] = new Uint8Array(packRows(formats.personal!, [{ num_forms: 2 }]));
+  project.narcs.personal = makeStore("personal", personal);
+
+  const spriteFiles: Uint8Array[] = Array.from({ length: 815 * 20 + 20 }, () => new Uint8Array());
+  const source = makeProject().narcs.pokemon_sprites!.rawFiles;
+  for (let i = 0; i < 20; i += 1) spriteFiles[815 * 20 + i] = source[20 + i].slice();
+  project.narcs.pokemon_sprites = makeStore("pokemon_sprites", spriteFiles);
+  return project;
 }
 
 function makeStore(name: NarcName, rawFiles: Uint8Array[]): NarcStore {

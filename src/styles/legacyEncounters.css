@@ -71,10 +71,15 @@
 }
 
 .encounter-wild-group {
+  appearance: none;
   border: 1px solid rgba(242, 242, 242, 0.12);
   border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
   min-width: 0;
   padding: 10px 12px;
+  text-align: left;
   width: 50%;
 }
 
@@ -86,6 +91,24 @@
 .encounter-wild-group.-water {
   background: rgba(52, 152, 219, 0.08);
   border-color: rgba(52, 152, 219, 0.82);
+}
+
+.encounter-wild-group:hover,
+.encounter-wild-group:focus-visible {
+  outline: 0;
+  transform: translateY(-1px);
+}
+
+.encounter-wild-group.-grass:hover,
+.encounter-wild-group.-grass:focus-visible {
+  background: rgba(46, 204, 113, 0.16);
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.25);
+}
+
+.encounter-wild-group.-water:hover,
+.encounter-wild-group.-water:focus-visible {
+  background: rgba(52, 152, 219, 0.16);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
 }
 
 .encounter-wild-group-label {

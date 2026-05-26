@@ -304,6 +304,18 @@ export function updateMoveField(project: ProjectState, moveId: number, field: st
   return { value: displayValue, rawValue };
 }
 
+export function updateMoveEffectId(project: ProjectState, moveId: number, inputValue: string): FieldUpdateResult {
+  const record = getMoveRecord(project, moveId);
+  const before = record.readable.effect;
+  const rawValue = parseInteger(inputValue.trim(), 0, EFFECTS.length - 1, "effect id");
+  const displayValue = EFFECTS[rawValue];
+  record.raw.effect = rawValue;
+  syncMoveReadable(project, record.raw, record.readable, moveId);
+  recordFieldChange(project, "moves", moveName(project, moveId), moveFieldLabel("effect"), before, displayValue, { key: `move:${moveId}:effect` });
+  markDirty(project, "moves", moveId);
+  return { value: displayValue, rawValue };
+}
+
 export function updateItemField(project: ProjectState, itemId: number, field: string, inputValue: string): FieldUpdateResult {
   const record = getItemRecord(project, itemId);
   const before = record.readable[field];

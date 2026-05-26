@@ -47,6 +47,13 @@ export function attachEncounterInteractions(root: HTMLElement, project: ProjectS
     const card = target.closest<HTMLElement>(".encounter-card");
     if (!card) return;
 
+    const wildGroup = target.closest<HTMLElement>(".encounter-wild-group");
+    if (wildGroup?.dataset.openGroup) {
+      openEncounterGroup(card, wildGroup.dataset.openGroup as EncounterGroup);
+      stripeEncounterRows(root);
+      return;
+    }
+
     const expandIcon = target.closest<HTMLElement>(".expand-action");
     if (expandIcon?.dataset.expand) {
       toggleEncounterGroup(card, expandIcon, expandIcon.dataset.expand as EncounterGroup);
@@ -206,6 +213,29 @@ function toggleEncounterGroup(card: HTMLElement, icon: HTMLElement, group: Encou
   } else {
     clearOpenState(card, encounterId);
   }
+}
+
+function openEncounterGroup(card: HTMLElement, group: EncounterGroup): void {
+  const encounterId = Number(card.dataset.index);
+  if (!Number.isInteger(encounterId)) return;
+  const target = ensureEncounterPanel(card, encounterId, "spring", group, getOptions(card));
+  if (!target) return;
+  const alreadyOpen = card.querySelector<HTMLElement>(`.expand-${group}`)?.classList.contains("-active") === true && target.classList.contains("show-flex");
+  card.querySelectorAll<HTMLElement>(".expanded-card-content").forEach((panel) => panel.classList.remove("show-flex"));
+  card.querySelectorAll<HTMLElement>(".expand-action, .season-icon").forEach((item) => item.classList.remove("-active"));
+  card.querySelector<HTMLElement>(".expanded-tab-icons")?.classList.remove("show-flex");
+
+  if (alreadyOpen) {
+    clearOpenState(card, encounterId);
+    return;
+  }
+
+  card.querySelector<HTMLElement>(".expanded-tab-icons")?.classList.add("show-flex");
+  target.classList.add("show-flex");
+  card.querySelector<HTMLElement>(`.expand-${group}`)?.classList.add("-active");
+  card.querySelector<HTMLElement>(".season-icon[data-show='spring']")?.classList.add("-active");
+  rememberOpenState(card, encounterId, { group, season: "spring" });
+  scrollRowBelowStickyHeader(card);
 }
 
 function showEncounterSeason(card: HTMLElement, season: EncounterSeason): void {

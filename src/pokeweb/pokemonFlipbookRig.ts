@@ -19,7 +19,7 @@ import {
   type PokemonAnimationBuildPart,
 } from "./pokemonSpriteWriters";
 
-export type PokemonFlipbookSamplingStrategy = "loop-rest" | "first-window" | "even";
+export type PokemonFlipbookSamplingStrategy = "loop-rest" | "first-window" | "even" | "front-load";
 export type PokemonFlipbookPackingMode = "mcss-safe" | "rotated-pose-blocks" | "macro-blocks" | "tile-node-dedup";
 
 export type PokemonFlipbookImportConfig = {
@@ -36,6 +36,7 @@ export type PokemonFlipbookImportConfig = {
   atlasHeight: number;
   durationScale: number;
   downscalePercent: number;
+  outputScalePercent: number;
 };
 
 export type PokemonFlipbookReport = {
@@ -44,6 +45,7 @@ export type PokemonFlipbookReport = {
   sourceFramePercent: number;
   durationScale: number;
   downscalePercent: number;
+  outputScalePercent: number;
   selectedSourceFrames: number[];
   timelineFrames: number[];
   uniquePoseCount: number;
@@ -158,6 +160,7 @@ export function defaultPokemonFlipbookImportConfig(side: PokemonAnimationSide = 
     atlasHeight: RIG_HEIGHT,
     durationScale: 1,
     downscalePercent: 100,
+    outputScalePercent: 100,
   };
 }
 
@@ -182,7 +185,7 @@ export function buildPairedPokemonFlipbookRigsFromFrames(
   const backConfig = { ...config, side: "back" as const };
   const frontPrepared = prepareFlipbookFrames(frontFrames, frontConfig);
   const backPrepared = prepareFlipbookFrames(backFrames, backConfig);
-  const palette = buildPalette([...frontPrepared.timelineBuild.timeline, ...backPrepared.timelineBuild.timeline]);
+  const palette = buildPalette([...frontPrepared.timelineBuild.timeline, ...backPrepared.timelineBuild.timeline], [frontPrepared.normalized[0]!, backPrepared.normalized[0]!]);
   return {
     front: buildPokemonFlipbookRigFromPrepared(frontPrepared, frontConfig, palette),
     back: buildPokemonFlipbookRigFromPrepared(backPrepared, backConfig, palette),
@@ -192,7 +195,7 @@ export function buildPairedPokemonFlipbookRigsFromFrames(
 
 export function buildPokemonFlipbookRigFromFrames(sourceFrames: FrameEntry[], config: PokemonFlipbookImportConfig): PokemonFlipbookBuildResult {
   const prepared = prepareFlipbookFrames(sourceFrames, config);
-  return buildPokemonFlipbookRigFromPrepared(prepared, config, buildPalette(prepared.timelineBuild.timeline));
+  return buildPokemonFlipbookRigFromPrepared(prepared, config, buildPalette(prepared.timelineBuild.timeline, [prepared.normalized[0]!]));
 }
 
 function prepareFlipbookFrames(sourceFrames: FrameEntry[], config: PokemonFlipbookImportConfig): PreparedFlipbookFrames {
@@ -211,7 +214,8 @@ function buildPokemonFlipbookRigFromPrepared(prepared: PreparedFlipbookFrames, c
   const atlas = atlasDimensions(config);
   const { sourceFrames, normalized, timelineBuild } = prepared;
   const remappedTimeline = timelineBuild.timeline.map((frame) => remapFrameToPalette(frame, palette));
-  const groundShiftY = groundClampShiftY(remappedTimeline);
+  const outputScale = effectiveOutputScale(config, atlas);
+  const groundShiftY = groundClampShiftY(remappedTimeline, outputScale);
   const remappedSprite = remapFrameToPalette(normalized[0]!, palette);
   const { packed, warnings: packWarnings } = packWithAdaptiveThinning(remappedTimeline, palette, config, groundShiftY, atlas);
   const durationScale = clamp(config.durationScale ?? 1, 0.25, 16);
@@ -221,7 +225,7 @@ function buildPokemonFlipbookRigFromPrepared(prepared: PreparedFlipbookFrames, c
     ? buildTileNodeFiles(packed, sideOffset, durationScale, loopDuration)
     : packed.mode === "macro-blocks"
       ? buildGroupedMacroBlockFiles(packed, sideOffset, durationScale, loopDuration)
-    : buildFullPoseFiles(packed, sideOffset, durationScale, loopDuration);
+    : buildFullPoseFiles(packed, sideOffset, durationScale, loopDuration, outputScale);
   const compressedFiles = Object.fromEntries(
     Object.entries(files).map(([index, file]) => {
       const fileIndex = Number(index) as PokemonAnimationBundleFileIndex;
@@ -229,9 +233,9 @@ function buildPokemonFlipbookRigFromPrepared(prepared: PreparedFlipbookFrames, c
     }),
   ) as typeof files;
   const visibilityValidation = validateVisibleTimeline(packed.timelineFrames);
-  const groundValidation = validateGroundLimit(packed.timelineFrames, groundShiftY);
+  const groundValidation = validateGroundLimit(packed.timelineFrames, groundShiftY, outputScale);
   if (visibilityValidation.invisibleFrameCount > 0) throw new Error(`Flipbook generated ${visibilityValidation.invisibleFrameCount} invisible frame(s)`);
-  if (groundValidation.maxVisibleBottomY > groundValidation.maxAllowedBottomY) {
+  if (groundValidation.maxVisibleBottomY > groundValidation.maxAllowedBottomY + 0.001) {
     throw new Error(`Flipbook ground clamp failed: visible bottom y ${groundValidation.maxVisibleBottomY} exceeds ${groundValidation.maxAllowedBottomY}`);
   }
   const warnings = [...timelineBuild.warnings, ...packWarnings];
@@ -248,6 +252,7 @@ function buildPokemonFlipbookRigFromPrepared(prepared: PreparedFlipbookFrames, c
       sourceFramePercent: config.sourceFramePercent,
       durationScale,
       downscalePercent: normalizeDownscalePercent(config.downscalePercent),
+      outputScalePercent: Math.round(outputScale * 100),
       selectedSourceFrames: Array.from(new Set(packed.timelineFrames.map((frame) => frame.index))).sort((a, b) => a - b),
       timelineFrames: packed.timelineFrames.map((frame) => frame.index),
       uniquePoseCount: packed.poses.length,
@@ -318,6 +323,17 @@ function normalizeDownscalePercent(value: number | undefined): number {
   return clampInt(value ?? 100, 5, 100);
 }
 
+export function normalizeOutputScalePercent(value: number | undefined): number {
+  if (!Number.isFinite(value)) return 100;
+  return clampInt(value ?? 100, 100, 400);
+}
+
+function effectiveOutputScale(config: PokemonFlipbookImportConfig, atlas: RigAtlasDimensions): number {
+  if (atlas.height !== RIG_HEIGHT) return 1;
+  if (config.packingMode !== "mcss-safe" && config.packingMode !== "rotated-pose-blocks") return 1;
+  return normalizeOutputScalePercent(config.outputScalePercent) / 100;
+}
+
 function buildTimeline(frames: FrameEntry[], config: PokemonFlipbookImportConfig): {
   timeline: TimelineFrame[];
   loopPlan?: PokemonFlipbookReport["loopPlan"];
@@ -326,11 +342,19 @@ function buildTimeline(frames: FrameEntry[], config: PokemonFlipbookImportConfig
   const warnings: string[] = [];
   if (config.manualFrameNumbers?.length) return buildManualTimeline(frames, config.manualFrameNumbers, warnings);
   if (config.strategy === "loop-rest") return buildLoopRestTimeline(frames, config, warnings);
+  if (config.strategy === "front-load") return { timeline: buildFrontLoadTimeline(frames, config.maxUniqueFrames), warnings };
   const selected = config.strategy === "even" ? sampleEvenly(frames, config.maxUniqueFrames) : sampleKeyFrames(frames, config.maxUniqueFrames);
   return {
     timeline: selected.map((frame, timelineIndex) => ({ ...frame, timelineIndex, phase: "sample" })),
     warnings,
   };
+}
+
+function buildFrontLoadTimeline(frames: FrameEntry[], maxUniqueFrames: number): TimelineFrame[] {
+  const prefixCount = clampInt(maxUniqueFrames, 1, frames.length);
+  const prefix = frames.slice(0, prefixCount);
+  const loop = prefixCount > 2 ? [...prefix, ...prefix.slice(1, -1).reverse()] : prefix;
+  return loop.map((frame, timelineIndex) => ({ ...frame, timelineIndex, phase: "sample" }));
 }
 
 function buildManualTimeline(frames: FrameEntry[], requestedFrameNumbers: number[], warnings: string[]): { timeline: TimelineFrame[]; warnings: string[] } {
@@ -396,6 +420,9 @@ function packWithAdaptiveThinning(timeline: TimelineFrame[], palette: RgbColor[]
   packed: PackedFlipbook;
   warnings: string[];
 } {
+  if (config.strategy === "front-load" && !config.manualFrameNumbers?.length) {
+    return packFrontLoadTimeline(timeline, palette, config, groundShiftY, atlas);
+  }
   const warnings: string[] = [];
   let candidate = timeline;
   let lastFailingCount = timeline.length + 1;
@@ -424,6 +451,24 @@ function packWithAdaptiveThinning(timeline: TimelineFrame[], palette: RgbColor[]
     candidate = sampleTimelineKeyFrames(candidate, nextCount);
   }
   throw new Error(`Unable to fit flipbook into ${config.maxAtlasTiles} atlas tiles with <= ${DEFAULT_MAX_OAMS_PER_POSE} OAMs per pose`);
+}
+
+function packFrontLoadTimeline(timeline: TimelineFrame[], palette: RgbColor[], config: PokemonFlipbookImportConfig, groundShiftY: number, atlas: RigAtlasDimensions): {
+  packed: PackedFlipbook;
+  warnings: string[];
+} {
+  const sourceFrames = uniqueTimelineFramesBySource(timeline);
+  for (let count = sourceFrames.length; count >= 1; count -= 1) {
+    const candidate = buildFrontLoadTimeline(sourceFrames, count);
+    const packed = packTimelineCandidate(candidate, palette, config, groundShiftY, atlas);
+    if (packedFlipbookFits(packed, config)) {
+      const warnings = count < sourceFrames.length
+        ? [`Reduced front-load timeline from ${sourceFrames.length} to ${count} source frame(s) to fit the tile/OAM budget`]
+        : [];
+      return { packed, warnings };
+    }
+  }
+  throw new Error(`Unable to fit front-load flipbook into ${config.maxAtlasTiles} atlas tiles with <= ${DEFAULT_MAX_OAMS_PER_POSE} OAMs per pose`);
 }
 
 function packTimelineCandidate(timeline: TimelineFrame[], palette: RgbColor[], config: PokemonFlipbookImportConfig, groundShiftY: number, atlas: RigAtlasDimensions): PackedFlipbook {
@@ -505,7 +550,13 @@ type PackedFlipbook = {
   mode: "tile-dedup" | "block" | "rotated-block" | "macro-blocks" | "tile-node-dedup";
 };
 
-function buildFullPoseFiles(packed: PackedFlipbook, sideOffset: number, durationScale: number, loopDuration: number): Partial<Record<PokemonAnimationBundleFileIndex, Uint8Array>> {
+function buildFullPoseFiles(
+  packed: PackedFlipbook,
+  sideOffset: number,
+  durationScale: number,
+  loopDuration: number,
+  outputScale: number,
+): Partial<Record<PokemonAnimationBundleFileIndex, Uint8Array>> {
   const displayPart = visibleDisplayPart(packed.timelineFrames);
   const rigCells = packed.poses.map(rigCellFromPackedPose);
   if (rigCells.some((cell) => !cell)) throw new Error("Flipbook generated a pose without full NCEC rig-cell metadata");
@@ -520,8 +571,8 @@ function buildFullPoseFiles(packed: PackedFlipbook, sideOffset: number, duration
           x: 0,
           y: 0,
           rotation: packed.poses[frame.poseIndex]?.displayRotation ?? 0,
-          xScale: 1,
-          yScale: 1,
+          xScale: outputScale,
+          yScale: outputScale,
         })),
       ],
     }),
@@ -1176,39 +1227,54 @@ function oamsForStoredBlock(input: { atlasBounds: Rect; spriteX: number; spriteY
   return oams;
 }
 
-function buildPalette(frames: FrameEntry[]): RgbColor[] {
+function buildPalette(frames: FrameEntry[], seedFrames: FrameEntry[] = []): RgbColor[] {
   const colors = new Map<string, { color: RgbColor; count: number }>();
-  for (const frame of frames) {
+  const seedColors: RgbColor[] = [];
+  const seedKeys = new Set<string>();
+  const collect = (frame: FrameEntry, seed: boolean) => {
     for (let offset = 0; offset < frame.pixels.length; offset += 4) {
       if ((frame.pixels[offset + 3] ?? 0) < 128) continue;
       const color = roundTripBgr555Color({ r: frame.pixels[offset] ?? 0, g: frame.pixels[offset + 1] ?? 0, b: frame.pixels[offset + 2] ?? 0 });
-      const key = `${color.r},${color.g},${color.b}`;
+      const key = colorKey(color);
       const existing = colors.get(key);
       if (existing) existing.count += 1;
       else colors.set(key, { color, count: 1 });
+      if (seed && !seedKeys.has(key)) {
+        seedKeys.add(key);
+        seedColors.push(color);
+      }
     }
-  }
+  };
+  for (const frame of seedFrames) collect(frame, true);
+  for (const frame of frames) collect(frame, false);
+
+  const selectSeededColors = (opaque: Array<{ color: RgbColor; count: number }>): RgbColor[] => {
+    const selected: RgbColor[] = [];
+    const selectedKeys = new Set<string>();
+    const addSelected = (color: RgbColor): boolean => {
+      if (selected.length >= 15) return false;
+      const rounded = roundTripBgr555Color(color);
+      const key = colorKey(rounded);
+      if (selectedKeys.has(key)) return false;
+      selectedKeys.add(key);
+      selected.push(rounded);
+      return true;
+    };
+    for (const color of seedColors) addSelected(color);
+
+    const byFrequency = [...opaque].sort((left, right) => right.count - left.count);
+    for (const entry of byFrequency) addSelected(entry.color);
+    return selected;
+  };
+
   const opaque = Array.from(colors.values());
-  const selected = opaque.length <= 15 ? opaque.map((entry) => entry.color) : medianCut(opaque.flatMap((entry) => Array.from({ length: Math.min(entry.count, 64) }, () => entry.color)), 15);
+  const selected = opaque.length <= 15 ? opaque.map((entry) => entry.color) : selectSeededColors(opaque);
   while (selected.length < 15) selected.push(selected[selected.length - 1] ?? { r: 0, g: 0, b: 0 });
   return [{ r: 0, g: 0, b: 0 }, ...selected.slice(0, 15).map(roundTripBgr555Color)];
 }
 
-function medianCut(colors: RgbColor[], maxColors: number): RgbColor[] {
-  let buckets = [colors.length ? colors : [{ r: 0, g: 0, b: 0 }]];
-  while (buckets.length < maxColors) {
-    buckets = buckets.sort((left, right) => colorRange(right) - colorRange(left));
-    const bucket = buckets.shift();
-    if (!bucket || bucket.length <= 1) {
-      if (bucket) buckets.push(bucket);
-      break;
-    }
-    const channel = widestChannel(bucket);
-    bucket.sort((left, right) => left[channel] - right[channel]);
-    const middle = Math.max(1, Math.floor(bucket.length / 2));
-    buckets.push(bucket.slice(0, middle), bucket.slice(middle));
-  }
-  return buckets.map((bucket) => roundTripBgr555Color(averageColor(bucket))).slice(0, maxColors);
+function colorKey(color: RgbColor): string {
+  return `${color.r},${color.g},${color.b}`;
 }
 
 function remapFrameToPalette<T extends FrameEntry>(frame: T, palette: RgbColor[]): T {
@@ -1499,23 +1565,23 @@ function validateVisibleTimeline(timelineFrames: PackedTimelineFrame[]): { frame
   return { frameCount: timelineFrames.length, invisibleFrameCount: timelineFrames.filter((frame) => frame.visibleTileCount <= 0).length };
 }
 
-function groundClampShiftY(frames: FrameEntry[]): number {
+function groundClampShiftY(frames: FrameEntry[], outputScale = 1): number {
   const maxBottom = Math.max(
     -Infinity,
     ...frames.map((frame) => {
       const bounds = alphaBounds(frame);
-      return bounds ? bounds.y + bounds.height - 1 - 48 : -Infinity;
+      return bounds ? (bounds.y + bounds.height - 1 - 48) * outputScale : -Infinity;
     }),
   );
-  return Number.isFinite(maxBottom) ? Math.min(0, MAX_GROUND_BOTTOM_Y - maxBottom) : 0;
+  return Number.isFinite(maxBottom) ? Math.min(0, Math.floor(MAX_GROUND_BOTTOM_Y / outputScale - maxBottom / outputScale)) : 0;
 }
 
-function validateGroundLimit(frames: FrameEntry[], groundShiftY: number): { maxAllowedBottomY: number; maxVisibleBottomY: number; appliedShiftY: number } {
+function validateGroundLimit(frames: FrameEntry[], groundShiftY: number, outputScale = 1): { maxAllowedBottomY: number; maxVisibleBottomY: number; appliedShiftY: number } {
   const maxBottom = Math.max(
     -Infinity,
     ...frames.map((frame) => {
       const bounds = alphaBounds(frame);
-      return bounds ? bounds.y + bounds.height - 1 - 48 + groundShiftY : -Infinity;
+      return bounds ? (bounds.y + bounds.height - 1 - 48 + groundShiftY) * outputScale : -Infinity;
     }),
   );
   return {
@@ -1552,28 +1618,6 @@ function unionBounds(boxes: Rect[]): Rect | undefined {
   const maxX = Math.max(...boxes.map((box) => box.x + box.width));
   const maxY = Math.max(...boxes.map((box) => box.y + box.height));
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-}
-
-function colorRange(colors: RgbColor[]): number {
-  return Math.max(range(colors, "r"), range(colors, "g"), range(colors, "b"));
-}
-
-function widestChannel(colors: RgbColor[]): "r" | "g" | "b" {
-  const ranges = { r: range(colors, "r"), g: range(colors, "g"), b: range(colors, "b") };
-  return ranges.r >= ranges.g && ranges.r >= ranges.b ? "r" : ranges.g >= ranges.b ? "g" : "b";
-}
-
-function range(colors: RgbColor[], channel: "r" | "g" | "b"): number {
-  return Math.max(...colors.map((color) => color[channel])) - Math.min(...colors.map((color) => color[channel]));
-}
-
-function averageColor(colors: RgbColor[]): RgbColor {
-  const count = Math.max(1, colors.length);
-  return {
-    r: Math.round(colors.reduce((sum, color) => sum + color.r, 0) / count),
-    g: Math.round(colors.reduce((sum, color) => sum + color.g, 0) / count),
-    b: Math.round(colors.reduce((sum, color) => sum + color.b, 0) / count),
-  };
 }
 
 function blitPatch(canvas: Uint8ClampedArray, width: number, height: number, patch: Uint8ClampedArray, dims: { left: number; top: number; width: number; height: number }): void {

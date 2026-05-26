@@ -10,12 +10,14 @@ type InspectArgs = {
   maxUniqueFrames: number;
   maxAtlasTiles: number;
   durationScale: number;
+  downscalePercent: number;
+  outputScalePercent: number;
   files: string[];
 };
 
 const args = parseArgs(process.argv.slice(2));
 if (args.files.length === 0) {
-  throw new Error("Usage: npx vite-node scripts/inspect-gif-flipbook.ts [--side front|back] [--strategy loop-rest|first-window|even] file.gif [...]");
+  throw new Error("Usage: npx vite-node scripts/inspect-gif-flipbook.ts [--side front|back] [--strategy loop-rest|first-window|even|front-load] [--downscale-percent 90] [--output-scale-percent 200] file.gif [...]");
 }
 
 for (const file of args.files) {
@@ -27,6 +29,8 @@ for (const file of args.files) {
     maxUniqueFrames: args.maxUniqueFrames,
     maxAtlasTiles: args.maxAtlasTiles,
     durationScale: args.durationScale,
+    downscalePercent: args.downscalePercent,
+    outputScalePercent: args.outputScalePercent,
   });
   console.log(JSON.stringify({
     file,
@@ -40,6 +44,8 @@ for (const file of args.files) {
     uniqueTileCount: result.report.uniqueTileCount,
     atlasOccupancyPercent: result.report.atlasOccupancyPercent,
     durationScale: result.report.durationScale,
+    downscalePercent: result.report.downscalePercent,
+    outputScalePercent: result.report.outputScalePercent,
     groundValidation: result.report.groundValidation,
     visibilityValidation: result.report.visibilityValidation,
     warnings: result.report.warnings,
@@ -55,6 +61,8 @@ function parseArgs(argv: string[]): InspectArgs {
     maxUniqueFrames: 96,
     maxAtlasTiles: 512,
     durationScale: 1,
+    downscalePercent: 100,
+    outputScalePercent: 100,
     files: [],
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -73,6 +81,10 @@ function parseArgs(argv: string[]): InspectArgs {
       args.maxAtlasTiles = parseNumber(argv[++index], "--max-tiles");
     } else if (arg === "--duration-scale") {
       args.durationScale = parseNumber(argv[++index], "--duration-scale");
+    } else if (arg === "--downscale-percent") {
+      args.downscalePercent = parseNumber(argv[++index], "--downscale-percent");
+    } else if (arg === "--output-scale-percent") {
+      args.outputScalePercent = parseNumber(argv[++index], "--output-scale-percent");
     } else {
       args.files.push(arg);
     }
@@ -86,8 +98,8 @@ function parseSide(value: string | undefined): PokemonAnimationSide {
 }
 
 function parseStrategy(value: string | undefined): PokemonFlipbookSamplingStrategy {
-  if (value === "loop-rest" || value === "first-window" || value === "even") return value;
-  throw new Error(`Expected --strategy loop-rest|first-window|even, got ${value ?? "missing value"}`);
+  if (value === "loop-rest" || value === "first-window" || value === "even" || value === "front-load") return value;
+  throw new Error(`Expected --strategy loop-rest|first-window|even|front-load, got ${value ?? "missing value"}`);
 }
 
 function parsePackingMode(value: string | undefined): PokemonFlipbookPackingMode {

@@ -477,6 +477,11 @@ function toReadable(name: NarcName, raw: RawRecord, project: ProjectState, id: n
       if (key.startsWith("move_id_")) readable[key] = pick("moves", raw[key], String(raw[key]));
     }
   }
+  if (name === "move_effects_table") {
+    for (const key of Object.keys(raw)) {
+      if (key.startsWith("move_id_")) readable[key] = pick("moves", raw[key], String(raw[key]));
+    }
+  }
   if (name === "trdata") {
     readable.name = pick("tr_names", id, `Trainer ${id}`);
     readable.class = pick("tr_classes", raw.class, String(raw.class));

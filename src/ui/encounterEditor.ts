@@ -173,12 +173,12 @@ function renderEncounterSlot(encounter: EncounterRecord, season: EncounterSeason
 
 function renderWildGroup(group: EncounterGroup, label: string, wilds: string[], slugs: string[]): string {
   return `
-    <div class="encounter-wild-group -${group}">
+    <button class="encounter-wild-group -${group}" type="button" data-open-group="${group}">
       <div class="encounter-wild-group-label">${escapeHtml(label)}</div>
       <div class="encounter-wild-group-sprites">
         ${wilds.length > 0 ? wilds.map((wild, index) => renderWild(wild, slugs[index])).join("") : `<div class="encounter-empty-wilds">None</div>`}
       </div>
-    </div>
+    </button>
   `;
 }
 

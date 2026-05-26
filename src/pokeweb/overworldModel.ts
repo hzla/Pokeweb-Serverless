@@ -73,6 +73,10 @@ export const OVERWORLD_GROUP_FORMATS = {
 } as const satisfies Record<string, FieldSpec[]>;
 
 export const NPC_FIELDS = OVERWORLD_GROUP_FORMATS.npc.map(([, field]) => field);
+export const OVERWORLD_ENTITY_KINDS = ["npc", "furniture", "warp", "trigger"] as const;
+
+export type OverworldEntityKind = (typeof OVERWORLD_ENTITY_KINDS)[number];
+export type OverworldEntitySelection = { kind: OverworldEntityKind; index: number };
 
 export type OverworldMapScene = {
   id: number;
@@ -85,6 +89,7 @@ export type OverworldMapScene = {
 };
 
 export type OverworldNpc = {
+  kind: "npc";
   index: number;
   overworldId: number;
   spriteId: number;
@@ -94,6 +99,62 @@ export type OverworldNpc = {
   z: number;
   direction: number;
 };
+
+export type OverworldFurniture = {
+  kind: "furniture";
+  index: number;
+  script: number;
+  condition: number;
+  interactibility: number;
+  isRail: boolean;
+  x: number;
+  y: number;
+  altitude: number;
+  railLineNo: number;
+  railFrontPos: number;
+  railSidePos: number;
+  railUnused: number;
+};
+
+export type OverworldWarp = {
+  kind: "warp";
+  index: number;
+  targetZone: number;
+  targetWarpId: number;
+  contactDirection: number;
+  transitionType: number;
+  isRail: boolean;
+  x: number;
+  y: number;
+  altitude: number;
+  width: number;
+  height: number;
+  unknown: number;
+  railLineNo: number;
+  railFrontPos: number;
+  railSidePos: number;
+};
+
+export type OverworldTrigger = {
+  kind: "trigger";
+  index: number;
+  script: number;
+  variable: number;
+  value: number;
+  type: number;
+  isRail: boolean;
+  x: number;
+  y: number;
+  altitude: number;
+  width: number;
+  height: number;
+  unknown: number;
+  railLineNo: number;
+  railFrontPos: number;
+  railSidePos: number;
+};
+
+export type OverworldEntity = OverworldNpc | OverworldFurniture | OverworldWarp | OverworldTrigger;
 
 export type OverworldScene = {
   overworldId: number;
@@ -105,6 +166,9 @@ export type OverworldScene = {
   height: number;
   maps: OverworldMapScene[];
   npcs: OverworldNpc[];
+  furniture: OverworldFurniture[];
+  warps: OverworldWarp[];
+  triggers: OverworldTrigger[];
   raw: RawRecord;
 };
 
@@ -172,6 +236,9 @@ export function getOverworldScene(project: ProjectState, overworldId: number): O
     height,
     maps,
     npcs: npcIndexes(overworld).map((index) => npcFromRaw(overworld, index, minX, minY)),
+    furniture: entityIndexes(overworld, "furniture").map((index) => furnitureFromRaw(overworld, index, minX, minY)),
+    warps: entityIndexes(overworld, "warp").map((index) => warpFromRaw(overworld, index, minX, minY)),
+    triggers: entityIndexes(overworld, "trigger").map((index) => triggerFromRaw(overworld, index, minX, minY)),
     raw: overworld,
   };
 }
@@ -198,43 +265,89 @@ export function moveOverworldNpc(project: ProjectState, overworldId: number, npc
 }
 
 export function addOverworldNpc(project: ProjectState, overworldId: number): number {
+  return addOverworldEntity(project, overworldId, "npc");
+}
+
+export function deleteOverworldNpc(project: ProjectState, overworldId: number, npcIndex: number): void {
+  deleteOverworldEntity(project, overworldId, "npc", npcIndex);
+}
+
+export function addOverworldEntity(project: ProjectState, overworldId: number, kind: OverworldEntityKind): number {
   const record = decodeRecord(project, "overworlds", overworldId);
   if (!record.raw) throw new Error(`Overworld ${overworldId} could not be decoded`);
-  const indexes = npcIndexes(record.raw);
+  const indexes = entityIndexes(record.raw, kind);
   const nextIndex = indexes.length === 0 ? 0 : Math.max(...indexes) + 1;
-  const highestId = indexes.reduce((max, index) => Math.max(max, Number(record.raw?.[`npc_${index}_overworld_id`] ?? index)), -1);
 
-  for (const field of NPC_FIELDS) record.raw[`npc_${nextIndex}_${field}`] = 0;
-  record.raw[`npc_${nextIndex}_overworld_id`] = highestId + 1;
-  record.raw[`npc_${nextIndex}_overworld_sprite`] = 1;
+  for (const [, field] of OVERWORLD_GROUP_FORMATS[kind]) record.raw[`${kind}_${nextIndex}_${field}`] = 0;
+  applyEntityDefaults(record.raw, kind, nextIndex, indexes);
 
-  const lastIndex = indexes.at(-1);
-  if (lastIndex !== undefined) {
-    record.raw[`npc_${nextIndex}_x_cord`] = Number(record.raw[`npc_${lastIndex}_x_cord`] ?? 0) + 1;
-    record.raw[`npc_${nextIndex}_y_cord`] = Number(record.raw[`npc_${lastIndex}_y_cord`] ?? 0) + 1;
-    record.raw[`npc_${nextIndex}_z_cord`] = Number(record.raw[`npc_${lastIndex}_z_cord`] ?? 0);
-  }
-
-  record.raw.npc_count = Number(record.raw.npc_count ?? 0) + 1;
-  record.raw.file_length = Number(record.raw.file_length ?? 0) + groupByteLength("npc");
+  record.raw[`${kind}_count`] = Number(record.raw[`${kind}_count`] ?? 0) + 1;
+  record.raw.file_length = Number(record.raw.file_length ?? 0) + groupByteLength(kind);
   markDirty(project, "overworlds", overworldId);
-  recordGenericChange(project, "overworlds", `NPC ${nextIndex} added.`, `Overworld ${overworldId}`, {
-    key: `overworld-npc-add:${overworldId}:${nextIndex}`,
+  recordGenericChange(project, "overworlds", `${entityKindLabel(kind)} ${nextIndex} added.`, `Overworld ${overworldId}`, {
+    key: `overworld-${kind}-add:${overworldId}:${nextIndex}`,
   });
   return nextIndex;
 }
 
-export function deleteOverworldNpc(project: ProjectState, overworldId: number, npcIndex: number): void {
+export function deleteOverworldEntity(project: ProjectState, overworldId: number, kind: OverworldEntityKind, index: number): void {
   const record = decodeRecord(project, "overworlds", overworldId);
   if (!record.raw) throw new Error(`Overworld ${overworldId} could not be decoded`);
-  if (!npcIndexes(record.raw).includes(npcIndex)) throw new Error(`NPC ${npcIndex} does not exist`);
-  for (const field of NPC_FIELDS) delete record.raw[`npc_${npcIndex}_${field}`];
-  record.raw.npc_count = Math.max(0, Number(record.raw.npc_count ?? 0) - 1);
-  record.raw.file_length = Math.max(0, Number(record.raw.file_length ?? 0) - groupByteLength("npc"));
+  if (!entityIndexes(record.raw, kind).includes(index)) throw new Error(`${entityKindLabel(kind)} ${index} does not exist`);
+  for (const [, field] of OVERWORLD_GROUP_FORMATS[kind]) delete record.raw[`${kind}_${index}_${field}`];
+  record.raw[`${kind}_count`] = Math.max(0, Number(record.raw[`${kind}_count`] ?? 0) - 1);
+  record.raw.file_length = Math.max(0, Number(record.raw.file_length ?? 0) - groupByteLength(kind));
   markDirty(project, "overworlds", overworldId);
-  recordGenericChange(project, "overworlds", `NPC ${npcIndex} removed.`, `Overworld ${overworldId}`, {
-    key: `overworld-npc-delete:${overworldId}:${npcIndex}`,
+  recordGenericChange(project, "overworlds", `${entityKindLabel(kind)} ${index} removed.`, `Overworld ${overworldId}`, {
+    key: `overworld-${kind}-delete:${overworldId}:${index}`,
   });
+}
+
+export function moveOverworldEntity(project: ProjectState, overworldId: number, kind: OverworldEntityKind, index: number, x: number, y: number): void {
+  const record = decodeRecord(project, "overworlds", overworldId);
+  if (!record.raw) throw new Error(`Overworld ${overworldId} could not be decoded`);
+  if (!entityIndexes(record.raw, kind).includes(index)) throw new Error(`${entityKindLabel(kind)} ${index} does not exist`);
+  if (kind === "npc") {
+    moveOverworldNpc(project, overworldId, index, x, y);
+    return;
+  }
+  if (kind === "furniture") {
+    record.raw[`furniture_${index}_unknown_3`] = 0;
+    setU32Pair(record.raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`, x);
+    setU32Pair(record.raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`, y);
+  } else if (kind === "warp") {
+    setWarpRail(record.raw, index, false);
+    setWarpGridX(record.raw, index, x);
+    setWarpGridZ(record.raw, index, y);
+  } else {
+    record.raw[`trigger_${index}_unknown_2`] = 0;
+    record.raw[`trigger_${index}_x_cord`] = x;
+    record.raw[`trigger_${index}_y_cord`] = y;
+  }
+  markDirty(project, "overworlds", overworldId);
+  recordGenericChange(project, "overworlds", `${entityKindLabel(kind)} ${index} moved.`, `Overworld ${overworldId}`, {
+    key: `overworld-${kind}-move:${overworldId}:${index}`,
+  });
+}
+
+export function updateOverworldEntityField(
+  project: ProjectState,
+  overworldId: number,
+  selection: OverworldEntitySelection,
+  field: string,
+  value: string | number,
+): number {
+  const record = decodeRecord(project, "overworlds", overworldId);
+  if (!record.raw) throw new Error(`Overworld ${overworldId} could not be decoded`);
+  if (!entityIndexes(record.raw, selection.kind).includes(selection.index)) throw new Error(`${entityKindLabel(selection.kind)} ${selection.index} does not exist`);
+  const next = coerceInt(value, 0, semanticFieldMax(selection.kind, field), field);
+  const before = getSemanticEntityField(record.raw, selection.kind, selection.index, field);
+  setSemanticEntityField(record.raw, selection.kind, selection.index, field, next);
+  markDirty(project, "overworlds", overworldId);
+  recordFieldChange(project, "overworlds", `Overworld ${overworldId}`, `${entityKindLabel(selection.kind)} ${selection.index} ${semanticFieldLabel(field)}`, before, next, {
+    key: `overworld:${overworldId}:${selection.kind}:${selection.index}:${field}`,
+  });
+  return next;
 }
 
 export function updateMapTile(project: ProjectState, mapId: number, tileIndex: number, layer: 2 | 3, value: string | number): number {
@@ -340,8 +453,14 @@ function overworldFieldLabel(field: string): string {
 }
 
 function npcIndexes(raw: RawRecord): number[] {
+  return entityIndexes(raw, "npc");
+}
+
+function entityIndexes(raw: RawRecord, kind: OverworldEntityKind): number[] {
+  const firstField = OVERWORLD_GROUP_FORMATS[kind][0][1];
+  const pattern = new RegExp(`^${kind}_(\\d+)_${firstField}$`, "u");
   return Object.keys(raw)
-    .map((key) => /^npc_(\d+)_overworld_id$/u.exec(key)?.[1])
+    .map((key) => pattern.exec(key)?.[1])
     .filter((value): value is string => value !== undefined)
     .map(Number)
     .sort((a, b) => a - b);
@@ -350,6 +469,7 @@ function npcIndexes(raw: RawRecord): number[] {
 function npcFromRaw(raw: RawRecord, index: number, translateX: number, translateY: number): OverworldNpc {
   const spriteId = Number(raw[`npc_${index}_overworld_sprite`] ?? 0);
   return {
+    kind: "npc",
     index,
     overworldId: Number(raw[`npc_${index}_overworld_id`] ?? index),
     spriteId,
@@ -359,6 +479,286 @@ function npcFromRaw(raw: RawRecord, index: number, translateX: number, translate
     z: Number(raw[`npc_${index}_z_cord`] ?? 0),
     direction: Number(raw[`npc_${index}_direction`] ?? 0),
   };
+}
+
+function furnitureFromRaw(raw: RawRecord, index: number, translateX: number, translateY: number): OverworldFurniture {
+  const x = u32Pair(raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`);
+  const y = u32Pair(raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`);
+  return {
+    kind: "furniture",
+    index,
+    script: Number(raw[`furniture_${index}_script_id`] ?? 0),
+    condition: Number(raw[`furniture_${index}_unknown_1`] ?? 0),
+    interactibility: Number(raw[`furniture_${index}_unknown_2`] ?? 0),
+    isRail: Number(raw[`furniture_${index}_unknown_3`] ?? 0) !== 0,
+    x: x - translateX,
+    y: y - translateY,
+    altitude: Number(raw[`furniture_${index}_z_cord`] ?? 0),
+    railLineNo: Number(raw[`furniture_${index}_x_cord`] ?? 0),
+    railFrontPos: Number(raw[`furniture_${index}_x_cord_padding`] ?? 0),
+    railSidePos: Number(raw[`furniture_${index}_y_cord`] ?? 0),
+    railUnused: Number(raw[`furniture_${index}_y_cord_padding`] ?? 0),
+  };
+}
+
+function warpFromRaw(raw: RawRecord, index: number, translateX: number, translateY: number): OverworldWarp {
+  const exitX = Number(raw[`warp_${index}_exit_x`] ?? 0);
+  const exitY = Number(raw[`warp_${index}_exit_y`] ?? 0);
+  const isRail = low16(exitX) === 1;
+  const worldX = signed16(high16(exitX));
+  const worldY = signed16(low16(exitY));
+  const worldZ = signed16(high16(exitY));
+  return {
+    kind: "warp",
+    index,
+    targetZone: Number(raw[`warp_${index}_map_id`] ?? 0),
+    targetWarpId: Number(raw[`warp_${index}_use_warp_cords`] ?? 0),
+    contactDirection: Number(raw[`warp_${index}_contact_direction`] ?? 0),
+    transitionType: Number(raw[`warp_${index}_transition_type`] ?? 0),
+    isRail,
+    x: Math.floor(worldX / 16) - translateX,
+    y: Math.floor(worldZ / 16) - translateY,
+    altitude: worldY,
+    width: Math.max(1, Number(raw[`warp_${index}_x_extension`] ?? 1)),
+    height: Math.max(1, Number(raw[`warp_${index}_y_extension`] ?? 1)),
+    unknown: Number(raw[`warp_${index}_directionality`] ?? 0),
+    railLineNo: high16(exitX),
+    railFrontPos: low16(exitY),
+    railSidePos: high16(exitY),
+  };
+}
+
+function triggerFromRaw(raw: RawRecord, index: number, translateX: number, translateY: number): OverworldTrigger {
+  const isRail = Number(raw[`trigger_${index}_unknown_2`] ?? 0) !== 0;
+  return {
+    kind: "trigger",
+    index,
+    script: Number(raw[`trigger_${index}_entity_id`] ?? 0),
+    variable: Number(raw[`trigger_${index}_to_check_value`] ?? 0),
+    value: Number(raw[`trigger_${index}_to_trigger_value`] ?? 0),
+    type: Number(raw[`trigger_${index}_unknown_1`] ?? 0),
+    isRail,
+    x: Number(raw[`trigger_${index}_x_cord`] ?? 0) - translateX,
+    y: Number(raw[`trigger_${index}_y_cord`] ?? 0) - translateY,
+    altitude: isRail ? 0 : Number(raw[`trigger_${index}_unknown_4`] ?? 0),
+    width: Math.max(1, Number(raw[`trigger_${index}_${isRail ? "unknown_3" : "z_cord"}`] ?? 1)),
+    height: Math.max(1, Number(raw[`trigger_${index}_${isRail ? "unknown_4" : "unknown_3"}`] ?? 1)),
+    unknown: Number(raw[`trigger_${index}_unknown_5`] ?? 0),
+    railLineNo: Number(raw[`trigger_${index}_x_cord`] ?? 0),
+    railFrontPos: Number(raw[`trigger_${index}_y_cord`] ?? 0),
+    railSidePos: Number(raw[`trigger_${index}_z_cord`] ?? 0),
+  };
+}
+
+function applyEntityDefaults(raw: RawRecord, kind: OverworldEntityKind, index: number, existingIndexes: number[]): void {
+  if (kind === "npc") {
+    const highestId = existingIndexes.reduce((max, existing) => Math.max(max, Number(raw[`npc_${existing}_overworld_id`] ?? existing)), -1);
+    raw[`npc_${index}_overworld_id`] = highestId + 1;
+    raw[`npc_${index}_overworld_sprite`] = 1;
+    const lastIndex = existingIndexes.at(-1);
+    if (lastIndex !== undefined) {
+      raw[`npc_${index}_x_cord`] = Number(raw[`npc_${lastIndex}_x_cord`] ?? 0) + 1;
+      raw[`npc_${index}_y_cord`] = Number(raw[`npc_${lastIndex}_y_cord`] ?? 0) + 1;
+      raw[`npc_${index}_z_cord`] = Number(raw[`npc_${lastIndex}_z_cord`] ?? 0);
+    }
+    return;
+  }
+  if (kind === "warp") {
+    raw[`warp_${index}_contact_direction`] = 2;
+    raw[`warp_${index}_transition_type`] = 3;
+    raw[`warp_${index}_x_extension`] = 1;
+    raw[`warp_${index}_y_extension`] = 1;
+    setWarpRail(raw, index, false);
+    setWarpGridX(raw, index, 0);
+    setWarpGridZ(raw, index, 0);
+    return;
+  }
+  if (kind === "trigger") {
+    raw[`trigger_${index}_unknown_2`] = 0;
+    raw[`trigger_${index}_z_cord`] = 2;
+    raw[`trigger_${index}_unknown_3`] = 1;
+  }
+}
+
+function getSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index: number, field: string): number {
+  if (kind === "npc") return Number(raw[`npc_${index}_${field}`] ?? 0);
+  if (kind === "furniture") {
+    if (field === "script") return Number(raw[`furniture_${index}_script_id`] ?? 0);
+    if (field === "condition") return Number(raw[`furniture_${index}_unknown_1`] ?? 0);
+    if (field === "interactibility") return Number(raw[`furniture_${index}_unknown_2`] ?? 0);
+    if (field === "isRail") return Number(raw[`furniture_${index}_unknown_3`] ?? 0);
+    if (field === "gridX") return u32Pair(raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`);
+    if (field === "gridZ") return u32Pair(raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`);
+    if (field === "railLineNo") return Number(raw[`furniture_${index}_x_cord`] ?? 0);
+    if (field === "railFrontPos") return Number(raw[`furniture_${index}_x_cord_padding`] ?? 0);
+    if (field === "railSidePos") return Number(raw[`furniture_${index}_y_cord`] ?? 0);
+    if (field === "railUnused") return Number(raw[`furniture_${index}_y_cord_padding`] ?? 0);
+    if (field === "altitude") return Number(raw[`furniture_${index}_z_cord`] ?? 0);
+  }
+  if (kind === "warp") {
+    const exitX = Number(raw[`warp_${index}_exit_x`] ?? 0);
+    const exitY = Number(raw[`warp_${index}_exit_y`] ?? 0);
+    if (field === "targetZone") return Number(raw[`warp_${index}_map_id`] ?? 0);
+    if (field === "targetWarpId") return Number(raw[`warp_${index}_use_warp_cords`] ?? 0);
+    if (field === "contactDirection") return Number(raw[`warp_${index}_contact_direction`] ?? 0);
+    if (field === "transitionType") return Number(raw[`warp_${index}_transition_type`] ?? 0);
+    if (field === "isRail") return low16(exitX);
+    if (field === "gridX") return Math.floor(signed16(high16(exitX)) / 16);
+    if (field === "worldY") return signed16(low16(exitY));
+    if (field === "gridZ") return Math.floor(signed16(high16(exitY)) / 16);
+    if (field === "railLineNo") return high16(exitX);
+    if (field === "railFrontPos") return low16(exitY);
+    if (field === "railSidePos") return high16(exitY);
+    if (field === "width") return Number(raw[`warp_${index}_x_extension`] ?? 0);
+    if (field === "height") return Number(raw[`warp_${index}_y_extension`] ?? 0);
+    if (field === "unknown") return Number(raw[`warp_${index}_directionality`] ?? 0);
+  }
+  if (kind === "trigger") {
+    const isRail = Number(raw[`trigger_${index}_unknown_2`] ?? 0) !== 0;
+    if (field === "script") return Number(raw[`trigger_${index}_entity_id`] ?? 0);
+    if (field === "value") return Number(raw[`trigger_${index}_to_trigger_value`] ?? 0);
+    if (field === "variable") return Number(raw[`trigger_${index}_to_check_value`] ?? 0);
+    if (field === "type") return Number(raw[`trigger_${index}_unknown_1`] ?? 0);
+    if (field === "isRail") return Number(raw[`trigger_${index}_unknown_2`] ?? 0);
+    if (field === "gridX" || field === "railLineNo") return Number(raw[`trigger_${index}_x_cord`] ?? 0);
+    if (field === "gridZ" || field === "railFrontPos") return Number(raw[`trigger_${index}_y_cord`] ?? 0);
+    if (field === "railSidePos") return Number(raw[`trigger_${index}_z_cord`] ?? 0);
+    if (field === "width") return Number(raw[`trigger_${index}_${isRail ? "unknown_3" : "z_cord"}`] ?? 0);
+    if (field === "height") return Number(raw[`trigger_${index}_${isRail ? "unknown_4" : "unknown_3"}`] ?? 0);
+    if (field === "worldY") return Number(raw[`trigger_${index}_unknown_4`] ?? 0);
+    if (field === "unknown") return Number(raw[`trigger_${index}_unknown_5`] ?? 0);
+  }
+  throw new Error(`Unsupported ${kind} field: ${field}`);
+}
+
+function setSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index: number, field: string, value: number): void {
+  if (kind === "npc") {
+    raw[`npc_${index}_${field}`] = value;
+    return;
+  }
+  if (kind === "furniture") {
+    if (field === "script") raw[`furniture_${index}_script_id`] = value;
+    else if (field === "condition") raw[`furniture_${index}_unknown_1`] = value;
+    else if (field === "interactibility") raw[`furniture_${index}_unknown_2`] = value;
+    else if (field === "isRail") raw[`furniture_${index}_unknown_3`] = value;
+    else if (field === "gridX") setU32Pair(raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`, value);
+    else if (field === "gridZ") setU32Pair(raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`, value);
+    else if (field === "railLineNo") raw[`furniture_${index}_x_cord`] = value;
+    else if (field === "railFrontPos") raw[`furniture_${index}_x_cord_padding`] = value;
+    else if (field === "railSidePos") raw[`furniture_${index}_y_cord`] = value;
+    else if (field === "railUnused") raw[`furniture_${index}_y_cord_padding`] = value;
+    else if (field === "altitude") raw[`furniture_${index}_z_cord`] = value;
+    else throw new Error(`Unsupported furniture field: ${field}`);
+    return;
+  }
+  if (kind === "warp") {
+    if (field === "targetZone") raw[`warp_${index}_map_id`] = value;
+    else if (field === "targetWarpId") raw[`warp_${index}_use_warp_cords`] = value;
+    else if (field === "contactDirection") raw[`warp_${index}_contact_direction`] = value;
+    else if (field === "transitionType") raw[`warp_${index}_transition_type`] = value;
+    else if (field === "isRail") setWarpRail(raw, index, value !== 0);
+    else if (field === "gridX") setWarpGridX(raw, index, value);
+    else if (field === "worldY") setWarpWorldY(raw, index, value);
+    else if (field === "gridZ") setWarpGridZ(raw, index, value);
+    else if (field === "railLineNo") setPackedHigh(raw, `warp_${index}_exit_x`, value);
+    else if (field === "railFrontPos") setPackedLow(raw, `warp_${index}_exit_y`, value);
+    else if (field === "railSidePos") setPackedHigh(raw, `warp_${index}_exit_y`, value);
+    else if (field === "width") raw[`warp_${index}_x_extension`] = value;
+    else if (field === "height") raw[`warp_${index}_y_extension`] = value;
+    else if (field === "unknown") raw[`warp_${index}_directionality`] = value;
+    else throw new Error(`Unsupported warp field: ${field}`);
+    return;
+  }
+  if (kind === "trigger") {
+    const isRail = Number(raw[`trigger_${index}_unknown_2`] ?? 0) !== 0;
+    if (field === "script") raw[`trigger_${index}_entity_id`] = value;
+    else if (field === "value") raw[`trigger_${index}_to_trigger_value`] = value;
+    else if (field === "variable") raw[`trigger_${index}_to_check_value`] = value;
+    else if (field === "type") raw[`trigger_${index}_unknown_1`] = value;
+    else if (field === "isRail") raw[`trigger_${index}_unknown_2`] = value;
+    else if (field === "gridX" || field === "railLineNo") raw[`trigger_${index}_x_cord`] = value;
+    else if (field === "gridZ" || field === "railFrontPos") raw[`trigger_${index}_y_cord`] = value;
+    else if (field === "railSidePos") raw[`trigger_${index}_z_cord`] = value;
+    else if (field === "width") raw[`trigger_${index}_${isRail ? "unknown_3" : "z_cord"}`] = value;
+    else if (field === "height") raw[`trigger_${index}_${isRail ? "unknown_4" : "unknown_3"}`] = value;
+    else if (field === "worldY") raw[`trigger_${index}_unknown_4`] = value;
+    else if (field === "unknown") raw[`trigger_${index}_unknown_5`] = value;
+    else throw new Error(`Unsupported trigger field: ${field}`);
+  }
+}
+
+function semanticFieldMax(kind: OverworldEntityKind, field: string): number {
+  if (field === "isRail") return 1;
+  if (kind === "npc") {
+    const spec = OVERWORLD_GROUP_FORMATS.npc.find(([, name]) => name === field);
+    return spec ? maxForSize(spec[0]) : 0xffff;
+  }
+  if (kind === "furniture" && (field === "gridX" || field === "gridZ" || field === "altitude")) return 0xffffffff;
+  if (kind === "warp" && (field === "contactDirection" || field === "transitionType")) return 0xff;
+  if (kind === "warp" && (field === "gridX" || field === "gridZ" || field === "worldY")) return 0xffff;
+  return 0xffff;
+}
+
+function semanticFieldLabel(field: string): string {
+  return field.replace(/[A-Z]/gu, (match) => ` ${match.toLowerCase()}`).replace(/_/gu, " ");
+}
+
+function entityKindLabel(kind: OverworldEntityKind): string {
+  return kind === "npc" ? "NPC" : kind[0]!.toUpperCase() + kind.slice(1);
+}
+
+function u32Pair(raw: RawRecord, lowField: string, highField: string): number {
+  return Number(raw[lowField] ?? 0) + Number(raw[highField] ?? 0) * 0x10000;
+}
+
+function setU32Pair(raw: RawRecord, lowField: string, highField: string, value: number): void {
+  raw[lowField] = low16(value);
+  raw[highField] = high16(value);
+}
+
+function low16(value: number): number {
+  return Number(value) & 0xffff;
+}
+
+function high16(value: number): number {
+  return (Number(value) >>> 16) & 0xffff;
+}
+
+function signed16(value: number): number {
+  const next = low16(value);
+  return next >= 0x8000 ? next - 0x10000 : next;
+}
+
+function pack16(low: number, high: number): number {
+  return low16(low) + low16(high) * 0x10000;
+}
+
+function setPackedLow(raw: RawRecord, field: string, value: number): void {
+  raw[field] = pack16(value, high16(Number(raw[field] ?? 0)));
+}
+
+function setPackedHigh(raw: RawRecord, field: string, value: number): void {
+  raw[field] = pack16(low16(Number(raw[field] ?? 0)), value);
+}
+
+function setWarpRail(raw: RawRecord, index: number, isRail: boolean): void {
+  setPackedLow(raw, `warp_${index}_exit_x`, isRail ? 1 : 0);
+}
+
+function setWarpGridX(raw: RawRecord, index: number, tileX: number): void {
+  setPackedHigh(raw, `warp_${index}_exit_x`, tileToCenteredWorld(tileX));
+}
+
+function setWarpWorldY(raw: RawRecord, index: number, worldY: number): void {
+  setPackedLow(raw, `warp_${index}_exit_y`, worldY);
+}
+
+function setWarpGridZ(raw: RawRecord, index: number, tileY: number): void {
+  setPackedHigh(raw, `warp_${index}_exit_y`, tileToCenteredWorld(tileY));
+}
+
+function tileToCenteredWorld(tile: number): number {
+  return tile * 16 + 8;
 }
 
 function overworldFieldMax(field: string): number | undefined {

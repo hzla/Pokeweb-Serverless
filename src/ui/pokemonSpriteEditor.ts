@@ -55,6 +55,7 @@ import {
   buildPokemonFlipbookRigFromGif,
   decodePokemonFlipbookGifFrames,
   defaultPokemonFlipbookImportConfig,
+  normalizeOutputScalePercent,
   type PokemonFlipbookFrameEntry,
   type PokemonFlipbookImportConfig,
   type PokemonFlipbookPackingMode,
@@ -99,6 +100,7 @@ type SpriteEditorState = {
   gifFlipbookStrategy: PokemonFlipbookSamplingStrategy;
   gifFlipbookSpeedScale: number;
   gifFlipbookDownscalePercent: number;
+  gifFlipbookOutputScalePercent: number;
   gifLoopStartFrame: number;
   gifLoopEndFrame: number;
   gifLoopCount: number;
@@ -217,6 +219,7 @@ const GIF_FLIPBOOK_PACKING_MODE_STORAGE_KEY = "pokeweb.gifFlipbookPackingMode";
 const GIF_FLIPBOOK_STRATEGY_STORAGE_KEY = "pokeweb.gifFlipbookStrategy";
 const GIF_FLIPBOOK_SPEED_STORAGE_KEY = "pokeweb.gifFlipbookSpeedScale";
 const GIF_FLIPBOOK_DOWNSCALE_STORAGE_KEY = "pokeweb.gifFlipbookDownscalePercent";
+const GIF_FLIPBOOK_OUTPUT_SCALE_STORAGE_KEY = "pokeweb.gifFlipbookOutputScalePercent";
 
 const state: SpriteEditorState = {
   variant: { kind: "sprite", side: "front", gender: "male" },
@@ -243,6 +246,7 @@ const state: SpriteEditorState = {
   gifFlipbookStrategy: readGifFlipbookStrategyPreference(),
   gifFlipbookSpeedScale: readGifFlipbookSpeedPreference(),
   gifFlipbookDownscalePercent: readGifFlipbookDownscalePreference(),
+  gifFlipbookOutputScalePercent: readGifFlipbookOutputScalePreference(),
   gifLoopStartFrame: 1,
   gifLoopEndFrame: 1,
   gifLoopCount: 1,
@@ -605,7 +609,7 @@ function installGifFlipbookImportEvents(
       state.gifViewerPlaying = false;
       const result = buildPokemonFlipbookRigFromGif(bytes, config);
       applyGifFlipbookBuildResult(project, spriteId, config, paletteKind, result, file.name);
-      state.gifManualFrames = result.report.selectedSourceFrames.join(", ");
+      state.gifManualFrames = result.report.timelineFrames.join(", ");
       const warnings = result.report.warnings.length ? `; ${result.report.warnings.length} warning(s)` : "";
       setStatus(
         `Imported ${config.side} ${paletteKind} GIF: ${result.report.uniquePoseCount} pose(s), ${result.report.uniqueTileCount} tile(s), ${result.report.packingMode}, duplicated female variant, max ${result.report.maxOamsPerPose} OAM(s), ${result.report.visibilityValidation.invisibleFrameCount} invisible frame(s)${warnings}`,
@@ -647,6 +651,7 @@ function installGifFlipbookImportEvents(
         atlasHeight: singleConfig.atlasHeight,
         durationScale: singleConfig.durationScale,
         downscalePercent: singleConfig.downscalePercent,
+        outputScalePercent: singleConfig.outputScalePercent,
       };
       const paletteKind = readGifFlipbookPaletteKind(root);
       const result = buildPairedPokemonFlipbookRigsFromGifs(
@@ -719,7 +724,7 @@ function installGifFlipbookImportEvents(
   root.querySelectorAll<HTMLButtonElement>("[data-gif-flipbook-strategy]").forEach((button) => {
     button.addEventListener("click", () => {
       const value = button.dataset.gifFlipbookStrategy;
-      state.gifFlipbookStrategy = value === "first-window" || value === "even" ? value : "loop-rest";
+      state.gifFlipbookStrategy = value === "first-window" || value === "even" || value === "front-load" ? value : "loop-rest";
       writeGifFlipbookStrategyPreference(state.gifFlipbookStrategy);
       syncGifSegmentedButtons(root, "gifFlipbookStrategy", state.gifFlipbookStrategy);
     });
@@ -740,6 +745,14 @@ function installGifFlipbookImportEvents(
     writeGifFlipbookDownscalePreference(next);
     (event.currentTarget as HTMLInputElement).value = String(next);
     setStatus(`Set GIF import downscale to ${next}%`);
+  });
+  root.querySelector<HTMLInputElement>("#gif-flipbook-output-scale-percent")?.addEventListener("change", (event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const next = normalizeOutputScalePercent(Number(input.value));
+    state.gifFlipbookOutputScalePercent = next;
+    writeGifFlipbookOutputScalePreference(next);
+    input.value = String(next);
+    setStatus(`Set GIF output scale to ${next}%`);
   });
   root.querySelectorAll<HTMLInputElement>("[data-gif-loop-field]").forEach((input) => {
     input.addEventListener("change", () => {
@@ -1244,6 +1257,12 @@ function readGifFlipbookConfig(root: HTMLElement, project?: ProjectState): Pokem
   config.downscalePercent = normalizeGifFlipbookDownscalePercent(Number(root.querySelector<HTMLInputElement>("#gif-flipbook-downscale-percent")?.value ?? state.gifFlipbookDownscalePercent));
   state.gifFlipbookDownscalePercent = config.downscalePercent;
   writeGifFlipbookDownscalePreference(config.downscalePercent);
+  const outputScaleInput = root.querySelector<HTMLInputElement>("#gif-flipbook-output-scale-percent");
+  const allowOutputScale = (rigAtlas?.height ?? config.atlasHeight) === 128;
+  config.outputScalePercent = allowOutputScale ? normalizeOutputScalePercent(Number(outputScaleInput?.value ?? state.gifFlipbookOutputScalePercent)) : 100;
+  state.gifFlipbookOutputScalePercent = allowOutputScale ? config.outputScalePercent : state.gifFlipbookOutputScalePercent;
+  if (allowOutputScale) writeGifFlipbookOutputScalePreference(config.outputScalePercent);
+  if (outputScaleInput) outputScaleInput.value = String(allowOutputScale ? config.outputScalePercent : 100);
   config.atlasWidth = rigAtlas?.width ?? config.atlasWidth;
   config.atlasHeight = rigAtlas?.height ?? config.atlasHeight;
   config.maxAtlasTiles = (config.atlasWidth / 8) * (config.atlasHeight / 8);
@@ -3682,6 +3701,7 @@ function renderRigSection(project: ProjectState, rigCells: RigCellsFile): string
 }
 
 function renderGifFlipbookImportControls(project: ProjectState, spriteId: number): string {
+  const normalAtlas = getPokemonRigAtlasDimensions(project).height === 128;
   return `
     <div class="gif-flipbook-panel">
       <div class="sprite-sidebar-heading">GIF Flipbook</div>
@@ -3699,8 +3719,12 @@ function renderGifFlipbookImportControls(project: ProjectState, spriteId: number
           <input id="gif-flipbook-source-percent" type="number" min="1" max="100" value="100">
         </label>
         <label class="sprite-field">
-          <span>Scale %</span>
+          <span>Source Scale %</span>
           <input id="gif-flipbook-downscale-percent" type="number" min="5" max="100" step="5" value="${state.gifFlipbookDownscalePercent}">
+        </label>
+        <label class="sprite-field">
+          <span>Output Scale %${normalAtlas ? "" : " · Normal atlas only"}</span>
+          <input id="gif-flipbook-output-scale-percent" type="number" min="100" max="400" step="5" value="${normalAtlas ? state.gifFlipbookOutputScalePercent : 100}" ${normalAtlas ? "" : "disabled"}>
         </label>
         <label class="sprite-field gif-speed-field">
           <span>Speed <strong id="gif-flipbook-speed-label">${formatSpeedScale(state.gifFlipbookSpeedScale)}x</strong></span>
@@ -3835,6 +3859,7 @@ function renderGifFlipbookStrategyButtons(): string {
   const options: { value: PokemonFlipbookSamplingStrategy; label: string }[] = [
     { value: "loop-rest", label: "Loop Rest" },
     { value: "first-window", label: "Keyframes" },
+    { value: "front-load", label: "Front Load" },
     { value: "even", label: "Even" },
   ];
   return renderGifSegmentedButtons("Sampling Strategy", options, state.gifFlipbookStrategy, "gif-flipbook-strategy");
@@ -3866,7 +3891,7 @@ function renderLastGifImportStats(summary: GifImportSummary): string {
     <div>
       <span>Last Import</span>
       <strong>${report.maxOamsPerPose}</strong>
-      <small>${escapeHtml(summary.fileName)} ${summary.side}/${summary.paletteKind}; ${report.packingMode}, ${report.uniquePoseCount} pose(s), ${report.uniqueTileCount} tile(s), ${report.downscalePercent}% scale, ${report.visibilityValidation.invisibleFrameCount} invisible</small>
+      <small>${escapeHtml(summary.fileName)} ${summary.side}/${summary.paletteKind}; ${report.packingMode}, ${report.uniquePoseCount} pose(s), ${report.uniqueTileCount} tile(s), ${report.downscalePercent}% source, ${report.outputScalePercent}% output, ${report.visibilityValidation.invisibleFrameCount} invisible</small>
       <small id="last-gif-speed-label">${formatSpeedScale(summary.speedScale)}x speed</small>
       ${warningText}
     </div>
@@ -5132,7 +5157,7 @@ function readGifFlipbookStrategyPreference(): PokemonFlipbookSamplingStrategy {
   try {
     if (typeof localStorage === "undefined") return "loop-rest";
     const value = localStorage.getItem(GIF_FLIPBOOK_STRATEGY_STORAGE_KEY);
-    return value === "first-window" || value === "even" ? value : "loop-rest";
+    return value === "first-window" || value === "even" || value === "front-load" ? value : "loop-rest";
   } catch {
     return "loop-rest";
   }
@@ -5175,6 +5200,23 @@ function readGifFlipbookDownscalePreference(): number {
 function writeGifFlipbookDownscalePreference(value: number): void {
   try {
     if (typeof localStorage !== "undefined") localStorage.setItem(GIF_FLIPBOOK_DOWNSCALE_STORAGE_KEY, String(normalizeGifFlipbookDownscalePercent(value)));
+  } catch {
+    // Storage can be unavailable in private contexts; the in-memory state still works.
+  }
+}
+
+function readGifFlipbookOutputScalePreference(): number {
+  try {
+    if (typeof localStorage === "undefined") return 100;
+    return normalizeOutputScalePercent(Number(localStorage.getItem(GIF_FLIPBOOK_OUTPUT_SCALE_STORAGE_KEY) ?? 100));
+  } catch {
+    return 100;
+  }
+}
+
+function writeGifFlipbookOutputScalePreference(value: number): void {
+  try {
+    if (typeof localStorage !== "undefined") localStorage.setItem(GIF_FLIPBOOK_OUTPUT_SCALE_STORAGE_KEY, String(normalizeOutputScalePercent(value)));
   } catch {
     // Storage can be unavailable in private contexts; the in-memory state still works.
   }

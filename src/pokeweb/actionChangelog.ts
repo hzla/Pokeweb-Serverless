@@ -126,6 +126,7 @@ export function domainTitle(domain: string): string {
     items: "Items",
     tms: "TMs",
     type_chart: "Type Chart",
+    move_effects_table: "Move Effect Handlers",
     trdata: "Trainer Data",
     trpok: "Trainer Pokemon",
     trainer_text: "Trainer Text",
