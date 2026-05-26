@@ -202,7 +202,7 @@
 .word \p9
 .endm
 
-.macro DoSPAOrthoCircleAnimation p0 p1 p2 p3 p4 p5 p6
+.macro DoSPAOrthoCircleAnimation p0 p1 p2 p3 p4 p5 p6 p7 p8 p9
 .hword 17
 .word \p0
 .word \p1
@@ -211,6 +211,9 @@
 .word \p4
 .word \p5
 .word \p6
+.word \p7
+.word \p8
+.word \p9
 .endm
 
 .macro ShakeSprite p0 p1 p2 p3 p4 p5 p6

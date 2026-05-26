@@ -1,15 +1,22 @@
 import {
-  addOverworldNpc,
-  deleteOverworldNpc,
+  addOverworldEntity,
+  deleteOverworldEntity,
   getOverworldScene,
   mapPermissionColor,
-  moveOverworldNpc,
+  moveOverworldEntity,
   NPC_FIELDS,
+  OVERWORLD_ENTITY_KINDS,
   updateMapTile,
-  updateOverworldField,
+  updateOverworldEntityField,
+  type OverworldEntity,
+  type OverworldEntityKind,
+  type OverworldEntitySelection,
+  type OverworldFurniture,
   type OverworldMapScene,
   type OverworldNpc,
   type OverworldScene,
+  type OverworldTrigger,
+  type OverworldWarp,
 } from "../pokeweb/overworldModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, selectText } from "./dom";
@@ -24,6 +31,7 @@ const MIN_ZOOM = 0.1;
 const MIN_NPC_SCREEN_SIZE = 18;
 
 type OverworldViewMode = "permissions" | "map";
+type SidebarField = { key: string; label: string; editable?: boolean; showWhenRail?: boolean; showWhenGrid?: boolean };
 
 const mapRenderCache = new Map<string, Promise<OverworldMapRender> | OverworldMapRender>();
 
@@ -35,19 +43,28 @@ export function renderOverworldEditor(
   onBack?: () => void,
 ): void {
   let scene = getOverworldScene(project, overworldId);
-  let selectedNpc: number | undefined = scene.npcs[0]?.index;
-  let selectedTile: { mapId: number; index: number; layer2: number; layer3: number } | undefined;
+  let activeKind: OverworldEntityKind = "npc";
+  let selectedEntity: OverworldEntitySelection | undefined = scene.npcs[0] ? { kind: "npc", index: scene.npcs[0].index } : undefined;
+  let selectedTile: { mapId: number; index: number; x: number; y: number; layer2: number; layer3: number } | undefined;
 
   root.innerHTML = `
     <div class="pokemon-filter overworld-bar">
       <div class="overworld-info filterable" data-index="${overworldId}">
         <div class="filter-title">${escapeHtml(scene.locationName)}</div>
         <div class="overworld-subtitle">Overworld ${overworldId} / Matrix ${scene.matrixId}</div>
-        ${NPC_FIELDS.map((field) => sidebarRow(field)).join("")}
+        <div class="overworld-entity-tabs" role="group" aria-label="Overworld entity type">
+          ${OVERWORLD_ENTITY_KINDS.map((kind) => `<button class="ow-entity-tab ${kind === activeKind ? "active" : ""}" data-kind="${kind}" type="button">${escapeHtml(entityKindLabel(kind))}</button>`).join("")}
+        </div>
+        <div class="sidebar-row">
+          <div class="sidebar-label">Selected</div>
+          <select class="sidebar-select" id="entity-select"></select>
+        </div>
+        <div class="overworld-entity-fields" id="entity-fields"></div>
+        <div class="overworld-entity-actions" id="entity-actions"></div>
       </div>
       <div class="sidebar-btns">
-        <button class="ow-btn" id="add-npc" type="button">Add NPC</button>
-        <button class="ow-btn" id="del-npc" type="button">Del Selected NPC</button>
+        <button class="ow-btn" id="add-entity" type="button">Add NPC</button>
+        <button class="ow-btn" id="del-entity" type="button">Del Selected</button>
       </div>
       <div class="sidebar-btns">
         <button class="ow-btn" id="back-headers" type="button">Back to Headers</button>
@@ -110,13 +127,13 @@ export function renderOverworldEditor(
   const reloadScene = () => {
     const previousZoneId = associatedMapZoneId(scene);
     scene = getOverworldScene(project, overworldId);
-    if (selectedNpc !== undefined && !scene.npcs.some((npc) => npc.index === selectedNpc)) selectedNpc = scene.npcs[0]?.index;
+    selectedEntity = normalizeSelection(scene, selectedEntity, activeKind);
     if (associatedMapZoneId(scene) !== previousZoneId) {
       state.mapRender = undefined;
       state.mapRenderError = "";
       state.mapRenderToken += 1;
     }
-    renderNpcOverlay();
+    renderEntityOverlay();
     fillSidebar();
     draw();
   };
@@ -133,8 +150,8 @@ export function renderOverworldEditor(
   };
 
   const frameScene = (rect = stage.getBoundingClientRect()) => {
-    const npc = scene.npcs.find((entry) => entry.index === selectedNpc) ?? scene.npcs[0];
-    const bounds = state.viewMode === "map" && state.mapRender ? mapRenderTileBounds(state.mapRender) : sceneBounds(scene, npc);
+    const focus = selectedEntityBounds(scene, selectedEntity) ?? selectedEntityBounds(scene, { kind: "npc", index: scene.npcs[0]?.index ?? -1 });
+    const bounds = state.viewMode === "map" && state.mapRender ? mapRenderTileBounds(state.mapRender) : sceneBounds(scene, focus);
     const fitZoom = Math.min(1, Math.max(MIN_ZOOM, Math.min(rect.width / Math.max(1, bounds.width * TILE_SIZE), rect.height / Math.max(1, bounds.height * TILE_SIZE)) * 0.85));
     state.zoom = fitZoom;
     const centerX = bounds.x + bounds.width / 2;
@@ -185,7 +202,7 @@ export function renderOverworldEditor(
     ctx.imageSmoothingEnabled = false;
     if (state.viewMode === "map" && state.mapRender) drawTrueMap(ctx, state.mapRender, state.zoom, state.panX, state.panY);
     else for (const map of scene.maps) drawMap(ctx, map, state.zoom, state.panX, state.panY);
-    renderNpcOverlay();
+    renderEntityOverlay();
   };
 
   const setViewMode = (viewMode: OverworldViewMode) => {
@@ -255,35 +272,55 @@ export function renderOverworldEditor(
     }
   };
 
-  function renderNpcOverlay(): void {
-    entityLayer.innerHTML = scene.npcs.map((npc) => renderNpc(npc, worldToScreen, npc.index === selectedNpc)).join("");
+  function renderEntityOverlay(): void {
+    const selected = selectedEntity;
+    const overlays =
+      state.viewMode === "map"
+        ? scene.npcs.map((npc) => renderNpc(npc, worldToScreen, isSelected(selected, "npc", npc.index))).join("")
+        : [
+            ...scene.furniture.filter((entry) => !entry.isRail).map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "furniture", entry.index))),
+            ...scene.warps.filter((entry) => !entry.isRail).map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "warp", entry.index))),
+            ...scene.triggers.filter((entry) => !entry.isRail).map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "trigger", entry.index))),
+            ...scene.npcs.map((npc) => renderNpc(npc, worldToScreen, isSelected(selected, "npc", npc.index))),
+          ].join("");
+    entityLayer.innerHTML = overlays;
     adjustSpriteDirections(entityLayer);
     entityLayer.querySelectorAll<HTMLDivElement>(".overworld-item").forEach((item) => {
       item.addEventListener("click", (event) => {
         event.stopPropagation();
-        selectedNpc = Number(item.dataset.npcIndex);
-        renderNpcOverlay();
+        const kind = item.dataset.kind as OverworldEntityKind | undefined;
+        const index = Number(item.dataset.index);
+        if (!kind || !Number.isFinite(index)) return;
+        activeKind = kind;
+        selectedEntity = { kind, index };
+        selectedTile = undefined;
+        if (tileEditor) tileEditor.style.display = "none";
+        renderEntityOverlay();
         fillSidebar();
       });
       item.addEventListener("pointerdown", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        selectedNpc = Number(item.dataset.npcIndex);
+        const kind = item.dataset.kind as OverworldEntityKind | undefined;
+        const index = Number(item.dataset.index);
+        if (!kind || !Number.isFinite(index)) return;
+        activeKind = kind;
+        selectedEntity = { kind, index };
         item.setPointerCapture(event.pointerId);
-        const npc = scene.npcs.find((entry) => entry.index === selectedNpc);
-        if (!npc) return;
+        const entity = entityBySelection(scene, selectedEntity);
+        if (!entity || (entity.kind !== "npc" && entity.isRail)) return;
         const start = screenToWorld(event.clientX, event.clientY);
-        const startX = npc.x;
-        const startY = npc.y;
+        const startX = entity.x;
+        const startY = entity.y;
         const move = (moveEvent: PointerEvent) => {
           const next = screenToWorld(moveEvent.clientX, moveEvent.clientY);
           const dx = Math.round(next.x - start.x);
           const dy = Math.round(next.y - start.y);
           const x = Math.max(0, startX + dx);
           const y = Math.max(0, startY + dy);
-          moveOverworldNpc(project, overworldId, npc.index, x, y, npc.z);
+          moveOverworldEntity(project, overworldId, kind, index, x, y);
           scene = getOverworldScene(project, overworldId);
-          renderNpcOverlay();
+          renderEntityOverlay();
           fillSidebar();
         };
         const up = () => {
@@ -297,63 +334,119 @@ export function renderOverworldEditor(
     });
   }
 
-  const fillSidebar = () => {
-    const npc = scene.npcs.find((entry) => entry.index === selectedNpc);
-    root.querySelectorAll<HTMLElement>(".sidebar-val[data-field-name]").forEach((field) => {
-      if (!npc) {
-        field.textContent = "";
-        return;
-      }
-      const name = field.dataset.baseField ?? "";
-      const fullName = `npc_${npc.index}_${name}`;
-      field.dataset.fieldName = fullName;
-      field.textContent = String(scene.raw[fullName] ?? "");
+  function bindEntityFieldEvents(host: HTMLElement): void {
+    host.querySelectorAll<HTMLElement>(".sidebar-val[contenteditable='true']").forEach((field) => {
+      let initial = "";
+      field.addEventListener("focus", () => {
+        initial = field.textContent?.trim() ?? "";
+        selectText(field);
+      });
+      field.addEventListener("keypress", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          field.blur();
+        }
+      });
+      field.addEventListener("focusout", () => {
+        const key = field.dataset.fieldKey;
+        const selection = selectedEntity;
+        if (!key || !selection) return;
+        const next = field.textContent?.trim() ?? "";
+        if (next === initial) return;
+        try {
+          const value = updateOverworldEntityField(project, overworldId, selection, key, next);
+          field.textContent = String(value);
+          reloadScene();
+          onDirty?.();
+        } catch {
+          field.textContent = initial;
+          field.classList.add("invalid");
+          window.setTimeout(() => field.classList.remove("invalid"), 800);
+        }
+      });
     });
-    const deleteButton = root.querySelector<HTMLButtonElement>("#del-npc");
-    if (deleteButton) deleteButton.disabled = !npc;
+  }
+
+  function defaultNewEntityPosition(): { x: number; y: number } {
+    if (selectedTile) return { x: selectedTile.x, y: selectedTile.y };
+    const entity = entityBySelection(scene, selectedEntity);
+    if (entity && (entity.kind === "npc" || !entity.isRail)) return { x: Math.max(0, Math.round(entity.x)), y: Math.max(0, Math.round(entity.y)) };
+    return { x: 0, y: 0 };
+  }
+
+  const fillSidebar = () => {
+    updateEntityTabs(root, activeKind);
+    const select = root.querySelector<HTMLSelectElement>("#entity-select");
+    const entitiesForKind = entitiesByKind(scene, activeKind);
+    if (select) {
+      select.innerHTML = entitiesForKind.map((entity) => `<option value="${entity.index}" ${selectedEntity?.kind === activeKind && selectedEntity.index === entity.index ? "selected" : ""}>${escapeHtml(entityOptionLabel(entity))}</option>`).join("");
+      select.disabled = entitiesForKind.length === 0;
+    }
+
+    const entity = entityBySelection(scene, selectedEntity);
+    const fieldsHost = root.querySelector<HTMLDivElement>("#entity-fields");
+    if (fieldsHost) {
+      fieldsHost.innerHTML = entity
+        ? sidebarFields(entity)
+            .map((field) => sidebarRow(field, entity, scene.raw))
+            .join("")
+        : `<div class="overworld-empty-selection">No ${escapeHtml(entityKindLabel(activeKind))} selected</div>`;
+      bindEntityFieldEvents(fieldsHost);
+    }
+    const actionsHost = root.querySelector<HTMLDivElement>("#entity-actions");
+    if (actionsHost) {
+      actionsHost.innerHTML = renderEntityActions(project, entity);
+      actionsHost.querySelector<HTMLButtonElement>("#open-warp-target")?.addEventListener("click", () => {
+        const warp = entity?.kind === "warp" ? entity : undefined;
+        if (!warp) return;
+        const target = warpTargetForZone(project, warp.targetZone);
+        if (!target) return;
+        window.open(overworldRouteUrl(target.overworldId), "_blank", "noopener");
+      });
+    }
+
+    const addButton = root.querySelector<HTMLButtonElement>("#add-entity");
+    if (addButton) addButton.textContent = `Add ${entityKindLabel(activeKind)}`;
+    const deleteButton = root.querySelector<HTMLButtonElement>("#del-entity");
+    if (deleteButton) deleteButton.disabled = !entity || entity.kind !== activeKind;
   };
 
   root.querySelector<HTMLButtonElement>("#back-headers")?.addEventListener("click", () => onBack?.());
-  root.querySelector<HTMLButtonElement>("#add-npc")?.addEventListener("click", () => {
-    selectedNpc = addOverworldNpc(project, overworldId);
+  root.querySelector<HTMLButtonElement>("#add-entity")?.addEventListener("click", () => {
+    const index = addOverworldEntity(project, overworldId, activeKind);
+    selectedEntity = { kind: activeKind, index };
+    const position = defaultNewEntityPosition();
+    moveOverworldEntity(project, overworldId, activeKind, index, position.x, position.y);
     reloadScene();
     onDirty?.();
   });
-  root.querySelector<HTMLButtonElement>("#del-npc")?.addEventListener("click", () => {
-    if (selectedNpc === undefined) return;
-    deleteOverworldNpc(project, overworldId, selectedNpc);
-    selectedNpc = undefined;
+  root.querySelector<HTMLButtonElement>("#del-entity")?.addEventListener("click", () => {
+    if (!selectedEntity) return;
+    deleteOverworldEntity(project, overworldId, selectedEntity.kind, selectedEntity.index);
+    selectedEntity = undefined;
     reloadScene();
     onDirty?.();
   });
 
-  root.querySelectorAll<HTMLElement>(".sidebar-val[contenteditable='true']").forEach((field) => {
-    let initial = "";
-    field.addEventListener("focus", () => {
-      initial = field.textContent?.trim() ?? "";
-      selectText(field);
-    });
-    field.addEventListener("keypress", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        field.blur();
-      }
-    });
-    field.addEventListener("focusout", () => {
-      const name = field.dataset.fieldName;
-      if (!name) return;
-      const next = field.textContent?.trim() ?? "";
-      if (next === initial) return;
-      try {
-        const value = updateOverworldField(project, overworldId, name, next);
-        field.textContent = String(value);
-        reloadScene();
-        onDirty?.();
-      } catch {
-        field.textContent = initial;
-        field.classList.add("invalid");
-        window.setTimeout(() => field.classList.remove("invalid"), 800);
-      }
+  root.querySelector<HTMLSelectElement>("#entity-select")?.addEventListener("change", (event) => {
+    const target = event.currentTarget as HTMLSelectElement;
+    selectedEntity = target.value === "" ? undefined : { kind: activeKind, index: Number(target.value) };
+    selectedTile = undefined;
+    if (tileEditor) tileEditor.style.display = "none";
+    renderEntityOverlay();
+    fillSidebar();
+  });
+
+  root.querySelectorAll<HTMLButtonElement>(".ow-entity-tab").forEach((button) => {
+    button.addEventListener("click", () => {
+      const kind = button.dataset.kind as OverworldEntityKind | undefined;
+      if (!kind) return;
+      activeKind = kind;
+      selectedEntity = normalizeSelection(scene, selectedEntity?.kind === kind ? selectedEntity : undefined, activeKind);
+      selectedTile = undefined;
+      if (tileEditor) tileEditor.style.display = "none";
+      renderEntityOverlay();
+      fillSidebar();
     });
   });
 
@@ -406,6 +499,9 @@ export function renderOverworldEditor(
     if (moved < 4 && state.viewMode === "permissions") {
       selectedTile = tileAt(scene, screenToWorld(event.clientX, event.clientY));
       if (selectedTile && tileEditor) {
+        selectedEntity = undefined;
+        renderEntityOverlay();
+        fillSidebar();
         tileEditor.style.display = "block";
         root.querySelector<HTMLElement>("#tile-flag")!.textContent = String(selectedTile.layer2);
         root.querySelector<HTMLElement>("#tile-mov")!.textContent = String(selectedTile.layer3);
@@ -457,14 +553,161 @@ export function renderOverworldEditor(
   window.requestAnimationFrame(resize);
 }
 
-function sidebarRow(field: string): string {
-  const editable = field === "overworld_id" ? "false" : "true";
+function sidebarRow(field: SidebarField, entity: OverworldEntity, raw = {} as Record<string, unknown>): string {
+  const editable = field.editable === false ? "false" : "true";
   return `
     <div class="sidebar-row">
-      <div class="sidebar-label">${escapeHtml(field)}</div>
-      <div class="sidebar-val" data-base-field="${escapeHtml(field)}" data-narc="overworld" contenteditable="${editable}" data-field-name="" data-type="int-65535"></div>
+      <div class="sidebar-label">${escapeHtml(field.label)}</div>
+      <div class="sidebar-val" data-field-key="${escapeHtml(field.key)}" data-narc="overworld" contenteditable="${editable}" data-type="int-65535">${escapeHtml(String(entityFieldValue(entity, field.key, raw)))}</div>
     </div>
   `;
+}
+
+function renderEntityActions(project: ProjectState, entity: OverworldEntity | undefined): string {
+  if (entity?.kind !== "warp") return "";
+  const target = warpTargetForZone(project, entity.targetZone);
+  const disabled = target === undefined ? "disabled" : "";
+  const label =
+    target === undefined
+      ? `Target zone ${entity.targetZone} not found`
+      : `Open ${target.locationName}${target.matrixId !== 0 ? ` (Matrix ${target.matrixId})` : ""}`;
+  return `
+    <div class="sidebar-btns overworld-entity-action-row">
+      <button class="ow-btn" id="open-warp-target" type="button" ${disabled}>${escapeHtml(label)}</button>
+    </div>
+  `;
+}
+
+function warpTargetForZone(project: ProjectState, zoneId: number): { overworldId: number; locationName: string; matrixId: number } | undefined {
+  const rows = project.headers?.rows ?? {};
+  for (const row of Object.values(rows)) {
+    if (Number(row.index) !== zoneId) continue;
+    const overworldId = Number(row.overworlds_id ?? row.map_id);
+    if (!Number.isSafeInteger(overworldId)) return undefined;
+    return {
+      overworldId,
+      locationName: String(row.location_name ?? `Zone ${zoneId}`),
+      matrixId: Number(row.matrix_id ?? 0),
+    };
+  }
+  return undefined;
+}
+
+function overworldRouteUrl(overworldId: number): string {
+  const url = new URL(window.location.href);
+  url.hash = `overworlds/${overworldId}`;
+  return url.href;
+}
+
+function updateEntityTabs(root: ParentNode, activeKind: OverworldEntityKind): void {
+  root.querySelectorAll<HTMLButtonElement>(".ow-entity-tab").forEach((button) => {
+    button.classList.toggle("active", button.dataset.kind === activeKind);
+  });
+}
+
+function entitiesByKind(scene: OverworldScene, kind: OverworldEntityKind): OverworldEntity[] {
+  if (kind === "npc") return scene.npcs;
+  if (kind === "furniture") return scene.furniture;
+  if (kind === "warp") return scene.warps;
+  return scene.triggers;
+}
+
+function entityBySelection(scene: OverworldScene, selection: OverworldEntitySelection | undefined): OverworldEntity | undefined {
+  if (!selection) return undefined;
+  return entitiesByKind(scene, selection.kind).find((entity) => entity.index === selection.index);
+}
+
+function normalizeSelection(scene: OverworldScene, selection: OverworldEntitySelection | undefined, activeKind: OverworldEntityKind): OverworldEntitySelection | undefined {
+  if (selection && entityBySelection(scene, selection)) return selection;
+  const first = entitiesByKind(scene, activeKind)[0];
+  return first ? { kind: activeKind, index: first.index } : undefined;
+}
+
+function isSelected(selection: OverworldEntitySelection | undefined, kind: OverworldEntityKind, index: number): boolean {
+  return selection?.kind === kind && selection.index === index;
+}
+
+function entityOptionLabel(entity: OverworldEntity): string {
+  const suffix = entity.kind !== "npc" && entity.isRail ? " rail" : "";
+  return `${entityKindLabel(entity.kind)} ${entity.index}${suffix}`;
+}
+
+function entityKindLabel(kind: OverworldEntityKind): string {
+  return kind === "npc" ? "NPC" : kind[0]!.toUpperCase() + kind.slice(1);
+}
+
+function sidebarFields(entity: OverworldEntity): SidebarField[] {
+  if (entity.kind === "npc") return NPC_FIELDS.map((field) => ({ key: field, label: field, editable: field !== "overworld_id" }));
+  if (entity.kind === "furniture") {
+    return [
+      { key: "script", label: "script" },
+      { key: "condition", label: "condition" },
+      { key: "interactibility", label: "interactibility" },
+      { key: "isRail", label: "is rail" },
+      { key: "gridX", label: "grid x", showWhenGrid: true },
+      { key: "gridZ", label: "grid y", showWhenGrid: true },
+      { key: "railLineNo", label: "rail line", showWhenRail: true },
+      { key: "railFrontPos", label: "rail front", showWhenRail: true },
+      { key: "railSidePos", label: "rail side", showWhenRail: true },
+      { key: "railUnused", label: "rail unused", showWhenRail: true },
+      { key: "altitude", label: "y" },
+    ].filter((field) => fieldVisible(field, entity));
+  }
+  if (entity.kind === "warp") {
+    return [
+      { key: "targetZone", label: "target zone" },
+      { key: "targetWarpId", label: "target warp" },
+      { key: "contactDirection", label: "contact dir" },
+      { key: "transitionType", label: "transition" },
+      { key: "isRail", label: "is rail" },
+      { key: "gridX", label: "grid x", showWhenGrid: true },
+      { key: "worldY", label: "y", showWhenGrid: true },
+      { key: "gridZ", label: "grid y", showWhenGrid: true },
+      { key: "railLineNo", label: "rail line", showWhenRail: true },
+      { key: "railFrontPos", label: "rail front", showWhenRail: true },
+      { key: "railSidePos", label: "rail side", showWhenRail: true },
+      { key: "width", label: "width" },
+      { key: "height", label: "height" },
+      { key: "unknown", label: "unknown" },
+    ].filter((field) => fieldVisible(field, entity));
+  }
+  return [
+    { key: "script", label: "script" },
+    { key: "variable", label: "variable" },
+    { key: "value", label: "value" },
+    { key: "type", label: "type" },
+    { key: "isRail", label: "is rail" },
+    { key: "gridX", label: "grid x", showWhenGrid: true },
+    { key: "gridZ", label: "grid y", showWhenGrid: true },
+    { key: "railLineNo", label: "rail line", showWhenRail: true },
+    { key: "railFrontPos", label: "rail front", showWhenRail: true },
+    { key: "railSidePos", label: "rail side", showWhenRail: true },
+    { key: "width", label: "width" },
+    { key: "height", label: "height" },
+    { key: "worldY", label: "y", showWhenGrid: true },
+    { key: "unknown", label: "unknown" },
+  ].filter((field) => fieldVisible(field, entity));
+}
+
+function fieldVisible(field: SidebarField, entity: OverworldFurniture | OverworldWarp | OverworldTrigger): boolean {
+  if (field.showWhenRail) return entity.isRail;
+  if (field.showWhenGrid) return !entity.isRail;
+  return true;
+}
+
+function entityFieldValue(entity: OverworldEntity, key: string, raw: Record<string, unknown>): number | boolean {
+  if (entity.kind === "npc") return Number(raw[`npc_${entity.index}_${key}`] ?? sceneRawNpcValue(entity, key));
+  return Number((entity as unknown as Record<string, number | boolean>)[key] ?? 0);
+}
+
+function sceneRawNpcValue(entity: OverworldNpc, key: string): number {
+  if (key === "overworld_id") return entity.overworldId;
+  if (key === "overworld_sprite") return entity.spriteId;
+  if (key === "x_cord") return entity.x;
+  if (key === "y_cord") return entity.y;
+  if (key === "z_cord") return entity.z;
+  if (key === "direction") return entity.direction;
+  return 0;
 }
 
 function drawMap(context: CanvasRenderingContext2D, map: OverworldMapScene, zoom: number, panX: number, panY: number): void {
@@ -530,10 +773,31 @@ function renderNpc(
   const size = Math.max(position.tileSize, MIN_NPC_SCREEN_SIZE);
   const offset = (size - position.tileSize) / 2;
   return `
-    <div class="overworld-item ${selected ? "selected" : ""}" data-npc-index="${npc.index}" data-dir="${npc.direction}" title="npc-${npc.index}"
+    <div class="overworld-item overworld-npc ${selected ? "selected" : ""}" data-kind="npc" data-index="${npc.index}" data-dir="${npc.direction}" title="npc-${npc.index}"
       style="left:${position.x - offset}px;top:${position.y - offset}px;width:${size}px;height:${size}px">
       <img class="overworld-sprite" src="${publicAsset(`images/overworlds/${npc.spriteSlug}.png`)}" alt="" onerror="this.hidden=true;this.parentElement?.classList.add('missing-sprite')" />
       <span>${npc.overworldId}</span>
+    </div>
+  `;
+}
+
+function renderGridEntity(
+  entity: OverworldFurniture | OverworldWarp | OverworldTrigger,
+  worldToScreen: (x: number, y: number) => { x: number; y: number; tileSize: number },
+  selected: boolean,
+): string {
+  const position = worldToScreen(entity.x, entity.y);
+  const widthTiles = entity.kind === "furniture" ? 0.7 : Math.max(1, entity.width);
+  const heightTiles = entity.kind === "furniture" ? 0.7 : Math.max(1, entity.height);
+  const width = Math.max(14, position.tileSize * widthTiles);
+  const height = Math.max(14, position.tileSize * heightTiles);
+  const offsetX = entity.kind === "furniture" ? (width - position.tileSize) / 2 : 0;
+  const offsetY = entity.kind === "furniture" ? (height - position.tileSize) / 2 : 0;
+  return `
+    <div class="overworld-item overworld-grid-entity overworld-${entity.kind} ${selected ? "selected" : ""}"
+      data-kind="${entity.kind}" data-index="${entity.index}" title="${escapeHtml(entityKindLabel(entity.kind))} ${entity.index}"
+      style="left:${position.x - offsetX}px;top:${position.y - offsetY}px;width:${width}px;height:${height}px">
+      <span>${escapeHtml(entity.kind[0]!.toUpperCase())}${entity.index}</span>
     </div>
   `;
 }
@@ -567,7 +831,7 @@ function spriteDirectionOffset(frameCount: number, direction: number): number | 
   return offsets[Math.min(Math.max(direction, 0), offsets.length - 1)] ?? 0;
 }
 
-function tileAt(scene: OverworldScene, point: { x: number; y: number }): { mapId: number; index: number; layer2: number; layer3: number } | undefined {
+function tileAt(scene: OverworldScene, point: { x: number; y: number }): { mapId: number; index: number; x: number; y: number; layer2: number; layer3: number } | undefined {
   const x = Math.floor(point.x);
   const y = Math.floor(point.y);
   for (const map of scene.maps) {
@@ -578,6 +842,8 @@ function tileAt(scene: OverworldScene, point: { x: number; y: number }): { mapId
     return {
       mapId: map.id,
       index,
+      x,
+      y,
       layer2: map.layer2[index] ?? 0,
       layer3: map.layer3[index] ?? 0,
     };
@@ -585,12 +851,25 @@ function tileAt(scene: OverworldScene, point: { x: number; y: number }): { mapId
   return undefined;
 }
 
-function sceneBounds(scene: OverworldScene, focusNpc?: OverworldNpc): { x: number; y: number; width: number; height: number } {
+function selectedEntityBounds(scene: OverworldScene, selection: OverworldEntitySelection | undefined): { x: number; y: number; width: number; height: number } | undefined {
+  const entity = entityBySelection(scene, selection);
+  if (!entity) return undefined;
+  if (entity.kind === "npc") return { x: entity.x - 8, y: entity.y - 8, width: 16, height: 16 };
+  if (entity.isRail) return undefined;
+  return {
+    x: entity.x - 4,
+    y: entity.y - 4,
+    width: Math.max(8, entity.kind === "furniture" ? 1 : entity.width),
+    height: Math.max(8, entity.kind === "furniture" ? 1 : entity.height),
+  };
+}
+
+function sceneBounds(scene: OverworldScene, focus?: { x: number; y: number; width: number; height: number }): { x: number; y: number; width: number; height: number } {
   const xs = scene.maps.flatMap((map) => [map.x, map.x + map.width]);
   const ys = scene.maps.flatMap((map) => [map.y, map.y + map.height]);
-  if (focusNpc) {
-    xs.push(focusNpc.x - 8, focusNpc.x + 8);
-    ys.push(focusNpc.y - 8, focusNpc.y + 8);
+  if (focus) {
+    xs.push(focus.x, focus.x + focus.width);
+    ys.push(focus.y, focus.y + focus.height);
   }
   if (xs.length === 0 || ys.length === 0) return { x: 0, y: 0, width: 32, height: 32 };
   const minX = Math.min(...xs);

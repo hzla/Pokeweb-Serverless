@@ -1,5 +1,6 @@
 import { clearActionChangelog, domainTitle, ensureActionChangelog, renderActionChangelogText } from "../pokeweb/actionChangelog";
 import type { ActionChangelogEntry } from "../pokeweb/actionChangelog";
+import { canUndoActionChange, undoActionChange } from "../pokeweb/actionUndo";
 import type { ChangelogEntry } from "../pokeweb/changelogModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
@@ -26,7 +27,9 @@ export function renderActionChangelogPage(project: ProjectState, root: HTMLEleme
       <div id="action-changelog-tabs" class="changelog-tabs"></div>
     </section>
   `;
-  renderChangelogTabs(root, state.entries, "#action-changelog-tabs", "No changes recorded since this ROM was loaded.");
+  renderChangelogTabs(root, state.entries, "#action-changelog-tabs", "No changes recorded since this ROM was loaded.", {
+    canUndo: (entry) => "key" in entry && canUndoActionChange(entry),
+  });
 
   root.querySelector<HTMLButtonElement>("#copy-action-changelog-btn")?.addEventListener("click", async () => {
     await copyText(text, root.querySelector<HTMLTextAreaElement>("#action-changelog-output"));
@@ -42,6 +45,20 @@ export function renderActionChangelogPage(project: ProjectState, root: HTMLEleme
     onDirty();
     renderActionChangelogPage(project, root, onDirty);
   });
+
+  root.querySelectorAll<HTMLButtonElement>("[data-undo-change-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = ensureActionChangelog(project).entries.find((candidate) => candidate.id === button.dataset.undoChangeId);
+      if (!entry) return;
+      try {
+        undoActionChange(project, entry);
+        onDirty();
+        renderActionChangelogPage(project, root, onDirty);
+      } catch (error) {
+        window.alert(`Could not undo this change.\n\n${error instanceof Error ? error.message : String(error)}`);
+      }
+    });
+  });
 }
 
 export function renderChangelogTabs(
@@ -49,6 +66,7 @@ export function renderChangelogTabs(
   entries: RenderableChangelogEntry[],
   selector = "#changelog-tabs",
   emptyText = "No changes detected in the selected Pokeweb data.",
+  options: { canUndo?: (entry: RenderableChangelogEntry) => boolean } = {},
 ): void {
   const container = root.querySelector<HTMLElement>(selector);
   if (!container) return;
@@ -71,7 +89,7 @@ export function renderChangelogTabs(
         .map(
           (group, index) =>
             `<section class="changelog-tab-panel ${index === 0 ? "-active" : ""}" data-changelog-panel="${escapeHtml(group.key)}">
-              ${renderChangelogSubjectGroups(group.entries)}
+              ${renderChangelogSubjectGroups(group.entries, options)}
             </section>`,
         )
         .join("")}
@@ -143,7 +161,7 @@ function groupChangelogEntries(entries: RenderableChangelogEntry[]): Array<{ key
   return [...grouped.entries()].map(([key, groupEntries]) => ({ key, label: labels[key] ?? domainTitle(key), entries: groupEntries }));
 }
 
-function renderChangelogSubjectGroups(entries: RenderableChangelogEntry[]): string {
+function renderChangelogSubjectGroups(entries: RenderableChangelogEntry[], options: { canUndo?: (entry: RenderableChangelogEntry) => boolean } = {}): string {
   const grouped = new Map<string, RenderableChangelogEntry[]>();
   for (const entry of entries) {
     const key = entry.subject ?? "Changes";
@@ -155,12 +173,21 @@ function renderChangelogSubjectGroups(entries: RenderableChangelogEntry[]): stri
         <article class="changelog-subject">
           <h3>${escapeHtml(subject)}</h3>
           <ul>
-            ${subjectEntries.map((entry) => `<li>${renderChangelogEntry(entry)}</li>`).join("")}
+            ${subjectEntries.map((entry) => `<li>${renderChangelogEntryWithActions(entry, options)}</li>`).join("")}
           </ul>
         </article>
       `,
     )
     .join("");
+}
+
+function renderChangelogEntryWithActions(entry: RenderableChangelogEntry, options: { canUndo?: (entry: RenderableChangelogEntry) => boolean } = {}): string {
+  const canUndo = options.canUndo?.(entry) ?? false;
+  const undoButton =
+    canUndo && "id" in entry
+      ? `<button class="changelog-undo-btn" type="button" data-undo-change-id="${escapeHtml(entry.id)}">Undo</button>`
+      : "";
+  return `<div class="changelog-entry-row"><span>${renderChangelogEntry(entry)}</span>${undoButton}</div>`;
 }
 
 function renderChangelogEntry(entry: RenderableChangelogEntry): string {

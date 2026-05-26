@@ -24,6 +24,7 @@ const result = buildPokemonFlipbookRigFromGif(new Uint8Array(await readFile(args
   maxUniqueFrames: args.maxFrames,
   maxAtlasTiles: args.maxTiles,
   durationScale: args.durationScale,
+  outputScalePercent: args.outputScalePercent,
 });
 setPokemonPalette(project, args.speciesId, args.palette, result.palette);
 setPokemonSpriteImage(project, args.speciesId, { kind: "sprite", side: args.side, gender: "male" }, args.palette, result.sprite);
@@ -59,6 +60,7 @@ function parseArgs(argv: string[]): {
   maxFrames: number;
   maxTiles: number;
   durationScale: number;
+  outputScalePercent: number;
   duplicateFemale: boolean;
 } {
   const get = (flag: string, fallback?: string) => {
@@ -73,7 +75,7 @@ function parseArgs(argv: string[]): {
   const side = get("--side", "front") === "back" ? "back" : "front";
   const palette = get("--palette", "normal") === "shiny" ? "shiny" : "normal";
   const strategyValue = get("--strategy", "loop-rest");
-  const strategy = strategyValue === "first-window" || strategyValue === "even" ? strategyValue : "loop-rest";
+  const strategy = strategyValue === "first-window" || strategyValue === "even" || strategyValue === "front-load" ? strategyValue : "loop-rest";
   const packingMode = parsePackingMode(get("--packing-mode", "mcss-safe"));
   return {
     inputRom,
@@ -88,6 +90,7 @@ function parseArgs(argv: string[]): {
     maxFrames: Number(get("--max-frames", "96")),
     maxTiles: Number(get("--max-tiles", "512")),
     durationScale: Number(get("--duration-scale", "1")),
+    outputScalePercent: Number(get("--output-scale-percent", "100")),
     duplicateFemale: argv.includes("--duplicate-female"),
   };
 }

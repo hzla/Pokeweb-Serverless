@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { getItemRecord, getMoveRecord, moveMatchesSearch, updateItemField, updateItemPackedField, updateMoveField } from "../pokeweb/moveItemModel";
+import { getItemRecord, getMoveRecord, moveMatchesSearch, updateItemField, updateItemPackedField, updateMoveEffectId, updateMoveField } from "../pokeweb/moveItemModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("moveItemModel", () => {
@@ -40,6 +40,19 @@ describe("moveItemModel", () => {
     expect(project.narcs.moves?.dirty.has(1)).toBe(true);
     expect(moveMatchesSearch(move, "tackle", new Set(["special"]), new Set(["fire"]))).toBe(true);
     expect(project.actionChangelog?.entries.some((entry) => entry.domain === "moves" && entry.text.includes("Tackle power changed from 40 to 90."))).toBe(true);
+  });
+
+  it("updates move effects by raw effect id", () => {
+    const project = makeProject();
+
+    const result = updateMoveEffectId(project, 1, "4");
+
+    const move = getMoveRecord(project, 1);
+    expect(result).toEqual({ value: "Chance to Burn", rawValue: 4 });
+    expect(move.raw.effect).toBe(4);
+    expect(move.readable.effect).toBe("Chance to Burn");
+    expect(project.narcs.moves?.dirty.has(1)).toBe(true);
+    expect(() => updateMoveEffectId(project, 1, "-1")).toThrow(/between 0 and/u);
   });
 
   it("updates item numeric fields and rejects out-of-range values", () => {

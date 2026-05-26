@@ -215,12 +215,15 @@
 
 .trainer-texts .expanded-field-main {
   align-items: center;
+  gap: 16px;
   min-height: 54px;
 }
 
-.msg-id {
+.trainer-texts .msg-id {
   color: #f2f2f2;
-  width: 220px;
+  flex: 0 0 300px;
+  min-width: 300px;
+  white-space: nowrap;
 }
 
 .log-text {

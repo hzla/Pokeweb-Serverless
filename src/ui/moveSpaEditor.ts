@@ -474,6 +474,17 @@ async function handleAction(state: State, action: string, options: MoveSpaEditor
     }
     return;
   }
+  if (action === "export-texture") {
+    try {
+      await exportSelectedTexture(state, archive);
+      state.status = `Exported texture ${state.selectedTextureIndex}`;
+      state.error = undefined;
+    } catch (error) {
+      state.error = error instanceof Error ? error.message : String(error);
+    }
+    render(state);
+    return;
+  }
   if (!resource) return;
 
   if (action === "add-scale") resource.scaleAnim = defaultScaleAnim();
@@ -825,6 +836,7 @@ function renderTextures(archive: SpaArchive, selectedTextureIndex: number): stri
                 <label class="move-spa-texture-import">Replace selected texture
                   <input data-spa-texture-import type="file" accept="image/png,image/webp,image/jpeg,image/gif">
                 </label>
+                <button class="script-btn move-spa-texture-export" data-spa-action="export-texture" type="button">Export selected texture</button>
               </div>
             </div>`
           : ""
@@ -996,6 +1008,23 @@ async function replaceSelectedTexture(state: State, file: File): Promise<void> {
   render(state);
 }
 
+async function exportSelectedTexture(state: State, archive: SpaArchive): Promise<void> {
+  if (state.selectedSpaId === undefined) throw new Error("No SPA archive is selected.");
+  const texture = archive.textures[state.selectedTextureIndex];
+  if (!texture) throw new Error("No texture is selected.");
+  if (!texture.rgba || texture.rgba.length < texture.width * texture.height * 4) throw new Error("Selected texture has no decoded image data.");
+  const canvas = document.createElement("canvas");
+  canvas.width = texture.width;
+  canvas.height = texture.height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Unable to create a PNG canvas.");
+  const rgba = new Uint8ClampedArray(texture.width * texture.height * 4);
+  rgba.set(texture.rgba.subarray(0, rgba.length));
+  context.putImageData(new ImageData(rgba, texture.width, texture.height), 0, 0);
+  const blob = await canvasToPngBlob(canvas);
+  downloadBlob(blob, `spa_${state.selectedSpaId}_texture_${texture.index}.png`);
+}
+
 async function importSelectedArchive(state: State, file: File): Promise<void> {
   if (state.selectedSpaId === undefined) return;
   try {
@@ -1012,6 +1041,26 @@ async function importSelectedArchive(state: State, file: File): Promise<void> {
     state.status = undefined;
   }
   render(state);
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Unable to encode texture PNG."));
+    }, "image/png");
+  });
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function downloadBytes(bytes: Uint8Array, filename: string): void {

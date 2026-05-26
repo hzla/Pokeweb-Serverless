@@ -257,8 +257,88 @@ img[src*="pokesprite/"] {
   padding-left: 20px;
 }
 
+.changelog-entry-row {
+  align-items: start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.changelog-entry-row > span {
+  min-width: 0;
+}
+
+.changelog-undo-btn {
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 4px;
+  color: #f2f2f2;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 8px;
+}
+
+.changelog-undo-btn:hover {
+  border-color: #bd93f9;
+  color: #bd93f9;
+}
+
 .changelog-changed {
   color: #8be9fd;
+}
+
+.export-changelog-dialog {
+  align-items: center;
+  background: rgba(17, 20, 30, 0.72);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.export-changelog-dialog__panel {
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  color: #f2f2f2;
+  display: grid;
+  gap: 14px;
+  max-width: 460px;
+  padding: 20px;
+  width: 100%;
+}
+
+.export-changelog-dialog__panel h2 {
+  font-size: 24px;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.export-changelog-dialog__panel p {
+  color: #bbb;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.export-changelog-dialog__option {
+  align-items: center;
+  color: #dbe1f2;
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.export-changelog-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .changelog-empty {

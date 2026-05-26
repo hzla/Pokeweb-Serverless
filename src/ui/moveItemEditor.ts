@@ -2,11 +2,16 @@ import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import movieIconUrl from "../assets/svgs/movie.png";
 import { PROPERTIES, TYPES, CATEGORIES } from "../pokeweb/constants";
 import {
+  decompileMoveAnimation,
+  hasMoveAnimationScript,
+} from "../pokeweb/moveAnimationModel";
+import {
   getItemCount,
   getItemRecord,
   getMoveAutofills,
   getMoveCount,
   getMoveRecord,
+  EFFECTS,
   ITEM_FIELD_LABELS,
   ITEM_PACKED_FIELDS,
   MOVE_EFFECT_FIELDS,
@@ -18,7 +23,7 @@ import {
 } from "../pokeweb/moveItemModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
-import { attachItemInteractions, attachMoveInteractions } from "./moveItemInteractions";
+import { attachItemInteractions, attachMoveInteractions, installMoveAnimationEditor, renderMoveAnimationEditor } from "./moveItemInteractions";
 import { publicAsset } from "../assetUrl";
 
 type ItemFieldSpec = readonly [field: string, max: number];
@@ -86,7 +91,13 @@ const ITEM_DETAIL_SECTIONS: Array<{ title: string; fields: readonly ItemFieldSpe
   },
 ];
 
-export function renderMoveEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onTestMove?: (moveId: number, scriptText: string) => Promise<void>): void {
+export function renderMoveEditor(
+  project: ProjectState,
+  root: HTMLElement,
+  onDirty?: () => void,
+  onTestMove?: (moveId: number, scriptText: string) => Promise<void>,
+  onOpenMoveAnimation?: (moveId: number) => void,
+): void {
   root.innerHTML = `
     <div class="pokemon-filter move-filter">
       <div class="filter-title">Search Text</div>
@@ -108,7 +119,7 @@ export function renderMoveEditor(project: ProjectState, root: HTMLElement, onDir
           <div class="move-name" data-narc="learnset">Name</div>
           <div class="move-type">Type</div>
           <div class="move-cat" data-field-name="category">Category</div>
-          <div class="move-effect">Effect</div>
+          <div class="move-effect">AI Effect Handler</div>
           <div class="move-power">Pow</div>
           <div class="move-accuracy">Acc</div>
         </div>
@@ -120,9 +131,99 @@ export function renderMoveEditor(project: ProjectState, root: HTMLElement, onDir
   attachMoveInteractions(root, project, {
     onDirty,
     onTestMove,
+    onOpenMoveAnimation,
     autofills: getMoveAutofills(),
     renderExpanded: (moveId) => renderMoveExpanded(getMoveRecord(project, moveId)),
   });
+}
+
+export function renderMoveAnimationPage(
+  project: ProjectState,
+  root: HTMLElement,
+  moveId: number,
+  onDirty?: () => void,
+  onTestMove?: (moveId: number, scriptText: string) => Promise<void>,
+  onBack?: () => void,
+  onOpenMoveAnimation?: (moveId: number) => void,
+): void {
+  if (!Number.isSafeInteger(moveId) || moveId < 0 || moveId >= getMoveCount(project)) {
+    root.innerHTML = `
+      <aside class="pokemon-filter move-animation-sidebar">
+        <button class="btn -default move-animation-back" type="button">Back to Moves</button>
+        <div class="move-command-reference" id="move-command-reference">
+          <div class="move-command-reference-empty">Click a script command to view its parameters here.</div>
+        </div>
+      </aside>
+      <main class="pokemon-list pokemon-move-list spreadsheet move-animation-page" id="moves">
+        <div class="move-animation-page-header">
+          <div>
+            <div class="move-animation-page-kicker">Move ${escapeHtml(String(moveId))}</div>
+            <h2>Move Animation</h2>
+          </div>
+        </div>
+        <div class="move-animation-editor show-flex">
+          <div class="move-animation-error">Move ${escapeHtml(String(moveId))} could not be loaded.</div>
+        </div>
+      </main>
+    `;
+    root.querySelector<HTMLButtonElement>(".move-animation-back")?.addEventListener("click", () => onBack?.());
+    return;
+  }
+  const move = getMoveRecord(project, moveId);
+  const moveName = titleize(String(move.readable.name ?? `Move ${moveId}`));
+  const canTestMoveAnimation = hasMoveAnimationScript(project, moveId) && onTestMove !== undefined;
+  root.innerHTML = `
+    <aside class="pokemon-filter move-animation-sidebar">
+      <button class="btn -default move-animation-back" type="button">Back to Moves</button>
+      <label class="move-animation-move-select">
+        <span>Move</span>
+        <select id="move-animation-move-select">
+          ${renderMoveAnimationMoveOptions(project, moveId)}
+        </select>
+      </label>
+      <button class="btn -default move-animation-test-btn" type="button" ${canTestMoveAnimation ? "" : "disabled"}>Test in Game</button>
+      <div class="move-command-reference" id="move-command-reference">
+        <div class="move-command-reference-empty">Click a script command to view its parameters here.</div>
+      </div>
+    </aside>
+    <main class="pokemon-list pokemon-move-list spreadsheet move-animation-page" id="moves">
+      <div class="move-animation-page-header">
+        <div>
+          <div class="move-animation-page-kicker">Move ${moveId}</div>
+          <h2>${escapeHtml(moveName)} Animation</h2>
+        </div>
+      </div>
+      <div class="move-animation-editor show-flex"></div>
+    </main>
+  `;
+  root.querySelector<HTMLButtonElement>(".move-animation-back")?.addEventListener("click", () => onBack?.());
+  root.querySelector<HTMLSelectElement>("#move-animation-move-select")?.addEventListener("change", (event) => {
+    const nextMoveId = Number((event.currentTarget as HTMLSelectElement).value);
+    if (Number.isSafeInteger(nextMoveId)) onOpenMoveAnimation?.(nextMoveId);
+  });
+  const panel = root.querySelector<HTMLElement>(".move-animation-editor");
+  if (!panel) return;
+  if (!hasMoveAnimationScript(project, moveId)) {
+    panel.innerHTML = `<div class="move-animation-error">Move animation NARCs were not loaded for this ROM session.</div>`;
+    return;
+  }
+  try {
+    const script = decompileMoveAnimation(project, moveId);
+    panel.innerHTML = renderMoveAnimationEditor(script);
+    installMoveAnimationEditor(panel, project, moveId, { onDirty, onTestMove });
+  } catch (error) {
+    panel.innerHTML = `<div class="move-animation-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
+  }
+}
+
+function renderMoveAnimationMoveOptions(project: ProjectState, selectedMoveId: number): string {
+  const options: string[] = [];
+  for (let id = 0; id < getMoveCount(project); id += 1) {
+    const move = getMoveRecord(project, id);
+    const name = titleize(String(move.readable.name ?? `Move ${id}`));
+    options.push(`<option value="${id}" ${id === selectedMoveId ? "selected" : ""}>${id} - ${escapeHtml(name)}</option>`);
+  }
+  return options.join("");
 }
 
 export function renderItemEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
@@ -173,13 +274,24 @@ function renderMoveRow(move: MoveRecord): string {
         <div class="move-cat" data-field-name="category" data-narc="move">
           ${renderCategoryImages(category)}
         </div>
-        ${editable("move", "effect", move.readable.effect, "move-effect", { autofill: "effects" })}
+        ${renderMoveEffectField(move)}
         ${editable("move", "power", move.readable.power, "move-power", { type: "int-255" })}
         ${editable("move", "accuracy", move.readable.accuracy, "move-accuracy", { type: "int-101" })}
         <div class="move-info expand-action expand-move svg no-fill" data-expand="move">${miscDataIcon}</div>
         <button class="move-animation-row-toggle" type="button" title="Edit animation and particles"><img src="${movieIconUrl}" alt="Edit animation"></button>
       </div>
-      <div class="move-animation-editor" data-loaded="false"></div>
+    </div>
+  `;
+}
+
+function renderMoveEffectField(move: MoveRecord): string {
+  return `
+    <div class="move-effect">
+      ${editable("move", "effect", move.readable.effect, "move-effect-name", { autofill: "effects" })}
+      <label class="move-effect-id">
+        <span>ID</span>
+        <input class="move-effect-id-input" type="number" inputmode="numeric" min="0" max="${EFFECTS.length - 1}" value="${escapeHtml(String(move.raw.effect ?? 0))}">
+      </label>
     </div>
   `;
 }

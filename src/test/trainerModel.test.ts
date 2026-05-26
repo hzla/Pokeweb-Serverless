@@ -139,8 +139,9 @@ describe("trainerModel", () => {
     const copiedTexts = getTrainerTextLines(project, 2);
     expect(copiedTexts.find((line) => line.typeId === 0)).toMatchObject({ value: "Battle start", exists: true });
     expect(copiedTexts.find((line) => line.typeId === 1)).toMatchObject({ value: "Battle loss", exists: true });
-    expect(readU16(project.narcs.trtext_table!.rawFiles[0], 4)).toBe(12);
-    expect(readU16(project.narcs.trtext_offsets!.rawFiles[0], 12)).toBe(2);
+    expect(readU16(project.narcs.trtext_offsets!.rawFiles[0], 4)).toBe(12);
+    expect(readU16(project.narcs.trtext_table!.rawFiles[0], 12)).toBe(2);
+    expect(readU16(project.narcs.trtext_table!.rawFiles[0], 14)).toBe(0);
   });
 
   it("calculates Gen V trainer Pokemon natures with the old PID algorithm", () => {
@@ -168,8 +169,9 @@ describe("trainerModel", () => {
       value: "Field defeat",
       exists: true,
     });
-    expect(readU16(project.narcs.trtext_offsets!.rawFiles[0], 10)).toBe(2);
-    expect(readU16(project.narcs.trtext_table!.rawFiles[0], 4)).toBe(12);
+    expect(readU16(project.narcs.trtext_offsets!.rawFiles[0], 4)).toBe(12);
+    expect(readU16(project.narcs.trtext_table!.rawFiles[0], 8)).toBe(1);
+    expect(readU16(project.narcs.trtext_table!.rawFiles[0], 10)).toBe(2);
 
     updateTrainerText(project, 1, 1, "");
     const bank = decodeGen5TextBank(project.narcs.message_texts!.rawFiles[381]);
@@ -268,9 +270,8 @@ function addTrainerTextFixtures(project: ProjectState): void {
   project.narcs.message_texts = makeStore("message_texts", rawFiles, rawFiles.length);
   project.texts.messageTexts = messageTexts;
 
-  // In BW2, a/0/9/0 is the line table and a/0/8/9 is the accelerator offset table.
-  project.narcs.trtext_offsets = makeStore("trtext_offsets", [packLineTable([[1, 0], [1, 1], [4, 0]])], 1, "a/0/9/0");
-  project.narcs.trtext_table = makeStore("trtext_table", [packOffsets([0, 0, 8, 8, 8])], 1, "a/0/8/9");
+  project.narcs.trtext_table = makeStore("trtext_table", [packLineTable([[1, 0], [1, 1], [4, 0]])], 1, "a/0/8/9");
+  project.narcs.trtext_offsets = makeStore("trtext_offsets", [packOffsets([0, 0, 8, 8, 8])], 1, "a/0/9/0");
 }
 
 function makeStore(name: NarcName, data: Uint8Array | Uint8Array[], count: number, sourcePath = "test"): NarcStore {

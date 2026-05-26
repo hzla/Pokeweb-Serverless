@@ -21,7 +21,7 @@ import { MANDATORY_NARCS, SELECTABLE_NARCS, type NarcName } from "./pokeweb/cons
 import { NARC } from "./nds/narc";
 import { NintendoDSRom } from "./nds/rom";
 import { generateChangelogFromRomFiles } from "./pokeweb/changelogModel";
-import { ensureActionChangelog, resetActionChangelog } from "./pokeweb/actionChangelog";
+import { ensureActionChangelog, renderActionChangelogText, resetActionChangelog } from "./pokeweb/actionChangelog";
 import { exportModifiedRom } from "./pokeweb/exportRom";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
@@ -36,7 +36,8 @@ import { renderFileSystemEditor } from "./ui/fileSystemEditor";
 import { renderPatchesEditor } from "./ui/patchesEditor";
 import { renderHeaderEditor } from "./ui/headerEditor";
 import { renderEncounterEditor } from "./ui/encounterEditor";
-import { renderItemEditor, renderMoveEditor } from "./ui/moveItemEditor";
+import { renderItemEditor, renderMoveAnimationPage, renderMoveEditor } from "./ui/moveItemEditor";
+import { renderMoveEffectHandlerEditor } from "./ui/moveEffectHandlerEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
 import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
 import { renderStarterEditor } from "./ui/starterEditor";
@@ -72,9 +73,11 @@ type AppRoute =
   | "wbtFacilities"
   | "encounters"
   | "moves"
+  | "moveAnimation"
   | "items"
   | "tms"
   | "types"
+  | "moveEffectHandlers"
   | "marts"
   | "grottos"
   | "grottoOdds"
@@ -86,6 +89,7 @@ type AppRoute =
 type AppHistoryState = {
   route: AppRoute;
   overworldId?: number;
+  moveAnimationMoveId?: number;
   pokemonSpriteSpeciesId?: number;
   pokemonSpriteFormIndex?: number;
 };
@@ -104,6 +108,8 @@ type SaveFilePickerOptionsLike = {
 };
 const ROUTE_KEY = "pokeweb-serverless-route";
 const OVERWORLD_ROUTE_KEY = "pokeweb-serverless-overworld-id";
+const MOVE_ANIMATION_ROUTE_KEY = "pokeweb-serverless-move-animation-id";
+const HIDE_EXPORT_CHANGELOG_PROMPT_KEY = "pokeweb-hide-export-changelog-prompt";
 
 const APP_ROUTES: AppRoute[] = [
   "upload",
@@ -121,9 +127,11 @@ const APP_ROUTES: AppRoute[] = [
   "wbtFacilities",
   "encounters",
   "moves",
+  "moveAnimation",
   "items",
   "tms",
   "types",
+  "moveEffectHandlers",
   "marts",
   "grottos",
   "grottoOdds",
@@ -145,9 +153,11 @@ const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "c
   wbtFacilities: ["moves", "items"],
   encounters: ["encounters"],
   moves: ["moves"],
+  moveAnimation: ["moves"],
   items: ["items"],
   tms: ["moves"],
   types: [],
+  moveEffectHandlers: ["moves"],
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
   storyText: ["story_texts"],
@@ -242,6 +252,7 @@ const appRoot = app;
 let project: ProjectState | undefined;
 let route: AppRoute = "upload";
 let activeOverworldId: number | undefined;
+let activeMoveAnimationMoveId: number | undefined;
 let activePokemonSpriteSpeciesId: number | undefined;
 let activePokemonSpriteFormIndex = 0;
 let dirty = false;
@@ -270,10 +281,11 @@ async function boot(): Promise<void> {
   }
   const initialState = routeStateFromUrl() ?? routeStateFromStorage();
   activeOverworldId = initialState.overworldId;
+  activeMoveAnimationMoveId = initialState.moveAnimationMoveId;
   activePokemonSpriteSpeciesId = initialState.pokemonSpriteSpeciesId;
   activePokemonSpriteFormIndex = initialState.pokemonSpriteFormIndex ?? 0;
   route = project ? initialState.route : "upload";
-  if (project && route === "upload" && !window.location.hash) route = "headers";
+  if (project && route === "upload" && !window.location.hash) route = defaultLoadedRoute();
   route = safeRoute(route);
   syncRouteStorage();
   syncBrowserHistory(true);
@@ -467,7 +479,16 @@ function renderApp(): void {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
-    }, (moveId, scriptText) => launchMoveTestBattle(moveId, scriptText));
+    }, (moveId, scriptText) => launchMoveTestBattle(moveId, scriptText), openMoveAnimation);
+    return;
+  }
+
+  if (route === "moveAnimation") {
+    renderMoveAnimationPage(project, content, activeMoveAnimationMoveId ?? 0, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    }, (moveId, scriptText) => launchMoveTestBattle(moveId, scriptText), () => navigate("moves"), openMoveAnimation);
     return;
   }
 
@@ -491,6 +512,15 @@ function renderApp(): void {
 
   if (route === "types") {
     renderTypeChartEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
+  if (route === "moveEffectHandlers") {
+    renderMoveEffectHandlerEditor(project, content, () => {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
@@ -615,7 +645,6 @@ function renderNav(): string {
         ${navItem("headers", "Headers & Overworlds")}
         ${navItem("maps3d", "Maps")}
         ${navItem("pokemon", "Pokemon")}
-        ${navItem("starters", "Starters")}
         ${navItem("trainers", "Trainers")}
         ${renderFacilitiesMenu()}
         ${navItem("encounters", "Encounters")}
@@ -625,11 +654,11 @@ function renderNav(): string {
         ${bw2Links}
         ${navItem("storyText", "Story Text")}
         ${navItem("infoText", "Info Text")}
-        ${navItem("docGenerators", "Doc Generators")}
         ${renderMoreMenu()}
       </div>
       <div class="header-status" id="header-status">${dirty ? renderDirtyIndicatorLink() : ""}</div>
       <div class="header-right">
+        ${navItem("docGenerators", "Doc Generators")}
         <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true" ${
           hasExportBase ? "" : `title="Reload the ROM before exporting this older saved project"`
         }>Export</a>
@@ -641,7 +670,9 @@ function renderNav(): string {
 
 function renderMoreMenu(): string {
   const moreRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
+    ["starters", "Starters"],
     ["types", "Type Chart"],
+    ["moveEffectHandlers", "Move Effect Handlers"],
     ["changelog", "Changelog"],
     ["patches", "Patches"],
     ["codeInjection", "Code Injection"],
@@ -678,7 +709,12 @@ function attachNav(): void {
   appRoot.querySelectorAll<HTMLAnchorElement>("[data-route]").forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
-      navigate(link.dataset.route as AppRoute);
+      const nextRoute = link.dataset.route as AppRoute;
+      if (nextRoute === "upload") {
+        void handleNewProjectClick();
+        return;
+      }
+      navigate(nextRoute);
     });
   });
 
@@ -706,6 +742,20 @@ function attachNav(): void {
   });
 }
 
+async function handleNewProjectClick(): Promise<void> {
+  if (!project) {
+    navigate("upload");
+    return;
+  }
+  if (hasAnyRomChanges(project)) {
+    const confirmed = window.confirm(
+      "Start a new ROM project?\n\nThis will wipe all saved Pokeweb data for the current ROM from this browser. Export the edited ROM first if you have not already saved your changes.",
+    );
+    if (!confirmed) return;
+  }
+  applyRouteState({ route: "upload" }, { clearProject: true });
+}
+
 async function downloadRom(): Promise<void> {
   if (!project) return;
   const link = appRoot.querySelector<HTMLAnchorElement>("[data-export-rom]");
@@ -724,13 +774,16 @@ async function downloadRom(): Promise<void> {
     const saveHandle = await chooseRomSaveTargetForPreparedDownload(filename);
     if (saveHandle === null) return;
     saveStarted = true;
+    let successMessage: string;
     if (saveHandle) {
       await writeBlobToSaveHandle(saveHandle, blob);
-      window.alert(`ROM saved successfully:\n\n${filename}`);
+      successMessage = `ROM saved successfully:\n\n${filename}`;
     } else {
       downloadBlob(blob, filename);
-      window.alert(`ROM export started:\n\n${filename}`);
+      successMessage = `ROM export started:\n\n${filename}`;
     }
+    await maybeOfferChangelogExport(filename);
+    window.alert(successMessage);
     dirty = false;
     renderDirtyIndicator();
   } catch (error) {
@@ -742,6 +795,53 @@ async function downloadRom(): Promise<void> {
       link.classList.toggle("disabled", !hasExportBase);
     }
   }
+}
+
+async function maybeOfferChangelogExport(romFilename: string): Promise<void> {
+  if (!project) return;
+  if (window.localStorage.getItem(HIDE_EXPORT_CHANGELOG_PROMPT_KEY) === "true") return;
+  const state = ensureActionChangelog(project);
+  if (state.entries.length === 0) return;
+  const shouldExport = await showExportChangelogPrompt();
+  if (!shouldExport) return;
+  const baseName = romFilename.replace(/\.[^.]+$/u, "");
+  downloadSharedTextFile(`${baseName}-changelog.txt`, renderActionChangelogText(project));
+}
+
+function showExportChangelogPrompt(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const dialog = document.createElement("div");
+    dialog.className = "export-changelog-dialog";
+    dialog.innerHTML = `
+      <div class="export-changelog-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="export-changelog-title">
+        <h2 id="export-changelog-title">Export changelog?</h2>
+        <p>Your edited ROM export is ready. You can also download a text changelog for this editing session.</p>
+        <label class="export-changelog-dialog__option">
+          <input id="hide-export-changelog-prompt" type="checkbox">
+          <span>Do not ask on future ROM exports</span>
+        </label>
+        <div class="export-changelog-dialog__actions">
+          <button class="btn -default" id="skip-changelog-export" type="button">Skip</button>
+          <button class="btn -default" id="confirm-changelog-export" type="button">Export Changelog</button>
+        </div>
+      </div>
+    `;
+
+    const finish = (exportChangelog: boolean) => {
+      const hide = dialog.querySelector<HTMLInputElement>("#hide-export-changelog-prompt")?.checked ?? false;
+      if (hide) window.localStorage.setItem(HIDE_EXPORT_CHANGELOG_PROMPT_KEY, "true");
+      dialog.remove();
+      resolve(exportChangelog);
+    };
+
+    dialog.querySelector<HTMLButtonElement>("#confirm-changelog-export")?.addEventListener("click", () => finish(true));
+    dialog.querySelector<HTMLButtonElement>("#skip-changelog-export")?.addEventListener("click", () => finish(false));
+    dialog.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") finish(false);
+    });
+    document.body.append(dialog);
+    dialog.querySelector<HTMLButtonElement>("#confirm-changelog-export")?.focus();
+  });
 }
 
 async function launchTestBattle(trainerId: number, showdownText = ""): Promise<void> {
@@ -852,6 +952,11 @@ function navigate(nextRoute: AppRoute): void {
 function openOverworld(overworldId: number): void {
   if (!canVisit("overworlds")) return;
   applyRouteState({ route: "overworlds", overworldId });
+}
+
+function openMoveAnimation(moveId: number): void {
+  if (!canVisit("moveAnimation")) return;
+  applyRouteState({ route: "moveAnimation", moveAnimationMoveId: moveId });
 }
 
 function openPokemonSprites(speciesId: number, formIndex = 0): void {
@@ -1011,7 +1116,7 @@ function renderUpload(root: HTMLElement): void {
       dirty = false;
       await saveActiveProject(project);
       hasExportBase = true;
-      applyRouteState({ route: "headers" });
+      applyRouteState({ route: defaultLoadedRoute() });
     } catch (error) {
       statusText(status, error instanceof Error ? error.message : String(error));
     }
@@ -1137,6 +1242,16 @@ function getSelectedNarcs(root: HTMLElement): NarcName[] {
   return [...selected];
 }
 
+function hasAnyRomChanges(currentProject: ProjectState): boolean {
+  if (dirty || currentProject.arm9Dirty || currentProject.tms?.dirty) return true;
+  if ((currentProject.actionChangelog?.entries.length ?? 0) > 0) return true;
+  if (Object.values(currentProject.narcs).some((store) => (store?.dirty.size ?? 0) > 0)) return true;
+  if (currentProject.fileSystem && (Object.keys(currentProject.fileSystem.replacements).length > 0 || Object.keys(currentProject.fileSystem.additions ?? {}).length > 0)) return true;
+  if ((currentProject.starters?.dirtyOverlayIds.length ?? 0) > 0) return true;
+  if ((currentProject.patches?.dirtyOverlayIds.length ?? 0) > 0) return true;
+  return false;
+}
+
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (!project) return false;
   if (nextRoute === "changelog") return true;
@@ -1146,6 +1261,9 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
+  if (nextRoute === "moveEffectHandlers") {
+    return project.session.baseRom === "BW2" && Boolean(project.narcs.moves) && Boolean(project.narcs.move_effects_table || project.overlays[167]);
+  }
   if (nextRoute === "facilities" && project.session.baseRom !== "BW2") return false;
   if (nextRoute === "facilities") {
     const hasFacilityData = Boolean(project.narcs.subway_sets || project.narcs.pwt_sets_0 || project.narcs.pwt_sets_3 || project.narcs.pwt_sets_6 || project.narcs.pwt_sets_7);
@@ -1191,12 +1309,14 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
         : nextRoute === "types"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
+        : nextRoute === "moveEffectHandlers"
+          ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the effect handler table" : "Move effect handlers are currently BW2-only"}"`
         : nextRoute === "facilities"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves, Items, and at least one facility set NARC" : "Battle facility editing is currently BW2-only"}"`
         : nextRoute === "wbtFacilities"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves, Items, and Black Tower / White Treehollow facility NARCs" : "Battle facility editing is currently BW2-only"}"`
           : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
-  const active = route === nextRoute || (nextRoute === "headers" && route === "overworlds");
+  const active = route === nextRoute || (nextRoute === "headers" && route === "overworlds") || (nextRoute === "moves" && route === "moveAnimation");
   return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute)}" ${enabled ? `data-route="${nextRoute}"` : ""}${missing}>${label}</a>`;
 }
 
@@ -1204,8 +1324,14 @@ function safeRoute(nextRoute: AppRoute): AppRoute {
   if (!project || nextRoute === "upload" || nextRoute === "debugNarcs") return nextRoute;
   if (nextRoute === "grottoOdds") return canVisit("grottos") ? nextRoute : safeRoute("grottos");
   if (nextRoute === "overworlds" && activeOverworldId === undefined) return safeRoute("headers");
+  if (nextRoute === "moveAnimation" && activeMoveAnimationMoveId === undefined) return safeRoute("moves");
   if (nextRoute === "pokemonSprites" && activePokemonSpriteSpeciesId === undefined) return safeRoute("pokemon");
   if (canVisit(nextRoute)) return nextRoute;
+  return canVisit("headers") ? "headers" : "debugNarcs";
+}
+
+function defaultLoadedRoute(): AppRoute {
+  if (project?.narcs.personal && canVisit("pokemon")) return "pokemon";
   return canVisit("headers") ? "headers" : "debugNarcs";
 }
 
@@ -1228,6 +1354,7 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   }
 
   activeOverworldId = nextState.overworldId;
+  activeMoveAnimationMoveId = nextState.moveAnimationMoveId;
   activePokemonSpriteSpeciesId = nextState.pokemonSpriteSpeciesId;
   activePokemonSpriteFormIndex = nextState.pokemonSpriteFormIndex ?? 0;
   route = safeRoute(project ? requestedRoute : "upload");
@@ -1241,23 +1368,27 @@ function syncRouteStorage(): void {
   window.localStorage.setItem(ROUTE_KEY, route);
   if (activeOverworldId !== undefined) window.localStorage.setItem(OVERWORLD_ROUTE_KEY, String(activeOverworldId));
   else window.localStorage.removeItem(OVERWORLD_ROUTE_KEY);
+  if (activeMoveAnimationMoveId !== undefined) window.localStorage.setItem(MOVE_ANIMATION_ROUTE_KEY, String(activeMoveAnimationMoveId));
+  else window.localStorage.removeItem(MOVE_ANIMATION_ROUTE_KEY);
 }
 
 function syncBrowserHistory(replace: boolean): void {
   const state = currentHistoryState();
-  const url = routeUrl(state.route, state.overworldId);
+  const url = routeUrl(state.route, state.overworldId, state.moveAnimationMoveId);
   if (replace) window.history.replaceState(state, "", url);
   else window.history.pushState(state, "", url);
 }
 
 function currentHistoryState(): AppHistoryState {
   if (route === "overworlds") return { route, overworldId: activeOverworldId };
+  if (route === "moveAnimation") return { route, moveAnimationMoveId: activeMoveAnimationMoveId };
   if (route === "pokemonSprites") return { route, pokemonSpriteSpeciesId: activePokemonSpriteSpeciesId, pokemonSpriteFormIndex: activePokemonSpriteFormIndex };
   return { route };
 }
 
-function routeUrl(nextRoute: AppRoute, overworldId = activeOverworldId): string {
+function routeUrl(nextRoute: AppRoute, overworldId = activeOverworldId, moveAnimationMoveId = activeMoveAnimationMoveId): string {
   if (nextRoute === "overworlds" && overworldId !== undefined) return `#overworlds/${overworldId}`;
+  if (nextRoute === "moveAnimation" && moveAnimationMoveId !== undefined) return `#moveAnimation/${moveAnimationMoveId}`;
   if (nextRoute === "pokemonSprites" && activePokemonSpriteSpeciesId !== undefined) {
     return `#pokemonSprites/${activePokemonSpriteSpeciesId}/${activePokemonSpriteFormIndex}`;
   }
@@ -1274,6 +1405,7 @@ function routeStateFromUrl(): AppHistoryState | undefined {
   return {
     route: routeName,
     overworldId: routeName === "overworlds" && Number.isSafeInteger(id) ? id : undefined,
+    moveAnimationMoveId: routeName === "moveAnimation" && Number.isSafeInteger(id) ? id : undefined,
     pokemonSpriteSpeciesId: routeName === "pokemonSprites" && Number.isSafeInteger(id) ? id : undefined,
     pokemonSpriteFormIndex: routeName === "pokemonSprites" && Number.isSafeInteger(formIndex) ? formIndex : undefined,
   };
@@ -1283,9 +1415,12 @@ function routeStateFromStorage(): AppHistoryState {
   const savedRoute = window.localStorage.getItem(ROUTE_KEY);
   const routeName = isAppRoute(savedRoute) ? savedRoute : project ? "headers" : "upload";
   const savedOverworldId = Number(window.localStorage.getItem(OVERWORLD_ROUTE_KEY));
+  const savedMoveAnimationMoveIdText = window.localStorage.getItem(MOVE_ANIMATION_ROUTE_KEY);
+  const savedMoveAnimationMoveId = savedMoveAnimationMoveIdText === null ? undefined : Number(savedMoveAnimationMoveIdText);
   return {
     route: routeName,
     overworldId: Number.isSafeInteger(savedOverworldId) ? savedOverworldId : undefined,
+    moveAnimationMoveId: Number.isSafeInteger(savedMoveAnimationMoveId) ? savedMoveAnimationMoveId : undefined,
   };
 }
 
@@ -1296,6 +1431,7 @@ function routeStateFromHistory(value: unknown): AppHistoryState | undefined {
   return {
     route: maybe.route,
     overworldId: Number.isSafeInteger(maybe.overworldId) ? maybe.overworldId : undefined,
+    moveAnimationMoveId: Number.isSafeInteger(maybe.moveAnimationMoveId) ? maybe.moveAnimationMoveId : undefined,
     pokemonSpriteSpeciesId: Number.isSafeInteger(maybe.pokemonSpriteSpeciesId) ? maybe.pokemonSpriteSpeciesId : undefined,
     pokemonSpriteFormIndex: Number.isSafeInteger(maybe.pokemonSpriteFormIndex) ? maybe.pokemonSpriteFormIndex : undefined,
   };

@@ -4,6 +4,7 @@ import { NintendoDSRom } from "../nds/rom";
 import type { NarcName } from "./constants";
 import { loadActiveRomBytes } from "./persistence";
 import { materializeMap3dAreaEdits } from "./map3dModel";
+import { repairLegacyMoveAnimationArchives } from "./moveAnimationModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { fileSystemAddedFiles, fileSystemReplacementMap } from "./fileSystemModel";
 import { buildCodeInjectionOverlayTable } from "./pmcModel";
@@ -23,6 +24,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   if (!originalRomBytes) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
   materializeProjectEdits(project);
+  repairLegacyMoveAnimationArchives(project);
 
   const rom = new NintendoDSRom(originalRomBytes);
   const fileReplacements = new Map<number, Uint8Array>();

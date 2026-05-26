@@ -121,6 +121,11 @@ export function getNarcFormats(baseRom: BaseRom): NarcFormatMap {
     [2, `lvl_learned_${n}`],
   ]);
 
+  formats.move_effects_table = range(258, (n) => [
+    [4, `move_id_${n}`],
+    [4, `address_${n}`],
+  ]);
+
   formats.evolutions = range(7, (n) => [
     [2, `method_${n}`],
     [2, `param_${n}`],

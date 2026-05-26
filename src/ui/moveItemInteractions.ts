@@ -3,13 +3,14 @@ import {
   getMoveRecord,
   itemMatchesSearch,
   moveMatchesSearch,
+  updateMoveEffectId,
   updateItemField,
   updateItemPackedField,
   updateMoveField,
   type FieldUpdateResult,
 } from "../pokeweb/moveItemModel";
 import { buildMoveAnimationPreview, loadMoveBackground, loadMoveSpaArchive } from "../pokeweb/moveAnimationPreviewModel";
-import { compileMoveAnimation, decompileMoveAnimation, decompileMoveAnimationBytes, hasMoveAnimationScript, updateMoveAnimationScript } from "../pokeweb/moveAnimationModel";
+import { compileMoveAnimation, decompileMoveAnimationBytes, updateMoveAnimationScript } from "../pokeweb/moveAnimationModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
@@ -17,9 +18,13 @@ import { installMoveAnimationPreview, renderMoveBackgroundPreviewCanvas, type Mo
 import { installMoveAnimationCodeEditor, type MoveAnimationCommandReference } from "./moveAnimationCodeEditor";
 import { installMoveSpaEditor, type MoveSpaEditorController } from "./moveSpaEditor";
 
-type MoveOptions = {
+export type MoveAnimationEditorOptions = {
   onDirty?: () => void;
   onTestMove?: (moveId: number, scriptText: string) => Promise<void>;
+};
+
+type MoveOptions = MoveAnimationEditorOptions & {
+  onOpenMoveAnimation?: (moveId: number) => void;
   autofills: Record<string, string[]>;
   renderExpanded: (moveId: number) => string;
 };
@@ -88,15 +93,9 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
       return;
     }
 
-    const animationToggle = target.closest<HTMLButtonElement>(".move-animation-toggle");
-    if (animationToggle) {
-      toggleMoveAnimationEditor(card, project, moveId, options);
-      return;
-    }
-
     const animationRowToggle = target.closest<HTMLButtonElement>(".move-animation-row-toggle");
     if (animationRowToggle) {
-      toggleMoveAnimationEditor(card, project, moveId, options);
+      options.onOpenMoveAnimation?.(moveId);
       return;
     }
 
@@ -114,40 +113,12 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
   runFilter();
 }
 
-function toggleMoveAnimationEditor(card: HTMLElement, project: ProjectState, moveId: number, options: MoveOptions): void {
-  const panel = card.querySelector<HTMLElement>(".move-animation-editor");
-  if (!panel) return;
-  if (panel.classList.contains("show-flex")) {
-    panel.dispatchEvent(new CustomEvent("move-animation-preview-close"));
-    panel.classList.remove("show-flex");
-    return;
-  }
-
-  if (panel.dataset.loaded !== "true") {
-    panel.dataset.loaded = "true";
-    if (!hasMoveAnimationScript(project, moveId)) {
-      panel.innerHTML = `<div class="move-animation-error">Move animation NARCs were not loaded for this ROM session.</div>`;
-    } else {
-      try {
-        const script = decompileMoveAnimation(project, moveId);
-        panel.innerHTML = renderMoveAnimationEditor(script);
-        installMoveAnimationEditor(panel, project, moveId, options);
-      } catch (error) {
-        panel.innerHTML = `<div class="move-animation-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
-      }
-    }
-  }
-
-  panel.classList.add("show-flex");
-}
-
-function renderMoveAnimationEditor(script: string): string {
+export function renderMoveAnimationEditor(script: string): string {
   return `
     <div class="move-animation-toolbar">
       <button class="script-btn move-animation-apply" type="button">Apply Script</button>
       <button class="script-btn move-animation-revert" type="button">Revert</button>
-      <button class="script-btn move-animation-preview-btn" type="button">Preview</button>
-      <button class="script-btn move-animation-test-btn" type="button">Test</button>
+      <button class="script-btn move-animation-preview-btn" type="button">Refresh Preview</button>
       <button class="script-btn move-animation-import-bin" type="button">Import Binary</button>
       <button class="script-btn move-animation-export-bin" type="button">Export Binary</button>
       <input class="move-animation-import-bin-file" type="file" accept=".bin,.dat,application/octet-stream" hidden>
@@ -158,42 +129,47 @@ function renderMoveAnimationEditor(script: string): string {
       <div class="move-animation-script-pane">
         <div class="move-animation-text"></div>
       </div>
-      <section class="move-animation-spa-pane" aria-label="SPA particle editor">
-        <div class="move-animation-spa-placeholder">
-          <h4>SPA Particle Editor</h4>
-          <p>Particle resource editing will live here.</p>
-          <div class="move-animation-spa-placeholder-grid">
-            <div>
-              <strong>Archives</strong>
-              <span>Referenced SPA files</span>
-            </div>
-            <div>
-              <strong>Emitters</strong>
-              <span>Particle timing and spawn controls</span>
-            </div>
-            <div>
-              <strong>Textures</strong>
-              <span>Palette and image previews</span>
-            </div>
-            <div>
-              <strong>Preview Sync</strong>
-              <span>Live updates beside the script</span>
+      <div class="move-animation-side-pane">
+        <div class="move-animation-preview-host show-flex">
+          <div class="move-animation-preview-loading">Building preview...</div>
+        </div>
+        <section class="move-animation-spa-pane" aria-label="SPA particle editor">
+          <div class="move-animation-spa-placeholder">
+            <h4>SPA Particle Editor</h4>
+            <p>Particle resource editing will live here.</p>
+            <div class="move-animation-spa-placeholder-grid">
+              <div>
+                <strong>Archives</strong>
+                <span>Referenced SPA files</span>
+              </div>
+              <div>
+                <strong>Emitters</strong>
+                <span>Particle timing and spawn controls</span>
+              </div>
+              <div>
+                <strong>Textures</strong>
+                <span>Palette and image previews</span>
+              </div>
+              <div>
+                <strong>Preview Sync</strong>
+                <span>Live updates beside the script</span>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
-    <div class="move-animation-preview-host"></div>
   `;
 }
 
-function installMoveAnimationEditor(panel: HTMLElement, project: ProjectState, moveId: number, options: MoveOptions): void {
+export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectState, moveId: number, options: MoveAnimationEditorOptions): void {
   const editorHost = panel.querySelector<HTMLElement>(".move-animation-text");
   const source = panel.querySelector<HTMLTextAreaElement>(".move-animation-source");
   const status = panel.querySelector<HTMLElement>(".move-animation-status");
   const previewHost = panel.querySelector<HTMLElement>(".move-animation-preview-host");
   const spaEditorHost = panel.querySelector<HTMLElement>(".move-animation-spa-pane");
   const commandReference = document.querySelector<HTMLElement>("#move-command-reference");
+  const testButton = document.querySelector<HTMLButtonElement>(".move-animation-test-btn");
   const editor = editorHost
     ? installMoveAnimationCodeEditor(editorHost, source?.value ?? "", {
         onCommandSelected: (reference) => renderCommandReference(commandReference, reference, project),
@@ -209,7 +185,38 @@ function installMoveAnimationEditor(panel: HTMLElement, project: ProjectState, m
     previewController = undefined;
     previewHost?.classList.remove("show-flex");
   };
+  const buildPreview = async (initialPlaying: boolean) => {
+    if (!editor || !previewHost) return;
+    closePreview();
+    previewHost.classList.add("show-flex");
+    previewHost.innerHTML = `<div class="move-animation-preview-loading">Building preview...</div>`;
+    if (status) {
+      status.textContent = "Loading preview";
+      status.classList.remove("-error");
+    }
+    try {
+      const scriptText = editor.getValue();
+      await spaEditor?.ensureReferences(scriptText);
+      const preview = await buildMoveAnimationPreview(project, moveId, scriptText, {
+        loadSpaArchive: async (_project, spaId) => spaEditor?.getArchiveOverride(spaId) ?? loadMoveSpaArchive(project, spaId),
+      });
+      previewController = await installMoveAnimationPreview(previewHost, preview, { initialPlaying });
+      editor.setInvalid(false);
+      if (status) {
+        status.textContent = "Preview ready";
+        status.classList.remove("-error");
+      }
+    } catch (error) {
+      previewHost.innerHTML = `<div class="move-animation-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
+      editor.setInvalid(true);
+      if (status) {
+        status.textContent = "Preview failed";
+        status.classList.add("-error");
+      }
+    }
+  };
   panel.addEventListener("move-animation-preview-close", closePreview);
+  void buildPreview(false);
   panel.querySelector<HTMLButtonElement>(".move-animation-apply")?.addEventListener("click", () => {
     if (!editor) return;
     try {
@@ -240,44 +247,14 @@ function installMoveAnimationEditor(panel: HTMLElement, project: ProjectState, m
     }
   });
   panel.querySelector<HTMLButtonElement>(".move-animation-preview-btn")?.addEventListener("click", async () => {
-    if (!editor || !previewHost) return;
-    closePreview();
-    previewHost.classList.add("show-flex");
-    previewHost.innerHTML = `<div class="move-animation-preview-loading">Building preview...</div>`;
-    if (status) {
-      status.textContent = "Loading preview";
-      status.classList.remove("-error");
-    }
-    try {
-      const scriptText = editor.getValue();
-      await spaEditor?.ensureReferences(scriptText);
-      const preview = await buildMoveAnimationPreview(project, moveId, scriptText, {
-        loadSpaArchive: async (_project, spaId) => spaEditor?.getArchiveOverride(spaId) ?? loadMoveSpaArchive(project, spaId),
-      });
-      previewController = await installMoveAnimationPreview(previewHost, preview);
-      editor.setInvalid(false);
-      if (status) {
-        status.textContent = "Preview ready";
-        status.classList.remove("-error");
-      }
-    } catch (error) {
-      previewHost.innerHTML = `<div class="move-animation-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
-      editor.setInvalid(true);
-      if (status) {
-        status.textContent = "Preview failed";
-        status.classList.add("-error");
-      }
-    }
+    await buildPreview(false);
   });
-  panel.querySelector<HTMLButtonElement>(".move-animation-test-btn")?.addEventListener("click", async () => {
+  testButton?.addEventListener("click", async () => {
     if (!editor || !options.onTestMove) return;
-    const button = panel.querySelector<HTMLButtonElement>(".move-animation-test-btn");
-    const previousText = button?.textContent ?? "Test";
+    const previousText = testButton.textContent ?? "Test in Game";
     try {
-      if (button) {
-        button.disabled = true;
-        button.textContent = "Building...";
-      }
+      testButton.disabled = true;
+      testButton.textContent = "Building...";
       if (status) {
         status.textContent = "Building test";
         status.classList.remove("-error");
@@ -296,10 +273,8 @@ function installMoveAnimationEditor(panel: HTMLElement, project: ProjectState, m
         status.classList.add("-error");
       }
     } finally {
-      if (button) {
-        button.disabled = false;
-        button.textContent = previousText;
-      }
+      testButton.disabled = false;
+      testButton.textContent = previousText;
     }
   });
   const importBinaryInput = panel.querySelector<HTMLInputElement>(".move-animation-import-bin-file");
@@ -510,6 +485,44 @@ function installMoveEditableFields(root: HTMLElement, project: ProjectState, opt
       initialValue = value;
     }, options.onDirty);
   });
+
+  root.querySelectorAll<HTMLInputElement>(".move-effect-id-input").forEach((input) => {
+    if (input.dataset.moveEffectIdInstalled === "true") return;
+    input.dataset.moveEffectIdInstalled = "true";
+    let initialValue = input.value.trim();
+    const commit = () => {
+      const card = input.closest<HTMLElement>(".move-card");
+      const moveId = Number(card?.dataset.index);
+      if (!card || !Number.isInteger(moveId)) return false;
+      const result = updateMoveEffectId(project, moveId, input.value.trim());
+      input.value = String(result.rawValue);
+      syncMoveRow(card, result, "effect");
+      return true;
+    };
+    input.addEventListener("focus", () => {
+      initialValue = input.value.trim();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+    input.addEventListener("change", () => {
+      const nextValue = input.value.trim();
+      if (nextValue === initialValue) return;
+      try {
+        if (commit()) {
+          input.classList.remove("invalid");
+          initialValue = input.value.trim();
+          options.onDirty?.();
+        }
+      } catch {
+        input.value = initialValue;
+        input.classList.add("invalid");
+      }
+    });
+  });
 }
 
 function installItemEditableFields(root: HTMLElement, project: ProjectState, options: ItemOptions): void {
@@ -618,6 +631,12 @@ function syncMoveRow(card: HTMLElement, result: FieldUpdateResult, fieldName: st
       image.classList.toggle("chosen", active);
       image.classList.toggle("unchosen", !active);
     });
+  }
+  if (fieldName === "effect") {
+    const effectName = card.querySelector<HTMLElement>("[contenteditable='true'][data-field-name='effect']");
+    if (effectName) effectName.textContent = String(result.value);
+    const effectId = card.querySelector<HTMLInputElement>(".move-effect-id-input");
+    if (effectId) effectId.value = String(result.rawValue);
   }
 }
 

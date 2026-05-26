@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { readU32 } from "../nds/binary";
+import { readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import type { NarcName } from "../pokeweb/constants";
-import { compileMoveAnimation, decompileMoveAnimation, decompileMoveAnimationBytes, updateMoveAnimationScript } from "../pokeweb/moveAnimationModel";
+import {
+  compileMoveAnimation,
+  decompileMoveAnimation,
+  decompileMoveAnimationBytes,
+  parseMoveAnimationScript,
+  repairLegacyMoveAnimationArchives,
+  repairMoveAnimationScriptBytes,
+  updateMoveAnimationScript,
+} from "../pokeweb/moveAnimationModel";
 import { updateMoveField } from "../pokeweb/moveItemModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
@@ -74,18 +82,37 @@ SCRIPT_B:
 `;
 
 describe("moveAnimationModel", () => {
-  it("compiles and decompiles old assembly-like move animation scripts", () => {
+  it("decompiles uniform one-script animations as a simple body", () => {
     const project = makeProject();
     const bytes = compileMoveAnimation(project, 1, SINGLE_SCRIPT);
     project.narcs.move_animations!.rawFiles[1] = bytes;
 
     const text = decompileMoveAnimation(project, 1);
 
-    expect(text).toContain(".word 1 @ Count");
+    expect(text).not.toContain(".word 1 @ Count");
+    expect(text).not.toContain("SCRIPT_60:");
     expect(text).toContain("MoveCamera 1, 11, 16, 0, 9");
     expect(text).toContain("LoadSPA 165");
     expect(text).toContain("TerminateMoveScript");
     expect([...compileMoveAnimation(project, 1, text)]).toEqual([...bytes]);
+  });
+
+  it("compiles simple body scripts by inferring the standard one-script header", () => {
+    const project = makeProject();
+    const body = `
+MoveCamera 1, 11, 16, 0, 9
+LoadSPA 165
+TerminateMoveScript
+`;
+
+    const bytes = compileMoveAnimation(project, 1, body);
+    const parsed = parseMoveAnimationScript(body);
+
+    expect(parsed.count).toBe(1);
+    expect(parsed.headerLabels).toHaveLength(14);
+    expect(new Set(parsed.headerLabels)).toEqual(new Set(["SCRIPT_60"]));
+    expect(parsed.labelOrder).toEqual(["SCRIPT_60"]);
+    expect([...bytes]).toEqual([...compileMoveAnimation(project, 1, SINGLE_SCRIPT)]);
   });
 
   it("decompiles raw move animation binary bytes for import/export flows", () => {
@@ -93,6 +120,7 @@ describe("moveAnimationModel", () => {
     const bytes = compileMoveAnimation(project, 1, SINGLE_SCRIPT);
     const text = decompileMoveAnimationBytes(bytes);
 
+    expect(text).not.toContain(".word 1 @ Count");
     expect(text).toContain("LoadSPA 165");
     expect([...compileMoveAnimation(project, 1, text)]).toEqual([...bytes]);
   });
@@ -168,27 +196,70 @@ describe("moveAnimationModel", () => {
     expect(readU32(bytes, headerLength + moveCameraLength + 2 + 4 * 4)).toBe(0x7c00);
   });
 
-  it("uses corrected argument counts for background helper commands", () => {
+  it("uses retail-accurate argument counts for BW2 effect VM commands", () => {
     const project = makeProject();
-    const script = SINGLE_SCRIPT.replace("LoadSPA 165", "DistortBackground 0, 1, 2, 3, 4, 5\n     BackgroundPaletteAnimation 4, 5");
+    const script = SINGLE_SCRIPT.replace(
+      "LoadSPA 165",
+      [
+        "DoSPAOrthoCircleAnimation 0, 1, 2, 3, 4, 5, 6, 7, 8, 9",
+        "     DistortBackground 10, 11, 12, 13, 14, 15",
+        "     BackgroundPaletteAnimation 16, 17",
+      ].join("\n     "),
+    );
     const bytes = compileMoveAnimation(project, 1, script);
     project.narcs.move_animations!.rawFiles[1] = bytes;
 
     const text = decompileMoveAnimation(project, 1);
 
-    expect(text).toContain("DistortBackground 0, 1, 2, 3, 4, 5");
-    expect(text).toContain("BackgroundPaletteAnimation 4, 5");
+    expect(text).toContain("DoSPAOrthoCircleAnimation 0, 1, 2, 3, 4, 5, 6, 7, 8, 9");
+    expect(text).toContain("DistortBackground 10, 11, 12, 13, 14, 15");
+    expect(text).toContain("BackgroundPaletteAnimation 16, 17");
+    expect(repairMoveAnimationScriptBytes(bytes)).toBe(bytes);
   });
 
-  it("accepts legacy four-argument DistortBackground scripts", () => {
+  it("accepts legacy text forms from older Pokeweb command counts", () => {
     const project = makeProject();
-    const script = SINGLE_SCRIPT.replace("LoadSPA 165", "DistortBackground 0, 1, 2, 3");
+    const script = SINGLE_SCRIPT.replace(
+      "LoadSPA 165",
+      [
+        "DoSPAOrthoCircleAnimation 0, 1, 2, 3, 4, 5, 6",
+        "     DistortBackground 7, 8, 9, 10",
+        "     BackgroundPaletteAnimation 11, 12, 13, 14, 15",
+      ].join("\n     "),
+    );
     const bytes = compileMoveAnimation(project, 1, script);
     project.narcs.move_animations!.rawFiles[1] = bytes;
 
     const text = decompileMoveAnimation(project, 1);
 
-    expect(text).toContain("DistortBackground 0, 1, 2, 3, 0, 0");
+    expect(text).toContain("DoSPAOrthoCircleAnimation 0, 1, 2, 3, 4, 5, 6, 0, 0, 0");
+    expect(text).toContain("DistortBackground 7, 8, 9, 10, 0, 0");
+    expect(text).toContain("BackgroundPaletteAnimation 11, 12");
+  });
+
+  it("repairs binary scripts exported with older Pokeweb command counts", () => {
+    const legacyBytes = compileLegacyMinimalScript([
+      { opcode: 17, params: [0, 1, 2, 3, 4, 5, 6] },
+      { opcode: 77, params: [] },
+    ]);
+
+    const repaired = repairMoveAnimationScriptBytes(legacyBytes);
+    const text = decompileMoveAnimationBytes(repaired);
+
+    expect(repaired.length).toBe(legacyBytes.length + 12);
+    expect(text).toContain("DoSPAOrthoCircleAnimation 0, 1, 2, 3, 4, 5, 6, 0, 0, 0");
+  });
+
+  it("repairs loaded move animation archives and marks changed files dirty", () => {
+    const project = makeProject();
+    project.narcs.move_animations!.rawFiles[1] = compileLegacyMinimalScript([{ opcode: 17, params: [1, 2, 3, 4, 5, 6, 7] }, { opcode: 77, params: [] }]);
+    project.narcs.battle_animations!.rawFiles[3] = compileLegacyMinimalScript([{ opcode: 17, params: [8, 9, 10, 11, 12, 13, 14] }, { opcode: 77, params: [] }]);
+
+    const summary = repairLegacyMoveAnimationArchives(project);
+
+    expect(summary).toEqual({ moveAnimations: 1, battleAnimations: 1 });
+    expect(project.narcs.move_animations?.dirty.has(1)).toBe(true);
+    expect(project.narcs.battle_animations?.dirty.has(3)).toBe(true);
   });
 
   it("updates and marks animation NARC subfiles dirty", () => {
@@ -288,5 +359,23 @@ function compileMinimalScript(): Uint8Array {
   out[0] = 1;
   for (let offset = 4; offset < 4 + 14 * 4; offset += 4) out[offset] = 60;
   out[4 + 14 * 4] = 77;
+  return out;
+}
+
+function compileLegacyMinimalScript(commands: Array<{ opcode: number; params: number[] }>): Uint8Array {
+  const bodyLength = commands.reduce((sum, command) => sum + 2 + command.params.length * 4, 0);
+  const headerLength = 4 + 14 * 4;
+  const out = new Uint8Array(headerLength + bodyLength);
+  writeU32(out, 0, 1);
+  for (let offset = 4; offset < headerLength; offset += 4) writeU32(out, offset, headerLength);
+  let cursor = headerLength;
+  for (const command of commands) {
+    writeU16(out, cursor, command.opcode);
+    cursor += 2;
+    for (const param of command.params) {
+      writeU32(out, cursor, param);
+      cursor += 4;
+    }
+  }
   return out;
 }
