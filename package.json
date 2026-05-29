@@ -20,6 +20,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.42.1",
     "@vitejs/plugin-basic-ssl": "^1.2.0",
+    "fflate": "^0.8.3",
     "gifuct-js": "^2.1.2",
     "pngjs": "^7.0.0",
     "three": "^0.184.0",

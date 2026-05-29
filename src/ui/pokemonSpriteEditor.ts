@@ -67,6 +67,7 @@ import { concatBytes } from "../nds/binary";
 import { parsePokemonCustomSpriteBundle } from "../pokeweb/pokemonSpriteWriters";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { unzipSync } from "fflate";
 
 type RenderOptions = {
   onDirty?: () => void;
@@ -345,6 +346,7 @@ export function renderPokemonSpriteEditor(
             <div class="sprite-actions -raw">
               <button class="btn -default" id="raw-export" type="button">Export</button>
               <label class="btn -default file-btn">Import<input id="raw-import" type="file"></label>
+              <label class="btn -default file-btn">Import ZIP<input id="raw-import-zip" type="file" accept=".zip,application/zip,application/x-zip-compressed"></label>
               <button class="btn -default" id="raw-dump" type="button">Dump All</button>
             </div>
           </div>
@@ -2234,6 +2236,21 @@ function installRawFileEvents(
       importPokemonSpritePackage(project, spriteId, packageFromFiles(entry.files));
       options.onDirty?.();
       setStatus(`Replaced raw file ${index}`);
+      rerender();
+    } catch (error) {
+      setStatus(errorMessage(error));
+    }
+  });
+  root.querySelector<HTMLInputElement>("#raw-import-zip")?.addEventListener("change", async (event) => {
+    try {
+      const input = event.currentTarget as HTMLInputElement;
+      const file = input.files?.[0];
+      if (!file) return;
+      const files = rawSpriteFilesFromZip(new Uint8Array(await file.arrayBuffer()));
+      importPokemonSpritePackage(project, spriteId, packageFromFiles(files));
+      options.onDirty?.();
+      setStatus("Imported 20 raw sprite files from ZIP");
+      input.value = "";
       rerender();
     } catch (error) {
       setStatus(errorMessage(error));
@@ -4769,6 +4786,55 @@ function packageFromFiles(files: Uint8Array[]): Uint8Array {
     );
   });
   return concatBytes(parts);
+}
+
+function rawSpriteFilesFromZip(bytes: Uint8Array): Uint8Array[] {
+  let entries: Record<string, Uint8Array>;
+  try {
+    entries = unzipSync(bytes);
+  } catch (error) {
+    throw new Error(`Could not read ZIP: ${errorMessage(error)}`);
+  }
+
+  const files: Array<Uint8Array | undefined> = Array.from({ length: SPRITE_FILE_LABELS.length });
+  const unrecognized: string[] = [];
+  for (const [path, data] of Object.entries(entries)) {
+    if (isIgnoredZipEntry(path)) continue;
+    const index = rawSpriteFileIndexFromZipPath(path);
+    if (index === undefined) {
+      unrecognized.push(path);
+      continue;
+    }
+    if (files[index]) throw new Error(`ZIP contains more than one file for raw sprite file ${index}`);
+    files[index] = data;
+  }
+
+  const missing = files.flatMap((file, index) => (file ? [] : [index]));
+  if (missing.length > 0) {
+    const details = unrecognized.length > 0 ? ` Unrecognized entries: ${unrecognized.join(", ")}.` : "";
+    throw new Error(`ZIP must contain raw sprite files 0 through 19. Missing: ${missing.join(", ")}.${details}`);
+  }
+  return files as Uint8Array[];
+}
+
+function rawSpriteFileIndexFromZipPath(path: string): number | undefined {
+  const filename = path.split(/[\\/]/u).pop() ?? path;
+  const stem = filename.replace(/\.[^.]*$/u, "");
+  const patterns = [/^file(\d{1,2})$/iu, /^(\d{1,2})$/u, /(?:^|[_\-\s])(\d{1,2})$/u];
+  for (const pattern of patterns) {
+    const match = stem.match(pattern);
+    if (!match) continue;
+    const index = Number(match[1]);
+    if (Number.isInteger(index) && index >= 0 && index < SPRITE_FILE_LABELS.length) return index;
+  }
+  return undefined;
+}
+
+function isIgnoredZipEntry(path: string): boolean {
+  if (path.endsWith("/")) return true;
+  const parts = path.split(/[\\/]/u);
+  const filename = parts.at(-1) ?? path;
+  return parts.includes("__MACOSX") || filename === ".DS_Store" || filename.startsWith("._");
 }
 
 function parseHexFlags(text: string): Uint8Array {
