@@ -1,4 +1,5 @@
 import { readU32, writeU32 } from "../nds/binary";
+import { setArm9CompressedStaticEnd } from "../nds/arm9ModuleParams";
 import { compressCode, isCodeCompressed } from "../nds/codeCompression";
 import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -74,35 +75,18 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
 function prepareArm9ForExport(project: ProjectState, rom: NintendoDSRom): Uint8Array {
   const shouldCompress = project.arm9Compressed ?? isCodeCompressed(rom.arm9);
   const arm9 = project.arm9.slice();
-  const moduleParamsOffset = findArm9ModuleParamsOffset(arm9);
   if (!shouldCompress) {
-    if (moduleParamsOffset !== undefined) writeU32(arm9, moduleParamsOffset + 0x14, 0);
+    setArm9CompressedStaticEnd(arm9, 0);
     return arm9;
   }
 
   const compressed = compressCode(arm9, { isArm9: true });
   if (!isCodeCompressed(compressed)) {
-    if (moduleParamsOffset !== undefined) writeU32(arm9, moduleParamsOffset + 0x14, 0);
+    setArm9CompressedStaticEnd(arm9, 0);
     return arm9;
   }
-  if (moduleParamsOffset !== undefined) writeU32(compressed, moduleParamsOffset + 0x14, rom.arm9RamAddress + compressed.length);
+  setArm9CompressedStaticEnd(compressed, rom.arm9RamAddress + compressed.length);
   return compressed;
-}
-
-function findArm9ModuleParamsOffset(arm9: Uint8Array): number | undefined {
-  const magic = [0x21, 0x06, 0xc0, 0xde, 0xde, 0xc0, 0x06, 0x21] as const;
-  const searchEnd = Math.min(arm9.length - magic.length, 0x8000);
-  for (let offset = 0; offset <= searchEnd; offset += 4) {
-    let matches = true;
-    for (let index = 0; index < magic.length; index += 1) {
-      if (arm9[offset + index] !== magic[index]) {
-        matches = false;
-        break;
-      }
-    }
-    if (matches) return offset - 0x1c >= 0 ? offset - 0x1c : undefined;
-  }
-  return undefined;
 }
 
 function normalizeMalformedNarcs(rom: NintendoDSRom, fileReplacements: Map<number, Uint8Array>): void {
