@@ -3,6 +3,7 @@ import { materializeProjectEdits } from "./projectMaterialize";
 import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 
 const DB_NAME = "pokeweb-serverless";
 const DB_VERSION = 2;
@@ -146,8 +147,10 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   }
 
   const overlayIds: number[] = [];
+  const moveEffectOverlayId = moveEffectHandlerOverlayId(project);
   if (project.narcs.grotto_odds || project.overlays[36]?.length === 0) overlayIds.push(36);
-  if (project.narcs.move_effects_table || project.narcs.type_chart || project.overlays[167]?.length === 0) overlayIds.push(167);
+  if (project.narcs.move_effects_table || project.overlays[moveEffectOverlayId]?.length === 0) overlayIds.push(moveEffectOverlayId);
+  if (project.narcs.type_chart || project.overlays[167]?.length === 0) overlayIds.push(167);
   for (const overlayId of project.patches?.dirtyOverlayIds ?? []) {
     if (!project.overlays[overlayId] || project.overlays[overlayId]?.length === 0) overlayIds.push(overlayId);
   }
@@ -157,7 +160,7 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   }
 
   hydrateOverlayBackedStore(project, "grotto_odds", 36);
-  hydrateOverlayBackedStore(project, "move_effects_table", 167);
+  hydrateOverlayBackedStore(project, "move_effects_table", moveEffectOverlayId);
   hydrateOverlayBackedStore(project, "type_chart", 167);
 }
 
@@ -166,12 +169,12 @@ function hydrateOverlayBackedStore(project: ProjectState, name: "grotto_odds" | 
   const overlay = project.overlays[overlayId];
   if (!store || !overlay || (store.rawFiles[0]?.length ?? 0) > 0) return;
   const offset = overlayTableOffset(project, name);
-  const length = name === "grotto_odds" ? 200 : name === "type_chart" ? 17 * 17 : 2064;
+  const length = name === "grotto_odds" ? 200 : name === "type_chart" ? 17 * 17 : MOVE_EFFECT_HANDLER_TABLE_LENGTH;
   store.rawFiles = [overlay.slice(offset, offset + length)];
 }
 
 function overlayTableOffset(project: ProjectState, name: "grotto_odds" | "move_effects_table" | "type_chart"): number {
   if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
   if (name === "type_chart") return 0x0003dc40;
-  return project.session.fairy ? 0x00040974 : 0x000407f4;
+  return moveEffectHandlerTableOffset(project);
 }

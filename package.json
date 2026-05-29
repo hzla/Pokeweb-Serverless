@@ -10,7 +10,8 @@
     "moveanim:helper": "vite-node scripts/move-animation-helper.ts",
     "moveanim:index": "vite-node scripts/move-animation-index.ts",
     "pokemonanim:helper": "vite-node scripts/pokemon-animation-helper.ts",
-    "gen6sprites:pipeline": "vite-node scripts/gen6-sprite-pipeline.ts"
+    "gen6sprites:pipeline": "vite-node scripts/gen6-sprite-pipeline.ts",
+    "virtualsprite:build": "vite-node scripts/build-virtual-sprite-asset.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",

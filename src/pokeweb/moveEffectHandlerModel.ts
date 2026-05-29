@@ -2,7 +2,8 @@ import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 
 export const MOVE_EFFECT_HANDLER_COUNT = 258;
-export const MOVE_EFFECT_HANDLER_OVERLAY_ID = 167;
+export const BW_MOVE_EFFECT_HANDLER_OVERLAY_ID = 93;
+export const BW2_MOVE_EFFECT_HANDLER_OVERLAY_ID = 167;
 export const MOVE_EFFECT_HANDLER_TABLE_LENGTH = MOVE_EFFECT_HANDLER_COUNT * 8;
 
 export type MoveEffectHandlerRow = {
@@ -18,16 +19,26 @@ export type MoveEffectHandlerBulkResult = {
   skipped: string[];
 };
 
+export function moveEffectHandlerOverlayId(project: ProjectState): number {
+  return project.session.baseRom === "BW" ? BW_MOVE_EFFECT_HANDLER_OVERLAY_ID : BW2_MOVE_EFFECT_HANDLER_OVERLAY_ID;
+}
+
+export function moveEffectHandlerTableOffset(project: ProjectState): number {
+  if (project.session.baseRom === "BW") return 0x0003cf30;
+  return project.session.fairy ? 0x00040974 : 0x000407f4;
+}
+
 export function ensureMoveEffectHandlerStore(project: ProjectState): void {
-  if (project.session.baseRom !== "BW2") throw new Error("Move effect handlers are currently BW2-only.");
+  if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") throw new Error("Move effect handlers are currently Gen 5-only.");
   if (project.narcs.move_effects_table) return;
-  const overlay = project.overlays[MOVE_EFFECT_HANDLER_OVERLAY_ID];
+  const overlayId = moveEffectHandlerOverlayId(project);
+  const overlay = project.overlays[overlayId];
   if (!overlay) throw new Error("Move effect handler overlay data is not loaded. Load the Moves NARC or reload the ROM with Moves selected.");
   const offset = moveEffectHandlerTableOffset(project);
   project.narcs.move_effects_table = {
     name: "move_effects_table",
     fileId: -1,
-    sourcePath: "overlay167:move_effects_table",
+    sourcePath: `overlay${overlayId}:move_effects_table`,
     fileCount: 1,
     rawFiles: [overlay.slice(offset, offset + MOVE_EFFECT_HANDLER_TABLE_LENGTH)],
     records: new Map(),
@@ -224,8 +235,4 @@ function moveCount(project: ProjectState): number {
 
 function validateRowIndex(rowIndex: number): void {
   if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= MOVE_EFFECT_HANDLER_COUNT) throw new Error(`Handler row out of range: ${rowIndex}`);
-}
-
-function moveEffectHandlerTableOffset(project: ProjectState): number {
-  return project.session.fairy ? 0x00040974 : 0x000407f4;
 }

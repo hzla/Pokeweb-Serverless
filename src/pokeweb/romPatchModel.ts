@@ -6,7 +6,7 @@ import { applyFairyTypeGeneralPatch } from "./generalPatchModel";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, type NarcStore, type ProjectState } from "./projectStore";
 
-export type RomPatchId = "removeDustCloudGems" | "removeDustCloudItems" | "fairyType";
+export type RomPatchId = "removeDustCloudGems" | "removeDustCloudItems" | "forgettableHms" | "fairyType";
 
 export type RomPatchApplyResult = {
   patchId: RomPatchId;
@@ -19,6 +19,12 @@ export type RomPatchApplyResult = {
 export type OverlayPatchResult = {
   status: "applied" | "already-applied";
   overlay: Uint8Array;
+  offset: number;
+};
+
+export type Arm9PatchResult = {
+  status: "applied" | "already-applied";
+  arm9: Uint8Array;
   offset: number;
 };
 
@@ -44,6 +50,20 @@ const DUST_CLOUD_PATCH_CONFIG: Record<ProjectState["session"]["baseRom"], DustCl
 
 const GEM_RETURN_THEN_EVERSTONE = [
   0x89, 0x20, 0x80, 0x00, 0x08, 0x18, 0x00, 0x04, 0x00, 0x0c, 0x10, 0xbd, 0xe5, 0x20, 0x10, 0xbd,
+] as const;
+
+const HM_FORGET_PROTECTION_CHECK = [
+  0x08, 0x4a, 0x00, 0x23, 0x59, 0x00, 0x51, 0x18, 0xb8, 0x31, 0x09, 0x88, 0x88, 0x42, 0x01, 0xd1,
+  0x01, 0x20, 0x70, 0x47, 0x59, 0x1c, 0x09, 0x06, 0x0b, 0x0e, 0x06, 0x2b, 0xf2, 0xd3, 0x00, 0x20,
+  0x70, 0x47, 0xc0, 0x46, 0xb8, 0xea, 0x09, 0x02,
+] as const;
+
+const HM_FORGET_EARLY_RETURN = [0x00, 0x20, 0x70, 0x47] as const;
+
+const HM_FORGET_GUIDE_PATCH = [
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20,
+  0x70, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ] as const;
 
 const TYPE_IDS = {
@@ -146,6 +166,35 @@ export async function removeDustCloudItemRewards(project: ProjectState): Promise
   return { patchId: "removeDustCloudItems", status: "applied", overlayId: config.overlayId, offset: patched.offset };
 }
 
+export async function makeHmsForgettable(project: ProjectState): Promise<RomPatchApplyResult> {
+  if (project.session.baseRom !== "BW") {
+    throw new Error("Forgettable HMs is currently available for Black / White only.");
+  }
+
+  const patched = applyForgettableHmsToArm9(project.arm9);
+  if (!patched) {
+    throw new Error("Could not find the Black / White HM protection signature in ARM9. This ROM may already have a different patch or code layout.");
+  }
+  if (patched.status === "already-applied") {
+    project.patches ??= { dirtyOverlayIds: [], applied: {} };
+    project.patches.applied ??= {};
+    project.patches.applied.forgettableHms = true;
+    return { patchId: "forgettableHms", status: "already-applied", offset: patched.offset, summary: `Patch already present in ARM9 at 0x${patched.offset.toString(16)}.` };
+  }
+
+  project.arm9 = patched.arm9;
+  project.arm9Dirty = true;
+  project.patches ??= { dirtyOverlayIds: [], applied: {} };
+  project.patches.applied ??= {};
+  project.patches.applied.forgettableHms = true;
+
+  recordGenericChange(project, "patches", "Made HM moves forgettable.", "HMs", {
+    key: "patch:forgettableHms",
+  });
+
+  return { patchId: "forgettableHms", status: "applied", offset: patched.offset, summary: `Made HM moves forgettable in ARM9 at 0x${patched.offset.toString(16)}.` };
+}
+
 export async function addFairyTypeSupport(project: ProjectState, options: AddFairyTypeSupportOptions = {}): Promise<RomPatchApplyResult> {
   if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
     throw new Error("Fairy Type Support is currently available for Black 2 and White 2 only.");
@@ -243,6 +292,16 @@ export function applyRemoveDustCloudItemRewardsToOverlay(overlay: Uint8Array): O
   return { status: "applied", overlay: next, offset: match.offset };
 }
 
+export function applyForgettableHmsToArm9(arm9: Uint8Array): Arm9PatchResult | undefined {
+  const match = findHmForgetProtectionCheck(arm9);
+  if (!match) return undefined;
+  if (match.applied) return { status: "already-applied", arm9, offset: match.offset };
+
+  const next = arm9.slice();
+  next.set(HM_FORGET_EARLY_RETURN, match.offset);
+  return { status: "applied", arm9: next, offset: match.offset };
+}
+
 export function detectDustCloudGemPatch(project: ProjectState): "patched" | "unpatched" | "unknown" {
   const config = DUST_CLOUD_PATCH_CONFIG[project.session.baseRom];
   const overlay = project.overlays[config.overlayId];
@@ -258,6 +317,14 @@ export function detectDustCloudItemPatch(project: ProjectState): "patched" | "un
   if (!overlay) return project.patches?.applied?.removeDustCloudItems ? "patched" : "unknown";
   const match = findDustCloudItemBranch(overlay);
   if (!match) return "unknown";
+  return match.applied ? "patched" : "unpatched";
+}
+
+export function detectForgettableHmPatch(project: ProjectState): "patched" | "unpatched" | "unsupported" | "unknown" {
+  if (project.session.baseRom !== "BW") return "unsupported";
+  if (project.arm9.length === 0) return project.patches?.applied?.forgettableHms ? "patched" : "unknown";
+  const match = findHmForgetProtectionCheck(project.arm9);
+  if (!match) return project.patches?.applied?.forgettableHms ? "patched" : "unknown";
   return match.applied ? "patched" : "unpatched";
 }
 
@@ -334,19 +401,45 @@ function hasBridgeItemDecisionBefore(overlay: Uint8Array, caveOffset: number): b
   return false;
 }
 
+function findHmForgetProtectionCheck(arm9: Uint8Array): { offset: number; applied: boolean } | undefined {
+  const matches: Array<{ offset: number; applied: boolean }> = [];
+
+  for (let offset = 0; offset + HM_FORGET_PROTECTION_CHECK.length <= arm9.length; offset += 1) {
+    if (matchesSequence(arm9, HM_FORGET_PROTECTION_CHECK, offset)) {
+      matches.push({ offset, applied: false });
+      continue;
+    }
+    if (matchesSequence(arm9, HM_FORGET_GUIDE_PATCH, offset) || matchesEarlyReturnHmPatch(arm9, offset)) {
+      matches.push({ offset, applied: true });
+    }
+  }
+
+  if (matches.length !== 1) return undefined;
+  return matches[0];
+}
+
+function matchesEarlyReturnHmPatch(arm9: Uint8Array, offset: number): boolean {
+  if (!matchesSequence(arm9, HM_FORGET_EARLY_RETURN, offset)) return false;
+  for (let index = HM_FORGET_EARLY_RETURN.length; index < HM_FORGET_PROTECTION_CHECK.length; index += 1) {
+    if (arm9[offset + index] !== HM_FORGET_PROTECTION_CHECK[index]) return false;
+  }
+  return true;
+}
+
 function findSequence(data: Uint8Array, sequence: readonly number[], start: number, end: number): number | undefined {
   const max = Math.min(end, data.length - sequence.length);
   for (let offset = start; offset <= max; offset += 1) {
-    let ok = true;
-    for (let index = 0; index < sequence.length; index += 1) {
-      if (data[offset + index] !== sequence[index]) {
-        ok = false;
-        break;
-      }
-    }
-    if (ok) return offset;
+    if (matchesSequence(data, sequence, offset)) return offset;
   }
   return undefined;
+}
+
+function matchesSequence(data: Uint8Array, sequence: readonly number[], offset: number): boolean {
+  if (offset + sequence.length > data.length) return false;
+  for (let index = 0; index < sequence.length; index += 1) {
+    if (data[offset + index] !== sequence[index]) return false;
+  }
+  return true;
 }
 
 async function ensureNarcStore(project: ProjectState, name: Extract<NarcName, "personal" | "moves">): Promise<NarcStore> {

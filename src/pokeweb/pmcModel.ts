@@ -1,4 +1,5 @@
 import { readAscii, readU32, writeU32 } from "../nds/binary";
+import type { Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
@@ -202,9 +203,19 @@ export function listCodeInjectionDlls(project: ProjectState): NonNullable<NonNul
     modules.push(module);
   }
   for (const path of Object.keys(project.fileSystem?.additions ?? {}).sort((a, b) => a.localeCompare(b))) {
-    const match = /^(patches|lib)\/([^/]+\.dll)$/iu.exec(path);
-    if (!match || seen.has(path)) continue;
-    modules.push({ path, target: match[1].toLowerCase() as CodeInjectionDllTarget, fileName: match[2] });
+    addDllModuleFromPath(path, seen, modules);
+  }
+  if (project.originalRomBytes) {
+    try {
+      const rom = new NintendoDSRom(project.originalRomBytes);
+      for (const file of listNamedRomFiles(rom.filenames).sort((a, b) => a.path.localeCompare(b.path))) {
+        const bytes = rom.files[file.id];
+        if (!bytes || readAscii(bytes, 0, 4) !== "DLXF") continue;
+        addDllModuleFromPath(file.path, seen, modules);
+      }
+    } catch {
+      // Older saved projects may not include parseable ROM bytes; staged DLLs above still cover active edits.
+    }
   }
   return modules;
 }
@@ -273,6 +284,16 @@ export function buildCodeInjectionOverlayTable(project: ProjectState, rom: Ninte
   writeU32(table, offset + 24, fileId);
   writeU32(table, offset + 28, 0);
   return table;
+}
+
+export function codeInjectionInsertedFiles(project: ProjectState, rom: NintendoDSRom): Array<{ fileId: number; path: string; bytes: Uint8Array }> {
+  const pmc = project.codeInjection?.pmc;
+  if (!pmc) return [];
+  const bytes = project.fileSystem?.additions?.[pmc.overlayPath];
+  if (!bytes) return [];
+  if (rom.filenames.idOf(pmc.overlayPath) !== undefined) return [];
+  if (pmc.overlayId !== rom.arm9OverlayTable.length / 32) return [];
+  return [{ fileId: pmc.overlayId, path: pmc.overlayPath, bytes }];
 }
 
 function applyExternalRelocations(project: ProjectState, rom: NintendoDSRom, rpm: RpmModule): void {
@@ -346,6 +367,8 @@ function getRomPathBytes(rom: NintendoDSRom, path: string): Uint8Array | undefin
 function fileIdForPathWithAdditions(project: ProjectState, rom: NintendoDSRom, path: string): number {
   const existingId = rom.filenames.idOf(path);
   if (existingId !== undefined) return existingId;
+  const inserted = codeInjectionInsertedFiles(project, rom).find((file) => file.path === path);
+  if (inserted) return inserted.fileId;
   const additions = Object.keys(project.fileSystem?.additions ?? {}).sort((a, b) => a.localeCompare(b));
   const index = additions.indexOf(path);
   if (index === -1) throw new Error(`ROM addition is missing: ${path}`);
@@ -377,6 +400,27 @@ function appendOverlayEntry(table: Uint8Array): Uint8Array {
 
 function overlayPathForId(overlayId: number): string {
   return `overlay/overlay_${String(overlayId).padStart(4, "0")}.bin`;
+}
+
+function addDllModuleFromPath(
+  path: string,
+  seen: Set<string>,
+  modules: NonNullable<NonNullable<ProjectState["codeInjection"]>["modules"]>,
+): void {
+  const match = /^(patches|lib)\/(.+\.dll)$/iu.exec(path);
+  if (!match || seen.has(path)) return;
+  seen.add(path);
+  modules.push({ path, target: match[1].toLowerCase() as CodeInjectionDllTarget, fileName: basename(match[2]) });
+}
+
+function listNamedRomFiles(root: Folder, parent = ""): Array<{ id: number; path: string }> {
+  const files = root.files.map((name, index) => ({ id: root.firstId + index, path: parent ? `${parent}/${name}` : name }));
+  for (const [name, folder] of root.folders) files.push(...listNamedRomFiles(folder, parent ? `${parent}/${name}` : name));
+  return files;
+}
+
+function basename(path: string): string {
+  return path.split("/").filter(Boolean).pop() ?? path;
 }
 
 function stringMeta(rpm: RpmModule, key: string): string | undefined {

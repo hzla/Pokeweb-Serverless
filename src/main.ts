@@ -26,6 +26,7 @@ import { exportModifiedRom } from "./pokeweb/exportRom";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
 import { loadProjectFromRomFile } from "./pokeweb/loader";
+import { moveEffectHandlerOverlayId } from "./pokeweb/moveEffectHandlerModel";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
@@ -1262,7 +1263,11 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
   if (nextRoute === "moveEffectHandlers") {
-    return project.session.baseRom === "BW2" && Boolean(project.narcs.moves) && Boolean(project.narcs.move_effects_table || project.overlays[167]);
+    return (
+      (project.session.baseRom === "BW" || project.session.baseRom === "BW2") &&
+      Boolean(project.narcs.moves) &&
+      Boolean(project.narcs.move_effects_table || project.overlays[moveEffectHandlerOverlayId(project)])
+    );
   }
   if (nextRoute === "facilities" && project.session.baseRom !== "BW2") return false;
   if (nextRoute === "facilities") {
@@ -1310,7 +1315,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         : nextRoute === "types"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
         : nextRoute === "moveEffectHandlers"
-          ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the effect handler table" : "Move effect handlers are currently BW2-only"}"`
+          ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the effect handler table" : "Move effect handlers are currently Gen 5-only"}"`
         : nextRoute === "facilities"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves, Items, and at least one facility set NARC" : "Battle facility editing is currently BW2-only"}"`
         : nextRoute === "wbtFacilities"
