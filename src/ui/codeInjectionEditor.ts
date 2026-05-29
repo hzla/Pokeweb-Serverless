@@ -72,8 +72,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">
             <div>
-              <h2>Patch Modules</h2>
-              <p>${status.installed ? "Add built Gen V DLXF modules to the ROM filesystem." : "Install PMC first, then add built patch DLLs."}</p>
+              <h2>Installed DLLs</h2>
+              <p>${status.installed ? "DLLs found in the ROM filesystem under patches/ and lib/." : "Install PMC first, then add built patch DLLs."}</p>
             </div>
           </div>
           <div class="code-injection-actions">
@@ -85,7 +85,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-module-list">
             ${
               modules.length === 0
-                ? `<div class="code-injection-empty">No user DLLs staged.</div>`
+                ? `<div class="code-injection-empty">No DLLs found.</div>`
                 : modules
                     .map(
                       (module) => `

@@ -114,6 +114,7 @@ export type PatchState = {
   applied?: {
     removeDustCloudGems?: boolean;
     removeDustCloudItems?: boolean;
+    forgettableHms?: boolean;
     fairyType?: boolean;
     fairyModernTypings?: boolean;
   };

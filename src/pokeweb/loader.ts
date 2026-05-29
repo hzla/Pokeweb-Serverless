@@ -15,6 +15,7 @@ import {
 } from "./constants";
 import { getNarcFormats } from "./formats";
 import { parseHeaders } from "./headerModel";
+import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { detectPmcInstallFromRom } from "./pmcModel";
 import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
 import { createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
@@ -174,13 +175,29 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
   const includeGrottos = includeAll || selectedNarcs.has("grottos");
   const includeMoves = includeAll || selectedNarcs.has("moves");
   const includeStarters = includeAll || selectedNarcs.has("starter_sprites");
+  const moveEffectOverlayId = moveEffectHandlerOverlayId(project);
   const ids = [
-    ...(project.session.baseRom === "BW2" ? [includeGrottos ? 36 : undefined, includeMoves ? 167 : undefined] : []),
+    ...(project.session.baseRom === "BW2" ? [includeGrottos ? 36 : undefined] : []),
+    includeMoves ? moveEffectOverlayId : undefined,
     ...(includeStarters ? getStarterOverlayIds(project.session.baseRom) : []),
   ].filter((id): id is number => id !== undefined);
   if (ids.length === 0) return;
   const overlays = rom.loadArm9Overlays(ids);
   for (const [id, overlay] of overlays) project.overlays[id] = overlay.data;
+
+  const moveEffectOverlay = project.overlays[moveEffectOverlayId];
+  if (includeMoves && moveEffectOverlay) {
+    const effectTableOffset = moveEffectHandlerTableOffset(project);
+    project.narcs.move_effects_table = {
+      name: "move_effects_table",
+      fileId: -1,
+      sourcePath: `overlay${moveEffectOverlayId}:move_effects_table`,
+      fileCount: 1,
+      rawFiles: [moveEffectOverlay.slice(effectTableOffset, effectTableOffset + MOVE_EFFECT_HANDLER_TABLE_LENGTH)],
+      records: new Map(),
+      dirty: new Set(),
+    };
+  }
 
   if (project.session.baseRom === "BW2") {
     const overlay36 = project.overlays[36];
@@ -198,16 +215,6 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
       };
     }
     if (includeMoves && overlay167) {
-      const effectTableOffset = project.session.fairy ? 0x00040974 : 0x000407f4;
-      project.narcs.move_effects_table = {
-        name: "move_effects_table",
-        fileId: -1,
-        sourcePath: "overlay167:move_effects_table",
-        fileCount: 1,
-        rawFiles: [overlay167.slice(effectTableOffset, effectTableOffset + 2064)],
-        records: new Map(),
-        dirty: new Set(),
-      };
       project.narcs.type_chart = {
         name: "type_chart",
         fileId: -1,

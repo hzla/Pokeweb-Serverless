@@ -5,6 +5,8 @@ import {
   copyMoveEffectHandlerAddress,
   formatAddress,
   getMoveEffectHandlerRows,
+  moveEffectHandlerOverlayId,
+  moveEffectHandlerTableOffset,
   updateMoveEffectHandlerAddress,
   updateMoveEffectHandlerMove,
   zeroMoveEffectHandlers,
@@ -44,10 +46,16 @@ describe("moveEffectHandlerModel", () => {
     expect(readU32(bytes, 12)).toBe(0);
     expect(formatAddress(16)).toBe("0x00000010");
   });
+
+  it("uses the BW1 overlay location for Black/White projects", () => {
+    const project = makeProject("BW");
+    expect(moveEffectHandlerOverlayId(project)).toBe(93);
+    expect(moveEffectHandlerTableOffset(project)).toBe(0x0003cf30);
+  });
 });
 
-function makeProject(): ProjectState {
-  const formats = getNarcFormats("BW2");
+function makeProject(baseRom: "BW" | "BW2" = "BW2"): ProjectState {
+  const formats = getNarcFormats(baseRom);
   const table = new Uint8Array(258 * 8);
   writeEntry(table, 0, 1, 0x12345678);
   writeEntry(table, 1, 2, 9);
@@ -56,8 +64,8 @@ function makeProject(): ProjectState {
   return {
     session: {
       romName: "test",
-      baseVersion: "W2",
-      baseRom: "BW2",
+      baseVersion: baseRom === "BW" ? "W" : "W2",
+      baseRom,
       fairy: false,
       fileIds: { move_effects_table: -1 },
       blacklist: [],

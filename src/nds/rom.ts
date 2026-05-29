@@ -1,5 +1,5 @@
 import { ByteLike, asUint8Array, readAscii, readU16, readU32, writeU16, writeU32 } from "./binary";
-import { Folder, addFilePath, loadFnt, saveFnt } from "./fnt";
+import { Folder, addFilePath, cloneFolder, loadFnt, saveFnt, shiftFileIdsAtOrAfter } from "./fnt";
 import { Overlay, loadOverlayTable } from "./code";
 
 export type RomSaveOptions = {
@@ -7,7 +7,9 @@ export type RomSaveOptions = {
   arm9OverlayTable?: Uint8Array;
   arm7OverlayTable?: Uint8Array;
   files?: Map<number, Uint8Array>;
+  insertedFiles?: Array<{ fileId: number; path?: string; bytes: Uint8Array }>;
   addedFiles?: Array<{ path: string; bytes: Uint8Array }>;
+  alignFntFirstFileToArm9OverlayCount?: boolean;
   minimumLength?: number;
   preserveOriginalLength?: boolean;
 };
@@ -81,13 +83,35 @@ export class NintendoDSRom {
 
   save(options: RomSaveOptions = {}): Uint8Array {
     const files = this.files.map((file, id) => options.files?.get(id) ?? file);
+    const arm9OverlayTableBytes = options.arm9OverlayTable ?? this.arm9OverlayTable;
+    let filenames = this.filenames;
     let fntData = this.fntData;
+    let shouldRewriteFnt = false;
+    if (options.insertedFiles && options.insertedFiles.length > 0) {
+      for (const file of [...options.insertedFiles].sort((a, b) => a.fileId - b.fileId)) {
+        if (!Number.isInteger(file.fileId) || file.fileId < 0 || file.fileId > files.length) throw new Error(`Invalid inserted file ID: ${file.fileId}`);
+        filenames = shiftFileIdsAtOrAfter(filenames, file.fileId, 1);
+        files.splice(file.fileId, 0, file.bytes);
+        if (file.path) filenames = addFilePath(filenames, file.path, file.fileId);
+      }
+      shouldRewriteFnt = true;
+    }
+    if (options.alignFntFirstFileToArm9OverlayCount) {
+      const overlayCount = arm9OverlayTableBytes.length / 32;
+      if (Number.isInteger(overlayCount) && filenames.firstId !== overlayCount) {
+        filenames = cloneFolder(filenames);
+        filenames.firstId = overlayCount;
+        shouldRewriteFnt = true;
+      }
+    }
     if (options.addedFiles && options.addedFiles.length > 0) {
-      let filenames = this.filenames;
       for (const file of options.addedFiles) {
         filenames = addFilePath(filenames, file.path, files.length);
         files.push(file.bytes);
       }
+      shouldRewriteFnt = true;
+    }
+    if (shouldRewriteFnt) {
       fntData = saveFnt(filenames);
     }
     const headerSize = Math.max(readU32(this.data, 0x84) || 0x4000, 0x200);
@@ -104,7 +128,7 @@ export class NintendoDSRom {
     };
 
     const arm9 = writeSection(options.arm9 ?? this.arm9);
-    const arm9OverlayTable = writeSection(options.arm9OverlayTable ?? this.arm9OverlayTable);
+    const arm9OverlayTable = writeSection(arm9OverlayTableBytes);
     const arm7 = writeSection(this.arm7);
     const arm7OverlayTable = writeSection(options.arm7OverlayTable ?? this.arm7OverlayTable);
     const fnt = writeSection(fntData);
@@ -126,6 +150,20 @@ export class NintendoDSRom {
       writeU32(writer.buffer, fatOffset + id * 8 + 4, cursor);
     });
 
+    const applicationEnd = align(cursor, 4);
+    const twlSections = this.twlSections();
+    const twlSectionWrites: Array<{ offsetField: number; offset: number }> = [];
+    if (twlSections.length > 0) {
+      cursor = align(cursor, 0x200);
+      for (const section of twlSections) {
+        cursor = align(cursor, 0x200);
+        const offset = cursor;
+        writer.writeAt(offset, this.data.subarray(section.sourceOffset, section.sourceOffset + section.length));
+        cursor += section.length;
+        twlSectionWrites.push({ offsetField: section.offsetField, offset });
+      }
+    }
+
     const compactRomLength = align(cursor, 4);
     const minimumLength = Math.max(options.preserveOriginalLength ? this.data.length : 0, options.minimumLength ?? 0);
     const romLength = Math.max(compactRomLength, align(minimumLength, 4));
@@ -145,13 +183,33 @@ export class NintendoDSRom {
     writeU32(out, 0x58, arm7OverlayTable.offset);
     writeU32(out, 0x5c, arm7OverlayTable.length);
     writeU32(out, 0x68, banner.offset);
-    writeU32(out, 0x80, romLength);
+    writeU32(out, 0x80, twlSections.length > 0 ? applicationEnd : romLength);
+    if (twlSections.length > 0) {
+      for (const section of twlSectionWrites) {
+        writeU32(out, section.offsetField, section.offset);
+      }
+      writeU32(out, 0x210, romLength);
+    }
     out[0x14] = deviceCapacityByte(romLength, this.data[0x14] ?? 0);
 
     if (arm9.offset < 0x8000 && out.length >= 0x8000) writeU16(out, 0x6c, crc16(out.subarray(arm9.offset, 0x8000)));
     writeU16(out, 0x15c, crc16(out.subarray(0xc0, 0xc0 + 156)));
     writeU16(out, 0x15e, crc16(out.subarray(0, 0x15e)));
     return out;
+  }
+
+  private twlSections(): Array<{ offsetField: number; sourceOffset: number; length: number }> {
+    const sections = [
+      { offsetField: 0x1c0, sizeField: 0x1cc },
+      { offsetField: 0x1d0, sizeField: 0x1dc },
+    ];
+    return sections
+      .map((section) => ({
+        offsetField: section.offsetField,
+        sourceOffset: readU32(this.data, section.offsetField),
+        length: readU32(this.data, section.sizeField),
+      }))
+      .filter((section) => section.sourceOffset > 0 && section.length > 0 && section.sourceOffset + section.length <= this.data.length);
   }
 }
 

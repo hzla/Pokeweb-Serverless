@@ -7,9 +7,10 @@ import { materializeMap3dAreaEdits } from "./map3dModel";
 import { repairLegacyMoveAnimationArchives } from "./moveAnimationModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { fileSystemAddedFiles, fileSystemReplacementMap } from "./fileSystemModel";
-import { buildCodeInjectionOverlayTable } from "./pmcModel";
+import { buildCodeInjectionOverlayTable, codeInjectionInsertedFiles } from "./pmcModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
+import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import type { ProjectState } from "./projectStore";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -49,11 +50,18 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     patchedOverlayTable ??
     (project.patches?.arm9OverlayTable ? baseOverlayTable : undefined);
   normalizeMalformedNarcs(rom, fileReplacements);
-  const addedFiles = fileSystemAddedFiles(project).map((file) => ({ ...file, bytes: normalizeMalformedNarcBytes(file.bytes) }));
+  const insertedFiles = codeInjectionInsertedFiles(project, rom).map((file) => ({ ...file, bytes: normalizeMalformedNarcBytes(file.bytes) }));
+  const insertedPaths = new Set(insertedFiles.map((file) => file.path));
+  const addedFiles = fileSystemAddedFiles(project)
+    .filter((file) => !insertedPaths.has(file.path))
+    .map((file) => ({ ...file, bytes: normalizeMalformedNarcBytes(file.bytes) }));
+  const shouldAlignFntFirstFile = insertedFiles.length > 0;
   const out = rom.save({
     arm9: project.tms?.dirty || project.arm9Dirty ? project.arm9 : undefined,
     arm9OverlayTable,
+    alignFntFirstFileToArm9OverlayCount: shouldAlignFntFirstFile,
     files: fileReplacements,
+    insertedFiles,
     addedFiles,
     minimumLength: options.minimumRomLength,
     preserveOriginalLength: options.preserveOriginalLength,
@@ -87,7 +95,7 @@ function normalizeMalformedNarcBytes(bytes: Uint8Array): Uint8Array {
 function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplacements: Map<number, Uint8Array>, baseTable: Uint8Array): Uint8Array | undefined {
   const overlayReplacements = new Map<number, Uint8Array>();
   patchOverlayBackedStore(project, "grotto_odds", 36, overlayReplacements);
-  patchOverlayBackedStore(project, "move_effects_table", 167, overlayReplacements);
+  patchOverlayBackedStore(project, "move_effects_table", moveEffectHandlerOverlayId(project), overlayReplacements);
   patchOverlayBackedStore(project, "type_chart", 167, overlayReplacements);
   for (const overlayId of getDirtyStarterOverlayIds(project)) {
     const overlay = project.overlays[overlayId];
@@ -130,7 +138,7 @@ function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayI
 
 function overlayTableOffset(project: ProjectState, name: NarcName): number | undefined {
   if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
-  if (name === "move_effects_table") return project.session.fairy ? 0x00040974 : 0x000407f4;
+  if (name === "move_effects_table") return moveEffectHandlerTableOffset(project);
   if (name === "type_chart") return 0x0003dc40;
   return undefined;
 }

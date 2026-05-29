@@ -2,7 +2,9 @@ import {
   addFairyTypeSupport,
   detectDustCloudGemPatch,
   detectDustCloudItemPatch,
+  detectForgettableHmPatch,
   detectFairyTypePatch,
+  makeHmsForgettable,
   removeDustCloudGemRewards,
   removeDustCloudItemRewards,
   type RomPatchApplyResult,
@@ -20,7 +22,30 @@ let status: PatchStatus | undefined;
 export function renderPatchesEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
   const gemStatus = detectDustCloudGemPatch(project);
   const itemStatus = detectDustCloudItemPatch(project);
+  const hmStatus = detectForgettableHmPatch(project);
   const fairyStatus = detectFairyTypePatch(project);
+  const hmPatchCard =
+    hmStatus === "unsupported"
+      ? ""
+      : `
+        <section class="patch-card">
+          <div class="patch-card__body">
+            <div>
+              <h2>Make HM Moves Forgettable</h2>
+              <p>Lets the move deleter and move replacement screens forget HM moves in Black / White.</p>
+            </div>
+            <div class="patch-card__meta">
+              <span class="patch-badge ${hmStatus === "patched" ? "-ok" : hmStatus === "unknown" ? "-warn" : ""}">
+                ${hmStatusLabel(hmStatus)}
+              </span>
+              <span>BW</span>
+            </div>
+          </div>
+          <div class="patch-card__actions">
+            <button class="btn -default" id="make-hms-forgettable-btn" type="button">Make HMs Forgettable</button>
+          </div>
+        </section>
+      `;
   const fairyPatchCard =
     fairyStatus === "unsupported"
       ? ""
@@ -91,6 +116,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           </div>
         </section>
         ${fairyPatchCard}
+        ${hmPatchCard}
         <div class="patch-status ${status?.kind ? `-${status.kind}` : ""}" id="patch-status">${escapeHtml(status?.text ?? "")}</div>
       </main>
     </div>
@@ -123,6 +149,15 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
       apply: (nextProject) => addFairyTypeSupport(nextProject, { updateModernFairyTypings }),
     });
   });
+
+  root.querySelector<HTMLButtonElement>("#make-hms-forgettable-btn")?.addEventListener("click", async (event) => {
+    applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
+      confirmText: "Apply this ARM9 patch to make HM moves forgettable?",
+      loadingText: "Looking for the Black / White HM protection check...",
+      successText: "Made HM moves forgettable",
+      apply: makeHmsForgettable,
+    });
+  });
 }
 
 function dustStatusLabel(value: ReturnType<typeof detectDustCloudGemPatch>): string {
@@ -134,6 +169,13 @@ function dustStatusLabel(value: ReturnType<typeof detectDustCloudGemPatch>): str
 function fairyStatusLabel(value: ReturnType<typeof detectFairyTypePatch>): string {
   if (value === "patched") return "Applied";
   if (value === "unsupported") return "Unsupported";
+  return "Ready";
+}
+
+function hmStatusLabel(value: ReturnType<typeof detectForgettableHmPatch>): string {
+  if (value === "patched") return "Applied";
+  if (value === "unsupported") return "Unsupported";
+  if (value === "unknown") return "Signature unknown";
   return "Ready";
 }
 

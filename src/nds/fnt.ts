@@ -40,6 +40,16 @@ export function cloneFolder(folder: Folder): Folder {
   });
 }
 
+export function shiftFileIdsAtOrAfter(root: Folder, fileId: number, amount: number): Folder {
+  const clone = cloneFolder(root);
+  const visit = (folder: Folder): void => {
+    if (folder.firstId >= fileId) folder.firstId += amount;
+    for (const [, child] of folder.folders) visit(child);
+  };
+  visit(clone);
+  return clone;
+}
+
 export function addFilePath(root: Folder, path: string, fileId: number): Folder {
   if (!Number.isInteger(fileId) || fileId < 0) throw new Error(`Invalid file ID: ${fileId}`);
   const parts = path.split("/").filter(Boolean);

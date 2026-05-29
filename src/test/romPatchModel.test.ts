@@ -4,9 +4,11 @@ import { parseGeneralPatch } from "../pokeweb/generalPatchModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import {
   addFairyTypeSupport,
+  applyForgettableHmsToArm9,
   applyModernFairyTypings,
   applyRemoveDustCloudGemRewardsToOverlay,
   applyRemoveDustCloudItemRewardsToOverlay,
+  makeHmsForgettable,
 } from "../pokeweb/romPatchModel";
 
 describe("ROM patches", () => {
@@ -103,6 +105,58 @@ describe("ROM patches", () => {
     expect(result?.overlay).toBe(overlay);
   });
 
+  it("makes the Black / White HM protection check return false immediately", () => {
+    const arm9 = new Uint8Array([0xaa, 0xbb, ...HM_FORGET_PROTECTION_CHECK, 0xcc]);
+
+    const result = applyForgettableHmsToArm9(arm9);
+
+    expect(result?.status).toBe("applied");
+    expect(result?.offset).toBe(2);
+    expect([...result!.arm9.slice(2, 6)]).toEqual([0x00, 0x20, 0x70, 0x47]);
+    expect([...result!.arm9.slice(6, 2 + HM_FORGET_PROTECTION_CHECK.length)]).toEqual([...HM_FORGET_PROTECTION_CHECK.slice(4)]);
+    expect([...arm9.slice(2, 6)]).toEqual([...HM_FORGET_PROTECTION_CHECK.slice(0, 4)]);
+  });
+
+  it("recognizes the safer HM early-return patch", () => {
+    const arm9 = new Uint8Array(HM_FORGET_PROTECTION_CHECK);
+    arm9.set([0x00, 0x20, 0x70, 0x47], 0);
+
+    const result = applyForgettableHmsToArm9(arm9);
+
+    expect(result?.status).toBe("already-applied");
+    expect(result?.arm9).toBe(arm9);
+  });
+
+  it("recognizes the legacy HM guide patch as already applied", () => {
+    const arm9 = new Uint8Array([0xaa, ...HM_FORGET_GUIDE_PATCH, 0xbb]);
+
+    const result = applyForgettableHmsToArm9(arm9);
+
+    expect(result?.status).toBe("already-applied");
+    expect(result?.offset).toBe(1);
+  });
+
+  it("marks the project ARM9 dirty when applying forgettable HMs", async () => {
+    const project = makeTypingProject();
+    project.session.baseVersion = "W";
+    project.session.baseRom = "BW";
+    project.arm9 = new Uint8Array(HM_FORGET_PROTECTION_CHECK);
+
+    const result = await makeHmsForgettable(project);
+
+    expect(result.status).toBe("applied");
+    expect(project.arm9Dirty).toBe(true);
+    expect(project.patches?.applied?.forgettableHms).toBe(true);
+    expect([...project.arm9.slice(0, 4)]).toEqual([0x00, 0x20, 0x70, 0x47]);
+  });
+
+  it("does not apply the forgettable HM patch to Black 2 / White 2 projects", async () => {
+    const project = makeTypingProject();
+    project.arm9 = new Uint8Array(HM_FORGET_PROTECTION_CHECK);
+
+    await expect(makeHmsForgettable(project)).rejects.toThrow("Black / White only");
+  });
+
   it("updates later-generation Fairy Pokemon and move typings", async () => {
     const project = makeTypingProject();
     project.narcs.personal?.records.set(35, {
@@ -163,6 +217,18 @@ describe("ROM patches", () => {
     expect(project.narcs.moves?.rawFiles[204][0]).toBe(17);
   });
 });
+
+const HM_FORGET_PROTECTION_CHECK = [
+  0x08, 0x4a, 0x00, 0x23, 0x59, 0x00, 0x51, 0x18, 0xb8, 0x31, 0x09, 0x88, 0x88, 0x42, 0x01, 0xd1,
+  0x01, 0x20, 0x70, 0x47, 0x59, 0x1c, 0x09, 0x06, 0x0b, 0x0e, 0x06, 0x2b, 0xf2, 0xd3, 0x00, 0x20,
+  0x70, 0x47, 0xc0, 0x46, 0xb8, 0xea, 0x09, 0x02,
+] as const;
+
+const HM_FORGET_GUIDE_PATCH = [
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20,
+  0x70, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+] as const;
 
 function makeTypingProject(): ProjectState {
   return {

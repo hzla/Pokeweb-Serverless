@@ -5,6 +5,7 @@ import { Folder, saveFnt } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import {
+  detectPmcInstallFromRom,
   detectBundledDoubleBattleFixDll,
   getPmcInstallStatus,
   installPmcBytes,
@@ -86,9 +87,12 @@ describe("PMC installer", () => {
     const rom = new NintendoDSRom(exported);
     const overlayEntry = 344 * 32;
     expect(rom.arm9OverlayTable.length).toBe(345 * 32);
+    expect(readU16(rom.fntData, 4)).toBe(345);
+    expect(duplicateFntFileIds(rom.fntData)).toEqual([]);
     expect(readU32(rom.arm9OverlayTable, overlayEntry)).toBe(344);
     expect(readU32(rom.arm9OverlayTable, overlayEntry + 8)).toBe(0x8000);
-    expect(readU32(rom.arm9OverlayTable, overlayEntry + 24)).toBe(rom.fileId("overlay/overlay_0344.bin"));
+    expect(readU32(rom.arm9OverlayTable, overlayEntry + 24)).toBe(344);
+    expect(rom.fileId("overlay/overlay_0344.bin")).toBe(344);
     expect(new TextDecoder().decode(rom.getFileByName(PMC_OVERLAY_ID_PATH))).toBe("344");
     expect(new TextDecoder().decode(rom.getFileByName(PMC_PATCHES_KEEP_PATH))).toBe("pokeweb");
     expect(readAscii(rom.getFileByName("overlay/overlay_0344.bin"), 0x2ff0, 4)).toBe("OVL0");
@@ -112,6 +116,22 @@ describe("PMC installer", () => {
     const rom = new NintendoDSRom(exported);
     expect(readAscii(rom.getFileByName("patches/My Patch.dll"), 0, 4)).toBe("DLXF");
     expect(readAscii(rom.getFileByName("lib/Helper.dll"), 0, 4)).toBe("DLXF");
+  });
+
+  it("lists DLXF DLLs already present in a reimported ROM filesystem", async () => {
+    const romBytes = makeBw2LikeRom();
+    const project = makeProject(romBytes, "W2");
+    installPmcBytes(project, pmcW2, romBytes);
+    const dll = makeDllFromRpm(pmcW2);
+    stageCodeInjectionDll(project, "My Patch.dll", dll, "patches");
+    stageCodeInjectionDll(project, "Helper.dll", dll, "lib");
+
+    const exported = await exportModifiedRom(project);
+    const reimportedRom = new NintendoDSRom(exported);
+    const reimportedProject = makeProject(exported, "W2");
+    reimportedProject.codeInjection = detectPmcInstallFromRom(reimportedRom);
+
+    expect(listCodeInjectionDlls(reimportedProject).map((module) => module.path)).toEqual(["lib/Helper.dll", "patches/My Patch.dll"]);
   });
 
   it("recognizes the bundled single-NPC double battle fix DLL", () => {
@@ -165,8 +185,8 @@ function makeRelocationRpm(type: "FUNCTION_ARM" | "FUNCTION_THM", address: numbe
 }
 
 function makeBw2LikeRom(): Uint8Array {
-  const files = [Uint8Array.of(1)];
-  const fnt = saveFnt(new Folder({ files: ["base.bin"], firstId: 0 }));
+  const files = Array.from({ length: 345 }, (_value, index) => Uint8Array.of(index & 0xff));
+  const fnt = saveFnt(new Folder({ files: ["base.bin"], firstId: 344 }));
   const overlayTable = new Uint8Array(344 * 32);
   writeU32(overlayTable, 0, 0);
   writeU32(overlayTable, 4, 0x021f8000);
@@ -209,6 +229,31 @@ function makeBw2LikeRom(): Uint8Array {
 
 function align(value: number, alignment: number): number {
   return (value + alignment - 1) & ~(alignment - 1);
+}
+
+function duplicateFntFileIds(fnt: Uint8Array): number[] {
+  const seen = new Set<number>();
+  const duplicates = new Set<number>();
+  const stack: number[] = [0];
+  while (stack.length > 0) {
+    const folderOffset = stack.shift()!;
+    let fileId = readU16(fnt, folderOffset + 4);
+    let offset = readU32(fnt, folderOffset);
+    while (fnt[offset] !== 0) {
+      const length = fnt[offset] & 0x7f;
+      const isFolder = (fnt[offset] & 0x80) !== 0;
+      offset += length + 1;
+      if (isFolder) {
+        stack.push((readU16(fnt, offset) & 0x0fff) * 8);
+        offset += 2;
+      } else {
+        if (seen.has(fileId)) duplicates.add(fileId);
+        seen.add(fileId);
+        fileId += 1;
+      }
+    }
+  }
+  return [...duplicates].sort((a, b) => a - b);
 }
 
 function makeDllFromRpm(rpm: Uint8Array): Uint8Array {
