@@ -1,4 +1,5 @@
 import { readU16 } from "../nds/binary";
+import { repairDecompressedArm9CompressionMetadata } from "../nds/arm9ModuleParams";
 import { decompressCode, isCodeCompressed } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -40,7 +41,9 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
   const compactBytes = rom.save();
 
   onProgress?.("Decompressing ARM9");
+  const arm9Compressed = isCodeCompressed(rom.arm9);
   const arm9 = decompressCode(rom.arm9);
+  const repairedArm9CompressionMetadata = !arm9Compressed && repairDecompressedArm9CompressionMetadata(arm9);
   const sample = readU16(arm9, 14);
   const version = VERSION_BY_ARM9_SAMPLE[sample] ?? { baseVersion: "W2" as const, baseRom: "BW2" as const };
   const formats = getNarcFormats(version.baseRom);
@@ -61,7 +64,8 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
       size: bytes.length,
     },
     arm9,
-    arm9Compressed: isCodeCompressed(rom.arm9),
+    arm9Compressed,
+    arm9Dirty: repairedArm9CompressionMetadata || undefined,
     rigAtlas: detectRigAtlasSettings(rom, arm9),
     overlays: {},
     narcs: {},
