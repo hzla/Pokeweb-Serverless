@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { compressCode, decompressCode, isCodeCompressed } from "../nds/codeCompression";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -164,6 +165,41 @@ describe("ROM export", () => {
     expect([...exportedRom.files[0]]).toEqual([...suspicious]);
     expect([...exportedRom.files[1]]).toEqual([7]);
   });
+
+  it("recompresses dirty ARM9 when the source ROM used ARM9 compression", async () => {
+    const arm9 = makeArm9WithModuleParams();
+    const compressedArm9 = compressCode(arm9, { isArm9: true });
+    writeU32(compressedArm9, 0xfb0 + 0x14, 0x02004000 + compressedArm9.length);
+    const romBytes = new NintendoDSRom(makeRom([])).save({ arm9: compressedArm9 });
+    const project = makeProject(romBytes);
+    project.arm9 = arm9.slice();
+    project.arm9[0x5000] = 0x99;
+    project.arm9Compressed = true;
+    project.arm9Dirty = true;
+
+    const exported = await exportModifiedRom(project);
+    const exportedRom = new NintendoDSRom(exported);
+    const exportedArm9 = decompressCode(exportedRom.arm9);
+
+    expect(isCodeCompressed(exportedRom.arm9)).toBe(true);
+    expect(exportedArm9[0x5000]).toBe(0x99);
+    expect(readU32(exportedRom.arm9, 0xfb0 + 0x14)).toBe(exportedRom.arm9RamAddress + exportedRom.arm9.length);
+  });
+
+  it("zeros the compressed static end when exporting dirty decompressed ARM9", async () => {
+    const arm9 = makeArm9WithModuleParams();
+    const romBytes = new NintendoDSRom(makeRom([])).save({ arm9 });
+    const project = makeProject(romBytes);
+    project.arm9 = arm9.slice();
+    project.arm9Compressed = false;
+    project.arm9Dirty = true;
+
+    const exported = await exportModifiedRom(project);
+    const exportedRom = new NintendoDSRom(exported);
+
+    expect(isCodeCompressed(exportedRom.arm9)).toBe(false);
+    expect(readU32(exportedRom.arm9, 0xfb0 + 0x14)).toBe(0);
+  });
 });
 
 function makeProject(originalRomBytes: Uint8Array): ProjectState {
@@ -286,6 +322,20 @@ function makeUnparseableCtrMapIncompatibleNarcLikeFile(): Uint8Array {
   writeU16(bytes, 0x30, 0);
   writeU16(bytes, 0x32, 0);
   return bytes;
+}
+
+function makeArm9WithModuleParams(): Uint8Array {
+  const arm9 = new Uint8Array(0x6000);
+  for (let offset = 0x4000; offset < arm9.length; offset += 1) arm9[offset] = 0x55;
+  const moduleParamsOffset = 0xfb0;
+  writeU32(arm9, moduleParamsOffset, 0x02009f00);
+  writeU32(arm9, moduleParamsOffset + 4, 0x02009f00);
+  writeU32(arm9, moduleParamsOffset + 8, 0x0200a000);
+  writeU32(arm9, moduleParamsOffset + 0x0c, 0x0200a000);
+  writeU32(arm9, moduleParamsOffset + 0x10, 0x02012000);
+  writeU32(arm9, moduleParamsOffset + 0x14, 0x0200a000);
+  arm9.set([0x21, 0x06, 0xc0, 0xde, 0xde, 0xc0, 0x06, 0x21], moduleParamsOffset + 0x1c);
+  return arm9;
 }
 
 function packRows(format: FieldSpec[], rows: Array<Record<string, number>>): Uint8Array {

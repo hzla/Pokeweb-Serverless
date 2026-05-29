@@ -130,6 +130,7 @@ export type ProjectState = {
     size: number;
   };
   arm9: Uint8Array;
+  arm9Compressed?: boolean;
   arm9Dirty?: boolean;
   rigAtlas?: {
     width: number;
