@@ -1,5 +1,5 @@
 import { readU16 } from "../nds/binary";
-import { decompressCode } from "../nds/codeCompression";
+import { decompressCode, isCodeCompressed } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import {
@@ -61,6 +61,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
       size: bytes.length,
     },
     arm9,
+    arm9Compressed: isCodeCompressed(rom.arm9),
     rigAtlas: detectRigAtlasSettings(rom, arm9),
     overlays: {},
     narcs: {},

@@ -26,6 +26,13 @@ function detectAppendedData(data: Uint8Array): number | undefined {
   return undefined;
 }
 
+export function isCodeCompressed(data: Uint8Array): boolean {
+  const appendedAmount = detectAppendedData(data);
+  if (appendedAmount === undefined) return false;
+  const input = appendedAmount === 0 ? data : data.subarray(0, data.length - appendedAmount);
+  return input.length >= 4 && readU32(input, input.length - 4) !== 0;
+}
+
 export function decompressCode(data: Uint8Array): Uint8Array {
   const appendedAmount = detectAppendedData(data);
   if (appendedAmount === undefined) return data;
@@ -101,4 +108,173 @@ export function decompressCode(data: Uint8Array): Uint8Array {
   merged.set(out, passthrough.length);
   merged.set(appendedData, passthrough.length + out.length);
   return merged;
+}
+
+export function compressCode(data: Uint8Array, options: { isArm9?: boolean } = {}): Uint8Array {
+  if (options.isArm9) {
+    const prefixLength = Math.min(0x4000, data.length);
+    const compressed = compressCodeBody(data.subarray(prefixLength));
+    const out = new Uint8Array(prefixLength + compressed.length);
+    out.set(data.subarray(0, prefixLength), 0);
+    out.set(compressed, prefixLength);
+    return out;
+  }
+  return compressCodeBody(data);
+}
+
+function compressCodeBody(data: Uint8Array): Uint8Array {
+  const { compressed, ignorableDataAmount, ignorableCompressedAmount } = compressLzLike([...data].reverse(), {
+    posSubtract: 3,
+    maxMatchDiff: 0x1002,
+    maxMatchLen: 18,
+    searchReverse: true,
+  });
+  const reversed = new Uint8Array([...compressed].reverse());
+  const paddedRawLength = align(data.length, 4) + 4;
+  if (reversed.length === 0 || data.length + 4 < align(reversed.length, 4) + 8) {
+    const out = new Uint8Array(paddedRawLength);
+    out.set(data, 0);
+    return out;
+  }
+
+  const actualCompressedLength = reversed.length - ignorableCompressedAmount;
+  let headerLength = 8;
+  const bodyLength = ignorableDataAmount + actualCompressedLength;
+  const paddedBodyLength = align(bodyLength, 4);
+  headerLength += paddedBodyLength - bodyLength;
+
+  const out = new Uint8Array(paddedBodyLength + 8);
+  out.set(data.subarray(0, ignorableDataAmount), 0);
+  out.set(reversed.subarray(ignorableCompressedAmount), ignorableDataAmount);
+  out.fill(0xff, bodyLength, paddedBodyLength);
+  writeU32(out, paddedBodyLength, actualCompressedLength + headerLength);
+  out[paddedBodyLength + 3] = headerLength;
+  writeU32(out, paddedBodyLength + 4, data.length - out.length);
+  return out;
+}
+
+type CompressLzOptions = {
+  posSubtract: number;
+  maxMatchDiff: number;
+  maxMatchLen: number;
+  searchReverse: boolean;
+};
+
+function compressLzLike(data: number[], options: CompressLzOptions): { compressed: Uint8Array; ignorableDataAmount: number; ignorableCompressedAmount: number } {
+  const result: number[] = [];
+  const positionsByKey = new Map<number, number[]>();
+  const ignorePositions = new Map<number, { current: number; length: number }>([[0, { current: 0, length: 0 }]]);
+  let current = 0;
+  let ignorableDataAmount = 0;
+  let ignorableCompressedAmount = 0;
+  let bestSavingsSoFar = 0;
+
+  const rememberPosition = (position: number): void => {
+    if (position + 2 >= data.length) return;
+    const key = sequenceKey(data, position);
+    let positions = positionsByKey.get(key);
+    if (!positions) {
+      positions = [];
+      positionsByKey.set(key, positions);
+    }
+    positions.push(position);
+  };
+
+  const findMatch = (position: number): { position: number; length: number } => {
+    if (position + 2 >= data.length) return { position: 0, length: 0 };
+    const positions = positionsByKey.get(sequenceKey(data, position));
+    if (!positions) return { position: 0, length: 0 };
+
+    const minPosition = Math.max(0, position - options.maxMatchDiff);
+    let bestPosition = 0;
+    let bestLength = 0;
+    const start = options.searchReverse ? positions.length - 1 : 0;
+    const end = options.searchReverse ? -1 : positions.length;
+    const step = options.searchReverse ? -1 : 1;
+    for (let index = start; index !== end; index += step) {
+      const candidate = positions[index];
+      if (candidate === undefined) continue;
+      if (candidate < minPosition) {
+        if (options.searchReverse) break;
+        continue;
+      }
+      if (candidate >= position) continue;
+      if (position - candidate - options.posSubtract < 0) continue;
+      let length = 0;
+      const maxLength = Math.min(options.maxMatchLen, data.length - position, position - candidate);
+      while (length < maxLength && data[candidate + length] === data[position + length]) length += 1;
+      if (length > bestLength) {
+        bestLength = length;
+        bestPosition = candidate;
+        if (bestLength === maxLength) break;
+      }
+    }
+    return { position: bestPosition, length: bestLength };
+  };
+
+  while (current < data.length) {
+    let blockFlags = 0;
+    const blockFlagsOffset = result.length;
+    result.push(0);
+    ignorableCompressedAmount += 1;
+
+    for (let bit = 0; bit < 8; bit += 1) {
+      if (current >= data.length) continue;
+
+      const match = findMatch(current);
+      const searchDisp = current - match.position - options.posSubtract;
+      if (match.length > 2 && searchDisp >= 0 && searchDisp <= 0xfff) {
+        blockFlags |= 1 << (7 - bit);
+        result.push((((match.length - 3) & 0x0f) << 4) | ((searchDisp >>> 8) & 0x0f), searchDisp & 0xff);
+        for (let index = 0; index < match.length; index += 1) rememberPosition(current + index);
+        current += match.length;
+        ignorableDataAmount += match.length;
+        ignorableCompressedAmount += 2;
+      } else {
+        result.push(data[current]);
+        rememberPosition(current);
+        current += 1;
+        ignorableDataAmount += 1;
+        ignorableCompressedAmount += 1;
+      }
+
+      const savingsNow = current - result.length;
+      if (savingsNow > bestSavingsSoFar) {
+        ignorableDataAmount = 0;
+        ignorableCompressedAmount = 0;
+        bestSavingsSoFar = savingsNow;
+        if (!ignorePositions.has(savingsNow)) ignorePositions.set(savingsNow, { current, length: result.length });
+      }
+    }
+    result[blockFlagsOffset] = blockFlags;
+  }
+
+  const finalSavings = current - result.length;
+  if (finalSavings < bestSavingsSoFar) {
+    let nextSavings = finalSavings + 1;
+    while (!ignorePositions.has(nextSavings)) nextSavings += 1;
+    const ignorePosition = ignorePositions.get(nextSavings)!;
+    ignorableDataAmount = current - ignorePosition.current;
+    ignorableCompressedAmount = result.length - ignorePosition.length;
+  } else {
+    ignorableDataAmount = 0;
+    ignorableCompressedAmount = 0;
+  }
+
+  return { compressed: Uint8Array.from(result), ignorableDataAmount, ignorableCompressedAmount };
+}
+
+function sequenceKey(data: number[], position: number): number {
+  return ((data[position] ?? 0) << 16) | ((data[position + 1] ?? 0) << 8) | (data[position + 2] ?? 0);
+}
+
+function writeU32(data: Uint8Array, offset: number, value: number): void {
+  data[offset] = value & 0xff;
+  data[offset + 1] = (value >>> 8) & 0xff;
+  data[offset + 2] = (value >>> 16) & 0xff;
+  data[offset + 3] = (value >>> 24) & 0xff;
+}
+
+function align(value: number, alignment: number): number {
+  return (value + alignment - 1) & ~(alignment - 1);
 }
