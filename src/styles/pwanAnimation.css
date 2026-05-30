@@ -1,0 +1,219 @@
+.pwan-page {
+  min-height: 100%;
+  padding: 24px;
+  color: #1f2933;
+  background: #f6f7f9;
+}
+
+.pwan-toolbar {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.pwan-toolbar h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.pwan-subtitle {
+  margin-top: 6px;
+  color: #5b6673;
+  font-size: 14px;
+}
+
+.pwan-runtime,
+.pwan-panel,
+.pwan-override,
+.pwan-warning,
+.pwan-empty {
+  border: 1px solid #d7dde4;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.pwan-runtime {
+  display: grid;
+  grid-template-columns: minmax(130px, auto) minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: min(680px, 55vw);
+  padding: 14px;
+}
+
+.pwan-runtime.-ready {
+  border-color: #80b99a;
+  background: #f2fbf6;
+}
+
+.pwan-runtime.-pending {
+  border-color: #e3bf6b;
+  background: #fffaf0;
+}
+
+.pwan-runtime span,
+.pwan-contract span,
+.pwan-override__meta,
+.pwan-stats span,
+.pwan-notes,
+.pwan-status {
+  color: #5b6673;
+  font-size: 13px;
+}
+
+.pwan-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(320px, 0.8fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.pwan-panel {
+  padding: 16px;
+}
+
+.pwan-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pwan-section-title h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.pwan-section-title span {
+  color: #657281;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.pwan-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pwan-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pwan-form input,
+.pwan-form select {
+  min-width: 0;
+  height: 36px;
+  border: 1px solid #cad2db;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 400;
+}
+
+.pwan-form input[type="file"] {
+  padding: 6px 8px;
+}
+
+.pwan-form button,
+.pwan-status {
+  grid-column: 1 / -1;
+}
+
+.pwan-status.-error {
+  color: #a33030;
+}
+
+.pwan-contract {
+  display: grid;
+  gap: 12px;
+}
+
+.pwan-contract div {
+  display: grid;
+  gap: 4px;
+}
+
+.pwan-overrides {
+  display: grid;
+  gap: 12px;
+}
+
+.pwan-override {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding: 16px;
+}
+
+.pwan-override h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.pwan-override__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.pwan-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.pwan-stats div {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #e1e6ec;
+  border-radius: 6px;
+  padding: 10px;
+  background: #f9fafb;
+}
+
+.pwan-notes {
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
+.pwan-warning,
+.pwan-empty {
+  padding: 16px;
+  color: #5b6673;
+}
+
+@media (max-width: 980px) {
+  .pwan-toolbar,
+  .pwan-editor-grid {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .pwan-runtime {
+    min-width: 0;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .pwan-page {
+    padding: 14px;
+  }
+
+  .pwan-form,
+  .pwan-stats,
+  .pwan-override {
+    grid-template-columns: 1fr;
+  }
+}

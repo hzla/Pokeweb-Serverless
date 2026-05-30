@@ -16,6 +16,7 @@ import "./styles/fileSystem.css";
 import "./styles/legacyTypes.css";
 import "./styles/codeInjection.css";
 import "./styles/legacyPatches.css";
+import "./styles/pwanAnimation.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
@@ -41,6 +42,7 @@ import { renderItemEditor, renderMoveAnimationPage, renderMoveEditor } from "./u
 import { renderMoveEffectHandlerEditor } from "./ui/moveEffectHandlerEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
 import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
+import { renderPwanAnimationEditor } from "./ui/pwanAnimationEditor";
 import { renderStarterEditor } from "./ui/starterEditor";
 import { renderTmEditor } from "./ui/tmEditor";
 import { renderTypeChartEditor } from "./ui/typeChartEditor";
@@ -68,6 +70,7 @@ type AppRoute =
   | "maps3d"
   | "pokemon"
   | "pokemonSprites"
+  | "animatedSprites"
   | "starters"
   | "trainers"
   | "facilities"
@@ -122,6 +125,7 @@ const APP_ROUTES: AppRoute[] = [
   "maps3d",
   "pokemon",
   "pokemonSprites",
+  "animatedSprites",
   "starters",
   "trainers",
   "facilities",
@@ -148,6 +152,7 @@ const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "c
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
   pokemonSprites: ["personal", "pokemon_sprites", "pokemon_icons"],
+  animatedSprites: ["personal", "pokemon_sprites"],
   starters: ["personal", "pokemon_sprites", "starter_sprites", "scripts", "story_texts"],
   trainers: ["trdata", "trpok", "personal", "items", "moves", "trtext_table", "trtext_offsets"],
   facilities: ["moves", "items"],
@@ -423,6 +428,18 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "animatedSprites") {
+    renderPwanAnimationEditor(project, content, {
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+      onRefresh: renderApp,
+    });
+    return;
+  }
+
   if (route === "starters") {
     renderStarterEditor(project, content, {
       onDirty: () => {
@@ -646,6 +663,7 @@ function renderNav(): string {
         ${navItem("headers", "Headers & Overworlds")}
         ${navItem("maps3d", "Maps")}
         ${navItem("pokemon", "Pokemon")}
+        ${navItem("animatedSprites", "Animated Sprites")}
         ${navItem("trainers", "Trainers")}
         ${renderFacilitiesMenu()}
         ${navItem("encounters", "Encounters")}
@@ -1219,6 +1237,10 @@ function hydrateProject(nextProject: ProjectState | undefined): void {
   ensureActionChangelog(nextProject);
   nextProject.fileSystem ??= { replacements: {} };
   nextProject.fileSystem.replacements ??= {};
+  nextProject.fileSystem.additions ??= {};
+  nextProject.pwanAnimations ??= { overrides: [] };
+  nextProject.pwanAnimations.overrides ??= [];
+  nextProject.pwanAnimations.nativeCarrierBackups ??= {};
   nextProject.patches ??= { dirtyOverlayIds: [], applied: {} };
   nextProject.patches.dirtyOverlayIds ??= [];
   nextProject.patches.applied ??= {};
@@ -1248,6 +1270,7 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
   if ((currentProject.actionChangelog?.entries.length ?? 0) > 0) return true;
   if (Object.values(currentProject.narcs).some((store) => (store?.dirty.size ?? 0) > 0)) return true;
   if (currentProject.fileSystem && (Object.keys(currentProject.fileSystem.replacements).length > 0 || Object.keys(currentProject.fileSystem.additions ?? {}).length > 0)) return true;
+  if ((currentProject.pwanAnimations?.overrides.length ?? 0) > 0 || currentProject.pwanAnimations?.runtimeInstalled) return true;
   if ((currentProject.starters?.dirtyOverlayIds.length ?? 0) > 0) return true;
   if ((currentProject.patches?.dirtyOverlayIds.length ?? 0) > 0) return true;
   return false;
@@ -1261,6 +1284,14 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "codeInjection") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
+  if (nextRoute === "animatedSprites") {
+    return (
+      hasExportBase &&
+      project.session.baseVersion === "W2" &&
+      project.romInfo.idCode === "IRDO" &&
+      EDITOR_REQUIREMENTS.animatedSprites.every((name) => Boolean(project?.narcs[name]))
+    );
+  }
   if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
   if (nextRoute === "moveEffectHandlers") {
     return (
@@ -1312,6 +1343,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       ? ` title="Reload the ROM before opening Patches"`
       : nextRoute === "maps3d"
         ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
+      : nextRoute === "animatedSprites"
+        ? ` title="${project?.session.baseVersion === "W2" && project?.romInfo.idCode === "IRDO" ? "Reload the ROM and load Personal Data plus Pokemon Sprites" : "Animated Sprites currently supports stock US White 2 only"}"`
         : nextRoute === "types"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
         : nextRoute === "moveEffectHandlers"
