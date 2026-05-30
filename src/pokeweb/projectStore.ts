@@ -103,6 +103,36 @@ export type CodeInjectionState = {
   }>;
 };
 
+export type PwanPaletteSource = "front" | "back";
+
+export type PwanOverrideSide = {
+  sourceFileName: string;
+  sourceGifBytes: Uint8Array;
+  pwanBytes: Uint8Array;
+  visibleHeight: number;
+  frameCount: number;
+  uniqueFrameCount: number;
+  timelineCount: number;
+  totalTicks: number;
+  paletteBgr555: Uint16Array;
+};
+
+export type PwanAnimationOverride = {
+  speciesId: number;
+  front: PwanOverrideSide;
+  back: PwanOverrideSide;
+  nativePaletteSource: PwanPaletteSource;
+  carrierTemplate: "w2u-gen6-placeholder";
+  backNcecY: 48 | 53;
+  notes?: string[];
+};
+
+export type PwanAnimationState = {
+  runtimeInstalled?: boolean;
+  overrides: PwanAnimationOverride[];
+  nativeCarrierBackups?: Record<string, Uint8Array[]>;
+};
+
 export type StarterState = {
   speciesIds: number[];
   dirtyOverlayIds: number[];
@@ -149,6 +179,7 @@ export type ProjectState = {
   map3dAreaEdits?: Map3dAreaEditState;
   fileSystem?: FileSystemEditState;
   codeInjection?: CodeInjectionState;
+  pwanAnimations?: PwanAnimationState;
   starters?: StarterState;
   patches?: PatchState;
   actionChangelog?: ActionChangelogState;
