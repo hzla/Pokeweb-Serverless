@@ -8,6 +8,8 @@ import {
   PWAN_HEIGHT,
   PWAN_PALETTE_COLORS,
   PWAN_WIDTH,
+  tileIndexedPixels,
+  tilePwanSegmentedPixels,
 } from "../pokeweb/pwanCompiler";
 
 describe("pwanCompiler", () => {
@@ -43,6 +45,19 @@ describe("pwanCompiler", () => {
     expect(nonTransparent.length).toBe(1);
     expect(nonTransparent[0]![1]).toBe(95);
     expect(result.visibleHeight).toBe(1);
+  });
+
+  it("tiles carrier fallback pixels in PWAN segment order", () => {
+    const pixels = Array.from({ length: PWAN_HEIGHT }, () => Array.from({ length: PWAN_WIDTH }, () => 0));
+    pixels[0]![64] = 5;
+
+    const segmented = tilePwanSegmentedPixels(pixels);
+    const linear = tileIndexedPixels(pixels, PWAN_WIDTH, PWAN_HEIGHT);
+
+    expect(segmented).toHaveLength(PWAN_FRAME_BYTES);
+    expect(segmented[0x800]! & 0x0f).toBe(5);
+    expect(linear[0x100]! & 0x0f).toBe(5);
+    expect(segmented[0x100]! & 0x0f).toBe(0);
   });
 });
 

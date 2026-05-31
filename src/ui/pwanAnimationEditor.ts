@@ -15,6 +15,19 @@ type PwanAnimationEditorOptions = {
   onRefresh?: () => void;
 };
 
+type PwanImportFormOptions = PwanAnimationEditorOptions & {
+  title?: string;
+  defaultSpeciesId?: number;
+  defaultPaletteSource?: PwanPaletteSource;
+  showImportStatus?: boolean;
+  showPaletteField?: boolean;
+  showSpeciesField?: boolean;
+  submitLabel?: string;
+  workingLabel?: string;
+};
+
+const pwanGifPreviewUrls = new WeakMap<HTMLImageElement, string>();
+
 export function renderPwanAnimationEditor(project: ProjectState, root: HTMLElement, options: PwanAnimationEditorOptions = {}): void {
   const state = ensurePwanAnimationState(project);
   const status = getPwanRuntimeStatus(project);
@@ -72,19 +85,41 @@ export function renderPwanAnimationEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  installPwanImportFormEvents(project, root, options);
+
+  root.querySelectorAll<HTMLButtonElement>("[data-pwan-remove]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const speciesId = Number(button.dataset.pwanRemove);
+      removePwanOverride(project, speciesId);
+      options.onDirty?.();
+      options.onRefresh?.();
+    });
+  });
+}
+
+export function renderPwanImportPanel(project: ProjectState, options: PwanImportFormOptions = {}): string {
+  return renderPwanImportForm(project, renderSpeciesOptions(project), options);
+}
+
+export function installPwanImportFormEvents(project: ProjectState, root: HTMLElement, options: PwanImportFormOptions = {}): void {
+  const submitLabel = options.submitLabel ?? "Save Override";
+  const workingLabel = options.workingLabel ?? "Compiling...";
+  installPwanGifPreview(root.querySelector<HTMLInputElement>("#pwan-front-gif"), root.querySelector<HTMLImageElement>("#pwan-front-gif-preview"));
+  installPwanGifPreview(root.querySelector<HTMLInputElement>("#pwan-back-gif"), root.querySelector<HTMLImageElement>("#pwan-back-gif-preview"));
   root.querySelector<HTMLButtonElement>("#pwan-save-override")?.addEventListener("click", async () => {
     const button = root.querySelector<HTMLButtonElement>("#pwan-save-override");
     const message = root.querySelector<HTMLElement>("#pwan-form-status");
     try {
       if (button) {
         button.disabled = true;
-        button.textContent = "Compiling...";
+        button.textContent = workingLabel;
       }
       setStatus(message, "Compiling GIFs...");
       const speciesId = Number(root.querySelector<HTMLInputElement>("#pwan-species-id")?.value ?? 0);
       const frontFile = root.querySelector<HTMLInputElement>("#pwan-front-gif")?.files?.[0];
       const backFile = root.querySelector<HTMLInputElement>("#pwan-back-gif")?.files?.[0];
-      const nativePaletteSource = (root.querySelector<HTMLSelectElement>("#pwan-palette-source")?.value ?? "back") as PwanPaletteSource;
+      const paletteSource = root.querySelector<HTMLInputElement | HTMLSelectElement>("#pwan-palette-source")?.value;
+      const nativePaletteSource = (paletteSource ?? "back") as PwanPaletteSource;
       if (!frontFile || !backFile) throw new Error("Choose both a front GIF and a back GIF before saving an override.");
       const override = buildPwanOverride({
         speciesId,
@@ -104,54 +139,36 @@ export function renderPwanAnimationEditor(project: ProjectState, root: HTMLEleme
     } finally {
       if (button) {
         button.disabled = false;
-        button.textContent = "Save Override";
+        button.textContent = submitLabel;
       }
     }
   });
+}
 
-  root.querySelectorAll<HTMLButtonElement>("[data-pwan-remove]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const speciesId = Number(button.dataset.pwanRemove);
-      removePwanOverride(project, speciesId);
-      options.onDirty?.();
-      options.onRefresh?.();
-    });
+function installPwanGifPreview(input: HTMLInputElement | null, preview: HTMLImageElement | null): void {
+  if (!input || !preview) return;
+  input.addEventListener("change", () => {
+    const previousUrl = pwanGifPreviewUrls.get(preview);
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    const file = input.files?.[0];
+    if (!file) {
+      preview.hidden = true;
+      preview.removeAttribute("src");
+      pwanGifPreviewUrls.delete(preview);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    pwanGifPreviewUrls.set(preview, url);
+    preview.src = url;
+    preview.alt = `${file.name} preview`;
+    preview.hidden = false;
   });
 }
 
 function renderEditorForm(project: ProjectState, speciesOptions: string): string {
   return `
     <div class="pwan-editor-grid">
-      <div class="pwan-panel">
-        <div class="pwan-section-title">
-          <h2>Add Override</h2>
-          <span>Front + back required</span>
-        </div>
-        <div class="pwan-form">
-          <label>
-            <span>Species</span>
-            <input id="pwan-species-id" type="number" min="1" max="${Math.max(1, (project.narcs.personal?.fileCount ?? 650) - 1)}" value="498" list="pwan-species-list">
-            <datalist id="pwan-species-list">${speciesOptions}</datalist>
-          </label>
-          <label>
-            <span>Front GIF</span>
-            <input id="pwan-front-gif" type="file" accept="image/gif,.gif">
-          </label>
-          <label>
-            <span>Back GIF</span>
-            <input id="pwan-back-gif" type="file" accept="image/gif,.gif">
-          </label>
-          <label>
-            <span>Fallback Palette</span>
-            <select id="pwan-palette-source">
-              <option value="back" selected>Back PWAN palette</option>
-              <option value="front">Front PWAN palette</option>
-            </select>
-          </label>
-          <button class="btn -default" id="pwan-save-override" type="button">Save Override</button>
-          <div class="pwan-status" id="pwan-form-status"></div>
-        </div>
-      </div>
+      ${renderPwanImportForm(project, speciesOptions)}
       <div class="pwan-panel">
         <div class="pwan-section-title">
           <h2>Export Contract</h2>
@@ -163,6 +180,69 @@ function renderEditorForm(project: ProjectState, speciesOptions: string): string
           <div><strong>Runtime config</strong><span><code>pokeweb_pwan/config.bin</code> lists only overridden species.</span></div>
         </div>
       </div>
+    </div>
+  `;
+}
+
+function renderPwanImportForm(project: ProjectState, speciesOptions: string, options: PwanImportFormOptions = {}): string {
+  const title = options.title ?? "Add Override";
+  const defaultSpeciesId = options.defaultSpeciesId ?? 498;
+  const defaultPaletteSource = options.defaultPaletteSource ?? "back";
+  const existingOverride = options.showImportStatus ? project.pwanAnimations?.overrides?.find((override) => override.speciesId === defaultSpeciesId) : undefined;
+  const showPaletteField = options.showPaletteField ?? true;
+  const showSpeciesField = options.showSpeciesField ?? true;
+  const submitLabel = options.submitLabel ?? "Save Override";
+  return `
+    <div class="pwan-panel">
+      <div class="pwan-section-title">
+        <h2>${escapeHtml(title)}</h2>
+        <span>Front + back required</span>
+      </div>
+      ${existingOverride ? renderPwanImportStatus(existingOverride) : ""}
+      <div class="pwan-form">
+        ${
+          showSpeciesField
+            ? `<label>
+                <span>Species</span>
+                <input id="pwan-species-id" type="number" min="1" max="${Math.max(1, (project.narcs.personal?.fileCount ?? 650) - 1)}" value="${defaultSpeciesId}" list="pwan-species-list">
+                <datalist id="pwan-species-list">${speciesOptions}</datalist>
+              </label>`
+            : `<input id="pwan-species-id" type="hidden" value="${defaultSpeciesId}">`
+        }
+        <label class="pwan-gif-field">
+          <span>Front GIF</span>
+          <input id="pwan-front-gif" type="file" accept="image/gif,.gif">
+          <img class="pwan-gif-preview" id="pwan-front-gif-preview" alt="Front GIF preview" hidden>
+        </label>
+        <label class="pwan-gif-field">
+          <span>Back GIF</span>
+          <input id="pwan-back-gif" type="file" accept="image/gif,.gif">
+          <img class="pwan-gif-preview" id="pwan-back-gif-preview" alt="Back GIF preview" hidden>
+        </label>
+        ${
+          showPaletteField
+            ? `<label>
+                <span>Fallback Palette</span>
+                <select id="pwan-palette-source">
+                  <option value="back" ${defaultPaletteSource === "back" ? "selected" : ""}>Back PWAN palette</option>
+                  <option value="front" ${defaultPaletteSource === "front" ? "selected" : ""}>Front PWAN palette</option>
+                </select>
+              </label>`
+            : `<input id="pwan-palette-source" type="hidden" value="${defaultPaletteSource}">`
+        }
+        <button class="btn -default" id="pwan-save-override" type="button">${escapeHtml(submitLabel)}</button>
+        <div class="pwan-status" id="pwan-form-status"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPwanImportStatus(override: PwanAnimationOverride): string {
+  return `
+    <div class="pwan-import-status">
+      <strong>GIF import active</strong>
+      <span>Front: ${escapeHtml(override.front.sourceFileName)} (${override.front.frameCount} frames)</span>
+      <span>Back: ${escapeHtml(override.back.sourceFileName)} (${override.back.frameCount} frames)</span>
     </div>
   `;
 }

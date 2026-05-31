@@ -663,7 +663,6 @@ function renderNav(): string {
         ${navItem("headers", "Headers & Overworlds")}
         ${navItem("maps3d", "Maps")}
         ${navItem("pokemon", "Pokemon")}
-        ${navItem("animatedSprites", "Animated Sprites")}
         ${navItem("trainers", "Trainers")}
         ${renderFacilitiesMenu()}
         ${navItem("encounters", "Encounters")}

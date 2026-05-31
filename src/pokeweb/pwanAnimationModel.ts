@@ -14,7 +14,7 @@ const PWAN_RUNTIME_URL = new URL("../assets/codeinjection/PokewebPwanW2.dll", im
 const CONFIG_MAGIC = "PWNC";
 const CONFIG_VERSION = 1;
 const FILES_PER_SPRITE = 20;
-const MAX_PWAN_OVERRIDES = 127;
+const MAX_PWAN_OVERRIDES = 500;
 
 export type PwanRuntimeStatus =
   | { supported: false; installed: false; message: string }

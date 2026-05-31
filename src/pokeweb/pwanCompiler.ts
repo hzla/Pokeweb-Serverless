@@ -5,7 +5,7 @@ import {
   type AnimationAnalysisFrame,
   type Box,
   type RgbColor,
-} from "./pokemonAnimationAnalysis";
+} from "./gifAnimationFrames";
 
 export type PwanCompileResult = {
   pwanBytes: Uint8Array;
@@ -156,6 +156,21 @@ export function pwanFirstFramePixels(bytes: Uint8Array): number[][] {
   return decodePwanFrame(bytes.subarray(header.frameOffset, header.frameOffset + header.frameBytes));
 }
 
+export function pwanFramePixels(bytes: Uint8Array, frameIndex: number): number[][] {
+  const header = validatePwan(bytes);
+  const index = clampInt(frameIndex, 0, Math.max(0, header.frameCount - 1));
+  return decodePwanFrame(bytes.subarray(header.frameOffset + index * header.frameBytes, header.frameOffset + (index + 1) * header.frameBytes));
+}
+
+export function pwanTimeline(bytes: Uint8Array): PwanTimelineEntry[] {
+  const header = validatePwan(bytes);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return Array.from({ length: header.timelineCount }, (_value, index) => ({
+    frameIndex: view.getUint16(header.timelineOffset + index * 4, true),
+    ticks: view.getUint16(header.timelineOffset + index * 4 + 2, true),
+  }));
+}
+
 export function pwanVisibleHeight(bytes: Uint8Array): number {
   const header = validatePwan(bytes);
   const frames = Array.from({ length: header.frameCount }, (_value, index) => bytes.subarray(header.frameOffset + index * header.frameBytes, header.frameOffset + (index + 1) * header.frameBytes));
@@ -176,6 +191,13 @@ export function tileIndexedPixels(pixels: number[][], width: number, height: num
       }
     }
   }
+  return out;
+}
+
+export function tilePwanSegmentedPixels(pixels: number[][]): Uint8Array {
+  const chunks = SEGMENTS.map((segment) => tileIndexedPixelsRegion(pixels, segment.x, segment.y, segment.width, segment.height));
+  const out = concatBytes(chunks);
+  if (out.length !== PWAN_FRAME_BYTES) throw new Error(`Segmented PWAN frame is ${out.length} bytes; expected ${PWAN_FRAME_BYTES}`);
   return out;
 }
 
@@ -224,6 +246,23 @@ function tileRgbaRegion(frame: AnimationAnalysisFrame, palette: RgbColor[], x0: 
           const lo = nearestPaletteIndex(frame, palette, x0 + tileX + x, y0 + tileY + y);
           const hi = nearestPaletteIndex(frame, palette, x0 + tileX + x + 1, y0 + tileY + y);
           out[offset++] = lo | (hi << 4);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function tileIndexedPixelsRegion(pixels: number[][], x0: number, y0: number, width: number, height: number): Uint8Array {
+  const out = new Uint8Array((width * height) / 2);
+  let offset = 0;
+  for (let tileY = 0; tileY < height; tileY += 8) {
+    for (let tileX = 0; tileX < width; tileX += 8) {
+      for (let y = 0; y < 8; y += 1) {
+        for (let x = 0; x < 8; x += 2) {
+          const lo = pixels[y0 + tileY + y]?.[x0 + tileX + x] ?? 0;
+          const hi = pixels[y0 + tileY + y]?.[x0 + tileX + x + 1] ?? 0;
+          out[offset++] = (lo & 0x0f) | ((hi & 0x0f) << 4);
         }
       }
     }

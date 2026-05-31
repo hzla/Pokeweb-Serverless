@@ -4,19 +4,19 @@ import { compressLz11Literal, decompressNitro } from "./pokemonSpriteModel";
 import type { ProjectState, PwanAnimationOverride } from "./projectStore";
 import { markDirty } from "./projectStore";
 import {
-  makeWidePwanPixels,
   pwanFirstFramePixels,
   pwanPalette,
   pwanVisibleHeight,
-  tileIndexedPixels,
+  tilePwanSegmentedPixels,
 } from "./pwanCompiler";
 
 export type PwanCarrierTemplate = Record<number, Uint8Array>;
 
 export const PWAN_CARRIER_METADATA_OFFSETS = [4, 5, 6, 7, 8, 13, 14, 15, 16, 17] as const;
 export const PWAN_BACK_LIFT_HEIGHT_THRESHOLD = 70;
-export const PWAN_FRONT_NCEC_Y = 48;
-export const PWAN_BACK_NCEC_Y = 53;
+export const PWAN_CARRIER_BASELINE_RAISE_PX = 5;
+export const PWAN_FRONT_NCEC_Y = 43;
+export const PWAN_BACK_NCEC_Y = 48;
 
 const FILES_PER_SPRITE = 20;
 const PALETTE_OFFSET = 0x28;
@@ -24,8 +24,27 @@ const NCEC_ENTRY_OFFSET = 12;
 const NCEC_ENTRY_BYTES = 48;
 const NCEC_POS_Y_OFFSET = 4;
 const NCEC_MEPACHI_POS_Y_OFFSET = 28;
-const NCEC_ORIGINAL_POS_Y = 48 << 8;
-const NCEC_BACK_LIFTED_POS_Y = 53 << 8;
+const NCEC_ORIGINAL_POS_Y = (PWAN_FRONT_NCEC_Y - PWAN_CARRIER_BASELINE_RAISE_PX) << 8;
+const NCEC_BACK_LIFTED_POS_Y = (PWAN_BACK_NCEC_Y - PWAN_CARRIER_BASELINE_RAISE_PX) << 8;
+const NCEC_TEMPLATE_ORIGINAL_POS_Y = PWAN_FRONT_NCEC_Y << 8;
+const NCEC_TEMPLATE_BACK_LIFTED_POS_Y = PWAN_BACK_NCEC_Y << 8;
+
+const SPRITE_SCRAMBLE_RECTS = [
+  [0, 0, 64, 64, 0, 0],
+  [64, 0, 32, 8, 0, 64],
+  [64, 8, 32, 8, 32, 64],
+  [64, 16, 32, 8, 0, 72],
+  [64, 24, 32, 8, 32, 72],
+  [64, 32, 32, 8, 0, 80],
+  [64, 40, 32, 8, 32, 80],
+  [64, 48, 32, 8, 0, 88],
+  [64, 56, 32, 8, 32, 88],
+  [0, 64, 64, 32, 0, 96],
+  [64, 64, 32, 8, 0, 128],
+  [64, 72, 32, 8, 32, 128],
+  [64, 80, 32, 8, 0, 136],
+  [64, 88, 32, 8, 32, 136],
+] as const;
 
 const CARRIER_URLS = Object.fromEntries(
   PWAN_CARRIER_METADATA_OFFSETS.map((offset) => [offset, new URL(`../assets/pwan/carrier/file${offset}.bin`, import.meta.url)]),
@@ -57,27 +76,81 @@ export function applyPwanCarrierPatch(project: ProjectState, override: PwanAnima
     writeSpriteFile(project, base + offset, bytes.slice());
   }
 
-  patchSide(project, base, 0, override.front.pwanBytes);
-  patchSide(project, base, 9, override.back.pwanBytes);
+  const paletteSource = override.nativePaletteSource === "front" ? override.front.pwanBytes : override.back.pwanBytes;
+  const nativePalette = pwanPalette(paletteSource);
+  patchSide(project, base, 0, override.front.pwanBytes, nativePalette);
+  patchSide(project, base, 9, override.back.pwanBytes, nativePalette);
   patchCarrierNcec(project, base, override.back.pwanBytes);
 
-  const paletteSource = override.nativePaletteSource === "front" ? override.front.pwanBytes : override.back.pwanBytes;
-  patchPalette(project, base + 18, pwanPalette(paletteSource));
-  patchPalette(project, base + 19, pwanPalette(paletteSource));
+  patchPalette(project, base + 18, nativePalette);
+  patchPalette(project, base + 19, nativePalette);
 
   recordGenericChange(project, "pokemon_sprites", `PWAN animated carrier patched for species ${override.speciesId}.`, `Species ${override.speciesId}`, {
     key: `pwan-carrier:${override.speciesId}`,
   });
 }
 
-export function deriveBackNcecY(backPwanBytes: Uint8Array): 48 | 53 {
+export function deriveBackNcecY(backPwanBytes: Uint8Array): 43 | 48 {
   return pwanVisibleHeight(backPwanBytes) > PWAN_BACK_LIFT_HEIGHT_THRESHOLD ? PWAN_BACK_NCEC_Y : PWAN_FRONT_NCEC_Y;
 }
 
-function patchSide(project: ProjectState, base: number, sideOffset: 0 | 9, pwanBytes: Uint8Array): void {
-  const pixels = pwanFirstFramePixels(pwanBytes);
-  patchNcgr(project, base + sideOffset, tileIndexedPixels(pixels, 96, 96));
-  patchNcgr(project, base + sideOffset + 2, tileIndexedPixels(makeWidePwanPixels(pixels), 256, 128));
+function patchSide(project: ProjectState, base: number, sideOffset: 0 | 9, pwanBytes: Uint8Array, nativePalette: Uint16Array): void {
+  const pixels = remapPixelsToNativePalette(pwanFirstFramePixels(pwanBytes), pwanPalette(pwanBytes), nativePalette);
+  patchNcgr(project, base + sideOffset, tilePwanSegmentedPixels(pixels));
+  patchNcgr(project, base + sideOffset + 2, linearWidePwanPixels(pixels));
+}
+
+export function linearWidePwanPixels(pixels: number[][]): Uint8Array {
+  const out = new Uint8Array((256 * 128) / 2);
+  for (let y = 0; y < 96; y += 1) {
+    for (let x = 0; x < 96; x += 2) {
+      const lo = pixels[y]?.[x] ?? 0;
+      const hi = pixels[y]?.[x + 1] ?? 0;
+      out[(y * 256 + x) >> 1] = (lo & 0x0f) | ((hi & 0x0f) << 4);
+    }
+  }
+  return out;
+}
+
+export function scrambleBattleSpritePixels(pixels: number[][]): number[][] {
+  const out = Array.from({ length: 144 }, () => Array.from({ length: 64 }, () => 0));
+  for (const [srcX, srcY, width, height, dstX, dstY] of SPRITE_SCRAMBLE_RECTS) {
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        out[dstY + y]![dstX + x] = pixels[srcY + y]?.[srcX + x] ?? 0;
+      }
+    }
+  }
+  return out;
+}
+
+export function remapPixelsToNativePalette(pixels: number[][], sourcePalette: Uint16Array, nativePalette: Uint16Array): number[][] {
+  const remap = Array.from({ length: 16 }, (_value, index) => index);
+  for (let index = 1; index < 16; index += 1) remap[index] = nearestPaletteIndex(sourcePalette[index] ?? 0, nativePalette);
+  return pixels.map((row) => row.map((index) => (index === 0 ? 0 : (remap[index] ?? 0))));
+}
+
+function nearestPaletteIndex(color: number, palette: Uint16Array): number {
+  let best = 1;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  const source = bgr555ToRgb(color);
+  for (let index = 1; index < 16; index += 1) {
+    const candidate = bgr555ToRgb(palette[index] ?? 0);
+    const distance = (source.r - candidate.r) ** 2 + (source.g - candidate.g) ** 2 + (source.b - candidate.b) ** 2;
+    if (distance < bestDistance) {
+      best = index;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+function bgr555ToRgb(color: number): { r: number; g: number; b: number } {
+  return {
+    r: (color & 0x1f) << 3,
+    g: ((color >>> 5) & 0x1f) << 3,
+    b: ((color >>> 10) & 0x1f) << 3,
+  };
 }
 
 function patchNcgr(project: ProjectState, absoluteIndex: number, tiledData: Uint8Array): void {
@@ -102,7 +175,7 @@ function patchPalette(project: ProjectState, absoluteIndex: number, palette: Uin
 
 function patchCarrierNcec(project: ProjectState, base: number, backPwanBytes: Uint8Array): void {
   setNcecPosY(project, base + 8, NCEC_ORIGINAL_POS_Y);
-  setNcecPosY(project, base + 17, deriveBackNcecY(backPwanBytes) === 53 ? NCEC_BACK_LIFTED_POS_Y : NCEC_ORIGINAL_POS_Y);
+  setNcecPosY(project, base + 17, deriveBackNcecY(backPwanBytes) === PWAN_BACK_NCEC_Y ? NCEC_BACK_LIFTED_POS_Y : NCEC_ORIGINAL_POS_Y);
 }
 
 function setNcecPosY(project: ProjectState, absoluteIndex: number, posY: number): void {
@@ -118,7 +191,14 @@ function setNcecPosY(project: ProjectState, absoluteIndex: number, posY: number)
     writeU32(data, entry + NCEC_POS_Y_OFFSET, posY >>> 0);
     const mepachiOffset = entry + NCEC_MEPACHI_POS_Y_OFFSET;
     const mepachiPosY = readU32(data, mepachiOffset) | 0;
-    if (mepachiPosY === NCEC_ORIGINAL_POS_Y || mepachiPosY === NCEC_BACK_LIFTED_POS_Y) writeU32(data, mepachiOffset, posY >>> 0);
+    if (
+      mepachiPosY === NCEC_ORIGINAL_POS_Y ||
+      mepachiPosY === NCEC_BACK_LIFTED_POS_Y ||
+      mepachiPosY === NCEC_TEMPLATE_ORIGINAL_POS_Y ||
+      mepachiPosY === NCEC_TEMPLATE_BACK_LIFTED_POS_Y
+    ) {
+      writeU32(data, mepachiOffset, posY >>> 0);
+    }
   }
   writeSpriteFile(project, absoluteIndex, data);
 }
