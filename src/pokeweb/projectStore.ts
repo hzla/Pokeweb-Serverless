@@ -123,7 +123,7 @@ export type PwanAnimationOverride = {
   back: PwanOverrideSide;
   nativePaletteSource: PwanPaletteSource;
   carrierTemplate: "w2u-gen6-placeholder";
-  backNcecY: 48 | 53;
+  backNcecY: 43 | 48;
   notes?: string[];
 };
 

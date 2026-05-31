@@ -62,11 +62,13 @@ import {
   type PokemonFlipbookReport,
   type PokemonFlipbookSamplingStrategy,
 } from "../pokeweb/pokemonFlipbookRig";
+import { PWAN_HEIGHT, PWAN_WIDTH, pwanFramePixels, pwanTimeline } from "../pokeweb/pwanCompiler";
 import { getPokemonCount } from "../pokeweb/pokemonModel";
 import { concatBytes } from "../nds/binary";
 import { parsePokemonCustomSpriteBundle } from "../pokeweb/pokemonSpriteWriters";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { installPwanImportFormEvents, renderPwanImportPanel } from "./pwanAnimationEditor";
 import { unzipSync } from "fflate";
 
 type RenderOptions = {
@@ -111,6 +113,7 @@ type SpriteEditorState = {
   gifSource?: GifSourceState;
   gifLoopBase?: GifLoopBase;
   lastGifImport?: GifImportSummary;
+  speciesId?: number;
   spritesExpanded: boolean;
   palettesExpanded: boolean;
   iconsExpanded: boolean;
@@ -139,6 +142,18 @@ type GifSourceState = {
   fileName: string;
   bytes: Uint8Array;
   frames: PokemonFlipbookFrameEntry[];
+};
+
+type PwanPreviewFrame = {
+  frameIndex: number;
+  ticks: number;
+  image: HTMLCanvasElement;
+};
+
+type PwanPreview = {
+  key: string;
+  totalTicks: number;
+  frames: PwanPreviewFrame[];
 };
 
 type PaletteHighlight = { kind: PokemonPaletteKind; index: number } | undefined;
@@ -266,6 +281,7 @@ let animationFileDraft: AnimationFileDraft | undefined;
 let spriteEditorShortcutCleanup: (() => void) | undefined;
 let animationOutsidePointerCleanup: (() => void) | undefined;
 const animationEditHistory: AnimationHistoryEntry[] = [];
+const pwanPreviewCache = new Map<string, PwanPreview>();
 
 const SPRITE_FILE_LABELS = [
   "Front Sprite",
@@ -310,6 +326,7 @@ export function renderPokemonSpriteEditor(
     const forms = getPokemonSpriteFormOptions(project, speciesId);
     const selectedForm = forms.find((form) => form.formIndex === formIndex) ?? forms[0];
     const spriteId = selectedForm.spriteId;
+    state.speciesId = speciesId;
     const entry = getPokemonSpriteEntry(project, spriteId);
     const iconAssignment = getPokemonIconPaletteAssignment(project, spriteId, state.iconVariant);
     state.iconPaletteId = Math.min(2, iconAssignment.paletteId);
@@ -355,7 +372,7 @@ export function renderPokemonSpriteEditor(
         </div>
       </aside>
       <main class="sprite-editor-page ${state.sidebarCollapsed ? "-sidebar-collapsed" : ""}">
-        ${renderAnimationSection(project, spriteId)}
+        ${renderAnimationSection(project, spriteId, speciesId)}
         ${renderRigSection(project, rigCells)}
         <section class="sprite-section sprite-preview-section ${state.spritesExpanded ? "" : "-collapsed"}">
           <button class="sprite-section-toggle" data-toggle-sprite-section="sprites" type="button" aria-expanded="${state.spritesExpanded}">
@@ -589,6 +606,16 @@ function attachSpriteEditor(project: ProjectState, root: HTMLElement, speciesId:
   installRawFileEvents(project, root, spriteId, options, setStatus, rerender);
   installBundleImportEvents(project, root, spriteId, options, setStatus, rerender);
   installGifFlipbookImportEvents(project, root, spriteId, options, setStatus, rerender);
+  installSpritePwanImportEvents(project, root, options, rerender);
+}
+
+function installSpritePwanImportEvents(project: ProjectState, root: HTMLElement, options: RenderOptions, rerender: () => void): void {
+  installPwanImportFormEvents(project, root, {
+    onDirty: options.onDirty,
+    onRefresh: rerender,
+    submitLabel: "Import Gif",
+    workingLabel: "Importing...",
+  });
 }
 
 function installGifFlipbookImportEvents(
@@ -1131,6 +1158,7 @@ function refreshAnimationSectionContent(
   if (animationSection) animationSection.outerHTML = renderAnimationSection(project, spriteId);
   installAnimationEvents(project, root, spriteId, options, setStatus, rerender);
   installGifFlipbookImportEvents(project, root, spriteId, options, setStatus, rerender);
+  installSpritePwanImportEvents(project, root, options, rerender);
   adjustAnimationCanvasDisplaySize(root);
   drawAnimationEditor(project, spriteId, root);
   drawGifViewer(root);
@@ -1208,6 +1236,7 @@ function refreshGifImportEditorContent(
     installRigEvents(project, root, spriteId, options, setStatus, rerender);
     installAnimationEvents(project, root, spriteId, options, setStatus, rerender);
     installGifFlipbookImportEvents(project, root, spriteId, options, setStatus, rerender);
+    installSpritePwanImportEvents(project, root, options, rerender);
     adjustAnimationCanvasDisplaySize(root);
     drawRigEditor(project, spriteId, rigCells);
     drawAnimationEditor(project, spriteId, root);
@@ -1571,6 +1600,17 @@ function installAnimationEvents(
     refreshAnimation();
   });
   root.querySelector<HTMLInputElement>("#animation-frame")?.addEventListener("input", (event) => {
+    const pwanPreview = activePwanAnimationPreview(project);
+    if (pwanPreview) {
+      state.animationTick = Number((event.currentTarget as HTMLInputElement).value);
+      state.animationFrame = pwanPreviewFrameAtTick(pwanPreview, state.animationTick).frameIndex;
+      state.animationPlaying = false;
+      stopAnimationPlayback();
+      drawAnimationEditor(project, spriteId, root);
+      syncAnimationFrameControl(root);
+      syncAnimationPlaybackButton(root);
+      return;
+    }
     const animation = getPokemonAnimation(project, spriteId, state.animationSide);
     const sequence = animation.sequences[state.animationSequence] ?? animation.sequences[0];
     state.animationTick = Number((event.currentTarget as HTMLInputElement).value);
@@ -1584,6 +1624,7 @@ function installAnimationEvents(
   });
   root.querySelector<HTMLInputElement>("#animation-frame")?.addEventListener("change", () => {
     syncAnimationFrameControl(root);
+    if (activePwanAnimationPreview(project)) return;
     syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
   });
   root.querySelector<HTMLInputElement>("#animation-step-interval")?.addEventListener("change", (event) => {
@@ -1596,11 +1637,15 @@ function installAnimationEvents(
     if (state.animationPlaying) {
       stopAnimationPlayback();
       state.animationTick = 0;
-      const animation = getPokemonAnimation(project, spriteId, state.animationSide);
-      const sequence = animation.sequences[state.animationSequence] ?? animation.sequences[0];
-      state.animationFrame = sequence ? animationPlayerFrameAtTick(sequence, state.animationTick) : 0;
+      const pwanPreview = activePwanAnimationPreview(project);
+      if (pwanPreview) state.animationFrame = pwanPreviewFrameAtTick(pwanPreview, state.animationTick).frameIndex;
+      else {
+        const animation = getPokemonAnimation(project, spriteId, state.animationSide);
+        const sequence = animation.sequences[state.animationSequence] ?? animation.sequences[0];
+        state.animationFrame = sequence ? animationPlayerFrameAtTick(sequence, state.animationTick) : 0;
+      }
       syncAnimationFrameControl(root);
-      syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
+      if (!pwanPreview) syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
       drawAnimationEditor(project, spriteId, root);
       syncAnimationPlaybackButton(root);
       startAnimationPlayback(project, spriteId, root);
@@ -1912,10 +1957,12 @@ function stepAnimation(project: ProjectState, spriteId: number, root: HTMLElemen
   try {
     state.animationPlaying = false;
     stopAnimationPlayback();
-    stepAnimationPlayers(project, spriteId, getPokemonAnimation(project, spriteId, state.animationSide), deltaTicks);
+    const pwanPreview = activePwanAnimationPreview(project);
+    if (pwanPreview) stepPwanAnimationPreview(pwanPreview, deltaTicks);
+    else stepAnimationPlayers(project, spriteId, getPokemonAnimation(project, spriteId, state.animationSide), deltaTicks);
     drawAnimationEditor(project, spriteId, root);
     syncAnimationFrameControl(root);
-    syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
+    if (!pwanPreview) syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
     syncAnimationPlaybackButton(root);
   } catch (error) {
     setStatus(errorMessage(error));
@@ -2438,6 +2485,11 @@ function drawAnimationEditor(project: ProjectState, spriteId: number, root: HTML
   ctx.fillStyle = "#242638";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawGrid(ctx, canvas.width, canvas.height, 24, "rgb(255 255 255 / 10%)");
+  const pwanPreview = activePwanAnimationPreview(project);
+  if (pwanPreview) {
+    drawPwanAnimationPreview(ctx, pwanPreview, state.animationTick);
+    return;
+  }
   try {
     const animation = getPokemonAnimation(project, spriteId, state.animationSide);
     const multiCells = getPokemonMultiCells(project, spriteId, state.animationSide);
@@ -2480,6 +2532,78 @@ function drawAnimationEditor(project: ProjectState, spriteId: number, root: HTML
   } catch {
     clearCanvas(canvas);
   }
+}
+
+function activePwanAnimationPreview(project: ProjectState): PwanPreview | undefined {
+  const speciesId = state.speciesId;
+  if (speciesId === undefined) return undefined;
+  const override = project.pwanAnimations?.overrides?.find((entry) => entry.speciesId === speciesId);
+  if (!override) return undefined;
+  const side = override[state.animationSide];
+  const key = `${speciesId}:${state.animationSide}:${side.sourceFileName}:${side.pwanBytes.length}:${side.timelineCount}:${side.totalTicks}`;
+  const cached = pwanPreviewCache.get(key);
+  if (cached) return cached;
+  const timeline = pwanTimeline(side.pwanBytes);
+  if (timeline.length === 0) return undefined;
+  const frameImages = new Map<number, HTMLCanvasElement>();
+  const frames = timeline.map((entry) => {
+    let image = frameImages.get(entry.frameIndex);
+    if (!image) {
+      image = imageToCanvas(pwanIndexedPixelsToRgba(pwanFramePixels(side.pwanBytes, entry.frameIndex), side.paletteBgr555));
+      frameImages.set(entry.frameIndex, image);
+    }
+    return { frameIndex: entry.frameIndex, ticks: Math.max(1, entry.ticks), image };
+  });
+  const preview = { key, totalTicks: Math.max(1, frames.reduce((sum, frame) => sum + frame.ticks, 0)), frames };
+  pwanPreviewCache.set(key, preview);
+  return preview;
+}
+
+function drawPwanAnimationPreview(ctx: CanvasRenderingContext2D, preview: PwanPreview, tick: number): void {
+  const frame = pwanPreviewFrameAtTick(preview, tick);
+  const scale = ANIMATION_PREVIEW_SCALE;
+  const width = PWAN_WIDTH * scale;
+  const height = PWAN_HEIGHT * scale;
+  const x = Math.round(canvasAnimationOriginX(ctx) - width / 2);
+  const y = Math.round(canvasAnimationOriginY(ctx) - height);
+  ctx.drawImage(frame.image, x, y, width, height);
+  ctx.strokeStyle = "#1abc9c";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(ctx.canvas.width / 2 - 2, ctx.canvas.height / 2 - 2, 4, 4);
+}
+
+function pwanPreviewFrameAtTick(preview: PwanPreview, tick: number): PwanPreviewFrame {
+  const totalTicks = Math.max(1, preview.totalTicks);
+  let localTick = ((tick % totalTicks) + totalTicks) % totalTicks;
+  for (const frame of preview.frames) {
+    if (localTick < frame.ticks) return frame;
+    localTick -= frame.ticks;
+  }
+  return preview.frames[preview.frames.length - 1]!;
+}
+
+function pwanIndexedPixelsToRgba(indexed: number[][], palette: Uint16Array): RgbaImageData {
+  const pixels = new Uint8ClampedArray(PWAN_WIDTH * PWAN_HEIGHT * 4);
+  for (let y = 0; y < PWAN_HEIGHT; y += 1) {
+    for (let x = 0; x < PWAN_WIDTH; x += 1) {
+      const colorIndex = indexed[y]?.[x] ?? 0;
+      const color = bgr555ToRgb(palette[colorIndex] ?? 0);
+      const offset = (y * PWAN_WIDTH + x) * 4;
+      pixels[offset] = color.r;
+      pixels[offset + 1] = color.g;
+      pixels[offset + 2] = color.b;
+      pixels[offset + 3] = colorIndex === 0 ? 0 : 255;
+    }
+  }
+  return { width: PWAN_WIDTH, height: PWAN_HEIGHT, pixels };
+}
+
+function bgr555ToRgb(value: number): RgbColor {
+  return {
+    r: ((value & 0x1f) << 3) | ((value & 0x1f) >>> 2),
+    g: (((value >>> 5) & 0x1f) << 3) | (((value >>> 5) & 0x1f) >>> 2),
+    b: (((value >>> 10) & 0x1f) << 3) | (((value >>> 10) & 0x1f) >>> 2),
+  };
 }
 
 function drawAnimationCell(ctx: CanvasRenderingContext2D, rig: HTMLCanvasElement, cell: RigCell, frame: PokemonAnimationFrame, selected = false): void {
@@ -3374,7 +3498,7 @@ function renderPreviewCanvases(project: ProjectState, hasFemale: boolean): strin
     .join("");
 }
 
-function renderAnimationSection(project: ProjectState, spriteId: number): string {
+function renderAnimationSection(project: ProjectState, spriteId: number, speciesId = spriteId): string {
   const previewActive = state.animationTab === "preview";
   return `
     <section class="sprite-section" id="sprite-animation-section">
@@ -3389,7 +3513,7 @@ function renderAnimationSection(project: ProjectState, spriteId: number): string
       </div>
       <div class="animation-workbench">
         ${renderAnimationTabButtons()}
-        ${previewActive ? `${renderAnimationEditor(project, spriteId)}${renderGifFlipbookImportControls(project, spriteId)}` : renderAnimationFileEditor(project, spriteId, state.animationTab)}
+        ${previewActive ? `${renderAnimationEditor(project, spriteId)}${renderPwanImportPanel(project, { title: "Import Gif", defaultSpeciesId: speciesId, defaultPaletteSource: "front", showImportStatus: true, showPaletteField: false, showSpeciesField: false, submitLabel: "Import Gif" })}` : renderAnimationFileEditor(project, spriteId, state.animationTab)}
       </div>
     </section>
   `;
@@ -4109,6 +4233,25 @@ function renderAnimationHotkeyHint(): string {
 
 function renderAnimationScrubber(project: ProjectState, spriteId: number): string {
   try {
+    const pwanPreview = activePwanAnimationPreview(project);
+    if (pwanPreview) {
+      const maxTick = Math.max(0, pwanPreview.totalTicks - 1);
+      state.animationTick = clamp(state.animationTick, 0, maxTick);
+      const frame = pwanPreviewFrameAtTick(pwanPreview, state.animationTick);
+      state.animationFrame = frame.frameIndex;
+      return `
+        <div class="animation-header-scrubber animation-frame-scrubber">
+          <label class="animation-frame-range">
+            <span><strong id="animation-frame-label">${animationFrameLabel(state.animationTick, maxTick, frame.frameIndex)}</strong></span>
+            <input id="animation-frame" type="range" min="0" max="${maxTick}" value="${state.animationTick}">
+          </label>
+          <label class="animation-step-field">
+            <span>Step</span>
+            <input id="animation-step-interval" type="number" min="1" max="999" value="${state.animationStepInterval}">
+          </label>
+        </div>
+      `;
+    }
     syncAnimationSequenceToVisibleNode(project, spriteId);
     const animation = getPokemonAnimation(project, spriteId, state.animationSide);
     const sequence = animation.sequences[state.animationSequence] ?? animation.sequences[0];
@@ -4856,13 +4999,14 @@ function startAnimationPlayback(project: ProjectState, spriteId: number, root: H
       return;
     }
     try {
-      const animation = getPokemonAnimation(project, spriteId, state.animationSide);
+      const pwanPreview = activePwanAnimationPreview(project);
       const durationMs = 1000 / 60;
       if (now - last >= durationMs) {
         last = now;
-        stepAnimationPlayers(project, spriteId, animation);
+        if (pwanPreview) stepPwanAnimationPreview(pwanPreview);
+        else stepAnimationPlayers(project, spriteId, getPokemonAnimation(project, spriteId, state.animationSide));
         syncAnimationFrameControl(root);
-        syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
+        if (!pwanPreview) syncAnimationInputs(root, selectedAnimationFrame(project, spriteId));
         drawAnimationEditor(project, spriteId, root);
       }
       animationPlaybackHandle = requestAnimationFrame(tick);
@@ -4903,6 +5047,12 @@ function stepAnimationPlayers(project: ProjectState, spriteId: number, animation
   const totalTicks = animationTimelineTotalTicks(project, spriteId, animation, sequence);
   state.animationTick = totalTicks > 0 ? (state.animationTick + Math.round(deltaTicks) + totalTicks * Math.ceil(Math.abs(deltaTicks) / totalTicks + 1)) % totalTicks : 0;
   state.animationFrame = animationPlayerFrameAtTick(sequence, state.animationTick);
+}
+
+function stepPwanAnimationPreview(preview: PwanPreview, deltaTicks = 1): void {
+  const totalTicks = Math.max(1, preview.totalTicks);
+  state.animationTick = totalTicks > 0 ? (state.animationTick + Math.round(deltaTicks) + totalTicks * Math.ceil(Math.abs(deltaTicks) / totalTicks + 1)) % totalTicks : 0;
+  state.animationFrame = pwanPreviewFrameAtTick(preview, state.animationTick).frameIndex;
 }
 
 function syncAnimationFrameControl(root: HTMLElement): void {

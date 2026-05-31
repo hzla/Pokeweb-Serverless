@@ -5,9 +5,13 @@ import type { NarcStore, ProjectState, PwanAnimationOverride } from "../pokeweb/
 import {
   applyPwanCarrierPatch,
   deriveBackNcecY,
+  linearWidePwanPixels,
   PWAN_BACK_NCEC_Y,
+  PWAN_CARRIER_BASELINE_RAISE_PX,
   PWAN_CARRIER_METADATA_OFFSETS,
   PWAN_FRONT_NCEC_Y,
+  remapPixelsToNativePalette,
+  scrambleBattleSpritePixels,
   type PwanCarrierTemplate,
 } from "../pokeweb/pwanCarrierPatch";
 import { compileGifToPwan, pwanPalette } from "../pokeweb/pwanCompiler";
@@ -42,16 +46,62 @@ describe("pwanCarrierPatch", () => {
     expect(readU16(store.rawFiles[58]!, 0x2a)).toBe(palette[1]);
     expect(readU16(store.rawFiles[59]!, 0x2a)).toBe(palette[1]);
 
-    expect(readU32(store.rawFiles[48]!, 16)).toBe(PWAN_FRONT_NCEC_Y << 8);
-    expect(readU32(store.rawFiles[57]!, 16)).toBe(PWAN_FRONT_NCEC_Y << 8);
+    expect(readU32(store.rawFiles[48]!, 16)).toBe((PWAN_FRONT_NCEC_Y - PWAN_CARRIER_BASELINE_RAISE_PX) << 8);
+    expect(readU32(store.rawFiles[57]!, 16)).toBe((PWAN_FRONT_NCEC_Y - PWAN_CARRIER_BASELINE_RAISE_PX) << 8);
   });
 
   it("lifts tall back carriers", () => {
     expect(deriveBackNcecY(makeTallPwan())).toBe(PWAN_BACK_NCEC_Y);
   });
+
+  it("applies the static carrier baseline raise to every PWAN override", () => {
+    const project = makeProject(100);
+    const front = compileGifToPwan(new Uint8Array(Buffer.from(SINGLE_PIXEL_GIF_BASE64, "base64")));
+    const back = compileGifToPwan(new Uint8Array(Buffer.from(SINGLE_PIXEL_GIF_BASE64, "base64")));
+    const carrier = makeCarrier();
+
+    applyPwanCarrierPatch(project, makeOverride(2, front.pwanBytes, back.pwanBytes), carrier);
+    applyPwanCarrierPatch(project, makeOverride(3, front.pwanBytes, back.pwanBytes), carrier);
+
+    const store = project.narcs.pokemon_sprites!;
+    expect(readU32(store.rawFiles[2 * 20 + 8]!, 16)).toBe((PWAN_FRONT_NCEC_Y - PWAN_CARRIER_BASELINE_RAISE_PX) << 8);
+    expect(readU32(store.rawFiles[3 * 20 + 8]!, 16)).toBe((PWAN_FRONT_NCEC_Y - PWAN_CARRIER_BASELINE_RAISE_PX) << 8);
+  });
+
+  it("scrambles 96x96 frame-zero pixels into the native 64x144 battle sprite layout", () => {
+    const pixels = Array.from({ length: 96 }, () => Array.from({ length: 96 }, () => 0));
+    pixels[95]![47] = 9;
+
+    const scrambled = scrambleBattleSpritePixels(pixels);
+
+    expect(scrambled).toHaveLength(144);
+    expect(scrambled[127]?.[47]).toBe(9);
+  });
+
+  it("writes wide MCSS carrier pixels as linear 256x128 4bpp data", () => {
+    const pixels = Array.from({ length: 96 }, () => Array.from({ length: 96 }, () => 0));
+    pixels[0]![0] = 1;
+    pixels[0]![8] = 2;
+    pixels[8]![0] = 3;
+
+    const wide = linearWidePwanPixels(pixels);
+
+    expect(wide).toHaveLength(0x4000);
+    expect(wide[0]).toBe(1);
+    expect(wide[4]).toBe(2);
+    expect(wide[8 * 128]).toBe(3);
+  });
+
+  it("remaps side-specific PWAN indices into the chosen native fallback palette", () => {
+    const pixels = [[0, 1, 2]];
+    const source = new Uint16Array([0, rgb555(31, 0, 0), rgb555(0, 31, 0)]);
+    const native = new Uint16Array([0, rgb555(0, 31, 0), rgb555(31, 0, 0)]);
+
+    expect(remapPixelsToNativePalette(pixels, source, native)).toEqual([[0, 2, 1]]);
+  });
 });
 
-function makeProject(): ProjectState {
+function makeProject(spriteFileCount = 80): ProjectState {
   return {
     session: {
       romName: "test",
@@ -65,7 +115,7 @@ function makeProject(): ProjectState {
     arm9: new Uint8Array(),
     overlays: {},
     narcs: {
-      pokemon_sprites: makeStore(Array.from({ length: 80 }, () => new Uint8Array())),
+      pokemon_sprites: makeStore(Array.from({ length: spriteFileCount }, () => new Uint8Array())),
     },
     texts: { banks: {} },
     formats: {},
@@ -83,7 +133,7 @@ function makeStore(rawFiles: Uint8Array[]): NarcStore {
     records: new Map(),
     dirty: new Set(),
   };
-  for (const base of [40]) {
+  for (let base = 0; base + 19 < rawFiles.length; base += 20) {
     store.rawFiles[base] = makeCompressedNcgr(0x1200);
     store.rawFiles[base + 2] = makeCompressedNcgr(0x4000);
     store.rawFiles[base + 9] = makeCompressedNcgr(0x1200);
@@ -120,7 +170,7 @@ function makeOverride(speciesId: number, frontPwan: Uint8Array, backPwan: Uint8A
     back: side(backPwan),
     nativePaletteSource: "back",
     carrierTemplate: "w2u-gen6-placeholder",
-    backNcecY: 48,
+    backNcecY: PWAN_FRONT_NCEC_Y,
   };
 }
 
@@ -153,3 +203,7 @@ function makeTallPwan(): Uint8Array {
 }
 
 const SINGLE_PIXEL_GIF_BASE64 = "R0lGODlhAQABAIABAP///wAAACH5BAEKAAEALAAAAAABAAEAAAICRAEAOw==";
+
+function rgb555(r: number, g: number, b: number): number {
+  return (r & 0x1f) | ((g & 0x1f) << 5) | ((b & 0x1f) << 10);
+}

@@ -951,6 +951,109 @@
   grid-template-columns: max-content minmax(420px, 1fr);
 }
 
+.sprite-editor-page .animation-workbench .pwan-panel {
+  align-self: start;
+  background: #383a59;
+  border: 1px solid #44475a;
+  border-radius: 6px;
+  box-shadow: none;
+  color: #eef2fb;
+  min-width: 0;
+}
+
+.sprite-editor-page .animation-workbench .pwan-section-title h2 {
+  color: #eef2fb;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sprite-editor-page .animation-workbench .pwan-section-title span {
+  color: #aeb6c7;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form label {
+  color: #c9c9d3;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form label > span {
+  color: #c9c9d3;
+  font-size: 12px;
+  text-transform: none;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form input,
+.sprite-editor-page .animation-workbench .pwan-form select {
+  background: #282d3b;
+  border-color: #3b4254;
+  color: #eef2fb;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form input:focus,
+.sprite-editor-page .animation-workbench .pwan-form select:focus {
+  border-color: var(--sprite-accent);
+  box-shadow: 0 0 0 2px var(--sprite-accent-ring);
+  outline: 0;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form input[type="file"] {
+  color: #c9c9d3;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form input[type="file"]::file-selector-button {
+  background: #202532;
+  border: 1px solid #4b5265;
+  border-radius: 4px;
+  color: #eef2fb;
+  font: inherit;
+  margin-right: 8px;
+  padding: 3px 8px;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form input[type="file"]::file-selector-button:hover {
+  background: #2b3140;
+  border-color: var(--sprite-accent);
+}
+
+.sprite-editor-page .animation-workbench .pwan-import-status {
+  background: rgb(26 188 156 / 12%);
+  border-color: rgb(26 188 156 / 56%);
+  color: #c9fff3;
+}
+
+.sprite-editor-page .animation-workbench .pwan-import-status strong {
+  color: #f8ffff;
+}
+
+.sprite-editor-page .animation-workbench .pwan-gif-preview {
+  background: #242638;
+  border-color: #44475a;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form button {
+  background: transparent;
+  border-color: rgb(26 188 156 / 72%);
+  color: #dffcf6;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form button:hover {
+  background: var(--sprite-accent-hover);
+  border-color: var(--sprite-accent);
+  color: #f8ffff;
+}
+
+.sprite-editor-page .animation-workbench .pwan-form button:disabled {
+  border-color: #4b5265;
+  color: #8992a6;
+}
+
+.sprite-editor-page .animation-workbench .pwan-status {
+  color: #aeb6c7;
+}
+
+.sprite-editor-page .animation-workbench .pwan-status.-error {
+  color: #ff8a8a;
+}
+
 .animation-file-tabs {
   grid-column: 1 / -1;
   justify-self: start;

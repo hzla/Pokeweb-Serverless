@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readU16, readU32 } from "../nds/binary";
 import { buildPwanConfig, ensurePwanAnimationState, pwanAssetPath } from "../pokeweb/pwanAnimationModel";
+import { PWAN_FRONT_NCEC_Y } from "../pokeweb/pwanCarrierPatch";
 import type { ProjectState, PwanAnimationOverride } from "../pokeweb/projectStore";
 
 describe("pwanAnimationModel", () => {
@@ -32,8 +33,8 @@ describe("pwanAnimationModel", () => {
     expect(pwanAssetPath(7, "back")).toBe("pokeweb_pwan/007_back.pwan");
   });
 
-  it("rejects config tables that exceed the native runtime asset id range", () => {
-    expect(() => buildPwanConfig(Array.from({ length: 128 }, (_value, index) => makeOverride(index + 1, 1, 1)))).toThrow(/127/u);
+  it("rejects config tables that exceed the native runtime config limit", () => {
+    expect(() => buildPwanConfig(Array.from({ length: 501 }, (_value, index) => makeOverride(index + 1, 1, 1)))).toThrow(/500/u);
   });
 });
 
@@ -55,6 +56,6 @@ function makeOverride(speciesId: number, frontTimeline: number, backTimeline: nu
     back: side(backTimeline),
     nativePaletteSource: "back",
     carrierTemplate: "w2u-gen6-placeholder",
-    backNcecY: 48,
+    backNcecY: PWAN_FRONT_NCEC_Y,
   };
 }

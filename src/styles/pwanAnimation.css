@@ -101,6 +101,7 @@
 }
 
 .pwan-form label {
+  align-content: start;
   display: grid;
   gap: 6px;
   font-size: 13px;
@@ -121,6 +122,35 @@
 
 .pwan-form input[type="file"] {
   padding: 6px 8px;
+}
+
+.pwan-import-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: -2px 0 12px;
+  border: 1px solid #a7d8bd;
+  border-radius: 6px;
+  padding: 9px 10px;
+  background: #f2fbf6;
+  color: #315f43;
+  font-size: 13px;
+}
+
+.pwan-import-status strong {
+  color: #234a33;
+}
+
+.pwan-gif-preview {
+  align-self: start;
+  background: #f1f4f7;
+  border: 1px solid #dbe2ea;
+  border-radius: 6px;
+  image-rendering: pixelated;
+  max-height: 132px;
+  max-width: 100%;
+  object-fit: contain;
+  padding: 8px;
 }
 
 .pwan-form button,
