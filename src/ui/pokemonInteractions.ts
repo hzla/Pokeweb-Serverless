@@ -16,6 +16,9 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
 
+type PokemonEditableNarc = "personal" | "learnset" | "evolution" | "egg_moves";
+type PokemonFieldUpdate = ReturnType<typeof updatePokemonField>;
+
 export type PokemonInteractionOptions = {
   onDirty?: () => void;
   onOpenSprites?: (speciesId: number) => void;
@@ -56,6 +59,13 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       button.classList.toggle("-active", activeTypes.has(type));
       runFilter();
     });
+  });
+
+  root.addEventListener("contextmenu", (event) => {
+    if (!(event.target instanceof HTMLElement)) return;
+    const field = editableFieldFromContextTarget(root, event.target);
+    if (!field || !applyPokemonFieldToVisibleRows(root, project, options, field)) return;
+    event.preventDefault();
   });
 
   root.addEventListener("click", (event) => {
@@ -249,6 +259,99 @@ function installEditableFields(root: HTMLElement, project: ProjectState, options
       }
     });
   });
+}
+
+function editableFieldFromContextTarget(root: HTMLElement, target: HTMLElement): HTMLElement | undefined {
+  const direct = target.closest<HTMLElement>("[contenteditable='true'][data-narc][data-field-name]");
+  if (direct && root.contains(direct)) return direct;
+
+  const container = target.closest<HTMLElement>(".expanded-field, tr");
+  const field = container?.querySelector<HTMLElement>("[contenteditable='true'][data-narc][data-field-name]");
+  return field && root.contains(field) ? field : undefined;
+}
+
+function applyPokemonFieldToVisibleRows(root: HTMLElement, project: ProjectState, options: PokemonInteractionOptions, sourceField: HTMLElement): boolean {
+  const narc = sourceField.dataset.narc as PokemonEditableNarc | undefined;
+  const fieldName = sourceField.dataset.fieldName;
+  const value = sourceField.textContent?.trim() ?? "";
+  if (!narc || !fieldName || !isPokemonEditableNarc(narc)) return false;
+
+  const visibleCards = visiblePokemonCards(root);
+  if (visibleCards.length === 0) return true;
+
+  const label = fieldName.replace(/_/gu, " ");
+  if (!window.confirm(`Apply "${value}" to ${label} for ${visibleCards.length} visible Pokemon?`)) return true;
+
+  let updated = 0;
+  let failed = 0;
+  for (const card of visibleCards) {
+    const speciesId = Number(card.dataset.index);
+    if (!Number.isInteger(speciesId)) continue;
+    try {
+      const result = updatePokemonEditableField(project, speciesId, narc, fieldName, value);
+      syncRenderedPokemonEditableField(card, project, speciesId, narc, fieldName, result, options);
+      updated += 1;
+    } catch {
+      failed += 1;
+      markRenderedPokemonEditableInvalid(card, narc, fieldName);
+    }
+  }
+
+  if (updated > 0) {
+    options.onDirty?.();
+    syncEvolutionMethodInfo(root);
+    stripeRows(root);
+  }
+  if (failed > 0) {
+    window.alert(`Applied to ${updated} visible Pokemon; ${failed} row${failed === 1 ? "" : "s"} could not use that value.`);
+  }
+  return true;
+}
+
+function visiblePokemonCards(root: HTMLElement): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>("#personals .pokemon-card.filterable")].filter((card) => card.style.display !== "none");
+}
+
+function isPokemonEditableNarc(narc: string): narc is PokemonEditableNarc {
+  return narc === "personal" || narc === "learnset" || narc === "evolution" || narc === "egg_moves";
+}
+
+function updatePokemonEditableField(project: ProjectState, speciesId: number, narc: PokemonEditableNarc, fieldName: string, value: string): PokemonFieldUpdate {
+  if (narc === "egg_moves") return updateEggMoveField(project, speciesId, fieldName, value);
+  return updatePokemonField(project, speciesId, narc, fieldName, value);
+}
+
+function syncRenderedPokemonEditableField(
+  card: HTMLElement,
+  project: ProjectState,
+  speciesId: number,
+  narc: PokemonEditableNarc,
+  fieldName: string,
+  result: PokemonFieldUpdate,
+  options: PokemonInteractionOptions,
+): void {
+  if (narc === "evolution" && fieldName.startsWith("method_") && card.querySelector(".expanded-evos.show-flex")) {
+    refreshExpandedPanels(card, project, speciesId, "evos", options);
+    return;
+  }
+
+  card.querySelectorAll<HTMLElement>(pokemonEditableFieldSelector(narc, fieldName)).forEach((field) => {
+    field.textContent = String(result.value);
+    field.classList.remove("invalid");
+    field.style.border = "";
+    syncVisualFieldState(field, result);
+  });
+}
+
+function markRenderedPokemonEditableInvalid(card: HTMLElement, narc: PokemonEditableNarc, fieldName: string): void {
+  card.querySelectorAll<HTMLElement>(pokemonEditableFieldSelector(narc, fieldName)).forEach((field) => {
+    field.classList.add("invalid");
+    field.style.border = "1px solid red";
+  });
+}
+
+function pokemonEditableFieldSelector(narc: PokemonEditableNarc, fieldName: string): string {
+  return `[contenteditable='true'][data-narc='${CSS.escape(narc)}'][data-field-name='${CSS.escape(fieldName)}']`;
 }
 
 function updateEggMoveField(project: ProjectState, speciesId: number, fieldName: string, nextValue: string): ReturnType<typeof updatePokemonField> {

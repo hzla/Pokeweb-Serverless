@@ -4,7 +4,7 @@ import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
-import { typeChartTableLength, typeChartTableOffset } from "./typeChartModel";
+import { isRomFsTypeChartStore, typeChartTableLength, typeChartTableOffset } from "./typeChartModel";
 
 const DB_NAME = "pokeweb-serverless";
 const DB_VERSION = 2;
@@ -140,6 +140,11 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   for (const store of Object.values(project.narcs)) {
     if (!store || store.fileId < 0) continue;
     const hasMissingFiles = store.rawFiles.length === 0 || store.rawFiles.some((file) => file.length === 0);
+    if (isRomFsTypeChartStore(store)) {
+      if (hasMissingFiles) store.rawFiles = [rom.files[store.fileId].slice()];
+      store.fileCount = 1;
+      continue;
+    }
     if (!hasMissingFiles && store.filenames) continue;
     const narc = new NARC(rom.files[store.fileId]);
     if (hasMissingFiles) store.rawFiles = narc.files.map((file, index) => (store.rawFiles[index]?.length ? store.rawFiles[index] : file));
@@ -151,7 +156,7 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   const moveEffectOverlayId = moveEffectHandlerOverlayId(project);
   if (project.narcs.grotto_odds || project.overlays[36]?.length === 0) overlayIds.push(36);
   if (project.narcs.move_effects_table || project.overlays[moveEffectOverlayId]?.length === 0) overlayIds.push(moveEffectOverlayId);
-  if (project.narcs.type_chart || project.overlays[167]?.length === 0) overlayIds.push(167);
+  if ((project.narcs.type_chart && !isRomFsTypeChartStore(project.narcs.type_chart)) || project.overlays[167]?.length === 0) overlayIds.push(167);
   for (const overlayId of project.patches?.dirtyOverlayIds ?? []) {
     if (!project.overlays[overlayId] || project.overlays[overlayId]?.length === 0) overlayIds.push(overlayId);
   }
@@ -168,6 +173,7 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
 function hydrateOverlayBackedStore(project: ProjectState, name: "grotto_odds" | "move_effects_table" | "type_chart", overlayId: number): void {
   const store = project.narcs[name];
   const overlay = project.overlays[overlayId];
+  if (isRomFsTypeChartStore(store)) return;
   if (!store || !overlay || (store.rawFiles[0]?.length ?? 0) > 0) return;
   const offset = overlayTableOffset(project, name, overlay);
   const length = name === "grotto_odds" ? 200 : name === "type_chart" ? typeChartTableLength(project) : MOVE_EFFECT_HANDLER_TABLE_LENGTH;

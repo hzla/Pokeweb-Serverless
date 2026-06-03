@@ -52,10 +52,15 @@ const GEM_RETURN_THEN_EVERSTONE = [
   0x89, 0x20, 0x80, 0x00, 0x08, 0x18, 0x00, 0x04, 0x00, 0x0c, 0x10, 0xbd, 0xe5, 0x20, 0x10, 0xbd,
 ] as const;
 
-const HM_FORGET_PROTECTION_CHECK = [
+const HM_FORGET_PROTECTION_CHECK_PREFIX = [
   0x08, 0x4a, 0x00, 0x23, 0x59, 0x00, 0x51, 0x18, 0xb8, 0x31, 0x09, 0x88, 0x88, 0x42, 0x01, 0xd1,
   0x01, 0x20, 0x70, 0x47, 0x59, 0x1c, 0x09, 0x06, 0x0b, 0x0e, 0x06, 0x2b, 0xf2, 0xd3, 0x00, 0x20,
-  0x70, 0x47, 0xc0, 0x46, 0xb8, 0xea, 0x09, 0x02,
+  0x70, 0x47, 0xc0, 0x46,
+] as const;
+
+const HM_FORGET_PROTECTION_CHECKS = [
+  [...HM_FORGET_PROTECTION_CHECK_PREFIX, 0xb8, 0xea, 0x09, 0x02],
+  [...HM_FORGET_PROTECTION_CHECK_PREFIX, 0xa0, 0xea, 0x09, 0x02],
 ] as const;
 
 const HM_FORGET_EARLY_RETURN = [0x00, 0x20, 0x70, 0x47] as const;
@@ -403,9 +408,10 @@ function hasBridgeItemDecisionBefore(overlay: Uint8Array, caveOffset: number): b
 
 function findHmForgetProtectionCheck(arm9: Uint8Array): { offset: number; applied: boolean } | undefined {
   const matches: Array<{ offset: number; applied: boolean }> = [];
+  const signatureLength = HM_FORGET_PROTECTION_CHECKS[0].length;
 
-  for (let offset = 0; offset + HM_FORGET_PROTECTION_CHECK.length <= arm9.length; offset += 1) {
-    if (matchesSequence(arm9, HM_FORGET_PROTECTION_CHECK, offset)) {
+  for (let offset = 0; offset + signatureLength <= arm9.length; offset += 1) {
+    if (matchesAnyHmProtectionCheck(arm9, offset)) {
       matches.push({ offset, applied: false });
       continue;
     }
@@ -420,10 +426,21 @@ function findHmForgetProtectionCheck(arm9: Uint8Array): { offset: number; applie
 
 function matchesEarlyReturnHmPatch(arm9: Uint8Array, offset: number): boolean {
   if (!matchesSequence(arm9, HM_FORGET_EARLY_RETURN, offset)) return false;
-  for (let index = HM_FORGET_EARLY_RETURN.length; index < HM_FORGET_PROTECTION_CHECK.length; index += 1) {
-    if (arm9[offset + index] !== HM_FORGET_PROTECTION_CHECK[index]) return false;
+  for (const signature of HM_FORGET_PROTECTION_CHECKS) {
+    let matches = true;
+    for (let index = HM_FORGET_EARLY_RETURN.length; index < signature.length; index += 1) {
+      if (arm9[offset + index] !== signature[index]) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) return true;
   }
-  return true;
+  return false;
+}
+
+function matchesAnyHmProtectionCheck(arm9: Uint8Array, offset: number): boolean {
+  return HM_FORGET_PROTECTION_CHECKS.some((signature) => matchesSequence(arm9, signature, offset));
 }
 
 function findSequence(data: Uint8Array, sequence: readonly number[], start: number, end: number): number | undefined {

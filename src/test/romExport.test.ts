@@ -10,6 +10,7 @@ import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { parseHeaders, updateHeaderField } from "../pokeweb/headerModel";
 import { compactRomBytes } from "../pokeweb/persistence";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
+import { TYPE_CHART_FAIRY_TYPE_COUNT, TYPE_CHART_ROMFS_PATH, createRomFsTypeChartStore } from "../pokeweb/typeChartModel";
 
 describe("ROM export", () => {
   it("rebuilds FAT entries with 0x200-aligned replacement files", () => {
@@ -39,6 +40,23 @@ describe("ROM export", () => {
     expect([...parsed.files[1]]).toEqual([2]);
     expect(parsed.fileId("lib/Patch.dll")).toBe(2);
     expect([...parsed.getFileByName("lib/Patch.dll")]).toEqual([0xaa, 0xbb]);
+  });
+
+  it("exports standalone White2Upgrade type chart files as raw bytes", async () => {
+    const chart = makeTypeChartBytes(TYPE_CHART_FAIRY_TYPE_COUNT);
+    const romBytes = makeRom([chart], [TYPE_CHART_ROMFS_PATH]);
+    const project = makeProject(romBytes);
+    const store = createRomFsTypeChartStore(0, chart);
+    store.rawFiles[0] = store.rawFiles[0].slice();
+    store.rawFiles[0][17] = 2;
+    store.dirty.add(0);
+    project.session.fairy = true;
+    project.narcs.type_chart = store;
+
+    const exported = await exportModifiedRom(project);
+    const exportedRom = new NintendoDSRom(exported);
+
+    expect(exportedRom.getFileByName(TYPE_CHART_ROMFS_PATH)[17]).toBe(2);
   });
 
   it("compacts padded ROM bytes while preserving readable files", () => {
@@ -253,8 +271,8 @@ function makeHeaderProject(originalRomBytes: Uint8Array, headersBytes: Uint8Arra
   };
 }
 
-function makeRom(files: Uint8Array[]): Uint8Array {
-  const fnt = saveFnt(new Folder({ files: files.map((_file, index) => `file_${index}`), firstId: 0 }));
+function makeRom(files: Uint8Array[], fileNames = files.map((_file, index) => `file_${index}`)): Uint8Array {
+  const fnt = saveFnt(new Folder({ files: fileNames, firstId: 0 }));
   const out = new Uint8Array(0x6000 + files.reduce((sum, file) => sum + 0x200 + file.length, 0));
   out.set([0x54, 0x45, 0x53, 0x54], 0);
   out.set([0x54, 0x45, 0x53, 0x54], 12);
@@ -284,6 +302,15 @@ function makeRom(files: Uint8Array[]): Uint8Array {
   });
   writeU32(out, 0x80, cursor);
   return out.slice(0, align(cursor, 4));
+}
+
+function makeTypeChartBytes(typeCount: number): Uint8Array {
+  const chart = new Uint8Array(typeCount * typeCount);
+  chart.fill(4);
+  chart[5] = 2;
+  chart[7] = 0;
+  chart[typeCount] = 8;
+  return chart;
 }
 
 function makeEarlyFimgNarc(bytes: Uint8Array): Uint8Array {

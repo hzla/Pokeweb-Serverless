@@ -22,7 +22,7 @@ import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch"
 import { createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
 import { getStarterOverlayIds } from "./starterModel";
 import { cleanDisplayText, decodeGen5TextBank } from "./text";
-import { createTypeChartStore, detectFairyTypeUsage } from "./typeChartModel";
+import { TYPE_CHART_ROMFS_PATH, createRomFsTypeChartStore, createTypeChartStore, detectFairyTypeUsage } from "./typeChartModel";
 import { parseTms } from "./tmModel";
 
 export type LoadOptions = {
@@ -142,6 +142,15 @@ function extractNarcSet(rom: NintendoDSRom, project: ProjectState, definitions: 
   }
 }
 
+function tryCreateRomFsTypeChartStore(rom: NintendoDSRom) {
+  try {
+    const fileId = rom.fileId(TYPE_CHART_ROMFS_PATH);
+    return createRomFsTypeChartStore(fileId, rom.files[fileId]);
+  } catch {
+    return undefined;
+  }
+}
+
 function decodeTextNarcs(project: ProjectState): void {
   const messageStore = project.narcs.message_texts;
   const storyStore = project.narcs.story_texts;
@@ -221,8 +230,14 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
         dirty: new Set(),
       };
     }
-    if (includeMoves && overlay167) {
-      project.narcs.type_chart = createTypeChartStore(project, overlay167);
+    if (includeMoves) {
+      const romFsTypeChart = tryCreateRomFsTypeChartStore(rom);
+      if (romFsTypeChart) {
+        project.session.fairy = true;
+        project.narcs.type_chart = romFsTypeChart;
+      } else if (overlay167) {
+        project.narcs.type_chart = createTypeChartStore(project, overlay167);
+      }
     }
   }
 }

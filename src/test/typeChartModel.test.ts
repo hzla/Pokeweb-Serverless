@@ -7,7 +7,9 @@ import {
   TYPE_CHART_FAIRY_REDUX_OFFSET,
   TYPE_CHART_FAIRY_TYPE_COUNT,
   TYPE_CHART_OFFSET,
+  TYPE_CHART_ROMFS_PATH,
   TYPE_CHART_TYPES,
+  createRomFsTypeChartStore,
   detectFairyTypeUsage,
   getTypeChartTypes,
   getTypeChartValue,
@@ -55,6 +57,22 @@ describe("typeChartModel", () => {
 
     expect(project.narcs.type_chart?.rawFiles[0][17]).toBe(2);
   });
+
+  it("reads and updates White2Upgrade standalone Fairy type chart files", () => {
+    const project = makeProject();
+    const chart = makeTypeChartBytes(TYPE_CHART_FAIRY_TYPE_COUNT);
+    project.overlays = {};
+    project.narcs.type_chart = createRomFsTypeChartStore(12, chart);
+
+    expect(project.narcs.type_chart.sourcePath).toBe(TYPE_CHART_ROMFS_PATH);
+    expect(getTypeChartTypes(project)).toContain("Fairy");
+    expect(getTypeChartValue(project, 17, 15)).toBe(4);
+
+    updateTypeChartValue(project, 17, 15, 8);
+
+    expect(project.narcs.type_chart.rawFiles[0][17 * TYPE_CHART_FAIRY_TYPE_COUNT + 15]).toBe(8);
+    expect(project.narcs.type_chart.dirty.has(0)).toBe(true);
+  });
 });
 
 function makeProject(options: { fairyTypeSource?: "personal" | "moves"; chartOffset?: number } = {}): ProjectState {
@@ -86,6 +104,15 @@ function makeProject(options: { fairyTypeSource?: "personal" | "moves"; chartOff
     formats: {},
     trpokInfo: [],
   };
+}
+
+function makeTypeChartBytes(typeCount: number): Uint8Array {
+  const chart = new Uint8Array(typeCount * typeCount);
+  chart.fill(4);
+  chart[5] = 2;
+  chart[7] = 0;
+  chart[typeCount] = 8;
+  return chart;
 }
 
 function makeStore(name: NarcName, rawFiles: Uint8Array[]): NarcStore {
