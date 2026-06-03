@@ -8,6 +8,7 @@ export const TYPE_CHART_FAIRY_FROST_OFFSET = 0x00001740;
 export const TYPE_CHART_FAIRY_REDUX_OFFSET = 0x00000000;
 export const TYPE_CHART_VANILLA_TYPE_COUNT = 17;
 export const TYPE_CHART_FAIRY_TYPE_COUNT = 18;
+export const TYPE_CHART_ROMFS_PATH = "type_chart.bin";
 export const TYPE_CHART_TYPES = TYPES.slice(0, TYPE_CHART_VANILLA_TYPE_COUNT);
 export const TYPE_EFFECTIVENESS_VALUES = [0, 2, 4, 8] as const;
 
@@ -27,6 +28,10 @@ export function ensureTypeChartStore(project: ProjectState): void {
   const overlay = project.overlays[TYPE_CHART_OVERLAY_ID];
   if (existing) {
     const expectedLength = typeChartTableLength(project);
+    if (isRomFsTypeChartStore(existing)) {
+      if ((existing.rawFiles[0]?.length ?? 0) >= expectedLength) return;
+      throw new Error("Type chart file data is not loaded. Reload the ROM before editing the type chart.");
+    }
     if ((existing.rawFiles[0]?.length ?? 0) === expectedLength) return;
     if (!overlay) return;
     const offset = typeChartTableOffset(project, overlay);
@@ -38,6 +43,19 @@ export function ensureTypeChartStore(project: ProjectState): void {
   }
   if (!overlay) throw new Error("Type chart overlay data is not loaded. Load the Moves NARC or reload the ROM with Moves selected.");
   project.narcs.type_chart = createTypeChartStore(project, overlay);
+}
+
+export function createRomFsTypeChartStore(fileId: number, bytes: Uint8Array): NarcStore {
+  if (!isPlausibleRomFsTypeChart(bytes)) throw new Error(`Could not locate an 18x18 Fairy type chart in ${TYPE_CHART_ROMFS_PATH}.`);
+  return {
+    name: "type_chart",
+    fileId,
+    sourcePath: TYPE_CHART_ROMFS_PATH,
+    fileCount: 1,
+    rawFiles: [bytes.slice()],
+    records: new Map(),
+    dirty: new Set(),
+  };
 }
 
 export function createTypeChartStore(project: ProjectState, overlay: Uint8Array): NarcStore {
@@ -113,8 +131,10 @@ export function getTypeChartTypes(project: ProjectState): string[] {
 }
 
 export function typeChartTypeCount(project: ProjectState): number {
+  const store = project.narcs.type_chart;
+  const storeLength = store?.rawFiles[0]?.length ?? 0;
+  if (isRomFsTypeChartStore(store) && storeLength >= TYPE_CHART_FAIRY_TYPE_COUNT * TYPE_CHART_FAIRY_TYPE_COUNT) return TYPE_CHART_FAIRY_TYPE_COUNT;
   if (project.session.fairy || detectFairyTypeUsage(project)) return TYPE_CHART_FAIRY_TYPE_COUNT;
-  const storeLength = project.narcs.type_chart?.rawFiles[0]?.length ?? 0;
   if (storeLength >= TYPE_CHART_FAIRY_TYPE_COUNT * TYPE_CHART_FAIRY_TYPE_COUNT) return TYPE_CHART_FAIRY_TYPE_COUNT;
   return TYPE_CHART_VANILLA_TYPE_COUNT;
 }
@@ -152,6 +172,10 @@ export function detectFairyTypeChartOffset(overlay: Uint8Array): number | undefi
   return findPlausibleFairyTypeChartOffset(overlay);
 }
 
+export function isRomFsTypeChartStore(store: NarcStore | undefined): boolean {
+  return store?.name === "type_chart" && store.sourcePath === TYPE_CHART_ROMFS_PATH;
+}
+
 function typeChartOffset(attackIndex: number, defendIndex: number, typeCount: number): number {
   return attackIndex * typeCount + defendIndex;
 }
@@ -181,6 +205,15 @@ function isPlausibleTypeChartAt(overlay: Uint8Array, offset: number, typeCount: 
     else if (value === 8) hasSuperEffective = true;
   }
   return hasEffective && hasNotEffective && hasNotVeryEffective && hasSuperEffective;
+}
+
+function isPlausibleRomFsTypeChart(bytes: Uint8Array): boolean {
+  const length = TYPE_CHART_FAIRY_TYPE_COUNT * TYPE_CHART_FAIRY_TYPE_COUNT;
+  if (bytes.length < length) return false;
+  for (let i = 0; i < length; i += 1) {
+    if (!isEffectivenessByte(bytes[i] ?? -1)) return false;
+  }
+  return true;
 }
 
 function findPlausibleFairyTypeChartOffset(overlay: Uint8Array): number | undefined {

@@ -14,7 +14,7 @@ import { materializePwanAnimations } from "./pwanAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
 import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
-import { typeChartTableOffset } from "./typeChartModel";
+import { isRomFsTypeChartStore, typeChartTableOffset } from "./typeChartModel";
 import type { ProjectState } from "./projectStore";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -37,6 +37,10 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
 
   for (const store of Object.values(project.narcs)) {
     if (!store || store.fileId < 0 || store.dirty.size === 0) continue;
+    if (isRomFsTypeChartStore(store)) {
+      fileReplacements.set(store.fileId, store.rawFiles[0] ?? new Uint8Array());
+      continue;
+    }
     const source = new NARC(rom.files[store.fileId]);
     source.files = store.rawFiles;
     if (store.filenames) source.filenames = store.filenames;
@@ -149,6 +153,7 @@ function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayI
   const store = project.narcs[name];
   const overlay = project.overlays[overlayId];
   if (!store || !overlay || store.dirty.size === 0) return;
+  if (isRomFsTypeChartStore(store)) return;
   const match = /^overlay\d+:(.+)$/u.exec(store.sourcePath);
   if (!match) return;
   const offset = overlayTableOffset(project, name, overlay);
