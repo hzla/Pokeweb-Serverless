@@ -4,6 +4,7 @@ import {
   ensurePwanAnimationState,
   getPwanRuntimeStatus,
   installPwanRuntime,
+  pwanAssetIndex,
   pwanAssetPath,
   removePwanOverride,
   upsertPwanOverride,
@@ -61,7 +62,7 @@ export function renderPwanAnimationEditor(project: ProjectState, root: HTMLEleme
           <h2>Overrides</h2>
           <span>${state.overrides.length} active</span>
         </div>
-        ${state.overrides.length === 0 ? `<div class="pwan-empty">No animated species overrides saved yet.</div>` : state.overrides.map((override, index) => renderOverride(project, override, index)).join("")}
+        ${state.overrides.length === 0 ? `<div class="pwan-empty">No animated species overrides saved yet.</div>` : state.overrides.map((override) => renderOverride(project, override)).join("")}
       </div>
     </section>
   `;
@@ -247,15 +248,16 @@ function renderPwanImportStatus(override: PwanAnimationOverride): string {
   `;
 }
 
-function renderOverride(project: ProjectState, override: PwanAnimationOverride, index: number): string {
+function renderOverride(project: ProjectState, override: PwanAnimationOverride): string {
   const notes = override.notes?.length ? override.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("") : `<li>No compiler warnings.</li>`;
+  const assetIndex = pwanAssetIndex(override);
   return `
     <article class="pwan-override">
       <div class="pwan-override__main">
         <h3>#${override.speciesId} ${escapeHtml(speciesLabel(project, override.speciesId))}</h3>
         <div class="pwan-override__meta">
-          <span>${escapeHtml(override.front.sourceFileName)} -> ${escapeHtml(pwanAssetPath(index, "front"))}</span>
-          <span>${escapeHtml(override.back.sourceFileName)} -> ${escapeHtml(pwanAssetPath(index, "back"))}</span>
+          <span>${escapeHtml(override.front.sourceFileName)} -> ${escapeHtml(pwanAssetPath(assetIndex, "front"))}</span>
+          <span>${escapeHtml(override.back.sourceFileName)} -> ${escapeHtml(pwanAssetPath(assetIndex, "back"))}</span>
           <span>Palette: ${override.nativePaletteSource}</span>
           <span>Back NCEC Y: ${override.backNcecY}</span>
         </div>

@@ -287,13 +287,12 @@ export function buildCodeInjectionOverlayTable(project: ProjectState, rom: Ninte
 }
 
 export function codeInjectionInsertedFiles(project: ProjectState, rom: NintendoDSRom): Array<{ fileId: number; path: string; bytes: Uint8Array }> {
-  const pmc = project.codeInjection?.pmc;
-  if (!pmc) return [];
-  const bytes = project.fileSystem?.additions?.[pmc.overlayPath];
-  if (!bytes) return [];
-  if (rom.filenames.idOf(pmc.overlayPath) !== undefined) return [];
-  if (pmc.overlayId !== rom.arm9OverlayTable.length / 32) return [];
-  return [{ fileId: pmc.overlayId, path: pmc.overlayPath, bytes }];
+  void project;
+  void rom;
+  // New overlay data must be appended, not inserted at overlayId. Inserting
+  // before the named filesystem shifts baked archive file IDs used by battle
+  // effects and corrupts otherwise untouched animations.
+  return [];
 }
 
 function applyExternalRelocations(project: ProjectState, rom: NintendoDSRom, rpm: RpmModule): void {

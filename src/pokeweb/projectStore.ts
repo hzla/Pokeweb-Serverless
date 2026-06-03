@@ -119,6 +119,8 @@ export type PwanOverrideSide = {
 
 export type PwanAnimationOverride = {
   speciesId: number;
+  formIndex?: number;
+  assetIndex?: number;
   front: PwanOverrideSide;
   back: PwanOverrideSide;
   nativePaletteSource: PwanPaletteSource;

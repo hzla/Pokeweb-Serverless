@@ -19,7 +19,6 @@ import {
   getFacilitySetCount,
   getFacilitySetNarcOptions,
   getFacilitySetRecord,
-  getFacilityTrainerTypeOptions,
   isBossFacilityChoice,
   updateFacilityAreaPoolValue,
   updateFacilityChoiceField,
@@ -225,7 +224,7 @@ function renderChoicePanel(project: ProjectState, narc: FacilityChoiceNarcName, 
   for (let id = 0; id < count; id += 1) {
     const choice = getFacilityChoiceRecord(project, narc, id);
     if (bossesOnly && !isBossFacilityChoice(choice)) continue;
-    if (facilityChoiceMatchesSearch(choice, searchText)) rows.push(renderChoiceCard(project, choice));
+    if (facilityChoiceMatchesSearch(choice, searchText)) rows.push(renderChoiceCard(choice));
   }
   return `
     <div class="pokemon-list spreadsheet facility-list" id="facility-choices">
@@ -293,7 +292,7 @@ function renderSetCard(set: BattleFacilitySet): string {
   `;
 }
 
-function renderChoiceCard(project: ProjectState, choice: BattleFacilityChoiceRecord): string {
+function renderChoiceCard(choice: BattleFacilityChoiceRecord): string {
   const invalidClass = choice.invalidSetIds.length ? " -invalid" : "";
   return `
     <div class="expanded-field filterable trainer-card facility-card" data-facility-kind="choice" data-narc="${choice.narc}" data-index="${choice.id}">
@@ -301,7 +300,7 @@ function renderChoiceCard(project: ProjectState, choice: BattleFacilityChoiceRec
         <div class="trainer-id">${choice.id}</div>
         <div class="move-info expand-action expand-trainer svg no-fill" data-expand="trainer">${miscDataIcon}</div>
         <div class="trainer-name">${escapeHtml(choice.label)}</div>
-        ${trainerTypeSelect(project, choice)}
+        ${trainerTypeEdit(choice)}
         ${editable("choice", "count", choice.count, "trainer-btype", { type: "int-65535" })}
         <div class="trainer-poks facility-setids${invalidClass}">${renderChoiceSetIdPreview(choice)}</div>
         <div class="trainer-moves facility-readonly" title="Record byte length. For source-backed Subway records this is 4 bytes plus 2 bytes for each set ID.">${choice.byteLength}</div>
@@ -309,7 +308,7 @@ function renderChoiceCard(project: ProjectState, choice: BattleFacilityChoiceRec
       <div class="expanded-card-content expanded-trainer">
         <div class="facility-choice-fields facility-choice-sets">
           <div class="facility-choice-section-title">Sets (${choice.setIds.length}${choice.setIds.length === choice.count ? "" : ` / ${choice.count}`})</div>
-          ${renderChoiceSetTable(project, choice)}
+          <div class="facility-choice-set-table-host" data-choice-set-table-host>Expand this trainer to load editable set rows.</div>
         </div>
         ${renderChoiceExtras(choice)}
         <div class="expanded-bottom trainer-texts facility-raw">
@@ -410,22 +409,13 @@ function renderChoiceExtras(choice: BattleFacilityChoiceRecord): string {
 
 function renderChoiceSetIdPreview(choice: BattleFacilityChoiceRecord): string {
   const previewLimit = 12;
-  const preview = choice.setIds.slice(0, previewLimit).map((setId, index) => editable("choice", `set_${index}`, setId, "facility-setid-edit", { type: "int-65535" })).join("");
+  const preview = escapeHtml(choice.setIds.slice(0, previewLimit).join(", "));
   const hiddenCount = Math.max(0, choice.setIds.length - previewLimit);
   return `${preview}${hiddenCount ? `<span class="facility-setid-more" title="${hiddenCount} additional set IDs are visible when expanded">+${hiddenCount} more</span>` : ""}`;
 }
 
-function trainerTypeSelect(project: ProjectState, choice: BattleFacilityChoiceRecord): string {
-  const options = getFacilityTrainerTypeOptions(project);
-  const hasCurrent = options.some((option) => option.id === choice.trainerType);
-  const allOptions = hasCurrent ? options : [...options, { id: choice.trainerType, label: choice.trainerTypeName }];
-  return `
-    <select data-facility-edit="choice" data-field-name="trainerType" class="trainer-class facility-trainer-type-select" title="Trainer class">
-      ${allOptions
-        .map((option) => `<option value="${option.id}" ${option.id === choice.trainerType ? "selected" : ""}>${escapeHtml(`${option.label} (${option.id})`)}</option>`)
-        .join("")}
-    </select>
-  `;
+function trainerTypeEdit(choice: BattleFacilityChoiceRecord): string {
+  return editable("choice", "trainerType", `${choice.trainerTypeName} (${choice.trainerType})`, "trainer-class facility-trainer-type-select", { autofill: "trainer_types" });
 }
 
 function regulationLevelRangeSelect(record: BattleFacilityRegulationRecord): string {
@@ -532,27 +522,15 @@ function attachFacilityEvents(project: ProjectState, root: HTMLElement, onDirty?
     button.addEventListener("click", () => {
       const card = button.closest<HTMLElement>(".trainer-card");
       const panel = card?.querySelector<HTMLElement>(`.expanded-${button.dataset.expand}`);
+      if (card && panel && button.dataset.expand === "trainer") {
+        hydrateChoiceSetTable(project, root, card, onDirty, options);
+      }
       panel?.classList.toggle("show-flex");
       button.classList.toggle("-active", Boolean(panel?.classList.contains("show-flex")));
     });
   });
 
-  root.querySelectorAll<HTMLButtonElement>(".facility-set-jump").forEach((button) => {
-    button.addEventListener("click", () => {
-      const setNarc = button.dataset.setNarc as FacilitySetNarcName;
-      const setId = Number(button.dataset.setId);
-      activeMode = "sets";
-      activeSetNarc = setNarc;
-      searchText = "";
-      renderBattleFacilityEditor(project, root, onDirty, options);
-      requestAnimationFrame(() => {
-        const target = [...root.querySelectorAll<HTMLElement>("#facility-sets .facility-card")].find((card) => card.dataset.narc === setNarc && Number(card.dataset.index) === setId);
-        target?.scrollIntoView({ block: "center" });
-        target?.classList.add("facility-card-flash");
-        window.setTimeout(() => target?.classList.remove("facility-card-flash"), 1200);
-      });
-    });
-  });
+  attachFacilitySetJumpEvents(project, root, onDirty, options);
 
   root.querySelectorAll<HTMLButtonElement>(".facility-trainer-jump").forEach((button) => {
     button.addEventListener("click", () => {
@@ -576,17 +554,7 @@ function attachFacilityEvents(project: ProjectState, root: HTMLElement, onDirty?
     });
   });
 
-  root.querySelectorAll<HTMLElement>("[data-facility-edit]:not(select)").forEach((field) => {
-    field.addEventListener("keydown", (event) => {
-      if ((event as KeyboardEvent).key === "Enter" && !field.classList.contains("facility-hex")) {
-        event.preventDefault();
-        field.blur();
-      }
-    });
-    field.addEventListener("blur", () => {
-      commitFacilityField(project, root, field, onDirty, options);
-    });
-  });
+  attachFacilityEditableFieldEvents(project, root, onDirty, options);
 
   root.querySelectorAll<HTMLElement>(".facility-ev").forEach((button) => {
     button.addEventListener("click", () => {
@@ -601,6 +569,51 @@ function attachFacilityEvents(project: ProjectState, root: HTMLElement, onDirty?
   });
 
   attachAutocomplete(root, getFacilityAutofills(project));
+}
+
+function attachFacilitySetJumpEvents(project: ProjectState, root: HTMLElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}, scope: ParentNode = root): void {
+  scope.querySelectorAll<HTMLButtonElement>(".facility-set-jump").forEach((button) => {
+    button.addEventListener("click", () => {
+      const setNarc = button.dataset.setNarc as FacilitySetNarcName;
+      const setId = Number(button.dataset.setId);
+      activeMode = "sets";
+      activeSetNarc = setNarc;
+      searchText = "";
+      renderBattleFacilityEditor(project, root, onDirty, options);
+      requestAnimationFrame(() => {
+        const target = [...root.querySelectorAll<HTMLElement>("#facility-sets .facility-card")].find((card) => card.dataset.narc === setNarc && Number(card.dataset.index) === setId);
+        target?.scrollIntoView({ block: "center" });
+        target?.classList.add("facility-card-flash");
+        window.setTimeout(() => target?.classList.remove("facility-card-flash"), 1200);
+      });
+    });
+  });
+}
+
+function attachFacilityEditableFieldEvents(project: ProjectState, root: HTMLElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}, scope: ParentNode = root): void {
+  scope.querySelectorAll<HTMLElement>("[data-facility-edit]:not(select)").forEach((field) => {
+    field.addEventListener("keydown", (event) => {
+      if ((event as KeyboardEvent).key === "Enter" && !field.classList.contains("facility-hex")) {
+        event.preventDefault();
+        field.blur();
+      }
+    });
+    field.addEventListener("blur", () => {
+      commitFacilityField(project, root, field, onDirty, options);
+    });
+  });
+}
+
+function hydrateChoiceSetTable(project: ProjectState, root: HTMLElement, card: HTMLElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}): void {
+  const host = card.querySelector<HTMLElement>("[data-choice-set-table-host]");
+  if (!host || host.dataset.hydrated === "true") return;
+  const narc = card.dataset.narc as FacilityChoiceNarcName;
+  const id = Number(card.dataset.index);
+  const choice = getFacilityChoiceRecord(project, narc, id);
+  host.innerHTML = renderChoiceSetTable(project, choice);
+  host.dataset.hydrated = "true";
+  attachFacilitySetJumpEvents(project, root, onDirty, options, host);
+  attachFacilityEditableFieldEvents(project, root, onDirty, options, host);
 }
 
 function commitFacilityField(project: ProjectState, root: HTMLElement, field: HTMLElement | HTMLSelectElement, onDirty?: () => void, options: BattleFacilityEditorOptions = {}): void {

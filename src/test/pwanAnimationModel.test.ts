@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readU16, readU32 } from "../nds/binary";
-import { buildPwanConfig, ensurePwanAnimationState, pwanAssetPath } from "../pokeweb/pwanAnimationModel";
+import { buildPwanConfig, ensurePwanAnimationState, pwanAssetIndex, pwanAssetPath } from "../pokeweb/pwanAnimationModel";
 import { PWAN_FRONT_NCEC_Y } from "../pokeweb/pwanCarrierPatch";
 import type { ProjectState, PwanAnimationOverride } from "../pokeweb/projectStore";
 
@@ -24,13 +24,30 @@ describe("pwanAnimationModel", () => {
     expect(readU32(config, 12)).toBe(16);
     expect(readU16(config, 16)).toBe(498);
     expect(readU16(config, 18)).toBe(0x0003);
-    expect(readU16(config, 20)).toBe(0);
-    expect(readU16(config, 22)).toBe(0);
+    expect(readU16(config, 20)).toBe(498);
+    expect(readU16(config, 22)).toBe(498);
     expect(readU16(config, 24)).toBe(25);
-    expect(readU16(config, 28)).toBe(1);
-    expect(readU16(config, 30)).toBe(1);
+    expect(readU16(config, 28)).toBe(25);
+    expect(readU16(config, 30)).toBe(25);
     expect(pwanAssetPath(7, "front")).toBe("pokeweb_pwan/007_front.pwan");
     expect(pwanAssetPath(7, "back")).toBe("pokeweb_pwan/007_back.pwan");
+  });
+
+  it("builds form-aware config entries only when forms are present", () => {
+    const config = buildPwanConfig([makeOverride(303, 6, 7, { formIndex: 1, assetIndex: 783 })]);
+
+    expect(String.fromCharCode(...config.slice(0, 4))).toBe("PWNC");
+    expect(readU16(config, 4)).toBe(2);
+    expect(readU16(config, 6)).toBe(1);
+    expect(readU16(config, 8)).toBe(7);
+    expect(readU32(config, 12)).toBe(16);
+    expect(readU16(config, 16)).toBe(303);
+    expect(readU16(config, 18)).toBe(1);
+    expect(readU16(config, 20)).toBe(0x0003);
+    expect(readU16(config, 22)).toBe(783);
+    expect(readU16(config, 24)).toBe(783);
+    expect(pwanAssetIndex(makeOverride(303, 1, 1, { formIndex: 1, assetIndex: 783 }))).toBe(783);
+    expect(pwanAssetPath(783, "front")).toBe("pokeweb_pwan/783_front.pwan");
   });
 
   it("rejects config tables that exceed the native runtime config limit", () => {
@@ -38,7 +55,12 @@ describe("pwanAnimationModel", () => {
   });
 });
 
-function makeOverride(speciesId: number, frontTimeline: number, backTimeline: number): PwanAnimationOverride {
+function makeOverride(
+  speciesId: number,
+  frontTimeline: number,
+  backTimeline: number,
+  options: Partial<Pick<PwanAnimationOverride, "formIndex" | "assetIndex">> = {},
+): PwanAnimationOverride {
   const side = (timelineCount: number) => ({
     sourceFileName: "test.gif",
     sourceGifBytes: new Uint8Array(),
@@ -52,6 +74,7 @@ function makeOverride(speciesId: number, frontTimeline: number, backTimeline: nu
   });
   return {
     speciesId,
+    ...options,
     front: side(frontTimeline),
     back: side(backTimeline),
     nativePaletteSource: "back",
