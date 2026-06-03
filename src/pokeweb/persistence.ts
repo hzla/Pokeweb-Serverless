@@ -4,6 +4,7 @@ import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
+import { typeChartTableLength, typeChartTableOffset } from "./typeChartModel";
 
 const DB_NAME = "pokeweb-serverless";
 const DB_VERSION = 2;
@@ -168,13 +169,13 @@ function hydrateOverlayBackedStore(project: ProjectState, name: "grotto_odds" | 
   const store = project.narcs[name];
   const overlay = project.overlays[overlayId];
   if (!store || !overlay || (store.rawFiles[0]?.length ?? 0) > 0) return;
-  const offset = overlayTableOffset(project, name);
-  const length = name === "grotto_odds" ? 200 : name === "type_chart" ? 17 * 17 : MOVE_EFFECT_HANDLER_TABLE_LENGTH;
+  const offset = overlayTableOffset(project, name, overlay);
+  const length = name === "grotto_odds" ? 200 : name === "type_chart" ? typeChartTableLength(project) : MOVE_EFFECT_HANDLER_TABLE_LENGTH;
   store.rawFiles = [overlay.slice(offset, offset + length)];
 }
 
-function overlayTableOffset(project: ProjectState, name: "grotto_odds" | "move_effects_table" | "type_chart"): number {
+function overlayTableOffset(project: ProjectState, name: "grotto_odds" | "move_effects_table" | "type_chart", overlay: Uint8Array): number {
   if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
-  if (name === "type_chart") return 0x0003dc40;
+  if (name === "type_chart") return typeChartTableOffset(project, overlay);
   return moveEffectHandlerTableOffset(project);
 }

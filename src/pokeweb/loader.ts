@@ -22,6 +22,7 @@ import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch"
 import { createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
 import { getStarterOverlayIds } from "./starterModel";
 import { cleanDisplayText, decodeGen5TextBank } from "./text";
+import { createTypeChartStore, detectFairyTypeUsage } from "./typeChartModel";
 import { parseTms } from "./tmModel";
 
 export type LoadOptions = {
@@ -98,6 +99,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
     editNarcs.push({ path: "a/0/0/4", name: "pokemon_sprites" }, { path: "a/0/0/7", name: "pokemon_icons" });
   }
   extractNarcSet(rom, project, editNarcs);
+  if (!project.session.fairy && detectFairyTypeUsage(project)) project.session.fairy = true;
 
   if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves") || selectedNarcs.has("starter_sprites")) {
     onProgress?.("Extracting overlays");
@@ -220,15 +222,7 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
       };
     }
     if (includeMoves && overlay167) {
-      project.narcs.type_chart = {
-        name: "type_chart",
-        fileId: -1,
-        sourcePath: "overlay167:type_chart",
-        fileCount: 1,
-        rawFiles: [overlay167.slice(0x0003dc40, 0x0003dc40 + 17 * 17)],
-        records: new Map(),
-        dirty: new Set(),
-      };
+      project.narcs.type_chart = createTypeChartStore(project, overlay167);
     }
   }
 }

@@ -14,6 +14,7 @@ import { materializePwanAnimations } from "./pwanAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
 import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
+import { typeChartTableOffset } from "./typeChartModel";
 import type { ProjectState } from "./projectStore";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -150,7 +151,7 @@ function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayI
   if (!store || !overlay || store.dirty.size === 0) return;
   const match = /^overlay\d+:(.+)$/u.exec(store.sourcePath);
   if (!match) return;
-  const offset = overlayTableOffset(project, name);
+  const offset = overlayTableOffset(project, name, overlay);
   if (offset === undefined) return;
   const out = overlay.slice();
   out.set(store.rawFiles[0] ?? new Uint8Array(), offset);
@@ -158,9 +159,9 @@ function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayI
   overlayReplacements.set(overlayId, out);
 }
 
-function overlayTableOffset(project: ProjectState, name: NarcName): number | undefined {
+function overlayTableOffset(project: ProjectState, name: NarcName, overlay: Uint8Array): number | undefined {
   if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
   if (name === "move_effects_table") return moveEffectHandlerTableOffset(project);
-  if (name === "type_chart") return 0x0003dc40;
+  if (name === "type_chart") return typeChartTableOffset(project, overlay);
   return undefined;
 }
