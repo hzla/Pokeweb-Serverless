@@ -1,7 +1,6 @@
 import {
-  TYPE_CHART_TYPES,
   TYPE_EFFECTIVENESS_VALUES,
-  effectivenessLabel,
+  getTypeChartTypes,
   getTypeChartValue,
   updateTypeChartValue,
   type TypeEffectivenessValue,
@@ -10,6 +9,7 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
 export function renderTypeChartEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
+  const types = getTypeChartTypes(project);
   root.innerHTML = `
     <div class="type-chart-page">
       <div class="type-chart-toolbar">
@@ -19,10 +19,10 @@ export function renderTypeChartEditor(project: ProjectState, root: HTMLElement, 
         </div>
       </div>
       <div class="type-chart-wrap">
-        <div class="type-chart-grid" style="--type-count: ${TYPE_CHART_TYPES.length};">
+        <div class="type-chart-grid" style="--type-count: ${types.length};">
           <div class="type-chart-corner"></div>
-          ${TYPE_CHART_TYPES.map((type) => `<div class="type-chart-heading -${typeClass(type)}">${escapeHtml(type)}</div>`).join("")}
-          ${TYPE_CHART_TYPES.map((attackType, attackIndex) => renderTypeRow(project, attackType, attackIndex)).join("")}
+          ${types.map((type) => renderTypeHeading(type)).join("")}
+          ${types.map((attackType, attackIndex) => renderTypeRow(project, types, attackType, attackIndex)).join("")}
         </div>
       </div>
     </div>
@@ -45,10 +45,10 @@ export function renderTypeChartEditor(project: ProjectState, root: HTMLElement, 
   });
 }
 
-function renderTypeRow(project: ProjectState, attackType: string, attackIndex: number): string {
+function renderTypeRow(project: ProjectState, types: string[], attackType: string, attackIndex: number): string {
   return `
-    <div class="type-chart-heading -row -${typeClass(attackType)}">${escapeHtml(attackType)}</div>
-    ${TYPE_CHART_TYPES.map((defendType, defendIndex) => renderTypeCell(project, attackIndex, defendIndex, `${attackType} vs ${defendType}`)).join("")}
+    ${renderTypeHeading(attackType, true)}
+    ${types.map((defendType, defendIndex) => renderTypeCell(project, attackIndex, defendIndex, `${attackType} vs ${defendType}`)).join("")}
   `;
 }
 
@@ -57,10 +57,46 @@ function renderTypeCell(project: ProjectState, attackIndex: number, defendIndex:
   return `
     <label class="type-chart-cell" title="${escapeHtml(title)}">
       <select data-type-chart-cell data-attack-index="${attackIndex}" data-defend-index="${defendIndex}" data-value="${value}">
-        ${TYPE_EFFECTIVENESS_VALUES.map((option) => `<option value="${option}" ${option === value ? "selected" : ""}>${effectivenessLabel(option)}</option>`).join("")}
+        ${TYPE_EFFECTIVENESS_VALUES.map((option) => `<option value="${option}" ${option === value ? "selected" : ""}>${shortEffectivenessLabel(option)}</option>`).join("")}
       </select>
     </label>
   `;
+}
+
+function renderTypeHeading(type: string, row = false): string {
+  return `<div class="type-chart-heading ${row ? "-row " : ""}-${typeClass(type)}" title="${escapeHtml(type)}">${escapeHtml(typeAbbreviation(type))}</div>`;
+}
+
+function shortEffectivenessLabel(value: TypeEffectivenessValue): string {
+  if (value === 0) return "0";
+  if (value === 2) return ".5";
+  if (value === 8) return "2";
+  return "1";
+}
+
+function typeAbbreviation(type: string): string {
+  return (
+    {
+      Normal: "Nor",
+      Fighting: "Fgt",
+      Flying: "Fly",
+      Poison: "Psn",
+      Ground: "Gnd",
+      Rock: "Rck",
+      Bug: "Bug",
+      Ghost: "Gho",
+      Steel: "Stl",
+      Fire: "Fir",
+      Water: "Wat",
+      Grass: "Grs",
+      Electric: "Ele",
+      Psychic: "Psy",
+      Ice: "Ice",
+      Dragon: "Drg",
+      Dark: "Drk",
+      Fairy: "Fai",
+    }[type] ?? type
+  );
 }
 
 function typeClass(type: string): string {
