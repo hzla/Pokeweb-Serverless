@@ -86,13 +86,15 @@ describe("PMC installer", () => {
     const exported = await exportModifiedRom(project);
     const rom = new NintendoDSRom(exported);
     const overlayEntry = 344 * 32;
+    const overlayFileId = rom.fileId("overlay/overlay_0344.bin");
     expect(rom.arm9OverlayTable.length).toBe(345 * 32);
-    expect(readU16(rom.fntData, 4)).toBe(345);
+    expect(readU16(rom.fntData, 4)).toBe(344);
     expect(duplicateFntFileIds(rom.fntData)).toEqual([]);
     expect(readU32(rom.arm9OverlayTable, overlayEntry)).toBe(344);
     expect(readU32(rom.arm9OverlayTable, overlayEntry + 8)).toBe(0x8000);
-    expect(readU32(rom.arm9OverlayTable, overlayEntry + 24)).toBe(344);
-    expect(rom.fileId("overlay/overlay_0344.bin")).toBe(344);
+    expect(readU32(rom.arm9OverlayTable, overlayEntry + 24)).toBe(overlayFileId);
+    expect(rom.fileId("base.bin")).toBe(344);
+    expect(overlayFileId).toBeGreaterThan(344);
     expect(new TextDecoder().decode(rom.getFileByName(PMC_OVERLAY_ID_PATH))).toBe("344");
     expect(new TextDecoder().decode(rom.getFileByName(PMC_PATCHES_KEEP_PATH))).toBe("pokeweb");
     expect(readAscii(rom.getFileByName("overlay/overlay_0344.bin"), 0x2ff0, 4)).toBe("OVL0");

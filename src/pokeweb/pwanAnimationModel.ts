@@ -12,7 +12,8 @@ export const PWAN_RUNTIME_PATH = `patches/${PWAN_RUNTIME_FILENAME}`;
 
 const PWAN_RUNTIME_URL = new URL("../assets/codeinjection/PokewebPwanW2.dll", import.meta.url);
 const CONFIG_MAGIC = "PWNC";
-const CONFIG_VERSION = 1;
+const CONFIG_VERSION_SPECIES_ONLY = 1;
+const CONFIG_VERSION_FORM_AWARE = 2;
 const FILES_PER_SPRITE = 20;
 const MAX_PWAN_OVERRIDES = 500;
 
@@ -22,6 +23,8 @@ export type PwanRuntimeStatus =
 
 export type PwanOverrideInput = {
   speciesId: number;
+  formIndex?: number;
+  assetIndex?: number;
   frontFileName: string;
   frontGifBytes: Uint8Array;
   backFileName: string;
@@ -72,6 +75,8 @@ export function buildPwanOverride(input: PwanOverrideInput): PwanAnimationOverri
   const notes = [...front.warnings.map((warning) => `Front: ${warning}`), ...back.warnings.map((warning) => `Back: ${warning}`)];
   return {
     speciesId: input.speciesId,
+    formIndex: input.formIndex,
+    assetIndex: input.assetIndex,
     front: {
       sourceFileName: input.frontFileName,
       sourceGifBytes: input.frontGifBytes,
@@ -103,11 +108,11 @@ export function buildPwanOverride(input: PwanOverrideInput): PwanAnimationOverri
 
 export function upsertPwanOverride(project: ProjectState, override: PwanAnimationOverride): void {
   const state = ensurePwanAnimationState(project);
-  captureNativeCarrierBackup(project, override.speciesId);
-  const index = state.overrides.findIndex((entry) => entry.speciesId === override.speciesId);
+  captureNativeCarrierBackup(project, pwanAssetIndex(override));
+  const index = state.overrides.findIndex((entry) => entry.speciesId === override.speciesId && (entry.formIndex ?? 0) === (override.formIndex ?? 0));
   if (index === -1) state.overrides.push(override);
   else state.overrides[index] = override;
-  state.overrides.sort((a, b) => a.speciesId - b.speciesId);
+  state.overrides.sort((a, b) => a.speciesId - b.speciesId || (a.formIndex ?? 0) - (b.formIndex ?? 0));
   recordGenericChange(project, "pokemon_sprites", `PWAN override saved for species ${override.speciesId}.`, `Species ${override.speciesId}`, {
     key: `pwan-override:${override.speciesId}`,
   });
@@ -115,8 +120,9 @@ export function upsertPwanOverride(project: ProjectState, override: PwanAnimatio
 
 export function removePwanOverride(project: ProjectState, speciesId: number): void {
   const state = ensurePwanAnimationState(project);
+  const removed = state.overrides.filter((override) => override.speciesId === speciesId);
   state.overrides = state.overrides.filter((override) => override.speciesId !== speciesId);
-  restoreNativeCarrierBackup(project, speciesId);
+  removed.forEach((override) => restoreNativeCarrierBackup(project, pwanAssetIndex(override)));
   recordGenericChange(project, "pokemon_sprites", `PWAN override removed for species ${speciesId}.`, `Species ${speciesId}`, {
     key: `pwan-override-remove:${speciesId}`,
   });
@@ -131,39 +137,54 @@ export async function materializePwanAnimations(project: ProjectState): Promise<
   if (!project.narcs.pokemon_sprites) throw new Error("Pokemon Sprites must be loaded before exporting PWAN animation overrides.");
 
   const carrier = await loadBundledPwanCarrierTemplate();
-  const sorted = [...overrides].sort((a, b) => a.speciesId - b.speciesId);
-  sorted.forEach((override, index) => {
+  const sorted = [...overrides].sort((a, b) => a.speciesId - b.speciesId || (a.formIndex ?? 0) - (b.formIndex ?? 0));
+  sorted.forEach((override) => {
+    const assetIndex = pwanAssetIndex(override);
     applyPwanCarrierPatch(project, override, carrier);
-    addRomFile(project, pwanAssetPath(index, "front"), override.front.pwanBytes);
-    addRomFile(project, pwanAssetPath(index, "back"), override.back.pwanBytes);
+    addRomFile(project, pwanAssetPath(assetIndex, "front"), override.front.pwanBytes);
+    addRomFile(project, pwanAssetPath(assetIndex, "back"), override.back.pwanBytes);
   });
   addRomFile(project, PWAN_CONFIG_PATH, buildPwanConfig(sorted));
 }
 
 export function buildPwanConfig(overrides: PwanAnimationOverride[]): Uint8Array {
   if (overrides.length > MAX_PWAN_OVERRIDES) throw new Error(`PWAN runtime supports up to ${MAX_PWAN_OVERRIDES} species overrides.`);
+  const formAware = overrides.some((override) => override.formIndex !== undefined);
+  const configVersion = formAware ? CONFIG_VERSION_FORM_AWARE : CONFIG_VERSION_SPECIES_ONLY;
   const headerBytes = 16;
-  const entryBytes = 8;
+  const entryBytes = formAware ? 10 : 8;
   const out = new Uint8Array(headerBytes + overrides.length * entryBytes);
   const view = new DataView(out.buffer);
   out.set(new TextEncoder().encode(CONFIG_MAGIC), 0);
-  view.setUint16(4, CONFIG_VERSION, true);
+  view.setUint16(4, configVersion, true);
   view.setUint16(6, overrides.length, true);
   view.setUint16(8, Math.max(0, ...overrides.flatMap((override) => [override.front.timelineCount, override.back.timelineCount])), true);
   view.setUint16(10, 0, true);
   view.setUint32(12, headerBytes, true);
   overrides.forEach((override, index) => {
     const offset = headerBytes + index * entryBytes;
+    const assetIndex = pwanAssetIndex(override);
     view.setUint16(offset, override.speciesId, true);
-    view.setUint16(offset + 2, 0x0003, true);
-    view.setUint16(offset + 4, index, true);
-    view.setUint16(offset + 6, index, true);
+    if (formAware) {
+      view.setUint16(offset + 2, override.formIndex ?? 0, true);
+      view.setUint16(offset + 4, 0x0003, true);
+      view.setUint16(offset + 6, assetIndex, true);
+      view.setUint16(offset + 8, assetIndex, true);
+    } else {
+      view.setUint16(offset + 2, 0x0003, true);
+      view.setUint16(offset + 4, assetIndex, true);
+      view.setUint16(offset + 6, assetIndex, true);
+    }
   });
   return out;
 }
 
-export function pwanAssetPath(index: number, side: "front" | "back"): string {
-  return `pokeweb_pwan/${String(index).padStart(3, "0")}_${side}.pwan`;
+export function pwanAssetPath(speciesId: number, side: "front" | "back"): string {
+  return `pokeweb_pwan/${String(speciesId).padStart(3, "0")}_${side}.pwan`;
+}
+
+export function pwanAssetIndex(override: Pick<PwanAnimationOverride, "speciesId" | "assetIndex">): number {
+  return override.assetIndex ?? override.speciesId;
 }
 
 function captureNativeCarrierBackup(project: ProjectState, speciesId: number): void {

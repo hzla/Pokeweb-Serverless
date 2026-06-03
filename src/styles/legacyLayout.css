@@ -26,7 +26,7 @@ button.header-item {
   left: 0;
   width: 100vw;
   height: 40px;
-  z-index: 11;
+  z-index: 100;
   padding: 5px calc(2vw);
   padding-right: 30px;
   justify-content: space-between;
@@ -100,7 +100,7 @@ button.header-item {
   position: absolute;
   right: 0;
   top: 100%;
-  z-index: 20;
+  z-index: 101;
 }
 
 .header-more:hover .header-more-menu,

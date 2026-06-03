@@ -67,8 +67,9 @@ export function applyPwanCarrierPatch(project: ProjectState, override: PwanAnima
   }
   const store = project.narcs.pokemon_sprites;
   if (!store) throw new Error("Pokemon Sprites must be loaded before applying PWAN carrier patches.");
-  const base = override.speciesId * FILES_PER_SPRITE;
-  if (base + FILES_PER_SPRITE > store.rawFiles.length) throw new Error(`Species ${override.speciesId} is outside the loaded Pokemon sprite archive.`);
+  const assetIndex = override.assetIndex ?? override.speciesId;
+  const base = assetIndex * FILES_PER_SPRITE;
+  if (base + FILES_PER_SPRITE > store.rawFiles.length) throw new Error(`Sprite asset ${assetIndex} is outside the loaded Pokemon sprite archive.`);
 
   for (const offset of PWAN_CARRIER_METADATA_OFFSETS) {
     const bytes = carrier[offset];
@@ -86,7 +87,7 @@ export function applyPwanCarrierPatch(project: ProjectState, override: PwanAnima
   patchPalette(project, base + 19, nativePalette);
 
   recordGenericChange(project, "pokemon_sprites", `PWAN animated carrier patched for species ${override.speciesId}.`, `Species ${override.speciesId}`, {
-    key: `pwan-carrier:${override.speciesId}`,
+    key: `pwan-carrier:${override.speciesId}:${assetIndex}`,
   });
 }
 
