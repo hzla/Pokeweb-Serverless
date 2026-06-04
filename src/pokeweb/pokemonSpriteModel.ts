@@ -126,6 +126,7 @@ export type PokemonCellBank = {
 };
 
 const SPRITE_FILES_PER_ENTRY = 20;
+const FIRST_GEN5_FORM_PERSONAL_ID = 650;
 const BW_ALT_FORM_SPRITE_START = 652;
 const BW2_ALT_FORM_SPRITE_START = 685;
 const W2U_FORM_SPRITE_START = 724;
@@ -189,6 +190,7 @@ function usesW2uExpandedPokegra(project: ProjectState): boolean {
 function findPersonalFormOwner(project: ProjectState, speciesId: number): { speciesId: number; formIndex: number; formSpriteOffset: number } | undefined {
   const store = project.narcs.personal;
   if (!store || speciesId < 0 || speciesId >= store.fileCount) return undefined;
+  if (speciesId < FIRST_GEN5_FORM_PERSONAL_ID) return undefined;
   let rangedMatch: { speciesId: number; formIndex: number; formSpriteOffset: number } | undefined;
   for (let ownerId = 1; ownerId < store.fileCount; ownerId += 1) {
     if (ownerId === speciesId) continue;

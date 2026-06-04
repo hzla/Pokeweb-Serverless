@@ -67,6 +67,18 @@ describe("pokemonSpriteModel", () => {
     expect(getPokemonSpriteImage(project, 815, { kind: "sprite", side: "front", gender: "male" }, "normal").width).toBe(96);
   });
 
+  it("does not reverse-map normal species IDs through hacked cosmetic form ranges", () => {
+    const project = makeProject();
+    const formats = getNarcFormats("BW2");
+    const rowLength = formats.personal!.reduce((sum, [size]) => sum + size, 0);
+    const personal = Array.from({ length: 710 }, () => new Uint8Array(rowLength));
+    personal[709] = new Uint8Array(packRows(formats.personal!, [{ form_id: 22, form: 23, num_forms: 42 }]));
+    project.narcs.personal = makeStore("personal", personal);
+
+    expect(resolvePokemonSpriteId(project, 22, 0)).toBe(22);
+    expect(getPokemonSpriteFormOptions(project, 22)).toEqual([{ formIndex: 0, label: "Base Form", spriteId: 22 }]);
+  });
+
   it("round-trips literal LZ11 data", () => {
     const source = new Uint8Array(Array.from({ length: 257 }, (_, index) => (index * 17) & 0xff));
     const compressed = compressLz11Literal(source);

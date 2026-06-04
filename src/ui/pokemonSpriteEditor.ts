@@ -63,6 +63,7 @@ import {
   type PokemonFlipbookSamplingStrategy,
 } from "../pokeweb/pokemonFlipbookRig";
 import { PWAN_HEIGHT, PWAN_WIDTH, pwanFramePixels, pwanTimeline } from "../pokeweb/pwanCompiler";
+import { getPwanRuntimeStatus } from "../pokeweb/pwanAnimationModel";
 import { getPokemonCount } from "../pokeweb/pokemonModel";
 import { concatBytes } from "../nds/binary";
 import { parsePokemonCustomSpriteBundle } from "../pokeweb/pokemonSpriteWriters";
@@ -610,6 +611,7 @@ function attachSpriteEditor(project: ProjectState, root: HTMLElement, speciesId:
 }
 
 function installSpritePwanImportEvents(project: ProjectState, root: HTMLElement, options: RenderOptions, rerender: () => void): void {
+  if (!usesPwanSpriteGifImporter(project)) return;
   installPwanImportFormEvents(project, root, {
     onDirty: options.onDirty,
     onRefresh: rerender,
@@ -1155,7 +1157,7 @@ function refreshAnimationSectionContent(
   rerender: () => void,
 ): void {
   const animationSection = root.querySelector<HTMLElement>("#sprite-animation-section");
-  if (animationSection) animationSection.outerHTML = renderAnimationSection(project, spriteId);
+  if (animationSection) animationSection.outerHTML = renderAnimationSection(project, spriteId, state.speciesId ?? spriteId);
   installAnimationEvents(project, root, spriteId, options, setStatus, rerender);
   installGifFlipbookImportEvents(project, root, spriteId, options, setStatus, rerender);
   installSpritePwanImportEvents(project, root, options, rerender);
@@ -1231,7 +1233,7 @@ function refreshGifImportEditorContent(
     const rigSection = root.querySelector<HTMLElement>("#sprite-rig-section");
     if (rigSection) rigSection.outerHTML = renderRigSection(project, rigCells);
     const animationSection = root.querySelector<HTMLElement>("#sprite-animation-section");
-    if (animationSection) animationSection.outerHTML = renderAnimationSection(project, spriteId);
+    if (animationSection) animationSection.outerHTML = renderAnimationSection(project, spriteId, state.speciesId ?? spriteId);
     installRigSideEvents(project, root, spriteId, options, setStatus, rerender);
     installRigEvents(project, root, spriteId, options, setStatus, rerender);
     installAnimationEvents(project, root, spriteId, options, setStatus, rerender);
@@ -3513,10 +3515,28 @@ function renderAnimationSection(project: ProjectState, spriteId: number, species
       </div>
       <div class="animation-workbench">
         ${renderAnimationTabButtons()}
-        ${previewActive ? `${renderAnimationEditor(project, spriteId)}${renderPwanImportPanel(project, { title: "Import Gif", defaultSpeciesId: speciesId, defaultPaletteSource: "front", showImportStatus: true, showPaletteField: false, showSpeciesField: false, submitLabel: "Import Gif" })}` : renderAnimationFileEditor(project, spriteId, state.animationTab)}
+        ${previewActive ? `${renderAnimationEditor(project, spriteId)}${renderAnimationGifImporter(project, spriteId, speciesId)}` : renderAnimationFileEditor(project, spriteId, state.animationTab)}
       </div>
     </section>
   `;
+}
+
+function renderAnimationGifImporter(project: ProjectState, spriteId: number, speciesId: number): string {
+  if (!usesPwanSpriteGifImporter(project)) return renderGifFlipbookImportControls(project, spriteId);
+  return renderPwanImportPanel(project, {
+    title: "Import Gif",
+    defaultSpeciesId: speciesId,
+    defaultPaletteSource: "front",
+    showImportStatus: true,
+    showPaletteField: false,
+    showSpeciesField: false,
+    submitLabel: "Import Gif",
+  });
+}
+
+function usesPwanSpriteGifImporter(project: ProjectState): boolean {
+  const status = getPwanRuntimeStatus(project);
+  return status.supported && status.installed;
 }
 
 function renderAnimationTabButtons(): string {
