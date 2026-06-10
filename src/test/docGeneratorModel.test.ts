@@ -14,6 +14,7 @@ import {
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT } from "../pokeweb/overworldModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
+import { TYPE_CHART_OFFSET, TYPE_CHART_TYPES, updateTypeChartValue } from "../pokeweb/typeChartModel";
 
 describe("docGeneratorModel", () => {
   it("wraps calc payloads in backup_data and injects the ROM title", () => {
@@ -93,6 +94,30 @@ describe("docGeneratorModel", () => {
     expect(payload.move_replacements).toEqual({ cometpunch: "meteorpunch" });
     expect(payload.pok_replacements).not.toMatchObject({ ivysaur: "bulbasaur", charmander: "venusaur" });
     expect(payload.move_replacements).not.toMatchObject({ karatechop: "pound", doubleslap: "karatechop" });
+  });
+
+  it("normalizes calc item names to Showdown spellings", () => {
+    const project = makeProject();
+    project.texts.banks.items![25] = "BlackGlasses";
+    const file = generateCalcDownload(project, "Volt White Plus");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+
+    expect(Object.values(payload.item_replacements)).toContain("blackglasses");
+    expect(payload.poks.Bulbasaur.items).toEqual(["Black Glasses", "None", "None"]);
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].reward_item).toBe("Black Glasses");
+  });
+
+  it("exports edited type charts in calc backup data", () => {
+    const project = makeProject();
+    project.overlays[167] = makeTypeChartOverlay(TYPE_CHART_TYPES.length);
+    updateTypeChartValue(project, 0, 0, 2);
+    const file = generateCalcDownload(project, "Volt White Plus");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+
+    expect(payload.type_chart.Normal.Normal).toBe(0.5);
+    expect(payload.type_chart.Normal.Ghost).toBe(1);
+    expect(payload.type_chart).toHaveProperty("Dark");
+    expect(payload.type_chart).not.toHaveProperty("Fairy");
   });
 
   it("exports ddex encounter tables with slot rates and levels", () => {
@@ -375,6 +400,12 @@ function makeStore(name: NarcName, data: Uint8Array[], count: number): NarcStore
     records: new Map(),
     dirty: new Set(),
   };
+}
+
+function makeTypeChartOverlay(typeCount: number): Uint8Array {
+  const out = new Uint8Array(TYPE_CHART_OFFSET + typeCount * typeCount + 16);
+  out.fill(4, TYPE_CHART_OFFSET, TYPE_CHART_OFFSET + typeCount * typeCount);
+  return out;
 }
 
 function packRows(format: FieldSpec[], rows: Array<Record<string, number>>): Uint8Array {
