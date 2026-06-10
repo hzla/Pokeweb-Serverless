@@ -21,6 +21,13 @@ import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./move
 import { getPokemonCount, getPokemonRecord, getPokemonSummaryRecord } from "./pokemonModel";
 import { decodeRecord, type DocGeneratorState, type ProjectState, type ReadableRecord } from "./projectStore";
 import { getTextBank } from "./textModel";
+import {
+  TYPE_CHART_OVERLAY_ID,
+  TYPE_CHART_VANILLA_TYPE_COUNT,
+  getTypeChart,
+  getTypeChartTypes,
+  type TypeEffectivenessValue,
+} from "./typeChartModel";
 import { getAutofilledTrainerPokemonMoveIds, getTrainerCount, getTrainerRecord, type TrainerRecord, type TrainerPokemonSlot } from "./trainerModel";
 
 export type TextDownloadFile = {
@@ -68,6 +75,7 @@ type SearchCollection = Record<string, { name?: string; types?: string[]; type?:
 type DexEncounterSlot = { s: string; mn: number; mx?: number };
 type DexEncounterSection = { name?: string; rates: number[]; encs: DexEncounterSlot[] };
 type DexLocationRecord = { name: string; wilds: string[] } & Record<string, string | string[] | DexEncounterSection>;
+type CalcTypeChart = Record<string, Record<string, number>>;
 
 export const GEN5_CALC_BRIDGE_CONFIG: CalcBridgeConfig = {
   gen: 5,
@@ -107,12 +115,148 @@ const SHOWDOWN_SUBS: Record<string, string> = {
   "Hi Jump Kick": "High Jump Kick",
 };
 
+const SHOWDOWN_ITEM_SUBS: Record<string, string> = {
+  BlackGlasses: "Black Glasses",
+  BrightPowder: "Bright Powder",
+  NeverMeltIce: "Never-Melt Ice",
+  SilverPowder: "Silver Powder",
+  TwistedSpoon: "Twisted Spoon",
+};
+
 const VANILLA = {
   pokedex: lines(vanillaPokedexText),
   moves: lines(vanillaMovesText),
   abilities: lines(vanillaAbilitiesText),
   items: lines(vanillaItemsText),
 };
+
+const STANDARD_TYPE_MATCHUPS: Array<[string, string, TypeEffectivenessValue]> = [
+  ["Normal", "Rock", 2],
+  ["Normal", "Ghost", 0],
+  ["Normal", "Steel", 2],
+  ["Fighting", "Normal", 8],
+  ["Fighting", "Flying", 2],
+  ["Fighting", "Poison", 2],
+  ["Fighting", "Rock", 8],
+  ["Fighting", "Bug", 2],
+  ["Fighting", "Ghost", 0],
+  ["Fighting", "Steel", 8],
+  ["Fighting", "Psychic", 2],
+  ["Fighting", "Ice", 8],
+  ["Fighting", "Dark", 8],
+  ["Fighting", "Fairy", 2],
+  ["Flying", "Fighting", 8],
+  ["Flying", "Rock", 2],
+  ["Flying", "Bug", 8],
+  ["Flying", "Steel", 2],
+  ["Flying", "Grass", 8],
+  ["Flying", "Electric", 2],
+  ["Poison", "Poison", 2],
+  ["Poison", "Ground", 2],
+  ["Poison", "Rock", 2],
+  ["Poison", "Ghost", 2],
+  ["Poison", "Steel", 0],
+  ["Poison", "Grass", 8],
+  ["Poison", "Fairy", 8],
+  ["Ground", "Flying", 0],
+  ["Ground", "Poison", 8],
+  ["Ground", "Rock", 8],
+  ["Ground", "Bug", 2],
+  ["Ground", "Steel", 8],
+  ["Ground", "Fire", 8],
+  ["Ground", "Grass", 2],
+  ["Ground", "Electric", 8],
+  ["Rock", "Fighting", 2],
+  ["Rock", "Flying", 8],
+  ["Rock", "Ground", 2],
+  ["Rock", "Bug", 8],
+  ["Rock", "Steel", 2],
+  ["Rock", "Fire", 8],
+  ["Rock", "Ice", 8],
+  ["Bug", "Fighting", 2],
+  ["Bug", "Flying", 2],
+  ["Bug", "Poison", 2],
+  ["Bug", "Ghost", 2],
+  ["Bug", "Steel", 2],
+  ["Bug", "Fire", 2],
+  ["Bug", "Grass", 8],
+  ["Bug", "Psychic", 8],
+  ["Bug", "Dark", 8],
+  ["Bug", "Fairy", 2],
+  ["Ghost", "Normal", 0],
+  ["Ghost", "Ghost", 8],
+  ["Ghost", "Steel", 2],
+  ["Ghost", "Psychic", 8],
+  ["Ghost", "Dark", 2],
+  ["Steel", "Rock", 8],
+  ["Steel", "Steel", 2],
+  ["Steel", "Fire", 2],
+  ["Steel", "Water", 2],
+  ["Steel", "Electric", 2],
+  ["Steel", "Ice", 8],
+  ["Steel", "Fairy", 8],
+  ["Fire", "Rock", 2],
+  ["Fire", "Bug", 8],
+  ["Fire", "Steel", 8],
+  ["Fire", "Fire", 2],
+  ["Fire", "Water", 2],
+  ["Fire", "Grass", 8],
+  ["Fire", "Ice", 8],
+  ["Fire", "Dragon", 2],
+  ["Water", "Ground", 8],
+  ["Water", "Rock", 8],
+  ["Water", "Fire", 8],
+  ["Water", "Water", 2],
+  ["Water", "Grass", 2],
+  ["Water", "Dragon", 2],
+  ["Grass", "Flying", 2],
+  ["Grass", "Poison", 2],
+  ["Grass", "Ground", 8],
+  ["Grass", "Rock", 8],
+  ["Grass", "Bug", 2],
+  ["Grass", "Steel", 2],
+  ["Grass", "Fire", 2],
+  ["Grass", "Water", 8],
+  ["Grass", "Grass", 2],
+  ["Grass", "Dragon", 2],
+  ["Electric", "Flying", 8],
+  ["Electric", "Ground", 0],
+  ["Electric", "Water", 8],
+  ["Electric", "Grass", 2],
+  ["Electric", "Electric", 2],
+  ["Electric", "Dragon", 2],
+  ["Psychic", "Fighting", 8],
+  ["Psychic", "Poison", 8],
+  ["Psychic", "Steel", 2],
+  ["Psychic", "Psychic", 2],
+  ["Psychic", "Dark", 0],
+  ["Ice", "Flying", 8],
+  ["Ice", "Ground", 8],
+  ["Ice", "Steel", 2],
+  ["Ice", "Fire", 2],
+  ["Ice", "Water", 2],
+  ["Ice", "Grass", 8],
+  ["Ice", "Ice", 2],
+  ["Ice", "Dragon", 8],
+  ["Dragon", "Steel", 2],
+  ["Dragon", "Dragon", 8],
+  ["Dragon", "Fairy", 0],
+  ["Dark", "Fighting", 2],
+  ["Dark", "Ghost", 8],
+  ["Dark", "Steel", 2],
+  ["Dark", "Psychic", 8],
+  ["Dark", "Dark", 2],
+  ["Dark", "Fairy", 2],
+  ["Fairy", "Fighting", 8],
+  ["Fairy", "Poison", 2],
+  ["Fairy", "Steel", 2],
+  ["Fairy", "Fire", 2],
+  ["Fairy", "Dragon", 8],
+  ["Fairy", "Dark", 8],
+];
+
+const STANDARD_GEN5_TYPE_CHART_BYTES = buildStandardTypeChartBytes(TYPES.slice(0, TYPE_CHART_VANILLA_TYPE_COUNT), false);
+const STANDARD_GEN6_TYPE_CHART_BYTES = buildStandardTypeChartBytes(TYPES, true);
 
 export function ensureDocs(project: ProjectState): DocGeneratorState {
   project.docs ??= {
@@ -302,18 +446,89 @@ export function buildGroundItemScriptMap(project: ProjectState): Map<number, num
 }
 
 function buildCalcPayload(project: ProjectState, title: string): Record<string, unknown> {
+  const typeChart = buildCalcTypeChart(project);
   return {
     title,
+    ...(typeChart ? { type_chart: typeChart } : {}),
     pok_replacements: replacementMap(VANILLA.pokedex, project.texts.banks.pokedex ?? [], (value) =>
       toId(String(value).replace(/fletcinder/iu, "fletchinder").replace(/lycanrocm/iu, "lycanrocmidnight")),
     ),
     move_replacements: replacementMap(VANILLA.moves, project.texts.banks.moves ?? [], (value) => toId(showdownName(value))),
     ability_replacements: replacementMap(VANILLA.abilities, project.texts.banks.abilities ?? [], toId),
-    item_replacements: replacementMap(VANILLA.items, project.texts.banks.items ?? [], toId),
+    item_replacements: replacementMap(VANILLA.items, project.texts.banks.items ?? [], (value) => toId(showdownItemName(value))),
     moves: buildCalcMoves(project),
     poks: buildCalcPokemon(project),
     formatted_sets: buildFormattedTrainerSets(project),
   };
+}
+
+function buildCalcTypeChart(project: ProjectState): CalcTypeChart | undefined {
+  if (!project.narcs.type_chart && !project.overlays[TYPE_CHART_OVERLAY_ID]) return undefined;
+  const types = getTypeChartTypes(project);
+  const bytes = typeChartBytesFromProject(project, types);
+  if (isStandardCalcTypeChart(types, bytes)) return undefined;
+  return typeChartPayload(types, bytes);
+}
+
+function typeChartBytesFromProject(project: ProjectState, types: string[]): Uint8Array {
+  const bytes = new Uint8Array(types.length * types.length);
+  bytes.fill(4);
+  for (const cell of getTypeChart(project)) {
+    const offset = cell.attackIndex * types.length + cell.defendIndex;
+    if (offset >= 0 && offset < bytes.length) bytes[offset] = cell.value;
+  }
+  return bytes;
+}
+
+function isStandardCalcTypeChart(types: string[], bytes: Uint8Array): boolean {
+  if (types.length === TYPE_CHART_VANILLA_TYPE_COUNT) return byteArraysEqual(bytes, STANDARD_GEN5_TYPE_CHART_BYTES);
+  if (types.length === TYPES.length && types[types.length - 1] === "Fairy") return byteArraysEqual(bytes, STANDARD_GEN6_TYPE_CHART_BYTES);
+  return false;
+}
+
+function typeChartPayload(types: string[], bytes: Uint8Array): CalcTypeChart {
+  const out: CalcTypeChart = {};
+  types.forEach((attackType, attackIndex) => {
+    const matchups: Record<string, number> = {};
+    types.forEach((defendType, defendIndex) => {
+      matchups[defendType] = calcEffectivenessValue(bytes[attackIndex * types.length + defendIndex] as TypeEffectivenessValue);
+    });
+    out[attackType] = matchups;
+  });
+  return out;
+}
+
+function buildStandardTypeChartBytes(types: string[], steelNerf: boolean): Uint8Array {
+  const bytes = new Uint8Array(types.length * types.length);
+  bytes.fill(4);
+  const set = (attackType: string, defendType: string, value: TypeEffectivenessValue) => {
+    const attackIndex = types.indexOf(attackType);
+    const defendIndex = types.indexOf(defendType);
+    if (attackIndex < 0 || defendIndex < 0) return;
+    bytes[attackIndex * types.length + defendIndex] = value;
+  };
+
+  for (const [attackType, defendType, value] of STANDARD_TYPE_MATCHUPS) set(attackType, defendType, value);
+  if (steelNerf) {
+    set("Ghost", "Steel", 4);
+    set("Dark", "Steel", 4);
+  }
+  return bytes;
+}
+
+function calcEffectivenessValue(value: TypeEffectivenessValue): number {
+  if (value === 0) return 0;
+  if (value === 2) return 0.5;
+  if (value === 8) return 2;
+  return 1;
+}
+
+function byteArraysEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return false;
+  }
+  return true;
 }
 
 function buildDexOverrides(project: ProjectState): Record<string, unknown> {
@@ -394,7 +609,7 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
       name,
       num: id,
       types: types[0] === types[1] ? [types[0]] : types,
-      items: [record.personal.item_1, record.personal.item_2, record.personal.item_3],
+      items: [record.personal.item_1, record.personal.item_2, record.personal.item_3].map((item) => showdownItemName(item)),
       bs: {
         hp: record.personal.base_hp ?? 0,
         at: record.personal.base_atk ?? 0,
@@ -865,8 +1080,8 @@ function buildFormattedTrainerSets(project: ProjectState): Record<string, Record
         diff: docs.trainerDiffs[String(trainerId)] ?? 0,
         ivs: { hp: iv, at: iv, df: iv, sa: iv, sd: iv, sp: iv },
         battle_type: trainer.readable.battle_type_1,
-        reward_item: trainer.readable.reward_item,
-        item: pok.itemName ?? "None",
+        reward_item: showdownItemName(trainer.readable.reward_item),
+        item: showdownItemName(pok.itemName ?? "None"),
         nature: pok.nature,
         moves: calcTrainerMoves(project, trainer, pok).map((move) => showdownName(move)),
         sub_index: pok.slot,
@@ -1091,6 +1306,11 @@ function toId(value: string): string {
 function showdownName(value: unknown): string {
   const titled = titleizeName(value);
   return SHOWDOWN_SUBS[titled] ?? titled;
+}
+
+function showdownItemName(value: unknown): string {
+  const name = String(value ?? "");
+  return SHOWDOWN_ITEM_SUBS[name] ?? name;
 }
 
 function titleizeName(value: unknown): string {
