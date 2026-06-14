@@ -46,6 +46,7 @@ export const PMC_OVERLAY_ID_PATH = "codeinjection/pmc_overlay.txt";
 export const PMC_RPM_UID = "PMC.rpm";
 export const PMC_PATCHES_KEEP_PATH = "patches/.pokeweb_keep";
 export const PMC_SYMBOL_PATH = "codeinjection/RPMSYM-PMC.rpm";
+export const WHITE2UPGRADE_DLL_FILENAMES = new Set(["white2upgrade.dll"]);
 
 const PMC_B2_URL = new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url);
 const PMC_W2_URL = new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url);
@@ -208,16 +209,17 @@ export function listCodeInjectionDlls(project: ProjectState): NonNullable<NonNul
   if (project.originalRomBytes) {
     try {
       const rom = new NintendoDSRom(project.originalRomBytes);
-      for (const file of listNamedRomFiles(rom.filenames).sort((a, b) => a.path.localeCompare(b.path))) {
-        const bytes = rom.files[file.id];
-        if (!bytes || readAscii(bytes, 0, 4) !== "DLXF") continue;
-        addDllModuleFromPath(file.path, seen, modules);
-      }
+      for (const module of detectCodeInjectionDllsFromRom(rom)) addDllModule(module, seen, modules);
     } catch {
       // Older saved projects may not include parseable ROM bytes; staged DLLs above still cover active edits.
     }
   }
   return modules;
+}
+
+export function detectWhite2UpgradeDlls(project: ProjectState): boolean {
+  if (project.session.baseRom !== "BW2") return false;
+  return listCodeInjectionDlls(project).some((module) => isWhite2UpgradeDllPath(module.path));
 }
 
 export function detectBundledDoubleBattleFixDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {
@@ -238,8 +240,9 @@ export function validateCodeInjectionDll(bytes: Uint8Array): void {
 }
 
 export function detectPmcInstallFromRom(rom: NintendoDSRom): NonNullable<ProjectState["codeInjection"]> | undefined {
+  const modules = detectCodeInjectionDllsFromRom(rom);
   const overlayId = parseOverlayIdBytes(getRomPathBytes(rom, PMC_OVERLAY_ID_PATH));
-  if (overlayId === undefined) return undefined;
+  if (overlayId === undefined) return modules.length > 0 ? { modules } : undefined;
   const entry = findOverlayEntry(rom.arm9OverlayTable, overlayId);
   const symbolBytes = getRomPathBytes(rom, PMC_SYMBOL_PATH);
   let version: string | undefined;
@@ -262,6 +265,7 @@ export function detectPmcInstallFromRom(rom: NintendoDSRom): NonNullable<Project
       version,
       gameId,
     },
+    modules: modules.length > 0 ? modules : undefined,
   };
 }
 
@@ -410,6 +414,32 @@ function addDllModuleFromPath(
   if (!match || seen.has(path)) return;
   seen.add(path);
   modules.push({ path, target: match[1].toLowerCase() as CodeInjectionDllTarget, fileName: basename(match[2]) });
+}
+
+function addDllModule(
+  module: NonNullable<NonNullable<ProjectState["codeInjection"]>["modules"]>[number],
+  seen: Set<string>,
+  modules: NonNullable<NonNullable<ProjectState["codeInjection"]>["modules"]>,
+): void {
+  if (seen.has(module.path)) return;
+  seen.add(module.path);
+  modules.push(module);
+}
+
+function detectCodeInjectionDllsFromRom(rom: NintendoDSRom): NonNullable<NonNullable<ProjectState["codeInjection"]>["modules"]> {
+  const seen = new Set<string>();
+  const modules: NonNullable<NonNullable<ProjectState["codeInjection"]>["modules"]> = [];
+  for (const file of listNamedRomFiles(rom.filenames).sort((a, b) => a.path.localeCompare(b.path))) {
+    const bytes = rom.files[file.id];
+    if (!bytes || readAscii(bytes, 0, 4) !== "DLXF") continue;
+    addDllModuleFromPath(file.path, seen, modules);
+  }
+  return modules;
+}
+
+function isWhite2UpgradeDllPath(path: string): boolean {
+  const fileName = basename(path).toLowerCase();
+  return WHITE2UPGRADE_DLL_FILENAMES.has(fileName) || /^w2u.*\.dll$/iu.test(fileName);
 }
 
 function listNamedRomFiles(root: Folder, parent = ""): Array<{ id: number; path: string }> {

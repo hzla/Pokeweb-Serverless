@@ -35,12 +35,17 @@ export type PwanHeader = {
 };
 
 export type PwanTimelineEntry = { frameIndex: number; ticks: number };
+export type PwanFrameScaleMode = "nearest" | "outlineFill";
+export type PwanFrameScaleOptions = {
+  mode?: PwanFrameScaleMode;
+  outlineThreshold?: number;
+};
 
 export const PWAN_WIDTH = 96;
 export const PWAN_HEIGHT = 96;
 export const PWAN_FRAME_BYTES = 0x1200;
 export const PWAN_PALETTE_COLORS = 16;
-export const PWAN_MAX_TIMELINE = 128;
+export const PWAN_MAX_TIMELINE = 192;
 
 const PWAN_HEADER_BYTES = 0x30;
 const TRANSPARENT_ALPHA_THRESHOLD = 128;
@@ -61,7 +66,7 @@ export function compileGifToPwan(bytes: Uint8Array): PwanCompileResult {
   if (sourceFrames[0] && (sourceFrames[0].width > 384 || sourceFrames[0].height > 384)) {
     warnings.push(`Source GIF is ${sourceFrames[0].width}x${sourceFrames[0].height}; it will be scaled into 96x96`);
   }
-  if (sourceFrames.length > 96) warnings.push(`GIF has ${sourceFrames.length} frames; PWAN v1 supports up to ${PWAN_MAX_TIMELINE} timeline entries`);
+  if (sourceFrames.length > PWAN_MAX_TIMELINE) warnings.push(`GIF has ${sourceFrames.length} frames; PWAN v1 supports up to ${PWAN_MAX_TIMELINE} timeline entries`);
 
   const quantized = quantizeFrames(normalized, PWAN_PALETTE_COLORS - 1);
   if (paletteReport.opaqueColorCount > PWAN_PALETTE_COLORS - 1) warnings.push("Opaque colors were quantized to fit PWAN's 15-color visible palette");
@@ -171,10 +176,103 @@ export function pwanTimeline(bytes: Uint8Array): PwanTimelineEntry[] {
   }));
 }
 
+export function scalePwanTimelineSpeed(bytes: Uint8Array, durationScale: number): { pwanBytes: Uint8Array; totalTicks: number } {
+  const header = validatePwan(bytes);
+  const out = bytes.slice();
+  const view = new DataView(out.buffer, out.byteOffset, out.byteLength);
+  const scale = Number.isFinite(durationScale) && durationScale > 0 ? durationScale : 1;
+  let totalTicks = 0;
+  for (let index = 0; index < header.timelineCount; index += 1) {
+    const offset = header.timelineOffset + index * 4 + 2;
+    const ticks = view.getUint16(offset, true);
+    const nextTicks = clampInt(ticks * scale, 1, 0xff);
+    view.setUint16(offset, nextTicks, true);
+    totalTicks += nextTicks;
+  }
+  view.setUint32(16, totalTicks, true);
+  return { pwanBytes: out, totalTicks };
+}
+
+export function pwanFramesPerSecond(bytes: Uint8Array): number {
+  const timeline = pwanTimeline(bytes);
+  const totalTicks = timeline.reduce((sum, entry) => sum + Math.max(1, entry.ticks), 0);
+  return totalTicks > 0 ? timeline.length * 60 / totalTicks : 0;
+}
+
+export function scalePwanTimelineToFps(bytes: Uint8Array, framesPerSecond: number): { pwanBytes: Uint8Array; totalTicks: number; framesPerSecond: number } {
+  const currentFps = pwanFramesPerSecond(bytes);
+  const nextFps = clampFinite(framesPerSecond, 1, 60, currentFps || 10);
+  if (currentFps <= 0) {
+    const header = validatePwan(bytes);
+    return { pwanBytes: bytes.slice(), totalTicks: header.totalTicks, framesPerSecond: nextFps };
+  }
+  const scaled = scalePwanTimelineSpeed(bytes, currentFps / nextFps);
+  return { ...scaled, framesPerSecond: pwanFramesPerSecond(scaled.pwanBytes) };
+}
+
+export function shiftPwanFrames(bytes: Uint8Array, offsetX: number, offsetY: number): { pwanBytes: Uint8Array; visibleHeight: number } {
+  const header = validatePwan(bytes);
+  const dx = clampInt(offsetX, -PWAN_WIDTH, PWAN_WIDTH);
+  const dy = clampInt(offsetY, -PWAN_HEIGHT, PWAN_HEIGHT);
+  const out = bytes.slice();
+  const frames: Uint8Array[] = [];
+  for (let index = 0; index < header.frameCount; index += 1) {
+    const frameOffset = header.frameOffset + index * header.frameBytes;
+    const shifted = shiftIndexedPixels(decodePwanFrame(bytes.subarray(frameOffset, frameOffset + header.frameBytes)), dx, dy);
+    const encoded = tilePwanSegmentedPixels(shifted);
+    out.set(encoded, frameOffset);
+    frames.push(encoded);
+  }
+  return { pwanBytes: out, visibleHeight: pwanVisibleHeightFromFrames(frames) };
+}
+
+export function scalePwanFrames(bytes: Uint8Array, scale: number, options: PwanFrameScaleOptions = {}): { pwanBytes: Uint8Array; visibleHeight: number } {
+  const header = validatePwan(bytes);
+  const factor = clampFinite(scale, 0.25, 4, 1);
+  const mode = options.mode === "outlineFill" ? "outlineFill" : "nearest";
+  const palette = mode === "outlineFill" ? pwanPalette(bytes) : undefined;
+  const out = bytes.slice();
+  const frames: Uint8Array[] = [];
+  for (let index = 0; index < header.frameCount; index += 1) {
+    const frameOffset = header.frameOffset + index * header.frameBytes;
+    const pixels = decodePwanFrame(bytes.subarray(frameOffset, frameOffset + header.frameBytes));
+    const scaled = mode === "outlineFill" && palette ? scaleIndexedPixelsOutlineFillBottomCenter(pixels, factor, palette, options.outlineThreshold ?? 48) : scaleIndexedPixelsBottomCenter(pixels, factor);
+    const encoded = tilePwanSegmentedPixels(scaled);
+    out.set(encoded, frameOffset);
+    frames.push(encoded);
+  }
+  return { pwanBytes: out, visibleHeight: pwanVisibleHeightFromFrames(frames) };
+}
+
 export function pwanVisibleHeight(bytes: Uint8Array): number {
   const header = validatePwan(bytes);
   const frames = Array.from({ length: header.frameCount }, (_value, index) => bytes.subarray(header.frameOffset + index * header.frameBytes, header.frameOffset + (index + 1) * header.frameBytes));
   return pwanVisibleHeightFromFrames(frames);
+}
+
+export function pwanToGifBytes(bytes: Uint8Array): Uint8Array {
+  const header = validatePwan(bytes);
+  const palette = pwanPalette(bytes);
+  const timeline = pwanTimeline(bytes);
+  const parts: Uint8Array[] = [
+    asciiBytes("GIF89a"),
+    u16Bytes(PWAN_WIDTH),
+    u16Bytes(PWAN_HEIGHT),
+    new Uint8Array([0xf3, 0, 0]),
+    gifColorTable(palette),
+    new Uint8Array([0x21, 0xff, 0x0b]),
+    asciiBytes("NETSCAPE2.0"),
+    new Uint8Array([0x03, 0x01, 0x00, 0x00, 0x00]),
+  ];
+  const entries = timeline.length ? timeline : Array.from({ length: header.frameCount }, (_value, frameIndex) => ({ frameIndex, ticks: 6 }));
+  for (const entry of entries) {
+    const indices = flattenIndexedPixels(pwanFramePixels(bytes, entry.frameIndex));
+    parts.push(new Uint8Array([0x21, 0xf9, 0x04, 0x09]), u16Bytes(clampInt(entry.ticks * 100 / 60, 1, 0xffff)), new Uint8Array([0, 0]));
+    parts.push(new Uint8Array([0x2c]), u16Bytes(0), u16Bytes(0), u16Bytes(PWAN_WIDTH), u16Bytes(PWAN_HEIGHT), new Uint8Array([0, 4]));
+    parts.push(gifSubBlocks(gifLzwEncode(indices, 4)));
+  }
+  parts.push(new Uint8Array([0x3b]));
+  return concatBytes(parts);
 }
 
 export function tileIndexedPixels(pixels: number[][], width: number, height: number): Uint8Array {
@@ -340,6 +438,159 @@ function decodePwanFrame(frame: Uint8Array): number[][] {
   return pixels;
 }
 
+function shiftIndexedPixels(pixels: number[][], dx: number, dy: number): number[][] {
+  const shifted = Array.from({ length: PWAN_HEIGHT }, () => Array.from({ length: PWAN_WIDTH }, () => 0));
+  for (let y = 0; y < PWAN_HEIGHT; y += 1) {
+    for (let x = 0; x < PWAN_WIDTH; x += 1) {
+      const nextX = x + dx;
+      const nextY = y + dy;
+      if (nextX < 0 || nextY < 0 || nextX >= PWAN_WIDTH || nextY >= PWAN_HEIGHT) continue;
+      shifted[nextY]![nextX] = pixels[y]?.[x] ?? 0;
+    }
+  }
+  return shifted;
+}
+
+function scaleIndexedPixelsBottomCenter(pixels: number[][], scale: number): number[][] {
+  const scaled = Array.from({ length: PWAN_HEIGHT }, () => Array.from({ length: PWAN_WIDTH }, () => 0));
+  const anchorX = PWAN_WIDTH / 2;
+  const anchorY = PWAN_HEIGHT;
+  for (let y = 0; y < PWAN_HEIGHT; y += 1) {
+    for (let x = 0; x < PWAN_WIDTH; x += 1) {
+      const sourceX = Math.floor(anchorX + (x + 0.5 - anchorX) / scale);
+      const sourceY = Math.floor(anchorY + (y + 0.5 - anchorY) / scale);
+      if (sourceX < 0 || sourceY < 0 || sourceX >= PWAN_WIDTH || sourceY >= PWAN_HEIGHT) continue;
+      scaled[y]![x] = pixels[sourceY]?.[sourceX] ?? 0;
+    }
+  }
+  return scaled;
+}
+
+function scaleIndexedPixelsOutlineFillBottomCenter(pixels: number[][], scale: number, palette: Uint16Array, outlineThreshold: number): number[][] {
+  if (Math.abs(scale - 1) < 0.0001) return pixels.map((row) => [...row]);
+  const threshold = clampInt(outlineThreshold, 0, 128);
+  const silhouette = outlineMask(pixels, palette, 0);
+  const protectedMask = outlineMask(pixels, palette, threshold);
+  const scaled = Array.from({ length: PWAN_HEIGHT }, () => Array.from({ length: PWAN_WIDTH }, () => 0));
+
+  for (let y = 0; y < PWAN_HEIGHT; y += 1) {
+    for (let x = 0; x < PWAN_WIDTH; x += 1) {
+      const source = inverseScalePoint(x, y, scale);
+      const index = pixels[source.y]?.[source.x] ?? 0;
+      if (index === 0 || protectedMask[source.y]?.[source.x]) continue;
+      scaled[y]![x] = index;
+    }
+  }
+
+  const outlinePixels = maskPoints(silhouette);
+  const outlineSource = outlinePixels.length ? outlinePixels : maskPoints(protectedMask);
+  if (outlineSource.length > 0) {
+    const withOutline = scaled.map((row) => [...row]);
+    for (let y = 0; y < PWAN_HEIGHT; y += 1) {
+      for (let x = 0; x < PWAN_WIDTH; x += 1) {
+        if (scaled[y]?.[x] !== 0 || !touchesOpaque(scaled, x, y)) continue;
+        const nearest = nearestPoint(outlineSource, inverseScalePoint(x, y, scale));
+        withOutline[y]![x] = pixels[nearest.y]?.[nearest.x] ?? 0;
+      }
+    }
+    for (let y = 0; y < PWAN_HEIGHT; y += 1) scaled[y] = withOutline[y]!;
+  }
+
+  for (const point of maskPoints(protectedMask)) {
+    if (silhouette[point.y]?.[point.x]) continue;
+    const projected = forwardScalePoint(point.x, point.y, scale);
+    if (projected.x < 0 || projected.y < 0 || projected.x >= PWAN_WIDTH || projected.y >= PWAN_HEIGHT) continue;
+    scaled[projected.y]![projected.x] = pixels[point.y]?.[point.x] ?? 0;
+  }
+
+  return scaled;
+}
+
+function outlineMask(pixels: number[][], palette: Uint16Array, outlineThreshold: number): boolean[][] {
+  const threshold = Math.max(0, outlineThreshold);
+  return Array.from({ length: PWAN_HEIGHT }, (_value, y) =>
+    Array.from({ length: PWAN_WIDTH }, (_inner, x) => {
+      const index = pixels[y]?.[x] ?? 0;
+      if (index === 0) return false;
+      if (touchesTransparency(pixels, x, y)) return true;
+      return threshold > 0 && bgr555Luminance(palette[index] ?? 0) <= threshold;
+    }),
+  );
+}
+
+function touchesTransparency(pixels: number[][], x: number, y: number): boolean {
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= PWAN_WIDTH || yy >= PWAN_HEIGHT || (pixels[yy]?.[xx] ?? 0) === 0) return true;
+    }
+  }
+  return false;
+}
+
+function touchesOpaque(pixels: number[][], x: number, y: number): boolean {
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= PWAN_WIDTH || yy >= PWAN_HEIGHT) continue;
+      if ((pixels[yy]?.[xx] ?? 0) !== 0) return true;
+    }
+  }
+  return false;
+}
+
+function maskPoints(mask: boolean[][]): Array<{ x: number; y: number }> {
+  const points: Array<{ x: number; y: number }> = [];
+  for (let y = 0; y < PWAN_HEIGHT; y += 1) {
+    for (let x = 0; x < PWAN_WIDTH; x += 1) {
+      if (mask[y]?.[x]) points.push({ x, y });
+    }
+  }
+  return points;
+}
+
+function inverseScalePoint(x: number, y: number, scale: number): { x: number; y: number } {
+  const anchorX = PWAN_WIDTH / 2;
+  const anchorY = PWAN_HEIGHT;
+  return {
+    x: clampInt(Math.floor(anchorX + (x + 0.5 - anchorX) / scale), 0, PWAN_WIDTH - 1),
+    y: clampInt(Math.floor(anchorY + (y + 0.5 - anchorY) / scale), 0, PWAN_HEIGHT - 1),
+  };
+}
+
+function forwardScalePoint(x: number, y: number, scale: number): { x: number; y: number } {
+  const anchorX = PWAN_WIDTH / 2;
+  const anchorY = PWAN_HEIGHT;
+  return {
+    x: Math.round(anchorX + (x + 0.5 - anchorX) * scale - 0.5),
+    y: Math.round(anchorY + (y + 0.5 - anchorY) * scale - 0.5),
+  };
+}
+
+function nearestPoint(points: Array<{ x: number; y: number }>, target: { x: number; y: number }): { x: number; y: number } {
+  let best = points[0]!;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const point of points) {
+    const distance = (point.x - target.x) ** 2 + (point.y - target.y) ** 2;
+    if (distance < bestDistance) {
+      best = point;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+function bgr555Luminance(value: number): number {
+  const r = ((value & 0x1f) << 3) | ((value & 0x1f) >>> 2);
+  const g = (((value >>> 5) & 0x1f) << 3) | (((value >>> 5) & 0x1f) >>> 2);
+  const b = (((value >>> 10) & 0x1f) << 3) | (((value >>> 10) & 0x1f) >>> 2);
+  return Math.round((r * 299 + g * 587 + b * 114) / 1000);
+}
+
 function pwanVisibleHeightFromFrames(frames: Uint8Array[]): number {
   let minY = PWAN_HEIGHT;
   let maxY = -1;
@@ -436,6 +687,117 @@ function hashBytes(bytes: Uint8Array): string {
   return h.toString(16);
 }
 
+function flattenIndexedPixels(pixels: number[][]): Uint8Array {
+  const out = new Uint8Array(PWAN_WIDTH * PWAN_HEIGHT);
+  let offset = 0;
+  for (let y = 0; y < PWAN_HEIGHT; y += 1) {
+    for (let x = 0; x < PWAN_WIDTH; x += 1) out[offset++] = pixels[y]?.[x] ?? 0;
+  }
+  return out;
+}
+
+function gifColorTable(palette: Uint16Array): Uint8Array {
+  const out = new Uint8Array(16 * 3);
+  palette.forEach((value, index) => {
+    const color = bgr555ToRgb(value);
+    out[index * 3] = color.r;
+    out[index * 3 + 1] = color.g;
+    out[index * 3 + 2] = color.b;
+  });
+  return out;
+}
+
+function bgr555ToRgb(value: number): { r: number; g: number; b: number } {
+  return {
+    r: ((value & 0x1f) << 3) | ((value & 0x1f) >>> 2),
+    g: (((value >>> 5) & 0x1f) << 3) | (((value >>> 5) & 0x1f) >>> 2),
+    b: (((value >>> 10) & 0x1f) << 3) | (((value >>> 10) & 0x1f) >>> 2),
+  };
+}
+
+function gifLzwEncode(indices: Uint8Array, minCodeSize: number): Uint8Array {
+  const clearCode = 1 << minCodeSize;
+  const endCode = clearCode + 1;
+  let codeSize = minCodeSize + 1;
+  let nextCode = endCode + 1;
+  let dictionary = initialGifDictionary(clearCode);
+  const writer = new GifBitWriter();
+  writer.write(clearCode, codeSize);
+  let prefix = String.fromCharCode(indices[0] ?? 0);
+  for (let index = 1; index < indices.length; index += 1) {
+    const char = String.fromCharCode(indices[index] ?? 0);
+    const joined = prefix + char;
+    if (dictionary.has(joined)) {
+      prefix = joined;
+      continue;
+    }
+    writer.write(dictionary.get(prefix) ?? 0, codeSize);
+    if (nextCode < 4096) {
+      dictionary.set(joined, nextCode);
+      nextCode += 1;
+      if (nextCode === 1 << codeSize && codeSize < 12) codeSize += 1;
+    } else {
+      writer.write(clearCode, codeSize);
+      dictionary = initialGifDictionary(clearCode);
+      codeSize = minCodeSize + 1;
+      nextCode = endCode + 1;
+    }
+    prefix = char;
+  }
+  writer.write(dictionary.get(prefix) ?? 0, codeSize);
+  writer.write(endCode, codeSize);
+  return writer.finish();
+}
+
+function initialGifDictionary(clearCode: number): Map<string, number> {
+  const dictionary = new Map<string, number>();
+  for (let index = 0; index < clearCode; index += 1) dictionary.set(String.fromCharCode(index), index);
+  return dictionary;
+}
+
+class GifBitWriter {
+  private bytes: number[] = [];
+  private current = 0;
+  private bitCount = 0;
+
+  write(code: number, size: number): void {
+    let value = code;
+    for (let index = 0; index < size; index += 1) {
+      this.current |= (value & 1) << this.bitCount;
+      value >>>= 1;
+      this.bitCount += 1;
+      if (this.bitCount === 8) {
+        this.bytes.push(this.current);
+        this.current = 0;
+        this.bitCount = 0;
+      }
+    }
+  }
+
+  finish(): Uint8Array {
+    if (this.bitCount > 0) this.bytes.push(this.current);
+    return Uint8Array.from(this.bytes);
+  }
+}
+
+function gifSubBlocks(bytes: Uint8Array): Uint8Array {
+  const parts: Uint8Array[] = [];
+  for (let offset = 0; offset < bytes.length; offset += 255) {
+    const chunk = bytes.slice(offset, offset + 255);
+    parts.push(new Uint8Array([chunk.length]), chunk);
+  }
+  parts.push(new Uint8Array([0]));
+  return concatBytes(parts);
+}
+
+function asciiBytes(value: string): Uint8Array {
+  return Uint8Array.from(Array.from(value, (char) => char.charCodeAt(0) & 0xff));
+}
+
+function u16Bytes(value: number): Uint8Array {
+  return new Uint8Array([value & 0xff, (value >>> 8) & 0xff]);
+}
+
 function concatBytes(parts: Uint8Array[]): Uint8Array {
   const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
   let offset = 0;
@@ -453,4 +815,9 @@ function colorDistance(a: RgbColor, b: RgbColor): number {
 function clampInt(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function clampFinite(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
 }

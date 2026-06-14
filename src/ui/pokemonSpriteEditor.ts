@@ -65,6 +65,7 @@ import {
 import { PWAN_HEIGHT, PWAN_WIDTH, pwanFramePixels, pwanTimeline } from "../pokeweb/pwanCompiler";
 import { getPwanRuntimeStatus } from "../pokeweb/pwanAnimationModel";
 import { getPokemonCount } from "../pokeweb/pokemonModel";
+import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import { concatBytes } from "../nds/binary";
 import { parsePokemonCustomSpriteBundle } from "../pokeweb/pokemonSpriteWriters";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -2542,6 +2543,7 @@ function activePwanAnimationPreview(project: ProjectState): PwanPreview | undefi
   const override = project.pwanAnimations?.overrides?.find((entry) => entry.speciesId === speciesId);
   if (!override) return undefined;
   const side = override[state.animationSide];
+  if (!side) return undefined;
   const key = `${speciesId}:${state.animationSide}:${side.sourceFileName}:${side.pwanBytes.length}:${side.timelineCount}:${side.totalTicks}`;
   const cached = pwanPreviewCache.get(key);
   if (cached) return cached;
@@ -4117,9 +4119,8 @@ function renderIconPalettes(palettes: RgbColor[][]): string {
 
 function renderSpeciesOptions(project: ProjectState, selectedSpeciesId: number): string {
   const count = getPokemonCount(project);
-  const names = project.texts.banks.pokedex ?? [];
   return Array.from({ length: count }, (_, speciesId) => {
-    const name = titleize(String(names[speciesId] ?? `Pokemon ${speciesId}`));
+    const name = titleize(pokemonSpeciesLabel(project, speciesId));
     return `<option value="${speciesId}" ${speciesId === selectedSpeciesId ? "selected" : ""}>${escapeHtml(name)} (#${speciesId})</option>`;
   }).join("");
 }

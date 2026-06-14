@@ -28,11 +28,11 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   const originalRomBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!originalRomBytes) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
+  const rom = new NintendoDSRom(originalRomBytes);
   materializeProjectEdits(project);
   repairLegacyMoveAnimationArchives(project);
-  await materializePwanAnimations(project);
+  await materializePwanAnimations(project, rom);
 
-  const rom = new NintendoDSRom(originalRomBytes);
   const fileReplacements = new Map<number, Uint8Array>();
 
   for (const store of Object.values(project.narcs)) {

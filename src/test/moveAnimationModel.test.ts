@@ -7,6 +7,7 @@ import {
   compileMoveAnimation,
   decompileMoveAnimation,
   decompileMoveAnimationBytes,
+  getMoveAnimationTargetInfo,
   parseMoveAnimationScript,
   repairLegacyMoveAnimationArchives,
   repairMoveAnimationScriptBytes,
@@ -270,6 +271,26 @@ TerminateMoveScript
 
     expect(project.narcs.move_animations?.dirty.has(1)).toBe(true);
     expect(project.narcs.battle_animations?.dirty.has(112)).toBe(true);
+  });
+
+  it("uses White2Upgrade per-move archive slots for expanded move animations", () => {
+    const project = makeProject();
+    project.codeInjection = {
+      modules: [{ path: "patches/White2Upgrade.dll", target: "patches", fileName: "White2Upgrade.dll" }],
+    };
+    project.narcs.move_animations = makeStore("move_animations", Array.from({ length: 700 }, () => compileMinimalScript()));
+    project.narcs.battle_animations = makeStore("battle_animations", Array.from({ length: 128 }, () => compileMinimalScript()));
+    project.narcs.move_animations.rawFiles[562] = compileMoveAnimation(project, 562, SINGLE_SCRIPT.replace("LoadSPA 165", "LoadSPA 562"));
+    project.narcs.battle_animations.rawFiles[1] = compileMoveAnimation(project, 1, SINGLE_SCRIPT.replace("LoadSPA 165", "LoadSPA 1"));
+
+    const target = getMoveAnimationTargetInfo(project, 562);
+    const text = decompileMoveAnimation(project, 562);
+    updateMoveAnimationScript(project, 562, SINGLE_SCRIPT.replace("LoadSPA 165", "LoadSPA 563"));
+
+    expect(target).toMatchObject({ storeName: "move_animations", index: 562, white2UpgradeLayout: true });
+    expect(text).toContain("LoadSPA 562");
+    expect(project.narcs.move_animations.dirty.has(562)).toBe(true);
+    expect(project.narcs.battle_animations.dirty.has(1)).toBe(false);
   });
 
   it("copies Animation ID scripts without dirtying the moves NARC", () => {

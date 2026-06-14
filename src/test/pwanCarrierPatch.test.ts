@@ -68,6 +68,33 @@ describe("pwanCarrierPatch", () => {
     expect(readU32(store.rawFiles[3 * 20 + 8]!, 16)).toBe((PWAN_FRONT_NCEC_Y - PWAN_CARRIER_BASELINE_RAISE_PX) << 8);
   });
 
+  it("patches only imported sides and falls back to the present palette", () => {
+    const project = makeProject();
+    const front = compileGifToPwan(new Uint8Array(Buffer.from(SINGLE_PIXEL_GIF_BASE64, "base64")));
+    const override = makeOverride(2, front.pwanBytes, undefined);
+    override.nativePaletteSource = "back";
+    const carrier = makeCarrier();
+    const store = project.narcs.pokemon_sprites!;
+    const originalBackNcgr = store.rawFiles[49]!.slice();
+    const originalBackWide = store.rawFiles[51]!.slice();
+    const originalBackCarrier = store.rawFiles[57]!.slice();
+    const originalBackPalette = store.rawFiles[59]!.slice();
+
+    applyPwanCarrierPatch(project, override, carrier);
+
+    expect(store.dirty.has(40)).toBe(true);
+    expect(store.dirty.has(42)).toBe(true);
+    expect(store.dirty.has(48)).toBe(true);
+    expect(store.dirty.has(58)).toBe(true);
+    expect(store.dirty.has(49)).toBe(false);
+    expect(store.dirty.has(51)).toBe(false);
+    expect(store.rawFiles[49]).toEqual(originalBackNcgr);
+    expect(store.rawFiles[51]).toEqual(originalBackWide);
+    expect(store.rawFiles[57]).toEqual(originalBackCarrier);
+    expect(store.rawFiles[59]).toEqual(originalBackPalette);
+    expect(readU16(store.rawFiles[58]!, 0x2a)).toBe(pwanPalette(front.pwanBytes)[1]);
+  });
+
   it("scrambles 96x96 frame-zero pixels into the native 64x144 battle sprite layout", () => {
     const pixels = Array.from({ length: 96 }, () => Array.from({ length: 96 }, () => 0));
     pixels[95]![47] = 9;
@@ -152,7 +179,7 @@ function makeCarrier(): PwanCarrierTemplate {
   return carrier as PwanCarrierTemplate;
 }
 
-function makeOverride(speciesId: number, frontPwan: Uint8Array, backPwan: Uint8Array): PwanAnimationOverride {
+function makeOverride(speciesId: number, frontPwan: Uint8Array | undefined, backPwan: Uint8Array | undefined): PwanAnimationOverride {
   const side = (pwanBytes: Uint8Array) => ({
     sourceFileName: "test.gif",
     sourceGifBytes: new Uint8Array(),
@@ -166,11 +193,11 @@ function makeOverride(speciesId: number, frontPwan: Uint8Array, backPwan: Uint8A
   });
   return {
     speciesId,
-    front: side(frontPwan),
-    back: side(backPwan),
+    front: frontPwan ? side(frontPwan) : undefined,
+    back: backPwan ? side(backPwan) : undefined,
     nativePaletteSource: "back",
     carrierTemplate: "w2u-gen6-placeholder",
-    backNcecY: PWAN_FRONT_NCEC_Y,
+    backNcecY: backPwan ? PWAN_FRONT_NCEC_Y : undefined,
   };
 }
 

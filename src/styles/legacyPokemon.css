@@ -338,6 +338,18 @@
   width: 100%;
 }
 
+.pwan-movie-icon {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #f2f2f2;
+}
+
+.pwan-movie-icon svg {
+  display: block;
+  fill: currentColor;
+}
+
 .expand-card:hover *,
 .expand-card.-active * {
   cursor: pointer;

@@ -43,6 +43,7 @@ import { renderMoveEffectHandlerEditor } from "./ui/moveEffectHandlerEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
 import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
 import { renderPwanAnimationEditor } from "./ui/pwanAnimationEditor";
+import { getPwanRuntimeStatus } from "./pokeweb/pwanAnimationModel";
 import { renderStarterEditor } from "./ui/starterEditor";
 import { renderTmEditor } from "./ui/tmEditor";
 import { renderTypeChartEditor } from "./ui/typeChartEditor";
@@ -96,6 +97,7 @@ type AppHistoryState = {
   moveAnimationMoveId?: number;
   pokemonSpriteSpeciesId?: number;
   pokemonSpriteFormIndex?: number;
+  pwanAnimationSpeciesId?: number;
 };
 type SaveFileHandleLike = {
   createWritable: () => Promise<{
@@ -113,6 +115,7 @@ type SaveFilePickerOptionsLike = {
 const ROUTE_KEY = "pokeweb-serverless-route";
 const OVERWORLD_ROUTE_KEY = "pokeweb-serverless-overworld-id";
 const MOVE_ANIMATION_ROUTE_KEY = "pokeweb-serverless-move-animation-id";
+const PWAN_ANIMATION_ROUTE_KEY = "pokeweb-serverless-pwan-animation-species-id";
 const HIDE_EXPORT_CHANGELOG_PROMPT_KEY = "pokeweb-hide-export-changelog-prompt";
 
 const APP_ROUTES: AppRoute[] = [
@@ -261,6 +264,7 @@ let activeOverworldId: number | undefined;
 let activeMoveAnimationMoveId: number | undefined;
 let activePokemonSpriteSpeciesId: number | undefined;
 let activePokemonSpriteFormIndex = 0;
+let activePwanAnimationSpeciesId: number | undefined;
 let dirty = false;
 let hasExportBase = false;
 const scheduleSave = debounceProjectSave();
@@ -290,6 +294,7 @@ async function boot(): Promise<void> {
   activeMoveAnimationMoveId = initialState.moveAnimationMoveId;
   activePokemonSpriteSpeciesId = initialState.pokemonSpriteSpeciesId;
   activePokemonSpriteFormIndex = initialState.pokemonSpriteFormIndex ?? 0;
+  activePwanAnimationSpeciesId = initialState.pwanAnimationSpeciesId;
   route = project ? initialState.route : "upload";
   if (project && route === "upload" && !window.location.hash) route = defaultLoadedRoute();
   route = safeRoute(route);
@@ -406,7 +411,7 @@ function renderApp(): void {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
-    }, openPokemonSprites);
+    }, openPokemonSprites, canOpenPwanFromPokemon() ? openPwanAnimations : undefined);
     return;
   }
 
@@ -430,12 +435,15 @@ function renderApp(): void {
 
   if (route === "animatedSprites") {
     renderPwanAnimationEditor(project, content, {
+      activeSpeciesId: activePwanAnimationSpeciesId,
       onDirty: () => {
         dirty = true;
         scheduleSave(project!);
         renderDirtyIndicator();
       },
       onRefresh: renderApp,
+      onNavigateSpecies: openPwanAnimations,
+      onBack: () => navigate("pokemon"),
     });
     return;
   }
@@ -981,6 +989,26 @@ function openPokemonSprites(speciesId: number, formIndex = 0): void {
   void openPokemonSpritesAsync(speciesId, formIndex);
 }
 
+function openPwanAnimations(speciesId: number): void {
+  void openPwanAnimationsAsync(speciesId);
+}
+
+function canOpenPwanFromPokemon(): boolean {
+  if (!project || !project.narcs.personal) return false;
+  const status = getPwanRuntimeStatus(project);
+  return status.supported && status.installed;
+}
+
+async function openPwanAnimationsAsync(speciesId: number): Promise<void> {
+  if (!project || !canOpenPwanFromPokemon()) return;
+  try {
+    await ensurePokemonSpriteNarcs();
+    applyRouteState({ route: "animatedSprites", pwanAnimationSpeciesId: speciesId });
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : String(error));
+  }
+}
+
 async function openPokemonSpritesAsync(speciesId: number, formIndex = 0): Promise<void> {
   if (!project) return;
   try {
@@ -1238,6 +1266,7 @@ function hydrateProject(nextProject: ProjectState | undefined): void {
   nextProject.fileSystem.replacements ??= {};
   nextProject.fileSystem.additions ??= {};
   nextProject.pwanAnimations ??= { overrides: [] };
+  nextProject.pwanAnimations.dirty ??= false;
   nextProject.pwanAnimations.overrides ??= [];
   nextProject.pwanAnimations.nativeCarrierBackups ??= {};
   nextProject.patches ??= { dirtyOverlayIds: [], applied: {} };
@@ -1269,7 +1298,7 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
   if ((currentProject.actionChangelog?.entries.length ?? 0) > 0) return true;
   if (Object.values(currentProject.narcs).some((store) => (store?.dirty.size ?? 0) > 0)) return true;
   if (currentProject.fileSystem && (Object.keys(currentProject.fileSystem.replacements).length > 0 || Object.keys(currentProject.fileSystem.additions ?? {}).length > 0)) return true;
-  if ((currentProject.pwanAnimations?.overrides.length ?? 0) > 0 || currentProject.pwanAnimations?.runtimeInstalled) return true;
+  if (currentProject.pwanAnimations?.dirty || currentProject.pwanAnimations?.runtimeInstalled) return true;
   if ((currentProject.starters?.dirtyOverlayIds.length ?? 0) > 0) return true;
   if ((currentProject.patches?.dirtyOverlayIds.length ?? 0) > 0) return true;
   return false;
@@ -1284,12 +1313,8 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if (nextRoute === "animatedSprites") {
-    return (
-      hasExportBase &&
-      project.session.baseVersion === "W2" &&
-      project.romInfo.idCode === "IRDO" &&
-      EDITOR_REQUIREMENTS.animatedSprites.every((name) => Boolean(project?.narcs[name]))
-    );
+    const status = getPwanRuntimeStatus(project);
+    return Boolean(project.narcs.personal) && status.supported && status.installed;
   }
   if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
   if (nextRoute === "moveEffectHandlers") {
@@ -1343,7 +1368,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       : nextRoute === "maps3d"
         ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
       : nextRoute === "animatedSprites"
-        ? ` title="${project?.session.baseVersion === "W2" && project?.romInfo.idCode === "IRDO" ? "Reload the ROM and load Personal Data plus Pokemon Sprites" : "Animated Sprites currently supports stock US White 2 only"}"`
+        ? ` title="${project?.session.baseVersion === "W2" ? "Load Personal Data from a ROM with patches/PokewebPwanW2.dll" : "Animated Sprites currently supports White 2 code layouts only"}"`
         : nextRoute === "types"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
         : nextRoute === "moveEffectHandlers"
@@ -1394,6 +1419,7 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   activeMoveAnimationMoveId = nextState.moveAnimationMoveId;
   activePokemonSpriteSpeciesId = nextState.pokemonSpriteSpeciesId;
   activePokemonSpriteFormIndex = nextState.pokemonSpriteFormIndex ?? 0;
+  activePwanAnimationSpeciesId = nextState.pwanAnimationSpeciesId;
   route = safeRoute(project ? requestedRoute : "upload");
   if (route !== "overworlds" && nextState.route !== "overworlds") activeOverworldId = nextState.overworldId;
   syncRouteStorage();
@@ -1407,11 +1433,13 @@ function syncRouteStorage(): void {
   else window.localStorage.removeItem(OVERWORLD_ROUTE_KEY);
   if (activeMoveAnimationMoveId !== undefined) window.localStorage.setItem(MOVE_ANIMATION_ROUTE_KEY, String(activeMoveAnimationMoveId));
   else window.localStorage.removeItem(MOVE_ANIMATION_ROUTE_KEY);
+  if (activePwanAnimationSpeciesId !== undefined) window.localStorage.setItem(PWAN_ANIMATION_ROUTE_KEY, String(activePwanAnimationSpeciesId));
+  else window.localStorage.removeItem(PWAN_ANIMATION_ROUTE_KEY);
 }
 
 function syncBrowserHistory(replace: boolean): void {
   const state = currentHistoryState();
-  const url = routeUrl(state.route, state.overworldId, state.moveAnimationMoveId);
+  const url = routeUrl(state.route, state.overworldId, state.moveAnimationMoveId, state.pokemonSpriteSpeciesId, state.pokemonSpriteFormIndex, state.pwanAnimationSpeciesId);
   if (replace) window.history.replaceState(state, "", url);
   else window.history.pushState(state, "", url);
 }
@@ -1420,15 +1448,24 @@ function currentHistoryState(): AppHistoryState {
   if (route === "overworlds") return { route, overworldId: activeOverworldId };
   if (route === "moveAnimation") return { route, moveAnimationMoveId: activeMoveAnimationMoveId };
   if (route === "pokemonSprites") return { route, pokemonSpriteSpeciesId: activePokemonSpriteSpeciesId, pokemonSpriteFormIndex: activePokemonSpriteFormIndex };
+  if (route === "animatedSprites" && activePwanAnimationSpeciesId !== undefined) return { route, pwanAnimationSpeciesId: activePwanAnimationSpeciesId };
   return { route };
 }
 
-function routeUrl(nextRoute: AppRoute, overworldId = activeOverworldId, moveAnimationMoveId = activeMoveAnimationMoveId): string {
+function routeUrl(
+  nextRoute: AppRoute,
+  overworldId = activeOverworldId,
+  moveAnimationMoveId = activeMoveAnimationMoveId,
+  pokemonSpriteSpeciesId = activePokemonSpriteSpeciesId,
+  pokemonSpriteFormIndex = activePokemonSpriteFormIndex,
+  pwanAnimationSpeciesId = activePwanAnimationSpeciesId,
+): string {
   if (nextRoute === "overworlds" && overworldId !== undefined) return `#overworlds/${overworldId}`;
   if (nextRoute === "moveAnimation" && moveAnimationMoveId !== undefined) return `#moveAnimation/${moveAnimationMoveId}`;
-  if (nextRoute === "pokemonSprites" && activePokemonSpriteSpeciesId !== undefined) {
-    return `#pokemonSprites/${activePokemonSpriteSpeciesId}/${activePokemonSpriteFormIndex}`;
+  if (nextRoute === "pokemonSprites" && pokemonSpriteSpeciesId !== undefined) {
+    return `#pokemonSprites/${pokemonSpriteSpeciesId}/${pokemonSpriteFormIndex}`;
   }
+  if (nextRoute === "animatedSprites" && pwanAnimationSpeciesId !== undefined) return `#animatedSprites/${pwanAnimationSpeciesId}`;
   return `#${nextRoute}`;
 }
 
@@ -1445,6 +1482,7 @@ function routeStateFromUrl(): AppHistoryState | undefined {
     moveAnimationMoveId: routeName === "moveAnimation" && Number.isSafeInteger(id) ? id : undefined,
     pokemonSpriteSpeciesId: routeName === "pokemonSprites" && Number.isSafeInteger(id) ? id : undefined,
     pokemonSpriteFormIndex: routeName === "pokemonSprites" && Number.isSafeInteger(formIndex) ? formIndex : undefined,
+    pwanAnimationSpeciesId: routeName === "animatedSprites" && Number.isSafeInteger(id) ? id : undefined,
   };
 }
 
@@ -1454,10 +1492,13 @@ function routeStateFromStorage(): AppHistoryState {
   const savedOverworldId = Number(window.localStorage.getItem(OVERWORLD_ROUTE_KEY));
   const savedMoveAnimationMoveIdText = window.localStorage.getItem(MOVE_ANIMATION_ROUTE_KEY);
   const savedMoveAnimationMoveId = savedMoveAnimationMoveIdText === null ? undefined : Number(savedMoveAnimationMoveIdText);
+  const savedPwanAnimationSpeciesIdText = window.localStorage.getItem(PWAN_ANIMATION_ROUTE_KEY);
+  const savedPwanAnimationSpeciesId = savedPwanAnimationSpeciesIdText === null ? undefined : Number(savedPwanAnimationSpeciesIdText);
   return {
     route: routeName,
     overworldId: Number.isSafeInteger(savedOverworldId) ? savedOverworldId : undefined,
     moveAnimationMoveId: Number.isSafeInteger(savedMoveAnimationMoveId) ? savedMoveAnimationMoveId : undefined,
+    pwanAnimationSpeciesId: Number.isSafeInteger(savedPwanAnimationSpeciesId) ? savedPwanAnimationSpeciesId : undefined,
   };
 }
 
@@ -1471,6 +1512,7 @@ function routeStateFromHistory(value: unknown): AppHistoryState | undefined {
     moveAnimationMoveId: Number.isSafeInteger(maybe.moveAnimationMoveId) ? maybe.moveAnimationMoveId : undefined,
     pokemonSpriteSpeciesId: Number.isSafeInteger(maybe.pokemonSpriteSpeciesId) ? maybe.pokemonSpriteSpeciesId : undefined,
     pokemonSpriteFormIndex: Number.isSafeInteger(maybe.pokemonSpriteFormIndex) ? maybe.pokemonSpriteFormIndex : undefined,
+    pwanAnimationSpeciesId: Number.isSafeInteger(maybe.pwanAnimationSpeciesId) ? maybe.pwanAnimationSpeciesId : undefined,
   };
 }
 

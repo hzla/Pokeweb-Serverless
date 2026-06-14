@@ -1,0 +1,667 @@
+{
+  "format": "pokeweb-pwan-library-build-report-v1",
+  "sourceRom": "/path/to/Port-Pokeweb/White2Upgrade/White2Upgrade.nds",
+  "archivePath": "zz_pokeweb_pwan/pwan.narc",
+  "archiveBytes": 58075884,
+  "entryCount": 297,
+  "sideCount": {
+    "front": 297,
+    "back": 283,
+    "total": 580
+  },
+  "oneSidedEntries": [
+    "932-0-1079",
+    "36-1-1040",
+    "902-0-1040",
+    "691-1-1079",
+    "670-6-1074",
+    "475-1-817",
+    "229-1-776",
+    "801-1-1085",
+    "801-2-1086",
+    "939-0-1086",
+    "938-0-1085",
+    "18-1-729",
+    "928-0-1074",
+    "302-1-782"
+  ],
+  "missingCredits": [],
+  "trackerReportMismatches": [
+    {
+      "id": "18-1-729",
+      "name": "Mega Pidgeot",
+      "trackerCredits": "Moon Black 2; pompomking",
+      "reportCredits": "pompomking"
+    },
+    {
+      "id": "181-1-745",
+      "name": "Mega Ampharos",
+      "trackerCredits": "Moon Black 2; Smogon Sprite Project",
+      "reportCredits": "Smogon Sprite Project"
+    },
+    {
+      "id": "229-1-776",
+      "name": "Mega Houndoom",
+      "trackerCredits": "Moon Black 2; pl-enhanced",
+      "reportCredits": "pl-enhanced"
+    },
+    {
+      "id": "257-1-779",
+      "name": "Mega Blaziken",
+      "trackerCredits": "Moon Black 2; Smogon Sprite Project; hzla; pl-enhanced",
+      "reportCredits": "Smogon Sprite Project; hzla; pl-enhanced"
+    },
+    {
+      "id": "282-1-781",
+      "name": "Mega Gardevoir",
+      "trackerCredits": "Moon Black 2; Smogon Sprite Project",
+      "reportCredits": "Smogon Sprite Project"
+    },
+    {
+      "id": "302-1-782",
+      "name": "Mega Sableye",
+      "trackerCredits": "Moon Black 2; pompomking",
+      "reportCredits": "pompomking"
+    },
+    {
+      "id": "354-1-793",
+      "name": "Mega Banette",
+      "trackerCredits": "Moon Black 2; Smogon Sprite Project; hzla",
+      "reportCredits": "Smogon Sprite Project"
+    },
+    {
+      "id": "445-1-1051",
+      "name": "Mega Garchomp",
+      "trackerCredits": "Moon Black 2; Smogon Sprite Project",
+      "reportCredits": "Smogon Sprite Project"
+    },
+    {
+      "id": "448-1-1053",
+      "name": "Mega Lucario",
+      "trackerCredits": "Moon Black 2; Smogon Sprite Project",
+      "reportCredits": "Smogon Sprite Project"
+    },
+    {
+      "id": "475-1-817",
+      "name": "Mega Gallade",
+      "trackerCredits": "Moon Black 2; pompomking",
+      "reportCredits": "pompomking"
+    },
+    {
+      "id": "658-0-658",
+      "name": "Greninja",
+      "trackerCredits": "diegotoon20; pompomking",
+      "reportCredits": "pompomking"
+    },
+    {
+      "id": "677-0-677",
+      "name": "Espurr",
+      "trackerCredits": "Smogon Sprite Project; noellembrooks",
+      "reportCredits": "noellembrooks"
+    },
+    {
+      "id": "681-1-887",
+      "name": "Aegislash Blade",
+      "trackerCredits": "diegotoon20; skidmarc25",
+      "reportCredits": "skidmarc25"
+    },
+    {
+      "id": "691-0-691",
+      "name": "Dragalge",
+      "trackerCredits": "Smogon Sprite Project; Ghasty001",
+      "reportCredits": "Ghasty001"
+    },
+    {
+      "id": "701-0-701",
+      "name": "Hawlucha",
+      "trackerCredits": "Smogon Sprite Project; pompomking",
+      "reportCredits": "pompomking"
+    },
+    {
+      "id": "715-0-715",
+      "name": "Noivern",
+      "trackerCredits": "diegotoon20; pl-enhanced",
+      "reportCredits": "pl-enhanced"
+    },
+    {
+      "id": "722-0-722",
+      "name": "Rowlet",
+      "trackerCredits": "Smogon Sprite Project; NoelleMBrooks; arinoelle (back and shiny)",
+      "reportCredits": "NoelleMBrooks; arinoelle (back and shiny)"
+    },
+    {
+      "id": "725-0-950",
+      "name": "Litten",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "727-0-727",
+      "name": "Incineroar",
+      "trackerCredits": "Smogon Sprite Project; Antiant; uppa",
+      "reportCredits": "Antiant; uppa"
+    },
+    {
+      "id": "728-0-951",
+      "name": "Popplio",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "729-0-952",
+      "name": "Brionne",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "730-0-730",
+      "name": "Primarina",
+      "trackerCredits": "Smogon Sprite Project; uppa",
+      "reportCredits": "uppa"
+    },
+    {
+      "id": "731-0-731",
+      "name": "Pikipek",
+      "trackerCredits": "Smogon Sprite Project; DanEx",
+      "reportCredits": "DanEx"
+    },
+    {
+      "id": "732-0-732",
+      "name": "Trumbeak",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "733-0-733",
+      "name": "Toucannon",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "734-0-734",
+      "name": "Yungoos",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "735-0-735",
+      "name": "Gumshoos",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "736-0-953",
+      "name": "Grubbin",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "737-0-954",
+      "name": "Charjabug",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "738-0-955",
+      "name": "Vikavolt",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "739-0-956",
+      "name": "Crabrawler",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "740-0-957",
+      "name": "Crabominable",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "742-0-742",
+      "name": "Cutiefly",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "743-0-959",
+      "name": "Ribombee",
+      "trackerCredits": "Smogon Sprite Project; MallowOut",
+      "reportCredits": "MallowOut"
+    },
+    {
+      "id": "744-0-960",
+      "name": "Rockruff",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "745-0-961",
+      "name": "Lycanroc",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "746-0-746",
+      "name": "Wishiwashi",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "748-0-748",
+      "name": "Toxapex",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "749-0-749",
+      "name": "Mudbray",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "750-0-750",
+      "name": "Mudsdale",
+      "trackerCredits": "Smogon Sprite Project; hexagonereal",
+      "reportCredits": "hexagonereal"
+    },
+    {
+      "id": "751-0-751",
+      "name": "Dewpider",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "752-0-752",
+      "name": "Araquanid",
+      "trackerCredits": "Smogon Sprite Project; Uppa",
+      "reportCredits": "Uppa"
+    },
+    {
+      "id": "753-0-753",
+      "name": "Fomantis",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "754-0-754",
+      "name": "Lurantis",
+      "trackerCredits": "Smogon Sprite Project; MallowOut",
+      "reportCredits": "MallowOut"
+    },
+    {
+      "id": "755-0-755",
+      "name": "Morelull",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "756-0-756",
+      "name": "Shiinotic",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "759-0-759",
+      "name": "Stufful",
+      "trackerCredits": "Smogon Sprite Project; MallowOut",
+      "reportCredits": "MallowOut"
+    },
+    {
+      "id": "760-0-760",
+      "name": "Bewear",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "761-0-761",
+      "name": "Bounsweet",
+      "trackerCredits": "Smogon Sprite Project; arinoelle; HM100 (shiny)",
+      "reportCredits": "arinoelle; HM100 (shiny)"
+    },
+    {
+      "id": "762-0-762",
+      "name": "Steenee",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "764-0-764",
+      "name": "Comfey",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "767-0-767",
+      "name": "Wimpod",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "769-0-769",
+      "name": "Sandygast",
+      "trackerCredits": "Smogon Sprite Project; MallowOut",
+      "reportCredits": "MallowOut"
+    },
+    {
+      "id": "770-0-770",
+      "name": "Palossand",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "771-0-771",
+      "name": "Pyukumuku",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "772-0-772",
+      "name": "Type: Null",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "773-0-962",
+      "name": "Silvally",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "774-0-963",
+      "name": "Minior",
+      "trackerCredits": "Smogon Sprite Project; MallowOut",
+      "reportCredits": "MallowOut"
+    },
+    {
+      "id": "775-0-964",
+      "name": "Komala",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "776-0-965",
+      "name": "Turtonator",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "777-0-966",
+      "name": "Togedemaru",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "778-0-778",
+      "name": "Mimikyu",
+      "trackerCredits": "Smogon Sprite Project; SelenaArmorclaw",
+      "reportCredits": "SelenaArmorclaw"
+    },
+    {
+      "id": "779-0-967",
+      "name": "Bruxish",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "780-0-968",
+      "name": "Drampa",
+      "trackerCredits": "Smogon Sprite Project; Antiant; Coyotango",
+      "reportCredits": "Antiant; Coyotango"
+    },
+    {
+      "id": "781-0-969",
+      "name": "Dhelmise",
+      "trackerCredits": "Smogon Sprite Project; uppa",
+      "reportCredits": "uppa"
+    },
+    {
+      "id": "782-0-970",
+      "name": "Jangmo-o",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "783-0-971",
+      "name": "Hakamo-o",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "784-0-972",
+      "name": "Kommo-o",
+      "trackerCredits": "Smogon Sprite Project; Antiant; uppa",
+      "reportCredits": "Antiant; uppa"
+    },
+    {
+      "id": "785-0-973",
+      "name": "Tapu Koko",
+      "trackerCredits": "Smogon Sprite Project; uppa",
+      "reportCredits": "uppa"
+    },
+    {
+      "id": "786-0-974",
+      "name": "Tapu Lele",
+      "trackerCredits": "Smogon Sprite Project; uppa",
+      "reportCredits": "uppa"
+    },
+    {
+      "id": "787-0-787",
+      "name": "Tapu Bulu",
+      "trackerCredits": "Smogon Sprite Project; Antiant; LeParagon",
+      "reportCredits": "Antiant; LeParagon"
+    },
+    {
+      "id": "789-0-975",
+      "name": "Cosmog",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "790-0-790",
+      "name": "Cosmoem",
+      "trackerCredits": "Smogon Sprite Project; arinoelle",
+      "reportCredits": "arinoelle"
+    },
+    {
+      "id": "791-0-791",
+      "name": "Solgaleo",
+      "trackerCredits": "Smogon Sprite Project; uppa",
+      "reportCredits": "uppa"
+    },
+    {
+      "id": "792-0-792",
+      "name": "Lunala",
+      "trackerCredits": "Smogon Sprite Project; uppa",
+      "reportCredits": "uppa"
+    },
+    {
+      "id": "795-0-978",
+      "name": "Pheromosa",
+      "trackerCredits": "Smogon Sprite Project; hexagonereal",
+      "reportCredits": "hexagonereal"
+    },
+    {
+      "id": "796-0-979",
+      "name": "Xurkitree",
+      "trackerCredits": "Smogon Sprite Project; NoelleMBrooks",
+      "reportCredits": "NoelleMBrooks"
+    },
+    {
+      "id": "797-0-797",
+      "name": "Celesteela",
+      "trackerCredits": "Smogon Sprite Project; uppa",
+      "reportCredits": "uppa"
+    },
+    {
+      "id": "798-0-980",
+      "name": "Kartana",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "800-0-800",
+      "name": "Necrozma",
+      "trackerCredits": "Smogon Sprite Project; uppa",
+      "reportCredits": "uppa"
+    },
+    {
+      "id": "801-0-801",
+      "name": "Magearna",
+      "trackerCredits": "Smogon Sprite Project; uppa",
+      "reportCredits": "uppa"
+    },
+    {
+      "id": "804-0-804",
+      "name": "Naganadel",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "806-0-806",
+      "name": "Blacephalon",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "807-0-807",
+      "name": "Zeraora",
+      "trackerCredits": "Smogon Sprite Project; Antiant",
+      "reportCredits": "Antiant"
+    },
+    {
+      "id": "808-0-808",
+      "name": "Meltan",
+      "trackerCredits": "Smogon Sprite Project; GalacticArtistMuffin; arinoelle (back)",
+      "reportCredits": "GalacticArtistMuffin; arinoelle (back)"
+    },
+    {
+      "id": "910-0-1049",
+      "name": "Mega Gengar",
+      "trackerCredits": "diegotoon20; hzla",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "919-0-1060",
+      "name": "Mega Gardevoir",
+      "trackerCredits": "Moon Black 2; Smogon Sprite Project",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "920-0-1061",
+      "name": "Mega Ampharos",
+      "trackerCredits": "Moon Black 2; Smogon Sprite Project",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "921-0-1062",
+      "name": "Mega Venusaur",
+      "trackerCredits": "Moon Black 2",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "922-0-1063",
+      "name": "Mega Charizard X",
+      "trackerCredits": "Smogon Sprite Project; diegotoon20",
+      "reportCredits": "retromc; ghasty001"
+    },
+    {
+      "id": "923-0-1064",
+      "name": "Mega Charizard Y",
+      "trackerCredits": "hzla; noellembrooks",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "924-0-1065",
+      "name": "Mega Mewtwo X",
+      "trackerCredits": "Smogon Sprite Project; hzla",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "925-0-1066",
+      "name": "Mega Mewtwo Y",
+      "trackerCredits": "Smogon Sprite Project",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "926-0-1067",
+      "name": "Mega Blaziken",
+      "trackerCredits": "Moon Black 2; Smogon Sprite Project; hzla; pl-enhanced",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "927-0-1068",
+      "name": "Mega Medicham",
+      "trackerCredits": "Smogon Sprite Project; hzla",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "928-0-1074",
+      "name": "Mega Pinsir",
+      "trackerCredits": "hzla; pompomking",
+      "reportCredits": "retromc"
+    },
+    {
+      "id": "930-0-1077",
+      "name": "Mega Abomasnow",
+      "trackerCredits": "Smogon Sprite Project",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "932-0-1079",
+      "name": "Mega Blastoise",
+      "trackerCredits": "Moon Black 2",
+      "reportCredits": "retromc"
+    },
+    {
+      "id": "933-0-1080",
+      "name": "Mega Kangaskhan",
+      "trackerCredits": "diegotoon20; hzla; pompomking",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "934-0-1081",
+      "name": "Mega Gyarados",
+      "trackerCredits": "diegotoon20; hzla",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "936-0-1083",
+      "name": "Mega Alakazam",
+      "trackerCredits": "Smogon Sprite Project; diegotoon20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "937-0-1084",
+      "name": "Mega Heracross",
+      "trackerCredits": "diegotoon20; hzla",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "938-0-1085",
+      "name": "Mega Mawile",
+      "trackerCredits": "Smogon Sprite Project",
+      "reportCredits": "retromc"
+    },
+    {
+      "id": "939-0-1086",
+      "name": "Mega Manectric",
+      "trackerCredits": "Smogon Sprite Project; hzla",
+      "reportCredits": "retromc"
+    },
+    {
+      "id": "941-0-1088",
+      "name": "Mega Latios",
+      "trackerCredits": "Smogon Sprite Project; hzla",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "942-0-1089",
+      "name": "Mega Latias",
+      "trackerCredits": "Smogon Sprite Project; hzla",
+      "reportCredits": "retromc; Aronousqui20"
+    }
+  ]
+}

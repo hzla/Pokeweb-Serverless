@@ -3,7 +3,9 @@ import movieIconUrl from "../assets/svgs/movie.png";
 import { PROPERTIES, TYPES, CATEGORIES } from "../pokeweb/constants";
 import {
   decompileMoveAnimation,
+  getMoveAnimationTargetInfo,
   hasMoveAnimationScript,
+  type MoveAnimationTargetInfo,
 } from "../pokeweb/moveAnimationModel";
 import {
   getItemCount,
@@ -171,6 +173,7 @@ export function renderMoveAnimationPage(
   }
   const move = getMoveRecord(project, moveId);
   const moveName = titleize(String(move.readable.name ?? `Move ${moveId}`));
+  const animationTarget = getMoveAnimationTargetInfo(project, moveId);
   const canTestMoveAnimation = hasMoveAnimationScript(project, moveId) && onTestMove !== undefined;
   root.innerHTML = `
     <aside class="pokemon-filter move-animation-sidebar">
@@ -189,7 +192,7 @@ export function renderMoveAnimationPage(
     <main class="pokemon-list pokemon-move-list spreadsheet move-animation-page" id="moves">
       <div class="move-animation-page-header">
         <div>
-          <div class="move-animation-page-kicker">Move ${moveId}</div>
+          <div class="move-animation-page-kicker">Move ${moveId}${renderMoveAnimationTargetLabel(animationTarget)}</div>
           <h2>${escapeHtml(moveName)} Animation</h2>
         </div>
       </div>
@@ -214,6 +217,12 @@ export function renderMoveAnimationPage(
   } catch (error) {
     panel.innerHTML = `<div class="move-animation-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
   }
+}
+
+function renderMoveAnimationTargetLabel(target: MoveAnimationTargetInfo | undefined): string {
+  if (!target) return "";
+  const layout = target.white2UpgradeLayout ? "W2U" : "Retail";
+  return ` - ${layout} ${escapeHtml(target.sourcePath)} #${target.index}`;
 }
 
 function renderMoveAnimationMoveOptions(project: ProjectState, selectedMoveId: number): string {

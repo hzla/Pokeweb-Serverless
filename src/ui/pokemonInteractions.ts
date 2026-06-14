@@ -22,6 +22,7 @@ type PokemonFieldUpdate = ReturnType<typeof updatePokemonField>;
 export type PokemonInteractionOptions = {
   onDirty?: () => void;
   onOpenSprites?: (speciesId: number) => void;
+  onOpenPwan?: (speciesId: number) => void;
   renderExpanded: (speciesId: number) => string;
   autofills: Record<string, string[]>;
 };
@@ -75,6 +76,14 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       const card = spriteAction.closest<HTMLElement>(".pokemon-card.filterable");
       const speciesId = Number(card?.dataset.index);
       if (Number.isInteger(speciesId)) options.onOpenSprites?.(speciesId);
+      return;
+    }
+
+    const pwanAction = target.closest<HTMLElement>(".pwan-editor-action");
+    if (pwanAction) {
+      const card = pwanAction.closest<HTMLElement>(".pokemon-card.filterable");
+      const speciesId = Number(card?.dataset.index);
+      if (Number.isInteger(speciesId)) options.onOpenPwan?.(speciesId);
       return;
     }
 

@@ -2,10 +2,12 @@ import commandMacros from "../assets/data/B2W2_MOVSCRCMD.s?raw";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordGenericChange } from "./actionChangelog";
 import type { NarcName } from "./constants";
+import { detectWhite2UpgradeDlls } from "./pmcModel";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 
 const ADDRESSES_PER_ENTRY = 0x0e;
 const BATTLE_ANIMATION_OFFSET = 561;
+const WHITE2UPGRADE_FIRST_EXPANDED_MOVE_ANIMATION_ID = 560;
 const END_COMMANDS = new Set(["CallMoveAnimation", "TerminateMoveScript"]);
 const SIMPLE_SCRIPT_COUNT = 1;
 const SIMPLE_SCRIPT_LABEL = "SCRIPT_60";
@@ -37,6 +39,14 @@ type AnimationTarget = {
   storeName: "move_animations" | "battle_animations";
   store: NarcStore;
   index: number;
+  white2UpgradeLayout: boolean;
+};
+
+export type MoveAnimationTargetInfo = {
+  storeName: "move_animations" | "battle_animations";
+  sourcePath: string;
+  index: number;
+  white2UpgradeLayout: boolean;
 };
 
 const COMMANDS = parseCommandMacros(commandMacros);
@@ -66,6 +76,21 @@ export function getMoveAnimationCommandDefinitions(): MoveAnimationCommandDefini
 
 export function hasMoveAnimationScript(project: ProjectState, moveId: number): boolean {
   return resolveAnimationTarget(project, moveId, false) !== undefined;
+}
+
+export function getMoveAnimationTargetInfo(project: ProjectState, moveId: number): MoveAnimationTargetInfo | undefined {
+  const target = resolveAnimationTarget(project, moveId, false);
+  if (!target) return undefined;
+  return {
+    storeName: target.storeName,
+    sourcePath: target.store.sourcePath,
+    index: target.index,
+    white2UpgradeLayout: target.white2UpgradeLayout,
+  };
+}
+
+export function usesWhite2UpgradeMoveAnimationLayout(project: ProjectState): boolean {
+  return detectWhite2UpgradeDlls(project);
 }
 
 export function decompileMoveAnimation(project: ProjectState, moveId: number): string {
@@ -177,14 +202,33 @@ function moveAnimationSubject(project: ProjectState, moveId: number): string {
 function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMissing: true): AnimationTarget;
 function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMissing?: false): AnimationTarget | undefined;
 function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMissing = false): AnimationTarget | undefined {
-  const storeName: "move_animations" | "battle_animations" = moveId > 559 ? "battle_animations" : "move_animations";
-  const index = moveId > 559 ? moveId - BATTLE_ANIMATION_OFFSET : moveId;
-  const store = project.narcs[storeName];
-  if (!store || index < 0 || index >= store.rawFiles.length) {
-    if (throwOnMissing) throw new Error(`${storeName} is not loaded for move ${moveId}`);
-    return undefined;
+  const white2UpgradeLayout = usesWhite2UpgradeMoveAnimationLayout(project);
+  if (white2UpgradeLayout && moveId >= WHITE2UPGRADE_FIRST_EXPANDED_MOVE_ANIMATION_ID) {
+    const directTarget = resolveAnimationStoreSlot(project, "move_animations", moveId, white2UpgradeLayout);
+    if (directTarget) return directTarget;
   }
-  return { storeName, store, index };
+
+  if (moveId > 559) {
+    const battleTarget = resolveAnimationStoreSlot(project, "battle_animations", moveId - BATTLE_ANIMATION_OFFSET, false);
+    if (battleTarget) return battleTarget;
+  }
+
+  const directTarget = resolveAnimationStoreSlot(project, "move_animations", moveId, white2UpgradeLayout);
+  if (directTarget) return directTarget;
+
+  if (throwOnMissing) throw new Error(`Move animation NARCs are not loaded for move ${moveId}`);
+  return undefined;
+}
+
+function resolveAnimationStoreSlot(
+  project: ProjectState,
+  storeName: "move_animations" | "battle_animations",
+  index: number,
+  white2UpgradeLayout: boolean,
+): AnimationTarget | undefined {
+  const store = project.narcs[storeName];
+  if (!store || index < 0 || index >= store.rawFiles.length) return undefined;
+  return { storeName, store, index, white2UpgradeLayout };
 }
 
 function decompileAnimationBytes(bytes: Uint8Array): string {

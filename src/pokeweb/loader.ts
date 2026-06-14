@@ -18,6 +18,7 @@ import { getNarcFormats } from "./formats";
 import { parseHeaders } from "./headerModel";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { detectPmcInstallFromRom } from "./pmcModel";
+import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
 import { createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
 import { getStarterOverlayIds } from "./starterModel";
@@ -82,6 +83,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
     },
   };
   project.codeInjection = detectPmcInstallFromRom(rom);
+  hydratePwanAnimationsFromRom(project, rom);
 
   onProgress?.("Extracting header NARCs");
   const selectedNarcs = new Set<NarcName>(options.selectedNarcs ?? []);
