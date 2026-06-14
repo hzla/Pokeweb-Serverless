@@ -7,6 +7,7 @@ import { exportModifiedRom } from "../pokeweb/exportRom";
 import {
   detectPmcInstallFromRom,
   detectBundledDoubleBattleFixDll,
+  detectWhite2UpgradeDlls,
   getPmcInstallStatus,
   installPmcBytes,
   listCodeInjectionDlls,
@@ -134,6 +135,23 @@ describe("PMC installer", () => {
     reimportedProject.codeInjection = detectPmcInstallFromRom(reimportedRom);
 
     expect(listCodeInjectionDlls(reimportedProject).map((module) => module.path)).toEqual(["lib/Helper.dll", "patches/My Patch.dll"]);
+    expect(reimportedProject.codeInjection?.modules?.map((module) => module.path)).toEqual(["lib/Helper.dll", "patches/My Patch.dll"]);
+  });
+
+  it("detects White2Upgrade DLLs from staged or reimported code injection modules", async () => {
+    const romBytes = makeBw2LikeRom();
+    const project = makeProject(romBytes, "W2");
+    installPmcBytes(project, pmcW2, romBytes);
+    stageCodeInjectionDll(project, "White2Upgrade.dll", makeDllFromRpm(pmcW2), "patches");
+
+    expect(detectWhite2UpgradeDlls(project)).toBe(true);
+
+    const reimportedRom = new NintendoDSRom(await exportModifiedRom(project));
+    const reimportedProject = makeProject(reimportedRom.save(), "W2");
+    reimportedProject.codeInjection = detectPmcInstallFromRom(reimportedRom);
+
+    expect(detectWhite2UpgradeDlls(reimportedProject)).toBe(true);
+    expect(reimportedProject.codeInjection?.modules?.map((module) => module.path)).toContain("patches/White2Upgrade.dll");
   });
 
   it("recognizes the bundled single-NPC double battle fix DLL", () => {

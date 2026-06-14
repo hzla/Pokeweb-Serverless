@@ -63,7 +63,7 @@ describe("pokemonSpriteModel", () => {
 
     expect(resolvePokemonSpriteId(project, 448, 1)).toBe(815);
     expect(resolvePokemonSpriteId(project, 1076, 0)).toBe(815);
-    expect(getPokemonSpriteFormOptions(project, 1076)).toEqual([{ formIndex: 0, label: "Form 1", spriteId: 815 }]);
+    expect(getPokemonSpriteFormOptions(project, 1076)).toEqual([{ formIndex: 0, label: "Lucario Form 1", spriteId: 815 }]);
     expect(getPokemonSpriteImage(project, 815, { kind: "sprite", side: "front", gender: "male" }, "normal").width).toBe(96);
   });
 
@@ -582,6 +582,7 @@ function makeW2uProject(): ProjectState {
   personal[448] = new Uint8Array(packRows(formats.personal!, [{ form_id: 1076, num_forms: 2, form: 91 }]));
   personal[1076] = new Uint8Array(packRows(formats.personal!, [{ num_forms: 2 }]));
   project.narcs.personal = makeStore("personal", personal);
+  project.texts.banks.pokedex![448] = "Lucario";
 
   const spriteFiles: Uint8Array[] = Array.from({ length: 815 * 20 + 20 }, () => new Uint8Array());
   const source = makeProject().narcs.pokemon_sprites!.rawFiles;

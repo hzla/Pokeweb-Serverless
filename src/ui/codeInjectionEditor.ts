@@ -7,14 +7,31 @@ import {
   stageCodeInjectionDll,
   type CodeInjectionDllTarget,
 } from "../pokeweb/pmcModel";
+import { getPwanRuntimeStatus, installPwanRuntime } from "../pokeweb/pwanAnimationModel";
+import {
+  detectPwanRuntimeCompatibility,
+  pwanCompatibilityFailureSummary,
+  type PwanCompatibilityCheck,
+  type PwanCompatibilityReport,
+} from "../pokeweb/pwanCompatibilityModel";
+import { loadActiveRomBytes } from "../pokeweb/persistence";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+
+const pwanCompatibilityHydrationProjects = new WeakSet<ProjectState>();
 
 export function renderCodeInjectionEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
   const status = getPmcInstallStatus(project);
   const modules = listCodeInjectionDlls(project);
   const doubleBattleFixStatus = detectBundledDoubleBattleFixDll(project);
   const doubleBattleFixSupported = status.installed && doubleBattleFixStatus !== "unsupported";
+  const pwanRuntimeStatus = getPwanRuntimeStatus(project);
+  const pwanRuntimeInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.installed;
+  const pwanCompatibility = detectPwanRuntimeCompatibility(project);
+  const pwanCanInstall = pwanRuntimeStatus.supported && pwanCompatibility.compatible;
+  if (shouldHydrateRomBytesForPwanCompatibility(project, pwanCompatibility)) {
+    void hydrateRomBytesForPwanCompatibility(project, root, onDirty);
+  }
   root.innerHTML = `
     <section class="code-injection-page">
       <aside class="code-injection-sidebar">
@@ -39,6 +56,36 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
             <div class="code-injection-note" id="pmc-install-note">Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.</div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>PWAN GIF Support</h2>
+              <p>Installs PMC and the bundled PWAN runtime needed for Pokemon-scoped GIF imports.</p>
+            </div>
+            <span class="code-injection-status ${pwanRuntimeInstalled ? "-installed" : pwanCanInstall ? "" : "-error"}">
+              ${pwanRuntimeInstalled ? "Installed" : pwanCanInstall ? "Ready" : pwanCompatibility.supportedBase ? "Incompatible" : "Unsupported"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Runtime</span><strong>${pwanRuntimeInstalled ? "Staged" : "Bundled"}</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+            <div><span>Compatibility</span><strong>${pwanCompatibility.compatible ? "Passed" : pwanCompatibility.supportedBase ? "Failed" : "Unsupported"}</strong></div>
+            <div><span>Hook Checks</span><strong>${pwanCompatibility.passed}/${pwanCompatibility.checks.length}</strong></div>
+          </div>
+          ${renderPwanCompatibilityDetails(pwanCompatibility)}
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-pwan-runtime-btn" type="button" ${pwanCanInstall ? "" : "disabled"}>
+              ${pwanRuntimeInstalled ? "Reinstall PWAN GIF Support" : "Install PWAN GIF Support"}
+            </button>
+            <div class="code-injection-note" id="pwan-runtime-note">
+              ${
+                pwanCanInstall
+                  ? "This will stage patches/PokewebPwanW2.dll. Export writes imported animations to zz_pokeweb_pwan/pwan.narc."
+                  : escapeHtml(pwanCompatibilityFailureSummary(pwanCompatibility))
+              }
+            </div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -126,6 +173,33 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  const pwanButton = root.querySelector<HTMLButtonElement>("#install-pwan-runtime-btn");
+  const pwanNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note");
+  pwanButton?.addEventListener("click", async () => {
+    const previousText = pwanButton.textContent ?? "Install PWAN GIF Support";
+    try {
+      const compatibility = detectPwanRuntimeCompatibility(project);
+      if (!compatibility.compatible) {
+        if (pwanNote) pwanNote.textContent = pwanCompatibilityFailureSummary(compatibility);
+        return;
+      }
+      pwanButton.disabled = true;
+      pwanButton.textContent = "Installing...";
+      if (pwanNote) {
+        pwanNote.textContent = status.installed ? "Staging the bundled PWAN runtime DLL." : "Installing PMC and staging the bundled PWAN runtime DLL.";
+      }
+      await installPwanRuntime(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note");
+      if (refreshedNote) refreshedNote.textContent = "PWAN GIF support is staged. Export the ROM to include the runtime and PWAN archive.";
+    } catch (error) {
+      pwanButton.disabled = false;
+      pwanButton.textContent = previousText;
+      if (pwanNote) pwanNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
   const doubleBattleButton = root.querySelector<HTMLButtonElement>("#install-double-battle-fix-btn");
   const doubleBattleNote = root.querySelector<HTMLDivElement>("#double-battle-fix-note");
   doubleBattleButton?.addEventListener("click", async () => {
@@ -171,4 +245,49 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (dllNote) dllNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
+}
+
+function renderPwanCompatibilityDetails(report: PwanCompatibilityReport): string {
+  if (report.compatible) {
+    return `<div class="code-injection-compat-ok">All ${report.passed} PWAN hook regions match the stock White 2 snapshot.</div>`;
+  }
+  return `
+    <div class="code-injection-compat-list" aria-label="PWAN compatibility failures">
+      ${report.checks
+        .filter((check) => check.status !== "matched")
+        .map(renderPwanCompatibilityRow)
+        .join("")}
+    </div>
+  `;
+}
+
+function renderPwanCompatibilityRow(check: PwanCompatibilityCheck): string {
+  const address = check.address > 0 ? `0x${check.address.toString(16).padStart(8, "0")}` : "ROM";
+  const moduleLabel = check.module === "arm9" ? "ARM9" : `Overlay ${check.overlayId}`;
+  return `
+    <div class="code-injection-compat-item -${check.status}">
+      <div>
+        <strong>${escapeHtml(check.group)} / ${escapeHtml(check.label)}</strong>
+        <span>${escapeHtml(moduleLabel)} at ${escapeHtml(address)}</span>
+      </div>
+      <em>${escapeHtml(check.status)}</em>
+      <p>${escapeHtml(check.message)}</p>
+    </div>
+  `;
+}
+
+function shouldHydrateRomBytesForPwanCompatibility(project: ProjectState, report: PwanCompatibilityReport): boolean {
+  return report.supportedBase && !project.originalRomBytes && report.missing > 0 && !pwanCompatibilityHydrationProjects.has(project);
+}
+
+async function hydrateRomBytesForPwanCompatibility(project: ProjectState, root: HTMLElement, onDirty: () => void): Promise<void> {
+  pwanCompatibilityHydrationProjects.add(project);
+  try {
+    const bytes = await loadActiveRomBytes();
+    if (!bytes || project.originalRomBytes) return;
+    project.originalRomBytes = bytes;
+    if (root.isConnected) renderCodeInjectionEditor(project, root, onDirty);
+  } catch {
+    // The page can still report the missing regions; export/install paths will surface storage errors separately.
+  }
 }

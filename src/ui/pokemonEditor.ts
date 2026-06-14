@@ -18,6 +18,7 @@ import {
   type TutorCompatibilityGroup,
   type TutorCompatibilitySlot,
 } from "../pokeweb/pokemonModel";
+import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
@@ -26,6 +27,7 @@ import evoIcon from "../assets/svgs/evo.svg?raw";
 import eggMovesIcon from "../assets/svgs/egg_moves.svg?raw";
 import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import movesIcon from "../assets/svgs/moves.svg?raw";
+import movieIcon from "../assets/svgs/movie.svg?raw";
 import paintIcon from "../assets/svgs/paint.svg?raw";
 import tmsIcon from "../assets/svgs/tms.svg?raw";
 import tutorsIcon from "../assets/svgs/tutors.svg?raw";
@@ -40,7 +42,7 @@ const ICONS: Record<string, string> = {
   personal: miscDataIcon,
 };
 
-export function renderPokemonEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenSprites?: (speciesId: number) => void): void {
+export function renderPokemonEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenSprites?: (speciesId: number) => void, onOpenPwan?: (speciesId: number) => void): void {
   root.innerHTML = `
     <div class="pokemon-filter pokemon-filter-personal">
       <div class="filter-title">Search Text</div>
@@ -70,13 +72,14 @@ export function renderPokemonEditor(project: ProjectState, root: HTMLElement, on
       </div>
     </div>
     <div class="pokemon-list" id="personals">
-      ${renderPokemonCards(project)}
+      ${renderPokemonCards(project, Boolean(onOpenPwan))}
     </div>
   `;
 
   attachPokemonInteractions(root, project, {
     onDirty,
     onOpenSprites,
+    onOpenPwan,
     renderExpanded: (speciesId) => renderPokemonExpandedSections(project, speciesId),
     autofills: getPokemonAutofills(project),
   });
@@ -86,18 +89,18 @@ export function renderPokemonExpandedSections(project: ProjectState, speciesId: 
   return renderExpanded(getPokemonRecord(project, speciesId));
 }
 
-function renderPokemonCards(project: ProjectState): string {
+function renderPokemonCards(project: ProjectState, showPwanIcon: boolean): string {
   const count = getPokemonCount(project);
   const cards: string[] = [];
   for (let id = 0; id < count; id += 1) {
-    cards.push(renderPokemonCard(getPokemonSummaryRecord(project, id)));
+    cards.push(renderPokemonCard(project, getPokemonSummaryRecord(project, id), showPwanIcon));
   }
   return cards.join("");
 }
 
-function renderPokemonCard(record: PokemonSummaryRecord): string {
+function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, showPwanIcon: boolean): string {
   const pok = record.personal;
-  const name = String(pok.name ?? `Pokemon ${record.id}`);
+  const name = pokemonSpeciesLabel(project, record.id);
   const type1 = String(pok.type_1 ?? "");
   const type2 = String(pok.type_2 ?? "");
   return `
@@ -132,6 +135,7 @@ function renderPokemonCard(record: PokemonSummaryRecord): string {
         ${icon("evos", "Evolutions")}
         ${icon("personal", "Personal")}
         ${spriteIcon()}
+        ${showPwanIcon ? pwanIcon() : ""}
       </div>
     </div>
   `;
@@ -328,6 +332,10 @@ function icon(expand: string, label: string): string {
 
 function spriteIcon(): string {
   return `<div class="expand-card card-icon sprite-editor-action paintbrush-icon" title="Sprite Editor">${paintIcon}</div>`;
+}
+
+function pwanIcon(): string {
+  return `<button class="expand-card card-icon pwan-editor-action pwan-movie-icon" title="PWAN Animation Editor" type="button">${movieIcon}</button>`;
 }
 
 function typeClass(type: string): string {

@@ -109,28 +109,45 @@ export type PwanOverrideSide = {
   sourceFileName: string;
   sourceGifBytes: Uint8Array;
   pwanBytes: Uint8Array;
+  scaleBasePwanBytes?: Uint8Array;
+  offsetBasePwanBytes?: Uint8Array;
   visibleHeight: number;
   frameCount: number;
   uniqueFrameCount: number;
   timelineCount: number;
   totalTicks: number;
   paletteBgr555: Uint16Array;
+  speedScale?: number;
+  framesPerSecond?: number;
+  scale?: number;
+  scaleMode?: "nearest" | "outlineFill";
+  outlineThreshold?: number;
+  offsetX?: number;
+  offsetY?: number;
+  notes?: string[];
 };
 
 export type PwanAnimationOverride = {
   speciesId: number;
   formIndex?: number;
   assetIndex?: number;
-  front: PwanOverrideSide;
-  back: PwanOverrideSide;
+  front?: PwanOverrideSide;
+  back?: PwanOverrideSide;
   nativePaletteSource: PwanPaletteSource;
   carrierTemplate: "w2u-gen6-placeholder";
-  backNcecY: 43 | 48;
+  backNcecY?: 43 | 48;
   notes?: string[];
 };
 
 export type PwanAnimationState = {
+  dirty?: boolean;
   runtimeInstalled?: boolean;
+  detectedArchive?: {
+    path: string;
+    version: number;
+    count: number;
+  };
+  loadError?: string;
   overrides: PwanAnimationOverride[];
   nativeCarrierBackups?: Record<string, Uint8Array[]>;
 };

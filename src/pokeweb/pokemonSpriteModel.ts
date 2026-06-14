@@ -1,6 +1,7 @@
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
+import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "./pokemonLabels";
 import {
   buildPokemonAnimationFile,
   buildPokemonCellBankFileFromParsed,
@@ -126,7 +127,6 @@ export type PokemonCellBank = {
 };
 
 const SPRITE_FILES_PER_ENTRY = 20;
-const FIRST_GEN5_FORM_PERSONAL_ID = 650;
 const BW_ALT_FORM_SPRITE_START = 652;
 const BW2_ALT_FORM_SPRITE_START = 685;
 const W2U_FORM_SPRITE_START = 724;
@@ -154,11 +154,11 @@ const SPRITE_UNSCRAMBLE_RECTS = [
 ] as const;
 
 export function getPokemonSpriteFormOptions(project: ProjectState, speciesId: number): Array<{ formIndex: number; label: string; spriteId: number }> {
-  const formOwner = findPersonalFormOwner(project, speciesId);
+  const formOwner = findPokemonPersonalFormOwner(project, speciesId);
   if (formOwner) {
     return [{
       formIndex: 0,
-      label: `Form ${formOwner.formIndex}`,
+      label: pokemonSpeciesLabel(project, speciesId),
       spriteId: resolvePokemonSpriteId(project, speciesId, 0),
     }];
   }
@@ -174,7 +174,7 @@ export function getPokemonSpriteFormOptions(project: ProjectState, speciesId: nu
 export function resolvePokemonSpriteId(project: ProjectState, speciesId: number, formIndex = 0): number {
   const formSpriteStart = usesW2uExpandedPokegra(project) ? W2U_FORM_SPRITE_START : project.session.baseRom === "BW2" ? BW2_ALT_FORM_SPRITE_START : BW_ALT_FORM_SPRITE_START;
   if (formIndex <= 0) {
-    const formOwner = findPersonalFormOwner(project, speciesId);
+    const formOwner = findPokemonPersonalFormOwner(project, speciesId);
     return formOwner ? formSpriteStart + formOwner.formSpriteOffset + formOwner.formIndex - 1 : speciesId;
   }
   const record = decodeRecord(project, "personal", speciesId);
@@ -185,27 +185,6 @@ export function resolvePokemonSpriteId(project: ProjectState, speciesId: number,
 
 function usesW2uExpandedPokegra(project: ProjectState): boolean {
   return project.session.baseRom === "BW2" && (project.narcs.personal?.fileCount ?? 0) > 1024;
-}
-
-function findPersonalFormOwner(project: ProjectState, speciesId: number): { speciesId: number; formIndex: number; formSpriteOffset: number } | undefined {
-  const store = project.narcs.personal;
-  if (!store || speciesId < 0 || speciesId >= store.fileCount) return undefined;
-  if (speciesId < FIRST_GEN5_FORM_PERSONAL_ID) return undefined;
-  let rangedMatch: { speciesId: number; formIndex: number; formSpriteOffset: number } | undefined;
-  for (let ownerId = 1; ownerId < store.fileCount; ownerId += 1) {
-    if (ownerId === speciesId) continue;
-    const owner = decodeRecord(project, "personal", ownerId);
-    const formCount = Math.max(1, Number(owner.raw?.num_forms ?? 1));
-    const firstFormId = Number(owner.raw?.form_id ?? 0);
-    if (formCount <= 1 || firstFormId <= 0) continue;
-    const formIndex = speciesId - firstFormId + 1;
-    if (formIndex > 0 && formIndex < formCount) {
-      const match = { speciesId: ownerId, formIndex, formSpriteOffset: Number(owner.raw?.form ?? 0) };
-      if (firstFormId === speciesId) return match;
-      rangedMatch ??= match;
-    }
-  }
-  return rangedMatch;
 }
 
 export function getPokemonSpriteEntry(project: ProjectState, spriteId: number): PokemonSpriteEntry {

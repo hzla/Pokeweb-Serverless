@@ -19,6 +19,8 @@ export const PWAN_FRONT_NCEC_Y = 43;
 export const PWAN_BACK_NCEC_Y = 48;
 
 const FILES_PER_SPRITE = 20;
+const PWAN_FRONT_CARRIER_METADATA_OFFSETS = [4, 5, 6, 7, 8] as const;
+const PWAN_BACK_CARRIER_METADATA_OFFSETS = [13, 14, 15, 16, 17] as const;
 const PALETTE_OFFSET = 0x28;
 const NCEC_ENTRY_OFFSET = 12;
 const NCEC_ENTRY_BYTES = 48;
@@ -62,8 +64,8 @@ export async function loadBundledPwanCarrierTemplate(): Promise<PwanCarrierTempl
 }
 
 export function applyPwanCarrierPatch(project: ProjectState, override: PwanAnimationOverride, carrier: PwanCarrierTemplate): void {
-  if (project.session.baseVersion !== "W2" || project.romInfo.idCode !== "IRDO") {
-    throw new Error("PWAN animated sprite overrides currently require a stock US Pokemon White 2 ROM.");
+  if (project.session.baseVersion !== "W2") {
+    throw new Error("PWAN animated sprite overrides currently require a compatible Pokemon White 2 ROM.");
   }
   const store = project.narcs.pokemon_sprites;
   if (!store) throw new Error("Pokemon Sprites must be loaded before applying PWAN carrier patches.");
@@ -71,20 +73,26 @@ export function applyPwanCarrierPatch(project: ProjectState, override: PwanAnima
   const base = assetIndex * FILES_PER_SPRITE;
   if (base + FILES_PER_SPRITE > store.rawFiles.length) throw new Error(`Sprite asset ${assetIndex} is outside the loaded Pokemon sprite archive.`);
 
-  for (const offset of PWAN_CARRIER_METADATA_OFFSETS) {
+  const metadataOffsets = [
+    ...(override.front ? PWAN_FRONT_CARRIER_METADATA_OFFSETS : []),
+    ...(override.back ? PWAN_BACK_CARRIER_METADATA_OFFSETS : []),
+  ];
+  for (const offset of metadataOffsets) {
     const bytes = carrier[offset];
     if (!bytes) throw new Error(`PWAN carrier template is missing file ${offset}.`);
     writeSpriteFile(project, base + offset, bytes.slice());
   }
 
-  const paletteSource = override.nativePaletteSource === "front" ? override.front.pwanBytes : override.back.pwanBytes;
+  const paletteSide = override.nativePaletteSource === "front" && override.front ? override.front : override.nativePaletteSource === "back" && override.back ? override.back : override.front ?? override.back;
+  if (!paletteSide) throw new Error(`PWAN override for species ${override.speciesId} does not include an imported side.`);
+  const paletteSource = paletteSide.pwanBytes;
   const nativePalette = pwanPalette(paletteSource);
-  patchSide(project, base, 0, override.front.pwanBytes, nativePalette);
-  patchSide(project, base, 9, override.back.pwanBytes, nativePalette);
-  patchCarrierNcec(project, base, override.back.pwanBytes);
+  if (override.front) patchSide(project, base, 0, override.front.pwanBytes, nativePalette);
+  if (override.back) patchSide(project, base, 9, override.back.pwanBytes, nativePalette);
+  patchCarrierNcec(project, base, override.back?.pwanBytes, Boolean(override.front), Boolean(override.back));
 
-  patchPalette(project, base + 18, nativePalette);
-  patchPalette(project, base + 19, nativePalette);
+  if (override.front) patchPalette(project, base + 18, nativePalette);
+  if (override.back) patchPalette(project, base + 19, nativePalette);
 
   recordGenericChange(project, "pokemon_sprites", `PWAN animated carrier patched for species ${override.speciesId}.`, `Species ${override.speciesId}`, {
     key: `pwan-carrier:${override.speciesId}:${assetIndex}`,
@@ -174,9 +182,9 @@ function patchPalette(project: ProjectState, absoluteIndex: number, palette: Uin
   writeSpriteFile(project, absoluteIndex, out);
 }
 
-function patchCarrierNcec(project: ProjectState, base: number, backPwanBytes: Uint8Array): void {
-  setNcecPosY(project, base + 8, NCEC_ORIGINAL_POS_Y);
-  setNcecPosY(project, base + 17, deriveBackNcecY(backPwanBytes) === PWAN_BACK_NCEC_Y ? NCEC_BACK_LIFTED_POS_Y : NCEC_ORIGINAL_POS_Y);
+function patchCarrierNcec(project: ProjectState, base: number, backPwanBytes: Uint8Array | undefined, hasFront: boolean, hasBack: boolean): void {
+  if (hasFront) setNcecPosY(project, base + 8, NCEC_ORIGINAL_POS_Y);
+  if (hasBack && backPwanBytes) setNcecPosY(project, base + 17, deriveBackNcecY(backPwanBytes) === PWAN_BACK_NCEC_Y ? NCEC_BACK_LIFTED_POS_Y : NCEC_ORIGINAL_POS_Y);
 }
 
 function setNcecPosY(project: ProjectState, absoluteIndex: number, posY: number): void {

@@ -77,6 +77,12 @@
   color: #50fa7b;
 }
 
+.code-injection-status.-error {
+  background: rgb(255 85 85 / 12%);
+  border-color: rgb(255 85 85 / 50%);
+  color: #ff8585;
+}
+
 .code-injection-facts {
   display: grid;
   gap: 10px;
@@ -123,6 +129,75 @@
 .code-injection-actions .btn:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.code-injection-compat-ok {
+  background: rgb(80 250 123 / 8%);
+  border: 1px solid rgb(80 250 123 / 28%);
+  border-radius: 6px;
+  color: #dfffe7;
+  font-size: 13px;
+  margin-top: 14px;
+  padding: 10px 12px;
+}
+
+.code-injection-compat-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.code-injection-compat-item {
+  background: rgb(40 42 54 / 76%);
+  border: 1px solid rgb(255 85 85 / 40%);
+  border-radius: 6px;
+  display: grid;
+  gap: 6px 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px 12px;
+}
+
+.code-injection-compat-item strong,
+.code-injection-compat-item span,
+.code-injection-compat-item p {
+  display: block;
+}
+
+.code-injection-compat-item strong {
+  color: #f2f2f2;
+  font-size: 13px;
+}
+
+.code-injection-compat-item span {
+  color: #69d6bd;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.code-injection-compat-item em {
+  align-self: start;
+  background: rgb(255 85 85 / 12%);
+  border: 1px solid rgb(255 85 85 / 42%);
+  border-radius: 999px;
+  color: #ff8585;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+
+.code-injection-compat-item p {
+  color: #ffb8b8;
+  font-size: 12px;
+  grid-column: 1 / -1;
+  line-height: 1.35;
+  margin: 0;
 }
 
 .code-injection-credits {

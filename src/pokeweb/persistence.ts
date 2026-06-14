@@ -4,6 +4,7 @@ import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
+import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { isRomFsTypeChartStore, typeChartTableLength, typeChartTableOffset } from "./typeChartModel";
 
 const DB_NAME = "pokeweb-serverless";
@@ -136,6 +137,9 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   if (!romBytes) return;
   const rom = new NintendoDSRom(romBytes);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
+  if (!project.pwanAnimations?.dirty && ((project.pwanAnimations?.overrides.length ?? 0) === 0 || !project.pwanAnimations?.detectedArchive)) {
+    hydratePwanAnimationsFromRom(project, rom);
+  }
 
   for (const store of Object.values(project.narcs)) {
     if (!store || store.fileId < 0) continue;
