@@ -127,10 +127,13 @@ export class NintendoDSRom {
       return { offset, length: bytes.length };
     };
 
+    const writeOptionalSection = (bytes: Uint8Array, alignment = 0x200): { offset: number; length: number } =>
+      bytes.length > 0 ? writeSection(bytes, alignment) : { offset: 0, length: 0 };
+
     const arm9 = writeSection(options.arm9 ?? this.arm9);
-    const arm9OverlayTable = writeSection(arm9OverlayTableBytes);
+    const arm9OverlayTable = writeOptionalSection(arm9OverlayTableBytes);
     const arm7 = writeSection(this.arm7);
-    const arm7OverlayTable = writeSection(options.arm7OverlayTable ?? this.arm7OverlayTable);
+    const arm7OverlayTable = writeOptionalSection(options.arm7OverlayTable ?? this.arm7OverlayTable);
     const fnt = writeSection(fntData);
 
     const fatLength = files.length * 8;
@@ -199,6 +202,8 @@ export class NintendoDSRom {
   }
 
   private twlSections(): Array<{ offsetField: number; sourceOffset: number; length: number }> {
+    if (!this.isTwlExtended()) return [];
+
     const sections = [
       { offsetField: 0x1c0, sizeField: 0x1cc },
       { offsetField: 0x1d0, sizeField: 0x1dc },
@@ -210,6 +215,10 @@ export class NintendoDSRom {
         length: readU32(this.data, section.sizeField),
       }))
       .filter((section) => section.sourceOffset > 0 && section.length > 0 && section.sourceOffset + section.length <= this.data.length);
+  }
+
+  private isTwlExtended(): boolean {
+    return (this.data[0x12] ?? 0) === 2 && readU32(this.data, 0x210) > 0;
   }
 }
 

@@ -99,6 +99,23 @@ describe("ROM export", () => {
     expect([...parsed.files[1]]).toEqual([9, 8, 7, 6, 5]);
   });
 
+  it("does not synthesize a TWL extended region for legacy unit-code-2 ROMs", async () => {
+    const source = makeRom([Uint8Array.of(1, 2, 3)]);
+    source[0x12] = 2;
+    writeU32(source, 0x1c0, 1);
+    writeU32(source, 0x1cc, 1);
+    writeU32(source, 0x1d0, 1);
+    writeU32(source, 0x1dc, 0x100);
+    writeU32(source, 0x210, 0);
+
+    const exported = await exportModifiedRom(makeProject(source));
+
+    expect(readU32(exported, 0x210)).toBe(0);
+    expect(readU32(exported, 0x1c0)).toBe(1);
+    expect(readU32(exported, 0x1d0)).toBe(1);
+    expect(readU32(exported, 0x80)).toBe(exported.length);
+  });
+
   it("materializes aggregate header edits before NARC rebuild", async () => {
     const formats = getNarcFormats("BW2");
     const headerFormat = formats.headers;

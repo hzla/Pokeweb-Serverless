@@ -53,6 +53,7 @@ import { renderGrottoEditor, renderGrottoOddsEditor, renderMartEditor } from "./
 import { renderTextEditor } from "./ui/textEditor";
 import { renderOverworldEditor } from "./ui/overworldEditor";
 import { renderDocGenerators } from "./ui/docGenerators";
+import { repairReasonLabel, repairRomNarcs, romHeaderRepairReasonLabel, type RomRepairResult } from "./pokeweb/romRepairModel";
 import {
   clearChangelogTabs as clearSharedChangelogTabs,
   downloadTextFile as downloadSharedTextFile,
@@ -1071,34 +1072,51 @@ function renderUpload(root: HTMLElement): void {
           </div>
           <div class="upload-status" id="status"></div>
         </div>
-        <div class="upload-panel changelog-generator">
-          <div class="changelog-generator__header">
-            <div>
-              <h2>Changelog Generator</h2>
+        <div class="home-side-panels">
+          <div class="upload-panel repair-tool">
+            <div class="changelog-generator__header">
+              <div>
+                <h2>ROM Repair</h2>
+              </div>
             </div>
-          </div>
-          <div class="changelog-generator__inputs">
             <label class="changelog-file">
-              <span>Original ROM</span>
-              <input id="changelog-before-input" type="file" accept=".nds" />
+              <span>ROM</span>
+              <input id="repair-rom-input" type="file" accept=".nds" />
             </label>
-            <label class="changelog-file">
-              <span>Modified ROM</span>
-              <input id="changelog-after-input" type="file" accept=".nds" />
+            <div class="changelog-actions repair-actions">
+              <button class="btn -default" id="repair-rom-btn" type="button" disabled>Download Repaired ROM</button>
+            </div>
+            <div class="upload-status" id="repair-status"></div>
+          </div>
+          <div class="upload-panel changelog-generator">
+            <div class="changelog-generator__header">
+              <div>
+                <h2>Changelog Generator</h2>
+              </div>
+            </div>
+            <div class="changelog-generator__inputs">
+              <label class="changelog-file">
+                <span>Original ROM</span>
+                <input id="changelog-before-input" type="file" accept=".nds" />
+              </label>
+              <label class="changelog-file">
+                <span>Modified ROM</span>
+                <input id="changelog-after-input" type="file" accept=".nds" />
+              </label>
+            </div>
+            <label class="upload-options changelog-option">
+              <input id="changelog-fairy-input" type="checkbox" />
+              <span>Fairy ROM offsets</span>
             </label>
+            <div class="changelog-actions">
+              <button class="btn -default" id="generate-changelog-btn" type="button">Generate Changelog</button>
+              <button class="btn -default" id="copy-changelog-btn" type="button" disabled>Copy</button>
+              <button class="btn -default" id="download-changelog-btn" type="button" disabled>Download TXT</button>
+            </div>
+            <div class="upload-status" id="changelog-status"></div>
+            <textarea id="changelog-output" class="changelog-output" readonly></textarea>
+            <div id="changelog-tabs" class="changelog-tabs"></div>
           </div>
-          <label class="upload-options changelog-option">
-            <input id="changelog-fairy-input" type="checkbox" />
-            <span>Fairy ROM offsets</span>
-          </label>
-          <div class="changelog-actions">
-            <button class="btn -default" id="generate-changelog-btn" type="button">Generate Changelog</button>
-            <button class="btn -default" id="copy-changelog-btn" type="button" disabled>Copy</button>
-            <button class="btn -default" id="download-changelog-btn" type="button" disabled>Download TXT</button>
-          </div>
-          <div class="upload-status" id="changelog-status"></div>
-          <textarea id="changelog-output" class="changelog-output" readonly></textarea>
-          <div id="changelog-tabs" class="changelog-tabs"></div>
         </div>
       </div>
     </section>
@@ -1106,6 +1124,9 @@ function renderUpload(root: HTMLElement): void {
 
   const input = root.querySelector<HTMLInputElement>("#rom-input");
   const fairyInput = root.querySelector<HTMLInputElement>("#fairy-input");
+  const repairInput = root.querySelector<HTMLInputElement>("#repair-rom-input");
+  const repairButton = root.querySelector<HTMLButtonElement>("#repair-rom-btn");
+  const repairStatus = root.querySelector<HTMLDivElement>("#repair-status");
   const changelogBeforeInput = root.querySelector<HTMLInputElement>("#changelog-before-input");
   const changelogAfterInput = root.querySelector<HTMLInputElement>("#changelog-after-input");
   const changelogFairyInput = root.querySelector<HTMLInputElement>("#changelog-fairy-input");
@@ -1149,6 +1170,34 @@ function renderUpload(root: HTMLElement): void {
       if (!checkbox.disabled) checkbox.checked = false;
     });
     syncSectionToggles();
+  });
+
+  repairInput?.addEventListener("change", () => {
+    if (repairButton) repairButton.disabled = !repairInput.files?.[0];
+    statusText(repairStatus, "");
+  });
+
+  repairButton?.addEventListener("click", async () => {
+    const file = repairInput?.files?.[0];
+    if (!file) {
+      statusText(repairStatus, "Please choose a ROM file.");
+      return;
+    }
+
+    try {
+      repairButton.disabled = true;
+      statusText(repairStatus, "Reading ROM file");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      statusText(repairStatus, "Scanning NARCs");
+      const result = repairRomNarcs(bytes, (message) => statusText(repairStatus, message));
+      const filename = repairedRomFilename(file.name);
+      downloadBlob(bytesBlob(result.bytes, "application/octet-stream"), filename);
+      statusText(repairStatus, repairSummaryText(result));
+    } catch (error) {
+      statusText(repairStatus, error instanceof Error ? error.message : String(error));
+    } finally {
+      if (repairButton) repairButton.disabled = !repairInput?.files?.[0];
+    }
   });
 
   input?.addEventListener("change", async () => {
@@ -1285,6 +1334,28 @@ function hydrateProject(nextProject: ProjectState | undefined): void {
   nextProject.docs.trainerDiffs ??= {};
   nextProject.docs.itemLocations ??= {};
   nextProject.docs.groundItemScriptMap ??= {};
+}
+
+function repairedRomFilename(fileName: string): string {
+  const baseName = fileName.replace(/\.nds$/iu, "") || "rom";
+  return `${baseName}-repaired.nds`;
+}
+
+function repairSummaryText(result: RomRepairResult): string {
+  const headerLine = result.headerRepair
+    ? `Repaired ROM header: ${result.headerRepair.reasons.map(romHeaderRepairReasonLabel).join(", ")}.`
+    : "";
+  if (result.repairedNarcs === 0) {
+    return [`Scanned ${result.scannedNarcs} NARCs.`, headerLine || "No repairs were needed."].filter(Boolean).join(" ");
+  }
+
+  const shownEntries = result.entries.slice(0, 8).map((entry) => {
+    const label = entry.path ?? `file ${entry.fileId}`;
+    const reasons = entry.reasons.map(repairReasonLabel).join(", ");
+    return `${label}: ${reasons}`;
+  });
+  const remaining = result.entries.length > shownEntries.length ? `\n...and ${result.entries.length - shownEntries.length} more.` : "";
+  return [`Scanned ${result.scannedNarcs} NARCs. Repaired ${result.repairedNarcs}.`, headerLine, shownEntries.join("\n") + remaining].filter(Boolean).join("\n");
 }
 
 function getSelectedNarcs(root: HTMLElement): NarcName[] {
