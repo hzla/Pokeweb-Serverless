@@ -31,7 +31,16 @@ img[src*="pokesprite/"] {
   gap: 24px;
   grid-template-columns: minmax(420px, 860px) minmax(360px, 720px);
   justify-content: center;
+  min-width: 0;
   width: min(1640px, 100%);
+}
+
+.home-side-panels {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+  position: sticky;
+  top: 64px;
 }
 
 .upload-panel {
@@ -40,6 +49,7 @@ img[src*="pokesprite/"] {
   border-radius: 8px;
   padding: 28px;
   box-shadow: 0 8px 20px rgb(0 0 0 / 20%);
+  min-width: 0;
 }
 
 .upload-panel h1 {
@@ -84,11 +94,6 @@ img[src*="pokesprite/"] {
 
 .upload-status:empty {
   display: none;
-}
-
-.changelog-generator {
-  position: sticky;
-  top: 64px;
 }
 
 .changelog-page {
@@ -145,6 +150,7 @@ img[src*="pokesprite/"] {
   border-radius: 5px;
   display: grid;
   gap: 10px;
+  min-width: 0;
   padding: 14px;
 }
 
@@ -155,7 +161,8 @@ img[src*="pokesprite/"] {
 
 .changelog-file input {
   color: #f2f2f2;
-  max-width: 100%;
+  min-width: 0;
+  width: 100%;
 }
 
 .changelog-option {
@@ -167,6 +174,11 @@ img[src*="pokesprite/"] {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.repair-actions {
+  margin-bottom: 0;
+  margin-top: 14px;
 }
 
 .changelog-actions .btn:disabled {
@@ -439,11 +451,21 @@ img[src*="pokesprite/"] {
 }
 
 @media only screen and (max-width: 780px) {
-  .home-panels {
-    grid-template-columns: 1fr;
+  .upload-page {
+    padding: 16px;
+    place-items: start stretch;
   }
 
-  .changelog-generator {
+  .home-panels {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .upload-panel {
+    padding: 20px;
+  }
+
+  .home-side-panels {
     position: static;
   }
 

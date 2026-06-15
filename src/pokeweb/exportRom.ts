@@ -1,7 +1,7 @@
 import { readU32, writeU32 } from "../nds/binary";
 import { setArm9CompressedStaticEnd } from "../nds/arm9ModuleParams";
 import { compressCode, isCodeCompressed } from "../nds/codeCompression";
-import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
+import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import type { NarcName } from "./constants";
 import { loadActiveRomBytes } from "./persistence";
@@ -15,6 +15,7 @@ import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
 import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { isRomFsTypeChartStore, typeChartTableOffset } from "./typeChartModel";
+import { repairNarcBytes } from "./romRepairModel";
 import type { ProjectState } from "./projectStore";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -106,17 +107,12 @@ function normalizeMalformedNarcs(rom: NintendoDSRom, fileReplacements: Map<numbe
 }
 
 function normalizeMalformedNarc(fileReplacements: Map<number, Uint8Array>, fileId: number, bytes: Uint8Array): void {
-  const normalized = normalizeMalformedNarcBytes(bytes);
-  if (normalized !== bytes) fileReplacements.set(fileId, normalized);
+  const repair = repairNarcBytes(bytes);
+  if (repair.changed) fileReplacements.set(fileId, repair.bytes);
 }
 
 function normalizeMalformedNarcBytes(bytes: Uint8Array): Uint8Array {
-  if (!hasEarlyFimgMagic(bytes) && !hasCtrMapIncompatibleFntb(bytes)) return bytes;
-  try {
-    return new NARC(bytes).save();
-  } catch {
-    return bytes;
-  }
+  return repairNarcBytes(bytes).bytes;
 }
 
 function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplacements: Map<number, Uint8Array>, baseTable: Uint8Array): Uint8Array | undefined {
