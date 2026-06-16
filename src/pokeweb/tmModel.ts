@@ -30,6 +30,10 @@ const TM_OFFSETS: Record<BaseVersion, number> = {
   W2: 0x8ccb0,
 };
 
+const TM_COUNT_BEFORE_HMS = 92;
+const HM_ANCHOR_MOVE_IDS = [15, 19, 57, 70, 127, 291] as const;
+const TM_TABLE_NEARBY_SEARCH_RADIUS = 0x400;
+
 const ITEM_GRAPHICS_ENTRY_SIZE = 4;
 const ITEM_GRAPHICS_ANCHOR: Array<readonly [number, number]> = [
   [2, 3],
@@ -74,7 +78,7 @@ export const TM_FIELDS = [
 ] as const;
 
 export function parseTms(project: ProjectState): TmState {
-  const offset = TM_OFFSETS[project.session.baseVersion];
+  const offset = locateTmTableOffset(project);
   const raw: RawRecord = {};
   const readable: ReadableRecord = {};
   TM_FIELDS.forEach((field, index) => {
@@ -88,6 +92,63 @@ export function parseTms(project: ProjectState): TmState {
     readable,
     dirty: false,
   };
+}
+
+function locateTmTableOffset(project: ProjectState): number {
+  const fallbackOffset = TM_OFFSETS[project.session.baseVersion];
+  const maxMoveId = Math.max(project.texts.banks.moves?.length ?? 0, project.narcs.moves?.fileCount ?? 0) - 1;
+  const nearbyOffset = locateTmTableOffsetFromHmAnchor(project.arm9, fallbackOffset, TM_TABLE_NEARBY_SEARCH_RADIUS, maxMoveId);
+  if (nearbyOffset !== undefined) return nearbyOffset;
+  const globalOffset = locateTmTableOffsetFromHmAnchor(project.arm9, undefined, undefined, maxMoveId);
+  return globalOffset ?? fallbackOffset;
+}
+
+function locateTmTableOffsetFromHmAnchor(arm9: Uint8Array, expectedOffset?: number, radius?: number, maxMoveId?: number): number | undefined {
+  const tableLength = TM_FIELDS.length * 2;
+  const hmAnchorLength = HM_ANCHOR_MOVE_IDS.length * 2;
+  const expectedHmOffset = expectedOffset === undefined ? undefined : expectedOffset + TM_COUNT_BEFORE_HMS * 2;
+  const start = expectedHmOffset === undefined || radius === undefined ? 0 : Math.max(0, expectedHmOffset - radius);
+  const end = expectedHmOffset === undefined || radius === undefined
+    ? arm9.length - hmAnchorLength
+    : Math.min(arm9.length - hmAnchorLength, expectedHmOffset + radius);
+  const candidates: Array<{ offset: number; matches: number; distance: number }> = [];
+
+  for (let hmOffset = start + (start % 2); hmOffset <= end; hmOffset += 2) {
+    const tableOffset = hmOffset - TM_COUNT_BEFORE_HMS * 2;
+    if (tableOffset < 0 || tableOffset + tableLength > arm9.length) continue;
+
+    const matches = countHmAnchorMatches(arm9, hmOffset);
+    if (matches < HM_ANCHOR_MOVE_IDS.length) continue;
+    if (!tmTableValuesArePlausible(arm9, tableOffset, maxMoveId)) continue;
+
+    candidates.push({
+      offset: tableOffset,
+      matches,
+      distance: expectedOffset === undefined ? tableOffset : Math.abs(tableOffset - expectedOffset),
+    });
+  }
+
+  candidates.sort((a, b) => b.matches - a.matches || a.distance - b.distance || a.offset - b.offset);
+  return candidates[0]?.offset;
+}
+
+function countHmAnchorMatches(arm9: Uint8Array, hmOffset: number): number {
+  let matches = 0;
+  HM_ANCHOR_MOVE_IDS.forEach((moveId, index) => {
+    if (readU16(arm9, hmOffset + index * 2) === moveId) matches += 1;
+  });
+  return matches;
+}
+
+function tmTableValuesArePlausible(arm9: Uint8Array, offset: number, maxMoveId?: number): boolean {
+  if (maxMoveId === undefined || maxMoveId <= 0) return true;
+  if (maxMoveId < Math.max(...HM_ANCHOR_MOVE_IDS)) return true;
+  let invalid = 0;
+  for (let index = 0; index < TM_FIELDS.length; index += 1) {
+    const moveId = readU16(arm9, offset + index * 2);
+    if (moveId <= 0 || moveId > maxMoveId) invalid += 1;
+  }
+  return invalid <= 2;
 }
 
 export function ensureTms(project: ProjectState): TmState {
