@@ -18,6 +18,28 @@ describe("tmModel", () => {
     expect(entries[6]).toMatchObject({ kind: "tm", number: 1, moveName: "Tackle", moveId: 1 });
   });
 
+  it("locates the TM table from the vanilla HM anchor when the version offset points at TM23", () => {
+    const tmValues = Array.from({ length: 101 }, () => 1);
+    tmValues[0] = 468;
+    tmValues[22] = 479;
+    [15, 19, 57, 70, 127, 291].forEach((moveId, index) => {
+      tmValues[92 + index] = moveId;
+    });
+    tmValues[100] = 555;
+
+    const moveNames = Array.from({ length: 560 }, (_, index) => `Move ${index}`);
+    moveNames[468] = "Hone Claws";
+    moveNames[479] = "Smack Down";
+
+    const project = makeProject({ tmOffset: B2_TM_TABLE_OFFSET, tmValues, moveNames });
+    project.tms = parseTms(project);
+
+    expect(readU16(project.arm9, W2_TM_TABLE_OFFSET)).toBe(479);
+    expect(project.tms.offset).toBe(B2_TM_TABLE_OFFSET);
+    expect(project.tms.raw.tm_1).toBe(468);
+    expect(project.tms.readable.tm_1).toBe("Hone Claws");
+  });
+
   it("updates TM moves, syncs ARM9 bytes, and marks the TM table dirty", () => {
     const project = makeProject();
     project.tms = parseTms(project);
@@ -29,8 +51,8 @@ describe("tmModel", () => {
     expect(project.tms.readable.tm_1).toBe("Flamethrower");
     expect(project.tms.dirty).toBe(true);
     expect(project.arm9Dirty).toBe(true);
-    expect(project.arm9[0x8ccb0]).toBe(3);
-    expect(project.arm9[0x8ccb1]).toBe(0);
+    expect(project.arm9[W2_TM_TABLE_OFFSET]).toBe(3);
+    expect(project.arm9[W2_TM_TABLE_OFFSET + 1]).toBe(0);
     expect(readU16(project.arm9, itemGraphicsEntryOffset(328) + 2)).toBe(406);
     expect(() => updateTmMove(project, "tm_2", "Nope")).toThrow(/Unknown move/u);
   });
@@ -51,8 +73,10 @@ describe("tmModel", () => {
 });
 
 const ITEM_GRAPHICS_TABLE_OFFSET = 0x100;
+const B2_TM_TABLE_OFFSET = 0x8cc84;
+const W2_TM_TABLE_OFFSET = 0x8ccb0;
 
-function makeProject(): ProjectState {
+function makeProject(options: { tmOffset?: number; tmValues?: number[]; moveNames?: string[] } = {}): ProjectState {
   const formats = getNarcFormats("BW2");
   const moves = packRows(formats.moves!, [
     {},
@@ -60,12 +84,17 @@ function makeProject(): ProjectState {
     { type: 11, category: 1, power: 45, accuracy: 100 },
     { type: 9, category: 2, power: 95, accuracy: 100 },
   ]);
-  const arm9 = new Uint8Array(0x8ccb0 + 204);
+  const tmOffset = options.tmOffset ?? W2_TM_TABLE_OFFSET;
+  const arm9 = new Uint8Array(Math.max(tmOffset + 204, W2_TM_TABLE_OFFSET + 204));
   writeItemGraphicsAnchor(arm9, ITEM_GRAPHICS_TABLE_OFFSET);
   for (const itemId of tmItemIds()) writeU16(arm9, itemGraphicsEntryOffset(itemId) + 2, 402);
-  writeU16(arm9, 0x8ccb0, 1);
-  writeU16(arm9, 0x8ccb0 + 92 * 2, 2);
-  writeU16(arm9, 0x8ccb0 + 100 * 2, 3);
+  if (options.tmValues) {
+    options.tmValues.forEach((moveId, index) => writeU16(arm9, tmOffset + index * 2, moveId));
+  } else {
+    writeU16(arm9, tmOffset, 1);
+    writeU16(arm9, tmOffset + 92 * 2, 2);
+    writeU16(arm9, tmOffset + 100 * 2, 3);
+  }
 
   return {
     session: {
@@ -82,7 +111,7 @@ function makeProject(): ProjectState {
     narcs: {
       moves: makeStore("moves", moves, 4),
     } as Partial<Record<NarcName, NarcStore>>,
-    texts: { banks: { moves: ["None", "Tackle", "Vine Whip", "Flamethrower"] } },
+    texts: { banks: { moves: options.moveNames ?? ["None", "Tackle", "Vine Whip", "Flamethrower"] } },
     formats,
     trpokInfo: [],
   };
