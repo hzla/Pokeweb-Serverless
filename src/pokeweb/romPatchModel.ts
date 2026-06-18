@@ -5,8 +5,9 @@ import { BW2_NARCS, TYPES, type NarcName } from "./constants";
 import { applyFairyTypeGeneralPatch } from "./generalPatchModel";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, type NarcStore, type ProjectState } from "./projectStore";
+import { applyTrainerNaturePatchToArm9, detectTrainerNaturePatchState, type TrainerNaturePatchState } from "./trainerNaturePatch";
 
-export type RomPatchId = "removeDustCloudGems" | "removeDustCloudItems" | "forgettableHms" | "fairyType";
+export type RomPatchId = "removeDustCloudGems" | "removeDustCloudItems" | "forgettableHms" | "fairyType" | "specifyTrainerNatures";
 
 export type RomPatchApplyResult = {
   patchId: RomPatchId;
@@ -238,6 +239,47 @@ export async function addFairyTypeSupport(project: ProjectState, options: AddFai
   };
 }
 
+export async function specifyTrainerNatures(project: ProjectState): Promise<RomPatchApplyResult> {
+  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
+    throw new Error("Specify Trainer Pokémon Natures is currently available for Black 2 and White 2 only.");
+  }
+  if (project.arm9.length === 0) {
+    throw new Error("Reload the ROM before applying the trainer nature ARM9 patch.");
+  }
+
+  const patched = applyTrainerNaturePatchToArm9(project.arm9, project.session.baseVersion, getProjectArm9RamAddress(project));
+  if (!patched) {
+    throw new Error("Could not find the Black 2 / White 2 trainer Pokémon setup signatures in ARM9. This ROM may already have a different trainer code patch or code layout.");
+  }
+
+  project.patches ??= { dirtyOverlayIds: [], applied: {} };
+  project.patches.applied ??= {};
+  project.patches.applied.specifyTrainerNatures = true;
+
+  if (patched.status === "already-applied") {
+    return {
+      patchId: "specifyTrainerNatures",
+      status: "already-applied",
+      offset: patched.offset,
+      summary: `Trainer nature helper is already installed at 0x${patched.hookAddress.toString(16)}.`,
+    };
+  }
+
+  project.arm9 = patched.arm9;
+  project.arm9Dirty = true;
+
+  recordGenericChange(project, "patches", "Enabled explicit trainer Pokémon natures.", "Trainer Pokémon Natures", {
+    key: "patch:specifyTrainerNatures",
+  });
+
+  return {
+    patchId: "specifyTrainerNatures",
+    status: "applied",
+    offset: patched.offset,
+    summary: `Enabled explicit trainer Pokémon natures with an ARM9 helper at 0x${patched.hookAddress.toString(16)}.`,
+  };
+}
+
 export async function applyModernFairyTypings(project: ProjectState): Promise<FairyModernTypingResult> {
   if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
     throw new Error("Modern Fairy typings are currently available for Black 2 and White 2 only.");
@@ -338,6 +380,12 @@ export function detectFairyTypePatch(project: ProjectState): "patched" | "unpatc
   return project.patches?.applied?.fairyType || project.session.fairy ? "patched" : "unpatched";
 }
 
+export function detectSpecifyTrainerNaturesPatch(project: ProjectState): TrainerNaturePatchState {
+  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") return "unsupported";
+  if (project.arm9.length === 0) return project.patches?.applied?.specifyTrainerNatures ? "patched" : "unknown";
+  return detectTrainerNaturePatchState(project.arm9, project.session.baseVersion, getProjectArm9RamAddress(project));
+}
+
 export function getDirtyPatchOverlayIds(project: ProjectState): number[] {
   return project.patches?.dirtyOverlayIds ?? [];
 }
@@ -354,6 +402,15 @@ async function ensureOverlay(project: ProjectState, overlayId: number): Promise<
   if (!overlay) throw new Error(`Could not load overlay ${overlayId} from this ROM.`);
   project.overlays[overlayId] = overlay.data;
   return overlay.data;
+}
+
+function getProjectArm9RamAddress(project: ProjectState): number | undefined {
+  if (!project.originalRomBytes) return undefined;
+  try {
+    return new NintendoDSRom(project.originalRomBytes).arm9RamAddress;
+  } catch {
+    return undefined;
+  }
 }
 
 function findDustCloudGemBranch(overlay: Uint8Array): { offset: number; applied: boolean } | undefined {

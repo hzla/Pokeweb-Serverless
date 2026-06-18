@@ -4,9 +4,11 @@ import {
   detectDustCloudItemPatch,
   detectForgettableHmPatch,
   detectFairyTypePatch,
+  detectSpecifyTrainerNaturesPatch,
   makeHmsForgettable,
   removeDustCloudGemRewards,
   removeDustCloudItemRewards,
+  specifyTrainerNatures,
   type RomPatchApplyResult,
 } from "../pokeweb/romPatchModel";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -24,6 +26,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
   const itemStatus = detectDustCloudItemPatch(project);
   const hmStatus = detectForgettableHmPatch(project);
   const fairyStatus = detectFairyTypePatch(project);
+  const trainerNatureStatus = detectSpecifyTrainerNaturesPatch(project);
   const hmPatchCard =
     hmStatus === "unsupported"
       ? ""
@@ -72,6 +75,28 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           </div>
         </section>
       `;
+  const trainerNaturePatchCard =
+    trainerNatureStatus === "unsupported"
+      ? ""
+      : `
+        <section class="patch-card">
+          <div class="patch-card__body">
+            <div>
+              <h2>Specify Trainer Pokémon Natures</h2>
+              <p>Lets trainer Pokémon use the Nature field from the trainer editor while preserving vanilla behavior when set to Auto.</p>
+            </div>
+            <div class="patch-card__meta">
+              <span class="patch-badge ${trainerNatureStatus === "patched" ? "-ok" : trainerNatureStatus === "unknown" ? "-warn" : ""}">
+                ${trainerNatureStatusLabel(trainerNatureStatus)}
+              </span>
+              <span>${project.session.baseVersion}</span>
+            </div>
+          </div>
+          <div class="patch-card__actions">
+            <button class="btn -default" id="specify-trainer-natures-btn" type="button">Specify Natures</button>
+          </div>
+        </section>
+      `;
   root.innerHTML = `
     <div class="patches-page">
       <header class="patches-header">
@@ -116,6 +141,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           </div>
         </section>
         ${fairyPatchCard}
+        ${trainerNaturePatchCard}
         ${hmPatchCard}
         <div class="patch-status ${status?.kind ? `-${status.kind}` : ""}" id="patch-status">${escapeHtml(status?.text ?? "")}</div>
       </main>
@@ -158,6 +184,15 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
       apply: makeHmsForgettable,
     });
   });
+
+  root.querySelector<HTMLButtonElement>("#specify-trainer-natures-btn")?.addEventListener("click", async (event) => {
+    applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
+      confirmText: "Apply this ARM9 patch to enable explicit trainer Pokémon natures?",
+      loadingText: "Looking for the Black 2 / White 2 trainer Pokémon setup code...",
+      successText: "Enabled explicit trainer Pokémon natures",
+      apply: specifyTrainerNatures,
+    });
+  });
 }
 
 function dustStatusLabel(value: ReturnType<typeof detectDustCloudGemPatch>): string {
@@ -173,6 +208,13 @@ function fairyStatusLabel(value: ReturnType<typeof detectFairyTypePatch>): strin
 }
 
 function hmStatusLabel(value: ReturnType<typeof detectForgettableHmPatch>): string {
+  if (value === "patched") return "Applied";
+  if (value === "unsupported") return "Unsupported";
+  if (value === "unknown") return "Signature unknown";
+  return "Ready";
+}
+
+function trainerNatureStatusLabel(value: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (value === "patched") return "Applied";
   if (value === "unsupported") return "Unsupported";
   if (value === "unknown") return "Signature unknown";

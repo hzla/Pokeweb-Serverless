@@ -12,7 +12,8 @@
     "pokemonanim:helper": "vite-node scripts/pokemon-animation-helper.ts",
     "gen6sprites:pipeline": "vite-node scripts/gen6-sprite-pipeline.ts",
     "virtualsprite:build": "vite-node scripts/build-virtual-sprite-asset.ts",
-    "pwan:library": "vite-node scripts/build-pwan-library.ts"
+    "pwan:library": "vite-node scripts/build-pwan-library.ts",
+    "state:inspect": "vite-node scripts/inspect-test-battle-state.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",

@@ -21,6 +21,8 @@ export type TrainerPokemonSlot = {
   itemName?: string | number;
   moves: Array<string | number>;
   nature: string;
+  natureSetting: string;
+  natureValue: number;
 };
 
 export type TrainerRecord = {
@@ -81,6 +83,7 @@ export function getTrainerAutofills(project: ProjectState): Record<string, strin
     class_names: (project.texts.banks.tr_classes ?? []).map((name, index) => `${name} (${index})`),
     battle_types: BATTLE_TYPES,
     genders: TRAINER_GENDERS,
+    natures: ["Auto", ...NATURES],
     move_names: project.texts.banks.moves ?? [],
   };
 }
@@ -246,6 +249,11 @@ export function updateTrainerPokemonField(project: ProjectState, trainerId: numb
     value = rawValue;
     record.raw[field] = rawValue;
     record.readable[field] = rawValue;
+  } else if (field === `nature${suffix}`) {
+    rawValue = parseTrainerNatureValue(inputValue);
+    value = trainerNatureSetting(rawValue);
+    record.raw[`padding_${slot}`] = rawValue;
+    record.readable[field] = value;
   } else if (field === `form${suffix}`) {
     rawValue = parseInteger(inputValue, 0, 255);
     value = rawValue;
@@ -306,6 +314,28 @@ export function autofillTrainerPokemonMoves(project: ProjectState, trainerId: nu
   return { value: after.join(", "), rawValue: moves[0] ?? 0, slot: getTrainerPokemonSlot(project, trainerId, slot), trainer: getTrainerRecord(project, trainerId) };
 }
 
+export function formatTrainerPokemonShowdownText(project: ProjectState, trainerId: number, slot: number): string {
+  const trainer = getTrainerRecord(project, trainerId);
+  const pok = trainer.party[slot];
+  if (!pok) throw new Error("Trainer Pokemon slot does not exist");
+
+  const headerParts = [showdownName(pok.speciesName)];
+  const gender = showdownGender(pok.gender);
+  if (gender) headerParts.push(`(${gender})`);
+  const item = trainer.hasItems ? optionalShowdownValue(pok.itemName) : "";
+
+  const lines = [item ? `${headerParts.join(" ")} @ ${item}` : headerParts.join(" ")];
+  const ability = optionalShowdownValue(pok.abilityName);
+  if (ability) lines.push(`Ability: ${ability}`);
+  lines.push(`Level: ${pok.level}`);
+  if (pok.nature !== "Unknown") lines.push(`${pok.nature} Nature`);
+
+  const iv = Math.floor((pok.ivs * 31) / 255);
+  lines.push(`IVs: ${iv} HP / ${iv} Atk / ${iv} Def / ${iv} SpA / ${iv} SpD / ${iv} Spe`);
+  for (const move of trainerPokemonShowdownMoves(project, trainer, pok)) lines.push(`- ${showdownName(move)}`);
+  return lines.join("\n");
+}
+
 export function getAutofilledTrainerPokemonMoveIds(project: ProjectState, speciesId: number, level: number): number[] {
   if (!project.narcs.learnsets) throw new Error("Learnsets are not loaded");
   const learnsetSpeciesId = speciesId % 1024;
@@ -321,6 +351,17 @@ export function getAutofilledTrainerPokemonMoveIds(project: ProjectState, specie
     .slice(-4)
     .reverse()
     .map((entry) => entry.moveId);
+}
+
+function trainerPokemonShowdownMoves(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot): Array<string | number> {
+  const explicitMoves = pok.moves.filter((move) => !isEmptyShowdownValue(move));
+  if (explicitMoves.length > 0) return explicitMoves;
+
+  try {
+    return getAutofilledTrainerPokemonMoveIds(project, pok.speciesId, pok.level).map((moveId) => project.texts.banks.moves?.[moveId] ?? moveId);
+  } catch {
+    return trainer.hasMoves ? explicitMoves : [];
+  }
 }
 
 export function addTrainerPokemon(project: ProjectState, trainerId: number): TrainerPokemonSlot {
@@ -375,6 +416,7 @@ export function deleteTrainerPokemon(project: ProjectState, trainerId: number, s
     delete trpok.readable[`${field}_${count - 1}`];
   }
   delete trpok.readable[`gender_${count - 1}`];
+  delete trpok.readable[`nature_${count - 1}`];
 
   trdata.raw.num_pokemon = count - 1;
   trdata.readable.num_pokemon = count - 1;
@@ -392,6 +434,8 @@ export function calculateTrainerPokemonNature(project: ProjectState, trainerId: 
   const trdata = decodeRecord(project, "trdata", trainerId);
   const trpok = decodeRecord(project, "trpok", trainerId);
   if (!trdata.raw || !trpok.raw) return "Unknown";
+  const explicitNature = trainerNatureName(trpok.raw[`padding_${slot}`]);
+  if (explicitNature) return explicitNature;
   const speciesId = trpok.raw[`species_id_${slot}`];
   if (speciesId === undefined || !project.narcs.personal || speciesId >= project.narcs.personal.fileCount) return "Unknown";
   const personal = decodeRecord(project, "personal", speciesId);
@@ -417,6 +461,7 @@ function getTrainerPokemonSlot(project: ProjectState, trainerId: number, slot: n
   const speciesName = String(trpok.readable[`species_id_${slot}`] ?? speciesId);
   const abilitySlot = Number(trpok.readable[`ability_${slot}`] ?? 0);
   const resolvedAbilitySlot = displayedAbilitySlot ?? abilitySlot;
+  const natureValue = trainerNatureRawValue(trpok.raw[`padding_${slot}`]);
   return {
     slot,
     speciesId,
@@ -431,6 +476,8 @@ function getTrainerPokemonSlot(project: ProjectState, trainerId: number, slot: n
     itemName: trpok.readable[`item_id_${slot}`],
     moves: [1, 2, 3, 4].map((move) => trpok.readable?.[`move_${move}_${slot}`] ?? 0),
     nature: calculateTrainerPokemonNature(project, trainerId, slot),
+    natureSetting: trainerNatureSetting(natureValue),
+    natureValue,
   };
 }
 
@@ -492,6 +539,7 @@ function syncTrainerPokemonReadable(project: ProjectState, trainerId: number, ra
     raw[`ability_${slot}`] = abilityByte;
     readable[`ability_${slot}`] = Math.floor(abilityByte / 16);
     readable[`gender_${slot}`] = TRAINER_GENDERS[Math.min(abilityByte % 16, 2)] ?? "Default";
+    readable[`nature_${slot}`] = trainerNatureSetting(raw[`padding_${slot}`]);
     if (templateHasItems(template)) {
       const itemId = raw[`item_id_${slot}`] ?? 0;
       raw[`item_id_${slot}`] = itemId;
@@ -605,6 +653,35 @@ function genderIndex(value: string): number {
   return findValueIndex(TRAINER_GENDERS, value, "gender");
 }
 
+function parseTrainerNatureValue(inputValue: string): number {
+  const trimmed = inputValue.trim();
+  if (trimmed === "" || normalizeName(trimmed) === "auto") return 0;
+
+  const numeric = Number(trimmed);
+  if (Number.isInteger(numeric)) {
+    if (numeric < 0 || numeric > NATURES.length) throw new Error(`Nature must be Auto or an integer between 0 and ${NATURES.length}`);
+    return numeric;
+  }
+
+  const index = NATURES.findIndex((nature) => normalizeName(nature) === normalizeName(trimmed));
+  if (index < 0) throw new Error(`Unknown nature: ${inputValue}`);
+  return index + 1;
+}
+
+function trainerNatureRawValue(value: number | undefined): number {
+  const numeric = Number(value ?? 0);
+  return Number.isInteger(numeric) && numeric >= 1 && numeric <= NATURES.length ? numeric : 0;
+}
+
+function trainerNatureName(value: number | undefined): string | undefined {
+  const rawValue = trainerNatureRawValue(value);
+  return rawValue === 0 ? undefined : NATURES[rawValue - 1];
+}
+
+function trainerNatureSetting(value: number | undefined): string {
+  return trainerNatureName(value) ?? "Auto";
+}
+
 function truthyValue(value: string | number | boolean): boolean {
   return value === true || value === 1 || value === "1" || value === "true" || value === "checked";
 }
@@ -640,4 +717,33 @@ function trainerSpritePath(_name: string, trainerClass: string): string {
 
 function spriteSlug(name: string): string {
   return pokemonSpriteSlug(name);
+}
+
+function showdownGender(value: string): "M" | "F" | undefined {
+  if (value === "Male") return "M";
+  if (value === "Female") return "F";
+  return undefined;
+}
+
+function optionalShowdownValue(value: unknown): string {
+  if (isEmptyShowdownValue(value)) return "";
+  return showdownName(value);
+}
+
+function isEmptyShowdownValue(value: unknown): boolean {
+  const text = String(value ?? "").trim();
+  const normalized = normalizeName(text);
+  return text === "" || text === "0" || normalized === "none" || normalized === "noitem";
+}
+
+function showdownName(value: unknown): string {
+  const titled = String(value ?? "")
+    .replace(/_/gu, " ")
+    .split(/([\s-]+)/u)
+    .map((part) => (/^[a-z]/iu.test(part) ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part))
+    .join("")
+    .replace(/Porygon Z/gu, "Porygon-Z")
+    .replace(/Ho Oh/gu, "Ho-Oh")
+    .replace(/'/gu, "'");
+  return titled;
 }
