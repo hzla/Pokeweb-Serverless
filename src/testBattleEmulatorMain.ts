@@ -23,6 +23,8 @@ type DesmondWindow = Window &
       disableSavePersistence: boolean;
       saveBytes?: Uint8Array;
       speedMultiplier?: number;
+      audioVolume?: number;
+      audioMuted?: boolean;
       paused?: boolean;
       stepFrames?: number;
       onLoadError?: (message: string) => void;
@@ -43,6 +45,7 @@ type DesmondWindow = Window &
     };
     HEAPU8?: Uint8Array;
     _prepareRomBuffer?: (size: number) => number;
+    pokewebTryInitSound?: () => void;
     localforage?: {
       getItem?: (key: string) => Promise<unknown>;
       setItem?: (key: string, value: unknown) => Promise<unknown>;
@@ -55,6 +58,9 @@ const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-05-21-1535";
 const DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER = 4;
 const MIN_TEST_BATTLE_SPEED_MULTIPLIER = 0.05;
 const MAX_TEST_BATTLE_SPEED_MULTIPLIER = 8;
+const DEFAULT_TEST_BATTLE_AUDIO_VOLUME = 0;
+const MIN_TEST_BATTLE_AUDIO_VOLUME = 0;
+const MAX_TEST_BATTLE_AUDIO_VOLUME = 1;
 const FIRST_FRAME_TIMEOUT_MS = 5000;
 const DESMUME_STATE_MAGIC = new Uint8Array([68, 101, 83, 109, 117, 77, 69, 32, 83, 83, 116, 97, 116, 101, 0, 0]);
 const DESMUME_STATE_HEADER_SIZE = 32;
@@ -64,6 +70,8 @@ const statusText = document.querySelector<HTMLSpanElement>("#pokeweb-status-text
 const status = document.querySelector<HTMLDivElement>("#pokeweb-status");
 const speedSlider = document.querySelector<HTMLInputElement>("#pokeweb-speed");
 const speedValue = document.querySelector<HTMLOutputElement>("#pokeweb-speed-value");
+const audioSlider = document.querySelector<HTMLInputElement>("#pokeweb-audio");
+const audioValue = document.querySelector<HTMLOutputElement>("#pokeweb-audio-value");
 const pauseButton = document.querySelector<HTMLButtonElement>("#pokeweb-pause");
 const stepButton = document.querySelector<HTMLButtonElement>("#pokeweb-step");
 const savestateButton = document.querySelector<HTMLButtonElement>("#pokeweb-savestate");
@@ -84,12 +92,14 @@ let activeTestLabel = "test battle";
 let activeRomByteLength = 0;
 let latestFrameCount = 0;
 let speedMultiplier = DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER;
+let audioVolume = DEFAULT_TEST_BATTLE_AUDIO_VOLUME;
 let paused = false;
 let pendingStepFrames = 0;
 
 setStatus("Waiting for battle data...");
 shieldControlsFromEmulatorInput();
 installSpeedControl();
+installAudioControl();
 installPlaybackControls();
 setPlaybackControlsEnabled(false);
 installMessageListener();
@@ -130,6 +140,13 @@ function installSpeedControl(): void {
   setSpeedMultiplier(DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER, false);
   speedSlider.addEventListener("input", () => setSpeedMultiplier(Number(speedSlider.value), false));
   speedSlider.addEventListener("change", () => setSpeedMultiplier(Number(speedSlider.value), true));
+}
+
+function installAudioControl(): void {
+  if (!audioSlider) return;
+  setAudioVolume(DEFAULT_TEST_BATTLE_AUDIO_VOLUME, false);
+  audioSlider.addEventListener("input", () => setAudioVolume(Number(audioSlider.value) / 100, false));
+  audioSlider.addEventListener("change", () => setAudioVolume(Number(audioSlider.value) / 100, true));
 }
 
 function installPlaybackControls(): void {
@@ -180,6 +197,24 @@ function setSpeedMultiplier(value: number, logChange: boolean): void {
   if (logChange) debugLog(`Emulation speed set to ${formatted}x.`);
 }
 
+function clampAudioVolume(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_TEST_BATTLE_AUDIO_VOLUME;
+  return Math.max(MIN_TEST_BATTLE_AUDIO_VOLUME, Math.min(MAX_TEST_BATTLE_AUDIO_VOLUME, Math.round(value * 100) / 100));
+}
+
+function setAudioVolume(value: number, logChange: boolean): void {
+  audioVolume = clampAudioVolume(value);
+  const percent = Math.round(audioVolume * 100);
+  if (audioSlider) audioSlider.value = String(percent);
+  if (audioValue) audioValue.textContent = percent === 0 ? "Muted" : `${percent}%`;
+  if (desmondWindow.POKEWEB_TEST_BATTLE) {
+    desmondWindow.POKEWEB_TEST_BATTLE.audioVolume = audioVolume;
+    desmondWindow.POKEWEB_TEST_BATTLE.audioMuted = audioVolume <= 0;
+  }
+  if (audioVolume > 0) desmondWindow.pokewebTryInitSound?.();
+  if (logChange) debugLog(percent === 0 ? "Emulator audio muted." : `Emulator audio set to ${percent}%.`);
+}
+
 function setPaused(value: boolean, logChange: boolean): void {
   paused = value;
   syncPlaybackState();
@@ -220,6 +255,8 @@ async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
       disableSavePersistence: true,
       saveBytes: activeSaveBytes,
       speedMultiplier,
+      audioVolume,
+      audioMuted: audioVolume <= 0,
       paused,
       stepFrames: pendingStepFrames,
       onLoadError: (loadError) => setError(loadError),

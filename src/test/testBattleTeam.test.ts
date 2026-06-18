@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
-import { decryptPk5Party, encryptPk5Party, parseShowdownTeam, patchTestBattleSavePlayerParty } from "../pokeweb/testBattleTeam";
+import { decryptPk5Party, encryptPk5Party, normalizeTestBattleSavePartyNicknames, parseShowdownTeam, patchTestBattleSavePlayerParty } from "../pokeweb/testBattleTeam";
 
 describe("testBattleTeam", () => {
   it("parses Showdown imports with defaults and name resolution", () => {
@@ -112,6 +112,8 @@ Jolly Nature
       expect(first[0x15]).toBe(2);
       expect(first[0x41]).toBe(13);
       expect(first[0x5f]).toBe(22);
+      expect(readLe32(first, 0x38) >>> 31).toBe(0);
+      expect(readGen5String(first, 0x48, 22)).toBe("Bulbasaur");
       expect([...first.subarray(0x68, 0x78)]).toEqual([...patched.subarray(half + 0x19404, half + 0x19414)]);
       expect(first[0x84] >> 7).toBe(1);
       expect(readLe16(first, 0x28)).toBe(1);
@@ -145,6 +147,25 @@ Jolly Nature
       expect(readLe16(patched, half + 0x19336)).toBe(crc16Ccitt(patched.subarray(party, party + 0x534)));
       expect(readLe16(patched, half + 0x23f34)).toBe(readLe16(patched, half + 0x19336));
       expect(readLe16(patched, half + 0x23f9a)).toBe(crc16Ccitt(patched.subarray(half + 0x23f00, half + 0x23f00 + 0x8c)));
+    }
+  });
+
+  it("normalizes existing save party Pokemon to species names without nickname flags", () => {
+    const project = makeProject();
+    const save = makeSaveWithTemplateParty();
+
+    const normalized = normalizeTestBattleSavePartyNicknames(save, project);
+
+    expect(normalized).not.toBe(save);
+    for (const half of [0, 0x26000]) {
+      const party = half + 0x18e00;
+      expect(readLe16(normalized, half + 0x19336)).toBe(crc16Ccitt(normalized.subarray(party, party + 0x534)));
+      expect(readLe16(normalized, half + 0x25f34)).toBe(readLe16(normalized, half + 0x19336));
+      expect(readLe16(normalized, half + 0x25fa2)).toBe(crc16Ccitt(normalized.subarray(half + 0x25f00, half + 0x25f00 + 0x94)));
+
+      const first = decryptPk5Party(normalized.subarray(party + 8, party + 8 + 220));
+      expect(readLe32(first, 0x38) >>> 31).toBe(0);
+      expect(readGen5String(first, 0x48, 22)).toBe("Bulbasaur");
     }
   });
 
@@ -221,6 +242,8 @@ function makeTemplatePokemon(): Uint8Array {
   writeLe16(decrypted, 0x0e, 54321);
   decrypted[0x17] = 1;
   decrypted[0x5f] = 21;
+  writeLe32(decrypted, 0x38, 0x80000000);
+  writeGen5String(decrypted, 0x48, 22, "TRADE");
   decrypted.set(Uint8Array.from([0x54, 0, 0x52, 0, 0x41, 0, 0x44, 0, 0x45, 0, 0xff, 0xff, 0, 0, 0, 0]), 0x68);
   return encryptPk5Party(decrypted);
 }
@@ -292,4 +315,24 @@ function writeLe32(out: Uint8Array, offset: number, value: number): void {
   out[offset + 1] = (value >>> 8) & 0xff;
   out[offset + 2] = (value >>> 16) & 0xff;
   out[offset + 3] = (value >>> 24) & 0xff;
+}
+
+function readGen5String(bytes: Uint8Array, offset: number, byteLength: number): string {
+  const chars: string[] = [];
+  for (let cursor = offset; cursor + 1 < offset + byteLength; cursor += 2) {
+    const value = readLe16(bytes, cursor);
+    if (value === 0 || value === 0xffff) break;
+    chars.push(String.fromCharCode(value));
+  }
+  return chars.join("");
+}
+
+function writeGen5String(out: Uint8Array, offset: number, byteLength: number, value: string): void {
+  out.fill(0, offset, offset + byteLength);
+  let cursor = offset;
+  for (const char of value.slice(0, byteLength / 2 - 1)) {
+    writeLe16(out, cursor, char.charCodeAt(0));
+    cursor += 2;
+  }
+  writeLe16(out, cursor, 0xffff);
 }
