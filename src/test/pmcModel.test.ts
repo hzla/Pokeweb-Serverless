@@ -5,6 +5,7 @@ import { Folder, saveFnt } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import {
+  detectBundledMainMenuSkipDll,
   detectPmcInstallFromRom,
   detectBundledDoubleBattleFixDll,
   detectWhite2UpgradeDlls,
@@ -14,6 +15,7 @@ import {
   PMC_OVERLAY_ID_PATH,
   PMC_PATCHES_KEEP_PATH,
   PMC_SYMBOL_PATH,
+  prepareBw2TestBattleCodeInjection,
   stageCodeInjectionDll,
   validateCodeInjectionDll,
 } from "../pokeweb/pmcModel";
@@ -23,6 +25,8 @@ import type { ProjectState } from "../pokeweb/projectStore";
 const pmcB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url)));
 const pmcW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url)));
 const doubleBattleFixW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url)));
+const mainMenuSkipB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MainMenuSkipB2.dll", import.meta.url)));
+const mainMenuSkipW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url)));
 
 describe("PMC installer", () => {
   it("parses bundled PMC metadata", () => {
@@ -166,6 +170,38 @@ describe("PMC installer", () => {
     expect(parseRpm(doubleBattleFixW2, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCModulePriority: 4 });
   });
 
+  it("recognizes bundled BW2 main menu skip DLLs", () => {
+    const romBytes = makeBw2LikeRom();
+    const project = makeProject(romBytes, "W2");
+    installPmcBytes(project, pmcW2, romBytes);
+
+    expect(detectBundledMainMenuSkipDll(project)).toBe("unpatched");
+    stageCodeInjectionDll(project, "MainMenuSkipW2.dll", mainMenuSkipW2, "patches");
+
+    expect(detectBundledMainMenuSkipDll(project)).toBe("patched");
+    expect(readAscii(mainMenuSkipB2, 0, 4)).toBe("DLXF");
+    expect(readAscii(mainMenuSkipW2, 0, 4)).toBe("DLXF");
+    expect([...mainMenuSkipB2]).not.toEqual([...mainMenuSkipW2]);
+  });
+
+  it("prepares BW2 Test Battle code injection with bundled PMC and main menu skip", async () => {
+    const romBytes = makeBw2LikeRom();
+    const project = makeProject(romBytes, "B2");
+
+    await withBundledCodeInjectionFetch(async () => {
+      const result = await prepareBw2TestBattleCodeInjection(project);
+
+      expect(result).toMatchObject({ path: "patches/MainMenuSkipB2.dll", fileName: "MainMenuSkipB2.dll", target: "patches" });
+      expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, overlayId: 344, version: "13.2.4", gameId: "B2" });
+      expect(detectBundledMainMenuSkipDll(project)).toBe("patched");
+      expect(project.fileSystem?.additions?.["patches/MainMenuSkipB2.dll"]).toEqual(mainMenuSkipB2);
+
+      const exported = new NintendoDSRom(await exportModifiedRom(project));
+      expect(readAscii(exported.getFileByName("patches/MainMenuSkipB2.dll"), 0, 4)).toBe("DLXF");
+      expect(new TextDecoder().decode(exported.getFileByName(PMC_OVERLAY_ID_PATH))).toBe("344");
+    });
+  });
+
   it("rejects Windows DLLs and unconverted RPM modules for user patch upload", () => {
     expect(() => validateCodeInjectionDll(Uint8Array.of(0x4d, 0x5a, 0, 0))).toThrow(/Windows DLL/u);
     expect(() => validateCodeInjectionDll(pmcW2)).toThrow(/RPM module/u);
@@ -280,4 +316,22 @@ function makeDllFromRpm(rpm: Uint8Array): Uint8Array {
   const dll = rpm.slice();
   dll.set([0x44, 0x4c, 0x58, 0x46], 0);
   return dll;
+}
+
+async function withBundledCodeInjectionFetch(run: () => Promise<void>): Promise<void> {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = input instanceof URL ? input : new URL(input instanceof Request ? input.url : String(input));
+    const fileName = url.pathname.split("/").pop();
+    if (fileName === "PMC_B2.rpm") return new Response(pmcB2);
+    if (fileName === "PMC_W2.rpm") return new Response(pmcW2);
+    if (fileName === "MainMenuSkipB2.dll") return new Response(mainMenuSkipB2);
+    if (fileName === "MainMenuSkipW2.dll") return new Response(mainMenuSkipW2);
+    return new Response(undefined, { status: 404 });
+  }) as typeof fetch;
+  try {
+    await run();
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 }

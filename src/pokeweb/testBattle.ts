@@ -4,6 +4,7 @@ import { BW2_NARCS, BW_NARCS, HEADER_NARCS, type BaseRom, type NarcDefinition, t
 import { exportModifiedRom } from "./exportRom";
 import { getNarcFormats } from "./formats";
 import { compileMoveAnimation } from "./moveAnimationModel";
+import { prepareBw2TestBattleCodeInjection } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty } from "./testBattleTeam";
 
@@ -145,7 +146,7 @@ export function getTestBattleConfig(baseRom: BaseRom): TestBattleConfig {
 export async function buildTestBattleDownloads(project: ProjectState, trainerId: number, options: TestBattleBuildOptions = {}): Promise<TestBattleDownload> {
   const config = getTestBattleConfig(project.session.baseRom);
 
-  const [baseRomBytes, save] = await Promise.all([exportModifiedRom(project, { preserveOriginalLength: true }), loadTestBattleSave(config)]);
+  const [baseRomBytes, save] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
   const trainerPatchedRom = patchTestBattleTrainerSlot(baseRomBytes, project, config, trainerId);
   const { romBytes, npc } = patchTestBattleOverworldNpc(trainerPatchedRom, project, config, save);
   const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, config, save, npc);
@@ -157,13 +158,20 @@ export async function buildTestBattleDownloads(project: ProjectState, trainerId:
 export async function buildMoveTestBattleDownloads(project: ProjectState, moveId: number, options: MoveTestBattleBuildOptions = {}): Promise<TestBattleDownload> {
   const config = getTestBattleConfig(project.session.baseRom);
 
-  const [baseRomBytes, save] = await Promise.all([exportModifiedRom(project, { preserveOriginalLength: true }), loadTestBattleSave(config)]);
+  const [baseRomBytes, save] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
   const movePatchedRom = options.moveAnimationScriptText === undefined ? baseRomBytes : patchMoveAnimationScript(baseRomBytes, project, config, moveId, options.moveAnimationScriptText);
   const { romBytes, npc } = patchTestBattleOverworldNpc(movePatchedRom, project, config, save);
   const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, config, save, npc);
   const patchedFlagSaveBytes = patchTestBattleSaveTrainerFlag(patchedMapSaveBytes, config);
   const patchedSaveBytes = patchTestBattleSavePlayerFirstMove(patchedFlagSaveBytes, project, moveId, config.baseRom);
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
+}
+
+async function exportTestBattleBaseRom(project: ProjectState): Promise<Uint8Array> {
+  if (project.session.baseRom !== "BW2") return exportModifiedRom(project, { preserveOriginalLength: true });
+  const temporaryProject = structuredClone(project) as ProjectState;
+  await prepareBw2TestBattleCodeInjection(temporaryProject);
+  return exportModifiedRom(temporaryProject, { preserveOriginalLength: true });
 }
 
 export async function loadHgAnimationTestBattleSave(kind: HgTestBattleSaveKind): Promise<Uint8Array> {
