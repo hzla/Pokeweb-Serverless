@@ -9,7 +9,7 @@ import {
   BW_MESSAGE_BANKS,
   BW_NARCS,
   HEADER_NARCS,
-  VERSION_BY_ARM9_SAMPLE,
+  detectVersionInfo,
   type BaseRom,
   type NarcDefinition,
   type NarcName,
@@ -47,7 +47,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
   const arm9 = decompressCode(rom.arm9);
   const repairedArm9CompressionMetadata = !arm9Compressed && repairDecompressedArm9CompressionMetadata(arm9);
   const sample = readU16(arm9, 14);
-  const version = VERSION_BY_ARM9_SAMPLE[sample] ?? { baseVersion: "W2" as const, baseRom: "BW2" as const };
+  const version = detectVersionInfo(sample, rom.idCode);
   const formats = getNarcFormats(version.baseRom);
   const project: ProjectState = {
     originalRomBytes: compactBytes,

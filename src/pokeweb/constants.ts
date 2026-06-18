@@ -1,5 +1,6 @@
 export type BaseVersion = "B" | "W" | "B2" | "W2";
 export type BaseRom = "BW" | "BW2";
+export type VersionInfo = { baseVersion: BaseVersion; baseRom: BaseRom };
 
 export type NarcName =
   | "headers"
@@ -54,12 +55,25 @@ export type NarcDefinition = {
   required?: boolean;
 };
 
-export const VERSION_BY_ARM9_SAMPLE: Record<number, { baseVersion: BaseVersion; baseRom: BaseRom }> = {
+export const VERSION_BY_ARM9_SAMPLE: Record<number, VersionInfo> = {
   15395: { baseVersion: "B2", baseRom: "BW2" },
   63038: { baseVersion: "W2", baseRom: "BW2" },
   43676: { baseVersion: "B", baseRom: "BW" },
   4581: { baseVersion: "W", baseRom: "BW" },
 };
+
+export const VERSION_BY_ID_CODE_PREFIX: Record<string, VersionInfo> = {
+  IRA: { baseVersion: "W", baseRom: "BW" },
+  IRB: { baseVersion: "B", baseRom: "BW" },
+  IRD: { baseVersion: "W2", baseRom: "BW2" },
+  IRE: { baseVersion: "B2", baseRom: "BW2" },
+};
+
+export const DEFAULT_VERSION_INFO: VersionInfo = { baseVersion: "W2", baseRom: "BW2" };
+
+export function detectVersionInfo(arm9Sample: number, idCode: string): VersionInfo {
+  return VERSION_BY_ARM9_SAMPLE[arm9Sample] ?? VERSION_BY_ID_CODE_PREFIX[idCode.slice(0, 3).toUpperCase()] ?? DEFAULT_VERSION_INFO;
+}
 
 export const HEADER_NARCS: NarcDefinition[] = [
   { path: "a/0/1/2", name: "headers", required: true },

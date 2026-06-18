@@ -52,10 +52,17 @@ const PMC_B2_URL = new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url
 const PMC_W2_URL = new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url);
 const DOUBLE_BATTLE_FIX_B2_URL = new URL("../assets/codeinjection/DoubleBattleFixB2.dll", import.meta.url);
 const DOUBLE_BATTLE_FIX_W2_URL = new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url);
+const MAIN_MENU_SKIP_B2_URL = new URL("../assets/codeinjection/MainMenuSkipB2.dll", import.meta.url);
+const MAIN_MENU_SKIP_W2_URL = new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url);
 
 const DOUBLE_BATTLE_FIX_FILENAMES: Record<"B2" | "W2", string> = {
   B2: "DoubleBattleFixB2.dll",
   W2: "DoubleBattleFixW2.dll",
+};
+
+const MAIN_MENU_SKIP_FILENAMES: Record<"B2" | "W2", string> = {
+  B2: "MainMenuSkipB2.dll",
+  W2: "MainMenuSkipW2.dll",
 };
 
 export async function installBundledPmc(project: ProjectState): Promise<PmcInstallResult> {
@@ -139,6 +146,35 @@ export async function stageBundledDoubleBattleFixDll(project: ProjectState): Pro
     key: "code-injection:double-battle-fix",
   });
   return result;
+}
+
+export async function stageBundledMainMenuSkipDll(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
+  if (project.session.baseRom !== "BW2") {
+    throw new Error("The bundled main menu skip patch currently requires the BW2 PMC runtime.");
+  }
+  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
+    throw new Error(`No bundled main menu skip patch is available for ${project.session.baseVersion}.`);
+  }
+
+  const url = project.session.baseVersion === "B2" ? MAIN_MENU_SKIP_B2_URL : MAIN_MENU_SKIP_W2_URL;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Could not load bundled main menu skip patch (${response.status})`);
+
+  const fileName = MAIN_MENU_SKIP_FILENAMES[project.session.baseVersion];
+  const result = stageCodeInjectionDll(project, fileName, new Uint8Array(await response.arrayBuffer()), "patches");
+  recordGenericChange(project, "code_injection", `${fileName} staged for Test Battle startup skipping.`, "Main Menu Skip", {
+    key: "code-injection:main-menu-skip",
+  });
+  return result;
+}
+
+export async function prepareBw2TestBattleCodeInjection(project: ProjectState): Promise<CodeInjectionDllInstallResult | undefined> {
+  if (project.session.baseRom !== "BW2") return undefined;
+  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
+    throw new Error(`No bundled main menu skip patch is available for ${project.session.baseVersion}.`);
+  }
+  if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  return stageBundledMainMenuSkipDll(project);
 }
 
 export function getPmcInstallStatus(project: ProjectState): PmcInstallStatus {
@@ -226,6 +262,14 @@ export function detectBundledDoubleBattleFixDll(project: ProjectState): "patched
   if (project.session.baseRom !== "BW2") return "unsupported";
   if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") return "unsupported";
   const fileName = DOUBLE_BATTLE_FIX_FILENAMES[project.session.baseVersion];
+  const path = `patches/${fileName}`;
+  return listCodeInjectionDlls(project).some((module) => module.path === path) ? "patched" : "unpatched";
+}
+
+export function detectBundledMainMenuSkipDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {
+  if (project.session.baseRom !== "BW2") return "unsupported";
+  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") return "unsupported";
+  const fileName = MAIN_MENU_SKIP_FILENAMES[project.session.baseVersion];
   const path = `patches/${fileName}`;
   return listCodeInjectionDlls(project).some((module) => module.path === path) ? "patched" : "unpatched";
 }
