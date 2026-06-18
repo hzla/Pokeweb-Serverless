@@ -2960,6 +2960,7 @@ console.log("loaded");
         var audioBuffer
         var tmpAudioBuffer = new Int16Array(16384 * 2)
         var audioWorkletNode
+        var audioGainNode
 
         var frameCount = 0
         var touched = 0
@@ -3009,6 +3010,24 @@ console.log("loaded");
             return headerSize
         }
 
+        function pokewebAudioLevel() {
+            var control = window.POKEWEB_TEST_BATTLE
+            if (control && control.audioMuted) {
+                return 0
+            }
+            var volume = Number(control && control.audioVolume)
+            if (!Number.isFinite(volume)) {
+                volume = 0
+            }
+            return Math.max(0, Math.min(1, volume))
+        }
+
+        function pokewebApplyAudioControls() {
+            if (audioGainNode) {
+                audioGainNode.gain.value = pokewebAudioLevel()
+            }
+        }
+
         function emuRunFrame() {
             pokewebTraceFrame('begin')
             processGamepadInput()
@@ -3037,6 +3056,7 @@ console.log("loaded");
             ctx2d[1].putImageData(FB[1], 0, 0)
             if (audioWorkletNode) {
                 try {
+                    pokewebApplyAudioControls()
                     pokewebTraceFrame('fill audio')
                     var samplesRead = Module._fillAudioBuffer(4096)
                     tmpAudioBuffer.set(audioBuffer.subarray(0, samplesRead * 2))
@@ -3144,9 +3164,12 @@ shadow.querySelector("#player").hidden = false;
                     if (audioContext.state != 'running') {
                         audioContext.resume()
                     }
+                    pokewebApplyAudioControls()
                     return;
                 }
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 0.0001, sampleRate: 48000 });
+                audioGainNode = audioContext.createGain()
+                pokewebApplyAudioControls()
                 if (!audioContext.audioWorklet) {
                     alert('AudioWorklet is not supported in your browser...')
                 } else {
@@ -3206,7 +3229,13 @@ shadow.querySelector("#player").hidden = false;
 
 registerProcessor('my-worklet', MyAudioWorklet)`], {type: "text/javascript"}))).then(() => {
                         audioWorkletNode = new AudioWorkletNode(audioContext, "my-worklet", { outputChannelCount: [2] })
-                        audioWorkletNode.connect(audioContext.destination)
+                        if (audioGainNode) {
+                            audioWorkletNode.connect(audioGainNode)
+                            audioGainNode.connect(audioContext.destination)
+                            pokewebApplyAudioControls()
+                        } else {
+                            audioWorkletNode.connect(audioContext.destination)
+                        }
                     })
                 }
 
@@ -3216,6 +3245,8 @@ registerProcessor('my-worklet', MyAudioWorklet)`], {type: "text/javascript"}))).
                 //alert('Cannnot init sound ')
             }
         }
+
+        window.pokewebTryInitSound = tryInitSound
 
         var prevRunFrameTime = performance.now()
         var pokewebSpeedFrameCredit = 0

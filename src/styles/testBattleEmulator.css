@@ -63,9 +63,12 @@ canvas {
   top: 16px;
   z-index: 10001;
   display: grid;
-  grid-template-columns: auto minmax(160px, 28vw) 48px auto auto auto;
+  grid-template-columns: minmax(260px, 36vw) auto;
+  grid-template-areas:
+    "speed buttons"
+    "audio buttons";
   align-items: center;
-  gap: 8px;
+  gap: 8px 12px;
   padding: 10px 12px;
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 8px;
@@ -76,20 +79,44 @@ canvas {
   pointer-events: auto;
 }
 
-#pokeweb-controls label {
+.pokeweb-slider-control {
+  display: grid;
+  grid-template-columns: 44px minmax(160px, 1fr) 56px;
+  align-items: center;
+  gap: 8px;
+}
+
+.pokeweb-slider-control.-speed {
+  grid-area: speed;
+}
+
+.pokeweb-slider-control.-audio {
+  grid-area: audio;
+}
+
+.pokeweb-playback-controls {
+  display: flex;
+  grid-area: buttons;
+  align-items: center;
+  gap: 8px;
+}
+
+.pokeweb-slider-control label {
   color: #cbd5e1;
   font-size: 0.85rem;
   line-height: 1.2;
 }
 
-#pokeweb-speed {
+#pokeweb-speed,
+#pokeweb-audio {
   width: 100%;
   min-width: 160px;
   accent-color: #2dd4bf;
   pointer-events: auto;
 }
 
-#pokeweb-speed-value {
+#pokeweb-speed-value,
+#pokeweb-audio-value {
   color: #f8fafc;
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
@@ -224,11 +251,20 @@ canvas {
     bottom: 16px;
     left: 16px;
     right: 16px;
-    grid-template-columns: auto minmax(0, 1fr) 48px auto auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "speed"
+      "audio"
+      "buttons";
   }
 
-  #pokeweb-savestate {
-    grid-column: 4 / span 2;
+  .pokeweb-slider-control {
+    grid-template-columns: 44px minmax(0, 1fr) 56px;
+  }
+
+  .pokeweb-playback-controls {
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   #pokeweb-debug-log {

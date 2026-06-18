@@ -17,6 +17,11 @@ const BW2_SAVE_HALF_OFFSET = 0x26000;
 const PK5_PARTY_SIZE = 220;
 const PK5_STORED_SIZE = 136;
 const PK5_BLOCK_SIZE = 32;
+const PK5_NICKNAME_OFFSET = 0x48;
+const PK5_NICKNAME_BYTES = 22;
+const PK5_NICKNAME_MAX_CHARS = 10;
+const PK5_STRING_TERMINATOR = 0xffff;
+const PK5_IS_NICKNAMED_FLAG = 0x80000000;
 const MAX_PARTY_SIZE = 6;
 
 const BLOCK_POSITION = [
@@ -110,6 +115,16 @@ export function patchTestBattleSavePlayerFirstMove(saveBytes: Uint8Array, projec
     patchFirstPartyMoveHalf(out, layout, layout.saveHalfOffset, project, moveId);
   }
   return out;
+}
+
+export function normalizeTestBattleSavePartyNicknames(saveBytes: Uint8Array, project: ProjectState, baseRom: BaseRom = "BW2"): Uint8Array {
+  const layout = getTestBattlePartySaveLayout(baseRom);
+  const out = saveBytes.slice();
+  let changed = normalizePartyNicknamesHalf(out, layout, 0, project);
+  if (hasSaveHalf(out, layout)) {
+    changed = normalizePartyNicknamesHalf(out, layout, layout.saveHalfOffset, project) || changed;
+  }
+  return changed ? out : saveBytes;
 }
 
 export function decryptPk5Party(encrypted: Uint8Array): Uint8Array {
@@ -350,6 +365,28 @@ function patchPartyHalf(out: Uint8Array, layout: TestBattlePartySaveLayout, half
   refreshPartyBlockChecksums(out, layout, halfOffset);
 }
 
+function normalizePartyNicknamesHalf(out: Uint8Array, layout: TestBattlePartySaveLayout, halfOffset: number, project: ProjectState): boolean {
+  const partyOffset = halfOffset + TEST_BATTLE_PARTY_BLOCK_OFFSET;
+  const partyCount = clampInt(out[partyOffset + 4] ?? out[partyOffset] ?? 0, 0, MAX_PARTY_SIZE);
+  let changed = false;
+
+  for (let slot = 0; slot < partyCount; slot += 1) {
+    const slotOffset = partyOffset + 8 + slot * PK5_PARTY_SIZE;
+    const decrypted = decryptPk5Party(out.subarray(slotOffset, slotOffset + PK5_PARTY_SIZE));
+    const speciesId = readLe16(decrypted, 0x08);
+    if (speciesId === 0) continue;
+
+    const before = decrypted.slice();
+    writeNotNicknamedSpeciesName(decrypted, speciesName(project, speciesId));
+    if (bytesEqual(before, decrypted)) continue;
+    out.set(encryptPk5Party(decrypted), slotOffset);
+    changed = true;
+  }
+
+  if (changed) refreshPartyBlockChecksums(out, layout, halfOffset);
+  return changed;
+}
+
 function getTestBattlePartySaveLayout(baseRom: BaseRom): TestBattlePartySaveLayout {
   if (baseRom === "BW") {
     return {
@@ -433,6 +470,7 @@ function applyPokemonToPk5(project: ProjectState, data: Uint8Array, pokemon: Sho
   for (let move = 0; move < 4; move += 1) data[0x30 + move] = movePp(project, pokemon.moves[move] ?? 0);
   data.fill(0, 0x34, 0x38);
   writeLe32(data, 0x38, packIvs(pokemon.ivs));
+  writeNotNicknamedSpeciesName(data, pokemon.speciesName);
   data[0x40] = (pokemon.gender & 0x03) << 1;
   data[0x41] = pokemon.nature;
   data[0x42] = pokemon.abilitySlot === 3 ? 1 : 0;
@@ -450,6 +488,27 @@ function applyPokemonToPk5(project: ProjectState, data: Uint8Array, pokemon: Sho
   writeLe16(data, 0x96, stats.spe);
   writeLe16(data, 0x98, stats.spa);
   writeLe16(data, 0x9a, stats.spd);
+}
+
+function speciesName(project: ProjectState, speciesId: number): string {
+  return project.texts.banks.pokedex?.[speciesId] ?? String(speciesId);
+}
+
+function writeNotNicknamedSpeciesName(data: Uint8Array, name: string): void {
+  writeLe32(data, 0x38, readLe32(data, 0x38) & ~PK5_IS_NICKNAMED_FLAG);
+  writePk5String(data, PK5_NICKNAME_OFFSET, PK5_NICKNAME_BYTES, name, PK5_NICKNAME_MAX_CHARS);
+}
+
+function writePk5String(data: Uint8Array, offset: number, byteLength: number, value: string, maxChars: number): void {
+  data.fill(0, offset, offset + byteLength);
+  let cursor = offset;
+  const end = offset + byteLength;
+  for (const char of value.slice(0, maxChars)) {
+    if (cursor + 1 >= end) break;
+    writeLe16(data, cursor, char.charCodeAt(0));
+    cursor += 2;
+  }
+  if (cursor + 1 < end) writeLe16(data, cursor, PK5_STRING_TERMINATOR);
 }
 
 function makePid(pokemon: ShowdownPokemon, slot: number): number {
@@ -568,6 +627,14 @@ function swapBlocks(bytes: Uint8Array, left: number, right: number, length: numb
     bytes[left + index] = bytes[right + index];
     bytes[right + index] = value;
   }
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
 }
 
 function cryptArray(bytes: Uint8Array, offset: number, length: number, seed: number): void {
