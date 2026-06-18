@@ -63,7 +63,7 @@ canvas {
   top: 16px;
   z-index: 10001;
   display: grid;
-  grid-template-columns: auto minmax(160px, 28vw) 48px auto auto;
+  grid-template-columns: auto minmax(160px, 28vw) 48px auto auto auto;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
@@ -97,7 +97,8 @@ canvas {
 }
 
 #pokeweb-pause,
-#pokeweb-step {
+#pokeweb-step,
+#pokeweb-savestate {
   min-width: 64px;
   padding: 5px 10px;
   color: #f8fafc;
@@ -110,8 +111,10 @@ canvas {
 
 #pokeweb-pause:hover,
 #pokeweb-step:hover,
+#pokeweb-savestate:hover,
 #pokeweb-pause:focus-visible,
-#pokeweb-step:focus-visible {
+#pokeweb-step:focus-visible,
+#pokeweb-savestate:focus-visible {
   border-color: rgba(45, 212, 191, 0.72);
   outline: none;
 }
@@ -123,7 +126,8 @@ canvas {
 }
 
 #pokeweb-pause:disabled,
-#pokeweb-step:disabled {
+#pokeweb-step:disabled,
+#pokeweb-savestate:disabled {
   cursor: not-allowed;
   opacity: 0.48;
 }
@@ -221,6 +225,10 @@ canvas {
     left: 16px;
     right: 16px;
     grid-template-columns: auto minmax(0, 1fr) 48px auto auto;
+  }
+
+  #pokeweb-savestate {
+    grid-column: 4 / span 2;
   }
 
   #pokeweb-debug-log {

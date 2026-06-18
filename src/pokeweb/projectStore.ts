@@ -166,6 +166,7 @@ export type PatchState = {
     forgettableHms?: boolean;
     fairyType?: boolean;
     fairyModernTypings?: boolean;
+    specifyTrainerNatures?: boolean;
   };
 };
 

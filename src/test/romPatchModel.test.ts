@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { writeU32 } from "../nds/binary";
+import { readU16, writeU32 } from "../nds/binary";
 import { parseGeneralPatch } from "../pokeweb/generalPatchModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import {
@@ -8,8 +8,11 @@ import {
   applyModernFairyTypings,
   applyRemoveDustCloudGemRewardsToOverlay,
   applyRemoveDustCloudItemRewardsToOverlay,
+  detectSpecifyTrainerNaturesPatch,
   makeHmsForgettable,
+  specifyTrainerNatures,
 } from "../pokeweb/romPatchModel";
+import { applyTrainerNaturePatchToArm9, detectTrainerNaturePatchState } from "../pokeweb/trainerNaturePatch";
 
 describe("ROM patches", () => {
   it("parses bundled general patch sections", () => {
@@ -178,6 +181,67 @@ describe("ROM patches", () => {
     await expect(makeHmsForgettable(project)).rejects.toThrow("Black / White only");
   });
 
+  it("installs the White 2 trainer nature helper without touching the old DSi code cave", () => {
+    const arm9 = makeTrainerNatureArm9("W2");
+    const dsiCodeBefore = [...arm9.slice(DSI_CODE_CAVE_OFFSET, DSI_CODE_CAVE_OFFSET + 32)];
+
+    const result = applyTrainerNaturePatchToArm9(arm9, "W2");
+
+    expect(result?.status).toBe("applied");
+    expect(result!.arm9.length).toBeGreaterThan(arm9.length);
+    expect(detectTrainerNaturePatchState(result!.arm9, "W2")).toBe("patched");
+    expect([...result!.arm9.slice(DSI_CODE_CAVE_OFFSET, DSI_CODE_CAVE_OFFSET + 32)]).toEqual(dsiCodeBefore);
+    for (const site of TRAINER_NATURE_SITES.W2) {
+      const offset = site.address - ARM9_RAM_BASE;
+      expect([...result!.arm9.slice(offset, offset + site.patchPrefix.length)]).toEqual([...site.patchPrefix]);
+      expect(decodeThumbBlTarget(result!.arm9, offset + site.patchPrefix.length, site.address + site.patchPrefix.length)).toBe(result!.hookAddress);
+    }
+    expect([...arm9.slice(DSI_CODE_CAVE_OFFSET, DSI_CODE_CAVE_OFFSET + 32)]).toEqual(dsiCodeBefore);
+  });
+
+  it("installs the Black 2 trainer nature helper at the shifted hook sites", () => {
+    const arm9 = makeTrainerNatureArm9("B2");
+
+    const result = applyTrainerNaturePatchToArm9(arm9, "B2");
+
+    expect(result?.status).toBe("applied");
+    expect(detectTrainerNaturePatchState(result!.arm9, "B2")).toBe("patched");
+    for (const site of TRAINER_NATURE_SITES.B2) {
+      const offset = site.address - ARM9_RAM_BASE;
+      expect([...result!.arm9.slice(offset, offset + site.patchPrefix.length)]).toEqual([...site.patchPrefix]);
+      expect(decodeThumbBlTarget(result!.arm9, offset + site.patchPrefix.length, site.address + site.patchPrefix.length)).toBe(result!.hookAddress);
+    }
+  });
+
+  it("recognizes an already-installed trainer nature helper", () => {
+    const first = applyTrainerNaturePatchToArm9(makeTrainerNatureArm9("W2"), "W2")!;
+
+    const second = applyTrainerNaturePatchToArm9(first.arm9, "W2");
+
+    expect(second?.status).toBe("already-applied");
+    expect(second?.arm9).toBe(first.arm9);
+    expect(second?.hookAddress).toBe(first.hookAddress);
+  });
+
+  it("refuses to install trainer natures when the trainer setup signatures are unknown", () => {
+    const arm9 = new Uint8Array(0x60000);
+
+    expect(applyTrainerNaturePatchToArm9(arm9, "W2")).toBeUndefined();
+    expect(detectTrainerNaturePatchState(arm9, "W2")).toBe("unknown");
+  });
+
+  it("marks the project ARM9 dirty when enabling trainer natures", async () => {
+    const project = makeTypingProject();
+    project.arm9 = makeTrainerNatureArm9("W2");
+
+    const result = await specifyTrainerNatures(project);
+
+    expect(result.status).toBe("applied");
+    expect(project.arm9Dirty).toBe(true);
+    expect(project.patches?.applied?.specifyTrainerNatures).toBe(true);
+    expect(detectSpecifyTrainerNaturesPatch(project)).toBe("patched");
+  });
+
   it("updates later-generation Fairy Pokemon and move typings", async () => {
     const project = makeTypingProject();
     project.narcs.personal?.records.set(35, {
@@ -253,6 +317,59 @@ const HM_FORGET_GUIDE_PATCH = [
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20,
   0x70, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ] as const;
+
+const ARM9_RAM_BASE = 0x02004000;
+const DSI_CODE_CAVE_OFFSET = 0x0205a99c - ARM9_RAM_BASE;
+
+const TRAINER_NATURE_ORIGINAL = {
+  site1: [0x0d, 0x9a, 0x0d, 0x9b, 0xd2, 0x88, 0x5b, 0x78, 0x04, 0x98, 0x21, 0x1c, 0x00, 0xf0, 0xe6, 0xf9],
+  site2: [
+    0x09, 0x98, 0x01, 0x01, 0x1a, 0x98, 0x43, 0x18, 0xda, 0x88, 0x5b, 0x78, 0x04, 0x98, 0x21, 0x1c,
+    0x00, 0xf0, 0x67, 0xf9,
+  ],
+  site3: [0x0c, 0x9a, 0x0c, 0x9b, 0xd2, 0x88, 0x5b, 0x78, 0x04, 0x98, 0x21, 0x1c, 0x00, 0xf0, 0xd9, 0xf8],
+  site4: [0xfa, 0x88, 0x7b, 0x78, 0x04, 0x98, 0x21, 0x1c, 0x00, 0xf0, 0x50, 0xf8],
+} as const;
+
+const TRAINER_NATURE_PATCH_PREFIX = {
+  site1: [0x0d, 0x9a, 0x04, 0x98, 0x21, 0x1c, 0xc0, 0x46, 0xc0, 0x46, 0xc0, 0x46],
+  site2: [0x09, 0x9a, 0x12, 0x01, 0x1a, 0x98, 0x82, 0x18, 0x04, 0x98, 0x21, 0x1c, 0xc0, 0x46, 0xc0, 0x46],
+  site3: [0x0c, 0x9a, 0x04, 0x98, 0x21, 0x1c, 0xc0, 0x46, 0xc0, 0x46, 0xc0, 0x46],
+  site4: [0x3a, 0x1c, 0x04, 0x98, 0x21, 0x1c, 0xc0, 0x46],
+} as const;
+
+const TRAINER_NATURE_SITES = {
+  W2: [
+    { address: 0x02030a50, original: TRAINER_NATURE_ORIGINAL.site1, patchPrefix: TRAINER_NATURE_PATCH_PREFIX.site1 },
+    { address: 0x02030b4a, original: TRAINER_NATURE_ORIGINAL.site2, patchPrefix: TRAINER_NATURE_PATCH_PREFIX.site2 },
+    { address: 0x02030c6a, original: TRAINER_NATURE_ORIGINAL.site3, patchPrefix: TRAINER_NATURE_PATCH_PREFIX.site3 },
+    { address: 0x02030d80, original: TRAINER_NATURE_ORIGINAL.site4, patchPrefix: TRAINER_NATURE_PATCH_PREFIX.site4 },
+  ],
+  B2: [
+    { address: 0x02030a24, original: TRAINER_NATURE_ORIGINAL.site1, patchPrefix: TRAINER_NATURE_PATCH_PREFIX.site1 },
+    { address: 0x02030b1e, original: TRAINER_NATURE_ORIGINAL.site2, patchPrefix: TRAINER_NATURE_PATCH_PREFIX.site2 },
+    { address: 0x02030c3e, original: TRAINER_NATURE_ORIGINAL.site3, patchPrefix: TRAINER_NATURE_PATCH_PREFIX.site3 },
+    { address: 0x02030d54, original: TRAINER_NATURE_ORIGINAL.site4, patchPrefix: TRAINER_NATURE_PATCH_PREFIX.site4 },
+  ],
+} as const;
+
+function makeTrainerNatureArm9(version: "B2" | "W2"): Uint8Array {
+  const arm9 = new Uint8Array(0x60000);
+  arm9.fill(0xee);
+  for (let index = 0; index < 32; index += 1) arm9[DSI_CODE_CAVE_OFFSET + index] = index;
+  for (const site of TRAINER_NATURE_SITES[version]) arm9.set(site.original, site.address - ARM9_RAM_BASE);
+  return arm9;
+}
+
+function decodeThumbBlTarget(data: Uint8Array, offset: number, fromAddress: number): number | undefined {
+  const high = readU16(data, offset);
+  const low = readU16(data, offset + 2);
+  if ((high & 0xf800) !== 0xf000 || (low & 0xf800) !== 0xf800) return undefined;
+
+  let delta = ((high & 0x7ff) << 12) | ((low & 0x7ff) << 1);
+  if ((delta & 0x400000) !== 0) delta |= ~0x7fffff;
+  return (fromAddress + 4 + delta) >>> 0;
+}
 
 function makeTypingProject(): ProjectState {
   return {

@@ -7,6 +7,7 @@ import {
   addTrainerPokemon,
   autofillTrainerPokemonMoves,
   deleteTrainerPokemon,
+  formatTrainerPokemonShowdownText,
   setTrainerAiFlagForAll,
 } from "../pokeweb/trainerModel";
 import { updateTrainerText } from "../pokeweb/trainerTextModel";
@@ -127,6 +128,23 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
         autofillTrainerPokemonMoves(project, trainerId, slot);
         replaceTrainerRow(root, project, card, trainerId, options);
         options.onDirty?.();
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      }
+      return;
+    }
+
+    const copyShowdownButton = target.closest<HTMLElement>(".copy-showdown-btn");
+    if (copyShowdownButton) {
+      const slot = Number(target.closest<HTMLElement>(".expanded-pok")?.dataset.subIndex);
+      if (!Number.isInteger(slot)) return;
+      const previousText = copyShowdownButton.textContent ?? "Copy";
+      try {
+        await writeClipboardText(formatTrainerPokemonShowdownText(project, trainerId, slot));
+        copyShowdownButton.textContent = "Copied";
+        window.setTimeout(() => {
+          copyShowdownButton.textContent = previousText;
+        }, 1000);
       } catch (error) {
         window.alert(error instanceof Error ? error.message : String(error));
       }
@@ -338,6 +356,26 @@ function showTrainerPokemon(card: HTMLElement, preview: HTMLImageElement): void 
     target.classList.add("show-flex");
     preview.classList.add("-active");
     scrollRowBelowStickyHeader(card);
+  }
+}
+
+async function writeClipboardText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    if (!document.execCommand("copy")) throw new Error("Clipboard copy failed.");
+  } finally {
+    textarea.remove();
   }
 }
 

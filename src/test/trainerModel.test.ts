@@ -7,6 +7,7 @@ import {
   autofillTrainerPokemonMoves,
   calculateTrainerPokemonNature,
   deleteTrainerPokemon,
+  formatTrainerPokemonShowdownText,
   getTrainerRecord,
   setTrainerAiFlagForAll,
   updateTrainerField,
@@ -15,6 +16,7 @@ import {
 import { getTrainerTextLines, updateTrainerText } from "../pokeweb/trainerTextModel";
 import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
+import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 
 describe("trainerModel", () => {
   it("parses trpok records for all four trainer templates", () => {
@@ -77,13 +79,58 @@ describe("trainerModel", () => {
     updateTrainerPokemonField(project, 1, 0, "move_1_0", "Vine Whip");
     updateTrainerPokemonField(project, 1, 0, "ability_0", "2");
     updateTrainerPokemonField(project, 1, 0, "gender_0", "Female");
+    updateTrainerPokemonField(project, 1, 0, "nature_0", "Adamant");
 
     const trainer = getTrainerRecord(project, 1);
     expect(trainer.raw.template).toBe(3);
-    expect(trainer.party[0]).toMatchObject({ speciesId: 2, itemName: "Potion", abilitySlot: 2, gender: "Female" });
+    expect(trainer.party[0]).toMatchObject({ speciesId: 2, itemName: "Potion", abilitySlot: 2, gender: "Female", nature: "Adamant", natureSetting: "Adamant", natureValue: 4 });
     expect(decodeRecord(project, "trpok", 1).raw?.ability_0).toBe(34);
+    expect(decodeRecord(project, "trpok", 1).raw?.padding_0).toBe(4);
     expect(project.narcs.trpok?.dirty.has(1)).toBe(true);
     expect(project.actionChangelog?.entries.some((entry) => entry.domain === "trpok" && entry.text.includes("Pokemon 1 species id changed from Bulbasaur to Ivysaur."))).toBe(true);
+  });
+
+  it("stores trainer Pokemon natures in the legacy padding byte and materializes the same trpok layout", () => {
+    const project = makeProject(3);
+    const originalLength = project.narcs.trpok!.rawFiles[1].length;
+
+    expect(getTrainerRecord(project, 1).party[0]).toMatchObject({ nature: "Impish", natureSetting: "Auto", natureValue: 0 });
+
+    updateTrainerPokemonField(project, 1, 0, "nature_0", "Jolly");
+    expect(getTrainerRecord(project, 1).party[0]).toMatchObject({ nature: "Jolly", natureSetting: "Jolly", natureValue: 14 });
+
+    materializeProjectEdits(project);
+    expect(project.narcs.trpok!.rawFiles[1]).toHaveLength(originalLength);
+    expect(project.narcs.trpok!.rawFiles[1][3]).toBe(14);
+
+    updateTrainerPokemonField(project, 1, 0, "nature_0", "Auto");
+    materializeProjectEdits(project);
+    expect(project.narcs.trpok!.rawFiles[1]).toHaveLength(originalLength);
+    expect(project.narcs.trpok!.rawFiles[1][3]).toBe(0);
+    expect(getTrainerRecord(project, 1).party[0]).toMatchObject({ nature: "Impish", natureSetting: "Auto", natureValue: 0 });
+  });
+
+  it("formats a trainer Pokemon as Showdown import text", () => {
+    const project = makeProject(3);
+
+    expect(formatTrainerPokemonShowdownText(project, 1, 0)).toBe(
+      [
+        "Bulbasaur @ Potion",
+        "Ability: Overgrow",
+        "Level: 5",
+        "Impish Nature",
+        "IVs: 6 HP / 6 Atk / 6 Def / 6 SpA / 6 SpD / 6 Spe",
+        "- Vine Whip",
+      ].join("\n"),
+    );
+  });
+
+  it("treats invalid stored trainer Pokemon nature bytes as Auto", () => {
+    const project = makeProject(0);
+    const trpok = decodeRecord(project, "trpok", 1);
+    trpok.raw!.padding_0 = 26;
+
+    expect(getTrainerRecord(project, 1).party[0]).toMatchObject({ nature: "Impish", natureSetting: "Auto", natureValue: 0 });
   });
 
   it("autofills trainer Pokemon moves from the latest learnset moves and enables moves", () => {
@@ -113,11 +160,13 @@ describe("trainerModel", () => {
     expect(getTrainerRecord(project, 1).party).toHaveLength(2);
 
     updateTrainerPokemonField(project, 1, 1, "species_id_1", "Ivysaur");
+    updateTrainerPokemonField(project, 1, 1, "nature_1", "Timid");
     deleteTrainerPokemon(project, 1, 0);
 
     const trainer = getTrainerRecord(project, 1);
     expect(trainer.raw.num_pokemon).toBe(1);
     expect(trainer.party[0].speciesName).toBe("Ivysaur");
+    expect(trainer.party[0]).toMatchObject({ nature: "Timid", natureSetting: "Timid", natureValue: 11 });
     expect(project.trpokInfo[1]).toEqual({ template: 3, numPokemon: 1 });
   });
 

@@ -1,6 +1,7 @@
 import addIcon from "../assets/svgs/add.svg?raw";
 import { publicAsset } from "../assetUrl";
 import { TRAINER_AIS } from "../pokeweb/constants";
+import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "../pokeweb/romPatchModel";
 import {
   getTrainerAutofills,
   getTrainerCount,
@@ -13,6 +14,8 @@ import { escapeHtml } from "./dom";
 import { attachTrainerInteractions } from "./trainerInteractions";
 
 export function renderTrainerEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>): void {
+  const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
+  const showNatureField = trainerNaturePatchStatus === "patched";
   root.innerHTML = `
     <div class="pokemon-filter trainer-filter">
       <div class="filter-title">Search</div>
@@ -22,6 +25,7 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
         <span class="svg">${addIcon}</span>
         Add Trainer
       </button>
+      ${renderTrainerNaturePatchPanel(project, trainerNaturePatchStatus)}
       <div class="trainer-test-team">
         <div class="filter-title">Test Team</div>
         <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import"></textarea>
@@ -39,10 +43,11 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
           <div class="trainer-poks">Pokemon</div>
         </div>
       </div>
-      ${renderTrainerRows(project)}
+      ${renderTrainerRows(project, showNatureField)}
     </div>
   `;
 
+  installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, trainerNaturePatchStatus);
   attachTrainerInteractions(root, project, {
     onDirty,
     onTestBattle,
@@ -52,16 +57,16 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
 }
 
 export function renderTrainerRow(project: ProjectState, trainerId: number): string {
-  return renderTrainerCard(getTrainerRecord(project, trainerId));
+  return renderTrainerCard(getTrainerRecord(project, trainerId), detectSpecifyTrainerNaturesPatch(project) === "patched");
 }
 
-function renderTrainerRows(project: ProjectState): string {
+function renderTrainerRows(project: ProjectState, showNatureField: boolean): string {
   const rows: string[] = [];
-  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) rows.push(renderTrainerRow(project, trainerId));
+  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) rows.push(renderTrainerCard(getTrainerRecord(project, trainerId), showNatureField));
   return rows.join("");
 }
 
-function renderTrainerCard(trainer: TrainerRecord): string {
+function renderTrainerCard(trainer: TrainerRecord, showNatureField: boolean): string {
   return `
     <div class="expanded-field filterable trainer-card" data-index="${trainer.id}">
       <div class="expanded-field-main">
@@ -83,7 +88,7 @@ function renderTrainerCard(trainer: TrainerRecord): string {
         </div>
       </div>
       ${renderExpandedTrainer(trainer)}
-      ${trainer.party.map((pok) => renderTrainerPokemon(trainer, pok)).join("")}
+      ${trainer.party.map((pok) => renderTrainerPokemon(trainer, pok, showNatureField)).join("")}
     </div>
   `;
 }
@@ -130,7 +135,7 @@ function renderTrainerTexts(trainer: TrainerRecord): string {
   `;
 }
 
-function renderTrainerPokemon(trainer: TrainerRecord, pok: TrainerPokemonSlot): string {
+function renderTrainerPokemon(trainer: TrainerRecord, pok: TrainerPokemonSlot, showNatureField: boolean): string {
   return `
     <div data-sub-index="${pok.slot}" class="expanded-card-subcontent expanded-pok expanded-pok-${pok.slot}">
       <div class="expanded-left">
@@ -139,6 +144,7 @@ function renderTrainerPokemon(trainer: TrainerRecord, pok: TrainerPokemonSlot): 
         ${expandedField(`Ability Slot (${pok.abilityName})`, editable("trpok", `ability_${pok.slot}`, pok.abilitySlot, "tr-item", { type: "int-3" }))}
         ${expandedField("Gender", editable("trpok", `gender_${pok.slot}`, pok.gender, "tr-item", { autofill: "genders" }))}
         ${expandedField(`IVs: (${pok.nature})`, editable("trpok", `ivs_${pok.slot}`, pok.ivs, "tr-item", { type: "int-255" }), "iv-label")}
+        ${showNatureField ? expandedField("Nature", editable("trpok", `nature_${pok.slot}`, pok.natureSetting, "tr-item", { autofill: "natures" })) : ""}
         ${expandedField("Form", editable("trpok", `form_${pok.slot}`, pok.form, "tr-item", { type: "int-255" }))}
       </div>
       <div class="expanded-left">
@@ -146,11 +152,66 @@ function renderTrainerPokemon(trainer: TrainerRecord, pok: TrainerPokemonSlot): 
         ${[1, 2, 3, 4].map((move) => expandedField(`Move ${move}`, editable("trpok", `move_${move}_${pok.slot}`, trainer.hasMoves ? pok.moves[move - 1] : "", "tr-item trpok-mov", { autofill: "move_names", check: "has-moves" }))).join("")}
         <div class="expanded-field btn-field-right multi">
           <div class="autofill-btn field-btn" data-narc="trpok">Autofill Moves</div>
+          <div class="copy-showdown-btn field-btn" data-narc="trpok">Copy</div>
           <div class="delete-trpok del-btn field-btn" data-narc="trpok">Delete</div>
         </div>
       </div>
     </div>
   `;
+}
+
+function renderTrainerNaturePatchPanel(project: ProjectState, status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
+  if (status === "unsupported") return "";
+  const badgeClass = status === "patched" ? "-ok" : status === "unknown" ? "-warn" : "";
+  const buttonDisabled = status === "patched" ? "disabled" : "";
+  return `
+    <div class="trainer-nature-patch-panel">
+      <div class="filter-title">Natures</div>
+      <div class="trainer-nature-patch-status">
+        <span class="patch-badge ${badgeClass}">${escapeHtml(trainerNatureStatusLabel(status))}</span>
+        <span>${escapeHtml(project.session.baseVersion)}</span>
+      </div>
+      <button class="btn -default trainer-nature-patch-btn" id="trainer-nature-patch-btn" type="button" ${buttonDisabled}>${escapeHtml(trainerNatureButtonLabel(status))}</button>
+    </div>
+  `;
+}
+
+function installTrainerNaturePatchControl(
+  project: ProjectState,
+  root: HTMLElement,
+  onDirty: (() => void) | undefined,
+  onTestBattle: ((trainerId: number, showdownText: string) => Promise<void>) | undefined,
+  status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>,
+): void {
+  const button = root.querySelector<HTMLButtonElement>("#trainer-nature-patch-btn");
+  if (!button || status === "patched") return;
+  button.addEventListener("click", async () => {
+    if (!window.confirm("Apply this ARM9 patch to enable explicit trainer Pokémon natures?\n\nExport the ROM after applying to keep this change.")) return;
+    const previousText = button.textContent ?? trainerNatureButtonLabel(status);
+    button.disabled = true;
+    button.textContent = "Applying...";
+    try {
+      const result = await specifyTrainerNatures(project);
+      if (result.status === "applied") onDirty?.();
+      renderTrainerEditor(project, root, onDirty, onTestBattle);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+      button.disabled = false;
+      button.textContent = previousText;
+    }
+  });
+}
+
+function trainerNatureStatusLabel(status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
+  if (status === "patched") return "Applied";
+  if (status === "unknown") return "Signature unknown";
+  if (status === "unsupported") return "Unsupported";
+  return "Ready";
+}
+
+function trainerNatureButtonLabel(status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
+  if (status === "patched") return "Applied";
+  return "Apply Patch";
 }
 
 function renderPartyPreview(pok: TrainerPokemonSlot): string {
