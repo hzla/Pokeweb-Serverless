@@ -107,6 +107,27 @@ describe("docGeneratorModel", () => {
     expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].reward_item).toBe("Black Glasses");
   });
 
+  it("exports alt form personal records and trainer abilities to calc and dex data", () => {
+    const project = makeProject();
+    const calcFile = generateCalcDownload(project, "Volt White Plus");
+    const calcPayload = JSON.parse(calcFile.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+    const [dexFile] = generateDexDownloads(project, "Volt White Plus");
+    const dexPayload = JSON.parse(String(dexFile.contents).replace(/^overrides = /u, "").replace(/;\n$/u, ""));
+
+    expect(calcPayload.poks["Deoxys-Attack"]).toMatchObject({
+      name: "Deoxys-Attack",
+      num: 5,
+      bs: { hp: 55, at: 100 },
+      abs: ["Pressure", "None", "None"],
+    });
+    expect(dexPayload.poks["Deoxys-Attack"]).toMatchObject({ name: "Deoxys-Attack", num: 5 });
+    expect(calcPayload.formatted_sets["Deoxys-Attack"]["Lvl 43 Ace Trainer Dan - Black City"]).toMatchObject({
+      ability: "Pressure",
+      form: 1,
+    });
+    expect(calcPayload.formatted_sets.Deoxys).toBeUndefined();
+  });
+
   it("exports edited type charts in calc backup data", () => {
     const project = makeProject();
     project.overlays[167] = makeTypeChartOverlay(TYPE_CHART_TYPES.length);
@@ -231,7 +252,10 @@ function makeProject(): ProjectState {
       [2, "species_id"],
       [2, "form"],
     ],
-    [{ ivs: 255, ability: 16, level: 42, species_id: 1, form: 0 }],
+    [
+      { ivs: 255, ability: 16, level: 42, species_id: 1, form: 0 },
+      { ivs: 255, ability: 16, level: 43, species_id: 4, form: 1 },
+    ],
   );
 
   return {
@@ -253,8 +277,15 @@ function makeProject(): ProjectState {
       items: makeStore("items", Array.from({ length: 26 }, () => new Uint8Array()), 26),
       personal: makeStore(
         "personal",
-        [packRows(formats.personal!, [{}]), packRows(formats.personal!, [{ base_hp: 45, item_1: 25 }]), packRows(formats.personal!, [{}])],
-        3,
+        [
+          packRows(formats.personal!, [{}]),
+          packRows(formats.personal!, [{ base_hp: 45, item_1: 25, ability_1: 1 }]),
+          packRows(formats.personal!, [{}]),
+          packRows(formats.personal!, [{}]),
+          packRows(formats.personal!, [{ base_hp: 50, ability_1: 1, form_id: 5, num_forms: 2 }]),
+          packRows(formats.personal!, [{ base_hp: 55, base_atk: 100, ability_1: 2 }]),
+        ],
+        6,
       ),
       learnsets: makeStore(
         "learnsets",
@@ -282,7 +313,7 @@ function makeProject(): ProjectState {
       trdata: makeStore(
         "trdata",
         Array.from({ length: 8 }, (_, index) =>
-          packRows(formats.trdata!, [index === 7 ? { class: 1, reward_item: 25, num_pokemon: 1 } : {}]),
+          packRows(formats.trdata!, [index === 7 ? { class: 1, reward_item: 25, num_pokemon: 2 } : {}]),
         ),
         8,
       ),
@@ -308,16 +339,16 @@ function makeProject(): ProjectState {
     texts: {
       banks: {
         locations: ["Black City"],
-        pokedex: ["None", "Bulbasaur", "Ivysaur"],
+        pokedex: ["None", "Bulbasaur", "Ivysaur", "Pokemon 3", "Deoxys"],
         moves: ["None", "Tackle", "Vine Whip", "Growl", "Razor Leaf", "Sleep Powder", "Solar Beam"],
         items: Array.from({ length: 26 }, (_, index) => (index === 25 ? "Potion" : index === 0 ? "None" : `Item ${index}`)),
-        abilities: ["None", "Overgrow"],
+        abilities: ["None", "Overgrow", "Pressure"],
         tr_names: Array.from({ length: 8 }, (_, index) => (index === 7 ? "Dan" : `Trainer ${index}`)),
         tr_classes: ["None", "Ace Trainer"],
       },
     },
     formats,
-    trpokInfo: Array.from({ length: 8 }, (_, index) => (index === 7 ? { template: 0, numPokemon: 1 } : { template: 0, numPokemon: 0 })),
+    trpokInfo: Array.from({ length: 8 }, (_, index) => (index === 7 ? { template: 0, numPokemon: 2 } : { template: 0, numPokemon: 0 })),
     docs: { romTitle: "test-rom", trainerLocations: {}, trainerDiffs: {}, itemLocations: {}, groundItemScriptMap: {} },
   };
 }

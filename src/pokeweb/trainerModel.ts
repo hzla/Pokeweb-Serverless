@@ -15,6 +15,7 @@ export type TrainerPokemonSlot = {
   level: number;
   ivs: number;
   abilitySlot: number;
+  resolvedAbilitySlot: number;
   abilityName: string | number;
   gender: string;
   form: number;
@@ -470,6 +471,7 @@ function getTrainerPokemonSlot(project: ProjectState, trainerId: number, slot: n
     level: Number(trpok.raw[`level_${slot}`] ?? 0),
     ivs: Number(trpok.raw[`ivs_${slot}`] ?? 0),
     abilitySlot,
+    resolvedAbilitySlot,
     abilityName: abilityName(project, speciesId, resolvedAbilitySlot),
     gender: String(trpok.readable[`gender_${slot}`] ?? "Default"),
     form: Number(trpok.raw[`form_${slot}`] ?? 0),
