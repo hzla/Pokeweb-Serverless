@@ -18,7 +18,7 @@ import { parseGen5ScriptEncounters, type Gen5ScriptEncounter } from "./gen5Scrip
 import { parseHeaders } from "./headerModel";
 import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
-import { getPokemonCount, getPokemonRecord, getPokemonSummaryRecord } from "./pokemonModel";
+import { getPokemonCount, getPokemonRecord, getPokemonSummaryRecord, type PokemonSummaryRecord } from "./pokemonModel";
 import { decodeRecord, type DocGeneratorState, type ProjectState, type ReadableRecord } from "./projectStore";
 import { getTextBank } from "./textModel";
 import {
@@ -257,6 +257,99 @@ const STANDARD_TYPE_MATCHUPS: Array<[string, string, TypeEffectivenessValue]> = 
 
 const STANDARD_GEN5_TYPE_CHART_BYTES = buildStandardTypeChartBytes(TYPES.slice(0, TYPE_CHART_VANILLA_TYPE_COUNT), false);
 const STANDARD_GEN6_TYPE_CHART_BYTES = buildStandardTypeChartBytes(TYPES, true);
+
+const FORM_INFO: Record<string, string[]> = {
+  Deoxys: ["Attack", "Defense", "Speed"],
+  Shaymin: ["Sky"],
+  Giratina: ["Origin"],
+  Rotom: ["Heat", "Wash", "Frost", "Fan", "Mow"],
+  Castform: ["Sunny", "Rainy", "Snowy"],
+  Basculin: ["Blue-Striped"],
+  Darmanitan: ["Zen"],
+  Meloetta: ["Pirouette"],
+  Kyurem: ["White", "Black"],
+  Keldeo: ["Resolute"],
+  Tornadus: ["Therian"],
+  Thundurus: ["Therian"],
+  Landorus: ["Therian"],
+  Wormadam: ["Sandy", "Trash"],
+  Genesect: ["Douse", "Chill", "Burn", "Shock"],
+  Shellos: ["East"],
+  Gastrodon: ["East"],
+  Sawsbuck: ["Summer", "Autumn", "Winter"],
+};
+
+const SPECIAL_FIXED_PERSONAL_NAMES: Record<number, string> = {
+  29: "Nidoran-F",
+  32: "Nidoran-M",
+  83: "Farfetch’d",
+};
+
+const BW_FIXED_PERSONAL_NAMES: Record<number, string> = {
+  ...SPECIAL_FIXED_PERSONAL_NAMES,
+  650: "Deoxys-Attack",
+  651: "Deoxys-Defense",
+  652: "Deoxys-Speed",
+  655: "Shaymin-Sky",
+  656: "Giratina-Origin",
+  657: "Rotom-Heat",
+  658: "Rotom-Wash",
+  659: "Rotom-Frost",
+  660: "Rotom-Fan",
+  661: "Rotom-Mow",
+  662: "Castform-Sunny",
+  663: "Castform-Rainy",
+  664: "Castform-Snowy",
+  665: "Basculin-Blue-Striped",
+  666: "Darmanitan-Zen",
+  667: "Meloetta-Pirouette",
+};
+
+const BW2_FIXED_PERSONAL_NAMES: Record<number, string> = {
+  ...SPECIAL_FIXED_PERSONAL_NAMES,
+  652: "UFO",
+  653: "BrycenMan",
+  654: "MT",
+  655: "MT2",
+  656: "Transport",
+  658: "Humanoid",
+  659: "Monster",
+  660: "F00",
+  661: "Majin",
+  662: "WhiteDoor",
+  663: "BlackDoor",
+  664: "UFO2",
+  665: "UFO2",
+  666: "Brycen Man",
+  682: "F002",
+  683: "Black Belt",
+  685: "Deoxys-Attack",
+  686: "Deoxys-Defense",
+  687: "Deoxys-Speed",
+  688: "Wormadam-Sandy",
+  689: "Wormadam-Trash",
+  690: "Shaymin-Sky",
+  691: "Giratina-Origin",
+  692: "Rotom-Heat",
+  693: "Rotom-Wash",
+  694: "Rotom-Frost",
+  695: "Rotom-Fan",
+  696: "Rotom-Mow",
+  697: "Castform-Sunny",
+  698: "Castform-Rainy",
+  699: "Castform-Snowy",
+  700: "Basculin-Blue-Striped",
+  701: "Darmanitan-Zen",
+  702: "Meloetta-Pirouette",
+  703: "Kyurem-White",
+  704: "Kyurem-Black",
+  705: "Keldeo-Resolute",
+  706: "Tornadus-Therian",
+  707: "Thundurus-Therian",
+  708: "Landorus-Therian",
+};
+
+const TRAINER_FORM_ABILITY_EXCLUSIONS = new Set(["Arceus", "Deerling"]);
 
 export function ensureDocs(project: ProjectState): DocGeneratorState {
   project.docs ??= {
@@ -603,7 +696,7 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
   const out: Record<string, Record<string, unknown>> = {};
   for (let id = 1; id < getPokemonCount(project); id += 1) {
     const record = getPokemonRecord(project, id);
-    const name = titleizeName(record.personal.name ?? project.texts.banks.pokedex?.[id] ?? `Pokemon ${id}`);
+    const name = pokemonExportName(project, id, record);
     const types = [record.personal.type_1, record.personal.type_2].map((type) => String(type ?? "")).filter(Boolean);
     out[name] = {
       name,
@@ -628,7 +721,7 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
 
   for (let id = 1; id < getPokemonCount(project); id += 1) {
     const record = getPokemonRecord(project, id);
-    const sourceName = titleizeName(record.personal.name ?? project.texts.banks.pokedex?.[id] ?? `Pokemon ${id}`);
+    const sourceName = pokemonExportName(project, id, record);
     for (const evo of record.evolutions) {
       const target = titleizeName(evo.target);
       if (!target || target === "0" || !out[target] || Number(evo.param) === 0) continue;
@@ -641,6 +734,103 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
     }
   }
   return out;
+}
+
+function pokemonExportName(project: ProjectState, id: number, record?: PokemonSummaryRecord): string {
+  const fixed = fixedPersonalName(project, id);
+  if (fixed) return fixed;
+
+  const summary = record ?? safePokemonSummaryRecord(project, id);
+  const directName = summary ? directPokemonExportName(project, id, summary) : undefined;
+  if (directName) return directName;
+
+  const formName = derivedAltFormName(project, id);
+  if (formName) return formName;
+
+  return titleizeName(summary?.personal.name ?? project.texts.banks.pokedex?.[id] ?? `Pokemon ${id}`);
+}
+
+function directPokemonExportName(project: ProjectState, id: number, record: PokemonSummaryRecord): string | undefined {
+  const readableName = String(record.personal.name ?? "").trim();
+  if (readableName && !isGenericPersonalName(readableName, id)) return titleizeName(readableName);
+  const textName = String(project.texts.banks.pokedex?.[id] ?? "").trim();
+  if (textName && !isGenericPersonalName(textName, id)) return titleizeName(textName);
+  return undefined;
+}
+
+function derivedAltFormName(project: ProjectState, id: number): string | undefined {
+  for (let baseId = 1; baseId < getPokemonCount(project); baseId += 1) {
+    if (baseId === id) continue;
+    const baseRecord = safePokemonSummaryRecord(project, baseId);
+    if (!baseRecord) continue;
+    const formId = Number(baseRecord.rawPersonal.form_id ?? 0);
+    const numForms = Number(baseRecord.rawPersonal.num_forms ?? 0);
+    const altFormCount = Math.max(numForms - 1, 0);
+    if (formId <= 0 || altFormCount <= 0 || id < formId || id >= formId + altFormCount) continue;
+
+    const baseName = fixedPersonalName(project, baseId) ?? directPokemonExportName(project, baseId, baseRecord);
+    if (!baseName) continue;
+    const suffix = FORM_INFO[baseName]?.[id - formId];
+    if (suffix) return `${baseName}-${suffix}`;
+  }
+  return undefined;
+}
+
+function trainerPokemonExportName(project: ProjectState, pok: TrainerPokemonSlot): string {
+  const baseName = pokemonExportName(project, pok.speciesId);
+  if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return baseName;
+
+  const suffix = FORM_INFO[baseName]?.[pok.form - 1];
+  if (suffix) return `${baseName}-${suffix}`;
+
+  const altPersonalId = trainerAltFormPersonalId(project, pok.speciesId, pok.form);
+  return altPersonalId === undefined ? baseName : pokemonExportName(project, altPersonalId);
+}
+
+function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot): string {
+  const baseName = pokemonExportName(project, pok.speciesId);
+  if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return titleizeAbility(pok.abilityName);
+
+  const altPersonalId = trainerAltFormPersonalId(project, pok.speciesId, pok.form);
+  if (altPersonalId === undefined) return titleizeAbility(pok.abilityName);
+
+  const altRecord = safePokemonSummaryRecord(project, altPersonalId);
+  const slot = Math.min(Math.max(Number(pok.resolvedAbilitySlot ?? pok.abilitySlot ?? 1), 1), 3);
+  const ability = altRecord?.personal[`ability_${slot}`];
+  return isEmptyExportValue(ability) ? titleizeAbility(pok.abilityName) : titleizeAbility(ability);
+}
+
+function trainerAltFormPersonalId(project: ProjectState, speciesId: number, form: number): number | undefined {
+  if (form <= 0 || !project.narcs.personal || speciesId <= 0 || speciesId >= project.narcs.personal.fileCount) return undefined;
+  const baseRecord = safePokemonSummaryRecord(project, speciesId);
+  const formId = Number(baseRecord?.rawPersonal.form_id ?? 0);
+  const altPersonalId = formId + form - 1;
+  return formId > 0 && altPersonalId > 0 && altPersonalId < project.narcs.personal.fileCount ? altPersonalId : undefined;
+}
+
+function fixedPersonalName(project: ProjectState, id: number): string | undefined {
+  if (project.session.baseRom === "BW2") return BW2_FIXED_PERSONAL_NAMES[id];
+  if (project.session.baseRom === "BW") return BW_FIXED_PERSONAL_NAMES[id];
+  return SPECIAL_FIXED_PERSONAL_NAMES[id];
+}
+
+function isGenericPersonalName(value: string, id: number): boolean {
+  const normalized = toId(value);
+  return normalized === "" || normalized === "0" || normalized === "altform" || normalized === `pokemon${id}`;
+}
+
+function isEmptyExportValue(value: unknown): boolean {
+  const normalized = toId(String(value ?? ""));
+  return normalized === "" || normalized === "0" || normalized === "none" || normalized === "noitem";
+}
+
+function safePokemonSummaryRecord(project: ProjectState, id: number): PokemonSummaryRecord | undefined {
+  if (!project.narcs.personal || id <= 0 || id >= project.narcs.personal.fileCount) return undefined;
+  try {
+    return getPokemonSummaryRecord(project, id);
+  } catch {
+    return undefined;
+  }
 }
 
 function buildDexAbilities(project: ProjectState): Record<string, unknown> {
@@ -995,7 +1185,7 @@ function addWildHeldItemSources(project: ProjectState, target: Record<string, st
   let count = 0;
   for (let speciesId = 1; speciesId < getPokemonCount(project); speciesId += 1) {
     const pok = getPokemonSummaryRecord(project, speciesId);
-    const species = titleizeName(pok.personal.name ?? project.texts.banks.pokedex?.[speciesId] ?? `Pokemon ${speciesId}`);
+    const species = pokemonExportName(project, speciesId, pok);
     for (const itemField of ["item_1", "item_2", "item_3"]) {
       const itemId = Number(pok.rawPersonal[itemField] ?? 0);
       if (itemId <= 0) continue;
@@ -1068,7 +1258,7 @@ function buildFormattedTrainerSets(project: ProjectState): Record<string, Record
     nameCounts[baseName] = (nameCounts[baseName] ?? 0) + 1;
     for (const pok of trainer.party) {
       if (pok.ivs < 0) continue;
-      const species = titleizeName(pok.speciesName);
+      const species = trainerPokemonExportName(project, pok);
       formatted[species] ??= {};
       const setName = trainerSetName(project, trainer, pok.level, nameCounts[baseName]);
       const iv = Math.floor((pok.ivs * 31) / 255);
@@ -1085,7 +1275,7 @@ function buildFormattedTrainerSets(project: ProjectState): Record<string, Record
         nature: pok.nature,
         moves: calcTrainerMoves(project, trainer, pok).map((move) => showdownName(move)),
         sub_index: pok.slot,
-        ability: titleizeAbility(pok.abilityName),
+        ability: trainerPokemonExportAbility(project, pok),
         sprite: trainer.spritePath,
         form: pok.form,
         evs: { df: 0 },
