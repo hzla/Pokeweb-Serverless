@@ -106,6 +106,58 @@ describe("PMC installer", () => {
     expect(readU32(project.arm9, 0x7b41c)).toBe(result.overlayBaseAddress + 0x8000);
   });
 
+  it("skips the PMC keep marker when patches already has files before later ROMFS entries", async () => {
+    const romBytes = makeBw2LikeRom(
+      347,
+      new Folder({
+        files: ["base.bin"],
+        firstId: 344,
+        folders: [
+          ["patches", new Folder({ files: ["Existing.dll"], firstId: 345 })],
+          ["zz_pokeweb_pwan", new Folder({ files: ["pwan.narc"], firstId: 346 })],
+        ],
+      }),
+    );
+    const project = makeProject(romBytes, "W2");
+
+    installPmcBytes(project, pmcW2, romBytes);
+    expect(project.fileSystem?.additions?.[PMC_PATCHES_KEEP_PATH]).toBeUndefined();
+
+    const exported = await exportModifiedRom(project);
+    const rom = new NintendoDSRom(exported);
+
+    expect(rom.fileId("patches/Existing.dll")).toBe(345);
+    expect(rom.fileId("zz_pokeweb_pwan/pwan.narc")).toBe(346);
+    expect(rom.filenames.idOf(PMC_PATCHES_KEEP_PATH)).toBeUndefined();
+  });
+
+  it("prunes stale staged PMC keep markers during export for non-tail patches folders", async () => {
+    const romBytes = makeBw2LikeRom(
+      347,
+      new Folder({
+        files: ["base.bin"],
+        firstId: 344,
+        folders: [
+          ["patches", new Folder({ files: ["Existing.dll"], firstId: 345 })],
+          ["zz_pokeweb_pwan", new Folder({ files: ["pwan.narc"], firstId: 346 })],
+        ],
+      }),
+    );
+    const project = makeProject(romBytes, "W2");
+    project.fileSystem = {
+      replacements: {},
+      additions: { [PMC_PATCHES_KEEP_PATH]: new TextEncoder().encode("pokeweb") },
+    };
+
+    const exported = await exportModifiedRom(project);
+    const rom = new NintendoDSRom(exported);
+
+    expect(project.fileSystem.additions?.[PMC_PATCHES_KEEP_PATH]).toBeUndefined();
+    expect(rom.fileId("patches/Existing.dll")).toBe(345);
+    expect(rom.fileId("zz_pokeweb_pwan/pwan.narc")).toBe(346);
+    expect(rom.filenames.idOf(PMC_PATCHES_KEEP_PATH)).toBeUndefined();
+  });
+
   it("stages built DLXF patch and library DLLs after PMC is installed", async () => {
     const romBytes = makeBw2LikeRom();
     const project = makeProject(romBytes, "W2");
@@ -240,9 +292,9 @@ function makeRelocationRpm(type: "FUNCTION_ARM" | "FUNCTION_THM", address: numbe
   };
 }
 
-function makeBw2LikeRom(): Uint8Array {
-  const files = Array.from({ length: 345 }, (_value, index) => Uint8Array.of(index & 0xff));
-  const fnt = saveFnt(new Folder({ files: ["base.bin"], firstId: 344 }));
+function makeBw2LikeRom(fileCount = 345, filenames = new Folder({ files: ["base.bin"], firstId: 344 })): Uint8Array {
+  const files = Array.from({ length: fileCount }, (_value, index) => Uint8Array.of(index & 0xff));
+  const fnt = saveFnt(filenames);
   const overlayTable = new Uint8Array(344 * 32);
   writeU32(overlayTable, 0, 0);
   writeU32(overlayTable, 4, 0x021f8000);

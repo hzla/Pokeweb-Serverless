@@ -109,7 +109,7 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   stageRomPath(project, rom, PMC_OVERLAY_ID_PATH, asciiBytes(String(overlayId)));
   stageRomPath(project, rom, PMC_SYMBOL_PATH, symbolBytes);
   stageRomPath(project, rom, overlayPath, overlayBytes);
-  stageRomPath(project, rom, PMC_PATCHES_KEEP_PATH, asciiBytes("pokeweb"));
+  stagePatchesKeepPath(project, rom);
 
   project.codeInjection ??= {};
   project.codeInjection.pmc = {
@@ -394,6 +394,43 @@ function stageRomPath(project: ProjectState, rom: NintendoDSRom, path: string, b
   const existingId = rom.filenames.idOf(path);
   if (existingId === undefined) addRomFile(project, path, bytes);
   else setRomFileReplacement(project, existingId, bytes);
+}
+
+function stagePatchesKeepPath(project: ProjectState, rom: NintendoDSRom): void {
+  const bytes = asciiBytes("pokeweb");
+  const existingId = rom.filenames.idOf(PMC_PATCHES_KEEP_PATH);
+  if (existingId !== undefined) {
+    setRomFileReplacement(project, existingId, bytes);
+    return;
+  }
+
+  if (romFolderHasFiles(rom.filenames, "patches")) {
+    delete project.fileSystem?.additions?.[PMC_PATCHES_KEEP_PATH];
+    return;
+  }
+
+  addRomFile(project, PMC_PATCHES_KEEP_PATH, bytes);
+}
+
+export function pruneRedundantPatchesKeepAddition(project: ProjectState, rom: NintendoDSRom): void {
+  const additions = project.fileSystem?.additions;
+  if (!additions || !(PMC_PATCHES_KEEP_PATH in additions)) return;
+  if (rom.filenames.idOf(PMC_PATCHES_KEEP_PATH) !== undefined || romFolderHasFiles(rom.filenames, "patches")) {
+    delete additions[PMC_PATCHES_KEEP_PATH];
+  }
+}
+
+function findRomFolder(root: Folder, path: string): Folder | undefined {
+  let folder: Folder | undefined = root;
+  for (const part of path.split("/").filter(Boolean)) {
+    folder = folder?.folders.find(([name]) => name === part)?.[1];
+    if (!folder) return undefined;
+  }
+  return folder;
+}
+
+function romFolderHasFiles(root: Folder, path: string): boolean {
+  return (findRomFolder(root, path)?.files.length ?? 0) > 0;
 }
 
 function readPmcOverlayId(project: ProjectState, rom: NintendoDSRom): number | undefined {
