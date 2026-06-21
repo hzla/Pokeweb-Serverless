@@ -313,13 +313,18 @@ export function detectPmcInstallFromRom(rom: NintendoDSRom): NonNullable<Project
   };
 }
 
-export function buildCodeInjectionOverlayTable(project: ProjectState, rom: NintendoDSRom, baseTable: Uint8Array): Uint8Array | undefined {
+export function buildCodeInjectionOverlayTable(
+  project: ProjectState,
+  rom: NintendoDSRom,
+  baseTable: Uint8Array,
+  resolveFileId?: (path: string) => number | undefined,
+): Uint8Array | undefined {
   const pmc = project.codeInjection?.pmc;
   if (!pmc) return undefined;
   if (pmc.overlayBaseAddress === undefined) return undefined;
   const overlayBytes = project.fileSystem?.additions?.[pmc.overlayPath] ?? getRomPathBytes(rom, pmc.overlayPath);
   if (!overlayBytes) return undefined;
-  const fileId = fileIdForPathWithAdditions(project, rom, pmc.overlayPath);
+  const fileId = resolveFileId?.(pmc.overlayPath) ?? fileIdForPathWithAdditions(project, rom, pmc.overlayPath);
   const existingEntry = findOverlayEntry(baseTable, pmc.overlayId);
   const table = existingEntry === undefined ? appendOverlayEntry(baseTable) : baseTable.slice();
   const offset = existingEntry ?? table.length - 32;

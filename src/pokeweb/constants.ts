@@ -1,6 +1,11 @@
-export type BaseVersion = "B" | "W" | "B2" | "W2";
-export type BaseRom = "BW" | "BW2";
-export type VersionInfo = { baseVersion: BaseVersion; baseRom: BaseRom };
+export type Generation = "gen4" | "gen5";
+export type Gen4Version = "D" | "P" | "Pt" | "HG" | "SS";
+export type Gen5Version = "B" | "W" | "B2" | "W2";
+export type BaseVersion = Gen4Version | Gen5Version;
+export type Gen4BaseRom = "DP" | "Pt" | "HGSS";
+export type Gen5BaseRom = "BW" | "BW2";
+export type BaseRom = Gen4BaseRom | Gen5BaseRom;
+export type VersionInfo = { generation: Generation; baseVersion: BaseVersion; baseRom: BaseRom };
 
 export type NarcName =
   | "headers"
@@ -56,23 +61,52 @@ export type NarcDefinition = {
 };
 
 export const VERSION_BY_ARM9_SAMPLE: Record<number, VersionInfo> = {
-  15395: { baseVersion: "B2", baseRom: "BW2" },
-  63038: { baseVersion: "W2", baseRom: "BW2" },
-  43676: { baseVersion: "B", baseRom: "BW" },
-  4581: { baseVersion: "W", baseRom: "BW" },
+  15395: { generation: "gen5", baseVersion: "B2", baseRom: "BW2" },
+  63038: { generation: "gen5", baseVersion: "W2", baseRom: "BW2" },
+  43676: { generation: "gen5", baseVersion: "B", baseRom: "BW" },
+  4581: { generation: "gen5", baseVersion: "W", baseRom: "BW" },
 };
 
 export const VERSION_BY_ID_CODE_PREFIX: Record<string, VersionInfo> = {
-  IRA: { baseVersion: "W", baseRom: "BW" },
-  IRB: { baseVersion: "B", baseRom: "BW" },
-  IRD: { baseVersion: "W2", baseRom: "BW2" },
-  IRE: { baseVersion: "B2", baseRom: "BW2" },
+  ADA: { generation: "gen4", baseVersion: "D", baseRom: "DP" },
+  APA: { generation: "gen4", baseVersion: "P", baseRom: "DP" },
+  CPU: { generation: "gen4", baseVersion: "Pt", baseRom: "Pt" },
+  IPK: { generation: "gen4", baseVersion: "HG", baseRom: "HGSS" },
+  IPG: { generation: "gen4", baseVersion: "SS", baseRom: "HGSS" },
+  IRA: { generation: "gen5", baseVersion: "W", baseRom: "BW" },
+  IRB: { generation: "gen5", baseVersion: "B", baseRom: "BW" },
+  IRD: { generation: "gen5", baseVersion: "W2", baseRom: "BW2" },
+  IRE: { generation: "gen5", baseVersion: "B2", baseRom: "BW2" },
 };
 
-export const DEFAULT_VERSION_INFO: VersionInfo = { baseVersion: "W2", baseRom: "BW2" };
+export const DEFAULT_VERSION_INFO: VersionInfo = { generation: "gen5", baseVersion: "W2", baseRom: "BW2" };
 
 export function detectVersionInfo(arm9Sample: number, idCode: string): VersionInfo {
   return VERSION_BY_ARM9_SAMPLE[arm9Sample] ?? VERSION_BY_ID_CODE_PREFIX[idCode.slice(0, 3).toUpperCase()] ?? DEFAULT_VERSION_INFO;
+}
+
+export function isGen4BaseRom(baseRom: BaseRom): baseRom is Gen4BaseRom {
+  return baseRom === "DP" || baseRom === "Pt" || baseRom === "HGSS";
+}
+
+export function isGen5BaseRom(baseRom: BaseRom): baseRom is Gen5BaseRom {
+  return baseRom === "BW" || baseRom === "BW2";
+}
+
+export function generationForBaseRom(baseRom: BaseRom): Generation {
+  return isGen4BaseRom(baseRom) ? "gen4" : "gen5";
+}
+
+export function projectGeneration(session: { generation?: Generation; baseRom: BaseRom }): Generation {
+  return session.generation ?? generationForBaseRom(session.baseRom);
+}
+
+export function isGen4Project(project: { session: { generation?: Generation; baseRom: BaseRom } }): boolean {
+  return projectGeneration(project.session) === "gen4";
+}
+
+export function isGen5Project(project: { session: { generation?: Generation; baseRom: BaseRom } }): boolean {
+  return projectGeneration(project.session) === "gen5";
 }
 
 export const HEADER_NARCS: NarcDefinition[] = [
@@ -146,10 +180,112 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/2/6/9", name: "wbt_area_pools" },
 ];
 
-export const MANDATORY_NARCS = HEADER_NARCS.filter((definition) => definition.required).map((definition) => definition.name);
+export const GEN4_NARCS_BY_VERSION: Record<Gen4Version, NarcDefinition[]> = {
+  D: [
+    { path: "msgdata/msg.narc", name: "message_texts", required: true },
+    { path: "poketool/personal/personal.narc", name: "personal" },
+    { path: "poketool/personal/wotbl.narc", name: "learnsets" },
+    { path: "poketool/personal/evo.narc", name: "evolutions" },
+    { path: "poketool/waza/waza_tbl.narc", name: "moves" },
+    { path: "itemtool/itemdata/item_data.narc", name: "items" },
+    { path: "poketool/trainer/trdata.narc", name: "trdata" },
+    { path: "poketool/trainer/trpoke.narc", name: "trpok" },
+    { path: "poketool/trmsg/trtbl.narc", name: "trtext_table" },
+    { path: "poketool/trmsg/trtblofs.narc", name: "trtext_offsets" },
+    { path: "fielddata/encountdata/d_enc_data.narc", name: "encounters" },
+    { path: "fielddata/script/scr_seq_release.narc", name: "scripts" },
+    { path: "fielddata/eventdata/zone_event_release.narc", name: "overworlds" },
+    { path: "fielddata/land_data/land_data_release.narc", name: "maps" },
+    { path: "fielddata/mapmatrix/map_matrix.narc", name: "matrix" },
+    { path: "fielddata/maptable/mapname.narc", name: "headers" },
+  ],
+  P: [
+    { path: "msgdata/msg.narc", name: "message_texts", required: true },
+    { path: "poketool/personal/personal_pearl.narc", name: "personal" },
+    { path: "poketool/personal/wotbl.narc", name: "learnsets" },
+    { path: "poketool/personal/evo.narc", name: "evolutions" },
+    { path: "poketool/waza/waza_tbl.narc", name: "moves" },
+    { path: "itemtool/itemdata/item_data.narc", name: "items" },
+    { path: "poketool/trainer/trdata.narc", name: "trdata" },
+    { path: "poketool/trainer/trpoke.narc", name: "trpok" },
+    { path: "poketool/trmsg/trtbl.narc", name: "trtext_table" },
+    { path: "poketool/trmsg/trtblofs.narc", name: "trtext_offsets" },
+    { path: "fielddata/encountdata/p_enc_data.narc", name: "encounters" },
+    { path: "fielddata/script/scr_seq_release.narc", name: "scripts" },
+    { path: "fielddata/eventdata/zone_event_release.narc", name: "overworlds" },
+    { path: "fielddata/land_data/land_data_release.narc", name: "maps" },
+    { path: "fielddata/mapmatrix/map_matrix.narc", name: "matrix" },
+    { path: "fielddata/maptable/mapname.narc", name: "headers" },
+  ],
+  Pt: [
+    { path: "msgdata/pl_msg.narc", name: "message_texts", required: true },
+    { path: "poketool/personal/pl_personal.narc", name: "personal" },
+    { path: "poketool/personal/wotbl.narc", name: "learnsets" },
+    { path: "poketool/personal/evo.narc", name: "evolutions" },
+    { path: "poketool/waza/pl_waza_tbl.narc", name: "moves" },
+    { path: "itemtool/itemdata/pl_item_data.narc", name: "items" },
+    { path: "poketool/trainer/trdata.narc", name: "trdata" },
+    { path: "poketool/trainer/trpoke.narc", name: "trpok" },
+    { path: "poketool/trmsg/trtbl.narc", name: "trtext_table" },
+    { path: "poketool/trmsg/trtblofs.narc", name: "trtext_offsets" },
+    { path: "fielddata/encountdata/pl_enc_data.narc", name: "encounters" },
+    { path: "fielddata/script/scr_seq.narc", name: "scripts" },
+    { path: "fielddata/eventdata/zone_event.narc", name: "overworlds" },
+    { path: "fielddata/land_data/land_data.narc", name: "maps" },
+    { path: "fielddata/mapmatrix/map_matrix.narc", name: "matrix" },
+    { path: "fielddata/maptable/mapname.narc", name: "headers" },
+  ],
+  HG: [
+    { path: "a/0/2/7", name: "message_texts", required: true },
+    { path: "a/0/0/2", name: "personal" },
+    { path: "a/0/3/3", name: "learnsets" },
+    { path: "a/0/3/4", name: "evolutions" },
+    { path: "a/0/1/1", name: "moves" },
+    { path: "a/0/1/7", name: "items" },
+    { path: "a/0/5/5", name: "trdata" },
+    { path: "a/0/5/6", name: "trpok" },
+    { path: "a/0/5/7", name: "trtext_table" },
+    { path: "a/1/3/1", name: "trtext_offsets" },
+    { path: "a/0/3/7", name: "encounters" },
+    { path: "a/0/1/2", name: "scripts" },
+    { path: "a/0/3/2", name: "overworlds" },
+    { path: "a/0/6/5", name: "maps" },
+    { path: "a/0/4/1", name: "matrix" },
+    { path: "a/0/1/6", name: "headers" },
+    { path: "a/2/2/9", name: "egg_moves" },
+  ],
+  SS: [
+    { path: "a/0/2/7", name: "message_texts", required: true },
+    { path: "a/0/0/2", name: "personal" },
+    { path: "a/0/3/3", name: "learnsets" },
+    { path: "a/0/3/4", name: "evolutions" },
+    { path: "a/0/1/1", name: "moves" },
+    { path: "a/0/1/7", name: "items" },
+    { path: "a/0/5/5", name: "trdata" },
+    { path: "a/0/5/6", name: "trpok" },
+    { path: "a/0/5/7", name: "trtext_table" },
+    { path: "a/1/3/1", name: "trtext_offsets" },
+    { path: "a/1/3/6", name: "encounters" },
+    { path: "a/0/1/2", name: "scripts" },
+    { path: "a/0/3/2", name: "overworlds" },
+    { path: "a/0/6/5", name: "maps" },
+    { path: "a/0/4/1", name: "matrix" },
+    { path: "a/0/1/6", name: "headers" },
+    { path: "a/2/2/9", name: "egg_moves" },
+  ],
+};
+
+export function gen4NarcDefinitions(version: VersionInfo): NarcDefinition[] {
+  if (!isGen4BaseRom(version.baseRom)) return [];
+  return GEN4_NARCS_BY_VERSION[version.baseVersion as Gen4Version] ?? [];
+}
+
+const ALL_NARC_DEFINITIONS = [...HEADER_NARCS, ...BW_NARCS, ...BW2_NARCS, ...Object.values(GEN4_NARCS_BY_VERSION).flat()];
+
+export const MANDATORY_NARCS = Array.from(new Set(ALL_NARC_DEFINITIONS.filter((definition) => definition.required).map((definition) => definition.name)));
 
 export const SELECTABLE_NARCS = Array.from(
-  new Map([...HEADER_NARCS, ...BW_NARCS, ...BW2_NARCS].map((definition) => [definition.name, definition])).values(),
+  new Map(ALL_NARC_DEFINITIONS.map((definition) => [definition.name, definition])).values(),
 );
 
 export const BW_MESSAGE_BANKS = [
@@ -172,6 +308,61 @@ export const BW2_MESSAGE_BANKS = [
   [64, "items"],
 ] as const;
 
+export type TextBankSource = number | readonly number[];
+
+export const GEN4_MESSAGE_BANKS: Record<Gen4Version, ReadonlyArray<readonly [TextBankSource, string]>> = {
+  D: [
+    [588, "moves"],
+    [552, "abilities"],
+    [[362, 363], "pokedex"],
+    [560, "tr_classes"],
+    [559, "tr_names"],
+    [382, "locations"],
+    [344, "items"],
+    [565, "types"],
+  ],
+  P: [
+    [588, "moves"],
+    [552, "abilities"],
+    [[362, 363], "pokedex"],
+    [560, "tr_classes"],
+    [559, "tr_names"],
+    [382, "locations"],
+    [344, "items"],
+    [565, "types"],
+  ],
+  Pt: [
+    [647, "moves"],
+    [610, "abilities"],
+    [[412, 413, 712, 713, 714, 715, 716], "pokedex"],
+    [619, "tr_classes"],
+    [618, "tr_names"],
+    [433, "locations"],
+    [392, "items"],
+    [624, "types"],
+  ],
+  HG: [
+    [750, "moves"],
+    [720, "abilities"],
+    [[237, 238, 817, 818, 819, 820, 821], "pokedex"],
+    [730, "tr_classes"],
+    [729, "tr_names"],
+    [279, "locations"],
+    [222, "items"],
+    [735, "types"],
+  ],
+  SS: [
+    [750, "moves"],
+    [720, "abilities"],
+    [[237, 238, 817, 818, 819, 820, 821], "pokedex"],
+    [730, "tr_classes"],
+    [729, "tr_names"],
+    [279, "locations"],
+    [222, "items"],
+    [735, "types"],
+  ],
+};
+
 export const TYPES = [
   "Normal",
   "Fighting",
@@ -193,7 +384,40 @@ export const TYPES = [
   "Fairy",
 ];
 
+export const GEN4_TYPES = [
+  "Normal",
+  "Fighting",
+  "Flying",
+  "Poison",
+  "Ground",
+  "Rock",
+  "Bug",
+  "Ghost",
+  "Steel",
+  "???",
+  "Fire",
+  "Water",
+  "Grass",
+  "Electric",
+  "Psychic",
+  "Ice",
+  "Dragon",
+  "Dark",
+];
+
 export const CATEGORIES = ["Status", "Physical", "Special"];
+export const GEN4_CATEGORIES = ["Physical", "Special", "Status"];
+
+export function typeNamesForProject(project: { session: { generation?: Generation; baseRom: BaseRom }; texts?: { banks?: Partial<Record<string, string[]>> } }): string[] {
+  const textTypes = project.texts?.banks?.types?.filter((type) => type.trim().length > 0);
+  if (textTypes && textTypes.length > 0) return textTypes;
+  return isGen4Project(project) ? GEN4_TYPES : TYPES;
+}
+
+export function moveCategoryNamesForProject(project: { session: { generation?: Generation; baseRom: BaseRom } }): string[] {
+  return isGen4Project(project) ? GEN4_CATEGORIES : CATEGORIES;
+}
+
 export const EFFECT_CATEGORIES = [
   "No Special Effect",
   "Status Inflicting",

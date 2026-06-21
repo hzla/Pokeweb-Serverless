@@ -1,7 +1,7 @@
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
-import { BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, type NarcName } from "./constants";
+import { BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, GEN4_MESSAGE_BANKS, isGen4Project, type Gen4Version, type NarcName, type TextBankSource } from "./constants";
 import { markDirty, type ProjectState } from "./projectStore";
-import { cleanDisplayText, decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "./text";
+import { cleanDisplayText, decodeGen4TextBank, decodeGen5TextBank, encodeGen4TextBank, encodeGen5TextBank, type Gen5TextEntry } from "./text";
 
 export type TextNarcName = "message_texts" | "story_texts";
 
@@ -21,9 +21,10 @@ export function getTextBanks(project: ProjectState, narcName: TextNarcName): Gen
   if (existing) return existing;
   const store = project.narcs[narcName];
   if (!store) throw new Error(`Text NARC is not loaded: ${narcName}`);
+  const decodeBank = isGen4Project(project) ? decodeGen4TextBank : decodeGen5TextBank;
   const decoded = store.rawFiles.map((file) => {
     try {
-      return decodeGen5TextBank(file);
+      return decodeBank(file);
     } catch {
       return [];
     }
@@ -98,19 +99,23 @@ export function parseTextEntryId(id: string): { block: number; entry: number; su
 
 export function commitTextBank(project: ProjectState, narcName: TextNarcName, bankId: number): void {
   const bank = getTextBank(project, narcName, bankId);
-  project.narcs[narcName]!.rawFiles[bankId] = encodeGen5TextBank(bank);
+  project.narcs[narcName]!.rawFiles[bankId] = isGen4Project(project) ? encodeGen4TextBank(bank) : encodeGen5TextBank(bank);
   markDirty(project, narcName, bankId);
   refreshKnownTextBank(project, narcName, bankId, bank);
 }
 
 function refreshKnownTextBank(project: ProjectState, narcName: TextNarcName, bankId: number, bank: Gen5TextEntry[]): void {
   if (narcName !== "message_texts") return;
-  const mappings = project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
-  const mapping = mappings.find(([mappedBankId]) => mappedBankId === bankId);
+  const mappings = isGen4Project(project) ? GEN4_MESSAGE_BANKS[project.session.baseVersion as Gen4Version] : project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
+  const mapping = mappings.find(([source]) => textBankSourceIncludes(source, bankId));
   if (!mapping) return;
   const [, bankName] = mapping;
   const nameCase = bankName === "pokedex" || bankName === "moves";
   project.texts.banks[bankName] = bank.map((entry, index) => cleanDisplayText(entry?.[1] ?? `Entry ${index}`, nameCase));
+}
+
+function textBankSourceIncludes(source: TextBankSource, bankId: number): boolean {
+  return typeof source === "number" ? source === bankId : source.includes(bankId);
 }
 
 function getBankShape(bank: Gen5TextEntry[]): { numBlocks: number; numEntries: number } {

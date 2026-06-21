@@ -1,6 +1,6 @@
 import miscDataIcon from "../assets/svgs/misc_data.svg?raw";
 import movieIconUrl from "../assets/svgs/movie.png";
-import { PROPERTIES, TYPES, CATEGORIES } from "../pokeweb/constants";
+import { PROPERTIES, CATEGORIES, typeNamesForProject } from "../pokeweb/constants";
 import {
   decompileMoveAnimation,
   getMoveAnimationTargetInfo,
@@ -109,7 +109,7 @@ export function renderMoveEditor(
         ${["physical", "special", "status"].map((cat) => `<button class="btn -default btn-3" data-mcat="${cat}" type="button"><img src="${publicAsset(`images/move-${cat}.png`)}" alt="${cat}"></button>`).join("")}
       </div>
       <div class="small-filters type-filters">
-        ${TYPES.map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
+        ${typeNamesForProject(project).map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
       </div>
       <div class="move-command-reference" id="move-command-reference">
         <div class="move-command-reference-empty">Click a script command to view its parameters here.</div>
@@ -134,7 +134,7 @@ export function renderMoveEditor(
     onDirty,
     onTestMove,
     onOpenMoveAnimation,
-    autofills: getMoveAutofills(),
+    autofills: getMoveAutofills(project),
     renderExpanded: (moveId) => renderMoveExpanded(getMoveRecord(project, moveId)),
   });
 }

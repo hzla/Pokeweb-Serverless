@@ -1,4 +1,4 @@
-import { CATEGORIES, TYPES } from "../pokeweb/constants";
+import { typeNamesForProject } from "../pokeweb/constants";
 import { getMoveAutofills, titleize } from "../pokeweb/moveItemModel";
 import { getTmEntries, type TmEntry } from "../pokeweb/tmModel";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -18,7 +18,7 @@ export function renderTmEditor(project: ProjectState, root: HTMLElement, onDirty
         ${["physical", "special", "status"].map((cat) => `<button class="btn -default btn-3" data-mcat="${cat}" type="button"><img src="${publicAsset(`images/move-${cat}.png`)}" alt="${cat}"></button>`).join("")}
       </div>
       <div class="small-filters type-filters">
-        ${TYPES.map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
+        ${typeNamesForProject(project).map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
       </div>
     </div>
     <div class="pokemon-list pokemon-move-list spreadsheet tm-list" id="moves">
@@ -38,7 +38,7 @@ export function renderTmEditor(project: ProjectState, root: HTMLElement, onDirty
 
   attachTmInteractions(root, project, {
     onDirty,
-    autofills: { ...getMoveAutofills(), move_names: project.texts.banks.moves ?? [] },
+    autofills: { ...getMoveAutofills(project), move_names: project.texts.banks.moves ?? [] },
     renderRow: (entry) => renderTmRow(entry),
   });
 }

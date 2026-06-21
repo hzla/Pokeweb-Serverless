@@ -158,6 +158,34 @@ describe("PMC installer", () => {
     expect(rom.filenames.idOf(PMC_PATCHES_KEEP_PATH)).toBeUndefined();
   });
 
+  it("inserts new patch DLLs into an existing non-tail patches folder", async () => {
+    const romBytes = makeBw2LikeRom(
+      347,
+      new Folder({
+        files: ["base.bin"],
+        firstId: 344,
+        folders: [
+          ["patches", new Folder({ files: ["Existing.dll"], firstId: 345 })],
+          ["zz_pokeweb_pwan", new Folder({ files: ["pwan.narc"], firstId: 346 })],
+        ],
+      }),
+    );
+    const project = makeProject(romBytes, "W2");
+    installPmcBytes(project, pmcW2, romBytes);
+    stageCodeInjectionDll(project, "NewPatch.dll", makeDllFromRpm(pmcW2), "patches");
+
+    const exported = await exportModifiedRom(project);
+    const rom = new NintendoDSRom(exported);
+    const overlayEntry = 344 * 32;
+    const overlayFileId = rom.fileId("overlay/overlay_0344.bin");
+
+    expect(rom.fileId("patches/Existing.dll")).toBe(345);
+    expect(rom.fileId("patches/NewPatch.dll")).toBe(346);
+    expect(rom.fileId("zz_pokeweb_pwan/pwan.narc")).toBe(347);
+    expect(readAscii(rom.getFileByName("patches/NewPatch.dll"), 0, 4)).toBe("DLXF");
+    expect(readU32(rom.arm9OverlayTable, overlayEntry + 24)).toBe(overlayFileId);
+  });
+
   it("stages built DLXF patch and library DLLs after PMC is installed", async () => {
     const romBytes = makeBw2LikeRom();
     const project = makeProject(romBytes, "W2");

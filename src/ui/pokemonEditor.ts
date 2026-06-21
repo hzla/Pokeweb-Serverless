@@ -1,4 +1,4 @@
-import { EVO_METHODS, TYPES } from "../pokeweb/constants";
+import { EVO_METHODS, typeNamesForProject } from "../pokeweb/constants";
 import {
   BASE_STAT_FIELDS,
   EV_YIELD_FIELDS,
@@ -53,7 +53,7 @@ export function renderPokemonEditor(project: ProjectState, root: HTMLElement, on
         ${[1, 2, 3, 4, 5].map((gen) => `<button class="btn -default btn-5" data-gen="${gen}" type="button">${gen}</button>`).join("")}
       </div>
       <div class="small-filters type-filters">
-        ${TYPES.map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
+        ${typeNamesForProject(project).map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
       </div>
       <br>
       <div class="small-filters">Tip: You can right click a value to apply to all</div>
