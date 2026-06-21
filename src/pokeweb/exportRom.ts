@@ -9,7 +9,7 @@ import { materializeMap3dAreaEdits } from "./map3dModel";
 import { repairLegacyMoveAnimationArchives } from "./moveAnimationModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { fileSystemAddedFiles, fileSystemReplacementMap } from "./fileSystemModel";
-import { buildCodeInjectionOverlayTable, codeInjectionInsertedFiles } from "./pmcModel";
+import { buildCodeInjectionOverlayTable, codeInjectionInsertedFiles, pruneRedundantPatchesKeepAddition } from "./pmcModel";
 import { materializePwanAnimations } from "./pwanAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
@@ -33,6 +33,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   materializeProjectEdits(project);
   repairLegacyMoveAnimationArchives(project);
   await materializePwanAnimations(project, rom);
+  pruneRedundantPatchesKeepAddition(project, rom);
 
   const fileReplacements = new Map<number, Uint8Array>();
 
