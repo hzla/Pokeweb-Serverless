@@ -1,6 +1,7 @@
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 
 export type Gen5TextEntry = [string, string, number];
+export type TextEntry = Gen5TextEntry;
 
 export function decodeGen5TextBank(data: Uint8Array): Gen5TextEntry[] {
   const texts: Gen5TextEntry[] = [];
@@ -150,6 +151,265 @@ export function encodeGen5TextBank(entries: Gen5TextEntry[]): Uint8Array {
   }
   return out;
 }
+
+export function decodeGen4TextBank(data: Uint8Array): TextEntry[] {
+  if (data.length < 4) throw new Error("Gen 4 text bank is too small");
+  const count = readU16(data, 0);
+  const key = readU16(data, 2);
+  const tableOffset = 4;
+  const dataOffset = tableOffset + count * 8;
+  if (dataOffset > data.length) throw new Error("Gen 4 text bank allocation table exceeds file size");
+
+  const entries: TextEntry[] = [];
+  let fallbackCursor = dataOffset;
+  for (let index = 0; index < count; index += 1) {
+    const tableEntryOffset = tableOffset + index * 8;
+    const allocKey = gen4AllocationKey(index, key);
+    const relativeOffset = readU32(data, tableEntryOffset) ^ allocKey;
+    const length = readU32(data, tableEntryOffset + 4) ^ allocKey;
+    const decodedOffset = dataOffset + relativeOffset;
+    const wordOffset = decodedOffset + length * 2 <= data.length ? decodedOffset : fallbackCursor;
+    if (length < 0 || wordOffset + length * 2 > data.length) throw new Error(`Gen 4 text entry ${index} exceeds bank size`);
+
+    const words: number[] = [];
+    let stringKey = gen4StringKey(index);
+    for (let wordIndex = 0; wordIndex < length; wordIndex += 1) {
+      words.push(readU16(data, wordOffset + wordIndex * 2) ^ stringKey);
+      stringKey = (stringKey + 18749) & 0xffff;
+    }
+    entries.push([`0_${index}`, renderGen4Text(words), key]);
+    fallbackCursor = wordOffset + length * 2;
+  }
+  return entries;
+}
+
+export function encodeGen4TextBank(entries: TextEntry[]): Uint8Array {
+  const block = groupEntries(entries)[0];
+  if (!block) throw new Error("Gen 4 text bank must contain block 0 entries");
+  const count = Math.max(...Object.keys(block).map(Number)) + 1;
+  if (!Number.isFinite(count) || count <= 0) throw new Error("Gen 4 text bank must contain at least one entry");
+  const key = entries.find((entry) => entry[2] !== 0)?.[2] ?? 0x1234;
+
+  const encodedEntries: Uint16Array[] = [];
+  for (let entryIndex = 0; entryIndex < count; entryIndex += 1) {
+    const entry = block[entryIndex];
+    if (!entry) throw new Error(`Missing Gen 4 text entry 0_${entryIndex}`);
+    encodedEntries.push(encryptGen4Words([...encodeGen4EscapedStringToWords(entry[1]), 0xffff], entryIndex));
+  }
+
+  const tableLength = 4 + count * 8;
+  const bodyLength = encodedEntries.reduce((sum, words) => sum + words.length * 2, 0);
+  const out = new Uint8Array(tableLength + bodyLength);
+  writeU16(out, 0, count);
+  writeU16(out, 2, key);
+
+  let relativeOffset = 0;
+  let dataOffset = tableLength;
+  for (let entryIndex = 0; entryIndex < count; entryIndex += 1) {
+    const encoded = encodedEntries[entryIndex];
+    const allocKey = gen4AllocationKey(entryIndex, key);
+    const tableEntryOffset = 4 + entryIndex * 8;
+    writeU32(out, tableEntryOffset, (relativeOffset ^ allocKey) >>> 0);
+    writeU32(out, tableEntryOffset + 4, (encoded.length ^ allocKey) >>> 0);
+    for (const word of encoded) {
+      writeU16(out, dataOffset, word);
+      dataOffset += 2;
+    }
+    relativeOffset += encoded.length * 2;
+  }
+  return out;
+}
+
+function gen4AllocationKey(entryIndex: number, bankKey: number): number {
+  return ((((765 * (entryIndex + 1) * bankKey) & 0xffff) * 0x10001) >>> 0);
+}
+
+function gen4StringKey(entryIndex: number): number {
+  return ((entryIndex + 1) * 596947) & 0xffff;
+}
+
+function encryptGen4Words(words: number[], entryIndex: number): Uint16Array {
+  const encrypted = new Uint16Array(words.length);
+  let key = gen4StringKey(entryIndex);
+  for (let index = 0; index < words.length; index += 1) {
+    encrypted[index] = (words[index] ^ key) & 0xffff;
+    key = (key + 18749) & 0xffff;
+  }
+  return encrypted;
+}
+
+function renderGen4Text(words: number[]): string {
+  let text = "";
+  for (let index = 0; index < words.length; index += 1) {
+    const code = words[index];
+    if (code === 0xffff) break;
+    if (code === 0xfffe) {
+      const kind = words[++index] ?? 0;
+      const count = words[++index] ?? 0;
+      const args = Array.from({ length: count }, () => words[++index] ?? 0);
+      text += `{${kind.toString(16).toUpperCase().padStart(4, "0")}${args.length ? ` ${args.join(",")}` : ""}}`;
+      continue;
+    }
+    if (code === 0xf100) {
+      text += "{TRNAME}";
+      continue;
+    }
+    text += gen4Char(code);
+  }
+  return text;
+}
+
+function encodeGen4EscapedStringToWords(text: string): number[] {
+  const words: number[] = [];
+  for (let index = 0; index < text.length; ) {
+    if (text[index] === "\\" && index + 1 < text.length) {
+      const kind = text[index + 1];
+      if (kind === "x") {
+        const hex = text.slice(index + 2, index + 6);
+        if (!/^[0-9a-fA-F]{4}$/u.test(hex)) throw new Error(`Bad \\x escape at ${index}`);
+        words.push(Number.parseInt(hex, 16) & 0xffff);
+        index += 6;
+        continue;
+      }
+      if (kind === "n") {
+        words.push(0xe000);
+        index += 2;
+        continue;
+      }
+    }
+
+    if (text.startsWith("{TRNAME}", index)) {
+      words.push(0xf100);
+      index += "{TRNAME}".length;
+      continue;
+    }
+
+    if (text[index] === "{") {
+      const close = text.indexOf("}", index + 1);
+      if (close < 0) throw new Error(`Unclosed Gen 4 control code at ${index}`);
+      const body = text.slice(index + 1, close).trim();
+      const match = /^([0-9a-fA-F]{4})(?:\s+(.*))?$/u.exec(body);
+      const kindText = match?.[1] ?? "";
+      const argsText = match?.[2] ?? "";
+      if (/^[0-9a-fA-F]{4}$/u.test(kindText)) {
+        const args = argsText
+          .split(",")
+          .map((arg) => arg.trim())
+          .filter(Boolean)
+          .map((arg) => (arg.toLowerCase().startsWith("0x") ? Number.parseInt(arg, 16) : Number.parseInt(arg, 10)));
+        if (args.some((arg) => !Number.isFinite(arg))) throw new Error(`Bad Gen 4 control code at ${index}`);
+        words.push(0xfffe, Number.parseInt(kindText, 16) & 0xffff, args.length & 0xffff, ...args.map((arg) => arg & 0xffff));
+        index = close + 1;
+        continue;
+      }
+    }
+
+    const codepoint = text.codePointAt(index) ?? 0;
+    words.push(gen4Codepoint(codepoint));
+    index += codepoint > 0xffff ? 2 : 1;
+  }
+  return words;
+}
+
+function gen4Char(code: number): string {
+  if (code >= 0x0121 && code <= 0x012a) return String.fromCharCode(48 + code - 0x0121);
+  if (code >= 0x012b && code <= 0x0144) return String.fromCharCode(65 + code - 0x012b);
+  if (code >= 0x0145 && code <= 0x015e) return String.fromCharCode(97 + code - 0x0145);
+  const mapped = GEN4_CHAR_MAP.get(code);
+  return mapped ?? `\\x${code.toString(16).toUpperCase().padStart(4, "0")}`;
+}
+
+function gen4Codepoint(codepoint: number): number {
+  if (codepoint >= 48 && codepoint <= 57) return 0x0121 + codepoint - 48;
+  if (codepoint >= 65 && codepoint <= 90) return 0x012b + codepoint - 65;
+  if (codepoint >= 97 && codepoint <= 122) return 0x0145 + codepoint - 97;
+  const mapped = GEN4_REVERSE_CHAR_MAP.get(String.fromCodePoint(codepoint));
+  return mapped ?? (codepoint & 0xffff);
+}
+
+const GEN4_CHAR_MAP = new Map<number, string>([
+  [0x0000, ""],
+  [0x01ab, "!"],
+  [0x01ac, "?"],
+  [0x01ad, ","],
+  [0x01ae, "."],
+  [0x01af, "..."],
+  [0x01b0, "."],
+  [0x01b1, "/"],
+  [0x01b2, "'"],
+  [0x01b3, "'"],
+  [0x01b4, '"'],
+  [0x01b5, '"'],
+  [0x01b9, "("],
+  [0x01ba, ")"],
+  [0x01bb, "M"],
+  [0x01bc, "F"],
+  [0x01bd, "+"],
+  [0x01be, "-"],
+  [0x01bf, "*"],
+  [0x01c0, "#"],
+  [0x01c1, "="],
+  [0x01c2, "&"],
+  [0x01c3, "~"],
+  [0x01c4, ":"],
+  [0x01c5, ";"],
+  [0x01d0, "@"],
+  [0x01d2, "%"],
+  [0x01de, " "],
+  [0x01e8, "deg"],
+  [0x01e9, "_"],
+  [0x015f, "A"],
+  [0x0160, "A"],
+  [0x0161, "A"],
+  [0x0163, "A"],
+  [0x0166, "C"],
+  [0x0167, "E"],
+  [0x0168, "E"],
+  [0x0169, "E"],
+  [0x016a, "E"],
+  [0x016b, "I"],
+  [0x016c, "I"],
+  [0x016d, "I"],
+  [0x016e, "I"],
+  [0x0170, "N"],
+  [0x0171, "O"],
+  [0x0172, "O"],
+  [0x0173, "O"],
+  [0x0175, "O"],
+  [0x0178, "U"],
+  [0x0179, "U"],
+  [0x017a, "U"],
+  [0x017b, "U"],
+  [0x017f, "a"],
+  [0x0180, "a"],
+  [0x0181, "a"],
+  [0x0183, "a"],
+  [0x0186, "c"],
+  [0x0187, "e"],
+  [0x0188, "e"],
+  [0x0189, "e"],
+  [0x018a, "e"],
+  [0x018b, "i"],
+  [0x018c, "i"],
+  [0x018d, "i"],
+  [0x018e, "i"],
+  [0x0190, "n"],
+  [0x0191, "o"],
+  [0x0192, "o"],
+  [0x0193, "o"],
+  [0x0195, "o"],
+  [0x0198, "u"],
+  [0x0199, "u"],
+  [0x019a, "u"],
+  [0x019b, "u"],
+]);
+
+const GEN4_REVERSE_CHAR_MAP = new Map<string, number>(
+  [...GEN4_CHAR_MAP]
+    .filter(([, value]) => value.length === 1)
+    .reverse()
+    .map(([key, value]) => [value, key]),
+);
 
 function expand9Bit(chars: number[]): number[] {
   const out: number[] = [];

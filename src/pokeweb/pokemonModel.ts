@@ -1,6 +1,6 @@
 import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
-import { EGG_GROUPS, EVO_METHODS, GROWTHS, TYPES, type NarcName } from "./constants";
+import { EGG_GROUPS, EVO_METHODS, GROWTHS, typeNamesForProject, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTmNames } from "./tmModel";
 
@@ -438,7 +438,7 @@ export function pokemonMatchesSearch(record: PokemonSummaryRecord, searchText: s
 
 export function getPokemonAutofills(project: ProjectState): Record<string, string[]> {
   return {
-    types: TYPES,
+    types: typeNamesForProject(project),
     abilities: project.texts.banks.abilities ?? [],
     items: project.texts.banks.items ?? [],
     egg_groups: EGG_GROUPS,
@@ -584,9 +584,10 @@ function updatePersonalField(project: ProjectState, raw: RawRecord, readable: Re
   }
 
   if (field === "type_1" || field === "type_2") {
-    const rawValue = findValueIndex(TYPES, inputValue, "type");
+    const types = typeNamesForProject(project);
+    const rawValue = findValueIndex(types, inputValue, "type");
     raw[field] = rawValue;
-    readable[field] = TYPES[rawValue];
+    readable[field] = types[rawValue];
     return { value: readable[field], rawValue };
   }
 

@@ -1,7 +1,7 @@
 import effectsText from "../assets/data/effects.txt?raw";
 import resultEffectsText from "../assets/data/result_effects.txt?raw";
 import { recordFieldChange } from "./actionChangelog";
-import { CATEGORIES, EFFECT_CATEGORIES, PROPERTIES, STATS, STATUSES, TARGETS, TYPES } from "./constants";
+import { EFFECT_CATEGORIES, PROPERTIES, STATS, STATUSES, TARGETS, moveCategoryNamesForProject, typeNamesForProject } from "./constants";
 import { copyMoveAnimationScript } from "./moveAnimationModel";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 
@@ -213,10 +213,10 @@ export function getItemRecord(project: ProjectState, id: number): ItemRecord {
   return { id, raw: record.raw, readable: record.readable };
 }
 
-export function getMoveAutofills(): Record<string, string[]> {
+export function getMoveAutofills(project?: ProjectState): Record<string, string[]> {
   return {
-    types: TYPES,
-    categories: CATEGORIES,
+    types: project ? typeNamesForProject(project) : [],
+    categories: project ? moveCategoryNamesForProject(project) : [],
     effect_cats: EFFECT_CATEGORIES,
     effects: EFFECTS,
     result_effects: RESULT_EFFECTS,
@@ -235,11 +235,13 @@ export function updateMoveField(project: ProjectState, moveId: number, field: st
   let displayValue: string | number;
 
   if (field === "type") {
-    rawValue = findValueIndex(TYPES, String(value), "type");
-    displayValue = TYPES[rawValue];
+    const types = typeNamesForProject(project);
+    rawValue = findValueIndex(types, String(value), "type");
+    displayValue = types[rawValue];
   } else if (field === "category") {
-    rawValue = findValueIndex(CATEGORIES, String(value), "category");
-    displayValue = CATEGORIES[rawValue];
+    const categories = moveCategoryNamesForProject(project);
+    rawValue = findValueIndex(categories, String(value), "category");
+    displayValue = categories[rawValue];
   } else if (field === "effect_category") {
     rawValue = findValueIndex(EFFECT_CATEGORIES, String(value), "effect category");
     displayValue = EFFECT_CATEGORIES[rawValue];
@@ -363,9 +365,9 @@ export function syncMoveReadable(project: ProjectState, raw: RawRecord, readable
   readable.index = id;
   readable.animation = id >= 673 ? 0 : id;
   readable.name = project.texts.banks.moves?.[id] ?? (id <= 559 ? `Move ${id}` : `EXPANDED MOVE ${id}`);
-  readable.type = TYPES[raw.type] ?? raw.type;
+  readable.type = typeNamesForProject(project)[raw.type] ?? raw.type;
   readable.effect_category = EFFECT_CATEGORIES[raw.effect_category] ?? raw.effect_category;
-  readable.category = CATEGORIES[raw.category] ?? raw.category;
+  readable.category = moveCategoryNamesForProject(project)[raw.category] ?? raw.category;
   readable.result_effect = raw.result_effect === 65535 ? TRI_ATTACK_RESULT : (RESULT_EFFECTS[raw.result_effect] ?? raw.result_effect);
   readable.effect = EFFECTS[raw.effect] ?? raw.effect;
   readable.status = STATUSES[raw.status] ?? raw.status;

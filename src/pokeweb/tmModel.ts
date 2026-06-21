@@ -23,7 +23,7 @@ export type TmEntry = {
   move?: MoveRecord;
 };
 
-const TM_OFFSETS: Record<BaseVersion, number> = {
+const TM_OFFSETS: Partial<Record<BaseVersion, number>> = {
   B: 0x9aaa0,
   W: 0x9aab8,
   B2: 0x8cc84,
@@ -96,6 +96,7 @@ export function parseTms(project: ProjectState): TmState {
 
 function locateTmTableOffset(project: ProjectState): number {
   const fallbackOffset = TM_OFFSETS[project.session.baseVersion];
+  if (fallbackOffset === undefined) throw new Error(`TM table offsets are not implemented for ${project.session.baseVersion}.`);
   const maxMoveId = Math.max(project.texts.banks.moves?.length ?? 0, project.narcs.moves?.fileCount ?? 0) - 1;
   const nearbyOffset = locateTmTableOffsetFromHmAnchor(project.arm9, fallbackOffset, TM_TABLE_NEARBY_SEARCH_RADIUS, maxMoveId);
   if (nearbyOffset !== undefined) return nearbyOffset;

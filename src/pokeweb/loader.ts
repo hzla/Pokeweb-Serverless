@@ -8,11 +8,18 @@ import {
   BW2_NARCS,
   BW_MESSAGE_BANKS,
   BW_NARCS,
+  GEN4_MESSAGE_BANKS,
   HEADER_NARCS,
   detectVersionInfo,
+  gen4NarcDefinitions,
+  isGen4BaseRom,
+  isGen4Project,
+  isGen5BaseRom,
   type BaseRom,
+  type Gen4Version,
   type NarcDefinition,
   type NarcName,
+  type TextBankSource,
 } from "./constants";
 import { getNarcFormats } from "./formats";
 import { parseHeaders } from "./headerModel";
@@ -22,7 +29,7 @@ import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
 import { createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
 import { getStarterOverlayIds } from "./starterModel";
-import { cleanDisplayText, decodeGen5TextBank } from "./text";
+import { cleanDisplayText, decodeGen4TextBank, decodeGen5TextBank, type TextEntry } from "./text";
 import { TYPE_CHART_ROMFS_PATH, createRomFsTypeChartStore, createTypeChartStore, detectFairyTypeUsage } from "./typeChartModel";
 import { parseTms } from "./tmModel";
 
@@ -53,6 +60,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
     originalRomBytes: compactBytes,
     session: {
       romName: file.name.replace(/\.nds$/iu, ""),
+      generation: version.generation,
       baseVersion: version.baseVersion,
       baseRom: version.baseRom,
       fairy: options.fairy ?? false,
@@ -82,13 +90,27 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
       groundItemScriptMap: {},
     },
   };
-  project.codeInjection = detectPmcInstallFromRom(rom);
-  hydratePwanAnimationsFromRom(project, rom);
+  if (isGen5BaseRom(version.baseRom)) {
+    project.codeInjection = detectPmcInstallFromRom(rom);
+    hydratePwanAnimationsFromRom(project, rom);
+  }
 
-  onProgress?.("Extracting header NARCs");
   const selectedNarcs = new Set<NarcName>(options.selectedNarcs ?? []);
   const shouldExtract = (definition: NarcDefinition) => definition.required || selectedNarcs.size === 0 || selectedNarcs.has(definition.name);
 
+  if (isGen4BaseRom(version.baseRom)) {
+    onProgress?.("Extracting Gen 4 NARCs");
+    extractNarcSet(rom, project, gen4NarcDefinitions(version).filter(shouldExtract));
+
+    onProgress?.("Decoding Gen 4 message banks");
+    decodeTextNarcs(project);
+
+    onProgress?.("Indexing trainer metadata");
+    indexTrpokInfo(project);
+    return project;
+  }
+
+  onProgress?.("Extracting header NARCs");
   const headerNarcs = headerDefinitionsFor(version.baseRom).filter(shouldExtract);
   extractNarcSet(rom, project, headerNarcs);
 
@@ -156,10 +178,11 @@ function tryCreateRomFsTypeChartStore(rom: NintendoDSRom) {
 function decodeTextNarcs(project: ProjectState): void {
   const messageStore = project.narcs.message_texts;
   const storyStore = project.narcs.story_texts;
+  const decodeBank = isGen4Project(project) ? decodeGen4TextBank : decodeGen5TextBank;
   if (messageStore) {
     project.texts.messageTexts = messageStore.rawFiles.map((data) => {
       try {
-        return decodeGen5TextBank(data);
+        return decodeBank(data);
       } catch {
         return [];
       }
@@ -168,24 +191,40 @@ function decodeTextNarcs(project: ProjectState): void {
   if (storyStore) {
     project.texts.storyTexts = storyStore.rawFiles.map((data) => {
       try {
-        return decodeGen5TextBank(data);
+        return decodeBank(data);
       } catch {
         return [];
       }
     });
   }
 
-  const messageTexts = project.texts.messageTexts as ReturnType<typeof decodeGen5TextBank>[] | undefined;
+  const messageTexts = project.texts.messageTexts as TextEntry[][] | undefined;
   if (!messageTexts) return;
 
-  const banks = project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
-  for (const [bankIndex, bankName] of banks) {
+  const banks = isGen4Project(project) ? GEN4_MESSAGE_BANKS[project.session.baseVersion as Gen4Version] : project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
+  for (const [source, bankName] of banks) {
     const nameCase = bankName === "pokedex" || bankName === "moves";
-    project.texts.banks[bankName] = (messageTexts[bankIndex] ?? []).map((entry, index) => {
+    if (project.texts.banks[bankName]) continue;
+    project.texts.banks[bankName] = labelsFromTextBankSource(messageTexts, source).map((entry, index) => {
       const text = entry?.[1] ?? `Entry ${index}`;
       return cleanDisplayText(text, nameCase);
     });
   }
+}
+
+function labelsFromTextBankSource(messageTexts: TextEntry[][], source: TextBankSource): TextEntry[] {
+  if (typeof source === "number") return messageTexts[source] ?? [];
+  const merged: TextEntry[] = [];
+  for (const bankIndex of source) {
+    const bank = messageTexts[bankIndex] ?? [];
+    bank.forEach((entry, index) => {
+      if (!entry) return;
+      const existing = merged[index];
+      if (!existing || !existing[1]) merged[index] = entry;
+    });
+    for (const entry of bank.slice(merged.length)) merged.push(entry);
+  }
+  return merged;
 }
 
 function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarcs = new Set<NarcName>()): void {

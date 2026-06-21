@@ -5,7 +5,6 @@ import { domainTitle, recordGenericChange } from "./actionChangelog";
 import type { BaseRom, BaseVersion, NarcName } from "./constants";
 import {
   BATTLE_TYPES,
-  CATEGORIES,
   EGG_GROUPS,
   ENCOUNTER_GRASS_FIELDS,
   ENCOUNTER_SEASONS,
@@ -15,13 +14,15 @@ import {
   TRAINER_AIS,
   TRAINER_GENDERS,
   TRAINER_TEMPLATE_FLAGS,
-  TYPES,
+  isGen4Project,
+  moveCategoryNamesForProject,
+  typeNamesForProject,
 } from "./constants";
 import type { FieldSpec, NarcFormatMap } from "./formats";
 import type { HeaderCollection } from "./headerModel";
 import type { GrottoOddsState } from "./martGrottoModel";
 import type { ActionChangelogState } from "./actionChangelog";
-import type { Gen5TextEntry } from "./text";
+import type { TextEntry } from "./text";
 import type { TmState } from "./tmModel";
 
 export type RawRecord = Record<string, number>;
@@ -48,6 +49,7 @@ export type NarcStore = {
 
 export type SessionSettings = {
   romName: string;
+  generation?: "gen4" | "gen5";
   baseVersion: BaseVersion;
   baseRom: BaseRom;
   fairy: boolean;
@@ -57,8 +59,8 @@ export type SessionSettings = {
 
 export type TextState = {
   banks: Partial<Record<string, string[]>>;
-  messageTexts?: Gen5TextEntry[][];
-  storyTexts?: Gen5TextEntry[][];
+  messageTexts?: TextEntry[][];
+  storyTexts?: TextEntry[][];
 };
 
 export type DocGeneratorState = {
@@ -255,7 +257,8 @@ export function getCachedRecordCount(project: ProjectState): number {
 }
 
 function parseRawRecord(name: NarcName, bytes: Uint8Array, project: ProjectState, id: number): RawRecord {
-  if (name === "trpok") return parseTrpok(bytes, project.trpokInfo[id]);
+  if (name === "trpok") return parseTrpok(bytes, project, id);
+  if (name === "learnsets" && isGen4Project(project)) return parseGen4Learnset(bytes);
   if (name === "maps") return parseMap(bytes);
   if (name === "matrix") return parseMatrix(bytes);
   if (name === "overworlds") return parseOverworlds(bytes);
@@ -264,7 +267,9 @@ function parseRawRecord(name: NarcName, bytes: Uint8Array, project: ProjectState
 
   const format = project.formats[name];
   if (!format) return { byteLength: bytes.length };
-  return readFormat(bytes, format, name);
+  const raw = readFormat(bytes, format, name);
+  if (name === "personal" && isGen4Project(project)) enrichGen4PersonalRaw(raw);
+  return raw;
 }
 
 function readFormat(bytes: Uint8Array, format: FieldSpec[], name: NarcName): RawRecord {
@@ -284,7 +289,37 @@ function readFormat(bytes: Uint8Array, format: FieldSpec[], name: NarcName): Raw
   return raw;
 }
 
-function parseTrpok(bytes: Uint8Array, info?: { template: number; numPokemon: number }): RawRecord {
+function parseGen4Learnset(bytes: Uint8Array): RawRecord {
+  const raw: RawRecord = {};
+  let offset = 0;
+  let index = 0;
+  while (offset + 2 <= bytes.length) {
+    const packed = readInt(bytes, offset, 2);
+    offset += 2;
+    if (packed === 0xffff) break;
+    raw[`move_id_${index}`] = packed & 0x01ff;
+    raw[`lvl_learned_${index}`] = (packed >>> 9) & 0x7f;
+    index += 1;
+  }
+  raw.entry_count = index;
+  if (index > 20) raw.vanilla_limit_exceeded = 1;
+  return raw;
+}
+
+function enrichGen4PersonalRaw(raw: RawRecord): void {
+  raw.item_3 ??= 0;
+  raw.ability_3 ??= 0;
+  raw.num_forms ??= 1;
+  raw.height ??= 0;
+  raw.weight ??= 0;
+  raw.tutors ??= 0;
+  raw.color = raw.color_flip & 0x7f;
+  raw.flip = (raw.color_flip >>> 7) & 1;
+}
+
+function parseTrpok(bytes: Uint8Array, project: ProjectState, id: number): RawRecord {
+  if (isGen4Project(project)) return parseGen4Trpok(bytes, project, id);
+  const info = project.trpokInfo[id];
   const template = info?.template ?? 0;
   const numPokemon = info?.numPokemon ?? 0;
   const formats: FieldSpec[][] = [
@@ -338,6 +373,43 @@ function parseTrpok(bytes: Uint8Array, info?: { template: number; numPokemon: nu
     for (const [size, field] of format) {
       raw[`${field}_${n}`] = readInt(bytes, offset, size);
       offset += size;
+    }
+  }
+  return raw;
+}
+
+function parseGen4Trpok(bytes: Uint8Array, project: ProjectState, id: number): RawRecord {
+  const info = project.trpokInfo[id];
+  const template = info?.template ?? 0;
+  const count = info?.numPokemon ?? 0;
+  const hasMoves = (template & 1) !== 0;
+  const hasItems = (template & 2) !== 0;
+  const hasBallSeals = project.session.baseRom !== "DP";
+  const raw: RawRecord = {};
+  let offset = 0;
+
+  for (let slot = 0; slot < count && offset + 6 <= bytes.length; slot += 1) {
+    raw[`ivs_${slot}`] = readInt(bytes, offset, 1);
+    raw[`ability_${slot}`] = readInt(bytes, offset + 1, 1);
+    raw[`level_${slot}`] = readInt(bytes, offset + 2, 2);
+    const mon = readInt(bytes, offset + 4, 2);
+    raw[`species_id_${slot}`] = mon & 0x03ff;
+    raw[`form_${slot}`] = mon >>> 10;
+    offset += 6;
+
+    if (hasItems && offset + 2 <= bytes.length) {
+      raw[`item_id_${slot}`] = readInt(bytes, offset, 2);
+      offset += 2;
+    }
+    if (hasMoves) {
+      for (let move = 1; move <= 4 && offset + 2 <= bytes.length; move += 1) {
+        raw[`move_${move}_${slot}`] = readInt(bytes, offset, 2);
+        offset += 2;
+      }
+    }
+    if (hasBallSeals && offset + 2 <= bytes.length) {
+      raw[`ball_seals_${slot}`] = readInt(bytes, offset, 2);
+      offset += 2;
     }
   }
   return raw;
@@ -498,14 +570,15 @@ function toReadable(name: NarcName, raw: RawRecord, project: ProjectState, id: n
 
   if (name === "personal") {
     readable.name = pick("pokedex", id, id <= 649 ? `Pokemon ${id}` : "Alt Form");
-    readable.type_1 = TYPES[raw.type_1] ?? raw.type_1;
-    readable.type_2 = TYPES[raw.type_2] ?? raw.type_2;
-    readable.item_1 = pick("items", raw.item_1, String(raw.item_1));
-    readable.item_2 = pick("items", raw.item_2, String(raw.item_2));
-    readable.item_3 = pick("items", raw.item_3, String(raw.item_3));
-    readable.ability_1 = pick("abilities", raw.ability_1, String(raw.ability_1));
-    readable.ability_2 = pick("abilities", raw.ability_2, String(raw.ability_2));
-    readable.ability_3 = pick("abilities", raw.ability_3, String(raw.ability_3));
+    const typeNames = typeNamesForProject(project);
+    readable.type_1 = typeNames[raw.type_1] ?? raw.type_1;
+    readable.type_2 = typeNames[raw.type_2] ?? raw.type_2;
+    readable.item_1 = pick("items", raw.item_1, String(raw.item_1 ?? 0));
+    readable.item_2 = pick("items", raw.item_2, String(raw.item_2 ?? 0));
+    readable.item_3 = pick("items", raw.item_3 ?? 0, String(raw.item_3 ?? 0));
+    readable.ability_1 = pick("abilities", raw.ability_1, String(raw.ability_1 ?? 0));
+    readable.ability_2 = pick("abilities", raw.ability_2, String(raw.ability_2 ?? 0));
+    readable.ability_3 = pick("abilities", raw.ability_3 ?? 0, String(raw.ability_3 ?? 0));
     readable.exp_rate = GROWTHS[raw.exp_rate] ?? raw.exp_rate;
     readable.egg_group_1 = EGG_GROUPS[raw.egg_group_1] ?? raw.egg_group_1;
     readable.egg_group_2 = EGG_GROUPS[raw.egg_group_2] ?? raw.egg_group_2;
@@ -513,8 +586,8 @@ function toReadable(name: NarcName, raw: RawRecord, project: ProjectState, id: n
 
   if (name === "moves") {
     readable.name = pick("moves", id, `Move ${id}`);
-    readable.type = TYPES[raw.type] ?? raw.type;
-    readable.category = CATEGORIES[raw.category] ?? raw.category;
+    readable.type = typeNamesForProject(project)[raw.type] ?? raw.type;
+    readable.category = moveCategoryNamesForProject(project)[raw.category] ?? raw.category;
     let index = 14;
     const flags = raw.properties?.toString(2).padStart(index, "0") ?? "";
     for (const prop of PROPERTIES) {

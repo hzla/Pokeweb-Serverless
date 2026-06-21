@@ -1,6 +1,6 @@
 import { readU16, writeU16 } from "../nds/binary";
 import { recordGenericChange } from "./actionChangelog";
-import { TYPES, type BaseRom } from "./constants";
+import { TYPES, isGen5BaseRom, type BaseRom, type Gen5BaseRom } from "./constants";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
 import { getTextBank, commitTextBank } from "./textModel";
 
@@ -28,7 +28,7 @@ type StarterConfig = {
   fallbackTextEntryBySlot?: number[];
 };
 
-const STARTER_CONFIG: Record<BaseRom, StarterConfig> = {
+const STARTER_CONFIG: Record<Gen5BaseRom, StarterConfig> = {
   BW: {
     // t01r0102.ev in resource/fldmapdata/script/zone_script_bin.list.
     scriptFileIds: [782],
@@ -72,7 +72,12 @@ export type StarterScriptPatchResult = {
 };
 
 export function getStarterOverlayIds(baseRom: BaseRom): number[] {
-  return STARTER_CONFIG[baseRom].overlayIds;
+  return starterConfig(baseRom).overlayIds;
+}
+
+function starterConfig(baseRom: BaseRom): StarterConfig {
+  if (!isGen5BaseRom(baseRom)) throw new Error("Starter editing is currently only supported for Gen 5 ROMs.");
+  return STARTER_CONFIG[baseRom];
 }
 
 export function getDirtyStarterOverlayIds(project: ProjectState): number[] {
@@ -128,7 +133,7 @@ function detectCurrentStarters(project: ProjectState): { speciesIds: number[]; w
 }
 
 function detectStartersFromOverlay(project: ProjectState): number[] | undefined {
-  const config = STARTER_CONFIG[project.session.baseRom];
+  const config = starterConfig(project.session.baseRom);
   for (const overlayId of config.overlayIds) {
     const overlay = project.overlays[overlayId];
     if (!overlay) continue;
@@ -148,7 +153,7 @@ function detectStartersFromOverlay(project: ProjectState): number[] | undefined 
 function detectStartersFromScripts(project: ProjectState): number[] | undefined {
   const store = project.narcs.scripts;
   if (!store) return undefined;
-  const config = STARTER_CONFIG[project.session.baseRom];
+  const config = starterConfig(project.session.baseRom);
   for (const fileId of config.scriptFileIds) {
     const file = store.rawFiles[fileId];
     if (!file) continue;
@@ -217,7 +222,7 @@ function updateStarterTypeText(project: ProjectState, previousSpeciesIds: number
 
 function findStarterTextEntries(project: ProjectState, previousSpeciesIds: number[]): Array<{ slot: number; bankId: number; entryIndex: number; text: string }> {
   const refs: Array<{ slot: number; bankId: number; entryIndex: number; text: string }> = [];
-  const config = STARTER_CONFIG[project.session.baseRom];
+  const config = starterConfig(project.session.baseRom);
   const banks = project.texts.storyTexts ?? [];
   const previousTypeBySlot = previousSpeciesIds.map((speciesId) => pokemonTypeName(project, speciesId));
 
@@ -280,7 +285,7 @@ function updateStarterScripts(project: ProjectState, previousSpeciesIds: number[
   const patches: Array<{ fileId: number; result: StarterScriptPatchResult }> = [];
   let giftUpdates = 0;
   let giftCommandCount = 0;
-  for (const fileId of STARTER_CONFIG[project.session.baseRom].scriptFileIds) {
+  for (const fileId of starterConfig(project.session.baseRom).scriptFileIds) {
     const file = store.rawFiles[fileId];
     if (!file) continue;
     const result = patchStarterScriptBytes(file, previousSpeciesIds, nextSpeciesIds);
@@ -301,7 +306,7 @@ function updateStarterScripts(project: ProjectState, previousSpeciesIds: number[
 }
 
 function updateStarterOverlays(project: ProjectState, previousSpeciesIds: number[], nextSpeciesIds: number[]): void {
-  const config = STARTER_CONFIG[project.session.baseRom];
+  const config = starterConfig(project.session.baseRom);
   const dirtyOverlayIds = new Set(project.starters?.dirtyOverlayIds ?? []);
   for (const overlayId of config.overlayIds) {
     const overlay = project.overlays[overlayId];

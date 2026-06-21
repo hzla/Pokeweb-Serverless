@@ -1,5 +1,6 @@
 import type { FieldSpec } from "./formats";
 import { parseHeaders } from "./headerModel";
+import { isGen4Project } from "./constants";
 import { GROTTO_ODDS_FIELDS } from "./martGrottoModel";
 import { groupByteLength, OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT, NULL_MAP_ID } from "./overworldModel";
 import { learnsetEntries } from "./pokemonModel";
@@ -25,7 +26,7 @@ export function materializeProjectEdits(project: ProjectState): void {
       continue;
     }
     if (store.name === "learnsets") {
-      materializeLearnsets(store);
+      materializeLearnsets(project, store);
       continue;
     }
     materializeFormattedStore(project, store);
@@ -68,17 +69,29 @@ function materializeFormattedStore(project: ProjectState, store: NarcStore): voi
     if (!record?.raw) continue;
     const original = store.rawFiles[id] ?? new Uint8Array(record.bytes.length);
     const out = original.slice();
+    if (store.name === "personal" && isGen4Project(project)) syncGen4PersonalAliases(record.raw);
     writeFormattedRecord(out, 0, format, record.raw);
     store.rawFiles[id] = out;
     updateRecordBytes(store, id, out, record);
   }
 }
 
-function materializeLearnsets(store: NarcStore): void {
+function materializeLearnsets(project: ProjectState, store: NarcStore): void {
   for (const id of store.dirty) {
     const record = store.records.get(id);
     if (!record?.raw) continue;
     const entries = learnsetEntries(record.raw);
+    if (isGen4Project(project)) {
+      const out = new Uint8Array(entries.length * 2 + 4);
+      entries.forEach((entry, index) => {
+        writeInt(out, index * 2, 2, ((entry.level & 0x7f) << 9) | (entry.moveId & 0x01ff));
+      });
+      writeInt(out, entries.length * 2, 2, 65535);
+      writeInt(out, entries.length * 2 + 2, 2, 0);
+      store.rawFiles[id] = out;
+      updateRecordBytes(store, id, out, record);
+      continue;
+    }
     const out = new Uint8Array(entries.length * 4 + 4);
     entries.forEach((entry, index) => {
       const offset = index * 4;
@@ -96,6 +109,10 @@ function materializeTrpok(project: ProjectState, store: NarcStore): void {
   for (const id of store.dirty) {
     const record = store.records.get(id);
     if (!record?.raw) continue;
+    if (isGen4Project(project)) {
+      materializeGen4Trpok(project, store, id, record.raw, record);
+      continue;
+    }
     const template = project.trpokInfo[id]?.template ?? 0;
     const count = project.trpokInfo[id]?.numPokemon ?? 0;
     const format = trpokFormat(template);
@@ -110,6 +127,40 @@ function materializeTrpok(project: ProjectState, store: NarcStore): void {
     store.rawFiles[id] = out;
     updateRecordBytes(store, id, out, record);
   }
+}
+
+function materializeGen4Trpok(project: ProjectState, store: NarcStore, id: number, raw: RawRecord, record: NarcRecord): void {
+  const template = project.trpokInfo[id]?.template ?? 0;
+  const count = project.trpokInfo[id]?.numPokemon ?? 0;
+  const hasMoves = (template & 1) !== 0;
+  const hasItems = (template & 2) !== 0;
+  const hasBallSeals = project.session.baseRom !== "DP";
+  const rowLength = 6 + (hasItems ? 2 : 0) + (hasMoves ? 8 : 0) + (hasBallSeals ? 2 : 0);
+  const out = new Uint8Array(rowLength * count);
+  let offset = 0;
+  for (let slot = 0; slot < count; slot += 1) {
+    writeInt(out, offset, 1, raw[`ivs_${slot}`] ?? 0);
+    writeInt(out, offset + 1, 1, raw[`ability_${slot}`] ?? 0);
+    writeInt(out, offset + 2, 2, raw[`level_${slot}`] ?? 0);
+    writeInt(out, offset + 4, 2, ((raw[`form_${slot}`] ?? 0) << 10) | ((raw[`species_id_${slot}`] ?? 0) & 0x03ff));
+    offset += 6;
+    if (hasItems) {
+      writeInt(out, offset, 2, raw[`item_id_${slot}`] ?? 0);
+      offset += 2;
+    }
+    if (hasMoves) {
+      for (let move = 1; move <= 4; move += 1) {
+        writeInt(out, offset, 2, raw[`move_${move}_${slot}`] ?? 0);
+        offset += 2;
+      }
+    }
+    if (hasBallSeals) {
+      writeInt(out, offset, 2, raw[`ball_seals_${slot}`] ?? 0);
+      offset += 2;
+    }
+  }
+  store.rawFiles[id] = out;
+  updateRecordBytes(store, id, out, record);
 }
 
 function materializeOverworlds(store: NarcStore): void {
@@ -176,6 +227,12 @@ function writeFormattedRecord(out: Uint8Array, startOffset: number, format: Fiel
     if (offset + size > out.length) break;
     if (raw[field] !== undefined) writeInt(out, offset, size, raw[field]);
     offset += size;
+  }
+}
+
+function syncGen4PersonalAliases(raw: RawRecord): void {
+  if (raw.color !== undefined || raw.flip !== undefined) {
+    raw.color_flip = (Number(raw.color ?? raw.color_flip ?? 0) & 0x7f) | ((Number(raw.flip ?? ((raw.color_flip ?? 0) >>> 7)) & 1) << 7);
   }
 }
 

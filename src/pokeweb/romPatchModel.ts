@@ -1,7 +1,7 @@
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
-import { BW2_NARCS, TYPES, type NarcName } from "./constants";
+import { BW2_NARCS, TYPES, isGen5BaseRom, type Gen5BaseRom, type NarcName } from "./constants";
 import { applyFairyTypeGeneralPatch } from "./generalPatchModel";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, type NarcStore, type ProjectState } from "./projectStore";
@@ -44,7 +44,7 @@ type DustCloudPatchConfig = {
   gameLabel: string;
 };
 
-const DUST_CLOUD_PATCH_CONFIG: Record<ProjectState["session"]["baseRom"], DustCloudPatchConfig> = {
+const DUST_CLOUD_PATCH_CONFIG: Record<Gen5BaseRom, DustCloudPatchConfig> = {
   BW: { overlayId: 21, gameLabel: "Pokemon Black / White" },
   BW2: { overlayId: 36, gameLabel: "Pokemon Black 2 / White 2" },
 };
@@ -113,7 +113,7 @@ const PERSONAL_TYPE_2_OFFSET = 7;
 const MOVE_TYPE_OFFSET = 0;
 
 export async function removeDustCloudGemRewards(project: ProjectState): Promise<RomPatchApplyResult> {
-  const config = DUST_CLOUD_PATCH_CONFIG[project.session.baseRom];
+  const config = dustCloudPatchConfig(project);
   const overlay = await ensureOverlay(project, config.overlayId);
   const patched = applyRemoveDustCloudGemRewardsToOverlay(overlay);
 
@@ -143,7 +143,7 @@ export async function removeDustCloudGemRewards(project: ProjectState): Promise<
 }
 
 export async function removeDustCloudItemRewards(project: ProjectState): Promise<RomPatchApplyResult> {
-  const config = DUST_CLOUD_PATCH_CONFIG[project.session.baseRom];
+  const config = dustCloudPatchConfig(project);
   const overlay = await ensureOverlay(project, config.overlayId);
   const patched = applyRemoveDustCloudItemRewardsToOverlay(overlay);
 
@@ -350,6 +350,7 @@ export function applyForgettableHmsToArm9(arm9: Uint8Array): Arm9PatchResult | u
 }
 
 export function detectDustCloudGemPatch(project: ProjectState): "patched" | "unpatched" | "unknown" {
+  if (!isGen5BaseRom(project.session.baseRom)) return "unknown";
   const config = DUST_CLOUD_PATCH_CONFIG[project.session.baseRom];
   const overlay = project.overlays[config.overlayId];
   if (!overlay) return project.patches?.applied?.removeDustCloudGems ? "patched" : "unknown";
@@ -359,12 +360,18 @@ export function detectDustCloudGemPatch(project: ProjectState): "patched" | "unp
 }
 
 export function detectDustCloudItemPatch(project: ProjectState): "patched" | "unpatched" | "unknown" {
+  if (!isGen5BaseRom(project.session.baseRom)) return "unknown";
   const config = DUST_CLOUD_PATCH_CONFIG[project.session.baseRom];
   const overlay = project.overlays[config.overlayId];
   if (!overlay) return project.patches?.applied?.removeDustCloudItems ? "patched" : "unknown";
   const match = findDustCloudItemBranch(overlay);
   if (!match) return "unknown";
   return match.applied ? "patched" : "unpatched";
+}
+
+function dustCloudPatchConfig(project: ProjectState): DustCloudPatchConfig {
+  if (!isGen5BaseRom(project.session.baseRom)) throw new Error("Dust cloud patches are currently only supported for Gen 5 ROMs.");
+  return DUST_CLOUD_PATCH_CONFIG[project.session.baseRom];
 }
 
 export function detectForgettableHmPatch(project: ProjectState): "patched" | "unpatched" | "unsupported" | "unknown" {

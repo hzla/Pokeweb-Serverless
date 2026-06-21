@@ -1,4 +1,4 @@
-import type { BaseRom, NarcName } from "./constants";
+import { isGen4BaseRom, type BaseRom, type NarcName } from "./constants";
 
 export type FieldSpec = [number, string];
 export type NarcFormatMap = Partial<Record<NarcName, FieldSpec[]>>;
@@ -8,6 +8,8 @@ function range(count: number, make: (index: number) => FieldSpec[]): FieldSpec[]
 }
 
 export function getNarcFormats(baseRom: BaseRom): NarcFormatMap {
+  if (isGen4BaseRom(baseRom)) return getGen4NarcFormats(baseRom);
+
   const formats: NarcFormatMap = {};
 
   formats.headers =
@@ -257,6 +259,110 @@ export function getNarcFormats(baseRom: BaseRom): NarcFormatMap {
       ["superrare", "rare", "uncommon", "common"].flatMap((rarity) => range(4, (n) => [[2, `${itemType}_${rarity}_item_${n}`]])),
     ),
   );
+
+  return formats;
+}
+
+function getGen4NarcFormats(baseRom: BaseRom): NarcFormatMap {
+  const formats: NarcFormatMap = {};
+
+  formats.personal = [
+    [1, "base_hp"],
+    [1, "base_atk"],
+    [1, "base_def"],
+    [1, "base_speed"],
+    [1, "base_spatk"],
+    [1, "base_spdef"],
+    [1, "type_1"],
+    [1, "type_2"],
+    [1, "catchrate"],
+    [1, "base_exp"],
+    [2, "evs"],
+    [2, "item_1"],
+    [2, "item_2"],
+    [1, "gender"],
+    [1, "hatch_cycle"],
+    [1, "base_happy"],
+    [1, "exp_rate"],
+    [1, "egg_group_1"],
+    [1, "egg_group_2"],
+    [1, "ability_1"],
+    [1, "ability_2"],
+    [1, "flee"],
+    [1, "color_flip"],
+    [2, "padding"],
+    [4, "tm_1-32"],
+    [4, "tm_33-64"],
+    [4, "tm_65-95+hm_1"],
+    [4, "hm_2-6"],
+  ];
+
+  formats.evolutions = range(7, (n) => [
+    [2, `method_${n}`],
+    [2, `param_${n}`],
+    [2, `target_${n}`],
+  ]);
+
+  formats.moves = [
+    [2, "effect"],
+    [1, "category"],
+    [1, "power"],
+    [1, "type"],
+    [1, "accuracy"],
+    [1, "pp"],
+    [1, "effect_chance"],
+    [2, "target"],
+    [1, "priority"],
+    [1, "flag"],
+    [1, "contest_appeal"],
+    [1, "contest_type"],
+    [2, "padding"],
+  ];
+
+  formats.trdata = [
+    [1, "template"],
+    [1, "class"],
+    [1, "unknown_1"],
+    [1, "num_pokemon"],
+    [2, "item_1"],
+    [2, "item_2"],
+    [2, "item_3"],
+    [2, "item_4"],
+    [4, "ai"],
+    [4, "double_battle"],
+  ];
+
+  formats.headers = baseRom === "HGSS"
+    ? [
+        [2, "area_data_id"],
+        [2, "matrix_id"],
+        [2, "script_id"],
+        [2, "level_script_id"],
+        [2, "text_bank_id"],
+        [2, "music_day_id"],
+        [2, "music_night_id"],
+        [2, "wild_id"],
+        [2, "event_id"],
+        [2, "name_id"],
+        [2, "weather_id"],
+        [2, "camera_id"],
+        [2, "map_type"],
+        [2, "battle_background"],
+      ]
+    : [
+        [2, "area_data_id"],
+        [2, "matrix_id"],
+        [2, "script_id"],
+        [2, "level_script_id"],
+        [2, "text_bank_id"],
+        [2, "music_day_id"],
+        [2, "music_night_id"],
+        [2, "wild_id"],
+        [2, "event_id"],
+        [2, "name_id"],
+        [2, "weather_id"],
+        [2, "camera_id"],
+      ];
 
   return formats;
 }
