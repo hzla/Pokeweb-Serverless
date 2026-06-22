@@ -50,6 +50,10 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
       fileReplacements.set(store.fileId, store.rawFiles[0] ?? new Uint8Array());
       continue;
     }
+    if (store.container === "file") {
+      fileReplacements.set(store.fileId, store.rawFiles[0] ?? new Uint8Array());
+      continue;
+    }
     const source = new NARC(rom.files[store.fileId]);
     source.files = store.rawFiles;
     if (store.filenames) source.filenames = store.filenames;

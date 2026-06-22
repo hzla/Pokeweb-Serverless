@@ -6,6 +6,7 @@ import {
   getHeaderPackedValue,
   headerFieldMax,
 } from "../pokeweb/headerModel";
+import { isGen4Project } from "../pokeweb/constants";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachHeaderInteractions } from "./legacyInteractions";
@@ -19,9 +20,10 @@ const INFO_ICON = `
   </svg>
 `;
 
-type HeaderDetailItem = { kind: "field"; field: string; max?: number; openOverworld?: boolean } | { kind: "packed"; field: string };
+type HeaderDetailItem = { kind: "field"; field: string; max?: number; openOverworld?: boolean; text?: boolean } | { kind: "packed"; field: string };
+type HeaderDetailSection = { title: string; items: readonly HeaderDetailItem[] };
 
-const HEADER_DETAIL_SECTIONS: Array<{ title: string; items: readonly HeaderDetailItem[] }> = [
+const GEN5_HEADER_DETAIL_SECTIONS: HeaderDetailSection[] = [
   {
     title: "Map Identity",
     items: [
@@ -82,6 +84,84 @@ const HEADER_DETAIL_SECTIONS: Array<{ title: string; items: readonly HeaderDetai
   },
 ];
 
+function headerDetailSectionsFor(project: ProjectState): HeaderDetailSection[] {
+  if (!isGen4Project(project)) return GEN5_HEADER_DETAIL_SECTIONS;
+
+  const isHgss = project.session.baseRom === "HGSS";
+  const isPt = project.session.baseRom === "Pt";
+  const locationMax = project.session.baseRom === "DP" ? 65535 : 255;
+  const wildMax = isHgss ? 255 : 65535;
+  const weatherMax = isHgss ? 127 : 255;
+  const cameraMax = isHgss ? 63 : 255;
+  const battleBgMax = project.session.baseRom === "DP" ? 15 : 31;
+  const flagsMax = isHgss ? 127 : 15;
+
+  const familyExtras: HeaderDetailSection[] = isHgss
+    ? [
+        {
+          title: "HGSS World Map",
+          items: [
+            { kind: "field", field: "kanto_flag", max: 1 },
+            { kind: "field", field: "worldmap_x", max: 63 },
+            { kind: "field", field: "worldmap_y", max: 63 },
+            { kind: "field", field: "area_icon", max: 15 },
+            { kind: "field", field: "unknown_0", max: 15 },
+            { kind: "field", field: "unknown_1", max: 15 },
+          ],
+        },
+      ]
+    : [
+        {
+          title: isPt ? "Platinum Extras" : "DP Extras",
+          items: [
+            ...(isPt ? ([{ kind: "field", field: "area_icon", max: 15 }] as HeaderDetailItem[]) : []),
+            { kind: "field", field: "unknown_1", max: 255 },
+          ],
+        },
+      ];
+
+  return [
+    {
+      title: "Map Identity",
+      items: [
+        { kind: "field", field: "internal_name", text: true },
+        { kind: "field", field: "area_data_id", max: 255 },
+        { kind: "field", field: "matrix_id", max: 65535 },
+        { kind: "field", field: "event_id", max: 65535, openOverworld: true },
+        { kind: "field", field: "wild_id", max: wildMax },
+      ],
+    },
+    {
+      title: "Scripts & Text",
+      items: [
+        { kind: "field", field: "script_id", max: 65535 },
+        { kind: "field", field: "level_script_id", max: 65535 },
+        { kind: "field", field: "text_bank_id", max: 65535 },
+        { kind: "field", field: "place_name_id", max: locationMax },
+      ],
+    },
+    {
+      title: "Audio & Camera",
+      items: [
+        { kind: "field", field: "music_day_id", max: 65535 },
+        { kind: "field", field: "music_night_id", max: 65535 },
+        { kind: "field", field: "weather_id", max: weatherMax },
+        { kind: "field", field: "camera_id", max: cameraMax },
+      ],
+    },
+    {
+      title: "Behavior",
+      items: [
+        ...(isHgss ? ([{ kind: "field", field: "location_type", max: 15 }, { kind: "field", field: "follow_mode", max: 3 }] as HeaderDetailItem[]) : []),
+        ...(!isHgss ? ([{ kind: "field", field: "location_specifier", max: isPt ? 127 : 255 }] as HeaderDetailItem[]) : []),
+        { kind: "field", field: "battle_background", max: battleBgMax },
+        { kind: "field", field: "flags", max: flagsMax },
+      ],
+    },
+    ...familyExtras,
+  ];
+}
+
 export function renderHeaderEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenOverworld?: (overworldId: number) => void): void {
   if (!project.headers) throw new Error("Header data has not been parsed");
 
@@ -123,12 +203,12 @@ function renderRows(project: ProjectState, canOpenOverworld: boolean): string {
   const rows: string[] = [];
   for (let rowId = 1; rowId <= headers.count; rowId += 1) {
     const row = headers.rows[rowId];
-    rows.push(renderRow(rowId, row, canOpenOverworld));
+    rows.push(renderRow(project, rowId, row, canOpenOverworld));
   }
   return rows.join("");
 }
 
-function renderRow(rowId: number, row: HeaderRow, canOpenOverworld: boolean): string {
+function renderRow(project: ProjectState, rowId: number, row: HeaderRow, canOpenOverworld: boolean): string {
   return `
     <div class="expanded-field filterable" data-index="${rowId}">
       <div class="expanded-field-main">
@@ -142,7 +222,7 @@ function renderRow(rowId: number, row: HeaderRow, canOpenOverworld: boolean): st
       </div>
       <div class="expanded-card-content expanded-header">
         <div class="header-detail-grid">
-          ${HEADER_DETAIL_SECTIONS.map((section) => renderHeaderDetailSection(row, section.title, section.items, canOpenOverworld)).join("")}
+          ${headerDetailSectionsFor(project).map((section) => renderHeaderDetailSection(row, section.title, section.items, canOpenOverworld)).join("")}
         </div>
       </div>
     </div>
@@ -176,7 +256,7 @@ function renderHeaderDetailItem(row: HeaderRow, item: HeaderDetailItem, canOpenO
         <span>${escapeHtml(label)}</span>
         ${openLink}
       </label>
-      ${field(item.field, `header-detail-value header-${item.field}`, value, { type: `int-${max}` })}
+      ${field(item.field, `header-detail-value header-${item.field}`, value, { type: item.text ? null : `int-${max}` })}
     </div>
   `;
 }
@@ -219,9 +299,9 @@ function field(
   name: string,
   className: string,
   value: unknown,
-  options: { type?: string; autofill?: string; narc?: "header" | "header-part"; part?: string } = {},
+  options: { type?: string | null; autofill?: string; narc?: "header" | "header-part"; part?: string } = {},
 ): string {
-  const type = options.type ?? (name === "location_name" ? undefined : `int-${headerFieldMax(name) ?? 65535}`);
+  const type = options.type === null ? undefined : (options.type ?? (name === "location_name" ? undefined : `int-${headerFieldMax(name) ?? 65535}`));
   const typeAttr = type ? ` data-type="${type}"` : "";
   const autocompleteAttr = options.autofill ? ` data-autocomplete-spy data-autofill="${options.autofill}"` : "";
   const partAttr = options.part ? ` data-part-key="${escapeHtml(options.part)}"` : "";

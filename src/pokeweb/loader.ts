@@ -27,7 +27,7 @@ import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffec
 import { detectPmcInstallFromRom } from "./pmcModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
-import { createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
+import { createFileStore, createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
 import { getStarterOverlayIds } from "./starterModel";
 import { cleanDisplayText, decodeGen4TextBank, decodeGen5TextBank, type TextEntry } from "./text";
 import { TYPE_CHART_ROMFS_PATH, createRomFsTypeChartStore, createTypeChartStore, detectFairyTypeUsage } from "./typeChartModel";
@@ -46,6 +46,10 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
 
   onProgress?.("Reading ROM file");
   const bytes = new Uint8Array(await file.arrayBuffer());
+  return loadProjectFromRomBytes(bytes, file.name, options, onProgress);
+}
+
+export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cached-rom.nds", options: LoadOptions = {}, onProgress?: LoadProgress): Promise<ProjectState> {
   const rom = new NintendoDSRom(bytes);
   const compactBytes = rom.save();
 
@@ -59,7 +63,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
   const project: ProjectState = {
     originalRomBytes: compactBytes,
     session: {
-      romName: file.name.replace(/\.nds$/iu, ""),
+      romName: fileName.replace(/\.nds$/iu, ""),
       generation: version.generation,
       baseVersion: version.baseVersion,
       baseRom: version.baseRom,
@@ -70,7 +74,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
     romInfo: {
       title: rom.name,
       idCode: rom.idCode,
-      fileName: file.name,
+      fileName,
       size: bytes.length,
     },
     arm9,
@@ -83,7 +87,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
     formats,
     trpokInfo: [],
     docs: {
-      romTitle: file.name.replace(/\.nds$/iu, ""),
+      romTitle: fileName.replace(/\.nds$/iu, ""),
       trainerLocations: {},
       trainerDiffs: {},
       itemLocations: {},
@@ -107,6 +111,12 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
 
     onProgress?.("Indexing trainer metadata");
     indexTrpokInfo(project);
+
+    onProgress?.("Parsing Gen 4 headers");
+    project.headers = parseHeaders(project);
+
+    onProgress?.("Parsing TM table");
+    project.tms = parseTms(project);
     return project;
   }
 
@@ -157,6 +167,10 @@ function extractNarcSet(rom: NintendoDSRom, project: ProjectState, definitions: 
     try {
       const fileId = rom.fileId(definition.path);
       project.session.fileIds[definition.name] = fileId;
+      if (definition.container === "file") {
+        project.narcs[definition.name] = createFileStore(definition.name, definition.path, fileId, rom.files[fileId]);
+        continue;
+      }
       const narc = new NARC(rom.files[fileId]);
       project.narcs[definition.name] = createNarcStore(definition.name, definition.path, fileId, narc);
     } catch (error) {
@@ -204,11 +218,12 @@ function decodeTextNarcs(project: ProjectState): void {
   const banks = isGen4Project(project) ? GEN4_MESSAGE_BANKS[project.session.baseVersion as Gen4Version] : project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
   for (const [source, bankName] of banks) {
     const nameCase = bankName === "pokedex" || bankName === "moves";
-    if (project.texts.banks[bankName]) continue;
-    project.texts.banks[bankName] = labelsFromTextBankSource(messageTexts, source).map((entry, index) => {
+    if ((project.texts.banks[bankName]?.length ?? 0) > 0) continue;
+    const labels = labelsFromTextBankSource(messageTexts, source).map((entry, index) => {
       const text = entry?.[1] ?? `Entry ${index}`;
       return cleanDisplayText(text, nameCase);
     });
+    if (labels.length > 0) project.texts.banks[bankName] = labels;
   }
 }
 

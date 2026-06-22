@@ -5,6 +5,9 @@ import { GROTTO_ODDS_FIELDS } from "./martGrottoModel";
 import { groupByteLength, OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT, NULL_MAP_ID } from "./overworldModel";
 import { learnsetEntries } from "./pokemonModel";
 import type { NarcRecord, NarcStore, ProjectState, RawRecord } from "./projectStore";
+import { materializeGen4EventFile } from "./gen4EventModel";
+import { materializeGen4MapFile } from "./gen4MapModel";
+import { materializeGen4MatrixFile } from "./gen4MatrixModel";
 
 export function materializeProjectEdits(project: ProjectState): void {
   materializeHeaders(project);
@@ -14,11 +17,17 @@ export function materializeProjectEdits(project: ProjectState): void {
     if (!store || store.dirty.size === 0) continue;
     if (store.name === "headers" || store.name === "grotto_odds") continue;
     if (store.name === "overworlds") {
-      materializeOverworlds(store);
+      if (isGen4Project(project)) materializeGen4EventFiles(store);
+      else materializeOverworlds(store);
       continue;
     }
     if (store.name === "maps") {
-      materializeMaps(store);
+      if (isGen4Project(project)) materializeGen4Maps(project, store);
+      else materializeMaps(store);
+      continue;
+    }
+    if (store.name === "matrix" && isGen4Project(project)) {
+      materializeGen4Matrices(store);
       continue;
     }
     if (store.name === "trpok") {
@@ -29,11 +38,16 @@ export function materializeProjectEdits(project: ProjectState): void {
       materializeLearnsets(project, store);
       continue;
     }
+    if (store.name === "encounters" && isGen4Project(project)) {
+      materializeGen4Encounters(project, store);
+      continue;
+    }
     materializeFormattedStore(project, store);
   }
 }
 
 function materializeHeaders(project: ProjectState): void {
+  if (isGen4Project(project)) return;
   const store = project.narcs.headers;
   const format = project.formats.headers;
   if (!store || !format || store.dirty.size === 0) return;
@@ -100,6 +114,134 @@ function materializeLearnsets(project: ProjectState, store: NarcStore): void {
     });
     writeInt(out, entries.length * 4, 2, 65535);
     writeInt(out, entries.length * 4 + 2, 2, 65535);
+    store.rawFiles[id] = out;
+    updateRecordBytes(store, id, out, record);
+  }
+}
+
+function materializeGen4Encounters(project: ProjectState, store: NarcStore): void {
+  for (const id of store.dirty) {
+    const record = store.records.get(id);
+    if (!record?.raw) continue;
+    const original = store.rawFiles[id] ?? record.bytes ?? new Uint8Array();
+    const out = project.session.baseRom === "HGSS" ? writeHgssEncounter(record.raw, original) : writeDpptEncounter(record.raw, original);
+    store.rawFiles[id] = out;
+    updateRecordBytes(store, id, out, record);
+  }
+}
+
+function materializeGen4EventFiles(store: NarcStore): void {
+  for (const id of store.dirty) {
+    const record = store.records.get(id);
+    if (!record?.raw) continue;
+    const original = store.rawFiles[id] ?? record.bytes ?? new Uint8Array();
+    const out = materializeGen4EventFile(record.raw, original);
+    store.rawFiles[id] = out;
+    updateRecordBytes(store, id, out, record);
+  }
+}
+
+function materializeGen4Maps(project: ProjectState, store: NarcStore): void {
+  for (const id of store.dirty) {
+    const record = store.records.get(id);
+    if (!record?.raw) continue;
+    const original = store.rawFiles[id] ?? record.bytes ?? new Uint8Array();
+    const out = materializeGen4MapFile(record.raw, original, project.session.baseRom);
+    store.rawFiles[id] = out;
+    updateRecordBytes(store, id, out, record);
+  }
+}
+
+function writeDpptEncounter(raw: RawRecord, original: Uint8Array): Uint8Array {
+  const out = copyWithLength(original, 0x1a8);
+  writeInt(out, 0, 4, raw.spring_grass_rate ?? 0);
+  for (let slot = 0; slot < 12; slot += 1) {
+    const offset = 4 + slot * 8;
+    writeInt(out, offset, 4, gen4SlotLevel(raw, "grass", slot));
+    writeInt(out, offset + 4, 4, raw[`spring_grass_slot_${slot}`] ?? 0);
+  }
+  writeGen4SpeciesOnlyGroup(out, raw, "swarm", 0x64, 2, 4);
+  writeGen4SpeciesOnlyGroup(out, raw, "day", 0x6c, 2, 4);
+  writeGen4SpeciesOnlyGroup(out, raw, "night", 0x74, 2, 4);
+  writeGen4SpeciesOnlyGroup(out, raw, "poke_radar", 0x7c, 4, 4);
+  writeGen4SpeciesOnlyGroup(out, raw, "ruby", 0xa4, 2, 4);
+  writeGen4SpeciesOnlyGroup(out, raw, "sapphire", 0xac, 2, 4);
+  writeGen4SpeciesOnlyGroup(out, raw, "emerald", 0xb4, 2, 4);
+  writeGen4SpeciesOnlyGroup(out, raw, "fire_red", 0xbc, 2, 4);
+  writeGen4SpeciesOnlyGroup(out, raw, "leaf_green", 0xc4, 2, 4);
+  writeDpptFishingGroup(out, raw, "surf", 0xcc, 0xd0);
+  writeDpptFishingGroup(out, raw, "old_rod", 0x124, 0x128);
+  writeDpptFishingGroup(out, raw, "good_rod", 0x150, 0x154);
+  writeDpptFishingGroup(out, raw, "super_rod", 0x17c, 0x180);
+  return out;
+}
+
+function writeDpptFishingGroup(out: Uint8Array, raw: RawRecord, kind: string, rateOffset: number, slotsOffset: number): void {
+  writeInt(out, rateOffset, 4, raw[`spring_${kind}_rate`] ?? 0);
+  for (let slot = 0; slot < 5; slot += 1) {
+    const offset = slotsOffset + slot * 8;
+    writeInt(out, offset, 1, raw[`spring_${kind}_slot_${slot}_max_level`] ?? 0);
+    writeInt(out, offset + 1, 1, raw[`spring_${kind}_slot_${slot}_min_level`] ?? 0);
+    writeInt(out, offset + 4, 4, raw[`spring_${kind}_slot_${slot}`] ?? 0);
+  }
+}
+
+function writeHgssEncounter(raw: RawRecord, original: Uint8Array): Uint8Array {
+  const out = copyWithLength(original, 196);
+  writeInt(out, 0, 1, raw.spring_grass_rate ?? 0);
+  writeInt(out, 1, 1, raw.spring_surf_rate ?? 0);
+  writeInt(out, 2, 1, raw.spring_rock_smash_rate ?? 0);
+  writeInt(out, 3, 1, raw.spring_old_rod_rate ?? 0);
+  writeInt(out, 4, 1, raw.spring_good_rod_rate ?? 0);
+  writeInt(out, 5, 1, raw.spring_super_rod_rate ?? 0);
+
+  for (let slot = 0; slot < 12; slot += 1) {
+    writeInt(out, 8 + slot, 1, gen4SlotLevel(raw, "grass", slot));
+    writeInt(out, 20 + slot * 2, 2, raw[`spring_grass_slot_${slot}`] ?? 0);
+    writeInt(out, 44 + slot * 2, 2, raw[`spring_grass_doubles_slot_${slot}`] ?? 0);
+    writeInt(out, 68 + slot * 2, 2, raw[`spring_grass_special_slot_${slot}`] ?? 0);
+  }
+
+  writeHgssWaterGroup(out, raw, "surf", 100, 5);
+  writeHgssWaterGroup(out, raw, "rock_smash", 120, 2);
+  writeHgssWaterGroup(out, raw, "old_rod", 128, 5);
+  writeHgssWaterGroup(out, raw, "good_rod", 148, 5);
+  writeHgssWaterGroup(out, raw, "super_rod", 168, 5);
+  writeGen4SpeciesOnlyGroup(out, raw, "hoenn_radio", 92, 2, 2);
+  writeGen4SpeciesOnlyGroup(out, raw, "sinnoh_radio", 96, 2, 2);
+  writeGen4SpeciesOnlyGroup(out, raw, "swarm", 188, 4, 2);
+  return out;
+}
+
+function writeHgssWaterGroup(out: Uint8Array, raw: RawRecord, kind: string, slotsOffset: number, slotCount: number): void {
+  for (let slot = 0; slot < slotCount; slot += 1) {
+    const offset = slotsOffset + slot * 4;
+    writeInt(out, offset, 1, raw[`spring_${kind}_slot_${slot}_min_level`] ?? 0);
+    writeInt(out, offset + 1, 1, raw[`spring_${kind}_slot_${slot}_max_level`] ?? 0);
+    writeInt(out, offset + 2, 2, raw[`spring_${kind}_slot_${slot}`] ?? 0);
+  }
+}
+
+function gen4SlotLevel(raw: RawRecord, kind: string, slot: number): number {
+  return raw[`spring_${kind}_slot_${slot}_min_level`] ?? raw[`spring_${kind}_slot_${slot}_max_level`] ?? 0;
+}
+
+function writeGen4SpeciesOnlyGroup(out: Uint8Array, raw: RawRecord, kind: string, offset: number, slotCount: number, size: 2 | 4): void {
+  for (let slot = 0; slot < slotCount; slot += 1) writeInt(out, offset + slot * size, size, raw[`spring_${kind}_slot_${slot}`] ?? 0);
+}
+
+function copyWithLength(original: Uint8Array, length: number): Uint8Array {
+  const out = new Uint8Array(Math.max(original.length, length));
+  out.set(original.subarray(0, Math.min(original.length, out.length)));
+  return out;
+}
+
+function materializeGen4Matrices(store: NarcStore): void {
+  for (const id of store.dirty) {
+    const record = store.records.get(id);
+    if (!record?.raw) continue;
+    const original = store.rawFiles[id] ?? record.bytes ?? new Uint8Array();
+    const out = materializeGen4MatrixFile(record.raw, original);
     store.rawFiles[id] = out;
     updateRecordBytes(store, id, out, record);
   }

@@ -15,8 +15,14 @@ export type NarcName =
   | "personal"
   | "move_spas"
   | "maps"
+  | "area_data"
+  | "map_textures"
+  | "building_textures"
+  | "exterior_building_models"
+  | "interior_building_models"
   | "matrix"
   | "overworlds"
+  | "ow_sprites"
   | "learnsets"
   | "evolutions"
   | "egg_moves"
@@ -57,6 +63,7 @@ export type NarcName =
 export type NarcDefinition = {
   path: string;
   name: NarcName;
+  container?: "narc" | "file";
   required?: boolean;
 };
 
@@ -195,9 +202,14 @@ export const GEN4_NARCS_BY_VERSION: Record<Gen4Version, NarcDefinition[]> = {
     { path: "fielddata/encountdata/d_enc_data.narc", name: "encounters" },
     { path: "fielddata/script/scr_seq_release.narc", name: "scripts" },
     { path: "fielddata/eventdata/zone_event_release.narc", name: "overworlds" },
+    { path: "data/mmodel/mmodel.narc", name: "ow_sprites" },
     { path: "fielddata/land_data/land_data_release.narc", name: "maps" },
+    { path: "fielddata/areadata/area_data.narc", name: "area_data" },
+    { path: "fielddata/areadata/area_map_tex/map_tex_set.narc", name: "map_textures" },
+    { path: "fielddata/areadata/area_build_model/areabm_texset.narc", name: "building_textures" },
+    { path: "fielddata/build_model/build_model.narc", name: "exterior_building_models" },
     { path: "fielddata/mapmatrix/map_matrix.narc", name: "matrix" },
-    { path: "fielddata/maptable/mapname.narc", name: "headers" },
+    { path: "fielddata/maptable/mapname.bin", name: "headers", container: "file" },
   ],
   P: [
     { path: "msgdata/msg.narc", name: "message_texts", required: true },
@@ -213,9 +225,14 @@ export const GEN4_NARCS_BY_VERSION: Record<Gen4Version, NarcDefinition[]> = {
     { path: "fielddata/encountdata/p_enc_data.narc", name: "encounters" },
     { path: "fielddata/script/scr_seq_release.narc", name: "scripts" },
     { path: "fielddata/eventdata/zone_event_release.narc", name: "overworlds" },
+    { path: "data/mmodel/mmodel.narc", name: "ow_sprites" },
     { path: "fielddata/land_data/land_data_release.narc", name: "maps" },
+    { path: "fielddata/areadata/area_data.narc", name: "area_data" },
+    { path: "fielddata/areadata/area_map_tex/map_tex_set.narc", name: "map_textures" },
+    { path: "fielddata/areadata/area_build_model/areabm_texset.narc", name: "building_textures" },
+    { path: "fielddata/build_model/build_model.narc", name: "exterior_building_models" },
     { path: "fielddata/mapmatrix/map_matrix.narc", name: "matrix" },
-    { path: "fielddata/maptable/mapname.narc", name: "headers" },
+    { path: "fielddata/maptable/mapname.bin", name: "headers", container: "file" },
   ],
   Pt: [
     { path: "msgdata/pl_msg.narc", name: "message_texts", required: true },
@@ -231,9 +248,14 @@ export const GEN4_NARCS_BY_VERSION: Record<Gen4Version, NarcDefinition[]> = {
     { path: "fielddata/encountdata/pl_enc_data.narc", name: "encounters" },
     { path: "fielddata/script/scr_seq.narc", name: "scripts" },
     { path: "fielddata/eventdata/zone_event.narc", name: "overworlds" },
+    { path: "data/mmodel/mmodel.narc", name: "ow_sprites" },
     { path: "fielddata/land_data/land_data.narc", name: "maps" },
+    { path: "fielddata/areadata/area_data.narc", name: "area_data" },
+    { path: "fielddata/areadata/area_map_tex/map_tex_set.narc", name: "map_textures" },
+    { path: "fielddata/areadata/area_build_model/areabm_texset.narc", name: "building_textures" },
+    { path: "fielddata/build_model/build_model.narc", name: "exterior_building_models" },
     { path: "fielddata/mapmatrix/map_matrix.narc", name: "matrix" },
-    { path: "fielddata/maptable/mapname.narc", name: "headers" },
+    { path: "fielddata/maptable/mapname.bin", name: "headers", container: "file" },
   ],
   HG: [
     { path: "a/0/2/7", name: "message_texts", required: true },
@@ -249,9 +271,15 @@ export const GEN4_NARCS_BY_VERSION: Record<Gen4Version, NarcDefinition[]> = {
     { path: "a/0/3/7", name: "encounters" },
     { path: "a/0/1/2", name: "scripts" },
     { path: "a/0/3/2", name: "overworlds" },
+    { path: "a/0/8/1", name: "ow_sprites" },
     { path: "a/0/6/5", name: "maps" },
+    { path: "a/0/4/2", name: "area_data" },
+    { path: "a/0/4/4", name: "map_textures" },
+    { path: "a/0/7/0", name: "building_textures" },
+    { path: "a/0/4/0", name: "exterior_building_models" },
+    { path: "a/1/4/8", name: "interior_building_models" },
     { path: "a/0/4/1", name: "matrix" },
-    { path: "a/0/1/6", name: "headers" },
+    { path: "fielddata/maptable/mapname.bin", name: "headers", container: "file" },
     { path: "a/2/2/9", name: "egg_moves" },
   ],
   SS: [
@@ -268,9 +296,15 @@ export const GEN4_NARCS_BY_VERSION: Record<Gen4Version, NarcDefinition[]> = {
     { path: "a/1/3/6", name: "encounters" },
     { path: "a/0/1/2", name: "scripts" },
     { path: "a/0/3/2", name: "overworlds" },
+    { path: "a/0/8/1", name: "ow_sprites" },
     { path: "a/0/6/5", name: "maps" },
+    { path: "a/0/4/2", name: "area_data" },
+    { path: "a/0/4/4", name: "map_textures" },
+    { path: "a/0/7/0", name: "building_textures" },
+    { path: "a/0/4/0", name: "exterior_building_models" },
+    { path: "a/1/4/8", name: "interior_building_models" },
     { path: "a/0/4/1", name: "matrix" },
-    { path: "a/0/1/6", name: "headers" },
+    { path: "fielddata/maptable/mapname.bin", name: "headers", container: "file" },
     { path: "a/2/2/9", name: "egg_moves" },
   ],
 };

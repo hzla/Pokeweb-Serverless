@@ -177,9 +177,9 @@
 }
 
 .overworld-item.missing-sprite {
-  background: #1abc9c;
-  border-radius: 50%;
-  color: #282a36;
+  background: #e74c3c;
+  border: 2px solid #ffb3a8;
+  color: #fff;
   font-weight: 700;
 }
 
@@ -257,6 +257,69 @@
   background: #1abc9c;
   color: #282a36;
   font-weight: 700;
+}
+
+.overworld-cell-nav {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.overworld-cell-button {
+  position: absolute;
+  min-width: 44px;
+  padding-inline: 8px;
+  pointer-events: auto;
+}
+
+.overworld-cell-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.overworld-cell-label {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 64px;
+  padding: 4px 8px;
+  border-radius: 2px;
+  background: rgba(40, 42, 54, 0.86);
+  color: #f8f8f2;
+  font-size: 13px;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+}
+
+.overworld-cell-left,
+.overworld-cell-right {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.overworld-cell-left {
+  left: 8px;
+}
+
+.overworld-cell-right {
+  right: 8px;
+}
+
+.overworld-cell-up,
+.overworld-cell-down {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.overworld-cell-up {
+  top: 42px;
+}
+
+.overworld-cell-down {
+  bottom: 8px;
 }
 
 .overworld-map-status {

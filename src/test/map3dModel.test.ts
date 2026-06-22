@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   extractGameFreakContainer,
+  buildModelPrimitives,
   packGameFreakContainer,
   parseAreaHeader,
   parseMapMatrix,
+  parseNitroRenderOpsForTest,
   parseMapReplaceTable,
   parseNpcRegistry,
   parseVMapTerrain,
@@ -216,7 +218,205 @@ describe("map3dModel", () => {
       resourceIndices: [100, 101, 0, 0, 0],
     });
   });
+
+  it("keeps Nitro model geometry after DSPRE building matrix commands", () => {
+    const commands = makeGpuCommands([
+      { opcodes: [0x40, 0x17, 0x22, 0x23], params: [0, ...identity4x3(), 0, vtx16(0, 0), vtx16(0, 0)] },
+      { opcodes: [0x23, 0x23, 0x41, 0], params: [vtx16(1, 0), vtx16(0, 0), vtx16(0, 1), vtx16(0, 0)] },
+    ]);
+    const warnings: string[] = [];
+
+    const primitives = buildModelPrimitives(
+      {
+        textures: [],
+        palettes: [],
+        models: [
+          {
+            renderOps: [
+              { kind: "bindMaterial", material: 0 },
+              { kind: "draw", piece: 0 },
+            ],
+            pieces: [{ commands }],
+            materials: [
+              {
+                name: "building_mat",
+                width: 16,
+                height: 16,
+                diffuse: [1, 1, 1],
+                alpha: 1,
+                defaultVertexColor: false,
+                repeatS: false,
+                repeatT: false,
+                flipS: false,
+                flipT: false,
+                textureTransformMode: 0,
+                scaleS: 1,
+                scaleT: 1,
+                transS: 0,
+                transT: 0,
+              },
+            ],
+            objects: [],
+            upScale: 1,
+            downScale: 1,
+          },
+        ],
+      } as never,
+      warnings,
+    );
+
+    expect(warnings).not.toContain("Unsupported GPU opcode 0x17");
+    expect(primitives[0]?.positions.length).toBe(9);
+    expect([...Array.from(primitives[0]?.indices ?? [])]).toEqual([0, 1, 2]);
+  });
+
+  it("keeps render commands aligned after DSPRE EnvMap SBC commands", () => {
+    const ops = parseNitroRenderOpsForTest(Uint8Array.of(0x04, 2, 0x0c, 7, 0x05, 3, 0x01));
+
+    expect(ops).toEqual([
+      { kind: "bindMaterial", material: 2 },
+      { kind: "draw", piece: 3 },
+    ]);
+  });
+
+  it("falls back to drawing polygons when NSBMD render ops produce no geometry", () => {
+    const commands = makeGpuCommands([
+      { opcodes: [0x40, 0x22, 0x23, 0x23], params: [0, 0, vtx16(0, 0), vtx16(0, 0), vtx16(1, 0), vtx16(0, 0)] },
+      { opcodes: [0x23, 0x41, 0, 0], params: [vtx16(0, 1), vtx16(0, 0)] },
+    ]);
+    const warnings: string[] = [];
+
+    const primitives = buildModelPrimitives(
+      {
+        textures: [],
+        palettes: [],
+        models: [
+          {
+            renderOps: [],
+            pieces: [{ commands }],
+            materials: [
+              {
+                name: "fallback_mat",
+                width: 16,
+                height: 16,
+                diffuse: [1, 1, 1],
+                alpha: 1,
+                defaultVertexColor: false,
+                repeatS: false,
+                repeatT: false,
+                flipS: false,
+                flipT: false,
+                textureTransformMode: 0,
+                scaleS: 1,
+                scaleT: 1,
+                transS: 0,
+                transT: 0,
+              },
+            ],
+            objects: [],
+            upScale: 1,
+            downScale: 1,
+          },
+        ],
+      } as never,
+      warnings,
+    );
+
+    expect(warnings).toContain("Model render ops produced no geometry; drawing all polygons once.");
+    expect(primitives[0]?.positions.length).toBe(9);
+    expect([...Array.from(primitives[0]?.indices ?? [])]).toEqual([0, 1, 2]);
+  });
+
+  it("recovers polygon pieces that the NSBMD render op pass skips", () => {
+    const firstCommands = makeGpuCommands([
+      { opcodes: [0x40, 0x22, 0x23, 0x23], params: [0, 0, vtx16(0, 0), vtx16(0, 0), vtx16(1, 0), vtx16(0, 0)] },
+      { opcodes: [0x23, 0x41, 0, 0], params: [vtx16(0, 1), vtx16(0, 0)] },
+    ]);
+    const skippedCommands = makeGpuCommands([
+      { opcodes: [0x40, 0x22, 0x23, 0x23], params: [0, 0, vtx16(2, 0), vtx16(0, 0), vtx16(3, 0), vtx16(0, 0)] },
+      { opcodes: [0x23, 0x41, 0, 0], params: [vtx16(2, 1), vtx16(0, 0)] },
+    ]);
+    const warnings: string[] = [];
+
+    const primitives = buildModelPrimitives(
+      {
+        textures: [],
+        palettes: [],
+        models: [
+          {
+            renderOps: [
+              { kind: "bindMaterial", material: 0 },
+              { kind: "draw", piece: 0 },
+            ],
+            pieces: [{ commands: firstCommands }, { commands: skippedCommands }],
+            materials: [makeTestMaterial("first_mat"), makeTestMaterial("skipped_mat")],
+            objects: [],
+            upScale: 1,
+            downScale: 1,
+          },
+        ],
+      } as never,
+      warnings,
+      { recoverSkippedPieces: true },
+    );
+
+    expect(warnings).toContain("Model render ops skipped 1 polygon piece; drawing unmatched pieces once.");
+    expect(primitives).toHaveLength(2);
+    expect(primitives[0]?.material.name).toBe("first_mat");
+    expect(primitives[1]?.material.name).toBe("skipped_mat");
+    expect(primitives[1]?.positions.length).toBe(9);
+  });
 });
+
+function makeTestMaterial(name: string) {
+  return {
+    name,
+    width: 16,
+    height: 16,
+    diffuse: [1, 1, 1],
+    alpha: 1,
+    defaultVertexColor: false,
+    repeatS: false,
+    repeatT: false,
+    flipS: false,
+    flipT: false,
+    textureTransformMode: 0,
+    scaleS: 1,
+    scaleT: 1,
+    transS: 0,
+    transT: 0,
+  };
+}
+
+function makeGpuCommands(groups: Array<{ opcodes: number[]; params: number[] }>): Uint8Array {
+  const wordCount = groups.reduce((sum, group) => sum + 1 + group.params.length, 0);
+  const out = new Uint8Array(wordCount * 4);
+  let offset = 0;
+  for (const group of groups) {
+    const opcodes = [...group.opcodes, 0, 0, 0, 0].slice(0, 4);
+    out[offset++] = opcodes[0] ?? 0;
+    out[offset++] = opcodes[1] ?? 0;
+    out[offset++] = opcodes[2] ?? 0;
+    out[offset++] = opcodes[3] ?? 0;
+    for (const param of group.params) {
+      writeU32(out, offset, param);
+      offset += 4;
+    }
+  }
+  return out;
+}
+
+function identity4x3(): number[] {
+  return [fx32(1), 0, 0, 0, fx32(1), 0, 0, 0, fx32(1), 0, 0, 0];
+}
+
+function fx32(value: number): number {
+  return Math.round(value * 4096) >>> 0;
+}
+
+function vtx16(first: number, second: number): number {
+  return (Math.round(first * 4096) & 0xffff) | ((Math.round(second * 4096) & 0xffff) << 16);
+}
 
 function makeGameFreakContainer(signature: string, files: Uint8Array[]): Uint8Array {
   const headerLength = 4 + (files.length + 1) * 4;

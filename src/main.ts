@@ -18,7 +18,7 @@ import "./styles/codeInjection.css";
 import "./styles/legacyPatches.css";
 import "./styles/pwanAnimation.css";
 
-import { MANDATORY_NARCS, SELECTABLE_NARCS, type NarcName } from "./pokeweb/constants";
+import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
 import { NintendoDSRom } from "./nds/rom";
 import { generateChangelogFromRomFiles } from "./pokeweb/changelogModel";
@@ -26,9 +26,9 @@ import { ensureActionChangelog, renderActionChangelogText, resetActionChangelog 
 import { exportModifiedRom } from "./pokeweb/exportRom";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
-import { loadProjectFromRomFile } from "./pokeweb/loader";
+import { loadProjectFromRomBytes, loadProjectFromRomFile } from "./pokeweb/loader";
 import { moveEffectHandlerOverlayId } from "./pokeweb/moveEffectHandlerModel";
-import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, saveActiveProject } from "./pokeweb/persistence";
+import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
 import { buildMoveTestBattleDownloads, buildTestBattleDownloads } from "./pokeweb/testBattle";
@@ -182,8 +182,11 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   personal: "Personal Data",
   move_spas: "Move SPAs",
   maps: "Map Layouts",
+  area_data: "Area Data",
+  map_textures: "Map Textures",
   matrix: "Matrices",
   overworlds: "Overworlds",
+  ow_sprites: "Overworld Sprites",
   learnsets: "Learnsets",
   evolutions: "Evolutions",
   egg_moves: "Egg Moves",
@@ -228,7 +231,7 @@ type NarcLoadSection = {
 
 const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
   { title: "Required", names: [...MANDATORY_NARCS] },
-  { title: "Sprites", names: ["pokemon_sprites", "pokemon_icons", "starter_sprites"], toggleable: true },
+  { title: "Sprites", names: ["pokemon_sprites", "pokemon_icons", "starter_sprites", "ow_sprites"], toggleable: true },
   { title: "Moves", names: ["moves", "move_animations", "battle_animations", "move_spas"], toggleable: true },
   { title: "Pokemon", names: ["personal", "learnsets", "evolutions", "egg_moves", "habitats"], toggleable: true },
   { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets"], toggleable: true },
@@ -252,7 +255,7 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
     ],
     toggleable: true,
   },
-  { title: "Maps", names: ["maps", "matrix"], toggleable: true },
+  { title: "Maps", names: ["maps", "matrix", "area_data", "map_textures"], toggleable: true },
 ];
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -285,11 +288,13 @@ async function boot(): Promise<void> {
   try {
     project = await loadActiveProject();
     hasExportBase = await hasActiveRomBytes();
+    if (!project && hasExportBase) project = await restoreProjectFromCachedRom();
     hydrateProject(project);
   } catch {
-    project = undefined;
-    hasExportBase = false;
+    project = await restoreProjectFromCachedRom();
+    hasExportBase = Boolean(project);
   }
+  if (project) hasExportBase = true;
   const initialState = routeStateFromUrl() ?? routeStateFromStorage();
   activeOverworldId = initialState.overworldId;
   activeMoveAnimationMoveId = initialState.moveAnimationMoveId;
@@ -302,6 +307,24 @@ async function boot(): Promise<void> {
   syncRouteStorage();
   syncBrowserHistory(true);
   renderApp();
+}
+
+async function restoreProjectFromCachedRom(): Promise<ProjectState | undefined> {
+  try {
+    const bytes = await loadActiveRomBytes();
+    if (!bytes) return undefined;
+    const metadata = await loadActiveRomMetadata();
+    const restored = await loadProjectFromRomBytes(bytes, metadata?.fileName ?? "cached-rom.nds", {
+      fairy: metadata?.fairy,
+      selectedNarcs: metadata?.selectedNarcs as NarcName[] | undefined,
+    });
+    resetActionChangelog(restored);
+    await saveActiveProject(restored);
+    hydrateProject(restored);
+    return restored;
+  } catch {
+    return undefined;
+  }
 }
 
 window.addEventListener("popstate", (event) => {
@@ -659,6 +682,7 @@ function renderMap3dEditorLoadError(root: HTMLElement, error: unknown): void {
 
 function renderNav(): string {
   if (!project) return `<div id="header"></div>`;
+  const gen4 = isGen4Project(project);
   const bw2Links =
     project.session.baseRom === "BW2"
       ? `
@@ -673,13 +697,13 @@ function renderNav(): string {
         ${navItem("maps3d", "Maps")}
         ${navItem("pokemon", "Pokemon")}
         ${navItem("trainers", "Trainers")}
-        ${renderFacilitiesMenu()}
+        ${gen4 ? "" : renderFacilitiesMenu()}
         ${navItem("encounters", "Encounters")}
         ${navItem("moves", "Moves")}
         ${navItem("items", "Items")}
         ${navItem("tms", "TMs")}
         ${bw2Links}
-        ${navItem("storyText", "Story Text")}
+        ${gen4 ? "" : navItem("storyText", "Story Text")}
         ${navItem("infoText", "Info Text")}
         ${renderMoreMenu()}
       </div>

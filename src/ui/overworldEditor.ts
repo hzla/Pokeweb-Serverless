@@ -18,20 +18,26 @@ import {
   type OverworldTrigger,
   type OverworldWarp,
 } from "../pokeweb/overworldModel";
+import { isGen4Project } from "../pokeweb/constants";
+import { ensureGen4OverworldSpriteResources, gen4SpecialOverworldIconName, getGen4OverworldSpriteDataUrl } from "../pokeweb/gen4OverworldSpriteModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, selectText } from "./dom";
 import { publicAsset } from "../assetUrl";
+import { gen4PermissionTileFill } from "./gen4MapPreviewRenderer";
 import type { OverworldMapRender } from "./overworldMapRenderer";
 
 const TILE_SIZE = 32;
+const MAP_VIEW_TILE_SCALE = 1;
 const MAP_VIEW_SEASON = "spring";
 const WHEEL_ZOOM_STEP = 0.025;
-const MAP_RENDER_CACHE_VERSION = 5;
-const MIN_ZOOM = 0.1;
+const MAP_RENDER_CACHE_VERSION = 10;
+const MIN_ZOOM = 0.05;
 const MIN_NPC_SCREEN_SIZE = 18;
+const ENTITY_DRAG_START_PX = 6;
 
 type OverworldViewMode = "permissions" | "map";
 type SidebarField = { key: string; label: string; editable?: boolean; showWhenRail?: boolean; showWhenGrid?: boolean };
+type ActiveCellViewport = { key: string; x: number; y: number; width: number; height: number; map?: OverworldMapScene };
 
 const mapRenderCache = new Map<string, Promise<OverworldMapRender> | OverworldMapRender>();
 
@@ -43,9 +49,12 @@ export function renderOverworldEditor(
   onBack?: () => void,
 ): void {
   let scene = getOverworldScene(project, overworldId);
+  const isGen4 = isGen4Project(project);
+  const tileLayerLabels = isGen4 ? { flag: "Type", movement: "Collision" } : { flag: "Flag", movement: "Movement" };
   let activeKind: OverworldEntityKind = "npc";
   let selectedEntity: OverworldEntitySelection | undefined = scene.npcs[0] ? { kind: "npc", index: scene.npcs[0].index } : undefined;
   let selectedTile: { mapId: number; index: number; x: number; y: number; layer2: number; layer3: number } | undefined;
+  let activeCellKey = isGen4 ? initialActiveCellKey(scene, selectedEntity) : "";
 
   root.innerHTML = `
     <div class="pokemon-filter overworld-bar">
@@ -71,11 +80,11 @@ export function renderOverworldEditor(
       </div>
       <div class="popup-editor field-holder" id="tile-editor">
         <div class="popup-field-row">
-          <div class="popup-field-label">Flag</div>
+          <div class="popup-field-label">${tileLayerLabels.flag}</div>
           <div class="popup-field" data-layer="2" id="tile-flag" contenteditable="true" data-type="int-65535">0</div>
         </div>
         <div class="popup-field-row">
-          <div class="popup-field-label">Movement</div>
+          <div class="popup-field-label">${tileLayerLabels.movement}</div>
           <div class="popup-field" data-layer="3" id="tile-mov" contenteditable="true" data-type="int-65535">0</div>
         </div>
       </div>
@@ -92,6 +101,17 @@ export function renderOverworldEditor(
       </div>
       <div class="overworld-stage">
         <canvas class="overworld-map" id="overworld-canvas"></canvas>
+        ${
+          isGen4
+            ? `<div class="overworld-cell-nav" role="group" aria-label="Map section">
+                <button class="ow-tool overworld-cell-button overworld-cell-left" id="cell-left" type="button" title="Previous section west">&larr;</button>
+                <button class="ow-tool overworld-cell-button overworld-cell-up" id="cell-up" type="button" title="Previous section north">&uarr;</button>
+                <span class="overworld-cell-label" id="cell-label"></span>
+                <button class="ow-tool overworld-cell-button overworld-cell-down" id="cell-down" type="button" title="Next section south">&darr;</button>
+                <button class="ow-tool overworld-cell-button overworld-cell-right" id="cell-right" type="button" title="Next section east">&rarr;</button>
+              </div>`
+            : ""
+        }
         <div class="overworld-map-status" id="overworld-map-status" hidden></div>
         <div class="overworld-entities" id="overworld-entities"></div>
       </div>
@@ -124,10 +144,20 @@ export function renderOverworldEditor(
     mapRenderToken: 0,
   };
 
+  if (isGen4) {
+    void ensureGen4OverworldSpriteResources(project)
+      .then(() => {
+        renderEntityOverlay();
+        fillSidebar();
+      })
+      .catch(() => undefined);
+  }
+
   const reloadScene = () => {
     const previousZoneId = associatedMapZoneId(scene);
     scene = getOverworldScene(project, overworldId);
-    selectedEntity = normalizeSelection(scene, selectedEntity, activeKind);
+    reconcileActiveCell();
+    selectedEntity = normalizeVisibleSelection(selectedEntity, activeKind);
     if (associatedMapZoneId(scene) !== previousZoneId) {
       state.mapRender = undefined;
       state.mapRenderError = "";
@@ -151,13 +181,14 @@ export function renderOverworldEditor(
 
   const frameScene = (rect = stage.getBoundingClientRect()) => {
     const focus = selectedEntityBounds(scene, selectedEntity) ?? selectedEntityBounds(scene, { kind: "npc", index: scene.npcs[0]?.index ?? -1 });
-    const bounds = state.viewMode === "map" && state.mapRender ? mapRenderTileBounds(state.mapRender) : sceneBounds(scene, focus);
-    const fitZoom = Math.min(1, Math.max(MIN_ZOOM, Math.min(rect.width / Math.max(1, bounds.width * TILE_SIZE), rect.height / Math.max(1, bounds.height * TILE_SIZE)) * 0.85));
+    const bounds = displayBounds(focus);
+    const tileSize = activeTileSize();
+    const fitZoom = Math.min(1, Math.max(MIN_ZOOM, Math.min(rect.width / Math.max(1, bounds.width * tileSize), rect.height / Math.max(1, bounds.height * tileSize)) * 0.85));
     state.zoom = fitZoom;
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
-    state.panX = rect.width / 2 - centerX * TILE_SIZE * state.zoom;
-    state.panY = rect.height / 2 - centerY * TILE_SIZE * state.zoom;
+    state.panX = rect.width / 2 - centerX * tileSize * state.zoom;
+    state.panY = rect.height / 2 - centerY * tileSize * state.zoom;
     state.framed = true;
     updateZoomLabel();
   };
@@ -166,11 +197,12 @@ export function renderOverworldEditor(
     const rect = stage.getBoundingClientRect();
     const screenX = anchorX ?? rect.width / 2;
     const screenY = anchorY ?? rect.height / 2;
-    const worldX = (screenX - state.panX) / (TILE_SIZE * state.zoom);
-    const worldY = (screenY - state.panY) / (TILE_SIZE * state.zoom);
+    const tileSize = activeTileSize();
+    const worldX = (screenX - state.panX) / (tileSize * state.zoom);
+    const worldY = (screenY - state.panY) / (tileSize * state.zoom);
     state.zoom = Math.min(3, Math.max(MIN_ZOOM, nextZoom));
-    state.panX = screenX - worldX * TILE_SIZE * state.zoom;
-    state.panY = screenY - worldY * TILE_SIZE * state.zoom;
+    state.panX = screenX - worldX * tileSize * state.zoom;
+    state.panY = screenY - worldY * tileSize * state.zoom;
     updateZoomLabel();
     draw();
   };
@@ -179,17 +211,124 @@ export function renderOverworldEditor(
     if (zoomLabel) zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`;
   };
 
-  const worldToScreen = (x: number, y: number) => ({
-    x: state.panX + x * TILE_SIZE * state.zoom,
-    y: state.panY + y * TILE_SIZE * state.zoom,
-    tileSize: TILE_SIZE * state.zoom,
-  });
+  const activeTileSize = () => TILE_SIZE * (state.viewMode === "map" ? MAP_VIEW_TILE_SCALE : 1);
+
+  function activeCellViewport(): ActiveCellViewport {
+    const map = scene.maps.find((entry) => cellKey(entry) === activeCellKey) ?? scene.maps[0];
+    if (!map) return { key: "", x: 0, y: 0, width: Math.max(1, scene.width || 32), height: Math.max(1, scene.height || 32) };
+    return { key: cellKey(map), x: map.x, y: map.y, width: map.width, height: map.height, map };
+  }
+
+  function activeOrigin(): { x: number; y: number } {
+    if (!isGen4) return { x: 0, y: 0 };
+    const cell = activeCellViewport();
+    return { x: cell.x, y: cell.y };
+  }
+
+  function displayBounds(focus?: { x: number; y: number; width: number; height: number }): { x: number; y: number; width: number; height: number } {
+    if (isGen4) {
+      const cell = activeCellViewport();
+      return { x: 0, y: 0, width: Math.max(1, cell.width), height: Math.max(1, cell.height) };
+    }
+    if (state.viewMode === "map" && state.mapRender) return mapViewTileBounds(scene, state.mapRender, isGen4);
+    return sceneBounds(scene, focus);
+  }
+
+  function reconcileActiveCell(): void {
+    if (!isGen4) return;
+    const current = scene.maps.find((map) => cellKey(map) === activeCellKey);
+    if (current) return;
+    activeCellKey = initialActiveCellKey(scene, selectedEntity);
+  }
+
+  function setActiveCell(map: OverworldMapScene | undefined): void {
+    if (!isGen4 || !map) return;
+    activeCellKey = cellKey(map);
+    selectedTile = undefined;
+    if (tileEditor) tileEditor.style.display = "none";
+    selectedEntity = normalizeVisibleSelection(selectedEntity, activeKind);
+    state.framed = false;
+    updateCellNav();
+    fillSidebar();
+    frameScene();
+    draw();
+  }
+
+  function setActiveCellForSelection(selection: OverworldEntitySelection | undefined): void {
+    if (!isGen4) return;
+    const entity = entityBySelection(scene, selection);
+    const map = entity ? mapForPoint(scene, entity.x, entity.y) : undefined;
+    if (map) activeCellKey = cellKey(map);
+  }
+
+  function neighborCell(dx: number, dy: number): OverworldMapScene | undefined {
+    const cell = activeCellViewport();
+    return scene.maps.find((map) => map.x === cell.x + dx * cell.width && map.y === cell.y + dy * cell.height);
+  }
+
+  function moveActiveCell(dx: number, dy: number): void {
+    setActiveCell(neighborCell(dx, dy));
+  }
+
+  function updateCellNav(): void {
+    if (!isGen4) return;
+    const cell = activeCellViewport();
+    const label = root.querySelector<HTMLSpanElement>("#cell-label");
+    if (label) label.textContent = cell.map ? `Map ${cell.map.id}` : "Map";
+    root.querySelector<HTMLButtonElement>("#cell-left")!.disabled = neighborCell(-1, 0) === undefined;
+    root.querySelector<HTMLButtonElement>("#cell-right")!.disabled = neighborCell(1, 0) === undefined;
+    root.querySelector<HTMLButtonElement>("#cell-up")!.disabled = neighborCell(0, -1) === undefined;
+    root.querySelector<HTMLButtonElement>("#cell-down")!.disabled = neighborCell(0, 1) === undefined;
+  }
+
+  function entityInActiveCell(entity: OverworldEntity): boolean {
+    if (!isGen4) return true;
+    const cell = activeCellViewport();
+    return entity.x >= cell.x && entity.y >= cell.y && entity.x < cell.x + cell.width && entity.y < cell.y + cell.height;
+  }
+
+  function visibleEntitiesByKind(kind: OverworldEntityKind): OverworldEntity[] {
+    const entitiesForKind = entitiesByKind(scene, kind);
+    return isGen4 ? entitiesForKind.filter(entityInActiveCell) : entitiesForKind;
+  }
+
+  function visibleEntityBySelection(selection: OverworldEntitySelection | undefined): OverworldEntity | undefined {
+    const entity = entityBySelection(scene, selection);
+    return entity && entityInActiveCell(entity) ? entity : undefined;
+  }
+
+  function normalizeVisibleSelection(selection: OverworldEntitySelection | undefined, kind: OverworldEntityKind): OverworldEntitySelection | undefined {
+    if (selection && visibleEntityBySelection(selection)) return selection;
+    const first = visibleEntitiesByKind(kind)[0];
+    return first ? { kind, index: first.index } : undefined;
+  }
+
+  function clampToActiveCell(x: number, y: number): { x: number; y: number } {
+    if (!isGen4) return { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)) };
+    const cell = activeCellViewport();
+    return {
+      x: Math.min(cell.x + cell.width - 1, Math.max(cell.x, Math.round(x))),
+      y: Math.min(cell.y + cell.height - 1, Math.max(cell.y, Math.round(y))),
+    };
+  }
+
+  const worldToScreen = (x: number, y: number) => {
+    const tileSize = activeTileSize() * state.zoom;
+    const origin = activeOrigin();
+    return {
+      x: state.panX + (x - origin.x) * tileSize,
+      y: state.panY + (y - origin.y) * tileSize,
+      tileSize,
+    };
+  };
 
   const screenToWorld = (clientX: number, clientY: number) => {
     const rect = stage.getBoundingClientRect();
+    const tileSize = activeTileSize() * state.zoom;
+    const origin = activeOrigin();
     return {
-      x: (clientX - rect.left - state.panX) / (TILE_SIZE * state.zoom),
-      y: (clientY - rect.top - state.panY) / (TILE_SIZE * state.zoom),
+      x: (clientX - rect.left - state.panX) / tileSize + origin.x,
+      y: (clientY - rect.top - state.panY) / tileSize + origin.y,
     };
   };
 
@@ -200,8 +339,15 @@ export function renderOverworldEditor(
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.clearRect(0, 0, canvas.width / scale, canvas.height / scale);
     ctx.imageSmoothingEnabled = false;
-    if (state.viewMode === "map" && state.mapRender) drawTrueMap(ctx, state.mapRender, state.zoom, state.panX, state.panY);
-    else for (const map of scene.maps) drawMap(ctx, map, state.zoom, state.panX, state.panY);
+    const tileSize = activeTileSize() * state.zoom;
+    if (state.viewMode === "map" && state.mapRender) {
+      if (isGen4) drawTrueMapSection(ctx, state.mapRender, mapGridBounds(scene), activeCellViewport(), tileSize, state.panX, state.panY);
+      else drawTrueMap(ctx, state.mapRender, mapViewTileBounds(scene, state.mapRender, isGen4), tileSize, state.panX, state.panY);
+    } else {
+      const origin = activeOrigin();
+      const maps = isGen4 ? [activeCellViewport().map].filter((map): map is OverworldMapScene => map !== undefined) : scene.maps;
+      for (const map of maps) drawMap(ctx, map, tileSize, state.panX, state.panY, origin);
+    }
     renderEntityOverlay();
   };
 
@@ -249,9 +395,19 @@ export function renderOverworldEditor(
       const key = mapRenderCacheKey(project, overworldId, zoneId);
       let cached = mapRenderCache.get(key);
       if (!cached) {
-        cached = Promise.all([import("../pokeweb/map3dModel"), import("./overworldMapRenderer")]).then(([map3dModel, renderer]) =>
-          map3dModel.loadMap3dZone(project, zoneId, { season: MAP_VIEW_SEASON }).then((data) => renderer.renderOverworldMapTopDown(data)),
-        );
+        cached = isGen4
+          ? Promise.all([import("../pokeweb/gen4Map3dModel"), import("./overworldMapRenderer")]).then(async ([gen4Map3dModel, renderer]) => {
+              await gen4Map3dModel.ensureGen4Map3dResources(project);
+              return renderer.renderOverworldMapTopDown(
+                gen4Map3dModel.buildGen4Map3dScene(project, scene.matrixId, {
+                  headerId: scene.header.index,
+                  label: scene.locationName,
+                }),
+              );
+            })
+          : Promise.all([import("../pokeweb/map3dModel"), import("./overworldMapRenderer")]).then(([map3dModel, renderer]) =>
+              map3dModel.loadMap3dZone(project, zoneId, { season: MAP_VIEW_SEASON }).then((data) => renderer.renderOverworldMapTopDown(data)),
+            );
         mapRenderCache.set(key, cached);
       }
       const render = await cached;
@@ -276,12 +432,23 @@ export function renderOverworldEditor(
     const selected = selectedEntity;
     const overlays =
       state.viewMode === "map"
-        ? scene.npcs.map((npc) => renderNpc(npc, worldToScreen, isSelected(selected, "npc", npc.index))).join("")
+        ? visibleEntitiesByKind("npc")
+            .filter((entity): entity is OverworldNpc => entity.kind === "npc")
+            .map((npc) => renderNpc(project, npc, worldToScreen, isSelected(selected, "npc", npc.index)))
+            .join("")
         : [
-            ...scene.furniture.filter((entry) => !entry.isRail).map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "furniture", entry.index))),
-            ...scene.warps.filter((entry) => !entry.isRail).map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "warp", entry.index))),
-            ...scene.triggers.filter((entry) => !entry.isRail).map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "trigger", entry.index))),
-            ...scene.npcs.map((npc) => renderNpc(npc, worldToScreen, isSelected(selected, "npc", npc.index))),
+            ...visibleEntitiesByKind("furniture")
+              .filter((entry): entry is OverworldFurniture => entry.kind === "furniture" && !entry.isRail)
+              .map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "furniture", entry.index))),
+            ...visibleEntitiesByKind("warp")
+              .filter((entry): entry is OverworldWarp => entry.kind === "warp" && !entry.isRail)
+              .map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "warp", entry.index))),
+            ...visibleEntitiesByKind("trigger")
+              .filter((entry): entry is OverworldTrigger => entry.kind === "trigger" && !entry.isRail)
+              .map((entry) => renderGridEntity(entry, worldToScreen, isSelected(selected, "trigger", entry.index))),
+            ...visibleEntitiesByKind("npc")
+              .filter((entity): entity is OverworldNpc => entity.kind === "npc")
+              .map((npc) => renderNpc(project, npc, worldToScreen, isSelected(selected, "npc", npc.index))),
           ].join("");
     entityLayer.innerHTML = overlays;
     adjustSpriteDirections(entityLayer);
@@ -291,33 +458,42 @@ export function renderOverworldEditor(
         const kind = item.dataset.kind as OverworldEntityKind | undefined;
         const index = Number(item.dataset.index);
         if (!kind || !Number.isFinite(index)) return;
-        activeKind = kind;
-        selectedEntity = { kind, index };
-        selectedTile = undefined;
-        if (tileEditor) tileEditor.style.display = "none";
+        selectEntity(kind, index);
         renderEntityOverlay();
         fillSidebar();
       });
       item.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
         event.preventDefault();
         event.stopPropagation();
         const kind = item.dataset.kind as OverworldEntityKind | undefined;
         const index = Number(item.dataset.index);
         if (!kind || !Number.isFinite(index)) return;
-        activeKind = kind;
-        selectedEntity = { kind, index };
-        item.setPointerCapture(event.pointerId);
+        selectEntity(kind, index);
+        fillSidebar();
+        if (item.isConnected) item.setPointerCapture(event.pointerId);
         const entity = entityBySelection(scene, selectedEntity);
         if (!entity || (entity.kind !== "npc" && entity.isRail)) return;
         const start = screenToWorld(event.clientX, event.clientY);
+        const startClientX = event.clientX;
+        const startClientY = event.clientY;
         const startX = entity.x;
         const startY = entity.y;
+        let lastX = startX;
+        let lastY = startY;
+        let moved = false;
         const move = (moveEvent: PointerEvent) => {
+          if (!moved && Math.hypot(moveEvent.clientX - startClientX, moveEvent.clientY - startClientY) < ENTITY_DRAG_START_PX) return;
           const next = screenToWorld(moveEvent.clientX, moveEvent.clientY);
           const dx = Math.round(next.x - start.x);
           const dy = Math.round(next.y - start.y);
-          const x = Math.max(0, startX + dx);
-          const y = Math.max(0, startY + dy);
+          const clamped = clampToActiveCell(startX + dx, startY + dy);
+          const x = clamped.x;
+          const y = clamped.y;
+          if (x === lastX && y === lastY) return;
+          moved = true;
+          lastX = x;
+          lastY = y;
           moveOverworldEntity(project, overworldId, kind, index, x, y);
           scene = getOverworldScene(project, overworldId);
           renderEntityOverlay();
@@ -326,12 +502,29 @@ export function renderOverworldEditor(
         const up = () => {
           window.removeEventListener("pointermove", move);
           window.removeEventListener("pointerup", up);
-          onDirty?.();
+          try {
+            if (item.hasPointerCapture(event.pointerId)) item.releasePointerCapture(event.pointerId);
+          } catch {
+            // The overlay may have been rerendered during a drag.
+          }
+          if (moved) onDirty?.();
+          else {
+            renderEntityOverlay();
+            fillSidebar();
+          }
         };
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", up);
       });
     });
+  }
+
+  function selectEntity(kind: OverworldEntityKind, index: number): void {
+    activeKind = kind;
+    selectedEntity = { kind, index };
+    setActiveCellForSelection(selectedEntity);
+    selectedTile = undefined;
+    if (tileEditor) tileEditor.style.display = "none";
   }
 
   function bindEntityFieldEvents(host: HTMLElement): void {
@@ -369,21 +562,27 @@ export function renderOverworldEditor(
 
   function defaultNewEntityPosition(): { x: number; y: number } {
     if (selectedTile) return { x: selectedTile.x, y: selectedTile.y };
-    const entity = entityBySelection(scene, selectedEntity);
+    const entity = visibleEntityBySelection(selectedEntity);
     if (entity && (entity.kind === "npc" || !entity.isRail)) return { x: Math.max(0, Math.round(entity.x)), y: Math.max(0, Math.round(entity.y)) };
+    if (isGen4) {
+      const cell = activeCellViewport();
+      return { x: cell.x + Math.floor(cell.width / 2), y: cell.y + Math.floor(cell.height / 2) };
+    }
     return { x: 0, y: 0 };
   }
 
   const fillSidebar = () => {
+    updateCellNav();
     updateEntityTabs(root, activeKind);
     const select = root.querySelector<HTMLSelectElement>("#entity-select");
-    const entitiesForKind = entitiesByKind(scene, activeKind);
+    selectedEntity = normalizeVisibleSelection(selectedEntity, activeKind);
+    const entitiesForKind = visibleEntitiesByKind(activeKind);
     if (select) {
       select.innerHTML = entitiesForKind.map((entity) => `<option value="${entity.index}" ${selectedEntity?.kind === activeKind && selectedEntity.index === entity.index ? "selected" : ""}>${escapeHtml(entityOptionLabel(entity))}</option>`).join("");
       select.disabled = entitiesForKind.length === 0;
     }
 
-    const entity = entityBySelection(scene, selectedEntity);
+    const entity = visibleEntityBySelection(selectedEntity);
     const fieldsHost = root.querySelector<HTMLDivElement>("#entity-fields");
     if (fieldsHost) {
       fieldsHost.innerHTML = entity
@@ -442,7 +641,7 @@ export function renderOverworldEditor(
       const kind = button.dataset.kind as OverworldEntityKind | undefined;
       if (!kind) return;
       activeKind = kind;
-      selectedEntity = normalizeSelection(scene, selectedEntity?.kind === kind ? selectedEntity : undefined, activeKind);
+      selectedEntity = normalizeVisibleSelection(selectedEntity?.kind === kind ? selectedEntity : undefined, activeKind);
       selectedTile = undefined;
       if (tileEditor) tileEditor.style.display = "none";
       renderEntityOverlay();
@@ -538,6 +737,10 @@ export function renderOverworldEditor(
   root.querySelector<HTMLButtonElement>("#view-map")?.addEventListener("click", () => {
     setViewMode("map");
   });
+  root.querySelector<HTMLButtonElement>("#cell-left")?.addEventListener("click", () => moveActiveCell(-1, 0));
+  root.querySelector<HTMLButtonElement>("#cell-right")?.addEventListener("click", () => moveActiveCell(1, 0));
+  root.querySelector<HTMLButtonElement>("#cell-up")?.addEventListener("click", () => moveActiveCell(0, -1));
+  root.querySelector<HTMLButtonElement>("#cell-down")?.addEventListener("click", () => moveActiveCell(0, 1));
 
   root.addEventListener("keydown", (event) => {
     if (event.key !== "Tab" || isEditableTarget(event.target)) return;
@@ -617,10 +820,18 @@ function entityBySelection(scene: OverworldScene, selection: OverworldEntitySele
   return entitiesByKind(scene, selection.kind).find((entity) => entity.index === selection.index);
 }
 
-function normalizeSelection(scene: OverworldScene, selection: OverworldEntitySelection | undefined, activeKind: OverworldEntityKind): OverworldEntitySelection | undefined {
-  if (selection && entityBySelection(scene, selection)) return selection;
-  const first = entitiesByKind(scene, activeKind)[0];
-  return first ? { kind: activeKind, index: first.index } : undefined;
+function cellKey(map: Pick<OverworldMapScene, "x" | "y">): string {
+  return `${map.x},${map.y}`;
+}
+
+function mapForPoint(scene: OverworldScene, x: number, y: number): OverworldMapScene | undefined {
+  return scene.maps.find((map) => x >= map.x && y >= map.y && x < map.x + map.width && y < map.y + map.height);
+}
+
+function initialActiveCellKey(scene: OverworldScene, selection: OverworldEntitySelection | undefined): string {
+  const entity = entityBySelection(scene, selection);
+  const map = entity ? mapForPoint(scene, entity.x, entity.y) : undefined;
+  return cellKey(map ?? scene.maps[0] ?? { x: 0, y: 0 });
 }
 
 function isSelected(selection: OverworldEntitySelection | undefined, kind: OverworldEntityKind, index: number): boolean {
@@ -710,18 +921,33 @@ function sceneRawNpcValue(entity: OverworldNpc, key: string): number {
   return 0;
 }
 
-function drawMap(context: CanvasRenderingContext2D, map: OverworldMapScene, zoom: number, panX: number, panY: number): void {
-  const size = TILE_SIZE * zoom;
-  const startX = panX + map.x * size;
-  const startY = panY + map.y * size;
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const index = y * map.width + x;
-      const permission = map.layer2[index] ?? 0;
-      context.fillStyle = mapPermissionColor(permission).color;
-      context.fillRect(startX + x * size, startY + y * size, Math.ceil(size), Math.ceil(size));
-      context.strokeStyle = "rgba(40, 42, 54, 0.35)";
-      context.strokeRect(startX + x * size, startY + y * size, size, size);
+function drawMap(
+  context: CanvasRenderingContext2D,
+  map: OverworldMapScene,
+  size: number,
+  panX: number,
+  panY: number,
+  origin = { x: 0, y: 0 },
+): void {
+  const startX = panX + (map.x - origin.x) * size;
+  const startY = panY + (map.y - origin.y) * size;
+  if (map.empty || map.missing) {
+    context.fillStyle = map.missing ? "#3b2430" : "#202330";
+    context.fillRect(startX, startY, map.width * size, map.height * size);
+  } else {
+    for (let y = 0; y < map.height; y += 1) {
+      for (let x = 0; x < map.width; x += 1) {
+        const index = y * map.width + x;
+        const permission = map.layer2[index] ?? 0;
+        const collision = map.layer3[index] ?? 0;
+        context.fillStyle =
+          map.permissionFormat === "gen4"
+            ? gen4PermissionTileFill({ type: permission, collision, blocked: (collision & 0x80) !== 0 })
+            : mapPermissionColor(permission).color;
+        context.fillRect(startX + x * size, startY + y * size, Math.ceil(size), Math.ceil(size));
+        context.strokeStyle = "rgba(40, 42, 54, 0.35)";
+        context.strokeRect(startX + x * size, startY + y * size, size, size);
+      }
     }
   }
   context.strokeStyle = "#bd93f9";
@@ -729,9 +955,14 @@ function drawMap(context: CanvasRenderingContext2D, map: OverworldMapScene, zoom
   context.strokeRect(startX, startY, map.width * size, map.height * size);
 }
 
-function drawTrueMap(context: CanvasRenderingContext2D, render: OverworldMapRender, zoom: number, panX: number, panY: number): void {
-  const placement = mapRenderTileBounds(render);
-  const size = TILE_SIZE * zoom;
+function drawTrueMap(
+  context: CanvasRenderingContext2D,
+  render: OverworldMapRender,
+  placement: { x: number; y: number; width: number; height: number },
+  size: number,
+  panX: number,
+  panY: number,
+): void {
   const startX = panX + placement.x * size;
   const startY = panY + placement.y * size;
   const width = placement.width * size;
@@ -742,6 +973,27 @@ function drawTrueMap(context: CanvasRenderingContext2D, render: OverworldMapRend
   context.strokeRect(startX, startY, width, height);
 }
 
+function drawTrueMapSection(
+  context: CanvasRenderingContext2D,
+  render: OverworldMapRender,
+  fullPlacement: { x: number; y: number; width: number; height: number },
+  section: { x: number; y: number; width: number; height: number },
+  size: number,
+  panX: number,
+  panY: number,
+): void {
+  const sourceX = ((section.x - fullPlacement.x) / fullPlacement.width) * render.canvas.width;
+  const sourceY = ((section.y - fullPlacement.y) / fullPlacement.height) * render.canvas.height;
+  const sourceWidth = (section.width / fullPlacement.width) * render.canvas.width;
+  const sourceHeight = (section.height / fullPlacement.height) * render.canvas.height;
+  const width = section.width * size;
+  const height = section.height * size;
+  context.drawImage(render.canvas, sourceX, sourceY, sourceWidth, sourceHeight, panX, panY, width, height);
+  context.strokeStyle = "rgba(189, 147, 249, 0.7)";
+  context.lineWidth = 2;
+  context.strokeRect(panX, panY, width, height);
+}
+
 function mapRenderTileBounds(render: OverworldMapRender): { x: number; y: number; width: number; height: number } {
   return {
     x: (render.worldBounds.minX - render.worldOrigin.x) / render.unitsPerTile,
@@ -749,6 +1001,20 @@ function mapRenderTileBounds(render: OverworldMapRender): { x: number; y: number
     width: render.worldBounds.width / render.unitsPerTile,
     height: render.worldBounds.height / render.unitsPerTile,
   };
+}
+
+function mapViewTileBounds(scene: OverworldScene, render: OverworldMapRender, isGen4: boolean): { x: number; y: number; width: number; height: number } {
+  if (isGen4) return mapGridBounds(scene);
+  return mapRenderTileBounds(render);
+}
+
+function mapGridBounds(scene: OverworldScene): { x: number; y: number; width: number; height: number } {
+  const maps = scene.maps.length > 0 ? scene.maps : [{ x: 0, y: 0, width: scene.width, height: scene.height }];
+  const minX = Math.min(...maps.map((map) => map.x), 0);
+  const minY = Math.min(...maps.map((map) => map.y), 0);
+  const maxX = Math.max(...maps.map((map) => map.x + map.width), scene.width, 1);
+  const maxY = Math.max(...maps.map((map) => map.y + map.height), scene.height, 1);
+  return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
 }
 
 function mapRenderCacheKey(project: ProjectState, overworldId: number, zoneId: number): string {
@@ -765,6 +1031,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 function renderNpc(
+  project: ProjectState,
   npc: OverworldNpc,
   worldToScreen: (x: number, y: number) => { x: number; y: number; tileSize: number },
   selected: boolean,
@@ -772,10 +1039,23 @@ function renderNpc(
   const position = worldToScreen(npc.x, npc.y);
   const size = Math.max(position.tileSize, MIN_NPC_SCREEN_SIZE);
   const offset = (size - position.tileSize) / 2;
+  const isGen4 = isGen4Project(project);
+  const romSprite = isGen4 ? getGen4OverworldSpriteDataUrl(project, npc.spriteId, npc.direction) : undefined;
+  const specialIcon = isGen4 && !romSprite ? gen4SpecialOverworldIconName(npc.spriteId) : undefined;
+  const spriteSrc = isGen4 ? (romSprite ?? (specialIcon ? publicAsset(`images/overworlds/gen4-special/${specialIcon}.png`) : undefined)) : publicAsset(`images/overworlds/${npc.spriteSlug}.png`);
+  if (!spriteSrc) {
+    return `
+      <div class="overworld-item overworld-npc missing-sprite ${selected ? "selected" : ""}" data-kind="npc" data-index="${npc.index}" data-dir="${npc.direction}" title="npc-${npc.index}"
+        style="left:${position.x - offset}px;top:${position.y - offset}px;width:${size}px;height:${size}px">
+        <span>${npc.overworldId}</span>
+      </div>
+    `;
+  }
+  const spriteAttrs = isGen4 ? `data-rom-sprite="true"` : `onerror="this.hidden=true;this.parentElement?.classList.add('missing-sprite')"`;
   return `
     <div class="overworld-item overworld-npc ${selected ? "selected" : ""}" data-kind="npc" data-index="${npc.index}" data-dir="${npc.direction}" title="npc-${npc.index}"
       style="left:${position.x - offset}px;top:${position.y - offset}px;width:${size}px;height:${size}px">
-      <img class="overworld-sprite" src="${publicAsset(`images/overworlds/${npc.spriteSlug}.png`)}" alt="" onerror="this.hidden=true;this.parentElement?.classList.add('missing-sprite')" />
+      <img class="overworld-sprite" src="${escapeHtml(spriteSrc)}" alt="" ${spriteAttrs} />
       <span>${npc.overworldId}</span>
     </div>
   `;
@@ -804,6 +1084,11 @@ function renderGridEntity(
 
 function adjustSpriteDirections(root: HTMLElement): void {
   root.querySelectorAll<HTMLImageElement>(".overworld-sprite").forEach((image) => {
+    if (image.dataset.romSprite === "true") {
+      image.style.top = "0";
+      image.style.transform = "";
+      return;
+    }
     const apply = () => {
       const frameCount = Math.round(image.naturalHeight / 32);
       const direction = Number(image.parentElement?.dataset.dir ?? 0);
@@ -835,6 +1120,7 @@ function tileAt(scene: OverworldScene, point: { x: number; y: number }): { mapId
   const x = Math.floor(point.x);
   const y = Math.floor(point.y);
   for (const map of scene.maps) {
+    if (map.empty || map.missing) continue;
     const localX = x - map.x;
     const localY = y - map.y;
     if (localX < 0 || localY < 0 || localX >= map.width || localY >= map.height) continue;

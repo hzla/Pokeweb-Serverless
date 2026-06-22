@@ -2,7 +2,7 @@ import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { EGG_GROUPS, EVO_METHODS, GROWTHS, typeNamesForProject, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
-import { getTmNames } from "./tmModel";
+import { getTmNames, machineCountsForProject } from "./tmModel";
 
 export const BASE_STAT_FIELDS = [
   ["HP", "base_hp"],
@@ -188,10 +188,11 @@ export function getPokemonTmCompatibility(project: ProjectState, speciesId: numb
   if (!record.raw) throw new Error(`Unable to decode Pokemon ${speciesId}`);
   const raw = record.raw;
   const names = getTmNames(project);
+  const counts = machineCountsForProject(project);
   return [
-    ...Array.from({ length: 95 }, (_, index) => {
+    ...Array.from({ length: counts.tm }, (_, index) => {
       const number = index + 1;
-      const location = tmBitLocation("tm", number);
+      const location = tmBitLocation(project, "tm", number);
       return {
         kind: "tm" as const,
         index: number,
@@ -200,9 +201,9 @@ export function getPokemonTmCompatibility(project: ProjectState, speciesId: numb
         enabled: bitEnabled(raw, location.field, location.bit),
       };
     }),
-    ...Array.from({ length: 6 }, (_, index) => {
+    ...Array.from({ length: counts.hm }, (_, index) => {
       const number = index + 1;
-      const location = tmBitLocation("hm", number);
+      const location = tmBitLocation(project, "hm", number);
       return {
         kind: "hm" as const,
         index: number,
@@ -217,7 +218,7 @@ export function getPokemonTmCompatibility(project: ProjectState, speciesId: numb
 export function updatePokemonTmCompatibility(project: ProjectState, speciesId: number, kind: "tm" | "hm", index: number, enabled: boolean): void {
   const record = decodeRecord(project, "personal", speciesId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update Pokemon ${speciesId}`);
-  const location = tmBitLocation(kind, index);
+  const location = tmBitLocation(project, kind, index);
   const mask = 2 ** location.bit;
   const current = record.raw[location.field] ?? 0;
   const isEnabled = bitEnabled(record.raw, location.field, location.bit);
@@ -517,15 +518,20 @@ function getEvolutions(project: ProjectState, id: number): EvolutionSlot[] {
   });
 }
 
-function tmBitLocation(kind: "tm" | "hm", index: number): { field: string; bit: number } {
+function tmBitLocation(project: ProjectState, kind: "tm" | "hm", index: number): { field: string; bit: number } {
+  const counts = machineCountsForProject(project);
   if (kind === "tm") {
-    if (index < 1 || index > 95) throw new Error(`TM index out of range: ${index}`);
+    if (index < 1 || index > counts.tm) throw new Error(`TM index out of range: ${index}`);
     if (index <= 32) return { field: "tm_1-32", bit: index - 1 };
     if (index <= 64) return { field: "tm_33-64", bit: index - 33 };
     return { field: "tm_65-95+hm_1", bit: index - 65 };
   }
 
-  if (index < 1 || index > 6) throw new Error(`HM index out of range: ${index}`);
+  if (index < 1 || index > counts.hm) throw new Error(`HM index out of range: ${index}`);
+  if (counts.hm === 8) {
+    if (index <= 4) return { field: "tm_65-95+hm_1", bit: 27 + index };
+    return { field: "hm_2-6", bit: index - 5 };
+  }
   if (index === 1) return { field: "tm_65-95+hm_1", bit: 31 };
   return { field: "hm_2-6", bit: index - 2 };
 }

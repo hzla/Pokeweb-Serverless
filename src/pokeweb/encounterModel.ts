@@ -9,6 +9,7 @@ import { writeU16 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
+import { isGen4Project } from "./constants";
 import { parseHeaders } from "./headerModel";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
@@ -16,7 +17,23 @@ import { pokemonSpriteSlug } from "./spriteSlug";
 
 export type EncounterSeason = (typeof ENCOUNTER_SEASONS)[number];
 export type EncounterGroup = "grass" | "water";
-export type EncounterKind = (typeof ENCOUNTER_GRASS_FIELDS)[number] | (typeof ENCOUNTER_WATER_FIELDS)[number];
+export type EncounterKind =
+  | (typeof ENCOUNTER_GRASS_FIELDS)[number]
+  | (typeof ENCOUNTER_WATER_FIELDS)[number]
+  | "swarm"
+  | "day"
+  | "night"
+  | "poke_radar"
+  | "ruby"
+  | "sapphire"
+  | "emerald"
+  | "fire_red"
+  | "leaf_green"
+  | "old_rod"
+  | "good_rod"
+  | "rock_smash"
+  | "hoenn_radio"
+  | "sinnoh_radio";
 
 export type EncounterRecord = {
   id: number;
@@ -42,8 +59,25 @@ export type HabitatSyncResult = {
   species: number;
 };
 
-const SLOT_FIELD_RE = /^(spring|summer|fall|winter)_(grass|grass_doubles|grass_special|surf|surf_special|super_rod|super_rod_special)_slot_(\d+)$/u;
-const FORM_FIELD_RE = /^(spring|summer|fall|winter)_(grass|grass_doubles|grass_special|surf|surf_special|super_rod|super_rod_special)_slot_(\d+)_form$/u;
+const SLOT_FIELD_RE = /^(spring|summer|fall|winter)_([a-z_]+)_slot_(\d+)$/u;
+const FORM_FIELD_RE = /^(spring|summer|fall|winter)_([a-z_]+)_slot_(\d+)_form$/u;
+const GEN4_DPPT_GRASS_FIELDS = ["grass", "swarm", "day", "night", "poke_radar", "ruby", "sapphire", "emerald", "fire_red", "leaf_green"] as const;
+const GEN4_DPPT_WATER_FIELDS = ["surf", "old_rod", "good_rod", "super_rod"] as const;
+const GEN4_HGSS_GRASS_FIELDS = ["grass", "grass_doubles", "grass_special", "hoenn_radio", "sinnoh_radio", "swarm"] as const;
+const GEN4_HGSS_WATER_FIELDS = ["surf", "rock_smash", "old_rod", "good_rod", "super_rod"] as const;
+const GEN4_SPECIES_ONLY_FIELDS = new Set<EncounterKind>([
+  "swarm",
+  "day",
+  "night",
+  "poke_radar",
+  "ruby",
+  "sapphire",
+  "emerald",
+  "fire_red",
+  "leaf_green",
+  "hoenn_radio",
+  "sinnoh_radio",
+]);
 const BW2_HABITAT_NARC_PATH = "a/2/9/6";
 const BW2_HABITAT_ENCOUNTER_POOLS: readonly number[][] = [
   [104, 105, 10],
@@ -114,8 +148,8 @@ export function getEncounterRecord(project: ProjectState, encounterId: number): 
   const record = decodeRecord(project, "encounters", encounterId);
   if (!record.raw || !record.readable) throw new Error(`Unable to decode encounter ${encounterId}`);
   syncEncounterReadable(project, record.raw, record.readable);
-  const grassWilds = deriveWilds(record.readable, "grass");
-  const waterWilds = deriveWilds(record.readable, "water");
+  const grassWilds = deriveWilds(record.readable, "grass", project);
+  const waterWilds = deriveWilds(record.readable, "water", project);
   const wilds = [...grassWilds];
   waterWilds.forEach((wild) => {
     if (!wilds.includes(wild)) wilds.push(wild);
@@ -161,11 +195,12 @@ export function updateEncounterField(project: ProjectState, encounterId: number,
   if (speciesMatch) {
     const before = record.readable[field] ?? "";
     const speciesId = parsePokemonId(project, trimmedValue);
-    const form = speciesId === 0 ? 0 : Number(record.readable[`${field}_form`] ?? 0);
+    const form = isGen4Project(project) || speciesId === 0 ? 0 : Number(record.readable[`${field}_form`] ?? 0);
     const rawValue = speciesId + form * 2048;
     record.raw[field] = rawValue;
     record.readable[field] = speciesId === 0 ? "" : (project.texts.banks.pokedex?.[speciesId] ?? String(speciesId));
     record.readable[`${field}_form`] = form;
+    syncGen4EncounterAliases(project, record.raw, record.readable, field);
     markDirty(project, "encounters", encounterId);
     recordFieldChange(project, "encounters", encounterSubject(project, encounterId), encounterFieldLabel(field), before, record.readable[field], {
       key: `encounter:${encounterId}:${field}`,
@@ -175,6 +210,7 @@ export function updateEncounterField(project: ProjectState, encounterId: number,
 
   const formMatch = FORM_FIELD_RE.exec(field);
   if (formMatch) {
+    if (isGen4Project(project)) throw new Error("Forms are not editable in the Gen 4 encounter editor.");
     const before = record.readable[field] ?? 0;
     const value = parseInteger(trimmedValue, 0, 100, field);
     const baseField = field.replace(/_form$/u, "");
@@ -194,6 +230,7 @@ export function updateEncounterField(project: ProjectState, encounterId: number,
     const value = parseInteger(trimmedValue, 0, 100, field);
     record.raw[field] = value;
     record.readable[field] = value;
+    syncGen4EncounterAliases(project, record.raw, record.readable, field);
     markDirty(project, "encounters", encounterId);
     recordFieldChange(project, "encounters", encounterSubject(project, encounterId), encounterFieldLabel(field), before, value, {
       key: `encounter:${encounterId}:${field}`,
@@ -248,26 +285,85 @@ export async function syncEncountersToDexHabitats(project: ProjectState): Promis
   return { habitats: BW2_HABITAT_ENCOUNTER_POOLS.length, species: totalSpecies };
 }
 
-export function encounterKindsForGroup(group: EncounterGroup): readonly EncounterKind[] {
+export function encounterKindsForGroup(group: EncounterGroup, project?: ProjectState): readonly EncounterKind[] {
+  if (project && isGen4Project(project)) {
+    if (group === "grass") return project.session.baseRom === "HGSS" ? GEN4_HGSS_GRASS_FIELDS : GEN4_DPPT_GRASS_FIELDS;
+    return project.session.baseRom === "HGSS" ? GEN4_HGSS_WATER_FIELDS : GEN4_DPPT_WATER_FIELDS;
+  }
   return group === "grass" ? ENCOUNTER_GRASS_FIELDS : ENCOUNTER_WATER_FIELDS;
 }
 
-export function encounterSlotCount(kind: EncounterKind): number {
+export function encounterSlotCount(kind: EncounterKind, project?: ProjectState): number {
+  if (kind === "swarm") return project?.session.baseRom === "HGSS" ? 4 : 2;
+  if (kind === "day" || kind === "night" || kind === "ruby" || kind === "sapphire" || kind === "emerald" || kind === "fire_red" || kind === "leaf_green" || kind === "hoenn_radio" || kind === "sinnoh_radio") return 2;
+  if (kind === "poke_radar") return 4;
+  if (kind === "rock_smash") return 2;
   return (ENCOUNTER_GRASS_FIELDS as readonly string[]).includes(kind) ? 12 : 5;
 }
 
 export function encounterPercentFor(kind: EncounterKind, slot: number): number {
+  if (kind === "rock_smash") return [90, 10][slot] ?? 0;
   return ((ENCOUNTER_GRASS_FIELDS as readonly string[]).includes(kind) ? ENCOUNTER_GRASS_PERCENTAGES : ENCOUNTER_WATER_PERCENTAGES)[slot] ?? 0;
+}
+
+export function encounterKindHasRate(project: ProjectState, kind: EncounterKind): boolean {
+  return !isGen4Project(project) || !GEN4_SPECIES_ONLY_FIELDS.has(kind);
+}
+
+export function encounterKindHasLevels(project: ProjectState, kind: EncounterKind): boolean {
+  return !isGen4Project(project) || !GEN4_SPECIES_ONLY_FIELDS.has(kind);
+}
+
+export function encounterKindHasPercent(project: ProjectState, kind: EncounterKind): boolean {
+  return !isGen4Project(project) || !GEN4_SPECIES_ONLY_FIELDS.has(kind);
+}
+
+export function encounterKindLabel(project: ProjectState, kind: EncounterKind): string {
+  if (isGen4Project(project)) {
+    const gen4Labels: Partial<Record<EncounterKind, string>> =
+      project.session.baseRom === "HGSS"
+        ? {
+            grass: "Morning",
+            grass_doubles: "Day",
+            grass_special: "Night",
+            hoenn_radio: "Hoenn Radio",
+            sinnoh_radio: "Sinnoh Radio",
+            swarm: "Swarm",
+            surf: "Surf",
+            rock_smash: "Rock Smash",
+            old_rod: "Old Rod",
+            good_rod: "Good Rod",
+            super_rod: "Super Rod",
+          }
+        : {
+            grass: "Walking",
+            swarm: "Swarm",
+            day: "Day",
+            night: "Night",
+            poke_radar: "Poke Radar",
+            ruby: "Ruby Dual-Slot",
+            sapphire: "Sapphire Dual-Slot",
+            emerald: "Emerald Dual-Slot",
+            fire_red: "FireRed Dual-Slot",
+            leaf_green: "LeafGreen Dual-Slot",
+            surf: "Surf",
+            old_rod: "Old Rod",
+            good_rod: "Good Rod",
+            super_rod: "Super Rod",
+          };
+    return gen4Labels[kind] ?? titleize(kind);
+  }
+  return titleize(kind);
 }
 
 export function syncEncounterReadable(project: ProjectState, raw: RawRecord, readable: ReadableRecord): void {
   const pokedex = project.texts.banks.pokedex ?? [];
   for (const season of ENCOUNTER_SEASONS) {
-    for (const kind of ENCOUNTER_GRASS_FIELDS) {
-      for (let slot = 0; slot < 12; slot += 1) decodeSpecies(raw, readable, pokedex, `${season}_${kind}_slot_${slot}`);
+    for (const kind of encounterKindsForGroup("grass", project)) {
+      for (let slot = 0; slot < encounterSlotCount(kind, project); slot += 1) decodeSpecies(raw, readable, pokedex, `${season}_${kind}_slot_${slot}`);
     }
-    for (const kind of ENCOUNTER_WATER_FIELDS) {
-      for (let slot = 0; slot < 5; slot += 1) decodeSpecies(raw, readable, pokedex, `${season}_${kind}_slot_${slot}`);
+    for (const kind of encounterKindsForGroup("water", project)) {
+      for (let slot = 0; slot < encounterSlotCount(kind, project); slot += 1) decodeSpecies(raw, readable, pokedex, `${season}_${kind}_slot_${slot}`);
     }
   }
 }
@@ -286,12 +382,12 @@ function deriveLocations(project: ProjectState, encounterId: number): string[] {
   return locations;
 }
 
-function deriveWilds(readable: ReadableRecord, group: EncounterGroup): string[] {
+function deriveWilds(readable: ReadableRecord, group: EncounterGroup, project?: ProjectState): string[] {
   const wilds: string[] = [];
   for (const season of ENCOUNTER_SEASONS) {
-    const kinds = group === "grass" ? ENCOUNTER_GRASS_FIELDS : ENCOUNTER_WATER_FIELDS;
-    const slotCount = group === "grass" ? 12 : 5;
+    const kinds = encounterKindsForGroup(group, project);
     for (const kind of kinds) {
+      const slotCount = encounterSlotCount(kind, project);
       for (let slot = 0; slot < slotCount; slot += 1) addUniqueWild(wilds, readable[`${season}_${kind}_slot_${slot}`]);
     }
   }
@@ -399,6 +495,52 @@ function decodeSpecies(raw: RawRecord, readable: ReadableRecord, pokedex: string
   const speciesId = rawValue % 2048;
   readable[field] = speciesId === 0 ? "" : (pokedex[speciesId] ?? String(speciesId));
   readable[`${field}_form`] = Math.floor(rawValue / 2048);
+}
+
+function syncGen4EncounterAliases(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string): void {
+  if (!isGen4Project(project)) return;
+  const match = /^(spring|summer|fall|winter)_(.+)$/u.exec(field);
+  if (!match) return;
+  const suffix = match[2];
+  if (project.session.baseRom === "HGSS") {
+    const sharedGrassRate = /^(grass|grass_doubles|grass_special)_rate$/u.exec(suffix);
+    if (sharedGrassRate) {
+      for (const kind of ["grass", "grass_doubles", "grass_special"]) mirrorGen4EncounterValue(raw, readable, field, `${kind}_rate`);
+      return;
+    }
+    const sharedGrassLevel = /^(grass|grass_doubles|grass_special)_slot_(\d+)_(min_level|max_level)$/u.exec(suffix);
+    if (sharedGrassLevel) {
+      for (const kind of ["grass", "grass_doubles", "grass_special"]) {
+        mirrorGen4EncounterValue(raw, readable, field, `${kind}_slot_${sharedGrassLevel[2]}_min_level`);
+        mirrorGen4EncounterValue(raw, readable, field, `${kind}_slot_${sharedGrassLevel[2]}_max_level`);
+      }
+      return;
+    }
+  } else {
+    const walkingLevel = /^grass_slot_(\d+)_(min_level|max_level)$/u.exec(suffix);
+    if (walkingLevel) {
+      mirrorGen4EncounterValue(raw, readable, field, `grass_slot_${walkingLevel[1]}_min_level`);
+      mirrorGen4EncounterValue(raw, readable, field, `grass_slot_${walkingLevel[1]}_max_level`);
+      return;
+    }
+  }
+  mirrorGen4EncounterValue(raw, readable, field, suffix);
+}
+
+function mirrorGen4EncounterValue(raw: RawRecord, readable: ReadableRecord, sourceField: string, suffix: string): void {
+  for (const season of ENCOUNTER_SEASONS) {
+    const alias = `${season}_${suffix}`;
+    raw[alias] = Number(raw[sourceField] ?? 0);
+    readable[alias] = readable[sourceField] ?? raw[sourceField] ?? 0;
+  }
+}
+
+function titleize(value: string): string {
+  return value
+    .replace(/_/gu, " ")
+    .split(/\s+/u)
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part))
+    .join(" ");
 }
 
 function parsePokemonId(project: ProjectState, value: string): number {

@@ -265,6 +265,16 @@
   display: none;
 }
 
+.map3d-view .map3d-warnings {
+  bottom: 14px;
+  left: 14px;
+  max-height: 34vh;
+  max-width: min(720px, calc(100% - 28px));
+  position: absolute;
+  right: 14px;
+  z-index: 3;
+}
+
 .map3d-view {
   background: #20232a;
   height: calc(100vh - 40px);

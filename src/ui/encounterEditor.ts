@@ -4,8 +4,12 @@ import springIcon from "../assets/svgs/spring.svg?raw";
 import summerIcon from "../assets/svgs/summer.svg?raw";
 import fallIcon from "../assets/svgs/fall.svg?raw";
 import winterIcon from "../assets/svgs/winter.svg?raw";
-import { ENCOUNTER_SEASONS } from "../pokeweb/constants";
+import { ENCOUNTER_SEASONS, isGen4Project } from "../pokeweb/constants";
 import {
+  encounterKindLabel,
+  encounterKindHasLevels,
+  encounterKindHasPercent,
+  encounterKindHasRate,
   encounterKindsForGroup,
   encounterPercentFor,
   encounterSlotCount,
@@ -37,7 +41,7 @@ export function renderEncounterEditor(project: ProjectState, root: HTMLElement, 
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
       ${renderHabitatSyncControls(project)}
-      <div class="small-filters">Tip: You can right click a season icon to copy to other seasons</div>
+      ${isGen4Project(project) ? "" : `<div class="small-filters">Tip: You can right click a season icon to copy to other seasons</div>`}
     </div>
     <div class="pokemon-list spreadsheet" id="encounters">
       <div class="expanded-field field-header">
@@ -55,7 +59,7 @@ export function renderEncounterEditor(project: ProjectState, root: HTMLElement, 
     onDirty,
     autofills: getEncounterAutofills(project),
     renderRow: (encounterId) => renderEncounterRow(project, encounterId),
-    renderPanel: (encounterId, season, group) => renderEncounterPanel(getEncounterRecord(project, encounterId), season, group),
+    renderPanel: (encounterId, season, group) => renderEncounterPanel(project, getEncounterRecord(project, encounterId), season, group),
   });
 
   const syncButton = root.querySelector<HTMLButtonElement>("#sync-habitats-btn");
@@ -100,7 +104,7 @@ function setSyncStatus(status: HTMLElement | null, message: string, state: "busy
 }
 
 export function renderEncounterRow(project: ProjectState, encounterId: number): string {
-  return renderEncounterCard(getEncounterRecord(project, encounterId));
+  return renderEncounterCard(project, getEncounterRecord(project, encounterId));
 }
 
 function renderEncounterRows(project: ProjectState): string {
@@ -109,7 +113,7 @@ function renderEncounterRows(project: ProjectState): string {
   return rows.join("");
 }
 
-function renderEncounterCard(encounter: EncounterRecord): string {
+function renderEncounterCard(project: ProjectState, encounter: EncounterRecord): string {
   return `
     <div class="expanded-field filterable encounter-card" data-index="${encounter.id}">
       <div class="expanded-field-main">
@@ -121,52 +125,68 @@ function renderEncounterCard(encounter: EncounterRecord): string {
         </div>
         <div class="move-info expand-action expand-grass svg" data-expand="grass">${grassIcon}</div>
         <div class="move-info expand-action expand-water svg" data-expand="water">${waterIcon}</div>
-        <div class="expanded-tab-icons">
-          ${ENCOUNTER_SEASONS.map((season) => `<div class="expanded-tab-icon season-icon show-${season} svg" data-show="${season}" title="${titleize(season)}">${SEASON_ICONS[season]}</div>`).join("")}
-        </div>
+        ${
+          isGen4Project(project)
+            ? ""
+            : `<div class="expanded-tab-icons">
+                ${ENCOUNTER_SEASONS.map((season) => `<div class="expanded-tab-icon season-icon show-${season} svg" data-show="${season}" title="${titleize(season)}">${SEASON_ICONS[season]}</div>`).join("")}
+              </div>`
+        }
       </div>
     </div>
   `;
 }
 
-export function renderEncounterPanel(encounter: EncounterRecord, season: EncounterSeason, group: EncounterGroup): string {
+export function renderEncounterPanel(project: ProjectState, encounter: EncounterRecord, season: EncounterSeason, group: EncounterGroup): string {
   return `
     <div class="expanded-card-content expanded-encounter expanded-${group} expanded-${season}" data-group="${group}" data-season="${season}">
-      ${encounterKindsForGroup(group).map((kind) => renderEncounterKind(encounter, season, kind)).join("")}
+      ${encounterKindsForGroup(group, project).map((kind) => renderEncounterKind(project, encounter, season, kind)).join("")}
     </div>
   `;
 }
 
-function renderEncounterKind(encounter: EncounterRecord, season: EncounterSeason, kind: EncounterKind): string {
+function renderEncounterKind(project: ProjectState, encounter: EncounterRecord, season: EncounterSeason, kind: EncounterKind): string {
   const rateField = `${season}_${kind}_rate`;
-  const slots = Array.from({ length: encounterSlotCount(kind) }, (_, slot) => renderEncounterSlot(encounter, season, kind, slot));
+  const showForm = !isGen4Project(project);
+  const showRate = encounterKindHasRate(project, kind);
+  const showLevels = encounterKindHasLevels(project, kind);
+  const showPercent = encounterKindHasPercent(project, kind);
+  const slots = Array.from({ length: encounterSlotCount(kind, project) }, (_, slot) => renderEncounterSlot(encounter, season, kind, slot, { showForm, showLevels, showPercent }));
   return `
     <div class="expanded-left">
-      <div class="expanded-field field-header">
-        <div class="enc-slot">Encounter Rate</div>
-        ${editable(rateField, "enc-rate", encounter.readable[rateField], { type: "int-100" })}
-      </div>
+      ${
+        showRate
+          ? `<div class="expanded-field field-header">
+              <div class="enc-slot">Encounter Rate</div>
+              ${editable(rateField, "enc-rate", encounter.readable[rateField], { type: "int-100" })}
+            </div>`
+          : ""
+      }
       <div class="expanded-field multi field-header">
-        <div class="enc-slot">${escapeHtml(titleize(kind))}</div>
-        <div class="enc-lvl">Min</div>
-        <div class="enc-lvl">Max</div>
-        <div class="enc-form">Form</div>
-        <div class="enc-percent">%</div>
+        <div class="enc-slot">${escapeHtml(encounterKindLabel(project, kind))}</div>
+        ${showLevels ? `<div class="enc-lvl">Min</div><div class="enc-lvl">Max</div>` : ""}
+        ${showForm ? `<div class="enc-form">Form</div>` : ""}
+        ${showPercent ? `<div class="enc-percent">%</div>` : ""}
       </div>
       ${slots.join("")}
     </div>
   `;
 }
 
-function renderEncounterSlot(encounter: EncounterRecord, season: EncounterSeason, kind: EncounterKind, slot: number): string {
+function renderEncounterSlot(
+  encounter: EncounterRecord,
+  season: EncounterSeason,
+  kind: EncounterKind,
+  slot: number,
+  options: { showForm: boolean; showLevels: boolean; showPercent: boolean },
+): string {
   const base = `${season}_${kind}_slot_${slot}`;
   return `
     <div class="expanded-field multi">
       ${editable(base, "enc-slot enc-name", encounter.readable[base], { autofill: "pokemon_names" })}
-      ${editable(`${base}_min_level`, "enc-lvl", encounter.readable[`${base}_min_level`], { type: "int-100" })}
-      ${editable(`${base}_max_level`, "enc-lvl", encounter.readable[`${base}_max_level`], { type: "int-100" })}
-      ${editable(`${base}_form`, "enc-form", encounter.readable[`${base}_form`] ?? 0, { type: "int-100" })}
-      <div class="enc-percent">${encounterPercentFor(kind, slot)}</div>
+      ${options.showLevels ? `${editable(`${base}_min_level`, "enc-lvl", encounter.readable[`${base}_min_level`], { type: "int-100" })}${editable(`${base}_max_level`, "enc-lvl", encounter.readable[`${base}_max_level`], { type: "int-100" })}` : ""}
+      ${options.showForm ? editable(`${base}_form`, "enc-form", encounter.readable[`${base}_form`] ?? 0, { type: "int-100" }) : ""}
+      ${options.showPercent ? `<div class="enc-percent">${encounterPercentFor(kind, slot)}</div>` : ""}
     </div>
   `;
 }

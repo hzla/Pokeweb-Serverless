@@ -1,6 +1,6 @@
 import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
-import type { BaseVersion } from "./constants";
+import { isGen4Project, type BaseVersion } from "./constants";
 import { getMoveRecord, moveMatchesSearch, titleize, type FieldUpdateResult, type MoveRecord } from "./moveItemModel";
 import type { ProjectState, RawRecord, ReadableRecord } from "./projectStore";
 
@@ -24,14 +24,24 @@ export type TmEntry = {
 };
 
 const TM_OFFSETS: Partial<Record<BaseVersion, number>> = {
+  D: 0xf84ec,
+  P: 0xf84ec,
+  Pt: 0xf0bfc,
+  HG: 0x1000cc,
+  SS: 0x1000cc,
   B: 0x9aaa0,
   W: 0x9aab8,
   B2: 0x8cc84,
   W2: 0x8ccb0,
 };
 
-const TM_COUNT_BEFORE_HMS = 92;
-const HM_ANCHOR_MOVE_IDS = [15, 19, 57, 70, 127, 291] as const;
+const GEN4_TM_COUNT = 92;
+const GEN4_HM_COUNT = 8;
+const GEN5_TM_COUNT = 95;
+const GEN5_HM_COUNT = 6;
+const DPPt_HM_ANCHOR_MOVE_IDS = [15, 19, 57, 70, 432, 249, 127, 431] as const;
+const HGSS_HM_ANCHOR_MOVE_IDS = [15, 19, 57, 70, 250, 249, 127, 431] as const;
+const GEN5_HM_ANCHOR_MOVE_IDS = [15, 19, 57, 70, 127, 291] as const;
 const TM_TABLE_NEARBY_SEARCH_RADIUS = 0x400;
 
 const ITEM_GRAPHICS_ENTRY_SIZE = 4;
@@ -77,17 +87,33 @@ export const TM_FIELDS = [
   ...Array.from({ length: 3 }, (_, index) => `tm_${index + 93}`),
 ] as const;
 
+const GEN4_TM_FIELDS = [
+  ...Array.from({ length: GEN4_TM_COUNT }, (_, index) => `tm_${index + 1}`),
+  ...Array.from({ length: GEN4_HM_COUNT }, (_, index) => `hm_${index + 1}`),
+] as const;
+
+export function machineCountsForProject(project: ProjectState): { tm: number; hm: number; total: number; hmStart: number } {
+  return isGen4Project(project)
+    ? { tm: GEN4_TM_COUNT, hm: GEN4_HM_COUNT, total: GEN4_TM_COUNT + GEN4_HM_COUNT, hmStart: GEN4_TM_COUNT }
+    : { tm: GEN5_TM_COUNT, hm: GEN5_HM_COUNT, total: GEN5_TM_COUNT + GEN5_HM_COUNT, hmStart: GEN4_TM_COUNT };
+}
+
+export function tmFieldsForProject(project: ProjectState): readonly string[] {
+  return isGen4Project(project) ? GEN4_TM_FIELDS : TM_FIELDS;
+}
+
 export function parseTms(project: ProjectState): TmState {
   const offset = locateTmTableOffset(project);
   const raw: RawRecord = {};
   const readable: ReadableRecord = {};
-  TM_FIELDS.forEach((field, index) => {
+  const fields = tmFieldsForProject(project);
+  fields.forEach((field, index) => {
     raw[field] = readU16(project.arm9, offset + index * 2);
     readable[field] = moveName(project, raw[field]);
   });
   return {
     offset,
-    byteLength: TM_FIELDS.length * 2,
+    byteLength: fields.length * 2,
     raw,
     readable,
     dirty: false,
@@ -96,18 +122,28 @@ export function parseTms(project: ProjectState): TmState {
 
 function locateTmTableOffset(project: ProjectState): number {
   const fallbackOffset = TM_OFFSETS[project.session.baseVersion];
-  if (fallbackOffset === undefined) throw new Error(`TM table offsets are not implemented for ${project.session.baseVersion}.`);
   const maxMoveId = Math.max(project.texts.banks.moves?.length ?? 0, project.narcs.moves?.fileCount ?? 0) - 1;
-  const nearbyOffset = locateTmTableOffsetFromHmAnchor(project.arm9, fallbackOffset, TM_TABLE_NEARBY_SEARCH_RADIUS, maxMoveId);
+  const counts = machineCountsForProject(project);
+  const anchors = hmAnchorMoveIds(project);
+  const nearbyOffset = fallbackOffset === undefined ? undefined : locateTmTableOffsetFromHmAnchor(project.arm9, counts, anchors, fallbackOffset, TM_TABLE_NEARBY_SEARCH_RADIUS, maxMoveId);
   if (nearbyOffset !== undefined) return nearbyOffset;
-  const globalOffset = locateTmTableOffsetFromHmAnchor(project.arm9, undefined, undefined, maxMoveId);
-  return globalOffset ?? fallbackOffset;
+  const globalOffset = locateTmTableOffsetFromHmAnchor(project.arm9, counts, anchors, undefined, undefined, maxMoveId);
+  if (globalOffset !== undefined) return globalOffset;
+  if (fallbackOffset !== undefined) return fallbackOffset;
+  throw new Error(`Unable to locate TM table for ${project.session.baseVersion}.`);
 }
 
-function locateTmTableOffsetFromHmAnchor(arm9: Uint8Array, expectedOffset?: number, radius?: number, maxMoveId?: number): number | undefined {
-  const tableLength = TM_FIELDS.length * 2;
-  const hmAnchorLength = HM_ANCHOR_MOVE_IDS.length * 2;
-  const expectedHmOffset = expectedOffset === undefined ? undefined : expectedOffset + TM_COUNT_BEFORE_HMS * 2;
+function locateTmTableOffsetFromHmAnchor(
+  arm9: Uint8Array,
+  counts: { hmStart: number; total: number },
+  hmAnchorMoveIds: readonly number[],
+  expectedOffset?: number,
+  radius?: number,
+  maxMoveId?: number,
+): number | undefined {
+  const tableLength = counts.total * 2;
+  const hmAnchorLength = hmAnchorMoveIds.length * 2;
+  const expectedHmOffset = expectedOffset === undefined ? undefined : expectedOffset + counts.hmStart * 2;
   const start = expectedHmOffset === undefined || radius === undefined ? 0 : Math.max(0, expectedHmOffset - radius);
   const end = expectedHmOffset === undefined || radius === undefined
     ? arm9.length - hmAnchorLength
@@ -115,12 +151,12 @@ function locateTmTableOffsetFromHmAnchor(arm9: Uint8Array, expectedOffset?: numb
   const candidates: Array<{ offset: number; matches: number; distance: number }> = [];
 
   for (let hmOffset = start + (start % 2); hmOffset <= end; hmOffset += 2) {
-    const tableOffset = hmOffset - TM_COUNT_BEFORE_HMS * 2;
+    const tableOffset = hmOffset - counts.hmStart * 2;
     if (tableOffset < 0 || tableOffset + tableLength > arm9.length) continue;
 
-    const matches = countHmAnchorMatches(arm9, hmOffset);
-    if (matches < HM_ANCHOR_MOVE_IDS.length) continue;
-    if (!tmTableValuesArePlausible(arm9, tableOffset, maxMoveId)) continue;
+    const matches = countHmAnchorMatches(arm9, hmOffset, hmAnchorMoveIds);
+    if (matches < hmAnchorMoveIds.length) continue;
+    if (!tmTableValuesArePlausible(arm9, tableOffset, counts.total, maxMoveId, hmAnchorMoveIds)) continue;
 
     candidates.push({
       offset: tableOffset,
@@ -133,23 +169,28 @@ function locateTmTableOffsetFromHmAnchor(arm9: Uint8Array, expectedOffset?: numb
   return candidates[0]?.offset;
 }
 
-function countHmAnchorMatches(arm9: Uint8Array, hmOffset: number): number {
+function countHmAnchorMatches(arm9: Uint8Array, hmOffset: number, hmAnchorMoveIds: readonly number[]): number {
   let matches = 0;
-  HM_ANCHOR_MOVE_IDS.forEach((moveId, index) => {
+  hmAnchorMoveIds.forEach((moveId, index) => {
     if (readU16(arm9, hmOffset + index * 2) === moveId) matches += 1;
   });
   return matches;
 }
 
-function tmTableValuesArePlausible(arm9: Uint8Array, offset: number, maxMoveId?: number): boolean {
+function tmTableValuesArePlausible(arm9: Uint8Array, offset: number, count: number, maxMoveId: number | undefined, hmAnchorMoveIds: readonly number[]): boolean {
   if (maxMoveId === undefined || maxMoveId <= 0) return true;
-  if (maxMoveId < Math.max(...HM_ANCHOR_MOVE_IDS)) return true;
+  if (maxMoveId < Math.max(...hmAnchorMoveIds)) return true;
   let invalid = 0;
-  for (let index = 0; index < TM_FIELDS.length; index += 1) {
+  for (let index = 0; index < count; index += 1) {
     const moveId = readU16(arm9, offset + index * 2);
     if (moveId <= 0 || moveId > maxMoveId) invalid += 1;
   }
   return invalid <= 2;
+}
+
+function hmAnchorMoveIds(project: ProjectState): readonly number[] {
+  if (!isGen4Project(project)) return GEN5_HM_ANCHOR_MOVE_IDS;
+  return project.session.baseRom === "HGSS" ? HGSS_HM_ANCHOR_MOVE_IDS : DPPt_HM_ANCHOR_MOVE_IDS;
 }
 
 export function ensureTms(project: ProjectState): TmState {
@@ -159,29 +200,32 @@ export function ensureTms(project: ProjectState): TmState {
 
 export function getTmEntries(project: ProjectState): TmEntry[] {
   const state = ensureTms(project);
+  const counts = machineCountsForProject(project);
   return [
-    ...Array.from({ length: 6 }, (_, index) => tmEntry(project, state, "hm", index + 1)),
-    ...Array.from({ length: 95 }, (_, index) => tmEntry(project, state, "tm", index + 1)),
+    ...Array.from({ length: counts.hm }, (_, index) => tmEntry(project, state, "hm", index + 1)),
+    ...Array.from({ length: counts.tm }, (_, index) => tmEntry(project, state, "tm", index + 1)),
   ];
 }
 
 export function getTmNames(project: ProjectState): { tmNames: string[]; hmNames: string[] } {
   const state = ensureTms(project);
+  const counts = machineCountsForProject(project);
   return {
-    tmNames: Array.from({ length: 95 }, (_, index) => titleize(String(state.readable[`tm_${index + 1}`] ?? ""))),
-    hmNames: Array.from({ length: 6 }, (_, index) => titleize(String(state.readable[`hm_${index + 1}`] ?? ""))),
+    tmNames: Array.from({ length: counts.tm }, (_, index) => titleize(String(state.readable[`tm_${index + 1}`] ?? ""))),
+    hmNames: Array.from({ length: counts.hm }, (_, index) => titleize(String(state.readable[`hm_${index + 1}`] ?? ""))),
   };
 }
 
 export function updateTmMove(project: ProjectState, field: string, inputValue: string): FieldUpdateResult {
-  if (!TM_FIELDS.includes(field as (typeof TM_FIELDS)[number])) throw new Error(`Unsupported TM field: ${field}`);
+  const fields = tmFieldsForProject(project);
+  if (!fields.includes(field)) throw new Error(`Unsupported TM field: ${field}`);
   const state = ensureTms(project);
   const before = state.readable[field];
   const rawValue = findMoveId(project, inputValue.trim());
   state.raw[field] = rawValue;
   state.readable[field] = moveName(project, rawValue);
   state.dirty = true;
-  const index = TM_FIELDS.indexOf(field as (typeof TM_FIELDS)[number]);
+  const index = fields.indexOf(field);
   writeU16(project.arm9, state.offset + index * 2, rawValue);
   try {
     syncTmIcon(project, field);
@@ -194,11 +238,12 @@ export function updateTmMove(project: ProjectState, field: string, inputValue: s
 
 export function syncAllTmIcons(project: ProjectState): number {
   ensureTms(project);
-  return TM_FIELDS.reduce((count, field) => count + (syncTmIcon(project, field) ? 1 : 0), 0);
+  return tmFieldsForProject(project).reduce((count, field) => count + (syncTmIcon(project, field) ? 1 : 0), 0);
 }
 
 export function syncTmIcon(project: ProjectState, field: string): boolean {
-  if (!TM_FIELDS.includes(field as (typeof TM_FIELDS)[number])) throw new Error(`Unsupported TM field: ${field}`);
+  if (isGen4Project(project)) return false;
+  if (!tmFieldsForProject(project).includes(field)) throw new Error(`Unsupported TM field: ${field}`);
   const state = ensureTms(project);
   const itemId = tmFieldItemId(field);
   if (itemId === undefined) return false;
