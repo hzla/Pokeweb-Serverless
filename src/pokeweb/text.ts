@@ -165,11 +165,10 @@ export function decodeGen4TextBank(data: Uint8Array): TextEntry[] {
   for (let index = 0; index < count; index += 1) {
     const tableEntryOffset = tableOffset + index * 8;
     const allocKey = gen4AllocationKey(index, key);
-    const relativeOffset = readU32(data, tableEntryOffset) ^ allocKey;
+    const absoluteOffset = readU32(data, tableEntryOffset) ^ allocKey;
     const length = readU32(data, tableEntryOffset + 4) ^ allocKey;
-    const decodedOffset = dataOffset + relativeOffset;
-    const wordOffset = decodedOffset + length * 2 <= data.length ? decodedOffset : fallbackCursor;
-    if (length < 0 || wordOffset + length * 2 > data.length) throw new Error(`Gen 4 text entry ${index} exceeds bank size`);
+    const wordOffset = absoluteOffset >= dataOffset && absoluteOffset + length * 2 <= data.length ? absoluteOffset : fallbackCursor;
+    if (wordOffset + length * 2 > data.length) throw new Error(`Gen 4 text entry ${index} exceeds bank size`);
 
     const words: number[] = [];
     let stringKey = gen4StringKey(index);
@@ -177,7 +176,8 @@ export function decodeGen4TextBank(data: Uint8Array): TextEntry[] {
       words.push(readU16(data, wordOffset + wordIndex * 2) ^ stringKey);
       stringKey = (stringKey + 18749) & 0xffff;
     }
-    entries.push([`0_${index}`, renderGen4Text(words), key]);
+    const trainerName = decodeGen4TrainerNameWords(words);
+    entries.push([`0_${index}`, trainerName === undefined ? renderGen4Text(words) : `{TRAINER_NAME:${trainerName}}`, key]);
     fallbackCursor = wordOffset + length * 2;
   }
   return entries;
@@ -194,7 +194,9 @@ export function encodeGen4TextBank(entries: TextEntry[]): Uint8Array {
   for (let entryIndex = 0; entryIndex < count; entryIndex += 1) {
     const entry = block[entryIndex];
     if (!entry) throw new Error(`Missing Gen 4 text entry 0_${entryIndex}`);
-    encodedEntries.push(encryptGen4Words([...encodeGen4EscapedStringToWords(entry[1]), 0xffff], entryIndex));
+    const trainerName = parseGen4TrainerName(entry[1]);
+    const words = trainerName === undefined ? [...encodeGen4EscapedStringToWords(entry[1]), 0xffff] : [0xf100, ...packGen4TrainerNameCodes(encodeGen4EscapedStringToWords(trainerName)), 0xffff];
+    encodedEntries.push(encryptGen4Words(words, entryIndex));
   }
 
   const tableLength = 4 + count * 8;
@@ -203,19 +205,17 @@ export function encodeGen4TextBank(entries: TextEntry[]): Uint8Array {
   writeU16(out, 0, count);
   writeU16(out, 2, key);
 
-  let relativeOffset = 0;
   let dataOffset = tableLength;
   for (let entryIndex = 0; entryIndex < count; entryIndex += 1) {
     const encoded = encodedEntries[entryIndex];
     const allocKey = gen4AllocationKey(entryIndex, key);
     const tableEntryOffset = 4 + entryIndex * 8;
-    writeU32(out, tableEntryOffset, (relativeOffset ^ allocKey) >>> 0);
+    writeU32(out, tableEntryOffset, (dataOffset ^ allocKey) >>> 0);
     writeU32(out, tableEntryOffset + 4, (encoded.length ^ allocKey) >>> 0);
     for (const word of encoded) {
       writeU16(out, dataOffset, word);
       dataOffset += 2;
     }
-    relativeOffset += encoded.length * 2;
   }
   return out;
 }
@@ -250,13 +250,58 @@ function renderGen4Text(words: number[]): string {
       text += `{${kind.toString(16).toUpperCase().padStart(4, "0")}${args.length ? ` ${args.join(",")}` : ""}}`;
       continue;
     }
-    if (code === 0xf100) {
-      text += "{TRNAME}";
-      continue;
-    }
     text += gen4Char(code);
   }
   return text;
+}
+
+function decodeGen4TrainerNameWords(words: number[]): string | undefined {
+  if (words[0] !== 0xf100) return undefined;
+  const payload = words.slice(1, words[words.length - 1] === 0xffff ? -1 : undefined);
+  return renderGen4Text([...unpackGen4TrainerNameCodes(payload), 0xffff]);
+}
+
+function unpackGen4TrainerNameCodes(words: number[]): number[] {
+  const codes: number[] = [];
+  let accumulator = 0;
+  let bitCount = 0;
+  for (const word of words) {
+    accumulator |= (word & 0x7fff) << bitCount;
+    bitCount += 15;
+    while (bitCount >= 9) {
+      const code = accumulator & 0x1ff;
+      accumulator >>>= 9;
+      bitCount -= 9;
+      if (code === 0x1ff) return codes;
+      codes.push(code);
+    }
+  }
+  return codes;
+}
+
+function packGen4TrainerNameCodes(codes: number[]): number[] {
+  const words: number[] = [];
+  let accumulator = 0;
+  let bitCount = 0;
+  for (const code of codes) {
+    accumulator |= (code & 0x1ff) << bitCount;
+    bitCount += 9;
+    while (bitCount >= 15) {
+      words.push(accumulator & 0x7fff);
+      accumulator >>>= 15;
+      bitCount -= 15;
+    }
+  }
+  if (bitCount > 0) {
+    accumulator |= ((1 << (15 - bitCount)) - 1) << bitCount;
+    words.push(accumulator & 0x7fff);
+  }
+  return words;
+}
+
+function parseGen4TrainerName(text: string): string | undefined {
+  const match = /^\{TRAINER_NAME:(.*)\}$/u.exec(text);
+  return match?.[1];
 }
 
 function encodeGen4EscapedStringToWords(text: string): number[] {
@@ -276,12 +321,6 @@ function encodeGen4EscapedStringToWords(text: string): number[] {
         index += 2;
         continue;
       }
-    }
-
-    if (text.startsWith("{TRNAME}", index)) {
-      words.push(0xf100);
-      index += "{TRNAME}".length;
-      continue;
     }
 
     if (text[index] === "{") {
@@ -574,7 +613,8 @@ function parseEntryId(id: string): { block: number; entry: number; flags: number
 }
 
 export function cleanDisplayText(value: string, nameCase = false): string {
-  const cleaned = value
+  const displayValue = parseGen4TrainerName(value) ?? value;
+  const cleaned = displayValue
     .replaceAll("―", "")
     .replaceAll("⑮", " F")
     .replaceAll("⑭", " M")

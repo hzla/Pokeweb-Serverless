@@ -91,11 +91,15 @@ export function renderOverworldMapTopDown(data: Map3dSceneData): OverworldMapRen
   const matrixBounds = getOverworldMapWorldBounds(data);
   const warnings = [...data.warnings];
   let lastError: unknown;
-  for (const style of ["textured", "solid"] as const) {
+  const hasTextures = hasTexturedGeometry(data);
+  const styles: OverworldMapRenderStyle[] = hasTextures ? ["textured", "solid"] : ["solid"];
+  for (const style of styles) {
     for (const maxDimension of [MAX_RENDER_DIMENSION, ...FALLBACK_RENDER_DIMENSIONS]) {
       try {
         const render = renderOverworldMapTopDownAtSize(data, matrixBounds, maxDimension, warnings, style);
-        if (style === "solid") render.warnings.push("Map view used solid geometry because the textured render was blank.");
+        if (style === "solid") {
+          render.warnings.push(hasTextures ? "Map view used solid geometry because the textured render was blank." : "Map view used solid geometry because no map textures were decoded.");
+        }
         if (maxDimension !== MAX_RENDER_DIMENSION) render.warnings.push(`Map view rendered at reduced ${render.canvas.width}x${render.canvas.height} resolution for browser stability.`);
         return render;
       } catch (error) {
@@ -126,7 +130,7 @@ function renderOverworldMapTopDownAtSize(
 
     for (const chunk of data.chunks) {
       const chunkGroup = new THREE.Group();
-      chunkGroup.position.set(chunk.worldX, 0, chunk.worldZ);
+      chunkGroup.position.set(chunk.worldX, chunk.worldY ?? 0, chunk.worldZ);
       addPrimitivesToGroup(chunkGroup, chunk.primitives, textureCache, style);
       group.add(chunkGroup);
     }
@@ -141,7 +145,7 @@ function renderOverworldMapTopDownAtSize(
 
     const box = new THREE.Box3().setFromObject(group);
     if (box.isEmpty()) throw new Error("Map view rendered no terrain or building geometry");
-    const worldBounds = geometryBounds(box);
+    const worldBounds = matrixBounds;
     const { width, height } = getOverworldMapRenderSize(worldBounds, maxDimension);
     renderer.setSize(width, height, false);
     const maxY = box.max.y;
@@ -165,7 +169,7 @@ function renderOverworldMapTopDownAtSize(
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) throw new Error("Unable to create overworld map render canvas");
     context.drawImage(renderer.domElement, 0, 0);
     if (isBlankMapCanvas(context, width, height)) throw new Error(`Map view rendered blank at ${width}x${height} using ${style} materials`);
@@ -182,21 +186,6 @@ function renderOverworldMapTopDownAtSize(
     clearGroup(group);
     for (const texture of textureCache.values()) texture.dispose();
   }
-}
-
-function geometryBounds(box: THREE.Box3): OverworldMapWorldBounds {
-  const minX = box.min.x;
-  const minZ = box.min.z;
-  const maxX = box.max.x;
-  const maxZ = box.max.z;
-  return {
-    minX,
-    minZ,
-    maxX,
-    maxZ,
-    width: Math.max(1, maxX - minX),
-    height: Math.max(1, maxZ - minZ),
-  };
 }
 
 function isBlankMapCanvas(context: CanvasRenderingContext2D, width: number, height: number): boolean {
@@ -238,43 +227,53 @@ function addPrimitivesToGroup(
     if (primitive.normals) geometry.setAttribute("normal", new THREE.BufferAttribute(primitive.normals, 3));
     geometry.setIndex(new THREE.BufferAttribute(primitive.indices, 1));
     if (!primitive.normals) geometry.computeVertexNormals();
-    const material = style === "solid" ? solidMaterial() : texturedMaterial(primitive, textureCache);
+    const material = style === "solid" ? solidMaterial(primitive) : texturedMaterial(primitive, textureCache);
     group.add(new THREE.Mesh(geometry, material));
   }
 }
 
-function solidMaterial(): THREE.MeshBasicMaterial {
+function solidMaterial(primitive: Map3dPrimitive): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
-    color: 0x9da7b3,
-    transparent: false,
+    color: primitive.colors ? 0xffffff : 0x9da7b3,
+    vertexColors: Boolean(primitive.colors),
+    transparent: primitive.material.alpha < 1,
+    opacity: primitive.material.alpha,
     side: THREE.DoubleSide,
   });
 }
 
 function texturedMaterial(primitive: Map3dPrimitive, textureCache: Map<string, THREE.DataTexture>): THREE.MeshBasicMaterial {
-  const texture = primitive.material.texture ? getTexture(textureCache, primitive.material.texture) : undefined;
-  return new THREE.MeshBasicMaterial({
-    map: texture,
+  const texture = primitive.material.texture ? getTexture(textureCache, primitive.material.texture, primitive.material) : undefined;
+  const options: THREE.MeshBasicMaterialParameters = {
     color: texture ? 0xffffff : new THREE.Color(...primitive.material.diffuse),
     vertexColors: Boolean(primitive.colors),
     transparent: primitive.material.alpha < 1 || Boolean(texture),
+    opacity: primitive.material.alpha,
     alphaTest: texture ? 0.05 : 0,
     side: THREE.DoubleSide,
-  });
+  };
+  if (texture) options.map = texture;
+  return new THREE.MeshBasicMaterial(options);
 }
 
-function getTexture(cache: Map<string, THREE.DataTexture>, textureData: DecodedTexture): THREE.DataTexture {
-  const cached = cache.get(textureData.name);
+function getTexture(cache: Map<string, THREE.DataTexture>, textureData: DecodedTexture, material: Map3dPrimitive["material"]): THREE.DataTexture {
+  const key = `${textureData.name}:${material.repeatS ? 1 : 0}:${material.repeatT ? 1 : 0}:${material.flipS ? 1 : 0}:${material.flipT ? 1 : 0}`;
+  const cached = cache.get(key);
   if (cached) return cached;
   const texture = new THREE.DataTexture(textureData.rgba, textureData.width, textureData.height, THREE.RGBAFormat);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
+  texture.wrapS = textureWrapMode(Boolean(material.repeatS), Boolean(material.flipS));
+  texture.wrapT = textureWrapMode(Boolean(material.repeatT), Boolean(material.flipT));
   texture.needsUpdate = true;
-  cache.set(textureData.name, texture);
+  cache.set(key, texture);
   return texture;
+}
+
+function textureWrapMode(repeat: boolean, flip: boolean): THREE.Wrapping {
+  if (!repeat) return THREE.ClampToEdgeWrapping;
+  return flip ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
 }
 
 function clearGroup(group: THREE.Group): void {
@@ -294,4 +293,10 @@ function disposeMaterial(material: THREE.Material): void {
   const mapped = material as THREE.Material & { map?: THREE.Texture };
   mapped.map?.dispose();
   material.dispose();
+}
+
+function hasTexturedGeometry(data: Map3dSceneData): boolean {
+  const chunkHasTexture = data.chunks.some((chunk) => chunk.primitives.some((primitive) => Boolean(primitive.material.texture)));
+  const buildingHasTexture = data.buildings.some((building) => building.primitives.some((primitive) => Boolean(primitive.material.texture)));
+  return chunkHasTexture || buildingHasTexture;
 }

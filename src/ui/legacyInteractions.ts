@@ -70,7 +70,7 @@ export function attachHeaderInteractions(root: HTMLElement, project: ProjectStat
         } else {
           const result = updateHeaderField(project, rowId, name, nextValue);
           field.textContent = String(result.value);
-          syncHeaderNameIconFields(card, project, rowId);
+          syncHeaderLinkedFields(card, project, rowId);
         }
         field.classList.remove("invalid");
         field.style.border = "";
@@ -137,12 +137,29 @@ export function stripeRows(root: HTMLElement): void {
   });
 }
 
-function syncHeaderNameIconFields(card: HTMLElement, project: ProjectState, rowId: number): void {
+function syncHeaderLinkedFields(card: HTMLElement, project: ProjectState, rowId: number): void {
   const row = project.headers?.rows[rowId];
   if (!row) return;
-  for (const fieldName of ["name_icon", "name_icon_id", "difficulty_level_adjustment"]) {
-    const field = card.querySelector<HTMLElement>(`[contenteditable='true'][data-narc='header'][data-field-name='${fieldName}']`);
-    if (field) field.textContent = String(row[fieldName] ?? 0);
+  for (const fieldName of [
+    "name_icon",
+    "name_icon_id",
+    "difficulty_level_adjustment",
+    "location_name",
+    "location_name_id",
+    "place_name_id",
+    "enc_data_id",
+    "encounter_id",
+    "wild_id",
+    "event_id",
+    "map_id",
+    "overworlds_id",
+    "area_data_id",
+    "texture_id",
+  ]) {
+    const fields = card.querySelectorAll<HTMLElement>(`[contenteditable='true'][data-narc='header'][data-field-name='${fieldName}']`);
+    fields.forEach((item) => {
+      if (row[fieldName] !== undefined) item.textContent = String(row[fieldName]);
+    });
   }
 }
 

@@ -332,37 +332,5 @@ function getGen4NarcFormats(baseRom: BaseRom): NarcFormatMap {
     [4, "double_battle"],
   ];
 
-  formats.headers = baseRom === "HGSS"
-    ? [
-        [2, "area_data_id"],
-        [2, "matrix_id"],
-        [2, "script_id"],
-        [2, "level_script_id"],
-        [2, "text_bank_id"],
-        [2, "music_day_id"],
-        [2, "music_night_id"],
-        [2, "wild_id"],
-        [2, "event_id"],
-        [2, "name_id"],
-        [2, "weather_id"],
-        [2, "camera_id"],
-        [2, "map_type"],
-        [2, "battle_background"],
-      ]
-    : [
-        [2, "area_data_id"],
-        [2, "matrix_id"],
-        [2, "script_id"],
-        [2, "level_script_id"],
-        [2, "text_bank_id"],
-        [2, "music_day_id"],
-        [2, "music_night_id"],
-        [2, "wild_id"],
-        [2, "event_id"],
-        [2, "name_id"],
-        [2, "weather_id"],
-        [2, "camera_id"],
-      ];
-
   return formats;
 }

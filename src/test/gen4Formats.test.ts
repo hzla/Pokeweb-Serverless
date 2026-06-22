@@ -3,6 +3,7 @@ import { readU16 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { getMoveRecord, updateMoveField } from "../pokeweb/moveItemModel";
+import { getPokemonTmCompatibility } from "../pokeweb/pokemonModel";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 
@@ -45,6 +46,27 @@ describe("Gen 4 data formats", () => {
     const out = project.narcs.personal!.rawFiles[0];
     expect(out[0]).toBe(46);
     expect(out[fieldOffset(formats.personal!, "color_flip")]).toBe(0x87);
+  });
+
+  it("maps Gen 4 personal TM/HM compatibility bits", () => {
+    const formats = getNarcFormats("Pt");
+    const bytes = packRecord(formats.personal!, {
+      "tm_1-32": 1,
+      "tm_65-95+hm_1": (1 << 27) | (1 << 28) | (1 << 31),
+      "hm_2-6": 1 | (1 << 3),
+    });
+    const project = makeProject({ personal: makeStore("personal", [bytes]) }, makeGen4TmArm9());
+
+    const slots = getPokemonTmCompatibility(project, 0);
+
+    expect(slots).toHaveLength(100);
+    expect(slots.find((slot) => slot.kind === "tm" && slot.index === 1)?.enabled).toBe(true);
+    expect(slots.find((slot) => slot.kind === "tm" && slot.index === 91)?.enabled).toBe(false);
+    expect(slots.find((slot) => slot.kind === "tm" && slot.index === 92)?.enabled).toBe(true);
+    expect(slots.find((slot) => slot.kind === "hm" && slot.index === 1)?.enabled).toBe(true);
+    expect(slots.find((slot) => slot.kind === "hm" && slot.index === 4)?.enabled).toBe(true);
+    expect(slots.find((slot) => slot.kind === "hm" && slot.index === 5)?.enabled).toBe(true);
+    expect(slots.find((slot) => slot.kind === "hm" && slot.index === 8)?.enabled).toBe(true);
   });
 
   it("round-trips packed learnset entries", () => {
@@ -152,7 +174,7 @@ describe("Gen 4 data formats", () => {
   });
 });
 
-function makeProject(narcs: Partial<Record<NarcName, NarcStore>>): ProjectState {
+function makeProject(narcs: Partial<Record<NarcName, NarcStore>>, arm9 = new Uint8Array()): ProjectState {
   return {
     session: {
       romName: "gen4-test",
@@ -164,7 +186,7 @@ function makeProject(narcs: Partial<Record<NarcName, NarcStore>>): ProjectState 
       blacklist: [],
     },
     romInfo: { title: "test", idCode: "CPUE", fileName: "test.nds", size: 0 },
-    arm9: new Uint8Array(),
+    arm9,
     overlays: {},
     narcs,
     texts: {
@@ -179,6 +201,16 @@ function makeProject(narcs: Partial<Record<NarcName, NarcStore>>): ProjectState 
     formats: getNarcFormats("Pt"),
     trpokInfo: [],
   };
+}
+
+function makeGen4TmArm9(): Uint8Array<ArrayBuffer> {
+  const offset = 0xf0bfc;
+  const arm9 = new Uint8Array(offset + 200);
+  for (let index = 0; index < 100; index += 1) writeInt(arm9, offset + index * 2, 2, 1);
+  [15, 19, 57, 70, 432, 249, 127, 431].forEach((moveId, index) => {
+    writeInt(arm9, offset + (92 + index) * 2, 2, moveId);
+  });
+  return arm9;
 }
 
 function makeStore(name: NarcName, rawFiles: Uint8Array[]): NarcStore {

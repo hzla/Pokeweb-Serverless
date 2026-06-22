@@ -109,13 +109,27 @@ function refreshKnownTextBank(project: ProjectState, narcName: TextNarcName, ban
   const mappings = isGen4Project(project) ? GEN4_MESSAGE_BANKS[project.session.baseVersion as Gen4Version] : project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
   const mapping = mappings.find(([source]) => textBankSourceIncludes(source, bankId));
   if (!mapping) return;
-  const [, bankName] = mapping;
+  const [source, bankName] = mapping;
   const nameCase = bankName === "pokedex" || bankName === "moves";
-  project.texts.banks[bankName] = bank.map((entry, index) => cleanDisplayText(entry?.[1] ?? `Entry ${index}`, nameCase));
+  project.texts.banks[bankName] = textEntriesFromSource(project, source, bank).map((entry, index) => cleanDisplayText(entry?.[1] ?? `Entry ${index}`, nameCase));
 }
 
 function textBankSourceIncludes(source: TextBankSource, bankId: number): boolean {
   return typeof source === "number" ? source === bankId : source.includes(bankId);
+}
+
+function textEntriesFromSource(project: ProjectState, source: TextBankSource, fallback: Gen5TextEntry[]): Gen5TextEntry[] {
+  if (typeof source === "number") return project.texts.messageTexts?.[source] ?? fallback;
+  const merged: Gen5TextEntry[] = [];
+  for (const sourceBankId of source) {
+    const sourceBank = project.texts.messageTexts?.[sourceBankId] ?? [];
+    sourceBank.forEach((entry, index) => {
+      if (!entry) return;
+      const existing = merged[index];
+      if (!existing || !existing[1]) merged[index] = entry;
+    });
+  }
+  return merged.length > 0 ? merged : fallback;
 }
 
 function getBankShape(bank: Gen5TextEntry[]): { numBlocks: number; numEntries: number } {

@@ -13,10 +13,17 @@ const PROJECT_STORE_NAME = "projects";
 const ROM_STORE_NAME = "roms";
 const ACTIVE_PROJECT_KEY = "active";
 const ACTIVE_ROM_KEY = "active";
+const ACTIVE_ROM_METADATA_KEY = "active-metadata";
+
+export type ActiveRomMetadata = {
+  fileName: string;
+  fairy: boolean;
+  selectedNarcs: string[];
+};
 
 export async function saveActiveProject(project: ProjectState): Promise<void> {
   if (project.originalRomBytes) {
-    await saveActiveRomBytes(project.originalRomBytes);
+    await saveActiveRomBytes(project.originalRomBytes, activeRomMetadataFromProject(project));
     delete project.originalRomBytes;
   }
   materializeProjectEdits(project);
@@ -49,14 +56,19 @@ export async function clearActiveProject(): Promise<void> {
   await Promise.all([
     requestToPromise(transaction.objectStore(PROJECT_STORE_NAME).delete(ACTIVE_PROJECT_KEY)),
     requestToPromise(transaction.objectStore(ROM_STORE_NAME).delete(ACTIVE_ROM_KEY)),
+    requestToPromise(transaction.objectStore(ROM_STORE_NAME).delete(ACTIVE_ROM_METADATA_KEY)),
   ]);
   db.close();
 }
 
-export async function saveActiveRomBytes(bytes: Uint8Array): Promise<void> {
+export async function saveActiveRomBytes(bytes: Uint8Array, metadata?: ActiveRomMetadata): Promise<void> {
   const compactBytes = compactRomBytes(bytes);
   const db = await openDb();
-  await requestToPromise(db.transaction(ROM_STORE_NAME, "readwrite").objectStore(ROM_STORE_NAME).put(compactBytes, ACTIVE_ROM_KEY));
+  const transaction = db.transaction(ROM_STORE_NAME, "readwrite");
+  const store = transaction.objectStore(ROM_STORE_NAME);
+  const requests = [requestToPromise(store.put(compactBytes, ACTIVE_ROM_KEY))];
+  if (metadata) requests.push(requestToPromise(store.put(metadata, ACTIVE_ROM_METADATA_KEY)));
+  await Promise.all(requests);
   db.close();
 }
 
@@ -69,6 +81,13 @@ export async function loadActiveRomBytes(): Promise<Uint8Array | undefined> {
   const bytes = await requestToPromise<Uint8Array | undefined>(db.transaction(ROM_STORE_NAME, "readonly").objectStore(ROM_STORE_NAME).get(ACTIVE_ROM_KEY));
   db.close();
   return bytes;
+}
+
+export async function loadActiveRomMetadata(): Promise<ActiveRomMetadata | undefined> {
+  const db = await openDb();
+  const metadata = await requestToPromise<ActiveRomMetadata | undefined>(db.transaction(ROM_STORE_NAME, "readonly").objectStore(ROM_STORE_NAME).get(ACTIVE_ROM_METADATA_KEY));
+  db.close();
+  return metadata;
 }
 
 export async function hasActiveRomBytes(): Promise<boolean> {
@@ -144,6 +163,11 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   for (const store of Object.values(project.narcs)) {
     if (!store || store.fileId < 0) continue;
     const hasMissingFiles = store.rawFiles.length === 0 || store.rawFiles.some((file) => file.length === 0);
+    if (store.container === "file") {
+      if (hasMissingFiles) store.rawFiles = [rom.files[store.fileId].slice()];
+      store.fileCount = 1;
+      continue;
+    }
     if (isRomFsTypeChartStore(store)) {
       if (hasMissingFiles) store.rawFiles = [rom.files[store.fileId].slice()];
       store.fileCount = 1;
@@ -172,6 +196,14 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   hydrateOverlayBackedStore(project, "grotto_odds", 36);
   hydrateOverlayBackedStore(project, "move_effects_table", moveEffectOverlayId);
   hydrateOverlayBackedStore(project, "type_chart", 167);
+}
+
+function activeRomMetadataFromProject(project: ProjectState): ActiveRomMetadata {
+  return {
+    fileName: project.romInfo.fileName || `${project.session.romName || "cached-rom"}.nds`,
+    fairy: project.session.fairy,
+    selectedNarcs: Object.keys(project.narcs).filter((name) => Boolean(project.narcs[name as keyof ProjectState["narcs"]])),
+  };
 }
 
 function hydrateOverlayBackedStore(project: ProjectState, name: "grotto_odds" | "move_effects_table" | "type_chart", overlayId: number): void {

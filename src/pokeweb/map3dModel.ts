@@ -88,6 +88,10 @@ export type Map3dMaterial = {
   diffuse: [number, number, number];
   alpha: number;
   texture?: DecodedTexture;
+  repeatS?: boolean;
+  repeatT?: boolean;
+  flipS?: boolean;
+  flipT?: boolean;
 };
 
 export type DecodedTexture = {
@@ -112,6 +116,7 @@ export type Map3dChunk = {
   matrixX: number;
   matrixY: number;
   worldX: number;
+  worldY?: number;
   worldZ: number;
   primitives: Map3dPrimitive[];
   permissions?: Map3dPermissionChunk;
@@ -142,6 +147,8 @@ export type Map3dPermissionEdit = {
 
 export type Map3dBuilding = {
   uid: number;
+  placementIndex?: number;
+  modelId?: number;
   sourceChunkId: number;
   chunkId: number;
   worldX: number;
@@ -149,6 +156,29 @@ export type Map3dBuilding = {
   worldZ: number;
   rotationY: number;
   primitives: Map3dPrimitive[];
+  primitiveCount?: number;
+  triangleCount?: number;
+  bounds?: Map3dBounds;
+};
+
+export type Map3dBuildingDiagnostic = {
+  mapId: number;
+  placementIndex: number;
+  modelId: number;
+  status: "rendered" | "missing-model-store" | "missing-model" | "bad-stamp" | "empty-primitives" | "error";
+  primitiveCount?: number;
+  triangleCount?: number;
+  bounds?: Map3dBounds;
+  message?: string;
+};
+
+export type Map3dBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  minZ: number;
+  maxZ: number;
 };
 
 export type Map3dEntityOverlay = {
@@ -162,6 +192,12 @@ export type Map3dEntityOverlay = {
   height: number;
   depth: number;
   centered: boolean;
+  sprite?: {
+    texture?: DecodedTexture;
+    assetUrl?: string;
+    missing?: boolean;
+    worldHeight?: number;
+  };
 };
 
 export type Map3dNpcModel = {
@@ -192,11 +228,13 @@ export type Map3dSceneData = {
   chunkCount: number;
   textureCount: number;
   buildingCount: number;
+  buildingPlacementCount?: number;
   entityCount: number;
   npcModelCount: number;
   permissionTileCount: number;
   chunks: Map3dChunk[];
   buildings: Map3dBuilding[];
+  buildingDiagnostics?: Map3dBuildingDiagnostic[];
   entities: Map3dEntityOverlay[];
   npcModels: Map3dNpcModel[];
   warnings: string[];
@@ -298,6 +336,16 @@ type NitroMaterial = {
   diffuse: [number, number, number];
   alpha: number;
   defaultVertexColor: boolean;
+  repeatS: boolean;
+  repeatT: boolean;
+  flipS: boolean;
+  flipT: boolean;
+  textureTransformMode: number;
+  scaleS: number;
+  scaleT: number;
+  transS: number;
+  transT: number;
+  textureMatrix?: number[];
 };
 
 type NitroPiece = {
@@ -317,7 +365,7 @@ type NitroModel = {
   downScale: number;
 };
 
-type NitroResources = {
+export type NitroResources = {
   models: NitroModel[];
   textures: NitroTexture[];
   palettes: NitroPalette[];
@@ -346,6 +394,10 @@ type BuildPrimitive = {
   usedNormals: boolean;
   vertices: Vertex[];
   indices: number[];
+};
+
+type BuildModelOptions = {
+  recoverSkippedPieces?: boolean;
 };
 
 type InfoBlockItem<T> = {
@@ -808,6 +860,11 @@ export function readNitroResources(data: Uint8Array): NitroResources {
   return resources;
 }
 
+export function firstNitroModelScale(resources: NitroResources): number {
+  const scale = resources.models[0]?.upScale;
+  return scale && Number.isFinite(scale) ? scale : 1;
+}
+
 async function loadArchives(baseRom: BaseRom): Promise<LazyArchives> {
   const bytes = await loadActiveRomBytes();
   if (!bytes) throw new Error("Reload the ROM before opening Maps 3D");
@@ -1236,12 +1293,13 @@ function readModel(data: Uint8Array, offset: number): NitroModel {
   const materialsOff = readU32(data, offset + 8);
   const piecesOff = readU32(data, offset + 12);
   const objectsOffset = offset + 64;
+  const modelScale = readFx32(data, offset + 28) || 1;
   return {
     renderOps: parseRenderOps(data, offset + renderCmdsOff),
     pieces: readPieces(data, offset + piecesOff),
     materials: readMaterials(data, offset + materialsOff),
-    objects: readObjects(data, objectsOffset),
-    upScale: readFx32(data, offset + 28),
+    objects: readObjects(data, objectsOffset, modelScale),
+    upScale: modelScale,
     downScale: readFx32(data, offset + 32),
   };
 }
@@ -1272,26 +1330,56 @@ function readMaterials(data: Uint8Array, offset: number): NitroMaterial[] {
 }
 
 function readMaterial(data: Uint8Array, offset: number, name: string): NitroMaterial {
+  const sectionSize = readU16(data, offset + 2);
   const difAmb = readU32(data, offset + 4);
   const polygonAttr = readU32(data, offset + 12);
-  const polygonAttrMask = readU32(data, offset + 16);
-  const texImageParam = readU32(data, offset + 20);
+  const texVramOffset = readU16(data, offset + 20);
+  const texImageParam = readU16(data, offset + 22);
+  const textureTransformMode = (texImageParam >>> 14) & 3;
+  const textureParams = new TextureParams((texVramOffset | (texImageParam << 16)) >>> 0);
+  let scaleS = 1;
+  let scaleT = 1;
+  let transS = 0;
+  let transT = 0;
+  let textureMatrix: number[] | undefined;
+  if (textureTransformMode === 1) {
+    if (sectionSize >= 52 && offset + 52 <= data.length) {
+      scaleS = readFx32(data, offset + 44);
+      scaleT = readFx32(data, offset + 48);
+    }
+    if (sectionSize >= 60 && offset + 58 <= data.length) {
+      transS = readS16(data, offset + 54) / 4096;
+      transT = readS16(data, offset + 56) / 4096;
+    }
+  } else if ((textureTransformMode === 2 || textureTransformMode === 3) && sectionSize >= 108 && offset + 108 <= data.length) {
+    textureMatrix = Array.from({ length: 16 }, (_value, index) => readFx32(data, offset + 44 + index * 4));
+  }
   return {
     name,
-    params: new TextureParams(texImageParam & polygonAttrMask),
-    width: readU16(data, offset + 32) || 1,
-    height: readU16(data, offset + 34) || 1,
+    params: textureParams,
+    width: readU16(data, offset + 32) || textureParams.width() || 1,
+    height: readU16(data, offset + 34) || textureParams.height() || 1,
     diffuse: rgb555(difAmb & 0x7fff),
     defaultVertexColor: ((difAmb >>> 15) & 1) !== 0,
     alpha: ((polygonAttr >>> 16) & 31) / 31,
+    repeatS: (texImageParam & 1) !== 0,
+    repeatT: ((texImageParam >>> 1) & 1) !== 0,
+    flipS: ((texImageParam >>> 2) & 1) !== 0,
+    flipT: ((texImageParam >>> 3) & 1) !== 0,
+    textureTransformMode,
+    scaleS,
+    scaleT,
+    transS,
+    transT,
+    textureMatrix,
   };
 }
 
-function readObjects(data: Uint8Array, offset: number): NitroObject[] {
-  return readInfoBlock(data, offset, readU32Datum).map((item) => ({ matrix: readObjectMatrix(data, offset + item.datum) }));
+function readObjects(data: Uint8Array, offset: number, modelScale: number): NitroObject[] {
+  return readInfoBlock(data, offset, readU32Datum).map((item) => ({ matrix: readObjectMatrix(data, offset + item.datum, modelScale) }));
 }
 
-function readObjectMatrix(data: Uint8Array, offset: number): Mat4 {
+function readObjectMatrix(data: Uint8Array, offset: number, modelScale: number): Mat4 {
   const flags = readU16(data, offset);
   let cursor = offset + 4;
   const hasTranslation = (flags & 1) === 0;
@@ -1305,7 +1393,7 @@ function readObjectMatrix(data: Uint8Array, offset: number): Mat4 {
   let scale: [number, number, number] | undefined;
 
   if (hasTranslation) {
-    translation = [readFx32(data, cursor), readFx32(data, cursor + 4), readFx32(data, cursor + 8)];
+    translation = [readFx32(data, cursor) / modelScale, readFx32(data, cursor + 4) / modelScale, readFx32(data, cursor + 8) / modelScale];
     cursor += 12;
   }
   if (hasRotation) {
@@ -1361,14 +1449,16 @@ function readTex0(data: Uint8Array, sectionOffset: number): { textures: NitroTex
   return { textures, palettes };
 }
 
-function buildModelPrimitives(resources: NitroResources, warnings: string[]): Map3dPrimitive[] {
+export function buildModelPrimitives(resources: NitroResources, warnings: string[], options: BuildModelOptions = {}): Map3dPrimitive[] {
   const out: Map3dPrimitive[] = [];
   const textureByName = new Map(resources.textures.map((texture) => [texture.name, texture]));
   const paletteByName = new Map(resources.palettes.map((palette) => [palette.name, palette]));
   for (const model of resources.models) {
-    const built = buildModel(model, warnings);
+    const built = buildModel(model, warnings, options);
     for (const primitive of built) {
+      if (primitive.vertices.length === 0 || primitive.indices.length === 0) continue;
       const material = model.materials[primitive.materialId] ?? model.materials[0];
+      if (isHiddenNitroMaterial(material)) continue;
       const resolvedTexture = material?.textureName ? textureByName.get(material.textureName) : undefined;
       const resolvedPalette = material?.paletteName ? paletteByName.get(material.paletteName) : undefined;
       const texture =
@@ -1381,6 +1471,10 @@ function buildModelPrimitives(resources: NitroResources, warnings: string[]): Ma
           diffuse: material?.diffuse ?? [1, 1, 1],
           alpha: material?.alpha ?? 1,
           texture,
+          repeatS: material?.repeatS ?? true,
+          repeatT: material?.repeatT ?? true,
+          flipS: material?.flipS ?? false,
+          flipT: material?.flipT ?? false,
         },
         positions: new Float32Array(primitive.vertices.flatMap((vertex) => vertex.position)),
         uvs: primitive.usedTexcoords ? new Float32Array(primitive.vertices.flatMap((vertex) => vertex.uv)) : undefined,
@@ -1393,13 +1487,20 @@ function buildModelPrimitives(resources: NitroResources, warnings: string[]): Ma
   return out;
 }
 
-function buildModel(model: NitroModel, warnings: string[]): BuildPrimitive[] {
+function isHiddenNitroMaterial(material: NitroMaterial | undefined): boolean {
+  const name = material?.name?.toLowerCase() ?? "";
+  const texture = material?.textureName?.toLowerCase() ?? "";
+  return name.includes("h_kage") || texture.includes("h_kage");
+}
+
+function buildModel(model: NitroModel, warnings: string[], options: BuildModelOptions): BuildPrimitive[] {
   const gpu = {
     matrix: matIdentity(),
     stack: Array.from({ length: 32 }, () => matIdentity()),
     material: 0,
   };
   const primitives: BuildPrimitive[] = [];
+  const drawnPieces = new Set<number>();
   for (const op of model.renderOps) {
     if (op.kind === "load") gpu.matrix = gpu.stack[op.stack] ?? matIdentity();
     else if (op.kind === "store") gpu.stack[op.stack] = gpu.matrix;
@@ -1410,14 +1511,42 @@ function buildModel(model: NitroModel, warnings: string[]): BuildPrimitive[] {
     else if (op.kind === "draw") {
       const piece = model.pieces[op.piece];
       if (!piece) continue;
-      primitives.push(runGpuCommands(piece.commands, gpu.matrix, model.materials[gpu.material], gpu.material, warnings));
+      const primitive = runGpuCommands(piece.commands, gpu.matrix, gpu.stack, model.materials[gpu.material], gpu.material, model.upScale || 1, warnings);
+      primitives.push(primitive);
+      if (primitive.vertices.length > 0 && primitive.indices.length > 0) drawnPieces.add(op.piece);
+    }
+  }
+  if (!primitives.some((primitive) => primitive.vertices.length > 0 && primitive.indices.length > 0) && model.pieces.length > 0) {
+    warnings.push("Model render ops produced no geometry; drawing all polygons once.");
+    model.pieces.forEach((piece, pieceIndex) => {
+      primitives.push(drawUnreferencedPiece(model, piece, pieceIndex, gpu.stack, warnings));
+    });
+  } else if (options.recoverSkippedPieces && drawnPieces.size < model.pieces.length) {
+    const missingPieces = model.pieces.map((_piece, pieceIndex) => pieceIndex).filter((pieceIndex) => !drawnPieces.has(pieceIndex));
+    if (missingPieces.length > 0) {
+      warnings.push(`Model render ops skipped ${missingPieces.length} polygon piece${missingPieces.length === 1 ? "" : "s"}; drawing unmatched pieces once.`);
+      for (const pieceIndex of missingPieces) primitives.push(drawUnreferencedPiece(model, model.pieces[pieceIndex], pieceIndex, gpu.stack, warnings));
     }
   }
   return primitives;
 }
 
-function runGpuCommands(commands: Uint8Array, matrix: Mat4, material: NitroMaterial | undefined, materialId: number, warnings: string[]): BuildPrimitive {
+function drawUnreferencedPiece(model: NitroModel, piece: NitroPiece | undefined, pieceIndex: number, matrixStack: Mat4[], warnings: string[]): BuildPrimitive {
+  const materialId = Math.min(pieceIndex, Math.max(0, model.materials.length - 1));
+  return runGpuCommands(piece?.commands ?? new Uint8Array(), matIdentity(), matrixStack, model.materials[materialId], materialId, model.upScale || 1, warnings);
+}
+
+function runGpuCommands(
+  commands: Uint8Array,
+  matrix: Mat4,
+  matrixStack: Mat4[],
+  material: NitroMaterial | undefined,
+  materialId: number,
+  modelScale: number,
+  warnings: string[],
+): BuildPrimitive {
   const primitive: BuildPrimitive = { materialId, usedTexcoords: false, usedColors: false, usedNormals: false, vertices: [], indices: [] };
+  let currentMatrix = matrix;
   let opcodeCursor: number[] = [];
   let offset = 0;
   let primType = 0;
@@ -1469,9 +1598,7 @@ function runGpuCommands(commands: Uint8Array, matrix: Mat4, material: NitroMater
       primStart = primitive.vertices.length;
     } else if (opcode === 0x22) {
       primitive.usedTexcoords = true;
-      const width = material?.width || 1;
-      const height = material?.height || 1;
-      nextVertex = { ...nextVertex, uv: [readPackedFx16(params[0], 0, 16, 1, 11, 4) / width, 1 - readPackedFx16(params[0], 16, 32, 1, 11, 4) / height] };
+      nextVertex = { ...nextVertex, uv: materialUv(material, params[0]) };
     } else if (opcode === 0x20) {
       primitive.usedColors = true;
       nextVertex = { ...nextVertex, color: rgb555(params[0] & 0x7fff) };
@@ -1488,15 +1615,64 @@ function runGpuCommands(commands: Uint8Array, matrix: Mat4, material: NitroMater
     } else if (opcode >= 0x23 && opcode <= 0x28) {
       const position = gpuPosition(opcode, params, lastPosition);
       lastPosition = position;
-      primitive.vertices.push({ ...nextVertex, position: transformPoint(matrix, position) });
+      primitive.vertices.push({ ...nextVertex, position: transformPoint(currentMatrix, position) });
+    } else if (opcode === 0x13) {
+      matrixStack[params[0] & 0x1f] = currentMatrix;
+    } else if (opcode === 0x14) {
+      currentMatrix = matrixStack[params[0] & 0x1f] ?? matIdentity();
+    } else if (opcode === 0x15) {
+      currentMatrix = matIdentity();
+    } else if (opcode === 0x16) {
+      currentMatrix = gpuMatrixFromParams(params, 4, 4);
+    } else if (opcode === 0x17) {
+      currentMatrix = gpuMatrixFromParams(params, 4, 3);
+    } else if (opcode === 0x18) {
+      currentMatrix = matMul(currentMatrix, gpuMatrixFromParams(params, 4, 4));
+    } else if (opcode === 0x19) {
+      currentMatrix = matMul(currentMatrix, gpuMatrixFromParams(params, 4, 3));
+    } else if (opcode === 0x1a) {
+      currentMatrix = matMul(currentMatrix, gpuMatrixFromParams(params, 3, 3));
     } else if (opcode === 0x1b) {
-      // Piece-local scale is uncommon for terrain MVP; static object matrices are already applied.
-    } else if (opcode !== 0x14) {
+      currentMatrix = matMul(currentMatrix, matScale(readFxParam(params[0]) / modelScale, readFxParam(params[1]) / modelScale, readFxParam(params[2]) / modelScale));
+    } else if (opcode === 0x1c) {
+      currentMatrix = matMul(currentMatrix, matTranslate(readFxParam(params[0]) / modelScale, readFxParam(params[1]) / modelScale, readFxParam(params[2]) / modelScale));
+    } else if (!IGNORED_GPU_OPCODES.has(opcode)) {
       warnings.push(`Ignored GPU opcode 0x${opcode.toString(16)}`);
     }
   }
   endPrim();
   return primitive;
+}
+
+function gpuMatrixFromParams(params: number[], columns: number, rows: number): Mat4 {
+  const matrix = matIdentity();
+  let index = 0;
+  for (let column = 0; column < columns; column += 1) {
+    for (let row = 0; row < rows; row += 1) {
+      matrix[row * 4 + column] = readFxParam(params[index++] ?? 0);
+    }
+  }
+  return matrix;
+}
+
+function materialUv(material: NitroMaterial | undefined, packed: number): [number, number] {
+  const width = material?.width || 1;
+  const height = material?.height || 1;
+  const rawS = readPackedFx16(packed, 0, 16, 1, 11, 4);
+  const rawT = readPackedFx16(packed, 16, 32, 1, 11, 4);
+  let u = rawS / width / (material?.flipS ? 2 : 1);
+  let v = rawT / height / (material?.flipT ? 2 : 1);
+  if (material?.textureMatrix) {
+    const m = material.textureMatrix;
+    const nextU = u * (m[0] ?? 1) + v * (m[4] ?? 0) + (m[12] ?? 0);
+    const nextV = u * (m[1] ?? 0) + v * (m[5] ?? 1) + (m[13] ?? 0);
+    u = nextU;
+    v = nextV;
+  } else if (material && material.textureTransformMode === 1) {
+    u = u * material.scaleS + material.transS;
+    v = v * material.scaleT + material.transT;
+  }
+  return [u, v];
 }
 
 function gpuPosition(opcode: number, params: number[], last: [number, number, number]): [number, number, number] {
@@ -1510,6 +1686,10 @@ function gpuPosition(opcode: number, params: number[], last: [number, number, nu
     last[1] + readPackedFx16(params[0], 10, 20, 1, 0, 9) / 8,
     last[2] + readPackedFx16(params[0], 20, 30, 1, 0, 9) / 8,
   ];
+}
+
+export function parseNitroRenderOpsForTest(data: Uint8Array, offset = 0): RenderOp[] {
+  return parseRenderOps(data, offset);
 }
 
 function parseRenderOps(data: Uint8Array, offset: number): RenderOp[] {
@@ -1547,7 +1727,7 @@ function renderParamLength(opcode: number, data: Uint8Array, cursor: number): nu
       0x07: 1,
       0x08: 1,
       0x0b: 0,
-      0x0c: 2,
+      0x0c: 1,
       0x0d: 2,
       0x24: 1,
       0x26: 4,
@@ -1676,10 +1856,22 @@ class TextureParams {
 }
 
 const TEXTURE_BPP = [0, 8, 2, 4, 8, 2, 8, 16];
+const IGNORED_GPU_OPCODES = new Set([0x10, 0x11, 0x12, 0x29, 0x2a, 0x2b, 0x30, 0x31, 0x32, 0x33, 0x34, 0x50, 0x60, 0x70, 0x71, 0x72]);
 const GPU_PARAM_COUNTS: Record<number, number> = {
   0x00: 0,
+  0x10: 1,
+  0x11: 0,
+  0x12: 1,
+  0x13: 1,
   0x14: 1,
+  0x15: 0,
+  0x16: 16,
+  0x17: 12,
+  0x18: 16,
+  0x19: 12,
+  0x1a: 9,
   0x1b: 3,
+  0x1c: 3,
   0x20: 1,
   0x21: 1,
   0x22: 1,
@@ -1689,8 +1881,21 @@ const GPU_PARAM_COUNTS: Record<number, number> = {
   0x26: 1,
   0x27: 1,
   0x28: 1,
+  0x29: 1,
+  0x2a: 1,
+  0x2b: 1,
+  0x30: 1,
+  0x31: 1,
+  0x32: 1,
+  0x33: 1,
+  0x34: 32,
   0x40: 1,
   0x41: 0,
+  0x50: 1,
+  0x60: 1,
+  0x70: 3,
+  0x71: 2,
+  0x72: 1,
 };
 
 function readInfoBlock<T>(data: Uint8Array, offset: number, readDatum: (data: Uint8Array, offset: number) => T): InfoBlockItem<T>[] {
@@ -1742,6 +1947,10 @@ function readFx16(data: Uint8Array, offset: number): number {
 
 function readFx32(data: Uint8Array, offset: number): number {
   return readS32(data, offset) / 4096;
+}
+
+function readFxParam(value: number): number {
+  return (value | 0) / 4096;
 }
 
 function readPackedFx16(value: number, lo: number, hi: number, signBits: number, intBits: number, fracBits: number): number {

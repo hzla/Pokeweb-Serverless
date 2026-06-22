@@ -14,6 +14,8 @@ import {
   type Map3dSeason,
   type Map3dZoneMetadata,
 } from "../pokeweb/map3dModel";
+import { isGen4Project } from "../pokeweb/constants";
+import { buildGen4Map3dScene, ensureGen4Map3dResources, saveGen4Map3dPermissionEdits } from "../pokeweb/gen4Map3dModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
@@ -45,6 +47,7 @@ type RendererState = {
   group: THREE.Group;
   terrainGroup: THREE.Group;
   buildingGroup: THREE.Group;
+  buildingBoundsGroup: THREE.Group;
   npcGroup: THREE.Group;
   overlayGroup: THREE.Group;
   permissionGroup: THREE.Group;
@@ -155,6 +158,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       </div>
       <div class="map3d-layer-grid">
         <label class="map3d-check"><input id="map3d-show-buildings" type="checkbox" checked /> Buildings</label>
+        <label class="map3d-check"><input id="map3d-show-building-bounds" type="checkbox" /> Building bounds</label>
         <label class="map3d-check"><input id="map3d-show-npcs" type="checkbox" checked /> NPC models</label>
         <label class="map3d-check"><input id="map3d-show-entities" type="checkbox" checked /> Entity overlays</label>
         <label class="map3d-check"><input id="map3d-show-permissions" type="checkbox" /> Collision overlay</label>
@@ -225,6 +229,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         </div>
       </div>
       <div class="map3d-canvas-wrap" id="map3d-canvas-wrap"></div>
+      <div class="map3d-warnings" id="map3d-warnings"></div>
     </div>
   `;
 
@@ -254,6 +259,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     exterior: root.querySelector<HTMLInputElement>("#map3d-meta-exterior"),
   };
   const showBuildings = root.querySelector<HTMLInputElement>("#map3d-show-buildings");
+  const showBuildingBounds = root.querySelector<HTMLInputElement>("#map3d-show-building-bounds");
   const showNpcs = root.querySelector<HTMLInputElement>("#map3d-show-npcs");
   const showEntities = root.querySelector<HTMLInputElement>("#map3d-show-entities");
   const showPermissions = root.querySelector<HTMLInputElement>("#map3d-show-permissions");
@@ -266,6 +272,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   const permissionSelected = root.querySelector<HTMLDivElement>("#map3d-permission-selected");
   const search = root.querySelector<HTMLInputElement>("#map3d-search");
   const canvasWrap = root.querySelector<HTMLDivElement>("#map3d-canvas-wrap");
+  const warningsHost = root.querySelector<HTMLDivElement>("#map3d-warnings");
   if (!select || !canvasWrap) return;
   const zoneSelect = select;
 
@@ -278,7 +285,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
     activeZone = zoneId;
     setStatus("Loading map assets...");
     try {
-      const data = await loadMap3dZone(project, zoneId, { season: activeSeason }, (message) => {
+      const data = await loadMap3dEditorZone(project, zoneId, activeSeason, (message) => {
         if (token === loadToken) setStatus(message);
       });
       if (token !== loadToken) return;
@@ -291,15 +298,19 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       };
       renderSceneData(state, data);
       writeMetadataForm(getMap3dZoneMetadata(project, zoneId), data);
-      applyLayerVisibility(state, showBuildings?.checked ?? true, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions?.checked ?? false);
+      renderMap3dDiagnostics(warningsHost, data);
+      applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions?.checked ?? false);
       rememberMap3dView(project, zoneId, activeSeason);
       setStatus(data.label);
     } catch (error) {
       if (token !== loadToken) return;
-      setStatus(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(message);
+      if (warningsHost) warningsHost.innerHTML = `<strong>Map load failed</strong><div>${escapeHtml(message)}</div>`;
       state ??= createRenderer(canvasWrap);
       clearGroup(state.terrainGroup);
       clearGroup(state.buildingGroup);
+      clearGroup(state.buildingBoundsGroup);
       clearGroup(state.npcGroup);
       clearGroup(state.overlayGroup);
       clearGroup(state.permissionGroup);
@@ -320,25 +331,29 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   });
 
   showBuildings?.addEventListener("change", () => {
-    if (state) applyLayerVisibility(state, showBuildings.checked, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions?.checked ?? false);
+    if (state) applyLayerVisibility(state, showBuildings.checked, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions?.checked ?? false);
+  });
+
+  showBuildingBounds?.addEventListener("change", () => {
+    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds.checked, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions?.checked ?? false);
   });
 
   showNpcs?.addEventListener("change", () => {
-    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showNpcs.checked, showEntities?.checked ?? true, showPermissions?.checked ?? false);
+    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs.checked, showEntities?.checked ?? true, showPermissions?.checked ?? false);
   });
 
   showEntities?.addEventListener("change", () => {
-    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showNpcs?.checked ?? true, showEntities.checked, showPermissions?.checked ?? false);
+    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities.checked, showPermissions?.checked ?? false);
   });
 
   showPermissions?.addEventListener("change", () => {
-    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions.checked);
+    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions.checked);
   });
 
   permissionPaint?.addEventListener("change", () => {
     if (!permissionPaint.checked || !showPermissions) return;
     showPermissions.checked = true;
-    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showNpcs?.checked ?? true, showEntities?.checked ?? true, true);
+    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities?.checked ?? true, true);
   });
 
   for (const input of permissionFlagInputs) {
@@ -357,7 +372,9 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       return;
     }
     try {
-      await saveMap3dPermissionEdits(project, [...dirtyPermissionEdits.values()]);
+      const edits = [...dirtyPermissionEdits.values()];
+      if (isGen4Project(project)) saveGen4Map3dPermissionEdits(project, edits);
+      else await saveMap3dPermissionEdits(project, edits);
       const saved = dirtyPermissionEdits.size;
       dirtyPermissionEdits.clear();
       onDirty?.();
@@ -521,6 +538,65 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   }
 }
 
+async function loadMap3dEditorZone(project: ProjectState, zoneId: number, season: Map3dSeason, onProgress?: (message: string) => void): Promise<Map3dSceneData> {
+  if (!isGen4Project(project)) return loadMap3dZone(project, zoneId, { season }, onProgress);
+  onProgress?.("Reading Gen 4 map archives");
+  await ensureGen4Map3dResources(project);
+  const metadata = getMap3dZoneMetadata(project, zoneId);
+  onProgress?.("Building Gen 4 stitched map scene");
+  return buildGen4Map3dScene(project, metadata.matrixId, { headerId: zoneId, label: metadata.locationName, locationGroup: true });
+}
+
+function renderMap3dDiagnostics(host: HTMLDivElement | null, data: Map3dSceneData): void {
+  if (!host) return;
+  const diagnostics = data.buildingDiagnostics ?? [];
+  const placementCount = data.buildingPlacementCount ?? data.buildingCount;
+  const failedBuildings = diagnostics.filter((entry) => entry.status !== "rendered");
+  if (data.warnings.length === 0 && placementCount === 0) {
+    host.innerHTML = "";
+    return;
+  }
+
+  const lines = [
+    `<strong>${escapeHtml(data.label)}</strong>`,
+    `<div>Chunks: ${data.chunkCount} / Buildings: ${data.buildingCount}/${placementCount} rendered / Textured primitives: ${data.textureCount}</div>`,
+  ];
+
+  if (diagnostics.length > 0) {
+    const rendered = diagnostics.filter((entry) => entry.status === "rendered").length;
+    const failedSummary = failedBuildings.length === 0 ? `all ${rendered} placement${rendered === 1 ? "" : "s"} decoded` : `${failedBuildings.length} unresolved placement${failedBuildings.length === 1 ? "" : "s"}`;
+    lines.push(`<div>Building audit: ${failedSummary}</div>`);
+    if (failedBuildings.length > 0) {
+      lines.push(
+        `<details open><summary>Unresolved buildings</summary>${failedBuildings
+          .slice(0, 24)
+          .map((entry) => `<div>${formatBuildingDiagnostic(entry)}</div>`)
+          .join("")}${failedBuildings.length > 24 ? `<div>...${failedBuildings.length - 24} more</div>` : ""}</details>`,
+      );
+    }
+  }
+
+  if (data.warnings.length > 0) {
+    lines.push(
+      `<details ${failedBuildings.length === 0 ? "" : "open"}><summary>${data.warnings.length} warning${data.warnings.length === 1 ? "" : "s"}</summary>${data.warnings
+        .slice(0, 24)
+        .map((warning) => `<div>${escapeHtml(warning)}</div>`)
+        .join("")}${data.warnings.length > 24 ? `<div>...${data.warnings.length - 24} more</div>` : ""}</details>`,
+    );
+  }
+
+  host.innerHTML = lines.join("");
+}
+
+function formatBuildingDiagnostic(entry: NonNullable<Map3dSceneData["buildingDiagnostics"]>[number]): string {
+  const base = `Map ${entry.mapId} placement ${entry.placementIndex} model ${entry.modelId}: ${entry.status}`;
+  const detail =
+    entry.status === "rendered"
+      ? `${entry.primitiveCount ?? 0} primitive${entry.primitiveCount === 1 ? "" : "s"}, ${entry.triangleCount ?? 0} triangle${entry.triangleCount === 1 ? "" : "s"}`
+      : (entry.message ?? "");
+  return escapeHtml(detail ? `${base} (${detail})` : base);
+}
+
 function metadataNumberInput(id: string, label: string, min: number, max: number): string {
   return `
     <label class="map3d-field">
@@ -560,10 +636,12 @@ function createRenderer(container: HTMLElement): RendererState {
   const group = new THREE.Group();
   const terrainGroup = new THREE.Group();
   const buildingGroup = new THREE.Group();
+  const buildingBoundsGroup = new THREE.Group();
   const npcGroup = new THREE.Group();
   const overlayGroup = new THREE.Group();
   const permissionGroup = new THREE.Group();
-  group.add(terrainGroup, buildingGroup, npcGroup, overlayGroup, permissionGroup);
+  buildingBoundsGroup.visible = false;
+  group.add(terrainGroup, buildingGroup, buildingBoundsGroup, npcGroup, overlayGroup, permissionGroup);
   scene.add(group);
 
   const state: RendererState = {
@@ -573,6 +651,7 @@ function createRenderer(container: HTMLElement): RendererState {
     group,
     terrainGroup,
     buildingGroup,
+    buildingBoundsGroup,
     npcGroup,
     overlayGroup,
     permissionGroup,
@@ -717,14 +796,15 @@ function renderSceneData(state: RendererState, data: Map3dSceneData): void {
   state.selectedPermission = undefined;
   clearGroup(state.terrainGroup);
   clearGroup(state.buildingGroup);
+  clearGroup(state.buildingBoundsGroup);
   clearGroup(state.npcGroup);
   clearGroup(state.overlayGroup);
   clearGroup(state.permissionGroup);
-  const textureCache = new Map<string, THREE.DataTexture>();
+  const textureCache = new Map<string, THREE.Texture>();
 
   for (const chunk of data.chunks) {
     const chunkGroup = new THREE.Group();
-    chunkGroup.position.set(chunk.worldX, 0, chunk.worldZ);
+    chunkGroup.position.set(chunk.worldX, chunk.worldY ?? 0, chunk.worldZ);
     for (const primitive of chunk.primitives) {
       if (primitive.indices.length === 0 || primitive.positions.length === 0) continue;
       const geometry = new THREE.BufferGeometry();
@@ -734,12 +814,13 @@ function renderSceneData(state: RendererState, data: Map3dSceneData): void {
       if (primitive.normals) geometry.setAttribute("normal", new THREE.BufferAttribute(primitive.normals, 3));
       geometry.setIndex(new THREE.BufferAttribute(primitive.indices, 1));
       if (!primitive.normals) geometry.computeVertexNormals();
-      const texture = primitive.material.texture ? getTexture(textureCache, primitive.material.texture) : undefined;
+      const texture = primitive.material.texture ? getTexture(textureCache, primitive.material.texture, primitive.material) : undefined;
       const material = new THREE.MeshBasicMaterial({
         map: texture,
         color: texture ? 0xffffff : new THREE.Color(...primitive.material.diffuse),
         vertexColors: Boolean(primitive.colors),
         transparent: primitive.material.alpha < 1 || Boolean(texture),
+        opacity: primitive.material.alpha,
         alphaTest: texture ? 0.05 : 0,
         side: THREE.DoubleSide,
       });
@@ -753,6 +834,8 @@ function renderSceneData(state: RendererState, data: Map3dSceneData): void {
     buildingGroup.rotation.y = THREE.MathUtils.degToRad(building.rotationY);
     addPrimitivesToGroup(buildingGroup, building.primitives, textureCache);
     state.buildingGroup.add(buildingGroup);
+    const boundsOverlay = createBuildingBoundsOverlay(building);
+    if (boundsOverlay) state.buildingBoundsGroup.add(boundsOverlay);
   }
   for (const npc of data.npcModels) {
     const npcGroup = new THREE.Group();
@@ -762,10 +845,84 @@ function renderSceneData(state: RendererState, data: Map3dSceneData): void {
     state.npcGroup.add(npcGroup);
   }
   for (const entity of data.entities) {
-    if (entity.kind !== "npc") state.overlayGroup.add(createEntityOverlay(entity));
+    if (entity.kind !== "npc" || data.npcModels.length === 0) state.overlayGroup.add(createEntityOverlay(entity, textureCache));
   }
   renderPermissionOverlays(state, data);
   topDownGroup(state);
+}
+
+function createBuildingBoundsOverlay(building: Map3dSceneData["buildings"][number]): THREE.Group | undefined {
+  const bounds = buildingWorldBounds(building);
+  if (!bounds) return undefined;
+  const sizeX = Math.max(1, bounds.maxX - bounds.minX);
+  const sizeY = Math.max(1, bounds.maxY - bounds.minY);
+  const sizeZ = Math.max(1, bounds.maxZ - bounds.minZ);
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2;
+  const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+  const group = new THREE.Group();
+  group.name = `building-bounds-${building.sourceChunkId}-${building.placementIndex ?? building.uid}`;
+
+  const geometry = new THREE.BoxGeometry(sizeX, sizeY, sizeZ);
+  const fill = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: 0xff2f2f,
+      transparent: true,
+      opacity: 0.22,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  fill.position.set(centerX, centerY, centerZ);
+  fill.renderOrder = 30;
+  group.add(fill);
+
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geometry),
+    new THREE.LineBasicMaterial({
+      color: 0xffd0d0,
+      transparent: true,
+      opacity: 0.95,
+      depthTest: false,
+      depthWrite: false,
+    }),
+  );
+  edges.position.copy(fill.position);
+  edges.renderOrder = 31;
+  group.add(edges);
+  return group;
+}
+
+function buildingWorldBounds(building: Map3dSceneData["buildings"][number]): NonNullable<Map3dSceneData["buildings"][number]["bounds"]> | undefined {
+  if (building.bounds) return building.bounds;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let minZ = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let maxZ = Number.NEGATIVE_INFINITY;
+  let seen = false;
+  const rotation = new THREE.Matrix4().makeRotationY(THREE.MathUtils.degToRad(building.rotationY));
+  const point = new THREE.Vector3();
+  for (const primitive of building.primitives) {
+    for (let index = 0; index < primitive.positions.length; index += 3) {
+      point.set(primitive.positions[index] ?? 0, primitive.positions[index + 1] ?? 0, primitive.positions[index + 2] ?? 0);
+      point.applyMatrix4(rotation);
+      point.x += building.worldX;
+      point.y += building.worldY;
+      point.z += building.worldZ;
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      minZ = Math.min(minZ, point.z);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+      maxZ = Math.max(maxZ, point.z);
+      seen = true;
+    }
+  }
+  return seen ? { minX, maxX, minY, maxY, minZ, maxZ } : undefined;
 }
 
 function renderPermissionOverlays(state: RendererState, data: Map3dSceneData): void {
@@ -812,7 +969,7 @@ function createPermissionMesh(chunk: Map3dSceneData["chunks"][number]): THREE.Me
     polygonOffsetFactor: -4,
   });
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(chunk.worldX, 0, chunk.worldZ);
+  mesh.position.set(chunk.worldX, chunk.worldY ?? 0, chunk.worldZ);
   mesh.renderOrder = 4;
   mesh.userData = { chunk, tileIndices } satisfies PermissionMeshUserData;
   return mesh;
@@ -845,10 +1002,10 @@ function updatePermissionSelectionMarker(state: RendererState): void {
   const z0 = chunk.worldZ - halfHeight + selection.tileY * PERMISSION_TILE_SIZE;
   const z1 = z0 + PERMISSION_TILE_SIZE;
   const geometry = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(x0, 8, z0),
-    new THREE.Vector3(x1, 8, z0),
-    new THREE.Vector3(x1, 8, z1),
-    new THREE.Vector3(x0, 8, z1),
+    new THREE.Vector3(x0, (chunk.worldY ?? 0) + 8, z0),
+    new THREE.Vector3(x1, (chunk.worldY ?? 0) + 8, z0),
+    new THREE.Vector3(x1, (chunk.worldY ?? 0) + 8, z1),
+    new THREE.Vector3(x0, (chunk.worldY ?? 0) + 8, z1),
   ]);
   const marker = new THREE.LineLoop(geometry, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 }));
   marker.name = "permission-selection";
@@ -856,7 +1013,7 @@ function updatePermissionSelectionMarker(state: RendererState): void {
   state.permissionGroup.add(marker);
 }
 
-function addPrimitivesToGroup(group: THREE.Group, primitives: Map3dSceneData["chunks"][number]["primitives"], textureCache: Map<string, THREE.DataTexture>): void {
+function addPrimitivesToGroup(group: THREE.Group, primitives: Map3dSceneData["chunks"][number]["primitives"], textureCache: Map<string, THREE.Texture>): void {
   for (const primitive of primitives) {
     if (primitive.indices.length === 0 || primitive.positions.length === 0) continue;
     const geometry = new THREE.BufferGeometry();
@@ -866,12 +1023,13 @@ function addPrimitivesToGroup(group: THREE.Group, primitives: Map3dSceneData["ch
     if (primitive.normals) geometry.setAttribute("normal", new THREE.BufferAttribute(primitive.normals, 3));
     geometry.setIndex(new THREE.BufferAttribute(primitive.indices, 1));
     if (!primitive.normals) geometry.computeVertexNormals();
-    const texture = primitive.material.texture ? getTexture(textureCache, primitive.material.texture) : undefined;
+    const texture = primitive.material.texture ? getTexture(textureCache, primitive.material.texture, primitive.material) : undefined;
     const material = new THREE.MeshBasicMaterial({
       map: texture,
       color: texture ? 0xffffff : new THREE.Color(...primitive.material.diffuse),
       vertexColors: Boolean(primitive.colors),
       transparent: primitive.material.alpha < 1 || Boolean(texture),
+      opacity: primitive.material.alpha,
       alphaTest: texture ? 0.05 : 0,
       side: THREE.DoubleSide,
     });
@@ -879,7 +1037,82 @@ function addPrimitivesToGroup(group: THREE.Group, primitives: Map3dSceneData["ch
   }
 }
 
-function createEntityOverlay(entity: Map3dEntityOverlay): THREE.Group {
+function createEntityOverlay(entity: Map3dEntityOverlay, textureCache: Map<string, THREE.Texture>): THREE.Group {
+  if (entity.kind === "warp") return createGroundEntityOverlay(entity);
+  if ((entity.kind === "npc" || entity.kind === "furniture") && entity.sprite) return createSpriteEntityOverlay(entity, textureCache);
+  return createVolumeEntityOverlay(entity);
+}
+
+function createSpriteEntityOverlay(entity: Map3dEntityOverlay, textureCache: Map<string, THREE.Texture>): THREE.Group {
+  const texture = getEntitySpriteTexture(textureCache, entity);
+  const source = entity.sprite?.texture;
+  const worldHeight = Math.max(8, entity.sprite?.worldHeight ?? entity.height);
+  const aspect = source && source.height > 0 ? source.width / source.height : 1;
+  const worldWidth = Math.max(8, worldHeight * aspect);
+  const positions = new Float32Array([-worldWidth / 2, 0, 0, worldWidth / 2, 0, 0, worldWidth / 2, worldHeight, 0, -worldWidth / 2, worldHeight, 0]);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]), 2));
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    alphaTest: entity.sprite?.missing ? 0 : 0.05,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    depthTest: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.rotation.x = -Math.PI / 5;
+  mesh.renderOrder = 24;
+
+  const x = entity.centered ? entity.x : entity.x + entity.width / 2;
+  const z = entity.centered ? entity.z : entity.z + entity.depth / 2;
+  const y = entity.kind === "npc" ? entity.y : entity.y + 1;
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  group.add(mesh);
+  return group;
+}
+
+function createGroundEntityOverlay(entity: Map3dEntityOverlay): THREE.Group {
+  const color = entityColor(entity.kind);
+  const group = new THREE.Group();
+  const width = Math.max(1, entity.width);
+  const depth = Math.max(1, entity.depth);
+  const x = entity.centered ? entity.x : entity.x + width / 2;
+  const z = entity.centered ? entity.z : entity.z + depth / 2;
+  const geometry = new THREE.PlaneGeometry(width, depth);
+  const material = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.38,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -6,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(x, entity.y + 1.5, z);
+  mesh.renderOrder = 12;
+  group.add(mesh);
+
+  const halfW = width / 2;
+  const halfD = depth / 2;
+  const edgeGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(x - halfW, entity.y + 2, z - halfD),
+    new THREE.Vector3(x + halfW, entity.y + 2, z - halfD),
+    new THREE.Vector3(x + halfW, entity.y + 2, z + halfD),
+    new THREE.Vector3(x - halfW, entity.y + 2, z + halfD),
+  ]);
+  const edges = new THREE.LineLoop(edgeGeometry, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false }));
+  edges.renderOrder = 13;
+  group.add(edges);
+  return group;
+}
+
+function createVolumeEntityOverlay(entity: Map3dEntityOverlay): THREE.Group {
   const group = new THREE.Group();
   const color = entityColor(entity.kind);
   const height = Math.max(8, entity.height);
@@ -898,6 +1131,51 @@ function createEntityOverlay(entity: Map3dEntityOverlay): THREE.Group {
   label.position.set(0, height / 2 + 12, 0);
   group.add(label);
   return group;
+}
+
+function getEntitySpriteTexture(textureCache: Map<string, THREE.Texture>, entity: Map3dEntityOverlay): THREE.Texture {
+  const source = entity.sprite?.texture;
+  const assetUrl = entity.sprite?.assetUrl;
+  const key = source ? `entity:${source.name}` : assetUrl ? `entity-asset:${assetUrl}` : `entity-missing:${entity.kind}`;
+  const cached = textureCache.get(key);
+  if (cached) return cached;
+  if (assetUrl && !source) {
+    const texture = new THREE.TextureLoader().load(assetUrl);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.flipY = false;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    textureCache.set(key, texture);
+    return texture;
+  }
+  const rgba = source?.rgba ?? missingEntitySpriteRgba();
+  const texture = new THREE.DataTexture(rgba, source?.width ?? 16, source?.height ?? 16, THREE.RGBAFormat);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+  textureCache.set(key, texture);
+  return texture;
+}
+
+function missingEntitySpriteRgba(): Uint8Array {
+  const size = 16;
+  const rgba = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const offset = (y * size + x) * 4;
+      const border = x === 0 || y === 0 || x === size - 1 || y === size - 1;
+      rgba[offset] = 255;
+      rgba[offset + 1] = border ? 255 : 40;
+      rgba[offset + 2] = border ? 255 : 40;
+      rgba[offset + 3] = 255;
+    }
+  }
+  return rgba;
 }
 
 function entityColor(kind: Map3dEntityOverlay["kind"]): number {
@@ -932,8 +1210,9 @@ function makeLabelSprite(text: string, color: number): THREE.Sprite {
   return sprite;
 }
 
-function applyLayerVisibility(state: RendererState, showBuildings: boolean, showNpcs: boolean, showEntities: boolean, showPermissions: boolean): void {
+function applyLayerVisibility(state: RendererState, showBuildings: boolean, showBuildingBounds: boolean, showNpcs: boolean, showEntities: boolean, showPermissions: boolean): void {
   state.buildingGroup.visible = showBuildings;
+  state.buildingBoundsGroup.visible = showBuildingBounds;
   state.npcGroup.visible = showNpcs;
   state.overlayGroup.visible = showEntities;
   state.permissionGroup.visible = showPermissions;
@@ -1011,18 +1290,28 @@ function isMap3dSeason(value: unknown): value is Map3dSeason {
   return value === "spring" || value === "summer" || value === "autumn" || value === "winter";
 }
 
-function getTexture(cache: Map<string, THREE.DataTexture>, textureData: NonNullable<Map3dSceneData["chunks"][number]["primitives"][number]["material"]["texture"]>): THREE.DataTexture {
-  const cached = cache.get(textureData.name);
+function getTexture(
+  cache: Map<string, THREE.Texture>,
+  textureData: NonNullable<Map3dSceneData["chunks"][number]["primitives"][number]["material"]["texture"]>,
+  material: Map3dSceneData["chunks"][number]["primitives"][number]["material"],
+): THREE.Texture {
+  const key = `${textureData.name}:${material.repeatS ? 1 : 0}:${material.repeatT ? 1 : 0}:${material.flipS ? 1 : 0}:${material.flipT ? 1 : 0}`;
+  const cached = cache.get(key);
   if (cached) return cached;
   const texture = new THREE.DataTexture(textureData.rgba, textureData.width, textureData.height, THREE.RGBAFormat);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
+  texture.wrapS = textureWrapMode(Boolean(material.repeatS), Boolean(material.flipS));
+  texture.wrapT = textureWrapMode(Boolean(material.repeatT), Boolean(material.flipT));
   texture.needsUpdate = true;
-  cache.set(textureData.name, texture);
+  cache.set(key, texture);
   return texture;
+}
+
+function textureWrapMode(repeat: boolean, flip: boolean): THREE.Wrapping {
+  if (!repeat) return THREE.ClampToEdgeWrapping;
+  return flip ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
 }
 
 function clearGroup(group: THREE.Group): void {

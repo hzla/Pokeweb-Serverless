@@ -24,6 +24,9 @@ import type { GrottoOddsState } from "./martGrottoModel";
 import type { ActionChangelogState } from "./actionChangelog";
 import type { TextEntry } from "./text";
 import type { TmState } from "./tmModel";
+import { parseGen4EventFile } from "./gen4EventModel";
+import { parseGen4MapFile } from "./gen4MapModel";
+import { parseGen4MatrixFile } from "./gen4MatrixModel";
 
 export type RawRecord = Record<string, number>;
 export type ReadableRecord = Record<string, number | string>;
@@ -39,6 +42,7 @@ export type NarcStore = {
   name: NarcName;
   fileId: number;
   sourcePath: string;
+  container?: "narc" | "file";
   fileCount: number;
   rawFiles: Uint8Array[];
   filenames?: Folder;
@@ -211,10 +215,24 @@ export function createNarcStore(name: NarcName, sourcePath: string, fileId: numb
   return {
     name,
     sourcePath,
+    container: "narc",
     fileId,
     fileCount: narc.files.length,
     rawFiles: narc.files,
     filenames: narc.filenames,
+    records: new Map(),
+    dirty: new Set(),
+  };
+}
+
+export function createFileStore(name: NarcName, sourcePath: string, fileId: number, bytes: Uint8Array): NarcStore {
+  return {
+    name,
+    sourcePath,
+    container: "file",
+    fileId,
+    fileCount: 1,
+    rawFiles: [bytes],
     records: new Map(),
     dirty: new Set(),
   };
@@ -259,8 +277,12 @@ export function getCachedRecordCount(project: ProjectState): number {
 function parseRawRecord(name: NarcName, bytes: Uint8Array, project: ProjectState, id: number): RawRecord {
   if (name === "trpok") return parseTrpok(bytes, project, id);
   if (name === "learnsets" && isGen4Project(project)) return parseGen4Learnset(bytes);
+  if (name === "encounters" && isGen4Project(project)) return parseGen4Encounter(bytes, project);
+  if (name === "maps" && isGen4Project(project)) return parseGen4MapFile(bytes, project.session.baseRom);
   if (name === "maps") return parseMap(bytes);
+  if (name === "matrix" && isGen4Project(project)) return parseGen4MatrixFile(bytes);
   if (name === "matrix") return parseMatrix(bytes);
+  if (name === "overworlds" && isGen4Project(project)) return parseGen4EventFile(bytes);
   if (name === "overworlds") return parseOverworlds(bytes);
   if (name === "trtext_table") return parseSingleFileTable(bytes, 4, ["trainer_id", "text_type"]);
   if (name === "trtext_offsets") return parseOffsetFile(bytes);
@@ -304,6 +326,91 @@ function parseGen4Learnset(bytes: Uint8Array): RawRecord {
   raw.entry_count = index;
   if (index > 20) raw.vanilla_limit_exceeded = 1;
   return raw;
+}
+
+function parseGen4Encounter(bytes: Uint8Array, project: ProjectState): RawRecord {
+  return project.session.baseRom === "HGSS" ? parseHgssEncounter(bytes) : parseDpptEncounter(bytes);
+}
+
+function parseDpptEncounter(bytes: Uint8Array): RawRecord {
+  const raw: RawRecord = { byteLength: bytes.length };
+  setAllSeason(raw, "grass_rate", readInt(bytes, 0, 4) & 0xff);
+  for (let slot = 0; slot < 12; slot += 1) {
+    const offset = 4 + slot * 8;
+    setGen4SlotAllSeasons(raw, "grass", slot, readInt(bytes, offset + 4, 4), readInt(bytes, offset, 4) & 0xff, readInt(bytes, offset, 4) & 0xff);
+  }
+
+  parseGen4SpeciesOnlyGroup(raw, bytes, "swarm", 0x64, 2, 4);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "day", 0x6c, 2, 4);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "night", 0x74, 2, 4);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "poke_radar", 0x7c, 4, 4);
+  for (let slot = 0; slot < 5; slot += 1) raw[`regional_form_${slot}`] = readInt(bytes, 0x8c + slot * 4, 4);
+  raw.unknown_table = readInt(bytes, 0xa0, 4);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "ruby", 0xa4, 2, 4);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "sapphire", 0xac, 2, 4);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "emerald", 0xb4, 2, 4);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "fire_red", 0xbc, 2, 4);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "leaf_green", 0xc4, 2, 4);
+  parseDpptFishingGroup(raw, bytes, "surf", 0xcc, 0xd0);
+  parseDpptFishingGroup(raw, bytes, "old_rod", 0x124, 0x128);
+  parseDpptFishingGroup(raw, bytes, "good_rod", 0x150, 0x154);
+  parseDpptFishingGroup(raw, bytes, "super_rod", 0x17c, 0x180);
+  return raw;
+}
+
+function parseDpptFishingGroup(raw: RawRecord, bytes: Uint8Array, kind: string, rateOffset: number, slotsOffset: number): void {
+  setAllSeason(raw, `${kind}_rate`, readInt(bytes, rateOffset, 4) & 0xff);
+  for (let slot = 0; slot < 5; slot += 1) {
+    const offset = slotsOffset + slot * 8;
+    setGen4SlotAllSeasons(raw, kind, slot, readInt(bytes, offset + 4, 4), readInt(bytes, offset + 1, 1), readInt(bytes, offset, 1));
+  }
+}
+
+function parseHgssEncounter(bytes: Uint8Array): RawRecord {
+  const raw: RawRecord = { byteLength: bytes.length };
+  const walkingRate = readInt(bytes, 0, 1);
+  setAllSeason(raw, "grass_rate", walkingRate);
+  setAllSeason(raw, "grass_doubles_rate", walkingRate);
+  setAllSeason(raw, "grass_special_rate", walkingRate);
+
+  for (let slot = 0; slot < 12; slot += 1) {
+    const level = readInt(bytes, 8 + slot, 1);
+    setGen4SlotAllSeasons(raw, "grass", slot, readInt(bytes, 20 + slot * 2, 2), level, level);
+    setGen4SlotAllSeasons(raw, "grass_doubles", slot, readInt(bytes, 44 + slot * 2, 2), level, level);
+    setGen4SlotAllSeasons(raw, "grass_special", slot, readInt(bytes, 68 + slot * 2, 2), level, level);
+  }
+
+  parseGen4SpeciesOnlyGroup(raw, bytes, "hoenn_radio", 92, 2, 2);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "sinnoh_radio", 96, 2, 2);
+  parseHgssWaterGroup(raw, bytes, "surf", 1, 100, 5);
+  parseHgssWaterGroup(raw, bytes, "rock_smash", 2, 120, 2);
+  parseHgssWaterGroup(raw, bytes, "old_rod", 3, 128, 5);
+  parseHgssWaterGroup(raw, bytes, "good_rod", 4, 148, 5);
+  parseHgssWaterGroup(raw, bytes, "super_rod", 5, 168, 5);
+  parseGen4SpeciesOnlyGroup(raw, bytes, "swarm", 188, 4, 2);
+  return raw;
+}
+
+function parseHgssWaterGroup(raw: RawRecord, bytes: Uint8Array, kind: string, rateOffset: number, slotsOffset: number, slotCount: number): void {
+  setAllSeason(raw, `${kind}_rate`, readInt(bytes, rateOffset, 1));
+  for (let slot = 0; slot < slotCount; slot += 1) {
+    const offset = slotsOffset + slot * 4;
+    setGen4SlotAllSeasons(raw, kind, slot, readInt(bytes, offset + 2, 2), readInt(bytes, offset, 1), readInt(bytes, offset + 1, 1));
+  }
+}
+
+function setAllSeason(raw: RawRecord, suffix: string, value: number): void {
+  for (const season of ENCOUNTER_SEASONS) raw[`${season}_${suffix}`] = value;
+}
+
+function setGen4SlotAllSeasons(raw: RawRecord, kind: string, slot: number, species: number, minLevel: number, maxLevel: number): void {
+  setAllSeason(raw, `${kind}_slot_${slot}`, species);
+  setAllSeason(raw, `${kind}_slot_${slot}_min_level`, minLevel);
+  setAllSeason(raw, `${kind}_slot_${slot}_max_level`, maxLevel);
+}
+
+function parseGen4SpeciesOnlyGroup(raw: RawRecord, bytes: Uint8Array, kind: string, offset: number, slotCount: number, size: 2 | 4): void {
+  for (let slot = 0; slot < slotCount; slot += 1) setAllSeason(raw, `${kind}_slot_${slot}`, readInt(bytes, offset + slot * size, size));
 }
 
 function enrichGen4PersonalRaw(raw: RawRecord): void {

@@ -1,5 +1,9 @@
 import type { FieldSpec } from "./formats";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
+import { isGen4Project } from "./constants";
+import { GEN4_EVENT_GROUP_FORMATS, type Gen4EventGroup } from "./gen4EventModel";
+import { defaultGen4OverworldTableEntry } from "./gen4OverworldSpriteModel";
+import { buildGen4MapPreview } from "./gen4MapPreviewModel";
 import { parseHeaders, type HeaderRow } from "./headerModel";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord } from "./projectStore";
 import spriteHash from "../assets/data/sprite_hash.json";
@@ -86,6 +90,9 @@ export type OverworldMapScene = {
   height: number;
   layer2: number[];
   layer3: number[];
+  permissionFormat?: "gen4" | "gen5";
+  empty?: boolean;
+  missing?: boolean;
 };
 
 export type OverworldNpc = {
@@ -164,6 +171,8 @@ export type OverworldScene = {
   matrixId: number;
   width: number;
   height: number;
+  translateX: number;
+  translateY: number;
   maps: OverworldMapScene[];
   npcs: OverworldNpc[];
   furniture: OverworldFurniture[];
@@ -182,6 +191,14 @@ type MatrixCell = {
   height: number;
 };
 
+type SceneMapData = {
+  maps: OverworldMapScene[];
+  width: number;
+  height: number;
+  translateX: number;
+  translateY: number;
+};
+
 const spriteMap = spriteHash as Record<string, string>;
 
 export function getOverworldScene(project: ProjectState, overworldId: number): OverworldScene {
@@ -197,32 +214,8 @@ export function getOverworldScene(project: ProjectState, overworldId: number): O
   const matrix = decodeRecord(project, "matrix", matrixId).raw;
   if (!matrix) throw new Error(`Matrix ${matrixId} could not be decoded`);
 
-  const cells = matrixCells(project, matrix);
-  const matchingCells = selectSceneCells(cells, found.header.index);
-  const minX = Math.min(...matchingCells.map((cell) => cell.x), 0);
-  const minY = Math.min(...matchingCells.map((cell) => cell.y), 0);
-
-  const maps = matchingCells
-    .filter((cell) => cell.mapId !== NULL_MAP_ID)
-    .map((cell) => {
-      const raw = decodeRecord(project, "maps", cell.mapId).raw;
-      if (!raw) throw new Error(`Map ${cell.mapId} could not be decoded`);
-      const width = Number(raw.width ?? cell.width);
-      const height = Number(raw.height ?? cell.height);
-      const tileCount = width * height;
-      return {
-        id: cell.mapId,
-        x: cell.x - minX,
-        y: cell.y - minY,
-        width,
-        height,
-        layer2: collectLayer(raw, 2, tileCount),
-        layer3: collectLayer(raw, 3, tileCount),
-      };
-    });
-
-  const width = Math.max(...matchingCells.map((cell) => cell.x - minX + cell.width), 1);
-  const height = Math.max(...matchingCells.map((cell) => cell.y - minY + cell.height), 1);
+  const sceneMapData = isGen4Project(project) ? gen4SceneMaps(project, matrixId, found.header.index) : gen5SceneMaps(project, matrix, found.header.index);
+  const { maps, width, height } = sceneMapData;
   const overworld = decodeRecord(project, "overworlds", overworldId).raw;
   if (!overworld) throw new Error(`Overworld ${overworldId} could not be decoded`);
 
@@ -234,11 +227,21 @@ export function getOverworldScene(project: ProjectState, overworldId: number): O
     matrixId,
     width,
     height,
+    translateX: sceneMapData.translateX,
+    translateY: sceneMapData.translateY,
     maps,
-    npcs: npcIndexes(overworld).map((index) => npcFromRaw(overworld, index, minX, minY)),
-    furniture: entityIndexes(overworld, "furniture").map((index) => furnitureFromRaw(overworld, index, minX, minY)),
-    warps: entityIndexes(overworld, "warp").map((index) => warpFromRaw(overworld, index, minX, minY)),
-    triggers: entityIndexes(overworld, "trigger").map((index) => triggerFromRaw(overworld, index, minX, minY)),
+    npcs: isGen4Project(project)
+      ? gen4EntityIndexes(overworld, "overworld").map((index) => gen4NpcFromRaw(overworld, index, sceneMapData.translateX, sceneMapData.translateY))
+      : npcIndexes(overworld).map((index) => npcFromRaw(overworld, index, sceneMapData.translateX, sceneMapData.translateY)),
+    furniture: isGen4Project(project)
+      ? gen4EntityIndexes(overworld, "spawnable").map((index) => gen4SpawnableFromRaw(overworld, index, sceneMapData.translateX, sceneMapData.translateY))
+      : entityIndexes(overworld, "furniture").map((index) => furnitureFromRaw(overworld, index, sceneMapData.translateX, sceneMapData.translateY)),
+    warps: isGen4Project(project)
+      ? gen4EntityIndexes(overworld, "warp").map((index) => gen4WarpFromRaw(overworld, index, sceneMapData.translateX, sceneMapData.translateY))
+      : entityIndexes(overworld, "warp").map((index) => warpFromRaw(overworld, index, sceneMapData.translateX, sceneMapData.translateY)),
+    triggers: isGen4Project(project)
+      ? gen4EntityIndexes(overworld, "trigger").map((index) => gen4TriggerFromRaw(overworld, index, sceneMapData.translateX, sceneMapData.translateY))
+      : entityIndexes(overworld, "trigger").map((index) => triggerFromRaw(overworld, index, sceneMapData.translateX, sceneMapData.translateY)),
     raw: overworld,
   };
 }
@@ -275,6 +278,7 @@ export function deleteOverworldNpc(project: ProjectState, overworldId: number, n
 export function addOverworldEntity(project: ProjectState, overworldId: number, kind: OverworldEntityKind): number {
   const record = decodeRecord(project, "overworlds", overworldId);
   if (!record.raw) throw new Error(`Overworld ${overworldId} could not be decoded`);
+  if (isGen4Project(project)) return addGen4EventEntity(project, record.raw, overworldId, kind);
   const indexes = entityIndexes(record.raw, kind);
   const nextIndex = indexes.length === 0 ? 0 : Math.max(...indexes) + 1;
 
@@ -293,6 +297,10 @@ export function addOverworldEntity(project: ProjectState, overworldId: number, k
 export function deleteOverworldEntity(project: ProjectState, overworldId: number, kind: OverworldEntityKind, index: number): void {
   const record = decodeRecord(project, "overworlds", overworldId);
   if (!record.raw) throw new Error(`Overworld ${overworldId} could not be decoded`);
+  if (isGen4Project(project)) {
+    deleteGen4EventEntity(project, record.raw, overworldId, kind, index);
+    return;
+  }
   if (!entityIndexes(record.raw, kind).includes(index)) throw new Error(`${entityKindLabel(kind)} ${index} does not exist`);
   for (const [, field] of OVERWORLD_GROUP_FORMATS[kind]) delete record.raw[`${kind}_${index}_${field}`];
   record.raw[`${kind}_count`] = Math.max(0, Number(record.raw[`${kind}_count`] ?? 0) - 1);
@@ -306,6 +314,10 @@ export function deleteOverworldEntity(project: ProjectState, overworldId: number
 export function moveOverworldEntity(project: ProjectState, overworldId: number, kind: OverworldEntityKind, index: number, x: number, y: number): void {
   const record = decodeRecord(project, "overworlds", overworldId);
   if (!record.raw) throw new Error(`Overworld ${overworldId} could not be decoded`);
+  if (isGen4Project(project)) {
+    moveGen4EventEntity(project, record.raw, overworldId, kind, index, x, y);
+    return;
+  }
   if (!entityIndexes(record.raw, kind).includes(index)) throw new Error(`${entityKindLabel(kind)} ${index} does not exist`);
   if (kind === "npc") {
     moveOverworldNpc(project, overworldId, index, x, y);
@@ -339,6 +351,7 @@ export function updateOverworldEntityField(
 ): number {
   const record = decodeRecord(project, "overworlds", overworldId);
   if (!record.raw) throw new Error(`Overworld ${overworldId} could not be decoded`);
+  if (isGen4Project(project)) return updateGen4EventEntityField(project, record.raw, overworldId, selection, field, value);
   if (!entityIndexes(record.raw, selection.kind).includes(selection.index)) throw new Error(`${entityKindLabel(selection.kind)} ${selection.index} does not exist`);
   const next = coerceInt(value, 0, semanticFieldMax(selection.kind, field), field);
   const before = getSemanticEntityField(record.raw, selection.kind, selection.index, field);
@@ -355,11 +368,14 @@ export function updateMapTile(project: ProjectState, mapId: number, tileIndex: n
   if (!record.raw) throw new Error(`Map ${mapId} could not be decoded`);
   const tileCount = Number(record.raw.width ?? 0) * Number(record.raw.height ?? 0);
   if (tileIndex < 0 || tileIndex >= tileCount) throw new Error(`Tile ${tileIndex} is outside map ${mapId}`);
-  const next = coerceInt(value, 0, 65535, `layer_${layer}`);
-  const before = record.raw[`layer_${layer}_${tileIndex}`] ?? 0;
-  record.raw[`layer_${layer}_${tileIndex}`] = next;
+  const isGen4 = isGen4Project(project);
+  const field = isGen4 ? `${layer === 2 ? "type" : "collision"}_${tileIndex}` : `layer_${layer}_${tileIndex}`;
+  const next = coerceInt(value, 0, isGen4 ? 255 : 65535, field);
+  const before = record.raw[field] ?? 0;
+  record.raw[field] = next;
+  if (isGen4 && layer === 3) record.raw[`blocked_${tileIndex}`] = (next & 0x80) !== 0 ? 1 : 0;
   markDirty(project, "maps", mapId);
-  recordFieldChange(project, "maps", `Map ${mapId}`, `Layer ${layer} tile ${tileIndex}`, before, next, {
+  recordFieldChange(project, "maps", `Map ${mapId}`, `${isGen4 ? (layer === 2 ? "Type" : "Collision") : `Layer ${layer}`} tile ${tileIndex}`, before, next, {
     key: `map-tile:${mapId}:${layer}:${tileIndex}`,
   });
   return next;
@@ -425,6 +441,65 @@ function matrixCells(project: ProjectState, matrix: RawRecord): MatrixCell[] {
     lastHeight = dimensions.height;
   }
   return cells;
+}
+
+function gen4SceneMaps(project: ProjectState, matrixId: number, headerId: number): SceneMapData {
+  const preview = buildGen4MapPreview(project, matrixId, { headerId });
+  const firstCell = preview.cells[0];
+  const translateX = firstCell ? firstCell.matrixX * 32 - firstCell.x : 0;
+  const translateY = firstCell ? firstCell.matrixY * 32 - firstCell.y : 0;
+  return {
+    width: preview.width,
+    height: preview.height,
+    translateX,
+    translateY,
+    maps: preview.cells.map((cell) => ({
+      id: cell.mapId,
+      x: cell.x,
+      y: cell.y,
+      width: cell.width,
+      height: cell.height,
+      layer2: cell.tiles.length > 0 ? cell.tiles.map((tile) => tile.type) : Array.from({ length: cell.width * cell.height }, () => 0),
+      layer3: cell.tiles.length > 0 ? cell.tiles.map((tile) => tile.collision) : Array.from({ length: cell.width * cell.height }, () => 0),
+      permissionFormat: "gen4",
+      empty: cell.empty,
+      missing: cell.missing,
+    })),
+  };
+}
+
+function gen5SceneMaps(project: ProjectState, matrix: RawRecord, headerId: number): SceneMapData {
+  const cells = matrixCells(project, matrix);
+  const matchingCells = selectSceneCells(cells, headerId);
+  const minX = Math.min(...matchingCells.map((cell) => cell.x), 0);
+  const minY = Math.min(...matchingCells.map((cell) => cell.y), 0);
+  const maps = matchingCells
+    .filter((cell) => cell.mapId !== NULL_MAP_ID)
+    .map((cell) => {
+      const raw = decodeRecord(project, "maps", cell.mapId).raw;
+      if (!raw) throw new Error(`Map ${cell.mapId} could not be decoded`);
+      const width = Number(raw.width ?? cell.width);
+      const height = Number(raw.height ?? cell.height);
+      const tileCount = width * height;
+      return {
+        id: cell.mapId,
+        x: cell.x - minX,
+        y: cell.y - minY,
+        width,
+        height,
+        layer2: collectLayer(raw, 2, tileCount),
+        layer3: collectLayer(raw, 3, tileCount),
+        permissionFormat: "gen5" as const,
+      };
+    });
+
+  return {
+    maps,
+    width: Math.max(...matchingCells.map((cell) => cell.x - minX + cell.width), 1),
+    height: Math.max(...matchingCells.map((cell) => cell.y - minY + cell.height), 1),
+    translateX: minX,
+    translateY: minY,
+  };
 }
 
 function mapDimensions(project: ProjectState, mapId: number): { width: number; height: number } {
@@ -548,6 +623,175 @@ function triggerFromRaw(raw: RawRecord, index: number, translateX: number, trans
     railFrontPos: Number(raw[`trigger_${index}_y_cord`] ?? 0),
     railSidePos: Number(raw[`trigger_${index}_z_cord`] ?? 0),
   };
+}
+
+function gen4NpcFromRaw(raw: RawRecord, index: number, translateX: number, translateY: number): OverworldNpc {
+  const spriteId = Number(raw[`overworld_${index}_overlay_table_entry`] ?? 0);
+  return {
+    kind: "npc",
+    index,
+    overworldId: Number(raw[`overworld_${index}_ow_id`] ?? index),
+    spriteId,
+    spriteSlug: spriteSlugForOverworldSprite(spriteId),
+    x: gen4Coord(raw, "overworld", index, "x") - translateX,
+    y: gen4Coord(raw, "overworld", index, "y") - translateY,
+    z: Number(raw[`overworld_${index}_z_position`] ?? 0),
+    direction: Number(raw[`overworld_${index}_orientation`] ?? 0),
+  };
+}
+
+function gen4SpawnableFromRaw(raw: RawRecord, index: number, translateX: number, translateY: number): OverworldFurniture {
+  return {
+    kind: "furniture",
+    index,
+    script: Number(raw[`spawnable_${index}_script_number`] ?? 0),
+    condition: Number(raw[`spawnable_${index}_type`] ?? 0),
+    interactibility: 0,
+    isRail: false,
+    x: gen4Coord(raw, "spawnable", index, "x") - translateX,
+    y: gen4Coord(raw, "spawnable", index, "y") - translateY,
+    altitude: Number(raw[`spawnable_${index}_z_position`] ?? 0),
+    railLineNo: 0,
+    railFrontPos: 0,
+    railSidePos: 0,
+    railUnused: 0,
+  };
+}
+
+function gen4WarpFromRaw(raw: RawRecord, index: number, translateX: number, translateY: number): OverworldWarp {
+  return {
+    kind: "warp",
+    index,
+    targetZone: Number(raw[`warp_${index}_header`] ?? 0),
+    targetWarpId: Number(raw[`warp_${index}_anchor`] ?? 0),
+    contactDirection: 0,
+    transitionType: 0,
+    isRail: false,
+    x: gen4Coord(raw, "warp", index, "x") - translateX,
+    y: gen4Coord(raw, "warp", index, "y") - translateY,
+    altitude: Number(raw[`warp_${index}_height`] ?? 0),
+    width: 1,
+    height: 1,
+    unknown: 0,
+    railLineNo: 0,
+    railFrontPos: 0,
+    railSidePos: 0,
+  };
+}
+
+function gen4TriggerFromRaw(raw: RawRecord, index: number, translateX: number, translateY: number): OverworldTrigger {
+  return {
+    kind: "trigger",
+    index,
+    script: Number(raw[`trigger_${index}_script_number`] ?? 0),
+    variable: Number(raw[`trigger_${index}_variable_watched`] ?? 0),
+    value: Number(raw[`trigger_${index}_expected_var_value`] ?? 0),
+    type: 0,
+    isRail: false,
+    x: gen4Coord(raw, "trigger", index, "x") - translateX,
+    y: gen4Coord(raw, "trigger", index, "y") - translateY,
+    altitude: Number(raw[`trigger_${index}_z_position`] ?? 0),
+    width: Math.max(1, Number(raw[`trigger_${index}_width_x`] ?? 1)),
+    height: Math.max(1, Number(raw[`trigger_${index}_height_y`] ?? 1)),
+    unknown: 0,
+    railLineNo: 0,
+    railFrontPos: 0,
+    railSidePos: 0,
+  };
+}
+
+function addGen4EventEntity(project: ProjectState, raw: RawRecord, overworldId: number, kind: OverworldEntityKind): number {
+  const group = gen4GroupForKind(kind);
+  const indexes = gen4EntityIndexes(raw, group);
+  const nextIndex = indexes.length === 0 ? 0 : Math.max(...indexes) + 1;
+  for (const [, field] of GEN4_EVENT_GROUP_FORMATS[group]) raw[`${group}_${nextIndex}_${field}`] = 0;
+  applyGen4EntityDefaults(project, raw, group, nextIndex, indexes);
+  raw[`${group}_count`] = Number(raw[`${group}_count`] ?? 0) + 1;
+  raw.footer_length ??= 0;
+  markDirty(project, "overworlds", overworldId);
+  recordGenericChange(project, "overworlds", `${entityKindLabel(kind)} ${nextIndex} added.`, `Overworld ${overworldId}`, {
+    key: `overworld-${kind}-add:${overworldId}:${nextIndex}`,
+  });
+  return nextIndex;
+}
+
+function deleteGen4EventEntity(project: ProjectState, raw: RawRecord, overworldId: number, kind: OverworldEntityKind, index: number): void {
+  const group = gen4GroupForKind(kind);
+  if (!gen4EntityIndexes(raw, group).includes(index)) throw new Error(`${entityKindLabel(kind)} ${index} does not exist`);
+  for (const [, field] of GEN4_EVENT_GROUP_FORMATS[group]) delete raw[`${group}_${index}_${field}`];
+  for (const axis of ["x", "y"] as const) {
+    delete raw[`${group}_${index}_${axis}_map_position`];
+    delete raw[`${group}_${index}_${axis}_matrix_position`];
+  }
+  raw[`${group}_count`] = Math.max(0, Number(raw[`${group}_count`] ?? 0) - 1);
+  markDirty(project, "overworlds", overworldId);
+  recordGenericChange(project, "overworlds", `${entityKindLabel(kind)} ${index} removed.`, `Overworld ${overworldId}`, {
+    key: `overworld-${kind}-delete:${overworldId}:${index}`,
+  });
+}
+
+function moveGen4EventEntity(project: ProjectState, raw: RawRecord, overworldId: number, kind: OverworldEntityKind, index: number, x: number, y: number): void {
+  const group = gen4GroupForKind(kind);
+  if (!gen4EntityIndexes(raw, group).includes(index)) throw new Error(`${entityKindLabel(kind)} ${index} does not exist`);
+  setGen4Coord(raw, group, index, "x", x);
+  setGen4Coord(raw, group, index, "y", y);
+  markDirty(project, "overworlds", overworldId);
+  recordGenericChange(project, "overworlds", `${entityKindLabel(kind)} ${index} moved.`, `Overworld ${overworldId}`, {
+    key: `overworld-${kind}-move:${overworldId}:${index}`,
+  });
+}
+
+function updateGen4EventEntityField(
+  project: ProjectState,
+  raw: RawRecord,
+  overworldId: number,
+  selection: OverworldEntitySelection,
+  field: string,
+  value: string | number,
+): number {
+  const group = gen4GroupForKind(selection.kind);
+  if (!gen4EntityIndexes(raw, group).includes(selection.index)) throw new Error(`${entityKindLabel(selection.kind)} ${selection.index} does not exist`);
+  const next = coerceInt(value, 0, gen4SemanticFieldMax(selection.kind, field), field);
+  const before = getGen4SemanticEntityField(raw, selection.kind, selection.index, field);
+  setGen4SemanticEntityField(raw, selection.kind, selection.index, field, next);
+  markDirty(project, "overworlds", overworldId);
+  recordFieldChange(project, "overworlds", `Overworld ${overworldId}`, `${entityKindLabel(selection.kind)} ${selection.index} ${semanticFieldLabel(field)}`, before, next, {
+    key: `overworld:${overworldId}:${selection.kind}:${selection.index}:${field}`,
+  });
+  return next;
+}
+
+function applyGen4EntityDefaults(project: ProjectState, raw: RawRecord, group: Gen4EventGroup, index: number, existingIndexes: number[]): void {
+  if (group === "overworld") {
+    const highestId = existingIndexes.reduce((max, existing) => Math.max(max, Number(raw[`overworld_${existing}_ow_id`] ?? existing)), -1);
+    const lastIndex = existingIndexes.at(-1);
+    raw[`overworld_${index}_ow_id`] = highestId + 1;
+    raw[`overworld_${index}_overlay_table_entry`] =
+      lastIndex === undefined ? defaultGen4OverworldTableEntry() : Number(raw[`overworld_${lastIndex}_overlay_table_entry`] ?? defaultGen4OverworldTableEntry());
+    raw[`overworld_${index}_movement`] = lastIndex === undefined ? 0 : Number(raw[`overworld_${lastIndex}_movement`] ?? 0);
+    raw[`overworld_${index}_type`] = lastIndex === undefined ? 0 : Number(raw[`overworld_${lastIndex}_type`] ?? 0);
+    raw[`overworld_${index}_orientation`] = lastIndex === undefined ? 1 : Number(raw[`overworld_${lastIndex}_orientation`] ?? 1);
+    raw[`overworld_${index}_sight_range`] = lastIndex === undefined ? 0 : Number(raw[`overworld_${lastIndex}_sight_range`] ?? 0);
+    if (lastIndex !== undefined) {
+      setGen4Coord(raw, group, index, "x", gen4Coord(raw, group, lastIndex, "x") + 1);
+      setGen4Coord(raw, group, index, "y", gen4Coord(raw, group, lastIndex, "y") + 1);
+      raw[`overworld_${index}_z_position`] = Number(raw[`overworld_${lastIndex}_z_position`] ?? 0);
+    } else {
+      setGen4Coord(raw, group, index, "x", 16);
+      setGen4Coord(raw, group, index, "y", 16);
+      raw[`overworld_${index}_z_position`] = 0;
+    }
+    return;
+  }
+  if (group === "warp") {
+    raw[`warp_${index}_anchor`] = 0;
+    raw[`warp_${index}_height`] = 0;
+    return;
+  }
+  if (group === "trigger") {
+    raw[`trigger_${index}_width_x`] = 1;
+    raw[`trigger_${index}_height_y`] = 1;
+  }
 }
 
 function applyEntityDefaults(raw: RawRecord, kind: OverworldEntityKind, index: number, existingIndexes: number[]): void {
@@ -687,6 +931,93 @@ function setSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index
   }
 }
 
+function getGen4SemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index: number, field: string): number {
+  if (kind === "npc") {
+    if (field === "overworld_id") return Number(raw[`overworld_${index}_ow_id`] ?? 0);
+    if (field === "overworld_sprite") return Number(raw[`overworld_${index}_overlay_table_entry`] ?? 0);
+    if (field === "movement_permissions") return Number(raw[`overworld_${index}_movement`] ?? 0);
+    if (field === "overworld_flag") return Number(raw[`overworld_${index}_flag`] ?? 0);
+    if (field === "script_id") return Number(raw[`overworld_${index}_script_number`] ?? 0);
+    if (field === "direction") return Number(raw[`overworld_${index}_orientation`] ?? 0);
+    if (field === "sight") return Number(raw[`overworld_${index}_sight_range`] ?? 0);
+    if (field === "horizontal_leash") return Number(raw[`overworld_${index}_x_range`] ?? 0);
+    if (field === "vertical_leash") return Number(raw[`overworld_${index}_y_range`] ?? 0);
+    if (field === "x_cord") return gen4Coord(raw, "overworld", index, "x");
+    if (field === "y_cord") return gen4Coord(raw, "overworld", index, "y");
+    if (field === "z_cord") return Number(raw[`overworld_${index}_z_position`] ?? 0);
+    return Number(raw[`overworld_${index}_${field}`] ?? 0);
+  }
+  if (kind === "furniture") {
+    if (field === "script") return Number(raw[`spawnable_${index}_script_number`] ?? 0);
+    if (field === "condition") return Number(raw[`spawnable_${index}_type`] ?? 0);
+    if (field === "gridX") return gen4Coord(raw, "spawnable", index, "x");
+    if (field === "gridZ") return gen4Coord(raw, "spawnable", index, "y");
+    if (field === "altitude") return Number(raw[`spawnable_${index}_z_position`] ?? 0);
+    return 0;
+  }
+  if (kind === "warp") {
+    if (field === "targetZone") return Number(raw[`warp_${index}_header`] ?? 0);
+    if (field === "targetWarpId") return Number(raw[`warp_${index}_anchor`] ?? 0);
+    if (field === "gridX") return gen4Coord(raw, "warp", index, "x");
+    if (field === "gridZ") return gen4Coord(raw, "warp", index, "y");
+    if (field === "worldY") return Number(raw[`warp_${index}_height`] ?? 0);
+    if (field === "width" || field === "height") return 1;
+    return 0;
+  }
+  if (field === "script") return Number(raw[`trigger_${index}_script_number`] ?? 0);
+  if (field === "variable") return Number(raw[`trigger_${index}_variable_watched`] ?? 0);
+  if (field === "value") return Number(raw[`trigger_${index}_expected_var_value`] ?? 0);
+  if (field === "gridX") return gen4Coord(raw, "trigger", index, "x");
+  if (field === "gridZ") return gen4Coord(raw, "trigger", index, "y");
+  if (field === "width") return Number(raw[`trigger_${index}_width_x`] ?? 0);
+  if (field === "height") return Number(raw[`trigger_${index}_height_y`] ?? 0);
+  if (field === "worldY") return Number(raw[`trigger_${index}_z_position`] ?? 0);
+  return 0;
+}
+
+function setGen4SemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index: number, field: string, value: number): void {
+  if (kind === "npc") {
+    if (field === "overworld_id") raw[`overworld_${index}_ow_id`] = value;
+    else if (field === "overworld_sprite") raw[`overworld_${index}_overlay_table_entry`] = value;
+    else if (field === "movement_permissions") raw[`overworld_${index}_movement`] = value;
+    else if (field === "overworld_flag") raw[`overworld_${index}_flag`] = value;
+    else if (field === "script_id") raw[`overworld_${index}_script_number`] = value;
+    else if (field === "direction") raw[`overworld_${index}_orientation`] = value;
+    else if (field === "sight") raw[`overworld_${index}_sight_range`] = value;
+    else if (field === "horizontal_leash") raw[`overworld_${index}_x_range`] = value;
+    else if (field === "vertical_leash") raw[`overworld_${index}_y_range`] = value;
+    else if (field === "x_cord") setGen4Coord(raw, "overworld", index, "x", value);
+    else if (field === "y_cord") setGen4Coord(raw, "overworld", index, "y", value);
+    else if (field === "z_cord") raw[`overworld_${index}_z_position`] = value;
+    else raw[`overworld_${index}_${field}`] = value;
+    return;
+  }
+  if (kind === "furniture") {
+    if (field === "script") raw[`spawnable_${index}_script_number`] = value;
+    else if (field === "condition") raw[`spawnable_${index}_type`] = value;
+    else if (field === "gridX") setGen4Coord(raw, "spawnable", index, "x", value);
+    else if (field === "gridZ") setGen4Coord(raw, "spawnable", index, "y", value);
+    else if (field === "altitude") raw[`spawnable_${index}_z_position`] = value;
+    return;
+  }
+  if (kind === "warp") {
+    if (field === "targetZone") raw[`warp_${index}_header`] = value;
+    else if (field === "targetWarpId") raw[`warp_${index}_anchor`] = value;
+    else if (field === "gridX") setGen4Coord(raw, "warp", index, "x", value);
+    else if (field === "gridZ") setGen4Coord(raw, "warp", index, "y", value);
+    else if (field === "worldY") raw[`warp_${index}_height`] = value;
+    return;
+  }
+  if (field === "script") raw[`trigger_${index}_script_number`] = value;
+  else if (field === "variable") raw[`trigger_${index}_variable_watched`] = value;
+  else if (field === "value") raw[`trigger_${index}_expected_var_value`] = value;
+  else if (field === "gridX") setGen4Coord(raw, "trigger", index, "x", value);
+  else if (field === "gridZ") setGen4Coord(raw, "trigger", index, "y", value);
+  else if (field === "width") raw[`trigger_${index}_width_x`] = value;
+  else if (field === "height") raw[`trigger_${index}_height_y`] = value;
+  else if (field === "worldY") raw[`trigger_${index}_z_position`] = value;
+}
+
 function semanticFieldMax(kind: OverworldEntityKind, field: string): number {
   if (field === "isRail") return 1;
   if (kind === "npc") {
@@ -699,12 +1030,73 @@ function semanticFieldMax(kind: OverworldEntityKind, field: string): number {
   return 0xffff;
 }
 
+function gen4SemanticFieldMax(kind: OverworldEntityKind, field: string): number {
+  if (field === "isRail") return 1;
+  if (kind === "npc") {
+    if (field === "x_cord" || field === "y_cord") return 0xffff;
+    const mapped = gen4NpcFieldName(field);
+    const spec = GEN4_EVENT_GROUP_FORMATS.overworld.find(([, name]) => name === mapped);
+    return spec ? maxForSize(spec[0]) : 0xffff;
+  }
+  if (field === "gridX" || field === "gridZ") return 0xffff;
+  if (kind === "warp" && field === "worldY") return 0xffffffff;
+  return 0xffff;
+}
+
 function semanticFieldLabel(field: string): string {
   return field.replace(/[A-Z]/gu, (match) => ` ${match.toLowerCase()}`).replace(/_/gu, " ");
 }
 
 function entityKindLabel(kind: OverworldEntityKind): string {
   return kind === "npc" ? "NPC" : kind[0]!.toUpperCase() + kind.slice(1);
+}
+
+function gen4EntityIndexes(raw: RawRecord, group: Gen4EventGroup): number[] {
+  const firstField = GEN4_EVENT_GROUP_FORMATS[group][0][1];
+  const pattern = new RegExp(`^${group}_(\\d+)_${firstField}$`, "u");
+  return Object.keys(raw)
+    .map((key) => pattern.exec(key)?.[1])
+    .filter((value): value is string => value !== undefined)
+    .map(Number)
+    .sort((a, b) => a - b);
+}
+
+function gen4GroupForKind(kind: OverworldEntityKind): Gen4EventGroup {
+  if (kind === "npc") return "overworld";
+  if (kind === "furniture") return "spawnable";
+  return kind;
+}
+
+function gen4NpcFieldName(field: string): string {
+  return (
+    {
+      overworld_id: "ow_id",
+      overworld_sprite: "overlay_table_entry",
+      movement_permissions: "movement",
+      overworld_flag: "flag",
+      script_id: "script_number",
+      direction: "orientation",
+      sight: "sight_range",
+      horizontal_leash: "x_range",
+      vertical_leash: "y_range",
+      x_cord: "x_position",
+      y_cord: "y_position",
+      z_cord: "z_position",
+    } as Record<string, string>
+  )[field] ?? field;
+}
+
+function gen4Coord(raw: RawRecord, group: Gen4EventGroup, index: number, axis: "x" | "y"): number {
+  const map = raw[`${group}_${index}_${axis}_map_position`];
+  const matrix = raw[`${group}_${index}_${axis}_matrix_position`];
+  if (map !== undefined || matrix !== undefined) return Number(map ?? 0) + Number(matrix ?? 0) * 32;
+  return Number(raw[`${group}_${index}_${axis}_position`] ?? 0);
+}
+
+function setGen4Coord(raw: RawRecord, group: Gen4EventGroup, index: number, axis: "x" | "y", value: number): void {
+  const next = Math.max(0, Math.trunc(value));
+  raw[`${group}_${index}_${axis}_map_position`] = next % 32;
+  raw[`${group}_${index}_${axis}_matrix_position`] = Math.trunc(next / 32);
 }
 
 function u32Pair(raw: RawRecord, lowField: string, highField: string): number {

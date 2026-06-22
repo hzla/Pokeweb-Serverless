@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readU16, writeU16 } from "../nds/binary";
-import type { NarcName } from "../pokeweb/constants";
+import type { BaseRom, BaseVersion, Generation, NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { getTmEntries, parseTms, syncAllTmIcons, updateTmMove } from "../pokeweb/tmModel";
+import { getTmEntries, getTmNames, parseTms, syncAllTmIcons, updateTmMove } from "../pokeweb/tmModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("tmModel", () => {
@@ -40,6 +40,36 @@ describe("tmModel", () => {
     expect(project.tms.readable.tm_1).toBe("Hone Claws");
   });
 
+  it("parses Gen 4 ARM9 TM/HM tables with eight HMs", () => {
+    const tmValues = Array.from({ length: 100 }, () => 1);
+    tmValues[0] = 264;
+    [15, 19, 57, 70, 432, 249, 127, 431].forEach((moveId, index) => {
+      tmValues[92 + index] = moveId;
+    });
+
+    const moveNames = Array.from({ length: 468 }, (_, index) => `Move ${index}`);
+    moveNames[15] = "Cut";
+    moveNames[19] = "Fly";
+    moveNames[127] = "Waterfall";
+    moveNames[264] = "Focus Punch";
+    moveNames[431] = "Rock Climb";
+    moveNames[432] = "Defog";
+
+    const project = makeProject({ generation: "gen4", baseVersion: "Pt", baseRom: "Pt", tmOffset: PT_TM_TABLE_OFFSET, tmValues, moveNames });
+    project.tms = parseTms(project);
+
+    const entries = getTmEntries(project);
+    const names = getTmNames(project);
+    expect(project.tms.offset).toBe(PT_TM_TABLE_OFFSET);
+    expect(project.tms.byteLength).toBe(200);
+    expect(entries).toHaveLength(100);
+    expect(entries[0]).toMatchObject({ kind: "hm", number: 1, moveName: "Cut" });
+    expect(entries[7]).toMatchObject({ kind: "hm", number: 8, moveName: "Rock Climb" });
+    expect(entries[8]).toMatchObject({ kind: "tm", number: 1, moveName: "Focus Punch" });
+    expect(names.hmNames).toHaveLength(8);
+    expect(names.tmNames).toHaveLength(92);
+  });
+
   it("updates TM moves, syncs ARM9 bytes, and marks the TM table dirty", () => {
     const project = makeProject();
     project.tms = parseTms(project);
@@ -75,9 +105,11 @@ describe("tmModel", () => {
 const ITEM_GRAPHICS_TABLE_OFFSET = 0x100;
 const B2_TM_TABLE_OFFSET = 0x8cc84;
 const W2_TM_TABLE_OFFSET = 0x8ccb0;
+const PT_TM_TABLE_OFFSET = 0xf0bfc;
 
-function makeProject(options: { tmOffset?: number; tmValues?: number[]; moveNames?: string[] } = {}): ProjectState {
-  const formats = getNarcFormats("BW2");
+function makeProject(options: { generation?: Generation; baseVersion?: BaseVersion; baseRom?: BaseRom; tmOffset?: number; tmValues?: number[]; moveNames?: string[] } = {}): ProjectState {
+  const baseRom = options.baseRom ?? "BW2";
+  const formats = getNarcFormats(baseRom);
   const moves = packRows(formats.moves!, [
     {},
     { type: 0, category: 1, power: 40, accuracy: 100 },
@@ -99,8 +131,9 @@ function makeProject(options: { tmOffset?: number; tmValues?: number[]; moveName
   return {
     session: {
       romName: "test",
-      baseVersion: "W2",
-      baseRom: "BW2",
+      generation: options.generation,
+      baseVersion: options.baseVersion ?? "W2",
+      baseRom,
       fairy: false,
       fileIds: { moves: 1 },
       blacklist: [],
