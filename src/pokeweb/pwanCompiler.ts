@@ -1,7 +1,6 @@
 import {
   analyzePalette,
   decodeGifFrames,
-  quantizeFrames,
   type AnimationAnalysisFrame,
   type Box,
   type RgbColor,
@@ -15,6 +14,14 @@ export type PwanCompileResult = {
   timelineCount: number;
   totalTicks: number;
   paletteBgr555: Uint16Array;
+  warnings: string[];
+};
+
+export type PwanPaletteFrames = {
+  frames: AnimationAnalysisFrame[];
+  palette: RgbColor[];
+  quantized: boolean;
+  strategy: "exact" | "anchor-frame" | "closest-merge";
   warnings: string[];
 };
 
@@ -61,18 +68,15 @@ export function compileGifToPwan(bytes: Uint8Array): PwanCompileResult {
   if (sourceFrames.length === 0) throw new Error("GIF contains no frames");
 
   const normalized = sourceFrames.map((frame, index) => normalizeFrameBottomAligned(frame, index));
-  const paletteReport = analyzePalette(normalized);
-  const warnings = [...paletteReport.warnings];
+  const paletteFrames = preparePwanPaletteFrames(normalized);
+  const warnings = [...paletteFrames.warnings];
   if (sourceFrames[0] && (sourceFrames[0].width > 384 || sourceFrames[0].height > 384)) {
     warnings.push(`Source GIF is ${sourceFrames[0].width}x${sourceFrames[0].height}; it will be scaled into 96x96`);
   }
   if (sourceFrames.length > PWAN_MAX_TIMELINE) warnings.push(`GIF has ${sourceFrames.length} frames; PWAN v1 supports up to ${PWAN_MAX_TIMELINE} timeline entries`);
 
-  const quantized = quantizeFrames(normalized, PWAN_PALETTE_COLORS - 1);
-  if (paletteReport.opaqueColorCount > PWAN_PALETTE_COLORS - 1) warnings.push("Opaque colors were quantized to fit PWAN's 15-color visible palette");
-
-  const palette = normalizePalette(quantized.palette);
-  const compiledFrames = quantized.frames.map((frame) => compilePwanFrame(frame, palette));
+  const palette = normalizePalette(paletteFrames.palette);
+  const compiledFrames = paletteFrames.frames.map((frame) => compilePwanFrame(frame, palette));
   const uniqueFrames: Uint8Array[] = [];
   const frameIndexByHash = new Map<string, number>();
   const timeline: PwanTimelineEntry[] = [];
@@ -107,6 +111,139 @@ export function compileGifToPwan(bytes: Uint8Array): PwanCompileResult {
     paletteBgr555,
     warnings,
   };
+}
+
+export function preparePwanPaletteFrames(frames: AnimationAnalysisFrame[]): PwanPaletteFrames {
+  const paletteReport = analyzePalette(frames);
+  if (paletteReport.opaqueColorCount <= PWAN_PALETTE_COLORS - 1) {
+    return {
+      frames,
+      palette: paletteReport.colors,
+      quantized: false,
+      strategy: "exact",
+      warnings: [...paletteReport.warnings],
+    };
+  }
+
+  const anchorPalette = compatibleAnchorPalette(frames, PWAN_PALETTE_COLORS - 1);
+  if (anchorPalette) {
+    return {
+      frames: remapFramesToPalette(frames, anchorPalette.palette),
+      palette: anchorPalette.palette,
+      quantized: true,
+      strategy: "anchor-frame",
+      warnings: [
+        ...paletteReport.warnings,
+        `Animation colors were remapped to frame ${anchorPalette.frameIndex}'s ${anchorPalette.palette.length}-color palette to fit PWAN's 15-color visible palette`,
+      ],
+    };
+  }
+
+  const merged = mergeClosestPaletteColors(frames, PWAN_PALETTE_COLORS - 1);
+  return {
+    ...merged,
+    quantized: true,
+    strategy: "closest-merge",
+    warnings: [...paletteReport.warnings, "Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette"],
+  };
+}
+
+type CountedColor = RgbColor & {
+  count: number;
+  key: string;
+};
+
+function compatibleAnchorPalette(frames: AnimationAnalysisFrame[], maxColors: number): { frameIndex: number; palette: RgbColor[] } | undefined {
+  const minimumAnchorColors = Math.min(maxColors, Math.max(1, Math.floor(maxColors * 0.75)));
+  let best: { frameIndex: number; palette: RgbColor[] } | undefined;
+  for (const frame of frames) {
+    const report = analyzePalette([frame]);
+    if (report.opaqueColorCount < minimumAnchorColors || report.opaqueColorCount > maxColors) continue;
+    if (!best || report.opaqueColorCount > best.palette.length) best = { frameIndex: frame.index, palette: report.colors };
+  }
+  return best;
+}
+
+function mergeClosestPaletteColors(frames: AnimationAnalysisFrame[], maxColors: number): { frames: AnimationAnalysisFrame[]; palette: RgbColor[] } {
+  const palette = reduceColorsByClosestMerges(countOpaqueColors(frames), maxColors);
+  return {
+    frames: remapFramesToPalette(frames, palette),
+    palette,
+  };
+}
+
+function reduceColorsByClosestMerges(colors: CountedColor[], maxColors: number): RgbColor[] {
+  const clusters = colors.map((color) => ({ ...color }));
+  while (clusters.length > maxColors) {
+    const pair = closestMergePair(clusters);
+    if (!pair) break;
+    const first = clusters[pair.first]!;
+    const second = clusters[pair.second]!;
+    const keep = first.count >= second.count ? first : second;
+    const drop = keep === first ? second : first;
+    keep.count += drop.count;
+    clusters.splice(clusters.indexOf(drop), 1);
+  }
+  return clusters.map(({ r, g, b }) => ({ r, g, b })).sort(compareRgb);
+}
+
+function closestMergePair(colors: CountedColor[]): { first: number; second: number } | undefined {
+  if (colors.length < 2) return undefined;
+  let best = { first: 0, second: 1, score: Number.POSITIVE_INFINITY, distance: Number.POSITIVE_INFINITY };
+  for (let first = 0; first < colors.length; first += 1) {
+    for (let second = first + 1; second < colors.length; second += 1) {
+      const distance = colorDistance(colors[first]!, colors[second]!);
+      const score = distance * Math.max(1, Math.min(colors[first]!.count, colors[second]!.count));
+      if (score < best.score || (score === best.score && distance < best.distance)) best = { first, second, score, distance };
+    }
+  }
+  return best;
+}
+
+function countOpaqueColors(frames: AnimationAnalysisFrame[]): CountedColor[] {
+  const colors = new Map<string, CountedColor>();
+  for (const frame of frames) {
+    for (let offset = 0; offset < frame.pixels.length; offset += 4) {
+      if ((frame.pixels[offset + 3] ?? 0) < TRANSPARENT_ALPHA_THRESHOLD) continue;
+      const color = { r: frame.pixels[offset] ?? 0, g: frame.pixels[offset + 1] ?? 0, b: frame.pixels[offset + 2] ?? 0 };
+      const key = colorKey(color);
+      const existing = colors.get(key);
+      if (existing) existing.count += 1;
+      else colors.set(key, { ...color, count: 1, key });
+    }
+  }
+  return [...colors.values()];
+}
+
+function remapFramesToPalette(frames: AnimationAnalysisFrame[], palette: RgbColor[]): AnimationAnalysisFrame[] {
+  if (palette.length === 0) return frames.map((frame) => ({ ...frame, pixels: new Uint8ClampedArray(frame.pixels) }));
+  return frames.map((frame) => {
+    const pixels = new Uint8ClampedArray(frame.pixels);
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      if ((pixels[offset + 3] ?? 0) < TRANSPARENT_ALPHA_THRESHOLD) {
+        pixels.fill(0, offset, offset + 4);
+        continue;
+      }
+      const color = nearestColor({ r: pixels[offset] ?? 0, g: pixels[offset + 1] ?? 0, b: pixels[offset + 2] ?? 0 }, palette);
+      pixels[offset] = color.r;
+      pixels[offset + 1] = color.g;
+      pixels[offset + 2] = color.b;
+      pixels[offset + 3] = 255;
+    }
+    return { ...frame, pixels };
+  });
+}
+
+function nearestColor(color: RgbColor, palette: RgbColor[]): RgbColor {
+  return palette.reduce((best, next) => (colorDistance(color, next) < colorDistance(color, best) ? next : best), palette[0] ?? color);
+}
+
+function colorKey(color: RgbColor): string {
+  return `${color.r},${color.g},${color.b}`;
+}
+
+function compareRgb(a: RgbColor, b: RgbColor): number {
+  return a.r - b.r || a.g - b.g || a.b - b.b;
 }
 
 export function parsePwanHeader(bytes: Uint8Array): PwanHeader {
@@ -165,6 +302,22 @@ export function pwanFramePixels(bytes: Uint8Array, frameIndex: number): number[]
   const header = validatePwan(bytes);
   const index = clampInt(frameIndex, 0, Math.max(0, header.frameCount - 1));
   return decodePwanFrame(bytes.subarray(header.frameOffset + index * header.frameBytes, header.frameOffset + (index + 1) * header.frameBytes));
+}
+
+export function replacePwanFramePixels(bytes: Uint8Array, frameIndex: number, pixels: number[][]): { pwanBytes: Uint8Array; visibleHeight: number } {
+  return replacePwanFramesPixels(bytes, [{ frameIndex, pixels }]);
+}
+
+export function replacePwanFramesPixels(bytes: Uint8Array, edits: Array<{ frameIndex: number; pixels: number[][] }>): { pwanBytes: Uint8Array; visibleHeight: number } {
+  const header = validatePwan(bytes);
+  const out = bytes.slice();
+  for (const edit of edits) {
+    const frameIndex = clampInt(edit.frameIndex, 0, Math.max(0, header.frameCount - 1));
+    const encoded = tilePwanSegmentedPixels(clampIndexedPixels(edit.pixels));
+    out.set(encoded, header.frameOffset + frameIndex * header.frameBytes);
+  }
+  const frames = Array.from({ length: header.frameCount }, (_value, index) => out.subarray(header.frameOffset + index * header.frameBytes, header.frameOffset + (index + 1) * header.frameBytes));
+  return { pwanBytes: out, visibleHeight: pwanVisibleHeightFromFrames(frames) };
 }
 
 export function pwanTimeline(bytes: Uint8Array): PwanTimelineEntry[] {
@@ -366,6 +519,12 @@ function tileIndexedPixelsRegion(pixels: number[][], x0: number, y0: number, wid
     }
   }
   return out;
+}
+
+function clampIndexedPixels(pixels: number[][]): number[][] {
+  return Array.from({ length: PWAN_HEIGHT }, (_value, y) =>
+    Array.from({ length: PWAN_WIDTH }, (_inner, x) => clampInt(pixels[y]?.[x] ?? 0, 0, PWAN_PALETTE_COLORS - 1)),
+  );
 }
 
 function nearestPaletteIndex(frame: AnimationAnalysisFrame, palette: RgbColor[], x: number, y: number): number {
@@ -718,41 +877,22 @@ function bgr555ToRgb(value: number): { r: number; g: number; b: number } {
 function gifLzwEncode(indices: Uint8Array, minCodeSize: number): Uint8Array {
   const clearCode = 1 << minCodeSize;
   const endCode = clearCode + 1;
-  let codeSize = minCodeSize + 1;
-  let nextCode = endCode + 1;
-  let dictionary = initialGifDictionary(clearCode);
+  const codeSize = minCodeSize + 1;
   const writer = new GifBitWriter();
+  const literalRunLimit = 12;
+  let literalRunLength = 0;
+
   writer.write(clearCode, codeSize);
-  let prefix = String.fromCharCode(indices[0] ?? 0);
-  for (let index = 1; index < indices.length; index += 1) {
-    const char = String.fromCharCode(indices[index] ?? 0);
-    const joined = prefix + char;
-    if (dictionary.has(joined)) {
-      prefix = joined;
-      continue;
-    }
-    writer.write(dictionary.get(prefix) ?? 0, codeSize);
-    if (nextCode < 4096) {
-      dictionary.set(joined, nextCode);
-      nextCode += 1;
-      if (nextCode === 1 << codeSize && codeSize < 12) codeSize += 1;
-    } else {
+  for (const index of indices) {
+    if (literalRunLength >= literalRunLimit) {
       writer.write(clearCode, codeSize);
-      dictionary = initialGifDictionary(clearCode);
-      codeSize = minCodeSize + 1;
-      nextCode = endCode + 1;
+      literalRunLength = 0;
     }
-    prefix = char;
+    writer.write(index & ((1 << minCodeSize) - 1), codeSize);
+    literalRunLength += 1;
   }
-  writer.write(dictionary.get(prefix) ?? 0, codeSize);
   writer.write(endCode, codeSize);
   return writer.finish();
-}
-
-function initialGifDictionary(clearCode: number): Map<string, number> {
-  const dictionary = new Map<string, number>();
-  for (let index = 0; index < clearCode; index += 1) dictionary.set(String.fromCharCode(index), index);
-  return dictionary;
 }
 
 class GifBitWriter {

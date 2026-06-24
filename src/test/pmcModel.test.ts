@@ -282,6 +282,22 @@ describe("PMC installer", () => {
     });
   });
 
+  it("does not auto-stage the bundled main menu skip for White2Upgrade Test Battle ROMs", async () => {
+    const romBytes = makeBw2LikeRom();
+    const project = makeProject(romBytes, "W2");
+    installPmcBytes(project, pmcW2, romBytes);
+    stageCodeInjectionDll(project, "White2Upgrade.dll", makeDllFromRpm(pmcW2), "patches");
+
+    await withBundledCodeInjectionFetch(async () => {
+      const result = await prepareBw2TestBattleCodeInjection(project);
+
+      expect(result).toBeUndefined();
+      expect(detectWhite2UpgradeDlls(project)).toBe(true);
+      expect(detectBundledMainMenuSkipDll(project)).toBe("unpatched");
+      expect(project.fileSystem?.additions?.["patches/MainMenuSkipW2.dll"]).toBeUndefined();
+    });
+  });
+
   it("rejects Windows DLLs and unconverted RPM modules for user patch upload", () => {
     expect(() => validateCodeInjectionDll(Uint8Array.of(0x4d, 0x5a, 0, 0))).toThrow(/Windows DLL/u);
     expect(() => validateCodeInjectionDll(pmcW2)).toThrow(/RPM module/u);

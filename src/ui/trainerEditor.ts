@@ -3,6 +3,12 @@ import { publicAsset } from "../assetUrl";
 import { TRAINER_AIS } from "../pokeweb/constants";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "../pokeweb/romPatchModel";
 import {
+  expandTrainerScriptArchive,
+  formatTrainerScriptArchiveDetail,
+  getTrainerScriptArchiveStatus,
+  type TrainerScriptArchiveStatus,
+} from "../pokeweb/trainerScriptArchiveModel";
+import {
   getTrainerAutofills,
   getTrainerCount,
   getTrainerRecord,
@@ -13,9 +19,12 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachTrainerInteractions } from "./trainerInteractions";
 
+const TEST_BATTLE_TEAM_STORAGE_PREFIX = "pokeweb.testBattle.teamText";
+
 export function renderTrainerEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>): void {
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
   const showNatureField = trainerNaturePatchStatus === "patched";
+  const savedTestBattleTeamText = readSavedTestBattleTeamText(project);
   root.innerHTML = `
     <div class="pokemon-filter trainer-filter">
       <div class="filter-title">Search</div>
@@ -25,10 +34,11 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
         <span class="svg">${addIcon}</span>
         Add Trainer
       </button>
+      ${renderTrainerScriptArchivePanel(project)}
       ${renderTrainerNaturePatchPanel(project, trainerNaturePatchStatus)}
       <div class="trainer-test-team">
         <div class="filter-title">Test Team</div>
-        <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import"></textarea>
+        <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import">${escapeHtml(savedTestBattleTeamText)}</textarea>
       </div>
     </div>
     <div class="pokemon-list spreadsheet" id="trainers">
@@ -47,6 +57,7 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
     </div>
   `;
 
+  installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle);
   installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, trainerNaturePatchStatus);
   attachTrainerInteractions(root, project, {
     onDirty,
@@ -54,6 +65,37 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
     autofills: getTrainerAutofills(project),
     renderRow: (trainerId) => renderTrainerRow(project, trainerId),
   });
+  installTestBattleTeamPersistence(project, root);
+}
+
+function installTestBattleTeamPersistence(project: ProjectState, root: HTMLElement): void {
+  const input = root.querySelector<HTMLTextAreaElement>("#test-battle-team-import");
+  if (!input) return;
+  input.addEventListener("input", () => {
+    rememberTestBattleTeamText(project, input.value);
+  });
+}
+
+function readSavedTestBattleTeamText(project: ProjectState): string {
+  if (typeof localStorage === "undefined") return "";
+  try {
+    return localStorage.getItem(testBattleTeamStorageKey(project)) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberTestBattleTeamText(project: ProjectState, text: string): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(testBattleTeamStorageKey(project), text);
+  } catch {
+    // Browser storage may be unavailable in private or constrained contexts.
+  }
+}
+
+function testBattleTeamStorageKey(project: ProjectState): string {
+  return `${TEST_BATTLE_TEAM_STORAGE_PREFIX}.${project.session.baseVersion}.${project.session.romName}`;
 }
 
 export function renderTrainerRow(project: ProjectState, trainerId: number): string {
@@ -160,6 +202,24 @@ function renderTrainerPokemon(trainer: TrainerRecord, pok: TrainerPokemonSlot, s
   `;
 }
 
+function renderTrainerScriptArchivePanel(project: ProjectState): string {
+  const status = getTrainerScriptArchiveStatus(project);
+  if (!status.ok && status.reason === "unsupported") return "";
+  const badgeClass = trainerScriptArchiveBadgeClass(status);
+  const disabled = status.ok && status.canExpand ? "" : "disabled";
+  return `
+    <div class="trainer-script-panel">
+      <div class="filter-title">Global Scripts</div>
+      <div class="trainer-script-status">
+        <span class="patch-badge ${badgeClass}">${escapeHtml(trainerScriptArchiveStatusLabel(status))}</span>
+        <span>${status.ok ? `file ${status.scriptFileId}` : escapeHtml(project.session.baseVersion)}</span>
+      </div>
+      <div class="trainer-script-detail">${escapeHtml(formatTrainerScriptArchiveDetail(status))}</div>
+      <button class="btn -default trainer-script-expand-btn" id="trainer-script-expand-btn" type="button" ${disabled}>Expand Global Scripts</button>
+    </div>
+  `;
+}
+
 function renderTrainerNaturePatchPanel(project: ProjectState, status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (status === "unsupported") return "";
   const badgeClass = status === "patched" ? "-ok" : status === "unknown" ? "-warn" : "";
@@ -174,6 +234,31 @@ function renderTrainerNaturePatchPanel(project: ProjectState, status: ReturnType
       <button class="btn -default trainer-nature-patch-btn" id="trainer-nature-patch-btn" type="button" ${buttonDisabled}>${escapeHtml(trainerNatureButtonLabel(status))}</button>
     </div>
   `;
+}
+
+function installTrainerScriptArchiveControl(
+  project: ProjectState,
+  root: HTMLElement,
+  onDirty: (() => void) | undefined,
+  onTestBattle: ((trainerId: number, showdownText: string) => Promise<void>) | undefined,
+): void {
+  const status = getTrainerScriptArchiveStatus(project);
+  const button = root.querySelector<HTMLButtonElement>("#trainer-script-expand-btn");
+  if (!button || !status.ok || !status.canExpand) return;
+  button.addEventListener("click", () => {
+    const previousText = button.textContent ?? "Expand Global Scripts";
+    button.disabled = true;
+    button.textContent = "Expanding...";
+    try {
+      const result = expandTrainerScriptArchive(project);
+      if (result.addedEntries > 0) onDirty?.();
+      renderTrainerEditor(project, root, onDirty, onTestBattle);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+      button.disabled = false;
+      button.textContent = previousText;
+    }
+  });
 }
 
 function installTrainerNaturePatchControl(
@@ -200,6 +285,24 @@ function installTrainerNaturePatchControl(
       button.textContent = previousText;
     }
   });
+}
+
+function trainerScriptArchiveStatusLabel(status: TrainerScriptArchiveStatus): string {
+  if (!status.ok) {
+    if (status.reason === "missing") return "Missing";
+    if (status.reason === "unrecognized") return "Unknown";
+    return "Unsupported";
+  }
+  if (status.outOfRangeTrainerIds.length) return "Range Limit";
+  if (status.needsExpansion) return "Needs Sync";
+  if (status.helperTrainerIds.length) return "Helper Slots";
+  return "Ready";
+}
+
+function trainerScriptArchiveBadgeClass(status: TrainerScriptArchiveStatus): string {
+  if (!status.ok) return "-warn";
+  if (status.needsExpansion || status.helperTrainerIds.length || status.outOfRangeTrainerIds.length) return "-warn";
+  return "-ok";
 }
 
 function trainerNatureStatusLabel(status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {

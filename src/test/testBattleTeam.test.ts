@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
-import { decryptPk5Party, encryptPk5Party, normalizeTestBattleSavePartyNicknames, parseShowdownTeam, patchTestBattleSavePlayerParty } from "../pokeweb/testBattleTeam";
+import { decryptPk5Party, encryptPk5Party, normalizeTestBattleSavePartyNicknames, parseShowdownTeam, patchTestBattleSavePlayerFirstPokemon, patchTestBattleSavePlayerParty } from "../pokeweb/testBattleTeam";
 
 describe("testBattleTeam", () => {
   it("parses Showdown imports with defaults and name resolution", () => {
@@ -147,6 +147,46 @@ Jolly Nature
       expect(readLe16(patched, half + 0x19336)).toBe(crc16Ccitt(patched.subarray(party, party + 0x534)));
       expect(readLe16(patched, half + 0x23f34)).toBe(readLe16(patched, half + 0x19336));
       expect(readLe16(patched, half + 0x23f9a)).toBe(crc16Ccitt(patched.subarray(half + 0x23f00, half + 0x23f00 + 0x8c)));
+    }
+  });
+
+  it("replaces only the first party Pokemon and preserves the rest of the party", () => {
+    const project = makeProject();
+    const save = makeSaveWithTemplateParty();
+    const secondSlots = new Map<number, Uint8Array>();
+    for (const half of [0, 0x26000]) {
+      const party = half + 0x18e00;
+      save[party] = 2;
+      save[party + 4] = 2;
+      save.set(makeTemplatePokemon(), party + 8 + 220);
+      secondSlots.set(half, save.slice(party + 8 + 220, party + 8 + 440));
+    }
+
+    const patched = patchTestBattleSavePlayerFirstPokemon(
+      save,
+      project,
+      `
+Ivysaur
+Level: 50
+- Razor Leaf
+`,
+    );
+
+    for (const half of [0, 0x26000]) {
+      const party = half + 0x18e00;
+      expect(patched[party]).toBe(2);
+      expect(patched[party + 4]).toBe(2);
+      expect(readLe16(patched, half + 0x19336)).toBe(crc16Ccitt(patched.subarray(party, party + 0x534)));
+      expect(readLe16(patched, half + 0x25f34)).toBe(readLe16(patched, half + 0x19336));
+      expect(readLe16(patched, half + 0x25fa2)).toBe(crc16Ccitt(patched.subarray(half + 0x25f00, half + 0x25f00 + 0x94)));
+
+      const first = decryptPk5Party(patched.subarray(party + 8, party + 8 + 220));
+      expect(readLe16(first, 0x08)).toBe(2);
+      expect(readGen5String(first, 0x48, 22)).toBe("Ivysaur");
+      expect(first[0x8c]).toBe(50);
+      expect(readLe16(first, 0x28)).toBe(3);
+      expect(first[0x30]).toBe(25);
+      expect(patched.slice(party + 8 + 220, party + 8 + 440)).toEqual(secondSlots.get(half));
     }
   });
 

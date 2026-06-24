@@ -173,6 +173,7 @@ export async function prepareBw2TestBattleCodeInjection(project: ProjectState): 
   if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
     throw new Error(`No bundled main menu skip patch is available for ${project.session.baseVersion}.`);
   }
+  if (detectWhite2UpgradeDlls(project)) return undefined;
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
   return stageBundledMainMenuSkipDll(project);
 }

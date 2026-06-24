@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   compileGifToPwan,
   parsePwanHeader,
+  preparePwanPaletteFrames,
   pwanFirstFramePixels,
   pwanFramePixels,
   pwanFramesPerSecond,
@@ -12,6 +13,7 @@ import {
   PWAN_HEIGHT,
   PWAN_PALETTE_COLORS,
   PWAN_WIDTH,
+  replacePwanFramePixels,
   scalePwanFrames,
   scalePwanTimelineSpeed,
   scalePwanTimelineToFps,
@@ -19,6 +21,7 @@ import {
   tileIndexedPixels,
   tilePwanSegmentedPixels,
 } from "../pokeweb/pwanCompiler";
+import type { AnimationAnalysisFrame } from "../pokeweb/gifAnimationFrames";
 
 describe("pwanCompiler", () => {
   it("compiles a GIF into a 96x96 4bpp PWAN asset", () => {
@@ -53,6 +56,88 @@ describe("pwanCompiler", () => {
     expect(nonTransparent.length).toBe(1);
     expect(nonTransparent[0]![1]).toBe(95);
     expect(result.visibleHeight).toBe(1);
+  });
+
+  it("preserves exact palette colors when frames already fit the PWAN palette", () => {
+    const colors = [
+      [240, 48, 32, 255],
+      [72, 72, 80, 255],
+      [248, 248, 240, 255],
+    ] as const;
+    const frame = makeRgbaFrame(4, 1, [
+      [0, 0, 0, 0],
+      ...colors,
+    ]);
+
+    const result = preparePwanPaletteFrames([frame]);
+
+    expect(result.quantized).toBe(false);
+    expect(result.strategy).toBe("exact");
+    expect(result.frames[0]).toBe(frame);
+    expect(result.palette).toEqual([
+      { r: 72, g: 72, b: 80 },
+      { r: 240, g: 48, b: 32 },
+      { r: 248, g: 248, b: 240 },
+    ]);
+  });
+
+  it("uses a compatible anchor frame palette for local-palette animations", () => {
+    const anchorColors = [
+      [24, 24, 24],
+      [91, 91, 92],
+      [174, 165, 165],
+      [240, 239, 232],
+      [239, 61, 150],
+      [174, 51, 125],
+      [40, 44, 120],
+      [0, 97, 169],
+      [122, 35, 37],
+      [247, 60, 45],
+      [242, 213, 0],
+      [181, 51, 53],
+    ] as const;
+    const extraColors = Array.from({ length: 10 }, (_value, index) => [80 + index * 3, 20 + index * 5, 140 + index * 2] as const);
+    const anchorFrame = makeRgbaFrame(anchorColors.length, 1, anchorColors.map((color) => [...color, 255]));
+    const richFrame = makeRgbaFrame(anchorColors.length + extraColors.length, 1, [...anchorColors, ...extraColors].map((color) => [...color, 255]));
+
+    const result = preparePwanPaletteFrames([anchorFrame, richFrame]);
+
+    expect(result.quantized).toBe(true);
+    expect(result.strategy).toBe("anchor-frame");
+    expect(result.palette).toEqual(anchorColors.map(([r, g, b]) => ({ r, g, b })).sort(compareRgb));
+    expect(uniqueOpaqueColors(result.frames[1]!)).toEqual(result.palette);
+  });
+
+  it("merges the closest visible pair when a single frame has one color too many", () => {
+    const colors = [
+      [10, 10, 10],
+      [11, 10, 10],
+      [0, 0, 255],
+      [0, 255, 0],
+      [255, 0, 0],
+      [255, 255, 0],
+      [255, 0, 255],
+      [0, 255, 255],
+      [80, 0, 0],
+      [0, 80, 0],
+      [0, 0, 80],
+      [160, 160, 0],
+      [160, 0, 160],
+      [0, 160, 160],
+      [80, 80, 80],
+      [240, 240, 240],
+    ] as const;
+    const frame = makeRgbaFrame(colors.length, 1, colors.map((color) => [...color, 255]));
+
+    const result = preparePwanPaletteFrames([frame]);
+
+    expect(result.quantized).toBe(true);
+    expect(result.strategy).toBe("closest-merge");
+    expect(result.palette).toHaveLength(PWAN_PALETTE_COLORS - 1);
+    expect(result.palette).toContainEqual({ r: 10, g: 10, b: 10 });
+    expect(result.palette).not.toContainEqual({ r: 11, g: 10, b: 10 });
+    expect(result.palette).not.toContainEqual({ r: 10.5, g: 10, b: 10 });
+    expect(result.warnings).toContain("Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette");
   });
 
   it("tiles carrier fallback pixels in PWAN segment order", () => {
@@ -102,6 +187,22 @@ describe("pwanCompiler", () => {
     expect(decoded[10]![10]).toBe(0);
     expect(decoded[14]![13]).toBe(5);
     expect(shifted.visibleHeight).toBe(1);
+  });
+
+  it("replaces indexed pixels for an existing PWAN frame", () => {
+    const pixels = Array.from({ length: PWAN_HEIGHT }, () => Array.from({ length: PWAN_WIDTH }, () => 0));
+    pixels[95]![48] = 2;
+    const pwanBytes = makePwanFromPixels(pixels);
+    const edited = pwanFramePixels(pwanBytes, 0);
+    edited[94]![48] = 3;
+    edited[95]![48] = 0;
+
+    const replaced = replacePwanFramePixels(pwanBytes, 0, edited);
+    const decoded = pwanFramePixels(replaced.pwanBytes, 0);
+
+    expect(decoded[94]![48]).toBe(3);
+    expect(decoded[95]![48]).toBe(0);
+    expect(replaced.visibleHeight).toBe(1);
   });
 
   it("scales PWAN frame pixels around the bottom center of the canvas", () => {
@@ -165,6 +266,25 @@ describe("pwanCompiler", () => {
     expect(readU16(gif, 8)).toBe(PWAN_HEIGHT);
     expect(gif[gif.length - 1]).toBe(0x3b);
   });
+
+  it("exports edited PWAN pixels as a GIF", () => {
+    const pixels = Array.from({ length: PWAN_HEIGHT }, () => Array.from({ length: PWAN_WIDTH }, () => 0));
+    pixels[95]![48] = 2;
+    const pwanBytes = makePwanFromPixels(pixels);
+    const edited = pwanFramePixels(pwanBytes, 0);
+    edited[94]![48] = 3;
+    edited[95]![48] = 0;
+
+    const replaced = replacePwanFramePixels(pwanBytes, 0, edited);
+    const exported = compileGifToPwan(pwanToGifBytes(replaced.pwanBytes));
+    const exportedPixels = pwanFramePixels(exported.pwanBytes, 0);
+    const exportedPalette = pwanPalette(exported.pwanBytes);
+    const editedIndex = exportedPixels[94]![48]!;
+
+    expect(editedIndex).toBeGreaterThan(0);
+    expect(exportedPalette[editedIndex]).toBe(0x03e0);
+    expect(exportedPixels[95]![48]).toBe(0);
+  });
 });
 
 function makePwanFromPixels(pixels: number[][], options: { ticks?: number } = {}): Uint8Array {
@@ -196,6 +316,32 @@ function makePwanFromPixels(pixels: number[][], options: { ticks?: number } = {}
   view.setUint16(timelineOffset + 2, ticks, true);
   out.set(frame, frameOffset);
   return out;
+}
+
+function makeRgbaFrame(width: number, height: number, rgbaPixels: ReadonlyArray<readonly [number, number, number, number]>): AnimationAnalysisFrame {
+  const pixels = new Uint8ClampedArray(width * height * 4);
+  rgbaPixels.forEach((color, index) => pixels.set(color, index * 4));
+  return {
+    index: 0,
+    width,
+    height,
+    delayMs: 100,
+    pixels,
+  };
+}
+
+function uniqueOpaqueColors(frame: AnimationAnalysisFrame): Array<{ r: number; g: number; b: number }> {
+  const colors = new Map<string, { r: number; g: number; b: number }>();
+  for (let offset = 0; offset < frame.pixels.length; offset += 4) {
+    if ((frame.pixels[offset + 3] ?? 0) === 0) continue;
+    const color = { r: frame.pixels[offset] ?? 0, g: frame.pixels[offset + 1] ?? 0, b: frame.pixels[offset + 2] ?? 0 };
+    colors.set(`${color.r},${color.g},${color.b}`, color);
+  }
+  return [...colors.values()].sort(compareRgb);
+}
+
+function compareRgb(a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }): number {
+  return a.r - b.r || a.g - b.g || a.b - b.b;
 }
 
 function makeOutlinedBlockPixels(options: { internalDarkLine?: boolean } = {}): number[][] {
