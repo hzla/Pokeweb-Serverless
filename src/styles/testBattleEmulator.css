@@ -63,7 +63,7 @@ canvas {
   top: 16px;
   z-index: 10001;
   display: grid;
-  grid-template-columns: minmax(260px, 36vw) auto;
+  grid-template-columns: clamp(220px, 24vw, 360px) auto;
   grid-template-areas:
     "speed buttons"
     "audio buttons";
@@ -81,7 +81,7 @@ canvas {
 
 .pokeweb-slider-control {
   display: grid;
-  grid-template-columns: 44px minmax(160px, 1fr) 56px;
+  grid-template-columns: 44px minmax(120px, 1fr) 56px;
   align-items: center;
   gap: 8px;
 }
@@ -110,7 +110,7 @@ canvas {
 #pokeweb-speed,
 #pokeweb-audio {
   width: 100%;
-  min-width: 160px;
+  min-width: 120px;
   accent-color: #2dd4bf;
   pointer-events: auto;
 }

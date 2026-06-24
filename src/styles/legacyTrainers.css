@@ -32,16 +32,19 @@
 }
 
 .trainer-test-team .filter-title,
+.trainer-script-panel .filter-title,
 .trainer-nature-patch-panel .filter-title {
   font-size: 18px;
 }
 
+.trainer-script-panel,
 .trainer-nature-patch-panel {
   display: grid;
   gap: 10px;
   margin-top: 18px;
 }
 
+.trainer-script-status,
 .trainer-nature-patch-status {
   align-items: center;
   color: #d6d7e2;
@@ -50,10 +53,18 @@
   justify-content: space-between;
 }
 
+.trainer-script-detail {
+  color: #cfcfd8;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.trainer-script-expand-btn,
 .trainer-nature-patch-btn {
   width: 100%;
 }
 
+.trainer-script-expand-btn:disabled,
 .trainer-nature-patch-btn:disabled {
   cursor: not-allowed;
   opacity: 0.55;

@@ -4,15 +4,21 @@ import { getNarcFormats } from "../pokeweb/formats";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import {
   getTestBattleConfig,
+  getTestBattleConfigForProject,
+  isTestBattleSaveAllBadgesSet,
   isTestBattleTrainerFlagSet,
+  patchTestBattleSaveBadges,
   patchTestBattleSaveTrainerFlag,
   rawSaveBytesFromDesmumeDsv,
+  resolveTestBattleMoveAnimationTarget,
   resolveTestBattleOverworldIdForSaveZone,
   testBattleOverworldYFromSaveGridY,
 } from "../pokeweb/testBattle";
+import { decryptPk5Party } from "../pokeweb/testBattleTeam";
 
 const whiteSave = new Uint8Array(readFileSync(new URL("../assets/testbattle/white.dsv", import.meta.url)));
 const white2Save = new Uint8Array(readFileSync(new URL("../assets/testbattle/test.sav", import.meta.url)));
+const white2UpgradeSave = new Uint8Array(readFileSync(new URL("../assets/testbattle/White2Upgrade.dsv", import.meta.url)));
 
 describe("testBattle", () => {
   it("selects the BW test battle save and NARC paths", () => {
@@ -28,6 +34,9 @@ describe("testBattle", () => {
       eventworkBlockOffset: 0x20100,
       eventworkBlockLength: 0x3ec,
       eventworkChecksumOffset: 0x204ee,
+      miscBlockOffset: 0x21200,
+      miscBlockLength: 0xec,
+      miscChecksumOffset: 0x212ee,
     });
     expect(config.paths).toMatchObject({
       headers: "a/0/1/2",
@@ -42,6 +51,7 @@ describe("testBattle", () => {
   it("keeps BW2 on the existing White 2 save and NARC paths", () => {
     const config = getTestBattleConfig("BW2");
 
+    expect(config.saveKind).toBe("bw2");
     expect(config.saveUrl.pathname).toMatch(/test\.sav$/u);
     expect(config.fallbackOverworldId).toBeUndefined();
     expect(config.saveLayout).toMatchObject({
@@ -52,6 +62,9 @@ describe("testBattle", () => {
       eventworkBlockOffset: 0x1ff00,
       eventworkBlockLength: 0x4e0,
       eventworkChecksumOffset: 0x203e2,
+      miscBlockOffset: 0x21100,
+      miscBlockLength: 0xf0,
+      miscChecksumOffset: 0x211f2,
     });
     expect(config.paths).toMatchObject({
       headers: "a/0/1/2",
@@ -60,6 +73,61 @@ describe("testBattle", () => {
       overworlds: "a/1/2/6",
       move_animations: "a/0/6/5",
       battle_animations: "a/0/6/6",
+    });
+  });
+
+  it("selects the White2Upgrade save when a White2Upgrade DLL is loaded", () => {
+    const config = getTestBattleConfigForProject(makeBw2Project(["patches/White2Upgrade.dll"]));
+
+    expect(config.saveKind).toBe("white2-upgrade");
+    expect(config.saveUrl.pathname).toMatch(/White2Upgrade\.dsv$/u);
+    expect(config.fallbackOverworldId).toBeUndefined();
+    expect(config.saveLayout).toMatchObject({
+      saveHalfOffset: 0x26000,
+      checksumBlockOffset: 0x25f00,
+      checksumBlockLength: 0x94,
+      checksumBlockChecksumOffset: 0x25fa2,
+      eventworkBlockOffset: 0x1ff00,
+      eventworkBlockLength: 0x4e0,
+      eventworkChecksumOffset: 0x203e2,
+      miscBlockOffset: 0x21100,
+      miscBlockLength: 0xf0,
+      miscChecksumOffset: 0x211f2,
+    });
+    expect(config.paths).toMatchObject({
+      headers: "a/0/1/2",
+      trdata: "a/0/9/1",
+      trpok: "a/0/9/2",
+      overworlds: "a/1/2/6",
+      move_animations: "a/0/6/5",
+      battle_animations: "a/0/6/6",
+    });
+  });
+
+  it("keeps vanilla BW2 saves for non-White2Upgrade BW2 projects", () => {
+    const config = getTestBattleConfigForProject(makeBw2Project(["patches/MainMenuSkipW2.dll"]));
+
+    expect(config.saveKind).toBe("bw2");
+    expect(config.saveUrl.pathname).toMatch(/test\.sav$/u);
+  });
+
+  it("uses White2Upgrade expanded move animation slots for move test battles", () => {
+    const project = makeBw2Project(["patches/White2Upgrade.dll"]);
+    project.narcs.move_animations = makeNarcStore("move_animations", 700);
+
+    expect(resolveTestBattleMoveAnimationTarget(project, 560)).toEqual({
+      storeName: "move_animations",
+      index: 560,
+    });
+  });
+
+  it("keeps vanilla BW2 battle animation slots for high move test battles", () => {
+    const project = makeBw2Project([]);
+    project.narcs.battle_animations = makeNarcStore("battle_animations", 128);
+
+    expect(resolveTestBattleMoveAnimationTarget(project, 673)).toEqual({
+      storeName: "battle_animations",
+      index: 112,
     });
   });
 
@@ -132,6 +200,62 @@ describe("testBattle", () => {
     expect(readLe16(patched, 0x4bf5a)).toBe(readLe16(patched, 0x463e2));
     expect(readLe16(patched, 0x4bfa2)).toBe(crc16Ccitt(patched.subarray(0x4bf00, 0x4bf00 + 0x94)));
   });
+
+  it("loads and patches the White2Upgrade save with the BW2 checksum layout", () => {
+    const config = getTestBattleConfig("BW2", { white2Upgrade: true });
+    const raw = rawSaveBytesFromDesmumeDsv(white2UpgradeSave);
+
+    expect(raw.length).toBe(0x80000);
+    expect(readLe32(raw, 0x19580)).toBe(427);
+    expect(readLe16(raw, 0x19586)).toBe(53);
+    expect(readLe16(raw, 0x1958a)).toBe(1);
+    expect(readLe16(raw, 0x1958e)).toBe(728);
+    expect(isTestBattleTrainerFlagSet(raw, config)).toBe(false);
+    expect(isTestBattleTrainerFlagSet(raw, config, config.saveLayout.saveHalfOffset)).toBe(false);
+
+    const patched = patchTestBattleSaveTrainerFlag(raw, config);
+
+    expect(isTestBattleTrainerFlagSet(patched, config)).toBe(false);
+    expect(isTestBattleTrainerFlagSet(patched, config, config.saveLayout.saveHalfOffset)).toBe(false);
+    expect(readLe16(patched, 0x203e2)).toBe(crc16Ccitt(patched.subarray(0x1ff00, 0x1ff00 + 0x4e0)));
+    expect(readLe16(patched, 0x25f5a)).toBe(readLe16(patched, 0x203e2));
+    expect(readLe16(patched, 0x25fa2)).toBe(crc16Ccitt(patched.subarray(0x25f00, 0x25f00 + 0x94)));
+    expect(readLe16(patched, 0x463e2)).toBe(crc16Ccitt(patched.subarray(0x45f00, 0x45f00 + 0x4e0)));
+    expect(readLe16(patched, 0x4bf5a)).toBe(readLe16(patched, 0x463e2));
+    expect(readLe16(patched, 0x4bfa2)).toBe(crc16Ccitt(patched.subarray(0x4bf00, 0x4bf00 + 0x94)));
+  });
+
+  it("sets all badges in the White2Upgrade test battle save and refreshes misc checksums", () => {
+    const config = getTestBattleConfig("BW2", { white2Upgrade: true });
+    const raw = rawSaveBytesFromDesmumeDsv(white2UpgradeSave);
+
+    expect(isTestBattleSaveAllBadgesSet(raw, config)).toBe(false);
+    expect(isTestBattleSaveAllBadgesSet(raw, config, config.saveLayout.saveHalfOffset)).toBe(false);
+
+    const patched = patchTestBattleSaveBadges(raw, config);
+
+    expect(isTestBattleSaveAllBadgesSet(patched, config)).toBe(true);
+    expect(isTestBattleSaveAllBadgesSet(patched, config, config.saveLayout.saveHalfOffset)).toBe(true);
+    expect(readLe16(patched, 0x211f2)).toBe(crc16Ccitt(patched.subarray(0x21100, 0x21100 + 0xf0)));
+    expect(readLe16(patched, 0x25f68)).toBe(readLe16(patched, 0x211f2));
+    expect(readLe16(patched, 0x25fa2)).toBe(crc16Ccitt(patched.subarray(0x25f00, 0x25f00 + 0x94)));
+    expect(readLe16(patched, 0x471f2)).toBe(crc16Ccitt(patched.subarray(0x47100, 0x47100 + 0xf0)));
+    expect(readLe16(patched, 0x4bf68)).toBe(readLe16(patched, 0x471f2));
+    expect(readLe16(patched, 0x4bfa2)).toBe(crc16Ccitt(patched.subarray(0x4bf00, 0x4bf00 + 0x94)));
+  });
+
+  it("bundles the White2Upgrade save with Urshifu in party slot 1", () => {
+    const raw = rawSaveBytesFromDesmumeDsv(white2UpgradeSave);
+
+    for (const half of [0, 0x26000]) {
+      const party = half + 0x18e00;
+      expect(raw[party]).toBe(6);
+      expect(raw[party + 4]).toBe(6);
+      const first = decryptPk5Party(raw.subarray(party + 8, party + 8 + 220));
+      expect(readLe16(first, 0x08)).toBe(892);
+      expect(readGen5String(first, 0x48, 22)).toBe("Urshifu");
+    }
+  });
 });
 
 function makeProjectWithHeader(zoneId: number | undefined, overworldId: number | undefined): ProjectState {
@@ -153,6 +277,45 @@ function makeProjectWithHeader(zoneId: number | undefined, overworldId: number |
     texts: { banks: {} },
     formats,
     trpokInfo: [],
+  };
+}
+
+function makeBw2Project(modulePaths: string[]): ProjectState {
+  return {
+    session: {
+      romName: "test",
+      baseVersion: "W2",
+      baseRom: "BW2",
+      fairy: false,
+      fileIds: {},
+      blacklist: [],
+    },
+    romInfo: { title: "test", idCode: "TEST", fileName: "test.nds", size: 0 },
+    arm9: new Uint8Array(),
+    overlays: {},
+    narcs: {},
+    texts: { banks: {} },
+    formats: getNarcFormats("BW2"),
+    trpokInfo: [],
+    codeInjection: {
+      modules: modulePaths.map((path) => ({
+        path,
+        target: path.startsWith("lib/") ? "lib" : "patches",
+        fileName: path.split("/").pop() ?? path,
+      })),
+    },
+  };
+}
+
+function makeNarcStore(name: NarcStore["name"], count: number): NarcStore {
+  return {
+    name,
+    fileId: 1,
+    sourcePath: "test",
+    fileCount: count,
+    rawFiles: Array.from({ length: count }, () => new Uint8Array([0x00])),
+    records: new Map(),
+    dirty: new Set(),
   };
 }
 
@@ -193,6 +356,16 @@ function readLe32(bytes: Uint8Array, offset: number): number {
 function writeLe16(out: Uint8Array, offset: number, value: number): void {
   out[offset] = value & 0xff;
   out[offset + 1] = (value >>> 8) & 0xff;
+}
+
+function readGen5String(bytes: Uint8Array, offset: number, byteLength: number): string {
+  const chars: string[] = [];
+  for (let cursor = offset; cursor + 1 < offset + byteLength; cursor += 2) {
+    const value = readLe16(bytes, cursor);
+    if (value === 0 || value === 0xffff) break;
+    chars.push(String.fromCharCode(value));
+  }
+  return chars.join("");
 }
 
 function crc16Ccitt(data: Uint8Array): number {

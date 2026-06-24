@@ -33,7 +33,20 @@ import {
   type LoadedPwanLibrary,
   type PwanLibraryEntry,
 } from "../pokeweb/pwanLibraryModel";
-import { PWAN_HEIGHT, PWAN_WIDTH, pwanFramePixels, pwanFramesPerSecond, pwanTimeline, pwanToGifBytes, scalePwanFrames, scalePwanTimelineToFps, shiftPwanFrames } from "../pokeweb/pwanCompiler";
+import {
+  PWAN_HEIGHT,
+  PWAN_WIDTH,
+  parsePwanHeader,
+  pwanFramePixels,
+  pwanFramesPerSecond,
+  pwanTimeline,
+  pwanToGifBytes,
+  replacePwanFramePixels,
+  replacePwanFramesPixels,
+  scalePwanFrames,
+  scalePwanTimelineToFps,
+  shiftPwanFrames,
+} from "../pokeweb/pwanCompiler";
 import {
   getPokemonAnimation,
   getPokemonMultiCellAnimation,
@@ -307,7 +320,20 @@ type PwanSideDraft = {
   outlineThreshold: number;
   offsetX: number;
   offsetY: number;
+  pixelDirty: boolean;
   dirty: boolean;
+};
+
+type PwanPixelTool = "pick" | "draw" | "erase" | "lasso";
+type PwanPixelPoint = { x: number; y: number };
+type PwanPixelEditorState = {
+  tool: PwanPixelTool;
+  colorIndex: number;
+  lassoFromIndex: number;
+  lassoToIndex: number;
+  lassoPoints: PwanPixelPoint[];
+  lassoDraftPoints: PwanPixelPoint[];
+  drawingLasso: boolean;
 };
 
 function startPwanPreview(project: ProjectState, speciesId: number, previewSide: PwanSide, canvas: HTMLCanvasElement, side: PwanOverrideSide, options: PwanAnimationEditorOptions): void {
@@ -323,7 +349,17 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
     outlineThreshold: normalizePwanOutlineThreshold(side.outlineThreshold ?? 48),
     offsetX: normalizePwanOffset(side.offsetX ?? 0),
     offsetY: normalizePwanOffset(side.offsetY ?? 0),
+    pixelDirty: false,
     dirty: false,
+  };
+  const pixelEditor: PwanPixelEditorState = {
+    tool: "pick",
+    colorIndex: firstVisiblePaletteIndex(side.paletteBgr555),
+    lassoFromIndex: firstVisiblePaletteIndex(side.paletteBgr555),
+    lassoToIndex: firstVisiblePaletteIndex(side.paletteBgr555),
+    lassoPoints: [],
+    lassoDraftPoints: [],
+    drawingLasso: false,
   };
   let frames = buildPwanPreviewFrames(draft.side);
   let frameIndex = 0;
@@ -345,6 +381,13 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
   const gifButton = panel?.querySelector<HTMLButtonElement>(`[data-pwan-download-gif='${previewSide}']`) ?? undefined;
   const pngButton = panel?.querySelector<HTMLButtonElement>(`[data-pwan-download-png='${previewSide}']`) ?? undefined;
   const status = panel?.querySelector<HTMLElement>(`#pwan-${previewSide}-status`) ?? undefined;
+  const pixelSelectedSwatch = panel?.querySelector<HTMLElement>(`[data-pwan-pixel-selected='${previewSide}']`) ?? undefined;
+  const pixelSelectedLabel = panel?.querySelector<HTMLElement>(`[data-pwan-pixel-selected-label='${previewSide}']`) ?? undefined;
+  const pixelPositionLabel = panel?.querySelector<HTMLElement>(`[data-pwan-pixel-position='${previewSide}']`) ?? undefined;
+  const lassoFromSelect = panel?.querySelector<HTMLSelectElement>(`[data-pwan-lasso-from='${previewSide}']`) ?? undefined;
+  const lassoToSelect = panel?.querySelector<HTMLSelectElement>(`[data-pwan-lasso-to='${previewSide}']`) ?? undefined;
+  const lassoApplyButton = panel?.querySelector<HTMLButtonElement>(`[data-pwan-lasso-apply='${previewSide}']`) ?? undefined;
+  const lassoClearButton = panel?.querySelector<HTMLButtonElement>(`[data-pwan-lasso-clear='${previewSide}']`) ?? undefined;
 
   const stopPlayback = () => {
     if (playbackTimer !== undefined) window.clearTimeout(playbackTimer);
@@ -370,6 +413,7 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(frame.image, 0, 0, canvas.width, canvas.height);
     drawComparisonOverlay(ctx, overlay, playbackTick);
+    drawPwanPixelEditorOverlay(ctx, pixelEditor);
   };
   const syncControls = () => {
     const disabled = frames.length === 0;
@@ -430,6 +474,30 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
       applyButton.disabled = !draft.dirty;
       applyButton.textContent = draft.dirty ? "Apply" : "Applied";
     }
+    panel?.querySelectorAll<HTMLButtonElement>(`[data-pwan-pixel-tool='${previewSide}']`).forEach((button) => {
+      const selected = button.dataset.pwanPixelToolName === pixelEditor.tool;
+      button.classList.toggle("-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+      button.disabled = disabled;
+    });
+    panel?.querySelectorAll<HTMLButtonElement>(`[data-pwan-pixel-color='${previewSide}']`).forEach((button) => {
+      const index = Number(button.dataset.pwanPixelColorIndex ?? 0);
+      const selected = index === pixelEditor.colorIndex;
+      button.classList.toggle("-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+      button.disabled = disabled;
+    });
+    if (pixelSelectedSwatch) {
+      pixelSelectedSwatch.style.background = pwanPaletteSwatchBackground(draft.side.paletteBgr555[pixelEditor.colorIndex] ?? 0, pixelEditor.colorIndex);
+      pixelSelectedSwatch.classList.toggle("-transparent", pixelEditor.colorIndex === 0);
+    }
+    if (pixelSelectedLabel) pixelSelectedLabel.textContent = pwanPaletteColorLabel(draft.side.paletteBgr555, pixelEditor.colorIndex);
+    if (lassoFromSelect && document.activeElement !== lassoFromSelect) lassoFromSelect.value = String(pixelEditor.lassoFromIndex);
+    if (lassoToSelect && document.activeElement !== lassoToSelect) lassoToSelect.value = String(pixelEditor.lassoToIndex);
+    if (lassoApplyButton) lassoApplyButton.disabled = disabled || pixelEditor.lassoPoints.length < 3 || pixelEditor.lassoFromIndex === pixelEditor.lassoToIndex;
+    if (lassoClearButton) lassoClearButton.disabled = disabled || (pixelEditor.lassoPoints.length === 0 && pixelEditor.lassoDraftPoints.length === 0);
+    canvas.classList.toggle("-pixel-tool", !disabled && pixelEditor.tool !== "pick");
+    canvas.classList.toggle("-lasso-tool", !disabled && pixelEditor.tool === "lasso");
   };
   const reloadFrames = () => {
     frames = buildPwanPreviewFrames(draft.side);
@@ -459,7 +527,7 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
       offsetX: draft.offsetX,
       offsetY: draft.offsetY,
     };
-    draft.dirty = !pwanDraftMatchesBase(draft);
+    draft.dirty = draft.pixelDirty || !pwanDraftMatchesBase(draft);
     reloadFrames();
     draw();
     syncControls();
@@ -468,6 +536,105 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
   const updateDraftFromInputs = () => {
     draft.framesPerSecond = normalizePwanFps(Number(fpsInput?.value ?? draft.framesPerSecond));
     rebuildDraft();
+  };
+  const setPixelBaseline = (pwanBytes: Uint8Array, visibleHeight: number) => {
+    draft.side = {
+      ...draft.side,
+      pwanBytes,
+      visibleHeight,
+      scaleBasePwanBytes: undefined,
+      offsetBasePwanBytes: undefined,
+      scale: 1,
+      offsetX: 0,
+      offsetY: 0,
+    };
+    draft.base = clonePwanSide(draft.side);
+    draft.scale = 1;
+    draft.offsetX = 0;
+    draft.offsetY = 0;
+    draft.pixelDirty = true;
+    draft.dirty = true;
+    reloadFrames();
+    draw();
+    syncControls();
+  };
+  const editCurrentFramePixel = (point: PwanPixelPoint, colorIndex: number): boolean => {
+    const frame = frames[clampFrameIndex(frameIndex, frames.length)];
+    if (!frame) return false;
+    const pixels = pwanFramePixels(draft.side.pwanBytes, frame.frameIndex);
+    const row = pixels[point.y];
+    if (!row || row[point.x] === colorIndex) return false;
+    row[point.x] = colorIndex;
+    const replaced = replacePwanFramePixels(draft.side.pwanBytes, frame.frameIndex, pixels);
+    setPixelBaseline(replaced.pwanBytes, replaced.visibleHeight);
+    return true;
+  };
+  const sampleCurrentFramePixel = (point: PwanPixelPoint): number => {
+    const frame = frames[clampFrameIndex(frameIndex, frames.length)];
+    if (!frame) return 0;
+    return pwanFramePixels(draft.side.pwanBytes, frame.frameIndex)[point.y]?.[point.x] ?? 0;
+  };
+  const selectPixelColor = (colorIndex: number) => {
+    pixelEditor.colorIndex = clampPaletteIndex(colorIndex);
+    pixelEditor.lassoFromIndex = pixelEditor.colorIndex;
+    syncControls();
+  };
+  const setPixelPosition = (point: PwanPixelPoint | undefined) => {
+    if (pixelPositionLabel) pixelPositionLabel.textContent = point ? `${point.x}, ${point.y}` : "--, --";
+  };
+  const clearLasso = () => {
+    pixelEditor.lassoPoints = [];
+    pixelEditor.lassoDraftPoints = [];
+    pixelEditor.drawingLasso = false;
+    draw();
+    syncControls();
+  };
+  const applyLassoReplace = () => {
+    if (pixelEditor.lassoPoints.length < 3 || pixelEditor.lassoFromIndex === pixelEditor.lassoToIndex) return;
+    const header = parsePwanHeader(draft.side.pwanBytes);
+    const edits: Array<{ frameIndex: number; pixels: number[][] }> = [];
+    let changedPixels = 0;
+    for (let uniqueFrameIndex = 0; uniqueFrameIndex < header.frameCount; uniqueFrameIndex += 1) {
+      const pixels = pwanFramePixels(draft.side.pwanBytes, uniqueFrameIndex);
+      let changed = false;
+      for (let y = 0; y < PWAN_HEIGHT; y += 1) {
+        for (let x = 0; x < PWAN_WIDTH; x += 1) {
+          if (!pointInPolygon({ x: x + 0.5, y: y + 0.5 }, pixelEditor.lassoPoints)) continue;
+          if ((pixels[y]?.[x] ?? 0) !== pixelEditor.lassoFromIndex) continue;
+          pixels[y]![x] = pixelEditor.lassoToIndex;
+          changed = true;
+          changedPixels += 1;
+        }
+      }
+      if (changed) edits.push({ frameIndex: uniqueFrameIndex, pixels });
+    }
+    if (edits.length === 0) {
+      setStatus(status, `No ${pwanPaletteColorLabel(draft.side.paletteBgr555, pixelEditor.lassoFromIndex)} pixels inside lasso.`);
+      return;
+    }
+    const replaced = replacePwanFramesPixels(draft.side.pwanBytes, edits);
+    setPixelBaseline(replaced.pwanBytes, replaced.visibleHeight);
+    setStatus(status, `Replaced ${changedPixels} pixels in ${edits.length} source frame${edits.length === 1 ? "" : "s"}.`);
+  };
+  let paintingPixel = false;
+  const paintAtEvent = (event: PointerEvent): void => {
+    const point = pwanCanvasEventPoint(canvas, event);
+    setPixelPosition(point);
+    if (!point) return;
+    const colorIndex = pixelEditor.tool === "erase" ? 0 : pixelEditor.colorIndex;
+    if (editCurrentFramePixel(point, colorIndex)) setStatus(status, `${pixelEditor.tool === "erase" ? "Erased" : "Drew"} pixel ${point.x}, ${point.y}.`);
+  };
+  const addLassoEventPoint = (event: PointerEvent): void => {
+    const point = pwanCanvasEventPoint(canvas, event);
+    setPixelPosition(point);
+    if (!point) return;
+    const points = pixelEditor.lassoDraftPoints;
+    const previous = points[points.length - 1];
+    if (!previous || previous.x !== point.x || previous.y !== point.y) {
+      points.push(point);
+      draw();
+      syncControls();
+    }
   };
 
   range?.addEventListener("input", (event) => {
@@ -529,6 +696,98 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
       setStatus(status, `Previewing offset ${draft.offsetX}, ${draft.offsetY}. Apply to save.`);
     });
   });
+  panel?.querySelectorAll<HTMLButtonElement>(`[data-pwan-pixel-tool='${previewSide}']`).forEach((button) => {
+    button.addEventListener("click", () => {
+      const tool = readPwanPixelTool(button.dataset.pwanPixelToolName);
+      pixelEditor.tool = tool;
+      syncControls();
+      draw();
+      setStatus(status, `${pwanPixelToolLabel(tool)} tool selected.`);
+    });
+  });
+  panel?.querySelectorAll<HTMLButtonElement>(`[data-pwan-pixel-color='${previewSide}']`).forEach((button) => {
+    button.addEventListener("click", () => {
+      selectPixelColor(Number(button.dataset.pwanPixelColorIndex ?? 0));
+      pixelEditor.tool = "draw";
+      syncControls();
+      setStatus(status, `Selected ${pwanPaletteColorLabel(draft.side.paletteBgr555, pixelEditor.colorIndex)}.`);
+    });
+  });
+  lassoFromSelect?.addEventListener("change", () => {
+    pixelEditor.lassoFromIndex = clampPaletteIndex(Number(lassoFromSelect.value));
+    syncControls();
+  });
+  lassoToSelect?.addEventListener("change", () => {
+    pixelEditor.lassoToIndex = clampPaletteIndex(Number(lassoToSelect.value));
+    syncControls();
+  });
+  lassoApplyButton?.addEventListener("click", applyLassoReplace);
+  lassoClearButton?.addEventListener("click", () => {
+    clearLasso();
+    setStatus(status, "Cleared lasso.");
+  });
+  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    const point = pwanCanvasEventPoint(canvas, event);
+    if (!point) return;
+    playing = false;
+    stopPlayback();
+    canvas.setPointerCapture(event.pointerId);
+    if (pixelEditor.tool === "pick") {
+      selectPixelColor(sampleCurrentFramePixel(point));
+      setPixelPosition(point);
+      setStatus(status, `Picked ${pwanPaletteColorLabel(draft.side.paletteBgr555, pixelEditor.colorIndex)} at ${point.x}, ${point.y}.`);
+    } else if (pixelEditor.tool === "lasso") {
+      pixelEditor.drawingLasso = true;
+      pixelEditor.lassoPoints = [];
+      pixelEditor.lassoDraftPoints = [point];
+      setPixelPosition(point);
+      draw();
+      syncControls();
+    } else {
+      paintingPixel = true;
+      paintAtEvent(event);
+    }
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (pixelEditor.drawingLasso) {
+      addLassoEventPoint(event);
+      return;
+    }
+    if (paintingPixel) {
+      paintAtEvent(event);
+      return;
+    }
+    setPixelPosition(pwanCanvasEventPoint(canvas, event));
+  });
+  canvas.addEventListener("pointerup", (event) => {
+    if (paintingPixel) {
+      paintingPixel = false;
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    }
+    if (pixelEditor.drawingLasso) {
+      addLassoEventPoint(event);
+      pixelEditor.drawingLasso = false;
+      pixelEditor.lassoPoints = simplifyLassoPoints(pixelEditor.lassoDraftPoints);
+      pixelEditor.lassoDraftPoints = [];
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      draw();
+      syncControls();
+      setStatus(status, pixelEditor.lassoPoints.length >= 3 ? `Lasso selected ${pixelEditor.lassoPoints.length} points.` : "Lasso needs at least 3 points.");
+    }
+  });
+  canvas.addEventListener("pointercancel", (event) => {
+    paintingPixel = false;
+    pixelEditor.drawingLasso = false;
+    pixelEditor.lassoDraftPoints = [];
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    draw();
+    syncControls();
+  });
+  canvas.addEventListener("pointerleave", () => {
+    if (!paintingPixel && !pixelEditor.drawingLasso) setPixelPosition(undefined);
+  });
   applyButton?.addEventListener("click", () => {
     if (!draft.dirty) return;
     const target = resolvePwanSpeciesTarget(project, speciesId);
@@ -541,14 +800,16 @@ function startPwanPreview(project: ProjectState, speciesId: number, previewSide:
       nativePaletteSource: previewSide,
     });
     draft.base = clonePwanSide(draft.side);
+    draft.pixelDirty = false;
     draft.dirty = false;
     syncControls();
     options.onDirty?.();
     setStatus(status, `Applied ${previewSide} PWAN edits.`);
   });
   gifButton?.addEventListener("click", () => {
-    downloadBytes(pwanToGifBytes(draft.side.pwanBytes), "image/gif", `${pwanDownloadBaseName(project, speciesId, previewSide)}.gif`);
-    setStatus(status, `Downloaded ${previewSide} GIF.`);
+    const gifBytes = pwanToGifBytes(draft.side.pwanBytes);
+    downloadBytes(gifBytes, "image/gif", `${pwanDownloadBaseName(project, speciesId, previewSide)}.gif`);
+    setStatus(status, `Exported edited ${previewSide} GIF.`);
   });
   pngButton?.addEventListener("click", async () => {
     const frame = frames[clampFrameIndex(frameIndex, frames.length)];
@@ -917,6 +1178,108 @@ function formatPwanFps(value: number): string {
   return normalizePwanFps(value).toFixed(1).replace(/\.0$/u, "");
 }
 
+function pwanCanvasEventPoint(canvas: HTMLCanvasElement, event: PointerEvent): PwanPixelPoint | undefined {
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return undefined;
+  const x = Math.floor((event.clientX - rect.left) * PWAN_WIDTH / rect.width);
+  const y = Math.floor((event.clientY - rect.top) * PWAN_HEIGHT / rect.height);
+  if (x < 0 || y < 0 || x >= PWAN_WIDTH || y >= PWAN_HEIGHT) return undefined;
+  return { x, y };
+}
+
+function drawPwanPixelEditorOverlay(ctx: CanvasRenderingContext2D, editor: PwanPixelEditorState): void {
+  const points = editor.drawingLasso ? editor.lassoDraftPoints : editor.lassoPoints;
+  if (points.length === 0) return;
+  const scaleX = ctx.canvas.width / PWAN_WIDTH;
+  const scaleY = ctx.canvas.height / PWAN_HEIGHT;
+  ctx.save();
+  ctx.lineWidth = Math.max(1, Math.round(scaleX));
+  ctx.strokeStyle = "#f8ffff";
+  ctx.fillStyle = "rgb(26 188 156 / 16%)";
+  ctx.setLineDash([Math.max(3, scaleX * 2), Math.max(2, scaleX)]);
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    const x = (point.x + 0.5) * scaleX;
+    const y = (point.y + 0.5) * scaleY;
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  if (!editor.drawingLasso && points.length >= 3) {
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function simplifyLassoPoints(points: PwanPixelPoint[]): PwanPixelPoint[] {
+  const simplified: PwanPixelPoint[] = [];
+  for (const point of points) {
+    const previous = simplified[simplified.length - 1];
+    if (!previous || previous.x !== point.x || previous.y !== point.y) simplified.push(point);
+  }
+  if (simplified.length > 1) {
+    const first = simplified[0]!;
+    const last = simplified[simplified.length - 1]!;
+    if (first.x === last.x && first.y === last.y) simplified.pop();
+  }
+  return simplified.length >= 3 ? simplified : [];
+}
+
+function pointInPolygon(point: PwanPixelPoint, polygon: PwanPixelPoint[]): boolean {
+  if (polygon.length < 3) return false;
+  let inside = false;
+  for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current, current += 1) {
+    const a = polygon[current]!;
+    const b = polygon[previous]!;
+    const intersects = a.y > point.y !== b.y > point.y && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y || 1) + a.x;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function readPwanPixelTool(value: string | undefined): PwanPixelTool {
+  return value === "draw" || value === "erase" || value === "lasso" ? value : "pick";
+}
+
+function pwanPixelToolLabel(tool: PwanPixelTool): string {
+  if (tool === "draw") return "Pencil";
+  if (tool === "erase") return "Eraser";
+  if (tool === "lasso") return "Lasso";
+  return "Eyedropper";
+}
+
+function clampPaletteIndex(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(15, Math.round(value)));
+}
+
+function firstVisiblePaletteIndex(palette: Uint16Array): number {
+  for (let index = 1; index < palette.length; index += 1) {
+    if ((palette[index] ?? 0) !== 0) return index;
+  }
+  return 1;
+}
+
+function pwanPaletteColorLabel(palette: Uint16Array, index: number): string {
+  const clamped = clampPaletteIndex(index);
+  if (clamped === 0) return "0 Transparent";
+  return `${clamped} ${bgr555Hex(palette[clamped] ?? 0)}`;
+}
+
+function pwanPaletteSwatchBackground(value: number, index: number): string {
+  return index === 0 ? "transparent" : bgr555Hex(value);
+}
+
+function bgr555Hex(value: number): string {
+  const color = bgr555ToRgb(value);
+  return `#${hexByte(color.r)}${hexByte(color.g)}${hexByte(color.b)}`;
+}
+
+function hexByte(value: number): string {
+  return Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
+}
+
 function pwanFrameCanvas(side: PwanOverrideSide, frameIndex: number): HTMLCanvasElement {
   const pixels = pwanFramePixels(side.pwanBytes, frameIndex);
   const imageData = new ImageData(PWAN_WIDTH, PWAN_HEIGHT);
@@ -1122,6 +1485,58 @@ function pwanLibrarySideText(entry: PwanLibraryEntry): string {
   return "[none]";
 }
 
+function renderPwanPixelEditorControls(side: PwanSide, data: PwanOverrideSide): string {
+  const selectedIndex = firstVisiblePaletteIndex(data.paletteBgr555);
+  return `
+    <div class="pwan-pixel-editor">
+      <div class="pwan-pixel-tool-row" role="group" aria-label="${side} pixel tools">
+        ${renderPwanPixelToolButton(side, "pick", "Eyedropper")}
+        ${renderPwanPixelToolButton(side, "draw", "Pencil")}
+        ${renderPwanPixelToolButton(side, "erase", "Eraser")}
+        ${renderPwanPixelToolButton(side, "lasso", "Lasso")}
+        <span class="pwan-pixel-position" data-pwan-pixel-position="${side}">--, --</span>
+      </div>
+      <div class="pwan-pixel-palette" role="group" aria-label="${side} palette">
+        ${Array.from({ length: 16 }, (_value, index) => renderPwanPixelSwatch(side, data.paletteBgr555, index, index === selectedIndex)).join("")}
+      </div>
+      <div class="pwan-pixel-selection">
+        <span class="pwan-pixel-selected ${selectedIndex === 0 ? "-transparent" : ""}" data-pwan-pixel-selected="${side}" style="background: ${pwanPaletteSwatchBackground(data.paletteBgr555[selectedIndex] ?? 0, selectedIndex)}"></span>
+        <strong data-pwan-pixel-selected-label="${side}">${pwanPaletteColorLabel(data.paletteBgr555, selectedIndex)}</strong>
+      </div>
+      <div class="pwan-pixel-lasso">
+        <label>
+          <span>From</span>
+          <select data-pwan-lasso-from="${side}">${renderPwanPaletteOptions(data.paletteBgr555, selectedIndex)}</select>
+        </label>
+        <label>
+          <span>To</span>
+          <select data-pwan-lasso-to="${side}">${renderPwanPaletteOptions(data.paletteBgr555, selectedIndex)}</select>
+        </label>
+        <button class="btn -default" data-pwan-lasso-apply="${side}" type="button" disabled>Apply</button>
+        <button class="btn -default" data-pwan-lasso-clear="${side}" type="button" disabled>Clear</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderPwanPixelToolButton(side: PwanSide, tool: PwanPixelTool, label: string): string {
+  return `
+    <button class="animation-icon-btn pwan-pixel-tool ${tool === "pick" ? "-active" : ""}" data-pwan-pixel-tool="${side}" data-pwan-pixel-tool-name="${tool}" type="button" aria-label="${label}" aria-pressed="${tool === "pick"}" title="${label}">
+      <span class="pwan-pixel-icon -${tool}" aria-hidden="true"></span>
+    </button>
+  `;
+}
+
+function renderPwanPixelSwatch(side: PwanSide, palette: Uint16Array, index: number, selected: boolean): string {
+  return `
+    <button class="pwan-pixel-swatch ${selected ? "-active" : ""} ${index === 0 ? "-transparent" : ""}" data-pwan-pixel-color="${side}" data-pwan-pixel-color-index="${index}" type="button" aria-label="${pwanPaletteColorLabel(palette, index)}" aria-pressed="${selected}" title="${pwanPaletteColorLabel(palette, index)}" style="background: ${pwanPaletteSwatchBackground(palette[index] ?? 0, index)}"></button>
+  `;
+}
+
+function renderPwanPaletteOptions(palette: Uint16Array, selectedIndex: number): string {
+  return Array.from({ length: 16 }, (_value, index) => `<option value="${index}" ${index === selectedIndex ? "selected" : ""}>${pwanPaletteColorLabel(palette, index)}</option>`).join("");
+}
+
 function renderSpeciesSidePanel(project: ProjectState, speciesId: number, side: PwanSide, data: PwanOverrideSide | undefined): string {
   const title = side === "front" ? "Front" : "Back";
   const inputId = `pwan-${side}-gif`;
@@ -1146,7 +1561,7 @@ function renderSpeciesSidePanel(project: ProjectState, speciesId: number, side: 
               <div class="pwan-preview-shell">
                 <div class="pwan-preview-stack">
                   <div class="pwan-preview-stage">
-                    <canvas width="${PWAN_WIDTH * 3}" height="${PWAN_HEIGHT * 3}" data-pwan-preview="${side}" aria-label="${title} PWAN preview"></canvas>
+                    <canvas width="${PWAN_WIDTH * 6}" height="${PWAN_HEIGHT * 6}" data-pwan-preview="${side}" aria-label="${title} PWAN preview"></canvas>
                     <div class="pwan-preview-playback" aria-label="${title} playback controls">
                       <button class="animation-icon-btn pwan-preview-icon-btn" data-pwan-step="${side}" data-pwan-step-direction="prev" type="button" aria-label="Previous frame" title="Previous frame"><span class="animation-icon -step-back" aria-hidden="true"></span></button>
                       <button class="animation-icon-btn pwan-preview-icon-btn" data-pwan-play="${side}" type="button" aria-label="Pause" title="Pause"><span class="animation-icon -pause" aria-hidden="true"></span></button>
@@ -1188,9 +1603,10 @@ function renderSpeciesSidePanel(project: ProjectState, speciesId: number, side: 
                   <input data-pwan-outline-threshold="${side}" type="range" min="${PWAN_MIN_OUTLINE_THRESHOLD}" max="${PWAN_MAX_OUTLINE_THRESHOLD}" step="1" value="${outlineThreshold}" ${frameScaleMode === "outlineFill" ? "" : "disabled"}>
                 </label>
                 <div class="pwan-preview-actions">
-                  <button class="btn -default" data-pwan-download-gif="${side}" type="button">Download GIF</button>
+                  <button class="btn -default" data-pwan-download-gif="${side}" type="button">Export GIF</button>
                   <button class="btn -default" data-pwan-download-png="${side}" type="button">Export PNG</button>
                 </div>
+                ${renderPwanPixelEditorControls(side, data)}
               </div>
             </div>`
           : `<div class="pwan-empty">No ${side} PWAN imported for ${escapeHtml(speciesLabel(project, speciesId))}.</div>`

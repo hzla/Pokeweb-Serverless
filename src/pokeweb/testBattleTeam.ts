@@ -106,6 +106,19 @@ export function patchTestBattleSavePlayerParty(saveBytes: Uint8Array, project: P
   return out;
 }
 
+export function patchTestBattleSavePlayerFirstPokemon(saveBytes: Uint8Array, project: ProjectState, pokemonText: string, baseRom: BaseRom = "BW2"): Uint8Array {
+  const pokemon = parseShowdownTeam(project, pokemonText)[0];
+  if (!pokemon) return saveBytes;
+
+  const layout = getTestBattlePartySaveLayout(baseRom);
+  const out = saveBytes.slice();
+  patchFirstPartyPokemonHalf(out, layout, 0, project, pokemon);
+  if (hasSaveHalf(out, layout)) {
+    patchFirstPartyPokemonHalf(out, layout, layout.saveHalfOffset, project, pokemon);
+  }
+  return out;
+}
+
 export function patchTestBattleSavePlayerFirstMove(saveBytes: Uint8Array, project: ProjectState, moveId: number, baseRom: BaseRom = "BW2"): Uint8Array {
   if (!Number.isInteger(moveId) || moveId < 0 || moveId > 0xffff) throw new Error(`Invalid move ID: ${moveId}`);
   const layout = getTestBattlePartySaveLayout(baseRom);
@@ -337,6 +350,23 @@ function patchFirstPartyMoveHalf(out: Uint8Array, layout: TestBattlePartySaveLay
 
   writeLe16(decrypted, 0x28, moveId);
   decrypted[0x30] = movePp(project, moveId);
+  out.set(encryptPk5Party(decrypted), slotOffset);
+
+  refreshPartyBlockChecksums(out, layout, halfOffset);
+}
+
+function patchFirstPartyPokemonHalf(out: Uint8Array, layout: TestBattlePartySaveLayout, halfOffset: number, project: ProjectState, pokemon: ShowdownPokemon): void {
+  const partyOffset = halfOffset + TEST_BATTLE_PARTY_BLOCK_OFFSET;
+  const partyCount = out[partyOffset + 4] ?? out[partyOffset] ?? 0;
+  if (partyCount < 1) throw new Error("The bundled test battle save does not have a party Pokemon in slot 1.");
+
+  const slotOffset = partyOffset + 8;
+  const decrypted = decryptPk5Party(out.subarray(slotOffset, slotOffset + PK5_PARTY_SIZE));
+  if (readLe16(decrypted, 0x08) === 0) throw new Error("The bundled test battle save has an empty party Pokemon slot 1.");
+
+  const trainer = readSaveTrainerIdentity(out, halfOffset);
+  const personal = getPersonal(project, pokemon.speciesId);
+  applyPokemonToPk5(project, decrypted, pokemon, personal, trainer, 0);
   out.set(encryptPk5Party(decrypted), slotOffset);
 
   refreshPartyBlockChecksums(out, layout, halfOffset);

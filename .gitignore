@@ -10,6 +10,7 @@ dist/
 *.sav
 !src/assets/testbattle/test.sav
 *.dsv
+!src/assets/testbattle/White2Upgrade.dsv
 !src/assets/testbattle/white.dsv
 !src/assets/testbattle/testani.dsv
 !src/assets/testbattle/vanillagold.dsv
