@@ -14,6 +14,7 @@ import { compileMoveAnimation, decompileMoveAnimationBytes, updateMoveAnimationS
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
+import { installMoveAnimationAudioPreview, type MoveAnimationAudioPreviewController } from "./moveAnimationAudioPreview";
 import { installMoveAnimationPreview, renderMoveBackgroundPreviewCanvas, type MoveAnimationPreviewController } from "./moveAnimationPreview";
 import { installMoveAnimationCodeEditor, type MoveAnimationCommandReference } from "./moveAnimationCodeEditor";
 import { installMoveSpaEditor, type MoveSpaEditorController } from "./moveSpaEditor";
@@ -130,33 +131,47 @@ export function renderMoveAnimationEditor(script: string): string {
         <div class="move-animation-text"></div>
       </div>
       <div class="move-animation-side-pane">
-        <div class="move-animation-preview-host show-flex">
-          <div class="move-animation-preview-loading">Building preview...</div>
+        <div class="move-animation-side-tabs" role="tablist" aria-label="Move animation side panel">
+          <button class="move-animation-side-tab -active" id="move-animation-preview-tab" type="button" role="tab" aria-selected="true" aria-controls="move-animation-preview-panel" data-move-animation-side-tab="preview">Preview</button>
+          <button class="move-animation-side-tab" id="move-animation-spa-tab" type="button" role="tab" aria-selected="false" aria-controls="move-animation-spa-panel" data-move-animation-side-tab="spa" tabindex="-1">SPA Editor</button>
+          <button class="move-animation-side-tab" id="move-animation-audio-tab" type="button" role="tab" aria-selected="false" aria-controls="move-animation-audio-panel" data-move-animation-side-tab="audio" tabindex="-1">Audio</button>
         </div>
-        <section class="move-animation-spa-pane" aria-label="SPA particle editor">
-          <div class="move-animation-spa-placeholder">
-            <h4>SPA Particle Editor</h4>
-            <p>Particle resource editing will live here.</p>
-            <div class="move-animation-spa-placeholder-grid">
-              <div>
-                <strong>Archives</strong>
-                <span>Referenced SPA files</span>
-              </div>
-              <div>
-                <strong>Emitters</strong>
-                <span>Particle timing and spawn controls</span>
-              </div>
-              <div>
-                <strong>Textures</strong>
-                <span>Palette and image previews</span>
-              </div>
-              <div>
-                <strong>Preview Sync</strong>
-                <span>Live updates beside the script</span>
+        <div class="move-animation-side-tab-panels">
+          <section class="move-animation-side-tab-panel -active" id="move-animation-preview-panel" role="tabpanel" aria-labelledby="move-animation-preview-tab" data-move-animation-side-panel="preview">
+            <div class="move-animation-preview-host show-flex">
+              <div class="move-animation-preview-loading">Building preview...</div>
+            </div>
+          </section>
+          <section class="move-animation-side-tab-panel" id="move-animation-spa-panel" role="tabpanel" aria-labelledby="move-animation-spa-tab" data-move-animation-side-panel="spa" hidden>
+            <div class="move-animation-spa-pane" aria-label="SPA particle editor">
+              <div class="move-animation-spa-placeholder">
+                <h4>SPA Particle Editor</h4>
+                <p>Particle resource editing will live here.</p>
+                <div class="move-animation-spa-placeholder-grid">
+                  <div>
+                    <strong>Archives</strong>
+                    <span>Referenced SPA files</span>
+                  </div>
+                  <div>
+                    <strong>Emitters</strong>
+                    <span>Particle timing and spawn controls</span>
+                  </div>
+                  <div>
+                    <strong>Textures</strong>
+                    <span>Palette and image previews</span>
+                  </div>
+                  <div>
+                    <strong>Preview Sync</strong>
+                    <span>Live updates beside the script</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+          <section class="move-animation-side-tab-panel" id="move-animation-audio-panel" role="tabpanel" aria-labelledby="move-animation-audio-tab" data-move-animation-side-panel="audio" hidden>
+            <div class="move-animation-audio-pane" aria-label="Move animation audio preview"></div>
+          </section>
+        </div>
       </div>
     </div>
   `;
@@ -168,8 +183,25 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   const status = panel.querySelector<HTMLElement>(".move-animation-status");
   const previewHost = panel.querySelector<HTMLElement>(".move-animation-preview-host");
   const spaEditorHost = panel.querySelector<HTMLElement>(".move-animation-spa-pane");
+  const audioPreviewHost = panel.querySelector<HTMLElement>(".move-animation-audio-pane");
   const commandReference = document.querySelector<HTMLElement>("#move-command-reference");
   const testButton = document.querySelector<HTMLButtonElement>(".move-animation-test-btn");
+  let audioPreview: MoveAnimationAudioPreviewController | undefined;
+  let audioTabLoaded = false;
+  const activateSideTab = (nextTab: "preview" | "spa" | "audio") => {
+    if (nextTab !== "audio") audioPreview?.stop();
+    panel.querySelectorAll<HTMLButtonElement>("[data-move-animation-side-tab]").forEach((button) => {
+      const active = button.dataset.moveAnimationSideTab === nextTab;
+      button.classList.toggle("-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+      button.tabIndex = active ? 0 : -1;
+    });
+    panel.querySelectorAll<HTMLElement>("[data-move-animation-side-panel]").forEach((tabPanel) => {
+      const active = tabPanel.dataset.moveAnimationSidePanel === nextTab;
+      tabPanel.classList.toggle("-active", active);
+      tabPanel.hidden = !active;
+    });
+  };
   const editor = editorHost
     ? installMoveAnimationCodeEditor(editorHost, source?.value ?? "", {
         onCommandSelected: (reference) => renderCommandReference(commandReference, reference, project),
@@ -177,6 +209,9 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
     : undefined;
   const spaEditor: MoveSpaEditorController | undefined = spaEditorHost
     ? installMoveSpaEditor(spaEditorHost, project, editor?.getValue() ?? source?.value ?? "", { onDirty: options.onDirty })
+    : undefined;
+  audioPreview = audioPreviewHost
+    ? installMoveAnimationAudioPreview(audioPreviewHost, project, moveId, () => editor?.getValue() ?? source?.value ?? "")
     : undefined;
   let previewController: MoveAnimationPreviewController | undefined;
   let lastGood = editor?.getValue() ?? "";
@@ -187,6 +222,7 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   };
   const buildPreview = async (initialPlaying: boolean) => {
     if (!editor || !previewHost) return;
+    activateSideTab("preview");
     closePreview();
     previewHost.classList.add("show-flex");
     previewHost.innerHTML = `<div class="move-animation-preview-loading">Building preview...</div>`;
@@ -216,6 +252,18 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
     }
   };
   panel.addEventListener("move-animation-preview-close", closePreview);
+  panel.querySelectorAll<HTMLButtonElement>("[data-move-animation-side-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextTab = button.dataset.moveAnimationSideTab;
+      if (nextTab !== "preview" && nextTab !== "spa" && nextTab !== "audio") return;
+      activateSideTab(nextTab);
+      if (nextTab === "spa") void spaEditor?.ensureReferences(editor?.getValue() ?? source?.value ?? "");
+      if (nextTab === "audio" && !audioTabLoaded) {
+        audioTabLoaded = true;
+        void audioPreview?.refresh();
+      }
+    });
+  });
   void buildPreview(false);
   panel.querySelector<HTMLButtonElement>(".move-animation-apply")?.addEventListener("click", () => {
     if (!editor) return;

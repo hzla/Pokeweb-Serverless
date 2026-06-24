@@ -24,6 +24,7 @@
     "@vitejs/plugin-basic-ssl": "^1.2.0",
     "fflate": "^0.8.3",
     "gifuct-js": "^2.1.2",
+    "nitro-fs": "^1.1.1",
     "pngjs": "^7.0.0",
     "three": "^0.184.0",
     "treeforge": "^1.0.3",
