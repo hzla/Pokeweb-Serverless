@@ -230,7 +230,7 @@ function renderMoveAnimationMoveOptions(project: ProjectState, selectedMoveId: n
   for (let id = 0; id < getMoveCount(project); id += 1) {
     const move = getMoveRecord(project, id);
     const name = titleize(String(move.readable.name ?? `Move ${id}`));
-    options.push(`<option value="${id}" ${id === selectedMoveId ? "selected" : ""}>${id} - ${escapeHtml(name)}</option>`);
+    options.push(`<option value="${id}" ${id === selectedMoveId ? "selected" : ""}>${escapeHtml(name)} - ${id}</option>`);
   }
   return options.join("");
 }

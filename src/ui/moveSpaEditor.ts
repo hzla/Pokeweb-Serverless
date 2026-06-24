@@ -314,7 +314,7 @@ export function installMoveSpaEditorWithSource(
     loading: false,
     saving: false,
     scriptText,
-    openSections: new Set(["emitter", "particle"]),
+    openSections: new Set(["emitter", "particle", "textures"]),
   };
 
   host.addEventListener("click", (event) => {

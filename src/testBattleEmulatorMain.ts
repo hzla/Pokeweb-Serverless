@@ -177,10 +177,21 @@ function setPlaybackControlsEnabled(enabled: boolean): void {
 
 function shieldControlsFromEmulatorInput(): void {
   if (!controls) return;
-  const stop = (event: Event) => event.stopPropagation();
+  const stop = (event: Event) => {
+    if (event.type === "pointerup" || event.type === "mouseup" || event.type === "touchend" || event.type === "touchcancel") {
+      window.setTimeout(blurFocusedEmulatorControl, 0);
+    }
+    event.stopPropagation();
+  };
   for (const eventName of ["pointerdown", "pointerup", "pointermove", "mousedown", "mouseup", "mousemove", "click", "dblclick", "touchstart", "touchmove", "touchend", "touchcancel", "keydown", "keyup"]) {
     controls.addEventListener(eventName, stop);
   }
+  controls.addEventListener("change", () => window.setTimeout(blurFocusedEmulatorControl, 0));
+}
+
+function blurFocusedEmulatorControl(): void {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && controls?.contains(active)) active.blur();
 }
 
 function clampSpeedMultiplier(value: number): number {
