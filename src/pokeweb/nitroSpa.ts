@@ -174,6 +174,62 @@ export type SpaArchive = {
   rawHeader?: Uint8Array;
 };
 
+export type SpaTextureReference = {
+  label: string;
+};
+
+export function findSpaTextureReferences(archive: SpaArchive, textureIndex: number): SpaTextureReference[] {
+  const references: SpaTextureReference[] = [];
+  for (const resource of archive.resources) {
+    if (resource.textureIndex === textureIndex) references.push({ label: `Emitter ${resource.index} particle texture` });
+    if (resource.childResource?.textureIndex === textureIndex) references.push({ label: `Emitter ${resource.index} child texture` });
+    resource.texAnim?.textures.forEach((frameTextureIndex, frameIndex) => {
+      if (frameTextureIndex === textureIndex) references.push({ label: `Emitter ${resource.index} texture animation frame ${frameIndex}` });
+    });
+  }
+  for (const texture of archive.textures) {
+    if (texture.useSharedTexture && texture.sharedTexId === textureIndex) references.push({ label: `Texture ${texture.index} shared texture source` });
+  }
+  return references;
+}
+
+export function removeSpaTexture(archive: SpaArchive, textureIndex: number): void {
+  if (!Number.isInteger(textureIndex) || textureIndex < 0 || textureIndex >= archive.textures.length) throw new Error(`Texture ${textureIndex} does not exist.`);
+  if (archive.textures.length <= 1) throw new Error("Cannot remove the last texture from a SPA archive.");
+
+  const replacementIndex = textureIndex > 0 ? textureIndex - 1 : 0;
+  const remapTextureIndex = (value: number) => {
+    if (value === textureIndex) return replacementIndex;
+    if (value > textureIndex) return value - 1;
+    return value;
+  };
+
+  for (const resource of archive.resources) {
+    resource.textureIndex = remapTextureIndex(resource.textureIndex);
+    if (resource.childResource) resource.childResource.textureIndex = remapTextureIndex(resource.childResource.textureIndex);
+    if (resource.texAnim) resource.texAnim.textures = resource.texAnim.textures.map(remapTextureIndex);
+  }
+
+  archive.textures.splice(textureIndex, 1);
+  archive.textures.forEach((texture, index) => {
+    texture.index = index;
+    if (texture.useSharedTexture) rewriteSharedTextureReference(texture, remapTextureIndex(texture.sharedTexId));
+  });
+  archive.textureCount = archive.textures.length;
+}
+
+function rewriteSharedTextureReference(texture: SpaTexture, sharedTexId: number): void {
+  if (texture.sharedTexId === sharedTexId) return;
+  texture.sharedTexId = sharedTexId;
+  if (!texture.rawBytes || texture.rawBytes.length < TEXTURE_HEADER_SIZE) return;
+  const rawBytes = texture.rawBytes.slice();
+  const rawParam = (texture.rawParam ?? readU32(rawBytes, 4)) & ~(0xff << 18);
+  const nextParam = rawParam | ((sharedTexId & 0xff) << 18);
+  writeU32(rawBytes, 4, nextParam);
+  texture.rawBytes = rawBytes;
+  texture.rawParam = nextParam;
+}
+
 export function parseSpaArchive(bytes: Uint8Array): SpaArchive {
   const warnings: SpaWarning[] = [];
   if (bytes.length < 32) throw new Error("SPA file is too small");
