@@ -143,13 +143,17 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
 
 function renderExpanded(record: PokemonEditorRecord): string {
   const canAddLearnsetMove = record.learnset.length < LEARNSET_MAX_MOVES;
+  const leftIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && field !== "height" && field !== "weight");
+  const midIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && (field === "height" || field === "weight"));
+  const textFields = PERSONAL_TEXT_FIELDS.filter(([, field]) => field in record.rawPersonal);
   return `
     <div class="expanded-card-content expanded-personal">
       <div class="expanded-left">
-        ${MISC_INTEGER_FIELDS.map(([label, field, max]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { type: `int-${max}` }))).join("")}
+        ${leftIntegerFields.map(([label, field, max]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { type: `int-${max}` }))).join("")}
       </div>
       <div class="expanded-mid">
-        ${PERSONAL_TEXT_FIELDS.map(([label, field, autofill]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { autofill }))).join("")}
+        ${midIntegerFields.map(([label, field, max]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { type: `int-${max}` }))).join("")}
+        ${textFields.map(([label, field, autofill]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { autofill }))).join("")}
       </div>
       <div class="expanded-right">
         ${EV_YIELD_FIELDS.map(([label, field]) => expandedField(`${label} EVs`, editable("personal", field, record.personal[field], "expanded-field-value ev-field", { type: "int-3" }))).join("")}
