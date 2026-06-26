@@ -163,6 +163,8 @@ export type SpaTexture = {
   sourceChanged?: boolean;
 };
 
+export type SpaTextureImportFormat = "preserve" | "direct" | "a5i3" | "a3i5";
+
 export type SpaArchive = {
   resourceCount: number;
   textureCount: number;
@@ -602,21 +604,21 @@ function serializeBehavior(behavior: SpaBehavior): Uint8Array {
 
 function serializeTexture(texture: SpaTexture): Uint8Array {
   if (!texture.sourceChanged && texture.rawBytes && texture.rawBytes.length >= TEXTURE_HEADER_SIZE) return texture.rawBytes.slice();
-  if (texture.format !== 7) throw new Error(`Saving edited SPA texture ${texture.index} as format ${texture.format} is not supported yet`);
   validateTextureDimensions(texture);
-  const textureData = encodeDirectTexture(texture.rgba, texture.width, texture.height);
-  const out = new Uint8Array(TEXTURE_HEADER_SIZE + textureData.length);
+  const encoded = encodeEditableTexture(texture);
+  const out = new Uint8Array(TEXTURE_HEADER_SIZE + encoded.textureData.length + encoded.paletteData.length);
   writeU32(out, 0, SPT_MAGIC);
-  writeU32(out, 4, 7 | ((Math.log2(texture.width) - 3) << 4) | ((Math.log2(texture.height) - 3) << 8));
-  writeU32(out, 8, textureData.length);
-  writeU32(out, 12, TEXTURE_HEADER_SIZE + textureData.length);
-  writeU32(out, 16, 0);
-  writeU32(out, 20, TEXTURE_HEADER_SIZE + textureData.length);
+  writeU32(out, 4, texture.format | ((Math.log2(texture.width) - 3) << 4) | ((Math.log2(texture.height) - 3) << 8));
+  writeU32(out, 8, encoded.textureData.length);
+  writeU32(out, 12, TEXTURE_HEADER_SIZE + encoded.textureData.length);
+  writeU32(out, 16, encoded.paletteData.length);
+  writeU32(out, 20, TEXTURE_HEADER_SIZE + encoded.textureData.length + encoded.paletteData.length);
   writeU32(out, 24, 0);
   writeU32(out, 28, out.length);
-  out.set(textureData, TEXTURE_HEADER_SIZE);
-  texture.textureSize = textureData.length;
-  texture.paletteSize = 0;
+  out.set(encoded.textureData, TEXTURE_HEADER_SIZE);
+  out.set(encoded.paletteData, TEXTURE_HEADER_SIZE + encoded.textureData.length);
+  texture.textureSize = encoded.textureData.length;
+  texture.paletteSize = encoded.paletteData.length;
   texture.paletteIndexSize = 0;
   texture.resourceSize = out.length;
   texture.useSharedTexture = false;
@@ -625,6 +627,13 @@ function serializeTexture(texture: SpaTexture): Uint8Array {
   texture.rawParam = readU32(out, 4);
   texture.sourceChanged = false;
   return out;
+}
+
+function encodeEditableTexture(texture: SpaTexture): { textureData: Uint8Array; paletteData: Uint8Array } {
+  if (texture.format === 7) return { textureData: encodeDirectTexture(texture.rgba, texture.width, texture.height), paletteData: new Uint8Array() };
+  if (texture.format === 6) return encodeIndexedAlphaTexture(texture.rgba, texture.width, texture.height, 8, 5);
+  if (texture.format === 1) return encodeIndexedAlphaTexture(texture.rgba, texture.width, texture.height, 32, 3);
+  throw new Error(`Saving edited SPA texture ${texture.index} as format ${texture.format} is not supported yet`);
 }
 
 function firstBehaviors(resource: SpaResource): Map<SpaBehavior["type"], SpaBehavior> {
@@ -947,6 +956,72 @@ function encodeDirectTexture(rgba: Uint8ClampedArray, width: number, height: num
     writeU16(out, index * 2, a | (b << 10) | (g << 5) | r);
   }
   return out;
+}
+
+function encodeIndexedAlphaTexture(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  paletteLimit: 8 | 32,
+  alphaBits: 5 | 3,
+): { textureData: Uint8Array; paletteData: Uint8Array } {
+  const pixelCount = width * height;
+  if (rgba.length < pixelCount * 4) throw new Error(`Indexed-alpha texture data is truncated: expected ${pixelCount * 4} RGBA bytes`);
+
+  const palette = buildBgr555Palette(rgba, pixelCount, paletteLimit);
+  const paletteData = new Uint8Array(paletteLimit * 2);
+  palette.forEach((color, index) => writeU16(paletteData, index * 2, color));
+
+  const maxAlpha = (1 << alphaBits) - 1;
+  const textureData = new Uint8Array(pixelCount);
+  for (let index = 0; index < pixelCount; index += 1) {
+    const offset = index * 4;
+    const alpha = clampInt(Math.round(((rgba[offset + 3] ?? 0) / 255) * maxAlpha), 0, maxAlpha);
+    const paletteIndex = alpha === 0 ? 0 : nearestBgr555PaletteIndex(rgbToBgr555(rgba[offset] ?? 0, rgba[offset + 1] ?? 0, rgba[offset + 2] ?? 0), palette);
+    textureData[index] = alphaBits === 5 ? ((alpha << 3) | (paletteIndex & 0x07)) & 0xff : ((alpha << 5) | (paletteIndex & 0x1f)) & 0xff;
+  }
+
+  return { textureData, paletteData };
+}
+
+function buildBgr555Palette(rgba: Uint8ClampedArray, pixelCount: number, paletteLimit: number): number[] {
+  const counts = new Map<number, number>();
+  for (let index = 0; index < pixelCount; index += 1) {
+    const offset = index * 4;
+    if ((rgba[offset + 3] ?? 0) <= 0) continue;
+    const packed = rgbToBgr555(rgba[offset] ?? 0, rgba[offset + 1] ?? 0, rgba[offset + 2] ?? 0);
+    counts.set(packed, (counts.get(packed) ?? 0) + 1);
+  }
+  const palette = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+    .slice(0, paletteLimit)
+    .map(([color]) => color);
+  while (palette.length < paletteLimit) palette.push(0);
+  return palette;
+}
+
+function nearestBgr555PaletteIndex(color: number, palette: number[]): number {
+  let bestIndex = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  const r = color & 0x1f;
+  const g = (color >>> 5) & 0x1f;
+  const b = (color >>> 10) & 0x1f;
+  for (let index = 0; index < palette.length; index += 1) {
+    const candidate = palette[index] ?? 0;
+    const dr = r - (candidate & 0x1f);
+    const dg = g - ((candidate >>> 5) & 0x1f);
+    const db = b - ((candidate >>> 10) & 0x1f);
+    const distance = dr * dr + dg * dg + db * db;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  }
+  return bestIndex;
+}
+
+function rgbToBgr555(r: number, g: number, b: number): number {
+  return clampInt(Math.round((r / 255) * 31), 0, 31) | (clampInt(Math.round((g / 255) * 31), 0, 31) << 5) | (clampInt(Math.round((b / 255) * 31), 0, 31) << 10);
 }
 
 function validateTextureDimensions(texture: SpaTexture): void {

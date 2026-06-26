@@ -46,6 +46,63 @@ describe("move SPA writeback", () => {
     expect(reparsed.textures[0].rgba[0]).toBeGreaterThan(240);
   });
 
+  it("serializes edited indexed-alpha texture replacements", () => {
+    for (const [format, paletteSize] of [
+      [6, 16],
+      [1, 64],
+    ] as const) {
+      const archive = parseSpaArchive(makeSyntheticSpa());
+      archive.textures[0].format = format;
+      archive.textures[0].width = 8;
+      archive.textures[0].height = 8;
+      archive.textures[0].rgba = patternedRgba(8, 8);
+      archive.textures[0].sourceChanged = true;
+
+      const reparsed = parseSpaArchive(serializeSpaArchive(archive));
+
+      expect(reparsed.textures[0].format).toBe(format);
+      expect(reparsed.textures[0].textureSize).toBe(64);
+      expect(reparsed.textures[0].paletteSize).toBe(paletteSize);
+      expect(reparsed.textures[0].rgba[3]).toBe(0);
+      expect(reparsed.textures[0].rgba[7]).toBeGreaterThan(120);
+    }
+  });
+
+  it("serializes appended textures and updated texture references", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    const appendedTexture = {
+      ...archive.textures[0],
+      index: 1,
+      format: 6,
+      width: 8,
+      height: 8,
+      textureSize: 64,
+      paletteSize: 16,
+      paletteIndexSize: 0,
+      resourceSize: 112,
+      useSharedTexture: false,
+      sharedTexId: 0,
+      rgba: patternedRgba(8, 8),
+      rawBytes: undefined,
+      sourceChanged: true,
+    };
+    archive.textures.push(appendedTexture);
+    archive.textureCount = archive.textures.length;
+    archive.resources[0].textureIndex = 1;
+    archive.resources[0].texAnim = { textures: [1, 0], textureCount: 2, step: 0.5, randomizeInit: false, loop: true };
+
+    const reparsed = parseSpaArchive(serializeSpaArchive(archive));
+
+    expect(reparsed.textureCount).toBe(2);
+    expect(reparsed.textures[1].index).toBe(1);
+    expect(reparsed.textures[1].format).toBe(6);
+    expect(reparsed.textures[1].textureSize).toBe(64);
+    expect(reparsed.textures[1].paletteSize).toBe(16);
+    expect(reparsed.resources[0].textureIndex).toBe(1);
+    expect(reparsed.resources[0].texAnim?.textureCount).toBe(2);
+    expect(reparsed.resources[0].texAnim?.textures.slice(0, 2)).toEqual([1, 0]);
+  });
+
   it("lazily creates move_spas, marks only the saved SPA dirty, and exports it in the ROM", async () => {
     const spaNarc = new NARC();
     spaNarc.files = [makeSyntheticSpa(), makeSyntheticSpa()];
@@ -150,5 +207,17 @@ function makeRomWithMoveSpas(moveSpas: Uint8Array): Uint8Array {
 function solidRgba(width: number, height: number, color: [number, number, number, number]): Uint8ClampedArray {
   const out = new Uint8ClampedArray(width * height * 4);
   for (let offset = 0; offset < out.length; offset += 4) out.set(color, offset);
+  return out;
+}
+
+function patternedRgba(width: number, height: number): Uint8ClampedArray {
+  const colors: Array<[number, number, number, number]> = [
+    [0, 0, 0, 0],
+    [255, 216, 220, 255],
+    [210, 72, 144, 192],
+    [255, 245, 252, 128],
+  ];
+  const out = new Uint8ClampedArray(width * height * 4);
+  for (let pixel = 0; pixel < width * height; pixel += 1) out.set(colors[pixel % colors.length], pixel * 4);
   return out;
 }

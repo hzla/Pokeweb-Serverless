@@ -1112,6 +1112,14 @@
   padding: 0 10px 10px;
 }
 
+#moves .move-spa-texture-import-panel {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  padding: 0 10px 10px;
+}
+
 #moves .move-spa-field-help {
   appearance: none;
   background: transparent;
@@ -1145,6 +1153,21 @@
   margin-top: 10px;
 }
 
+#moves .move-spa-texture-import-options {
+  display: grid;
+  font-weight: 700;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+#moves .move-spa-texture-import-options select {
+  background: #282a36;
+  border: 1px solid #62677f;
+  border-radius: 6px;
+  color: #f8f8f2;
+  padding: 6px 8px;
+}
+
 #moves .move-spa-texture-import input {
   color: #d7d7e2;
   max-width: 100%;
@@ -1152,6 +1175,18 @@
 
 #moves .move-spa-texture-export {
   margin-top: 10px;
+}
+
+#moves .move-spa-texture-reference-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#moves .move-spa-texture-reference-actions .script-btn {
+  min-height: 34px;
 }
 
 @media only screen and (max-width: 1180px) {

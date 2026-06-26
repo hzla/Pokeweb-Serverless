@@ -113,11 +113,36 @@ type SaveFilePickerOptionsLike = {
     accept: Record<string, string[]>;
   }>;
 };
+type RomLoadProgressOverlay = {
+  setStage: (message: string) => void;
+  setError: (message: string) => void;
+  finish: (message?: string) => void;
+  close: () => void;
+};
 const ROUTE_KEY = "pokeweb-serverless-route";
 const OVERWORLD_ROUTE_KEY = "pokeweb-serverless-overworld-id";
 const MOVE_ANIMATION_ROUTE_KEY = "pokeweb-serverless-move-animation-id";
 const PWAN_ANIMATION_ROUTE_KEY = "pokeweb-serverless-pwan-animation-species-id";
 const HIDE_EXPORT_CHANGELOG_PROMPT_KEY = "pokeweb-hide-export-changelog-prompt";
+
+const ROM_LOAD_STAGE_PROGRESS: Array<[message: string, percent: number]> = [
+  ["Starting ROM load", 4],
+  ["Reading ROM file", 12],
+  ["Decompressing ARM9", 22],
+  ["Extracting Gen 4 NARCs", 38],
+  ["Extracting header NARCs", 34],
+  ["Decoding Gen 4 message banks", 56],
+  ["Decoding message banks", 48],
+  ["Extracting editor NARCs", 64],
+  ["Extracting overlays", 76],
+  ["Indexing trainer metadata", 84],
+  ["Parsing Gen 4 headers", 90],
+  ["Parsing headers", 90],
+  ["Parsing TM table", 95],
+  ["Saving project in browser storage", 98],
+  ["Opening editor", 100],
+  ["ROM loaded", 100],
+];
 
 const APP_ROUTES: AppRoute[] = [
   "upload",
@@ -1227,17 +1252,36 @@ function renderUpload(root: HTMLElement): void {
   input?.addEventListener("change", async () => {
     const file = input.files?.[0];
     if (!file) return;
+    const progressOverlay = showRomLoadProgressOverlay(file.name);
+    const updateUploadStatus = (message: string) => {
+      statusText(status, message);
+      progressOverlay.setStage(message);
+    };
     try {
-      statusText(status, "Starting ROM load");
+      input.disabled = true;
+      if (fairyInput) fairyInput.disabled = true;
+      updateUploadStatus("Starting ROM load");
+      await waitForNextPaint();
       const selectedNarcs = getSelectedNarcs(root);
-      project = await loadProjectFromRomFile(file, { fairy: fairyInput?.checked ?? false, selectedNarcs }, (message) => statusText(status, message));
+      project = await loadProjectFromRomFile(file, { fairy: fairyInput?.checked ?? false, selectedNarcs }, updateUploadStatus);
       resetActionChangelog(project);
       dirty = false;
+      updateUploadStatus("Saving project in browser storage");
+      await waitForNextPaint();
       await saveActiveProject(project);
       hasExportBase = true;
+      updateUploadStatus("Opening editor");
+      progressOverlay.finish("ROM loaded");
       applyRouteState({ route: defaultLoadedRoute() });
+      progressOverlay.close();
     } catch (error) {
-      statusText(status, error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      statusText(status, message);
+      progressOverlay.setError(message);
+    } finally {
+      input.disabled = false;
+      if (fairyInput) fairyInput.disabled = false;
+      input.value = "";
     }
   });
 
@@ -1617,6 +1661,146 @@ function isAppRoute(value: unknown): value is AppRoute {
 
 function statusText(status: HTMLElement | null | undefined, message: string): void {
   if (status) status.textContent = message;
+}
+
+function showRomLoadProgressOverlay(fileName: string): RomLoadProgressOverlay {
+  const overlay = document.createElement("div");
+  overlay.className = "rom-load-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "ROM load progress");
+  overlay.setAttribute("aria-modal", "true");
+
+  const dialog = document.createElement("div");
+  dialog.className = "rom-load-dialog";
+
+  const header = document.createElement("div");
+  header.className = "rom-load-dialog__header";
+
+  const titleBlock = document.createElement("div");
+  titleBlock.className = "rom-load-dialog__title-block";
+
+  const title = document.createElement("h2");
+  title.textContent = "Loading ROM";
+
+  const subtitle = document.createElement("p");
+  subtitle.textContent = fileName;
+
+  titleBlock.append(title, subtitle);
+
+  const closeButton = document.createElement("button");
+  closeButton.className = "rom-load-dialog__close";
+  closeButton.type = "button";
+  closeButton.textContent = "Close";
+  closeButton.hidden = true;
+
+  header.append(titleBlock, closeButton);
+
+  const stage = document.createElement("div");
+  stage.className = "rom-load-stage";
+  stage.setAttribute("aria-live", "polite");
+  stage.textContent = "Preparing load...";
+
+  const progress = document.createElement("div");
+  progress.className = "rom-load-progress -indeterminate";
+  progress.setAttribute("role", "progressbar");
+  progress.setAttribute("aria-valuemin", "0");
+  progress.setAttribute("aria-valuemax", "100");
+
+  const progressBar = document.createElement("div");
+  progressBar.className = "rom-load-progress__bar";
+  progress.append(progressBar);
+
+  const consoleLog = document.createElement("div");
+  consoleLog.className = "rom-load-console";
+  consoleLog.setAttribute("aria-live", "polite");
+
+  dialog.append(header, stage, progress, consoleLog);
+  overlay.append(dialog);
+  document.body.append(overlay);
+
+  let closed = false;
+
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+  };
+
+  const appendLine = (message: string, kind: "stage" | "error" = "stage") => {
+    const line = document.createElement("div");
+    line.className = `rom-load-console__line${kind === "error" ? " -error" : ""}`;
+
+    const time = document.createElement("span");
+    time.className = "rom-load-console__time";
+    time.textContent = new Date().toLocaleTimeString();
+
+    const text = document.createElement("span");
+    text.textContent = message;
+
+    line.append(time, text);
+    consoleLog.append(line);
+    consoleLog.scrollTop = consoleLog.scrollHeight;
+  };
+
+  const setProgress = (percent: number | undefined) => {
+    if (percent === undefined) {
+      progress.classList.add("-indeterminate");
+      progress.removeAttribute("aria-valuenow");
+      progressBar.style.width = "";
+      return;
+    }
+    const boundedPercent = Math.max(0, Math.min(100, percent));
+    progress.classList.remove("-indeterminate");
+    progress.setAttribute("aria-valuenow", String(Math.round(boundedPercent)));
+    progressBar.style.width = `${boundedPercent}%`;
+  };
+
+  const api: RomLoadProgressOverlay = {
+    setStage(message) {
+      if (closed) return;
+      stage.textContent = message;
+      setProgress(estimateRomLoadProgress(message));
+      appendLine(message);
+    },
+    setError(message) {
+      if (closed) return;
+      dialog.classList.add("-error");
+      stage.textContent = "ROM load failed";
+      setProgress(100);
+      appendLine(message, "error");
+      closeButton.hidden = false;
+      closeButton.focus();
+    },
+    finish(message = "ROM loaded") {
+      if (closed) return;
+      stage.textContent = message;
+      setProgress(100);
+      appendLine(message);
+    },
+    close,
+  };
+
+  closeButton.addEventListener("click", close);
+  appendLine("Opened ROM load console");
+  return api;
+}
+
+function estimateRomLoadProgress(message: string): number | undefined {
+  const stage = ROM_LOAD_STAGE_PROGRESS.find(([stageMessage]) => message.startsWith(stageMessage));
+  return stage?.[1];
+}
+
+function waitForNextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const finish = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(finish));
+    setTimeout(finish, 80);
+  });
 }
 
 function setChangelogBusy(root: HTMLElement, busy: boolean): void {
