@@ -9,6 +9,8 @@ import type {
   SpaColorAnim,
   SpaResource,
   SpaScaleAnim,
+  SpaTexture,
+  SpaTextureImportFormat,
   SpaTexAnim,
 } from "../pokeweb/nitroSpa";
 import { parseSpaArchive } from "../pokeweb/nitroSpa";
@@ -31,6 +33,13 @@ const DRAW_TYPES = ["Billboard", "Directional Billboard", "Polygon", "Directiona
 const EMISSION_AXES = ["Z", "Y", "X", "Emitter"];
 const POLYGON_ROT_AXES = ["Y", "XYZ"];
 const CHILD_ROTATION_TYPES = ["None", "Inherit Angle", "Inherit Angle + Velocity"];
+const TEXTURE_IMPORT_FORMATS: Array<{ value: SpaTextureImportFormat; label: string }> = [
+  { value: "preserve", label: "Preserve current" },
+  { value: "direct", label: "Direct color" },
+  { value: "a5i3", label: "A5I3" },
+  { value: "a3i5", label: "A3I5" },
+];
+const WRITABLE_TEXTURE_FORMATS = new Set([1, 6, 7]);
 let activeOpenSections: Set<string> | undefined;
 
 type SpaFieldHelp = {
@@ -111,8 +120,16 @@ const FIELD_HELP: Record<string, SpaFieldHelp> = {
     ],
   },
   "resource.textureIndex": {
-    title: "Texture Index",
+    title: "Texture",
     body: "Which texture image this particle uses from the SPA texture list.",
+  },
+  "child.textureIndex": {
+    title: "Child Texture",
+    body: "Which SPA texture the child particle uses when this emitter spawns secondary particles.",
+  },
+  "texAnim.textures": {
+    title: "Texture Animation Frame",
+    body: "Which SPA texture appears at this frame of the texture animation.",
   },
   "resource.hasRotation": {
     title: "Rotate",
@@ -269,6 +286,7 @@ type State = {
   selectedSpaId?: number;
   selectedResourceIndex: number;
   selectedTextureIndex: number;
+  textureImportFormat: SpaTextureImportFormat;
   loading: boolean;
   saving: boolean;
   scriptText: string;
@@ -311,6 +329,7 @@ export function installMoveSpaEditorWithSource(
     dirtySpaIds: new Set(),
     selectedResourceIndex: 0,
     selectedTextureIndex: 0,
+    textureImportFormat: "preserve",
     loading: false,
     saving: false,
     scriptText,
@@ -486,6 +505,36 @@ async function handleAction(state: State, action: string, options: MoveSpaEditor
     return;
   }
   if (!resource) return;
+  if (action === "assign-texture-resource") {
+    resource.textureIndex = state.selectedTextureIndex;
+    markDirty(state);
+    updateDerivedFlags(state);
+    state.status = `Assigned texture ${state.selectedTextureIndex} to emitter ${resource.index}.`;
+    render(state);
+    return;
+  }
+  if (action === "assign-texture-child" && resource.childResource) {
+    resource.childResource.textureIndex = state.selectedTextureIndex;
+    markDirty(state);
+    updateDerivedFlags(state);
+    state.status = `Assigned texture ${state.selectedTextureIndex} to child particles.`;
+    render(state);
+    return;
+  }
+  if (action === "append-texture-frame" && resource.texAnim) {
+    if (resource.texAnim.textures.length < 8) {
+      resource.texAnim.textures.push(state.selectedTextureIndex);
+      resource.texAnim.textureCount = resource.texAnim.textures.length;
+    } else {
+      resource.texAnim.textures[resource.texAnim.textures.length - 1] = state.selectedTextureIndex;
+      resource.texAnim.textureCount = 8;
+    }
+    markDirty(state);
+    updateDerivedFlags(state);
+    state.status = `Added texture ${state.selectedTextureIndex} to the texture animation.`;
+    render(state);
+    return;
+  }
 
   if (action === "add-scale") resource.scaleAnim = defaultScaleAnim();
   if (action === "remove-scale") resource.scaleAnim = undefined;
@@ -515,6 +564,18 @@ function handleFieldEvent(state: State, event: Event): void {
   if (input instanceof HTMLInputElement && input.dataset.spaTextureImport !== undefined) {
     const file = input.files?.[0];
     if (file) void replaceSelectedTexture(state, file);
+    input.value = "";
+    return;
+  }
+  if (input instanceof HTMLInputElement && input.dataset.spaTextureAdd !== undefined) {
+    const file = input.files?.[0];
+    if (file) void addTextureFromFile(state, file);
+    input.value = "";
+    return;
+  }
+  if (input instanceof HTMLSelectElement && input.dataset.spaTextureImportFormat !== undefined) {
+    state.textureImportFormat = normalizeTextureImportFormat(input.value);
+    render(state);
     return;
   }
   if (!input.dataset.spaField && !input.dataset.spaSelect) return;
@@ -572,7 +633,7 @@ function render(state: State): void {
       </div>
       ${state.error ? `<div class="move-spa-error">${escapeHtml(state.error)}</div>` : ""}
       ${renderSelectors(state, archive)}
-      ${archive && resource ? renderResourceEditor(archive, resource, state.selectedTextureIndex) : renderEmptyState(state)}
+      ${archive && resource ? renderResourceEditor(archive, resource, state.selectedTextureIndex, state.textureImportFormat) : renderEmptyState(state)}
     </div>
   `;
   drawTextureCanvases(state);
@@ -614,7 +675,7 @@ function renderEmptyState(state: State): string {
   return `<div class="move-spa-empty">Choose a SPA archive to edit particle resources.</div>`;
 }
 
-function renderResourceEditor(archive: SpaArchive, resource: SpaResource, selectedTextureIndex: number): string {
+function renderResourceEditor(archive: SpaArchive, resource: SpaResource, selectedTextureIndex: number, textureImportFormat: SpaTextureImportFormat): string {
   return `
     <div class="move-spa-editor-body">
       ${detailSection("emitter", "Emitter Settings", `
@@ -656,7 +717,7 @@ function renderResourceEditor(archive: SpaArchive, resource: SpaResource, select
           ${fieldGroup("Visual", `
             <div class="move-spa-grid">
               ${selectField("Draw Type", "resource", "drawType", resource.drawType, DRAW_TYPES)}
-              ${numberField("Texture Index", "resource", "textureIndex", resource.textureIndex, 1, 0, Math.max(0, archive.textures.length - 1))}
+              ${textureIndexField("Texture", "resource", "textureIndex", resource.textureIndex, archive)}
               ${colorField("Color", "resource", "color", resource.color)}
               ${numberField("Base Alpha", "resource", "baseAlpha", resource.baseAlpha, 0.01, 0, 1)}
               ${numberField("Base Scale", "resource", "baseScale", resource.baseScale, 0.01)}
@@ -708,15 +769,15 @@ function renderResourceEditor(archive: SpaArchive, resource: SpaResource, select
           `)}
         </div>
       `)}
-      ${renderAnimations(resource)}
-      ${renderChildResource(resource)}
+      ${renderAnimations(resource, archive)}
+      ${renderChildResource(resource, archive)}
       ${renderBehaviors(resource)}
-      ${renderTextures(archive, selectedTextureIndex)}
+      ${renderTextures(archive, resource, selectedTextureIndex, textureImportFormat)}
     </div>
   `;
 }
 
-function renderAnimations(resource: SpaResource): string {
+function renderAnimations(resource: SpaResource, archive: SpaArchive): string {
   return detailSection(
     "animations",
     "Animations",
@@ -724,7 +785,7 @@ function renderAnimations(resource: SpaResource): string {
       ${resource.scaleAnim ? renderScaleAnim(resource.scaleAnim) : addButton("add-scale", "Add Scale Animation")}
       ${resource.colorAnim ? renderColorAnim(resource.colorAnim) : addButton("add-color", "Add Color Animation")}
       ${resource.alphaAnim ? renderAlphaAnim(resource.alphaAnim) : addButton("add-alpha", "Add Alpha Animation")}
-      ${resource.texAnim ? renderTexAnim(resource.texAnim) : addButton("add-tex", "Add Texture Animation")}
+      ${resource.texAnim ? renderTexAnim(resource.texAnim, archive) : addButton("add-tex", "Add Texture Animation")}
     `,
   );
 }
@@ -757,16 +818,16 @@ function renderAlphaAnim(anim: SpaAlphaAnim): string {
   `);
 }
 
-function renderTexAnim(anim: SpaTexAnim): string {
+function renderTexAnim(anim: SpaTexAnim, archive: SpaArchive): string {
   return section("Texture Animation", "remove-tex", `
     <div class="move-spa-groups">
       ${fieldGroup("Playback", `<div class="move-spa-grid">${numberField("Texture Count", "texAnim", "textureCount", anim.textureCount, 1, 1, 8)}${numberField("Step", "texAnim", "step", anim.step, 0.01, 0, 1)}${checkboxField("Randomize Start", "texAnim", "randomizeInit", anim.randomizeInit)}${checkboxField("Loop", "texAnim", "loop", anim.loop)}</div>`)}
-      ${fieldGroup("Texture Frames", `<div class="move-spa-grid">${anim.textures.map((texture, index) => numberField(`Frame ${index}`, "texAnim", `textures.${index}`, texture, 1, 0)).join("")}</div>`)}
+      ${fieldGroup("Texture Frames", `<div class="move-spa-grid">${anim.textures.map((texture, index) => textureIndexField(`Frame ${index}`, "texAnim", `textures.${index}`, texture, archive)).join("")}</div>`)}
     </div>
   `);
 }
 
-function renderChildResource(resource: SpaResource): string {
+function renderChildResource(resource: SpaResource, archive: SpaArchive): string {
   if (!resource.childResource) {
     return detailSection("child", "Child Resource", addButton("add-child", "Add Child Resource"));
   }
@@ -778,7 +839,7 @@ function renderChildResource(resource: SpaResource): string {
       <button class="script-btn move-spa-remove" data-spa-action="remove-child" type="button">Remove Child Resource</button>
       <div class="move-spa-groups">
         ${fieldGroup("Parent Emission", `<div class="move-spa-grid">${numberField("Emission Amount", "child", "emissionCount", child.emissionCount, 1)}${numberField("Emission Delay", "child", "emissionDelay", child.emissionDelay, 0.01, 0, 1)}${numberField("Emission Interval", "child", "emissionIntervalFrames", child.emissionIntervalFrames, 1)}</div>`)}
-        ${fieldGroup("Child Appearance", `<div class="move-spa-grid">${selectField("Draw Type", "child", "drawType", child.drawType, DRAW_TYPES)}${numberField("Texture Index", "child", "textureIndex", child.textureIndex, 1)}${colorField("Color", "child", "color", child.color)}${checkboxField("Use Color", "child", "useChildColor", child.useChildColor)}</div>`)}
+        ${fieldGroup("Child Appearance", `<div class="move-spa-grid">${selectField("Draw Type", "child", "drawType", child.drawType, DRAW_TYPES)}${textureIndexField("Texture", "child", "textureIndex", child.textureIndex, archive)}${colorField("Color", "child", "color", child.color)}${checkboxField("Use Color", "child", "useChildColor", child.useChildColor)}</div>`)}
         ${fieldGroup("Child Motion", `<div class="move-spa-grid">${checkboxField("Uses Behaviors", "child", "usesBehaviors", child.usesBehaviors)}${checkboxField("Follow Emitter", "child", "followEmitter", child.followEmitter)}${numberField("Lifetime Frames", "child", "lifeFrames", child.lifeFrames, 1)}${numberField("Initial Velocity Random", "child", "randomInitVelMag", child.randomInitVelMag, 0.01)}${numberField("Velocity Ratio", "child", "velocityRatio", child.velocityRatio, 0.01, 0, 1)}${numberField("Scale Ratio", "child", "scaleRatio", child.scaleRatio, 0.01)}</div>`)}
         ${fieldGroup("Child Rotation And Polygon", `<div class="move-spa-grid">${selectField("Child Rotation", "child", "rotationType", child.rotationType, CHILD_ROTATION_TYPES)}${selectField("Polygon Rotation Axis", "child", "polygonRotAxis", child.polygonRotAxis, POLYGON_ROT_AXES)}${numberField("Polygon Reference Plane", "child", "polygonReferencePlane", child.polygonReferencePlane, 1, 0, 1)}</div>`)}
         ${fieldGroup("Texture Mapping", `<div class="move-spa-grid">${numberField("Texture Tile S", "child", "textureTileCountS", child.textureTileCountS, 1, 0, 3)}${numberField("Texture Tile T", "child", "textureTileCountT", child.textureTileCountT, 1, 0, 3)}${checkboxField("DPol Face Emitter", "child", "dpolFaceEmitter", child.dpolFaceEmitter)}${checkboxField("Flip X", "child", "flipTextureS", child.flipTextureS)}${checkboxField("Flip Y", "child", "flipTextureT", child.flipTextureT)}</div>`)}
@@ -812,7 +873,7 @@ function renderBehavior(behavior: SpaBehavior, index: number): string {
   return section(`Convergence ${remove}`, undefined, `<div class="move-spa-groups">${fieldGroup("Target Point", `<div class="move-spa-vector">${vecFields("Target", target, "target", behavior.target, index)}</div>`)}${fieldGroup("Strength", `<div class="move-spa-grid">${numberField("Force", target, "force", behavior.force, 0.01, undefined, undefined, index)}</div>`)}</div>`);
 }
 
-function renderTextures(archive: SpaArchive, selectedTextureIndex: number): string {
+function renderTextures(archive: SpaArchive, resource: SpaResource, selectedTextureIndex: number, textureImportFormat: SpaTextureImportFormat): string {
   const texture = archive.textures[selectedTextureIndex] ?? archive.textures[0];
   return detailSection(
     "textures",
@@ -821,12 +882,22 @@ function renderTextures(archive: SpaArchive, selectedTextureIndex: number): stri
       <div class="move-spa-texture-strip">
         ${archive.textures.map((tex) => `<button class="move-spa-texture-choice ${tex.index === selectedTextureIndex ? "-active" : ""}" type="button" data-spa-select="texture" value="${tex.index}"><canvas class="spa-texture-canvas" data-texture-index="${tex.index}"></canvas><span>${tex.index}</span></button>`).join("")}
       </div>
+      <div class="move-spa-texture-import-panel">
+        <label class="move-spa-texture-import-options">Import format
+          <select data-spa-texture-import-format>
+            ${TEXTURE_IMPORT_FORMATS.map((format) => `<option value="${format.value}" ${format.value === textureImportFormat ? "selected" : ""}>${format.label}</option>`).join("")}
+          </select>
+        </label>
+        <label class="move-spa-texture-import">Add texture from image
+          <input data-spa-texture-add type="file" accept="image/png,image/webp,image/jpeg,image/gif">
+        </label>
+      </div>
       ${
         texture
           ? `<div class="move-spa-texture-info">
               <canvas class="spa-texture-canvas -large" data-texture-index="${texture.index}"></canvas>
               <div>
-                <div>Format: ${texture.format}</div>
+                <div>${textureFormatSummary(texture.format)}</div>
                 <div>Size: ${texture.width}x${texture.height}</div>
                 <div>Texture bytes: ${texture.textureSize}</div>
                 <div>Palette bytes: ${texture.paletteSize}</div>
@@ -836,10 +907,15 @@ function renderTextures(archive: SpaArchive, selectedTextureIndex: number): stri
                 <label class="move-spa-texture-import">Replace selected texture
                   <input data-spa-texture-import type="file" accept="image/png,image/webp,image/jpeg,image/gif">
                 </label>
-                <button class="script-btn move-spa-texture-export" data-spa-action="export-texture" type="button">Export selected texture</button>
+                <div class="move-spa-texture-reference-actions">
+                  <button class="script-btn" data-spa-action="assign-texture-resource" type="button">Use for emitter</button>
+                  ${resource.childResource ? `<button class="script-btn" data-spa-action="assign-texture-child" type="button">Use for child</button>` : ""}
+                  ${resource.texAnim ? `<button class="script-btn" data-spa-action="append-texture-frame" type="button">Add texture frame</button>` : ""}
+                  <button class="script-btn move-spa-texture-export" data-spa-action="export-texture" type="button">Export selected texture</button>
+                </div>
               </div>
             </div>`
-          : ""
+          : `<div class="move-spa-empty -compact">No textures in this SPA yet. Add a PNG/WebP/JPEG/GIF to create texture 0.</div>`
       }
     `,
   );
@@ -864,6 +940,15 @@ function addButton(action: string, label: string): string {
 
 function numberField(label: string, target: string, field: string, value: number, step: number, min?: number, max?: number, behaviorIndex?: number): string {
   return `<label>${fieldHelpButton(label, target, field)}<input data-spa-target="${target}" data-spa-field="${field}" ${behaviorIndex === undefined ? "" : `data-behavior-index="${behaviorIndex}"`} type="number" step="${step}" ${min === undefined ? "" : `min="${min}"`} ${max === undefined ? "" : `max="${max}"`} value="${Number.isFinite(value) ? value : 0}"></label>`;
+}
+
+function textureIndexField(label: string, target: string, field: string, value: number, archive: SpaArchive, behaviorIndex?: number): string {
+  if (!archive.textures.length) return numberField(label, target, field, value, 1, 0, 0, behaviorIndex);
+  return `<label>${fieldHelpButton(label, target, field)}<select data-spa-target="${target}" data-spa-field="${field}" ${behaviorIndex === undefined ? "" : `data-behavior-index="${behaviorIndex}"`}>${archive.textures.map((texture) => `<option value="${texture.index}" ${texture.index === value ? "selected" : ""}>${escapeHtml(textureOptionLabel(texture))}</option>`).join("")}</select></label>`;
+}
+
+function textureOptionLabel(texture: SpaTexture): string {
+  return `${texture.index} - ${texture.width}x${texture.height} ${textureFormatLabel(texture.format)}`;
 }
 
 function checkboxField(label: string, target: string, field: string, checked: boolean): string {
@@ -979,6 +1064,46 @@ async function replaceSelectedTexture(state: State, file: File): Promise<void> {
   const archive = currentArchive(state);
   const texture = archive?.textures[state.selectedTextureIndex];
   if (!archive || !texture) return;
+  const image = await imageDataFromFile(file);
+  const originalFormat = texture.format;
+  const nextFormat = resolveTextureFormatForImport(state.textureImportFormat, originalFormat);
+  applyImportedImageToTexture(texture, image, nextFormat);
+  markDirty(state);
+  state.status = textureImportStatus(state.textureImportFormat, originalFormat, nextFormat);
+  render(state);
+}
+
+async function addTextureFromFile(state: State, file: File): Promise<void> {
+  const archive = currentArchive(state);
+  if (!archive) return;
+  const image = await imageDataFromFile(file);
+  const index = archive.textures.length;
+  const format = resolveTextureFormatForImport(state.textureImportFormat, 7);
+  const texture: SpaTexture = {
+    index,
+    format,
+    width: image.width,
+    height: image.height,
+    textureSize: textureDataByteSize(image.width, image.height, format),
+    paletteSize: paletteByteSize(format),
+    paletteIndexSize: 0,
+    resourceSize: 32 + textureDataByteSize(image.width, image.height, format) + paletteByteSize(format),
+    useSharedTexture: false,
+    sharedTexId: 0,
+    rgba: image.data,
+    fallback: false,
+    sourceChanged: true,
+  };
+  applyImportedImageToTexture(texture, image, format);
+  archive.textures.push(texture);
+  archive.textureCount = archive.textures.length;
+  state.selectedTextureIndex = index;
+  markDirty(state);
+  state.status = `Added texture ${index} as ${textureFormatLabel(format)}.`;
+  render(state);
+}
+
+async function imageDataFromFile(file: File): Promise<ImageData> {
   const bitmap = await createImageBitmap(file);
   const width = bitmap.width;
   const height = bitmap.height;
@@ -986,26 +1111,74 @@ async function replaceSelectedTexture(state: State, file: File): Promise<void> {
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext("2d");
-  if (!context) return;
+  if (!context) {
+    bitmap.close();
+    throw new Error("Unable to create a texture import canvas.");
+  }
   context.clearRect(0, 0, width, height);
   context.drawImage(bitmap, 0, 0);
   const image = context.getImageData(0, 0, width, height);
   bitmap.close();
-  texture.width = width;
-  texture.height = height;
-  texture.format = 7;
-  texture.textureSize = width * height * 2;
-  texture.paletteSize = 0;
+  return image;
+}
+
+function applyImportedImageToTexture(texture: SpaTexture, image: ImageData, format: number): void {
+  texture.width = image.width;
+  texture.height = image.height;
+  texture.format = format;
+  texture.textureSize = textureDataByteSize(image.width, image.height, format);
+  texture.paletteSize = paletteByteSize(format);
   texture.paletteIndexSize = 0;
-  texture.resourceSize = texture.textureSize + 32;
+  texture.resourceSize = 32 + texture.textureSize + texture.paletteSize;
   texture.useSharedTexture = false;
   texture.sharedTexId = 0;
   texture.rgba = image.data;
   texture.fallback = false;
   texture.fallbackReason = undefined;
+  texture.rawBytes = undefined;
+  texture.rawParam = undefined;
   texture.sourceChanged = true;
-  markDirty(state);
-  render(state);
+}
+
+function normalizeTextureImportFormat(value: string): SpaTextureImportFormat {
+  return TEXTURE_IMPORT_FORMATS.some((format) => format.value === value) ? (value as SpaTextureImportFormat) : "preserve";
+}
+
+function resolveTextureFormatForImport(importFormat: SpaTextureImportFormat, currentFormat: number): number {
+  if (importFormat === "direct") return 7;
+  if (importFormat === "a5i3") return 6;
+  if (importFormat === "a3i5") return 1;
+  return WRITABLE_TEXTURE_FORMATS.has(currentFormat) ? currentFormat : 7;
+}
+
+function textureImportStatus(importFormat: SpaTextureImportFormat, currentFormat: number, finalFormat: number): string {
+  if (importFormat === "preserve" && currentFormat !== finalFormat) return `Imported texture as ${textureFormatLabel(finalFormat)} because format ${currentFormat} is not writable yet.`;
+  return `Imported texture as ${textureFormatLabel(finalFormat)}.`;
+}
+
+function textureFormatLabel(format: number): string {
+  if (format === 1) return "A3I5";
+  if (format === 2) return "4-color indexed";
+  if (format === 3) return "16-color indexed";
+  if (format === 4) return "256-color indexed";
+  if (format === 5) return "4x4 compressed";
+  if (format === 6) return "A5I3";
+  if (format === 7) return "direct color";
+  return "unknown";
+}
+
+function textureFormatSummary(format: number): string {
+  return `Format ${format} (${textureFormatLabel(format)})`;
+}
+
+function textureDataByteSize(width: number, height: number, format: number): number {
+  return format === 7 ? width * height * 2 : width * height;
+}
+
+function paletteByteSize(format: number): number {
+  if (format === 6) return 16;
+  if (format === 1) return 64;
+  return 0;
 }
 
 async function exportSelectedTexture(state: State, archive: SpaArchive): Promise<void> {

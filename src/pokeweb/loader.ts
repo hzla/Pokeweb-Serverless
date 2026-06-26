@@ -44,7 +44,7 @@ export type LoadProgress = (message: string) => void;
 export async function loadProjectFromRomFile(file: File, options: LoadOptions = {}, onProgress?: LoadProgress): Promise<ProjectState> {
   if (!file.name.toLowerCase().endsWith(".nds")) throw new Error("Please upload a .nds ROM file");
 
-  onProgress?.("Reading ROM file");
+  await reportLoadProgress(onProgress, "Reading ROM file");
   const bytes = new Uint8Array(await file.arrayBuffer());
   return loadProjectFromRomBytes(bytes, file.name, options, onProgress);
 }
@@ -53,7 +53,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   const rom = new NintendoDSRom(bytes);
   const compactBytes = rom.save();
 
-  onProgress?.("Decompressing ARM9");
+  await reportLoadProgress(onProgress, "Decompressing ARM9");
   const arm9Compressed = isCodeCompressed(rom.arm9);
   const arm9 = decompressCode(rom.arm9);
   const repairedArm9CompressionMetadata = !arm9Compressed && repairDecompressedArm9CompressionMetadata(arm9);
@@ -103,31 +103,31 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   const shouldExtract = (definition: NarcDefinition) => definition.required || selectedNarcs.size === 0 || selectedNarcs.has(definition.name);
 
   if (isGen4BaseRom(version.baseRom)) {
-    onProgress?.("Extracting Gen 4 NARCs");
+    await reportLoadProgress(onProgress, "Extracting Gen 4 NARCs");
     extractNarcSet(rom, project, gen4NarcDefinitions(version).filter(shouldExtract));
 
-    onProgress?.("Decoding Gen 4 message banks");
+    await reportLoadProgress(onProgress, "Decoding Gen 4 message banks");
     decodeTextNarcs(project);
 
-    onProgress?.("Indexing trainer metadata");
+    await reportLoadProgress(onProgress, "Indexing trainer metadata");
     indexTrpokInfo(project);
 
-    onProgress?.("Parsing Gen 4 headers");
+    await reportLoadProgress(onProgress, "Parsing Gen 4 headers");
     project.headers = parseHeaders(project);
 
-    onProgress?.("Parsing TM table");
+    await reportLoadProgress(onProgress, "Parsing TM table");
     project.tms = parseTms(project);
     return project;
   }
 
-  onProgress?.("Extracting header NARCs");
+  await reportLoadProgress(onProgress, "Extracting header NARCs");
   const headerNarcs = headerDefinitionsFor(version.baseRom).filter(shouldExtract);
   extractNarcSet(rom, project, headerNarcs);
 
-  onProgress?.("Decoding message banks");
+  await reportLoadProgress(onProgress, "Decoding message banks");
   decodeTextNarcs(project);
 
-  onProgress?.("Extracting editor NARCs");
+  await reportLoadProgress(onProgress, "Extracting editor NARCs");
   const editNarcs = [...(version.baseRom === "BW" ? BW_NARCS : BW2_NARCS)].filter(shouldExtract);
   if (options.expandSprites) {
     editNarcs.push({ path: "a/0/0/4", name: "pokemon_sprites" }, { path: "a/0/0/7", name: "pokemon_icons" });
@@ -136,20 +136,26 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   if (!project.session.fairy && detectFairyTypeUsage(project)) project.session.fairy = true;
 
   if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves") || selectedNarcs.has("starter_sprites")) {
-    onProgress?.("Extracting overlays");
+    await reportLoadProgress(onProgress, "Extracting overlays");
     extractOverlays(rom, project, selectedNarcs);
   }
 
-  onProgress?.("Indexing trainer metadata");
+  await reportLoadProgress(onProgress, "Indexing trainer metadata");
   indexTrpokInfo(project);
 
-  onProgress?.("Parsing headers");
+  await reportLoadProgress(onProgress, "Parsing headers");
   project.headers = parseHeaders(project);
 
-  onProgress?.("Parsing TM table");
+  await reportLoadProgress(onProgress, "Parsing TM table");
   project.tms = parseTms(project);
 
   return project;
+}
+
+async function reportLoadProgress(onProgress: LoadProgress | undefined, message: string): Promise<void> {
+  onProgress?.(message);
+  if (!onProgress) return;
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
 function detectRigAtlasSettings(rom: NintendoDSRom, arm9: Uint8Array): ProjectState["rigAtlas"] {
