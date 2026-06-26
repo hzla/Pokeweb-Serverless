@@ -19,6 +19,8 @@ export const MISC_INTEGER_FIELDS = [
   ["Gender", "gender", 255],
   ["Hatch Rate", "hatch_cycle", 255],
   ["Happiness", "base_happy", 255],
+  ["Form Data Offset", "form_id", 65535],
+  ["Form Sprite Offset", "form", 65535],
   ["# of Forms", "num_forms", 255],
   ["Height", "height", 65535],
   ["Weight", "weight", 65535],
