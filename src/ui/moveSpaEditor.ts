@@ -13,7 +13,7 @@ import type {
   SpaTextureImportFormat,
   SpaTexAnim,
 } from "../pokeweb/nitroSpa";
-import { parseSpaArchive } from "../pokeweb/nitroSpa";
+import { findSpaTextureReferences, parseSpaArchive, removeSpaTexture } from "../pokeweb/nitroSpa";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
@@ -504,6 +504,10 @@ async function handleAction(state: State, action: string, options: MoveSpaEditor
     render(state);
     return;
   }
+  if (action === "remove-texture") {
+    removeSelectedTexture(state, archive);
+    return;
+  }
   if (!resource) return;
   if (action === "assign-texture-resource") {
     resource.textureIndex = state.selectedTextureIndex;
@@ -912,6 +916,7 @@ function renderTextures(archive: SpaArchive, resource: SpaResource, selectedText
                   ${resource.childResource ? `<button class="script-btn" data-spa-action="assign-texture-child" type="button">Use for child</button>` : ""}
                   ${resource.texAnim ? `<button class="script-btn" data-spa-action="append-texture-frame" type="button">Add texture frame</button>` : ""}
                   <button class="script-btn move-spa-texture-export" data-spa-action="export-texture" type="button">Export selected texture</button>
+                  <button class="script-btn move-spa-remove" data-spa-action="remove-texture" type="button">Remove selected texture</button>
                 </div>
               </div>
             </div>`
@@ -1138,6 +1143,37 @@ function applyImportedImageToTexture(texture: SpaTexture, image: ImageData, form
   texture.rawBytes = undefined;
   texture.rawParam = undefined;
   texture.sourceChanged = true;
+}
+
+function removeSelectedTexture(state: State, archive: SpaArchive): void {
+  const textureIndex = state.selectedTextureIndex;
+  if (!archive.textures[textureIndex]) return;
+  if (archive.textures.length <= 1) {
+    state.error = "Cannot remove the last texture from a SPA archive.";
+    render(state);
+    return;
+  }
+
+  const references = findSpaTextureReferences(archive, textureIndex);
+  const replacementIndex = textureIndex > 0 ? textureIndex - 1 : 0;
+  const referenceText = references.length ? `\n\nReferenced by:\n${references.map((reference) => `- ${reference.label}`).join("\n")}` : "";
+  const warningText = references.length
+    ? `Those references will be reassigned to texture ${replacementIndex}.`
+    : "No direct references to this texture were found.";
+  const shiftText = textureIndex < archive.textures.length - 1 ? "Textures after this slot will shift down by one index." : "No later texture slots need to shift.";
+  if (!window.confirm(`Remove texture ${textureIndex}?${referenceText}\n\n${warningText}\n${shiftText}`)) return;
+
+  try {
+    removeSpaTexture(archive, textureIndex);
+    state.selectedTextureIndex = Math.min(textureIndex, archive.textures.length - 1);
+    markDirty(state);
+    state.error = undefined;
+    state.status = `Removed texture ${textureIndex}.`;
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : String(error);
+    state.status = undefined;
+  }
+  render(state);
 }
 
 function normalizeTextureImportFormat(value: string): SpaTextureImportFormat {

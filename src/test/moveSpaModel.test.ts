@@ -5,7 +5,8 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { updateMoveSpaArchive } from "../pokeweb/moveSpaModel";
-import { parseSpaArchive, serializeSpaArchive } from "../pokeweb/nitroSpa";
+import { findSpaTextureReferences, parseSpaArchive, removeSpaTexture, serializeSpaArchive } from "../pokeweb/nitroSpa";
+import type { SpaChildResource, SpaTexture } from "../pokeweb/nitroSpa";
 import type { ProjectState } from "../pokeweb/projectStore";
 
 describe("move SPA writeback", () => {
@@ -70,23 +71,7 @@ describe("move SPA writeback", () => {
 
   it("serializes appended textures and updated texture references", () => {
     const archive = parseSpaArchive(makeSyntheticSpa());
-    const appendedTexture = {
-      ...archive.textures[0],
-      index: 1,
-      format: 6,
-      width: 8,
-      height: 8,
-      textureSize: 64,
-      paletteSize: 16,
-      paletteIndexSize: 0,
-      resourceSize: 112,
-      useSharedTexture: false,
-      sharedTexId: 0,
-      rgba: patternedRgba(8, 8),
-      rawBytes: undefined,
-      sourceChanged: true,
-    };
-    archive.textures.push(appendedTexture);
+    archive.textures.push(makeAppendedTexture(archive.textures[0], 1));
     archive.textureCount = archive.textures.length;
     archive.resources[0].textureIndex = 1;
     archive.resources[0].texAnim = { textures: [1, 0], textureCount: 2, step: 0.5, randomizeInit: false, loop: true };
@@ -101,6 +86,33 @@ describe("move SPA writeback", () => {
     expect(reparsed.resources[0].textureIndex).toBe(1);
     expect(reparsed.resources[0].texAnim?.textureCount).toBe(2);
     expect(reparsed.resources[0].texAnim?.textures.slice(0, 2)).toEqual([1, 0]);
+  });
+
+  it("removes textures, warns on references, and compacts later texture references", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    archive.textures.push(makeAppendedTexture(archive.textures[0], 1), makeAppendedTexture(archive.textures[0], 2));
+    archive.textureCount = archive.textures.length;
+    archive.resources[0].textureIndex = 2;
+    archive.resources[0].childResource = makeChildResource(1);
+    archive.resources[0].texAnim = { textures: [0, 1, 2], textureCount: 3, step: 0.5, randomizeInit: false, loop: true };
+    archive.textures[2].useSharedTexture = true;
+    archive.textures[2].sharedTexId = 1;
+
+    const references = findSpaTextureReferences(archive, 1).map((reference) => reference.label);
+    expect(references).toEqual([
+      "Emitter 0 child texture",
+      "Emitter 0 texture animation frame 1",
+      "Texture 2 shared texture source",
+    ]);
+
+    removeSpaTexture(archive, 1);
+    const reparsed = parseSpaArchive(serializeSpaArchive(archive));
+
+    expect(reparsed.textureCount).toBe(2);
+    expect(reparsed.textures.map((texture) => texture.index)).toEqual([0, 1]);
+    expect(reparsed.resources[0].textureIndex).toBe(1);
+    expect(reparsed.resources[0].childResource?.textureIndex).toBe(0);
+    expect(reparsed.resources[0].texAnim?.textures.slice(0, 3)).toEqual([0, 0, 1]);
   });
 
   it("lazily creates move_spas, marks only the saved SPA dirty, and exports it in the ROM", async () => {
@@ -208,6 +220,54 @@ function solidRgba(width: number, height: number, color: [number, number, number
   const out = new Uint8ClampedArray(width * height * 4);
   for (let offset = 0; offset < out.length; offset += 4) out.set(color, offset);
   return out;
+}
+
+function makeAppendedTexture(source: SpaTexture, index: number): SpaTexture {
+  return {
+    ...source,
+    index,
+    format: 6,
+    width: 8,
+    height: 8,
+    textureSize: 64,
+    paletteSize: 16,
+    paletteIndexSize: 0,
+    resourceSize: 112,
+    useSharedTexture: false,
+    sharedTexId: 0,
+    rgba: patternedRgba(8, 8),
+    rawBytes: undefined,
+    sourceChanged: true,
+  };
+}
+
+function makeChildResource(textureIndex: number): SpaChildResource {
+  return {
+    usesBehaviors: false,
+    hasScaleAnim: false,
+    hasAlphaAnim: false,
+    rotationType: 0,
+    followEmitter: false,
+    useChildColor: false,
+    drawType: 0,
+    polygonRotAxis: 0,
+    polygonReferencePlane: 0,
+    randomInitVelMag: 0,
+    endScale: 1,
+    lifeFrames: 30,
+    velocityRatio: 1,
+    scaleRatio: 1,
+    color: [1, 1, 1],
+    emissionCount: 1,
+    emissionDelay: 0,
+    emissionIntervalFrames: 1,
+    textureIndex,
+    textureTileCountS: 0,
+    textureTileCountT: 0,
+    flipTextureS: false,
+    flipTextureT: false,
+    dpolFaceEmitter: false,
+  };
 }
 
 function patternedRgba(width: number, height: number): Uint8ClampedArray {
