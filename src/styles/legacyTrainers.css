@@ -114,10 +114,15 @@
   min-height: 110px;
 }
 
-#trainers .trainer-card .trainer-name img {
+#trainers .trainer-card .trainer-name img,
+#trainers .trainer-card .trainer-name canvas {
   image-rendering: pixelated;
   max-height: 86px;
   max-width: 86px;
+}
+
+#trainers .trainer-card .trainer-name canvas {
+  display: block;
 }
 
 .trainer-class {

@@ -82,7 +82,7 @@ function materializeFormattedStore(project: ProjectState, store: NarcStore): voi
     const record = store.records.get(id);
     if (!record?.raw) continue;
     const original = store.rawFiles[id] ?? new Uint8Array(record.bytes.length);
-    const out = original.slice();
+    const out = copyWithLength(original, Math.max(original.length, formattedRecordLength(format, record.raw)));
     if (store.name === "personal" && isGen4Project(project)) syncGen4PersonalAliases(record.raw);
     writeFormattedRecord(out, 0, format, record.raw);
     store.rawFiles[id] = out;
@@ -370,6 +370,16 @@ function writeFormattedRecord(out: Uint8Array, startOffset: number, format: Fiel
     if (raw[field] !== undefined) writeInt(out, offset, size, raw[field]);
     offset += size;
   }
+}
+
+function formattedRecordLength(format: FieldSpec[], raw: RawRecord): number {
+  let offset = 0;
+  let length = 0;
+  for (const [size, field] of format) {
+    offset += size;
+    if (raw[field] !== undefined) length = offset;
+  }
+  return length;
 }
 
 function syncGen4PersonalAliases(raw: RawRecord): void {

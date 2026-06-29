@@ -2,9 +2,9 @@ import { EVO_METHODS, typeNamesForProject } from "../pokeweb/constants";
 import {
   BASE_STAT_FIELDS,
   EV_YIELD_FIELDS,
-  LEARNSET_MAX_MOVES,
   MISC_INTEGER_FIELDS,
   PERSONAL_TEXT_FIELDS,
+  learnsetMoveLimit,
   getPokemonAutofills,
   getPokemonCount,
   getPokemonRecord,
@@ -22,6 +22,7 @@ import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
+import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { pokemonSpriteSlug } from "../pokeweb/spriteSlug";
 import evoIcon from "../assets/svgs/evo.svg?raw";
 import eggMovesIcon from "../assets/svgs/egg_moves.svg?raw";
@@ -57,6 +58,7 @@ export function renderPokemonEditor(project: ProjectState, root: HTMLElement, on
       </div>
       <br>
       <div class="small-filters">Tip: You can right click a value to apply to all</div>
+      ${renderW2uSyncButton(project, ["personal", "learnsets", "evolutions"])}
       <div class="evo-method-info" hidden>
         <div class="filter-title">Evolution Methods</div>
         <div class="evo-method-list">
@@ -83,10 +85,11 @@ export function renderPokemonEditor(project: ProjectState, root: HTMLElement, on
     renderExpanded: (speciesId) => renderPokemonExpandedSections(project, speciesId),
     autofills: getPokemonAutofills(project),
   });
+  attachW2uSyncButton(root, project);
 }
 
 export function renderPokemonExpandedSections(project: ProjectState, speciesId: number): string {
-  return renderExpanded(getPokemonRecord(project, speciesId));
+  return renderExpanded(project, getPokemonRecord(project, speciesId));
 }
 
 function renderPokemonCards(project: ProjectState, showPwanIcon: boolean): string {
@@ -141,8 +144,10 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
   `;
 }
 
-function renderExpanded(record: PokemonEditorRecord): string {
-  const canAddLearnsetMove = record.learnset.length < LEARNSET_MAX_MOVES;
+function renderExpanded(project: ProjectState, record: PokemonEditorRecord): string {
+  const learnsetLimit = learnsetMoveLimit(project);
+  const canAddLearnsetMove = record.learnset.length < learnsetLimit;
+  const learnsetColumnSplit = Math.ceil(record.learnset.length / 2);
   const leftIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && field !== "height" && field !== "weight");
   const midIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && (field === "height" || field === "weight"));
   const textFields = PERSONAL_TEXT_FIELDS.filter(([, field]) => field in record.rawPersonal);
@@ -163,14 +168,14 @@ function renderExpanded(record: PokemonEditorRecord): string {
       <div class="learnset-panel">
         <div class="learnset-toolbar">
           <button class="btn -default learnset-action" data-learnset-action="append" type="button" ${canAddLearnsetMove ? "" : "disabled"}>Add Move</button>
-          <span class="learnset-count">${record.learnset.length}/${LEARNSET_MAX_MOVES}</span>
+          <span class="learnset-count">${record.learnset.length}/${learnsetLimit}</span>
         </div>
         <div class="learnset-columns">
           <div class="expanded-left">
-            ${record.learnset.slice(0, 13).map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join("")}
+            ${record.learnset.slice(0, learnsetColumnSplit).map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join("")}
           </div>
           <div class="expanded-left">
-            ${record.learnset.slice(13).map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join("")}
+            ${record.learnset.slice(learnsetColumnSplit).map((move) => renderLearnsetMove(move, canAddLearnsetMove)).join("")}
           </div>
         </div>
       </div>
@@ -185,9 +190,14 @@ function renderExpanded(record: PokemonEditorRecord): string {
       ${record.eggMovesLoaded ? renderEggMoves(record.eggMoves) : renderUnavailablePanel("Egg move data was not loaded for this project. Reload with Pokemon data selected.")}
     </div>
     <div class="expanded-card-content expanded-evos">
-      ${[[0, 1, 2], [3, 4, 5], [6]].map((indexes) => renderEvolutionColumn(record.evolutions.filter((slot) => indexes.includes(slot.index)))).join("")}
+      ${evolutionColumns(record.evolutions).map((slots) => renderEvolutionColumn(slots)).join("")}
     </div>
   `;
+}
+
+function evolutionColumns(slots: EvolutionSlot[]): EvolutionSlot[][] {
+  const size = Math.ceil(slots.length / 3);
+  return [slots.slice(0, size), slots.slice(size, size * 2), slots.slice(size * 2)];
 }
 
 function renderBaseStat(label: string, field: string, value: unknown): string {

@@ -354,12 +354,14 @@ const TRAINER_FORM_ABILITY_EXCLUSIONS = new Set(["Arceus", "Deerling"]);
 export function ensureDocs(project: ProjectState): DocGeneratorState {
   project.docs ??= {
     romTitle: project.session.romName,
+    mastersheetMarkdown: `# ${project.session.romName}\n\n`,
     trainerLocations: {},
     trainerDiffs: {},
     itemLocations: {},
     groundItemScriptMap: {},
   };
   project.docs.romTitle ||= project.session.romName;
+  project.docs.mastersheetMarkdown ??= `# ${project.docs.romTitle || project.session.romName}\n\n`;
   project.docs.trainerLocations ??= {};
   project.docs.trainerDiffs ??= {};
   project.docs.itemLocations ??= {};
@@ -776,7 +778,7 @@ function derivedAltFormName(project: ProjectState, id: number): string | undefin
   return undefined;
 }
 
-function trainerPokemonExportName(project: ProjectState, pok: TrainerPokemonSlot): string {
+export function trainerPokemonExportName(project: ProjectState, pok: TrainerPokemonSlot): string {
   const baseName = pokemonExportName(project, pok.speciesId);
   if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return baseName;
 
@@ -787,7 +789,7 @@ function trainerPokemonExportName(project: ProjectState, pok: TrainerPokemonSlot
   return altPersonalId === undefined ? baseName : pokemonExportName(project, altPersonalId);
 }
 
-function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot): string {
+export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot): string {
   const baseName = pokemonExportName(project, pok.speciesId);
   if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return titleizeAbility(pok.abilityName);
 
@@ -1548,12 +1550,12 @@ function maxTrainerLevel(trainer: TrainerRecord): number {
   return trainer.party.reduce((max, pok) => Math.max(max, pok.level), 0);
 }
 
-function formatTrainerMoveName(move: string | number): string {
+export function formatTrainerMoveName(move: string | number): string {
   if (move === 0 || move === "0") return "";
   return titleizeName(move);
 }
 
-function safeFilename(value: string): string {
+export function safeFilename(value: string): string {
   return toId(value) || "pokeweb";
 }
 

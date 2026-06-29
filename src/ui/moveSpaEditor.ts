@@ -1,4 +1,5 @@
 import { parseMoveAnimationScript } from "../pokeweb/moveAnimationModel";
+import type { MoveAnimationPreview } from "../pokeweb/moveAnimationPreviewModel";
 import { loadMoveSpaArchive } from "../pokeweb/moveAnimationPreviewModel";
 import { exportMoveSpaArchive, updateMoveSpaArchive } from "../pokeweb/moveSpaModel";
 import type {
@@ -16,6 +17,7 @@ import type {
 import { findSpaTextureReferences, parseSpaArchive, removeSpaTexture } from "../pokeweb/nitroSpa";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { installMoveAnimationPreview, type MoveAnimationPreviewController } from "./moveAnimationPreview";
 
 const SPA_COMMANDS = new Set([
   "LoadSPA",
@@ -265,6 +267,7 @@ export type MoveSpaEditorController = {
 
 type MoveSpaEditorOptions = {
   onDirty?: () => void;
+  onPreviewChange?: () => void;
 };
 
 export type MoveSpaEditorDataSource = {
@@ -287,11 +290,15 @@ type State = {
   selectedResourceIndex: number;
   selectedTextureIndex: number;
   textureImportFormat: SpaTextureImportFormat;
+  subTab: "editor" | "preview";
   loading: boolean;
   saving: boolean;
   scriptText: string;
   explicitSpaIds?: number[];
   openSections: Set<string>;
+  previewController?: MoveAnimationPreviewController;
+  previewRequestId: number;
+  options: MoveSpaEditorOptions;
   error?: string;
   status?: string;
 };
@@ -330,10 +337,13 @@ export function installMoveSpaEditorWithSource(
     selectedResourceIndex: 0,
     selectedTextureIndex: 0,
     textureImportFormat: "preserve",
+    subTab: "editor",
     loading: false,
     saving: false,
     scriptText,
     openSections: new Set(["emitter", "particle", "textures"]),
+    previewRequestId: 0,
+    options,
   };
 
   host.addEventListener("click", (event) => {
@@ -347,6 +357,15 @@ export function installMoveSpaEditorWithSource(
     if (selectButton) {
       state.selectedTextureIndex = Number(selectButton.value);
       render(state);
+      return;
+    }
+    const subTabButton = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-spa-sub-tab]");
+    if (subTabButton) {
+      const subTab = subTabButton.dataset.spaSubTab;
+      if (subTab === "editor" || subTab === "preview") {
+        state.subTab = subTab;
+        render(state);
+      }
       return;
     }
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-spa-action]");
@@ -472,6 +491,7 @@ async function handleAction(state: State, action: string, options: MoveSpaEditor
       state.dirtySpaIds.delete(state.selectedSpaId);
       state.status = `Saved SPA ${state.selectedSpaId}`;
       options.onDirty?.();
+      options.onPreviewChange?.();
     } catch (error) {
       state.error = error instanceof Error ? error.message : String(error);
       state.status = undefined;
@@ -614,6 +634,7 @@ function handleFieldEvent(state: State, event: Event): void {
 }
 
 function render(state: State): void {
+  destroyEmitterPreview(state);
   syncOpenSections(state);
   activeOpenSections = state.openSections;
   const archive = currentArchive(state);
@@ -636,11 +657,27 @@ function render(state: State): void {
         <input data-spa-import-file type="file" accept=".spa,application/octet-stream" hidden>
       </div>
       ${state.error ? `<div class="move-spa-error">${escapeHtml(state.error)}</div>` : ""}
+      ${renderSubTabs(state)}
       ${renderSelectors(state, archive)}
-      ${archive && resource ? renderResourceEditor(archive, resource, state.selectedTextureIndex, state.textureImportFormat) : renderEmptyState(state)}
+      ${archive && resource ? renderActiveSubTab(state, archive, resource) : renderEmptyState(state)}
     </div>
   `;
   drawTextureCanvases(state);
+  if (state.subTab === "preview") void mountEmitterPreview(state);
+}
+
+function renderSubTabs(state: State): string {
+  return `
+    <div class="move-spa-sub-tabs" role="tablist" aria-label="SPA editor views">
+      <button class="move-spa-sub-tab ${state.subTab === "editor" ? "-active" : ""}" type="button" role="tab" aria-selected="${state.subTab === "editor"}" data-spa-sub-tab="editor">Editor</button>
+      <button class="move-spa-sub-tab ${state.subTab === "preview" ? "-active" : ""}" type="button" role="tab" aria-selected="${state.subTab === "preview"}" data-spa-sub-tab="preview">Emitter Preview</button>
+    </div>
+  `;
+}
+
+function renderActiveSubTab(state: State, archive: SpaArchive, resource: SpaResource): string {
+  if (state.subTab === "preview") return renderEmitterPreviewPane(state, archive, resource);
+  return renderResourceEditor(archive, resource, state.selectedTextureIndex, state.textureImportFormat);
 }
 
 function syncOpenSections(state: State): void {
@@ -677,6 +714,89 @@ function renderEmptyState(state: State): string {
   if (state.loading) return `<div class="move-spa-empty">Loading particle data...</div>`;
   if (!state.spaIds.length) return `<div class="move-spa-empty">${escapeHtml(state.source.emptyLabel ?? "No SPA archive is selected.")}</div>`;
   return `<div class="move-spa-empty">Choose a SPA archive to edit particle resources.</div>`;
+}
+
+function renderEmitterPreviewPane(state: State, archive: SpaArchive, resource: SpaResource): string {
+  const spaId = state.selectedSpaId ?? 0;
+  const duration = emitterPreviewFrameCount(resource);
+  return `
+    <div class="move-spa-editor-body -preview">
+      <div class="move-spa-preview-summary">
+        <div>
+          <strong>SPA ${spaId} Emitter ${resource.index}</strong>
+          <span>${resource.emissionCount} particle${resource.emissionCount === 1 ? "" : "s"} per emission, ${resource.emitterLifeFrames} emitter frame${resource.emitterLifeFrames === 1 ? "" : "s"}, ${resource.particleLifeFrames} particle frame${resource.particleLifeFrames === 1 ? "" : "s"}</span>
+        </div>
+        <span>${archive.textures.length} texture${archive.textures.length === 1 ? "" : "s"} · ${duration} preview frames</span>
+      </div>
+      <div class="move-spa-emitter-preview-host">
+        <div class="move-animation-preview-loading">Building emitter preview...</div>
+      </div>
+    </div>
+  `;
+}
+
+async function mountEmitterPreview(state: State): Promise<void> {
+  const requestId = ++state.previewRequestId;
+  const archive = currentArchive(state);
+  const resource = currentResource(state);
+  const spaId = state.selectedSpaId;
+  const host = state.host.querySelector<HTMLElement>(".move-spa-emitter-preview-host");
+  if (!archive || !resource || spaId === undefined || !host) return;
+  const preview = buildEmitterPreview(spaId, archive, resource);
+  try {
+    const controller = await installMoveAnimationPreview(host, preview, { initialPlaying: true });
+    if (requestId !== state.previewRequestId || state.subTab !== "preview") {
+      controller.destroy();
+      return;
+    }
+    state.previewController = controller;
+  } catch (error) {
+    if (requestId === state.previewRequestId) host.innerHTML = `<div class="move-spa-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
+  }
+}
+
+function destroyEmitterPreview(state: State): void {
+  state.previewRequestId += 1;
+  state.previewController?.destroy();
+  state.previewController = undefined;
+}
+
+function buildEmitterPreview(spaId: number, archive: SpaArchive, resource: SpaResource): MoveAnimationPreview {
+  const frameCount = emitterPreviewFrameCount(resource);
+  return {
+    moveId: 0,
+    frameCount,
+    rootLabel: `SPA ${spaId} Emitter ${resource.index}`,
+    spaIds: [spaId],
+    timeline: [
+      {
+        id: `spa-${spaId}-emitter-${resource.index}`,
+        frame: 0,
+        label: `Emitter ${resource.index}`,
+        command: "DoSPAAnimation",
+        params: [],
+        status: "supported",
+        message: `Preview SPA ${spaId} emitter ${resource.index}`,
+        effectKind: "spa",
+        spaId,
+        resourceId: resource.index,
+        particle: {
+          sourceTarget: 17,
+          destinationTarget: 17,
+          origin: [0, 18, 0],
+          destination: [0, 18, 0],
+        },
+      },
+    ],
+    spaArchives: new Map([[spaId, archive]]),
+    backgrounds: new Map(),
+    warnings: archive.warnings.map((warning) => ({ message: `SPA ${spaId}: ${warning.message}` })),
+  };
+}
+
+function emitterPreviewFrameCount(resource: SpaResource): number {
+  const particleLife = Math.max(resource.particleLifeFrames, resource.childResource?.lifeFrames ?? 0);
+  return Math.max(60, resource.startDelayFrames + resource.emitterLifeFrames + particleLife + 20);
 }
 
 function renderResourceEditor(archive: SpaArchive, resource: SpaResource, selectedTextureIndex: number, textureImportFormat: SpaTextureImportFormat): string {
@@ -1063,6 +1183,7 @@ function currentResource(state: State): SpaResource | undefined {
 function markDirty(state: State): void {
   if (state.selectedSpaId !== undefined) state.dirtySpaIds.add(state.selectedSpaId);
   state.status = undefined;
+  state.options.onPreviewChange?.();
 }
 
 async function replaceSelectedTexture(state: State, file: File): Promise<void> {
@@ -1243,6 +1364,7 @@ async function importSelectedArchive(state: State, file: File): Promise<void> {
     state.selectedResourceIndex = 0;
     state.selectedTextureIndex = 0;
     state.dirtySpaIds.add(state.selectedSpaId);
+    state.options.onPreviewChange?.();
     state.status = `Imported ${file.name}`;
     state.error = undefined;
   } catch (error) {

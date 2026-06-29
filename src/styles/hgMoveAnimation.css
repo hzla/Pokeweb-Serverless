@@ -699,6 +699,30 @@
   padding: 0 10px 8px;
 }
 
+.hg-app .move-spa-sub-tabs {
+  align-items: center;
+  border-bottom: 1px solid #343a4b;
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 0;
+}
+
+.hg-app .move-spa-sub-tab {
+  background: #1b1f2d;
+  border: 1px solid #343a4b;
+  border-bottom: 0;
+  color: #c8c8d6;
+  cursor: pointer;
+  font: inherit;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.hg-app .move-spa-sub-tab.-active {
+  background: #282d3b;
+  color: #f2f2f2;
+}
+
 .hg-app .move-spa-selectors {
   display: grid;
   gap: 8px;
@@ -751,6 +775,45 @@
   min-height: 420px;
   overflow: auto;
   padding: 10px 12px 12px;
+}
+
+.hg-app .move-spa-editor-body.-preview {
+  gap: 10px;
+}
+
+.hg-app .move-spa-preview-summary {
+  align-items: center;
+  background: rgba(18, 22, 32, 0.5);
+  border: 1px solid rgba(80, 88, 112, 0.55);
+  color: #d7d7e2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.hg-app .move-spa-preview-summary div {
+  display: grid;
+  gap: 3px;
+}
+
+.hg-app .move-spa-preview-summary strong {
+  color: #f2f2f2;
+}
+
+.hg-app .move-spa-preview-summary span {
+  color: #aeb7ca;
+  font-size: 12px;
+}
+
+.hg-app .move-spa-emitter-preview-host {
+  display: flex;
+  min-height: 360px;
+}
+
+.hg-app .move-spa-emitter-preview-host .move-animation-preview {
+  min-height: 0;
 }
 
 .hg-app .move-spa-editor details {

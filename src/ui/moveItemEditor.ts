@@ -23,9 +23,11 @@ import {
   type ItemRecord,
   type MoveRecord,
 } from "../pokeweb/moveItemModel";
+import { getMoveTextInfo, hasMoveTextBanks, type MoveTextInfo, type MoveTextLine, type MoveTextSection } from "../pokeweb/moveTextModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachItemInteractions, attachMoveInteractions, installMoveAnimationEditor, renderMoveAnimationEditor } from "./moveItemInteractions";
+import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { publicAsset } from "../assetUrl";
 
 type ItemFieldSpec = readonly [field: string, max: number];
@@ -93,6 +95,12 @@ const ITEM_DETAIL_SECTIONS: Array<{ title: string; fields: readonly ItemFieldSpe
   },
 ];
 
+const textIcon = `
+  <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+    <path d="M8 7.5h16M8 13.5h16M8 19.5h12M8 25.5h9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.6"/>
+  </svg>
+`;
+
 export function renderMoveEditor(
   project: ProjectState,
   root: HTMLElement,
@@ -111,6 +119,7 @@ export function renderMoveEditor(
       <div class="small-filters type-filters">
         ${typeNamesForProject(project).map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
       </div>
+      ${renderW2uSyncButton(project, ["moves"])}
       <div class="move-command-reference" id="move-command-reference">
         <div class="move-command-reference-empty">Click a script command to view its parameters here.</div>
       </div>
@@ -136,7 +145,9 @@ export function renderMoveEditor(
     onOpenMoveAnimation,
     autofills: getMoveAutofills(project),
     renderExpanded: (moveId) => renderMoveExpanded(getMoveRecord(project, moveId)),
+    renderTextPanel: (moveId) => renderMoveTextPanel(getMoveTextInfo(project, moveId)),
   });
+  attachW2uSyncButton(root, project);
 }
 
 export function renderMoveAnimationPage(
@@ -262,7 +273,8 @@ export function renderItemEditor(project: ProjectState, root: HTMLElement, onDir
 
 function renderMoveRows(project: ProjectState): string {
   const rows: string[] = [];
-  for (let id = 0; id < getMoveCount(project); id += 1) rows.push(renderMoveRow(getMoveRecord(project, id)));
+  const showTextBanks = hasMoveTextBanks(project);
+  for (let id = 0; id < getMoveCount(project); id += 1) rows.push(renderMoveRow(getMoveRecord(project, id), showTextBanks));
   return rows.join("");
 }
 
@@ -272,7 +284,7 @@ function renderItemRows(project: ProjectState): string {
   return rows.join("");
 }
 
-function renderMoveRow(move: MoveRecord): string {
+function renderMoveRow(move: MoveRecord, showTextBanks: boolean): string {
   const type = String(move.readable.type ?? "");
   const category = String(move.readable.category ?? "");
   return `
@@ -287,6 +299,7 @@ function renderMoveRow(move: MoveRecord): string {
         ${editable("move", "power", move.readable.power, "move-power", { type: "int-255" })}
         ${editable("move", "accuracy", move.readable.accuracy, "move-accuracy", { type: "int-101" })}
         <div class="move-info expand-action expand-move svg no-fill" data-expand="move">${miscDataIcon}</div>
+        ${showTextBanks ? `<button class="move-info expand-action expand-move-text svg no-fill" data-expand="move-text" type="button" title="Move text banks">${textIcon}</button>` : ""}
         <button class="move-animation-row-toggle" type="button" title="Edit animation and particles"><img src="${movieIconUrl}" alt="Edit animation"></button>
       </div>
     </div>
@@ -320,6 +333,55 @@ function renderMoveExpanded(move: MoveRecord): string {
       <div class="expanded-row expanded-move-props" data-narc="move">
         ${PROPERTIES.map((prop) => `<div class="move-prop svg ${Number(move.readable[prop]) > 0 ? "-active" : ""}" data-field-name="${escapeHtml(prop)}"><img src="${publicAsset(`svgs/${prop}.svg`)}" alt=""><div class="prop-info">${escapeHtml(titleize(prop.replace(/_/gu, " ")))}</div></div>`).join("")}
       </div>
+    </div>
+  `;
+}
+
+function renderMoveTextPanel(info: MoveTextInfo | undefined): string {
+  if (!info) {
+    return `
+      <div class="expanded-card-content expanded-move-texts">
+        <div class="move-text-empty">Move text banks are unavailable for this ROM.</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="expanded-card-content expanded-move-texts" data-move-text-panel="${info.moveId}">
+      <div class="move-text-editor">
+        <label class="move-text-control">
+          <span>Move Name</span>
+          <input class="move-text-name-input" type="text" value="${escapeHtml(info.title)}" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="move-text-control -description">
+          <span>Description</span>
+          <textarea class="move-text-description-input" spellcheck="false">${escapeHtml(info.description)}</textarea>
+        </label>
+        <div class="move-text-status" aria-live="polite"></div>
+      </div>
+      <div class="move-text-bank-list">
+        ${info.sections.map(renderMoveTextSection).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderMoveTextSection(section: MoveTextSection): string {
+  return `
+    <section class="move-text-bank-section" data-bank-id="${section.bankId}" data-role="${section.role}">
+      <div class="move-text-bank-header">
+        <span>${escapeHtml(section.title)}</span>
+        ${section.editable ? `<small>Description source</small>` : ""}
+      </div>
+      ${section.lines.length > 0 ? section.lines.map(renderMoveTextLine).join("") : `<div class="move-text-empty">No matching text lines.</div>`}
+    </section>
+  `;
+}
+
+function renderMoveTextLine(line: MoveTextLine): string {
+  return `
+    <div class="move-text-line" data-entry-index="${line.flatIndex}">
+      <div class="move-text-msg">MSG ${escapeHtml(line.entryLabel)}</div>
+      <div class="move-text-value">${escapeHtml(line.text)}</div>
     </div>
   `;
 }

@@ -7,9 +7,11 @@ import {
   appendPokemonLearnsetMove,
   deletePokemonEggMove,
   deletePokemonLearnsetMove,
+  evolutionSlotCount,
   getPokemonRecord,
   insertPokemonEggMove,
   insertPokemonLearnsetMove,
+  learnsetMoveLimit,
   pokemonMatchesSearch,
   updatePokemonEggMove,
   updatePokemonField,
@@ -28,6 +30,7 @@ describe("pokemonModel", () => {
     expect(bulbasaur.personal.ability_1).toBe("Overgrow");
     expect(bulbasaur.learnset[0]).toMatchObject({ moveName: "Tackle", level: 1, type: "Normal", power: 40 });
     expect(bulbasaur.evolutions[0]).toMatchObject({ method: "Level Requirement", param: 16, target: "Ivysaur" });
+    expect(bulbasaur.evolutions).toHaveLength(7);
   });
 
   it("updates personal text, packed EV yields, learnset moves, and evolution targets in memory", () => {
@@ -136,6 +139,28 @@ describe("pokemonModel", () => {
     expect(bytes).toEqual(new Uint8Array([2, 0, 1, 0, 1, 0, 1, 0, 0xff, 0xff, 0xff, 0xff]));
   });
 
+  it("exposes W2U-sized learnset and evolution slots", () => {
+    const project = makeProject({ white2Upgrade: true, learnsetEntryCount: 25 });
+
+    expect(learnsetMoveLimit(project)).toBe(32);
+    expect(evolutionSlotCount(project)).toBe(8);
+    expect(getPokemonRecord(project, 1).learnset).toHaveLength(25);
+    expect(getPokemonRecord(project, 1).evolutions).toHaveLength(8);
+
+    appendPokemonLearnsetMove(project, 1);
+    updatePokemonField(project, 1, "evolution", "method_7", "Level Requirement");
+    updatePokemonField(project, 1, "evolution", "param_7", "42");
+    updatePokemonField(project, 1, "evolution", "target_7", "Venusaur");
+
+    const record = getPokemonRecord(project, 1);
+    expect(record.learnset).toHaveLength(26);
+    expect(record.evolutions[7]).toMatchObject({ method: "Level Requirement", param: 42, target: "Venusaur" });
+
+    materializeProjectEdits(project);
+    expect(project.narcs.learnsets?.rawFiles[1]).toHaveLength(26 * 4 + 4);
+    expect(project.narcs.evolutions?.rawFiles[1]).toHaveLength(8 * 6);
+  });
+
   it("rejects invalid values and filters by old comma search plus generation/type buttons", () => {
     const project = makeProject();
     const bulbasaur = getPokemonRecord(project, 1);
@@ -148,7 +173,7 @@ describe("pokemonModel", () => {
   });
 });
 
-function makeProject(): ProjectState {
+function makeProject(options: { white2Upgrade?: boolean; learnsetEntryCount?: number } = {}): ProjectState {
   const formats = getNarcFormats("BW2");
   const personal = packRows(formats.personal!, [
     {},
@@ -156,11 +181,11 @@ function makeProject(): ProjectState {
   ]);
   const learnsets = [
     new Uint8Array(),
-    packRows(formats.learnsets!, [{ move_id_0: 1, lvl_learned_0: 1 }], 1, true),
+    packRows(formats.learnsets!, [learnsetRow(options.learnsetEntryCount ?? 1)], 1, true),
   ];
   const evolutions = [
     new Uint8Array(),
-    packRows(formats.evolutions!, [{ method_0: 4, param_0: 16, target_0: 2 }]),
+    packRows(evolutionFormat(formats.evolutions!, Boolean(options.white2Upgrade)), [{ method_0: 4, param_0: 16, target_0: 2 }]),
   ];
   const moves = packRows(formats.moves!, [
     {},
@@ -199,6 +224,19 @@ function makeProject(): ProjectState {
     formats,
     trpokInfo: [],
   };
+}
+
+function learnsetRow(count: number): Record<string, number> {
+  const row: Record<string, number> = {};
+  for (let index = 0; index < count; index += 1) {
+    row[`move_id_${index}`] = (index % 2) + 1;
+    row[`lvl_learned_${index}`] = index + 1;
+  }
+  return row;
+}
+
+function evolutionFormat(format: FieldSpec[], white2Upgrade: boolean): FieldSpec[] {
+  return white2Upgrade ? format : format.slice(0, 7 * 3);
 }
 
 function makeStore(name: NarcName, data: Uint8Array | Uint8Array[], count: number): NarcStore {

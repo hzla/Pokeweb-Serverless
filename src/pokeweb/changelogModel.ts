@@ -330,7 +330,8 @@ function addEvolutionChange(beforeProject: ProjectState, afterProject: ProjectSt
     push(entries, "evolutions", `${subject} evolution data ${after ? "was added" : "was removed"}.`, subject);
     return;
   }
-  for (let slot = 0; slot < 7; slot += 1) {
+  const count = Math.max(before.evolutions.length, after.evolutions.length);
+  for (let slot = 0; slot < count; slot += 1) {
     pushIfDifferent(entries, "evolutions", subject, `evolution ${slot + 1} method`, before.evolutions[slot]?.method, after.evolutions[slot]?.method);
     pushIfDifferent(entries, "evolutions", subject, `evolution ${slot + 1} parameter`, before.evolutions[slot]?.param, after.evolutions[slot]?.param);
     pushIfDifferent(entries, "evolutions", subject, `evolution ${slot + 1} target`, before.evolutions[slot]?.target, after.evolutions[slot]?.target);

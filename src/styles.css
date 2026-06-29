@@ -76,6 +76,11 @@ img[src*="pokesprite/"] {
   width: 100%;
 }
 
+.local-rom-open-btn {
+  margin-top: 12px;
+  width: 100%;
+}
+
 .upload-options {
   margin-top: 16px;
   display: flex;

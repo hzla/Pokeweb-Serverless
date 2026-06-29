@@ -118,7 +118,7 @@ export function getNarcFormats(baseRom: BaseRom): NarcFormatMap {
       : []),
   ];
 
-  formats.learnsets = range(25, (n) => [
+  formats.learnsets = range(32, (n) => [
     [2, `move_id_${n}`],
     [2, `lvl_learned_${n}`],
   ]);
@@ -128,7 +128,7 @@ export function getNarcFormats(baseRom: BaseRom): NarcFormatMap {
     [4, `address_${n}`],
   ]);
 
-  formats.evolutions = range(7, (n) => [
+  formats.evolutions = range(8, (n) => [
     [2, `method_${n}`],
     [2, `param_${n}`],
     [2, `target_${n}`],
