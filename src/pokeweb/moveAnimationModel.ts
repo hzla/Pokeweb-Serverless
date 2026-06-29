@@ -2,6 +2,12 @@ import commandMacros from "../assets/data/B2W2_MOVSCRCMD.s?raw";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordGenericChange } from "./actionChangelog";
 import type { NarcName } from "./constants";
+import {
+  getMoveAnimationCommandAliases,
+  getMoveAnimationDisplayCommandName,
+  getMoveAnimationGenericCommandAliases,
+} from "./moveAnimationCommandNames";
+import { formatMoveAnimationParam, parseMoveAnimationParamToken } from "./moveAnimationParamSemantics";
 import { detectWhite2UpgradeDlls } from "./pmcModel";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 
@@ -49,8 +55,10 @@ export type MoveAnimationTargetInfo = {
   white2UpgradeLayout: boolean;
 };
 
+export type MoveAnimationParamDisplayMode = "semantic" | "numeric";
+
 const COMMANDS = parseCommandMacros(commandMacros);
-const COMMANDS_BY_NAME = new Map(COMMANDS.map((command) => [command.name.toLowerCase(), command]));
+const COMMANDS_BY_NAME = buildCommandNameMap(COMMANDS);
 const COMMANDS_BY_OPCODE = new Map(COMMANDS.map((command) => [command.opcode, command]));
 const RGB555_PACKED_COMMANDS = new Set(["ChangeColor", "ChangeBackgroundColor", "ObjectPaletteFade"]);
 const LEGACY_STORED_PARAM_COUNTS = new Map<number, number>([
@@ -72,6 +80,50 @@ export type MoveAnimationRepairSummary = {
 
 export function getMoveAnimationCommandDefinitions(): MoveAnimationCommandDefinition[] {
   return COMMANDS.map((command) => ({ ...command, params: command.params.slice() }));
+}
+
+export function formatMoveAnimationScriptParameters(scriptText: string, mode: MoveAnimationParamDisplayMode): string {
+  return scriptText
+    .split(/\r?\n/u)
+    .map((line, index) => formatMoveAnimationScriptLineParameters(line, mode, index + 1))
+    .join("\n");
+}
+
+function buildCommandNameMap(commands: MoveAnimationCommandDefinition[]): Map<string, MoveAnimationCommandDefinition> {
+  const out = new Map<string, MoveAnimationCommandDefinition>();
+  for (const command of commands) {
+    const aliases = [
+      command.name,
+      getMoveAnimationDisplayCommandName(command.name),
+      ...getMoveAnimationCommandAliases(command.name),
+      ...getMoveAnimationGenericCommandAliases(command.opcode),
+    ];
+    for (const alias of aliases) out.set(alias.toLowerCase(), command);
+  }
+  return out;
+}
+
+function formatMoveAnimationScriptLineParameters(line: string, mode: MoveAnimationParamDisplayMode, lineNumber: number): string {
+  const commentIndex = line.indexOf("@");
+  const code = commentIndex >= 0 ? line.slice(0, commentIndex) : line;
+  const comment = commentIndex >= 0 ? line.slice(commentIndex).trimStart() : "";
+  if (!code.trim()) return line;
+  if (/^\s*\./u.test(code) || /^\s*[A-Za-z_][A-Za-z0-9_]*:\s*$/u.test(code)) return line;
+
+  const match = /^(\s*)([A-Za-z_][A-Za-z0-9_]*)(?:\s+(.*?))?\s*$/u.exec(code);
+  if (!match) return line;
+  const [, indent, commandName, paramText = ""] = match;
+  const command = COMMANDS_BY_NAME.get(commandName.toLowerCase());
+  if (!command) return line;
+
+  const params = normalizeScriptParams(command, parseParams(paramText, command.name));
+  if (params.length !== command.params.length) {
+    throw new Error(`Line ${lineNumber}: ${commandName} expects ${command.params.length} parameter(s), got ${params.length}`);
+  }
+
+  const formattedParams = params.map((value, index) => (mode === "numeric" ? String(value) : formatMoveAnimationParam(command.name, index, value)));
+  const formattedCode = `${indent}${commandName}${formattedParams.length ? ` ${formattedParams.join(", ")}` : ""}`;
+  return comment ? `${formattedCode} ${comment}` : formattedCode;
 }
 
 export function hasMoveAnimationScript(project: ProjectState, moveId: number): boolean {
@@ -286,7 +338,9 @@ function decompileAnimationBytesForMode(bytes: Uint8Array, storageMode: MoveAnim
         cursor += width;
       }
       const scriptParams = decodeStoredParams(command, params, storageMode);
-      lines.push(`${command.name}${scriptParams.length > 0 ? ` ${scriptParams.join(", ")}` : ""}`);
+      const displayName = getMoveAnimationDisplayCommandName(command.name);
+      const formattedParams = scriptParams.map((value, index) => formatMoveAnimationParam(command.name, index, value));
+      lines.push(`${displayName}${formattedParams.length > 0 ? ` ${formattedParams.join(", ")}` : ""}`);
       commandCount += 1;
       if (command.ends) {
         ended = true;
@@ -458,7 +512,16 @@ function parseParams(input: string, commandName: string): number[] {
   return trimmed
     .split(/\s*,\s*|\s+/u)
     .filter(Boolean)
-    .map((value, index) => parseIntegerToken(value, `${commandName} parameter ${index + 1}`));
+    .map((value, index) => {
+      try {
+        return parseMoveAnimationParamToken(commandName, index, value);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("must fit in signed 32-bit range")) {
+          throw new Error(`${commandName} parameter ${index + 1} must fit in signed 32-bit range`);
+        }
+        throw error;
+      }
+    });
 }
 
 function normalizeScriptParams(command: MoveAnimationCommandDefinition, params: number[]): number[] {

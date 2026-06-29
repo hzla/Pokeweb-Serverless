@@ -1,5 +1,5 @@
 {
-  "updatedOn": "2026-05-08",
+  "updatedOn": "2026-06-29",
   "commands": [
     {
       "name": "MoveCamera",
@@ -122,7 +122,7 @@
       "category": "Camera",
       "handlerMacro": "CAMERA_MOVE_ANGLE",
       "description": "Move the battle camera by polar/spherical angle.",
-      "currentPokewebName": "CMD_2",
+      "currentPokewebName": "CameraMoveAngle",
       "params": [
         {
           "index": 0,
@@ -162,7 +162,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_2); use CameraMoveAngle for new docs/UI labels."
+        "Legacy alias CMD_2 is still accepted; new scripts decompile to CameraMoveAngle."
       ]
     },
     {
@@ -220,7 +220,7 @@
       "category": "Camera",
       "handlerMacro": "CAMERA_PROJECTION",
       "description": "Change camera projection mode.",
-      "currentPokewebName": "CMD_4",
+      "currentPokewebName": "CameraProjection",
       "params": [
         {
           "index": 0,
@@ -236,7 +236,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_4); use CameraProjection for new docs/UI labels."
+        "Legacy alias CMD_4 is still accepted; new scripts decompile to CameraProjection."
       ]
     },
     {
@@ -246,10 +246,10 @@
       "category": "Camera",
       "handlerMacro": "CAMERA_POS_PUSH",
       "description": "Push/save the current camera position.",
-      "currentPokewebName": "CMD_5",
+      "currentPokewebName": "CameraPosPush",
       "params": [],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_5); use CameraPosPush for new docs/UI labels."
+        "Legacy alias CMD_5 is still accepted; new scripts decompile to CameraPosPush."
       ]
     },
     {
@@ -277,7 +277,7 @@
       "category": "Particles",
       "handlerMacro": "PARTICLE_PLAY",
       "description": "Create one particle emitter from a loaded SPA archive.",
-      "currentPokewebName": "DoSPAAnimation",
+      "currentPokewebName": "Emit",
       "params": [
         {
           "index": 0,
@@ -358,7 +358,7 @@
       "category": "Particles",
       "handlerMacro": "PARTICLE_PLAY_COORDINATE",
       "description": "Create one particle emitter using explicit start/direction coordinates.",
-      "currentPokewebName": "DoSPAScreenAnimation",
+      "currentPokewebName": "EmitFromCoordinates",
       "params": [
         {
           "index": 0,
@@ -460,7 +460,7 @@
       "category": "Particles",
       "handlerMacro": "PARTICLE_PLAY_ORTHO",
       "description": "Create one particle emitter using orthographic projection.",
-      "currentPokewebName": "DoSPAAnimation2",
+      "currentPokewebName": "EmitOrtho",
       "params": [
         {
           "index": 0,
@@ -538,7 +538,7 @@
       "category": "Particles",
       "handlerMacro": "PARTICLE_PLAY_ALL",
       "description": "Create emitters for every resource in a loaded SPA archive.",
-      "currentPokewebName": "CMD_a",
+      "currentPokewebName": "EmitAll",
       "params": [
         {
           "index": 0,
@@ -605,7 +605,7 @@
         "Start and destination are read separately; destination SIDE_NONE (8) is replaced with start. When start and destination differ, the VM rotates the emitter axis toward the destination and updates magnet/convergence targets.",
         "Radius/life/scale/speed are FX32-style multipliers; 4096 is 1.0.",
         "Unlike PARTICLE_PLAY, there is no resource-index argument; the command applies to every resource in the loaded SPA.",
-        "Current Pokeweb macro name is generic (CMD_a); use DoSPAAllAnimations for new docs/UI labels."
+        "Legacy alias CMD_a is still accepted; new scripts decompile to EmitAll."
       ]
     },
     {
@@ -615,7 +615,7 @@
       "category": "Particles",
       "handlerMacro": "PARTICLE_DELETE",
       "description": "Delete/unload a loaded particle archive.",
-      "currentPokewebName": "CMD_b",
+      "currentPokewebName": "DeleteParticle",
       "params": [
         {
           "index": 0,
@@ -625,7 +625,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_b); use DeleteSPA for new docs/UI labels."
+        "Legacy alias CMD_b is still accepted; new scripts decompile to DeleteParticle."
       ]
     },
     {
@@ -635,7 +635,7 @@
       "category": "Particles",
       "handlerMacro": "EMITTER_MOVE",
       "description": "Create an emitter and move it from a start position to a destination position.",
-      "currentPokewebName": "DoSPAProjectileAnimation",
+      "currentPokewebName": "EmitProjectile",
       "params": [
         {
           "index": 0,
@@ -717,7 +717,7 @@
       "category": "Particles",
       "handlerMacro": "EMITTER_MOVE_COORDINATE",
       "description": "Create a moving emitter from explicit coordinates to a destination position.",
-      "currentPokewebName": "DoSPAProjectileAnimation2",
+      "currentPokewebName": "EmitProjectileFromCoordinates",
       "params": [
         {
           "index": 0,
@@ -809,7 +809,7 @@
       "category": "Particles",
       "handlerMacro": "EMITTER_MOVE_ORTHO",
       "description": "Create a moving emitter using orthographic projection.",
-      "currentPokewebName": "DoSPAProjectileAnimation3",
+      "currentPokewebName": "EmitOrthoProjectile",
       "params": [
         {
           "index": 0,
@@ -892,7 +892,7 @@
       "category": "Particles",
       "handlerMacro": "EMITTER_MOVE_ORTHO_COORDINATE",
       "description": "Create a moving orthographic emitter from explicit coordinates.",
-      "currentPokewebName": "CMD_f",
+      "currentPokewebName": "EmitOrthoProjectileFromCoordinates",
       "params": [
         {
           "index": 0,
@@ -975,7 +975,7 @@
       ],
       "notes": [
         "Unlike EMITTER_MOVE, the last parameter is scale, not wave. Do not apply wave-count correction to this command.",
-        "Current Pokeweb macro name is generic (CMD_f); use DoSPAProjectileAnimationOrthoCoordinate for new docs/UI labels."
+        "Legacy alias CMD_f is still accepted; new scripts decompile to EmitOrthoProjectileFromCoordinates."
       ]
     },
     {
@@ -985,7 +985,7 @@
       "category": "Particles",
       "handlerMacro": "EMITTER_CIRCLE_MOVE",
       "description": "Create an emitter that orbits around a start/target/center anchor.",
-      "currentPokewebName": "DoSPACircleAnimation",
+      "currentPokewebName": "EmitCircle",
       "params": [
         {
           "index": 0,
@@ -1057,7 +1057,7 @@
       "category": "Particles",
       "handlerMacro": "EMITTER_CIRCLE_MOVE_ORTHO",
       "description": "Create an orbiting emitter using orthographic projection.",
-      "currentPokewebName": "CMD_11",
+      "currentPokewebName": "EmitOrthoCircle",
       "params": [
         {
           "index": 0,
@@ -1123,7 +1123,7 @@
       "notes": [
         "The current Pokeweb macro exposes fewer parameters than the full command form. Scripts using all command parameters need p7, p8, and p9 preserved.",
         "Current Pokeweb macro exposes 7 argument(s), but the command supports 10.",
-        "Current Pokeweb macro name is generic (CMD_11); use DoSPAOrthoCircleAnimation for new docs/UI labels."
+        "Legacy alias CMD_11 is still accepted; new scripts decompile to EmitOrthoCircle."
       ]
     },
     {
@@ -1253,7 +1253,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_SIN_MOVE",
       "description": "Move a Pokemon along a sine-wave path.",
-      "currentPokewebName": "CMD_14",
+      "currentPokewebName": "MoveSpriteSine",
       "params": [
         {
           "index": 0,
@@ -1293,7 +1293,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_14); use PokemonSineMove for new docs/UI labels."
+        "Legacy alias CMD_14 is still accepted; new scripts decompile to MoveSpriteSine."
       ]
     },
     {
@@ -1303,7 +1303,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_SCALE",
       "description": "Scale a Pokemon sprite/model.",
-      "currentPokewebName": "DistortSprite",
+      "currentPokewebName": "ScaleSprite",
       "params": [
         {
           "index": 0,
@@ -1313,21 +1313,21 @@
         },
         {
           "index": 1,
-          "name": "type",
+          "name": "mode",
           "currentArg": "p1",
-          "description": "Mode/interpolation selector. Meaning depends on command; command processing commonly uses it as movement/blend direction."
+          "description": "Scale motion mode. Use MOVE_DIRECT, MOVE_INTERPOLATION, MOVE_ROUNDTRIP, or MOVE_ROUNDTRIP_LONG."
         },
         {
           "index": 2,
-          "name": "scale_x",
+          "name": "scale_x_offset",
           "currentArg": "p2",
-          "description": "X scale target/multiplier."
+          "description": "X offset scale target/amplitude as FX32; 4096 is 1x. In roundtrip modes this is added away from the current offset scale and then reversed."
         },
         {
           "index": 3,
-          "name": "scale_y",
+          "name": "scale_y_offset",
           "currentArg": "p3",
-          "description": "Y scale target/multiplier."
+          "description": "Y offset scale target/amplitude as FX32; 4096 is 1x. Negative values squash on this axis while the paired axis may stretch."
         },
         {
           "index": 4,
@@ -1348,7 +1348,10 @@
           "description": "Repeat count / number of cycles."
         }
       ],
-      "notes": []
+      "notes": [
+        "This command animates MCSS offset scale, not the default base sprite scale. Param 1 is a scale motion mode, not an axis selector.",
+        "Legacy alias DistortSprite is still accepted; new scripts decompile to ScaleSprite."
+      ]
     },
     {
       "name": "PokemonRotate",
@@ -1357,7 +1360,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_ROTATE",
       "description": "Rotate a Pokemon sprite/model.",
-      "currentPokewebName": "TiltSprite",
+      "currentPokewebName": "RotateSprite",
       "params": [
         {
           "index": 0,
@@ -1396,7 +1399,9 @@
           "description": "Repeat count / number of cycles."
         }
       ],
-      "notes": []
+      "notes": [
+        "Legacy alias TiltSprite is still accepted; new scripts decompile to RotateSprite."
+      ]
     },
     {
       "name": "SpriteOpacity",
@@ -1405,7 +1410,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_ALPHA",
       "description": "Change Pokemon alpha/opacity.",
-      "currentPokewebName": "SpriteOpacity",
+      "currentPokewebName": "AdjustSpriteOpacity",
       "params": [
         {
           "index": 0,
@@ -1453,7 +1458,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_MOSAIC",
       "description": "Apply Pokemon mosaic/pixelation.",
-      "currentPokewebName": "CMD_18",
+      "currentPokewebName": "ApplySpriteMosaic",
       "params": [
         {
           "index": 0,
@@ -1493,7 +1498,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_18); use PokemonMosaic for new docs/UI labels."
+        "Legacy alias CMD_18 is still accepted; new scripts decompile to ApplySpriteMosaic."
       ]
     },
     {
@@ -1503,7 +1508,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_SET_MEPACHI_FLAG",
       "description": "Control Pokemon blinking/eye animation.",
-      "currentPokewebName": "CMD_19",
+      "currentPokewebName": "ToggleSpriteBlink",
       "params": [
         {
           "index": 0,
@@ -1531,7 +1536,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_19); use PokemonBlinkFlag for new docs/UI labels."
+        "Legacy alias CMD_19 is still accepted; new scripts decompile to ToggleSpriteBlink."
       ]
     },
     {
@@ -1541,7 +1546,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_SET_ANM_FLAG",
       "description": "Control Pokemon animation playback flag.",
-      "currentPokewebName": "FreezeSprite",
+      "currentPokewebName": "ToggleFreezeSprite",
       "params": [
         {
           "index": 0,
@@ -1556,7 +1561,9 @@
           "description": "Boolean/state flag."
         }
       ],
-      "notes": []
+      "notes": [
+        "Legacy alias FreezeSprite is still accepted; new scripts decompile to ToggleFreezeSprite."
+      ]
     },
     {
       "name": "PokemonPaletteFade",
@@ -1565,7 +1572,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_PAL_FADE",
       "description": "Fade/tint Pokemon palette color.",
-      "currentPokewebName": "ChangeColor",
+      "currentPokewebName": "ChangeSpriteColor",
       "params": [
         {
           "index": 0,
@@ -1610,7 +1617,9 @@
           "description": "Blue component, 0-31."
         }
       ],
-      "notes": []
+      "notes": [
+        "Legacy alias ChangeColor is still accepted; new scripts decompile to ChangeSpriteColor."
+      ]
     },
     {
       "name": "PokemonVanish",
@@ -1619,31 +1628,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_VANISH",
       "description": "Show or hide a Pokemon.",
-      "currentPokewebName": "ChangeVisibility",
-      "params": [
-        {
-          "index": 0,
-          "name": "pos",
-          "currentArg": "p0",
-          "description": "Target battle position/object selector."
-        },
-        {
-          "index": 1,
-          "name": "flag",
-          "currentArg": "p1",
-          "description": "Boolean/state flag."
-        }
-      ],
-      "notes": []
-    },
-    {
-      "name": "PokemonShadowVanish",
-      "opcode": 29,
-      "hex": "0x1d",
-      "category": "Pokemon/Trainer",
-      "handlerMacro": "POKEMON_SHADOW_VANISH",
-      "description": "Show or hide a Pokemon shadow.",
-      "currentPokewebName": "CMD_1d",
+      "currentPokewebName": "ToggleSpriteVisibility",
       "params": [
         {
           "index": 0,
@@ -1659,7 +1644,33 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_1d); use PokemonShadowVanish for new docs/UI labels."
+        "Legacy alias ChangeVisibility is still accepted; new scripts decompile to ToggleSpriteVisibility."
+      ]
+    },
+    {
+      "name": "PokemonShadowVanish",
+      "opcode": 29,
+      "hex": "0x1d",
+      "category": "Pokemon/Trainer",
+      "handlerMacro": "POKEMON_SHADOW_VANISH",
+      "description": "Show or hide a Pokemon shadow.",
+      "currentPokewebName": "ToggleSpriteShadow",
+      "params": [
+        {
+          "index": 0,
+          "name": "pos",
+          "currentArg": "p0",
+          "description": "Target battle position/object selector."
+        },
+        {
+          "index": 1,
+          "name": "flag",
+          "currentArg": "p1",
+          "description": "Boolean/state flag."
+        }
+      ],
+      "notes": [
+        "Legacy alias CMD_1d is still accepted; new scripts decompile to ToggleSpriteShadow."
       ]
     },
     {
@@ -1669,7 +1680,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_SHADOW_SCALE",
       "description": "Scale a Pokemon shadow.",
-      "currentPokewebName": "CMD_1e",
+      "currentPokewebName": "ScaleSpriteShadow",
       "params": [
         {
           "index": 0,
@@ -1715,7 +1726,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_1e); use PokemonShadowScale for new docs/UI labels."
+        "Legacy alias CMD_1e is still accepted; new scripts decompile to ScaleSpriteShadow."
       ]
     },
     {
@@ -1725,7 +1736,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "POKEMON_DEL",
       "description": "Remove/delete a Pokemon object from the scene.",
-      "currentPokewebName": "CMD_1f",
+      "currentPokewebName": "DeletePokemon",
       "params": [
         {
           "index": 0,
@@ -1735,7 +1746,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_1f); use DeletePokemon for new docs/UI labels."
+        "Legacy alias CMD_1f is still accepted; new scripts decompile to DeletePokemon."
       ]
     },
     {
@@ -1745,7 +1756,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "TRAINER_SET",
       "description": "Create/show a trainer object.",
-      "currentPokewebName": "CMD_20",
+      "currentPokewebName": "SetTrainerSprite",
       "params": [
         {
           "index": 0,
@@ -1779,7 +1790,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_20); use SetTrainer for new docs/UI labels."
+        "Legacy alias CMD_20 is still accepted; new scripts decompile to SetTrainerSprite."
       ]
     },
     {
@@ -1789,7 +1800,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "TRAINER_MOVE",
       "description": "Move a trainer object.",
-      "currentPokewebName": "CMD_21",
+      "currentPokewebName": "MoveTrainerSprite",
       "params": [
         {
           "index": 0,
@@ -1841,7 +1852,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_21); use MoveTrainer for new docs/UI labels."
+        "Legacy alias CMD_21 is still accepted; new scripts decompile to MoveTrainerSprite."
       ]
     },
     {
@@ -1851,7 +1862,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "TRAINER_ANIME_SET",
       "description": "Set trainer animation.",
-      "currentPokewebName": "CMD_22",
+      "currentPokewebName": "SetTrainerSpriteAnimation",
       "params": [
         {
           "index": 0,
@@ -1867,7 +1878,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_22); use SetTrainerAnimation for new docs/UI labels."
+        "Legacy alias CMD_22 is still accepted; new scripts decompile to SetTrainerSpriteAnimation."
       ]
     },
     {
@@ -1877,7 +1888,7 @@
       "category": "Pokemon/Trainer",
       "handlerMacro": "TRAINER_DEL",
       "description": "Remove/delete a trainer object.",
-      "currentPokewebName": "CMD_23",
+      "currentPokewebName": "DeleteTrainerSprite",
       "params": [
         {
           "index": 0,
@@ -1887,7 +1898,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_23); use DeleteTrainer for new docs/UI labels."
+        "Legacy alias CMD_23 is still accepted; new scripts decompile to DeleteTrainerSprite."
       ]
     },
     {
@@ -2167,7 +2178,7 @@
       "category": "Scene/Objects",
       "handlerMacro": "WINDOW_MOVE",
       "description": "Move/open/close a battle window mask.",
-      "currentPokewebName": "CMD_2c",
+      "currentPokewebName": "MoveWindow",
       "params": [
         {
           "index": 0,
@@ -2213,7 +2224,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_2c); use WindowMove for new docs/UI labels."
+        "Legacy alias CMD_2c is still accepted; new scripts decompile to MoveWindow."
       ]
     },
     {
@@ -2223,7 +2234,7 @@
       "category": "Scene/Objects",
       "handlerMacro": "OBJ_SET",
       "description": "Create/show an OBJ sprite.",
-      "currentPokewebName": "CMD_2d",
+      "currentPokewebName": "CreateBattleObject",
       "params": [
         {
           "index": 0,
@@ -2269,7 +2280,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_2d); use SetObject for new docs/UI labels."
+        "Legacy alias CMD_2d is still accepted; new scripts decompile to CreateBattleObject."
       ]
     },
     {
@@ -2279,7 +2290,7 @@
       "category": "Scene/Objects",
       "handlerMacro": "OBJ_MOVE",
       "description": "Move an OBJ sprite.",
-      "currentPokewebName": "CMD_2e",
+      "currentPokewebName": "MoveBattleObject",
       "params": [
         {
           "index": 0,
@@ -2325,7 +2336,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_2e); use MoveObject for new docs/UI labels."
+        "Legacy alias CMD_2e is still accepted; new scripts decompile to MoveBattleObject."
       ]
     },
     {
@@ -2335,7 +2346,7 @@
       "category": "Scene/Objects",
       "handlerMacro": "OBJ_SCALE",
       "description": "Scale an OBJ sprite.",
-      "currentPokewebName": "CMD_2f",
+      "currentPokewebName": "ScaleBattleObject",
       "params": [
         {
           "index": 0,
@@ -2381,7 +2392,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_2f); use ScaleObject for new docs/UI labels."
+        "Legacy alias CMD_2f is still accepted; new scripts decompile to ScaleBattleObject."
       ]
     },
     {
@@ -2391,7 +2402,7 @@
       "category": "Scene/Objects",
       "handlerMacro": "OBJ_ANIME_SET",
       "description": "Set OBJ animation.",
-      "currentPokewebName": "CMD_30",
+      "currentPokewebName": "SetBattleObjectAnimation",
       "params": [
         {
           "index": 0,
@@ -2407,7 +2418,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_30); use SetObjectAnimation for new docs/UI labels."
+        "Legacy alias CMD_30 is still accepted; new scripts decompile to SetBattleObjectAnimation."
       ]
     },
     {
@@ -2471,7 +2482,7 @@
       "category": "Scene/Objects",
       "handlerMacro": "OBJ_DEL",
       "description": "Delete an OBJ sprite.",
-      "currentPokewebName": "CMD_32",
+      "currentPokewebName": "DeleteBattleObject",
       "params": [
         {
           "index": 0,
@@ -2481,7 +2492,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_32); use DeleteObject for new docs/UI labels."
+        "Legacy alias CMD_32 is still accepted; new scripts decompile to DeleteBattleObject."
       ]
     },
     {
@@ -2491,7 +2502,7 @@
       "category": "Scene/Objects",
       "handlerMacro": "GAUGE_VANISH",
       "description": "Show or hide HP/EXP gauge UI.",
-      "currentPokewebName": "CMD_33",
+      "currentPokewebName": "ToggleHUD",
       "params": [
         {
           "index": 0,
@@ -2507,7 +2518,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_33); use GaugeVanish for new docs/UI labels."
+        "Legacy alias CMD_33 is still accepted; new scripts decompile to ToggleHUD."
       ]
     },
     {
@@ -2583,7 +2594,7 @@
       "category": "Sound",
       "handlerMacro": "SE_STOP",
       "description": "Stop a sound effect player.",
-      "currentPokewebName": "CMD_35",
+      "currentPokewebName": "StopSound",
       "params": [
         {
           "index": 0,
@@ -2593,7 +2604,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_35); use StopSound for new docs/UI labels."
+        "Legacy alias CMD_35 is still accepted; new scripts decompile to StopSound."
       ]
     },
     {
@@ -2789,7 +2800,7 @@
       "category": "VM/Flow",
       "handlerMacro": "IF",
       "description": "Branch based on a work value.",
-      "currentPokewebName": "CheckMoveUser",
+      "currentPokewebName": "CheckMoveuser",
       "params": [
         {
           "index": 0,
@@ -2817,7 +2828,8 @@
         }
       ],
       "notes": [
-        "Old/current naming pointed at the move user, but the handler command is a general IF against a work value."
+        "Old/current naming pointed at the move user, but the handler command is a general IF against a work value.",
+        "Legacy alias CheckMoveUser is still accepted; new scripts decompile to CheckMoveuser."
       ]
     },
     {
@@ -2827,7 +2839,7 @@
       "category": "VM/Flow",
       "handlerMacro": "IF_WORK",
       "description": "Branch by comparing two work values.",
-      "currentPokewebName": "CMD_3c",
+      "currentPokewebName": "IfWork",
       "params": [
         {
           "index": 0,
@@ -2855,7 +2867,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_3c); use IfWork for new docs/UI labels."
+        "Legacy alias CMD_3c is still accepted; new scripts decompile to IfWork."
       ]
     },
     {
@@ -2865,7 +2877,7 @@
       "category": "VM/Flow",
       "handlerMacro": "MCSS_POS_CHECK",
       "description": "Branch/check based on battle position state.",
-      "currentPokewebName": "CMD_3d",
+      "currentPokewebName": "McssPositionCheck",
       "params": [
         {
           "index": 0,
@@ -2887,7 +2899,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_3d); use McssPositionCheck for new docs/UI labels."
+        "Legacy alias CMD_3d is still accepted; new scripts decompile to McssPositionCheck."
       ]
     },
     {
@@ -2897,7 +2909,7 @@
       "category": "VM/Flow",
       "handlerMacro": "SET_WORK",
       "description": "Set the generic sequence work value.",
-      "currentPokewebName": "CMD_3e",
+      "currentPokewebName": "SetWork",
       "params": [
         {
           "index": 0,
@@ -2907,7 +2919,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_3e); use SetWork for new docs/UI labels."
+        "Legacy alias CMD_3e is still accepted; new scripts decompile to SetWork."
       ]
     },
     {
@@ -2917,7 +2929,7 @@
       "category": "VM/Flow",
       "handlerMacro": "GET_WORK",
       "description": "Read a work value into the generic sequence work value.",
-      "currentPokewebName": "CMD_3f",
+      "currentPokewebName": "GetWork",
       "params": [
         {
           "index": 0,
@@ -2927,7 +2939,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_3f); use GetWork for new docs/UI labels."
+        "Legacy alias CMD_3f is still accepted; new scripts decompile to GetWork."
       ]
     },
     {
@@ -2937,7 +2949,7 @@
       "category": "VM/Flow",
       "handlerMacro": "SET_PARAM",
       "description": "Set a named work/parameter value.",
-      "currentPokewebName": "CMD_40",
+      "currentPokewebName": "SetParam",
       "params": [
         {
           "index": 0,
@@ -2953,7 +2965,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_40); use SetParam for new docs/UI labels."
+        "Legacy alias CMD_40 is still accepted; new scripts decompile to SetParam."
       ]
     },
     {
@@ -2963,7 +2975,7 @@
       "category": "VM/Flow",
       "handlerMacro": "MIGAWARI",
       "description": "Handle Substitute doll display/state.",
-      "currentPokewebName": "CMD_41",
+      "currentPokewebName": "Substitute",
       "params": [
         {
           "index": 0,
@@ -2985,7 +2997,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_41); use Substitute for new docs/UI labels."
+        "Legacy alias CMD_41 is still accepted; new scripts decompile to Substitute."
       ]
     },
     {
@@ -2995,10 +3007,10 @@
       "category": "VM/Flow",
       "handlerMacro": "HENSHIN",
       "description": "Handle Transform animation/state.",
-      "currentPokewebName": "CMD_42",
+      "currentPokewebName": "Transform",
       "params": [],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_42); use Transform for new docs/UI labels."
+        "Legacy alias CMD_42 is still accepted; new scripts decompile to Transform."
       ]
     },
     {
@@ -3062,7 +3074,7 @@
       "category": "VM/Flow",
       "handlerMacro": "BALL_MODE",
       "description": "Switch ball/capture particle mode.",
-      "currentPokewebName": "CMD_44",
+      "currentPokewebName": "BallMode",
       "params": [
         {
           "index": 0,
@@ -3072,7 +3084,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_44); use BallMode for new docs/UI labels."
+        "Legacy alias CMD_44 is still accepted; new scripts decompile to BallMode."
       ]
     },
     {
@@ -3082,7 +3094,7 @@
       "category": "VM/Flow",
       "handlerMacro": "BALLOBJ_SET",
       "description": "Create/show a ball OBJ sprite.",
-      "currentPokewebName": "CMD_45",
+      "currentPokewebName": "SetBallObject",
       "params": [
         {
           "index": 0,
@@ -3122,7 +3134,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_45); use SetBallObject for new docs/UI labels."
+        "Legacy alias CMD_45 is still accepted; new scripts decompile to SetBallObject."
       ]
     },
     {
@@ -3132,7 +3144,7 @@
       "category": "VM/Flow",
       "handlerMacro": "CALL",
       "description": "Call another move-animation subroutine/sequence.",
-      "currentPokewebName": "CMD_46",
+      "currentPokewebName": "CallSequence",
       "params": [
         {
           "index": 0,
@@ -3156,7 +3168,7 @@
       "notes": [
         "This is the VM-level subroutine call with attacker/defender overrides. Our current community macro exposes only one argument as CallMoveAnimation; called scripts may still rely on VM context.",
         "This is the true VM-level CALL and includes attacker/defender position overrides. It is distinct from opcode 74.",
-        "Current Pokeweb macro name is generic (CMD_46); use CallSequence for new docs/UI labels."
+        "Legacy alias CMD_46 is still accepted; new scripts decompile to CallSequence."
       ]
     },
     {
@@ -3166,10 +3178,10 @@
       "category": "VM/Flow",
       "handlerMacro": "RETURN",
       "description": "Return from a called subroutine.",
-      "currentPokewebName": "CMD_47",
+      "currentPokewebName": "Return",
       "params": [],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_47); use Return for new docs/UI labels."
+        "Legacy alias CMD_47 is still accepted; new scripts decompile to Return."
       ]
     },
     {
@@ -3199,10 +3211,10 @@
       "category": "VM/Flow",
       "handlerMacro": "PAUSE",
       "description": "Pause the sequence VM.",
-      "currentPokewebName": "CMD_49",
+      "currentPokewebName": "Pause",
       "params": [],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_49); use Pause for new docs/UI labels."
+        "Legacy alias CMD_49 is still accepted; new scripts decompile to Pause."
       ]
     },
     {
@@ -3232,7 +3244,7 @@
       "category": "VM/Flow",
       "handlerMacro": "LANDING_WAIT",
       "description": "Wait for landing-related animation to finish.",
-      "currentPokewebName": "CMD_4b",
+      "currentPokewebName": "LandingWait",
       "params": [
         {
           "index": 0,
@@ -3242,7 +3254,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_4b); use LandingWait for new docs/UI labels."
+        "Legacy alias CMD_4b is still accepted; new scripts decompile to LandingWait."
       ]
     },
     {
@@ -3252,7 +3264,7 @@
       "category": "VM/Flow",
       "handlerMacro": "REVERSE_DRAW_SET",
       "description": "Control MCSS reverse draw order.",
-      "currentPokewebName": "CMD_4c",
+      "currentPokewebName": "ReverseDrawSet",
       "params": [
         {
           "index": 0,
@@ -3262,7 +3274,7 @@
         }
       ],
       "notes": [
-        "Current Pokeweb macro name is generic (CMD_4c); use ReverseDrawSet for new docs/UI labels."
+        "Legacy alias CMD_4c is still accepted; new scripts decompile to ReverseDrawSet."
       ]
     },
     {

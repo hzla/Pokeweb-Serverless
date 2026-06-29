@@ -1,7 +1,9 @@
 import addIcon from "../assets/svgs/add.svg?raw";
 import { publicAsset } from "../assetUrl";
-import { TRAINER_AIS } from "../pokeweb/constants";
+import { TRAINER_AIS, isGen5Project } from "../pokeweb/constants";
+import { enrichTrainerLocations } from "../pokeweb/docGeneratorModel";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "../pokeweb/romPatchModel";
+import { ensureTrainerSpriteStore, getTrainerClassSpriteImage, hasGen5TrainerSprites } from "../pokeweb/trainerSpriteModel";
 import {
   expandTrainerScriptArchive,
   formatTrainerScriptArchiveDetail,
@@ -18,13 +20,18 @@ import {
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachTrainerInteractions } from "./trainerInteractions";
+import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
+import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 
 const TEST_BATTLE_TEAM_STORAGE_PREFIX = "pokeweb.testBattle.teamText";
+const TRAINER_SPRITE_RENDER_VERSION = "gen5-mcss-ncec-v2";
+const trainerSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 
 export function renderTrainerEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>): void {
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
   const showNatureField = trainerNaturePatchStatus === "patched";
   const savedTestBattleTeamText = readSavedTestBattleTeamText(project);
+  const enrichedTrainerLocations = autoEnrichTrainerLocations(project);
   root.innerHTML = `
     <div class="pokemon-filter trainer-filter">
       <div class="filter-title">Search</div>
@@ -34,6 +41,7 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
         <span class="svg">${addIcon}</span>
         Add Trainer
       </button>
+      ${renderW2uSyncButton(project, ["trainers"])}
       ${renderTrainerScriptArchivePanel(project)}
       ${renderTrainerNaturePatchPanel(project, trainerNaturePatchStatus)}
       <div class="trainer-test-team">
@@ -57,6 +65,8 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
     </div>
   `;
 
+  if (enrichedTrainerLocations) onDirty?.();
+  installTrainerSpriteRendering(project, root);
   installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle);
   installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, trainerNaturePatchStatus);
   attachTrainerInteractions(root, project, {
@@ -65,6 +75,7 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
     autofills: getTrainerAutofills(project),
     renderRow: (trainerId) => renderTrainerRow(project, trainerId),
   });
+  attachW2uSyncButton(root, project);
   installTestBattleTeamPersistence(project, root);
 }
 
@@ -99,24 +110,27 @@ function testBattleTeamStorageKey(project: ProjectState): string {
 }
 
 export function renderTrainerRow(project: ProjectState, trainerId: number): string {
-  return renderTrainerCard(getTrainerRecord(project, trainerId), detectSpecifyTrainerNaturesPatch(project) === "patched");
+  return renderTrainerCard(project, getTrainerRecord(project, trainerId), detectSpecifyTrainerNaturesPatch(project) === "patched");
 }
 
 function renderTrainerRows(project: ProjectState, showNatureField: boolean): string {
   const rows: string[] = [];
-  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) rows.push(renderTrainerCard(getTrainerRecord(project, trainerId), showNatureField));
+  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) rows.push(renderTrainerCard(project, getTrainerRecord(project, trainerId), showNatureField));
   return rows.join("");
 }
 
-function renderTrainerCard(trainer: TrainerRecord, showNatureField: boolean): string {
+function renderTrainerCard(project: ProjectState, trainer: TrainerRecord, showNatureField: boolean): string {
+  const trainerName = String(trainer.readable.name ?? `Trainer ${trainer.id}`);
+  const location = trainerLocationLabel(project, trainer.id);
+  const trainerNameLabel = location ? `${trainerName} - ${location}` : trainerName;
   return `
     <div class="expanded-field filterable trainer-card" data-index="${trainer.id}">
       <div class="expanded-field-main">
         <div class="trainer-id">${trainer.id}</div>
         <button class="field-btn test-battle-btn trainer-row-test-btn" type="button">Test</button>
         <div class="trainer-name">
-          <img src="${trainer.spritePath}" alt="" onerror="this.style.display='none'">
-          ${escapeHtml(String(trainer.readable.name ?? `Trainer ${trainer.id}`))}
+          ${renderTrainerSprite(project, trainer)}
+          <span>${escapeHtml(trainerNameLabel)}</span>
         </div>
         ${editable("trdata", "class", `${trainer.readable.class ?? ""} (${trainer.readable.class_id ?? trainer.raw.class ?? 0})`, "trainer-class", { autofill: "class_names" })}
         ${editable("trdata", "battle_type_1", trainer.readable.battle_type_1, "trainer-btype", { autofill: "battle_types" })}
@@ -133,6 +147,113 @@ function renderTrainerCard(trainer: TrainerRecord, showNatureField: boolean): st
       ${trainer.party.map((pok) => renderTrainerPokemon(trainer, pok, showNatureField)).join("")}
     </div>
   `;
+}
+
+function autoEnrichTrainerLocations(project: ProjectState): boolean {
+  if (!isGen5Project(project) || !project.narcs.headers || !project.narcs.overworlds) return false;
+  const before = JSON.stringify([project.docs?.trainerLocations ?? {}, project.docs?.trainerDiffs ?? {}]);
+  try {
+    enrichTrainerLocations(project);
+  } catch (error) {
+    console.warn("Failed to enrich trainer locations", error);
+    return false;
+  }
+  const after = JSON.stringify([project.docs?.trainerLocations ?? {}, project.docs?.trainerDiffs ?? {}]);
+  return before !== after;
+}
+
+function trainerLocationLabel(project: ProjectState, trainerId: number): string {
+  return project.docs?.trainerLocations[String(trainerId)]?.[0] ?? "";
+}
+
+function renderTrainerSprite(project: ProjectState, trainer: TrainerRecord): string {
+  if (!hasGen5TrainerSprites(project)) return `<img src="${trainer.spritePath}" alt="" onerror="this.style.display='none'">`;
+  const trainerClassId = Number(trainer.readable.class_id ?? trainer.raw.class ?? 0);
+  return `<canvas class="trainer-rom-sprite" data-trainer-class-id="${trainerClassId}" data-trainer-sprite-version="${TRAINER_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>`;
+}
+
+function installTrainerSpriteRendering(project: ProjectState, root: HTMLElement): void {
+  trainerSpriteInstallations.get(root)?.disconnect();
+  if (!hasGen5TrainerSprites(project)) return;
+
+  let storePromise: Promise<boolean> | undefined;
+  const imageCache = new Map<number, Promise<RgbaImageData | undefined>>();
+  const loadImage = (trainerClassId: number): Promise<RgbaImageData | undefined> => {
+    let cached = imageCache.get(trainerClassId);
+    if (!cached) {
+      cached = (async () => {
+        storePromise ??= ensureTrainerSpriteStore(project);
+        if (!(await storePromise)) return undefined;
+        return getTrainerClassSpriteImage(project, trainerClassId);
+      })().catch((error) => {
+        console.warn(`Failed to render trainer class sprite ${trainerClassId}`, error);
+        return undefined;
+      });
+      imageCache.set(trainerClassId, cached);
+    }
+    return cached;
+  };
+
+  const renderCanvas = async (canvas: HTMLCanvasElement): Promise<void> => {
+    if (
+      (canvas.dataset.trainerSpriteRendered === "true" && canvas.dataset.trainerSpriteVersion === TRAINER_SPRITE_RENDER_VERSION) ||
+      canvas.dataset.trainerSpriteRendered === "loading"
+    ) {
+      return;
+    }
+    const trainerClassId = Number(canvas.dataset.trainerClassId);
+    if (!Number.isInteger(trainerClassId)) return;
+    canvas.dataset.trainerSpriteVersion = TRAINER_SPRITE_RENDER_VERSION;
+    canvas.dataset.trainerSpriteRendered = "loading";
+    const image = await loadImage(trainerClassId);
+    if (!canvas.isConnected) return;
+    if (!image) {
+      canvas.hidden = true;
+      canvas.dataset.trainerSpriteRendered = "missing";
+      return;
+    }
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const pixels = new Uint8ClampedArray(image.pixels.length);
+    pixels.set(image.pixels);
+    canvas.getContext("2d")?.putImageData(new ImageData(pixels, image.width, image.height), 0, 0);
+    canvas.classList.add("-loaded");
+    canvas.dataset.trainerSpriteRendered = "true";
+  };
+
+  const intersectionObserver =
+    typeof IntersectionObserver === "undefined"
+      ? undefined
+      : new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const canvas = entry.target as HTMLCanvasElement;
+            intersectionObserver?.unobserve(canvas);
+            void renderCanvas(canvas);
+          }
+        });
+
+  const observeCanvas = (canvas: HTMLCanvasElement): void => {
+    if (canvas.dataset.trainerSpriteObserved === "true") return;
+    canvas.dataset.trainerSpriteObserved = "true";
+    if (intersectionObserver) intersectionObserver.observe(canvas);
+    else void renderCanvas(canvas);
+  };
+
+  const scan = (): void => {
+    root.querySelectorAll<HTMLCanvasElement>("canvas.trainer-rom-sprite").forEach(observeCanvas);
+  };
+
+  const mutationObserver = new MutationObserver(scan);
+  mutationObserver.observe(root, { childList: true, subtree: true });
+  scan();
+
+  trainerSpriteInstallations.set(root, {
+    disconnect: () => {
+      intersectionObserver?.disconnect();
+      mutationObserver.disconnect();
+    },
+  });
 }
 
 function renderExpandedTrainer(trainer: TrainerRecord): string {

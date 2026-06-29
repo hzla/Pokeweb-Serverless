@@ -34,6 +34,7 @@ export type NarcName =
   | "trtext_offsets"
   | "trdata"
   | "trpok"
+  | "trainer_sprites"
   | "encounters"
   | "habitats"
   | "marts"
@@ -142,6 +143,7 @@ export const BW_NARCS: NarcDefinition[] = [
   { path: "a/0/9/1", name: "trtext_offsets" },
   { path: "a/0/9/2", name: "trdata" },
   { path: "a/0/9/3", name: "trpok" },
+  { path: "a/0/7/2", name: "trainer_sprites" },
   { path: "a/1/2/6", name: "encounters" },
   { path: "a/2/0/5", name: "starter_sprites" },
 ];
@@ -163,6 +165,7 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/0/9/0", name: "trtext_offsets" },
   { path: "a/0/9/1", name: "trdata" },
   { path: "a/0/9/2", name: "trpok" },
+  { path: "a/0/7/1", name: "trainer_sprites" },
   { path: "a/1/2/7", name: "encounters" },
   { path: "a/2/9/6", name: "habitats" },
   { path: "a/2/8/2", name: "marts" },

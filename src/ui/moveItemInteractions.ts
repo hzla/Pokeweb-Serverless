@@ -10,13 +10,17 @@ import {
   type FieldUpdateResult,
 } from "../pokeweb/moveItemModel";
 import { buildMoveAnimationPreview, loadMoveBackground, loadMoveSpaArchive } from "../pokeweb/moveAnimationPreviewModel";
-import { compileMoveAnimation, decompileMoveAnimationBytes, updateMoveAnimationScript } from "../pokeweb/moveAnimationModel";
+import { getMoveAnimationDisplayCommandName } from "../pokeweb/moveAnimationCommandNames";
+import { compileMoveAnimation, decompileMoveAnimationBytes, formatMoveAnimationScriptParameters, updateMoveAnimationScript, type MoveAnimationParamDisplayMode } from "../pokeweb/moveAnimationModel";
+import { getMoveAnimationParamSemanticHelp } from "../pokeweb/moveAnimationParamSemantics";
+import { updateMoveDescription, updateMoveTextName } from "../pokeweb/moveTextModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
 import { installMoveAnimationAudioPreview, type MoveAnimationAudioPreviewController } from "./moveAnimationAudioPreview";
 import { installMoveAnimationPreview, renderMoveBackgroundPreviewCanvas, type MoveAnimationPreviewController } from "./moveAnimationPreview";
 import { installMoveAnimationCodeEditor, type MoveAnimationCommandReference } from "./moveAnimationCodeEditor";
+import { installMoveAnimationDocsPanel, type MoveAnimationDocsPanelController } from "./moveAnimationDocsPanel";
 import { installMoveSpaEditor, type MoveSpaEditorController } from "./moveSpaEditor";
 
 export type MoveAnimationEditorOptions = {
@@ -28,6 +32,7 @@ type MoveOptions = MoveAnimationEditorOptions & {
   onOpenMoveAnimation?: (moveId: number) => void;
   autofills: Record<string, string[]>;
   renderExpanded: (moveId: number) => string;
+  renderTextPanel?: (moveId: number) => string;
 };
 
 type ItemOptions = {
@@ -102,6 +107,16 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
 
     const icon = target.closest<HTMLElement>(".expand-action");
     if (!icon) return;
+    const expandKind = icon.dataset.expand;
+    if (expandKind === "move-text") {
+      if (!card.querySelector(".expanded-move-texts") && options.renderTextPanel) {
+        card.insertAdjacentHTML("beforeend", options.renderTextPanel(moveId));
+        installMoveTextFields(card, project, options);
+      }
+      togglePanel(card, ".expanded-move-texts", icon);
+      stripeRows(root);
+      return;
+    }
     if (!card.querySelector(".expanded-move")) {
       card.insertAdjacentHTML("beforeend", options.renderExpanded(moveId));
       installMoveEditableFields(card, project, options);
@@ -122,6 +137,10 @@ export function renderMoveAnimationEditor(script: string): string {
       <button class="script-btn move-animation-preview-btn" type="button">Refresh Preview</button>
       <button class="script-btn move-animation-import-bin" type="button">Import Binary</button>
       <button class="script-btn move-animation-export-bin" type="button">Export Binary</button>
+      <label class="move-animation-param-mode">
+        <input class="move-animation-param-mode-toggle" type="checkbox">
+        <span>Numeric Params</span>
+      </label>
       <input class="move-animation-import-bin-file" type="file" accept=".bin,.dat,application/octet-stream" hidden>
       <div class="move-animation-status"></div>
     </div>
@@ -135,6 +154,7 @@ export function renderMoveAnimationEditor(script: string): string {
           <button class="move-animation-side-tab -active" id="move-animation-preview-tab" type="button" role="tab" aria-selected="true" aria-controls="move-animation-preview-panel" data-move-animation-side-tab="preview">Preview</button>
           <button class="move-animation-side-tab" id="move-animation-spa-tab" type="button" role="tab" aria-selected="false" aria-controls="move-animation-spa-panel" data-move-animation-side-tab="spa" tabindex="-1">SPA Editor</button>
           <button class="move-animation-side-tab" id="move-animation-audio-tab" type="button" role="tab" aria-selected="false" aria-controls="move-animation-audio-panel" data-move-animation-side-tab="audio" tabindex="-1">Audio</button>
+          <button class="move-animation-side-tab -utility-start" id="move-animation-docs-tab" type="button" role="tab" aria-selected="false" aria-controls="move-animation-docs-panel" data-move-animation-side-tab="docs" tabindex="-1">Docs</button>
         </div>
         <div class="move-animation-side-tab-panels">
           <section class="move-animation-side-tab-panel -active" id="move-animation-preview-panel" role="tabpanel" aria-labelledby="move-animation-preview-tab" data-move-animation-side-panel="preview">
@@ -168,6 +188,9 @@ export function renderMoveAnimationEditor(script: string): string {
               </div>
             </div>
           </section>
+          <section class="move-animation-side-tab-panel" id="move-animation-docs-panel" role="tabpanel" aria-labelledby="move-animation-docs-tab" data-move-animation-side-panel="docs" hidden>
+            <div class="move-animation-docs-pane" aria-label="Move animation documentation"></div>
+          </section>
           <section class="move-animation-side-tab-panel" id="move-animation-audio-panel" role="tabpanel" aria-labelledby="move-animation-audio-tab" data-move-animation-side-panel="audio" hidden>
             <div class="move-animation-audio-pane" aria-label="Move animation audio preview"></div>
           </section>
@@ -183,12 +206,16 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   const status = panel.querySelector<HTMLElement>(".move-animation-status");
   const previewHost = panel.querySelector<HTMLElement>(".move-animation-preview-host");
   const spaEditorHost = panel.querySelector<HTMLElement>(".move-animation-spa-pane");
+  const docsHost = panel.querySelector<HTMLElement>(".move-animation-docs-pane");
   const audioPreviewHost = panel.querySelector<HTMLElement>(".move-animation-audio-pane");
   const commandReference = document.querySelector<HTMLElement>("#move-command-reference");
   const testButton = document.querySelector<HTMLButtonElement>(".move-animation-test-btn");
   let audioPreview: MoveAnimationAudioPreviewController | undefined;
+  let docsPanel: MoveAnimationDocsPanelController | undefined;
   let audioTabLoaded = false;
-  const activateSideTab = (nextTab: "preview" | "spa" | "audio") => {
+  let activeSideTab: "preview" | "docs" | "spa" | "audio" = "preview";
+  const activateSideTab = (nextTab: "preview" | "docs" | "spa" | "audio") => {
+    activeSideTab = nextTab;
     if (nextTab !== "audio") audioPreview?.stop();
     panel.querySelectorAll<HTMLButtonElement>("[data-move-animation-side-tab]").forEach((button) => {
       const active = button.dataset.moveAnimationSideTab === nextTab;
@@ -207,23 +234,50 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
         onCommandSelected: (reference) => renderCommandReference(commandReference, reference, project),
       })
     : undefined;
-  const spaEditor: MoveSpaEditorController | undefined = spaEditorHost
-    ? installMoveSpaEditor(spaEditorHost, project, editor?.getValue() ?? source?.value ?? "", { onDirty: options.onDirty })
-    : undefined;
-  audioPreview = audioPreviewHost
-    ? installMoveAnimationAudioPreview(audioPreviewHost, project, moveId, () => editor?.getValue() ?? source?.value ?? "")
-    : undefined;
   let previewController: MoveAnimationPreviewController | undefined;
-  let lastGood = editor?.getValue() ?? "";
-  const closePreview = () => {
+  let previewRequestId = 0;
+  let previewDirty = false;
+  let previewRefreshTimer = 0;
+  const destroyPreview = (): void => {
     previewController?.destroy();
     previewController = undefined;
     previewHost?.classList.remove("show-flex");
   };
-  const buildPreview = async (initialPlaying: boolean) => {
+  const closePreview = () => {
+    previewRequestId += 1;
+    window.clearTimeout(previewRefreshTimer);
+    destroyPreview();
+  };
+  const schedulePreviewRefresh = (): void => {
+    previewDirty = true;
+    if (activeSideTab !== "preview") return;
+    window.clearTimeout(previewRefreshTimer);
+    previewRefreshTimer = window.setTimeout(() => {
+      void buildPreview(false, { reveal: false });
+    }, 150);
+  };
+  const spaEditor: MoveSpaEditorController | undefined = spaEditorHost
+    ? installMoveSpaEditor(spaEditorHost, project, editor?.getValue() ?? source?.value ?? "", { onDirty: options.onDirty, onPreviewChange: schedulePreviewRefresh })
+    : undefined;
+  docsPanel = docsHost ? installMoveAnimationDocsPanel(docsHost) : undefined;
+  audioPreview = audioPreviewHost
+    ? installMoveAnimationAudioPreview(audioPreviewHost, project, moveId, () => editor?.getValue() ?? source?.value ?? "")
+    : undefined;
+  let lastGood = editor?.getValue() ?? "";
+  let paramDisplayMode: MoveAnimationParamDisplayMode = "semantic";
+  const setEditorScriptForDisplayMode = (scriptText: string): void => {
+    if (!editor) return;
+    editor.setValue(paramDisplayMode === "numeric" ? formatMoveAnimationScriptParameters(scriptText, "numeric") : formatMoveAnimationScriptParameters(scriptText, "semantic"));
+  };
+  const refreshScriptDependents = async (): Promise<void> => {
+    await spaEditor?.ensureReferences(editor?.getValue() ?? source?.value ?? "");
+  };
+  const buildPreview = async (initialPlaying: boolean, buildOptions: { reveal?: boolean } = {}) => {
     if (!editor || !previewHost) return;
-    activateSideTab("preview");
-    closePreview();
+    const requestId = ++previewRequestId;
+    window.clearTimeout(previewRefreshTimer);
+    if (buildOptions.reveal ?? true) activateSideTab("preview");
+    destroyPreview();
     previewHost.classList.add("show-flex");
     previewHost.innerHTML = `<div class="move-animation-preview-loading">Building preview...</div>`;
     if (status) {
@@ -236,13 +290,20 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
       const preview = await buildMoveAnimationPreview(project, moveId, scriptText, {
         loadSpaArchive: async (_project, spaId) => spaEditor?.getArchiveOverride(spaId) ?? loadMoveSpaArchive(project, spaId),
       });
-      previewController = await installMoveAnimationPreview(previewHost, preview, { initialPlaying });
+      const nextPreviewController = await installMoveAnimationPreview(previewHost, preview, { initialPlaying });
+      if (requestId !== previewRequestId) {
+        nextPreviewController.destroy();
+        return;
+      }
+      previewController = nextPreviewController;
+      previewDirty = false;
       editor.setInvalid(false);
       if (status) {
         status.textContent = "Preview ready";
         status.classList.remove("-error");
       }
     } catch (error) {
+      if (requestId !== previewRequestId) return;
       previewHost.innerHTML = `<div class="move-animation-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
       editor.setInvalid(true);
       if (status) {
@@ -255,8 +316,10 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   panel.querySelectorAll<HTMLButtonElement>("[data-move-animation-side-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       const nextTab = button.dataset.moveAnimationSideTab;
-      if (nextTab !== "preview" && nextTab !== "spa" && nextTab !== "audio") return;
+      if (nextTab !== "preview" && nextTab !== "docs" && nextTab !== "spa" && nextTab !== "audio") return;
       activateSideTab(nextTab);
+      if (nextTab === "docs") docsPanel?.refresh();
+      if (nextTab === "preview" && previewDirty) void buildPreview(false, { reveal: false });
       if (nextTab === "spa") void spaEditor?.ensureReferences(editor?.getValue() ?? source?.value ?? "");
       if (nextTab === "audio" && !audioTabLoaded) {
         audioTabLoaded = true;
@@ -277,6 +340,8 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
       }
       editor.setInvalid(false);
       options.onDirty?.();
+      if (activeSideTab === "preview") void buildPreview(false, { reveal: false });
+      else previewDirty = true;
     } catch (error) {
       if (status) {
         status.textContent = error instanceof Error ? error.message : String(error);
@@ -287,8 +352,9 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   });
   panel.querySelector<HTMLButtonElement>(".move-animation-revert")?.addEventListener("click", () => {
     if (!editor) return;
-    editor.setValue(lastGood);
+    setEditorScriptForDisplayMode(lastGood);
     editor.setInvalid(false);
+    schedulePreviewRefresh();
     if (status) {
       status.textContent = "";
       status.classList.remove("-error");
@@ -296,6 +362,31 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   });
   panel.querySelector<HTMLButtonElement>(".move-animation-preview-btn")?.addEventListener("click", async () => {
     await buildPreview(false);
+  });
+  panel.querySelector<HTMLInputElement>(".move-animation-param-mode-toggle")?.addEventListener("change", async (event) => {
+    if (!editor) return;
+    const input = event.currentTarget as HTMLInputElement;
+    const previousMode = paramDisplayMode;
+    const nextMode: MoveAnimationParamDisplayMode = input.checked ? "numeric" : "semantic";
+    try {
+      const currentText = editor.getValue();
+      paramDisplayMode = nextMode;
+      setEditorScriptForDisplayMode(currentText);
+      editor.setInvalid(false);
+      await refreshScriptDependents();
+      if (status) {
+        status.textContent = nextMode === "numeric" ? "Showing numeric parameters" : "Showing semantic parameters";
+        status.classList.remove("-error");
+      }
+    } catch (error) {
+      paramDisplayMode = previousMode;
+      input.checked = previousMode === "numeric";
+      editor.setInvalid(true);
+      if (status) {
+        status.textContent = error instanceof Error ? error.message : String(error);
+        status.classList.add("-error");
+      }
+    }
   });
   testButton?.addEventListener("click", async () => {
     if (!editor || !options.onTestMove) return;
@@ -335,10 +426,11 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
     importBinaryInput.value = "";
     if (!file) return;
     try {
-      const scriptText = decompileMoveAnimationBytes(new Uint8Array(await file.arrayBuffer()));
-      editor.setValue(scriptText);
-      editor.setInvalid(false);
-      await spaEditor?.ensureReferences(scriptText);
+	      const scriptText = decompileMoveAnimationBytes(new Uint8Array(await file.arrayBuffer()));
+	      setEditorScriptForDisplayMode(scriptText);
+	      editor.setInvalid(false);
+      await spaEditor?.ensureReferences(editor.getValue());
+      schedulePreviewRefresh();
       if (status) {
         status.textContent = `Imported ${file.name}; Apply Script to save`;
         status.classList.remove("-error");
@@ -371,6 +463,93 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   });
 }
 
+function installMoveTextFields(root: HTMLElement, project: ProjectState, options: MoveOptions): void {
+  root.querySelectorAll<HTMLInputElement>(".move-text-name-input").forEach((input) => {
+    if (input.dataset.moveTextNameInstalled === "true") return;
+    input.dataset.moveTextNameInstalled = "true";
+    let initialValue = input.value.trim();
+    const commit = () => {
+      const card = input.closest<HTMLElement>(".move-card");
+      const moveId = Number(card?.dataset.index);
+      if (!card || !Number.isInteger(moveId)) return false;
+      updateMoveTextName(project, moveId, input.value);
+      refreshMoveTextPanel(card, project, moveId, options);
+      syncMoveNameInRow(card, project, moveId);
+      return true;
+    };
+    input.addEventListener("focus", () => {
+      initialValue = input.value.trim();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+    input.addEventListener("change", () => {
+      if (input.value.trim() === initialValue) return;
+      try {
+        if (commit()) {
+          input.classList.remove("invalid");
+          options.onDirty?.();
+        }
+      } catch (error) {
+        input.value = initialValue;
+        input.classList.add("invalid");
+        setMoveTextStatus(input, error instanceof Error ? error.message : String(error), true);
+      }
+    });
+  });
+
+  root.querySelectorAll<HTMLTextAreaElement>(".move-text-description-input").forEach((textarea) => {
+    if (textarea.dataset.moveTextDescriptionInstalled === "true") return;
+    textarea.dataset.moveTextDescriptionInstalled = "true";
+    let initialValue = textarea.value;
+    const commit = () => {
+      const card = textarea.closest<HTMLElement>(".move-card");
+      const moveId = Number(card?.dataset.index);
+      if (!card || !Number.isInteger(moveId)) return false;
+      updateMoveDescription(project, moveId, textarea.value);
+      refreshMoveTextPanel(card, project, moveId, options);
+      return true;
+    };
+    textarea.addEventListener("focus", () => {
+      initialValue = textarea.value;
+    });
+    textarea.addEventListener("change", () => {
+      if (textarea.value === initialValue) return;
+      try {
+        if (commit()) {
+          textarea.classList.remove("invalid");
+          options.onDirty?.();
+        }
+      } catch (error) {
+        textarea.value = initialValue;
+        textarea.classList.add("invalid");
+        setMoveTextStatus(textarea, error instanceof Error ? error.message : String(error), true);
+      }
+    });
+  });
+}
+
+function refreshMoveTextPanel(card: HTMLElement, project: ProjectState, moveId: number, options: MoveOptions): void {
+  const panel = card.querySelector<HTMLElement>(".expanded-move-texts");
+  if (!panel || !options.renderTextPanel) return;
+  const wasOpen = panel.classList.contains("show-flex");
+  panel.outerHTML = options.renderTextPanel(moveId);
+  const nextPanel = card.querySelector<HTMLElement>(".expanded-move-texts");
+  if (nextPanel && wasOpen) nextPanel.classList.add("show-flex");
+  if (nextPanel) installMoveTextFields(nextPanel, project, options);
+}
+
+function setMoveTextStatus(field: HTMLElement, message: string, error = false): void {
+  const panel = field.closest<HTMLElement>(".expanded-move-texts");
+  const status = panel?.querySelector<HTMLElement>(".move-text-status");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("-error", error);
+}
+
 function downloadBytes(bytes: Uint8Array, filename: string): void {
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
@@ -388,20 +567,38 @@ function downloadBytes(bytes: Uint8Array, filename: string): void {
 function renderCommandReference(host: HTMLElement | null, reference: MoveAnimationCommandReference, project: ProjectState): void {
   if (!host) return;
   const doc = reference.doc;
+  const displayName = doc.currentPokewebName || getMoveAnimationDisplayCommandName(doc.name);
   const referenceName =
-    doc.name !== reference.clickedName ? `<div class="move-command-reference-subtitle">Reference name: <code>${escapeHtml(doc.name)}</code></div>` : "";
+    doc.name !== displayName ? `<div class="move-command-reference-subtitle">Reference name: <code>${escapeHtml(doc.name)}</code></div>` : "";
   const backgroundId = parseLoadBackgroundId(reference);
   const previewId = backgroundId === undefined ? "" : `move-bg-preview-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   host.innerHTML = `
     <div class="move-command-reference-kicker">${escapeHtml(doc.hex)} / ${escapeHtml(doc.category)}</div>
-    <div class="move-command-reference-title">${escapeHtml(reference.clickedName)}</div>
+    <div class="move-command-reference-title">${escapeHtml(displayName)}</div>
     ${referenceName}
-    <p>${escapeHtml(doc.description)}</p>
-    ${renderCommandParamList(doc)}
-    ${renderCommandNotes(doc)}
-    ${backgroundId === undefined ? "" : renderBackgroundReferencePreview(backgroundId, previewId)}
-  `;
+	    <p>${escapeHtml(doc.description)}</p>
+	    ${renderCommandParamList(doc, displayName)}
+	    ${renderCommandBoundaryNote(doc)}
+	    ${renderCommandNotes(doc)}
+	    ${backgroundId === undefined ? "" : renderBackgroundReferencePreview(backgroundId, previewId)}
+	  `;
   if (backgroundId !== undefined) void hydrateBackgroundReferencePreview(host, project, backgroundId, previewId);
+}
+
+function renderCommandBoundaryNote(doc: MoveAnimationCommandReference["doc"]): string {
+  if (doc.name === "LoadSPA") {
+    return `<div class="move-command-reference-notes"><div>Script vs SPA</div><ul><li>Script loads the SPA archive. Textures, emitter color, alpha, scale, child particles, and behaviors still live inside the SPA file.</li></ul></div>`;
+  }
+  if (doc.name.startsWith("DoSPA")) {
+    return `<div class="move-command-reference-notes"><div>Script vs SPA</div><ul><li>Script chooses the SPA, resource, placement, and timing. The visible particle shape, texture, tint curves, scale curves, opacity curves, and nested child particles require SPA edits.</li></ul></div>`;
+  }
+  if (doc.category === "Background") {
+    return `<div class="move-command-reference-notes"><div>Script vs SPA</div><ul><li>This is a pure VM background command. Particle texture or emitter changes are not involved unless a separate SPA is spawned at the same time.</li></ul></div>`;
+  }
+  if (doc.category === "Sound") {
+    return `<div class="move-command-reference-notes"><div>Script vs SPA</div><ul><li>Sound playback is script-side. SPA files only matter if you are matching the sound timing to particle lifetime.</li></ul></div>`;
+  }
+  return "";
 }
 
 function parseLoadBackgroundId(reference: MoveAnimationCommandReference): number | undefined {
@@ -438,7 +635,7 @@ async function hydrateBackgroundReferencePreview(host: HTMLElement, project: Pro
   }
 }
 
-function renderCommandParamList(doc: MoveAnimationCommandReference["doc"]): string {
+function renderCommandParamList(doc: MoveAnimationCommandReference["doc"], commandName: string): string {
   if (doc.params.length === 0) return `<div class="move-command-reference-empty">Parameters: none.</div>`;
   return `
     <div class="move-command-reference-params">
@@ -448,12 +645,26 @@ function renderCommandParamList(doc: MoveAnimationCommandReference["doc"]): stri
             <div class="move-command-reference-param">
               <div><span>#${param.index}</span> <code>${escapeHtml(param.currentArg)}</code>${param.name !== param.currentArg ? `<small>${escapeHtml(param.name)}</small>` : ""}</div>
               <p>${escapeHtml(param.description)}</p>
+              ${renderCommandParamSemanticHelp(commandName, param.index)}
             </div>
           `,
         )
         .join("")}
     </div>
   `;
+}
+
+function renderCommandParamSemanticHelp(commandName: string, paramIndex: number): string {
+  const help = getMoveAnimationParamSemanticHelp(commandName, paramIndex);
+  if (!help) return "";
+  if (help.kind === "fx32") {
+    return help.unit === "world"
+      ? `<small class="move-command-reference-semantic">Accepts FX32 world units such as <code>1px</code>, <code>0.5px</code>, and <code>2px</code>; raw <code>4096</code> remains valid.</small>`
+      : `<small class="move-command-reference-semantic">Accepts FX32 multipliers such as <code>1x</code>, <code>0.5x</code>, and <code>2x</code>.</small>`;
+  }
+  const values = help.values ?? [];
+  if (!values.length) return "";
+  return `<small class="move-command-reference-semantic">Values: ${values.map((value) => `<code>${escapeHtml(value.name)} (${value.value})</code>`).join(" ")}</small>`;
 }
 
 function renderCommandNotes(doc: MoveAnimationCommandReference["doc"]): string {
@@ -686,6 +897,14 @@ function syncMoveRow(card: HTMLElement, result: FieldUpdateResult, fieldName: st
     const effectId = card.querySelector<HTMLInputElement>(".move-effect-id-input");
     if (effectId) effectId.value = String(result.rawValue);
   }
+}
+
+function syncMoveNameInRow(card: HTMLElement, project: ProjectState, moveId: number): void {
+  const main = card.querySelector<HTMLElement>(":scope > .expanded-field-main");
+  const nameField = main?.querySelector<HTMLElement>(".move-name");
+  if (!nameField) return;
+  const move = getMoveRecord(project, moveId);
+  nameField.textContent = `${move.id} - ${String(move.readable.name ?? `Move ${move.id}`)}`;
 }
 
 function syncItemPackedEditor(card: HTMLElement, fieldName: string, rawValue: number): void {

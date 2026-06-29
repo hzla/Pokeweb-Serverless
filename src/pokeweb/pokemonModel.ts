@@ -1,6 +1,7 @@
 import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { EGG_GROUPS, EVO_METHODS, GROWTHS, typeNamesForProject, type NarcName } from "./constants";
+import { detectWhite2UpgradeDlls } from "./pmcModel";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTmNames, machineCountsForProject } from "./tmModel";
 
@@ -44,7 +45,13 @@ export const EV_YIELD_FIELDS = [
   ["Speed", "speed_yield"],
 ] as const;
 
-export const LEARNSET_MAX_MOVES = 25;
+export const RETAIL_LEARNSET_MAX_MOVES = 25;
+export const WHITE2UPGRADE_LEARNSET_MAX_MOVES = 32;
+export const RETAIL_EVOLUTION_SLOT_COUNT = 7;
+export const WHITE2UPGRADE_EVOLUTION_SLOT_COUNT = 8;
+
+const WHITE2UPGRADE_MIN_PERSONAL_FILES = 1000;
+const WHITE2UPGRADE_EVOLUTION_RECORD_LENGTH = WHITE2UPGRADE_EVOLUTION_SLOT_COUNT * 6;
 
 export type LearnsetMove = {
   index: number;
@@ -156,6 +163,21 @@ const EVOLUTION_PARAM_KINDS: Partial<Record<number, EvolutionParamKind>> = {
 
 export function getPokemonCount(project: ProjectState): number {
   return project.narcs.personal?.fileCount ?? 0;
+}
+
+export function usesWhite2UpgradePokemonData(project: ProjectState): boolean {
+  if (project.session.baseRom !== "BW2") return false;
+  if ((project.narcs.personal?.fileCount ?? 0) >= WHITE2UPGRADE_MIN_PERSONAL_FILES) return true;
+  if (project.narcs.evolutions?.rawFiles.some((file) => file.length >= WHITE2UPGRADE_EVOLUTION_RECORD_LENGTH)) return true;
+  return detectWhite2UpgradeDlls(project);
+}
+
+export function learnsetMoveLimit(project: ProjectState): number {
+  return usesWhite2UpgradePokemonData(project) ? WHITE2UPGRADE_LEARNSET_MAX_MOVES : RETAIL_LEARNSET_MAX_MOVES;
+}
+
+export function evolutionSlotCount(project: ProjectState): number {
+  return usesWhite2UpgradePokemonData(project) ? WHITE2UPGRADE_EVOLUTION_SLOT_COUNT : RETAIL_EVOLUTION_SLOT_COUNT;
 }
 
 export function getPokemonRecord(project: ProjectState, id: number): PokemonEditorRecord {
@@ -333,13 +355,14 @@ export function deletePokemonEggMove(project: ProjectState, speciesId: number, i
 export function insertPokemonLearnsetMove(project: ProjectState, speciesId: number, index: number): LearnsetMove[] {
   const record = decodeRecord(project, "learnsets", speciesId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update learnsets ${speciesId}`);
-  const entries = learnsetEntries(record.raw);
-  if (entries.length >= LEARNSET_MAX_MOVES) throw new Error(`Learnset cannot exceed ${LEARNSET_MAX_MOVES} moves`);
+  const limit = learnsetMoveLimit(project);
+  const entries = learnsetEntries(record.raw, limit);
+  if (entries.length >= limit) throw new Error(`Learnset cannot exceed ${limit} moves`);
 
   const insertAt = Math.max(0, Math.min(index, entries.length));
   const template = entries[Math.max(0, insertAt - 1)] ?? entries[insertAt] ?? { moveId: firstUsableMoveId(project), level: 1 };
   entries.splice(insertAt, 0, { moveId: template.moveId, level: template.level });
-  applyLearnsetEntries(project, record.raw, record.readable, entries);
+  applyLearnsetEntries(project, record.raw, record.readable, entries, limit);
   recordGenericChange(project, "learnsets", `${pokemonChangelogSubject(project, speciesId)} learnset slot ${insertAt + 1} was added.`, pokemonChangelogSubject(project, speciesId), {
     key: `pokemon:${speciesId}:learnset-insert:${insertAt}`,
   });
@@ -350,17 +373,17 @@ export function insertPokemonLearnsetMove(project: ProjectState, speciesId: numb
 export function appendPokemonLearnsetMove(project: ProjectState, speciesId: number): LearnsetMove[] {
   const record = decodeRecord(project, "learnsets", speciesId);
   if (!record.raw) throw new Error(`Unable to update learnsets ${speciesId}`);
-  return insertPokemonLearnsetMove(project, speciesId, learnsetEntries(record.raw).length);
+  return insertPokemonLearnsetMove(project, speciesId, learnsetEntries(record.raw, learnsetMoveLimit(project)).length);
 }
 
 export function deletePokemonLearnsetMove(project: ProjectState, speciesId: number, index: number): LearnsetMove[] {
   const record = decodeRecord(project, "learnsets", speciesId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update learnsets ${speciesId}`);
-  const entries = learnsetEntries(record.raw);
+  const entries = learnsetEntries(record.raw, learnsetMoveLimit(project));
   if (index < 0 || index >= entries.length) throw new Error(`Learnset row ${index} does not exist`);
   const before = `${project.texts.banks.moves?.[entries[index].moveId] ?? entries[index].moveId} at level ${entries[index].level}`;
   entries.splice(index, 1);
-  applyLearnsetEntries(project, record.raw, record.readable, entries);
+  applyLearnsetEntries(project, record.raw, record.readable, entries, learnsetMoveLimit(project));
   recordGenericChange(project, "learnsets", `${pokemonChangelogSubject(project, speciesId)} learnset slot ${index + 1} (${before}) was removed.`, pokemonChangelogSubject(project, speciesId), {
     key: `pokemon:${speciesId}:learnset-delete:${index}`,
   });
@@ -473,7 +496,8 @@ function getLearnset(project: ProjectState, id: number): LearnsetMove[] {
   const record = decodeRecord(project, "learnsets", id);
   if (!record.raw || !record.readable) return [];
   const moves: LearnsetMove[] = [];
-  for (let index = 0; index < LEARNSET_MAX_MOVES; index += 1) {
+  const limit = learnsetMoveLimit(project);
+  for (let index = 0; index < limit; index += 1) {
     const moveId = record.raw[`move_id_${index}`];
     const level = record.raw[`lvl_learned_${index}`];
     if (moveId === undefined || level === undefined || moveId === 65535 || (moveId === 0 && level === 0)) break;
@@ -489,9 +513,9 @@ function getLearnset(project: ProjectState, id: number): LearnsetMove[] {
   return moves;
 }
 
-export function learnsetEntries(raw: RawRecord): Array<{ moveId: number; level: number }> {
+export function learnsetEntries(raw: RawRecord, limit = WHITE2UPGRADE_LEARNSET_MAX_MOVES): Array<{ moveId: number; level: number }> {
   const entries: Array<{ moveId: number; level: number }> = [];
-  for (let index = 0; index < LEARNSET_MAX_MOVES; index += 1) {
+  for (let index = 0; index < limit; index += 1) {
     const moveId = raw[`move_id_${index}`];
     const level = raw[`lvl_learned_${index}`];
     if (moveId === undefined || level === undefined || moveId === 65535 || (moveId === 0 && level === 0)) break;
@@ -505,7 +529,7 @@ function getEvolutions(project: ProjectState, id: number): EvolutionSlot[] {
   if (id < 0 || id >= project.narcs.evolutions.fileCount || !project.narcs.evolutions.rawFiles[id]) return [];
   const record = decodeRecord(project, "evolutions", id);
   if (!record.raw || !record.readable) return [];
-  return Array.from({ length: 7 }, (_, index) => {
+  return Array.from({ length: evolutionSlotCount(project) }, (_, index) => {
     const methodId = record.raw?.[`method_${index}`] ?? 0;
     const paramRaw = record.raw?.[`param_${index}`] ?? 0;
     const targetId = record.raw?.[`target_${index}`] ?? 0;
@@ -651,15 +675,15 @@ function updateLearnsetField(project: ProjectState, raw: RawRecord, readable: Re
   return { value, rawValue, movePreview: getMovePreview(project, rawValue) };
 }
 
-function applyLearnsetEntries(project: ProjectState, raw: RawRecord, readable: ReadableRecord, entries: Array<{ moveId: number; level: number }>): void {
-  for (let index = 0; index < LEARNSET_MAX_MOVES; index += 1) {
+function applyLearnsetEntries(project: ProjectState, raw: RawRecord, readable: ReadableRecord, entries: Array<{ moveId: number; level: number }>, limit = learnsetMoveLimit(project)): void {
+  for (let index = 0; index < WHITE2UPGRADE_LEARNSET_MAX_MOVES; index += 1) {
     delete raw[`move_id_${index}`];
     delete raw[`lvl_learned_${index}`];
     delete readable[`move_id_${index}`];
     delete readable[`lvl_learned_${index}`];
   }
 
-  entries.slice(0, LEARNSET_MAX_MOVES).forEach((entry, index) => {
+  entries.slice(0, limit).forEach((entry, index) => {
     raw[`move_id_${index}`] = entry.moveId;
     raw[`lvl_learned_${index}`] = entry.level;
     readable[`move_id_${index}`] = project.texts.banks.moves?.[entry.moveId] ?? entry.moveId;
