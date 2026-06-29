@@ -9,6 +9,7 @@ import "./styles/legacyMartsGrottos.css";
 import "./styles/legacyText.css";
 import "./styles/legacyOverworlds.css";
 import "./styles/legacyDocGenerators.css";
+import "./styles/legacyMastersheet.css";
 import "./styles/legacyMap3d.css";
 import "./styles/legacyPokemonSprites.css";
 import "./styles/legacyStarters.css";
@@ -26,6 +27,7 @@ import { ensureActionChangelog, renderActionChangelogText, resetActionChangelog 
 import { exportModifiedRom } from "./pokeweb/exportRom";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
+import { canUseLocalRomBridge, pickLocalRomFile, readLocalRomFile, readStoredLocalRomPath, rememberLocalRomPath, type LocalRomFile } from "./pokeweb/localRomBridge";
 import { loadProjectFromRomBytes, loadProjectFromRomFile } from "./pokeweb/loader";
 import { moveEffectHandlerOverlayId } from "./pokeweb/moveEffectHandlerModel";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, saveActiveProject } from "./pokeweb/persistence";
@@ -53,6 +55,7 @@ import { renderGrottoEditor, renderGrottoOddsEditor, renderMartEditor } from "./
 import { renderTextEditor } from "./ui/textEditor";
 import { renderOverworldEditor } from "./ui/overworldEditor";
 import { renderDocGenerators } from "./ui/docGenerators";
+import { renderMastersheetEditor } from "./ui/mastersheetEditor";
 import { repairReasonLabel, repairRomNarcs, romHeaderRepairReasonLabel, type RomRepairResult } from "./pokeweb/romRepairModel";
 import {
   clearChangelogTabs as clearSharedChangelogTabs,
@@ -90,6 +93,7 @@ type AppRoute =
   | "storyText"
   | "infoText"
   | "docGenerators"
+  | "mastersheet"
   | "changelog"
   | "debugNarcs";
 type AppHistoryState = {
@@ -172,11 +176,15 @@ const APP_ROUTES: AppRoute[] = [
   "storyText",
   "infoText",
   "docGenerators",
+  "mastersheet",
   "changelog",
   "debugNarcs",
 ];
 
-const EDITOR_REQUIREMENTS: Record<Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">, NarcName[]> = {
+const EDITOR_REQUIREMENTS: Record<
+  Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog">,
+  NarcName[]
+> = {
   headers: ["headers", "message_texts"],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
@@ -223,6 +231,7 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   trtext_offsets: "Trainer Text Offsets",
   trdata: "Trainer Data",
   trpok: "Trainer Pokemon",
+  trainer_sprites: "Trainer Sprites",
   encounters: "Encounters",
   marts: "Marts",
   mart_counts: "Mart Counts",
@@ -259,7 +268,7 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
   { title: "Sprites", names: ["pokemon_sprites", "pokemon_icons", "starter_sprites", "ow_sprites"], toggleable: true },
   { title: "Moves", names: ["moves", "move_animations", "battle_animations", "move_spas"], toggleable: true },
   { title: "Pokemon", names: ["personal", "learnsets", "evolutions", "egg_moves", "habitats"], toggleable: true },
-  { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets"], toggleable: true },
+  { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets", "trainer_sprites"], toggleable: true },
   {
     title: "Battle Facilities",
     names: [
@@ -669,6 +678,17 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "mastersheet") {
+    renderMastersheetEditor(project, content, {
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+    });
+    return;
+  }
+
   if (route === "changelog") {
     renderActionChangelogPage(project, content, () => {
       dirty = true;
@@ -735,6 +755,8 @@ function renderNav(): string {
       <div class="header-status" id="header-status">${dirty ? renderDirtyIndicatorLink() : ""}</div>
       <div class="header-right">
         ${navItem("docGenerators", "Doc Generators")}
+        ${navItem("mastersheet", "Mastersheet")}
+        ${renderRefreshRomButton()}
         <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true" ${
           hasExportBase ? "" : `title="Reload the ROM before exporting this older saved project"`
         }>Export</a>
@@ -742,6 +764,12 @@ function renderNav(): string {
       </div>
     </div>
   `;
+}
+
+function renderRefreshRomButton(): string {
+  if (!canUseLocalRomBridge()) return "";
+  const hasPath = Boolean(readStoredLocalRomPath());
+  return `<button class="header-item ${hasPath ? "" : "disabled"}" type="button" data-refresh-rom="true" title="${hasPath ? "Reload this ROM from its local file path" : "Open a ROM with Open Local ROM first"}">Refresh ROM</button>`;
 }
 
 function renderMoreMenu(): string {
@@ -816,6 +844,11 @@ function attachNav(): void {
     }
     await downloadRom();
   });
+
+  appRoot.querySelector<HTMLButtonElement>("[data-refresh-rom]")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await refreshRomFromLocalPath(event.currentTarget as HTMLButtonElement);
+  });
 }
 
 async function handleNewProjectClick(): Promise<void> {
@@ -830,6 +863,54 @@ async function handleNewProjectClick(): Promise<void> {
     if (!confirmed) return;
   }
   applyRouteState({ route: "upload" }, { clearProject: true });
+}
+
+async function refreshRomFromLocalPath(button: HTMLButtonElement): Promise<void> {
+  if (!project) return;
+  const romPath = readStoredLocalRomPath();
+  if (!romPath) {
+    window.alert("No local ROM path is saved yet.\n\nUse Open Local ROM from the upload screen once, then Refresh ROM can reload that file after rebuilds.");
+    return;
+  }
+  if (hasAnyRomChanges(project)) {
+    const confirmed = window.confirm(
+      "Refresh ROM from disk?\n\nThis reloads the current ROM file and discards unsynced browser edits. Sync or export anything you need before continuing.",
+    );
+    if (!confirmed) return;
+  }
+
+  const previousState = currentHistoryState();
+  const previousText = button.textContent ?? "Refresh ROM";
+  const previousProject = project;
+  const selectedNarcs = loadedNarcNames(previousProject);
+  const fairy = previousProject.session.fairy;
+  button.disabled = true;
+  button.textContent = "Refreshing...";
+  const progressOverlay = showRomLoadProgressOverlay(romPath.split(/[\\/]/u).pop() ?? "local ROM");
+  const updateProgress = (message: string) => progressOverlay.setStage(message);
+  try {
+    updateProgress("Reading ROM file");
+    const localRom = await readLocalRomFile(romPath);
+    await waitForNextPaint();
+    project = await loadProjectFromRomBytes(localRom.bytes, localRom.fileName, { fairy, selectedNarcs }, updateProgress);
+    rememberLocalRomPath(localRom.path);
+    hydrateProject(project);
+    resetActionChangelog(project);
+    dirty = false;
+    hasExportBase = true;
+    updateProgress("Saving project in browser storage");
+    await waitForNextPaint();
+    await saveActiveProject(project);
+    progressOverlay.finish("ROM refreshed");
+    const nextRoute = previousState.route === "upload" ? defaultLoadedRoute() : safeRoute(previousState.route);
+    applyRouteState({ ...previousState, route: nextRoute }, { replace: true });
+    progressOverlay.close();
+  } catch (error) {
+    progressOverlay.setError(errorMessage(error));
+  } finally {
+    button.disabled = false;
+    button.textContent = previousText;
+  }
 }
 
 async function downloadRom(): Promise<void> {
@@ -1104,6 +1185,7 @@ function renderUpload(root: HTMLElement): void {
             <span>Upload .nds ROM</span>
             <input id="rom-input" type="file" accept=".nds" />
           </label>
+          ${canUseLocalRomBridge() ? `<button class="btn -default local-rom-open-btn" id="local-rom-open-btn" type="button">Open Local ROM...</button>` : ""}
           <label class="upload-options">
             <input id="fairy-input" type="checkbox" />
             <span>Fairy ROM offsets</span>
@@ -1172,6 +1254,7 @@ function renderUpload(root: HTMLElement): void {
   `;
 
   const input = root.querySelector<HTMLInputElement>("#rom-input");
+  const localRomButton = root.querySelector<HTMLButtonElement>("#local-rom-open-btn");
   const fairyInput = root.querySelector<HTMLInputElement>("#fairy-input");
   const repairInput = root.querySelector<HTMLInputElement>("#repair-rom-input");
   const repairButton = root.querySelector<HTMLButtonElement>("#repair-rom-btn");
@@ -1249,6 +1332,26 @@ function renderUpload(root: HTMLElement): void {
     }
   });
 
+  localRomButton?.addEventListener("click", async () => {
+    const previousText = localRomButton.textContent ?? "Open Local ROM...";
+    try {
+      localRomButton.disabled = true;
+      localRomButton.textContent = "Opening...";
+      statusText(status, "Opening local ROM picker");
+      const localRom = await pickLocalRomFile();
+      if (!localRom) {
+        statusText(status, "Local ROM selection cancelled.");
+        return;
+      }
+      await loadLocalRomIntoEditor(localRom, root, status, fairyInput, input, localRomButton);
+    } catch (error) {
+      statusText(status, error instanceof Error ? error.message : String(error));
+    } finally {
+      localRomButton.disabled = false;
+      localRomButton.textContent = previousText;
+    }
+  });
+
   input?.addEventListener("change", async () => {
     const file = input.files?.[0];
     if (!file) return;
@@ -1269,6 +1372,7 @@ function renderUpload(root: HTMLElement): void {
       updateUploadStatus("Saving project in browser storage");
       await waitForNextPaint();
       await saveActiveProject(project);
+      rememberLocalRomPath("");
       hasExportBase = true;
       updateUploadStatus("Opening editor");
       progressOverlay.finish("ROM loaded");
@@ -1344,6 +1448,50 @@ function renderUpload(root: HTMLElement): void {
   });
 }
 
+async function loadLocalRomIntoEditor(
+  localRom: LocalRomFile,
+  root: HTMLElement,
+  status: HTMLElement | null | undefined,
+  fairyInput: HTMLInputElement | null,
+  fileInput: HTMLInputElement | null,
+  localRomButton: HTMLButtonElement,
+): Promise<void> {
+  const progressOverlay = showRomLoadProgressOverlay(localRom.fileName);
+  const updateUploadStatus = (message: string) => {
+    statusText(status, message);
+    progressOverlay.setStage(message);
+  };
+  try {
+    fileInput?.setAttribute("disabled", "true");
+    if (fairyInput) fairyInput.disabled = true;
+    localRomButton.disabled = true;
+    updateUploadStatus("Starting ROM load");
+    await waitForNextPaint();
+    const selectedNarcs = getSelectedNarcs(root);
+    project = await loadProjectFromRomBytes(localRom.bytes, localRom.fileName, { fairy: fairyInput?.checked ?? false, selectedNarcs }, updateUploadStatus);
+    rememberLocalRomPath(localRom.path);
+    hydrateProject(project);
+    resetActionChangelog(project);
+    dirty = false;
+    updateUploadStatus("Saving project in browser storage");
+    await waitForNextPaint();
+    await saveActiveProject(project);
+    hasExportBase = true;
+    updateUploadStatus("Opening editor");
+    progressOverlay.finish("ROM loaded");
+    applyRouteState({ route: defaultLoadedRoute() });
+    progressOverlay.close();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    statusText(status, message);
+    progressOverlay.setError(message);
+  } finally {
+    fileInput?.removeAttribute("disabled");
+    if (fairyInput) fairyInput.disabled = false;
+    localRomButton.disabled = false;
+  }
+}
+
 function renderNarcLoadSection(section: NarcLoadSection, mandatoryNarcs: Set<NarcName>): string {
   return `
     <section class="narc-section">
@@ -1392,12 +1540,14 @@ function hydrateProject(nextProject: ProjectState | undefined): void {
   if (nextProject.narcs.headers && !nextProject.headers) nextProject.headers = parseHeaders(nextProject);
   nextProject.docs ??= {
     romTitle: nextProject.session.romName,
+    mastersheetMarkdown: `# ${nextProject.session.romName}\n\n`,
     trainerLocations: {},
     trainerDiffs: {},
     itemLocations: {},
     groundItemScriptMap: {},
   };
   nextProject.docs.romTitle ||= nextProject.session.romName;
+  nextProject.docs.mastersheetMarkdown ??= `# ${nextProject.docs.romTitle || nextProject.session.romName}\n\n`;
   nextProject.docs.trainerLocations ??= {};
   nextProject.docs.trainerDiffs ??= {};
   nextProject.docs.itemLocations ??= {};
@@ -1432,6 +1582,10 @@ function getSelectedNarcs(root: HTMLElement): NarcName[] {
   return [...selected];
 }
 
+function loadedNarcNames(currentProject: ProjectState): NarcName[] {
+  return Object.keys(currentProject.narcs).filter((name) => Boolean(currentProject.narcs[name as NarcName])) as NarcName[];
+}
+
 function hasAnyRomChanges(currentProject: ProjectState): boolean {
   if (dirty || currentProject.arm9Dirty || currentProject.tms?.dirty) return true;
   if ((currentProject.actionChangelog?.entries.length ?? 0) > 0) return true;
@@ -1447,6 +1601,9 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (!project) return false;
   if (nextRoute === "changelog") return true;
   if (nextRoute === "docGenerators") return true;
+  if (nextRoute === "mastersheet") {
+    return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && mastersheetRequirements().every((name) => project?.narcs[name]);
+  }
   if (nextRoute === "fileSystem") return hasExportBase;
   if (nextRoute === "codeInjection") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
@@ -1476,8 +1633,12 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     return EDITOR_REQUIREMENTS.wbtFacilities.every((name) => project?.narcs[name]) && Boolean(project.narcs.wbt_sets || project.narcs.wbt_trainers || project.narcs.wbt_area_pools);
   }
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
-  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">;
+  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);
+}
+
+function mastersheetRequirements(): NarcName[] {
+  return ["personal", "learnsets", "moves", "items", "trdata", "trpok", "encounters"];
 }
 
 function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, label: string): string {
@@ -1485,6 +1646,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
   const requirements =
     nextRoute === "docGenerators"
       ? []
+      : nextRoute === "mastersheet"
+        ? mastersheetRequirements()
       : nextRoute === "fileSystem"
         ? ([] as NarcName[])
       : nextRoute === "codeInjection"
@@ -1495,7 +1658,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? ([] as NarcName[])
       : nextRoute === "changelog"
         ? ([] as NarcName[])
-      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "maps3d" | "changelog">];
+      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog">];
   const missing = enabled
     ? ""
     : nextRoute === "fileSystem"
@@ -1506,6 +1669,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       ? ` title="Reload the ROM before opening Patches"`
       : nextRoute === "maps3d"
         ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
+      : nextRoute === "mastersheet"
+        ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? `Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}` : "Mastersheet generation is currently Gen 5-only"}"`
       : nextRoute === "animatedSprites"
         ? ` title="${project?.session.baseVersion === "W2" ? "Load Personal Data from a ROM with patches/PokewebPwanW2.dll" : "Animated Sprites currently supports White 2 code layouts only"}"`
         : nextRoute === "types"

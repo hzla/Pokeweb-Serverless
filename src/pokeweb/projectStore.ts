@@ -69,6 +69,7 @@ export type TextState = {
 
 export type DocGeneratorState = {
   romTitle: string;
+  mastersheetMarkdown?: string;
   trainerLocations: Record<string, string[]>;
   trainerDiffs: Record<string, number>;
   itemLocations: Record<string, string[]>;

@@ -2,6 +2,8 @@
 
 This guide is for creating Gen 5 move animations with AI assistance for Pokeweb Serverless. The default workflow is to reuse existing move animation scripts and existing `.spa` particle files, then output a raw move animation binary that can be imported in the Move Animation editor.
 
+For custom SPA particle editing, donor particle cleanup, texture import format choices, and lessons from the custom Mega Evolution animation workflow, read [`spa-editing-reference.md`](spa-editing-reference.md) before editing particle resources.
+
 ## Current Scope
 
 - Output raw move animation `.bin` files for import through the editor UI.
@@ -80,7 +82,7 @@ npm run moveanim:helper -- append-spa \
   --manifest work/appended-spa.json
 ```
 
-Use the printed/appended SPA IDs in `LoadSPA` and `DoSPA*` commands.
+Use the printed/appended SPA IDs in `LoadSPA` and `Emit*` commands.
 
 Build a searchable reference index from a ROM plus the local exported docs:
 
@@ -107,7 +109,7 @@ The index also includes each move's in-game description from the message text ba
 3. Identify command groups by purpose:
    - Setup: camera, background, shadow, palette, sound container commands.
    - Asset load: `LoadSPA`, `LoadBackground`.
-   - Main effect: `DoSPAAnimation`, `DoSPAProjectileAnimation*`, `DoSPAScreenAnimation`, `DoSPACircleAnimation`.
+   - Main effect: `Emit`, `EmitProjectile*`, `EmitFromCoordinates`, `EmitCircle`, and related `Emit*` commands.
    - Timing: `Wait`, `LetCMDsFinish`.
    - Cleanup: background hide/show, shadow restore, freeze restore, termination.
 4. Keep only the requested visual sections.
@@ -122,7 +124,7 @@ The index also includes each move's in-game description from the message text ba
 - Preserve header shape unless intentionally changing multi-script behavior.
 - Keep `Wait` and `LetCMDsFinish` near copied effect groups; removing them often collapses timing.
 - When mixing two moves, prefer changing timing in small increments of 2 to 6 frames.
-- If an effect appears at the wrong side, check the source/target parameters in `DoSPAAnimation` or `DoSPAProjectileAnimation*` before changing particle data.
+- If an effect appears at the wrong side, check the source/target parameters in `Emit` or `EmitProjectile*` before changing particle data.
 - If a move uses background commands and the new move should not, remove the full background setup and cleanup group together.
 - If copied particles are invisible, confirm the right SPA ID and resource ID were copied, not just the visible command name.
 

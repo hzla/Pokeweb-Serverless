@@ -149,6 +149,33 @@ button.header-item {
   width: 100%;
 }
 
+.w2u-sync-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.w2u-sync-panel .filter-title {
+  margin-top: 0;
+}
+
+.w2u-sync-path-row {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.w2u-sync-path-input {
+  box-sizing: border-box;
+  font-size: 12px;
+  width: 100%;
+}
+
+.w2u-sync-pick-button {
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
 .filter-title {
   margin-top: 10px;
   width: 100%;

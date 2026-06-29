@@ -39,7 +39,10 @@ type DesmondWindow = Window &
       _prepareRomBuffer?: (size: number) => number;
       _savGetSize?: () => number;
       _savGetPointer?: (desiredSize: number) => number;
+      _stateGetSize?: () => number;
       _stateGetPointer?: (desiredSize: number) => number;
+      _saveState?: (compressionLevel: number) => number;
+      _loadState?: (pointer: number) => number;
       locateFile?: (path: string) => string;
       onAbort?: (reason: unknown) => void;
     };
@@ -53,8 +56,17 @@ type DesmondWindow = Window &
     };
   };
 
+type InBrowserStateSnapshot = {
+  heapByteLength: number;
+  pageSize: number;
+  pageCount: number;
+  pages: Array<{ index: number; bytes: Uint8Array }>;
+  frameCount: number;
+  createdAt: string;
+};
+
 const DESMOND_INITIAL_MEMORY = 1024 * 1024 * 1024;
-const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-05-21-1535";
+const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-06-27-savestate";
 const DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER = 4;
 const MIN_TEST_BATTLE_SPEED_MULTIPLIER = 0.05;
 const MAX_TEST_BATTLE_SPEED_MULTIPLIER = 8;
@@ -66,6 +78,7 @@ const DESMUME_STATE_MAGIC = new Uint8Array([68, 101, 83, 109, 117, 77, 69, 32, 8
 const DESMUME_STATE_HEADER_SIZE = 32;
 const MAX_DESMUME_STATE_BYTES = 128 * 1024 * 1024;
 const MAIN_MEMORY_DUMP_BYTES = 4 * 1024 * 1024;
+const IN_BROWSER_STATE_PAGE_BYTES = 64 * 1024;
 const statusText = document.querySelector<HTMLSpanElement>("#pokeweb-status-text");
 const status = document.querySelector<HTMLDivElement>("#pokeweb-status");
 const speedSlider = document.querySelector<HTMLInputElement>("#pokeweb-speed");
@@ -75,6 +88,7 @@ const audioValue = document.querySelector<HTMLOutputElement>("#pokeweb-audio-val
 const pauseButton = document.querySelector<HTMLButtonElement>("#pokeweb-pause");
 const stepButton = document.querySelector<HTMLButtonElement>("#pokeweb-step");
 const savestateButton = document.querySelector<HTMLButtonElement>("#pokeweb-savestate");
+const loadLastStateButton = document.querySelector<HTMLButtonElement>("#pokeweb-load-last-state");
 const controls = document.querySelector<HTMLDivElement>("#pokeweb-controls");
 const sessionId = readSessionId();
 const desmondWindow = window as DesmondWindow;
@@ -95,6 +109,9 @@ let speedMultiplier = DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER;
 let audioVolume = DEFAULT_TEST_BATTLE_AUDIO_VOLUME;
 let paused = false;
 let pendingStepFrames = 0;
+let lastExportedDesmumeStateBytes: Uint8Array | undefined;
+let lastInBrowserStateSnapshot: InBrowserStateSnapshot | undefined;
+let lastStateExportAttempted = false;
 
 setStatus("Waiting for battle data...");
 shieldControlsFromEmulatorInput();
@@ -157,22 +174,43 @@ function installPlaybackControls(): void {
     syncPlaybackState();
     debugLog("Stepping one frame.");
   });
-  savestateButton?.addEventListener("click", () => {
+  savestateButton?.addEventListener("click", async () => {
     setPaused(true, false);
     try {
+      setStatus("Capturing emulator state...");
+      await waitForNextPaint();
       const message = exportEmulatorState();
       setStatus(message);
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
     }
   });
+  loadLastStateButton?.addEventListener("click", () => {
+    setPaused(true, false);
+    try {
+      const message = loadLastExportedState();
+      setStatus(message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    }
+  });
   syncPlaybackState();
+  syncLastStateControl();
 }
 
 function setPlaybackControlsEnabled(enabled: boolean): void {
   if (pauseButton) pauseButton.disabled = !enabled;
   if (stepButton) stepButton.disabled = !enabled;
   if (savestateButton) savestateButton.disabled = !enabled;
+  syncLastStateControl();
+}
+
+function syncLastStateControl(): void {
+  if (!loadLastStateButton) return;
+  const hasState = lastExportedDesmumeStateBytes !== undefined || lastInBrowserStateSnapshot !== undefined;
+  loadLastStateButton.hidden = !lastStateExportAttempted;
+  loadLastStateButton.disabled = !hasState || (savestateButton?.disabled ?? true);
+  loadLastStateButton.title = hasState ? "Load the emulator state captured most recently in this tab." : "The last export did not capture a loadable emulator state.";
 }
 
 function shieldControlsFromEmulatorInput(): void {
@@ -249,6 +287,19 @@ function syncPlaybackState(): void {
 
 function formatSpeedMultiplier(value: number): string {
   return value.toFixed(2).replace(/\.?0+$/u, "");
+}
+
+function waitForNextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const finish = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(finish));
+    window.setTimeout(finish, 80);
+  });
 }
 
 async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
@@ -339,20 +390,165 @@ function exportEmulatorState(): string {
   const baseName = safeFilenameBase(activeTestLabel || activeRomName || "pokeweb-test-battle");
   const timestamp = timestampForFilename(new Date());
   const desmumeState = readDesmumeStateBytes();
+  lastStateExportAttempted = true;
   if (desmumeState) {
+    lastExportedDesmumeStateBytes = new Uint8Array(desmumeState);
+    lastInBrowserStateSnapshot = undefined;
+    syncLastStateControl();
     downloadBytes(desmumeState, `${baseName}-${timestamp}.dst`, "application/octet-stream");
-    return `Exported DeSmuME savestate (${formatByteCount(desmumeState.length)}).`;
+    return `Exported DeSmuME savestate (${formatByteCount(desmumeState.length)}). Load Last State is ready.`;
   }
 
+  const inBrowserSnapshot = captureInBrowserStateSnapshot();
+  lastExportedDesmumeStateBytes = undefined;
+  lastInBrowserStateSnapshot = inBrowserSnapshot;
+  syncLastStateControl();
   const snapshot = buildDebugSnapshotZip();
   downloadBytes(snapshot, `${baseName}-${timestamp}.pokeweb-state.zip`, "application/zip");
-  return `Exported Pokeweb debug snapshot (${formatByteCount(snapshot.length)}).`;
+  if (inBrowserSnapshot) {
+    return `Exported Pokeweb debug snapshot (${formatByteCount(snapshot.length)}). Captured in-browser state (${formatByteCount(inBrowserSnapshotSize(inBrowserSnapshot))}); Load Last State is ready in this tab.`;
+  }
+  return `Exported Pokeweb debug snapshot (${formatByteCount(snapshot.length)}). Load Last State is unavailable because emulator memory could not be captured.`;
+}
+
+function loadLastExportedState(): string {
+  const stateBytes = lastExportedDesmumeStateBytes;
+  if (!stateBytes) {
+    const snapshot = lastInBrowserStateSnapshot;
+    if (!snapshot) throw new Error("Export a state before loading the last state.");
+    restoreInBrowserStateSnapshot(snapshot);
+    debugLog(`Loaded in-browser state snapshot (${formatByteCount(inBrowserSnapshotSize(snapshot))}).`);
+    return `Loaded last in-browser state (${formatByteCount(inBrowserSnapshotSize(snapshot))}).`;
+  }
+
+  const stateSize = desmumeStateSizeFromBytes(stateBytes);
+  if (stateSize === undefined || stateSize !== stateBytes.length) {
+    throw new Error("The last exported state is not a valid DeSmuME savestate.");
+  }
+
+  const stateGetPointer = desmondWindow.Module?._stateGetPointer;
+  const loadState = desmondWindow.Module?._loadState;
+  if (typeof stateGetPointer !== "function" || typeof loadState !== "function") {
+    throw new Error("This emulator runtime cannot load DeSmuME savestates.");
+  }
+
+  const pointer = stateGetPointer(stateBytes.length);
+  const heap = getHeap();
+  if (!heap || !isHeapRange(heap, pointer, stateBytes.length)) {
+    throw new Error("Could not reserve emulator memory for the savestate.");
+  }
+
+  heap.set(stateBytes, pointer);
+  const result = loadState(pointer);
+  if (result === 0) {
+    throw new Error("Desmond rejected the last state. It may not match this ROM.");
+  }
+
+  debugLog(`Loaded DeSmuME savestate (${formatByteCount(stateBytes.length)}).`);
+  return `Loaded last exported state (${formatByteCount(stateBytes.length)}).`;
+}
+
+function captureInBrowserStateSnapshot(): InBrowserStateSnapshot | undefined {
+  const heap = getHeap();
+  if (!heap) return undefined;
+  const startedAt = performance.now();
+  const pageSize = IN_BROWSER_STATE_PAGE_BYTES;
+  const pageCount = Math.ceil(heap.byteLength / pageSize);
+  const pages: InBrowserStateSnapshot["pages"] = [];
+
+  for (let index = 0; index < pageCount; index += 1) {
+    const start = index * pageSize;
+    const end = Math.min(heap.byteLength, start + pageSize);
+    if (!heapRangeHasNonZeroByte(heap, start, end)) continue;
+    pages.push({ index, bytes: new Uint8Array(heap.slice(start, end)) });
+  }
+
+  const snapshot: InBrowserStateSnapshot = {
+    heapByteLength: heap.byteLength,
+    pageSize,
+    pageCount,
+    pages,
+    frameCount: latestFrameCount,
+    createdAt: new Date().toISOString(),
+  };
+  debugLog(`Captured in-browser state in ${Math.round(performance.now() - startedAt)}ms (${pages.length}/${pageCount} pages, ${formatByteCount(inBrowserSnapshotSize(snapshot))}).`);
+  return snapshot;
+}
+
+function restoreInBrowserStateSnapshot(snapshot: InBrowserStateSnapshot): void {
+  const heap = getHeap();
+  if (!heap) throw new Error("Emulator memory is not available.");
+  if (heap.byteLength !== snapshot.heapByteLength) {
+    throw new Error("The last state was captured from a different emulator memory layout.");
+  }
+
+  const startedAt = performance.now();
+  const pages = new Map(snapshot.pages.map((page) => [page.index, page.bytes]));
+  for (let index = 0; index < snapshot.pageCount; index += 1) {
+    const start = index * snapshot.pageSize;
+    const end = Math.min(heap.byteLength, start + snapshot.pageSize);
+    const page = pages.get(index);
+    if (page) {
+      heap.set(page, start);
+    } else {
+      heap.fill(0, start, end);
+    }
+  }
+  latestFrameCount = snapshot.frameCount;
+  pendingStepFrames = 0;
+  syncPlaybackState();
+  debugLog(`Restored in-browser state from ${snapshot.createdAt} in ${Math.round(performance.now() - startedAt)}ms.`);
+}
+
+function heapRangeHasNonZeroByte(heap: Uint8Array, start: number, end: number): boolean {
+  const wordEnd = start + Math.floor((end - start) / 4) * 4;
+  const words = new Uint32Array(heap.buffer, heap.byteOffset + start, (wordEnd - start) / 4);
+  for (let index = 0; index < words.length; index += 1) {
+    if (words[index] !== 0) return true;
+  }
+  for (let index = wordEnd; index < end; index += 1) {
+    if (heap[index] !== 0) return true;
+  }
+  return false;
+}
+
+function inBrowserSnapshotSize(snapshot: InBrowserStateSnapshot): number {
+  return snapshot.pages.reduce((sum, page) => sum + page.bytes.length, 0);
 }
 
 function readDesmumeStateBytes(): Uint8Array | undefined {
+  const saveState = desmondWindow.Module?._saveState;
+  const stateGetSize = desmondWindow.Module?._stateGetSize;
   const stateGetPointer = desmondWindow.Module?._stateGetPointer;
   if (typeof stateGetPointer !== "function") return undefined;
+  if (typeof saveState === "function") {
+    const startedAt = performance.now();
+    const savedSize = saveState(1);
+    const stateSize = typeof stateGetSize === "function" ? stateGetSize() : savedSize;
+    if (!Number.isInteger(savedSize) || savedSize <= 0 || !Number.isInteger(stateSize) || stateSize <= 0 || stateSize > MAX_DESMUME_STATE_BYTES) {
+      debugLog(`Desmond saveState failed (${savedSize}, ${stateSize}).`);
+      return undefined;
+    }
+
+    const pointer = stateGetPointer(0);
+    const stateBytes = copyHeapBytes(pointer, stateSize);
+    const parsedSize = stateBytes ? desmumeStateSizeFromBytes(stateBytes) : undefined;
+    if (!stateBytes || parsedSize !== stateSize) {
+      debugLog(`Desmond saveState produced an invalid savestate (${formatByteCount(stateSize)}).`);
+      return undefined;
+    }
+
+    debugLog(`Captured DeSmuME savestate in ${Math.round(performance.now() - startedAt)}ms (${formatByteCount(stateSize)}).`);
+    return stateBytes;
+  }
+
+  // Older cores briefly exposed the state buffer without a matching save call.
+  // Keep this as a compatibility probe, but do not allocate a huge fallback buffer.
   const pointer = stateGetPointer(0);
+  return copyDesmumeStateAt(pointer);
+}
+
+function copyDesmumeStateAt(pointer: number): Uint8Array | undefined {
   const size = desmumeStateSizeAt(pointer);
   return size === undefined ? undefined : copyHeapBytes(pointer, size);
 }
@@ -360,16 +556,21 @@ function readDesmumeStateBytes(): Uint8Array | undefined {
 function desmumeStateSizeAt(pointer: number): number | undefined {
   const heap = getHeap();
   if (!heap || !isHeapRange(heap, pointer, DESMUME_STATE_HEADER_SIZE)) return undefined;
+  return desmumeStateSizeFromBytes(heap.subarray(pointer, Math.min(heap.byteLength, pointer + MAX_DESMUME_STATE_BYTES)));
+}
+
+function desmumeStateSizeFromBytes(bytes: Uint8Array): number | undefined {
+  if (bytes.length < DESMUME_STATE_HEADER_SIZE) return undefined;
   for (let index = 0; index < DESMUME_STATE_MAGIC.length; index += 1) {
-    if (heap[pointer + index] !== DESMUME_STATE_MAGIC[index]) return undefined;
+    if (bytes[index] !== DESMUME_STATE_MAGIC[index]) return undefined;
   }
-  const stateVersion = readU32(heap, pointer + 16);
-  const uncompressedLength = readU32(heap, pointer + 24);
-  const compressedLength = readU32(heap, pointer + 28);
+  const stateVersion = readU32(bytes, 16);
+  const uncompressedLength = readU32(bytes, 24);
+  const compressedLength = readU32(bytes, 28);
   const totalSize = compressedLength === 0xffffffff ? uncompressedLength : DESMUME_STATE_HEADER_SIZE + compressedLength;
   if (stateVersion === 0 || stateVersion > 1000) return undefined;
   if (totalSize < DESMUME_STATE_HEADER_SIZE || totalSize > MAX_DESMUME_STATE_BYTES) return undefined;
-  return isHeapRange(heap, pointer, totalSize) ? totalSize : undefined;
+  return totalSize <= bytes.length ? totalSize : undefined;
 }
 
 function buildDebugSnapshotZip(): Uint8Array {
@@ -391,7 +592,7 @@ function debugSnapshotMetadata(files: Array<{ name: string; data: Uint8Array }>)
     kind: "pokeweb-desmond-debug-snapshot",
     version: 1,
     loadableSavestate: false,
-    reason: "The bundled Desmond core exposes savestate loading, but not a savestate save/export function.",
+    reason: "The Desmond core could not produce a readable DeSmuME savestate for this run.",
     createdAt: new Date().toISOString(),
     romName: activeRomName,
     saveName: activeSaveName,
