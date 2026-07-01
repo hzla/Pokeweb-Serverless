@@ -1,7 +1,7 @@
 import { getMoveAnimationDisplayCommandName, resolveMoveAnimationCommandName } from "./moveAnimationCommandNames";
 
 export type MoveAnimationParamSemanticKind = "enum" | "fx32";
-export type MoveAnimationFx32Unit = "multiplier" | "world";
+export type MoveAnimationFx32Unit = "multiplier" | "world" | "frame";
 
 export type MoveAnimationEnumValue = {
   value: number;
@@ -332,6 +332,7 @@ applyCommandSemantics("DoSPAProjectileAnimation", {
   3: enumSemantic("particlePosition"),
   4: enumSemantic("particlePosition"),
   5: worldFx32Semantic("Projectile Y offset; 4096 is 1px in orthographic/world-unit terms."),
+  6: frameFx32Semantic("Projectile movement duration; 4096 is 1 frame."),
   7: worldFx32Semantic("Projectile arc height/top value; 4096 is 1px in orthographic/world-unit terms."),
   8: fx32Semantic(),
   9: fx32Semantic(),
@@ -343,6 +344,7 @@ applyCommandSemantics("DoSPAProjectileAnimation2", {
   5: worldFx32Semantic("Projectile start Z coordinate; 4096 is 1px in orthographic/world-unit terms."),
   6: enumSemantic("particlePosition"),
   7: worldFx32Semantic("Projectile Y offset; 4096 is 1px in orthographic/world-unit terms."),
+  8: frameFx32Semantic("Projectile movement duration; 4096 is 1 frame."),
   9: worldFx32Semantic("Projectile arc height/top value; 4096 is 1px in orthographic/world-unit terms."),
   10: fx32Semantic(),
   11: fx32Semantic(),
@@ -352,6 +354,7 @@ applyCommandSemantics("DoSPAProjectileAnimation3", {
   3: enumSemantic("particlePosition"),
   4: enumSemantic("particlePosition"),
   5: worldFx32Semantic("Orthographic projectile Y offset; 4096 is 1px."),
+  6: frameFx32Semantic("Orthographic projectile movement duration; 4096 is 1 frame."),
   7: worldFx32Semantic("Orthographic projectile arc height/top value; 4096 is 1px."),
   8: fx32Semantic(),
   9: fx32Semantic(),
@@ -363,6 +366,7 @@ applyCommandSemantics("DoSPAProjectileAnimationOrthoCoordinate", {
   5: worldFx32Semantic("Orthographic projectile start Z coordinate; 4096 is 1px."),
   6: enumSemantic("particlePosition"),
   7: worldFx32Semantic("Orthographic projectile Y offset; 4096 is 1px."),
+  8: frameFx32Semantic("Orthographic projectile movement duration; 4096 is 1 frame."),
   9: worldFx32Semantic("Orthographic projectile arc height/top value; 4096 is 1px."),
   10: fx32Semantic(),
   11: fx32Semantic(),
@@ -541,14 +545,14 @@ export function isMoveAnimationEnumToken(token: string): boolean {
 }
 
 export function isMoveAnimationFx32Token(token: string): boolean {
-  return tryParseFx32Token(token, "multiplier") !== undefined || tryParseFx32Token(token, "world") !== undefined;
+  return tryParseFx32Token(token, "multiplier") !== undefined || tryParseFx32Token(token, "world") !== undefined || tryParseFx32Token(token, "frame") !== undefined;
 }
 
 export function formatFx32Value(value: number, unit: MoveAnimationFx32Unit = "multiplier"): string {
   if (value === 0) return "0";
   const scaled = value / FX32_ONE;
   if (!Number.isInteger(scaled * 16)) return String(value);
-  const suffix = unit === "world" ? "px" : "x";
+  const suffix = unit === "world" ? "px" : unit === "frame" ? "f" : "x";
   if (Number.isInteger(scaled)) return `${scaled}${suffix}`;
   const text = scaled.toFixed(4).replace(/0+$/u, "").replace(/\.$/u, "");
   return `${text}${suffix}`;
@@ -570,6 +574,10 @@ function fx32Semantic(description = "FX32 multiplier; 4096 is 1x."): MoveAnimati
 
 function worldFx32Semantic(description = "FX32 world-unit value; 4096 is 1px."): MoveAnimationParamSemantic {
   return { kind: "fx32", description, unit: "world" };
+}
+
+function frameFx32Semantic(description = "FX32 frame count; 4096 is 1 frame."): MoveAnimationParamSemantic {
+  return { kind: "fx32", description, unit: "frame" };
 }
 
 function enumValue(value: number, name: string, source?: string, aliases: string[] = [], description?: string): MoveAnimationEnumValue {
@@ -610,7 +618,7 @@ function tryParseIntegerToken(token: string): number | undefined {
 }
 
 function tryParseFx32Token(token: string, unit: MoveAnimationFx32Unit = "multiplier"): number | undefined {
-  const suffix = unit === "world" ? "px" : "x";
+  const suffix = unit === "world" ? "px" : unit === "frame" ? "f(?:rames?)?" : "x";
   const match = new RegExp(`^([-+]?(?:\\d+(?:\\.\\d+)?|\\.\\d+))${suffix}$`, "iu").exec(token.trim());
   if (!match) return undefined;
   const value = Number.parseFloat(match[1]);

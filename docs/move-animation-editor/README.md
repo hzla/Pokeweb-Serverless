@@ -47,6 +47,7 @@ BW2 move animation scripts still compile to the game's original numeric VM bytec
 - Legacy aliases remain accepted where useful, such as `CAMERA_DEFENCE`, `SIDE_ATTACK`, `POKEMON_TARGET`, and `DEFENSE` spellings for source constants that use `DEFENCE`.
 - FX32 multiplier parameters can use `1x`, `0.5x`, and `2x`; these compile to `4096`, `2048`, and `8192`.
 - FX32 world-coordinate, offset, radius, and height parameters can use `1px`, `0.5px`, and `2px`; these also compile to `4096`, `2048`, and `8192`. This includes the Emit family (`Emit`, `EmitFromCoordinates`, `EmitOrtho`, `EmitAll`, `EmitProjectile`, projectile coordinate variants, and circle emitters) where the swan VM treats the field as a world-space distance.
+- FX32 projectile movement duration parameters can use `1f`, `10f`, and `30f`; these compile to `4096`, `40960`, and `122880`. Raw fixed-point values still compile.
 - Raw signed decimal and hex integers still compile everywhere, so old scripts remain valid.
 - Color commands still use numeric RGB5 channel values in V1, but the code editor highlights color-bearing parameters with the resolved color.
 
@@ -65,4 +66,5 @@ Only parameters with known semantic metadata are rewritten to friendly names dur
 The Move Animation editor includes:
 
 - Command click help in the left reference sidebar.
+- Selected Command summaries for long `Emit*`, projectile, and circle commands, using the current parameters to describe the effect in plain English.
 - A searchable Docs tab.

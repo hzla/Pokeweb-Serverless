@@ -178,13 +178,13 @@ TerminateMoveScript
     );
   });
 
-  it("formats Emit-family world-unit params as px while keeping multiplier params as x", () => {
+  it("formats Emit-family world-unit params as px, frame params as f, and multiplier params as x", () => {
     const project = makeProject();
     const script = `
-EmitProjectile 0, 0, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 5px, 81920, 12px, 1x, 2x, 0
-EmitProjectileFromCoordinates 0, 1, EMITTER_STRAIGHT, -8px, 2px, 0.5px, SIDE_DEFENDER, 3px, 40960, 4px, 1x, 1x, 0
-EmitOrthoProjectile 0, 2, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 6px, 81920, 14px, 1x, 1x, 0
-EmitOrthoProjectileFromCoordinates 0, 3, EMITTER_STRAIGHT, -7px, 3px, 0.25px, SIDE_DEFENDER, 2px, 40960, 5px, 1x, 1x, 2x
+EmitProjectile 0, 0, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 5px, 20f, 12px, 1x, 2x, 0
+EmitProjectileFromCoordinates 0, 1, EMITTER_STRAIGHT, -8px, 2px, 0.5px, SIDE_DEFENDER, 3px, 10f, 4px, 1x, 1x, 0
+EmitOrthoProjectile 0, 2, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 6px, 20f, 14px, 1x, 1x, 0
+EmitOrthoProjectileFromCoordinates 0, 3, EMITTER_STRAIGHT, -7px, 3px, 0.25px, SIDE_DEFENDER, 2px, 10f, 5px, 1x, 1x, 2x
 EmitCircle 0, 4, CIRCLE_ATTACKER_LEFT, 24px, 12px, 2px, 16, 0, 1, 0
 EmitOrthoCircle 0, 5, CIRCLE_DEFENDER_RIGHT, 30px, 16px, -1px, 16, 0, 1, 0
 TerminateMoveScript
@@ -192,10 +192,10 @@ TerminateMoveScript
 
     const text = decompileMoveAnimationBytes(compileMoveAnimation(project, 1, script));
 
-    expect(text).toContain("EmitProjectile 0, 0, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 5px, 81920, 12px, 1x, 2x, 0");
-    expect(text).toContain("EmitProjectileFromCoordinates 0, 1, EMITTER_STRAIGHT, -8px, 2px, 0.5px, SIDE_DEFENDER, 3px, 40960, 4px, 1x, 1x, 0");
-    expect(text).toContain("EmitOrthoProjectile 0, 2, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 6px, 81920, 14px, 1x, 1x, 0");
-    expect(text).toContain("EmitOrthoProjectileFromCoordinates 0, 3, EMITTER_STRAIGHT, -7px, 3px, 0.25px, SIDE_DEFENDER, 2px, 40960, 5px, 1x, 1x, 2x");
+    expect(text).toContain("EmitProjectile 0, 0, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 5px, 20f, 12px, 1x, 2x, 0");
+    expect(text).toContain("EmitProjectileFromCoordinates 0, 1, EMITTER_STRAIGHT, -8px, 2px, 0.5px, SIDE_DEFENDER, 3px, 10f, 4px, 1x, 1x, 0");
+    expect(text).toContain("EmitOrthoProjectile 0, 2, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 6px, 20f, 14px, 1x, 1x, 0");
+    expect(text).toContain("EmitOrthoProjectileFromCoordinates 0, 3, EMITTER_STRAIGHT, -7px, 3px, 0.25px, SIDE_DEFENDER, 2px, 10f, 5px, 1x, 1x, 2x");
     expect(text).toContain("EmitCircle 0, 4, CIRCLE_ATTACKER_LEFT, 24px, 12px, 2px, 16, 0, 1, 0");
     expect(text).toContain("EmitOrthoCircle 0, 5, CIRCLE_DEFENDER_RIGHT, 30px, 16px, -1px, 16, 0, 1, 0");
   });
@@ -239,6 +239,21 @@ TerminateMoveScript
 
     expect(text).not.toContain(".word 1 @ Count");
     expect(text).toContain("LoadSPA 165");
+    expect([...compileMoveAnimation(project, 1, text)]).toEqual([...bytes]);
+  });
+
+  it("decompiles raw projectile bytes with semantic CLI/editor syntax", () => {
+    const project = makeProject();
+    const script = `
+EmitProjectile 293, 1, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 2px, 30f, 4px, 1x, 1x, 0
+TerminateMoveScript
+`;
+    const bytes = compileMoveAnimation(project, 1, script);
+    const text = decompileMoveAnimationBytes(bytes);
+
+    expect(text).toContain("EmitProjectile 293, 1, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 2px, 30f, 4px, 1x, 1x, 0");
+    expect(text).not.toContain("DoSPAProjectileAnimation");
+    expect(text).not.toContain("122880");
     expect([...compileMoveAnimation(project, 1, text)]).toEqual([...bytes]);
   });
 
