@@ -1,5 +1,7 @@
 # Move Animation Command Reference
 
+[Back to Move Animation Editor](Move-Animation-Editor)
+
 This file is generated from `src/assets/data/moveAnimationCommandDocs.json`, the same command documentation used by the Pokeweb-Serverless editor. It covers every known BW2 move animation VM command, its friendly decompiled name, reference name, opcode, parameters, notes, and script/SPA boundary guidance.
 
 ## Parameter Conventions

@@ -94,6 +94,20 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
       return;
     }
 
+    const deleteTrainerTextButton = target.closest<HTMLButtonElement>(".delete-trtext");
+    if (deleteTrainerTextButton) {
+      const typeId = Number(deleteTrainerTextButton.dataset.typeId);
+      if (!Number.isInteger(typeId)) return;
+      try {
+        updateTrainerText(project, trainerId, typeId, "");
+        replaceTrainerRow(root, project, card, trainerId, options);
+        options.onDirty?.();
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      }
+      return;
+    }
+
     const preview = target.closest<HTMLImageElement>(".trainer-poks img");
     if (preview?.dataset.show) {
       showTrainerPokemon(card, preview);

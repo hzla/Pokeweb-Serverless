@@ -11,6 +11,7 @@ import {
 } from "../pokeweb/moveItemModel";
 import { buildMoveAnimationPreview, loadMoveBackground, loadMoveSpaArchive } from "../pokeweb/moveAnimationPreviewModel";
 import { getMoveAnimationDisplayCommandName } from "../pokeweb/moveAnimationCommandNames";
+import { summarizeMoveAnimationCommandLine } from "../pokeweb/moveAnimationCommandSummary";
 import { compileMoveAnimation, decompileMoveAnimationBytes, formatMoveAnimationScriptParameters, updateMoveAnimationScript, type MoveAnimationParamDisplayMode } from "../pokeweb/moveAnimationModel";
 import { getMoveAnimationParamSemanticHelp } from "../pokeweb/moveAnimationParamSemantics";
 import { updateMoveDescription, updateMoveTextName } from "../pokeweb/moveTextModel";
@@ -577,12 +578,24 @@ function renderCommandReference(host: HTMLElement | null, reference: MoveAnimati
     <div class="move-command-reference-title">${escapeHtml(displayName)}</div>
     ${referenceName}
 	    <p>${escapeHtml(doc.description)}</p>
+	    ${renderCommandSemanticSummary(reference, displayName)}
 	    ${renderCommandParamList(doc, displayName)}
 	    ${renderCommandBoundaryNote(doc)}
 	    ${renderCommandNotes(doc)}
 	    ${backgroundId === undefined ? "" : renderBackgroundReferencePreview(backgroundId, previewId)}
 	  `;
   if (backgroundId !== undefined) void hydrateBackgroundReferencePreview(host, project, backgroundId, previewId);
+}
+
+function renderCommandSemanticSummary(reference: MoveAnimationCommandReference, commandName: string): string {
+  const summary = summarizeMoveAnimationCommandLine(commandName, reference.lineText);
+  if (!summary) return "";
+  return `
+    <div class="move-command-reference-summary">
+      <div>Selected Command</div>
+      <p>${escapeHtml(summary)}</p>
+    </div>
+  `;
 }
 
 function renderCommandBoundaryNote(doc: MoveAnimationCommandReference["doc"]): string {
@@ -658,9 +671,13 @@ function renderCommandParamSemanticHelp(commandName: string, paramIndex: number)
   const help = getMoveAnimationParamSemanticHelp(commandName, paramIndex);
   if (!help) return "";
   if (help.kind === "fx32") {
-    return help.unit === "world"
-      ? `<small class="move-command-reference-semantic">Accepts FX32 world units such as <code>1px</code>, <code>0.5px</code>, and <code>2px</code>; raw <code>4096</code> remains valid.</small>`
-      : `<small class="move-command-reference-semantic">Accepts FX32 multipliers such as <code>1x</code>, <code>0.5x</code>, and <code>2x</code>.</small>`;
+    if (help.unit === "world") {
+      return `<small class="move-command-reference-semantic">Accepts FX32 world units such as <code>1px</code>, <code>0.5px</code>, and <code>2px</code>; raw <code>4096</code> remains valid.</small>`;
+    }
+    if (help.unit === "frame") {
+      return `<small class="move-command-reference-semantic">Accepts FX32 frame counts such as <code>1f</code>, <code>10f</code>, and <code>30f</code>; raw <code>4096</code> remains valid.</small>`;
+    }
+    return `<small class="move-command-reference-semantic">Accepts FX32 multipliers such as <code>1x</code>, <code>0.5x</code>, and <code>2x</code>.</small>`;
   }
   const values = help.values ?? [];
   if (!values.length) return "";

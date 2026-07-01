@@ -6,6 +6,7 @@ import { decompressCode } from "../src/nds/codeCompression";
 import { NARC } from "../src/nds/narc";
 import { NintendoDSRom } from "../src/nds/rom";
 import { VERSION_BY_ARM9_SAMPLE, type BaseRom, type BaseVersion } from "../src/pokeweb/constants";
+import { getMoveAnimationDisplayCommandName } from "../src/pokeweb/moveAnimationCommandNames";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript, type ParsedMoveAnimationCommand } from "../src/pokeweb/moveAnimationModel";
 import { parseSpaArchive } from "../src/pokeweb/nitroSpa";
 import { decodeGen5TextBank } from "../src/pokeweb/text";
@@ -15,13 +16,26 @@ const MESSAGE_TEXT_PATH = "a/0/0/2";
 const BATTLE_ANIMATION_OFFSET = 561;
 const SPA_COMMANDS = new Set([
   "LoadSPA",
+  "Emit",
+  "EmitFromCoordinates",
+  "EmitOrtho",
+  "EmitAll",
+  "EmitProjectile",
+  "EmitProjectileFromCoordinates",
+  "EmitOrthoProjectile",
+  "EmitOrthoProjectileFromCoordinates",
+  "EmitCircle",
+  "EmitOrthoCircle",
   "DoSPAAnimation",
   "DoSPAScreenAnimation",
   "DoSPAAnimation2",
+  "DoSPAAllAnimations",
   "DoSPAProjectileAnimation",
   "DoSPAProjectileAnimation2",
   "DoSPAProjectileAnimation3",
+  "DoSPAProjectileAnimationOrthoCoordinate",
   "DoSPACircleAnimation",
+  "DoSPAOrthoCircleAnimation",
 ]);
 const BACKGROUND_COMMANDS = new Set(["LoadBackground"]);
 const SOUND_COMMANDS = new Set(["PlaySound", "AdjustSound", "SwitchAudioSide", "AudioContainer"]);
@@ -205,7 +219,7 @@ function indexMove(
     const script = decompileMoveAnimationBytes(bytes);
     const parsed = parseMoveAnimationScript(script);
     const commands = [...parsed.scripts.values()].flat();
-    const commandNames = unique(commands.map((command) => command.name));
+    const commandNames = unique(commands.map((command) => getMoveAnimationDisplayCommandName(command.name)));
     const spaResourceMap = new Map<string, { spaId: number; resourceId?: number; commands: Set<string>; tags: Set<string> }>();
     const spaIds = new Set<number>();
     const backgroundIds = new Set<number>();
@@ -223,7 +237,7 @@ function indexMove(
         const tags = new Set([...(doc?.tags ?? []), ...tagsFromSpaBinary(moveSpas.files[spaId])]);
         const key = `${spaId}:${resourceId ?? "load"}`;
         const entry = spaResourceMap.get(key) ?? { spaId, resourceId, commands: new Set<string>(), tags: new Set<string>() };
-        entry.commands.add(command.name);
+        entry.commands.add(getMoveAnimationDisplayCommandName(command.name));
         for (const tag of tags) entry.tags.add(tag);
         spaResourceMap.set(key, entry);
       }
@@ -572,6 +586,10 @@ Options:
   --docs <folder>        Folder containing SPA/background HTML exports. Defaults to ../moveanimationdocs.
   --out <folder>         Output folder. Defaults to move-animation-reference.
   --base BW|BW2          Optional ROM family override.
+
+Notes:
+  Indexed scripts are decompiled through the same semantic formatter used by the editor and helper CLI.
+  Command names in the generated index use friendly names such as EmitProjectile instead of legacy DoSPA* aliases.
 `.trim());
 }
 

@@ -203,6 +203,9 @@ describe("trainerModel", () => {
     const project = makeProject(0);
     addTrainerTextFixtures(project);
 
+    expect(getTrainerTextLines(project, 1).find((line) => line.typeId === 2)?.label).toBe("Fld - After Loss");
+    expect(getTrainerTextLines(project, 1).find((line) => line.typeId === 16)?.label).toBe("Fld - After Loss (Item)");
+
     expect(getTrainerTextLines(project, 1).find((line) => line.typeId === 0)).toMatchObject({
       entryIndex: 0,
       value: "Battle start",
@@ -230,6 +233,51 @@ describe("trainerModel", () => {
     expect(project.narcs.trtext_table?.dirty.has(0)).toBe(true);
     expect(project.narcs.message_texts?.dirty.has(381)).toBe(true);
     expect(project.actionChangelog?.entries.some((entry) => entry.domain === "trainer_text" && entry.text.includes("Trainer 1 Pre Bttl changed from Battle start to New start."))).toBe(true);
+  });
+
+  it("inserts and deletes BW2 trainer text for a trainer with no existing rows", () => {
+    const project = makeProject(0);
+    addTrainerTextFixtures(project);
+
+    updateTrainerText(project, 2, 0, "New missing trainer start");
+
+    expect(getTrainerTextLines(project, 2).find((line) => line.typeId === 0)).toMatchObject({
+      entryIndex: 2,
+      value: "New missing trainer start",
+      exists: true,
+    });
+    expect(readLineTable(project.narcs.trtext_table!.rawFiles[0])).toEqual([
+      [1, 0],
+      [1, 1],
+      [2, 0],
+      [4, 0],
+    ]);
+    expect(readOffsets(project.narcs.trtext_offsets!.rawFiles[0])).toEqual([0, 0, 8, 12, 12]);
+    expect(decodeGen5TextBank(project.narcs.message_texts!.rawFiles[381]).map((entry) => entry[1])).toEqual([
+      "Battle start",
+      "Battle loss",
+      "New missing trainer start",
+      "Other trainer",
+    ]);
+
+    updateTrainerText(project, 2, 0, "");
+
+    expect(getTrainerTextLines(project, 2).find((line) => line.typeId === 0)).toMatchObject({
+      entryIndex: 2,
+      value: "",
+      exists: false,
+    });
+    expect(readLineTable(project.narcs.trtext_table!.rawFiles[0])).toEqual([
+      [1, 0],
+      [1, 1],
+      [4, 0],
+    ]);
+    expect(readOffsets(project.narcs.trtext_offsets!.rawFiles[0])).toEqual([0, 0, 8, 8, 8]);
+    expect(decodeGen5TextBank(project.narcs.message_texts!.rawFiles[381]).map((entry) => entry[1])).toEqual([
+      "Battle start",
+      "Battle loss",
+      "Other trainer",
+    ]);
   });
 });
 
@@ -385,6 +433,18 @@ function packOffsets(offsets: number[]): Uint8Array {
   const out = new Uint8Array(offsets.length * 2);
   offsets.forEach((offset, index) => writeInt(out, index * 2, 2, offset));
   return out;
+}
+
+function readLineTable(bytes: Uint8Array): Array<[number, number]> {
+  const rows: Array<[number, number]> = [];
+  for (let offset = 0; offset + 4 <= bytes.length; offset += 4) rows.push([readU16(bytes, offset), readU16(bytes, offset + 2)]);
+  return rows;
+}
+
+function readOffsets(bytes: Uint8Array): number[] {
+  const offsets: number[] = [];
+  for (let offset = 0; offset + 2 <= bytes.length; offset += 2) offsets.push(readU16(bytes, offset));
+  return offsets;
 }
 
 function readU16(bytes: Uint8Array, offset: number): number {

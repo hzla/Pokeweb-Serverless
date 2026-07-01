@@ -53,7 +53,7 @@ Move animation workflow quick brief
 Core rules
 - Visible battle animation belongs in VM move scripts and SPA assets, not C/C++.
 - W2U Gen 6+ custom move animation overrides live in White2Upgrade/data/graphics/move_animations/5_XXXXXXXX.bin.
-- Move SPA overrides live in White2Upgrade/data/graphics/move_spas/6_XXXXXXXX.bin and are referenced by LoadSPA/DoSPA* IDs.
+- Move SPA overrides live in White2Upgrade/data/graphics/move_spas/6_XXXXXXXX.bin and are referenced by LoadSPA/Emit* IDs.
 - Use generator scripts under work/<slug>/ as source of truth; generated .bin files are build inputs.
 - Donor recolors must inspect resource color, texture/palette colors, child color, alpha animation, and color animation curves.
 

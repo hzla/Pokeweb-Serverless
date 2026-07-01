@@ -14,6 +14,11 @@
   * Moves
     * [Moves](Moves)
     * [Move Animation Editor](Move-Animation-Editor)
+      * [Command Reference](Move-Animation-Editor-Command-Reference)
+      * [SPA Particle Reference](Move-Animation-Editor-SPA-Particle-Reference)
+      * [Workflow Guides](Move-Animation-Editor-Workflow-Guides)
+      * [Script vs SPA](Move-Animation-Editor-Script-vs-SPA)
+      * [AI Agent Orientation](Move-Animation-Editor-AI-Agent-Orientation)
     * [TMs](TMs)
     * [Move Effect Handlers](Move-Effect-Handlers)
   * [Items](Items)
