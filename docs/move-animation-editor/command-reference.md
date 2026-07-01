@@ -9,6 +9,7 @@ This file is generated from `src/assets/data/moveAnimationCommandDocs.json`, the
 - SPA placement commands accept side/position symbols such as `SIDE_NONE`, `SIDE_ATTACKER`, `SIDE_DEFENDER`, `POS_A`, where that parameter is a known selector.
 - FX32 multiplier parameters such as particle `radius`, `life`, `scale`, `speed`, and sprite/object scale values may use `1x`, `0.5x`, or `2x`; raw values like `4096` remain valid.
 - FX32 world-unit parameters such as Emit-family coordinates, offsets, circle radii, and projectile arc heights may use `1px`, `0.5px`, or `2px`; raw values like `4096` remain valid. The `px` suffix is an authoring shorthand for one fixed-point world unit, which maps one-to-one with screen pixels in orthographic contexts.
+- FX32 projectile movement duration parameters such as `move_frame` may use `1f`, `10f`, or `30f`; raw values like `4096` remain valid. For these fields, `4096` is 1 frame, so `30f` compiles to `122880`.
 - RGB command docs use 5-bit channel values when expanded in the editor.
 - Frame parameters are usually 30 FPS battle animation frames.
 - SPA commands reference SPA archive IDs and resource indices inside those archives.
@@ -299,7 +300,7 @@ Create an emitter and move it from a start position to a destination position.
 | 3 | `start_pos` | `p3` | Emitter/start battle position selector. |
 | 4 | `end_pos` | `p4` | Destination battle position selector. |
 | 5 | `ofs_y` | `p5` | Y offset applied to the command logic and destination positions. |
-| 6 | `move_frame` | `p6` | Emitter movement duration in frames. |
+| 6 | `move_frame` | `p6` | FX32 emitter movement duration; 4096 is 1 frame, so `30f` compiles to 122880. Raw fixed-point values remain valid. |
 | 7 | `top` | `p7` | Arc height/top value used by curved emitter movement. |
 | 8 | `life` | `p8` | Emitter particle-life multiplier, normally FX32. |
 | 9 | `speed` | `p9` | Emitter velocity/speed multiplier, normally FX32. |
@@ -331,7 +332,7 @@ Create a moving emitter from explicit coordinates to a destination position.
 | 5 | `start_pos_z` | `p5` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |
 | 6 | `end_pos` | `p6` | Battle position/object selector. |
 | 7 | `ofs_y` | `p7` | Y offset applied before emission/rendering. |
-| 8 | `move_frame` | `p8` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |
+| 8 | `move_frame` | `p8` | FX32 emitter movement duration; 4096 is 1 frame, so `30f` compiles to 122880. Raw fixed-point values remain valid. |
 | 9 | `top` | `p9` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |
 | 10 | `life` | `p10` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |
 | 11 | `speed` | `p11` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |
@@ -359,7 +360,7 @@ Create a moving emitter using orthographic projection.
 | 3 | `start_pos` | `p3` | Emitter/start battle position selector. |
 | 4 | `end_pos` | `p4` | Destination battle position selector. |
 | 5 | `ofs_y` | `p5` | Y offset applied to the command logic and destination positions. |
-| 6 | `move_frame` | `p6` | Emitter movement duration in frames. |
+| 6 | `move_frame` | `p6` | FX32 orthographic emitter movement duration; 4096 is 1 frame, so `30f` compiles to 122880. Raw fixed-point values remain valid. |
 | 7 | `top` | `p7` | Arc height/top value used by curved emitter movement. |
 | 8 | `life` | `p8` | Emitter particle-life multiplier, normally FX32. |
 | 9 | `speed` | `p9` | Emitter velocity/speed multiplier, normally FX32. |
@@ -392,7 +393,7 @@ Create a moving orthographic emitter from explicit coordinates.
 | 5 | `start_pos_z` | `p5` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |
 | 6 | `end_pos` | `p6` | Battle position/object selector. |
 | 7 | `ofs_y` | `p7` | Y offset applied before emission/rendering. |
-| 8 | `move_frame` | `p8` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |
+| 8 | `move_frame` | `p8` | FX32 orthographic emitter movement duration; 4096 is 1 frame, so `30f` compiles to 122880. Raw fixed-point values remain valid. |
 | 9 | `top` | `p9` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |
 | 10 | `life` | `p10` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |
 | 11 | `speed` | `p11` | The parameter list names this value, but the exact editor-facing meaning is command-specific. |

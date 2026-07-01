@@ -234,6 +234,25 @@
   margin: 8px 0;
 }
 
+.move-command-reference-summary {
+  background: rgba(80, 195, 165, 0.1);
+  border: 1px solid rgba(80, 195, 165, 0.35);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 8px;
+}
+
+.move-command-reference-summary > div {
+  color: #50c3a5;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.move-command-reference-summary p {
+  color: #f3f6ff;
+  margin: 0;
+}
+
 .move-command-reference code {
   background: #151925;
   border: 1px solid #3f465b;

@@ -8,13 +8,18 @@ import {
   isTestBattleSaveAllBadgesSet,
   isTestBattleTrainerFlagSet,
   patchTestBattleSaveBadges,
+  patchTestBattleSaveMmdl,
   patchTestBattleSaveTrainerFlag,
+  patchTestBattleSaveTrainerFlags,
+  patchTestBattleTrainerTextProxy,
   rawSaveBytesFromDesmumeDsv,
   resolveTestBattleMoveAnimationTarget,
   resolveTestBattleOverworldIdForSaveZone,
+  testBattleScriptIdForTrainer,
   testBattleOverworldYFromSaveGridY,
 } from "../pokeweb/testBattle";
 import { decryptPk5Party } from "../pokeweb/testBattleTeam";
+import { decodeGen5TextBank, encodeGen5TextBank } from "../pokeweb/text";
 
 const whiteSave = new Uint8Array(readFileSync(new URL("../assets/testbattle/white.dsv", import.meta.url)));
 const white2Save = new Uint8Array(readFileSync(new URL("../assets/testbattle/test.sav", import.meta.url)));
@@ -74,6 +79,11 @@ describe("testBattle", () => {
       move_animations: "a/0/6/5",
       battle_animations: "a/0/6/6",
     });
+  });
+
+  it("maps trainer test battle NPC scripts to the selected trainer id", () => {
+    expect(testBattleScriptIdForTrainer(2)).toBe(3002);
+    expect(testBattleScriptIdForTrainer(87)).toBe(3087);
   });
 
   it("selects the White2Upgrade save when a White2Upgrade DLL is loaded", () => {
@@ -201,6 +211,94 @@ describe("testBattle", () => {
     expect(readLe16(patched, 0x4bfa2)).toBe(crc16Ccitt(patched.subarray(0x4bf00, 0x4bf00 + 0x94)));
   });
 
+  it("clears the selected BW2 defeated trainer flag in both save halves", () => {
+    const config = getTestBattleConfig("BW2");
+    const raw = rawSaveBytesFromDesmumeDsv(white2Save);
+    const trainerId = 87;
+    const dirty = raw.slice();
+
+    setTrainerFlagForTest(dirty, config, trainerId, 0);
+    setTrainerFlagForTest(dirty, config, trainerId, config.saveLayout.saveHalfOffset);
+    expect(isTestBattleTrainerFlagSet(dirty, config, 0, trainerId)).toBe(true);
+    expect(isTestBattleTrainerFlagSet(dirty, config, config.saveLayout.saveHalfOffset, trainerId)).toBe(true);
+
+    const patched = patchTestBattleSaveTrainerFlag(dirty, config, trainerId);
+
+    expect(isTestBattleTrainerFlagSet(patched, config, 0, trainerId)).toBe(false);
+    expect(isTestBattleTrainerFlagSet(patched, config, config.saveLayout.saveHalfOffset, trainerId)).toBe(false);
+    expect(readLe16(patched, 0x203e2)).toBe(crc16Ccitt(patched.subarray(0x1ff00, 0x1ff00 + 0x4e0)));
+    expect(readLe16(patched, 0x25f5a)).toBe(readLe16(patched, 0x203e2));
+    expect(readLe16(patched, 0x25fa2)).toBe(crc16Ccitt(patched.subarray(0x25f00, 0x25f00 + 0x94)));
+    expect(readLe16(patched, 0x463e2)).toBe(crc16Ccitt(patched.subarray(0x45f00, 0x45f00 + 0x4e0)));
+    expect(readLe16(patched, 0x4bf5a)).toBe(readLe16(patched, 0x463e2));
+    expect(readLe16(patched, 0x4bfa2)).toBe(crc16Ccitt(patched.subarray(0x4bf00, 0x4bf00 + 0x94)));
+  });
+
+  it("clears the selected and proxy BW2 defeated trainer flags together", () => {
+    const config = getTestBattleConfig("BW2");
+    const raw = rawSaveBytesFromDesmumeDsv(white2Save);
+    const trainerId = 87;
+    const dirty = raw.slice();
+
+    for (const halfOffset of [0, config.saveLayout.saveHalfOffset]) {
+      setTrainerFlagForTest(dirty, config, 2, halfOffset);
+      setTrainerFlagForTest(dirty, config, trainerId, halfOffset);
+    }
+
+    const patched = patchTestBattleSaveTrainerFlags(dirty, config, [2, trainerId]);
+
+    for (const halfOffset of [0, config.saveLayout.saveHalfOffset]) {
+      expect(isTestBattleTrainerFlagSet(patched, config, halfOffset, 2)).toBe(false);
+      expect(isTestBattleTrainerFlagSet(patched, config, halfOffset, trainerId)).toBe(false);
+    }
+    expect(readLe16(patched, 0x203e2)).toBe(crc16Ccitt(patched.subarray(0x1ff00, 0x1ff00 + 0x4e0)));
+    expect(readLe16(patched, 0x25f5a)).toBe(readLe16(patched, 0x203e2));
+    expect(readLe16(patched, 0x25fa2)).toBe(crc16Ccitt(patched.subarray(0x25f00, 0x25f00 + 0x94)));
+  });
+
+  it("copies selected trainer text into trainer 2 and inserts missing proxy text rows", () => {
+    const patch = patchTestBattleTrainerTextProxy(
+      packTrainerTextRows([
+        [1, 0],
+        [1, 16],
+        [2, 0],
+        [2, 1],
+        [4, 0],
+      ]),
+      packTrainerTextOffsets([0, 0, 8, 16, 16]),
+      encodeGen5TextBank([
+        ["0_0", "Source pre-battle", 0],
+        ["0_1", "Source item after-loss", 0],
+        ["0_2", "Old proxy pre-battle", 0],
+        ["0_3", "Old proxy after-loss", 0],
+        ["0_4", "Other trainer", 0],
+      ]),
+      1,
+      2,
+    );
+
+    expect(patch.copiedTypes).toEqual([0]);
+    expect(patch.insertedTypes).toEqual([16]);
+    expect(patch.blankedTypes).toEqual([1]);
+    expect(unpackTrainerTextRows(patch.lineTableBytes)).toEqual([
+      [1, 0],
+      [1, 16],
+      [2, 0],
+      [2, 1],
+      [2, 16],
+      [4, 0],
+    ]);
+    expect(unpackTrainerTextOffsets(patch.offsetBytes)).toEqual([0, 0, 8, 20, 20]);
+    expect(decodeGen5TextBank(patch.textBankBytes).map((entry) => entry[1])).toEqual([
+      "Source pre-battle",
+      "Source item after-loss",
+      "Source pre-battle",
+      "",
+      "Source item after-loss",
+      "Other trainer",
+    ]);
+  });
+
   it("loads and patches the White2Upgrade save with the BW2 checksum layout", () => {
     const config = getTestBattleConfig("BW2", { white2Upgrade: true });
     const raw = rawSaveBytesFromDesmumeDsv(white2UpgradeSave);
@@ -223,6 +321,38 @@ describe("testBattle", () => {
     expect(readLe16(patched, 0x463e2)).toBe(crc16Ccitt(patched.subarray(0x45f00, 0x45f00 + 0x4e0)));
     expect(readLe16(patched, 0x4bf5a)).toBe(readLe16(patched, 0x463e2));
     expect(readLe16(patched, 0x4bfa2)).toBe(crc16Ccitt(patched.subarray(0x4bf00, 0x4bf00 + 0x94)));
+  });
+
+  it("rewrites a reusable White2Upgrade MMDL save slot to the selected trainer script", () => {
+    const config = getTestBattleConfig("BW2", { white2Upgrade: true });
+    const raw = rawSaveBytesFromDesmumeDsv(white2UpgradeSave);
+    const npc = makeTestBattleNpc(13, testBattleScriptIdForTrainer(87));
+
+    expect(readLe16(raw, 0x1e200 + 24)).not.toBe(testBattleScriptIdForTrainer(87));
+
+    const patched = patchTestBattleSaveMmdl(
+      raw,
+      config,
+      { rawSaveBytes: raw, zoneId: 427, gridX: 53, gridY: 1, gridZ: 728 },
+      npc,
+    );
+
+    for (const halfOffset of [0, config.saveLayout.saveHalfOffset]) {
+      const slotOffset = halfOffset + 0x1e200;
+      expect(readLe32(patched, slotOffset)).toBe(3);
+      expect(patched[slotOffset + 8]).toBe(13);
+      expect(readLe16(patched, slotOffset + 16)).toBe(427);
+      expect(readLe16(patched, slotOffset + 20)).toBe(1);
+      expect(readLe16(patched, slotOffset + 24)).toBe(3087);
+      expect(readLe16(patched, slotOffset + 38)).toBe(53);
+      expect(readLe16(patched, slotOffset + 40)).toBe(1);
+      expect(readLe16(patched, slotOffset + 42)).toBe(729);
+      expect(readLe16(patched, halfOffset + 0x1f602)).toBe(crc16Ccitt(patched.subarray(halfOffset + 0x1e200, halfOffset + 0x1e200 + 0x1400)));
+      expect(readLe16(patched, halfOffset + config.saveLayout.checksumBlockOffset + 41 * 2)).toBe(readLe16(patched, halfOffset + 0x1f602));
+      expect(readLe16(patched, halfOffset + config.saveLayout.checksumBlockChecksumOffset!)).toBe(
+        crc16Ccitt(patched.subarray(halfOffset + config.saveLayout.checksumBlockOffset, halfOffset + config.saveLayout.checksumBlockOffset + config.saveLayout.checksumBlockLength)),
+      );
+    }
   });
 
   it("sets all badges in the White2Upgrade test battle save and refreshes misc checksums", () => {
@@ -317,6 +447,55 @@ function makeNarcStore(name: NarcStore["name"], count: number): NarcStore {
     records: new Map(),
     dirty: new Set(),
   };
+}
+
+function setTrainerFlagForTest(saveBytes: Uint8Array, config: ReturnType<typeof getTestBattleConfig>, trainerId: number, halfOffset: number): void {
+  const flag = 1420 + trainerId;
+  const offset = halfOffset + config.saveLayout.eventworkBlockOffset + 318 * 2 + Math.floor(flag / 8);
+  saveBytes[offset] |= 1 << (flag % 8);
+}
+
+function makeTestBattleNpc(uid: number, scriptId: number): Uint8Array {
+  const npc = new Uint8Array(36);
+  writeLe16(npc, 0, uid);
+  writeLe16(npc, 2, 20);
+  writeLe16(npc, 4, 0);
+  writeLe16(npc, 6, 1);
+  writeLe16(npc, 8, 0);
+  writeLe16(npc, 10, scriptId);
+  writeLe16(npc, 14, 10);
+  writeLe16(npc, 28, 53);
+  writeLe16(npc, 30, 729);
+  return npc;
+}
+
+function packTrainerTextRows(rows: Array<[number, number]>): Uint8Array {
+  const out = new Uint8Array(rows.length * 4);
+  rows.forEach(([trainerId, typeId], index) => {
+    writeLe16(out, index * 4, trainerId);
+    writeLe16(out, index * 4 + 2, typeId);
+  });
+  return out;
+}
+
+function unpackTrainerTextRows(bytes: Uint8Array): Array<[number, number]> {
+  const rows: Array<[number, number]> = [];
+  for (let offset = 0; offset + 4 <= bytes.length; offset += 4) {
+    rows.push([readLe16(bytes, offset), readLe16(bytes, offset + 2)]);
+  }
+  return rows;
+}
+
+function packTrainerTextOffsets(offsets: number[]): Uint8Array {
+  const out = new Uint8Array(offsets.length * 2);
+  offsets.forEach((offset, index) => writeLe16(out, index * 2, offset));
+  return out;
+}
+
+function unpackTrainerTextOffsets(bytes: Uint8Array): number[] {
+  const offsets: number[] = [];
+  for (let offset = 0; offset + 2 <= bytes.length; offset += 2) offsets.push(readLe16(bytes, offset));
+  return offsets;
 }
 
 function makeHeaderStore(format: NonNullable<ReturnType<typeof getNarcFormats>["headers"]>, zoneId: number, overworldId: number): NarcStore {

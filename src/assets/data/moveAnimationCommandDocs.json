@@ -677,7 +677,7 @@
           "index": 6,
           "name": "move_frame",
           "currentArg": "p6",
-          "description": "Emitter movement duration in frames."
+          "description": "FX32 emitter movement duration; 4096 is 1 frame, so `30f` compiles to 122880. Raw fixed-point values remain valid."
         },
         {
           "index": 7,
@@ -771,7 +771,7 @@
           "index": 8,
           "name": "move_frame",
           "currentArg": "p8",
-          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+          "description": "FX32 emitter movement duration; 4096 is 1 frame, so `30f` compiles to 122880. Raw fixed-point values remain valid."
         },
         {
           "index": 9,
@@ -851,7 +851,7 @@
           "index": 6,
           "name": "move_frame",
           "currentArg": "p6",
-          "description": "Emitter movement duration in frames."
+          "description": "FX32 orthographic emitter movement duration; 4096 is 1 frame, so `30f` compiles to 122880. Raw fixed-point values remain valid."
         },
         {
           "index": 7,
@@ -946,7 +946,7 @@
           "index": 8,
           "name": "move_frame",
           "currentArg": "p8",
-          "description": "The parameter list names this value, but the exact editor-facing meaning is command-specific."
+          "description": "FX32 orthographic emitter movement duration; 4096 is 1 frame, so `30f` compiles to 122880. Raw fixed-point values remain valid."
         },
         {
           "index": 9,

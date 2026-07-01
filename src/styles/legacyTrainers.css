@@ -255,27 +255,45 @@
 
 .trainer-texts .expanded-field-main {
   align-items: center;
-  gap: 16px;
-  min-height: 54px;
+  gap: 10px;
+  justify-content: flex-start;
+  min-height: 44px;
+}
+
+.trainer-texts .expanded-field {
+  padding: 4px 0;
 }
 
 .trainer-texts .msg-id {
   color: #f2f2f2;
   flex: 0 0 300px;
+  font-size: 22px;
+  line-height: 1.25;
   min-width: 300px;
+  text-align: left;
   white-space: nowrap;
 }
 
-.log-text {
-  color: #1abc9c;
-  flex: 1;
-  min-height: 30px;
-  padding: 5px 10px;
-  text-align: left;
-  white-space: pre-wrap;
+.trainer-texts .delete-trtext {
+  flex: 0 0 auto;
+  height: 32px;
+  line-height: 32px;
+  padding: 0 12px;
 }
 
-.log-text:empty::before {
+.trainer-texts .log-text {
+  color: #1abc9c;
+  flex: 1;
+  font-size: 22px;
+  line-height: 1.25;
+  min-height: 30px;
+  padding: 4px 8px;
+  text-align: left;
+  white-space: pre-wrap;
+  width: auto;
+}
+
+.trainer-texts .log-text:empty::before {
   color: #6b6d7d;
   content: "-";
 }

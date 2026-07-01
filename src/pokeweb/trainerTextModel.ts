@@ -19,8 +19,8 @@ export const TRAINER_TEXT_TYPES = [
   [10, "Reject Dbls 2"],
   [13, "Before Heal"],
   [14, "After Heal"],
-  [15, "After Bttl Item"],
-  [16, "More Item"],
+  [15, "Fld - Before Item"],
+  [16, "Fld - After Loss (Item)"],
   [17, "After 1st Hit (Non KO)"],
   [19, "Last Pok"],
   [20, "Last Pok Less than 1/2 HP"],
@@ -172,18 +172,20 @@ function insertTrainerText(
   value: string,
 ): void {
   const insertIndex = context.startIndex + context.entryIndexes.length;
+  const insertOffset = insertIndex * 4;
   context.rows.splice(insertIndex, 0, { trainerId, typeId });
-  if (context.offsets[trainerId] === undefined) context.offsets[trainerId] = insertIndex * 4;
-  bumpOffsetsAfter(context.offsets, context.startOffset, 4);
+  context.offsets[trainerId] = context.entryIndexes.length === 0 ? insertOffset : context.startOffset;
+  bumpOffsetsAtOrAfter(context.offsets, insertOffset, 4, trainerId);
   context.bank.splice(insertIndex, 0, [`0_${insertIndex}`, value, 0]);
   renumberBank(context.bank);
   commitTrainerTextTables(project, context);
 }
 
 function deleteTrainerText(project: ProjectState, context: NonNullable<ReturnType<typeof getTrainerTextContext>>, trainerId: number, entryIndex: number): void {
+  const deleteOffset = entryIndex * 4;
   context.rows.splice(entryIndex, 1);
   context.bank.splice(entryIndex, 1);
-  bumpOffsetsAfter(context.offsets, context.startOffset, -4);
+  bumpOffsetsAfter(context.offsets, deleteOffset, -4);
   if (!context.rows.some((row) => row.trainerId === trainerId)) context.offsets[trainerId] = context.startIndex * 4;
   renumberBank(context.bank);
   commitTrainerTextTables(project, context);
@@ -255,6 +257,12 @@ function serializeOffsets(offsets: number[]): Uint8Array {
 function bumpOffsetsAfter(offsets: number[], currentOffset: number, delta: number): void {
   offsets.forEach((offset, index) => {
     if (offset > currentOffset) offsets[index] = Math.max(0, offset + delta);
+  });
+}
+
+function bumpOffsetsAtOrAfter(offsets: number[], currentOffset: number, delta: number, pinnedTrainerId: number): void {
+  offsets.forEach((offset, index) => {
+    if (index !== pinnedTrainerId && offset >= currentOffset) offsets[index] = Math.max(0, offset + delta);
   });
 }
 

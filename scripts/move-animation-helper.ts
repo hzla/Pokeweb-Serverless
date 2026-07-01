@@ -12,13 +12,26 @@ const MOVE_SPA_PATH = "a/0/0/6";
 const BATTLE_ANIMATION_OFFSET = 561;
 const SPA_COMMANDS = new Set([
   "LoadSPA",
+  "Emit",
+  "EmitFromCoordinates",
+  "EmitOrtho",
+  "EmitAll",
+  "EmitProjectile",
+  "EmitProjectileFromCoordinates",
+  "EmitOrthoProjectile",
+  "EmitOrthoProjectileFromCoordinates",
+  "EmitCircle",
+  "EmitOrthoCircle",
   "DoSPAAnimation",
   "DoSPAScreenAnimation",
   "DoSPAAnimation2",
+  "DoSPAAllAnimations",
   "DoSPAProjectileAnimation",
   "DoSPAProjectileAnimation2",
   "DoSPAProjectileAnimation3",
+  "DoSPAProjectileAnimationOrthoCoordinate",
   "DoSPACircleAnimation",
+  "DoSPAOrthoCircleAnimation",
 ]);
 
 type RomVersion = {
@@ -281,11 +294,11 @@ Usage:
 
 Commands:
   extract
-    Decompile raw move animation binaries and export referenced SPA files.
+    Decompile raw move animation binaries to semantic scripts and export referenced SPA files.
     Options: --rom, --moves comma-separated IDs, --out, optional --base BW|BW2
 
   compile
-    Compile an assembly-like move animation script to raw binary.
+    Compile a semantic or numeric move animation script to raw binary.
     Options: --script, --out, optional --move <id>
 
   append-spa
@@ -293,8 +306,10 @@ Commands:
     Options: --rom, repeated --spa, --out, optional --manifest
 
 Notes:
+  Extracted scripts use friendly command names and parameters, e.g. EmitProjectile with SIDE_ATTACKER, 2px, 30f, and 1x tokens.
+  Raw integers, hex values, legacy DoSPA* names, and CMD_* aliases still compile for older scripts.
   This helper does not create sound banks or sound effects.
-  Appended SPA files are referenced by the printed SPA IDs in LoadSPA/DoSPA* commands.
+  Appended SPA files are referenced by the printed SPA IDs in LoadSPA/Emit* commands.
 `.trim());
 }
 

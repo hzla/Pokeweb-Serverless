@@ -7,6 +7,7 @@ import { compileMoveAnimation, getMoveAnimationTargetInfo } from "./moveAnimatio
 import { detectWhite2UpgradeDlls, prepareBw2TestBattleCodeInjection } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { normalizeTestBattleSavePartyNicknames, patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty } from "./testBattleTeam";
+import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "./text";
 
 const TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/test.sav", import.meta.url);
 const BW_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/white.dsv", import.meta.url);
@@ -14,8 +15,9 @@ const WHITE2_UPGRADE_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/White2
 const HG_ENGINE_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/testani.dsv", import.meta.url);
 const HG_VANILLA_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/vanillagold.dsv", import.meta.url);
 const TEST_BATTLE_BASE_TRAINER_ID = 2;
+const TEST_BATTLE_TRAINER_TEXT_BANK_ID = 381;
 const BW_TEST_BATTLE_FALLBACK_OVERWORLD_ID = 66;
-const TEST_BATTLE_SCRIPT_ID = 3000 + TEST_BATTLE_BASE_TRAINER_ID;
+const TEST_BATTLE_TRAINER_SCRIPT_OFFSET = 3000;
 const TEST_BATTLE_NPC_SIZE = 36;
 const TEST_BATTLE_HEADER_SIZE = 8;
 const TEST_BATTLE_MMDL_BLOCK_OFFSET = 0x1e200;
@@ -44,9 +46,6 @@ const TEST_BATTLE_DIRECTION_UP = 0;
 const TEST_BATTLE_EV_TYPE_TRAINER = 1;
 const TEST_BATTLE_TRAINER_FLAG_START = 1420;
 const TEST_BATTLE_EVENTWORK_WORK_BYTES = 318 * 2;
-const TEST_BATTLE_TRAINER_FLAG = TEST_BATTLE_TRAINER_FLAG_START + TEST_BATTLE_BASE_TRAINER_ID;
-const TEST_BATTLE_TRAINER_FLAG_OFFSET = TEST_BATTLE_EVENTWORK_WORK_BYTES + Math.floor(TEST_BATTLE_TRAINER_FLAG / 8);
-const TEST_BATTLE_TRAINER_FLAG_MASK = 1 << (TEST_BATTLE_TRAINER_FLAG % 8);
 const TEST_BATTLE_SAVE_POSITION_BLOCK = 0x19500;
 const TEST_BATTLE_ALL_BADGES_MASK = 0x000000ff;
 const TEST_BATTLE_MISC_CHECKSUM_INDEX = 52;
@@ -129,13 +128,27 @@ type TestBattleSaveLayout = {
   miscChecksumOffset?: number;
 };
 
+type TestBattleTextRow = {
+  trainerId: number;
+  typeId: number;
+};
+
+export type TestBattleTrainerTextProxyPatch = {
+  lineTableBytes: Uint8Array;
+  offsetBytes: Uint8Array;
+  textBankBytes: Uint8Array;
+  copiedTypes: number[];
+  insertedTypes: number[];
+  blankedTypes: number[];
+};
+
 export type TestBattleConfig = {
   baseRom: BaseRom;
   saveKind: TestBattleSaveKind;
   saveUrl: URL;
   fallbackOverworldId?: number;
   saveLayout: TestBattleSaveLayout;
-  paths: Record<"headers" | "trdata" | "trpok" | "overworlds" | "move_animations" | "battle_animations", string>;
+  paths: Record<"headers" | "message_texts" | "trtext_table" | "trtext_offsets" | "trdata" | "trpok" | "overworlds" | "move_animations" | "battle_animations", string>;
 };
 
 export function getTestBattleConfig(baseRom: BaseRom, options: { white2Upgrade?: boolean } = {}): TestBattleConfig {
@@ -149,6 +162,9 @@ export function getTestBattleConfig(baseRom: BaseRom, options: { white2Upgrade?:
     saveLayout: getTestBattleSaveLayout(baseRom),
     paths: {
       headers: pathForNarc(HEADER_NARCS, "headers"),
+      message_texts: pathForNarc(HEADER_NARCS, "message_texts"),
+      trtext_table: pathForNarc(narcs, "trtext_table"),
+      trtext_offsets: pathForNarc(narcs, "trtext_offsets"),
       trdata: pathForNarc(narcs, "trdata"),
       trpok: pathForNarc(narcs, "trpok"),
       overworlds: pathForNarc(narcs, "overworlds"),
@@ -168,9 +184,9 @@ export async function buildTestBattleDownloads(project: ProjectState, trainerId:
   const [baseRomBytes, loadedSave] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
   const save = normalizeLoadedTestBattleSave(project, config, loadedSave);
   const trainerPatchedRom = patchTestBattleTrainerSlot(baseRomBytes, project, config, trainerId);
-  const { romBytes, npc } = patchTestBattleOverworldNpc(trainerPatchedRom, project, config, save);
+  const { romBytes, npc } = patchTestBattleOverworldNpc(trainerPatchedRom, project, config, save, trainerId);
   const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, config, save, npc);
-  const patchedFlagSaveBytes = patchTestBattleSaveTrainerFlag(patchedMapSaveBytes, config);
+  const patchedFlagSaveBytes = patchTestBattleSaveTrainerFlags(patchedMapSaveBytes, config, [TEST_BATTLE_BASE_TRAINER_ID, trainerId]);
   const patchedBadgeSaveBytes = patchTestBattleSaveBadges(patchedFlagSaveBytes, config);
   const patchedSaveBytes = patchTestBattleSavePlayerParty(patchedBadgeSaveBytes, project, options.playerTeamText ?? "", config.baseRom);
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
@@ -182,9 +198,9 @@ export async function buildMoveTestBattleDownloads(project: ProjectState, moveId
   const [baseRomBytes, loadedSave] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
   const save = normalizeLoadedTestBattleSave(project, config, loadedSave);
   const movePatchedRom = options.moveAnimationScriptText === undefined ? baseRomBytes : patchMoveAnimationScript(baseRomBytes, project, config, moveId, options.moveAnimationScriptText);
-  const { romBytes, npc } = patchTestBattleOverworldNpc(movePatchedRom, project, config, save);
+  const { romBytes, npc } = patchTestBattleOverworldNpc(movePatchedRom, project, config, save, TEST_BATTLE_BASE_TRAINER_ID);
   const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, config, save, npc);
-  const patchedFlagSaveBytes = patchTestBattleSaveTrainerFlag(patchedMapSaveBytes, config);
+  const patchedFlagSaveBytes = patchTestBattleSaveTrainerFlag(patchedMapSaveBytes, config, TEST_BATTLE_BASE_TRAINER_ID);
   const patchedBadgeSaveBytes = patchTestBattleSaveBadges(patchedFlagSaveBytes, config);
   const patchedSaveBytes = patchTestBattleSavePlayerFirstMove(patchedBadgeSaveBytes, project, moveId, config.baseRom);
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
@@ -248,11 +264,15 @@ function patchTestBattleTrainerSlot(romBytes: Uint8Array, project: ProjectState,
   const trpokFileId = project.narcs.trpok?.fileId ?? project.session.fileIds.trpok ?? rom.fileId(config.paths.trpok);
   const trdata = copyTrainerNarcEntry(rom.files[trdataFileId], trainerId, "trainer data");
   const trpok = copyTrainerNarcEntry(rom.files[trpokFileId], trainerId, "trainer Pokemon");
+  const files = new Map<number, Uint8Array>([
+    [trdataFileId, trdata],
+    [trpokFileId, trpok],
+  ]);
+  for (const [fileId, bytes] of patchTestBattleTrainerTextFiles(rom, project, config, trainerId)) {
+    files.set(fileId, bytes);
+  }
   return rom.save({
-    files: new Map([
-      [trdataFileId, trdata],
-      [trpokFileId, trpok],
-    ]),
+    files,
     preserveOriginalLength: true,
   });
 }
@@ -266,7 +286,175 @@ function copyTrainerNarcEntry(narcBytes: Uint8Array, trainerId: number, label: s
   return narc.save();
 }
 
-function patchTestBattleOverworldNpc(romBytes: Uint8Array, project: ProjectState, config: TestBattleConfig, save: TestBattleSave): TestBattleOverworldPatch {
+function patchTestBattleTrainerTextFiles(rom: NintendoDSRom, project: ProjectState, config: TestBattleConfig, trainerId: number): Map<number, Uint8Array> {
+  if (config.baseRom !== "BW2" || trainerId === TEST_BATTLE_BASE_TRAINER_ID) return new Map();
+
+  const messageFileId = project.narcs.message_texts?.fileId ?? project.session.fileIds.message_texts ?? rom.fileId(config.paths.message_texts);
+  const lineTableFileId = project.narcs.trtext_table?.fileId ?? project.session.fileIds.trtext_table ?? rom.fileId(config.paths.trtext_table);
+  const offsetFileId = project.narcs.trtext_offsets?.fileId ?? project.session.fileIds.trtext_offsets ?? rom.fileId(config.paths.trtext_offsets);
+  const messageNarc = new NARC(rom.files[messageFileId]);
+  const lineTableNarc = new NARC(rom.files[lineTableFileId]);
+  const offsetNarc = new NARC(rom.files[offsetFileId]);
+  const textBankBytes = messageNarc.files[TEST_BATTLE_TRAINER_TEXT_BANK_ID];
+  const lineTableBytes = lineTableNarc.files[0];
+  const offsetBytes = offsetNarc.files[0];
+  if (!textBankBytes || !lineTableBytes || !offsetBytes) return new Map();
+
+  const patched = patchTestBattleTrainerTextProxy(lineTableBytes, offsetBytes, textBankBytes, trainerId, TEST_BATTLE_BASE_TRAINER_ID);
+  lineTableNarc.files[0] = patched.lineTableBytes;
+  offsetNarc.files[0] = patched.offsetBytes;
+  messageNarc.files[TEST_BATTLE_TRAINER_TEXT_BANK_ID] = patched.textBankBytes;
+
+  return new Map([
+    [messageFileId, messageNarc.save()],
+    [lineTableFileId, lineTableNarc.save()],
+    [offsetFileId, offsetNarc.save()],
+  ]);
+}
+
+export function patchTestBattleTrainerTextProxy(
+  lineTableBytes: Uint8Array,
+  offsetBytes: Uint8Array,
+  textBankBytes: Uint8Array,
+  sourceTrainerId: number,
+  targetTrainerId = TEST_BATTLE_BASE_TRAINER_ID,
+): TestBattleTrainerTextProxyPatch {
+  if (sourceTrainerId === targetTrainerId) {
+    return {
+      lineTableBytes: lineTableBytes.slice(),
+      offsetBytes: offsetBytes.slice(),
+      textBankBytes: textBankBytes.slice(),
+      copiedTypes: [],
+      insertedTypes: [],
+      blankedTypes: [],
+    };
+  }
+
+  const rows = parseTestBattleTrainerTextRows(lineTableBytes);
+  const offsets = parseTestBattleTrainerTextOffsets(offsetBytes);
+  const bank = decodeGen5TextBank(textBankBytes).map((entry) => [...entry] as Gen5TextEntry);
+  const sourceByType = new Map<number, Gen5TextEntry>();
+  rows.forEach((row, entryIndex) => {
+    if (row.trainerId !== sourceTrainerId || sourceByType.has(row.typeId)) return;
+    const text = bank[entryIndex];
+    if (text) sourceByType.set(row.typeId, text);
+  });
+
+  const targetRows = collectTestBattleTrainerTextIndexes(rows, targetTrainerId);
+  const copiedTypes: number[] = [];
+  const insertedTypes: number[] = [];
+  const blankedTypes: number[] = [];
+
+  for (const { row, entryIndex } of targetRows) {
+    if (sourceByType.has(row.typeId)) continue;
+    writeTestBattleTextEntry(bank, entryIndex, "", bank[entryIndex]?.[2] ?? 0);
+    blankedTypes.push(row.typeId);
+  }
+
+  for (const [typeId, sourceText] of sourceByType) {
+    const targetIndex = targetRows.find((entry) => entry.row.typeId === typeId)?.entryIndex;
+    if (targetIndex !== undefined) {
+      writeTestBattleTextEntry(bank, targetIndex, sourceText[1], sourceText[2] ?? 0);
+      copiedTypes.push(typeId);
+      continue;
+    }
+
+    const insertIndex = testBattleTrainerTextInsertIndex(rows, offsets, targetTrainerId);
+    rows.splice(insertIndex, 0, { trainerId: targetTrainerId, typeId });
+    bank.splice(insertIndex, 0, [`0_${insertIndex}`, sourceText[1], sourceText[2] ?? 0]);
+    while (offsets.length <= targetTrainerId) offsets.push(insertIndex * 4);
+    if (testBattleTrainerTextStartIndex(rows, offsets, targetTrainerId) === insertIndex) offsets[targetTrainerId] = insertIndex * 4;
+    bumpTestBattleTrainerTextOffsets(offsets, insertIndex * 4, 4, targetTrainerId);
+    insertedTypes.push(typeId);
+  }
+
+  renumberTestBattleTextBank(bank);
+  return {
+    lineTableBytes: serializeTestBattleTrainerTextRows(rows),
+    offsetBytes: serializeTestBattleTrainerTextOffsets(offsets),
+    textBankBytes: encodeGen5TextBank(bank),
+    copiedTypes,
+    insertedTypes,
+    blankedTypes,
+  };
+}
+
+function parseTestBattleTrainerTextRows(bytes: Uint8Array): TestBattleTextRow[] {
+  const rows: TestBattleTextRow[] = [];
+  for (let offset = 0; offset + 4 <= bytes.length; offset += 4) {
+    rows.push({ trainerId: readLe16(bytes, offset), typeId: readLe16(bytes, offset + 2) });
+  }
+  return rows;
+}
+
+function serializeTestBattleTrainerTextRows(rows: TestBattleTextRow[]): Uint8Array {
+  const out = new Uint8Array(rows.length * 4);
+  rows.forEach((row, index) => {
+    writeLe16(out, index * 4, row.trainerId);
+    writeLe16(out, index * 4 + 2, row.typeId);
+  });
+  return out;
+}
+
+function parseTestBattleTrainerTextOffsets(bytes: Uint8Array): number[] {
+  const offsets: number[] = [];
+  for (let offset = 0; offset + 2 <= bytes.length; offset += 2) offsets.push(readLe16(bytes, offset));
+  return offsets;
+}
+
+function serializeTestBattleTrainerTextOffsets(offsets: number[]): Uint8Array {
+  const out = new Uint8Array(offsets.length * 2);
+  offsets.forEach((offset, index) => writeLe16(out, index * 2, offset));
+  return out;
+}
+
+function collectTestBattleTrainerTextIndexes(rows: TestBattleTextRow[], trainerId: number): Array<{ row: TestBattleTextRow; entryIndex: number }> {
+  return rows
+    .map((row, entryIndex) => ({ row, entryIndex }))
+    .filter((entry) => entry.row.trainerId === trainerId);
+}
+
+function writeTestBattleTextEntry(bank: Gen5TextEntry[], entryIndex: number, text: string, key: number): void {
+  while (bank.length <= entryIndex) bank.push([`0_${bank.length}`, "", 0]);
+  bank[entryIndex] = [`0_${entryIndex}`, text, key];
+}
+
+function testBattleTrainerTextStartIndex(rows: TestBattleTextRow[], offsets: number[], trainerId: number): number {
+  const offset = offsets[trainerId];
+  const offsetIndex = offset === undefined ? -1 : Math.floor(offset / 4);
+  if (offsetIndex >= 0 && rows[offsetIndex]?.trainerId === trainerId) return offsetIndex;
+  return rows.findIndex((row) => row.trainerId === trainerId);
+}
+
+function testBattleTrainerTextInsertIndex(rows: TestBattleTextRow[], offsets: number[], trainerId: number): number {
+  const startIndex = testBattleTrainerTextStartIndex(rows, offsets, trainerId);
+  if (startIndex >= 0) {
+    let insertIndex = startIndex;
+    while (insertIndex < rows.length && rows[insertIndex]?.trainerId === trainerId) insertIndex += 1;
+    return insertIndex;
+  }
+
+  for (let nextTrainerId = trainerId + 1; nextTrainerId < offsets.length; nextTrainerId += 1) {
+    const offset = offsets[nextTrainerId];
+    const index = Math.floor(offset / 4);
+    if (index >= 0 && index <= rows.length) return index;
+  }
+  return rows.length;
+}
+
+function bumpTestBattleTrainerTextOffsets(offsets: number[], insertionOffset: number, delta: number, insertedTrainerId: number): void {
+  offsets.forEach((offset, index) => {
+    if (index !== insertedTrainerId && offset >= insertionOffset) offsets[index] = Math.max(0, offset + delta);
+  });
+}
+
+function renumberTestBattleTextBank(bank: Gen5TextEntry[]): void {
+  bank.forEach((entry, index) => {
+    entry[0] = `0_${index}`;
+  });
+}
+
+function patchTestBattleOverworldNpc(romBytes: Uint8Array, project: ProjectState, config: TestBattleConfig, save: TestBattleSave, trainerId: number): TestBattleOverworldPatch {
   const rom = new NintendoDSRom(romBytes);
   const overworldsFileId = project.narcs.overworlds?.fileId ?? project.session.fileIds.overworlds ?? rom.fileId(config.paths.overworlds);
   const overworlds = new NARC(rom.files[overworldsFileId]);
@@ -275,10 +463,10 @@ function patchTestBattleOverworldNpc(romBytes: Uint8Array, project: ProjectState
   if (!target) throw new Error(`Test Battle save zone ${save.zoneId} resolves to overworld ${overworldId}, but that overworld file does not exist.`);
 
   const template = findTrainerNpcTemplate(overworlds.files);
-  const patched = appendTestBattleNpc(target, save, overworldId, template);
+  const patched = appendTestBattleNpc(target, save, overworldId, template, trainerId);
   overworlds.files[overworldId] = patched.bytes;
   if (overworldId !== save.zoneId && overworlds.files[save.zoneId]) {
-    overworlds.files[save.zoneId] = appendTestBattleNpc(overworlds.files[save.zoneId], save, save.zoneId, template).bytes;
+    overworlds.files[save.zoneId] = appendTestBattleNpc(overworlds.files[save.zoneId], save, save.zoneId, template, trainerId).bytes;
   }
   return {
     npc: patched.npc,
@@ -289,12 +477,12 @@ function patchTestBattleOverworldNpc(romBytes: Uint8Array, project: ProjectState
   };
 }
 
-function appendTestBattleNpc(bytes: Uint8Array, save: TestBattleSave, overworldId: number, template: Uint8Array | undefined): { bytes: Uint8Array; npc: Uint8Array } {
+function appendTestBattleNpc(bytes: Uint8Array, save: TestBattleSave, overworldId: number, template: Uint8Array | undefined, trainerId: number): { bytes: Uint8Array; npc: Uint8Array } {
   const layout = readOverworldLayout(bytes);
   if (!layout) throw new Error(`Could not parse overworld ${overworldId} for Test Battle NPC insertion.`);
   if (layout.npcCount >= 0xff) throw new Error(`Overworld ${overworldId} already has the maximum supported NPC count.`);
 
-  const npc = buildTestBattleNpc(bytes, layout, save, template);
+  const npc = buildTestBattleNpc(bytes, layout, save, template, trainerId);
   const out = new Uint8Array(bytes.length + TEST_BATTLE_NPC_SIZE);
   out.set(bytes.subarray(0, layout.npcEnd), 0);
   out.set(npc, layout.npcEnd);
@@ -392,7 +580,7 @@ function indexOfBytes(bytes: Uint8Array, pattern: Uint8Array): number {
   return -1;
 }
 
-function patchTestBattleSaveMmdl(saveBytes: Uint8Array, config: TestBattleConfig, save: TestBattleSave, npc: Uint8Array): Uint8Array {
+export function patchTestBattleSaveMmdl(saveBytes: Uint8Array, config: TestBattleConfig, save: TestBattleSave, npc: Uint8Array): Uint8Array {
   const out = saveBytes.slice();
   patchTestBattleSaveMmdlHalf(out, config.saveLayout, 0, save, npc);
   if (hasSaveHalf(out, config.saveLayout)) {
@@ -403,8 +591,8 @@ function patchTestBattleSaveMmdl(saveBytes: Uint8Array, config: TestBattleConfig
 
 function patchTestBattleSaveMmdlHalf(out: Uint8Array, layout: TestBattleSaveLayout, halfOffset: number, save: TestBattleSave, npc: Uint8Array): void {
   const blockOffset = halfOffset + TEST_BATTLE_MMDL_BLOCK_OFFSET;
-  const slotOffset = findMmdlSaveSlot(out, blockOffset, npc[0]);
-  if (slotOffset === undefined) throw new Error("The bundled test battle save has no free overworld actor save slot.");
+  const slotOffset = findMmdlSaveSlot(out, blockOffset, save.zoneId, npc[0], readLe16(npc, 10));
+  if (slotOffset === undefined) throw new Error("The bundled test battle save has no reusable overworld actor save slot.");
 
   writeMmdlSavework(out, slotOffset, save, npc);
   refreshTestBattleSaveBlockChecksum(
@@ -418,23 +606,32 @@ function patchTestBattleSaveMmdlHalf(out: Uint8Array, layout: TestBattleSaveLayo
   );
 }
 
-export function patchTestBattleSaveTrainerFlag(saveBytes: Uint8Array, config: TestBattleConfig): Uint8Array {
+export function patchTestBattleSaveTrainerFlag(saveBytes: Uint8Array, config: TestBattleConfig, trainerId = TEST_BATTLE_BASE_TRAINER_ID): Uint8Array {
+  return patchTestBattleSaveTrainerFlags(saveBytes, config, [trainerId]);
+}
+
+export function patchTestBattleSaveTrainerFlags(saveBytes: Uint8Array, config: TestBattleConfig, trainerIds: number[]): Uint8Array {
   const out = saveBytes.slice();
-  patchTestBattleSaveTrainerFlagHalf(out, config.saveLayout, 0);
+  const uniqueTrainerIds = [...new Set(trainerIds)];
+  patchTestBattleSaveTrainerFlagsHalf(out, config.saveLayout, 0, uniqueTrainerIds);
   if (hasSaveHalf(out, config.saveLayout)) {
-    patchTestBattleSaveTrainerFlagHalf(out, config.saveLayout, config.saveLayout.saveHalfOffset);
+    patchTestBattleSaveTrainerFlagsHalf(out, config.saveLayout, config.saveLayout.saveHalfOffset, uniqueTrainerIds);
   }
   return out;
 }
 
-export function isTestBattleTrainerFlagSet(saveBytes: Uint8Array, config: TestBattleConfig, halfOffset = 0): boolean {
-  return (saveBytes[halfOffset + config.saveLayout.eventworkBlockOffset + TEST_BATTLE_TRAINER_FLAG_OFFSET] & TEST_BATTLE_TRAINER_FLAG_MASK) !== 0;
+export function isTestBattleTrainerFlagSet(saveBytes: Uint8Array, config: TestBattleConfig, halfOffset = 0, trainerId = TEST_BATTLE_BASE_TRAINER_ID): boolean {
+  const flag = testBattleTrainerFlagLocation(trainerId);
+  return (saveBytes[halfOffset + config.saveLayout.eventworkBlockOffset + flag.byteOffset] & flag.mask) !== 0;
 }
 
-function patchTestBattleSaveTrainerFlagHalf(out: Uint8Array, layout: TestBattleSaveLayout, halfOffset: number): void {
-  const flagOffset = halfOffset + layout.eventworkBlockOffset + TEST_BATTLE_TRAINER_FLAG_OFFSET;
-  if (flagOffset >= out.length) throw new Error("The bundled test battle save is too small to contain trainer event flags.");
-  out[flagOffset] &= ~TEST_BATTLE_TRAINER_FLAG_MASK;
+function patchTestBattleSaveTrainerFlagsHalf(out: Uint8Array, layout: TestBattleSaveLayout, halfOffset: number, trainerIds: number[]): void {
+  for (const trainerId of trainerIds) {
+    const flag = testBattleTrainerFlagLocation(trainerId);
+    const flagOffset = halfOffset + layout.eventworkBlockOffset + flag.byteOffset;
+    if (flagOffset >= out.length) throw new Error("The bundled test battle save is too small to contain trainer event flags.");
+    out[flagOffset] &= ~flag.mask;
+  }
   refreshTestBattleSaveBlockChecksum(
     out,
     layout,
@@ -474,8 +671,17 @@ function patchTestBattleSaveBadgesHalf(out: Uint8Array, layout: TestBattleSaveLa
   );
 }
 
-function findMmdlSaveSlot(bytes: Uint8Array, blockOffset: number, npcUid: number): number | undefined {
+function testBattleTrainerFlagLocation(trainerId: number): { byteOffset: number; mask: number } {
+  const flag = TEST_BATTLE_TRAINER_FLAG_START + trainerId;
+  return {
+    byteOffset: TEST_BATTLE_EVENTWORK_WORK_BYTES + Math.floor(flag / 8),
+    mask: 1 << (flag % 8),
+  };
+}
+
+function findMmdlSaveSlot(bytes: Uint8Array, blockOffset: number, zoneId: number, npcUid: number, scriptId: number): number | undefined {
   let firstFree: number | undefined;
+  let firstReusableInZone: number | undefined;
   for (let index = 0; index < TEST_BATTLE_MMDL_SAVEWORK_COUNT; index += 1) {
     const offset = blockOffset + index * TEST_BATTLE_MMDL_SAVEWORK_SIZE;
     const status = readLe32(bytes, offset);
@@ -483,9 +689,11 @@ function findMmdlSaveSlot(bytes: Uint8Array, blockOffset: number, npcUid: number
       firstFree ??= offset;
       continue;
     }
-    if (bytes[offset + 8] === npcUid && readLe16(bytes, offset + 24) === TEST_BATTLE_SCRIPT_ID) return offset;
+    const objId = bytes[offset + 8] ?? 0;
+    if (objId === npcUid || readLe16(bytes, offset + 24) === scriptId) return offset;
+    if (firstReusableInZone === undefined && objId !== 0xff && readLe16(bytes, offset + 16) === zoneId) firstReusableInZone = offset;
   }
-  return firstFree;
+  return firstReusableInZone ?? firstFree;
 }
 
 function writeMmdlSavework(out: Uint8Array, offset: number, save: TestBattleSave, npc: Uint8Array): void {
@@ -546,7 +754,7 @@ function refreshBlockChecksum(out: Uint8Array, blockOffset: number, blockLength:
   writeLe16(out, checksumOffset, checksum);
 }
 
-function buildTestBattleNpc(bytes: Uint8Array, layout: OverworldLayout, save: TestBattleSave, template: Uint8Array | undefined): Uint8Array {
+function buildTestBattleNpc(bytes: Uint8Array, layout: OverworldLayout, save: TestBattleSave, template: Uint8Array | undefined, trainerId: number): Uint8Array {
   const npc = template?.slice(0, TEST_BATTLE_NPC_SIZE) ?? new Uint8Array(TEST_BATTLE_NPC_SIZE);
   const fallbackSprite = readFirstNpcSprite(bytes, layout) ?? 1;
   writeLe16(npc, 0, nextOverworldNpcUid(bytes, layout));
@@ -554,7 +762,7 @@ function buildTestBattleNpc(bytes: Uint8Array, layout: OverworldLayout, save: Te
   writeLe16(npc, 4, 0);
   writeLe16(npc, 6, TEST_BATTLE_EV_TYPE_TRAINER);
   writeLe16(npc, 8, 0);
-  writeLe16(npc, 10, TEST_BATTLE_SCRIPT_ID);
+  writeLe16(npc, 10, testBattleScriptIdForTrainer(trainerId));
   writeLe16(npc, 12, TEST_BATTLE_DIRECTION_UP);
   writeLe16(npc, 14, TEST_BATTLE_EYE_RANGE);
   writeLe16(npc, 20, 0);
@@ -565,6 +773,10 @@ function buildTestBattleNpc(bytes: Uint8Array, layout: OverworldLayout, save: Te
   writeLe16(npc, 30, clampU16(save.gridZ + 1));
   writeLe32(npc, 32, testBattleOverworldYFromSaveGridY(save.gridY));
   return npc;
+}
+
+export function testBattleScriptIdForTrainer(trainerId: number): number {
+  return TEST_BATTLE_TRAINER_SCRIPT_OFFSET + trainerId;
 }
 
 function findTrainerNpcTemplate(files: Uint8Array[]): Uint8Array | undefined {

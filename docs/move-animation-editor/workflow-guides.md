@@ -177,7 +177,7 @@ Extra particles appear:
 
 - Check `childResource`.
 - Check `emissionCount`.
-- Check `DoSPAAllAnimations`.
+- Check `EmitAll` usage; older scripts may call the same command `DoSPAAllAnimations`.
 - Check texture animation frames.
 
 Projectile misses target:
