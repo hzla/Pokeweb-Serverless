@@ -8,6 +8,7 @@ import type { NarcRecord, NarcStore, ProjectState, RawRecord } from "./projectSt
 import { materializeGen4EventFile } from "./gen4EventModel";
 import { materializeGen4MapFile } from "./gen4MapModel";
 import { materializeGen4MatrixFile } from "./gen4MatrixModel";
+import { packedPersonalFieldValue } from "./personalAbilityPacking";
 
 export function materializeProjectEdits(project: ProjectState): void {
   materializeHeaders(project);
@@ -84,7 +85,13 @@ function materializeFormattedStore(project: ProjectState, store: NarcStore): voi
     const original = store.rawFiles[id] ?? new Uint8Array(record.bytes.length);
     const out = copyWithLength(original, Math.max(original.length, formattedRecordLength(format, record.raw)));
     if (store.name === "personal" && isGen4Project(project)) syncGen4PersonalAliases(record.raw);
-    writeFormattedRecord(out, 0, format, record.raw);
+    writeFormattedRecord(
+      out,
+      0,
+      format,
+      record.raw,
+      store.name === "personal" && !isGen4Project(project) ? (raw, field) => packedPersonalFieldValue(raw, field) : undefined,
+    );
     store.rawFiles[id] = out;
     updateRecordBytes(store, id, out, record);
   }
@@ -363,11 +370,12 @@ function materializeMaps(store: NarcStore): void {
   }
 }
 
-function writeFormattedRecord(out: Uint8Array, startOffset: number, format: FieldSpec[], raw: RawRecord): void {
+function writeFormattedRecord(out: Uint8Array, startOffset: number, format: FieldSpec[], raw: RawRecord, valueForField: ((raw: RawRecord, field: string) => number | undefined) | undefined = undefined): void {
   let offset = startOffset;
   for (const [size, field] of format) {
     if (offset + size > out.length) break;
-    if (raw[field] !== undefined) writeInt(out, offset, size, raw[field]);
+    const value = valueForField?.(raw, field) ?? raw[field];
+    if (value !== undefined) writeInt(out, offset, size, value);
     offset += size;
   }
 }
