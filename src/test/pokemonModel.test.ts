@@ -106,6 +106,62 @@ describe("pokemonModel", () => {
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
   });
 
+  it("decodes and serializes expanded personal ability ids above 255", () => {
+    const formats = getNarcFormats("BW2");
+    const project = makeProject({ abilityNames: abilityNames({ 274: "wind rider" }) });
+    const personalFile = project.narcs.personal?.rawFiles[1];
+    if (!personalFile) throw new Error("Missing test personal file");
+
+    writePackedPersonalAbility(formats.personal!, personalFile, "item_1", "ability_1", 1, 274);
+    project.narcs.personal?.records.clear();
+
+    let record = getPokemonRecord(project, 1);
+    expect(record.rawPersonal.item_1).toBe(1);
+    expect(record.rawPersonal.ability_1).toBe(274);
+    expect(record.personal.item_1).toBe("Moon Stone");
+    expect(record.personal.ability_1).toBe("Wind Rider");
+
+    updatePokemonField(project, 1, "personal", "ability_1", "1");
+    materializeProjectEdits(project);
+    let materializedPersonalFile = project.narcs.personal?.rawFiles[1];
+    if (!materializedPersonalFile) throw new Error("Missing materialized test personal file");
+    expect(readInt(materializedPersonalFile, fieldOffset(formats.personal!, "item_1"), 2)).toBe(1);
+    expect(readInt(materializedPersonalFile, fieldOffset(formats.personal!, "ability_1"), 1)).toBe(1);
+
+    updatePokemonField(project, 1, "personal", "ability_1", "274");
+    materializeProjectEdits(project);
+    record = getPokemonRecord(project, 1);
+    expect(record.rawPersonal.ability_1).toBe(274);
+    materializedPersonalFile = project.narcs.personal?.rawFiles[1];
+    if (!materializedPersonalFile) throw new Error("Missing materialized test personal file");
+    expect(readInt(materializedPersonalFile, fieldOffset(formats.personal!, "item_1"), 2)).toBe(0x4001);
+    expect(readInt(materializedPersonalFile, fieldOffset(formats.personal!, "ability_1"), 1)).toBe(18);
+  });
+
+  it("round-trips vanilla personal ability and held item bytes unchanged", () => {
+    const formats = getNarcFormats("BW2");
+    const project = makeProject();
+    const personalFile = project.narcs.personal?.rawFiles[1];
+    if (!personalFile) throw new Error("Missing test personal file");
+
+    for (let slot = 1; slot <= 3; slot += 1) writeInt(personalFile, fieldOffset(formats.personal!, `item_${slot}`), 2, 1);
+    const original = personalFile.slice();
+    project.narcs.personal?.records.clear();
+
+    const record = getPokemonRecord(project, 1);
+    expect(record.rawPersonal.item_1).toBe(1);
+    expect(record.rawPersonal.item_2).toBe(1);
+    expect(record.rawPersonal.item_3).toBe(1);
+    expect(record.rawPersonal.ability_1).toBe(1);
+    expect(record.rawPersonal.ability_2).toBe(2);
+    expect(record.rawPersonal.ability_3).toBe(3);
+
+    updatePokemonField(project, 1, "personal", "ability_1", "overgrow");
+    materializeProjectEdits(project);
+
+    expect(project.narcs.personal?.rawFiles[1]).toEqual(original);
+  });
+
   it("inserts, appends, updates, and deletes egg move rows", () => {
     const project = makeProject();
 
@@ -173,7 +229,7 @@ describe("pokemonModel", () => {
   });
 });
 
-function makeProject(options: { white2Upgrade?: boolean; learnsetEntryCount?: number } = {}): ProjectState {
+function makeProject(options: { white2Upgrade?: boolean; learnsetEntryCount?: number; abilityNames?: string[] } = {}): ProjectState {
   const formats = getNarcFormats("BW2");
   const personal = packRows(formats.personal!, [
     {},
@@ -216,7 +272,7 @@ function makeProject(options: { white2Upgrade?: boolean; learnsetEntryCount?: nu
     texts: {
       banks: {
         pokedex: ["None", "Bulbasaur", "Ivysaur", "Venusaur"],
-        abilities: ["None", "overgrow", "chlorophyll", "hidden"],
+        abilities: options.abilityNames ?? ["None", "overgrow", "chlorophyll", "hidden"],
         items: ["None", "Moon Stone"],
         moves: ["None", "Tackle", "Vine Whip"],
       },
@@ -237,6 +293,37 @@ function learnsetRow(count: number): Record<string, number> {
 
 function evolutionFormat(format: FieldSpec[], white2Upgrade: boolean): FieldSpec[] {
   return white2Upgrade ? format : format.slice(0, 7 * 3);
+}
+
+function abilityNames(overrides: Record<number, string>): string[] {
+  const max = Math.max(3, ...Object.keys(overrides).map(Number));
+  const names = Array.from({ length: max + 1 }, (_, index) => `Ability ${index}`);
+  names[0] = "None";
+  names[1] = "overgrow";
+  names[2] = "chlorophyll";
+  names[3] = "hidden";
+  for (const [index, value] of Object.entries(overrides)) names[Number(index)] = value;
+  return names;
+}
+
+function writePackedPersonalAbility(format: FieldSpec[], bytes: Uint8Array, itemField: string, abilityField: string, itemId: number, abilityId: number): void {
+  writeInt(bytes, fieldOffset(format, itemField), 2, (itemId & 0x3fff) | ((abilityId & 0x300) << 6));
+  writeInt(bytes, fieldOffset(format, abilityField), 1, abilityId & 0xff);
+}
+
+function fieldOffset(format: FieldSpec[], field: string): number {
+  let offset = 0;
+  for (const [size, candidate] of format) {
+    if (candidate === field) return offset;
+    offset += size;
+  }
+  throw new Error(`Unknown field: ${field}`);
+}
+
+function readInt(bytes: Uint8Array, offset: number, size: number): number {
+  let value = 0;
+  for (let i = 0; i < size; i += 1) value |= (bytes[offset + i] ?? 0) << (i * 8);
+  return value;
 }
 
 function makeStore(name: NarcName, data: Uint8Array | Uint8Array[], count: number): NarcStore {
