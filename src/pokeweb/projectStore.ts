@@ -27,6 +27,7 @@ import type { TmState } from "./tmModel";
 import { parseGen4EventFile } from "./gen4EventModel";
 import { parseGen4MapFile } from "./gen4MapModel";
 import { parseGen4MatrixFile } from "./gen4MatrixModel";
+import { unpackExpandedPersonalAbilities } from "./personalAbilityPacking";
 
 export type RawRecord = Record<string, number>;
 export type ReadableRecord = Record<string, number | string>;
@@ -292,6 +293,7 @@ function parseRawRecord(name: NarcName, bytes: Uint8Array, project: ProjectState
   if (!format) return { byteLength: bytes.length };
   const raw = readFormat(bytes, format, name);
   if (name === "personal" && isGen4Project(project)) enrichGen4PersonalRaw(raw);
+  if (name === "personal" && !isGen4Project(project)) unpackExpandedPersonalAbilities(raw);
   return raw;
 }
 

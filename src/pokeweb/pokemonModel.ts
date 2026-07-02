@@ -2,6 +2,7 @@ import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { EGG_GROUPS, EVO_METHODS, GROWTHS, typeNamesForProject, type NarcName } from "./constants";
 import { detectWhite2UpgradeDlls } from "./pmcModel";
+import { PERSONAL_ABILITY_MAX_ID } from "./personalAbilityPacking";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTmNames, machineCountsForProject } from "./tmModel";
 
@@ -624,7 +625,7 @@ function updatePersonalField(project: ProjectState, raw: RawRecord, readable: Re
   }
 
   if (field.startsWith("ability_")) {
-    const rawValue = findValueIndex(project.texts.banks.abilities ?? [], inputValue, "ability");
+    const rawValue = findAbilityIndex(project, inputValue, PERSONAL_ABILITY_MAX_ID);
     raw[field] = rawValue;
     readable[field] = titleize(project.texts.banks.abilities?.[rawValue] ?? rawValue);
     return { value: readable[field], rawValue };
@@ -793,7 +794,7 @@ function parseEvolutionParam(project: ProjectState, method: string | number, inp
     case "pokemon":
       return findValueIndex(project.texts.banks.pokedex ?? [], inputValue, "Pokemon");
     case "ability":
-      return findValueIndex(project.texts.banks.abilities ?? [], inputValue, "ability");
+      return findAbilityIndex(project, inputValue, 65535);
     case "level":
       return parseInteger(inputValue, 0, 100);
     default:
@@ -847,6 +848,17 @@ function findValueIndex(values: string[], inputValue: string, label: string): nu
   const normalizedInput = normalizeName(inputValue);
   const index = values.findIndex((value) => normalizeName(value) === normalizedInput);
   if (index < 0) throw new Error(`Unknown ${label}: ${inputValue}`);
+  return index;
+}
+
+function findAbilityIndex(project: ProjectState, inputValue: string, max: number): number {
+  const numeric = Number(inputValue.trim());
+  if (Number.isInteger(numeric)) return parseInteger(inputValue, 0, max);
+  const values = project.texts.banks.abilities ?? [];
+  const normalizedInput = normalizeName(inputValue);
+  const index = values.findIndex((value) => normalizeName(value) === normalizedInput);
+  if (index < 0) throw new Error(`Unknown ability: ${inputValue}`);
+  if (index > max) throw new Error(`Ability ID must be between 0 and ${max}`);
   return index;
 }
 
