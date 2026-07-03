@@ -1,10 +1,12 @@
 import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
+import { cascadeWhitePersonalName } from "./cascadeWhiteModel";
 import { EGG_GROUPS, EVO_METHODS, GROWTHS, typeNamesForProject, type NarcName } from "./constants";
 import { detectWhite2UpgradeDlls } from "./pmcModel";
 import { PERSONAL_ABILITY_MAX_ID } from "./personalAbilityPacking";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTmNames, machineCountsForProject } from "./tmModel";
+import { getTutorMoveCompatibilityGroups } from "./tutorMoveModel";
 
 export const BASE_STAT_FIELDS = [
   ["HP", "base_hp"],
@@ -199,6 +201,8 @@ export function getPokemonSummaryRecord(project: ProjectState, id: number): Poke
   if (!personalRecord.raw || !personalRecord.readable) throw new Error(`Unable to decode Pokemon ${id}`);
   enrichPersonalReadable(personalRecord.raw, personalRecord.readable);
   titleizeAbilityFields(personalRecord.readable);
+  const cascadeName = cascadeWhitePersonalName(project, id);
+  if (cascadeName) personalRecord.readable.name = cascadeName;
 
   return {
     id,
@@ -259,24 +263,24 @@ export function getPokemonTutorCompatibility(project: ProjectState, speciesId: n
   if (project.session.baseRom !== "BW2") return [];
   const record = decodeRecord(project, "personal", speciesId);
   if (!record.raw) throw new Error(`Unable to decode Pokemon ${speciesId}`);
-  return TUTOR_GROUPS.map((group) => ({
+  return getTutorMoveCompatibilityGroups(project).map((group) => ({
     group: group.key,
     label: group.label,
-    slots: group.moves.map((moveName, index) => ({
+    slots: group.moves.map((move) => ({
       group: group.key,
       field: group.field,
-      index,
-      label: `${group.shortLabel}${index + 1}`,
-      moveName,
-      enabled: bitEnabled(record.raw as RawRecord, group.field, index),
+      index: move.compatibilityIndex,
+      label: `${group.shortLabel}${move.compatibilityIndex + 1}`,
+      moveName: move.moveName,
+      enabled: bitEnabled(record.raw as RawRecord, group.field, move.compatibilityIndex),
     })),
   }));
 }
 
 export function updatePokemonTutorCompatibility(project: ProjectState, speciesId: number, field: string, index: number, enabled: boolean): void {
-  const group = TUTOR_GROUPS.find((candidate) => candidate.field === field);
+  const group = getTutorMoveCompatibilityGroups(project).find((candidate) => candidate.field === field);
   if (!group) throw new Error(`Unsupported tutor group: ${field}`);
-  if (!Number.isInteger(index) || index < 0 || index >= group.moves.length) throw new Error(`Tutor index out of range: ${index}`);
+  if (!Number.isInteger(index) || !group.moves.some((move) => move.compatibilityIndex === index)) throw new Error(`Tutor index out of range: ${index}`);
   const record = decodeRecord(project, "personal", speciesId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update Pokemon ${speciesId}`);
   const mask = 2 ** index;
@@ -471,7 +475,7 @@ export function getPokemonAutofills(project: ProjectState): Record<string, strin
     egg_groups: EGG_GROUPS,
     growth_rates: GROWTHS.slice(0, 6),
     evo_methods: EVO_METHODS,
-    pokemon_names: project.texts.banks.pokedex ?? [],
+    pokemon_names: pokemonNameAutofills(project),
     move_names: project.texts.banks.moves ?? [],
   };
 }
@@ -540,7 +544,7 @@ function getEvolutions(project: ProjectState, id: number): EvolutionSlot[] {
       param: formatEvolutionParam(project, methodId, paramRaw),
       paramRaw,
       paramAutofill: evolutionParamAutofillKey(methodId),
-      target: project.texts.banks.pokedex?.[targetId] ?? targetId,
+      target: pokemonDisplayName(project, targetId),
     };
   });
 }
@@ -562,44 +566,6 @@ function tmBitLocation(project: ProjectState, kind: "tm" | "hm", index: number):
   if (index === 1) return { field: "tm_65-95+hm_1", bit: 31 };
   return { field: "hm_2-6", bit: index - 2 };
 }
-
-const TUTOR_GROUPS = [
-  {
-    key: "special",
-    label: "Special Tutors",
-    shortLabel: "SP",
-    field: "tutors",
-    moves: ["Draco Meteor", "Grass Pledge", "Fire Pledge", "Water Pledge", "Frenzy Plant", "Blast Burn", "Hydro Cannon"],
-  },
-  {
-    key: "driftveil",
-    label: "Driftveil Tutor",
-    shortLabel: "DR",
-    field: "driftveil_tutor",
-    moves: ["Covet", "Bug Bite", "Drill Run", "Bounce", "Signal Beam", "Iron Head", "Super Fang", "Uproar", "Seed Bomb", "Dual Chop", "Low Kick", "Gunk Shot", "Fire Punch", "Thunder Punch", "Ice Punch"],
-  },
-  {
-    key: "lentimas",
-    label: "Lentimas Tutor",
-    shortLabel: "LE",
-    field: "lentimas_tutor",
-    moves: ["Magic Coat", "Block", "Earth Power", "Foul Play", "Gravity", "Magnet Rise", "Iron Defense", "Last Resort", "Superpower", "Electroweb", "Icy Wind", "Aqua Tail", "Dark Pulse", "Zen Headbutt", "Dragon Pulse", "Hyper Voice", "Iron Tail"],
-  },
-  {
-    key: "humilau",
-    label: "Humilau Tutor",
-    shortLabel: "HU",
-    field: "humilau_tutor",
-    moves: ["Bind", "Snore", "Knock Off", "Synthesis", "Heat Wave", "Role Play", "Heal Bell", "Tailwind", "Sky Attack", "Pain Split", "Giga Drain", "Drain Punch", "Roost"],
-  },
-  {
-    key: "nacrene",
-    label: "Nacrene Tutor",
-    shortLabel: "NA",
-    field: "nacrene_tutor",
-    moves: ["Gastro Acid", "Worry Seed", "Spite", "After You", "Helping Hand", "Trick", "Magic Room", "Wonder Room", "Endeavor", "Outrage", "Recycle", "Snatch", "Stealth Rock", "Skill Swap", "Sleep Talk"],
-  },
-] as const;
 
 function bitEnabled(raw: RawRecord, field: string, bit: number): boolean {
   return Math.floor((raw[field] ?? 0) / 2 ** bit) % 2 === 1;
@@ -697,8 +663,28 @@ function firstUsableMoveId(project: ProjectState): number {
   return moves.length > 1 ? 1 : 0;
 }
 
+function pokemonNameAutofills(project: ProjectState): string[] {
+  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, project.narcs.personal?.fileCount ?? 0);
+  return Array.from({ length: count }, (_unused, speciesId) => String(pokemonDisplayName(project, speciesId)));
+}
+
+function pokemonDisplayName(project: ProjectState, speciesId: number): string | number {
+  return cascadeWhitePersonalName(project, speciesId) ?? project.texts.banks.pokedex?.[speciesId] ?? `Pokemon ${speciesId}`;
+}
+
+function findPokemonValueIndex(project: ProjectState, inputValue: string): number {
+  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, project.narcs.personal?.fileCount ?? 0);
+  const numeric = Number(inputValue.trim());
+  if (Number.isInteger(numeric) && numeric >= 0 && numeric < count) return numeric;
+  const normalizedInput = normalizeName(inputValue);
+  for (let speciesId = 0; speciesId < count; speciesId += 1) {
+    if (normalizeName(String(pokemonDisplayName(project, speciesId))) === normalizedInput) return speciesId;
+  }
+  throw new Error(`Unknown Pokemon: ${inputValue}`);
+}
+
 function pokemonChangelogSubject(project: ProjectState, speciesId: number): string {
-  return project.texts.banks.pokedex?.[speciesId] ?? `Pokemon ${speciesId}`;
+  return String(pokemonDisplayName(project, speciesId));
 }
 
 function pokemonFieldLabel(field: string): string {
@@ -736,9 +722,9 @@ function updateEvolutionField(project: ProjectState, raw: RawRecord, readable: R
   }
 
   if (field.startsWith("target_")) {
-    const rawValue = findValueIndex(project.texts.banks.pokedex ?? [], inputValue, "Pokemon");
+    const rawValue = findPokemonValueIndex(project, inputValue);
     raw[field] = rawValue;
-    readable[field] = project.texts.banks.pokedex?.[rawValue] ?? rawValue;
+    readable[field] = pokemonDisplayName(project, rawValue);
     return { value: readable[field], rawValue };
   }
 
@@ -777,7 +763,7 @@ function formatEvolutionParam(project: ProjectState, method: string | number, ra
     case "move":
       return project.texts.banks.moves?.[rawValue] ?? rawValue;
     case "pokemon":
-      return project.texts.banks.pokedex?.[rawValue] ?? rawValue;
+      return pokemonDisplayName(project, rawValue);
     case "ability":
       return titleize(project.texts.banks.abilities?.[rawValue] ?? rawValue);
     default:
@@ -792,7 +778,7 @@ function parseEvolutionParam(project: ProjectState, method: string | number, inp
     case "move":
       return findValueIndex(project.texts.banks.moves ?? [], inputValue, "move");
     case "pokemon":
-      return findValueIndex(project.texts.banks.pokedex ?? [], inputValue, "Pokemon");
+      return findPokemonValueIndex(project, inputValue);
     case "ability":
       return findAbilityIndex(project, inputValue, 65535);
     case "level":

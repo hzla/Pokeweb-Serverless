@@ -138,6 +138,7 @@ function groupChangelogEntries(entries: RenderableChangelogEntry[]): Array<{ key
     if (domain === "learnsets" || domain === "evolutions" || domain === "egg_moves") return "personal";
     if (domain === "trdata" || domain === "trpok" || domain === "trainer_text") return "trainers";
     if (domain === "grotto_odds") return "grottos";
+    if (domain === "tutor_moves") return "moves";
     if (domain === "matrix" || domain === "overworlds" || domain === "maps3d") return "maps";
     if (domain === "move_animations" || domain === "battle_animations" || domain === "move_spas") return "animations";
     if (domain === "pokemon_sprites" || domain === "pokemon_icons" || domain === "starter_sprites") return "sprites";
@@ -148,6 +149,7 @@ function groupChangelogEntries(entries: RenderableChangelogEntry[]): Array<{ key
     personal: "Pokemon",
     trainers: "Trainers",
     grottos: "Grottoes",
+    moves: "Moves",
     maps: "Maps",
     animations: "Animations",
     sprites: "Sprites",

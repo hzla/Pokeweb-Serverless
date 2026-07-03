@@ -1,5 +1,6 @@
 import addIcon from "../assets/svgs/add.svg?raw";
 import { publicAsset } from "../assetUrl";
+import { trainerAbilitySlotMax } from "../pokeweb/cascadeWhiteModel";
 import { TRAINER_AIS, isGen5Project } from "../pokeweb/constants";
 import { enrichTrainerLocations } from "../pokeweb/docGeneratorModel";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "../pokeweb/romPatchModel";
@@ -144,7 +145,7 @@ function renderTrainerCard(project: ProjectState, trainer: TrainerRecord, showNa
         </div>
       </div>
       ${renderExpandedTrainer(trainer)}
-      ${trainer.party.map((pok) => renderTrainerPokemon(trainer, pok, showNatureField)).join("")}
+      ${trainer.party.map((pok) => renderTrainerPokemon(project, trainer, pok, showNatureField)).join("")}
     </div>
   `;
 }
@@ -299,13 +300,13 @@ function renderTrainerTexts(trainer: TrainerRecord): string {
   `;
 }
 
-function renderTrainerPokemon(trainer: TrainerRecord, pok: TrainerPokemonSlot, showNatureField: boolean): string {
+function renderTrainerPokemon(project: ProjectState, trainer: TrainerRecord, pok: TrainerPokemonSlot, showNatureField: boolean): string {
   return `
     <div data-sub-index="${pok.slot}" class="expanded-card-subcontent expanded-pok expanded-pok-${pok.slot}">
       <div class="expanded-left">
         ${expandedField("Species", editable("trpok", `species_id_${pok.slot}`, pok.speciesName, "tr-item trpok-name", { autofill: "pokemon_names" }))}
         ${expandedField("Level", editable("trpok", `level_${pok.slot}`, pok.level, "tr-item trpok-lvl", { type: "int-100" }))}
-        ${expandedField(`Ability Slot (${pok.abilityName})`, editable("trpok", `ability_${pok.slot}`, pok.abilitySlot, "tr-item", { type: "int-3" }))}
+        ${expandedField(`Ability Slot (${pok.abilityName})`, editable("trpok", `ability_${pok.slot}`, pok.abilitySlot, "tr-item", { type: `int-${trainerAbilitySlotMax(project)}` }))}
         ${expandedField("Gender", editable("trpok", `gender_${pok.slot}`, pok.gender, "tr-item", { autofill: "genders" }))}
         ${expandedField(`IVs: (${pok.nature})`, editable("trpok", `ivs_${pok.slot}`, pok.ivs, "tr-item", { type: "int-255" }), "iv-label")}
         ${showNatureField ? expandedField("Nature", editable("trpok", `nature_${pok.slot}`, pok.natureSetting, "tr-item", { autofill: "natures" })) : ""}

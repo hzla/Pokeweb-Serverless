@@ -82,6 +82,12 @@ export function parseMastersheetMarkdown(markdown: string, project?: ProjectStat
       continue;
     }
 
+    if (stripped.toLowerCase() === "<br>") {
+      masterData.push({ tag: "br" });
+      index += 1;
+      continue;
+    }
+
     if (stripped.startsWith("!gifts")) {
       const title = stripped.slice("!gifts".length).trim();
       const block = parseBlockList(source, index + 1);
@@ -205,8 +211,161 @@ export function generateMastersheetDownload(project: ProjectState): TextDownload
   };
 }
 
+export function mastersheetMarkdownFromLegacyJs(source: string): string {
+  return mastersheetMarkdownFromMasterData(readJsonAssignment(source, "masterData"));
+}
+
+export function mastersheetMarkdownFromMasterData(masterData: unknown): string {
+  if (!Array.isArray(masterData)) throw new Error("Imported JS must contain a masterData array.");
+  const lines = masterData.map((element) => mastersheetElementToMarkdown(element));
+  return `${lines.join("\n").replace(/\s+$/u, "")}\n`;
+}
+
 function pushInlineElement(masterData: MastersheetElement[], tag: "h1" | "h2" | "h3" | "h4" | "p" | "li", content: string): void {
   masterData.push({ tag, content, content_parts: parseInline(content) });
+}
+
+function mastersheetElementToMarkdown(value: unknown): string {
+  if (!isRecord(value)) return "";
+
+  switch (value.tag) {
+    case "h1":
+      return `# ${inlineMarkdownFromElement(value)}`;
+    case "h2":
+      return `## ${inlineMarkdownFromElement(value)}`;
+    case "h3":
+      return `### ${inlineMarkdownFromElement(value)}`;
+    case "h4":
+      return `#### ${inlineMarkdownFromElement(value)}`;
+    case "li":
+      return `- ${inlineMarkdownFromElement(value)}`;
+    case "p":
+      return inlineMarkdownFromElement(value);
+    case "br":
+      return "<br>";
+    case "trainer": {
+      const command = String(value.class ?? "")
+        .split(/\s+/u)
+        .includes("mand")
+        ? "!trm"
+        : "!tr";
+      const notes = trainerNotesMarkdown(value);
+      return `${command} ${String(value.id ?? 0)}${notes ? ` ${notes}` : ""}`;
+    }
+    case "encounter":
+      return `!enc ${String(value.id ?? 0)}`;
+    case "items":
+      return blockListToMarkdown("!items", value.itemsTitle, value.itemsDescription, value.itemList, value.itemDescriptions);
+    case "gifts":
+      return blockListToMarkdown("!gifts", value.giftsTitle, value.giftsDescription, value.giftPokemonList, value.giftPokemonDescriptions);
+    case "notif": {
+      const parts = [String(value.notificationTitle ?? "").trim(), String(value.text ?? "").trim()].filter((part) => part !== "");
+      const color = String(value.fontColor ?? "").trim();
+      if (color) parts.push(color);
+      return `!notif ${parts.join(", ")}`;
+    }
+    default:
+      return inlineMarkdownFromElement(value);
+  }
+}
+
+function blockListToMarkdown(command: "!items" | "!gifts", title: unknown, description: unknown, namesValue: unknown, descriptionsValue: unknown): string {
+  const lines = [`${command}${String(title ?? "").trim() ? ` ${String(title ?? "").trim()}` : ""}`];
+  const desc = String(description ?? "").trim();
+  if (desc) lines.push(`desc: ${desc}`);
+
+  const names = Array.isArray(namesValue) ? namesValue : [];
+  const descriptions = Array.isArray(descriptionsValue) ? descriptionsValue : [];
+  names.forEach((nameValue, index) => {
+    const name = String(nameValue ?? "").trim();
+    if (!name) return;
+    const itemDescription = descriptions[index] == null ? "" : String(descriptions[index]).trim();
+    lines.push(itemDescription ? `${name}, ${itemDescription}` : name);
+  });
+  lines.push("end");
+  return lines.join("\n");
+}
+
+function trainerNotesMarkdown(value: Record<string, unknown>): string {
+  if (Array.isArray(value.notes_parts)) return inlinePartsToMarkdown(value.notes_parts).trim();
+  if (Array.isArray(value.notes)) return value.notes.map((note) => String(note ?? "")).join(" ").trim();
+  return String(value.notes ?? "").trim();
+}
+
+function inlineMarkdownFromElement(value: Record<string, unknown>): string {
+  const parts = value.content_parts;
+  if (Array.isArray(parts)) return inlinePartsToMarkdown(parts);
+  if (isRecord(parts)) return inlinePartsToMarkdown([parts]);
+  return String(value.content ?? "");
+}
+
+function inlinePartsToMarkdown(parts: unknown[]): string {
+  return parts
+    .map((part) => {
+      if (!isRecord(part)) return "";
+      if (part.type === "link") return `[${String(part.text ?? part.href ?? "")}](${String(part.href ?? "")})`;
+      return String(part.text ?? "");
+    })
+    .join("");
+}
+
+function readJsonAssignment(source: string, name: string): unknown {
+  const pattern = new RegExp(`(?:^|[;\\n])\\s*(?:var\\s+|let\\s+|const\\s+)?${escapeRegExp(name)}\\s*=`, "u");
+  const match = pattern.exec(source);
+  if (!match) throw new Error(`Imported JS must contain a ${name} assignment.`);
+
+  let valueStart = source.indexOf("=", match.index) + 1;
+  while (valueStart < source.length && /\s/u.test(source[valueStart] ?? "")) valueStart += 1;
+  if (source[valueStart] !== "[" && source[valueStart] !== "{") throw new Error(`${name} must be a JSON array or object assignment.`);
+
+  const valueEnd = findJsonValueEnd(source, valueStart);
+  try {
+    return JSON.parse(source.slice(valueStart, valueEnd));
+  } catch (error) {
+    throw new Error(`Could not parse ${name}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function findJsonValueEnd(source: string, startIndex: number): number {
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let index = startIndex; index < source.length; index += 1) {
+    const char = source[index] ?? "";
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+    } else if (char === "[") {
+      stack.push("]");
+    } else if (char === "{") {
+      stack.push("}");
+    } else if (char === "]" || char === "}") {
+      const expected = stack.pop();
+      if (char !== expected) throw new Error("Imported JS contains mismatched JSON brackets.");
+      if (stack.length === 0) return index + 1;
+    }
+  }
+
+  throw new Error("Imported JS ended before the masterData JSON value was complete.");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function parseTrainerElement(
@@ -251,6 +410,11 @@ function resolveTrainerReference(token: string, project: ProjectState | undefine
   if (!token) return undefined;
   if (/^\d+$/u.test(token)) {
     const id = Number(token);
+    return trainerExists(project, id) ? id : undefined;
+  }
+  const numericHintMatch = token.match(/^(\d+)\/\d+$/u);
+  if (numericHintMatch) {
+    const id = Number(numericHintMatch[1]);
     return trainerExists(project, id) ? id : undefined;
   }
   if (!project) return undefined;
@@ -485,7 +649,9 @@ function parseBlockList(source: string[], startIndex: number): BlockListParseRes
       if (descMatch) {
         description = line.replace(/^(desc|description)\s*:\s*/iu, "").trim();
       } else {
-        const [name = "", rest] = line.split(",", 2).map((part) => part?.trim());
+        const commaIndex = line.indexOf(",");
+        const name = commaIndex >= 0 ? line.slice(0, commaIndex).trim() : line;
+        const rest = commaIndex >= 0 ? line.slice(commaIndex + 1).trim() : "";
         names.push(name);
         descriptions.push(rest && rest !== "" ? rest : null);
       }

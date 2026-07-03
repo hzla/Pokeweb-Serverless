@@ -1,6 +1,7 @@
 import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange } from "./actionChangelog";
 import { NATURES, type NarcName } from "./constants";
+import { findPokemonSpeciesId, pokemonSpeciesLabel, pokemonSpeciesNameOptions } from "./pokemonLabels";
 import { markDirty, type ProjectState } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
 
@@ -278,7 +279,7 @@ export function getFacilityChoiceNarcOptions(project: ProjectState, group?: Batt
 
 export function getFacilityAutofills(project: ProjectState): BattleFacilityAutofills {
   return {
-    pokemon_names: project.texts.banks.pokedex ?? [],
+    pokemon_names: pokemonSpeciesNameOptions(project),
     move_names: project.texts.banks.moves ?? [],
     items: project.texts.banks.items ?? [],
     natures: NATURES,
@@ -323,7 +324,7 @@ export function getFacilitySetRecord(project: ProjectState, narc: FacilitySetNar
   const natureId = bytes[11] ?? 0;
   const itemId = readU16(bytes, 12);
   const form = readU16(bytes, 14);
-  const speciesName = labelFromBank(project, "pokedex", speciesId, `Pokemon ${speciesId}`);
+  const speciesName = pokemonSpeciesLabel(project, speciesId);
   return {
     id,
     narc,
@@ -425,7 +426,7 @@ export function updateFacilitySetField(
   if (bytes.length !== SET_RECORD_LENGTH) throw new Error(`${FACILITY_SET_LABELS[narc]} record ${id} is ${bytes.length} bytes, expected 16`);
 
   if (field === "species") {
-    writeU16(bytes, 0, findValueIndex(project.texts.banks.pokedex ?? [], String(inputValue), "Pokemon"));
+    writeU16(bytes, 0, findPokemonSpeciesId(project, String(inputValue), 65535));
   } else if (/^move_[0-3]$/u.test(field)) {
     const moveIndex = Number(field.slice("move_".length));
     writeU16(bytes, 2 + moveIndex * 2, findValueIndex(project.texts.banks.moves ?? [], String(inputValue), "move"));

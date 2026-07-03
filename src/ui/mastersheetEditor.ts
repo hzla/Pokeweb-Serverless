@@ -3,6 +3,7 @@ import {
   enrichMastersheetTrainerLocations,
   ensureMastersheetMarkdown,
   generateMastersheetDownload,
+  mastersheetMarkdownFromLegacyJs,
   setMastersheetMarkdown,
   type MastersheetExport,
   type MastersheetWarning,
@@ -39,8 +40,10 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
         <div class="mastersheet-sidebar__header">
           <h1>Mastersheet</h1>
           <div class="mastersheet-actions">
+            <button class="btn -default" id="mastersheet-import-btn" type="button">Import JS</button>
             <button class="btn -default" id="mastersheet-download-btn" type="button">Download JS</button>
             <button class="btn -default" id="mastersheet-copy-btn" type="button">Copy JS</button>
+            <input id="mastersheet-import-input" type="file" accept=".js,text/javascript,application/javascript,.txt,text/plain" hidden>
           </div>
         </div>
         <div class="mastersheet-status" id="mastersheet-status">Ready.</div>
@@ -60,6 +63,8 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
   const previewPanel = root.querySelector<HTMLElement>("#mastersheet-preview-panel");
   const toc = root.querySelector<HTMLElement>("#mastersheet-toc");
   const status = root.querySelector<HTMLElement>("#mastersheet-status");
+  const importButton = root.querySelector<HTMLButtonElement>("#mastersheet-import-btn");
+  const importInput = root.querySelector<HTMLInputElement>("#mastersheet-import-input");
   const downloadButton = root.querySelector<HTMLButtonElement>("#mastersheet-download-btn");
   const copyButton = root.querySelector<HTMLButtonElement>("#mastersheet-copy-btn");
   let renderTimeout: number | undefined;
@@ -87,6 +92,24 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
   };
 
   textarea?.addEventListener("input", scheduleRefresh);
+  importButton?.addEventListener("click", () => importInput?.click());
+  importInput?.addEventListener("change", async () => {
+    const file = importInput.files?.[0];
+    if (!file || !textarea) return;
+    try {
+      if (status) status.textContent = `Importing ${file.name}...`;
+      const markdown = mastersheetMarkdownFromLegacyJs(await file.text());
+      textarea.value = markdown;
+      setMastersheetMarkdown(project, markdown);
+      refreshPreview();
+      if (status && !lastExport?.warnings.length) status.textContent = `Imported ${file.name}.`;
+      options.onDirty?.();
+    } catch (error) {
+      if (status) status.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      importInput.value = "";
+    }
+  });
   downloadButton?.addEventListener("click", () => {
     if (!textarea) return;
     setMastersheetMarkdown(project, textarea.value);

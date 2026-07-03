@@ -4,6 +4,7 @@ import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import {
   buildMastersheetExport,
   generateMastersheetDownload,
+  mastersheetMarkdownFromLegacyJs,
   parseMastersheetMarkdown,
   setMastersheetMarkdown,
 } from "../pokeweb/mastersheetModel";
@@ -60,6 +61,41 @@ describe("mastersheetModel", () => {
 
     expect(result.warnings).toHaveLength(2);
     expect(result.warnings.every((warning) => warning.blocking)).toBe(true);
+  });
+
+  it("resolves numeric trainer references with slash level hints", () => {
+    const result = parseMastersheetMarkdown(["!tr 1/42 optional note", "!trm 1/999"].join("\n"), makeProject());
+
+    expect(result.warnings).toEqual([]);
+    expect(result.masterData[0]).toMatchObject({ tag: "trainer", id: 1, notes: ["optional", "note"] });
+    expect(result.masterData[1]).toMatchObject({ tag: "trainer", id: 1, class: "mand" });
+  });
+
+  it("converts legacy masterData JS into markdown", () => {
+    const markdown = mastersheetMarkdownFromLegacyJs(`
+      masterData =
+      [
+        {"tag":"h1","content":"Imported","content_parts":[{"type":"text","text":"Imported"}]},
+        {"tag":"p","content":"","content_parts":{"type":"text","text":""}},
+        {"tag":"li","content":"See docs","content_parts":[{"type":"text","text":"See "},{"type":"link","text":"docs","href":"https://example.com"}]},
+        {"tag":"items","itemsTitle":"Mart","itemsDescription":"Buy things","itemList":["Potion"],"itemDescriptions":["Heals, with comma"]},
+        {"tag":"gifts","giftsTitle":"Starter","giftsDescription":"Pick one","giftPokemonList":["Bulbasaur"],"giftPokemonDescriptions":["Starter, with comma"]},
+        {"tag":"notif","notificationTitle":"Warning","text":"Bring potions","fontColor":"#fff"},
+        {"tag":"trainer","id":1,"class":"mand","notes_parts":[{"type":"text","text":"Reward "},{"type":"link","text":"docs","href":"https://example.com/reward"}]},
+        {"tag":"encounter","id":0}
+      ]
+      encountersById = []
+    `);
+
+    expect(markdown).toContain("- See [docs](https://example.com)");
+    expect(markdown).toContain("Potion, Heals, with comma");
+    expect(markdown).toContain("Bulbasaur, Starter, with comma");
+    expect(markdown).toContain("!trm 1 Reward [docs](https://example.com/reward)");
+
+    const result = parseMastersheetMarkdown(markdown, makeProject());
+    expect(result.warnings).toEqual([]);
+    expect(result.masterData[3]).toMatchObject({ tag: "items", itemDescriptions: ["Heals, with comma"] });
+    expect(result.masterData[4]).toMatchObject({ tag: "gifts", giftPokemonDescriptions: ["Starter, with comma"] });
   });
 
   it("builds Dynamic Calc-compatible globals with location-appended trainer names", () => {

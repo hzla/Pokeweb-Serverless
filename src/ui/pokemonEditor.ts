@@ -1,4 +1,5 @@
 import { EVO_METHODS, typeNamesForProject } from "../pokeweb/constants";
+import { cascadeWhiteTrainerAbilityName, detectCascadeWhiteRom } from "../pokeweb/cascadeWhiteModel";
 import {
   BASE_STAT_FIELDS,
   EV_YIELD_FIELDS,
@@ -123,6 +124,7 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
           ${editable("personal", "ability_1", titleizeValue(pok.ability_1), "pokemon-card__ability", { autofill: "abilities" })}
           ${editable("personal", "ability_2", titleizeValue(pok.ability_2), "pokemon-card__ability", { autofill: "abilities" })}
           ${editable("personal", "ability_3", titleizeValue(pok.ability_3), "pokemon-card__ability", { autofill: "abilities" })}
+          ${renderCascadeAbilitySlots(project, record.id)}
         </div>
       </div>
       <table class="pokemon-card__table" cellspacing="0">
@@ -142,6 +144,16 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
       </div>
     </div>
   `;
+}
+
+function renderCascadeAbilitySlots(project: ProjectState, speciesId: number): string {
+  if (!detectCascadeWhiteRom(project)) return "";
+  return [4, 5, 6]
+    .map((slot) => {
+      const ability = titleizeValue(cascadeWhiteTrainerAbilityName(project, speciesId, slot) ?? "");
+      return `<div class="pokemon-card__ability -readonly" title="Ability ${slot}" aria-label="Ability ${slot}">${escapeHtml(String(ability ?? ""))}</div>`;
+    })
+    .join("");
 }
 
 function renderExpanded(project: ProjectState, record: PokemonEditorRecord): string {

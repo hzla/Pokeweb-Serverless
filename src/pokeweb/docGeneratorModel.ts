@@ -13,6 +13,7 @@ import {
   ENCOUNTER_WATER_PERCENTAGES,
   TYPES,
 } from "./constants";
+import { cascadeWhitePersonalName, cascadeWhiteTrainerAbilityName } from "./cascadeWhiteModel";
 import { getEncounterCount, getEncounterRecord } from "./encounterModel";
 import { parseGen5ScriptEncounters, type Gen5ScriptEncounter } from "./gen5ScriptEncounterModel";
 import { parseHeaders } from "./headerModel";
@@ -717,7 +718,7 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
         learnset: record.learnset.slice(0, 25).map((move) => [move.level, showdownName(move.moveName)]),
         tms: record.tmCompatibility.filter((tm) => tm.enabled).map((tm) => showdownName(tm.moveName)),
       },
-      abs: [record.personal.ability_1, record.personal.ability_2, record.personal.ability_3].map((ability) => titleizeAbility(ability)),
+      abs: calcPokemonAbilities(project, id, record),
     };
   }
 
@@ -790,6 +791,8 @@ export function trainerPokemonExportName(project: ProjectState, pok: TrainerPoke
 }
 
 export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot): string {
+  const resolvedSlot = Number(pok.resolvedAbilitySlot ?? pok.abilitySlot ?? 0);
+  if (resolvedSlot > 3) return titleizeAbility(cascadeWhiteTrainerAbilityName(project, pok.speciesId, resolvedSlot) ?? pok.abilityName);
   const baseName = pokemonExportName(project, pok.speciesId);
   if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return titleizeAbility(pok.abilityName);
 
@@ -802,6 +805,15 @@ export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerP
   return isEmptyExportValue(ability) ? titleizeAbility(pok.abilityName) : titleizeAbility(ability);
 }
 
+function calcPokemonAbilities(project: ProjectState, id: number, record: PokemonSummaryRecord): string[] {
+  const abilities = [record.personal.ability_1, record.personal.ability_2, record.personal.ability_3].map((ability) => titleizeAbility(ability));
+  const cascadeAbilities = [4, 5, 6]
+    .map((slot) => cascadeWhiteTrainerAbilityName(project, id, slot))
+    .filter((ability): ability is string => Boolean(ability))
+    .map((ability) => titleizeAbility(ability));
+  return cascadeAbilities.length > 0 ? [...abilities, ...cascadeAbilities] : abilities;
+}
+
 function trainerAltFormPersonalId(project: ProjectState, speciesId: number, form: number): number | undefined {
   if (form <= 0 || !project.narcs.personal || speciesId <= 0 || speciesId >= project.narcs.personal.fileCount) return undefined;
   const baseRecord = safePokemonSummaryRecord(project, speciesId);
@@ -811,6 +823,8 @@ function trainerAltFormPersonalId(project: ProjectState, speciesId: number, form
 }
 
 function fixedPersonalName(project: ProjectState, id: number): string | undefined {
+  const cascadeName = cascadeWhitePersonalName(project, id);
+  if (cascadeName) return cascadeName;
   if (project.session.baseRom === "BW2") return BW2_FIXED_PERSONAL_NAMES[id];
   if (project.session.baseRom === "BW") return BW_FIXED_PERSONAL_NAMES[id];
   return SPECIAL_FIXED_PERSONAL_NAMES[id];
@@ -955,7 +969,7 @@ function isExportableScriptEncounter(encounter: Gen5ScriptEncounter, pokemonCoun
 }
 
 function pokemonNameForDex(project: ProjectState, speciesId: number): string {
-  return titleizeName(project.texts.banks.pokedex?.[speciesId] ?? `Pokemon ${speciesId}`);
+  return titleizeName(pokemonExportName(project, speciesId));
 }
 
 function dexEncounterLocationNames(encounter: ReturnType<typeof getEncounterRecord>, fallbackId: number): string[] {
