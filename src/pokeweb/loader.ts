@@ -32,6 +32,7 @@ import { getStarterOverlayIds } from "./starterModel";
 import { cleanDisplayText, decodeGen4TextBank, decodeGen5TextBank, type TextEntry } from "./text";
 import { TYPE_CHART_ROMFS_PATH, createRomFsTypeChartStore, createTypeChartStore, detectFairyTypeUsage } from "./typeChartModel";
 import { parseTms } from "./tmModel";
+import { BW2_TUTOR_MOVE_OVERLAY_ID, createTutorMoveStore } from "./tutorMoveModel";
 
 export type LoadOptions = {
   fairy?: boolean;
@@ -252,10 +253,11 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
   const includeAll = selectedNarcs.size === 0;
   const includeGrottos = includeAll || selectedNarcs.has("grottos");
   const includeMoves = includeAll || selectedNarcs.has("moves");
+  const includeTutorMoves = includeAll || selectedNarcs.has("moves") || selectedNarcs.has("tutor_moves");
   const includeStarters = includeAll || selectedNarcs.has("starter_sprites");
   const moveEffectOverlayId = moveEffectHandlerOverlayId(project);
   const ids = [
-    ...(project.session.baseRom === "BW2" ? [includeGrottos ? 36 : undefined] : []),
+    ...(project.session.baseRom === "BW2" ? [includeGrottos || includeTutorMoves ? BW2_TUTOR_MOVE_OVERLAY_ID : undefined] : []),
     includeMoves ? moveEffectOverlayId : undefined,
     ...(includeStarters ? getStarterOverlayIds(project.session.baseRom) : []),
   ].filter((id): id is number => id !== undefined);
@@ -291,6 +293,9 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
         records: new Map(),
         dirty: new Set(),
       };
+    }
+    if (includeTutorMoves && overlay36) {
+      project.narcs.tutor_moves = createTutorMoveStore(overlay36);
     }
     if (includeMoves) {
       const romFsTypeChart = tryCreateRomFsTypeChartStore(rom);

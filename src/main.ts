@@ -48,6 +48,7 @@ import { renderPwanAnimationEditor } from "./ui/pwanAnimationEditor";
 import { getPwanRuntimeStatus } from "./pokeweb/pwanAnimationModel";
 import { renderStarterEditor } from "./ui/starterEditor";
 import { renderTmEditor } from "./ui/tmEditor";
+import { renderTutorMoveEditor } from "./ui/tutorMoveEditor";
 import { renderTypeChartEditor } from "./ui/typeChartEditor";
 import { renderTrainerEditor } from "./ui/trainerEditor";
 import { renderBattleFacilityEditor } from "./ui/battleFacilityEditor";
@@ -85,6 +86,7 @@ type AppRoute =
   | "moveAnimation"
   | "items"
   | "tms"
+  | "tutorMoves"
   | "types"
   | "moveEffectHandlers"
   | "marts"
@@ -168,6 +170,7 @@ const APP_ROUTES: AppRoute[] = [
   "moveAnimation",
   "items",
   "tms",
+  "tutorMoves",
   "types",
   "moveEffectHandlers",
   "marts",
@@ -182,7 +185,7 @@ const APP_ROUTES: AppRoute[] = [
 ];
 
 const EDITOR_REQUIREMENTS: Record<
-  Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog">,
+  Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">,
   NarcName[]
 > = {
   headers: ["headers", "message_texts"],
@@ -237,6 +240,7 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   mart_counts: "Mart Counts",
   grottos: "Hidden Grottoes",
   habitats: "Dex Habitats",
+  tutor_moves: "Tutor Moves",
   type_chart: "Type Chart",
   starter_sprites: "Starter Sprites",
   pokemon_sprites: "Pokemon Sprites",
@@ -266,7 +270,7 @@ type NarcLoadSection = {
 const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
   { title: "Required", names: [...MANDATORY_NARCS] },
   { title: "Sprites", names: ["pokemon_sprites", "pokemon_icons", "starter_sprites", "ow_sprites"], toggleable: true },
-  { title: "Moves", names: ["moves", "move_animations", "battle_animations", "move_spas"], toggleable: true },
+  { title: "Moves", names: ["moves", "tutor_moves", "move_animations", "battle_animations", "move_spas"], toggleable: true },
   { title: "Pokemon", names: ["personal", "learnsets", "evolutions", "egg_moves", "habitats"], toggleable: true },
   { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets", "trainer_sprites"], toggleable: true },
   {
@@ -594,6 +598,15 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "tutorMoves") {
+    renderTutorMoveEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
   if (route === "types") {
     renderTypeChartEditor(project, content, () => {
       dirty = true;
@@ -776,6 +789,7 @@ function renderMoreMenu(): string {
   const moreRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
     ["starters", "Starters"],
     ["types", "Type Chart"],
+    ["tutorMoves", "Tutor Moves"],
     ["moveEffectHandlers", "Move Effect Handlers"],
     ["changelog", "Changelog"],
     ["patches", "Patches"],
@@ -1613,6 +1627,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     return Boolean(project.narcs.personal) && status.supported && status.installed;
   }
   if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
+  if (nextRoute === "tutorMoves") return project.session.baseRom === "BW2" && Boolean(project.narcs.tutor_moves || project.overlays[36]);
   if (nextRoute === "moveEffectHandlers") {
     return (
       (project.session.baseRom === "BW" || project.session.baseRom === "BW2") &&
@@ -1633,7 +1648,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     return EDITOR_REQUIREMENTS.wbtFacilities.every((name) => project?.narcs[name]) && Boolean(project.narcs.wbt_sets || project.narcs.wbt_trainers || project.narcs.wbt_area_pools);
   }
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
-  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog">;
+  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);
 }
 
@@ -1658,7 +1673,9 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? ([] as NarcName[])
       : nextRoute === "changelog"
         ? ([] as NarcName[])
-      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog">];
+      : nextRoute === "tutorMoves"
+        ? ([] as NarcName[])
+      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">];
   const missing = enabled
     ? ""
     : nextRoute === "fileSystem"
@@ -1675,6 +1692,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? ` title="${project?.session.baseVersion === "W2" ? "Load Personal Data from a ROM with patches/PokewebPwanW2.dll" : "Animated Sprites currently supports White 2 code layouts only"}"`
         : nextRoute === "types"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
+        : nextRoute === "tutorMoves"
+          ? ` title="${project?.session.baseRom === "BW2" ? "Load Tutor Moves, Moves, or Grottos to extract overlay 36" : "Tutor move editing is currently BW2-only"}"`
         : nextRoute === "moveEffectHandlers"
           ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the effect handler table" : "Move effect handlers are currently Gen 5-only"}"`
         : nextRoute === "facilities"

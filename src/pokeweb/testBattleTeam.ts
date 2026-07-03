@@ -1,4 +1,5 @@
 import { NATURES, type BaseRom } from "./constants";
+import { findPokemonSpeciesId, pokemonSpeciesLabel } from "./pokemonLabels";
 import { decodeRecord, type ProjectState, type RawRecord } from "./projectStore";
 
 const TEST_BATTLE_PARTY_BLOCK_OFFSET = 0x18e00;
@@ -258,7 +259,7 @@ function parseStatList(text: string, min: number, max: number, label: string): P
 }
 
 function resolveDraftPokemon(project: ProjectState, draft: DraftPokemon): ShowdownPokemon {
-  const speciesId = resolveNamedId(project.texts.banks.pokedex ?? [], draft.speciesText, "Pokemon");
+  const speciesId = findPokemonSpeciesId(project, draft.speciesText);
   const personal = getPersonal(project, speciesId);
   const itemId = draft.itemText ? resolveItemId(project, draft.itemText) : 0;
   const ability = resolveAbility(project, personal, draft.abilityText);
@@ -273,7 +274,7 @@ function resolveDraftPokemon(project: ProjectState, draft: DraftPokemon): Showdo
 
   return {
     speciesId,
-    speciesName: project.texts.banks.pokedex?.[speciesId] ?? String(speciesId),
+    speciesName: pokemonSpeciesLabel(project, speciesId),
     itemId,
     abilitySlot: ability.slot,
     abilityId: ability.id,
@@ -521,7 +522,7 @@ function applyPokemonToPk5(project: ProjectState, data: Uint8Array, pokemon: Sho
 }
 
 function speciesName(project: ProjectState, speciesId: number): string {
-  return project.texts.banks.pokedex?.[speciesId] ?? String(speciesId);
+  return pokemonSpeciesLabel(project, speciesId);
 }
 
 function writeNotNicknamedSpeciesName(data: Uint8Array, name: string): void {

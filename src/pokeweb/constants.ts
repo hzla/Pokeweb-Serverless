@@ -42,6 +42,7 @@ export type NarcName =
   | "grottos"
   | "grotto_odds"
   | "move_effects_table"
+  | "tutor_moves"
   | "type_chart"
   | "starter_sprites"
   | "pokemon_sprites"

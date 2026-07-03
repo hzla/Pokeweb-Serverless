@@ -15,6 +15,7 @@ import { materializePwanAnimations } from "./pwanAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
 import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
+import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_OFFSET } from "./tutorMoveModel";
 import { isRomFsTypeChartStore, typeChartTableOffset } from "./typeChartModel";
 import { repairNarcBytes } from "./romRepairModel";
 import type { ProjectState } from "./projectStore";
@@ -220,6 +221,7 @@ function parentRomPath(path: string): string {
 function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplacements: Map<number, Uint8Array>, baseTable: Uint8Array): Uint8Array | undefined {
   const overlayReplacements = new Map<number, Uint8Array>();
   patchOverlayBackedStore(project, "grotto_odds", 36, overlayReplacements);
+  patchOverlayBackedStore(project, "tutor_moves", BW2_TUTOR_MOVE_OVERLAY_ID, overlayReplacements);
   patchOverlayBackedStore(project, "move_effects_table", moveEffectHandlerOverlayId(project), overlayReplacements);
   patchOverlayBackedStore(project, "type_chart", 167, overlayReplacements);
   for (const overlayId of getDirtyStarterOverlayIds(project)) {
@@ -264,6 +266,7 @@ function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayI
 
 function overlayTableOffset(project: ProjectState, name: NarcName, overlay: Uint8Array): number | undefined {
   if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
+  if (name === "tutor_moves") return BW2_TUTOR_MOVE_TABLE_OFFSET;
   if (name === "move_effects_table") return moveEffectHandlerTableOffset(project);
   if (name === "type_chart") return typeChartTableOffset(project, overlay);
   return undefined;

@@ -1,6 +1,7 @@
 #moves .field-header,
 #items .field-header,
-#move-effect-handlers .field-header {
+#move-effect-handlers .field-header,
+#tutor-moves .field-header {
   top: 40px;
 }
 
@@ -9,6 +10,10 @@
 }
 
 #move-effect-handlers > .expanded-field:hover {
+  border: 1px solid #bd93f9;
+}
+
+#tutor-moves > .expanded-field:hover {
   border: 1px solid #bd93f9;
 }
 
@@ -71,7 +76,13 @@
   padding: 0 20px;
 }
 
-.move-effect-handler-row > .expanded-field-main {
+.tutor-move-list .expanded-field-main {
+  gap: 14px;
+  padding: 0 20px;
+}
+
+.move-effect-handler-row > .expanded-field-main,
+.tutor-move-row > .expanded-field-main {
   min-height: 54px;
 }
 
@@ -90,8 +101,32 @@
   flex: 0 0 240px;
 }
 
+.tutor-move-list .tutor-row-index {
+  color: #aeb7ca;
+  flex: 0 0 46px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tutor-move-list .tutor-group {
+  flex: 0 0 170px;
+}
+
+.tutor-move-list .tutor-slot,
+.tutor-move-list .tutor-cost,
+.tutor-move-list .tutor-index {
+  flex: 0 0 84px;
+}
+
+.tutor-move-list .tutor-move {
+  flex: 1 1 280px;
+  min-width: 180px;
+}
+
 .handler-move input,
-.handler-address input {
+.handler-address input,
+.tutor-move input,
+.tutor-cost input,
+.tutor-index input {
   background: transparent;
   border: 1px solid rgba(242, 242, 242, 0.16);
   border-radius: 4px;
@@ -104,12 +139,18 @@
 }
 
 .handler-move input:focus,
-.handler-address input:focus {
+.handler-address input:focus,
+.tutor-move input:focus,
+.tutor-cost input:focus,
+.tutor-index input:focus {
   border-color: #1abc9c;
 }
 
 .handler-move input.invalid,
-.handler-address input.invalid {
+.handler-address input.invalid,
+.tutor-move input.invalid,
+.tutor-cost input.invalid,
+.tutor-index input.invalid {
   border-color: #ff5555;
 }
 
