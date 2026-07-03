@@ -1,4 +1,5 @@
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
+import { cascadeWhitePersonalName, cascadeWhiteTrainerAbilityName, trainerAbilitySlotMax } from "./cascadeWhiteModel";
 import { BATTLE_TYPES, BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, NATURES, TRAINER_AIS, TRAINER_GENDERS, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
@@ -80,7 +81,7 @@ export function getTrainerRecord(project: ProjectState, trainerId: number): Trai
 export function getTrainerAutofills(project: ProjectState): Record<string, string[]> {
   return {
     items: project.texts.banks.items ?? [],
-    pokemon_names: project.texts.banks.pokedex ?? [],
+    pokemon_names: pokemonNameAutofills(project),
     class_names: (project.texts.banks.tr_classes ?? []).map((name, index) => `${name} (${index})`),
     battle_types: BATTLE_TYPES,
     genders: TRAINER_GENDERS,
@@ -224,9 +225,9 @@ export function updateTrainerPokemonField(project: ProjectState, trainerId: numb
   let value: string | number;
 
   if (field === `species_id${suffix}`) {
-    rawValue = findValueIndex(project.texts.banks.pokedex ?? [], inputValue, "Pokemon");
+    rawValue = findPokemonValueIndex(project, inputValue);
     record.raw[field] = rawValue;
-    value = project.texts.banks.pokedex?.[rawValue] ?? rawValue;
+    value = pokemonName(project, rawValue);
     record.readable[field] = value;
   } else if (field === `item_id${suffix}`) {
     setTemplateFlag(project, trainerId, "has_items", true);
@@ -261,7 +262,7 @@ export function updateTrainerPokemonField(project: ProjectState, trainerId: numb
     record.raw[field] = rawValue;
     record.readable[field] = rawValue;
   } else if (field === `ability${suffix}`) {
-    rawValue = parseInteger(inputValue, 0, 3);
+    rawValue = parseInteger(inputValue, 0, trainerAbilitySlotMax(project));
     record.raw[field] = packAbilityGender(rawValue, genderIndex(String(record.readable[`gender_${slot}`] ?? "Default")));
     value = rawValue;
   } else if (field === `gender${suffix}`) {
@@ -536,7 +537,7 @@ function syncTrainerPokemonReadable(project: ProjectState, trainerId: number, ra
   readable.template = template;
   for (let slot = 0; slot < count; slot += 1) {
     const speciesId = raw[`species_id_${slot}`] ?? 0;
-    readable[`species_id_${slot}`] = project.texts.banks.pokedex?.[speciesId % 1024] ?? speciesId;
+    readable[`species_id_${slot}`] = pokemonName(project, speciesId);
     const abilityByte = raw[`ability_${slot}`] === 255 ? 0 : raw[`ability_${slot}`] ?? 0;
     raw[`ability_${slot}`] = abilityByte;
     readable[`ability_${slot}`] = Math.floor(abilityByte / 16);
@@ -633,10 +634,38 @@ function parseClassId(project: ProjectState, value: string): number {
 }
 
 function abilityName(project: ProjectState, speciesId: number, abilitySlot: number): string | number {
-  if (!project.narcs.personal || speciesId >= project.narcs.personal.fileCount) return "";
-  const personal = decodeRecord(project, "personal", speciesId);
+  const cascadeAbility = cascadeWhiteTrainerAbilityName(project, speciesId, abilitySlot);
+  if (cascadeAbility) return cascadeAbility;
+  const personalId = normalizedSpeciesId(speciesId);
+  if (!project.narcs.personal || personalId >= project.narcs.personal.fileCount) return "";
+  const personal = decodeRecord(project, "personal", personalId);
   const slot = Math.min(Math.max(abilitySlot, 1), 3);
   return personal.readable?.[`ability_${slot}`] ?? "";
+}
+
+function pokemonNameAutofills(project: ProjectState): string[] {
+  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, project.narcs.personal?.fileCount ?? 0);
+  return Array.from({ length: count }, (_unused, speciesId) => String(pokemonName(project, speciesId)));
+}
+
+function pokemonName(project: ProjectState, speciesId: number): string | number {
+  const personalId = normalizedSpeciesId(speciesId);
+  return cascadeWhitePersonalName(project, personalId) ?? project.texts.banks.pokedex?.[personalId] ?? speciesId;
+}
+
+function findPokemonValueIndex(project: ProjectState, inputValue: string): number {
+  const numeric = Number(inputValue.trim());
+  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, project.narcs.personal?.fileCount ?? 0);
+  if (Number.isInteger(numeric) && numeric >= 0 && numeric < count) return numeric;
+  const normalizedInput = normalizeName(inputValue);
+  for (let speciesId = 0; speciesId < count; speciesId += 1) {
+    if (normalizeName(String(pokemonName(project, speciesId))) === normalizedInput) return speciesId;
+  }
+  throw new Error(`Unknown Pokemon: ${inputValue}`);
+}
+
+function normalizedSpeciesId(speciesId: number): number {
+  return speciesId % 1024;
 }
 
 function templateHasMoves(template: number): boolean {

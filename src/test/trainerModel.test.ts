@@ -90,6 +90,26 @@ describe("trainerModel", () => {
     expect(project.actionChangelog?.entries.some((entry) => entry.domain === "trpok" && entry.text.includes("Pokemon 1 species id changed from Bulbasaur to Ivysaur."))).toBe(true);
   });
 
+  it("allows Cascade White trainer ability slots 4-6 only when the AI patch is present", () => {
+    const project = makeProject(0);
+
+    expect(() => updateTrainerPokemonField(project, 1, 0, "ability_0", "4")).toThrow(/between 0 and 3/u);
+
+    project.codeInjection = {
+      modules: [{ path: "patches/A2_AIChanges.dll", target: "patches", fileName: "A2_AIChanges.dll" }],
+    };
+    updateTrainerPokemonField(project, 1, 0, "ability_0", "4");
+
+    let trainer = getTrainerRecord(project, 1);
+    expect(trainer.party[0]).toMatchObject({ abilitySlot: 4, resolvedAbilitySlot: 4, abilityName: "Drought" });
+    expect(decodeRecord(project, "trpok", 1).raw?.ability_0).toBe(64);
+
+    updateTrainerPokemonField(project, 1, 0, "ability_0", "6");
+    trainer = getTrainerRecord(project, 1);
+    expect(trainer.party[0]).toMatchObject({ abilitySlot: 6, resolvedAbilitySlot: 6, abilityName: "Flower Gift" });
+    expect(decodeRecord(project, "trpok", 1).raw?.ability_0).toBe(96);
+  });
+
   it("stores trainer Pokemon natures in the legacy padding byte and materializes the same trpok layout", () => {
     const project = makeProject(3);
     const originalLength = project.narcs.trpok!.rawFiles[1].length;

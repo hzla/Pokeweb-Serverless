@@ -261,9 +261,9 @@
 }
 
 .pokemon-card__abilities {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
+  gap: 8px 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-bottom: 20px;
   margin-top: 24px;
 }
@@ -271,6 +271,17 @@
 .pokemon-card__ability {
   font-size: 20px;
   font-weight: 500;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pokemon-card__ability.-readonly {
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  color: #f2f2f2;
+  min-height: 24px;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .pokemon-card__table {

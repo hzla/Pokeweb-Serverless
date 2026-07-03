@@ -2,6 +2,7 @@ import grottoLocationsText from "../assets/data/grotto_locations.txt?raw";
 import martLocationsText from "../assets/data/mart_locations.txt?raw";
 import { writeU8 } from "../nds/binary";
 import { recordFieldChange } from "./actionChangelog";
+import { findPokemonSpeciesId, pokemonSpeciesLabel, pokemonSpeciesNameOptions } from "./pokemonLabels";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
 
@@ -94,7 +95,7 @@ export function getMartAutofills(project: ProjectState): Record<string, string[]
 
 export function getGrottoAutofills(project: ProjectState): Record<string, string[]> {
   return {
-    pokemon_names: project.texts.banks.pokedex ?? [],
+    pokemon_names: pokemonSpeciesNameOptions(project),
     items: project.texts.banks.items ?? [],
   };
 }
@@ -122,7 +123,7 @@ export function updateGrottoField(project: ProjectState, grottoId: number, field
   let displayValue: string | number;
 
   if (field.includes("_pok_")) {
-    rawValue = findValueIndex(project.texts.banks.pokedex ?? [], value, "Pokemon");
+    rawValue = findPokemonSpeciesId(project, value);
     displayValue = pokemonName(project, rawValue);
   } else if (field.includes("_item_")) {
     rawValue = findValueIndex(project.texts.banks.items ?? [], value, "item");
@@ -237,7 +238,7 @@ function itemName(project: ProjectState, itemId: number): string {
 }
 
 function pokemonName(project: ProjectState, speciesId: number): string {
-  return project.texts.banks.pokedex?.[speciesId] ?? String(speciesId);
+  return pokemonSpeciesLabel(project, speciesId);
 }
 
 function findValueIndex(values: readonly string[], input: string, label: string): number {

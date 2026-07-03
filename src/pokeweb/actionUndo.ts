@@ -15,6 +15,7 @@ import {
 import type { ProjectState } from "./projectStore";
 import { updateTextEntry } from "./textModel";
 import { updateTmMove } from "./tmModel";
+import { updateTutorMoveField } from "./tutorMoveModel";
 import { updateTrainerField, updateTrainerPokemonField } from "./trainerModel";
 import { updateTrainerText } from "./trainerTextModel";
 import { TYPE_EFFECTIVENESS_VALUES, updateTypeChartValue, type TypeEffectivenessValue } from "./typeChartModel";
@@ -50,6 +51,12 @@ export function undoActionChange(project: ProjectState, entry: ActionChangelogEn
   if (kind === "type-chart") {
     const [, attackIndex, defendIndex] = match(entry.key, /^type-chart:(\d+):(\d+)$/u);
     updateTypeChartValue(project, Number(attackIndex), Number(defendIndex), parseEffectiveness(before));
+    return;
+  }
+
+  if (kind === "tutor-move") {
+    const [, rowIndex, field] = match(entry.key, /^tutor-move:(\d+):(move|shardCost|compatibilityIndex)$/u);
+    updateTutorMoveField(project, Number(rowIndex), field as "move" | "shardCost" | "compatibilityIndex", before);
     return;
   }
 
@@ -172,6 +179,7 @@ function undoKind(entry: ActionChangelogEntry): string | undefined {
   if (/^item:\d+:[^:]+$/u.test(key)) return "item";
   if (/^tm:[^:]+$/u.test(key)) return "tm";
   if (/^type-chart:\d+:\d+$/u.test(key)) return "type-chart";
+  if (/^tutor-move:\d+:(move|shardCost|compatibilityIndex)$/u.test(key)) return "tutor-move";
   if (/^move-effect-handler:\d+:(move|address)$/u.test(key)) return "move-effect-handler";
   if (/^mart:\d+:[^:]+$/u.test(key)) return "mart";
   if (/^grotto:\d+:[^:]+$/u.test(key)) return "grotto";

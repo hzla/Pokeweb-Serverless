@@ -12,6 +12,7 @@ import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { isGen4Project } from "./constants";
 import { parseHeaders } from "./headerModel";
 import { loadActiveRomBytes } from "./persistence";
+import { findPokemonSpeciesId, pokemonSpeciesLabel, pokemonSpeciesNameOptions } from "./pokemonLabels";
 import { createNarcStore, decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
 
@@ -170,7 +171,7 @@ export function getEncounterRecord(project: ProjectState, encounterId: number): 
 
 export function getEncounterAutofills(project: ProjectState): Record<string, string[]> {
   return {
-    pokemon_names: project.texts.banks.pokedex ?? [],
+    pokemon_names: pokemonSpeciesNameOptions(project),
   };
 }
 
@@ -198,7 +199,7 @@ export function updateEncounterField(project: ProjectState, encounterId: number,
     const form = isGen4Project(project) || speciesId === 0 ? 0 : Number(record.readable[`${field}_form`] ?? 0);
     const rawValue = speciesId + form * 2048;
     record.raw[field] = rawValue;
-    record.readable[field] = speciesId === 0 ? "" : (project.texts.banks.pokedex?.[speciesId] ?? String(speciesId));
+    record.readable[field] = speciesId === 0 ? "" : pokemonSpeciesLabel(project, speciesId);
     record.readable[`${field}_form`] = form;
     syncGen4EncounterAliases(project, record.raw, record.readable, field);
     markDirty(project, "encounters", encounterId);
@@ -357,13 +358,12 @@ export function encounterKindLabel(project: ProjectState, kind: EncounterKind): 
 }
 
 export function syncEncounterReadable(project: ProjectState, raw: RawRecord, readable: ReadableRecord): void {
-  const pokedex = project.texts.banks.pokedex ?? [];
   for (const season of ENCOUNTER_SEASONS) {
     for (const kind of encounterKindsForGroup("grass", project)) {
-      for (let slot = 0; slot < encounterSlotCount(kind, project); slot += 1) decodeSpecies(raw, readable, pokedex, `${season}_${kind}_slot_${slot}`);
+      for (let slot = 0; slot < encounterSlotCount(kind, project); slot += 1) decodeSpecies(project, raw, readable, `${season}_${kind}_slot_${slot}`);
     }
     for (const kind of encounterKindsForGroup("water", project)) {
-      for (let slot = 0; slot < encounterSlotCount(kind, project); slot += 1) decodeSpecies(raw, readable, pokedex, `${season}_${kind}_slot_${slot}`);
+      for (let slot = 0; slot < encounterSlotCount(kind, project); slot += 1) decodeSpecies(project, raw, readable, `${season}_${kind}_slot_${slot}`);
     }
   }
 }
@@ -490,10 +490,10 @@ function addUniqueWild(wilds: string[], value: unknown): void {
   if (cleanName && !wilds.includes(cleanName)) wilds.push(cleanName);
 }
 
-function decodeSpecies(raw: RawRecord, readable: ReadableRecord, pokedex: string[], field: string): void {
+function decodeSpecies(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string): void {
   const rawValue = raw[field] ?? 0;
   const speciesId = rawValue % 2048;
-  readable[field] = speciesId === 0 ? "" : (pokedex[speciesId] ?? String(speciesId));
+  readable[field] = speciesId === 0 ? "" : pokemonSpeciesLabel(project, speciesId);
   readable[`${field}_form`] = Math.floor(rawValue / 2048);
 }
 
@@ -546,10 +546,7 @@ function titleize(value: string): string {
 function parsePokemonId(project: ProjectState, value: string): number {
   if (value === "" || value === "-") return 0;
   if (/^\d+$/u.test(value)) return parseInteger(value, 0, 2047, "Pokemon");
-  const pokedex = project.texts.banks.pokedex ?? [];
-  const index = pokedex.findIndex((name) => name.toLowerCase() === value.toLowerCase());
-  if (index < 0) throw new Error(`Unknown Pokemon: ${value}`);
-  return index;
+  return findPokemonSpeciesId(project, value, 2047);
 }
 
 function parseInteger(value: string, min: number, max: number, field: string): number {

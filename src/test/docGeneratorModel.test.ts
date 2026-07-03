@@ -128,6 +128,21 @@ describe("docGeneratorModel", () => {
     expect(calcPayload.formatted_sets.Deoxys).toBeUndefined();
   });
 
+  it("exports Cascade White custom AI abilities to calc data", () => {
+    const project = makeProject();
+    project.codeInjection = {
+      modules: [{ path: "patches/A2_AIChanges.dll", target: "patches", fileName: "A2_AIChanges.dll" }],
+    };
+    project.narcs.trpok!.rawFiles[7][1] = 64;
+    project.narcs.trpok!.records.clear();
+
+    const calcFile = generateCalcDownload(project, "Cascade White");
+    const calcPayload = JSON.parse(calcFile.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+
+    expect(calcPayload.poks.Bulbasaur.abs).toEqual(["Overgrow", "None", "None", "Drought", "Chlorophyll", "Flower Gift"]);
+    expect(calcPayload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].ability).toBe("Drought");
+  });
+
   it("exports edited type charts in calc backup data", () => {
     const project = makeProject();
     project.overlays[167] = makeTypeChartOverlay(TYPE_CHART_TYPES.length);
