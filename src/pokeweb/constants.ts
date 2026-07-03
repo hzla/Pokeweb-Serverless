@@ -88,10 +88,15 @@ export const VERSION_BY_ID_CODE_PREFIX: Record<string, VersionInfo> = {
   IRE: { generation: "gen5", baseVersion: "B2", baseRom: "BW2" },
 };
 
+export const VERSION_BY_ID_CODE_EXACT: Record<string, VersionInfo> = {
+  JAK7: { generation: "gen4", baseVersion: "Pt", baseRom: "Pt" },
+};
+
 export const DEFAULT_VERSION_INFO: VersionInfo = { generation: "gen5", baseVersion: "W2", baseRom: "BW2" };
 
 export function detectVersionInfo(arm9Sample: number, idCode: string): VersionInfo {
-  return VERSION_BY_ARM9_SAMPLE[arm9Sample] ?? VERSION_BY_ID_CODE_PREFIX[idCode.slice(0, 3).toUpperCase()] ?? DEFAULT_VERSION_INFO;
+  const normalizedIdCode = idCode.toUpperCase();
+  return VERSION_BY_ARM9_SAMPLE[arm9Sample] ?? VERSION_BY_ID_CODE_EXACT[normalizedIdCode] ?? VERSION_BY_ID_CODE_PREFIX[normalizedIdCode.slice(0, 3)] ?? DEFAULT_VERSION_INFO;
 }
 
 export function isGen4BaseRom(baseRom: BaseRom): baseRom is Gen4BaseRom {

@@ -18,6 +18,10 @@ describe("ROM version detection", () => {
     expect(detectVersionInfo(0xf001, "IPGE")).toEqual({ generation: "gen4", baseVersion: "SS", baseRom: "HGSS" });
   });
 
+  it("detects known Platinum hack id codes", () => {
+    expect(detectVersionInfo(36498, "JAK7")).toEqual({ generation: "gen4", baseVersion: "Pt", baseRom: "Pt" });
+  });
+
   it("keeps the legacy W2 fallback when neither signal is recognized", () => {
     expect(detectVersionInfo(0xf001, "TEST")).toEqual({ generation: "gen5", baseVersion: "W2", baseRom: "BW2" });
   });

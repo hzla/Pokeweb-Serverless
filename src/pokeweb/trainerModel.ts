@@ -1,6 +1,6 @@
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { cascadeWhitePersonalName, cascadeWhiteTrainerAbilityName, trainerAbilitySlotMax } from "./cascadeWhiteModel";
-import { BATTLE_TYPES, BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, NATURES, TRAINER_AIS, TRAINER_GENDERS, type NarcName } from "./constants";
+import { BATTLE_TYPES, BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, NATURES, TRAINER_AIS, TRAINER_GENDERS, isGen4Project, type Gen4BaseRom, type NarcName } from "./constants";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
 import { commitTextBank, getTextBank } from "./textModel";
@@ -58,11 +58,12 @@ export function getTrainerRecord(project: ProjectState, trainerId: number): Trai
 
   const party: TrainerPokemonSlot[] = [];
   let carriedAbilitySlot = 1;
+  const gen4Project = isGen4Project(project);
   const count = Number(trdata.raw.num_pokemon ?? 0);
   for (let slot = 0; slot < count; slot += 1) {
     const abilitySlot = Number(trpok.readable[`ability_${slot}`] ?? 0);
-    const displayedAbilitySlot = abilitySlot === 0 ? carriedAbilitySlot : abilitySlot;
-    if (abilitySlot !== 0) carriedAbilitySlot = abilitySlot;
+    const displayedAbilitySlot = gen4Project ? gen4TrainerPokemonAbilitySlot(project, trainerId, slot) : abilitySlot === 0 ? carriedAbilitySlot : abilitySlot;
+    if (!gen4Project && abilitySlot !== 0) carriedAbilitySlot = abilitySlot;
     party.push(getTrainerPokemonSlot(project, trainerId, slot, displayedAbilitySlot));
   }
 
@@ -436,6 +437,7 @@ export function calculateTrainerPokemonNature(project: ProjectState, trainerId: 
   const trdata = decodeRecord(project, "trdata", trainerId);
   const trpok = decodeRecord(project, "trpok", trainerId);
   if (!trdata.raw || !trpok.raw) return "Unknown";
+  if (isGen4Project(project)) return calculateGen4TrainerPokemonNature(project, trainerId, slot);
   const explicitNature = trainerNatureName(trpok.raw[`padding_${slot}`]);
   if (explicitNature) return explicitNature;
   const speciesId = trpok.raw[`species_id_${slot}`];
@@ -454,6 +456,98 @@ export function calculateTrainerPokemonNature(project: ProjectState, trainerId: 
     Math.floor(Number(trpok.raw[`ability_${slot}`] ?? 0) / 16),
   );
   return NATURES[Number((pid >> 8n) % 25n)] ?? "Unknown";
+}
+
+const GEN4_TRAINER_CLASS_GENDER_TABLES: Record<Gen4BaseRom, { length: number; offsets: number[] }> = {
+  DP: { length: 98, offsets: [0xf8010, 0xf9f7c, 0xf8054, 0xf8024, 0xf7fc8, 0xf8060] },
+  Pt: { length: 105, offsets: [0xf0714, 0xefda4, 0xf079c, 0xf076c, 0xf0730, 0xf07a8] },
+  HGSS: { length: 128, offsets: [0xffb90, 0xff310, 0xffb74, 0xffb44, 0xffb08, 0xffb78] },
+};
+
+function calculateGen4TrainerPokemonNature(project: ProjectState, trainerId: number, slot: number): string {
+  const pid = gen4TrainerPokemonPid(project, trainerId, slot);
+  if (pid === undefined) return "Unknown";
+  return NATURES[(pid % 100) % 25] ?? "Unknown";
+}
+
+function gen4TrainerPokemonAbilitySlot(project: ProjectState, trainerId: number, slot: number): number {
+  const pid = gen4TrainerPokemonPid(project, trainerId, slot);
+  return pid === undefined ? 1 : pid % 2 === 0 ? 1 : 2;
+}
+
+function gen4TrainerPokemonPid(project: ProjectState, trainerId: number, slot: number): number | undefined {
+  const trdata = decodeRecord(project, "trdata", trainerId);
+  const trpok = decodeRecord(project, "trpok", trainerId);
+  if (!trdata.raw || !trpok.raw) return undefined;
+  const trainerClass = Number(trdata.raw.class ?? 0);
+  let pidMod = gen4TrainerClassIsMale(project, trainerClass) ? 136 : 120;
+  for (let currentSlot = 0; currentSlot <= slot; currentSlot += 1) {
+    const speciesId = Number(trpok.raw[`species_id_${currentSlot}`] ?? 0);
+    if (speciesId === 0 || !project.narcs.personal || speciesId >= project.narcs.personal.fileCount) return undefined;
+    const personal = decodeRecord(project, "personal", speciesId);
+    if (!personal.raw) return undefined;
+    if (gen4UsesAbilityGenderFlags(project)) {
+      pidMod = gen4ApplyTrainerMonOverrideFlags(
+        pidMod,
+        speciesId,
+        Number(personal.raw.gender ?? 0),
+        Number(trpok.raw[`ability_${currentSlot}`] ?? 0),
+        gen4UsesOutdatedAiBackport(project),
+      );
+    }
+  }
+
+  const speciesId = Number(trpok.raw[`species_id_${slot}`] ?? 0);
+  const level = Number(trpok.raw[`level_${slot}`] ?? 0);
+  const difficulty = Number(trpok.raw[`ivs_${slot}`] ?? 0);
+  const random = gen4TrainerRandom(trainerId + speciesId + level + difficulty, trainerClass);
+  return ((random << 8) + pidMod) >>> 0;
+}
+
+function gen4TrainerRandom(seed: number, trainerClass: number): number {
+  let state = seed >>> 0;
+  let random = 0;
+  for (let n = 0; n < trainerClass; n += 1) {
+    state = (Math.imul(1103515245, state) + 24691) >>> 0;
+    random = state >>> 16;
+  }
+  return random;
+}
+
+function gen4ApplyTrainerMonOverrideFlags(pidMod: number, speciesId: number, baseGenderRatio: number, abilityGender: number, outdatedAiBackport: boolean): number {
+  const genderOverride = abilityGender & 0x0f;
+  const abilityOverride = abilityGender >>> 4;
+  if (genderOverride > 0 || abilityOverride > 0) {
+    if (outdatedAiBackport) pidMod = speciesId;
+    if (genderOverride === 1) pidMod = baseGenderRatio + 2;
+    else if (genderOverride === 2) pidMod = baseGenderRatio - 2;
+    if (abilityOverride === 1) pidMod &= ~1;
+    else if (abilityOverride === 2) pidMod |= 1;
+  }
+  return outdatedAiBackport ? pidMod : pidMod & 0xff;
+}
+
+function gen4TrainerClassIsMale(project: ProjectState, trainerClass: number): boolean {
+  const family = project.session.baseRom as Gen4BaseRom;
+  const table = GEN4_TRAINER_CLASS_GENDER_TABLES[family];
+  if (!table || trainerClass < 0 || trainerClass >= table.length) return true;
+  const offset = table.offsets.find((candidate) => candidate + table.length <= project.arm9.length);
+  if (offset === undefined) return true;
+  return project.arm9[offset + trainerClass] !== 1;
+}
+
+function gen4UsesAbilityGenderFlags(project: ProjectState): boolean {
+  return project.session.baseRom === "HGSS" || gen4UsesAiBackport(project);
+}
+
+function gen4UsesAiBackport(project: ProjectState): boolean {
+  if (project.session.baseRom !== "Pt") return false;
+  if (project.romInfo.idCode.toUpperCase() === "JAK7") return true;
+  return project.arm9[0x0793b8] === 0xf0 && project.arm9[0x0793b9] === 0xb5 && project.arm9[0x0793ba] === 0x93 && project.arm9[0x0793bb] === 0xb0;
+}
+
+function gen4UsesOutdatedAiBackport(project: ProjectState): boolean {
+  return project.session.baseRom === "Pt" && project.arm9[0x0795a2] === 0x1d && project.arm9[0x0795a3] === 0x1c && project.arm9[0x0795a4] === 0x0f && project.arm9[0x0795a5] === 0x23;
 }
 
 function getTrainerPokemonSlot(project: ProjectState, trainerId: number, slot: number, displayedAbilitySlot?: number): TrainerPokemonSlot {
@@ -640,6 +734,7 @@ function abilityName(project: ProjectState, speciesId: number, abilitySlot: numb
   if (!project.narcs.personal || personalId >= project.narcs.personal.fileCount) return "";
   const personal = decodeRecord(project, "personal", personalId);
   const slot = Math.min(Math.max(abilitySlot, 1), 3);
+  if (isGen4Project(project) && slot === 2 && Number(personal.raw?.ability_2 ?? 0) === 0) return personal.readable?.ability_1 ?? "";
   return personal.readable?.[`ability_${slot}`] ?? "";
 }
 

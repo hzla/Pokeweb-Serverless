@@ -219,6 +219,32 @@ describe("trainerModel", () => {
     expect(calculateTrainerPokemonNature(project, 1, 0)).toBe("Impish");
   });
 
+  it("calculates Gen IV JAK7 trainer natures and abilities from the Platinum trainer data", () => {
+    const project = makeJak7Project();
+
+    const trainer = getTrainerRecord(project, 338);
+    expect(trainer.readable).toMatchObject({ class: "Idol", name: "Skylar" });
+    expect(trainer.party.map((pokemon) => pokemon.nature)).toEqual(["Sassy", "Relaxed", "Calm", "Naughty", "Quiet", "Rash"]);
+    expect(trainer.party[0]).toMatchObject({ speciesName: "Flygon", abilitySlot: 1, resolvedAbilitySlot: 1, abilityName: "Sand Stream" });
+    expect(trainer.party[1]).toMatchObject({
+      speciesName: "Aggron",
+      level: 61,
+      ivs: 252,
+      itemName: "Leftovers",
+      moves: ["Head Smash", "Giga Impact", "Superpower", "Avalanche"],
+      abilitySlot: 0,
+      abilityName: "Rock Head",
+      gender: "Female",
+      nature: "Relaxed",
+      natureSetting: "Auto",
+    });
+    expect(trainer.party[3]).toMatchObject({ speciesName: "Butterfree", abilitySlot: 0, resolvedAbilitySlot: 2, abilityName: "Compound Eyes" });
+    expect(calculateTrainerPokemonNature(project, 338, 1)).toBe("Relaxed");
+
+    const carryTrainer = getTrainerRecord(project, 340);
+    expect(carryTrainer.party[0]).toMatchObject({ speciesName: "Flygon", abilitySlot: 1, nature: "Adamant" });
+  });
+
   it("reads, inserts, updates, and deletes BW2 trainer text through the table and offset indexer", () => {
     const project = makeProject(0);
     addTrainerTextFixtures(project);
@@ -358,6 +384,84 @@ function makeProject(template: number): ProjectState {
   };
 }
 
+function makeJak7Project(): ProjectState {
+  const formats = getNarcFormats("Pt");
+  const trainerRows = Array.from({ length: 341 }, () => ({} as Record<string, number>));
+  trainerRows[338] = { template: 3, class: 85, unknown_1: 0, num_pokemon: 6, item_1: 0, item_2: 0, item_3: 0, item_4: 0, ai: 15, double_battle: 0 };
+  trainerRows[340] = { template: 3, class: 85, unknown_1: 0, num_pokemon: 1, item_1: 0, item_2: 0, item_3: 0, item_4: 0, ai: 15, double_battle: 0 };
+  const trdata = packRows(formats.trdata!, trainerRows);
+  const trpokRows = [
+    { ivs: 255, ability: 18, level: 59, species_id: 330, item_id: 188, move_1: 434, move_2: 446, move_3: 89, move_4: 53 },
+    { ivs: 252, ability: 2, level: 61, species_id: 306, item_id: 234, move_1: 457, move_2: 416, move_3: 276, move_4: 419 },
+    { ivs: 252, ability: 2, level: 58, species_id: 227, item_id: 0, move_1: 0, move_2: 0, move_3: 0, move_4: 0 },
+    { ivs: 255, ability: 0, level: 62, species_id: 12, item_id: 0, move_1: 0, move_2: 0, move_3: 0, move_4: 0 },
+    { ivs: 255, ability: 2, level: 55, species_id: 472, item_id: 0, move_1: 0, move_2: 0, move_3: 0, move_4: 0 },
+    { ivs: 255, ability: 2, level: 60, species_id: 205, item_id: 0, move_1: 0, move_2: 0, move_3: 0, move_4: 0 },
+  ];
+  const trpokFiles: Uint8Array[] = Array.from({ length: 341 }, () => new Uint8Array());
+  trpokFiles[338] = packGen4Trpok(3, trpokRows, "Pt");
+  trpokFiles[340] = packGen4Trpok(3, [
+    { ivs: 255, ability: 16, level: 59, species_id: 330, item_id: 188, move_1: 434, move_2: 446, move_3: 89, move_4: 53 },
+  ], "Pt");
+
+  const personalRows = Array.from({ length: 473 }, () => ({} as Record<string, number>));
+  personalRows[12] = { gender: 127, ability_1: 14, ability_2: 0 };
+  personalRows[205] = { gender: 127, ability_1: 5, ability_2: 5 };
+  personalRows[227] = { gender: 127, ability_1: 51, ability_2: 5 };
+  personalRows[306] = { gender: 127, ability_1: 5, ability_2: 69 };
+  personalRows[330] = { gender: 127, ability_1: 26, ability_2: 26 };
+  personalRows[472] = { gender: 127, ability_1: 8, ability_2: 52 };
+  const personal = packRows(formats.personal!, personalRows);
+  const arm9 = new Uint8Array(0xf0714 + 105);
+  arm9[0xf0714 + 85] = 1;
+  arm9[0x0793b8] = 0xf0;
+  arm9[0x0793b9] = 0xb5;
+  arm9[0x0793ba] = 0x93;
+  arm9[0x0793bb] = 0xb0;
+  arm9[0x0795a2] = 0x1d;
+  arm9[0x0795a3] = 0x1c;
+  arm9[0x0795a4] = 0x0f;
+  arm9[0x0795a5] = 0x23;
+
+  const trNames = namedRows(341, { 338: "Skylar", 340: "Carry" });
+  const trClasses = namedRows(106, { 85: "Idol" });
+  const pokedex = namedRows(473, { 12: "Butterfree", 205: "Forretress", 227: "Skarmory", 306: "Aggron", 330: "Flygon", 472: "Gliscor" });
+  const abilities = namedRows(70, { 5: "Filter", 8: "Sand Veil", 14: "Compound Eyes", 26: "Sand Stream", 51: "Keen Eye", 52: "Hyper Cutter", 69: "Rock Head" });
+  const items = namedRows(235, { 188: "Yache Berry", 234: "Leftovers" });
+  const moves = namedRows(458, { 53: "Flamethrower", 89: "Earthquake", 276: "Superpower", 416: "Giga Impact", 419: "Avalanche", 434: "Draco Meteor", 446: "Stealth Rock", 457: "Head Smash" });
+
+  return {
+    session: {
+      romName: "pknightfinal",
+      generation: "gen4",
+      baseVersion: "Pt",
+      baseRom: "Pt",
+      fairy: false,
+      fileIds: { trdata: 1, trpok: 2, personal: 3 },
+      blacklist: [],
+    },
+    romInfo: { title: "PKNIGHT", idCode: "JAK7", fileName: "pknightfinal.nds", size: trdata.length },
+    arm9,
+    overlays: {},
+    narcs: {
+      trdata: makeStore("trdata", trdata, trainerRows.length),
+      trpok: makeStore("trpok", trpokFiles, trpokFiles.length),
+      personal: makeStore("personal", personal, personalRows.length),
+    } as Partial<Record<NarcName, NarcStore>>,
+    texts: { banks: { tr_names: trNames, tr_classes: trClasses, pokedex, abilities, items, moves } },
+    formats,
+    trpokInfo: Array.from({ length: 341 }, (_, trainerId) => {
+      if (trainerId === 338) return { template: 3, numPokemon: 6 };
+      if (trainerId === 340) return { template: 3, numPokemon: 1 };
+      return { template: 0, numPokemon: 0 };
+    }),
+  };
+}
+
+function namedRows(length: number, names: Record<number, string>): string[] {
+  return Array.from({ length }, (_unused, index) => names[index] ?? String(index));
+}
+
 function packLearnset(rows: Array<{ moveId: number; level: number }>): Uint8Array {
   const out = new Uint8Array((25 + 1) * 4);
   rows.forEach((row, index) => {
@@ -427,6 +531,34 @@ function packTrpok(template: number, rows: Array<Record<string, number>>): Uint8
       writeInt(out, offset, sizes[index], row[field] ?? 0);
       offset += sizes[index];
     });
+  });
+  return out;
+}
+
+function packGen4Trpok(template: number, rows: Array<Record<string, number>>, baseRom: "DP" | "Pt" | "HGSS"): Uint8Array {
+  const hasItems = (template & 2) !== 0;
+  const hasMoves = (template & 1) !== 0;
+  const hasBallSeals = baseRom !== "DP";
+  const rowLength = 6 + (hasItems ? 2 : 0) + (hasMoves ? 8 : 0) + (hasBallSeals ? 2 : 0);
+  const out = new Uint8Array(rowLength * rows.length);
+  rows.forEach((row, rowIndex) => {
+    let offset = rowIndex * rowLength;
+    writeInt(out, offset, 1, row.ivs ?? 0);
+    writeInt(out, offset + 1, 1, row.ability ?? 0);
+    writeInt(out, offset + 2, 2, row.level ?? 0);
+    writeInt(out, offset + 4, 2, (((row.form ?? 0) & 0x3f) << 10) | ((row.species_id ?? 0) & 0x03ff));
+    offset += 6;
+    if (hasItems) {
+      writeInt(out, offset, 2, row.item_id ?? 0);
+      offset += 2;
+    }
+    if (hasMoves) {
+      for (let move = 1; move <= 4; move += 1) {
+        writeInt(out, offset, 2, row[`move_${move}`] ?? 0);
+        offset += 2;
+      }
+    }
+    if (hasBallSeals) writeInt(out, offset, 2, row.ball_seals ?? 0);
   });
   return out;
 }
