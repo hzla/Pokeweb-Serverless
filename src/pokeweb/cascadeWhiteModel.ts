@@ -1,6 +1,7 @@
 import { listCodeInjectionDlls } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { cascadeWhiteAiAbilitiesForSpecies } from "./cascadeWhiteAiAbilities";
+import { isGen4Project } from "./constants";
 
 export const CASCADE_WHITE_AI_DLL_PATH = "patches/A2_AIChanges.dll";
 export const CASCADE_WHITE_TRAINER_ABILITY_SLOT_MAX = 6;
@@ -36,6 +37,7 @@ export function cascadeWhitePersonalName(project: ProjectState, personalId: numb
 }
 
 export function trainerAbilitySlotMax(project: ProjectState): number {
+  if (isGen4Project(project)) return 2;
   return detectCascadeWhiteRom(project) ? CASCADE_WHITE_TRAINER_ABILITY_SLOT_MAX : 3;
 }
 
