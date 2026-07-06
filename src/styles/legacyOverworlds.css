@@ -1,5 +1,5 @@
 .overworld-bar {
-  width: 24vw;
+  width: 18vw;
   overflow-y: auto;
 }
 
@@ -110,6 +110,14 @@
   padding: 4px 6px;
 }
 
+.sidebar-field-select {
+  max-width: 170px;
+}
+
+.sidebar-field-select.invalid {
+  border-color: #e74c3c;
+}
+
 .overworld-empty-selection {
   border: 1px solid #44475a;
   border-radius: 4px;
@@ -119,8 +127,8 @@
 }
 
 #overworld {
-  margin-left: 24vw;
-  width: 76vw;
+  margin-left: 18vw;
+  width: 82vw;
   min-width: 0;
   height: calc(100vh - 40px);
   padding: 0;
@@ -128,6 +136,10 @@
   background: #383a59;
   position: relative;
   flex: 0 0 auto;
+}
+
+#overworld.overworld-gen5-permissions {
+  overflow: auto;
 }
 
 .overworld-stage {
@@ -138,8 +150,20 @@
   cursor: grab;
 }
 
+#overworld.overworld-gen5-permissions .overworld-stage {
+  height: 100%;
+  min-width: 100%;
+  min-height: 100%;
+  overflow: visible;
+  cursor: default;
+}
+
 .overworld-stage:active {
   cursor: grabbing;
+}
+
+#overworld.overworld-gen5-permissions .overworld-stage:active {
+  cursor: default;
 }
 
 .overworld-map,
@@ -235,6 +259,10 @@
   align-items: center;
 }
 
+#overworld.overworld-gen5-permissions .overworld-toolbar {
+  position: fixed;
+}
+
 .ow-tool {
   background: #44475a;
   min-width: 44px;
@@ -257,6 +285,173 @@
   background: #1abc9c;
   color: #282a36;
   font-weight: 700;
+}
+
+.overworld-view-title {
+  border: 1px solid #6272a4;
+  border-radius: 4px;
+  background: rgba(40, 42, 54, 0.9);
+  color: #f8f8f2;
+  font-size: 14px;
+  line-height: 1;
+  padding: 10px 12px;
+}
+
+.overworld-permission-controls,
+.overworld-permission-matrix {
+  border: 1px solid #44475a;
+  border-radius: 4px;
+  background: #282a36;
+  padding: 10px;
+}
+
+.overworld-permission-controls {
+  margin-top: 8px;
+}
+
+.overworld-permission-matrix {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 8;
+  width: min(520px, 42vw);
+  height: 280px;
+  min-width: 260px;
+  min-height: 160px;
+  max-width: calc(100% - 36px);
+  max-height: calc(100% - 110px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  overflow: hidden;
+  resize: none;
+}
+
+.overworld-permission-title {
+  color: #f8f8f2;
+  font-size: 15px;
+  font-weight: 700;
+  padding-left: 24px;
+  margin-bottom: 8px;
+}
+
+.overworld-permission-resize-handle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #6272a4;
+  border-radius: 3px;
+  background:
+    linear-gradient(135deg, transparent 34%, rgba(248, 248, 242, 0.8) 35%, rgba(248, 248, 242, 0.8) 43%, transparent 44%),
+    linear-gradient(135deg, transparent 54%, rgba(248, 248, 242, 0.65) 55%, rgba(248, 248, 242, 0.65) 63%, transparent 64%),
+    #44475a;
+  cursor: nwse-resize;
+  z-index: 2;
+  padding: 0;
+}
+
+.overworld-permission-grid {
+  display: block;
+  width: 100%;
+  height: 220px;
+  border: 1px solid #44475a;
+  border-radius: 2px;
+  background: #202330;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+
+.overworld-permission-matrix .overworld-permission-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+.overworld-permission-selected {
+  color: #50baa0;
+  font-size: 13px;
+  line-height: 1.35;
+  margin: 10px 0;
+  min-height: 36px;
+}
+
+.overworld-permission-controls .map3d-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.overworld-permission-controls .map3d-field span {
+  color: #f8f8f2;
+  font-size: 13px;
+}
+
+.overworld-permission-controls .map3d-field input {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #44475a;
+  border-radius: 2px;
+  background: #202330;
+  color: #50baa0;
+  padding: 7px 8px;
+}
+
+.overworld-permission-controls .map3d-field input.invalid {
+  border-color: #e74c3c;
+}
+
+.overworld-permission-controls .map3d-flag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 150px;
+  overflow: auto;
+}
+
+.overworld-permission-controls .map3d-check {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: #f8f8f2;
+  font-size: 12px;
+}
+
+.overworld-permission-controls .map3d-flag-check {
+  border: 2px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  line-height: 1.1;
+  margin: 0;
+  max-width: 100%;
+  padding: 7px 9px;
+  user-select: none;
+}
+
+.overworld-permission-controls .map3d-flag-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overworld-permission-controls .map3d-flag-check.-active,
+.overworld-permission-controls .map3d-flag-check:hover {
+  border-color: #1abc9c;
+  color: #1abc9c;
+}
+
+.overworld-permission-controls .map3d-flag-value {
+  color: #50baa0;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.overworld-permission-paint {
+  margin-top: 10px;
 }
 
 .overworld-cell-nav {

@@ -5,7 +5,7 @@ import type { ProjectState } from "./projectStore";
 import { cameraEventDuration } from "./battleCameraSimulator";
 import { decompileMoveAnimationFile, parseMoveAnimationScript, type ParsedMoveAnimationCommand } from "./moveAnimationModel";
 import { parseNitroBackground, type NitroBackgroundImage, type NitroBackgroundPaletteAnimation } from "./nitroBg";
-import type { NitroCellEffect } from "./nitroCell";
+import type { NitroCellEffect, NitroCellImage } from "./nitroCell";
 import { parseSpaArchive, type SpaArchive } from "./nitroSpa";
 
 const DEFAULT_CALL_DEPTH = 8;
@@ -36,7 +36,7 @@ export type MoveAnimationTimelineEvent = {
   params: number[];
   status: "supported" | "marker" | "unsupported";
   message: string;
-  effectKind?: "spa" | "cell";
+  effectKind?: "spa" | "cell" | "cap";
   spaId?: number;
   resourceId?: number;
   particle?: {
@@ -79,6 +79,8 @@ export type MoveAnimationTimelineEvent = {
     alignToMotion?: boolean;
     alignDirection?: [number, number, number];
     alignRotationOffset?: number;
+    forceAxisRotation?: boolean;
+    dspreScreenRotation?: boolean;
     beamTrail?: {
       start: [number, number, number];
       alpha?: number;
@@ -95,8 +97,10 @@ export type MoveAnimationTimelineEvent = {
       randomMagnitude?: [number, number, number];
       randomIntervalFrames?: number;
       magnetTarget?: [number, number, number];
+      magnetTargetRelative?: boolean;
       magnetForce?: number;
       convergenceTarget?: [number, number, number];
+      convergenceTargetRelative?: boolean;
       convergenceForce?: number;
     };
   };
@@ -117,6 +121,70 @@ export type MoveAnimationTimelineEvent = {
     duration: number;
     easing?: "linear" | "easeOut";
   };
+  actorVisual?: {
+    target: "user" | "target";
+    duration?: number;
+    persist?: boolean;
+    visible?: boolean;
+    opacity?: number;
+    tint?: [number, number, number, number];
+    scale?: [number, number];
+    rotation?: number;
+  };
+  capEffect?: {
+    capId: number;
+    source: "user" | "target";
+    duration?: number;
+    modifiers?: Array<
+      | {
+          kind: "scale";
+          frame: number;
+          startScale: number;
+          endScale: number;
+          upFrames: number;
+          waitFrames?: number;
+          downFrames: number;
+          cycles: number;
+        }
+      | {
+          kind: "alpha";
+          frame: number;
+          duration: number;
+          startAlpha: number;
+          endAlpha: number;
+        }
+      | {
+          kind: "tint";
+          frame: number;
+          duration: number;
+          startAmount: number;
+          endAmount: number;
+          color: [number, number, number];
+        }
+      | {
+          kind: "mosaic";
+          frame: number;
+          duration: number;
+          start: number;
+          end: number;
+          step: number;
+        }
+      | {
+          kind: "visible";
+          frame: number;
+          visible: boolean;
+        }
+    >;
+    states?: Array<{
+      frame: number;
+      visible: boolean;
+      scaleX: number;
+      scaleY: number;
+      alpha: number;
+      tint: [number, number, number, number];
+      mosaic: number;
+    }>;
+  };
   cellEffectId?: string;
   cellEffect?: {
     charId: number;
@@ -127,6 +195,28 @@ export type MoveAnimationTimelineEvent = {
     origin?: [number, number, number];
     scale?: number;
     duration?: number;
+    catsArgs?: number[];
+    catsAddMode?: "callback" | "sprite";
+    catsSurfWave?: boolean;
+    catsActors?: Array<{
+      id: number;
+      capId: number;
+      funcId: number;
+      states: Array<{
+        frame: number;
+        sequenceIndex: number;
+        sequenceFrame: number;
+        x: number;
+        y: number;
+        scaleX: number;
+        scaleY: number;
+        rotation: number;
+        alpha: number;
+        visible: boolean;
+        flipX?: boolean;
+        flipY?: boolean;
+      }>;
+    }>;
     instances?: Array<{
       offset: [number, number, number];
       startFrame?: number;
@@ -151,6 +241,16 @@ export type MoveAnimationPreviewWarning = {
   message: string;
 };
 
+export type MoveAnimationPreviewBattleSceneLayer = NitroCellImage & {
+  left: number;
+  top: number;
+};
+
+export type MoveAnimationPreviewBattleScene = {
+  backdrop?: NitroBackgroundImage;
+  platforms: MoveAnimationPreviewBattleSceneLayer[];
+};
+
 export type MoveAnimationPreview = {
   moveId: number;
   frameCount: number;
@@ -160,6 +260,7 @@ export type MoveAnimationPreview = {
   spaArchives: Map<number, SpaArchive>;
   backgrounds: Map<number, NitroBackgroundImage>;
   cellEffects?: Map<string, NitroCellEffect>;
+  battleScene?: MoveAnimationPreviewBattleScene;
   backgroundPaletteAnimations?: Map<number, NitroBackgroundPaletteAnimation>;
   warnings: MoveAnimationPreviewWarning[];
 };

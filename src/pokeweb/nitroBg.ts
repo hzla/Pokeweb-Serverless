@@ -14,6 +14,7 @@ export type NitroBackgroundImage = {
 export type NitroBackgroundIndexedData = {
   entries: Uint16Array;
   tilePixels: Uint8Array[];
+  bitsPerPixel: 4 | 8;
   palette: NitroPaletteData;
   transparentIndexZero: boolean;
 };
@@ -40,6 +41,7 @@ type ScreenData = {
 
 type CharacterData = {
   tileCount: number;
+  bitsPerPixel: 4 | 8;
   pixels: Uint8Array[];
 };
 
@@ -57,6 +59,7 @@ export function parseNitroBackground(
   const indexed = {
     entries: screen.entries,
     tilePixels: characters.pixels,
+    bitsPerPixel: characters.bitsPerPixel,
     palette,
     transparentIndexZero: Boolean(options.transparentIndexZero),
   };
@@ -142,22 +145,28 @@ function parseCharacters(bytes: Uint8Array, warnings: string[]): CharacterData {
   const bitDepth = readU32(bytes, blockOffset + 12);
   const dataSize = readU32(bytes, blockOffset + 24);
   const dataOffset = blockOffset + 32;
-  if (bitDepth !== 3) warnings.push(`NCGR bit depth ${bitDepth} is approximated as 4bpp indexed tiles`);
+  if (bitDepth !== 3 && bitDepth !== 4) warnings.push(`NCGR bit depth ${bitDepth} is approximated as 4bpp indexed tiles`);
+  const bitsPerPixel = bitDepth === 4 ? 8 : 4;
+  const bytesPerTile = bitsPerPixel === 8 ? 64 : 32;
   const available = Math.min(dataSize, Math.max(0, bytes.length - dataOffset));
-  const tileCount = Math.floor(available / 32);
+  const tileCount = Math.floor(available / bytesPerTile);
   const pixels: Uint8Array[] = [];
   for (let tile = 0; tile < tileCount; tile += 1) {
     const out = new Uint8Array(64);
-    const base = dataOffset + tile * 32;
-    for (let i = 0; i < 32; i += 1) {
-      const value = bytes[base + i] ?? 0;
-      out[i * 2] = value & 0x0f;
-      out[i * 2 + 1] = value >>> 4;
+    const base = dataOffset + tile * bytesPerTile;
+    if (bitsPerPixel === 8) {
+      out.set(bytes.subarray(base, base + 64));
+    } else {
+      for (let i = 0; i < 32; i += 1) {
+        const value = bytes[base + i] ?? 0;
+        out[i * 2] = value & 0x0f;
+        out[i * 2 + 1] = value >>> 4;
+      }
     }
     pixels.push(out);
   }
   if (available < dataSize) warnings.push(`NCGR character data is truncated: ${available}/${dataSize} bytes`);
-  return { tileCount, pixels };
+  return { tileCount, bitsPerPixel, pixels };
 }
 
 function renderNitroBackgroundRgba(
@@ -177,7 +186,7 @@ function renderNitroBackgroundRgba(
       const paletteBank = (entry >>> 12) & 0x0f;
       const tile = indexed.tilePixels[tileIndex];
       if (!tile) continue;
-      if (drawTile(rgba, width, tileX * 8, tileY * 8, tile, indexed.palette, paletteBank, flipX, flipY, indexed.transparentIndexZero)) {
+      if (drawTile(rgba, width, tileX * 8, tileY * 8, tile, indexed.bitsPerPixel, indexed.palette, paletteBank, flipX, flipY, indexed.transparentIndexZero)) {
         hasTransparency = true;
       }
     }
@@ -192,6 +201,7 @@ function drawTile(
   x: number,
   y: number,
   tile: Uint8Array,
+  bitsPerPixel: 4 | 8,
   palette: NitroPaletteData,
   paletteBank: number,
   flipX: boolean,
@@ -213,7 +223,8 @@ function drawTile(
         transparent = true;
         continue;
       }
-      const color = palette[paletteBank * 16 + colorIndex] ?? palette[colorIndex] ?? [0, 0, 0, 0];
+      const paletteIndex = bitsPerPixel === 8 ? colorIndex : paletteBank * 16 + colorIndex;
+      const color = palette[paletteIndex] ?? palette[colorIndex] ?? [0, 0, 0, 0];
       rgba[offset] = color[0];
       rgba[offset + 1] = color[1];
       rgba[offset + 2] = color[2];

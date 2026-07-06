@@ -12,9 +12,22 @@ import { parseNitroPalette, type NitroPaletteData } from "./nitroBg";
 export type NitroCellEffectFrame = {
   index: number;
   duration: number;
+  cellIndex: number;
+  x: number;
+  y: number;
+  rotation: number;
+  xScale: number;
+  yScale: number;
   width: number;
   height: number;
   rgba: Uint8ClampedArray;
+};
+
+export type NitroCellEffectSequence = {
+  index: number;
+  loop: boolean;
+  totalFrames: number;
+  frames: NitroCellEffectFrame[];
 };
 
 export type NitroCellEffect = {
@@ -27,8 +40,20 @@ export type NitroCellEffect = {
   height: number;
   totalFrames: number;
   frames: NitroCellEffectFrame[];
-  sequences: NitroCellEffectFrame[][];
+  sequences: NitroCellEffectSequence[];
   warnings: string[];
+};
+
+export type NitroCellImage = {
+  id: string;
+  width: number;
+  height: number;
+  rgba: Uint8ClampedArray;
+  warnings: string[];
+};
+
+export type NitroCellEffectOptions = {
+  originCentered?: boolean;
 };
 
 type NitroCharacterData = {
@@ -55,6 +80,7 @@ export function parseNitroCellEffect(
   paletteBytes: Uint8Array,
   cellBytes: Uint8Array,
   animationBytes: Uint8Array,
+  options: NitroCellEffectOptions = {},
 ): NitroCellEffect {
   const warnings: string[] = [];
   const characters = parseNitroCharacters(decompressNitroIfNeeded(characterBytes), warnings);
@@ -62,36 +88,86 @@ export function parseNitroCellEffect(
   const cellBank = parsePokemonCellBank(decompressNitroIfNeeded(cellBytes));
   const animation = parsePokemonAnimation(decompressNitroIfNeeded(animationBytes));
   const fallbackFrame = { duration: 1, cellIndex: 0, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 } as PokemonAnimationFrame;
-  const animationSequences = animation.sequences.length ? animation.sequences.map((sequence) => (sequence.frames.length ? sequence.frames : [fallbackFrame])) : [[fallbackFrame]];
-  const bounds = renderBounds(cellBank.cells, animationSequences.flat());
-  const width = Math.max(1, bounds.maxX - bounds.minX);
-  const height = Math.max(1, bounds.maxY - bounds.minY);
+  const animationSequences = animation.sequences.length ? animation.sequences : [{ index: 0, mode: 0, frames: [fallbackFrame] }];
+  const allFrames = animationSequences.flatMap((sequence) => (sequence.frames.length ? sequence.frames : [fallbackFrame]));
+  const originCentered = options.originCentered ?? false;
+  const bounds = originCentered ? { minX: -128, minY: -128, maxX: 128, maxY: 128 } : renderBounds(cellBank.cells, allFrames);
+  const width = Math.max(1, Math.ceil(bounds.maxX - bounds.minX));
+  const height = Math.max(1, Math.ceil(bounds.maxY - bounds.minY));
   const renderInput: CellRenderInput = {
     characters,
     palette,
     cells: cellBank.cells,
-    animationFrames: animationSequences[0] ?? [fallbackFrame],
+    animationFrames: animationSequences[0]?.frames ?? [fallbackFrame],
     mappingMode: cellBank.mappingMode,
   };
-  const sequences = animationSequences.map((animationFrames) =>
-    animationFrames.map((frame, index) => ({
-      index,
-      duration: Math.max(1, frame.duration || 1),
-      width,
-      height,
-      rgba: renderCellFrame(renderInput, frame, width, height, bounds.minX, bounds.minY, warnings),
-    })),
-  );
-  const frames = sequences[0] ?? [];
+  const cellImageCache = new Map<number, Uint8ClampedArray>();
+  const sequences = animationSequences.map((sequence) => {
+    const frames = (sequence.frames.length ? sequence.frames : [fallbackFrame]).map((frame, index) => {
+      let rgba = originCentered ? cellImageCache.get(frame.cellIndex) : undefined;
+      if (!rgba) {
+        rgba = originCentered
+          ? renderCellFrame(renderInput, { ...fallbackFrame, cellIndex: frame.cellIndex }, width, height, bounds.minX, bounds.minY, warnings)
+          : renderCellFrame(renderInput, frame, width, height, bounds.minX, bounds.minY, warnings);
+        if (originCentered) cellImageCache.set(frame.cellIndex, rgba);
+      }
+      return {
+        index,
+        duration: Math.max(1, frame.duration || 1),
+        cellIndex: frame.cellIndex,
+        x: originCentered ? frame.x : 0,
+        y: originCentered ? frame.y : 0,
+        rotation: frame.rotation,
+        xScale: frame.xScale,
+        yScale: frame.yScale,
+        width,
+        height,
+        rgba,
+      };
+    });
+    return {
+      index: sequence.index,
+      loop: sequence.mode === 2 || sequence.mode === 4,
+      totalFrames: frames.reduce((sum, frame) => sum + frame.duration, 0),
+      frames,
+    };
+  });
+  const frames = sequences[0]?.frames ?? [];
   const totalFrames = frames.reduce((sum, frame) => sum + frame.duration, 0);
   return { id, charId, paletteId, cellId, animationId, width, height, totalFrames, frames, sequences, warnings };
 }
 
+export function parseNitroCellImage(
+  id: string,
+  characterBytes: Uint8Array,
+  paletteBytes: Uint8Array,
+  cellBytes: Uint8Array,
+  cellIndex = 0,
+  canvasSize = 256,
+): NitroCellImage {
+  const warnings: string[] = [];
+  const characters = parseNitroCharacters(decompressNitroIfNeeded(characterBytes), warnings);
+  const palette = parseNitroPalette(decompressNitroIfNeeded(paletteBytes), warnings);
+  const cellBank = parsePokemonCellBank(decompressNitroIfNeeded(cellBytes));
+  const renderInput: CellRenderInput = {
+    characters,
+    palette,
+    cells: cellBank.cells,
+    animationFrames: [],
+    mappingMode: cellBank.mappingMode,
+  };
+  const frame = { duration: 1, cellIndex, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 } as PokemonAnimationFrame;
+  const rgba = renderCellFrame(renderInput, frame, canvasSize, canvasSize, -canvasSize / 2, -canvasSize / 2, warnings);
+  return { id, width: canvasSize, height: canvasSize, rgba, warnings };
+}
+
 export function nitroCellEffectFrameAt(effect: NitroCellEffect, localFrame: number, sequenceIndex = 0): NitroCellEffectFrame | undefined {
-  const frames = effect.sequences[sequenceIndex]?.length ? effect.sequences[sequenceIndex] : effect.frames;
+  const sequence = effect.sequences[sequenceIndex] ?? effect.sequences[0];
+  const frames = sequence?.frames.length ? sequence.frames : effect.frames;
   if (frames.length === 0) return undefined;
   const total = Math.max(1, frames.reduce((sum, frame) => sum + frame.duration, 0));
-  let cursor = positiveModulo(Math.floor(localFrame), total);
+  let cursor = Math.floor(localFrame);
+  cursor = sequence?.loop ? positiveModulo(cursor, total) : Math.max(0, Math.min(total - 1, cursor));
   for (const frame of frames) {
     if (cursor < frame.duration) return frame;
     cursor -= frame.duration;

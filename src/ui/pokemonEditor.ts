@@ -20,6 +20,7 @@ import {
   type TutorCompatibilitySlot,
 } from "../pokeweb/pokemonModel";
 import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
+import { getPokemonSpriteImage, resolvePokemonSpriteId, type RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
@@ -43,6 +44,8 @@ const ICONS: Record<string, string> = {
   evos: evoIcon,
   personal: miscDataIcon,
 };
+const POKEMON_CARD_SPRITE_RENDER_VERSION = "personal-front-sprite-v1";
+const pokemonCardSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 
 export function renderPokemonEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenSprites?: (speciesId: number) => void, onOpenPwan?: (speciesId: number) => void): void {
   root.innerHTML = `
@@ -87,6 +90,7 @@ export function renderPokemonEditor(project: ProjectState, root: HTMLElement, on
     autofills: getPokemonAutofills(project),
   });
   attachW2uSyncButton(root, project);
+  installPokemonCardSpriteRendering(project, root);
 }
 
 export function renderPokemonExpandedSections(project: ProjectState, speciesId: number): string {
@@ -112,7 +116,7 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
       <div class="pokemon-card__info">
         <div class="pokemon-card__header">
           <div class="pokemon-card__img">
-            <img src="${publicAsset(`images/pokesprite/${pokemonSpriteSlug(name)}.png`)}" alt="" onerror="this.style.display='none'">
+            ${renderPokemonCardSprite(project, record.id, name)}
           </div>
         </div>
         <div class="pokemon-card__name">#${record.id} ${escapeHtml(titleize(name))}</div>
@@ -144,6 +148,100 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
       </div>
     </div>
   `;
+}
+
+function renderPokemonCardSprite(project: ProjectState, speciesId: number, name: string): string {
+  const fallbackSrc = publicAsset(`images/pokesprite/${pokemonSpriteSlug(name)}.png`);
+  const fallback = `<img class="pokemon-card-fallback-sprite" src="${fallbackSrc}" alt="" loading="lazy" onerror="this.style.display='none'">`;
+  if (!project.narcs.pokemon_sprites) return fallback;
+  try {
+    const spriteId = resolvePokemonSpriteId(project, speciesId, 0);
+    return `<canvas class="pokemon-card-rom-sprite" data-pokemon-sprite-id="${spriteId}" data-pokemon-sprite-version="${POKEMON_CARD_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>${fallback}`;
+  } catch {
+    return fallback;
+  }
+}
+
+function installPokemonCardSpriteRendering(project: ProjectState, root: HTMLElement): void {
+  pokemonCardSpriteInstallations.get(root)?.disconnect();
+  if (!project.narcs.pokemon_sprites) return;
+
+  const imageCache = new Map<number, Promise<RgbaImageData | undefined>>();
+  const loadImage = (spriteId: number): Promise<RgbaImageData | undefined> => {
+    let cached = imageCache.get(spriteId);
+    if (!cached) {
+      cached = Promise.resolve()
+        .then(() => getPokemonSpriteImage(project, spriteId, { kind: "sprite", side: "front", gender: "male" }, "normal"))
+        .catch((error) => {
+          console.warn(`Failed to render Pokemon sprite ${spriteId}`, error);
+          return undefined;
+        });
+      imageCache.set(spriteId, cached);
+    }
+    return cached;
+  };
+
+  const renderCanvas = async (canvas: HTMLCanvasElement): Promise<void> => {
+    if (
+      (canvas.dataset.pokemonSpriteRendered === "true" && canvas.dataset.pokemonSpriteVersion === POKEMON_CARD_SPRITE_RENDER_VERSION) ||
+      canvas.dataset.pokemonSpriteRendered === "loading"
+    ) {
+      return;
+    }
+    const spriteId = Number(canvas.dataset.pokemonSpriteId);
+    if (!Number.isInteger(spriteId)) return;
+    canvas.dataset.pokemonSpriteVersion = POKEMON_CARD_SPRITE_RENDER_VERSION;
+    canvas.dataset.pokemonSpriteRendered = "loading";
+    const image = await loadImage(spriteId);
+    if (!canvas.isConnected) return;
+    if (!image) {
+      canvas.hidden = true;
+      canvas.dataset.pokemonSpriteRendered = "missing";
+      return;
+    }
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const pixels = new Uint8ClampedArray(image.pixels.length);
+    pixels.set(image.pixels);
+    canvas.getContext("2d")?.putImageData(new ImageData(pixels, image.width, image.height), 0, 0);
+    canvas.classList.add("-loaded");
+    canvas.closest<HTMLElement>(".pokemon-card__img")?.classList.add("-rom-loaded");
+    canvas.dataset.pokemonSpriteRendered = "true";
+  };
+
+  const intersectionObserver =
+    typeof IntersectionObserver === "undefined"
+      ? undefined
+      : new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const canvas = entry.target as HTMLCanvasElement;
+            intersectionObserver?.unobserve(canvas);
+            void renderCanvas(canvas);
+          }
+        });
+
+  const observeCanvas = (canvas: HTMLCanvasElement): void => {
+    if (canvas.dataset.pokemonSpriteObserved === "true") return;
+    canvas.dataset.pokemonSpriteObserved = "true";
+    if (intersectionObserver) intersectionObserver.observe(canvas);
+    else void renderCanvas(canvas);
+  };
+
+  const scan = (): void => {
+    root.querySelectorAll<HTMLCanvasElement>("canvas.pokemon-card-rom-sprite").forEach(observeCanvas);
+  };
+
+  const mutationObserver = new MutationObserver(scan);
+  mutationObserver.observe(root, { childList: true, subtree: true });
+  scan();
+
+  pokemonCardSpriteInstallations.set(root, {
+    disconnect: () => {
+      intersectionObserver?.disconnect();
+      mutationObserver.disconnect();
+    },
+  });
 }
 
 function renderCascadeAbilitySlots(project: ProjectState, speciesId: number): string {
