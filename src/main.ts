@@ -299,6 +299,7 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app element");
 const appRoot = app;
+const defaultDocumentTitle = document.title;
 
 let project: ProjectState | undefined;
 let route: AppRoute = "upload";
@@ -371,6 +372,7 @@ window.addEventListener("popstate", (event) => {
 });
 
 function renderApp(): void {
+  syncDocumentTitle();
   route = safeRoute(route);
   appRoot.innerHTML = `
     ${renderNav()}
@@ -1566,6 +1568,10 @@ function hydrateProject(nextProject: ProjectState | undefined): void {
   nextProject.docs.trainerDiffs ??= {};
   nextProject.docs.itemLocations ??= {};
   nextProject.docs.groundItemScriptMap ??= {};
+}
+
+function syncDocumentTitle(currentProject: ProjectState | undefined = project): void {
+  document.title = currentProject?.session.romName ? `Pokeweb - ${currentProject.session.romName}` : defaultDocumentTitle;
 }
 
 function repairedRomFilename(fileName: string): string {

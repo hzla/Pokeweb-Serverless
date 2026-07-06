@@ -127,6 +127,17 @@ describe("moveAnimationPreviewModel", () => {
     expect(preview.timeline.find((event) => event.command === "ChangeBackgroundColor")?.message).toContain("rgb555(31, 0, 0)");
   });
 
+  it("decodes 8bpp Nitro background character tiles", () => {
+    const [screen, characters, palette] = makeSyntheticBackgroundFiles8bpp();
+    const background = parseNitroBackground(99, screen, characters, palette);
+
+    expect(background.indexed.bitsPerPixel).toBe(8);
+    expect(background.width).toBe(16);
+    expect(background.height).toBe(16);
+    expect([...background.rgba.slice(0, 4)]).toEqual([0, 255, 0, 255]);
+    expect(background.warnings).not.toEqual(expect.arrayContaining([expect.stringContaining("bit depth 4")]));
+  });
+
   it("models camera commands as supported timeline events and shared camera state", async () => {
     const project = makeProject();
     const preview = await buildMoveAnimationPreview(
@@ -464,6 +475,30 @@ describe("moveAnimationPreviewModel", () => {
     expect(particle?.tiltScale).toBe(1);
   });
 
+  it("keeps DSPRE screen billboard particles on their authored angle", () => {
+    const bytes = makeSyntheticSpa();
+    const authoredAngle = (216 * Math.PI) / 180;
+    writeU16(bytes, 32 + 56, Math.round((authoredAngle / (Math.PI * 2)) * 65535));
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0].particle = {
+      sourceTarget: 3,
+      destinationTarget: 4,
+      axis: [1, 0, 0],
+      alignToMotion: true,
+      alignDirection: [20, 0, 0],
+      alignRotationOffset: -Math.PI / 2,
+      forceFollowMotion: true,
+      dspreScreenRotation: true,
+      originMotion: { from: [0, 0, 0], to: [20, 0, 0], duration: 10, easing: "linear" },
+    };
+
+    const particle = simulateSplPreview(preview, 2)[0];
+    expect(particle?.drawType).toBe(0);
+    expect(particle?.sourceDrawType).toBe(0);
+    expect(particle?.rotation).toBeCloseTo(authoredAngle + Math.PI, 3);
+  });
+
   it("adds command-driven DistortSprite hit overlay particles", () => {
     const archive = parseSpaArchive(makeSyntheticSpa());
     const preview = makeSyntheticPreview(archive);
@@ -695,6 +730,51 @@ function makeSyntheticBackgroundFiles(): [Uint8Array, Uint8Array, Uint8Array] {
   writeU32(palette, 20, palette.length - 16);
   writeU32(palette, 32, 32);
   writeU16(palette, 42, 0x001f);
+  return [screen, characters, palette];
+}
+
+function makeSyntheticBackgroundFiles8bpp(): [Uint8Array, Uint8Array, Uint8Array] {
+  const screen = new Uint8Array(0x24 + 8);
+  writeAscii(screen, 0, "RCSN");
+  writeU16(screen, 4, 0xfeff);
+  writeU16(screen, 6, 1);
+  writeU32(screen, 8, screen.length);
+  writeU16(screen, 12, 16);
+  writeU16(screen, 14, 1);
+  writeAscii(screen, 16, "NRCS");
+  writeU32(screen, 20, screen.length - 16);
+  writeU16(screen, 24, 16);
+  writeU16(screen, 26, 16);
+  writeU32(screen, 32, 8);
+  writeU16(screen, 36, 1);
+  writeU16(screen, 38, 1);
+  writeU16(screen, 40, 1);
+  writeU16(screen, 42, 1);
+
+  const characters = new Uint8Array(0x30 + 128);
+  writeAscii(characters, 0, "RGCN");
+  writeU16(characters, 4, 0xfeff);
+  writeU16(characters, 6, 1);
+  writeU32(characters, 8, characters.length);
+  writeU16(characters, 12, 16);
+  writeU16(characters, 14, 1);
+  writeAscii(characters, 16, "RAHC");
+  writeU32(characters, 20, characters.length - 16);
+  writeU32(characters, 28, 4);
+  writeU32(characters, 40, 128);
+  characters.fill(2, 0x30 + 64, 0x30 + 128);
+
+  const palette = new Uint8Array(0x28 + 512);
+  writeAscii(palette, 0, "RLCN");
+  writeU16(palette, 4, 0xfeff);
+  writeU16(palette, 6, 1);
+  writeU32(palette, 8, palette.length);
+  writeU16(palette, 12, 16);
+  writeU16(palette, 14, 1);
+  writeAscii(palette, 16, "TTLP");
+  writeU32(palette, 20, palette.length - 16);
+  writeU32(palette, 32, 512);
+  writeU16(palette, 44, 0x03e0);
   return [screen, characters, palette];
 }
 

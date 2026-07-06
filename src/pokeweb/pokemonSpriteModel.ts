@@ -1,6 +1,7 @@
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
+import { pokemonFormLabel } from "./pokemonFormLabels";
 import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "./pokemonLabels";
 import {
   buildPokemonAnimationFile,
@@ -164,9 +165,10 @@ export function getPokemonSpriteFormOptions(project: ProjectState, speciesId: nu
   }
   const record = decodeRecord(project, "personal", speciesId);
   const formCount = Math.max(1, Number(record.raw?.num_forms ?? 1));
+  const baseLabel = pokemonSpeciesLabel(project, speciesId);
   return Array.from({ length: formCount }, (_, formIndex) => ({
     formIndex,
-    label: formIndex === 0 ? "Base Form" : `Form ${formIndex}`,
+    label: formIndex === 0 ? "Base Form" : pokemonFormLabel(baseLabel, formIndex),
     spriteId: resolvePokemonSpriteId(project, speciesId, formIndex),
   }));
 }

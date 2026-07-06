@@ -200,6 +200,7 @@ function renderPreviewShell(preview: MoveAnimationPreview, initialPlaying: boole
 type StageActor = {
   sprite: import("three").Sprite;
   base: [number, number, number];
+  baseScale: [number, number, number];
 };
 
 type StageActors = {
@@ -228,8 +229,8 @@ function makeStage(THREE: ThreeModule): { group: import("three").Group; actors: 
   return {
     group,
     actors: {
-      user: { sprite: user, base: [user.position.x, user.position.y, user.position.z] },
-      target: { sprite: target, base: [target.position.x, target.position.y, target.position.z] },
+      user: { sprite: user, base: [user.position.x, user.position.y, user.position.z], baseScale: [user.scale.x, user.scale.y, user.scale.z] },
+      target: { sprite: target, base: [target.position.x, target.position.y, target.position.z], baseScale: [target.scale.x, target.scale.y, target.scale.z] },
     },
   };
 }
@@ -260,6 +261,11 @@ type EffectSprite = {
   material: import("three").MeshBasicMaterial;
 };
 
+type CapSprite = {
+  sprite: import("three").Sprite;
+  material: import("three").SpriteMaterial;
+};
+
 function createEffects(
   THREE: ThreeModule,
   preview: MoveAnimationPreview,
@@ -269,8 +275,10 @@ function createEffects(
 ): EffectRenderer {
   const effects: EffectSprite[] = [];
   const cellSprites: EffectSprite[] = [];
+  const capSprites: CapSprite[] = [];
   const textureCache = new Map<string, import("three").CanvasTexture>();
   const cellTextureCache = new Map<string, import("three").DataTexture>();
+  const capTextureCache = new Map<"user" | "target", import("three").CanvasTexture>();
   const fallback = fallbackTexture(THREE);
   const circle = circleTexture(THREE);
   const geometry = new THREE.PlaneGeometry(1, 1);
@@ -333,13 +341,35 @@ function createEffects(
       effect.mesh.position.set(cell.position[0], cell.position[1], cell.position[2]);
       effect.mesh.quaternion.copy(camera.quaternion);
       effect.mesh.rotateZ(cell.rotation);
-      effect.mesh.scale.set(cell.frame.width * cell.scale * 0.18, cell.frame.height * cell.scale * 0.18, 1);
+      effect.mesh.scale.set(cell.frame.width * cell.scale[0] * 0.18, cell.frame.height * cell.scale[1] * 0.18, 1);
       effect.material.map = texture;
       effect.material.color.setRGB(1, 1, 1);
       effect.material.opacity = cell.opacity;
       effect.material.needsUpdate = true;
     }
     for (let index = cells.length; index < cellSprites.length; index += 1) cellSprites[index].mesh.visible = false;
+    const caps = visibleCapEffects(preview, frame);
+    for (let index = 0; index < caps.length; index += 1) {
+      const cap = caps[index];
+      const sprite = capSprites[index] ?? ensureCapSprite();
+      const source = actors[cap.source];
+      sprite.material.map = getCapTexture(cap.source);
+      sprite.sprite.position.set(source.base[0], source.base[1], source.base[2] + 0.35 + index * 0.02);
+      const mosaicScale = 1 + Math.max(0, cap.state.mosaic) * 0.015;
+      sprite.sprite.scale.set(
+        source.baseScale[0] * cap.state.scaleX * mosaicScale,
+        source.baseScale[1] * cap.state.scaleY * mosaicScale,
+        source.baseScale[2],
+      );
+      sprite.material.opacity = cap.state.alpha;
+      sprite.material.color.setRGB(
+        1 + (cap.state.tint[0] - 1) * cap.state.tint[3],
+        1 + (cap.state.tint[1] - 1) * cap.state.tint[3],
+        1 + (cap.state.tint[2] - 1) * cap.state.tint[3],
+      );
+      sprite.sprite.visible = cap.state.visible && cap.state.alpha > 0.01;
+    }
+    for (let index = caps.length; index < capSprites.length; index += 1) capSprites[index].sprite.visible = false;
   };
 
   const ensureCellSprite = (): EffectSprite => {
@@ -359,7 +389,7 @@ function createEffects(
   };
 
   const getCellTexture = (effectId: string, sequenceIndex: number, frame: NitroCellEffectFrame): import("three").DataTexture => {
-    const key = `${effectId}:${sequenceIndex}:${frame.index}`;
+    const key = `${effectId}:${sequenceIndex}:${frame.index}:${frame.cellIndex}`;
     const cached = cellTextureCache.get(key);
     if (cached) return cached;
     const texture = new THREE.DataTexture(frame.rgba, frame.width, frame.height);
@@ -367,6 +397,25 @@ function createEffects(
     texture.flipY = true;
     texture.needsUpdate = true;
     cellTextureCache.set(key, texture);
+    return texture;
+  };
+
+  const ensureCapSprite = (): CapSprite => {
+    const material = new THREE.SpriteMaterial({ map: fallback, transparent: true, opacity: 1, depthWrite: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.visible = false;
+    sprite.renderOrder = 40000 + capSprites.length;
+    root.add(sprite);
+    const cap = { sprite, material };
+    capSprites.push(cap);
+    return cap;
+  };
+
+  const getCapTexture = (source: "user" | "target"): import("three").CanvasTexture => {
+    const cached = capTextureCache.get(source);
+    if (cached) return cached;
+    const texture = labelTexture(THREE, source === "user" ? "USER" : "TARGET", source === "user" ? 0x6fc9ff : 0xff9f65);
+    capTextureCache.set(source, texture);
     return texture;
   };
 
@@ -383,6 +432,11 @@ function createEffects(
         root.remove(effect.mesh);
       }
       for (const texture of cellTextureCache.values()) texture.dispose();
+      for (const cap of capSprites) {
+        cap.material.dispose();
+        root.remove(cap.sprite);
+      }
+      for (const texture of capTextureCache.values()) texture.dispose();
       fallback.dispose();
       circle.dispose();
       geometry.dispose();
@@ -394,7 +448,17 @@ function updateActors(preview: MoveAnimationPreview, actors: StageActors, frame:
   for (const target of ["user", "target"] as const) {
     const actor = actors[target];
     const offset = actorMotionOffset(preview, target, frame);
+    const visual = actorVisualState(preview, target, frame);
     actor.sprite.position.set(actor.base[0] + offset[0], actor.base[1] + offset[1], actor.base[2] + offset[2]);
+    actor.sprite.scale.set(actor.baseScale[0] * visual.scale[0], actor.baseScale[1] * visual.scale[1], actor.baseScale[2]);
+    actor.sprite.material.rotation = visual.rotation;
+    actor.sprite.material.opacity = visual.opacity;
+    actor.sprite.material.color.setRGB(
+      1 + (visual.tint[0] - 1) * visual.tint[3],
+      1 + (visual.tint[1] - 1) * visual.tint[3],
+      1 + (visual.tint[2] - 1) * visual.tint[3],
+    );
+    actor.sprite.visible = visual.visible && visual.opacity > 0.01;
   }
 }
 
@@ -409,6 +473,36 @@ function actorMotionOffset(preview: MoveAnimationPreview, target: "user" | "targ
     out[0] += motion.offset[0] * eased;
     out[1] += motion.offset[1] * eased;
     out[2] += motion.offset[2] * eased;
+  }
+  return out;
+}
+
+function actorVisualState(
+  preview: MoveAnimationPreview,
+  target: "user" | "target",
+  frame: number,
+): { visible: boolean; opacity: number; tint: [number, number, number, number]; scale: [number, number]; rotation: number } {
+  const out = {
+    visible: true,
+    opacity: 1,
+    tint: [1, 1, 1, 0] as [number, number, number, number],
+    scale: [1, 1] as [number, number],
+    rotation: 0,
+  };
+  for (const event of preview.timeline) {
+    const visual = event.actorVisual;
+    if (!visual || visual.target !== target || frame < event.frame) continue;
+    const duration = Math.max(1, visual.duration ?? 1);
+    const localFrame = frame - event.frame;
+    if (!visual.persist && localFrame > duration) continue;
+    if (visual.visible !== undefined) out.visible = visual.visible;
+    if (visual.opacity !== undefined) out.opacity *= Math.max(0, Math.min(1, visual.opacity));
+    if (visual.tint) out.tint = visual.tint;
+    if (visual.scale) {
+      out.scale[0] *= visual.scale[0];
+      out.scale[1] *= visual.scale[1];
+    }
+    if (visual.rotation !== undefined) out.rotation += visual.rotation;
   }
   return out;
 }
@@ -429,7 +523,7 @@ function visibleCellEffects(preview: MoveAnimationPreview, frame: number): Array
   effect: NonNullable<MoveAnimationPreview["cellEffects"]> extends Map<string, infer T> ? T : never;
   frame: NitroCellEffectFrame;
   position: [number, number, number];
-  scale: number;
+  scale: [number, number];
   opacity: number;
   sequenceIndex: number;
   rotation: number;
@@ -438,7 +532,7 @@ function visibleCellEffects(preview: MoveAnimationPreview, frame: number): Array
     effect: NonNullable<MoveAnimationPreview["cellEffects"]> extends Map<string, infer T> ? T : never;
     frame: NitroCellEffectFrame;
     position: [number, number, number];
-    scale: number;
+    scale: [number, number];
     opacity: number;
     sequenceIndex: number;
     rotation: number;
@@ -451,10 +545,31 @@ function visibleCellEffects(preview: MoveAnimationPreview, frame: number): Array
     if (localFrame < 0 || localFrame > duration) continue;
     const effect = preview.cellEffects?.get(event.cellEffectId);
     if (!effect) continue;
+    if (event.cellEffect.catsActors?.length) {
+      for (const actor of event.cellEffect.catsActors) {
+        const state = actor.states[Math.min(actor.states.length - 1, localFrame)] ?? actor.states[actor.states.length - 1];
+        if (!state?.visible || state.alpha <= 0) continue;
+        const frameEntry = effect.sequences[state.sequenceIndex]?.frames[state.sequenceFrame] ?? nitroCellEffectFrameAt(effect, state.sequenceFrame, state.sequenceIndex);
+        if (!frameEntry) continue;
+        out.push({
+          effect,
+          frame: frameEntry,
+          position: catsScreenToWorld(state.x + frameEntry.x, state.y + frameEntry.y),
+          scale: [
+            (state.flipX ? -1 : 1) * state.scaleX * frameEntry.xScale,
+            (state.flipY ? -1 : 1) * state.scaleY * frameEntry.yScale,
+          ],
+          opacity: Math.max(0, Math.min(1, state.alpha)),
+          sequenceIndex: state.sequenceIndex,
+          rotation: ((state.rotation + frameEntry.rotation) * Math.PI) / 180,
+        });
+      }
+      continue;
+    }
     const sequence = cellEffectSequence(event, localFrame);
     const frameEntry = nitroCellEffectFrameAt(effect, sequence.frame, sequence.index);
     if (!frameEntry) continue;
-    const basePosition = cellEffectPosition(event, localFrame);
+    const basePosition = addVec3(cellEffectPosition(event, localFrame), cellFrameWorldOffset(frameEntry));
     const instances = event.cellEffect.instances?.length ? event.cellEffect.instances : [{ offset: [0, 0, 0] as [number, number, number] }];
     for (const instance of instances) {
       const opacity = cellEffectOpacity(event, localFrame, duration, instance);
@@ -463,14 +578,53 @@ function visibleCellEffects(preview: MoveAnimationPreview, frame: number): Array
         effect,
         frame: frameEntry,
         position: [basePosition[0] + instance.offset[0], basePosition[1] + instance.offset[1], basePosition[2] + instance.offset[2]],
-        scale: event.cellEffect.scale ?? 1,
+        scale: [(event.cellEffect.scale ?? 1) * frameEntry.xScale, (event.cellEffect.scale ?? 1) * frameEntry.yScale],
         opacity,
         sequenceIndex: sequence.index,
-        rotation: cellEffectRotation(event, localFrame),
+        rotation: cellEffectRotation(event, localFrame) + (frameEntry.rotation * Math.PI) / 180,
       });
     }
   }
   return out;
+}
+
+function visibleCapEffects(preview: MoveAnimationPreview, frame: number): Array<{
+  source: "user" | "target";
+  state: NonNullable<NonNullable<MoveAnimationPreview["timeline"][number]["capEffect"]>["states"]>[number];
+}> {
+  const out: Array<{
+    source: "user" | "target";
+    state: NonNullable<NonNullable<MoveAnimationPreview["timeline"][number]["capEffect"]>["states"]>[number];
+  }> = [];
+  const targetFrame = Math.max(0, Math.round(frame));
+  for (const event of preview.timeline) {
+    if (event.effectKind !== "cap" || !event.capEffect?.states?.length) continue;
+    const localFrame = targetFrame - event.frame;
+    const duration = Math.max(1, event.capEffect.duration ?? event.capEffect.states.length - 1);
+    if (localFrame < 0 || localFrame > duration) continue;
+    const state = event.capEffect.states[Math.min(event.capEffect.states.length - 1, localFrame)];
+    if (!state?.visible || state.alpha <= 0.01) continue;
+    out.push({ source: event.capEffect.source, state });
+  }
+  return out;
+}
+
+function catsScreenToWorld(x: number, y: number): [number, number, number] {
+  const sx = (x - 63) / (192 - 63);
+  const sy = (y - 64) / (124 - 64);
+  return [
+    mix(USER_BATTLE_ANCHOR[0], TARGET_BATTLE_ANCHOR[0], sx),
+    mix(TARGET_BATTLE_ANCHOR[1], USER_BATTLE_ANCHOR[1], sy),
+    mix(TARGET_BATTLE_ANCHOR[2], USER_BATTLE_ANCHOR[2], sy),
+  ];
+}
+
+function cellFrameWorldOffset(frame: NitroCellEffectFrame): [number, number, number] {
+  return [frame.x * 0.18, -frame.y * 0.18, 0];
+}
+
+function addVec3(left: readonly [number, number, number], right: readonly [number, number, number]): [number, number, number] {
+  return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
 }
 
 function cellEffectPosition(event: MoveAnimationPreview["timeline"][number], localFrame: number): [number, number, number] {
@@ -601,7 +755,21 @@ function billboardMatrix(
   const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
   const viewAxis = camera.position.clone().sub(position).normalize();
   const basis = new THREE.Matrix4().makeBasis(right, up, viewAxis);
-  return basis.multiply(new THREE.Matrix4().makeRotationZ(particle.rotation));
+  return basis.multiply(new THREE.Matrix4().makeRotationZ(billboardRotation(THREE, particle, right, up)));
+}
+
+function billboardRotation(
+  THREE: ThreeModule,
+  particle: SplFrameParticle,
+  right: import("three").Vector3,
+  up: import("three").Vector3,
+): number {
+  if (!particle.alignToMotion || (particle.dspreScreenRotation && particle.sourceDrawType === 0)) return particle.rotation;
+  const velocity = vectorFromTuple(THREE, particle.velocity);
+  const x = velocity.dot(right);
+  const y = velocity.dot(up);
+  if (Math.hypot(x, y) < 0.00001) return particle.rotation;
+  return Math.atan2(y, x) + (particle.alignRotationOffset ?? 0) + (particle.authoredRotation ?? 0);
 }
 
 function directionalBillboardMatrix(THREE: ThreeModule, particle: SplFrameParticle, camera: import("three").PerspectiveCamera): import("three").Matrix4 {
@@ -617,7 +785,7 @@ function directionalBillboardMatrix(THREE: ThreeModule, particle: SplFramePartic
   const dot = Math.abs(velocityDir.dot(forward.clone().multiplyScalar(-1)));
   const yScale = 1 + (1 - dot) * particle.directionalBillboardScale;
   const basis = new THREE.Matrix4().makeBasis(xAxis, yAxis.multiplyScalar(yScale), forward);
-  return basis;
+  return basis.multiply(new THREE.Matrix4().makeRotationZ(particle.authoredRotation ?? 0));
 }
 
 function polygonMatrix(THREE: ThreeModule, particle: SplFrameParticle): import("three").Matrix4 {
@@ -675,6 +843,7 @@ function createBackgroundController(preview: MoveAnimationPreview, canvas: HTMLC
   let height = 1;
   let lastKey = "";
   let sourceImageCache = new Map<number, ImageData>();
+  let battleLayerCanvasCache = new Map<string, HTMLCanvasElement>();
   const loadEvents = preview.timeline.filter((event) => event.command === "LoadBackground" && event.backgroundId !== undefined).sort((a, b) => a.frame - b.frame);
   const moveEvents = preview.timeline.filter((event) => event.command === "MoveBackground").sort((a, b) => a.frame - b.frame);
   const fadeEvents = preview.timeline.filter((event) => event.command === "ChangeBackgroundColor").sort((a, b) => a.frame - b.frame);
@@ -690,7 +859,7 @@ function createBackgroundController(preview: MoveAnimationPreview, canvas: HTMLC
     if (key === lastKey) return;
     lastKey = key;
     context.clearRect(0, 0, width, height);
-    drawDefaultBattleBackdrop(context, width, height, cameraState);
+    drawBattleSceneBackdrop(context, preview, width, height, cameraState, battleLayerCanvasCache);
     if (!state.visible || state.opacity <= 0.01) {
       drawTintOverlay(context, width, height, state.tintColor, state.tintAmount);
       drawTintOverlay(context, width, height, state.overlayColor, state.overlayAmount);
@@ -740,6 +909,7 @@ function createBackgroundController(preview: MoveAnimationPreview, canvas: HTMLC
     update: draw,
     destroy: () => {
       sourceImageCache = new Map();
+      battleLayerCanvasCache = new Map();
     },
   };
 }
@@ -1005,9 +1175,78 @@ function drawDefaultBattleBackdrop(context: CanvasRenderingContext2D, width: num
   sky.addColorStop(1, "#2d6251");
   context.fillStyle = sky;
   context.fillRect(0, 0, width, height);
+  drawDefaultBattlePlatforms(context, width, height);
+  context.restore();
+}
+
+function drawBattleSceneBackdrop(
+  context: CanvasRenderingContext2D,
+  preview: MoveAnimationPreview,
+  width: number,
+  height: number,
+  cameraState: BattleCameraState,
+  cache: Map<string, HTMLCanvasElement>,
+): void {
+  const battleScene = preview.battleScene;
+  if (!battleScene) {
+    drawDefaultBattleBackdrop(context, width, height, cameraState);
+    return;
+  }
+  context.save();
+  const focusX = width * cameraState.backdropFocus[0];
+  const focusY = height * cameraState.backdropFocus[1];
+  context.translate(width / 2 + cameraState.backdropOffset[0] * width + cameraState.shake[0] * width, height / 2 + cameraState.backdropOffset[1] * height + cameraState.shake[1] * height);
+  context.scale(cameraState.backdropZoom, cameraState.backdropZoom);
+  context.translate(-focusX, -focusY);
+  context.imageSmoothingEnabled = false;
+  if (battleScene.backdrop) {
+    const backdropCanvas = canvasForRgbaLayer(cache, `backdrop:${battleScene.backdrop.datId}`, battleScene.backdrop.width, battleScene.backdrop.height, battleScene.backdrop.rgba);
+    context.drawImage(backdropCanvas, 0, 0, Math.min(256, battleScene.backdrop.width), Math.min(192, battleScene.backdrop.height), 0, 0, width, height);
+  } else {
+    const sky = context.createLinearGradient(0, 0, 0, height);
+    sky.addColorStop(0, "#5f88e6");
+    sky.addColorStop(0.38, "#bbc8e8");
+    sky.addColorStop(0.56, "#8aa16d");
+    sky.addColorStop(1, "#2d6251");
+    context.fillStyle = sky;
+    context.fillRect(0, 0, width, height);
+  }
+  if (battleScene.platforms.length > 0) {
+    for (const layer of battleScene.platforms) {
+      const layerCanvas = canvasForRgbaLayer(cache, layer.id, layer.width, layer.height, layer.rgba);
+      context.drawImage(
+        layerCanvas,
+        (layer.left / 256) * width,
+        (layer.top / 192) * height,
+        (layer.width / 256) * width,
+        (layer.height / 192) * height,
+      );
+    }
+  } else {
+    drawDefaultBattlePlatforms(context, width, height);
+  }
+  context.restore();
+}
+
+function drawDefaultBattlePlatforms(context: CanvasRenderingContext2D, width: number, height: number): void {
   drawBattlePlatform(context, width * 0.67, height * 0.49, width * 0.29, height * 0.11, "#276e5a", "#18493c");
   drawBattlePlatform(context, width * 0.18, height * 0.86, width * 0.44, height * 0.15, "#1f6c61", "#164940");
-  context.restore();
+}
+
+function canvasForRgbaLayer(cache: Map<string, HTMLCanvasElement>, id: string, width: number, height: number, rgba: Uint8ClampedArray): HTMLCanvasElement {
+  const key = `${id}:${width}:${height}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const image = new ImageData(new Uint8ClampedArray(rgba), width, height);
+    context.putImageData(image, 0, 0);
+  }
+  cache.set(key, canvas);
+  return canvas;
 }
 
 function drawBattlePlatform(

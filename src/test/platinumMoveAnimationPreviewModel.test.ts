@@ -1,9 +1,11 @@
+import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { writeU16, writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NARC } from "../nds/narc";
-import { compilePlatinumMoveAnimationScript, loadPlatinumMoveAnimationRom } from "../pokeweb/platinumMoveAnimationModel";
+import { compilePlatinumMoveAnimationScript, decompilePlatinumMoveAnimation, loadPlatinumMoveAnimationRom } from "../pokeweb/platinumMoveAnimationModel";
 import { buildPlatinumMoveAnimationPreview } from "../pokeweb/platinumMoveAnimationPreviewModel";
+import { simulateSplPreview } from "../pokeweb/splEmitterSimulator";
 
 describe("platinumMoveAnimationPreviewModel", () => {
   it("renders loaded Platinum particle emitters through the shared preview contract", async () => {
@@ -153,6 +155,8 @@ pt_we_000:
     expect(preview.backgrounds.get(0)?.width).toBe(16);
     expect(preview.backgrounds.get(0)?.height).toBe(16);
     expect(preview.backgrounds.get(0)?.frameImages).toHaveLength(3);
+    expect(preview.battleScene?.backdrop?.width).toBe(16);
+    expect(preview.battleScene?.backdrop?.height).toBe(16);
     expect(preview.timeline).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ command: "LoadBackground", backgroundId: 0, backgroundFrameIndex: 0, status: "supported" }),
@@ -177,6 +181,145 @@ pt_we_000:
     );
 
     expect(preview.timeline).toEqual(expect.arrayContaining([expect.objectContaining({ command: "LoadBackground", backgroundId: 2, backgroundFrameIndex: 2 })]));
+  });
+
+  it("uses DSPRE WEST field-operator EX_DATA for Platinum particle placement", async () => {
+    const state = makePreviewState();
+    const preview = await buildPlatinumMoveAnimationPreview(
+      state,
+      0,
+      `
+pt_we_000:
+    LoadParticleSystem 0, 0
+    CreateEmitter 0, 0, 17
+    SetExtraParams 6, 0, 2, 1, 1, 0, 0
+    End
+`,
+    );
+
+    const emitter = preview.timeline.find((event) => event.command === "CreateEmitter");
+    expect(emitter?.particle?.origin).toEqual([-18, 12, 18]);
+    expect(emitter?.particle?.axis?.[0]).toBeGreaterThan(0);
+    expect(emitter?.particle?.alignToMotion).toBe(true);
+    expect(emitter?.particle?.forceAxisRotation).toBe(true);
+    expect(emitter?.particle?.extendToDestination).toBe(true);
+    expect(emitter?.particle?.alignRotationOffset).toBeCloseTo(-Math.PI / 2);
+    expect(emitter?.message).toContain("field operator");
+  });
+
+  it("uses DSPRE fixed Bubble operator position, Axis145 direction, and relative convergence target", async () => {
+    const state = makePreviewState();
+    const preview = await buildPlatinumMoveAnimationPreview(
+      state,
+      0,
+      `
+pt_we_000:
+    LoadParticleSystem 0, 0
+    CreateEmitter 0, 0, 17
+    SetExtraParams 6, 0, 2, 31, 24, 4096, 0
+    SetExtraParams 5, 4, 0, 1, 2, 0
+    End
+`,
+    );
+
+    const emitter = preview.timeline.find((event) => event.command === "CreateEmitter");
+    expect(emitter?.particle?.origin?.[0]).toBeGreaterThan(-18);
+    expect(emitter?.particle?.origin?.[0]).toBeLessThan(0);
+    expect(emitter?.particle?.axis?.[0]).toBeGreaterThan(0);
+    expect(emitter?.particle?.axis?.[2]).toBeLessThan(0);
+    expect(emitter?.particle?.field?.convergenceTarget).toBeDefined();
+    expect(emitter?.particle?.field?.convergenceTargetRelative).toBe(true);
+  });
+
+  it("ports DSPRE WEST_SP battler motion call functions into actor motion events", async () => {
+    const state = makePreviewState();
+    const preview = await buildPlatinumMoveAnimationPreview(
+      state,
+      0,
+      `
+pt_we_000:
+    CallFunc 52, 3, 4, 24, 2
+    WaitForAnimTasks
+    End
+`,
+    );
+
+    const motion = preview.timeline.find((event) => event.command === "BattlerMove");
+    expect(motion).toMatchObject({
+      status: "supported",
+      actorMotion: { target: "user", duration: 4 },
+    });
+    expect(motion?.actorMotion?.offset[0]).toBeCloseTo(4.32);
+    expect(preview.timeline.find((event) => event.command === "WaitForAnimTasks")?.frame).toBe(0);
+  });
+
+  it("tracks Platinum CATS cell resources and emits cell effect events", async () => {
+    const state = makePreviewState();
+    const preview = await buildPlatinumMoveAnimationPreview(
+      state,
+      0,
+      `
+pt_we_000:
+    InitSpriteManager 0, 1, 1, 1, 1, 1, 0, 0
+    LoadCharResObj 0, 4
+    LoadPlttRes 0, 5, 0
+    LoadCellResObj 0, 6
+    LoadAnimResObj 0, 7
+    AddSpriteWithFunc 0, 6, 1, 2, 3, 4, 0, 0, 0
+    FreeSpriteManager 0
+    End
+`,
+    );
+
+    expect(preview.timeline).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ command: "AddSpriteWithFunc", effectKind: "cell", cellEffectId: "4:5:6:7", status: "supported" }),
+        expect.objectContaining({ command: "FreeSpriteManager", status: "marker" }),
+      ]),
+    );
+    const cell = preview.timeline.find((event) => event.command === "AddSpriteWithFunc");
+    const actor = cell?.cellEffect?.catsActors?.[0];
+    expect(actor?.funcId).toBe(6);
+    expect(actor?.states[0]).toMatchObject({ x: 63, y: 124, visible: true });
+    expect(actor?.states[10].x).toBeCloseTo(192);
+    expect(actor?.states[20].visible).toBe(false);
+  });
+
+  it("ports DSPRE dropped Pokemon sprite cap special routines", async () => {
+    const state = makePreviewState();
+    const preview = await buildPlatinumMoveAnimationPreview(
+      state,
+      0,
+      `
+pt_we_000:
+    InitPokemonSpriteManager
+    LoadPokemonSpriteDummyResources 0
+    AddPokemonSprite 1, 0, 2, 0
+    CallFunc 35, 8, 1, 0, 16, 32, 16, 1, 0x00040004, 2
+    CallFunc 63, 6, 8, 6, 0, 0, 16, 0x001f
+    CallFunc 69, 4, 2, 1, 0, 0
+    Delay 12
+    SetPokemonSpriteVisible 2, 0
+    Delay 2
+    RemovePokemonSprite 2
+    End
+`,
+    );
+
+    const cap = preview.timeline.find((event) => event.command === "AddPokemonSprite");
+    expect(cap).toMatchObject({ effectKind: "cap", status: "supported", capEffect: { capId: 2, source: "target" } });
+    expect(cap?.capEffect?.states?.[4].scaleX).toBeCloseTo(2);
+    expect(cap?.capEffect?.states?.[6].tint[3]).toBeGreaterThan(0.5);
+    expect(cap?.capEffect?.states?.[6].mosaic).toBeGreaterThan(0);
+    expect(cap?.capEffect?.states?.[12].visible).toBe(false);
+    expect(preview.timeline).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ command: "ScalePokemonSpriteCap", status: "supported" }),
+        expect.objectContaining({ command: "FadePokemonSpriteCap", status: "supported" }),
+        expect.objectContaining({ command: "PixelatePokemonSpriteCap", status: "supported" }),
+        expect.objectContaining({ command: "RemovePokemonSprite", status: "supported" }),
+      ]),
+    );
   });
 });
 
@@ -297,10 +440,15 @@ function makeBattleBgNarc(): NARC {
   const narc = new NARC();
   narc.files = Array.from({ length: 0x124 }, () => new Uint8Array());
   const [screen, characters, palette] = makeSyntheticBackgroundFiles();
+  narc.files[2] = screen;
+  narc.files[3] = characters;
+  narc.files[5] = characters;
   narc.files[0x3e] = screen;
   narc.files[0x3f] = screen;
   narc.files[0x40] = screen;
   narc.files[0x41] = characters;
+  narc.files[172] = palette;
+  narc.files[178] = palette;
   narc.files[0x123] = palette;
   return narc;
 }

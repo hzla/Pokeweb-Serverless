@@ -24,6 +24,7 @@ export type SplFrameParticle = {
   beamTrail?: boolean;
   renderLayer: number;
   drawType: number;
+  sourceDrawType: number;
   polygonRotAxis: number;
   polygonReferencePlane: number;
   polygonOffsetX: number;
@@ -44,6 +45,10 @@ export type SplFrameParticle = {
   color: Vec3;
   alpha: number;
   rotation: number;
+  authoredRotation?: number;
+  alignToMotion?: boolean;
+  alignRotationOffset?: number;
+  dspreScreenRotation?: boolean;
 };
 
 type SimParticle = {
@@ -210,6 +215,7 @@ class SplEmitter {
           textureKind: "spa" as const,
           renderLayer: particleRenderLayer(this.resource, particle),
           drawType,
+          sourceDrawType: particle.child?.drawType ?? this.resource.drawType,
           polygonRotAxis: particle.child?.polygonRotAxis ?? this.resource.polygonRotAxis,
           polygonReferencePlane: particle.child?.polygonReferencePlane ?? this.resource.polygonReferencePlane,
           polygonOffsetX: advancedPlacement && !particle.child ? this.resource.polygonX : 0,
@@ -230,6 +236,10 @@ class SplEmitter {
           color: particle.color,
           alpha: clamp01(particle.baseAlpha * particle.animAlpha),
           rotation: particleScreenRotation(this.event, particle, this.resource, renderVelocity),
+          authoredRotation: particle.rotation,
+          alignToMotion: this.event.particle?.alignToMotion,
+          alignRotationOffset: this.event.particle?.alignRotationOffset,
+          dspreScreenRotation: this.event.particle?.dspreScreenRotation,
         };
       });
     return this.event.particle?.beamTrail ? addBeamTrails(rendered, this.event.particle.beamTrail) : rendered;
@@ -242,6 +252,7 @@ class SplEmitter {
 
   private renderParticleVelocity(particle: SimParticle): Vec3 {
     const particleVelocity = scaleVec(particle.velocity, POSITION_SCALE);
+    if (this.event.particle?.forceAxisRotation && this.event.particle.alignDirection) return normalize(this.event.particle.alignDirection);
     if (!this.event.particle?.forceFollowMotion || !this.event.particle.originMotion) {
       if (this.event.particle?.alignToMotion && length(particleVelocity) < 0.0001 && this.event.particle.alignDirection) {
         return normalize(this.event.particle.alignDirection);
@@ -490,6 +501,7 @@ class SplEmitter {
     let hasRandom = false;
     let hasMagnet = false;
     let hasConvergence = false;
+    const fieldOrigin = this.emitterPositionAt(0);
     const behaviors = this.resource.behaviors.map((behavior): SpaBehavior => {
       if (behavior.type === "gravity") {
         hasGravity = true;
@@ -510,7 +522,7 @@ class SplEmitter {
         hasMagnet = true;
         return {
           ...behavior,
-          target: field.magnetTarget ? fieldTargetToSimulation(field.magnetTarget) : behavior.target,
+          target: field.magnetTarget ? fieldTargetToSimulation(field.magnetTarget, field.magnetTargetRelative, fieldOrigin) : behavior.target,
           force: field.magnetForce ?? nonzeroBehaviorForce(behavior.force, 0.045),
         };
       }
@@ -518,7 +530,7 @@ class SplEmitter {
         hasConvergence = true;
         return {
           ...behavior,
-          target: field.convergenceTarget ? fieldTargetToSimulation(field.convergenceTarget) : behavior.target,
+          target: field.convergenceTarget ? fieldTargetToSimulation(field.convergenceTarget, field.convergenceTargetRelative, fieldOrigin) : behavior.target,
           force: field.convergenceForce ?? nonzeroBehaviorForce(behavior.force, 0.06),
         };
       }
@@ -528,8 +540,8 @@ class SplEmitter {
     if ((field.randomMagnitude || field.randomIntervalFrames !== undefined) && !hasRandom) {
       behaviors.push({ type: "random", magnitude: field.randomMagnitude ?? [0, 0, 0], applyIntervalFrames: field.randomIntervalFrames ?? 1 });
     }
-    if (field.magnetTarget && !hasMagnet) behaviors.push({ type: "magnet", target: fieldTargetToSimulation(field.magnetTarget), force: field.magnetForce ?? 0.045 });
-    if (field.convergenceTarget && !hasConvergence) behaviors.push({ type: "convergence", target: fieldTargetToSimulation(field.convergenceTarget), force: field.convergenceForce ?? 0.06 });
+    if (field.magnetTarget && !hasMagnet) behaviors.push({ type: "magnet", target: fieldTargetToSimulation(field.magnetTarget, field.magnetTargetRelative, fieldOrigin), force: field.magnetForce ?? 0.045 });
+    if (field.convergenceTarget && !hasConvergence) behaviors.push({ type: "convergence", target: fieldTargetToSimulation(field.convergenceTarget, field.convergenceTargetRelative, fieldOrigin), force: field.convergenceForce ?? 0.06 });
     return behaviors;
   }
 
@@ -602,6 +614,7 @@ function simulateDistortSpriteOverlays(preview: MoveAnimationPreview, frame: num
         textureKind: "circle",
         renderLayer: 0,
         drawType: 0,
+        sourceDrawType: 0,
         polygonRotAxis: 0,
         polygonReferencePlane: 0,
         polygonOffsetX: 0,
@@ -934,12 +947,18 @@ function particleForeshortening(event: MoveAnimationTimelineEvent, particle: Sim
 }
 
 function particleScreenRotation(event: MoveAnimationTimelineEvent, particle: SimParticle, resource: SpaResource, renderVelocity: Vec3): number {
-  if (particleDrawType(resource, particle, event) >= 2) return particle.rotation;
-  if (event.particle?.alignToMotion && length(renderVelocity) > 0.0001) return Math.atan2(renderVelocity[1], renderVelocity[0]) + (event.particle.alignRotationOffset ?? 0);
+  const drawType = particleDrawType(resource, particle, event);
+  if (drawType >= 2) return particle.rotation;
   if (event.particle?.screenRotation !== undefined) {
     const wobble = Math.sin(particle.ageFrames * 0.35 + particle.lifeRateOffset * Math.PI * 2) * 0.08;
     return event.particle.screenRotation + wobble;
   }
+  const sourceDrawType = particle.child?.drawType ?? resource.drawType;
+  const dspreScreenRotation = event.particle?.dspreScreenRotation === true;
+  if (event.particle?.alignToMotion && (!dspreScreenRotation || sourceDrawType !== 0) && drawType !== 1 && length(renderVelocity) > 0.0001) {
+    return Math.atan2(renderVelocity[1], renderVelocity[0]) + (event.particle.alignRotationOffset ?? 0) + particle.rotation;
+  }
+  if (dspreScreenRotation && sourceDrawType === 0) return particle.rotation + Math.PI;
   return particle.rotation;
 }
 
@@ -1109,8 +1128,8 @@ function nonzeroBehaviorForce(value: number, fallback: number): number {
   return Math.abs(value) < 0.00001 ? fallback : value;
 }
 
-function fieldTargetToSimulation(target: Vec3): Vec3 {
-  return scaleVec(target, 1 / POSITION_SCALE);
+function fieldTargetToSimulation(target: Vec3, relative?: boolean, origin?: Vec3): Vec3 {
+  return scaleVec(relative && origin ? sub(target, origin) : target, 1 / POSITION_SCALE);
 }
 
 function fract(value: number): number {

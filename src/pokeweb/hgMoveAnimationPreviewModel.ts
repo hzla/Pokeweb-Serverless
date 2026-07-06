@@ -36,6 +36,11 @@ const DEFAULT_MAX_STEPS = 4096;
 const DEFAULT_MAX_CALL_DEPTH = 16;
 const PARTICLE_EVENT_DURATION = 45;
 const BACKGROUND_EVENT_DURATION = 12;
+const HG_BATTLE_BACKDROP_COUNT = 23;
+const HG_BATTLE_BACKDROP_CHR0 = 3;
+const HG_BATTLE_BACKDROP_SCR = 2;
+const HG_BATTLE_BACKDROP_PAL0 = 176;
+const HG_BATTLE_GROUND_GFX = [2, 7, 0, 10, 4, 9, 5, 1, 3, 6];
 const HG_HAIKEI_SBIT_MOVE = 0x0002;
 const HG_HAIKEI_SBIT_STOP = 0x0004;
 const HG_HAIKEI_SBIT_PLANM = 0x0080;
@@ -122,6 +127,9 @@ export type HgMoveAnimationPreviewScenario = {
   weatherIndex: number;
   contest: boolean;
   playerAttack: boolean;
+  battleTerrainId?: number;
+  battleBackdropId?: number;
+  battleTimeZone?: 0 | 1 | 2;
   maxSteps?: number;
   maxCallDepth?: number;
 };
@@ -199,6 +207,7 @@ export async function buildHgMoveAnimationPreview(
   }
   hydrateHgTimelineDebug(timeline, spaArchives, warnings);
   const cellEffects = loadHgCellEffects(state, cellEffectIds, warnings);
+  const battleScene = loadHgBattleScene(state, { ...DEFAULT_HG_MOVE_ANIMATION_PREVIEW_SCENARIO, ...scenario }, warnings);
 
   const backgrounds = new Map<number, NitroBackgroundImage>();
   for (const backgroundId of backgroundIds) {
@@ -227,6 +236,7 @@ export async function buildHgMoveAnimationPreview(
     spaIds,
     spaArchives,
     cellEffects,
+    battleScene,
     backgrounds,
     backgroundPaletteAnimations,
     warnings,
@@ -1646,6 +1656,39 @@ function requiredEffectClactFile(narc: NARC, fileId: number, label: string): Uin
   const bytes = narc.files[fileId];
   if (!bytes) throw new Error(`${label} file ${fileId} is missing`);
   return bytes;
+}
+
+function loadHgBattleScene(
+  state: HgMoveAnimationRom,
+  scenario: HgMoveAnimationPreviewScenario,
+  warnings: MoveAnimationPreviewWarning[],
+): MoveAnimationPreview["battleScene"] | undefined {
+  const terrainId = Math.max(0, Math.min(HG_BATTLE_GROUND_GFX.length - 1, Math.round(scenario.battleTerrainId ?? 0)));
+  const timeZone = Math.max(0, Math.min(2, Math.round(scenario.battleTimeZone ?? 0)));
+  const backdropId = Math.max(0, Math.min(HG_BATTLE_BACKDROP_COUNT - 1, Math.round(scenario.battleBackdropId ?? hgBattleBackdropForTerrain(terrainId))));
+  let backdrop: NitroBackgroundImage | undefined;
+
+  try {
+    backdrop = loadHgBattleBackdrop(state, backdropId, timeZone);
+    for (const warning of backdrop.warnings) warnings.push({ message: `Battle backdrop ${backdropId}: ${warning}` });
+  } catch (error) {
+    warnings.push({ message: `Battle backdrop ${backdropId}: ${error instanceof Error ? error.message : String(error)}` });
+  }
+
+  return backdrop ? { backdrop, platforms: [] } : undefined;
+}
+
+function loadHgBattleBackdrop(state: HgMoveAnimationRom, backdropId: number, timeZone: number): NitroBackgroundImage {
+  const narc = new NARC(state.rom.getFileByName(HG_BATTLE_GFX_PATH));
+  const screen = decompressNitroIfNeeded(requiredNarcFile(narc, HG_BATTLE_BACKDROP_SCR, `battle backdrop ${backdropId} screen`));
+  const characters = decompressNitroIfNeeded(requiredNarcFile(narc, HG_BATTLE_BACKDROP_CHR0 + backdropId, `battle backdrop ${backdropId} graphics`));
+  const palette = decompressNitroIfNeeded(requiredNarcFile(narc, HG_BATTLE_BACKDROP_PAL0 + backdropId * 3 + timeZone, `battle backdrop ${backdropId} palette`));
+  return parseNitroBackground(-2000 - backdropId, screen, characters, palette, { transparentIndexZero: false });
+}
+
+function hgBattleBackdropForTerrain(terrainId: number): number {
+  const groundGfx = HG_BATTLE_GROUND_GFX[terrainId] ?? 0;
+  return Math.max(0, Math.min(HG_BATTLE_BACKDROP_COUNT - 1, groundGfx));
 }
 
 function loadHgMoveBackground(state: HgMoveAnimationRom, backgroundId: number): NitroBackgroundImage {

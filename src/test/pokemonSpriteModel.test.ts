@@ -63,7 +63,7 @@ describe("pokemonSpriteModel", () => {
 
     expect(resolvePokemonSpriteId(project, 448, 1)).toBe(815);
     expect(resolvePokemonSpriteId(project, 1076, 0)).toBe(815);
-    expect(getPokemonSpriteFormOptions(project, 1076)).toEqual([{ formIndex: 0, label: "Lucario Form 1", spriteId: 815 }]);
+    expect(getPokemonSpriteFormOptions(project, 1076)).toEqual([{ formIndex: 0, label: "Lucario-Mega", spriteId: 815 }]);
     expect(getPokemonSpriteImage(project, 815, { kind: "sprite", side: "front", gender: "male" }, "normal").width).toBe(96);
   });
 

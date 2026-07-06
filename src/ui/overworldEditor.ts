@@ -2,12 +2,13 @@ import {
   addOverworldEntity,
   deleteOverworldEntity,
   getOverworldScene,
-  mapPermissionColor,
   moveOverworldEntity,
   NPC_FIELDS,
   OVERWORLD_ENTITY_KINDS,
+  updateMapPermissionTiles,
   updateMapTile,
   updateOverworldEntityField,
+  type MapPermissionTileEdit,
   type OverworldEntity,
   type OverworldEntityKind,
   type OverworldEntitySelection,
@@ -25,6 +26,7 @@ import { escapeHtml, selectText } from "./dom";
 import { publicAsset } from "../assetUrl";
 import { gen4PermissionTileFill } from "./gen4MapPreviewRenderer";
 import type { OverworldMapRender } from "./overworldMapRenderer";
+import { clampU16, formatHex16, GEN5_PERMISSION_FLAGS, gen5PermissionColorHex } from "../pokeweb/gen5PermissionModel";
 
 const TILE_SIZE = 32;
 const MAP_VIEW_TILE_SCALE = 1;
@@ -34,12 +36,63 @@ const MAP_RENDER_CACHE_VERSION = 10;
 const MIN_ZOOM = 0.05;
 const MIN_NPC_SCREEN_SIZE = 18;
 const ENTITY_DRAG_START_PX = 6;
+const GEN5_STAGE_PADDING = 48;
+const GEN5_STAGE_LEFT_PADDING = 28;
 
 type OverworldViewMode = "permissions" | "map";
-type SidebarField = { key: string; label: string; editable?: boolean; showWhenRail?: boolean; showWhenGrid?: boolean };
+type SidebarTab = OverworldEntityKind | "permissions";
+type SidebarFieldOption = { value: number; label: string };
+type SidebarField = { key: string; label: string; editable?: boolean; showWhenRail?: boolean; showWhenGrid?: boolean; options?: readonly SidebarFieldOption[] };
 type ActiveCellViewport = { key: string; x: number; y: number; width: number; height: number; map?: OverworldMapScene };
+type PermissionTileSelection = { mapId: number; index: number; x: number; y: number; layer2: number; layer3: number };
+type PermissionGridLayout = { x: number; y: number; cellSize: number; bounds: { x: number; y: number; width: number; height: number } };
 
 const mapRenderCache = new Map<string, Promise<OverworldMapRender> | OverworldMapRender>();
+
+const MOVEMENT_MODIFIER_OPTIONS: readonly SidebarFieldOption[] = [
+  { value: 0, label: "Normal" },
+  { value: 1, label: "Trainer sight" },
+  { value: 2, label: "All-direction trainer sight" },
+  { value: 3, label: "Item" },
+  { value: 4, label: "Trainer look-around pause" },
+  { value: 5, label: "Trainer spin pause left" },
+  { value: 6, label: "Trainer spin pause right" },
+  { value: 7, label: "Trainer spin while moving left" },
+  { value: 8, label: "Trainer spin while moving right" },
+  { value: 9, label: "Message ID" },
+  { value: 10, label: "Trainer escape/reversal" },
+  { value: 11, label: "Dash direction change" },
+  { value: 12, label: "Dash movement burst" },
+  { value: 13, label: "Dash-accelerated movement" },
+  { value: 14, label: "Dash-accelerated look-around" },
+  { value: 15, label: "Dash spin pause left" },
+  { value: 16, label: "Dash spin pause right" },
+  { value: 17, label: "Dash spin while moving left" },
+  { value: 18, label: "Dash spin while moving right" },
+  { value: 19, label: "Dash movement non-trainer" },
+  { value: 20, label: "Non-trainer spin pause" },
+];
+
+const NPC_FIELD_LABELS: Record<string, string> = {
+  overworld_id: "overworld id",
+  overworld_sprite: "overworld sprite",
+  movement_permissions: "move code",
+  movement_permissions_2: "movement modifier",
+  overworld_flag: "overworld flag",
+  script_id: "script id",
+  direction: "direction",
+  sight: "sight range",
+  unknown_1: "modifier step count",
+  unknown_2: "modifier parameter 2",
+  horizontal_leash: "horizontal leash",
+  vertical_leash: "vertical leash",
+  unknown_3: "unknown 3",
+  unknown_4: "unknown 4",
+  x_cord: "x",
+  y_cord: "y",
+  unknown_5: "unknown 5",
+  z_cord: "z",
+};
 
 export function renderOverworldEditor(
   project: ProjectState,
@@ -52,9 +105,13 @@ export function renderOverworldEditor(
   const isGen4 = isGen4Project(project);
   const tileLayerLabels = isGen4 ? { flag: "Type", movement: "Collision" } : { flag: "Flag", movement: "Movement" };
   let activeKind: OverworldEntityKind = "npc";
+  let activeSidebarTab: SidebarTab = "npc";
   let selectedEntity: OverworldEntitySelection | undefined = scene.npcs[0] ? { kind: "npc", index: scene.npcs[0].index } : undefined;
-  let selectedTile: { mapId: number; index: number; x: number; y: number; layer2: number; layer3: number } | undefined;
+  let selectedTile: PermissionTileSelection | undefined;
   let activeCellKey = isGen4 ? initialActiveCellKey(scene, selectedEntity) : "";
+  const permissionBrush = { tileClass: 0, flags: 0, painting: false };
+  const pendingPaintEdits = new Map<string, MapPermissionTileEdit>();
+  let permissionGridLayout: PermissionGridLayout | undefined;
 
   root.innerHTML = `
     <div class="pokemon-filter overworld-bar">
@@ -62,39 +119,51 @@ export function renderOverworldEditor(
         <div class="filter-title">${escapeHtml(scene.locationName)}</div>
         <div class="overworld-subtitle">Overworld ${overworldId} / Matrix ${scene.matrixId}</div>
         <div class="overworld-entity-tabs" role="group" aria-label="Overworld entity type">
-          ${OVERWORLD_ENTITY_KINDS.map((kind) => `<button class="ow-entity-tab ${kind === activeKind ? "active" : ""}" data-kind="${kind}" type="button">${escapeHtml(entityKindLabel(kind))}</button>`).join("")}
+          ${OVERWORLD_ENTITY_KINDS.map((kind) => `<button class="ow-entity-tab ${kind === activeSidebarTab ? "active" : ""}" data-sidebar-tab="${kind}" type="button">${escapeHtml(entityKindLabel(kind))}</button>`).join("")}
+          ${isGen4 ? "" : `<button class="ow-entity-tab" data-sidebar-tab="permissions" type="button">Permissions</button>`}
         </div>
-        <div class="sidebar-row">
-          <div class="sidebar-label">Selected</div>
-          <select class="sidebar-select" id="entity-select"></select>
+        <div id="entity-sidebar-content">
+          <div class="sidebar-row">
+            <div class="sidebar-label">Selected</div>
+            <select class="sidebar-select" id="entity-select"></select>
+          </div>
+          <div class="overworld-entity-fields" id="entity-fields"></div>
+          <div class="overworld-entity-actions" id="entity-actions"></div>
         </div>
-        <div class="overworld-entity-fields" id="entity-fields"></div>
-        <div class="overworld-entity-actions" id="entity-actions"></div>
+        ${isGen4 ? "" : `<div id="permission-sidebar-content" class="overworld-sidebar-permissions" hidden>${renderGen5PermissionControls()}</div>`}
       </div>
-      <div class="sidebar-btns">
+      <div class="sidebar-btns" id="entity-command-buttons">
         <button class="ow-btn" id="add-entity" type="button">Add NPC</button>
         <button class="ow-btn" id="del-entity" type="button">Del Selected</button>
       </div>
       <div class="sidebar-btns">
         <button class="ow-btn" id="back-headers" type="button">Back to Headers</button>
       </div>
-      <div class="popup-editor field-holder" id="tile-editor">
-        <div class="popup-field-row">
-          <div class="popup-field-label">${tileLayerLabels.flag}</div>
-          <div class="popup-field" data-layer="2" id="tile-flag" contenteditable="true" data-type="int-65535">0</div>
-        </div>
-        <div class="popup-field-row">
-          <div class="popup-field-label">${tileLayerLabels.movement}</div>
-          <div class="popup-field" data-layer="3" id="tile-mov" contenteditable="true" data-type="int-65535">0</div>
-        </div>
-      </div>
+      ${
+        isGen4
+          ? `<div class="popup-editor field-holder" id="tile-editor">
+              <div class="popup-field-row">
+                <div class="popup-field-label">${tileLayerLabels.flag}</div>
+                <div class="popup-field" data-layer="2" id="tile-flag" contenteditable="true" data-type="int-65535">0</div>
+              </div>
+              <div class="popup-field-row">
+                <div class="popup-field-label">${tileLayerLabels.movement}</div>
+                <div class="popup-field" data-layer="3" id="tile-mov" contenteditable="true" data-type="int-65535">0</div>
+              </div>
+            </div>`
+          : ""
+      }
     </div>
-    <div class="pokemon-list" id="overworld">
+    <div class="pokemon-list ${isGen4 ? "" : "overworld-gen5-permissions"}" id="overworld">
       <div class="overworld-toolbar">
-        <div class="overworld-view-toggle" role="group" aria-label="Overworld view mode">
-          <button class="ow-tool overworld-view-button active" id="view-permissions" type="button">Permissions</button>
-          <button class="ow-tool overworld-view-button" id="view-map" type="button">Map</button>
-        </div>
+        ${
+          isGen4
+            ? `<div class="overworld-view-toggle" role="group" aria-label="Overworld view mode">
+                <button class="ow-tool overworld-view-button active" id="view-permissions" type="button">Permissions</button>
+                <button class="ow-tool overworld-view-button" id="view-map" type="button">Map</button>
+              </div>`
+            : `<div class="overworld-view-title">Map + Permissions</div>`
+        }
         <button class="ow-tool" id="zoom-out" type="button">-</button>
         <button class="ow-tool" id="zoom-reset" type="button">100%</button>
         <button class="ow-tool" id="zoom-in" type="button">+</button>
@@ -115,16 +184,31 @@ export function renderOverworldEditor(
         <div class="overworld-map-status" id="overworld-map-status" hidden></div>
         <div class="overworld-entities" id="overworld-entities"></div>
       </div>
+      ${isGen4 ? "" : renderGen5PermissionMatrix()}
     </div>
   `;
 
   const stage = root.querySelector<HTMLDivElement>(".overworld-stage");
+  const overworldPane = root.querySelector<HTMLDivElement>("#overworld");
   const canvas = root.querySelector<HTMLCanvasElement>("#overworld-canvas");
   const entities = root.querySelector<HTMLDivElement>("#overworld-entities");
   const tileEditor = root.querySelector<HTMLDivElement>("#tile-editor");
   const zoomLabel = root.querySelector<HTMLButtonElement>("#zoom-reset");
   const mapStatus = root.querySelector<HTMLDivElement>("#overworld-map-status");
-  if (!stage || !canvas || !entities) return;
+  const permissionGrid = root.querySelector<HTMLCanvasElement>("#permission-grid-canvas");
+  const permissionClassInput = root.querySelector<HTMLInputElement>("#ow-permission-class");
+  const permissionFlagsInput = root.querySelector<HTMLInputElement>("#ow-permission-flags");
+  const permissionSelected = root.querySelector<HTMLDivElement>("#permission-selected");
+  const permissionFlagValue = root.querySelector<HTMLDivElement>("#ow-permission-flag-value");
+  const permissionPaintToggle = root.querySelector<HTMLInputElement>("#ow-permission-paint");
+  const permissionMatrix = root.querySelector<HTMLDivElement>(".overworld-permission-matrix");
+  const permissionMatrixResize = root.querySelector<HTMLButtonElement>("#permission-matrix-resize");
+  const entitySidebarContent = root.querySelector<HTMLDivElement>("#entity-sidebar-content");
+  const permissionSidebarContent = root.querySelector<HTMLDivElement>("#permission-sidebar-content");
+  const entityCommandButtons = root.querySelector<HTMLDivElement>("#entity-command-buttons");
+  if (!stage || !overworldPane || !canvas || !entities) return;
+  const stageEl = stage;
+  const overworldPaneEl = overworldPane;
   const entityLayer = entities;
 
   const state = {
@@ -137,7 +221,8 @@ export function renderOverworldEditor(
     dragStartY: 0,
     dragPanX: 0,
     dragPanY: 0,
-    viewMode: "permissions" as OverworldViewMode,
+    viewMode: (isGen4 ? "permissions" : "map") as OverworldViewMode,
+    paintingPermissions: false,
     mapRender: undefined as OverworldMapRender | undefined,
     mapRenderError: "",
     mapRenderLoading: false,
@@ -156,6 +241,7 @@ export function renderOverworldEditor(
   const reloadScene = () => {
     const previousZoneId = associatedMapZoneId(scene);
     scene = getOverworldScene(project, overworldId);
+    selectedTile = selectedTile ? tileAt(scene, selectedTile) : undefined;
     reconcileActiveCell();
     selectedEntity = normalizeVisibleSelection(selectedEntity, activeKind);
     if (associatedMapZoneId(scene) !== previousZoneId) {
@@ -168,13 +254,17 @@ export function renderOverworldEditor(
     draw();
   };
 
-  const resize = () => {
-    const rect = stage.getBoundingClientRect();
+  const resizeCanvasToRect = (rect: DOMRect): void => {
     const scale = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.floor(rect.width * scale));
     canvas.height = Math.max(1, Math.floor(rect.height * scale));
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
+  };
+
+  const resize = () => {
+    const rect = syncGen5ScrollableStage();
+    resizeCanvasToRect(rect);
     if (!state.framed && rect.width > 1 && rect.height > 1) frameScene(rect);
     draw();
   };
@@ -182,30 +272,72 @@ export function renderOverworldEditor(
   const frameScene = (rect = stage.getBoundingClientRect()) => {
     const focus = selectedEntityBounds(scene, selectedEntity) ?? selectedEntityBounds(scene, { kind: "npc", index: scene.npcs[0]?.index ?? -1 });
     const bounds = displayBounds(focus);
+    const fitRect = isGen4 ? rect : overworldPane.getBoundingClientRect();
     const tileSize = activeTileSize();
-    const fitZoom = Math.min(1, Math.max(MIN_ZOOM, Math.min(rect.width / Math.max(1, bounds.width * tileSize), rect.height / Math.max(1, bounds.height * tileSize)) * 0.85));
+    const fitZoom = Math.min(1, Math.max(MIN_ZOOM, Math.min(fitRect.width / Math.max(1, bounds.width * tileSize), fitRect.height / Math.max(1, bounds.height * tileSize)) * 0.85));
     state.zoom = fitZoom;
-    const centerX = bounds.x + bounds.width / 2;
-    const centerY = bounds.y + bounds.height / 2;
-    state.panX = rect.width / 2 - centerX * tileSize * state.zoom;
-    state.panY = rect.height / 2 - centerY * tileSize * state.zoom;
+    const frameRect = syncGen5ScrollableStage(bounds);
+    resizeCanvasToRect(frameRect);
+    centerDisplayBounds(bounds, frameRect);
     state.framed = true;
     updateZoomLabel();
+    scrollGen5StageLeft();
   };
 
   const setZoom = (nextZoom: number, anchorX?: number, anchorY?: number) => {
     const rect = stage.getBoundingClientRect();
+    const bounds = displayBounds();
+    const tileSize = activeTileSize();
+    const previousZoom = state.zoom;
+    state.zoom = Math.min(3, Math.max(MIN_ZOOM, nextZoom));
+    if (!isGen4 || anchorX === undefined || anchorY === undefined) {
+      const frameRect = syncGen5ScrollableStage(bounds);
+      resizeCanvasToRect(frameRect);
+      centerDisplayBounds(bounds, frameRect);
+      updateZoomLabel();
+      draw();
+      scrollGen5StageLeft();
+      return;
+    }
     const screenX = anchorX ?? rect.width / 2;
     const screenY = anchorY ?? rect.height / 2;
-    const tileSize = activeTileSize();
-    const worldX = (screenX - state.panX) / (tileSize * state.zoom);
-    const worldY = (screenY - state.panY) / (tileSize * state.zoom);
-    state.zoom = Math.min(3, Math.max(MIN_ZOOM, nextZoom));
+    const worldX = (screenX - state.panX) / (tileSize * previousZoom);
+    const worldY = (screenY - state.panY) / (tileSize * previousZoom);
     state.panX = screenX - worldX * tileSize * state.zoom;
     state.panY = screenY - worldY * tileSize * state.zoom;
     updateZoomLabel();
     draw();
   };
+
+  function centerDisplayBounds(bounds: { x: number; y: number; width: number; height: number }, rect: DOMRect): void {
+    const tileSize = activeTileSize();
+    const centerX = bounds.x + bounds.width / 2;
+    const centerY = bounds.y + bounds.height / 2;
+    state.panX = isGen4
+      ? rect.width / 2 - centerX * tileSize * state.zoom
+      : GEN5_STAGE_LEFT_PADDING - bounds.x * tileSize * state.zoom;
+    state.panY = rect.height / 2 - centerY * tileSize * state.zoom;
+  }
+
+  function syncGen5ScrollableStage(bounds = displayBounds()): DOMRect {
+    if (isGen4) return stageEl.getBoundingClientRect();
+    const paneRect = overworldPaneEl.getBoundingClientRect();
+    const tileSize = activeTileSize() * state.zoom;
+    const width = Math.max(paneRect.width, Math.ceil(bounds.width * tileSize + GEN5_STAGE_PADDING + GEN5_STAGE_LEFT_PADDING));
+    const height = Math.max(paneRect.height, Math.ceil(bounds.height * tileSize + GEN5_STAGE_PADDING * 2));
+    const nextWidth = `${width}px`;
+    const nextHeight = `${height}px`;
+    if (stageEl.style.width !== nextWidth) stageEl.style.width = nextWidth;
+    if (stageEl.style.height !== nextHeight) stageEl.style.height = nextHeight;
+    return stageEl.getBoundingClientRect();
+  }
+
+  function scrollGen5StageLeft(): void {
+    if (isGen4) return;
+    window.requestAnimationFrame(() => {
+      overworldPaneEl.scrollLeft = 0;
+    });
+  }
 
   const updateZoomLabel = () => {
     if (zoomLabel) zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`;
@@ -342,16 +474,22 @@ export function renderOverworldEditor(
     const tileSize = activeTileSize() * state.zoom;
     if (state.viewMode === "map" && state.mapRender) {
       if (isGen4) drawTrueMapSection(ctx, state.mapRender, mapGridBounds(scene), activeCellViewport(), tileSize, state.panX, state.panY);
-      else drawTrueMap(ctx, state.mapRender, mapViewTileBounds(scene, state.mapRender, isGen4), tileSize, state.panX, state.panY);
+      else {
+        drawTrueMap(ctx, state.mapRender, mapViewTileBounds(scene, state.mapRender, isGen4), tileSize, state.panX, state.panY);
+        drawGen5PermissionOverlay(ctx, scene, tileSize, state.panX, state.panY);
+      }
     } else {
       const origin = activeOrigin();
       const maps = isGen4 ? [activeCellViewport().map].filter((map): map is OverworldMapScene => map !== undefined) : scene.maps;
       for (const map of maps) drawMap(ctx, map, tileSize, state.panX, state.panY, origin);
     }
+    if (!isGen4) drawSelectedPermissionTile(ctx, selectedTile, tileSize, state.panX, state.panY);
+    drawPermissionGrid();
     renderEntityOverlay();
   };
 
   const setViewMode = (viewMode: OverworldViewMode) => {
+    if (!isGen4 && viewMode !== "map") return;
     state.viewMode = viewMode;
     selectedTile = undefined;
     if (tileEditor) tileEditor.style.display = "none";
@@ -365,6 +503,219 @@ export function renderOverworldEditor(
     }
     draw();
   };
+
+  function updatePermissionPanel(): void {
+    if (isGen4) return;
+    if (permissionSelected) {
+      permissionSelected.textContent = selectedTile
+        ? `Map ${selectedTile.mapId} tile ${selectedTile.index} @ ${selectedTile.x}, ${selectedTile.y} / class ${selectedTile.layer2} / flags ${formatHex16(selectedTile.layer3)}`
+        : "Select a tile to sample its class and flags.";
+    }
+    if (permissionFlagValue) permissionFlagValue.textContent = `Calculated flags: ${formatHex16(permissionBrush.flags)}`;
+  }
+
+  function readPermissionBrushFromInputs(): void {
+    const nextClass = parseU16Input(permissionClassInput?.value ?? "");
+    const nextFlags = parseU16Input(permissionFlagsInput?.value ?? "");
+    permissionClassInput?.classList.toggle("invalid", nextClass === undefined);
+    permissionFlagsInput?.classList.toggle("invalid", nextFlags === undefined);
+    if (nextClass !== undefined) permissionBrush.tileClass = nextClass;
+    if (nextFlags !== undefined) {
+      permissionBrush.flags = nextFlags;
+      setFlagCheckboxes(nextFlags);
+    }
+    updatePermissionPanel();
+  }
+
+  function writePermissionBrushToInputs(tileClass: number, flags: number): void {
+    permissionBrush.tileClass = clampU16(tileClass);
+    permissionBrush.flags = clampU16(flags);
+    if (permissionClassInput) {
+      permissionClassInput.value = String(permissionBrush.tileClass);
+      permissionClassInput.classList.remove("invalid");
+    }
+    if (permissionFlagsInput) {
+      permissionFlagsInput.value = formatHex16(permissionBrush.flags);
+      permissionFlagsInput.classList.remove("invalid");
+    }
+    setFlagCheckboxes(permissionBrush.flags);
+    updatePermissionPanel();
+  }
+
+  function setFlagCheckboxes(flags: number): void {
+    root.querySelectorAll<HTMLInputElement>("[data-ow-permission-flag]").forEach((checkbox) => {
+      const bit = Number(checkbox.dataset.owPermissionFlag ?? 0);
+      checkbox.checked = (flags & bit) !== 0;
+      checkbox.closest<HTMLElement>(".choosable-text")?.classList.toggle("-active", checkbox.checked);
+    });
+  }
+
+  function readFlagCheckboxes(): number {
+    let flags = 0;
+    root.querySelectorAll<HTMLInputElement>("[data-ow-permission-flag]").forEach((checkbox) => {
+      const bit = Number(checkbox.dataset.owPermissionFlag ?? 0);
+      if (checkbox.checked) flags |= bit;
+    });
+    return clampU16(flags);
+  }
+
+  function selectPermissionTile(tile: PermissionTileSelection | undefined, syncBrush: boolean): void {
+    const shouldShowPermissions = !isGen4 && tile !== undefined && activeSidebarTab !== "permissions";
+    selectedTile = tile;
+    if (shouldShowPermissions) activeSidebarTab = "permissions";
+    if (tile && syncBrush) writePermissionBrushToInputs(tile.layer2, tile.layer3);
+    else updatePermissionPanel();
+    if (shouldShowPermissions) fillSidebar();
+    draw();
+  }
+
+  function applyBrushToTile(tile: PermissionTileSelection | undefined): void {
+    if (!tile) return;
+    const map = scene.maps.find((entry) => entry.id === tile.mapId);
+    if (!map) return;
+    const tileClass = permissionBrush.tileClass;
+    const flags = permissionBrush.flags;
+    if ((map.layer2[tile.index] ?? 0) === tileClass && (map.layer3[tile.index] ?? 0) === flags) {
+      selectedTile = { ...tile, layer2: tileClass, layer3: flags };
+      updatePermissionPanel();
+      return;
+    }
+    map.layer2[tile.index] = tileClass;
+    map.layer3[tile.index] = flags;
+    const nextTile = { ...tile, layer2: tileClass, layer3: flags };
+    selectedTile = nextTile;
+    pendingPaintEdits.set(`${tile.mapId}:${tile.index}`, {
+      mapId: tile.mapId,
+      tileIndex: tile.index,
+      tileClass,
+      flags,
+    });
+    updatePermissionPanel();
+    draw();
+  }
+
+  function commitPermissionPaint(): void {
+    if (pendingPaintEdits.size === 0) return;
+    const changed = updateMapPermissionTiles(project, [...pendingPaintEdits.values()]);
+    pendingPaintEdits.clear();
+    if (changed > 0) onDirty?.();
+  }
+
+  function paintCanvasTileAt(clientX: number, clientY: number): void {
+    applyBrushToTile(tileAt(scene, screenToWorld(clientX, clientY)));
+  }
+
+  function paintGridTileAt(clientX: number, clientY: number): void {
+    applyBrushToTile(tileAtPermissionGrid(clientX, clientY));
+  }
+
+  function tileAtPermissionGrid(clientX: number, clientY: number): PermissionTileSelection | undefined {
+    if (!permissionGridLayout || !permissionGrid) return undefined;
+    const rect = permissionGrid.getBoundingClientRect();
+    const x = permissionGridLayout.bounds.x + (clientX - rect.left - permissionGridLayout.x) / permissionGridLayout.cellSize;
+    const y = permissionGridLayout.bounds.y + (clientY - rect.top - permissionGridLayout.y) / permissionGridLayout.cellSize;
+    return tileAt(scene, { x, y });
+  }
+
+  function drawPermissionGrid(): boolean {
+    if (isGen4 || !permissionGrid) return false;
+    const rect = permissionGrid.getBoundingClientRect();
+    if (rect.width <= 1 || rect.height <= 1) return false;
+    const scale = window.devicePixelRatio || 1;
+    permissionGrid.width = Math.max(1, Math.floor(rect.width * scale));
+    permissionGrid.height = Math.max(1, Math.floor(rect.height * scale));
+    const ctx = permissionGrid.getContext("2d");
+    if (!ctx) return false;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#202330";
+    ctx.fillRect(0, 0, rect.width, rect.height);
+
+    const bounds = permissionGridBounds(scene);
+    const padding = 10;
+    const cellSize = Math.max(0.08, Math.min((rect.width - padding * 2) / bounds.width, (rect.height - padding * 2) / bounds.height));
+    const gridWidth = bounds.width * cellSize;
+    const gridHeight = bounds.height * cellSize;
+    const x0 = (rect.width - gridWidth) / 2;
+    const y0 = (rect.height - gridHeight) / 2;
+    permissionGridLayout = { x: x0, y: y0, cellSize, bounds };
+
+    for (const map of scene.maps) {
+      const startX = x0 + (map.x - bounds.x) * cellSize;
+      const startY = y0 + (map.y - bounds.y) * cellSize;
+      if (map.empty || map.missing) {
+        ctx.fillStyle = map.missing ? "#3b2430" : "#282a36";
+        ctx.fillRect(startX, startY, map.width * cellSize, map.height * cellSize);
+        continue;
+      }
+      for (let y = 0; y < map.height; y += 1) {
+        for (let x = 0; x < map.width; x += 1) {
+          const index = y * map.width + x;
+          ctx.fillStyle = gen5PermissionColorHex({ tileClass: map.layer2[index] ?? 0, flags: map.layer3[index] ?? 0 });
+          ctx.fillRect(startX + x * cellSize, startY + y * cellSize, Math.ceil(cellSize), Math.ceil(cellSize));
+        }
+      }
+      ctx.strokeStyle = "rgba(248, 248, 242, 0.45)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(startX, startY, map.width * cellSize, map.height * cellSize);
+    }
+
+    if (selectedTile) {
+      ctx.strokeStyle = "#ffb86c";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x0 + (selectedTile.x - bounds.x) * cellSize, y0 + (selectedTile.y - bounds.y) * cellSize, cellSize, cellSize);
+    }
+    return true;
+  }
+
+  function schedulePermissionGridDraw(attempts = 6): void {
+    if (isGen4) return;
+    window.requestAnimationFrame(() => {
+      if (drawPermissionGrid() || attempts <= 0) return;
+      window.setTimeout(() => schedulePermissionGridDraw(attempts - 1), 50);
+    });
+  }
+
+  function bindPermissionMatrixResize(): void {
+    if (isGen4 || !permissionMatrix || !permissionMatrixResize) return;
+    permissionMatrixResize.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startRect = permissionMatrix.getBoundingClientRect();
+      const minWidth = 260;
+      const minHeight = 160;
+      const maxWidth = Math.max(minWidth, window.innerWidth - 36);
+      const maxHeight = Math.max(minHeight, window.innerHeight - 110);
+      permissionMatrixResize.setPointerCapture(event.pointerId);
+
+      const move = (moveEvent: PointerEvent) => {
+        const width = clampNumber(startRect.width - (moveEvent.clientX - startX), minWidth, maxWidth);
+        const height = clampNumber(startRect.height - (moveEvent.clientY - startY), minHeight, maxHeight);
+        permissionMatrix.style.width = `${width}px`;
+        permissionMatrix.style.height = `${height}px`;
+        schedulePermissionGridDraw(1);
+      };
+      const up = (upEvent: PointerEvent) => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+        try {
+          if (permissionMatrixResize.hasPointerCapture(upEvent.pointerId)) permissionMatrixResize.releasePointerCapture(upEvent.pointerId);
+        } catch {
+          // Pointer capture may already be released by the browser.
+        }
+        schedulePermissionGridDraw(1);
+      };
+
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
+    });
+  }
 
   const updateViewButtons = () => {
     root.querySelector<HTMLButtonElement>("#view-permissions")?.classList.toggle("active", state.viewMode === "permissions");
@@ -521,6 +872,7 @@ export function renderOverworldEditor(
 
   function selectEntity(kind: OverworldEntityKind, index: number): void {
     activeKind = kind;
+    activeSidebarTab = kind;
     selectedEntity = { kind, index };
     setActiveCellForSelection(selectedEntity);
     selectedTile = undefined;
@@ -528,6 +880,21 @@ export function renderOverworldEditor(
   }
 
   function bindEntityFieldEvents(host: HTMLElement): void {
+    host.querySelectorAll<HTMLSelectElement>(".sidebar-field-select").forEach((select) => {
+      select.addEventListener("change", () => {
+        const key = select.dataset.fieldKey;
+        const selection = selectedEntity;
+        if (!key || !selection) return;
+        try {
+          updateOverworldEntityField(project, overworldId, selection, key, select.value);
+          reloadScene();
+          onDirty?.();
+        } catch {
+          select.classList.add("invalid");
+          window.setTimeout(() => select.classList.remove("invalid"), 800);
+        }
+      });
+    });
     host.querySelectorAll<HTMLElement>(".sidebar-val[contenteditable='true']").forEach((field) => {
       let initial = "";
       field.addEventListener("focus", () => {
@@ -573,7 +940,18 @@ export function renderOverworldEditor(
 
   const fillSidebar = () => {
     updateCellNav();
-    updateEntityTabs(root, activeKind);
+    updateEntityTabs(root, activeSidebarTab);
+    const addButton = root.querySelector<HTMLButtonElement>("#add-entity");
+    const deleteButton = root.querySelector<HTMLButtonElement>("#del-entity");
+    const permissionsActive = activeSidebarTab === "permissions";
+    if (entitySidebarContent) entitySidebarContent.hidden = permissionsActive;
+    if (permissionSidebarContent) permissionSidebarContent.hidden = !permissionsActive;
+    if (entityCommandButtons) entityCommandButtons.hidden = permissionsActive;
+    if (permissionsActive) {
+      updatePermissionPanel();
+      return;
+    }
+
     const select = root.querySelector<HTMLSelectElement>("#entity-select");
     selectedEntity = normalizeVisibleSelection(selectedEntity, activeKind);
     const entitiesForKind = visibleEntitiesByKind(activeKind);
@@ -586,7 +964,7 @@ export function renderOverworldEditor(
     const fieldsHost = root.querySelector<HTMLDivElement>("#entity-fields");
     if (fieldsHost) {
       fieldsHost.innerHTML = entity
-        ? sidebarFields(entity)
+        ? sidebarFields(entity, isGen4)
             .map((field) => sidebarRow(field, entity, scene.raw))
             .join("")
         : `<div class="overworld-empty-selection">No ${escapeHtml(entityKindLabel(activeKind))} selected</div>`;
@@ -604,14 +982,14 @@ export function renderOverworldEditor(
       });
     }
 
-    const addButton = root.querySelector<HTMLButtonElement>("#add-entity");
     if (addButton) addButton.textContent = `Add ${entityKindLabel(activeKind)}`;
-    const deleteButton = root.querySelector<HTMLButtonElement>("#del-entity");
     if (deleteButton) deleteButton.disabled = !entity || entity.kind !== activeKind;
+    updatePermissionPanel();
   };
 
   root.querySelector<HTMLButtonElement>("#back-headers")?.addEventListener("click", () => onBack?.());
   root.querySelector<HTMLButtonElement>("#add-entity")?.addEventListener("click", () => {
+    if (activeSidebarTab === "permissions") return;
     const index = addOverworldEntity(project, overworldId, activeKind);
     selectedEntity = { kind: activeKind, index };
     const position = defaultNewEntityPosition();
@@ -620,6 +998,7 @@ export function renderOverworldEditor(
     onDirty?.();
   });
   root.querySelector<HTMLButtonElement>("#del-entity")?.addEventListener("click", () => {
+    if (activeSidebarTab === "permissions") return;
     if (!selectedEntity) return;
     deleteOverworldEntity(project, overworldId, selectedEntity.kind, selectedEntity.index);
     selectedEntity = undefined;
@@ -638,12 +1017,15 @@ export function renderOverworldEditor(
 
   root.querySelectorAll<HTMLButtonElement>(".ow-entity-tab").forEach((button) => {
     button.addEventListener("click", () => {
-      const kind = button.dataset.kind as OverworldEntityKind | undefined;
-      if (!kind) return;
-      activeKind = kind;
-      selectedEntity = normalizeVisibleSelection(selectedEntity?.kind === kind ? selectedEntity : undefined, activeKind);
-      selectedTile = undefined;
-      if (tileEditor) tileEditor.style.display = "none";
+      const tab = button.dataset.sidebarTab as SidebarTab | undefined;
+      if (!tab) return;
+      activeSidebarTab = tab;
+      if (tab !== "permissions") {
+        activeKind = tab;
+        selectedEntity = normalizeVisibleSelection(selectedEntity?.kind === tab ? selectedEntity : undefined, activeKind);
+        selectedTile = undefined;
+        if (tileEditor) tileEditor.style.display = "none";
+      }
       renderEntityOverlay();
       fillSidebar();
     });
@@ -678,23 +1060,116 @@ export function renderOverworldEditor(
     });
   });
 
+  if (!isGen4) {
+    bindPermissionMatrixResize();
+    writePermissionBrushToInputs(0, 0);
+    permissionClassInput?.addEventListener("input", readPermissionBrushFromInputs);
+    permissionFlagsInput?.addEventListener("input", readPermissionBrushFromInputs);
+    permissionPaintToggle?.addEventListener("change", () => {
+      permissionBrush.painting = Boolean(permissionPaintToggle.checked);
+    });
+    root.querySelectorAll<HTMLInputElement>("[data-ow-permission-flag]").forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        checkbox.closest<HTMLElement>(".choosable-text")?.classList.toggle("-active", checkbox.checked);
+        permissionBrush.flags = readFlagCheckboxes();
+        if (permissionFlagsInput) {
+          permissionFlagsInput.value = formatHex16(permissionBrush.flags);
+          permissionFlagsInput.classList.remove("invalid");
+        }
+        updatePermissionPanel();
+      });
+    });
+    permissionGrid?.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      if (permissionBrush.painting) {
+        pendingPaintEdits.clear();
+        state.paintingPermissions = true;
+        permissionGrid.setPointerCapture(event.pointerId);
+        paintGridTileAt(event.clientX, event.clientY);
+      } else {
+        selectPermissionTile(tileAtPermissionGrid(event.clientX, event.clientY), true);
+      }
+    });
+    permissionGrid?.addEventListener("pointermove", (event) => {
+      if (!state.paintingPermissions) return;
+      paintGridTileAt(event.clientX, event.clientY);
+    });
+    const endGridPaint = (event: PointerEvent) => {
+      if (!state.paintingPermissions) return;
+      paintGridTileAt(event.clientX, event.clientY);
+      state.paintingPermissions = false;
+      try {
+        if (permissionGrid?.hasPointerCapture(event.pointerId)) permissionGrid.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture may already be released by the browser.
+      }
+      commitPermissionPaint();
+    };
+    permissionGrid?.addEventListener("pointerup", endGridPaint);
+    permissionGrid?.addEventListener("pointercancel", endGridPaint);
+  }
+
   canvas.addEventListener("pointerdown", (event) => {
-    state.draggingMap = true;
+    if (event.button !== 0) return;
     state.dragStartX = event.clientX;
     state.dragStartY = event.clientY;
+    if (!isGen4 && permissionBrush.painting) {
+      event.preventDefault();
+      pendingPaintEdits.clear();
+      state.paintingPermissions = true;
+      canvas.setPointerCapture(event.pointerId);
+      paintCanvasTileAt(event.clientX, event.clientY);
+      return;
+    }
+    if (!isGen4) {
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    state.draggingMap = true;
     state.dragPanX = state.panX;
     state.dragPanY = state.panY;
     canvas.setPointerCapture(event.pointerId);
   });
   canvas.addEventListener("pointermove", (event) => {
+    if (!isGen4 && state.paintingPermissions) {
+      paintCanvasTileAt(event.clientX, event.clientY);
+      return;
+    }
+    if (!isGen4) return;
     if (!state.draggingMap) return;
     state.panX = state.dragPanX + event.clientX - state.dragStartX;
     state.panY = state.dragPanY + event.clientY - state.dragStartY;
     draw();
   });
   canvas.addEventListener("pointerup", (event) => {
+    if (!isGen4 && state.paintingPermissions) {
+      paintCanvasTileAt(event.clientX, event.clientY);
+      state.paintingPermissions = false;
+      try {
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture may already be released by the browser.
+      }
+      commitPermissionPaint();
+      return;
+    }
     const moved = Math.abs(event.clientX - state.dragStartX) + Math.abs(event.clientY - state.dragStartY);
     state.draggingMap = false;
+    if (!isGen4) {
+      try {
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture may already be released by the browser.
+      }
+      if (moved < 4) {
+        selectedEntity = undefined;
+        renderEntityOverlay();
+        fillSidebar();
+        selectPermissionTile(tileAt(scene, screenToWorld(event.clientX, event.clientY)), true);
+      }
+      return;
+    }
     if (moved < 4 && state.viewMode === "permissions") {
       selectedTile = tileAt(scene, screenToWorld(event.clientX, event.clientY));
       if (selectedTile && tileEditor) {
@@ -710,9 +1185,22 @@ export function renderOverworldEditor(
       if (tileEditor) tileEditor.style.display = "none";
     }
   });
+  canvas.addEventListener("pointercancel", (event) => {
+    if (!isGen4 && state.paintingPermissions) {
+      state.paintingPermissions = false;
+      try {
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture may already be released by the browser.
+      }
+      commitPermissionPaint();
+    }
+    state.draggingMap = false;
+  });
   canvas.addEventListener(
     "wheel",
     (event) => {
+      if (!isGen4) return;
       event.preventDefault();
       const rect = stage.getBoundingClientRect();
       setZoom(state.zoom + (event.deltaY < 0 ? WHEEL_ZOOM_STEP : -WHEEL_ZOOM_STEP), event.clientX - rect.left, event.clientY - rect.top);
@@ -743,25 +1231,88 @@ export function renderOverworldEditor(
   root.querySelector<HTMLButtonElement>("#cell-down")?.addEventListener("click", () => moveActiveCell(0, 1));
 
   root.addEventListener("keydown", (event) => {
-    if (event.key !== "Tab" || isEditableTarget(event.target)) return;
+    if (!isGen4 || event.key !== "Tab" || isEditableTarget(event.target)) return;
     event.preventDefault();
     setViewMode(state.viewMode === "permissions" ? "map" : "permissions");
   });
 
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(stage);
+  if (permissionGrid) {
+    const permissionGridObserver = new ResizeObserver(() => schedulePermissionGridDraw());
+    permissionGridObserver.observe(permissionGrid);
+  }
   window.addEventListener("resize", resize, { once: false });
   fillSidebar();
   resize();
+  schedulePermissionGridDraw();
+  if (!isGen4) void ensureMapRender();
   window.requestAnimationFrame(resize);
 }
 
 function sidebarRow(field: SidebarField, entity: OverworldEntity, raw = {} as Record<string, unknown>): string {
+  const value = entityFieldValue(entity, field.key, raw);
+  if (field.options) {
+    return `
+      <div class="sidebar-row">
+        <div class="sidebar-label">${escapeHtml(field.label)}</div>
+        <select class="sidebar-select sidebar-field-select" data-field-key="${escapeHtml(field.key)}">
+          ${field.options
+            .map((option) => `<option value="${option.value}" ${Number(value) === option.value ? "selected" : ""}>${option.value} ${escapeHtml(option.label)}</option>`)
+            .join("")}
+        </select>
+      </div>
+    `;
+  }
   const editable = field.editable === false ? "false" : "true";
   return `
     <div class="sidebar-row">
       <div class="sidebar-label">${escapeHtml(field.label)}</div>
-      <div class="sidebar-val" data-field-key="${escapeHtml(field.key)}" data-narc="overworld" contenteditable="${editable}" data-type="int-65535">${escapeHtml(String(entityFieldValue(entity, field.key, raw)))}</div>
+      <div class="sidebar-val" data-field-key="${escapeHtml(field.key)}" data-narc="overworld" contenteditable="${editable}" data-type="int-65535">${escapeHtml(String(value))}</div>
+    </div>
+  `;
+}
+
+function renderGen5PermissionControls(): string {
+  return `
+    <div class="overworld-permission-controls">
+      <div id="permission-selected" class="overworld-permission-selected">Select a tile to sample its class and flags.</div>
+      <label class="map3d-field">
+        <span>Tile class</span>
+        <input id="ow-permission-class" type="text" inputmode="numeric" value="0" />
+      </label>
+      <label class="map3d-field">
+        <span>Flags</span>
+        <input id="ow-permission-flags" type="text" inputmode="text" value="0x0000" />
+      </label>
+      <div class="map3d-field">
+        <span>Flag bits</span>
+        <div class="map3d-flag-grid">
+          ${GEN5_PERMISSION_FLAGS.map(
+            (flag) => `
+              <label class="map3d-check map3d-flag-check choosable-text choosable-prop">
+                <input type="checkbox" data-ow-permission-flag="${flag.bit}" />
+                ${escapeHtml(flag.label)}
+              </label>
+            `,
+          ).join("")}
+        </div>
+        <div class="map3d-flag-value" id="ow-permission-flag-value">Calculated flags: 0x0000</div>
+      </div>
+      <label class="map3d-check overworld-permission-paint">
+        <input id="ow-permission-paint" type="checkbox" />
+        Paint on click/drag
+      </label>
+    </div>
+  `;
+}
+
+function renderGen5PermissionMatrix(): string {
+  return `
+    <div class="overworld-permission-matrix">
+      <button id="permission-matrix-resize" class="overworld-permission-resize-handle" type="button" title="Resize permissions matrix"></button>
+      <div class="overworld-permission-title">Permissions Matrix</div>
+      <canvas id="permission-grid-canvas" class="overworld-permission-grid"></canvas>
     </div>
   `;
 }
@@ -802,9 +1353,9 @@ function overworldRouteUrl(overworldId: number): string {
   return url.href;
 }
 
-function updateEntityTabs(root: ParentNode, activeKind: OverworldEntityKind): void {
+function updateEntityTabs(root: ParentNode, activeTab: SidebarTab): void {
   root.querySelectorAll<HTMLButtonElement>(".ow-entity-tab").forEach((button) => {
-    button.classList.toggle("active", button.dataset.kind === activeKind);
+    button.classList.toggle("active", button.dataset.sidebarTab === activeTab);
   });
 }
 
@@ -847,8 +1398,15 @@ function entityKindLabel(kind: OverworldEntityKind): string {
   return kind === "npc" ? "NPC" : kind[0]!.toUpperCase() + kind.slice(1);
 }
 
-function sidebarFields(entity: OverworldEntity): SidebarField[] {
-  if (entity.kind === "npc") return NPC_FIELDS.map((field) => ({ key: field, label: field, editable: field !== "overworld_id" }));
+function sidebarFields(entity: OverworldEntity, isGen4: boolean): SidebarField[] {
+  if (entity.kind === "npc") {
+    return NPC_FIELDS.map((field) => ({
+      key: field,
+      label: NPC_FIELD_LABELS[field] ?? field,
+      editable: field !== "overworld_id",
+      options: !isGen4 && field === "movement_permissions_2" ? MOVEMENT_MODIFIER_OPTIONS : undefined,
+    }));
+  }
   if (entity.kind === "furniture") {
     return [
       { key: "script", label: "script" },
@@ -907,7 +1465,10 @@ function fieldVisible(field: SidebarField, entity: OverworldFurniture | Overworl
 }
 
 function entityFieldValue(entity: OverworldEntity, key: string, raw: Record<string, unknown>): number | boolean {
-  if (entity.kind === "npc") return Number(raw[`npc_${entity.index}_${key}`] ?? sceneRawNpcValue(entity, key));
+  if (entity.kind === "npc") {
+    if (key === "x_cord" || key === "y_cord") return sceneRawNpcValue(entity, key);
+    return Number(raw[`npc_${entity.index}_${key}`] ?? sceneRawNpcValue(entity, key));
+  }
   return Number((entity as unknown as Record<string, number | boolean>)[key] ?? 0);
 }
 
@@ -943,7 +1504,7 @@ function drawMap(
         context.fillStyle =
           map.permissionFormat === "gen4"
             ? gen4PermissionTileFill({ type: permission, collision, blocked: (collision & 0x80) !== 0 })
-            : mapPermissionColor(permission).color;
+            : gen5PermissionColorHex({ tileClass: permission, flags: collision });
         context.fillRect(startX + x * size, startY + y * size, Math.ceil(size), Math.ceil(size));
         context.strokeStyle = "rgba(40, 42, 54, 0.35)";
         context.strokeRect(startX + x * size, startY + y * size, size, size);
@@ -953,6 +1514,49 @@ function drawMap(
   context.strokeStyle = "#bd93f9";
   context.lineWidth = 2;
   context.strokeRect(startX, startY, map.width * size, map.height * size);
+}
+
+function drawGen5PermissionOverlay(context: CanvasRenderingContext2D, scene: OverworldScene, size: number, panX: number, panY: number): void {
+  context.save();
+  context.globalAlpha = 0.42;
+  for (const map of scene.maps) {
+    if (map.empty || map.missing) continue;
+    const startX = panX + map.x * size;
+    const startY = panY + map.y * size;
+    for (let y = 0; y < map.height; y += 1) {
+      for (let x = 0; x < map.width; x += 1) {
+        const index = y * map.width + x;
+        context.fillStyle = gen5PermissionColorHex({ tileClass: map.layer2[index] ?? 0, flags: map.layer3[index] ?? 0 });
+        context.fillRect(startX + x * size, startY + y * size, Math.ceil(size), Math.ceil(size));
+      }
+    }
+  }
+  context.restore();
+  context.save();
+  context.strokeStyle = "rgba(248, 248, 242, 0.18)";
+  context.lineWidth = 1;
+  for (const map of scene.maps) {
+    if (map.empty || map.missing) continue;
+    const startX = panX + map.x * size;
+    const startY = panY + map.y * size;
+    context.strokeRect(startX, startY, map.width * size, map.height * size);
+  }
+  context.restore();
+}
+
+function drawSelectedPermissionTile(
+  context: CanvasRenderingContext2D,
+  selectedTile: PermissionTileSelection | undefined,
+  size: number,
+  panX: number,
+  panY: number,
+): void {
+  if (!selectedTile) return;
+  context.save();
+  context.strokeStyle = "#ffb86c";
+  context.lineWidth = 3;
+  context.strokeRect(panX + selectedTile.x * size, panY + selectedTile.y * size, size, size);
+  context.restore();
 }
 
 function drawTrueMap(
@@ -1014,6 +1618,16 @@ function mapGridBounds(scene: OverworldScene): { x: number; y: number; width: nu
   const minY = Math.min(...maps.map((map) => map.y), 0);
   const maxX = Math.max(...maps.map((map) => map.x + map.width), scene.width, 1);
   const maxY = Math.max(...maps.map((map) => map.y + map.height), scene.height, 1);
+  return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
+}
+
+function permissionGridBounds(scene: OverworldScene): { x: number; y: number; width: number; height: number } {
+  const maps = scene.maps.filter((map) => !map.empty && !map.missing && map.width > 0 && map.height > 0);
+  if (maps.length === 0) return mapGridBounds(scene);
+  const minX = Math.min(...maps.map((map) => map.x));
+  const minY = Math.min(...maps.map((map) => map.y));
+  const maxX = Math.max(...maps.map((map) => map.x + map.width));
+  const maxY = Math.max(...maps.map((map) => map.y + map.height));
   return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
 }
 
@@ -1116,7 +1730,18 @@ function spriteDirectionOffset(frameCount: number, direction: number): number | 
   return offsets[Math.min(Math.max(direction, 0), offsets.length - 1)] ?? 0;
 }
 
-function tileAt(scene: OverworldScene, point: { x: number; y: number }): { mapId: number; index: number; x: number; y: number; layer2: number; layer3: number } | undefined {
+function parseU16Input(value: string): number | undefined {
+  const text = value.trim();
+  if (/^0x[0-9a-f]+$/iu.test(text)) return clampU16(Number.parseInt(text.slice(2), 16));
+  if (/^\d+$/u.test(text)) return clampU16(Number(text));
+  return undefined;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function tileAt(scene: OverworldScene, point: { x: number; y: number }): PermissionTileSelection | undefined {
   const x = Math.floor(point.x);
   const y = Math.floor(point.y);
   for (const map of scene.maps) {

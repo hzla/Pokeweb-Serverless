@@ -19,6 +19,7 @@ import { parseGen5ScriptEncounters, type Gen5ScriptEncounter } from "./gen5Scrip
 import { parseHeaders } from "./headerModel";
 import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
+import { pokemonFormSuffix } from "./pokemonFormLabels";
 import { getPokemonCount, getPokemonRecord, getPokemonSummaryRecord, type PokemonSummaryRecord } from "./pokemonModel";
 import { decodeRecord, type DocGeneratorState, type ProjectState, type ReadableRecord } from "./projectStore";
 import { getTextBank } from "./textModel";
@@ -258,27 +259,6 @@ const STANDARD_TYPE_MATCHUPS: Array<[string, string, TypeEffectivenessValue]> = 
 
 const STANDARD_GEN5_TYPE_CHART_BYTES = buildStandardTypeChartBytes(TYPES.slice(0, TYPE_CHART_VANILLA_TYPE_COUNT), false);
 const STANDARD_GEN6_TYPE_CHART_BYTES = buildStandardTypeChartBytes(TYPES, true);
-
-const FORM_INFO: Record<string, string[]> = {
-  Deoxys: ["Attack", "Defense", "Speed"],
-  Shaymin: ["Sky"],
-  Giratina: ["Origin"],
-  Rotom: ["Heat", "Wash", "Frost", "Fan", "Mow"],
-  Castform: ["Sunny", "Rainy", "Snowy"],
-  Basculin: ["Blue-Striped"],
-  Darmanitan: ["Zen"],
-  Meloetta: ["Pirouette"],
-  Kyurem: ["White", "Black"],
-  Keldeo: ["Resolute"],
-  Tornadus: ["Therian"],
-  Thundurus: ["Therian"],
-  Landorus: ["Therian"],
-  Wormadam: ["Sandy", "Trash"],
-  Genesect: ["Douse", "Chill", "Burn", "Shock"],
-  Shellos: ["East"],
-  Gastrodon: ["East"],
-  Sawsbuck: ["Summer", "Autumn", "Winter"],
-};
 
 const SPECIAL_FIXED_PERSONAL_NAMES: Record<number, string> = {
   29: "Nidoran-F",
@@ -773,7 +753,7 @@ function derivedAltFormName(project: ProjectState, id: number): string | undefin
 
     const baseName = fixedPersonalName(project, baseId) ?? directPokemonExportName(project, baseId, baseRecord);
     if (!baseName) continue;
-    const suffix = FORM_INFO[baseName]?.[id - formId];
+    const suffix = pokemonFormSuffix(baseName, id - formId + 1);
     if (suffix) return `${baseName}-${suffix}`;
   }
   return undefined;
@@ -783,7 +763,7 @@ export function trainerPokemonExportName(project: ProjectState, pok: TrainerPoke
   const baseName = pokemonExportName(project, pok.speciesId);
   if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return baseName;
 
-  const suffix = FORM_INFO[baseName]?.[pok.form - 1];
+  const suffix = pokemonFormSuffix(baseName, pok.form);
   if (suffix) return `${baseName}-${suffix}`;
 
   const altPersonalId = trainerAltFormPersonalId(project, pok.speciesId, pok.form);
