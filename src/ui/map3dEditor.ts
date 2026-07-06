@@ -16,28 +16,11 @@ import {
 } from "../pokeweb/map3dModel";
 import { isGen4Project } from "../pokeweb/constants";
 import { buildGen4Map3dScene, ensureGen4Map3dResources, saveGen4Map3dPermissionEdits } from "../pokeweb/gen4Map3dModel";
+import { clampU16, formatHex16, GEN5_PERMISSION_FLAGS, gen5PermissionColorNumber } from "../pokeweb/gen5PermissionModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
 const PERMISSION_TILE_SIZE = 16;
-const PERMISSION_FLAGS = [
-  { bit: 0x0001, label: "Blocked" },
-  { bit: 0x0002, label: "Water" },
-  { bit: 0x0004, label: "Encounter" },
-  { bit: 0x0008, label: "Footmarks" },
-  { bit: 0x0010, label: "Splash" },
-  { bit: 0x0020, label: "Grass" },
-  { bit: 0x0040, label: "Reflection" },
-  { bit: 0x0080, label: "Shadow" },
-  { bit: 0x0100, label: "Unknown 0100" },
-  { bit: 0x0200, label: "Unknown 0200" },
-  { bit: 0x0400, label: "Unknown 0400" },
-  { bit: 0x0800, label: "Unknown 0800" },
-  { bit: 0x1000, label: "Unknown 1000" },
-  { bit: 0x2000, label: "Unknown 2000" },
-  { bit: 0x4000, label: "Unknown 4000" },
-  { bit: 0x8000, label: "Geometry split" },
-] as const;
 const MAP3D_VIEW_STORAGE_KEY = "pokeweb.maps3d.lastView";
 
 type RendererState = {
@@ -196,7 +179,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         <div class="map3d-field">
           <span>Flags</span>
           <div class="map3d-flag-grid">
-            ${PERMISSION_FLAGS.map(
+            ${GEN5_PERMISSION_FLAGS.map(
               (flag) => `
                 <label class="map3d-check map3d-flag-check">
                   <input type="checkbox" data-flag="${flag.bit}" />
@@ -1219,46 +1202,11 @@ function applyLayerVisibility(state: RendererState, showBuildings: boolean, show
 }
 
 function permissionColor(tile: Map3dPermissionTile): THREE.Color {
-  if (isWaterLikePermission(tile)) return new THREE.Color(0x3da5ff);
-  if (isGrassLikePermission(tile)) return new THREE.Color(0x42d66b);
-  if (isSandLikePermission(tile.tileClass)) return new THREE.Color(0xd8b35a);
-  if ((tile.flags & 0x0001) !== 0 || tile.tileClass === 1 || tile.tileClass === 18) return new THREE.Color(0xff4d4f);
-  if ((tile.flags & 0x0004) !== 0 || [10, 12, 13, 22, 32, 35, 161].includes(tile.tileClass)) return new THREE.Color(0xffc857);
-  if ([14, 15, 16, 24, 160, 164, 165, 166, 167, 168].includes(tile.tileClass)) return new THREE.Color(0x8de8ff);
-  if ((tile.flags & 0x0040) !== 0 || tile.tileClass === 27) return new THREE.Color(0xa78bfa);
-  if ((tile.flags & 0x0080) !== 0) return new THREE.Color(0xa5b4c8);
-  if (tile.tileClass === 0 && tile.flags === 0) return new THREE.Color(0x7bd88f);
-  const hue = ((tile.tileClass * 47 + tile.flags * 13) % 360) / 360;
-  const lightness = tile.flags === 0 ? 0.46 : 0.62;
-  return new THREE.Color().setHSL(hue, 0.72, lightness);
-}
-
-function isWaterLikePermission(tile: Map3dPermissionTile): boolean {
-  return (
-    (tile.flags & 0x0002) !== 0 ||
-    [20, 21, 23, 26, 28, 61, 62, 63, 64, 65, 66, 67, 68, 148, 149, 150, 151, 152, 153, 154, 155, 156, 176].includes(tile.tileClass)
-  );
-}
-
-function isGrassLikePermission(tile: Map3dPermissionTile): boolean {
-  return (tile.flags & 0x0020) !== 0 || [4, 5, 6, 7, 8, 9, 33, 34, 162].includes(tile.tileClass);
-}
-
-function isSandLikePermission(tileClass: number): boolean {
-  return [11, 12, 19, 25, 35, 124].includes(tileClass);
+  return new THREE.Color(gen5PermissionColorNumber(tile));
 }
 
 function permissionEditKey(chunkId: number, tileX: number, tileY: number): string {
   return `${chunkId}:${tileX}:${tileY}`;
-}
-
-function clampU16(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(0xffff, Math.round(value)));
-}
-
-function formatHex16(value: number): string {
-  return `0x${(value & 0xffff).toString(16).padStart(4, "0")}`;
 }
 
 function readRememberedMap3dView(project: ProjectState, validZoneIds: number[]): { zoneId: number; season: Map3dSeason } | undefined {

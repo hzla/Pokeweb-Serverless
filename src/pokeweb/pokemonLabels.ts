@@ -1,4 +1,5 @@
 import { cascadeWhitePersonalName } from "./cascadeWhiteModel";
+import { pokemonFormSpeciesLabel } from "./pokemonFormLabels";
 import { decodeRecord, type ProjectState } from "./projectStore";
 
 const FIRST_GEN5_FORM_PERSONAL_ID = 650;
@@ -13,7 +14,7 @@ export function pokemonSpeciesLabel(project: ProjectState, speciesId: number): s
   const cascadeName = cascadeWhitePersonalName(project, speciesId);
   if (cascadeName) return cascadeName;
   const formOwner = findPokemonPersonalFormOwner(project, speciesId);
-  if (formOwner) return `${pokemonBaseSpeciesLabel(project, formOwner.speciesId)} Form ${formOwner.formIndex}`;
+  if (formOwner) return pokemonFormSpeciesLabel(pokemonBaseSpeciesLabel(project, formOwner.speciesId), formOwner.formIndex);
   return pokemonBaseSpeciesLabel(project, speciesId);
 }
 

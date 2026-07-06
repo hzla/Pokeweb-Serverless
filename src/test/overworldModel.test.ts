@@ -11,6 +11,7 @@ import {
   moveOverworldNpc,
   OVERWORLD_GROUP_FORMATS,
   OVERWORLD_HEADER_FORMAT,
+  updateMapPermissionTiles,
   updateMapTile,
   updateOverworldEntityField,
 } from "../pokeweb/overworldModel";
@@ -35,6 +36,50 @@ describe("overworldModel", () => {
     expect(project.narcs.maps?.records.size).toBe(1);
   });
 
+  it("normalizes Gen 5 event coordinates against positive matrix scene offsets", () => {
+    const project = makeProject(
+      packOverworld({
+        npc_count: 1,
+        npc_0_overworld_id: 0,
+        npc_0_overworld_sprite: 1,
+        npc_0_x_cord: 35,
+        npc_0_y_cord: 36,
+      }),
+    );
+    project.headers = {
+      count: 1,
+      rows: {
+        1: {
+          index: 5,
+          matrix_id: 0,
+          overworlds_id: 0,
+          parent_map_id: 5,
+          location_name: "Offset Route",
+          fly_x: 40,
+          fly_z: 40,
+        },
+      },
+    };
+    project.narcs.maps = makeStore("maps", [makeMapBytes(32, 32, [], []), makeMapBytes(32, 32, [], []), makeMapBytes(32, 32, [], []), makeMapBytes(32, 32, [], [])]);
+    project.narcs.matrix = makeStore("matrix", makeMatrixBytes(2, 2, [0, 1, 2, 3], [99, 99, 99, 5]));
+
+    const scene = getOverworldScene(project, 0);
+
+    expect(scene.translateX).toBe(32);
+    expect(scene.translateY).toBe(32);
+    expect(scene.maps).toHaveLength(1);
+    expect(scene.maps[0]).toMatchObject({ id: 3, x: 0, y: 0 });
+    expect(scene.npcs[0]).toMatchObject({ x: 3, y: 4 });
+
+    moveOverworldNpc(project, 0, 0, 5, 6);
+    materializeProjectEdits(project);
+
+    const data = project.narcs.overworlds?.rawFiles[0];
+    expect(data).toBeDefined();
+    expect(readU16(data!, 36)).toBe(37);
+    expect(readU16(data!, 38)).toBe(38);
+  });
+
   it("patches dirty map tile layers without rewriting untouched map bytes", () => {
     const project = makeProject();
     const original = project.narcs.maps?.rawFiles[0].slice();
@@ -48,6 +93,41 @@ describe("overworldModel", () => {
     expect(readU16(next!, 0x14 + 4 + 2 * 8 + 4)).toBe(114);
     expect(readU16(next!, 0x14 + 4 + 2 * 8 + 6)).toBe(7);
     expect(next?.slice(0, 0x14)).toEqual(original?.slice(0, 0x14));
+  });
+
+  it("batch paints Gen 5 permission tiles across multiple maps", () => {
+    const project = makeProject();
+    const firstMap = makeMapBytes(2, 2, [0, 1, 4, 63], [0, 2, 3, 4]);
+    const secondMap = makeMapBytes(2, 1, [10, 11], [0, 0]);
+    project.narcs.maps = makeStore("maps", [firstMap, secondMap]);
+
+    const changed = updateMapPermissionTiles(project, [
+      { mapId: 0, tileIndex: 1, tileClass: 114, flags: 7 },
+      { mapId: 1, tileIndex: 0, tileClass: 4, flags: 0x20 },
+    ]);
+    materializeProjectEdits(project);
+
+    expect(changed).toBe(2);
+    expect(project.narcs.maps.dirty.has(0)).toBe(true);
+    expect(project.narcs.maps.dirty.has(1)).toBe(true);
+    expect(readU16(project.narcs.maps.rawFiles[0], 0x14 + 4 + 1 * 8 + 4)).toBe(114);
+    expect(readU16(project.narcs.maps.rawFiles[0], 0x14 + 4 + 1 * 8 + 6)).toBe(7);
+    expect(readU16(project.narcs.maps.rawFiles[1], 0x14 + 4 + 4)).toBe(4);
+    expect(readU16(project.narcs.maps.rawFiles[1], 0x14 + 4 + 6)).toBe(0x20);
+    expect(project.actionChangelog?.entries.at(-1)?.text).toBe("2 permission tiles painted across 2 maps.");
+  });
+
+  it("does not dirty maps or rewrite bytes for no-op permission paint batches", () => {
+    const project = makeProject();
+    const original = project.narcs.maps?.rawFiles[0].slice();
+
+    const changed = updateMapPermissionTiles(project, [{ mapId: 0, tileIndex: 0, tileClass: 0, flags: 0 }]);
+    materializeProjectEdits(project);
+
+    expect(changed).toBe(0);
+    expect(project.narcs.maps?.dirty.size).toBe(0);
+    expect(project.narcs.maps?.rawFiles[0]).toEqual(original);
+    expect(project.actionChangelog?.entries.some((entry) => entry.domain === "maps") ?? false).toBe(false);
   });
 
   it("adds, moves, deletes, and serializes NPC records while preserving footer bytes", () => {
@@ -155,13 +235,14 @@ function makeProject(overworlds = makeOverworldBytes()): ProjectState {
   };
 }
 
-function makeStore(name: NarcStore["name"], data: Uint8Array): NarcStore {
+function makeStore(name: NarcStore["name"], data: Uint8Array | Uint8Array[]): NarcStore {
+  const rawFiles = Array.isArray(data) ? data : [data];
   return {
     name,
     fileId: 0,
     sourcePath: name,
-    fileCount: 1,
-    rawFiles: [data],
+    fileCount: rawFiles.length,
+    rawFiles,
     records: new Map(),
     dirty: new Set(),
   };

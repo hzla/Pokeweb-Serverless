@@ -3,6 +3,7 @@ import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { isGen4Project } from "./constants";
 import { GEN4_EVENT_GROUP_FORMATS, type Gen4EventGroup } from "./gen4EventModel";
 import { defaultGen4OverworldTableEntry } from "./gen4OverworldSpriteModel";
+import { clampU16 } from "./gen5PermissionModel";
 import { buildGen4MapPreview } from "./gen4MapPreviewModel";
 import { parseHeaders, type HeaderRow } from "./headerModel";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord } from "./projectStore";
@@ -93,6 +94,13 @@ export type OverworldMapScene = {
   permissionFormat?: "gen4" | "gen5";
   empty?: boolean;
   missing?: boolean;
+};
+
+export type MapPermissionTileEdit = {
+  mapId: number;
+  tileIndex: number;
+  tileClass: number;
+  flags: number;
 };
 
 export type OverworldNpc = {
@@ -199,6 +207,8 @@ type SceneMapData = {
   translateY: number;
 };
 
+type SceneTranslation = Pick<SceneMapData, "translateX" | "translateY">;
+
 const spriteMap = spriteHash as Record<string, string>;
 
 export function getOverworldScene(project: ProjectState, overworldId: number): OverworldScene {
@@ -214,7 +224,7 @@ export function getOverworldScene(project: ProjectState, overworldId: number): O
   const matrix = decodeRecord(project, "matrix", matrixId).raw;
   if (!matrix) throw new Error(`Matrix ${matrixId} could not be decoded`);
 
-  const sceneMapData = isGen4Project(project) ? gen4SceneMaps(project, matrixId, found.header.index) : gen5SceneMaps(project, matrix, found.header.index);
+  const sceneMapData = isGen4Project(project) ? gen4SceneMaps(project, matrixId, found.header.index) : gen5SceneMaps(project, matrix, found.header, found.rowId);
   const { maps, width, height } = sceneMapData;
   const overworld = decodeRecord(project, "overworlds", overworldId).raw;
   if (!overworld) throw new Error(`Overworld ${overworldId} could not be decoded`);
@@ -262,8 +272,9 @@ export function updateOverworldField(project: ProjectState, overworldId: number,
 }
 
 export function moveOverworldNpc(project: ProjectState, overworldId: number, npcIndex: number, x: number, y: number, z?: number): void {
-  updateOverworldField(project, overworldId, `npc_${npcIndex}_x_cord`, x);
-  updateOverworldField(project, overworldId, `npc_${npcIndex}_y_cord`, y);
+  const translation = isGen4Project(project) ? { translateX: 0, translateY: 0 } : gen5SceneTranslation(project, overworldId);
+  updateOverworldField(project, overworldId, `npc_${npcIndex}_x_cord`, x + translation.translateX);
+  updateOverworldField(project, overworldId, `npc_${npcIndex}_y_cord`, y + translation.translateY);
   if (z !== undefined) updateOverworldField(project, overworldId, `npc_${npcIndex}_z_cord`, z);
 }
 
@@ -323,18 +334,21 @@ export function moveOverworldEntity(project: ProjectState, overworldId: number, 
     moveOverworldNpc(project, overworldId, index, x, y);
     return;
   }
+  const translation = gen5SceneTranslation(project, overworldId);
+  const rawX = x + translation.translateX;
+  const rawY = y + translation.translateY;
   if (kind === "furniture") {
     record.raw[`furniture_${index}_unknown_3`] = 0;
-    setU32Pair(record.raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`, x);
-    setU32Pair(record.raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`, y);
+    setU32Pair(record.raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`, rawX);
+    setU32Pair(record.raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`, rawY);
   } else if (kind === "warp") {
     setWarpRail(record.raw, index, false);
-    setWarpGridX(record.raw, index, x);
-    setWarpGridZ(record.raw, index, y);
+    setWarpGridX(record.raw, index, rawX);
+    setWarpGridZ(record.raw, index, rawY);
   } else {
     record.raw[`trigger_${index}_unknown_2`] = 0;
-    record.raw[`trigger_${index}_x_cord`] = x;
-    record.raw[`trigger_${index}_y_cord`] = y;
+    record.raw[`trigger_${index}_x_cord`] = rawX;
+    record.raw[`trigger_${index}_y_cord`] = rawY;
   }
   markDirty(project, "overworlds", overworldId);
   recordGenericChange(project, "overworlds", `${entityKindLabel(kind)} ${index} moved.`, `Overworld ${overworldId}`, {
@@ -354,8 +368,9 @@ export function updateOverworldEntityField(
   if (isGen4Project(project)) return updateGen4EventEntityField(project, record.raw, overworldId, selection, field, value);
   if (!entityIndexes(record.raw, selection.kind).includes(selection.index)) throw new Error(`${entityKindLabel(selection.kind)} ${selection.index} does not exist`);
   const next = coerceInt(value, 0, semanticFieldMax(selection.kind, field), field);
-  const before = getSemanticEntityField(record.raw, selection.kind, selection.index, field);
-  setSemanticEntityField(record.raw, selection.kind, selection.index, field, next);
+  const translation = gen5SceneTranslation(project, overworldId);
+  const before = getSemanticEntityField(record.raw, selection.kind, selection.index, field, translation);
+  setSemanticEntityField(record.raw, selection.kind, selection.index, field, next, translation);
   markDirty(project, "overworlds", overworldId);
   recordFieldChange(project, "overworlds", `Overworld ${overworldId}`, `${entityKindLabel(selection.kind)} ${selection.index} ${semanticFieldLabel(field)}`, before, next, {
     key: `overworld:${overworldId}:${selection.kind}:${selection.index}:${field}`,
@@ -379,6 +394,59 @@ export function updateMapTile(project: ProjectState, mapId: number, tileIndex: n
     key: `map-tile:${mapId}:${layer}:${tileIndex}`,
   });
   return next;
+}
+
+export function updateMapPermissionTiles(project: ProjectState, edits: MapPermissionTileEdit[]): number {
+  if (isGen4Project(project)) throw new Error("Batch permission painting is only supported for Gen 5 maps");
+  const records = new Map<number, { record: ReturnType<typeof decodeRecord>; tileCount: number }>();
+  const touchedMaps = new Set<number>();
+  let changedCount = 0;
+  let firstMap = 0;
+  let firstTile = 0;
+
+  for (const edit of edits) {
+    let entry = records.get(edit.mapId);
+    if (!entry) {
+      const record = decodeRecord(project, "maps", edit.mapId);
+      if (!record.raw) throw new Error(`Map ${edit.mapId} could not be decoded`);
+      entry = {
+        record,
+        tileCount: Number(record.raw.width ?? 0) * Number(record.raw.height ?? 0),
+      };
+      records.set(edit.mapId, entry);
+    }
+    if (edit.tileIndex < 0 || edit.tileIndex >= entry.tileCount) throw new Error(`Tile ${edit.tileIndex} is outside map ${edit.mapId}`);
+
+    const tileClass = clampU16(edit.tileClass);
+    const flags = clampU16(edit.flags);
+    const classField = `layer_2_${edit.tileIndex}`;
+    const flagsField = `layer_3_${edit.tileIndex}`;
+    const beforeClass = Number(entry.record.raw?.[classField] ?? 0);
+    const beforeFlags = Number(entry.record.raw?.[flagsField] ?? 0);
+    if (beforeClass === tileClass && beforeFlags === flags) continue;
+
+    if (changedCount === 0) {
+      firstMap = edit.mapId;
+      firstTile = edit.tileIndex;
+    }
+    entry.record.raw![classField] = tileClass;
+    entry.record.raw![flagsField] = flags;
+    touchedMaps.add(edit.mapId);
+    changedCount += 1;
+  }
+
+  if (changedCount === 0) return 0;
+  for (const mapId of touchedMaps) markDirty(project, "maps", mapId);
+  recordGenericChange(
+    project,
+    "maps",
+    `${changedCount} permission tile${changedCount === 1 ? "" : "s"} painted across ${touchedMaps.size} map${touchedMaps.size === 1 ? "" : "s"}.`,
+    "Map permissions",
+    {
+      key: `map-permission-paint:${project.actionChangelog?.entries.length ?? 0}:${firstMap}:${firstTile}:${changedCount}`,
+    },
+  );
+  return changedCount;
 }
 
 export function mapPermissionColor(permission: number): { color: string; label: string } {
@@ -407,7 +475,10 @@ function findHeaderForOverworld(project: ProjectState, overworldId: number): { r
   if (!headers) return undefined;
   for (let rowId = 1; rowId <= headers.count; rowId += 1) {
     const header = headers.rows[rowId];
-    if (Number(header.overworlds_id ?? header.map_id) === overworldId) return { rowId, header };
+    if (Number(header.overworlds_id ?? header.map_id) === overworldId) {
+      const index = Number(header.index);
+      return { rowId, header: Number.isFinite(index) ? header : { ...header, index: rowId - 1 } };
+    }
   }
   return undefined;
 }
@@ -426,12 +497,12 @@ function matrixCells(project: ProjectState, matrix: RawRecord): MatrixCell[] {
       y += lastHeight;
     }
 
-    const mapId = Number(matrix[`map_${index}`] ?? NULL_MAP_ID);
+    const mapId = Number(matrixEntry(matrix, "map", index) ?? NULL_MAP_ID);
     const dimensions = mapDimensions(project, mapId);
     cells.push({
       index,
       mapId,
-      headerId: matrix[`header_${index}`],
+      headerId: matrixEntry(matrix, "header", index),
       x,
       y,
       width: dimensions.width,
@@ -441,6 +512,16 @@ function matrixCells(project: ProjectState, matrix: RawRecord): MatrixCell[] {
     lastHeight = dimensions.height;
   }
   return cells;
+}
+
+function matrixEntry(matrix: RawRecord, field: "map" | "header", index: number): number | undefined {
+  const direct = matrix[`${field}_${index}`];
+  if (direct !== undefined) return Number(direct);
+  const raw = matrix as unknown as Record<string, unknown>;
+  const array = raw[field === "map" ? "maps" : "headers"];
+  if (!Array.isArray(array)) return undefined;
+  const value = array[index];
+  return value === undefined ? undefined : Number(value);
 }
 
 function gen4SceneMaps(project: ProjectState, matrixId: number, headerId: number): SceneMapData {
@@ -468,11 +549,11 @@ function gen4SceneMaps(project: ProjectState, matrixId: number, headerId: number
   };
 }
 
-function gen5SceneMaps(project: ProjectState, matrix: RawRecord, headerId: number): SceneMapData {
+function gen5SceneMaps(project: ProjectState, matrix: RawRecord, header: HeaderRow, rowId: number): SceneMapData {
   const cells = matrixCells(project, matrix);
-  const matchingCells = selectSceneCells(cells, headerId);
-  const minX = Math.min(...matchingCells.map((cell) => cell.x), 0);
-  const minY = Math.min(...matchingCells.map((cell) => cell.y), 0);
+  const matchingCells = selectSceneCells(cells, header, rowId);
+  const minX = matchingCells.length > 0 ? Math.min(...matchingCells.map((cell) => cell.x)) : 0;
+  const minY = matchingCells.length > 0 ? Math.min(...matchingCells.map((cell) => cell.y)) : 0;
   const maps = matchingCells
     .filter((cell) => cell.mapId !== NULL_MAP_ID)
     .map((cell) => {
@@ -502,6 +583,19 @@ function gen5SceneMaps(project: ProjectState, matrix: RawRecord, headerId: numbe
   };
 }
 
+function gen5SceneTranslation(project: ProjectState, overworldId: number): SceneTranslation {
+  requireStore(project, "matrix");
+  requireStore(project, "maps");
+  if (!project.headers) project.headers = parseHeaders(project);
+  const found = findHeaderForOverworld(project, overworldId);
+  if (!found) return { translateX: 0, translateY: 0 };
+  const matrixId = Number(found.header.matrix_id ?? 0);
+  const matrix = decodeRecord(project, "matrix", matrixId).raw;
+  if (!matrix) return { translateX: 0, translateY: 0 };
+  const sceneMapData = gen5SceneMaps(project, matrix, found.header, found.rowId);
+  return { translateX: sceneMapData.translateX, translateY: sceneMapData.translateY };
+}
+
 function mapDimensions(project: ProjectState, mapId: number): { width: number; height: number } {
   if (mapId === NULL_MAP_ID) return { width: 32, height: 32 };
   try {
@@ -512,11 +606,38 @@ function mapDimensions(project: ProjectState, mapId: number): { width: number; h
   }
 }
 
-function selectSceneCells(cells: MatrixCell[], headerId: number): MatrixCell[] {
-  const headerValues = cells.map((cell) => cell.headerId).filter((value) => value !== undefined);
-  if (headerValues.length === 0 || headerValues.every((value) => value === 0)) return cells;
-  const matching = cells.filter((cell) => cell.headerId === headerId);
-  return matching.length > 0 ? matching : cells;
+function selectSceneCells(cells: MatrixCell[], header: HeaderRow, rowId: number): MatrixCell[] {
+  const headerValues = cells.map((cell) => Number(cell.headerId)).filter((value) => Number.isFinite(value) && value !== NULL_MAP_ID);
+  const flySelection = selectSceneCellsByFlyPosition(cells, header);
+  if (headerValues.length === 0 || headerValues.every((value) => value === 0)) return flySelection ?? cells;
+
+  for (const candidate of sceneHeaderCandidates(header, rowId)) {
+    const matching = cells.filter((cell) => Number(cell.headerId) === candidate);
+    if (matching.length > 0) return matching;
+  }
+
+  return flySelection ?? cells;
+}
+
+function sceneHeaderCandidates(header: HeaderRow, rowId: number): number[] {
+  const candidates = [header.index, rowId - 1, rowId, header.parent_map_id]
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value !== NULL_MAP_ID);
+  return [...new Set(candidates)];
+}
+
+function selectSceneCellsByFlyPosition(cells: MatrixCell[], header: HeaderRow): MatrixCell[] | undefined {
+  const flyX = Number(header.fly_x);
+  const flyY = Number(header.fly_z);
+  if (!Number.isFinite(flyX) || !Number.isFinite(flyY) || (flyX < 32 && flyY < 32)) return undefined;
+  const cell = cells.find((entry) => entry.mapId !== NULL_MAP_ID && flyX >= entry.x && flyY >= entry.y && flyX < entry.x + entry.width && flyY < entry.y + entry.height);
+  if (!cell) return undefined;
+  const headerId = Number(cell.headerId);
+  if (Number.isFinite(headerId) && headerId !== NULL_MAP_ID) {
+    const matching = cells.filter((entry) => Number(entry.headerId) === headerId);
+    if (matching.length > 0) return matching;
+  }
+  return [cell];
 }
 
 function collectLayer(raw: RawRecord, layer: 2 | 3, count: number): number[] {
@@ -824,15 +945,19 @@ function applyEntityDefaults(raw: RawRecord, kind: OverworldEntityKind, index: n
   }
 }
 
-function getSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index: number, field: string): number {
-  if (kind === "npc") return Number(raw[`npc_${index}_${field}`] ?? 0);
+function getSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index: number, field: string, translation: SceneTranslation): number {
+  if (kind === "npc") {
+    if (field === "x_cord") return Number(raw[`npc_${index}_${field}`] ?? 0) - translation.translateX;
+    if (field === "y_cord") return Number(raw[`npc_${index}_${field}`] ?? 0) - translation.translateY;
+    return Number(raw[`npc_${index}_${field}`] ?? 0);
+  }
   if (kind === "furniture") {
     if (field === "script") return Number(raw[`furniture_${index}_script_id`] ?? 0);
     if (field === "condition") return Number(raw[`furniture_${index}_unknown_1`] ?? 0);
     if (field === "interactibility") return Number(raw[`furniture_${index}_unknown_2`] ?? 0);
     if (field === "isRail") return Number(raw[`furniture_${index}_unknown_3`] ?? 0);
-    if (field === "gridX") return u32Pair(raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`);
-    if (field === "gridZ") return u32Pair(raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`);
+    if (field === "gridX") return u32Pair(raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`) - translation.translateX;
+    if (field === "gridZ") return u32Pair(raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`) - translation.translateY;
     if (field === "railLineNo") return Number(raw[`furniture_${index}_x_cord`] ?? 0);
     if (field === "railFrontPos") return Number(raw[`furniture_${index}_x_cord_padding`] ?? 0);
     if (field === "railSidePos") return Number(raw[`furniture_${index}_y_cord`] ?? 0);
@@ -847,9 +972,9 @@ function getSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index
     if (field === "contactDirection") return Number(raw[`warp_${index}_contact_direction`] ?? 0);
     if (field === "transitionType") return Number(raw[`warp_${index}_transition_type`] ?? 0);
     if (field === "isRail") return low16(exitX);
-    if (field === "gridX") return Math.floor(signed16(high16(exitX)) / 16);
+    if (field === "gridX") return Math.floor(signed16(high16(exitX)) / 16) - translation.translateX;
     if (field === "worldY") return signed16(low16(exitY));
-    if (field === "gridZ") return Math.floor(signed16(high16(exitY)) / 16);
+    if (field === "gridZ") return Math.floor(signed16(high16(exitY)) / 16) - translation.translateY;
     if (field === "railLineNo") return high16(exitX);
     if (field === "railFrontPos") return low16(exitY);
     if (field === "railSidePos") return high16(exitY);
@@ -864,8 +989,10 @@ function getSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index
     if (field === "variable") return Number(raw[`trigger_${index}_to_check_value`] ?? 0);
     if (field === "type") return Number(raw[`trigger_${index}_unknown_1`] ?? 0);
     if (field === "isRail") return Number(raw[`trigger_${index}_unknown_2`] ?? 0);
-    if (field === "gridX" || field === "railLineNo") return Number(raw[`trigger_${index}_x_cord`] ?? 0);
-    if (field === "gridZ" || field === "railFrontPos") return Number(raw[`trigger_${index}_y_cord`] ?? 0);
+    if (field === "gridX") return Number(raw[`trigger_${index}_x_cord`] ?? 0) - translation.translateX;
+    if (field === "gridZ") return Number(raw[`trigger_${index}_y_cord`] ?? 0) - translation.translateY;
+    if (field === "railLineNo") return Number(raw[`trigger_${index}_x_cord`] ?? 0);
+    if (field === "railFrontPos") return Number(raw[`trigger_${index}_y_cord`] ?? 0);
     if (field === "railSidePos") return Number(raw[`trigger_${index}_z_cord`] ?? 0);
     if (field === "width") return Number(raw[`trigger_${index}_${isRail ? "unknown_3" : "z_cord"}`] ?? 0);
     if (field === "height") return Number(raw[`trigger_${index}_${isRail ? "unknown_4" : "unknown_3"}`] ?? 0);
@@ -875,9 +1002,9 @@ function getSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index
   throw new Error(`Unsupported ${kind} field: ${field}`);
 }
 
-function setSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index: number, field: string, value: number): void {
+function setSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index: number, field: string, value: number, translation: SceneTranslation): void {
   if (kind === "npc") {
-    raw[`npc_${index}_${field}`] = value;
+    raw[`npc_${index}_${field}`] = field === "x_cord" ? value + translation.translateX : field === "y_cord" ? value + translation.translateY : value;
     return;
   }
   if (kind === "furniture") {
@@ -885,8 +1012,8 @@ function setSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index
     else if (field === "condition") raw[`furniture_${index}_unknown_1`] = value;
     else if (field === "interactibility") raw[`furniture_${index}_unknown_2`] = value;
     else if (field === "isRail") raw[`furniture_${index}_unknown_3`] = value;
-    else if (field === "gridX") setU32Pair(raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`, value);
-    else if (field === "gridZ") setU32Pair(raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`, value);
+    else if (field === "gridX") setU32Pair(raw, `furniture_${index}_x_cord`, `furniture_${index}_x_cord_padding`, value + translation.translateX);
+    else if (field === "gridZ") setU32Pair(raw, `furniture_${index}_y_cord`, `furniture_${index}_y_cord_padding`, value + translation.translateY);
     else if (field === "railLineNo") raw[`furniture_${index}_x_cord`] = value;
     else if (field === "railFrontPos") raw[`furniture_${index}_x_cord_padding`] = value;
     else if (field === "railSidePos") raw[`furniture_${index}_y_cord`] = value;
@@ -901,9 +1028,9 @@ function setSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index
     else if (field === "contactDirection") raw[`warp_${index}_contact_direction`] = value;
     else if (field === "transitionType") raw[`warp_${index}_transition_type`] = value;
     else if (field === "isRail") setWarpRail(raw, index, value !== 0);
-    else if (field === "gridX") setWarpGridX(raw, index, value);
+    else if (field === "gridX") setWarpGridX(raw, index, value + translation.translateX);
     else if (field === "worldY") setWarpWorldY(raw, index, value);
-    else if (field === "gridZ") setWarpGridZ(raw, index, value);
+    else if (field === "gridZ") setWarpGridZ(raw, index, value + translation.translateY);
     else if (field === "railLineNo") setPackedHigh(raw, `warp_${index}_exit_x`, value);
     else if (field === "railFrontPos") setPackedLow(raw, `warp_${index}_exit_y`, value);
     else if (field === "railSidePos") setPackedHigh(raw, `warp_${index}_exit_y`, value);
@@ -920,8 +1047,10 @@ function setSemanticEntityField(raw: RawRecord, kind: OverworldEntityKind, index
     else if (field === "variable") raw[`trigger_${index}_to_check_value`] = value;
     else if (field === "type") raw[`trigger_${index}_unknown_1`] = value;
     else if (field === "isRail") raw[`trigger_${index}_unknown_2`] = value;
-    else if (field === "gridX" || field === "railLineNo") raw[`trigger_${index}_x_cord`] = value;
-    else if (field === "gridZ" || field === "railFrontPos") raw[`trigger_${index}_y_cord`] = value;
+    else if (field === "gridX") raw[`trigger_${index}_x_cord`] = value + translation.translateX;
+    else if (field === "gridZ") raw[`trigger_${index}_y_cord`] = value + translation.translateY;
+    else if (field === "railLineNo") raw[`trigger_${index}_x_cord`] = value;
+    else if (field === "railFrontPos") raw[`trigger_${index}_y_cord`] = value;
     else if (field === "railSidePos") raw[`trigger_${index}_z_cord`] = value;
     else if (field === "width") raw[`trigger_${index}_${isRail ? "unknown_3" : "z_cord"}`] = value;
     else if (field === "height") raw[`trigger_${index}_${isRail ? "unknown_4" : "unknown_3"}`] = value;
@@ -1043,8 +1172,16 @@ function gen4SemanticFieldMax(kind: OverworldEntityKind, field: string): number 
   return 0xffff;
 }
 
+const SEMANTIC_FIELD_LABELS: Record<string, string> = {
+  movement_permissions: "move code",
+  movement_permissions_2: "movement modifier",
+  sight: "sight range",
+  unknown_1: "modifier step count",
+  unknown_2: "modifier parameter 2",
+};
+
 function semanticFieldLabel(field: string): string {
-  return field.replace(/[A-Z]/gu, (match) => ` ${match.toLowerCase()}`).replace(/_/gu, " ");
+  return SEMANTIC_FIELD_LABELS[field] ?? field.replace(/[A-Z]/gu, (match) => ` ${match.toLowerCase()}`).replace(/_/gu, " ");
 }
 
 function entityKindLabel(kind: OverworldEntityKind): string {
