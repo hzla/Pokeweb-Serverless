@@ -22,6 +22,19 @@ import { escapeHtml } from "./dom";
 
 const PERMISSION_TILE_SIZE = 16;
 const MAP3D_VIEW_STORAGE_KEY = "pokeweb.maps3d.lastView";
+const MAP3D_LAYER_STORAGE_KEY = "pokeweb.maps3d.layers";
+const MOVEMENT_PREVIEW_TILE_SIZE = 16;
+const MOVEMENT_PREVIEW_FPS = 30;
+const MOVEMENT_PREVIEW_WALK_FRAMES = 8;
+const MOVEMENT_PREVIEW_TURN_FRAMES = 24;
+const DEFAULT_MAP3D_LAYER_SETTINGS: Map3dLayerSettings = {
+  showBuildings: true,
+  showBuildingBounds: false,
+  showNpcs: true,
+  showEntities: false,
+  showPermissions: false,
+  showMovementPreview: false,
+};
 
 type RendererState = {
   renderer: THREE.WebGLRenderer;
@@ -34,6 +47,9 @@ type RendererState = {
   npcGroup: THREE.Group;
   overlayGroup: THREE.Group;
   permissionGroup: THREE.Group;
+  npcMovementActors: NpcMovementActor[];
+  movementPreview: boolean;
+  movementPreviewStartMs: number;
   raycaster: THREE.Raycaster;
   pointer: THREE.Vector2;
   animationId: number;
@@ -66,9 +82,43 @@ type PermissionMeshUserData = {
   tileIndices: number[];
 };
 
+type NpcMovementActor = {
+  group: THREE.Group;
+  baseX: number;
+  baseY: number;
+  baseZ: number;
+  baseRotationY: number;
+  initialDirection: NpcPreviewDirection;
+  spriteMaterial?: THREE.MeshBasicMaterial;
+  spriteTextures?: Partial<Record<NpcPreviewDirection, THREE.Texture[]>>;
+  program?: NpcMovementProgram;
+};
+
+type NpcMovementProgram = {
+  kind: "walk" | "spin";
+  steps: NpcMovementStep[];
+  totalFrames: number;
+};
+
+type NpcMovementStep =
+  | { kind: "walk"; direction: NpcPreviewDirection; frames: number; dx: number; dz: number }
+  | { kind: "turn"; direction: NpcPreviewDirection; frames: number };
+
+type NpcPreviewDirection = "U" | "D" | "L" | "R";
+
+type Map3dLayerSettings = {
+  showBuildings: boolean;
+  showBuildingBounds: boolean;
+  showNpcs: boolean;
+  showEntities: boolean;
+  showPermissions: boolean;
+  showMovementPreview: boolean;
+};
+
 export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void): void {
   let zones = getMap3dZones(project);
   const rememberedView = readRememberedMap3dView(project, zones.map((zone) => zone.zoneId));
+  const layerSettings = readMap3dLayerSettings(project);
   const initialZone = rememberedView?.zoneId ?? zones[0]?.zoneId ?? 0;
   let activeZone = initialZone;
   let activeSeason: Map3dSeason = rememberedView?.season ?? "spring";
@@ -140,11 +190,12 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         <button class="ow-tool map3d-load-button" id="map3d-meta-save" type="button">Save Metadata</button>
       </div>
       <div class="map3d-layer-grid">
-        <label class="map3d-check"><input id="map3d-show-buildings" type="checkbox" checked /> Buildings</label>
-        <label class="map3d-check"><input id="map3d-show-building-bounds" type="checkbox" /> Building bounds</label>
-        <label class="map3d-check"><input id="map3d-show-npcs" type="checkbox" checked /> NPC models</label>
-        <label class="map3d-check"><input id="map3d-show-entities" type="checkbox" checked /> Entity overlays</label>
-        <label class="map3d-check"><input id="map3d-show-permissions" type="checkbox" /> Collision overlay</label>
+        <label class="map3d-check"><input id="map3d-show-buildings" type="checkbox" ${checkedAttr(layerSettings.showBuildings)} /> Buildings</label>
+        <label class="map3d-check"><input id="map3d-show-building-bounds" type="checkbox" ${checkedAttr(layerSettings.showBuildingBounds)} /> Building bounds</label>
+        <label class="map3d-check"><input id="map3d-show-npcs" type="checkbox" ${checkedAttr(layerSettings.showNpcs)} /> NPC models</label>
+        <label class="map3d-check"><input id="map3d-show-entities" type="checkbox" ${checkedAttr(layerSettings.showEntities)} /> Entity overlays</label>
+        <label class="map3d-check"><input id="map3d-show-permissions" type="checkbox" ${checkedAttr(layerSettings.showPermissions)} /> Collision overlay</label>
+        <label class="map3d-check"><input id="map3d-preview-movement" type="checkbox" ${checkedAttr(layerSettings.showMovementPreview)} /> Movement preview</label>
       </div>
       <div class="map3d-permission-editor">
         <strong>Collision / Permissions</strong>
@@ -246,6 +297,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   const showNpcs = root.querySelector<HTMLInputElement>("#map3d-show-npcs");
   const showEntities = root.querySelector<HTMLInputElement>("#map3d-show-entities");
   const showPermissions = root.querySelector<HTMLInputElement>("#map3d-show-permissions");
+  const showMovementPreview = root.querySelector<HTMLInputElement>("#map3d-preview-movement");
   const permissionClass = root.querySelector<HTMLInputElement>("#map3d-permission-class");
   const permissionFlagInputs = Array.from(root.querySelectorAll<HTMLInputElement>(".map3d-flag-check input"));
   const permissionFlagValue = root.querySelector<HTMLDivElement>("#map3d-permission-flag-value");
@@ -282,7 +334,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       renderSceneData(state, data);
       writeMetadataForm(getMap3dZoneMetadata(project, zoneId), data);
       renderMap3dDiagnostics(warningsHost, data);
-      applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions?.checked ?? false);
+      applyCurrentLayerSettings(false);
       rememberMap3dView(project, zoneId, activeSeason);
       setStatus(data.label);
     } catch (error) {
@@ -297,6 +349,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       clearGroup(state.npcGroup);
       clearGroup(state.overlayGroup);
       clearGroup(state.permissionGroup);
+      state.npcMovementActors = [];
     }
   };
 
@@ -314,29 +367,33 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   });
 
   showBuildings?.addEventListener("change", () => {
-    if (state) applyLayerVisibility(state, showBuildings.checked, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions?.checked ?? false);
+    applyCurrentLayerSettings();
   });
 
   showBuildingBounds?.addEventListener("change", () => {
-    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds.checked, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions?.checked ?? false);
+    applyCurrentLayerSettings();
   });
 
   showNpcs?.addEventListener("change", () => {
-    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs.checked, showEntities?.checked ?? true, showPermissions?.checked ?? false);
+    applyCurrentLayerSettings();
   });
 
   showEntities?.addEventListener("change", () => {
-    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities.checked, showPermissions?.checked ?? false);
+    applyCurrentLayerSettings();
   });
 
   showPermissions?.addEventListener("change", () => {
-    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities?.checked ?? true, showPermissions.checked);
+    applyCurrentLayerSettings();
+  });
+
+  showMovementPreview?.addEventListener("change", () => {
+    applyCurrentLayerSettings();
   });
 
   permissionPaint?.addEventListener("change", () => {
     if (!permissionPaint.checked || !showPermissions) return;
     showPermissions.checked = true;
-    if (state) applyLayerVisibility(state, showBuildings?.checked ?? true, showBuildingBounds?.checked ?? false, showNpcs?.checked ?? true, showEntities?.checked ?? true, true);
+    applyCurrentLayerSettings();
   });
 
   for (const input of permissionFlagInputs) {
@@ -417,6 +474,26 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       `;
     }
     updatePermissionSelectionMarker(state);
+  }
+
+  function currentLayerSettings(): Map3dLayerSettings {
+    return {
+      showBuildings: showBuildings?.checked ?? DEFAULT_MAP3D_LAYER_SETTINGS.showBuildings,
+      showBuildingBounds: showBuildingBounds?.checked ?? DEFAULT_MAP3D_LAYER_SETTINGS.showBuildingBounds,
+      showNpcs: showNpcs?.checked ?? DEFAULT_MAP3D_LAYER_SETTINGS.showNpcs,
+      showEntities: showEntities?.checked ?? DEFAULT_MAP3D_LAYER_SETTINGS.showEntities,
+      showPermissions: showPermissions?.checked ?? DEFAULT_MAP3D_LAYER_SETTINGS.showPermissions,
+      showMovementPreview: showMovementPreview?.checked ?? DEFAULT_MAP3D_LAYER_SETTINGS.showMovementPreview,
+    };
+  }
+
+  function applyCurrentLayerSettings(persist = true): void {
+    const settings = currentLayerSettings();
+    if (state) {
+      applyLayerVisibility(state, settings.showBuildings, settings.showBuildingBounds, settings.showNpcs, settings.showEntities, settings.showPermissions);
+      setMovementPreview(state, settings.showMovementPreview);
+    }
+    if (persist) rememberMap3dLayerSettings(project, settings);
   }
 
   function applyPermissionBrush(): void {
@@ -638,6 +715,9 @@ function createRenderer(container: HTMLElement): RendererState {
     npcGroup,
     overlayGroup,
     permissionGroup,
+    npcMovementActors: [],
+    movementPreview: false,
+    movementPreviewStartMs: performance.now(),
     raycaster: new THREE.Raycaster(),
     pointer: new THREE.Vector2(),
     animationId: 0,
@@ -670,6 +750,7 @@ function createRenderer(container: HTMLElement): RendererState {
   const animate = () => {
     resize();
     updateCamera();
+    updateNpcMovementPreview(state, performance.now());
     renderer.render(scene, camera);
     state.animationId = window.requestAnimationFrame(animate);
   };
@@ -783,6 +864,7 @@ function renderSceneData(state: RendererState, data: Map3dSceneData): void {
   clearGroup(state.npcGroup);
   clearGroup(state.overlayGroup);
   clearGroup(state.permissionGroup);
+  state.npcMovementActors = [];
   const textureCache = new Map<string, THREE.Texture>();
 
   for (const chunk of data.chunks) {
@@ -822,11 +904,29 @@ function renderSceneData(state: RendererState, data: Map3dSceneData): void {
   }
   for (const npc of data.npcModels) {
     const npcGroup = new THREE.Group();
+    const isSpriteNpc = npc.modelType === "sprite";
+    const baseRotationY = isSpriteNpc ? 0 : npc.rotationY;
     npcGroup.position.set(npc.x, npc.y, npc.z);
-    npcGroup.rotation.y = THREE.MathUtils.degToRad(npc.rotationY);
+    npcGroup.rotation.y = THREE.MathUtils.degToRad(baseRotationY);
     addPrimitivesToGroup(npcGroup, npc.primitives, textureCache);
     state.npcGroup.add(npcGroup);
+    const spriteMaterial = isSpriteNpc ? firstMeshBasicMaterial(npcGroup) : undefined;
+    const spriteTextures = npc.spriteFrames ? createNpcSpriteTextures(npc.spriteFrames, textureCache) : undefined;
+    const initialDirection = directionFromGameDirection(npc.movement.initialDirection);
+    state.npcMovementActors.push({
+      group: npcGroup,
+      baseX: npc.x,
+      baseY: npc.y,
+      baseZ: npc.z,
+      baseRotationY,
+      initialDirection,
+      spriteMaterial,
+      spriteTextures,
+      program: deterministicNpcMovementProgram(npc),
+    });
+    setNpcActorDirection(state.npcMovementActors[state.npcMovementActors.length - 1]!, initialDirection, 0);
   }
+  state.movementPreviewStartMs = performance.now();
   for (const entity of data.entities) {
     if (entity.kind !== "npc" || data.npcModels.length === 0) state.overlayGroup.add(createEntityOverlay(entity, textureCache));
   }
@@ -1201,6 +1301,230 @@ function applyLayerVisibility(state: RendererState, showBuildings: boolean, show
   state.permissionGroup.visible = showPermissions;
 }
 
+function setMovementPreview(state: RendererState, enabled: boolean): void {
+  if (state.movementPreview === enabled) return;
+  state.movementPreview = enabled;
+  state.movementPreviewStartMs = performance.now();
+  if (!enabled) resetNpcMovementActors(state);
+}
+
+function updateNpcMovementPreview(state: RendererState, nowMs: number): void {
+  if (!state.movementPreview) return;
+  const previewFrame = ((nowMs - state.movementPreviewStartMs) / 1000) * MOVEMENT_PREVIEW_FPS;
+  for (const actor of state.npcMovementActors) {
+    if (!actor.program) {
+      resetNpcMovementActor(actor);
+      continue;
+    }
+    applyNpcMovementProgram(actor, actor.program, previewFrame);
+  }
+}
+
+function resetNpcMovementActors(state: RendererState): void {
+  for (const actor of state.npcMovementActors) resetNpcMovementActor(actor);
+}
+
+function resetNpcMovementActor(actor: NpcMovementActor): void {
+  actor.group.position.set(actor.baseX, actor.baseY, actor.baseZ);
+  actor.group.rotation.y = THREE.MathUtils.degToRad(actor.baseRotationY);
+  setNpcActorDirection(actor, actor.initialDirection, 0);
+}
+
+function applyNpcMovementProgram(actor: NpcMovementActor, program: NpcMovementProgram, previewFrame: number): void {
+  if (program.totalFrames <= 0) {
+    resetNpcMovementActor(actor);
+    return;
+  }
+  let frame = previewFrame % program.totalFrames;
+  if (frame < 0) frame += program.totalFrames;
+  let completedX = 0;
+  let completedZ = 0;
+  for (const step of program.steps) {
+    if (frame >= step.frames) {
+      if (step.kind === "walk") {
+        completedX += step.dx;
+        completedZ += step.dz;
+      }
+      frame -= step.frames;
+      continue;
+    }
+    if (step.kind === "walk") {
+      const progress = Math.max(0, Math.min(1, frame / step.frames));
+      actor.group.position.set(
+        actor.baseX + (completedX + step.dx * progress) * MOVEMENT_PREVIEW_TILE_SIZE,
+        actor.baseY,
+        actor.baseZ + (completedZ + step.dz * progress) * MOVEMENT_PREVIEW_TILE_SIZE,
+      );
+      setNpcActorDirection(actor, step.direction, Math.floor(frame));
+    } else {
+      actor.group.position.set(actor.baseX + completedX * MOVEMENT_PREVIEW_TILE_SIZE, actor.baseY, actor.baseZ + completedZ * MOVEMENT_PREVIEW_TILE_SIZE);
+      setNpcActorDirection(actor, step.direction, 0);
+    }
+    return;
+  }
+  resetNpcMovementActor(actor);
+}
+
+function setNpcActorDirection(actor: NpcMovementActor, direction: NpcPreviewDirection, walkFrame: number): void {
+  if (actor.spriteMaterial && actor.spriteTextures) {
+    const frames = actor.spriteTextures[direction] ?? actor.spriteTextures[actor.initialDirection] ?? firstNpcSpriteTextureFrames(actor.spriteTextures);
+    const frameIndex = frames ? npcSpriteWalkFrameIndex(frames.length, walkFrame) : 0;
+    const texture = frames?.[frameIndex] ?? frames?.[0];
+    if (texture && actor.spriteMaterial.map !== texture) {
+      actor.spriteMaterial.map = texture;
+      actor.spriteMaterial.needsUpdate = true;
+    }
+    actor.group.rotation.y = 0;
+    return;
+  }
+  actor.group.rotation.y = THREE.MathUtils.degToRad(rotationYForPreviewDirection(direction));
+}
+
+function createNpcSpriteTextures(
+  spriteFrames: NonNullable<Map3dSceneData["npcModels"][number]["spriteFrames"]>,
+  textureCache: Map<string, THREE.Texture>,
+): Partial<Record<NpcPreviewDirection, THREE.Texture[]>> {
+  const out: Partial<Record<NpcPreviewDirection, THREE.Texture[]>> = {};
+  for (const direction of ["U", "D", "L", "R"] as const) {
+    const frames = spriteFrames.framesByDirection[npcSpriteDirectionKey(direction)];
+    if (!frames || frames.length === 0) continue;
+    out[direction] = frames.map((frame) =>
+      getTexture(textureCache, frame, {
+        name: `npc_preview_${frame.name}`,
+        diffuse: [1, 1, 1],
+        alpha: 1,
+      }),
+    );
+  }
+  return out;
+}
+
+function firstMeshBasicMaterial(group: THREE.Group): THREE.MeshBasicMaterial | undefined {
+  let found: THREE.MeshBasicMaterial | undefined;
+  group.traverse((object) => {
+    if (found) return;
+    const material = (object as THREE.Mesh).material;
+    const candidate = Array.isArray(material) ? material[0] : material;
+    if (candidate instanceof THREE.MeshBasicMaterial) found = candidate;
+  });
+  return found;
+}
+
+function firstNpcSpriteTextureFrames(textures: Partial<Record<NpcPreviewDirection, THREE.Texture[]>>): THREE.Texture[] | undefined {
+  return Object.values(textures).find((frames) => frames && frames.length > 0);
+}
+
+function npcSpriteWalkFrameIndex(frameCount: number, walkFrame: number): number {
+  if (frameCount <= 1) return 0;
+  const normalized = ((walkFrame % MOVEMENT_PREVIEW_WALK_FRAMES) + MOVEMENT_PREVIEW_WALK_FRAMES) % MOVEMENT_PREVIEW_WALK_FRAMES;
+  const fourPhase = Math.floor(normalized / (MOVEMENT_PREVIEW_WALK_FRAMES / 4));
+  if (frameCount === 2) return [0, 1, 0, 1][fourPhase] ?? 0;
+  if (frameCount === 3) return [0, 1, 0, 2][fourPhase] ?? 0;
+  return Math.floor((normalized / MOVEMENT_PREVIEW_WALK_FRAMES) * frameCount) % frameCount;
+}
+
+function deterministicNpcMovementProgram(npc: Map3dSceneData["npcModels"][number]): NpcMovementProgram | undefined {
+  const code = npc.movement.moveCode;
+  if (code === 18) return spinProgram(spinSequence("U", "ccw"));
+  if (code === 19) return spinProgram(spinSequence("U", "cw"));
+  if (code === 49) return spinProgram(reversingSpinSequence(directionFromGameDirection(npc.movement.initialDirection)));
+  if (code === 20) return twoPointPatrolProgram(npc);
+  const route = PATROL_ROUTES[code];
+  return route ? walkProgram(route) : undefined;
+}
+
+function twoPointPatrolProgram(npc: Map3dSceneData["npcModels"][number]): NpcMovementProgram | undefined {
+  const direction = directionFromGameDirection(npc.movement.initialDirection);
+  const limit = movementLimitForDirection(npc, direction);
+  const route = [...Array.from({ length: limit }, () => direction), ...Array.from({ length: limit }, () => oppositeDirection(direction))];
+  return walkProgram(route);
+}
+
+function movementLimitForDirection(npc: Map3dSceneData["npcModels"][number], direction: NpcPreviewDirection): number {
+  const leash = direction === "L" || direction === "R" ? npc.movement.horizontalLeash : npc.movement.verticalLeash;
+  const fallback = npc.movement.modifierStepCount || 1;
+  return Math.max(1, Math.min(16, Math.abs(leash || fallback)));
+}
+
+function walkProgram(route: NpcPreviewDirection[]): NpcMovementProgram | undefined {
+  if (route.length === 0) return undefined;
+  const steps = route.map((direction): NpcMovementStep => {
+    const delta = deltaForPreviewDirection(direction);
+    return { kind: "walk", direction, frames: MOVEMENT_PREVIEW_WALK_FRAMES, dx: delta.dx, dz: delta.dz };
+  });
+  return { kind: "walk", steps, totalFrames: steps.reduce((sum, step) => sum + step.frames, 0) };
+}
+
+function spinProgram(route: NpcPreviewDirection[]): NpcMovementProgram | undefined {
+  if (route.length === 0) return undefined;
+  const steps = route.map((direction): NpcMovementStep => ({ kind: "turn", direction, frames: MOVEMENT_PREVIEW_TURN_FRAMES }));
+  return { kind: "spin", steps, totalFrames: steps.reduce((sum, step) => sum + step.frames, 0) };
+}
+
+function spinSequence(start: NpcPreviewDirection, hand: "cw" | "ccw"): NpcPreviewDirection[] {
+  const order: NpcPreviewDirection[] = hand === "cw" ? ["U", "R", "D", "L"] : ["U", "L", "D", "R"];
+  const index = Math.max(0, order.indexOf(start));
+  return [...order.slice(index), ...order.slice(0, index)];
+}
+
+function reversingSpinSequence(start: NpcPreviewDirection): NpcPreviewDirection[] {
+  const ccw = spinSequence(start, "ccw");
+  const cw = spinSequence(start, "cw");
+  return [...ccw, ...cw.slice(1)];
+}
+
+const PATROL_ROUTES: Record<number, NpcPreviewDirection[]> = {
+  21: ["U", "R", "L", "D"],
+  22: ["R", "L", "D", "U"],
+  23: ["D", "U", "R", "L"],
+  24: ["L", "D", "U", "R"],
+  25: ["L", "R", "D", "U"],
+  26: ["L", "R", "D", "U"],
+  27: ["D", "U", "L", "R"],
+  28: ["R", "D", "U", "L"],
+  29: ["L", "U", "D", "R"],
+  30: ["U", "D", "R", "L"],
+  31: ["R", "L", "U", "D"],
+  32: ["D", "R", "L", "U"],
+  33: ["R", "U", "D", "L"],
+  34: ["U", "D", "L", "R"],
+  35: ["L", "R", "U", "D"],
+  36: ["D", "L", "R", "U"],
+  37: ["U", "L", "D", "R"],
+  38: ["D", "R", "U", "L"],
+  39: ["L", "D", "R", "U"],
+  40: ["R", "U", "L", "D"],
+  41: ["U", "R", "D", "L"],
+  42: ["D", "L", "U", "R"],
+  43: ["L", "U", "R", "D"],
+  44: ["R", "D", "L", "U"],
+};
+
+function directionFromGameDirection(direction: number): NpcPreviewDirection {
+  return ({ 1: "D", 2: "U", 3: "L", 4: "R" } as const)[direction] ?? "U";
+}
+
+function oppositeDirection(direction: NpcPreviewDirection): NpcPreviewDirection {
+  return ({ U: "D", D: "U", L: "R", R: "L" } as const)[direction];
+}
+
+function deltaForPreviewDirection(direction: NpcPreviewDirection): { dx: number; dz: number } {
+  return {
+    U: { dx: 0, dz: -1 },
+    D: { dx: 0, dz: 1 },
+    L: { dx: -1, dz: 0 },
+    R: { dx: 1, dz: 0 },
+  }[direction];
+}
+
+function npcSpriteDirectionKey(direction: NpcPreviewDirection): "up" | "down" | "left" | "right" {
+  return ({ U: "up", D: "down", L: "left", R: "right" } as const)[direction];
+}
+
+function rotationYForPreviewDirection(direction: NpcPreviewDirection): number {
+  return { U: 0, D: 180, L: -90, R: 90 }[direction];
+}
+
 function permissionColor(tile: Map3dPermissionTile): THREE.Color {
   return new THREE.Color(gen5PermissionColorNumber(tile));
 }
@@ -1230,12 +1554,50 @@ function rememberMap3dView(project: ProjectState, zoneId: number, season: Map3dS
   }
 }
 
+function readMap3dLayerSettings(project: ProjectState): Map3dLayerSettings {
+  if (typeof localStorage === "undefined") return { ...DEFAULT_MAP3D_LAYER_SETTINGS };
+  try {
+    const parsed = JSON.parse(localStorage.getItem(map3dLayerStorageKey(project)) ?? "null") as Partial<Record<keyof Map3dLayerSettings, unknown>> | null;
+    return {
+      showBuildings: booleanSetting(parsed?.showBuildings, DEFAULT_MAP3D_LAYER_SETTINGS.showBuildings),
+      showBuildingBounds: booleanSetting(parsed?.showBuildingBounds, DEFAULT_MAP3D_LAYER_SETTINGS.showBuildingBounds),
+      showNpcs: booleanSetting(parsed?.showNpcs, DEFAULT_MAP3D_LAYER_SETTINGS.showNpcs),
+      showEntities: booleanSetting(parsed?.showEntities, DEFAULT_MAP3D_LAYER_SETTINGS.showEntities),
+      showPermissions: booleanSetting(parsed?.showPermissions, DEFAULT_MAP3D_LAYER_SETTINGS.showPermissions),
+      showMovementPreview: booleanSetting(parsed?.showMovementPreview, DEFAULT_MAP3D_LAYER_SETTINGS.showMovementPreview),
+    };
+  } catch {
+    return { ...DEFAULT_MAP3D_LAYER_SETTINGS };
+  }
+}
+
+function rememberMap3dLayerSettings(project: ProjectState, settings: Map3dLayerSettings): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(map3dLayerStorageKey(project), JSON.stringify(settings));
+  } catch {
+    // Browser storage may be unavailable in private or constrained contexts.
+  }
+}
+
 function map3dViewStorageKey(project: ProjectState): string {
   return `${MAP3D_VIEW_STORAGE_KEY}.${project.session.baseVersion}`;
 }
 
+function map3dLayerStorageKey(project: ProjectState): string {
+  return `${MAP3D_LAYER_STORAGE_KEY}.${project.session.baseVersion}`;
+}
+
 function isMap3dSeason(value: unknown): value is Map3dSeason {
   return value === "spring" || value === "summer" || value === "autumn" || value === "winter";
+}
+
+function booleanSetting(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function checkedAttr(value: boolean): string {
+  return value ? "checked" : "";
 }
 
 function getTexture(

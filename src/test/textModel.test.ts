@@ -37,6 +37,7 @@ describe("Gen V text backend", () => {
     expect(cleanDisplayText("MR. MIME", true)).toBe("Mr. Mime");
     expect(cleanDisplayText("PORYGON-Z", true)).toBe("Porygon-Z");
     expect(cleanDisplayText("SWEET SCENT", false)).toBe("SWEET SCENT");
+    expect(cleanDisplayText("\\x01E0\\x01E1 Trainer", false)).toBe("Pkmn Trainer");
   });
 
   it("updates text banks in memory, rebuilds bytes, adds and deletes entries, and marks dirty", () => {

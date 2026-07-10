@@ -11,6 +11,7 @@ import {
   ENCOUNTER_SEASONS,
   ENCOUNTER_WATER_FIELDS,
   ENCOUNTER_WATER_PERCENTAGES,
+  isGen4Project,
   TYPES,
 } from "./constants";
 import { cascadeWhitePersonalName, cascadeWhiteTrainerAbilityName } from "./cascadeWhiteModel";
@@ -30,7 +31,7 @@ import {
   getTypeChartTypes,
   type TypeEffectivenessValue,
 } from "./typeChartModel";
-import { getAutofilledTrainerPokemonMoveIds, getTrainerCount, getTrainerRecord, type TrainerRecord, type TrainerPokemonSlot } from "./trainerModel";
+import { getAutofilledTrainerPokemonMoveIds, getTrainerCount, getTrainerRecord, resolveTrainerPokemonGender, type TrainerRecord, type TrainerPokemonSlot } from "./trainerModel";
 
 export type TextDownloadFile = {
   filename: string;
@@ -78,6 +79,11 @@ type DexEncounterSlot = { s: string; mn: number; mx?: number };
 type DexEncounterSection = { name?: string; rates: number[]; encs: DexEncounterSlot[] };
 type DexLocationRecord = { name: string; wilds: string[] } & Record<string, string | string[] | DexEncounterSection>;
 type CalcTypeChart = Record<string, Record<string, number>>;
+
+const USER_STAT_EFFECT_CATEGORY = "Raise user stats";
+const TARGET_STAT_EFFECT_CATEGORIES = new Set(["Target Stat Changing", "Lowering Target's Stat along Attack"]);
+const USER_TARGETS = new Set(["User", "User's party", "User's side of field"]);
+const NON_BATTLER_TARGETS = new Set(["Entire Field", "Field Itself", "Opponent's side of field", "User's party", "User's side of field"]);
 
 export const GEN5_CALC_BRIDGE_CONFIG: CalcBridgeConfig = {
   gen: 5,
@@ -332,6 +338,40 @@ const BW2_FIXED_PERSONAL_NAMES: Record<number, string> = {
 
 const TRAINER_FORM_ABILITY_EXCLUSIONS = new Set(["Arceus", "Deerling"]);
 
+const GEN4_TRAINER_FORM_EXPORT_NAMES: Record<number, readonly string[]> = {
+  172: ["Pichu", "Pichu-Spiky-Eared"],
+  201: [
+    "Unown",
+    ...Array.from({ length: 25 }, (_unused, index) => `Unown-${String.fromCharCode(66 + index)}`),
+    "Unown-Emark",
+    "Unown-Qmark",
+  ],
+  351: ["Castform", "Castform-Sunny", "Castform-Rainy", "Castform-Snowy"],
+  386: ["Deoxys", "Deoxys-Attack", "Deoxys-Defense", "Deoxys-Speed"],
+  412: ["Burmy", "Burmy", "Burmy"],
+  413: ["Wormadam", "Wormadam-Sandy", "Wormadam-Trash"],
+  422: ["Shellos", "Shellos"],
+  423: ["Gastrodon", "Gastrodon-East"],
+  479: ["Rotom", "Rotom-Heat", "Rotom-Wash", "Rotom-Frost", "Rotom-Fan", "Rotom-Mow"],
+  487: ["Giratina", "Giratina-Origin"],
+  492: ["Shaymin", "Shaymin-Sky"],
+};
+
+const GEN4_EXTRA_PERSONAL_FORMS: ReadonlyArray<readonly [number, string]> = [
+  [386, "Attack"],
+  [386, "Defense"],
+  [386, "Speed"],
+  [413, "Sandy"],
+  [413, "Trash"],
+  [487, "Origin"],
+  [492, "Sky"],
+  [479, "Heat"],
+  [479, "Wash"],
+  [479, "Frost"],
+  [479, "Fan"],
+  [479, "Mow"],
+];
+
 export function ensureDocs(project: ProjectState): DocGeneratorState {
   project.docs ??= {
     romTitle: project.session.romName,
@@ -494,7 +534,8 @@ export function parseTrainerBattleScripts(bytes: Uint8Array, maxTrainerId = 6553
   const trainerIds: number[] = [];
   starts.forEach((start) => {
     const end = sorted.find((candidate) => candidate > start) ?? bytes.length;
-    for (let offset = start; offset + 8 <= end; offset += 2) {
+    // Byte-sized operands can leave later Gen V commands at odd offsets.
+    for (let offset = start; offset + 8 <= end; offset += 1) {
       const command = readU16(bytes, offset);
       if (command === 0x85 && offset + 8 <= end) {
         addTrainerIds(trainerIds, maxTrainerId, [readU16(bytes, offset + 2), readU16(bytes, offset + 4)]);
@@ -635,7 +676,7 @@ function buildCalcMoves(project: ProjectState): Record<string, unknown> {
       ...(Number(move.readable.crit ?? 0) === 6 ? { willCrit: true } : {}),
       ...(Number(move.readable.min_hits ?? 0) > 0 ? { multihit: [move.readable.min_hits, move.readable.max_hits] } : {}),
       ...(Number(move.readable.recoil ?? 0) > 0 && Number(move.readable.recoil ?? 0) < 100 ? { recoil: [move.readable.recoil, 100] } : {}),
-      ...(String(move.readable.effect_category ?? "").toLowerCase().includes("stat") ? { sf: true } : {}),
+      ...(hasSheerForceSecondary(move.readable) ? { secondaries: true } : {}),
       ...moveFlags(move.readable),
     };
   }
@@ -664,11 +705,41 @@ function buildDexMoves(project: ProjectState): Record<string, unknown> {
       ...(Number(move.readable.crit ?? 0) === 6 ? { willCrit: true } : {}),
       ...(Number(move.readable.min_hits ?? 0) > 0 ? { multihit: [move.readable.min_hits, move.readable.max_hits] } : {}),
       ...(Number(move.readable.recoil ?? 0) > 0 && Number(move.readable.recoil ?? 0) < 100 ? { recoil: [move.readable.recoil, 100] } : {}),
-      ...(String(move.readable.effect_category ?? "").toLowerCase().includes("stat") ? { sf: true } : {}),
+      ...(hasSheerForceSecondary(move.readable) ? { secondaries: true } : {}),
       ...moveFlags(move.readable),
     };
   }
   return out;
+}
+
+function hasSheerForceSecondary(move: ReadableRecord): boolean {
+  if (hasTargetStatusAffliction(move)) return true;
+
+  const category = String(move.effect_category ?? "");
+  const magnitudes = [1, 2, 3].map((slot) => statMagnitude(move, slot));
+  const hasPositiveStatChange = magnitudes.some((magnitude) => magnitude > 0);
+  const hasNegativeStatChange = magnitudes.some((magnitude) => magnitude < 0);
+
+  if (hasPositiveStatChange && (category === USER_STAT_EFFECT_CATEGORY || isUserTarget(move))) return true;
+  return hasNegativeStatChange && TARGET_STAT_EFFECT_CATEGORIES.has(category) && isBattlerTarget(move) && !isUserTarget(move);
+}
+
+function statMagnitude(move: ReadableRecord, slot: number): number {
+  if (String(move[`stat_${slot}`] ?? "None") === "None") return 0;
+  return Number(move[`magnitude_${slot}`] ?? 0);
+}
+
+function hasTargetStatusAffliction(move: ReadableRecord): boolean {
+  return String(move.status ?? "None") !== "None" && isBattlerTarget(move) && !isUserTarget(move);
+}
+
+function isUserTarget(move: ReadableRecord): boolean {
+  return USER_TARGETS.has(String(move.target ?? ""));
+}
+
+function isBattlerTarget(move: ReadableRecord): boolean {
+  const target = String(move.target ?? "");
+  return target.length > 0 && !NON_BATTLER_TARGETS.has(target);
 }
 
 function buildCalcPokemon(project: ProjectState): Record<string, unknown> {
@@ -680,7 +751,7 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
   for (let id = 1; id < getPokemonCount(project); id += 1) {
     const record = getPokemonRecord(project, id);
     const name = pokemonExportName(project, id, record);
-    const types = [record.personal.type_1, record.personal.type_2].map((type) => String(type ?? "")).filter(Boolean);
+    const types = [record.personal.type_1, record.personal.type_2].map((type) => titleizeName(type)).filter(Boolean);
     out[name] = {
       name,
       num: id,
@@ -761,6 +832,8 @@ function derivedAltFormName(project: ProjectState, id: number): string | undefin
 
 export function trainerPokemonExportName(project: ProjectState, pok: TrainerPokemonSlot): string {
   const baseName = pokemonExportName(project, pok.speciesId);
+  const gen4FormName = gen4TrainerPokemonFormExportName(project, pok, baseName);
+  if (gen4FormName) return gen4FormName;
   if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return baseName;
 
   const suffix = pokemonFormSuffix(baseName, pok.form);
@@ -768,6 +841,13 @@ export function trainerPokemonExportName(project: ProjectState, pok: TrainerPoke
 
   const altPersonalId = trainerAltFormPersonalId(project, pok.speciesId, pok.form);
   return altPersonalId === undefined ? baseName : pokemonExportName(project, altPersonalId);
+}
+
+function gen4TrainerPokemonFormExportName(project: ProjectState, pok: TrainerPokemonSlot, baseName: string): string | undefined {
+  if (!isGen4Project(project)) return undefined;
+  const name = GEN4_TRAINER_FORM_EXPORT_NAMES[pok.speciesId]?.[pok.form];
+  if (!name || pok.form <= 0) return undefined;
+  return name === GEN4_TRAINER_FORM_EXPORT_NAMES[pok.speciesId]?.[0] ? baseName : name;
 }
 
 export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot): string {
@@ -805,9 +885,19 @@ function trainerAltFormPersonalId(project: ProjectState, speciesId: number, form
 function fixedPersonalName(project: ProjectState, id: number): string | undefined {
   const cascadeName = cascadeWhitePersonalName(project, id);
   if (cascadeName) return cascadeName;
+  if (isGen4Project(project)) return gen4ExtraPersonalName(project, id) ?? SPECIAL_FIXED_PERSONAL_NAMES[id];
   if (project.session.baseRom === "BW2") return BW2_FIXED_PERSONAL_NAMES[id];
   if (project.session.baseRom === "BW") return BW_FIXED_PERSONAL_NAMES[id];
   return SPECIAL_FIXED_PERSONAL_NAMES[id];
+}
+
+function gen4ExtraPersonalName(project: ProjectState, id: number): string | undefined {
+  const formIndex = id - (project.texts.banks.pokedex?.length ?? 0);
+  const form = GEN4_EXTRA_PERSONAL_FORMS[formIndex];
+  if (!form) return undefined;
+  const [baseSpeciesId, suffix] = form;
+  const baseName = titleizeName(project.texts.banks.pokedex?.[baseSpeciesId] ?? `Pokemon ${baseSpeciesId}`);
+  return `${baseName}-${suffix}`;
 }
 
 function isGenericPersonalName(value: string, id: number): boolean {
@@ -1268,6 +1358,7 @@ function buildFormattedTrainerSets(project: ProjectState): Record<string, Record
         battle_type: trainer.readable.battle_type_1,
         reward_item: showdownItemName(trainer.readable.reward_item),
         item: showdownItemName(pok.itemName ?? "None"),
+        gender: resolveTrainerPokemonGender(project, trainer.id, pok.slot),
         nature: pok.nature,
         moves: calcTrainerMoves(project, trainer, pok).map((move) => showdownName(move)),
         sub_index: pok.slot,
@@ -1490,7 +1581,7 @@ function toId(value: string): string {
 }
 
 function showdownName(value: unknown): string {
-  const titled = titleizeName(value);
+  const titled = titleizeName(value).replace(/^Hp(?=\s)/u, "HP");
   return SHOWDOWN_SUBS[titled] ?? titled;
 }
 

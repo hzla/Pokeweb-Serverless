@@ -28,7 +28,13 @@ const TEST_BATTLE_TEAM_STORAGE_PREFIX = "pokeweb.testBattle.teamText";
 const TRAINER_SPRITE_RENDER_VERSION = "gen5-mcss-ncec-v2";
 const trainerSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 
-export function renderTrainerEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>): void {
+export function renderTrainerEditor(
+  project: ProjectState,
+  root: HTMLElement,
+  onDirty?: () => void,
+  onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>,
+  onOpenTrainerSprite?: (trainerClassId: number) => void,
+): void {
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
   const showNatureField = trainerNaturePatchStatus === "patched";
   const savedTestBattleTeamText = readSavedTestBattleTeamText(project);
@@ -68,11 +74,12 @@ export function renderTrainerEditor(project: ProjectState, root: HTMLElement, on
 
   if (enrichedTrainerLocations) onDirty?.();
   installTrainerSpriteRendering(project, root);
-  installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle);
-  installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, trainerNaturePatchStatus);
+  installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite);
+  installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, trainerNaturePatchStatus);
   attachTrainerInteractions(root, project, {
     onDirty,
     onTestBattle,
+    onOpenTrainerSprite,
     autofills: getTrainerAutofills(project),
     renderRow: (trainerId) => renderTrainerRow(project, trainerId),
   });
@@ -170,7 +177,12 @@ function trainerLocationLabel(project: ProjectState, trainerId: number): string 
 function renderTrainerSprite(project: ProjectState, trainer: TrainerRecord): string {
   if (!hasGen5TrainerSprites(project)) return `<img src="${trainer.spritePath}" alt="" onerror="this.style.display='none'">`;
   const trainerClassId = Number(trainer.readable.class_id ?? trainer.raw.class ?? 0);
-  return `<canvas class="trainer-rom-sprite" data-trainer-class-id="${trainerClassId}" data-trainer-sprite-version="${TRAINER_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>`;
+  const className = String(trainer.readable.class ?? `Trainer class ${trainerClassId}`);
+  return `
+    <button class="trainer-rom-sprite-link" type="button" data-trainer-class-id="${trainerClassId}" title="Edit ${escapeHtml(className)} sprite" aria-label="Edit ${escapeHtml(className)} sprite">
+      <canvas class="trainer-rom-sprite" data-trainer-class-id="${trainerClassId}" data-trainer-sprite-version="${TRAINER_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>
+    </button>
+  `;
 }
 
 function installTrainerSpriteRendering(project: ProjectState, root: HTMLElement): void {
@@ -318,6 +330,7 @@ function renderTrainerPokemon(project: ProjectState, trainer: TrainerRecord, pok
         <div class="expanded-field btn-field-right multi">
           <div class="autofill-btn field-btn" data-narc="trpok">Autofill Moves</div>
           <div class="copy-showdown-btn field-btn" data-narc="trpok">Copy</div>
+          <button class="import-showdown-btn field-btn" type="button" data-narc="trpok">Import</button>
           <div class="delete-trpok del-btn field-btn" data-narc="trpok">Delete</div>
         </div>
       </div>
@@ -364,6 +377,7 @@ function installTrainerScriptArchiveControl(
   root: HTMLElement,
   onDirty: (() => void) | undefined,
   onTestBattle: ((trainerId: number, showdownText: string) => Promise<void>) | undefined,
+  onOpenTrainerSprite: ((trainerClassId: number) => void) | undefined,
 ): void {
   const status = getTrainerScriptArchiveStatus(project);
   const button = root.querySelector<HTMLButtonElement>("#trainer-script-expand-btn");
@@ -375,7 +389,7 @@ function installTrainerScriptArchiveControl(
     try {
       const result = expandTrainerScriptArchive(project);
       if (result.addedEntries > 0) onDirty?.();
-      renderTrainerEditor(project, root, onDirty, onTestBattle);
+      renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
       button.disabled = false;
@@ -389,6 +403,7 @@ function installTrainerNaturePatchControl(
   root: HTMLElement,
   onDirty: (() => void) | undefined,
   onTestBattle: ((trainerId: number, showdownText: string) => Promise<void>) | undefined,
+  onOpenTrainerSprite: ((trainerClassId: number) => void) | undefined,
   status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>,
 ): void {
   const button = root.querySelector<HTMLButtonElement>("#trainer-nature-patch-btn");
@@ -401,7 +416,7 @@ function installTrainerNaturePatchControl(
     try {
       const result = await specifyTrainerNatures(project);
       if (result.status === "applied") onDirty?.();
-      renderTrainerEditor(project, root, onDirty, onTestBattle);
+      renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
       button.disabled = false;

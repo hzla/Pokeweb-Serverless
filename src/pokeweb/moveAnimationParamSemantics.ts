@@ -270,6 +270,37 @@ const enumGroups = {
   landingWait: [enumValue(0, "LANDING_MINE", "BTLEFF_LANDING_WAIT_MINE"), enumValue(1, "LANDING_ENEMY", "BTLEFF_LANDING_WAIT_ENEMY")],
 } satisfies Record<string, MoveAnimationEnumValue[]>;
 
+type EnumGroupName = keyof typeof enumGroups;
+
+const displayPrefixByEnumGroup: Partial<Record<EnumGroupName, string[]>> = {
+  cameraMove: ["MOVE_"],
+  cameraPosition: ["CAMERA_"],
+  shakeDirection: ["SHAKE_"],
+  projectionType: ["PROJECTION_"],
+  projectionTarget: ["PROJECTION_"],
+  particlePosition: ["SIDE_", "POS_"],
+  emitterMove: ["EMITTER_"],
+  emitterCircleMove: ["CIRCLE_"],
+  pokemonPosition: ["POKEMON_"],
+  motionType: ["MOVE_"],
+  pokemonSineAxis: ["SINE_"],
+  blinkMode: ["BLINK_"],
+  axis: ["AXIS_"],
+  shiftDirection: ["SHIFT_"],
+  soundPlayer: ["SE_"],
+  soundPan: ["PAN_"],
+  soundPanType: ["PAN_"],
+  endWait: ["WAIT_"],
+  workVar: ["WORK_"],
+  condition: ["COND_"],
+  substituteMode: ["SUBSTITUTE_"],
+  cryDirection: ["CRY_"],
+  ballMode: ["BALL_"],
+  gaugeMode: ["GAUGE_"],
+  gaugeTarget: ["GAUGE_"],
+  landingWait: ["LANDING_"],
+};
+
 const paramSemantics: Record<CommandParamKey, MoveAnimationParamSemantic> = {};
 
 applyCommandSemantics("MoveCamera", { 0: enumSemantic("cameraMove"), 1: enumSemantic("cameraPosition") });
@@ -475,7 +506,10 @@ export function getMoveAnimationParamSemantic(commandName: string, paramIndex: n
 export function getMoveAnimationParamSemanticHelp(commandName: string, paramIndex: number): MoveAnimationParamSemanticHelp | undefined {
   const semantic = getMoveAnimationParamSemantic(commandName, paramIndex);
   if (!semantic) return undefined;
-  if (semantic.kind === "enum" && semantic.group) return { ...semantic, values: enumGroups[semantic.group as keyof typeof enumGroups]?.map((value) => ({ ...value, aliases: value.aliases?.slice() })) ?? [] };
+  if (semantic.kind === "enum" && semantic.group) {
+    const group = semantic.group as EnumGroupName;
+    return { ...semantic, values: enumGroups[group]?.map((value) => enumValueForDisplay(group, value)) ?? [] };
+  }
   return { ...semantic };
 }
 
@@ -495,7 +529,8 @@ export function getMoveAnimationCommandSemanticHelp(commandName: string): Map<nu
 export function getMoveAnimationEnumCompletions(commandName: string, paramIndex: number): MoveAnimationEnumValue[] {
   const semantic = getMoveAnimationParamSemantic(commandName, paramIndex);
   if (!semantic || semantic.kind !== "enum" || !semantic.group) return [];
-  return enumGroups[semantic.group as keyof typeof enumGroups] ?? [];
+  const group = semantic.group as EnumGroupName;
+  return enumGroups[group]?.map((value) => enumValueForDisplay(group, value)) ?? [];
 }
 
 export function parseMoveAnimationParamToken(commandName: string, paramIndex: number, token: string): number {
@@ -510,9 +545,9 @@ export function parseMoveAnimationParamToken(commandName: string, paramIndex: nu
   }
 
   if (semantic?.kind === "enum" && semantic.group) {
-    const matched = parseEnumToken(semantic.group as keyof typeof enumGroups, token);
+    const matched = parseEnumToken(semantic.group as EnumGroupName, token);
     if (matched !== undefined) return matched;
-    throw new Error(`${displayCommandName} parameter ${paramIndex + 1} must be an integer or one of: ${validEnumNames(semantic.group as keyof typeof enumGroups)}`);
+    throw new Error(`${displayCommandName} parameter ${paramIndex + 1} must be an integer or one of: ${validEnumNames(semantic.group as EnumGroupName)}`);
   }
 
   throw new Error(`${displayCommandName} parameter ${paramIndex + 1} must be an integer`);
@@ -521,8 +556,9 @@ export function parseMoveAnimationParamToken(commandName: string, paramIndex: nu
 export function formatMoveAnimationParam(commandName: string, paramIndex: number, value: number): string {
   const semantic = getMoveAnimationParamSemantic(commandName, paramIndex);
   if (semantic?.kind === "enum" && semantic.group) {
-    const entry = enumGroups[semantic.group as keyof typeof enumGroups]?.find((candidate) => candidate.value === value);
-    if (entry) return entry.name;
+    const group = semantic.group as EnumGroupName;
+    const entry = enumGroups[group]?.find((candidate) => candidate.value === value);
+    if (entry) return displayEnumName(group, entry);
   }
   if (semantic?.kind === "fx32") {
     return formatFx32Value(value, semantic.unit);
@@ -541,7 +577,7 @@ export function parseMoveAnimationEditorParam(commandName: string, paramIndex: n
 export function isMoveAnimationEnumToken(token: string): boolean {
   const normalized = normalizeSymbol(token);
   if (!normalized) return false;
-  return Object.values(enumGroups).some((values) => values.some((value) => enumNames(value).some((name) => normalizeSymbol(name) === normalized)));
+  return (Object.keys(enumGroups) as EnumGroupName[]).some((group) => enumGroups[group].some((value) => enumNames(group, value).some((name) => normalizeSymbol(name) === normalized)));
 }
 
 export function isMoveAnimationFx32Token(token: string): boolean {
@@ -588,20 +624,38 @@ function paramKey(commandName: string, paramIndex: number): CommandParamKey {
   return `${resolveMoveAnimationCommandName(commandName).toLowerCase()}:${paramIndex}`;
 }
 
-function enumNames(value: MoveAnimationEnumValue): string[] {
-  return [value.name, ...(value.aliases ?? [])];
+function enumNames(group: EnumGroupName, value: MoveAnimationEnumValue): string[] {
+  return uniqueStrings([displayEnumName(group, value), value.name, ...(value.aliases ?? [])]);
 }
 
-function parseEnumToken(group: keyof typeof enumGroups, token: string): number | undefined {
+function parseEnumToken(group: EnumGroupName, token: string): number | undefined {
   const normalized = normalizeSymbol(token);
   for (const value of enumGroups[group]) {
-    if (enumNames(value).some((name) => normalizeSymbol(name) === normalized)) return value.value;
+    if (enumNames(group, value).some((name) => normalizeSymbol(name) === normalized)) return value.value;
   }
   return undefined;
 }
 
-function validEnumNames(group: keyof typeof enumGroups): string {
-  return enumGroups[group].map((value) => value.name).join(", ");
+function validEnumNames(group: EnumGroupName): string {
+  return enumGroups[group].map((value) => displayEnumName(group, value)).join(", ");
+}
+
+function enumValueForDisplay(group: EnumGroupName, value: MoveAnimationEnumValue): MoveAnimationEnumValue {
+  const displayName = displayEnumName(group, value);
+  const aliases = uniqueStrings([value.name, ...(value.aliases ?? [])]).filter((alias) => normalizeSymbol(alias) !== normalizeSymbol(displayName));
+  return { ...value, name: displayName, aliases };
+}
+
+function displayEnumName(group: EnumGroupName, value: MoveAnimationEnumValue): string {
+  const prefixes = displayPrefixByEnumGroup[group] ?? [];
+  for (const prefix of prefixes) {
+    if (value.name.startsWith(prefix) && value.name.length > prefix.length) return value.name.slice(prefix.length);
+  }
+  return value.name;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 function normalizeSymbol(token: string): string {

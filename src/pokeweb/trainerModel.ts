@@ -45,6 +45,18 @@ export type TrainerUpdateResult = {
   slot?: TrainerPokemonSlot;
 };
 
+type TrainerPokemonShowdownImport = {
+  species: string;
+  gender?: string;
+  item?: string;
+  ability?: string;
+  level?: number;
+  ivs?: number;
+  nature?: string;
+  form?: number;
+  moves: string[];
+};
+
 export function getTrainerCount(project: ProjectState): number {
   return project.narcs.trdata?.fileCount ?? 0;
 }
@@ -339,6 +351,47 @@ export function formatTrainerPokemonShowdownText(project: ProjectState, trainerI
   return lines.join("\n");
 }
 
+export function importTrainerPokemonShowdownText(project: ProjectState, trainerId: number, slot: number, text: string): TrainerUpdateResult {
+  const parsed = parseTrainerPokemonShowdownImport(text);
+  const trdata = decodeRecord(project, "trdata", trainerId);
+  const trpok = decodeRecord(project, "trpok", trainerId);
+  if (!trdata.raw || !trdata.readable || !trpok.raw || !trpok.readable) throw new Error(`Unable to update trainer Pokemon ${trainerId}:${slot}`);
+  const count = Number(trdata.raw.num_pokemon ?? 0);
+  if (slot < 0 || slot >= count) throw new Error("Trainer Pokemon slot does not exist");
+
+  const speciesId = findPokemonValueIndex(project, parsed.species);
+  trpok.raw[`species_id_${slot}`] = speciesId;
+  trpok.raw[`level_${slot}`] = parsed.level ?? 100;
+  trpok.raw[`ivs_${slot}`] = parsed.ivs ?? 255;
+  trpok.raw[`padding_${slot}`] = parseTrainerNatureValue(parsed.nature ?? "Auto");
+  trpok.raw[`form_${slot}`] = parsed.form ?? 0;
+
+  const abilitySlot = parsed.ability === undefined ? Number(trpok.readable[`ability_${slot}`] ?? 0) : trainerAbilitySlotFromShowdown(project, speciesId, parsed.ability);
+  trpok.raw[`ability_${slot}`] = packAbilityGender(abilitySlot, genderIndex(parsed.gender ?? "Default"));
+
+  if (parsed.item !== undefined || templateHasItems(trdata.raw.template)) {
+    if (!isEmptyShowdownValue(parsed.item)) setTemplateFlag(project, trainerId, "has_items", true);
+    trpok.raw[`item_id_${slot}`] = parsed.item === undefined || isEmptyShowdownValue(parsed.item) ? 0 : findValueIndex(project.texts.banks.items ?? [], parsed.item, "item");
+  }
+
+  if (parsed.moves.length > 0) setTemplateFlag(project, trainerId, "has_moves", true);
+  if (parsed.moves.length > 0 || templateHasMoves(trdata.raw.template)) {
+    for (let move = 1; move <= 4; move += 1) {
+      const moveName = parsed.moves[move - 1];
+      trpok.raw[`move_${move}_${slot}`] = moveName === undefined || isEmptyShowdownValue(moveName) ? 0 : findValueIndex(project.texts.banks.moves ?? [], moveName, "move");
+    }
+  }
+
+  syncTrainerReadable(project, trainerId, trdata.raw, trdata.readable);
+  syncTrainerPokemonReadable(project, trainerId, trpok.raw, trpok.readable);
+  recordGenericChange(project, "trpok", `${trainerChangelogSubject(project, trainerId)} Pokemon ${slot + 1} was imported from Showdown text.`, trainerChangelogSubject(project, trainerId), {
+    key: `trainer:${trainerId}:pokemon:${slot}:showdown-import`,
+  });
+  markDirty(project, "trdata", trainerId);
+  markDirty(project, "trpok", trainerId);
+  return { value: pokemonName(project, speciesId), rawValue: speciesId, slot: getTrainerPokemonSlot(project, trainerId, slot), trainer: getTrainerRecord(project, trainerId) };
+}
+
 export function getAutofilledTrainerPokemonMoveIds(project: ProjectState, speciesId: number, level: number): number[] {
   if (!project.narcs.learnsets) throw new Error("Learnsets are not loaded");
   const learnsetSpeciesId = speciesId % 1024;
@@ -365,6 +418,78 @@ function trainerPokemonShowdownMoves(project: ProjectState, trainer: TrainerReco
   } catch {
     return trainer.hasMoves ? explicitMoves : [];
   }
+}
+
+function parseTrainerPokemonShowdownImport(text: string): TrainerPokemonShowdownImport {
+  const lines = text
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const header = lines.find((line) => !line.startsWith("-") && !/^[A-Za-z]+:/u.test(line) && !/ Nature$/u.test(line));
+  if (!header) throw new Error("Paste a single Pokemon Showdown set with a Pokemon name on the first line.");
+
+  const parsedHeader = parseShowdownHeader(header);
+  const result: TrainerPokemonShowdownImport = { ...parsedHeader, moves: [] };
+  for (const line of lines) {
+    const ability = /^Ability:\s*(.+)$/iu.exec(line);
+    if (ability) {
+      result.ability = ability[1].trim();
+      continue;
+    }
+
+    const level = /^Level:\s*(\d+)$/iu.exec(line);
+    if (level) {
+      result.level = parseInteger(level[1], 0, 100);
+      continue;
+    }
+
+    const nature = /^(.+?)\s+Nature$/iu.exec(line);
+    if (nature) {
+      result.nature = nature[1].trim();
+      continue;
+    }
+
+    const ivs = /^IVs:\s*(.+)$/iu.exec(line);
+    if (ivs) {
+      result.ivs = parseShowdownIvs(ivs[1]);
+      continue;
+    }
+
+    const form = /^(?:Pokeweb\s+)?Form:\s*(\d+)$/iu.exec(line);
+    if (form) {
+      result.form = parseInteger(form[1], 0, 255);
+      continue;
+    }
+
+    const move = /^-\s*(.+)$/u.exec(line);
+    if (move && result.moves.length < 4) result.moves.push(move[1].trim());
+  }
+  return result;
+}
+
+function parseShowdownHeader(header: string): Omit<TrainerPokemonShowdownImport, "moves"> {
+  const [namePart, ...itemParts] = header.split("@");
+  let species = (namePart ?? "").trim();
+  const item = itemParts.length > 0 ? itemParts.join("@").trim() : undefined;
+  let gender: string | undefined;
+
+  const genderMatch = species.match(/\s+\((M|F)\)$/iu);
+  if (genderMatch) {
+    gender = genderMatch[1].toUpperCase() === "M" ? "Male" : "Female";
+    species = species.slice(0, genderMatch.index).trim();
+  }
+
+  const speciesMatch = species.match(/^.+\(([^()]+)\)$/u);
+  if (speciesMatch) species = speciesMatch[1].trim();
+  if (!species) throw new Error("Showdown import is missing a Pokemon species.");
+  return { species, gender, item };
+}
+
+function parseShowdownIvs(value: string): number {
+  const ivs = [...value.matchAll(/(\d+)\s*(?:HP|Atk|Def|SpA|SpD|Spe)?/giu)].map((match) => parseInteger(match[1], 0, 31));
+  if (ivs.length === 0) throw new Error("IVs line does not contain any IV values.");
+  const average = ivs.reduce((sum, iv) => sum + iv, 0) / ivs.length;
+  return Math.min(255, Math.ceil((average * 255) / 31));
 }
 
 export function addTrainerPokemon(project: ProjectState, trainerId: number): TrainerPokemonSlot {
@@ -456,6 +581,45 @@ export function calculateTrainerPokemonNature(project: ProjectState, trainerId: 
     Math.floor(Number(trpok.raw[`ability_${slot}`] ?? 0) / 16),
   );
   return NATURES[Number((pid >> 8n) % 25n)] ?? "Unknown";
+}
+
+export function resolveTrainerPokemonGender(project: ProjectState, trainerId: number, slot: number): string {
+  const trdata = decodeRecord(project, "trdata", trainerId);
+  const trpok = decodeRecord(project, "trpok", trainerId);
+  if (!trdata.raw || !trpok.raw) return "";
+  const speciesId = Number(trpok.raw[`species_id_${slot}`] ?? 0);
+  if (speciesId === 0 || !project.narcs.personal) return "";
+  const personalId = normalizedSpeciesId(speciesId);
+  if (personalId >= project.narcs.personal.fileCount) return "";
+  const personal = decodeRecord(project, "personal", personalId);
+  if (!personal.raw) return "";
+  const personalGender = Number(personal.raw.gender ?? 255);
+
+  if (isGen4Project(project)) {
+    const pid = gen4TrainerPokemonPid(project, trainerId, slot);
+    return resolvedGenderFromPidByte(personalGender, pid === undefined ? undefined : pid & 0xff);
+  }
+
+  const rawAbilityGender = Number(trpok.raw[`ability_${slot}`] ?? 0);
+  const pid = getPid(
+    trainerId,
+    Number(trdata.raw.class ?? 0),
+    speciesId,
+    Number(trpok.raw[`ivs_${slot}`] ?? 0),
+    Number(trpok.raw[`level_${slot}`] ?? 0),
+    rawAbilityGender,
+    personalGender,
+    false,
+    Math.floor(rawAbilityGender / 16),
+  );
+  return resolvedGenderFromPidByte(personalGender, Number(pid & 0xffn));
+}
+
+function resolvedGenderFromPidByte(personalGender: number, pidByte = 136): string {
+  if (personalGender === 255) return "";
+  if (personalGender === 254) return "Female";
+  if (personalGender === 0) return "Male";
+  return pidByte < personalGender ? "Female" : "Male";
 }
 
 const GEN4_TRAINER_CLASS_GENDER_TABLES: Record<Gen4BaseRom, { length: number; offsets: number[] }> = {
@@ -736,6 +900,17 @@ function abilityName(project: ProjectState, speciesId: number, abilitySlot: numb
   const slot = Math.min(Math.max(abilitySlot, 1), 3);
   if (isGen4Project(project) && slot === 2 && Number(personal.raw?.ability_2 ?? 0) === 0) return personal.readable?.ability_1 ?? "";
   return personal.readable?.[`ability_${slot}`] ?? "";
+}
+
+function trainerAbilitySlotFromShowdown(project: ProjectState, speciesId: number, inputValue: string): number {
+  const numeric = Number(inputValue.trim());
+  const maxSlot = trainerAbilitySlotMax(project);
+  if (Number.isInteger(numeric) && numeric >= 0 && numeric <= maxSlot) return numeric;
+  const normalizedInput = normalizeName(inputValue);
+  for (let slot = 1; slot <= maxSlot; slot += 1) {
+    if (normalizeName(String(abilityName(project, speciesId, slot))) === normalizedInput) return slot;
+  }
+  throw new Error(`Unknown ability for ${pokemonName(project, speciesId)}: ${inputValue}`);
 }
 
 function pokemonNameAutofills(project: ProjectState): string[] {

@@ -177,7 +177,8 @@ export function decodeGen4TextBank(data: Uint8Array): TextEntry[] {
       stringKey = (stringKey + 18749) & 0xffff;
     }
     const trainerName = decodeGen4TrainerNameWords(words);
-    entries.push([`0_${index}`, trainerName === undefined ? renderGen4Text(words) : `{TRAINER_NAME:${trainerName}}`, key]);
+    const suffix = trainerName?.direct ? `d${trainerName.directTerminator ? "t" : ""}` : "";
+    entries.push([`0_${index}${suffix}`, trainerName === undefined ? renderGen4Text(words) : `{TRAINER_NAME:${trainerName.text}}`, key]);
     fallbackCursor = wordOffset + length * 2;
   }
   return entries;
@@ -195,7 +196,12 @@ export function encodeGen4TextBank(entries: TextEntry[]): Uint8Array {
     const entry = block[entryIndex];
     if (!entry) throw new Error(`Missing Gen 4 text entry 0_${entryIndex}`);
     const trainerName = parseGen4TrainerName(entry[1]);
-    const words = trainerName === undefined ? [...encodeGen4EscapedStringToWords(entry[1]), 0xffff] : [0xf100, ...packGen4TrainerNameCodes(encodeGen4EscapedStringToWords(trainerName)), 0xffff];
+    const meta = parseEntryId(entry[0]);
+    const words = trainerName === undefined
+      ? [...encodeGen4EscapedStringToWords(entry[1]), 0xffff]
+      : meta.directTrainerName
+        ? [0xf100, ...encodeGen4EscapedStringToWords(trainerName), ...(meta.directTrainerNameTerminator ? [0x0fff] : []), 0xffff]
+        : [0xf100, ...packGen4TrainerNameCodes(encodeGen4EscapedStringToWords(trainerName)), 0xffff];
     encodedEntries.push(encryptGen4Words(words, entryIndex));
   }
 
@@ -255,10 +261,20 @@ function renderGen4Text(words: number[]): string {
   return text;
 }
 
-function decodeGen4TrainerNameWords(words: number[]): string | undefined {
+function decodeGen4TrainerNameWords(words: number[]): { text: string; direct: boolean; directTerminator: boolean } | undefined {
   if (words[0] !== 0xf100) return undefined;
   const payload = words.slice(1, words[words.length - 1] === 0xffff ? -1 : undefined);
-  return renderGen4Text([...unpackGen4TrainerNameCodes(payload), 0xffff]);
+  const directTerminator = payload.at(-1) === 0x0fff;
+  const directPayload = directTerminator ? payload.slice(0, -1) : payload;
+  if (directPayload.length > 0 && directPayload.every(isDirectGen4TrainerNameCode)) {
+    return { text: renderGen4Text([...directPayload, 0xffff]), direct: true, directTerminator };
+  }
+  return { text: renderGen4Text([...unpackGen4TrainerNameCodes(payload), 0xffff]), direct: false, directTerminator: false };
+}
+
+function isDirectGen4TrainerNameCode(code: number): boolean {
+  if (code >= 0x0121 && code <= 0x015e) return true;
+  return GEN4_CHAR_MAP.has(code) && code !== 0x0000;
 }
 
 function unpackGen4TrainerNameCodes(words: number[]): number[] {
@@ -596,7 +612,14 @@ function groupEntries(entries: Gen5TextEntry[]): Record<number, Record<number, G
   return blocks;
 }
 
-function parseEntryId(id: string): { block: number; entry: number; flags: number; compressed: boolean } {
+function parseEntryId(id: string): {
+  block: number;
+  entry: number;
+  flags: number;
+  compressed: boolean;
+  directTrainerName: boolean;
+  directTrainerNameTerminator: boolean;
+} {
   const match = /^(\d+)_(\d+)(.*)$/u.exec(id);
   if (!match) throw new Error(`Invalid text entry id: ${id}`);
   const suffix = match[3] ?? "";
@@ -609,6 +632,8 @@ function parseEntryId(id: string): { block: number; entry: number; flags: number
     entry: Number(match[2]),
     flags,
     compressed: suffix.includes("c"),
+    directTrainerName: suffix.includes("d"),
+    directTrainerNameTerminator: suffix.includes("t"),
   };
 }
 
@@ -618,7 +643,8 @@ export function cleanDisplayText(value: string, nameCase = false): string {
     .replaceAll("―", "")
     .replaceAll("⑮", " F")
     .replaceAll("⑭", " M")
-    .replaceAll("⒆⒇", "PkMn")
+    .replaceAll("⒆⒇", "Pkmn")
+    .replace(/\\x01E0\\x01E1/giu, "Pkmn")
     .replaceAll("é", "e")
     .replace(/[^\x00-\x7F]/gu, "");
   return nameCase ? titleCaseName(cleaned) : cleaned;

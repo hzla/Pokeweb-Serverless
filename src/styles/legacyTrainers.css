@@ -125,6 +125,26 @@
   display: block;
 }
 
+.trainer-rom-sprite-link {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  min-height: 88px;
+  min-width: 88px;
+  padding: 0;
+}
+
+.trainer-rom-sprite-link:hover,
+.trainer-rom-sprite-link:focus-visible {
+  background: rgb(26 188 156 / 10%);
+  border-color: #1abc9c;
+  outline: none;
+}
+
 .trainer-class {
   min-width: 190px;
   width: 190px;
@@ -415,6 +435,60 @@ button.field-btn:disabled {
 
 .del-btn {
   background: #ff5555;
+}
+
+.trainer-showdown-import-modal {
+  align-items: center;
+  background: rgba(10, 12, 18, 0.72);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 10000;
+}
+
+.trainer-showdown-import-dialog {
+  background: #282a36;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  display: grid;
+  gap: 14px;
+  max-width: 680px;
+  padding: 18px;
+  width: min(680px, calc(100vw - 48px));
+}
+
+.trainer-showdown-import-title {
+  color: #f2f2f2;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.trainer-showdown-import-input {
+  background: #1f2432;
+  border: 1px solid #44475a;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: #f2f2f2;
+  font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  min-height: 260px;
+  outline: none;
+  padding: 12px;
+  resize: vertical;
+  width: 100%;
+}
+
+.trainer-showdown-import-input:focus {
+  border-color: #1abc9c;
+}
+
+.trainer-showdown-import-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .btn-field-right {

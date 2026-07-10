@@ -32,6 +32,19 @@ describe("Gen 4 text codec", () => {
     expect(decoded).toEqual(entries);
     expect(reencoded).toEqual(encoded);
   });
+
+  it("decodes and preserves expanded direct trainer-name strings", () => {
+    const entries: TextEntry[] = [
+      ["0_0d", "{TRAINER_NAME:Cedric}", 0x1357],
+      ["0_1dt", "{TRAINER_NAME:Buck}", 0x1357],
+    ];
+
+    const encoded = encodeGen4TextBank(entries);
+    const decoded = decodeGen4TextBank(encoded);
+
+    expect(decoded).toEqual(entries);
+    expect(encodeGen4TextBank(decoded)).toEqual(encoded);
+  });
 });
 
 function gen4AllocationKey(entryIndex: number, bankKey: number): number {
