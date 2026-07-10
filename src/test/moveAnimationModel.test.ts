@@ -93,7 +93,7 @@ describe("moveAnimationModel", () => {
 
     expect(text).not.toContain(".word 1 @ Count");
     expect(text).not.toContain("SCRIPT_60:");
-    expect(text).toContain("MoveCamera MOVE_INTERPOLATION, CAMERA_DEFENDER, 16, 0, 9");
+    expect(text).toContain("MoveCamera INTERPOLATION, DEFENDER, 16, 0, 9");
     expect(text).toContain("LoadSPA 165");
     expect(text).toContain("TerminateMoveScript");
     expect([...compileMoveAnimation(project, 1, text)]).toEqual([...bytes]);
@@ -120,6 +120,11 @@ TerminateMoveScript
   it("accepts semantic enum parameters for BW2 animation scripts", () => {
     const project = makeProject();
     const friendly = `
+MoveCamera INTERPOLATION, DEFENDER, 16, 0, 9
+LoadSPA 165
+TerminateMoveScript
+`;
+    const legacyFriendly = `
 MoveCamera MOVE_INTERPOLATION, CAMERA_DEFENDER, 16, 0, 9
 LoadSPA 165
 TerminateMoveScript
@@ -129,7 +134,8 @@ TerminateMoveScript
     const text = decompileMoveAnimationBytes(bytes);
 
     expect([...bytes]).toEqual([...compileMoveAnimation(project, 1, SINGLE_SCRIPT)]);
-    expect(text).toContain("MoveCamera MOVE_INTERPOLATION, CAMERA_DEFENDER, 16, 0, 9");
+    expect([...bytes]).toEqual([...compileMoveAnimation(project, 1, legacyFriendly)]);
+    expect(text).toContain("MoveCamera INTERPOLATION, DEFENDER, 16, 0, 9");
   });
 
   it("keeps legacy attack/defence selector aliases compile-compatible", () => {
@@ -144,9 +150,9 @@ TerminateMoveScript
 
     const text = decompileMoveAnimationBytes(compileMoveAnimation(project, 1, legacy));
 
-    expect(text).toContain("MoveCamera MOVE_INTERPOLATION, CAMERA_DEFENDER, 16, 0, 9");
-    expect(text).toContain("Emit 0, 1, SIDE_ATTACKER, SIDE_DEFENDER, 0, 0, 0, 1x, 1x, 1x, 1x");
-    expect(text).toContain("ToggleFreezeSprite POKEMON_DEFENDER, START");
+    expect(text).toContain("MoveCamera INTERPOLATION, DEFENDER, 16, 0, 9");
+    expect(text).toContain("Emit 0, 1, ATTACKER, DEFENDER, 0, 0, 0, 1x, 1x, 1x, 1x");
+    expect(text).toContain("ToggleFreezeSprite DEFENDER, START");
     expect(text).toContain("AudioContainer CONTINUE");
   });
 
@@ -160,7 +166,7 @@ TerminateMoveScript
     const command = parsed.scripts.get("SCRIPT_60")?.[0];
 
     expect(command?.params).toEqual([0, 1, 9, 8, 8192, 0, 0, 4096, 2048, 8192, 4096]);
-    expect(decompileMoveAnimationBytes(compileMoveAnimation(project, 1, script))).toContain("Emit 0, 1, SIDE_ATTACKER, SIDE_NONE, 2px, 0, 0, 1x, 0.5x, 2x, 1x");
+    expect(decompileMoveAnimationBytes(compileMoveAnimation(project, 1, script))).toContain("Emit 0, 1, ATTACKER, NONE, 2px, 0, 0, 1x, 0.5x, 2x, 1x");
   });
 
   it("uses ScaleSprite motion semantics for mode instead of axis semantics", () => {
@@ -171,10 +177,10 @@ TerminateMoveScript
 `;
     const text = decompileMoveAnimationBytes(compileMoveAnimation(project, 1, script));
 
-    expect(text).toContain("ScaleSprite POKEMON_DEFENDER, MOVE_ROUNDTRIP, 205, -205, 2, 1, 8");
+    expect(text).toContain("ScaleSprite DEFENDER, ROUNDTRIP, 205, -205, 2, 1, 8");
     expect(text).not.toContain("AXIS_Y_LEFT");
     expect(() => compileMoveAnimation(project, 1, "ScaleSprite POKEMON_DEFENDER, AXIS_Y_LEFT, 205, -205, 2, 1, 8\nTerminateMoveScript")).toThrow(
-      /ScaleSprite parameter 2 must be an integer or one of: .*MOVE_ROUNDTRIP/u,
+      /ScaleSprite parameter 2 must be an integer or one of: .*ROUNDTRIP/u,
     );
   });
 
@@ -192,12 +198,12 @@ TerminateMoveScript
 
     const text = decompileMoveAnimationBytes(compileMoveAnimation(project, 1, script));
 
-    expect(text).toContain("EmitProjectile 0, 0, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 5px, 20f, 12px, 1x, 2x, 0");
-    expect(text).toContain("EmitProjectileFromCoordinates 0, 1, EMITTER_STRAIGHT, -8px, 2px, 0.5px, SIDE_DEFENDER, 3px, 10f, 4px, 1x, 1x, 0");
-    expect(text).toContain("EmitOrthoProjectile 0, 2, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 6px, 20f, 14px, 1x, 1x, 0");
-    expect(text).toContain("EmitOrthoProjectileFromCoordinates 0, 3, EMITTER_STRAIGHT, -7px, 3px, 0.25px, SIDE_DEFENDER, 2px, 10f, 5px, 1x, 1x, 2x");
-    expect(text).toContain("EmitCircle 0, 4, CIRCLE_ATTACKER_LEFT, 24px, 12px, 2px, 16, 0, 1, 0");
-    expect(text).toContain("EmitOrthoCircle 0, 5, CIRCLE_DEFENDER_RIGHT, 30px, 16px, -1px, 16, 0, 1, 0");
+    expect(text).toContain("EmitProjectile 0, 0, CURVE, ATTACKER, DEFENDER, 5px, 20f, 12px, 1x, 2x, 0");
+    expect(text).toContain("EmitProjectileFromCoordinates 0, 1, STRAIGHT, -8px, 2px, 0.5px, DEFENDER, 3px, 10f, 4px, 1x, 1x, 0");
+    expect(text).toContain("EmitOrthoProjectile 0, 2, CURVE, ATTACKER, DEFENDER, 6px, 20f, 14px, 1x, 1x, 0");
+    expect(text).toContain("EmitOrthoProjectileFromCoordinates 0, 3, STRAIGHT, -7px, 3px, 0.25px, DEFENDER, 2px, 10f, 5px, 1x, 1x, 2x");
+    expect(text).toContain("EmitCircle 0, 4, ATTACKER_LEFT, 24px, 12px, 2px, 16, 0, 1, 0");
+    expect(text).toContain("EmitOrthoCircle 0, 5, DEFENDER_RIGHT, 30px, 16px, -1px, 16, 0, 1, 0");
   });
 
   it("toggles semantic parameters to numeric values and back without changing bytes", () => {
@@ -217,9 +223,9 @@ TerminateMoveScript
     expect(numeric).toContain("Emit 0, 1, 9, 8, 8192, 0, 0, 4096, 2048, 8192, 4096");
     expect(numeric).toContain("ToggleFreezeSprite 16, 1");
     expect(numeric).toContain("AudioContainer 1");
-    expect(restored).toContain("MoveCamera MOVE_INTERPOLATION, CAMERA_DEFENDER, 16, 0, 9 @ camera setup");
-    expect(restored).toContain("Emit 0, 1, SIDE_ATTACKER, SIDE_NONE, 2px, 0, 0, 1x, 0.5x, 2x, 1x");
-    expect(restored).toContain("ToggleFreezeSprite POKEMON_DEFENDER, START");
+    expect(restored).toContain("MoveCamera INTERPOLATION, DEFENDER, 16, 0, 9 @ camera setup");
+    expect(restored).toContain("Emit 0, 1, ATTACKER, NONE, 2px, 0, 0, 1x, 0.5x, 2x, 1x");
+    expect(restored).toContain("ToggleFreezeSprite DEFENDER, START");
     expect(restored).toContain("AudioContainer SUSPEND");
     expect([...compileMoveAnimation(project, 1, semantic)]).toEqual([...compileMoveAnimation(project, 1, numeric)]);
   });
@@ -228,7 +234,7 @@ TerminateMoveScript
     const project = makeProject();
 
     expect(() => compileMoveAnimation(project, 1, "MoveCamera MOVE_INTERPOLATION, CAMERA_NOPE, 16, 0, 9\nTerminateMoveScript")).toThrow(
-      /MoveCamera parameter 2 must be an integer or one of: .*CAMERA_DEFENDER/u,
+      /MoveCamera parameter 2 must be an integer or one of: .*DEFENDER/u,
     );
   });
 
@@ -251,7 +257,7 @@ TerminateMoveScript
     const bytes = compileMoveAnimation(project, 1, script);
     const text = decompileMoveAnimationBytes(bytes);
 
-    expect(text).toContain("EmitProjectile 293, 1, EMITTER_CURVE, SIDE_ATTACKER, SIDE_DEFENDER, 2px, 30f, 4px, 1x, 1x, 0");
+    expect(text).toContain("EmitProjectile 293, 1, CURVE, ATTACKER, DEFENDER, 2px, 30f, 4px, 1x, 1x, 0");
     expect(text).not.toContain("DoSPAProjectileAnimation");
     expect(text).not.toContain("122880");
     expect([...compileMoveAnimation(project, 1, text)]).toEqual([...bytes]);
@@ -287,7 +293,7 @@ TerminateMoveScript
 
     const text = decompileMoveAnimation(project, 1);
 
-    expect(text).toContain("CameraMoveAngle MOVE_INTERPOLATION, 2, 3, 4, 5, 6");
+    expect(text).toContain("CameraMoveAngle INTERPOLATION, 2, 3, 4, 5, 6");
     expect(text).toContain("DeleteParticle 165");
     expect(text).not.toContain("CMD_2");
     expect(text).not.toContain("CMD_b");
@@ -318,7 +324,7 @@ TerminateMoveScript
 
     const text = decompileMoveAnimation(project, 1);
 
-    expect(text).toContain("ChangeSpriteColor POKEMON_AA, 0, 16, 8, 31, 0, 0");
+    expect(text).toContain("ChangeSpriteColor AA, 0, 16, 8, 31, 0, 0");
     expect(text).toContain("ChangeBackgroundColor 0, 0, 16, 8, 0, 31, 0");
     expect(text).toContain("ObjectPaletteFade 0, 0, 16, 8, 0, 0, 31");
     expect([...compileMoveAnimation(project, 1, text)]).toEqual([...bytes]);
@@ -332,7 +338,7 @@ TerminateMoveScript
 
     const text = decompileMoveAnimation(project, 1);
 
-    expect(text).toContain("ChangeSpriteColor POKEMON_AA, 0, 16, 8, 0, 0, 31");
+    expect(text).toContain("ChangeSpriteColor AA, 0, 16, 8, 0, 0, 31");
     const headerLength = 4 + 14 * 4;
     const moveCameraLength = 2 + 5 * 4;
     expect(readU32(bytes, headerLength + moveCameraLength + 2 + 4 * 4)).toBe(0x7c00);
@@ -353,7 +359,7 @@ TerminateMoveScript
 
     const text = decompileMoveAnimation(project, 1);
 
-    expect(text).toContain("EmitOrthoCircle 0, 1, CIRCLE_DEFENDER_LEFT, 3, 4, 5, 6, 7, 8, 9");
+    expect(text).toContain("EmitOrthoCircle 0, 1, DEFENDER_LEFT, 3, 4, 5, 6, 7, 8, 9");
     expect(text).toContain("DistortBackground 10, 11, 12, 13, 14, 15");
     expect(text).toContain("BackgroundPaletteAnimation 16, 17");
     expect(repairMoveAnimationScriptBytes(bytes)).toBe(bytes);
@@ -374,7 +380,7 @@ TerminateMoveScript
 
     const text = decompileMoveAnimation(project, 1);
 
-    expect(text).toContain("EmitOrthoCircle 0, 1, CIRCLE_DEFENDER_LEFT, 3, 4, 5, 6, 0, 0, 0");
+    expect(text).toContain("EmitOrthoCircle 0, 1, DEFENDER_LEFT, 3, 4, 5, 6, 0, 0, 0");
     expect(text).toContain("DistortBackground 7, 8, 9, 10, 0, 0");
     expect(text).toContain("BackgroundPaletteAnimation 11, 12");
   });
@@ -389,7 +395,7 @@ TerminateMoveScript
     const text = decompileMoveAnimationBytes(repaired);
 
     expect(repaired.length).toBe(legacyBytes.length + 12);
-    expect(text).toContain("EmitOrthoCircle 0, 1, CIRCLE_DEFENDER_LEFT, 3, 4, 5, 6, 0, 0, 0");
+    expect(text).toContain("EmitOrthoCircle 0, 1, DEFENDER_LEFT, 3, 4, 5, 6, 0, 0, 0");
   });
 
   it("repairs loaded move animation archives and marks changed files dirty", () => {

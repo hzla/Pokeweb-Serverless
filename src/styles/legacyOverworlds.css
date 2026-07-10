@@ -195,7 +195,8 @@
   justify-content: center;
 }
 
-.overworld-item.selected {
+.overworld-item.selected,
+.overworld-item.overworld-npc:hover {
   outline: 2px solid #e74c3c;
   outline-offset: 2px;
 }

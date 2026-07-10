@@ -3,6 +3,7 @@ import "./styles/legacyLayout.css";
 import "./styles/legacyFields.css";
 import "./styles/legacyPokemon.css";
 import "./styles/legacyTrainers.css";
+import "./styles/legacyTrainerSprites.css";
 import "./styles/legacyEncounters.css";
 import "./styles/legacyMovesItems.css";
 import "./styles/legacyMartsGrottos.css";
@@ -51,6 +52,7 @@ import { renderTmEditor } from "./ui/tmEditor";
 import { renderTutorMoveEditor } from "./ui/tutorMoveEditor";
 import { renderTypeChartEditor } from "./ui/typeChartEditor";
 import { renderTrainerEditor } from "./ui/trainerEditor";
+import { renderTrainerSpriteEditor, stopTrainerSpriteEditorPlayback } from "./ui/trainerSpriteEditor";
 import { renderBattleFacilityEditor } from "./ui/battleFacilityEditor";
 import { renderGrottoEditor, renderGrottoOddsEditor, renderMartEditor } from "./ui/martGrottoEditor";
 import { renderTextEditor } from "./ui/textEditor";
@@ -79,6 +81,7 @@ type AppRoute =
   | "animatedSprites"
   | "starters"
   | "trainers"
+  | "trainerSprites"
   | "facilities"
   | "wbtFacilities"
   | "encounters"
@@ -104,6 +107,7 @@ type AppHistoryState = {
   moveAnimationMoveId?: number;
   pokemonSpriteSpeciesId?: number;
   pokemonSpriteFormIndex?: number;
+  trainerSpriteClassId?: number;
   pwanAnimationSpeciesId?: number;
 };
 type SaveFileHandleLike = {
@@ -129,6 +133,7 @@ const ROUTE_KEY = "pokeweb-serverless-route";
 const OVERWORLD_ROUTE_KEY = "pokeweb-serverless-overworld-id";
 const MOVE_ANIMATION_ROUTE_KEY = "pokeweb-serverless-move-animation-id";
 const PWAN_ANIMATION_ROUTE_KEY = "pokeweb-serverless-pwan-animation-species-id";
+const TRAINER_SPRITE_ROUTE_KEY = "pokeweb-serverless-trainer-sprite-class-id";
 const HIDE_EXPORT_CHANGELOG_PROMPT_KEY = "pokeweb-hide-export-changelog-prompt";
 
 const ROM_LOAD_STAGE_PROGRESS: Array<[message: string, percent: number]> = [
@@ -163,6 +168,7 @@ const APP_ROUTES: AppRoute[] = [
   "animatedSprites",
   "starters",
   "trainers",
+  "trainerSprites",
   "facilities",
   "wbtFacilities",
   "encounters",
@@ -195,6 +201,7 @@ const EDITOR_REQUIREMENTS: Record<
   animatedSprites: ["personal", "pokemon_sprites"],
   starters: ["personal", "pokemon_sprites", "starter_sprites", "scripts", "story_texts"],
   trainers: ["trdata", "trpok", "personal", "items", "moves", "trtext_table", "trtext_offsets"],
+  trainerSprites: ["trdata"],
   facilities: ["moves", "items"],
   wbtFacilities: ["moves", "items"],
   encounters: ["encounters"],
@@ -307,6 +314,7 @@ let activeOverworldId: number | undefined;
 let activeMoveAnimationMoveId: number | undefined;
 let activePokemonSpriteSpeciesId: number | undefined;
 let activePokemonSpriteFormIndex = 0;
+let activeTrainerSpriteClassId: number | undefined;
 let activePwanAnimationSpeciesId: number | undefined;
 let dirty = false;
 let hasExportBase = false;
@@ -339,6 +347,7 @@ async function boot(): Promise<void> {
   activeMoveAnimationMoveId = initialState.moveAnimationMoveId;
   activePokemonSpriteSpeciesId = initialState.pokemonSpriteSpeciesId;
   activePokemonSpriteFormIndex = initialState.pokemonSpriteFormIndex ?? 0;
+  activeTrainerSpriteClassId = initialState.trainerSpriteClassId;
   activePwanAnimationSpeciesId = initialState.pwanAnimationSpeciesId;
   route = project ? initialState.route : "upload";
   if (project && route === "upload" && !window.location.hash) route = defaultLoadedRoute();
@@ -372,6 +381,7 @@ window.addEventListener("popstate", (event) => {
 });
 
 function renderApp(): void {
+  stopTrainerSpriteEditorPlayback();
   syncDocumentTitle();
   route = safeRoute(route);
   appRoot.innerHTML = `
@@ -533,7 +543,25 @@ function renderApp(): void {
         renderDirtyIndicator();
       },
       (trainerId, showdownText) => launchTestBattle(trainerId, showdownText),
+      openTrainerSprites,
     );
+    return;
+  }
+
+  if (route === "trainerSprites") {
+    if (activeTrainerSpriteClassId === undefined) {
+      navigate("trainers");
+      return;
+    }
+    void renderTrainerSpriteEditor(project, content, activeTrainerSpriteClassId, {
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+      onBack: () => navigate("trainers"),
+      onNavigateClass: openTrainerSprites,
+    });
     return;
   }
 
@@ -1136,6 +1164,11 @@ function openPokemonSprites(speciesId: number, formIndex = 0): void {
   void openPokemonSpritesAsync(speciesId, formIndex);
 }
 
+function openTrainerSprites(trainerClassId: number): void {
+  if (!canVisit("trainerSprites")) return;
+  applyRouteState({ route: "trainerSprites", trainerSpriteClassId: trainerClassId });
+}
+
 function openPwanAnimations(speciesId: number): void {
   void openPwanAnimationsAsync(speciesId);
 }
@@ -1628,6 +1661,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "codeInjection") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
+  if (nextRoute === "trainerSprites") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.trdata);
   if (nextRoute === "animatedSprites") {
     const status = getPwanRuntimeStatus(project);
     return Boolean(project.narcs.personal) && status.supported && status.installed;
@@ -1707,7 +1741,11 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         : nextRoute === "wbtFacilities"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load Moves, Items, and Black Tower / White Treehollow facility NARCs" : "Battle facility editing is currently BW2-only"}"`
           : ` title="Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}"`;
-  const active = route === nextRoute || (nextRoute === "headers" && route === "overworlds") || (nextRoute === "moves" && route === "moveAnimation");
+  const active =
+    route === nextRoute ||
+    (nextRoute === "headers" && route === "overworlds") ||
+    (nextRoute === "moves" && route === "moveAnimation") ||
+    (nextRoute === "trainers" && route === "trainerSprites");
   return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute)}" ${enabled ? `data-route="${nextRoute}"` : ""}${missing}>${label}</a>`;
 }
 
@@ -1717,6 +1755,7 @@ function safeRoute(nextRoute: AppRoute): AppRoute {
   if (nextRoute === "overworlds" && activeOverworldId === undefined) return safeRoute("headers");
   if (nextRoute === "moveAnimation" && activeMoveAnimationMoveId === undefined) return safeRoute("moves");
   if (nextRoute === "pokemonSprites" && activePokemonSpriteSpeciesId === undefined) return safeRoute("pokemon");
+  if (nextRoute === "trainerSprites" && activeTrainerSpriteClassId === undefined) return safeRoute("trainers");
   if (canVisit(nextRoute)) return nextRoute;
   return canVisit("headers") ? "headers" : "debugNarcs";
 }
@@ -1748,6 +1787,7 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   activeMoveAnimationMoveId = nextState.moveAnimationMoveId;
   activePokemonSpriteSpeciesId = nextState.pokemonSpriteSpeciesId;
   activePokemonSpriteFormIndex = nextState.pokemonSpriteFormIndex ?? 0;
+  activeTrainerSpriteClassId = nextState.trainerSpriteClassId;
   activePwanAnimationSpeciesId = nextState.pwanAnimationSpeciesId;
   route = safeRoute(project ? requestedRoute : "upload");
   if (route !== "overworlds" && nextState.route !== "overworlds") activeOverworldId = nextState.overworldId;
@@ -1762,13 +1802,23 @@ function syncRouteStorage(): void {
   else window.localStorage.removeItem(OVERWORLD_ROUTE_KEY);
   if (activeMoveAnimationMoveId !== undefined) window.localStorage.setItem(MOVE_ANIMATION_ROUTE_KEY, String(activeMoveAnimationMoveId));
   else window.localStorage.removeItem(MOVE_ANIMATION_ROUTE_KEY);
+  if (activeTrainerSpriteClassId !== undefined) window.localStorage.setItem(TRAINER_SPRITE_ROUTE_KEY, String(activeTrainerSpriteClassId));
+  else window.localStorage.removeItem(TRAINER_SPRITE_ROUTE_KEY);
   if (activePwanAnimationSpeciesId !== undefined) window.localStorage.setItem(PWAN_ANIMATION_ROUTE_KEY, String(activePwanAnimationSpeciesId));
   else window.localStorage.removeItem(PWAN_ANIMATION_ROUTE_KEY);
 }
 
 function syncBrowserHistory(replace: boolean): void {
   const state = currentHistoryState();
-  const url = routeUrl(state.route, state.overworldId, state.moveAnimationMoveId, state.pokemonSpriteSpeciesId, state.pokemonSpriteFormIndex, state.pwanAnimationSpeciesId);
+  const url = routeUrl(
+    state.route,
+    state.overworldId,
+    state.moveAnimationMoveId,
+    state.pokemonSpriteSpeciesId,
+    state.pokemonSpriteFormIndex,
+    state.trainerSpriteClassId,
+    state.pwanAnimationSpeciesId,
+  );
   if (replace) window.history.replaceState(state, "", url);
   else window.history.pushState(state, "", url);
 }
@@ -1777,6 +1827,7 @@ function currentHistoryState(): AppHistoryState {
   if (route === "overworlds") return { route, overworldId: activeOverworldId };
   if (route === "moveAnimation") return { route, moveAnimationMoveId: activeMoveAnimationMoveId };
   if (route === "pokemonSprites") return { route, pokemonSpriteSpeciesId: activePokemonSpriteSpeciesId, pokemonSpriteFormIndex: activePokemonSpriteFormIndex };
+  if (route === "trainerSprites") return { route, trainerSpriteClassId: activeTrainerSpriteClassId };
   if (route === "animatedSprites" && activePwanAnimationSpeciesId !== undefined) return { route, pwanAnimationSpeciesId: activePwanAnimationSpeciesId };
   return { route };
 }
@@ -1787,6 +1838,7 @@ function routeUrl(
   moveAnimationMoveId = activeMoveAnimationMoveId,
   pokemonSpriteSpeciesId = activePokemonSpriteSpeciesId,
   pokemonSpriteFormIndex = activePokemonSpriteFormIndex,
+  trainerSpriteClassId = activeTrainerSpriteClassId,
   pwanAnimationSpeciesId = activePwanAnimationSpeciesId,
 ): string {
   if (nextRoute === "overworlds" && overworldId !== undefined) return `#overworlds/${overworldId}`;
@@ -1794,6 +1846,7 @@ function routeUrl(
   if (nextRoute === "pokemonSprites" && pokemonSpriteSpeciesId !== undefined) {
     return `#pokemonSprites/${pokemonSpriteSpeciesId}/${pokemonSpriteFormIndex}`;
   }
+  if (nextRoute === "trainerSprites" && trainerSpriteClassId !== undefined) return `#trainerSprites/${trainerSpriteClassId}`;
   if (nextRoute === "animatedSprites" && pwanAnimationSpeciesId !== undefined) return `#animatedSprites/${pwanAnimationSpeciesId}`;
   return `#${nextRoute}`;
 }
@@ -1811,6 +1864,7 @@ function routeStateFromUrl(): AppHistoryState | undefined {
     moveAnimationMoveId: routeName === "moveAnimation" && Number.isSafeInteger(id) ? id : undefined,
     pokemonSpriteSpeciesId: routeName === "pokemonSprites" && Number.isSafeInteger(id) ? id : undefined,
     pokemonSpriteFormIndex: routeName === "pokemonSprites" && Number.isSafeInteger(formIndex) ? formIndex : undefined,
+    trainerSpriteClassId: routeName === "trainerSprites" && Number.isSafeInteger(id) ? id : undefined,
     pwanAnimationSpeciesId: routeName === "animatedSprites" && Number.isSafeInteger(id) ? id : undefined,
   };
 }
@@ -1821,12 +1875,15 @@ function routeStateFromStorage(): AppHistoryState {
   const savedOverworldId = Number(window.localStorage.getItem(OVERWORLD_ROUTE_KEY));
   const savedMoveAnimationMoveIdText = window.localStorage.getItem(MOVE_ANIMATION_ROUTE_KEY);
   const savedMoveAnimationMoveId = savedMoveAnimationMoveIdText === null ? undefined : Number(savedMoveAnimationMoveIdText);
+  const savedTrainerSpriteClassIdText = window.localStorage.getItem(TRAINER_SPRITE_ROUTE_KEY);
+  const savedTrainerSpriteClassId = savedTrainerSpriteClassIdText === null ? undefined : Number(savedTrainerSpriteClassIdText);
   const savedPwanAnimationSpeciesIdText = window.localStorage.getItem(PWAN_ANIMATION_ROUTE_KEY);
   const savedPwanAnimationSpeciesId = savedPwanAnimationSpeciesIdText === null ? undefined : Number(savedPwanAnimationSpeciesIdText);
   return {
     route: routeName,
     overworldId: Number.isSafeInteger(savedOverworldId) ? savedOverworldId : undefined,
     moveAnimationMoveId: Number.isSafeInteger(savedMoveAnimationMoveId) ? savedMoveAnimationMoveId : undefined,
+    trainerSpriteClassId: Number.isSafeInteger(savedTrainerSpriteClassId) ? savedTrainerSpriteClassId : undefined,
     pwanAnimationSpeciesId: Number.isSafeInteger(savedPwanAnimationSpeciesId) ? savedPwanAnimationSpeciesId : undefined,
   };
 }
@@ -1841,6 +1898,7 @@ function routeStateFromHistory(value: unknown): AppHistoryState | undefined {
     moveAnimationMoveId: Number.isSafeInteger(maybe.moveAnimationMoveId) ? maybe.moveAnimationMoveId : undefined,
     pokemonSpriteSpeciesId: Number.isSafeInteger(maybe.pokemonSpriteSpeciesId) ? maybe.pokemonSpriteSpeciesId : undefined,
     pokemonSpriteFormIndex: Number.isSafeInteger(maybe.pokemonSpriteFormIndex) ? maybe.pokemonSpriteFormIndex : undefined,
+    trainerSpriteClassId: Number.isSafeInteger(maybe.trainerSpriteClassId) ? maybe.trainerSpriteClassId : undefined,
     pwanAnimationSpeciesId: Number.isSafeInteger(maybe.pwanAnimationSpeciesId) ? maybe.pwanAnimationSpeciesId : undefined,
   };
 }
