@@ -172,6 +172,20 @@ function parseCommandParams(commandName: string, lineText: string): number[] | u
 function particlePosition(commandName: string, paramIndex: number, value: number): string {
   const formatted = formatMoveAnimationParam(commandName, paramIndex, value);
   const known: Record<string, string> = {
+    ATTACKER: "attacker side",
+    DEFENDER: "defender side",
+    ATTACKER_MINUS: "attacker side minus one slot",
+    DEFENDER_MINUS: "defender side minus one slot",
+    ATTACKER_OFFSET: "attacker side with offset",
+    NONE: "no side target",
+    AA: "position AA",
+    BB: "position BB",
+    A: "position A",
+    B: "position B",
+    C: "position C",
+    D: "position D",
+    E: "position E",
+    F: "position F",
     SIDE_ATTACKER: "attacker side",
     SIDE_DEFENDER: "defender side",
     SIDE_ATTACKER_MINUS: "attacker side minus one slot",

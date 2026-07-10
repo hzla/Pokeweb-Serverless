@@ -5,6 +5,7 @@ import {
   packGameFreakContainer,
   parseAreaHeader,
   parseMapMatrix,
+  parseChunkBuildings,
   parseNitroRenderOpsForTest,
   parseMapReplaceTable,
   parseNpcRegistry,
@@ -217,6 +218,27 @@ describe("map3dModel", () => {
       wPosOffZ: -4,
       resourceIndices: [100, 101, 0, 0, 0],
     });
+  });
+
+  it("parses Gen V building placement model ids as big-endian", () => {
+    const bytes = new Uint8Array(4 + 16);
+    writeU32(bytes, 0, 1);
+    writeU32(bytes, 4, fx32(2));
+    writeU32(bytes, 8, fx32(3));
+    writeU32(bytes, 12, fx32(-1));
+    writeU16(bytes, 16, 0xc000);
+    bytes[18] = 0x01;
+    bytes[19] = 0x46;
+
+    expect(parseChunkBuildings(bytes, [], 12)).toEqual([
+      {
+        x: 2,
+        y: 3,
+        z: -1,
+        rotationY: 270,
+        modelUid: 326,
+      },
+    ]);
   });
 
   it("keeps Nitro model geometry after DSPRE building matrix commands", () => {

@@ -438,8 +438,8 @@ export function buildPokemonMultiCellsFileFromParsed(cells: PokemonMultiCell[]):
   return writeG2dFile("RCMN", [{ signature: "MCBK", payload }]);
 }
 
-export function buildPokemonMultiCellAnimationFile(duration = DEFAULT_LOOP_DURATION): Uint8Array {
-  return buildPokemonAnimationFile([{ targetType: MULTICELL_TARGET_TYPE, mode: FORWARD_LOOP_MODE, frames: [defaultFrame(0, duration)] }]);
+export function buildPokemonMultiCellAnimationFile(duration = DEFAULT_LOOP_DURATION, mode = FORWARD_LOOP_MODE): Uint8Array {
+  return buildPokemonAnimationFile([{ targetType: MULTICELL_TARGET_TYPE, mode, frames: [defaultFrame(0, duration)] }]);
 }
 
 export function buildRigCellsFile(cells: RigCellsFile): Uint8Array {

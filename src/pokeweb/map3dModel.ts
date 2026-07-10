@@ -209,7 +209,28 @@ export type Map3dNpcModel = {
   y: number;
   z: number;
   rotationY: number;
+  movement: Map3dNpcMovement;
+  spriteFrames?: Map3dNpcSpriteFrames;
   primitives: Map3dPrimitive[];
+};
+
+export type Map3dNpcSpriteDirection = "up" | "down" | "left" | "right";
+
+export type Map3dNpcSpriteFrames = {
+  width: number;
+  height: number;
+  framesByDirection: Partial<Record<Map3dNpcSpriteDirection, DecodedTexture[]>>;
+};
+
+export type Map3dNpcMovement = {
+  moveCode: number;
+  movementModifier: number;
+  sightRange: number;
+  modifierStepCount: number;
+  modifierParameter2: number;
+  horizontalLeash: number;
+  verticalLeash: number;
+  initialDirection: number;
 };
 
 export type Map3dSceneData = {
@@ -278,6 +299,12 @@ type BuildingResource = {
   primitives: Map3dPrimitive[];
 };
 
+type NpcModelResource = {
+  modelType: "model" | "sprite";
+  primitives: Map3dPrimitive[];
+  spriteFrames?: Map3dNpcSpriteFrames;
+};
+
 type ChunkBuildingPlacement = {
   modelUid: number;
   x: number;
@@ -296,6 +323,7 @@ type ParsedNpcEntity = {
   objCode: number;
   script: number;
   faceDirection: number;
+  movement: Map3dNpcMovement;
   x: number;
   y: number;
   z: number;
@@ -970,7 +998,7 @@ function loadBuildingsForZone(
   const buildings: Map3dBuilding[] = [];
   for (const chunk of chunks) {
     const chunkFiles = chunkContainers.get(chunk.chunkId);
-    const placementsBytes = chunkFiles?.at(-1);
+    const placementsBytes = chunkFiles?.[2] ?? chunkFiles?.at(-1);
     if (!placementsBytes) continue;
     for (const placement of parseChunkBuildings(placementsBytes, warnings, chunk.chunkId)) {
       const resource = resourcesByUid.get(placement.modelUid);
@@ -1000,7 +1028,7 @@ function resolveBuildingsId(baseRom: BaseRom, areaId: number, area: AreaHeader3d
   return 0;
 }
 
-function parseChunkBuildings(data: Uint8Array, warnings: string[], chunkId: number): ChunkBuildingPlacement[] {
+export function parseChunkBuildings(data: Uint8Array, warnings: string[], chunkId: number): ChunkBuildingPlacement[] {
   if (data.length < 4) return [];
   const count = readU32(data, 0);
   const needed = 4 + count * 16;
@@ -1015,7 +1043,7 @@ function parseChunkBuildings(data: Uint8Array, warnings: string[], chunkId: numb
       y: readFx32(data, offset + 4),
       z: readFx32(data, offset + 8),
       rotationY: (readU16(data, offset + 12) * 360) / 65536,
-      modelUid: readU16(data, offset + 14),
+      modelUid: readU16Be(data, offset + 14),
     };
   });
 }
@@ -1083,7 +1111,17 @@ function parseZoneEntityData(data: Uint8Array, warnings: string[] = []): ParsedZ
     const objCode = readU16(data, offset + 2);
     const script = readU16(data, offset + 10);
     const faceDirection = readU16(data, offset + 12);
-    npcs.push({ uid, objCode, script, faceDirection, x, y, z });
+    const movement: Map3dNpcMovement = {
+      moveCode: readU16(data, offset + 4),
+      movementModifier: readU16(data, offset + 6),
+      sightRange: readU16(data, offset + 14),
+      modifierStepCount: readU16(data, offset + 16),
+      modifierParameter2: readU16(data, offset + 18),
+      horizontalLeash: readS16(data, offset + 20),
+      verticalLeash: readS16(data, offset + 22),
+      initialDirection: faceDirection,
+    };
+    npcs.push({ uid, objCode, script, faceDirection, movement, x, y, z });
     overlays.push({
       kind: "npc",
       id: uid,
@@ -1149,7 +1187,7 @@ function parseZoneEntityData(data: Uint8Array, warnings: string[] = []): ParsedZ
 function loadNpcModels(archives: LazyArchives, npcs: ParsedNpcEntity[], warnings: string[]): Map3dNpcModel[] {
   if (npcs.length === 0) return [];
   const registry = parseNpcRegistry(archives.npcRegistry);
-  const primitiveCache = new Map<number, { modelType: "model" | "sprite"; primitives: Map3dPrimitive[] }>();
+  const primitiveCache = new Map<string, NpcModelResource>();
   const out: Map3dNpcModel[] = [];
 
   for (const npc of npcs) {
@@ -1161,11 +1199,13 @@ function loadNpcModels(archives: LazyArchives, npcs: ParsedNpcEntity[], warnings
     }
     const resourceId = entry.resourceIndices[0] ?? -1;
     if (resourceId < 0) continue;
-    let cached = primitiveCache.get(resourceId);
+    const resourceKey = `${resourceId}:${entry.spriteControllerType}:${entry.billboardSize}`;
+    let cached = primitiveCache.get(resourceKey);
     if (!cached) {
-      cached = loadNpcModelResource(archives, entry, resourceId, npc.faceDirection, warnings);
-      primitiveCache.set(resourceId, cached);
+      cached = loadNpcModelResource(archives, entry, resourceId, warnings);
+      primitiveCache.set(resourceKey, cached);
     }
+    const primitives = cached.modelType === "sprite" && cached.spriteFrames ? buildNpcSpritePrimitive(cached.spriteFrames, npc.faceDirection) : cached.primitives;
     out.push({
       uid: npc.uid,
       objCode: npc.objCode,
@@ -1175,7 +1215,9 @@ function loadNpcModels(archives: LazyArchives, npcs: ParsedNpcEntity[], warnings
       y: npc.y + entry.wPosOffY,
       z: npc.z + entry.wPosOffZ,
       rotationY: npcModelRotationY(npc.faceDirection),
-      primitives: cached.primitives,
+      movement: npc.movement,
+      spriteFrames: cached.spriteFrames,
+      primitives,
     });
   }
 
@@ -1206,9 +1248,8 @@ function loadNpcModelResource(
   archives: LazyArchives,
   entry: NpcRegistryEntry,
   resourceId: number,
-  faceDirection: number,
   warnings: string[],
-): { modelType: "model" | "sprite"; primitives: Map3dPrimitive[] } {
+): NpcModelResource {
   const bytes = archives.moveModelResources.files[resourceId];
   if (!bytes) {
     warnings.push(`NPC model resource ${resourceId} is missing`);
@@ -1221,7 +1262,8 @@ function loadNpcModelResource(
       return { modelType: "model", primitives: buildModelPrimitives(readNitroResources(bytes), warnings) };
     }
     if (readAscii(bytes, 0, 4) === "BTX0") {
-      return { modelType: "sprite", primitives: buildNpcSpritePrimitive(readNitroResources(bytes), entry, faceDirection, warnings) };
+      const spriteFrames = buildNpcSpriteFrames(readNitroResources(bytes), entry, resourceId, warnings);
+      return { modelType: "sprite", primitives: spriteFrames ? buildNpcSpritePrimitive(spriteFrames, 2) : [], spriteFrames };
     }
     warnings.push(`NPC model resource ${resourceId} has unsupported stamp ${readAscii(bytes, 0, 4)}`);
   } catch (error) {
@@ -1230,34 +1272,82 @@ function loadNpcModelResource(
   return { modelType: "model", primitives: [] };
 }
 
-function buildNpcSpritePrimitive(resources: NitroResources, entry: NpcRegistryEntry, faceDirection: number, warnings: string[]): Map3dPrimitive[] {
-  const textureIndex = npcSpriteTextureIndex(entry.spriteControllerType, faceDirection);
-  const texture = resources.textures[textureIndex] ?? resources.textures[0];
+function buildNpcSpriteFrames(resources: NitroResources, entry: NpcRegistryEntry, resourceId: number, warnings: string[]): Map3dNpcSpriteFrames | undefined {
   const palette = resources.palettes[0];
-  if (!texture || (texture.params.requiresPalette() && !palette)) {
+  if (resources.textures.length === 0 || (resources.textures.some((texture) => texture.params.requiresPalette()) && !palette)) {
     warnings.push(`NPC sprite ${entry.uid} is missing texture or palette data`);
-    return [];
+    return undefined;
   }
-  const decoded = decodeTexture(texture, palette);
-  if (!decoded) return [];
   const [width, height] = MMDL_BILLBOARD_SIZES[Math.min(entry.billboardSize, MMDL_BILLBOARD_SIZES.length - 1)] ?? MMDL_BILLBOARD_SIZES[0];
-  const halfWidth = width / 2;
+  const frameCount = Math.max(1, npcSpriteFrameCount(entry.spriteControllerType));
+  const framesByDirection: Map3dNpcSpriteFrames["framesByDirection"] = {};
+  for (const [direction, gameDirection] of Object.entries(NPC_SPRITE_DIRECTION_CODES) as Array<[Map3dNpcSpriteDirection, number]>) {
+    const frames: DecodedTexture[] = [];
+    for (let frame = 0; frame < frameCount; frame += 1) {
+      const texture = resources.textures[npcSpriteTextureIndex(entry.spriteControllerType, gameDirection, frame)] ?? resources.textures[npcSpriteTextureIndex(entry.spriteControllerType, gameDirection, 0)] ?? resources.textures[0];
+      const decoded = texture ? decodeTexture(texture, palette) : undefined;
+      if (decoded) {
+        frames.push({
+          ...decoded,
+          name: `npc_resource_${resourceId}_${entry.uid}_${direction}_${frame}_${decoded.name}`,
+        });
+      }
+    }
+    if (frames.length > 0) framesByDirection[direction] = frames;
+  }
+  if (Object.keys(framesByDirection).length === 0) return undefined;
+  return { width, height, framesByDirection };
+}
+
+function buildNpcSpritePrimitive(spriteFrames: Map3dNpcSpriteFrames, faceDirection: number): Map3dPrimitive[] {
+  const texture = npcSpriteFrame(spriteFrames, map3dNpcSpriteDirection(faceDirection), 0) ?? firstNpcSpriteFrame(spriteFrames);
+  if (!texture) return [];
+  const halfWidth = spriteFrames.width / 2;
   return [
     {
-      material: { name: `npc_${entry.uid}_${texture.name}`, diffuse: [1, 1, 1], alpha: 1, texture: decoded },
-      positions: new Float32Array([-halfWidth, 0, 0, halfWidth, 0, 0, halfWidth, height, 0, -halfWidth, height, 0]),
+      material: { name: `npc_sprite_${texture.name}`, diffuse: [1, 1, 1], alpha: 1, texture },
+      positions: new Float32Array([-halfWidth, 0, 0, halfWidth, 0, 0, halfWidth, spriteFrames.height, 0, -halfWidth, spriteFrames.height, 0]),
       uvs: new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]),
       indices: new Uint16Array([0, 1, 2, 0, 2, 3]),
     },
   ];
 }
 
-function npcSpriteTextureIndex(spriteControllerType: number, faceDirection: number): number {
-  const perDirStep = [0, 3, 2, 3, 0, 1, 3, 0, 0, 0, 4, 0, 4, 2, 2, 2, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 2, 2, 0][
-    spriteControllerType
-  ];
-  return Math.max(0, faceDirection) * (perDirStep ?? 0);
+function npcSpriteTextureIndex(spriteControllerType: number, faceDirection: number, frame = 0): number {
+  const perDirStep = npcSpriteTextureStride(spriteControllerType);
+  if (perDirStep <= 0) return 0;
+  return Math.max(0, faceDirection) * perDirStep + Math.max(0, Math.min(frame, perDirStep - 1));
 }
+
+function npcSpriteFrameCount(spriteControllerType: number): number {
+  return Math.max(1, npcSpriteTextureStride(spriteControllerType));
+}
+
+function npcSpriteTextureStride(spriteControllerType: number): number {
+  return NPC_SPRITE_FRAMES_PER_DIRECTION[spriteControllerType] ?? 0;
+}
+
+function npcSpriteFrame(spriteFrames: Map3dNpcSpriteFrames, direction: Map3dNpcSpriteDirection, frame: number): DecodedTexture | undefined {
+  const frames = spriteFrames.framesByDirection[direction];
+  return frames?.[Math.max(0, Math.min(frame, frames.length - 1))];
+}
+
+function firstNpcSpriteFrame(spriteFrames: Map3dNpcSpriteFrames): DecodedTexture | undefined {
+  return Object.values(spriteFrames.framesByDirection).find((frames) => frames && frames.length > 0)?.[0];
+}
+
+function map3dNpcSpriteDirection(faceDirection: number): Map3dNpcSpriteDirection {
+  return ({ 1: "down", 2: "up", 3: "left", 4: "right" } as const)[faceDirection] ?? "up";
+}
+
+const NPC_SPRITE_DIRECTION_CODES: Record<Map3dNpcSpriteDirection, number> = {
+  down: 1,
+  up: 2,
+  left: 3,
+  right: 4,
+};
+
+const NPC_SPRITE_FRAMES_PER_DIRECTION = [0, 3, 2, 3, 0, 1, 3, 0, 0, 0, 4, 0, 4, 2, 2, 2, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 2, 2, 0];
 
 function normalizeObjCode(baseRom: BaseRom, objCode: number): number {
   if (baseRom === "BW2") {
@@ -1935,6 +2025,10 @@ function readS32(data: Uint8Array, offset: number): number {
 
 function readS16(data: Uint8Array, offset: number): number {
   return signExtend(readU16(data, offset), 16);
+}
+
+function readU16Be(data: Uint8Array, offset: number): number {
+  return ((data[offset] ?? 0) << 8) | (data[offset + 1] ?? 0);
 }
 
 function readS8(data: Uint8Array, offset: number): number {

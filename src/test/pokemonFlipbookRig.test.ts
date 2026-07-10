@@ -1,10 +1,34 @@
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readU16 } from "../nds/binary";
-import { buildPairedPokemonFlipbookRigsFromFrames, buildPokemonFlipbookRigFromFrames, defaultPokemonFlipbookImportConfig } from "../pokeweb/pokemonFlipbookRig";
+import {
+  buildPairedPokemonFlipbookRigsFromFrames,
+  buildPokemonFlipbookRigFromFrames,
+  defaultPokemonFlipbookImportConfig,
+  pokemonFlipbookGifLoopInfo,
+} from "../pokeweb/pokemonFlipbookRig";
 import { parsePokemonAnimationBundle } from "../pokeweb/pokemonSpriteWriters";
 import { decompressNitro, parsePokemonAnimation, parsePokemonCellBank, parsePokemonMultiCells, parseRigCells, type PokemonAnimationFrame, type PokemonCell } from "../pokeweb/pokemonSpriteModel";
 
 describe("pokemonFlipbookRig", () => {
+  it("reads infinite, finite, and absent GIF loop metadata", () => {
+    const gifUrl = new URL("../../node_modules/gifuct-js/demo/dog.gif", import.meta.url);
+    if (!existsSync(gifUrl)) return;
+    const infinite = new Uint8Array(readFileSync(gifUrl));
+    const netscapeOffset = findBytes(infinite, new TextEncoder().encode("NETSCAPE"));
+    expect(netscapeOffset).toBeGreaterThanOrEqual(0);
+    expect(pokemonFlipbookGifLoopInfo(infinite)).toEqual({ kind: "infinite", count: 0 });
+
+    const finite = infinite.slice();
+    finite[netscapeOffset + 13] = 3;
+    finite[netscapeOffset + 14] = 0;
+    expect(pokemonFlipbookGifLoopInfo(finite)).toEqual({ kind: "finite", count: 3 });
+
+    const noLoop = infinite.slice();
+    noLoop[netscapeOffset] = "X".charCodeAt(0);
+    expect(pokemonFlipbookGifLoopInfo(noLoop)).toEqual({ kind: "none", count: 1 });
+  });
+
   it("defaults to compact pose-block flipbook output", () => {
     const frames = Array.from({ length: 6 }, (_, index) => makeFrame(index));
     frames.forEach((frame, index) => fillRect(frame, 18 + index, 20, 12, 10, [200, 80, 40, 255]));
@@ -465,6 +489,13 @@ describe("pokemonFlipbookRig", () => {
     expect(parseRigCells(bundle.files[17] ?? new Uint8Array()).cells).toHaveLength(1);
   });
 });
+
+function findBytes(haystack: Uint8Array, needle: Uint8Array): number {
+  for (let offset = 0; offset <= haystack.length - needle.length; offset += 1) {
+    if (needle.every((value, index) => haystack[offset + index] === value)) return offset;
+  }
+  return -1;
+}
 
 function makeFrame(index: number) {
   return makeSizedFrame(index, 48, 48);

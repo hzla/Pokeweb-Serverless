@@ -9,6 +9,8 @@ import {
   deleteTrainerPokemon,
   formatTrainerPokemonShowdownText,
   getTrainerRecord,
+  importTrainerPokemonShowdownText,
+  resolveTrainerPokemonGender,
   setTrainerAiFlagForAll,
   updateTrainerField,
   updateTrainerPokemonField,
@@ -145,6 +147,58 @@ describe("trainerModel", () => {
     );
   });
 
+  it("imports Showdown text into one trainer Pokemon slot", () => {
+    const project = makeProject(0);
+
+    importTrainerPokemonShowdownText(
+      project,
+      1,
+      0,
+      [
+        "Partner (Ivysaur) (F) @ Potion",
+        "Ability: Chlorophyll",
+        "Level: 42",
+        "Jolly Nature",
+        "IVs: 31 HP / 30 Atk / 29 Def / 28 SpA / 27 SpD / 26 Spe",
+        "Form: 2",
+        "- Razor Leaf",
+        "- Solar Beam",
+      ].join("\n"),
+    );
+
+    const trainer = getTrainerRecord(project, 1);
+    expect(trainer.raw.template).toBe(3);
+    expect(trainer.party[0]).toMatchObject({
+      speciesId: 2,
+      speciesName: "Ivysaur",
+      itemName: "Potion",
+      abilitySlot: 2,
+      gender: "Female",
+      level: 42,
+      ivs: 235,
+      nature: "Jolly",
+      natureSetting: "Jolly",
+      natureValue: 14,
+      form: 2,
+    });
+    expect(decodeRecord(project, "trpok", 1).raw).toMatchObject({
+      species_id_0: 2,
+      item_id_0: 1,
+      ability_0: 34,
+      level_0: 42,
+      ivs_0: 235,
+      padding_0: 14,
+      form_0: 2,
+      move_1_0: 4,
+      move_2_0: 6,
+      move_3_0: 0,
+      move_4_0: 0,
+    });
+    expect(project.narcs.trdata?.dirty.has(1)).toBe(true);
+    expect(project.narcs.trpok?.dirty.has(1)).toBe(true);
+    expect(project.actionChangelog?.entries.some((entry) => entry.domain === "trpok" && entry.text.includes("Pokemon 1 was imported from Showdown text."))).toBe(true);
+  });
+
   it("treats invalid stored trainer Pokemon nature bytes as Auto", () => {
     const project = makeProject(0);
     const trpok = decodeRecord(project, "trpok", 1);
@@ -225,6 +279,7 @@ describe("trainerModel", () => {
     const trainer = getTrainerRecord(project, 338);
     expect(trainer.readable).toMatchObject({ class: "Idol", name: "Skylar" });
     expect(trainer.party.map((pokemon) => pokemon.nature)).toEqual(["Sassy", "Relaxed", "Calm", "Naughty", "Quiet", "Rash"]);
+    expect(trainer.party.map((pokemon) => resolveTrainerPokemonGender(project, 338, pokemon.slot))).toEqual(["Female", "Female", "Female", "Female", "Female", "Female"]);
     expect(trainer.party[0]).toMatchObject({ speciesName: "Flygon", abilitySlot: 1, resolvedAbilitySlot: 1, abilityName: "Sand Stream" });
     expect(trainer.party[1]).toMatchObject({
       speciesName: "Aggron",

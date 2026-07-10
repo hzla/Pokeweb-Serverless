@@ -8,6 +8,7 @@ import {
   autofillTrainerPokemonMoves,
   deleteTrainerPokemon,
   formatTrainerPokemonShowdownText,
+  importTrainerPokemonShowdownText,
   setTrainerAiFlagForAll,
 } from "../pokeweb/trainerModel";
 import { updateTrainerText } from "../pokeweb/trainerTextModel";
@@ -18,6 +19,7 @@ import { stripeRows } from "./legacyInteractions";
 export type TrainerInteractionOptions = {
   onDirty?: () => void;
   onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>;
+  onOpenTrainerSprite?: (trainerClassId: number) => void;
   autofills: Record<string, string[]>;
   renderRow: (trainerId: number) => string;
 };
@@ -71,6 +73,13 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
     const card = target.closest<HTMLElement>(".trainer-card");
     const trainerId = Number(card?.dataset.index);
     if (!card || !Number.isInteger(trainerId)) return;
+
+    const trainerSprite = target.closest<HTMLElement>(".trainer-rom-sprite-link");
+    const trainerClassId = Number(trainerSprite?.dataset.trainerClassId);
+    if (trainerSprite && Number.isInteger(trainerClassId) && options.onOpenTrainerSprite) {
+      options.onOpenTrainerSprite(trainerClassId);
+      return;
+    }
 
     const testBattleButton = target.closest<HTMLButtonElement>(".test-battle-btn");
     if (testBattleButton && options.onTestBattle) {
@@ -159,6 +168,22 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
         window.setTimeout(() => {
           copyShowdownButton.textContent = previousText;
         }, 1000);
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      }
+      return;
+    }
+
+    const importShowdownButton = target.closest<HTMLElement>(".import-showdown-btn");
+    if (importShowdownButton) {
+      const slot = Number(target.closest<HTMLElement>(".expanded-pok")?.dataset.subIndex);
+      if (!Number.isInteger(slot)) return;
+      try {
+        const showdownText = await requestShowdownImportText();
+        if (showdownText === undefined) return;
+        importTrainerPokemonShowdownText(project, trainerId, slot, showdownText);
+        replaceTrainerRow(root, project, card, trainerId, options, String(slot));
+        options.onDirty?.();
       } catch (error) {
         window.alert(error instanceof Error ? error.message : String(error));
       }
@@ -391,6 +416,53 @@ async function writeClipboardText(text: string): Promise<void> {
   } finally {
     textarea.remove();
   }
+}
+
+function requestShowdownImportText(): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "trainer-showdown-import-modal";
+    overlay.innerHTML = `
+      <form class="trainer-showdown-import-dialog">
+        <div class="trainer-showdown-import-title">Import Showdown Set</div>
+        <textarea class="trainer-showdown-import-input" spellcheck="false" placeholder="Paste one Pokemon Showdown set"></textarea>
+        <div class="trainer-showdown-import-actions">
+          <button class="field-btn" type="submit">Import</button>
+          <button class="field-btn del-btn" type="button" data-cancel>Cancel</button>
+        </div>
+      </form>
+    `;
+    const textarea = overlay.querySelector<HTMLTextAreaElement>(".trainer-showdown-import-input");
+    const form = overlay.querySelector<HTMLFormElement>("form");
+    let settled = false;
+    const close = (value: string | undefined) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKeydown);
+      overlay.remove();
+      resolve(value);
+    };
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close(undefined);
+    };
+
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close(undefined);
+    });
+    overlay.querySelector("[data-cancel]")?.addEventListener("click", () => close(undefined));
+    form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const value = textarea?.value.trim() ?? "";
+      if (value === "") {
+        textarea?.focus();
+        return;
+      }
+      close(value);
+    });
+    document.addEventListener("keydown", onKeydown);
+    document.body.appendChild(overlay);
+    textarea?.focus();
+  });
 }
 
 function isTrainerRowControl(target: HTMLElement): boolean {

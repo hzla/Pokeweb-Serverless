@@ -10,6 +10,7 @@ import {
   enrichTrainerLocations,
   parseGroundItemScripts,
   parseTrainerBattleScripts,
+  trainerPokemonExportName,
 } from "../pokeweb/docGeneratorModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT } from "../pokeweb/overworldModel";
@@ -66,6 +67,31 @@ describe("docGeneratorModel", () => {
     expect(parseTrainerBattleScripts(makeTrainerBattleScriptBytes(), 20)).toEqual([7, 6]);
   });
 
+  it("finds odd-aligned trainer battle commands and applies their header difficulty", () => {
+    const project = makeProject();
+    const headerFormat = project.formats.headers!;
+    project.narcs.headers = makeStore(
+      "headers",
+      [
+        packRows(
+          headerFormat,
+          Array.from({ length: 64 }, (_, index): Record<string, number> =>
+            index === 63 ? { script_id: 126, location_name_id: 1, name_icon: 2 << 13 } : {},
+          ),
+        ),
+      ],
+      1,
+    );
+    project.narcs.scripts!.rawFiles[126] = makeOddAlignedTrainerBattleScriptBytes();
+    project.narcs.trdata = makeStore("trdata", Array.from({ length: 768 }, () => new Uint8Array()), 768);
+    project.texts.banks.locations = ["Unknown Location", "Nimbasa City"];
+
+    enrichTrainerLocations(project);
+
+    expect(project.docs?.trainerLocations["767"]).toContain("Nimbasa City");
+    expect(project.docs?.trainerDiffs["767"]).toBe(2);
+  });
+
   it("enriches trainer locations from overworld script ids", () => {
     const project = makeProject();
     const result = enrichTrainerLocations(project);
@@ -107,6 +133,140 @@ describe("docGeneratorModel", () => {
     expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].reward_item).toBe("Black Glasses");
   });
 
+  it("preserves the HP acronym in Hidden Power move names", () => {
+    const project = makeProject();
+    setProjectMoves(project, [{}, { type: 1, category: 1, power: 60, accuracy: 100, pp: 15 }], ["None", "HP FIGHTING"]);
+    const file = generateCalcDownload(project, "Volt White Plus");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+
+    expect(payload.moves).toHaveProperty("HP Fighting");
+    expect(payload.moves).not.toHaveProperty("Hp Fighting");
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].moves).toContain("HP Fighting");
+  });
+
+  it("exports Sheer Force secondaries only for target afflictions, target drops, and user boosts", () => {
+    const project = makeProject();
+    setProjectMoves(
+      project,
+      [
+        {},
+        {
+          type: 1,
+          effect_category: 7,
+          category: 1,
+          power: 120,
+          accuracy: 100,
+          pp: 5,
+          target: 0,
+          effect: 229,
+          stat_1: 2,
+          stat_2: 4,
+          magnitude_1: 255,
+          magnitude_2: 255,
+          stat_chance_1: 100,
+          stat_chance_2: 100,
+        },
+        {
+          type: 1,
+          effect_category: 7,
+          category: 1,
+          power: 100,
+          accuracy: 90,
+          pp: 10,
+          target: 0,
+          effect: 218,
+          stat_1: 5,
+          magnitude_1: 255,
+          stat_chance_1: 100,
+        },
+        {
+          type: 8,
+          effect_category: 7,
+          category: 1,
+          power: 100,
+          accuracy: 85,
+          pp: 10,
+          target: 0,
+          effect: 139,
+          stat_1: 1,
+          magnitude_1: 1,
+          stat_chance_1: 20,
+        },
+        {
+          type: 7,
+          effect_category: 6,
+          category: 2,
+          power: 80,
+          accuracy: 100,
+          pp: 15,
+          target: 0,
+          effect: 72,
+          stat_1: 4,
+          magnitude_1: 255,
+          stat_chance_1: 20,
+        },
+        {
+          type: 9,
+          effect_category: 4,
+          category: 2,
+          power: 95,
+          accuracy: 100,
+          pp: 15,
+          target: 0,
+          result_effect: 4,
+          effect_chance: 10,
+          status: 1,
+          effect: 4,
+        },
+        {
+          type: 0,
+          effect_category: 2,
+          category: 0,
+          power: 0,
+          accuracy: 101,
+          pp: 40,
+          target: 7,
+          effect: 10,
+          stat_1: 1,
+          magnitude_1: 1,
+        },
+        {
+          type: 0,
+          effect_category: 2,
+          category: 0,
+          power: 0,
+          accuracy: 100,
+          pp: 40,
+          target: 5,
+          effect: 18,
+          stat_1: 1,
+          magnitude_1: 255,
+        },
+      ],
+      ["None", "Close Combat", "Hammer Arm", "Meteor Mash", "Shadow Ball", "Flamethrower", "Howl", "Growl"],
+    );
+    const calcFile = generateCalcDownload(project, "Volt White Plus");
+    const calcPayload = JSON.parse(calcFile.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+    const [dexFile] = generateDexDownloads(project, "Volt White Plus");
+    const dexPayload = JSON.parse(String(dexFile.contents).replace(/^overrides = /u, "").replace(/;\n$/u, ""));
+
+    expect(calcPayload.moves["Close Combat"]).not.toHaveProperty("secondaries");
+    expect(calcPayload.moves["Hammer Arm"]).not.toHaveProperty("secondaries");
+    expect(calcPayload.moves["Meteor Mash"].secondaries).toBe(true);
+    expect(calcPayload.moves["Shadow Ball"].secondaries).toBe(true);
+    expect(calcPayload.moves.Flamethrower.secondaries).toBe(true);
+    expect(calcPayload.moves.Howl.secondaries).toBe(true);
+    expect(calcPayload.moves.Growl.secondaries).toBe(true);
+    expect(Object.values(calcPayload.moves).some((move) => Object.hasOwn(move as object, "sf"))).toBe(false);
+
+    expect(dexPayload.moves["Close Combat"]).not.toHaveProperty("secondaries");
+    expect(dexPayload.moves["Hammer Arm"]).not.toHaveProperty("secondaries");
+    expect(dexPayload.moves["Meteor Mash"].secondaries).toBe(true);
+    expect(dexPayload.moves["Shadow Ball"].secondaries).toBe(true);
+    expect(dexPayload.moves.Flamethrower.secondaries).toBe(true);
+    expect(Object.values(dexPayload.moves).some((move) => Object.hasOwn(move as object, "sf"))).toBe(false);
+  });
+
   it("exports alt form personal records and trainer abilities to calc and dex data", () => {
     const project = makeProject();
     const calcFile = generateCalcDownload(project, "Volt White Plus");
@@ -126,6 +286,30 @@ describe("docGeneratorModel", () => {
       form: 1,
     });
     expect(calcPayload.formatted_sets.Deoxys).toBeUndefined();
+  });
+
+  it("exports DSPRE Gen 4 trainer form bits as calc species names", () => {
+    const project = makeGen4TrainerFormProject();
+    const calcFile = generateCalcDownload(project, "Platinum Hack");
+    const calcPayload = JSON.parse(calcFile.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+
+    expect(calcPayload.formatted_sets.Wormadam["Lvl 40 Galactic Dia"]).toMatchObject({ form: 0, gender: "Female" });
+    expect(calcPayload.formatted_sets["Wormadam-Sandy"]["Lvl 41 Galactic Dia"]).toMatchObject({ form: 1, gender: "Female" });
+    expect(calcPayload.formatted_sets["Wormadam-Trash"]["Lvl 42 Galactic Dia"]).toMatchObject({ form: 2, gender: "Female" });
+    expect(calcPayload.poks.Wormadam.types).toEqual(["Bug", "Grass"]);
+    expect(calcPayload.poks["Deoxys-Defense"]).toMatchObject({
+      name: "Deoxys-Defense",
+      num: 497,
+      bs: { hp: 50, at: 70, df: 160, sa: 70, sd: 160, sp: 90 },
+    });
+    expect(calcPayload.poks["Rotom-Frost"]).toMatchObject({ name: "Rotom-Frost", num: 505 });
+    expect(calcPayload.poks).not.toHaveProperty("Pokemon 497");
+
+    expect(trainerPokemonExportName(project, trainerSlot(413, 1))).toBe("Wormadam-Sandy");
+    expect(trainerPokemonExportName(project, trainerSlot(412, 1))).toBe("Burmy");
+    expect(trainerPokemonExportName(project, trainerSlot(412, 2))).toBe("Burmy");
+    expect(trainerPokemonExportName(project, trainerSlot(422, 1))).toBe("Shellos");
+    expect(trainerPokemonExportName(project, trainerSlot(479, 5))).toBe("Rotom-Mow");
   });
 
   it("exports Cascade White custom AI abilities to calc data", () => {
@@ -368,6 +552,92 @@ function makeProject(): ProjectState {
   };
 }
 
+function makeGen4TrainerFormProject(): ProjectState {
+  const formats = getNarcFormats("Pt");
+  const personalRows: Record<number, Record<string, number>> = {
+    413: {
+      base_hp: 60,
+      base_atk: 59,
+      base_def: 85,
+      base_speed: 36,
+      base_spatk: 79,
+      base_spdef: 105,
+      type_1: 6,
+      type_2: 12,
+      ability_1: 1,
+      gender: 254,
+    },
+    497: {
+      base_hp: 50,
+      base_atk: 70,
+      base_def: 160,
+      base_speed: 90,
+      base_spatk: 70,
+      base_spdef: 160,
+      type_1: 14,
+      type_2: 14,
+      ability_1: 1,
+      gender: 255,
+    },
+    505: {
+      base_hp: 50,
+      base_atk: 65,
+      base_def: 107,
+      base_speed: 86,
+      base_spatk: 105,
+      base_spdef: 107,
+      type_1: 13,
+      type_2: 7,
+      ability_1: 1,
+      gender: 255,
+    },
+  };
+  const personalFiles = Array.from({ length: 508 }, (_unused, index) => packRows(formats.personal!, [personalRows[index] ?? {}]));
+  const trdata = packRows(formats.trdata!, [{ template: 3, class: 1, num_pokemon: 3, ai: 1 }]);
+  const trpok = packGen4Trpok(
+    3,
+    [
+      { ivs: 255, ability: 16, level: 40, species_id: 413, form: 0, move_1: 1 },
+      { ivs: 255, ability: 16, level: 41, species_id: 413, form: 1, move_1: 1 },
+      { ivs: 255, ability: 16, level: 42, species_id: 413, form: 2, move_1: 1 },
+    ],
+    "Pt",
+  );
+
+  return {
+    session: {
+      romName: "platinum-hack",
+      generation: "gen4",
+      baseVersion: "Pt",
+      baseRom: "Pt",
+      fairy: false,
+      fileIds: {},
+      blacklist: [],
+    },
+    romInfo: { title: "PLATINUM", idCode: "CPUJ", fileName: "platinum.nds", size: 1 },
+    arm9: makeGen4TmArm9(),
+    overlays: {},
+    narcs: {
+      personal: makeStore("personal", personalFiles, personalFiles.length),
+      moves: makeStore("moves", [packRows(formats.moves!, [{}]), packRows(formats.moves!, [{ power: 40, accuracy: 100 }])], 2),
+      trdata: makeStore("trdata", [trdata], 1),
+      trpok: makeStore("trpok", [trpok], 1),
+    } as Partial<Record<NarcName, NarcStore>>,
+    texts: {
+      banks: {
+        pokedex: namedRows(496, { 386: "Deoxys", 412: "Burmy", 413: "Wormadam", 422: "Shellos", 479: "Rotom", 487: "Giratina", 492: "Shaymin" }),
+        moves: ["None", "Bug Buzz"],
+        abilities: ["None", "Snow Cloak"],
+        tr_names: ["Dia"],
+        tr_classes: ["None", "Galactic"],
+        items: ["None"],
+      },
+    },
+    formats,
+    trpokInfo: [{ template: 3, numPokemon: 3 }],
+  };
+}
+
 function makeGroundItemScriptBytes(): Uint8Array {
   const out = new Uint8Array(26);
   writeInt(out, 0, 4, 6);
@@ -411,6 +681,18 @@ function makeTrainerBattleScriptBytes(): Uint8Array {
   return out;
 }
 
+function makeOddAlignedTrainerBattleScriptBytes(): Uint8Array {
+  const out = new Uint8Array(18);
+  writeInt(out, 0, 4, 4);
+  writeInt(out, 4, 2, 0xfd13);
+  out[8] = 0;
+  writeInt(out, 9, 2, 0x0085);
+  writeInt(out, 11, 2, 767);
+  writeInt(out, 13, 2, 0);
+  writeInt(out, 15, 2, 0);
+  return out;
+}
+
 function makeOverworldBytes(): Uint8Array {
   const out = new Uint8Array(8 + 36 * 2);
   let offset = 0;
@@ -448,6 +730,38 @@ function makeStore(name: NarcName, data: Uint8Array[], count: number): NarcStore
   };
 }
 
+function trainerSlot(speciesId: number, form: number): Parameters<typeof trainerPokemonExportName>[1] {
+  return {
+    slot: 0,
+    speciesId,
+    speciesName: "",
+    spriteSlug: "",
+    level: 1,
+    ivs: 0,
+    abilitySlot: 0,
+    resolvedAbilitySlot: 0,
+    abilityName: "",
+    gender: "Default",
+    form,
+    itemName: "None",
+    moves: [],
+    nature: "Hardy",
+    natureSetting: "Auto",
+    natureValue: 0,
+  };
+}
+
+function setProjectMoves(project: ProjectState, rows: Array<Record<string, number>>, names: string[]): void {
+  const format = project.formats.moves;
+  if (!format) throw new Error("Missing move format");
+  project.narcs.moves = makeStore(
+    "moves",
+    rows.map((row) => packRows(format, [row])),
+    rows.length,
+  );
+  project.texts.banks.moves = names;
+}
+
 function makeTypeChartOverlay(typeCount: number): Uint8Array {
   const out = new Uint8Array(TYPE_CHART_OFFSET + typeCount * typeCount + 16);
   out.fill(4, TYPE_CHART_OFFSET, TYPE_CHART_OFFSET + typeCount * typeCount);
@@ -465,6 +779,48 @@ function packRows(format: FieldSpec[], rows: Array<Record<string, number>>): Uin
     }
   });
   return out;
+}
+
+function packGen4Trpok(template: number, rows: Array<Record<string, number>>, baseRom: "DP" | "Pt" | "HGSS"): Uint8Array {
+  const hasItems = (template & 2) !== 0;
+  const hasMoves = (template & 1) !== 0;
+  const hasBallSeals = baseRom !== "DP";
+  const rowLength = 6 + (hasItems ? 2 : 0) + (hasMoves ? 8 : 0) + (hasBallSeals ? 2 : 0);
+  const out = new Uint8Array(rowLength * rows.length);
+  rows.forEach((row, rowIndex) => {
+    let offset = rowIndex * rowLength;
+    writeInt(out, offset, 1, row.ivs ?? 0);
+    writeInt(out, offset + 1, 1, row.ability ?? 0);
+    writeInt(out, offset + 2, 2, row.level ?? 0);
+    writeInt(out, offset + 4, 2, (((row.form ?? 0) & 0x3f) << 10) | ((row.species_id ?? 0) & 0x03ff));
+    offset += 6;
+    if (hasItems) {
+      writeInt(out, offset, 2, row.item_id ?? 0);
+      offset += 2;
+    }
+    if (hasMoves) {
+      for (let move = 1; move <= 4; move += 1) {
+        writeInt(out, offset, 2, row[`move_${move}`] ?? 0);
+        offset += 2;
+      }
+    }
+    if (hasBallSeals) writeInt(out, offset, 2, row.ball_seals ?? 0);
+  });
+  return out;
+}
+
+function makeGen4TmArm9(): Uint8Array {
+  const offset = 0xf0bfc;
+  const arm9 = new Uint8Array(offset + 200);
+  for (let index = 0; index < 100; index += 1) writeInt(arm9, offset + index * 2, 2, 1);
+  [15, 19, 57, 70, 432, 249, 127, 431].forEach((moveId, index) => {
+    writeInt(arm9, offset + (92 + index) * 2, 2, moveId);
+  });
+  return arm9;
+}
+
+function namedRows(length: number, names: Record<number, string>): string[] {
+  return Array.from({ length }, (_unused, index) => names[index] ?? String(index));
 }
 
 function writeInt(out: Uint8Array, offset: number, size: number, value: number): void {

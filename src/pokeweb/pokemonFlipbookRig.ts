@@ -21,6 +21,7 @@ import {
 
 export type PokemonFlipbookSamplingStrategy = "loop-rest" | "first-window" | "even" | "front-load";
 export type PokemonFlipbookPackingMode = "mcss-safe" | "rotated-pose-blocks" | "macro-blocks" | "tile-node-dedup";
+export type GifLoopInfo = { kind: "none" | "infinite" | "finite"; count: number };
 
 export type PokemonFlipbookImportConfig = {
   side: PokemonAnimationSide;
@@ -283,6 +284,19 @@ export function decodePokemonFlipbookGifFrames(bytes: Uint8Array): PokemonFlipbo
     else if (frame.disposalType === 3) canvas = before;
     return { index, width, height, delayMs: Math.max(10, frame.delay ?? 100), pixels };
   });
+}
+
+export function pokemonFlipbookGifLoopInfo(bytes: Uint8Array): GifLoopInfo {
+  const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const parsed = parseGIF(arrayBuffer);
+  const application = parsed.frames.find(
+    (frame): frame is Extract<(typeof parsed.frames)[number], { application: unknown }> =>
+      "application" in frame && frame.application.id.toUpperCase().startsWith("NETSCAPE"),
+  );
+  const blocks = application?.application.blocks;
+  if (!blocks || blocks.length < 3 || blocks[0] !== 1) return { kind: "none", count: 1 };
+  const count = (blocks[1] ?? 0) | ((blocks[2] ?? 0) << 8);
+  return count === 0 ? { kind: "infinite", count: 0 } : { kind: "finite", count };
 }
 
 function normalizeFrames(frames: FrameEntry[]): FrameEntry[] {
