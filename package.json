@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "dev:codex": "vite --mode codex-dev --host 127.0.0.1 --port 5173 --strictPort",
     "build": "tsc && vite build",
     "test": "vitest run",
     "moveanim:helper": "vite-node scripts/move-animation-helper.ts",

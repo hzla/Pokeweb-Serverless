@@ -47,8 +47,40 @@ const TRAINER_SPRITE_CANVAS_WIDTH = 256;
 const TRAINER_SPRITE_CANVAS_HEIGHT = 256;
 const GX_OBJVRAMMODE_CHAR_2D = 0x000000;
 const BW2_PWT_TRAINER_CLASS_FIRST = 112;
-const BW2_PWT_TRAINER_CLASS_LAST = 204;
 const BW2_PWT_GRAPHIC_FIRST = 94;
+const BW2_PWT_UNIQUE_CLASS_BLOCK_1_LAST = 146;
+const BW2_PWT_UNIQUE_CLASS_BLOCK_2_FIRST = 167;
+const BW2_PWT_UNIQUE_CLASS_BLOCK_2_LAST = 204;
+const BW2_PWT_UNIQUE_GRAPHIC_BLOCK_2_FIRST = 129;
+const BW2_POKESTAR_UNIQUE_CLASS_FIRST = 211;
+const BW2_POKESTAR_UNIQUE_CLASS_LAST = 226;
+const BW2_POKESTAR_UNIQUE_GRAPHIC_FIRST = 169;
+const BW2_SHARED_TRAINER_GRAPHIC_INDEX: Partial<Record<number, number>> = {
+  147: 17, // Pokémon Breeder M: Brent
+  148: 17, // Pokémon Breeder M: Abed
+  149: 18, // Pokémon Breeder F: Abigail
+  150: 18, // Pokémon Breeder F: Bess
+  151: 24, // Pokémon Ranger M: Daneil
+  152: 24, // Pokémon Ranger M: Carlen
+  153: 25, // Pokémon Ranger F: Carleigh
+  154: 25, // Pokémon Ranger F: Danelle
+  155: 87, // Subway Boss: Ingo
+  157: 49, // Ace Trainer M: Frederick
+  158: 49, // Ace Trainer M: Gaius
+  159: 48, // Ace Trainer F: Gail
+  160: 48, // Ace Trainer F: Freira
+  161: 69, // Veteran M: Harmon / Jariel
+  162: 69, // Veteran M: Ellas / Ira
+  163: 70, // Veteran F: Elie / Iria
+  164: 70, // Veteran F: Harmony / Janna
+  165: 92, // Subway Boss: Emmet
+  195: 148, // Colress (PWT graphic)
+  196: 73, // GAME FREAK Nishino (Hiker)
+  197: 97, // Cheren (Gym Leader graphic)
+  227: 185, // Benga
+  234: 187, // Red
+  235: 186, // Colress
+};
 export const TRAINER_SPRITE_FILE_FORMATS = ["NCGR", "NCBR", "NCER", "NANR", "NMCR", "NMAR", "NCEC", "NCLR"] as const;
 const BW2_TRAINER_CLASS_GRAPHIC_INDEX = [
   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
@@ -822,13 +854,18 @@ function trainerClassSpriteFiles(project: ProjectState, trainerClassId: number):
 
 function trainerClassGraphicIndex(project: ProjectState, trainerClassId: number): number {
   if (project.session.baseRom !== "BW2") return trainerClassId;
-  // BW2 appends the PWT and related special trainer classes after several
-  // unused class slots, while their unique animated graphics begin at 94.
-  // This range is contiguous: class 112 (Elesa) -> graphic 94 through
-  // class 204 -> graphic 186. Using the class ID directly makes Elesa load
-  // graphic 112, which belongs to Morty's class 130.
-  if (trainerClassId >= BW2_PWT_TRAINER_CLASS_FIRST && trainerClassId <= BW2_PWT_TRAINER_CLASS_LAST) {
+  // BW2's special-class range contains two unique-graphic blocks separated
+  // by Black Tower / White Treehollow bosses that reuse ordinary class art.
+  if (trainerClassId >= BW2_PWT_TRAINER_CLASS_FIRST && trainerClassId <= BW2_PWT_UNIQUE_CLASS_BLOCK_1_LAST) {
     return BW2_PWT_GRAPHIC_FIRST + trainerClassId - BW2_PWT_TRAINER_CLASS_FIRST;
+  }
+  const sharedGraphicIndex = BW2_SHARED_TRAINER_GRAPHIC_INDEX[trainerClassId];
+  if (sharedGraphicIndex !== undefined) return sharedGraphicIndex;
+  if (trainerClassId >= BW2_PWT_UNIQUE_CLASS_BLOCK_2_FIRST && trainerClassId <= BW2_PWT_UNIQUE_CLASS_BLOCK_2_LAST) {
+    return BW2_PWT_UNIQUE_GRAPHIC_BLOCK_2_FIRST + trainerClassId - BW2_PWT_UNIQUE_CLASS_BLOCK_2_FIRST;
+  }
+  if (trainerClassId >= BW2_POKESTAR_UNIQUE_CLASS_FIRST && trainerClassId <= BW2_POKESTAR_UNIQUE_CLASS_LAST) {
+    return BW2_POKESTAR_UNIQUE_GRAPHIC_FIRST + trainerClassId - BW2_POKESTAR_UNIQUE_CLASS_FIRST;
   }
   return BW2_TRAINER_CLASS_GRAPHIC_INDEX[trainerClassId] ?? trainerClassId;
 }

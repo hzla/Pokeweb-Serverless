@@ -204,14 +204,16 @@ class SplEmitter {
         const renderVelocity = this.renderParticleVelocity(particle);
         const relativePosition = this.renderRelativePosition(particle);
         const anchorMotionOffset = hgAnchoredPaneMotionOffset(this.event, this.resource, particle, scaleMultiplier);
+        const textureFlipS = particle.child?.flipTextureS ?? this.resource.flipTextureS;
+        const textureFlipT = particle.child?.flipTextureT ?? this.resource.flipTextureT;
         return {
           eventId: this.event.id,
           resourceIndex: this.resource.index,
           textureIndex,
           textureRepeatS: 2 ** (particle.child?.textureTileCountS ?? this.resource.textureTileCountS),
           textureRepeatT: 2 ** (particle.child?.textureTileCountT ?? this.resource.textureTileCountT),
-          textureFlipS: particle.child?.flipTextureS ?? this.resource.flipTextureS,
-          textureFlipT: particle.child?.flipTextureT ?? this.resource.flipTextureT,
+          textureFlipS: textureFlipS !== (this.event.particle?.invertTextureXAxis === true),
+          textureFlipT: textureFlipT !== (this.event.particle?.invertTextureYAxis === true),
           textureKind: "spa" as const,
           renderLayer: particleRenderLayer(this.resource, particle),
           drawType,

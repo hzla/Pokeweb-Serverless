@@ -63,6 +63,30 @@ npm run dev
 
 Then open the local Vite URL, load a `.nds`, choose the NARC groups you want available, make edits, and use `Export` to build the modified ROM.
 
+### Codex UI testing
+
+For automated local UI checks, start the loopback-only Codex dev mode:
+
+```sh
+npm run dev:codex
+```
+
+Open `http://127.0.0.1:5173/`. This mode reads `../cleanwhite2.nds` through the local Vite bridge and loads a fresh project automatically on every page refresh. The normal dev server and production build never auto-load a ROM.
+
+Editor routes can be opened directly with hashes, for example:
+
+```text
+http://127.0.0.1:5173/#pokemon
+http://127.0.0.1:5173/#moves
+http://127.0.0.1:5173/#moveAnimation/621
+```
+
+To use a different local ROM without changing tracked files:
+
+```sh
+POKEWEB_DEV_ROM=/absolute/path/to/rom.nds npm run dev:codex
+```
+
 Other useful commands:
 
 ```sh
