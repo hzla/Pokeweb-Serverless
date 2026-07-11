@@ -75,6 +75,8 @@ export type MoveAnimationTimelineEvent = {
     forceFollowMotion?: boolean;
     useResourceAnchor?: boolean;
     invertResourceYAxis?: boolean;
+    invertTextureXAxis?: boolean;
+    invertTextureYAxis?: boolean;
     anchoredPaneMotionDirection?: number;
     alignToMotion?: boolean;
     alignDirection?: [number, number, number];

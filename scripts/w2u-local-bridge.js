@@ -65,6 +65,16 @@ export function createW2uLocalBridgePlugin(options = {}) {
             return;
           }
 
+          if (requestUrl.pathname === `${ROM_ENDPOINT_PREFIX}/dev` && req.method === "POST") {
+            if (!options.devRomPath) {
+              writeJson(res, 404, { ok: false, message: "No development ROM is configured. Start the server with npm run dev:codex." });
+              return;
+            }
+            const romPath = resolveRomFilePath(server.config.root, options.devRomPath);
+            writeRomFile(res, romPath);
+            return;
+          }
+
           if (requestUrl.pathname === `${ENDPOINT_PREFIX}/status` && req.method === "GET") {
             writeJson(res, 200, getBridgeStatus(server.config.root, options, requestUrl.searchParams.get("repoPath")));
             return;
