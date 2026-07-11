@@ -41,6 +41,12 @@ export async function readLocalRomFile(romPath = readStoredLocalRomPath()): Prom
   return result;
 }
 
+export async function readDevRomFile(): Promise<LocalRomFile> {
+  const result = await requestLocalRomFile("/__pokeweb_rom/dev", {});
+  if (!result) throw new Error("Development ROM loading was cancelled.");
+  return result;
+}
+
 async function requestLocalRomFile(url: string, body: Record<string, string>): Promise<LocalRomFile | undefined> {
   const response = await fetch(url, {
     method: "POST",

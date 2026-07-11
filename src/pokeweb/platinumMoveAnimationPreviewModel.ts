@@ -569,6 +569,8 @@ function emitParticleEvent(
     projectile: placement.projectile,
     useResourceAnchor: true,
     invertResourceYAxis: true,
+    invertTextureXAxis: true,
+    invertTextureYAxis: true,
     dspreScreenRotation: true,
   };
   const axis = placement.axis ? (particleSystem.flipY ? flipY(placement.axis) : placement.axis) : undefined;

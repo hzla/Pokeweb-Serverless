@@ -433,6 +433,20 @@ describe("moveAnimationPreviewModel", () => {
     expect(particles[0].renderLayer).toBe(1);
   });
 
+  it("combines preview texture inversion with SPA-authored texture flips", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32 + 76, 0x03);
+    const archive = parseSpaArchive(bytes);
+    const preview = makeSyntheticPreview(archive);
+    preview.timeline[0].particle = { sourceTarget: 3, destinationTarget: 4, invertTextureXAxis: true, invertTextureYAxis: true };
+
+    const particle = simulateSplPreview(preview, 1)[0];
+    expect(archive.resources[0].flipTextureS).toBe(true);
+    expect(archive.resources[0].flipTextureT).toBe(true);
+    expect(particle?.textureFlipS).toBe(false);
+    expect(particle?.textureFlipT).toBe(false);
+  });
+
   it("keeps command billboard overrides from flattening SPL polygon particles", () => {
     const bytes = makeSyntheticSpa();
     writeU32(bytes, 32, 2 << 4);

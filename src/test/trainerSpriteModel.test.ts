@@ -16,7 +16,7 @@ import { loadProjectFromRomBytes } from "../pokeweb/loader";
 import { getTrainerCount, getTrainerRecord } from "../pokeweb/trainerModel";
 
 describe("trainerSpriteModel", () => {
-  it("maps Elesa's high BW2 trainer class to its deduplicated PWT graphic", async () => {
+  it("maps BW2 PWT, Boss Trainer, and Pokéstar classes to their unique or shared graphics", async () => {
     const romUrl = new URL("../../../cleanwhite2.nds", import.meta.url);
     if (!existsSync(romUrl)) return;
     const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(romUrl)), "cleanwhite2.nds", {
@@ -30,6 +30,20 @@ describe("trainerSpriteModel", () => {
     expect(class112Names).toContain("Elesa");
     expect(animation.graphicIndex).toBe(94);
     expect(animation.frames.some((frame) => frame.rgba.some((value, index) => index % 4 === 3 && value > 0))).toBe(true);
+    expect(getTrainerClassSpriteAnimation(project, 147).graphicIndex).toBe(17);
+    expect(getTrainerClassSpriteAnimation(project, 155).graphicIndex).toBe(87);
+    expect(getTrainerClassSpriteAnimation(project, 165).graphicIndex).toBe(92);
+    expect(getTrainerClassSpriteAnimation(project, 167).graphicIndex).toBe(129);
+    expect(getTrainerClassSpriteAnimation(project, 195).graphicIndex).toBe(148);
+    expect(getTrainerClassSpriteAnimation(project, 196).graphicIndex).toBe(73);
+    expect(getTrainerClassSpriteAnimation(project, 197).graphicIndex).toBe(97);
+    expect(getTrainerClassSpriteAnimation(project, 211).graphicIndex).toBe(169);
+    expect(getTrainerClassSpriteAnimation(project, 226).graphicIndex).toBe(184);
+    expect(getTrainerClassSpriteAnimation(project, 227).graphicIndex).toBe(185);
+    expect(getTrainerClassSpriteAnimation(project, 234).graphicIndex).toBe(187);
+    expect(getTrainerClassSpriteAnimation(project, 235).graphicIndex).toBe(186);
+    expect(getTrainerClassIdsSharingGraphic(project, 147)).toEqual(expect.arrayContaining([17, 147, 148]));
+    expect(getTrainerClassIdsSharingGraphic(project, 195)).toEqual(expect.arrayContaining([186, 195]));
   });
 
   it("defaults trainer GIF imports to rotated poses and even sampling", () => {

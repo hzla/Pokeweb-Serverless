@@ -29,10 +29,18 @@ pt_we_000:
     expect(preview.timeline).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ command: "LoadParticleSystem", spaId: 0, status: "supported" }),
-        expect.objectContaining({ command: "CreateEmitter", effectKind: "spa", spaId: 0, resourceId: 0, status: "supported" }),
+        expect.objectContaining({
+          command: "CreateEmitter",
+          effectKind: "spa",
+          spaId: 0,
+          resourceId: 0,
+          status: "supported",
+          particle: expect.objectContaining({ invertTextureXAxis: true, invertTextureYAxis: true }),
+        }),
         expect.objectContaining({ command: "WaitForAllEmitters", status: "supported" }),
       ]),
     );
+    expect(simulateSplPreview(preview, 2)[0]).toMatchObject({ textureFlipS: true, textureFlipT: true });
   });
 
   it("executes calls, jumps, vars, side, weather, contest, and friendly-fire branches", async () => {

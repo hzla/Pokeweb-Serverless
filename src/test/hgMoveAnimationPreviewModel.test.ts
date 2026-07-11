@@ -38,7 +38,7 @@ a010_000:
     expect(preview.frameCount).toBeGreaterThanOrEqual(50);
     const particles = simulateSplPreview(preview, 2);
     expect(particles.length).toBeGreaterThan(0);
-    expect(particles[0]).toMatchObject({ textureRepeatS: 2, textureRepeatT: 2 });
+    expect(particles[0]).toMatchObject({ textureRepeatS: 2, textureRepeatT: 2, textureFlipS: false, textureFlipT: false });
   });
 
   it("uses scenario controls to choose HG branch paths", async () => {

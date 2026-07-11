@@ -28,7 +28,7 @@ import { ensureActionChangelog, renderActionChangelogText, resetActionChangelog 
 import { exportModifiedRom } from "./pokeweb/exportRom";
 import { parseHeaders } from "./pokeweb/headerModel";
 import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
-import { canUseLocalRomBridge, pickLocalRomFile, readLocalRomFile, readStoredLocalRomPath, rememberLocalRomPath, type LocalRomFile } from "./pokeweb/localRomBridge";
+import { canUseLocalRomBridge, pickLocalRomFile, readDevRomFile, readLocalRomFile, readStoredLocalRomPath, rememberLocalRomPath, type LocalRomFile } from "./pokeweb/localRomBridge";
 import { loadProjectFromRomBytes, loadProjectFromRomFile } from "./pokeweb/loader";
 import { moveEffectHandlerOverlayId } from "./pokeweb/moveEffectHandlerModel";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, saveActiveProject } from "./pokeweb/persistence";
@@ -135,6 +135,7 @@ const MOVE_ANIMATION_ROUTE_KEY = "pokeweb-serverless-move-animation-id";
 const PWAN_ANIMATION_ROUTE_KEY = "pokeweb-serverless-pwan-animation-species-id";
 const TRAINER_SPRITE_ROUTE_KEY = "pokeweb-serverless-trainer-sprite-class-id";
 const HIDE_EXPORT_CHANGELOG_PROMPT_KEY = "pokeweb-hide-export-changelog-prompt";
+const CODEX_DEV_MODE = import.meta.env.MODE === "codex-dev";
 
 const ROM_LOAD_STAGE_PROGRESS: Array<[message: string, percent: number]> = [
   ["Starting ROM load", 4],
@@ -332,16 +333,29 @@ installIntegrationConsoleApi(
 void boot();
 
 async function boot(): Promise<void> {
-  try {
-    project = await loadActiveProject();
-    hasExportBase = await hasActiveRomBytes();
-    if (!project && hasExportBase) project = await restoreProjectFromCachedRom();
-    hydrateProject(project);
-  } catch {
-    project = await restoreProjectFromCachedRom();
-    hasExportBase = Boolean(project);
+  if (CODEX_DEV_MODE) {
+    renderCodexDevBootStatus("Loading clean development ROM...");
+    try {
+      project = await loadCodexDevProject((message) => renderCodexDevBootStatus(message));
+      hasExportBase = true;
+    } catch (error) {
+      renderCodexDevBootError(error);
+      return;
+    }
+  } else {
+    try {
+      project = await loadActiveProject();
+      hasExportBase = await hasActiveRomBytes();
+      if (!project && hasExportBase) project = await restoreProjectFromCachedRom();
+    } catch {
+      project = await restoreProjectFromCachedRom();
+      hasExportBase = Boolean(project);
+    }
   }
-  if (project) hasExportBase = true;
+  if (project) {
+    hydrateProject(project);
+    hasExportBase = true;
+  }
   const initialState = routeStateFromUrl() ?? routeStateFromStorage();
   activeOverworldId = initialState.overworldId;
   activeMoveAnimationMoveId = initialState.moveAnimationMoveId;
@@ -355,6 +369,43 @@ async function boot(): Promise<void> {
   syncRouteStorage();
   syncBrowserHistory(true);
   renderApp();
+}
+
+async function loadCodexDevProject(onProgress: (message: string) => void): Promise<ProjectState> {
+  onProgress("Reading configured development ROM");
+  const localRom = await readDevRomFile();
+  const loadedProject = await loadProjectFromRomBytes(localRom.bytes, localRom.fileName, {}, onProgress);
+  rememberLocalRomPath(localRom.path);
+  hydrateProject(loadedProject);
+  resetActionChangelog(loadedProject);
+  dirty = false;
+  onProgress("Saving clean development project");
+  await saveActiveProject(loadedProject);
+  return loadedProject;
+}
+
+function renderCodexDevBootStatus(message: string): void {
+  appRoot.innerHTML = `
+    <section class="upload-page">
+      <div class="upload-panel">
+        <h1>Pokeweb Codex Dev</h1>
+        <div class="upload-status" role="status">${escapeHtml(message)}</div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCodexDevBootError(error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  appRoot.innerHTML = `
+    <section class="upload-page">
+      <div class="upload-panel">
+        <h1>Codex dev ROM failed to load</h1>
+        <div class="upload-status" role="alert">${escapeHtml(message)}</div>
+        <p>Expected a readable ROM at <code>../cleanwhite2.nds</code>. Override it with <code>POKEWEB_DEV_ROM=/absolute/path/to/rom.nds npm run dev:codex</code>.</p>
+      </div>
+    </section>
+  `;
 }
 
 async function restoreProjectFromCachedRom(): Promise<ProjectState | undefined> {
