@@ -256,6 +256,7 @@ function renderCascadeAbilitySlots(project: ProjectState, speciesId: number): st
 
 function renderExpanded(project: ProjectState, record: PokemonEditorRecord): string {
   const learnsetLimit = learnsetMoveLimit(project);
+  const learnsetSpeciesMax = Math.max(1, (project.narcs.learnsets?.fileCount ?? 1) - 1);
   const canAddLearnsetMove = record.learnset.length < learnsetLimit;
   const learnsetColumnSplit = Math.ceil(record.learnset.length / 2);
   const leftIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && field !== "height" && field !== "weight");
@@ -277,7 +278,11 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
     <div class="expanded-card-content expanded-learnset">
       <div class="learnset-panel">
         <div class="learnset-toolbar">
-          <button class="btn -default learnset-action" data-learnset-action="append" type="button" ${canAddLearnsetMove ? "" : "disabled"}>Add Move</button>
+          <div class="learnset-toolbar-actions">
+            <button class="btn -default learnset-action" data-learnset-action="append" type="button" ${canAddLearnsetMove ? "" : "disabled"}>Add Move</button>
+            <input class="learnset-copy-source" type="number" inputmode="numeric" min="1" max="${learnsetSpeciesMax}" step="1" placeholder="Species ID" aria-label="Source species ID">
+            <button class="btn -default learnset-action" data-learnset-action="copy" type="button">Copy From</button>
+          </div>
           <span class="learnset-count">${record.learnset.length}/${learnsetLimit}</span>
         </div>
         <div class="learnset-columns">

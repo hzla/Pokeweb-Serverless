@@ -381,6 +381,32 @@ export function appendPokemonLearnsetMove(project: ProjectState, speciesId: numb
   return insertPokemonLearnsetMove(project, speciesId, learnsetEntries(record.raw, learnsetMoveLimit(project)).length);
 }
 
+export function copyPokemonLearnset(project: ProjectState, speciesId: number, sourceSpeciesId: number): LearnsetMove[] {
+  const store = project.narcs.learnsets;
+  if (!store) throw new Error("Learnset NARC is not loaded");
+  if (!Number.isInteger(sourceSpeciesId) || sourceSpeciesId < 1 || sourceSpeciesId >= store.fileCount || !store.rawFiles[sourceSpeciesId]) {
+    throw new Error(`No learnset is available for species ${sourceSpeciesId}`);
+  }
+
+  const source = decodeRecord(project, "learnsets", sourceSpeciesId);
+  const target = decodeRecord(project, "learnsets", speciesId);
+  if (!source.raw) throw new Error(`Unable to read learnsets ${sourceSpeciesId}`);
+  if (!target.raw || !target.readable) throw new Error(`Unable to update learnsets ${speciesId}`);
+
+  const limit = learnsetMoveLimit(project);
+  const entries = learnsetEntries(source.raw, limit);
+  applyLearnsetEntries(project, target.raw, target.readable, entries, limit);
+  recordGenericChange(
+    project,
+    "learnsets",
+    `${pokemonChangelogSubject(project, speciesId)} learnset was copied from ${pokemonChangelogSubject(project, sourceSpeciesId)} (species ${sourceSpeciesId}).`,
+    pokemonChangelogSubject(project, speciesId),
+    { key: `pokemon:${speciesId}:learnset-copy:${sourceSpeciesId}` },
+  );
+  markDirty(project, "learnsets", speciesId);
+  return getLearnset(project, speciesId);
+}
+
 export function deletePokemonLearnsetMove(project: ProjectState, speciesId: number, index: number): LearnsetMove[] {
   const record = decodeRecord(project, "learnsets", speciesId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update learnsets ${speciesId}`);
