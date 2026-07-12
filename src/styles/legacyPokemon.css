@@ -544,6 +544,31 @@
   padding: 14px 24px;
 }
 
+.learnset-toolbar-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.learnset-copy-source {
+  background: rgba(40, 42, 54, 0.72);
+  border: 1px solid #6272a4;
+  border-radius: 4px;
+  color: #f8f8f2;
+  min-height: 38px;
+  padding: 7px 10px;
+  width: 116px;
+}
+
+.learnset-copy-source::placeholder {
+  color: rgba(242, 242, 242, 0.58);
+}
+
+.learnset-copy-source.invalid {
+  border-color: #ff5555;
+}
+
 .learnset-count {
   color: rgba(242, 242, 242, 0.72);
   font-size: 13px;

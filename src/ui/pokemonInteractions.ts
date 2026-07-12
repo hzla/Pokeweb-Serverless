@@ -1,6 +1,7 @@
 import {
   appendPokemonLearnsetMove,
   appendPokemonEggMove,
+  copyPokemonLearnset,
   deletePokemonEggMove,
   deletePokemonLearnsetMove,
   getPokemonSummaryRecord,
@@ -124,14 +125,25 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       if (!card || !Number.isInteger(speciesId)) return;
       try {
         if (action === "append") appendPokemonLearnsetMove(project, speciesId);
+        else if (action === "copy") {
+          const input = learnsetAction.closest<HTMLElement>(".learnset-toolbar")?.querySelector<HTMLInputElement>(".learnset-copy-source");
+          const sourceSpeciesId = Number(input?.value.trim());
+          copyPokemonLearnset(project, speciesId, sourceSpeciesId);
+        }
         else if (action === "insert" && Number.isInteger(index)) insertPokemonLearnsetMove(project, speciesId, index);
         else if (action === "delete" && Number.isInteger(index)) deletePokemonLearnsetMove(project, speciesId, index);
         else return;
         refreshExpandedPanels(card, project, speciesId, "learnset", options);
         options.onDirty?.();
         stripeRows(root);
-      } catch {
+      } catch (error) {
         learnsetAction.classList.add("invalid");
+        const input = learnsetAction.closest<HTMLElement>(".learnset-toolbar")?.querySelector<HTMLInputElement>(".learnset-copy-source");
+        if (input && action === "copy") {
+          input.classList.add("invalid");
+          input.title = error instanceof Error ? error.message : String(error);
+          input.focus();
+        }
       }
       return;
     }

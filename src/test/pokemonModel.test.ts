@@ -5,6 +5,7 @@ import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import {
   appendPokemonEggMove,
   appendPokemonLearnsetMove,
+  copyPokemonLearnset,
   deletePokemonEggMove,
   deletePokemonLearnsetMove,
   evolutionSlotCount,
@@ -193,6 +194,32 @@ describe("pokemonModel", () => {
     materializeProjectEdits(project);
     const bytes = project.narcs.learnsets?.rawFiles[1];
     expect(bytes).toEqual(new Uint8Array([2, 0, 1, 0, 1, 0, 1, 0, 0xff, 0xff, 0xff, 0xff]));
+  });
+
+  it("overwrites a Pokemon learnset from another species", () => {
+    const project = makeProject();
+    const format = project.formats.learnsets!;
+    project.narcs.learnsets!.rawFiles.push(
+      packRows(format, [{ move_id_0: 2, lvl_learned_0: 5, move_id_1: 1, lvl_learned_1: 12 }], 1, true),
+    );
+    project.narcs.learnsets!.fileCount = 3;
+
+    const result = copyPokemonLearnset(project, 1, 2);
+
+    expect(result.map((move) => [move.moveName, move.level])).toEqual([
+      ["Vine Whip", 5],
+      ["Tackle", 12],
+    ]);
+    expect(project.narcs.learnsets?.dirty.has(1)).toBe(true);
+    expect(project.actionChangelog?.entries.at(-1)?.text).toContain("copied from Ivysaur (species 2)");
+
+    materializeProjectEdits(project);
+    expect(project.narcs.learnsets?.rawFiles[1]).toEqual(new Uint8Array([2, 0, 5, 0, 1, 0, 12, 0, 0xff, 0xff, 0xff, 0xff]));
+  });
+
+  it("rejects copying from a species without a learnset", () => {
+    const project = makeProject();
+    expect(() => copyPokemonLearnset(project, 1, 999)).toThrow(/No learnset is available/u);
   });
 
   it("exposes W2U-sized learnset and evolution slots", () => {
