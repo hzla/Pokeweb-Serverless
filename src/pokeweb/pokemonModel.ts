@@ -259,6 +259,26 @@ export function updatePokemonTmCompatibility(project: ProjectState, speciesId: n
   markDirty(project, "personal", speciesId);
 }
 
+export function copyPokemonTmCompatibility(project: ProjectState, speciesId: number, sourceSpeciesId: number): TmCompatibilitySlot[] {
+  const { target } = getPersonalCopyRecords(project, speciesId, sourceSpeciesId);
+  const touchedFields = new Set<string>();
+  for (const slot of getPokemonTmCompatibility(project, sourceSpeciesId)) {
+    const location = tmBitLocation(project, slot.kind, slot.index);
+    setCompatibilityBit(target.raw, location.field, location.bit, slot.enabled);
+    touchedFields.add(location.field);
+  }
+  for (const field of touchedFields) target.readable[field] = target.raw[field] ?? 0;
+  recordGenericChange(
+    project,
+    "personal",
+    `${pokemonChangelogSubject(project, speciesId)} TM/HM compatibility was copied from ${pokemonChangelogSubject(project, sourceSpeciesId)} (species ${sourceSpeciesId}).`,
+    pokemonChangelogSubject(project, speciesId),
+    { key: `pokemon:${speciesId}:tm-compat-copy:${sourceSpeciesId}` },
+  );
+  markDirty(project, "personal", speciesId);
+  return getPokemonTmCompatibility(project, speciesId);
+}
+
 export function getPokemonTutorCompatibility(project: ProjectState, speciesId: number): TutorCompatibilityGroup[] {
   if (project.session.baseRom !== "BW2") return [];
   const record = decodeRecord(project, "personal", speciesId);
@@ -292,6 +312,29 @@ export function updatePokemonTutorCompatibility(project: ProjectState, speciesId
     key: `pokemon:${speciesId}:tutor:${field}:${index}`,
   });
   markDirty(project, "personal", speciesId);
+}
+
+export function copyPokemonTutorCompatibility(project: ProjectState, speciesId: number, sourceSpeciesId: number): TutorCompatibilityGroup[] {
+  const { source, target } = getPersonalCopyRecords(project, speciesId, sourceSpeciesId);
+  const groups = getTutorMoveCompatibilityGroups(project);
+  if (groups.length === 0) throw new Error("Tutor compatibility is not available for this ROM");
+  const touchedFields = new Set<string>();
+  for (const group of groups) {
+    for (const move of group.moves) {
+      setCompatibilityBit(target.raw, group.field, move.compatibilityIndex, bitEnabled(source.raw, group.field, move.compatibilityIndex));
+      touchedFields.add(group.field);
+    }
+  }
+  for (const field of touchedFields) target.readable[field] = target.raw[field] ?? 0;
+  recordGenericChange(
+    project,
+    "personal",
+    `${pokemonChangelogSubject(project, speciesId)} tutor compatibility was copied from ${pokemonChangelogSubject(project, sourceSpeciesId)} (species ${sourceSpeciesId}).`,
+    pokemonChangelogSubject(project, speciesId),
+    { key: `pokemon:${speciesId}:tutor-compat-copy:${sourceSpeciesId}` },
+  );
+  markDirty(project, "personal", speciesId);
+  return getPokemonTutorCompatibility(project, speciesId);
 }
 
 export function getPokemonEggMoves(project: ProjectState, speciesId: number): EggMoveSlot[] {
@@ -595,6 +638,29 @@ function tmBitLocation(project: ProjectState, kind: "tm" | "hm", index: number):
 
 function bitEnabled(raw: RawRecord, field: string, bit: number): boolean {
   return Math.floor((raw[field] ?? 0) / 2 ** bit) % 2 === 1;
+}
+
+function setCompatibilityBit(raw: RawRecord, field: string, bit: number, enabled: boolean): void {
+  const mask = 2 ** bit;
+  const current = raw[field] ?? 0;
+  const currentEnabled = bitEnabled(raw, field, bit);
+  raw[field] = enabled === currentEnabled ? current : enabled ? current + mask : current - mask;
+}
+
+function getPersonalCopyRecords(project: ProjectState, speciesId: number, sourceSpeciesId: number): {
+  source: { raw: RawRecord; readable: ReadableRecord };
+  target: { raw: RawRecord; readable: ReadableRecord };
+} {
+  const store = project.narcs.personal;
+  if (!store) throw new Error("Personal NARC is not loaded");
+  if (!Number.isInteger(sourceSpeciesId) || sourceSpeciesId < 1 || sourceSpeciesId >= store.fileCount || !store.rawFiles[sourceSpeciesId]) {
+    throw new Error(`No personal data is available for species ${sourceSpeciesId}`);
+  }
+  const source = decodeRecord(project, "personal", sourceSpeciesId);
+  const target = decodeRecord(project, "personal", speciesId);
+  if (!source.raw || !source.readable) throw new Error(`Unable to read Pokemon ${sourceSpeciesId}`);
+  if (!target.raw || !target.readable) throw new Error(`Unable to update Pokemon ${speciesId}`);
+  return { source: { raw: source.raw, readable: source.readable }, target: { raw: target.raw, readable: target.readable } };
 }
 
 function updatePersonalField(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string, inputValue: string): PokemonUpdateResult {

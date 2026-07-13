@@ -286,10 +286,10 @@
 
 .trainer-texts .msg-id {
   color: #f2f2f2;
-  flex: 0 0 300px;
+  flex: 0 0 380px;
   font-size: 22px;
   line-height: 1.25;
-  min-width: 300px;
+  min-width: 380px;
   text-align: left;
   white-space: nowrap;
 }
