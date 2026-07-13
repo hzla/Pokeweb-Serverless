@@ -418,6 +418,17 @@
   padding: 18px 20px;
 }
 
+.compatibility-copy-toolbar {
+  align-items: center;
+  border-bottom: 1px solid #44475a;
+  display: flex;
+  flex: 0 0 100%;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  width: 100%;
+}
+
 .tutor-group {
   border: 1px solid rgba(242, 242, 242, 0.08);
   border-radius: 8px;

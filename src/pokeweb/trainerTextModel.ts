@@ -42,6 +42,7 @@ type TrainerTextTableRow = {
 export type TrainerTextLine = {
   typeId: number;
   label: string;
+  bankIndex?: number;
   entryIndex: number;
   value: string;
   exists: boolean;
@@ -66,6 +67,7 @@ export function getTrainerTextLines(project: ProjectState, trainerId: number): T
     return {
       typeId,
       label,
+      bankIndex: existing?.entryIndex,
       entryIndex: existing?.entryIndex ?? insertIndex,
       value: existing?.value ?? "",
       exists: existing !== undefined,

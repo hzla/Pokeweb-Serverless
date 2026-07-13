@@ -1,6 +1,8 @@
 import {
   appendPokemonLearnsetMove,
   appendPokemonEggMove,
+  copyPokemonTmCompatibility,
+  copyPokemonTutorCompatibility,
   copyPokemonLearnset,
   deletePokemonEggMove,
   deletePokemonLearnsetMove,
@@ -85,6 +87,32 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       const card = pwanAction.closest<HTMLElement>(".pokemon-card.filterable");
       const speciesId = Number(card?.dataset.index);
       if (Number.isInteger(speciesId)) options.onOpenPwan?.(speciesId);
+      return;
+    }
+
+    const compatibilityCopyAction = target.closest<HTMLElement>("[data-compatibility-copy]");
+    if (compatibilityCopyAction) {
+      const card = compatibilityCopyAction.closest<HTMLElement>(".pokemon-card.filterable");
+      const panel = compatibilityCopyAction.closest<HTMLElement>(".expanded-card-content");
+      const input = panel?.querySelector<HTMLInputElement>(".compatibility-copy-source");
+      const speciesId = Number(card?.dataset.index);
+      const sourceSpeciesId = Number(input?.value.trim());
+      const kind = compatibilityCopyAction.dataset.compatibilityCopy;
+      if (!card || !Number.isInteger(speciesId) || (kind !== "tm" && kind !== "tutor")) return;
+      try {
+        if (kind === "tm") copyPokemonTmCompatibility(project, speciesId, sourceSpeciesId);
+        else copyPokemonTutorCompatibility(project, speciesId, sourceSpeciesId);
+        refreshExpandedPanels(card, project, speciesId, kind === "tm" ? "tms" : "tutors", options);
+        options.onDirty?.();
+        stripeRows(root);
+      } catch (error) {
+        compatibilityCopyAction.classList.add("invalid");
+        if (input) {
+          input.classList.add("invalid");
+          input.title = error instanceof Error ? error.message : String(error);
+          input.focus();
+        }
+      }
       return;
     }
 

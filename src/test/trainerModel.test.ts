@@ -308,16 +308,19 @@ describe("trainerModel", () => {
     expect(getTrainerTextLines(project, 1).find((line) => line.typeId === 16)?.label).toBe("Fld - After Loss (Item)");
 
     expect(getTrainerTextLines(project, 1).find((line) => line.typeId === 0)).toMatchObject({
+      bankIndex: 0,
       entryIndex: 0,
       value: "Battle start",
       exists: true,
     });
+    expect(getTrainerTextLines(project, 1).find((line) => line.typeId === 2)?.bankIndex).toBeUndefined();
 
     updateTrainerText(project, 1, 0, "New start");
     expect(getTrainerTextLines(project, 1).find((line) => line.typeId === 0)?.value).toBe("New start");
 
     updateTrainerText(project, 1, 2, "Field defeat");
     expect(getTrainerTextLines(project, 1).find((line) => line.typeId === 2)).toMatchObject({
+      bankIndex: 2,
       entryIndex: 2,
       value: "Field defeat",
       exists: true,
