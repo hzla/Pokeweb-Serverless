@@ -6,6 +6,8 @@ import {
   appendPokemonEggMove,
   appendPokemonLearnsetMove,
   copyPokemonLearnset,
+  copyPokemonTmCompatibility,
+  copyPokemonTutorCompatibility,
   deletePokemonEggMove,
   deletePokemonLearnsetMove,
   evolutionSlotCount,
@@ -104,6 +106,34 @@ describe("pokemonModel", () => {
     expect(record.rawPersonal.driftveil_tutor).toBe(1);
     expect(record.rawPersonal.lentimas_tutor).toBe(2 ** 16);
     expect(record.tutorCompatibility.find((group) => group.group === "driftveil")?.slots[0]).toMatchObject({ enabled: true, moveName: "Covet" });
+    expect(project.narcs.personal?.dirty.has(1)).toBe(true);
+  });
+
+  it("copies TM/HM and tutor compatibility from another species", () => {
+    const project = makeProject();
+    const personal = project.narcs.personal!;
+    personal.rawFiles.push(personal.rawFiles[1].slice());
+    personal.fileCount = 3;
+
+    updatePokemonTmCompatibility(project, 1, "tm", 2, true);
+    updatePokemonTmCompatibility(project, 2, "tm", 1, true);
+    updatePokemonTmCompatibility(project, 2, "hm", 1, true);
+    updatePokemonTutorCompatibility(project, 1, "driftveil_tutor", 1, true);
+    updatePokemonTutorCompatibility(project, 2, "driftveil_tutor", 0, true);
+    updatePokemonTutorCompatibility(project, 2, "lentimas_tutor", 16, true);
+
+    copyPokemonTmCompatibility(project, 1, 2);
+    copyPokemonTutorCompatibility(project, 1, 2);
+
+    const record = getPokemonRecord(project, 1);
+    expect(record.tmCompatibility.find((slot) => slot.label === "TM1")?.enabled).toBe(true);
+    expect(record.tmCompatibility.find((slot) => slot.label === "TM2")?.enabled).toBe(false);
+    expect(record.tmCompatibility.find((slot) => slot.label === "HM1")?.enabled).toBe(true);
+    expect(record.tutorCompatibility.find((group) => group.group === "driftveil")?.slots[0].enabled).toBe(true);
+    expect(record.tutorCompatibility.find((group) => group.group === "driftveil")?.slots[1].enabled).toBe(false);
+    expect(record.tutorCompatibility.find((group) => group.group === "lentimas")?.slots.at(-1)?.enabled).toBe(true);
+    expect(project.actionChangelog?.entries.some((entry) => entry.text.includes("TM/HM compatibility was copied from Ivysaur"))).toBe(true);
+    expect(project.actionChangelog?.entries.some((entry) => entry.text.includes("tutor compatibility was copied from Ivysaur"))).toBe(true);
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
   });
 

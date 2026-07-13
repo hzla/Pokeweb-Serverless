@@ -300,7 +300,7 @@ function renderTrainerTexts(trainer: TrainerRecord): string {
           (line) => `
             <div class="expanded-field">
               <div class="expanded-field-main">
-                <div class="msg-id">${escapeHtml(line.label)}</div>
+                <div class="msg-id">${escapeHtml(`${line.label}${line.bankIndex === undefined ? "" : ` (${line.bankIndex})`}`)}</div>
                 ${editable("trtext", `text_${line.typeId}_entry_${line.entryIndex}`, line.value, `log-text no-validate empty-text ${line.exists ? "" : "-empty"}`)}
                 ${line.exists ? `<button class="field-btn del-btn delete-trtext" type="button" data-type-id="${line.typeId}" title="Delete trainer text row">Delete</button>` : ""}
               </div>

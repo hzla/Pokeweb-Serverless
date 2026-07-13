@@ -257,6 +257,7 @@ function renderCascadeAbilitySlots(project: ProjectState, speciesId: number): st
 function renderExpanded(project: ProjectState, record: PokemonEditorRecord): string {
   const learnsetLimit = learnsetMoveLimit(project);
   const learnsetSpeciesMax = Math.max(1, (project.narcs.learnsets?.fileCount ?? 1) - 1);
+  const personalSpeciesMax = Math.max(1, (project.narcs.personal?.fileCount ?? 1) - 1);
   const canAddLearnsetMove = record.learnset.length < learnsetLimit;
   const learnsetColumnSplit = Math.ceil(record.learnset.length / 2);
   const leftIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && field !== "height" && field !== "weight");
@@ -296,16 +297,26 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
       </div>
     </div>
     <div class="expanded-card-content expanded-tms">
+      ${renderCompatibilityCopyToolbar("tm", "TM/HM", personalSpeciesMax)}
       ${record.tmCompatibility.map((slot) => renderTmCompatibility(slot)).join("")}
     </div>
     <div class="expanded-card-content expanded-tutors">
-      ${record.tutorCompatibility.length > 0 ? record.tutorCompatibility.map((group) => renderTutorGroup(group)).join("") : renderUnavailablePanel("BW2 tutor compatibility is not available for this ROM.")}
+      ${record.tutorCompatibility.length > 0 ? `${renderCompatibilityCopyToolbar("tutor", "Tutor", personalSpeciesMax)}${record.tutorCompatibility.map((group) => renderTutorGroup(group)).join("")}` : renderUnavailablePanel("BW2 tutor compatibility is not available for this ROM.")}
     </div>
     <div class="expanded-card-content expanded-egg-moves">
       ${record.eggMovesLoaded ? renderEggMoves(record.eggMoves) : renderUnavailablePanel("Egg move data was not loaded for this project. Reload with Pokemon data selected.")}
     </div>
     <div class="expanded-card-content expanded-evos">
       ${evolutionColumns(record.evolutions).map((slots) => renderEvolutionColumn(slots)).join("")}
+    </div>
+  `;
+}
+
+function renderCompatibilityCopyToolbar(kind: "tm" | "tutor", label: string, speciesMax: number): string {
+  return `
+    <div class="compatibility-copy-toolbar">
+      <input class="learnset-copy-source compatibility-copy-source" type="number" inputmode="numeric" min="1" max="${speciesMax}" step="1" placeholder="Species ID" aria-label="${label} compatibility source species ID">
+      <button class="btn -default compatibility-copy-action" data-compatibility-copy="${kind}" type="button">Copy From</button>
     </div>
   `;
 }
