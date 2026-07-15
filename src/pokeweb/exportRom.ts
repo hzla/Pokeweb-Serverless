@@ -15,7 +15,7 @@ import { materializePwanAnimations } from "./pwanAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
 import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
-import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_OFFSET } from "./tutorMoveModel";
+import { BW2_TUTOR_MOVE_OVERLAY_ID, tutorMoveTableOffset } from "./tutorMoveModel";
 import { isRomFsTypeChartStore, typeChartTableOffset } from "./typeChartModel";
 import { repairNarcBytes } from "./romRepairModel";
 import { repairPokemonIconPaletteAssignmentPlacement } from "./pokemonSpriteModel";
@@ -270,7 +270,7 @@ function patchOverlayBackedStore(project: ProjectState, name: NarcName, overlayI
 
 function overlayTableOffset(project: ProjectState, name: NarcName, overlay: Uint8Array): number | undefined {
   if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
-  if (name === "tutor_moves") return BW2_TUTOR_MOVE_TABLE_OFFSET;
+  if (name === "tutor_moves") return tutorMoveTableOffset(project.session.baseVersion);
   if (name === "move_effects_table") return moveEffectHandlerTableOffset(project);
   if (name === "type_chart") return typeChartTableOffset(project, overlay);
   return undefined;

@@ -3,12 +3,14 @@ import { readU32, writeU32 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import {
+  B2_TUTOR_MOVE_TABLE_OFFSET,
   BW2_TUTOR_MOVE_OVERLAY_ID,
   BW2_TUTOR_MOVE_ROW_SIZE,
   BW2_TUTOR_MOVE_TABLE_LENGTH,
-  BW2_TUTOR_MOVE_TABLE_OFFSET,
+  W2_TUTOR_MOVE_TABLE_OFFSET,
   getTutorMoveCompatibilityGroups,
   getTutorMoveRows,
+  tutorMoveTableOffset,
   updateTutorMoveField,
 } from "../pokeweb/tutorMoveModel";
 
@@ -19,7 +21,7 @@ describe("tutorMoveModel", () => {
     const driftveil = getTutorMoveRows(project).filter((row) => row.group === "driftveil");
     expect(driftveil[0]).toMatchObject({
       rowIndex: 13,
-      offset: BW2_TUTOR_MOVE_TABLE_OFFSET + 13 * BW2_TUTOR_MOVE_ROW_SIZE,
+      offset: W2_TUTOR_MOVE_TABLE_OFFSET + 13 * BW2_TUTOR_MOVE_ROW_SIZE,
       moveId: 4,
       moveName: "Covet",
       shardCost: 2,
@@ -47,10 +49,30 @@ describe("tutorMoveModel", () => {
       compatibilityIndex: 9,
     });
   });
+
+  it.each([
+    ["B2", B2_TUTOR_MOVE_TABLE_OFFSET],
+    ["W2", W2_TUTOR_MOVE_TABLE_OFFSET],
+  ] as const)("reads the %s tutor table from its version-specific offset", (baseVersion, expectedOffset) => {
+    const project = makeProject(baseVersion);
+    const firstRow = getTutorMoveRows(project)[0];
+
+    expect(tutorMoveTableOffset(baseVersion)).toBe(expectedOffset);
+    expect(firstRow).toMatchObject({
+      offset: expectedOffset,
+      moveId: 1,
+      moveName: "Bind",
+      shardCost: 2,
+      compatibilityIndex: 0,
+    });
+  });
 });
 
-function makeProject(): ProjectState {
-  const overlay = new Uint8Array(BW2_TUTOR_MOVE_TABLE_OFFSET + BW2_TUTOR_MOVE_TABLE_LENGTH + 0x10);
+function makeProject(baseVersion: "B2" | "W2" = "W2"): ProjectState {
+  const tableOffset = tutorMoveTableOffset(baseVersion);
+  const overlay = new Uint8Array(B2_TUTOR_MOVE_TABLE_OFFSET + BW2_TUTOR_MOVE_TABLE_LENGTH + 0x10);
+  writeTutorRow(overlay, tableOffset, 0, 1, 2, 0);
+  if (baseVersion === "B2") writeTutorRow(overlay, W2_TUTOR_MOVE_TABLE_OFFSET, 0, 24, 404, 24);
   const driftveilMoves = [
     [4, 2, 0],
     [5, 2, 1],
@@ -69,13 +91,13 @@ function makeProject(): ProjectState {
     [18, 10, 14],
   ];
   driftveilMoves.forEach(([moveId, cost, compatibilityIndex], index) => {
-    writeTutorRow(overlay, 13 + index, moveId, cost, compatibilityIndex);
+    writeTutorRow(overlay, tableOffset, 13 + index, moveId, cost, compatibilityIndex);
   });
 
   return {
     session: {
       romName: "test",
-      baseVersion: "W2",
+      baseVersion,
       baseRom: "BW2",
       fairy: false,
       fileIds: {},
@@ -118,8 +140,8 @@ function makeProject(): ProjectState {
   };
 }
 
-function writeTutorRow(overlay: Uint8Array, rowIndex: number, moveId: number, shardCost: number, compatibilityIndex: number): void {
-  const offset = BW2_TUTOR_MOVE_TABLE_OFFSET + rowIndex * BW2_TUTOR_MOVE_ROW_SIZE;
+function writeTutorRow(overlay: Uint8Array, tableOffset: number, rowIndex: number, moveId: number, shardCost: number, compatibilityIndex: number): void {
+  const offset = tableOffset + rowIndex * BW2_TUTOR_MOVE_ROW_SIZE;
   writeU32(overlay, offset, moveId);
   writeU32(overlay, offset + 4, shardCost);
   writeU32(overlay, offset + 8, compatibilityIndex);

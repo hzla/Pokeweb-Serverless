@@ -1,9 +1,11 @@
 import { readU32, writeU32 } from "../nds/binary";
 import { recordFieldChange } from "./actionChangelog";
+import type { BaseVersion } from "./constants";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 
 export const BW2_TUTOR_MOVE_OVERLAY_ID = 36;
-export const BW2_TUTOR_MOVE_TABLE_OFFSET = 0x5152c;
+export const W2_TUTOR_MOVE_TABLE_OFFSET = 0x5152c;
+export const B2_TUTOR_MOVE_TABLE_OFFSET = 0x51538;
 export const BW2_TUTOR_MOVE_ROW_SIZE = 12;
 export const BW2_TUTOR_MOVE_ROW_COUNT = 60;
 export const BW2_TUTOR_MOVE_TABLE_LENGTH = BW2_TUTOR_MOVE_ROW_SIZE * BW2_TUTOR_MOVE_ROW_COUNT;
@@ -72,13 +74,20 @@ const FALLBACK_BW2_TUTOR_MOVES: Record<TutorMoveGroupKey, readonly string[]> = {
   nacrene: ["Worry Seed", "Gastro Acid", "Helping Hand", "After You", "Magic Room", "Wonder Room", "Spite", "Recycle", "Trick", "Stealth Rock", "Outrage", "Endeavor", "Sleep Talk", "Skill Swap", "Snatch"],
 };
 
-export function createTutorMoveStore(overlay36: Uint8Array): NarcStore {
+export function tutorMoveTableOffset(baseVersion: BaseVersion): number {
+  if (baseVersion === "B2") return B2_TUTOR_MOVE_TABLE_OFFSET;
+  if (baseVersion === "W2") return W2_TUTOR_MOVE_TABLE_OFFSET;
+  throw new Error(`Move tutor table editing is not supported for ${baseVersion}.`);
+}
+
+export function createTutorMoveStore(overlay36: Uint8Array, baseVersion: BaseVersion): NarcStore {
+  const tableOffset = tutorMoveTableOffset(baseVersion);
   return {
     name: "tutor_moves",
     fileId: -1,
     sourcePath: `overlay${BW2_TUTOR_MOVE_OVERLAY_ID}:tutor_moves`,
     fileCount: 1,
-    rawFiles: [overlay36.slice(BW2_TUTOR_MOVE_TABLE_OFFSET, BW2_TUTOR_MOVE_TABLE_OFFSET + BW2_TUTOR_MOVE_TABLE_LENGTH)],
+    rawFiles: [overlay36.slice(tableOffset, tableOffset + BW2_TUTOR_MOVE_TABLE_LENGTH)],
     records: new Map(),
     dirty: new Set(),
   };
@@ -90,7 +99,7 @@ export function ensureTutorMoveStore(project: ProjectState): NarcStore {
   if (existing) return existing;
   const overlay = project.overlays[BW2_TUTOR_MOVE_OVERLAY_ID];
   if (!overlay) throw new Error("Tutor move overlay data is not loaded. Reload the ROM with Moves, Tutor Moves, or Grottos selected.");
-  const store = createTutorMoveStore(overlay);
+  const store = createTutorMoveStore(overlay, project.session.baseVersion);
   project.narcs.tutor_moves = store;
   return store;
 }
@@ -190,7 +199,7 @@ function tutorMoveRow(project: ProjectState, bytes: Uint8Array, rowIndex: number
   const moveId = readU32(bytes, offset);
   return {
     rowIndex,
-    offset: BW2_TUTOR_MOVE_TABLE_OFFSET + offset,
+    offset: tutorMoveTableOffset(project.session.baseVersion) + offset,
     group: group.key,
     groupLabel: group.label,
     groupField: group.field,
