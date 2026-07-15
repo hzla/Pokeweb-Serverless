@@ -1129,7 +1129,7 @@ function rgb555ToRgb(value: number): [number, number, number] {
 
 function rgb5To8(value: number): number {
   const clamped = Math.max(0, Math.min(31, Math.round(value)));
-  return (clamped << 3) | (clamped >>> 2);
+  return clamped << 3;
 }
 
 function makeBackgroundImageData(
@@ -1151,7 +1151,8 @@ function backgroundPaletteWithPlanmFrame(
 ): NitroPaletteData {
   const palette = background.indexed.palette.map((color) => [...color] as [number, number, number, number]);
   const sourceBase = planmPaletteIndex * 16;
-  const destinationBanks = background.indexed.palette.length <= 16 ? [0, 9] : [9];
+  const authoredDestinationBanks = background.indexed.palette.length <= 16 ? [0, 9] : [9];
+  const destinationBanks = [...new Set(authoredDestinationBanks.map((bank) => Math.max(0, bank - background.indexed.paletteBankOffset)))];
   const destinationBank = Math.max(...destinationBanks) * 16;
   while (palette.length < destinationBank + 16) palette.push([0, 0, 0, 255]);
   for (let index = 0; index < 16; index += 1) {
@@ -1359,10 +1360,6 @@ function drawTiledBackground(
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
   drawTiledBackgroundPass(context, source, width, height, viewportWidth, viewportHeight, sx, sy);
-  context.globalCompositeOperation = "screen";
-  context.globalAlpha = 0.24;
-  context.filter = "blur(1.5px) brightness(1.08)";
-  drawTiledBackgroundPass(context, source, width, height, viewportWidth, viewportHeight, sx, sy);
   context.restore();
 }
 
@@ -1400,17 +1397,6 @@ function drawLasterDistortedTiledBackground(
     const rowPhase = (sourceRow / 192) * Math.PI * 2 + phase;
     const dx = Math.sin(rowPhase) * scaledAmplitude;
     drawTiledBackgroundRowPass(context, source, width, y, rowHeight, viewportWidth, sourceY, sourceHeight, sx, dx);
-  }
-  context.globalCompositeOperation = "screen";
-  context.globalAlpha = 0.18;
-  context.filter = "blur(1.5px) brightness(1.08)";
-  for (let y = 0; y < height; y += rowHeight * 2) {
-    const sourceRow = Math.floor((y / height) * viewportHeight);
-    const sourceY = mod(sy + sourceRow, source.height);
-    const sourceHeight = Math.min(source.height - sourceY, Math.max(1, Math.ceil(((rowHeight * 2) / height) * viewportHeight)));
-    const rowPhase = (sourceRow / 192) * Math.PI * 2 + phase;
-    const dx = Math.sin(rowPhase) * scaledAmplitude;
-    drawTiledBackgroundRowPass(context, source, width, y, rowHeight * 2, viewportWidth, sourceY, sourceHeight, sx, dx);
   }
   context.restore();
 }
@@ -1480,28 +1466,7 @@ function tintImageData(image: ImageData, tintColor: [number, number, number], ti
 }
 
 function processEffectBackgroundImageData(image: ImageData, tintColor: [number, number, number], tintAmount: number, opacity: number): ImageData {
-  const out = tintImageData(image, tintColor, tintAmount, opacity);
-  for (let offset = 0; offset < out.data.length; offset += 4) {
-    const r = out.data[offset];
-    const g = out.data[offset + 1];
-    const b = out.data[offset + 2];
-    const alpha = out.data[offset + 3] / 255;
-    if (alpha <= 0) continue;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const cyanBias = g > r + 18 && b > r + 18;
-    const highlight = Math.max(0, Math.min(1, (max - 92) / 150));
-    const whiteMix = Math.max(cyanBias ? 0.04 : 0, highlight * 0.2);
-    const glowBoost = 1 + highlight * 0.12;
-    const nr = Math.min(255, r * glowBoost + (255 - r) * whiteMix);
-    const ng = Math.min(255, g * glowBoost + (255 - g) * whiteMix);
-    const nb = Math.min(255, b * glowBoost + (255 - b) * whiteMix);
-    const softContrast = min < 12 && max < 48 ? 0.72 : 1;
-    out.data[offset] = Math.round(nr * softContrast);
-    out.data[offset + 1] = Math.round(ng * softContrast);
-    out.data[offset + 2] = Math.round(nb * softContrast);
-  }
-  return out;
+  return tintImageData(image, tintColor, tintAmount, opacity);
 }
 
 function drawTintOverlay(context: CanvasRenderingContext2D, width: number, height: number, color: [number, number, number], amount: number): void {

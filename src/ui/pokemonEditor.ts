@@ -20,7 +20,8 @@ import {
   type TutorCompatibilitySlot,
 } from "../pokeweb/pokemonModel";
 import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
-import { getPokemonSpriteImage, resolvePokemonSpriteId, type RgbaImageData } from "../pokeweb/pokemonSpriteModel";
+import { getPokemonCardFrontSpriteImage } from "../pokeweb/pokemonCardSpriteModel";
+import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
@@ -44,7 +45,7 @@ const ICONS: Record<string, string> = {
   evos: evoIcon,
   personal: miscDataIcon,
 };
-const POKEMON_CARD_SPRITE_RENDER_VERSION = "personal-front-sprite-v1";
+const POKEMON_CARD_SPRITE_RENDER_VERSION = "personal-front-sprite-v2";
 const pokemonCardSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 
 export function renderPokemonEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenSprites?: (speciesId: number) => void, onOpenPwan?: (speciesId: number) => void): void {
@@ -153,30 +154,26 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
 function renderPokemonCardSprite(project: ProjectState, speciesId: number, name: string): string {
   const fallbackSrc = publicAsset(`images/pokesprite/${pokemonSpriteSlug(name)}.png`);
   const fallback = `<img class="pokemon-card-fallback-sprite" src="${fallbackSrc}" alt="" loading="lazy" onerror="this.style.display='none'">`;
-  if (!project.narcs.pokemon_sprites) return fallback;
-  try {
-    const spriteId = resolvePokemonSpriteId(project, speciesId, 0);
-    return `<canvas class="pokemon-card-rom-sprite" data-pokemon-sprite-id="${spriteId}" data-pokemon-sprite-version="${POKEMON_CARD_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>${fallback}`;
-  } catch {
-    return fallback;
-  }
+  const hasPwanFront = Boolean(project.pwanAnimations?.overrides.some((override) => override.front && (override.speciesId === speciesId || override.assetIndex === speciesId)));
+  if (!hasPwanFront && !project.narcs.pokemon_sprites) return fallback;
+  return `<canvas class="pokemon-card-rom-sprite" data-pokemon-species-id="${speciesId}" data-pokemon-sprite-version="${POKEMON_CARD_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>${fallback}`;
 }
 
 function installPokemonCardSpriteRendering(project: ProjectState, root: HTMLElement): void {
   pokemonCardSpriteInstallations.get(root)?.disconnect();
-  if (!project.narcs.pokemon_sprites) return;
+  if (!project.narcs.pokemon_sprites && !project.pwanAnimations?.overrides.some((override) => override.front)) return;
 
   const imageCache = new Map<number, Promise<RgbaImageData | undefined>>();
-  const loadImage = (spriteId: number): Promise<RgbaImageData | undefined> => {
-    let cached = imageCache.get(spriteId);
+  const loadImage = (speciesId: number): Promise<RgbaImageData | undefined> => {
+    let cached = imageCache.get(speciesId);
     if (!cached) {
       cached = Promise.resolve()
-        .then(() => getPokemonSpriteImage(project, spriteId, { kind: "sprite", side: "front", gender: "male" }, "normal"))
+        .then(() => getPokemonCardFrontSpriteImage(project, speciesId))
         .catch((error) => {
-          console.warn(`Failed to render Pokemon sprite ${spriteId}`, error);
+          console.warn(`Failed to render Pokemon sprite ${speciesId}`, error);
           return undefined;
         });
-      imageCache.set(spriteId, cached);
+      imageCache.set(speciesId, cached);
     }
     return cached;
   };
@@ -188,11 +185,11 @@ function installPokemonCardSpriteRendering(project: ProjectState, root: HTMLElem
     ) {
       return;
     }
-    const spriteId = Number(canvas.dataset.pokemonSpriteId);
-    if (!Number.isInteger(spriteId)) return;
+    const speciesId = Number(canvas.dataset.pokemonSpeciesId);
+    if (!Number.isInteger(speciesId)) return;
     canvas.dataset.pokemonSpriteVersion = POKEMON_CARD_SPRITE_RENDER_VERSION;
     canvas.dataset.pokemonSpriteRendered = "loading";
-    const image = await loadImage(spriteId);
+    const image = await loadImage(speciesId);
     if (!canvas.isConnected) return;
     if (!image) {
       canvas.hidden = true;
@@ -257,7 +254,7 @@ function renderCascadeAbilitySlots(project: ProjectState, speciesId: number): st
 function renderExpanded(project: ProjectState, record: PokemonEditorRecord): string {
   const learnsetLimit = learnsetMoveLimit(project);
   const learnsetSpeciesMax = Math.max(1, (project.narcs.learnsets?.fileCount ?? 1) - 1);
-  const personalSpeciesMax = Math.max(1, (project.narcs.personal?.fileCount ?? 1) - 1);
+  const personalSpeciesMax = Math.max(1, getPokemonCount(project) - 1);
   const canAddLearnsetMove = record.learnset.length < learnsetLimit;
   const learnsetColumnSplit = Math.ceil(record.learnset.length / 2);
   const leftIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && field !== "height" && field !== "weight");

@@ -396,6 +396,13 @@ export async function loadMoveBackground(project: ProjectState, backgroundId: nu
   return promise;
 }
 
+export function invalidateMoveBackgroundCache(project: ProjectState, backgroundId?: number): void {
+  const cache = projectBackgroundCache.get(project);
+  if (!cache) return;
+  if (backgroundId === undefined) cache.clear();
+  else cache.delete(backgroundId);
+}
+
 function expandScript(
   project: ProjectState,
   moveId: number,
@@ -599,10 +606,17 @@ async function loadMoveBackgroundUncached(project: ProjectState, backgroundId: n
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are unavailable. Reload the ROM to preview move backgrounds.");
   const rom = new NintendoDSRom(romBytes);
-  const narc = new NARC(rom.getFileByName(MOVE_BACKGROUND_GRAPHICS_PATH));
+  const fileId = rom.fileId(MOVE_BACKGROUND_GRAPHICS_PATH);
+  const archiveBytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
+  if (!archiveBytes) throw new Error(`Move-background archive ${MOVE_BACKGROUND_GRAPHICS_PATH} is missing.`);
+  const narc = new NARC(archiveBytes);
   const screen = narc.files[backgroundId];
   const characters = narc.files[backgroundId + 1];
   const palette = narc.files[backgroundId + 2];
   if (!screen || !characters || !palette) throw new Error(`Move background ${backgroundId} is missing its screen/character/palette files in ${MOVE_BACKGROUND_GRAPHICS_PATH}`);
-  return parseNitroBackground(backgroundId, screen, characters, palette, { transparentIndexZero: true });
+  // The BW/BW2 battle VM loads move-background palettes starting at BG bank 8.
+  return parseNitroBackground(backgroundId, screen, characters, palette, {
+    paletteBankOffset: 8,
+    transparentIndexZero: true,
+  });
 }

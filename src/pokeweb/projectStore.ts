@@ -175,6 +175,7 @@ export type PatchState = {
     fairyType?: boolean;
     fairyModernTypings?: boolean;
     specifyTrainerNatures?: boolean;
+    itemStandardization?: boolean;
   };
 };
 

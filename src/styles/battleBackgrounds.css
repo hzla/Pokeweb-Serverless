@@ -1,0 +1,529 @@
+.battle-background-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden auto;
+  padding-bottom: 28px;
+}
+
+.battle-background-sidebar-loading {
+  color: #aeb7ca;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 6px 2px;
+}
+
+.battle-background-selector {
+  color: #d8dbe8;
+  display: grid;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.battle-background-selector select {
+  background: #282d3b;
+  border-color: #444b60;
+  color: #f2f2f2;
+  width: 100%;
+}
+
+.battle-background-catalog-summary {
+  background: #303448;
+  border: 1px solid #454b62;
+  border-radius: 6px;
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+}
+
+.battle-background-catalog-summary strong {
+  color: #50c3a5;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.battle-background-catalog-summary span {
+  color: #f2f2f2;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.battle-background-catalog-summary small {
+  color: #9fa8bc;
+  font-size: 11px;
+  line-height: 1.45;
+  margin-top: 4px;
+}
+
+.battle-background-shape-summary {
+  background: #292d3b;
+  border: 1px solid #444b60;
+  border-radius: 6px;
+  color: #9fa8bc;
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+}
+
+.battle-background-shape-summary strong {
+  color: #ffcb6b;
+  font-size: 18px;
+}
+
+.battle-background-shape-summary p {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.battle-background-shape-summary code {
+  color: #8be9fd;
+}
+
+.battle-background-format-note {
+  border-top: 1px solid #44475a;
+  color: #9fa8bc;
+  font-size: 11px;
+  line-height: 1.5;
+  padding-top: 12px;
+}
+
+.battle-background-sidebar-title {
+  color: #f2f2f2;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.battle-background-format-note p {
+  margin: 8px 0 0;
+}
+
+.battle-background-content {
+  background: #20232d;
+  min-height: calc(100vh - 40px);
+  padding: 0;
+}
+
+.battle-background-viewer {
+  display: grid;
+  gap: 20px;
+  padding: 32px clamp(20px, 4vw, 64px) 48px;
+}
+
+.battle-background-header {
+  align-items: end;
+  border-bottom: 1px solid #3e4355;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding-bottom: 16px;
+}
+
+.battle-background-header span {
+  color: #50c3a5;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.battle-background-header h1 {
+  color: #f4f5fb;
+  font-size: clamp(26px, 3vw, 42px);
+  margin: 4px 0 0;
+}
+
+.battle-background-header code {
+  background: #1c202c;
+  border: 1px solid #394052;
+  border-radius: 4px;
+  color: #8be9fd;
+  font-size: 11px;
+  margin-bottom: 5px;
+  padding: 6px 8px;
+}
+
+.battle-background-header-badges {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.battle-background-header-badges .battle-background-shape-badge {
+  border: 1px solid #42695f;
+  border-radius: 999px;
+  color: #77d8be;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+
+.battle-background-header-badges .battle-background-shape-badge.-non-standard {
+  border-color: #7f6436;
+  color: #ffcb6b;
+}
+
+.battle-background-header-badges .battle-background-shape-badge.-unknown {
+  border-color: #596078;
+  color: #aeb7ca;
+}
+
+.battle-background-preview-card {
+  background: #292d3b;
+  border: 1px solid #42485b;
+  border-radius: 10px;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 20%);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.battle-background-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.battle-background-toolbar > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.battle-background-toolbar strong {
+  color: #f2f2f2;
+  font-size: 15px;
+}
+
+.battle-background-toolbar span {
+  color: #929cb2;
+  font-size: 11px;
+}
+
+.battle-background-toolbar-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.battle-background-toolbar-actions .btn {
+  font-size: 10px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.battle-background-canvas {
+  aspect-ratio: 4 / 3;
+  background: #202431;
+  border: 1px solid #10131b;
+  border-radius: 6px;
+  min-height: 360px;
+  overflow: hidden;
+  position: relative;
+}
+
+.battle-background-canvas canvas {
+  cursor: grab;
+  display: block;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+  width: 100%;
+}
+
+.battle-background-canvas canvas:active {
+  cursor: grabbing;
+}
+
+.battle-background-canvas canvas:focus-visible {
+  box-shadow: inset 0 0 0 2px #8be9fd;
+}
+
+.battle-background-metadata {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.battle-background-metadata-item {
+  background: #292d3b;
+  border: 1px solid #404659;
+  border-radius: 6px;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.battle-background-metadata-item span {
+  color: #929cb2;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.battle-background-metadata-item strong {
+  color: #f2f2f2;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.battle-background-textures {
+  background: #252936;
+  border: 1px solid #404659;
+  border-radius: 10px;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.battle-background-textures > header {
+  align-items: end;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.battle-background-textures > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.battle-background-textures > header span {
+  color: #50c3a5;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.battle-background-textures h2 {
+  color: #f4f5fb;
+  font-size: 22px;
+  margin: 0;
+}
+
+.battle-background-textures > header p {
+  color: #929cb2;
+  font-size: 11px;
+  margin: 0;
+  max-width: 430px;
+  text-align: right;
+}
+
+.battle-background-texture-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.battle-background-texture-card {
+  background: #2b303f;
+  border: 1px solid #454c61;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: minmax(120px, 168px) minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.battle-background-texture-preview {
+  align-items: center;
+  background-color: #1d202a;
+  background-image:
+    linear-gradient(45deg, #292d38 25%, transparent 25%),
+    linear-gradient(-45deg, #292d38 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #292d38 75%),
+    linear-gradient(-45deg, transparent 75%, #292d38 75%);
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+  border-right: 1px solid #454c61;
+  color: #798197;
+  display: flex;
+  font-size: 10px;
+  justify-content: center;
+  min-height: 168px;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.battle-background-texture-preview canvas {
+  height: auto;
+  image-rendering: pixelated;
+  max-height: 100%;
+  max-width: 100%;
+  width: auto;
+}
+
+.battle-background-texture-preview.-empty {
+  background: #20232d;
+}
+
+.battle-background-texture-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 13px;
+}
+
+.battle-background-texture-index {
+  color: #50c3a5;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.battle-background-texture-body h3 {
+  color: #f4f5fb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 15px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.battle-background-texture-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.battle-background-texture-facts span {
+  background: #222632;
+  border: 1px solid #3c4355;
+  border-radius: 4px;
+  color: #aeb7ca;
+  font-size: 9px;
+  padding: 4px 5px;
+}
+
+.battle-background-texture-body dl {
+  display: grid;
+  font-size: 10px;
+  gap: 5px 9px;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin: 0;
+}
+
+.battle-background-texture-body dt {
+  color: #858fa6;
+  font-weight: 700;
+}
+
+.battle-background-texture-body dd {
+  color: #c3cada;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.battle-background-texture-body dd code {
+  color: #8be9fd;
+}
+
+.battle-background-texture-bindings {
+  display: grid;
+  gap: 3px;
+}
+
+.battle-background-loading,
+.battle-background-error,
+.battle-background-empty {
+  background: #292d3b;
+  border: 1px solid #42485b;
+  border-radius: 8px;
+  color: #b8c0d2;
+  padding: 24px;
+}
+
+.battle-background-loading {
+  min-height: 440px;
+}
+
+.battle-background-error,
+.battle-background-empty.-error {
+  color: #ff9da6;
+}
+
+.battle-background-empty {
+  margin: 32px clamp(20px, 4vw, 64px);
+}
+
+.battle-background-empty h1 {
+  color: #f2f2f2;
+  margin-top: 0;
+}
+
+.battle-background-warnings {
+  background: #342f2c;
+  border: 1px solid #655345;
+  border-radius: 6px;
+  color: #ffd7a1;
+  font-size: 12px;
+  padding: 12px 14px;
+}
+
+.battle-background-warnings p {
+  margin: 8px 0 0;
+}
+
+@media only screen and (max-width: 1180px) {
+  .battle-background-sidebar {
+    overflow: visible;
+  }
+
+  .battle-background-content {
+    min-height: auto;
+  }
+}
+
+@media only screen and (max-width: 700px) {
+  .battle-background-toolbar,
+  .battle-background-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .battle-background-toolbar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .battle-background-header-badges {
+    align-items: flex-start;
+  }
+
+  .battle-background-textures > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .battle-background-textures > header p {
+    text-align: left;
+  }
+
+  .battle-background-texture-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-background-texture-card {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-background-texture-preview {
+    border-bottom: 1px solid #454c61;
+    border-right: 0;
+  }
+
+  .battle-background-canvas {
+    min-height: 260px;
+  }
+
+  .battle-background-metadata {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

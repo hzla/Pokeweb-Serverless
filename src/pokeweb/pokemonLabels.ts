@@ -1,5 +1,6 @@
 import { cascadeWhitePersonalName } from "./cascadeWhiteModel";
 import { pokemonFormSpeciesLabel } from "./pokemonFormLabels";
+import { getPokemonCount } from "./pokemonModel";
 import { decodeRecord, type ProjectState } from "./projectStore";
 
 const FIRST_GEN5_FORM_PERSONAL_ID = 650;
@@ -23,7 +24,7 @@ export function pokemonSpeciesLabelWithId(project: ProjectState, speciesId: numb
 }
 
 export function pokemonSpeciesNameOptions(project: ProjectState): string[] {
-  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, project.narcs.personal?.fileCount ?? 0);
+  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, getPokemonCount(project));
   return Array.from({ length: count }, (_unused, speciesId) => pokemonBaseSpeciesLabel(project, speciesId));
 }
 
@@ -31,7 +32,7 @@ export function findPokemonSpeciesId(project: ProjectState, inputValue: string, 
   const numeric = Number(inputValue.trim());
   if (Number.isInteger(numeric) && numeric >= 0 && numeric <= maxId) return numeric;
   const normalizedInput = normalizeName(inputValue);
-  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, project.narcs.personal?.fileCount ?? 0);
+  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, getPokemonCount(project));
   for (let speciesId = 0; speciesId < count && speciesId <= maxId; speciesId += 1) {
     if (normalizeName(pokemonBaseSpeciesLabel(project, speciesId)) === normalizedInput) return speciesId;
   }
@@ -40,10 +41,11 @@ export function findPokemonSpeciesId(project: ProjectState, inputValue: string, 
 
 export function findPokemonPersonalFormOwner(project: ProjectState, speciesId: number): PokemonPersonalFormOwner | undefined {
   const store = project.narcs.personal;
-  if (!store || speciesId < 0 || speciesId >= store.fileCount) return undefined;
+  const count = getPokemonCount(project);
+  if (!store || speciesId < 0 || speciesId >= count) return undefined;
   if (speciesId < FIRST_GEN5_FORM_PERSONAL_ID) return undefined;
   let rangedMatch: PokemonPersonalFormOwner | undefined;
-  for (let ownerId = 1; ownerId < store.fileCount; ownerId += 1) {
+  for (let ownerId = 1; ownerId < count; ownerId += 1) {
     if (ownerId === speciesId) continue;
     const owner = decodeRecord(project, "personal", ownerId);
     const formCount = Math.max(1, Number(owner.raw?.num_forms ?? 1));

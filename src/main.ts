@@ -19,6 +19,8 @@ import "./styles/legacyTypes.css";
 import "./styles/codeInjection.css";
 import "./styles/legacyPatches.css";
 import "./styles/pwanAnimation.css";
+import "./styles/moveBackgrounds.css";
+import "./styles/battleBackgrounds.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
@@ -43,6 +45,8 @@ import { renderHeaderEditor } from "./ui/headerEditor";
 import { renderEncounterEditor } from "./ui/encounterEditor";
 import { renderItemEditor, renderMoveAnimationPage, renderMoveEditor } from "./ui/moveItemEditor";
 import { renderMoveEffectHandlerEditor } from "./ui/moveEffectHandlerEditor";
+import { renderMoveBackgroundEditor } from "./ui/moveBackgroundEditor";
+import { renderBattleBackgroundEditor } from "./ui/battleBackgroundEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
 import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
 import { renderPwanAnimationEditor } from "./ui/pwanAnimationEditor";
@@ -92,6 +96,8 @@ type AppRoute =
   | "tutorMoves"
   | "types"
   | "moveEffectHandlers"
+  | "moveBackgrounds"
+  | "battleBackgrounds"
   | "marts"
   | "grottos"
   | "grottoOdds"
@@ -180,6 +186,8 @@ const APP_ROUTES: AppRoute[] = [
   "tutorMoves",
   "types",
   "moveEffectHandlers",
+  "moveBackgrounds",
+  "battleBackgrounds",
   "marts",
   "grottos",
   "grottoOdds",
@@ -212,6 +220,8 @@ const EDITOR_REQUIREMENTS: Record<
   tms: ["moves"],
   types: [],
   moveEffectHandlers: ["moves"],
+  moveBackgrounds: ["move_animations", "battle_animations"],
+  battleBackgrounds: [],
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
   storyText: ["story_texts"],
@@ -706,6 +716,16 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "moveBackgrounds") {
+    renderMoveBackgroundEditor(project, content);
+    return;
+  }
+
+  if (route === "battleBackgrounds") {
+    renderBattleBackgroundEditor(project, content);
+    return;
+  }
+
   if (route === "marts") {
     renderMartEditor(project, content, () => {
       dirty = true;
@@ -872,6 +892,8 @@ function renderMoreMenu(): string {
     ["types", "Type Chart"],
     ["tutorMoves", "Tutor Moves"],
     ["moveEffectHandlers", "Move Effect Handlers"],
+    ["moveBackgrounds", "Move Backgrounds"],
+    ["battleBackgrounds", "Battle Backgrounds"],
     ["changelog", "Changelog"],
     ["patches", "Patches"],
     ["codeInjection", "Code Injection"],
