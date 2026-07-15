@@ -130,6 +130,7 @@ function makeDiagnosticResource(): SpaResource {
     color: [1, 0.25, 0.5],
     hasRotation: true,
     randomInitAngle: true,
+    selfMaintaining: true,
     followEmitter: false,
     hideParent: false,
     randomizeLoopedAnim: false,

@@ -2,14 +2,8 @@ import { readAscii, readU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { getRomFileBytes } from "./fileSystemModel";
-import {
-  buildModelPrimitives,
-  buildNitroTexturePreviews,
-  readNitroResources,
-  type Map3dBounds,
-  type Map3dPrimitive,
-  type NitroTexturePreview,
-} from "./map3dModel";
+import { decodeBattleModelScene, type BattleModelScene } from "./battleModelScene";
+import { readNitroResources } from "./map3dModel";
 import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 
@@ -39,23 +33,18 @@ export type BattleBackgroundCatalog = {
   variants: BattleBackgroundVariant[];
 };
 
-export type BattleBackgroundScene = {
-  resourceId: number;
-  primitives: Map3dPrimitive[];
-  bounds: Map3dBounds;
-  primitiveCount: number;
-  triangleCount: number;
-  textureCount: number;
-  textures: NitroTexturePreview[];
+export type BattleBackgroundScene = BattleModelScene & {
   shapeKind: BattleBackgroundShapeKind;
-  warnings: string[];
+};
+
+export type BattleEnvironmentArchives = {
+  rom: NintendoDSRom;
+  graphics: NARC;
+  table: { path: string; narc: NARC };
 };
 
 export async function loadBattleBackgroundCatalog(project: ProjectState): Promise<BattleBackgroundCatalog> {
-  const rom = await loadProjectRom(project);
-  const graphicsFileId = rom.fileId(BATTLE_GRAPHICS_PATH);
-  const graphics = new NARC(getRomFileBytes(project, rom, graphicsFileId));
-  const table = findBattleBackgroundTable(project, rom, graphics);
+  const { rom, graphics, table } = await loadBattleEnvironmentArchives(project);
   const backgroundRows = table.narc.files[1];
   if (!backgroundRows) throw new Error("The battle-background table does not contain its field-model lookup file.");
   const tableEntryCount = Math.floor(backgroundRows.length / BACKGROUND_TABLE_RECORD_BYTES);
@@ -67,7 +56,7 @@ export async function loadBattleBackgroundCatalog(project: ProjectState): Promis
     const rowVariants: BattleBackgroundVariant[] = [];
     for (let seasonIndex = 0; seasonIndex < SEASON_NAMES.length; seasonIndex += 1) {
       const packedId = readU32(backgroundRows, rowOffset + seasonIndex * 4);
-      const resourceId = resolveModelResourceId(packedId, graphics, rom.idCode);
+      const resourceId = resolveBattleResourceId(packedId, graphics.files, rom.idCode, "BMD0");
       if (resourceId === undefined) continue;
       const shapeKind = shapeByResource.get(resourceId) ?? classifyBattleBackgroundResource(graphics.files[resourceId]);
       shapeByResource.set(resourceId, shapeKind);
@@ -98,31 +87,13 @@ export async function loadBattleBackgroundCatalog(project: ProjectState): Promis
 }
 
 export async function loadBattleBackgroundScene(project: ProjectState, resourceId: number): Promise<BattleBackgroundScene> {
-  const rom = await loadProjectRom(project);
-  const graphicsFileId = rom.fileId(BATTLE_GRAPHICS_PATH);
-  const graphics = new NARC(getRomFileBytes(project, rom, graphicsFileId));
+  const { graphics } = await loadBattleEnvironmentArchives(project);
   const bytes = graphics.files[resourceId];
   if (!bytes) throw new Error(`Battle graphics resource ${resourceId} does not exist.`);
-  if (readAscii(bytes, 0, Math.min(4, bytes.length)) !== "BMD0") {
-    throw new Error(`Battle graphics resource ${resourceId} is not an NSBMD model.`);
-  }
-  const warnings: string[] = [];
-  const resources = readNitroResources(bytes);
-  const primitives = buildModelPrimitives(resources, warnings, { recoverSkippedPieces: true });
-  const textures = buildNitroTexturePreviews(resources);
-  if (primitives.length === 0) throw new Error(`Battle graphics resource ${resourceId} contains no renderable model geometry.`);
+  const scene = decodeBattleModelScene(bytes, resourceId);
   return {
-    resourceId,
-    primitives,
-    bounds: primitiveBounds(primitives),
-    primitiveCount: primitives.length,
-    triangleCount: primitives.reduce((sum, primitive) => sum + primitive.indices.length / 3, 0),
-    textureCount: textures.length,
-    textures,
-    shapeKind: classifyBattleBackgroundTextureNames(
-      resources.models.flatMap((model) => model.materials.map((material) => material.textureName).filter((name): name is string => Boolean(name))),
-    ),
-    warnings,
+    ...scene,
+    shapeKind: classifyBattleBackgroundTextureNames(scene.materialTextureNames),
   };
 }
 
@@ -141,7 +112,7 @@ export function parseBattleBackgroundVariants(
     const rowOffset = tableIndex * BACKGROUND_TABLE_RECORD_BYTES;
     const rowVariants: BattleBackgroundVariant[] = [];
     for (let seasonIndex = 0; seasonIndex < SEASON_NAMES.length; seasonIndex += 1) {
-      const resourceId = resolveModelResourceId(readU32(backgroundRows, rowOffset + seasonIndex * 4), graphics, idCode);
+      const resourceId = resolveBattleResourceId(readU32(backgroundRows, rowOffset + seasonIndex * 4), graphics.files, idCode, "BMD0");
       if (resourceId === undefined) continue;
       const shapeKind = shapeByResource.get(resourceId) ?? classifyBattleBackgroundResource(graphics.files[resourceId]);
       shapeByResource.set(resourceId, shapeKind);
@@ -154,6 +125,13 @@ export function parseBattleBackgroundVariants(
     variants.push(...uniqueVariants);
   }
   return variants;
+}
+
+export async function loadBattleEnvironmentArchives(project: ProjectState): Promise<BattleEnvironmentArchives> {
+  const rom = await loadProjectRom(project);
+  const graphicsFileId = rom.fileId(BATTLE_GRAPHICS_PATH);
+  const graphics = new NARC(getRomFileBytes(project, rom, graphicsFileId));
+  return { rom, graphics, table: findBattleBackgroundTable(project, rom, graphics) };
 }
 
 async function loadProjectRom(project: ProjectState): Promise<NintendoDSRom> {
@@ -196,14 +174,23 @@ function battleBackgroundTableScore(narc: NARC, graphics: NARC, idCode: string):
   return parseBattleBackgroundVariants(backgroundRows, graphics.files, idCode).length;
 }
 
-function resolveModelResourceId(packedId: number, graphics: NARC, idCode: string): number | undefined {
+export function resolveBattleResourceId(
+  packedId: number,
+  graphicsFiles: Uint8Array[],
+  idCode: string,
+  expectedMagic?: string,
+): number | undefined {
   if (packedId === NO_RESOURCE) return undefined;
-  if (packedId < graphics.files.length && isModel(graphics.files[packedId])) return packedId;
+  const matches = (candidate: number) =>
+    candidate !== 0xffff &&
+    candidate < graphicsFiles.length &&
+    (!expectedMagic || readAscii(graphicsFiles[candidate] ?? new Uint8Array(), 0, expectedMagic.length) === expectedMagic);
+  if (packedId < graphicsFiles.length && matches(packedId)) return packedId;
   const low = packedId & 0xffff;
   const high = packedId >>> 16;
   const whiteVersion = idCode.length >= 3 && (idCode[2] === "A" || idCode[2] === "D");
   const candidates = whiteVersion ? [high, low] : [low, high];
-  return candidates.find((candidate) => candidate !== 0xffff && candidate < graphics.files.length && isModel(graphics.files[candidate]));
+  return candidates.find(matches);
 }
 
 export function classifyBattleBackgroundTextureNames(textureNames: string[]): BattleBackgroundShapeKind {
@@ -250,27 +237,4 @@ function pathForFileId(rom: NintendoDSRom, wantedId: number): string | undefined
     return undefined;
   };
   return visit(rom.filenames);
-}
-
-function primitiveBounds(primitives: Map3dPrimitive[]): Map3dBounds {
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let minZ = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  let maxZ = Number.NEGATIVE_INFINITY;
-  for (const primitive of primitives) {
-    for (let index = 0; index + 2 < primitive.positions.length; index += 3) {
-      const x = primitive.positions[index] ?? 0;
-      const y = primitive.positions[index + 1] ?? 0;
-      const z = primitive.positions[index + 2] ?? 0;
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      minZ = Math.min(minZ, z);
-      maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
-      maxZ = Math.max(maxZ, z);
-    }
-  }
-  return { minX, minY, minZ, maxX, maxY, maxZ };
 }

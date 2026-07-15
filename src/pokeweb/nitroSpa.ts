@@ -131,6 +131,7 @@ export type SpaResource = {
   color: [number, number, number];
   hasRotation: boolean;
   randomInitAngle: boolean;
+  selfMaintaining: boolean;
   followEmitter: boolean;
   hideParent: boolean;
   randomizeLoopedAnim: boolean;
@@ -300,6 +301,7 @@ export function parseSpaArchive(bytes: Uint8Array): SpaArchive {
       cameraOffset: (flags & (1 << 23)) !== 0,
       hasRotation: (flags & (1 << 12)) !== 0,
       randomInitAngle: (flags & (1 << 13)) !== 0,
+      selfMaintaining: (flags & (1 << 14)) !== 0,
       followEmitter: (flags & (1 << 15)) !== 0,
       hideParent: (flags & (1 << 22)) !== 0,
       randomizeLoopedAnim: (flags & (1 << 20)) !== 0,
@@ -493,6 +495,7 @@ function resourceFlags(resource: SpaResource): number {
     (1 << 11) |
     (1 << 12) |
     (1 << 13) |
+    (1 << 14) |
     (1 << 15) |
     (1 << 16) |
     (0x03 << 17) |
@@ -512,6 +515,7 @@ function resourceFlags(resource: SpaResource): number {
   if (resource.texAnim) flags |= 1 << 11;
   if (resource.hasRotation) flags |= 1 << 12;
   if (resource.randomInitAngle) flags |= 1 << 13;
+  if (resource.selfMaintaining) flags |= 1 << 14;
   if (resource.followEmitter) flags |= 1 << 15;
   if (resource.childResource) flags |= 1 << 16;
   flags |= clampInt(resource.polygonRotAxis, 0, 3) << 17;

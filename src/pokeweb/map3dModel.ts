@@ -421,6 +421,7 @@ export type NitroTexturePreview = {
 type RenderOp =
   | { kind: "load"; stack: number }
   | { kind: "store"; stack: number }
+  | { kind: "mix"; stack: number }
   | { kind: "mulObject"; object: number }
   | { kind: "scaleUp" }
   | { kind: "scaleDown" }
@@ -1507,12 +1508,36 @@ function readObjectMatrix(data: Uint8Array, offset: number, modelScale: number):
   }
   if (hasRotation) {
     if (pivotRotation) {
+      const pivotUtil = [
+        [4, 5, 7, 8],
+        [3, 5, 6, 8],
+        [3, 4, 6, 7],
+        [1, 2, 7, 8],
+        [0, 2, 6, 8],
+        [0, 1, 6, 7],
+        [1, 2, 4, 5],
+        [0, 2, 3, 5],
+        [0, 1, 3, 4],
+      ] as const;
+      const pivot = (flags >>> 4) & 0x0f;
+      const positions = pivotUtil[pivot];
+      const a = readFx16(data, cursor);
+      const b = readFx16(data, cursor + 2);
       cursor += 4;
+      if (positions) {
+        const values = Array<number>(9).fill(0);
+        values[pivot] = (flags & 0x0100) !== 0 ? -1 : 1;
+        values[positions[0]] = a;
+        values[positions[1]] = b;
+        values[positions[2]] = (flags & 0x0200) !== 0 ? -b : b;
+        values[positions[3]] = (flags & 0x0400) !== 0 ? -a : a;
+        rotation = [values[0], values[3], values[6], 0, values[1], values[4], values[7], 0, values[2], values[5], values[8], 0, 0, 0, 0, 1];
+      }
     } else {
       const m0 = readFx16(data, offset + 2);
       const values = Array.from({ length: 8 }, (_value, index) => readFx16(data, cursor + index * 2));
       cursor += 16;
-      rotation = [m0, values[0], values[1], 0, values[2], values[3], values[4], 0, values[5], values[6], values[7], 0, 0, 0, 0, 1];
+      rotation = [m0, values[2], values[5], 0, values[0], values[3], values[6], 0, values[1], values[4], values[7], 0, 0, 0, 0, 1];
     }
   }
   if (hasScale) {
@@ -1522,6 +1547,10 @@ function readObjectMatrix(data: Uint8Array, offset: number, modelScale: number):
   matrix = matMul(rotation, matrix);
   if (translation) matrix = matMul(matTranslate(translation[0], translation[1], translation[2]), matrix);
   return matrix;
+}
+
+export function readNitroObjectMatrixForTest(data: Uint8Array, offset = 0, modelScale = 1): number[] {
+  return readObjectMatrix(data, offset, modelScale);
 }
 
 function readTex0(data: Uint8Array, sectionOffset: number): { textures: NitroTexture[]; palettes: NitroPalette[] } {
@@ -1645,7 +1674,12 @@ function buildModel(model: NitroModel, warnings: string[], options: BuildModelOp
   for (const op of model.renderOps) {
     if (op.kind === "load") gpu.matrix = gpu.stack[op.stack] ?? matIdentity();
     else if (op.kind === "store") gpu.stack[op.stack] = gpu.matrix;
-    else if (op.kind === "mulObject") gpu.matrix = matMul(gpu.matrix, model.objects[op.object]?.matrix ?? matIdentity());
+    else if (op.kind === "mix") {
+      // NODEMIX applies inverse bind matrices before blending. With no skeletal
+      // animation loaded, the static bind-pose result is identity in model space.
+      gpu.matrix = matIdentity();
+      gpu.stack[op.stack] = gpu.matrix;
+    } else if (op.kind === "mulObject") gpu.matrix = matMul(gpu.matrix, model.objects[op.object]?.matrix ?? matIdentity());
     else if (op.kind === "scaleUp") gpu.matrix = matMul(gpu.matrix, matScale(model.upScale, model.upScale, model.upScale));
     else if (op.kind === "scaleDown") gpu.matrix = matMul(gpu.matrix, matScale(model.downScale, model.downScale, model.downScale));
     else if (op.kind === "bindMaterial") gpu.material = op.material;
@@ -1838,49 +1872,40 @@ function parseRenderOps(data: Uint8Array, offset: number): RenderOp[] {
   let cursor = offset;
   while (cursor < data.length) {
     const opcode = data[cursor++] ?? 1;
-    if (opcode === 1) break;
+    const kind = opcode & 0x1f;
+    const option = opcode & 0xe0;
+    if (kind === 1) break;
     const paramLength = renderParamLength(opcode, data, cursor);
     const params = data.slice(cursor, cursor + paramLength);
     cursor += paramLength;
-    if (opcode === 0x03) ops.push({ kind: "load", stack: params[0] ?? 0 });
-    else if ([0x04, 0x24, 0x44].includes(opcode)) ops.push({ kind: "bindMaterial", material: params[0] ?? 0 });
-    else if (opcode === 0x05) ops.push({ kind: "draw", piece: params[0] ?? 0 });
-    else if ([0x06, 0x26, 0x46, 0x66].includes(opcode)) {
-      if (opcode === 0x46 || opcode === 0x66) ops.push({ kind: "load", stack: params[3] ?? 0 });
+    if (kind === 0x03) ops.push({ kind: "load", stack: params[0] ?? 0 });
+    else if (kind === 0x04) ops.push({ kind: "bindMaterial", material: params[0] ?? 0 });
+    else if (kind === 0x05) ops.push({ kind: "draw", piece: params[0] ?? 0 });
+    else if (kind === 0x06) {
+      if (option === 0x40) ops.push({ kind: "load", stack: params[3] ?? 0 });
+      else if (option === 0x60) ops.push({ kind: "load", stack: params[4] ?? 0 });
       ops.push({ kind: "mulObject", object: params[0] ?? 0 });
-      if (opcode === 0x26 || opcode === 0x66) ops.push({ kind: "store", stack: params[3] ?? 0 });
-    } else if (opcode === 0x0b) ops.push({ kind: "scaleUp" });
-    else if (opcode === 0x2b) ops.push({ kind: "scaleDown" });
+      if (option === 0x20 || option === 0x60) ops.push({ kind: "store", stack: params[3] ?? 0 });
+    } else if (kind === 0x07 || kind === 0x08) {
+      if (option === 0x40 || option === 0x60) ops.push({ kind: "load", stack: params[1] ?? 0 });
+      if (option === 0x20 || option === 0x60) ops.push({ kind: "store", stack: params[option === 0x60 ? 2 : 1] ?? 0 });
+    } else if (kind === 0x09) ops.push({ kind: "mix", stack: params[0] ?? 0 });
+    else if (kind === 0x0b && option === 0x00) ops.push({ kind: "scaleUp" });
+    else if (kind === 0x0b && option === 0x20) ops.push({ kind: "scaleDown" });
   }
   return ops;
 }
 
 function renderParamLength(opcode: number, data: Uint8Array, cursor: number): number {
-  if (opcode === 0x09) return 2 + 3 * (data[cursor + 1] ?? 0);
-  return (
-    {
-      0x00: 0,
-      0x02: 2,
-      0x03: 1,
-      0x04: 1,
-      0x05: 1,
-      0x06: 3,
-      0x07: 1,
-      0x08: 1,
-      0x0b: 0,
-      0x0c: 1,
-      0x0d: 2,
-      0x24: 1,
-      0x26: 4,
-      0x2b: 0,
-      0x40: 0,
-      0x44: 1,
-      0x46: 4,
-      0x47: 2,
-      0x66: 5,
-      0x80: 0,
-    }[opcode] ?? 0
-  );
+  const kind = opcode & 0x1f;
+  const option = opcode & 0xe0;
+  if (kind === 0x06) return 3 + (option === 0x60 ? 2 : option === 0x20 || option === 0x40 ? 1 : 0);
+  if (kind === 0x07 || kind === 0x08) return 1 + (option === 0x60 ? 2 : option === 0x20 || option === 0x40 ? 1 : 0);
+  if (kind === 0x09) return 2 + 3 * (data[cursor + 1] ?? 0);
+  if (kind === 0x0a) return 8;
+  if (kind === 0x02 || kind === 0x0c || kind === 0x0d) return 2;
+  if (kind === 0x03 || kind === 0x04 || kind === 0x05) return 1;
+  return 0;
 }
 
 function decodeTexture(texture: NitroTexture, palette?: NitroPalette): DecodedTexture | undefined {
