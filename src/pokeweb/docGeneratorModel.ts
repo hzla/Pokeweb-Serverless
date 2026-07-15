@@ -21,7 +21,7 @@ import { parseHeaders } from "./headerModel";
 import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
 import { pokemonFormSuffix } from "./pokemonFormLabels";
-import { getPokemonCount, getPokemonRecord, getPokemonSummaryRecord, type PokemonSummaryRecord } from "./pokemonModel";
+import { getPokemonCount, getPokemonRecord, getPokemonSummaryRecord, isPokemonPersonalRecord, type PokemonSummaryRecord } from "./pokemonModel";
 import { decodeRecord, type DocGeneratorState, type ProjectState, type ReadableRecord } from "./projectStore";
 import { getTextBank } from "./textModel";
 import {
@@ -749,6 +749,7 @@ function buildCalcPokemon(project: ProjectState): Record<string, unknown> {
 function buildDexPokemon(project: ProjectState): Record<string, unknown> {
   const out: Record<string, Record<string, unknown>> = {};
   for (let id = 1; id < getPokemonCount(project); id += 1) {
+    if (!isPokemonPersonalRecord(project, id)) continue;
     const record = getPokemonRecord(project, id);
     const name = pokemonExportName(project, id, record);
     const types = [record.personal.type_1, record.personal.type_2].map((type) => titleizeName(type)).filter(Boolean);
@@ -774,6 +775,7 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
   }
 
   for (let id = 1; id < getPokemonCount(project); id += 1) {
+    if (!isPokemonPersonalRecord(project, id)) continue;
     const record = getPokemonRecord(project, id);
     const sourceName = pokemonExportName(project, id, record);
     for (const evo of record.evolutions) {
@@ -814,7 +816,7 @@ function directPokemonExportName(project: ProjectState, id: number, record: Poke
 
 function derivedAltFormName(project: ProjectState, id: number): string | undefined {
   for (let baseId = 1; baseId < getPokemonCount(project); baseId += 1) {
-    if (baseId === id) continue;
+    if (baseId === id || !isPokemonPersonalRecord(project, baseId)) continue;
     const baseRecord = safePokemonSummaryRecord(project, baseId);
     if (!baseRecord) continue;
     const formId = Number(baseRecord.rawPersonal.form_id ?? 0);
@@ -1155,6 +1157,7 @@ function buildDexItems(project: ProjectState): Record<string, unknown> {
   }
 
   for (let id = 1; id < getPokemonCount(project); id += 1) {
+    if (!isPokemonPersonalRecord(project, id)) continue;
     const pok = getPokemonSummaryRecord(project, id);
     const species = titleizeName(pok.personal.name ?? project.texts.banks.pokedex?.[id] ?? `Pokemon ${id}`);
     for (const item of [pok.personal.item_1, pok.personal.item_2, pok.personal.item_3]) {
@@ -1175,6 +1178,7 @@ function buildPokemonTextDoc(project: ProjectState, safeTitle: string): string {
   ];
 
   for (let id = 1; id < getPokemonCount(project); id += 1) {
+    if (!isPokemonPersonalRecord(project, id)) continue;
     const pok = getPokemonRecord(project, id);
     if (!pok.personal.base_hp) continue;
     lines.push(
@@ -1270,6 +1274,7 @@ function addWildHeldItemSources(project: ProjectState, target: Record<string, st
   if (!project.narcs.personal) return 0;
   let count = 0;
   for (let speciesId = 1; speciesId < getPokemonCount(project); speciesId += 1) {
+    if (!isPokemonPersonalRecord(project, speciesId)) continue;
     const pok = getPokemonSummaryRecord(project, speciesId);
     const species = pokemonExportName(project, speciesId, pok);
     for (const itemField of ["item_1", "item_2", "item_3"]) {

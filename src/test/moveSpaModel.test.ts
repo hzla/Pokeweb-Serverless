@@ -18,6 +18,7 @@ describe("move SPA writeback", () => {
     expect(reparsed.textureCount).toBe(archive.textureCount);
     expect(reparsed.resources[0].emissionCount).toBe(archive.resources[0].emissionCount);
     expect(reparsed.resources[0].textureIndex).toBe(archive.resources[0].textureIndex);
+    expect(reparsed.resources[0].selfMaintaining).toBe(true);
     expect(reparsed.textures[0].format).toBe(archive.textures[0].format);
     expect(reparsed.textures[0].textureSize).toBe(archive.textures[0].textureSize);
   });
@@ -147,6 +148,7 @@ function makeSyntheticSpa(): Uint8Array {
   writeU32(out, 24, 32 + 88);
 
   const resource = 32;
+  writeU32(out, resource, 1 << 14);
   writeU32(out, resource + 16, 2 * 4096);
   writeU16(out, resource + 34, 0x001f);
   writeU32(out, resource + 44, 4096);

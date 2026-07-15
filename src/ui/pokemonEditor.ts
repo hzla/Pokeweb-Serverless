@@ -1,4 +1,4 @@
-import { EVO_METHODS, typeNamesForProject } from "../pokeweb/constants";
+import { EVO_METHODS, isGen4Project, typeNamesForProject } from "../pokeweb/constants";
 import { cascadeWhiteTrainerAbilityName, detectCascadeWhiteRom } from "../pokeweb/cascadeWhiteModel";
 import {
   BASE_STAT_FIELDS,
@@ -19,7 +19,8 @@ import {
   type TutorCompatibilityGroup,
   type TutorCompatibilitySlot,
 } from "../pokeweb/pokemonModel";
-import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
+import type { AddPokemonFormResult } from "../pokeweb/pokemonFormModel";
+import { pokemonPersonalDisplayIds, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import { getPokemonCardFrontSpriteImage } from "../pokeweb/pokemonCardSpriteModel";
 import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
@@ -48,7 +49,14 @@ const ICONS: Record<string, string> = {
 const POKEMON_CARD_SPRITE_RENDER_VERSION = "personal-front-sprite-v2";
 const pokemonCardSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 
-export function renderPokemonEditor(project: ProjectState, root: HTMLElement, onDirty?: () => void, onOpenSprites?: (speciesId: number) => void, onOpenPwan?: (speciesId: number) => void): void {
+export function renderPokemonEditor(
+  project: ProjectState,
+  root: HTMLElement,
+  onDirty?: () => void,
+  onOpenSprites?: (speciesId: number) => void,
+  onOpenPwan?: (speciesId: number) => void,
+  onEnsureFormAssets?: () => Promise<void>,
+): void {
   root.innerHTML = `
     <div class="pokemon-filter pokemon-filter-personal">
       <div class="filter-title">Search Text</div>
@@ -89,6 +97,13 @@ export function renderPokemonEditor(project: ProjectState, root: HTMLElement, on
     onOpenPwan,
     renderExpanded: (speciesId) => renderPokemonExpandedSections(project, speciesId),
     autofills: getPokemonAutofills(project),
+    onEnsureFormAssets,
+    onFormAdded: (result: AddPokemonFormResult) => {
+      renderPokemonEditor(project, root, onDirty, onOpenSprites, onOpenPwan, onEnsureFormAssets);
+      window.requestAnimationFrame(() => {
+        root.querySelector<HTMLElement>(`.pokemon-card[data-index='${result.personalId}']`)?.scrollIntoView({ block: "center" });
+      });
+    },
   });
   attachW2uSyncButton(root, project);
   installPokemonCardSpriteRendering(project, root);
@@ -99,9 +114,8 @@ export function renderPokemonExpandedSections(project: ProjectState, speciesId: 
 }
 
 function renderPokemonCards(project: ProjectState, showPwanIcon: boolean): string {
-  const count = getPokemonCount(project);
   const cards: string[] = [];
-  for (let id = 0; id < count; id += 1) {
+  for (const id of pokemonPersonalDisplayIds(project)) {
     cards.push(renderPokemonCard(project, getPokemonSummaryRecord(project, id), showPwanIcon));
   }
   return cards.join("");
@@ -260,8 +274,16 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
   const leftIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && field !== "height" && field !== "weight");
   const midIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && (field === "height" || field === "weight"));
   const textFields = PERSONAL_TEXT_FIELDS.filter(([, field]) => field in record.rawPersonal);
+  const addFormReady = !isGen4Project(project) && Boolean(project.narcs.personal && project.narcs.learnsets && project.narcs.evolutions);
   return `
     <div class="expanded-card-content expanded-personal">
+      <div class="personal-form-toolbar">
+        <div>
+          <strong>Add a stat-bearing alternate form</strong>
+          <span>Copies the base personal data, learnset, sprites, and icons; evolution data starts empty.</span>
+        </div>
+        <button class="btn -default personal-add-form" data-add-pokemon-form type="button" ${addFormReady ? "" : "disabled"} title="${addFormReady ? "Generate and append all files for a new form" : "Load Personal, Learnsets, Evolutions, Pokemon Sprites, and Pokemon Icons to add a form"}">Add Form</button>
+      </div>
       <div class="expanded-left">
         ${leftIntegerFields.map(([label, field, max]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { type: `int-${max}` }))).join("")}
       </div>

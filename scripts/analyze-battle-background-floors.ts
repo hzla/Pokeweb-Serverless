@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { NARC } from "../src/nds/narc";
 import { NintendoDSRom } from "../src/nds/rom";
-import { readU32 } from "../src/nds/binary";
+import { readAscii, readU32 } from "../src/nds/binary";
 import { buildModelPrimitives, readNitroResources, type Map3dPrimitive } from "../src/pokeweb/map3dModel";
 
 const GRAPHICS_PATH = "a/0/1/1";
@@ -38,6 +38,7 @@ type ResourceAnalysis = {
   triangleCount: number;
   metrics: MaterialMetrics[];
   textureInfo: Record<string, TextureInfo>;
+  paletteByMaterial: Record<string, string>;
   warnings: string[];
 };
 
@@ -81,8 +82,49 @@ for (let index = 0; index < rows.length / RECORD_BYTES; index += 1) {
   backgroundVariants.push(...grouped.values());
 }
 
+if (process.argv.includes("--all-packed")) {
+  for (let index = 0; index < rows.length / RECORD_BYTES; index += 1) {
+    for (let season = 0; season < SEASONS.length; season += 1) {
+      const packed = readU32(rows, index * RECORD_BYTES + season * 4);
+      const members = [packed & 0xffff, packed >>> 16];
+      for (let version = 0; version < members.length; version += 1) {
+        const resourceId = members[version] ?? NO_RESOURCE;
+        const bytes = graphics.files[resourceId];
+        if (resourceId === NO_RESOURCE || !bytes || readAscii(bytes, 0, 4) !== "BMD0") continue;
+        const current = resources.get(resourceId) ?? analyzeResource(graphics, resourceId);
+        current.backgrounds.push({ index, season: `${SEASONS[season]} ${version === 0 ? "low" : "high"}`, fallback: false });
+        resources.set(resourceId, current);
+      }
+    }
+  }
+}
+
 const report = { rom: rom.name, idCode: rom.idCode, sha256: romHash, resources: [...resources.entries()].map(([resourceId, value]) => ({ resourceId, ...value })) };
-if (process.argv.includes("--write")) {
+if (process.argv.includes("--summary")) {
+  console.log("nsbmd_member,backgrounds,material,texture,palette,width,height,format,role,confidence,center_coverage,projected_area,notes");
+  for (const [resourceId, analysis] of [...resources.entries()].sort(([left], [right]) => left - right)) {
+    const candidate = floorCandidates(analysis)[0];
+    const untexturedBase = analysis.metrics.some((metric) => metric.texture === "(untextured)" && metric.centerCoverage >= 0.5 && metric.projectedArea > 100);
+    const values = candidate
+      ? [
+          String(resourceId),
+          analysis.backgrounds.map(({ index, season }) => `${index}:${season}`).join("; "),
+          candidate.material,
+          candidate.texture,
+          analysis.paletteByMaterial[candidate.material] ?? "",
+          String(candidate.width),
+          String(candidate.height),
+          formatName(candidate.format),
+          candidate.role,
+          candidate.confidence,
+          String(candidate.centerCoverage),
+          String(candidate.projectedArea),
+          untexturedBase ? "Large untextured base plane also present" : "",
+        ]
+      : [String(resourceId), analysis.backgrounds.map(({ index, season }) => `${index}:${season}`).join("; "), "", "", "", "", "", "", "", "", "", "", "No textured central horizontal surface identified"];
+    console.log(values.map(csvCell).join(","));
+  }
+} else if (process.argv.includes("--write")) {
   const markdownPath = "docs/battle-background-floor-textures-white2.md";
   const csvPath = "docs/battle-background-floor-textures-white2.csv";
   await writeFile(markdownPath, markdownReport(backgroundVariants, resources, report), "utf8");
@@ -115,6 +157,9 @@ function analyzeResource(graphics: NARC, resourceId: number) {
         texture.name,
         { width: texture.params.width(), height: texture.params.height(), format: texture.params.format() },
       ]),
+    ),
+    paletteByMaterial: Object.fromEntries(
+      parsed.models.flatMap((model) => model.materials.map((material) => [material.name, material.paletteName ?? ""])),
     ),
     warnings,
   };

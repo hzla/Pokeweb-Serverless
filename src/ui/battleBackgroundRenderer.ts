@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { DecodedTexture, Map3dPrimitive } from "../pokeweb/map3dModel";
-import type { BattleBackgroundScene } from "../pokeweb/battleBackgroundModel";
+import type { BattleModelScene } from "../pokeweb/battleModelScene";
 
 const BATTLE_CAMERA_POSITION = new THREE.Vector3(6.7, 6.7, 17.3);
 const BATTLE_CAMERA_TARGET = new THREE.Vector3(0, 2.6, 0);
@@ -11,12 +11,12 @@ export type BattleBackgroundRenderer = {
   dispose: () => void;
 };
 
-export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleBackgroundScene): BattleBackgroundRenderer {
+export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleModelScene): BattleBackgroundRenderer {
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x202431, 1);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.domElement.setAttribute("aria-label", `Interactive 3D preview of battle background resource ${data.resourceId}`);
+  renderer.domElement.setAttribute("aria-label", `Interactive 3D preview of battle model resource ${data.resourceId}`);
   renderer.domElement.tabIndex = 0;
   host.replaceChildren(renderer.domElement);
 
