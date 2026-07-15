@@ -1,5 +1,6 @@
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
+import { PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
 import { pokemonFormLabel } from "./pokemonFormLabels";
 import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "./pokemonLabels";
@@ -359,7 +360,8 @@ export function ensurePokemonIconPaletteAssignmentCapacity(project: ProjectState
   const layout = iconPaletteAssignmentLayout(project);
   const index = iconPaletteAssignmentIndex(project, spriteId);
   if (!config || !layout || index === undefined) throw new Error("Icon palette assignments are not available for this ROM");
-  if (index < layout.capacity) return;
+  const overlapsPmc = iconPaletteAssignmentOverlapsPmc(project, layout);
+  if (index < layout.capacity && !overlapsPmc) return;
 
   const arm9RamAddress = projectArm9RamAddress(project);
   const currentTableAddress = arm9RamAddress + layout.offset;
@@ -367,16 +369,16 @@ export function ensurePokemonIconPaletteAssignmentCapacity(project: ProjectState
     throw new Error("Pokeweb could not safely relocate this ROM's icon palette assignment table");
   }
 
-  // IconPalAtr ends flush against other ARM9 constants. The configured heap
-  // boundary sits after every ARM9 overlay, so reserve the relocated table
-  // there and advance the heap instead of overwriting rodata or overlay RAM.
+  // IconPalAtr ends flush against other ARM9 constants. Reserve the relocated
+  // table at the active overlay/heap boundary, which PMC also advances, rather
+  // than overwriting rodata or memory reserved by a code-injection overlay.
   const heapStartAddress = config.heapStartOffset + 4 <= project.arm9.length ? readU32(project.arm9, config.heapStartOffset) : 0;
   const markerOffset = heapStartAddress - arm9RamAddress;
   if (markerOffset < project.arm9.length || heapStartAddress < arm9RamAddress || heapStartAddress >= ARM9_MAIN_MEMORY_END) {
     throw new Error("Pokeweb could not safely reserve ARM9 memory for expanded icon palette assignments");
   }
 
-  const capacity = alignTo(Math.max(index + 1, layout.capacity * 2), 4);
+  const capacity = alignTo(Math.max(index + 1, overlapsPmc ? layout.capacity : layout.capacity * 2), 4);
   const tableOffset = markerOffset + ICON_PALETTE_RELOCATION_HEADER_SIZE;
   const endOffset = tableOffset + capacity;
   if (arm9RamAddress + endOffset > ARM9_MAIN_MEMORY_END) throw new Error("The expanded icon palette assignment table does not fit in ARM9 memory");
@@ -394,6 +396,15 @@ export function ensurePokemonIconPaletteAssignmentCapacity(project: ProjectState
   recordGenericChange(project, "pokemon_icons", `Expanded icon palette assignments to ${capacity} entries.`, "Icon palette assignments", {
     key: `pokemon-icon-palette-expand:${capacity}`,
   });
+}
+
+export function repairPokemonIconPaletteAssignmentPlacement(project: ProjectState): boolean {
+  const config = iconPaletteAssignmentConfig(project);
+  const layout = iconPaletteAssignmentLayout(project);
+  if (!config || !layout || !iconPaletteAssignmentOverlapsPmc(project, layout)) return false;
+  const previousPointer = readU32(project.arm9, config.pointerOffset);
+  ensurePokemonIconPaletteAssignmentCapacity(project, 0);
+  return readU32(project.arm9, config.pointerOffset) !== previousPointer;
 }
 
 export function setPokemonIconPaletteAssignment(project: ProjectState, spriteId: number, variant: PokemonIconVariant, paletteId: number): void {
@@ -1086,6 +1097,15 @@ function iconPaletteAssignmentIndex(project: ProjectState, spriteId: number): nu
   const config = iconPaletteAssignmentConfig(project);
   if (!config) return undefined;
   return spriteId + (config.shiftAfter !== undefined && spriteId > config.shiftAfter ? 2 : 0);
+}
+
+function iconPaletteAssignmentOverlapsPmc(project: ProjectState, layout: IconPaletteAssignmentLayout): boolean {
+  const overlayBaseAddress = project.codeInjection?.pmc?.overlayBaseAddress;
+  if (overlayBaseAddress === undefined) return false;
+  const tableStartAddress = projectArm9RamAddress(project) + layout.offset;
+  const tableEndAddress = tableStartAddress + layout.capacity;
+  const overlayEndAddress = overlayBaseAddress + PMC_OVERLAY_RESERVED_SIZE;
+  return tableStartAddress < overlayEndAddress && tableEndAddress > overlayBaseAddress;
 }
 
 function iconPaletteAssignmentValid(project: ProjectState, offset: number): boolean {

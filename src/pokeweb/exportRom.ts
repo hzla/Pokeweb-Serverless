@@ -18,6 +18,8 @@ import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./move
 import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_OFFSET } from "./tutorMoveModel";
 import { isRomFsTypeChartStore, typeChartTableOffset } from "./typeChartModel";
 import { repairNarcBytes } from "./romRepairModel";
+import { repairPokemonIconPaletteAssignmentPlacement } from "./pokemonSpriteModel";
+import { repairAppendedPokemonFormNames } from "./pokemonFormModel";
 import type { ProjectState } from "./projectStore";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -42,6 +44,8 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   repairLegacyMoveAnimationArchives(project);
   await materializePwanAnimations(project, rom);
   pruneRedundantPatchesKeepAddition(project, rom);
+  repairPokemonIconPaletteAssignmentPlacement(project);
+  repairAppendedPokemonFormNames(project);
 
   const fileReplacements = new Map<number, Uint8Array>();
 
