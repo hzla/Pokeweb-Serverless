@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { readU32 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { addPokemonForm } from "../pokeweb/pokemonFormModel";
+import { addPokemonForm, repairAppendedPokemonFormNames } from "../pokeweb/pokemonFormModel";
 import { pokemonPersonalDisplayIds } from "../pokeweb/pokemonLabels";
 import { getPokemonCount, getPokemonPersonalIds } from "../pokeweb/pokemonModel";
-import { getPokemonIconPaletteAssignment } from "../pokeweb/pokemonSpriteModel";
+import { getPokemonIconPaletteAssignment, repairPokemonIconPaletteAssignmentPlacement } from "../pokeweb/pokemonSpriteModel";
 import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
+import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
 
 const SPINDA_ID = 327;
 const BW2_ICON_HEADER_FILES = 8;
@@ -54,6 +55,11 @@ describe("pokemonFormModel", () => {
     expect(project.narcs.evolutions!.rawFiles).toHaveLength(711);
     expect(project.narcs.evolutions!.rawFiles[709]).toEqual(new Uint8Array(42));
     expect(project.narcs.evolutions!.rawFiles[710]).toEqual(new Uint8Array(42));
+    const names = decodeGen5TextBank(project.narcs.message_texts!.rawFiles[90]);
+    expect(names).toHaveLength(711);
+    expect(names[709]?.[1]).toBe("");
+    expect(names[710]?.[1]).toBe("SPINDA");
+    expect(project.texts.banks.pokedex?.[710]).toBe("Spinda");
 
     const sprites = project.narcs.pokemon_sprites!;
     expect(sprites.rawFiles).toHaveLength(15100);
@@ -74,7 +80,7 @@ describe("pokemonFormModel", () => {
     expect(project.arm9[relocatedTableOffset + 756]).toBe(0x21);
     expect(readU32(project.arm9, BW2_HEAP_START_POINTER_OFFSET)).toBe(GEN5_ARM9_RAM_ADDRESS + project.arm9.length);
 
-    for (const name of ["personal", "learnsets", "evolutions", "pokemon_sprites", "pokemon_icons"] as const) {
+    for (const name of ["personal", "learnsets", "evolutions", "pokemon_sprites", "pokemon_icons", "message_texts"] as const) {
       expect(project.narcs[name]!.dirty.size).toBeGreaterThan(0);
       expect(project.narcs[name]!.fileCount).toBe(project.narcs[name]!.rawFiles.length);
     }
@@ -93,6 +99,48 @@ describe("pokemonFormModel", () => {
     expect(project.narcs.pokemon_icons!.rawFiles).toHaveLength(1522);
     expect(getPokemonIconPaletteAssignment(project, 755, "male")).toEqual({ editable: true, paletteId: 1 });
     expect(getPokemonIconPaletteAssignment(project, 756, "female")).toEqual({ editable: true, paletteId: 2 });
+    const names = decodeGen5TextBank(project.narcs.message_texts!.rawFiles[90]);
+    expect(names[710]?.[1]).toBe("SPINDA");
+    expect(names[711]?.[1]).toBe("SPINDA");
+    expect(names[712]?.[1]).toBe("SPINDA");
+  });
+
+  it("moves an already-expanded icon palette table out of PMC overlay memory", () => {
+    const project = makeRetailBw2Project();
+    addPokemonForm(project, SPINDA_ID);
+    const unsafeTableAddress = readU32(project.arm9, BW2_ICON_PALETTE_POINTER_OFFSET);
+    const unsafeAssignment = getPokemonIconPaletteAssignment(project, 754, "male");
+
+    project.codeInjection = {
+      pmc: {
+        overlayId: 344,
+        overlayBaseAddress: unsafeTableAddress - 16,
+        overlayPath: "overlay/overlay_0344.bin",
+      },
+    };
+    writeInt(project.arm9, BW2_HEAP_START_POINTER_OFFSET, 4, unsafeTableAddress - 16 + 0x8000);
+
+    expect(repairPokemonIconPaletteAssignmentPlacement(project)).toBe(true);
+
+    const safeTableAddress = readU32(project.arm9, BW2_ICON_PALETTE_POINTER_OFFSET);
+    expect(safeTableAddress).toBeGreaterThanOrEqual(unsafeTableAddress - 16 + 0x8000 + 16);
+    expect(safeTableAddress).not.toBe(unsafeTableAddress);
+    expect(getPokemonIconPaletteAssignment(project, 754, "male")).toEqual(unsafeAssignment);
+  });
+
+  it("repairs a missing name entry for a previously appended BW2 form", () => {
+    const project = makeRetailBw2Project();
+    addPokemonForm(project, SPINDA_ID);
+    const originalNames = project.texts.messageTexts![90].slice(0, 650);
+    project.texts.messageTexts![90] = originalNames;
+    project.narcs.message_texts!.rawFiles[90] = encodeGen5TextBank(originalNames);
+    project.texts.banks.pokedex = project.texts.banks.pokedex!.slice(0, 650);
+
+    expect(repairAppendedPokemonFormNames(project)).toBe(true);
+
+    const repaired = decodeGen5TextBank(project.narcs.message_texts!.rawFiles[90]);
+    expect(repaired).toHaveLength(711);
+    expect(repaired[710]?.[1]).toBe("SPINDA");
   });
 });
 
@@ -124,13 +172,23 @@ function makeRetailBw2Project(): ProjectState {
   writeInt(arm9, BW2_ICON_PALETTE_POINTER_OFFSET, 4, GEN5_ARM9_RAM_ADDRESS + BW2_ICON_PALETTE_OFFSET);
   writeInt(arm9, BW2_HEAP_START_POINTER_OFFSET, 4, GEN5_ARM9_RAM_ADDRESS + arm9.length + 0x100);
 
+  const pokemonNames: Gen5TextEntry[] = Array.from({ length: 650 }, (_unused, id) => [
+    `0_${id}`,
+    id === SPINDA_ID ? "SPINDA" : `POKEMON ${id}`,
+    0,
+  ]);
+  const messageTextFiles: Uint8Array[] = Array.from({ length: 91 }, () => new Uint8Array());
+  messageTextFiles[90] = encodeGen5TextBank(pokemonNames);
+  const messageTexts: Gen5TextEntry[][] = Array.from({ length: 91 }, () => []);
+  messageTexts[90] = decodeGen5TextBank(messageTextFiles[90]);
+
   return {
     session: {
       romName: "retail-white-2",
       baseVersion: "W2",
       baseRom: "BW2",
       fairy: false,
-      fileIds: { personal: 1, learnsets: 2, evolutions: 3, pokemon_sprites: 4, pokemon_icons: 5 },
+      fileIds: { personal: 1, learnsets: 2, evolutions: 3, pokemon_sprites: 4, pokemon_icons: 5, message_texts: 6 },
       blacklist: [],
     },
     romInfo: { title: "test", idCode: "IRDO", fileName: "test.nds", size: personalLength },
@@ -142,8 +200,12 @@ function makeRetailBw2Project(): ProjectState {
       evolutions: makeStore("evolutions", evolutions),
       pokemon_sprites: makeStore("pokemon_sprites", spriteFiles),
       pokemon_icons: makeStore("pokemon_icons", iconFiles),
+      message_texts: makeStore("message_texts", messageTextFiles),
     },
-    texts: { banks: { pokedex: Array.from({ length: 650 }, (_unused, id) => (id === SPINDA_ID ? "Spinda" : `Pokemon ${id}`)) } },
+    texts: {
+      banks: { pokedex: Array.from({ length: 650 }, (_unused, id) => (id === SPINDA_ID ? "Spinda" : `Pokemon ${id}`)) },
+      messageTexts,
+    },
     formats,
     trpokInfo: [],
   };
