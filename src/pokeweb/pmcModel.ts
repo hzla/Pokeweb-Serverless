@@ -85,8 +85,12 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   const overlayId = existingOverlayId ?? rom.arm9OverlayTable.length / 32;
   const existingEntry = findOverlayEntry(rom.arm9OverlayTable, overlayId);
   const previousMaxOverlayEnd = maxOverlayEnd(rom.arm9OverlayTable);
-  const overlayBaseAddress = existingEntry ? readU32(rom.arm9OverlayTable, existingEntry + 4) : previousMaxOverlayEnd;
-  const heapStart = Math.max(previousMaxOverlayEnd, overlayBaseAddress + PMC_OVERLAY_RESERVED_SIZE);
+  const activeArm9 = project.arm9.length > 0 ? project.arm9 : rom.arm9;
+  const arm9ReservedEnd = align(rom.arm9RamAddress + activeArm9.length, 0x20);
+  const overlayBaseAddress = existingEntry
+    ? readU32(rom.arm9OverlayTable, existingEntry + 4)
+    : Math.max(previousMaxOverlayEnd, arm9ReservedEnd);
+  const heapStart = Math.max(previousMaxOverlayEnd, arm9ReservedEnd, overlayBaseAddress + PMC_OVERLAY_RESERVED_SIZE);
   const overlayPath = overlayPathForId(overlayId);
 
   const heapSymbol =

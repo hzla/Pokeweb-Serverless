@@ -1,8 +1,9 @@
 import { recordGenericChange } from "./actionChangelog";
-import { isGen4Project, type NarcName } from "./constants";
+import { BW2_MESSAGE_BANKS, BW_MESSAGE_BANKS, isGen4Project, type NarcName } from "./constants";
 import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "./pokemonLabels";
 import {
   evolutionSlotCount,
+  getPokemonPersonalIds,
   isPokemonPersonalRecord,
   updatePokemonField,
   usesWhite2UpgradePokemonData,
@@ -16,12 +17,14 @@ import {
 } from "./pokemonSpriteModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { decodeRecord, markDirty, type NarcStore, type ProjectState } from "./projectStore";
+import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 
 const SPRITE_FILES_PER_ENTRY = 20;
 const MAX_FORM_COUNT = 31;
 const BW_ALT_FORM_SPRITE_START = 652;
 const BW2_ALT_FORM_SPRITE_START = 685;
 const W2U_ALT_FORM_SPRITE_START = 724;
+const BW2_FIRST_APPENDED_FORM_PERSONAL_ID = 710;
 
 type FileSnapshot = Uint8Array;
 type IconPair = { male: Uint8Array; female: Uint8Array };
@@ -44,7 +47,8 @@ export function canAddPokemonForm(project: ProjectState): boolean {
     Boolean(project.narcs.learnsets) &&
     Boolean(project.narcs.evolutions) &&
     Boolean(project.narcs.pokemon_sprites) &&
-    Boolean(project.narcs.pokemon_icons)
+    Boolean(project.narcs.pokemon_icons) &&
+    Boolean(project.narcs.message_texts)
   );
 }
 
@@ -55,6 +59,7 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
   const evolutions = requiredStore(project, "evolutions");
   const sprites = requiredStore(project, "pokemon_sprites");
   const icons = requiredStore(project, "pokemon_icons");
+  requiredStore(project, "message_texts");
 
   const owner = findPokemonPersonalFormOwner(project, requestedSpeciesId);
   const speciesId = owner?.speciesId ?? requestedSpeciesId;
@@ -81,6 +86,11 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
   }
   if (!learnsets.rawFiles[speciesId]) throw new Error(`Base learnset ${speciesId} is missing.`);
   if (!evolutions.rawFiles[speciesId]) throw new Error(`Base evolution record ${speciesId} is missing.`);
+  const pokemonNameBankId = requirePokemonNameBankId(project);
+  const pokemonNameBank = getTextBank(project, "message_texts", pokemonNameBankId);
+  if (!pokemonNameBank.some((entry) => parseTextEntryId(entry[0]).entry === speciesId)) {
+    throw new Error(`Base Pokemon name ${speciesId} is missing from message bank ${pokemonNameBankId}.`);
+  }
 
   const personalStartId = personal.rawFiles.length;
   const newPersonalId = personalStartId + oldAltFormCount;
@@ -137,6 +147,7 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
     emptyEvolutionRecord(project, evolutions, speciesId),
   );
   evolutionCopies.forEach((bytes) => appendFile(project, evolutions, "evolutions", bytes));
+  appendPokemonFormNames(project, pokemonNameBankId, speciesId, personalStartId, personalCopies.length);
 
   for (let id = personalStartId; id < personalStartId + personalCopies.length; id += 1) clearNestedFormMetadata(project, id);
 
@@ -185,6 +196,78 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
     paddedLearnsetEntries,
     paddedEvolutionEntries,
   };
+}
+
+function requirePokemonNameBankId(project: ProjectState): number {
+  const mappings = project.session.baseRom === "BW2" ? BW2_MESSAGE_BANKS : BW_MESSAGE_BANKS;
+  const mapping = mappings.find(([, name]) => name === "pokedex");
+  if (!mapping || typeof mapping[0] !== "number") throw new Error("The Pokemon name message bank is not available for this ROM.");
+  return mapping[0];
+}
+
+function appendPokemonFormNames(project: ProjectState, bankId: number, speciesId: number, firstPersonalId: number, count: number): void {
+  const bank = getTextBank(project, "message_texts", bankId);
+  const parsed = bank.map((entry) => ({ entry, id: parseTextEntryId(entry[0]) }));
+  const numEntries = Math.max(0, ...parsed.map(({ id }) => id.entry + 1));
+  const requiredEntries = firstPersonalId + count;
+  if (numEntries < requiredEntries) addTextEntries(project, "message_texts", bankId, requiredEntries - numEntries);
+
+  const expanded = getTextBank(project, "message_texts", bankId);
+  const sourceByBlock = new Map(
+    expanded
+      .map((entry) => ({ entry, id: parseTextEntryId(entry[0]) }))
+      .filter(({ id }) => id.entry === speciesId)
+      .map(({ entry, id }) => [id.block, entry[1]] as const),
+  );
+  for (const entry of expanded) {
+    const id = parseTextEntryId(entry[0]);
+    if (id.entry < firstPersonalId || id.entry >= requiredEntries) continue;
+    entry[1] = sourceByBlock.get(id.block) ?? sourceByBlock.get(0) ?? "";
+  }
+  commitTextBank(project, "message_texts", bankId);
+  recordGenericChange(project, "message_texts", `Copied the base Pokemon name to personal entries ${firstPersonalId}-${requiredEntries - 1}.`, `Text Bank ${bankId}`, {
+    key: `pokemon-form-names:${firstPersonalId}:${requiredEntries - 1}`,
+  });
+}
+
+export function repairAppendedPokemonFormNames(project: ProjectState): boolean {
+  if (project.session.baseRom !== "BW2" || !project.narcs.personal || !project.narcs.message_texts) return false;
+  const forms = getPokemonPersonalIds(project)
+    .filter((personalId) => personalId >= BW2_FIRST_APPENDED_FORM_PERSONAL_ID)
+    .map((personalId) => ({ personalId, owner: findPokemonPersonalFormOwner(project, personalId) }))
+    .filter((form): form is { personalId: number; owner: NonNullable<typeof form.owner> } => Boolean(form.owner));
+  if (forms.length === 0) return false;
+
+  const bankId = requirePokemonNameBankId(project);
+  const bank = getTextBank(project, "message_texts", bankId);
+  const numEntries = Math.max(0, ...bank.map((entry) => parseTextEntryId(entry[0]).entry + 1));
+  const requiredEntries = Math.max(...forms.map(({ personalId }) => personalId + 1));
+  let changed = false;
+  if (numEntries < requiredEntries) {
+    addTextEntries(project, "message_texts", bankId, requiredEntries - numEntries);
+    changed = true;
+  }
+
+  const expanded = getTextBank(project, "message_texts", bankId);
+  const entriesByKey = new Map(expanded.map((entry) => {
+    const id = parseTextEntryId(entry[0]);
+    return [`${id.block}:${id.entry}`, entry] as const;
+  }));
+  for (const { personalId, owner } of forms) {
+    for (const target of expanded.filter((entry) => parseTextEntryId(entry[0]).entry === personalId)) {
+      const targetId = parseTextEntryId(target[0]);
+      const source = entriesByKey.get(`${targetId.block}:${owner.speciesId}`) ?? entriesByKey.get(`0:${owner.speciesId}`);
+      if (!source || target[1] === source[1]) continue;
+      target[1] = source[1];
+      changed = true;
+    }
+  }
+  if (!changed) return false;
+  commitTextBank(project, "message_texts", bankId);
+  recordGenericChange(project, "message_texts", "Repaired names for appended Pokemon form entries.", `Text Bank ${bankId}`, {
+    key: "pokemon-form-names:repair",
+  });
+  return true;
 }
 
 function requiredStore(project: ProjectState, name: NarcName): NarcStore {

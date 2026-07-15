@@ -106,6 +106,17 @@ describe("PMC installer", () => {
     expect(readU32(project.arm9, 0x7b41c)).toBe(result.overlayBaseAddress + 0x8000);
   });
 
+  it("places a new PMC overlay after ARM9 data reserved by an earlier patch", () => {
+    const romBytes = makeBw2LikeRom();
+    const project = makeProject(romBytes, "W2");
+    project.arm9 = new Uint8Array(0x1fb540);
+
+    const result = installPmcBytes(project, pmcW2, romBytes);
+
+    expect(result.overlayBaseAddress).toBe(0x021fb540);
+    expect(readU32(project.arm9, 0x7b41c)).toBe(result.overlayBaseAddress + 0x8000);
+  });
+
   it("skips the PMC keep marker when patches already has files before later ROMFS entries", async () => {
     const romBytes = makeBw2LikeRom(
       347,
