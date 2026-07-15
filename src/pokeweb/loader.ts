@@ -295,7 +295,7 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
       };
     }
     if (includeTutorMoves && overlay36) {
-      project.narcs.tutor_moves = createTutorMoveStore(overlay36);
+      project.narcs.tutor_moves = createTutorMoveStore(overlay36, project.session.baseVersion);
     }
     if (includeMoves) {
       const romFsTypeChart = tryCreateRomFsTypeChartStore(rom);

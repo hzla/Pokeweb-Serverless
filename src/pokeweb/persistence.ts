@@ -4,7 +4,7 @@ import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
-import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, BW2_TUTOR_MOVE_TABLE_OFFSET } from "./tutorMoveModel";
+import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, tutorMoveTableOffset } from "./tutorMoveModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { isRomFsTypeChartStore, typeChartTableLength, typeChartTableOffset } from "./typeChartModel";
 
@@ -236,7 +236,7 @@ function hydrateOverlayBackedStore(project: ProjectState, name: "grotto_odds" | 
 
 function overlayTableOffset(project: ProjectState, name: "grotto_odds" | "tutor_moves" | "move_effects_table" | "type_chart", overlay: Uint8Array): number {
   if (name === "grotto_odds") return project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
-  if (name === "tutor_moves") return BW2_TUTOR_MOVE_TABLE_OFFSET;
+  if (name === "tutor_moves") return tutorMoveTableOffset(project.session.baseVersion);
   if (name === "type_chart") return typeChartTableOffset(project, overlay);
   return moveEffectHandlerTableOffset(project);
 }
