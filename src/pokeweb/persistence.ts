@@ -176,7 +176,7 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
     }
     if (!hasMissingFiles && store.filenames) continue;
     const narc = new NARC(rom.files[store.fileId]);
-    if (hasMissingFiles) store.rawFiles = narc.files.map((file, index) => (store.rawFiles[index]?.length ? store.rawFiles[index] : file));
+    if (hasMissingFiles) store.rawFiles = hydrateNarcRawFiles(store.rawFiles, store.dirty, store.fileCount, narc.files);
     store.filenames ??= narc.filenames;
     store.fileCount = store.rawFiles.length;
   }
@@ -199,6 +199,21 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   hydrateOverlayBackedStore(project, "tutor_moves", BW2_TUTOR_MOVE_OVERLAY_ID);
   hydrateOverlayBackedStore(project, "move_effects_table", moveEffectOverlayId);
   hydrateOverlayBackedStore(project, "type_chart", 167);
+}
+
+export function hydrateNarcRawFiles(
+  persistedFiles: Uint8Array[],
+  dirtyFileIds: ReadonlySet<number>,
+  persistedFileCount: number,
+  originalFiles: Uint8Array[],
+): Uint8Array[] {
+  const fileCount = Math.max(persistedFileCount, persistedFiles.length, originalFiles.length);
+  return Array.from({ length: fileCount }, (_unused, index) => {
+    const persisted = persistedFiles[index];
+    if (dirtyFileIds.has(index)) return persisted?.slice() ?? new Uint8Array();
+    if (persisted?.length) return persisted.slice();
+    return originalFiles[index]?.slice() ?? new Uint8Array();
+  });
 }
 
 function activeRomMetadataFromProject(project: ProjectState): ActiveRomMetadata {

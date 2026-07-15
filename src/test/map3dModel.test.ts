@@ -7,6 +7,7 @@ import {
   parseMapMatrix,
   parseChunkBuildings,
   parseNitroRenderOpsForTest,
+  readNitroObjectMatrixForTest,
   parseMapReplaceTable,
   parseNpcRegistry,
   parseVMapTerrain,
@@ -293,11 +294,65 @@ describe("map3dModel", () => {
   });
 
   it("keeps render commands aligned after DSPRE EnvMap SBC commands", () => {
-    const ops = parseNitroRenderOpsForTest(Uint8Array.of(0x04, 2, 0x0c, 7, 0x05, 3, 0x01));
+    const ops = parseNitroRenderOpsForTest(Uint8Array.of(0x04, 2, 0x0c, 7, 0, 0x05, 3, 0x01));
 
     expect(ops).toEqual([
       { kind: "bindMaterial", material: 2 },
       { kind: "draw", piece: 3 },
+    ]);
+  });
+
+  it("preserves Platform 06 matrix-stack commands and compact node transforms", () => {
+    const ops = parseNitroRenderOpsForTest(Uint8Array.of(
+      0x26, 0, 0, 0, 0,
+      0x26, 1, 0, 2, 1,
+      0x26, 2, 1, 1, 2,
+      0x09, 3, 2, 2, 2, 179, 1, 1, 77,
+      0x03, 1,
+      0x24, 1,
+      0x05, 2,
+      0x03, 3,
+      0x24, 0,
+      0x05, 3,
+      0x66, 3, 0, 0, 1, 0,
+      0x44, 0,
+      0x05, 0,
+      0x44, 1,
+      0x05, 1,
+      0x01,
+    ));
+
+    expect(ops).toEqual([
+      { kind: "mulObject", object: 0 },
+      { kind: "store", stack: 0 },
+      { kind: "mulObject", object: 1 },
+      { kind: "store", stack: 1 },
+      { kind: "mulObject", object: 2 },
+      { kind: "store", stack: 2 },
+      { kind: "mix", stack: 3 },
+      { kind: "load", stack: 1 },
+      { kind: "bindMaterial", material: 1 },
+      { kind: "draw", piece: 2 },
+      { kind: "load", stack: 3 },
+      { kind: "bindMaterial", material: 0 },
+      { kind: "draw", piece: 3 },
+      { kind: "load", stack: 0 },
+      { kind: "mulObject", object: 3 },
+      { kind: "store", stack: 1 },
+      { kind: "bindMaterial", material: 0 },
+      { kind: "draw", piece: 0 },
+      { kind: "bindMaterial", material: 1 },
+      { kind: "draw", piece: 1 },
+    ]);
+
+    const node = new Uint8Array(8);
+    writeU16(node, 0, 0xfc1d);
+    writeU16(node, 4, 0xf000);
+    expect(readNitroObjectMatrixForTest(node)).toEqual([
+      0, -1, 0, 0,
+      1, 0, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1,
     ]);
   });
 

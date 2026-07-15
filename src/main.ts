@@ -546,7 +546,7 @@ function renderApp(): void {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
-    }, openPokemonSprites, canOpenPwanFromPokemon() ? openPwanAnimations : undefined);
+    }, openPokemonSprites, canOpenPwanFromPokemon() ? openPwanAnimations : undefined, ensurePokemonSpriteNarcs);
     return;
   }
 

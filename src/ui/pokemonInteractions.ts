@@ -15,6 +15,8 @@ import {
   updatePokemonTmCompatibility,
   updatePokemonTutorCompatibility,
 } from "../pokeweb/pokemonModel";
+import { addPokemonForm, type AddPokemonFormResult } from "../pokeweb/pokemonFormModel";
+import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
@@ -28,9 +30,17 @@ export type PokemonInteractionOptions = {
   onOpenPwan?: (speciesId: number) => void;
   renderExpanded: (speciesId: number) => string;
   autofills: Record<string, string[]>;
+  onEnsureFormAssets?: () => Promise<void>;
+  onFormAdded?: (result: AddPokemonFormResult) => void;
 };
 
+const pokemonInteractionInstallations = new WeakMap<HTMLElement, AbortController>();
+
 export function attachPokemonInteractions(root: HTMLElement, project: ProjectState, options: PokemonInteractionOptions): void {
+  pokemonInteractionInstallations.get(root)?.abort();
+  const installation = new AbortController();
+  pokemonInteractionInstallations.set(root, installation);
+  const listenerOptions = { signal: installation.signal };
   const activeGenerations = new Set<number>();
   const activeTypes = new Set<string>();
   const searchInput = root.querySelector<HTMLInputElement>("#search-text");
@@ -42,10 +52,10 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
     stripeRows(root);
   };
 
-  searchButton?.addEventListener("click", runFilter);
+  searchButton?.addEventListener("click", runFilter, listenerOptions);
   searchInput?.addEventListener("keypress", (event) => {
     if (event.key === "Enter") runFilter();
-  });
+  }, listenerOptions);
 
   root.querySelectorAll<HTMLButtonElement>(".gen-filters [data-gen]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -53,7 +63,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       toggleSet(activeGenerations, gen);
       button.classList.toggle("-active", activeGenerations.has(gen));
       runFilter();
-    });
+    }, listenerOptions);
   });
 
   root.querySelectorAll<HTMLButtonElement>(".type-filters [data-ptype]").forEach((button) => {
@@ -62,7 +72,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       toggleSet(activeTypes, type);
       button.classList.toggle("-active", activeTypes.has(type));
       runFilter();
-    });
+    }, listenerOptions);
   });
 
   root.addEventListener("contextmenu", (event) => {
@@ -70,10 +80,39 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
     const field = editableFieldFromContextTarget(root, event.target);
     if (!field || !applyPokemonFieldToVisibleRows(root, project, options, field)) return;
     event.preventDefault();
-  });
+  }, listenerOptions);
 
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+    const addFormAction = target.closest<HTMLButtonElement>("[data-add-pokemon-form]");
+    if (addFormAction) {
+      const card = addFormAction.closest<HTMLElement>(".pokemon-card.filterable");
+      const requestedSpeciesId = Number(card?.dataset.index);
+      if (!card || !Number.isInteger(requestedSpeciesId)) return;
+      const baseSpeciesId = findPokemonPersonalFormOwner(project, requestedSpeciesId)?.speciesId ?? requestedSpeciesId;
+      const name = pokemonSpeciesLabel(project, baseSpeciesId);
+      if (!window.confirm(`Add a new form to ${name}? This appends personal, learnset, evolution, sprite, and icon files.`)) return;
+      addFormAction.disabled = true;
+      void Promise.resolve()
+        .then(() => options.onEnsureFormAssets?.())
+        .then(() => {
+          const result = addPokemonForm(project, baseSpeciesId);
+          options.onDirty?.();
+          options.onFormAdded?.(result);
+          window.alert(
+            `Added form ${result.formIndex} to ${name}. Personal file: ${result.personalId}; sprite/icon ID: ${result.spriteId}.`,
+          );
+        })
+        .catch((error) => {
+          addFormAction.disabled = false;
+          addFormAction.classList.add("invalid");
+          const message = error instanceof Error ? error.message : String(error);
+          addFormAction.title = message;
+          window.alert(`Unable to add form: ${message}`);
+        });
+      return;
+    }
+
     const spriteAction = target.closest<HTMLElement>(".sprite-editor-action");
     if (spriteAction) {
       const card = spriteAction.closest<HTMLElement>(".pokemon-card.filterable");
@@ -219,7 +258,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
     }
     syncEvolutionMethodInfo(root);
     stripeRows(root);
-  });
+  }, listenerOptions);
 
   installEditableFields(root, project, options);
   syncEvolutionMethodInfo(root);

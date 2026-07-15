@@ -398,8 +398,45 @@
 .expanded-personal .expanded-left,
 .expanded-personal .expanded-mid,
 .expanded-personal .expanded-right {
+  box-sizing: border-box;
   width: 33.33%;
   padding: 22px 36px 26px;
+}
+
+.expanded-personal.show-flex {
+  flex-wrap: wrap;
+}
+
+.personal-form-toolbar {
+  align-items: center;
+  border-bottom: 1px solid #44475a;
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 100%;
+  gap: 18px;
+  justify-content: space-between;
+  padding: 14px 24px;
+  width: 100%;
+}
+
+.personal-form-toolbar > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.personal-form-toolbar strong {
+  color: #f8f8f2;
+  font-size: 14px;
+}
+
+.personal-form-toolbar span {
+  color: rgba(242, 242, 242, 0.72);
+  font-size: 12px;
+}
+
+.personal-add-form.invalid {
+  border-color: #ff5555;
 }
 
 .expanded-tms {
@@ -819,6 +856,11 @@
     margin-top: 12px;
     position: static;
     width: 100%;
+  }
+
+  .personal-form-toolbar {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .expanded-personal .expanded-left,

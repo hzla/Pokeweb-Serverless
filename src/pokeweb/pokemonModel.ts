@@ -173,13 +173,35 @@ export function getPokemonCount(project: ProjectState): number {
   const recordLength = format.reduce((sum, [size]) => sum + size, 0);
   if (recordLength <= 0) return store.fileCount;
 
-  // Gen 5 stores the regional-Pokedex lookup table as the final member of
-  // personal.narc (file 668 in BW, 709 in BW2, and the corresponding final
-  // file in expanded ROMs). Keep that member in the archive, but do not expose
-  // it as a Pokemon personal record.
-  let count = Math.min(store.fileCount, store.rawFiles.length);
-  while (count > 0 && store.rawFiles[count - 1]?.length !== recordLength) count -= 1;
-  return count;
+  // Gen 5 stores the regional-Pokedex lookup table in personal.narc (file 668
+  // in BW and 709 in BW2). Added form records must be appended after that
+  // fixed-index table, so it is not necessarily the final archive member.
+  // Return the exclusive upper bound of real personal records and let callers
+  // use isPokemonPersonalRecord() to skip the table-shaped hole.
+  let lastRecordId = -1;
+  const count = Math.min(store.fileCount, store.rawFiles.length);
+  for (let id = 0; id < count; id += 1) {
+    if (store.rawFiles[id]?.length === recordLength) lastRecordId = id;
+  }
+  return lastRecordId + 1;
+}
+
+export function isPokemonPersonalRecord(project: ProjectState, id: number): boolean {
+  const store = project.narcs.personal;
+  if (!store || !Number.isInteger(id) || id < 0 || id >= store.rawFiles.length) return false;
+  const format = project.formats.personal;
+  if (!format) return Boolean(store.rawFiles[id]);
+  const recordLength = format.reduce((sum, [size]) => sum + size, 0);
+  return recordLength > 0 && store.rawFiles[id]?.length === recordLength;
+}
+
+export function isPokemonReferenceId(project: ProjectState, id: number): boolean {
+  const store = project.narcs.personal;
+  return !store || store.rawFiles[id] === undefined || isPokemonPersonalRecord(project, id);
+}
+
+export function getPokemonPersonalIds(project: ProjectState): number[] {
+  return Array.from({ length: getPokemonCount(project) }, (_unused, id) => id).filter((id) => isPokemonPersonalRecord(project, id));
 }
 
 export function usesWhite2UpgradePokemonData(project: ProjectState): boolean {
@@ -667,7 +689,7 @@ function getPersonalCopyRecords(project: ProjectState, speciesId: number, source
 } {
   const store = project.narcs.personal;
   if (!store) throw new Error("Personal NARC is not loaded");
-  if (!Number.isInteger(sourceSpeciesId) || sourceSpeciesId < 1 || sourceSpeciesId >= store.fileCount || !store.rawFiles[sourceSpeciesId]) {
+  if (!Number.isInteger(sourceSpeciesId) || sourceSpeciesId < 1 || !isPokemonPersonalRecord(project, sourceSpeciesId)) {
     throw new Error(`No personal data is available for species ${sourceSpeciesId}`);
   }
   const source = decodeRecord(project, "personal", sourceSpeciesId);
@@ -771,7 +793,9 @@ function firstUsableMoveId(project: ProjectState): number {
 
 function pokemonNameAutofills(project: ProjectState): string[] {
   const count = Math.max(project.texts.banks.pokedex?.length ?? 0, getPokemonCount(project));
-  return Array.from({ length: count }, (_unused, speciesId) => String(pokemonDisplayName(project, speciesId)));
+  return Array.from({ length: count }, (_unused, speciesId) => speciesId)
+    .filter((speciesId) => isPokemonReferenceId(project, speciesId))
+    .map((speciesId) => String(pokemonDisplayName(project, speciesId)));
 }
 
 function pokemonDisplayName(project: ProjectState, speciesId: number): string | number {
@@ -781,9 +805,10 @@ function pokemonDisplayName(project: ProjectState, speciesId: number): string | 
 function findPokemonValueIndex(project: ProjectState, inputValue: string): number {
   const count = Math.max(project.texts.banks.pokedex?.length ?? 0, getPokemonCount(project));
   const numeric = Number(inputValue.trim());
-  if (Number.isInteger(numeric) && numeric >= 0 && numeric < count) return numeric;
+  if (Number.isInteger(numeric) && numeric >= 0 && numeric < count && isPokemonReferenceId(project, numeric)) return numeric;
   const normalizedInput = normalizeName(inputValue);
   for (let speciesId = 0; speciesId < count; speciesId += 1) {
+    if (!isPokemonReferenceId(project, speciesId)) continue;
     if (normalizeName(String(pokemonDisplayName(project, speciesId))) === normalizedInput) return speciesId;
   }
   throw new Error(`Unknown Pokemon: ${inputValue}`);

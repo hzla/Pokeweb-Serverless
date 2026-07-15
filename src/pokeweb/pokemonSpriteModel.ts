@@ -344,20 +344,67 @@ export function genderedPokemonIcons(project: ProjectState, spriteId: number): b
 }
 
 export function getPokemonIconPaletteAssignment(project: ProjectState, spriteId: number, variant: PokemonIconVariant): { editable: boolean; paletteId: number } {
-  const offset = iconPaletteAssignmentOffset(project);
-  if (offset === undefined || !iconPaletteAssignmentValid(project, offset) || spriteId >= 754) return { editable: false, paletteId: 0 };
-  const value = project.arm9[offset + spriteId + (spriteId > 680 ? 2 : 0)] ?? 0;
+  const layout = iconPaletteAssignmentLayout(project);
+  const index = iconPaletteAssignmentIndex(project, spriteId);
+  if (!layout || index === undefined || index >= layout.capacity) return { editable: false, paletteId: 0 };
+  const value = project.arm9[layout.offset + index] ?? 0;
   return {
     editable: true,
     paletteId: variant === "female" ? (value >>> 4) & 0x0f : value & 0x0f,
   };
 }
 
+export function ensurePokemonIconPaletteAssignmentCapacity(project: ProjectState, spriteId: number): void {
+  const config = iconPaletteAssignmentConfig(project);
+  const layout = iconPaletteAssignmentLayout(project);
+  const index = iconPaletteAssignmentIndex(project, spriteId);
+  if (!config || !layout || index === undefined) throw new Error("Icon palette assignments are not available for this ROM");
+  if (index < layout.capacity) return;
+
+  const arm9RamAddress = projectArm9RamAddress(project);
+  const currentTableAddress = arm9RamAddress + layout.offset;
+  if (config.pointerOffset + 4 > project.arm9.length || readU32(project.arm9, config.pointerOffset) !== currentTableAddress) {
+    throw new Error("Pokeweb could not safely relocate this ROM's icon palette assignment table");
+  }
+
+  // IconPalAtr ends flush against other ARM9 constants. The configured heap
+  // boundary sits after every ARM9 overlay, so reserve the relocated table
+  // there and advance the heap instead of overwriting rodata or overlay RAM.
+  const heapStartAddress = config.heapStartOffset + 4 <= project.arm9.length ? readU32(project.arm9, config.heapStartOffset) : 0;
+  const markerOffset = heapStartAddress - arm9RamAddress;
+  if (markerOffset < project.arm9.length || heapStartAddress < arm9RamAddress || heapStartAddress >= ARM9_MAIN_MEMORY_END) {
+    throw new Error("Pokeweb could not safely reserve ARM9 memory for expanded icon palette assignments");
+  }
+
+  const capacity = alignTo(Math.max(index + 1, layout.capacity * 2), 4);
+  const tableOffset = markerOffset + ICON_PALETTE_RELOCATION_HEADER_SIZE;
+  const endOffset = tableOffset + capacity;
+  if (arm9RamAddress + endOffset > ARM9_MAIN_MEMORY_END) throw new Error("The expanded icon palette assignment table does not fit in ARM9 memory");
+
+  const out = new Uint8Array(endOffset);
+  out.set(project.arm9);
+  out.set(ICON_PALETTE_RELOCATION_MAGIC, markerOffset);
+  writeU32(out, markerOffset + 8, capacity);
+  writeU32(out, markerOffset + 12, config.pointerOffset);
+  out.set(project.arm9.subarray(layout.offset, layout.offset + layout.capacity), tableOffset);
+  writeU32(out, config.pointerOffset, arm9RamAddress + tableOffset);
+  writeU32(out, config.heapStartOffset, arm9RamAddress + alignTo(endOffset, 4));
+  project.arm9 = out;
+  project.arm9Dirty = true;
+  recordGenericChange(project, "pokemon_icons", `Expanded icon palette assignments to ${capacity} entries.`, "Icon palette assignments", {
+    key: `pokemon-icon-palette-expand:${capacity}`,
+  });
+}
+
 export function setPokemonIconPaletteAssignment(project: ProjectState, spriteId: number, variant: PokemonIconVariant, paletteId: number): void {
-  const offset = iconPaletteAssignmentOffset(project);
-  if (offset === undefined || !iconPaletteAssignmentValid(project, offset) || spriteId >= 754) throw new Error("Icon palette assignments are not available for this ROM");
   if (!Number.isInteger(paletteId) || paletteId < 0 || paletteId > 2) throw new Error("Icon palette must be 0, 1, or 2");
-  const index = offset + spriteId + (spriteId > 680 ? 2 : 0);
+  ensurePokemonIconPaletteAssignmentCapacity(project, spriteId);
+  const layout = iconPaletteAssignmentLayout(project);
+  const assignmentIndex = iconPaletteAssignmentIndex(project, spriteId);
+  if (!layout || assignmentIndex === undefined || assignmentIndex >= layout.capacity) {
+    throw new Error("Icon palette assignments are not available for this ROM");
+  }
+  const index = layout.offset + assignmentIndex;
   const value = project.arm9[index] ?? 0;
   project.arm9[index] = variant === "female" ? (value & 0x0f) | (paletteId << 4) : (value & 0xf0) | paletteId;
   project.arm9Dirty = true;
@@ -975,8 +1022,70 @@ function spriteFileLabel(fileIndex: number): string {
   return `Sprite file ${fileIndex}`;
 }
 
-function iconPaletteAssignmentOffset(project: ProjectState): number | undefined {
-  return project.session.baseVersion === "W" || project.session.baseVersion === "W2" ? 0x8c578 : 0x8c54c;
+type IconPaletteAssignmentConfig = {
+  offset: number;
+  pointerOffset: number;
+  heapStartOffset: number;
+  capacity: number;
+  shiftAfter?: number;
+};
+
+type IconPaletteAssignmentLayout = {
+  offset: number;
+  capacity: number;
+};
+
+const DEFAULT_GEN5_ARM9_RAM_ADDRESS = 0x02004000;
+const ARM9_MAIN_MEMORY_END = 0x02400000;
+const ICON_PALETTE_RELOCATION_HEADER_SIZE = 16;
+const ICON_PALETTE_RELOCATION_MAGIC = Uint8Array.of(0x50, 0x57, 0x49, 0x43, 0x4f, 0x4e, 0x50, 0x4c); // PWICONPL
+
+function iconPaletteAssignmentConfig(project: ProjectState): IconPaletteAssignmentConfig | undefined {
+  const whiteVersion = project.session.baseVersion === "W" || project.session.baseVersion === "W2";
+  if (project.session.baseRom === "BW2") {
+    return whiteVersion
+      ? { offset: 0x8c578, pointerOffset: 0x1d0e8, heapStartOffset: 0x7741c, capacity: 756, shiftAfter: 680 }
+      : { offset: 0x8c54c, pointerOffset: 0x1d0bc, heapStartOffset: 0x773f0, capacity: 756, shiftAfter: 680 };
+  }
+  if (project.session.baseRom === "BW") {
+    return whiteVersion
+      ? { offset: 0x9a48c, pointerOffset: 0x17c00, heapStartOffset: 0x8275c, capacity: 712 }
+      : { offset: 0x9a474, pointerOffset: 0x17be4, heapStartOffset: 0x82744, capacity: 712 };
+  }
+  return undefined;
+}
+
+function iconPaletteAssignmentLayout(project: ProjectState): IconPaletteAssignmentLayout | undefined {
+  const config = iconPaletteAssignmentConfig(project);
+  if (!config) return undefined;
+  const arm9RamAddress = projectArm9RamAddress(project);
+  const pointerAddress = config.pointerOffset + 4 <= project.arm9.length ? readU32(project.arm9, config.pointerOffset) : 0;
+  const pointerTableOffset = pointerAddress - arm9RamAddress;
+  const markerOffset = pointerTableOffset - ICON_PALETTE_RELOCATION_HEADER_SIZE;
+
+  if (
+    pointerTableOffset >= ICON_PALETTE_RELOCATION_HEADER_SIZE &&
+    markerOffset + ICON_PALETTE_RELOCATION_HEADER_SIZE <= project.arm9.length &&
+    bytesEqual(project.arm9, markerOffset, ICON_PALETTE_RELOCATION_MAGIC) &&
+    readU32(project.arm9, markerOffset + 12) === config.pointerOffset
+  ) {
+    const capacity = readU32(project.arm9, markerOffset + 8);
+    if (capacity > 0 && pointerTableOffset + capacity <= project.arm9.length && iconPaletteAssignmentValid(project, pointerTableOffset)) {
+      return { offset: pointerTableOffset, capacity };
+    }
+  }
+
+  if (config.offset + config.capacity <= project.arm9.length && iconPaletteAssignmentValid(project, config.offset)) {
+    return { offset: config.offset, capacity: config.capacity };
+  }
+  return undefined;
+}
+
+function iconPaletteAssignmentIndex(project: ProjectState, spriteId: number): number | undefined {
+  if (!Number.isInteger(spriteId) || spriteId < 0) return undefined;
+  const config = iconPaletteAssignmentConfig(project);
+  if (!config) return undefined;
+  return spriteId + (config.shiftAfter !== undefined && spriteId > config.shiftAfter ? 2 : 0);
 }
 
 function iconPaletteAssignmentValid(project: ProjectState, offset: number): boolean {
@@ -984,6 +1093,27 @@ function iconPaletteAssignmentValid(project: ProjectState, offset: number): bool
   for (let i = 0; i < 16; i += 1) {
     const value = project.arm9[offset + i];
     if (value !== 0 && value !== 17 && value !== 34) return false;
+  }
+  return true;
+}
+
+function projectArm9RamAddress(project: ProjectState): number {
+  const bytes = project.originalRomBytes;
+  if (bytes && bytes.length >= 0x2c) {
+    const address = readU32(bytes, 0x28);
+    if (address >= 0x02000000 && address < ARM9_MAIN_MEMORY_END) return address;
+  }
+  return DEFAULT_GEN5_ARM9_RAM_ADDRESS;
+}
+
+function alignTo(value: number, alignment: number): number {
+  return Math.ceil(value / alignment) * alignment;
+}
+
+function bytesEqual(data: Uint8Array, offset: number, expected: ArrayLike<number>): boolean {
+  if (offset < 0 || offset + expected.length > data.length) return false;
+  for (let index = 0; index < expected.length; index += 1) {
+    if (data[offset + index] !== expected[index]) return false;
   }
   return true;
 }

@@ -64,7 +64,7 @@ import {
 } from "../pokeweb/pokemonFlipbookRig";
 import { PWAN_HEIGHT, PWAN_WIDTH, pwanFramePixels, pwanTimeline } from "../pokeweb/pwanCompiler";
 import { getPwanRuntimeStatus } from "../pokeweb/pwanAnimationModel";
-import { getPokemonCount } from "../pokeweb/pokemonModel";
+import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
 import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import { concatBytes } from "../nds/binary";
 import { parsePokemonCustomSpriteBundle } from "../pokeweb/pokemonSpriteWriters";
@@ -4118,8 +4118,7 @@ function renderIconPalettes(palettes: RgbColor[][]): string {
 }
 
 function renderSpeciesOptions(project: ProjectState, selectedSpeciesId: number): string {
-  const count = getPokemonCount(project);
-  return Array.from({ length: count }, (_, speciesId) => {
+  return getPokemonPersonalIds(project).map((speciesId) => {
     const name = titleize(pokemonSpeciesLabel(project, speciesId));
     return `<option value="${speciesId}" ${speciesId === selectedSpeciesId ? "selected" : ""}>${escapeHtml(name)} (#${speciesId})</option>`;
   }).join("");
