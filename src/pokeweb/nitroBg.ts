@@ -16,6 +16,7 @@ export type NitroBackgroundIndexedData = {
   tilePixels: Uint8Array[];
   bitsPerPixel: 4 | 8;
   palette: NitroPaletteData;
+  paletteBankOffset: number;
   transparentIndexZero: boolean;
 };
 
@@ -30,6 +31,7 @@ export type NitroBackgroundPaletteAnimation = {
 };
 
 export type NitroBackgroundOptions = {
+  paletteBankOffset?: number;
   transparentIndexZero?: boolean;
 };
 
@@ -61,6 +63,7 @@ export function parseNitroBackground(
     tilePixels: characters.pixels,
     bitsPerPixel: characters.bitsPerPixel,
     palette,
+    paletteBankOffset: options.paletteBankOffset ?? 0,
     transparentIndexZero: Boolean(options.transparentIndexZero),
   };
   const { rgba, hasTransparency } = renderNitroBackgroundRgba(screen.width, screen.height, indexed);
@@ -186,7 +189,7 @@ function renderNitroBackgroundRgba(
       const paletteBank = (entry >>> 12) & 0x0f;
       const tile = indexed.tilePixels[tileIndex];
       if (!tile) continue;
-      if (drawTile(rgba, width, tileX * 8, tileY * 8, tile, indexed.bitsPerPixel, indexed.palette, paletteBank, flipX, flipY, indexed.transparentIndexZero)) {
+      if (drawTile(rgba, width, tileX * 8, tileY * 8, tile, indexed.bitsPerPixel, indexed.palette, paletteBank, indexed.paletteBankOffset, flipX, flipY, indexed.transparentIndexZero)) {
         hasTransparency = true;
       }
     }
@@ -204,6 +207,7 @@ function drawTile(
   bitsPerPixel: 4 | 8,
   palette: NitroPaletteData,
   paletteBank: number,
+  paletteBankOffset: number,
   flipX: boolean,
   flipY: boolean,
   transparentIndexZero: boolean,
@@ -223,7 +227,10 @@ function drawTile(
         transparent = true;
         continue;
       }
-      const paletteIndex = bitsPerPixel === 8 ? colorIndex : paletteBank * 16 + colorIndex;
+      const localPaletteBank = paletteBank >= paletteBankOffset
+        ? paletteBank - paletteBankOffset
+        : paletteBank;
+      const paletteIndex = bitsPerPixel === 8 ? colorIndex : localPaletteBank * 16 + colorIndex;
       const color = palette[paletteIndex] ?? palette[colorIndex] ?? [0, 0, 0, 0];
       rgba[offset] = color[0];
       rgba[offset + 1] = color[1];
@@ -248,5 +255,5 @@ function rgb555(value: number): [number, number, number, number] {
   const r = value & 0x1f;
   const g = (value >>> 5) & 0x1f;
   const b = (value >>> 10) & 0x1f;
-  return [(r << 3) | (r >>> 2), (g << 3) | (g >>> 2), (b << 3) | (b >>> 2), 255];
+  return [r << 3, g << 3, b << 3, 255];
 }

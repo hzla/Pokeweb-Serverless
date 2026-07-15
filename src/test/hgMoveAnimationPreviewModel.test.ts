@@ -291,7 +291,7 @@ a010_184:
     const effect = preview.cellEffects?.get("8:8:8:8");
     expect(effect?.frames).toHaveLength(1);
     const pixel = effect?.frames[0].rgba.subarray(0, 4);
-    expect(Array.from(pixel ?? [])).toEqual([0, 0, 255, 255]);
+    expect(Array.from(pixel ?? [])).toEqual([0, 0, 248, 255]);
   });
 
   it("keeps normal addparticle anchored unless cmd37 supplies a particle axis", async () => {

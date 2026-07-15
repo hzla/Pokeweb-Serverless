@@ -165,7 +165,21 @@ const EVOLUTION_PARAM_KINDS: Partial<Record<number, EvolutionParamKind>> = {
 };
 
 export function getPokemonCount(project: ProjectState): number {
-  return project.narcs.personal?.fileCount ?? 0;
+  const store = project.narcs.personal;
+  if (!store) return 0;
+
+  const format = project.formats.personal;
+  if (!format) return store.fileCount;
+  const recordLength = format.reduce((sum, [size]) => sum + size, 0);
+  if (recordLength <= 0) return store.fileCount;
+
+  // Gen 5 stores the regional-Pokedex lookup table as the final member of
+  // personal.narc (file 668 in BW, 709 in BW2, and the corresponding final
+  // file in expanded ROMs). Keep that member in the archive, but do not expose
+  // it as a Pokemon personal record.
+  let count = Math.min(store.fileCount, store.rawFiles.length);
+  while (count > 0 && store.rawFiles[count - 1]?.length !== recordLength) count -= 1;
+  return count;
 }
 
 export function usesWhite2UpgradePokemonData(project: ProjectState): boolean {
@@ -756,7 +770,7 @@ function firstUsableMoveId(project: ProjectState): number {
 }
 
 function pokemonNameAutofills(project: ProjectState): string[] {
-  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, project.narcs.personal?.fileCount ?? 0);
+  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, getPokemonCount(project));
   return Array.from({ length: count }, (_unused, speciesId) => String(pokemonDisplayName(project, speciesId)));
 }
 
@@ -765,7 +779,7 @@ function pokemonDisplayName(project: ProjectState, speciesId: number): string | 
 }
 
 function findPokemonValueIndex(project: ProjectState, inputValue: string): number {
-  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, project.narcs.personal?.fileCount ?? 0);
+  const count = Math.max(project.texts.banks.pokedex?.length ?? 0, getPokemonCount(project));
   const numeric = Number(inputValue.trim());
   if (Number.isInteger(numeric) && numeric >= 0 && numeric < count) return numeric;
   const normalizedInput = normalizeName(inputValue);
