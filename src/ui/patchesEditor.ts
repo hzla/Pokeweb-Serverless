@@ -11,6 +11,10 @@ import {
   specifyTrainerNatures,
   type RomPatchApplyResult,
 } from "../pokeweb/romPatchModel";
+import {
+  applyPlatinumItemStandardization,
+  detectPlatinumItemStandardization,
+} from "../pokeweb/gen4ItemStandardizationModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
@@ -27,6 +31,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
   const hmStatus = detectForgettableHmPatch(project);
   const fairyStatus = detectFairyTypePatch(project);
   const trainerNatureStatus = detectSpecifyTrainerNaturesPatch(project);
+  const itemStandardizationStatus = detectPlatinumItemStandardization(project);
   const hmPatchCard =
     hmStatus === "unsupported"
       ? ""
@@ -97,6 +102,28 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           </div>
         </section>
       `;
+  const itemStandardizationPatchCard =
+    itemStandardizationStatus === "unsupported"
+      ? ""
+      : `
+        <section class="patch-card">
+          <div class="patch-card__body">
+            <div>
+              <h2>Standardize Ground Item IDs</h2>
+              <p>Reorders Platinum ground-item scripts so script 7000 + the in-game item ID selects that item, while preserving existing pickups.</p>
+            </div>
+            <div class="patch-card__meta">
+              <span class="patch-badge ${itemStandardizationStatus === "patched" ? "-ok" : itemStandardizationStatus === "unknown" ? "-warn" : ""}">
+                ${itemStandardizationStatusLabel(itemStandardizationStatus)}
+              </span>
+              <span>Pt</span>
+            </div>
+          </div>
+          <div class="patch-card__actions">
+            <button class="btn -default" id="standardize-ground-items-btn" type="button" ${itemStandardizationStatus !== "unpatched" ? "disabled" : ""}>Standardize Ground Items</button>
+          </div>
+        </section>
+      `;
   root.innerHTML = `
     <div class="patches-page">
       <header class="patches-header">
@@ -143,6 +170,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
         ${fairyPatchCard}
         ${trainerNaturePatchCard}
         ${hmPatchCard}
+        ${itemStandardizationPatchCard}
         <div class="patch-status ${status?.kind ? `-${status.kind}` : ""}" id="patch-status">${escapeHtml(status?.text ?? "")}</div>
       </main>
     </div>
@@ -193,6 +221,16 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
       apply: specifyTrainerNatures,
     });
   });
+
+  root.querySelector<HTMLButtonElement>("#standardize-ground-items-btn")?.addEventListener("click", async (event) => {
+    applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
+      confirmText:
+        "Standardize Platinum ground-item IDs? This rewrites the global item script file, affected event files, and overlay 9 while preserving currently placed items.",
+      loadingText: "Validating and rebuilding Platinum ground-item scripts...",
+      successText: "Standardized Platinum ground-item IDs",
+      apply: applyPlatinumItemStandardization,
+    });
+  });
 }
 
 function dustStatusLabel(value: ReturnType<typeof detectDustCloudGemPatch>): string {
@@ -218,6 +256,13 @@ function trainerNatureStatusLabel(value: ReturnType<typeof detectSpecifyTrainerN
   if (value === "patched") return "Applied";
   if (value === "unsupported") return "Unsupported";
   if (value === "unknown") return "Signature unknown";
+  return "Ready";
+}
+
+function itemStandardizationStatusLabel(value: ReturnType<typeof detectPlatinumItemStandardization>): string {
+  if (value === "patched") return "Applied";
+  if (value === "unknown") return "Signature unknown";
+  if (value === "unsupported") return "Unsupported";
   return "Ready";
 }
 
@@ -260,9 +305,11 @@ async function applyPatchFromButton(
     } else {
       status = {
         text:
-          result.overlayId !== undefined && result.offset !== undefined
+          result.summary
+            ? `${result.summary} Export the ROM to save the patch.`
+            : result.overlayId !== undefined && result.offset !== undefined
             ? `${options.successText} in overlay ${result.overlayId} at 0x${result.offset.toString(16)}. Export the ROM to save the patch.`
-            : `${result.summary ?? options.successText} Export the ROM to save the patch.`,
+            : `${options.successText} Export the ROM to save the patch.`,
         kind: "ok",
       };
       onDirty?.();

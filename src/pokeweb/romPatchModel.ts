@@ -7,7 +7,13 @@ import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, type NarcStore, type ProjectState } from "./projectStore";
 import { applyTrainerNaturePatchToArm9, detectTrainerNaturePatchState, type TrainerNaturePatchState } from "./trainerNaturePatch";
 
-export type RomPatchId = "removeDustCloudGems" | "removeDustCloudItems" | "forgettableHms" | "fairyType" | "specifyTrainerNatures";
+export type RomPatchId =
+  | "removeDustCloudGems"
+  | "removeDustCloudItems"
+  | "forgettableHms"
+  | "fairyType"
+  | "specifyTrainerNatures"
+  | "itemStandardization";
 
 export type RomPatchApplyResult = {
   patchId: RomPatchId;

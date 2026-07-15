@@ -11,6 +11,7 @@ import {
   deletePokemonEggMove,
   deletePokemonLearnsetMove,
   evolutionSlotCount,
+  getPokemonCount,
   getPokemonRecord,
   insertPokemonEggMove,
   insertPokemonLearnsetMove,
@@ -34,6 +35,35 @@ describe("pokemonModel", () => {
     expect(bulbasaur.learnset[0]).toMatchObject({ moveName: "Tackle", level: 1, type: "Normal", power: 40 });
     expect(bulbasaur.evolutions[0]).toMatchObject({ method: "Level Requirement", param: 16, target: "Ivysaur" });
     expect(bulbasaur.evolutions).toHaveLength(7);
+  });
+
+  it.each([
+    ["retail BW2", 1370],
+    ["expanded White2Upgrade", 2048],
+  ])("excludes the trailing regional-Dex table from the %s Pokemon count", (_layout, tableLength) => {
+    const project = makeProject();
+    const personal = project.narcs.personal!;
+    const regionalDexTable = new Uint8Array(tableLength);
+    regionalDexTable.fill(0xe7);
+    personal.rawFiles.push(regionalDexTable);
+    personal.fileCount = personal.rawFiles.length;
+
+    expect(getPokemonCount(project)).toBe(2);
+    expect(personal.rawFiles).toHaveLength(3);
+    expect(personal.rawFiles.at(-1)).toBe(regionalDexTable);
+  });
+
+  it("recognizes the shorter BW personal-record layout before its regional-Dex table", () => {
+    const project = makeProject();
+    project.session.baseRom = "BW";
+    project.formats = getNarcFormats("BW");
+    const recordLength = project.formats.personal!.reduce((sum, [size]) => sum + size, 0);
+    const personal = project.narcs.personal!;
+    personal.rawFiles = [new Uint8Array(recordLength), new Uint8Array(recordLength), new Uint8Array(1300)];
+    personal.fileCount = personal.rawFiles.length;
+
+    expect(getPokemonCount(project)).toBe(2);
+    expect(personal.rawFiles).toHaveLength(3);
   });
 
   it("updates personal text, packed EV yields, learnset moves, and evolution targets in memory", () => {

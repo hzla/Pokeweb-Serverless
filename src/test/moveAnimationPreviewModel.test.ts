@@ -134,7 +134,7 @@ describe("moveAnimationPreviewModel", () => {
     expect(background.indexed.bitsPerPixel).toBe(8);
     expect(background.width).toBe(16);
     expect(background.height).toBe(16);
-    expect([...background.rgba.slice(0, 4)]).toEqual([0, 255, 0, 255]);
+    expect([...background.rgba.slice(0, 4)]).toEqual([0, 248, 0, 255]);
     expect(background.warnings).not.toEqual(expect.arrayContaining([expect.stringContaining("bit depth 4")]));
   });
 
@@ -206,6 +206,17 @@ describe("moveAnimationPreviewModel", () => {
     expect(background.rgba[4]).toBeGreaterThan(200);
     expect(background.rgba[5]).toBeLessThan(10);
     expect(background.rgba[6]).toBeLessThan(10);
+  });
+
+  it("maps wide text backgrounds in DS screen-block order and normalizes their palette bank base", () => {
+    const [screen, characters, palette] = makeSyntheticWideBackgroundFiles();
+    const background = parseNitroBackground(0, screen, characters, palette, { paletteBankOffset: 8 });
+
+    const secondTileRow = (8 * background.width) * 4;
+    const thirdTileRow = (16 * background.width) * 4;
+    expect(background.indexed.paletteBankOffset).toBe(8);
+    expect([...background.rgba.slice(secondTileRow, secondTileRow + 4)]).toEqual([248, 0, 0, 255]);
+    expect([...background.rgba.slice(thirdTileRow, thirdTileRow + 4)]).toEqual([0, 0, 0, 255]);
   });
 
   it("simulates SPL particles from emitter data without renderer motion heuristics", () => {
@@ -744,6 +755,24 @@ function makeSyntheticBackgroundFiles(): [Uint8Array, Uint8Array, Uint8Array] {
   writeU32(palette, 20, palette.length - 16);
   writeU32(palette, 32, 32);
   writeU16(palette, 42, 0x001f);
+  return [screen, characters, palette];
+}
+
+function makeSyntheticWideBackgroundFiles(): [Uint8Array, Uint8Array, Uint8Array] {
+  const [, characters, palette] = makeSyntheticBackgroundFiles();
+  const screen = new Uint8Array(0x24 + 64 * 64 * 2);
+  writeAscii(screen, 0, "RCSN");
+  writeU16(screen, 4, 0xfeff);
+  writeU16(screen, 6, 1);
+  writeU32(screen, 8, screen.length);
+  writeU16(screen, 12, 16);
+  writeU16(screen, 14, 1);
+  writeAscii(screen, 16, "NRCS");
+  writeU32(screen, 20, screen.length - 16);
+  writeU16(screen, 24, 512);
+  writeU16(screen, 26, 512);
+  writeU32(screen, 32, 64 * 64 * 2);
+  writeU16(screen, 36 + 32 * 2, 0x8001);
   return [screen, characters, palette];
 }
 

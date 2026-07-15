@@ -399,6 +399,25 @@ export type NitroResources = {
   palettes: NitroPalette[];
 };
 
+export type NitroTextureBinding = {
+  modelIndex: number;
+  materialIndex: number;
+  materialName: string;
+  paletteName?: string;
+};
+
+export type NitroTexturePreview = {
+  index: number;
+  name: string;
+  width: number;
+  height: number;
+  format: number;
+  byteLength: number;
+  image?: DecodedTexture;
+  palettes: Array<{ index: number; name: string }>;
+  bindings: NitroTextureBinding[];
+};
+
 type RenderOp =
   | { kind: "load"; stack: number }
   | { kind: "store"; stack: number }
@@ -1575,6 +1594,38 @@ export function buildModelPrimitives(resources: NitroResources, warnings: string
     }
   }
   return out;
+}
+
+export function buildNitroTexturePreviews(resources: NitroResources): NitroTexturePreview[] {
+  const paletteIndexByName = new Map(resources.palettes.map((palette, index) => [palette.name, index]));
+  const paletteByName = new Map(resources.palettes.map((palette) => [palette.name, palette]));
+  return resources.textures.map((texture, index) => {
+    const bindings = resources.models.flatMap((model, modelIndex) =>
+      model.materials.flatMap((material, materialIndex): NitroTextureBinding[] =>
+        material.textureName === texture.name
+          ? [{ modelIndex, materialIndex, materialName: material.name, paletteName: material.paletteName }]
+          : [],
+      ),
+    );
+    const paletteNames = [...new Set(bindings.map((binding) => binding.paletteName).filter((name): name is string => Boolean(name)))];
+    const palettes = paletteNames.flatMap((name) => {
+      const paletteIndex = paletteIndexByName.get(name);
+      return paletteIndex === undefined ? [] : [{ index: paletteIndex, name }];
+    });
+    const fallbackPalette = paletteByName.get(texture.name) ?? (resources.palettes.length === 1 ? resources.palettes[0] : undefined);
+    const palette = paletteNames.map((name) => paletteByName.get(name)).find(Boolean) ?? fallbackPalette;
+    return {
+      index,
+      name: texture.name,
+      width: texture.params.width(),
+      height: texture.params.height(),
+      format: texture.params.format(),
+      byteLength: texture.params.byteLength(),
+      image: decodeTexture(texture, palette),
+      palettes,
+      bindings,
+    };
+  });
 }
 
 function isHiddenNitroMaterial(material: NitroMaterial | undefined): boolean {

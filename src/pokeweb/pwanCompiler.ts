@@ -304,6 +304,24 @@ export function pwanFramePixels(bytes: Uint8Array, frameIndex: number): number[]
   return decodePwanFrame(bytes.subarray(header.frameOffset + index * header.frameBytes, header.frameOffset + (index + 1) * header.frameBytes));
 }
 
+export function pwanFrameRgbaImage(bytes: Uint8Array, frameIndex = 0): { width: number; height: number; pixels: Uint8ClampedArray } {
+  const indices = pwanFramePixels(bytes, frameIndex);
+  const palette = pwanPalette(bytes);
+  const pixels = new Uint8ClampedArray(PWAN_WIDTH * PWAN_HEIGHT * 4);
+  for (let y = 0; y < PWAN_HEIGHT; y += 1) {
+    for (let x = 0; x < PWAN_WIDTH; x += 1) {
+      const colorIndex = indices[y]?.[x] ?? 0;
+      const color = bgr555ToRgb(palette[colorIndex] ?? 0);
+      const offset = (y * PWAN_WIDTH + x) * 4;
+      pixels[offset] = color.r;
+      pixels[offset + 1] = color.g;
+      pixels[offset + 2] = color.b;
+      pixels[offset + 3] = colorIndex === 0 ? 0 : 255;
+    }
+  }
+  return { width: PWAN_WIDTH, height: PWAN_HEIGHT, pixels };
+}
+
 export function replacePwanFramePixels(bytes: Uint8Array, frameIndex: number, pixels: number[][]): { pwanBytes: Uint8Array; visibleHeight: number } {
   return replacePwanFramesPixels(bytes, [{ frameIndex, pixels }]);
 }
