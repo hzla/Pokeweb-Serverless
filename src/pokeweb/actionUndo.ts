@@ -55,8 +55,8 @@ export function undoActionChange(project: ProjectState, entry: ActionChangelogEn
   }
 
   if (kind === "tutor-move") {
-    const [, rowIndex, field] = match(entry.key, /^tutor-move:(\d+):(move|shardCost|compatibilityIndex)$/u);
-    updateTutorMoveField(project, Number(rowIndex), field as "move" | "shardCost" | "compatibilityIndex", before);
+    const [, rowIndex, field] = match(entry.key, /^tutor-move:(\d+):(move|shardCost|displayIndex|compatibilityIndex)$/u);
+    updateTutorMoveField(project, Number(rowIndex), field === "compatibilityIndex" ? "displayIndex" : (field as "move" | "shardCost" | "displayIndex"), before);
     return;
   }
 
@@ -179,7 +179,7 @@ function undoKind(entry: ActionChangelogEntry): string | undefined {
   if (/^item:\d+:[^:]+$/u.test(key)) return "item";
   if (/^tm:[^:]+$/u.test(key)) return "tm";
   if (/^type-chart:\d+:\d+$/u.test(key)) return "type-chart";
-  if (/^tutor-move:\d+:(move|shardCost|compatibilityIndex)$/u.test(key)) return "tutor-move";
+  if (/^tutor-move:\d+:(move|shardCost|displayIndex|compatibilityIndex)$/u.test(key)) return "tutor-move";
   if (/^move-effect-handler:\d+:(move|address)$/u.test(key)) return "move-effect-handler";
   if (/^mart:\d+:[^:]+$/u.test(key)) return "mart";
   if (/^grotto:\d+:[^:]+$/u.test(key)) return "grotto";

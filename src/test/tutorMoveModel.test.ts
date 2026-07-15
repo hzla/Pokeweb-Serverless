@@ -25,15 +25,15 @@ describe("tutorMoveModel", () => {
       moveId: 4,
       moveName: "Covet",
       shardCost: 2,
-      compatibilityIndex: 0,
+      displayIndex: 0,
     });
 
     updateTutorMoveField(project, 13, "move", "Skitter Smack");
     updateTutorMoveField(project, 13, "shardCost", "8");
-    updateTutorMoveField(project, 13, "compatibilityIndex", "9");
+    updateTutorMoveField(project, 13, "displayIndex", "9");
 
     const row = getTutorMoveRows(project)[13];
-    expect(row).toMatchObject({ moveId: 19, moveName: "Skitter Smack", shardCost: 8, compatibilityIndex: 9 });
+    expect(row).toMatchObject({ moveId: 19, moveName: "Skitter Smack", shardCost: 8, displayIndex: 9 });
     expect(project.narcs.tutor_moves?.dirty.has(0)).toBe(true);
 
     const table = project.narcs.tutor_moves?.rawFiles[0];
@@ -46,7 +46,7 @@ describe("tutorMoveModel", () => {
     const driftveilGroup = getTutorMoveCompatibilityGroups(project).find((group) => group.key === "driftveil");
     expect(driftveilGroup?.moves.find((move) => move.moveName === "Skitter Smack")).toEqual({
       moveName: "Skitter Smack",
-      compatibilityIndex: 9,
+      compatibilityIndex: 0,
     });
   });
 
@@ -63,7 +63,17 @@ describe("tutorMoveModel", () => {
       moveId: 1,
       moveName: "Bind",
       shardCost: 2,
-      compatibilityIndex: 0,
+      displayIndex: 0,
+    });
+  });
+
+  it("uses physical tutor rows as personal-data compatibility bits", () => {
+    const project = makeProject();
+    const humilau = getTutorMoveCompatibilityGroups(project).find((group) => group.key === "humilau");
+
+    expect(humilau?.moves.find((move) => move.moveName === "Knock Off")).toEqual({
+      moveName: "Knock Off",
+      compatibilityIndex: 2,
     });
   });
 });
@@ -72,6 +82,7 @@ function makeProject(baseVersion: "B2" | "W2" = "W2"): ProjectState {
   const tableOffset = tutorMoveTableOffset(baseVersion);
   const overlay = new Uint8Array(B2_TUTOR_MOVE_TABLE_OFFSET + BW2_TUTOR_MOVE_TABLE_LENGTH + 0x10);
   writeTutorRow(overlay, tableOffset, 0, 1, 2, 0);
+  writeTutorRow(overlay, tableOffset, 2, 3, 4, 3);
   if (baseVersion === "B2") writeTutorRow(overlay, W2_TUTOR_MOVE_TABLE_OFFSET, 0, 24, 404, 24);
   const driftveilMoves = [
     [4, 2, 0],
@@ -90,8 +101,8 @@ function makeProject(baseVersion: "B2" | "W2" = "W2"): ProjectState {
     [17, 10, 13],
     [18, 10, 14],
   ];
-  driftveilMoves.forEach(([moveId, cost, compatibilityIndex], index) => {
-    writeTutorRow(overlay, tableOffset, 13 + index, moveId, cost, compatibilityIndex);
+  driftveilMoves.forEach(([moveId, cost, displayIndex], index) => {
+    writeTutorRow(overlay, tableOffset, 13 + index, moveId, cost, displayIndex);
   });
 
   return {
@@ -140,11 +151,11 @@ function makeProject(baseVersion: "B2" | "W2" = "W2"): ProjectState {
   };
 }
 
-function writeTutorRow(overlay: Uint8Array, tableOffset: number, rowIndex: number, moveId: number, shardCost: number, compatibilityIndex: number): void {
+function writeTutorRow(overlay: Uint8Array, tableOffset: number, rowIndex: number, moveId: number, shardCost: number, displayIndex: number): void {
   const offset = tableOffset + rowIndex * BW2_TUTOR_MOVE_ROW_SIZE;
   writeU32(overlay, offset, moveId);
   writeU32(overlay, offset + 4, shardCost);
-  writeU32(overlay, offset + 8, compatibilityIndex);
+  writeU32(overlay, offset + 8, displayIndex);
 }
 
 function makeStore(name: NarcName, rawFiles: Uint8Array[], count: number): NarcStore {
