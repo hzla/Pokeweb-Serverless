@@ -10,7 +10,7 @@ export const BW2_TUTOR_MOVE_ROW_SIZE = 12;
 export const BW2_TUTOR_MOVE_ROW_COUNT = 60;
 export const BW2_TUTOR_MOVE_TABLE_LENGTH = BW2_TUTOR_MOVE_ROW_SIZE * BW2_TUTOR_MOVE_ROW_COUNT;
 
-export type TutorMoveField = "move" | "shardCost" | "compatibilityIndex";
+export type TutorMoveField = "move" | "shardCost" | "displayIndex";
 
 export type TutorMoveGroupKey = "driftveil" | "lentimas" | "humilau" | "nacrene";
 
@@ -33,7 +33,7 @@ export type TutorMoveRow = {
   moveId: number;
   moveName: string;
   shardCost: number;
-  compatibilityIndex: number;
+  displayIndex: number;
 };
 
 export type TutorCompatibilityMove = {
@@ -61,17 +61,17 @@ const SPECIAL_TUTOR_GROUP: TutorCompatibilityGroupDefinition = {
   label: "Special Tutors",
   shortLabel: "SP",
   field: "tutors",
-  moves: ["Draco Meteor", "Grass Pledge", "Fire Pledge", "Water Pledge", "Frenzy Plant", "Blast Burn", "Hydro Cannon"].map((moveName, compatibilityIndex) => ({
+  moves: ["Grass Pledge", "Fire Pledge", "Water Pledge", "Frenzy Plant", "Blast Burn", "Hydro Cannon", "Draco Meteor"].map((moveName, compatibilityIndex) => ({
     moveName,
     compatibilityIndex,
   })),
 };
 
 const FALLBACK_BW2_TUTOR_MOVES: Record<TutorMoveGroupKey, readonly string[]> = {
-  driftveil: ["Covet", "Bug Bite", "Drill Run", "Bounce", "Signal Beam", "Iron Head", "Super Fang", "Uproar", "Seed Bomb", "Dual Chop", "Low Kick", "Gunk Shot", "Fire Punch", "Thunder Punch", "Ice Punch"],
-  lentimas: ["Last Resort", "Iron Defense", "Magnet Rise", "Magic Coat", "Block", "Hyper Voice", "Electroweb", "Icy Wind", "Iron Tail", "Aqua Tail", "Earth Power", "Zen Headbutt", "Foul Play", "Superpower", "Gravity", "Dragon Pulse", "Dark Pulse"],
-  humilau: ["Bind", "Snore", "Heal Bell", "Knock Off", "Synthesis", "Roost", "Sky Attack", "Role Play", "Heat Wave", "Giga Drain", "Drain Punch", "Pain Split", "Tailwind"],
-  nacrene: ["Worry Seed", "Gastro Acid", "Helping Hand", "After You", "Magic Room", "Wonder Room", "Spite", "Recycle", "Trick", "Stealth Rock", "Outrage", "Endeavor", "Sleep Talk", "Skill Swap", "Snatch"],
+  driftveil: ["Bug Bite", "Covet", "Super Fang", "Dual Chop", "Signal Beam", "Iron Head", "Seed Bomb", "Drill Run", "Bounce", "Low Kick", "Gunk Shot", "Uproar", "Thunder Punch", "Fire Punch", "Ice Punch"],
+  lentimas: ["Magic Coat", "Block", "Earth Power", "Foul Play", "Gravity", "Magnet Rise", "Iron Defense", "Last Resort", "Superpower", "Electroweb", "Icy Wind", "Aqua Tail", "Dark Pulse", "Zen Headbutt", "Dragon Pulse", "Hyper Voice", "Iron Tail"],
+  humilau: ["Bind", "Snore", "Knock Off", "Synthesis", "Heat Wave", "Role Play", "Heal Bell", "Tailwind", "Sky Attack", "Pain Split", "Giga Drain", "Drain Punch", "Roost"],
+  nacrene: ["Gastro Acid", "Worry Seed", "Spite", "After You", "Helping Hand", "Trick", "Magic Room", "Wonder Room", "Endeavor", "Outrage", "Recycle", "Snatch", "Stealth Rock", "Sleep Talk", "Skill Swap"],
 };
 
 export function tutorMoveTableOffset(baseVersion: BaseVersion): number {
@@ -131,10 +131,10 @@ export function updateTutorMoveField(project: ProjectState, rowIndex: number, fi
     afterValue = shardCost;
   } else {
     const group = groupForRow(rowIndex);
-    const compatibilityIndex = parseInteger(String(inputValue), 0, Math.max(31, group.count - 1), "Compatibility index");
-    beforeValue = before.compatibilityIndex;
-    writeU32(bytes, offset + 8, compatibilityIndex);
-    afterValue = compatibilityIndex;
+    const displayIndex = parseInteger(String(inputValue), 0, Math.max(31, group.count - 1), "Menu order");
+    beforeValue = before.displayIndex;
+    writeU32(bytes, offset + 8, displayIndex);
+    afterValue = displayIndex;
   }
 
   store.rawFiles[0] = bytes;
@@ -168,7 +168,7 @@ export function tutorMoveMatchesSearch(row: TutorMoveRow, searchText: string): b
     .map((term) => term.trim().toLowerCase())
     .filter(Boolean);
   if (terms.length === 0) return true;
-  const haystack = `${row.rowIndex} ${row.groupLabel} ${row.groupOffset + 1} ${row.moveId} ${row.moveName} ${row.shardCost} ${row.compatibilityIndex}`.toLowerCase();
+  const haystack = `${row.rowIndex} ${row.groupLabel} ${row.groupOffset + 1} ${row.moveId} ${row.moveName} ${row.shardCost} ${row.displayIndex}`.toLowerCase();
   return terms.some((term) => haystack.includes(term));
 }
 
@@ -183,9 +183,7 @@ function tryGetTutorMoveRows(project: ProjectState): TutorMoveRow[] | undefined 
 function tutorCompatibilityMovesFromRows(rows: TutorMoveRow[], group: TutorMoveGroupDefinition): TutorCompatibilityMove[] {
   return rows
     .filter((row) => row.group === group.key)
-    .slice()
-    .sort((a, b) => a.compatibilityIndex - b.compatibilityIndex || a.groupOffset - b.groupOffset)
-    .map((row) => ({ moveName: row.moveName, compatibilityIndex: row.compatibilityIndex }));
+    .map((row) => ({ moveName: row.moveName, compatibilityIndex: row.groupOffset }));
 }
 
 function fallbackTutorCompatibilityMoves(group: TutorMoveGroupKey): TutorCompatibilityMove[] {
@@ -207,7 +205,7 @@ function tutorMoveRow(project: ProjectState, bytes: Uint8Array, rowIndex: number
     moveId,
     moveName: moveName(project, moveId),
     shardCost: readU32(bytes, offset + 4),
-    compatibilityIndex: readU32(bytes, offset + 8),
+    displayIndex: readU32(bytes, offset + 8),
   };
 }
 
@@ -259,7 +257,7 @@ function parseInteger(inputValue: string, min: number, max: number, label: strin
 function tutorMoveFieldLabel(field: TutorMoveField): string {
   if (field === "move") return "Move";
   if (field === "shardCost") return "Shard cost";
-  return "Compatibility index";
+  return "Menu order";
 }
 
 function normalizeName(value: string): string {

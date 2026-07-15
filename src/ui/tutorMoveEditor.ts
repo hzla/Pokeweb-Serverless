@@ -31,7 +31,7 @@ export function renderTutorMoveEditor(project: ProjectState, root: HTMLElement, 
               <div class="tutor-slot">Slot</div>
               <div class="tutor-move">Move</div>
               <div class="tutor-cost">Shards</div>
-              <div class="tutor-index">Index</div>
+              <div class="tutor-index">Menu order</div>
             </div>
           </div>
           ${rows.map(renderRow).join("")}
@@ -127,7 +127,7 @@ function renderRow(row: TutorMoveRow): string {
           <input data-tutor-move-field="shardCost" inputmode="numeric" value="${row.shardCost}" aria-label="Tutor row ${row.rowIndex} shard cost">
         </div>
         <div class="tutor-index">
-          <input data-tutor-move-field="compatibilityIndex" inputmode="numeric" value="${row.compatibilityIndex}" aria-label="Tutor row ${row.rowIndex} compatibility index">
+          <input data-tutor-move-field="displayIndex" inputmode="numeric" value="${row.displayIndex}" aria-label="Tutor row ${row.rowIndex} menu order">
         </div>
       </div>
     </div>
@@ -139,5 +139,5 @@ function syncRow(rowElement: HTMLElement | null | undefined, row: TutorMoveRow):
   rowElement.dataset.moveId = String(row.moveId);
   rowElement.querySelector<HTMLInputElement>("[data-tutor-move-field='move']")!.value = row.moveName;
   rowElement.querySelector<HTMLInputElement>("[data-tutor-move-field='shardCost']")!.value = String(row.shardCost);
-  rowElement.querySelector<HTMLInputElement>("[data-tutor-move-field='compatibilityIndex']")!.value = String(row.compatibilityIndex);
+  rowElement.querySelector<HTMLInputElement>("[data-tutor-move-field='displayIndex']")!.value = String(row.displayIndex);
 }

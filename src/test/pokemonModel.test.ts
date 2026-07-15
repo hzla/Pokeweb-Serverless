@@ -135,8 +135,21 @@ describe("pokemonModel", () => {
     const record = getPokemonRecord(project, 1);
     expect(record.rawPersonal.driftveil_tutor).toBe(1);
     expect(record.rawPersonal.lentimas_tutor).toBe(2 ** 16);
-    expect(record.tutorCompatibility.find((group) => group.group === "driftveil")?.slots[0]).toMatchObject({ enabled: true, moveName: "Covet" });
+    expect(record.tutorCompatibility.find((group) => group.group === "driftveil")?.slots[0]).toMatchObject({ enabled: true, moveName: "Bug Bite" });
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
+  });
+
+  it("maps known BW2 personal tutor masks to their physical tutor rows", () => {
+    const project = makeProject();
+    const rawPersonal = getPokemonRecord(project, 1).rawPersonal;
+    rawPersonal.tutors = 1;
+    rawPersonal.humilau_tutor = 1039;
+
+    const groups = getPokemonRecord(project, 1).tutorCompatibility;
+    const enabledMoves = (group: string) => groups.find((candidate) => candidate.group === group)?.slots.filter((slot) => slot.enabled).map((slot) => slot.moveName);
+
+    expect(enabledMoves("special")).toEqual(["Grass Pledge"]);
+    expect(enabledMoves("humilau")).toEqual(["Bind", "Snore", "Knock Off", "Synthesis", "Giga Drain"]);
   });
 
   it("copies TM/HM and tutor compatibility from another species", () => {
