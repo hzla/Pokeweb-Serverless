@@ -58,6 +58,7 @@ describe("pokemonModel", () => {
     project.session.baseRom = "BW";
     project.formats = getNarcFormats("BW");
     const recordLength = project.formats.personal!.reduce((sum, [size]) => sum + size, 0);
+    expect(recordLength).toBe(60);
     const personal = project.narcs.personal!;
     personal.rawFiles = [new Uint8Array(recordLength), new Uint8Array(recordLength), new Uint8Array(1300)];
     personal.fileCount = personal.rawFiles.length;

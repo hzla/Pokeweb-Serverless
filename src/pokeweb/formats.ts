@@ -107,9 +107,9 @@ export function getNarcFormats(baseRom: BaseRom): NarcFormatMap {
     [4, "tm_65-95+hm_1"],
     [4, "hm_2-6"],
     [1, "tutors"],
+    [3, "padding"],
     ...(baseRom === "BW2"
       ? ([
-          [3, "padding"],
           [4, "driftveil_tutor"],
           [4, "lentimas_tutor"],
           [4, "humilau_tutor"],
