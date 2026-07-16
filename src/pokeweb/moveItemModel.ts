@@ -362,6 +362,7 @@ export function itemMatchesSearch(record: ItemRecord, searchText: string): boole
 }
 
 export function syncMoveReadable(project: ProjectState, raw: RawRecord, readable: ReadableRecord, id: number): void {
+  Object.assign(readable, raw);
   readable.index = id;
   readable.animation = id >= 673 ? 0 : id;
   readable.name = project.texts.banks.moves?.[id] ?? (id <= 559 ? `Move ${id}` : `EXPANDED MOVE ${id}`);
