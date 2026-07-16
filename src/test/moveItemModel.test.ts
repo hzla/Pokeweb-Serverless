@@ -34,6 +34,7 @@ describe("moveItemModel", () => {
     expect(move.raw.type).toBe(9);
     expect(move.raw.category).toBe(2);
     expect(move.raw.power).toBe(90);
+    expect(move.readable.power).toBe(90);
     expect(move.raw.hits).toBe(0x52);
     expect(move.raw.magnitude_1).toBe(254);
     expect(move.readable.sound_move).toBe(1);
