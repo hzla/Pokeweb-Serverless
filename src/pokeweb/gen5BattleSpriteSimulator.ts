@@ -82,10 +82,14 @@ type RuntimeActor = {
 };
 
 class Gen5BattleSpriteRuntime {
-  readonly actors: Record<Gen5BattleSpriteTarget, RuntimeActor> = {
-    user: makeActor("user", false, USER_DEFAULT_POSITION),
-    target: makeActor("target", true, TARGET_DEFAULT_POSITION),
-  };
+  readonly actors: Record<Gen5BattleSpriteTarget, RuntimeActor>;
+
+  constructor(swappedSides = false) {
+    this.actors = {
+      user: makeActor("user", swappedSides, swappedSides ? TARGET_DEFAULT_POSITION : USER_DEFAULT_POSITION),
+      target: makeActor("target", !swappedSides, swappedSides ? USER_DEFAULT_POSITION : TARGET_DEFAULT_POSITION),
+    };
+  }
 
   tick(): void {
     for (const actor of Object.values(this.actors)) {
@@ -198,8 +202,12 @@ export function resolveGen5BattleSpriteTargets(selector: number): Gen5BattleSpri
   }
 }
 
-export function simulateGen5BattleSprites(timeline: MoveAnimationTimelineEvent[], targetFrame: number): Gen5BattleSpriteState {
-  const runtime = runTimeline(timeline, Math.max(0, Math.floor(targetFrame)));
+export function simulateGen5BattleSprites(
+  timeline: MoveAnimationTimelineEvent[],
+  targetFrame: number,
+  swappedSides = false,
+): Gen5BattleSpriteState {
+  const runtime = runTimeline(timeline, Math.max(0, Math.floor(targetFrame)), swappedSides);
   return runtime.state();
 }
 
@@ -214,8 +222,8 @@ export function gen5BattleSpriteIdleFrame(timeline: MoveAnimationTimelineEvent[]
   return idleFrame;
 }
 
-function runTimeline(timeline: MoveAnimationTimelineEvent[], targetFrame: number): Gen5BattleSpriteRuntime {
-  const runtime = new Gen5BattleSpriteRuntime();
+function runTimeline(timeline: MoveAnimationTimelineEvent[], targetFrame: number, swappedSides = false): Gen5BattleSpriteRuntime {
+  const runtime = new Gen5BattleSpriteRuntime(swappedSides);
   const events = timeline
     .filter((event) => event.frame <= targetFrame && GEN5_BATTLE_SPRITE_COMMANDS.has(event.command))
     .map((event, index) => ({ event, index }))

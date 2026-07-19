@@ -354,6 +354,119 @@
   padding: 9px 12px;
 }
 
+.battle-environment-usage {
+  background: #292d3b;
+  border: 1px solid #444b60;
+  border-radius: 6px;
+  display: grid;
+  gap: 10px;
+  padding: 11px;
+}
+
+.battle-environment-usage > header {
+  display: grid;
+  gap: 6px;
+}
+
+.battle-environment-usage > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.battle-environment-usage > header span {
+  color: #50c3a5;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.battle-environment-usage h2 {
+  color: #f4f5fb;
+  font-size: 14px;
+  margin: 0;
+}
+
+.battle-environment-usage > header p,
+.battle-environment-usage > footer {
+  color: #929cb2;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.battle-environment-usage > header p {
+  text-align: left;
+}
+
+.battle-environment-usage > footer {
+  border-top: 1px solid #383e50;
+  padding-top: 11px;
+}
+
+.battle-environment-usage-list {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow: hidden auto;
+  padding-right: 3px;
+}
+
+.battle-environment-usage-card {
+  align-items: start;
+  background: #2b303f;
+  border: 1px solid #454c61;
+  border-radius: 7px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+  padding: 9px;
+}
+
+.battle-environment-usage-location,
+.battle-environment-usage-routes,
+.battle-environment-usage-routes > div {
+  display: grid;
+  gap: 4px;
+}
+
+.battle-environment-usage-location strong {
+  color: #f2f2f2;
+  font-size: 11px;
+}
+
+.battle-environment-usage-location span,
+.battle-environment-usage-routes span {
+  color: #929cb2;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.battle-environment-usage-routes {
+  border-top: 1px solid #3d4355;
+  gap: 7px;
+  padding-top: 7px;
+}
+
+.battle-environment-usage-routes strong {
+  color: #8be9fd;
+  font-size: 10px;
+}
+
+.battle-environment-usage-empty {
+  background: #292d3b;
+  border: 1px dashed #4a5268;
+  border-radius: 6px;
+  color: #aeb7ca;
+  font-size: 12px;
+  padding: 18px;
+}
+
+.battle-environment-usage-empty.-error {
+  border-color: #72525a;
+  color: #ff9da6;
+}
+
 .battle-background-textures {
   background: #252936;
   border: 1px solid #404659;

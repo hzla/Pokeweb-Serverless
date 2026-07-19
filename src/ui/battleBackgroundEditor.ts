@@ -6,6 +6,11 @@ import {
 } from "../pokeweb/battleBackgroundModel";
 import type { BattleModelScene } from "../pokeweb/battleModelScene";
 import {
+  loadBattleEnvironmentUsage,
+  type BattleEnvironmentLocationUsage,
+  type BattleEnvironmentUsageCatalog,
+} from "../pokeweb/battleEnvironmentUsage";
+import {
   loadBattlePlatformCatalog,
   loadBattlePlatformScene,
   type BattlePlatformCatalog,
@@ -32,8 +37,12 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
     </main>
   `;
 
-  void Promise.all([loadBattleBackgroundCatalog(project), loadBattlePlatformCatalog(project)])
-    .then(([backgroundCatalog, platformCatalog]) => {
+  const usagePromise = loadBattleEnvironmentUsage(project).then(
+    (catalog) => ({ catalog, error: undefined }),
+    (error: unknown) => ({ catalog: undefined, error: error instanceof Error ? error.message : String(error) }),
+  );
+  void Promise.all([loadBattleBackgroundCatalog(project), loadBattlePlatformCatalog(project), usagePromise])
+    .then(([backgroundCatalog, platformCatalog, usageResult]) => {
       if (!root.isConnected) return;
       let selectedBackground = backgroundCatalog.variants[0];
       let selectedPlatform = platformCatalog.variants[0];
@@ -51,6 +60,7 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
           const loadSelected = () => {
             selectedBackground =
               backgroundCatalog.variants.find((variant) => backgroundVariantKey(variant) === select?.value) ?? backgroundCatalog.variants[0]!;
+            updateSidebarLocationUsage(root, "background", selectedBackground.tableIndex, usageResult.catalog, usageResult.error);
             loadBackground(root, project, backgroundCatalog, selectedBackground);
           };
           select?.addEventListener("change", loadSelected);
@@ -64,6 +74,7 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
         const loadSelected = () => {
           selectedPlatform =
             platformCatalog.variants.find((variant) => platformVariantKey(variant) === select?.value) ?? platformCatalog.variants[0]!;
+          updateSidebarLocationUsage(root, "platform", selectedPlatform.tableIndex, usageResult.catalog, usageResult.error);
           loadPlatform(root, project, platformCatalog, selectedPlatform);
         };
         select?.addEventListener("change", loadSelected);
@@ -176,6 +187,7 @@ function renderBackgroundPage(catalog: BattleBackgroundCatalog, selected: Battle
         <span>background table entries</span>
         <small>${catalog.variants.length} renderable model variant${catalog.variants.length === 1 ? "" : "s"} · ${catalog.graphicsEntryCount} battle assets</small>
       </div>
+      <div class="battle-environment-usage-sidebar-host"></div>
       <section class="battle-background-shape-summary">
         <div class="battle-background-sidebar-title">Non-standard field meshes</div>
         <strong>${escapeHtml(formatIndexRanges(nonStandardIds))}</strong>
@@ -208,6 +220,7 @@ function renderPlatformPage(catalog: BattlePlatformCatalog, selected: BattlePlat
         <span>renderable platform entries</span>
         <small>${catalog.variants.length} distinct seasonal variant${catalog.variants.length === 1 ? "" : "s"} · ${catalog.tableEntryCount} table entries${omitted > 0 ? ` · ${omitted} without a renderable NSBMD` : ""}</small>
       </div>
+      <div class="battle-environment-usage-sidebar-host"></div>
       <section class="battle-platform-object-note">
         <div class="battle-background-sidebar-title">One resource, two objects</div>
         <p>The game creates player-side and opponent-side platform objects from the selected stage resource. This viewer shows one model.</p>
@@ -282,6 +295,57 @@ function renderPlatformLoaded(
       ${renderTextureGallery(scene)}
       ${renderWarnings(scene)}
     </section>
+  `;
+}
+
+function updateSidebarLocationUsage(
+  root: HTMLElement,
+  kind: "background" | "platform",
+  tableIndex: number,
+  usageCatalog?: BattleEnvironmentUsageCatalog,
+  usageError?: string,
+): void {
+  const host = root.querySelector<HTMLElement>(".battle-environment-usage-sidebar-host");
+  if (!host) return;
+  const usages = (kind === "background" ? usageCatalog?.backgrounds : usageCatalog?.platforms)?.get(tableIndex) ?? [];
+  host.innerHTML = renderSidebarLocationUsage(kind, tableIndex, usages, usageError);
+}
+
+function renderSidebarLocationUsage(
+  kind: "background" | "platform",
+  tableIndex: number,
+  usages: BattleEnvironmentLocationUsage[],
+  usageError?: string,
+): string {
+  const headerCount = usages.reduce((count, usage) => count + usage.headerIndexes.length, 0);
+  const summary = usageError
+    ? `<div class="battle-environment-usage-empty -error">Location lookup unavailable: ${escapeHtml(usageError)}</div>`
+    : usages.length === 0
+      ? `<div class="battle-environment-usage-empty">No loaded map header can resolve to this ${kind} table entry.</div>`
+      : `<div class="battle-environment-usage-list">${usages.map(renderLocationUsageCard).join("")}</div>`;
+  return `
+    <section class="battle-environment-usage">
+      <header>
+        <div><span>Header → zone-spec lookup</span><h2>Used in locations</h2></div>
+        <p>${usageError ? "Could not trace the loaded headers." : `${usages.length} location${usages.length === 1 ? "" : "s"} · ${headerCount} header${headerCount === 1 ? "" : "s"} can select ${kind} ${tableIndex}.`}</p>
+      </header>
+      ${summary}
+      <footer>Resolved from each header's background type and the current terrain. Seasonal slots share this mapping.</footer>
+    </section>
+  `;
+}
+
+function renderLocationUsageCard(usage: BattleEnvironmentLocationUsage): string {
+  const headers = usage.headerIndexes.map((headerIndex) => `Header ${headerIndex}`).join(", ");
+  return `
+    <article class="battle-environment-usage-card">
+      <div class="battle-environment-usage-location"><strong>${escapeHtml(usage.locationName)}</strong><span>${escapeHtml(headers)}</span></div>
+      <div class="battle-environment-usage-routes">
+        ${usage.routes.map((route) => `
+          <div><strong>${escapeHtml(route.battleBackgroundTypeName)}</strong><span>${escapeHtml(route.attributeNames.join(" · "))}</span></div>
+        `).join("")}
+      </div>
+    </article>
   `;
 }
 

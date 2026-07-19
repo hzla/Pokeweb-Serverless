@@ -10,7 +10,10 @@ export const MOVE_PREVIEW_SPECIES_ID = 1;
 
 export type MoveAnimationBattleEnvironment = {
   backgroundIndex: number;
+  backgroundSeasonIndex: number;
   platformIndex: number;
+  platformSeasonIndex: number;
+  swappedSides: boolean;
   speciesId: number;
   background: BattleModelScene;
   platform: BattleModelScene;
@@ -24,22 +27,37 @@ type BattleVariant = {
   resourceId: number;
 };
 
-export async function loadMoveAnimationBattleEnvironment(project: ProjectState): Promise<MoveAnimationBattleEnvironment> {
+export type MoveAnimationBattleEnvironmentSelection = {
+  backgroundIndex?: number;
+  backgroundSeasonIndex?: number;
+  platformIndex?: number;
+  platformSeasonIndex?: number;
+  swappedSides?: boolean;
+};
+
+export async function loadMoveAnimationBattleEnvironment(
+  project: ProjectState,
+  selection: MoveAnimationBattleEnvironmentSelection = {},
+): Promise<MoveAnimationBattleEnvironment> {
   const { rom, graphics, table } = await loadBattleEnvironmentArchives(project);
   const backgroundRows = table.narc.files[1];
   const platformRows = table.narc.files[2];
   if (!backgroundRows || !platformRows) throw new Error("The battle lookup archive is missing its background or platform table.");
 
+  const backgroundIndex = selection.backgroundIndex ?? MOVE_PREVIEW_BACKGROUND_INDEX;
+  const platformIndex = selection.platformIndex ?? MOVE_PREVIEW_PLATFORM_INDEX;
   const backgroundVariant = selectMovePreviewBattleVariant(
     parseBattleBackgroundVariants(backgroundRows, graphics.files, rom.idCode),
-    MOVE_PREVIEW_BACKGROUND_INDEX,
+    backgroundIndex,
+    selection.backgroundSeasonIndex,
   );
   const platformVariant = selectMovePreviewBattleVariant(
     parseBattlePlatformVariants(platformRows, graphics.files, rom.idCode),
-    MOVE_PREVIEW_PLATFORM_INDEX,
+    platformIndex,
+    selection.platformSeasonIndex,
   );
-  if (!backgroundVariant) throw new Error(`Battle background ${MOVE_PREVIEW_BACKGROUND_INDEX} is unavailable.`);
-  if (!platformVariant) throw new Error(`Battle platform ${MOVE_PREVIEW_PLATFORM_INDEX} is unavailable.`);
+  if (!backgroundVariant) throw new Error(`Battle background ${backgroundIndex} is unavailable.`);
+  if (!platformVariant) throw new Error(`Battle platform ${platformIndex} is unavailable.`);
 
   const backgroundBytes = graphics.files[backgroundVariant.resourceId];
   const platformBytes = graphics.files[platformVariant.resourceId];
@@ -47,8 +65,11 @@ export async function loadMoveAnimationBattleEnvironment(project: ProjectState):
 
   const spriteId = resolvePokemonSpriteId(project, MOVE_PREVIEW_SPECIES_ID);
   return {
-    backgroundIndex: MOVE_PREVIEW_BACKGROUND_INDEX,
-    platformIndex: MOVE_PREVIEW_PLATFORM_INDEX,
+    backgroundIndex: backgroundVariant.tableIndex,
+    backgroundSeasonIndex: backgroundVariant.seasonIndex,
+    platformIndex: platformVariant.tableIndex,
+    platformSeasonIndex: platformVariant.seasonIndex,
+    swappedSides: selection.swappedSides ?? false,
     speciesId: MOVE_PREVIEW_SPECIES_ID,
     background: decodeBattleModelScene(backgroundBytes, backgroundVariant.resourceId),
     platform: decodeBattleModelScene(platformBytes, platformVariant.resourceId),
@@ -57,7 +78,12 @@ export async function loadMoveAnimationBattleEnvironment(project: ProjectState):
   };
 }
 
-export function selectMovePreviewBattleVariant<T extends BattleVariant>(variants: T[], tableIndex: number): T | undefined {
-  return variants.find((variant) => variant.tableIndex === tableIndex && variant.seasonIndex === 0)
+export function selectMovePreviewBattleVariant<T extends BattleVariant>(
+  variants: T[],
+  tableIndex: number,
+  seasonIndex = 0,
+): T | undefined {
+  return variants.find((variant) => variant.tableIndex === tableIndex && variant.seasonIndex === seasonIndex)
+    ?? variants.find((variant) => variant.tableIndex === tableIndex && variant.seasonIndex === 0)
     ?? variants.find((variant) => variant.tableIndex === tableIndex);
 }

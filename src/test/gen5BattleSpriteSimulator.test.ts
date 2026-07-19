@@ -36,6 +36,17 @@ describe("gen5BattleSpriteSimulator", () => {
     expect(end.target.positionOffset).toEqual([-1, 0, 0]);
   });
 
+  it("mirrors MCSS movement according to the physical side after swapping roles", () => {
+    const timeline = [
+      event("ShakeSprite", [14, 1, 4096, 0, 2, 0, 0]),
+      event("ShakeSprite", [16, 1, 4096, 0, 2, 0, 0]),
+    ];
+
+    const halfway = simulateGen5BattleSprites(timeline, 1, true);
+    expect(halfway.user.positionOffset).toEqual([-0.5, 0, 0]);
+    expect(halfway.target.positionOffset).toEqual([0.5, 0, 0]);
+  });
+
   it("implements roundtrip and roundtrip-long legs with exact idle frames", () => {
     const roundtrip = [event("ShakeSprite", [14, 2, 4096, 0, 2, 0, 1])];
     expect(simulateGen5BattleSprites(roundtrip, 2).user.positionOffset[0]).toBe(1);

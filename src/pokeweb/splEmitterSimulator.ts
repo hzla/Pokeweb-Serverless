@@ -1158,8 +1158,9 @@ function battleAnchorsForPreview(preview: MoveAnimationPreview): BattleAnchorSet
       usesGen5SourceSpace: false,
     };
   }
-  const user: Vec3 = [...GEN5_SINGLE_USER_POKEMON_POSITION];
-  const target: Vec3 = [...GEN5_SINGLE_TARGET_POKEMON_POSITION];
+  const swappedSides = preview.battleEnvironment.swappedSides;
+  const user: Vec3 = [...(swappedSides ? GEN5_SINGLE_TARGET_POKEMON_POSITION : GEN5_SINGLE_USER_POKEMON_POSITION)];
+  const target: Vec3 = [...(swappedSides ? GEN5_SINGLE_USER_POKEMON_POSITION : GEN5_SINGLE_TARGET_POKEMON_POSITION)];
   return {
     user,
     target,

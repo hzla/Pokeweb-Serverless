@@ -10,11 +10,18 @@ import {
   type FieldUpdateResult,
 } from "../pokeweb/moveItemModel";
 import { buildMoveAnimationPreview, loadMoveBackground, loadMoveSpaArchive } from "../pokeweb/moveAnimationPreviewModel";
+import { loadBattleBackgroundCatalog, type BattleBackgroundVariant } from "../pokeweb/battleBackgroundModel";
+import { loadBattlePlatformCatalog, type BattlePlatformVariant } from "../pokeweb/battlePlatformModel";
 import { getMoveAnimationDisplayCommandName } from "../pokeweb/moveAnimationCommandNames";
 import { summarizeMoveAnimationCommandLine } from "../pokeweb/moveAnimationCommandSummary";
 import { compileMoveAnimation, decompileMoveAnimationBytes, formatMoveAnimationScriptParameters, updateMoveAnimationScript, type MoveAnimationParamDisplayMode } from "../pokeweb/moveAnimationModel";
 import { getMoveAnimationParamSemanticHelp } from "../pokeweb/moveAnimationParamSemantics";
-import { loadMoveAnimationBattleEnvironment } from "../pokeweb/moveAnimationBattleEnvironment";
+import {
+  loadMoveAnimationBattleEnvironment,
+  MOVE_PREVIEW_BACKGROUND_INDEX,
+  MOVE_PREVIEW_PLATFORM_INDEX,
+  type MoveAnimationBattleEnvironmentSelection,
+} from "../pokeweb/moveAnimationBattleEnvironment";
 import { updateMoveDescription, updateMoveTextName } from "../pokeweb/moveTextModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
@@ -41,6 +48,122 @@ type ItemOptions = {
   onDirty?: () => void;
   renderExpanded: (itemId: number) => string;
 };
+
+type SelectedBattleVariant = {
+  tableIndex: number;
+  seasonIndex: number;
+};
+
+const MOVE_ANIMATION_SWAP_SIDES_STORAGE_KEY = "pokeweb.moveAnimation.swapSides";
+
+function loadMoveAnimationSwapSidesPreference(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  try {
+    return localStorage.getItem(MOVE_ANIMATION_SWAP_SIDES_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveMoveAnimationSwapSidesPreference(swappedSides: boolean): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(MOVE_ANIMATION_SWAP_SIDES_STORAGE_KEY, String(swappedSides));
+  } catch {
+    // The preview still works when browser storage is unavailable.
+  }
+}
+
+async function loadMoveAnimationEnvironmentSelectors(
+  project: ProjectState,
+  backgroundSelect: HTMLSelectElement | undefined,
+  platformSelect: HTMLSelectElement | undefined,
+  initialSelection: MoveAnimationBattleEnvironmentSelection,
+): Promise<MoveAnimationBattleEnvironmentSelection> {
+  if (!backgroundSelect && !platformSelect) return initialSelection;
+  try {
+    const [backgroundCatalog, platformCatalog] = await Promise.all([
+      loadBattleBackgroundCatalog(project),
+      loadBattlePlatformCatalog(project),
+    ]);
+    const selectedBackground = populateBackgroundSelect(backgroundSelect, backgroundCatalog.variants, initialSelection);
+    const selectedPlatform = populatePlatformSelect(platformSelect, platformCatalog.variants, initialSelection);
+    return {
+      backgroundIndex: selectedBackground?.tableIndex ?? initialSelection.backgroundIndex,
+      backgroundSeasonIndex: selectedBackground?.seasonIndex ?? initialSelection.backgroundSeasonIndex,
+      platformIndex: selectedPlatform?.tableIndex ?? initialSelection.platformIndex,
+      platformSeasonIndex: selectedPlatform?.seasonIndex ?? initialSelection.platformSeasonIndex,
+      swappedSides: initialSelection.swappedSides,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    markBattleEnvironmentSelectUnavailable(backgroundSelect, message);
+    markBattleEnvironmentSelectUnavailable(platformSelect, message);
+    return initialSelection;
+  }
+}
+
+function populateBackgroundSelect(
+  select: HTMLSelectElement | undefined,
+  variants: BattleBackgroundVariant[],
+  selection: MoveAnimationBattleEnvironmentSelection,
+): BattleBackgroundVariant | undefined {
+  const selected = selectEnvironmentVariant(variants, selection.backgroundIndex, selection.backgroundSeasonIndex);
+  if (!select || !selected) return selected;
+  select.innerHTML = variants.map((variant) => {
+    const entry = String(variant.tableIndex).padStart(2, "0");
+    const label = variant.variantCount > 1 ? `Background ${entry} · ${variant.seasonName}` : `Background ${entry}`;
+    const value = battleVariantValue(variant);
+    return `<option value="${value}" ${value === battleVariantValue(selected) ? "selected" : ""}>${escapeHtml(label)}</option>`;
+  }).join("");
+  select.disabled = false;
+  return selected;
+}
+
+function populatePlatformSelect(
+  select: HTMLSelectElement | undefined,
+  variants: BattlePlatformVariant[],
+  selection: MoveAnimationBattleEnvironmentSelection,
+): BattlePlatformVariant | undefined {
+  const selected = selectEnvironmentVariant(variants, selection.platformIndex, selection.platformSeasonIndex);
+  if (!select || !selected) return selected;
+  select.innerHTML = variants.map((variant) => {
+    const entry = String(variant.tableIndex).padStart(2, "0");
+    const label = variant.variantCount > 1 ? `Platform ${entry} · ${variant.seasonName}` : `Platform ${entry}`;
+    const value = battleVariantValue(variant);
+    return `<option value="${value}" ${value === battleVariantValue(selected) ? "selected" : ""}>${escapeHtml(label)}</option>`;
+  }).join("");
+  select.disabled = false;
+  return selected;
+}
+
+function selectEnvironmentVariant<T extends SelectedBattleVariant>(
+  variants: T[],
+  tableIndex: number | undefined,
+  seasonIndex: number | undefined,
+): T | undefined {
+  return variants.find((variant) => variant.tableIndex === tableIndex && variant.seasonIndex === seasonIndex)
+    ?? variants.find((variant) => variant.tableIndex === tableIndex && variant.seasonIndex === 0)
+    ?? variants.find((variant) => variant.tableIndex === tableIndex)
+    ?? variants[0];
+}
+
+function battleVariantValue(variant: SelectedBattleVariant & { resourceId: number }): string {
+  return `${variant.tableIndex}:${variant.seasonIndex}:${variant.resourceId}`;
+}
+
+function parseSelectedBattleVariant(value: string): SelectedBattleVariant | undefined {
+  const [tableIndex, seasonIndex] = value.split(":").map(Number);
+  if (!Number.isSafeInteger(tableIndex) || !Number.isSafeInteger(seasonIndex)) return undefined;
+  return { tableIndex, seasonIndex };
+}
+
+function markBattleEnvironmentSelectUnavailable(select: HTMLSelectElement | undefined, message: string): void {
+  if (!select) return;
+  select.innerHTML = "<option>Unavailable</option>";
+  select.disabled = true;
+  select.title = message;
+}
 
 export function attachMoveInteractions(root: HTMLElement, project: ProjectState, options: MoveOptions): void {
   const activeCategories = new Set<string>();
@@ -212,6 +335,19 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   const audioPreviewHost = panel.querySelector<HTMLElement>(".move-animation-audio-pane");
   const commandReference = document.querySelector<HTMLElement>("#move-command-reference");
   const testButton = document.querySelector<HTMLButtonElement>(".move-animation-test-btn");
+  const pageRoot = panel.closest<HTMLElement>(".move-animation-page")?.parentElement;
+  const backgroundSelect = pageRoot?.querySelector<HTMLSelectElement>("#move-animation-background-select") ?? undefined;
+  const platformSelect = pageRoot?.querySelector<HTMLSelectElement>("#move-animation-platform-select") ?? undefined;
+  const swapSidesInput = pageRoot?.querySelector<HTMLInputElement>("#move-animation-swap-sides") ?? undefined;
+  const savedSwappedSides = loadMoveAnimationSwapSidesPreference();
+  if (swapSidesInput) swapSidesInput.checked = savedSwappedSides;
+  let battleEnvironmentSelection: MoveAnimationBattleEnvironmentSelection = {
+    backgroundIndex: MOVE_PREVIEW_BACKGROUND_INDEX,
+    backgroundSeasonIndex: 0,
+    platformIndex: MOVE_PREVIEW_PLATFORM_INDEX,
+    platformSeasonIndex: 0,
+    swappedSides: savedSwappedSides,
+  };
   let audioPreview: MoveAnimationAudioPreviewController | undefined;
   let docsPanel: MoveAnimationDocsPanelController | undefined;
   let audioTabLoaded = false;
@@ -293,7 +429,7 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
         loadSpaArchive: async (_project, spaId) => spaEditor?.getArchiveOverride(spaId) ?? loadMoveSpaArchive(project, spaId),
       });
       try {
-        preview.battleEnvironment = await loadMoveAnimationBattleEnvironment(project);
+        preview.battleEnvironment = await loadMoveAnimationBattleEnvironment(project, { ...battleEnvironmentSelection });
       } catch (error) {
         preview.warnings.push({ message: `Battle scene: ${error instanceof Error ? error.message : String(error)}` });
       }
@@ -334,6 +470,42 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
       }
     });
   });
+  const refreshEnvironmentPreview = (): void => {
+    previewDirty = true;
+    if (activeSideTab === "preview") void buildPreview(false, { reveal: false });
+  };
+  backgroundSelect?.addEventListener("change", () => {
+    const variant = parseSelectedBattleVariant(backgroundSelect.value);
+    if (!variant) return;
+    battleEnvironmentSelection = {
+      ...battleEnvironmentSelection,
+      backgroundIndex: variant.tableIndex,
+      backgroundSeasonIndex: variant.seasonIndex,
+    };
+    refreshEnvironmentPreview();
+  });
+  platformSelect?.addEventListener("change", () => {
+    const variant = parseSelectedBattleVariant(platformSelect.value);
+    if (!variant) return;
+    battleEnvironmentSelection = {
+      ...battleEnvironmentSelection,
+      platformIndex: variant.tableIndex,
+      platformSeasonIndex: variant.seasonIndex,
+    };
+    refreshEnvironmentPreview();
+  });
+  swapSidesInput?.addEventListener("change", () => {
+    battleEnvironmentSelection = {
+      ...battleEnvironmentSelection,
+      swappedSides: swapSidesInput.checked,
+    };
+    saveMoveAnimationSwapSidesPreference(swapSidesInput.checked);
+    refreshEnvironmentPreview();
+  });
+  void loadMoveAnimationEnvironmentSelectors(project, backgroundSelect, platformSelect, battleEnvironmentSelection)
+    .then((selection) => {
+      battleEnvironmentSelection = { ...selection, swappedSides: battleEnvironmentSelection.swappedSides };
+    });
   void buildPreview(false);
   panel.querySelector<HTMLButtonElement>(".move-animation-apply")?.addEventListener("click", () => {
     if (!editor) return;
