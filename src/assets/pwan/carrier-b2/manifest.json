@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "gameId": "IREO",
+  "archivePath": "a/0/0/4",
+  "sourceAssetIndex": 0,
+  "notes": "Selected from the clean US Black 2 empty sprite carrier. file17 raises the back NCEC template baseline by 5 px; export applies the final per-import baseline.",
+  "files": {
+    "4": "f715b94766315faff9a1a47af14dbe0a4e06123762b3ef18580560d921343dbe",
+    "5": "91616883315255b4d2810a3cd7397d52069ceeb9cd54f4f9c7cab28de6b7e37f",
+    "6": "12b791eaa998007b75f646f24852e1b07c5e144cbef4df74c4070889da7a5ed3",
+    "7": "7b431860a29d5537731af6a070214dc896179a11f67c86197fcec99405381a43",
+    "8": "c36846ca1e31dc0f7497993ffddd619e49d9bed6a18dba6d337d41d5227e96cd",
+    "13": "f715b94766315faff9a1a47af14dbe0a4e06123762b3ef18580560d921343dbe",
+    "14": "91616883315255b4d2810a3cd7397d52069ceeb9cd54f4f9c7cab28de6b7e37f",
+    "15": "12b791eaa998007b75f646f24852e1b07c5e144cbef4df74c4070889da7a5ed3",
+    "16": "7b431860a29d5537731af6a070214dc896179a11f67c86197fcec99405381a43",
+    "17": "6c9aa263556c2ba89e53b94050d98481281f93ae27f72b6a9567625c75061cdc"
+  }
+}

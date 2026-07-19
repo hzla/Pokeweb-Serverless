@@ -15,6 +15,12 @@
     "gen6sprites:pipeline": "vite-node scripts/gen6-sprite-pipeline.ts",
     "virtualsprite:build": "vite-node scripts/build-virtual-sprite-asset.ts",
     "pwan:library": "vite-node scripts/build-pwan-library.ts",
+    "pwan:gif:inspect": "vite-node scripts/inspect-pwan-gif.ts",
+    "pwan:runtime:sync": "node scripts/sync-pwan-runtime-artifacts.mjs",
+    "pwan:runtime:check": "node scripts/sync-pwan-runtime-artifacts.mjs --check",
+    "pwan:runtime:verify-rom": "vite-node scripts/verify-pwan-rom-compatibility.ts",
+    "pwan:runtime:verify-b2-install": "vite-node scripts/verify-black2-pwan-install.ts",
+    "pwan:runtime:verify-w2-migration": "vite-node scripts/verify-white2-pwan-migration.ts",
     "state:inspect": "vite-node scripts/inspect-test-battle-state.ts"
   },
   "dependencies": {

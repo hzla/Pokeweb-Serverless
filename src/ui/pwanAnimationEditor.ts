@@ -1,11 +1,12 @@
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide, PwanPaletteSource } from "../pokeweb/projectStore";
 import {
-  buildPwanOverride,
-  buildPwanOverrideSide,
+  buildPwanOverrideAsync,
+  buildPwanOverrideSideAsync,
   ensurePwanAnimationState,
   findPwanOverrideForSpecies,
   formatPwanFrameScale,
   getPwanRuntimeStatus,
+  listPwanSpeciesTargets,
   normalizePwanFrameScale,
   normalizePwanFrameScaleMode,
   normalizePwanOffset,
@@ -110,7 +111,9 @@ export function renderPwanAnimationEditor(project: ProjectState, root: HTMLEleme
           <h1>Animated Sprites</h1>
           <div class="pwan-subtitle">${
             activeSpeciesId === undefined
-              ? "PWAN GIF overrides for stock US White 2"
+              ? project.session.baseVersion === "B2"
+                ? "PWAN GIF overrides for stock US Black 2"
+                : "PWAN GIF overrides for stock US White 2"
               : `#${activeSpeciesId} ${escapeHtml(speciesLabel(project, activeSpeciesId))}`
           }</div>
         </div>
@@ -215,7 +218,7 @@ export function installPwanImportFormEvents(project: ProjectState, root: HTMLEle
       const nativePaletteSource = (paletteSource ?? "back") as PwanPaletteSource;
       if (!frontFile || !backFile) throw new Error("Choose both a front GIF and a back GIF before saving an override.");
       const target = resolvePwanSpeciesTarget(project, speciesId);
-      const override = buildPwanOverride({
+      const override = await buildPwanOverrideAsync({
         speciesId: target.speciesId,
         formIndex: target.formIndex,
         assetIndex: target.assetIndex === target.speciesId ? undefined : target.assetIndex,
@@ -1344,18 +1347,20 @@ function canvasBlob(canvas: HTMLCanvasElement, type: string): Promise<Blob> {
 }
 
 function renderEditorForm(project: ProjectState, speciesOptions: string): string {
+  const black2 = project.session.baseVersion === "B2";
   return `
     <div class="pwan-editor-grid">
       ${renderPwanImportForm(project, speciesOptions)}
       <div class="pwan-panel">
         <div class="pwan-section-title">
           <h2>Export Contract</h2>
-          <span>IRDO only</span>
+          <span>${black2 ? "IREO full" : "IRDO full"}</span>
         </div>
         <div class="pwan-contract">
           <div><strong>GIF input</strong><span>Compiled to 96x96, 4bpp, 16-color PWAN.</span></div>
           <div><strong>Native carrier</strong><span>Species pokegra metadata and fallback frames are patched at export.</span></div>
           <div><strong>Runtime config</strong><span><code>zz_pokeweb_pwan/pwan.narc</code> stores config plus imported sides.</span></div>
+          ${black2 ? `<div><strong>Display scope</strong><span>Imported sprites animate in battles, summaries, evolution, egg hatch, and supported non-battle views.</span></div>` : ""}
         </div>
       </div>
     </div>
@@ -1363,9 +1368,8 @@ function renderEditorForm(project: ProjectState, speciesOptions: string): string
 }
 
 function renderSpeciesSelectOptions(project: ProjectState, activeSpeciesId: number): string {
-  const count = project.narcs.personal?.fileCount ?? project.texts.banks.pokedex?.length ?? 650;
   const rows: string[] = [];
-  for (let speciesId = 1; speciesId < count; speciesId += 1) {
+  for (const { requestedSpeciesId: speciesId } of listPwanSpeciesTargets(project)) {
     const override = findPwanOverrideForSpecies(project, speciesId);
     const label = `${speciesLabel(project, speciesId)} #${speciesId}${override ? ` ${pwanSideMarkerText(override)}` : ""}`;
     rows.push(`
@@ -1393,9 +1397,8 @@ function renderOverlayControls(project: ProjectState): string {
 }
 
 function renderOverlaySpeciesSelectOptions(project: ProjectState, selectedSpeciesId: number | undefined): string {
-  const count = project.narcs.personal?.fileCount ?? project.texts.banks.pokedex?.length ?? 650;
   const rows: string[] = [];
-  for (let speciesId = 1; speciesId < count; speciesId += 1) {
+  for (const { requestedSpeciesId: speciesId } of listPwanSpeciesTargets(project)) {
     const override = findPwanOverrideForSpecies(project, speciesId);
     const label = `${speciesLabel(project, speciesId)} #${speciesId}${override ? ` ${pwanSideMarkerText(override)}` : ""}`;
     rows.push(`<option value="${speciesId}" ${speciesId === selectedSpeciesId ? "selected" : ""}>${escapeHtml(label)}</option>`);
@@ -1719,7 +1722,7 @@ function installPwanSideDropzone(project: ProjectState, root: HTMLElement, speci
     setPwanGifPreview(preview, file);
     try {
       setStatus(message, `Compiling ${file.name}...`);
-      const sideData = buildPwanOverrideSide({ fileName: file.name, gifBytes: new Uint8Array(await file.arrayBuffer()) });
+      const sideData = await buildPwanOverrideSideAsync({ fileName: file.name, gifBytes: new Uint8Array(await file.arrayBuffer()) });
       const target = resolvePwanSpeciesTarget(project, speciesId);
       upsertPwanOverrideSide(project, {
         speciesId: target.speciesId,
@@ -1934,9 +1937,8 @@ function renderSideBadges(override: PwanAnimationOverride): string {
 }
 
 function renderSpeciesOptions(project: ProjectState): string {
-  const count = project.narcs.personal?.fileCount ?? project.texts.banks.pokedex?.length ?? 650;
   const options: string[] = [];
-  for (let speciesId = 1; speciesId < count; speciesId += 1) {
+  for (const { requestedSpeciesId: speciesId } of listPwanSpeciesTargets(project)) {
     options.push(`<option value="${speciesId}" label="${escapeHtml(speciesLabel(project, speciesId))} #${speciesId}"></option>`);
   }
   return options.join("");
@@ -1974,8 +1976,12 @@ function formatPwanScaleMode(side: PwanOverrideSide): string {
 
 function normalizeSpeciesId(project: ProjectState, speciesId: number | undefined): number | undefined {
   if (speciesId === undefined || !Number.isInteger(speciesId)) return undefined;
-  const max = Math.max(1, (project.narcs.personal?.fileCount ?? project.texts.banks.pokedex?.length ?? 650) - 1);
-  return Math.max(1, Math.min(max, speciesId));
+  try {
+    resolvePwanSpeciesTarget(project, speciesId);
+    return speciesId;
+  } catch {
+    return undefined;
+  }
 }
 
 function setStatus(element: HTMLElement | null | undefined, message: string, error = false): void {

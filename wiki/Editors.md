@@ -13,7 +13,7 @@ Pokeweb unlocks editors based on the ROM data groups loaded at project creation.
 | Maps | headers plus original ROM bytes and 3D map resources |
 | Pokemon | `personal`, `learnsets`, `evolutions`, `moves`, `items`; optional `egg_moves`, tutors, sprites |
 | Pokemon Sprites | `personal`, `pokemon_sprites`, `pokemon_icons` |
-| Animated Sprites | `personal`, `pokemon_sprites`, plus White 2 PWAN runtime support |
+| Animated Sprites | `personal`, `pokemon_sprites`, plus the Black 2 or White 2 PWAN runtime |
 | Starters | `personal`, `pokemon_sprites`, `starter_sprites`, `scripts`, `story_texts`, starter overlay |
 | Trainers | `trdata`, `trpok`, `personal`, `items`, `moves`, trainer text tables |
 | Encounters | `encounters`; BW2 habitat sync also needs `habitats` |
@@ -49,7 +49,7 @@ Pokeweb unlocks editors based on the ROM data groups loaded at project creation.
 | [Pokemon Personal](Pokemon-Personal) | Edit species stats, typing, abilities, held item slots, egg groups, growth, EV yield, form metadata, height, and weight. |
 | [Pokemon Learnsets](Pokemon-Learnsets) | Edit level-up moves and their learned levels. |
 | [Pokemon Evolutions](Pokemon-Evolutions) | Edit evolution method, parameter, and target species slots. |
-| [Pokemon Sprites and Animations](Pokemon-Sprites-and-Animations) | Edit Pokemon sprites, palettes, icons, rig/animation files, GIF imports, and White 2 PWAN GIF overrides. |
+| [Pokemon Sprites and Animations](Pokemon-Sprites-and-Animations) | Edit Pokemon sprites, palettes, icons, rig/animation files, GIF imports, and Black 2/White 2 PWAN GIF overrides. |
 | [Trainers](Trainers) | Edit trainer metadata, AI flags, held items, rewards, trainer text, and party Pokemon. |
 | [Battle Facilities](Battle-Facilities) | Edit BW2 Subway/PWT/WBT set libraries, trainer choices, regulations, and area pools. |
 | [Encounters](Encounters) | Edit seasonal wild encounter slots and rates. |

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readAscii, readU16, readU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import type { NarcName } from "../pokeweb/constants";
@@ -7,10 +8,14 @@ import {
   buildPwanArchive,
   buildPwanConfig,
   buildPwanOverrideSideFromPwanBytes,
+  buildPwanOverrideSideAsync,
   ensurePwanAnimationState,
   findPwanOverrideForSpecies,
   getPwanRuntimeStatus,
   hasPwanRuntimeDll,
+  installPwanRuntime,
+  listPwanSpeciesTargets,
+  materializePwanAnimations,
   normalizePwanFrameScaleMode,
   normalizePwanOutlineThreshold,
   parsePwanArchive,
@@ -18,7 +23,9 @@ import {
   pwanAssetIndex,
   pwanAssetPath,
   setPwanOverrideSideSpeed,
-  PWAN_RUNTIME_PATH,
+  PWAN_B2_RUNTIME_PATHS,
+  PWAN_LEGACY_W2_RUNTIME_PATH,
+  PWAN_W2_RUNTIME_PATHS,
   PWAN_ARCHIVE_PATH,
   PWAN_CONFIG_BACK_FLAG,
   PWAN_CONFIG_FRONT_FLAG,
@@ -34,6 +41,7 @@ import { compileGifToPwan, pwanTimeline, PWAN_FRAME_BYTES, PWAN_HEIGHT, PWAN_MAX
 import type { NarcStore, ProjectState, PwanAnimationOverride } from "../pokeweb/projectStore";
 
 describe("pwanAnimationModel", () => {
+  afterEach(() => vi.unstubAllGlobals());
   it("initializes empty project state", () => {
     const project = { pwanAnimations: undefined } as ProjectState;
     const state = ensurePwanAnimationState(project);
@@ -44,20 +52,116 @@ describe("pwanAnimationModel", () => {
     expect(project.pwanAnimations).toBe(state);
   });
 
-  it("detects the PWAN DLL even when PMC metadata is absent", () => {
+  it("requires all three White 2 split PWAN DLLs", () => {
     const project = {
       session: { baseVersion: "W2", baseRom: "BW2" },
       romInfo: { idCode: "IRDO" },
       fileSystem: {
         replacements: {},
-        additions: {
-          [PWAN_RUNTIME_PATH]: new Uint8Array(),
-        },
+        additions: Object.fromEntries(PWAN_W2_RUNTIME_PATHS.map((path) => [path, new Uint8Array()])),
       },
     } as unknown as ProjectState;
 
     expect(hasPwanRuntimeDll(project)).toBe(true);
     expect(getPwanRuntimeStatus(project)).toMatchObject({ supported: true, installed: true, pmcInstalled: false });
+  });
+
+  it("treats the legacy White 2 monolith as an upgrade candidate, not a current runtime", () => {
+    const project = {
+      session: { baseVersion: "W2", baseRom: "BW2" },
+      romInfo: { idCode: "IRDO" },
+      fileSystem: { replacements: {}, additions: { [PWAN_LEGACY_W2_RUNTIME_PATH]: new Uint8Array() } },
+    } as unknown as ProjectState;
+
+    expect(hasPwanRuntimeDll(project)).toBe(false);
+    expect(getPwanRuntimeStatus(project)).toMatchObject({ supported: true, installed: false, legacyInstalled: true });
+  });
+
+  it("requires all three Black 2 split PWAN DLLs", () => {
+    const project = {
+      session: { baseVersion: "B2", baseRom: "BW2" },
+      romInfo: { idCode: "IREO" },
+      fileSystem: {
+        replacements: {},
+        additions: Object.fromEntries(PWAN_B2_RUNTIME_PATHS.map((path) => [path, new Uint8Array()])),
+      },
+    } as unknown as ProjectState;
+
+    expect(hasPwanRuntimeDll(project)).toBe(true);
+    expect(getPwanRuntimeStatus(project)).toMatchObject({ supported: true, installed: true });
+
+    delete project.fileSystem?.additions?.[PWAN_B2_RUNTIME_PATHS[0]!];
+    expect(hasPwanRuntimeDll(project)).toBe(false);
+  });
+
+  it("stages all three Black 2 split DLLs from the bundled installer", async () => {
+    const project = makeRuntimeInstallProject("B2");
+    stubRuntimeAssetFetch();
+
+    await installPwanRuntime(project);
+
+    for (const path of PWAN_B2_RUNTIME_PATHS) {
+      expect(project.fileSystem?.additions?.[path]?.slice(0, 4), path).toEqual(Uint8Array.of(0x44, 0x4c, 0x58, 0x46));
+    }
+    expect(PWAN_W2_RUNTIME_PATHS.every((path) => project.fileSystem?.additions?.[path] === undefined)).toBe(true);
+    expect(project.pwanAnimations).toMatchObject({ runtimeInstalled: true, dirty: true, overrides: [] });
+  });
+
+  it("stages all three current White 2 split DLLs and no legacy monolith", async () => {
+    const project = makeRuntimeInstallProject("W2");
+    stubRuntimeAssetFetch();
+
+    await installPwanRuntime(project);
+
+    expect(PWAN_W2_RUNTIME_PATHS.every((path) => project.fileSystem?.additions?.[path]?.length)).toBe(true);
+    expect(project.fileSystem?.additions?.[PWAN_LEGACY_W2_RUNTIME_PATH]).toBeUndefined();
+    expect(hasPwanRuntimeDll(project)).toBe(true);
+  });
+
+  it("installs an empty Black 2 PWAN archive without touching native sprite files", async () => {
+    const nativeFiles = Array.from({ length: 650 * 20 }, (_value, index) => Uint8Array.of(index & 0xff));
+    const project = {
+      session: { baseVersion: "B2", baseRom: "BW2" },
+      romInfo: { idCode: "IREO" },
+      fileSystem: {
+        replacements: {},
+        additions: Object.fromEntries(PWAN_B2_RUNTIME_PATHS.map((path) => [path, new Uint8Array()])),
+      },
+      codeInjection: { pmc: { overlayId: 344, overlayPath: "overlay/overlay_0344.bin" } },
+      narcs: { pokemon_sprites: makeStore("pokemon_sprites", nativeFiles.map((file) => file.slice())) },
+      pwanAnimations: { dirty: true, overrides: [] },
+    } as unknown as ProjectState;
+
+    await materializePwanAnimations(project);
+
+    expect(project.narcs.pokemon_sprites?.rawFiles).toEqual(nativeFiles);
+    expect(project.narcs.pokemon_sprites?.dirty.size).toBe(0);
+    const archive = new NARC(project.fileSystem?.additions?.[PWAN_ARCHIVE_PATH] ?? new Uint8Array());
+    expect(readU16(archive.files[0]!, 6)).toBe(0);
+  });
+
+  it("rejects non-Gen-5 species targets in Black 2", () => {
+    const project = {
+      session: { baseVersion: "B2", baseRom: "BW2" },
+      narcs: { pokemon_sprites: makeStore("pokemon_sprites", Array.from({ length: 753 * 20 }, () => new Uint8Array())) },
+      texts: { banks: {} },
+    } as unknown as ProjectState;
+
+    expect(() => resolvePwanSpeciesTarget(project, 650)).toThrow(/1-649/u);
+    expect(resolvePwanSpeciesTarget(project, 649)).toMatchObject({ speciesId: 649, assetIndex: 649 });
+  });
+
+  it("lists valid Black 2 species and forms without exposing unsupported expanded records", () => {
+    const project = makeW2uPwanLookupProject([]);
+    project.session.baseVersion = "B2";
+    project.romInfo.idCode = "IREO";
+
+    const targets = listPwanSpeciesTargets(project);
+
+    expect(targets.find((target) => target.requestedSpeciesId === 1)).toMatchObject({ speciesId: 1, formIndex: 0 });
+    expect(targets.find((target) => target.requestedSpeciesId === 1076)).toMatchObject({ speciesId: 448, formIndex: 1, assetIndex: 815 });
+    expect(targets.some((target) => target.requestedSpeciesId === 650)).toBe(false);
+    expect(targets.every((target) => target.speciesId <= 649)).toBe(true);
   });
 
   it("builds deterministic v3 config entries and asset members", () => {
@@ -77,6 +181,16 @@ describe("pwanAnimationModel", () => {
     expect(pwanArchiveMemberId(7, "front")).toBe(15);
     expect(pwanArchiveMemberId(7, "back")).toBe(16);
     expect(pwanAssetPath(7, "front")).toBe(`${PWAN_ARCHIVE_PATH}:0015.bin`);
+  });
+
+  it("supports asynchronous GIF compilation for responsive editor imports", async () => {
+    const side = await buildPwanOverrideSideAsync({
+      fileName: "test.gif",
+      gifBytes: new Uint8Array(Buffer.from(SINGLE_PIXEL_GIF_BASE64, "base64")),
+    });
+
+    expect(side.sourceFileName).toBe("test.gif");
+    expect(readAscii(side.pwanBytes, 0, 4)).toBe("PWAN");
   });
 
   it("builds form-aware v3 config entries with one paired asset index", () => {
@@ -299,6 +413,29 @@ function makeW2uPwanLookupProject(overrides: PwanAnimationOverride[]): ProjectSt
       nativeCarrierBackups: {},
     },
   } as ProjectState;
+}
+
+function makeRuntimeInstallProject(baseVersion: "B2" | "W2"): ProjectState {
+  return {
+    session: { romName: "test", baseVersion, baseRom: "BW2", fairy: false, fileIds: {}, blacklist: [] },
+    romInfo: { title: "test", idCode: baseVersion === "B2" ? "IREO" : "IRDO", fileName: "test.nds", size: 0 },
+    arm9: new Uint8Array(),
+    overlays: {},
+    narcs: {},
+    texts: { banks: {} },
+    formats: {},
+    trpokInfo: [],
+    fileSystem: { replacements: {}, additions: {} },
+    codeInjection: { pmc: { overlayId: 344, overlayPath: "overlay/overlay_0344.bin" } },
+  } as ProjectState;
+}
+
+function stubRuntimeAssetFetch(): void {
+  vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+    const name = new URL(input instanceof Request ? input.url : String(input)).pathname.split("/").pop() ?? "";
+    const bytes = readFileSync(new URL(`../assets/codeinjection/${name}`, import.meta.url));
+    return new Response(bytes, { status: 200 });
+  }));
 }
 
 function makeStore(name: NarcName, rawFiles: Uint8Array[]): NarcStore {

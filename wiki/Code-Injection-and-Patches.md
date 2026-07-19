@@ -12,7 +12,7 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 |---|---|---|
 | General patches | Original ROM bytes | Pokeweb must be able to compare the target bytes against the supported patch signatures. |
 | PMC runtime | Black 2 / White 2 code files | PMC is the runtime used by several injected DLL-style patches. |
-| PWAN GIF support | White 2 compatible code layout | PWAN support is currently for the supported White 2 layout only. |
+| PWAN GIF support | Clean US Black 2 (`IREO`) or White 2 (`IRDO`) code layout | Both versions support the split summary, battle, and miscellaneous renderers. |
 | Single-NPC double battle fix | Black 2 / White 2 with PMC support | The fix is installed as a bundled DLXF patch. |
 | Installed DLLs | Files in `patches/` or `lib/` | Patch DLLs are applied to the game; library DLLs are dependencies used by patches. |
 
@@ -25,7 +25,7 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | PMC overlay | Shows the overlay used by the runtime. | `overlay_316` |
 | PMC base address | Shows where the runtime is expected to live in memory. | `0x023C8000` |
 | PWAN GIF status | Shows whether Pokeweb can install the PWAN animated-sprite runtime. | `Ready`, `Unsupported`, `Incompatible` |
-| Install PWAN GIF Support | Stages the bundled PWAN runtime and supporting files. | `PokewebPwanW2.dll` |
+| Install/Upgrade PWAN GIF Support | Stages the three version-specific PWAN runtime files and upgrades a known legacy White 2 monolith. | Summary, Battle, and Misc DLLs for W2 or B2 |
 | Single-NPC double battle fix | Installs a bundled patch that fixes trainer scripts where one visible NPC should start a double battle. | Black 2 or White 2 patch DLL |
 | Installed patch DLLs | Lists injected patch files in `patches/`. | `DoubleBattleFixW2.dll` |
 | Installed library DLLs | Lists dependency files in `lib/`. | A shared library required by a patch |
@@ -72,17 +72,21 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 
 ### Install PWAN animated-sprite support
 
-1. Use the supported White 2 code layout.
+1. Use a clean supported US Black 2 or White 2 code layout.
 2. Install PMC if Pokeweb says it is required.
 3. Install PWAN GIF support.
-4. Export the ROM.
-5. Include the generated PWAN NARC data when testing animated Pokemon sprite changes.
+4. Open Animated Sprites and explicitly import the front and/or back GIF for a species/form.
+5. Export the ROM and test the generated PWAN archive in battle.
+
+Installing the runtime alone writes an empty PWAN configuration and does not modify the Pokemon sprite NARC. White 2 stages `PokewebPwanSummaryW2.dll`, `PokewebPwanBattleW2.dll`, and `PokewebPwanMiscW2.dll`. Black 2 stages the corresponding `PokewebPwanSummaryB2.dll`, `PokewebPwanBattleB2.dll`, and `PokewebPwanMiscB2.dll`, enabling animated overrides in battles, summaries, evolution, egg hatching, and the other supported non-battle views.
 
 ## Caveats
 
 - Code patches are version-specific. A patch made for Black 2 may not be safe for White 2, and BW patches are not automatically BW2 patches.
 - Incompatible status usually means the ROM is not clean at the patch location, the ROM revision differs, or another patch already changed the same code.
 - PWAN support writes extra runtime data during export. Do not judge PWAN installation only by whether a normal editor field changed.
+- Black 2 PWAN accepts manual GIF imports and bundled community PWAN assets for vanilla species 1-649 and legitimate Gen 5 forms. Imports use the dedicated Black 2 carrier templates.
+- A known bundled `patches/PokewebPwanW2.dll` is retired in place during upgrade to avoid shifting ROM file IDs. A different DLL using that legacy filename is treated as a conflict and is not overwritten.
 - Patch DLL files are not ordinary Windows DLLs. They must be Gen V-compatible patch/library DLLs built for the injection runtime.
 - Applying a patch can make future patch compatibility checks stricter because the original bytes are no longer present.
 

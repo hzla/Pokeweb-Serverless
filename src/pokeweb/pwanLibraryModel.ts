@@ -78,7 +78,7 @@ export async function importPwanLibraryEntry(
   options: ImportPwanLibraryEntryOptions = {},
 ): Promise<PwanAnimationOverride> {
   const library = options.library ?? await loadPwanLibrary();
-  const carrier = options.carrier ?? await loadBundledPwanCarrierTemplate();
+  const carrier = options.carrier ?? await loadBundledPwanCarrierTemplate(project.session.baseVersion === "B2" ? "B2" : "W2");
   return importPwanLibraryEntryFromLoadedLibrary(project, targetSpeciesId, libraryEntryId, library, carrier);
 }
 

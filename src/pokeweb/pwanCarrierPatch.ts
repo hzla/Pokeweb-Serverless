@@ -48,14 +48,19 @@ const SPRITE_SCRAMBLE_RECTS = [
   [64, 88, 32, 8, 32, 136],
 ] as const;
 
-const CARRIER_URLS = Object.fromEntries(
-  PWAN_CARRIER_METADATA_OFFSETS.map((offset) => [offset, new URL(`../assets/pwan/carrier/file${offset}.bin`, import.meta.url)]),
-) as Record<(typeof PWAN_CARRIER_METADATA_OFFSETS)[number], URL>;
+const CARRIER_URLS: Record<"W2" | "B2", Record<(typeof PWAN_CARRIER_METADATA_OFFSETS)[number], URL>> = {
+  W2: Object.fromEntries(
+    PWAN_CARRIER_METADATA_OFFSETS.map((offset) => [offset, new URL(`../assets/pwan/carrier/file${offset}.bin`, import.meta.url)]),
+  ) as Record<(typeof PWAN_CARRIER_METADATA_OFFSETS)[number], URL>,
+  B2: Object.fromEntries(
+    PWAN_CARRIER_METADATA_OFFSETS.map((offset) => [offset, new URL(`../assets/pwan/carrier-b2/file${offset}.bin`, import.meta.url)]),
+  ) as Record<(typeof PWAN_CARRIER_METADATA_OFFSETS)[number], URL>,
+};
 
-export async function loadBundledPwanCarrierTemplate(): Promise<PwanCarrierTemplate> {
+export async function loadBundledPwanCarrierTemplate(version: "W2" | "B2" = "W2"): Promise<PwanCarrierTemplate> {
   const entries = await Promise.all(
     PWAN_CARRIER_METADATA_OFFSETS.map(async (offset) => {
-      const response = await fetch(CARRIER_URLS[offset]);
+      const response = await fetch(CARRIER_URLS[version][offset]);
       if (!response.ok) throw new Error(`Could not load PWAN carrier template file ${offset} (${response.status})`);
       return [offset, new Uint8Array(await response.arrayBuffer())] as const;
     }),
@@ -64,8 +69,8 @@ export async function loadBundledPwanCarrierTemplate(): Promise<PwanCarrierTempl
 }
 
 export function applyPwanCarrierPatch(project: ProjectState, override: PwanAnimationOverride, carrier: PwanCarrierTemplate): void {
-  if (project.session.baseVersion !== "W2") {
-    throw new Error("PWAN animated sprite overrides currently require a compatible Pokemon White 2 ROM.");
+  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
+    throw new Error("PWAN animated sprite overrides require a compatible Pokemon Black 2 or White 2 ROM.");
   }
   const store = project.narcs.pokemon_sprites;
   if (!store) throw new Error("Pokemon Sprites must be loaded before applying PWAN carrier patches.");

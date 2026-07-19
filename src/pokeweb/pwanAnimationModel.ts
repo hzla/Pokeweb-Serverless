@@ -8,16 +8,23 @@ import { findPokemonPersonalFormOwner } from "./pokemonLabels";
 import { resolvePokemonSpriteId } from "./pokemonSpriteModel";
 import type { ProjectState, PwanAnimationOverride, PwanAnimationState, PwanOverrideSide, PwanPaletteSource } from "./projectStore";
 import { markDirty } from "./projectStore";
+import { loadActiveRomBytes } from "./persistence";
 import { applyPwanCarrierPatch, deriveBackNcecY, loadBundledPwanCarrierTemplate } from "./pwanCarrierPatch";
-import { compileGifToPwan, parsePwanHeader, PWAN_MAX_TIMELINE, pwanFramesPerSecond, pwanPalette, scalePwanTimelineSpeed, shiftPwanFrames, pwanVisibleHeight, validatePwan } from "./pwanCompiler";
+import { compileGifToPwan, parsePwanHeader, PWAN_MAX_TIMELINE, pwanFramesPerSecond, pwanPalette, scalePwanTimelineSpeed, shiftPwanFrames, pwanVisibleHeight, validatePwan, type PwanCompileResult } from "./pwanCompiler";
+import { compileGifToPwanAsync } from "./pwanCompilerClient";
+import { detectPwanRuntimeCompatibility, pwanCompatibilityFailureSummary } from "./pwanCompatibilityModel";
 
 export type PwanSide = "front" | "back";
 export type PwanFrameScaleMode = "nearest" | "outlineFill";
 
 export const PWAN_ARCHIVE_PATH = "zz_pokeweb_pwan/pwan.narc";
 export const PWAN_CONFIG_PATH = `${PWAN_ARCHIVE_PATH}:0000.bin`;
-export const PWAN_RUNTIME_FILENAME = "PokewebPwanW2.dll";
-export const PWAN_RUNTIME_PATH = `patches/${PWAN_RUNTIME_FILENAME}`;
+export const PWAN_W2_RUNTIME_FILENAMES = ["PokewebPwanSummaryW2.dll", "PokewebPwanBattleW2.dll", "PokewebPwanMiscW2.dll"] as const;
+export const PWAN_B2_RUNTIME_FILENAMES = ["PokewebPwanSummaryB2.dll", "PokewebPwanBattleB2.dll", "PokewebPwanMiscB2.dll"] as const;
+export const PWAN_LEGACY_W2_RUNTIME_FILENAME = "PokewebPwanW2.dll";
+export const PWAN_LEGACY_W2_RUNTIME_PATH = `patches/${PWAN_LEGACY_W2_RUNTIME_FILENAME}`;
+export const PWAN_W2_RUNTIME_PATHS = PWAN_W2_RUNTIME_FILENAMES.map((fileName) => `patches/${fileName}`);
+export const PWAN_B2_RUNTIME_PATHS = PWAN_B2_RUNTIME_FILENAMES.map((fileName) => `patches/${fileName}`);
 export const PWAN_CONFIG_VERSION = 3;
 export const PWAN_CONFIG_FRONT_FLAG = 1;
 export const PWAN_CONFIG_BACK_FLAG = 2;
@@ -33,18 +40,24 @@ export const PWAN_MAX_OUTLINE_THRESHOLD = 128;
 export const PWAN_MIN_OFFSET = -48;
 export const PWAN_MAX_OFFSET = 48;
 
-const PWAN_RUNTIME_URL = new URL("../assets/codeinjection/PokewebPwanW2.dll", import.meta.url);
+const PWAN_RUNTIME_URLS = {
+  W2: PWAN_W2_RUNTIME_FILENAMES.map((fileName) => ({ fileName, url: new URL(`../assets/codeinjection/${fileName}`, import.meta.url) })),
+  B2: PWAN_B2_RUNTIME_FILENAMES.map((fileName) => ({ fileName, url: new URL(`../assets/codeinjection/${fileName}`, import.meta.url) })),
+} as const;
+const PWAN_LEGACY_RETIREMENT_URL = new URL("../assets/codeinjection/PokewebPwanLegacyRetiredW2.dll", import.meta.url);
+const PWAN_LEGACY_W2_SHA256 = "b5eb73819af80655fd4b56ac84daa4cd25cef06e72fb7fa9ef7d6a7f58b65602";
+const PWAN_LEGACY_RETIREMENT_SHA256 = "65d88246013f7ac3a7d87168a8f5058091a2d8f7561d364a5a051c3e632447cb";
 const CONFIG_MAGIC = "PWNC";
 const CONFIG_HEADER_BYTES = 16;
 const CONFIG_ENTRY_BYTES = 5;
 const PWAN_CONFIG_FORM_MASK = 0x1f;
-const PWAN_MAX_ASSET_INDEX = 1094;
+const PWAN_MAX_ASSET_INDEX = 1600;
 const FILES_PER_SPRITE = 20;
 const MAX_PWAN_OVERRIDES = 500;
 
 export type PwanRuntimeStatus =
   | { supported: false; installed: false; message: string }
-  | { supported: true; installed: boolean; pmcInstalled: boolean; message: string };
+  | { supported: true; installed: boolean; pmcInstalled: boolean; legacyInstalled: boolean; message: string };
 
 export type PwanOverrideInput = {
   speciesId: number;
@@ -121,45 +134,149 @@ export function hydratePwanAnimationsFromRom(project: ProjectState, rom: Nintend
 }
 
 export function getPwanRuntimeStatus(project: ProjectState): PwanRuntimeStatus {
-  if (project.session.baseVersion !== "W2") {
-    return { supported: false, installed: false, message: "PWAN animation injection currently supports White 2 code layouts only." };
+  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
+    return { supported: false, installed: false, message: "PWAN animation injection supports stock US Black 2 and White 2 projects." };
   }
   const pmc = getPmcInstallStatus(project);
   const installed = hasPwanRuntimeDll(project);
+  const legacyInstalled = hasLegacyPwanRuntimeDll(project);
   if (installed) {
     return {
       supported: true,
       installed: true,
       pmcInstalled: pmc.installed,
-      message: pmc.installed ? "PWAN animation runtime is staged." : "PWAN animation runtime DLL is present.",
+      legacyInstalled,
+      message: pmc.installed
+        ? project.session.baseVersion === "B2"
+          ? "Black 2 split PWAN animation runtimes are staged."
+          : "White 2 split PWAN animation runtimes are staged."
+        : "PWAN animation runtime DLLs are present.",
     };
   }
-  if (!pmc.installed) return { supported: true, installed: false, pmcInstalled: false, message: "Install the PMC runtime before staging the PWAN animation patch." };
+  if (!pmc.installed) {
+    return {
+      supported: true,
+      installed: false,
+      pmcInstalled: false,
+      legacyInstalled,
+      message: legacyInstalled
+        ? "Legacy White 2 PWAN support was detected. Install the current split runtime to upgrade it."
+        : "Install the PMC runtime before staging the PWAN animation patch.",
+    };
+  }
   return {
     supported: true,
     installed: false,
     pmcInstalled: true,
-    message: "PMC is installed; stage the PWAN animation runtime next.",
+    legacyInstalled,
+    message: legacyInstalled
+      ? "Legacy White 2 PWAN support was detected. Install the current split runtime to upgrade it."
+      : "PMC is installed; stage the PWAN animation runtime next.",
   };
 }
 
 export function hasPwanRuntimeDll(project: ProjectState): boolean {
-  return listCodeInjectionDlls(project).some((module) => module.path === PWAN_RUNTIME_PATH || module.fileName.toLowerCase() === PWAN_RUNTIME_FILENAME.toLowerCase());
+  const paths = new Set(listCodeInjectionDlls(project).map((module) => module.path.toLowerCase()));
+  if (project.session.baseVersion === "B2") return PWAN_B2_RUNTIME_PATHS.every((path) => paths.has(path.toLowerCase()));
+  if (project.session.baseVersion === "W2") return PWAN_W2_RUNTIME_PATHS.every((path) => paths.has(path.toLowerCase()));
+  return false;
+}
+
+export function hasLegacyPwanRuntimeDll(project: ProjectState): boolean {
+  if (project.session.baseVersion !== "W2") return false;
+  return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === PWAN_LEGACY_W2_RUNTIME_PATH.toLowerCase());
 }
 
 export async function installPwanRuntime(project: ProjectState): Promise<void> {
-  if (project.session.baseVersion !== "W2") {
-    throw new Error("PWAN animation injection currently supports White 2 code layouts only.");
+  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
+    throw new Error("PWAN animation injection supports stock US Black 2 and White 2 projects.");
   }
+  if (project.originalRomBytes) {
+    const compatibility = detectPwanRuntimeCompatibility(project);
+    if (!compatibility.compatible) throw new Error(pwanCompatibilityFailureSummary(compatibility));
+  }
+  const version = project.session.baseVersion;
+  const artifacts = await Promise.all(
+    PWAN_RUNTIME_URLS[version].map(async ({ fileName, url }) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Could not load bundled PWAN runtime ${fileName} (${response.status})`);
+      return { fileName, bytes: new Uint8Array(await response.arrayBuffer()) };
+    }),
+  );
+  const retirementBytes = version === "W2" ? await loadLegacyRetirementRuntime() : undefined;
   const pmc = getPmcInstallStatus(project);
   if (!pmc.installed) await installBundledPmc(project);
-  const response = await fetch(PWAN_RUNTIME_URL);
-  if (!response.ok) throw new Error(`Could not load bundled PWAN runtime (${response.status})`);
-  stageCodeInjectionDll(project, PWAN_RUNTIME_FILENAME, new Uint8Array(await response.arrayBuffer()), "patches");
+  if (retirementBytes) await migrateLegacyW2Runtime(project, retirementBytes);
+  for (const artifact of artifacts) stageCodeInjectionDll(project, artifact.fileName, artifact.bytes, "patches");
   const state = ensurePwanAnimationState(project);
   state.runtimeInstalled = true;
   state.dirty = true;
-  recordGenericChange(project, "code_injection", "PWAN animation runtime staged.", "PWAN Runtime", { key: "pwan-runtime" });
+  recordGenericChange(
+    project,
+    "code_injection",
+    version === "B2" ? "Black 2 split PWAN runtimes staged." : "White 2 split PWAN runtimes staged.",
+    "PWAN Runtime",
+    { key: "pwan-runtime" },
+  );
+}
+
+async function loadLegacyRetirementRuntime(): Promise<Uint8Array> {
+  const response = await fetch(PWAN_LEGACY_RETIREMENT_URL);
+  if (!response.ok) throw new Error(`Could not load the bundled legacy PWAN retirement runtime (${response.status})`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if ((await sha256Hex(bytes)) !== PWAN_LEGACY_RETIREMENT_SHA256) {
+    throw new Error("The bundled legacy PWAN retirement runtime failed its integrity check.");
+  }
+  return bytes;
+}
+
+async function migrateLegacyW2Runtime(project: ProjectState, retirementBytes: Uint8Array): Promise<void> {
+  const stagedLegacy = project.fileSystem?.additions?.[PWAN_LEGACY_W2_RUNTIME_PATH];
+  if (stagedLegacy) {
+    await assertKnownLegacyRuntime(stagedLegacy);
+    delete project.fileSystem?.additions?.[PWAN_LEGACY_W2_RUNTIME_PATH];
+    if (project.codeInjection?.modules) {
+      project.codeInjection.modules = project.codeInjection.modules.filter(
+        (module) => module.path.toLowerCase() !== PWAN_LEGACY_W2_RUNTIME_PATH.toLowerCase(),
+      );
+    }
+  }
+
+  if (!hasLegacyPwanRuntimeDll(project)) return;
+
+  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+  if (!romBytes) {
+    if (hasLegacyPwanRuntimeDll(project)) throw new Error("Reload the ROM before upgrading the legacy White 2 PWAN runtime.");
+    return;
+  }
+  const rom = new NintendoDSRom(romBytes);
+  const fileId = rom.filenames.idOf(PWAN_LEGACY_W2_RUNTIME_PATH);
+  if (fileId === undefined) return;
+  const activeBytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId] ?? new Uint8Array();
+  const hash = await sha256Hex(activeBytes);
+  if (hash === PWAN_LEGACY_RETIREMENT_SHA256) return;
+  if (hash !== PWAN_LEGACY_W2_SHA256) {
+    throw new Error(
+      `A custom or unknown DLL already uses ${PWAN_LEGACY_W2_RUNTIME_PATH}. Remove or rename it before installing the split PWAN runtime.`,
+    );
+  }
+  setRomFileReplacement(project, fileId, retirementBytes);
+}
+
+async function assertKnownLegacyRuntime(bytes: Uint8Array): Promise<void> {
+  const hash = await sha256Hex(bytes);
+  if (hash !== PWAN_LEGACY_W2_SHA256 && hash !== PWAN_LEGACY_RETIREMENT_SHA256) {
+    throw new Error(
+      `A custom or unknown DLL already uses ${PWAN_LEGACY_W2_RUNTIME_PATH}. Remove or rename it before installing the split PWAN runtime.`,
+    );
+  }
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const input = new Uint8Array(bytes.length);
+  input.set(bytes);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", input);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
 export function buildPwanOverride(input: PwanOverrideInput): PwanAnimationOverride {
@@ -177,8 +294,32 @@ export function buildPwanOverride(input: PwanOverrideInput): PwanAnimationOverri
   });
 }
 
+export async function buildPwanOverrideAsync(input: PwanOverrideInput): Promise<PwanAnimationOverride> {
+  validatePwanSpeciesId(input.speciesId);
+  const [front, back] = await Promise.all([
+    buildPwanOverrideSideAsync({ fileName: input.frontFileName, gifBytes: input.frontGifBytes }),
+    buildPwanOverrideSideAsync({ fileName: input.backFileName, gifBytes: input.backGifBytes }),
+  ]);
+  return normalizePwanOverride({
+    speciesId: input.speciesId,
+    formIndex: input.formIndex,
+    assetIndex: input.assetIndex,
+    front,
+    back,
+    nativePaletteSource: input.nativePaletteSource ?? "back",
+    carrierTemplate: "w2u-gen6-placeholder",
+  });
+}
+
 export function buildPwanOverrideSide(input: PwanOverrideSideInput): PwanOverrideSide {
-  const result = compileGifToPwan(input.gifBytes);
+  return pwanOverrideSideFromCompileResult(input, compileGifToPwan(input.gifBytes));
+}
+
+export async function buildPwanOverrideSideAsync(input: PwanOverrideSideInput): Promise<PwanOverrideSide> {
+  return pwanOverrideSideFromCompileResult(input, await compileGifToPwanAsync(input.gifBytes));
+}
+
+function pwanOverrideSideFromCompileResult(input: PwanOverrideSideInput, result: PwanCompileResult): PwanOverrideSide {
   return {
     sourceFileName: input.fileName,
     sourceGifBytes: input.gifBytes,
@@ -372,9 +513,10 @@ export async function materializePwanAnimations(project: ProjectState, rom?: Nin
   }
   if (!project.narcs.pokemon_sprites) throw new Error("Pokemon Sprites must be loaded before exporting PWAN animation overrides.");
 
-  const carrier = await loadBundledPwanCarrierTemplate();
+  const carrier = await loadBundledPwanCarrierTemplate(project.session.baseVersion === "B2" ? "B2" : "W2");
   const sorted = [...overrides].sort((a, b) => a.speciesId - b.speciesId || (a.formIndex ?? 0) - (b.formIndex ?? 0));
   sorted.forEach((override) => {
+    validatePwanOverrideTarget(project, override);
     applyPwanCarrierPatch(project, override, carrier);
   });
   writePwanArchiveFile(project, rom, buildPwanArchive(sorted));
@@ -474,12 +616,28 @@ export function resolvePwanSpeciesTarget(project: ProjectState, speciesId: numbe
   const formOwner = formIndex <= 0 ? findPokemonPersonalFormOwner(project, speciesId) : undefined;
   const resolvedSpeciesId = formOwner?.speciesId ?? speciesId;
   const resolvedFormIndex = formOwner?.formIndex ?? formIndex;
-  return {
+  const target = {
     requestedSpeciesId: speciesId,
     speciesId: resolvedSpeciesId,
     formIndex: resolvedFormIndex,
     assetIndex: resolvePwanAssetIndex(project, resolvedSpeciesId, resolvedFormIndex, speciesId),
   };
+  validatePwanSpeciesTarget(project, target);
+  return target;
+}
+
+export function listPwanSpeciesTargets(project: ProjectState): PwanSpeciesTarget[] {
+  const count = project.narcs.personal?.fileCount ?? project.texts.banks.pokedex?.length ?? 650;
+  const targets: PwanSpeciesTarget[] = [];
+  for (let requestedSpeciesId = 1; requestedSpeciesId < count; requestedSpeciesId += 1) {
+    try {
+      targets.push(resolvePwanSpeciesTarget(project, requestedSpeciesId));
+    } catch {
+      // Expanded personal records that do not belong to a vanilla B2 species
+      // are intentionally omitted without preventing valid imports.
+    }
+  }
+  return targets;
 }
 
 export function findPwanOverrideForSpecies(project: ProjectState, speciesId: number, formIndex = 0): PwanAnimationOverride | undefined {
@@ -526,6 +684,33 @@ export function normalizePwanOutlineThreshold(value: number): number {
 
 function validatePwanSpeciesId(speciesId: number): void {
   if (!Number.isInteger(speciesId) || speciesId <= 0) throw new Error("Choose a valid vanilla species id.");
+}
+
+function validatePwanSpeciesTarget(project: ProjectState, target: PwanSpeciesTarget): void {
+  validatePwanSpeciesId(target.speciesId);
+  if (project.session?.baseVersion === "B2" && target.speciesId > 649) {
+    throw new Error("Black 2 PWAN imports support vanilla Gen 5 species only (1-649).");
+  }
+  validatePwanAssetIndex(project, target.assetIndex);
+}
+
+function validatePwanOverrideTarget(project: ProjectState, override: PwanAnimationOverride): void {
+  validatePwanSpeciesTarget(project, {
+    requestedSpeciesId: override.speciesId,
+    speciesId: override.speciesId,
+    formIndex: override.formIndex ?? 0,
+    assetIndex: pwanAssetIndex(override),
+  });
+}
+
+function validatePwanAssetIndex(project: ProjectState, assetIndex: number): void {
+  if (!Number.isInteger(assetIndex) || assetIndex < 0 || assetIndex > PWAN_MAX_ASSET_INDEX) {
+    throw new Error(`PWAN sprite asset ${assetIndex} is outside the supported runtime range.`);
+  }
+  const store = project.narcs.pokemon_sprites;
+  if (store && (assetIndex + 1) * FILES_PER_SPRITE > store.rawFiles.length) {
+    throw new Error(`Sprite asset ${assetIndex} is outside the loaded Pokemon sprite archive.`);
+  }
 }
 
 function findPwanOverrideIndex(state: PwanAnimationState, speciesId: number, formIndex = 0): number {
