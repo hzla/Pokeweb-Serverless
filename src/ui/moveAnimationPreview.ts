@@ -51,7 +51,8 @@ export async function installMoveAnimationPreview(
   rendererHost.append(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const initialCameraState = simulateBattleCamera(preview.timeline, 0);
+  const swappedSides = preview.battleEnvironment?.swappedSides ?? false;
+  const initialCameraState = simulateBattleCamera(preview.timeline, 0, swappedSides);
   const camera = new THREE.PerspectiveCamera(initialCameraState.fov, 1, 0.1, 500);
   applyCameraState(camera, initialCameraState);
   scene.add(new THREE.AmbientLight(0xffffff, 1));
@@ -131,7 +132,7 @@ export async function installMoveAnimationPreview(
         setFrame(nextFrame);
       }
     }
-    const cameraState = simulateBattleCamera(preview.timeline, frame);
+    const cameraState = simulateBattleCamera(preview.timeline, frame, swappedSides);
     background.update(frame, cameraState);
     applyCameraState(camera, cameraState);
     effects.update(frame);
@@ -244,12 +245,17 @@ function makeStage(THREE: ThreeModule, preview: MoveAnimationPreview): { group: 
     group.add(grid);
   }
   const environment = preview.battleEnvironment;
-  const userPosition = environment ? GEN5_SINGLE_USER_POKEMON_POSITION : USER_BATTLE_ANCHOR;
-  const targetPosition = environment ? GEN5_SINGLE_TARGET_POKEMON_POSITION : TARGET_BATTLE_ANCHOR;
-  const userMade = makeActor(THREE, "USER", userPosition[0], userPosition[2], environment ? GEN5_SINGLE_USER_POKEMON_SCALE : 1.12, 0x6fc9ff, environment?.userSprite, environment ? userPosition[1] : 0);
-  const targetMade = makeActor(THREE, "TARGET", targetPosition[0], targetPosition[2], environment ? GEN5_SINGLE_TARGET_POKEMON_SCALE : 0.92, 0xff9f65, environment?.targetSprite, environment ? targetPosition[1] : 0);
-  const user = makeStageActor(THREE, userMade, userPosition, environment?.userSprite, Boolean(environment));
-  const target = makeStageActor(THREE, targetMade, targetPosition, environment?.targetSprite, Boolean(environment));
+  const swappedSides = environment?.swappedSides ?? false;
+  const userPosition = environment ? (swappedSides ? GEN5_SINGLE_TARGET_POKEMON_POSITION : GEN5_SINGLE_USER_POKEMON_POSITION) : USER_BATTLE_ANCHOR;
+  const targetPosition = environment ? (swappedSides ? GEN5_SINGLE_USER_POKEMON_POSITION : GEN5_SINGLE_TARGET_POKEMON_POSITION) : TARGET_BATTLE_ANCHOR;
+  const userScale = environment ? (swappedSides ? GEN5_SINGLE_TARGET_POKEMON_SCALE : GEN5_SINGLE_USER_POKEMON_SCALE) : 1.12;
+  const targetScale = environment ? (swappedSides ? GEN5_SINGLE_USER_POKEMON_SCALE : GEN5_SINGLE_TARGET_POKEMON_SCALE) : 0.92;
+  const userImage = environment ? (swappedSides ? environment.targetSprite : environment.userSprite) : undefined;
+  const targetImage = environment ? (swappedSides ? environment.userSprite : environment.targetSprite) : undefined;
+  const userMade = makeActor(THREE, "USER", userPosition[0], userPosition[2], userScale, 0x6fc9ff, userImage, environment ? userPosition[1] : 0);
+  const targetMade = makeActor(THREE, "TARGET", targetPosition[0], targetPosition[2], targetScale, 0xff9f65, targetImage, environment ? targetPosition[1] : 0);
+  const user = makeStageActor(THREE, userMade, userPosition, userImage, Boolean(environment));
+  const target = makeStageActor(THREE, targetMade, targetPosition, targetImage, Boolean(environment));
   if (user.shadow) group.add(user.shadow);
   if (target.shadow) group.add(target.shadow);
   group.add(user.sprite, target.sprite);
@@ -562,7 +568,11 @@ function createEffects(
 function updateActors(preview: MoveAnimationPreview, actors: StageActors, frame: number): void {
   // Gen 4 supplies its own actorMotion/actorVisual tracks. Only the source-
   // backed Gen 5 battle environment owns MCSS commands.
-  const gen5State = simulateGen5BattleSprites(preview.battleEnvironment ? preview.timeline : [], frame);
+  const gen5State = simulateGen5BattleSprites(
+    preview.battleEnvironment ? preview.timeline : [],
+    frame,
+    preview.battleEnvironment?.swappedSides ?? false,
+  );
   for (const target of ["user", "target"] as const) {
     const actor = actors[target];
     const offset = actorMotionOffset(preview, target, frame);
@@ -1077,7 +1087,7 @@ function createBackgroundController(THREE: ThreeModule, preview: MoveAnimationPr
       canvas.height = height;
       environmentRenderer?.resize(width, height);
       lastKey = "";
-      draw(0, simulateBattleCamera(preview.timeline, 0));
+      draw(0, simulateBattleCamera(preview.timeline, 0, preview.battleEnvironment?.swappedSides ?? false));
     },
     update: draw,
     destroy: () => {

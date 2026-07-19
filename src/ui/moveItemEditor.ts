@@ -195,6 +195,25 @@ export function renderMoveAnimationPage(
           ${renderMoveAnimationMoveOptions(project, moveId)}
         </select>
       </label>
+      <section class="move-animation-environment-controls" aria-label="Preview battle environment">
+        <div class="move-animation-environment-title">Preview Environment</div>
+        <label class="move-animation-environment-select">
+          <span>Battle Background</span>
+          <select id="move-animation-background-select" disabled>
+            <option>Loading backgrounds…</option>
+          </select>
+        </label>
+        <label class="move-animation-environment-select">
+          <span>Battle Platform</span>
+          <select id="move-animation-platform-select" disabled>
+            <option>Loading platforms…</option>
+          </select>
+        </label>
+        <label class="move-animation-side-toggle">
+          <input id="move-animation-swap-sides" type="checkbox">
+          <span><strong>Swap user / target sides</strong><small>User moves to the opponent side.</small></span>
+        </label>
+      </section>
       <button class="btn -default move-animation-test-btn" type="button" ${canTestMoveAnimation ? "" : "disabled"}>Test in Game</button>
       <div class="move-command-reference" id="move-command-reference">
         <div class="move-command-reference-empty">Click a script command to view its parameters here.</div>

@@ -219,6 +219,8 @@ describe("moveAnimationPreviewModel", () => {
     expect(focused.position).toEqual(GEN5_SINGLE_USER_CAMERA_POSITION);
     expect(focused.lookAt).toEqual(GEN5_SINGLE_USER_CAMERA_TARGET);
     expect(focused.backdropZoom).toBeGreaterThan(1);
+    const swapped = simulateBattleCamera(preview.timeline, 16, true);
+    expect(swapped.lookAt).toEqual(GEN5_SINGLE_TARGET_CAMERA_TARGET);
   });
 
   it("previews Gen 5 move-script sprite commands and waits for their active MCSS tasks", async () => {
@@ -413,6 +415,18 @@ describe("moveAnimationPreviewModel", () => {
     expect(particle.position[0]).toBeCloseTo(GEN5_SINGLE_TARGET_POKEMON_POSITION[0]);
     expect(particle.position[1]).toBeCloseTo(GEN5_SINGLE_TARGET_POKEMON_POSITION[1] + 2);
     expect(particle.position[2]).toBeCloseTo(GEN5_SINGLE_TARGET_POKEMON_POSITION[2] + GEN5_EFFECT_PARTICLE_DEPTH_OFFSET);
+  });
+
+  it("swaps Gen 5 particle role anchors with the preview sides", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    const preview = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+    preview.battleEnvironment!.swappedSides = true;
+    preview.timeline[0].params = [0, 0, 11, 8, 8192, 0, 0, 4096, 4096, 4096, 4096];
+
+    const particle = simulateSplPreview(preview, 0)[0];
+    expect(particle.position[0]).toBeCloseTo(GEN5_SINGLE_USER_POKEMON_POSITION[0]);
+    expect(particle.position[1]).toBeCloseTo(GEN5_SINGLE_USER_POKEMON_POSITION[1] + 2);
+    expect(particle.position[2]).toBeCloseTo(GEN5_SINGLE_USER_POKEMON_POSITION[2] + GEN5_EFFECT_PARTICLE_DEPTH_OFFSET);
   });
 
   it("keeps Gen 5 SPL radii and velocity steps in source units", () => {
