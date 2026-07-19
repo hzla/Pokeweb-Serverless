@@ -7,6 +7,8 @@ import { decompileMoveAnimationFile, parseMoveAnimationScript, type ParsedMoveAn
 import { parseNitroBackground, type NitroBackgroundImage, type NitroBackgroundPaletteAnimation } from "./nitroBg";
 import type { NitroCellEffect, NitroCellImage } from "./nitroCell";
 import { parseSpaArchive, type SpaArchive } from "./nitroSpa";
+import type { MoveAnimationBattleEnvironment } from "./moveAnimationBattleEnvironment";
+import { gen5BattleSpriteIdleFrame, isGen5BattleSpriteCommand } from "./gen5BattleSpriteSimulator";
 
 const DEFAULT_CALL_DEPTH = 8;
 const MOVE_SPA_PATH = "a/0/0/6";
@@ -22,7 +24,7 @@ const SPA_COMMANDS = new Set([
   "DoSPACircleAnimation",
 ]);
 
-const MARKER_COMMANDS = new Set(["MoveCamera", "AdjustCamera", "ShakeScreen", "ShakeSprite", "CallMoveAnimation", "TerminateMoveScript"]);
+const MARKER_COMMANDS = new Set(["MoveCamera", "AdjustCamera", "ShakeScreen", "CallMoveAnimation", "TerminateMoveScript"]);
 const BACKGROUND_RENDER_COMMANDS = new Set(["MoveBackground", "BackgroundAlpha", "ChangeBackgroundColor", "ApplyBackground"]);
 const BACKGROUND_MARKER_COMMANDS = new Set(["DistortBackground", "BackgroundPaletteAnimation", "BackgroundPriority"]);
 const CAMERA_COMMANDS = new Set(["MoveCamera", "AdjustCamera", "CameraMoveAngle", "CameraProjection", "CameraPosPush", "ShakeScreen"]);
@@ -263,6 +265,7 @@ export type MoveAnimationPreview = {
   backgrounds: Map<number, NitroBackgroundImage>;
   cellEffects?: Map<string, NitroCellEffect>;
   battleScene?: MoveAnimationPreviewBattleScene;
+  battleEnvironment?: MoveAnimationBattleEnvironment;
   backgroundPaletteAnimations?: Map<number, NitroBackgroundPaletteAnimation>;
   warnings: MoveAnimationPreviewWarning[];
 };
@@ -320,6 +323,8 @@ export async function buildMoveAnimationPreview(
     }
   }
 
+  const lastTimelineFrame = Math.max(0, ...timeline.map((event) => event.frame));
+  const spriteIdleFrame = gen5BattleSpriteIdleFrame(timeline, lastTimelineFrame);
   return {
     moveId,
     rootLabel,
@@ -328,7 +333,7 @@ export async function buildMoveAnimationPreview(
     spaArchives,
     backgrounds,
     warnings,
-    frameCount: Math.max(60, ...timeline.map((event) => event.frame + eventDuration(event))),
+    frameCount: Math.max(60, spriteIdleFrame, ...timeline.map((event) => event.frame + eventDuration(event))),
   };
 }
 
@@ -429,7 +434,7 @@ function expandScript(
     if (WAIT_FOR_PENDING_COMMANDS.has(command.name)) {
       const event = makeEvent(command, frame, "supported", `${command.name} wait`, { sourceMoveId: moveId });
       timeline.push(event);
-      frame = Math.max(frame, pendingUntil);
+      frame = Math.max(frame, pendingUntil, gen5BattleSpriteIdleFrame(timeline, frame));
       continue;
     }
 
@@ -482,6 +487,13 @@ function expandScript(
       const event = makeEvent(command, frame, "supported", cameraEventMessage(command), { sourceMoveId: moveId });
       timeline.push(event);
       pendingUntil = Math.max(pendingUntil, frame + eventDuration(event));
+      continue;
+    }
+
+    if (isGen5BattleSpriteCommand(command.name)) {
+      const visualNoop = command.name === "FreezeSprite" || command.name === "PokemonBlinkFlag";
+      const event = makeEvent(command, frame, visualNoop ? "marker" : "supported", spriteEventMessage(command), { sourceMoveId: moveId });
+      timeline.push(event);
       continue;
     }
 
@@ -554,8 +566,27 @@ function eventDuration(event: MoveAnimationTimelineEvent): number {
   if (event.effectKind === "spa" || SPA_COMMANDS.has(event.command)) return 45;
   if (event.command === "MoveBackground" || event.command === "BackgroundAlpha") return Math.max(1, event.params[3] ?? 1, event.params[5] ?? 1);
   if (event.command === "ChangeBackgroundColor") return Math.max(1, event.params[3] ?? 0, Math.abs((event.params[2] ?? 0) - (event.params[1] ?? 0)));
-  if (event.command === "ShakeSprite" || event.command === "ShakeScreen") return Math.max(1, event.params[event.params.length - 1] ?? 1);
+  if (event.command === "ShakeScreen") return Math.max(1, event.params[event.params.length - 1] ?? 1);
   return 1;
+}
+
+function spriteEventMessage(command: ParsedMoveAnimationCommand): string {
+  const target = command.params[0] ?? 0;
+  if (command.name === "ShakeSprite") return `Move sprite selector ${target}`;
+  if (command.name === "MoveSprite") return `Orbit sprite selector ${target}`;
+  if (command.name === "PokemonSineMove") return `Sine-move sprite selector ${target}`;
+  if (command.name === "DistortSprite") return `Scale sprite selector ${target}`;
+  if (command.name === "TiltSprite") return `Rotate sprite selector ${target}`;
+  if (command.name === "SpriteOpacity") return `Adjust sprite opacity selector ${target}`;
+  if (command.name === "PokemonMosaic") return `Apply sprite mosaic selector ${target}`;
+  if (command.name === "PokemonBlinkFlag") return `Sprite blink timing selector ${target}; static preview image unchanged`;
+  if (command.name === "FreezeSprite") return `PWAN/cell playback flag selector ${target}; static preview image unchanged`;
+  if (command.name === "ChangeColor") return `Fade sprite palette selector ${target}`;
+  if (command.name === "ChangeVisibility") return `Change sprite visibility selector ${target}`;
+  if (command.name === "PokemonShadowVanish") return `Change sprite shadow visibility selector ${target}`;
+  if (command.name === "PokemonShadowScale") return `Scale sprite shadow selector ${target}`;
+  if (command.name === "DeletePokemon") return `Delete sprite selector ${target}`;
+  return `${command.name} sprite command`;
 }
 
 function cameraEventMessage(command: ParsedMoveAnimationCommand): string {

@@ -5,7 +5,16 @@ import { NintendoDSRom } from "../nds/rom";
 import { compileMoveAnimation, decompileMoveAnimation } from "../pokeweb/moveAnimationModel";
 import { buildMoveAnimationPreview, loadMoveBackground, type MoveAnimationPreview } from "../pokeweb/moveAnimationPreviewModel";
 import { simulateBattleCamera } from "../pokeweb/battleCameraSimulator";
+import { simulateGen5BattleSprites } from "../pokeweb/gen5BattleSpriteSimulator";
 import { TARGET_BATTLE_ANCHOR, USER_BATTLE_ANCHOR } from "../pokeweb/battlePreviewAnchors";
+import {
+  GEN5_EFFECT_PARTICLE_DEPTH_OFFSET,
+  GEN5_SINGLE_TARGET_CAMERA_TARGET,
+  GEN5_SINGLE_TARGET_POKEMON_POSITION,
+  GEN5_SINGLE_USER_CAMERA_POSITION,
+  GEN5_SINGLE_USER_CAMERA_TARGET,
+  GEN5_SINGLE_USER_POKEMON_POSITION,
+} from "../pokeweb/gen5BattleSceneLayout";
 import { parseNitroBackground } from "../pokeweb/nitroBg";
 import { parseSpaArchive } from "../pokeweb/nitroSpa";
 import { simulateSplPreview } from "../pokeweb/splEmitterSimulator";
@@ -158,9 +167,13 @@ describe("moveAnimationPreviewModel", () => {
 
     expect(preview.timeline.filter((event) => event.command.includes("Camera") || event.command === "ShakeScreen").every((event) => event.status === "supported")).toBe(true);
     expect(preview.timeline.find((event) => event.command === "CameraProjection")?.frame).toBe(16);
+    const initial = simulateBattleCamera(preview.timeline, 0);
+    expect(initial.position).toEqual([6.7, 6.7, 17.3]);
+    expect(initial.lookAt).toEqual([0, 2.6, 0]);
+    expect(initial.fov).toBe(26);
     const zoomed = simulateBattleCamera(preview.timeline, 16);
     expect(zoomed.backdropZoom).toBeGreaterThan(1);
-    expect(zoomed.lookAt[0]).toBeGreaterThan(0);
+    expect(zoomed.lookAt).toEqual(GEN5_SINGLE_TARGET_CAMERA_TARGET);
   });
 
   it("does not treat generic setup camera preset 20 as a target zoom", async () => {
@@ -181,8 +194,60 @@ describe("moveAnimationPreviewModel", () => {
     const target = simulateBattleCamera(preview.timeline, 40);
     expect(Math.abs(setup.lookAt[0])).toBeLessThan(3);
     expect(setup.backdropZoom).toBeCloseTo(1);
-    expect(target.lookAt[0]).toBeGreaterThan(0);
+    expect(target.lookAt).toEqual(GEN5_SINGLE_TARGET_CAMERA_TARGET);
     expect(target.backdropZoom).toBeGreaterThan(1);
+  });
+
+  it("centers MoveCamera ATTACKER on the user camera table", async () => {
+    const project = makeProject();
+    const preview = await buildMoveAnimationPreview(
+      project,
+      14,
+      makeScript(`
+     MoveCamera 1, 9, 16, 0, 8
+     LetCMDsFinish 0
+     TerminateMoveScript
+`),
+      { loadSpaArchive: async () => parseSpaArchive(makeSyntheticSpa()) },
+    );
+
+    const initial = simulateBattleCamera(preview.timeline, 0);
+    const halfway = simulateBattleCamera(preview.timeline, 8);
+    const focused = simulateBattleCamera(preview.timeline, 16);
+    expect(initial.position).toEqual([6.7, 6.7, 17.3]);
+    expect(halfway.position).not.toEqual(initial.position);
+    expect(focused.position).toEqual(GEN5_SINGLE_USER_CAMERA_POSITION);
+    expect(focused.lookAt).toEqual(GEN5_SINGLE_USER_CAMERA_TARGET);
+    expect(focused.backdropZoom).toBeGreaterThan(1);
+  });
+
+  it("previews Gen 5 move-script sprite commands and waits for their active MCSS tasks", async () => {
+    const project = makeProject();
+    const preview = await buildMoveAnimationPreview(
+      project,
+      14,
+      makeScript(`
+     DistortSprite 14, 1, 8192, 2048, 4, 0, 0
+     PokemonBlinkFlag 16, 2, 1, 1
+     FreezeSprite 14, 0
+     LetCMDsFinish 0
+     ChangeVisibility 16, 3
+     TerminateMoveScript
+`),
+      { loadSpaArchive: async () => parseSpaArchive(makeSyntheticSpa()) },
+    );
+
+    expect(preview.timeline.find((event) => event.command === "DistortSprite")?.status).toBe("supported");
+    expect(preview.timeline.find((event) => event.command === "PokemonBlinkFlag")?.status).toBe("marker");
+    expect(preview.timeline.find((event) => event.command === "FreezeSprite")?.status).toBe("marker");
+    expect(preview.timeline.find((event) => event.command === "TerminateMoveScript")?.frame).toBe(4);
+    expect(preview.warnings.some((warning) => warning.command === "DistortSprite" || warning.command === "FreezeSprite")).toBe(false);
+
+    const midway = simulateGen5BattleSprites(preview.timeline, 2);
+    expect(midway.user.scale).toEqual([1.5, 0.75]);
+    const finished = simulateGen5BattleSprites(preview.timeline, 4);
+    expect(finished.user.scale).toEqual([2, 0.5]);
+    expect(finished.target.visible).toBe(false);
   });
 
   it("parses a minimal SPA archive and decodes palette textures", () => {
@@ -268,6 +333,64 @@ describe("moveAnimationPreviewModel", () => {
     expect(Math.max(...particles.map((particle) => particle.position[0]))).toBeLessThan(TARGET_BATTLE_ANCHOR[0]);
   });
 
+  it("keeps parent particles attached to moving emitters when the SPA requests it", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    archive.resources[0].followEmitter = true;
+    const preview = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+    preview.timeline[0] = {
+      ...preview.timeline[0],
+      command: "DoSPAProjectileAnimation",
+      // Egg Bomb-style curved projectile: attacker to defender over 40 frames.
+      params: [0, 0, 2, 9, 11, 8192, 40 * 4096, 4 * 4096, 4096, 4096, 0],
+    };
+
+    const start = simulateSplPreview(preview, 0)[0];
+    const halfway = simulateSplPreview(preview, 20)[0];
+    const startEmitter = start.position.map((value, index) => value - start.relativePosition[index]);
+    const halfwayEmitter = halfway.position.map((value, index) => value - halfway.relativePosition[index]);
+
+    expect(vectorDistance(halfwayEmitter, startEmitter)).toBeGreaterThan(5);
+    expect(halfwayEmitter[1]).toBeGreaterThan(startEmitter[1]);
+  });
+
+  it("keeps zero-frame projectile emitters at the attacker for SPA-driven travel", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    archive.resources[0].followEmitter = true;
+    const preview = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+    preview.timeline[0] = {
+      ...preview.timeline[0],
+      command: "DoSPAProjectileAnimation",
+      // Ancient Power and Hydro Cannon use zero move_frame and resource velocity.
+      params: [0, 0, 1, 9, 11, 4096, 0, 0, 4096, 4096, 0],
+    };
+
+    const particle = simulateSplPreview(preview, 10)[0];
+    const emitter = particle.position.map((value, index) => value - particle.relativePosition[index]);
+
+    expect(emitter[0]).toBeCloseTo(GEN5_SINGLE_USER_POKEMON_POSITION[0]);
+    expect(emitter[1]).toBeCloseTo(GEN5_SINGLE_USER_POKEMON_POSITION[1] + 1);
+    expect(emitter[2]).toBeCloseTo(GEN5_SINGLE_USER_POKEMON_POSITION[2] + GEN5_EFFECT_PARTICLE_DEPTH_OFFSET);
+  });
+
+  it("aims Gen 5 SPA axes at the target without flattening their authored elevation", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    archive.resources[0].axis = [0.8, 0.6, 0];
+    archive.resources[0].initVelAxisAmplifier = 1;
+    const preview = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+    preview.timeline[0] = {
+      ...preview.timeline[0],
+      command: "DoSPAProjectileAnimation",
+      params: [0, 0, 1, 9, 11, 0, 0, 0, 4096, 4096, 0],
+    };
+
+    const start = simulateSplPreview(preview, 0)[0];
+    const next = simulateSplPreview(preview, 1)[0];
+    const step = next.relativePosition.map((value, index) => value - start.relativePosition[index]);
+
+    expect(step[1]).toBeGreaterThan(0.3);
+    expect(step[2]).toBeLessThan(-0.4);
+  });
+
   it("keeps SPA-authored particle velocity in preview-world scale", () => {
     const bytes = makeSyntheticSpa();
     writeU32(bytes, 32 + 40, 4096);
@@ -279,6 +402,88 @@ describe("moveAnimationPreviewModel", () => {
     const displacement = (particle?.position[0] ?? USER_BATTLE_ANCHOR[0]) - USER_BATTLE_ANCHOR[0];
     expect(displacement).toBeGreaterThan(2);
     expect(displacement).toBeLessThan(8);
+  });
+
+  it("uses Swan command offsets and depth ordering in the Gen 5 battle scene", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    const preview = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+    preview.timeline[0].params = [0, 0, 11, 8, 8192, 0, 0, 4096, 4096, 4096, 4096];
+
+    const particle = simulateSplPreview(preview, 0)[0];
+    expect(particle.position[0]).toBeCloseTo(GEN5_SINGLE_TARGET_POKEMON_POSITION[0]);
+    expect(particle.position[1]).toBeCloseTo(GEN5_SINGLE_TARGET_POKEMON_POSITION[1] + 2);
+    expect(particle.position[2]).toBeCloseTo(GEN5_SINGLE_TARGET_POKEMON_POSITION[2] + GEN5_EFFECT_PARTICLE_DEPTH_OFFSET);
+  });
+
+  it("keeps Gen 5 SPL radii and velocity steps in source units", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32, 1);
+    writeU32(bytes, 32 + 20, 4096);
+    const archive = parseSpaArchive(bytes);
+    const legacy = makeSyntheticPreview(archive);
+    const gen5 = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+
+    const legacyParticles = simulateSplPreview(legacy, 0);
+    const gen5Particles = simulateSplPreview(gen5, 0);
+    expect(legacyParticles.length).toBeGreaterThan(0);
+    expect(gen5Particles.length).toBe(legacyParticles.length);
+    for (const particle of gen5Particles) {
+      expect(vectorLength(particle.relativePosition)).toBeCloseTo(1, 5);
+    }
+    for (const particle of legacyParticles) {
+      expect(vectorLength(particle.relativePosition)).toBeCloseTo(4.5, 5);
+    }
+
+    const velocityBytes = makeSyntheticSpa();
+    writeU32(velocityBytes, 32 + 40, 4096);
+    const velocityArchive = parseSpaArchive(velocityBytes);
+    const legacyVelocity = simulateSplPreview(makeSyntheticPreview(velocityArchive), 0)[0];
+    const gen5Velocity = simulateSplPreview(withGen5BattleEnvironment(makeSyntheticPreview(velocityArchive)), 0)[0];
+    expect(vectorLength(gen5Velocity.relativePosition)).toBeCloseTo(0.75, 5);
+    expect(vectorLength(legacyVelocity.relativePosition)).toBeCloseTo(1.0125, 5);
+  });
+
+  it.each(["magnet", "convergence"] as const)("redirects Gen 5 %s fields from the defender toward the attacker", (type) => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    archive.resources[0].behaviors = [{ type, target: [100, 0, 0], force: 0.15 }];
+    const preview = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+    preview.timeline[0] = {
+      ...preview.timeline[0],
+      command: "DoSPAAnimation2",
+      // Absorb-style orthographic playback: defender source, attacker direction.
+      params: [0, 0, 11, 9, 0, 2867, 0, 2048, 4096, 2048, 4096],
+    };
+
+    const start = simulateSplPreview(preview, 0)[0];
+    const later = simulateSplPreview(preview, 4)[0];
+    const userEffectAnchor = [
+      GEN5_SINGLE_USER_POKEMON_POSITION[0],
+      GEN5_SINGLE_USER_POKEMON_POSITION[1] + 2867 / 4096,
+      GEN5_SINGLE_USER_POKEMON_POSITION[2] + GEN5_EFFECT_PARTICLE_DEPTH_OFFSET,
+    ];
+    expect(start).toBeDefined();
+    expect(later).toBeDefined();
+    expect(vectorDistance(later.position, userEffectAnchor)).toBeLessThan(vectorDistance(start.position, userEffectAnchor));
+    expect(later.position[2]).toBeGreaterThan(start.position[2]);
+  });
+
+  it("uses the authored circle radii around the raised Gen 5 Pokemon anchor", () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    const preview = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+    preview.timeline[0] = {
+      ...preview.timeline[0],
+      command: "DoSPACircleAnimation",
+      params: [0, 0, 2, 4096, 8192, 8192, 32, 0, 1, 0],
+    };
+
+    const particles = simulateSplPreview(preview, 1);
+    const ellipseDistances = particles.map((particle) => {
+      const dx = particle.position[0] - GEN5_SINGLE_TARGET_POKEMON_POSITION[0];
+      const dz = particle.position[2] - GEN5_SINGLE_TARGET_POKEMON_POSITION[2];
+      return (dx / 1) ** 2 + (dz / 2) ** 2;
+    });
+    expect(Math.max(...ellipseDistances)).toBeCloseTo(1, 5);
+    expect(particles.every((particle) => Math.abs(particle.position[1] - GEN5_SINGLE_TARGET_POKEMON_POSITION[1] - 2) < 0.00001)).toBe(true);
   });
 
   it("starts delayed SPL emitters after their delay instead of expiring them early", () => {
@@ -524,7 +729,7 @@ describe("moveAnimationPreviewModel", () => {
     expect(particle?.rotation).toBeCloseTo(authoredAngle + Math.PI, 3);
   });
 
-  it("adds command-driven DistortSprite hit overlay particles", () => {
+  it("does not invent particles for DistortSprite commands", () => {
     const archive = parseSpaArchive(makeSyntheticSpa());
     const preview = makeSyntheticPreview(archive);
     preview.spaIds = [166];
@@ -538,7 +743,7 @@ describe("moveAnimationPreviewModel", () => {
       message: "distort",
     });
 
-    expect(simulateSplPreview(preview, 3).some((particle) => particle.textureKind === "circle")).toBe(true);
+    expect(simulateSplPreview(preview, 3).some((particle) => particle.resourceIndex < 0)).toBe(false);
   });
 
   it("simulates SPL child particles from child resource blocks", () => {
@@ -574,6 +779,19 @@ function makeSyntheticPreview(archive: ReturnType<typeof parseSpaArchive>): Move
       },
     ],
   };
+}
+
+function withGen5BattleEnvironment(preview: MoveAnimationPreview): MoveAnimationPreview {
+  preview.battleEnvironment = {} as NonNullable<MoveAnimationPreview["battleEnvironment"]>;
+  return preview;
+}
+
+function vectorLength(vector: readonly number[]): number {
+  return Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+}
+
+function vectorDistance(left: readonly number[], right: readonly number[]): number {
+  return vectorLength(left.map((value, index) => value - (right[index] ?? 0)));
 }
 
 function makeScript(body: string): string {

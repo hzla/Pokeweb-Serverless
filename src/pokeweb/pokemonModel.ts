@@ -2,7 +2,7 @@ import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { cascadeWhitePersonalName } from "./cascadeWhiteModel";
 import { EGG_GROUPS, EVO_METHODS, GROWTHS, typeNamesForProject, type NarcName } from "./constants";
-import { detectWhite2UpgradeDlls } from "./pmcModel";
+import { usesExpandedBw2Data } from "./black2UpgradeModel";
 import { PERSONAL_ABILITY_MAX_ID } from "./personalAbilityPacking";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTmNames, machineCountsForProject } from "./tmModel";
@@ -208,7 +208,7 @@ export function usesWhite2UpgradePokemonData(project: ProjectState): boolean {
   if (project.session.baseRom !== "BW2") return false;
   if ((project.narcs.personal?.fileCount ?? 0) >= WHITE2UPGRADE_MIN_PERSONAL_FILES) return true;
   if (project.narcs.evolutions?.rawFiles.some((file) => file.length >= WHITE2UPGRADE_EVOLUTION_RECORD_LENGTH)) return true;
-  return detectWhite2UpgradeDlls(project);
+  return usesExpandedBw2Data(project);
 }
 
 export function learnsetMoveLimit(project: ProjectState): number {

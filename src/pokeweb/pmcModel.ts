@@ -68,9 +68,13 @@ const MAIN_MENU_SKIP_FILENAMES: Record<"B2" | "W2", string> = {
 export async function installBundledPmc(project: ProjectState): Promise<PmcInstallResult> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the ROM before installing PMC.");
-  const response = await fetch(project.session.baseVersion === "B2" ? PMC_B2_URL : PMC_W2_URL);
+  return installPmcBytes(project, await loadBundledPmcBytes(project.session.baseVersion), romBytes);
+}
+
+export async function loadBundledPmcBytes(version: ProjectState["session"]["baseVersion"]): Promise<Uint8Array> {
+  const response = await fetch(version === "B2" ? PMC_B2_URL : PMC_W2_URL);
   if (!response.ok) throw new Error(`Could not load bundled PMC binary (${response.status})`);
-  return installPmcBytes(project, new Uint8Array(await response.arrayBuffer()), romBytes);
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, romBytes: Uint8Array): PmcInstallResult {
@@ -177,7 +181,7 @@ export async function prepareBw2TestBattleCodeInjection(project: ProjectState): 
   if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
     throw new Error(`No bundled main menu skip patch is available for ${project.session.baseVersion}.`);
   }
-  if (detectWhite2UpgradeDlls(project)) return undefined;
+  if (detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) return undefined;
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
   return stageBundledMainMenuSkipDll(project);
 }
@@ -270,6 +274,11 @@ export function listCodeInjectionDlls(project: ProjectState): NonNullable<NonNul
 export function detectWhite2UpgradeDlls(project: ProjectState): boolean {
   if (project.session.baseRom !== "BW2") return false;
   return listCodeInjectionDlls(project).some((module) => isWhite2UpgradeDllPath(module.path));
+}
+
+export function detectBlack2UpgradeDlls(project: ProjectState): boolean {
+  if (project.session.baseVersion !== "B2") return false;
+  return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === "patches/black2upgrade.dll");
 }
 
 export function detectBundledDoubleBattleFixDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {

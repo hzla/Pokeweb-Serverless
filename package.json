@@ -21,6 +21,10 @@
     "pwan:runtime:verify-rom": "vite-node scripts/verify-pwan-rom-compatibility.ts",
     "pwan:runtime:verify-b2-install": "vite-node scripts/verify-black2-pwan-install.ts",
     "pwan:runtime:verify-w2-migration": "vite-node scripts/verify-white2-pwan-migration.ts",
+    "black2upgrade:sync": "node scripts/sync-black2upgrade-artifacts.mjs",
+    "black2upgrade:check": "node scripts/sync-black2upgrade-artifacts.mjs --check",
+    "black2upgrade:rom": "vite-node scripts/build-black2upgrade-rom.ts",
+    "black2upgrade:verify-rom": "vite-node scripts/verify-black2upgrade-rom.ts",
     "state:inspect": "vite-node scripts/inspect-test-battle-state.ts"
   },
   "dependencies": {

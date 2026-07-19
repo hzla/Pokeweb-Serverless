@@ -1,16 +1,38 @@
 import type { MoveAnimationPreview, MoveAnimationTimelineEvent } from "./moveAnimationPreviewModel";
 import type { SpaArchive, SpaBehavior, SpaChildResource, SpaResource } from "./nitroSpa";
 import { CENTER_BATTLE_ANCHOR, copyBattleAnchor, TARGET_BATTLE_ANCHOR, USER_BATTLE_ANCHOR } from "./battlePreviewAnchors";
+import {
+  GEN5_EFFECT_PARTICLE_DEPTH_OFFSET,
+  GEN5_SINGLE_TARGET_POKEMON_POSITION,
+  GEN5_SINGLE_USER_POKEMON_POSITION,
+} from "./gen5BattleSceneLayout";
 
 const FPS = 30;
 const MAX_PARTICLES_PER_EVENT = 256;
-const POSITION_SCALE = 4.5;
-const VELOCITY_STEP_SCALE = 0.3;
-const SPRITE_SCALE = 13.5;
+// These conversions belong to the original flat preview coordinate system.
+// Source-backed Gen 5 battle previews select unit scales in BattleAnchorSet.
+const LEGACY_POSITION_SCALE = 4.5;
+const LEGACY_VELOCITY_STEP_SCALE = 0.3;
+const LEGACY_SPRITE_SCALE = 13.5;
+const LEGACY_PROJECTILE_SPEED_SCALE = 0.35;
+const LEGACY_PROJECTILE_FALLBACK_SPEED = 0.28;
+// Swan's libjn_spl drawXYPlane/drawXZPlane builds each particle quad from
+// -FX32_ONE to +FX32_ONE before applying base_scl. The authored scale is
+// therefore a half-extent, while Three.js PlaneGeometry uses full dimensions.
+const SPL_SOURCE_QUAD_DIAMETER = 2;
 const HG_ANCHORED_PANE_TARGET_SCALE = 1.1;
 const HG_ANCHORED_PANE_POSITION_SCALE = 1;
 
 type Vec3 = [number, number, number];
+
+type BattleAnchorSet = {
+  user: Vec3;
+  target: Vec3;
+  center: Vec3;
+  positionScale: number;
+  velocityStepScale: number;
+  usesGen5SourceSpace: boolean;
+};
 
 export type SplFrameParticle = {
   eventId: string;
@@ -37,6 +59,9 @@ export type SplFrameParticle = {
   scale: number;
   scaleX: number;
   scaleY: number;
+  sourceScale: number;
+  sourceScaleX: number;
+  sourceScaleY: number;
   aspectRatio: number;
   tiltScale: number;
   anchorX: number;
@@ -73,6 +98,7 @@ type SimParticle = {
 export function simulateSplPreview(preview: MoveAnimationPreview, frame: number): SplFrameParticle[] {
   const out: Array<{ eventIndex: number; particleIndex: number; particle: SplFrameParticle }> = [];
   const targetFrame = Math.max(0, Math.round(frame));
+  const anchors = battleAnchorsForPreview(preview);
   for (let eventIndex = 0; eventIndex < preview.timeline.length; eventIndex += 1) {
     const event = preview.timeline[eventIndex];
     if (!isSpaEvent(event) || event.spaId === undefined || event.resourceId === undefined) continue;
@@ -83,22 +109,18 @@ export function simulateSplPreview(preview: MoveAnimationPreview, frame: number)
     const particleLifeFrames = Math.max(resource.particleLifeFrames, resource.childResource?.lifeFrames ?? 0);
     const lastUsefulFrame = event.frame + eventParams(event).lifeMultiplier * resource.emitterLifeFrames + particleLifeFrames + resource.startDelayFrames + 8;
     if (targetFrame > lastUsefulFrame) continue;
-    const particles = simulateEvent(event, archive, resource, targetFrame - event.frame);
+    const particles = simulateEvent(event, archive, resource, targetFrame - event.frame, anchors);
     particles.forEach((particle, particleIndex) => out.push({ eventIndex, particleIndex, particle }));
-  }
-  for (const overlay of simulateDistortSpriteOverlays(preview, targetFrame)) {
-    const eventIndex = preview.timeline.findIndex((event) => overlay.eventId.startsWith(`${event.id}:`));
-    out.push({ eventIndex: eventIndex < 0 ? preview.timeline.length : eventIndex, particleIndex: out.length, particle: overlay });
   }
   return out
     .sort((left, right) => right.eventIndex - left.eventIndex || left.particleIndex - right.particleIndex)
     .map((entry) => entry.particle);
 }
 
-function simulateEvent(event: MoveAnimationTimelineEvent, archive: SpaArchive, resource: SpaResource, localFrame: number): SplFrameParticle[] {
+function simulateEvent(event: MoveAnimationTimelineEvent, archive: SpaArchive, resource: SpaResource, localFrame: number, anchors: BattleAnchorSet): SplFrameParticle[] {
   const params = eventParams(event);
   const rng = new DeterministicRng(hashString(`${event.id}:${event.spaId}:${event.resourceId}`));
-  const emitter = new SplEmitter(resource, archive, params, event, rng);
+  const emitter = new SplEmitter(resource, archive, params, event, rng, anchors);
   for (let frame = 0; frame <= localFrame && !emitter.dead; frame += 1) emitter.step();
   return emitter.render();
 }
@@ -125,11 +147,14 @@ class SplEmitter {
     private readonly params: EventParams,
     private readonly event: MoveAnimationTimelineEvent,
     private readonly rng: DeterministicRng,
+    private readonly anchors: BattleAnchorSet,
   ) {
     this.started = resource.startDelayFrames <= 0;
     this.position = this.emitterPositionAt(0);
-    this.axis = emitterAxis(event, resource.axis);
-    this.particleInitVelocity = isProjectileEvent(event) ? projectileInitialVelocity(event) : [0, 0, 0];
+    this.axis = emitterAxis(event, resource.axis, anchors);
+    this.particleInitVelocity = !anchors.usesGen5SourceSpace && isProjectileEvent(event)
+      ? legacyProjectileInitialVelocity(event, anchors)
+      : [0, 0, 0];
     [this.crossAxis1, this.crossAxis2] = event.particle?.screenPlane ? screenPlaneAxes() : orthogonalAxes(resource.emissionAxis, this.axis);
   }
 
@@ -169,7 +194,9 @@ class SplEmitter {
       particle.velocity = scaleVec(particle.velocity, this.resource.airResistance);
       particle.velocity = add(particle.velocity, acceleration);
       particle.position = add(particle.position, add(particle.velocity, this.emitterVelocity));
-      if (particle.child?.followEmitter) particle.emitterPos = this.emitterPositionAt(this.ageFrames);
+      if ((!particle.child && this.resource.followEmitter) || particle.child?.followEmitter) {
+        particle.emitterPos = this.emitterPositionAt(this.ageFrames);
+      }
       if (!particle.child && this.resource.childResource) this.emitChildren(particle, this.resource.childResource, spawned);
       particle.ageFrames += 1;
       particle.emissionTimerFrames += 1;
@@ -195,9 +222,11 @@ class SplEmitter {
         const splScale = advancedPlacement || directionalBillboard || isHgAnchoredPaneResource(this.event, this.resource);
         const scaleMultiplier = effectiveScaleMultiplier(this.event, this.resource, this.params);
         const animScale = particleRenderAnimScale(this.event, this.resource, particle);
-        const scale = Math.max(0.05, particle.baseScale * animScale * scaleMultiplier * SPRITE_SCALE);
-        const paneScale = screenPlanePaneScale(this.event, this.resource, this.params);
+        const sourceScale = Math.max(0.001, particle.baseScale * animScale * scaleMultiplier);
+        const scale = Math.max(0.05, sourceScale * LEGACY_SPRITE_SCALE);
+        const paneScale = screenPlanePaneScale(this.event, this.resource, this.params, this.anchors.positionScale);
         const [scaleX, scaleY] = paneScale ?? (splScale ? particleScale(this.resource, particle, scaleMultiplier, animScale) : [scale * Math.max(0.1, this.resource.aspectRatio || 1), scale]);
+        const [sourceScaleX, sourceScaleY] = particleSourceScale(this.resource, particle, scaleMultiplier, animScale);
         const useResourceAnchor = advancedPlacement || this.event.particle?.useResourceAnchor === true;
         const [anchorX, anchorY] = useResourceAnchor ? particleAnchor(this.resource, particle.child) : [0.5, 0.5];
         const textureIndex = clampTextureIndex(particle.textureIndex, this.archive);
@@ -230,6 +259,9 @@ class SplEmitter {
           scale,
           scaleX: Math.max(0.05, scaleX),
           scaleY: Math.max(0.05, scaleY),
+          sourceScale: sourceScale * SPL_SOURCE_QUAD_DIAMETER,
+          sourceScaleX,
+          sourceScaleY,
           aspectRatio: Math.max(0.1, this.resource.aspectRatio || 1),
           tiltScale: particleForeshortening(this.event, particle, this.resource),
           anchorX,
@@ -253,7 +285,7 @@ class SplEmitter {
   }
 
   private renderParticleVelocity(particle: SimParticle): Vec3 {
-    const particleVelocity = scaleVec(particle.velocity, POSITION_SCALE);
+    const particleVelocity = scaleVec(particle.velocity, this.anchors.positionScale);
     if (this.event.particle?.forceAxisRotation && this.event.particle.alignDirection) return normalize(this.event.particle.alignDirection);
     if (!this.event.particle?.forceFollowMotion || !this.event.particle.originMotion) {
       if (this.event.particle?.alignToMotion && length(particleVelocity) < 0.0001 && this.event.particle.alignDirection) {
@@ -275,18 +307,18 @@ class SplEmitter {
     const destination = this.event.particle?.extendToDestination ? this.event.particle.destination : undefined;
     if (destination) {
       const start = this.emitterPositionAt(0);
-      const maxDistanceAlongAxis = dot(sub(destination, start), this.axis) / POSITION_SCALE;
+      const maxDistanceAlongAxis = dot(sub(destination, start), this.axis) / this.anchors.positionScale;
       const distanceAlongAxis = dot(localPosition, this.axis);
       if (maxDistanceAlongAxis > 0 && distanceAlongAxis > maxDistanceAlongAxis) {
         localPosition = sub(localPosition, scaleVec(this.axis, distanceAlongAxis - maxDistanceAlongAxis));
       }
     }
-    return scaleVec(localPosition, POSITION_SCALE);
+    return scaleVec(localPosition, this.anchors.positionScale);
   }
 
   private emitterPositionAt(frame: number): Vec3 {
-    const basePosScale = POSITION_SCALE * resourceBasePositionMultiplier(this.event, this.resource);
-    return add(scriptEmitterOriginAt(this.event, frame), scaleVec(this.resource.emitterBasePos, basePosScale));
+    const basePosScale = this.anchors.positionScale * resourceBasePositionMultiplier(this.event, this.resource);
+    return add(scriptEmitterOriginAt(this.event, frame, this.anchors), scaleVec(this.resource.emitterBasePos, basePosScale));
   }
 
   private resourceIntervalFrames(): number {
@@ -350,10 +382,10 @@ class SplEmitter {
     const emissionColumn = Math.floor(this.emissionOrdinal / Math.max(1, count));
     const position = this.initialPosition(index, count, localRng, emissionColumn);
     const posNorm = length(position) < 0.00001 ? localRng.unitVector() : normalize(position);
-    const magPos = scaledRange2(this.resource.initVelPosAmplifier * this.params.speedMultiplier * VELOCITY_STEP_SCALE, this.resource.variance.initVel, localRng);
+    const magPos = scaledRange2(this.resource.initVelPosAmplifier * this.params.speedMultiplier * this.anchors.velocityStepScale, this.resource.variance.initVel, localRng);
     const axisVelocity = this.screenPlaneRegularCellStep(count) === undefined ? this.resource.initVelAxisAmplifier : 0;
     const magAxis = Math.max(
-      scaledRange2(axisVelocity * this.params.speedMultiplier * VELOCITY_STEP_SCALE, this.resource.variance.initVel, localRng),
+      scaledRange2(axisVelocity * this.params.speedMultiplier * this.anchors.velocityStepScale, this.resource.variance.initVel, localRng),
       this.destinationReachAxisVelocity(),
     );
     const velocity = add(add(scaleVec(posNorm, magPos), scaleVec(this.axis, magAxis)), this.particleInitVelocity);
@@ -456,14 +488,14 @@ class SplEmitter {
   private applyBehavior(particle: SimParticle, behavior: SpaBehavior): Vec3 {
     switch (behavior.type) {
       case "gravity":
-        return scaleVec(behavior.magnitude, VELOCITY_STEP_SCALE);
+        return scaleVec(behavior.magnitude, this.anchors.velocityStepScale);
       case "random":
         if (behavior.applyIntervalFrames <= 0 || Math.round(particle.ageFrames) % behavior.applyIntervalFrames === 0) {
           const rng = this.rng.fork(Math.round(particle.ageFrames * 997 + this.emissionOrdinal));
           return [
-            rng.aroundZero(behavior.magnitude[0]) * VELOCITY_STEP_SCALE,
-            rng.aroundZero(behavior.magnitude[1]) * VELOCITY_STEP_SCALE,
-            rng.aroundZero(behavior.magnitude[2]) * VELOCITY_STEP_SCALE,
+            rng.aroundZero(behavior.magnitude[0]) * this.anchors.velocityStepScale,
+            rng.aroundZero(behavior.magnitude[1]) * this.anchors.velocityStepScale,
+            rng.aroundZero(behavior.magnitude[2]) * this.anchors.velocityStepScale,
           ];
         }
         return [0, 0, 0];
@@ -490,6 +522,7 @@ class SplEmitter {
 
   private effectiveBehaviors(): SpaBehavior[] {
     const field = this.event.particle?.field;
+    const scriptTarget = scriptedBehaviorTarget(this.event, this.anchors);
     if (
       !field?.gravityMagnitude &&
       !field?.randomMagnitude &&
@@ -497,7 +530,8 @@ class SplEmitter {
       !field?.magnetTarget &&
       field?.magnetForce === undefined &&
       !field?.convergenceTarget &&
-      field?.convergenceForce === undefined
+      field?.convergenceForce === undefined &&
+      !scriptTarget
     ) return this.resource.behaviors;
     let hasGravity = false;
     let hasRandom = false;
@@ -509,41 +543,45 @@ class SplEmitter {
         hasGravity = true;
         return {
           ...behavior,
-          magnitude: field.gravityMagnitude ?? behavior.magnitude,
+          magnitude: field?.gravityMagnitude ?? behavior.magnitude,
         };
       }
       if (behavior.type === "random") {
         hasRandom = true;
         return {
           ...behavior,
-          magnitude: field.randomMagnitude ?? behavior.magnitude,
-          applyIntervalFrames: field.randomIntervalFrames ?? behavior.applyIntervalFrames,
+          magnitude: field?.randomMagnitude ?? behavior.magnitude,
+          applyIntervalFrames: field?.randomIntervalFrames ?? behavior.applyIntervalFrames,
         };
       }
       if (behavior.type === "magnet") {
         hasMagnet = true;
         return {
           ...behavior,
-          target: field.magnetTarget ? fieldTargetToSimulation(field.magnetTarget, field.magnetTargetRelative, fieldOrigin) : behavior.target,
-          force: field.magnetForce ?? nonzeroBehaviorForce(behavior.force, 0.045),
+          target: field?.magnetTarget
+            ? fieldTargetToSimulation(field.magnetTarget, this.anchors.positionScale, field.magnetTargetRelative, fieldOrigin)
+            : scriptTarget ?? behavior.target,
+          force: field?.magnetForce ?? nonzeroBehaviorForce(behavior.force, 0.045),
         };
       }
       if (behavior.type === "convergence") {
         hasConvergence = true;
         return {
           ...behavior,
-          target: field.convergenceTarget ? fieldTargetToSimulation(field.convergenceTarget, field.convergenceTargetRelative, fieldOrigin) : behavior.target,
-          force: field.convergenceForce ?? nonzeroBehaviorForce(behavior.force, 0.06),
+          target: field?.convergenceTarget
+            ? fieldTargetToSimulation(field.convergenceTarget, this.anchors.positionScale, field.convergenceTargetRelative, fieldOrigin)
+            : scriptTarget ?? behavior.target,
+          force: field?.convergenceForce ?? nonzeroBehaviorForce(behavior.force, 0.06),
         };
       }
       return behavior;
     });
-    if (field.gravityMagnitude && !hasGravity) behaviors.push({ type: "gravity", magnitude: field.gravityMagnitude });
-    if ((field.randomMagnitude || field.randomIntervalFrames !== undefined) && !hasRandom) {
+    if (field?.gravityMagnitude && !hasGravity) behaviors.push({ type: "gravity", magnitude: field.gravityMagnitude });
+    if ((field?.randomMagnitude || field?.randomIntervalFrames !== undefined) && !hasRandom) {
       behaviors.push({ type: "random", magnitude: field.randomMagnitude ?? [0, 0, 0], applyIntervalFrames: field.randomIntervalFrames ?? 1 });
     }
-    if (field.magnetTarget && !hasMagnet) behaviors.push({ type: "magnet", target: fieldTargetToSimulation(field.magnetTarget, field.magnetTargetRelative, fieldOrigin), force: field.magnetForce ?? 0.045 });
-    if (field.convergenceTarget && !hasConvergence) behaviors.push({ type: "convergence", target: fieldTargetToSimulation(field.convergenceTarget, field.convergenceTargetRelative, fieldOrigin), force: field.convergenceForce ?? 0.06 });
+    if (field?.magnetTarget && !hasMagnet) behaviors.push({ type: "magnet", target: fieldTargetToSimulation(field.magnetTarget, this.anchors.positionScale, field.magnetTargetRelative, fieldOrigin), force: field.magnetForce ?? 0.045 });
+    if (field?.convergenceTarget && !hasConvergence) behaviors.push({ type: "convergence", target: fieldTargetToSimulation(field.convergenceTarget, this.anchors.positionScale, field.convergenceTargetRelative, fieldOrigin), force: field.convergenceForce ?? 0.06 });
     return behaviors;
   }
 
@@ -584,63 +622,8 @@ class SplEmitter {
     const distanceAlongAxis = dot(delta, this.axis);
     if (distanceAlongAxis <= 0) return 0;
     const travelFrames = Math.max(1, this.resource.particleLifeFrames * this.params.lifeMultiplier * 0.82);
-    return distanceAlongAxis / POSITION_SCALE / travelFrames;
+    return distanceAlongAxis / this.anchors.positionScale / travelFrames;
   }
-}
-
-function simulateDistortSpriteOverlays(preview: MoveAnimationPreview, frame: number): SplFrameParticle[] {
-  if (!preview.spaIds.includes(166)) return [];
-  const particles: SplFrameParticle[] = [];
-  for (const event of preview.timeline) {
-    if (event.command !== "DistortSprite") continue;
-    const localFrame = frame - event.frame;
-    if (localFrame < 0 || localFrame > 26) continue;
-    const rng = new DeterministicRng(hashString(`distort:${event.id}`));
-    const count = 10;
-    const origin = battleAnchor(event.params[0]);
-    const burst = Math.sin(Math.min(1, localFrame / 10) * Math.PI * 0.5);
-    const fade = Math.max(0, 1 - localFrame / 26);
-    for (let index = 0; index < count; index += 1) {
-      const angle = (index / count) * Math.PI * 2 + rng.range(-0.35, 0.35);
-      const radius = (2.5 + rng.next() * 7.5) * burst;
-      const wobble = Math.sin(localFrame * 0.42 + index) * 0.8;
-      const scale = 0.75 + rng.next() * 1.6;
-      particles.push({
-        eventId: `${event.id}:distort:${index}`,
-        resourceIndex: -1,
-        textureIndex: -1,
-        textureRepeatS: 1,
-        textureRepeatT: 1,
-        textureFlipS: false,
-        textureFlipT: false,
-        textureKind: "circle",
-        renderLayer: 0,
-        drawType: 0,
-        sourceDrawType: 0,
-        polygonRotAxis: 0,
-        polygonReferencePlane: 0,
-        polygonOffsetX: 0,
-        polygonOffsetY: 0,
-        directionalBillboardScale: 0,
-        dpolFaceEmitter: false,
-        position: [origin[0] + Math.cos(angle) * radius, origin[1] + Math.sin(angle) * radius * 0.75 + wobble, origin[2] + 0.4 + index * 0.01],
-        relativePosition: [Math.cos(angle) * radius, Math.sin(angle) * radius * 0.75 + wobble, 0],
-        velocity: [0, 0, 0],
-        scale,
-        scaleX: scale,
-        scaleY: scale,
-        aspectRatio: 1,
-        tiltScale: 1,
-        anchorX: 0.5,
-        anchorY: 0.5,
-        anchorOffsetY: 0,
-        color: [1, 0.43 + rng.next() * 0.25, 0],
-        alpha: fade * (0.35 + rng.next() * 0.45),
-        rotation: 0,
-      });
-    }
-  }
-  return particles;
 }
 
 type EventParams = {
@@ -700,6 +683,11 @@ function eventParams(event: MoveAnimationTimelineEvent): EventParams {
       radiusMultiplier: clampMultiplier(event.particle.radiusMultiplier ?? 1, 0.25, 4),
     };
   }
+  // Swan's EFFVM_INIT_EMITTER_CIRCLE_MOVE only installs the movement
+  // callback. Its frame/wait/count fields are not SPL resource multipliers.
+  if (isCircleEmitterCommand(event)) {
+    return { lifeMultiplier: 1, scaleMultiplier: 1, speedMultiplier: 1, radiusMultiplier: 1 };
+  }
   const layout = spaCommandLayout(event);
   return {
     lifeMultiplier: clampMultiplier(fxParam(event.params[layout.lifeParam]), 0.25, 4),
@@ -709,14 +697,22 @@ function eventParams(event: MoveAnimationTimelineEvent): EventParams {
   };
 }
 
-function scriptEmitterOrigin(event: MoveAnimationTimelineEvent): Vec3 {
+function scriptEmitterOrigin(event: MoveAnimationTimelineEvent, anchors: BattleAnchorSet): Vec3 {
   if (event.particle?.origin) return event.particle.origin;
-  if (event.particle?.screen || event.command.includes("Screen")) return [0, 18, 0];
-  return commandSource(event);
+  if (!anchors.usesGen5SourceSpace && (event.particle?.screen || event.command.includes("Screen"))) return [0, 18, 0];
+  const source = commandSource(event, anchors);
+  if (!anchors.usesGen5SourceSpace) return source;
+  const offset = gen5CommandOffset(event);
+  const depthOffset = isCircleEmitterCommand(event) ? 0 : GEN5_EFFECT_PARTICLE_DEPTH_OFFSET;
+  return [source[0] + offset[0], source[1] + offset[1], source[2] + offset[2] + depthOffset];
 }
 
-function scriptEmitterOriginAt(event: MoveAnimationTimelineEvent, frame: number): Vec3 {
-  const base = scriptEmitterOrigin(event);
+function scriptEmitterOriginAt(event: MoveAnimationTimelineEvent, frame: number, anchors: BattleAnchorSet): Vec3 {
+  const base = scriptEmitterOrigin(event, anchors);
+  if (anchors.usesGen5SourceSpace) {
+    if (isCircleEmitterCommand(event)) return gen5CircleEmitterPosition(event, frame, anchors);
+    if (isProjectileEvent(event)) return gen5ProjectileEmitterPosition(event, frame, anchors);
+  }
   const motion = event.particle?.originMotion;
   if (!motion) return base;
   const localFrame = Math.max(0, frame - Math.max(0, motion.delay ?? 0));
@@ -728,6 +724,95 @@ function scriptEmitterOriginAt(event: MoveAnimationTimelineEvent, frame: number)
   if (motion.arcHeight) offset[1] += Math.sin(t * Math.PI) * motion.arcHeight;
   if (motion.waveAmplitude) offset[1] += Math.sin(t * Math.PI * 2) * motion.waveAmplitude;
   return add(base, offset);
+}
+
+function gen5CommandOffset(event: MoveAnimationTimelineEvent): Vec3 {
+  switch (event.command) {
+    case "DoSPAAnimation":
+      return [0, fxParam(event.params[4]), 0];
+    case "DoSPAAnimation2":
+      return [fxParam(event.params[4]), fxParam(event.params[5]), fxParam(event.params[6])];
+    case "DoSPAScreenAnimation":
+      return [0, fxParam(event.params[8]), 0];
+    case "DoSPAProjectileAnimation":
+    case "DoSPAProjectileAnimation3":
+      return [0, fxParam(event.params[5]), 0];
+    case "DoSPAProjectileAnimation2":
+      return [0, fxParam(event.params[7]), 0];
+    case "DoSPACircleAnimation":
+      return [0, fxParam(event.params[5]), 0];
+    default:
+      return [0, 0, 0];
+  }
+}
+
+function gen5ProjectileEmitterPosition(event: MoveAnimationTimelineEvent, frame: number, anchors: BattleAnchorSet): Vec3 {
+  let source = scriptEmitterOrigin(event, anchors);
+  const offset = gen5CommandOffset(event);
+  let destination = commandDestination(event, anchors);
+  destination = [
+    destination[0] + offset[0],
+    destination[1] + offset[1],
+    destination[2] + offset[2] + GEN5_EFFECT_PARTICLE_DEPTH_OFFSET,
+  ];
+  const moveType = event.params[2] ?? 0;
+  if (moveType === 0) return source;
+  if (moveType === 4) {
+    const originalSource = source;
+    source = destination;
+    destination = add(originalSource, destination);
+  }
+  const durationParam = event.command === "DoSPAProjectileAnimation2" ? 8 : 6;
+  const duration = Math.round(fxParam(event.params[durationParam]));
+  // Swan leaves the emitter fixed at its source when move_frame is zero.
+  // Resources such as Ancient Power and Hydro Cannon then travel using their
+  // own axis velocity; moving the emitter to the destination as a one-frame
+  // fallback adds a second source-to-target displacement to those particles.
+  if (duration <= 0) return source;
+  const t = clamp01(frame / duration);
+  const eased = (1 - Math.cos(Math.PI * t)) / 2;
+  const position = mixVec(source, destination, eased);
+  const amplitude = fxParam(event.params[event.command === "DoSPAProjectileAnimation2" ? 9 : 7]);
+  if (moveType === 2 || moveType === 3) position[1] += Math.sin(Math.PI * t) * amplitude;
+  const wave = Math.max(1, fxParam(event.params[event.command === "DoSPAProjectileAnimation2" ? 12 : 10]));
+  if (moveType === 5) position[1] += Math.sin(Math.PI * 2 * wave * t) * amplitude;
+  if (moveType === 6) position[2] += Math.sin(Math.PI * 2 * wave * t) * amplitude;
+  return position;
+}
+
+function isCircleEmitterCommand(event: MoveAnimationTimelineEvent): boolean {
+  return event.command === "DoSPACircleAnimation";
+}
+
+function gen5CircleCenter(code: number | undefined, anchors: BattleAnchorSet): Vec3 {
+  switch (code) {
+    case 0:
+    case 1:
+      return copyBattleAnchor(anchors.user);
+    case 2:
+    case 3:
+      return copyBattleAnchor(anchors.target);
+    case 4:
+    case 5:
+    default:
+      return [0, 0, 0];
+  }
+}
+
+function gen5CircleEmitterPosition(event: MoveAnimationTimelineEvent, frame: number, anchors: BattleAnchorSet): Vec3 {
+  const centerCode = event.params[2] ?? 4;
+  const center = gen5CircleCenter(centerCode, anchors);
+  center[1] += fxParam(event.params[5]);
+  if (frame <= 0) return center;
+  const radiusH = fxParam(event.params[3]);
+  const radiusV = fxParam(event.params[4]);
+  const framesPerTurn = Math.max(1, Math.round(event.params[6] ?? 1));
+  const wait = Math.max(0, Math.round(event.params[7] ?? 0));
+  const steps = Math.floor((frame - 1) / (wait + 1)) + 1;
+  const startAngle = centerCode === 2 || centerCode === 3 ? Math.PI : 0;
+  const direction = (centerCode & 1) === 1 ? -1 : 1;
+  const angle = startAngle + direction * (steps / framesPerTurn) * Math.PI * 2;
+  return [center[0] + Math.sin(angle) * radiusH, center[1], center[2] + Math.cos(angle) * radiusV];
 }
 
 type ParticleRotationMotion = NonNullable<NonNullable<NonNullable<MoveAnimationTimelineEvent["particle"]>["originMotion"]>["rotation"]>;
@@ -743,43 +828,61 @@ function degToRad(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
-function emitterAxis(event: MoveAnimationTimelineEvent, fallback: Vec3): Vec3 {
+function emitterAxis(event: MoveAnimationTimelineEvent, fallback: Vec3, anchors: BattleAnchorSet): Vec3 {
   if (event.particle?.axis) return normalize(event.particle.axis);
+  if (isCircleEmitterCommand(event)) return normalize(fallback);
   if (event.particle?.screen || event.command.includes("Screen")) return normalize(fallback);
-  const src = commandSource(event);
-  const dst = commandDestination(event);
+  const src = commandSource(event, anchors);
+  const dst = commandDestination(event, anchors);
   const delta = sub(dst, src);
-  return length(delta) > 0.0001 ? normalize(delta) : normalize(fallback);
+  if (length(delta) <= 0.0001) return normalize(fallback);
+  if (!anchors.usesGen5SourceSpace) return normalize(delta);
+  return aimAuthoredAxisToward(fallback, delta);
 }
 
-function battleAnchor(code?: number): Vec3 {
+function aimAuthoredAxisToward(axis: Vec3, targetDelta: Vec3): Vec3 {
+  // EFFVM_InitEmitterPos rotates the SPA axis in the XZ plane toward the
+  // destination. It deliberately retains the axis's authored Y component,
+  // which controls the elevation of resource-velocity projectiles.
+  const authored = normalize(axis);
+  const authoredHorizontalLength = Math.hypot(authored[0], authored[2]);
+  const targetHorizontalLength = Math.hypot(targetDelta[0], targetDelta[2]);
+  if (authoredHorizontalLength <= 0.0001 || targetHorizontalLength <= 0.0001) return authored;
+  return normalize([
+    (targetDelta[0] / targetHorizontalLength) * authoredHorizontalLength,
+    authored[1],
+    (targetDelta[2] / targetHorizontalLength) * authoredHorizontalLength,
+  ]);
+}
+
+function battleAnchor(code: number | undefined, anchors: BattleAnchorSet): Vec3 {
   switch (code) {
     case 9:
     case 10:
     case 13:
-      return copyBattleAnchor(USER_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.user);
     case 11:
     case 12:
-      return copyBattleAnchor(TARGET_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.target);
     case 8:
-      return copyBattleAnchor(CENTER_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.center);
     case 0:
     case 2:
-      return copyBattleAnchor(USER_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.user);
     case 1:
     case 3:
-      return copyBattleAnchor(TARGET_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.target);
     default:
-      return copyBattleAnchor(TARGET_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.target);
   }
 }
 
-function projectileInitialVelocity(event: MoveAnimationTimelineEvent): Vec3 {
-  const start = commandSource(event);
-  const end = commandDestination(event);
+function legacyProjectileInitialVelocity(event: MoveAnimationTimelineEvent, anchors: BattleAnchorSet): Vec3 {
+  const start = commandSource(event, anchors);
+  const end = commandDestination(event, anchors);
   const scriptedSpeed = Math.max(0, fxParam(event.params[spaCommandLayout(event).speedParam]));
-  const fallbackSpeed = event.effectKind === "spa" && event.particle?.projectile ? 0.28 : 0;
-  return scaleVec(normalize(sub(end, start)), (scriptedSpeed > 0 ? scriptedSpeed * 0.35 : fallbackSpeed));
+  const fallbackSpeed = event.effectKind === "spa" && event.particle?.projectile ? LEGACY_PROJECTILE_FALLBACK_SPEED : 0;
+  return scaleVec(normalize(sub(end, start)), (scriptedSpeed > 0 ? scriptedSpeed * LEGACY_PROJECTILE_SPEED_SCALE : fallbackSpeed));
 }
 
 type SpaCommandLayout = {
@@ -792,6 +895,9 @@ type SpaCommandLayout = {
 };
 
 function spaCommandLayout(event: MoveAnimationTimelineEvent): SpaCommandLayout {
+  if (event.command === "DoSPAScreenAnimation") {
+    return { sourceParam: -1, destinationParam: -1, radiusParam: 11, lifeParam: 12, scaleParam: 13, speedParam: 14 };
+  }
   if (event.command === "DoSPAProjectileAnimation" || event.command === "DoSPAProjectileAnimation3") {
     return { sourceParam: 3, destinationParam: 4, radiusParam: -1, lifeParam: 8, scaleParam: -1, speedParam: 9 };
   }
@@ -801,24 +907,49 @@ function spaCommandLayout(event: MoveAnimationTimelineEvent): SpaCommandLayout {
   return { sourceParam: 2, destinationParam: 3, radiusParam: 7, lifeParam: 8, scaleParam: 9, speedParam: 10 };
 }
 
-function commandSource(event: MoveAnimationTimelineEvent): Vec3 {
+function commandSource(event: MoveAnimationTimelineEvent, anchors: BattleAnchorSet): Vec3 {
   if (event.particle?.origin) return event.particle.origin;
-  if (event.particle) return hgBattleAnchor(event.particle.sourceTarget);
-  if (event.command === "DoSPAProjectileAnimation2") {
-    return [fxParam(event.params[3]) * POSITION_SCALE, fxParam(event.params[4]) * POSITION_SCALE, fxParam(event.params[5]) * POSITION_SCALE];
+  if (event.particle) return hgBattleAnchor(event.particle.sourceTarget, anchors);
+  if (event.command === "DoSPAScreenAnimation") {
+    return [fxParam(event.params[2]) * anchors.positionScale, fxParam(event.params[3]) * anchors.positionScale, fxParam(event.params[4]) * anchors.positionScale];
   }
+  if (event.command === "DoSPAProjectileAnimation2") {
+    return [fxParam(event.params[3]) * anchors.positionScale, fxParam(event.params[4]) * anchors.positionScale, fxParam(event.params[5]) * anchors.positionScale];
+  }
+  if (isCircleEmitterCommand(event)) return gen5CircleCenter(event.params[2], anchors);
   const layout = spaCommandLayout(event);
-  return battleAnchor(event.params[layout.sourceParam]);
+  return battleAnchor(event.params[layout.sourceParam], anchors);
 }
 
-function commandDestination(event: MoveAnimationTimelineEvent): Vec3 {
+function commandDestination(event: MoveAnimationTimelineEvent, anchors: BattleAnchorSet): Vec3 {
   if (event.particle?.destination) return event.particle.destination;
-  if (event.particle) return hgBattleAnchor(event.particle.destinationTarget ?? event.particle.sourceTarget);
+  if (event.particle) return hgBattleAnchor(event.particle.destinationTarget ?? event.particle.sourceTarget, anchors);
+  if (event.command === "DoSPAScreenAnimation") {
+    return [fxParam(event.params[5]) * anchors.positionScale, fxParam(event.params[6]) * anchors.positionScale, fxParam(event.params[7]) * anchors.positionScale];
+  }
   const layout = spaCommandLayout(event);
   const destination = event.params[layout.destinationParam];
-  if (destination === 8) return commandSource(event);
-  if (!Number.isFinite(destination) || destination === undefined) return commandSource(event);
-  return battleAnchor(destination);
+  if (destination === 8) return commandSource(event, anchors);
+  if (!Number.isFinite(destination) || destination === undefined) return commandSource(event, anchors);
+  return battleAnchor(destination, anchors);
+}
+
+function scriptedBehaviorTarget(event: MoveAnimationTimelineEvent, anchors: BattleAnchorSet): Vec3 | undefined {
+  // EFFVM_InitEmitterPos replaces SPA-authored magnet and convergence
+  // positions with a source-relative vector whenever the script supplies two
+  // distinct battle positions. Drain effects such as Absorb depend on this:
+  // their resource field is redirected from the defender to the attacker.
+  if (event.particle) return undefined;
+  if (
+    event.command === "DoSPAScreenAnimation" ||
+    event.command === "DoSPAProjectileAnimation2" ||
+    isCircleEmitterCommand(event)
+  ) return undefined;
+  const layout = spaCommandLayout(event);
+  const source = event.params[layout.sourceParam];
+  const destination = event.params[layout.destinationParam];
+  if (!Number.isFinite(source) || !Number.isFinite(destination) || destination === 8 || source === destination) return undefined;
+  return scaleVec(sub(commandDestination(event, anchors), commandSource(event, anchors)), 1 / anchors.positionScale);
 }
 
 function isSpaEvent(event: MoveAnimationTimelineEvent): boolean {
@@ -847,7 +978,7 @@ function usesAdvancedParticlePlacement(event: MoveAnimationTimelineEvent): boole
 }
 
 function particleScale(resource: SpaResource, particle: SimParticle, scaleMultiplier: number, animScale = particle.animScale): [number, number] {
-  const base = particle.baseScale * scaleMultiplier * SPRITE_SCALE;
+  const base = particle.baseScale * scaleMultiplier * LEGACY_SPRITE_SCALE;
   let scaleX = base * Math.max(0.1, resource.aspectRatio || 1);
   let scaleY = base;
   switch (resource.scaleAnimDir) {
@@ -866,6 +997,26 @@ function particleScale(resource: SpaResource, particle: SimParticle, scaleMultip
   return [scaleX, scaleY];
 }
 
+function particleSourceScale(resource: SpaResource, particle: SimParticle, scaleMultiplier: number, animScale = particle.animScale): [number, number] {
+  const base = particle.baseScale * scaleMultiplier * SPL_SOURCE_QUAD_DIAMETER;
+  let scaleX = base * Math.max(0.1, resource.aspectRatio || 1);
+  let scaleY = base;
+  switch (resource.scaleAnimDir) {
+    case 1:
+      scaleX *= animScale;
+      break;
+    case 2:
+      scaleY *= animScale;
+      break;
+    case 0:
+    default:
+      scaleX *= animScale;
+      scaleY *= animScale;
+      break;
+  }
+  return [Math.max(0.001, scaleX), Math.max(0.001, scaleY)];
+}
+
 function particleRenderAnimScale(event: MoveAnimationTimelineEvent, resource: SpaResource, particle: SimParticle): number {
   if (!isHgAnchoredPaneResource(event, resource) || particle.child) return particle.animScale;
   return stableHgAnchoredPaneAnimScale(resource);
@@ -882,7 +1033,7 @@ function hgAnchoredPaneMotionOffset(event: MoveAnimationTimelineEvent, resource:
   const stableScale = stableHgAnchoredPaneAnimScale(resource);
   const travelScale = Math.max(0, stableScale - particle.animScale);
   if (travelScale <= 0) return [0, 0, 0];
-  const base = particle.baseScale * scaleMultiplier * SPRITE_SCALE;
+  const base = particle.baseScale * scaleMultiplier * LEGACY_SPRITE_SCALE;
   const direction = event.particle?.anchoredPaneMotionDirection ?? (resource.offsetPos === 2 ? 1 : -1);
   return [0, direction * base * travelScale, 0];
 }
@@ -925,12 +1076,12 @@ function textureAlphaBounds(rgba: Uint8ClampedArray, width: number, height: numb
   return maxY >= minY ? { minY, maxY } : undefined;
 }
 
-function screenPlanePaneScale(event: MoveAnimationTimelineEvent, resource: SpaResource, params: EventParams): [number, number] | undefined {
+function screenPlanePaneScale(event: MoveAnimationTimelineEvent, resource: SpaResource, params: EventParams, positionScale: number): [number, number] | undefined {
   if (!event.particle?.screenPlane || resource.emissionType !== 3) return undefined;
   const side = screenPlaneRegularSide(resource.emissionCount);
   if (!side) return undefined;
   const radius = nonzero(Math.abs(resource.radius) * params.radiusMultiplier);
-  const cell = (radius * 2 * POSITION_SCALE) / (side - 1);
+  const cell = (radius * 2 * positionScale) / (side - 1);
   return [cell * 1.35, cell * 0.85];
 }
 
@@ -981,19 +1132,42 @@ function particleAnchor(resource: SpaResource, child?: SpaChildResource): [numbe
   }
 }
 
-function hgBattleAnchor(code?: number): Vec3 {
+function hgBattleAnchor(code: number | undefined, anchors: BattleAnchorSet): Vec3 {
   switch (code) {
     case 3:
     case 19:
-      return copyBattleAnchor(USER_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.user);
     case 4:
     case 20:
-      return copyBattleAnchor(TARGET_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.target);
     case 17:
-      return copyBattleAnchor(CENTER_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.center);
     default:
-      return copyBattleAnchor(TARGET_BATTLE_ANCHOR);
+      return copyBattleAnchor(anchors.target);
   }
+}
+
+function battleAnchorsForPreview(preview: MoveAnimationPreview): BattleAnchorSet {
+  if (!preview.battleEnvironment) {
+    return {
+      user: copyBattleAnchor(USER_BATTLE_ANCHOR),
+      target: copyBattleAnchor(TARGET_BATTLE_ANCHOR),
+      center: copyBattleAnchor(CENTER_BATTLE_ANCHOR),
+      positionScale: LEGACY_POSITION_SCALE,
+      velocityStepScale: LEGACY_VELOCITY_STEP_SCALE,
+      usesGen5SourceSpace: false,
+    };
+  }
+  const user: Vec3 = [...GEN5_SINGLE_USER_POKEMON_POSITION];
+  const target: Vec3 = [...GEN5_SINGLE_TARGET_POKEMON_POSITION];
+  return {
+    user,
+    target,
+    center: [(user[0] + target[0]) / 2, (user[1] + target[1]) / 2, (user[2] + target[2]) / 2],
+    positionScale: 1,
+    velocityStepScale: 1,
+    usesGen5SourceSpace: true,
+  };
 }
 
 function applyScaleAnim(anim: NonNullable<SpaResource["scaleAnim"]>, lifeRate: number): number {
@@ -1130,8 +1304,8 @@ function nonzeroBehaviorForce(value: number, fallback: number): number {
   return Math.abs(value) < 0.00001 ? fallback : value;
 }
 
-function fieldTargetToSimulation(target: Vec3, relative?: boolean, origin?: Vec3): Vec3 {
-  return scaleVec(relative && origin ? sub(target, origin) : target, 1 / POSITION_SCALE);
+function fieldTargetToSimulation(target: Vec3, positionScale: number, relative?: boolean, origin?: Vec3): Vec3 {
+  return scaleVec(relative && origin ? sub(target, origin) : target, 1 / positionScale);
 }
 
 function fract(value: number): number {

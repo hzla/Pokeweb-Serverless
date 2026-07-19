@@ -10,7 +10,14 @@ import { materializeMap3dAreaEdits } from "./map3dModel";
 import { repairLegacyMoveAnimationArchives } from "./moveAnimationModel";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { fileSystemAddedFiles, fileSystemReplacementMap } from "./fileSystemModel";
-import { buildCodeInjectionOverlayTable, codeInjectionInsertedFiles, pruneRedundantPatchesKeepAddition } from "./pmcModel";
+import {
+  buildCodeInjectionOverlayTable,
+  codeInjectionInsertedFiles,
+  PMC_OVERLAY_ID_PATH,
+  PMC_PATCHES_KEEP_PATH,
+  PMC_SYMBOL_PATH,
+  pruneRedundantPatchesKeepAddition,
+} from "./pmcModel";
 import { materializePwanAnimations } from "./pwanAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
@@ -75,7 +82,8 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     rom,
     fileSystemAddedFiles(project)
       .filter((file) => !codeInjectionInsertions.some((inserted) => inserted.path === file.path))
-      .map((file) => ({ ...file, bytes: normalizeMalformedNarcBytes(file.bytes) })),
+      .map((file) => ({ ...file, bytes: normalizeMalformedNarcBytes(file.bytes) }))
+      .sort(compareRomAdditionPaths),
   );
   const insertedFiles = [...codeInjectionInsertions, ...plannedAdditions.insertedFiles].sort((a, b) => a.fileId - b.fileId);
 
@@ -87,6 +95,9 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     (patchedOverlayTable || insertedFiles.length > 0 || project.patches?.arm9OverlayTable ? shiftedOverlayTable : undefined);
   const shouldAlignFntFirstFile = codeInjectionInsertions.length > 0;
   const arm9 = project.tms?.dirty || project.arm9Dirty ? prepareArm9ForExport(project, rom) : undefined;
+  const priorityFileIds = codeInjectionPriorityPaths(project)
+    .map((path) => resolvePlannedRomPathFileId(rom, plannedAdditions, insertedFiles, path))
+    .filter((fileId): fileId is number => fileId !== undefined);
   const out = rom.save({
     arm9,
     arm9OverlayTable,
@@ -94,10 +105,33 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     files: fileReplacements,
     insertedFiles,
     addedFiles: plannedAdditions.addedFiles,
+    priorityFileIds,
     minimumLength: options.minimumRomLength,
     preserveOriginalLength: options.preserveOriginalLength,
   });
   return out;
+}
+
+function codeInjectionPriorityPaths(project: ProjectState): string[] {
+  const pmc = project.codeInjection?.pmc;
+  if (!pmc) return [];
+  return [
+    pmc.overlayPath,
+    PMC_SYMBOL_PATH,
+    PMC_OVERLAY_ID_PATH,
+    ...(project.codeInjection?.modules ?? []).map((module) => module.path),
+    PMC_PATCHES_KEEP_PATH,
+  ];
+}
+
+function compareRomAdditionPaths(a: { path: string }, b: { path: string }): number {
+  // PMC enumerates the terminal /patches file-ID range at boot. Keep that
+  // directory last when new NitroFS files are allocated so unrelated assets
+  // (notably the large PWAN archive) can never be mistaken for RPM modules.
+  const aIsPatch = a.path.startsWith("patches/");
+  const bIsPatch = b.path.startsWith("patches/");
+  if (aIsPatch !== bIsPatch) return aIsPatch ? 1 : -1;
+  return a.path.localeCompare(b.path);
 }
 
 function prepareArm9ForExport(project: ProjectState, rom: NintendoDSRom): Uint8Array {
@@ -143,10 +177,9 @@ function planRomAdditions(rom: NintendoDSRom, additions: Array<{ path: string; b
   const pathFileIds = new Map<string, number>();
 
   for (const file of additions) {
-    if (shouldInsertIntoExistingPatchesFolder(filenames, file.path, fileCount)) {
-      const folder = findRomFolder(filenames, "patches");
-      if (!folder) throw new Error(`Cannot find patches folder for ${file.path}`);
-      const fileId = folder.firstId + folder.files.length;
+    const insertionId = insertionIdForExistingFolder(filenames, file.path, fileCount);
+    if (insertionId !== undefined) {
+      const fileId = insertionId;
       filenames = shiftFileIdsAtOrAfter(filenames, fileId, 1);
       filenames = addFilePath(filenames, file.path, fileId);
       shiftPlannedPathFileIdsAtOrAfter(pathFileIds, fileId);
@@ -172,12 +205,12 @@ function shiftPlannedPathFileIdsAtOrAfter(pathFileIds: Map<string, number>, file
   }
 }
 
-function shouldInsertIntoExistingPatchesFolder(filenames: Folder, path: string, fileCount: number): boolean {
-  if (parentRomPath(path) !== "patches") return false;
-  if (filenames.idOf(path) !== undefined) return false;
-  const folder = findRomFolder(filenames, "patches");
-  if (!folder || folder.files.length === 0) return false;
-  return folder.firstId + folder.files.length < fileCount;
+function insertionIdForExistingFolder(filenames: Folder, path: string, fileCount: number): number | undefined {
+  if (filenames.idOf(path) !== undefined) return undefined;
+  const folder = findRomFolder(filenames, parentRomPath(path));
+  if (!folder || folder.files.length === 0) return undefined;
+  const tail = folder.firstId + folder.files.length;
+  return tail < fileCount ? tail : undefined;
 }
 
 function resolvePlannedRomPathFileId(

@@ -14,6 +14,7 @@ import { getMoveAnimationDisplayCommandName } from "../pokeweb/moveAnimationComm
 import { summarizeMoveAnimationCommandLine } from "../pokeweb/moveAnimationCommandSummary";
 import { compileMoveAnimation, decompileMoveAnimationBytes, formatMoveAnimationScriptParameters, updateMoveAnimationScript, type MoveAnimationParamDisplayMode } from "../pokeweb/moveAnimationModel";
 import { getMoveAnimationParamSemanticHelp } from "../pokeweb/moveAnimationParamSemantics";
+import { loadMoveAnimationBattleEnvironment } from "../pokeweb/moveAnimationBattleEnvironment";
 import { updateMoveDescription, updateMoveTextName } from "../pokeweb/moveTextModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
@@ -291,6 +292,11 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
       const preview = await buildMoveAnimationPreview(project, moveId, scriptText, {
         loadSpaArchive: async (_project, spaId) => spaEditor?.getArchiveOverride(spaId) ?? loadMoveSpaArchive(project, spaId),
       });
+      try {
+        preview.battleEnvironment = await loadMoveAnimationBattleEnvironment(project);
+      } catch (error) {
+        preview.warnings.push({ message: `Battle scene: ${error instanceof Error ? error.message : String(error)}` });
+      }
       const nextPreviewController = await installMoveAnimationPreview(previewHost, preview, { initialPlaying });
       if (requestId !== previewRequestId) {
         nextPreviewController.destroy();

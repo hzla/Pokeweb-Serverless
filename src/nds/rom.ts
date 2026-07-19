@@ -9,6 +9,8 @@ export type RomSaveOptions = {
   files?: Map<number, Uint8Array>;
   insertedFiles?: Array<{ fileId: number; path?: string; bytes: Uint8Array }>;
   addedFiles?: Array<{ path: string; bytes: Uint8Array }>;
+  /** File IDs to place first in the NitroFS data region without changing their IDs. */
+  priorityFileIds?: number[];
   alignFntFirstFileToArm9OverlayCount?: boolean;
   minimumLength?: number;
   preserveOriginalLength?: boolean;
@@ -144,7 +146,17 @@ export class NintendoDSRom {
 
     const banner = this.banner.length > 0 ? writeSection(this.banner) : { offset: 0, length: 0 };
 
-    files.forEach((file, id) => {
+    const priorityFileIds = [...new Set(options.priorityFileIds ?? [])];
+    for (const id of priorityFileIds) {
+      if (!Number.isInteger(id) || id < 0 || id >= files.length) throw new Error(`Invalid priority file ID: ${id}`);
+    }
+    const prioritySet = new Set(priorityFileIds);
+    const physicalFileOrder = [
+      ...priorityFileIds,
+      ...files.map((_file, id) => id).filter((id) => !prioritySet.has(id)),
+    ];
+    physicalFileOrder.forEach((id) => {
+      const file = files[id];
       cursor = align(cursor, 0x200);
       const start = cursor;
       writer.writeAt(start, file);

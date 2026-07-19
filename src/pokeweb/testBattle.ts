@@ -4,7 +4,8 @@ import { BW2_NARCS, BW_NARCS, HEADER_NARCS, type BaseRom, type NarcDefinition, t
 import { exportModifiedRom } from "./exportRom";
 import { getNarcFormats } from "./formats";
 import { compileMoveAnimation, getMoveAnimationTargetInfo } from "./moveAnimationModel";
-import { detectWhite2UpgradeDlls, prepareBw2TestBattleCodeInjection } from "./pmcModel";
+import { prepareBw2TestBattleCodeInjection } from "./pmcModel";
+import { detectBw2Upgrade } from "./black2UpgradeModel";
 import type { ProjectState } from "./projectStore";
 import { normalizeTestBattleSavePartyNicknames, patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty } from "./testBattleTeam";
 import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "./text";
@@ -12,6 +13,7 @@ import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "./te
 const TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/test.sav", import.meta.url);
 const BW_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/white.dsv", import.meta.url);
 const WHITE2_UPGRADE_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/White2Upgrade.dsv", import.meta.url);
+const BLACK2_UPGRADE_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/Black2Upgrade.dsv", import.meta.url);
 const HG_ENGINE_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/testani.dsv", import.meta.url);
 const HG_VANILLA_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/vanillagold.dsv", import.meta.url);
 const TEST_BATTLE_BASE_TRAINER_ID = 2;
@@ -82,7 +84,7 @@ export type TestBattleDownload = {
 };
 
 export type HgTestBattleSaveKind = "hg-engine" | "vanilla";
-export type TestBattleSaveKind = "bw" | "bw2" | "white2-upgrade";
+export type TestBattleSaveKind = "bw" | "bw2" | "white2-upgrade" | "black2-upgrade";
 
 export type TestBattleBuildOptions = {
   playerTeamText?: string;
@@ -151,9 +153,9 @@ export type TestBattleConfig = {
   paths: Record<"headers" | "message_texts" | "trtext_table" | "trtext_offsets" | "trdata" | "trpok" | "overworlds" | "move_animations" | "battle_animations", string>;
 };
 
-export function getTestBattleConfig(baseRom: BaseRom, options: { white2Upgrade?: boolean } = {}): TestBattleConfig {
+export function getTestBattleConfig(baseRom: BaseRom, options: { white2Upgrade?: boolean; black2Upgrade?: boolean } = {}): TestBattleConfig {
   const narcs = baseRom === "BW" ? BW_NARCS : BW2_NARCS;
-  const saveKind: TestBattleSaveKind = baseRom === "BW" ? "bw" : options.white2Upgrade ? "white2-upgrade" : "bw2";
+  const saveKind: TestBattleSaveKind = baseRom === "BW" ? "bw" : options.black2Upgrade ? "black2-upgrade" : options.white2Upgrade ? "white2-upgrade" : "bw2";
   return {
     baseRom,
     saveKind,
@@ -175,7 +177,8 @@ export function getTestBattleConfig(baseRom: BaseRom, options: { white2Upgrade?:
 }
 
 export function getTestBattleConfigForProject(project: ProjectState): TestBattleConfig {
-  return getTestBattleConfig(project.session.baseRom, { white2Upgrade: detectWhite2UpgradeDlls(project) });
+  const variant = detectBw2Upgrade(project);
+  return getTestBattleConfig(project.session.baseRom, { white2Upgrade: variant === "white2-upgrade", black2Upgrade: variant === "black2-upgrade" });
 }
 
 export async function buildTestBattleDownloads(project: ProjectState, trainerId: number, options: TestBattleBuildOptions = {}): Promise<TestBattleDownload> {
@@ -556,6 +559,7 @@ function getTestBattleSaveLayout(baseRom: BaseRom): TestBattleSaveLayout {
 function saveUrlForTestBattleSaveKind(kind: TestBattleSaveKind): URL {
   if (kind === "bw") return BW_TEST_BATTLE_SAVE_URL;
   if (kind === "white2-upgrade") return WHITE2_UPGRADE_TEST_BATTLE_SAVE_URL;
+  if (kind === "black2-upgrade") return BLACK2_UPGRADE_TEST_BATTLE_SAVE_URL;
   return TEST_BATTLE_SAVE_URL;
 }
 

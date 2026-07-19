@@ -8,7 +8,7 @@ import {
   getMoveAnimationGenericCommandAliases,
 } from "./moveAnimationCommandNames";
 import { formatMoveAnimationParam, parseMoveAnimationParamToken } from "./moveAnimationParamSemantics";
-import { detectWhite2UpgradeDlls } from "./pmcModel";
+import { usesExpandedBw2Data } from "./black2UpgradeModel";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 
 const ADDRESSES_PER_ENTRY = 0x0e;
@@ -142,7 +142,7 @@ export function getMoveAnimationTargetInfo(project: ProjectState, moveId: number
 }
 
 export function usesWhite2UpgradeMoveAnimationLayout(project: ProjectState): boolean {
-  return detectWhite2UpgradeDlls(project);
+  return usesExpandedBw2Data(project);
 }
 
 export function decompileMoveAnimation(project: ProjectState, moveId: number): string {

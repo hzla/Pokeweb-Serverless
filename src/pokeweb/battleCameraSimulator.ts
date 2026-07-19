@@ -1,5 +1,13 @@
 import type { MoveAnimationTimelineEvent } from "./moveAnimationPreviewModel";
-import { TARGET_BATTLE_ANCHOR, USER_BATTLE_ANCHOR } from "./battlePreviewAnchors";
+import {
+  GEN5_BATTLE_VERTICAL_FOV,
+  GEN5_DEFAULT_CAMERA_POSITION,
+  GEN5_DEFAULT_CAMERA_TARGET,
+  GEN5_SINGLE_TARGET_CAMERA_POSITION,
+  GEN5_SINGLE_TARGET_CAMERA_TARGET,
+  GEN5_SINGLE_USER_CAMERA_POSITION,
+  GEN5_SINGLE_USER_CAMERA_TARGET,
+} from "./gen5BattleSceneLayout";
 
 export type BattleCameraState = {
   activeCommand?: string;
@@ -14,31 +22,32 @@ export type BattleCameraState = {
 
 type CameraPose = Omit<BattleCameraState, "activeCommand" | "shake">;
 
+// These poses are the retail single-battle camera tables from Swan.
 const DEFAULT_POSE: CameraPose = {
   backdropFocus: [0.48, 0.6],
   backdropOffset: [0, 0],
   backdropZoom: 1,
-  fov: 38,
-  lookAt: [-2, 7, 1],
-  position: [0, 30, 72],
+  fov: GEN5_BATTLE_VERTICAL_FOV,
+  lookAt: [...GEN5_DEFAULT_CAMERA_TARGET],
+  position: [...GEN5_DEFAULT_CAMERA_POSITION],
 };
 
 const USER_POSE: CameraPose = {
   backdropFocus: [0.23, 0.82],
   backdropOffset: [0.08, -0.06],
   backdropZoom: 1.45,
-  fov: 32,
-  lookAt: [USER_BATTLE_ANCHOR[0], 9, USER_BATTLE_ANCHOR[2]],
-  position: [-24, 20, 42],
+  fov: GEN5_BATTLE_VERTICAL_FOV,
+  lookAt: [...GEN5_SINGLE_USER_CAMERA_TARGET],
+  position: [...GEN5_SINGLE_USER_CAMERA_POSITION],
 };
 
 const TARGET_POSE: CameraPose = {
   backdropFocus: [0.66, 0.42],
   backdropOffset: [-0.08, 0.01],
   backdropZoom: 1.45,
-  fov: 34,
-  lookAt: [TARGET_BATTLE_ANCHOR[0], 13, TARGET_BATTLE_ANCHOR[2]],
-  position: [17, 24, 40],
+  fov: GEN5_BATTLE_VERTICAL_FOV,
+  lookAt: [...GEN5_SINGLE_TARGET_CAMERA_TARGET],
+  position: [...GEN5_SINGLE_TARGET_CAMERA_POSITION],
 };
 
 export function simulateBattleCamera(timeline: MoveAnimationTimelineEvent[], frame: number): BattleCameraState {
@@ -97,7 +106,7 @@ function activeCameraCommand(events: MoveAnimationTimelineEvent[], frame: number
 }
 
 function poseForCameraEvent(event: MoveAnimationTimelineEvent, current: CameraPose): CameraPose {
-  if (event.command === "MoveCamera") return poseForPreset(event.params[1] ?? 0);
+  if (event.command === "MoveCamera") return poseForPreset(event.params[1] ?? 0, current);
   if (event.command === "AdjustCamera") return poseForCoordinates(event);
   if (event.command === "CameraMoveAngle") return poseForAngles(event, current);
   if (event.command === "CameraProjection") return { ...current, fov: projectionFov(event.params[0] ?? 0, event.params[1] ?? 0) };
@@ -105,10 +114,14 @@ function poseForCameraEvent(event: MoveAnimationTimelineEvent, current: CameraPo
   return current;
 }
 
-function poseForPreset(preset: number): CameraPose {
-  if (preset === 11) return TARGET_POSE;
-  if (preset >= 1 && preset <= 4) return USER_POSE;
-  return DEFAULT_POSE;
+function poseForPreset(preset: number, current: CameraPose): CameraPose {
+  // Source: EFFVM_CAMERA_MOVE in Swan. In a single battle ATTACK/ATTACK_PAIR
+  // resolve to position AA, while DEFENCE/DEFENCE_PAIR resolve to BB.
+  if (preset === 0 || preset === 9 || preset === 10 || preset === 21) return USER_POSE;
+  if (preset === 1 || preset === 11 || preset === 12) return TARGET_POSE;
+  if (preset === 8 || preset === 17) return DEFAULT_POSE;
+  // Plural and zoom-out presets are no-ops in a retail 1-vs-1 battle.
+  return current;
 }
 
 function poseForCoordinates(event: MoveAnimationTimelineEvent): CameraPose {

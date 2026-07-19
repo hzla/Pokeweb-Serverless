@@ -17,6 +17,7 @@ import {
 import { loadActiveRomBytes } from "../pokeweb/persistence";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { getBlack2UpgradeInstallStatus, installBlack2Upgrade } from "../pokeweb/black2UpgradeModel";
 
 const pwanCompatibilityHydrationProjects = new WeakSet<ProjectState>();
 
@@ -30,6 +31,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const pwanLegacyInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.legacyInstalled;
   const pwanCompatibility = detectPwanRuntimeCompatibility(project);
   const pwanCanInstall = pwanRuntimeStatus.supported && pwanCompatibility.compatible;
+  const black2UpgradeStatus = getBlack2UpgradeInstallStatus(project);
   if (shouldHydrateRomBytesForPwanCompatibility(project, pwanCompatibility)) {
     void hydrateRomBytesForPwanCompatibility(project, root, onDirty);
   }
@@ -57,6 +59,35 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
             <div class="code-injection-note" id="pmc-install-note">Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.</div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Black 2 Upgrade</h2>
+              <p>${escapeHtml(black2UpgradeStatus.message)}</p>
+            </div>
+            <span class="code-injection-status ${black2UpgradeStatus.state === "installed" ? "-installed" : black2UpgradeStatus.canInstall ? "" : "-error"}">
+              ${escapeHtml(black2UpgradeStatus.state === "clean-ready" ? "Ready" : black2UpgradeStatus.state === "runtime-update" ? "Runtime Update" : black2UpgradeStatus.state.replace("/", " / ").replace(/^./u, (value) => value.toUpperCase()))}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Base</span><strong>${escapeHtml(project.romInfo.idCode)}</strong></div>
+            <div><span>Runtime ABI</span><strong>${black2UpgradeStatus.marker?.runtimeAbi ?? 1}</strong></div>
+            <div><span>Data Version</span><strong>${black2UpgradeStatus.marker?.dataVersion ?? 1}</strong></div>
+            <div><span>Install Mode</span><strong>${black2UpgradeStatus.state === "clean-ready" ? "Fresh + Data" : black2UpgradeStatus.marker ? "Runtime Only" : "Unavailable"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-black2upgrade-btn" type="button" ${black2UpgradeStatus.canInstall ? "" : "disabled"}>
+              ${black2UpgradeStatus.state === "clean-ready" ? "Install Black 2 Upgrade" : "Update Black 2 Upgrade Runtime"}
+            </button>
+            <div class="code-injection-note" id="black2upgrade-install-note">
+              ${black2UpgradeStatus.state === "clean-ready"
+                ? "The verified expansion package, PMC, four upgrade DLLs, three PWAN DLLs, and canonical PWAN archive will be staged atomically."
+                : black2UpgradeStatus.marker
+                  ? "Runtime updates preserve edited NARCs, trainers, encounters, and PWAN imports."
+                  : escapeHtml(black2UpgradeStatus.message)}
+            </div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -204,6 +235,26 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       pwanButton.disabled = false;
       pwanButton.textContent = previousText;
       if (pwanNote) pwanNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const black2UpgradeButton = root.querySelector<HTMLButtonElement>("#install-black2upgrade-btn");
+  const black2UpgradeNote = root.querySelector<HTMLDivElement>("#black2upgrade-install-note");
+  black2UpgradeButton?.addEventListener("click", async () => {
+    const previousText = black2UpgradeButton.textContent ?? "Install Black 2 Upgrade";
+    try {
+      black2UpgradeButton.disabled = true;
+      black2UpgradeButton.textContent = "Installing...";
+      if (black2UpgradeNote) black2UpgradeNote.textContent = "Verifying the package, ROM checksum, code signatures, and runtime artifacts before committing changes.";
+      await installBlack2Upgrade(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshed = root.querySelector<HTMLDivElement>("#black2upgrade-install-note");
+      if (refreshed) refreshed.textContent = "Black 2 Upgrade is staged. Export the ROM to write the expanded data and runtimes.";
+    } catch (error) {
+      black2UpgradeButton.disabled = false;
+      black2UpgradeButton.textContent = previousText;
+      if (black2UpgradeNote) black2UpgradeNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 

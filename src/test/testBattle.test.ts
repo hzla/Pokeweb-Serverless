@@ -114,6 +114,22 @@ describe("testBattle", () => {
     });
   });
 
+  it("selects the Black2Upgrade save when the B2 expansion marker is present", () => {
+    const project = makeBw2Project([]);
+    project.session.baseVersion = "B2";
+    project.romInfo.idCode = "IREO";
+    project.fileSystem = {
+      replacements: {},
+      additions: {
+        "data/black2upgrade/manifest.json": new TextEncoder().encode('{"magic":"B2UP","schemaVersion":1,"baseGameId":"IREO","dataVersion":1,"runtimeAbi":1,"packageChecksum":"test"}'),
+      },
+    };
+    const config = getTestBattleConfigForProject(project);
+
+    expect(config.saveKind).toBe("black2-upgrade");
+    expect(config.saveUrl.pathname).toMatch(/Black2Upgrade\.dsv$/u);
+  });
+
   it("keeps vanilla BW2 saves for non-White2Upgrade BW2 projects", () => {
     const config = getTestBattleConfigForProject(makeBw2Project(["patches/MainMenuSkipW2.dll"]));
 

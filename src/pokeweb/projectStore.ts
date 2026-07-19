@@ -187,6 +187,8 @@ export type ProjectState = {
     idCode: string;
     fileName: string;
     size: number;
+    /** SHA-256 of the exact source ROM selected by the user, before ROM compaction. */
+    sourceSha256?: string;
   };
   arm9: Uint8Array;
   arm9Compressed?: boolean;

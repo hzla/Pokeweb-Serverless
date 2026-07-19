@@ -1,10 +1,23 @@
 import { simulateBattleCamera, type BattleCameraState } from "../pokeweb/battleCameraSimulator";
 import { TARGET_BATTLE_ANCHOR, USER_BATTLE_ANCHOR } from "../pokeweb/battlePreviewAnchors";
+import {
+  GEN5_MCSS_PIXELS_PER_WORLD_UNIT,
+  GEN5_PLATFORM_SCALE,
+  GEN5_SINGLE_TARGET_POKEMON_POSITION,
+  GEN5_SINGLE_TARGET_POKEMON_SCALE,
+  GEN5_SINGLE_USER_POKEMON_POSITION,
+  GEN5_SINGLE_USER_POKEMON_SCALE,
+  GEN5_TARGET_PLATFORM_POSITION,
+  GEN5_USER_PLATFORM_POSITION,
+} from "../pokeweb/gen5BattleSceneLayout";
+import { simulateGen5BattleSprites, type Gen5BattleSpriteActorState } from "../pokeweb/gen5BattleSpriteSimulator";
 import type { MoveAnimationPreview } from "../pokeweb/moveAnimationPreviewModel";
 import { renderNitroBackgroundImage, type NitroBackgroundPaletteAnimation, type NitroPaletteData } from "../pokeweb/nitroBg";
 import { nitroCellEffectFrameAt, type NitroCellEffectFrame } from "../pokeweb/nitroCell";
 import type { SpaTexture } from "../pokeweb/nitroSpa";
 import { simulateSplPreview, type SplFrameParticle } from "../pokeweb/splEmitterSimulator";
+import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
+import { createBattleModelThreeObject, type BattleModelThreeObject } from "./battleBackgroundRenderer";
 import { escapeHtml } from "./dom";
 
 type ThreeModule = typeof import("three");
@@ -38,17 +51,17 @@ export async function installMoveAnimationPreview(
   rendererHost.append(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 500);
-  camera.position.set(0, 30, 72);
-  camera.lookAt(0, 6, 0);
+  const initialCameraState = simulateBattleCamera(preview.timeline, 0);
+  const camera = new THREE.PerspectiveCamera(initialCameraState.fov, 1, 0.1, 500);
+  applyCameraState(camera, initialCameraState);
   scene.add(new THREE.AmbientLight(0xffffff, 1));
-  const stage = makeStage(THREE);
+  const stage = makeStage(THREE, preview);
   scene.add(stage.group);
 
   const effectRoot = new THREE.Group();
   scene.add(effectRoot);
   const effects = createEffects(THREE, preview, effectRoot, camera, stage.actors);
-  const background = createBackgroundController(preview, backgroundCanvas);
+  const background = createBackgroundController(THREE, preview, backgroundCanvas);
 
   let frame = 0;
   let speed = 1;
@@ -135,6 +148,7 @@ export async function installMoveAnimationPreview(
       observer.disconnect();
       effects.destroy();
       background.destroy();
+      stage.destroy();
       renderer.dispose();
       host.innerHTML = "";
     },
@@ -199,8 +213,12 @@ function renderPreviewShell(preview: MoveAnimationPreview, initialPlaying: boole
 
 type StageActor = {
   sprite: import("three").Sprite;
+  shadow?: import("three").Mesh;
   base: [number, number, number];
+  anchorBase: [number, number, number];
   baseScale: [number, number, number];
+  textureCache: Map<string, import("three").Texture>;
+  textureForState: (state: Gen5BattleSpriteActorState) => import("three").Texture | undefined;
 };
 
 type StageActors = {
@@ -208,39 +226,144 @@ type StageActors = {
   target: StageActor;
 };
 
-function makeStage(THREE: ThreeModule): { group: import("three").Group; actors: StageActors } {
+function makeStage(THREE: ThreeModule, preview: MoveAnimationPreview): { group: import("three").Group; actors: StageActors; destroy: () => void } {
   const group = new THREE.Group();
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(78, 48),
-    new THREE.MeshBasicMaterial({ color: 0x2b3140, transparent: true, opacity: 0.08, side: THREE.DoubleSide }),
-  );
-  floor.rotation.x = -Math.PI / 2;
-  group.add(floor);
-  const grid = new THREE.GridHelper(78, 13, 0x50c3a5, 0x45495c);
-  for (const material of Array.isArray(grid.material) ? grid.material : [grid.material]) {
-    material.transparent = true;
-    material.opacity = 0.18;
+  if (!preview.battleEnvironment) {
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(78, 48),
+      new THREE.MeshBasicMaterial({ color: 0x2b3140, transparent: true, opacity: 0.08, side: THREE.DoubleSide }),
+    );
+    floor.rotation.x = -Math.PI / 2;
+    group.add(floor);
+    const grid = new THREE.GridHelper(78, 13, 0x50c3a5, 0x45495c);
+    for (const material of Array.isArray(grid.material) ? grid.material : [grid.material]) {
+      material.transparent = true;
+      material.opacity = 0.18;
+    }
+    grid.position.y = 0.02;
+    group.add(grid);
   }
-  grid.position.y = 0.02;
-  group.add(grid);
-  const user = makeActor(THREE, "USER", USER_BATTLE_ANCHOR[0], USER_BATTLE_ANCHOR[2], 1.12, 0x6fc9ff);
-  const target = makeActor(THREE, "TARGET", TARGET_BATTLE_ANCHOR[0], TARGET_BATTLE_ANCHOR[2], 0.92, 0xff9f65);
-  group.add(user, target);
+  const environment = preview.battleEnvironment;
+  const userPosition = environment ? GEN5_SINGLE_USER_POKEMON_POSITION : USER_BATTLE_ANCHOR;
+  const targetPosition = environment ? GEN5_SINGLE_TARGET_POKEMON_POSITION : TARGET_BATTLE_ANCHOR;
+  const userMade = makeActor(THREE, "USER", userPosition[0], userPosition[2], environment ? GEN5_SINGLE_USER_POKEMON_SCALE : 1.12, 0x6fc9ff, environment?.userSprite, environment ? userPosition[1] : 0);
+  const targetMade = makeActor(THREE, "TARGET", targetPosition[0], targetPosition[2], environment ? GEN5_SINGLE_TARGET_POKEMON_SCALE : 0.92, 0xff9f65, environment?.targetSprite, environment ? targetPosition[1] : 0);
+  const user = makeStageActor(THREE, userMade, userPosition, environment?.userSprite, Boolean(environment));
+  const target = makeStageActor(THREE, targetMade, targetPosition, environment?.targetSprite, Boolean(environment));
+  if (user.shadow) group.add(user.shadow);
+  if (target.shadow) group.add(target.shadow);
+  group.add(user.sprite, target.sprite);
+  const actors = { user, target };
   return {
     group,
-    actors: {
-      user: { sprite: user, base: [user.position.x, user.position.y, user.position.z], baseScale: [user.scale.x, user.scale.y, user.scale.z] },
-      target: { sprite: target, base: [target.position.x, target.position.y, target.position.z], baseScale: [target.scale.x, target.scale.y, target.scale.z] },
-    },
+    actors,
+    destroy: () => disposeStageGroup(group, actors),
   };
 }
 
-function makeActor(THREE: ThreeModule, label: string, x: number, z: number, scale: number, color: number): import("three").Sprite {
-  const texture = labelTexture(THREE, label, color);
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
-  sprite.position.set(x, 7 * scale, z);
-  sprite.scale.set(14 * scale, 8 * scale, 1);
-  return sprite;
+type MadeActor = {
+  sprite: import("three").Sprite;
+  crop?: RgbaCrop;
+};
+
+function makeActor(
+  THREE: ThreeModule,
+  label: string,
+  x: number,
+  z: number,
+  scale: number,
+  color: number,
+  image?: RgbaImageData,
+  surfaceY = 0,
+): MadeActor {
+  const imageTexture = image ? rgbaCanvasTexture(THREE, image) : undefined;
+  const texture = imageTexture?.texture ?? labelTexture(THREE, label, color);
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      // Transparent sprite pixels must be discarded before the depth write;
+      // otherwise the rectangular billboard masks particles behind it.
+      alphaTest: 0.01,
+    }),
+  );
+  const height = (imageTexture ? imageTexture.height / GEN5_MCSS_PIXELS_PER_WORLD_UNIT : 3) * scale;
+  const width = imageTexture ? height * (imageTexture.width / Math.max(1, imageTexture.height)) : 5 * scale;
+  sprite.position.set(x, surfaceY + height / 2, z);
+  sprite.scale.set(width, height, 1);
+  return { sprite, crop: imageTexture?.crop };
+}
+
+function makeStageActor(
+  THREE: ThreeModule,
+  made: MadeActor,
+  anchor: readonly [number, number, number],
+  image: RgbaImageData | undefined,
+  withShadow: boolean,
+): StageActor {
+  const sprite = made.sprite;
+  const textureCache = new Map<string, import("three").Texture>();
+  if (sprite.material.map) textureCache.set(actorTextureKey(0, [0, 0, 0], 0), sprite.material.map);
+  const shadow = withShadow && sprite.material.map ? makeActorShadow(THREE, sprite.material.map, sprite.scale) : undefined;
+  const textureForState = (state: Gen5BattleSpriteActorState): import("three").Texture | undefined => {
+    if (!image) return sprite.material.map ?? undefined;
+    const key = actorTextureKey(state.palette.evy, state.palette.color, state.mosaic);
+    const cached = textureCache.get(key);
+    if (cached) return cached;
+    const transformed = transformActorImage(image, state.palette.evy, state.palette.color, state.mosaic);
+    const texture = rgbaCanvasTexture(THREE, transformed, made.crop).texture;
+    textureCache.set(key, texture);
+    return texture;
+  };
+  return {
+    sprite,
+    shadow,
+    base: [sprite.position.x, sprite.position.y, sprite.position.z],
+    anchorBase: [anchor[0], anchor[1], anchor[2]],
+    baseScale: [sprite.scale.x, sprite.scale.y, sprite.scale.z],
+    textureCache,
+    textureForState,
+  };
+}
+
+function makeActorShadow(
+  THREE: ThreeModule,
+  texture: import("three").Texture,
+  scale: import("three").Vector3,
+): import("three").Mesh {
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    color: 0x101820,
+    transparent: true,
+    opacity: 0.5,
+    alphaTest: 0.01,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+  shadow.rotation.order = "XZY";
+  shadow.rotation.x = ((0xc400 - 0x10000) / 0x10000) * Math.PI * 2;
+  shadow.scale.copy(scale);
+  shadow.renderOrder = -100;
+  return shadow;
+}
+
+function disposeStageGroup(group: import("three").Group, actors: StageActors): void {
+  const textures = new Set<import("three").Texture>();
+  for (const actor of Object.values(actors)) {
+    for (const texture of actor.textureCache.values()) textures.add(texture);
+  }
+  group.traverse((object) => {
+    const renderable = object as import("three").Mesh;
+    renderable.geometry?.dispose();
+    const materials = Array.isArray(renderable.material) ? renderable.material : renderable.material ? [renderable.material] : [];
+    for (const material of materials) {
+      const map = (material as import("three").MeshBasicMaterial).map;
+      if (map) textures.add(map);
+      material.dispose();
+    }
+  });
+  for (const texture of textures) texture.dispose();
 }
 
 function applyCameraState(camera: import("three").PerspectiveCamera, state: BattleCameraState): void {
@@ -278,7 +401,6 @@ function createEffects(
   const capSprites: CapSprite[] = [];
   const textureCache = new Map<string, import("three").CanvasTexture>();
   const cellTextureCache = new Map<string, import("three").DataTexture>();
-  const capTextureCache = new Map<"user" | "target", import("three").CanvasTexture>();
   const fallback = fallbackTexture(THREE);
   const circle = circleTexture(THREE);
   const geometry = new THREE.PlaneGeometry(1, 1);
@@ -324,7 +446,7 @@ function createEffects(
       const texture = getTexture(particle);
       effect.mesh.visible = particle.alpha > 0.01;
       effect.mesh.renderOrder = index * 10 + particle.renderLayer;
-      applyParticleTransform(THREE, effect.mesh, particle, camera);
+      applyParticleTransform(THREE, effect.mesh, particle, camera, Boolean(preview.battleEnvironment));
       effect.material.map = texture;
       effect.material.color.setRGB(particle.color[0], particle.color[1], particle.color[2]);
       effect.material.opacity = particle.alpha;
@@ -411,13 +533,7 @@ function createEffects(
     return cap;
   };
 
-  const getCapTexture = (source: "user" | "target"): import("three").CanvasTexture => {
-    const cached = capTextureCache.get(source);
-    if (cached) return cached;
-    const texture = labelTexture(THREE, source === "user" ? "USER" : "TARGET", source === "user" ? 0x6fc9ff : 0xff9f65);
-    capTextureCache.set(source, texture);
-    return texture;
-  };
+  const getCapTexture = (source: "user" | "target"): import("three").Texture => actors[source].sprite.material.map ?? fallback;
 
   return {
     update,
@@ -436,7 +552,6 @@ function createEffects(
         cap.material.dispose();
         root.remove(cap.sprite);
       }
-      for (const texture of capTextureCache.values()) texture.dispose();
       fallback.dispose();
       circle.dispose();
       geometry.dispose();
@@ -445,21 +560,62 @@ function createEffects(
 }
 
 function updateActors(preview: MoveAnimationPreview, actors: StageActors, frame: number): void {
+  // Gen 4 supplies its own actorMotion/actorVisual tracks. Only the source-
+  // backed Gen 5 battle environment owns MCSS commands.
+  const gen5State = simulateGen5BattleSprites(preview.battleEnvironment ? preview.timeline : [], frame);
   for (const target of ["user", "target"] as const) {
     const actor = actors[target];
     const offset = actorMotionOffset(preview, target, frame);
     const visual = actorVisualState(preview, target, frame);
-    actor.sprite.position.set(actor.base[0] + offset[0], actor.base[1] + offset[1], actor.base[2] + offset[2]);
-    actor.sprite.scale.set(actor.baseScale[0] * visual.scale[0], actor.baseScale[1] * visual.scale[1], actor.baseScale[2]);
-    actor.sprite.material.rotation = visual.rotation;
-    actor.sprite.material.opacity = visual.opacity;
+    const spriteState = gen5State[target];
+    actor.sprite.position.set(
+      actor.base[0] + offset[0] + spriteState.positionOffset[0],
+      actor.base[1] + offset[1] + spriteState.positionOffset[1],
+      actor.base[2] + offset[2] + spriteState.positionOffset[2],
+    );
+    actor.sprite.scale.set(
+      actor.baseScale[0] * visual.scale[0] * spriteState.scale[0],
+      actor.baseScale[1] * visual.scale[1] * spriteState.scale[1],
+      actor.baseScale[2],
+    );
+    actor.sprite.material.rotation = visual.rotation + spriteState.rotation;
+    actor.sprite.material.opacity = visual.opacity * spriteState.opacity;
+    const texture = actorTextureForState(actor, spriteState);
+    if (texture && actor.sprite.material.map !== texture) {
+      actor.sprite.material.map = texture;
+      actor.sprite.material.needsUpdate = true;
+    }
     actor.sprite.material.color.setRGB(
       1 + (visual.tint[0] - 1) * visual.tint[3],
       1 + (visual.tint[1] - 1) * visual.tint[3],
       1 + (visual.tint[2] - 1) * visual.tint[3],
     );
-    actor.sprite.visible = visual.visible && visual.opacity > 0.01;
+    actor.sprite.visible = visual.visible && spriteState.visible && actor.sprite.material.opacity > 0.01;
+    updateActorShadow(actor, spriteState, texture);
   }
+}
+
+function updateActorShadow(actor: StageActor, state: Gen5BattleSpriteActorState, texture: import("three").Texture | undefined): void {
+  const shadow = actor.shadow;
+  if (!shadow) return;
+  shadow.position.set(
+    actor.anchorBase[0] + state.shadow.positionOffset[0],
+    actor.anchorBase[1] + state.shadow.positionOffset[1] + 0.02,
+    actor.anchorBase[2] + state.shadow.positionOffset[2],
+  );
+  shadow.rotation.z = state.rotation;
+  shadow.scale.set(actor.baseScale[0] * state.shadow.scale[0], actor.baseScale[1] * state.shadow.scale[1], 1);
+  const material = shadow.material as import("three").MeshBasicMaterial;
+  material.opacity = state.shadow.opacity;
+  if (texture && material.map !== texture) {
+    material.map = texture;
+    material.needsUpdate = true;
+  }
+  shadow.visible = state.shadow.visible && material.opacity > 0.01;
+}
+
+function actorTextureForState(actor: StageActor, state: Gen5BattleSpriteActorState): import("three").Texture | undefined {
+  return actor.textureForState(state);
 }
 
 function actorMotionOffset(preview: MoveAnimationPreview, target: "user" | "target", frame: number): [number, number, number] {
@@ -507,12 +663,20 @@ function actorVisualState(
   return out;
 }
 
-function applyParticleTransform(THREE: ThreeModule, mesh: import("three").Mesh, particle: SplFrameParticle, camera: import("three").PerspectiveCamera): void {
+function applyParticleTransform(
+  THREE: ThreeModule,
+  mesh: import("three").Mesh,
+  particle: SplFrameParticle,
+  camera: import("three").PerspectiveCamera,
+  sourceScale: boolean,
+): void {
   const position = new THREE.Vector3(particle.position[0], particle.position[1], particle.position[2]);
   const localOffsetX = particle.polygonOffsetX + (0.5 - particle.anchorX);
   const localOffsetY = particle.polygonOffsetY + (0.5 - particle.anchorY) + particle.anchorOffsetY;
   const offset = new THREE.Matrix4().makeTranslation(localOffsetX, localOffsetY, 0);
-  const scale = new THREE.Matrix4().makeScale(particle.scaleX, particle.scaleY * particle.tiltScale, 1);
+  const scaleX = sourceScale ? particle.sourceScaleX : particle.scaleX;
+  const scaleY = sourceScale ? particle.sourceScaleY : particle.scaleY;
+  const scale = new THREE.Matrix4().makeScale(scaleX, scaleY * particle.tiltScale, 1);
   const translation = new THREE.Matrix4().makeTranslation(position.x, position.y, position.z);
   const orientation = particleOrientationMatrix(THREE, particle, camera, position);
   mesh.matrix.identity().multiply(translation).multiply(orientation).multiply(scale).multiply(offset);
@@ -837,13 +1001,20 @@ type BackgroundController = {
   destroy: () => void;
 };
 
-function createBackgroundController(preview: MoveAnimationPreview, canvas: HTMLCanvasElement): BackgroundController {
+type BattleEnvironmentCanvasRenderer = {
+  resize: (width: number, height: number) => void;
+  draw: (context: CanvasRenderingContext2D, cameraState: BattleCameraState) => void;
+  destroy: () => void;
+};
+
+function createBackgroundController(THREE: ThreeModule, preview: MoveAnimationPreview, canvas: HTMLCanvasElement): BackgroundController {
   const context = canvas.getContext("2d");
   let width = 1;
   let height = 1;
   let lastKey = "";
   let sourceImageCache = new Map<number, ImageData>();
   let battleLayerCanvasCache = new Map<string, HTMLCanvasElement>();
+  const environmentRenderer = preview.battleEnvironment ? createBattleEnvironmentCanvasRenderer(THREE, preview) : undefined;
   const loadEvents = preview.timeline.filter((event) => event.command === "LoadBackground" && event.backgroundId !== undefined).sort((a, b) => a.frame - b.frame);
   const moveEvents = preview.timeline.filter((event) => event.command === "MoveBackground").sort((a, b) => a.frame - b.frame);
   const fadeEvents = preview.timeline.filter((event) => event.command === "ChangeBackgroundColor").sort((a, b) => a.frame - b.frame);
@@ -859,7 +1030,8 @@ function createBackgroundController(preview: MoveAnimationPreview, canvas: HTMLC
     if (key === lastKey) return;
     lastKey = key;
     context.clearRect(0, 0, width, height);
-    drawBattleSceneBackdrop(context, preview, width, height, cameraState, battleLayerCanvasCache);
+    if (environmentRenderer) environmentRenderer.draw(context, cameraState);
+    else drawBattleSceneBackdrop(context, preview, width, height, cameraState, battleLayerCanvasCache);
     if (!state.visible || state.opacity <= 0.01) {
       drawTintOverlay(context, width, height, state.tintColor, state.tintAmount);
       drawTintOverlay(context, width, height, state.overlayColor, state.overlayAmount);
@@ -903,6 +1075,7 @@ function createBackgroundController(preview: MoveAnimationPreview, canvas: HTMLC
       height = nextHeight;
       canvas.width = width;
       canvas.height = height;
+      environmentRenderer?.resize(width, height);
       lastKey = "";
       draw(0, simulateBattleCamera(preview.timeline, 0));
     },
@@ -910,6 +1083,52 @@ function createBackgroundController(preview: MoveAnimationPreview, canvas: HTMLC
     destroy: () => {
       sourceImageCache = new Map();
       battleLayerCanvasCache = new Map();
+      environmentRenderer?.destroy();
+    },
+  };
+}
+
+function createBattleEnvironmentCanvasRenderer(THREE: ThreeModule, preview: MoveAnimationPreview): BattleEnvironmentCanvasRenderer {
+  const environment = preview.battleEnvironment;
+  if (!environment) throw new Error("The move preview battle environment was not loaded.");
+  const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setClearColor(0x202431, 1);
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 4 / 3, 0.1, 2048);
+  const models: BattleModelThreeObject[] = [];
+
+  const background = createBattleModelThreeObject(environment.background);
+  models.push(background);
+  scene.add(background.group);
+
+  const userPlatform = createBattleModelThreeObject(environment.platform);
+  userPlatform.group.position.set(...GEN5_USER_PLATFORM_POSITION);
+  userPlatform.group.scale.setScalar(GEN5_PLATFORM_SCALE);
+  models.push(userPlatform);
+  scene.add(userPlatform.group);
+
+  const targetPlatform = createBattleModelThreeObject(environment.platform);
+  targetPlatform.group.position.set(...GEN5_TARGET_PLATFORM_POSITION);
+  targetPlatform.group.scale.setScalar(GEN5_PLATFORM_SCALE);
+  models.push(targetPlatform);
+  scene.add(targetPlatform.group);
+
+  return {
+    resize: (width: number, height: number) => {
+      renderer.setSize(Math.max(1, width), Math.max(1, height), false);
+      camera.aspect = Math.max(1, width) / Math.max(1, height);
+      camera.updateProjectionMatrix();
+    },
+    draw: (context: CanvasRenderingContext2D, cameraState: BattleCameraState) => {
+      applyCameraState(camera, cameraState);
+      renderer.render(scene, camera);
+      context.drawImage(renderer.domElement, 0, 0, context.canvas.width, context.canvas.height);
+    },
+    destroy: () => {
+      for (const model of models) model.dispose();
+      renderer.dispose();
     },
   };
 }
@@ -1561,6 +1780,115 @@ function labelTexture(THREE: ThreeModule, label: string, color: number): import(
     context.fillText(label, canvas.width / 2, canvas.height / 2);
   }
   return new THREE.CanvasTexture(canvas);
+}
+
+type RgbaCrop = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
+function actorTextureKey(evy: number, color: readonly [number, number, number], mosaic: number): string {
+  const normalizedColor = evy === 0 ? "0:0:0" : `${color[0]}:${color[1]}:${color[2]}`;
+  return `${evy}:${normalizedColor}:${mosaic}`;
+}
+
+function transformActorImage(
+  image: RgbaImageData,
+  evyInput: number,
+  color: readonly [number, number, number],
+  mosaicInput: number,
+): RgbaImageData {
+  const pixels = new Uint8ClampedArray(image.pixels);
+  const evy = Math.max(0, Math.min(16, Math.round(evyInput)));
+  if (evy > 0) {
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      if (pixels[offset + 3] === 0) continue;
+      for (let channel = 0; channel < 3; channel += 1) {
+        const before = Math.max(0, Math.min(31, Math.round((pixels[offset + channel] / 255) * 31)));
+        const after = Math.max(0, Math.min(31, color[channel] ?? 0));
+        const faded = before + (((after - before) * evy) >> 4);
+        pixels[offset + channel] = Math.round((faded / 31) * 255);
+      }
+    }
+  }
+
+  const mosaic = Math.max(0, Math.min(15, Math.round(mosaicInput)));
+  if (mosaic > 0) {
+    const blockSize = mosaic + 1;
+    const source = new Uint8ClampedArray(pixels);
+    for (let blockY = 0; blockY < image.height; blockY += blockSize) {
+      for (let blockX = 0; blockX < image.width; blockX += blockSize) {
+        const blockWidth = Math.min(blockSize, image.width - blockX);
+        const blockHeight = Math.min(blockSize, image.height - blockY);
+        let sample = -1;
+        for (let y = 0; y < blockHeight && sample < 0; y += 1) {
+          for (let x = 0; x < blockWidth; x += 1) {
+            const offset = ((blockY + y) * image.width + blockX + x) * 4;
+            if (source[offset + 3] !== 0) {
+              sample = offset;
+              break;
+            }
+          }
+        }
+        const rgba = sample < 0 ? [0, 0, 0, 0] : [source[sample], source[sample + 1], source[sample + 2], source[sample + 3]];
+        for (let y = 0; y < blockHeight; y += 1) {
+          for (let x = 0; x < blockWidth; x += 1) {
+            const offset = ((blockY + y) * image.width + blockX + x) * 4;
+            pixels[offset] = rgba[0];
+            pixels[offset + 1] = rgba[1];
+            pixels[offset + 2] = rgba[2];
+            pixels[offset + 3] = rgba[3];
+          }
+        }
+      }
+    }
+  }
+  return { width: image.width, height: image.height, pixels };
+}
+
+function rgbaCanvasTexture(
+  THREE: ThreeModule,
+  image: RgbaImageData,
+  crop?: RgbaCrop,
+): { texture: import("three").CanvasTexture; width: number; height: number; crop: RgbaCrop } {
+  const source = document.createElement("canvas");
+  source.width = image.width;
+  source.height = image.height;
+  const sourceContext = source.getContext("2d");
+  sourceContext?.putImageData(new ImageData(new Uint8ClampedArray(image.pixels), image.width, image.height), 0, 0);
+
+  let { minX, minY, maxX, maxY } = crop ?? { minX: image.width, minY: image.height, maxX: -1, maxY: -1 };
+  if (!crop) {
+    for (let y = 0; y < image.height; y += 1) {
+      for (let x = 0; x < image.width; x += 1) {
+        if (image.pixels[(y * image.width + x) * 4 + 3] === 0) continue;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+  if (maxX < minX || maxY < minY) {
+    minX = 0;
+    minY = 0;
+    maxX = image.width - 1;
+    maxY = image.height - 1;
+  }
+
+  const contentWidth = Math.max(1, maxX - minX + 1);
+  const contentHeight = Math.max(1, maxY - minY + 1);
+  const canvas = document.createElement("canvas");
+  canvas.width = contentWidth + 2;
+  canvas.height = contentHeight + 2;
+  canvas.getContext("2d")?.drawImage(source, minX, minY, contentWidth, contentHeight, 1, 1, contentWidth, contentHeight);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  return { texture, width: canvas.width, height: canvas.height, crop: { minX, minY, maxX, maxY } };
 }
 
 function fallbackTexture(THREE: ThreeModule): import("three").CanvasTexture {
