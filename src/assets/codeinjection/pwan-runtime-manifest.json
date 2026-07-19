@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "source": "White2Upgrade-Original-pokeweb/build-stripped/src",
+  "artifacts": {
+    "PokewebPwanSummaryW2.dll": {
+      "gameId": "W2",
+      "scope": "summary",
+      "sha256": "bb4bdcf7cb11b6ca4f718478be3d3315c2a92e1cd81ce0c37cff48f4a9a1a54f",
+      "size": 5328
+    },
+    "PokewebPwanBattleW2.dll": {
+      "gameId": "W2",
+      "scope": "battle",
+      "sha256": "91ba948ad66be24be8f6ad144d5838b6ccdf12c78ad374010e649e9bd1955923",
+      "size": 5616
+    },
+    "PokewebPwanMiscW2.dll": {
+      "gameId": "W2",
+      "scope": "misc",
+      "sha256": "997afa0ed6cb30cc9c76bdff53462290c96c9f0d69a744d720af4e28c60f2470",
+      "size": 10208
+    },
+    "PokewebPwanSummaryB2.dll": {
+      "gameId": "B2",
+      "scope": "summary",
+      "sha256": "cdbbae687b227a7b9ac529727f0bba21e27a94a065c5a5ddf25fd80f3d5845a0",
+      "size": 5408
+    },
+    "PokewebPwanBattleB2.dll": {
+      "gameId": "B2",
+      "scope": "battle",
+      "sha256": "70838f14a6030cf546d607bc01eff7fdc48f750729b242f07aaf8985b85fb9e0",
+      "size": 6208
+    },
+    "PokewebPwanMiscB2.dll": {
+      "gameId": "B2",
+      "scope": "misc",
+      "sha256": "93be335b929c665450142808aab09941fd22ff35f4b7e15626270e60cdd37ac5",
+      "size": 10208
+    },
+    "PokewebPwanLegacyRetiredW2.dll": {
+      "gameId": "W2",
+      "scope": "retirement",
+      "sha256": "65d88246013f7ac3a7d87168a8f5058091a2d8f7561d364a5a051c3e632447cb",
+      "size": 144
+    }
+  }
+}

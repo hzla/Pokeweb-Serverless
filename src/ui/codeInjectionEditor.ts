@@ -27,6 +27,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const doubleBattleFixSupported = status.installed && doubleBattleFixStatus !== "unsupported";
   const pwanRuntimeStatus = getPwanRuntimeStatus(project);
   const pwanRuntimeInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.installed;
+  const pwanLegacyInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.legacyInstalled;
   const pwanCompatibility = detectPwanRuntimeCompatibility(project);
   const pwanCanInstall = pwanRuntimeStatus.supported && pwanCompatibility.compatible;
   if (shouldHydrateRomBytesForPwanCompatibility(project, pwanCompatibility)) {
@@ -65,24 +66,26 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <p>Installs PMC and the bundled PWAN runtime needed for Pokemon-scoped GIF imports.</p>
             </div>
             <span class="code-injection-status ${pwanRuntimeInstalled ? "-installed" : pwanCanInstall ? "" : "-error"}">
-              ${pwanRuntimeInstalled ? "Installed" : pwanCanInstall ? "Ready" : pwanCompatibility.supportedBase ? "Incompatible" : "Unsupported"}
+              ${pwanRuntimeInstalled ? "Installed" : pwanLegacyInstalled ? "Upgrade" : pwanCanInstall ? "Ready" : pwanCompatibility.supportedBase ? "Incompatible" : "Unsupported"}
             </span>
           </div>
           <div class="code-injection-facts">
-            <div><span>Runtime</span><strong>${pwanRuntimeInstalled ? "Staged" : "Bundled"}</strong></div>
+            <div><span>Runtime</span><strong>Full split</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
             <div><span>Compatibility</span><strong>${pwanCompatibility.compatible ? "Passed" : pwanCompatibility.supportedBase ? "Failed" : "Unsupported"}</strong></div>
             <div><span>Hook Checks</span><strong>${pwanCompatibility.passed}/${pwanCompatibility.checks.length}</strong></div>
           </div>
-          ${renderPwanCompatibilityDetails(pwanCompatibility)}
+          ${renderPwanCompatibilityDetails(project, pwanCompatibility)}
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pwan-runtime-btn" type="button" ${pwanCanInstall ? "" : "disabled"}>
-              ${pwanRuntimeInstalled ? "Reinstall PWAN GIF Support" : "Install PWAN GIF Support"}
+              ${pwanRuntimeInstalled ? "Reinstall PWAN GIF Support" : pwanLegacyInstalled ? "Upgrade PWAN GIF Support" : "Install PWAN GIF Support"}
             </button>
             <div class="code-injection-note" id="pwan-runtime-note">
               ${
                 pwanCanInstall
-                  ? "This will stage patches/PokewebPwanW2.dll. Export writes imported animations to zz_pokeweb_pwan/pwan.narc."
+                  ? project.session.baseVersion === "B2"
+                    ? "This stages the Black 2 Summary, Battle, and Misc PWAN DLLs."
+                    : "This stages the current Summary, Battle, and Misc PWAN DLLs and retires the legacy monolith."
                   : escapeHtml(pwanCompatibilityFailureSummary(pwanCompatibility))
               }
             </div>
@@ -186,13 +189,17 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       pwanButton.disabled = true;
       pwanButton.textContent = "Installing...";
       if (pwanNote) {
-        pwanNote.textContent = status.installed ? "Staging the bundled PWAN runtime DLL." : "Installing PMC and staging the bundled PWAN runtime DLL.";
+        pwanNote.textContent = status.installed ? "Staging the bundled PWAN runtime DLLs." : "Installing PMC and staging the bundled PWAN runtime DLLs.";
       }
       await installPwanRuntime(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note");
-      if (refreshedNote) refreshedNote.textContent = "PWAN GIF support is staged. Export the ROM to include the runtime and PWAN archive.";
+      if (refreshedNote) {
+        refreshedNote.textContent = project.session.baseVersion === "B2"
+          ? "Black 2 split PWAN support is staged. Export the ROM to include the runtimes and PWAN archive."
+          : "White 2 split PWAN support is staged. Export the ROM to include the runtimes and PWAN archive.";
+      }
     } catch (error) {
       pwanButton.disabled = false;
       pwanButton.textContent = previousText;
@@ -247,9 +254,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   });
 }
 
-function renderPwanCompatibilityDetails(report: PwanCompatibilityReport): string {
+function renderPwanCompatibilityDetails(project: ProjectState, report: PwanCompatibilityReport): string {
   if (report.compatible) {
-    return `<div class="code-injection-compat-ok">All ${report.passed} PWAN hook regions match the stock White 2 snapshot.</div>`;
+    return `<div class="code-injection-compat-ok">All ${report.passed} PWAN hook regions match the stock ${project.session.baseVersion === "B2" ? "Black 2" : "White 2"} snapshot.</div>`;
   }
   return `
     <div class="code-injection-compat-list" aria-label="PWAN compatibility failures">

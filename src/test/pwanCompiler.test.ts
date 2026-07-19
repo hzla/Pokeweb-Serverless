@@ -140,6 +140,22 @@ describe("pwanCompiler", () => {
     expect(result.warnings).toContain("Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette");
   });
 
+  it("uses bounded weighted quantization for dense GIF palettes", () => {
+    const pixels = Array.from({ length: 32 * 32 }, (_value, index) => [
+      (index % 32) * 8,
+      Math.floor(index / 32) * 8,
+      ((index % 32) ^ Math.floor(index / 32)) * 8,
+      255,
+    ] as const);
+    const frame = makeRgbaFrame(32, 32, pixels);
+
+    const result = preparePwanPaletteFrames([frame]);
+
+    expect(result.strategy).toBe("weighted-median-cut");
+    expect(result.palette).toHaveLength(PWAN_PALETTE_COLORS - 1);
+    expect(uniqueOpaqueColors(result.frames[0]!)).toHaveLength(PWAN_PALETTE_COLORS - 1);
+  });
+
   it("tiles carrier fallback pixels in PWAN segment order", () => {
     const pixels = Array.from({ length: PWAN_HEIGHT }, () => Array.from({ length: PWAN_WIDTH }, () => 0));
     pixels[0]![64] = 5;

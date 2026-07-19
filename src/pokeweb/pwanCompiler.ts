@@ -21,7 +21,7 @@ export type PwanPaletteFrames = {
   frames: AnimationAnalysisFrame[];
   palette: RgbColor[];
   quantized: boolean;
-  strategy: "exact" | "anchor-frame" | "closest-merge";
+  strategy: "exact" | "anchor-frame" | "closest-merge" | "weighted-median-cut";
   warnings: string[];
 };
 
@@ -56,6 +56,7 @@ export const PWAN_MAX_TIMELINE = 192;
 
 const PWAN_HEADER_BYTES = 0x30;
 const TRANSPARENT_ALPHA_THRESHOLD = 128;
+const CLOSEST_MERGE_COLOR_LIMIT = 64;
 const SEGMENTS = [
   { x: 0, y: 0, width: 64, height: 64 },
   { x: 64, y: 0, width: 32, height: 64 },
@@ -66,6 +67,9 @@ const SEGMENTS = [
 export function compileGifToPwan(bytes: Uint8Array): PwanCompileResult {
   const sourceFrames = decodeGifFrames(bytes);
   if (sourceFrames.length === 0) throw new Error("GIF contains no frames");
+  if (sourceFrames.length > PWAN_MAX_TIMELINE) {
+    throw new Error(`GIF has ${sourceFrames.length} frames; PWAN supports at most ${PWAN_MAX_TIMELINE}`);
+  }
 
   const normalized = sourceFrames.map((frame, index) => normalizeFrameBottomAligned(frame, index));
   const paletteFrames = preparePwanPaletteFrames(normalized);
@@ -73,8 +77,6 @@ export function compileGifToPwan(bytes: Uint8Array): PwanCompileResult {
   if (sourceFrames[0] && (sourceFrames[0].width > 384 || sourceFrames[0].height > 384)) {
     warnings.push(`Source GIF is ${sourceFrames[0].width}x${sourceFrames[0].height}; it will be scaled into 96x96`);
   }
-  if (sourceFrames.length > PWAN_MAX_TIMELINE) warnings.push(`GIF has ${sourceFrames.length} frames; PWAN v1 supports up to ${PWAN_MAX_TIMELINE} timeline entries`);
-
   const palette = normalizePalette(paletteFrames.palette);
   const compiledFrames = paletteFrames.frames.map((frame) => compilePwanFrame(frame, palette));
   const uniqueFrames: Uint8Array[] = [];
@@ -139,12 +141,18 @@ export function preparePwanPaletteFrames(frames: AnimationAnalysisFrame[]): Pwan
     };
   }
 
-  const merged = mergeClosestPaletteColors(frames, PWAN_PALETTE_COLORS - 1);
+  const reduced = reducePaletteColors(frames, PWAN_PALETTE_COLORS - 1);
   return {
-    ...merged,
+    frames: reduced.frames,
+    palette: reduced.palette,
     quantized: true,
-    strategy: "closest-merge",
-    warnings: [...paletteReport.warnings, "Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette"],
+    strategy: reduced.strategy,
+    warnings: [
+      ...paletteReport.warnings,
+      reduced.strategy === "closest-merge"
+        ? "Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette"
+        : "Opaque colors were reduced with weighted median-cut quantization to fit PWAN's 15-color visible palette",
+    ],
   };
 }
 
@@ -164,11 +172,92 @@ function compatibleAnchorPalette(frames: AnimationAnalysisFrame[], maxColors: nu
   return best;
 }
 
-function mergeClosestPaletteColors(frames: AnimationAnalysisFrame[], maxColors: number): { frames: AnimationAnalysisFrame[]; palette: RgbColor[] } {
-  const palette = reduceColorsByClosestMerges(countOpaqueColors(frames), maxColors);
+function reducePaletteColors(
+  frames: AnimationAnalysisFrame[],
+  maxColors: number,
+): { frames: AnimationAnalysisFrame[]; palette: RgbColor[]; strategy: "closest-merge" | "weighted-median-cut" } {
+  const colors = countOpaqueColors(frames);
+  const strategy = colors.length <= CLOSEST_MERGE_COLOR_LIMIT ? "closest-merge" : "weighted-median-cut";
+  const palette = strategy === "closest-merge"
+    ? reduceColorsByClosestMerges(colors, maxColors)
+    : weightedMedianCutPalette(colors, maxColors);
   return {
     frames: remapFramesToPalette(frames, palette),
     palette,
+    strategy,
+  };
+}
+
+function weightedMedianCutPalette(colors: CountedColor[], maxColors: number): RgbColor[] {
+  if (colors.length === 0) return [];
+  const buckets: CountedColor[][] = [[...colors]];
+  while (buckets.length < maxColors) {
+    let splitIndex = -1;
+    let splitScore = -1;
+    for (let index = 0; index < buckets.length; index += 1) {
+      const bucket = buckets[index]!;
+      if (bucket.length <= 1) continue;
+      const score = bucketColorRange(bucket) * bucket.reduce((sum, color) => sum + color.count, 0);
+      if (score > splitScore) {
+        splitIndex = index;
+        splitScore = score;
+      }
+    }
+    if (splitIndex < 0) break;
+    const bucket = buckets[splitIndex]!;
+    const channel = widestCountedColorChannel(bucket);
+    const sorted = [...bucket].sort((left, right) => left[channel] - right[channel] || compareRgb(left, right));
+    const halfWeight = sorted.reduce((sum, color) => sum + color.count, 0) / 2;
+    let weight = 0;
+    let cut = 1;
+    for (; cut < sorted.length; cut += 1) {
+      weight += sorted[cut - 1]!.count;
+      if (weight >= halfWeight) break;
+    }
+    cut = Math.max(1, Math.min(sorted.length - 1, cut));
+    buckets.splice(splitIndex, 1, sorted.slice(0, cut), sorted.slice(cut));
+  }
+  return buckets.map(weightedAverageColor).sort(compareRgb);
+}
+
+function bucketColorRange(colors: CountedColor[]): number {
+  return Math.max(countedChannelRange(colors, "r"), countedChannelRange(colors, "g"), countedChannelRange(colors, "b"));
+}
+
+function widestCountedColorChannel(colors: CountedColor[]): "r" | "g" | "b" {
+  const ranges = {
+    r: countedChannelRange(colors, "r"),
+    g: countedChannelRange(colors, "g"),
+    b: countedChannelRange(colors, "b"),
+  };
+  return ranges.g > ranges.r && ranges.g >= ranges.b ? "g" : ranges.b > ranges.r && ranges.b > ranges.g ? "b" : "r";
+}
+
+function countedChannelRange(colors: CountedColor[], channel: "r" | "g" | "b"): number {
+  let min = 255;
+  let max = 0;
+  for (const color of colors) {
+    min = Math.min(min, color[channel]);
+    max = Math.max(max, color[channel]);
+  }
+  return max - min;
+}
+
+function weightedAverageColor(colors: CountedColor[]): RgbColor {
+  let weight = 0;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (const color of colors) {
+    weight += color.count;
+    r += color.r * color.count;
+    g += color.g * color.count;
+    b += color.b * color.count;
+  }
+  return {
+    r: Math.round(r / Math.max(1, weight)),
+    g: Math.round(g / Math.max(1, weight)),
+    b: Math.round(b / Math.max(1, weight)),
   };
 }
 
