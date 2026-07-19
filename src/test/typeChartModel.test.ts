@@ -3,6 +3,7 @@ import type { NarcName } from "../pokeweb/constants";
 import type { ProjectState } from "../pokeweb/projectStore";
 import type { NarcStore } from "../pokeweb/projectStore";
 import {
+  BLACK2UPGRADE_TYPE_CHART_ROMFS_PATH,
   TYPE_CHART_FAIRY_FROST_OFFSET,
   TYPE_CHART_FAIRY_REDUX_OFFSET,
   TYPE_CHART_FAIRY_TYPE_COUNT,
@@ -72,6 +73,16 @@ describe("typeChartModel", () => {
 
     expect(project.narcs.type_chart.rawFiles[0][17 * TYPE_CHART_FAIRY_TYPE_COUNT + 15]).toBe(8);
     expect(project.narcs.type_chart.dirty.has(0)).toBe(true);
+  });
+
+  it("recognizes the nested Black2Upgrade standalone Fairy type chart", () => {
+    const project = makeProject();
+    const chart = makeTypeChartBytes(TYPE_CHART_FAIRY_TYPE_COUNT);
+    project.overlays = {};
+    project.narcs.type_chart = createRomFsTypeChartStore(12, chart, BLACK2UPGRADE_TYPE_CHART_ROMFS_PATH);
+
+    expect(project.narcs.type_chart.sourcePath).toBe(BLACK2UPGRADE_TYPE_CHART_ROMFS_PATH);
+    expect(getTypeChartTypes(project)).toContain("Fairy");
   });
 });
 

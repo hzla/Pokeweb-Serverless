@@ -44,6 +44,16 @@ const PWAN_RUNTIME_URLS = {
   W2: PWAN_W2_RUNTIME_FILENAMES.map((fileName) => ({ fileName, url: new URL(`../assets/codeinjection/${fileName}`, import.meta.url) })),
   B2: PWAN_B2_RUNTIME_FILENAMES.map((fileName) => ({ fileName, url: new URL(`../assets/codeinjection/${fileName}`, import.meta.url) })),
 } as const;
+
+export async function loadBundledPwanRuntimeArtifacts(version: "W2" | "B2"): Promise<Array<{ fileName: string; bytes: Uint8Array }>> {
+  return Promise.all(
+    PWAN_RUNTIME_URLS[version].map(async ({ fileName, url }) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Could not load bundled PWAN runtime ${fileName} (${response.status})`);
+      return { fileName, bytes: new Uint8Array(await response.arrayBuffer()) };
+    }),
+  );
+}
 const PWAN_LEGACY_RETIREMENT_URL = new URL("../assets/codeinjection/PokewebPwanLegacyRetiredW2.dll", import.meta.url);
 const PWAN_LEGACY_W2_SHA256 = "b5eb73819af80655fd4b56ac84daa4cd25cef06e72fb7fa9ef7d6a7f58b65602";
 const PWAN_LEGACY_RETIREMENT_SHA256 = "65d88246013f7ac3a7d87168a8f5058091a2d8f7561d364a5a051c3e632447cb";
@@ -196,13 +206,7 @@ export async function installPwanRuntime(project: ProjectState): Promise<void> {
     if (!compatibility.compatible) throw new Error(pwanCompatibilityFailureSummary(compatibility));
   }
   const version = project.session.baseVersion;
-  const artifacts = await Promise.all(
-    PWAN_RUNTIME_URLS[version].map(async ({ fileName, url }) => {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Could not load bundled PWAN runtime ${fileName} (${response.status})`);
-      return { fileName, bytes: new Uint8Array(await response.arrayBuffer()) };
-    }),
-  );
+  const artifacts = await loadBundledPwanRuntimeArtifacts(version);
   const retirementBytes = version === "W2" ? await loadLegacyRetirementRuntime() : undefined;
   const pmc = getPmcInstallStatus(project);
   if (!pmc.installed) await installBundledPmc(project);
@@ -500,9 +504,9 @@ export function setPwanOverrideSideOffset(
 }
 
 export async function materializePwanAnimations(project: ProjectState, rom?: NintendoDSRom): Promise<void> {
-  clearMaterializedPwanFiles(project);
   const state = project.pwanAnimations;
   if (!state?.dirty) return;
+  clearMaterializedPwanFiles(project);
   const overrides = activePwanOverrides(project.pwanAnimations?.overrides ?? []);
   const status = getPwanRuntimeStatus(project);
   if (!status.supported) throw new Error(status.message);

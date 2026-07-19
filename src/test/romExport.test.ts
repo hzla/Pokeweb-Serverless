@@ -29,6 +29,16 @@ describe("ROM export", () => {
     expect([...parsed.files[1]]).toEqual([9, 8, 7, 6, 5]);
   });
 
+  it("can prioritize physical file placement without changing logical file IDs", () => {
+    const source = makeRom([Uint8Array.of(1), Uint8Array.of(2), Uint8Array.of(3)]);
+    const saved = new NintendoDSRom(source).save({ priorityFileIds: [2] });
+    const parsed = new NintendoDSRom(saved);
+    const fatOffset = readU32(saved, 0x48);
+
+    expect(readU32(saved, fatOffset + 2 * 8)).toBeLessThan(readU32(saved, fatOffset));
+    expect(parsed.files.map((file) => [...file])).toEqual([[1], [2], [3]]);
+  });
+
   it("appends new named ROM files without shifting existing file IDs", () => {
     const source = makeRom([Uint8Array.of(1), Uint8Array.of(2)]);
     const rom = new NintendoDSRom(source);

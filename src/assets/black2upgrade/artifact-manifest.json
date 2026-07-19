@@ -1,0 +1,46 @@
+{
+  "format": 1,
+  "source": "White2Upgrade-Original-pokeweb/build-stripped/black2upgrade-artifacts",
+  "artifacts": {
+    "Black2Upgrade.dll": {
+      "kind": "runtime",
+      "size": 74960,
+      "sha256": "d3d545dbc0f71304962dc2790a79597233ede120d6f3c93035f1209bab03a79c"
+    },
+    "Black2UpgradeField.dll": {
+      "kind": "runtime",
+      "size": 1744,
+      "sha256": "626ee3b515b695514042680a29f33542d055acc7a8336163d577e02dd8099f15"
+    },
+    "Black2UpgradePokedex.dll": {
+      "kind": "runtime",
+      "size": 752,
+      "sha256": "82edde02a9097414ab107e5d4e6c4527dbee45dd9e9f89557752705ce2a8594e"
+    },
+    "Black2UpgradeUI.dll": {
+      "kind": "runtime",
+      "size": 1376,
+      "sha256": "bd7ff2ee419c38a629a2ae3212f3903c0fa6b33ef852a6420b0f9f9e17d366af"
+    },
+    "black2upgrade-compatibility.json": {
+      "kind": "compatibility",
+      "size": 134091,
+      "sha256": "dcdb7a427d74cc5046c6fd1e354f6db0bd4cd8d51a3df0bd17f31436f0674918"
+    },
+    "black2upgrade-heap-audit.json": {
+      "kind": "heap-audit",
+      "size": 1199,
+      "sha256": "d7669980fb04f2c7046f38438a1c59a2bd556366da7e46bf33939be3f15507ec"
+    },
+    "black2upgrade-package-manifest.json": {
+      "kind": "package-manifest",
+      "size": 343069,
+      "sha256": "36eff2c5ce421e58a89473f5d7182da3aed60eadcd06b2b2b9cf0c441cb5ed09"
+    },
+    "black2upgrade-data.tar.gz": {
+      "kind": "package",
+      "size": 33533557,
+      "sha256": "5f64d17ba55b87d988f6d4db8f5316a3c574217252f5cca306536e90e35396f2"
+    }
+  }
+}

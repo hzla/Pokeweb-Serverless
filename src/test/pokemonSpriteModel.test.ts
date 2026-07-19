@@ -67,6 +67,17 @@ describe("pokemonSpriteModel", () => {
     expect(getPokemonSpriteImage(project, 815, { kind: "sprite", side: "front", gender: "male" }, "normal").width).toBe(96);
   });
 
+  it("resolves expanded base species through the relocated Gen 7-9 static asset windows", () => {
+    const project = makeW2uProject();
+
+    expect(resolvePokemonSpriteId(project, 721)).toBe(721);
+    expect(resolvePokemonSpriteId(project, 722)).toBe(950);
+    expect(resolvePokemonSpriteId(project, 809)).toBe(1037);
+    expect(resolvePokemonSpriteId(project, 810)).toBe(1200);
+    expect(resolvePokemonSpriteId(project, 899)).toBe(1289);
+    expect(resolvePokemonSpriteId(project, 1023)).toBe(1413);
+  });
+
   it("does not reverse-map normal species IDs through hacked cosmetic form ranges", () => {
     const project = makeProject();
     const formats = getNarcFormats("BW2");

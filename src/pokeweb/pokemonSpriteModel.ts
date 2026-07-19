@@ -132,6 +132,12 @@ const SPRITE_FILES_PER_ENTRY = 20;
 const BW_ALT_FORM_SPRITE_START = 652;
 const BW2_ALT_FORM_SPRITE_START = 685;
 const W2U_FORM_SPRITE_START = 724;
+const W2U_GEN7_SPECIES_START = 722;
+const W2U_GEN7_SPECIES_END = 809;
+const W2U_GEN7_STATIC_SPRITE_START = 950;
+const W2U_GEN8_SPECIES_START = 810;
+const W2U_GEN9_SPECIES_END = 1023;
+const W2U_GEN8_STATIC_SPRITE_START = 1200;
 const PALETTE_OFFSET = 40;
 const IMAGE_DATA_OFFSET = 48;
 export const DEFAULT_RIG_ATLAS_DIMENSIONS: RigAtlasDimensions = { width: 256, height: 128 };
@@ -175,10 +181,20 @@ export function getPokemonSpriteFormOptions(project: ProjectState, speciesId: nu
 }
 
 export function resolvePokemonSpriteId(project: ProjectState, speciesId: number, formIndex = 0): number {
-  const formSpriteStart = usesW2uExpandedPokegra(project) ? W2U_FORM_SPRITE_START : project.session.baseRom === "BW2" ? BW2_ALT_FORM_SPRITE_START : BW_ALT_FORM_SPRITE_START;
+  const usesExpandedPokegra = usesW2uExpandedPokegra(project);
+  const formSpriteStart = usesExpandedPokegra ? W2U_FORM_SPRITE_START : project.session.baseRom === "BW2" ? BW2_ALT_FORM_SPRITE_START : BW_ALT_FORM_SPRITE_START;
   if (formIndex <= 0) {
     const formOwner = findPokemonPersonalFormOwner(project, speciesId);
-    return formOwner ? formSpriteStart + formOwner.formSpriteOffset + formOwner.formIndex - 1 : speciesId;
+    if (formOwner) return formSpriteStart + formOwner.formSpriteOffset + formOwner.formIndex - 1;
+    if (usesExpandedPokegra) {
+      if (speciesId >= W2U_GEN7_SPECIES_START && speciesId <= W2U_GEN7_SPECIES_END) {
+        return W2U_GEN7_STATIC_SPRITE_START + speciesId - W2U_GEN7_SPECIES_START;
+      }
+      if (speciesId >= W2U_GEN8_SPECIES_START && speciesId <= W2U_GEN9_SPECIES_END) {
+        return W2U_GEN8_STATIC_SPRITE_START + speciesId - W2U_GEN8_SPECIES_START;
+      }
+    }
+    return speciesId;
   }
   const record = decodeRecord(project, "personal", speciesId);
   const formCount = Math.max(1, Number(record.raw?.num_forms ?? 1));

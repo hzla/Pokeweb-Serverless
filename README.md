@@ -94,6 +94,28 @@ npm run build
 npm test
 ```
 
+### Black 2 Upgrade
+
+The Code Injection page can install Black 2 Upgrade only on the exact clean US
+Black 2 `IREO` base. Fresh installation verifies the base ROM, compatibility
+signatures, runtime metadata, expansion package, and artifact checksums before
+committing one project transaction. MoonBlack2, other regions, modified hook
+windows, unmarked partial expansions, and conflicting modules are rejected.
+
+For a marked compatible ROM, the update path replaces only PMC and the four
+Black 2 Upgrade runtimes; edited NARCs, trainers, encounters, and PWAN data are
+preserved. The expanded layout is also recognized by the Pokemon/form,
+learnset, evolution, move-animation, local-sync, and test-battle workflows.
+
+Maintainer commands:
+
+```sh
+npm run black2upgrade:sync
+npm run black2upgrade:check
+npm run black2upgrade:rom
+npm run black2upgrade:verify-rom
+```
+
 ## Notes
 
 - Black / White and Black 2 / White 2 are detected from ARM9 data during ROM load.
