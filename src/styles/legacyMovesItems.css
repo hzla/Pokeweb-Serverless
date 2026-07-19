@@ -772,7 +772,8 @@
   min-height: 220px;
 }
 
-.move-animation-move-select {
+.move-animation-move-select,
+.move-animation-environment-select {
   color: #c6cbda;
   display: grid;
   font-size: 12px;
@@ -780,13 +781,68 @@
   gap: 6px;
 }
 
-.move-animation-move-select select {
+.move-animation-move-select select,
+.move-animation-environment-select select {
   background: #1f2432;
   border: 1px solid #44475a;
   border-radius: 4px;
   color: #f3f6ff;
   min-height: 36px;
   padding: 6px 8px;
+}
+
+.move-animation-environment-controls {
+  background: #292d3b;
+  border: 1px solid #444b60;
+  border-radius: 6px;
+  display: grid;
+  gap: 10px;
+  padding: 11px;
+}
+
+.move-animation-environment-title {
+  color: #50c3a5;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.move-animation-environment-select select:disabled {
+  color: #8991a5;
+  opacity: 0.75;
+}
+
+.move-animation-side-toggle {
+  align-items: start;
+  border-top: 1px solid #41485c;
+  color: #d9deeb;
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding-top: 10px;
+}
+
+.move-animation-side-toggle input {
+  accent-color: #50c3a5;
+  margin: 2px 0 0;
+}
+
+.move-animation-side-toggle span {
+  display: grid;
+  gap: 3px;
+}
+
+.move-animation-side-toggle strong {
+  font-size: 11px;
+}
+
+.move-animation-side-toggle small {
+  color: #929cb2;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 #moves .move-animation-page-header {

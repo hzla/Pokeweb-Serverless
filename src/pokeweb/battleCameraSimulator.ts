@@ -50,9 +50,9 @@ const TARGET_POSE: CameraPose = {
   position: [...GEN5_SINGLE_TARGET_CAMERA_POSITION],
 };
 
-export function simulateBattleCamera(timeline: MoveAnimationTimelineEvent[], frame: number): BattleCameraState {
+export function simulateBattleCamera(timeline: MoveAnimationTimelineEvent[], frame: number, swappedSides = false): BattleCameraState {
   const cameraEvents = timeline.filter(isCameraCommand).sort((a, b) => a.frame - b.frame);
-  const movement = resolveCameraMovement(cameraEvents, frame);
+  const movement = resolveCameraMovement(cameraEvents, frame, swappedSides);
   const shake = resolveCameraShake(cameraEvents, frame);
   return { ...movement, activeCommand: activeCameraCommand(cameraEvents, frame), shake };
 }
@@ -66,13 +66,13 @@ export function cameraEventDuration(event: Pick<MoveAnimationTimelineEvent, "com
   return 1;
 }
 
-function resolveCameraMovement(events: MoveAnimationTimelineEvent[], frame: number): CameraPose {
+function resolveCameraMovement(events: MoveAnimationTimelineEvent[], frame: number, swappedSides: boolean): CameraPose {
   let pose = DEFAULT_POSE;
   for (let index = 0; index < events.length; index += 1) {
     const event = events[index];
     if (event.frame > frame) break;
     if (!isCameraMoveEvent(event)) continue;
-    const next = poseForCameraEvent(event, pose);
+    const next = poseForCameraEvent(event, pose, swappedSides);
     const duration = cameraEventDuration(event);
     const rate = smoothstep(Math.min(1, Math.max(0, (frame - event.frame) / duration)));
     pose = interpolatePose(pose, next, rate);
@@ -105,8 +105,8 @@ function activeCameraCommand(events: MoveAnimationTimelineEvent[], frame: number
   return undefined;
 }
 
-function poseForCameraEvent(event: MoveAnimationTimelineEvent, current: CameraPose): CameraPose {
-  if (event.command === "MoveCamera") return poseForPreset(event.params[1] ?? 0, current);
+function poseForCameraEvent(event: MoveAnimationTimelineEvent, current: CameraPose, swappedSides: boolean): CameraPose {
+  if (event.command === "MoveCamera") return poseForPreset(event.params[1] ?? 0, current, swappedSides);
   if (event.command === "AdjustCamera") return poseForCoordinates(event);
   if (event.command === "CameraMoveAngle") return poseForAngles(event, current);
   if (event.command === "CameraProjection") return { ...current, fov: projectionFov(event.params[0] ?? 0, event.params[1] ?? 0) };
@@ -114,11 +114,11 @@ function poseForCameraEvent(event: MoveAnimationTimelineEvent, current: CameraPo
   return current;
 }
 
-function poseForPreset(preset: number, current: CameraPose): CameraPose {
+function poseForPreset(preset: number, current: CameraPose, swappedSides: boolean): CameraPose {
   // Source: EFFVM_CAMERA_MOVE in Swan. In a single battle ATTACK/ATTACK_PAIR
   // resolve to position AA, while DEFENCE/DEFENCE_PAIR resolve to BB.
-  if (preset === 0 || preset === 9 || preset === 10 || preset === 21) return USER_POSE;
-  if (preset === 1 || preset === 11 || preset === 12) return TARGET_POSE;
+  if (preset === 0 || preset === 9 || preset === 10 || preset === 21) return swappedSides ? TARGET_POSE : USER_POSE;
+  if (preset === 1 || preset === 11 || preset === 12) return swappedSides ? USER_POSE : TARGET_POSE;
   if (preset === 8 || preset === 17) return DEFAULT_POSE;
   // Plural and zoom-out presets are no-ops in a retail 1-vs-1 battle.
   return current;

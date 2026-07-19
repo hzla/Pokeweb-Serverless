@@ -21,6 +21,7 @@ describe("move animation battle environment", () => {
     ];
 
     expect(selectMovePreviewBattleVariant(variants, 1)?.resourceId).toBe(10);
+    expect(selectMovePreviewBattleVariant(variants, 1, 2)?.resourceId).toBe(12);
     expect(selectMovePreviewBattleVariant(variants, 6)?.resourceId).toBe(15);
     expect(selectMovePreviewBattleVariant(variants, 99)).toBeUndefined();
   });
