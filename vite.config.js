@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     build: {
+      // Keep even very small DLXF modules as independently fetchable binary
+      // assets. Black2Upgrade companions are intentionally tiny after strip.
+      assetsInlineLimit: (filePath) => (filePath.toLowerCase().endsWith(".dll") ? false : undefined),
       rollupOptions: {
         input: {
           main: "index.html",

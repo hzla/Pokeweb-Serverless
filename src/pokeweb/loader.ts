@@ -30,7 +30,13 @@ import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch"
 import { createFileStore, createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
 import { getStarterOverlayIds } from "./starterModel";
 import { cleanDisplayText, decodeGen4TextBank, decodeGen5TextBank, type TextEntry } from "./text";
-import { TYPE_CHART_ROMFS_PATH, createRomFsTypeChartStore, createTypeChartStore, detectFairyTypeUsage } from "./typeChartModel";
+import {
+  BLACK2UPGRADE_TYPE_CHART_ROMFS_PATH,
+  TYPE_CHART_ROMFS_PATH,
+  createRomFsTypeChartStore,
+  createTypeChartStore,
+  detectFairyTypeUsage,
+} from "./typeChartModel";
 import { parseTms } from "./tmModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, createTutorMoveStore } from "./tutorMoveModel";
 
@@ -53,6 +59,7 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
 export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cached-rom.nds", options: LoadOptions = {}, onProgress?: LoadProgress): Promise<ProjectState> {
   const rom = new NintendoDSRom(bytes);
   const compactBytes = rom.save();
+  const sourceSha256 = await sha256Hex(bytes);
 
   await reportLoadProgress(onProgress, "Decompressing ARM9");
   const arm9Compressed = isCodeCompressed(rom.arm9);
@@ -77,6 +84,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
       idCode: rom.idCode,
       fileName,
       size: bytes.length,
+      sourceSha256,
     },
     arm9,
     arm9Compressed,
@@ -153,6 +161,13 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   return project;
 }
 
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const source = new Uint8Array(bytes.length);
+  source.set(bytes);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", source.buffer);
+  return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
 async function reportLoadProgress(onProgress: LoadProgress | undefined, message: string): Promise<void> {
   onProgress?.(message);
   if (!onProgress) return;
@@ -188,12 +203,20 @@ function extractNarcSet(rom: NintendoDSRom, project: ProjectState, definitions: 
 }
 
 function tryCreateRomFsTypeChartStore(rom: NintendoDSRom) {
-  try {
-    const fileId = rom.fileId(TYPE_CHART_ROMFS_PATH);
-    return createRomFsTypeChartStore(fileId, rom.files[fileId]);
-  } catch {
-    return undefined;
+  for (const path of [TYPE_CHART_ROMFS_PATH, BLACK2UPGRADE_TYPE_CHART_ROMFS_PATH]) {
+    try {
+      const fileId = rom.fileId(path);
+      return createRomFsTypeChartStore(fileId, rom.files[fileId], path);
+    } catch {
+      // Try the other supported expansion layout.
+    }
   }
+  return undefined;
+}
+
+export function refreshDecodedTextState(project: ProjectState): void {
+  project.texts = { banks: {} };
+  decodeTextNarcs(project);
 }
 
 function decodeTextNarcs(project: ProjectState): void {

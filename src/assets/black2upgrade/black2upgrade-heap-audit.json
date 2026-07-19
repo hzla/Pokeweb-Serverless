@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "allocatorModel": "fixed B2 PMC module pool; PMC overlay reservation excluded",
+  "budgetBytes": 393216,
+  "requiredSafetyMarginBytes": 98304,
+  "modules": {
+    "residentCore": {
+      "path": "src/Black2Upgrade.elf",
+      "loadBytes": 49212,
+      "sections": {
+        ".text": 36024,
+        ".rodata": 8276,
+        ".data": 1832,
+        ".bss": 2852,
+        ".rodata.str1.1": 204,
+        ".rodata.cst16": 16,
+        ".rodata.cst8": 8
+      }
+    },
+    "pwanBattle": {
+      "path": "src/PokewebPwanBattleB2.elf",
+      "loadBytes": 33740,
+      "sections": {
+        ".text": 4524,
+        ".rodata": 8,
+        ".data": 6,
+        ".bss": 29176,
+        ".rodata.str1.1": 26
+      }
+    },
+    "uiCompanion": {
+      "path": "src/Black2UpgradeUI.elf",
+      "loadBytes": 256,
+      "sections": {
+        ".text": 256,
+        ".data": 0,
+        ".bss": 0
+      }
+    }
+  },
+  "dynamicWorstCaseBytes": {
+    "terrainParticleLibrary": 18432,
+    "terrainSpaAndResourceWorstCase": 65536,
+    "terrainTextureReplacementBuffers": 32768,
+    "allocatorAndModuleBookkeeping": 32768
+  },
+  "worstCaseUsedBytes": 232712,
+  "remainingBytes": 160504,
+  "passed": true
+}

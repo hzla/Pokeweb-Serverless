@@ -9,6 +9,7 @@ export const TYPE_CHART_FAIRY_REDUX_OFFSET = 0x00000000;
 export const TYPE_CHART_VANILLA_TYPE_COUNT = 17;
 export const TYPE_CHART_FAIRY_TYPE_COUNT = 18;
 export const TYPE_CHART_ROMFS_PATH = "type_chart.bin";
+export const BLACK2UPGRADE_TYPE_CHART_ROMFS_PATH = "data/black2upgrade/type_chart.bin";
 export const TYPE_CHART_TYPES = TYPES.slice(0, TYPE_CHART_VANILLA_TYPE_COUNT);
 export const TYPE_EFFECTIVENESS_VALUES = [0, 2, 4, 8] as const;
 
@@ -45,12 +46,12 @@ export function ensureTypeChartStore(project: ProjectState): void {
   project.narcs.type_chart = createTypeChartStore(project, overlay);
 }
 
-export function createRomFsTypeChartStore(fileId: number, bytes: Uint8Array): NarcStore {
-  if (!isPlausibleRomFsTypeChart(bytes)) throw new Error(`Could not locate an 18x18 Fairy type chart in ${TYPE_CHART_ROMFS_PATH}.`);
+export function createRomFsTypeChartStore(fileId: number, bytes: Uint8Array, sourcePath = TYPE_CHART_ROMFS_PATH): NarcStore {
+  if (!isPlausibleRomFsTypeChart(bytes)) throw new Error(`Could not locate an 18x18 Fairy type chart in ${sourcePath}.`);
   return {
     name: "type_chart",
     fileId,
-    sourcePath: TYPE_CHART_ROMFS_PATH,
+    sourcePath,
     fileCount: 1,
     rawFiles: [bytes.slice()],
     records: new Map(),
@@ -173,7 +174,8 @@ export function detectFairyTypeChartOffset(overlay: Uint8Array): number | undefi
 }
 
 export function isRomFsTypeChartStore(store: NarcStore | undefined): boolean {
-  return store?.name === "type_chart" && store.sourcePath === TYPE_CHART_ROMFS_PATH;
+  return store?.name === "type_chart" &&
+    (store.sourcePath === TYPE_CHART_ROMFS_PATH || store.sourcePath === BLACK2UPGRADE_TYPE_CHART_ROMFS_PATH);
 }
 
 function typeChartOffset(attackIndex: number, defendIndex: number, typeCount: number): number {

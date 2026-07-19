@@ -11,6 +11,24 @@ export type BattleBackgroundRenderer = {
   dispose: () => void;
 };
 
+export type BattleModelThreeObject = {
+  group: THREE.Group;
+  dispose: () => void;
+};
+
+export function createBattleModelThreeObject(data: Pick<BattleModelScene, "primitives">): BattleModelThreeObject {
+  const group = new THREE.Group();
+  const textureCache = new Map<string, THREE.DataTexture>();
+  for (const primitive of data.primitives) addPrimitive(group, primitive, textureCache);
+  return {
+    group,
+    dispose: () => {
+      clearGroup(group);
+      for (const texture of textureCache.values()) texture.dispose();
+    },
+  };
+}
+
 export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleModelScene): BattleBackgroundRenderer {
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -21,10 +39,8 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
   host.replaceChildren(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const group = new THREE.Group();
-  scene.add(group);
-  const textureCache = new Map<string, THREE.DataTexture>();
-  for (const primitive of data.primitives) addPrimitive(group, primitive, textureCache);
+  const model = createBattleModelThreeObject(data);
+  scene.add(model.group);
 
   const camera = new THREE.PerspectiveCamera(26, 4 / 3, 0.25, 2048);
   const target = BATTLE_CAMERA_TARGET.clone();
@@ -155,8 +171,7 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
     renderer.domElement.removeEventListener("pointercancel", onPointerUp);
     renderer.domElement.removeEventListener("wheel", onWheel);
     renderer.domElement.removeEventListener("keydown", onKeyDown);
-    clearGroup(group);
-    for (const texture of textureCache.values()) texture.dispose();
+    model.dispose();
     renderer.dispose();
   };
 
