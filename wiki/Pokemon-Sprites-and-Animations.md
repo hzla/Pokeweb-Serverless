@@ -1,6 +1,6 @@
 # Pokemon Sprites and Animations
 
-This page covers the Pokemon Sprite editor and the Animated Sprites/PWAN editor. These tools edit visual assets, palettes, icons, rig data, native DS animation files, GIF imports, and White 2 PWAN GIF overrides.
+This page covers the Pokemon Sprite editor and the Animated Sprites/PWAN editor. These tools edit visual assets, palettes, icons, rig data, native DS animation files, GIF imports, and version-specific PWAN GIF overrides.
 
 ## Required Data
 
@@ -9,7 +9,7 @@ This page covers the Pokemon Sprite editor and the Animated Sprites/PWAN editor.
 | Sprite editor | `personal`, `pokemon_sprites`, `pokemon_icons` |
 | Native animation editing | `pokemon_sprites` files for the selected species/form |
 | Starter sprite copy | `starter_sprites` through the [Starters](Starters) page |
-| PWAN animated sprites | White 2 project with PMC and PWAN runtime installed through [Code Injection and Patches](Code-Injection-and-Patches) |
+| PWAN animated sprites | Clean US Black 2 or White 2 project with PMC and its PWAN runtime installed through [Code Injection and Patches](Code-Injection-and-Patches) |
 
 ## Sprite Editor Controls
 
@@ -78,7 +78,7 @@ Each Pokemon sprite entry uses 20 subfiles.
 
 ## PWAN Animated Sprites
 
-PWAN is Pokeweb's White 2 GIF override path. It compiles front and back GIFs into a custom archive and stages runtime code so the game can display them.
+PWAN compiles front and back GIFs into a custom archive and stages version-specific runtime code so the game can display them. White 2 and Black 2 both support the split battle, summary, and miscellaneous non-battle renderers. Black 2 is limited to explicitly imported vanilla Gen 5 species/forms.
 
 | Field/control | Meaning |
 | --- | --- |
@@ -103,10 +103,11 @@ PWAN is Pokeweb's White 2 GIF override path. It compiles front and back GIFs int
 | Import a full sprite bundle | Use Import Bundle and verify front, back, icons, palettes, and animations. |
 | Edit native animation movement | Open Animation, select a part/frame, adjust transform, and preview playback. |
 | Add GIF animated sprites in White 2 | Install PMC and PWAN support, open Animated Sprites, provide front/back GIFs, save override, export ROM. |
+| Add GIF animated sprites in Black 2 | Install the Black 2 PMC and split PWAN runtimes, manually select a species/form and front/back GIF, save override, export ROM. |
 
 ## Caveats
 
-Native DS sprite formats have tight palette, tile, and cell limits. GIF imports can fail or look wrong if the source has too many colors, large motion, or frame sizes that do not fit the target format. PWAN avoids many native limits but currently supports White 2 code layouts only.
+Native DS sprite formats have tight palette, tile, and cell limits. GIF imports can fail or look wrong if the source has too many colors, large motion, or frame sizes that do not fit the target format. PWAN avoids many native limits. Black 2 supports manual GIFs and the bundled community library across its supported battle and non-battle views.
 
 ## Related Pages
 

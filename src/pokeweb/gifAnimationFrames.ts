@@ -105,7 +105,13 @@ function clearRect(pixels: Uint8ClampedArray, width: number, height: number, x: 
 
 function uniqueOpaqueColors(frames: AnimationAnalysisFrame[]): RgbColor[] {
   const seen = new Map<string, RgbColor>();
-  for (const color of allOpaquePixels(frames)) seen.set(`${color.r},${color.g},${color.b}`, color);
+  for (const frame of frames) {
+    for (let offset = 0; offset < frame.pixels.length; offset += 4) {
+      if ((frame.pixels[offset + 3] ?? 0) === 0) continue;
+      const color = { r: frame.pixels[offset] ?? 0, g: frame.pixels[offset + 1] ?? 0, b: frame.pixels[offset + 2] ?? 0 };
+      seen.set(`${color.r},${color.g},${color.b}`, color);
+    }
+  }
   return [...seen.values()].sort((a, b) => a.r - b.r || a.g - b.g || a.b - b.b);
 }
 

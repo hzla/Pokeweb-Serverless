@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectPwanRuntimeCompatibility,
   pwanCompatibilityFailureSummary,
+  PWAN_B2_COMPATIBILITY_SIGNATURES,
   PWAN_COMPATIBILITY_SIGNATURES,
 } from "../pokeweb/pwanCompatibilityModel";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -9,13 +10,15 @@ import type { ProjectState } from "../pokeweb/projectStore";
 const W2_ARM9_BASE_ADDRESS = 0x02004000;
 
 describe("pwanCompatibilityModel", () => {
-  it("rejects non-White 2 projects before checking hook windows", () => {
+  it("selects the full Black 2 split-runtime signature profile", () => {
     const report = detectPwanRuntimeCompatibility(makeProject({ baseVersion: "B2", idCode: "IRBO" }));
 
-    expect(report.supportedBase).toBe(false);
+    expect(report.supportedBase).toBe(true);
     expect(report.compatible).toBe(false);
-    expect(report.checks).toHaveLength(1);
-    expect(report.checks[0]).toMatchObject({ status: "unsupported", group: "ROM" });
+    expect(report.checks).toHaveLength(PWAN_B2_COMPATIBILITY_SIGNATURES.length);
+    expect([...new Set(report.checks.map((check) => check.group))]).toEqual(
+      expect.arrayContaining(["Battle", "Summary", "Evolution", "Egg Hatch", "Nonbattle MCSS"]),
+    );
   });
 
   it("reports missing hook regions when persisted ROM bytes are unavailable", () => {
@@ -39,6 +42,16 @@ describe("pwanCompatibilityModel", () => {
     expect(check).toMatchObject({ status: "changed" });
     expect(check?.message).toContain("ARM9 bytes differ");
   });
+
+  it("detects changed ARM9 hook bytes against the stock Black 2 snapshot", () => {
+    const project = makeProject({ baseVersion: "B2", idCode: "IREO", arm9: makeMatchingArm9Bytes(PWAN_B2_COMPATIBILITY_SIGNATURES) });
+    const changedSignature = PWAN_B2_COMPATIBILITY_SIGNATURES.find((signature) => signature.id === "arm9-battle-free");
+    expect(changedSignature).toBeDefined();
+    project.arm9[changedSignature!.windowStart - W2_ARM9_BASE_ADDRESS] ^= 0xff;
+
+    const report = detectPwanRuntimeCompatibility(project);
+    expect(report.checks.find((entry) => entry.id === "arm9-battle-free")).toMatchObject({ status: "changed" });
+  });
 });
 
 function makeProject(options: { baseVersion?: "B2" | "W2"; idCode?: string; arm9?: Uint8Array } = {}): ProjectState {
@@ -61,8 +74,8 @@ function makeProject(options: { baseVersion?: "B2" | "W2"; idCode?: string; arm9
   };
 }
 
-function makeMatchingArm9Bytes(): Uint8Array {
-  const arm9Signatures = PWAN_COMPATIBILITY_SIGNATURES.filter((signature) => signature.module === "arm9");
+function makeMatchingArm9Bytes(signatures = PWAN_COMPATIBILITY_SIGNATURES): Uint8Array {
+  const arm9Signatures = signatures.filter((signature) => signature.module === "arm9");
   const length = Math.max(...arm9Signatures.map((signature) => signature.windowStart - W2_ARM9_BASE_ADDRESS + signature.expectedHex.length / 2));
   const out = new Uint8Array(length);
   for (const signature of arm9Signatures) {

@@ -226,7 +226,16 @@ export function stageCodeInjectionDll(
   }
 
   const path = `${target}/${safeName}`;
-  addRomFile(project, path, bytes);
+  const existingRomFileId = (() => {
+    if (!project.originalRomBytes) return undefined;
+    try {
+      return new NintendoDSRom(project.originalRomBytes).filenames.idOf(path);
+    } catch {
+      return undefined;
+    }
+  })();
+  if (existingRomFileId === undefined) addRomFile(project, path, bytes);
+  else setRomFileReplacement(project, existingRomFileId, bytes);
   project.codeInjection ??= {};
   const modules = (project.codeInjection.modules ??= []);
   const index = modules.findIndex((module) => module.path === path);

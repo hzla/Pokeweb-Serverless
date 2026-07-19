@@ -1,14 +1,16 @@
 import { statSync, readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { writeU32 } from "../nds/binary";
 import { buildPwanArchive } from "../pokeweb/pwanAnimationModel";
 import { PWAN_CARRIER_METADATA_OFFSETS, PWAN_FRONT_NCEC_Y, type PwanCarrierTemplate } from "../pokeweb/pwanCarrierPatch";
 import { PWAN_FRAME_BYTES, PWAN_HEIGHT, PWAN_PALETTE_COLORS, PWAN_WIDTH, pwanPalette } from "../pokeweb/pwanCompiler";
 import { compressLz11Literal } from "../pokeweb/pokemonSpriteModel";
-import { importPwanLibraryEntryFromLoadedLibrary, parsePwanLibraryArchive, type PwanLibraryManifest } from "../pokeweb/pwanLibraryModel";
+import { importPwanLibraryEntry, importPwanLibraryEntryFromLoadedLibrary, parsePwanLibraryArchive, type PwanLibraryManifest } from "../pokeweb/pwanLibraryModel";
 import type { NarcStore, ProjectState, PwanAnimationOverride } from "../pokeweb/projectStore";
 
 describe("pwanLibraryModel", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it("imports a two-sided library entry and immediately patches static carrier assets", () => {
     const source = makeOverride(4, makePwanBytes(2), makePwanBytes(3));
     const entry = makeEntry("4-0-4", 4, 0, 4, true, true);
@@ -52,6 +54,32 @@ describe("pwanLibraryModel", () => {
     expect(saved.front?.pwanBytes).toEqual(source.front?.pwanBytes);
     expect(saved.back?.pwanBytes).toEqual(preservedBack.pwanBytes);
     expect(saved.nativePaletteSource).toBe("front");
+  });
+
+  it("uses the Black 2 carrier set for bundled community imports", async () => {
+    const source = makeOverride(4, makePwanBytes(2), makePwanBytes(3));
+    const entry = makeEntry("4-0-4", 4, 0, 4, true, true);
+    const library = parsePwanLibraryArchive(makeManifest([entry]), buildPwanArchive([source]));
+    const project = makeProject();
+    project.session.baseVersion = "B2";
+    project.romInfo.idCode = "IREO";
+    const carrier = makeCarrier();
+    const requestedUrls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      requestedUrls.push(url.pathname);
+      const match = /file(\d+)\.bin$/u.exec(url.pathname);
+      const offset = Number(match?.[1]);
+      const bytes = new Uint8Array(carrier[offset]?.length ?? 0);
+      if (carrier[offset]) bytes.set(carrier[offset]);
+      return new Response(bytes.buffer);
+    }));
+
+    const saved = await importPwanLibraryEntry(project, 2, entry.id, { library });
+
+    expect(saved).toMatchObject({ speciesId: 2, formIndex: 0 });
+    expect(requestedUrls).toHaveLength(PWAN_CARRIER_METADATA_OFFSETS.length);
+    expect(requestedUrls.every((url) => url.includes("/pwan/carrier-b2/"))).toBe(true);
   });
 
   it("keeps the generated W2U library manifest in sync with the bundled archive", () => {

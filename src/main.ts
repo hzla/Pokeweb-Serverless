@@ -1802,7 +1802,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       : nextRoute === "mastersheet"
         ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? `Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}` : "Mastersheet generation is currently Gen 5-only"}"`
       : nextRoute === "animatedSprites"
-        ? ` title="${project?.session.baseVersion === "W2" ? "Load Personal Data from a ROM with patches/PokewebPwanW2.dll" : "Animated Sprites currently supports White 2 code layouts only"}"`
+        ? ` title="${project?.session.baseVersion === "B2" || project?.session.baseVersion === "W2" ? "Load Personal Data and install PWAN GIF Support from Code Injection" : "Animated Sprites supports stock US Black 2 and White 2"}"`
         : nextRoute === "types"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
         : nextRoute === "tutorMoves"
