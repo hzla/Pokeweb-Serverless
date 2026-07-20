@@ -425,6 +425,12 @@
   gap: 3px;
 }
 
+.personal-form-toolbar .personal-form-actions {
+  flex-direction: row;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
 .personal-form-toolbar strong {
   color: #f8f8f2;
   font-size: 14px;
@@ -435,8 +441,14 @@
   font-size: 12px;
 }
 
-.personal-add-form.invalid {
+.personal-add-form.invalid,
+.personal-delete-form.invalid {
   border-color: #ff5555;
+}
+
+.personal-delete-form:not(:disabled) {
+  border-color: #ff5555;
+  color: #ffb3b3;
 }
 
 .expanded-tms {

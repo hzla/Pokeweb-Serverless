@@ -19,8 +19,12 @@ import {
   type TutorCompatibilityGroup,
   type TutorCompatibilitySlot,
 } from "../pokeweb/pokemonModel";
-import type { AddPokemonFormResult } from "../pokeweb/pokemonFormModel";
-import { pokemonPersonalDisplayIds, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
+import {
+  getPokemonFormDeletionAvailability,
+  type AddPokemonFormResult,
+  type DeletePokemonFormResult,
+} from "../pokeweb/pokemonFormModel";
+import { findPokemonPersonalFormOwner, pokemonPersonalDisplayIds, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import { getPokemonCardFrontSpriteImage } from "../pokeweb/pokemonCardSpriteModel";
 import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
@@ -102,6 +106,12 @@ export function renderPokemonEditor(
       renderPokemonEditor(project, root, onDirty, onOpenSprites, onOpenPwan, onEnsureFormAssets);
       window.requestAnimationFrame(() => {
         root.querySelector<HTMLElement>(`.pokemon-card[data-index='${result.personalId}']`)?.scrollIntoView({ block: "center" });
+      });
+    },
+    onFormDeleted: (result: DeletePokemonFormResult) => {
+      renderPokemonEditor(project, root, onDirty, onOpenSprites, onOpenPwan, onEnsureFormAssets);
+      window.requestAnimationFrame(() => {
+        root.querySelector<HTMLElement>(`.pokemon-card[data-index='${result.speciesId}']`)?.scrollIntoView({ block: "center" });
       });
     },
   });
@@ -274,7 +284,21 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
   const leftIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && field !== "height" && field !== "weight");
   const midIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && (field === "height" || field === "weight"));
   const textFields = PERSONAL_TEXT_FIELDS.filter(([, field]) => field in record.rawPersonal);
-  const addFormReady = !isGen4Project(project) && Boolean(project.narcs.personal && project.narcs.learnsets && project.narcs.evolutions);
+  const addFormReady =
+    !isGen4Project(project) &&
+    Boolean(
+      project.narcs.personal &&
+        project.narcs.learnsets &&
+        project.narcs.evolutions &&
+        project.narcs.pokemon_sprites &&
+        project.narcs.pokemon_icons &&
+        project.narcs.message_texts,
+    );
+  const formOwner = findPokemonPersonalFormOwner(project, record.id);
+  const deletion = formOwner ? getPokemonFormDeletionAvailability(project, record.id) : undefined;
+  const deleteFormButton = deletion
+    ? `<button class="btn -default personal-delete-form${deletion.deletable ? "" : " invalid"}" data-delete-pokemon-form type="button" ${deletion.deletable ? "" : "disabled"} title="${escapeHtml(deletion.deletable ? "Delete this generated form and its appended files" : deletion.reason)}">Delete Form</button>`
+    : "";
   return `
     <div class="expanded-card-content expanded-personal">
       <div class="personal-form-toolbar">
@@ -282,7 +306,10 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
           <strong>Add a stat-bearing alternate form</strong>
           <span>Copies the base personal data, learnset, sprites, and icons; evolution data starts empty.</span>
         </div>
-        <button class="btn -default personal-add-form" data-add-pokemon-form type="button" ${addFormReady ? "" : "disabled"} title="${addFormReady ? "Generate and append all files for a new form" : "Load Personal, Learnsets, Evolutions, Pokemon Sprites, and Pokemon Icons to add a form"}">Add Form</button>
+        <div class="personal-form-actions">
+          ${deleteFormButton}
+          <button class="btn -default personal-add-form" data-add-pokemon-form type="button" ${addFormReady ? "" : "disabled"} title="${addFormReady ? "Generate and append all files for a new form" : "Load Personal, Learnsets, Evolutions, Pokemon Sprites, Pokemon Icons, and Message Texts to add a form"}">Add Form</button>
+        </div>
       </div>
       <div class="expanded-left">
         ${leftIntegerFields.map(([label, field, max]) => expandedField(label, editable("personal", field, record.personal[field], "expanded-field-value", { type: `int-${max}` }))).join("")}
