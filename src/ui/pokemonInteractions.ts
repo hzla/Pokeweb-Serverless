@@ -15,7 +15,12 @@ import {
   updatePokemonTmCompatibility,
   updatePokemonTutorCompatibility,
 } from "../pokeweb/pokemonModel";
-import { addPokemonForm, type AddPokemonFormResult } from "../pokeweb/pokemonFormModel";
+import {
+  addPokemonForm,
+  deletePokemonForm,
+  type AddPokemonFormResult,
+  type DeletePokemonFormResult,
+} from "../pokeweb/pokemonFormModel";
 import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
@@ -32,6 +37,7 @@ export type PokemonInteractionOptions = {
   autofills: Record<string, string[]>;
   onEnsureFormAssets?: () => Promise<void>;
   onFormAdded?: (result: AddPokemonFormResult) => void;
+  onFormDeleted?: (result: DeletePokemonFormResult) => void;
 };
 
 const pokemonInteractionInstallations = new WeakMap<HTMLElement, AbortController>();
@@ -84,6 +90,38 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
 
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+    const deleteFormAction = target.closest<HTMLButtonElement>("[data-delete-pokemon-form]");
+    if (deleteFormAction) {
+      const card = deleteFormAction.closest<HTMLElement>(".pokemon-card.filterable");
+      const requestedPersonalId = Number(card?.dataset.index);
+      if (!card || !Number.isInteger(requestedPersonalId)) return;
+      const owner = findPokemonPersonalFormOwner(project, requestedPersonalId);
+      if (!owner) return;
+      const name = pokemonSpeciesLabel(project, owner.speciesId);
+      if (
+        !window.confirm(
+          `Delete form ${owner.formIndex} from ${name}? This removes its appended personal, learnset, evolution, sprite, icon, and name files. Evolution slots targeting personal ${requestedPersonalId} will be cleared.`,
+        )
+      ) {
+        return;
+      }
+      deleteFormAction.disabled = true;
+      try {
+        const result = deletePokemonForm(project, requestedPersonalId);
+        options.onDirty?.();
+        options.onFormDeleted?.(result);
+        const cleared = result.clearedEvolutionTargets > 0 ? ` Cleared ${result.clearedEvolutionTargets} evolution target${result.clearedEvolutionTargets === 1 ? "" : "s"}.` : "";
+        window.alert(`Deleted form ${result.formIndex} from ${name}.${cleared}`);
+      } catch (error) {
+        deleteFormAction.disabled = false;
+        deleteFormAction.classList.add("invalid");
+        const message = error instanceof Error ? error.message : String(error);
+        deleteFormAction.title = message;
+        window.alert(`Unable to delete form: ${message}`);
+      }
+      return;
+    }
+
     const addFormAction = target.closest<HTMLButtonElement>("[data-add-pokemon-form]");
     if (addFormAction) {
       const card = addFormAction.closest<HTMLElement>(".pokemon-card.filterable");

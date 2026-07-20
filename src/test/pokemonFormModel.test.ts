@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { readU32 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { addPokemonForm, repairAppendedPokemonFormNames } from "../pokeweb/pokemonFormModel";
+import {
+  addPokemonForm,
+  deletePokemonForm,
+  getPokemonFormDeletionAvailability,
+  repairAppendedPokemonFormNames,
+} from "../pokeweb/pokemonFormModel";
 import { pokemonPersonalDisplayIds } from "../pokeweb/pokemonLabels";
 import { getPokemonCount, getPokemonPersonalIds } from "../pokeweb/pokemonModel";
 import { getPokemonIconPaletteAssignment, repairPokemonIconPaletteAssignmentPlacement } from "../pokeweb/pokemonSpriteModel";
@@ -91,18 +96,87 @@ describe("pokemonFormModel", () => {
     addPokemonForm(project, SPINDA_ID);
     const result = addPokemonForm(project, SPINDA_ID);
 
-    expect(result).toMatchObject({ personalId: 712, spriteId: 756, relocatedForms: 1, paddedLearnsetEntries: 0, paddedEvolutionEntries: 0 });
-    expect(project.narcs.personal!.rawFiles).toHaveLength(713);
-    expect(project.narcs.learnsets!.rawFiles).toHaveLength(713);
-    expect(project.narcs.evolutions!.rawFiles).toHaveLength(713);
-    expect(project.narcs.pokemon_sprites!.rawFiles).toHaveLength(15140);
-    expect(project.narcs.pokemon_icons!.rawFiles).toHaveLength(1522);
-    expect(getPokemonIconPaletteAssignment(project, 755, "male")).toEqual({ editable: true, paletteId: 1 });
-    expect(getPokemonIconPaletteAssignment(project, 756, "female")).toEqual({ editable: true, paletteId: 2 });
+    expect(result).toMatchObject({ personalId: 711, spriteId: 755, relocatedForms: 0, paddedLearnsetEntries: 0, paddedEvolutionEntries: 0 });
+    expect(project.narcs.personal!.rawFiles).toHaveLength(712);
+    expect(project.narcs.learnsets!.rawFiles).toHaveLength(712);
+    expect(project.narcs.evolutions!.rawFiles).toHaveLength(712);
+    expect(project.narcs.pokemon_sprites!.rawFiles).toHaveLength(15120);
+    expect(project.narcs.pokemon_icons!.rawFiles).toHaveLength(1520);
+    expect(getPokemonIconPaletteAssignment(project, 754, "male")).toEqual({ editable: true, paletteId: 1 });
+    expect(getPokemonIconPaletteAssignment(project, 755, "female")).toEqual({ editable: true, paletteId: 2 });
     const names = decodeGen5TextBank(project.narcs.message_texts!.rawFiles[90]);
     expect(names[710]?.[1]).toBe("SPINDA");
     expect(names[711]?.[1]).toBe("SPINDA");
-    expect(names[712]?.[1]).toBe("SPINDA");
+  });
+
+  it("deletes an appended form, its generated files and name, its palette byte, and evolution references", () => {
+    const project = makeRetailBw2Project();
+    addPokemonForm(project, SPINDA_ID);
+    const evolution = project.narcs.evolutions!.rawFiles[1];
+    writeInt(evolution, 0, 2, 4);
+    writeInt(evolution, 2, 2, 20);
+    writeInt(evolution, 4, 2, 710);
+    const paletteTablePointer = readU32(project.arm9, BW2_ICON_PALETTE_POINTER_OFFSET);
+    const heapStartPointer = readU32(project.arm9, BW2_HEAP_START_POINTER_OFFSET);
+    const relocatedArm9Length = project.arm9.length;
+
+    expect(getPokemonFormDeletionAvailability(project, 710)).toMatchObject({
+      deletable: true,
+      speciesId: SPINDA_ID,
+      formIndex: 1,
+      personalId: 710,
+      spriteId: 754,
+    });
+    const result = deletePokemonForm(project, 710);
+
+    expect(result).toEqual({
+      speciesId: SPINDA_ID,
+      formIndex: 1,
+      personalId: 710,
+      spriteId: 754,
+      remainingFormCount: 1,
+      clearedEvolutionTargets: 1,
+    });
+    expect(decodeRecord(project, "personal", SPINDA_ID).raw).toMatchObject({ form_id: 0, form: 0, num_forms: 1 });
+    expect(decodeRecord(project, "evolutions", 1).raw).toMatchObject({ method_0: 0, param_0: 0, target_0: 0 });
+    expect(project.narcs.personal!.rawFiles).toHaveLength(710);
+    expect(project.narcs.learnsets!.rawFiles).toHaveLength(710);
+    expect(project.narcs.evolutions!.rawFiles).toHaveLength(710);
+    expect(project.narcs.pokemon_sprites!.rawFiles).toHaveLength(15080);
+    expect(project.narcs.pokemon_icons!.rawFiles).toHaveLength(1516);
+    expect(decodeGen5TextBank(project.narcs.message_texts!.rawFiles[90])).toHaveLength(710);
+    expect(project.texts.banks.pokedex).toHaveLength(710);
+    expect(getPokemonPersonalIds(project)).not.toContain(710);
+    expect(getPokemonIconPaletteAssignment(project, 754, "male")).toEqual({ editable: true, paletteId: 0 });
+    expect(getPokemonIconPaletteAssignment(project, 754, "female")).toEqual({ editable: true, paletteId: 0 });
+    expect(readU32(project.arm9, BW2_ICON_PALETTE_POINTER_OFFSET)).toBe(paletteTablePointer);
+    expect(readU32(project.arm9, BW2_HEAP_START_POINTER_OFFSET)).toBe(heapStartPointer);
+    expect(project.arm9).toHaveLength(relocatedArm9Length);
+  });
+
+  it("deletes several forms in reverse order without leaving an orphan personal record", () => {
+    const project = makeRetailBw2Project();
+    addPokemonForm(project, SPINDA_ID);
+    addPokemonForm(project, SPINDA_ID);
+
+    expect(getPokemonFormDeletionAvailability(project, 710)).toMatchObject({
+      deletable: false,
+      reason: "Delete this Pokemon's forms in reverse order, starting with its last form.",
+    });
+    const newest = deletePokemonForm(project, 711);
+    expect(newest).toMatchObject({ formIndex: 2, remainingFormCount: 2 });
+    expect(decodeRecord(project, "personal", SPINDA_ID).raw).toMatchObject({ form_id: 710, form: 69, num_forms: 2 });
+    expect(project.narcs.personal!.rawFiles).toHaveLength(711);
+    expect(project.narcs.pokemon_sprites!.rawFiles).toHaveLength(15100);
+    expect(getPokemonFormDeletionAvailability(project, 710)).toMatchObject({ deletable: true });
+
+    const oldest = deletePokemonForm(project, 710);
+    expect(oldest).toMatchObject({ formIndex: 1, remainingFormCount: 1 });
+    expect(decodeRecord(project, "personal", SPINDA_ID).raw).toMatchObject({ form_id: 0, form: 0, num_forms: 1 });
+    expect(project.narcs.personal!.rawFiles).toHaveLength(710);
+    expect(project.narcs.pokemon_sprites!.rawFiles).toHaveLength(15080);
+    expect(project.narcs.pokemon_icons!.rawFiles).toHaveLength(1516);
+    expect(getPokemonPersonalIds(project)).not.toContain(710);
   });
 
   it("moves an already-expanded icon palette table out of PMC overlay memory", () => {
