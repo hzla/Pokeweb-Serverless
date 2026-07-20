@@ -440,6 +440,20 @@ export function setPokemonIconPaletteAssignment(project: ProjectState, spriteId:
   });
 }
 
+export function clearPokemonIconPaletteAssignment(project: ProjectState, spriteId: number): void {
+  const layout = iconPaletteAssignmentLayout(project);
+  const assignmentIndex = iconPaletteAssignmentIndex(project, spriteId);
+  if (!layout || assignmentIndex === undefined || assignmentIndex >= layout.capacity) {
+    throw new Error("Icon palette assignments are not available for this ROM");
+  }
+  const index = layout.offset + assignmentIndex;
+  project.arm9[index] = 0;
+  project.arm9Dirty = true;
+  recordGenericChange(project, "pokemon_icons", `Removed the icon palette assignment for sprite ${spriteId}.`, pokemonSpriteSubject(project, spriteId), {
+    key: `pokemon-icon-palette-delete:${spriteId}`,
+  });
+}
+
 export function getRigCells(project: ProjectState, spriteId: number, side: "front" | "back"): RigCellsFile {
   const entry = getPokemonSpriteEntry(project, spriteId);
   return parseRigCells(entry.files[side === "front" ? 8 : 17]);
