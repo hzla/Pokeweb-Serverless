@@ -5,27 +5,42 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const root = resolve(scriptDir, "..");
-const source = resolve(
-  process.env.BATTLE_LOG_BUILD_PATH ??
-    resolve(root, "../../White2Upgrade-Original-pokeweb/build/src/w2u_battle_log.dll"),
-);
-const destination = resolve(root, "src/assets/codeinjection/White2UpgradeBattleLog.dll");
 const checkOnly = process.argv.includes("--check");
-
-const sourceBytes = await readFile(source);
-if (sourceBytes.subarray(0, 4).toString("ascii") !== "DLXF") {
-  throw new Error(`${source} is not a DLXF battle-log runtime.`);
-}
+const artifacts = [
+  {
+    name: "White2UpgradeBattleLog.dll",
+    source: resolve(
+      process.env.BATTLE_LOG_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build/src/w2u_battle_log.dll"),
+    ),
+  },
+  {
+    name: "Black2UpgradeBattleLog.dll",
+    source: resolve(
+      process.env.BLACK2_BATTLE_LOG_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build/src/Black2UpgradeBattleLog.dll"),
+    ),
+  },
+];
+const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 if (checkOnly) {
-  const destinationBytes = await readFile(destination);
-  const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
-  if (hash(sourceBytes) !== hash(destinationBytes)) {
-    throw new Error("The bundled White2UpgradeBattleLog.dll differs from the runtime build.");
+  for (const artifact of artifacts) {
+    const sourceBytes = await readFile(artifact.source);
+    const destinationBytes = await readFile(resolve(root, "src/assets/codeinjection", artifact.name));
+    if (hash(sourceBytes) !== hash(destinationBytes)) {
+      throw new Error(`The bundled ${artifact.name} differs from the runtime build.`);
+    }
   }
-  console.log(`Verified White2UpgradeBattleLog.dll (${sourceBytes.length} bytes).`);
+  console.log(`Verified ${artifacts.length} battle-log DLLs.`);
   process.exit(0);
 }
 
-await copyFile(source, destination);
-console.log(`Synchronized White2UpgradeBattleLog.dll (${sourceBytes.length} bytes).`);
+for (const artifact of artifacts) {
+  const sourceBytes = await readFile(artifact.source);
+  if (sourceBytes.subarray(0, 4).toString("ascii") !== "DLXF") {
+    throw new Error(`${artifact.source} is not a DLXF battle-log runtime.`);
+  }
+  await copyFile(artifact.source, resolve(root, "src/assets/codeinjection", artifact.name));
+  console.log(`Synchronized ${artifact.name} (${sourceBytes.length} bytes).`);
+}

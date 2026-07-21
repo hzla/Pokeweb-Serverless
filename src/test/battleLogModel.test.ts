@@ -10,8 +10,11 @@ import {
 import { parseRpm } from "../pokeweb/rpm";
 import type { ProjectState } from "../pokeweb/projectStore";
 
-const battleLogDll = new Uint8Array(
+const white2BattleLogDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/White2UpgradeBattleLog.dll", import.meta.url)),
+);
+const black2BattleLogDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/Black2UpgradeBattleLog.dll", import.meta.url)),
 );
 
 describe("trainer battle log", () => {
@@ -41,15 +44,9 @@ describe("trainer battle log", () => {
     expect(() => buildBattleLogAncestryNarc(evolutions)).toThrow(/cycle/u);
   });
 
-  it("bundles the current two-overlay DLXF runtime", () => {
-    expect(readAscii(battleLogDll, 0, 4)).toBe("DLXF");
-    const rpm = parseRpm(battleLogDll, { allowedMagics: ["DLXF"] });
-    const hooks = rpm.relocations
-      .filter((relocation) => relocation.target.module !== "base")
-      .map((relocation) => `${relocation.target.module}:${relocation.target.address.toString(16)}:${relocation.target.type}`)
-      .sort();
-
-    expect(hooks).toEqual([
+  it("bundles the White 2 two-overlay DLXF runtime", () => {
+    expect(readAscii(white2BattleLogDll, 0, 4)).toBe("DLXF");
+    expect(externalHooks(white2BattleLogDll)).toEqual([
       "167:219ca89:THUMB_BRANCH",
       "167:21a8a65:THUMB_BRANCH",
       "167:21ae36d:THUMB_BRANCH",
@@ -58,30 +55,50 @@ describe("trainer battle log", () => {
     ]);
   });
 
-  it("does not recursively import the three retail functions replaced by entry hooks", () => {
-    const rpm = parseRpm(battleLogDll, { allowedMagics: ["DLXF"] });
-    const imports = rpm.symbols
-      .filter((symbol) => (symbol.attributes & 2) !== 0)
-      .map((symbol) => symbol.name);
+  it("bundles the relocated Black 2 two-overlay DLXF runtime", () => {
+    expect(readAscii(black2BattleLogDll, 0, 4)).toBe("DLXF");
+    const rpm = parseRpm(black2BattleLogDll, { allowedMagics: ["DLXF"] });
+    expect(rpm.metadata).toMatchObject({ PMCGameID: "B2", PMCModulePriority: 4 });
+    expect(externalHooks(black2BattleLogDll)).toEqual([
+      "167:219ca49:THUMB_BRANCH",
+      "167:21a8a25:THUMB_BRANCH",
+      "167:21ae32d:THUMB_BRANCH",
+      "207:21b6ef6:THUMB_BRANCH_LINK",
+      "207:21b6f0c:THUMB_BRANCH_LINK",
+    ]);
+  });
 
-    expect(imports).not.toContain("ServerControl_RegisterTargets");
-    expect(imports).not.toContain("ServerControl_CheckFainted");
-    expect(imports).not.toContain("MainModule_NotifyBattleResult");
+  it("does not recursively import the three retail functions replaced by entry hooks", () => {
+    for (const dll of [white2BattleLogDll, black2BattleLogDll]) {
+      const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
+      const imports = rpm.symbols
+        .filter((symbol) => (symbol.attributes & 2) !== 0)
+        .map((symbol) => symbol.name);
+
+      expect(imports).not.toContain("ServerControl_RegisterTargets");
+      expect(imports).not.toContain("ServerControl_CheckFainted");
+      expect(imports).not.toContain("MainModule_NotifyBattleResult");
+    }
   });
 
   it("resumes retail entry hooks after the complete eight-byte branch stub", () => {
     // RegisterTargets advances another four bytes so its live r3 moveParam is
     // copied to r7 before the trampoline uses r3 for the absolute branch.
-    expect(countU32Occurrences(battleLogDll, 0x021ae379)).toBe(1);
-    expect(countU32Occurrences(battleLogDll, 0x021a8a6d)).toBe(1);
-    expect(countU32Occurrences(battleLogDll, 0x021ae375)).toBe(0);
-    expect(countU32Occurrences(battleLogDll, 0x021ae371)).toBe(0);
-    expect(countU32Occurrences(battleLogDll, 0x021a8a69)).toBe(0);
+    expect(countU32Occurrences(white2BattleLogDll, 0x021ae379)).toBe(1);
+    expect(countU32Occurrences(white2BattleLogDll, 0x021a8a6d)).toBe(1);
+    expect(countU32Occurrences(black2BattleLogDll, 0x021ae339)).toBe(1);
+    expect(countU32Occurrences(black2BattleLogDll, 0x021a8a2d)).toBe(1);
+    expect(countU32Occurrences(white2BattleLogDll, 0x021ae375)).toBe(0);
+    expect(countU32Occurrences(white2BattleLogDll, 0x021ae371)).toBe(0);
+    expect(countU32Occurrences(white2BattleLogDll, 0x021a8a69)).toBe(0);
+    expect(countU32Occurrences(black2BattleLogDll, 0x021ae335)).toBe(0);
+    expect(countU32Occurrences(black2BattleLogDll, 0x021ae331)).toBe(0);
+    expect(countU32Occurrences(black2BattleLogDll, 0x021a8a29)).toBe(0);
   });
 
-  it("rejects Black 2 before checking hook bytes", () => {
+  it("accepts Black 2 and defers byte checks until a ROM is available", () => {
     const project = makeProject("B2");
-    expect(detectBattleLogCompatibility(project)).toMatchObject({ supported: false, compatible: false });
+    expect(detectBattleLogCompatibility(project)).toMatchObject({ supported: true, compatible: true, checked: false });
   });
 
   it("statically retires the Wi-Fi List shadow copy and is idempotent", () => {
@@ -93,7 +110,22 @@ describe("trainer battle log", () => {
     expect([...twice]).toEqual([...once]);
     expect([...arm9]).toEqual([...hexBytes("014a024b1847c046c40700004c890702")]);
   });
+
+  it("retires Black 2's relocated memcpy target without changing its source", () => {
+    const arm9 = hexBytes("014a024b1847c046c407000020890702");
+    const patched = patchBattleLogWifiListSync(arm9, 0x02009f0c, "B2");
+
+    expect([...patched]).toEqual([...hexBytes("7047024b1847c046c407000020890702")]);
+    expect([...arm9]).toEqual([...hexBytes("014a024b1847c046c407000020890702")]);
+  });
 });
+
+function externalHooks(bytes: Uint8Array): string[] {
+  return parseRpm(bytes, { allowedMagics: ["DLXF"] }).relocations
+    .filter((relocation) => relocation.target.module !== "base")
+    .map((relocation) => `${relocation.target.module}:${relocation.target.address.toString(16)}:${relocation.target.type}`)
+    .sort();
+}
 
 function setEvolution(member: Uint8Array, slot: number, method: number, target: number): void {
   const offset = slot * 6;
