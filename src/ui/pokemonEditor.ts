@@ -47,7 +47,9 @@ import movieIcon from "../assets/svgs/movie.svg?raw";
 import paintIcon from "../assets/svgs/paint.svg?raw";
 import tmsIcon from "../assets/svgs/tms.svg?raw";
 import tutorsIcon from "../assets/svgs/tutors.svg?raw";
+import soundIcon from "../assets/svgs/sound_move.svg?raw";
 import { publicAsset } from "../assetUrl";
+import { installPokemonCryPanel, renderPokemonCryPanel } from "./pokemonCryEditor";
 
 const ICONS: Record<string, string> = {
   learnset: movesIcon,
@@ -56,6 +58,7 @@ const ICONS: Record<string, string> = {
   "egg-moves": eggMovesIcon,
   evos: evoIcon,
   personal: miscDataIcon,
+  cry: soundIcon,
 };
 const POKEMON_CARD_SPRITE_RENDER_VERSION = "personal-front-sprite-v2";
 const pokemonCardSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
@@ -108,6 +111,7 @@ export function renderPokemonEditor(
     onOpenPwan,
     renderExpanded: (speciesId) => renderPokemonExpandedSections(project, speciesId),
     renderTextPanel: (speciesId) => renderPokemonTextPanel(getPokemonTextInfo(project, speciesId)),
+    installCryPanel: (panel, speciesId) => installPokemonCryPanel(panel, project, speciesId, { onDirty }),
     autofills: getPokemonAutofills(project),
     onEnsureFormAssets,
     onFormAdded: (result: AddPokemonFormResult) => {
@@ -176,6 +180,7 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
         ${icon("egg-moves", "Egg Moves")}
         ${icon("evos", "Evolutions")}
         ${icon("personal", "Personal")}
+        ${project.session.generation === "gen5" ? icon("cry", "Play, export, or import Pokemon cry") : ""}
         ${spriteIcon()}
         ${showPwanIcon ? pwanIcon() : ""}
       </div>
@@ -433,6 +438,7 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
     <div class="expanded-card-content expanded-evos">
       ${evolutionColumns(record.evolutions).map((slots) => renderEvolutionColumn(slots)).join("")}
     </div>
+    ${project.session.generation === "gen5" ? renderPokemonCryPanel(record.id) : ""}
   `;
 }
 

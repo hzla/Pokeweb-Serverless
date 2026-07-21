@@ -36,6 +36,7 @@ export type PokemonInteractionOptions = {
   onOpenPwan?: (speciesId: number) => void;
   renderExpanded: (speciesId: number) => string;
   renderTextPanel?: (speciesId: number) => string;
+  installCryPanel?: (panel: HTMLElement, speciesId: number) => void | Promise<void>;
   autofills: Record<string, string[]>;
   onEnsureFormAssets?: () => Promise<void>;
   onFormAdded?: (result: AddPokemonFormResult) => void;
@@ -317,6 +318,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
 
     const targetPanel = card.querySelector<HTMLElement>(`.expanded-${expand}`);
     if (!targetPanel) return;
+    if (expand === "cry") void options.installCryPanel?.(targetPanel, speciesId);
     const alreadyOpen = targetPanel.classList.contains("show-flex");
     card.querySelectorAll<HTMLElement>(".expanded-card-content").forEach((panel) => panel.classList.remove("show-flex"));
     card.querySelectorAll<HTMLElement>(".card-icon, .expand-action").forEach((item) => item.classList.remove("-active"));

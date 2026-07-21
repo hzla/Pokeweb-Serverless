@@ -559,6 +559,95 @@
   fill: currentColor;
 }
 
+.expanded-cry.show-flex {
+  display: block !important;
+}
+
+.pokemon-cry-editor {
+  box-sizing: border-box;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  padding: 22px 24px;
+  width: 100%;
+}
+
+.pokemon-cry-heading {
+  align-content: center;
+  display: grid;
+  gap: 5px;
+}
+
+.pokemon-cry-heading strong {
+  color: #f8f8f2;
+  font-size: 16px;
+}
+
+.pokemon-cry-description,
+.pokemon-cry-status {
+  color: rgba(242, 242, 242, 0.72);
+  font-size: 12px;
+}
+
+.pokemon-cry-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.pokemon-cry-import-label {
+  box-sizing: border-box;
+}
+
+.pokemon-cry-import-label.-disabled {
+  cursor: default;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.pokemon-cry-play.-playing {
+  background: #ff5555;
+}
+
+.pokemon-cry-metadata {
+  border-top: 1px solid #44475a;
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  padding-top: 16px;
+}
+
+.pokemon-cry-metadata > span {
+  color: #aeb7ca;
+  display: grid;
+  font-size: 13px;
+  gap: 3px;
+}
+
+.pokemon-cry-metadata strong {
+  color: #f2f2f2;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pokemon-cry-metadata .pokemon-cry-unavailable {
+  color: #ff7b7b;
+  grid-column: 1 / -1;
+}
+
+.pokemon-cry-status {
+  grid-column: 1 / -1;
+  min-height: 16px;
+}
+
+.pokemon-cry-status.-error {
+  color: #ff7b7b;
+}
+
 .expand-card:hover *,
 .expand-card.-active * {
   cursor: pointer;
@@ -1051,6 +1140,14 @@
   .personal-form-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .pokemon-cry-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .pokemon-cry-actions {
+    justify-content: flex-start;
   }
 
   .expanded-personal .expanded-left,
