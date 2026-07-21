@@ -22,6 +22,7 @@ import {
   type DeletePokemonFormResult,
 } from "../pokeweb/pokemonFormModel";
 import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
+import { updatePokemonTextName } from "../pokeweb/pokemonTextModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
@@ -34,6 +35,7 @@ export type PokemonInteractionOptions = {
   onOpenSprites?: (speciesId: number) => void;
   onOpenPwan?: (speciesId: number) => void;
   renderExpanded: (speciesId: number) => string;
+  renderTextPanel?: (speciesId: number) => string;
   autofills: Record<string, string[]>;
   onEnsureFormAssets?: () => Promise<void>;
   onFormAdded?: (result: AddPokemonFormResult) => void;
@@ -90,6 +92,35 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
 
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+    const nameToggle = target.closest<HTMLButtonElement>(".pokemon-name-toggle");
+    if (nameToggle) {
+      const card = nameToggle.closest<HTMLElement>(".pokemon-card.filterable");
+      const speciesId = Number(card?.dataset.index);
+      if (!card || !Number.isInteger(speciesId) || !options.renderTextPanel) return;
+      if (!card.querySelector(".expanded-pokemon-texts")) {
+        card.insertAdjacentHTML("beforeend", options.renderTextPanel(speciesId));
+        installPokemonTextFields(card, project, options);
+      }
+      const panel = card.querySelector<HTMLElement>(".expanded-pokemon-texts");
+      if (!panel) return;
+      const alreadyOpen = panel.classList.contains("show-flex");
+      card.querySelectorAll<HTMLElement>(".expanded-card-content").forEach((item) => item.classList.remove("show-flex"));
+      card.querySelectorAll<HTMLElement>(".card-icon, .expand-action").forEach((item) => item.classList.remove("-active"));
+      card.querySelectorAll<HTMLButtonElement>(".pokemon-name-toggle").forEach((button) => {
+        button.classList.remove("-active");
+        button.setAttribute("aria-expanded", "false");
+      });
+      if (!alreadyOpen) {
+        panel.classList.add("show-flex");
+        nameToggle.classList.add("-active");
+        nameToggle.setAttribute("aria-expanded", "true");
+        scrollRowBelowStickyHeader(card);
+      }
+      syncEvolutionMethodInfo(root);
+      stripeRows(root);
+      return;
+    }
+
     const deleteFormAction = target.closest<HTMLButtonElement>("[data-delete-pokemon-form]");
     if (deleteFormAction) {
       const card = deleteFormAction.closest<HTMLElement>(".pokemon-card.filterable");
@@ -281,7 +312,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
     const expand = icon.dataset.expand;
     if (!card || !Number.isInteger(speciesId) || !expand) return;
 
-    if (!card.querySelector(".expanded-card-content")) card.insertAdjacentHTML("beforeend", options.renderExpanded(speciesId));
+    if (!card.querySelector(".expanded-personal")) card.insertAdjacentHTML("beforeend", options.renderExpanded(speciesId));
     installEditableFields(card, project, options);
 
     const targetPanel = card.querySelector<HTMLElement>(`.expanded-${expand}`);
@@ -289,6 +320,10 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
     const alreadyOpen = targetPanel.classList.contains("show-flex");
     card.querySelectorAll<HTMLElement>(".expanded-card-content").forEach((panel) => panel.classList.remove("show-flex"));
     card.querySelectorAll<HTMLElement>(".card-icon, .expand-action").forEach((item) => item.classList.remove("-active"));
+    card.querySelectorAll<HTMLButtonElement>(".pokemon-name-toggle").forEach((button) => {
+      button.classList.remove("-active");
+      button.setAttribute("aria-expanded", "false");
+    });
     if (!alreadyOpen) {
       targetPanel.classList.add("show-flex");
       icon.classList.add("-active");
@@ -299,6 +334,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
   }, listenerOptions);
 
   installEditableFields(root, project, options);
+  installPokemonTextFields(root, project, options);
   syncEvolutionMethodInfo(root);
   runFilter();
 }
@@ -308,9 +344,73 @@ function refreshExpandedPanels(card: HTMLElement, project: ProjectState, species
   card.insertAdjacentHTML("beforeend", options.renderExpanded(speciesId));
   installEditableFields(card, project, options);
   card.querySelectorAll<HTMLElement>(".card-icon, .expand-action").forEach((item) => item.classList.remove("-active"));
+  card.querySelectorAll<HTMLButtonElement>(".pokemon-name-toggle").forEach((button) => {
+    button.classList.remove("-active");
+    button.setAttribute("aria-expanded", "false");
+  });
   card.querySelector<HTMLElement>(`.expanded-${activePanel}`)?.classList.add("show-flex");
   card.querySelector<HTMLElement>(`.expand-action[data-expand='${CSS.escape(activePanel)}']`)?.classList.add("-active");
   syncEvolutionMethodInfo(card.closest<HTMLElement>("#content-container") ?? document.body);
+}
+
+function installPokemonTextFields(root: HTMLElement, project: ProjectState, options: PokemonInteractionOptions): void {
+  root.querySelectorAll<HTMLInputElement>(".pokemon-text-name-input").forEach((input) => {
+    if (input.dataset.pokemonTextNameInstalled === "true") return;
+    input.dataset.pokemonTextNameInstalled = "true";
+    let initialValue = input.value.trim();
+    input.addEventListener("focus", () => {
+      initialValue = input.value.trim();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+    input.addEventListener("focusout", () => {
+      if (input.value.trim() === initialValue) return;
+      const card = input.closest<HTMLElement>(".pokemon-card.filterable");
+      const requestedPersonalId = Number(card?.dataset.index);
+      if (!card || !Number.isInteger(requestedPersonalId)) return;
+      try {
+        updatePokemonTextName(project, requestedPersonalId, input.value);
+        refreshPokemonTextPanel(card, project, requestedPersonalId, options);
+        syncPokemonNames(card.closest<HTMLElement>("#content-container") ?? root, project);
+        options.onDirty?.();
+      } catch (error) {
+        input.value = initialValue;
+        input.classList.add("invalid");
+        setPokemonTextStatus(input, error instanceof Error ? error.message : String(error), true);
+      }
+    });
+  });
+}
+
+function refreshPokemonTextPanel(card: HTMLElement, project: ProjectState, speciesId: number, options: PokemonInteractionOptions): void {
+  const panel = card.querySelector<HTMLElement>(".expanded-pokemon-texts");
+  if (!panel || !options.renderTextPanel) return;
+  const wasOpen = panel.classList.contains("show-flex");
+  panel.outerHTML = options.renderTextPanel(speciesId);
+  const nextPanel = card.querySelector<HTMLElement>(".expanded-pokemon-texts");
+  if (nextPanel && wasOpen) nextPanel.classList.add("show-flex");
+  if (nextPanel) installPokemonTextFields(nextPanel, project, options);
+}
+
+function syncPokemonNames(root: HTMLElement, project: ProjectState): void {
+  root.querySelectorAll<HTMLElement>(".pokemon-card.filterable").forEach((card) => {
+    const personalId = Number(card.dataset.index);
+    const name = card.querySelector<HTMLElement>(".pokemon-card__name");
+    if (!name || !Number.isInteger(personalId)) return;
+    name.textContent = `#${personalId} ${pokemonSpeciesLabel(project, personalId)}`;
+  });
+}
+
+function setPokemonTextStatus(field: HTMLElement, message: string, error = false): void {
+  const panel = field.closest<HTMLElement>(".expanded-pokemon-texts");
+  const status = panel?.querySelector<HTMLElement>(".pokemon-text-status");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("-error", error);
 }
 
 function syncEvolutionMethodInfo(root: HTMLElement): void {
