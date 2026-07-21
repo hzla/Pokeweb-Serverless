@@ -13,7 +13,7 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | General patches | Original ROM bytes | Pokeweb must be able to compare the target bytes against the supported patch signatures. |
 | PMC runtime | Black 2 / White 2 code files | PMC is the runtime used by several injected DLL-style patches. |
 | PWAN GIF support | Clean US Black 2 (`IREO`) or White 2 (`IRDO`) code layout | Both versions support the split summary, battle, and miscellaneous renderers. |
-| Trainer battle log | US White 2 (`IRDO`) or White2Upgrade with the stock W2 hook layout | Uses PMC, save blocks 29–31, the evolution NARC, and summary text bank 179. |
+| Trainer battle log | US Black 2 (`IREO`), White 2 (`IRDO`), or the corresponding Upgrade ROM | Uses a version-specific DLL, PMC, save blocks 29–31, the evolution NARC, and summary text bank 179. |
 | Single-NPC double battle fix | Black 2 / White 2 with PMC support | The fix is installed as a bundled DLXF patch. |
 | Installed DLLs | Files in `patches/` or `lib/` | Patch DLLs are applied to the game; library DLLs are dependencies used by patches. |
 
@@ -27,7 +27,7 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | PMC base address | Shows where the runtime is expected to live in memory. | `0x023C8000` |
 | PWAN GIF status | Shows whether Pokeweb can install the PWAN animated-sprite runtime. | `Ready`, `Unsupported`, `Incompatible` |
 | Install/Upgrade PWAN GIF Support | Stages the three version-specific PWAN runtime files and upgrades a known legacy White 2 monolith. | Summary, Battle, and Misc DLLs for W2 or B2 |
-| Install Battle Log | Checks five battle/summary hook regions, installs PMC if needed, stages the battle-log DLL, generates ancestry from current evolution data, and changes `ID No.` to `Frags`. | US White 2 or expanded White2Upgrade |
+| Install Battle Log | Checks six ARM9/battle/summary regions, installs PMC if needed, stages the version-specific battle-log DLL, generates ancestry from current evolution data, and changes `ID No.` to `Frags`. | US Black 2, White 2, Black2Upgrade, or White2Upgrade |
 | Single-NPC double battle fix | Installs a bundled patch that fixes trainer scripts where one visible NPC should start a double battle. | Black 2 or White 2 patch DLL |
 | Installed patch DLLs | Lists injected patch files in `patches/`. | `DoubleBattleFixW2.dll` |
 | Installed library DLLs | Lists dependency files in `lib/`. | A shared library required by a patch |
@@ -84,9 +84,9 @@ Installing the runtime alone writes an empty PWAN configuration and does not mod
 
 ### Install the trainer battle log
 
-1. Use a US White 2 or White2Upgrade project whose battle and summary hook bytes still match White 2.
+1. Use a US Black 2, White 2, or corresponding Upgrade project whose ARM9, battle, and summary hook bytes still match its base game.
 2. Open `Code Injection/Patches` and install the Trainer Battle Log. PMC is installed automatically if needed.
-3. Export the ROM. The installer generates `battlelog/ancestry.narc` from the project's current `a/0/1/9`, stages `patches/White2UpgradeBattleLog.dll`, and patches summary text bank 179 entry 15 to `Frags`. The dedicated `battlelog` directory is appended to NitroFS so existing ROM file IDs remain unchanged.
+3. Export the ROM. The installer generates `battlelog/ancestry.narc` from the project's current `a/0/1/9`, stages `patches/Black2UpgradeBattleLog.dll` or `patches/White2UpgradeBattleLog.dll`, and patches summary text bank 179 entry 15 to `Frags`. The dedicated `battlelog` directory is appended to NitroFS so existing ROM file IDs remain unchanged.
 4. Save normally after trainer battles to persist new records.
 
 The log stores up to 600 trainer records in normal save blocks 29–31. Those blocks originally contain Wi-Fi History, Pal Pad/Wi-Fi List, and Wi-Fi Negotiation data, so the corresponding retired online features are incompatible with the log. Reinstalling regenerates family ancestry after evolution edits.
@@ -94,7 +94,7 @@ The log stores up to 600 trainer records in normal save blocks 29–31. Those bl
 ## Caveats
 
 - Code patches are version-specific. A patch made for Black 2 may not be safe for White 2, and BW patches are not automatically BW2 patches.
-- The trainer battle log is currently White 2-only. Black 2 is rejected because its fixed ARM9 and overlay entry points differ.
+- Black 2 and White 2 use separate battle-log DLLs because their battle and summary entry points differ. Pokeweb selects the matching artifact automatically.
 - Incompatible status usually means the ROM is not clean at the patch location, the ROM revision differs, or another patch already changed the same code.
 - PWAN support writes extra runtime data during export. Do not judge PWAN installation only by whether a normal editor field changed.
 - Black 2 PWAN accepts manual GIF imports and bundled community PWAN assets for vanilla species 1-649 and legitimate Gen 5 forms. Imports use the dedicated Black 2 carrier templates.

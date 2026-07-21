@@ -73,7 +73,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </span>
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US White 2</strong></div>
+            <div><span>ROM</span><strong>US ${project.session.baseVersion === "B2" ? "Black 2" : "White 2"}</strong></div>
             <div><span>Capacity</span><strong>600 battles</strong></div>
             <div><span>Save Blocks</span><strong>29–31</strong></div>
             <div><span>Save Ownership</span><strong>${battleLogStatus.saveGuardInstalled ? "Active" : "Pending"}</strong></div>
