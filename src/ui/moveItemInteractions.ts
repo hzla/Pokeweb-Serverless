@@ -55,6 +55,7 @@ type SelectedBattleVariant = {
 };
 
 const MOVE_ANIMATION_SWAP_SIDES_STORAGE_KEY = "pokeweb.moveAnimation.swapSides";
+const MOVE_ANIMATION_AUDIO_STORAGE_KEY = "pokeweb.moveAnimation.audioEnabled";
 
 function loadMoveAnimationSwapSidesPreference(): boolean {
   if (typeof localStorage === "undefined") return false;
@@ -69,6 +70,24 @@ function saveMoveAnimationSwapSidesPreference(swappedSides: boolean): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(MOVE_ANIMATION_SWAP_SIDES_STORAGE_KEY, String(swappedSides));
+  } catch {
+    // The preview still works when browser storage is unavailable.
+  }
+}
+
+function loadMoveAnimationAudioPreference(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  try {
+    return localStorage.getItem(MOVE_ANIMATION_AUDIO_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveMoveAnimationAudioPreference(enabled: boolean): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(MOVE_ANIMATION_AUDIO_STORAGE_KEY, String(enabled));
   } catch {
     // The preview still works when browser storage is unavailable.
   }
@@ -340,6 +359,7 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   const platformSelect = pageRoot?.querySelector<HTMLSelectElement>("#move-animation-platform-select") ?? undefined;
   const swapSidesInput = pageRoot?.querySelector<HTMLInputElement>("#move-animation-swap-sides") ?? undefined;
   const savedSwappedSides = loadMoveAnimationSwapSidesPreference();
+  let audioEnabled = loadMoveAnimationAudioPreference();
   if (swapSidesInput) swapSidesInput.checked = savedSwappedSides;
   let battleEnvironmentSelection: MoveAnimationBattleEnvironmentSelection = {
     backgroundIndex: MOVE_PREVIEW_BACKGROUND_INDEX,
@@ -355,6 +375,7 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   const activateSideTab = (nextTab: "preview" | "docs" | "spa" | "audio") => {
     activeSideTab = nextTab;
     if (nextTab !== "audio") audioPreview?.stop();
+    previewController?.setAudioSuppressed(nextTab !== "preview");
     panel.querySelectorAll<HTMLButtonElement>("[data-move-animation-side-tab]").forEach((button) => {
       const active = button.dataset.moveAnimationSideTab === nextTab;
       button.classList.toggle("-active", active);
@@ -433,7 +454,17 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
       } catch (error) {
         preview.warnings.push({ message: `Battle scene: ${error instanceof Error ? error.message : String(error)}` });
       }
-      const nextPreviewController = await installMoveAnimationPreview(previewHost, preview, { initialPlaying });
+      const nextPreviewController = await installMoveAnimationPreview(previewHost, preview, {
+        initialPlaying,
+        audio: {
+          project,
+          initialEnabled: audioEnabled,
+          onEnabledChange: (enabled) => {
+            audioEnabled = enabled;
+            saveMoveAnimationAudioPreference(enabled);
+          },
+        },
+      });
       if (requestId !== previewRequestId) {
         nextPreviewController.destroy();
         return;

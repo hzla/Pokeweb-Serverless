@@ -1929,6 +1929,24 @@
   min-height: 34px;
 }
 
+#moves .move-animation-preview-controls .move-preview-audio-toggle {
+  border-left: 1px solid #44475a;
+  padding-left: 12px;
+}
+
+#moves .move-preview-audio-status {
+  color: #a6adc8;
+  font-size: 0.78rem;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#moves .move-preview-audio-status.-error {
+  color: #ff8f8f;
+}
+
 #moves .move-animation-preview-grid {
   align-items: stretch;
   display: grid;

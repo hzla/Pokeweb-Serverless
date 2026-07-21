@@ -4,7 +4,7 @@ import { compressCode, decompressCode, isCodeCompressed } from "../nds/codeCompr
 import { Folder, saveFnt } from "../nds/fnt";
 import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
-import { exportModifiedRom, materializeProjectEdits } from "../pokeweb/exportRom";
+import { exportModifiedRom, materializeProjectEdits, prepareArm9Download } from "../pokeweb/exportRom";
 import { addRomFile } from "../pokeweb/fileSystemModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { parseHeaders, updateHeaderField } from "../pokeweb/headerModel";
@@ -229,6 +229,27 @@ describe("ROM export", () => {
     expect(isCodeCompressed(exportedRom.arm9)).toBe(true);
     expect(exportedArm9[0x5000]).toBe(0x99);
     expect(readU32(exportedRom.arm9, 0xfb0 + 0x14)).toBe(exportedRom.arm9RamAddress + exportedRom.arm9.length);
+  });
+
+  it("prepares current ARM9 edits as compressed or decompressed downloads", () => {
+    const arm9 = makeArm9WithModuleParams();
+    const rom = new NintendoDSRom(new NintendoDSRom(makeRom([])).save({ arm9 }));
+    const project = makeProject(rom.data);
+    project.arm9 = arm9.slice();
+    project.arm9[0x5000] = 0x99;
+    const originalStaticEnd = readU32(project.arm9, 0xfb0 + 0x14);
+
+    const decompressed = prepareArm9Download(project, rom, false);
+    const compressed = prepareArm9Download(project, rom, true);
+
+    expect(isCodeCompressed(decompressed)).toBe(false);
+    expect(decompressed[0x5000]).toBe(0x99);
+    expect(readU32(decompressed, 0xfb0 + 0x14)).toBe(0);
+    expect(isCodeCompressed(compressed)).toBe(true);
+    expect(decompressCode(compressed)[0x5000]).toBe(0x99);
+    expect(readU32(compressed, 0xfb0 + 0x14)).toBe(rom.arm9RamAddress + compressed.length);
+    expect(project.arm9[0x5000]).toBe(0x99);
+    expect(readU32(project.arm9, 0xfb0 + 0x14)).toBe(originalStaticEnd);
   });
 
   it("zeros the compressed static end when exporting dirty decompressed ARM9", async () => {

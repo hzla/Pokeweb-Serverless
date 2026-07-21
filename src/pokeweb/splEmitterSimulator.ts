@@ -117,6 +117,25 @@ export function simulateSplPreview(preview: MoveAnimationPreview, frame: number)
     .map((entry) => entry.particle);
 }
 
+/**
+ * Returns the source-authored lifetime of an SPL emitter task. The battle VM's
+ * particle wait channel remains active through the emitter delay, its final
+ * parent emission, and any child particles spawned by that parent.
+ */
+export function splEmitterDurationFrames(event: MoveAnimationTimelineEvent, resource: SpaResource): number {
+  const params = eventParams(event);
+  const emitterLife = Math.max(1, resource.emitterLifeFrames * params.lifeMultiplier);
+  const interval = Math.max(0, resource.emissionIntervalFrames);
+  const lastEmitterFrame = interval === 0
+    ? 0
+    : Math.floor(Math.max(0, Math.ceil(emitterLife) - 1) / interval) * interval;
+  const parentLife = Math.max(1, Math.ceil(resource.particleLifeFrames * params.lifeMultiplier * (1 + resource.variance.lifeTime / 2)));
+  const childLife = resource.childResource
+    ? Math.max(1, Math.ceil(resource.childResource.lifeFrames * params.lifeMultiplier))
+    : 0;
+  return Math.max(1, resource.startDelayFrames + lastEmitterFrame + parentLife + childLife);
+}
+
 function simulateEvent(event: MoveAnimationTimelineEvent, archive: SpaArchive, resource: SpaResource, localFrame: number, anchors: BattleAnchorSet): SplFrameParticle[] {
   const params = eventParams(event);
   const rng = new DeterministicRng(hashString(`${event.id}:${event.spaId}:${event.resourceId}`));
@@ -216,17 +235,18 @@ class SplEmitter {
       .filter(({ particle }) => particle.child || !this.resource.hideParent)
       .sort((a, b) => particleRenderLayer(this.resource, a.particle) - particleRenderLayer(this.resource, b.particle) || a.index - b.index)
       .map(({ particle }) => {
-        const drawType = particleDrawType(this.resource, particle, this.event);
+        const advancedPlacement = usesAdvancedParticlePlacement(this.event) || this.anchors.usesGen5SourceSpace;
+        const drawType = particleDrawType(this.resource, particle, this.event, advancedPlacement);
         const directionalBillboard = drawType === 1;
-        const advancedPlacement = usesAdvancedParticlePlacement(this.event);
         const splScale = advancedPlacement || directionalBillboard || isHgAnchoredPaneResource(this.event, this.resource);
         const scaleMultiplier = effectiveScaleMultiplier(this.event, this.resource, this.params);
         const animScale = particleRenderAnimScale(this.event, this.resource, particle);
-        const sourceScale = Math.max(0.001, particle.baseScale * animScale * scaleMultiplier);
+        const sourceBaseScale = this.anchors.usesGen5SourceSpace ? particle.baseScale : particle.baseScale * scaleMultiplier;
+        const sourceScale = Math.max(0.001, Math.abs(sourceBaseScale) * animScale);
         const scale = Math.max(0.05, sourceScale * LEGACY_SPRITE_SCALE);
         const paneScale = screenPlanePaneScale(this.event, this.resource, this.params, this.anchors.positionScale);
         const [scaleX, scaleY] = paneScale ?? (splScale ? particleScale(this.resource, particle, scaleMultiplier, animScale) : [scale * Math.max(0.1, this.resource.aspectRatio || 1), scale]);
-        const [sourceScaleX, sourceScaleY] = particleSourceScale(this.resource, particle, scaleMultiplier, animScale);
+        const [sourceScaleX, sourceScaleY] = particleSourceScale(this.resource, sourceBaseScale, animScale);
         const useResourceAnchor = advancedPlacement || this.event.particle?.useResourceAnchor === true;
         const [anchorX, anchorY] = useResourceAnchor ? particleAnchor(this.resource, particle.child) : [0.5, 0.5];
         const textureIndex = clampTextureIndex(particle.textureIndex, this.archive);
@@ -263,13 +283,13 @@ class SplEmitter {
           sourceScaleX,
           sourceScaleY,
           aspectRatio: Math.max(0.1, this.resource.aspectRatio || 1),
-          tiltScale: particleForeshortening(this.event, particle, this.resource),
+          tiltScale: particleForeshortening(this.event, particle, this.resource, advancedPlacement),
           anchorX,
           anchorY,
           anchorOffsetY: textureAnchorOffsetY(this.event, this.resource, this.archive, textureIndex, anchorY),
           color: particle.color,
           alpha: clamp01(particle.baseAlpha * particle.animAlpha),
-          rotation: particleScreenRotation(this.event, particle, this.resource, renderVelocity),
+          rotation: particleScreenRotation(this.event, particle, this.resource, renderVelocity, advancedPlacement),
           authoredRotation: particle.rotation,
           alignToMotion: this.event.particle?.alignToMotion,
           alignRotationOffset: this.event.particle?.alignRotationOffset,
@@ -391,11 +411,14 @@ class SplEmitter {
     const velocity = add(add(scaleVec(posNorm, magPos), scaleVec(this.axis, magAxis)), this.particleInitVelocity);
     const color = this.initialColor(localRng);
     const textureIndex = this.initialTexture(localRng);
+    const authoredBaseScale = this.anchors.usesGen5SourceSpace
+      ? retailEmitterBaseScale(this.resource.baseScale, effectiveScaleMultiplier(this.event, this.resource, this.params))
+      : this.resource.baseScale;
     return {
       position,
       velocity,
       emitterPos: this.emitterPositionAt(this.ageFrames),
-      baseScale: scaledRange2(this.resource.baseScale, this.resource.variance.baseScale, localRng),
+      baseScale: scaledRange2(authoredBaseScale, this.resource.variance.baseScale, localRng),
       animScale: 1,
       color,
       baseAlpha: this.resource.baseAlpha,
@@ -965,11 +988,11 @@ function particleRenderLayer(resource: SpaResource, particle: SimParticle): numb
   return resource.drawChildFirst ? 0 : 1;
 }
 
-function particleDrawType(resource: SpaResource, particle: SimParticle, event: MoveAnimationTimelineEvent): number {
+function particleDrawType(resource: SpaResource, particle: SimParticle, event: MoveAnimationTimelineEvent, advancedPlacement: boolean): number {
   const drawType = particle.child?.drawType ?? resource.drawType;
   if (drawType <= 1) return drawType;
   if (event.particle?.alignToMotion) return 0;
-  if (!usesAdvancedParticlePlacement(event)) return 0;
+  if (!advancedPlacement) return 0;
   return drawType;
 }
 
@@ -997,8 +1020,8 @@ function particleScale(resource: SpaResource, particle: SimParticle, scaleMultip
   return [scaleX, scaleY];
 }
 
-function particleSourceScale(resource: SpaResource, particle: SimParticle, scaleMultiplier: number, animScale = particle.animScale): [number, number] {
-  const base = particle.baseScale * scaleMultiplier * SPL_SOURCE_QUAD_DIAMETER;
+function particleSourceScale(resource: SpaResource, sourceBaseScale: number, animScale: number): [number, number] {
+  const base = sourceBaseScale * SPL_SOURCE_QUAD_DIAMETER;
   let scaleX = base * Math.max(0.1, resource.aspectRatio || 1);
   let scaleY = base;
   switch (resource.scaleAnimDir) {
@@ -1014,7 +1037,18 @@ function particleSourceScale(resource: SpaResource, particle: SimParticle, scale
       scaleY *= animScale;
       break;
   }
-  return [Math.max(0.001, scaleX), Math.max(0.001, scaleY)];
+  return [Math.max(0.001, Math.abs(scaleX)), Math.max(0.001, Math.abs(scaleY))];
+}
+
+function retailEmitterBaseScale(baseScale: number, scaleMultiplier: number): number {
+  // EFFVM_InitEmitterPos multiplies in FX32, then explicitly casts the result
+  // to fx16 before SPL_SetEmitterBaseScale. Preserve that signed 16-bit
+  // writeback, including overflow (for example 4.0 * 5.0 wraps to 4.0).
+  const baseRaw = Math.round(baseScale * 4096);
+  const multiplierRaw = Math.round(scaleMultiplier * 4096);
+  const productRaw = Math.floor((baseRaw * multiplierRaw + 2048) / 4096);
+  const wrapped = ((productRaw & 0xffff) ^ 0x8000) - 0x8000;
+  return wrapped / 4096;
 }
 
 function particleRenderAnimScale(event: MoveAnimationTimelineEvent, resource: SpaResource, particle: SimParticle): number {
@@ -1090,8 +1124,12 @@ function screenPlaneRegularSide(count: number): number | undefined {
   return side >= 2 && side * side === count ? side : undefined;
 }
 
-function particleForeshortening(event: MoveAnimationTimelineEvent, particle: SimParticle, resource: SpaResource): number {
-  const drawType = particleDrawType(resource, particle, event);
+function particleForeshortening(event: MoveAnimationTimelineEvent, particle: SimParticle, resource: SpaResource, advancedPlacement: boolean): number {
+  const drawType = particleDrawType(resource, particle, event, advancedPlacement);
+  // Source polygons are already foreshortened by their authored 3D matrix and
+  // the perspective camera. Applying the legacy sprite squash as well distorts
+  // ground planes such as Dark Void's portal a second time.
+  if (drawType >= 2) return 1;
   if (event.particle?.foreshorten === false && drawType < 2) return 1;
   if (!event.particle?.axis && drawType < 2) return 1;
   const phase = particle.rotation * 1.7 + particle.ageFrames * 0.28 + particle.lifeRateOffset * Math.PI * 2;
@@ -1099,8 +1137,8 @@ function particleForeshortening(event: MoveAnimationTimelineEvent, particle: Sim
   return 0.12 + faceAmount * 0.88;
 }
 
-function particleScreenRotation(event: MoveAnimationTimelineEvent, particle: SimParticle, resource: SpaResource, renderVelocity: Vec3): number {
-  const drawType = particleDrawType(resource, particle, event);
+function particleScreenRotation(event: MoveAnimationTimelineEvent, particle: SimParticle, resource: SpaResource, renderVelocity: Vec3, advancedPlacement: boolean): number {
+  const drawType = particleDrawType(resource, particle, event, advancedPlacement);
   if (drawType >= 2) return particle.rotation;
   if (event.particle?.screenRotation !== undefined) {
     const wobble = Math.sin(particle.ageFrames * 0.35 + particle.lifeRateOffset * Math.PI * 2) * 0.08;
