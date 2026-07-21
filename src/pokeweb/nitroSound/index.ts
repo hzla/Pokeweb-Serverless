@@ -25,6 +25,7 @@ const NITRO_ARM7_CLOCK = 33_513_982;
 
 export type NitroSdat = {
   sourcePath?: string;
+  sourceFileId?: number;
   bytes: Uint8Array;
   nitroFsSdat?: InstanceType<typeof NitroFsAudio.SDAT>;
   sequenceInfos: NitroSequenceInfo[];
@@ -209,6 +210,10 @@ export async function loadNitroSdatFromProject(project: ProjectState): Promise<N
   return cached;
 }
 
+export function invalidateNitroSdatCache(project: ProjectState): void {
+  projectSdatCache.delete(project);
+}
+
 async function loadNitroSdatFromProjectUncached(project: ProjectState): Promise<NitroSdat> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are not available; reload the ROM before previewing SDAT audio.");
@@ -217,13 +222,19 @@ async function loadNitroSdatFromProjectUncached(project: ProjectState): Promise<
     .filter((file) => file.path.toLowerCase().endsWith(".sdat"))
     .sort((a, b) => scoreSdatPath(a.path) - scoreSdatPath(b.path) || a.path.localeCompare(b.path))[0];
   if (namedSdat) {
-    const bytes = rom.files[namedSdat.id];
+    const bytes = project.fileSystem?.replacements?.[namedSdat.id] ?? rom.files[namedSdat.id];
     if (!bytes) throw new Error(`Named SDAT file ${namedSdat.path} is missing from the ROM file table.`);
-    return parseNitroSdat(bytes, namedSdat.path);
+    const sdat = parseNitroSdat(bytes, namedSdat.path);
+    sdat.sourceFileId = namedSdat.id;
+    return sdat;
   }
 
-  const scanned = rom.files.findIndex((file) => readAscii(file, 0, 4) === "SDAT");
-  if (scanned >= 0) return parseNitroSdat(rom.files[scanned], `file ${scanned}`);
+  const scanned = rom.files.findIndex((file, fileId) => readAscii(project.fileSystem?.replacements?.[fileId] ?? file, 0, 4) === "SDAT");
+  if (scanned >= 0) {
+    const sdat = parseNitroSdat(project.fileSystem?.replacements?.[scanned] ?? rom.files[scanned], `file ${scanned}`);
+    sdat.sourceFileId = scanned;
+    return sdat;
+  }
   throw new Error("Could not find an SDAT file in the loaded ROM.");
 }
 
@@ -285,6 +296,49 @@ export function renderNitroSequencePcm(sdat: NitroSdat, sequenceId: number, opti
   const promise = Promise.resolve().then(() => renderNitroSequencePcmUncached(sdat, sequenceId, { maxSeconds, sampleRate }));
   cache.set(key, promise);
   return promise;
+}
+
+export type NitroWaveArchiveMetadata = {
+  waveCount: number;
+  format: "PCM8" | "PCM16" | "IMA-ADPCM";
+  sampleRate: number;
+  sampleCount: number;
+  duration: number;
+  loops: boolean;
+};
+
+export function getNitroWaveArchiveMetadata(bytes: Uint8Array, waveIndex = 0): NitroWaveArchiveMetadata {
+  const archive = parseNitroSwar(bytes);
+  const wave = archive.waves[waveIndex];
+  if (!wave) throw new Error(`SWAR wave ${waveIndex} is missing.`);
+  const decoded = decodeSwav(wave);
+  return {
+    waveCount: archive.waves.length,
+    format: wave.format === 0 ? "PCM8" : wave.format === 1 ? "PCM16" : "IMA-ADPCM",
+    sampleRate: wave.sampleRate,
+    sampleCount: decoded.pcm.length,
+    duration: decoded.pcm.length / wave.sampleRate,
+    loops: wave.doesLoop,
+  };
+}
+
+export function renderNitroWaveArchivePcm(bytes: Uint8Array, waveIndex = 0): NitroRenderedPcm {
+  const archive = parseNitroSwar(bytes);
+  const wave = archive.waves[waveIndex];
+  if (!wave) throw new Error(`SWAR wave ${waveIndex} is missing.`);
+  const decoded = decodeSwav(wave);
+  const left = decoded.pcm.slice();
+  const right = decoded.pcm.slice();
+  normalizePcm(left, right);
+  return {
+    sampleRate: wave.sampleRate,
+    length: left.length,
+    duration: left.length / wave.sampleRate,
+    numberOfChannels: 2,
+    left,
+    right,
+    capped: false,
+  };
 }
 
 export function decodeNitroAdpcm(data: Uint8Array): Int16Array {
@@ -517,6 +571,7 @@ function parseNitroSwar(bytes: Uint8Array): NitroSwar {
   requireMagic(bytes, 0, "SWAR");
   requireMagic(bytes, 0x10, "DATA");
   const waveCount = readU32(bytes, 0x38);
+  if (waveCount > Math.floor(Math.max(0, bytes.length - 0x3c) / 4)) throw new Error(`SWAR wave count ${waveCount} is out of range.`);
   const waves: NitroSwav[] = [];
   for (let index = 0; index < waveCount; index += 1) {
     const waveOffset = readU32(bytes, 0x3c + index * 4);
