@@ -3,6 +3,7 @@ import { writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { BATTLE_LOG_ANCESTRY_PATH } from "../pokeweb/battleLogModel";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import {
   addRomFile,
@@ -56,6 +57,26 @@ describe("file system model", () => {
     expect([...rom.getFileByName("patches/Test.dll")]).toEqual([0xde, 0xad]);
     expect([...rom.files[0]]).toEqual([1]);
     expect(project.actionChangelog?.entries.some((entry) => entry.domain === "file_system" && entry.text === "ROM file added: patches/Test.dll.")).toBe(true);
+  });
+
+  it("appends the battle-log ancestry archive without shifting existing ROM file IDs", async () => {
+    const filenames = new Folder({
+      files: ["root.bin"],
+      folders: [["a", new Folder({ files: ["trainer.narc"], firstId: 1 })]],
+    });
+    const romBytes = makeRom([Uint8Array.of(1), Uint8Array.of(2)], filenames);
+    const project = makeProject(romBytes);
+    addRomFile(project, BATTLE_LOG_ANCESTRY_PATH, Uint8Array.of(3));
+
+    const rom = new NintendoDSRom(await exportModifiedRom(project));
+
+    expect(BATTLE_LOG_ANCESTRY_PATH).toBe("battlelog/ancestry.narc");
+    expect(rom.fileId("root.bin")).toBe(0);
+    expect(rom.fileId("a/trainer.narc")).toBe(1);
+    expect(rom.fileId(BATTLE_LOG_ANCESTRY_PATH)).toBe(2);
+    expect([...rom.files[0]]).toEqual([1]);
+    expect([...rom.files[1]]).toEqual([2]);
+    expect([...rom.files[2]]).toEqual([3]);
   });
 
   it("replaces, inserts, and appends NARC subfiles", () => {
