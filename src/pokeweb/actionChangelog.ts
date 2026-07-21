@@ -122,6 +122,7 @@ export function domainTitle(domain: string): string {
     learnsets: "Learnsets",
     evolutions: "Evolutions",
     egg_moves: "Egg Moves",
+    pokemon_cries: "Pokemon Cries",
     moves: "Moves",
     items: "Items",
     tms: "TMs",
