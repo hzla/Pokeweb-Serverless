@@ -2,6 +2,7 @@ import { TreeForge, TreeStyles } from "treeforge";
 import "treeforge/styles/ui.css";
 import bw2NarcInfoText from "../assets/data/bw2_narc_info.txt?raw";
 import { NintendoDSRom } from "../nds/rom";
+import { prepareArm9Download } from "../pokeweb/exportRom";
 import {
   addRomFile,
   buildFileSystemSnapshot,
@@ -75,6 +76,13 @@ export async function renderFileSystemEditor(project: ProjectState, root: HTMLEl
           <h1>File System</h1>
           <p>${escapeHtml(project.romInfo.fileName)} · ${snapshot.rom.files.length} files</p>
         </div>
+        <div class="file-system-sidebar__arm9">
+          <div class="file-system-sidebar__arm9-title">Download ARM9</div>
+          <div class="file-system-sidebar__arm9-actions">
+            <button class="btn -default" id="fs-export-arm9-compressed" type="button">Compressed</button>
+            <button class="btn -default" id="fs-export-arm9-decompressed" type="button">Decompressed</button>
+          </div>
+        </div>
         <div id="file-system-tree" class="file-system-tree"></div>
         <textarea id="file-system-tree-input" hidden></textarea>
       </aside>
@@ -87,6 +95,13 @@ export async function renderFileSystemEditor(project: ProjectState, root: HTMLEl
   const detail = root.querySelector<HTMLElement>("#file-system-detail");
   const treeContainer = root.querySelector<HTMLElement>("#file-system-tree");
   if (!detail || !treeContainer) throw new Error("Missing file system containers");
+
+  root.querySelector<HTMLButtonElement>("#fs-export-arm9-compressed")?.addEventListener("click", () => {
+    downloadBytes(prepareArm9Download(project, snapshot.rom, true), "arm9-compressed.bin");
+  });
+  root.querySelector<HTMLButtonElement>("#fs-export-arm9-decompressed")?.addEventListener("click", () => {
+    downloadBytes(prepareArm9Download(project, snapshot.rom, false), "arm9-decompressed.bin");
+  });
 
   let tree: TreeForgeInstance;
 

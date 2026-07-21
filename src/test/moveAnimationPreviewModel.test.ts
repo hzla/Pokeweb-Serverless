@@ -252,6 +252,50 @@ describe("moveAnimationPreviewModel", () => {
     expect(finished.target.visible).toBe(false);
   });
 
+  it("keeps Pokemon and background wait channels independent", async () => {
+    const preview = await buildMoveAnimationPreview(
+      makeProject(),
+      464,
+      makeScript(`
+     MoveBackground 0, 0, -1, 240, 0, 0
+     Wait 10
+     ShakeSprite 16, 2, 0, -4096, 2, 0, 1
+     LetCMDsFinish 3
+     ChangeVisibility 16, 3
+     LetCMDsFinish 5
+     TerminateMoveScript
+`),
+      { loadSpaArchive: async () => parseSpaArchive(makeSyntheticSpa()) },
+    );
+
+    expect(preview.timeline.find((event) => event.command === "ChangeVisibility")?.frame).toBe(14);
+    expect(preview.timeline.find((event) => event.command === "TerminateMoveScript")?.frame).toBe(240);
+  });
+
+  it("waits for the source-authored SPA delay and particle lifetime", async () => {
+    const archive = parseSpaArchive(makeSyntheticSpa());
+    archive.resources[0].startDelayFrames = 59;
+    archive.resources[0].emitterLifeFrames = 7;
+    archive.resources[0].emissionIntervalFrames = 1;
+    archive.resources[0].particleLifeFrames = 30;
+    const preview = await buildMoveAnimationPreview(
+      makeProject(),
+      464,
+      makeScript(`
+     LoadSPA 644
+     DoSPAAnimation 644, 0, 11, 8, 0, 0, 0, 4096, 4096, 4096, 4096
+     LetCMDsFinish 2
+     ChangeVisibility 16, 3
+     TerminateMoveScript
+`),
+      { loadSpaArchive: async () => archive },
+    );
+
+    const particle = preview.timeline.find((event) => event.command === "DoSPAAnimation");
+    expect(particle?.taskDuration).toBe(95);
+    expect(preview.timeline.find((event) => event.command === "ChangeVisibility")?.frame).toBe(95);
+  });
+
   it("parses a minimal SPA archive and decodes palette textures", () => {
     const archive = parseSpaArchive(makeSyntheticSpa());
 
@@ -606,6 +650,33 @@ describe("moveAnimationPreviewModel", () => {
     expect(particle?.tiltScale).toBe(1);
   });
 
+  it("preserves source-authored polygon placement in the Gen 5 battle scene", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32, (2 << 4) | (1 << 17) | (1 << 19));
+    const archive = parseSpaArchive(bytes);
+    const preview = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+
+    const particle = simulateSplPreview(preview, 1)[0];
+    expect(particle).toMatchObject({
+      drawType: 2,
+      polygonRotAxis: 1,
+      polygonReferencePlane: 1,
+    });
+  });
+
+  it("matches the retail FX16 emitter-scale writeback in Gen 5", () => {
+    const bytes = makeSyntheticSpa();
+    writeU32(bytes, 32, 2 << 4);
+    writeU32(bytes, 32 + 44, 4 * 4096);
+    const archive = parseSpaArchive(bytes);
+    const preview = withGen5BattleEnvironment(makeSyntheticPreview(archive));
+    preview.timeline[0].params[9] = 5 * 4096;
+
+    const particle = simulateSplPreview(preview, 1)[0];
+    expect(particle?.sourceScaleX).toBeCloseTo(8);
+    expect(particle?.sourceScaleY).toBeCloseTo(8);
+  });
+
   it("preserves plain SPL directional billboards for slash and streak particles", () => {
     const bytes = makeSyntheticSpa();
     writeU32(bytes, 32, 1 << 4);
@@ -693,7 +764,7 @@ describe("moveAnimationPreviewModel", () => {
     const particle = simulateSplPreview(preview, 1)[0];
     expect(particle?.drawType).toBe(2);
     expect(particle?.rotation).toBeCloseTo(0);
-    expect(particle?.tiltScale).toBeLessThan(1);
+    expect(particle?.tiltScale).toBe(1);
   });
 
   it("renders command motion-aligned polygon resources as rotated billboards", () => {

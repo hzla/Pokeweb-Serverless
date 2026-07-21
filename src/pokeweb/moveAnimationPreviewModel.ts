@@ -9,6 +9,7 @@ import type { NitroCellEffect, NitroCellImage } from "./nitroCell";
 import { parseSpaArchive, type SpaArchive } from "./nitroSpa";
 import type { MoveAnimationBattleEnvironment } from "./moveAnimationBattleEnvironment";
 import { gen5BattleSpriteIdleFrame, isGen5BattleSpriteCommand } from "./gen5BattleSpriteSimulator";
+import { splEmitterDurationFrames } from "./splEmitterSimulator";
 
 const DEFAULT_CALL_DEPTH = 8;
 const MOVE_SPA_PATH = "a/0/0/6";
@@ -38,6 +39,7 @@ export type MoveAnimationTimelineEvent = {
   params: number[];
   status: "supported" | "marker" | "unsupported";
   message: string;
+  taskDuration?: number;
   effectKind?: "spa" | "cell" | "cap";
   spaId?: number;
   resourceId?: number;
@@ -290,16 +292,16 @@ export async function buildMoveAnimationPreview(
   const rootLabel = parsed.headerLabels[0] ?? parsed.labelOrder[0];
   if (!rootLabel) throw new Error("Animation script has no previewable script label");
 
-  const warnings: MoveAnimationPreviewWarning[] = [];
-  const timeline: MoveAnimationTimelineEvent[] = [];
+  const discoveryTimeline: MoveAnimationTimelineEvent[] = [];
   const loadEvents = new Set<number>();
   const backgroundEvents = new Set<number>();
-  expandScript(project, moveId, rootLabel, parsed.scripts.get(rootLabel) ?? [], 0, 0, maxCallDepth, new Set(), timeline, warnings);
-  for (const event of timeline) {
+  expandScript(project, moveId, rootLabel, parsed.scripts.get(rootLabel) ?? [], 0, 0, maxCallDepth, new Set(), discoveryTimeline, [], new Map(), createPendingTasks(0));
+  for (const event of discoveryTimeline) {
     if ((event.command === "LoadSPA" || SPA_COMMANDS.has(event.command)) && event.spaId !== undefined) loadEvents.add(event.spaId);
     if (event.command === "LoadBackground" && event.backgroundId !== undefined) backgroundEvents.add(event.backgroundId);
   }
 
+  const warnings: MoveAnimationPreviewWarning[] = [];
   const spaArchives = new Map<number, SpaArchive>();
   for (const spaId of [...loadEvents].sort((a, b) => a - b)) {
     try {
@@ -310,6 +312,8 @@ export async function buildMoveAnimationPreview(
       warnings.push({ message: `SPA ${spaId}: ${error instanceof Error ? error.message : String(error)}` });
     }
   }
+  const timeline: MoveAnimationTimelineEvent[] = [];
+  expandScript(project, moveId, rootLabel, parsed.scripts.get(rootLabel) ?? [], 0, 0, maxCallDepth, new Set(), timeline, warnings, spaArchives, createPendingTasks(0));
   hydrateTimelineDebug(timeline, spaArchives, warnings);
 
   const backgrounds = new Map<number, NitroBackgroundImage>();
@@ -335,6 +339,58 @@ export async function buildMoveAnimationPreview(
     warnings,
     frameCount: Math.max(60, spriteIdleFrame, ...timeline.map((event) => event.frame + eventDuration(event))),
   };
+}
+
+type PendingTaskState = {
+  camera: number;
+  particle: number;
+  anime: number;
+  background: number;
+  paletteStage: number;
+  paletteField: number;
+  palette3d: number;
+  paletteEffect: number;
+};
+
+function createPendingTasks(frame: number): PendingTaskState {
+  return {
+    camera: frame,
+    particle: frame,
+    anime: frame,
+    background: frame,
+    paletteStage: frame,
+    paletteField: frame,
+    palette3d: frame,
+    paletteEffect: frame,
+  };
+}
+
+function waitForTaskChannel(selector: number, frame: number, pending: PendingTaskState, timeline: MoveAnimationTimelineEvent[]): number {
+  switch (selector) {
+    case 0:
+      return Math.max(frame, ...Object.values(pending), gen5BattleSpriteIdleFrame(timeline, frame));
+    case 1:
+      return Math.max(frame, pending.camera);
+    case 2:
+      return Math.max(frame, pending.particle);
+    case 3:
+      return Math.max(frame, gen5BattleSpriteIdleFrame(timeline, frame));
+    case 4:
+      return Math.max(frame, pending.anime);
+    case 5:
+      return Math.max(frame, pending.background);
+    case 6:
+      return Math.max(frame, pending.paletteStage);
+    case 7:
+      return Math.max(frame, pending.paletteField);
+    case 8:
+      return Math.max(frame, pending.palette3d);
+    case 9:
+      return Math.max(frame, pending.paletteEffect);
+    default:
+      // Audio and window task lifetimes are not simulated visually yet.
+      return frame;
+  }
 }
 
 function hydrateTimelineDebug(
@@ -419,22 +475,22 @@ function expandScript(
   activeCalls: Set<string>,
   timeline: MoveAnimationTimelineEvent[],
   warnings: MoveAnimationPreviewWarning[],
+  spaArchives: ReadonlyMap<number, SpaArchive>,
+  pending: PendingTaskState,
 ): number {
   let frame = startFrame;
-  let pendingUntil = startFrame;
   const loadedSpaIds = new Set<number>();
   for (const command of commands) {
     if (command.name === "Wait") {
       timeline.push(makeEvent(command, frame, "supported", `Wait ${command.params[0] ?? 0} frame(s)`, { sourceMoveId: moveId }));
       frame += Math.max(0, command.params[0] ?? 0);
-      pendingUntil = Math.max(pendingUntil, frame);
       continue;
     }
 
     if (WAIT_FOR_PENDING_COMMANDS.has(command.name)) {
       const event = makeEvent(command, frame, "supported", `${command.name} wait`, { sourceMoveId: moveId });
       timeline.push(event);
-      frame = Math.max(frame, pendingUntil, gen5BattleSpriteIdleFrame(timeline, frame));
+      frame = waitForTaskChannel(command.params[0] ?? 0, frame, pending, timeline);
       continue;
     }
 
@@ -443,7 +499,6 @@ function expandScript(
       loadedSpaIds.add(spaId);
       const event = makeEvent(command, frame, "supported", `Load SPA ${spaId}`, { spaId, sourceMoveId: moveId });
       timeline.push(event);
-      pendingUntil = Math.max(pendingUntil, frame + eventDuration(event));
       continue;
     }
 
@@ -455,8 +510,11 @@ function expandScript(
           resourceId,
           sourceMoveId: moveId,
       });
+      const archive = spaArchives.get(spaId);
+      const resource = archive?.resources[resourceId] ?? archive?.resources[0];
+      if (resource) event.taskDuration = splEmitterDurationFrames(event, resource);
       timeline.push(event);
-      pendingUntil = Math.max(pendingUntil, frame + eventDuration(event));
+      pending.particle = Math.max(pending.particle, frame + eventDuration(event));
       if (!loadedSpaIds.has(spaId)) warnings.push({ frame, command: command.name, message: `${command.name} references SPA ${spaId} before LoadSPA registered it` });
       continue;
     }
@@ -465,28 +523,28 @@ function expandScript(
       const backgroundId = command.params[0] ?? 0;
       const event = makeEvent(command, frame, "supported", `Load background ${backgroundId}`, { backgroundId, sourceMoveId: moveId });
       timeline.push(event);
-      pendingUntil = Math.max(pendingUntil, frame + eventDuration(event));
       continue;
     }
 
     if (BACKGROUND_RENDER_COMMANDS.has(command.name)) {
       const event = makeEvent(command, frame, "supported", backgroundEventMessage(command), { sourceMoveId: moveId, backgroundId: command.params[0] });
       timeline.push(event);
-      pendingUntil = Math.max(pendingUntil, frame + eventDuration(event));
+      if (command.name === "ChangeBackgroundColor") pending.paletteEffect = Math.max(pending.paletteEffect, frame + eventDuration(event));
+      else pending.background = Math.max(pending.background, frame + eventDuration(event));
       continue;
     }
 
     if (BACKGROUND_MARKER_COMMANDS.has(command.name)) {
       const event = makeEvent(command, frame, "marker", backgroundEventMessage(command), { sourceMoveId: moveId, backgroundId: command.params[0] });
       timeline.push(event);
-      pendingUntil = Math.max(pendingUntil, frame + eventDuration(event));
+      pending.background = Math.max(pending.background, frame + eventDuration(event));
       continue;
     }
 
     if (CAMERA_COMMANDS.has(command.name)) {
       const event = makeEvent(command, frame, "supported", cameraEventMessage(command), { sourceMoveId: moveId });
       timeline.push(event);
-      pendingUntil = Math.max(pendingUntil, frame + eventDuration(event));
+      pending.camera = Math.max(pending.camera, frame + eventDuration(event));
       continue;
     }
 
@@ -511,7 +569,7 @@ function expandScript(
           const calledLabel = called.headerLabels[0] ?? called.labelOrder[0];
           if (calledLabel) {
             activeCalls.add(callKey);
-            frame = expandScript(project, calledMoveId, calledLabel, called.scripts.get(calledLabel) ?? [], frame, depth + 1, maxDepth, activeCalls, timeline, warnings);
+            frame = expandScript(project, calledMoveId, calledLabel, called.scripts.get(calledLabel) ?? [], frame, depth + 1, maxDepth, activeCalls, timeline, warnings, spaArchives, pending);
             activeCalls.delete(callKey);
           }
         } catch (error) {
@@ -561,6 +619,7 @@ function makeEvent(
 }
 
 function eventDuration(event: MoveAnimationTimelineEvent): number {
+  if (event.taskDuration !== undefined) return Math.max(1, event.taskDuration);
   if (event.command === "Wait") return Math.max(1, event.params[0] ?? 1);
   if (CAMERA_COMMANDS.has(event.command)) return cameraEventDuration(event);
   if (event.effectKind === "spa" || SPA_COMMANDS.has(event.command)) return 45;

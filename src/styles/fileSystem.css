@@ -39,6 +39,31 @@
   margin-top: 5px;
 }
 
+.file-system-sidebar__arm9 {
+  border-bottom: 1px solid #44475a;
+  padding: 14px 18px;
+}
+
+.file-system-sidebar__arm9-title {
+  color: #d6d7e2;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.file-system-sidebar__arm9-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.file-system-sidebar__arm9-actions .btn {
+  min-width: 0;
+  padding-inline: 8px;
+}
+
 .file-system-tree {
   color: #f2f2f2;
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
