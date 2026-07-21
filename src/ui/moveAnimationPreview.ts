@@ -17,17 +17,25 @@ import { nitroCellEffectFrameAt, type NitroCellEffectFrame } from "../pokeweb/ni
 import type { SpaTexture } from "../pokeweb/nitroSpa";
 import { simulateSplPreview, type SplFrameParticle } from "../pokeweb/splEmitterSimulator";
 import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
+import type { ProjectState } from "../pokeweb/projectStore";
 import { createBattleModelThreeObject, type BattleModelThreeObject } from "./battleBackgroundRenderer";
 import { escapeHtml } from "./dom";
+import { createMoveAnimationTimelineAudio } from "./moveAnimationTimelineAudio";
 
 type ThreeModule = typeof import("three");
 
 export type MoveAnimationPreviewController = {
+  setAudioSuppressed: (suppressed: boolean) => void;
   destroy: () => void;
 };
 
 type MoveAnimationPreviewOptions = {
   initialPlaying?: boolean;
+  audio?: {
+    project: ProjectState;
+    initialEnabled?: boolean;
+    onEnabledChange?: (enabled: boolean) => void;
+  };
 };
 
 export async function installMoveAnimationPreview(
@@ -41,7 +49,8 @@ export async function installMoveAnimationPreview(
   const backgroundCanvas = document.createElement("canvas");
   backgroundCanvas.className = "move-animation-preview-bg";
   const initialPlaying = options.initialPlaying ?? true;
-  host.innerHTML = renderPreviewShell(preview, initialPlaying);
+  const initialAudioEnabled = options.audio?.initialEnabled ?? false;
+  host.innerHTML = renderPreviewShell(preview, initialPlaying, Boolean(options.audio), initialAudioEnabled);
   const canvasHost = host.querySelector<HTMLElement>(".move-animation-preview-canvas");
   canvasHost?.append(backgroundCanvas, rendererHost);
 
@@ -71,13 +80,58 @@ export async function installMoveAnimationPreview(
   let raf = 0;
   let lastTime = performance.now();
   let disposed = false;
+  let audioEnableSerial = 0;
+  let audioSuppressed = false;
+  const timelineAudio = options.audio ? createMoveAnimationTimelineAudio(options.audio.project, preview.timeline) : undefined;
 
   const playButton = host.querySelector<HTMLButtonElement>(".move-preview-play");
   const restartButton = host.querySelector<HTMLButtonElement>(".move-preview-restart");
   const frameSlider = host.querySelector<HTMLInputElement>(".move-preview-frame");
   const speedSelect = host.querySelector<HTMLSelectElement>(".move-preview-speed");
   const loopInput = host.querySelector<HTMLInputElement>(".move-preview-loop");
+  const audioInput = host.querySelector<HTMLInputElement>(".move-preview-audio");
+  const audioStatus = host.querySelector<HTMLElement>(".move-preview-audio-status");
   const frameLabel = host.querySelector<HTMLElement>(".move-preview-frame-label");
+
+  const setAudioEnabled = (enabled: boolean, persist: boolean): void => {
+    const serial = ++audioEnableSerial;
+    if (audioInput) audioInput.checked = enabled;
+    if (persist) options.audio?.onEnabledChange?.(enabled);
+    if (!enabled) {
+      if (audioStatus) {
+        audioStatus.textContent = "Off";
+        audioStatus.classList.remove("-error");
+      }
+      timelineAudio?.disable();
+      return;
+    }
+    if (!timelineAudio) return;
+    if (audioStatus) {
+      audioStatus.textContent = "Loading…";
+      audioStatus.classList.remove("-error");
+    }
+    void timelineAudio
+      .enable()
+      .then((result) => {
+        if (disposed || serial !== audioEnableSerial || !audioInput?.checked) return;
+        if (audioStatus) {
+          if (result.cueCount === 0) audioStatus.textContent = "No sounds";
+          else if (result.failedSequenceCount > 0) audioStatus.textContent = `${result.cueCount} cues · ${result.failedSequenceCount} unavailable`;
+          else audioStatus.textContent = `${result.cueCount} cue${result.cueCount === 1 ? "" : "s"} ready`;
+        }
+        if (playing && !audioSuppressed) timelineAudio.startAtFrame(frame, speed);
+      })
+      .catch((error) => {
+        if (disposed || serial !== audioEnableSerial) return;
+        if (audioInput) audioInput.checked = false;
+        options.audio?.onEnabledChange?.(false);
+        timelineAudio.disable();
+        if (audioStatus) {
+          audioStatus.textContent = error instanceof Error ? error.message : String(error);
+          audioStatus.classList.add("-error");
+        }
+      });
+  };
 
   const setFrame = (nextFrame: number) => {
     frame = Math.max(0, Math.min(preview.frameCount, nextFrame));
@@ -89,19 +143,31 @@ export async function installMoveAnimationPreview(
   playButton?.addEventListener("click", () => {
     playing = !playing;
     playButton.textContent = playing ? "Pause" : "Play";
+    if (playing && !audioSuppressed) timelineAudio?.startAtFrame(frame, speed);
+    else timelineAudio?.stop();
   });
-  restartButton?.addEventListener("click", () => setFrame(0));
+  restartButton?.addEventListener("click", () => {
+    setFrame(0);
+    if (playing && !audioSuppressed) timelineAudio?.startAtFrame(0, speed);
+    else timelineAudio?.stop();
+  });
   frameSlider?.addEventListener("input", () => {
     playing = false;
     if (playButton) playButton.textContent = "Play";
+    timelineAudio?.stop();
     setFrame(Number(frameSlider.value));
   });
   speedSelect?.addEventListener("change", () => {
     speed = Number(speedSelect.value) || 1;
+    timelineAudio?.setPlaybackSpeed(speed);
   });
   loopInput?.addEventListener("change", () => {
     loop = loopInput.checked;
   });
+  audioInput?.addEventListener("change", () => {
+    setAudioEnabled(audioInput.checked, true);
+  });
+  if (initialAudioEnabled) setAudioEnabled(true, false);
 
   const resize = () => {
     const rect = rendererHost.getBoundingClientRect();
@@ -121,15 +187,21 @@ export async function installMoveAnimationPreview(
     const elapsed = Math.min(0.1, (now - lastTime) / 1000);
     lastTime = now;
     if (playing) {
+      const previousFrame = frame;
       const nextFrame = frame + elapsed * 30 * speed;
       if (nextFrame >= preview.frameCount) {
-        setFrame(loop ? 0 : preview.frameCount);
-        if (!loop) {
+        if (loop) {
+          setFrame(0);
+          if (!audioSuppressed) timelineAudio?.startAtFrame(0, speed);
+        } else {
+          setFrame(preview.frameCount);
+          if (!audioSuppressed) timelineAudio?.advance(previousFrame, preview.frameCount, speed);
           playing = false;
           if (playButton) playButton.textContent = "Play";
         }
       } else {
         setFrame(nextFrame);
+        if (!audioSuppressed) timelineAudio?.advance(previousFrame, nextFrame, speed);
       }
     }
     const cameraState = simulateBattleCamera(preview.timeline, frame, swappedSides);
@@ -143,10 +215,17 @@ export async function installMoveAnimationPreview(
   raf = window.requestAnimationFrame(tick);
 
   return {
+    setAudioSuppressed: (suppressed) => {
+      audioSuppressed = suppressed;
+      if (suppressed) timelineAudio?.stop();
+      else if (playing && audioInput?.checked) timelineAudio?.startAtFrame(frame, speed);
+    },
     destroy: () => {
       disposed = true;
+      audioEnableSerial += 1;
       window.cancelAnimationFrame(raf);
       observer.disconnect();
+      timelineAudio?.destroy();
       effects.destroy();
       background.destroy();
       stage.destroy();
@@ -171,7 +250,7 @@ export function renderMoveBackgroundPreviewCanvas(canvas: HTMLCanvasElement, bac
   drawTiledBackground(context, makeBackgroundImageData(background), width, height, 0, 0, [0, 0, 0], 0, 1);
 }
 
-function renderPreviewShell(preview: MoveAnimationPreview, initialPlaying: boolean): string {
+function renderPreviewShell(preview: MoveAnimationPreview, initialPlaying: boolean, audioAvailable: boolean, initialAudioEnabled: boolean): string {
   return `
     <div class="move-animation-preview">
       <div class="move-animation-preview-controls">
@@ -188,6 +267,11 @@ function renderPreviewShell(preview: MoveAnimationPreview, initialPlaying: boole
           </select>
         </label>
         <label><input class="move-preview-loop" type="checkbox" checked> Loop</label>
+        ${
+          audioAvailable
+            ? `<label class="move-preview-audio-toggle" title="Play the move script's sound cues in sync with the preview"><input class="move-preview-audio" type="checkbox"${initialAudioEnabled ? " checked" : ""}> Audio <span class="move-preview-audio-status" aria-live="polite">${initialAudioEnabled ? "Loading…" : "Off"}</span></label>`
+            : ""
+        }
       </div>
       <div class="move-animation-preview-grid">
         <div class="move-animation-preview-canvas"></div>
@@ -986,8 +1070,11 @@ function directionalPolygonMatrix(THREE: ThreeModule, particle: SplFrameParticle
 }
 
 function polygonRotationMatrix(THREE: ThreeModule, particle: SplFrameParticle): import("three").Matrix4 {
-  if (particle.polygonRotAxis === 1) return new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 1, 1).normalize(), particle.rotation);
-  return new THREE.Matrix4().makeRotationY(particle.rotation);
+  // libjn_spl's rotTypeY/rotTypeXYZ matrices are consumed with the DS row-vector
+  // convention. Three.js uses column vectors, so the authored matrix is its
+  // transpose, equivalent to reversing the rotation angle.
+  if (particle.polygonRotAxis === 1) return new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 1, 1).normalize(), -particle.rotation);
+  return new THREE.Matrix4().makeRotationY(-particle.rotation);
 }
 
 function vectorFromTuple(THREE: ThreeModule, tuple: [number, number, number]): import("three").Vector3 {

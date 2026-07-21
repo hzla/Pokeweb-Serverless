@@ -136,6 +136,10 @@ function compareRomAdditionPaths(a: { path: string }, b: { path: string }): numb
 
 function prepareArm9ForExport(project: ProjectState, rom: NintendoDSRom): Uint8Array {
   const shouldCompress = project.arm9Compressed ?? isCodeCompressed(rom.arm9);
+  return prepareArm9Download(project, rom, shouldCompress);
+}
+
+export function prepareArm9Download(project: ProjectState, rom: NintendoDSRom, shouldCompress: boolean): Uint8Array {
   const arm9 = project.arm9.slice();
   if (!shouldCompress) {
     setArm9CompressedStaticEnd(arm9, 0);
