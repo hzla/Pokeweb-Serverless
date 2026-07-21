@@ -250,6 +250,184 @@
   margin-top: -10px;
 }
 
+.pokemon-name-toggle {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: inherit;
+  padding: 0;
+}
+
+.pokemon-name-toggle:hover,
+.pokemon-name-toggle:focus-visible,
+.pokemon-name-toggle.-active {
+  color: #bd93f9;
+  outline: none;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.expanded-pokemon-texts {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  display: none;
+  flex: 0 0 calc(100% - 20px);
+  overflow: hidden;
+}
+
+.expanded-pokemon-texts.show-flex {
+  display: block !important;
+}
+
+#personals .pokemon-text-editor {
+  background: rgba(25, 28, 42, 0.78);
+  border-bottom: 1px solid #44475a;
+  display: grid;
+  gap: 14px 20px;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(320px, 1fr);
+  padding: 18px;
+  width: 100%;
+}
+
+#personals .pokemon-text-control {
+  display: grid;
+  gap: 7px;
+}
+
+#personals .pokemon-text-control span,
+#personals .pokemon-text-editor-copy strong {
+  color: #f2f2f2;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#personals .pokemon-text-name-input {
+  background: #f2f2f2;
+  border: 1px solid #44475a;
+  border-radius: 4px;
+  color: #282a36;
+  font: 15px/1.35 Rubik, sans-serif;
+  letter-spacing: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+#personals .pokemon-text-name-input.invalid {
+  border-color: #ff5555;
+}
+
+#personals .pokemon-text-editor-copy {
+  align-content: center;
+  display: grid;
+  gap: 5px;
+}
+
+#personals .pokemon-text-editor-copy span,
+#personals .pokemon-text-form-note,
+#personals .pokemon-text-status {
+  color: #aeb7ca;
+  font-size: 12px;
+}
+
+#personals .pokemon-text-status {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+#personals .pokemon-text-status.-error {
+  color: #ff7b7b;
+}
+
+#personals .pokemon-text-bank-list,
+#personals .pokemon-text-bank-section {
+  width: 100%;
+}
+
+#personals .pokemon-text-bank-section + .pokemon-text-bank-section {
+  margin-top: 18px;
+}
+
+#personals .pokemon-text-bank-header {
+  align-items: center;
+  background: #6272a4;
+  color: #1abc9c;
+  display: flex;
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 0 28px;
+}
+
+#personals .pokemon-text-bank-header span {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+#personals .pokemon-text-bank-header small {
+  color: #d7d7e2;
+  font-size: 12px;
+}
+
+#personals .pokemon-text-bank-section.-read-only .pokemon-text-bank-header span,
+#personals .pokemon-text-bank-section.-read-only .pokemon-text-value {
+  color: #aeb7ca;
+}
+
+#personals .pokemon-text-line {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  min-height: 46px;
+}
+
+#personals .pokemon-text-line:nth-child(odd) {
+  background: rgba(56, 58, 89, 0.78);
+}
+
+#personals .pokemon-text-msg {
+  align-items: center;
+  color: #f2f2f2;
+  display: flex;
+  font-weight: 700;
+  padding: 10px 28px;
+  white-space: nowrap;
+}
+
+#personals .pokemon-text-value {
+  color: #1abc9c;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  padding: 10px 18px;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+#personals .pokemon-text-empty {
+  color: #aeb7ca;
+  padding: 18px 28px;
+  width: 100%;
+}
+
+@media (max-width: 920px) {
+  #personals .pokemon-text-editor {
+    grid-template-columns: 1fr;
+  }
+
+  #personals .pokemon-text-line {
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+
+  #personals .pokemon-text-msg,
+  #personals .pokemon-text-value {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+
 .pokemon-types {
   align-items: center;
   display: flex;

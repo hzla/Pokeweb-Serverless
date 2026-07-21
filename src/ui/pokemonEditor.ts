@@ -25,6 +25,13 @@ import {
   type DeletePokemonFormResult,
 } from "../pokeweb/pokemonFormModel";
 import { findPokemonPersonalFormOwner, pokemonPersonalDisplayIds, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
+import {
+  getPokemonTextInfo,
+  hasPokemonTextBanks,
+  type PokemonTextInfo,
+  type PokemonTextLine,
+  type PokemonTextSection,
+} from "../pokeweb/pokemonTextModel";
 import { getPokemonCardFrontSpriteImage } from "../pokeweb/pokemonCardSpriteModel";
 import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
@@ -100,6 +107,7 @@ export function renderPokemonEditor(
     onOpenSprites,
     onOpenPwan,
     renderExpanded: (speciesId) => renderPokemonExpandedSections(project, speciesId),
+    renderTextPanel: (speciesId) => renderPokemonTextPanel(getPokemonTextInfo(project, speciesId)),
     autofills: getPokemonAutofills(project),
     onEnsureFormAssets,
     onFormAdded: (result: AddPokemonFormResult) => {
@@ -144,7 +152,7 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
             ${renderPokemonCardSprite(project, record.id, name)}
           </div>
         </div>
-        <div class="pokemon-card__name">#${record.id} ${escapeHtml(titleize(name))}</div>
+        ${renderPokemonName(project, record.id, name)}
         <div class="pokemon-types">
           ${editable("personal", "type_1", type1, `pokemon-type -${typeClass(type1)}`, { autofill: "types" })}
           ${editable("personal", "type_2", type2, `pokemon-type -${typeClass(type2)}`, { autofill: "types" })}
@@ -171,6 +179,76 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
         ${spriteIcon()}
         ${showPwanIcon ? pwanIcon() : ""}
       </div>
+    </div>
+  `;
+}
+
+function renderPokemonName(project: ProjectState, speciesId: number, name: string): string {
+  const label = `#${speciesId} ${name}`;
+  if (!hasPokemonTextBanks(project)) return `<div class="pokemon-card__name">${escapeHtml(label)}</div>`;
+  return `<button class="pokemon-card__name pokemon-name-toggle" type="button" aria-expanded="false" title="Edit Pokemon name and text references">${escapeHtml(label)}</button>`;
+}
+
+function renderPokemonTextPanel(info: PokemonTextInfo | undefined): string {
+  if (!info) {
+    return `
+      <div class="expanded-card-content expanded-pokemon-texts">
+        <div class="pokemon-text-empty">Pokemon text banks are unavailable for this ROM.</div>
+      </div>
+    `;
+  }
+  const formNote =
+    info.requestedPersonalId === info.speciesId
+      ? ""
+      : `<div class="pokemon-text-form-note">This form uses the base species name from Pokemon #${info.speciesId}.</div>`;
+  const editableBankCount = info.sections.filter((section) => section.editable).length;
+  return `
+    <div class="expanded-card-content expanded-pokemon-texts" data-pokemon-text-panel="${info.speciesId}">
+      <div class="pokemon-text-editor">
+        <label class="pokemon-text-control">
+          <span>Pokemon Name</span>
+          <input class="pokemon-text-name-input" type="text" value="${escapeHtml(info.title)}" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="pokemon-text-editor-copy">
+          <strong>${info.sections.length} species name bank${info.sections.length === 1 ? "" : "s"}</strong>
+          <span>Saving updates ${editableBankCount} English bank${editableBankCount === 1 ? "" : "s"}. Non-English entries are display-only.</span>
+          ${formNote}
+        </div>
+        <div class="pokemon-text-status" aria-live="polite"></div>
+      </div>
+      <div class="pokemon-text-bank-list">
+        ${info.sections.map(renderPokemonTextSection).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderPokemonTextSection(section: PokemonTextSection): string {
+  const kind =
+    section.role === "name"
+      ? "primary species name"
+      : section.role === "uppercase"
+        ? "uppercase species name"
+        : section.role === "grammar"
+          ? "grammar species name"
+          : "species name";
+  const detail = `${section.language} ${kind}${section.editable ? "" : " · Display only"}`;
+  return `
+    <section class="pokemon-text-bank-section${section.editable ? "" : " -read-only"}" data-bank-id="${section.bankId}" data-role="${section.role}" data-editable="${section.editable}">
+      <div class="pokemon-text-bank-header">
+        <span>${escapeHtml(section.title)}</span>
+        <small>${escapeHtml(detail)}</small>
+      </div>
+      ${section.lines.map(renderPokemonTextLine).join("")}
+    </section>
+  `;
+}
+
+function renderPokemonTextLine(line: PokemonTextLine): string {
+  return `
+    <div class="pokemon-text-line" data-entry-index="${line.flatIndex}">
+      <div class="pokemon-text-msg">MSG ${escapeHtml(line.entryLabel)}</div>
+      <div class="pokemon-text-value">${escapeHtml(line.text)}</div>
     </div>
   `;
 }
