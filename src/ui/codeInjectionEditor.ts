@@ -8,6 +8,7 @@ import {
   type CodeInjectionDllTarget,
 } from "../pokeweb/pmcModel";
 import { getPwanRuntimeStatus, installPwanRuntime } from "../pokeweb/pwanAnimationModel";
+import { getBattleLogInstallStatus, installBattleLog } from "../pokeweb/battleLogModel";
 import {
   detectPwanRuntimeCompatibility,
   pwanCompatibilityFailureSummary,
@@ -30,6 +31,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const pwanLegacyInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.legacyInstalled;
   const pwanCompatibility = detectPwanRuntimeCompatibility(project);
   const pwanCanInstall = pwanRuntimeStatus.supported && pwanCompatibility.compatible;
+  const battleLogStatus = getBattleLogInstallStatus(project);
+  const battleLogCanInstall = battleLogStatus.supported && battleLogStatus.compatible;
   if (shouldHydrateRomBytesForPwanCompatibility(project, pwanCompatibility)) {
     void hydrateRomBytesForPwanCompatibility(project, root, onDirty);
   }
@@ -57,6 +60,32 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
             <div class="code-injection-note" id="pmc-install-note">Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.</div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Trainer Battle Log</h2>
+              <p>Records the player's team and KO attribution for trainer battles, then shows species-family Frags on the summary screen.</p>
+            </div>
+            <span class="code-injection-status ${battleLogStatus.installed ? "-installed" : battleLogCanInstall ? "" : "-error"}">
+              ${battleLogStatus.installed ? "Installed" : battleLogCanInstall ? "Ready" : battleLogStatus.supported ? "Incompatible" : "Unsupported"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US White 2</strong></div>
+            <div><span>Capacity</span><strong>600 battles</strong></div>
+            <div><span>Save Blocks</span><strong>29–31</strong></div>
+            <div><span>Save Ownership</span><strong>${battleLogStatus.saveGuardInstalled ? "Active" : "Pending"}</strong></div>
+            <div><span>Hook Checks</span><strong>${battleLogStatus.checked ? `${battleLogStatus.passed}/${battleLogStatus.checks.length}` : "On install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-battle-log-btn" type="button" ${battleLogCanInstall ? "" : "disabled"}>
+              ${battleLogStatus.installed ? "Reinstall Battle Log" : "Install Battle Log"}
+            </button>
+            <div class="code-injection-note" id="battle-log-note">
+              ${escapeHtml(battleLogStatus.message)} ${battleLogStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."} Installing retires and overwrites Pal Pad/Wi-Fi data in save blocks 29–31.
+            </div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -224,6 +253,30 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       doubleBattleButton.disabled = false;
       doubleBattleButton.textContent = previousText;
       if (doubleBattleNote) doubleBattleNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const battleLogButton = root.querySelector<HTMLButtonElement>("#install-battle-log-btn");
+  const battleLogNote = root.querySelector<HTMLDivElement>("#battle-log-note");
+  battleLogButton?.addEventListener("click", async () => {
+    const previousText = battleLogButton.textContent ?? "Install Battle Log";
+    try {
+      battleLogButton.disabled = true;
+      battleLogButton.textContent = "Installing...";
+      if (battleLogNote) {
+        battleLogNote.textContent = "Checking White 2 hooks, retiring Pal Pad save handling, generating species ancestry, patching summary text, and staging the DLL.";
+      }
+      const result = await installBattleLog(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#battle-log-note");
+      if (refreshedNote) {
+        refreshedNote.textContent = `Battle log staged at ${result.dllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.`;
+      }
+    } catch (error) {
+      battleLogButton.disabled = false;
+      battleLogButton.textContent = previousText;
+      if (battleLogNote) battleLogNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 
