@@ -5,7 +5,7 @@ import { Folder, saveFnt } from "../nds/fnt";
 import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom, materializeProjectEdits, prepareArm9Download } from "../pokeweb/exportRom";
-import { addRomFile } from "../pokeweb/fileSystemModel";
+import { addRomFile, importArm9Bytes } from "../pokeweb/fileSystemModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { parseHeaders, updateHeaderField } from "../pokeweb/headerModel";
 import { compactRomBytes } from "../pokeweb/persistence";
@@ -264,6 +264,52 @@ describe("ROM export", () => {
     const exportedRom = new NintendoDSRom(exported);
 
     expect(isCodeCompressed(exportedRom.arm9)).toBe(false);
+    expect(readU32(exportedRom.arm9, 0xfb0 + 0x14)).toBe(0);
+  });
+
+  it("imports a compressed ARM9 into the decompressed working model and exports a valid compressed ROM section", async () => {
+    const sourceRomBytes = new NintendoDSRom(makeRom([])).save({ arm9: makeArm9WithModuleParams() });
+    const sourceRom = new NintendoDSRom(sourceRomBytes);
+    const project = makeProject(sourceRomBytes);
+    const editedArm9 = makeArm9WithModuleParams();
+    editedArm9[0x5000] = 0xa7;
+    const importedBytes = compressCode(editedArm9, { isArm9: true });
+    writeU32(importedBytes, 0xfb0 + 0x14, sourceRom.arm9RamAddress + importedBytes.length);
+
+    const result = importArm9Bytes(project, sourceRom, importedBytes);
+
+    expect(result).toMatchObject({ compressed: true, importedSize: importedBytes.length, decompressedSize: editedArm9.length });
+    expect(project.arm9[0x5000]).toBe(0xa7);
+    expect(project.arm9Compressed).toBe(true);
+    expect(project.arm9Dirty).toBe(true);
+
+    const exportedRom = new NintendoDSRom(await exportModifiedRom(project));
+    expect(isCodeCompressed(exportedRom.arm9)).toBe(true);
+    expect(decompressCode(exportedRom.arm9)[0x5000]).toBe(0xa7);
+    expect(readU32(exportedRom.arm9, 0xfb0 + 0x14)).toBe(exportedRom.arm9RamAddress + exportedRom.arm9.length);
+  });
+
+  it("imports a decompressed ARM9, repairs stale compression metadata, and exports it decompressed", async () => {
+    const sourceArm9 = makeArm9WithModuleParams();
+    const compressedSource = compressCode(sourceArm9, { isArm9: true });
+    const sourceRomBytes = new NintendoDSRom(makeRom([])).save({ arm9: compressedSource });
+    const sourceRom = new NintendoDSRom(sourceRomBytes);
+    const project = makeProject(sourceRomBytes);
+    const importedBytes = makeArm9WithModuleParams();
+    importedBytes[0x5000] = 0xb8;
+    expect(readU32(importedBytes, 0xfb0 + 0x14)).not.toBe(0);
+
+    const result = importArm9Bytes(project, sourceRom, importedBytes);
+
+    expect(result).toMatchObject({ compressed: false, repairedCompressionMetadata: true });
+    expect(project.arm9[0x5000]).toBe(0xb8);
+    expect(readU32(project.arm9, 0xfb0 + 0x14)).toBe(0);
+    expect(project.arm9Compressed).toBe(false);
+    expect(project.arm9Dirty).toBe(true);
+
+    const exportedRom = new NintendoDSRom(await exportModifiedRom(project));
+    expect(isCodeCompressed(exportedRom.arm9)).toBe(false);
+    expect(exportedRom.arm9[0x5000]).toBe(0xb8);
     expect(readU32(exportedRom.arm9, 0xfb0 + 0x14)).toBe(0);
   });
 });

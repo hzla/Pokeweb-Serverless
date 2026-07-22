@@ -1,9 +1,12 @@
 import { readAscii } from "../nds/binary";
+import { repairDecompressedArm9CompressionMetadata } from "../nds/arm9ModuleParams";
+import { decompressCode, isCodeCompressed } from "../nds/codeCompression";
 import { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
-import type { NarcName } from "./constants";
+import { isGen4Project, type NarcName } from "./constants";
+import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
 import type { NarcStore, ProjectState } from "./projectStore";
 
 export type FileSystemTreeNode = {
@@ -26,6 +29,13 @@ export type FileSystemSnapshot = {
   rom: NintendoDSRom;
   roots: FileSystemTreeNode[];
   pathRefs: Map<string, FileSystemNodeRef>;
+};
+
+export type Arm9ImportResult = {
+  compressed: boolean;
+  importedSize: number;
+  decompressedSize: number;
+  repairedCompressionMetadata: boolean;
 };
 
 type NamedFile = {
@@ -69,6 +79,49 @@ export function setRomFileReplacement(project: ProjectState, fileId: number, byt
 
 export function clearRomFileReplacement(project: ProjectState, fileId: number): void {
   if (project.fileSystem?.replacements) delete project.fileSystem.replacements[fileId];
+}
+
+export function importArm9Bytes(project: ProjectState, rom: NintendoDSRom, bytes: Uint8Array): Arm9ImportResult {
+  if (bytes.length === 0) throw new Error("The imported ARM9 file is empty.");
+  const compressed = isCodeCompressed(bytes);
+  let arm9: Uint8Array;
+  try {
+    arm9 = (compressed ? decompressCode(bytes) : bytes).slice();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`The compressed ARM9 could not be decompressed: ${message}`);
+  }
+
+  const mainMemoryEnd = 0x02400000;
+  if (rom.arm9RamAddress >= 0x02000000 && rom.arm9RamAddress + arm9.length > mainMemoryEnd) {
+    throw new Error(`The decompressed ARM9 is too large to fit in Nintendo DS main memory (${arm9.length} bytes).`);
+  }
+
+  const repairedCompressionMetadata = !compressed && repairDecompressedArm9CompressionMetadata(arm9);
+  project.arm9 = arm9;
+  project.arm9Compressed = compressed;
+  project.arm9Dirty = true;
+
+  // These editor models are decoded from ARM9. Do not allow stale cached edits
+  // to overwrite the newly imported binary during the next ROM export.
+  project.tms = undefined;
+  if (isGen4Project(project)) project.headers = undefined;
+  const expandedRigAtlas = rom.idCode === "IRDO" && detectWhite2ExpandedRigAtlasPatchState(arm9, rom.arm9RamAddress) === "patched";
+  project.rigAtlas = { width: 256, height: expandedRigAtlas ? 256 : 128, expanded: expandedRigAtlas };
+
+  recordGenericChange(
+    project,
+    "file_system",
+    `Imported ${compressed ? "compressed" : "decompressed"} ARM9 (${bytes.length} bytes; ${arm9.length} bytes decompressed).`,
+    "ARM9",
+    { key: "arm9-import" },
+  );
+  return {
+    compressed,
+    importedSize: bytes.length,
+    decompressedSize: arm9.length,
+    repairedCompressionMetadata,
+  };
 }
 
 export function buildFileSystemSnapshot(project: ProjectState, romBytes: Uint8Array): FileSystemSnapshot {
