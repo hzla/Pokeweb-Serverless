@@ -9,6 +9,7 @@ import {
   downloadBytes,
   filenameForRef,
   getNodeBytes,
+  importArm9Bytes,
   insertNarcFiles,
   replaceNarcFile,
   replaceRomFile,
@@ -77,11 +78,14 @@ export async function renderFileSystemEditor(project: ProjectState, root: HTMLEl
           <p>${escapeHtml(project.romInfo.fileName)} · ${snapshot.rom.files.length} files</p>
         </div>
         <div class="file-system-sidebar__arm9">
-          <div class="file-system-sidebar__arm9-title">Download ARM9</div>
+          <div class="file-system-sidebar__arm9-title">ARM9 Import / Export</div>
+          <div class="file-system-sidebar__arm9-status" id="fs-arm9-status">${formatBytes(project.arm9.length)} decompressed working copy · ROM export will be ${project.arm9Compressed ? "compressed" : "decompressed"}</div>
           <div class="file-system-sidebar__arm9-actions">
             <button class="btn -default" id="fs-export-arm9-compressed" type="button">Compressed</button>
             <button class="btn -default" id="fs-export-arm9-decompressed" type="button">Decompressed</button>
+            <button class="btn -default file-system-sidebar__arm9-import" id="fs-import-arm9" type="button">Import Edited ARM9</button>
           </div>
+          <input id="fs-import-arm9-input" type="file" accept=".bin,.arm9,application/octet-stream" hidden />
         </div>
         <div id="file-system-tree" class="file-system-tree"></div>
         <textarea id="file-system-tree-input" hidden></textarea>
@@ -101,6 +105,35 @@ export async function renderFileSystemEditor(project: ProjectState, root: HTMLEl
   });
   root.querySelector<HTMLButtonElement>("#fs-export-arm9-decompressed")?.addEventListener("click", () => {
     downloadBytes(prepareArm9Download(project, snapshot.rom, false), "arm9-decompressed.bin");
+  });
+  const arm9ImportInput = root.querySelector<HTMLInputElement>("#fs-import-arm9-input");
+  const arm9Status = root.querySelector<HTMLElement>("#fs-arm9-status");
+  root.querySelector<HTMLButtonElement>("#fs-import-arm9")?.addEventListener("click", () => arm9ImportInput?.click());
+  arm9ImportInput?.addEventListener("change", async () => {
+    const file = arm9ImportInput.files?.[0];
+    if (!file) return;
+    try {
+      if (!window.confirm("Replace the current ARM9 working copy and all unsaved ARM9 edits with this file?")) return;
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const result = importArm9Bytes(project, snapshot.rom, bytes);
+      options.onDirty();
+      if (arm9Status) {
+        arm9Status.classList.remove("-error");
+        arm9Status.textContent = `Imported ${result.compressed ? "compressed" : "decompressed"} ARM9 · ${formatBytes(result.decompressedSize)} working copy`;
+      }
+      window.alert(
+        `Imported ${result.compressed ? "compressed" : "decompressed"} ARM9. The ROM will export it ${result.compressed ? "compressed" : "decompressed"}.`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (arm9Status) {
+        arm9Status.classList.add("-error");
+        arm9Status.textContent = message;
+      }
+      window.alert(`Unable to import ARM9: ${message}`);
+    } finally {
+      arm9ImportInput.value = "";
+    }
   });
 
   let tree: TreeForgeInstance;

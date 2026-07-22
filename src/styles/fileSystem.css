@@ -53,6 +53,17 @@
   text-transform: uppercase;
 }
 
+.file-system-sidebar__arm9-status {
+  color: #bfc1ce;
+  font-size: 11px;
+  line-height: 1.4;
+  margin-bottom: 9px;
+}
+
+.file-system-sidebar__arm9-status.-error {
+  color: #ffb3b3;
+}
+
 .file-system-sidebar__arm9-actions {
   display: grid;
   gap: 8px;
@@ -62,6 +73,10 @@
 .file-system-sidebar__arm9-actions .btn {
   min-width: 0;
   padding-inline: 8px;
+}
+
+.file-system-sidebar__arm9-import {
+  grid-column: 1 / -1;
 }
 
 .file-system-tree {
