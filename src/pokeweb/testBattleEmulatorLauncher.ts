@@ -2,6 +2,8 @@ export type TestBattleEmulatorPayload = {
   romName: string;
   saveName: string;
   trainerId: number;
+  opponentTrainerId?: number;
+  pokemonNames?: string[];
   testLabel?: string;
   romBytes: Uint8Array;
   saveBytes: Uint8Array;
@@ -13,7 +15,7 @@ type ReadyMessage = {
 };
 
 const READY_TIMEOUT_MS = 15000;
-const TEST_BATTLE_EMULATOR_VERSION = "test-battle-desmond-2026-06-27-savestate";
+const TEST_BATTLE_EMULATOR_VERSION = "test-battle-desmond-2026-07-22-opponent-names-screen-fit";
 
 export function openTestBattleEmulator(): { launch: (payload: TestBattleEmulatorPayload) => Promise<void>; close: () => void } {
   const sessionId = createSessionId();
@@ -37,6 +39,8 @@ export function openTestBattleEmulator(): { launch: (payload: TestBattleEmulator
           romName: payload.romName,
           saveName: payload.saveName,
           trainerId: payload.trainerId,
+          opponentTrainerId: payload.opponentTrainerId,
+          pokemonNames: payload.pokemonNames,
           testLabel: payload.testLabel,
           romBuffer,
           saveBuffer,

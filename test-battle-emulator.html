@@ -11,6 +11,11 @@
       <span id="pokeweb-status-text">Waiting for battle data...</span>
     </div>
     <div id="pokeweb-controls" aria-label="Emulator controls">
+      <div class="pokeweb-slider-control -screen">
+        <label for="pokeweb-screen-size">Screen</label>
+        <input id="pokeweb-screen-size" type="range" min="50" max="100" step="5" value="100" />
+        <output id="pokeweb-screen-size-value" for="pokeweb-screen-size">Fit</output>
+      </div>
       <div class="pokeweb-slider-control -speed">
         <label for="pokeweb-speed">Speed</label>
         <input id="pokeweb-speed" type="range" min="0.05" max="8" step="0.05" value="4" />
@@ -28,6 +33,15 @@
         <button id="pokeweb-load-last-state" type="button" hidden disabled>Load Last State</button>
       </div>
     </div>
+    <aside id="pokeweb-opponent-stats" aria-label="Enemy trainer team statistics">
+      <header>
+        <strong>Enemy Trainer Team</strong>
+        <span>Trainer ID <output id="pokeweb-opponent-trainer-id">—</output></span>
+      </header>
+      <div id="pokeweb-opponent-party" aria-live="polite">
+        <p class="pokeweb-opponent-empty">Waiting for a trainer battle...</p>
+      </div>
+    </aside>
     <pre id="pokeweb-debug-log" aria-label="Test Battle debug log"></pre>
     <desmond-player id="desmond-player" aria-label="Nintendo DS emulator"></desmond-player>
 
