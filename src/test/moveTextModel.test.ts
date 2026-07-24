@@ -49,6 +49,51 @@ describe("moveTextModel", () => {
     expect(project.narcs.message_texts?.dirty.has(286)).toBe(true);
     expect(project.texts.banks.moves?.[4]).toBe("Mega Punch");
   });
+
+  it("renames only the entries referenced by the selected move", () => {
+    const project = makeProject("BW2", "W2");
+    const rawFiles = project.narcs.message_texts!.rawFiles;
+    const messageTexts = project.texts.messageTexts!;
+
+    setBank(rawFiles, messageTexts, 16, makeBank(24, {
+      12: "VAR(258, 0) used\\nMist!",
+      15: "VAR(258, 0) used\\nMist Ball!",
+      18: "VAR(258, 0) used\\none!",
+      21: "VAR(258, 0) used\\nBonemerang!",
+    }));
+    setBank(rawFiles, messageTexts, 403, makeBank(8, {
+      4: "Mist",
+      5: "Mist Ball",
+      6: "one",
+      7: "Bonemerang",
+    }));
+    setBank(rawFiles, messageTexts, 488, makeBank(8, {
+      4: "MIST",
+      5: "MIST BALL",
+      6: "ONE",
+      7: "BONEMERANG",
+    }));
+
+    updateMoveTextName(project, 4, "example");
+    updateMoveTextName(project, 6, "four");
+
+    expect(getTextBank(project, "message_texts", 16)[12][1]).toBe("VAR(258, 0) used\\nExample!");
+    expect(getTextBank(project, "message_texts", 16)[15][1]).toBe("VAR(258, 0) used\\nMist Ball!");
+    expect(getTextBank(project, "message_texts", 16)[18][1]).toBe("VAR(258, 0) used\\nFour!");
+    expect(getTextBank(project, "message_texts", 16)[21][1]).toBe("VAR(258, 0) used\\nBonemerang!");
+    expect(getTextBank(project, "message_texts", 403).slice(4, 8).map((entry) => entry[1])).toEqual([
+      "Example",
+      "Mist Ball",
+      "Four",
+      "Bonemerang",
+    ]);
+    expect(getTextBank(project, "message_texts", 488).slice(4, 8).map((entry) => entry[1])).toEqual([
+      "EXAMPLE",
+      "MIST BALL",
+      "FOUR",
+      "BONEMERANG",
+    ]);
+  });
 });
 
 function makeProject(baseRom: "BW" | "BW2", baseVersion: BaseVersion): ProjectState {

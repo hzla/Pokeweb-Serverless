@@ -32,6 +32,7 @@ export type MoveTextInfo = {
 
 type MoveTextBankConfig = {
   battleBankId: number;
+  battleEntriesPerMove: number;
   descriptionBankId: number;
   nameBankId: number;
   uppercaseBankId: number;
@@ -40,12 +41,14 @@ type MoveTextBankConfig = {
 const MOVE_TEXT_BANKS: Record<BaseRom, MoveTextBankConfig | undefined> = {
   BW: {
     battleBankId: 13,
+    battleEntriesPerMove: 3,
     descriptionBankId: 202,
     nameBankId: 203,
     uppercaseBankId: 286,
   },
   BW2: {
     battleBankId: 16,
+    battleEntriesPerMove: 3,
     descriptionBankId: 402,
     nameBankId: 403,
     uppercaseBankId: 488,
@@ -67,7 +70,7 @@ export function getMoveTextInfo(project: ProjectState, moveId: number): MoveText
   const uppercaseEntry = getBankEntryLine(project, config.uppercaseBankId, "uppercase", moveId);
   const descriptionEntry = getBankEntryLine(project, config.descriptionBankId, "description", moveId);
   const title = (titleEntry?.text || uppercaseEntry?.text || `Move ${moveId}`).trim();
-  const battleEntries = getBankLinesContaining(project, config.battleBankId, "battle", title);
+  const battleEntries = getBattleBankLines(project, config, moveId);
 
   return {
     moveId,
@@ -115,12 +118,9 @@ export function updateMoveTextName(project: ProjectState, moveId: number, inputV
   const previousUppercase = previousTitle.toUpperCase();
   const nextUppercase = title.toUpperCase();
 
-  replaceInTextBank(project, config.battleBankId, "battle", previousTitle, title);
-  const changedNameEntries = replaceInTextBank(project, config.nameBankId, "name", previousTitle, title);
-  const changedUppercaseEntries = replaceInTextBank(project, config.uppercaseBankId, "uppercase", previousUppercase, nextUppercase);
-
-  updateIndexedTextEntryIfNeeded(project, config.nameBankId, "name", moveId, title, changedNameEntries);
-  updateIndexedTextEntryIfNeeded(project, config.uppercaseBankId, "uppercase", moveId, nextUppercase, changedUppercaseEntries);
+  replaceInBattleEntriesForMove(project, config, moveId, previousTitle, title);
+  updateIndexedTextEntryIfNeeded(project, config.nameBankId, "name", moveId, title);
+  updateIndexedTextEntryIfNeeded(project, config.uppercaseBankId, "uppercase", moveId, nextUppercase);
 
   const info = getMoveTextInfo(project, moveId);
   if (!info) throw new Error("Move text banks are not available");
@@ -166,35 +166,31 @@ function getBankEntryLine(project: ProjectState, bankId: number, role: MoveTextB
   return lineFromEntry(bankId, role, flatIndex, bank[flatIndex]);
 }
 
-function getBankLinesContaining(project: ProjectState, bankId: number, role: MoveTextBankRole, searchText: string): MoveTextLine[] {
-  const bank = readMessageBank(project, bankId);
-  if (!bank || !searchText) return [];
-  const exact = bank
-    .map((entry, flatIndex) => ({ entry, flatIndex }))
-    .filter(({ entry }) => entry[1].includes(searchText));
-  const matches =
-    exact.length > 0
-      ? exact
-      : bank
-          .map((entry, flatIndex) => ({ entry, flatIndex }))
-          .filter(({ entry }) => entry[1].toLowerCase().includes(searchText.toLowerCase()));
-  return matches.map(({ entry, flatIndex }) => lineFromEntry(bankId, role, flatIndex, entry));
+function getBattleBankLines(project: ProjectState, config: MoveTextBankConfig, moveId: number): MoveTextLine[] {
+  // Gen 5 stores three battle-message variants consecutively for each move.
+  const firstEntryIndex = moveId * config.battleEntriesPerMove;
+  const lines: MoveTextLine[] = [];
+  for (let offset = 0; offset < config.battleEntriesPerMove; offset += 1) {
+    const line = getBankEntryLine(project, config.battleBankId, "battle", firstEntryIndex + offset);
+    if (line) lines.push(line);
+  }
+  return lines;
 }
 
-function replaceInTextBank(project: ProjectState, bankId: number, role: MoveTextBankRole, searchText: string, replacement: string): Set<number> {
-  const changed = new Set<number>();
-  if (!searchText || searchText === replacement) return changed;
-  const bank = readMessageBank(project, bankId);
-  if (!bank) return changed;
-  for (let flatIndex = 0; flatIndex < bank.length; flatIndex += 1) {
-    const before = bank[flatIndex][1];
+function replaceInBattleEntriesForMove(
+  project: ProjectState,
+  config: MoveTextBankConfig,
+  moveId: number,
+  searchText: string,
+  replacement: string,
+): void {
+  if (!searchText || searchText === replacement) return;
+  for (const line of getBattleBankLines(project, config, moveId)) {
+    const before = line.text;
     const after = before.split(searchText).join(replacement);
     if (after === before) continue;
-    updateTextEntry(project, "message_texts", bankId, flatIndex, after);
-    changed.add(flatIndex);
+    updateTextEntry(project, "message_texts", config.battleBankId, line.flatIndex, after);
   }
-  if (role === "battle") return changed;
-  return changed;
 }
 
 function updateIndexedTextEntryIfNeeded(
@@ -203,10 +199,9 @@ function updateIndexedTextEntryIfNeeded(
   role: MoveTextBankRole,
   entryIndex: number,
   value: string,
-  alreadyChanged: Set<number>,
 ): void {
   const entry = getBankEntryLine(project, bankId, role, entryIndex);
-  if (!entry || alreadyChanged.has(entry.flatIndex) || entry.text === value) return;
+  if (!entry || entry.text === value) return;
   updateTextEntry(project, "message_texts", bankId, entry.flatIndex, value);
 }
 

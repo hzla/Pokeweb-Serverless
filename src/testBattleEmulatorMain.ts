@@ -1,5 +1,10 @@
 import "./styles/testBattleEmulator.css";
-import { concatBytes, readU32 } from "./nds/binary";
+import { concatBytes, readAscii, readU32 } from "./nds/binary";
+import {
+  isSupportedGen5BattleGameCode,
+  readTestBattleOpponentSnapshot,
+  type TestBattleOpponentSnapshot,
+} from "./pokeweb/testBattleOpponentStats";
 
 type TestBattleLoadMessage = {
   type: "pokeweb-test-battle-load";
@@ -7,6 +12,8 @@ type TestBattleLoadMessage = {
   romName: string;
   saveName: string;
   trainerId: number;
+  opponentTrainerId?: number;
+  pokemonNames?: string[];
   testLabel?: string;
   romBuffer: ArrayBuffer;
   saveBuffer: ArrayBuffer;
@@ -73,16 +80,22 @@ const MAX_TEST_BATTLE_SPEED_MULTIPLIER = 8;
 const DEFAULT_TEST_BATTLE_AUDIO_VOLUME = 0;
 const MIN_TEST_BATTLE_AUDIO_VOLUME = 0;
 const MAX_TEST_BATTLE_AUDIO_VOLUME = 1;
+const DEFAULT_TEST_BATTLE_SCREEN_SCALE = 1;
+const MIN_TEST_BATTLE_SCREEN_SCALE = 0.5;
+const MAX_TEST_BATTLE_SCREEN_SCALE = 1;
 const FIRST_FRAME_TIMEOUT_MS = 5000;
 const DESMUME_STATE_MAGIC = new Uint8Array([68, 101, 83, 109, 117, 77, 69, 32, 83, 83, 116, 97, 116, 101, 0, 0]);
 const DESMUME_STATE_HEADER_SIZE = 32;
 const MAX_DESMUME_STATE_BYTES = 128 * 1024 * 1024;
 const MAIN_MEMORY_DUMP_BYTES = 4 * 1024 * 1024;
 const IN_BROWSER_STATE_PAGE_BYTES = 64 * 1024;
+const OPPONENT_STATS_POLL_INTERVAL_MS = 150;
 const statusText = document.querySelector<HTMLSpanElement>("#pokeweb-status-text");
 const status = document.querySelector<HTMLDivElement>("#pokeweb-status");
 const speedSlider = document.querySelector<HTMLInputElement>("#pokeweb-speed");
 const speedValue = document.querySelector<HTMLOutputElement>("#pokeweb-speed-value");
+const screenSizeSlider = document.querySelector<HTMLInputElement>("#pokeweb-screen-size");
+const screenSizeValue = document.querySelector<HTMLOutputElement>("#pokeweb-screen-size-value");
 const audioSlider = document.querySelector<HTMLInputElement>("#pokeweb-audio");
 const audioValue = document.querySelector<HTMLOutputElement>("#pokeweb-audio-value");
 const pauseButton = document.querySelector<HTMLButtonElement>("#pokeweb-pause");
@@ -90,6 +103,8 @@ const stepButton = document.querySelector<HTMLButtonElement>("#pokeweb-step");
 const savestateButton = document.querySelector<HTMLButtonElement>("#pokeweb-savestate");
 const loadLastStateButton = document.querySelector<HTMLButtonElement>("#pokeweb-load-last-state");
 const controls = document.querySelector<HTMLDivElement>("#pokeweb-controls");
+const opponentTrainerId = document.querySelector<HTMLSpanElement>("#pokeweb-opponent-trainer-id");
+const opponentParty = document.querySelector<HTMLDivElement>("#pokeweb-opponent-party");
 const sessionId = readSessionId();
 const desmondWindow = window as DesmondWindow;
 const debugLog = installDebugLog();
@@ -102,23 +117,32 @@ let activeSaveBytes: Uint8Array | undefined;
 let activeRomName = "pokeweb-test-battle.nds";
 let activeSaveName = "pokeweb-test-battle.sav";
 let activeTrainerId = 0;
+let activeOpponentTrainerId: number | undefined;
+let activePokemonNames: string[] = [];
 let activeTestLabel = "test battle";
+let activeGameCode = "";
 let activeRomByteLength = 0;
 let latestFrameCount = 0;
 let speedMultiplier = DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER;
+let screenScale = DEFAULT_TEST_BATTLE_SCREEN_SCALE;
 let audioVolume = DEFAULT_TEST_BATTLE_AUDIO_VOLUME;
 let paused = false;
 let pendingStepFrames = 0;
 let lastExportedDesmumeStateBytes: Uint8Array | undefined;
 let lastInBrowserStateSnapshot: InBrowserStateSnapshot | undefined;
 let lastStateExportAttempted = false;
+let lastOpponentStatsPollAt = -Infinity;
+let lastOpponentBattleMainAddress: number | undefined;
+let lastOpponentPanelKey = "";
 
 setStatus("Waiting for battle data...");
 shieldControlsFromEmulatorInput();
+installScreenSizeControl();
 installSpeedControl();
 installAudioControl();
 installPlaybackControls();
 setPlaybackControlsEnabled(false);
+renderOpponentPanelStatus("Waiting for a trainer battle...");
 installMessageListener();
 startReadyPings();
 
@@ -157,6 +181,13 @@ function installSpeedControl(): void {
   setSpeedMultiplier(DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER, false);
   speedSlider.addEventListener("input", () => setSpeedMultiplier(Number(speedSlider.value), false));
   speedSlider.addEventListener("change", () => setSpeedMultiplier(Number(speedSlider.value), true));
+}
+
+function installScreenSizeControl(): void {
+  if (!screenSizeSlider) return;
+  setScreenScale(DEFAULT_TEST_BATTLE_SCREEN_SCALE, false);
+  screenSizeSlider.addEventListener("input", () => setScreenScale(Number(screenSizeSlider.value) / 100, false));
+  screenSizeSlider.addEventListener("change", () => setScreenScale(Number(screenSizeSlider.value) / 100, true));
 }
 
 function installAudioControl(): void {
@@ -246,6 +277,20 @@ function setSpeedMultiplier(value: number, logChange: boolean): void {
   if (logChange) debugLog(`Emulation speed set to ${formatted}x.`);
 }
 
+function clampScreenScale(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_TEST_BATTLE_SCREEN_SCALE;
+  return Math.max(MIN_TEST_BATTLE_SCREEN_SCALE, Math.min(MAX_TEST_BATTLE_SCREEN_SCALE, Math.round(value * 20) / 20));
+}
+
+function setScreenScale(value: number, logChange: boolean): void {
+  screenScale = clampScreenScale(value);
+  const percent = Math.round(screenScale * 100);
+  if (screenSizeSlider) screenSizeSlider.value = String(percent);
+  if (screenSizeValue) screenSizeValue.textContent = percent === 100 ? "Fit" : `${percent}%`;
+  syncDesmondPlayerSize();
+  if (logChange) debugLog(percent === 100 ? "Emulator screens set to fit." : `Emulator screens set to ${percent}% of fit.`);
+}
+
 function clampAudioVolume(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_TEST_BATTLE_AUDIO_VOLUME;
   return Math.max(MIN_TEST_BATTLE_AUDIO_VOLUME, Math.min(MAX_TEST_BATTLE_AUDIO_VOLUME, Math.round(value * 100) / 100));
@@ -311,8 +356,11 @@ async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
     activeRomName = message.romName || "pokeweb-test-battle.nds";
     activeSaveName = message.saveName || "pokeweb-test-battle.sav";
     activeTrainerId = message.trainerId;
+    activeOpponentTrainerId = message.opponentTrainerId;
+    activePokemonNames = Array.isArray(message.pokemonNames) ? message.pokemonNames.map(String) : [];
     activeTestLabel = label;
     activeRomByteLength = message.romBuffer.byteLength;
+    activeGameCode = readRomGameCode(new Uint8Array(message.romBuffer));
     desmondWindow.POKEWEB_TEST_BATTLE = {
       disableSavePersistence: true,
       saveBytes: activeSaveBytes,
@@ -325,6 +373,7 @@ async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
       onLog: (...values) => debugLog(values.map(formatLogValue).join(" ")),
       onFrame: (frameCount) => {
         latestFrameCount = frameCount;
+        refreshOpponentPanel();
       },
       onStepFrames: (stepFrames) => {
         pendingStepFrames = Math.max(0, Math.trunc(stepFrames));
@@ -417,6 +466,7 @@ function loadLastExportedState(): string {
     const snapshot = lastInBrowserStateSnapshot;
     if (!snapshot) throw new Error("Export a state before loading the last state.");
     restoreInBrowserStateSnapshot(snapshot);
+    refreshOpponentPanel(true);
     debugLog(`Loaded in-browser state snapshot (${formatByteCount(inBrowserSnapshotSize(snapshot))}).`);
     return `Loaded last in-browser state (${formatByteCount(inBrowserSnapshotSize(snapshot))}).`;
   }
@@ -444,6 +494,7 @@ function loadLastExportedState(): string {
     throw new Error("Desmond rejected the last state. It may not match this ROM.");
   }
 
+  refreshOpponentPanel(true);
   debugLog(`Loaded DeSmuME savestate (${formatByteCount(stateBytes.length)}).`);
   return `Loaded last exported state (${formatByteCount(stateBytes.length)}).`;
 }
@@ -614,9 +665,120 @@ function readCurrentBatterySaveBytes(): Uint8Array | undefined {
 }
 
 function readMainMemoryBytes(): Uint8Array | undefined {
+  const memory = readMainMemoryView();
+  return memory ? new Uint8Array(memory) : undefined;
+}
+
+function readMainMemoryView(): Uint8Array | undefined {
   const pointer = desmondWindow.Module?._getSymbol?.(7);
   if (pointer === undefined || !Number.isFinite(pointer) || pointer <= 0) return undefined;
-  return copyHeapBytes(pointer, MAIN_MEMORY_DUMP_BYTES);
+  const heap = getHeap();
+  if (!heap || !isHeapRange(heap, pointer, MAIN_MEMORY_DUMP_BYTES)) return undefined;
+  return heap.subarray(pointer, pointer + MAIN_MEMORY_DUMP_BYTES);
+}
+
+function refreshOpponentPanel(force = false): void {
+  const now = performance.now();
+  if (!force && now - lastOpponentStatsPollAt < OPPONENT_STATS_POLL_INTERVAL_MS) return;
+  lastOpponentStatsPollAt = now;
+
+  if (!isSupportedGen5BattleGameCode(activeGameCode)) {
+    renderOpponentPanelStatus(activeGameCode ? `Live opponent stats are unavailable for ROM ${activeGameCode}.` : "Waiting for ROM information...");
+    return;
+  }
+  const memory = readMainMemoryView();
+  if (!memory) {
+    renderOpponentPanelStatus("Waiting for emulator memory...");
+    return;
+  }
+
+  const snapshot = readTestBattleOpponentSnapshot(memory, activeGameCode, { lastKnownBattleMainAddress: lastOpponentBattleMainAddress });
+  if (!snapshot) {
+    renderOpponentPanelStatus("Waiting for a trainer battle...");
+    return;
+  }
+  lastOpponentBattleMainAddress = snapshot.battleMainAddress;
+  renderOpponentSnapshot(snapshot);
+}
+
+function renderOpponentPanelStatus(message: string): void {
+  const key = `status:${message}`;
+  if (lastOpponentPanelKey === key) return;
+  lastOpponentPanelKey = key;
+  if (opponentTrainerId) {
+    opponentTrainerId.textContent = "—";
+    opponentTrainerId.removeAttribute("title");
+  }
+  if (!opponentParty) return;
+  opponentParty.replaceChildren();
+  const statusLine = document.createElement("p");
+  statusLine.className = "pokeweb-opponent-empty";
+  statusLine.textContent = message;
+  opponentParty.append(statusLine);
+}
+
+function renderOpponentSnapshot(snapshot: TestBattleOpponentSnapshot): void {
+  const displayedTrainerId = activeOpponentTrainerId ?? snapshot.trainerId;
+  const key = JSON.stringify([displayedTrainerId, snapshot.trainerId, snapshot.party]);
+  if (lastOpponentPanelKey === key) return;
+  lastOpponentPanelKey = key;
+  if (opponentTrainerId) {
+    opponentTrainerId.textContent = String(displayedTrainerId || "—");
+    if (activeOpponentTrainerId !== undefined && snapshot.trainerId !== 0 && snapshot.trainerId !== activeOpponentTrainerId) {
+      opponentTrainerId.title = `Runtime test-battle trainer slot: ${snapshot.trainerId}`;
+    } else {
+      opponentTrainerId.removeAttribute("title");
+    }
+  }
+  if (!opponentParty) return;
+  opponentParty.replaceChildren();
+  if (snapshot.party.length === 0) {
+    const statusLine = document.createElement("p");
+    statusLine.className = "pokeweb-opponent-empty";
+    statusLine.textContent = "Battle found; waiting for the enemy party...";
+    opponentParty.append(statusLine);
+    return;
+  }
+
+  for (const pokemon of snapshot.party) {
+    const card = document.createElement("section");
+    card.className = "pokeweb-opponent-pokemon";
+    const heading = document.createElement("h3");
+    const speciesName = activePokemonNames[pokemon.speciesId]?.trim();
+    heading.textContent = speciesName ? `Slot ${pokemon.partySlot} · ${speciesName} · Species #${pokemon.speciesId}` : `Slot ${pokemon.partySlot} · Species #${pokemon.speciesId}`;
+    card.append(heading);
+
+    const stats = document.createElement("dl");
+    appendOpponentStat(stats, "HP", pokemon.hp);
+    appendOpponentStat(stats, "Atk", pokemon.attack);
+    appendOpponentStat(stats, "Def", pokemon.defense);
+    appendOpponentStat(stats, "Sp. Atk", pokemon.spAttack);
+    appendOpponentStat(stats, "Sp. Def", pokemon.spDefense);
+    appendOpponentStat(stats, "Speed", pokemon.speed);
+    appendOpponentStat(stats, "PID", formatPid(pokemon.pid), true);
+    card.append(stats);
+    opponentParty.append(card);
+  }
+}
+
+function appendOpponentStat(list: HTMLDListElement, label: string, value: string | number, wide = false): void {
+  const term = document.createElement("dt");
+  term.textContent = label;
+  const description = document.createElement("dd");
+  description.textContent = String(value);
+  if (wide) {
+    term.classList.add("-wide");
+    description.classList.add("-wide");
+  }
+  list.append(term, description);
+}
+
+function formatPid(pid: number): string {
+  return `0x${(pid >>> 0).toString(16).toUpperCase().padStart(8, "0")}`;
+}
+
+function readRomGameCode(romBytes: Uint8Array): string {
+  return romBytes.length >= 0x10 ? readAscii(romBytes, 0x0c, 4) : "";
 }
 
 function copyHeapBytes(pointer: number, size: number): Uint8Array | undefined {
@@ -769,14 +931,40 @@ function waitForFrameProgress(): Promise<void> {
 
 function styleDesmondPlayer(player: DesmondPlayer): void {
   const shadow = player.shadowRoot;
-  if (!shadow || shadow.querySelector("#pokeweb-desmond-style")) return;
-  const style = document.createElement("style");
-  style.id = "pokeweb-desmond-style";
+  if (!shadow) return;
+  if (!shadow.querySelector("#pokeweb-desmond-style")) {
+    const style = document.createElement("style");
+    style.id = "pokeweb-desmond-style";
+    shadow.appendChild(style);
+  }
+  syncDesmondPlayerSize();
+}
+
+function syncDesmondPlayerSize(): void {
+  const player = document.querySelector<DesmondPlayer>("#desmond-player");
+  const style = player?.shadowRoot?.querySelector<HTMLStyleElement>("#pokeweb-desmond-style");
+  if (!style) return;
+  const percent = Math.round(screenScale * 100);
+  const viewportWidth = (screenScale * 100 * 256) / 384;
   style.textContent = `
-    #player { position: fixed; inset: 0; display: grid; place-content: center; gap: 0; background: #000; }
-    canvas { display: block; width: min(100vw, calc(100vh * 256 / 384)); height: auto; image-rendering: pixelated; }
+    #player {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      flex: 0 0 auto;
+      width: min(${percent}%, ${viewportWidth.toFixed(4)}vh);
+      height: auto;
+      image-rendering: pixelated;
+    }
   `;
-  shadow.appendChild(style);
 }
 
 function cacheBust(url: URL): string {
