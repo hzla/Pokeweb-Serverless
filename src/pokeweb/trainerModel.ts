@@ -7,6 +7,7 @@ import { commitTextBank, getTextBank } from "./textModel";
 import { addTrainerTextFromTemplate, getTrainerTextLines, type TrainerTextLine } from "./trainerTextModel";
 import { publicAsset } from "../assetUrl";
 import { learnsetEntries } from "./pokemonModel";
+import { pokemonFormSuffix } from "./pokemonFormLabels";
 
 export type TrainerPokemonSlot = {
   slot: number;
@@ -722,18 +723,19 @@ function getTrainerPokemonSlot(project: ProjectState, trainerId: number, slot: n
   const abilitySlot = Number(trpok.readable[`ability_${slot}`] ?? 0);
   const resolvedAbilitySlot = displayedAbilitySlot ?? abilitySlot;
   const natureValue = trainerNatureRawValue(trpok.raw[`padding_${slot}`]);
+  const form = Number(trpok.raw[`form_${slot}`] ?? 0);
   return {
     slot,
     speciesId,
     speciesName,
-    spriteSlug: spriteSlug(speciesName),
+    spriteSlug: trainerPokemonSpriteSlug(speciesName, form),
     level: Number(trpok.raw[`level_${slot}`] ?? 0),
     ivs: Number(trpok.raw[`ivs_${slot}`] ?? 0),
     abilitySlot,
     resolvedAbilitySlot,
     abilityName: abilityName(project, speciesId, resolvedAbilitySlot),
     gender: String(trpok.readable[`gender_${slot}`] ?? "Default"),
-    form: Number(trpok.raw[`form_${slot}`] ?? 0),
+    form,
     itemName: trpok.readable[`item_id_${slot}`],
     moves: [1, 2, 3, 4].map((move) => trpok.readable?.[`move_${move}_${slot}`] ?? 0),
     nature: calculateTrainerPokemonNature(project, trainerId, slot),
@@ -1016,8 +1018,9 @@ function trainerSpritePath(_name: string, trainerClass: string): string {
   return publicAsset(`images/trainer_sprites/${classSlug}.png`);
 }
 
-function spriteSlug(name: string): string {
-  return pokemonSpriteSlug(name);
+export function trainerPokemonSpriteSlug(speciesName: string, formIndex: number): string {
+  const formSuffix = pokemonFormSuffix(speciesName, formIndex);
+  return pokemonSpriteSlug(formSuffix ? `${speciesName}-${formSuffix}` : speciesName);
 }
 
 function showdownGender(value: string): "M" | "F" | undefined {

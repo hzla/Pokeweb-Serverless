@@ -45,6 +45,7 @@ export type NarcName =
   | "tutor_moves"
   | "type_chart"
   | "starter_sprites"
+  | "ingame_trades"
   | "pokemon_sprites"
   | "pokemon_icons"
   | "subway_sets"
@@ -151,6 +152,7 @@ export const BW_NARCS: NarcDefinition[] = [
   { path: "a/0/9/3", name: "trpok" },
   { path: "a/0/7/2", name: "trainer_sprites" },
   { path: "a/1/2/6", name: "encounters" },
+  { path: "a/1/6/5", name: "ingame_trades" },
   { path: "a/2/0/5", name: "starter_sprites" },
 ];
 
@@ -173,6 +175,7 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/0/9/2", name: "trpok" },
   { path: "a/0/7/1", name: "trainer_sprites" },
   { path: "a/1/2/7", name: "encounters" },
+  { path: "a/1/6/3", name: "ingame_trades" },
   { path: "a/2/9/6", name: "habitats" },
   { path: "a/2/8/2", name: "marts" },
   { path: "a/2/8/3", name: "mart_counts" },

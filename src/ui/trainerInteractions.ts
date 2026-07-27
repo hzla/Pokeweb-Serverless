@@ -117,7 +117,7 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
       return;
     }
 
-    const preview = target.closest<HTMLImageElement>(".trainer-poks img");
+    const preview = target.closest<HTMLElement>(".trainer-poks .trainer-pokemon-preview");
     if (preview?.dataset.show) {
       showTrainerPokemon(card, preview);
       stripeRows(root);
@@ -337,7 +337,7 @@ function refreshTrainerRowMain(
   currentMain.replaceWith(nextMain);
   installEditableFields(nextMain, project, options);
   if (openPok !== undefined) {
-    nextMain.querySelector<HTMLImageElement>(`.trainer-poks img[data-show="pok-${openPok}"]`)?.classList.add("-active");
+    nextMain.querySelectorAll<HTMLElement>(`.trainer-poks .trainer-pokemon-preview[data-show="pok-${openPok}"]`).forEach((preview) => preview.classList.add("-active"));
   }
   stripeRows(root);
 }
@@ -366,7 +366,7 @@ function replaceTrainerRow(root: HTMLElement, project: ProjectState, card: HTMLE
   if (wasTextsOpen) nextCard.querySelector<HTMLElement>(".expanded-trainer")?.classList.add("-show-texts");
   if (openPok !== undefined) {
     nextCard.querySelector<HTMLElement>(`.expanded-pok-${openPok}`)?.classList.add("show-flex");
-    nextCard.querySelector<HTMLImageElement>(`.trainer-poks img[data-show="pok-${openPok}"]`)?.classList.add("-active");
+    nextCard.querySelectorAll<HTMLElement>(`.trainer-poks .trainer-pokemon-preview[data-show="pok-${openPok}"]`).forEach((preview) => preview.classList.add("-active"));
   }
   stripeRows(root);
 }
@@ -376,24 +376,24 @@ function toggleTrainerPanel(card: HTMLElement): void {
   if (!target) return;
   const alreadyOpen = target.classList.contains("show-flex");
   card.querySelectorAll<HTMLElement>(".expanded-card-content, .expanded-card-subcontent").forEach((panel) => panel.classList.remove("show-flex"));
-  card.querySelectorAll<HTMLElement>(".trainer-poks img, .expand-action").forEach((item) => item.classList.remove("-active"));
+  card.querySelectorAll<HTMLElement>(".trainer-poks .trainer-pokemon-preview, .expand-action").forEach((item) => item.classList.remove("-active"));
   if (!alreadyOpen) {
     target.classList.add("show-flex");
     scrollRowBelowStickyHeader(card);
   }
 }
 
-function showTrainerPokemon(card: HTMLElement, preview: HTMLImageElement): void {
+function showTrainerPokemon(card: HTMLElement, preview: HTMLElement): void {
   const slot = preview.dataset.show?.replace("pok-", "");
   if (slot === undefined) return;
   const target = card.querySelector<HTMLElement>(`.expanded-pok-${slot}`);
   if (!target) return;
   const alreadyOpen = target.classList.contains("show-flex");
   card.querySelectorAll<HTMLElement>(".expanded-card-content, .expanded-card-subcontent").forEach((panel) => panel.classList.remove("show-flex"));
-  card.querySelectorAll<HTMLElement>(".trainer-poks img, .expand-action").forEach((item) => item.classList.remove("-active"));
+  card.querySelectorAll<HTMLElement>(".trainer-poks .trainer-pokemon-preview, .expand-action").forEach((item) => item.classList.remove("-active"));
   if (!alreadyOpen) {
     target.classList.add("show-flex");
-    preview.classList.add("-active");
+    card.querySelectorAll<HTMLElement>(`.trainer-poks .trainer-pokemon-preview[data-show="pok-${slot}"]`).forEach((item) => item.classList.add("-active"));
     scrollRowBelowStickyHeader(card);
   }
 }
