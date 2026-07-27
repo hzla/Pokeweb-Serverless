@@ -110,17 +110,22 @@ describe("pokemonTextModel", () => {
     expect(project.texts.banks.pokedex?.[1]).toBe("Ivyling");
   });
 
-  it("does not edit incidental mentions in other Info Text banks", () => {
+  it("does not edit overlapping species names or incidental mentions", () => {
     const project = makeProject("BW2", "W2", 151, "Mew", [
-      [90, makeBank(152, { 151: "Mew" })],
+      [90, makeBank(152, { 150: "Mewtwo", 151: "Mew" })],
+      [458, makeBank(152, { 150: "Mewtwo", 151: "Mew" })],
       [200, makeBank(2, { 0: "Mew met Mewtwo and MEW.", 1: "Mewtwo remained unchanged." })],
-      [486, makeBank(152, { 151: "MEW" })],
+      [486, makeBank(152, { 150: "MEWTWO", 151: "MEW" })],
     ]);
 
     updatePokemonTextName(project, 151, "Nova");
 
     expect(getTextBank(project, "message_texts", 90)[151][1]).toBe("Nova");
+    expect(getTextBank(project, "message_texts", 90)[150][1]).toBe("Mewtwo");
+    expect(getTextBank(project, "message_texts", 458)[151][1]).toBe("Nova");
+    expect(getTextBank(project, "message_texts", 458)[150][1]).toBe("Mewtwo");
     expect(getTextBank(project, "message_texts", 486)[151][1]).toBe("NOVA");
+    expect(getTextBank(project, "message_texts", 486)[150][1]).toBe("MEWTWO");
     expect(getTextBank(project, "message_texts", 200)[0][1]).toBe("Mew met Mewtwo and MEW.");
     expect(getTextBank(project, "message_texts", 200)[1][1]).toBe("Mewtwo remained unchanged.");
   });

@@ -12,6 +12,7 @@ import {
   importTrainerPokemonShowdownText,
   resolveTrainerPokemonGender,
   setTrainerAiFlagForAll,
+  trainerPokemonSpriteSlug,
   updateTrainerField,
   updateTrainerPokemonField,
 } from "../pokeweb/trainerModel";
@@ -21,6 +22,13 @@ import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../p
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 
 describe("trainerModel", () => {
+  it("uses the trainer form index for Pokemon sprite fallbacks", () => {
+    expect(trainerPokemonSpriteSlug("Rotom", 0)).toBe("rotom");
+    expect(trainerPokemonSpriteSlug("Rotom", 1)).toBe("rotom-heat");
+    expect(trainerPokemonSpriteSlug("Rotom", 5)).toBe("rotom-mow");
+    expect(trainerPokemonSpriteSlug("Bulbasaur", 1)).toBe("bulbasaur");
+  });
+
   it("parses trpok records for all four trainer templates", () => {
     for (const template of [0, 1, 2, 3]) {
       const project = makeProject(template);

@@ -71,6 +71,11 @@ export type StarterScriptPatchResult = {
   wordSpeciesUpdates: number;
 };
 
+export type RandomizedStarterApplyResult = {
+  state: StarterEditorState;
+  warnings: string[];
+};
+
 export function getStarterOverlayIds(baseRom: BaseRom): number[] {
   return starterConfig(baseRom).overlayIds;
 }
@@ -117,6 +122,32 @@ export function applyStarters(project: ProjectState, speciesIds: number[]): Star
   return getStarterEditorState(project);
 }
 
+export function applyRandomizedStarters(project: ProjectState, speciesIds: number[]): RandomizedStarterApplyResult {
+  if (speciesIds.length !== 3) throw new Error("Exactly three starter Pokemon are required.");
+  const nextSpeciesIds = speciesIds.map((speciesId) => validateStarterSpecies(project, speciesId));
+  const current = detectCurrentStarters(project);
+  const warnings: string[] = [];
+
+  updateStarterScripts(project, current.speciesIds, nextSpeciesIds);
+  if (project.narcs.pokemon_sprites && project.narcs.starter_sprites) {
+    assertStarterSpriteSources(project, nextSpeciesIds);
+    copyStarterSprites(project, nextSpeciesIds);
+  } else {
+    warnings.push("Starter species were changed in scripts, but starter sprite archives were not loaded, so the selection graphics were left unchanged.");
+  }
+  updateStarterTypeText(project, current.speciesIds, nextSpeciesIds);
+  updateStarterOverlays(project, current.speciesIds, nextSpeciesIds);
+
+  project.starters = {
+    speciesIds: nextSpeciesIds,
+    dirtyOverlayIds: project.starters?.dirtyOverlayIds ?? [],
+  };
+  recordGenericChange(project, "starter_sprites", `Starters changed to ${nextSpeciesIds.map((id) => starterName(project, id)).join(", ")}.`, "Starters", {
+    key: "starters:selection",
+  });
+  return { state: getStarterEditorState(project), warnings };
+}
+
 function detectCurrentStarters(project: ProjectState): { speciesIds: number[]; warnings: string[] } {
   const warnings: string[] = [];
   const saved = project.starters?.speciesIds;
@@ -153,8 +184,7 @@ function detectStartersFromOverlay(project: ProjectState): number[] | undefined 
 function detectStartersFromScripts(project: ProjectState): number[] | undefined {
   const store = project.narcs.scripts;
   if (!store) return undefined;
-  const config = starterConfig(project.session.baseRom);
-  for (const fileId of config.scriptFileIds) {
+  for (const fileId of findStarterScriptFileIds(project)) {
     const file = store.rawFiles[fileId];
     if (!file) continue;
     const commandTriplet = detectStartersFromScriptBytes(file);
@@ -285,7 +315,7 @@ function updateStarterScripts(project: ProjectState, previousSpeciesIds: number[
   const patches: Array<{ fileId: number; result: StarterScriptPatchResult }> = [];
   let giftUpdates = 0;
   let giftCommandCount = 0;
-  for (const fileId of starterConfig(project.session.baseRom).scriptFileIds) {
+  for (const fileId of findStarterScriptFileIds(project, previousSpeciesIds)) {
     const file = store.rawFiles[fileId];
     if (!file) continue;
     const result = patchStarterScriptBytes(file, previousSpeciesIds, nextSpeciesIds);
@@ -303,6 +333,26 @@ function updateStarterScripts(project: ProjectState, previousSpeciesIds: number[
     store.rawFiles[fileId] = result.bytes;
     markDirty(project, "scripts", fileId);
   }
+}
+
+/**
+ * Finds the starter selection script by its level-five gift command pattern.
+ * The retail file IDs are checked first, then the whole loaded script archive is
+ * scanned so hacks may relocate or append the selection script.
+ */
+export function findStarterScriptFileIds(project: ProjectState, expectedSpecies?: number[]): number[] {
+  const store = project.narcs.scripts;
+  if (!store) return [];
+  const configured = starterConfig(project.session.baseRom).scriptFileIds.filter((fileId) => Boolean(store.rawFiles[fileId]));
+  const rest = store.rawFiles.map((_file, fileId) => fileId).filter((fileId) => !configured.includes(fileId));
+  const matches = (fileIds: number[]) => fileIds.filter((fileId) => {
+    const detected = detectStartersFromScriptBytes(store.rawFiles[fileId]!);
+    return detected && (!expectedSpecies || tripletEquals(detected, expectedSpecies));
+  });
+  const configuredMatches = matches(configured);
+  if (configuredMatches.length > 0) return configuredMatches;
+  const discoveredMatches = matches(rest);
+  return discoveredMatches.length > 0 ? discoveredMatches : configured;
 }
 
 function updateStarterOverlays(project: ProjectState, previousSpeciesIds: number[], nextSpeciesIds: number[]): void {
@@ -435,6 +485,8 @@ function readGiftCommand(
 ): { speciesOffset: number; directSpecies?: number; speciesVariable?: number } | undefined {
   const length = opcode === POKE_PARTY_ADD_N ? 14 : opcode === POKE_PARTY_ADD_EX ? 20 : 10;
   if (offset + length > bytes.length) return undefined;
+  const successVariable = readU16(bytes, offset + 2);
+  if (successVariable < SCRIPT_VARIABLE_MIN || successVariable >= 0xff00) return undefined;
   const speciesOffset = offset + 4;
   const species = readU16(bytes, speciesOffset);
   const level = readU16(bytes, opcode === POKE_PARTY_ADD_N ? offset + 6 : offset + 8);
@@ -446,7 +498,7 @@ function readGiftCommand(
 }
 
 function isBaseSpeciesId(speciesId: number): boolean {
-  return Number.isInteger(speciesId) && speciesId > 0 && speciesId < 650;
+  return Number.isInteger(speciesId) && speciesId > 0 && speciesId < SCRIPT_VARIABLE_MIN;
 }
 
 function isBaseStarterTriplet(value: number[]): boolean {
@@ -465,9 +517,9 @@ function makeStarterSlot(project: ProjectState, slot: number, speciesId: number)
 }
 
 function validateStarterSpecies(project: ProjectState, speciesId: number): number {
-  if (!Number.isInteger(speciesId) || speciesId <= 0) throw new Error("Starter species must be a valid Pokemon ID.");
+  if (!Number.isInteger(speciesId) || speciesId <= 0 || speciesId >= SCRIPT_VARIABLE_MIN) throw new Error("Starter species must fit in a direct Gen 5 script species operand.");
   const count = project.narcs.personal?.fileCount ?? 0;
-  if (count > 0 && speciesId >= Math.min(count, 650)) throw new Error("Starter selection supports base Pokemon only, not alternate forms.");
+  if (count > 0 && speciesId >= count) throw new Error("Starter selection must use a Pokémon present in the loaded personal archive.");
   return speciesId;
 }
 
@@ -500,8 +552,8 @@ function findTripletOffset(bytes: Uint8Array, speciesIds: number[]): number | un
 }
 
 function isStarterTriplet(project: ProjectState, value: unknown): value is number[] {
-  const count = project.narcs.personal?.fileCount ?? 650;
-  return Array.isArray(value) && value.length === 3 && value.every((speciesId) => Number.isInteger(speciesId) && speciesId > 0 && speciesId < Math.min(count, 650));
+  const count = project.narcs.personal?.fileCount ?? SCRIPT_VARIABLE_MIN;
+  return Array.isArray(value) && value.length === 3 && value.every((speciesId) => Number.isInteger(speciesId) && speciesId > 0 && speciesId < count);
 }
 
 function tripletEquals(left: readonly number[], right: readonly number[]): boolean {

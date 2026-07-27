@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readU16 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { copyEncounterSeason, encounterKindLabel, getEncounterRecord, syncEncountersToDexHabitats, updateEncounterField } from "../pokeweb/encounterModel";
+import { copyEncounterData, copyEncounterSeason, encounterKindLabel, getEncounterRecord, syncEncountersToDexHabitats, updateEncounterField } from "../pokeweb/encounterModel";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 
@@ -65,6 +65,34 @@ describe("encounterModel", () => {
     expect(encounter.readable.summer_grass_slot_0).toBe("Ivysaur");
     expect(encounter.readable.summer_grass_slot_0_form).toBe(4);
     expect(project.narcs.encounters?.dirty.has(1)).toBe(true);
+  });
+
+  it("copies all encounter data from one area to another while retaining the target area identity", () => {
+    const project = makeProject();
+
+    updateEncounterField(project, 1, "spring_grass_slot_0", "Ivysaur");
+    updateEncounterField(project, 1, "spring_grass_slot_0_form", "4");
+    updateEncounterField(project, 1, "spring_grass_rate", "44");
+    const copied = copyEncounterData(project, 0, 1);
+
+    expect(copied.id).toBe(0);
+    expect(copied.locations).toEqual([]);
+    expect(copied.raw.spring_grass_slot_0).toBe(8194);
+    expect(copied.raw.spring_grass_rate).toBe(44);
+    expect(copied.readable.spring_grass_slot_0).toBe("Ivysaur");
+    expect(copied.readable.spring_grass_slot_0_form).toBe(4);
+    expect(getEncounterRecord(project, 1).locations).toEqual(["Route 1 (1)", "Route 1 Gate (2)"]);
+    expect(project.narcs.encounters?.dirty.has(0)).toBe(true);
+    materializeProjectEdits(project);
+    expect(project.narcs.encounters?.rawFiles[0]).toEqual(project.narcs.encounters?.rawFiles[1]);
+  });
+
+  it("rejects unavailable or identical encounter copy sources", () => {
+    const project = makeProject();
+
+    expect(() => copyEncounterData(project, 0, -1)).toThrow(/No encounter data/u);
+    expect(() => copyEncounterData(project, 0, 2)).toThrow(/No encounter data/u);
+    expect(() => copyEncounterData(project, 0, 0)).toThrow(/different source/u);
   });
 
   it("syncs BW2 dex habitat entries from encounter pools", async () => {

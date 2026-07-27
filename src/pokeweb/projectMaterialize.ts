@@ -265,7 +265,9 @@ function materializeTrpok(project: ProjectState, store: NarcStore): void {
     const template = project.trpokInfo[id]?.template ?? 0;
     const count = project.trpokInfo[id]?.numPokemon ?? 0;
     const format = trpokFormat(template);
-    const out = new Uint8Array(format.reduce((sum, [size]) => sum + size, 0) * count);
+    const expectedLength = format.reduce((sum, [size]) => sum + size, 0) * count;
+    const original = store.rawFiles[id] ?? record.bytes ?? new Uint8Array();
+    const out = copyWithLength(original, Math.max(original.length, expectedLength));
     let offset = 0;
     for (let slot = 0; slot < count; slot += 1) {
       for (const [size, field] of format) {
