@@ -22,11 +22,18 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachTrainerInteractions } from "./trainerInteractions";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
-import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
+import {
+  genderedPokemonIcons,
+  getPokemonIconImage,
+  resolvePokemonSpriteId,
+  type PokemonIconVariant,
+  type RgbaImageData,
+} from "../pokeweb/pokemonSpriteModel";
 
 const TEST_BATTLE_TEAM_STORAGE_PREFIX = "pokeweb.testBattle.teamText";
 const TRAINER_SPRITE_RENDER_VERSION = "gen5-mcss-ncec-v2";
 const trainerSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
+const trainerPokemonIconInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 
 export function renderTrainerEditor(
   project: ProjectState,
@@ -74,6 +81,7 @@ export function renderTrainerEditor(
 
   if (enrichedTrainerLocations) onDirty?.();
   installTrainerSpriteRendering(project, root);
+  installTrainerPokemonIconRendering(project, root);
   installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite);
   installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, trainerNaturePatchStatus);
   attachTrainerInteractions(root, project, {
@@ -148,7 +156,7 @@ function renderTrainerCard(project: ProjectState, trainer: TrainerRecord, showNa
           ${checkbox("has_items", trainer.hasItems)}
         </div>
         <div class="trainer-poks">
-          ${trainer.party.map((pok) => renderPartyPreview(pok)).join("")}
+          ${trainer.party.map((pok) => renderPartyPreview(project, pok)).join("")}
         </div>
       </div>
       ${renderExpandedTrainer(trainer)}
@@ -262,6 +270,84 @@ function installTrainerSpriteRendering(project: ProjectState, root: HTMLElement)
   scan();
 
   trainerSpriteInstallations.set(root, {
+    disconnect: () => {
+      intersectionObserver?.disconnect();
+      mutationObserver.disconnect();
+    },
+  });
+}
+
+function installTrainerPokemonIconRendering(project: ProjectState, root: HTMLElement): void {
+  trainerPokemonIconInstallations.get(root)?.disconnect();
+  if (!isGen5Project(project) || !project.narcs.pokemon_icons) return;
+
+  const imageCache = new Map<string, Promise<RgbaImageData | undefined>>();
+  const loadImage = (spriteId: number, variant: PokemonIconVariant): Promise<RgbaImageData | undefined> => {
+    const cacheKey = `${spriteId}:${variant}`;
+    let cached = imageCache.get(cacheKey);
+    if (!cached) {
+      cached = Promise.resolve()
+        .then(() => getPokemonIconImage(project, spriteId, variant))
+        .catch((error) => {
+          console.warn(`Failed to render Pokemon icon ${spriteId}:${variant}`, error);
+          return undefined;
+        });
+      imageCache.set(cacheKey, cached);
+    }
+    return cached;
+  };
+
+  const renderCanvas = async (canvas: HTMLCanvasElement): Promise<void> => {
+    if (canvas.dataset.trainerPokemonIconRendered === "true" || canvas.dataset.trainerPokemonIconRendered === "loading") return;
+    const spriteId = Number(canvas.dataset.trainerPokemonSpriteId);
+    const variant = canvas.dataset.trainerPokemonIconVariant as PokemonIconVariant | undefined;
+    if (!Number.isInteger(spriteId) || (variant !== "male" && variant !== "female")) return;
+    canvas.dataset.trainerPokemonIconRendered = "loading";
+    const image = await loadImage(spriteId, variant);
+    if (!canvas.isConnected) return;
+    if (!image) {
+      canvas.dataset.trainerPokemonIconRendered = "missing";
+      return;
+    }
+
+    const frameHeight = Math.min(image.width, image.height);
+    const pixels = image.pixels.slice(0, image.width * frameHeight * 4);
+    canvas.width = image.width;
+    canvas.height = frameHeight;
+    canvas.getContext("2d")?.putImageData(new ImageData(pixels, image.width, frameHeight), 0, 0);
+    canvas.hidden = false;
+    canvas.classList.add("-loaded");
+    canvas.dataset.trainerPokemonIconRendered = "true";
+  };
+
+  const intersectionObserver =
+    typeof IntersectionObserver === "undefined"
+      ? undefined
+      : new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const canvas = entry.target as HTMLCanvasElement;
+            intersectionObserver?.unobserve(canvas);
+            void renderCanvas(canvas);
+          }
+        });
+
+  const observeCanvas = (canvas: HTMLCanvasElement): void => {
+    if (canvas.dataset.trainerPokemonIconObserved === "true") return;
+    canvas.dataset.trainerPokemonIconObserved = "true";
+    if (intersectionObserver) intersectionObserver.observe(canvas);
+    else void renderCanvas(canvas);
+  };
+
+  const scan = (): void => {
+    root.querySelectorAll<HTMLCanvasElement>("canvas.trainer-pokemon-rom-icon").forEach(observeCanvas);
+  };
+
+  const mutationObserver = new MutationObserver(scan);
+  mutationObserver.observe(root, { childList: true, subtree: true });
+  scan();
+
+  trainerPokemonIconInstallations.set(root, {
     disconnect: () => {
       intersectionObserver?.disconnect();
       mutationObserver.disconnect();
@@ -455,11 +541,22 @@ function trainerNatureButtonLabel(status: ReturnType<typeof detectSpecifyTrainer
   return "Apply Patch";
 }
 
-function renderPartyPreview(pok: TrainerPokemonSlot): string {
+function renderPartyPreview(project: ProjectState, pok: TrainerPokemonSlot): string {
   const missingSprite = publicAsset("images/pokesprite/-.png");
+  let romIcon = "";
+  if (isGen5Project(project) && project.narcs.pokemon_icons) {
+    try {
+      const spriteId = resolvePokemonSpriteId(project, pok.speciesId, pok.form);
+      const variant: PokemonIconVariant = pok.gender === "Female" && genderedPokemonIcons(project, spriteId) ? "female" : "male";
+      romIcon = `<canvas class="trainer-pokemon-preview trainer-pokemon-rom-icon" data-trainer-pokemon-sprite-id="${spriteId}" data-trainer-pokemon-icon-variant="${variant}" data-show="pok-${pok.slot}" width="32" height="32" hidden aria-label="${escapeHtml(pok.speciesName)}"></canvas>`;
+    } catch {
+      // Keep the form-aware static sprite below as a fallback for incomplete ROM data.
+    }
+  }
   return `
     <div class="wild">
-      <img src="${publicAsset(`images/pokesprite/${pok.spriteSlug}.png`)}" alt="" data-show="pok-${pok.slot}" onerror="this.src='${missingSprite}'">
+      ${romIcon}
+      <img class="trainer-pokemon-preview trainer-pokemon-fallback-icon" src="${publicAsset(`images/pokesprite/${pok.spriteSlug}.png`)}" alt="" data-show="pok-${pok.slot}" onerror="this.src='${missingSprite}'">
     </div>
   `;
 }

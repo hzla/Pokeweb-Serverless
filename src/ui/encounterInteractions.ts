@@ -1,4 +1,5 @@
 import {
+  copyEncounterData,
   copyEncounterSeason,
   encounterMatchesSearch,
   getEncounterRecord,
@@ -46,6 +47,31 @@ export function attachEncounterInteractions(root: HTMLElement, project: ProjectS
 
     const card = target.closest<HTMLElement>(".encounter-card");
     if (!card) return;
+
+    const copyAction = target.closest<HTMLButtonElement>("[data-encounter-copy]");
+    if (copyAction) {
+      const encounterId = Number(card.dataset.index);
+      const toolbar = copyAction.closest<HTMLElement>(".encounter-copy-toolbar");
+      const input = toolbar?.querySelector<HTMLInputElement>(".encounter-copy-source");
+      const sourceValue = input?.value.trim() ?? "";
+      const sourceEncounterId = sourceValue === "" ? Number.NaN : Number(sourceValue);
+      if (!Number.isInteger(encounterId)) return;
+      try {
+        const openState = getOpenState(card);
+        copyEncounterData(project, encounterId, sourceEncounterId);
+        replaceEncounterRow(root, project, card, encounterId, options, openState);
+        options.onDirty?.();
+      } catch (error) {
+        copyAction.classList.add("invalid");
+        if (input) {
+          input.classList.add("invalid");
+          input.title = error instanceof Error ? error.message : String(error);
+          input.focus();
+          input.select();
+        }
+      }
+      return;
+    }
 
     const wildGroup = target.closest<HTMLElement>(".encounter-wild-group");
     if (wildGroup?.dataset.openGroup) {

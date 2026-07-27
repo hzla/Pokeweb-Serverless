@@ -138,8 +138,19 @@ function renderEncounterCard(project: ProjectState, encounter: EncounterRecord):
 }
 
 export function renderEncounterPanel(project: ProjectState, encounter: EncounterRecord, season: EncounterSeason, group: EncounterGroup): string {
+  const encounterMax = Math.max(0, getEncounterCount(project) - 1);
   return `
     <div class="expanded-card-content expanded-encounter expanded-${group} expanded-${season}" data-group="${group}" data-season="${season}">
+      <div class="encounter-copy-toolbar">
+        <div class="encounter-copy-description">
+          <strong>Copy encounter area</strong>
+          <span>Copies every season, encounter rate, species, form, and level from another encounter ID.</span>
+        </div>
+        <div class="encounter-copy-actions">
+          <input class="encounter-copy-source" type="number" inputmode="numeric" min="0" max="${encounterMax}" step="1" placeholder="Encounter ID" aria-label="Source encounter ID">
+          <button class="btn -default encounter-copy-action" data-encounter-copy type="button">Copy From</button>
+        </div>
+      </div>
       ${encounterKindsForGroup(group, project).map((kind) => renderEncounterKind(project, encounter, season, kind)).join("")}
     </div>
   `;

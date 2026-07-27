@@ -665,12 +665,12 @@ function makeTrainerBattleScriptBytes(): Uint8Array {
   writeInt(out, 22, 2, 0);
   writeInt(out, 24, 2, 1);
   writeInt(out, 26, 2, 0x010c);
-  writeInt(out, 28, 2, 0);
+  writeInt(out, 28, 2, 0x8010);
   writeInt(out, 30, 2, 1);
   writeInt(out, 32, 2, 0);
   writeInt(out, 34, 2, 10);
   writeInt(out, 36, 2, 0x010f);
-  writeInt(out, 38, 2, 0);
+  writeInt(out, 38, 2, 0x8010);
   writeInt(out, 40, 2, 2);
   writeInt(out, 42, 2, 0);
   writeInt(out, 44, 2, 0x0174);

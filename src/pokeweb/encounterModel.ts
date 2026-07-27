@@ -263,6 +263,36 @@ export function copyEncounterSeason(project: ProjectState, encounterId: number, 
   return getEncounterRecord(project, encounterId);
 }
 
+export function copyEncounterData(project: ProjectState, encounterId: number, sourceEncounterId: number): EncounterRecord {
+  const store = project.narcs.encounters;
+  if (!store) throw new Error("Encounter data is not loaded.");
+  if (!Number.isInteger(encounterId) || encounterId < 0 || encounterId >= store.fileCount || !store.rawFiles[encounterId]) {
+    throw new Error(`Encounter area ${encounterId} is unavailable.`);
+  }
+  if (!Number.isInteger(sourceEncounterId) || sourceEncounterId < 0 || sourceEncounterId >= store.fileCount || !store.rawFiles[sourceEncounterId]) {
+    throw new Error(`No encounter data is available for area ${sourceEncounterId}.`);
+  }
+  if (sourceEncounterId === encounterId) throw new Error("Choose a different source encounter area.");
+
+  const source = decodeRecord(project, "encounters", sourceEncounterId);
+  const target = decodeRecord(project, "encounters", encounterId);
+  if (!source.raw || !source.readable) throw new Error(`Unable to read encounter area ${sourceEncounterId}.`);
+  if (!target.raw || !target.readable) throw new Error(`Unable to update encounter area ${encounterId}.`);
+
+  target.raw = { ...source.raw };
+  target.readable = { ...source.readable };
+  syncEncounterReadable(project, target.raw, target.readable);
+  markDirty(project, "encounters", encounterId);
+  recordGenericChange(
+    project,
+    "encounters",
+    `${encounterSubject(project, encounterId)} encounter data was copied from ${encounterSubject(project, sourceEncounterId)} (area ${sourceEncounterId}).`,
+    encounterSubject(project, encounterId),
+    { key: `encounter-copy:${encounterId}:${sourceEncounterId}` },
+  );
+  return getEncounterRecord(project, encounterId);
+}
+
 export async function syncEncountersToDexHabitats(project: ProjectState): Promise<HabitatSyncResult> {
   if (project.session.baseRom !== "BW2") throw new Error("Dex habitats are only available for BW2 ROMs.");
   if (!project.narcs.encounters) throw new Error("Encounter data is not loaded.");

@@ -194,7 +194,7 @@
   width: 120px;
 }
 
-.trainer-poks img {
+.trainer-poks .trainer-pokemon-preview {
   border: 2px solid transparent;
   cursor: pointer;
   image-rendering: pixelated;
@@ -204,8 +204,12 @@
   width: 100%;
 }
 
-.trainer-poks img.-active,
-.trainer-poks img:hover {
+.trainer-poks .trainer-pokemon-rom-icon.-loaded + .trainer-pokemon-fallback-icon {
+  display: none;
+}
+
+.trainer-poks .trainer-pokemon-preview.-active,
+.trainer-poks .trainer-pokemon-preview:hover {
   border: 2px solid #1abc9c;
   border-radius: 10px;
 }

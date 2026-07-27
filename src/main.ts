@@ -21,6 +21,7 @@ import "./styles/legacyPatches.css";
 import "./styles/pwanAnimation.css";
 import "./styles/moveBackgrounds.css";
 import "./styles/battleBackgrounds.css";
+import "./styles/randomizer.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
@@ -63,6 +64,7 @@ import { renderTextEditor } from "./ui/textEditor";
 import { renderOverworldEditor } from "./ui/overworldEditor";
 import { renderDocGenerators } from "./ui/docGenerators";
 import { renderMastersheetEditor } from "./ui/mastersheetEditor";
+import { renderRandomizerEditor } from "./ui/randomizerEditor";
 import { repairReasonLabel, repairRomNarcs, romHeaderRepairReasonLabel, type RomRepairResult } from "./pokeweb/romRepairModel";
 import {
   clearChangelogTabs as clearSharedChangelogTabs,
@@ -98,6 +100,7 @@ type AppRoute =
   | "moveEffectHandlers"
   | "moveBackgrounds"
   | "battleBackgrounds"
+  | "randomizer"
   | "marts"
   | "grottos"
   | "grottoOdds"
@@ -188,6 +191,7 @@ const APP_ROUTES: AppRoute[] = [
   "moveEffectHandlers",
   "moveBackgrounds",
   "battleBackgrounds",
+  "randomizer",
   "marts",
   "grottos",
   "grottoOdds",
@@ -222,6 +226,7 @@ const EDITOR_REQUIREMENTS: Record<
   moveEffectHandlers: ["moves"],
   moveBackgrounds: ["move_animations", "battle_animations"],
   battleBackgrounds: [],
+  randomizer: [],
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
   storyText: ["story_texts"],
@@ -726,6 +731,15 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "randomizer") {
+    renderRandomizerEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
   if (route === "marts") {
     renderMartEditor(project, content, () => {
       dirty = true;
@@ -888,6 +902,7 @@ function renderRefreshRomButton(): string {
 
 function renderMoreMenu(): string {
   const moreRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
+    ["randomizer", "Randomizer"],
     ["starters", "Starters"],
     ["types", "Type Chart"],
     ["tutorMoves", "Tutor Moves"],
