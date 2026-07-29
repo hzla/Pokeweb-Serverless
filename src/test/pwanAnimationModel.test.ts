@@ -10,6 +10,8 @@ import {
   buildPwanOverrideSideFromPwanBytes,
   buildPwanOverrideSideAsync,
   ensurePwanAnimationState,
+  ensurePwanOverrideBackNcecY,
+  ensurePwanOverrideSideVisibleHeight,
   findPwanOverrideForSpecies,
   getPwanRuntimeStatus,
   hasPwanRuntimeDll,
@@ -23,6 +25,7 @@ import {
   pwanAssetIndex,
   pwanAssetPath,
   setPwanOverrideSideSpeed,
+  uninstallPwanRuntime,
   PWAN_B2_RUNTIME_PATHS,
   PWAN_LEGACY_W2_RUNTIME_PATH,
   PWAN_W2_RUNTIME_PATHS,
@@ -116,6 +119,40 @@ describe("pwanAnimationModel", () => {
     expect(PWAN_W2_RUNTIME_PATHS.every((path) => project.fileSystem?.additions?.[path]?.length)).toBe(true);
     expect(project.fileSystem?.additions?.[PWAN_LEGACY_W2_RUNTIME_PATH]).toBeUndefined();
     expect(hasPwanRuntimeDll(project)).toBe(true);
+  });
+
+  it("uninstalls staged PWAN DLLs while preserving imported PWAN assets", () => {
+    const project = {
+      session: { baseVersion: "W2", baseRom: "BW2" },
+      romInfo: { idCode: "IRDO" },
+      arm9: new Uint8Array(),
+      overlays: {},
+      narcs: {},
+      texts: { banks: {} },
+      fileSystem: {
+        replacements: {},
+        additions: {
+          ...Object.fromEntries(PWAN_W2_RUNTIME_PATHS.map((path) => [path, new Uint8Array([1])])),
+          [PWAN_ARCHIVE_PATH]: new Uint8Array([2]),
+        },
+      },
+      codeInjection: {
+        modules: PWAN_W2_RUNTIME_PATHS.map((path) => ({
+          path,
+          target: "patches" as const,
+          fileName: path.slice("patches/".length),
+        })),
+      },
+      pwanAnimations: { runtimeInstalled: true, dirty: false, overrides: [] },
+    } as unknown as ProjectState;
+
+    uninstallPwanRuntime(project);
+
+    expect(PWAN_W2_RUNTIME_PATHS.every((path) => project.fileSystem?.additions?.[path] === undefined)).toBe(true);
+    expect(project.fileSystem?.additions?.[PWAN_ARCHIVE_PATH]).toEqual(new Uint8Array([2]));
+    expect(project.codeInjection?.modules).toEqual([]);
+    expect(project.pwanAnimations?.runtimeInstalled).toBe(false);
+    expect(hasPwanRuntimeDll(project)).toBe(false);
   });
 
   it("installs an empty Black 2 PWAN archive without touching native sprite files", async () => {
@@ -290,6 +327,18 @@ describe("pwanAnimationModel", () => {
     expect(parsed[0]?.front?.sourceGifBytes).toHaveLength(0);
     expect(parsed[0]?.front?.frameCount).toBe(source.timelineCount);
     expect(parsed[0]?.front?.uniqueFrameCount).toBe(source.uniqueFrameCount);
+    expect(parsed[0]?.front?.visibleHeight).toBeUndefined();
+    expect(parsed[0]?.back?.visibleHeight).toBeUndefined();
+    expect(parsed[0]?.backNcecY).toBeUndefined();
+
+    const parsedOverride = parsed[0]!;
+    const front = parsedOverride.front!;
+    expect(ensurePwanOverrideSideVisibleHeight(front)).toBe(source.visibleHeight);
+    expect(front.visibleHeight).toBe(source.visibleHeight);
+    expect(parsedOverride.back?.visibleHeight).toBeUndefined();
+    expect(ensurePwanOverrideBackNcecY(parsedOverride)).toBe(PWAN_FRONT_NCEC_Y);
+    expect(parsedOverride.back?.visibleHeight).toBe(source.visibleHeight);
+    expect(parsedOverride.backNcecY).toBe(PWAN_FRONT_NCEC_Y);
   });
 
   it("parses current W2U assets with 192 timeline entries", () => {

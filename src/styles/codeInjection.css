@@ -26,6 +26,44 @@
   font-size: 22px;
 }
 
+.code-injection-sidebar__modules {
+  border-top: 1px solid #44475a;
+  margin-top: 22px;
+  padding-top: 20px;
+}
+
+.code-injection-sidebar__modules h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.code-injection-sidebar__modules .code-injection-actions {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 14px;
+}
+
+.code-injection-sidebar__modules .code-injection-actions .btn {
+  width: 100%;
+}
+
+.code-injection-sidebar__modules .code-injection-module-list {
+  max-height: calc(100vh - 405px);
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.code-injection-sidebar__modules .code-injection-module {
+  align-items: flex-start;
+  display: grid;
+  gap: 8px;
+}
+
+.code-injection-sidebar__modules .code-injection-module strong {
+  overflow-wrap: anywhere;
+}
+
 .code-injection-sidebar p,
 .code-injection-panel p,
 .code-injection-note {
@@ -252,30 +290,11 @@
   justify-content: space-between;
 }
 
-.code-injection-module strong,
-.code-injection-module span {
+.code-injection-module strong {
   display: block;
 }
 
 .code-injection-module strong {
   color: #f2f2f2;
   font-size: 14px;
-}
-
-.code-injection-module span {
-  color: #69d6bd;
-  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
-  margin-top: 3px;
-}
-
-.code-injection-module em {
-  border: 1px solid rgb(189 147 249 / 55%);
-  border-radius: 999px;
-  color: #bd93f9;
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 700;
-  padding: 4px 9px;
 }

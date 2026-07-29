@@ -15,7 +15,7 @@ type ReadyMessage = {
 };
 
 const READY_TIMEOUT_MS = 15000;
-const TEST_BATTLE_EMULATOR_VERSION = "test-battle-desmond-2026-07-22-opponent-names-screen-fit";
+const TEST_BATTLE_EMULATOR_VERSION = "test-battle-desmond-2026-07-27-persist-settings";
 
 export function openTestBattleEmulator(): { launch: (payload: TestBattleEmulatorPayload) => Promise<void>; close: () => void } {
   const sessionId = createSessionId();
