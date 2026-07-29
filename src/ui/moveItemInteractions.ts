@@ -397,6 +397,7 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   let previewRequestId = 0;
   let previewDirty = false;
   let previewRefreshTimer = 0;
+  let previewPhaseIndex = 0;
   const destroyPreview = (): void => {
     previewController?.destroy();
     previewController = undefined;
@@ -447,8 +448,10 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
       const scriptText = editor.getValue();
       await spaEditor?.ensureReferences(scriptText);
       const preview = await buildMoveAnimationPreview(project, moveId, scriptText, {
+        phaseIndex: previewPhaseIndex,
         loadSpaArchive: async (_project, spaId) => spaEditor?.getArchiveOverride(spaId) ?? loadMoveSpaArchive(project, spaId),
       });
+      previewPhaseIndex = preview.phaseIndex ?? 0;
       try {
         preview.battleEnvironment = await loadMoveAnimationBattleEnvironment(project, { ...battleEnvironmentSelection });
       } catch (error) {
@@ -456,6 +459,10 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
       }
       const nextPreviewController = await installMoveAnimationPreview(previewHost, preview, {
         initialPlaying,
+        onPhaseChange: (phaseIndex) => {
+          previewPhaseIndex = phaseIndex;
+          void buildPreview(true, { reveal: false });
+        },
         audio: {
           project,
           initialEnabled: audioEnabled,

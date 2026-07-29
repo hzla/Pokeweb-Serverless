@@ -3,22 +3,28 @@ import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
-import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
+import { addRomFile, clearRomFileReplacement, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
-import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
+import {
+  canRemoveStagedCodeInjectionDll,
+  getPmcInstallStatus,
+  installBundledPmc,
+  listCodeInjectionDlls,
+  removeStagedCodeInjectionDll,
+  stageCodeInjectionDll,
+} from "./pmcModel";
 import type { ProjectState } from "./projectStore";
-import { decodeGen5TextBank, encodeGen5TextBank } from "./text";
-import { getTextBank, updateTextEntry } from "./textModel";
 
 export const BATTLE_LOG_DLL_FILENAME = "White2UpgradeBattleLog.dll";
 export const BATTLE_LOG_DLL_PATH = `patches/${BATTLE_LOG_DLL_FILENAME}`;
+export const BATTLE_LOG_SUMMARY_DLL_FILENAME = "White2UpgradeBattleLogSummary.dll";
+export const BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${BATTLE_LOG_SUMMARY_DLL_FILENAME}`;
 export const BLACK2_BATTLE_LOG_DLL_FILENAME = "Black2UpgradeBattleLog.dll";
 export const BLACK2_BATTLE_LOG_DLL_PATH = `patches/${BLACK2_BATTLE_LOG_DLL_FILENAME}`;
+export const BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME = "Black2UpgradeBattleLogSummary.dll";
+export const BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME}`;
 export const BATTLE_LOG_ANCESTRY_PATH = "battlelog/ancestry.narc";
 export const BATTLE_LOG_EVOLUTION_PATH = "a/0/1/9";
-export const BATTLE_LOG_MESSAGE_PATH = "a/0/0/2";
-export const BATTLE_LOG_SUMMARY_BANK = 179;
-export const BATTLE_LOG_SUMMARY_ENTRY = 15;
 export const BATTLE_LOG_CAPACITY = 600;
 
 const SPECIES_COUNT = 1024;
@@ -28,6 +34,7 @@ const ANCESTRY_VERSION = 1;
 const MAX_ANCESTORS = 32;
 const LEGACY_BATTLE_LOG_ANCESTRY_PATH = "battle_log_ancestry.narc";
 const WIFI_LIST_COPY_ADDRESS = 0x02009f0c;
+const BW2_ARM9_RAM_ADDRESS = 0x02004000;
 
 type SupportedBattleLogVersion = "B2" | "W2";
 
@@ -44,6 +51,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
   dllFilename: string;
   dllPath: string;
   dllUrl: URL;
+  summaryDllFilename: string;
+  summaryDllPath: string;
+  summaryDllUrl: URL;
   wifiOriginalHex: string;
   wifiDisabledHex: string;
   hooks: HookSignature[];
@@ -54,6 +64,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     dllFilename: BATTLE_LOG_DLL_FILENAME,
     dllPath: BATTLE_LOG_DLL_PATH,
     dllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLog.dll", import.meta.url),
+    summaryDllFilename: BATTLE_LOG_SUMMARY_DLL_FILENAME,
+    summaryDllPath: BATTLE_LOG_SUMMARY_DLL_PATH,
+    summaryDllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url),
     wifiOriginalHex: "014a024b1847c046c40700004c890702",
     wifiDisabledHex: "7047024b1847c046c40700004c890702",
     hooks: [
@@ -71,6 +84,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     dllFilename: BLACK2_BATTLE_LOG_DLL_FILENAME,
     dllPath: BLACK2_BATTLE_LOG_DLL_PATH,
     dllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLog.dll", import.meta.url),
+    summaryDllFilename: BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME,
+    summaryDllPath: BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH,
+    summaryDllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url),
     wifiOriginalHex: "014a024b1847c046c407000020890702",
     wifiDisabledHex: "7047024b1847c046c407000020890702",
     hooks: [
@@ -109,35 +125,42 @@ export type BattleLogInstallStatus = BattleLogCompatibilityReport & {
   installed: boolean;
   pmcInstalled: boolean;
   dllInstalled: boolean;
+  summaryDllInstalled: boolean;
   ancestryInstalled: boolean;
-  summaryLabelInstalled: boolean;
   saveGuardInstalled: boolean;
 };
 
 export type BattleLogInstallResult = {
   dllPath: string;
+  summaryDllPath: string;
   ancestryPath: string;
   ancestryBytes: number;
   evolutionMembers: number;
 };
+
+export function canUninstallBattleLog(project: ProjectState): boolean {
+  const layout = battleLogLayout(project.session.baseVersion);
+  return Boolean(layout
+    && canRemoveStagedCodeInjectionDll(project, layout.dllPath)
+    && canRemoveStagedCodeInjectionDll(project, layout.summaryDllPath));
+}
 
 export function getBattleLogInstallStatus(project: ProjectState): BattleLogInstallStatus {
   const compatibility = detectBattleLogCompatibility(project);
   const modules = listCodeInjectionDlls(project);
   const layout = battleLogLayout(project.session.baseVersion);
   const dllInstalled = Boolean(layout && modules.some((module) => module.path.toLowerCase() === layout.dllPath.toLowerCase()));
-  const ancestryInstalled = hasRomPath(project, BATTLE_LOG_ANCESTRY_PATH);
-  const summaryLabelInstalled = project.narcs.message_texts
-    ? getTextBank(project, "message_texts", BATTLE_LOG_SUMMARY_BANK)[BATTLE_LOG_SUMMARY_ENTRY]?.[1] === "Frags"
-    : false;
+  const summaryDllInstalled = Boolean(layout && modules.some((module) => module.path.toLowerCase() === layout.summaryDllPath.toLowerCase()));
+  const ancestryInstalled = project.codeInjection?.battleLog?.ancestryPath === BATTLE_LOG_ANCESTRY_PATH
+    || hasRomPath(project, BATTLE_LOG_ANCESTRY_PATH);
   const saveGuardInstalled = Boolean(layout && isWifiListSyncDisabled(project, project.session.baseVersion as SupportedBattleLogVersion));
   return {
     ...compatibility,
-    installed: dllInstalled && ancestryInstalled && summaryLabelInstalled && saveGuardInstalled,
+    installed: dllInstalled && summaryDllInstalled && ancestryInstalled && saveGuardInstalled,
     pmcInstalled: getPmcInstallStatus(project).installed,
     dllInstalled,
+    summaryDllInstalled,
     ancestryInstalled,
-    summaryLabelInstalled,
     saveGuardInstalled,
   };
 }
@@ -252,9 +275,14 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
 
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
   disableWifiListSync(project, rom, project.session.baseVersion as SupportedBattleLogVersion);
-  const response = await fetch(layout.dllUrl);
-  if (!response.ok) throw new Error(`Could not load the bundled battle-log DLL (${response.status})`);
-  stageCodeInjectionDll(project, layout.dllFilename, new Uint8Array(await response.arrayBuffer()), "patches");
+  const [battleResponse, summaryResponse] = await Promise.all([
+    fetch(layout.dllUrl),
+    fetch(layout.summaryDllUrl),
+  ]);
+  if (!battleResponse.ok) throw new Error(`Could not load the bundled battle-log battle DLL (${battleResponse.status})`);
+  if (!summaryResponse.ok) throw new Error(`Could not load the bundled battle-log summary DLL (${summaryResponse.status})`);
+  stageCodeInjectionDll(project, layout.dllFilename, new Uint8Array(await battleResponse.arrayBuffer()), "patches");
+  stageCodeInjectionDll(project, layout.summaryDllFilename, new Uint8Array(await summaryResponse.arrayBuffer()), "patches");
 
   const evolutionMembers = currentEvolutionMembers(project, rom);
   const ancestryBytes = buildBattleLogAncestryNarc(evolutionMembers);
@@ -263,22 +291,54 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   // IDs and breaks consumers that cached the original IDs. Remove an
   // unexported legacy addition before staging the append-only directory path.
   if (project.fileSystem?.additions) delete project.fileSystem.additions[LEGACY_BATTLE_LOG_ANCESTRY_PATH];
+  const ancestryFileId = rom.filenames.idOf(BATTLE_LOG_ANCESTRY_PATH);
   stageRomPath(project, rom, BATTLE_LOG_ANCESTRY_PATH, ancestryBytes);
-  patchSummaryLabel(project, rom);
+  project.codeInjection ??= {};
+  project.codeInjection.battleLog = { ancestryPath: BATTLE_LOG_ANCESTRY_PATH, ancestryFileId };
 
   recordGenericChange(
     project,
     "code_injection",
-    `Battle log staged with ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
+    `Split battle-log runtimes staged with ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
     "Battle Log",
     { key: "code-injection:battle-log" },
   );
   return {
     dllPath: layout.dllPath,
+    summaryDllPath: layout.summaryDllPath,
     ancestryPath: BATTLE_LOG_ANCESTRY_PATH,
     ancestryBytes: ancestryBytes.length,
     evolutionMembers: evolutionMembers.length,
   };
+}
+
+export function uninstallBattleLog(project: ProjectState): void {
+  const layout = battleLogLayout(project.session.baseVersion);
+  if (project.session.baseRom !== "BW2" || !layout) {
+    throw new Error("The battle log supports US Black 2, White 2, and their corresponding Upgrade ROMs.");
+  }
+  if (!canUninstallBattleLog(project)) {
+    throw new Error("Battle-log DLLs already built into the loaded ROM cannot be removed by this editor yet.");
+  }
+
+  const version = project.session.baseVersion as SupportedBattleLogVersion;
+  project.arm9 = restoreBattleLogWifiListSync(project.arm9, BW2_ARM9_RAM_ADDRESS, version);
+  project.arm9Dirty = true;
+  removeStagedCodeInjectionDll(project, layout.dllPath);
+  removeStagedCodeInjectionDll(project, layout.summaryDllPath);
+
+  const ancestry = project.codeInjection?.battleLog;
+  if (ancestry?.ancestryFileId !== undefined) clearRomFileReplacement(project, ancestry.ancestryFileId);
+  else if (project.fileSystem?.additions) delete project.fileSystem.additions[BATTLE_LOG_ANCESTRY_PATH];
+  if (project.codeInjection) delete project.codeInjection.battleLog;
+
+  recordGenericChange(
+    project,
+    "code_injection",
+    "Split battle-log runtime DLLs removed and the Pal Pad/Wi-Fi save routine restored; existing battle-log save records were preserved.",
+    "Battle Log",
+    { key: "code-injection:battle-log" },
+  );
 }
 
 function disableWifiListSync(project: ProjectState, rom: NintendoDSRom, version: SupportedBattleLogVersion): void {
@@ -288,11 +348,16 @@ function disableWifiListSync(project: ProjectState, rom: NintendoDSRom, version:
 }
 
 function isWifiListSyncDisabled(project: ProjectState, version: SupportedBattleLogVersion): boolean {
-  if (!project.originalRomBytes) return false;
+  let arm9 = project.arm9;
+  let arm9RamAddress = BW2_ARM9_RAM_ADDRESS;
   try {
-    const rom = new NintendoDSRom(project.originalRomBytes);
-    const arm9 = project.arm9.length > 0 ? project.arm9 : decompressCode(rom.arm9);
-    const offset = WIFI_LIST_COPY_ADDRESS - rom.arm9RamAddress;
+    if (project.originalRomBytes) {
+      const rom = new NintendoDSRom(project.originalRomBytes);
+      arm9RamAddress = rom.arm9RamAddress;
+      if (arm9.length === 0) arm9 = decompressCode(rom.arm9);
+    }
+    if (arm9.length === 0) return false;
+    const offset = WIFI_LIST_COPY_ADDRESS - arm9RamAddress;
     const disabled = hexToBytes(BATTLE_LOG_LAYOUTS[version].wifiDisabledHex);
     return offset >= 0
       && offset + disabled.length <= arm9.length
@@ -327,6 +392,27 @@ export function patchBattleLogWifiListSync(
   return output;
 }
 
+export function restoreBattleLogWifiListSync(
+  arm9: Uint8Array,
+  arm9RamAddress: number,
+  version: SupportedBattleLogVersion = "W2",
+): Uint8Array {
+  const output = arm9.slice();
+  const offset = WIFI_LIST_COPY_ADDRESS - arm9RamAddress;
+  const layout = BATTLE_LOG_LAYOUTS[version];
+  const original = hexToBytes(layout.wifiOriginalHex);
+  const disabled = hexToBytes(layout.wifiDisabledHex);
+  if (offset < 0 || offset + original.length > output.length) {
+    throw new Error(`The ${layout.displayName} Wi-Fi List copy routine is outside ARM9.`);
+  }
+  const current = output.subarray(offset, offset + original.length);
+  if (!bytesEqual(current, original) && !bytesEqual(current, disabled)) {
+    throw new Error(`The ${layout.displayName} Wi-Fi List copy routine changed after battle-log installation.`);
+  }
+  output.set(original, offset);
+  return output;
+}
+
 export function buildBattleLogAncestryNarc(evolutionMembers: Uint8Array[]): Uint8Array {
   validateEvolutionMembers(evolutionMembers);
   const parents = Array.from({ length: SPECIES_COUNT }, () => new Set<number>());
@@ -338,20 +424,21 @@ export function buildBattleLogAncestryNarc(evolutionMembers: Uint8Array[]): Uint
     }
   });
 
-  const cache = new Map<number, number[]>();
-  const ancestry = (species: number, active: number[] = []): number[] => {
-    const cached = cache.get(species);
-    if (cached) return cached;
-    if (active.includes(species)) throw new Error(`Evolution graph contains a cycle through species ${species}.`);
+  const ancestry = (species: number): number[] => {
     const family = new Set<number>([species]);
-    for (const parent of [...parents[species]!].sort((left, right) => left - right)) {
-      ancestry(parent, [...active, species]).forEach((ancestor) => family.add(ancestor));
+    const pending = [species];
+    while (pending.length > 0) {
+      const current = pending.pop()!;
+      for (const parent of [...parents[current]!].sort((left, right) => right - left)) {
+        if (family.has(parent)) continue;
+        family.add(parent);
+        pending.push(parent);
+      }
     }
     const result = [...family].sort((left, right) => left - right);
     if (result.length > MAX_ANCESTORS) {
       throw new Error(`Species ${species} has ${result.length} ancestors; the battle-log limit is ${MAX_ANCESTORS}.`);
     }
-    cache.set(species, result);
     return result;
   };
 
@@ -394,30 +481,6 @@ function currentEvolutionMembers(project: ProjectState, rom: NintendoDSRom): Uin
   const bytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
   if (!bytes) throw new Error("The evolution NARC could not be loaded.");
   return new NARC(bytes).files;
-}
-
-function patchSummaryLabel(project: ProjectState, rom: NintendoDSRom): void {
-  if (project.narcs.message_texts) {
-    const bank = getTextBank(project, "message_texts", BATTLE_LOG_SUMMARY_BANK);
-    if (!bank[BATTLE_LOG_SUMMARY_ENTRY]) throw new Error("Summary label text entry 179:15 is missing.");
-    if (bank[BATTLE_LOG_SUMMARY_ENTRY]![1] !== "Frags") {
-      updateTextEntry(project, "message_texts", BATTLE_LOG_SUMMARY_BANK, BATTLE_LOG_SUMMARY_ENTRY, "Frags");
-    }
-    return;
-  }
-
-  const fileId = rom.filenames.idOf(BATTLE_LOG_MESSAGE_PATH);
-  if (fileId === undefined) throw new Error(`The ROM does not contain ${BATTLE_LOG_MESSAGE_PATH}.`);
-  const source = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
-  if (!source) throw new Error("The message-text NARC could not be loaded.");
-  const narc = new NARC(source);
-  const bankBytes = narc.files[BATTLE_LOG_SUMMARY_BANK];
-  if (!bankBytes) throw new Error(`Message bank ${BATTLE_LOG_SUMMARY_BANK} is missing.`);
-  const bank = decodeGen5TextBank(bankBytes);
-  if (!bank[BATTLE_LOG_SUMMARY_ENTRY]) throw new Error("Summary label text entry 179:15 is missing.");
-  bank[BATTLE_LOG_SUMMARY_ENTRY]![1] = "Frags";
-  narc.files[BATTLE_LOG_SUMMARY_BANK] = encodeGen5TextBank(bank);
-  setRomFileReplacement(project, fileId, narc.save());
 }
 
 function stageRomPath(project: ProjectState, rom: NintendoDSRom, path: string, bytes: Uint8Array): void {

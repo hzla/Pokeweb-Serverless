@@ -104,8 +104,8 @@ export function applyPwanCarrierPatch(project: ProjectState, override: PwanAnima
   });
 }
 
-export function deriveBackNcecY(backPwanBytes: Uint8Array): 43 | 48 {
-  return pwanVisibleHeight(backPwanBytes) > PWAN_BACK_LIFT_HEIGHT_THRESHOLD ? PWAN_BACK_NCEC_Y : PWAN_FRONT_NCEC_Y;
+export function deriveBackNcecY(backPwanBytes: Uint8Array, visibleHeight = pwanVisibleHeight(backPwanBytes)): 43 | 48 {
+  return visibleHeight > PWAN_BACK_LIFT_HEIGHT_THRESHOLD ? PWAN_BACK_NCEC_Y : PWAN_FRONT_NCEC_Y;
 }
 
 function patchSide(project: ProjectState, base: number, sideOffset: 0 | 9, pwanBytes: Uint8Array, nativePalette: Uint16Array): void {

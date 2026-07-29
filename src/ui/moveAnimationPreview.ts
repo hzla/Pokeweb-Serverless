@@ -31,6 +31,7 @@ export type MoveAnimationPreviewController = {
 
 type MoveAnimationPreviewOptions = {
   initialPlaying?: boolean;
+  onPhaseChange?: (phaseIndex: number) => void;
   audio?: {
     project: ProjectState;
     initialEnabled?: boolean;
@@ -88,6 +89,7 @@ export async function installMoveAnimationPreview(
   const restartButton = host.querySelector<HTMLButtonElement>(".move-preview-restart");
   const frameSlider = host.querySelector<HTMLInputElement>(".move-preview-frame");
   const speedSelect = host.querySelector<HTMLSelectElement>(".move-preview-speed");
+  const phaseSelect = host.querySelector<HTMLSelectElement>(".move-preview-phase");
   const loopInput = host.querySelector<HTMLInputElement>(".move-preview-loop");
   const audioInput = host.querySelector<HTMLInputElement>(".move-preview-audio");
   const audioStatus = host.querySelector<HTMLElement>(".move-preview-audio-status");
@@ -160,6 +162,13 @@ export async function installMoveAnimationPreview(
   speedSelect?.addEventListener("change", () => {
     speed = Number(speedSelect.value) || 1;
     timelineAudio?.setPlaybackSpeed(speed);
+  });
+  phaseSelect?.addEventListener("change", () => {
+    const phaseIndex = Number.parseInt(phaseSelect.value, 10);
+    if (!Number.isInteger(phaseIndex) || phaseIndex === (preview.phaseIndex ?? 0)) return;
+    playing = false;
+    timelineAudio?.stop();
+    options.onPhaseChange?.(phaseIndex);
   });
   loopInput?.addEventListener("change", () => {
     loop = loopInput.checked;
@@ -251,6 +260,8 @@ export function renderMoveBackgroundPreviewCanvas(canvas: HTMLCanvasElement, bac
 }
 
 function renderPreviewShell(preview: MoveAnimationPreview, initialPlaying: boolean, audioAvailable: boolean, initialAudioEnabled: boolean): string {
+  const phaseCount = preview.phaseCount ?? 1;
+  const phaseIndex = preview.phaseIndex ?? 0;
   return `
     <div class="move-animation-preview">
       <div class="move-animation-preview-controls">
@@ -258,6 +269,15 @@ function renderPreviewShell(preview: MoveAnimationPreview, initialPlaying: boole
         <button class="script-btn move-preview-restart" type="button">Restart</button>
         <label>Frame <input class="move-preview-frame" type="range" min="0" max="${preview.frameCount}" value="0"></label>
         <span class="move-preview-frame-label">0 / ${preview.frameCount}</span>
+        ${
+          phaseCount > 1
+            ? `<label>Phase
+                <select class="move-preview-phase" aria-label="Animation phase">
+                  ${Array.from({ length: phaseCount }, (_, index) => `<option value="${index}"${index === phaseIndex ? " selected" : ""}>${escapeHtml(preview.phaseLabels?.[index] ?? String(index + 1))}</option>`).join("")}
+                </select>
+              </label>`
+            : ""
+        }
         <label>Speed
           <select class="move-preview-speed">
             <option value="0.25">0.25x</option>

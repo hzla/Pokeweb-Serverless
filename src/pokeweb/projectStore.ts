@@ -109,6 +109,10 @@ export type CodeInjectionState = {
     version?: string;
     gameId?: string;
   }>;
+  battleLog?: {
+    ancestryPath: string;
+    ancestryFileId?: number;
+  };
 };
 
 export type PwanPaletteSource = "front" | "back";
@@ -119,7 +123,7 @@ export type PwanOverrideSide = {
   pwanBytes: Uint8Array;
   scaleBasePwanBytes?: Uint8Array;
   offsetBasePwanBytes?: Uint8Array;
-  visibleHeight: number;
+  visibleHeight?: number;
   frameCount: number;
   uniqueFrameCount: number;
   timelineCount: number;

@@ -3,6 +3,8 @@ import {
   buildPwanOverrideAsync,
   buildPwanOverrideSideAsync,
   ensurePwanAnimationState,
+  ensurePwanOverrideBackNcecY,
+  ensurePwanOverrideSideVisibleHeight,
   findPwanOverrideForSpecies,
   formatPwanFrameScale,
   getPwanRuntimeStatus,
@@ -147,6 +149,8 @@ export function renderPwanAnimationEditor(project: ProjectState, root: HTMLEleme
 
 function renderSpeciesEditor(project: ProjectState, speciesId: number): string {
   const override = findPwanOverrideForSpecies(project, speciesId);
+  if (override?.front) ensurePwanOverrideSideVisibleHeight(override.front);
+  if (override?.back) ensurePwanOverrideBackNcecY(override);
   return `
     <div class="pwan-species-layout">
       <aside class="pwan-species-sidebar">

@@ -249,6 +249,27 @@ export function stageCodeInjectionDll(
   return entry;
 }
 
+export function canRemoveStagedCodeInjectionDll(project: ProjectState, path: string): boolean {
+  const normalized = path.replace(/^\/+|\\/gu, "/");
+  return Object.keys(project.fileSystem?.additions ?? {}).some((candidate) => candidate.toLowerCase() === normalized.toLowerCase());
+}
+
+export function removeStagedCodeInjectionDll(project: ProjectState, path: string): void {
+  const normalized = path.replace(/^\/+|\\/gu, "/");
+  const stagedPath = Object.keys(project.fileSystem?.additions ?? {}).find(
+    (candidate) => candidate.toLowerCase() === normalized.toLowerCase(),
+  );
+  if (!stagedPath) {
+    throw new Error(`${normalized} is part of the loaded ROM and cannot be removed until NitroFS file deletion is supported.`);
+  }
+  delete project.fileSystem?.additions?.[stagedPath];
+  if (project.codeInjection?.modules) {
+    project.codeInjection.modules = project.codeInjection.modules.filter(
+      (module) => module.path.toLowerCase() !== normalized.toLowerCase(),
+    );
+  }
+}
+
 export function listCodeInjectionDlls(project: ProjectState): NonNullable<NonNullable<ProjectState["codeInjection"]>["modules"]> {
   const fromState = project.codeInjection?.modules ?? [];
   const seen = new Set<string>();

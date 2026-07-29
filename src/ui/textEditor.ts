@@ -12,13 +12,16 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import type { Gen5TextEntry } from "../pokeweb/text";
 import { escapeHtml, selectText } from "./dom";
 
+const TEXT_BANK_STORAGE_KEY_PREFIX = "pokeweb-serverless-active-text-bank";
+
 export function renderTextEditor(project: ProjectState, root: HTMLElement, narcName: TextNarcName, title: string, onDirty?: () => void): void {
-  let selectedBank: number | undefined;
+  let selectedBank = loadRememberedTextBank(narcName, getTextBankCount(project, narcName));
   let searchText = "";
   let ignoreCase = false;
 
-  const renderList = () => {
+  const renderList = (remember = true) => {
     selectedBank = undefined;
+    if (remember) rememberTextBank(narcName, undefined);
     root.innerHTML = `
       <div class="pokemon-filter text-filter">
         <div class="filter-title">Search Text</div>
@@ -37,8 +40,9 @@ export function renderTextEditor(project: ProjectState, root: HTMLElement, narcN
     attachListHandlers();
   };
 
-  const renderDetail = (bankId: number) => {
+  const renderDetail = (bankId: number, remember = true) => {
     selectedBank = bankId;
+    if (remember) rememberTextBank(narcName, bankId);
     const bank = getTextBank(project, narcName, bankId);
     root.innerHTML = `
       <div class="pokemon-filter text-filter">
@@ -67,7 +71,7 @@ export function renderTextEditor(project: ProjectState, root: HTMLElement, narcN
     const search = () => {
       searchText = input?.value ?? "";
       ignoreCase = checkbox?.checked ?? false;
-      renderList();
+      renderList(false);
     };
     searchButton?.addEventListener("click", search);
     input?.addEventListener("keypress", (event) => {
@@ -79,16 +83,16 @@ export function renderTextEditor(project: ProjectState, root: HTMLElement, narcN
   }
 
   function attachDetailHandlers(bankId: number): void {
-    root.querySelector<HTMLButtonElement>("#back-textbanks")?.addEventListener("click", renderList);
+    root.querySelector<HTMLButtonElement>("#back-textbanks")?.addEventListener("click", () => renderList());
     root.querySelector<HTMLButtonElement>("#add-text")?.addEventListener("click", () => {
       addTextEntries(project, narcName, bankId, readCount("#add-text-count"));
       onDirty?.();
-      renderDetail(bankId);
+      renderDetail(bankId, false);
     });
     root.querySelector<HTMLButtonElement>("#del-text")?.addEventListener("click", () => {
       deleteLastTextEntries(project, narcName, bankId, readCount("#del-text-count"));
       onDirty?.();
-      renderDetail(bankId);
+      renderDetail(bankId, false);
     });
 
     root.querySelectorAll<HTMLElement>(".text-line[contenteditable='true']").forEach((field) => {
@@ -121,7 +125,35 @@ export function renderTextEditor(project: ProjectState, root: HTMLElement, narcN
     return Number.isSafeInteger(value) && value > 0 ? Math.min(value, 50) : 1;
   }
 
-  renderList();
+  if (selectedBank === undefined) renderList(false);
+  else renderDetail(selectedBank, false);
+}
+
+function loadRememberedTextBank(narcName: TextNarcName, bankCount: number): number | undefined {
+  try {
+    const value = globalThis.localStorage?.getItem(textBankStorageKey(narcName));
+    if (value === null || value === undefined) return undefined;
+    const bankId = Number(value);
+    if (Number.isSafeInteger(bankId) && bankId >= 0 && bankId < bankCount) return bankId;
+    globalThis.localStorage?.removeItem(textBankStorageKey(narcName));
+  } catch {
+    // Storage may be unavailable in private or constrained browser contexts.
+  }
+  return undefined;
+}
+
+function rememberTextBank(narcName: TextNarcName, bankId: number | undefined): void {
+  try {
+    const key = textBankStorageKey(narcName);
+    if (bankId === undefined) globalThis.localStorage?.removeItem(key);
+    else globalThis.localStorage?.setItem(key, String(bankId));
+  } catch {
+    // The editor remains usable without persistent UI state.
+  }
+}
+
+function textBankStorageKey(narcName: TextNarcName): string {
+  return `${TEXT_BANK_STORAGE_KEY_PREFIX}:${narcName}`;
 }
 
 function renderBankSummary(bankId: number, entries: Gen5TextEntry[]): string {

@@ -1034,6 +1034,10 @@
   min-height: 34px;
 }
 
+.hg-app .move-animation-preview-controls .move-preview-phase {
+  min-width: 72px;
+}
+
 .hg-app .move-animation-preview-grid {
   align-items: stretch;
   display: grid;

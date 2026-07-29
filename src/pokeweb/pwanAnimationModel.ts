@@ -3,7 +3,14 @@ import { readAscii, writeU16, writeU32, readU16, readU32 } from "../nds/binary";
 import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
-import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
+import {
+  canRemoveStagedCodeInjectionDll,
+  getPmcInstallStatus,
+  installBundledPmc,
+  listCodeInjectionDlls,
+  removeStagedCodeInjectionDll,
+  stageCodeInjectionDll,
+} from "./pmcModel";
 import { findPokemonPersonalFormOwner } from "./pokemonLabels";
 import { resolvePokemonSpriteId } from "./pokemonSpriteModel";
 import type { ProjectState, PwanAnimationOverride, PwanAnimationState, PwanOverrideSide, PwanPaletteSource } from "./projectStore";
@@ -224,6 +231,31 @@ export async function installPwanRuntime(project: ProjectState): Promise<void> {
   );
 }
 
+export function canUninstallPwanRuntime(project: ProjectState): boolean {
+  const paths = project.session.baseVersion === "B2" ? PWAN_B2_RUNTIME_PATHS : PWAN_W2_RUNTIME_PATHS;
+  return paths.every((path) => canRemoveStagedCodeInjectionDll(project, path));
+}
+
+export function uninstallPwanRuntime(project: ProjectState): void {
+  if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
+    throw new Error("PWAN animation injection supports stock US Black 2 and White 2 projects.");
+  }
+  const paths = project.session.baseVersion === "B2" ? PWAN_B2_RUNTIME_PATHS : PWAN_W2_RUNTIME_PATHS;
+  if (!paths.every((path) => canRemoveStagedCodeInjectionDll(project, path))) {
+    throw new Error("PWAN DLLs already built into the loaded ROM cannot be removed by this editor yet.");
+  }
+  for (const path of paths) removeStagedCodeInjectionDll(project, path);
+  const state = ensurePwanAnimationState(project);
+  state.runtimeInstalled = false;
+  recordGenericChange(
+    project,
+    "code_injection",
+    "Split PWAN runtime DLLs removed; imported PWAN assets were preserved.",
+    "PWAN Runtime",
+    { key: "pwan-runtime" },
+  );
+}
+
 async function loadLegacyRetirementRuntime(): Promise<Uint8Array> {
   const response = await fetch(PWAN_LEGACY_RETIREMENT_URL);
   if (!response.ok) throw new Error(`Could not load the bundled legacy PWAN retirement runtime (${response.status})`);
@@ -345,14 +377,17 @@ function pwanOverrideSideFromCompileResult(input: PwanOverrideSideInput, result:
   };
 }
 
-export function buildPwanOverrideSideFromPwanBytes(pwanBytes: Uint8Array, sourceFileName: string): PwanOverrideSide {
+export function buildPwanOverrideSideFromPwanBytes(
+  pwanBytes: Uint8Array,
+  sourceFileName: string,
+  options: { deferVisibleHeight?: boolean } = {},
+): PwanOverrideSide {
   const header = parsePwanHeader(pwanBytes);
   validatePwan(pwanBytes);
-  return {
+  const result: PwanOverrideSide = {
     sourceFileName,
     sourceGifBytes: new Uint8Array(),
     pwanBytes: pwanBytes.slice(),
-    visibleHeight: pwanVisibleHeight(pwanBytes),
     frameCount: header.timelineCount,
     uniqueFrameCount: header.frameCount,
     timelineCount: header.timelineCount,
@@ -366,6 +401,22 @@ export function buildPwanOverrideSideFromPwanBytes(pwanBytes: Uint8Array, source
     offsetX: 0,
     offsetY: 0,
   };
+  if (!options.deferVisibleHeight) result.visibleHeight = pwanVisibleHeight(pwanBytes);
+  return result;
+}
+
+export function ensurePwanOverrideSideVisibleHeight(side: PwanOverrideSide): number {
+  side.visibleHeight ??= pwanVisibleHeight(side.pwanBytes);
+  return side.visibleHeight;
+}
+
+export function ensurePwanOverrideBackNcecY(override: PwanAnimationOverride): 43 | 48 | undefined {
+  if (!override.back) {
+    override.backNcecY = undefined;
+    return undefined;
+  }
+  override.backNcecY ??= deriveBackNcecY(override.back.pwanBytes, ensurePwanOverrideSideVisibleHeight(override.back));
+  return override.backNcecY;
 }
 
 export function upsertPwanOverride(project: ProjectState, override: PwanAnimationOverride): void {
@@ -586,15 +637,18 @@ export function parsePwanArchive(archive: NARC): PwanAnimationOverride[] {
     const back = flags & PWAN_CONFIG_BACK_FLAG ? pwanArchiveSide(archive, assetIndex, "back") : undefined;
     if (!front && !back) continue;
     overrides.push(
-      normalizePwanOverride({
-        speciesId,
-        formIndex,
-        assetIndex: assetIndex === speciesId ? undefined : assetIndex,
-        front,
-        back,
-        nativePaletteSource: back ? "back" : "front",
-        carrierTemplate: "w2u-gen6-placeholder",
-      }),
+      normalizePwanOverride(
+        {
+          speciesId,
+          formIndex,
+          assetIndex: assetIndex === speciesId ? undefined : assetIndex,
+          front,
+          back,
+          nativePaletteSource: back ? "back" : "front",
+          carrierTemplate: "w2u-gen6-placeholder",
+        },
+        { deferBackNcecY: true },
+      ),
     );
   }
   return overrides.sort((a, b) => a.speciesId - b.speciesId || (a.formIndex ?? 0) - (b.formIndex ?? 0));
@@ -721,14 +775,14 @@ function findPwanOverrideIndex(state: PwanAnimationState, speciesId: number, for
   return state.overrides.findIndex((entry) => entry.speciesId === speciesId && (entry.formIndex ?? 0) === formIndex);
 }
 
-function normalizePwanOverride(override: PwanAnimationOverride): PwanAnimationOverride {
+function normalizePwanOverride(override: PwanAnimationOverride, options: { deferBackNcecY?: boolean } = {}): PwanAnimationOverride {
   if (!override.front && !override.back) throw new Error("A PWAN override must include at least one side.");
   const nativePaletteSource = override.nativePaletteSource === "front" && override.front ? "front" : override.nativePaletteSource === "back" && override.back ? "back" : override.front ? "front" : "back";
   return {
     ...override,
     nativePaletteSource,
     carrierTemplate: "w2u-gen6-placeholder",
-    backNcecY: override.back ? deriveBackNcecY(override.back.pwanBytes) : undefined,
+    backNcecY: override.back ? override.backNcecY ?? (options.deferBackNcecY ? undefined : deriveBackNcecY(override.back.pwanBytes)) : undefined,
     notes: pwanOverrideNotes(override),
   };
 }
@@ -832,7 +886,7 @@ function pwanArchiveSide(archive: NARC, assetIndex: number, side: PwanSide): Pwa
   const memberId = pwanArchiveMemberId(assetIndex, side);
   const bytes = archive.files[memberId];
   if (!bytes || bytes.length === 0) return undefined;
-  return buildPwanOverrideSideFromPwanBytes(bytes, `${PWAN_ARCHIVE_PATH}:${String(memberId).padStart(4, "0")}.pwan`);
+  return buildPwanOverrideSideFromPwanBytes(bytes, `${PWAN_ARCHIVE_PATH}:${String(memberId).padStart(4, "0")}.pwan`, { deferVisibleHeight: true });
 }
 
 function writePwanArchiveFile(project: ProjectState, rom: NintendoDSRom | undefined, bytes: Uint8Array): void {
