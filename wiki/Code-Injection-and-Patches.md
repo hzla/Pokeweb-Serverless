@@ -27,10 +27,11 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | PMC base address | Shows where the runtime is expected to live in memory. | `0x023C8000` |
 | PWAN GIF status | Shows whether Pokeweb can install the PWAN animated-sprite runtime. | `Ready`, `Unsupported`, `Incompatible` |
 | Install/Upgrade PWAN GIF Support | Stages the three version-specific PWAN runtime files and upgrades a known legacy White 2 monolith. | Summary, Battle, and Misc DLLs for W2 or B2 |
-| Install Battle Log | Checks six ARM9/battle/summary regions, installs PMC if needed, stages the version-specific battle-log DLL, generates ancestry from current evolution data, and changes `ID No.` to `Frags`. | US Black 2, White 2, Black2Upgrade, or White2Upgrade |
+| Uninstall PWAN GIF Support | Removes PWAN runtime DLLs staged in the current project while preserving imported PWAN assets. | Available before the staged DLLs are exported and reloaded as part of a ROM. |
+| Install Battle Log | Checks six ARM9/battle/summary regions, installs PMC if needed, stages the version-specific stripped battle and summary DLLs, and generates ancestry from current evolution data. | US Black 2, White 2, Black2Upgrade, or White2Upgrade |
+| Uninstall Battle Log | Removes the staged battle and summary DLLs, removes or restores generated ancestry data, and restores normal Pal Pad/Wi-Fi save handling. Existing log records in the save remain untouched. | Available before the staged DLLs are exported and reloaded as part of a ROM. |
 | Single-NPC double battle fix | Installs a bundled patch that fixes trainer scripts where one visible NPC should start a double battle. | Black 2 or White 2 patch DLL |
-| Installed patch DLLs | Lists injected patch files in `patches/`. | `DoubleBattleFixW2.dll` |
-| Installed library DLLs | Lists dependency files in `lib/`. | A shared library required by a patch |
+| Installed DLLs sidebar | Lists each injected patch or library once by its complete ROM path. | `patches/DoubleBattleFixW2.dll` |
 | Add Patch DLL | Adds a DLXF Gen V patch DLL to `patches/`. | A battle-code patch DLL |
 | Add Library DLL | Adds a supporting library DLL to `lib/`. | A libRPM-compatible dependency |
 
@@ -86,19 +87,20 @@ Installing the runtime alone writes an empty PWAN configuration and does not mod
 
 1. Use a US Black 2, White 2, or corresponding Upgrade project whose ARM9, battle, and summary hook bytes still match its base game.
 2. Open `Code Injection/Patches` and install the Trainer Battle Log. PMC is installed automatically if needed.
-3. Export the ROM. The installer generates `battlelog/ancestry.narc` from the project's current `a/0/1/9`, stages `patches/Black2UpgradeBattleLog.dll` or `patches/White2UpgradeBattleLog.dll`, and patches summary text bank 179 entry 15 to `Frags`. The dedicated `battlelog` directory is appended to NitroFS so existing ROM file IDs remain unchanged.
+3. Export the ROM. The installer generates `battlelog/ancestry.narc` from the project's current `a/0/1/9` and stages the matching battle and summary DLL pair under `patches/`. The dedicated `battlelog` directory is appended to NitroFS so existing ROM file IDs remain unchanged.
 4. Save normally after trainer battles to persist new records.
 
-The log stores up to 600 trainer records in normal save blocks 29–31. Those blocks originally contain Wi-Fi History, Pal Pad/Wi-Fi List, and Wi-Fi Negotiation data, so the corresponding retired online features are incompatible with the log. Reinstalling regenerates family ancestry after evolution edits.
+The log stores up to 600 trainer records in normal save blocks 29–31. Those blocks originally contain Wi-Fi History, Pal Pad/Wi-Fi List, and Wi-Fi Negotiation data, so the corresponding retired online features are incompatible with the log. Reinstalling regenerates family ancestry after evolution edits. To relabel the summary field, edit system message bank 179 entry 15 from `ID No.` to `Frags`; the installer intentionally leaves normal message text untouched.
 
 ## Caveats
 
 - Code patches are version-specific. A patch made for Black 2 may not be safe for White 2, and BW patches are not automatically BW2 patches.
-- Black 2 and White 2 use separate battle-log DLLs because their battle and summary entry points differ. Pokeweb selects the matching artifact automatically.
+- Black 2 and White 2 each use a stripped overlay-167 battle DLL and a stripped overlay-207 summary DLL because their entry points differ. Pokeweb selects and installs the matching pair automatically.
 - Incompatible status usually means the ROM is not clean at the patch location, the ROM revision differs, or another patch already changed the same code.
 - PWAN support writes extra runtime data during export. Do not judge PWAN installation only by whether a normal editor field changed.
 - Black 2 PWAN accepts manual GIF imports and bundled community PWAN assets for vanilla species 1-649 and legitimate Gen 5 forms. Imports use the dedicated Black 2 carrier templates.
 - A known bundled `patches/PokewebPwanW2.dll` is retired in place during upgrade to avoid shifting ROM file IDs. A different DLL using that legacy filename is treated as a conflict and is not overwritten.
+- Feature uninstall buttons can remove DLLs staged during the current edit session. DLL files already built into an imported ROM remain protected until NitroFS deletion support is available.
 - Patch DLL files are not ordinary Windows DLLs. They must be Gen V-compatible patch/library DLLs built for the injection runtime.
 - Applying a patch can make future patch compatibility checks stricter because the original bytes are no longer present.
 

@@ -1929,6 +1929,10 @@
   min-height: 34px;
 }
 
+#moves .move-animation-preview-controls .move-preview-phase {
+  min-width: 72px;
+}
+
 #moves .move-animation-preview-controls .move-preview-audio-toggle {
   border-left: 1px solid #44475a;
   padding-left: 12px;

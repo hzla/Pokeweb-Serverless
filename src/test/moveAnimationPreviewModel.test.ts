@@ -22,6 +22,69 @@ import type { NarcName } from "../pokeweb/constants";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("moveAnimationPreviewModel", () => {
+  it("previews each phase from its 14-entry header row", async () => {
+    const project = makeProject();
+    const script = makeMultiPhaseScript(
+      `
+     LoadSPA 1
+     Wait 5
+     TerminateMoveScript
+`,
+      `
+     LoadSPA 2
+     Wait 12
+     TerminateMoveScript
+`,
+    );
+    const loadSpaArchive = async () => parseSpaArchive(makeSyntheticSpa());
+
+    const first = await buildMoveAnimationPreview(project, 1, script, { loadSpaArchive });
+    const second = await buildMoveAnimationPreview(project, 1, script, { phaseIndex: 1, loadSpaArchive });
+
+    expect(first.phaseCount).toBe(2);
+    expect(first.phaseIndex).toBe(0);
+    expect(first.rootLabel).toBe("SCRIPT_A");
+    expect(first.spaIds).toEqual([1]);
+    expect(second.phaseCount).toBe(2);
+    expect(second.phaseIndex).toBe(1);
+    expect(second.rootLabel).toBe("SCRIPT_B");
+    expect(second.spaIds).toEqual([2]);
+    expect(second.timeline.find((event) => event.command === "TerminateMoveScript")?.frame).toBe(12);
+  });
+
+  it("presents Focus Punch's separate battle animation as its charge phase", async () => {
+    const project = makeProject();
+    const battleAnimations = project.narcs.battle_animations!;
+    battleAnimations.rawFiles.length = 66;
+    battleAnimations.rawFiles[65] = compileMoveAnimation(
+      project,
+      65,
+      makeScript(`
+     LoadSPA 99
+     Wait 7
+     TerminateMoveScript
+`),
+    );
+    const attackScript = makeScript(`
+     LoadSPA 434
+     Wait 11
+     TerminateMoveScript
+`);
+    const loadSpaArchive = async () => parseSpaArchive(makeSyntheticSpa());
+
+    const charge = await buildMoveAnimationPreview(project, 264, attackScript, { loadSpaArchive });
+    const attack = await buildMoveAnimationPreview(project, 264, attackScript, { phaseIndex: 1, loadSpaArchive });
+
+    expect(charge.phaseCount).toBe(2);
+    expect(charge.phaseIndex).toBe(0);
+    expect(charge.phaseLabels).toEqual(["Charge", "Attack"]);
+    expect(charge.spaIds).toEqual([99]);
+    expect(attack.phaseCount).toBe(2);
+    expect(attack.phaseIndex).toBe(1);
+    expect(attack.phaseLabels).toEqual(["Charge", "Attack"]);
+    expect(attack.spaIds).toEqual([434]);
+  });
+
   it("builds a frame timeline from waits and SPA commands", async () => {
     const project = makeProject();
     const preview = await buildMoveAnimationPreview(
@@ -889,6 +952,23 @@ ${Array.from({ length: 14 }, () => ".word SCRIPT_A").join("\n")}
 
 SCRIPT_A:
 ${body.trimEnd()}
+`;
+}
+
+function makeMultiPhaseScript(firstBody: string, secondBody: string): string {
+  return `
+.include "B2W2_MOVSCRCMD.s"
+.align 4
+
+.word 2 @ Count
+${Array.from({ length: 14 }, () => ".word SCRIPT_A").join("\n")}
+${Array.from({ length: 14 }, () => ".word SCRIPT_B").join("\n")}
+
+SCRIPT_A:
+${firstBody.trimEnd()}
+
+SCRIPT_B:
+${secondBody.trimEnd()}
 `;
 }
 

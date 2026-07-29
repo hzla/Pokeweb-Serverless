@@ -3,7 +3,13 @@ import { NintendoDSRom } from "../nds/rom";
 import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 import { cameraEventDuration } from "./battleCameraSimulator";
-import { decompileMoveAnimationFile, parseMoveAnimationScript, type ParsedMoveAnimationCommand } from "./moveAnimationModel";
+import {
+  decompileMoveAnimationBytes,
+  decompileMoveAnimationFile,
+  parseMoveAnimationScript,
+  type ParsedMoveAnimationCommand,
+  type ParsedMoveAnimationScript,
+} from "./moveAnimationModel";
 import { parseNitroBackground, type NitroBackgroundImage, type NitroBackgroundPaletteAnimation } from "./nitroBg";
 import type { NitroCellEffect, NitroCellImage } from "./nitroCell";
 import { parseSpaArchive, type SpaArchive } from "./nitroSpa";
@@ -12,6 +18,9 @@ import { gen5BattleSpriteIdleFrame, isGen5BattleSpriteCommand } from "./gen5Batt
 import { splEmitterDurationFrames } from "./splEmitterSimulator";
 
 const DEFAULT_CALL_DEPTH = 8;
+const FOCUS_PUNCH_CHARGE_BATTLE_ANIMATION_ID = 65;
+const FOCUS_PUNCH_MOVE_ID = 264;
+const HEADER_LABELS_PER_PHASE = 0x0e;
 const MOVE_SPA_PATH = "a/0/0/6";
 const MOVE_BACKGROUND_GRAPHICS_PATH = "a/0/9/4";
 
@@ -261,6 +270,9 @@ export type MoveAnimationPreview = {
   moveId: number;
   frameCount: number;
   rootLabel: string;
+  phaseIndex?: number;
+  phaseCount?: number;
+  phaseLabels?: string[];
   spaIds: number[];
   timeline: MoveAnimationTimelineEvent[];
   spaArchives: Map<number, SpaArchive>;
@@ -274,6 +286,7 @@ export type MoveAnimationPreview = {
 
 export type MoveAnimationPreviewOptions = {
   maxCallDepth?: number;
+  phaseIndex?: number;
   loadSpaArchive?: (project: ProjectState, spaId: number) => Promise<SpaArchive>;
   loadBackground?: (project: ProjectState, backgroundId: number) => Promise<NitroBackgroundImage>;
 };
@@ -288,8 +301,9 @@ export async function buildMoveAnimationPreview(
   options: MoveAnimationPreviewOptions = {},
 ): Promise<MoveAnimationPreview> {
   const maxCallDepth = options.maxCallDepth ?? DEFAULT_CALL_DEPTH;
-  const parsed = parseMoveAnimationScript(scriptText);
-  const rootLabel = parsed.headerLabels[0] ?? parsed.labelOrder[0];
+  const phase = resolvePreviewPhase(project, moveId, scriptText, options.phaseIndex ?? 0);
+  const { parsed, phaseIndex, phaseCount, phaseLabels } = phase;
+  const rootLabel = phase.rootLabel;
   if (!rootLabel) throw new Error("Animation script has no previewable script label");
 
   const discoveryTimeline: MoveAnimationTimelineEvent[] = [];
@@ -332,6 +346,9 @@ export async function buildMoveAnimationPreview(
   return {
     moveId,
     rootLabel,
+    phaseIndex,
+    phaseCount,
+    phaseLabels,
     timeline,
     spaIds: [...loadEvents].sort((a, b) => a - b),
     spaArchives,
@@ -339,6 +356,48 @@ export async function buildMoveAnimationPreview(
     warnings,
     frameCount: Math.max(60, spriteIdleFrame, ...timeline.map((event) => event.frame + eventDuration(event))),
   };
+}
+
+function resolvePreviewPhase(
+  project: ProjectState,
+  moveId: number,
+  scriptText: string,
+  requestedPhaseIndex: number,
+): {
+  parsed: ParsedMoveAnimationScript;
+  rootLabel?: string;
+  phaseIndex: number;
+  phaseCount: number;
+  phaseLabels?: string[];
+} {
+  const moveScript = parseMoveAnimationScript(scriptText);
+  if (moveId === FOCUS_PUNCH_MOVE_ID && moveScript.count === 1) {
+    const chargeBytes = project.narcs.battle_animations?.rawFiles[FOCUS_PUNCH_CHARGE_BATTLE_ANIMATION_ID];
+    if (chargeBytes?.length) {
+      const phaseIndex = clampPhaseIndex(requestedPhaseIndex, 2);
+      const parsed = phaseIndex === 0 ? parseMoveAnimationScript(decompileMoveAnimationBytes(chargeBytes)) : moveScript;
+      return {
+        parsed,
+        rootLabel: parsed.headerLabels[0] ?? parsed.labelOrder[0],
+        phaseIndex,
+        phaseCount: 2,
+        phaseLabels: ["Charge", "Attack"],
+      };
+    }
+  }
+
+  const phaseIndex = clampPhaseIndex(requestedPhaseIndex, moveScript.count);
+  return {
+    parsed: moveScript,
+    rootLabel: moveScript.headerLabels[phaseIndex * HEADER_LABELS_PER_PHASE] ?? moveScript.labelOrder[0],
+    phaseIndex,
+    phaseCount: moveScript.count,
+  };
+}
+
+function clampPhaseIndex(requestedPhaseIndex: number, phaseCount: number): number {
+  const normalized = Number.isFinite(requestedPhaseIndex) ? Math.trunc(requestedPhaseIndex) : 0;
+  return Math.max(0, Math.min(phaseCount - 1, normalized));
 }
 
 type PendingTaskState = {

@@ -7,8 +7,18 @@ import {
   stageCodeInjectionDll,
   type CodeInjectionDllTarget,
 } from "../pokeweb/pmcModel";
-import { getPwanRuntimeStatus, installPwanRuntime } from "../pokeweb/pwanAnimationModel";
-import { getBattleLogInstallStatus, installBattleLog } from "../pokeweb/battleLogModel";
+import {
+  canUninstallPwanRuntime,
+  getPwanRuntimeStatus,
+  installPwanRuntime,
+  uninstallPwanRuntime,
+} from "../pokeweb/pwanAnimationModel";
+import {
+  canUninstallBattleLog,
+  getBattleLogInstallStatus,
+  installBattleLog,
+  uninstallBattleLog,
+} from "../pokeweb/battleLogModel";
 import {
   detectPwanRuntimeCompatibility,
   pwanCompatibilityFailureSummary,
@@ -28,11 +38,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const doubleBattleFixSupported = status.installed && doubleBattleFixStatus !== "unsupported";
   const pwanRuntimeStatus = getPwanRuntimeStatus(project);
   const pwanRuntimeInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.installed;
+  const pwanRuntimeCanUninstall = pwanRuntimeInstalled && canUninstallPwanRuntime(project);
   const pwanLegacyInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.legacyInstalled;
   const pwanCompatibility = detectPwanRuntimeCompatibility(project);
   const pwanCanInstall = pwanRuntimeStatus.supported && pwanCompatibility.compatible;
   const battleLogStatus = getBattleLogInstallStatus(project);
   const battleLogCanInstall = battleLogStatus.supported && battleLogStatus.compatible;
+  const battleLogCanUninstall = battleLogStatus.installed && canUninstallBattleLog(project);
   if (shouldHydrateRomBytesForPwanCompatibility(project, pwanCompatibility)) {
     void hydrateRomBytesForPwanCompatibility(project, root, onDirty);
   }
@@ -41,6 +53,31 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       <aside class="code-injection-sidebar">
         <h1>Code Injection</h1>
         <p>Install runtime support for prebuilt Gen V patch modules.</p>
+        <section class="code-injection-sidebar__modules">
+          <h2>Installed DLLs</h2>
+          <p>${status.installed ? "DLLs found under patches/ and lib/." : "Install PMC first, then add built patch DLLs."}</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" data-dll-target="patches" type="button" ${status.installed ? "" : "disabled"}>Add Patch DLL</button>
+            <button class="btn -default" data-dll-target="lib" type="button" ${status.installed ? "" : "disabled"}>Add Library DLL</button>
+            <input id="code-injection-dll-input" type="file" accept=".dll" hidden />
+            <div class="code-injection-note" id="dll-install-note">Patch DLLs are staged in patches/. Library DLLs are staged in lib/.</div>
+          </div>
+          <div class="code-injection-module-list">
+            ${
+              modules.length === 0
+                ? `<div class="code-injection-empty">No DLLs found.</div>`
+                : modules
+                    .map(
+                      (module) => `
+                        <div class="code-injection-module">
+                          <strong>${escapeHtml(module.path)}</strong>
+                        </div>
+                      `,
+                    )
+                    .join("")
+            }
+          </div>
+        </section>
       </aside>
       <main class="code-injection-main">
         <section class="code-injection-panel">
@@ -66,7 +103,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Trainer Battle Log</h2>
-              <p>Records the player's team and KO attribution for trainer battles, then shows species-family Frags on the summary screen.</p>
+              <p>Records the player's team and KO attribution for trainer battles, then shows the species-family frag count in the summary screen's ID value field.</p>
             </div>
             <span class="code-injection-status ${battleLogStatus.installed ? "-installed" : battleLogCanInstall ? "" : "-error"}">
               ${battleLogStatus.installed ? "Installed" : battleLogCanInstall ? "Ready" : battleLogStatus.supported ? "Incompatible" : "Unsupported"}
@@ -83,8 +120,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -primary" id="install-battle-log-btn" type="button" ${battleLogCanInstall ? "" : "disabled"}>
               ${battleLogStatus.installed ? "Reinstall Battle Log" : "Install Battle Log"}
             </button>
+            <button class="btn -default" id="uninstall-battle-log-btn" type="button" ${battleLogCanUninstall ? "" : "disabled"}
+              title="${battleLogStatus.installed && !battleLogCanUninstall ? "DLLs already built into the loaded ROM cannot be removed yet." : "Remove the staged battle-log DLLs."}">
+              Uninstall Battle Log
+            </button>
             <div class="code-injection-note" id="battle-log-note">
-              ${escapeHtml(battleLogStatus.message)} ${battleLogStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."} Installing retires and overwrites Pal Pad/Wi-Fi data in save blocks 29–31.
+              ${escapeHtml(battleLogStatus.message)} ${battleLogStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."} Installing retires and overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Rename system message bank 179 entry 15 to Frags in the text editor if desired.
             </div>
           </div>
         </section>
@@ -108,6 +149,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pwan-runtime-btn" type="button" ${pwanCanInstall ? "" : "disabled"}>
               ${pwanRuntimeInstalled ? "Reinstall PWAN GIF Support" : pwanLegacyInstalled ? "Upgrade PWAN GIF Support" : "Install PWAN GIF Support"}
+            </button>
+            <button class="btn -default" id="uninstall-pwan-runtime-btn" type="button" ${pwanRuntimeCanUninstall ? "" : "disabled"}
+              title="${pwanRuntimeInstalled && !pwanRuntimeCanUninstall ? "DLLs already built into the loaded ROM cannot be removed yet." : "Remove the staged PWAN runtime DLLs."}">
+              Uninstall PWAN GIF Support
             </button>
             <div class="code-injection-note" id="pwan-runtime-note">
               ${
@@ -146,39 +191,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <span>Implementation credits</span>
             <strong>Sunk</strong>
             <strong>Papaya</strong>
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Installed DLLs</h2>
-              <p>${status.installed ? "DLLs found in the ROM filesystem under patches/ and lib/." : "Install PMC first, then add built patch DLLs."}</p>
-            </div>
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" data-dll-target="patches" type="button" ${status.installed ? "" : "disabled"}>Add Patch DLL</button>
-            <button class="btn -default" data-dll-target="lib" type="button" ${status.installed ? "" : "disabled"}>Add Library DLL</button>
-            <input id="code-injection-dll-input" type="file" accept=".dll" hidden />
-            <div class="code-injection-note" id="dll-install-note">Patch DLLs are staged in patches/. Library DLLs are staged in lib/.</div>
-          </div>
-          <div class="code-injection-module-list">
-            ${
-              modules.length === 0
-                ? `<div class="code-injection-empty">No DLLs found.</div>`
-                : modules
-                    .map(
-                      (module) => `
-                        <div class="code-injection-module">
-                          <div>
-                            <strong>${escapeHtml(module.fileName)}</strong>
-                            <span>${escapeHtml(module.path)}</span>
-                          </div>
-                          <em>${module.target === "patches" ? "Patch" : "Library"}</em>
-                        </div>
-                      `,
-                    )
-                    .join("")
-            }
           </div>
         </section>
       </main>
@@ -236,6 +248,22 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  const uninstallPwanButton = root.querySelector<HTMLButtonElement>("#uninstall-pwan-runtime-btn");
+  uninstallPwanButton?.addEventListener("click", () => {
+    try {
+      uninstallPwanButton.disabled = true;
+      uninstallPwanRuntime(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note");
+      if (refreshedNote) refreshedNote.textContent = "PWAN runtime DLLs removed. Imported PWAN assets remain in the project for later reinstallation.";
+    } catch (error) {
+      uninstallPwanButton.disabled = false;
+      const currentNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note") ?? pwanNote;
+      if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
   const doubleBattleButton = root.querySelector<HTMLButtonElement>("#install-double-battle-fix-btn");
   const doubleBattleNote = root.querySelector<HTMLDivElement>("#double-battle-fix-note");
   doubleBattleButton?.addEventListener("click", async () => {
@@ -264,19 +292,39 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       battleLogButton.disabled = true;
       battleLogButton.textContent = "Installing...";
       if (battleLogNote) {
-        battleLogNote.textContent = "Checking White 2 hooks, retiring Pal Pad save handling, generating species ancestry, patching summary text, and staging the DLL.";
+        battleLogNote.textContent = "Checking ROM hooks, retiring Pal Pad save handling, generating species ancestry, and staging the split battle and summary DLLs.";
       }
       const result = await installBattleLog(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#battle-log-note");
       if (refreshedNote) {
-        refreshedNote.textContent = `Battle log staged at ${result.dllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.`;
+        refreshedNote.textContent = `Battle log staged at ${result.dllPath} and ${result.summaryDllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.`;
       }
     } catch (error) {
-      battleLogButton.disabled = false;
-      battleLogButton.textContent = previousText;
-      if (battleLogNote) battleLogNote.textContent = error instanceof Error ? error.message : String(error);
+      const currentButton = root.querySelector<HTMLButtonElement>("#install-battle-log-btn") ?? battleLogButton;
+      const currentNote = root.querySelector<HTMLDivElement>("#battle-log-note") ?? battleLogNote;
+      currentButton.disabled = false;
+      currentButton.textContent = previousText;
+      if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const uninstallBattleLogButton = root.querySelector<HTMLButtonElement>("#uninstall-battle-log-btn");
+  uninstallBattleLogButton?.addEventListener("click", () => {
+    try {
+      uninstallBattleLogButton.disabled = true;
+      uninstallBattleLog(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#battle-log-note");
+      if (refreshedNote) {
+        refreshedNote.textContent = "Battle-log DLLs removed and normal Pal Pad/Wi-Fi save handling restored. Existing battle-log save records remain untouched.";
+      }
+    } catch (error) {
+      uninstallBattleLogButton.disabled = false;
+      const currentNote = root.querySelector<HTMLDivElement>("#battle-log-note") ?? battleLogNote;
+      if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 

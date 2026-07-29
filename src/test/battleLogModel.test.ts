@@ -5,7 +5,10 @@ import { NARC } from "../nds/narc";
 import {
   buildBattleLogAncestryNarc,
   detectBattleLogCompatibility,
+  getBattleLogInstallStatus,
   patchBattleLogWifiListSync,
+  restoreBattleLogWifiListSync,
+  uninstallBattleLog,
 } from "../pokeweb/battleLogModel";
 import { parseRpm } from "../pokeweb/rpm";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -13,8 +16,14 @@ import type { ProjectState } from "../pokeweb/projectStore";
 const white2BattleLogDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/White2UpgradeBattleLog.dll", import.meta.url)),
 );
+const white2BattleLogSummaryDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url)),
+);
 const black2BattleLogDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/Black2UpgradeBattleLog.dll", import.meta.url)),
+);
+const black2BattleLogSummaryDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url)),
 );
 
 describe("trainer battle log", () => {
@@ -37,35 +46,64 @@ describe("trainer battle log", () => {
     expect(() => buildBattleLogAncestryNarc([new Uint8Array(42), new Uint8Array(48)])).toThrow(/expected 42/u);
   });
 
-  it("rejects cyclic evolution mappings", () => {
+  it("handles cyclic evolution mappings without duplicating family members", () => {
     const evolutions = [new Uint8Array(42), new Uint8Array(42), new Uint8Array(42)];
     setEvolution(evolutions[1]!, 0, 4, 2);
     setEvolution(evolutions[2]!, 0, 4, 1);
-    expect(() => buildBattleLogAncestryNarc(evolutions)).toThrow(/cycle/u);
+    const archive = new NARC(buildBattleLogAncestryNarc(evolutions));
+    expect(readAncestryMember(archive.files[1]!)).toEqual([1, 2]);
+    expect(readAncestryMember(archive.files[2]!)).toEqual([1, 2]);
   });
 
-  it("bundles the White 2 two-overlay DLXF runtime", () => {
+  it("bundles split White 2 battle and summary DLXF runtimes", () => {
     expect(readAscii(white2BattleLogDll, 0, 4)).toBe("DLXF");
+    expect(readAscii(white2BattleLogSummaryDll, 0, 4)).toBe("DLXF");
     expect(externalHooks(white2BattleLogDll)).toEqual([
       "167:219ca89:THUMB_BRANCH",
       "167:21a8a65:THUMB_BRANCH",
       "167:21ae36d:THUMB_BRANCH",
+    ]);
+    expect(externalHooks(white2BattleLogSummaryDll)).toEqual([
       "207:21b6f36:THUMB_BRANCH_LINK",
       "207:21b6f4c:THUMB_BRANCH_LINK",
     ]);
   });
 
-  it("bundles the relocated Black 2 two-overlay DLXF runtime", () => {
+  it("bundles split relocated Black 2 battle and summary DLXF runtimes", () => {
     expect(readAscii(black2BattleLogDll, 0, 4)).toBe("DLXF");
-    const rpm = parseRpm(black2BattleLogDll, { allowedMagics: ["DLXF"] });
-    expect(rpm.metadata).toMatchObject({ PMCGameID: "B2", PMCModulePriority: 4 });
+    expect(readAscii(black2BattleLogSummaryDll, 0, 4)).toBe("DLXF");
+    for (const dll of [black2BattleLogDll, black2BattleLogSummaryDll]) {
+      const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
+      expect(rpm.metadata).toMatchObject({ PMCGameID: "B2", PMCModulePriority: 4 });
+    }
     expect(externalHooks(black2BattleLogDll)).toEqual([
       "167:219ca49:THUMB_BRANCH",
       "167:21a8a25:THUMB_BRANCH",
       "167:21ae32d:THUMB_BRANCH",
+    ]);
+    expect(externalHooks(black2BattleLogSummaryDll)).toEqual([
       "207:21b6ef6:THUMB_BRANCH_LINK",
       "207:21b6f0c:THUMB_BRANCH_LINK",
     ]);
+  });
+
+  it("bundles only stripped battle-log runtimes", () => {
+    for (const dll of [
+      white2BattleLogDll,
+      white2BattleLogSummaryDll,
+      black2BattleLogDll,
+      black2BattleLogSummaryDll,
+    ]) {
+      const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
+      expect(rpm.symbols.every((symbol) => symbol.name === null)).toBe(true);
+    }
+  });
+
+  it("keeps the White 2 battle-time allocation within the observed fragmented-heap slot", () => {
+    // cascdev's 160 KiB PMC heap had 7,136 bytes free but only a 2,528-byte
+    // contiguous block when overlay 167 loaded.
+    expect(readU32(white2BattleLogDll, 4)).toBeLessThanOrEqual(2528);
+    expect(readU32(white2BattleLogSummaryDll, 4)).toBeLessThan(readU32(white2BattleLogDll, 4));
   });
 
   it("does not recursively import the three retail functions replaced by entry hooks", () => {
@@ -117,6 +155,70 @@ describe("trainer battle log", () => {
 
     expect([...patched]).toEqual([...hexBytes("7047024b1847c046c407000020890702")]);
     expect([...arm9]).toEqual([...hexBytes("014a024b1847c046c407000020890702")]);
+  });
+
+  it("restores the Wi-Fi List routine when staged battle-log DLLs are uninstalled", () => {
+    const project = makeProject("W2");
+    const guardOffset = 0x02009f0c - 0x02004000;
+    project.arm9 = new Uint8Array(guardOffset + 16);
+    project.arm9.set(hexBytes("7047024b1847c046c40700004c890702"), guardOffset);
+    project.fileSystem = {
+      replacements: {},
+      additions: {
+        "patches/White2UpgradeBattleLog.dll": white2BattleLogDll,
+        "patches/White2UpgradeBattleLogSummary.dll": white2BattleLogSummaryDll,
+        "battlelog/ancestry.narc": new Uint8Array([1]),
+      },
+    };
+    project.codeInjection = {
+      battleLog: { ancestryPath: "battlelog/ancestry.narc" },
+      modules: [
+        { path: "patches/White2UpgradeBattleLog.dll", target: "patches", fileName: "White2UpgradeBattleLog.dll" },
+        { path: "patches/White2UpgradeBattleLogSummary.dll", target: "patches", fileName: "White2UpgradeBattleLogSummary.dll" },
+      ],
+    };
+
+    uninstallBattleLog(project);
+
+    expect(project.arm9.subarray(guardOffset, guardOffset + 16)).toEqual(hexBytes("014a024b1847c046c40700004c890702"));
+    expect(project.fileSystem.additions).toEqual({});
+    expect(project.codeInjection.modules).toEqual([]);
+    expect(project.codeInjection.battleLog).toBeUndefined();
+    expect(getBattleLogInstallStatus(project).installed).toBe(false);
+  });
+
+  it("restores a disabled Wi-Fi List routine idempotently", () => {
+    const disabled = hexBytes("7047024b1847c046c40700004c890702");
+    const restored = restoreBattleLogWifiListSync(disabled, 0x02009f0c);
+    expect(restored).toEqual(hexBytes("014a024b1847c046c40700004c890702"));
+    expect(restoreBattleLogWifiListSync(restored, 0x02009f0c)).toEqual(restored);
+  });
+
+  it("recognizes an installed split runtime after persistence releases the source ROM bytes", () => {
+    const project = makeProject("W2");
+    const guardOffset = 0x02009f0c - 0x02004000;
+    project.arm9 = new Uint8Array(guardOffset + 16);
+    project.arm9.set(hexBytes("7047024b1847c046c40700004c890702"), guardOffset);
+    project.fileSystem = {
+      // Existing modified ROMs replace the ancestry file by numeric file ID.
+      // Once persistence releases originalRomBytes, the path can only be
+      // recovered from the explicit battle-log install marker.
+      replacements: { 123: new Uint8Array([1]) },
+    };
+    project.codeInjection = {
+      pmc: { overlayId: 344, overlayPath: "overlay/overlay_0344.bin" },
+      battleLog: { ancestryPath: "battlelog/ancestry.narc" },
+      modules: [
+        { path: "patches/White2UpgradeBattleLog.dll", target: "patches", fileName: "White2UpgradeBattleLog.dll" },
+        { path: "patches/White2UpgradeBattleLogSummary.dll", target: "patches", fileName: "White2UpgradeBattleLogSummary.dll" },
+      ],
+    };
+    expect(getBattleLogInstallStatus(project)).toMatchObject({
+      installed: true,
+      dllInstalled: true,
+      summaryDllInstalled: true,
+      saveGuardInstalled: true,
+    });
   });
 });
 

@@ -72,8 +72,15 @@ type InBrowserStateSnapshot = {
   createdAt: string;
 };
 
+type TestBattleEmulatorSettings = {
+  speedMultiplier: number;
+  screenScale: number;
+  audioVolume: number;
+};
+
 const DESMOND_INITIAL_MEMORY = 1024 * 1024 * 1024;
 const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-06-27-savestate";
+const TEST_BATTLE_EMULATOR_SETTINGS_STORAGE_KEY = "pokeweb.testBattleEmulator.settings.v1";
 const DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER = 4;
 const MIN_TEST_BATTLE_SPEED_MULTIPLIER = 0.05;
 const MAX_TEST_BATTLE_SPEED_MULTIPLIER = 8;
@@ -108,6 +115,7 @@ const opponentParty = document.querySelector<HTMLDivElement>("#pokeweb-opponent-
 const sessionId = readSessionId();
 const desmondWindow = window as DesmondWindow;
 const debugLog = installDebugLog();
+const initialSettings = readTestBattleEmulatorSettings();
 
 let started = false;
 let readyTimer: number | undefined;
@@ -123,9 +131,9 @@ let activeTestLabel = "test battle";
 let activeGameCode = "";
 let activeRomByteLength = 0;
 let latestFrameCount = 0;
-let speedMultiplier = DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER;
-let screenScale = DEFAULT_TEST_BATTLE_SCREEN_SCALE;
-let audioVolume = DEFAULT_TEST_BATTLE_AUDIO_VOLUME;
+let speedMultiplier = initialSettings.speedMultiplier;
+let screenScale = initialSettings.screenScale;
+let audioVolume = initialSettings.audioVolume;
 let paused = false;
 let pendingStepFrames = 0;
 let lastExportedDesmumeStateBytes: Uint8Array | undefined;
@@ -178,23 +186,23 @@ function notifyReady(): void {
 
 function installSpeedControl(): void {
   if (!speedSlider) return;
-  setSpeedMultiplier(DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER, false);
-  speedSlider.addEventListener("input", () => setSpeedMultiplier(Number(speedSlider.value), false));
-  speedSlider.addEventListener("change", () => setSpeedMultiplier(Number(speedSlider.value), true));
+  setSpeedMultiplier(speedMultiplier, false, false);
+  speedSlider.addEventListener("input", () => setSpeedMultiplier(Number(speedSlider.value), false, true));
+  speedSlider.addEventListener("change", () => setSpeedMultiplier(Number(speedSlider.value), true, true));
 }
 
 function installScreenSizeControl(): void {
   if (!screenSizeSlider) return;
-  setScreenScale(DEFAULT_TEST_BATTLE_SCREEN_SCALE, false);
-  screenSizeSlider.addEventListener("input", () => setScreenScale(Number(screenSizeSlider.value) / 100, false));
-  screenSizeSlider.addEventListener("change", () => setScreenScale(Number(screenSizeSlider.value) / 100, true));
+  setScreenScale(screenScale, false, false);
+  screenSizeSlider.addEventListener("input", () => setScreenScale(Number(screenSizeSlider.value) / 100, false, true));
+  screenSizeSlider.addEventListener("change", () => setScreenScale(Number(screenSizeSlider.value) / 100, true, true));
 }
 
 function installAudioControl(): void {
   if (!audioSlider) return;
-  setAudioVolume(DEFAULT_TEST_BATTLE_AUDIO_VOLUME, false);
-  audioSlider.addEventListener("input", () => setAudioVolume(Number(audioSlider.value) / 100, false));
-  audioSlider.addEventListener("change", () => setAudioVolume(Number(audioSlider.value) / 100, true));
+  setAudioVolume(audioVolume, false, false);
+  audioSlider.addEventListener("input", () => setAudioVolume(Number(audioSlider.value) / 100, false, true));
+  audioSlider.addEventListener("change", () => setAudioVolume(Number(audioSlider.value) / 100, true, true));
 }
 
 function installPlaybackControls(): void {
@@ -263,17 +271,58 @@ function blurFocusedEmulatorControl(): void {
   if (active instanceof HTMLElement && controls?.contains(active)) active.blur();
 }
 
+function defaultTestBattleEmulatorSettings(): TestBattleEmulatorSettings {
+  return {
+    speedMultiplier: DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER,
+    screenScale: DEFAULT_TEST_BATTLE_SCREEN_SCALE,
+    audioVolume: DEFAULT_TEST_BATTLE_AUDIO_VOLUME,
+  };
+}
+
+function readTestBattleEmulatorSettings(): TestBattleEmulatorSettings {
+  const defaults = defaultTestBattleEmulatorSettings();
+  if (typeof localStorage === "undefined") return defaults;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TEST_BATTLE_EMULATOR_SETTINGS_STORAGE_KEY) ?? "null") as Partial<Record<keyof TestBattleEmulatorSettings, unknown>> | null;
+    if (!parsed || typeof parsed !== "object") return defaults;
+    return {
+      speedMultiplier: clampSpeedMultiplier(Number(parsed.speedMultiplier ?? defaults.speedMultiplier)),
+      screenScale: clampScreenScale(Number(parsed.screenScale ?? defaults.screenScale)),
+      audioVolume: clampAudioVolume(Number(parsed.audioVolume ?? defaults.audioVolume)),
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function writeTestBattleEmulatorSettings(): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(
+      TEST_BATTLE_EMULATOR_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        speedMultiplier,
+        screenScale,
+        audioVolume,
+      } satisfies TestBattleEmulatorSettings),
+    );
+  } catch {
+    // Ignore storage failures; private browsing or quota limits should not block emulator controls.
+  }
+}
+
 function clampSpeedMultiplier(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER;
   return Math.max(MIN_TEST_BATTLE_SPEED_MULTIPLIER, Math.min(MAX_TEST_BATTLE_SPEED_MULTIPLIER, Math.round(value * 20) / 20));
 }
 
-function setSpeedMultiplier(value: number, logChange: boolean): void {
+function setSpeedMultiplier(value: number, logChange: boolean, persist: boolean): void {
   speedMultiplier = clampSpeedMultiplier(value);
   const formatted = formatSpeedMultiplier(speedMultiplier);
   if (speedSlider) speedSlider.value = formatted;
   if (speedValue) speedValue.textContent = `${formatted}x`;
   if (desmondWindow.POKEWEB_TEST_BATTLE) desmondWindow.POKEWEB_TEST_BATTLE.speedMultiplier = speedMultiplier;
+  if (persist) writeTestBattleEmulatorSettings();
   if (logChange) debugLog(`Emulation speed set to ${formatted}x.`);
 }
 
@@ -282,12 +331,13 @@ function clampScreenScale(value: number): number {
   return Math.max(MIN_TEST_BATTLE_SCREEN_SCALE, Math.min(MAX_TEST_BATTLE_SCREEN_SCALE, Math.round(value * 20) / 20));
 }
 
-function setScreenScale(value: number, logChange: boolean): void {
+function setScreenScale(value: number, logChange: boolean, persist: boolean): void {
   screenScale = clampScreenScale(value);
   const percent = Math.round(screenScale * 100);
   if (screenSizeSlider) screenSizeSlider.value = String(percent);
   if (screenSizeValue) screenSizeValue.textContent = percent === 100 ? "Fit" : `${percent}%`;
   syncDesmondPlayerSize();
+  if (persist) writeTestBattleEmulatorSettings();
   if (logChange) debugLog(percent === 100 ? "Emulator screens set to fit." : `Emulator screens set to ${percent}% of fit.`);
 }
 
@@ -296,7 +346,7 @@ function clampAudioVolume(value: number): number {
   return Math.max(MIN_TEST_BATTLE_AUDIO_VOLUME, Math.min(MAX_TEST_BATTLE_AUDIO_VOLUME, Math.round(value * 100) / 100));
 }
 
-function setAudioVolume(value: number, logChange: boolean): void {
+function setAudioVolume(value: number, logChange: boolean, persist: boolean): void {
   audioVolume = clampAudioVolume(value);
   const percent = Math.round(audioVolume * 100);
   if (audioSlider) audioSlider.value = String(percent);
@@ -306,6 +356,7 @@ function setAudioVolume(value: number, logChange: boolean): void {
     desmondWindow.POKEWEB_TEST_BATTLE.audioMuted = audioVolume <= 0;
   }
   if (audioVolume > 0) desmondWindow.pokewebTryInitSound?.();
+  if (persist) writeTestBattleEmulatorSettings();
   if (logChange) debugLog(percent === 0 ? "Emulator audio muted." : `Emulator audio set to ${percent}%.`);
 }
 
