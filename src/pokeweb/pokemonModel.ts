@@ -103,6 +103,13 @@ export type TutorCompatibilityGroup = {
   slots: TutorCompatibilitySlot[];
 };
 
+export type PokemonMachineCompatibilityEntry = {
+  speciesId: number;
+  type1: string;
+  type2: string;
+  enabled: boolean;
+};
+
 export type EggMoveSlot = {
   index: number;
   moveId: number;
@@ -290,6 +297,27 @@ export function getPokemonTmCompatibility(project: ProjectState, speciesId: numb
       };
     }),
   ];
+}
+
+export function getPokemonMachineCompatibilityRoster(
+  project: ProjectState,
+  kind: "tm" | "hm",
+  index: number,
+): PokemonMachineCompatibilityEntry[] {
+  if (!project.narcs.personal) return [];
+  const location = tmBitLocation(project, kind, index);
+  return getPokemonPersonalIds(project)
+    .filter((speciesId) => speciesId > 0)
+    .sort((left, right) => left - right)
+    .map((speciesId) => {
+      const record = decodeRecord(project, "personal", speciesId);
+      return {
+        speciesId,
+        type1: String(record.readable?.type_1 ?? ""),
+        type2: String(record.readable?.type_2 ?? ""),
+        enabled: Boolean(record.raw && bitEnabled(record.raw, location.field, location.bit)),
+      };
+    });
 }
 
 export function updatePokemonTmCompatibility(project: ProjectState, speciesId: number, kind: "tm" | "hm", index: number, enabled: boolean): void {

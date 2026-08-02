@@ -71,6 +71,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       const gen = Number(button.dataset.gen);
       toggleSet(activeGenerations, gen);
       button.classList.toggle("-active", activeGenerations.has(gen));
+      button.setAttribute("aria-pressed", String(activeGenerations.has(gen)));
       runFilter();
     }, listenerOptions);
   });
@@ -80,6 +81,7 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       const type = button.dataset.ptype ?? "";
       toggleSet(activeTypes, type);
       button.classList.toggle("-active", activeTypes.has(type));
+      button.setAttribute("aria-pressed", String(activeTypes.has(type)));
       runFilter();
     }, listenerOptions);
   });
