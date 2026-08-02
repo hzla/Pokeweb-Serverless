@@ -204,6 +204,7 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
     button.addEventListener("click", () => {
       toggleSet(activeCategories, button.dataset.mcat ?? "");
       button.classList.toggle("-active", activeCategories.has(button.dataset.mcat ?? ""));
+      button.setAttribute("aria-pressed", String(activeCategories.has(button.dataset.mcat ?? "")));
       runFilter();
     });
   });
@@ -212,6 +213,7 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
     button.addEventListener("click", () => {
       toggleSet(activeTypes, button.dataset.ptype ?? "");
       button.classList.toggle("-active", activeTypes.has(button.dataset.ptype ?? ""));
+      button.setAttribute("aria-pressed", String(activeTypes.has(button.dataset.ptype ?? "")));
       runFilter();
     });
   });

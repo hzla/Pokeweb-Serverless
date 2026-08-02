@@ -114,10 +114,10 @@ export function renderMoveEditor(
       <input class="filter-input" id="search-text"/>
       <button class="btn -default" id="search-text-btn" type="button">Search</button>
       <div class="small-filters cat-filters">
-        ${["physical", "special", "status"].map((cat) => `<button class="btn -default btn-3" data-mcat="${cat}" type="button"><img src="${publicAsset(`images/move-${cat}.png`)}" alt="${cat}"></button>`).join("")}
+        ${["physical", "special", "status"].map((cat) => `<button class="btn -default btn-3" data-mcat="${cat}" type="button" aria-pressed="false"><img src="${publicAsset(`images/move-${cat}.png`)}" alt="${cat}"></button>`).join("")}
       </div>
       <div class="small-filters type-filters">
-        ${typeNamesForProject(project).map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
+        ${typeNamesForProject(project).map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button" aria-pressed="false">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
       </div>
       ${renderW2uSyncButton(project, ["moves"])}
       <div class="move-command-reference" id="move-command-reference">
