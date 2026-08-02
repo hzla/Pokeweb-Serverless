@@ -1,5 +1,10 @@
 import { typeNamesForProject } from "../pokeweb/constants";
-import { getPokemonMachineCompatibilityRoster, updatePokemonTmCompatibility } from "../pokeweb/pokemonModel";
+import {
+  getPokemonMachineCompatibilityRoster,
+  getPokemonSummaryRecord,
+  pokemonMatchesSearch,
+  updatePokemonTmCompatibility,
+} from "../pokeweb/pokemonModel";
 import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import { getPokemonIconImage, resolvePokemonSpriteId, type RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import { getTmEntries, syncAllTmIcons, tmMatchesSearch, updateTmMove, type TmEntry } from "../pokeweb/tmModel";
@@ -26,6 +31,7 @@ export function attachTmInteractions(root: HTMLElement, project: ProjectState, o
   tmInteractionInstallations.set(root, { controller, disconnectIcons: iconRenderer.disconnect });
   const activeCategories = new Set<string>();
   const activeTypes = new Set<string>();
+  const compatibilitySearchTimers = new WeakMap<HTMLInputElement, number>();
   const searchInput = root.querySelector<HTMLInputElement>("#search-text");
   const searchButton = root.querySelector<HTMLButtonElement>("#search-text-btn");
   const syncButton = root.querySelector<HTMLButtonElement>("#sync-tm-icons-btn");
@@ -103,7 +109,7 @@ export function attachTmInteractions(root: HTMLElement, project: ProjectState, o
       const active = !typeFilter.classList.contains("-active");
       typeFilter.classList.toggle("-active", active);
       typeFilter.setAttribute("aria-pressed", String(active));
-      applyTmPokemonTypeFilter(panel);
+      applyTmPokemonFilter(panel, project);
       return;
     }
 
@@ -124,9 +130,31 @@ export function attachTmInteractions(root: HTMLElement, project: ProjectState, o
       const state = enabled ? "Compatible" : "Not compatible";
       pokemonCard.title = `#${speciesId} ${name} · ${state}`;
       pokemonCard.setAttribute("aria-label", `#${speciesId} ${name}. ${state}`);
-      applyTmPokemonTypeFilter(panel);
       options.onDirty?.();
     }
+  }, { signal: controller.signal });
+
+  root.addEventListener("input", (event) => {
+    if (!(event.target instanceof HTMLInputElement) || !event.target.matches(".tm-pokemon-search-input")) return;
+    const input = event.target;
+    const previousTimer = compatibilitySearchTimers.get(input);
+    if (previousTimer !== undefined) window.clearTimeout(previousTimer);
+    const timer = window.setTimeout(() => {
+      const panel = input.closest<HTMLElement>(".tm-pokemon-compatibility-panel");
+      if (panel) applyTmPokemonFilter(panel, project);
+      compatibilitySearchTimers.delete(input);
+    }, 120);
+    compatibilitySearchTimers.set(input, timer);
+  }, { signal: controller.signal });
+
+  root.addEventListener("keydown", (event) => {
+    if (!(event.target instanceof HTMLInputElement) || !event.target.matches(".tm-pokemon-search-input") || event.key !== "Enter") return;
+    event.preventDefault();
+    const previousTimer = compatibilitySearchTimers.get(event.target);
+    if (previousTimer !== undefined) window.clearTimeout(previousTimer);
+    compatibilitySearchTimers.delete(event.target);
+    const panel = event.target.closest<HTMLElement>(".tm-pokemon-compatibility-panel");
+    if (panel) applyTmPokemonFilter(panel, project);
   }, { signal: controller.signal });
 
   installEditableFields(root, project, options);
@@ -145,6 +173,14 @@ function renderTmPokemonCompatibilityPanel(project: ProjectState, entry: TmEntry
           <strong>${escapeHtml(`${entry.kind.toUpperCase()}${entry.number} · ${entry.moveName}`)}</strong>
         </div>
         <div class="tm-pokemon-type-filter-wrap">
+          <input
+            class="filter-input tm-pokemon-search-input"
+            type="search"
+            placeholder="Search Pokemon"
+            aria-label="Search Pokemon"
+            autocomplete="off"
+            spellcheck="false"
+          >
           <div class="tm-pokemon-type-filters type-filters">
             ${typeNamesForProject(project)
               .map((type) => `<button class="btn btn-5 -default -${typeClass(type)} tm-pokemon-type-filter" data-pokemon-type="${escapeHtml(type.toLowerCase())}" type="button" aria-pressed="false">${escapeHtml(type.toUpperCase().slice(0, 3))}</button>`)
@@ -196,16 +232,20 @@ function renderTmPokemonIcon(project: ProjectState, speciesId: number, name: str
   return `<img class="tm-pokemon-static-icon" src="${escapeHtml(fallback)}" loading="lazy" alt="">`;
 }
 
-function applyTmPokemonTypeFilter(panel: HTMLElement): void {
+function applyTmPokemonFilter(panel: HTMLElement, project: ProjectState): void {
   const activeTypes = new Set(
     [...panel.querySelectorAll<HTMLButtonElement>(".tm-pokemon-type-filter.-active")]
       .map((button) => button.dataset.pokemonType ?? "")
       .filter(Boolean),
   );
+  const searchText = panel.querySelector<HTMLInputElement>(".tm-pokemon-search-input")?.value ?? "";
+  const generations = new Set<number>();
   const cards = [...panel.querySelectorAll<HTMLElement>(".tm-pokemon-compatibility-card")];
   for (const card of cards) {
-    const pokemonTypes = new Set((card.dataset.pokemonTypes ?? "").split(/\s+/u).filter(Boolean));
-    const show = activeTypes.size === 0 || [...activeTypes].some((type) => pokemonTypes.has(type));
+    const speciesId = Number(card.dataset.speciesId);
+    const show = Number.isInteger(speciesId)
+      ? pokemonMatchesSearch(getPokemonSummaryRecord(project, speciesId), searchText, generations, activeTypes)
+      : false;
     card.hidden = !show;
   }
 }

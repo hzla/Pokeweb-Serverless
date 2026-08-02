@@ -562,6 +562,17 @@
   justify-content: flex-end;
 }
 
+.tm-pokemon-search-input.filter-input {
+  box-sizing: border-box;
+  flex: 0 1 190px;
+  font: inherit;
+  font-size: 11px;
+  height: 30px;
+  min-width: 130px;
+  padding: 4px 9px;
+  width: 190px;
+}
+
 .tm-pokemon-type-filters {
   display: flex;
   flex: 0 1 auto;
@@ -691,6 +702,11 @@
 
   .tm-pokemon-type-filters {
     justify-content: flex-start;
+  }
+
+  .tm-pokemon-search-input.filter-input {
+    flex-basis: auto;
+    width: min(100%, 320px);
   }
 
   .tm-pokemon-compatibility-grid {
