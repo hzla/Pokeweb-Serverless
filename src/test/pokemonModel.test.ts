@@ -12,6 +12,7 @@ import {
   deletePokemonLearnsetMove,
   evolutionSlotCount,
   getPokemonCount,
+  getPokemonMachineCompatibilityRoster,
   getPokemonRecord,
   insertPokemonEggMove,
   insertPokemonLearnsetMove,
@@ -124,6 +125,9 @@ describe("pokemonModel", () => {
     expect(record.rawPersonal["hm_2-6"]).toBe(16);
     expect(record.tmCompatibility.find((slot) => slot.label === "TM1")).toMatchObject({ enabled: true, moveName: "None" });
     expect(record.tmCompatibility.find((slot) => slot.label === "HM1")).toMatchObject({ enabled: true, moveName: "None" });
+    expect(getPokemonMachineCompatibilityRoster(project, "tm", 1)).toEqual([
+      { speciesId: 1, type1: "Grass", type2: "Poison", enabled: true },
+    ]);
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
   });
 

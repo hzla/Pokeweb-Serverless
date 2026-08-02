@@ -15,10 +15,10 @@ export function renderTmEditor(project: ProjectState, root: HTMLElement, onDirty
       <button class="btn -default" id="sync-tm-icons-btn" type="button">Sync Icons</button>
       <div class="tm-sync-status" id="tm-sync-status"></div>
       <div class="small-filters cat-filters">
-        ${["physical", "special", "status"].map((cat) => `<button class="btn -default btn-3" data-mcat="${cat}" type="button"><img src="${publicAsset(`images/move-${cat}.png`)}" alt="${cat}"></button>`).join("")}
+        ${["physical", "special", "status"].map((cat) => `<button class="btn -default btn-3" data-mcat="${cat}" type="button" aria-pressed="false"><img src="${publicAsset(`images/move-${cat}.png`)}" alt="${cat}"></button>`).join("")}
       </div>
       <div class="small-filters type-filters">
-        ${typeNamesForProject(project).map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
+        ${typeNamesForProject(project).map((type) => `<button class="btn -default btn-5 -${type.toLowerCase()}" data-ptype="${type.toLowerCase()}" type="button" aria-pressed="false">${type.toUpperCase().slice(0, 3)}</button>`).join("")}
       </div>
     </div>
     <div class="pokemon-list pokemon-move-list spreadsheet tm-list" id="moves">
@@ -30,6 +30,7 @@ export function renderTmEditor(project: ProjectState, root: HTMLElement, onDirty
           <div class="move-effect">Effect</div>
           <div class="move-power">Pow</div>
           <div class="move-accuracy">Acc</div>
+          <div class="tm-compatibility-column">Compatibility</div>
         </div>
       </div>
       ${renderTmRows(project)}
@@ -61,7 +62,21 @@ export function renderTmRow(entry: TmEntry): string {
         <div class="move-effect">${escapeHtml(String(readable?.effect ?? ""))}</div>
         <div class="move-power">${escapeHtml(String(readable?.power ?? ""))}</div>
         <div class="move-accuracy">${escapeHtml(String(readable?.accuracy ?? ""))}</div>
+        <div class="tm-compatibility-column">
+          <button
+            class="tm-compatibility-expand"
+            data-tm-compatibility-expand
+            type="button"
+            aria-expanded="false"
+            aria-controls="tm-compatibility-${entry.field}"
+            title="View compatible Pokemon"
+          >
+            <span>Pokemon</span>
+            <span class="tm-compatibility-expand__chevron" aria-hidden="true">⌄</span>
+          </button>
+        </div>
       </div>
+      <div class="tm-pokemon-compatibility-host" id="tm-compatibility-${entry.field}" hidden></div>
     </div>
   `;
 }
