@@ -45,6 +45,40 @@ Ivysaur
     expect(() => parseShowdownTeam(project, "Bulbasaur\n- Fake Move")).toThrow(/Unknown move: Fake Move/u);
     expect(() => parseShowdownTeam(project, "Bulbasaur\nAbility: Fake Ability")).toThrow(/Unknown ability: Fake Ability/u);
     expect(() => parseShowdownTeam(project, "Missingno")).toThrow(/Unknown Pokemon: Missingno/u);
+    expect(() => parseShowdownTeam(makeProjectWithBulbasaurForm(), "Bulbasaur^2")).toThrow(/Form 2 is out of range/u);
+  });
+
+  it("accepts Species^formIndex alongside standard Showdown headers", () => {
+    const project = makeProjectWithBulbasaurForm();
+    const team = parseShowdownTeam(
+      project,
+      `
+Bulbasaur^0
+
+Bulby (Bulbasaur^1) (F) @ Potion
+Level: 50
+- Tackle
+`,
+    );
+
+    expect(team[0]).toMatchObject({
+      speciesId: 1,
+      personalId: 1,
+      formIndex: 0,
+      speciesName: "Bulbasaur",
+      abilityId: 1,
+    });
+    expect(team[1]).toMatchObject({
+      speciesId: 1,
+      personalId: 650,
+      formIndex: 1,
+      speciesName: "Bulbasaur",
+      abilityId: 4,
+      gender: 1,
+      itemId: 1,
+      level: 50,
+      moves: [1],
+    });
   });
 
   it("allows abilities outside the species personal ability slots", () => {
@@ -148,6 +182,29 @@ Jolly Nature
       expect(readLe16(patched, half + 0x23f34)).toBe(readLe16(patched, half + 0x19336));
       expect(readLe16(patched, half + 0x23f9a)).toBe(crc16Ccitt(patched.subarray(half + 0x23f00, half + 0x23f00 + 0x8c)));
     }
+  });
+
+  it("writes the selected added form and calculates stats from its personal record", () => {
+    const project = makeProjectWithBulbasaurForm();
+    const patched = patchTestBattleSavePlayerParty(
+      makeSaveWithTemplateParty(),
+      project,
+      `
+Bulby (Bulbasaur^1) (F)
+Level: 50
+- Tackle
+`,
+    );
+    const party = 0x18e00;
+    const first = decryptPk5Party(patched.subarray(party + 8, party + 8 + 220));
+
+    expect(readLe16(first, 0x08)).toBe(1);
+    expect((first[0x40] >>> 3) & 0x1f).toBe(1);
+    expect((first[0x40] >>> 1) & 0x03).toBe(1);
+    expect(first[0x15]).toBe(4);
+    expect(readGen5String(first, 0x48, 22)).toBe("Bulbasaur");
+    expect(readLe16(first, 0x8e)).toBe(175);
+    expect(readLe16(first, 0x90)).toBe(175);
   });
 
   it("replaces only the first party Pokemon and preserves the rest of the party", () => {
@@ -255,6 +312,50 @@ function makeProject(): ProjectState {
     formats,
     trpokInfo: [],
   };
+}
+
+function makeProjectWithBulbasaurForm(): ProjectState {
+  const project = makeProject();
+  const formats = getNarcFormats("BW2");
+  const rowLength = personalRowLength(formats.personal!);
+  const files: Uint8Array[] = Array.from({ length: 651 }, () => new Uint8Array(rowLength));
+  files[0] = project.narcs.personal!.rawFiles[0].slice();
+  files[1] = packRows(formats.personal!, [{
+    base_hp: 45,
+    base_atk: 49,
+    base_def: 49,
+    base_speed: 45,
+    base_spatk: 65,
+    base_spdef: 65,
+    exp_rate: 3,
+    base_happy: 70,
+    ability_1: 1,
+    ability_2: 2,
+    ability_3: 3,
+    gender: 127,
+    form_id: 650,
+    num_forms: 2,
+  }]);
+  files[2] = project.narcs.personal!.rawFiles[2].slice();
+  files[650] = packRows(formats.personal!, [{
+    base_hp: 100,
+    base_atk: 90,
+    base_def: 80,
+    base_speed: 70,
+    base_spatk: 110,
+    base_spdef: 90,
+    exp_rate: 3,
+    base_happy: 70,
+    ability_1: 4,
+    ability_2: 2,
+    ability_3: 3,
+    gender: 254,
+    num_forms: 1,
+  }]);
+  project.narcs.personal!.rawFiles = files;
+  project.narcs.personal!.fileCount = files.length;
+  project.narcs.personal!.records.clear();
+  return project;
 }
 
 function makeSaveWithTemplateParty(saveHalfOffset = 0x26000): Uint8Array {

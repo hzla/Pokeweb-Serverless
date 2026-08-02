@@ -1,4 +1,5 @@
-import { readAscii, readU32, writeU32 } from "../nds/binary";
+import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { decompressCode } from "../nds/codeCompression";
 import type { Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
@@ -65,6 +66,103 @@ const MAIN_MENU_SKIP_FILENAMES: Record<"B2" | "W2", string> = {
   W2: "MainMenuSkipW2.dll",
 };
 
+type Bw1Version = "B" | "W";
+
+type Bw1PmcLayout = {
+  overlayId: number;
+  overlayBaseExtra: number;
+  bootFsInitAddress: number;
+  bytePatchAddress: number;
+  hookTargets: {
+    heapStart: number;
+    overlayMaximum: number;
+    overlayLoad: number;
+    overlayUnload: number;
+  };
+  symbols: Record<string, { address: number; type: "FUNCTION_ARM" | "FUNCTION_THM" | "VALUE" }>;
+};
+
+const BW1_PMC_LAYOUTS: Record<Bw1Version, Bw1PmcLayout> = {
+  W: {
+    overlayId: 237,
+    overlayBaseExtra: 0x4000,
+    bootFsInitAddress: 0x02075cc4,
+    bytePatchAddress: 0x02078d8f,
+    hookTargets: {
+      heapStart: 0x0208675c,
+      overlayMaximum: 0x02078ec0,
+      overlayLoad: 0x02034b94,
+      overlayUnload: 0x02034a68,
+    },
+    symbols: {
+      fs_normalize_path: { address: 0x02078090, type: "FUNCTION_ARM" },
+      fs_call_syscmd: { address: 0x02077d98, type: "FUNCTION_ARM" },
+      memmove: { address: 0x0209237c, type: "FUNCTION_ARM" },
+      memcpy: { address: 0x0209235c, type: "FUNCTION_ARM" },
+      strtoul: { address: 0x02095ec4, type: "FUNCTION_ARM" },
+      GFLAppInit: { address: 0x0200545d, type: "FUNCTION_THM" },
+      os_MemRegionStarts: { address: 0x02fffda0, type: "VALUE" },
+      romfs_fseek: { address: 0x02078b5c, type: "FUNCTION_ARM" },
+      sys_mount_overlay: { address: 0x02078ec8, type: "FUNCTION_ARM" },
+      romfs_fgetsize: { address: 0x02078aac, type: "FUNCTION_ARM" },
+      sys_unload_overlay: { address: 0x020792d0, type: "FUNCTION_ARM" },
+      sys_uncomp_blz: { address: 0x02004df4, type: "FUNCTION_ARM" },
+      memset: { address: 0x020923c8, type: "FUNCTION_ARM" },
+      cp15_flushDC: { address: 0x02086308, type: "FUNCTION_ARM" },
+      hw_isDSi: { address: 0x02085d54, type: "FUNCTION_ARM" },
+      os_MemRegionEnds: { address: 0x02fffdc4, type: "VALUE" },
+      fs_call_filecmd: { address: 0x02079c14, type: "FUNCTION_ARM" },
+      romfs_fclose: { address: 0x02078a98, type: "FUNCTION_ARM" },
+      romfs_fread: { address: 0x02078b88, type: "FUNCTION_ARM" },
+      romfs_fopen_id: { address: 0x020789bc, type: "FUNCTION_ARM" },
+      sys_load_overlay: { address: 0x0207927c, type: "FUNCTION_ARM" },
+      sys_get_overlay_size: { address: 0x02078cc8, type: "FUNCTION_ARM" },
+      strlen: { address: 0x02094794, type: "FUNCTION_ARM" },
+      sys_read_overlay_header: { address: 0x02078d4c, type: "FUNCTION_ARM" },
+      finit: { address: 0x020788c4, type: "FUNCTION_ARM" },
+    },
+  },
+  B: {
+    overlayId: 237,
+    overlayBaseExtra: 0x4000,
+    bootFsInitAddress: 0x02075cac,
+    bytePatchAddress: 0x02078d77,
+    hookTargets: {
+      heapStart: 0x02086744,
+      overlayMaximum: 0x02078ea8,
+      overlayLoad: 0x02034b7c,
+      overlayUnload: 0x02034a50,
+    },
+    symbols: {
+      fs_normalize_path: { address: 0x02078078, type: "FUNCTION_ARM" },
+      fs_call_syscmd: { address: 0x02077d80, type: "FUNCTION_ARM" },
+      memmove: { address: 0x02092364, type: "FUNCTION_ARM" },
+      memcpy: { address: 0x02092344, type: "FUNCTION_ARM" },
+      strtoul: { address: 0x02095eac, type: "FUNCTION_ARM" },
+      GFLAppInit: { address: 0x0200545d, type: "FUNCTION_THM" },
+      os_MemRegionStarts: { address: 0x02fffda0, type: "VALUE" },
+      romfs_fseek: { address: 0x02078b44, type: "FUNCTION_ARM" },
+      sys_mount_overlay: { address: 0x02078eb0, type: "FUNCTION_ARM" },
+      romfs_fgetsize: { address: 0x02078a94, type: "FUNCTION_ARM" },
+      sys_unload_overlay: { address: 0x020792b8, type: "FUNCTION_ARM" },
+      sys_uncomp_blz: { address: 0x02004df4, type: "FUNCTION_ARM" },
+      memset: { address: 0x020923b0, type: "FUNCTION_ARM" },
+      cp15_flushDC: { address: 0x020862f0, type: "FUNCTION_ARM" },
+      hw_isDSi: { address: 0x02085d3c, type: "FUNCTION_ARM" },
+      os_MemRegionEnds: { address: 0x02fffdc4, type: "VALUE" },
+      fs_call_filecmd: { address: 0x02079bfc, type: "FUNCTION_ARM" },
+      romfs_fclose: { address: 0x02078a80, type: "FUNCTION_ARM" },
+      romfs_fread: { address: 0x02078b70, type: "FUNCTION_ARM" },
+      romfs_fopen_id: { address: 0x020789a4, type: "FUNCTION_ARM" },
+      sys_load_overlay: { address: 0x02079264, type: "FUNCTION_ARM" },
+      sys_get_overlay_size: { address: 0x02078cb0, type: "FUNCTION_ARM" },
+      strlen: { address: 0x0209477c, type: "FUNCTION_ARM" },
+      sys_read_overlay_header: { address: 0x02078d34, type: "FUNCTION_ARM" },
+      finit: { address: 0x020788ac, type: "FUNCTION_ARM" },
+    },
+  },
+};
+
 export async function installBundledPmc(project: ProjectState): Promise<PmcInstallResult> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the ROM before installing PMC.");
@@ -78,22 +176,35 @@ export async function loadBundledPmcBytes(version: ProjectState["session"]["base
 }
 
 export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, romBytes: Uint8Array): PmcInstallResult {
-  if (project.session.baseRom !== "BW2") throw new Error("Bundled PMC installation is only available for Black 2 / White 2 ROMs.");
+  if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") {
+    throw new Error("Bundled PMC installation is only available for Gen V Black/White ROMs.");
+  }
   const rom = new NintendoDSRom(romBytes);
   const rpm = cloneRpm(parseRpm(rpmBytes));
+  const activeArm9 = project.arm9.length > 0 ? project.arm9 : decompressCode(rom.arm9);
+  const existingOverlayId = readPmcOverlayId(project, rom);
+  const bw1Version = project.session.baseRom === "BW" && (project.session.baseVersion === "B" || project.session.baseVersion === "W")
+    ? project.session.baseVersion
+    : undefined;
+  if (bw1Version) {
+    retargetPmcForBw1(rpm, bw1Version);
+    validateBw1PmcInstallSites(activeArm9, rom.arm9RamAddress, bw1Version, existingOverlayId !== undefined);
+  }
   const gameId = stringMeta(rpm, "PMCGameID");
   const version = stringMeta(rpm, "PMCVersion");
   if (gameId && gameId !== project.session.baseVersion) throw new Error(`This PMC binary is for ${gameId}, but the loaded ROM is ${project.session.baseVersion}.`);
 
-  const existingOverlayId = readPmcOverlayId(project, rom);
   const overlayId = existingOverlayId ?? rom.arm9OverlayTable.length / 32;
+  if (bw1Version && overlayId !== BW1_PMC_LAYOUTS[bw1Version].overlayId) {
+    throw new Error(`BW1 PMC requires overlay 237, but the next available overlay is ${overlayId}.`);
+  }
   const existingEntry = findOverlayEntry(rom.arm9OverlayTable, overlayId);
   const previousMaxOverlayEnd = maxOverlayEnd(rom.arm9OverlayTable);
-  const activeArm9 = project.arm9.length > 0 ? project.arm9 : rom.arm9;
   const arm9ReservedEnd = align(rom.arm9RamAddress + activeArm9.length, 0x20);
+  const newOverlayFloor = previousMaxOverlayEnd + (bw1Version ? BW1_PMC_LAYOUTS[bw1Version].overlayBaseExtra : 0);
   const overlayBaseAddress = existingEntry
     ? readU32(rom.arm9OverlayTable, existingEntry + 4)
-    : Math.max(previousMaxOverlayEnd, arm9ReservedEnd);
+    : Math.max(newOverlayFloor, arm9ReservedEnd);
   const heapStart = Math.max(previousMaxOverlayEnd, arm9ReservedEnd, overlayBaseAddress + PMC_OVERLAY_RESERVED_SIZE);
   const overlayPath = overlayPathForId(overlayId);
 
@@ -107,6 +218,7 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   updateRpmCodeImageForBase(rpm);
   rpm.metadata.SymbolFile = "RPMSYM-PMC.rpm";
   applyExternalRelocations(project, rom, rpm);
+  if (bw1Version) applyBw1PmcBytePatch(project.arm9, rom.arm9RamAddress, bw1Version);
 
   const symbolRpm = createSymbolOnlyRpm(rpm);
   const codeRpm = createCodeOnlyRpm(rpm);
@@ -187,8 +299,8 @@ export async function prepareBw2TestBattleCodeInjection(project: ProjectState): 
 }
 
 export function getPmcInstallStatus(project: ProjectState): PmcInstallStatus {
-  if (project.session.baseRom !== "BW2") {
-    return { installed: false, supported: false, message: "PMC is only supported for Black 2 / White 2 projects." };
+  if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") {
+    return { installed: false, supported: false, message: "PMC is only supported for Gen V Black/White projects." };
   }
   const stagedOverlayId = parseOverlayIdBytes(project.fileSystem?.additions?.[PMC_OVERLAY_ID_PATH]);
   const state = project.codeInjection?.pmc;
@@ -393,7 +505,7 @@ export function codeInjectionInsertedFiles(project: ProjectState, rom: NintendoD
 }
 
 function applyExternalRelocations(project: ProjectState, rom: NintendoDSRom, rpm: RpmModule): void {
-  const arm9 = project.arm9.length > 0 ? project.arm9 : rom.arm9.slice();
+  const arm9 = project.arm9.length > 0 ? project.arm9 : decompressCode(rom.arm9);
   for (const relocation of rpm.relocations) {
     if (relocation.target.module === "base") continue;
     if (relocation.target.module === "ARM9") {
@@ -409,6 +521,159 @@ function applyExternalRelocations(project: ProjectState, rom: NintendoDSRom, rpm
   }
   project.arm9 = arm9;
   project.arm9Dirty = true;
+}
+
+function retargetPmcForBw1(rpm: RpmModule, version: Bw1Version): void {
+  const layout = BW1_PMC_LAYOUTS[version];
+  rpm.metadata.PMCGameID = version;
+  rpm.metadata.PMCVersion = `${String(rpm.metadata.PMCVersion ?? "13.2.4")}-bw1`;
+
+  for (const symbol of rpm.symbols) {
+    if (!symbol.name) continue;
+    const replacement = layout.symbols[symbol.name];
+    if (!replacement) continue;
+    symbol.address = replacement.address;
+    symbol.type = replacement.type;
+  }
+
+  // The boot FULL_COPY has to invoke the late FS initializer immediately
+  // before loading overlay 237. Keep the public GFLAppInit export accurate
+  // for future BW1 QoL DLLs and redirect only this private boot relocation.
+  const gflAppInitIndex = rpm.symbols.findIndex((symbol) => symbol.name === "GFLAppInit");
+  const bootFsRelocation = rpm.relocations.find(
+    (relocation) => relocation.target.module === "base"
+      && relocation.target.address === 2
+      && relocation.sourceSymbolIndex === gflAppInitIndex,
+  );
+  if (gflAppInitIndex < 0 || !bootFsRelocation) {
+    throw new Error("Bundled PMC boot initializer relocation no longer matches the BW1 retargeter.");
+  }
+  const bootFsSymbolIndex = rpm.symbols.length;
+  rpm.symbols.push({
+    name: null,
+    size: 0,
+    address: layout.bootFsInitAddress,
+    type: "FUNCTION_ARM",
+    attributes: 1 << 2,
+  });
+  bootFsRelocation.sourceSymbolIndex = bootFsSymbolIndex;
+
+  // BW1's original main call initializes the game's heap and application
+  // globals. Redirecting that call to the late FS initializer is necessary to
+  // make the appended PMC overlay visible, but it also skips GFLAppInit and
+  // leaves every normal heap slot uninitialized. Run GFLAppInit after the PMC
+  // overlay has mounted and before PMC scans/starts patch DLLs.
+  appendBw1BootInitializerWrapper(rpm, gflAppInitIndex);
+
+  for (const relocation of rpm.relocations) {
+    if (relocation.target.module !== "ARM9") continue;
+    const symbolName = rpm.symbols[relocation.sourceSymbolIndex]?.name;
+    if (symbolName?.endsWith("AdjustHeapStart")) {
+      relocation.target.address = layout.hookTargets.heapStart;
+    } else if (symbolName?.endsWith("UncapOverlayMaximum")) {
+      relocation.target.address = layout.hookTargets.overlayMaximum;
+    } else if (symbolName === "THUMB_BRANCH_LINK_GFL_OvlLoad_0x76") {
+      relocation.target.address = layout.hookTargets.overlayLoad;
+      relocation.target.type = "ARM_BRANCH_LINK";
+    } else if (symbolName === "THUMB_BRANCH_LINK_GFL_OvlEntryUnload_0xA") {
+      relocation.target.address = layout.hookTargets.overlayUnload;
+      relocation.target.type = "ARM_BRANCH_LINK";
+    }
+  }
+
+  const overlaySymbol = findRpmSymbol(rpm, (symbol) => symbol.name === "OVL_344");
+  if (!overlaySymbol || readU32(rpm.code, overlaySymbol.address) !== 344) {
+    throw new Error("Bundled PMC overlay-ID constant no longer matches the BW1 retargeter.");
+  }
+  writeU32(rpm.code, overlaySymbol.address, layout.overlayId);
+
+  // System::Init encodes 344 as `movs r2, #172; lsls r2, r2, #1`.
+  if (readU16(rpm.code, 0x4a8) !== 0x22ac || readU16(rpm.code, 0x4ac) !== 0x0052) {
+    throw new Error("Bundled PMC System::Init overlay-ID sequence no longer matches the BW1 retargeter.");
+  }
+  writeU16(rpm.code, 0x4a8, 0x22ed);
+  writeU16(rpm.code, 0x4ac, 0x46c0);
+}
+
+function appendBw1BootInitializerWrapper(rpm: RpmModule, gflAppInitIndex: number): void {
+  const pmcSystemInitIndex = rpm.symbols.findIndex((symbol) => symbol.name === "_PMCSystemInit");
+  const bootSystemInitRelocation = rpm.relocations.find(
+    (relocation) => relocation.target.module === "base"
+      && relocation.target.address === 14
+      && relocation.sourceSymbolIndex === pmcSystemInitIndex,
+  );
+  if (gflAppInitIndex < 0 || pmcSystemInitIndex < 0 || !bootSystemInitRelocation) {
+    throw new Error("Bundled PMC system initializer relocation no longer matches the BW1 boot wrapper.");
+  }
+
+  const wrapperOffset = rpm.code.length;
+  const wrapperSize = 12;
+
+  // The serialized RPM places BSS immediately after the code image. Moving
+  // that boundary requires moving its local/exported symbols by the same
+  // amount; absolute game symbols carry the GLOBAL attribute and stay fixed.
+  for (const symbol of rpm.symbols) {
+    if ((symbol.attributes & (1 << 2)) === 0 && symbol.address >= wrapperOffset) {
+      symbol.address += wrapperSize;
+    }
+  }
+
+  const code = new Uint8Array(wrapperOffset + wrapperSize);
+  code.set(rpm.code);
+  writeU16(code, wrapperOffset, 0xb500); // push {lr}
+  writeU16(code, wrapperOffset + 10, 0xbd00); // pop {pc}
+  rpm.code = code;
+
+  const wrapperSymbolIndex = rpm.symbols.length;
+  rpm.symbols.push({
+    name: "__PokewebBw1BootInitializerWrapper",
+    size: wrapperSize,
+    address: wrapperOffset,
+    type: "FUNCTION_THM",
+    attributes: 0,
+  });
+  rpm.relocations.push(
+    {
+      target: { module: "base", address: wrapperOffset + 2, type: "THUMB_BRANCH_LINK" },
+      sourceSymbolIndex: gflAppInitIndex,
+    },
+    {
+      target: { module: "base", address: wrapperOffset + 6, type: "THUMB_BRANCH_LINK" },
+      sourceSymbolIndex: pmcSystemInitIndex,
+    },
+  );
+  bootSystemInitRelocation.sourceSymbolIndex = wrapperSymbolIndex;
+}
+
+function validateBw1PmcInstallSites(arm9: Uint8Array, arm9RamAddress: number, version: Bw1Version, updating: boolean): void {
+  if (updating) return;
+  const layout = BW1_PMC_LAYOUTS[version];
+  const expected = [
+    { address: 0x0200512a, bytes: hexBytes("00f097f9"), label: "main boot hook" },
+    { address: layout.hookTargets.overlayLoad, bytes: hexBytes("b81101eb"), label: "overlay-load hook" },
+    { address: layout.hookTargets.overlayUnload, bytes: hexBytes("181201eb"), label: "overlay-unload hook" },
+    { address: layout.hookTargets.overlayMaximum, bytes: hexBytes("ed000000"), label: "overlay maximum" },
+  ];
+  for (const check of expected) {
+    const offset = check.address - arm9RamAddress;
+    const actual = offset >= 0 ? arm9.subarray(offset, offset + check.bytes.length) : new Uint8Array();
+    if (!bytesEqual(actual, check.bytes)) {
+      throw new Error(`The US ${version === "B" ? "Black" : "White"} PMC ${check.label} does not match at ${hex(check.address)}.`);
+    }
+  }
+  const bytePatchOffset = layout.bytePatchAddress - arm9RamAddress;
+  if (arm9[bytePatchOffset] !== 0x0a) {
+    throw new Error(`The US ${version === "B" ? "Black" : "White"} overlay-header fallback does not match at ${hex(layout.bytePatchAddress)}.`);
+  }
+}
+
+function applyBw1PmcBytePatch(arm9: Uint8Array, arm9RamAddress: number, version: Bw1Version): void {
+  const address = BW1_PMC_LAYOUTS[version].bytePatchAddress;
+  const offset = address - arm9RamAddress;
+  if (offset < 0 || offset >= arm9.length || (arm9[offset] !== 0x0a && arm9[offset] !== 0xea)) {
+    throw new Error(`The BW1 overlay-header fallback changed before patching at ${hex(address)}.`);
+  }
+  arm9[offset] = 0xea;
 }
 
 function buildPmcOverlay(overlayBaseAddress: number, codeRpmBytes: Uint8Array): Uint8Array {
@@ -591,6 +856,15 @@ function asciiBytes(value: string): Uint8Array {
   const out = new Uint8Array(value.length);
   for (let i = 0; i < value.length; i += 1) out[i] = value.charCodeAt(i) & 0xff;
   return out;
+}
+
+function hexBytes(value: string): Uint8Array {
+  return Uint8Array.from({ length: value.length / 2 }, (_unused, index) => Number.parseInt(value.slice(index * 2, index * 2 + 2), 16));
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
 }
 
 function sanitizeDllFilename(fileName: string): string {

@@ -69,7 +69,7 @@ describe("pokemonFormModel", () => {
     const sprites = project.narcs.pokemon_sprites!;
     expect(sprites.rawFiles).toHaveLength(15100);
     expect(sprites.rawFiles.slice(15060, 15065)).toEqual(partialReservedSprite);
-    expect(sprites.rawFiles.slice(15065, 15080)).toEqual(Array.from({ length: 15 }, () => new Uint8Array()));
+    expect(sprites.rawFiles.slice(15065, 15080)).toEqual(sourceSprite.slice(5));
     expect(sprites.rawFiles.slice(754 * 20, 755 * 20)).toEqual(sourceSprite);
 
     const icons = project.narcs.pokemon_icons!;

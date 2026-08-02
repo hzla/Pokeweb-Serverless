@@ -272,6 +272,9 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
   const spriteCopies = sourceSpriteIds.map((spriteId) =>
     getPokemonSpriteEntry(project, spriteId).files.map((file) => file.slice()),
   );
+  const spritePaddingCopies = spritePaddingCount > 0
+    ? spriteCopies[spriteCopies.length - 1].slice(SPRITE_FILES_PER_ENTRY - spritePaddingCount).map((file) => file.slice())
+    : [];
   const baseIconPair = snapshotIconPair(icons, iconHeaderCount, speciesId);
   if (!baseIconPair.male.length) throw new Error(`Base icon ${speciesId} is missing.`);
   const iconCopies = sourceSpriteIds.map((spriteId, index) =>
@@ -305,7 +308,11 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
 
   for (let id = appendPersonalId; id < appendPersonalId + personalCopies.length; id += 1) clearNestedFormMetadata(project, id);
 
-  for (let index = 0; index < spritePaddingCount; index += 1) appendFile(project, sprites, "pokemon_sprites", new Uint8Array());
+  // Retail Gen 5 sprite archives end with five reserved palette members. When
+  // forms are appended, Frost groups those members and the following 15 slots
+  // as a complete sprite. Populate the gap with matching donor members so that
+  // compatibility editors do not try to parse empty animation/palette data.
+  spritePaddingCopies.forEach((bytes) => appendFile(project, sprites, "pokemon_sprites", bytes));
   spriteCopies.flat().forEach((bytes) => appendFile(project, sprites, "pokemon_sprites", bytes));
 
   iconCopies.forEach((pair, index) => {

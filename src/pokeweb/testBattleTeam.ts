@@ -1,5 +1,5 @@
 import { NATURES, type BaseRom } from "./constants";
-import { findPokemonSpeciesId, pokemonSpeciesLabel } from "./pokemonLabels";
+import { findPokemonPersonalFormOwner, findPokemonSpeciesId, pokemonSpeciesLabel } from "./pokemonLabels";
 import { decodeRecord, type ProjectState, type RawRecord } from "./projectStore";
 
 const TEST_BATTLE_PARTY_BLOCK_OFFSET = 0x18e00;
@@ -50,6 +50,8 @@ type StatKey = (typeof STAT_KEYS)[number];
 
 export type ShowdownPokemon = {
   speciesId: number;
+  personalId: number;
+  formIndex: number;
   speciesName: string;
   itemId: number;
   abilitySlot: 1 | 2 | 3;
@@ -259,8 +261,13 @@ function parseStatList(text: string, min: number, max: number, label: string): P
 }
 
 function resolveDraftPokemon(project: ProjectState, draft: DraftPokemon): ShowdownPokemon {
-  const speciesId = findPokemonSpeciesId(project, draft.speciesText);
-  const personal = getPersonal(project, speciesId);
+  const requestedForm = parseSpeciesFormSpecifier(draft.speciesText);
+  const requestedSpeciesId = findPokemonSpeciesId(project, requestedForm.speciesText);
+  const formOwner = findPokemonPersonalFormOwner(project, requestedSpeciesId);
+  const speciesId = formOwner?.speciesId ?? requestedSpeciesId;
+  const formIndex = requestedForm.formIndex ?? formOwner?.formIndex ?? 0;
+  const personalId = resolveFormPersonalId(project, speciesId, formIndex);
+  const personal = getPersonal(project, personalId);
   const itemId = draft.itemText ? resolveItemId(project, draft.itemText) : 0;
   const ability = resolveAbility(project, personal, draft.abilityText);
   const level = draft.level ?? 100;
@@ -274,6 +281,8 @@ function resolveDraftPokemon(project: ProjectState, draft: DraftPokemon): Showdo
 
   return {
     speciesId,
+    personalId,
+    formIndex,
     speciesName: pokemonSpeciesLabel(project, speciesId),
     itemId,
     abilitySlot: ability.slot,
@@ -285,6 +294,37 @@ function resolveDraftPokemon(project: ProjectState, draft: DraftPokemon): Showdo
     ivs,
     moves,
   };
+}
+
+function parseSpeciesFormSpecifier(input: string): { speciesText: string; formIndex?: number } {
+  const text = input.trim();
+  const match = /^(.*?)\s*\^\s*(\d+)$/u.exec(text);
+  if (!match) {
+    if (text.includes("^")) throw new Error(`Invalid Pokemon form syntax: ${input}. Use Species^formIndex, such as Bulbasaur^1.`);
+    return { speciesText: text };
+  }
+
+  const speciesText = match[1].trim();
+  const formIndex = Number(match[2]);
+  if (!speciesText || !Number.isInteger(formIndex) || formIndex < 0 || formIndex > 31) {
+    throw new Error(`Invalid Pokemon form syntax: ${input}. Form indexes must be between 0 and 31.`);
+  }
+  return { speciesText, formIndex };
+}
+
+function resolveFormPersonalId(project: ProjectState, speciesId: number, formIndex: number): number {
+  const basePersonal = getPersonal(project, speciesId);
+  const formCount = Math.max(1, Number(basePersonal.num_forms ?? 1));
+  if (formIndex >= formCount) {
+    throw new Error(`Form ${formIndex} is out of range for ${pokemonSpeciesLabel(project, speciesId)}; available forms are 0-${formCount - 1}.`);
+  }
+  if (formIndex === 0) return speciesId;
+
+  const firstFormId = Number(basePersonal.form_id ?? 0);
+  if (firstFormId <= 0) return speciesId;
+  const personalId = firstFormId + formIndex - 1;
+  getPersonal(project, personalId);
+  return personalId;
 }
 
 function resolveItemId(project: ProjectState, text: string): number {
@@ -366,7 +406,7 @@ function patchFirstPartyPokemonHalf(out: Uint8Array, layout: TestBattlePartySave
   if (readLe16(decrypted, 0x08) === 0) throw new Error("The bundled test battle save has an empty party Pokemon slot 1.");
 
   const trainer = readSaveTrainerIdentity(out, halfOffset);
-  const personal = getPersonal(project, pokemon.speciesId);
+  const personal = getPersonal(project, pokemon.personalId);
   applyPokemonToPk5(project, decrypted, pokemon, personal, trainer, 0);
   out.set(encryptPk5Party(decrypted), slotOffset);
 
@@ -387,7 +427,7 @@ function patchPartyHalf(out: Uint8Array, layout: TestBattlePartySaveLayout, half
       out.fill(0, slotOffset, slotOffset + PK5_PARTY_SIZE);
       continue;
     }
-    const personal = getPersonal(project, pokemon.speciesId);
+    const personal = getPersonal(project, pokemon.personalId);
     const decrypted = template.slice();
     applyPokemonToPk5(project, decrypted, pokemon, personal, trainer, slot);
     out.set(encryptPk5Party(decrypted), slotOffset);
@@ -502,7 +542,7 @@ function applyPokemonToPk5(project: ProjectState, data: Uint8Array, pokemon: Sho
   data.fill(0, 0x34, 0x38);
   writeLe32(data, 0x38, packIvs(pokemon.ivs));
   writeNotNicknamedSpeciesName(data, pokemon.speciesName);
-  data[0x40] = (pokemon.gender & 0x03) << 1;
+  data[0x40] = ((pokemon.gender & 0x03) << 1) | ((pokemon.formIndex & 0x1f) << 3);
   data[0x41] = pokemon.nature;
   data[0x42] = pokemon.abilitySlot === 3 ? 1 : 0;
   data[0x5f] = trainer.version;

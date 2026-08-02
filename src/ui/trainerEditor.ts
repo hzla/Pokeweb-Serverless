@@ -60,7 +60,7 @@ export function renderTrainerEditor(
       ${renderTrainerNaturePatchPanel(project, trainerNaturePatchStatus)}
       <div class="trainer-test-team">
         <div class="filter-title">Test Team</div>
-        <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import">${escapeHtml(savedTestBattleTeamText)}</textarea>
+        <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import. Use Bulbasaur^1 for form 1.">${escapeHtml(savedTestBattleTeamText)}</textarea>
       </div>
     </div>
     <div class="pokemon-list spreadsheet" id="trainers">
