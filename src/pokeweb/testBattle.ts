@@ -49,6 +49,13 @@ const TEST_BATTLE_EV_TYPE_TRAINER = 1;
 const TEST_BATTLE_TRAINER_FLAG_START = 1420;
 const TEST_BATTLE_EVENTWORK_WORK_BYTES = 318 * 2;
 const TEST_BATTLE_SAVE_POSITION_BLOCK = 0x19500;
+const TEST_BATTLE_PLAYER_DATA_BLOCK_OFFSET = 0x19400;
+const TEST_BATTLE_PLAYER_DATA_CHECKSUM_INDEX = 27;
+const TEST_BATTLE_BW_PLAYER_DATA_BLOCK_LENGTH = 0x68;
+const TEST_BATTLE_BW_PLAYER_DATA_CHECKSUM_OFFSET = 0x1946a;
+const TEST_BATTLE_BW2_PLAYER_DATA_BLOCK_LENGTH = 0xb0;
+const TEST_BATTLE_BW2_PLAYER_DATA_CHECKSUM_OFFSET = 0x194b2;
+const TEST_BATTLE_MOVE_ANIMATIONS_OFF_MASK = 0x80;
 const TEST_BATTLE_ALL_BADGES_MASK = 0x000000ff;
 const TEST_BATTLE_MISC_CHECKSUM_INDEX = 52;
 const TEST_BATTLE_BW_MISC_BLOCK_OFFSET = 0x21200;
@@ -191,7 +198,8 @@ export async function buildTestBattleDownloads(project: ProjectState, trainerId:
   const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, config, save, npc);
   const patchedFlagSaveBytes = patchTestBattleSaveTrainerFlags(patchedMapSaveBytes, config, [TEST_BATTLE_BASE_TRAINER_ID, trainerId]);
   const patchedBadgeSaveBytes = patchTestBattleSaveBadges(patchedFlagSaveBytes, config);
-  const patchedSaveBytes = patchTestBattleSavePlayerParty(patchedBadgeSaveBytes, project, options.playerTeamText ?? "", config.baseRom);
+  const patchedAnimationSaveBytes = patchTestBattleSaveMoveAnimations(patchedBadgeSaveBytes, config);
+  const patchedSaveBytes = patchTestBattleSavePlayerParty(patchedAnimationSaveBytes, project, options.playerTeamText ?? "", config.baseRom);
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
 }
 
@@ -205,7 +213,8 @@ export async function buildMoveTestBattleDownloads(project: ProjectState, moveId
   const patchedMapSaveBytes = patchTestBattleSaveMmdl(save.rawSaveBytes, config, save, npc);
   const patchedFlagSaveBytes = patchTestBattleSaveTrainerFlag(patchedMapSaveBytes, config, TEST_BATTLE_BASE_TRAINER_ID);
   const patchedBadgeSaveBytes = patchTestBattleSaveBadges(patchedFlagSaveBytes, config);
-  const patchedSaveBytes = patchTestBattleSavePlayerFirstMove(patchedBadgeSaveBytes, project, moveId, config.baseRom);
+  const patchedAnimationSaveBytes = patchTestBattleSaveMoveAnimations(patchedBadgeSaveBytes, config);
+  const patchedSaveBytes = patchTestBattleSavePlayerFirstMove(patchedAnimationSaveBytes, project, moveId, config.baseRom);
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
 }
 
@@ -658,6 +667,35 @@ export function patchTestBattleSaveBadges(saveBytes: Uint8Array, config: TestBat
 
 export function isTestBattleSaveAllBadgesSet(saveBytes: Uint8Array, config: TestBattleConfig, halfOffset = 0): boolean {
   return (readLe32(saveBytes, halfOffset + config.saveLayout.miscBlockOffset + 4) & TEST_BATTLE_ALL_BADGES_MASK) === TEST_BATTLE_ALL_BADGES_MASK;
+}
+
+export function patchTestBattleSaveMoveAnimations(saveBytes: Uint8Array, config: TestBattleConfig): Uint8Array {
+  const out = saveBytes.slice();
+  patchTestBattleSaveMoveAnimationsHalf(out, config, 0);
+  if (hasSaveHalf(out, config.saveLayout)) {
+    patchTestBattleSaveMoveAnimationsHalf(out, config, config.saveLayout.saveHalfOffset);
+  }
+  return out;
+}
+
+export function isTestBattleSaveMoveAnimationsEnabled(saveBytes: Uint8Array, config: TestBattleConfig, halfOffset = 0): boolean {
+  return (saveBytes[halfOffset + TEST_BATTLE_PLAYER_DATA_BLOCK_OFFSET] & TEST_BATTLE_MOVE_ANIMATIONS_OFF_MASK) === 0;
+}
+
+function patchTestBattleSaveMoveAnimationsHalf(out: Uint8Array, config: TestBattleConfig, halfOffset: number): void {
+  const settingOffset = halfOffset + TEST_BATTLE_PLAYER_DATA_BLOCK_OFFSET;
+  if (settingOffset >= out.length) throw new Error("The bundled test battle save is too small to contain player settings.");
+  out[settingOffset] &= ~TEST_BATTLE_MOVE_ANIMATIONS_OFF_MASK;
+  const isBw = config.baseRom === "BW";
+  refreshTestBattleSaveBlockChecksum(
+    out,
+    config.saveLayout,
+    halfOffset,
+    TEST_BATTLE_PLAYER_DATA_BLOCK_OFFSET,
+    isBw ? TEST_BATTLE_BW_PLAYER_DATA_BLOCK_LENGTH : TEST_BATTLE_BW2_PLAYER_DATA_BLOCK_LENGTH,
+    isBw ? TEST_BATTLE_BW_PLAYER_DATA_CHECKSUM_OFFSET : TEST_BATTLE_BW2_PLAYER_DATA_CHECKSUM_OFFSET,
+    TEST_BATTLE_PLAYER_DATA_CHECKSUM_INDEX,
+  );
 }
 
 function patchTestBattleSaveBadgesHalf(out: Uint8Array, layout: TestBattleSaveLayout, halfOffset: number): void {

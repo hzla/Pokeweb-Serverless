@@ -127,8 +127,30 @@ describe("pokemonModel", () => {
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
   });
 
+  it("includes each machine move's type for the compatibility editor", () => {
+    const project = makeProject();
+    project.tms = {
+      offset: 0,
+      byteLength: 202,
+      raw: { tm_1: 2 },
+      readable: { tm_1: "Vine Whip" },
+      dirty: false,
+    };
+
+    expect(getPokemonRecord(project, 1).tmCompatibility[0]).toMatchObject({
+      label: "TM1",
+      moveName: "Vine Whip",
+      moveType: "Grass",
+      moveCategory: "Physical",
+      basePower: 45,
+    });
+  });
+
   it("toggles BW2 tutor compatibility bits from personal data", () => {
     const project = makeProject();
+    project.texts.banks.moves?.push("Bug Bite");
+    project.narcs.moves?.rawFiles.push(packRows(project.formats.moves!, [{ type: 6, category: 1, power: 60, accuracy: 100 }]));
+    if (project.narcs.moves) project.narcs.moves.fileCount += 1;
 
     updatePokemonTutorCompatibility(project, 1, "driftveil_tutor", 0, true);
     updatePokemonTutorCompatibility(project, 1, "lentimas_tutor", 16, true);
@@ -136,7 +158,7 @@ describe("pokemonModel", () => {
     const record = getPokemonRecord(project, 1);
     expect(record.rawPersonal.driftveil_tutor).toBe(1);
     expect(record.rawPersonal.lentimas_tutor).toBe(2 ** 16);
-    expect(record.tutorCompatibility.find((group) => group.group === "driftveil")?.slots[0]).toMatchObject({ enabled: true, moveName: "Bug Bite" });
+    expect(record.tutorCompatibility.find((group) => group.group === "driftveil")?.slots[0]).toMatchObject({ enabled: true, moveName: "Bug Bite", moveType: "Bug" });
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
   });
 

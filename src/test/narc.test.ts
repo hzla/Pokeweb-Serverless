@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { concatBytes, readAscii, readU32, writeU16, writeU32 } from "../nds/binary";
+import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
-import { NARC, hasCtrMapIncompatibleFntb } from "../nds/narc";
+import { NARC, hasCtrMapIncompatibleFntb, hasTinkeIncompatibleNamelessFntb } from "../nds/narc";
 
 describe("NARC", () => {
   it("round-trips flat archives", () => {
@@ -34,6 +34,26 @@ describe("NARC", () => {
     expect(readAscii(saved, fntbOffset, 4)).toBe("BTNF");
     expect(readAscii(saved, fimgOffset, 4)).toBe("GMIF");
     expect(() => new NARC(saved)).not.toThrow();
+  });
+
+  it("writes Tinke-compatible filename stubs for nameless archives", () => {
+    const source = new NARC();
+    source.files = [Uint8Array.of(1, 2, 3), Uint8Array.of(4, 5)];
+
+    const saved = source.save();
+    const fntbOffset = 0x10 + readU32(saved, 0x14);
+    const fntbSize = readU32(saved, fntbOffset + 4);
+
+    expect(fntbSize).toBe(0x10);
+    expect(readU32(saved, fntbOffset + 8)).toBe(4);
+    expect(readU16(saved, fntbOffset + 12)).toBe(0);
+    expect(readU16(saved, fntbOffset + 14)).toBe(1);
+    expect(readAscii(saved, fntbOffset + fntbSize, 4)).toBe("GMIF");
+    expect(hasTinkeIncompatibleNamelessFntb(saved)).toBe(false);
+    expect(new NARC(saved).files.map((file) => [...file])).toEqual([
+      [1, 2, 3],
+      [4, 5],
+    ]);
   });
 
   it("loads archives with CTRMap-style early GMIF magic", () => {

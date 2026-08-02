@@ -9,7 +9,7 @@ Pokeweb Serverless is a browser-based Gen 5 ROM editor for Pokemon Black, White,
 - ROM loading with selectable NARC groups, browser persistence, dirty-state tracking, and ROM export.
 - File System editor for browsing loaded ROM/NARC files, exporting/importing raw files, inserting or appending NARC files, and editing bytes in a hex-style view.
 - Debug NARCs view for checking decoded files and loaded project state.
-- Code Injection editor for BW2 PMC installation plus patch/library DLL module import.
+- Code Injection editor for Gen V PMC installation plus patch/library DLL module import, including the trainer battle logger on US Black, White, Black 2, and White 2.
 
 ### Maps, Headers, and Overworlds
 
@@ -119,7 +119,7 @@ npm run black2upgrade:verify-rom
 ## Notes
 
 - Black / White and Black 2 / White 2 are detected from ARM9 data during ROM load.
-- Marts, Hidden Grottoes, Battle Facilities, Code Injection, and Type Chart editing are currently BW2-focused.
+- Marts, Hidden Grottoes, Battle Facilities, and Type Chart editing are currently BW2-focused. Code Injection supports Gen V; individual bundled DLLs still declare their compatible versions.
 - File System, Code Injection, and 3D Map tools need access to the original loaded ROM bytes, so reopening an older browser-saved project may require loading the ROM again before those tools are enabled.
 - The app edits local browser/project state until you export. Keep clean backups of your base ROMs and test exported builds in an emulator before treating a patch as release-ready.
 

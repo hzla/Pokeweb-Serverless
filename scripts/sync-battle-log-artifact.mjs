@@ -35,6 +35,34 @@ const artifacts = [
         resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/Black2UpgradeBattleLogSummary.dll"),
     ),
   },
+  {
+    name: "Black1BattleLog.dll",
+    source: resolve(
+      process.env.BLACK1_BATTLE_LOG_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/Black1BattleLog.dll"),
+    ),
+  },
+  {
+    name: "Black1BattleLogSummary.dll",
+    source: resolve(
+      process.env.BLACK1_BATTLE_LOG_SUMMARY_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/Black1BattleLogSummary.dll"),
+    ),
+  },
+  {
+    name: "White1BattleLog.dll",
+    source: resolve(
+      process.env.WHITE1_BATTLE_LOG_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/White1BattleLog.dll"),
+    ),
+  },
+  {
+    name: "White1BattleLogSummary.dll",
+    source: resolve(
+      process.env.WHITE1_BATTLE_LOG_SUMMARY_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/White1BattleLogSummary.dll"),
+    ),
+  },
 ];
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 

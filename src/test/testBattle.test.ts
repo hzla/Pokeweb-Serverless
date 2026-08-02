@@ -6,9 +6,11 @@ import {
   getTestBattleConfig,
   getTestBattleConfigForProject,
   isTestBattleSaveAllBadgesSet,
+  isTestBattleSaveMoveAnimationsEnabled,
   isTestBattleTrainerFlagSet,
   patchTestBattleSaveBadges,
   patchTestBattleSaveMmdl,
+  patchTestBattleSaveMoveAnimations,
   patchTestBattleSaveTrainerFlag,
   patchTestBattleSaveTrainerFlags,
   patchTestBattleTrainerTextProxy,
@@ -165,6 +167,22 @@ describe("testBattle", () => {
     expect(readLe16(raw, 0x19586)).toBe(430);
     expect(readLe16(raw, 0x1958a)).toBe(1);
     expect(readLe16(raw, 0x1958e)).toBe(467);
+  });
+
+  it("keeps move animations enabled in both halves of the bundled BW save", () => {
+    const config = getTestBattleConfig("BW");
+    const raw = rawSaveBytesFromDesmumeDsv(whiteSave);
+
+    expect(isTestBattleSaveMoveAnimationsEnabled(raw, config)).toBe(true);
+    expect(isTestBattleSaveMoveAnimationsEnabled(raw, config, config.saveLayout.saveHalfOffset)).toBe(true);
+
+    const patched = patchTestBattleSaveMoveAnimations(raw, config);
+    expect(readLe16(patched, 0x1946a)).toBe(crc16Ccitt(patched.subarray(0x19400, 0x19400 + 0x68)));
+    expect(readLe16(patched, 0x23f36)).toBe(readLe16(patched, 0x1946a));
+    expect(readLe16(patched, 0x23f9a)).toBe(crc16Ccitt(patched.subarray(0x23f00, 0x23f00 + 0x8c)));
+    expect(readLe16(patched, 0x3d46a)).toBe(crc16Ccitt(patched.subarray(0x3d400, 0x3d400 + 0x68)));
+    expect(readLe16(patched, 0x47f36)).toBe(readLe16(patched, 0x3d46a));
+    expect(readLe16(patched, 0x47f9a)).toBe(crc16Ccitt(patched.subarray(0x47f00, 0x47f00 + 0x8c)));
   });
 
   it("resolves BW test battle save zone 62 to overworld 66 from headers", () => {

@@ -25,6 +25,18 @@ const black2BattleLogDll = new Uint8Array(
 const black2BattleLogSummaryDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url)),
 );
+const black1BattleLogDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/Black1BattleLog.dll", import.meta.url)),
+);
+const black1BattleLogSummaryDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url)),
+);
+const white1BattleLogDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/White1BattleLog.dll", import.meta.url)),
+);
+const white1BattleLogSummaryDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url)),
+);
 
 describe("trainer battle log", () => {
   it("builds 1,024 ancestry members from vanilla evolution records", () => {
@@ -87,12 +99,27 @@ describe("trainer battle log", () => {
     ]);
   });
 
+  it("bundles versioned Black and White battle-log runtimes for overlays 93 and 131", () => {
+    for (const [version, battle, summary, addresses] of [
+      ["B", black1BattleLogDll, black1BattleLogSummaryDll, ["93:21b916c:THUMB_BRANCH", "93:21c4f64:THUMB_BRANCH", "93:21ca7f4:THUMB_BRANCH", "131:21d80ce:THUMB_BRANCH_LINK", "131:21d80e4:THUMB_BRANCH_LINK"]],
+      ["W", white1BattleLogDll, white1BattleLogSummaryDll, ["93:21b918c:THUMB_BRANCH", "93:21c4f84:THUMB_BRANCH", "93:21ca814:THUMB_BRANCH", "131:21d80ee:THUMB_BRANCH_LINK", "131:21d8104:THUMB_BRANCH_LINK"]],
+    ] as const) {
+      expect(parseRpm(battle, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
+      expect(parseRpm(summary, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
+      expect([...externalHooks(battle), ...externalHooks(summary)].sort()).toEqual([...addresses].sort());
+    }
+  });
+
   it("bundles only stripped battle-log runtimes", () => {
     for (const dll of [
       white2BattleLogDll,
       white2BattleLogSummaryDll,
       black2BattleLogDll,
       black2BattleLogSummaryDll,
+      black1BattleLogDll,
+      black1BattleLogSummaryDll,
+      white1BattleLogDll,
+      white1BattleLogSummaryDll,
     ]) {
       const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
       expect(rpm.symbols.every((symbol) => symbol.name === null)).toBe(true);
@@ -126,6 +153,10 @@ describe("trainer battle log", () => {
     expect(countU32Occurrences(white2BattleLogDll, 0x021a8a6d)).toBe(1);
     expect(countU32Occurrences(black2BattleLogDll, 0x021ae339)).toBe(1);
     expect(countU32Occurrences(black2BattleLogDll, 0x021a8a2d)).toBe(1);
+    expect(countU32Occurrences(white1BattleLogDll, 0x021ca821)).toBe(1);
+    expect(countU32Occurrences(white1BattleLogDll, 0x021c4f8d)).toBe(1);
+    expect(countU32Occurrences(black1BattleLogDll, 0x021ca801)).toBe(1);
+    expect(countU32Occurrences(black1BattleLogDll, 0x021c4f6d)).toBe(1);
     expect(countU32Occurrences(white2BattleLogDll, 0x021ae375)).toBe(0);
     expect(countU32Occurrences(white2BattleLogDll, 0x021ae371)).toBe(0);
     expect(countU32Occurrences(white2BattleLogDll, 0x021a8a69)).toBe(0);
@@ -134,9 +165,38 @@ describe("trainer battle log", () => {
     expect(countU32Occurrences(black2BattleLogDll, 0x021a8a29)).toBe(0);
   });
 
+  it("does not call the invalid BW1 position-to-slot symbol", () => {
+    // PW1Code resolves these supposed Thumb entry points to the literal-pool
+    // word 0x00000271. The BW1 runtimes must invert the verified
+    // Handler_PokeIDToPokePos mapping instead of branching into that data.
+    expect(countU32Occurrences(black1BattleLogDll, 0x021ce8e9)).toBe(0);
+    expect(countU32Occurrences(white1BattleLogDll, 0x021ce909)).toBe(0);
+    expect(countU32Occurrences(black1BattleLogDll, 0x021c8011)).toBe(1);
+    expect(countU32Occurrences(white1BattleLogDll, 0x021c8031)).toBe(1);
+  });
+
+  it("uses the BW1 per-block save-data accessor", () => {
+    // 0x020071C1 is GetSaveAsyncMain_WritingSize and ignores its second
+    // argument. SaveControl_DataPtrGet starts at the following Thumb wrapper.
+    for (const dll of [
+      black1BattleLogDll,
+      black1BattleLogSummaryDll,
+      white1BattleLogDll,
+      white1BattleLogSummaryDll,
+    ]) {
+      expect(countU32Occurrences(dll, 0x020071c1)).toBe(0);
+      expect(countU32Occurrences(dll, 0x020071cd)).toBe(1);
+    }
+  });
+
   it("accepts Black 2 and defers byte checks until a ROM is available", () => {
     const project = makeProject("B2");
     expect(detectBattleLogCompatibility(project)).toMatchObject({ supported: true, compatible: true, checked: false });
+  });
+
+  it("accepts Black and White and defers byte checks until a ROM is available", () => {
+    expect(detectBattleLogCompatibility(makeProject("B"))).toMatchObject({ supported: true, compatible: true, checked: false });
+    expect(detectBattleLogCompatibility(makeProject("W"))).toMatchObject({ supported: true, compatible: true, checked: false });
   });
 
   it("statically retires the Wi-Fi List shadow copy and is idempotent", () => {
@@ -155,6 +215,13 @@ describe("trainer battle log", () => {
 
     expect([...patched]).toEqual([...hexBytes("7047024b1847c046c407000020890702")]);
     expect([...arm9]).toEqual([...hexBytes("014a024b1847c046c407000020890702")]);
+  });
+
+  it("retires the versioned Black and White Wi-Fi shadow copies", () => {
+    const black = hexBytes("014a024b1847c046c4070000442d0802");
+    const white = hexBytes("014a024b1847c046c40700005c2d0802");
+    expect(patchBattleLogWifiListSync(black, 0x020097f0, "B")).toEqual(hexBytes("7047024b1847c046c4070000442d0802"));
+    expect(patchBattleLogWifiListSync(white, 0x020097f0, "W")).toEqual(hexBytes("7047024b1847c046c40700005c2d0802"));
   });
 
   it("restores the Wi-Fi List routine when staged battle-log DLLs are uninstalled", () => {
@@ -252,12 +319,12 @@ function hexBytes(hex: string): Uint8Array {
   return Uint8Array.from({ length: hex.length / 2 }, (_value, index) => Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16));
 }
 
-function makeProject(baseVersion: "B2" | "W2"): ProjectState {
+function makeProject(baseVersion: "B" | "W" | "B2" | "W2"): ProjectState {
   return {
     session: {
       romName: "test",
       baseVersion,
-      baseRom: "BW2",
+      baseRom: baseVersion === "B" || baseVersion === "W" ? "BW" : "BW2",
       fairy: false,
       fileIds: {},
       blacklist: [],

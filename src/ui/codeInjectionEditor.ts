@@ -14,6 +14,7 @@ import {
   uninstallPwanRuntime,
 } from "../pokeweb/pwanAnimationModel";
 import {
+  battleLogDisplayName,
   canUninstallBattleLog,
   getBattleLogInstallStatus,
   installBattleLog,
@@ -110,7 +111,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </span>
           </div>
           <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US ${project.session.baseVersion === "B2" ? "Black 2" : "White 2"}</strong></div>
+            <div><span>ROM</span><strong>US ${escapeHtml(battleLogDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
             <div><span>Capacity</span><strong>600 battles</strong></div>
             <div><span>Save Blocks</span><strong>29–31</strong></div>
             <div><span>Save Ownership</span><strong>${battleLogStatus.saveGuardInstalled ? "Active" : "Pending"}</strong></div>
@@ -125,7 +126,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               Uninstall Battle Log
             </button>
             <div class="code-injection-note" id="battle-log-note">
-              ${escapeHtml(battleLogStatus.message)} ${battleLogStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."} Installing retires and overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Rename system message bank 179 entry 15 to Frags in the text editor if desired.
+              ${escapeHtml(battleLogStatus.message)} ${battleLogStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."} Installing retires and overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Rename the summary screen's ID No. message to Frags in the text editor if desired.
             </div>
           </div>
         </section>

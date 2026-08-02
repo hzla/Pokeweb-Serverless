@@ -1,14 +1,25 @@
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
-import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
+import {
+  NARC,
+  hasCtrMapIncompatibleFntb,
+  hasEarlyFimgMagic,
+  hasTinkeIncompatibleNamelessFntb,
+} from "../nds/narc";
 import { NintendoDSRom, crc16 } from "../nds/rom";
 import type { Folder } from "../nds/fnt";
 
 export type NarcRepairReason =
   | "early_fimg_magic"
   | "ctrmap_incompatible_fntb"
+  | "tinke_incompatible_nameless_fntb"
+  | "frost_incompatible_sprite_padding"
   | "fimg_trailing_gap"
   | "archive_size_mismatch"
   | "fimg_size_mismatch";
+
+export type NarcRepairOptions = {
+  path?: string;
+};
 
 export type NarcRepairResult = {
   bytes: Uint8Array;
@@ -71,7 +82,8 @@ export function repairRomNarcs(data: Uint8Array, onProgress?: (message: string) 
     scannedNarcs += 1;
     if (scannedNarcs % 25 === 0) onProgress?.(`Scanned ${scannedNarcs} NARCs`);
 
-    const repair = repairNarcBytes(file);
+    const path = paths.get(fileId);
+    const repair = repairNarcBytes(file, { path });
     if (!repair.changed) {
       if (repair.reasons.length > 0) skippedNarcs += 1;
       return;
@@ -80,7 +92,7 @@ export function repairRomNarcs(data: Uint8Array, onProgress?: (message: string) 
     replacements.set(fileId, repair.bytes);
     entries.push({
       fileId,
-      path: paths.get(fileId),
+      path,
       beforeSize: file.length,
       afterSize: repair.bytes.length,
       reasons: repair.reasons,
@@ -104,27 +116,32 @@ export function repairRomNarcs(data: Uint8Array, onProgress?: (message: string) 
   };
 }
 
-export function repairNarcBytes(bytes: Uint8Array): NarcRepairResult {
-  const reasons = detectNarcRepairReasons(bytes);
+export function repairNarcBytes(bytes: Uint8Array, options: NarcRepairOptions = {}): NarcRepairResult {
+  const reasons = detectNarcRepairReasons(bytes, options);
   if (reasons.length === 0) return { bytes, changed: false, reasons };
 
   try {
     const gapRepair = repairFimgTrailingGap(bytes, reasons);
-    if (gapRepair) return gapRepair;
+    const source = new NARC(gapRepair?.bytes ?? bytes);
+    if (reasons.includes("frost_incompatible_sprite_padding")) repairFrostSpritePadding(source);
 
-    const normalized = new NARC(bytes).save();
+    const normalized = source.save();
     return { bytes: normalized, changed: !bytesEqual(bytes, normalized), reasons };
   } catch {
     return { bytes, changed: false, reasons };
   }
 }
 
-export function detectNarcRepairReasons(bytes: Uint8Array): NarcRepairReason[] {
+export function detectNarcRepairReasons(bytes: Uint8Array, options: NarcRepairOptions = {}): NarcRepairReason[] {
   if (readAscii(bytes, 0, 4) !== "NARC") return [];
 
   const reasons: NarcRepairReason[] = [];
   if (hasEarlyFimgMagic(bytes)) reasons.push("early_fimg_magic");
   if (hasCtrMapIncompatibleFntb(bytes)) reasons.push("ctrmap_incompatible_fntb");
+  if (hasTinkeIncompatibleNamelessFntb(bytes)) reasons.push("tinke_incompatible_nameless_fntb");
+  if (isPokemonSpriteArchive(options.path) && hasFrostIncompatibleSpritePadding(bytes)) {
+    reasons.push("frost_incompatible_sprite_padding");
+  }
 
   const layout = readStandardNarcLayout(bytes);
   if (!layout) return reasons;
@@ -143,6 +160,10 @@ export function repairReasonLabel(reason: NarcRepairReason): string {
       return "early GMIF magic";
     case "ctrmap_incompatible_fntb":
       return "CTRMap-incompatible FNTB";
+    case "tinke_incompatible_nameless_fntb":
+      return "Tinke-incompatible nameless BTNF";
+    case "frost_incompatible_sprite_padding":
+      return "Frost-incompatible Pokemon form sprite padding";
     case "fimg_trailing_gap":
       return "FIMG data-start gap";
     case "archive_size_mismatch":
@@ -150,6 +171,51 @@ export function repairReasonLabel(reason: NarcRepairReason): string {
     case "fimg_size_mismatch":
       return "FIMG size mismatch";
   }
+}
+
+const POKEMON_SPRITE_ARCHIVE_PATH = "a/0/0/4";
+const POKEMON_SPRITE_FILES_PER_ENTRY = 20;
+const RESERVED_SPRITE_PALETTE_COUNT = 5;
+
+function isPokemonSpriteArchive(path: string | undefined): boolean {
+  return path?.replace(/^\/+/, "") === POKEMON_SPRITE_ARCHIVE_PATH;
+}
+
+function hasFrostIncompatibleSpritePadding(bytes: Uint8Array): boolean {
+  try {
+    return findFrostSpritePaddingStarts(new NARC(bytes)).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function repairFrostSpritePadding(narc: NARC): void {
+  for (const start of findFrostSpritePaddingStarts(narc)) {
+    const donorStart = start + POKEMON_SPRITE_FILES_PER_ENTRY;
+    for (let slot = RESERVED_SPRITE_PALETTE_COUNT; slot < POKEMON_SPRITE_FILES_PER_ENTRY; slot += 1) {
+      narc.files[start + slot] = narc.files[donorStart + slot].slice();
+    }
+  }
+}
+
+function findFrostSpritePaddingStarts(narc: NARC): number[] {
+  const starts: number[] = [];
+  for (
+    let start = 0;
+    start + POKEMON_SPRITE_FILES_PER_ENTRY * 2 <= narc.files.length;
+    start += POKEMON_SPRITE_FILES_PER_ENTRY
+  ) {
+    const reservedPalettes = narc.files
+      .slice(start, start + RESERVED_SPRITE_PALETTE_COUNT)
+      .every((file) => readAscii(file, 0, 4) === "RLCN");
+    const emptyPadding = narc.files
+      .slice(start + RESERVED_SPRITE_PALETTE_COUNT, start + POKEMON_SPRITE_FILES_PER_ENTRY)
+      .every((file) => file.length === 0);
+    const donorStart = start + POKEMON_SPRITE_FILES_PER_ENTRY;
+    const donorPalettes = [18, 19].every((slot) => readAscii(narc.files[donorStart + slot], 0, 4) === "RLCN");
+    if (reservedPalettes && emptyPadding && donorPalettes) starts.push(start);
+  }
+  return starts;
 }
 
 export function romHeaderRepairReasonLabel(reason: RomHeaderRepairReason): string {

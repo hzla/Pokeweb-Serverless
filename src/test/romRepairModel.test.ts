@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { concatBytes, readU32, writeU16, writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
-import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
+import {
+  NARC,
+  hasCtrMapIncompatibleFntb,
+  hasEarlyFimgMagic,
+  hasTinkeIncompatibleNamelessFntb,
+} from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { repairNarcBytes, repairRomNarcs } from "../pokeweb/romRepairModel";
 
@@ -90,6 +95,41 @@ describe("ROM repair", () => {
     expect(readU32(result.bytes, 0x210)).toBe(0);
     expect([...new NintendoDSRom(result.bytes).files[0]]).toEqual([1, 2, 3, 4]);
   });
+
+  it("repairs legacy nameless BTNF tables and Frost-incompatible Pokemon form padding", () => {
+    const nameless = new NARC();
+    nameless.files = [Uint8Array.of(1, 2, 3), Uint8Array.of(4, 5)];
+    const tinkeMalformed = makeTinkeIncompatibleNamelessFntbNarc(nameless.save());
+
+    const spriteFiles: Uint8Array[] = Array.from({ length: 15100 }, () => new Uint8Array());
+    for (let slot = 0; slot < 5; slot += 1) spriteFiles[15060 + slot] = makeRlcn(slot);
+    for (let slot = 0; slot < 20; slot += 1) spriteFiles[15080 + slot] = Uint8Array.of(0x80 + slot, slot);
+    spriteFiles[15098] = makeRlcn(18);
+    spriteFiles[15099] = makeRlcn(19);
+    const sprites = new NARC();
+    sprites.files = spriteFiles;
+    const frostAndTinkeMalformed = makeTinkeIncompatibleNamelessFntbNarc(sprites.save());
+
+    const result = repairRomNarcs(
+      makeRom([tinkeMalformed, frostAndTinkeMalformed], ["legacy.narc", "a/0/0/4"]),
+    );
+    const repairedRom = new NintendoDSRom(result.bytes);
+    const repairedSprites = new NARC(repairedRom.files[1]);
+
+    expect(result.repairedNarcs).toBe(2);
+    expect(result.entries[0]).toMatchObject({
+      path: "legacy.narc",
+      reasons: ["tinke_incompatible_nameless_fntb"],
+    });
+    expect(result.entries[1]).toMatchObject({
+      path: "a/0/0/4",
+      reasons: ["tinke_incompatible_nameless_fntb", "frost_incompatible_sprite_padding"],
+    });
+    expect(hasTinkeIncompatibleNamelessFntb(repairedRom.files[0])).toBe(false);
+    expect(hasTinkeIncompatibleNamelessFntb(repairedRom.files[1])).toBe(false);
+    expect(repairedSprites.files.slice(15065, 15080)).toEqual(spriteFiles.slice(15085, 15100));
+    expect(repairedSprites.files.slice(15060, 15065)).toEqual(spriteFiles.slice(15060, 15065));
+  });
 });
 
 function makeRom(files: Uint8Array[], fileNames = files.map((_file, index) => `file_${index}`)): Uint8Array {
@@ -142,6 +182,31 @@ function makeCtrMapIncompatibleFntbNarc(bytes: Uint8Array): Uint8Array {
   const malformed = bytes.slice();
   writeU16(malformed, fntbOffset + 14, 0);
   return malformed;
+}
+
+function makeTinkeIncompatibleNamelessFntbNarc(bytes: Uint8Array): Uint8Array {
+  const fatbSize = readU32(bytes, 0x14);
+  const fntbOffset = 0x10 + fatbSize;
+  const fntbSize = readU32(bytes, fntbOffset + 4);
+  const fimgOffset = fntbOffset + fntbSize;
+  const nameTable = saveFnt(new Folder());
+  const paddedNameTable = new Uint8Array(12);
+  paddedNameTable.fill(0xff);
+  paddedNameTable.set(nameTable);
+  const fntb = new Uint8Array(8 + paddedNameTable.length);
+  fntb.set([0x42, 0x54, 0x4e, 0x46]);
+  writeU32(fntb, 4, fntb.length);
+  fntb.set(paddedNameTable, 8);
+
+  const malformed = concatBytes([bytes.subarray(0, fntbOffset), fntb, bytes.subarray(fimgOffset)]);
+  writeU32(malformed, 8, malformed.length);
+  return malformed;
+}
+
+function makeRlcn(seed: number): Uint8Array {
+  const out = new Uint8Array(72);
+  out.set([0x52, 0x4c, 0x43, 0x4e, seed]);
+  return out;
 }
 
 function makeFimgTrailingGapNarc(bytes: Uint8Array, gapBytes: Uint8Array): Uint8Array {
