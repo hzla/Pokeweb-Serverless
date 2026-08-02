@@ -67,7 +67,9 @@ export class NARC {
     fimg.set([0x47, 0x4d, 0x49, 0x46], 0);
     writeU32(fimg, 4, fimg.length);
 
-    const nameTable = pad4(saveFnt(this.filenames), 0xff);
+    const nameTable = hasNamedEntries(this.filenames)
+      ? pad4(saveFnt(this.filenames), 0xff)
+      : makeNamelessFntStub();
     const fntb = new Uint8Array(8 + nameTable.length);
     fntb.set([0x42, 0x54, 0x4e, 0x46], 0);
     writeU32(fntb, 4, fntb.length);
@@ -87,6 +89,17 @@ export class NARC {
   }
 }
 
+function hasNamedEntries(folder: Folder): boolean {
+  return folder.files.length > 0 || folder.folders.length > 0;
+}
+
+function makeNamelessFntStub(): Uint8Array {
+  // Gen 4/5 games use this compact root entry for archives without names.
+  // Tinke recognizes offsets below 8 as the signal to enumerate every FAT
+  // member; a regular empty FNT (root offset 8) appears empty to that tool.
+  return Uint8Array.of(4, 0, 0, 0, 0, 0, 1, 0);
+}
+
 export function hasEarlyFimgMagic(dataLike: ByteLike): boolean {
   const data = asUint8Array(dataLike);
   const fntbOffset = getFntbOffset(data);
@@ -103,6 +116,23 @@ export function hasCtrMapIncompatibleFntb(dataLike: ByteLike): boolean {
   const fntbSize = readU32(data, fntbOffset + 4);
   if (fntbSize < 16) return true;
   return readU16(data, fntbOffset + 14) !== 1;
+}
+
+export function hasTinkeIncompatibleNamelessFntb(dataLike: ByteLike): boolean {
+  const data = asUint8Array(dataLike);
+  const fntbOffset = getFntbOffset(data);
+  if (fntbOffset === undefined) return false;
+
+  const fntbSize = readU32(data, fntbOffset + 4);
+  const nameTableOffset = fntbOffset + 8;
+  if (fntbSize < 16 || nameTableOffset + 8 > data.length) return false;
+
+  const rootEntriesOffset = readU32(data, nameTableOffset);
+  if (rootEntriesOffset < 8) return false;
+
+  const rootEntryOffset = nameTableOffset + rootEntriesOffset;
+  const fntbEnd = Math.min(fntbOffset + fntbSize, data.length);
+  return rootEntryOffset < fntbEnd && data[rootEntryOffset] === 0;
 }
 
 function getFntbOffset(data: Uint8Array): number | undefined {

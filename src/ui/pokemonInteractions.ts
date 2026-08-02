@@ -84,6 +84,12 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
     }, listenerOptions);
   });
 
+  root.addEventListener("change", (event) => {
+    if (!(event.target instanceof HTMLSelectElement) || !event.target.matches("[data-tm-sort]")) return;
+    const panel = event.target.closest<HTMLElement>(".expanded-tms");
+    if (panel) sortTmCompatibilityOptions(panel);
+  }, listenerOptions);
+
   root.addEventListener("contextmenu", (event) => {
     if (!(event.target instanceof HTMLElement)) return;
     const field = editableFieldFromContextTarget(root, event.target);
@@ -93,6 +99,20 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
 
   root.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+    const tmSortDirection = target.closest<HTMLButtonElement>("[data-tm-sort-direction]");
+    if (tmSortDirection) {
+      const descending = tmSortDirection.dataset.direction === "desc";
+      const direction = descending ? "asc" : "desc";
+      tmSortDirection.dataset.direction = direction;
+      tmSortDirection.textContent = direction === "asc" ? "↑" : "↓";
+      const directionLabel = direction === "asc" ? "Sort ascending" : "Sort descending";
+      tmSortDirection.setAttribute("aria-label", directionLabel);
+      tmSortDirection.title = directionLabel;
+      const panel = tmSortDirection.closest<HTMLElement>(".expanded-tms");
+      if (panel) sortTmCompatibilityOptions(panel);
+      return;
+    }
+
     const nameToggle = target.closest<HTMLButtonElement>(".pokemon-name-toggle");
     if (nameToggle) {
       const card = nameToggle.closest<HTMLElement>(".pokemon-card.filterable");
@@ -235,6 +255,12 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       const enabled = !tmCell.classList.contains("-active");
       updatePokemonTmCompatibility(project, speciesId, kind, index, enabled);
       tmCell.classList.toggle("-active", enabled);
+      tmCell.setAttribute("aria-pressed", String(enabled));
+      const stateLabel = enabled ? "Compatible" : "Not compatible";
+      const currentLabel = tmCell.getAttribute("aria-label") ?? "";
+      tmCell.setAttribute("aria-label", currentLabel.replace(/(?:Compatible|Not compatible)$/u, stateLabel));
+      const currentTitle = tmCell.getAttribute("title") ?? "";
+      tmCell.setAttribute("title", currentTitle.replace(/(?:Compatible|Not compatible)$/u, stateLabel));
       options.onDirty?.();
       return;
     }
@@ -249,6 +275,12 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       const enabled = !tutorCell.classList.contains("-active");
       updatePokemonTutorCompatibility(project, speciesId, field, index, enabled);
       tutorCell.classList.toggle("-active", enabled);
+      tutorCell.setAttribute("aria-pressed", String(enabled));
+      const stateLabel = enabled ? "Compatible" : "Not compatible";
+      const currentLabel = tutorCell.getAttribute("aria-label") ?? "";
+      tutorCell.setAttribute("aria-label", currentLabel.replace(/(?:Compatible|Not compatible)$/u, stateLabel));
+      const currentTitle = tutorCell.getAttribute("title") ?? "";
+      tutorCell.setAttribute("title", currentTitle.replace(/(?:Compatible|Not compatible)$/u, stateLabel));
       options.onDirty?.();
       return;
     }
@@ -339,6 +371,60 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
   installPokemonTextFields(root, project, options);
   syncEvolutionMethodInfo(root);
   runFilter();
+}
+
+function sortTmCompatibilityOptions(panel: HTMLElement): void {
+  const grid = panel.querySelector<HTMLElement>(".tm-compatibility-grid");
+  const sort = panel.querySelector<HTMLSelectElement>("[data-tm-sort]")?.value ?? "number";
+  const direction = panel.querySelector<HTMLButtonElement>("[data-tm-sort-direction]")?.dataset.direction === "desc" ? -1 : 1;
+  if (!grid) return;
+
+  const options = [...grid.querySelectorAll<HTMLElement>(".tm-compatibility-option")];
+  options.sort((left, right) => {
+    let comparison = 0;
+    if (sort === "type") comparison = compareText(left.dataset.moveType, right.dataset.moveType);
+    else if (sort === "category") comparison = compareText(left.dataset.moveCategory, right.dataset.moveCategory);
+    else if (sort === "power") comparison = Number(left.dataset.basePower ?? 0) - Number(right.dataset.basePower ?? 0);
+    else comparison = compareMachineNumber(left, right);
+    return direction * (comparison || compareMachineNumber(left, right));
+  });
+
+  if (sort !== "type" && sort !== "category") {
+    grid.replaceChildren(...options);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  let currentGroup = "";
+  for (const option of options) {
+    const group = (sort === "type" ? option.dataset.moveType : option.dataset.moveCategory) || "Unknown";
+    if (group !== currentGroup) {
+      fragment.append(createTmCompatibilityGroupHeader(group, sort));
+      currentGroup = group;
+    }
+    fragment.append(option);
+  }
+  grid.replaceChildren(fragment);
+}
+
+function createTmCompatibilityGroupHeader(group: string, sort: "type" | "category"): HTMLElement {
+  const header = document.createElement("div");
+  const suffix = sort === "type" ? "type" : "moves";
+  header.className = `tm-compatibility-group-header -${group.toLowerCase().replace(/[^a-z0-9_-]+/gu, "")}`;
+  header.setAttribute("role", "heading");
+  header.setAttribute("aria-level", "4");
+  header.textContent = `${group} ${suffix}`;
+  return header;
+}
+
+function compareText(left: string | undefined, right: string | undefined): number {
+  return (left ?? "").localeCompare(right ?? "", undefined, { sensitivity: "base" });
+}
+
+function compareMachineNumber(left: HTMLElement, right: HTMLElement): number {
+  const leftKind = left.dataset.kind === "hm" ? 1 : 0;
+  const rightKind = right.dataset.kind === "hm" ? 1 : 0;
+  return leftKind - rightKind || Number(left.dataset.index ?? 0) - Number(right.dataset.index ?? 0);
 }
 
 function refreshExpandedPanels(card: HTMLElement, project: ProjectState, speciesId: number, activePanel: string, options: PokemonInteractionOptions): void {

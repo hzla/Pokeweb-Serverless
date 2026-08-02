@@ -427,7 +427,9 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
     </div>
     <div class="expanded-card-content expanded-tms">
       ${renderCompatibilityCopyToolbar("tm", "TM/HM", personalSpeciesMax)}
-      ${record.tmCompatibility.map((slot) => renderTmCompatibility(slot)).join("")}
+      <div class="tm-compatibility-grid">
+        ${record.tmCompatibility.map((slot) => renderTmCompatibility(slot)).join("")}
+      </div>
     </div>
     <div class="expanded-card-content expanded-tutors">
       ${record.tutorCompatibility.length > 0 ? `${renderCompatibilityCopyToolbar("tutor", "Tutor", personalSpeciesMax)}${record.tutorCompatibility.map((group) => renderTutorGroup(group)).join("")}` : renderUnavailablePanel("BW2 tutor compatibility is not available for this ROM.")}
@@ -445,8 +447,26 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
 function renderCompatibilityCopyToolbar(kind: "tm" | "tutor", label: string, speciesMax: number): string {
   return `
     <div class="compatibility-copy-toolbar">
-      <input class="learnset-copy-source compatibility-copy-source" type="number" inputmode="numeric" min="1" max="${speciesMax}" step="1" placeholder="Species ID" aria-label="${label} compatibility source species ID">
-      <button class="btn -default compatibility-copy-action" data-compatibility-copy="${kind}" type="button">Copy From</button>
+      <div class="compatibility-copy-actions">
+        <input class="learnset-copy-source compatibility-copy-source" type="number" inputmode="numeric" min="1" max="${speciesMax}" step="1" placeholder="Species ID" aria-label="${label} compatibility source species ID">
+        <button class="btn -default compatibility-copy-action" data-compatibility-copy="${kind}" type="button">Copy From</button>
+      </div>
+      ${kind === "tm" ? renderTmSortControls() : ""}
+    </div>
+  `;
+}
+
+function renderTmSortControls(): string {
+  return `
+    <div class="tm-compatibility-sort">
+      <span class="tm-compatibility-sort__label">Sort by</span>
+      <select data-tm-sort aria-label="Sort TM compatibility options">
+        <option value="number">TM number</option>
+        <option value="type">Move type</option>
+        <option value="category">Move category</option>
+        <option value="power">Base power</option>
+      </select>
+      <button class="tm-compatibility-sort__direction" data-tm-sort-direction data-direction="asc" type="button" aria-label="Sort ascending" title="Sort ascending">&uarr;</button>
     </div>
   `;
 }
@@ -506,11 +526,30 @@ function renderEvolutionColumn(slots: EvolutionSlot[]): string {
 }
 
 function renderTmCompatibility(slot: TmCompatibilitySlot): string {
+  const moveType = slot.moveType || "Unknown";
+  const moveCategory = slot.moveCategory || "Unknown";
+  const numericPower = Number(slot.basePower);
+  const basePower = Number.isFinite(numericPower) ? numericPower : 0;
+  const stateLabel = slot.enabled ? "Compatible" : "Not compatible";
   return `
-    <div class="cell tm ${slot.enabled ? "-active" : ""}" data-field-name="tms" data-narc="personal" data-kind="${slot.kind}" data-index="${slot.index}">
-      ${escapeHtml(slot.label)}<br>
-      ${escapeHtml(slot.moveName)}
-    </div>
+    <button
+      class="cell tm tm-compatibility-option -${typeClass(moveType)} ${slot.enabled ? "-active" : ""}"
+      data-field-name="tms"
+      data-narc="personal"
+      data-kind="${slot.kind}"
+      data-index="${slot.index}"
+      data-move-type="${escapeHtml(moveType)}"
+      data-move-category="${escapeHtml(moveCategory)}"
+      data-base-power="${basePower}"
+      type="button"
+      aria-pressed="${slot.enabled}"
+      aria-label="${escapeHtml(`${slot.label} ${slot.moveName}, ${moveType} type, ${moveCategory}, ${basePower} base power. ${stateLabel}`)}"
+      title="${escapeHtml(`${moveType} · ${moveCategory} · ${basePower} power · ${stateLabel}`)}"
+    >
+      <span class="tm-compatibility-option__machine">${escapeHtml(slot.label)}</span>
+      <span class="tm-compatibility-option__move">${escapeHtml(slot.moveName)}</span>
+      <span class="tm-compatibility-option__check" aria-hidden="true"></span>
+    </button>
   `;
 }
 
@@ -526,11 +565,24 @@ function renderTutorGroup(group: TutorCompatibilityGroup): string {
 }
 
 function renderTutorCompatibility(slot: TutorCompatibilitySlot): string {
+  const moveType = slot.moveType || "Unknown";
+  const stateLabel = slot.enabled ? "Compatible" : "Not compatible";
   return `
-    <div class="cell tutor ${slot.enabled ? "-active" : ""}" data-field-name="tutors" data-narc="personal" data-tutor-field="${slot.field}" data-index="${slot.index}">
-      ${escapeHtml(slot.label)}<br>
-      ${escapeHtml(slot.moveName)}
-    </div>
+    <button
+      class="cell tutor tm-compatibility-option -${typeClass(moveType)} ${slot.enabled ? "-active" : ""}"
+      data-field-name="tutors"
+      data-narc="personal"
+      data-tutor-field="${slot.field}"
+      data-index="${slot.index}"
+      type="button"
+      aria-pressed="${slot.enabled}"
+      aria-label="${escapeHtml(`${slot.label} ${slot.moveName}, ${moveType} type. ${stateLabel}`)}"
+      title="${escapeHtml(`${moveType} type · ${stateLabel}`)}"
+    >
+      <span class="tm-compatibility-option__machine">${escapeHtml(slot.label)}</span>
+      <span class="tm-compatibility-option__move">${escapeHtml(slot.moveName)}</span>
+      <span class="tm-compatibility-option__check" aria-hidden="true"></span>
+    </button>
   `;
 }
 

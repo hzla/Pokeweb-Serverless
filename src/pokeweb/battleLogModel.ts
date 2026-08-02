@@ -23,6 +23,14 @@ export const BLACK2_BATTLE_LOG_DLL_FILENAME = "Black2UpgradeBattleLog.dll";
 export const BLACK2_BATTLE_LOG_DLL_PATH = `patches/${BLACK2_BATTLE_LOG_DLL_FILENAME}`;
 export const BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME = "Black2UpgradeBattleLogSummary.dll";
 export const BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME}`;
+export const BLACK1_BATTLE_LOG_DLL_FILENAME = "Black1BattleLog.dll";
+export const BLACK1_BATTLE_LOG_DLL_PATH = `patches/${BLACK1_BATTLE_LOG_DLL_FILENAME}`;
+export const BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME = "Black1BattleLogSummary.dll";
+export const BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME}`;
+export const WHITE1_BATTLE_LOG_DLL_FILENAME = "White1BattleLog.dll";
+export const WHITE1_BATTLE_LOG_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_DLL_FILENAME}`;
+export const WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME = "White1BattleLogSummary.dll";
+export const WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME}`;
 export const BATTLE_LOG_ANCESTRY_PATH = "battlelog/ancestry.narc";
 export const BATTLE_LOG_EVOLUTION_PATH = "a/0/1/9";
 export const BATTLE_LOG_CAPACITY = 600;
@@ -33,14 +41,13 @@ const EVOLUTION_MEMBER_SIZES = new Set([42, 48]);
 const ANCESTRY_VERSION = 1;
 const MAX_ANCESTORS = 32;
 const LEGACY_BATTLE_LOG_ANCESTRY_PATH = "battle_log_ancestry.narc";
-const WIFI_LIST_COPY_ADDRESS = 0x02009f0c;
-const BW2_ARM9_RAM_ADDRESS = 0x02004000;
+const GEN5_ARM9_RAM_ADDRESS = 0x02004000;
 
-type SupportedBattleLogVersion = "B2" | "W2";
+export type SupportedBattleLogVersion = "B" | "W" | "B2" | "W2";
 
 type HookSignature = {
   label: string;
-  overlayId: 0 | 167 | 207;
+  overlayId: number;
   address: number;
   expectedHex: string;
 };
@@ -54,6 +61,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
   summaryDllFilename: string;
   summaryDllPath: string;
   summaryDllUrl: URL;
+  wifiAddress: number;
   wifiOriginalHex: string;
   wifiDisabledHex: string;
   hooks: HookSignature[];
@@ -67,10 +75,11 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url),
+    wifiAddress: 0x02009f0c,
     wifiOriginalHex: "014a024b1847c046c40700004c890702",
     wifiDisabledHex: "7047024b1847c046c40700004c890702",
     hooks: [
-      { label: "Pal Pad save-shadow guard", overlayId: 0, address: WIFI_LIST_COPY_ADDRESS, expectedHex: "014a024b1847c046c40700004c890702" },
+      { label: "Pal Pad save-shadow guard", overlayId: 0, address: 0x02009f0c, expectedHex: "014a024b1847c046c40700004c890702" },
       { label: "Battle result finalization", overlayId: 167, address: 0x0219ca88, expectedHex: "024a8358072b00d18150704744040000" },
       { label: "Faint detection", overlayId: 167, address: 0x021a8a64, expectedHex: "f8b582b00f1c041c381c12f007f9061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 167, address: 0x021ae36c, expectedHex: "f0b585b0041c039260681f1c02910a9dedf720fd04903869" },
@@ -87,10 +96,11 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url),
+    wifiAddress: 0x02009f0c,
     wifiOriginalHex: "014a024b1847c046c407000020890702",
     wifiDisabledHex: "7047024b1847c046c407000020890702",
     hooks: [
-      { label: "Pal Pad save-shadow guard", overlayId: 0, address: WIFI_LIST_COPY_ADDRESS, expectedHex: "014a024b1847c046c407000020890702" },
+      { label: "Pal Pad save-shadow guard", overlayId: 0, address: 0x02009f0c, expectedHex: "014a024b1847c046c407000020890702" },
       { label: "Battle result finalization", overlayId: 167, address: 0x0219ca48, expectedHex: "024a8358072b00d18150704744040000" },
       { label: "Faint detection", overlayId: 167, address: 0x021a8a24, expectedHex: "f8b582b00f1c041c381c12f007f9061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 167, address: 0x021ae32c, expectedHex: "f0b585b0041c039260681f1c02910a9dedf720fd04903869" },
@@ -98,10 +108,56 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
       { label: "Summary frag formatting", overlayId: 207, address: 0x021b6f08, expectedHex: "002105236df606fb4120009001200190112080010290e169" },
     ],
   },
+  W: {
+    displayName: "White",
+    idCode: "IRAO",
+    dllFilename: WHITE1_BATTLE_LOG_DLL_FILENAME,
+    dllPath: WHITE1_BATTLE_LOG_DLL_PATH,
+    dllUrl: new URL("../assets/codeinjection/White1BattleLog.dll", import.meta.url),
+    summaryDllFilename: WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
+    summaryDllPath: WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH,
+    summaryDllUrl: new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url),
+    wifiAddress: 0x020097f0,
+    wifiOriginalHex: "014a024b1847c046c40700005c2d0802",
+    wifiDisabledHex: "7047024b1847c046c40700005c2d0802",
+    hooks: [
+      { label: "Pal Pad save-shadow guard", overlayId: 0, address: 0x020097f0, expectedHex: "014a024b1847c046c40700005c2d0802" },
+      { label: "Battle result finalization", overlayId: 93, address: 0x021b918c, expectedHex: "024a8358072b00d18150704744040000" },
+      { label: "Faint detection", overlayId: 93, address: 0x021c4f84, expectedHex: "f8b582b00f1c041c381c10f067fa061c3c482518a85d0028" },
+      { label: "Resolved move targets", overlayId: 93, address: 0x021ca814, expectedHex: "f0b585b0041c039260681f1c02910a9dedf7c0fe04903869" },
+      { label: "Summary frag value", overlayId: 131, address: 0x021d80ea, expectedHex: "072100223ff6d9fe0004020c0220009001200190" },
+      { label: "Summary frag formatting", overlayId: 131, address: 0x021d8100, expectedHex: "0021052346f65cff412000900120019011208001" },
+    ],
+  },
+  B: {
+    displayName: "Black",
+    idCode: "IRBO",
+    dllFilename: BLACK1_BATTLE_LOG_DLL_FILENAME,
+    dllPath: BLACK1_BATTLE_LOG_DLL_PATH,
+    dllUrl: new URL("../assets/codeinjection/Black1BattleLog.dll", import.meta.url),
+    summaryDllFilename: BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
+    summaryDllPath: BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH,
+    summaryDllUrl: new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url),
+    wifiAddress: 0x020097f0,
+    wifiOriginalHex: "014a024b1847c046c4070000442d0802",
+    wifiDisabledHex: "7047024b1847c046c4070000442d0802",
+    hooks: [
+      { label: "Pal Pad save-shadow guard", overlayId: 0, address: 0x020097f0, expectedHex: "014a024b1847c046c4070000442d0802" },
+      { label: "Battle result finalization", overlayId: 93, address: 0x021b916c, expectedHex: "024a8358072b00d18150704744040000" },
+      { label: "Faint detection", overlayId: 93, address: 0x021c4f64, expectedHex: "f8b582b00f1c041c381c10f067fa061c3c482518a85d0028" },
+      { label: "Resolved move targets", overlayId: 93, address: 0x021ca7f4, expectedHex: "f0b585b0041c039260681f1c02910a9dedf7c0fe" },
+      { label: "Summary frag value", overlayId: 131, address: 0x021d80ca, expectedHex: "072100223ff6dbfe0004020c0220009001200190" },
+      { label: "Summary frag formatting", overlayId: 131, address: 0x021d80e0, expectedHex: "0021052346f65eff412000900120019011208001" },
+    ],
+  },
 };
 
 function battleLogLayout(version: string) {
-  return version === "B2" || version === "W2" ? BATTLE_LOG_LAYOUTS[version] : undefined;
+  return version === "B" || version === "W" || version === "B2" || version === "W2" ? BATTLE_LOG_LAYOUTS[version] : undefined;
+}
+
+export function battleLogDisplayName(version: string): string | undefined {
+  return battleLogLayout(version)?.displayName;
 }
 
 export type BattleLogCompatibilityCheck = {
@@ -170,14 +226,14 @@ export function detectBattleLogCompatibility(
   romBytes: Uint8Array | undefined = project.originalRomBytes,
 ): BattleLogCompatibilityReport {
   const layout = battleLogLayout(project.session.baseVersion);
-  if (project.session.baseRom !== "BW2" || !layout) {
+  if ((project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") || !layout) {
     return {
       supported: false,
       compatible: false,
       checked: false,
       passed: 0,
       checks: [],
-      message: "The battle log supports US Black 2, White 2, and their corresponding Upgrade ROMs.",
+      message: "The battle log supports US Black, White, Black 2, White 2, and the corresponding Upgrade ROMs.",
     };
   }
   if (!romBytes) {
@@ -217,7 +273,7 @@ export function detectBattleLogCompatibility(
 
   let overlays: Map<number, { data: Uint8Array; ramAddress: number }>;
   try {
-    overlays = rom.loadArm9Overlays([167, 207]);
+    overlays = rom.loadArm9Overlays([...new Set(layout.hooks.filter((hook) => hook.overlayId !== 0).map((hook) => hook.overlayId))]);
   } catch {
     overlays = new Map();
   }
@@ -233,7 +289,7 @@ export function detectBattleLogCompatibility(
     const actual = data && offset >= 0 && offset + expected.length <= data.length
       ? data.subarray(offset, offset + expected.length)
       : undefined;
-    const disabled = signature.overlayId === 0 && signature.address === WIFI_LIST_COPY_ADDRESS
+    const disabled = signature.overlayId === 0 && signature.address === layout.wifiAddress
       ? hexToBytes(layout.wifiDisabledHex)
       : undefined;
     const matched = Boolean(actual && (bytesEqual(actual, expected) || Boolean(disabled && bytesEqual(actual, disabled))));
@@ -263,8 +319,8 @@ export function detectBattleLogCompatibility(
 
 export async function installBattleLog(project: ProjectState): Promise<BattleLogInstallResult> {
   const layout = battleLogLayout(project.session.baseVersion);
-  if (project.session.baseRom !== "BW2" || !layout) {
-    throw new Error("The battle log supports US Black 2, White 2, and their corresponding Upgrade ROMs.");
+  if ((project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") || !layout) {
+    throw new Error("The battle log supports US Black, White, Black 2, White 2, and the corresponding Upgrade ROMs.");
   }
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the ROM before installing the battle log.");
@@ -273,7 +329,12 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   if (!compatibility.compatible) throw new Error(compatibility.message);
   const rom = new NintendoDSRom(romBytes);
 
-  if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  const pmcStatus = getPmcInstallStatus(project);
+  // Refresh BW1's bundled PMC even when an earlier browser session already
+  // staged overlay 237. The initial BW1 release omitted GFLAppInit from its
+  // bootstrap, and merely reinstalling the battle-log DLLs would otherwise
+  // leave that broken overlay in the persistent project.
+  if (project.session.baseRom === "BW" || !pmcStatus.installed) await installBundledPmc(project);
   disableWifiListSync(project, rom, project.session.baseVersion as SupportedBattleLogVersion);
   const [battleResponse, summaryResponse] = await Promise.all([
     fetch(layout.dllUrl),
@@ -314,15 +375,15 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
 
 export function uninstallBattleLog(project: ProjectState): void {
   const layout = battleLogLayout(project.session.baseVersion);
-  if (project.session.baseRom !== "BW2" || !layout) {
-    throw new Error("The battle log supports US Black 2, White 2, and their corresponding Upgrade ROMs.");
+  if ((project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") || !layout) {
+    throw new Error("The battle log supports US Black, White, Black 2, White 2, and the corresponding Upgrade ROMs.");
   }
   if (!canUninstallBattleLog(project)) {
     throw new Error("Battle-log DLLs already built into the loaded ROM cannot be removed by this editor yet.");
   }
 
   const version = project.session.baseVersion as SupportedBattleLogVersion;
-  project.arm9 = restoreBattleLogWifiListSync(project.arm9, BW2_ARM9_RAM_ADDRESS, version);
+  project.arm9 = restoreBattleLogWifiListSync(project.arm9, GEN5_ARM9_RAM_ADDRESS, version);
   project.arm9Dirty = true;
   removeStagedCodeInjectionDll(project, layout.dllPath);
   removeStagedCodeInjectionDll(project, layout.summaryDllPath);
@@ -349,7 +410,7 @@ function disableWifiListSync(project: ProjectState, rom: NintendoDSRom, version:
 
 function isWifiListSyncDisabled(project: ProjectState, version: SupportedBattleLogVersion): boolean {
   let arm9 = project.arm9;
-  let arm9RamAddress = BW2_ARM9_RAM_ADDRESS;
+  let arm9RamAddress = GEN5_ARM9_RAM_ADDRESS;
   try {
     if (project.originalRomBytes) {
       const rom = new NintendoDSRom(project.originalRomBytes);
@@ -357,8 +418,9 @@ function isWifiListSyncDisabled(project: ProjectState, version: SupportedBattleL
       if (arm9.length === 0) arm9 = decompressCode(rom.arm9);
     }
     if (arm9.length === 0) return false;
-    const offset = WIFI_LIST_COPY_ADDRESS - arm9RamAddress;
-    const disabled = hexToBytes(BATTLE_LOG_LAYOUTS[version].wifiDisabledHex);
+    const layout = BATTLE_LOG_LAYOUTS[version];
+    const offset = layout.wifiAddress - arm9RamAddress;
+    const disabled = hexToBytes(layout.wifiDisabledHex);
     return offset >= 0
       && offset + disabled.length <= arm9.length
       && bytesEqual(arm9.subarray(offset, offset + disabled.length), disabled);
@@ -373,8 +435,8 @@ export function patchBattleLogWifiListSync(
   version: SupportedBattleLogVersion = "W2",
 ): Uint8Array {
   const output = arm9.slice();
-  const offset = WIFI_LIST_COPY_ADDRESS - arm9RamAddress;
   const layout = BATTLE_LOG_LAYOUTS[version];
+  const offset = layout.wifiAddress - arm9RamAddress;
   const original = hexToBytes(layout.wifiOriginalHex);
   const disabled = hexToBytes(layout.wifiDisabledHex);
   if (offset < 0 || offset + original.length > output.length) {
@@ -398,8 +460,8 @@ export function restoreBattleLogWifiListSync(
   version: SupportedBattleLogVersion = "W2",
 ): Uint8Array {
   const output = arm9.slice();
-  const offset = WIFI_LIST_COPY_ADDRESS - arm9RamAddress;
   const layout = BATTLE_LOG_LAYOUTS[version];
+  const offset = layout.wifiAddress - arm9RamAddress;
   const original = hexToBytes(layout.wifiOriginalHex);
   const disabled = hexToBytes(layout.wifiDisabledHex);
   if (offset < 0 || offset + original.length > output.length) {

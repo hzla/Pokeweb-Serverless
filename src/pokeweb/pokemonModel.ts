@@ -81,6 +81,9 @@ export type TmCompatibilitySlot = {
   index: number;
   label: string;
   moveName: string;
+  moveType: string;
+  moveCategory: string;
+  basePower: number | string;
   enabled: boolean;
 };
 
@@ -90,6 +93,7 @@ export type TutorCompatibilitySlot = {
   index: number;
   label: string;
   moveName: string;
+  moveType: string;
   enabled: boolean;
 };
 
@@ -258,22 +262,30 @@ export function getPokemonTmCompatibility(project: ProjectState, speciesId: numb
     ...Array.from({ length: counts.tm }, (_, index) => {
       const number = index + 1;
       const location = tmBitLocation(project, "tm", number);
+      const move = getMovePreview(project, Number(project.tms?.raw[`tm_${number}`] ?? 0));
       return {
         kind: "tm" as const,
         index: number,
         label: `TM${number}`,
         moveName: names.tmNames[index] ?? "",
+        moveType: move.type,
+        moveCategory: move.category,
+        basePower: move.power,
         enabled: bitEnabled(raw, location.field, location.bit),
       };
     }),
     ...Array.from({ length: counts.hm }, (_, index) => {
       const number = index + 1;
       const location = tmBitLocation(project, "hm", number);
+      const move = getMovePreview(project, Number(project.tms?.raw[`hm_${number}`] ?? 0));
       return {
         kind: "hm" as const,
         index: number,
         label: `HM${number}`,
         moveName: names.hmNames[index] ?? "",
+        moveType: move.type,
+        moveCategory: move.category,
+        basePower: move.power,
         enabled: bitEnabled(raw, location.field, location.bit),
       };
     }),
@@ -322,14 +334,18 @@ export function getPokemonTutorCompatibility(project: ProjectState, speciesId: n
   return getTutorMoveCompatibilityGroups(project).map((group) => ({
     group: group.key,
     label: group.label,
-    slots: group.moves.map((move) => ({
-      group: group.key,
-      field: group.field,
-      index: move.compatibilityIndex,
-      label: `${group.shortLabel}${move.compatibilityIndex + 1}`,
-      moveName: move.moveName,
-      enabled: bitEnabled(record.raw as RawRecord, group.field, move.compatibilityIndex),
-    })),
+    slots: group.moves.map((move) => {
+      const moveId = (project.texts.banks.moves ?? []).findIndex((name) => normalizeName(name) === normalizeName(move.moveName));
+      return {
+        group: group.key,
+        field: group.field,
+        index: move.compatibilityIndex,
+        label: `${group.shortLabel}${move.compatibilityIndex + 1}`,
+        moveName: move.moveName,
+        moveType: getMovePreview(project, moveId).type,
+        enabled: bitEnabled(record.raw as RawRecord, group.field, move.compatibilityIndex),
+      };
+    }),
   }));
 }
 

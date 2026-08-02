@@ -1812,7 +1812,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
     : nextRoute === "fileSystem"
       ? ` title="Reload the ROM before opening File System"`
     : nextRoute === "codeInjection"
-      ? ` title="${project?.session.baseRom === "BW2" ? "Reload the ROM before opening Code Injection" : "PMC is currently Black 2 / White 2 only"}"`
+      ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Reload the ROM before opening Code Injection" : "Code Injection is currently Gen V only"}"`
     : nextRoute === "patches"
       ? ` title="Reload the ROM before opening Patches"`
       : nextRoute === "maps3d"
