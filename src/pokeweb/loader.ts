@@ -22,6 +22,7 @@ import {
   type TextBankSource,
 } from "./constants";
 import { getNarcFormats } from "./formats";
+import { normalizeEncounterFormReferences } from "./encounterModel";
 import { parseHeaders } from "./headerModel";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { detectPmcInstallFromRom } from "./pmcModel";
@@ -142,6 +143,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     editNarcs.push({ path: "a/0/0/4", name: "pokemon_sprites" }, { path: "a/0/0/7", name: "pokemon_icons" });
   }
   extractNarcSet(rom, project, editNarcs);
+  normalizeEncounterFormReferences(project);
   if (!project.session.fairy && detectFairyTypeUsage(project)) project.session.fairy = true;
 
   if (selectedNarcs.size === 0 || selectedNarcs.has("grottos") || selectedNarcs.has("moves") || selectedNarcs.has("starter_sprites")) {

@@ -55,6 +55,8 @@ const DOUBLE_BATTLE_FIX_B2_URL = new URL("../assets/codeinjection/DoubleBattleFi
 const DOUBLE_BATTLE_FIX_W2_URL = new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url);
 const MAIN_MENU_SKIP_B2_URL = new URL("../assets/codeinjection/MainMenuSkipB2.dll", import.meta.url);
 const MAIN_MENU_SKIP_W2_URL = new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url);
+const FORM_EVOLUTION_B2_URL = new URL("../assets/codeinjection/FormEvolutionB2.dll", import.meta.url);
+const FORM_EVOLUTION_W2_URL = new URL("../assets/codeinjection/FormEvolutionW2.dll", import.meta.url);
 
 const DOUBLE_BATTLE_FIX_FILENAMES: Record<"B2" | "W2", string> = {
   B2: "DoubleBattleFixB2.dll",
@@ -64,6 +66,11 @@ const DOUBLE_BATTLE_FIX_FILENAMES: Record<"B2" | "W2", string> = {
 const MAIN_MENU_SKIP_FILENAMES: Record<"B2" | "W2", string> = {
   B2: "MainMenuSkipB2.dll",
   W2: "MainMenuSkipW2.dll",
+};
+
+const FORM_EVOLUTION_FILENAMES: Record<"B2" | "W2", string> = {
+  B2: "FormEvolutionB2.dll",
+  W2: "FormEvolutionW2.dll",
 };
 
 type Bw1Version = "B" | "W";
@@ -296,6 +303,40 @@ export async function prepareBw2TestBattleCodeInjection(project: ProjectState): 
   if (detectWhite2UpgradeDlls(project) || detectBlack2UpgradeDlls(project)) return undefined;
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
   return stageBundledMainMenuSkipDll(project);
+}
+
+export async function prepareBw2FormEvolutionCodeInjection(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
+  if (project.session.baseRom !== "BW2" || (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2")) {
+    throw new Error("Safe personal-form evolution targets currently require a Black 2 or White 2 ROM.");
+  }
+
+  if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+
+  const version = project.session.baseVersion;
+  const fileName = FORM_EVOLUTION_FILENAMES[version];
+  const path = `patches/${fileName}`;
+  const existing = listCodeInjectionDlls(project).find((module) => module.path.toLowerCase() === path.toLowerCase());
+  if (existing) return existing;
+
+  const response = await fetch(version === "B2" ? FORM_EVOLUTION_B2_URL : FORM_EVOLUTION_W2_URL);
+  if (!response.ok) throw new Error(`Could not load bundled ${version} form-evolution runtime (${response.status})`);
+  const result = stageCodeInjectionDll(project, fileName, new Uint8Array(await response.arrayBuffer()), "patches");
+  recordGenericChange(
+    project,
+    "code_injection",
+    `${fileName} staged so evolution targets can safely reference personal-form IDs.`,
+    "Form Evolution Runtime",
+    { key: "code-injection:form-evolution" },
+  );
+  return result;
+}
+
+export function detectBundledFormEvolutionDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {
+  if (project.session.baseRom !== "BW2" || (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2")) {
+    return "unsupported";
+  }
+  const path = `patches/${FORM_EVOLUTION_FILENAMES[project.session.baseVersion]}`;
+  return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === path.toLowerCase()) ? "patched" : "unpatched";
 }
 
 export function getPmcInstallStatus(project: ProjectState): PmcInstallStatus {

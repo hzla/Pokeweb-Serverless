@@ -34,7 +34,7 @@ describe("pokemonModel", () => {
     expect(bulbasaur.personal.type_1).toBe("Grass");
     expect(bulbasaur.personal.ability_1).toBe("Overgrow");
     expect(bulbasaur.learnset[0]).toMatchObject({ moveName: "Tackle", level: 1, type: "Normal", power: 40 });
-    expect(bulbasaur.evolutions[0]).toMatchObject({ method: "Level Requirement", param: 16, target: "Ivysaur" });
+    expect(bulbasaur.evolutions[0]).toMatchObject({ method: "Level Requirement", param: 16, targetId: 2, target: "Ivysaur" });
     expect(bulbasaur.evolutions).toHaveLength(7);
   });
 
@@ -84,6 +84,7 @@ describe("pokemonModel", () => {
     expect(record.personal.type_1).toBe("Poison");
     expect(record.rawPersonal.evs & 0b11).toBe(3);
     expect(record.learnset[0].moveName).toBe("Vine Whip");
+    expect(record.evolutions[0].targetId).toBe(3);
     expect(record.evolutions[0].target).toBe("Venusaur");
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
     expect(project.narcs.learnsets?.dirty.has(1)).toBe(true);
