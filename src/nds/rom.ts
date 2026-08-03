@@ -100,8 +100,14 @@ export class NintendoDSRom {
     }
     if (options.alignFntFirstFileToArm9OverlayCount) {
       const overlayCount = arm9OverlayTableBytes.length / 32;
-      if (Number.isInteger(overlayCount) && filenames.firstId !== overlayCount) {
+      if (Number.isInteger(overlayCount) && (filenames.firstId !== overlayCount || filenames.files.length > 0)) {
         filenames = cloneFolder(filenames);
+        // Frost treats the overlay-table row count as the first NitroFS file
+        // ID. Appended overlays break that assumption, while retaining root
+        // filenames at the adjusted base creates duplicate FNT IDs. The files
+        // remain in FAT unchanged; only the legacy root labels become
+        // nameless so all nested paths keep their real IDs.
+        filenames.files = [];
         filenames.firstId = overlayCount;
         shouldRewriteFnt = true;
       }

@@ -52,6 +52,27 @@ describe("ROM export", () => {
     expect([...parsed.getFileByName("lib/Patch.dll")]).toEqual([0xaa, 0xbb]);
   });
 
+  it("aligns Frost's FNT file base when exporting an appended PMC overlay", async () => {
+    const project = makeProject(makeRom([Uint8Array.of(1)], ["legacy-root.bin"]));
+    const overlayPath = "overlay/overlay_0000.bin";
+    project.fileSystem = { replacements: {}, additions: { [overlayPath]: Uint8Array.of(0xaa, 0xbb) } };
+    project.codeInjection = {
+      pmc: {
+        overlayId: 0,
+        overlayBaseAddress: 0x02100000,
+        overlayPath,
+      },
+    };
+
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+
+    expect(exported.arm9OverlayTable.length / 32).toBe(1);
+    expect(exported.filenames.firstId).toBe(1);
+    expect(exported.filenames.files).toEqual([]);
+    expect(exported.fileId(overlayPath)).toBe(1);
+    expect([...exported.files[0]]).toEqual([1]);
+  });
+
   it("exports standalone White2Upgrade type chart files as raw bytes", async () => {
     const chart = makeTypeChartBytes(TYPE_CHART_FAIRY_TYPE_COUNT);
     const romBytes = makeRom([chart], [TYPE_CHART_ROMFS_PATH]);
