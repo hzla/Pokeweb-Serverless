@@ -19,6 +19,7 @@ projects/
 generated/
 work/
 analysis/
+runtime/form-evolution/build/
 
 # Local agent working notes.
 Agents.md

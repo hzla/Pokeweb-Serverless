@@ -517,10 +517,22 @@ function renderEvolutionColumn(slots: EvolutionSlot[]): string {
           return `
             ${expandedField("Method", editable("evolution", `method_${slot.index}`, slot.method, "evo-value", { autofill: "evo_methods" }))}
             ${expandedField("Parameter", editable("evolution", `param_${slot.index}`, slot.param, "evo-value", paramOptions))}
-            ${expandedField("Evolves to", editable("evolution", `target_${slot.index}`, slot.target, "evo-value", { autofill: "pokemon_names" }))}
+            ${evolutionTargetField(slot)}
           `;
         })
         .join("")}
+    </div>
+  `;
+}
+
+function evolutionTargetField(slot: EvolutionSlot): string {
+  return `
+    <div class="expanded-field evolution-target-field">
+      <div class="expanded-field-name evolution-target-label">
+        <span>Evolves to</span>
+        <span class="evolution-target-id" data-evolution-target-id="${slot.index}" title="Raw evolution target species ID">Species ID ${slot.targetId}</span>
+      </div>
+      ${editable("evolution", `target_${slot.index}`, slot.target, "evo-value", { autofill: "pokemon_names" })}
     </div>
   `;
 }

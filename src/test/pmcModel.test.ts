@@ -5,6 +5,7 @@ import { Folder, saveFnt } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import {
+  detectBundledFormEvolutionDll,
   detectBundledMainMenuSkipDll,
   detectPmcInstallFromRom,
   detectBundledDoubleBattleFixDll,
@@ -15,6 +16,7 @@ import {
   PMC_OVERLAY_ID_PATH,
   PMC_PATCHES_KEEP_PATH,
   PMC_SYMBOL_PATH,
+  prepareBw2FormEvolutionCodeInjection,
   prepareBw2TestBattleCodeInjection,
   stageCodeInjectionDll,
   validateCodeInjectionDll,
@@ -27,6 +29,8 @@ const pmcW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_W
 const doubleBattleFixW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url)));
 const mainMenuSkipB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MainMenuSkipB2.dll", import.meta.url)));
 const mainMenuSkipW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url)));
+const formEvolutionB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/FormEvolutionB2.dll", import.meta.url)));
+const formEvolutionW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/FormEvolutionW2.dll", import.meta.url)));
 
 describe("PMC installer", () => {
   it("parses bundled PMC metadata", () => {
@@ -277,6 +281,71 @@ describe("PMC installer", () => {
     expect([...mainMenuSkipB2]).not.toEqual([...mainMenuSkipW2]);
   });
 
+  it("bundles versioned form-evolution hooks for both BW2 revisions", () => {
+    for (const [version, dll, hooks, symbols] of [
+      [
+        "B2",
+        formEvolutionB2,
+        ["284:21e355c:THUMB_BRANCH_LINK", "284:21e4e22:THUMB_BRANCH_LINK"],
+        { PML_PersonalGetParamSingle: 0x0201ef1c, PokeParty_ChangeForme: 0x0201c864, setChangedPkmSpecies: 0x0201c7b4 },
+      ],
+      [
+        "W2",
+        formEvolutionW2,
+        ["284:21e359c:THUMB_BRANCH_LINK", "284:21e4e62:THUMB_BRANCH_LINK"],
+        { PML_PersonalGetParamSingle: 0x0201ef48, PokeParty_ChangeForme: 0x0201c890, setChangedPkmSpecies: 0x0201c7e0 },
+      ],
+    ] as const) {
+      expect(readAscii(dll, 0, 4)).toBe("DLXF");
+      const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
+      expect(rpm.metadata).toMatchObject({
+        PMCGameID: version,
+        PMCModulePriority: 4,
+        PMCVersion: "1.0.0",
+      });
+      expect(rpm.symbols.filter((symbol) => (symbol.attributes & 2) !== 0)).toEqual([]);
+      for (const [name, address] of Object.entries(symbols)) {
+        const external = rpm.symbols.find((symbol) => symbol.name === name);
+        expect(external).toMatchObject({ address, type: "FUNCTION_THM", attributes: expect.any(Number) });
+        expect((external!.attributes & 2) !== 0).toBe(false);
+        expect((external!.attributes & 4) !== 0).toBe(true);
+      }
+      expect(externalHooks(dll)).toEqual([...hooks].sort());
+    }
+  });
+
+  it("prepares the matching BW2 form-evolution runtime only once", async () => {
+    for (const [version, expectedDll] of [
+      ["B2", formEvolutionB2],
+      ["W2", formEvolutionW2],
+    ] as const) {
+      const project = makeProject(makeBw2LikeRom(), version);
+
+      await withBundledCodeInjectionFetch(async () => {
+        const first = await prepareBw2FormEvolutionCodeInjection(project);
+        const second = await prepareBw2FormEvolutionCodeInjection(project);
+
+        expect(first).toMatchObject({
+          path: `patches/FormEvolution${version}.dll`,
+          fileName: `FormEvolution${version}.dll`,
+          target: "patches",
+          gameId: version,
+          version: "1.0.0",
+        });
+        expect(second).toEqual(first);
+        expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, gameId: version });
+        expect(detectBundledFormEvolutionDll(project)).toBe("patched");
+        expect(project.fileSystem?.additions?.[`patches/FormEvolution${version}.dll`]).toEqual(expectedDll);
+        expect(listCodeInjectionDlls(project).filter((module) => module.fileName === `FormEvolution${version}.dll`)).toHaveLength(1);
+
+        const exportedRom = new NintendoDSRom(await exportModifiedRom(project));
+        const reimportedProject = makeProject(exportedRom.save(), version);
+        reimportedProject.codeInjection = detectPmcInstallFromRom(exportedRom);
+        expect(detectBundledFormEvolutionDll(reimportedProject)).toBe("patched");
+      });
+    }
+  });
+
   it("prepares BW2 Test Battle code injection with bundled PMC and main menu skip", async () => {
     const romBytes = makeBw2LikeRom();
     const project = makeProject(romBytes, "B2");
@@ -427,6 +496,13 @@ function makeDllFromRpm(rpm: Uint8Array): Uint8Array {
   return dll;
 }
 
+function externalHooks(bytes: Uint8Array): string[] {
+  return parseRpm(bytes, { allowedMagics: ["DLXF"] }).relocations
+    .filter((relocation) => relocation.target.module !== "base")
+    .map((relocation) => `${relocation.target.module}:${relocation.target.address.toString(16)}:${relocation.target.type}`)
+    .sort();
+}
+
 async function withBundledCodeInjectionFetch(run: () => Promise<void>): Promise<void> {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -436,6 +512,8 @@ async function withBundledCodeInjectionFetch(run: () => Promise<void>): Promise<
     if (fileName === "PMC_W2.rpm") return new Response(pmcW2);
     if (fileName === "MainMenuSkipB2.dll") return new Response(mainMenuSkipB2);
     if (fileName === "MainMenuSkipW2.dll") return new Response(mainMenuSkipW2);
+    if (fileName === "FormEvolutionB2.dll") return new Response(formEvolutionB2);
+    if (fileName === "FormEvolutionW2.dll") return new Response(formEvolutionW2);
     return new Response(undefined, { status: 404 });
   }) as typeof fetch;
   try {

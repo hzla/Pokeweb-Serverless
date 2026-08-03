@@ -34,6 +34,7 @@ import { installIntegrationConsoleApi } from "./pokeweb/integrationConsole";
 import { canUseLocalRomBridge, pickLocalRomFile, readDevRomFile, readLocalRomFile, readStoredLocalRomPath, rememberLocalRomPath, type LocalRomFile } from "./pokeweb/localRomBridge";
 import { loadProjectFromRomBytes, loadProjectFromRomFile } from "./pokeweb/loader";
 import { moveEffectHandlerOverlayId } from "./pokeweb/moveEffectHandlerModel";
+import { prepareBw2FormEvolutionCodeInjection } from "./pokeweb/pmcModel";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
@@ -217,7 +218,7 @@ const EDITOR_REQUIREMENTS: Record<
   trainerSprites: ["trdata"],
   facilities: ["moves", "items"],
   wbtFacilities: ["moves", "items"],
-  encounters: ["encounters"],
+  encounters: ["encounters", "personal"],
   moves: ["moves"],
   moveAnimation: ["moves"],
   items: ["items"],
@@ -551,7 +552,7 @@ function renderApp(): void {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
-    }, openPokemonSprites, canOpenPwanFromPokemon() ? openPwanAnimations : undefined, ensurePokemonSpriteNarcs);
+    }, openPokemonSprites, canOpenPwanFromPokemon() ? openPwanAnimations : undefined, ensurePokemonFormAssets);
     return;
   }
 
@@ -1311,6 +1312,12 @@ async function ensurePokemonSpriteNarcs(): Promise<void> {
   await saveActiveProject(project);
 }
 
+async function ensurePokemonFormAssets(): Promise<void> {
+  if (!project) return;
+  await ensurePokemonSpriteNarcs();
+  if (project.session.baseRom === "BW2") await prepareBw2FormEvolutionCodeInjection(project);
+}
+
 function renderUpload(root: HTMLElement): void {
   const mandatoryNarcs = new Set<NarcName>(MANDATORY_NARCS);
   const sectionedNarcs = new Set<NarcName>(NARC_LOAD_SECTIONS.flatMap((section) => section.names));
@@ -1723,6 +1730,7 @@ function repairSummaryText(result: RomRepairResult): string {
 function getSelectedNarcs(root: HTMLElement): NarcName[] {
   const selected = new Set<NarcName>(MANDATORY_NARCS);
   root.querySelectorAll<HTMLInputElement>(".narc-input:checked").forEach((checkbox) => selected.add(checkbox.value as NarcName));
+  if (selected.has("encounters")) selected.add("personal");
   return [...selected];
 }
 
