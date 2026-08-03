@@ -1712,7 +1712,7 @@ function repairedRomFilename(fileName: string): string {
 
 function repairSummaryText(result: RomRepairResult): string {
   const headerLine = result.headerRepair
-    ? `Repaired ROM header: ${result.headerRepair.reasons.map(romHeaderRepairReasonLabel).join(", ")}.`
+    ? `Repaired ROM structure: ${result.headerRepair.reasons.map(romHeaderRepairReasonLabel).join(", ")}.`
     : "";
   if (result.repairedNarcs === 0) {
     return [`Scanned ${result.scannedNarcs} NARCs.`, headerLine || "No repairs were needed."].filter(Boolean).join(" ");

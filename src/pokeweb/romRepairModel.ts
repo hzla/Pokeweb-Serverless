@@ -6,7 +6,7 @@ import {
   hasTinkeIncompatibleNamelessFntb,
 } from "../nds/narc";
 import { NintendoDSRom, crc16 } from "../nds/rom";
-import type { Folder } from "../nds/fnt";
+import { loadFnt, type Folder } from "../nds/fnt";
 
 export type NarcRepairReason =
   | "early_fimg_magic"
@@ -27,7 +27,7 @@ export type NarcRepairResult = {
   reasons: NarcRepairReason[];
 };
 
-export type RomHeaderRepairReason = "false_twl_extension";
+export type RomHeaderRepairReason = "false_twl_extension" | "frost_overlay_fnt_mismatch";
 
 export type RomHeaderRepairEntry = {
   beforeSize: number;
@@ -66,9 +66,11 @@ type NarcLayout = {
 };
 
 export function repairRomNarcs(data: Uint8Array, onProgress?: (message: string) => void): RomRepairResult {
-  const headerRepair = repairRomHeader(data);
-  const baseBytes = headerRepair.changed ? headerRepair.bytes : data;
-  if (headerRepair.changed) onProgress?.("Repaired ROM header");
+  const rawHeaderRepair = repairRomHeader(data);
+  const baseBytes = rawHeaderRepair.changed ? rawHeaderRepair.bytes : data;
+  if (rawHeaderRepair.changed) onProgress?.("Repaired ROM header");
+  const frostOverlayFntMismatch = hasFrostOverlayFntMismatch(baseBytes);
+  if (frostOverlayFntMismatch) onProgress?.("Repaired Frost overlay/FNT file base");
 
   const rom = new NintendoDSRom(baseBytes);
   const replacements = new Map<number, Uint8Array>();
@@ -99,17 +101,27 @@ export function repairRomNarcs(data: Uint8Array, onProgress?: (message: string) 
     });
   });
 
-  const bytes = replacements.size > 0 ? rom.save({ files: replacements, preserveOriginalLength: true }) : baseBytes;
+  const bytes = replacements.size > 0 || frostOverlayFntMismatch
+    ? rom.save({
+        files: replacements,
+        alignFntFirstFileToArm9OverlayCount: frostOverlayFntMismatch,
+        preserveOriginalLength: true,
+      })
+    : baseBytes;
+  const structuralReasons: RomHeaderRepairReason[] = [
+    ...rawHeaderRepair.reasons,
+    ...(frostOverlayFntMismatch ? (["frost_overlay_fnt_mismatch"] as const) : []),
+  ];
   return {
     bytes,
     scannedNarcs,
     repairedNarcs: entries.length,
     skippedNarcs,
-    headerRepair: headerRepair.changed
+    headerRepair: structuralReasons.length > 0
       ? {
           beforeSize: data.length,
-          afterSize: baseBytes.length,
-          reasons: headerRepair.reasons,
+          afterSize: bytes.length,
+          reasons: structuralReasons,
         }
       : undefined,
     entries,
@@ -222,24 +234,58 @@ export function romHeaderRepairReasonLabel(reason: RomHeaderRepairReason): strin
   switch (reason) {
     case "false_twl_extension":
       return "false TWL extended header";
+    case "frost_overlay_fnt_mismatch":
+      return "Frost-incompatible overlay/FNT file base";
   }
 }
 
 function repairRomHeader(data: Uint8Array): { bytes: Uint8Array; changed: boolean; reasons: RomHeaderRepairReason[] } {
   const reasons: RomHeaderRepairReason[] = [];
-  if (!hasFalseTwlExtension(data)) return { bytes: data, changed: false, reasons };
+  const falseTwlExtension = hasFalseTwlExtension(data);
+  if (!falseTwlExtension) return { bytes: data, changed: false, reasons };
 
-  reasons.push("false_twl_extension");
-  const usedRomSize = readU32(data, 0x80);
-  const targetLength = usedRomSize >= 0x200 && usedRomSize <= data.length ? usedRomSize : data.length;
+  let targetLength = data.length;
+  if (falseTwlExtension) {
+    reasons.push("false_twl_extension");
+    const usedRomSize = readU32(data, 0x80);
+    targetLength = usedRomSize >= 0x200 && usedRomSize <= data.length ? usedRomSize : data.length;
+  }
   const out = data.slice(0, targetLength);
 
-  writeU32(out, 0x80, out.length);
-  writeU32(out, 0x210, 0);
-  zeroOffsetWhenSizeIsZero(out, 0x50, 0x54);
-  zeroOffsetWhenSizeIsZero(out, 0x58, 0x5c);
-  writeU16(out, 0x15e, crc16(out.subarray(0, 0x15e)));
+  if (falseTwlExtension) {
+    writeU32(out, 0x80, out.length);
+    writeU32(out, 0x210, 0);
+    zeroOffsetWhenSizeIsZero(out, 0x50, 0x54);
+    zeroOffsetWhenSizeIsZero(out, 0x58, 0x5c);
+    writeU16(out, 0x15e, crc16(out.subarray(0, 0x15e)));
+  }
   return { bytes: out, changed: true, reasons };
+}
+
+function hasFrostOverlayFntMismatch(data: Uint8Array): boolean {
+  if (data.length < 0x200) return false;
+  const overlayOffset = readU32(data, 0x50);
+  const overlaySize = readU32(data, 0x54);
+  const fntOffset = readU32(data, 0x40);
+  const fntSize = readU32(data, 0x44);
+  if (overlaySize === 0 || overlaySize % 32 !== 0 || fntSize < 8) return false;
+  if (!rangeWithin(data, overlayOffset, overlaySize) || !rangeWithin(data, fntOffset, fntSize)) return false;
+
+  const overlayCount = overlaySize / 32;
+  if (overlayCount > 0xffff) return false;
+  let appendedOverlay = false;
+  for (let index = 0; index < overlayCount; index += 1) {
+    const fileId = readU32(data, overlayOffset + index * 32 + 24);
+    if (fileId >= overlayCount) appendedOverlay = true;
+  }
+  if (!appendedOverlay) return false;
+
+  try {
+    const filenames = loadFnt(data.subarray(fntOffset, fntOffset + fntSize));
+    return filenames.firstId !== overlayCount || filenames.files.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 function hasFalseTwlExtension(data: Uint8Array): boolean {

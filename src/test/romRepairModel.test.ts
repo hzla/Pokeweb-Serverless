@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { concatBytes, readU32, writeU16, writeU32 } from "../nds/binary";
+import { concatBytes, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
 import {
   NARC,
@@ -94,6 +94,23 @@ describe("ROM repair", () => {
     expect(readU32(result.bytes, 0x5c)).toBe(0);
     expect(readU32(result.bytes, 0x210)).toBe(0);
     expect([...new NintendoDSRom(result.bytes).files[0]]).toEqual([1, 2, 3, 4]);
+  });
+
+  it("repairs Frost's file base when an appended overlay expands the overlay table", () => {
+    const malformed = makeRom([Uint8Array.of(1), Uint8Array.of(2)]);
+    writeU32(malformed, 0x54, 32);
+    writeU32(malformed, 0x4a00, 0);
+    writeU32(malformed, 0x4a00 + 24, 1);
+
+    const result = repairRomNarcs(malformed);
+    const fntOffset = readU32(result.bytes, 0x40);
+
+    expect(result.headerRepair?.reasons).toEqual(["frost_overlay_fnt_mismatch"]);
+    expect(readU16(result.bytes, fntOffset + 4)).toBe(1);
+    const repairedRom = new NintendoDSRom(result.bytes);
+    expect(repairedRom.filenames.files).toEqual([]);
+    expect(repairedRom.files.map((file) => [...file])).toEqual([[1], [2]]);
+    expect(repairRomNarcs(result.bytes).headerRepair).toBeUndefined();
   });
 
   it("repairs legacy nameless BTNF tables and Frost-incompatible Pokemon form padding", () => {

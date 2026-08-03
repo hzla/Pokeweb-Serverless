@@ -93,7 +93,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   const arm9OverlayTable =
     buildCodeInjectionOverlayTable(project, rom, shiftedOverlayTable, (path) => resolvePlannedRomPathFileId(rom, plannedAdditions, insertedFiles, path)) ??
     (patchedOverlayTable || insertedFiles.length > 0 || project.patches?.arm9OverlayTable ? shiftedOverlayTable : undefined);
-  const shouldAlignFntFirstFile = codeInjectionInsertions.length > 0;
+  const shouldAlignFntFirstFile = codeInjectionInsertions.length > 0 || Boolean(project.codeInjection?.pmc);
   const arm9 = project.tms?.dirty || project.arm9Dirty ? prepareArm9ForExport(project, rom) : undefined;
   const priorityFileIds = codeInjectionPriorityPaths(project)
     .map((path) => resolvePlannedRomPathFileId(rom, plannedAdditions, insertedFiles, path))

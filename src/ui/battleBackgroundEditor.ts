@@ -22,6 +22,10 @@ import { mountBattleBackgroundRenderer, type BattleBackgroundRenderer } from "./
 
 type BattleViewerTab = "backgrounds" | "platforms";
 
+type CatalogLoadResult<T> =
+  | { catalog: T; error?: undefined }
+  | { catalog?: undefined; error: string };
+
 export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLElement): void {
   let renderer: BattleBackgroundRenderer | undefined;
   let loadToken = 0;
@@ -37,49 +41,15 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
     </main>
   `;
 
-  const usagePromise = loadBattleEnvironmentUsage(project).then(
-    (catalog) => ({ catalog, error: undefined }),
-    (error: unknown) => ({ catalog: undefined, error: error instanceof Error ? error.message : String(error) }),
-  );
-  void Promise.all([loadBattleBackgroundCatalog(project), loadBattlePlatformCatalog(project), usagePromise])
-    .then(([backgroundCatalog, platformCatalog, usageResult]) => {
+  void Promise.all([
+    settleCatalogLoad(loadBattleBackgroundCatalog(project)),
+    settleCatalogLoad(loadBattlePlatformCatalog(project)),
+    settleCatalogLoad(loadBattleEnvironmentUsage(project)),
+  ])
+    .then(([backgroundResult, platformResult, usageResult]) => {
       if (!root.isConnected) return;
-      let selectedBackground = backgroundCatalog.variants[0];
-      let selectedPlatform = platformCatalog.variants[0];
-      if (!selectedBackground || !selectedPlatform) throw new Error("The battle model tables do not contain any renderable entries.");
-
-      const showTab = (tab: BattleViewerTab) => {
-        activeTab = tab;
-        renderer?.dispose();
-        renderer = undefined;
-        loadToken += 1;
-        if (activeTab === "backgrounds") {
-          root.innerHTML = renderBackgroundPage(backgroundCatalog, selectedBackground, activeTab);
-          bindTabs(root, showTab);
-          const select = root.querySelector<HTMLSelectElement>("#battle-background-select");
-          const loadSelected = () => {
-            selectedBackground =
-              backgroundCatalog.variants.find((variant) => backgroundVariantKey(variant) === select?.value) ?? backgroundCatalog.variants[0]!;
-            updateSidebarLocationUsage(root, "background", selectedBackground.tableIndex, usageResult.catalog, usageResult.error);
-            loadBackground(root, project, backgroundCatalog, selectedBackground);
-          };
-          select?.addEventListener("change", loadSelected);
-          loadSelected();
-          return;
-        }
-
-        root.innerHTML = renderPlatformPage(platformCatalog, selectedPlatform, activeTab);
-        bindTabs(root, showTab);
-        const select = root.querySelector<HTMLSelectElement>("#battle-platform-select");
-        const loadSelected = () => {
-          selectedPlatform =
-            platformCatalog.variants.find((variant) => platformVariantKey(variant) === select?.value) ?? platformCatalog.variants[0]!;
-          updateSidebarLocationUsage(root, "platform", selectedPlatform.tableIndex, usageResult.catalog, usageResult.error);
-          loadPlatform(root, project, platformCatalog, selectedPlatform);
-        };
-        select?.addEventListener("change", loadSelected);
-        loadSelected();
-      };
+      let selectedBackground = backgroundResult.catalog?.variants[0];
+      let selectedPlatform = platformResult.catalog?.variants[0];
 
       const loadBackground = (
         editorRoot: HTMLElement,
@@ -102,7 +72,7 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
           })
           .catch((error) => {
             if (token !== loadToken || !content.isConnected) return;
-            content.innerHTML = renderBackgroundError(variant, error instanceof Error ? error.message : String(error));
+            content.innerHTML = renderBackgroundError(variant, errorMessage(error));
           });
       };
 
@@ -127,8 +97,65 @@ export function renderBattleBackgroundEditor(project: ProjectState, root: HTMLEl
           })
           .catch((error) => {
             if (token !== loadToken || !content.isConnected) return;
-            content.innerHTML = renderPlatformError(variant, error instanceof Error ? error.message : String(error));
+            content.innerHTML = renderPlatformError(variant, errorMessage(error));
           });
+      };
+
+      const showTab = (tab: BattleViewerTab) => {
+        activeTab = tab;
+        renderer?.dispose();
+        renderer = undefined;
+        loadToken += 1;
+        if (activeTab === "backgrounds") {
+          const backgroundCatalog = backgroundResult.catalog;
+          const fallbackBackground = backgroundCatalog?.variants[0];
+          if (!backgroundCatalog || !fallbackBackground) {
+            root.innerHTML = renderCatalogUnavailablePage(
+              activeTab,
+              "Battle backgrounds unavailable",
+              backgroundResult.error ?? "The battle-background table does not contain any renderable entries.",
+            );
+            bindTabs(root, showTab);
+            return;
+          }
+          selectedBackground ??= fallbackBackground;
+          root.innerHTML = renderBackgroundPage(backgroundCatalog, selectedBackground, activeTab);
+          bindTabs(root, showTab);
+          const select = root.querySelector<HTMLSelectElement>("#battle-background-select");
+          const loadSelected = () => {
+            selectedBackground =
+              backgroundCatalog.variants.find((variant) => backgroundVariantKey(variant) === select?.value) ?? fallbackBackground;
+            updateSidebarLocationUsage(root, "background", selectedBackground.tableIndex, usageResult.catalog, usageResult.error);
+            loadBackground(root, project, backgroundCatalog, selectedBackground);
+          };
+          select?.addEventListener("change", loadSelected);
+          loadSelected();
+          return;
+        }
+
+        const platformCatalog = platformResult.catalog;
+        const fallbackPlatform = platformCatalog?.variants[0];
+        if (!platformCatalog || !fallbackPlatform) {
+          root.innerHTML = renderCatalogUnavailablePage(
+            activeTab,
+            "Battle platforms unavailable",
+            platformResult.error ?? "The stage table does not contain any renderable platform entries.",
+          );
+          bindTabs(root, showTab);
+          return;
+        }
+        selectedPlatform ??= fallbackPlatform;
+        root.innerHTML = renderPlatformPage(platformCatalog, selectedPlatform, activeTab);
+        bindTabs(root, showTab);
+        const select = root.querySelector<HTMLSelectElement>("#battle-platform-select");
+        const loadSelected = () => {
+          selectedPlatform =
+            platformCatalog.variants.find((variant) => platformVariantKey(variant) === select?.value) ?? fallbackPlatform;
+          updateSidebarLocationUsage(root, "platform", selectedPlatform.tableIndex, usageResult.catalog, usageResult.error);
+          loadPlatform(root, project, platformCatalog, selectedPlatform);
+        };
+        select?.addEventListener("change", loadSelected);
+        loadSelected();
       };
 
       showTab(activeTab);
@@ -166,6 +193,29 @@ function renderTabs(activeTab: BattleViewerTab): string {
       <button type="button" role="tab" data-battle-viewer-tab="platforms" aria-selected="${activeTab === "platforms"}" class="${activeTab === "platforms" ? "-active" : ""}">Battle Platforms</button>
     </div>
   `;
+}
+
+function renderCatalogUnavailablePage(activeTab: BattleViewerTab, title: string, message: string): string {
+  return `
+    <aside class="pokemon-filter battle-background-sidebar">
+      <div class="filter-title">Battle Backgrounds</div>
+      ${renderTabs(activeTab)}
+    </aside>
+    <main class="pokemon-list battle-background-content">
+      <section class="battle-background-empty -error"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p><p>The other catalog can still be viewed from its tab.</p></section>
+    </main>
+  `;
+}
+
+export function settleCatalogLoad<T>(promise: Promise<T>): Promise<CatalogLoadResult<T>> {
+  return promise.then(
+    (catalog) => ({ catalog }),
+    (error: unknown) => ({ error: errorMessage(error) }),
+  );
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function renderBackgroundPage(catalog: BattleBackgroundCatalog, selected: BattleBackgroundVariant, activeTab: BattleViewerTab): string {
