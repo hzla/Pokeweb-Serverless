@@ -77,9 +77,8 @@ export function parseBattlePlatformVariants(
   graphicsFiles: Uint8Array[],
   idCode: string,
 ): BattlePlatformVariant[] {
-  if (stageRows.length % BATTLE_PLATFORM_RECORD_BYTES !== 0) return [];
   const variants: BattlePlatformVariant[] = [];
-  const tableEntryCount = stageRows.length / BATTLE_PLATFORM_RECORD_BYTES;
+  const tableEntryCount = Math.floor(stageRows.length / BATTLE_PLATFORM_RECORD_BYTES);
 
   for (let tableIndex = 0; tableIndex < tableEntryCount; tableIndex += 1) {
     const rowOffset = tableIndex * BATTLE_PLATFORM_RECORD_BYTES;
