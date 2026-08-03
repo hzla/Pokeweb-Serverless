@@ -2,7 +2,16 @@ import { describe, expect, it } from "vitest";
 import { readU16 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
-import { copyEncounterData, copyEncounterSeason, encounterKindLabel, getEncounterRecord, syncEncountersToDexHabitats, updateEncounterField } from "../pokeweb/encounterModel";
+import {
+  copyEncounterData,
+  copyEncounterSeason,
+  encounterKindLabel,
+  getEncounterAutofills,
+  getEncounterRecord,
+  normalizeEncounterFormReferences,
+  syncEncountersToDexHabitats,
+  updateEncounterField,
+} from "../pokeweb/encounterModel";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 
@@ -47,6 +56,36 @@ describe("encounterModel", () => {
     expect(() => updateEncounterField(project, 1, "spring_grass_slot_0", "Missingno")).toThrow(/Unknown Pokemon/u);
     expect(() => updateEncounterField(project, 1, "spring_grass_rate", "101")).toThrow(/between 0 and 100/u);
     expect(() => updateEncounterField(project, 1, "spring_grass_slot_0_form", "x")).toThrow(/integer/u);
+  });
+
+  it("uses only base species in encounter slots and keeps custom forms in the form field", () => {
+    const project = makeCustomFormEncounterProject();
+
+    const names = getEncounterAutofills(project).pokemon_names;
+    expect(names.filter((name) => name === "Pikachu")).toHaveLength(1);
+    expect(names.filter((name) => name === "Primeape")).toHaveLength(1);
+    expect(() => updateEncounterField(project, 1, "spring_grass_slot_0", "722")).toThrow(/alternate-form personal record/u);
+
+    const species = updateEncounterField(project, 1, "spring_grass_slot_0", "Primeape");
+    const form = updateEncounterField(project, 1, "spring_grass_slot_0_form", "1");
+    expect(species.rawValue).toBe(57 + 2048);
+    expect(form.rawValue).toBe(57 + 2048);
+    expect(getEncounterRecord(project, 1).raw.spring_grass_slot_0).toBe(57 + 2048);
+  });
+
+  it("normalizes legacy custom-form personal ids to base species plus form fields", () => {
+    const project = makeCustomFormEncounterProject();
+
+    const result = normalizeEncounterFormReferences(project);
+    const encounter = getEncounterRecord(project, 1);
+    expect(result).toEqual({ records: 1, slots: 4 });
+    expect(encounter.raw.spring_grass_slot_0).toBe(57 + 2048);
+    expect(encounter.readable.spring_grass_slot_0).toBe("Primeape");
+    expect(encounter.readable.spring_grass_slot_0_form).toBe(1);
+    expect(project.narcs.encounters?.dirty.has(1)).toBe(true);
+
+    materializeProjectEdits(project);
+    expect(readU16(project.narcs.encounters!.rawFiles[1], 8)).toBe(57 + 2048);
   });
 
   it("copies one season to the other seasons and keeps readable data in sync", () => {
@@ -226,6 +265,28 @@ function makeProject(): ProjectState {
       },
     },
   };
+}
+
+function makeCustomFormEncounterProject(): ProjectState {
+  const project = makeProject();
+  const personalFormat = project.formats.personal!;
+  const personalFiles: Uint8Array[] = Array.from({ length: 723 }, () => new Uint8Array());
+  personalFiles[25] = packRows(personalFormat, [{ form_id: 721, form: 80, num_forms: 2 }]);
+  personalFiles[57] = packRows(personalFormat, [{ form_id: 722, form: 81, num_forms: 2 }]);
+  personalFiles[721] = packRows(personalFormat, [{ num_forms: 1 }]);
+  personalFiles[722] = packRows(personalFormat, [{ num_forms: 1 }]);
+  project.narcs.personal = makeFileStore("personal", personalFiles);
+
+  const pokedex = Array.from({ length: 723 }, (_unused, id) => `Pokemon ${id}`);
+  pokedex[25] = "Pikachu";
+  pokedex[57] = "Primeape";
+  pokedex[721] = "Pikachu";
+  pokedex[722] = "Primeape";
+  project.texts.banks.pokedex = pokedex;
+
+  writeInt(project.narcs.encounters!.rawFiles[1], 8, 2, 722 + 2048);
+  project.narcs.encounters!.records.clear();
+  return project;
 }
 
 function makeStore(name: NarcName, data: Uint8Array, count: number): NarcStore {

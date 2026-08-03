@@ -12,7 +12,12 @@ import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { isGen4Project } from "./constants";
 import { parseHeaders } from "./headerModel";
 import { loadActiveRomBytes } from "./persistence";
-import { findPokemonSpeciesId, pokemonSpeciesLabel, pokemonSpeciesNameOptions } from "./pokemonLabels";
+import {
+  findPokemonBaseSpeciesId,
+  findPokemonPersonalFormOwner,
+  pokemonBaseSpeciesNameOptions,
+  pokemonSpeciesLabel,
+} from "./pokemonLabels";
 import { createNarcStore, decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { pokemonSpriteSlug } from "./spriteSlug";
 
@@ -58,6 +63,11 @@ export type EncounterUpdateResult = {
 export type HabitatSyncResult = {
   habitats: number;
   species: number;
+};
+
+export type EncounterFormReferenceNormalizationResult = {
+  records: number;
+  slots: number;
 };
 
 const SLOT_FIELD_RE = /^(spring|summer|fall|winter)_([a-z_]+)_slot_(\d+)$/u;
@@ -148,6 +158,7 @@ export function getEncounterCount(project: ProjectState): number {
 export function getEncounterRecord(project: ProjectState, encounterId: number): EncounterRecord {
   const record = decodeRecord(project, "encounters", encounterId);
   if (!record.raw || !record.readable) throw new Error(`Unable to decode encounter ${encounterId}`);
+  normalizeEncounterRecordFormReferencesAndMark(project, encounterId, record.raw);
   syncEncounterReadable(project, record.raw, record.readable);
   const grassWilds = deriveWilds(record.readable, "grass", project);
   const waterWilds = deriveWilds(record.readable, "water", project);
@@ -171,8 +182,35 @@ export function getEncounterRecord(project: ProjectState, encounterId: number): 
 
 export function getEncounterAutofills(project: ProjectState): Record<string, string[]> {
   return {
-    pokemon_names: pokemonSpeciesNameOptions(project),
+    pokemon_names: pokemonBaseSpeciesNameOptions(project),
   };
+}
+
+export function normalizeEncounterFormReferences(project: ProjectState): EncounterFormReferenceNormalizationResult {
+  if (isGen4Project(project) || !project.narcs.encounters || !project.narcs.personal) return { records: 0, slots: 0 };
+
+  let records = 0;
+  let slots = 0;
+  for (let encounterId = 0; encounterId < getEncounterCount(project); encounterId += 1) {
+    const record = decodeRecord(project, "encounters", encounterId);
+    if (!record.raw || !record.readable) continue;
+    const normalizedSlots = normalizeEncounterRecordFormReferencesAndMark(project, encounterId, record.raw);
+    if (normalizedSlots === 0) continue;
+    syncEncounterReadable(project, record.raw, record.readable);
+    records += 1;
+    slots += normalizedSlots;
+  }
+
+  if (slots > 0) {
+    recordGenericChange(
+      project,
+      "encounters",
+      `Normalized ${slots} alternate-form encounter reference${slots === 1 ? "" : "s"} to base species plus form fields.`,
+      "Encounter Data",
+      { key: "encounter-form-reference-normalization" },
+    );
+  }
+  return { records, slots };
 }
 
 export function encounterMatchesSearch(record: EncounterRecord, searchText: string): boolean {
@@ -189,6 +227,7 @@ export function encounterMatchesSearch(record: EncounterRecord, searchText: stri
 export function updateEncounterField(project: ProjectState, encounterId: number, field: string, inputValue: string): EncounterUpdateResult {
   const record = decodeRecord(project, "encounters", encounterId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update encounter ${encounterId}`);
+  normalizeEncounterRecordFormReferencesAndMark(project, encounterId, record.raw);
   syncEncounterReadable(project, record.raw, record.readable);
 
   const trimmedValue = inputValue.trim();
@@ -522,9 +561,35 @@ function addUniqueWild(wilds: string[], value: unknown): void {
 
 function decodeSpecies(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string): void {
   const rawValue = raw[field] ?? 0;
-  const speciesId = rawValue % 2048;
+  const encodedSpeciesId = rawValue % 2048;
+  const owner = findPokemonPersonalFormOwner(project, encodedSpeciesId);
+  const speciesId = owner?.speciesId ?? encodedSpeciesId;
   readable[field] = speciesId === 0 ? "" : pokemonSpeciesLabel(project, speciesId);
-  readable[`${field}_form`] = Math.floor(rawValue / 2048);
+  const encodedForm = Math.floor(rawValue / 2048);
+  readable[`${field}_form`] = owner && encodedForm === 0 ? owner.formIndex : encodedForm;
+}
+
+function normalizeEncounterRecordFormReferences(project: ProjectState, raw: RawRecord): number {
+  if (isGen4Project(project) || !project.narcs.personal) return 0;
+  let normalized = 0;
+  for (const field of Object.keys(raw)) {
+    if (!SLOT_FIELD_RE.test(field)) continue;
+    const rawValue = Number(raw[field] ?? 0);
+    const encodedSpeciesId = rawValue % 2048;
+    const owner = findPokemonPersonalFormOwner(project, encodedSpeciesId);
+    if (!owner) continue;
+    const encodedForm = Math.floor(rawValue / 2048);
+    const form = encodedForm === 0 ? owner.formIndex : encodedForm;
+    raw[field] = owner.speciesId + form * 2048;
+    normalized += 1;
+  }
+  return normalized;
+}
+
+function normalizeEncounterRecordFormReferencesAndMark(project: ProjectState, encounterId: number, raw: RawRecord): number {
+  const normalized = normalizeEncounterRecordFormReferences(project, raw);
+  if (normalized > 0) markDirty(project, "encounters", encounterId);
+  return normalized;
 }
 
 function syncGen4EncounterAliases(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string): void {
@@ -575,8 +640,11 @@ function titleize(value: string): string {
 
 function parsePokemonId(project: ProjectState, value: string): number {
   if (value === "" || value === "-") return 0;
-  if (/^\d+$/u.test(value)) return parseInteger(value, 0, 2047, "Pokemon");
-  return findPokemonSpeciesId(project, value, 2047);
+  if (/^\d+$/u.test(value)) {
+    const parsed = parseInteger(value, 0, 2047, "Pokemon");
+    return findPokemonBaseSpeciesId(project, String(parsed), 2047);
+  }
+  return findPokemonBaseSpeciesId(project, value, 2047);
 }
 
 function parseInteger(value: string, min: number, max: number, field: string): number {

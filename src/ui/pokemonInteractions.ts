@@ -690,6 +690,14 @@ function updateEggMoveField(project: ProjectState, speciesId: number, fieldName:
 }
 
 function syncVisualFieldState(field: HTMLElement, result: ReturnType<typeof updatePokemonField>): void {
+  const evolutionTarget = field.dataset.narc === "evolution" ? /^target_(\d+)$/u.exec(field.dataset.fieldName ?? "") : undefined;
+  if (evolutionTarget) {
+    const indicator = field
+      .closest<HTMLElement>(".pokemon-card.filterable")
+      ?.querySelector<HTMLElement>(`[data-evolution-target-id='${evolutionTarget[1]}']`);
+    if (indicator) indicator.textContent = `Species ID ${result.rawValue}`;
+  }
+
   if (field.classList.contains("pokemon-type")) {
     [...field.classList].filter((name) => name.startsWith("-")).forEach((name) => field.classList.remove(name));
     field.classList.add(`-${String(result.value).toLowerCase()}`);
