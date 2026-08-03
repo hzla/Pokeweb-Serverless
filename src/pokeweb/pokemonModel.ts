@@ -73,6 +73,7 @@ export type EvolutionSlot = {
   param: string | number;
   paramRaw: number;
   paramAutofill?: string;
+  targetId: number;
   target: string | number;
 };
 
@@ -693,6 +694,7 @@ function getEvolutions(project: ProjectState, id: number): EvolutionSlot[] {
       param: formatEvolutionParam(project, methodId, paramRaw),
       paramRaw,
       paramAutofill: evolutionParamAutofillKey(methodId),
+      targetId,
       target: pokemonDisplayName(project, targetId),
     };
   });

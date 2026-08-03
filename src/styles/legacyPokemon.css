@@ -1075,6 +1075,20 @@
   margin-bottom: 20px;
 }
 
+.evolution-target-label {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+}
+
+.evolution-target-id {
+  color: rgba(242, 242, 242, 0.62);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .expanded-card-content .expanded-field.multi {
   gap: 14px;
   justify-content: flex-start;
