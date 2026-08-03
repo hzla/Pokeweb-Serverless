@@ -101,8 +101,18 @@ describe("battle platform catalog", () => {
     ]);
   });
 
-  it("rejects data that is not composed of complete stage records", () => {
+  it("rejects data that does not contain one complete stage record", () => {
     expect(parseBattlePlatformVariants(new Uint8Array(BATTLE_PLATFORM_RECORD_BYTES - 1), [nitro("BMD0")], "IRDO")).toEqual([]);
+  });
+
+  it("keeps complete stage records when the table has a trailing partial record", () => {
+    const table = new Uint8Array(BATTLE_PLATFORM_RECORD_BYTES + 5);
+    table.fill(0xff);
+    writeResource(table, 0, 0, 0);
+
+    expect(parseBattlePlatformVariants(table, [nitro("BMD0")], "IRDO")).toEqual([
+      expect.objectContaining({ tableIndex: 0, resourceId: 0 }),
+    ]);
   });
 
   it("keeps decoded platform texture, palette, and material-binding metadata in the scene", () => {
