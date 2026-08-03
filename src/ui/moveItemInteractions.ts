@@ -100,26 +100,37 @@ async function loadMoveAnimationEnvironmentSelectors(
   initialSelection: MoveAnimationBattleEnvironmentSelection,
 ): Promise<MoveAnimationBattleEnvironmentSelection> {
   if (!backgroundSelect && !platformSelect) return initialSelection;
-  try {
-    const [backgroundCatalog, platformCatalog] = await Promise.all([
-      loadBattleBackgroundCatalog(project),
-      loadBattlePlatformCatalog(project),
-    ]);
+  const [backgroundResult, platformResult] = await Promise.allSettled([
+    loadBattleBackgroundCatalog(project),
+    loadBattlePlatformCatalog(project),
+  ]);
+  if (backgroundResult.status === "fulfilled") {
+    const backgroundCatalog = backgroundResult.value;
     const selectedBackground = populateBackgroundSelect(backgroundSelect, backgroundCatalog.variants, initialSelection);
-    const selectedPlatform = populatePlatformSelect(platformSelect, platformCatalog.variants, initialSelection);
-    return {
-      backgroundIndex: selectedBackground?.tableIndex ?? initialSelection.backgroundIndex,
-      backgroundSeasonIndex: selectedBackground?.seasonIndex ?? initialSelection.backgroundSeasonIndex,
-      platformIndex: selectedPlatform?.tableIndex ?? initialSelection.platformIndex,
-      platformSeasonIndex: selectedPlatform?.seasonIndex ?? initialSelection.platformSeasonIndex,
-      swappedSides: initialSelection.swappedSides,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    markBattleEnvironmentSelectUnavailable(backgroundSelect, message);
-    markBattleEnvironmentSelectUnavailable(platformSelect, message);
-    return initialSelection;
+    if (selectedBackground) {
+      initialSelection = {
+        ...initialSelection,
+        backgroundIndex: selectedBackground.tableIndex,
+        backgroundSeasonIndex: selectedBackground.seasonIndex,
+      };
+    }
+  } else {
+    markBattleEnvironmentSelectUnavailable(backgroundSelect, errorMessage(backgroundResult.reason));
   }
+  if (platformResult.status === "fulfilled") {
+    const platformCatalog = platformResult.value;
+    const selectedPlatform = populatePlatformSelect(platformSelect, platformCatalog.variants, initialSelection);
+    if (selectedPlatform) {
+      initialSelection = {
+        ...initialSelection,
+        platformIndex: selectedPlatform.tableIndex,
+        platformSeasonIndex: selectedPlatform.seasonIndex,
+      };
+    }
+  } else {
+    markBattleEnvironmentSelectUnavailable(platformSelect, errorMessage(platformResult.reason));
+  }
+  return initialSelection;
 }
 
 function populateBackgroundSelect(
@@ -182,6 +193,10 @@ function markBattleEnvironmentSelectUnavailable(select: HTMLSelectElement | unde
   select.innerHTML = "<option>Unavailable</option>";
   select.disabled = true;
   select.title = message;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export function attachMoveInteractions(root: HTMLElement, project: ProjectState, options: MoveOptions): void {
