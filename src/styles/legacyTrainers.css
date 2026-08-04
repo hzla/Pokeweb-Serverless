@@ -2,6 +2,14 @@
   top: 40px;
 }
 
+.trainer-filter {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .trainer-filter p {
   color: #cfcfd8;
   font-size: 13px;
@@ -21,6 +29,68 @@
 .trainer-add-button svg {
   height: 16px;
   width: 16px;
+}
+
+.trainer-more-section {
+  border-top: 1px solid #44475a;
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 12px 0 24px;
+  width: 100%;
+}
+
+.trainer-more-section > summary {
+  align-items: center;
+  background: rgba(68, 71, 90, 0.58);
+  border: 1px solid #55586d;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: #f2f2f2;
+  cursor: pointer;
+  display: flex;
+  font-size: 15px;
+  font-weight: 700;
+  justify-content: space-between;
+  list-style: none;
+  min-height: 42px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.trainer-more-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.trainer-more-section > summary::after {
+  content: "⌄";
+  font-size: 20px;
+  line-height: 1;
+  transition: transform 140ms ease;
+}
+
+.trainer-more-section > summary:hover,
+.trainer-more-section > summary:focus-visible,
+.trainer-more-section[open] > summary {
+  border-color: #bd93f9;
+  outline: none;
+}
+
+.trainer-more-section[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+.trainer-more-content {
+  display: grid;
+  gap: 18px;
+  padding-top: 4px;
+}
+
+.trainer-more-content > :is(.w2u-sync-panel, .trainer-script-panel, .trainer-nature-patch-panel) {
+  margin-top: 14px;
+}
+
+.trainer-more-content > :is(.trainer-script-panel, .trainer-nature-patch-panel) {
+  gap: 10px;
 }
 
 .trainer-id {
@@ -82,6 +152,615 @@
   resize: vertical;
   white-space: pre;
   width: 100%;
+}
+
+.trainer-test-team-input.-save-drop-target {
+  border-color: #bd93f9;
+  box-shadow: 0 0 0 2px rgba(189, 147, 249, 0.26);
+}
+
+.trainer-save-reader {
+  margin-top: 9px;
+}
+
+.trainer-save-actions {
+  align-items: center;
+  display: grid;
+  gap: 7px;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+}
+
+.trainer-save-upload-button,
+.trainer-roll-encounters-button {
+  box-sizing: border-box;
+  cursor: pointer;
+  font-size: 11px;
+  min-height: 32px;
+  min-width: 0;
+  padding: 6px 7px;
+  width: 100%;
+}
+
+.trainer-roll-encounters-button {
+  white-space: nowrap;
+}
+
+.trainer-save-status {
+  color: #bfc1cf;
+  font-size: 12px;
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trainer-save-status.-error {
+  color: #ffb86c;
+  white-space: normal;
+}
+
+.trainer-save-pokemon-box {
+  background: rgba(12, 13, 19, 0.35);
+  border: 1px solid #44475a;
+  border-radius: 10px;
+  box-sizing: border-box;
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  margin-top: 9px;
+  max-height: 230px;
+  overflow-y: auto;
+  padding: 9px;
+  width: 100%;
+}
+
+.trainer-save-pokemon-box[hidden] {
+  display: none;
+}
+
+.trainer-box-copy-button {
+  box-sizing: border-box;
+  font-size: 11px;
+  margin-top: 8px;
+  min-height: 32px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.trainer-box-copy-button[hidden] {
+  display: none;
+}
+
+.trainer-save-pokemon {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: grab;
+  display: flex;
+  height: 46px;
+  justify-content: center;
+  min-width: 0;
+  padding: 2px;
+  position: relative;
+}
+
+.trainer-save-pokemon.-active {
+  background: rgba(189, 147, 249, 0.3);
+  border-color: #bd93f9;
+  box-shadow: 0 0 0 2px rgba(189, 147, 249, 0.2);
+}
+
+.trainer-save-pokemon.-active::after {
+  align-items: center;
+  background: #bd93f9;
+  border: 2px solid #282a36;
+  border-radius: 50%;
+  color: #1f2029;
+  content: "✓";
+  display: flex;
+  font-size: 9px;
+  font-weight: 900;
+  height: 13px;
+  justify-content: center;
+  position: absolute;
+  right: -3px;
+  top: -3px;
+  width: 13px;
+}
+
+.trainer-save-pokemon:hover,
+.trainer-save-pokemon:focus-visible {
+  background: rgba(189, 147, 249, 0.14);
+  border-color: rgba(189, 147, 249, 0.72);
+  outline: none;
+}
+
+.trainer-save-pokemon.-dragging {
+  cursor: grabbing;
+  opacity: 0.55;
+}
+
+.trainer-save-pokemon img {
+  image-rendering: pixelated;
+  max-height: 42px;
+  max-width: 42px;
+  pointer-events: none;
+}
+
+.encounter-roll-modal {
+  align-items: center;
+  background: rgba(10, 12, 18, 0.78);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 10000;
+}
+
+.encounter-roll-dialog {
+  background: #282a36;
+  border: 1px solid #55586d;
+  border-radius: 12px;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.46);
+  box-sizing: border-box;
+  color: #f2f2f2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(860px, calc(100vh - 48px));
+  overflow-y: auto;
+  padding: 16px 20px;
+  width: min(940px, calc(100vw - 48px));
+}
+
+.encounter-roll-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.encounter-roll-title {
+  font-size: 24px;
+  font-weight: 750;
+}
+
+.encounter-roll-description {
+  color: #c5c7d4;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 5px;
+}
+
+.encounter-roll-close {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #d9d9e2;
+  cursor: pointer;
+  font-size: 26px;
+  height: 34px;
+  line-height: 28px;
+  padding: 0;
+  width: 34px;
+}
+
+.encounter-roll-close:hover,
+.encounter-roll-close:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #6a6d80;
+  outline: none;
+}
+
+.encounter-roll-tools {
+  display: grid;
+  gap: 10px 14px;
+  grid-template-columns: minmax(230px, 0.72fr) minmax(420px, 1.28fr);
+}
+
+.encounter-roll-tool {
+  background: rgba(18, 20, 29, 0.45);
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  display: grid;
+  gap: 7px;
+  padding: 11px;
+}
+
+.encounter-roll-tool > label {
+  color: #d9dae4;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.encounter-roll-table-odds {
+  grid-column: 1 / -1;
+}
+
+.encounter-roll-evolution-items {
+  grid-column: 1;
+}
+
+.encounter-roll-statics {
+  grid-column: 2;
+}
+
+.encounter-roll-odds-fields {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(120px, 1fr)) minmax(150px, 1.2fr);
+}
+
+.encounter-roll-odds-fields > label {
+  color: #cfd0da;
+  display: grid;
+  font-size: 11px;
+  gap: 5px;
+}
+
+.encounter-roll-odds-fields > label > span {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+}
+
+.encounter-roll-percent {
+  background: #1f2029;
+  border: 1px solid #55586d;
+  border-radius: 5px;
+  box-sizing: border-box;
+  color: #f2f2f2;
+  font-size: 13px;
+  min-height: 34px;
+  outline: none;
+  padding: 6px 8px;
+  width: 78px;
+}
+
+.encounter-roll-percent:focus {
+  border-color: #bd93f9;
+  box-shadow: 0 0 0 2px rgba(189, 147, 249, 0.16);
+}
+
+.encounter-roll-grass-percent {
+  align-items: center;
+  background: rgba(80, 250, 123, 0.055);
+  border: 1px solid rgba(80, 250, 123, 0.2);
+  border-radius: 5px;
+  color: #cfd0da;
+  display: flex;
+  font-size: 11px;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.encounter-roll-grass-percent strong {
+  color: #8cf5a8;
+  font-size: 13px;
+}
+
+.encounter-roll-grass-percent strong.-error {
+  color: #ffb86c;
+}
+
+.encounter-roll-evolution-item-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 84px;
+  overflow-y: auto;
+}
+
+.encounter-roll-evolution-item {
+  align-items: center;
+  background: rgba(31, 32, 41, 0.72);
+  border: 1px solid #55586d;
+  border-radius: 999px;
+  color: #bfc1cc;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  gap: 5px;
+  min-height: 28px;
+  padding: 2px 9px 2px 6px;
+}
+
+.encounter-roll-evolution-item:hover,
+.encounter-roll-evolution-item:focus-within {
+  border-color: #bd93f9;
+}
+
+.encounter-roll-evolution-item:has(input:checked) {
+  background: rgba(80, 250, 123, 0.14);
+  border-color: #50fa7b;
+  box-shadow: 0 0 0 1px rgba(80, 250, 123, 0.18);
+  color: #effff3;
+}
+
+.encounter-roll-evolution-item.-all {
+  border-color: rgba(189, 147, 249, 0.75);
+  color: #eadcff;
+  font-weight: 750;
+}
+
+.encounter-roll-evolution-item.-all:has(input:checked) {
+  background: rgba(189, 147, 249, 0.2);
+  border-color: #bd93f9;
+  box-shadow: 0 0 0 1px rgba(189, 147, 249, 0.22);
+}
+
+.encounter-roll-evolution-item input {
+  accent-color: #50fa7b;
+  margin: 0;
+}
+
+.encounter-roll-evolution-items-empty {
+  color: #9698a8;
+  font-size: 11px;
+  padding: 4px 0;
+}
+
+.encounter-roll-tool-description {
+  color: #aeb0be;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.encounter-roll-statics-input {
+  background: #1f2029;
+  border: 1px solid #55586d;
+  border-radius: 5px;
+  box-sizing: border-box;
+  color: #f2f2f2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  max-height: 120px;
+  min-height: 84px;
+  outline: none;
+  padding: 9px 10px;
+  resize: vertical;
+  width: 100%;
+}
+
+.encounter-roll-statics-input:focus {
+  border-color: #bd93f9;
+  box-shadow: 0 0 0 2px rgba(189, 147, 249, 0.16);
+}
+
+.encounter-roll-control-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.encounter-roll-level,
+.encounter-roll-select {
+  background: #1f2029;
+  border: 1px solid #55586d;
+  border-radius: 5px;
+  box-sizing: border-box;
+  color: #f2f2f2;
+  font-size: 13px;
+  min-height: 36px;
+  outline: none;
+  padding: 7px 9px;
+}
+
+.encounter-roll-level {
+  min-width: 86px;
+  width: 96px;
+}
+
+.encounter-roll-select {
+  min-width: 0;
+  width: 100%;
+}
+
+.encounter-roll-level:focus,
+.encounter-roll-select:focus {
+  border-color: #bd93f9;
+  box-shadow: 0 0 0 2px rgba(189, 147, 249, 0.16);
+}
+
+.encounter-roll-control-row .btn {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 7px 12px;
+  width: auto;
+}
+
+.encounter-roll-list-heading {
+  align-items: center;
+  display: flex;
+  font-size: 14px;
+  justify-content: space-between;
+}
+
+.encounter-roll-list-heading span {
+  color: #aeb0be;
+  font-size: 12px;
+}
+
+.encounter-roll-list {
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 88px;
+  overflow-y: auto;
+}
+
+.encounter-roll-empty {
+  align-items: center;
+  color: #9fa1b0;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-height: 88px;
+  padding: 24px;
+  text-align: center;
+}
+
+.encounter-roll-row {
+  align-items: center;
+  border-bottom: 1px solid #3e4050;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 34px minmax(130px, 0.75fr) minmax(190px, 0.8fr) minmax(130px, 1fr) auto;
+  min-height: 56px;
+  padding: 8px 10px;
+}
+
+.encounter-roll-row:last-child {
+  border-bottom: 0;
+}
+
+.encounter-roll-order {
+  align-items: center;
+  background: rgba(189, 147, 249, 0.14);
+  border-radius: 50%;
+  color: #d9c2fa;
+  display: flex;
+  font-size: 12px;
+  font-weight: 800;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.encounter-roll-area-name {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.encounter-roll-result {
+  align-items: center;
+  color: #f1cf84;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 750;
+  gap: 5px 9px;
+  justify-content: center;
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.encounter-roll-result-option {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+}
+
+.encounter-roll-result img {
+  image-rendering: pixelated;
+  max-height: 38px;
+  max-width: 38px;
+}
+
+.encounter-roll-row-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.encounter-roll-row-button {
+  appearance: none;
+  background: #363847;
+  border: 1px solid #55586d;
+  border-radius: 5px;
+  color: #f2f2f2;
+  cursor: pointer;
+  font-size: 15px;
+  height: 30px;
+  padding: 0;
+  width: 30px;
+}
+
+.encounter-roll-row-button:hover:not(:disabled),
+.encounter-roll-row-button:focus-visible {
+  border-color: #bd93f9;
+  outline: none;
+}
+
+.encounter-roll-row-button:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.encounter-roll-row-button.-remove {
+  color: #ff8080;
+}
+
+.encounter-roll-footer {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.encounter-roll-status {
+  color: #9fe3c9;
+  font-size: 12px;
+  min-height: 17px;
+}
+
+.encounter-roll-status.-error {
+  color: #ffb86c;
+}
+
+.encounter-roll-actions {
+  display: flex;
+  gap: 9px;
+}
+
+.encounter-roll-actions .btn {
+  min-width: 120px;
+  width: auto;
+}
+
+.encounter-roll-submit:not(:disabled) {
+  background: #bd93f9;
+  border-color: #bd93f9;
+  color: #20212a;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .encounter-roll-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .encounter-roll-evolution-items,
+  .encounter-roll-statics {
+    grid-column: 1;
+  }
+
+  .encounter-roll-row {
+    grid-template-columns: 30px 1fr auto;
+  }
+
+  .encounter-roll-row-table {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+
+  .encounter-roll-result {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .encounter-roll-odds-fields {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
 }
 
 #trainers > .trainer-card {

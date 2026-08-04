@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { NarcName } from "../pokeweb/constants";
+import { AUTO_ENCOUNTER_TABLE_KEY, encounterRollSelectionsForLevel, getEncounterRollAreas, parseEncounterRollStatics, rollEncounterSelections } from "../pokeweb/encounterRollModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
+import { readGen5SavePokemon } from "../pokeweb/gen5SaveReader";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import { decryptPk5Party, encryptPk5Party, normalizeTestBattleSavePartyNicknames, parseShowdownTeam, patchTestBattleSavePlayerFirstPokemon, patchTestBattleSavePlayerParty } from "../pokeweb/testBattleTeam";
+import { evolvePokemonForLevel, evolvePokemonForLevelTargets, forceFinalPokemonEvolution, forceFinalPokemonEvolutions, getEvolutionItems, replaceShowdownPokemonSpecies } from "../pokeweb/testTeamEvolution";
 
 describe("testBattleTeam", () => {
   it("parses Showdown imports with defaults and name resolution", () => {
@@ -271,6 +274,267 @@ Level: 50
     const save = makeSaveWithTemplateParty();
     expect(patchTestBattleSavePlayerParty(save, project, " \n")).toEqual(save);
   });
+
+  it("reads party and PC Pokemon from a Gen 5 save as Showdown sets", () => {
+    const project = makeProject();
+    const save = new Uint8Array(0x80000);
+    const decrypted = new Uint8Array(220);
+    writeLe32(decrypted, 0, 0x12345678);
+    writeLe16(decrypted, 0x08, 1);
+    writeLe16(decrypted, 0x0a, 1);
+    writeLe32(decrypted, 0x10, 117360);
+    decrypted[0x15] = 2;
+    decrypted[0x18] = 4;
+    decrypted[0x19] = 252;
+    decrypted[0x1b] = 252;
+    writeLe16(decrypted, 0x28, 1);
+    writeLe16(decrypted, 0x2a, 2);
+    writeLe32(decrypted, 0x38, 31 | (31 << 5) | (31 << 10) | (31 << 15) | (31 << 20) | (31 << 25));
+    decrypted[0x40] = 0;
+    decrypted[0x41] = 13;
+    decrypted[0x8c] = 50;
+    writeGen5String(decrypted, 0x48, 22, "Bulby");
+    const encrypted = encryptPk5Party(decrypted);
+
+    save[0x18e04] = 1;
+    save.set(encrypted, 0x18e08);
+    save.set(encrypted.subarray(0, 136), 0x400);
+
+    const pokemon = readGen5SavePokemon(project, save);
+    expect(pokemon).toHaveLength(2);
+    expect(pokemon[0]).toMatchObject({
+      speciesId: 1,
+      speciesName: "Bulbasaur",
+      nickname: "Bulby",
+      itemName: "Potion",
+      abilityName: "Chlorophyll",
+      level: 50,
+      nature: "Jolly",
+      gender: "M",
+      moveNames: ["Tackle", "Vine Whip"],
+      storage: "party",
+      partySlot: 0,
+    });
+    expect(pokemon[1]).toMatchObject({ storage: "box", box: 0, boxSlot: 0, level: 50 });
+    expect(pokemon[0]?.showdownText).toContain("Bulby (Bulbasaur) (M) @ Potion");
+    expect(pokemon[0]?.showdownText).toContain("EVs: 4 HP / 252 Atk");
+    expect(parseShowdownTeam(project, pokemon[0]?.showdownText ?? "")[0]).toMatchObject({
+      speciesId: 1,
+      itemId: 1,
+      abilityId: 2,
+      level: 50,
+      nature: 13,
+      moves: [1, 2],
+    });
+  });
+
+  it("rejects files that are too small to contain a Gen 5 save", () => {
+    expect(() => readGen5SavePokemon(makeProject(), new Uint8Array(1024))).toThrow(/too small/u);
+  });
+
+  it("auto-fills encounter areas under a level cap and rolls in area order with dupe rerolls", () => {
+    const project = makeProjectWithEncounters();
+    const areas = getEncounterRollAreas(project);
+    const selections = encounterRollSelectionsForLevel(areas, 10);
+
+    expect(selections.map((selection) => selection.encounterId)).toEqual([0, 1]);
+    const results = rollEncounterSelections(project, selections, () => 0);
+    expect(results.map((result) => result.speciesId)).toEqual([1, 2]);
+    expect(results.map((result) => result.level)).toEqual([4, 9]);
+    expect(results[0]).toMatchObject({ tableChancePercent: 20, effectiveChancePercent: 20 });
+    expect(results[1]).toMatchObject({ tableChancePercent: 80, effectiveChancePercent: 100 });
+    expect(results[0]?.showdownText).toContain("Bulbasaur\nLevel: 4");
+    expect(results[1]?.showdownText).toContain("Ivysaur\nLevel: 9");
+  });
+
+  it("uses encounter-slot weights when rolling an area", () => {
+    const project = makeProjectWithEncounters();
+    const [area] = getEncounterRollAreas(project);
+    const randomValues = [0.25, 0];
+    const [result] = rollEncounterSelections(
+      project,
+      [{ encounterId: area.encounterId, tableKey: area.defaultTableKey }],
+      () => randomValues.shift() ?? 0,
+    );
+
+    expect(result?.speciesId).toBe(2);
+    expect(result).toMatchObject({ tableChancePercent: 80, effectiveChancePercent: 80 });
+  });
+
+  it("chooses one automatic table per area using the configured method percentages", () => {
+    const project = makeProjectWithEncounters();
+    const [area] = getEncounterRollAreas(project);
+    const selection = [{ encounterId: area.encounterId, tableKey: AUTO_ENCOUNTER_TABLE_KEY }];
+
+    const [fishing] = rollEncounterSelections(project, selection, () => 0, {
+      fishingPercent: 100,
+      surfPercent: 0,
+      grassDoublesPercent: 0,
+      maxLevel: 20,
+    });
+    const [surf] = rollEncounterSelections(project, selection, () => 0, {
+      fishingPercent: 0,
+      surfPercent: 100,
+      grassDoublesPercent: 0,
+      maxLevel: 20,
+    });
+    const [doubles] = rollEncounterSelections(project, selection, () => 0, {
+      fishingPercent: 0,
+      surfPercent: 0,
+      grassDoublesPercent: 100,
+      maxLevel: 20,
+    });
+
+    expect(fishing).toMatchObject({ tableLabel: "Spring · Super Rod", level: 20 });
+    expect(surf).toMatchObject({ tableLabel: "Spring · Surf", level: 20 });
+    expect(doubles).toMatchObject({ tableLabel: "Spring · Grass Doubles", level: 20 });
+    expect(fishing?.showdownText).toContain("Level: 20");
+  });
+
+  it("removes over-level automatic tables and never rolls an area more than once", () => {
+    const project = makeProjectWithEncounters();
+    const [area] = getEncounterRollAreas(project);
+    const selection = { encounterId: area.encounterId, tableKey: AUTO_ENCOUNTER_TABLE_KEY };
+    const results = rollEncounterSelections(project, [selection, selection], () => 0, {
+      fishingPercent: 100,
+      surfPercent: 0,
+      grassDoublesPercent: 0,
+      maxLevel: 10,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ tableLabel: "Spring · Grass", level: 10 });
+  });
+
+  it("rejects automatic table percentages totaling over 100", () => {
+    const project = makeProjectWithEncounters();
+    const [area] = getEncounterRollAreas(project);
+    expect(() => rollEncounterSelections(
+      project,
+      [{ encounterId: area.encounterId, tableKey: AUTO_ENCOUNTER_TABLE_KEY }],
+      () => 0,
+      { fishingPercent: 50, surfPercent: 40, grassDoublesPercent: 20 },
+    )).toThrow(/cannot total more than 100%/u);
+  });
+
+  it("uses the latest eligible level evolution at the auto-fill level", () => {
+    const project = makeProjectWithEncounters();
+    addEvolutionStore(project, 4, 5, 2);
+    const [area] = getEncounterRollAreas(project);
+    const [result] = rollEncounterSelections(
+      project,
+      [{ encounterId: area.encounterId, tableKey: area.defaultTableKey }],
+      () => 0,
+      { fishingPercent: 0, surfPercent: 0, grassDoublesPercent: 0, maxLevel: 10 },
+    );
+
+    expect(result).toMatchObject({ speciesId: 2, speciesName: "Ivysaur", level: 10 });
+    expect(result?.showdownText).toContain("Ivysaur\nLevel: 10");
+  });
+
+  it("force evolves other methods while preserving the rest of the Showdown set", () => {
+    const project = makeProject();
+    addEvolutionStore(project, 8, 1, 2);
+    const evolved = forceFinalPokemonEvolution(project, 1, 0);
+    const original = `Bulby (Bulbasaur) (M) @ Potion
+Ability: Chlorophyll
+Level: 12
+Timid Nature
+- Tackle`;
+    const updated = replaceShowdownPokemonSpecies(original, evolved.speciesName, evolved.formIndex);
+
+    expect(evolved).toMatchObject({ speciesId: 2, formIndex: 0, speciesName: "Ivysaur" });
+    expect(updated).toContain("Bulby (Ivysaur) (M) @ Potion");
+    expect(updated).toContain("Ability: Chlorophyll\nLevel: 12\nTimid Nature\n- Tackle");
+    expect(parseShowdownTeam(project, updated)[0]).toMatchObject({ speciesId: 2, level: 12, moves: [1] });
+  });
+
+  it("discovers evolution items from evolution records and applies checked items", () => {
+    const project = makeProject();
+    addEvolutionStore(project, 8, 1, 2);
+
+    expect(getEvolutionItems(project)).toEqual([{ itemId: 1, itemName: "Potion" }]);
+    expect(evolvePokemonForLevel(project, 1, 0, 10)).toMatchObject({ speciesId: 1 });
+    expect(evolvePokemonForLevel(project, 1, 0, 10, new Set([1]))).toMatchObject({ speciesId: 2, speciesName: "Ivysaur" });
+  });
+
+  it("adds every eligible target for branching evolutions after only one area roll", () => {
+    const project = makeProjectWithEncounters();
+    addBranchingEvolutionStore(project, 8, 1, [2, 3]);
+    const [area] = getEncounterRollAreas(project);
+    const targets = evolvePokemonForLevelTargets(project, 1, 0, 10, new Set([1]));
+    const forcedTargets = forceFinalPokemonEvolutions(project, 1, 0);
+    const results = rollEncounterSelections(
+      project,
+      [{ encounterId: area.encounterId, tableKey: area.defaultTableKey }],
+      () => 0,
+      {
+        fishingPercent: 0,
+        surfPercent: 0,
+        grassDoublesPercent: 0,
+        maxLevel: 10,
+        obtainedEvolutionItemIds: [1],
+      },
+    );
+
+    expect(targets.map((target) => target.speciesId)).toEqual([2, 3]);
+    expect(forcedTargets.map((target) => target.speciesId)).toEqual([2, 3]);
+    expect(results.map((result) => result.speciesId)).toEqual([2, 3]);
+    expect(new Set(results.map((result) => result.encounterId))).toEqual(new Set([area.encounterId]));
+  });
+
+  it("parses persistent static encounters as complete Showdown sets", () => {
+    const project = makeProject();
+    const text = `Bulby (Bulbasaur) @ Potion
+Ability: Chlorophyll
+Level: 12
+IVs: 0 Atk / 31 SpA / 31 Spe
+Timid Nature
+- Tackle
+- Vine Whip
+
+Ivysaur
+Level: 15
+Jolly Nature
+- Razor Leaf`;
+    const statics = parseEncounterRollStatics(project, text);
+
+    expect(statics).toHaveLength(2);
+    expect(statics[0]).toMatchObject({ speciesId: 1, formIndex: 0, speciesName: "Bulbasaur", level: 12 });
+    expect(statics[0]?.showdownText).toBe(text.split("\n\n")[0]);
+    expect(parseShowdownTeam(project, statics[0]?.showdownText ?? "")[0]).toMatchObject({
+      speciesId: 1,
+      itemId: 1,
+      abilityId: 2,
+      level: 12,
+      nature: 10,
+      ivs: { atk: 0, spa: 31, spe: 31 },
+      moves: [1, 2],
+    });
+    expect(statics[1]).toMatchObject({ speciesId: 2, level: 15 });
+  });
+
+  it("rolls a random nature and independent IVs for each encounter", () => {
+    const project = makeProjectWithEncounters();
+    const [area] = getEncounterRollAreas(project);
+    const randomValues = [0, 0.999, 0.52, 0, 0.999, 0.5, 0.25, 0.75, 0.1];
+    const [result] = rollEncounterSelections(
+      project,
+      [{ encounterId: area.encounterId, tableKey: area.defaultTableKey }],
+      () => randomValues.shift() ?? 0,
+    );
+
+    expect(result).toMatchObject({
+      nature: "Jolly",
+      ivs: { hp: 0, atk: 31, def: 16, spa: 8, spd: 24, spe: 3 },
+    });
+    expect(result?.showdownText).toContain("Jolly Nature");
+    expect(result?.showdownText).toContain("IVs: 0 HP / 31 Atk / 16 Def / 8 SpA / 24 SpD / 3 Spe");
+    expect(parseShowdownTeam(project, result?.showdownText ?? "")[0]).toMatchObject({
+      nature: 13,
+      ivs: { hp: 0, atk: 31, def: 16, spa: 8, spd: 24, spe: 3 },
+    });
+  });
 });
 
 function makeProject(): ProjectState {
@@ -356,6 +620,96 @@ function makeProjectWithBulbasaurForm(): ProjectState {
   project.narcs.personal!.fileCount = files.length;
   project.narcs.personal!.records.clear();
   return project;
+}
+
+function makeProjectWithEncounters(): ProjectState {
+  const project = makeProject();
+  const formats = getNarcFormats("BW2");
+  const encounterRows = [
+    encounterRow(5, 1, 4, 2),
+    encounterRow(9, 1, 8, 2),
+    encounterRow(20, 2, 20, 2),
+    encounterRow(3, 2, 3, 2),
+  ];
+  addEncounterTable(encounterRows[0], "surf", 8, 2, 5);
+  addEncounterTable(encounterRows[0], "grass_doubles", 10, 1, 12);
+  addEncounterTable(encounterRows[0], "super_rod", 12, 2, 5);
+  project.narcs.encounters = makeStore("encounters", encounterRows.map((row) => packRows(formats.encounters!, [row])));
+  project.session.fileIds.encounters = 4;
+  project.headers = {
+    count: 3,
+    rows: {
+      1: { index: 0, location_name: "Route 1", encounter_id: 0 },
+      2: { index: 1, location_name: "Route 2", encounter_id: 1 },
+      3: { index: 2, location_name: "Route 3", encounter_id: 2 },
+    },
+  };
+  return project;
+}
+
+function addEncounterTable(
+  row: Record<string, number>,
+  kind: "surf" | "grass_doubles" | "super_rod",
+  maxLevel: number,
+  speciesId: number,
+  slotCount: number,
+): void {
+  row[`spring_${kind}_rate`] = 20;
+  for (let slot = 0; slot < slotCount; slot += 1) {
+    const base = `spring_${kind}_slot_${slot}`;
+    row[base] = speciesId;
+    row[`${base}_min_level`] = maxLevel;
+    row[`${base}_max_level`] = maxLevel;
+  }
+}
+
+function addEvolutionStore(project: ProjectState, method: number, param: number, target: number): void {
+  const format = getNarcFormats("BW2").evolutions!;
+  project.narcs.evolutions = makeStore("evolutions", [
+    new Uint8Array(format.reduce((sum, [size]) => sum + size, 0)),
+    packRows(format, [{ method_0: method, param_0: param, target_0: target }]),
+    new Uint8Array(format.reduce((sum, [size]) => sum + size, 0)),
+  ]);
+  project.session.fileIds.evolutions = 5;
+}
+
+function addBranchingEvolutionStore(
+  project: ProjectState,
+  method: number,
+  param: number,
+  targets: readonly [number, number],
+): void {
+  const personal = project.narcs.personal!;
+  personal.rawFiles[3] = personal.rawFiles[2].slice();
+  personal.fileCount = personal.rawFiles.length;
+  project.texts.banks.pokedex![3] = "Venusaur";
+  const format = getNarcFormats("BW2").evolutions!;
+  const empty = () => new Uint8Array(format.reduce((sum, [size]) => sum + size, 0));
+  project.narcs.evolutions = makeStore("evolutions", [
+    empty(),
+    packRows(format, [{
+      method_0: method,
+      param_0: param,
+      target_0: targets[0],
+      method_1: method,
+      param_1: param,
+      target_1: targets[1],
+    }]),
+    empty(),
+    empty(),
+  ]);
+  project.session.fileIds.evolutions = 5;
+}
+
+function encounterRow(maxLevel: number, firstSpecies: number, firstMinLevel: number, remainingSpecies: number): Record<string, number> {
+  const row: Record<string, number> = { spring_grass_rate: 20 };
+  for (let slot = 0; slot < 12; slot += 1) {
+    const base = `spring_grass_slot_${slot}`;
+    row[base] = slot === 0 ? firstSpecies : remainingSpecies;
+    row[`${base}_min_level`] = slot === 0 ? firstMinLevel : maxLevel;
+    row[`${base}_max_level`] = slot === 0 ? Math.min(maxLevel, firstMinLevel + 1) : maxLevel;
+  }
+  return row;
 }
 
 function makeSaveWithTemplateParty(saveHalfOffset = 0x26000): Uint8Array {

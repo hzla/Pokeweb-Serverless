@@ -77,8 +77,18 @@
 }
 
 .tutor-move-list .expanded-field-main {
+  box-sizing: border-box;
+  display: grid;
   gap: 14px;
+  grid-template-columns: 46px 170px 84px minmax(240px, 520px) 84px 84px 116px;
+  justify-content: space-between;
   padding: 0 20px;
+}
+
+.tutor-move-list > .field-header {
+  box-sizing: border-box;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .move-effect-handler-row > .expanded-field-main,
@@ -114,12 +124,19 @@
 .tutor-move-list .tutor-slot,
 .tutor-move-list .tutor-cost,
 .tutor-move-list .tutor-index {
-  flex: 0 0 84px;
+  min-width: 0;
 }
 
 .tutor-move-list .tutor-move {
-  flex: 1 1 280px;
-  min-width: 180px;
+  min-width: 0;
+  width: 100%;
+}
+
+.tutor-move-list .tutor-compatibility-column {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
 }
 
 .handler-move input,

@@ -1,15 +1,11 @@
 import { publicAsset } from "../assetUrl";
 import { pokemonSpriteSlug } from "../pokeweb/spriteSlug";
 import type { MastersheetElement, MastersheetEncounterRecord, MastersheetInlinePart, MastersheetTrainerRecord } from "../pokeweb/mastersheetModel";
+import type { MastersheetHighlightMap } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
-type HighlightMap = {
-  changed?: Record<string, number>;
-  new?: Record<string, number>;
-};
-
 type RenderOptions = {
-  highlights?: HighlightMap;
+  highlights?: MastersheetHighlightMap;
 };
 
 export function renderMasterData(
@@ -138,6 +134,7 @@ function renderTrainerCard(masterElement: MastersheetElement, trainer: Mastershe
   const trainerDisplayName = buildTrainerDisplayName(trainer);
   const battleType = String(trainer.type ?? "");
   const showBattleType = battleType === "Doubles" || battleType === "Triples";
+  const isMandatory = String(masterElement.class ?? "").split(/\s+/u).includes("mand");
   const notes = renderTrainerNotes(masterElement);
   const dataIndex = String(masterElement.id ?? "");
 
@@ -149,15 +146,28 @@ function renderTrainerCard(masterElement: MastersheetElement, trainer: Mastershe
       ${trainerDisplayName}
       <div class="tr-notes">
         ${notes}
-        ${showBattleType ? `<br>(${escapeHtml(battleType)})` : ""}
       </div>
     </div>
   </div>
+  ${showBattleType ? renderBattleFormatIcon(battleType) : ""}
   <div class="expanded-card-content expanded-docs">
 ${renderTrainerDocs(trainer, options)}
   </div>
+  ${isMandatory ? `<span class="mandatory-tag">Mandatory</span>` : ""}
 </div>
 `;
+}
+
+function renderBattleFormatIcon(battleType: string): string {
+  const count = battleType === "Triples" ? 3 : 2;
+  const width = count * 20;
+  let people = "";
+
+  for (let index = 0; index < count; index += 1) {
+    people += `<g transform="translate(${index * 20 + 1} 1)"><circle cx="9" cy="6" r="5.5"></circle><path d="M0 30v-8.5C0 15.2 3.7 11 9 11s9 4.2 9 10.5V30H0Z"></path></g>`;
+  }
+
+  return `<span class="battle-format-icon battle-format-icon--${battleType.toLowerCase()}" role="img" aria-label="${battleType} battle"><svg viewBox="0 0 ${width} 32" aria-hidden="true" focusable="false">${people}</svg></span>`;
 }
 
 function renderTrainerDocs(trainer: Record<string, unknown>, options: RenderOptions): string {
@@ -341,12 +351,13 @@ function buildItemSpriteSrc(itemName: string): string {
   return publicAsset(`images/item_sprites/${cleanString(itemName)}.png`);
 }
 
-function maybeEmphasize(rawName: unknown, displayText: string, highlights: HighlightMap | undefined): string {
+function maybeEmphasize(rawName: unknown, displayText: string, highlights: MastersheetHighlightMap | undefined): string {
   const key = cleanString(String(rawName ?? ""));
   const safeText = escapeHtml(displayText);
   if (!key || !highlights) return safeText;
-  const highlighted = highlights.changed?.[key] === 1 || highlights.new?.[key] === 1;
-  return highlighted ? `<span style="font-style: italic;color: #f1fa8c">${safeText}</span>` : safeText;
+  const major = highlights.changed?.[key] === 1 || highlights.new?.[key] === 1;
+  if (major) return `<span class="mastersheet-highlight">${safeText}</span>`;
+  return highlights.minor?.[key] === 1 ? `<span class="mastersheet-highlight-minor">${safeText}</span>` : safeText;
 }
 
 function isEmptyParagraphElement(element: MastersheetElement): boolean {

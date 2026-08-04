@@ -200,15 +200,55 @@
   flex-direction: row;
   justify-content: flex-start;
   margin-right: 14px;
+  position: relative;
   width: auto;
 }
 
-#mastersheet .ms-trainer.mand {
-  border-color: #bd93f9;
+.mandatory-tag {
+  background: #ff5555;
+  border-radius: 3px;
+  bottom: 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  left: 8px;
+  line-height: 1;
+  padding: 5px 7px;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
 }
 
-.ms-trainer.mand .trainer-name {
+.battle-format-icon {
   color: #bd93f9;
+  display: block;
+  height: 30px;
+  left: 8px;
+  margin: 0;
+  position: absolute;
+  top: 8px;
+  width: 40px;
+  z-index: 1;
+}
+
+.battle-format-icon--triples {
+  width: 60px;
+}
+
+.battle-format-icon svg {
+  display: block;
+  fill: currentColor;
+  height: 100%;
+  width: 100%;
+}
+
+.mastersheet-highlight {
+  color: #f1fa8c;
+  font-style: italic;
+}
+
+.mastersheet-highlight-minor {
+  font-style: italic;
 }
 
 .ms-trainer .expanded-field-main {

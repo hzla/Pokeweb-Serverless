@@ -1,3 +1,4 @@
+import white2UpgradeMoves from "../assets/data/white2upgradeMoves.json";
 import { getEncounterCount, getEncounterRecord } from "./encounterModel";
 import {
   enrichTrainerLocations,
@@ -8,7 +9,8 @@ import {
   trainerPokemonExportName,
   type TextDownloadFile,
 } from "./docGeneratorModel";
-import type { ProjectState } from "./projectStore";
+import type { MastersheetHighlightMap, ProjectState } from "./projectStore";
+import { getMoveCount, getMoveRecord } from "./moveItemModel";
 import { getAutofilledTrainerPokemonMoveIds, getTrainerCount, getTrainerRecord, type TrainerPokemonSlot, type TrainerRecord } from "./trainerModel";
 
 export type MastersheetInlinePart = { type: "text"; text: string } | { type: "link"; text: string; href: string };
@@ -34,6 +36,7 @@ export type MastersheetEncounterRecord = { id: number; name: string; wilds: stri
 
 export type MastersheetExport = MastersheetParseResult & {
   encountersById: MastersheetEncounterRecord[];
+  highlights: MastersheetHighlightMap;
   trainersById: MastersheetTrainerRecord[];
 };
 
@@ -53,6 +56,15 @@ export function ensureMastersheetMarkdown(project: ProjectState): string {
 
 export function setMastersheetMarkdown(project: ProjectState, markdown: string): void {
   ensureDocs(project).mastersheetMarkdown = markdown;
+}
+
+export function setMastersheetHighlights(project: ProjectState, highlights: MastersheetHighlightMap | undefined): void {
+  const docs = ensureDocs(project);
+  if (highlights === undefined) {
+    delete docs.mastersheetHighlights;
+    return;
+  }
+  docs.mastersheetHighlights = normalizeHighlightMap(highlights);
 }
 
 export function enrichMastersheetTrainerLocations(project: ProjectState): string {
@@ -187,6 +199,7 @@ export function buildMastersheetExport(project: ProjectState, markdown = ensureM
   return {
     ...parsed,
     encountersById: buildMastersheetEncountersById(project),
+    highlights: classifyMastersheetMoveHighlights(project, ensureDocs(project).mastersheetHighlights),
     trainersById: buildMastersheetTrainersById(project),
   };
 }
@@ -202,6 +215,7 @@ export function generateMastersheetDownload(project: ProjectState): TextDownload
     `masterData = ${JSON.stringify(exportData.masterData, null, 2)};`,
     `encountersById = ${JSON.stringify(exportData.encountersById, null, 2)};`,
     `trainersById = ${JSON.stringify(exportData.trainersById, null, 2)};`,
+    `highlights = ${JSON.stringify(exportData.highlights, null, 2)};`,
     "",
   ].join("\n");
   return {
@@ -213,6 +227,12 @@ export function generateMastersheetDownload(project: ProjectState): TextDownload
 
 export function mastersheetMarkdownFromLegacyJs(source: string): string {
   return mastersheetMarkdownFromMasterData(readJsonAssignment(source, "masterData"));
+}
+
+export function mastersheetHighlightsFromLegacyJs(source: string): MastersheetHighlightMap | undefined {
+  const pattern = new RegExp(`(?:^|[;\\n])\\s*(?:var\\s+|let\\s+|const\\s+)?highlights\\s*=`, "u");
+  if (!pattern.test(source)) return undefined;
+  return normalizeHighlightMap(readJsonAssignment(source, "highlights", true));
 }
 
 export function mastersheetMarkdownFromMasterData(masterData: unknown): string {
@@ -309,7 +329,7 @@ function inlinePartsToMarkdown(parts: unknown[]): string {
     .join("");
 }
 
-function readJsonAssignment(source: string, name: string): unknown {
+function readJsonAssignment(source: string, name: string, allowTrailingCommas = false): unknown {
   const pattern = new RegExp(`(?:^|[;\\n])\\s*(?:var\\s+|let\\s+|const\\s+)?${escapeRegExp(name)}\\s*=`, "u");
   const match = pattern.exec(source);
   if (!match) throw new Error(`Imported JS must contain a ${name} assignment.`);
@@ -320,10 +340,102 @@ function readJsonAssignment(source: string, name: string): unknown {
 
   const valueEnd = findJsonValueEnd(source, valueStart);
   try {
-    return JSON.parse(source.slice(valueStart, valueEnd));
+    const json = source.slice(valueStart, valueEnd);
+    return JSON.parse(allowTrailingCommas ? stripTrailingJsonCommas(json) : json);
   } catch (error) {
     throw new Error(`Could not parse ${name}: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+function normalizeHighlightMap(value: unknown): MastersheetHighlightMap {
+  if (!isRecord(value)) return {};
+  const normalized: MastersheetHighlightMap = {};
+  for (const group of ["changed", "minor", "new"] as const) {
+    if (!isRecord(value[group])) continue;
+    normalized[group] = Object.fromEntries(
+      Object.entries(value[group])
+        .filter(([, enabled]) => Number(enabled) === 1)
+        .map(([name]) => [normalizeLookup(name), 1]),
+    );
+  }
+  return normalized;
+}
+
+const MINOR_MOVE_FIELDS = new Set(["power", "accuracy", "pp"]);
+
+export function classifyMastersheetMoveHighlights(project: ProjectState, value: unknown): MastersheetHighlightMap {
+  const highlights = normalizeHighlightMap(value);
+  if (project.session.baseRom !== "BW2" || !highlights.changed) return highlights;
+
+  const changed = { ...highlights.changed };
+  const minor = { ...highlights.minor };
+  const referenceFields = white2UpgradeMoves.fields as string[];
+  const referenceMoves = white2UpgradeMoves.moves as Array<number[] | null>;
+  const moveIdsByName = new Map<string, number>();
+  const moveNames = project.texts.banks.moves ?? [];
+  const moveCount = Math.min(getMoveCount(project), moveNames.length, referenceMoves.length);
+
+  for (let moveId = 0; moveId < moveCount; moveId += 1) {
+    const name = normalizeLookup(moveNames[moveId] ?? "");
+    if (name && !moveIdsByName.has(name)) moveIdsByName.set(name, moveId);
+  }
+
+  for (const name of Object.keys(changed)) {
+    if (highlights.new?.[name] === 1) continue;
+    const moveId = moveIdsByName.get(name);
+    const reference = moveId === undefined ? undefined : referenceMoves[moveId];
+    if (moveId === undefined || !reference) continue;
+
+    let record: ReturnType<typeof getMoveRecord>;
+    try {
+      record = getMoveRecord(project, moveId);
+    } catch {
+      continue;
+    }
+    const differences = referenceFields.filter((field, index) => Number(record.raw[field]) !== reference[index]);
+    if (differences.length > 0 && differences.every((field) => MINOR_MOVE_FIELDS.has(field))) {
+      delete changed[name];
+      minor[name] = 1;
+    }
+  }
+
+  const result: MastersheetHighlightMap = { ...highlights };
+  if (Object.keys(changed).length > 0) result.changed = changed;
+  else delete result.changed;
+  if (Object.keys(minor).length > 0) result.minor = minor;
+  else delete result.minor;
+  return result;
+}
+
+function stripTrailingJsonCommas(source: string): string {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index] ?? "";
+    if (inString) {
+      output += char;
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      output += char;
+      continue;
+    }
+    if (char !== ",") {
+      output += char;
+      continue;
+    }
+
+    let lookahead = index + 1;
+    while (lookahead < source.length && /\s/u.test(source[lookahead] ?? "")) lookahead += 1;
+    if (source[lookahead] !== "}" && source[lookahead] !== "]") output += char;
+  }
+  return output;
 }
 
 function findJsonValueEnd(source: string, startIndex: number): number {

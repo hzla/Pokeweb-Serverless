@@ -154,6 +154,16 @@ export function decryptPk5Party(encrypted: Uint8Array): Uint8Array {
   return out;
 }
 
+export function decryptPk5Stored(encrypted: Uint8Array): Uint8Array {
+  const out = encrypted.slice(0, PK5_STORED_SIZE);
+  const pid = readLe32(out, 0);
+  const checksum = readLe16(out, 6);
+  const shuffleValue = (pid >>> 13) & 31;
+  cryptArray(out, 8, PK5_STORED_SIZE - 8, checksum);
+  shuffle45(out, 8, shuffleValue);
+  return out;
+}
+
 export function encryptPk5Party(decrypted: Uint8Array): Uint8Array {
   const out = decrypted.slice(0, PK5_PARTY_SIZE);
   writeLe16(out, 6, add16(out.subarray(8, PK5_STORED_SIZE)));
@@ -613,7 +623,7 @@ function nonHpStat(base: number, iv: number, ev: number, level: number, nature: 
   return raw;
 }
 
-function experienceForLevel(level: number, growthRate: number): number {
+export function experienceForLevel(level: number, growthRate: number): number {
   const n = clampInt(level, 1, 100);
   const n2 = n * n;
   const n3 = n2 * n;

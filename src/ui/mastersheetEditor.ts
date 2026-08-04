@@ -3,7 +3,9 @@ import {
   enrichMastersheetTrainerLocations,
   ensureMastersheetMarkdown,
   generateMastersheetDownload,
+  mastersheetHighlightsFromLegacyJs,
   mastersheetMarkdownFromLegacyJs,
+  setMastersheetHighlights,
   setMastersheetMarkdown,
   type MastersheetExport,
   type MastersheetWarning,
@@ -75,7 +77,7 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
     const markdown = textarea.value;
     setMastersheetMarkdown(project, markdown);
     lastExport = buildMastersheetExport(project, markdown);
-    preview.innerHTML = renderMasterData(lastExport.masterData, lastExport.trainersById, lastExport.encountersById);
+    preview.innerHTML = renderMasterData(lastExport.masterData, lastExport.trainersById, lastExport.encountersById, { highlights: lastExport.highlights });
     renderMastersheetToc(preview, toc, previewPanel);
     const blocking = lastExport.warnings.some((warning) => warning.blocking);
     if (downloadButton) downloadButton.disabled = blocking;
@@ -98,9 +100,11 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
     if (!file || !textarea) return;
     try {
       if (status) status.textContent = `Importing ${file.name}...`;
-      const markdown = mastersheetMarkdownFromLegacyJs(await file.text());
+      const source = await file.text();
+      const markdown = mastersheetMarkdownFromLegacyJs(source);
       textarea.value = markdown;
       setMastersheetMarkdown(project, markdown);
+      setMastersheetHighlights(project, mastersheetHighlightsFromLegacyJs(source));
       refreshPreview();
       if (status && !lastExport?.warnings.length) status.textContent = `Imported ${file.name}.`;
       options.onDirty?.();

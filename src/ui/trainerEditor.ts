@@ -4,6 +4,8 @@ import { trainerAbilitySlotMax } from "../pokeweb/cascadeWhiteModel";
 import { TRAINER_AIS, isGen5Project } from "../pokeweb/constants";
 import { enrichTrainerLocations } from "../pokeweb/docGeneratorModel";
 import { detectSpecifyTrainerNaturesPatch, specifyTrainerNatures } from "../pokeweb/romPatchModel";
+import { readGen5SavePokemon, type Gen5SavePokemon } from "../pokeweb/gen5SaveReader";
+import { parseShowdownTeam } from "../pokeweb/testBattleTeam";
 import { ensureTrainerSpriteStore, getTrainerClassSpriteImage, hasGen5TrainerSprites } from "../pokeweb/trainerSpriteModel";
 import {
   expandTrainerScriptArchive,
@@ -15,11 +17,13 @@ import {
   getTrainerAutofills,
   getTrainerCount,
   getTrainerRecord,
+  trainerPokemonSpriteSlug,
   type TrainerPokemonSlot,
   type TrainerRecord,
 } from "../pokeweb/trainerModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { requestEncounterRoll } from "./encounterRollModal";
 import { attachTrainerInteractions } from "./trainerInteractions";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import {
@@ -31,9 +35,20 @@ import {
 } from "../pokeweb/pokemonSpriteModel";
 
 const TEST_BATTLE_TEAM_STORAGE_PREFIX = "pokeweb.testBattle.teamText";
+const TEST_BATTLE_BOX_STORAGE_PREFIX = "pokeweb.testBattle.box";
 const TRAINER_SPRITE_RENDER_VERSION = "gen5-mcss-ncec-v2";
 const trainerSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
 const trainerPokemonIconInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
+
+type TrainerBoxPokemon = {
+  speciesId: number;
+  formIndex: number;
+  speciesName: string;
+  nickname: string;
+  level: number;
+  detail: string;
+  showdownText: string;
+};
 
 export function renderTrainerEditor(
   project: ProjectState,
@@ -46,6 +61,11 @@ export function renderTrainerEditor(
   const showNatureField = trainerNaturePatchStatus === "patched";
   const savedTestBattleTeamText = readSavedTestBattleTeamText(project);
   const enrichedTrainerLocations = autoEnrichTrainerLocations(project);
+  const trainerMoreContent = [
+    renderW2uSyncButton(project, ["trainers"]),
+    renderTrainerScriptArchivePanel(project),
+    renderTrainerNaturePatchPanel(project, trainerNaturePatchStatus),
+  ].filter(Boolean).join("");
   root.innerHTML = `
     <div class="pokemon-filter trainer-filter">
       <div class="filter-title">Search</div>
@@ -55,13 +75,28 @@ export function renderTrainerEditor(
         <span class="svg">${addIcon}</span>
         Add Trainer
       </button>
-      ${renderW2uSyncButton(project, ["trainers"])}
-      ${renderTrainerScriptArchivePanel(project)}
-      ${renderTrainerNaturePatchPanel(project, trainerNaturePatchStatus)}
       <div class="trainer-test-team">
         <div class="filter-title">Test Team</div>
         <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import. Use Bulbasaur^1 for form 1.">${escapeHtml(savedTestBattleTeamText)}</textarea>
+        ${isGen5Project(project) ? `
+          <div class="trainer-save-reader">
+            <input id="trainer-save-upload" class="trainer-save-upload" type="file" accept=".sav,.dsv,.srm,application/octet-stream" hidden>
+            <div class="trainer-save-actions">
+              <label class="btn -default trainer-save-upload-button" for="trainer-save-upload">Load Save</label>
+              <button class="btn -default trainer-roll-encounters-button" type="button" data-roll-encounters>Roll Encounters</button>
+              <span class="trainer-save-status" aria-live="polite"></span>
+            </div>
+            <div class="trainer-save-pokemon-box" aria-label="Pokemon from save" hidden></div>
+            <button class="btn -default trainer-box-copy-button" type="button" data-copy-showdown-box hidden>Copy Showdown Paste</button>
+          </div>
+        ` : ""}
       </div>
+      ${trainerMoreContent ? `
+        <details class="trainer-more-section">
+          <summary>More</summary>
+          <div class="trainer-more-content">${trainerMoreContent}</div>
+        </details>
+      ` : ""}
     </div>
     <div class="pokemon-list spreadsheet" id="trainers">
       <div class="expanded-field field-header">
@@ -93,6 +128,7 @@ export function renderTrainerEditor(
   });
   attachW2uSyncButton(root, project);
   installTestBattleTeamPersistence(project, root);
+  installTrainerSaveReader(project, root);
 }
 
 function installTestBattleTeamPersistence(project: ProjectState, root: HTMLElement): void {
@@ -101,6 +137,278 @@ function installTestBattleTeamPersistence(project: ProjectState, root: HTMLEleme
   input.addEventListener("input", () => {
     rememberTestBattleTeamText(project, input.value);
   });
+}
+
+function installTrainerSaveReader(project: ProjectState, root: HTMLElement): void {
+  const upload = root.querySelector<HTMLInputElement>("#trainer-save-upload");
+  const input = root.querySelector<HTMLTextAreaElement>("#test-battle-team-import");
+  const status = root.querySelector<HTMLElement>(".trainer-save-status");
+  const box = root.querySelector<HTMLElement>(".trainer-save-pokemon-box");
+  const rollButton = root.querySelector<HTMLButtonElement>("[data-roll-encounters]");
+  const copyShowdownButton = root.querySelector<HTMLButtonElement>("[data-copy-showdown-box]");
+  if (!upload || !input || !status || !box) return;
+
+  let currentBox = readSavedTrainerBox(project);
+  if (currentBox.length > 0) {
+    renderTrainerPokemonBox(project, box, input, currentBox);
+    box.hidden = false;
+    if (copyShowdownButton) copyShowdownButton.hidden = false;
+    status.textContent = `${currentBox.length} Pokémon`;
+  }
+
+  upload.addEventListener("click", () => {
+    upload.value = "";
+  });
+  upload.addEventListener("change", async () => {
+    const file = upload.files?.[0];
+    if (!file) return;
+    status.classList.remove("-error");
+    status.textContent = "Reading…";
+    try {
+      const pokemon = readGen5SavePokemon(project, new Uint8Array(await file.arrayBuffer()));
+      const boxPokemon = pokemon.map(savePokemonForBox);
+      currentBox = boxPokemon;
+      rememberTrainerBox(project, boxPokemon);
+      renderTrainerPokemonBox(project, box, input, boxPokemon);
+      status.textContent = `${pokemon.length} Pokémon`;
+      box.hidden = pokemon.length === 0;
+      if (copyShowdownButton) copyShowdownButton.hidden = pokemon.length === 0;
+      if (pokemon.length === 0) {
+        status.classList.add("-error");
+        status.textContent = "No Pokémon found";
+      }
+    } catch (error) {
+      box.hidden = true;
+      box.replaceChildren();
+      if (copyShowdownButton) copyShowdownButton.hidden = true;
+      status.classList.add("-error");
+      status.textContent = error instanceof Error ? error.message : "Could not read save";
+    }
+  });
+
+  rollButton?.addEventListener("click", () => {
+    requestEncounterRoll(project, ({ encounters, statics }) => {
+      const boxPokemon: TrainerBoxPokemon[] = [
+        ...encounters.map((rolled) => ({
+          speciesId: rolled.speciesId,
+          formIndex: rolled.formIndex,
+          speciesName: rolled.speciesName,
+          nickname: "",
+          level: rolled.level,
+          detail: `${rolled.areaLabel} · ${rolled.tableLabel}`,
+          showdownText: rolled.showdownText,
+        })),
+        ...statics.map((pokemon) => ({
+          speciesId: pokemon.speciesId,
+          formIndex: pokemon.formIndex,
+          speciesName: pokemon.speciesName,
+          nickname: "",
+          level: pokemon.level,
+          detail: "Static",
+          showdownText: pokemon.showdownText,
+        })),
+      ];
+      currentBox = boxPokemon;
+      rememberTrainerBox(project, boxPokemon);
+      renderTrainerPokemonBox(project, box, input, boxPokemon);
+      box.hidden = boxPokemon.length === 0;
+      if (copyShowdownButton) copyShowdownButton.hidden = boxPokemon.length === 0;
+      status.classList.toggle("-error", boxPokemon.length === 0);
+      status.textContent = boxPokemon.length > 0 ? `${boxPokemon.length} Pokémon` : "No Pokémon added";
+    });
+  });
+
+  copyShowdownButton?.addEventListener("click", async () => {
+    const showdownText = currentBox
+      .map((pokemon) => pokemon.showdownText.trim())
+      .filter(Boolean)
+      .join("\n\n");
+    if (!showdownText) return;
+    try {
+      await writeClipboardText(showdownText);
+      status.classList.remove("-error");
+      status.textContent = `Copied ${currentBox.length} Pokémon`;
+    } catch (error) {
+      status.classList.add("-error");
+      status.textContent = error instanceof Error ? error.message : "Could not copy box";
+    }
+  });
+
+  input.addEventListener("dragover", (event) => {
+    if (!event.dataTransfer?.types.includes("application/x-pokeweb-showdown")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    input.classList.add("-save-drop-target");
+  });
+  input.addEventListener("dragleave", () => input.classList.remove("-save-drop-target"));
+  input.addEventListener("drop", (event) => {
+    const showdownText = event.dataTransfer?.getData("application/x-pokeweb-showdown") ?? "";
+    input.classList.remove("-save-drop-target");
+    if (!showdownText) return;
+    event.preventDefault();
+    appendShowdownPokemon(input, showdownText);
+  });
+  input.addEventListener("input", () => syncTrainerBoxActiveState(project, box, input.value));
+}
+
+function renderTrainerPokemonBox(project: ProjectState, box: HTMLElement, input: HTMLTextAreaElement, pokemon: TrainerBoxPokemon[]): void {
+  const fragment = document.createDocumentFragment();
+  const fallbackSrc = publicAsset("images/pokesprite/-.png");
+  pokemon.forEach((boxPokemon) => {
+    const displayName = boxPokemon.nickname || boxPokemon.speciesName;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "trainer-save-pokemon";
+    button.draggable = true;
+    button.dataset.speciesId = String(boxPokemon.speciesId);
+    button.title = `${displayName} · ${boxPokemon.speciesName} · Lv. ${boxPokemon.level} · ${boxPokemon.detail}\nDrag or click to toggle in Test Team`;
+    button.setAttribute("aria-label", `Toggle ${displayName} in Test Team`);
+
+    const image = document.createElement("img");
+    image.alt = "";
+    image.draggable = false;
+    image.loading = "lazy";
+    image.src = publicAsset(`images/pokesprite/${trainerPokemonSpriteSlug(boxPokemon.speciesName, boxPokemon.formIndex)}.png`);
+    image.addEventListener("error", () => {
+      image.src = fallbackSrc;
+    }, { once: true });
+    button.append(image);
+
+    button.addEventListener("dragstart", (event) => {
+      if (!event.dataTransfer) return;
+      event.dataTransfer.effectAllowed = "copy";
+      event.dataTransfer.setData("application/x-pokeweb-showdown", boxPokemon.showdownText);
+      event.dataTransfer.setData("text/plain", boxPokemon.showdownText);
+      button.classList.add("-dragging");
+    });
+    button.addEventListener("dragend", () => button.classList.remove("-dragging"));
+    button.addEventListener("click", () => {
+      if (button.classList.contains("-active")) removeShowdownSpecies(project, input, boxPokemon.speciesId);
+      else appendShowdownPokemon(input, boxPokemon.showdownText);
+    });
+    fragment.append(button);
+  });
+  box.replaceChildren(fragment);
+  syncTrainerBoxActiveState(project, box, input.value);
+}
+
+function savePokemonForBox(savedPokemon: Gen5SavePokemon): TrainerBoxPokemon {
+  return {
+    speciesId: savedPokemon.speciesId,
+    formIndex: savedPokemon.formIndex,
+    speciesName: savedPokemon.speciesName,
+    nickname: savedPokemon.nickname,
+    level: savedPokemon.level,
+    detail: savedPokemon.storage === "party"
+      ? `Party ${Number(savedPokemon.partySlot ?? 0) + 1}`
+      : `Box ${Number(savedPokemon.box ?? 0) + 1}, slot ${Number(savedPokemon.boxSlot ?? 0) + 1}`,
+    showdownText: savedPokemon.showdownText,
+  };
+}
+
+function appendShowdownPokemon(input: HTMLTextAreaElement, showdownText: string): void {
+  const pokemon = showdownText.trim();
+  if (!pokemon) return;
+  const existing = input.value.trimEnd();
+  input.value = existing ? `${existing}\n\n${pokemon}` : pokemon;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function removeShowdownSpecies(project: ProjectState, input: HTMLTextAreaElement, speciesId: number): void {
+  input.value = showdownBlocks(input.value)
+    .filter((block) => showdownBlockSpeciesId(project, block) !== speciesId)
+    .join("\n\n");
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function syncTrainerBoxActiveState(project: ProjectState, box: HTMLElement, showdownText: string): void {
+  const activeSpecies = new Set(
+    showdownBlocks(showdownText)
+      .map((block) => showdownBlockSpeciesId(project, block))
+      .filter((speciesId): speciesId is number => speciesId !== undefined),
+  );
+  box.querySelectorAll<HTMLElement>(".trainer-save-pokemon[data-species-id]").forEach((button) => {
+    const active = activeSpecies.has(Number(button.dataset.speciesId));
+    button.classList.toggle("-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function showdownBlockSpeciesId(project: ProjectState, block: string): number | undefined {
+  try {
+    return parseShowdownTeam(project, block)[0]?.speciesId;
+  } catch {
+    return undefined;
+  }
+}
+
+function showdownBlocks(text: string): string[] {
+  return text
+    .replace(/\r\n?/gu, "\n")
+    .split(/\n\s*\n/gu)
+    .map((block) => block.trim())
+    .filter(Boolean);
+}
+
+async function writeClipboardText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    if (!document.execCommand("copy")) throw new Error("Clipboard copy failed");
+  } finally {
+    textarea.remove();
+  }
+}
+
+function readSavedTrainerBox(project: ProjectState): TrainerBoxPokemon[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(testBattleBoxStorageKey(project)) ?? "[]");
+    if (!Array.isArray(value)) return [];
+    return value.filter(isSavedTrainerBoxPokemon);
+  } catch {
+    return [];
+  }
+}
+
+function rememberTrainerBox(project: ProjectState, pokemon: TrainerBoxPokemon[]): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(testBattleBoxStorageKey(project), JSON.stringify(pokemon));
+  } catch {
+    // Browser storage may be unavailable in private or constrained contexts.
+  }
+}
+
+function isSavedTrainerBoxPokemon(value: unknown): value is TrainerBoxPokemon {
+  if (!value || typeof value !== "object") return false;
+  const pokemon = value as Partial<TrainerBoxPokemon>;
+  return Number.isInteger(pokemon.speciesId)
+    && Number(pokemon.speciesId) > 0
+    && Number.isInteger(pokemon.formIndex)
+    && Number.isInteger(pokemon.level)
+    && typeof pokemon.speciesName === "string"
+    && typeof pokemon.nickname === "string"
+    && typeof pokemon.detail === "string"
+    && typeof pokemon.showdownText === "string";
+}
+
+function testBattleBoxStorageKey(project: ProjectState): string {
+  return `${TEST_BATTLE_BOX_STORAGE_PREFIX}.${project.session.baseVersion}.${project.session.romName}`;
 }
 
 function readSavedTestBattleTeamText(project: ProjectState): string {

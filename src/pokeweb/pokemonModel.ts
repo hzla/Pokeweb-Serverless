@@ -321,6 +321,31 @@ export function getPokemonMachineCompatibilityRoster(
     });
 }
 
+export function getPokemonTutorCompatibilityRoster(
+  project: ProjectState,
+  field: string,
+  index: number,
+): PokemonMachineCompatibilityEntry[] {
+  if (!project.narcs.personal) return [];
+  const group = getTutorMoveCompatibilityGroups(project).find((candidate) => candidate.field === field);
+  if (!group) throw new Error(`Unsupported tutor group: ${field}`);
+  if (!Number.isInteger(index) || !group.moves.some((move) => move.compatibilityIndex === index)) {
+    throw new Error(`Tutor index out of range: ${index}`);
+  }
+  return getPokemonPersonalIds(project)
+    .filter((speciesId) => speciesId > 0)
+    .sort((left, right) => left - right)
+    .map((speciesId) => {
+      const record = decodeRecord(project, "personal", speciesId);
+      return {
+        speciesId,
+        type1: String(record.readable?.type_1 ?? ""),
+        type2: String(record.readable?.type_2 ?? ""),
+        enabled: Boolean(record.raw && bitEnabled(record.raw, field, index)),
+      };
+    });
+}
+
 export function updatePokemonTmCompatibility(project: ProjectState, speciesId: number, kind: "tm" | "hm", index: number, enabled: boolean): void {
   const record = decodeRecord(project, "personal", speciesId);
   if (!record.raw || !record.readable) throw new Error(`Unable to update Pokemon ${speciesId}`);
