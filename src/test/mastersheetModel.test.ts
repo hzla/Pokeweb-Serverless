@@ -4,8 +4,10 @@ import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import {
   buildMastersheetExport,
   generateMastersheetDownload,
+  mastersheetHighlightsFromLegacyJs,
   mastersheetMarkdownFromLegacyJs,
   parseMastersheetMarkdown,
+  setMastersheetHighlights,
   setMastersheetMarkdown,
 } from "../pokeweb/mastersheetModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
@@ -72,7 +74,7 @@ describe("mastersheetModel", () => {
   });
 
   it("converts legacy masterData JS into markdown", () => {
-    const markdown = mastersheetMarkdownFromLegacyJs(`
+    const source = `
       masterData =
       [
         {"tag":"h1","content":"Imported","content_parts":[{"type":"text","text":"Imported"}]},
@@ -85,7 +87,13 @@ describe("mastersheetModel", () => {
         {"tag":"encounter","id":0}
       ]
       encountersById = []
-    `);
+      highlights = {
+        "changed": { "Tackle": 1, "Ignored": 0, },
+        "minor": { "Flamethrower": 1, },
+        "new": { "Moonblast": 1, },
+      }
+    `;
+    const markdown = mastersheetMarkdownFromLegacyJs(source);
 
     expect(markdown).toContain("- See [docs](https://example.com)");
     expect(markdown).toContain("Potion, Heals, with comma");
@@ -96,11 +104,25 @@ describe("mastersheetModel", () => {
     expect(result.warnings).toEqual([]);
     expect(result.masterData[3]).toMatchObject({ tag: "items", itemDescriptions: ["Heals, with comma"] });
     expect(result.masterData[4]).toMatchObject({ tag: "gifts", giftPokemonDescriptions: ["Starter, with comma"] });
+    expect(mastersheetHighlightsFromLegacyJs(source)).toEqual({ changed: { tackle: 1 }, minor: { flamethrower: 1 }, new: { moonblast: 1 } });
+  });
+
+  it("reclassifies curated moves with only power, accuracy, or PP changes as minor", () => {
+    const project = makeProject();
+    const moveRows = Array.from({ length: 34 }, () => ({} as Record<string, number>));
+    moveRows[33] = { category: 1, power: 55, accuracy: 100, pp: 35, flag: 21331, properties: 73 };
+    const packedMoves = packRows(project.formats.moves!, moveRows);
+    project.narcs.moves = makeStore("moves", splitRows(packedMoves, moveRows.length), moveRows.length);
+    project.texts.banks.moves = Array.from({ length: moveRows.length }, (_, id) => (id === 33 ? "Tackle" : `Move ${id}`));
+    setMastersheetHighlights(project, { changed: { Tackle: 1 } });
+
+    expect(buildMastersheetExport(project).highlights).toEqual({ minor: { tackle: 1 } });
   });
 
   it("builds Dynamic Calc-compatible globals with location-appended trainer names", () => {
     const project = makeProject();
     setMastersheetMarkdown(project, "!tr 1\n!enc 0\n");
+    setMastersheetHighlights(project, { changed: { Tackle: 1 } });
 
     const exportData = buildMastersheetExport(project);
     const trainer = exportData.trainersById[1];
@@ -118,12 +140,14 @@ describe("mastersheetModel", () => {
       move_1_0: "Tackle",
     });
     expect(exportData.encountersById[0]).toMatchObject({ name: "Route 19", wilds: ["Bulbasaur"] });
+    expect(exportData.highlights).toEqual({ changed: { tackle: 1 } });
 
     const file = generateMastersheetDownload(project);
     expect(file.filename).toBe("testrom.js");
     expect(file.contents).toContain("masterData = ");
     expect(file.contents).toContain("encountersById = ");
     expect(file.contents).toContain("trainersById = ");
+    expect(file.contents).toContain('highlights = {\n  "changed": {\n    "tackle": 1');
   });
 
   it("blocks downloads when references are unresolved", () => {

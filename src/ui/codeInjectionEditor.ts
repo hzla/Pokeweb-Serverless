@@ -87,32 +87,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">
             <div>
-              <h2>Added-Form Evolution Support</h2>
-              <p>Allows evolution NARC targets to reference appended personal-form IDs while storing the evolved Pokemon as a safe base species and form.</p>
-            </div>
-            <span class="code-injection-status ${formEvolutionInstalled ? "-installed" : ""}">
-              ${formEvolutionInstalled ? "Installed" : formEvolutionStatus === "unsupported" ? "Unsupported" : "Not Installed"}
-            </span>
-          </div>
-          <div class="code-injection-facts">
-            <div><span>Runtime</span><strong>${formEvolutionStatus === "unsupported" ? "B2/W2 only" : `FormEvolution${escapeHtml(project.session.baseVersion)}.dll`}</strong></div>
-            <div><span>Module Path</span><strong>${formEvolutionInstalled ? `patches/FormEvolution${escapeHtml(project.session.baseVersion)}.dll` : "Pending"}</strong></div>
-            <div><span>Installation</span><strong>Automatic with Add Form</strong></div>
-            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Pending"}</strong></div>
-          </div>
-          <div class="code-injection-note">
-            ${
-              formEvolutionInstalled
-                ? "The bundled form-evolution DLL is active in this project and will be included in the exported ROM."
-                : formEvolutionStatus === "unsupported"
-                  ? "The bundled form-evolution runtime currently supports Black 2 and White 2."
-                  : "Use Add Form in the Pokemon editor to install PMC and the matching bundled runtime automatically."
-            }
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
               <h2>PMC Runtime</h2>
               <p>${escapeHtml(status.message)}</p>
             </div>
@@ -221,6 +195,32 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <span>Implementation credits</span>
             <strong>Sunk</strong>
             <strong>Papaya</strong>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Added-Form Evolution Support</h2>
+              <p>Allows evolution NARC targets to reference appended personal-form IDs while storing the evolved Pokemon as a safe base species and form.</p>
+            </div>
+            <span class="code-injection-status ${formEvolutionInstalled ? "-installed" : ""}">
+              ${formEvolutionInstalled ? "Installed" : formEvolutionStatus === "unsupported" ? "Unsupported" : "Not Installed"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Runtime</span><strong>${formEvolutionStatus === "unsupported" ? "B2/W2 only" : `FormEvolution${escapeHtml(project.session.baseVersion)}.dll`}</strong></div>
+            <div><span>Module Path</span><strong>${formEvolutionInstalled ? `patches/FormEvolution${escapeHtml(project.session.baseVersion)}.dll` : "Pending"}</strong></div>
+            <div><span>Installation</span><strong>Automatic with Add Form</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Pending"}</strong></div>
+          </div>
+          <div class="code-injection-note">
+            ${
+              formEvolutionInstalled
+                ? "The bundled form-evolution DLL is active in this project and will be included in the exported ROM."
+                : formEvolutionStatus === "unsupported"
+                  ? "The bundled form-evolution runtime currently supports Black 2 and White 2."
+                  : "Use Add Form in the Pokemon editor to install PMC and the matching bundled runtime automatically."
+            }
           </div>
         </section>
       </main>
