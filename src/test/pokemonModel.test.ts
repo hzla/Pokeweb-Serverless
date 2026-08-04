@@ -14,6 +14,7 @@ import {
   getPokemonCount,
   getPokemonMachineCompatibilityRoster,
   getPokemonRecord,
+  getPokemonTutorCompatibilityRoster,
   insertPokemonEggMove,
   insertPokemonLearnsetMove,
   learnsetMoveLimit,
@@ -164,6 +165,9 @@ describe("pokemonModel", () => {
     expect(record.rawPersonal.driftveil_tutor).toBe(1);
     expect(record.rawPersonal.lentimas_tutor).toBe(2 ** 16);
     expect(record.tutorCompatibility.find((group) => group.group === "driftveil")?.slots[0]).toMatchObject({ enabled: true, moveName: "Bug Bite", moveType: "Bug" });
+    expect(getPokemonTutorCompatibilityRoster(project, "driftveil_tutor", 0)).toEqual([
+      { speciesId: 1, type1: "Grass", type2: "Poison", enabled: true },
+    ]);
     expect(project.narcs.personal?.dirty.has(1)).toBe(true);
   });
 
