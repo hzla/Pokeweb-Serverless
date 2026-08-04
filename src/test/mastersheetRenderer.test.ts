@@ -25,7 +25,7 @@ describe("mastersheetRenderer", () => {
   it("renders trainer and encounter cards", () => {
     const html = renderMasterData(
       [
-        { tag: "trainer", id: 1 },
+        { tag: "trainer", id: 1, class: "mand" },
         { tag: "encounter", id: 0 },
       ] satisfies MastersheetElement[],
       [
@@ -43,21 +43,39 @@ describe("mastersheetRenderer", () => {
           nature_0: "Hardy",
           ability_name_0: "Overgrow",
           move_1_0: "Tackle",
-          move_2_0: "",
+          move_2_0: "Growl",
           move_3_0: "",
           move_4_0: "",
         },
       ],
       [{ id: 0, name: "Route 19", wilds: ["Bulbasaur"], locations: ["Route 19"] }],
+      { highlights: { changed: { tackle: 1 }, minor: { growl: 1 } } },
     );
 
     expect(html).toContain("Ace Trainer Dan - Route 19");
     expect(html).toContain("expanded-card-content expanded-docs");
     expect(html).toContain("Lv 42 Bulbasaur");
     expect(html).toContain("Potion");
-    expect(html).toContain("(Doubles)");
+    expect(html).toContain('class="mandatory-tag">Mandatory</span>');
+    expect(html).toContain('class="battle-format-icon battle-format-icon--doubles"');
+    expect(html).toContain('aria-label="Doubles battle"');
+    expect(html).not.toContain("(Doubles)");
+    expect(html).toContain('<span class="mastersheet-highlight">Tackle</span>');
+    expect(html).toContain('<span class="mastersheet-highlight-minor">Growl</span>');
     expect(html).toContain("Route 19");
     expect(html).toContain('data-species-name="Bulbasaur"');
+  });
+
+  it("renders three silhouettes for triple battles", () => {
+    const html = renderMasterData(
+      [{ tag: "trainer", id: 0 }],
+      [{ class: "Trainer", name: "Tri", count: 0, type: "Triples" }],
+      [],
+    );
+
+    expect(html).toContain('class="battle-format-icon battle-format-icon--triples"');
+    expect(html.match(/<g transform=/gu)).toHaveLength(3);
+    expect(html).not.toContain("(Triples)");
   });
 
   it("renders gifts, items, notifications, and missing placeholders", () => {

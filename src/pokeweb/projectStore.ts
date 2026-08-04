@@ -68,9 +68,16 @@ export type TextState = {
   storyTexts?: TextEntry[][];
 };
 
+export type MastersheetHighlightMap = {
+  changed?: Record<string, number>;
+  minor?: Record<string, number>;
+  new?: Record<string, number>;
+};
+
 export type DocGeneratorState = {
   romTitle: string;
   mastersheetMarkdown?: string;
+  mastersheetHighlights?: MastersheetHighlightMap;
   trainerLocations: Record<string, string[]>;
   trainerDiffs: Record<string, number>;
   itemLocations: Record<string, string[]>;
