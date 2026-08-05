@@ -2,8 +2,13 @@ import { recordFieldChange } from "./actionChangelog";
 import { TYPES } from "./constants";
 import type { NarcStore, ProjectState } from "./projectStore";
 
-export const TYPE_CHART_OVERLAY_ID = 167;
+export const BW_TYPE_CHART_OVERLAY_ID = 93;
+export const BW2_TYPE_CHART_OVERLAY_ID = 167;
+/** @deprecated Prefer typeChartOverlayId(project) for version-aware code. */
+export const TYPE_CHART_OVERLAY_ID = BW2_TYPE_CHART_OVERLAY_ID;
+export const BW_TYPE_CHART_OFFSET = 0x0003a37c;
 export const TYPE_CHART_OFFSET = 0x0003dc40;
+export const BW_TYPE_CHART_FAIRY_FROST_OFFSET = 0x00001f80;
 export const TYPE_CHART_FAIRY_FROST_OFFSET = 0x00001740;
 export const TYPE_CHART_FAIRY_REDUX_OFFSET = 0x00000000;
 export const TYPE_CHART_VANILLA_TYPE_COUNT = 17;
@@ -26,7 +31,7 @@ export type TypeChartCell = {
 
 export function ensureTypeChartStore(project: ProjectState): void {
   const existing = project.narcs.type_chart;
-  const overlay = project.overlays[TYPE_CHART_OVERLAY_ID];
+  const overlay = project.overlays[typeChartOverlayId(project)];
   if (existing) {
     const expectedLength = typeChartTableLength(project);
     if (isRomFsTypeChartStore(existing)) {
@@ -36,7 +41,7 @@ export function ensureTypeChartStore(project: ProjectState): void {
     if ((existing.rawFiles[0]?.length ?? 0) === expectedLength) return;
     if (!overlay) return;
     const offset = typeChartTableOffset(project, overlay);
-    existing.sourcePath = typeChartSourcePath(offset);
+    existing.sourcePath = typeChartSourcePath(project, offset);
     existing.rawFiles = [overlay.slice(offset, offset + expectedLength)];
     existing.records = new Map();
     existing.dirty = new Set();
@@ -60,12 +65,13 @@ export function createRomFsTypeChartStore(fileId: number, bytes: Uint8Array, sou
 }
 
 export function createTypeChartStore(project: ProjectState, overlay: Uint8Array): NarcStore {
+  if (!project.session.fairy && detectKnownFairyTypeChartOffset(overlay, project.session.baseRom) !== undefined) project.session.fairy = true;
   const offset = typeChartTableOffset(project, overlay);
   const length = typeChartTableLength(project);
   return {
     name: "type_chart",
     fileId: -1,
-    sourcePath: typeChartSourcePath(offset),
+    sourcePath: typeChartSourcePath(project, offset),
     fileCount: 1,
     rawFiles: [overlay.slice(offset, offset + length)],
     records: new Map(),
@@ -145,14 +151,20 @@ export function typeChartTableLength(project: ProjectState): number {
   return typeCount * typeCount;
 }
 
+export function typeChartOverlayId(project: Pick<ProjectState, "session">): number {
+  return project.session.baseRom === "BW" ? BW_TYPE_CHART_OVERLAY_ID : BW2_TYPE_CHART_OVERLAY_ID;
+}
+
 export function typeChartTableOffset(project: ProjectState, overlay?: Uint8Array): number {
-  if (typeChartTypeCount(project) <= TYPE_CHART_VANILLA_TYPE_COUNT) return TYPE_CHART_OFFSET;
-  if (overlay) {
-    const detected = detectFairyTypeChartOffset(overlay);
-    if (detected !== undefined) return detected;
-    throw new Error("Could not locate an 18x18 Fairy type chart in overlay 167.");
+  if (typeChartTypeCount(project) <= TYPE_CHART_VANILLA_TYPE_COUNT) {
+    return project.session.baseRom === "BW" ? BW_TYPE_CHART_OFFSET : TYPE_CHART_OFFSET;
   }
-  return TYPE_CHART_FAIRY_FROST_OFFSET;
+  if (overlay) {
+    const detected = detectFairyTypeChartOffset(overlay, project.session.baseRom);
+    if (detected !== undefined) return detected;
+    throw new Error(`Could not locate an 18x18 Fairy type chart in overlay ${typeChartOverlayId(project)}.`);
+  }
+  return project.session.baseRom === "BW" ? BW_TYPE_CHART_FAIRY_FROST_OFFSET : TYPE_CHART_FAIRY_FROST_OFFSET;
 }
 
 export function detectFairyTypeUsage(project: ProjectState): boolean {
@@ -166,10 +178,9 @@ export function detectFairyTypeUsage(project: ProjectState): boolean {
   return moves?.rawFiles.some((file) => file.length > 0 && file[0] === fairyTypeId) ?? false;
 }
 
-export function detectFairyTypeChartOffset(overlay: Uint8Array): number | undefined {
-  for (const offset of [TYPE_CHART_FAIRY_FROST_OFFSET, TYPE_CHART_FAIRY_REDUX_OFFSET]) {
-    if (isPlausibleTypeChartAt(overlay, offset, TYPE_CHART_FAIRY_TYPE_COUNT)) return offset;
-  }
+export function detectFairyTypeChartOffset(overlay: Uint8Array, baseRom: ProjectState["session"]["baseRom"] = "BW2"): number | undefined {
+  const knownOffset = detectKnownFairyTypeChartOffset(overlay, baseRom);
+  if (knownOffset !== undefined) return knownOffset;
   return findPlausibleFairyTypeChartOffset(overlay);
 }
 
@@ -187,8 +198,15 @@ function normalizeEffectiveness(value: number): TypeEffectivenessValue {
   return 4;
 }
 
-function typeChartSourcePath(offset: number): string {
-  return `overlay${TYPE_CHART_OVERLAY_ID}:type_chart@0x${offset.toString(16)}`;
+function typeChartSourcePath(project: ProjectState, offset: number): string {
+  return `overlay${typeChartOverlayId(project)}:type_chart@0x${offset.toString(16)}`;
+}
+
+function detectKnownFairyTypeChartOffset(overlay: Uint8Array, baseRom: ProjectState["session"]["baseRom"]): number | undefined {
+  const knownOffsets = baseRom === "BW"
+    ? [BW_TYPE_CHART_FAIRY_FROST_OFFSET]
+    : [TYPE_CHART_FAIRY_FROST_OFFSET, TYPE_CHART_FAIRY_REDUX_OFFSET];
+  return knownOffsets.find((offset) => isPlausibleTypeChartAt(overlay, offset, TYPE_CHART_FAIRY_TYPE_COUNT));
 }
 
 function isPlausibleTypeChartAt(overlay: Uint8Array, offset: number, typeCount: number): boolean {

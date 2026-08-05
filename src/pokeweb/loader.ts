@@ -37,6 +37,7 @@ import {
   createRomFsTypeChartStore,
   createTypeChartStore,
   detectFairyTypeUsage,
+  typeChartOverlayId,
 } from "./typeChartModel";
 import { parseTms } from "./tmModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, createTutorMoveStore } from "./tutorMoveModel";
@@ -306,7 +307,6 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
 
   if (project.session.baseRom === "BW2") {
     const overlay36 = project.overlays[36];
-    const overlay167 = project.overlays[167];
     if (includeGrottos && overlay36) {
       const grottoOffset = project.session.baseVersion === "B2" ? 0x00055218 : 0x00055218 - 12;
       project.narcs.grotto_odds = {
@@ -322,14 +322,16 @@ function extractOverlays(rom: NintendoDSRom, project: ProjectState, selectedNarc
     if (includeTutorMoves && overlay36) {
       project.narcs.tutor_moves = createTutorMoveStore(overlay36, project.session.baseVersion);
     }
-    if (includeMoves) {
-      const romFsTypeChart = tryCreateRomFsTypeChartStore(rom);
-      if (romFsTypeChart) {
-        project.session.fairy = true;
-        project.narcs.type_chart = romFsTypeChart;
-      } else if (overlay167) {
-        project.narcs.type_chart = createTypeChartStore(project, overlay167);
-      }
+  }
+
+  if (includeMoves) {
+    const romFsTypeChart = tryCreateRomFsTypeChartStore(rom);
+    const typeChartOverlay = project.overlays[typeChartOverlayId(project)];
+    if (romFsTypeChart) {
+      project.session.fairy = true;
+      project.narcs.type_chart = romFsTypeChart;
+    } else if (typeChartOverlay) {
+      project.narcs.type_chart = createTypeChartStore(project, typeChartOverlay);
     }
   }
 }
