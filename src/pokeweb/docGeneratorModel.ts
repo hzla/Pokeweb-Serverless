@@ -25,10 +25,10 @@ import { getPokemonCount, getPokemonRecord, getPokemonSummaryRecord, isPokemonPe
 import { decodeRecord, type DocGeneratorState, type ProjectState, type ReadableRecord } from "./projectStore";
 import { getTextBank } from "./textModel";
 import {
-  TYPE_CHART_OVERLAY_ID,
   TYPE_CHART_VANILLA_TYPE_COUNT,
   getTypeChart,
   getTypeChartTypes,
+  typeChartOverlayId,
   type TypeEffectivenessValue,
 } from "./typeChartModel";
 import { getAutofilledTrainerPokemonMoveIds, getTrainerCount, getTrainerRecord, resolveTrainerPokemonGender, type TrainerRecord, type TrainerPokemonSlot } from "./trainerModel";
@@ -580,7 +580,7 @@ function buildCalcPayload(project: ProjectState, title: string): Record<string, 
 }
 
 function buildCalcTypeChart(project: ProjectState): CalcTypeChart | undefined {
-  if (!project.narcs.type_chart && !project.overlays[TYPE_CHART_OVERLAY_ID]) return undefined;
+  if (!project.narcs.type_chart && !project.overlays[typeChartOverlayId(project)]) return undefined;
   const types = getTypeChartTypes(project);
   const bytes = typeChartBytesFromProject(project, types);
   if (isStandardCalcTypeChart(types, bytes)) return undefined;

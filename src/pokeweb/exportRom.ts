@@ -23,7 +23,7 @@ import { getDirtyStarterOverlayIds } from "./starterModel";
 import { getDirtyPatchOverlayIds } from "./romPatchModel";
 import { moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, tutorMoveTableOffset } from "./tutorMoveModel";
-import { isRomFsTypeChartStore, typeChartTableOffset } from "./typeChartModel";
+import { isRomFsTypeChartStore, typeChartOverlayId, typeChartTableOffset } from "./typeChartModel";
 import { repairNarcBytes } from "./romRepairModel";
 import { repairPokemonIconPaletteAssignmentPlacement } from "./pokemonSpriteModel";
 import { repairAppendedPokemonFormNames } from "./pokemonFormModel";
@@ -264,7 +264,7 @@ function patchOverlayFiles(project: ProjectState, rom: NintendoDSRom, fileReplac
   patchOverlayBackedStore(project, "grotto_odds", 36, overlayReplacements);
   patchOverlayBackedStore(project, "tutor_moves", BW2_TUTOR_MOVE_OVERLAY_ID, overlayReplacements);
   patchOverlayBackedStore(project, "move_effects_table", moveEffectHandlerOverlayId(project), overlayReplacements);
-  patchOverlayBackedStore(project, "type_chart", 167, overlayReplacements);
+  patchOverlayBackedStore(project, "type_chart", typeChartOverlayId(project), overlayReplacements);
   for (const overlayId of getDirtyStarterOverlayIds(project)) {
     const overlay = project.overlays[overlayId];
     if (overlay) overlayReplacements.set(overlayId, overlay);

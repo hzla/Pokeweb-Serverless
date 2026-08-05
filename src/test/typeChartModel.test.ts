@@ -4,6 +4,9 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import type { NarcStore } from "../pokeweb/projectStore";
 import {
   BLACK2UPGRADE_TYPE_CHART_ROMFS_PATH,
+  BW_TYPE_CHART_FAIRY_FROST_OFFSET,
+  BW_TYPE_CHART_OFFSET,
+  BW_TYPE_CHART_OVERLAY_ID,
   TYPE_CHART_FAIRY_FROST_OFFSET,
   TYPE_CHART_FAIRY_REDUX_OFFSET,
   TYPE_CHART_FAIRY_TYPE_COUNT,
@@ -14,11 +17,45 @@ import {
   detectFairyTypeUsage,
   getTypeChartTypes,
   getTypeChartValue,
+  typeChartOverlayId,
   typeChartTableOffset,
   updateTypeChartValue,
 } from "../pokeweb/typeChartModel";
 
 describe("typeChartModel", () => {
+  it("reads and updates the overlay-backed vanilla BW1 type chart", () => {
+    const project = makeProject({ baseRom: "BW" });
+    const overlay = project.overlays[BW_TYPE_CHART_OVERLAY_ID]!;
+    overlay[BW_TYPE_CHART_OFFSET + 9 * TYPE_CHART_TYPES.length + 11] = 8;
+
+    expect(typeChartOverlayId(project)).toBe(BW_TYPE_CHART_OVERLAY_ID);
+    expect(typeChartTableOffset(project, overlay)).toBe(BW_TYPE_CHART_OFFSET);
+    expect(getTypeChartValue(project, 9, 11)).toBe(8);
+
+    updateTypeChartValue(project, 9, 11, 2);
+
+    expect(project.narcs.type_chart?.sourcePath).toBe("overlay93:type_chart@0x3a37c");
+    expect(project.narcs.type_chart?.rawFiles[0][9 * TYPE_CHART_TYPES.length + 11]).toBe(2);
+    expect(project.narcs.type_chart?.dirty.has(0)).toBe(true);
+  });
+
+  it("detects and updates Frost's 18-type Black 1 chart", () => {
+    const project = makeProject({ baseRom: "BW", chartOffset: BW_TYPE_CHART_FAIRY_FROST_OFFSET });
+    const overlay = project.overlays[BW_TYPE_CHART_OVERLAY_ID]!;
+    overlay[BW_TYPE_CHART_FAIRY_FROST_OFFSET + 17 * TYPE_CHART_FAIRY_TYPE_COUNT + 15] = 0;
+
+    expect(project.session.fairy).toBe(false);
+    expect(getTypeChartValue(project, 17, 15)).toBe(0);
+    expect(project.session.fairy).toBe(true);
+    expect(getTypeChartTypes(project)).toContain("Fairy");
+    expect(typeChartTableOffset(project, overlay)).toBe(BW_TYPE_CHART_FAIRY_FROST_OFFSET);
+
+    updateTypeChartValue(project, 17, 15, 8);
+
+    expect(project.narcs.type_chart?.sourcePath).toBe("overlay93:type_chart@0x1f80");
+    expect(project.narcs.type_chart?.rawFiles[0][17 * TYPE_CHART_FAIRY_TYPE_COUNT + 15]).toBe(8);
+  });
+
   it("reads and updates the overlay-backed BW2 type chart", () => {
     const project = makeProject();
     project.overlays[167]![TYPE_CHART_OFFSET + 9 * TYPE_CHART_TYPES.length + 11] = 8;
@@ -86,10 +123,12 @@ describe("typeChartModel", () => {
   });
 });
 
-function makeProject(options: { fairyTypeSource?: "personal" | "moves"; chartOffset?: number } = {}): ProjectState {
+function makeProject(options: { baseRom?: "BW" | "BW2"; fairyTypeSource?: "personal" | "moves"; chartOffset?: number } = {}): ProjectState {
+  const baseRom = options.baseRom ?? "BW2";
   const typeCount = options.chartOffset === undefined ? TYPE_CHART_TYPES.length : TYPE_CHART_FAIRY_TYPE_COUNT;
-  const chartOffset = options.chartOffset ?? TYPE_CHART_OFFSET;
-  const overlay = new Uint8Array(Math.max(TYPE_CHART_OFFSET + TYPE_CHART_TYPES.length * TYPE_CHART_TYPES.length + 16, chartOffset + typeCount * typeCount + 16));
+  const defaultChartOffset = baseRom === "BW" ? BW_TYPE_CHART_OFFSET : TYPE_CHART_OFFSET;
+  const chartOffset = options.chartOffset ?? defaultChartOffset;
+  const overlay = new Uint8Array(Math.max(defaultChartOffset + TYPE_CHART_TYPES.length * TYPE_CHART_TYPES.length + 16, chartOffset + typeCount * typeCount + 16));
   overlay.fill(4, chartOffset, chartOffset + typeCount * typeCount);
   overlay[chartOffset + 5] = 2;
   overlay[chartOffset + 7] = 0;
@@ -101,15 +140,15 @@ function makeProject(options: { fairyTypeSource?: "personal" | "moves"; chartOff
   return {
     session: {
       romName: "test",
-      baseVersion: "W2",
-      baseRom: "BW2",
+      baseVersion: baseRom === "BW" ? "B" : "W2",
+      baseRom,
       fairy: false,
       fileIds: {},
       blacklist: [],
     },
     romInfo: { title: "test", idCode: "TEST", fileName: "test.nds", size: overlay.length },
     arm9: new Uint8Array(),
-    overlays: { 167: overlay },
+    overlays: { [baseRom === "BW" ? BW_TYPE_CHART_OVERLAY_ID : 167]: overlay },
     narcs: options.fairyTypeSource ? { personal, moves } : {},
     texts: { banks: {} },
     formats: {},
