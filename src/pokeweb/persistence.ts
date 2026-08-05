@@ -6,7 +6,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, tutorMoveTableOffset } from "./tutorMoveModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
-import { isRomFsTypeChartStore, typeChartTableLength, typeChartTableOffset } from "./typeChartModel";
+import { isRomFsTypeChartStore, typeChartOverlayId, typeChartTableLength, typeChartTableOffset } from "./typeChartModel";
 
 const DB_NAME = "pokeweb-serverless";
 const DB_VERSION = 2;
@@ -183,10 +183,11 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
 
   const overlayIds: number[] = [];
   const moveEffectOverlayId = moveEffectHandlerOverlayId(project);
+  const chartOverlayId = typeChartOverlayId(project);
   if (project.narcs.grotto_odds || project.overlays[36]?.length === 0) overlayIds.push(36);
   if (project.narcs.tutor_moves || project.overlays[BW2_TUTOR_MOVE_OVERLAY_ID]?.length === 0) overlayIds.push(BW2_TUTOR_MOVE_OVERLAY_ID);
   if (project.narcs.move_effects_table || project.overlays[moveEffectOverlayId]?.length === 0) overlayIds.push(moveEffectOverlayId);
-  if ((project.narcs.type_chart && !isRomFsTypeChartStore(project.narcs.type_chart)) || project.overlays[167]?.length === 0) overlayIds.push(167);
+  if ((project.narcs.type_chart && !isRomFsTypeChartStore(project.narcs.type_chart)) || project.overlays[chartOverlayId]?.length === 0) overlayIds.push(chartOverlayId);
   for (const overlayId of project.patches?.dirtyOverlayIds ?? []) {
     if (!project.overlays[overlayId] || project.overlays[overlayId]?.length === 0) overlayIds.push(overlayId);
   }
@@ -198,7 +199,7 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   hydrateOverlayBackedStore(project, "grotto_odds", 36);
   hydrateOverlayBackedStore(project, "tutor_moves", BW2_TUTOR_MOVE_OVERLAY_ID);
   hydrateOverlayBackedStore(project, "move_effects_table", moveEffectOverlayId);
-  hydrateOverlayBackedStore(project, "type_chart", 167);
+  hydrateOverlayBackedStore(project, "type_chart", chartOverlayId);
 }
 
 export function hydrateNarcRawFiles(

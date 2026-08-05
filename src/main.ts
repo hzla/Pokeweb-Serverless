@@ -37,6 +37,7 @@ import { moveEffectHandlerOverlayId } from "./pokeweb/moveEffectHandlerModel";
 import { prepareBw2FormEvolutionCodeInjection } from "./pokeweb/pmcModel";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
+import { typeChartOverlayId } from "./pokeweb/typeChartModel";
 import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
 import { buildMoveTestBattleDownloads, buildTestBattleDownloads } from "./pokeweb/testBattle";
 import { renderDebugNarcs } from "./ui/debugNarcs";
@@ -1765,7 +1766,9 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     const status = getPwanRuntimeStatus(project);
     return Boolean(project.narcs.personal) && status.supported && status.installed;
   }
-  if (nextRoute === "types") return project.session.baseRom === "BW2" && Boolean(project.narcs.type_chart || project.overlays[167]);
+  if (nextRoute === "types") {
+    return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.type_chart || project.overlays[typeChartOverlayId(project)]);
+  }
   if (nextRoute === "tutorMoves") return project.session.baseRom === "BW2" && Boolean(project.narcs.tutor_moves || project.overlays[36]);
   if (nextRoute === "moveEffectHandlers") {
     return (
@@ -1830,7 +1833,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       : nextRoute === "animatedSprites"
         ? ` title="${project?.session.baseVersion === "B2" || project?.session.baseVersion === "W2" ? "Load Personal Data and install PWAN GIF Support from Code Injection" : "Animated Sprites supports stock US Black 2 and White 2"}"`
         : nextRoute === "types"
-          ? ` title="${project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently BW2-only"}"`
+          ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Load the Moves NARC to extract the type chart overlay" : "Type chart editing is currently Gen V-only"}"`
         : nextRoute === "tutorMoves"
           ? ` title="${project?.session.baseRom === "BW2" ? "Load Tutor Moves, Moves, or Grottos to extract overlay 36" : "Tutor move editing is currently BW2-only"}"`
         : nextRoute === "moveEffectHandlers"
