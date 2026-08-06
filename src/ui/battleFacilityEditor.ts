@@ -4,6 +4,7 @@ import {
   FACILITY_CHOICE_LABELS,
   FACILITY_SET_LABELS,
   facilityAreaPoolMatchesSearch,
+  facilityChoiceUsesTrainerClass,
   evStatLabels,
   facilityChoiceMatchesSearch,
   facilityRegulationMatchesSearch,
@@ -80,6 +81,7 @@ export function renderBattleFacilityEditor(project: ProjectState, root: HTMLElem
         ${group === "subwayPwt" ? `<button class="btn -default facility-tab ${activeMode === "regulations" ? "-active" : ""}" data-facility-mode="regulations" type="button" ${hasRegulations ? "" : "disabled"}>Regulations</button>` : ""}
         ${group === "wbt" ? `<button class="btn -default facility-tab ${activeMode === "bosses" ? "-active" : ""}" data-facility-mode="bosses" type="button" ${choiceNarcs.length ? "" : "disabled"}>Boss Teams</button>` : ""}
       </div>
+      ${renderFacilityRelationshipGuide(group)}
       ${renderArchiveSelect(project, setNarcs, choiceNarcs)}
       <input class="filter-input" id="facility-search-text" value="${escapeHtml(searchText)}"/>
       <button class="btn -default" id="facility-search-btn" type="button">Search</button>
@@ -88,6 +90,26 @@ export function renderBattleFacilityEditor(project: ProjectState, root: HTMLElem
   `;
 
   attachFacilityEvents(project, root, onDirty, options);
+}
+
+function renderFacilityRelationshipGuide(group: BattleFacilityGroup): string {
+  if (group === "subwayPwt") {
+    return `
+      <aside class="facility-relationship-guide" aria-label="How Sets, Choices, and Regulations connect">
+        <div class="facility-relationship-title">How the tabs connect</div>
+        <p><strong>Choices → Sets:</strong> trainer choices reference Set IDs; Sets define each Pokemon build. PWT maps hold tournament/trainer assignments.</p>
+        <p><strong>Regulations are separate:</strong> they control battle rules such as level, format, and party size, but do not select opponents or teams.</p>
+        <p><strong>Kanto/Johto leaders:</strong> start with the PWT Map records in Choices, inspect the relevant 1v1/6v6 choice, then follow its Set IDs into Sets.</p>
+      </aside>
+    `;
+  }
+  return `
+    <aside class="facility-relationship-guide" aria-label="How Sets, Trainers, and Area Pools connect">
+      <div class="facility-relationship-title">How the tabs connect</div>
+      <p><strong>Area Pools → Trainers → Sets:</strong> areas select trainer records, and each trainer references the Set IDs used to build its Pokemon.</p>
+      <p><strong>Boss Teams</strong> is a filtered view of the same trainer records.</p>
+    </aside>
+  `;
 }
 
 function renderArchiveSelect(project: ProjectState, setNarcs: FacilitySetNarcName[], choiceNarcs: FacilityChoiceNarcName[]): string {
@@ -224,7 +246,7 @@ function renderChoicePanel(project: ProjectState, narc: FacilityChoiceNarcName, 
   for (let id = 0; id < count; id += 1) {
     const choice = getFacilityChoiceRecord(project, narc, id);
     if (bossesOnly && !isBossFacilityChoice(choice)) continue;
-    if (facilityChoiceMatchesSearch(choice, searchText)) rows.push(renderChoiceCard(choice));
+    if (facilityChoiceMatchesSearch(choice, searchText)) rows.push(renderChoiceCard(project, choice));
   }
   return `
     <div class="pokemon-list spreadsheet facility-list" id="facility-choices">
@@ -233,7 +255,7 @@ function renderChoicePanel(project: ProjectState, narc: FacilityChoiceNarcName, 
           <div class="trainer-id">ID</div>
           <div class="facility-choice-icon-header"></div>
           <div class="trainer-name">Record</div>
-          <div class="trainer-class">Trainer Class</div>
+          <div class="trainer-class" ${facilityChoiceUsesTrainerClass(narc) ? "" : `title="Raw PWT record metadata; this is not a trainer class."`}>${facilityChoiceUsesTrainerClass(narc) ? "Trainer Class" : "Header"}</div>
           <div class="trainer-btype">Set Count</div>
           <div class="trainer-poks">Sets</div>
           <div class="trainer-moves">Size</div>
@@ -292,7 +314,7 @@ function renderSetCard(set: BattleFacilitySet): string {
   `;
 }
 
-function renderChoiceCard(choice: BattleFacilityChoiceRecord): string {
+function renderChoiceCard(project: ProjectState, choice: BattleFacilityChoiceRecord): string {
   const invalidClass = choice.invalidSetIds.length ? " -invalid" : "";
   return `
     <div class="expanded-field filterable trainer-card facility-card" data-facility-kind="choice" data-narc="${choice.narc}" data-index="${choice.id}">
@@ -302,7 +324,7 @@ function renderChoiceCard(choice: BattleFacilityChoiceRecord): string {
         <div class="trainer-name">${escapeHtml(choice.label)}</div>
         ${trainerTypeEdit(choice)}
         ${editable("choice", "count", choice.count, "trainer-btype", { type: "int-65535" })}
-        <div class="trainer-poks facility-setids${invalidClass}">${renderChoiceSetIdPreview(choice)}</div>
+        <div class="trainer-poks facility-setids${invalidClass}">${renderChoiceSetSpritePreview(project, choice)}</div>
         <div class="trainer-moves facility-readonly" title="Record byte length. For source-backed Subway records this is 4 bytes plus 2 bytes for each set ID.">${choice.byteLength}</div>
       </div>
       <div class="expanded-card-content expanded-trainer">
@@ -407,14 +429,38 @@ function renderChoiceExtras(choice: BattleFacilityChoiceRecord): string {
   `;
 }
 
-function renderChoiceSetIdPreview(choice: BattleFacilityChoiceRecord): string {
-  const previewLimit = 12;
-  const preview = escapeHtml(choice.setIds.slice(0, previewLimit).join(", "));
+function renderChoiceSetSpritePreview(project: ProjectState, choice: BattleFacilityChoiceRecord): string {
+  const setLibrary = choice.setLibrary;
+  if (!setLibrary) return escapeHtml(choice.setIds.join(", "));
+  const missingSprite = publicAsset("images/pokesprite/-.png");
+  const previewLimit = 6;
+  const sprites = choice.setIds
+    .slice(0, previewLimit)
+    .map((setId) => {
+      try {
+        const set = getFacilitySetRecord(project, setLibrary, setId);
+        return `
+          <button class="facility-set-jump facility-set-sprite" data-set-narc="${setLibrary}" data-set-id="${setId}" type="button" title="Open set ${setId}: ${escapeHtml(set.speciesName)}" aria-label="Open set ${setId}: ${escapeHtml(set.speciesName)}">
+            <img src="${publicAsset(`images/pokesprite/${set.spriteSlug}.png`)}" alt="" loading="lazy" onerror="this.src='${missingSprite}'">
+          </button>
+        `;
+      } catch {
+        return `
+          <span class="facility-set-sprite -missing" title="Set ${setId} is missing from ${setLibrary}" role="img" aria-label="Missing set ${setId}">
+            <img src="${missingSprite}" alt="">
+          </span>
+        `;
+      }
+    })
+    .join("");
   const hiddenCount = Math.max(0, choice.setIds.length - previewLimit);
-  return `${preview}${hiddenCount ? `<span class="facility-setid-more" title="${hiddenCount} additional set IDs are visible when expanded">+${hiddenCount} more</span>` : ""}`;
+  return `${sprites}${hiddenCount ? `<span class="facility-set-sprite-more" title="Expand this choice to view all ${choice.setIds.length} sets">+${hiddenCount} more</span>` : ""}`;
 }
 
 function trainerTypeEdit(choice: BattleFacilityChoiceRecord): string {
+  if (!facilityChoiceUsesTrainerClass(choice.narc)) {
+    return editable("choice", "trainerType", choice.trainerType, "trainer-class facility-trainer-type-select", { type: "int-65535" });
+  }
   return editable("choice", "trainerType", `${choice.trainerTypeName} (${choice.trainerType})`, "trainer-class facility-trainer-type-select", { autofill: "trainer_types" });
 }
 

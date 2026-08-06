@@ -14,6 +14,8 @@ import {
   installPmcBytes,
   listCodeInjectionDlls,
   PMC_OVERLAY_ID_PATH,
+  PMC_OVERLAY_RESERVED_SIZE,
+  PMC_OVERLAY_SIZE,
   PMC_PATCHES_KEEP_PATH,
   PMC_SYMBOL_PATH,
   prepareBw2FormEvolutionCodeInjection,
@@ -98,13 +100,14 @@ describe("PMC installer", () => {
     const overlayFileId = rom.fileId("overlay/overlay_0344.bin");
     const fatOffset = readU32(exported, 0x48);
     expect(rom.arm9OverlayTable.length).toBe(345 * 32);
-    expect(readU16(rom.fntData, 4)).toBe(345);
-    expect(rom.filenames.files).toEqual([]);
+    expect(readU16(rom.fntData, 4)).toBe(344);
+    expect(rom.filenames.files).toEqual(["base.bin"]);
     expect(duplicateFntFileIds(rom.fntData)).toEqual([]);
     expect(readU32(rom.arm9OverlayTable, overlayEntry)).toBe(344);
-    expect(readU32(rom.arm9OverlayTable, overlayEntry + 8)).toBe(0x8000);
+    expect(readU32(rom.arm9OverlayTable, overlayEntry + 8)).toBe(PMC_OVERLAY_SIZE);
+    expect(readU32(rom.arm9OverlayTable, overlayEntry + 12)).toBe(0x5000);
     expect(readU32(rom.arm9OverlayTable, overlayEntry + 24)).toBe(overlayFileId);
-    expect(rom.filenames.idOf("base.bin")).toBeUndefined();
+    expect(rom.filenames.idOf("base.bin")).toBe(344);
     expect([...rom.files[344]]).toEqual([344 & 0xff]);
     expect(overlayFileId).toBeGreaterThan(344);
     expect(readU32(exported, fatOffset + overlayFileId * 8)).toBeLessThan(readU32(exported, fatOffset + 344 * 8));
@@ -112,6 +115,53 @@ describe("PMC installer", () => {
     expect(new TextDecoder().decode(rom.getFileByName(PMC_PATCHES_KEEP_PATH))).toBe("pokeweb");
     expect(readAscii(rom.getFileByName("overlay/overlay_0344.bin"), 0x2ff0, 4)).toBe("OVL0");
     expect(readU32(project.arm9, 0x7b41c)).toBe(result.overlayBaseAddress + 0x8000);
+  });
+
+  it("repairs a legacy short-read PMC overlay row on every later export", async () => {
+    const romBytes = makeBw2LikeRom();
+    const installedProject = makeProject(romBytes, "W2");
+    installPmcBytes(installedProject, pmcW2, romBytes);
+    const installedBytes = await exportModifiedRom(installedProject);
+    const installedRom = new NintendoDSRom(installedBytes);
+    const overlayId = 344;
+    const overlayEntry = overlayId * 32;
+
+    const legacyTable = installedRom.arm9OverlayTable.slice();
+    writeU32(legacyTable, overlayEntry + 8, PMC_OVERLAY_RESERVED_SIZE);
+    writeU32(legacyTable, overlayEntry + 12, 0);
+    const legacyBytes = installedRom.save({ arm9OverlayTable: legacyTable });
+
+    // Simulate an old serialized project that did not retain PMC metadata.
+    const reopenedProject = makeProject(legacyBytes, "W2");
+    reopenedProject.codeInjection = undefined;
+    const repairedRom = new NintendoDSRom(await exportModifiedRom(reopenedProject));
+
+    expect(readU32(repairedRom.arm9OverlayTable, overlayEntry + 8)).toBe(PMC_OVERLAY_SIZE);
+    expect(readU32(repairedRom.arm9OverlayTable, overlayEntry + 12)).toBe(0x5000);
+    expect(repairedRom.fileId("base.bin")).toBe(344);
+  });
+
+  it("restores retail root FNT names erased by legacy PMC exports", async () => {
+    const retailNames = ["skb.narc", "soundstatus.narc", "swan_sound_data.sdat"];
+    const romBytes = makeBw2LikeRom(347, new Folder({ files: retailNames, firstId: 344 }));
+    const installedProject = makeProject(romBytes, "W2");
+    installPmcBytes(installedProject, pmcW2, romBytes);
+    const installedRom = new NintendoDSRom(await exportModifiedRom(installedProject));
+
+    const legacyBytes = installedRom.save({
+      arm9OverlayTable: installedRom.arm9OverlayTable,
+      alignFntFirstFileToArm9OverlayCount: true,
+    });
+    const legacyRom = new NintendoDSRom(legacyBytes);
+    expect(legacyRom.filenames.files).toEqual([]);
+    expect(legacyRom.filenames.firstId).toBe(345);
+
+    const reopenedProject = makeProject(legacyBytes, "W2");
+    reopenedProject.codeInjection = undefined;
+    const repairedRom = new NintendoDSRom(await exportModifiedRom(reopenedProject));
+
+    expect(repairedRom.filenames.files).toEqual(retailNames);
+    expect(retailNames.map((name) => repairedRom.fileId(name))).toEqual([344, 345, 346]);
   });
 
   it("places a new PMC overlay after ARM9 data reserved by an earlier patch", () => {
