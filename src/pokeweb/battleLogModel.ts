@@ -17,18 +17,26 @@ import type { ProjectState } from "./projectStore";
 
 export const BATTLE_LOG_DLL_FILENAME = "White2UpgradeBattleLog.dll";
 export const BATTLE_LOG_DLL_PATH = `patches/${BATTLE_LOG_DLL_FILENAME}`;
+export const BATTLE_LOG_COUNTER_DLL_FILENAME = "White2UpgradeBattleCounters.dll";
+export const BATTLE_LOG_COUNTER_DLL_PATH = `patches/${BATTLE_LOG_COUNTER_DLL_FILENAME}`;
 export const BATTLE_LOG_SUMMARY_DLL_FILENAME = "White2UpgradeBattleLogSummary.dll";
 export const BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${BATTLE_LOG_SUMMARY_DLL_FILENAME}`;
 export const BLACK2_BATTLE_LOG_DLL_FILENAME = "Black2UpgradeBattleLog.dll";
 export const BLACK2_BATTLE_LOG_DLL_PATH = `patches/${BLACK2_BATTLE_LOG_DLL_FILENAME}`;
+export const BLACK2_BATTLE_LOG_COUNTER_DLL_FILENAME = "Black2UpgradeBattleCounters.dll";
+export const BLACK2_BATTLE_LOG_COUNTER_DLL_PATH = `patches/${BLACK2_BATTLE_LOG_COUNTER_DLL_FILENAME}`;
 export const BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME = "Black2UpgradeBattleLogSummary.dll";
 export const BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME}`;
 export const BLACK1_BATTLE_LOG_DLL_FILENAME = "Black1BattleLog.dll";
 export const BLACK1_BATTLE_LOG_DLL_PATH = `patches/${BLACK1_BATTLE_LOG_DLL_FILENAME}`;
+export const BLACK1_BATTLE_LOG_COUNTER_DLL_FILENAME = "Black1BattleCounters.dll";
+export const BLACK1_BATTLE_LOG_COUNTER_DLL_PATH = `patches/${BLACK1_BATTLE_LOG_COUNTER_DLL_FILENAME}`;
 export const BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME = "Black1BattleLogSummary.dll";
 export const BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME}`;
 export const WHITE1_BATTLE_LOG_DLL_FILENAME = "White1BattleLog.dll";
 export const WHITE1_BATTLE_LOG_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_DLL_FILENAME}`;
+export const WHITE1_BATTLE_LOG_COUNTER_DLL_FILENAME = "White1BattleCounters.dll";
+export const WHITE1_BATTLE_LOG_COUNTER_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_COUNTER_DLL_FILENAME}`;
 export const WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME = "White1BattleLogSummary.dll";
 export const WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME}`;
 export const BATTLE_LOG_ANCESTRY_PATH = "battlelog/ancestry.narc";
@@ -58,6 +66,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
   dllFilename: string;
   dllPath: string;
   dllUrl: URL;
+  counterDllFilename: string;
+  counterDllPath: string;
+  counterDllUrl: URL;
   summaryDllFilename: string;
   summaryDllPath: string;
   summaryDllUrl: URL;
@@ -72,6 +83,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     dllFilename: BATTLE_LOG_DLL_FILENAME,
     dllPath: BATTLE_LOG_DLL_PATH,
     dllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLog.dll", import.meta.url),
+    counterDllFilename: BATTLE_LOG_COUNTER_DLL_FILENAME,
+    counterDllPath: BATTLE_LOG_COUNTER_DLL_PATH,
+    counterDllUrl: new URL("../assets/codeinjection/White2UpgradeBattleCounters.dll", import.meta.url),
     summaryDllFilename: BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url),
@@ -83,6 +97,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
       { label: "Battle result finalization", overlayId: 167, address: 0x0219ca88, expectedHex: "024a8358072b00d18150704744040000" },
       { label: "Faint detection", overlayId: 167, address: 0x021a8a64, expectedHex: "f8b582b00f1c041c381c12f007f9061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 167, address: 0x021ae36c, expectedHex: "f0b585b0041c039260681f1c02910a9dedf720fd04903869" },
+      { label: "Individual PK5 counter RPC", overlayId: 167, address: 0x021bb3a8, expectedHex: "08b50d21fff722ff002801d1012008bd002008bd38b5051c" },
       { label: "Summary frag value", overlayId: 207, address: 0x021b6f32, expectedHex: "0721002265f63dff0004020c0220009001200190381c0021" },
       { label: "Summary frag formatting", overlayId: 207, address: 0x021b6f48, expectedHex: "002105236df6fcfa4120009001200190112080010290e169" },
     ],
@@ -93,6 +108,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     dllFilename: BLACK2_BATTLE_LOG_DLL_FILENAME,
     dllPath: BLACK2_BATTLE_LOG_DLL_PATH,
     dllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLog.dll", import.meta.url),
+    counterDllFilename: BLACK2_BATTLE_LOG_COUNTER_DLL_FILENAME,
+    counterDllPath: BLACK2_BATTLE_LOG_COUNTER_DLL_PATH,
+    counterDllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleCounters.dll", import.meta.url),
     summaryDllFilename: BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url),
@@ -104,6 +122,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
       { label: "Battle result finalization", overlayId: 167, address: 0x0219ca48, expectedHex: "024a8358072b00d18150704744040000" },
       { label: "Faint detection", overlayId: 167, address: 0x021a8a24, expectedHex: "f8b582b00f1c041c381c12f007f9061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 167, address: 0x021ae32c, expectedHex: "f0b585b0041c039260681f1c02910a9dedf720fd04903869" },
+      { label: "Individual PK5 counter RPC", overlayId: 167, address: 0x021bb368, expectedHex: "08b50d21fff722ff002801d1012008bd002008bd38b5051c" },
       { label: "Summary frag value", overlayId: 207, address: 0x021b6ef2, expectedHex: "0721002265f647ff0004020c0220009001200190381c0021" },
       { label: "Summary frag formatting", overlayId: 207, address: 0x021b6f08, expectedHex: "002105236df606fb4120009001200190112080010290e169" },
     ],
@@ -114,6 +133,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     dllFilename: WHITE1_BATTLE_LOG_DLL_FILENAME,
     dllPath: WHITE1_BATTLE_LOG_DLL_PATH,
     dllUrl: new URL("../assets/codeinjection/White1BattleLog.dll", import.meta.url),
+    counterDllFilename: WHITE1_BATTLE_LOG_COUNTER_DLL_FILENAME,
+    counterDllPath: WHITE1_BATTLE_LOG_COUNTER_DLL_PATH,
+    counterDllUrl: new URL("../assets/codeinjection/White1BattleCounters.dll", import.meta.url),
     summaryDllFilename: WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url),
@@ -125,6 +147,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
       { label: "Battle result finalization", overlayId: 93, address: 0x021b918c, expectedHex: "024a8358072b00d18150704744040000" },
       { label: "Faint detection", overlayId: 93, address: 0x021c4f84, expectedHex: "f8b582b00f1c041c381c10f067fa061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 93, address: 0x021ca814, expectedHex: "f0b585b0041c039260681f1c02910a9dedf7c0fe04903869" },
+      { label: "Individual PK5 counter RPC", overlayId: 93, address: 0x021d5b88, expectedHex: "08b50d21fff722ff002801d1012008bd002008bd38b5051c" },
       { label: "Summary frag value", overlayId: 131, address: 0x021d80ea, expectedHex: "072100223ff6d9fe0004020c0220009001200190" },
       { label: "Summary frag formatting", overlayId: 131, address: 0x021d8100, expectedHex: "0021052346f65cff412000900120019011208001" },
     ],
@@ -135,6 +158,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     dllFilename: BLACK1_BATTLE_LOG_DLL_FILENAME,
     dllPath: BLACK1_BATTLE_LOG_DLL_PATH,
     dllUrl: new URL("../assets/codeinjection/Black1BattleLog.dll", import.meta.url),
+    counterDllFilename: BLACK1_BATTLE_LOG_COUNTER_DLL_FILENAME,
+    counterDllPath: BLACK1_BATTLE_LOG_COUNTER_DLL_PATH,
+    counterDllUrl: new URL("../assets/codeinjection/Black1BattleCounters.dll", import.meta.url),
     summaryDllFilename: BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url),
@@ -146,6 +172,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
       { label: "Battle result finalization", overlayId: 93, address: 0x021b916c, expectedHex: "024a8358072b00d18150704744040000" },
       { label: "Faint detection", overlayId: 93, address: 0x021c4f64, expectedHex: "f8b582b00f1c041c381c10f067fa061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 93, address: 0x021ca7f4, expectedHex: "f0b585b0041c039260681f1c02910a9dedf7c0fe" },
+      { label: "Individual PK5 counter RPC", overlayId: 93, address: 0x021d5b68, expectedHex: "08b50d21fff722ff002801d1012008bd002008bd38b5051c" },
       { label: "Summary frag value", overlayId: 131, address: 0x021d80ca, expectedHex: "072100223ff6dbfe0004020c0220009001200190" },
       { label: "Summary frag formatting", overlayId: 131, address: 0x021d80e0, expectedHex: "0021052346f65eff412000900120019011208001" },
     ],
@@ -181,6 +208,7 @@ export type BattleLogInstallStatus = BattleLogCompatibilityReport & {
   installed: boolean;
   pmcInstalled: boolean;
   dllInstalled: boolean;
+  counterDllInstalled: boolean;
   summaryDllInstalled: boolean;
   ancestryInstalled: boolean;
   saveGuardInstalled: boolean;
@@ -188,6 +216,7 @@ export type BattleLogInstallStatus = BattleLogCompatibilityReport & {
 
 export type BattleLogInstallResult = {
   dllPath: string;
+  counterDllPath: string;
   summaryDllPath: string;
   ancestryPath: string;
   ancestryBytes: number;
@@ -198,6 +227,7 @@ export function canUninstallBattleLog(project: ProjectState): boolean {
   const layout = battleLogLayout(project.session.baseVersion);
   return Boolean(layout
     && canRemoveStagedCodeInjectionDll(project, layout.dllPath)
+    && canRemoveStagedCodeInjectionDll(project, layout.counterDllPath)
     && canRemoveStagedCodeInjectionDll(project, layout.summaryDllPath));
 }
 
@@ -206,15 +236,17 @@ export function getBattleLogInstallStatus(project: ProjectState): BattleLogInsta
   const modules = listCodeInjectionDlls(project);
   const layout = battleLogLayout(project.session.baseVersion);
   const dllInstalled = Boolean(layout && modules.some((module) => module.path.toLowerCase() === layout.dllPath.toLowerCase()));
+  const counterDllInstalled = Boolean(layout && modules.some((module) => module.path.toLowerCase() === layout.counterDllPath.toLowerCase()));
   const summaryDllInstalled = Boolean(layout && modules.some((module) => module.path.toLowerCase() === layout.summaryDllPath.toLowerCase()));
   const ancestryInstalled = project.codeInjection?.battleLog?.ancestryPath === BATTLE_LOG_ANCESTRY_PATH
     || hasRomPath(project, BATTLE_LOG_ANCESTRY_PATH);
   const saveGuardInstalled = Boolean(layout && isWifiListSyncDisabled(project, project.session.baseVersion as SupportedBattleLogVersion));
   return {
     ...compatibility,
-    installed: dllInstalled && summaryDllInstalled && ancestryInstalled && saveGuardInstalled,
+    installed: dllInstalled && counterDllInstalled && summaryDllInstalled && ancestryInstalled && saveGuardInstalled,
     pmcInstalled: getPmcInstallStatus(project).installed,
     dllInstalled,
+    counterDllInstalled,
     summaryDllInstalled,
     ancestryInstalled,
     saveGuardInstalled,
@@ -336,13 +368,16 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   // leave that broken overlay in the persistent project.
   if (project.session.baseRom === "BW" || !pmcStatus.installed) await installBundledPmc(project);
   disableWifiListSync(project, rom, project.session.baseVersion as SupportedBattleLogVersion);
-  const [battleResponse, summaryResponse] = await Promise.all([
+  const [battleResponse, counterResponse, summaryResponse] = await Promise.all([
     fetch(layout.dllUrl),
+    fetch(layout.counterDllUrl),
     fetch(layout.summaryDllUrl),
   ]);
   if (!battleResponse.ok) throw new Error(`Could not load the bundled battle-log battle DLL (${battleResponse.status})`);
+  if (!counterResponse.ok) throw new Error(`Could not load the bundled battle-log counter DLL (${counterResponse.status})`);
   if (!summaryResponse.ok) throw new Error(`Could not load the bundled battle-log summary DLL (${summaryResponse.status})`);
   stageCodeInjectionDll(project, layout.dllFilename, new Uint8Array(await battleResponse.arrayBuffer()), "patches");
+  stageCodeInjectionDll(project, layout.counterDllFilename, new Uint8Array(await counterResponse.arrayBuffer()), "patches");
   stageCodeInjectionDll(project, layout.summaryDllFilename, new Uint8Array(await summaryResponse.arrayBuffer()), "patches");
 
   const evolutionMembers = currentEvolutionMembers(project, rom);
@@ -360,12 +395,13 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   recordGenericChange(
     project,
     "code_injection",
-    `Split battle-log runtimes staged with ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
+    `Split battle-log and individual-counter runtimes staged with ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
     "Battle Log",
     { key: "code-injection:battle-log" },
   );
   return {
     dllPath: layout.dllPath,
+    counterDllPath: layout.counterDllPath,
     summaryDllPath: layout.summaryDllPath,
     ancestryPath: BATTLE_LOG_ANCESTRY_PATH,
     ancestryBytes: ancestryBytes.length,
@@ -386,6 +422,7 @@ export function uninstallBattleLog(project: ProjectState): void {
   project.arm9 = restoreBattleLogWifiListSync(project.arm9, GEN5_ARM9_RAM_ADDRESS, version);
   project.arm9Dirty = true;
   removeStagedCodeInjectionDll(project, layout.dllPath);
+  removeStagedCodeInjectionDll(project, layout.counterDllPath);
   removeStagedCodeInjectionDll(project, layout.summaryDllPath);
 
   const ancestry = project.codeInjection?.battleLog;
