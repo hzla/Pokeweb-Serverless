@@ -174,6 +174,9 @@ const EVOLUTION_PARAM_KINDS: Partial<Record<number, EvolutionParamKind>> = {
   26: "none",
   27: "none",
   28: "none",
+  29: "integer",
+  30: "integer",
+  31: "integer",
 };
 
 export function getPokemonCount(project: ProjectState): number {

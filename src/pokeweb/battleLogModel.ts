@@ -226,6 +226,7 @@ export type BattleLogInstallResult = {
 export function canUninstallBattleLog(project: ProjectState): boolean {
   const layout = battleLogLayout(project.session.baseVersion);
   return Boolean(layout
+    && !hasMenuEvolutionCompanion(project)
     && canRemoveStagedCodeInjectionDll(project, layout.dllPath)
     && canRemoveStagedCodeInjectionDll(project, layout.counterDllPath)
     && canRemoveStagedCodeInjectionDll(project, layout.summaryDllPath));
@@ -414,6 +415,9 @@ export function uninstallBattleLog(project: ProjectState): void {
   if ((project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") || !layout) {
     throw new Error("The battle log supports US Black, White, Black 2, White 2, and the corresponding Upgrade ROMs.");
   }
+  if (hasMenuEvolutionCompanion(project)) {
+    throw new Error("Uninstall Menu Evolution before uninstalling its required battle-counter DLL.");
+  }
   if (!canUninstallBattleLog(project)) {
     throw new Error("Battle-log DLLs already built into the loaded ROM cannot be removed by this editor yet.");
   }
@@ -437,6 +441,14 @@ export function uninstallBattleLog(project: ProjectState): void {
     "Battle Log",
     { key: "code-injection:battle-log" },
   );
+}
+
+function hasMenuEvolutionCompanion(project: ProjectState): boolean {
+  if (project.codeInjection?.menuEvolution) return true;
+  return listCodeInjectionDlls(project).some((module) => {
+    const path = module.path.toLowerCase();
+    return path === "patches/menuevolutionb2.dll" || path === "patches/menuevolutionw2.dll";
+  });
 }
 
 function disableWifiListSync(project: ProjectState, rom: NintendoDSRom, version: SupportedBattleLogVersion): void {

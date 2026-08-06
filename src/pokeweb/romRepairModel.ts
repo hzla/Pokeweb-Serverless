@@ -7,6 +7,7 @@ import {
 } from "../nds/narc";
 import { NintendoDSRom, crc16 } from "../nds/rom";
 import { loadFnt, type Folder } from "../nds/fnt";
+import { repairLegacyPmcRomStructure } from "./pmcModel";
 
 export type NarcRepairReason =
   | "early_fimg_magic"
@@ -27,7 +28,11 @@ export type NarcRepairResult = {
   reasons: NarcRepairReason[];
 };
 
-export type RomHeaderRepairReason = "false_twl_extension" | "frost_overlay_fnt_mismatch";
+export type RomHeaderRepairReason =
+  | "false_twl_extension"
+  | "frost_overlay_fnt_mismatch"
+  | "legacy_pmc_overlay_layout"
+  | "legacy_pmc_root_fnt";
 
 export type RomHeaderRepairEntry = {
   beforeSize: number;
@@ -69,10 +74,16 @@ export function repairRomNarcs(data: Uint8Array, onProgress?: (message: string) 
   const rawHeaderRepair = repairRomHeader(data);
   const baseBytes = rawHeaderRepair.changed ? rawHeaderRepair.bytes : data;
   if (rawHeaderRepair.changed) onProgress?.("Repaired ROM header");
-  const frostOverlayFntMismatch = hasFrostOverlayFntMismatch(baseBytes);
-  if (frostOverlayFntMismatch) onProgress?.("Repaired Frost overlay/FNT file base");
 
   const rom = new NintendoDSRom(baseBytes);
+  const legacyPmcRepair = repairLegacyPmcRomStructure(rom);
+  // PMC deliberately appends an overlay whose ID shares the retail root file
+  // base. Applying the generic Frost alignment to that valid layout erases the
+  // retail root names, which was the source of the second legacy export bug.
+  const frostOverlayFntMismatch = !legacyPmcRepair.detected && hasFrostOverlayFntMismatch(baseBytes);
+  if (frostOverlayFntMismatch) onProgress?.("Repaired Frost overlay/FNT file base");
+  if (legacyPmcRepair.repairedOverlayLayout) onProgress?.("Repaired legacy PMC overlay layout");
+  if (legacyPmcRepair.repairedRootFnt) onProgress?.("Restored legacy PMC root filenames");
   const replacements = new Map<number, Uint8Array>();
   const paths = pathMapByFileId(rom.filenames);
   const entries: RomRepairEntry[] = [];
@@ -101,8 +112,10 @@ export function repairRomNarcs(data: Uint8Array, onProgress?: (message: string) 
     });
   });
 
-  const bytes = replacements.size > 0 || frostOverlayFntMismatch
+  const bytes = replacements.size > 0 || frostOverlayFntMismatch || legacyPmcRepair.repairedOverlayLayout || legacyPmcRepair.repairedRootFnt
     ? rom.save({
+        arm9OverlayTable: legacyPmcRepair.arm9OverlayTable,
+        filenames: legacyPmcRepair.repairedRootFnt ? rom.filenames : undefined,
         files: replacements,
         alignFntFirstFileToArm9OverlayCount: frostOverlayFntMismatch,
         preserveOriginalLength: true,
@@ -111,6 +124,8 @@ export function repairRomNarcs(data: Uint8Array, onProgress?: (message: string) 
   const structuralReasons: RomHeaderRepairReason[] = [
     ...rawHeaderRepair.reasons,
     ...(frostOverlayFntMismatch ? (["frost_overlay_fnt_mismatch"] as const) : []),
+    ...(legacyPmcRepair.repairedOverlayLayout ? (["legacy_pmc_overlay_layout"] as const) : []),
+    ...(legacyPmcRepair.repairedRootFnt ? (["legacy_pmc_root_fnt"] as const) : []),
   ];
   return {
     bytes,
@@ -236,6 +251,10 @@ export function romHeaderRepairReasonLabel(reason: RomHeaderRepairReason): strin
       return "false TWL extended header";
     case "frost_overlay_fnt_mismatch":
       return "Frost-incompatible overlay/FNT file base";
+    case "legacy_pmc_overlay_layout":
+      return "legacy PMC overlay short-read layout";
+    case "legacy_pmc_root_fnt":
+      return "legacy PMC-erased root filenames";
   }
 }
 

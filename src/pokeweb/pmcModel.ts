@@ -521,6 +521,43 @@ export function detectPmcInstallFromRom(rom: NintendoDSRom): NonNullable<Project
   };
 }
 
+export type LegacyPmcRomStructureRepair = {
+  detected: boolean;
+  arm9OverlayTable?: Uint8Array;
+  repairedOverlayLayout: boolean;
+  repairedRootFnt: boolean;
+};
+
+export function repairLegacyPmcRomStructure(rom: NintendoDSRom): LegacyPmcRomStructureRepair {
+  const pmc = detectPmcInstallFromRom(rom)?.pmc;
+  if (!pmc) return { detected: false, repairedOverlayLayout: false, repairedRootFnt: false };
+
+  let arm9OverlayTable: Uint8Array | undefined;
+  const entry = findOverlayEntry(rom.arm9OverlayTable, pmc.overlayId);
+  const overlayBytes = getRomPathBytes(rom, pmc.overlayPath);
+  if (entry !== undefined && overlayBytes && overlayBytes.length <= PMC_OVERLAY_RESERVED_SIZE) {
+    const expectedBssSize = PMC_OVERLAY_RESERVED_SIZE - overlayBytes.length;
+    if (readU32(rom.arm9OverlayTable, entry + 8) !== overlayBytes.length || readU32(rom.arm9OverlayTable, entry + 12) !== expectedBssSize) {
+      arm9OverlayTable = rom.arm9OverlayTable.slice();
+      writeU32(arm9OverlayTable, entry + 8, overlayBytes.length);
+      writeU32(arm9OverlayTable, entry + 12, expectedBssSize);
+    }
+  }
+
+  const family = gen5FamilyForIdCode(rom.idCode);
+  const expected = family === undefined ? undefined : GEN5_RETAIL_ROOT_FILES[family];
+  const repairedRootFnt = expected !== undefined
+    && pmc.overlayId === expected.firstId
+    && restoreLegacyPmcRootFnt(rom, pmc.overlayId, expected);
+
+  return {
+    detected: true,
+    arm9OverlayTable,
+    repairedOverlayLayout: arm9OverlayTable !== undefined,
+    repairedRootFnt,
+  };
+}
+
 export function buildCodeInjectionOverlayTable(
   project: ProjectState,
   rom: NintendoDSRom,
@@ -567,6 +604,14 @@ export function repairLegacyPmcRootFnt(project: ProjectState, rom: NintendoDSRom
 
   const expected = GEN5_RETAIL_ROOT_FILES[project.session.baseRom];
   if (overlayId !== expected.firstId) return false;
+  return restoreLegacyPmcRootFnt(rom, overlayId, expected);
+}
+
+function restoreLegacyPmcRootFnt(
+  rom: NintendoDSRom,
+  overlayId: number,
+  expected: { firstId: number; names: string[] },
+): boolean {
   if (rom.filenames.files.length !== 0 || rom.filenames.firstId !== overlayId + 1) return false;
   if (expected.firstId + expected.names.length > rom.files.length) return false;
 
@@ -577,6 +622,13 @@ export function repairLegacyPmcRootFnt(project: ProjectState, rom: NintendoDSRom
   rom.filenames.firstId = expected.firstId;
   rom.filenames.files = [...expected.names];
   return true;
+}
+
+function gen5FamilyForIdCode(idCode: string): "BW" | "BW2" | undefined {
+  const prefix = idCode.toUpperCase().slice(0, 3);
+  if (prefix === "IRA" || prefix === "IRB") return "BW";
+  if (prefix === "IRD" || prefix === "IRE") return "BW2";
+  return undefined;
 }
 
 export function codeInjectionInsertedFiles(project: ProjectState, rom: NintendoDSRom): Array<{ fileId: number; path: string; bytes: Uint8Array }> {

@@ -9,7 +9,7 @@ Pokeweb Serverless is a browser-based Gen 5 ROM editor for Pokemon Black, White,
 - ROM loading with selectable NARC groups, browser persistence, dirty-state tracking, and ROM export.
 - File System editor for browsing loaded ROM/NARC files, exporting/importing raw files, inserting or appending NARC files, and editing bytes in a hex-style view.
 - Debug NARCs view for checking decoded files and loaded project state.
-- Code Injection editor for Gen V PMC installation plus patch/library DLL module import, including the trainer battle logger on US Black, White, Black 2, and White 2.
+- Code Injection editor for Gen V PMC installation plus patch/library DLL module import, including the trainer battle logger on US Black, White, Black 2, and White 2 and the dependency-aware BW2 Menu Evolution companion.
 
 ### Maps, Headers, and Overworlds
 
@@ -21,7 +21,7 @@ Pokeweb Serverless is a browser-based Gen 5 ROM editor for Pokemon Black, White,
 
 - Pokemon personal data editor for base stats, typing, abilities, held items, catch rate, growth, gender, hatch cycles, base happiness, EV yields, form data, color, height, weight, and related numeric fields.
 - Level-up learnset editing with insert/add/delete controls.
-- Evolution editing for method, parameter, and target slots.
+- Evolution editing for method, parameter, and target slots, including unsigned KO Count, Battle Count, and Battles Used Count thresholds at method IDs 29–31.
 - TM/HM compatibility editing and BW2 tutor compatibility editing.
 - Egg move editing when the egg move NARC is loaded.
 - Pokemon sprite editor for front/back sprites, rigs, icons, normal/shiny palettes, female variants, raw sprite files, custom sprite bundles, PNG import/export, palette import/export, and icon palette assignment.

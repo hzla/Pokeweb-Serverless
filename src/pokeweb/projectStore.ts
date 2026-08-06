@@ -120,6 +120,10 @@ export type CodeInjectionState = {
     ancestryPath: string;
     ancestryFileId?: number;
   };
+  menuEvolution?: {
+    messageBankId: number;
+    messageEntryId: number;
+  };
 };
 
 export type PwanPaletteSource = "front" | "back";
