@@ -17,6 +17,7 @@ import {
   PMC_PATCHES_KEEP_PATH,
   PMC_SYMBOL_PATH,
   pruneRedundantPatchesKeepAddition,
+  repairLegacyPmcRootFnt,
 } from "./pmcModel";
 import { materializePwanAnimations } from "./pwanAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
@@ -47,6 +48,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   if (!originalRomBytes) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
   const rom = new NintendoDSRom(originalRomBytes);
+  const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
   materializeProjectEdits(project);
   repairLegacyMoveAnimationArchives(project);
   await materializePwanAnimations(project, rom);
@@ -93,7 +95,6 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   const arm9OverlayTable =
     buildCodeInjectionOverlayTable(project, rom, shiftedOverlayTable, (path) => resolvePlannedRomPathFileId(rom, plannedAdditions, insertedFiles, path)) ??
     (patchedOverlayTable || insertedFiles.length > 0 || project.patches?.arm9OverlayTable ? shiftedOverlayTable : undefined);
-  const shouldAlignFntFirstFile = codeInjectionInsertions.length > 0 || Boolean(project.codeInjection?.pmc);
   const arm9 = project.tms?.dirty || project.arm9Dirty ? prepareArm9ForExport(project, rom) : undefined;
   const priorityFileIds = codeInjectionPriorityPaths(project)
     .map((path) => resolvePlannedRomPathFileId(rom, plannedAdditions, insertedFiles, path))
@@ -101,7 +102,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   const out = rom.save({
     arm9,
     arm9OverlayTable,
-    alignFntFirstFileToArm9OverlayCount: shouldAlignFntFirstFile,
+    filenames: repairedLegacyPmcRootFnt ? rom.filenames : undefined,
     files: fileReplacements,
     insertedFiles,
     addedFiles: plannedAdditions.addedFiles,

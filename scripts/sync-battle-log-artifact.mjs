@@ -15,6 +15,13 @@ const artifacts = [
     ),
   },
   {
+    name: "White2UpgradeBattleCounters.dll",
+    source: resolve(
+      process.env.BATTLE_COUNTER_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/w2u_pk5_battle_counters.dll"),
+    ),
+  },
+  {
     name: "White2UpgradeBattleLogSummary.dll",
     source: resolve(
       process.env.BATTLE_LOG_SUMMARY_BUILD_PATH ??
@@ -26,6 +33,13 @@ const artifacts = [
     source: resolve(
       process.env.BLACK2_BATTLE_LOG_BUILD_PATH ??
         resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/Black2UpgradeBattleLog.dll"),
+    ),
+  },
+  {
+    name: "Black2UpgradeBattleCounters.dll",
+    source: resolve(
+      process.env.BLACK2_BATTLE_COUNTER_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/Black2UpgradeBattleCounters.dll"),
     ),
   },
   {
@@ -43,6 +57,13 @@ const artifacts = [
     ),
   },
   {
+    name: "Black1BattleCounters.dll",
+    source: resolve(
+      process.env.BLACK1_BATTLE_COUNTER_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/Black1BattleCounters.dll"),
+    ),
+  },
+  {
     name: "Black1BattleLogSummary.dll",
     source: resolve(
       process.env.BLACK1_BATTLE_LOG_SUMMARY_BUILD_PATH ??
@@ -54,6 +75,13 @@ const artifacts = [
     source: resolve(
       process.env.WHITE1_BATTLE_LOG_BUILD_PATH ??
         resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/White1BattleLog.dll"),
+    ),
+  },
+  {
+    name: "White1BattleCounters.dll",
+    source: resolve(
+      process.env.WHITE1_BATTLE_COUNTER_BUILD_PATH ??
+        resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/White1BattleCounters.dll"),
     ),
   },
   {

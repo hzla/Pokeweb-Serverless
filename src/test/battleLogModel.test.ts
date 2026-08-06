@@ -16,11 +16,17 @@ import type { ProjectState } from "../pokeweb/projectStore";
 const white2BattleLogDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/White2UpgradeBattleLog.dll", import.meta.url)),
 );
+const white2BattleCountersDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/White2UpgradeBattleCounters.dll", import.meta.url)),
+);
 const white2BattleLogSummaryDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url)),
 );
 const black2BattleLogDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/Black2UpgradeBattleLog.dll", import.meta.url)),
+);
+const black2BattleCountersDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/Black2UpgradeBattleCounters.dll", import.meta.url)),
 );
 const black2BattleLogSummaryDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url)),
@@ -28,11 +34,17 @@ const black2BattleLogSummaryDll = new Uint8Array(
 const black1BattleLogDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/Black1BattleLog.dll", import.meta.url)),
 );
+const black1BattleCountersDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/Black1BattleCounters.dll", import.meta.url)),
+);
 const black1BattleLogSummaryDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url)),
 );
 const white1BattleLogDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/White1BattleLog.dll", import.meta.url)),
+);
+const white1BattleCountersDll = new Uint8Array(
+  readFileSync(new URL("../assets/codeinjection/White1BattleCounters.dll", import.meta.url)),
 );
 const white1BattleLogSummaryDll = new Uint8Array(
   readFileSync(new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url)),
@@ -67,24 +79,29 @@ describe("trainer battle log", () => {
     expect(readAncestryMember(archive.files[2]!)).toEqual([1, 2]);
   });
 
-  it("bundles split White 2 battle and summary DLXF runtimes", () => {
+  it("bundles split White 2 battle, counter, and summary DLXF runtimes", () => {
     expect(readAscii(white2BattleLogDll, 0, 4)).toBe("DLXF");
+    expect(readAscii(white2BattleCountersDll, 0, 4)).toBe("DLXF");
     expect(readAscii(white2BattleLogSummaryDll, 0, 4)).toBe("DLXF");
     expect(externalHooks(white2BattleLogDll)).toEqual([
       "167:219ca89:THUMB_BRANCH",
       "167:21a8a65:THUMB_BRANCH",
       "167:21ae36d:THUMB_BRANCH",
     ]);
+    expect(externalHooks(white2BattleCountersDll)).toEqual([
+      "167:21bb3a9:THUMB_BRANCH",
+    ]);
     expect(externalHooks(white2BattleLogSummaryDll)).toEqual([
       "207:21b6f36:THUMB_BRANCH_LINK",
       "207:21b6f4c:THUMB_BRANCH_LINK",
+      "207:21b6f66:THUMB_BRANCH_LINK",
     ]);
   });
 
-  it("bundles split relocated Black 2 battle and summary DLXF runtimes", () => {
+  it("bundles split relocated Black 2 battle, counter, and summary DLXF runtimes", () => {
     expect(readAscii(black2BattleLogDll, 0, 4)).toBe("DLXF");
     expect(readAscii(black2BattleLogSummaryDll, 0, 4)).toBe("DLXF");
-    for (const dll of [black2BattleLogDll, black2BattleLogSummaryDll]) {
+    for (const dll of [black2BattleLogDll, black2BattleCountersDll, black2BattleLogSummaryDll]) {
       const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
       expect(rpm.metadata).toMatchObject({ PMCGameID: "B2", PMCModulePriority: 4 });
     }
@@ -93,32 +110,41 @@ describe("trainer battle log", () => {
       "167:21a8a25:THUMB_BRANCH",
       "167:21ae32d:THUMB_BRANCH",
     ]);
+    expect(externalHooks(black2BattleCountersDll)).toEqual([
+      "167:21bb369:THUMB_BRANCH",
+    ]);
     expect(externalHooks(black2BattleLogSummaryDll)).toEqual([
       "207:21b6ef6:THUMB_BRANCH_LINK",
       "207:21b6f0c:THUMB_BRANCH_LINK",
+      "207:21b6f26:THUMB_BRANCH_LINK",
     ]);
   });
 
   it("bundles versioned Black and White battle-log runtimes for overlays 93 and 131", () => {
-    for (const [version, battle, summary, addresses] of [
-      ["B", black1BattleLogDll, black1BattleLogSummaryDll, ["93:21b916c:THUMB_BRANCH", "93:21c4f64:THUMB_BRANCH", "93:21ca7f4:THUMB_BRANCH", "131:21d80ce:THUMB_BRANCH_LINK", "131:21d80e4:THUMB_BRANCH_LINK"]],
-      ["W", white1BattleLogDll, white1BattleLogSummaryDll, ["93:21b918c:THUMB_BRANCH", "93:21c4f84:THUMB_BRANCH", "93:21ca814:THUMB_BRANCH", "131:21d80ee:THUMB_BRANCH_LINK", "131:21d8104:THUMB_BRANCH_LINK"]],
+    for (const [version, battle, counters, summary, addresses] of [
+      ["B", black1BattleLogDll, black1BattleCountersDll, black1BattleLogSummaryDll, ["93:21b916c:THUMB_BRANCH", "93:21c4f64:THUMB_BRANCH", "93:21ca7f4:THUMB_BRANCH", "93:21d5b68:THUMB_BRANCH", "131:21d80ce:THUMB_BRANCH_LINK", "131:21d80e4:THUMB_BRANCH_LINK", "131:21d80fe:THUMB_BRANCH_LINK"]],
+      ["W", white1BattleLogDll, white1BattleCountersDll, white1BattleLogSummaryDll, ["93:21b918c:THUMB_BRANCH", "93:21c4f84:THUMB_BRANCH", "93:21ca814:THUMB_BRANCH", "93:21d5b88:THUMB_BRANCH", "131:21d80ee:THUMB_BRANCH_LINK", "131:21d8104:THUMB_BRANCH_LINK", "131:21d811e:THUMB_BRANCH_LINK"]],
     ] as const) {
       expect(parseRpm(battle, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
+      expect(parseRpm(counters, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
       expect(parseRpm(summary, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
-      expect([...externalHooks(battle), ...externalHooks(summary)].sort()).toEqual([...addresses].sort());
+      expect([...externalHooks(battle), ...externalHooks(counters), ...externalHooks(summary)].sort()).toEqual([...addresses].sort());
     }
   });
 
   it("bundles only stripped battle-log runtimes", () => {
     for (const dll of [
       white2BattleLogDll,
+      white2BattleCountersDll,
       white2BattleLogSummaryDll,
       black2BattleLogDll,
+      black2BattleCountersDll,
       black2BattleLogSummaryDll,
       black1BattleLogDll,
+      black1BattleCountersDll,
       black1BattleLogSummaryDll,
       white1BattleLogDll,
+      white1BattleCountersDll,
       white1BattleLogSummaryDll,
     ]) {
       const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
@@ -130,6 +156,7 @@ describe("trainer battle log", () => {
     // cascdev's 160 KiB PMC heap had 7,136 bytes free but only a 2,528-byte
     // contiguous block when overlay 167 loaded.
     expect(readU32(white2BattleLogDll, 4)).toBeLessThanOrEqual(2528);
+    expect(readU32(white2BattleCountersDll, 4)).toBeLessThan(readU32(white2BattleLogDll, 4));
     expect(readU32(white2BattleLogSummaryDll, 4)).toBeLessThan(readU32(white2BattleLogDll, 4));
   });
 
@@ -175,17 +202,42 @@ describe("trainer battle log", () => {
     expect(countU32Occurrences(white1BattleLogDll, 0x021c8031)).toBe(1);
   });
 
-  it("uses the BW1 per-block save-data accessor", () => {
+  it("uses the BW1 per-block save-data accessor only in the history runtime", () => {
     // 0x020071C1 is GetSaveAsyncMain_WritingSize and ignores its second
     // argument. SaveControl_DataPtrGet starts at the following Thumb wrapper.
-    for (const dll of [
-      black1BattleLogDll,
-      black1BattleLogSummaryDll,
-      white1BattleLogDll,
-      white1BattleLogSummaryDll,
-    ]) {
+    for (const dll of [black1BattleLogDll, white1BattleLogDll]) {
       expect(countU32Occurrences(dll, 0x020071c1)).toBe(0);
       expect(countU32Occurrences(dll, 0x020071cd)).toBe(1);
+    }
+    // The summary now reads the selected Pokemon's own PK5 counters and no
+    // longer scans or repairs the Wi-Fi history blocks.
+    for (const dll of [black1BattleLogSummaryDll, white1BattleLogSummaryDll]) {
+      expect(countU32Occurrences(dll, 0x020071c1)).toBe(0);
+      expect(countU32Occurrences(dll, 0x020071cd)).toBe(0);
+    }
+  });
+
+  it("reads the summary counters through each game's PK5 crypto and block helpers", () => {
+    for (const [dll, addresses] of [
+      [black1BattleLogSummaryDll, [0x02017dbd, 0x02017de5, 0x02019a51, 0x02019c39]],
+      [white1BattleLogSummaryDll, [0x02017dd9, 0x02017e01, 0x02019a6d, 0x02019c55]],
+      [black2BattleLogSummaryDll, [0x0201cc99, 0x0201ccc1, 0x0201ecdd, 0x0201eec5]],
+      [white2BattleLogSummaryDll, [0x0201ccc5, 0x0201cced, 0x0201ed09, 0x0201eef1]],
+    ] as const) {
+      for (const address of addresses) {
+        expect(countU32Occurrences(dll, address)).toBe(1);
+      }
+    }
+  });
+
+  it("draws the three summary counter fields through each retail summary renderer", () => {
+    for (const [dll, drawAddress] of [
+      [black1BattleLogSummaryDll, 0x021d6215],
+      [white1BattleLogSummaryDll, 0x021d6235],
+      [black2BattleLogSummaryDll, 0x021b4fa1],
+      [white2BattleLogSummaryDll, 0x021b4fe1],
+    ] as const) {
+      expect(countU32Occurrences(dll, drawAddress)).toBe(1);
     }
   });
 
@@ -233,6 +285,7 @@ describe("trainer battle log", () => {
       replacements: {},
       additions: {
         "patches/White2UpgradeBattleLog.dll": white2BattleLogDll,
+        "patches/White2UpgradeBattleCounters.dll": white2BattleCountersDll,
         "patches/White2UpgradeBattleLogSummary.dll": white2BattleLogSummaryDll,
         "battlelog/ancestry.narc": new Uint8Array([1]),
       },
@@ -241,6 +294,7 @@ describe("trainer battle log", () => {
       battleLog: { ancestryPath: "battlelog/ancestry.narc" },
       modules: [
         { path: "patches/White2UpgradeBattleLog.dll", target: "patches", fileName: "White2UpgradeBattleLog.dll" },
+        { path: "patches/White2UpgradeBattleCounters.dll", target: "patches", fileName: "White2UpgradeBattleCounters.dll" },
         { path: "patches/White2UpgradeBattleLogSummary.dll", target: "patches", fileName: "White2UpgradeBattleLogSummary.dll" },
       ],
     };
@@ -277,12 +331,14 @@ describe("trainer battle log", () => {
       battleLog: { ancestryPath: "battlelog/ancestry.narc" },
       modules: [
         { path: "patches/White2UpgradeBattleLog.dll", target: "patches", fileName: "White2UpgradeBattleLog.dll" },
+        { path: "patches/White2UpgradeBattleCounters.dll", target: "patches", fileName: "White2UpgradeBattleCounters.dll" },
         { path: "patches/White2UpgradeBattleLogSummary.dll", target: "patches", fileName: "White2UpgradeBattleLogSummary.dll" },
       ],
     };
     expect(getBattleLogInstallStatus(project)).toMatchObject({
       installed: true,
       dllInstalled: true,
+      counterDllInstalled: true,
       summaryDllInstalled: true,
       saveGuardInstalled: true,
     });

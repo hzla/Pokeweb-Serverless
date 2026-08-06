@@ -1,6 +1,6 @@
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { decompressCode } from "../nds/codeCompression";
-import type { Folder } from "../nds/fnt";
+import { cloneFolder, type Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
@@ -48,6 +48,17 @@ export const PMC_RPM_UID = "PMC.rpm";
 export const PMC_PATCHES_KEEP_PATH = "patches/.pokeweb_keep";
 export const PMC_SYMBOL_PATH = "codeinjection/RPMSYM-PMC.rpm";
 export const WHITE2UPGRADE_DLL_FILENAMES = new Set(["white2upgrade.dll"]);
+
+const GEN5_RETAIL_ROOT_FILES: Record<"BW" | "BW2", { firstId: number; names: string[] }> = {
+  BW: {
+    firstId: 237,
+    names: ["gfl_font.dat", "skb.narc", "soundstatus.narc", "titledemo.narc", "wb_sound_data.sdat"],
+  },
+  BW2: {
+    firstId: 344,
+    names: ["skb.narc", "soundstatus.narc", "swan_sound_data.sdat"],
+  },
+};
 
 const PMC_B2_URL = new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url);
 const PMC_W2_URL = new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url);
@@ -516,24 +527,56 @@ export function buildCodeInjectionOverlayTable(
   baseTable: Uint8Array,
   resolveFileId?: (path: string) => number | undefined,
 ): Uint8Array | undefined {
-  const pmc = project.codeInjection?.pmc;
-  if (!pmc) return undefined;
-  if (pmc.overlayBaseAddress === undefined) return undefined;
-  const overlayBytes = project.fileSystem?.additions?.[pmc.overlayPath] ?? getRomPathBytes(rom, pmc.overlayPath);
+  // Fall back to the marker and existing overlay row so every export repairs
+  // ROMs made by the legacy Pokeweb installer, including old cached projects
+  // whose serialized state predates codeInjection.pmc detection.
+  const stagedPmc = project.codeInjection?.pmc;
+  const overlayId = stagedPmc?.overlayId ?? readPmcOverlayId(project, rom);
+  if (overlayId === undefined) return undefined;
+  const overlayPath = stagedPmc?.overlayPath ?? overlayPathForId(overlayId);
+  const existingEntry = findOverlayEntry(baseTable, overlayId);
+  const overlayBaseAddress = stagedPmc?.overlayBaseAddress
+    ?? (existingEntry === undefined ? undefined : readU32(baseTable, existingEntry + 4));
+  if (overlayBaseAddress === undefined) return undefined;
+  const overlayBytes = project.fileSystem?.additions?.[overlayPath] ?? getRomPathBytes(rom, overlayPath);
   if (!overlayBytes) return undefined;
-  const fileId = resolveFileId?.(pmc.overlayPath) ?? fileIdForPathWithAdditions(project, rom, pmc.overlayPath);
-  const existingEntry = findOverlayEntry(baseTable, pmc.overlayId);
+  if (overlayBytes.length > PMC_OVERLAY_RESERVED_SIZE) {
+    throw new Error(`PMC overlay is larger than its reserved memory range (${hex(overlayBytes.length)} > ${hex(PMC_OVERLAY_RESERVED_SIZE)}).`);
+  }
+  const fileId = resolveFileId?.(overlayPath) ?? fileIdForPathWithAdditions(project, rom, overlayPath);
   const table = existingEntry === undefined ? appendOverlayEntry(baseTable) : baseTable.slice();
   const offset = existingEntry ?? table.length - 32;
-  writeU32(table, offset, pmc.overlayId);
-  writeU32(table, offset + 4, pmc.overlayBaseAddress);
-  writeU32(table, offset + 8, PMC_OVERLAY_RESERVED_SIZE);
-  writeU32(table, offset + 12, 0);
-  writeU32(table, offset + 16, pmc.overlayBaseAddress);
-  writeU32(table, offset + 20, pmc.overlayBaseAddress);
+  writeU32(table, offset, overlayId);
+  writeU32(table, offset + 4, overlayBaseAddress);
+  // Overlay RAM size is the amount the retail loader reads from NitroFS. The
+  // remainder of PMC's reserved address range must be BSS; declaring the full
+  // 0x8000 as file-backed code makes a 0x3000 PMC image fail with a short read.
+  writeU32(table, offset + 8, overlayBytes.length);
+  writeU32(table, offset + 12, PMC_OVERLAY_RESERVED_SIZE - overlayBytes.length);
+  writeU32(table, offset + 16, overlayBaseAddress);
+  writeU32(table, offset + 20, overlayBaseAddress);
   writeU32(table, offset + 24, fileId);
   writeU32(table, offset + 28, 0);
   return table;
+}
+
+export function repairLegacyPmcRootFnt(project: ProjectState, rom: NintendoDSRom): boolean {
+  if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") return false;
+  const overlayId = readPmcOverlayId(project, rom);
+  if (overlayId === undefined) return false;
+
+  const expected = GEN5_RETAIL_ROOT_FILES[project.session.baseRom];
+  if (overlayId !== expected.firstId) return false;
+  if (rom.filenames.files.length !== 0 || rom.filenames.firstId !== overlayId + 1) return false;
+  if (expected.firstId + expected.names.length > rom.files.length) return false;
+
+  // Pokeweb exports from 2026-08-03 through 2026-08-06 erased these retail
+  // root labels while leaving their FAT slots untouched. Restore only this
+  // exact marker-backed legacy shape; no file IDs or file bytes move.
+  rom.filenames = cloneFolder(rom.filenames);
+  rom.filenames.firstId = expected.firstId;
+  rom.filenames.files = [...expected.names];
+  return true;
 }
 
 export function codeInjectionInsertedFiles(project: ProjectState, rom: NintendoDSRom): Array<{ fileId: number; path: string; bytes: Uint8Array }> {

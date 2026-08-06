@@ -122,6 +122,10 @@ export const FACILITY_CHOICE_LABELS: Record<FacilityChoiceNarcName, string> = {
   wbt_trainers: "Black Tower / White Treehollow Trainers",
 };
 
+export function facilityChoiceUsesTrainerClass(narc: FacilityChoiceNarcName): boolean {
+  return narc === "subway_trainers" || narc === "wbt_trainers";
+}
+
 const EV_STAT_LABELS = ["HP", "Attack", "Defense", "Speed", "Sp. Attack", "Sp. Defense"];
 const SET_RECORD_LENGTH = 0x10;
 const REGULATION_RECORD_LENGTH = 0xbc;
@@ -358,7 +362,7 @@ export function getFacilityChoiceRecord(project: ProjectState, narc: FacilityCho
     narc,
     label: `${FACILITY_CHOICE_LABELS[narc]} ${id}`,
     trainerType,
-    trainerTypeName: trainerTypeName(project, trainerType),
+    trainerTypeName: facilityChoiceUsesTrainerClass(narc) ? trainerTypeName(project, trainerType) : `Header ${trainerType}`,
     count,
     setIds: declaredSetIds,
     extraValues,

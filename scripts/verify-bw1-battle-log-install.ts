@@ -77,6 +77,7 @@ if (readAscii(exportedRom.getFileByName("overlay/overlay_0237.bin"), 0x2ff0, 4) 
 }
 for (const path of [
   `patches/${version === "B" ? "Black1" : "White1"}BattleLog.dll`,
+  `patches/${version === "B" ? "Black1" : "White1"}BattleCounters.dll`,
   `patches/${version === "B" ? "Black1" : "White1"}BattleLogSummary.dll`,
   "battlelog/ancestry.narc",
   "codeinjection/RPMSYM-PMC.rpm",

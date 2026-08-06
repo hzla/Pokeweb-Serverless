@@ -22,6 +22,16 @@ The Battle Facility editor covers BW2 Subway/PWT-style set libraries and Black T
 | Regulations | Subway/PWT rules such as level, battle type, and party size. |
 | Boss Teams | Filtered WBT trainer choices that look like boss teams. |
 
+## How Sets, Choices, and Regulations Connect
+
+The three Subway/PWT tabs are related, but a regulation does not point to a particular group of teams:
+
+- **Sets** define individual Pokemon builds: species, moves, item, nature, EV pattern, and form.
+- **Choices** assign Set IDs to trainer pools, while PWT mapping records hold tournament/trainer assignments. Expand a 1v1 or 6v6 choice to see its referenced sets.
+- **Regulations** independently define battle rules such as level, format, and party size. They do not select the opponents or teams used by a tournament.
+
+For a group such as Kanto or Johto leaders, start with the PWT Map records in **Choices**, inspect the relevant 1v1/6v6 choice, then follow its Set IDs into **Sets**. Do not look for that group in **Regulations**.
+
 ## Set Fields
 
 | Field | Meaning | Example |
@@ -39,7 +49,7 @@ Facility EVs are not normal 0-252 EV numbers in this UI. They are stat chips/fla
 
 | Field | Meaning | Example |
 | --- | --- | --- |
-| Trainer Class | Trainer type/class ID used for presentation. | `Ace Trainer (50)` |
+| Trainer Class / Header | Subway and WBT records store a trainer class here. PWT archives instead store a raw header value; it is not a trainer class. | `Ace Trainer (50)`, `2` |
 | Set Count | Number of set IDs declared in the record. | `4` |
 | Sets | List of set IDs this trainer can use. Expand to edit individual set rows. | `12, 45, 88, 103` |
 | Size | Raw record byte length. Read-only. | `12` |

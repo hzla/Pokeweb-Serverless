@@ -6,6 +6,7 @@ export type RomSaveOptions = {
   arm9?: Uint8Array;
   arm9OverlayTable?: Uint8Array;
   arm7OverlayTable?: Uint8Array;
+  filenames?: Folder;
   files?: Map<number, Uint8Array>;
   insertedFiles?: Array<{ fileId: number; path?: string; bytes: Uint8Array }>;
   addedFiles?: Array<{ path: string; bytes: Uint8Array }>;
@@ -86,9 +87,9 @@ export class NintendoDSRom {
   save(options: RomSaveOptions = {}): Uint8Array {
     const files = this.files.map((file, id) => options.files?.get(id) ?? file);
     const arm9OverlayTableBytes = options.arm9OverlayTable ?? this.arm9OverlayTable;
-    let filenames = this.filenames;
+    let filenames = options.filenames ?? this.filenames;
     let fntData = this.fntData;
-    let shouldRewriteFnt = false;
+    let shouldRewriteFnt = options.filenames !== undefined;
     if (options.insertedFiles && options.insertedFiles.length > 0) {
       for (const file of [...options.insertedFiles].sort((a, b) => a.fileId - b.fileId)) {
         if (!Number.isInteger(file.fileId) || file.fileId < 0 || file.fileId > files.length) throw new Error(`Invalid inserted file ID: ${file.fileId}`);
