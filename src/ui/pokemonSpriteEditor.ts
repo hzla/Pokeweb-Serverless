@@ -351,9 +351,9 @@ export function renderPokemonSpriteEditor(
           <div class="sprite-sidebar-group">
             <div class="sprite-sidebar-heading">Bundle</div>
             <label class="sprite-bundle-drop" id="sprite-bundle-drop">
-              <input id="sprite-bundle-import" type="file" accept=".pkmonspritebundle">
+              <input id="sprite-bundle-import" type="file" accept=".pkmonspritebundle,.pksprdat">
               <strong>Import Bundle</strong>
-              <span>Click or drop .pkmonspritebundle</span>
+              <span>Click or drop .pkmonspritebundle / .pksprdat</span>
             </label>
           </div>
           <div class="sprite-sidebar-group">
@@ -2330,9 +2330,9 @@ function installBundleImportEvents(
   const importFile = async (file: File | undefined) => {
     if (!file) return;
     try {
-      await importCustomSpriteBundleFile(project, spriteId, file);
+      const format = await importSpriteBundleFile(project, spriteId, file);
       options.onDirty?.();
-      setStatus("Imported custom sprite bundle");
+      setStatus(`Imported ${format}`);
       rerender();
     } catch (error) {
       setStatus(errorMessage(error));
@@ -2361,8 +2361,15 @@ function installBundleImportEvents(
   });
 }
 
-async function importCustomSpriteBundleFile(project: ProjectState, spriteId: number, file: File): Promise<void> {
-  const imported = parsePokemonCustomSpriteBundle(new Uint8Array(await file.arrayBuffer()));
+async function importSpriteBundleFile(project: ProjectState, spriteId: number, file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (file.name.toLowerCase().endsWith(".pksprdat")) {
+    importPokemonSpritePackage(project, spriteId, bytes);
+    resetImportedSpriteState("front");
+    return "Frost .pksprdat sprite data";
+  }
+
+  const imported = parsePokemonCustomSpriteBundle(bytes);
   if (imported.files && Object.keys(imported.files).length > 0) {
     const entry = getPokemonSpriteEntry(project, spriteId);
     const files = entry.files.slice();
@@ -2390,10 +2397,15 @@ async function importCustomSpriteBundleFile(project: ProjectState, spriteId: num
   if (imported.backRigPng) {
     setPokemonSpriteImage(project, spriteId, { kind: "rig", side: "back", gender: "male" }, "normal", await imageBlobToRgba(imported.backRigPng));
   }
+  resetImportedSpriteState(imported.side ?? "front");
+  return "custom sprite bundle";
+}
+
+function resetImportedSpriteState(side: PokemonAnimationSide): void {
   state.previewPaletteKind = "normal";
   state.paletteKind = "normal";
-  state.rigSide = imported.side ?? "front";
-  state.animationSide = imported.side ?? "front";
+  state.rigSide = side;
+  state.animationSide = side;
   state.animationSequence = 0;
   state.animationFrame = 0;
   state.animationTick = 0;

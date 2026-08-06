@@ -22,6 +22,13 @@ import {
   uninstallBattleLog,
 } from "../pokeweb/battleLogModel";
 import {
+  canUninstallMenuEvolution,
+  getMenuEvolutionInstallStatus,
+  installMenuEvolution,
+  menuEvolutionDisplayName,
+  uninstallMenuEvolution,
+} from "../pokeweb/menuEvolutionModel";
+import {
   detectPwanRuntimeCompatibility,
   pwanCompatibilityFailureSummary,
   type PwanCompatibilityCheck,
@@ -49,6 +56,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const battleLogStatus = getBattleLogInstallStatus(project);
   const battleLogCanInstall = battleLogStatus.supported && battleLogStatus.compatible;
   const battleLogCanUninstall = battleLogStatus.installed && canUninstallBattleLog(project);
+  const menuEvolutionStatus = getMenuEvolutionInstallStatus(project);
+  const menuEvolutionCanInstall = menuEvolutionStatus.supported
+    && menuEvolutionStatus.compatible
+    && menuEvolutionStatus.dependencyInstalled;
+  const menuEvolutionCanUninstall = menuEvolutionStatus.installed && canUninstallMenuEvolution(project);
   if (shouldHydrateRomBytesForPwanCompatibility(project, pwanCompatibility)) {
     void hydrateRomBytesForPwanCompatibility(project, root, onDirty);
   }
@@ -125,11 +137,61 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               ${battleLogStatus.installed ? "Reinstall Battle Log" : "Install Battle Log"}
             </button>
             <button class="btn -default" id="uninstall-battle-log-btn" type="button" ${battleLogCanUninstall ? "" : "disabled"}
-              title="${battleLogStatus.installed && !battleLogCanUninstall ? "DLLs already built into the loaded ROM cannot be removed yet." : "Remove the staged battle-log DLLs."}">
+              title="${
+                battleLogStatus.installed && menuEvolutionStatus.installed
+                  ? "Uninstall Menu Evolution first."
+                  : battleLogStatus.installed && !battleLogCanUninstall
+                    ? "DLLs already built into the loaded ROM cannot be removed yet."
+                    : "Remove the staged battle-log DLLs."
+              }">
               Uninstall Battle Log
             </button>
             <div class="code-injection-note" id="battle-log-note">
               ${escapeHtml(battleLogStatus.message)} ${battleLogStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."} Installing retires and overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Rename the summary screen's ID No. message to Frags in the text editor if desired.
+            </div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Menu Evolution</h2>
+              <p>Adds an Evolve command to eligible Pokémon in the BW2 field party menu and exposes individual battle counters to field scripts through command 0x010C.</p>
+            </div>
+            <span class="code-injection-status ${menuEvolutionStatus.installed ? "-installed" : menuEvolutionCanInstall ? "" : "-error"}">
+              ${
+                menuEvolutionStatus.installed
+                  ? "Installed"
+                  : !menuEvolutionStatus.supported
+                    ? "Unsupported"
+                    : !menuEvolutionStatus.dependencyInstalled
+                      ? "Dependency Missing"
+                      : menuEvolutionStatus.compatible
+                        ? "Ready"
+                        : "Incompatible"
+              }
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US ${escapeHtml(menuEvolutionDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
+            <div><span>Methods</span><strong>Level, KOs, Battles, Used</strong></div>
+            <div><span>Battle Counters</span><strong>${menuEvolutionStatus.dependencyInstalled ? "Installed" : "Required"}</strong></div>
+            <div><span>PMC</span><strong>${menuEvolutionStatus.pmcInstalled ? "Installed" : "Will Install"}</strong></div>
+            <div><span>Hook Checks</span><strong>${menuEvolutionStatus.checked ? `${menuEvolutionStatus.passed}/${menuEvolutionStatus.checks.length}` : "On install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-menu-evolution-btn" type="button" ${menuEvolutionCanInstall ? "" : "disabled"}>
+              ${menuEvolutionStatus.installed ? "Reinstall Menu Evolution" : "Install Menu Evolution"}
+            </button>
+            <button class="btn -default" id="uninstall-menu-evolution-btn" type="button" ${menuEvolutionCanUninstall ? "" : "disabled"}
+              title="${menuEvolutionStatus.installed && !menuEvolutionCanUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Menu Evolution DLL."}">
+              Uninstall Menu Evolution
+            </button>
+            <div class="code-injection-note" id="menu-evolution-note">
+              ${
+                !menuEvolutionStatus.dependencyInstalled
+                  ? "Install Trainer Battle Log first so the matching individual-counter DLL is available."
+                  : `${escapeHtml(menuEvolutionStatus.message)} ${menuEvolutionStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."}`
+              }
             </div>
           </div>
         </section>
@@ -354,6 +416,50 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     } catch (error) {
       uninstallBattleLogButton.disabled = false;
       const currentNote = root.querySelector<HTMLDivElement>("#battle-log-note") ?? battleLogNote;
+      if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const menuEvolutionButton = root.querySelector<HTMLButtonElement>("#install-menu-evolution-btn");
+  const menuEvolutionNote = root.querySelector<HTMLDivElement>("#menu-evolution-note");
+  menuEvolutionButton?.addEventListener("click", async () => {
+    const previousText = menuEvolutionButton.textContent ?? "Install Menu Evolution";
+    try {
+      menuEvolutionButton.disabled = true;
+      menuEvolutionButton.textContent = "Installing...";
+      if (menuEvolutionNote) {
+        menuEvolutionNote.textContent = "Checking BW2 hooks, configuring the Evolve message, and staging the companion DLL.";
+      }
+      const result = await installMenuEvolution(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#menu-evolution-note");
+      if (refreshedNote) {
+        refreshedNote.textContent = `Menu Evolution staged at ${result.dllPath} using message bank ${result.messageBankId}, entry ${result.messageEntryId}.`;
+      }
+    } catch (error) {
+      const currentButton = root.querySelector<HTMLButtonElement>("#install-menu-evolution-btn") ?? menuEvolutionButton;
+      const currentNote = root.querySelector<HTMLDivElement>("#menu-evolution-note") ?? menuEvolutionNote;
+      currentButton.disabled = false;
+      currentButton.textContent = previousText;
+      if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const uninstallMenuEvolutionButton = root.querySelector<HTMLButtonElement>("#uninstall-menu-evolution-btn");
+  uninstallMenuEvolutionButton?.addEventListener("click", () => {
+    try {
+      uninstallMenuEvolutionButton.disabled = true;
+      uninstallMenuEvolution(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#menu-evolution-note");
+      if (refreshedNote) {
+        refreshedNote.textContent = "Menu Evolution removed. The Evolve text entry remains available for a later reinstall.";
+      }
+    } catch (error) {
+      uninstallMenuEvolutionButton.disabled = false;
+      const currentNote = root.querySelector<HTMLDivElement>("#menu-evolution-note") ?? menuEvolutionNote;
       if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });

@@ -581,6 +581,9 @@ export const EVO_METHODS = [
   "Level Up in Eterna Forest",
   "Level Up in Route 217",
   "Level Up near Moss Rock",
+  "KO Count",
+  "Battle Count",
+  "Battles Used Count",
 ];
 
 export const PROPERTIES = [
