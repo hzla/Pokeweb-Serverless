@@ -52,7 +52,7 @@ describe("ROM export", () => {
     expect([...parsed.getFileByName("lib/Patch.dll")]).toEqual([0xaa, 0xbb]);
   });
 
-  it("aligns Frost's FNT file base when exporting an appended PMC overlay", async () => {
+  it("preserves existing root FNT names when exporting an appended PMC overlay", async () => {
     const project = makeProject(makeRom([Uint8Array.of(1)], ["legacy-root.bin"]));
     const overlayPath = "overlay/overlay_0000.bin";
     project.fileSystem = { replacements: {}, additions: { [overlayPath]: Uint8Array.of(0xaa, 0xbb) } };
@@ -67,8 +67,9 @@ describe("ROM export", () => {
     const exported = new NintendoDSRom(await exportModifiedRom(project));
 
     expect(exported.arm9OverlayTable.length / 32).toBe(1);
-    expect(exported.filenames.firstId).toBe(1);
-    expect(exported.filenames.files).toEqual([]);
+    expect(exported.filenames.firstId).toBe(0);
+    expect(exported.filenames.files).toEqual(["legacy-root.bin"]);
+    expect(exported.fileId("legacy-root.bin")).toBe(0);
     expect(exported.fileId(overlayPath)).toBe(1);
     expect([...exported.files[0]]).toEqual([1]);
   });

@@ -68,6 +68,7 @@ describe("battleFacilityModel", () => {
 
     expect(getFacilityChoiceRecord(project, "pwt_tr1", 0)).toMatchObject({
       trainerType: 12,
+      trainerTypeName: "Header 12",
       count: 2,
       setIds: [0, 999],
       invalidSetIds: [999],
@@ -75,6 +76,7 @@ describe("battleFacilityModel", () => {
     });
     expect(getFacilityChoiceRecord(project, "pwt_tr6", 0)).toMatchObject({
       trainerType: 12,
+      trainerTypeName: "Header 12",
       count: 6,
       setIds: [0, 1, 2, 3, 4, 5],
       byteLength: 16,

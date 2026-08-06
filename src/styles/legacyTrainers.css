@@ -1236,13 +1236,54 @@ button.field-btn:disabled {
 .facility-tabs {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 12px;
+}
+
+.facility-tab {
+  font-size: 12px;
+  letter-spacing: 0;
+  min-width: 0;
+  padding: 10px 6px;
+}
+
+.facility-tab:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .facility-tab.-active {
   background: #1abc9c;
   color: #fff;
+}
+
+.facility-relationship-guide {
+  background: rgba(68, 71, 90, 0.58);
+  border: 1px solid #55586d;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: #cfcfd8;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 14px;
+  padding: 10px 11px;
+}
+
+.facility-relationship-title {
+  color: #f2f2f2;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+
+.facility-relationship-guide p {
+  margin: 0 0 7px;
+}
+
+.facility-relationship-guide p:last-child {
+  margin-bottom: 0;
+}
+
+.facility-relationship-guide strong {
+  color: #1abc9c;
 }
 
 .facility-select-label {
@@ -1678,11 +1719,10 @@ button.field-btn:disabled {
   align-content: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
   padding: 7px 0;
 }
 
-.facility-setids span,
 .facility-setid-edit {
   background: #f2f2f2;
   border-radius: 4px;
@@ -1692,19 +1732,48 @@ button.field-btn:disabled {
   text-align: center;
 }
 
-.facility-setid-more {
+.facility-setids .facility-set-sprite {
   align-items: center;
-  background: transparent;
-  color: #cfcfd8;
-  display: inline-flex;
-  font-size: 13px;
-  line-height: 22px;
-  padding: 0 4px;
+  background: rgba(40, 42, 54, 0.42);
+  border: 1px solid rgba(68, 71, 90, 0.75);
+  border-radius: 6px;
+  box-sizing: border-box;
+  display: inline-grid;
+  flex: 0 0 40px;
+  grid-template-columns: 1fr;
+  height: 40px;
+  justify-items: center;
+  padding: 2px;
+  width: 40px;
 }
 
-.facility-setids.-invalid span,
-.facility-setids.-invalid .facility-setid-edit {
+.facility-setids .facility-set-sprite:hover,
+.facility-setids .facility-set-sprite:focus-visible {
+  background: rgba(26, 188, 156, 0.14);
+  border-color: #1abc9c;
+  outline: none;
+}
+
+.facility-setids .facility-set-sprite.-missing {
   background: #ffd7d7;
+  border-color: #b00020;
+}
+
+.facility-setids .facility-set-sprite img {
+  height: 34px;
+  image-rendering: pixelated;
+  object-fit: contain;
+  width: 34px;
+}
+
+.facility-set-sprite-more {
+  align-items: center;
+  color: #cfcfd8;
+  display: inline-flex;
+  font-size: 12px;
+  line-height: 40px;
+  padding: 0 4px;
+  white-space: nowrap;
 }
 
 .facility-readonly {
