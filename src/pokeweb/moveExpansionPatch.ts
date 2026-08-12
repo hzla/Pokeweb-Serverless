@@ -1,7 +1,7 @@
 import white2UpgradeMoveExpansionJson from "../assets/data/white2upgradeMoveExpansion.json";
 import white2UpgradeGen6MoveAnimationsUrl from "../assets/data/white2upgradeGen6MoveAnimations.zip?url";
 import { unzipSync } from "fflate";
-import { readU16, readU32, writeU16 } from "../nds/binary";
+import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
@@ -41,6 +41,8 @@ export type MoveExpansionRoutingPatchResult = {
   status: "applied" | "already-applied";
   overlay: Uint8Array;
   helperOffset?: number;
+  commandHelperAddress?: number;
+  globalAddress?: number;
 };
 
 type ExpansionMove = {
@@ -88,14 +90,18 @@ type MoveTextBankConfig = {
 };
 
 type RoutingLayout = {
-  overlayId: number;
-  callerOffset: number;
+  loaderOverlayId: number;
+  commandOverlayId: number;
+  legacyCallerOffset: number;
+  commandHookOffset: number;
+  secondaryLoaderHookOffset?: number;
 };
 
 type MoveExpansionRoutingCacheEntry = {
   baseRom: ProjectState["session"]["baseRom"];
   originalRomBytes: Uint8Array | undefined;
-  loadedOverlay: Uint8Array | undefined;
+  loadedLoaderOverlay: Uint8Array | undefined;
+  loadedCommandOverlay: Uint8Array | undefined;
   state: MoveExpansionRoutingState;
 };
 
@@ -145,31 +151,60 @@ const MOVE_FIELD_WIDTH: Record<string, 1 | 2> = {
 };
 
 const ROUTING_LAYOUTS: Record<Gen5BaseRom, RoutingLayout> = {
-  BW: { overlayId: 94, callerOffset: 0x3046 },
-  BW2: { overlayId: 168, callerOffset: 0x3536 },
+  BW: {
+    loaderOverlayId: 94,
+    commandOverlayId: 93,
+    legacyCallerOffset: 0x3046,
+    commandHookOffset: 0x33fcc,
+  },
+  BW2: {
+    loaderOverlayId: 168,
+    commandOverlayId: 167,
+    legacyCallerOffset: 0x3536,
+    commandHookOffset: 0x363cc,
+    secondaryLoaderHookOffset: 0x6456,
+  },
 };
 const ORIGINAL_ROUTING_CALLER = [
   0x96, 0x20, 0x80, 0x00, 0x21, 0x5a, 0x27, 0x38, 0x88, 0x4b, 0x81, 0x42, 0x38, 0xd2,
 ] as const;
 const FROST_ROUTING_SIGNATURE = [0x00, 0x00, 0x00, 0x00, 0x88, 0x4b, 0x01, 0x28, 0x38, 0xd0] as const;
-const ROUTING_HELPER = Uint8Array.of(
-  0x00, 0xb5,
-  0x96, 0x20,
-  0x80, 0x00,
-  0x21, 0x5a,
-  0x05, 0x48,
-  0x88, 0x42,
-  0x04, 0xd2,
-  0x78, 0x30,
-  0x81, 0x42,
-  0x01, 0xda,
-  0x01, 0x20,
-  0x00, 0xe0,
-  0x00, 0x20,
-  0x00, 0xbd,
-  0x00, 0x00,
-  0x30, 0x02, 0x00, 0x00,
+const ORIGINAL_COMMAND_HOOK = [0x33, 0x1c, 0x01, 0x90] as const;
+const ORIGINAL_SECONDARY_LOADER_HOOK = [0x84, 0x42, 0x10, 0x4b] as const;
+const ORIGINAL_BW_VISUAL_HOOK = [0x31, 0x1c, 0x1a, 0x40] as const;
+const MOVE_ANIMATION_ARCHIVE_OFFSET = 115;
+const FIRST_ROUTED_MOVE_ANIMATION_ID = MOVE_EXPANSION_FIRST_USABLE_ID + MOVE_ANIMATION_ARCHIVE_OFFSET;
+
+// Battle-view commands use IDs 561..675 for fixed lifecycle animations. New
+// moves therefore travel as moveId+115 and are converted back only inside the
+// two animation-file loaders. Passing raw IDs such as 741 into these loaders
+// makes lifecycle commands repeatedly open the Pound placeholder.
+const BW2_COMMAND_HELPER = Uint8Array.of(
+  0x01, 0x90, 0x33, 0x00, 0x02, 0x48, 0x83, 0x42, 0x00, 0xd3, 0x73, 0x33, 0x70, 0x47, 0x00, 0x00,
+  0xa8, 0x02, 0x00, 0x00,
 );
+const BW2_PRIMARY_LOADER_HELPER = Uint8Array.of(
+  0x00, 0xb5, 0x06, 0x4b, 0x81, 0x42, 0x05, 0xdb, 0x05, 0x48, 0x81, 0x42, 0x01, 0xda, 0x01, 0x21,
+  0x01, 0xe0, 0x73, 0x3e, 0x00, 0x21, 0x01, 0x20, 0x81, 0x42, 0x00, 0xbd, 0xff, 0x7f, 0x00, 0x00,
+  FIRST_ROUTED_MOVE_ANIMATION_ID & 0xff, (FIRST_ROUTED_MOVE_ANIMATION_ID >> 8) & 0xff, 0x00, 0x00,
+);
+const BW2_SECONDARY_LOADER_HELPER = Uint8Array.of(
+  0xc0, 0xb5, 0x06, 0x4b, 0x84, 0x42, 0x05, 0xdb, 0x05, 0x48, 0x84, 0x42, 0x01, 0xda, 0x01, 0x26,
+  0x01, 0xe0, 0x73, 0x3c, 0x00, 0x26, 0x01, 0x27, 0xbe, 0x42, 0xc0, 0xbd, 0xff, 0x7f, 0x00, 0x00,
+  FIRST_ROUTED_MOVE_ANIMATION_ID & 0xff, (FIRST_ROUTED_MOVE_ANIMATION_ID >> 8) & 0xff, 0x00, 0x00,
+);
+const BW_COMMAND_HELPER_TEMPLATE = Uint8Array.of(
+  0x01, 0x90, 0x33, 0x00, 0x05, 0x48, 0x83, 0x42, 0x03, 0xd3, 0x05, 0x48, 0x03, 0x80, 0x01, 0x23,
+  0x70, 0x47, 0x00, 0x23, 0x02, 0x48, 0x03, 0x80, 0x33, 0x00, 0x70, 0x47, 0xa8, 0x02, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+);
+const BW_COMMAND_GLOBAL_LITERAL_OFFSET = 0x20;
+const BW_COMMAND_GLOBAL_OFFSET = BW_COMMAND_HELPER_TEMPLATE.length;
+const BW_VISUAL_HELPER_TEMPLATE = Uint8Array.of(
+  0x03, 0x49, 0x09, 0x88, 0x00, 0x29, 0x00, 0xd1, 0x31, 0x00, 0x1a, 0x40, 0x70, 0x47, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+);
+const BW_VISUAL_GLOBAL_LITERAL_OFFSET = 0x10;
 
 const MOVE_TEXT_BANKS: Record<Gen5BaseRom, MoveTextBankConfig> = {
   BW: { battle: 13, description: 202, name: 203, uppercase: 286 },
@@ -197,7 +232,7 @@ export async function installMoveExpansion(
     : undefined;
 
   const layout = ROUTING_LAYOUTS[project.session.baseRom];
-  const routingOverlay = await ensureRoutingOverlay(project, layout.overlayId);
+  const routingOverlay = await ensureRoutingOverlay(project, layout.loaderOverlayId);
   const routingPatch = applyMoveExpansionRoutingHookToOverlay(
     routingOverlay.data,
     project.session.baseRom,
@@ -206,7 +241,21 @@ export async function installMoveExpansion(
   );
   if (!routingPatch) {
     throw new Error(
-      `Could not find the vanilla or Frost move-animation routing signature in overlay ${layout.overlayId}. This ROM has a conflicting battle-animation code change.`,
+      `Could not find the vanilla or legacy move-animation routing signature in overlay ${layout.loaderOverlayId}. This ROM has a conflicting battle-animation code change.`,
+    );
+  }
+
+  const commandOverlay = await ensureRoutingOverlay(project, layout.commandOverlayId);
+  const commandPatch = applyMoveExpansionCommandHookToOverlay(
+    commandOverlay.data,
+    project.session.baseRom,
+    commandOverlay.ramAddress,
+    commandOverlay.bssSize,
+    routingPatch.commandHelperAddress,
+  );
+  if (!commandPatch) {
+    throw new Error(
+      `Could not find the vanilla move-command signature in overlay ${layout.commandOverlayId}. This ROM has a conflicting battle-animation code change.`,
     );
   }
 
@@ -220,9 +269,13 @@ export async function installMoveExpansion(
       : { animationsChanged: 0, particlesAdded: 0, referencesRemapped: 0 };
   const textEntriesAdded = expandMoveText(project, originalMoveCount, moveSummary.seededIds);
 
+  if (commandPatch.status === "applied") {
+    project.overlays[layout.commandOverlayId] = commandPatch.overlay;
+    markPatchOverlayDirty(project, layout.commandOverlayId);
+  }
   if (routingPatch.status === "applied") {
-    project.overlays[layout.overlayId] = routingPatch.overlay;
-    markPatchOverlayDirty(project, layout.overlayId);
+    project.overlays[layout.loaderOverlayId] = routingPatch.overlay;
+    markPatchOverlayDirty(project, layout.loaderOverlayId);
   }
 
   project.patches ??= { dirtyOverlayIds: [], applied: {} };
@@ -231,6 +284,7 @@ export async function installMoveExpansion(
   if (gen6AnimationBundle) project.patches.applied.moveExpansionGen6Animations = true;
 
   const changed =
+    commandPatch.status === "applied" ||
     routingPatch.status === "applied" ||
     moveSummary.changed > 0 ||
     animationSummary.changed > 0 ||
@@ -252,8 +306,8 @@ export async function installMoveExpansion(
 
   return {
     changed,
-    routingChanged: routingPatch.status === "applied",
-    overlayId: layout.overlayId,
+    routingChanged: commandPatch.status === "applied" || routingPatch.status === "applied",
+    overlayId: layout.loaderOverlayId,
     helperOffset: routingPatch.helperOffset,
     movesAdded: moveSummary.added,
     animationsAdded: animationSummary.added,
@@ -285,15 +339,77 @@ export function detectMoveExpansionRoutingHook(
   overlay: Uint8Array,
   baseRom: Gen5BaseRom,
 ): MoveExpansionRoutingState {
-  const { callerOffset } = ROUTING_LAYOUTS[baseRom];
-  if (matchesSequence(overlay, ORIGINAL_ROUTING_CALLER, callerOffset)) return "unpatched";
+  const layout = ROUTING_LAYOUTS[baseRom];
+  const legacy = isLegacyMoveExpansionRoutingHook(overlay, layout);
+  if (baseRom === "BW2") {
+    const primaryHookOffset = layout.legacyCallerOffset + 8;
+    const primaryHelperOffset = thumbBlTargetOffset(overlay, primaryHookOffset);
+    if (
+      primaryHelperOffset !== undefined &&
+      matchesSequence(overlay, BW2_PRIMARY_LOADER_HELPER, primaryHelperOffset) &&
+      layout.secondaryLoaderHookOffset !== undefined &&
+      isRecognizedThumbHelper(overlay, layout.secondaryLoaderHookOffset, BW2_SECONDARY_LOADER_HELPER) &&
+      matchesSequence(
+        overlay,
+        BW2_COMMAND_HELPER,
+        primaryHelperOffset + BW2_PRIMARY_LOADER_HELPER.length + BW2_SECONDARY_LOADER_HELPER.length,
+      )
+    ) {
+      return "patched";
+    }
+    if (
+      (matchesSequence(overlay, ORIGINAL_ROUTING_CALLER, layout.legacyCallerOffset) || legacy) &&
+      layout.secondaryLoaderHookOffset !== undefined &&
+      matchesSequence(overlay, ORIGINAL_SECONDARY_LOADER_HOOK, layout.secondaryLoaderHookOffset)
+    ) {
+      return "unpatched";
+    }
+    return "unknown";
+  }
+
+  const visualHookOffset = layout.legacyCallerOffset + 0x18;
+  const visualHelperOffset = thumbBlTargetOffset(overlay, visualHookOffset);
   if (
-    matchesSequence(overlay, FROST_ROUTING_SIGNATURE, callerOffset + 4) &&
-    isThumbBl(overlay, callerOffset)
+    visualHelperOffset !== undefined &&
+    matchesSequenceIgnoringRange(overlay, BW_VISUAL_HELPER_TEMPLATE, visualHelperOffset, BW_VISUAL_GLOBAL_LITERAL_OFFSET, 4) &&
+    matchesSequenceIgnoringRange(
+      overlay,
+      BW_COMMAND_HELPER_TEMPLATE,
+      visualHelperOffset + BW_VISUAL_HELPER_TEMPLATE.length,
+      BW_COMMAND_GLOBAL_LITERAL_OFFSET,
+      4,
+    )
   ) {
     return "patched";
   }
+  if (
+    (matchesSequence(overlay, ORIGINAL_ROUTING_CALLER, layout.legacyCallerOffset) || legacy) &&
+    matchesSequence(overlay, ORIGINAL_BW_VISUAL_HOOK, visualHookOffset)
+  ) {
+    return "unpatched";
+  }
   return "unknown";
+}
+
+export function applyMoveExpansionCommandHookToOverlay(
+  overlay: Uint8Array,
+  baseRom: Gen5BaseRom,
+  ramAddress: number,
+  _bssSize = 0,
+  commandHelperAddress?: number,
+): MoveExpansionRoutingPatchResult | undefined {
+  const hookOffset = ROUTING_LAYOUTS[baseRom].commandHookOffset;
+  const existingTarget = decodeThumbBlTarget(overlay, hookOffset, ramAddress + hookOffset);
+  if (existingTarget !== undefined) {
+    return commandHelperAddress === undefined || existingTarget !== commandHelperAddress
+      ? undefined
+      : { status: "already-applied", overlay, commandHelperAddress };
+  }
+  if (!matchesSequence(overlay, ORIGINAL_COMMAND_HOOK, hookOffset) || commandHelperAddress === undefined) return undefined;
+
+  const out = overlay.slice();
+  writeThumbBl(out, hookOffset, ramAddress + hookOffset, commandHelperAddress);
+  return { status: "applied", overlay: out, commandHelperAddress };
 }
 
 export function applyMoveExpansionRoutingHookToOverlay(
@@ -304,20 +420,59 @@ export function applyMoveExpansionRoutingHookToOverlay(
 ): MoveExpansionRoutingPatchResult | undefined {
   const state = detectMoveExpansionRoutingHook(overlay, baseRom);
   if (state === "unknown") return undefined;
-  if (state === "patched") return { status: "already-applied", overlay };
+  if (state === "patched") {
+    const layout = ROUTING_LAYOUTS[baseRom];
+    const firstHookOffset = baseRom === "BW2" ? layout.legacyCallerOffset + 8 : layout.legacyCallerOffset + 0x18;
+    const firstHelperAddress = decodeThumbBlTarget(overlay, firstHookOffset, ramAddress + firstHookOffset);
+    if (firstHelperAddress === undefined) return undefined;
+    const firstHelperOffset = firstHelperAddress - ramAddress;
+    if (baseRom === "BW2") {
+      const commandHelperAddress = ramAddress + firstHelperOffset + BW2_PRIMARY_LOADER_HELPER.length + BW2_SECONDARY_LOADER_HELPER.length;
+      return { status: "already-applied", overlay, helperOffset: firstHelperOffset, commandHelperAddress };
+    }
+    const commandHelperAddress = ramAddress + firstHelperOffset + BW_VISUAL_HELPER_TEMPLATE.length;
+    const globalAddress = commandHelperAddress + BW_COMMAND_GLOBAL_OFFSET;
+    return { status: "already-applied", overlay, helperOffset: firstHelperOffset, commandHelperAddress, globalAddress };
+  }
 
   // Materialize the original BSS as zero-filled static data before appending
   // code. This keeps every compiled BSS address valid when the overlay's
   // static RAM size is increased by the exporter.
+  const layout = ROUTING_LAYOUTS[baseRom];
   const helperOffset = align(overlay.length + bssSize, 4);
-  const out = new Uint8Array(helperOffset + ROUTING_HELPER.length);
-  out.set(overlay);
-  out.set(ROUTING_HELPER, helperOffset);
+  if (baseRom === "BW2") {
+    const secondaryHookOffset = layout.secondaryLoaderHookOffset;
+    if (secondaryHookOffset === undefined) return undefined;
+    const secondaryHelperOffset = helperOffset + BW2_PRIMARY_LOADER_HELPER.length;
+    const commandHelperOffset = secondaryHelperOffset + BW2_SECONDARY_LOADER_HELPER.length;
+    const out = new Uint8Array(commandHelperOffset + BW2_COMMAND_HELPER.length);
+    out.set(overlay);
+    out.set(BW2_PRIMARY_LOADER_HELPER, helperOffset);
+    out.set(BW2_SECONDARY_LOADER_HELPER, secondaryHelperOffset);
+    out.set(BW2_COMMAND_HELPER, commandHelperOffset);
+    // Remove Pokeweb's legacy one-loader hook if this ROM already had it.
+    out.set(ORIGINAL_ROUTING_CALLER, layout.legacyCallerOffset);
+    const primaryHookOffset = layout.legacyCallerOffset + 8;
+    writeThumbBl(out, primaryHookOffset, ramAddress + primaryHookOffset, ramAddress + helperOffset);
+    writeThumbBl(out, secondaryHookOffset, ramAddress + secondaryHookOffset, ramAddress + secondaryHelperOffset);
+    return { status: "applied", overlay: out, helperOffset, commandHelperAddress: ramAddress + commandHelperOffset };
+  }
 
-  const { callerOffset } = ROUTING_LAYOUTS[baseRom];
-  writeThumbBl(out, callerOffset, ramAddress + callerOffset, ramAddress + helperOffset);
-  out.set(FROST_ROUTING_SIGNATURE, callerOffset + 4);
-  return { status: "applied", overlay: out, helperOffset };
+  const commandHelperOffset = helperOffset + BW_VISUAL_HELPER_TEMPLATE.length;
+  const globalOffset = commandHelperOffset + BW_COMMAND_GLOBAL_OFFSET;
+  const globalAddress = ramAddress + globalOffset;
+  const visualHelper = BW_VISUAL_HELPER_TEMPLATE.slice();
+  const commandHelper = BW_COMMAND_HELPER_TEMPLATE.slice();
+  writeU32(visualHelper, BW_VISUAL_GLOBAL_LITERAL_OFFSET, globalAddress);
+  writeU32(commandHelper, BW_COMMAND_GLOBAL_LITERAL_OFFSET, globalAddress);
+  const out = new Uint8Array(globalOffset + 4);
+  out.set(overlay);
+  out.set(visualHelper, helperOffset);
+  out.set(commandHelper, commandHelperOffset);
+  out.set(ORIGINAL_ROUTING_CALLER, layout.legacyCallerOffset);
+  const visualHookOffset = layout.legacyCallerOffset + 0x18;
+  writeThumbBl(out, visualHookOffset, ramAddress + visualHookOffset, ramAddress + helperOffset);
+  return { status: "applied", overlay: out, helperOffset, commandHelperAddress: ramAddress + commandHelperOffset, globalAddress };
 }
 
 function expandMoveData(
@@ -745,31 +900,54 @@ function detectProjectMoveExpansionRouting(project: ProjectState): MoveExpansion
   const baseRom = project.session.baseRom;
   if (!isGen5BaseRom(baseRom)) return "unknown";
   const layout = ROUTING_LAYOUTS[baseRom];
-  const loaded = project.overlays[layout.overlayId];
+  const loadedLoaderOverlay = project.overlays[layout.loaderOverlayId];
+  const loadedCommandOverlay = project.overlays[layout.commandOverlayId];
   const originalRomBytes = project.originalRomBytes;
   const cached = moveExpansionRoutingCache.get(project);
   if (
     cached?.baseRom === baseRom &&
     cached.originalRomBytes === originalRomBytes &&
-    cached.loadedOverlay === loaded
+    cached.loadedLoaderOverlay === loadedLoaderOverlay &&
+    cached.loadedCommandOverlay === loadedCommandOverlay
   ) {
     return cached.state;
   }
 
   let state: MoveExpansionRoutingState = "unknown";
-  if (loaded?.length) {
-    state = detectMoveExpansionRoutingHook(loaded, baseRom);
+  if (loadedLoaderOverlay?.length && loadedCommandOverlay?.length) {
+    state = detectCompleteMoveExpansionRouting(loadedLoaderOverlay, loadedCommandOverlay, baseRom);
   } else if (originalRomBytes) {
     try {
-      const overlay = new NintendoDSRom(originalRomBytes).loadArm9Overlays([layout.overlayId]).get(layout.overlayId);
-      state = overlay ? detectMoveExpansionRoutingHook(overlay.data, baseRom) : "unknown";
+      const overlays = new NintendoDSRom(originalRomBytes).loadArm9Overlays([layout.loaderOverlayId, layout.commandOverlayId]);
+      const loaderOverlay = loadedLoaderOverlay ?? overlays.get(layout.loaderOverlayId)?.data;
+      const commandOverlay = loadedCommandOverlay ?? overlays.get(layout.commandOverlayId)?.data;
+      state = loaderOverlay && commandOverlay
+        ? detectCompleteMoveExpansionRouting(loaderOverlay, commandOverlay, baseRom)
+        : "unknown";
     } catch {
       state = "unknown";
     }
   }
 
-  moveExpansionRoutingCache.set(project, { baseRom, originalRomBytes, loadedOverlay: loaded, state });
+  moveExpansionRoutingCache.set(project, {
+    baseRom,
+    originalRomBytes,
+    loadedLoaderOverlay,
+    loadedCommandOverlay,
+    state,
+  });
   return state;
+}
+
+function detectCompleteMoveExpansionRouting(
+  loaderOverlay: Uint8Array,
+  commandOverlay: Uint8Array,
+  baseRom: Gen5BaseRom,
+): MoveExpansionRoutingState {
+  const loaderState = detectMoveExpansionRoutingHook(loaderOverlay, baseRom);
+  if (loaderState !== "patched") return loaderState;
+  const layout = ROUTING_LAYOUTS[baseRom];
+  return isThumbBl(commandOverlay, layout.commandHookOffset) ? "patched" : "unpatched";
 }
 
 function hasExpandedMoveData(project: ProjectState): boolean {
@@ -817,6 +995,40 @@ function writeThumbBl(data: Uint8Array, offset: number, fromAddress: number, toA
   writeU16(data, offset + 2, 0xf800 | ((delta >> 1) & 0x7ff));
 }
 
+function decodeThumbBlTarget(data: Uint8Array, offset: number, fromAddress: number): number | undefined {
+  if (!isThumbBl(data, offset)) return undefined;
+  const high = readU16(data, offset);
+  const low = readU16(data, offset + 2);
+  let delta = ((high & 0x7ff) << 12) | ((low & 0x7ff) << 1);
+  if ((delta & 0x400000) !== 0) delta |= ~0x7fffff;
+  return fromAddress + 4 + delta;
+}
+
+function isLegacyMoveExpansionRoutingHook(overlay: Uint8Array, layout: RoutingLayout): boolean {
+  return (
+    isThumbBl(overlay, layout.legacyCallerOffset) &&
+    matchesSequence(overlay, FROST_ROUTING_SIGNATURE, layout.legacyCallerOffset + 4)
+  );
+}
+
+function isRecognizedThumbHelper(
+  overlay: Uint8Array,
+  hookOffset: number,
+  helper: Uint8Array,
+): boolean {
+  const helperOffset = thumbBlTargetOffset(overlay, hookOffset);
+  return helperOffset !== undefined && matchesSequence(overlay, helper, helperOffset);
+}
+
+function thumbBlTargetOffset(overlay: Uint8Array, hookOffset: number): number | undefined {
+  if (!isThumbBl(overlay, hookOffset)) return undefined;
+  const high = readU16(overlay, hookOffset);
+  const low = readU16(overlay, hookOffset + 2);
+  let delta = ((high & 0x7ff) << 12) | ((low & 0x7ff) << 1);
+  if ((delta & 0x400000) !== 0) delta |= ~0x7fffff;
+  return hookOffset + 4 + delta;
+}
+
 function isThumbBl(data: Uint8Array, offset: number): boolean {
   if (offset < 0 || offset + 4 > data.length) return false;
   return (readU16(data, offset) & 0xf800) === 0xf000 && (readU16(data, offset + 2) & 0xf800) === 0xf800;
@@ -825,6 +1037,21 @@ function isThumbBl(data: Uint8Array, offset: number): boolean {
 function matchesSequence(data: Uint8Array, sequence: ArrayLike<number>, offset: number): boolean {
   if (offset < 0 || offset + sequence.length > data.length) return false;
   for (let index = 0; index < sequence.length; index += 1) if (data[offset + index] !== sequence[index]) return false;
+  return true;
+}
+
+function matchesSequenceIgnoringRange(
+  data: Uint8Array,
+  sequence: ArrayLike<number>,
+  offset: number,
+  ignoredOffset: number,
+  ignoredLength: number,
+): boolean {
+  if (offset < 0 || offset + sequence.length > data.length) return false;
+  for (let index = 0; index < sequence.length; index += 1) {
+    if (index >= ignoredOffset && index < ignoredOffset + ignoredLength) continue;
+    if (data[offset + index] !== sequence[index]) return false;
+  }
   return true;
 }
 

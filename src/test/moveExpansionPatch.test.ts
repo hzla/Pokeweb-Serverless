@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { readU16 } from "../nds/binary";
 import {
   allocateMoveExpansionParticleAssets,
+  applyMoveExpansionCommandHookToOverlay,
   applyMoveExpansionRoutingHookToOverlay,
   detectMoveExpansionRoutingHook,
   parseGen6AnimationBundle,
@@ -31,28 +32,90 @@ const ORIGINAL_CALLER = [
   0x96, 0x20, 0x80, 0x00, 0x21, 0x5a, 0x27, 0x38, 0x88, 0x4b, 0x81, 0x42, 0x38, 0xd2,
 ];
 const FROST_SIGNATURE = [0x00, 0x00, 0x00, 0x00, 0x88, 0x4b, 0x01, 0x28, 0x38, 0xd0];
+const ORIGINAL_COMMAND_HOOK = [0x33, 0x1c, 0x01, 0x90];
+const ORIGINAL_SECONDARY_LOADER_HOOK = [0x84, 0x42, 0x10, 0x4b];
+const ORIGINAL_BW_VISUAL_HOOK = [0x31, 0x1c, 0x1a, 0x40];
 
 describe("Move Expansion patch", () => {
   it.each([
-    ["BW" as const, 0x3046],
-    ["BW2" as const, 0x3536],
-  ])("installs the Frost-compatible %s routing signature and preserves BSS addresses", (baseRom, callerOffset) => {
-    const ramAddress = 0x021d0000;
+    ["BW" as const, 0x3046, 0x33fcc, undefined, 0x021b6100, 0x021f6560],
+    ["BW2" as const, 0x3536, 0x363cc, 0x6456, 0x021998c0, 0x021dda60],
+  ])("installs context-safe %s move animation routing and preserves BSS addresses", (baseRom, callerOffset, commandHookOffset, secondaryHookOffset, commandRamAddress, loaderRamAddress) => {
     const bssSize = 0x20;
-    const overlay = new Uint8Array(callerOffset + 0x40);
-    overlay.set(ORIGINAL_CALLER, callerOffset);
+    const commandOverlay = new Uint8Array(commandHookOffset + 0x40);
+    commandOverlay.set(ORIGINAL_COMMAND_HOOK, commandHookOffset);
 
-    const result = applyMoveExpansionRoutingHookToOverlay(overlay, baseRom, ramAddress, bssSize);
+    const overlayLength = Math.max(callerOffset + 0x40, (secondaryHookOffset ?? 0) + 0x40);
+    const overlay = new Uint8Array(overlayLength);
+    overlay.set(ORIGINAL_CALLER, callerOffset);
+    if (secondaryHookOffset !== undefined) overlay.set(ORIGINAL_SECONDARY_LOADER_HOOK, secondaryHookOffset);
+    else overlay.set(ORIGINAL_BW_VISUAL_HOOK, callerOffset + 0x18);
+
+    const result = applyMoveExpansionRoutingHookToOverlay(
+      overlay,
+      baseRom,
+      loaderRamAddress,
+      bssSize,
+    );
 
     expect(result?.status).toBe("applied");
     expect(result?.helperOffset).toBe(Math.ceil((overlay.length + bssSize) / 4) * 4);
-    expect([...result!.overlay.slice(callerOffset + 4, callerOffset + 14)]).toEqual(FROST_SIGNATURE);
     expect([...result!.overlay.slice(overlay.length, overlay.length + bssSize)]).toEqual(Array(bssSize).fill(0));
-    expect(decodeThumbBlTarget(result!.overlay, callerOffset, ramAddress + callerOffset)).toBe(ramAddress + result!.helperOffset!);
+    expect([...result!.overlay.slice(callerOffset, callerOffset + 8)]).toEqual(ORIGINAL_CALLER.slice(0, 8));
+    const primaryHookOffset = baseRom === "BW2" ? callerOffset + 8 : callerOffset + 0x18;
+    expect(decodeThumbBlTarget(result!.overlay, primaryHookOffset, loaderRamAddress + primaryHookOffset)).toBe(
+      loaderRamAddress + result!.helperOffset!,
+    );
+    if (secondaryHookOffset !== undefined) expect(isThumbBl(result!.overlay, secondaryHookOffset)).toBe(true);
     expect(detectMoveExpansionRoutingHook(result!.overlay, baseRom)).toBe("patched");
 
-    const repeated = applyMoveExpansionRoutingHookToOverlay(result!.overlay, baseRom, ramAddress, bssSize);
-    expect(repeated).toEqual({ status: "already-applied", overlay: result!.overlay });
+    const commandResult = applyMoveExpansionCommandHookToOverlay(
+      commandOverlay,
+      baseRom,
+      commandRamAddress,
+      bssSize,
+      result?.commandHelperAddress,
+    );
+    expect(commandResult?.status).toBe("applied");
+    expect(commandResult?.overlay).toHaveLength(commandOverlay.length);
+    expect(decodeThumbBlTarget(commandResult!.overlay, commandHookOffset, commandRamAddress + commandHookOffset)).toBe(
+      result?.commandHelperAddress,
+    );
+
+    const repeated = applyMoveExpansionRoutingHookToOverlay(
+      result!.overlay,
+      baseRom,
+      loaderRamAddress,
+      bssSize,
+    );
+    expect(repeated?.status).toBe("already-applied");
+    expect(repeated?.commandHelperAddress).toBe(result?.commandHelperAddress);
+    const repeatedCommand = applyMoveExpansionCommandHookToOverlay(
+      commandResult!.overlay,
+      baseRom,
+      commandRamAddress,
+      bssSize,
+      repeated?.commandHelperAddress,
+    );
+    expect(repeatedCommand?.status).toBe("already-applied");
+  });
+
+  it("upgrades the legacy one-loader Frost signature instead of treating it as safe routing", () => {
+    const callerOffset = 0x3536;
+    const secondaryHookOffset = 0x6456;
+    const ramAddress = 0x021dda60;
+    const overlay = new Uint8Array(secondaryHookOffset + 0x40);
+    overlay.set([0x00, 0xf0, 0x00, 0xf8], callerOffset);
+    overlay.set(FROST_SIGNATURE, callerOffset + 4);
+    overlay.set(ORIGINAL_SECONDARY_LOADER_HOOK, secondaryHookOffset);
+
+    expect(detectMoveExpansionRoutingHook(overlay, "BW2")).toBe("unpatched");
+    const result = applyMoveExpansionRoutingHookToOverlay(overlay, "BW2", ramAddress);
+
+    expect(result?.status).toBe("applied");
+    expect([...result!.overlay.slice(callerOffset, callerOffset + 8)]).toEqual(ORIGINAL_CALLER.slice(0, 8));
+    expect(isThumbBl(result!.overlay, callerOffset + 8)).toBe(true);
+    expect(isThumbBl(result!.overlay, secondaryHookOffset)).toBe(true);
   });
 
   it("refuses a conflicting routing modification", () => {
@@ -143,4 +206,8 @@ function decodeThumbBlTarget(data: Uint8Array, offset: number, fromAddress: numb
   let delta = ((high & 0x7ff) << 12) | ((low & 0x7ff) << 1);
   if ((delta & 0x400000) !== 0) delta |= ~0x7fffff;
   return fromAddress + 4 + delta;
+}
+
+function isThumbBl(data: Uint8Array, offset: number): boolean {
+  return (readU16(data, offset) & 0xf800) === 0xf000 && (readU16(data, offset + 2) & 0xf800) === 0xf800;
 }
