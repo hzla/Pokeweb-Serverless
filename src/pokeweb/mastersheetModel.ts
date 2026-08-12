@@ -5,8 +5,7 @@ import {
   ensureDocs,
   formatTrainerMoveName,
   safeFilename,
-  trainerPokemonExportAbility,
-  trainerPokemonExportName,
+  trainerPokemonExportFields,
   type TextDownloadFile,
 } from "./docGeneratorModel";
 import type { MastersheetHighlightMap, ProjectState } from "./projectStore";
@@ -201,6 +200,18 @@ export function buildMastersheetExport(project: ProjectState, markdown = ensureM
     encountersById: buildMastersheetEncountersById(project),
     highlights: classifyMastersheetMoveHighlights(project, ensureDocs(project).mastersheetHighlights),
     trainersById: buildMastersheetTrainersById(project),
+  };
+}
+
+export function buildMastersheetPreview(project: ProjectState, markdown = ensureMastersheetMarkdown(project)): MastersheetExport {
+  const parsed = parseMastersheetMarkdown(markdown, project);
+  const trainerIds = referencedElementIds(parsed.masterData, "trainer");
+  const encounterIds = referencedElementIds(parsed.masterData, "encounter");
+  return {
+    ...parsed,
+    encountersById: buildMastersheetEncountersById(project, encounterIds),
+    highlights: classifyMastersheetMoveHighlights(project, ensureDocs(project).mastersheetHighlights),
+    trainersById: buildMastersheetTrainersById(project, trainerIds),
   };
 }
 
@@ -577,7 +588,7 @@ function encounterExists(project: ProjectState | undefined, id: number): boolean
 
 function safeTrainerRecord(project: ProjectState, id: number): TrainerRecord | undefined {
   try {
-    return getTrainerRecord(project, id);
+    return getTrainerRecord(project, id, { includeTexts: false });
   } catch {
     return undefined;
   }
@@ -591,9 +602,10 @@ function safeEncounterRecord(project: ProjectState, id: number): ReturnType<type
   }
 }
 
-function buildMastersheetTrainersById(project: ProjectState): MastersheetTrainerRecord[] {
+function buildMastersheetTrainersById(project: ProjectState, trainerIds?: Iterable<number>): MastersheetTrainerRecord[] {
   const trainers: MastersheetTrainerRecord[] = [];
-  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) {
+  const ids = trainerIds ?? integerRange(getTrainerCount(project));
+  for (const trainerId of ids) {
     const trainer = safeTrainerRecord(project, trainerId);
     trainers[trainerId] = trainer ? buildMastersheetTrainer(project, trainer) : null;
   }
@@ -614,12 +626,13 @@ function buildMastersheetTrainer(project: ProjectState, trainer: TrainerRecord):
   for (const pok of trainer.party) {
     const slot = pok.slot;
     const moves = trainerPokemonMoves(project, trainer, pok);
-    out[`species_id_${slot}`] = trainerPokemonExportName(project, pok);
+    const exportFields = trainerPokemonExportFields(project, pok);
+    out[`species_id_${slot}`] = exportFields.speciesName;
     out[`raw_species_id_${slot}`] = pok.speciesId;
     out[`level_${slot}`] = pok.level;
     out[`item_id_${slot}`] = pok.itemName ?? (trainer.hasItems ? "None" : "");
     out[`nature_${slot}`] = pok.nature;
-    out[`ability_name_${slot}`] = trainerPokemonExportAbility(project, pok);
+    out[`ability_name_${slot}`] = exportFields.abilityName;
     for (let moveIndex = 1; moveIndex <= 4; moveIndex += 1) {
       out[`move_${moveIndex}_${slot}`] = formatTrainerMoveName(moves[moveIndex - 1] ?? "");
     }
@@ -637,9 +650,10 @@ function trainerPokemonMoves(project: ProjectState, trainer: TrainerRecord, pok:
   }
 }
 
-function buildMastersheetEncountersById(project: ProjectState): MastersheetEncounterRecord[] {
+function buildMastersheetEncountersById(project: ProjectState, encounterIds?: Iterable<number>): MastersheetEncounterRecord[] {
   const encounters: MastersheetEncounterRecord[] = [];
-  for (let id = 0; id < getEncounterCount(project); id += 1) {
+  const ids = encounterIds ?? integerRange(getEncounterCount(project));
+  for (const id of ids) {
     const encounter = safeEncounterRecord(project, id);
     encounters[id] = encounter
       ? {
@@ -651,6 +665,20 @@ function buildMastersheetEncountersById(project: ProjectState): MastersheetEncou
       : null;
   }
   return encounters;
+}
+
+function referencedElementIds(masterData: MastersheetElement[], tag: "trainer" | "encounter"): number[] {
+  const ids = new Set<number>();
+  for (const element of masterData) {
+    if (element.tag !== tag) continue;
+    const id = Number(element.id);
+    if (Number.isInteger(id) && id >= 0) ids.add(id);
+  }
+  return [...ids];
+}
+
+function* integerRange(length: number): Generator<number> {
+  for (let id = 0; id < length; id += 1) yield id;
 }
 
 function trainerNameWithLocation(project: ProjectState, trainer: TrainerRecord): string {

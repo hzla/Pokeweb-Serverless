@@ -3,6 +3,7 @@ import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import {
   buildMastersheetExport,
+  buildMastersheetPreview,
   generateMastersheetDownload,
   mastersheetHighlightsFromLegacyJs,
   mastersheetMarkdownFromLegacyJs,
@@ -148,6 +149,20 @@ describe("mastersheetModel", () => {
     expect(file.contents).toContain("encountersById = ");
     expect(file.contents).toContain("trainersById = ");
     expect(file.contents).toContain('highlights = {\n  "changed": {\n    "tackle": 1');
+  });
+
+  it("builds preview lookups only for trainers and encounters referenced by the markdown", () => {
+    const project = makeProject();
+
+    const blank = buildMastersheetPreview(project, "# Test Rom\n\n");
+    expect(Object.keys(blank.trainersById)).toEqual([]);
+    expect(Object.keys(blank.encountersById)).toEqual([]);
+
+    const referenced = buildMastersheetPreview(project, "!tr 1\n!enc 0\n");
+    expect(Object.keys(referenced.trainersById)).toEqual(["1"]);
+    expect(Object.keys(referenced.encountersById)).toEqual(["0"]);
+    expect(referenced.trainersById[1]).toMatchObject({ name: "Dan - Route 19" });
+    expect(referenced.encountersById[0]).toMatchObject({ name: "Route 19" });
   });
 
   it("blocks downloads when references are unresolved", () => {

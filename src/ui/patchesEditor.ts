@@ -1,8 +1,10 @@
 import {
   addFairyTypeSupport,
+  addMoveExpansion,
   detectDustCloudGemPatch,
   detectDustCloudItemPatch,
   detectForgettableHmPatch,
+  detectMoveExpansionPatch,
   detectFairyTypePatch,
   detectSpecifyTrainerNaturesPatch,
   makeHmsForgettable,
@@ -31,6 +33,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
   const hmStatus = detectForgettableHmPatch(project);
   const fairyStatus = detectFairyTypePatch(project);
   const trainerNatureStatus = detectSpecifyTrainerNaturesPatch(project);
+  const moveExpansionStatus = detectMoveExpansionPatch(project);
   const itemStandardizationStatus = detectPlatinumItemStandardization(project);
   const hmPatchCard =
     hmStatus === "unsupported"
@@ -124,6 +127,34 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           </div>
         </section>
       `;
+  const moveExpansionPatchCard =
+    moveExpansionStatus === "unsupported"
+      ? ""
+      : `
+        <section class="patch-card">
+          <div class="patch-card__body">
+            <div>
+              <h2>Move Expansion</h2>
+              <p>Expands the ROM to 1,000 move slots, installs Frost-compatible animation routing, and seeds 305 selectable moves from White2Upgrade with safe vanilla animations and no custom effect handlers.</p>
+              <p>The optional Gen 6 animation bundle includes White2Upgrade's scripts and prerequisite move particle files, with particle references relocated automatically when their original IDs are occupied.</p>
+              ${project.session.fairy ? "" : "<p>Fairy-type definitions are installed as Normal unless Fairy Type Support is already active.</p>"}
+            </div>
+            <div class="patch-card__meta">
+              <span class="patch-badge ${moveExpansionStatus === "patched" ? "-ok" : moveExpansionStatus === "unknown" ? "-warn" : ""}">
+                ${moveExpansionStatusLabel(moveExpansionStatus)}
+              </span>
+              <span>${project.session.baseRom === "BW2" ? "BW2" : "BW"}</span>
+            </div>
+          </div>
+          <div class="patch-card__actions">
+            <label class="patch-option">
+              <input id="move-expansion-gen6-animations-checkbox" type="checkbox" ${project.patches?.applied?.moveExpansionGen6Animations ? "checked" : ""} />
+              <span>Include Gen 6 Animations</span>
+            </label>
+            <button class="btn -default" id="add-move-expansion-btn" type="button">Install Move Expansion</button>
+          </div>
+        </section>
+      `;
   root.innerHTML = `
     <div class="patches-page">
       <header class="patches-header">
@@ -168,6 +199,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           </div>
         </section>
         ${fairyPatchCard}
+        ${moveExpansionPatchCard}
         ${trainerNaturePatchCard}
         ${hmPatchCard}
         ${itemStandardizationPatchCard}
@@ -213,6 +245,18 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
     });
   });
 
+  root.querySelector<HTMLButtonElement>("#add-move-expansion-btn")?.addEventListener("click", async (event) => {
+    const includeGen6Animations = root.querySelector<HTMLInputElement>("#move-expansion-gen6-animations-checkbox")?.checked ?? false;
+    applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
+      confirmText: `Expand this ROM to 1,000 move slots and install the animation-routing hook${includeGen6Animations ? ", Gen 6 animation scripts, and prerequisite particle files" : ""}?`,
+      loadingText: includeGen6Animations
+        ? "Expanding move data and installing Gen 6 animations with relocated particle dependencies..."
+        : "Expanding move data, text, animations, and routing...",
+      successText: "Installed Move Expansion",
+      apply: (nextProject) => addMoveExpansion(nextProject, { includeGen6Animations }),
+    });
+  });
+
   root.querySelector<HTMLButtonElement>("#specify-trainer-natures-btn")?.addEventListener("click", async (event) => {
     applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
       confirmText: "Apply this ARM9 patch to enable explicit trainer Pokémon natures?",
@@ -254,6 +298,14 @@ function hmStatusLabel(value: ReturnType<typeof detectForgettableHmPatch>): stri
 
 function trainerNatureStatusLabel(value: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (value === "patched") return "Applied";
+  if (value === "unsupported") return "Unsupported";
+  if (value === "unknown") return "Signature unknown";
+  return "Ready";
+}
+
+function moveExpansionStatusLabel(value: ReturnType<typeof detectMoveExpansionPatch>): string {
+  if (value === "patched") return "Applied";
+  if (value === "routing-only") return "Routing only";
   if (value === "unsupported") return "Unsupported";
   if (value === "unknown") return "Signature unknown";
   return "Ready";

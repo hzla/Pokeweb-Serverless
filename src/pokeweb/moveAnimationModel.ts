@@ -6,15 +6,31 @@ import {
   getMoveAnimationCommandAliases,
   getMoveAnimationDisplayCommandName,
   getMoveAnimationGenericCommandAliases,
+  resolveMoveAnimationCommandName,
 } from "./moveAnimationCommandNames";
 import { formatMoveAnimationParam, parseMoveAnimationParamToken } from "./moveAnimationParamSemantics";
 import { usesExpandedBw2Data } from "./black2UpgradeModel";
+import { MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 
 const ADDRESSES_PER_ENTRY = 0x0e;
 const BATTLE_ANIMATION_OFFSET = 561;
 const WHITE2UPGRADE_FIRST_EXPANDED_MOVE_ANIMATION_ID = 560;
 const END_COMMANDS = new Set(["CallMoveAnimation", "TerminateMoveScript"]);
+const PARTICLE_ID_COMMANDS = new Set([
+  "LoadSPA",
+  "DoSPAAnimation",
+  "DoSPAScreenAnimation",
+  "DoSPAAnimation2",
+  "DoSPAAllAnimations",
+  "DeleteSPA",
+  "DoSPAProjectileAnimation",
+  "DoSPAProjectileAnimation2",
+  "DoSPAProjectileAnimation3",
+  "DoSPAProjectileAnimationOrthoCoordinate",
+  "DoSPACircleAnimation",
+  "DoSPAOrthoCircleAnimation",
+]);
 const SIMPLE_SCRIPT_COUNT = 1;
 const SIMPLE_SCRIPT_LABEL = "SCRIPT_60";
 
@@ -160,6 +176,28 @@ export function compileMoveAnimation(_project: ProjectState, _moveId: number, sc
   return compileAnimationScript(scriptText);
 }
 
+export function remapMoveAnimationParticleIds(
+  bytes: Uint8Array,
+  particleIdMap: ReadonlyMap<number, number>,
+): { bytes: Uint8Array; referencesChanged: number } {
+  if (particleIdMap.size === 0) return { bytes, referencesChanged: 0 };
+  let referencesChanged = 0;
+  const script = decompileAnimationBytes(bytes);
+  const rewritten = script
+    .split("\n")
+    .map((line) => {
+      const match = /^(\s*)([A-Za-z_][A-Za-z0-9_]*)(\s+)([-+]?\d+)(.*)$/u.exec(line);
+      if (!match || !PARTICLE_ID_COMMANDS.has(resolveMoveAnimationCommandName(match[2]))) return line;
+      const sourceId = Number.parseInt(match[4], 10);
+      const targetId = particleIdMap.get(sourceId);
+      if (targetId === undefined || targetId === sourceId) return line;
+      referencesChanged += 1;
+      return `${match[1]}${match[2]}${match[3]}${targetId}${match[5]}`;
+    })
+    .join("\n");
+  return { bytes: compileAnimationScript(rewritten), referencesChanged };
+}
+
 export function repairMoveAnimationScriptBytes(bytes: Uint8Array): Uint8Array {
   const source = tryDecompileAnimationBytesForMode(bytes, "source");
   const legacy = tryDecompileAnimationBytesForMode(bytes, "legacy-pokeweb");
@@ -255,7 +293,11 @@ function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMi
 function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMissing?: false): AnimationTarget | undefined;
 function resolveAnimationTarget(project: ProjectState, moveId: number, throwOnMissing = false): AnimationTarget | undefined {
   const white2UpgradeLayout = usesWhite2UpgradeMoveAnimationLayout(project);
-  if (white2UpgradeLayout && moveId >= WHITE2UPGRADE_FIRST_EXPANDED_MOVE_ANIMATION_ID) {
+  const frostMoveExpansionLayout = usesFrostMoveExpansionLayout(project);
+  if (
+    (white2UpgradeLayout && moveId >= WHITE2UPGRADE_FIRST_EXPANDED_MOVE_ANIMATION_ID) ||
+    (frostMoveExpansionLayout && moveId >= MOVE_EXPANSION_FIRST_USABLE_ID)
+  ) {
     const directTarget = resolveAnimationStoreSlot(project, "move_animations", moveId, white2UpgradeLayout);
     if (directTarget) return directTarget;
   }

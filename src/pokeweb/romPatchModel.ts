@@ -6,6 +6,9 @@ import { applyFairyTypeGeneralPatch } from "./generalPatchModel";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, type NarcStore, type ProjectState } from "./projectStore";
 import { applyTrainerNaturePatchToArm9, detectTrainerNaturePatchState, type TrainerNaturePatchState } from "./trainerNaturePatch";
+import { installMoveExpansion, type MoveExpansionInstallOptions } from "./moveExpansionPatch";
+
+export { detectMoveExpansionPatch } from "./moveExpansionPatch";
 
 export type RomPatchId =
   | "removeDustCloudGems"
@@ -13,6 +16,7 @@ export type RomPatchId =
   | "forgettableHms"
   | "fairyType"
   | "specifyTrainerNatures"
+  | "moveExpansion"
   | "itemStandardization";
 
 export type RomPatchApplyResult = {
@@ -38,6 +42,8 @@ export type Arm9PatchResult = {
 export type AddFairyTypeSupportOptions = {
   updateModernFairyTypings?: boolean;
 };
+
+export type AddMoveExpansionOptions = MoveExpansionInstallOptions;
 
 export type FairyModernTypingResult = {
   changed: boolean;
@@ -283,6 +289,30 @@ export async function specifyTrainerNatures(project: ProjectState): Promise<RomP
     status: "applied",
     offset: patched.offset,
     summary: `Enabled explicit trainer Pokémon natures with an ARM9 helper at 0x${patched.hookAddress.toString(16)}.`,
+  };
+}
+
+export async function addMoveExpansion(
+  project: ProjectState,
+  options: AddMoveExpansionOptions = {},
+): Promise<RomPatchApplyResult> {
+  const result = await installMoveExpansion(project, options);
+  const mappedFairyText =
+    result.fairyMovesMappedToNormal > 0
+      ? ` ${result.fairyMovesMappedToNormal} Fairy-type definitions were safely mapped to Normal because Fairy Type Support is not installed.`
+      : "";
+  const gen6AnimationText = result.gen6AnimationsIncluded
+    ? ` The optional Gen 6 animation bundle is installed with ${result.gen6AnimationsInstalled} scripts; this run appended ${result.particleFilesInstalled} prerequisite particle files and rewrote ${result.particleReferencesRemapped} particle references for their allocated IDs.`
+    : "";
+  const summary = result.changed
+    ? `Expanded move data and animations to 1,000 entries, installed the Frost-compatible routing hook, and added ${result.importedMovesAdded} selectable White2Upgrade move definitions.${mappedFairyText}${gen6AnimationText}`
+    : `Move Expansion, its routing hook, and the coordinated text and animation tables are already installed.${gen6AnimationText}`;
+  return {
+    patchId: "moveExpansion",
+    status: result.changed ? "applied" : "already-applied",
+    overlayId: result.overlayId,
+    offset: result.helperOffset,
+    summary,
   };
 }
 

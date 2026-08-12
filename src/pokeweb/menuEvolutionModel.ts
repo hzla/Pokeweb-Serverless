@@ -309,7 +309,13 @@ export function ensureEvolveMessage(project: ProjectState): number {
   }
   const existing = bank.find((entry) => parseTextEntryId(entry[0]).block === 0
     && entry[1].trim().toLowerCase() === "evolve");
-  if (existing) return parseTextEntryId(existing[0]).entry;
+  if (existing) {
+    if (existing[1] !== "EVOLVE") {
+      existing[1] = "EVOLVE";
+      commitTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID);
+    }
+    return parseTextEntryId(existing[0]).entry;
+  }
 
   const nextEntryId = Math.max(...bank.map((entry) => parseTextEntryId(entry[0]).entry)) + 1;
   if (nextEntryId > 0xffff) {
@@ -320,7 +326,7 @@ export function ensureEvolveMessage(project: ProjectState): number {
     .filter((entry) => parseTextEntryId(entry[0]).entry === nextEntryId);
   if (appended.length === 0) throw new Error("The Evolve message entry could not be appended.");
   appended.forEach((entry) => {
-    entry[1] = "Evolve";
+    entry[1] = "EVOLVE";
   });
   commitTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID);
   return nextEntryId;

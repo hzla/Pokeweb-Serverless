@@ -10,6 +10,7 @@ import {
   formatMoveAnimationScriptParameters,
   getMoveAnimationTargetInfo,
   parseMoveAnimationScript,
+  remapMoveAnimationParticleIds,
   repairLegacyMoveAnimationArchives,
   repairMoveAnimationScriptBytes,
   updateMoveAnimationScript,
@@ -115,6 +116,29 @@ TerminateMoveScript
     expect(new Set(parsed.headerLabels)).toEqual(new Set(["SCRIPT_60"]));
     expect(parsed.labelOrder).toEqual(["SCRIPT_60"]);
     expect([...bytes]).toEqual([...compileMoveAnimation(project, 1, SINGLE_SCRIPT)]);
+  });
+
+  it("remaps every particle command while preserving unrelated parameters", () => {
+    const project = makeProject();
+    const bytes = compileMoveAnimation(
+      project,
+      680,
+      `
+LoadSPA 770
+Emit 770, 2, ATTACKER, DEFENDER, 0, 0, 0, 1x, 1x, 1x, 1x
+DeleteParticle 770
+TerminateMoveScript
+`,
+    );
+
+    const remapped = remapMoveAnimationParticleIds(bytes, new Map([[770, 765]]));
+    const text = decompileMoveAnimationBytes(remapped.bytes);
+
+    expect(remapped.referencesChanged).toBe(3);
+    expect(text).toContain("LoadSPA 765");
+    expect(text).toContain("Emit 765, 2, ATTACKER, DEFENDER");
+    expect(text).toContain("DeleteParticle 765");
+    expect(text).not.toContain("770");
   });
 
   it("accepts semantic enum parameters for BW2 animation scripts", () => {
@@ -438,6 +462,20 @@ TerminateMoveScript
     expect(text).toContain("LoadSPA 562");
     expect(project.narcs.move_animations.dirty.has(562)).toBe(true);
     expect(project.narcs.battle_animations.dirty.has(1)).toBe(false);
+  });
+
+  it("uses direct animation slots from 680 onward for Frost-compatible Move Expansion", () => {
+    const project = makeProject();
+    project.patches = { dirtyOverlayIds: [], applied: { moveExpansion: true } };
+    project.narcs.move_animations = makeStore("move_animations", Array.from({ length: 1000 }, () => compileMinimalScript()));
+    project.narcs.battle_animations = makeStore("battle_animations", Array.from({ length: 128 }, () => compileMinimalScript()));
+
+    expect(getMoveAnimationTargetInfo(project, 679)).toMatchObject({ storeName: "battle_animations", index: 118 });
+    expect(getMoveAnimationTargetInfo(project, 680)).toMatchObject({ storeName: "move_animations", index: 680 });
+
+    updateMoveAnimationScript(project, 680, SINGLE_SCRIPT);
+    expect(project.narcs.move_animations.dirty.has(680)).toBe(true);
+    expect(project.narcs.battle_animations.dirty.has(119)).toBe(false);
   });
 
   it("copies Animation ID scripts without dirtying the moves NARC", () => {
