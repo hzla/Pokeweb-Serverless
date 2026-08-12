@@ -20,8 +20,8 @@ import { parseGen5ScriptEncounters, type Gen5ScriptEncounter } from "./gen5Scrip
 import { parseHeaders } from "./headerModel";
 import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
-import { pokemonFormSuffix } from "./pokemonFormLabels";
-import { getPokemonCount, getPokemonRecord, getPokemonSummaryRecord, isPokemonPersonalRecord, type PokemonSummaryRecord } from "./pokemonModel";
+import { pokemonFormLabel, pokemonFormSpeciesLabel, pokemonFormSuffix } from "./pokemonFormLabels";
+import { getPokemonCount, getPokemonExportRecord, getPokemonSummaryRecord, isPokemonPersonalRecord, type PokemonSummaryRecord } from "./pokemonModel";
 import { decodeRecord, type DocGeneratorState, type ProjectState, type ReadableRecord } from "./projectStore";
 import { getTextBank } from "./textModel";
 import {
@@ -79,11 +79,18 @@ type DexEncounterSlot = { s: string; mn: number; mx?: number };
 type DexEncounterSection = { name?: string; rates: number[]; encs: DexEncounterSlot[] };
 type DexLocationRecord = { name: string; wilds: string[] } & Record<string, string | string[] | DexEncounterSection>;
 type CalcTypeChart = Record<string, Record<string, number>>;
+type DerivedFormReference = { baseId: number; formIndex: number };
+type DerivedFormIndexCacheEntry = {
+  personalStore: NonNullable<ProjectState["narcs"]["personal"]>;
+  signature: string;
+  references: Map<number, DerivedFormReference>;
+};
 
 const USER_STAT_EFFECT_CATEGORY = "Raise user stats";
 const TARGET_STAT_EFFECT_CATEGORIES = new Set(["Target Stat Changing", "Lowering Target's Stat along Attack"]);
 const USER_TARGETS = new Set(["User", "User's party", "User's side of field"]);
 const NON_BATTLER_TARGETS = new Set(["Entire Field", "Field Itself", "Opponent's side of field", "User's party", "User's side of field"]);
+const derivedFormIndexCache = new WeakMap<ProjectState, DerivedFormIndexCacheEntry>();
 
 export const GEN5_CALC_BRIDGE_CONFIG: CalcBridgeConfig = {
   gen: 5,
@@ -748,10 +755,12 @@ function buildCalcPokemon(project: ProjectState): Record<string, unknown> {
 
 function buildDexPokemon(project: ProjectState): Record<string, unknown> {
   const out: Record<string, Record<string, unknown>> = {};
+  const records: Array<{ name: string; record: ReturnType<typeof getPokemonExportRecord> }> = [];
   for (let id = 1; id < getPokemonCount(project); id += 1) {
     if (!isPokemonPersonalRecord(project, id)) continue;
-    const record = getPokemonRecord(project, id);
+    const record = getPokemonExportRecord(project, id);
     const name = pokemonExportName(project, id, record);
+    records.push({ name, record });
     const types = [record.personal.type_1, record.personal.type_2].map((type) => titleizeName(type)).filter(Boolean);
     out[name] = {
       name,
@@ -774,22 +783,56 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
     };
   }
 
-  for (let id = 1; id < getPokemonCount(project); id += 1) {
-    if (!isPokemonPersonalRecord(project, id)) continue;
-    const record = getPokemonRecord(project, id);
-    const sourceName = pokemonExportName(project, id, record);
+  for (const { name: sourceName, record } of records) {
     for (const evo of record.evolutions) {
       const target = titleizeName(evo.target);
       if (!target || target === "0" || !out[target] || Number(evo.param) === 0) continue;
       out[sourceName].evos ??= [];
       out[sourceName].evoMethods ??= [];
+      out[sourceName].evoMethodIds ??= [];
       out[sourceName].evoParams ??= [];
       (out[sourceName].evos as string[]).push(target);
       (out[sourceName].evoMethods as string[]).push(String(evo.method));
+      (out[sourceName].evoMethodIds as number[]).push(evo.methodId);
       (out[sourceName].evoParams as Array<string | number>).push(evo.param);
     }
   }
+
+  addDexFormRelationships(project, out);
   return out;
+}
+
+function addDexFormRelationships(project: ProjectState, out: Record<string, Record<string, unknown>>): void {
+  for (let baseId = 1; baseId < getPokemonCount(project); baseId += 1) {
+    if (!isPokemonPersonalRecord(project, baseId)) continue;
+    const baseRecord = safePokemonSummaryRecord(project, baseId);
+    if (!baseRecord) continue;
+
+    const firstFormId = Number(baseRecord.rawPersonal.form_id ?? 0);
+    const formCount = Math.max(1, Number(baseRecord.rawPersonal.num_forms ?? 1));
+    if (firstFormId <= 0 || formCount <= 1) continue;
+
+    const baseName = pokemonExportName(project, baseId, baseRecord);
+    const base = out[baseName];
+    if (!base) continue;
+
+    const formNames: string[] = [];
+    for (let formIndex = 1; formIndex < formCount; formIndex += 1) {
+      const personalId = firstFormId + formIndex - 1;
+      if (!isPokemonPersonalRecord(project, personalId)) continue;
+      const formName = pokemonExportName(project, personalId);
+      const form = out[formName];
+      if (!form || formName === baseName) continue;
+      form.baseSpecies = baseName;
+      form.forme = pokemonFormLabel(baseName, formIndex);
+      formNames.push(formName);
+    }
+
+    if (formNames.length === 0) continue;
+    base.baseForme = "Base";
+    base.otherFormes = formNames;
+    base.formeOrder = [baseName, ...formNames];
+  }
 }
 
 function pokemonExportName(project: ProjectState, id: number, record?: PokemonSummaryRecord): string {
@@ -797,11 +840,11 @@ function pokemonExportName(project: ProjectState, id: number, record?: PokemonSu
   if (fixed) return fixed;
 
   const summary = record ?? safePokemonSummaryRecord(project, id);
-  const directName = summary ? directPokemonExportName(project, id, summary) : undefined;
-  if (directName) return directName;
-
   const formName = derivedAltFormName(project, id);
   if (formName) return formName;
+
+  const directName = summary ? directPokemonExportName(project, id, summary) : undefined;
+  if (directName) return directName;
 
   return titleizeName(summary?.personal.name ?? project.texts.banks.pokedex?.[id] ?? `Pokemon ${id}`);
 }
@@ -815,25 +858,50 @@ function directPokemonExportName(project: ProjectState, id: number, record: Poke
 }
 
 function derivedAltFormName(project: ProjectState, id: number): string | undefined {
-  for (let baseId = 1; baseId < getPokemonCount(project); baseId += 1) {
-    if (baseId === id || !isPokemonPersonalRecord(project, baseId)) continue;
-    const baseRecord = safePokemonSummaryRecord(project, baseId);
-    if (!baseRecord) continue;
-    const formId = Number(baseRecord.rawPersonal.form_id ?? 0);
-    const numForms = Number(baseRecord.rawPersonal.num_forms ?? 0);
-    const altFormCount = Math.max(numForms - 1, 0);
-    if (formId <= 0 || altFormCount <= 0 || id < formId || id >= formId + altFormCount) continue;
-
-    const baseName = fixedPersonalName(project, baseId) ?? directPokemonExportName(project, baseId, baseRecord);
-    if (!baseName) continue;
-    const suffix = pokemonFormSuffix(baseName, id - formId + 1);
-    if (suffix) return `${baseName}-${suffix}`;
-  }
-  return undefined;
+  const reference = derivedFormReferences(project).get(id);
+  if (!reference) return undefined;
+  const baseRecord = safePokemonSummaryRecord(project, reference.baseId);
+  if (!baseRecord) return undefined;
+  const baseName = fixedPersonalName(project, reference.baseId) ?? directPokemonExportName(project, reference.baseId, baseRecord);
+  return baseName ? pokemonFormSpeciesLabel(baseName, reference.formIndex) : undefined;
 }
 
-export function trainerPokemonExportName(project: ProjectState, pok: TrainerPokemonSlot): string {
-  const baseName = pokemonExportName(project, pok.speciesId);
+function derivedFormReferences(project: ProjectState): Map<number, DerivedFormReference> {
+  const personalStore = project.narcs.personal;
+  if (!personalStore) return new Map();
+  const signature = personalFormSignature(project);
+  const cached = derivedFormIndexCache.get(project);
+  if (cached?.personalStore === personalStore && cached.signature === signature) return cached.references;
+
+  const references = new Map<number, DerivedFormReference>();
+  for (let baseId = 1; baseId < getPokemonCount(project); baseId += 1) {
+    if (!isPokemonPersonalRecord(project, baseId)) continue;
+    let raw: ReturnType<typeof decodeRecord>["raw"];
+    try {
+      raw = decodeRecord(project, "personal", baseId).raw;
+    } catch {
+      continue;
+    }
+    const firstFormId = Number(raw?.form_id ?? 0);
+    const formCount = Math.max(1, Number(raw?.num_forms ?? 1));
+    for (let formIndex = 1; firstFormId > 0 && formIndex < formCount; formIndex += 1) {
+      const personalId = firstFormId + formIndex - 1;
+      if (personalId <= 0 || personalId === baseId || personalId >= personalStore.fileCount || references.has(personalId)) continue;
+      references.set(personalId, { baseId, formIndex });
+    }
+  }
+  derivedFormIndexCache.set(project, { personalStore, signature, references });
+  return references;
+}
+
+function personalFormSignature(project: ProjectState): string {
+  const personalStore = project.narcs.personal;
+  if (!personalStore) return "missing";
+  return `${personalStore.fileCount}|${personalStore.revision ?? personalStore.dirty.size}`;
+}
+
+export function trainerPokemonExportName(project: ProjectState, pok: TrainerPokemonSlot, resolvedBaseName?: string): string {
+  const baseName = resolvedBaseName ?? pokemonExportName(project, pok.speciesId);
   const gen4FormName = gen4TrainerPokemonFormExportName(project, pok, baseName);
   if (gen4FormName) return gen4FormName;
   if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return baseName;
@@ -852,10 +920,10 @@ function gen4TrainerPokemonFormExportName(project: ProjectState, pok: TrainerPok
   return name === GEN4_TRAINER_FORM_EXPORT_NAMES[pok.speciesId]?.[0] ? baseName : name;
 }
 
-export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot): string {
+export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot, resolvedBaseName?: string): string {
   const resolvedSlot = Number(pok.resolvedAbilitySlot ?? pok.abilitySlot ?? 0);
   if (resolvedSlot > 3) return titleizeAbility(cascadeWhiteTrainerAbilityName(project, pok.speciesId, resolvedSlot) ?? pok.abilityName);
-  const baseName = pokemonExportName(project, pok.speciesId);
+  const baseName = resolvedBaseName ?? pokemonExportName(project, pok.speciesId);
   if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return titleizeAbility(pok.abilityName);
 
   const altPersonalId = trainerAltFormPersonalId(project, pok.speciesId, pok.form);
@@ -865,6 +933,14 @@ export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerP
   const slot = Math.min(Math.max(Number(pok.resolvedAbilitySlot ?? pok.abilitySlot ?? 1), 1), 3);
   const ability = altRecord?.personal[`ability_${slot}`];
   return isEmptyExportValue(ability) ? titleizeAbility(pok.abilityName) : titleizeAbility(ability);
+}
+
+export function trainerPokemonExportFields(project: ProjectState, pok: TrainerPokemonSlot): { speciesName: string; abilityName: string } {
+  const baseName = pokemonExportName(project, pok.speciesId);
+  return {
+    speciesName: trainerPokemonExportName(project, pok, baseName),
+    abilityName: trainerPokemonExportAbility(project, pok, baseName),
+  };
 }
 
 function calcPokemonAbilities(project: ProjectState, id: number, record: PokemonSummaryRecord): string[] {
@@ -1179,7 +1255,7 @@ function buildPokemonTextDoc(project: ProjectState, safeTitle: string): string {
 
   for (let id = 1; id < getPokemonCount(project); id += 1) {
     if (!isPokemonPersonalRecord(project, id)) continue;
-    const pok = getPokemonRecord(project, id);
+    const pok = getPokemonExportRecord(project, id);
     if (!pok.personal.base_hp) continue;
     lines.push(
       "===================",

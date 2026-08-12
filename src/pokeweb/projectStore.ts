@@ -49,6 +49,7 @@ export type NarcStore = {
   filenames?: Folder;
   records: Map<number, NarcRecord>;
   dirty: Set<number>;
+  revision?: number;
   parseError?: string;
 };
 
@@ -191,6 +192,8 @@ export type PatchState = {
     fairyModernTypings?: boolean;
     specifyTrainerNatures?: boolean;
     itemStandardization?: boolean;
+    moveExpansion?: boolean;
+    moveExpansionGen6Animations?: boolean;
   };
 };
 
@@ -275,7 +278,11 @@ export function decodeRecord(project: ProjectState, name: NarcName, id: number):
 }
 
 export function markDirty(project: ProjectState, name: NarcName, id: number): void {
-  project.narcs[name]?.dirty.add(id);
+  const store = project.narcs[name];
+  if (store) {
+    store.dirty.add(id);
+    store.revision = (store.revision ?? 0) + 1;
+  }
   if (GENERIC_DIRTY_DOMAINS.has(name)) {
     const title = domainTitle(name);
     recordGenericChange(project, name, `${title} file ${id} changed.`, undefined, { key: `generic-dirty:${name}:${id}` });

@@ -3,6 +3,7 @@ import resultEffectsText from "../assets/data/result_effects.txt?raw";
 import { recordFieldChange } from "./actionChangelog";
 import { EFFECT_CATEGORIES, PROPERTIES, STATS, STATUSES, TARGETS, moveCategoryNamesForProject, typeNamesForProject } from "./constants";
 import { copyMoveAnimationScript } from "./moveAnimationModel";
+import { MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 
 export const EFFECTS = effectsText.split(/\r?\n/u).filter((line) => line.length > 0);
@@ -364,7 +365,7 @@ export function itemMatchesSearch(record: ItemRecord, searchText: string): boole
 export function syncMoveReadable(project: ProjectState, raw: RawRecord, readable: ReadableRecord, id: number): void {
   Object.assign(readable, raw);
   readable.index = id;
-  readable.animation = id >= 673 ? 0 : id;
+  readable.animation = usesFrostMoveExpansionLayout(project) && id >= MOVE_EXPANSION_FIRST_USABLE_ID ? id : id >= 673 ? 0 : id;
   readable.name = project.texts.banks.moves?.[id] ?? (id <= 559 ? `Move ${id}` : `EXPANDED MOVE ${id}`);
   readable.type = typeNamesForProject(project)[raw.type] ?? raw.type;
   readable.effect_category = EFFECT_CATEGORIES[raw.effect_category] ?? raw.effect_category;

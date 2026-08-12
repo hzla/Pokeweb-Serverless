@@ -69,6 +69,7 @@ export type LearnsetMove = {
 
 export type EvolutionSlot = {
   index: number;
+  methodId: number;
   method: string | number;
   param: string | number;
   paramRaw: number;
@@ -135,6 +136,8 @@ export type PokemonEditorRecord = {
 };
 
 export type PokemonSummaryRecord = Omit<PokemonEditorRecord, "learnset" | "evolutions" | "tmCompatibility" | "tutorCompatibility" | "eggMoves" | "eggMovesLoaded">;
+
+export type PokemonExportRecord = PokemonSummaryRecord & Pick<PokemonEditorRecord, "learnset" | "evolutions" | "tmCompatibility">;
 
 export type PokemonUpdateResult = {
   value: string | number;
@@ -244,6 +247,16 @@ export function getPokemonRecord(project: ProjectState, id: number): PokemonEdit
     tutorCompatibility: getPokemonTutorCompatibility(project, id),
     eggMoves: getPokemonEggMoves(project, id),
     eggMovesLoaded: Boolean(project.narcs.egg_moves),
+  };
+}
+
+export function getPokemonExportRecord(project: ProjectState, id: number): PokemonExportRecord {
+  const summary = getPokemonSummaryRecord(project, id);
+  return {
+    ...summary,
+    learnset: getLearnset(project, id),
+    evolutions: getEvolutions(project, id),
+    tmCompatibility: getPokemonTmCompatibility(project, id),
   };
 }
 
@@ -718,6 +731,7 @@ function getEvolutions(project: ProjectState, id: number): EvolutionSlot[] {
     const targetId = record.raw?.[`target_${index}`] ?? 0;
     return {
       index,
+      methodId,
       method: EVO_METHODS[methodId] ?? methodId,
       param: formatEvolutionParam(project, methodId, paramRaw),
       paramRaw,

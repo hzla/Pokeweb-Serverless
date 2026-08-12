@@ -46,7 +46,7 @@ try {
   if (second.messageEntryId !== first.messageEntryId) throw new Error("Idempotent reinstall changed the Evolve message ID.");
 
   const matchingText = getTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID)
-    .filter((entry) => entry[1].trim().toLowerCase() === "evolve");
+    .filter((entry) => entry[1] === "EVOLVE");
   if (matchingText.length !== 1) throw new Error(`Expected one Evolve message, found ${matchingText.length}.`);
 
   const exportedBytes = await exportModifiedRom(project);
@@ -61,8 +61,8 @@ try {
   const reloaded = await loadProjectFromRomBytes(exportedBytes, `menu-evolution-${version}.nds`, { selectedNarcs: ["message_texts"] });
   const exportedText = getTextBank(reloaded, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID)
     .find((entry) => parseTextEntryId(entry[0]).entry === configuredId)?.[1];
-  if (exportedText?.trim().toLowerCase() !== "evolve") {
-    throw new Error(`Exported message ${configuredId} is ${JSON.stringify(exportedText)}, not Evolve.`);
+  if (exportedText !== "EVOLVE") {
+    throw new Error(`Exported message ${configuredId} is ${JSON.stringify(exportedText)}, not EVOLVE.`);
   }
   console.log(`${version} Menu Evolution install passed: ${compatibility.passed}/${compatibility.checks.length} hooks, PMC/counter dependency, configured Evolve text ${first.messageEntryId}, field-script counters, silent party-menu return, idempotent staging, and ROM export.`);
 } finally {

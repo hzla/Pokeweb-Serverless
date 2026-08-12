@@ -102,7 +102,7 @@ describe("BW2 Menu Evolution", () => {
 
     expect(first).toBe(2);
     expect(second).toBe(first);
-    expect(project.texts.messageTexts?.[MENU_EVOLUTION_MESSAGE_BANK_ID]?.filter((entry) => entry[1] === "Evolve")).toHaveLength(1);
+    expect(project.texts.messageTexts?.[MENU_EVOLUTION_MESSAGE_BANK_ID]?.filter((entry) => entry[1] === "EVOLVE")).toHaveLength(1);
 
     project.codeInjection!.menuEvolution = { messageBankId: MENU_EVOLUTION_MESSAGE_BANK_ID, messageEntryId: first };
     project.codeInjection!.modules!.push({ path: MENU_EVOLUTION_W2_PATH, target: "patches", fileName: "MenuEvolutionW2.dll" });
@@ -112,7 +112,7 @@ describe("BW2 Menu Evolution", () => {
 
     expect(project.fileSystem?.additions?.[MENU_EVOLUTION_W2_PATH]).toBeUndefined();
     expect(project.codeInjection?.menuEvolution).toBeUndefined();
-    expect(project.texts.messageTexts?.[MENU_EVOLUTION_MESSAGE_BANK_ID]?.some((entry) => entry[1] === "Evolve")).toBe(true);
+    expect(project.texts.messageTexts?.[MENU_EVOLUTION_MESSAGE_BANK_ID]?.some((entry) => entry[1] === "EVOLVE")).toBe(true);
   });
 
   it("reports the matching battle-counter DLL as a required dependency", () => {

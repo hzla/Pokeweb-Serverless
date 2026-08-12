@@ -33,6 +33,14 @@ export type PmcInstallResult = {
 
 export type CodeInjectionDllTarget = "patches" | "lib";
 
+type CodeInjectionModule = NonNullable<NonNullable<ProjectState["codeInjection"]>["modules"]>[number];
+type OriginalRomDllCacheEntry = {
+  originalRomBytes: Uint8Array;
+  modules: CodeInjectionModule[];
+};
+
+const originalRomDllCache = new WeakMap<ProjectState, OriginalRomDllCacheEntry>();
+
 export type CodeInjectionDllInstallResult = {
   path: string;
   fileName: string;
@@ -445,14 +453,23 @@ export function listCodeInjectionDlls(project: ProjectState): NonNullable<NonNul
   for (const path of Object.keys(project.fileSystem?.additions ?? {}).sort((a, b) => a.localeCompare(b))) {
     addDllModuleFromPath(path, seen, modules);
   }
-  if (project.originalRomBytes) {
-    try {
-      const rom = new NintendoDSRom(project.originalRomBytes);
-      for (const module of detectCodeInjectionDllsFromRom(rom)) addDllModule(module, seen, modules);
-    } catch {
-      // Older saved projects may not include parseable ROM bytes; staged DLLs above still cover active edits.
-    }
+  for (const module of codeInjectionDllsFromOriginalRom(project)) addDllModule(module, seen, modules);
+  return modules;
+}
+
+function codeInjectionDllsFromOriginalRom(project: ProjectState): CodeInjectionModule[] {
+  const originalRomBytes = project.originalRomBytes;
+  if (!originalRomBytes) return [];
+  const cached = originalRomDllCache.get(project);
+  if (cached?.originalRomBytes === originalRomBytes) return cached.modules;
+
+  let modules: CodeInjectionModule[] = [];
+  try {
+    modules = detectCodeInjectionDllsFromRom(new NintendoDSRom(originalRomBytes));
+  } catch {
+    // Older saved projects may not include parseable ROM bytes; staged DLLs still cover active edits.
   }
+  originalRomDllCache.set(project, { originalRomBytes, modules });
   return modules;
 }
 

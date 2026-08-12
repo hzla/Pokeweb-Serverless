@@ -46,6 +46,10 @@ export type TrainerUpdateResult = {
   slot?: TrainerPokemonSlot;
 };
 
+export type GetTrainerRecordOptions = {
+  includeTexts?: boolean;
+};
+
 type TrainerPokemonShowdownImport = {
   species: string;
   gender?: string;
@@ -62,7 +66,7 @@ export function getTrainerCount(project: ProjectState): number {
   return project.narcs.trdata?.fileCount ?? 0;
 }
 
-export function getTrainerRecord(project: ProjectState, trainerId: number): TrainerRecord {
+export function getTrainerRecord(project: ProjectState, trainerId: number, options: GetTrainerRecordOptions = {}): TrainerRecord {
   const trdata = decodeRecord(project, "trdata", trainerId);
   const trpok = decodeRecord(project, "trpok", trainerId);
   if (!trdata.raw || !trdata.readable || !trpok.raw || !trpok.readable) throw new Error(`Unable to decode trainer ${trainerId}`);
@@ -88,7 +92,7 @@ export function getTrainerRecord(project: ProjectState, trainerId: number): Trai
     hasItems: templateHasItems(trdata.raw.template),
     party,
     spritePath: trainerSpritePath(String(trdata.readable.name ?? ""), String(trdata.readable.class ?? "")),
-    texts: getTrainerTextLines(project, trainerId),
+    texts: options.includeTexts === false ? [] : getTrainerTextLines(project, trainerId),
   };
 }
 

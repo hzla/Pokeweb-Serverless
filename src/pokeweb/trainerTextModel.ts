@@ -39,6 +39,15 @@ type TrainerTextTableRow = {
   typeId: number;
 };
 
+type TrainerTextTableCacheEntry = {
+  lineBytes: Uint8Array;
+  offsetBytes: Uint8Array;
+  rows: TrainerTextTableRow[];
+  offsets: number[];
+};
+
+const trainerTextTableCache = new WeakMap<ProjectState, TrainerTextTableCacheEntry>();
+
 export type TrainerTextLine = {
   typeId: number;
   label: string;
@@ -149,8 +158,7 @@ function getTrainerTextContext(project: ProjectState, trainerId: number):
   if (project.session.baseRom !== "BW2") return undefined;
   const stores = resolveTrainerTextStores(project);
   if (!stores) return undefined;
-  const rows = parseLineTable(stores.lineTableStore.rawFiles[0] ?? new Uint8Array());
-  const offsets = parseOffsets(stores.offsetStore.rawFiles[0] ?? new Uint8Array());
+  const { rows, offsets } = parsedTrainerTextTables(project, stores);
   const bank = getTextBank(project, "message_texts", TRAINER_TEXT_BANK_ID);
   let startOffset = offsets[trainerId];
   let startIndex = startOffset === undefined ? -1 : Math.floor(startOffset / 4);
@@ -164,6 +172,22 @@ function getTrainerTextContext(project: ProjectState, trainerId: number):
   const entryIndexes: number[] = [];
   for (let index = startIndex; index < rows.length && rows[index]?.trainerId === trainerId; index += 1) entryIndexes.push(index);
   return { stores, rows, offsets, bank, startIndex, startOffset, entryIndexes };
+}
+
+function parsedTrainerTextTables(project: ProjectState, stores: TrainerTextStores): Pick<TrainerTextTableCacheEntry, "rows" | "offsets"> {
+  const lineBytes = stores.lineTableStore.rawFiles[0] ?? new Uint8Array();
+  const offsetBytes = stores.offsetStore.rawFiles[0] ?? new Uint8Array();
+  const cached = trainerTextTableCache.get(project);
+  if (cached?.lineBytes === lineBytes && cached.offsetBytes === offsetBytes) return cached;
+
+  const next: TrainerTextTableCacheEntry = {
+    lineBytes,
+    offsetBytes,
+    rows: parseLineTable(lineBytes),
+    offsets: parseOffsets(offsetBytes),
+  };
+  trainerTextTableCache.set(project, next);
+  return next;
 }
 
 function insertTrainerText(
