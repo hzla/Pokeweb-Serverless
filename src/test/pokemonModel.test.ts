@@ -12,6 +12,7 @@ import {
   deletePokemonLearnsetMove,
   evolutionSlotCount,
   getPokemonCount,
+  getPokemonExportRecord,
   getPokemonMachineCompatibilityRoster,
   getPokemonRecord,
   getPokemonTutorCompatibilityRoster,
@@ -37,6 +38,18 @@ describe("pokemonModel", () => {
     expect(bulbasaur.learnset[0]).toMatchObject({ moveName: "Tackle", level: 1, type: "Normal", power: 40 });
     expect(bulbasaur.evolutions[0]).toMatchObject({ method: "Level Requirement", param: 16, targetId: 2, target: "Ivysaur" });
     expect(bulbasaur.evolutions).toHaveLength(7);
+  });
+
+  it("builds lean export data without editor-only tutor and egg-move collections", () => {
+    const record = getPokemonExportRecord(makeProject(), 1);
+
+    expect(record.personal.name).toBe("Bulbasaur");
+    expect(record.learnset[0]).toMatchObject({ moveName: "Tackle", level: 1 });
+    expect(record.evolutions[0]).toMatchObject({ targetId: 2, target: "Ivysaur" });
+    expect(record.tmCompatibility).toHaveLength(101);
+    expect(record).not.toHaveProperty("tutorCompatibility");
+    expect(record).not.toHaveProperty("eggMoves");
+    expect(record).not.toHaveProperty("eggMovesLoaded");
   });
 
   it.each([

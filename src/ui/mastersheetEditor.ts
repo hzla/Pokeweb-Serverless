@@ -1,5 +1,5 @@
 import {
-  buildMastersheetExport,
+  buildMastersheetPreview,
   enrichMastersheetTrainerLocations,
   ensureMastersheetMarkdown,
   generateMastersheetDownload,
@@ -24,17 +24,6 @@ const RENDER_DEBOUNCE_MS = 150;
 export function renderMastersheetEditor(project: ProjectState, root: HTMLElement, options: RenderOptions = {}): void {
   const initialMarkdown = ensureMastersheetMarkdown(project);
   let enrichmentStatus = "";
-  if (project.narcs.headers && project.narcs.overworlds) {
-    try {
-      const docs = ensureDocs(project);
-      const before = JSON.stringify({ trainerLocations: docs.trainerLocations, trainerDiffs: docs.trainerDiffs });
-      enrichmentStatus = enrichMastersheetTrainerLocations(project);
-      const after = JSON.stringify({ trainerLocations: docs.trainerLocations, trainerDiffs: docs.trainerDiffs });
-      if (before !== after) options.onDirty?.();
-    } catch (error) {
-      enrichmentStatus = error instanceof Error ? error.message : String(error);
-    }
-  }
 
   root.innerHTML = `
     <section class="mastersheet-page">
@@ -71,12 +60,32 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
   const copyButton = root.querySelector<HTMLButtonElement>("#mastersheet-copy-btn");
   let renderTimeout: number | undefined;
   let lastExport: MastersheetExport | undefined;
+  let enrichmentAttempted = false;
+
+  const ensureTrainerLocationEnrichment = (): void => {
+    if (enrichmentAttempted) return;
+    enrichmentAttempted = true;
+    if (!project.narcs.headers || !project.narcs.overworlds) return;
+    try {
+      const docs = ensureDocs(project);
+      const before = JSON.stringify({ trainerLocations: docs.trainerLocations, trainerDiffs: docs.trainerDiffs });
+      enrichmentStatus = enrichMastersheetTrainerLocations(project);
+      const after = JSON.stringify({ trainerLocations: docs.trainerLocations, trainerDiffs: docs.trainerDiffs });
+      if (before !== after) options.onDirty?.();
+    } catch (error) {
+      enrichmentStatus = error instanceof Error ? error.message : String(error);
+    }
+  };
 
   const refreshPreview = (): void => {
     if (!textarea || !preview || !toc || !previewPanel) return;
     const markdown = textarea.value;
     setMastersheetMarkdown(project, markdown);
-    lastExport = buildMastersheetExport(project, markdown);
+    lastExport = buildMastersheetPreview(project, markdown);
+    if (lastExport.masterData.some((element) => element.tag === "trainer") && !enrichmentAttempted) {
+      ensureTrainerLocationEnrichment();
+      lastExport = buildMastersheetPreview(project, markdown);
+    }
     preview.innerHTML = renderMasterData(lastExport.masterData, lastExport.trainersById, lastExport.encountersById, { highlights: lastExport.highlights });
     renderMastersheetToc(preview, toc, previewPanel);
     const blocking = lastExport.warnings.some((warning) => warning.blocking);
@@ -117,8 +126,10 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
   downloadButton?.addEventListener("click", () => {
     if (!textarea) return;
     setMastersheetMarkdown(project, textarea.value);
-    lastExport = buildMastersheetExport(project, textarea.value);
+    ensureTrainerLocationEnrichment();
+    lastExport = buildMastersheetPreview(project, textarea.value);
     renderStatus(status, lastExport.warnings, enrichmentStatus);
+    if (lastExport.warnings.some((warning) => warning.blocking)) return;
     runExportAction(status, () => {
       const file = generateMastersheetDownload(project);
       downloadFile(file);
@@ -128,7 +139,8 @@ export function renderMastersheetEditor(project: ProjectState, root: HTMLElement
   copyButton?.addEventListener("click", async () => {
     if (!textarea) return;
     setMastersheetMarkdown(project, textarea.value);
-    lastExport = buildMastersheetExport(project, textarea.value);
+    ensureTrainerLocationEnrichment();
+    lastExport = buildMastersheetPreview(project, textarea.value);
     if (lastExport.warnings.some((warning) => warning.blocking)) {
       renderStatus(status, lastExport.warnings, enrichmentStatus);
       return;

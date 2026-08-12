@@ -14,7 +14,7 @@ import {
 } from "../pokeweb/docGeneratorModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT } from "../pokeweb/overworldModel";
-import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
+import { decodeRecord, markDirty, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 import { TYPE_CHART_OFFSET, TYPE_CHART_TYPES, updateTypeChartValue } from "../pokeweb/typeChartModel";
 
 describe("docGeneratorModel", () => {
@@ -25,6 +25,23 @@ describe("docGeneratorModel", () => {
     expect(file.filename).toBe("voltwhiteplus-calc.js");
     expect(file.contents.startsWith("backup_data = ")).toBe(true);
     expect(file.contents).toContain('"title": "Volt White Plus"');
+  });
+
+  it("skips editor-only tutor move lookups for calc and dex Pokemon exports", () => {
+    const project = makeProject();
+    const moves = project.texts.banks.moves ?? [];
+    let findIndexCalls = 0;
+    project.texts.banks.moves = new Proxy(moves, {
+      get(target, property, receiver) {
+        if (property === "findIndex") findIndexCalls += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    generateCalcDownload(project, "Volt White Plus");
+    generateDexDownloads(project, "Volt White Plus");
+
+    expect(findIndexCalls).toBe(0);
   });
 
   it("builds Gen 5 Dynamic Calc bridge payloads from generated calc data", () => {
@@ -280,12 +297,88 @@ describe("docGeneratorModel", () => {
       bs: { hp: 55, at: 100 },
       abs: ["Pressure", "None", "None"],
     });
-    expect(dexPayload.poks["Deoxys-Attack"]).toMatchObject({ name: "Deoxys-Attack", num: 5 });
+    expect(dexPayload.poks.Deoxys).toMatchObject({
+      baseForme: "Base",
+      otherFormes: ["Deoxys-Attack"],
+      formeOrder: ["Deoxys", "Deoxys-Attack"],
+    });
+    expect(dexPayload.poks["Deoxys-Attack"]).toMatchObject({
+      name: "Deoxys-Attack",
+      num: 5,
+      baseSpecies: "Deoxys",
+      forme: "Attack",
+    });
     expect(calcPayload.formatted_sets["Deoxys-Attack"]["Lvl 43 Ace Trainer Dan - Black City"]).toMatchObject({
       ability: "Pressure",
       form: 1,
     });
     expect(calcPayload.formatted_sets.Deoxys).toBeUndefined();
+  });
+
+  it("invalidates cached form relationships after personal data changes", () => {
+    const project = makeProject();
+    expect(trainerPokemonExportName(project, trainerSlot(5, 0))).toBe("Deoxys-Attack");
+
+    const base = decodeRecord(project, "personal", 4).raw!;
+    base.form_id = 0;
+    base.num_forms = 1;
+    markDirty(project, "personal", 4);
+
+    expect(trainerPokemonExportName(project, trainerSlot(5, 0))).toBe("Pokemon 5");
+  });
+
+  it("exports newly appended known-species and custom-species forms for DDex navigation", () => {
+    const project = makeProject();
+    const personal = project.narcs.personal!;
+    const personalFormat = project.formats.personal!;
+    personal.rawFiles[1] = packRows(personalFormat, [{ base_hp: 45, item_1: 25, ability_1: 1, form_id: 6, num_forms: 2 }]);
+    personal.rawFiles.push(
+      packRows(personalFormat, [{ base_hp: 46, item_1: 25, ability_1: 1 }]),
+      packRows(personalFormat, [{ base_hp: 80, ability_1: 2, form_id: 8, num_forms: 2 }]),
+      packRows(personalFormat, [{ base_hp: 90, ability_1: 2 }]),
+    );
+    personal.fileCount = personal.rawFiles.length;
+    project.texts.banks.pokedex![6] = "Bulbasaur";
+    project.texts.banks.pokedex![7] = "Fakemon";
+    project.texts.banks.pokedex![8] = "Fakemon";
+
+    const [dexFile, searchIndexFile] = generateDexDownloads(project, "Volt White Plus");
+    const poks = JSON.parse(String(dexFile.contents).replace(/^overrides = /u, "").replace(/;\n$/u, "")).poks;
+
+    expect(poks.Bulbasaur).toMatchObject({
+      otherFormes: ["Bulbasaur Form 1"],
+      formeOrder: ["Bulbasaur", "Bulbasaur Form 1"],
+    });
+    expect(poks["Bulbasaur Form 1"]).toMatchObject({ baseSpecies: "Bulbasaur", forme: "Form 1", bs: { hp: 46 } });
+    expect(poks.Fakemon).toMatchObject({ otherFormes: ["Fakemon Form 1"] });
+    expect(poks["Fakemon Form 1"]).toMatchObject({ baseSpecies: "Fakemon", forme: "Form 1", bs: { hp: 90 } });
+    expect(String(searchIndexFile.contents)).toContain("bulbasaurform1");
+    expect(String(searchIndexFile.contents)).toContain("fakemonform1");
+  });
+
+  it("exports the three battle-counter evolution method IDs and thresholds", () => {
+    const project = makeProject();
+    const evolutionFiles = Array.from({ length: 6 }, () => packRows(project.formats.evolutions!, [{}]));
+    evolutionFiles[1] = packRows(project.formats.evolutions!, [{
+      method_0: 29,
+      param_0: 5,
+      target_0: 2,
+      method_1: 30,
+      param_1: 6,
+      target_1: 3,
+      method_2: 31,
+      param_2: 7,
+      target_2: 4,
+    }]);
+    project.narcs.evolutions = makeStore("evolutions", evolutionFiles, evolutionFiles.length);
+
+    const [dexFile] = generateDexDownloads(project, "Volt White Plus");
+    const bulbasaur = JSON.parse(String(dexFile.contents).replace(/^overrides = /u, "").replace(/;\n$/u, "")).poks.Bulbasaur;
+
+    expect(bulbasaur.evos).toEqual(["Ivysaur", "Pokemon 3", "Deoxys"]);
+    expect(bulbasaur.evoMethods).toEqual(["KO Count", "Battle Count", "Battles Used Count"]);
+    expect(bulbasaur.evoMethodIds).toEqual([29, 30, 31]);
+    expect(bulbasaur.evoParams).toEqual([5, 6, 7]);
   });
 
   it("exports DSPRE Gen 4 trainer form bits as calc species names", () => {

@@ -347,6 +347,14 @@ describe("trainerModel", () => {
     expect(project.actionChangelog?.entries.some((entry) => entry.domain === "trainer_text" && entry.text.includes("Trainer 1 Pre Bttl changed from Battle start to New start."))).toBe(true);
   });
 
+  it("can omit trainer text when a bulk reader only needs battle data", () => {
+    const project = makeProject(0);
+    addTrainerTextFixtures(project);
+
+    expect(getTrainerRecord(project, 1).texts.some((line) => line.exists)).toBe(true);
+    expect(getTrainerRecord(project, 1, { includeTexts: false }).texts).toEqual([]);
+  });
+
   it("inserts and deletes BW2 trainer text for a trainer with no existing rows", () => {
     const project = makeProject(0);
     addTrainerTextFixtures(project);
