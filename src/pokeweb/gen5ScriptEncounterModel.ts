@@ -1,5 +1,6 @@
 import { readU16, readU32, writeU16 } from "../nds/binary";
 import type { BaseRom } from "./constants";
+import { scanGen5ScriptPokemonCommands, type ScriptValueRef } from "./gen5ScriptPokemonScanner";
 
 export type Gen5ScriptEncounterKind = "gift" | "static";
 export type Gen5ScriptEncounterRefKind = Gen5ScriptEncounterKind | "egg";
@@ -36,24 +37,8 @@ export type Gen5ScriptEncounterPatch = {
   form?: number;
 };
 
-const WORK_SET_CONST = 0x28;
-const SCRIPT_VARIABLE_MIN = 0x4000;
-
-const POKE_PARTY_ADD = 0x10c;
-const POKE_PARTY_ADD_EX = 0x10e;
-const POKE_PARTY_ADD_EGG = 0x10f;
-const POKE_PARTY_ADD_N = 0x2ea;
 const WORD_SET_POKE_SPECIES = 0x57;
 const WORD_SET_POKE_SPECIES_WITH_ARTICLE = 0x58;
-
-const BW2_CALL_WILD_BATTLE = 0x174;
-const BW_CALL_WILD_BATTLE = 0x178;
-const CALL_WILD_BATTLE_EX = 0x297;
-
-type ScriptRange = {
-  start: number;
-  end: number;
-};
 
 export function parseGen5ScriptEncounters(bytes: Uint8Array, baseRom: BaseRom): Gen5ScriptEncounter[] {
   return scanGen5ScriptEncounterRefs(bytes, baseRom).map(({ kind, speciesId, level, form }) => ({
@@ -65,28 +50,27 @@ export function parseGen5ScriptEncounters(bytes: Uint8Array, baseRom: BaseRom): 
 }
 
 export function scanGen5ScriptEncounterRefs(bytes: Uint8Array, baseRom: BaseRom): Gen5ScriptEncounterRef[] {
-  const encounters: Gen5ScriptEncounterRef[] = [];
-  for (const range of scriptRanges(bytes)) {
-    const constants = new Map<number, Gen5ScriptValueRef>();
-    for (let offset = range.start; offset + 2 <= range.end; offset += 1) {
-      const opcode = readU16(bytes, offset);
-      if (opcode === WORK_SET_CONST && offset + 6 <= range.end) {
-        const variableId = readU16(bytes, offset + 2);
-        constants.set(variableId, { value: readU16(bytes, offset + 4), valueOffset: offset + 4, variableId });
-        continue;
-      }
-
-      const gift = readGiftEncounter(bytes, offset, range, opcode, constants);
-      if (gift) {
-        encounters.push(gift);
-        continue;
-      }
-
-      const statik = readStaticEncounter(bytes, offset, range, opcode, constants, baseRom);
-      if (statik) encounters.push(statik);
-    }
-  }
-  return encounters;
+  return scanGen5ScriptPokemonCommands(bytes, baseRom).commands.flatMap((command) => {
+    const kind = legacyKind(command.type);
+    const speciesRef = legacyValueRef(command.fields.species);
+    const level = command.type === "egg" ? 1 : command.fields.level?.value;
+    if (!kind || !speciesRef || level === undefined) return [];
+    const form = command.fields.form?.value ?? 0;
+    const levelRef = legacyValueRef(command.fields.level);
+    const formRef = legacyValueRef(command.fields.form);
+    return [{
+      kind,
+      speciesId: speciesRef.value,
+      level,
+      form,
+      commandOffset: command.commandOffset,
+      scriptStart: command.scriptStart,
+      scriptEnd: command.scriptEnd,
+      speciesRef,
+      levelRef,
+      formRef,
+    }];
+  });
 }
 
 export function patchGen5ScriptEncounters(bytes: Uint8Array, patches: Gen5ScriptEncounterPatch[]): Uint8Array {
@@ -119,104 +103,14 @@ export function gen5ScriptStarts(bytes: Uint8Array): number[] {
   return starts;
 }
 
-function scriptRanges(bytes: Uint8Array): ScriptRange[] {
-  const starts = gen5ScriptStarts(bytes);
-  const sorted = [...starts].sort((a, b) => a - b);
-  return starts.map((start) => ({ start, end: sorted.find((candidate) => candidate > start) ?? bytes.length }));
+function legacyKind(type: string): Gen5ScriptEncounterRefKind | undefined {
+  if (type === "party_gift" || type === "party_gift_ex" || type === "n_gift") return "gift";
+  if (type === "egg") return "egg";
+  if (type === "wild_battle" || type === "wild_battle_ex") return "static";
+  return undefined;
 }
 
-function readGiftEncounter(
-  bytes: Uint8Array,
-  offset: number,
-  range: ScriptRange,
-  opcode: number,
-  constants: Map<number, Gen5ScriptValueRef>,
-): Gen5ScriptEncounterRef | undefined {
-  if (!isScriptResultVariable(readU16(bytes, offset + 2))) return undefined;
-  if (opcode === POKE_PARTY_ADD_EGG) {
-    if (offset + 8 > range.end) return undefined;
-    const speciesRef = resolveScriptValue(readU16(bytes, offset + 4), offset + 4, constants);
-    const formRef = resolveScriptValue(readU16(bytes, offset + 6), offset + 6, constants);
-    if (!speciesRef || !isSpeciesId(speciesRef.value) || !formRef) return undefined;
-    return makeEncounterRef("egg", speciesRef, 1, formRef.value, offset, range, undefined, formRef);
-  }
-
-  const isExtendedGift = opcode === POKE_PARTY_ADD_EX;
-  const isNGift = opcode === POKE_PARTY_ADD_N;
-  if (opcode !== POKE_PARTY_ADD && !isExtendedGift && !isNGift) return undefined;
-
-  const length = isNGift ? 14 : isExtendedGift ? 20 : 10;
-  if (offset + length > range.end) return undefined;
-
-  const speciesRef = resolveScriptValue(readU16(bytes, offset + 4), offset + 4, constants);
-  const levelOffset = isNGift ? offset + 6 : offset + 8;
-  const levelRef = resolveScriptValue(readU16(bytes, levelOffset), levelOffset, constants);
-  const formRef = isNGift ? undefined : resolveScriptValue(readU16(bytes, offset + 6), offset + 6, constants);
-  const form = isNGift ? 0 : formRef?.value;
-  if (!speciesRef || !isSpeciesId(speciesRef.value) || !levelRef || !isLevel(levelRef.value) || form === undefined) return undefined;
-  return makeEncounterRef("gift", speciesRef, levelRef.value, form, offset, range, levelRef, formRef);
-}
-
-function readStaticEncounter(
-  bytes: Uint8Array,
-  offset: number,
-  range: ScriptRange,
-  opcode: number,
-  constants: Map<number, Gen5ScriptValueRef>,
-  baseRom: BaseRom,
-): Gen5ScriptEncounterRef | undefined {
-  const simpleOpcode = baseRom === "BW2" ? BW2_CALL_WILD_BATTLE : BW_CALL_WILD_BATTLE;
-  const isSimpleWildBattle = opcode === simpleOpcode;
-  const isExtendedWildBattle = baseRom === "BW2" && opcode === CALL_WILD_BATTLE_EX;
-  if (!isSimpleWildBattle && !isExtendedWildBattle) return undefined;
-
-  const length = isExtendedWildBattle ? 10 : 8;
-  if (offset + length > range.end) return undefined;
-
-  const speciesRef = resolveScriptValue(readU16(bytes, offset + 2), offset + 2, constants);
-  const levelRef = resolveScriptValue(readU16(bytes, offset + 4), offset + 4, constants);
-  const formRef = isExtendedWildBattle ? resolveScriptValue(readU16(bytes, offset + 6), offset + 6, constants) : undefined;
-  const form = isExtendedWildBattle ? formRef?.value : 0;
-  if (!speciesRef || !isSpeciesId(speciesRef.value) || !levelRef || !isLevel(levelRef.value) || form === undefined) return undefined;
-  return makeEncounterRef("static", speciesRef, levelRef.value, form, offset, range, levelRef, formRef);
-}
-
-function resolveScriptValue(value: number, valueOffset: number, constants: Map<number, Gen5ScriptValueRef>): Gen5ScriptValueRef | undefined {
-  return value >= SCRIPT_VARIABLE_MIN ? constants.get(value) : { value, valueOffset };
-}
-
-function makeEncounterRef(
-  kind: Gen5ScriptEncounterRefKind,
-  speciesRef: Gen5ScriptValueRef,
-  level: number,
-  form: number,
-  commandOffset: number,
-  range: ScriptRange,
-  levelRef?: Gen5ScriptValueRef,
-  formRef?: Gen5ScriptValueRef,
-): Gen5ScriptEncounterRef {
-  return {
-    kind,
-    speciesId: speciesRef.value,
-    level,
-    form,
-    commandOffset,
-    scriptStart: range.start,
-    scriptEnd: range.end,
-    speciesRef,
-    levelRef,
-    formRef,
-  };
-}
-
-function isSpeciesId(value: number | undefined): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 && value < SCRIPT_VARIABLE_MIN;
-}
-
-function isLevel(value: number | undefined): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= 100;
-}
-
-function isScriptResultVariable(value: number): boolean {
-  return value >= SCRIPT_VARIABLE_MIN && value < 0xff00;
+function legacyValueRef(ref: ScriptValueRef | undefined): Gen5ScriptValueRef | undefined {
+  if (ref?.value === undefined || ref.sourceOffset === undefined || !ref.writable) return undefined;
+  return { value: ref.value, valueOffset: ref.sourceOffset, variableId: ref.variableId };
 }

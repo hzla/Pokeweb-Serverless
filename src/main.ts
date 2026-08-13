@@ -270,6 +270,7 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   starter_sprites: "Starter Sprites",
   pokemon_sprites: "Pokemon Sprites",
   pokemon_icons: "Pokemon Icons",
+  ingame_trades: "In-game Trades (Scripted Pokemon)",
   subway_sets: "Battle Subway Sets",
   subway_trainers: "Battle Subway Trainers",
   pwt_sets_0: "PWT Sets 0",
@@ -296,7 +297,7 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
   { title: "Required", names: [...MANDATORY_NARCS] },
   { title: "Sprites", names: ["pokemon_sprites", "pokemon_icons", "starter_sprites", "ow_sprites"], toggleable: true },
   { title: "Moves", names: ["moves", "tutor_moves", "move_animations", "battle_animations", "move_spas"], toggleable: true },
-  { title: "Pokemon", names: ["personal", "learnsets", "evolutions", "egg_moves", "habitats"], toggleable: true },
+  { title: "Pokemon", names: ["personal", "learnsets", "evolutions", "egg_moves", "habitats", "ingame_trades"], toggleable: true },
   { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets", "trainer_sprites"], toggleable: true },
   {
     title: "Battle Facilities",
@@ -905,7 +906,7 @@ function renderRefreshRomButton(): string {
 function renderMoreMenu(): string {
   const moreRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
     ["randomizer", "Randomizer"],
-    ["starters", "Starters"],
+    ["starters", "Scripted PKMN"],
     ["types", "Type Chart"],
     ["tutorMoves", "Tutor Moves"],
     ["moveEffectHandlers", "Move Effect Handlers"],
@@ -1950,13 +1951,15 @@ function routeUrl(
   }
   if (nextRoute === "trainerSprites" && trainerSpriteClassId !== undefined) return `#trainerSprites/${trainerSpriteClassId}`;
   if (nextRoute === "animatedSprites" && pwanAnimationSpeciesId !== undefined) return `#animatedSprites/${pwanAnimationSpeciesId}`;
+  if (nextRoute === "starters") return "#scriptedpkmn";
   return `#${nextRoute}`;
 }
 
 function routeStateFromUrl(): AppHistoryState | undefined {
   const hash = window.location.hash.replace(/^#/u, "");
   if (!hash) return undefined;
-  const [routeName, idText, extraText] = hash.split("/");
+  const [rawRouteName, idText, extraText] = hash.split("/");
+  const routeName = rawRouteName === "scriptedpkmn" ? "starters" : rawRouteName;
   if (!isAppRoute(routeName)) return undefined;
   const id = idText === undefined ? undefined : Number(idText);
   const formIndex = extraText === undefined ? undefined : Number(extraText);

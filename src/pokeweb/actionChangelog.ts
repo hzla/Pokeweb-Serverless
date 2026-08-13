@@ -140,6 +140,8 @@ export function domainTitle(domain: string): string {
     grotto_odds: "Hidden Grotto Odds",
     story_texts: "Story Text",
     message_texts: "Info Text",
+    scripts: "Scripts",
+    ingame_trades: "In-game Trades",
     maps: "Maps",
     matrix: "Matrices",
     overworlds: "Overworld Files",
