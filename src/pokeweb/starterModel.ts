@@ -1,6 +1,7 @@
 import { readU16, writeU16 } from "../nds/binary";
 import { recordGenericChange } from "./actionChangelog";
 import { TYPES, isGen5BaseRom, type BaseRom, type Gen5BaseRom } from "./constants";
+import { scanGen5ScriptPokemonCommands } from "./gen5ScriptPokemonScanner";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
 import { getTextBank, commitTextBank } from "./textModel";
 
@@ -153,11 +154,11 @@ function detectCurrentStarters(project: ProjectState): { speciesIds: number[]; w
   const saved = project.starters?.speciesIds;
   if (isStarterTriplet(project, saved)) return { speciesIds: [...saved], warnings };
 
-  const scriptTriplet = detectStartersFromScripts(project);
-  if (scriptTriplet) return { speciesIds: scriptTriplet, warnings };
-
   const overlayTriplet = detectStartersFromOverlay(project);
   if (overlayTriplet) return { speciesIds: overlayTriplet, warnings };
+
+  const scriptTriplet = detectStartersFromScripts(project);
+  if (scriptTriplet) return { speciesIds: scriptTriplet, warnings };
 
   warnings.push("Current starters could not be detected from the loaded ROM data, so vanilla Snivy, Tepig, and Oshawott were used as the replacement baseline.");
   return { speciesIds: [...VANILLA_STARTERS], warnings };
@@ -187,7 +188,7 @@ function detectStartersFromScripts(project: ProjectState): number[] | undefined 
   for (const fileId of findStarterScriptFileIds(project)) {
     const file = store.rawFiles[fileId];
     if (!file) continue;
-    const commandTriplet = detectStartersFromScriptBytes(file);
+    const commandTriplet = detectStartersFromScriptBytes(file, project.session.baseRom);
     if (commandTriplet && isStarterTriplet(project, commandTriplet)) return commandTriplet;
     const saved = project.starters?.speciesIds;
     const savedOffset = isStarterTriplet(project, saved) ? findTripletOffset(file, saved) : undefined;
@@ -346,7 +347,7 @@ export function findStarterScriptFileIds(project: ProjectState, expectedSpecies?
   const configured = starterConfig(project.session.baseRom).scriptFileIds.filter((fileId) => Boolean(store.rawFiles[fileId]));
   const rest = store.rawFiles.map((_file, fileId) => fileId).filter((fileId) => !configured.includes(fileId));
   const matches = (fileIds: number[]) => fileIds.filter((fileId) => {
-    const detected = detectStartersFromScriptBytes(store.rawFiles[fileId]!);
+    const detected = detectStartersFromScriptBytes(store.rawFiles[fileId]!, project.session.baseRom);
     return detected && (!expectedSpecies || tripletEquals(detected, expectedSpecies));
   });
   const configuredMatches = matches(configured);
@@ -376,7 +377,10 @@ function updateStarterOverlays(project: ProjectState, previousSpeciesIds: number
   project.starters.dirtyOverlayIds = [...dirtyOverlayIds];
 }
 
-export function detectStartersFromScriptBytes(bytes: Uint8Array): number[] | undefined {
+export function detectStartersFromScriptBytes(bytes: Uint8Array, baseRom: BaseRom = "BW2"): number[] | undefined {
+  const semanticTriplet = detectEntryScopedStarterAssignments(bytes, baseRom);
+  if (semanticTriplet) return normalizeVanillaStarterOrder(semanticTriplet);
+
   const giftSpeciesVars = collectStarterGiftSpeciesVars(bytes);
   const directSpecies: number[] = [];
   const variableSpecies: number[] = [];
@@ -396,9 +400,42 @@ export function detectStartersFromScriptBytes(bytes: Uint8Array): number[] | und
     if (giftSpeciesVars.has(variableId) && isBaseSpeciesId(speciesId) && !variableSpecies.includes(speciesId)) variableSpecies.push(speciesId);
   }
 
-  if (variableSpecies.length >= 3) return variableSpecies.slice(0, 3);
-  if (directSpecies.length >= 3) return directSpecies.slice(0, 3);
+  if (variableSpecies.length >= 3) return normalizeVanillaStarterOrder(variableSpecies.slice(0, 3));
+  if (directSpecies.length >= 3) return normalizeVanillaStarterOrder(directSpecies.slice(0, 3));
   return undefined;
+}
+
+function normalizeVanillaStarterOrder(speciesIds: number[]): number[] {
+  return speciesIds.length === VANILLA_STARTERS.length
+    && VANILLA_STARTERS.every((speciesId) => speciesIds.includes(speciesId))
+    ? [...VANILLA_STARTERS]
+    : speciesIds;
+}
+
+function detectEntryScopedStarterAssignments(bytes: Uint8Array, baseRom: BaseRom): number[] | undefined {
+  if (baseRom !== "BW" && baseRom !== "BW2") return undefined;
+  const scan = scanGen5ScriptPokemonCommands(bytes, baseRom);
+  const directSpecies: number[] = [];
+  for (const command of scan.commands) {
+    if (command.type !== "party_gift" && command.type !== "party_gift_ex") continue;
+    if (command.fields.level?.value !== STARTER_LEVEL || command.fields.form?.value !== STARTER_FORM) continue;
+    const species = command.fields.species;
+    if (!species) continue;
+    if (species.value !== undefined && isBaseSpeciesId(species.value)) {
+      if (!directSpecies.includes(species.value)) directSpecies.push(species.value);
+      if (directSpecies.length >= 3) return directSpecies.slice(0, 3);
+      continue;
+    }
+    if (species.rawValue < SCRIPT_VARIABLE_MIN) continue;
+    const assignments: number[] = [];
+    for (let offset = command.scriptStart; offset + 6 <= command.commandOffset; offset += 1) {
+      if (readU16(bytes, offset) !== WORK_SET_CONST || readU16(bytes, offset + 2) !== species.rawValue) continue;
+      const value = readU16(bytes, offset + 4);
+      if (isBaseSpeciesId(value) && !assignments.includes(value)) assignments.push(value);
+    }
+    if (assignments.length >= 3) return assignments.slice(-3);
+  }
+  return directSpecies.length >= 3 ? directSpecies.slice(0, 3) : undefined;
 }
 
 export function patchStarterScriptBytes(bytes: Uint8Array, fromValues: number[], toValues: number[]): StarterScriptPatchResult {
