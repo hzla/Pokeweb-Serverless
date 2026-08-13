@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import type { NarcName } from "../pokeweb/constants";
-import { applyGen5InGameTradePatches, scanGen5InGameTrades } from "../pokeweb/ingameTradeModel";
+import { applyGen5InGameTradePatches, gen5InGameTradeTextBankId, scanGen5InGameTrades } from "../pokeweb/ingameTradeModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("ingameTradeModel", () => {
+  it("selects the trade text bank for each Gen 5 game family", () => {
+    expect(gen5InGameTradeTextBankId("BW")).toBe(35);
+    expect(gen5InGameTradeTextBankId("BW2")).toBe(37);
+    expect(gen5InGameTradeTextBankId("HGSS")).toBeUndefined();
+  });
+
   it("discovers variable trade records and skips structurally invalid files", () => {
     const project = makeProject([makeTrade(25, 133), new Uint8Array(20), makeTrade(4, 7)]);
 
