@@ -9,6 +9,11 @@ import {
 import { isGen4Project } from "../pokeweb/constants";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import {
+  initializeHeaderBattleEnvironmentEditors,
+  renderBattleBackgroundTypeSelect,
+  renderHeaderBattleEnvironmentCard,
+} from "./headerBattleEnvironmentEditor";
 import { attachHeaderInteractions } from "./legacyInteractions";
 
 const INFO_ICON = `
@@ -20,7 +25,10 @@ const INFO_ICON = `
   </svg>
 `;
 
-type HeaderDetailItem = { kind: "field"; field: string; max?: number; openOverworld?: boolean; text?: boolean } | { kind: "packed"; field: string };
+type HeaderDetailItem =
+  | { kind: "field"; field: string; max?: number; openOverworld?: boolean; text?: boolean }
+  | { kind: "packed"; field: string }
+  | { kind: "battleEnvironment" };
 type HeaderDetailSection = { title: string; items: readonly HeaderDetailItem[] };
 
 const GEN5_HEADER_DETAIL_SECTIONS: HeaderDetailSection[] = [
@@ -63,7 +71,7 @@ const GEN5_HEADER_DETAIL_SECTIONS: HeaderDetailSection[] = [
   },
   {
     title: "Movement & Battle",
-    items: [{ kind: "packed", field: "map_behavior" }],
+    items: [{ kind: "packed", field: "map_behavior" }, { kind: "battleEnvironment" }],
   },
   {
     title: "Seasonal Music",
@@ -188,6 +196,7 @@ export function renderHeaderEditor(project: ProjectState, root: HTMLElement, onD
   `;
 
   attachHeaderInteractions(root, project, { onDirty });
+  if (!isGen4Project(project)) initializeHeaderBattleEnvironmentEditors(root, project, onDirty);
   root.querySelectorAll<HTMLElement>("[data-open-overworld]").forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
@@ -222,25 +231,26 @@ function renderRow(project: ProjectState, rowId: number, row: HeaderRow, canOpen
       </div>
       <div class="expanded-card-content expanded-header">
         <div class="header-detail-grid">
-          ${headerDetailSectionsFor(project).map((section) => renderHeaderDetailSection(row, section.title, section.items, canOpenOverworld)).join("")}
+          ${headerDetailSectionsFor(project).map((section) => renderHeaderDetailSection(rowId, row, section.title, section.items, canOpenOverworld)).join("")}
         </div>
       </div>
     </div>
   `;
 }
 
-function renderHeaderDetailSection(row: HeaderRow, title: string, items: readonly HeaderDetailItem[], canOpenOverworld: boolean): string {
+function renderHeaderDetailSection(rowId: number, row: HeaderRow, title: string, items: readonly HeaderDetailItem[], canOpenOverworld: boolean): string {
   return `
     <section class="header-detail-section">
       <div class="header-detail-section-title">${escapeHtml(title)}</div>
       <div class="header-detail-section-fields">
-        ${items.map((item) => renderHeaderDetailItem(row, item, canOpenOverworld)).join("")}
+        ${items.map((item) => renderHeaderDetailItem(rowId, row, item, canOpenOverworld)).join("")}
       </div>
     </section>
   `;
 }
 
-function renderHeaderDetailItem(row: HeaderRow, item: HeaderDetailItem, canOpenOverworld: boolean): string {
+function renderHeaderDetailItem(rowId: number, row: HeaderRow, item: HeaderDetailItem, canOpenOverworld: boolean): string {
+  if (item.kind === "battleEnvironment") return renderHeaderBattleEnvironmentCard(rowId, row);
   if (item.kind === "packed") return renderHeaderPackedField(row, item.field);
 
   const max = item.max ?? headerFieldMax(item.field) ?? 65535;
@@ -275,6 +285,14 @@ function renderHeaderPackedField(row: HeaderRow, fieldName: string): string {
           <label class="header-flag-check">
             <input class="header-flag-checkbox" data-field-name="${escapeHtml(fieldName)}" data-part-key="${escapeHtml(part.key)}" type="checkbox" ${partValue > 0 ? "checked" : ""}>
             <span>${escapeHtml(part.label)}</span>
+          </label>
+        `;
+      }
+      if (fieldName === "map_behavior" && part.key === "battle_bg_type") {
+        return `
+          <label class="header-flag-number -battle-environment-type">
+            <span>${escapeHtml(part.label)}</span>
+            ${renderBattleBackgroundTypeSelect(partValue)}
           </label>
         `;
       }

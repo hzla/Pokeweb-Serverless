@@ -40,7 +40,7 @@ export type BattleBackgroundScene = BattleModelScene & {
 export type BattleEnvironmentArchives = {
   rom: NintendoDSRom;
   graphics: NARC;
-  table: { path: string; narc: NARC };
+  table: { fileId: number; path: string; narc: NARC };
 };
 
 export async function loadBattleBackgroundCatalog(project: ProjectState): Promise<BattleBackgroundCatalog> {
@@ -144,21 +144,21 @@ function findBattleBackgroundTable(
   project: ProjectState,
   rom: NintendoDSRom,
   graphics: NARC,
-): { path: string; narc: NARC } {
+): { fileId: number; path: string; narc: NARC } {
   for (const path of KNOWN_TABLE_PATHS) {
     const fileId = rom.filenames.idOf(path);
     if (fileId === undefined) continue;
     const narc = tryNarc(getRomFileBytes(project, rom, fileId));
-    if (narc && battleBackgroundTableScore(narc, graphics, rom.idCode) >= MINIMUM_TABLE_MODEL_REFERENCES) return { path, narc };
+    if (narc && battleBackgroundTableScore(narc, graphics, rom.idCode) >= MINIMUM_TABLE_MODEL_REFERENCES) return { fileId, path, narc };
   }
 
-  let best: { path: string; narc: NARC; score: number } | undefined;
+  let best: { fileId: number; path: string; narc: NARC; score: number } | undefined;
   for (let fileId = 0; fileId < rom.files.length; fileId += 1) {
     const narc = tryNarc(getRomFileBytes(project, rom, fileId));
     if (!narc) continue;
     const score = battleBackgroundTableScore(narc, graphics, rom.idCode);
     if (score < MINIMUM_TABLE_MODEL_REFERENCES || score <= (best?.score ?? 0)) continue;
-    best = { path: pathForFileId(rom, fileId) ?? `ROM file ${fileId}`, narc, score };
+    best = { fileId, path: pathForFileId(rom, fileId) ?? `ROM file ${fileId}`, narc, score };
   }
   if (!best) throw new Error("Could not locate the three-file battle-background lookup table in this ROM.");
   return best;

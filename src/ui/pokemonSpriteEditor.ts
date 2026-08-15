@@ -17,6 +17,8 @@ import {
   importPokemonAnimationBundle,
   importPokemonSpritePackage,
   copyPokemonSpriteVariant,
+  pokemonAnimationPlayerStateAtTick,
+  pokemonAnimationSequenceTotalTicks,
   replaceRigCells,
   resolvePokemonSpriteId,
   scalePokemonAnimationDurations,
@@ -1136,7 +1138,9 @@ function scaleGifLoopBaseDurations(spriteId: number, side: PokemonAnimationSide,
   if (state.gifLoopBase?.spriteId !== spriteId || state.gifLoopBase.side !== side) return;
   state.gifLoopBase = {
     ...state.gifLoopBase,
-    sequences: state.gifLoopBase.sequences.map((sequence) => sequence.map((frame) => ({ ...frame, duration: clamp(Math.round(frame.duration * ratio), 1, 0xffff) }))),
+    sequences: state.gifLoopBase.sequences.map((sequence) =>
+      sequence.map((frame) => ({ ...frame, duration: frame.duration === 0 ? 0 : clamp(Math.round(frame.duration * ratio), 1, 0xffff) })),
+    ),
   };
 }
 
@@ -3642,7 +3646,7 @@ function renderAnimationSequenceTable(kind: "nanr" | "nmar", sequence: PokemonAn
       </div>
       <div class="animation-file-table-wrap">
         <table class="animation-file-table">
-          <thead><tr><th>Frame</th><th>${kind === "nanr" ? "Cell" : "Group"}</th><th>Duration</th><th>X</th><th>Y</th><th>Rotation</th><th>Scale X</th><th>Scale Y</th><th></th></tr></thead>
+          <thead><tr><th>Frame</th><th>${kind === "nanr" ? "Cell" : "Group"}</th><th title="A duration of 0 is skipped immediately and is not displayed.">Duration <span class="animation-zero-duration-key">0 = skipped</span></th><th>X</th><th>Y</th><th>Rotation</th><th>Scale X</th><th>Scale Y</th><th></th></tr></thead>
           <tbody>
             ${sequence.frames
               .map(
@@ -3650,7 +3654,10 @@ function renderAnimationSequenceTable(kind: "nanr" | "nmar", sequence: PokemonAn
                   <tr data-animation-frame-row data-sequence="${sequence.index}" data-frame="${frameIndex}">
                     <td>${frameIndex}</td>
                     <td><input data-animation-frame-field="cellIndex" type="number" min="0" value="${frame.cellIndex}"></td>
-                    <td><input data-animation-frame-field="duration" type="number" min="1" value="${frame.duration}"></td>
+                    <td class="${frame.duration === 0 ? "animation-zero-duration-cell" : ""}">
+                      <input data-animation-frame-field="duration" type="number" min="0" value="${frame.duration}" title="0 skips this keyframe without displaying it.">
+                      ${frame.duration === 0 ? `<span class="animation-zero-duration-label">Skipped / no display</span>` : ""}
+                    </td>
                     <td><input data-animation-frame-field="x" type="number" value="${frame.x}"></td>
                     <td><input data-animation-frame-field="y" type="number" value="${frame.y}"></td>
                     <td><input data-animation-frame-field="rotation" type="number" step="0.1" value="${roundDisplay(frame.rotation)}"></td>
@@ -4312,7 +4319,7 @@ function renderAnimationFrameInputs(frame: PokemonAnimationFrame): string {
   const canTransform = frame.frameType === "index-srt";
   return `
     <label class="sprite-field"><span>Cell</span><input data-animation-field="cellIndex" type="number" min="0" value="${frame.cellIndex}"></label>
-    <label class="sprite-field"><span>Duration</span><input data-animation-field="duration" type="number" min="1" value="${frame.duration}"></label>
+    <label class="sprite-field"><span>Duration</span><input data-animation-field="duration" type="number" min="0" value="${frame.duration}" title="0 skips this keyframe without displaying it."><small class="animation-duration-note ${frame.duration === 0 ? "-active" : ""}">${frame.duration === 0 ? "Skipped / no display" : "0 = skipped / no display"}</small></label>
     <label class="sprite-field"><span>X</span><input data-animation-field="x" type="number" value="${frame.x}" ${canTranslate ? "" : "disabled"}></label>
     <label class="sprite-field"><span>Y</span><input data-animation-field="y" type="number" value="${frame.y}" ${canTranslate ? "" : "disabled"}></label>
     <label class="sprite-field"><span>Rotation</span><input data-animation-field="rotation" type="number" step="0.1" value="${roundDisplay(frame.rotation)}" ${canTransform ? "" : "disabled"}></label>
@@ -4395,13 +4402,13 @@ function selectedAnimationTimelineTick(animation: PokemonAnimation): number {
   if (!sequence) return 0;
   let tick = 0;
   for (let index = 0; index < Math.min(state.animationFrame, sequence.frames.length); index += 1) {
-    tick += Math.max(1, sequence.frames[index]?.duration ?? 1);
+    tick += Math.max(0, sequence.frames[index]?.duration ?? 0);
   }
   return tick;
 }
 
 function sequenceTotalTicks(sequence: PokemonAnimation["sequences"][number] | undefined): number {
-  return sequence?.frames.reduce((sum, frame) => sum + Math.max(1, frame.duration), 0) ?? 0;
+  return pokemonAnimationSequenceTotalTicks(sequence);
 }
 
 function animationTimelineTotalTicks(
@@ -4434,52 +4441,7 @@ function animationFrameLabel(tick: number, maxTick: number, keyFrame: number): s
 }
 
 function animationPlayerFrameAtTick(sequence: PokemonAnimation["sequences"][number], tick: number): number {
-  return animationPlayerStateAtTick(sequence, tick).frameIndex;
-}
-
-function animationPlayerStateAtTick(sequence: PokemonAnimation["sequences"][number], tick: number): { frameIndex: number; frameStartTick: number } {
-  if (sequence.frames.length === 0) return { frameIndex: 0, frameStartTick: 0 };
-  // ABNK startFrameIndex is an offset into the shared frame table. After parsing,
-  // sequence.frames is already sliced to local frames, so playback starts at 0.
-  let currentFrame = 0;
-  let curFrameTime = 0;
-  let frameStartTick = 0;
-  let direction: "forward" | "backward" = "forward";
-  let playing = true;
-  for (let frameTick = 0; frameTick < tick && playing; frameTick += 1) {
-    curFrameTime += 1;
-    const duration = Math.max(1, sequence.frames[currentFrame]?.duration ?? 1);
-    if (curFrameTime < duration) continue;
-    curFrameTime = 0;
-    frameStartTick = frameTick + 1;
-    if (direction === "forward") {
-      currentFrame += 1;
-      if (currentFrame >= sequence.frames.length) {
-        currentFrame -= 1;
-        if (sequence.mode === 1) {
-          playing = false;
-        } else if (sequence.mode === 2) {
-          currentFrame = 0;
-        } else if (sequence.mode === 3 || sequence.mode === 4) {
-          direction = "backward";
-          if (currentFrame > 0) currentFrame -= 1;
-        }
-      }
-    } else {
-      currentFrame -= 1;
-      if (currentFrame < 0) {
-        currentFrame = 0;
-        if (sequence.mode === 4) {
-          direction = "forward";
-          currentFrame = Math.min(1, sequence.frames.length - 1);
-        } else {
-          playing = false;
-        }
-      }
-    }
-    currentFrame = clamp(currentFrame, 0, sequence.frames.length - 1);
-  }
-  return { frameIndex: currentFrame, frameStartTick };
+  return pokemonAnimationPlayerStateAtTick(sequence, tick).frameIndex;
 }
 
 function resolveMultiCellPlayback(
@@ -4494,7 +4456,7 @@ function resolveMultiCellPlayback(
     const animation = getPokemonMultiCellAnimation(project, spriteId, state.animationSide);
     const sequence = animation.sequences[0];
     if (!sequence) return { multiCell: fallback, frameStartTick: 0 };
-    const playback = animationPlayerStateAtTick(sequence, tick);
+    const playback = pokemonAnimationPlayerStateAtTick(sequence, tick);
     const frame = sequence.frames[playback.frameIndex];
     return {
       multiCell: cells[frame?.cellIndex ?? fallback.index] ?? fallback,
@@ -4529,14 +4491,7 @@ function nodePlaybackTick(node: PokemonMultiCellNode, tick: number, frameStartTi
 
 function animationFrameAtTick(sequence: PokemonAnimation["sequences"][number], tick: number): PokemonAnimationFrame | undefined {
   if (sequence.frames.length === 0) return undefined;
-  const total = sequence.frames.reduce((sum, frame) => sum + Math.max(1, frame.duration), 0);
-  let localTick = sequence.mode === 1 ? Math.min(tick, Math.max(0, total - 1)) : tick % Math.max(1, total);
-  if (sequence.mode === 3 || sequence.mode === 4) localTick = Math.max(0, total - 1 - localTick);
-  for (const frame of sequence.frames) {
-    localTick -= Math.max(1, frame.duration);
-    if (localTick < 0) return frame;
-  }
-  return sequence.frames[sequence.frames.length - 1];
+  return sequence.frames[pokemonAnimationPlayerStateAtTick(sequence, tick).frameIndex];
 }
 
 function animationFrameStateForSequence(
@@ -4552,14 +4507,7 @@ function animationFrameStateForSequence(
 
 function animationFrameIndexAtTick(sequence: PokemonAnimation["sequences"][number], tick: number): number {
   if (sequence.frames.length === 0) return 0;
-  const total = sequence.frames.reduce((sum, frame) => sum + Math.max(1, frame.duration), 0);
-  let localTick = sequence.mode === 1 ? Math.min(tick, Math.max(0, total - 1)) : tick % Math.max(1, total);
-  if (sequence.mode === 3 || sequence.mode === 4) localTick = Math.max(0, total - 1 - localTick);
-  for (let index = 0; index < sequence.frames.length; index += 1) {
-    localTick -= Math.max(1, sequence.frames[index]?.duration ?? 1);
-    if (localTick < 0) return index;
-  }
-  return sequence.frames.length - 1;
+  return pokemonAnimationPlayerStateAtTick(sequence, tick).frameIndex;
 }
 
 function animationPreviewFrame(spriteId: number, side: PokemonAnimationSide, sequenceIndex: number, frameIndex: number, frame: PokemonAnimationFrame): PokemonAnimationFrame {

@@ -21,6 +21,7 @@ import "./styles/legacyPatches.css";
 import "./styles/pwanAnimation.css";
 import "./styles/moveBackgrounds.css";
 import "./styles/battleBackgrounds.css";
+import "./styles/headerBattleEnvironments.css";
 import "./styles/randomizer.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, type NarcName } from "./pokeweb/constants";
