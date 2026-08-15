@@ -72,6 +72,10 @@ export type PokemonAnimation = {
   sequences: PokemonAnimationSequence[];
   raw: Uint8Array;
 };
+export type PokemonAnimationPlaybackState = {
+  frameIndex: number;
+  frameStartTick: number;
+};
 export type PokemonMultiCellNode = {
   sequenceNumber: number;
   x: number;
@@ -551,6 +555,9 @@ export function setPokemonAnimationFrame(
   const frame = sequence?.frames[frameIndex];
   if (!sequence || !frame) throw new Error("Animation frame is out of range");
   const safe = sanitizePokemonAnimationFrameEdit(next);
+  if (safe.duration === 0 && !sequence.frames.some((candidate, index) => index !== frameIndex && candidate.duration > 0)) {
+    throw new Error(`NANR sequence ${sequenceIndex} must contain at least one displayed keyframe`);
+  }
   const raw = animation.raw.slice();
   writeU16(raw, frame.sequenceFrameOffset + 4, safe.duration);
   writeU16(raw, frame.valueOffset, safe.cellIndex);
@@ -617,7 +624,7 @@ export function rewritePokemonAnimationSequences(
   }));
   const raw = buildPokemonAnimationFile(sequences);
   writePokemonSpriteFile(project, spriteId, animationFileIndex(side), compressLz11Literal(raw));
-  const loopDuration = Math.max(1, sequenceFrames[0]?.reduce((sum, frame) => sum + Math.max(1, Math.round(frame.duration)), 0) ?? 1);
+  const loopDuration = Math.max(1, sequenceFrames[0]?.reduce((sum, frame) => sum + Math.max(0, Math.round(frame.duration)), 0) ?? 1);
   writePokemonSpriteFile(project, spriteId, multiCellAnimationFileIndex(side), buildPokemonMultiCellAnimationFile(loopDuration));
   return parsePokemonAnimation(raw, side);
 }
@@ -681,6 +688,79 @@ export function parsePokemonAnimation(bytes: Uint8Array, side: PokemonAnimationS
   return { side, sequences, raw: bytes };
 }
 
+export function pokemonAnimationSequenceTotalTicks(sequence: PokemonAnimationSequence | undefined): number {
+  return sequence?.frames.reduce((sum, frame) => sum + Math.max(0, frame.duration), 0) ?? 0;
+}
+
+/**
+ * Replays the Nitro G2D animation-controller rules at an integer video tick.
+ * Duration-zero entries are traversed immediately and never become the active
+ * displayed frame, matching NNS_G2dTickAnimCtrl.
+ */
+export function pokemonAnimationPlayerStateAtTick(sequence: PokemonAnimationSequence, tick: number): PokemonAnimationPlaybackState {
+  const frames = sequence.frames;
+  if (frames.length === 0) return { frameIndex: 0, frameStartTick: 0 };
+
+  const loopStart = Math.max(0, Math.min(frames.length - 1, Math.round(sequence.startFrameIndex || 0)));
+  const reversePlayback = sequence.mode === 3 || sequence.mode === 4;
+  const loopPlayback = sequence.mode === 2 || sequence.mode === 4;
+  let currentFrame = loopStart;
+  let activeFrame = currentFrame;
+  let currentFrameTime = 0;
+  let frameStartTick = 0;
+  let direction: 1 | -1 = 1;
+  let playing = true;
+
+  const advanceElapsedFrames = (boundaryTick: number): void => {
+    // A malformed all-zero looping sequence would otherwise never settle.
+    const transitionLimit = frames.length * 2 + 2;
+    let transitions = 0;
+    while (playing && currentFrameTime >= Math.max(0, frames[currentFrame]?.duration ?? 0) && transitions < transitionLimit) {
+      const duration = Math.max(0, frames[currentFrame]?.duration ?? 0);
+      currentFrameTime -= duration;
+      const wasMovingForward = direction === 1;
+      currentFrame += direction;
+      frameStartTick = boundaryTick;
+
+      const reachedEdge = wasMovingForward ? currentFrame >= frames.length : currentFrame <= loopStart - 1;
+      if (reachedEdge) {
+        if (reversePlayback) {
+          direction = direction === 1 ? -1 : 1;
+          if (!wasMovingForward) {
+            if (loopPlayback) {
+              currentFrame = loopStart;
+              activeFrame = currentFrame;
+              currentFrameTime = 0;
+            } else {
+              playing = false;
+            }
+          }
+        } else if (loopPlayback) {
+          currentFrame = loopStart;
+          activeFrame = currentFrame;
+          currentFrameTime = 0;
+        } else {
+          playing = false;
+        }
+      }
+
+      currentFrame = Math.max(0, Math.min(frames.length - 1, currentFrame));
+      if ((frames[currentFrame]?.duration ?? 0) > 0) activeFrame = currentFrame;
+      transitions += 1;
+    }
+  };
+
+  // Nitro performs a zero-tick update when binding/resetting a sequence so
+  // leading duration-zero entries are skipped before the first draw.
+  advanceElapsedFrames(0);
+  const targetTick = Math.max(0, Math.floor(Number.isFinite(tick) ? tick : 0));
+  for (let frameTick = 0; frameTick < targetTick && playing; frameTick += 1) {
+    currentFrameTime += 1;
+    advanceElapsedFrames(frameTick + 1);
+  }
+  return { frameIndex: activeFrame, frameStartTick };
+}
+
 function scaleAnimationFileDurations(
   project: ProjectState,
   spriteId: number,
@@ -698,7 +778,7 @@ function scaleAnimationFileDurations(
   const animation = parsePokemonAnimation(raw, side, signature, label);
   for (const sequence of animation.sequences) {
     for (const frame of sequence.frames) {
-      writeU16(raw, frame.sequenceFrameOffset + 4, clampInt(Math.round(frame.duration * ratio), 1, 0xffff));
+      writeU16(raw, frame.sequenceFrameOffset + 4, scalePokemonAnimationDuration(frame.duration, ratio));
     }
   }
   writePokemonSpriteFile(project, spriteId, fileIndex, compress ? compressLz11Literal(raw) : raw);
@@ -726,6 +806,9 @@ function validatePokemonAnimationReferences(
   const targetCount = kind === "nanr" ? getPokemonCellBank(project, spriteId, side).cells.length : getPokemonMultiCells(project, spriteId, side).cells.length;
   animation.sequences.forEach((sequence, sequenceIndex) => {
     if (sequence.frames.length === 0) throw new Error(`${kind.toUpperCase()} sequence ${sequenceIndex} must contain at least one frame`);
+    if (!sequence.frames.some((frame) => frame.duration > 0)) {
+      throw new Error(`${kind.toUpperCase()} sequence ${sequenceIndex} must contain at least one displayed keyframe`);
+    }
     sequence.frames.forEach((frame, frameIndex) => {
       if (!Number.isInteger(frame.cellIndex) || frame.cellIndex < 0 || frame.cellIndex >= targetCount) {
         throw new Error(`${kind.toUpperCase()} sequence ${sequenceIndex} frame ${frameIndex} references missing ${kind === "nanr" ? "NCER cell" : "NMCR group"} ${frame.cellIndex}`);
@@ -1411,7 +1494,7 @@ function clampInt(value: number, min: number, max: number): number {
 
 function sanitizePokemonAnimationFrameEdit(next: PokemonAnimationFrameEdit): PokemonAnimationFrameEdit {
   return {
-    duration: clampInt(next.duration, 1, 0xffff),
+    duration: clampInt(next.duration, 0, 0xffff),
     cellIndex: clampInt(next.cellIndex, 0, 0xffff),
     x: clampInt(next.x, -0x8000, 0x7fff),
     y: clampInt(next.y, -0x8000, 0x7fff),
@@ -1419,6 +1502,11 @@ function sanitizePokemonAnimationFrameEdit(next: PokemonAnimationFrameEdit): Pok
     xScale: clampFinite(next.xScale, -128, 128, 1),
     yScale: clampFinite(next.yScale, -128, 128, 1),
   };
+}
+
+function scalePokemonAnimationDuration(duration: number, ratio: number): number {
+  if (duration === 0) return 0;
+  return clampInt(Math.round(duration * ratio), 1, 0xffff);
 }
 
 function clampFinite(value: number, min: number, max: number, fallback: number): number {

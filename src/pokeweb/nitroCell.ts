@@ -89,7 +89,10 @@ export function parseNitroCellEffect(
   const animation = parsePokemonAnimation(decompressNitroIfNeeded(animationBytes));
   const fallbackFrame = { duration: 1, cellIndex: 0, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 } as PokemonAnimationFrame;
   const animationSequences = animation.sequences.length ? animation.sequences : [{ index: 0, mode: 0, frames: [fallbackFrame] }];
-  const allFrames = animationSequences.flatMap((sequence) => (sequence.frames.length ? sequence.frames : [fallbackFrame]));
+  const allFrames = animationSequences.flatMap((sequence) => {
+    const displayedFrames = sequence.frames.filter((frame) => frame.duration > 0);
+    return displayedFrames.length ? displayedFrames : [fallbackFrame];
+  });
   const originCentered = options.originCentered ?? false;
   const bounds = originCentered ? { minX: -128, minY: -128, maxX: 128, maxY: 128 } : renderBounds(cellBank.cells, allFrames);
   const width = Math.max(1, Math.ceil(bounds.maxX - bounds.minX));
@@ -113,7 +116,7 @@ export function parseNitroCellEffect(
       }
       return {
         index,
-        duration: Math.max(1, frame.duration || 1),
+        duration: Math.max(0, frame.duration),
         cellIndex: frame.cellIndex,
         x: originCentered ? frame.x : 0,
         y: originCentered ? frame.y : 0,

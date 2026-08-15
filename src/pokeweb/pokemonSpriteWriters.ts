@@ -315,7 +315,7 @@ export function buildPokemonAnimationFile(input: { targetType: 1 | 2; mode?: num
       const value = encodeAnimationFrame(frame, motionType);
       const frameRecordOffset = frameOffset;
       writeU32(frameBytes, frameRecordOffset, valueOffset);
-      writeU16(frameBytes, frameRecordOffset + 4, clampInt(frame.duration, 1, 0xffff));
+      writeU16(frameBytes, frameRecordOffset + 4, clampInt(frame.duration, 0, 0xffff));
       writeU16(frameBytes, frameRecordOffset + 6, 0);
       valueParts.push(value);
       valueOffset += value.length;
@@ -556,7 +556,7 @@ function validateAtlasRect(part: PokemonAnimationBuildPart, index: number): void
 function normalizedPartFrames(part: BuildPart, index: number, frameDuration = DEFAULT_FRAME_DURATION): PokemonAnimationFrameEdit[] {
   const frames = part.frames?.length ? part.frames : [defaultFrame(index, frameDuration)];
   return frames.map((frame) => ({
-    duration: clampInt(frame.duration, 1, 0xffff),
+    duration: clampInt(frame.duration, 0, 0xffff),
     cellIndex: clampInt(frame.cellIndex, 0, 0xffff),
     x: clampInt(frame.x, -0x8000, 0x7fff),
     y: clampInt(frame.y, -0x8000, 0x7fff),
@@ -573,7 +573,7 @@ function defaultFrame(cellIndex: number, duration: number): PokemonAnimationFram
 function totalLoopDuration(parts: BuildPart[], frameDuration?: number): number {
   return Math.max(
     DEFAULT_FRAME_DURATION,
-    ...parts.map((part, index) => normalizedPartFrames(part, index, frameDuration).reduce((sum, frame) => sum + Math.max(1, frame.duration), 0)),
+    ...parts.map((part, index) => normalizedPartFrames(part, index, frameDuration).reduce((sum, frame) => sum + Math.max(0, frame.duration), 0)),
   );
 }
 

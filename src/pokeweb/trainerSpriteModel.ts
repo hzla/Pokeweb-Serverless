@@ -9,6 +9,8 @@ import { parseNitroPalette, type NitroPaletteData } from "./nitroBg";
 import {
   compressLz11Literal,
   decompressNitro,
+  pokemonAnimationPlayerStateAtTick,
+  pokemonAnimationSequenceTotalTicks,
   parsePokemonAnimation,
   parsePokemonMultiCells,
   parseRigCells,
@@ -232,7 +234,7 @@ export function buildTrainerSpriteGifPreview(
     frames: repeatAnimationFrames(sequence.frames, Math.max(1, appliedLoopCount)),
   }));
   const nanr = buildPokemonAnimationFile(nanrSequences);
-  const totalTicks = Math.max(1, ...nanrSequences.map((sequence) => sequence.frames.reduce((sum, frame) => sum + Math.max(1, frame.duration), 0)));
+  const totalTicks = Math.max(1, ...nanrSequences.map((sequence) => pokemonAnimationSequenceTotalTicks(sequence)));
   const nmar = buildPokemonMultiCellAnimationFile(totalTicks, sequenceMode);
   const palette = flipbook.palette;
 
@@ -590,15 +592,15 @@ function renderTrainerMcssFrames(
   multiCells: PokemonMultiCell[],
   outerSequence: PokemonAnimationSequence | undefined,
 ): TrainerSpriteAnimationFrame[] {
-  const sequenceFrames = outerSequence?.frames.length ? outerSequence.frames : [neutralAnimationFrame(0)];
+  if (!outerSequence?.frames.length) {
+    return [renderTrainerMcssFrame(texture, ncecCells, animationSequences, multiCells, neutralAnimationFrame(0), 0, 0, 0)];
+  }
   const frames: TrainerSpriteAnimationFrame[] = [];
-  let frameStartTick = 0;
-  for (const outerFrame of sequenceFrames) {
-    const duration = Math.max(1, outerFrame.duration || 1);
-    for (let tickOffset = 0; tickOffset < duration; tickOffset += 1) {
-      frames.push(renderTrainerMcssFrame(texture, ncecCells, animationSequences, multiCells, outerFrame, frameStartTick, frameStartTick + tickOffset, frames.length));
-    }
-    frameStartTick += duration;
+  const totalTicks = Math.max(1, pokemonAnimationSequenceTotalTicks(outerSequence));
+  for (let playbackTick = 0; playbackTick < totalTicks; playbackTick += 1) {
+    const playback = pokemonAnimationPlayerStateAtTick(outerSequence, playbackTick);
+    const outerFrame = outerSequence.frames[playback.frameIndex] ?? neutralAnimationFrame(0);
+    frames.push(renderTrainerMcssFrame(texture, ncecCells, animationSequences, multiCells, outerFrame, playback.frameStartTick, playbackTick, frames.length));
   }
   return frames;
 }
@@ -741,48 +743,7 @@ function nodePlaybackTick(node: PokemonMultiCellNode, playbackTick: number, fram
 
 function animationFrameAtPlayerTick(sequence: PokemonAnimationSequence, tick: number): PokemonAnimationFrame | undefined {
   if (sequence.frames.length === 0) return undefined;
-  return sequence.frames[animationPlayerStateAtTick(sequence, tick).frameIndex];
-}
-
-function animationPlayerStateAtTick(sequence: PokemonAnimationSequence, tick: number): { frameIndex: number; frameStartTick: number } {
-  if (sequence.frames.length === 0) return { frameIndex: 0, frameStartTick: 0 };
-  let currentFrame = 0;
-  let currentFrameTime = 0;
-  let frameStartTick = 0;
-  let direction: "forward" | "backward" = "forward";
-  let playing = true;
-  for (let frameTick = 0; frameTick < tick && playing; frameTick += 1) {
-    currentFrameTime += 1;
-    const duration = Math.max(1, sequence.frames[currentFrame]?.duration ?? 1);
-    if (currentFrameTime < duration) continue;
-    currentFrameTime = 0;
-    frameStartTick = frameTick + 1;
-    if (direction === "forward") {
-      currentFrame += 1;
-      if (currentFrame >= sequence.frames.length) {
-        currentFrame -= 1;
-        if (sequence.mode === 1) playing = false;
-        else if (sequence.mode === 2) currentFrame = 0;
-        else if (sequence.mode === 3 || sequence.mode === 4) {
-          direction = "backward";
-          if (currentFrame > 0) currentFrame -= 1;
-        }
-      }
-    } else {
-      currentFrame -= 1;
-      if (currentFrame < 0) {
-        currentFrame = 0;
-        if (sequence.mode === 4) {
-          direction = "forward";
-          currentFrame = Math.min(1, sequence.frames.length - 1);
-        } else {
-          playing = false;
-        }
-      }
-    }
-    currentFrame = clampInt(currentFrame, 0, sequence.frames.length - 1);
-  }
-  return { frameIndex: currentFrame, frameStartTick };
+  return sequence.frames[pokemonAnimationPlayerStateAtTick(sequence, tick).frameIndex];
 }
 
 function cropTransparentRgba(rgba: Uint8ClampedArray, width: number, height: number): { x: number; y: number; width: number; height: number; rgba: Uint8ClampedArray } {
