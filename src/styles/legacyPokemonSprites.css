@@ -1133,6 +1133,38 @@
   width: auto;
 }
 
+.animation-zero-duration-key,
+.animation-zero-duration-label,
+.animation-duration-note {
+  color: #9da6bb;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.animation-zero-duration-key {
+  display: block;
+  margin-top: 2px;
+}
+
+.animation-zero-duration-label {
+  display: block;
+  margin-top: 3px;
+}
+
+.animation-zero-duration-cell input {
+  border-color: #a8813c;
+}
+
+.animation-duration-note {
+  line-height: 1.2;
+}
+
+.animation-duration-note.-active,
+.animation-zero-duration-cell .animation-zero-duration-label {
+  color: #e3b75f;
+}
+
 .animation-file-row-actions {
   display: flex;
   gap: 6px;

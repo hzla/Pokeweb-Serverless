@@ -56,6 +56,8 @@ import {
   getPokemonMultiCells,
   getPokemonSpriteImage,
   getRigCells,
+  pokemonAnimationPlayerStateAtTick,
+  pokemonAnimationSequenceTotalTicks,
   resolvePokemonSpriteId,
   type PokemonAnimation,
   type PokemonAnimationFrame,
@@ -951,7 +953,7 @@ function resolveNativeMultiCellPlayback(
   try {
     const sequence = preview.multiCellAnimation?.sequences[0];
     if (!sequence) return { multiCell: fallback, frameStartTick: 0 };
-    const playback = nativeAnimationPlayerStateAtTick(sequence, tick);
+    const playback = pokemonAnimationPlayerStateAtTick(sequence, tick);
     const frame = sequence.frames[playback.frameIndex];
     return {
       multiCell: preview.multiCells[frame?.cellIndex ?? fallback.index] ?? fallback,
@@ -978,7 +980,7 @@ function nativePokemonAnimationTotalTicks(animation: PokemonAnimation, multiCell
 }
 
 function nativeSequenceTotalTicks(sequence: PokemonAnimation["sequences"][number] | undefined): number {
-  return sequence?.frames.reduce((sum, frame) => sum + Math.max(1, frame.duration), 0) ?? 1;
+  return Math.max(1, pokemonAnimationSequenceTotalTicks(sequence));
 }
 
 function nativeNodePlaybackTick(node: PokemonMultiCellNode, tick: number, frameStartTick: number): number {
@@ -995,50 +997,7 @@ function nativeAnimationFrameStateForSequence(sequence: PokemonAnimation["sequen
 }
 
 function nativeAnimationPlayerFrameAtTick(sequence: PokemonAnimation["sequences"][number], tick: number): number {
-  return nativeAnimationPlayerStateAtTick(sequence, tick).frameIndex;
-}
-
-function nativeAnimationPlayerStateAtTick(sequence: PokemonAnimation["sequences"][number], tick: number): { frameIndex: number; frameStartTick: number } {
-  if (sequence.frames.length === 0) return { frameIndex: 0, frameStartTick: 0 };
-  let currentFrame = 0;
-  let curFrameTime = 0;
-  let frameStartTick = 0;
-  let direction: "forward" | "backward" = "forward";
-  let playing = true;
-  for (let frameTick = 0; frameTick < tick && playing; frameTick += 1) {
-    curFrameTime += 1;
-    const duration = Math.max(1, sequence.frames[currentFrame]?.duration ?? 1);
-    if (curFrameTime < duration) continue;
-    curFrameTime = 0;
-    frameStartTick = frameTick + 1;
-    if (direction === "forward") {
-      currentFrame += 1;
-      if (currentFrame >= sequence.frames.length) {
-        currentFrame -= 1;
-        if (sequence.mode === 1) {
-          playing = false;
-        } else if (sequence.mode === 2) {
-          currentFrame = 0;
-        } else if (sequence.mode === 3 || sequence.mode === 4) {
-          direction = "backward";
-          if (currentFrame > 0) currentFrame -= 1;
-        }
-      }
-    } else {
-      currentFrame -= 1;
-      if (currentFrame < 0) {
-        currentFrame = 0;
-        if (sequence.mode === 4) {
-          direction = "forward";
-          currentFrame = Math.min(1, sequence.frames.length - 1);
-        } else {
-          playing = false;
-        }
-      }
-    }
-    currentFrame = clampNumber(currentFrame, 0, sequence.frames.length - 1);
-  }
-  return { frameIndex: currentFrame, frameStartTick };
+  return pokemonAnimationPlayerStateAtTick(sequence, tick).frameIndex;
 }
 
 function nativeMultiCellOuterFrame(frame: PokemonAnimationFrame): PokemonAnimationFrame | undefined {

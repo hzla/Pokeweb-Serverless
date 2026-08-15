@@ -22,8 +22,11 @@ import {
   parsePokemonCellBank,
   parsePokemonMultiCells,
   parseRigCells,
+  pokemonAnimationPlayerStateAtTick,
+  pokemonAnimationSequenceTotalTicks,
   replaceRigCells,
   resolvePokemonSpriteId,
+  scalePokemonAnimationDurations,
   setPokemonAnimation,
   setPokemonAnimationFrame,
   setPokemonCellBank,
@@ -212,6 +215,80 @@ describe("pokemonSpriteModel", () => {
     expect(edited.rotation).toBe(180);
     expect(edited.xScale).toBe(1.25);
     expect(project.narcs.pokemon_sprites!.dirty.has(25)).toBe(true);
+  });
+
+  it("preserves duration-zero NANR keyframes when rebuilding and editing", () => {
+    const built = buildPokemonAnimationFile({
+      targetType: 1,
+      frames: [[
+        { duration: 3, cellIndex: 0, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+        { duration: 0, cellIndex: 0, x: 20, y: 10, rotation: 90, xScale: 2, yScale: 2 },
+        { duration: 4, cellIndex: 0, x: 1, y: 2, rotation: 0, xScale: 1, yScale: 1 },
+        { duration: 0, cellIndex: 0, x: 30, y: 15, rotation: 180, xScale: 3, yScale: 3 },
+      ]],
+    });
+    expect(parsePokemonAnimation(built).sequences[0].frames.map((frame) => frame.duration)).toEqual([3, 0, 4, 0]);
+
+    const project = makeProject();
+    setPokemonAnimationFrame(project, 1, "front", 0, 1, {
+      duration: 0,
+      cellIndex: 0,
+      x: 12,
+      y: -8,
+      rotation: 0,
+      xScale: 1,
+      yScale: 1,
+    });
+    scalePokemonAnimationDurations(project, 1, "front", 2);
+
+    expect(getPokemonAnimation(project, 1, "front").sequences[0].frames.map((frame) => frame.duration)).toEqual([6, 0]);
+  });
+
+  it("skips duration-zero keyframes during Nitro-compatible playback", () => {
+    const sequence = parsePokemonAnimation(buildPokemonAnimationFile({
+      targetType: 1,
+      mode: 2,
+      frames: [[
+        { duration: 0, cellIndex: 9, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+        { duration: 2, cellIndex: 1, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+        { duration: 0, cellIndex: 8, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+        { duration: 3, cellIndex: 2, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+        { duration: 0, cellIndex: 7, x: 0, y: 0, rotation: 0, xScale: 1, yScale: 1 },
+      ]],
+    })).sequences[0];
+
+    expect(pokemonAnimationSequenceTotalTicks(sequence)).toBe(5);
+    expect([0, 1, 2, 3, 4, 5].map((tick) => sequence.frames[pokemonAnimationPlayerStateAtTick(sequence, tick).frameIndex].cellIndex)).toEqual([1, 1, 2, 2, 2, 1]);
+    expect(pokemonAnimationPlayerStateAtTick(sequence, 2).frameStartTick).toBe(2);
+    expect(pokemonAnimationPlayerStateAtTick(sequence, 5).frameStartTick).toBe(5);
+  });
+
+  it("rejects animation sequences made entirely from skipped keyframes", () => {
+    const project = makeProject();
+    const animation = getPokemonAnimation(project, 1, "front");
+    animation.sequences[0].frames.forEach((frame) => {
+      frame.duration = 0;
+    });
+
+    expect(() => setPokemonAnimation(project, 1, "front", animation)).toThrow(/at least one displayed keyframe/u);
+    setPokemonAnimationFrame(project, 1, "front", 0, 1, {
+      duration: 0,
+      cellIndex: 0,
+      x: 12,
+      y: -8,
+      rotation: 0,
+      xScale: 1,
+      yScale: 1,
+    });
+    expect(() => setPokemonAnimationFrame(project, 1, "front", 0, 0, {
+      duration: 0,
+      cellIndex: 0,
+      x: 0,
+      y: 0,
+      rotation: 0,
+      xScale: 1,
+      yScale: 1,
+    })).toThrow(/at least one displayed keyframe/u);
   });
 
   it("edits translation-only NANR frames without converting them to SRT", () => {
