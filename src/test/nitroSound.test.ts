@@ -5,8 +5,11 @@ import {
   convertNitroPcm16,
   convertNitroPcm8,
   decodeNitroAdpcm,
+  encodeNitroPcmWav,
+  extractNitroSequenceAssets,
   extractMoveSoundEvents,
   parseNitroSdat,
+  renderNitroSequenceLoopPcm,
   renderNitroSequencePcm,
 } from "../pokeweb/nitroSound";
 import type { NarcName } from "../pokeweb/constants";
@@ -21,6 +24,18 @@ describe("nitroSound", () => {
     expect(sdat.bankInfos[0]).toMatchObject({ fileId: 1, swarIds: [0, 0xffff, 0xffff, 0xffff], symbol: "BANK_TEST" });
     expect(sdat.waveArchiveInfos[0]).toMatchObject({ fileId: 2, symbol: "WAVE_TEST" });
     expect(sdat.files.map((file) => file.data.length)).toEqual([makeSyntheticSseq().length, makeSyntheticSbnk().length, makeSyntheticSwar().length]);
+    expect(sdat.files.every((file) => file.data.buffer === sdat.bytes.buffer)).toBe(true);
+  });
+
+  it("extracts the native files referenced by a sequence", () => {
+    const sdat = parseNitroSdat(makeSyntheticSdat());
+    const assets = extractNitroSequenceAssets(sdat, 0);
+
+    expect(assets.sequence).toMatchObject({ id: 0, fileId: 0, symbol: "SE_TEST" });
+    expect(assets.bank).toMatchObject({ id: 0, fileId: 1, symbol: "BANK_TEST" });
+    expect(assets.waveArchives).toHaveLength(1);
+    expect(assets.waveArchives[0]).toMatchObject({ id: 0, fileId: 2, symbol: "WAVE_TEST" });
+    expect(assets.sequence.bytes).toBe(sdat.files[0].data);
   });
 
   it("converts PCM8, PCM16, and ADPCM samples", () => {
@@ -68,14 +83,77 @@ describe("nitroSound", () => {
     expect(maxAbs(pcm.right)).toBeGreaterThan(0.001);
   });
 
+  it("supports uncached one-off renders without changing cached defaults", async () => {
+    const sdat = parseNitroSdat(makeSyntheticSdat());
+    const cachedA = renderNitroSequencePcm(sdat, 0, { maxSeconds: 0.1, sampleRate: 8_000 });
+    const cachedB = renderNitroSequencePcm(sdat, 0, { maxSeconds: 0.1, sampleRate: 8_000 });
+    const uncachedA = renderNitroSequencePcm(sdat, 0, { maxSeconds: 0.1, sampleRate: 8_000, cache: false });
+    const uncachedB = renderNitroSequencePcm(sdat, 0, { maxSeconds: 0.1, sampleRate: 8_000, cache: false });
+
+    expect(cachedA).toBe(cachedB);
+    expect(uncachedA).not.toBe(uncachedB);
+    await Promise.all([cachedA, uncachedA, uncachedB]);
+  });
+
+  it("renders the intro followed by one complete SSEQ loop", async () => {
+    const sdat = parseNitroSdat(makeSyntheticSdat(makeLoopingSyntheticSseq()));
+    const pcm = await renderNitroSequenceLoopPcm(sdat, 0, { sampleRate: 8_000, maxSeconds: 2 });
+
+    expect(pcm.capped).toBe(false);
+    expect(pcm.loop).toBeDefined();
+    expect(pcm.loop!.startSample).toBeGreaterThan(0);
+    expect(pcm.loop!.endSample).toBe(pcm.length);
+    expect(pcm.loop!.durationSeconds).toBeGreaterThan(0);
+    expect(pcm.duration).toBeGreaterThan(pcm.loop!.durationSeconds);
+    expect(maxAbs(pcm.left)).toBeGreaterThan(0.001);
+  });
+
+  it("renders a non-looping sequence through its natural end", async () => {
+    const sdat = parseNitroSdat(makeSyntheticSdat());
+    const pcm = await renderNitroSequenceLoopPcm(sdat, 0, { sampleRate: 8_000, maxSeconds: 20 });
+
+    expect(pcm.capped).toBe(false);
+    expect(pcm.loop).toBeUndefined();
+    expect(pcm.duration).toBeLessThan(20);
+    expect(maxAbs(pcm.right)).toBeGreaterThan(0.001);
+  });
+
+  it("rejects an unresolved sequence instead of exporting a partial loop", async () => {
+    const sdat = parseNitroSdat(makeSyntheticSdat(makeLongSyntheticSseq()));
+    await expect(renderNitroSequenceLoopPcm(sdat, 0, { sampleRate: 8_000, maxSeconds: 0.1 })).rejects.toThrow(
+      "No partial WAV was exported",
+    );
+  });
+
+  it("encodes stereo PCM as a valid little-endian PCM16 WAV", () => {
+    const bytes = encodeNitroPcmWav({
+      sampleRate: 8_000,
+      length: 3,
+      duration: 3 / 8_000,
+      numberOfChannels: 2,
+      left: Float32Array.of(-1, 0, 1),
+      right: Float32Array.of(0.5, -0.5, Number.NaN),
+      capped: false,
+    });
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+    expect(String.fromCharCode(...bytes.subarray(0, 4))).toBe("RIFF");
+    expect(String.fromCharCode(...bytes.subarray(8, 12))).toBe("WAVE");
+    expect(view.getUint16(20, true)).toBe(1);
+    expect(view.getUint16(22, true)).toBe(2);
+    expect(view.getUint32(24, true)).toBe(8_000);
+    expect(view.getUint16(34, true)).toBe(16);
+    expect(view.getUint32(40, true)).toBe(12);
+    expect(Array.from({ length: 6 }, (_unused, index) => view.getInt16(44 + index * 2, true))).toEqual([-32768, 16384, 0, -16384, 32767, 0]);
+  });
+
   it("reports a readable error for missing SDAT sequence ids", async () => {
     const sdat = parseNitroSdat(makeSyntheticSdat());
     await expect(renderNitroSequencePcm(sdat, 99)).rejects.toThrow("SDAT sequence 99 is missing");
   });
 });
 
-function makeSyntheticSdat(): Uint8Array {
-  const sseq = makeSyntheticSseq();
+function makeSyntheticSdat(sseq = makeSyntheticSseq()): Uint8Array {
   const sbnk = makeSyntheticSbnk();
   const swar = makeSyntheticSwar();
   const symb = makeSymbBlock();
@@ -104,6 +182,32 @@ function makeSyntheticSdat(): Uint8Array {
 
 function makeSyntheticSseq(): Uint8Array {
   const commands = Uint8Array.of(0x81, 0x00, 60, 100, 36, 0x80, 12, 0xff);
+  const fileSize = 0x1c + commands.length;
+  const header = makeNitroHeader("SSEQ", fileSize);
+  const dataHeader = new Uint8Array(12);
+  writeAscii(dataHeader, 0, "DATA");
+  writeU32(dataHeader, 4, fileSize - 0x10);
+  writeU32(dataHeader, 8, 0x1c);
+  return concatBytes([header, dataHeader, commands]);
+}
+
+function makeLoopingSyntheticSseq(): Uint8Array {
+  const commands = Uint8Array.of(
+    0x81, 0x00,
+    0x80, 0x04,
+    60, 100, 0x04,
+    0x80, 0x04,
+    0x94, 0x04, 0x00, 0x00,
+    0xff,
+  );
+  return makeSyntheticSseqWithCommands(commands);
+}
+
+function makeLongSyntheticSseq(): Uint8Array {
+  return makeSyntheticSseqWithCommands(Uint8Array.of(0x80, 0x87, 0x68, 0xff));
+}
+
+function makeSyntheticSseqWithCommands(commands: Uint8Array): Uint8Array {
   const fileSize = 0x1c + commands.length;
   const header = makeNitroHeader("SSEQ", fileSize);
   const dataHeader = new Uint8Array(12);
