@@ -958,6 +958,13 @@ function decodeBattleSpriteIndices(data: Uint8Array): IndexedImageData {
   return out;
 }
 
+export function encodeBattleSpriteIndexedImage(data: Uint8Array, image: IndexedImageData): void {
+  if (image.width !== 96 || image.height !== 96) throw new Error("Battle sprite indexed image must be 96x96");
+  const scrambled = emptyIndexedImage(64, 144);
+  for (const rect of SPRITE_UNSCRAMBLE_RECTS) copyIndexRect(image, scrambled, rect[0], rect[1], rect[2], rect[3], rect[4], rect[5]);
+  encodeTiled4bppIndices(data, scrambled);
+}
+
 function encodeBattleSpriteImage(data: Uint8Array, image: RgbaImageData, palette: RgbColor[]): void {
   const scrambled = emptyImage(64, 144);
   for (const rect of SPRITE_UNSCRAMBLE_RECTS) copyRect(image, scrambled, rect[0], rect[1], rect[2], rect[3], rect[4], rect[5]);
@@ -1045,6 +1052,25 @@ function encodeTiled4bpp(data: Uint8Array, image: RgbaImageData, palette: RgbCol
         const offset = tile * 32 + y * 4 + Math.floor(x / 2) + IMAGE_DATA_OFFSET;
         if (offset >= data.length) throw new Error("Image data does not fit in the target sprite file");
         const colorIndex = findPaletteColor(image, tileX * 8 + x, tileY * 8 + y, palette);
+        data[offset] = x % 2 === 0 ? (data[offset] & 0xf0) | colorIndex : (data[offset] & 0x0f) | (colorIndex << 4);
+      }
+    }
+  }
+}
+
+function encodeTiled4bppIndices(data: Uint8Array, image: IndexedImageData): void {
+  if (image.width % 8 !== 0 || image.height % 8 !== 0) throw new Error("Indexed image dimensions must be aligned to 8px tiles");
+  const widthInTiles = image.width / 8;
+  const tileCount = (image.width * image.height) / 64;
+  for (let tile = 0; tile < tileCount; tile += 1) {
+    const tileX = tile % widthInTiles;
+    const tileY = Math.floor(tile / widthInTiles);
+    for (let y = 0; y < 8; y += 1) {
+      for (let x = 0; x < 8; x += 1) {
+        const offset = tile * 32 + y * 4 + Math.floor(x / 2) + IMAGE_DATA_OFFSET;
+        if (offset >= data.length) throw new Error("Indexed image data does not fit in the target sprite file");
+        const colorIndex = image.indices[(tileY * 8 + y) * image.width + tileX * 8 + x] ?? 0;
+        if (colorIndex > 0x0f) throw new Error("Indexed 4bpp sprite contains a palette index above 15");
         data[offset] = x % 2 === 0 ? (data[offset] & 0xf0) | colorIndex : (data[offset] & 0x0f) | (colorIndex << 4);
       }
     }
