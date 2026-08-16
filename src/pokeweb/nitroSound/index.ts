@@ -17,6 +17,9 @@ import type { ProjectState } from "../projectStore";
 
 const DEFAULT_MAX_SECONDS = 12;
 const DEFAULT_SAMPLE_RATE = 48_000;
+const DEFAULT_LOOP_EXPORT_MAX_SECONDS = 10 * 60;
+const LOOP_ANALYSIS_SAMPLE_RATE = 8_000;
+const LOOP_RENDER_BUFFER_LENGTH = 2_048;
 const DEFAULT_CALL_DEPTH = 8;
 const TICKS_PER_BEAT = 48;
 const MAX_SSEQ_COMMANDS_PER_TRACK = 80_000;
@@ -71,6 +74,22 @@ export type NitroFatEntry = {
 export type NitroAudioRenderOptions = {
   maxSeconds?: number;
   sampleRate?: number;
+  /** Skip the shared render cache for large, one-off exports. */
+  cache?: boolean;
+};
+
+export type NitroLoopRenderOptions = {
+  sampleRate?: number;
+  /** Safety ceiling for malformed or dynamically changing sequences. */
+  maxSeconds?: number;
+};
+
+export type NitroPcmLoop = {
+  startSample: number;
+  endSample: number;
+  startSeconds: number;
+  endSeconds: number;
+  durationSeconds: number;
 };
 
 export type NitroRenderedPcm = {
@@ -81,6 +100,21 @@ export type NitroRenderedPcm = {
   left: Float32Array;
   right: Float32Array;
   capped: boolean;
+  /** Present when the render contains the intro followed by one detected loop. */
+  loop?: NitroPcmLoop;
+};
+
+export type NitroAssetFile = {
+  id: number;
+  fileId: number;
+  symbol?: string;
+  bytes: Uint8Array;
+};
+
+export type NitroSequenceAssets = {
+  sequence: NitroAssetFile;
+  bank: NitroAssetFile;
+  waveArchives: NitroAssetFile[];
 };
 
 export type MoveSoundEvent = {
@@ -285,6 +319,9 @@ export async function renderNitroSequencePreview(sdat: NitroSdat, sequenceId: nu
 export function renderNitroSequencePcm(sdat: NitroSdat, sequenceId: number, options: NitroAudioRenderOptions = {}): Promise<NitroRenderedPcm> {
   const maxSeconds = Math.max(0.1, Math.min(60, options.maxSeconds ?? DEFAULT_MAX_SECONDS));
   const sampleRate = Math.max(8_000, Math.min(96_000, options.sampleRate ?? DEFAULT_SAMPLE_RATE));
+  if (options.cache === false) {
+    return Promise.resolve().then(() => renderNitroSequencePcmUncached(sdat, sequenceId, { maxSeconds, sampleRate }));
+  }
   const key: RenderCacheKey = `${sequenceId}:${sampleRate}:${maxSeconds}`;
   let cache = renderCache.get(sdat);
   if (!cache) {
@@ -296,6 +333,98 @@ export function renderNitroSequencePcm(sdat: NitroSdat, sequenceId: number, opti
   const promise = Promise.resolve().then(() => renderNitroSequencePcmUncached(sdat, sequenceId, { maxSeconds, sampleRate }));
   cache.set(key, promise);
   return promise;
+}
+
+/**
+ * Renders a sequence from its beginning through one complete, aligned SSEQ
+ * loop. Sequences without a loop render through their natural end. A safety
+ * ceiling rejects unresolved sequences instead of returning a partial export.
+ */
+export function renderNitroSequenceLoopPcm(
+  sdat: NitroSdat,
+  sequenceId: number,
+  options: NitroLoopRenderOptions = {},
+): Promise<NitroRenderedPcm> {
+  const sampleRate = Math.max(8_000, Math.min(96_000, options.sampleRate ?? DEFAULT_SAMPLE_RATE));
+  const maxSeconds = Math.max(0.1, Math.min(DEFAULT_LOOP_EXPORT_MAX_SECONDS, options.maxSeconds ?? DEFAULT_LOOP_EXPORT_MAX_SECONDS));
+  return Promise.resolve().then(() => renderNitroSequenceLoopPcmUncached(sdat, sequenceId, { sampleRate, maxSeconds }));
+}
+
+/**
+ * Returns the native files needed to use a sequence outside its source SDAT.
+ * The byte arrays are read-only views into the SDAT and must not be mutated.
+ */
+export function extractNitroSequenceAssets(sdat: NitroSdat, sequenceId: number): NitroSequenceAssets {
+  const sequenceInfo = sdat.sequenceInfos[sequenceId];
+  if (!sequenceInfo) throw new Error(`SDAT sequence ${sequenceId} is missing.`);
+  const sequenceFile = sdat.files[sequenceInfo.fileId];
+  if (!sequenceFile) throw new Error(`SDAT sequence ${sequenceId} references missing file ${sequenceInfo.fileId}.`);
+  const bankInfo = sdat.bankInfos[sequenceInfo.bankId];
+  if (!bankInfo) throw new Error(`SDAT sequence ${sequenceId} references missing bank ${sequenceInfo.bankId}.`);
+  const bankFile = sdat.files[bankInfo.fileId];
+  if (!bankFile) throw new Error(`SDAT bank ${sequenceInfo.bankId} references missing file ${bankInfo.fileId}.`);
+
+  const waveArchives = bankInfo.swarIds
+    .filter((swarId, index, ids) => swarId !== MISSING_SWAR && ids.indexOf(swarId) === index)
+    .map((swarId) => {
+      const waveInfo = sdat.waveArchiveInfos[swarId];
+      if (!waveInfo) throw new Error(`SDAT bank ${bankInfo.id} references missing wave archive ${swarId}.`);
+      const waveFile = sdat.files[waveInfo.fileId];
+      if (!waveFile) throw new Error(`SDAT wave archive ${swarId} references missing file ${waveInfo.fileId}.`);
+      return {
+        id: swarId,
+        fileId: waveInfo.fileId,
+        symbol: waveInfo.symbol || sdat.waveArchiveSymbols[swarId] || undefined,
+        bytes: waveFile.data,
+      };
+    });
+
+  return {
+    sequence: {
+      id: sequenceId,
+      fileId: sequenceInfo.fileId,
+      symbol: sequenceInfo.symbol || sdat.sequenceSymbols[sequenceId] || undefined,
+      bytes: sequenceFile.data,
+    },
+    bank: {
+      id: bankInfo.id,
+      fileId: bankInfo.fileId,
+      symbol: bankInfo.symbol || sdat.bankSymbols[bankInfo.id] || undefined,
+      bytes: bankFile.data,
+    },
+    waveArchives,
+  };
+}
+
+/** Encode rendered stereo float PCM as a standard little-endian PCM16 WAV. */
+export function encodeNitroPcmWav(pcm: NitroRenderedPcm): Uint8Array {
+  const frameCount = Math.min(pcm.length, pcm.left.length, pcm.right.length);
+  if (!Number.isInteger(frameCount) || frameCount < 1) throw new Error("Cannot export an empty PCM buffer.");
+  if (!Number.isInteger(pcm.sampleRate) || pcm.sampleRate < 1) throw new Error(`Invalid PCM sample rate: ${pcm.sampleRate}.`);
+  const channelCount = 2;
+  const bytesPerSample = 2;
+  const dataLength = frameCount * channelCount * bytesPerSample;
+  const out = new Uint8Array(44 + dataLength);
+  const view = new DataView(out.buffer);
+  writeAsciiBytes(out, 0, "RIFF");
+  view.setUint32(4, out.length - 8, true);
+  writeAsciiBytes(out, 8, "WAVE");
+  writeAsciiBytes(out, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channelCount, true);
+  view.setUint32(24, pcm.sampleRate, true);
+  view.setUint32(28, pcm.sampleRate * channelCount * bytesPerSample, true);
+  view.setUint16(32, channelCount * bytesPerSample, true);
+  view.setUint16(34, bytesPerSample * 8, true);
+  writeAsciiBytes(out, 36, "data");
+  view.setUint32(40, dataLength, true);
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const offset = 44 + frame * 4;
+    view.setInt16(offset, floatToPcm16(pcm.left[frame]), true);
+    view.setInt16(offset + 2, floatToPcm16(pcm.right[frame]), true);
+  }
+  return out;
 }
 
 export type NitroWaveArchiveMetadata = {
@@ -440,11 +569,182 @@ function expandSoundScript(
   return frame;
 }
 
-function renderNitroSequencePcmUncached(sdat: NitroSdat, sequenceId: number, options: Required<NitroAudioRenderOptions>): NitroRenderedPcm {
+function renderNitroSequencePcmUncached(
+  sdat: NitroSdat,
+  sequenceId: number,
+  options: Required<Pick<NitroAudioRenderOptions, "maxSeconds" | "sampleRate">>,
+): NitroRenderedPcm {
   return renderNitroSequencePcmWithNitroFs(sdat, sequenceId, options);
 }
 
-function renderNitroSequencePcmWithNitroFs(sdat: NitroSdat, sequenceId: number, options: Required<NitroAudioRenderOptions>): NitroRenderedPcm {
+type NitroLoopBoundary = {
+  totalTicks: number;
+  loopStartTick?: number;
+};
+
+function renderNitroSequenceLoopPcmUncached(
+  sdat: NitroSdat,
+  sequenceId: number,
+  options: Required<NitroLoopRenderOptions>,
+): NitroRenderedPcm {
+  if (!sdat.sequenceInfos[sequenceId]) throw new Error(`SDAT sequence ${sequenceId} is missing.`);
+  const nitroFsSdat = getNitroFsSdat(sdat);
+  const boundary = analyzeNitroSequenceLoop(nitroFsSdat, sequenceId, options.maxSeconds);
+  const loopStartTick = boundary.loopStartTick;
+  if (loopStartTick === undefined) {
+    const pcm = renderNitroSequencePcmWithNitroFs(sdat, sequenceId, options);
+    if (pcm.capped) throw unresolvedNitroLoopError(sequenceId, options.maxSeconds);
+    return pcm;
+  }
+  return renderNitroSequenceForTicks(nitroFsSdat, sequenceId, options.sampleRate, {
+    totalTicks: boundary.totalTicks,
+    loopStartTick,
+  });
+}
+
+function analyzeNitroSequenceLoop(
+  nitroFsSdat: InstanceType<typeof NitroFsAudio.SDAT>,
+  sequenceId: number,
+  maxSeconds: number,
+): NitroLoopBoundary {
+  let emittedSamples = 0;
+  const renderer = createNitroFsSequenceRenderer(
+    nitroFsSdat,
+    sequenceId,
+    LOOP_ANALYSIS_SAMPLE_RATE,
+    LOOP_RENDER_BUFFER_LENGTH,
+    (buffer) => {
+      emittedSamples += buffer[0].length;
+    },
+  );
+  const maxSamples = Math.ceil(maxSeconds * LOOP_ANALYSIS_SAMPLE_RATE);
+  const maxTicks = Math.ceil(maxSamples / Math.max(1, renderer.samplesPerTick)) + 4_096;
+  const seenStates = new Map<string, number>();
+  seenStates.set(nitroFsSequenceStateSignature(renderer), 0);
+
+  for (let tick = 1; tick <= maxTicks; tick += 1) {
+    const advancesSequence = renderer.cycle + renderer.tempo >= 240;
+    renderer.tick();
+    const active = nitroFsRendererHasActiveTracks(renderer);
+    const playing = nitroFsRendererHasPlayingNotes(renderer);
+    if (!active && !playing) return { totalTicks: tick };
+
+    if (active && advancesSequence) {
+      const signature = nitroFsSequenceStateSignature(renderer);
+      const previousTick = seenStates.get(signature);
+      if (previousTick !== undefined && previousTick < tick) {
+        return { totalTicks: tick, loopStartTick: previousTick };
+      }
+      seenStates.set(signature, tick);
+    }
+    if (emittedSamples + renderer.synth.pos >= maxSamples) break;
+  }
+  throw unresolvedNitroLoopError(sequenceId, maxSeconds);
+}
+
+function createNitroFsSequenceRenderer(
+  nitroFsSdat: InstanceType<typeof NitroFsAudio.SDAT>,
+  sequenceId: number,
+  sampleRate: number,
+  bufferLength: number,
+  sink: (buffer: Float32Array[]) => void,
+): InstanceType<typeof NitroFsAudio.SequenceRenderer> {
+  return new NitroFsAudio.SequenceRenderer({
+    file: NitroFsAudio.SequenceRenderer.makeInfoSSEQ(nitroFsSdat, sequenceId),
+    sampleRate,
+    bufferLength,
+    activeTracks: 0xffff,
+    seed: 1,
+    sink,
+  });
+}
+
+function nitroFsSequenceStateSignature(renderer: InstanceType<typeof NitroFsAudio.SequenceRenderer>): string {
+  const tracks = (renderer.tracks as Array<(typeof renderer.tracks)[number] | null>).map((track) => {
+    if (!track) return null;
+    return [
+      track.track,
+      track.active ? 1 : 0,
+      track.pointer,
+      track.wait,
+      track.callReturnStack,
+    ];
+  });
+  return JSON.stringify([renderer.tempo, tracks]);
+}
+
+function renderNitroSequenceForTicks(
+  nitroFsSdat: InstanceType<typeof NitroFsAudio.SDAT>,
+  sequenceId: number,
+  sampleRate: number,
+  boundary: Required<NitroLoopBoundary>,
+): NitroRenderedPcm {
+  let emittedSamples = 0;
+  let left: Float32Array;
+  let right: Float32Array;
+  const renderer = createNitroFsSequenceRenderer(
+    nitroFsSdat,
+    sequenceId,
+    sampleRate,
+    LOOP_RENDER_BUFFER_LENGTH,
+    (buffer) => {
+      left.set(buffer[0], emittedSamples);
+      right.set(buffer[1], emittedSamples);
+      emittedSamples += buffer[0].length;
+    },
+  );
+  const capacity = Math.max(
+    1,
+    boundary.totalTicks * (Math.ceil(renderer.samplesPerTick) + 1) + LOOP_RENDER_BUFFER_LENGTH,
+  );
+  left = new Float32Array(capacity);
+  right = new Float32Array(capacity);
+  let loopStartSample = 0;
+  for (let tick = 1; tick <= boundary.totalTicks; tick += 1) {
+    renderer.tick();
+    if (tick === boundary.loopStartTick) loopStartSample = emittedSamples + renderer.synth.pos;
+  }
+
+  const partialLength = renderer.synth.pos;
+  if (emittedSamples + partialLength > capacity) throw new Error(`Sequence ${sequenceId} exceeded its analyzed render size.`);
+  if (partialLength > 0) {
+    left.set(renderer.synth.buffer[0].subarray(0, partialLength), emittedSamples);
+    right.set(renderer.synth.buffer[1].subarray(0, partialLength), emittedSamples);
+  }
+  const totalLength = Math.max(1, emittedSamples + partialLength);
+  const renderedLeft = left.subarray(0, totalLength);
+  const renderedRight = right.subarray(0, totalLength);
+  normalizePcm(renderedLeft, renderedRight);
+  return {
+    sampleRate,
+    length: totalLength,
+    duration: totalLength / sampleRate,
+    numberOfChannels: 2,
+    left: renderedLeft,
+    right: renderedRight,
+    capped: false,
+    loop: {
+      startSample: loopStartSample,
+      endSample: totalLength,
+      startSeconds: loopStartSample / sampleRate,
+      endSeconds: totalLength / sampleRate,
+      durationSeconds: (totalLength - loopStartSample) / sampleRate,
+    },
+  };
+}
+
+function unresolvedNitroLoopError(sequenceId: number, maxSeconds: number): Error {
+  const limit = maxSeconds >= 60
+    ? `${Math.round((maxSeconds / 60) * 10) / 10} minutes`
+    : `${Math.round(maxSeconds * 10) / 10} seconds`;
+  return new Error(`Could not determine a complete loop for sequence ${sequenceId} within ${limit}. No partial WAV was exported.`);
+}
+
+function renderNitroSequencePcmWithNitroFs(
+  sdat: NitroSdat,
+  sequenceId: number,
+  options: Required<Pick<NitroAudioRenderOptions, "maxSeconds" | "sampleRate">>,
+): NitroRenderedPcm {
   if (!sdat.sequenceInfos[sequenceId]) throw new Error(`SDAT sequence ${sequenceId} is missing.`);
   const nitroFsSdat = getNitroFsSdat(sdat);
   const maxSamples = Math.max(1, Math.ceil(options.maxSeconds * options.sampleRate));
@@ -1054,10 +1354,19 @@ function parseSdatFat(bytes: Uint8Array, offset: number): NitroFatEntry[] {
       id: index,
       dataOffset,
       dataLength,
-      data: bytes.slice(dataOffset, dataOffset + dataLength),
+      data: bytes.subarray(dataOffset, dataOffset + dataLength),
     });
   }
   return entries;
+}
+
+function writeAsciiBytes(bytes: Uint8Array, offset: number, value: string): void {
+  for (let index = 0; index < value.length; index += 1) bytes[offset + index] = value.charCodeAt(index) & 0xff;
+}
+
+function floatToPcm16(value: number): number {
+  const sample = Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
+  return sample < 0 ? Math.round(sample * 0x8000) : Math.round(sample * 0x7fff);
 }
 
 function listNamedRomFiles(folder: Folder, prefix = ""): Array<{ path: string; id: number }> {

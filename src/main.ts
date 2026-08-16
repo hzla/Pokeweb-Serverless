@@ -23,8 +23,9 @@ import "./styles/moveBackgrounds.css";
 import "./styles/battleBackgrounds.css";
 import "./styles/headerBattleEnvironments.css";
 import "./styles/randomizer.css";
+import "./styles/trainerMusic.css";
 
-import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, type NarcName } from "./pokeweb/constants";
+import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, isGen5Project, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
 import { NintendoDSRom } from "./nds/rom";
 import { generateChangelogFromRomFiles } from "./pokeweb/changelogModel";
@@ -61,6 +62,7 @@ import { renderTutorMoveEditor } from "./ui/tutorMoveEditor";
 import { renderTypeChartEditor } from "./ui/typeChartEditor";
 import { renderTrainerEditor } from "./ui/trainerEditor";
 import { renderTrainerSpriteEditor, stopTrainerSpriteEditorPlayback } from "./ui/trainerSpriteEditor";
+import { renderTrainerMusicEditor, stopTrainerMusicEditorPlayback } from "./ui/trainerMusicEditor";
 import { renderBattleFacilityEditor } from "./ui/battleFacilityEditor";
 import { renderGrottoEditor, renderGrottoOddsEditor, renderMartEditor } from "./ui/martGrottoEditor";
 import { renderTextEditor } from "./ui/textEditor";
@@ -90,6 +92,7 @@ type AppRoute =
   | "animatedSprites"
   | "starters"
   | "trainers"
+  | "trainerMusic"
   | "trainerSprites"
   | "facilities"
   | "wbtFacilities"
@@ -181,6 +184,7 @@ const APP_ROUTES: AppRoute[] = [
   "animatedSprites",
   "starters",
   "trainers",
+  "trainerMusic",
   "trainerSprites",
   "facilities",
   "wbtFacilities",
@@ -217,6 +221,7 @@ const EDITOR_REQUIREMENTS: Record<
   animatedSprites: ["personal", "pokemon_sprites"],
   starters: ["personal", "pokemon_sprites", "starter_sprites", "scripts", "story_texts"],
   trainers: ["trdata", "trpok", "personal", "items", "moves", "trtext_table", "trtext_offsets"],
+  trainerMusic: [],
   trainerSprites: ["trdata"],
   facilities: ["moves", "items"],
   wbtFacilities: ["moves", "items"],
@@ -452,6 +457,7 @@ window.addEventListener("popstate", (event) => {
 
 function renderApp(): void {
   stopTrainerSpriteEditorPlayback();
+  stopTrainerMusicEditorPlayback();
   syncDocumentTitle();
   route = safeRoute(route);
   appRoot.innerHTML = `
@@ -615,6 +621,17 @@ function renderApp(): void {
       (trainerId, showdownText) => launchTestBattle(trainerId, showdownText),
       openTrainerSprites,
     );
+    return;
+  }
+
+  if (route === "trainerMusic") {
+    void renderTrainerMusicEditor(project, content, {
+      onDirty: () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+    });
     return;
   }
 
@@ -918,6 +935,7 @@ function renderMoreMenu(): string {
     ["codeInjection", "Code Injection"],
     ["fileSystem", "File System"],
   ];
+  if (project && isGen5Project(project)) moreRoutes.unshift(["trainerMusic", "Trainer Music"]);
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
   return `
     <div class="header-more ${active ? "-active" : ""}">
@@ -1755,6 +1773,7 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (!project) return false;
   if (nextRoute === "changelog") return true;
+  if (nextRoute === "trainerMusic") return isGen5Project(project);
   if (nextRoute === "docGenerators") return true;
   if (nextRoute === "mastersheet") {
     return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && mastersheetRequirements().every((name) => project?.narcs[name]);
