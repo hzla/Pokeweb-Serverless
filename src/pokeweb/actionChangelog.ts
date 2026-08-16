@@ -151,6 +151,7 @@ export function domainTitle(domain: string): string {
     move_spas: "Move Particle Files",
     pokemon_sprites: "Pokemon Sprites",
     trainer_sprites: "Trainer Sprites",
+    trainer_music: "Trainer Music",
     pokemon_icons: "Pokemon Icons",
     starter_sprites: "Starter Sprites",
     regulations: "Battle Regulations",
