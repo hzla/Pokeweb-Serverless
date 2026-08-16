@@ -1,7 +1,8 @@
-import { readU16, writeU16 } from "../nds/binary";
+import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordGenericChange } from "./actionChangelog";
 import { TYPES, isGen5BaseRom, type BaseRom, type Gen5BaseRom } from "./constants";
 import { scanGen5ScriptPokemonCommands } from "./gen5ScriptPokemonScanner";
+import { encodeBattleSpriteIndexedImage, getPokemonSpriteIndexedImage, type IndexedImageData } from "./pokemonSpriteModel";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
 import { getTextBank, commitTextBank } from "./textModel";
 
@@ -9,8 +10,16 @@ const VANILLA_STARTERS = [495, 498, 501] as const;
 const SPRITE_FILES_PER_ENTRY = 20;
 const STARTER_GRAPHIC_FILES = [12, 13, 14] as const;
 const STARTER_PALETTE_FILES = [0, 2, 4] as const;
+const STARTER_SHADOW_PALETTE_FILES = [1, 3, 5] as const;
 const STARTER_SOURCE_GRAPHIC_OFFSET = 0;
 const STARTER_SOURCE_PALETTE_OFFSET = 18;
+const STARTER_CANVAS_SIZE = 96;
+const STARTER_MAX_GRAPHIC_SIZE = 80;
+const STARTER_GRAPHIC_DATA_SIZE = 0x1200;
+const STARTER_GRAPHIC_FILE_SIZE = 0x1230;
+const STARTER_PALETTE_DATA_SIZE = 0x200;
+const STARTER_PALETTE_FILE_SIZE = 0x228;
+const NITRO_DATA_OFFSET = 0x28;
 const WORK_SET_CONST = 0x28;
 const WORD_SET_POKE_SPECIES = 0x57;
 const WORD_SET_POKE_SPECIES_WITH_ARTICLE = 0x58;
@@ -94,9 +103,13 @@ export function getStarterEditorState(project: ProjectState): StarterEditorState
   const detection = detectCurrentStarters(project);
   const missingOverlays = getStarterOverlayIds(project.session.baseRom).filter((overlayId) => !project.overlays[overlayId]);
   const overlayWarnings = missingOverlays.length > 0 ? [`Starter overlay ${missingOverlays.join(", ")} is not loaded. Reload the ROM with Starter Sprites selected before applying changes.`] : [];
+  const malformedSlots = malformedStarterSpriteSlots(project);
+  const spriteWarnings = malformedSlots.length > 0
+    ? [`Malformed starter-selection graphics were detected in ${starterSlotList(malformedSlots)}. Apply Starters to rebuild them.`]
+    : [];
   return {
     slots: detection.speciesIds.map((speciesId, slot) => makeStarterSlot(project, slot, speciesId)),
-    warnings: [...detection.warnings, ...overlayWarnings],
+    warnings: [...detection.warnings, ...overlayWarnings, ...spriteWarnings],
   };
 }
 
@@ -109,7 +122,7 @@ export function applyStarters(project: ProjectState, speciesIds: number[]): Star
   assertStarterSpriteSources(project, nextSpeciesIds);
 
   updateStarterScripts(project, current.speciesIds, nextSpeciesIds);
-  copyStarterSprites(project, nextSpeciesIds);
+  const spriteUpdate = copyStarterSprites(project, current.speciesIds, nextSpeciesIds);
   updateStarterTypeText(project, current.speciesIds, nextSpeciesIds);
   updateStarterOverlays(project, current.speciesIds, nextSpeciesIds);
 
@@ -120,7 +133,9 @@ export function applyStarters(project: ProjectState, speciesIds: number[]): Star
   recordGenericChange(project, "starter_sprites", `Starters changed to ${nextSpeciesIds.map((id) => starterName(project, id)).join(", ")}.`, "Starters", {
     key: "starters:selection",
   });
-  return getStarterEditorState(project);
+  const state = getStarterEditorState(project);
+  if (spriteUpdate.repairedSlots.length > 0) state.warnings.push(`Repaired malformed starter-selection graphics in ${starterSlotList(spriteUpdate.repairedSlots)}.`);
+  return state;
 }
 
 export function applyRandomizedStarters(project: ProjectState, speciesIds: number[]): RandomizedStarterApplyResult {
@@ -132,7 +147,8 @@ export function applyRandomizedStarters(project: ProjectState, speciesIds: numbe
   updateStarterScripts(project, current.speciesIds, nextSpeciesIds);
   if (project.narcs.pokemon_sprites && project.narcs.starter_sprites) {
     assertStarterSpriteSources(project, nextSpeciesIds);
-    copyStarterSprites(project, nextSpeciesIds);
+    const spriteUpdate = copyStarterSprites(project, current.speciesIds, nextSpeciesIds);
+    if (spriteUpdate.repairedSlots.length > 0) warnings.push(`Repaired malformed starter-selection graphics in ${starterSlotList(spriteUpdate.repairedSlots)}.`);
   } else {
     warnings.push("Starter species were changed in scripts, but starter sprite archives were not loaded, so the selection graphics were left unchanged.");
   }
@@ -199,11 +215,18 @@ function detectStartersFromScripts(project: ProjectState): number[] | undefined 
   return undefined;
 }
 
-function copyStarterSprites(project: ProjectState, speciesIds: number[]): void {
+type StarterSpriteUpdate = {
+  updatedSlots: number[];
+  repairedSlots: number[];
+};
+
+function copyStarterSprites(project: ProjectState, previousSpeciesIds: number[], speciesIds: number[]): StarterSpriteUpdate {
   const pokemonSprites = project.narcs.pokemon_sprites;
   const starterSprites = project.narcs.starter_sprites;
   if (!pokemonSprites) throw new Error("Pokemon Sprites must be loaded before editing starters.");
   if (!starterSprites) throw new Error("Starter Sprites must be loaded before editing starters.");
+
+  const result: StarterSpriteUpdate = { updatedSlots: [], repairedSlots: [] };
 
   speciesIds.forEach((speciesId, slot) => {
     const sourceBase = speciesId * SPRITE_FILES_PER_ENTRY;
@@ -213,11 +236,28 @@ function copyStarterSprites(project: ProjectState, speciesIds: number[]): void {
 
     const graphicFile = STARTER_GRAPHIC_FILES[slot];
     const paletteFile = STARTER_PALETTE_FILES[slot];
-    starterSprites.rawFiles[graphicFile] = new Uint8Array(sourceGraphic);
-    starterSprites.rawFiles[paletteFile] = new Uint8Array(sourcePalette);
+    const shadowPaletteFile = STARTER_SHADOW_PALETTE_FILES[slot];
+    const targetGraphic = starterSprites.rawFiles[graphicFile];
+    const targetPalette = starterSprites.rawFiles[paletteFile];
+    const malformed = !isPreparedStarterGraphic(targetGraphic) || !isPreparedStarterPalette(targetPalette);
+    const speciesChanged = previousSpeciesIds[slot] !== speciesId;
+    if (!malformed && !speciesChanged) return;
+
+    const sourceImage = getPokemonSpriteIndexedImage(project, speciesId, { kind: "sprite", side: "front", gender: "male" });
+    const preparedImage = prepareStarterGraphicIndices(sourceImage);
+    starterSprites.rawFiles[graphicFile] = buildPreparedStarterGraphic(preparedImage);
+    starterSprites.rawFiles[paletteFile] = buildPreparedStarterPalette(
+      targetPalette,
+      starterSprites.rawFiles[shadowPaletteFile],
+      sourcePalette,
+    );
     markDirty(project, "starter_sprites", graphicFile);
     markDirty(project, "starter_sprites", paletteFile);
+    result.updatedSlots.push(slot);
+    if (malformed) result.repairedSlots.push(slot);
   });
+
+  return result;
 }
 
 function assertStarterSpriteSources(project: ProjectState, speciesIds: number[]): void {
@@ -227,10 +267,214 @@ function assertStarterSpriteSources(project: ProjectState, speciesIds: number[])
   if (!starterSprites) throw new Error("Starter Sprites must be loaded before editing starters.");
   for (const speciesId of speciesIds) {
     const sourceBase = speciesId * SPRITE_FILES_PER_ENTRY;
-    if (!pokemonSprites.rawFiles[sourceBase + STARTER_SOURCE_GRAPHIC_OFFSET] || !pokemonSprites.rawFiles[sourceBase + STARTER_SOURCE_PALETTE_OFFSET]) {
+    const sourceGraphic = pokemonSprites.rawFiles[sourceBase + STARTER_SOURCE_GRAPHIC_OFFSET];
+    const sourcePalette = pokemonSprites.rawFiles[sourceBase + STARTER_SOURCE_PALETTE_OFFSET];
+    if (!sourceGraphic || !sourcePalette) {
       throw new Error(`Pokemon sprite files are missing for species ${speciesId}.`);
     }
+    getPokemonSpriteIndexedImage(project, speciesId, { kind: "sprite", side: "front", gender: "male" });
+    starterPaletteDataOffset(sourcePalette);
   }
+}
+
+export function prepareStarterGraphicIndices(source: IndexedImageData): IndexedImageData {
+  if (source.width !== STARTER_CANVAS_SIZE || source.height !== STARTER_CANVAS_SIZE) {
+    throw new Error(`Starter source graphic must be ${STARTER_CANVAS_SIZE}x${STARTER_CANVAS_SIZE}`);
+  }
+  const bounds = indexedOpaqueBounds(source);
+  const out = { width: STARTER_CANVAS_SIZE, height: STARTER_CANVAS_SIZE, indices: new Uint8Array(STARTER_CANVAS_SIZE * STARTER_CANVAS_SIZE) };
+  if (!bounds) return out;
+
+  const cropped = cropIndexedImage(source, bounds);
+  const doubled = scale2xIndexedImage(cropped);
+  const fit = Math.min(1, STARTER_MAX_GRAPHIC_SIZE / doubled.width, STARTER_MAX_GRAPHIC_SIZE / doubled.height);
+  const scaledWidth = Math.max(1, Math.min(STARTER_MAX_GRAPHIC_SIZE, Math.round(doubled.width * fit)));
+  const scaledHeight = Math.max(1, Math.min(STARTER_MAX_GRAPHIC_SIZE, Math.round(doubled.height * fit)));
+  const scaled = scaledWidth === doubled.width && scaledHeight === doubled.height ? doubled : resizeIndexedNearest(doubled, scaledWidth, scaledHeight);
+  const targetX = Math.floor((STARTER_CANVAS_SIZE - scaled.width) / 2);
+  const targetY = Math.floor((STARTER_CANVAS_SIZE - scaled.height) / 2);
+  copyIndexedImage(scaled, out, targetX, targetY);
+  return out;
+}
+
+function malformedStarterSpriteSlots(project: ProjectState): number[] {
+  const starterSprites = project.narcs.starter_sprites;
+  if (!starterSprites) return [];
+  return STARTER_GRAPHIC_FILES
+    .map((_file, slot) => slot)
+    .filter((slot) => !isPreparedStarterGraphic(starterSprites.rawFiles[STARTER_GRAPHIC_FILES[slot]]) || !isPreparedStarterPalette(starterSprites.rawFiles[STARTER_PALETTE_FILES[slot]]));
+}
+
+function isPreparedStarterGraphic(bytes: Uint8Array | undefined): boolean {
+  return Boolean(
+    bytes
+    && bytes.length === STARTER_GRAPHIC_FILE_SIZE
+    && readAscii(bytes, 0, 4) === "RGCN"
+    && readU32(bytes, 8) === STARTER_GRAPHIC_FILE_SIZE
+    && readAscii(bytes, 0x10, 4) === "RAHC"
+    && readU32(bytes, 0x14) === STARTER_GRAPHIC_FILE_SIZE - 0x10
+    && readU16(bytes, 0x18) === 0xffff
+    && readU16(bytes, 0x1a) === 0xffff
+    && readU32(bytes, 0x1c) === 3
+    && readU32(bytes, 0x20) === 0x10
+    && readU32(bytes, 0x24) === 0
+    && readU32(bytes, 0x28) === STARTER_GRAPHIC_DATA_SIZE
+    && readU32(bytes, 0x2c) === 0x18
+  );
+}
+
+function isPreparedStarterPalette(bytes: Uint8Array | undefined): boolean {
+  return Boolean(
+    bytes
+    && bytes.length === STARTER_PALETTE_FILE_SIZE
+    && readAscii(bytes, 0, 4) === "RLCN"
+    && readU32(bytes, 8) === STARTER_PALETTE_FILE_SIZE
+    && readAscii(bytes, 0x10, 4) === "TTLP"
+    && readU32(bytes, 0x14) === STARTER_PALETTE_FILE_SIZE - 0x10
+    && readU32(bytes, 0x18) === 3
+    && readU32(bytes, 0x20) === STARTER_PALETTE_DATA_SIZE
+    && readU32(bytes, 0x24) === 0x10
+  );
+}
+
+function buildPreparedStarterGraphic(image: IndexedImageData): Uint8Array {
+  const out = new Uint8Array(STARTER_GRAPHIC_FILE_SIZE);
+  out.set([0x52, 0x47, 0x43, 0x4e, 0xff, 0xfe, 0x01, 0x01], 0);
+  writeU32(out, 8, STARTER_GRAPHIC_FILE_SIZE);
+  writeU16(out, 0x0c, 0x10);
+  writeU16(out, 0x0e, 1);
+  out.set([0x52, 0x41, 0x48, 0x43], 0x10);
+  writeU32(out, 0x14, STARTER_GRAPHIC_FILE_SIZE - 0x10);
+  writeU16(out, 0x18, 0xffff);
+  writeU16(out, 0x1a, 0xffff);
+  writeU32(out, 0x1c, 3);
+  writeU32(out, 0x20, 0x10);
+  writeU32(out, 0x24, 0);
+  writeU32(out, 0x28, STARTER_GRAPHIC_DATA_SIZE);
+  writeU32(out, 0x2c, 0x18);
+  encodeBattleSpriteIndexedImage(out, image);
+  return out;
+}
+
+function buildPreparedStarterPalette(target: Uint8Array | undefined, shadowTemplate: Uint8Array | undefined, source: Uint8Array): Uint8Array {
+  const out = isPreparedStarterPalette(target)
+    ? target!.slice()
+    : isPreparedStarterPalette(shadowTemplate)
+      ? shadowTemplate!.slice()
+      : emptyPreparedStarterPalette();
+  const sourceOffset = starterPaletteDataOffset(source);
+  const targetOffset = starterPaletteDataOffset(out);
+  // Palette entry zero is the scene's transparent/backdrop color. Preserve the
+  // starter archive's value while replacing the fifteen visible Pokemon colors.
+  out.set(source.subarray(sourceOffset + 2, sourceOffset + 0x20), targetOffset + 2);
+  return out;
+}
+
+function emptyPreparedStarterPalette(): Uint8Array {
+  const out = new Uint8Array(STARTER_PALETTE_FILE_SIZE);
+  out.set([0x52, 0x4c, 0x43, 0x4e, 0xff, 0xfe, 0x00, 0x01], 0);
+  writeU32(out, 8, STARTER_PALETTE_FILE_SIZE);
+  writeU16(out, 0x0c, 0x10);
+  writeU16(out, 0x0e, 1);
+  out.set([0x54, 0x54, 0x4c, 0x50], 0x10);
+  writeU32(out, 0x14, STARTER_PALETTE_FILE_SIZE - 0x10);
+  writeU32(out, 0x18, 3);
+  writeU32(out, 0x1c, 0);
+  writeU32(out, 0x20, STARTER_PALETTE_DATA_SIZE);
+  writeU32(out, 0x24, 0x10);
+  return out;
+}
+
+function starterPaletteDataOffset(bytes: Uint8Array): number {
+  if (bytes.length < NITRO_DATA_OFFSET + 0x20 || readAscii(bytes, 0, 4) !== "RLCN" || readAscii(bytes, 0x10, 4) !== "TTLP") {
+    throw new Error("Pokemon starter source palette is not a supported NCLR file");
+  }
+  const dataSize = readU32(bytes, 0x20);
+  if (dataSize < 0x20 || NITRO_DATA_OFFSET + dataSize > bytes.length) throw new Error("Pokemon starter source palette is truncated");
+  return NITRO_DATA_OFFSET;
+}
+
+function indexedOpaqueBounds(image: IndexedImageData): { x: number; y: number; width: number; height: number } | undefined {
+  let minX = image.width;
+  let minY = image.height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      if ((image.indices[y * image.width + x] ?? 0) === 0) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  return maxX < minX || maxY < minY ? undefined : { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+}
+
+function cropIndexedImage(source: IndexedImageData, bounds: { x: number; y: number; width: number; height: number }): IndexedImageData {
+  const out = { width: bounds.width, height: bounds.height, indices: new Uint8Array(bounds.width * bounds.height) };
+  for (let y = 0; y < bounds.height; y += 1) {
+    const sourceStart = (bounds.y + y) * source.width + bounds.x;
+    out.indices.set(source.indices.subarray(sourceStart, sourceStart + bounds.width), y * bounds.width);
+  }
+  return out;
+}
+
+function scale2xIndexedImage(source: IndexedImageData): IndexedImageData {
+  const out = { width: source.width * 2, height: source.height * 2, indices: new Uint8Array(source.width * source.height * 4) };
+  const at = (x: number, y: number): number => {
+    if (x < 0 || y < 0 || x >= source.width || y >= source.height) return 0;
+    return source.indices[y * source.width + x] ?? 0;
+  };
+  for (let y = 0; y < source.height; y += 1) {
+    for (let x = 0; x < source.width; x += 1) {
+      const center = at(x, y);
+      const top = at(x, y - 1);
+      const left = at(x - 1, y);
+      const right = at(x + 1, y);
+      const bottom = at(x, y + 1);
+      const offset = y * 2 * out.width + x * 2;
+      if (top !== bottom && left !== right) {
+        out.indices[offset] = left === top ? left : center;
+        out.indices[offset + 1] = top === right ? right : center;
+        out.indices[offset + out.width] = left === bottom ? left : center;
+        out.indices[offset + out.width + 1] = bottom === right ? right : center;
+      } else {
+        out.indices[offset] = center;
+        out.indices[offset + 1] = center;
+        out.indices[offset + out.width] = center;
+        out.indices[offset + out.width + 1] = center;
+      }
+    }
+  }
+  return out;
+}
+
+function resizeIndexedNearest(source: IndexedImageData, width: number, height: number): IndexedImageData {
+  const out = { width, height, indices: new Uint8Array(width * height) };
+  for (let y = 0; y < height; y += 1) {
+    const sourceY = Math.min(source.height - 1, Math.floor((y * source.height) / height));
+    for (let x = 0; x < width; x += 1) {
+      const sourceX = Math.min(source.width - 1, Math.floor((x * source.width) / width));
+      out.indices[y * width + x] = source.indices[sourceY * source.width + sourceX] ?? 0;
+    }
+  }
+  return out;
+}
+
+function copyIndexedImage(source: IndexedImageData, target: IndexedImageData, targetX: number, targetY: number): void {
+  for (let y = 0; y < source.height; y += 1) {
+    if (targetY + y < 0 || targetY + y >= target.height) continue;
+    for (let x = 0; x < source.width; x += 1) {
+      if (targetX + x < 0 || targetX + x >= target.width) continue;
+      target.indices[(targetY + y) * target.width + targetX + x] = source.indices[y * source.width + x] ?? 0;
+    }
+  }
+}
+
+function starterSlotList(slots: number[]): string {
+  const labels = ["the left slot", "the middle slot", "the right slot"];
+  return slots.map((slot) => labels[slot] ?? `slot ${slot + 1}`).join(slots.length > 1 ? ", " : "");
 }
 
 function updateStarterTypeText(project: ProjectState, previousSpeciesIds: number[], nextSpeciesIds: number[]): void {

@@ -89,7 +89,10 @@ export function renderStarterEditor(project: ProjectState, root: HTMLElement, op
     try {
       const nextState = applyStarters(project, speciesIds);
       options.onDirty?.();
-      if (status) status.textContent = `Saved: ${nextState.slots.map((slot) => slot.name).join(", ")}`;
+      if (status) {
+        const saved = `Saved: ${nextState.slots.map((slot) => slot.name).join(", ")}.`;
+        status.textContent = nextState.warnings.length > 0 ? `${saved} ${nextState.warnings.join(" ")}` : saved;
+      }
       refreshSlotTypes(project, root);
     } catch (error) {
       if (status) status.textContent = error instanceof Error ? error.message : String(error);
