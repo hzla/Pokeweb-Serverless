@@ -337,10 +337,58 @@ describe("trainer battle log", () => {
     };
     expect(getBattleLogInstallStatus(project)).toMatchObject({
       installed: true,
+      upToDate: false,
+      updateAvailable: true,
       dllInstalled: true,
       counterDllInstalled: true,
       summaryDllInstalled: true,
       saveGuardInstalled: true,
+    });
+
+    project.codeInjection.battleLog!.runtimeVersion = 2;
+    expect(getBattleLogInstallStatus(project)).toMatchObject({
+      installed: true,
+      upToDate: true,
+      updateAvailable: false,
+      runtimeVersion: 2,
+    });
+  });
+
+  it("recognizes every current bundled runtime from its DLL bytes without relying on project metadata", () => {
+    for (const [version, battleName, battle, counterName, counters, summaryName, summary] of [
+      ["W2", "White2UpgradeBattleLog.dll", white2BattleLogDll, "White2UpgradeBattleCounters.dll", white2BattleCountersDll, "White2UpgradeBattleLogSummary.dll", white2BattleLogSummaryDll],
+      ["B2", "Black2UpgradeBattleLog.dll", black2BattleLogDll, "Black2UpgradeBattleCounters.dll", black2BattleCountersDll, "Black2UpgradeBattleLogSummary.dll", black2BattleLogSummaryDll],
+      ["W", "White1BattleLog.dll", white1BattleLogDll, "White1BattleCounters.dll", white1BattleCountersDll, "White1BattleLogSummary.dll", white1BattleLogSummaryDll],
+      ["B", "Black1BattleLog.dll", black1BattleLogDll, "Black1BattleCounters.dll", black1BattleCountersDll, "Black1BattleLogSummary.dll", black1BattleLogSummaryDll],
+    ] as const) {
+      const project = makeProject(version);
+      installStatusFixtures(project, battleName, battle, counterName, counters, summaryName, summary);
+      expect(getBattleLogInstallStatus(project)).toMatchObject({
+        installed: true,
+        upToDate: true,
+        updateAvailable: false,
+        runtimeVersion: 2,
+      });
+    }
+  });
+
+  it("offers an in-place update for the older PK5 counter-layout runtime", () => {
+    const project = makeProject("W2");
+    installStatusFixtures(
+      project,
+      "White2UpgradeBattleLog.dll",
+      white2BattleLogDll,
+      "White2UpgradeBattleCounters.dll",
+      white2BattleCountersDll.subarray(0, white2BattleCountersDll.length - 16),
+      "White2UpgradeBattleLogSummary.dll",
+      white2BattleLogSummaryDll.subarray(0, white2BattleLogSummaryDll.length - 16),
+    );
+
+    expect(getBattleLogInstallStatus(project)).toMatchObject({
+      installed: true,
+      upToDate: false,
+      updateAvailable: true,
+      bundledRuntimeVersion: 2,
     });
   });
 });
@@ -373,6 +421,41 @@ function countU32Occurrences(bytes: Uint8Array, value: number): number {
 
 function hexBytes(hex: string): Uint8Array {
   return Uint8Array.from({ length: hex.length / 2 }, (_value, index) => Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16));
+}
+
+function installStatusFixtures(
+  project: ProjectState,
+  battleName: string,
+  battle: Uint8Array,
+  counterName: string,
+  counters: Uint8Array,
+  summaryName: string,
+  summary: Uint8Array,
+): void {
+  const isBw1 = project.session.baseRom === "BW";
+  const guardAddress = isBw1 ? 0x020097f0 : 0x02009f0c;
+  const guardOffset = guardAddress - 0x02004000;
+  const disabledGuard = project.session.baseVersion === "W2"
+    ? "7047024b1847c046c40700004c890702"
+    : project.session.baseVersion === "B2"
+      ? "7047024b1847c046c407000020890702"
+      : project.session.baseVersion === "W"
+        ? "7047024b1847c046c40700005c2d0802"
+        : "7047024b1847c046c4070000442d0802";
+  project.arm9 = new Uint8Array(guardOffset + 16);
+  project.arm9.set(hexBytes(disabledGuard), guardOffset);
+  project.fileSystem = {
+    replacements: {},
+    additions: {
+      [`patches/${battleName}`]: battle,
+      [`patches/${counterName}`]: counters,
+      [`patches/${summaryName}`]: summary,
+      "battlelog/ancestry.narc": new Uint8Array([1]),
+    },
+  };
+  project.codeInjection = {
+    battleLog: { ancestryPath: "battlelog/ancestry.narc" },
+  };
 }
 
 function makeProject(baseVersion: "B" | "W" | "B2" | "W2"): ProjectState {
