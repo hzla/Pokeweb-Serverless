@@ -121,20 +121,31 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <h2>Trainer Battle Log</h2>
               <p>Records the player's team and KO attribution for trainer battles, then shows the species-family frag count in the summary screen's ID value field.</p>
             </div>
-            <span class="code-injection-status ${battleLogStatus.installed ? "-installed" : battleLogCanInstall ? "" : "-error"}">
-              ${battleLogStatus.installed ? "Installed" : battleLogCanInstall ? "Ready" : battleLogStatus.supported ? "Incompatible" : "Unsupported"}
+            <span class="code-injection-status ${battleLogStatus.upToDate ? "-installed" : battleLogCanInstall ? "" : "-error"}">
+              ${
+                battleLogStatus.updateAvailable
+                  ? "Update Available"
+                  : battleLogStatus.upToDate
+                    ? "Installed"
+                    : battleLogCanInstall
+                      ? "Ready"
+                      : battleLogStatus.supported
+                        ? "Incompatible"
+                        : "Unsupported"
+              }
             </span>
           </div>
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US ${escapeHtml(battleLogDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
             <div><span>Capacity</span><strong>600 battles</strong></div>
             <div><span>Save Blocks</span><strong>29–31</strong></div>
+            <div><span>Runtime</span><strong>${battleLogStatus.updateAvailable ? `Update to v${battleLogStatus.bundledRuntimeVersion}` : battleLogStatus.upToDate ? `v${battleLogStatus.bundledRuntimeVersion}` : `Bundled v${battleLogStatus.bundledRuntimeVersion}`}</strong></div>
             <div><span>Save Ownership</span><strong>${battleLogStatus.saveGuardInstalled ? "Active" : "Pending"}</strong></div>
             <div><span>Hook Checks</span><strong>${battleLogStatus.checked ? `${battleLogStatus.passed}/${battleLogStatus.checks.length}` : "On install"}</strong></div>
           </div>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-battle-log-btn" type="button" ${battleLogCanInstall ? "" : "disabled"}>
-              ${battleLogStatus.installed ? "Reinstall Battle Log" : "Install Battle Log"}
+              ${battleLogStatus.updateAvailable ? "Update Battle Log" : battleLogStatus.installed ? "Reinstall Battle Log" : "Install Battle Log"}
             </button>
             <button class="btn -default" id="uninstall-battle-log-btn" type="button" ${battleLogCanUninstall ? "" : "disabled"}
               title="${
@@ -147,7 +158,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               Uninstall Battle Log
             </button>
             <div class="code-injection-note" id="battle-log-note">
-              ${escapeHtml(battleLogStatus.message)} ${battleLogStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."} Installing retires and overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Rename the summary screen's ID No. message to Frags in the text editor if desired.
+              ${escapeHtml(battleLogStatus.message)} ${battleLogStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."} Installing retires and overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Updating replaces the runtime DLLs without erasing existing battle history. Rename the summary screen's ID No. message to Frags in the text editor if desired.
             </div>
           </div>
         </section>
@@ -380,18 +391,21 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const battleLogNote = root.querySelector<HTMLDivElement>("#battle-log-note");
   battleLogButton?.addEventListener("click", async () => {
     const previousText = battleLogButton.textContent ?? "Install Battle Log";
+    const updating = battleLogStatus.updateAvailable;
+    const refreshMenuEvolution = updating && menuEvolutionStatus.installed;
     try {
       battleLogButton.disabled = true;
-      battleLogButton.textContent = "Installing...";
+      battleLogButton.textContent = updating ? "Updating..." : "Installing...";
       if (battleLogNote) {
-        battleLogNote.textContent = "Checking ROM hooks, retiring Pal Pad save handling, generating species ancestry, and staging the split battle and summary DLLs.";
+        battleLogNote.textContent = `${updating ? "Updating" : "Installing"} the split battle-log runtimes, checking ROM hooks, retiring Pal Pad save handling, and generating species ancestry.`;
       }
       const result = await installBattleLog(project);
+      if (refreshMenuEvolution) await installMenuEvolution(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#battle-log-note");
       if (refreshedNote) {
-        refreshedNote.textContent = `Battle log staged at ${result.dllPath} and ${result.summaryDllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.`;
+        refreshedNote.textContent = `Battle log ${updating ? "updated" : "staged"} at ${result.dllPath}, ${result.counterDllPath}, and ${result.summaryDllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.${refreshMenuEvolution ? " The installed Menu Evolution companion was refreshed for the new PK5 counter layout." : ""}`;
       }
     } catch (error) {
       const currentButton = root.querySelector<HTMLButtonElement>("#install-battle-log-btn") ?? battleLogButton;

@@ -120,6 +120,8 @@ export type CodeInjectionState = {
   battleLog?: {
     ancestryPath: string;
     ancestryFileId?: number;
+    /** Browser-side runtime format marker. Version 2 stores the PK5 KO count in split safe bytes. */
+    runtimeVersion?: number;
   };
   menuEvolution?: {
     messageBankId: number;
