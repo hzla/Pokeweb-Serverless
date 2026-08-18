@@ -42,6 +42,8 @@ export const WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_S
 export const BATTLE_LOG_ANCESTRY_PATH = "battlelog/ancestry.narc";
 export const BATTLE_LOG_EVOLUTION_PATH = "a/0/1/9";
 export const BATTLE_LOG_CAPACITY = 600;
+/** Version 2 moved the PK5 KO counter out of Block C's ribbon container. */
+export const BATTLE_LOG_RUNTIME_VERSION = 2;
 
 const SPECIES_COUNT = 1024;
 const EVOLUTION_SLOT_SIZE = 6;
@@ -60,6 +62,11 @@ type HookSignature = {
   expectedHex: string;
 };
 
+type RuntimeFingerprint = {
+  length: number;
+  fnv1a: number;
+};
+
 const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
   displayName: string;
   idCode: string;
@@ -72,6 +79,11 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
   summaryDllFilename: string;
   summaryDllPath: string;
   summaryDllUrl: URL;
+  runtimeFingerprints: {
+    battle: RuntimeFingerprint;
+    counters: RuntimeFingerprint;
+    summary: RuntimeFingerprint;
+  };
   wifiAddress: number;
   wifiOriginalHex: string;
   wifiDisabledHex: string;
@@ -89,6 +101,11 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url),
+    runtimeFingerprints: {
+      battle: { length: 2432, fnv1a: 0xf2c02771 },
+      counters: { length: 560, fnv1a: 0x5c161190 },
+      summary: { length: 896, fnv1a: 0x45f45047 },
+    },
     wifiAddress: 0x02009f0c,
     wifiOriginalHex: "014a024b1847c046c40700004c890702",
     wifiDisabledHex: "7047024b1847c046c40700004c890702",
@@ -114,6 +131,11 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url),
+    runtimeFingerprints: {
+      battle: { length: 2544, fnv1a: 0xde24ab69 },
+      counters: { length: 672, fnv1a: 0x38fe5fb1 },
+      summary: { length: 1008, fnv1a: 0x6d26cc5f },
+    },
     wifiAddress: 0x02009f0c,
     wifiOriginalHex: "014a024b1847c046c407000020890702",
     wifiDisabledHex: "7047024b1847c046c407000020890702",
@@ -139,6 +161,11 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url),
+    runtimeFingerprints: {
+      battle: { length: 2400, fnv1a: 0x9b7d7994 },
+      counters: { length: 608, fnv1a: 0xe807d97f },
+      summary: { length: 944, fnv1a: 0x38e5e842 },
+    },
     wifiAddress: 0x020097f0,
     wifiOriginalHex: "014a024b1847c046c40700005c2d0802",
     wifiDisabledHex: "7047024b1847c046c40700005c2d0802",
@@ -164,6 +191,11 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url),
+    runtimeFingerprints: {
+      battle: { length: 2400, fnv1a: 0x738c7e31 },
+      counters: { length: 608, fnv1a: 0xa57eca34 },
+      summary: { length: 944, fnv1a: 0x6bf2476a },
+    },
     wifiAddress: 0x020097f0,
     wifiOriginalHex: "014a024b1847c046c4070000442d0802",
     wifiDisabledHex: "7047024b1847c046c4070000442d0802",
@@ -206,6 +238,10 @@ export type BattleLogCompatibilityReport = {
 
 export type BattleLogInstallStatus = BattleLogCompatibilityReport & {
   installed: boolean;
+  upToDate: boolean;
+  updateAvailable: boolean;
+  runtimeVersion?: number;
+  bundledRuntimeVersion: number;
   pmcInstalled: boolean;
   dllInstalled: boolean;
   counterDllInstalled: boolean;
@@ -242,9 +278,20 @@ export function getBattleLogInstallStatus(project: ProjectState): BattleLogInsta
   const ancestryInstalled = project.codeInjection?.battleLog?.ancestryPath === BATTLE_LOG_ANCESTRY_PATH
     || hasRomPath(project, BATTLE_LOG_ANCESTRY_PATH);
   const saveGuardInstalled = Boolean(layout && isWifiListSyncDisabled(project, project.session.baseVersion as SupportedBattleLogVersion));
+  const installed = dllInstalled && counterDllInstalled && summaryDllInstalled && ancestryInstalled && saveGuardInstalled;
+  const runtimeVersion = project.codeInjection?.battleLog?.runtimeVersion;
+  const upToDate = Boolean(installed && layout && isCurrentBattleLogRuntime(project, layout));
+  const updateAvailable = installed && !upToDate;
   return {
     ...compatibility,
-    installed: dllInstalled && counterDllInstalled && summaryDllInstalled && ancestryInstalled && saveGuardInstalled,
+    message: updateAvailable
+      ? `${compatibility.message} An older or unrecognized battle-log runtime is installed and can be updated in place.`
+      : compatibility.message,
+    installed,
+    upToDate,
+    updateAvailable,
+    runtimeVersion: upToDate ? Math.max(runtimeVersion ?? 0, BATTLE_LOG_RUNTIME_VERSION) : runtimeVersion,
+    bundledRuntimeVersion: BATTLE_LOG_RUNTIME_VERSION,
     pmcInstalled: getPmcInstallStatus(project).installed,
     dllInstalled,
     counterDllInstalled,
@@ -377,9 +424,9 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   if (!battleResponse.ok) throw new Error(`Could not load the bundled battle-log battle DLL (${battleResponse.status})`);
   if (!counterResponse.ok) throw new Error(`Could not load the bundled battle-log counter DLL (${counterResponse.status})`);
   if (!summaryResponse.ok) throw new Error(`Could not load the bundled battle-log summary DLL (${summaryResponse.status})`);
-  stageCodeInjectionDll(project, layout.dllFilename, new Uint8Array(await battleResponse.arrayBuffer()), "patches");
-  stageCodeInjectionDll(project, layout.counterDllFilename, new Uint8Array(await counterResponse.arrayBuffer()), "patches");
-  stageCodeInjectionDll(project, layout.summaryDllFilename, new Uint8Array(await summaryResponse.arrayBuffer()), "patches");
+  stageCodeInjectionDll(project, layout.dllFilename, new Uint8Array(await battleResponse.arrayBuffer()), "patches", romBytes);
+  stageCodeInjectionDll(project, layout.counterDllFilename, new Uint8Array(await counterResponse.arrayBuffer()), "patches", romBytes);
+  stageCodeInjectionDll(project, layout.summaryDllFilename, new Uint8Array(await summaryResponse.arrayBuffer()), "patches", romBytes);
 
   const evolutionMembers = currentEvolutionMembers(project, rom);
   const ancestryBytes = buildBattleLogAncestryNarc(evolutionMembers);
@@ -391,12 +438,16 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   const ancestryFileId = rom.filenames.idOf(BATTLE_LOG_ANCESTRY_PATH);
   stageRomPath(project, rom, BATTLE_LOG_ANCESTRY_PATH, ancestryBytes);
   project.codeInjection ??= {};
-  project.codeInjection.battleLog = { ancestryPath: BATTLE_LOG_ANCESTRY_PATH, ancestryFileId };
+  project.codeInjection.battleLog = {
+    ancestryPath: BATTLE_LOG_ANCESTRY_PATH,
+    ancestryFileId,
+    runtimeVersion: BATTLE_LOG_RUNTIME_VERSION,
+  };
 
   recordGenericChange(
     project,
     "code_injection",
-    `Split battle-log and individual-counter runtimes staged with ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
+    `Battle-log runtime v${BATTLE_LOG_RUNTIME_VERSION} staged with split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
     "Battle Log",
     { key: "code-injection:battle-log" },
   );
@@ -610,6 +661,57 @@ function hasRomPath(project: ProjectState, path: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isCurrentBattleLogRuntime(
+  project: ProjectState,
+  layout: (typeof BATTLE_LOG_LAYOUTS)[SupportedBattleLogVersion],
+): boolean {
+  const markedVersion = project.codeInjection?.battleLog?.runtimeVersion;
+  // Do not offer to replace a project written by a newer Pokeweb release.
+  if (markedVersion !== undefined && markedVersion > BATTLE_LOG_RUNTIME_VERSION) return true;
+
+  const artifacts = [
+    [layout.dllPath, layout.runtimeFingerprints.battle],
+    [layout.counterDllPath, layout.runtimeFingerprints.counters],
+    [layout.summaryDllPath, layout.runtimeFingerprints.summary],
+  ] as const;
+  let matchedArtifacts = 0;
+  for (const [path, expected] of artifacts) {
+    const bytes = effectiveRomPathBytes(project, path);
+    if (!bytes) continue;
+    if (!matchesRuntimeFingerprint(bytes, expected)) return false;
+    matchedArtifacts += 1;
+  }
+  if (matchedArtifacts === artifacts.length) return true;
+  return markedVersion === BATTLE_LOG_RUNTIME_VERSION;
+}
+
+function effectiveRomPathBytes(project: ProjectState, path: string): Uint8Array | undefined {
+  const normalized = path.toLowerCase();
+  const additionPath = Object.keys(project.fileSystem?.additions ?? {}).find(
+    (candidate) => candidate.toLowerCase() === normalized,
+  );
+  if (additionPath) return project.fileSystem?.additions?.[additionPath];
+  if (!project.originalRomBytes) return undefined;
+  try {
+    const rom = new NintendoDSRom(project.originalRomBytes);
+    const fileId = rom.filenames.idOf(path);
+    if (fileId === undefined) return undefined;
+    return project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
+  } catch {
+    return undefined;
+  }
+}
+
+function matchesRuntimeFingerprint(bytes: Uint8Array, expected: RuntimeFingerprint): boolean {
+  if (bytes.length !== expected.length) return false;
+  let hash = 0x811c9dc5;
+  for (const value of bytes) {
+    hash ^= value;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash === expected.fnv1a;
 }
 
 function hexToBytes(hex: string): Uint8Array {
