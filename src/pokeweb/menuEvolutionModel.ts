@@ -266,7 +266,7 @@ export async function installMenuEvolution(project: ProjectState): Promise<MenuE
   const response = await fetch(layout.dllUrl);
   if (!response.ok) throw new Error(`Could not load the bundled Menu Evolution DLL (${response.status})`);
   const configuredDll = configureMenuEvolutionDll(new Uint8Array(await response.arrayBuffer()), messageEntryId);
-  stageCodeInjectionDll(project, layout.dllFilename, configuredDll, "patches");
+  stageCodeInjectionDll(project, layout.dllFilename, configuredDll, "patches", romBytes);
 
   project.codeInjection ??= {};
   project.codeInjection.menuEvolution = {

@@ -382,6 +382,7 @@ export function stageCodeInjectionDll(
   fileName: string,
   bytes: Uint8Array,
   target: CodeInjectionDllTarget = "patches",
+  romBytes: Uint8Array | undefined = project.originalRomBytes,
 ): CodeInjectionDllInstallResult {
   const status = getPmcInstallStatus(project);
   if (!status.installed) throw new Error("Install PMC before adding patch DLLs.");
@@ -403,15 +404,21 @@ export function stageCodeInjectionDll(
 
   const path = `${target}/${safeName}`;
   const existingRomFileId = (() => {
-    if (!project.originalRomBytes) return undefined;
+    if (!romBytes) return undefined;
     try {
-      return new NintendoDSRom(project.originalRomBytes).filenames.idOf(path);
+      return new NintendoDSRom(romBytes).filenames.idOf(path);
     } catch {
       return undefined;
     }
   })();
   if (existingRomFileId === undefined) addRomFile(project, path, bytes);
-  else setRomFileReplacement(project, existingRomFileId, bytes);
+  else {
+    const duplicateAddition = Object.keys(project.fileSystem?.additions ?? {}).find(
+      (candidate) => candidate.toLowerCase() === path.toLowerCase(),
+    );
+    if (duplicateAddition) delete project.fileSystem?.additions?.[duplicateAddition];
+    setRomFileReplacement(project, existingRomFileId, bytes);
+  }
   project.codeInjection ??= {};
   const modules = (project.codeInjection.modules ??= []);
   const index = modules.findIndex((module) => module.path === path);
