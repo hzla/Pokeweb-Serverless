@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#101112">
+    <title>White2Upgrade Animation Viewer</title>
+  </head>
+  <body>
+    <div class="viewer-app">
+      <header class="viewer-topbar">
+        <div>
+          <p class="eyebrow">White2Upgrade</p>
+          <h1>Animation Viewer</h1>
+        </div>
+        <a class="tool-button" href="../">Back to Tracker</a>
+      </header>
+
+      <main>
+        <div class="viewer-tabs" role="tablist" aria-label="Animation libraries">
+          <button class="viewer-tab is-active" type="button" role="tab" aria-selected="true" data-view="sprites">Pokemon Sprites</button>
+          <button class="viewer-tab" type="button" role="tab" aria-selected="false" data-view="moves">Move Animations</button>
+        </div>
+
+        <p id="viewer-status" class="viewer-status" aria-live="polite">Loading animation library</p>
+
+        <section id="sprite-view" class="library-layout" aria-label="Pokemon sprite animations">
+          <aside class="library-sidebar">
+            <label class="search-field">
+              <span>Pokemon</span>
+              <input id="sprite-search" type="search" placeholder="Search name or number" autocomplete="off">
+            </label>
+            <div id="sprite-list" class="library-list" role="listbox" aria-label="Added Pokemon"></div>
+          </aside>
+
+          <div class="viewer-workspace">
+            <div class="workspace-heading">
+              <div>
+                <p id="sprite-number" class="eyebrow"></p>
+                <h2 id="sprite-name">Pokemon</h2>
+              </div>
+              <div class="segmented" role="group" aria-label="Sprite side">
+                <button class="segment is-active" type="button" data-side="front" aria-pressed="true">Front</button>
+                <button class="segment" type="button" data-side="back" aria-pressed="false">Back</button>
+              </div>
+            </div>
+            <div class="sprite-stage">
+              <canvas id="sprite-canvas" width="96" height="96" role="img" aria-label="Selected Pokemon sprite animation"></canvas>
+            </div>
+            <div class="sprite-meta">
+              <span id="sprite-format"></span>
+              <span id="sprite-credit"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="move-view" class="library-layout" aria-label="Move animations" hidden>
+          <aside class="library-sidebar">
+            <label class="search-field">
+              <span>Move</span>
+              <input id="move-search" type="search" placeholder="Search name or number" autocomplete="off">
+            </label>
+            <div id="move-list" class="library-list" role="listbox" aria-label="Added moves"></div>
+          </aside>
+
+          <div class="viewer-workspace move-workspace">
+            <div class="workspace-heading move-heading">
+              <div>
+                <p id="move-number" class="eyebrow"></p>
+                <h2 id="move-name">Move</h2>
+              </div>
+              <label class="battle-pokemon-field">
+                <span>Battle Pokemon</span>
+                <select id="battle-pokemon"></select>
+              </label>
+            </div>
+            <p id="move-status" class="move-status" aria-live="polite"></p>
+            <div id="move-preview-host" class="move-preview-host"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="../src/white2ExpansionAnimationViewer.ts"></script>
+  </body>
+</html>

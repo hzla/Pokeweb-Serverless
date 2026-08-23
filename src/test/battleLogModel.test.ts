@@ -328,7 +328,7 @@ describe("trainer battle log", () => {
     };
     project.codeInjection = {
       pmc: { overlayId: 344, overlayPath: "overlay/overlay_0344.bin" },
-      battleLog: { ancestryPath: "battlelog/ancestry.narc" },
+      battleLog: { ancestryPath: "battlelog/ancestry.narc", runtimeVersion: 2 },
       modules: [
         { path: "patches/White2UpgradeBattleLog.dll", target: "patches", fileName: "White2UpgradeBattleLog.dll" },
         { path: "patches/White2UpgradeBattleCounters.dll", target: "patches", fileName: "White2UpgradeBattleCounters.dll" },
@@ -345,12 +345,12 @@ describe("trainer battle log", () => {
       saveGuardInstalled: true,
     });
 
-    project.codeInjection.battleLog!.runtimeVersion = 2;
+    project.codeInjection.battleLog!.runtimeVersion = 3;
     expect(getBattleLogInstallStatus(project)).toMatchObject({
       installed: true,
       upToDate: true,
       updateAvailable: false,
-      runtimeVersion: 2,
+      runtimeVersion: 3,
     });
   });
 
@@ -367,7 +367,7 @@ describe("trainer battle log", () => {
         installed: true,
         upToDate: true,
         updateAvailable: false,
-        runtimeVersion: 2,
+        runtimeVersion: 3,
       });
     }
   });
@@ -388,7 +388,7 @@ describe("trainer battle log", () => {
       installed: true,
       upToDate: false,
       updateAvailable: true,
-      bundledRuntimeVersion: 2,
+      bundledRuntimeVersion: 3,
     });
   });
 });

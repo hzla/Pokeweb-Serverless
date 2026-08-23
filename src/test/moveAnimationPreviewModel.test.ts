@@ -9,6 +9,8 @@ import { simulateGen5BattleSprites } from "../pokeweb/gen5BattleSpriteSimulator"
 import { TARGET_BATTLE_ANCHOR, USER_BATTLE_ANCHOR } from "../pokeweb/battlePreviewAnchors";
 import {
   GEN5_EFFECT_PARTICLE_DEPTH_OFFSET,
+  GEN5_DEFAULT_CAMERA_POSITION,
+  GEN5_DEFAULT_CAMERA_TARGET,
   GEN5_SINGLE_TARGET_CAMERA_TARGET,
   GEN5_SINGLE_TARGET_POKEMON_POSITION,
   GEN5_SINGLE_USER_CAMERA_POSITION,
@@ -259,6 +261,33 @@ describe("moveAnimationPreviewModel", () => {
     expect(setup.backdropZoom).toBeCloseTo(1);
     expect(target.lookAt).toEqual(GEN5_SINGLE_TARGET_CAMERA_TARGET);
     expect(target.backdropZoom).toBeGreaterThan(1);
+  });
+
+  it("applies relative AdjustCamera coordinates to the active camera pose", async () => {
+    const project = makeProject();
+    const preview = await buildMoveAnimationPreview(
+      project,
+      247,
+      makeScript(`
+     AdjustCamera 2, 12288, 0, 12288, 0, 0, 0, 16, 0, 12
+     TerminateMoveScript
+`),
+      { loadSpaArchive: async () => parseSpaArchive(makeSyntheticSpa()) },
+    );
+
+    const halfway = simulateBattleCamera(preview.timeline, 8);
+    const complete = simulateBattleCamera(preview.timeline, 16);
+    expect(halfway.position).toEqual([
+      GEN5_DEFAULT_CAMERA_POSITION[0] + 1.5,
+      GEN5_DEFAULT_CAMERA_POSITION[1],
+      GEN5_DEFAULT_CAMERA_POSITION[2] + 1.5,
+    ]);
+    expect(complete.position).toEqual([
+      GEN5_DEFAULT_CAMERA_POSITION[0] + 3,
+      GEN5_DEFAULT_CAMERA_POSITION[1],
+      GEN5_DEFAULT_CAMERA_POSITION[2] + 3,
+    ]);
+    expect(complete.lookAt).toEqual(GEN5_DEFAULT_CAMERA_TARGET);
   });
 
   it("centers MoveCamera ATTACKER on the user camera table", async () => {

@@ -346,7 +346,7 @@ export const BW_MESSAGE_BANKS = [
 
 export const BW2_MESSAGE_BANKS = [
   [403, "moves"],
-  [487, "abilities"],
+  [[487, 374], "abilities"],
   [90, "pokedex"],
   [383, "tr_classes"],
   [382, "tr_names"],

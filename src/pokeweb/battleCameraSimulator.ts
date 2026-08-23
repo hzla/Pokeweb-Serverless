@@ -107,7 +107,7 @@ function activeCameraCommand(events: MoveAnimationTimelineEvent[], frame: number
 
 function poseForCameraEvent(event: MoveAnimationTimelineEvent, current: CameraPose, swappedSides: boolean): CameraPose {
   if (event.command === "MoveCamera") return poseForPreset(event.params[1] ?? 0, current, swappedSides);
-  if (event.command === "AdjustCamera") return poseForCoordinates(event);
+  if (event.command === "AdjustCamera") return poseForCoordinates(event, current);
   if (event.command === "CameraMoveAngle") return poseForAngles(event, current);
   if (event.command === "CameraProjection") return { ...current, fov: projectionFov(event.params[0] ?? 0, event.params[1] ?? 0) };
   if (event.command === "CameraPosPush") return DEFAULT_POSE;
@@ -124,9 +124,12 @@ function poseForPreset(preset: number, current: CameraPose, swappedSides: boolea
   return current;
 }
 
-function poseForCoordinates(event: MoveAnimationTimelineEvent): CameraPose {
-  const pos: [number, number, number] = [fixedToWorld(event.params[1] ?? 0), fixedToWorld(event.params[2] ?? 0), fixedToWorld(event.params[3] ?? 0)];
-  const target: [number, number, number] = [fixedToWorld(event.params[4] ?? 0), fixedToWorld(event.params[5] ?? 0), fixedToWorld(event.params[6] ?? 0)];
+function poseForCoordinates(event: MoveAnimationTimelineEvent, current: CameraPose): CameraPose {
+  const posValue: [number, number, number] = [fixedToWorld(event.params[1] ?? 0), fixedToWorld(event.params[2] ?? 0), fixedToWorld(event.params[3] ?? 0)];
+  const targetValue: [number, number, number] = [fixedToWorld(event.params[4] ?? 0), fixedToWorld(event.params[5] ?? 0), fixedToWorld(event.params[6] ?? 0)];
+  const relative = (event.params[0] ?? 0) === 2;
+  const pos = relative ? addVec3(current.position, posValue) : posValue;
+  const target = relative ? addVec3(current.lookAt, targetValue) : targetValue;
   const focusX = target[0] >= 0 ? 0.67 : 0.25;
   const focusY = target[2] <= 0 ? 0.48 : 0.78;
   const distance = Math.hypot(pos[0] - target[0], pos[1] - target[1], pos[2] - target[2]);
@@ -183,6 +186,10 @@ function interpolatePose(from: CameraPose, to: CameraPose, rate: number): Camera
 
 function lerpVec3(from: [number, number, number], to: [number, number, number], rate: number): [number, number, number] {
   return [lerp(from[0], to[0], rate), lerp(from[1], to[1], rate), lerp(from[2], to[2], rate)];
+}
+
+function addVec3(left: [number, number, number], right: [number, number, number]): [number, number, number] {
+  return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
 }
 
 function fixedToWorld(value: number): number {
