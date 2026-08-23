@@ -852,7 +852,8 @@ function appendTrainerName(project: ProjectState, trainerId: number): void {
 
 function trainerNameBankId(project: ProjectState): number | undefined {
   const mappings = project.session.baseRom === "BW" ? BW_MESSAGE_BANKS : BW2_MESSAGE_BANKS;
-  return mappings.find(([, name]) => name === "tr_names")?.[0];
+  const source = mappings.find(([, name]) => name === "tr_names")?.[0];
+  return typeof source === "number" ? source : source?.[0];
 }
 
 function getPid(

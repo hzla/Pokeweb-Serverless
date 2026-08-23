@@ -343,6 +343,7 @@ let activeTrainerSpriteClassId: number | undefined;
 let activePwanAnimationSpeciesId: number | undefined;
 let dirty = false;
 let hasExportBase = false;
+let refreshRomRequestInFlight = false;
 const scheduleSave = debounceProjectSave();
 
 installIntegrationConsoleApi(
@@ -1001,7 +1002,19 @@ function attachNav(): void {
 
   appRoot.querySelector<HTMLButtonElement>("[data-refresh-rom]")?.addEventListener("click", async (event) => {
     event.preventDefault();
-    await refreshRomFromLocalPath(event.currentTarget as HTMLButtonElement);
+    const button = event.currentTarget as HTMLButtonElement;
+    if (refreshRomRequestInFlight) return;
+    refreshRomRequestInFlight = true;
+    button.disabled = true;
+    try {
+      await refreshRomFromLocalPath(button);
+    } finally {
+      // Keep the guard through the next paints so click events queued behind a
+      // native confirm dialog cannot immediately start another refresh request.
+      await waitForNextPaint();
+      refreshRomRequestInFlight = false;
+      button.disabled = false;
+    }
   });
 }
 

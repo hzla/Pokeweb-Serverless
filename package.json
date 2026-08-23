@@ -38,6 +38,7 @@
     "moveexpansion:reference": "python3 -B scripts/generate_white2upgrade_move_expansion.py",
     "moveexpansion:animations": "vite-node scripts/generate-white2upgrade-gen6-animation-bundle.ts",
     "moveexpansion:verify-rom": "vite-node scripts/verify-move-expansion-install.ts",
+    "animationviewer:build": "vite build --config vite.animation-viewer.config.js && vite-node scripts/build-white2expansion-animation-viewer-data.ts",
     "state:inspect": "vite-node scripts/inspect-test-battle-state.ts"
   },
   "dependencies": {
