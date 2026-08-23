@@ -6,7 +6,7 @@ import {
   applyMoveExpansionCommandHookToOverlay,
   applyMoveExpansionRoutingHookToOverlay,
   detectMoveExpansionRoutingHook,
-  parseGen6AnimationBundle,
+  parseMoveExpansionAnimationBundle,
   usesFrostMoveExpansionLayout,
 } from "../pokeweb/moveExpansionPatch";
 import { decompileMoveAnimationBytes, remapMoveAnimationParticleIds } from "../pokeweb/moveAnimationModel";
@@ -149,25 +149,26 @@ describe("Move Expansion patch", () => {
     expect(expansionData.firstTargetMoveId + expansionData.moves.length).toBeLessThanOrEqual(expansionData.targetMoveCount);
   });
 
-  it("bundles all Gen 6 animations with their custom particle dependencies", () => {
-    const bundle = loadGen6AnimationBundle();
+  it("bundles all staged Gen 6-7 animations with their custom particle dependencies", () => {
+    const bundle = loadMoveAnimationBundle();
 
-    expect(bundle.moves).toHaveLength(62);
+    expect(bundle.moves).toHaveLength(128);
     expect(bundle.moves[0]).toMatchObject({ sourceMoveId: 560, targetMoveId: 680 });
-    expect(bundle.moves.at(-1)).toMatchObject({ sourceMoveId: 621, targetMoveId: 741 });
-    expect(bundle.particles).toHaveLength(39);
+    expect(bundle.moves.at(-1)).toMatchObject({ sourceMoveId: 742, targetMoveId: 825 });
+    expect(bundle.particles).toHaveLength(65);
     const bundledParticleIds = new Set(bundle.particles.map((particle) => particle.sourceParticleId));
     expect(bundle.moves.flatMap((move) => move.particleIds).filter((particleId) => particleId >= 733).every((particleId) => bundledParticleIds.has(particleId))).toBe(true);
   });
 
   it("appends occupied particle IDs and rewrites the installed animation references", () => {
-    const bundle = loadGen6AnimationBundle();
+    const bundle = loadMoveAnimationBundle();
     const store = makeParticleStore(740);
     const occupied739 = store.rawFiles[739].slice();
+    const uniqueBundledParticles = new Set(bundle.particles.map((particle) => Buffer.from(particle.bytes).toString("hex"))).size;
 
     const allocation = allocateMoveExpansionParticleAssets(store, bundle.particles);
 
-    expect(allocation.addedIds).toHaveLength(bundle.particles.length);
+    expect(allocation.addedIds).toHaveLength(uniqueBundledParticles);
     expect(allocation.particleIdMap.get(739)).toBe(740);
     expect(allocation.particleIdMap.get(770)).toBe(766);
     expect([...store.rawFiles[739]]).toEqual([...occupied739]);
@@ -181,8 +182,8 @@ describe("Move Expansion patch", () => {
   });
 });
 
-function loadGen6AnimationBundle() {
-  return parseGen6AnimationBundle(
+function loadMoveAnimationBundle() {
+  return parseMoveExpansionAnimationBundle(
     new Uint8Array(readFileSync(new URL("../assets/data/white2upgradeGen6MoveAnimations.zip", import.meta.url))),
   );
 }

@@ -457,11 +457,13 @@ function serializeResource(resource: SpaResource): Uint8Array {
       (clampInt(resource.variance.initVel * 255, 0, 255) << 16),
   );
   const airResistance = clampInt(((resource.airResistance - 0.75) / 0.5) * 256, 0, 255);
+  const originalBaseAlpha = resource.rawHeader?.[69];
+  const baseAlphaScale = originalBaseAlpha !== undefined && originalBaseAlpha <= 31 ? 31 : 255;
   writeU32(
     out,
     68,
     clampInt(resource.emissionIntervalFrames, 0, 255) |
-      (clampInt(resource.baseAlpha * 255, 0, 255) << 8) |
+      (clampInt(resource.baseAlpha * baseAlphaScale, 0, baseAlphaScale) << 8) |
       (airResistance << 16) |
       (clampInt(resource.textureIndex, 0, 255) << 24),
   );

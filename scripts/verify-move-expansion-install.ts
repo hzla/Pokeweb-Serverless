@@ -5,21 +5,23 @@ import {
   MOVE_EXPANSION_TARGET_COUNT,
   detectMoveExpansionPatch,
   installMoveExpansion,
+  parseMoveExpansionAnimationBundle,
 } from "../src/pokeweb/moveExpansionPatch";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript } from "../src/pokeweb/moveAnimationModel";
 import { commitTextBank, getTextBank, parseTextEntryId } from "../src/pokeweb/textModel";
 
 const args = process.argv.slice(2);
-const includeGen6Animations = args.includes("--include-gen6-animations");
+const includeBundledAnimations = args.includes("--include-bundled-animations") || args.includes("--include-gen6-animations");
 const path = args.find((arg) => !arg.startsWith("--"));
-if (!path) throw new Error("Usage: npm run moveexpansion:verify-rom -- /path/to/clean-rom.nds [--include-gen6-animations]");
+if (!path) throw new Error("Usage: npm run moveexpansion:verify-rom -- /path/to/clean-rom.nds [--include-bundled-animations]");
 
 const source = new Uint8Array(fs.readFileSync(path));
-const gen6AnimationBundleBytes = includeGen6Animations
+const animationBundleBytes = includeBundledAnimations
   ? new Uint8Array(fs.readFileSync(new URL("../src/assets/data/white2upgradeGen6MoveAnimations.zip", import.meta.url)))
   : undefined;
+const animationBundle = animationBundleBytes ? parseMoveExpansionAnimationBundle(animationBundleBytes) : undefined;
 const project = await loadProjectFromRomBytes(source, path.split("/").pop() ?? "clean.nds");
-const installed = await installMoveExpansion(project, { includeGen6Animations, gen6AnimationBundleBytes });
+const installed = await installMoveExpansion(project, { includeBundledAnimations, animationBundleBytes });
 const exported = await exportModifiedRom(project);
 const reloaded = await loadProjectFromRomBytes(exported, "move-expansion-verify.nds");
 
@@ -32,13 +34,13 @@ assert(reloaded.narcs.moves?.rawFiles[680]?.[3] === 80, "Flying Press base power
 assert(reloaded.narcs.moves?.rawFiles[680]?.[4] === 95, "Flying Press accuracy");
 assert(reloaded.narcs.moves?.rawFiles[680]?.[16] === 0 && reloaded.narcs.moves?.rawFiles[680]?.[17] === 0, "safe generic AI sequence");
 assert(detectMoveExpansionPatch(reloaded) === "patched", "routing hook detection");
-if (includeGen6Animations) {
-  assert(installed.gen6AnimationsInstalled === 62, "Gen 6 animation install count");
-  assert(installed.particleFilesInstalled > 0, "Gen 6 particle install count");
+if (includeBundledAnimations) {
+  assert(installed.bundledAnimationsInstalled === 128, "Gen 6-7 animation install count");
+  assert(installed.particleFilesInstalled > 0, "Gen 6-7 particle install count");
   assert(reloaded.narcs.move_spas, "move particle archive loaded");
-  for (let moveId = 680; moveId <= 741; moveId += 1) {
+  for (const { targetMoveId: moveId } of animationBundle?.moves ?? []) {
     const bytes = reloaded.narcs.move_animations?.rawFiles[moveId];
-    assert(bytes, `Gen 6 animation ${moveId}`);
+    assert(bytes, `bundled animation ${moveId}`);
     const parsed = parseMoveAnimationScript(decompileMoveAnimationBytes(bytes));
     for (const command of [...parsed.scripts.values()].flat()) {
       if (!isParticleCommand(command.name)) continue;
@@ -48,7 +50,7 @@ if (includeGen6Animations) {
   }
   assert(!decompileMoveAnimationBytes(reloaded.narcs.move_animations!.rawFiles[684]).includes("LoadSPA 770"), "relocated Mat Block particle reference");
 }
-const repeated = await installMoveExpansion(reloaded, { includeGen6Animations, gen6AnimationBundleBytes });
+const repeated = await installMoveExpansion(reloaded, { includeBundledAnimations, animationBundleBytes });
 assert(!repeated.changed, "idempotent reinstall");
 
 // Simulate an untouched Pound clone from Frost's data-expansion button and
@@ -74,7 +76,7 @@ assert(reloaded.narcs.moves.rawFiles[681][3] === 123, "custom move data preserva
 assert(findTextEntry(getTextBank(reloaded, "message_texts", nameBankId), 681)?.[1] === "Custom Move", "custom move name preservation");
 
 console.log(
-  `Verified ${reloaded.session.baseVersion}: ${installed.importedMovesAdded} imported moves${includeGen6Animations ? `, ${installed.gen6AnimationsInstalled} Gen 6 animations, ${installed.particleFilesInstalled} particle files` : ""}, ${exported.length} byte export, Frost routing signature present.`,
+  `Verified ${reloaded.session.baseVersion}: ${installed.importedMovesAdded} imported moves${includeBundledAnimations ? `, ${installed.bundledAnimationsInstalled} Gen 6-7 animations, ${installed.particleFilesInstalled} particle files` : ""}, ${exported.length} byte export, Frost routing signature present.`,
 );
 
 function isParticleCommand(name: string): boolean {

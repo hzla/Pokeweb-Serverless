@@ -23,6 +23,16 @@ describe("move SPA writeback", () => {
     expect(reparsed.textures[0].textureSize).toBe(archive.textures[0].textureSize);
   });
 
+  it("preserves the donor base-alpha byte encoding", () => {
+    const bytes = makeSyntheticSpa();
+    bytes[32 + 69] = 25;
+    const archive = parseSpaArchive(bytes);
+    const serialized = serializeSpaArchive(archive);
+
+    expect(archive.resources[0].baseAlpha).toBeCloseTo(25 / 31);
+    expect(serialized[32 + 69]).toBe(25);
+  });
+
   it("serializes edited optional blocks and direct-color texture replacements", () => {
     const archive = parseSpaArchive(makeSyntheticSpa());
     const resource = archive.resources[0];

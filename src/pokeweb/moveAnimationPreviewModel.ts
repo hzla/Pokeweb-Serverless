@@ -15,6 +15,7 @@ import type { NitroCellEffect, NitroCellImage } from "./nitroCell";
 import { parseSpaArchive, type SpaArchive } from "./nitroSpa";
 import type { MoveAnimationBattleEnvironment } from "./moveAnimationBattleEnvironment";
 import { gen5BattleSpriteIdleFrame, isGen5BattleSpriteCommand } from "./gen5BattleSpriteSimulator";
+import type { RgbaImageData } from "./pokemonSpriteModel";
 import { splEmitterDurationFrames } from "./splEmitterSimulator";
 
 const DEFAULT_CALL_DEPTH = 8;
@@ -280,6 +281,11 @@ export type MoveAnimationPreview = {
   cellEffects?: Map<string, NitroCellEffect>;
   battleScene?: MoveAnimationPreviewBattleScene;
   battleEnvironment?: MoveAnimationBattleEnvironment;
+  actorSprites?: {
+    userSprite: RgbaImageData;
+    targetSprite: RgbaImageData;
+    swappedSides?: boolean;
+  };
   backgroundPaletteAnimations?: Map<number, NitroBackgroundPaletteAnimation>;
   warnings: MoveAnimationPreviewWarning[];
 };

@@ -136,7 +136,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
             <div>
               <h2>Move Expansion</h2>
               <p>Expands the ROM to 1,000 move slots, installs Frost-compatible animation routing, and seeds 305 selectable moves from White2Upgrade with safe vanilla animations and no custom effect handlers.</p>
-              <p>The optional Gen 6 animation bundle includes White2Upgrade's scripts and prerequisite move particle files, with particle references relocated automatically when their original IDs are occupied.</p>
+              <p>The optional Gen 6-7 animation bundle includes White2Upgrade's scripts and prerequisite move particle files, with particle references relocated automatically when their original IDs are occupied.</p>
               ${project.session.fairy ? "" : "<p>Fairy-type definitions are installed as Normal unless Fairy Type Support is already active.</p>"}
             </div>
             <div class="patch-card__meta">
@@ -148,8 +148,8 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           </div>
           <div class="patch-card__actions">
             <label class="patch-option">
-              <input id="move-expansion-gen6-animations-checkbox" type="checkbox" ${project.patches?.applied?.moveExpansionGen6Animations ? "checked" : ""} />
-              <span>Include Gen 6 Animations</span>
+              <input id="move-expansion-animations-checkbox" type="checkbox" ${project.patches?.applied?.moveExpansionBundledAnimations || project.patches?.applied?.moveExpansionGen6Animations ? "checked" : ""} />
+              <span>Include Gen 6-7 Animations</span>
             </label>
             <button class="btn -default" id="add-move-expansion-btn" type="button">Install Move Expansion</button>
           </div>
@@ -246,14 +246,14 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
   });
 
   root.querySelector<HTMLButtonElement>("#add-move-expansion-btn")?.addEventListener("click", async (event) => {
-    const includeGen6Animations = root.querySelector<HTMLInputElement>("#move-expansion-gen6-animations-checkbox")?.checked ?? false;
+    const includeBundledAnimations = root.querySelector<HTMLInputElement>("#move-expansion-animations-checkbox")?.checked ?? false;
     applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
-      confirmText: `Expand this ROM to 1,000 move slots and install the animation-routing hook${includeGen6Animations ? ", Gen 6 animation scripts, and prerequisite particle files" : ""}?`,
-      loadingText: includeGen6Animations
-        ? "Expanding move data and installing Gen 6 animations with relocated particle dependencies..."
+      confirmText: `Expand this ROM to 1,000 move slots and install the animation-routing hook${includeBundledAnimations ? ", Gen 6-7 animation scripts, and prerequisite particle files" : ""}?`,
+      loadingText: includeBundledAnimations
+        ? "Expanding move data and installing Gen 6-7 animations with relocated particle dependencies..."
         : "Expanding move data, text, animations, and routing...",
       successText: "Installed Move Expansion",
-      apply: (nextProject) => addMoveExpansion(nextProject, { includeGen6Animations }),
+      apply: (nextProject) => addMoveExpansion(nextProject, { includeBundledAnimations }),
     });
   });
 

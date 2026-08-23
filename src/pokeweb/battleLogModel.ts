@@ -42,8 +42,8 @@ export const WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_S
 export const BATTLE_LOG_ANCESTRY_PATH = "battlelog/ancestry.narc";
 export const BATTLE_LOG_EVOLUTION_PATH = "a/0/1/9";
 export const BATTLE_LOG_CAPACITY = 600;
-/** Version 2 moved the PK5 KO counter out of Block C's ribbon container. */
-export const BATTLE_LOG_RUNTIME_VERSION = 2;
+/** Version 3 records allied NPC partner KOs without crediting a player PK5. */
+export const BATTLE_LOG_RUNTIME_VERSION = 3;
 
 const SPECIES_COUNT = 1024;
 const EVOLUTION_SLOT_SIZE = 6;
@@ -102,7 +102,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllPath: BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url),
     runtimeFingerprints: {
-      battle: { length: 2432, fnv1a: 0xf2c02771 },
+      battle: { length: 2432, fnv1a: 0x7316e56f },
       counters: { length: 560, fnv1a: 0x5c161190 },
       summary: { length: 896, fnv1a: 0x45f45047 },
     },
@@ -132,7 +132,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllPath: BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url),
     runtimeFingerprints: {
-      battle: { length: 2544, fnv1a: 0xde24ab69 },
+      battle: { length: 2544, fnv1a: 0xd9edf49c },
       counters: { length: 672, fnv1a: 0x38fe5fb1 },
       summary: { length: 1008, fnv1a: 0x6d26cc5f },
     },
@@ -162,7 +162,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllPath: WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url),
     runtimeFingerprints: {
-      battle: { length: 2400, fnv1a: 0x9b7d7994 },
+      battle: { length: 2400, fnv1a: 0xcc96adea },
       counters: { length: 608, fnv1a: 0xe807d97f },
       summary: { length: 944, fnv1a: 0x38e5e842 },
     },
@@ -192,7 +192,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllPath: BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url),
     runtimeFingerprints: {
-      battle: { length: 2400, fnv1a: 0x738c7e31 },
+      battle: { length: 2400, fnv1a: 0xf45a813b },
       counters: { length: 608, fnv1a: 0xa57eca34 },
       summary: { length: 944, fnv1a: 0x6bf2476a },
     },
@@ -447,7 +447,7 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   recordGenericChange(
     project,
     "code_injection",
-    `Battle-log runtime v${BATTLE_LOG_RUNTIME_VERSION} staged with split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
+    `Battle-log runtime v${BATTLE_LOG_RUNTIME_VERSION} staged with AI-partner KO attribution, split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
     "Battle Log",
     { key: "code-injection:battle-log" },
   );
