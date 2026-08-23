@@ -301,12 +301,12 @@ export async function addMoveExpansion(
     result.fairyMovesMappedToNormal > 0
       ? ` ${result.fairyMovesMappedToNormal} Fairy-type definitions were safely mapped to Normal because Fairy Type Support is not installed.`
       : "";
-  const gen6AnimationText = result.gen6AnimationsIncluded
-    ? ` The optional Gen 6 animation bundle is installed with ${result.gen6AnimationsInstalled} scripts; this run appended ${result.particleFilesInstalled} prerequisite particle files and rewrote ${result.particleReferencesRemapped} particle references for their allocated IDs.`
+  const bundledAnimationText = result.bundledAnimationsIncluded
+    ? ` The optional Gen 6-7 animation bundle is installed with ${result.bundledAnimationsInstalled} scripts; this run appended ${result.particleFilesInstalled} prerequisite particle files and rewrote ${result.particleReferencesRemapped} particle references for their allocated IDs.`
     : "";
   const summary = result.changed
-    ? `Expanded move data and animations to 1,000 entries, installed the Frost-compatible routing hook, and added ${result.importedMovesAdded} selectable White2Upgrade move definitions.${mappedFairyText}${gen6AnimationText}`
-    : `Move Expansion, its routing hook, and the coordinated text and animation tables are already installed.${gen6AnimationText}`;
+    ? `Expanded move data and animations to 1,000 entries, installed the Frost-compatible routing hook, and added ${result.importedMovesAdded} selectable White2Upgrade move definitions.${mappedFairyText}${bundledAnimationText}`
+    : `Move Expansion, its routing hook, and the coordinated text and animation tables are already installed.${bundledAnimationText}`;
   return {
     patchId: "moveExpansion",
     status: result.changed ? "applied" : "already-applied",

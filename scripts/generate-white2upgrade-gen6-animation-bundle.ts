@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { zipSync } from "fflate";
 import expansionData from "../src/assets/data/white2upgradeMoveExpansion.json";
@@ -8,6 +8,8 @@ import { decompileMoveAnimationBytes, parseMoveAnimationScript } from "../src/po
 
 const FIRST_GEN6_MOVE_ID = 560;
 const LAST_GEN6_MOVE_ID = 621;
+const FIRST_GEN7_MOVE_ID = 622;
+const LAST_GEN7_MOVE_ID = 742;
 const FIRST_BW2_ONLY_SPA_ID = 733;
 const SPA_COMMANDS = new Set([
   "LoadSPA",
@@ -51,11 +53,24 @@ async function main(): Promise<void> {
   const moveTargetBySource = new Map(
     expansionData.moves.map((move, index) => [move.sourceId, expansionData.firstTargetMoveId + index] as const),
   );
+  const animationDirectory = path.join(source, "data/graphics/move_animations");
+  const stagedAnimationIds = new Set(
+    (await readdir(animationDirectory))
+      .map((name) => /^5_0*(\d+)\.bin$/u.exec(name)?.[1])
+      .filter((value): value is string => value !== undefined)
+      .map(Number),
+  );
+  const sourceMoveIds = [
+    ...integerRange(FIRST_GEN6_MOVE_ID, LAST_GEN6_MOVE_ID),
+    ...integerRange(FIRST_GEN7_MOVE_ID, LAST_GEN7_MOVE_ID).filter(
+      (moveId) => stagedAnimationIds.has(moveId) && moveTargetBySource.has(moveId),
+    ),
+  ];
   const entries: Record<string, Uint8Array> = {};
   const moves: BundleMove[] = [];
   const referencedParticleIds = new Set<number>();
 
-  for (let sourceMoveId = FIRST_GEN6_MOVE_ID; sourceMoveId <= LAST_GEN6_MOVE_ID; sourceMoveId += 1) {
+  for (const sourceMoveId of sourceMoveIds) {
     const targetMoveId = moveTargetBySource.get(sourceMoveId);
     if (targetMoveId === undefined) throw new Error(`Move ${sourceMoveId} is missing from the move-expansion data asset.`);
     const sourcePath = path.join(
@@ -104,20 +119,26 @@ async function main(): Promise<void> {
 
   const manifest = {
     format: "pokeweb-move-expansion-animations",
-    version: 1,
+    version: 2,
     source: "White2Upgrade-Original-pokeweb/data/graphics/move_animations and move_spas, plus BW2 prerequisite particles",
-    generation: 6,
+    generations: [6, 7],
     moves,
     particles,
   };
   entries["manifest.json"] = new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`);
   await writeFile(output, zipSync(entries, { level: 9, mtime: new Date("1980-01-02T00:00:00Z") }));
-  console.log(`Wrote ${moves.length} Gen 6 animations and ${particles.length} prerequisite particle files to ${output}`);
+  const gen6Count = moves.filter((move) => move.sourceMoveId <= LAST_GEN6_MOVE_ID).length;
+  const gen7Count = moves.filter((move) => move.sourceMoveId >= FIRST_GEN7_MOVE_ID).length;
+  console.log(`Wrote ${gen6Count} Gen 6 and ${gen7Count} Gen 7 animations with ${particles.length} prerequisite particle files to ${output}`);
   console.log(`Custom particle IDs: ${particles.map((particle) => particle.sourceParticleId).join(", ") || "none"}`);
 }
 
 function uniqueSorted(values: Iterable<number>): number[] {
   return [...new Set(values)].sort((left, right) => left - right);
+}
+
+function integerRange(first: number, last: number): number[] {
+  return Array.from({ length: last - first + 1 }, (_, index) => first + index);
 }
 
 function sha256(bytes: Uint8Array): string {

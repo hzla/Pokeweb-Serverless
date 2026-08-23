@@ -1,5 +1,5 @@
 import white2UpgradeMoveExpansionJson from "../assets/data/white2upgradeMoveExpansion.json";
-import white2UpgradeGen6MoveAnimationsUrl from "../assets/data/white2upgradeGen6MoveAnimations.zip?url";
+import white2UpgradeMoveAnimationsUrl from "../assets/data/white2upgradeGen6MoveAnimations.zip?url";
 import { unzipSync } from "fflate";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
@@ -14,6 +14,9 @@ export const MOVE_EXPANSION_TARGET_COUNT = 1000;
 export const MOVE_EXPANSION_FIRST_USABLE_ID = 680;
 
 export type MoveExpansionInstallOptions = {
+  includeBundledAnimations?: boolean;
+  animationBundleBytes?: Uint8Array;
+  /** Legacy aliases retained for callers saved before the Gen 7 bundle was added. */
   includeGen6Animations?: boolean;
   gen6AnimationBundleBytes?: Uint8Array;
 };
@@ -31,8 +34,8 @@ export type MoveExpansionInstallResult = {
   textEntriesAdded: number;
   importedMovesAdded: number;
   fairyMovesMappedToNormal: number;
-  gen6AnimationsIncluded: boolean;
-  gen6AnimationsInstalled: number;
+  bundledAnimationsIncluded: boolean;
+  bundledAnimationsInstalled: number;
   particleFilesInstalled: number;
   particleReferencesRemapped: number;
 };
@@ -72,7 +75,7 @@ export type MoveExpansionParticleAllocation = {
   addedIds: number[];
 };
 
-type Gen6AnimationBundle = {
+type MoveExpansionAnimationBundle = {
   moves: Array<{
     sourceMoveId: number;
     targetMoveId: number;
@@ -216,7 +219,7 @@ const FAIRY_TYPE_ID = 17;
 const NORMAL_TYPE_ID = 0;
 const EFFECT_FIELD = requiredMoveFieldIndex("effect");
 const TYPE_FIELD = requiredMoveFieldIndex("type");
-let gen6AnimationBundlePromise: Promise<Gen6AnimationBundle> | undefined;
+let animationBundlePromise: Promise<MoveExpansionAnimationBundle> | undefined;
 const moveExpansionRoutingCache = new WeakMap<ProjectState, MoveExpansionRoutingCacheEntry>();
 
 export async function installMoveExpansion(
@@ -225,10 +228,12 @@ export async function installMoveExpansion(
 ): Promise<MoveExpansionInstallResult> {
   if (!isGen5BaseRom(project.session.baseRom)) throw new Error("Move Expansion is currently available for Black / White and Black 2 / White 2 only.");
 
-  const gen6AnimationBundle = options.includeGen6Animations
-    ? options.gen6AnimationBundleBytes
-      ? parseGen6AnimationBundle(options.gen6AnimationBundleBytes)
-      : await loadGen6AnimationBundle()
+  const includeBundledAnimations = options.includeBundledAnimations ?? options.includeGen6Animations ?? false;
+  const animationBundleBytes = options.animationBundleBytes ?? options.gen6AnimationBundleBytes;
+  const animationBundle = includeBundledAnimations
+    ? animationBundleBytes
+      ? parseMoveExpansionAnimationBundle(animationBundleBytes)
+      : await loadMoveExpansionAnimationBundle()
     : undefined;
 
   const layout = ROUTING_LAYOUTS[project.session.baseRom];
@@ -259,13 +264,13 @@ export async function installMoveExpansion(
     );
   }
 
-  const stores = await ensureExpansionStores(project, Boolean(gen6AnimationBundle));
+  const stores = await ensureExpansionStores(project, Boolean(animationBundle));
   const originalMoveCount = stores.moves.rawFiles.length;
   const moveSummary = expandMoveData(project, stores.moves);
   const animationSummary = expandMoveAnimations(project, stores.moves, stores.moveAnimations, moveSummary.seededIds);
-  const gen6AnimationSummary =
-    gen6AnimationBundle && stores.moveSpas
-      ? await installBundledGen6Animations(project, stores.moveAnimations, stores.moveSpas, gen6AnimationBundle)
+  const bundledAnimationSummary =
+    animationBundle && stores.moveSpas
+      ? await installBundledMoveAnimations(project, stores.moveAnimations, stores.moveSpas, animationBundle)
       : { animationsChanged: 0, particlesAdded: 0, referencesRemapped: 0 };
   const textEntriesAdded = expandMoveText(project, originalMoveCount, moveSummary.seededIds);
 
@@ -281,19 +286,19 @@ export async function installMoveExpansion(
   project.patches ??= { dirtyOverlayIds: [], applied: {} };
   project.patches.applied ??= {};
   project.patches.applied.moveExpansion = true;
-  if (gen6AnimationBundle) project.patches.applied.moveExpansionGen6Animations = true;
+  if (animationBundle) project.patches.applied.moveExpansionBundledAnimations = true;
 
   const changed =
     commandPatch.status === "applied" ||
     routingPatch.status === "applied" ||
     moveSummary.changed > 0 ||
     animationSummary.changed > 0 ||
-    gen6AnimationSummary.animationsChanged > 0 ||
-    gen6AnimationSummary.particlesAdded > 0 ||
+    bundledAnimationSummary.animationsChanged > 0 ||
+    bundledAnimationSummary.particlesAdded > 0 ||
     textEntriesAdded > 0;
   if (changed) {
-    const animationDetail = gen6AnimationBundle
-      ? ` Included ${gen6AnimationBundle.moves.length} White2Upgrade Gen 6 animation scripts and their prerequisite particle files.`
+    const animationDetail = animationBundle
+      ? ` Included ${animationBundle.moves.length} White2Upgrade Gen 6-7 animation scripts and their prerequisite particle files.`
       : "";
     recordGenericChange(
       project,
@@ -314,10 +319,10 @@ export async function installMoveExpansion(
     textEntriesAdded,
     importedMovesAdded: moveSummary.imported,
     fairyMovesMappedToNormal: moveSummary.fairyMovesMappedToNormal,
-    gen6AnimationsIncluded: Boolean(gen6AnimationBundle),
-    gen6AnimationsInstalled: gen6AnimationBundle?.moves.length ?? 0,
-    particleFilesInstalled: gen6AnimationSummary.particlesAdded,
-    particleReferencesRemapped: gen6AnimationSummary.referencesRemapped,
+    bundledAnimationsIncluded: Boolean(animationBundle),
+    bundledAnimationsInstalled: animationBundle?.moves.length ?? 0,
+    particleFilesInstalled: bundledAnimationSummary.particlesAdded,
+    particleReferencesRemapped: bundledAnimationSummary.referencesRemapped,
   };
 }
 
@@ -706,35 +711,43 @@ function setSeedText(
   }
 }
 
-async function loadGen6AnimationBundle(): Promise<Gen6AnimationBundle> {
-  gen6AnimationBundlePromise ??= fetch(white2UpgradeGen6MoveAnimationsUrl)
+async function loadMoveExpansionAnimationBundle(): Promise<MoveExpansionAnimationBundle> {
+  animationBundlePromise ??= fetch(white2UpgradeMoveAnimationsUrl)
     .then(async (response) => {
-      if (!response.ok) throw new Error(`Could not load the bundled Gen 6 move animations (${response.status}).`);
-      return parseGen6AnimationBundle(new Uint8Array(await response.arrayBuffer()));
+      if (!response.ok) throw new Error(`Could not load the bundled Gen 6-7 move animations (${response.status}).`);
+      return parseMoveExpansionAnimationBundle(new Uint8Array(await response.arrayBuffer()));
     })
     .catch((error) => {
-      gen6AnimationBundlePromise = undefined;
+      animationBundlePromise = undefined;
       throw error;
     });
-  return gen6AnimationBundlePromise;
+  return animationBundlePromise;
 }
 
-export function parseGen6AnimationBundle(bytes: Uint8Array): Gen6AnimationBundle {
+export function parseMoveExpansionAnimationBundle(bytes: Uint8Array): MoveExpansionAnimationBundle {
   const entries = unzipSync(bytes);
   const manifestBytes = entries["manifest.json"];
-  if (!manifestBytes) throw new Error("The Gen 6 animation bundle is missing manifest.json.");
+  if (!manifestBytes) throw new Error("The move-expansion animation bundle is missing manifest.json.");
   const manifest = JSON.parse(new TextDecoder().decode(manifestBytes)) as {
     format?: unknown;
     version?: unknown;
     generation?: unknown;
+    generations?: unknown;
     moves?: unknown;
     particles?: unknown;
   };
-  if (manifest.format !== "pokeweb-move-expansion-animations" || manifest.version !== 1 || manifest.generation !== 6) {
-    throw new Error("The Gen 6 animation bundle has an unsupported format or version.");
+  const legacyGen6 = manifest.version === 1 && manifest.generation === 6;
+  const currentGen6Gen7 =
+    manifest.version === 2 &&
+    Array.isArray(manifest.generations) &&
+    manifest.generations.length === 2 &&
+    manifest.generations[0] === 6 &&
+    manifest.generations[1] === 7;
+  if (manifest.format !== "pokeweb-move-expansion-animations" || (!legacyGen6 && !currentGen6Gen7)) {
+    throw new Error("The move-expansion animation bundle has an unsupported format or version.");
   }
   if (!Array.isArray(manifest.moves) || !Array.isArray(manifest.particles)) {
-    throw new Error("The Gen 6 animation bundle manifest is incomplete.");
+    throw new Error("The move-expansion animation bundle manifest is incomplete.");
   }
 
   const moves = manifest.moves.map((value) => {
@@ -744,10 +757,10 @@ export function parseGen6AnimationBundle(bytes: Uint8Array): Gen6AnimationBundle
     const animation = requiredBundlePath(entry.animation, `animation path for source move ${sourceMoveId}`);
     const particleIds = requiredBundleIntegerArray(entry.particleIds, `particle IDs for source move ${sourceMoveId}`);
     const animationBytes = entries[animation];
-    if (!animationBytes) throw new Error(`The Gen 6 animation bundle is missing ${animation}.`);
+    if (!animationBytes) throw new Error(`The move-expansion animation bundle is missing ${animation}.`);
     const expectedTarget = targetMoveIdForSource(sourceMoveId);
     if (expectedTarget !== targetMoveId) {
-      throw new Error(`The Gen 6 animation bundle maps source move ${sourceMoveId} to ${targetMoveId}; expected ${expectedTarget}.`);
+      throw new Error(`The move-expansion animation bundle maps source move ${sourceMoveId} to ${targetMoveId}; expected ${expectedTarget}.`);
     }
     return { sourceMoveId, targetMoveId, particleIds, bytes: animationBytes };
   });
@@ -757,14 +770,14 @@ export function parseGen6AnimationBundle(bytes: Uint8Array): Gen6AnimationBundle
     const sourceParticleId = requiredBundleInteger(entry.sourceParticleId, "source particle ID");
     const particle = requiredBundlePath(entry.particle, `particle path for SPA ${sourceParticleId}`);
     const particleBytes = entries[particle];
-    if (!particleBytes) throw new Error(`The Gen 6 animation bundle is missing ${particle}.`);
+    if (!particleBytes) throw new Error(`The move-expansion animation bundle is missing ${particle}.`);
     return { sourceParticleId, bytes: particleBytes };
   });
   const bundledParticleIds = new Set(particles.map((particle) => particle.sourceParticleId));
   for (const move of moves) {
     for (const particleId of move.particleIds) {
       if (particleId >= FIRST_BW2_ONLY_MOVE_PARTICLE_ID && !bundledParticleIds.has(particleId)) {
-        throw new Error(`Gen 6 animation ${move.sourceMoveId} requires particle file ${particleId}, which is not bundled.`);
+        throw new Error(`Bundled animation ${move.sourceMoveId} requires particle file ${particleId}, which is not bundled.`);
       }
     }
   }
@@ -791,11 +804,11 @@ export function allocateMoveExpansionParticleAssets(
   return { particleIdMap, addedIds };
 }
 
-async function installBundledGen6Animations(
+async function installBundledMoveAnimations(
   project: ProjectState,
   animationStore: NarcStore,
   particleStore: NarcStore,
-  bundle: Gen6AnimationBundle,
+  bundle: MoveExpansionAnimationBundle,
 ): Promise<{ animationsChanged: number; particlesAdded: number; referencesRemapped: number }> {
   const allocation = allocateMoveExpansionParticleAssets(particleStore, bundle.particles);
   for (const particleId of allocation.addedIds) markDirty(project, "move_spas", particleId);
@@ -818,18 +831,18 @@ async function installBundledGen6Animations(
 }
 
 function requiredBundleInteger(value: unknown, label: string): number {
-  if (!Number.isInteger(value) || (value as number) < 0) throw new Error(`The Gen 6 animation bundle has an invalid ${label}.`);
+  if (!Number.isInteger(value) || (value as number) < 0) throw new Error(`The move-expansion animation bundle has an invalid ${label}.`);
   return value as number;
 }
 
 function requiredBundleIntegerArray(value: unknown, label: string): number[] {
-  if (!Array.isArray(value)) throw new Error(`The Gen 6 animation bundle has invalid ${label}.`);
+  if (!Array.isArray(value)) throw new Error(`The move-expansion animation bundle has invalid ${label}.`);
   return value.map((entry) => requiredBundleInteger(entry, label));
 }
 
 function requiredBundlePath(value: unknown, label: string): string {
   if (typeof value !== "string" || !value || value.startsWith("/") || value.includes("..")) {
-    throw new Error(`The Gen 6 animation bundle has an invalid ${label}.`);
+    throw new Error(`The move-expansion animation bundle has an invalid ${label}.`);
   }
   return value;
 }

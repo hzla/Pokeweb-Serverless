@@ -307,6 +307,37 @@ describe("PMC installer", () => {
     expect(readAscii(rom.getFileByName("lib/Helper.dll"), 0, 4)).toBe("DLXF");
   });
 
+  it("updates an embedded DLL by file ID when persisted project state no longer holds the ROM bytes", () => {
+    const source = new NintendoDSRom(makeBw2LikeRom(
+      346,
+      new Folder({
+        files: ["base.bin"],
+        firstId: 344,
+        folders: [["patches", new Folder({ files: ["Existing.dll"], firstId: 345 })]],
+      }),
+    ));
+    const oldDll = makeDllFromRpm(pmcW2);
+    source.files[345] = oldDll;
+    const romBytes = source.save();
+    const project = makeProject(romBytes, "W2");
+    delete project.originalRomBytes;
+    project.codeInjection = {
+      pmc: { overlayId: 344, overlayPath: "overlay/overlay_0344.bin" },
+    };
+    project.fileSystem = {
+      replacements: {},
+      additions: { "patches/Existing.dll": oldDll },
+    };
+    const updatedDll = oldDll.slice();
+    updatedDll[updatedDll.length - 1] ^= 0x5a;
+
+    stageCodeInjectionDll(project, "Existing.dll", updatedDll, "patches", romBytes);
+
+    expect(project.fileSystem.additions).toEqual({});
+    expect(project.fileSystem.replacements[345]).toEqual(updatedDll);
+    expect(project.codeInjection.modules?.map((module) => module.path)).toEqual(["patches/Existing.dll"]);
+  });
+
   it("lists DLXF DLLs already present in a reimported ROM filesystem", async () => {
     const romBytes = makeBw2LikeRom();
     const project = makeProject(romBytes, "W2");

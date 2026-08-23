@@ -195,6 +195,7 @@ export type PatchState = {
     specifyTrainerNatures?: boolean;
     itemStandardization?: boolean;
     moveExpansion?: boolean;
+    moveExpansionBundledAnimations?: boolean;
     moveExpansionGen6Animations?: boolean;
   };
 };
