@@ -17,6 +17,7 @@ import {
   importPokemonAnimationBundle,
   importPokemonSpritePackage,
   copyPokemonSpriteVariant,
+  decodePokemonNcecFlags,
   pokemonAnimationPlayerStateAtTick,
   pokemonAnimationSequenceTotalTicks,
   replaceRigCells,
@@ -33,6 +34,7 @@ import {
   setRigCells,
   rewritePokemonAnimationSequences,
   updatePokemonAnimationFrame,
+  updatePokemonNcecFlags,
   type PokemonAnimation,
   type PokemonAnimationFrame,
   type PokemonAnimationFrameEdit,
@@ -1482,9 +1484,6 @@ function installRigEvents(
   root.querySelector("#rig-apply")?.addEventListener("click", () => {
     try {
       const cells = loadCells();
-      const flags = parseHexFlags((root.querySelector<HTMLTextAreaElement>("#rig-flags")?.value ?? "").trim());
-      if (flags.length !== cells.flags.length) throw new Error(`Expected ${cells.flags.length} rig flag bytes`);
-      cells.flags = flags;
       setRigCells(project, spriteId, state.rigSide, cells);
       options.onDirty?.();
       setStatus("Applied rig cells");
@@ -1771,6 +1770,22 @@ function installAnimationFileTabEvents(
       }
     });
   });
+  const stopMode = root.querySelector<HTMLSelectElement>("#ncec-stop-mode");
+  const stopNodes = root.querySelector<HTMLFieldSetElement>("#ncec-stop-nodes");
+  const syncStopNodeControls = () => {
+    if (stopNodes) stopNodes.disabled = stopMode?.value !== "automatic";
+  };
+  stopMode?.addEventListener("change", syncStopNodeControls);
+  root.querySelectorAll<HTMLInputElement>("[data-ncec-stop-node]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const selected = root.querySelectorAll<HTMLInputElement>("[data-ncec-stop-node]:checked");
+      const capacity = Number(stopNodes?.dataset.stopNodeCapacity ?? 0);
+      if (selected.length <= capacity) return;
+      checkbox.checked = false;
+      setStatus(`This NCEC can leave at most ${capacity} child animation controller${capacity === 1 ? "" : "s"} running during an idle stop`);
+    });
+  });
+  syncStopNodeControls();
 }
 
 function readAnimationBankEditor(root: HTMLElement, project: ProjectState, spriteId: number, kind: "nanr" | "nmar"): PokemonAnimation {
@@ -1887,7 +1902,20 @@ function readNcerEditor(root: HTMLElement, project: ProjectState, spriteId: numb
 
 function readNcecEditor(root: HTMLElement, project: ProjectState, spriteId: number): RigCellsFile {
   const base = getRigCells(project, spriteId, state.animationSide);
-  const flags = parseHexFlags((root.querySelector<HTMLTextAreaElement>("#ncec-flags")?.value ?? "").trim());
+  let flags = parseHexFlags((root.querySelector<HTMLTextAreaElement>("#ncec-flags")?.value ?? "").trim());
+  const stopMode = root.querySelector<HTMLSelectElement>("#ncec-stop-mode")?.value;
+  const flyFlagValue = root.querySelector<HTMLSelectElement>("#ncec-fly-flag")?.value;
+  if ((stopMode === "automatic" || stopMode === "nonstop") && flyFlagValue !== undefined) {
+    const stopNodes = Array.from(root.querySelectorAll<HTMLInputElement>("[data-ncec-stop-node]:checked"))
+      .map((input) => Number(input.value));
+    flags = updatePokemonNcecFlags(flags, {
+      stopMode,
+      flyFlag: Number(flyFlagValue),
+      stopNodes,
+    });
+  } else if (flyFlagValue !== undefined && flags.length >= 2) {
+    flags[1] = Number(flyFlagValue);
+  }
   const cells = Array.from(root.querySelectorAll<HTMLElement>("[data-ncec-cell-row]")).map((row, index) => {
     const baseCell = base.cells[index] ?? emptyUiRigCell();
     const baseSubCell = baseCell.subCell ?? emptyUiRigCell();
@@ -3591,7 +3619,14 @@ function renderAnimationFileEditor(project: ProjectState, spriteId: number, tab:
     }
     if (tab === "nmcr") return renderNmcrEditor(sideControls, getPokemonMultiCells(project, spriteId, state.animationSide));
     if (tab === "ncer") return renderNcerEditor(sideControls, getPokemonCellBank(project, spriteId, state.animationSide));
-    if (tab === "ncec") return renderNcecEditor(sideControls, getRigCells(project, spriteId, state.animationSide));
+    if (tab === "ncec") {
+      return renderNcecEditor(
+        sideControls,
+        getRigCells(project, spriteId, state.animationSide),
+        getPokemonMultiCellAnimation(project, spriteId, state.animationSide),
+        getPokemonMultiCells(project, spriteId, state.animationSide),
+      );
+    }
     return renderAnimationEditor(project, spriteId);
   } catch (error) {
     return `<div class="sprite-editor-error -inline">${escapeHtml(errorMessage(error))}</div>`;
@@ -3785,15 +3820,71 @@ function renderNcerEditor(sideControls: string, cellBank: PokemonCellBank): stri
   `;
 }
 
-function renderNcecEditor(sideControls: string, rigCells: RigCellsFile): string {
+function renderNcecEditor(
+  sideControls: string,
+  rigCells: RigCellsFile,
+  animation: PokemonAnimation,
+  multiCells: ReturnType<typeof getPokemonMultiCells>,
+): string {
   const flagText = [...rigCells.flags].map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ");
+  const metadata = decodePokemonNcecFlags(rigCells.flags);
+  const stopPose = ncecStopPose(animation, multiCells);
+  const stopNodeIds = [...new Set([
+    ...(stopPose?.nodes.map((_, index) => index) ?? []),
+    ...metadata.stopNodes,
+  ])].sort((left, right) => left - right);
+  const selectedStopNodes = new Set(metadata.stopNodes);
+  const stopNodeCapacity = Math.min(0xff, Math.max(0, rigCells.flags.length - 2));
+  const stopSource = stopPose
+    ? `NMAR sequence ${stopPose.sequenceIndex} → NMCR group ${stopPose.groupIndex}`
+    : "No usable NMAR stop pose was found";
+  const stopModeOptions = [
+    `<option value="automatic" ${metadata.stopMode === "automatic" ? "selected" : ""}>Enabled — pause at idle</option>`,
+    `<option value="nonstop" ${metadata.stopMode === "nonstop" ? "selected" : ""}>Disabled — NONSTOP (FF)</option>`,
+  ];
+  if (metadata.stopMode === "unknown") {
+    stopModeOptions.push(`<option value="unknown" selected>Unknown raw value (${formatHexByte(metadata.rawStopCount)})</option>`);
+  }
+  const flyOptions = [
+    `<option value="0" ${metadata.flyFlag === 0 ? "selected" : ""}>No (00)</option>`,
+    `<option value="1" ${metadata.flyFlag === 1 ? "selected" : ""}>Yes (01)</option>`,
+  ];
+  if (metadata.flyFlag > 1) flyOptions.push(`<option value="${metadata.flyFlag}" selected>Unknown (${formatHexByte(metadata.flyFlag)})</option>`);
   return `
     <div class="animation-file-editor" data-animation-file-editor="ncec">
       <div class="animation-file-header">
         <div><div class="sprite-sidebar-heading">NCEC Rig Cell Metadata</div>${sideControls}</div>
         ${renderAnimationFileActions("ncec")}
       </div>
-      <label class="sprite-field -wide"><span>Flags</span><textarea id="ncec-flags">${flagText}</textarea></label>
+      ${metadata.available ? `
+        <div class="ncec-metadata-panel">
+          <div class="ncec-metadata-grid">
+            <label class="sprite-field">
+              <span>Automatic idle stops</span>
+              <select id="ncec-stop-mode">${stopModeOptions.join("")}</select>
+            </label>
+            <label class="sprite-field">
+              <span>Flying effect flag</span>
+              <select id="ncec-fly-flag">${flyOptions.join("")}</select>
+            </label>
+          </div>
+          <div class="sprite-field-note">Stop pose: ${escapeHtml(stopSource)}. Sequence 1 is used when it exists; otherwise the end of sequence 0 is held.</div>
+          <fieldset class="ncec-stop-nodes" id="ncec-stop-nodes" data-stop-node-capacity="${stopNodeCapacity}" ${metadata.stopMode === "nonstop" ? "disabled" : ""}>
+            <legend>Node controllers left running during the stop</legend>
+            <div class="sprite-field-note">A checked node keeps advancing its NANR timeline, but a one-keyframe timeline still looks static. Clear every box to pause every child controller; this file has room for ${stopNodeCapacity} node index${stopNodeCapacity === 1 ? "" : "es"}.</div>
+            <div class="ncec-stop-node-list">
+              ${stopNodeIds.length > 0
+                ? stopNodeIds.map((nodeIndex) => renderNcecStopNodeOption(nodeIndex, stopPose?.nodes[nodeIndex], selectedStopNodes.has(nodeIndex))).join("")
+                : `<div class="sprite-field-note">This stop pose has no NMCR child nodes to select.</div>`}
+            </div>
+          </fieldset>
+        </div>
+      ` : `<div class="sprite-editor-error -inline">This NCEC has fewer than four metadata bytes, so its known flags cannot be edited semantically.</div>`}
+      <details class="ncec-raw-metadata">
+        <summary>Advanced: raw NCEC metadata</summary>
+        <label class="sprite-field -wide"><span>Raw bytes</span><textarea id="ncec-flags">${flagText}</textarea></label>
+        <div class="sprite-field-note">The controls above update the stop count, flying flag, and active node-index list at the start. Unused and trailing bytes are preserved unchanged.</div>
+      </details>
       <div class="animation-file-table-wrap">
         <table class="animation-file-table">
           <thead><tr><th>Cell</th><th>Cell X</th><th>Cell Y</th><th>Width</th><th>Height</th><th>Sprite X</th><th>Sprite Y</th><th>Sub X</th><th>Sub Y</th><th>Sub W</th><th>Sub H</th><th>Sub Sprite X</th><th>Sub Sprite Y</th></tr></thead>
@@ -3814,6 +3905,37 @@ function renderNcecEditor(sideControls: string, rigCells: RigCellsFile): string 
       </div>
     </div>
   `;
+}
+
+function ncecStopPose(
+  animation: PokemonAnimation,
+  multiCells: ReturnType<typeof getPokemonMultiCells>,
+): { sequenceIndex: number; groupIndex: number; nodes: PokemonMultiCellNode[] } | undefined {
+  const stopSequence = animation.sequences.find((sequence) => sequence.index === 1);
+  const sequence = stopSequence ?? animation.sequences.find((candidate) => candidate.index === 0) ?? animation.sequences[0];
+  if (!sequence) return undefined;
+  const frame = stopSequence
+    ? sequence.frames.find((candidate) => candidate.duration > 0) ?? sequence.frames[0]
+    : [...sequence.frames].reverse().find((candidate) => candidate.duration > 0) ?? sequence.frames.at(-1);
+  if (!frame) return undefined;
+  const group = multiCells.cells.find((candidate) => candidate.index === frame.cellIndex);
+  return group ? { sequenceIndex: sequence.index, groupIndex: group.index, nodes: group.nodes } : undefined;
+}
+
+function renderNcecStopNodeOption(nodeIndex: number, node: PokemonMultiCellNode | undefined, checked: boolean): string {
+  const detail = node
+    ? `NANR sequence ${node.sequenceNumber} · cell animator ${node.cellAnimationIndex} · position ${node.x}, ${node.y}`
+    : "Stored node is not present in the current stop-pose group";
+  return `
+    <label class="ncec-stop-node-option">
+      <input type="checkbox" data-ncec-stop-node value="${nodeIndex}" ${checked ? "checked" : ""}>
+      <span><strong>Node ${nodeIndex}</strong><small>${escapeHtml(detail)}</small></span>
+    </label>
+  `;
+}
+
+function formatHexByte(value: number): string {
+  return `0x${value.toString(16).padStart(2, "0").toUpperCase()}`;
 }
 
 function renderNcecCellInputs(cell: RigCell, prefix: "" | "sub"): string {
@@ -4179,7 +4301,7 @@ function renderRigControls(cells: RigCellsFile): string {
       .map((field) => `<label class="sprite-field"><span>${field}</span><input data-rig-field="${field}" type="number" value="${selected[field] ?? 0}"></label>`)
       .join("")}
     <button class="btn -default ${hasSubCell ? "sprite-remove-btn" : ""}" id="rig-toggle-subcell" type="button">${hasSubCell ? "Remove Sub Cell" : "Add Sub Cell"}</button>
-    <label class="sprite-field -wide"><span>Flags</span><textarea id="rig-flags">${[...cells.flags].map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ")}</textarea></label>
+    <div class="sprite-field-note">Idle-stop and flying metadata can be edited semantically under Animation → NCEC.</div>
   `;
 }
 

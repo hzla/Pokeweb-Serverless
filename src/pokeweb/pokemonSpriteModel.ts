@@ -44,6 +44,13 @@ export type RigCellsFile = {
   cells: RigCell[];
   flags: Uint8Array;
 };
+export type PokemonNcecFlags = {
+  available: boolean;
+  stopMode: "automatic" | "nonstop" | "unknown";
+  rawStopCount: number;
+  flyFlag: number;
+  stopNodes: number[];
+};
 export type PokemonAnimationSide = "front" | "back";
 export type PokemonAnimationFrame = {
   duration: number;
@@ -90,6 +97,52 @@ export type PokemonMultiCell = {
   nodes: PokemonMultiCellNode[];
   cellAnimationCount: number;
 };
+
+const POKEMON_NCEC_NONSTOP = 0xff;
+
+export function decodePokemonNcecFlags(flags: Uint8Array): PokemonNcecFlags {
+  if (flags.length < 4) {
+    return {
+      available: false,
+      stopMode: "unknown",
+      rawStopCount: flags[0] ?? POKEMON_NCEC_NONSTOP,
+      flyFlag: flags[1] ?? 0,
+      stopNodes: [],
+    };
+  }
+  const rawStopCount = flags[0];
+  const stopNodeCapacity = flags.length - 2;
+  const stopMode = rawStopCount === POKEMON_NCEC_NONSTOP
+    ? "nonstop"
+    : rawStopCount <= stopNodeCapacity
+      ? "automatic"
+      : "unknown";
+  return {
+    available: true,
+    stopMode,
+    rawStopCount,
+    flyFlag: flags[1],
+    stopNodes: stopMode === "automatic" ? Array.from(flags.slice(2, 2 + rawStopCount)) : [],
+  };
+}
+
+export function updatePokemonNcecFlags(
+  flags: Uint8Array,
+  edit: { stopMode: "automatic" | "nonstop"; flyFlag: number; stopNodes: number[] },
+): Uint8Array {
+  if (flags.length < 4) throw new Error("NCEC semantic metadata requires at least four flag bytes");
+  if (!Number.isInteger(edit.flyFlag) || edit.flyFlag < 0 || edit.flyFlag > 0xff) throw new Error("NCEC flying flag must be a byte");
+  const stopNodes = [...new Set(edit.stopNodes)];
+  const stopNodeCapacity = Math.min(0xff, flags.length - 2);
+  if (stopNodes.length > stopNodeCapacity) throw new Error(`This NCEC has room for at most ${stopNodeCapacity} continuing nodes`);
+  if (stopNodes.some((node) => !Number.isInteger(node) || node < 0 || node > 0xff)) throw new Error("NCEC stop-node indices must be bytes");
+
+  const next = flags.slice();
+  next[0] = edit.stopMode === "nonstop" ? POKEMON_NCEC_NONSTOP : stopNodes.length;
+  next[1] = edit.flyFlag;
+  if (edit.stopMode === "automatic") stopNodes.forEach((node, index) => { next[2 + index] = node; });
+  return next;
+}
 export type PokemonMultiCells = {
   side: PokemonAnimationSide;
   cells: PokemonMultiCell[];
