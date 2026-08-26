@@ -1064,6 +1064,77 @@
   min-width: 0;
 }
 
+.ncec-metadata-panel {
+  background: #222736;
+  border: 1px solid #34394b;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  padding: 12px;
+}
+
+.ncec-metadata-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.ncec-stop-nodes {
+  border: 1px solid #3b4254;
+  border-radius: 5px;
+  margin-top: 12px;
+  padding: 10px;
+}
+
+.ncec-stop-nodes legend {
+  color: #eef2fb;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 5px;
+}
+
+.ncec-stop-nodes:disabled {
+  opacity: 0.55;
+}
+
+.ncec-stop-node-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.ncec-stop-node-option {
+  align-items: flex-start;
+  background: #282d3b;
+  border: 1px solid #3b4254;
+  border-radius: 4px;
+  display: flex;
+  gap: 9px;
+  padding: 8px;
+}
+
+.ncec-stop-node-option input {
+  margin-top: 2px;
+}
+
+.ncec-stop-node-option span {
+  display: grid;
+  gap: 2px;
+}
+
+.ncec-stop-node-option small {
+  color: #aeb4c6;
+}
+
+.ncec-raw-metadata {
+  margin: 0 0 14px;
+}
+
+.ncec-raw-metadata summary {
+  color: #aeb6c7;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
 .animation-file-header,
 .animation-file-sequence-header {
   align-items: center;

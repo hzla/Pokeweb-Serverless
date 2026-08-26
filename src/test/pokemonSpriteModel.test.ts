@@ -4,6 +4,7 @@ import type { NarcName } from "../pokeweb/constants";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import {
   compressLz11Literal,
+  decodePokemonNcecFlags,
   decompressNitro,
   exportPokemonSpritePackage,
   getPokemonAnimation,
@@ -36,6 +37,7 @@ import {
   setPokemonPalette,
   setPokemonSpriteImage,
   updatePokemonAnimationFrame,
+  updatePokemonNcecFlags,
   type RgbaImageData,
 } from "../pokeweb/pokemonSpriteModel";
 import {
@@ -54,6 +56,45 @@ import {
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 describe("pokemonSpriteModel", () => {
+  it("decodes and updates known NCEC stop metadata without changing trailing bytes", () => {
+    expect(decodePokemonNcecFlags(new Uint8Array([0xff, 1, 7, 9, 0xaa]))).toEqual({
+      available: true,
+      stopMode: "nonstop",
+      rawStopCount: 0xff,
+      flyFlag: 1,
+      stopNodes: [],
+    });
+    expect(decodePokemonNcecFlags(new Uint8Array([2, 0, 7, 9]))).toEqual({
+      available: true,
+      stopMode: "automatic",
+      rawStopCount: 2,
+      flyFlag: 0,
+      stopNodes: [7, 9],
+    });
+    expect(decodePokemonNcecFlags(new Uint8Array([3, 2, 7, 9]))).toMatchObject({ stopMode: "unknown", rawStopCount: 3, flyFlag: 2 });
+    expect(decodePokemonNcecFlags(new Uint8Array([10, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0]))).toMatchObject({
+      stopMode: "automatic",
+      rawStopCount: 10,
+      stopNodes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    });
+
+    expect(updatePokemonNcecFlags(new Uint8Array([0xff, 1, 7, 9, 0xaa]), {
+      stopMode: "automatic",
+      flyFlag: 0,
+      stopNodes: [3],
+    })).toEqual(new Uint8Array([1, 0, 3, 9, 0xaa]));
+    expect(updatePokemonNcecFlags(new Uint8Array([1, 0, 3, 9, 0xaa]), {
+      stopMode: "nonstop",
+      flyFlag: 1,
+      stopNodes: [],
+    })).toEqual(new Uint8Array([0xff, 1, 3, 9, 0xaa]));
+    expect(updatePokemonNcecFlags(new Uint8Array(16), {
+      stopMode: "automatic",
+      flyFlag: 0,
+      stopNodes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    })).toEqual(new Uint8Array([10, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0]));
+  });
+
   it("resolves BW2 alternate form sprite IDs from personal data", () => {
     const project = makeProject();
 
