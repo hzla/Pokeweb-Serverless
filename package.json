@@ -34,6 +34,7 @@
     "black2upgrade:check": "node scripts/sync-black2upgrade-artifacts.mjs --check",
     "black2upgrade:rom": "vite-node scripts/build-black2upgrade-rom.ts",
     "black2upgrade:verify-rom": "vite-node scripts/verify-black2upgrade-rom.ts",
+    "moves:enrich-sources": "vite-node scripts/enrich-move-metadata-sources.ts",
     "mastersheet:move-reference": "python3 scripts/generate_white2upgrade_move_reference.py",
     "moveexpansion:reference": "python3 -B scripts/generate_white2upgrade_move_expansion.py",
     "moveexpansion:animations": "vite-node scripts/generate-white2upgrade-gen6-animation-bundle.ts",
