@@ -7,6 +7,7 @@ import { exportModifiedRom } from "../pokeweb/exportRom";
 import {
   detectBundledFormEvolutionDll,
   detectBundledMainMenuSkipDll,
+  detectBundledOverworldWeatherRuntime,
   detectPmcInstallFromRom,
   detectBundledDoubleBattleFixDll,
   detectWhite2UpgradeDlls,
@@ -18,6 +19,7 @@ import {
   PMC_OVERLAY_SIZE,
   PMC_PATCHES_KEEP_PATH,
   PMC_SYMBOL_PATH,
+  OVERWORLD_WEATHER_RUNTIME_W2_FILENAME,
   prepareBw2FormEvolutionCodeInjection,
   prepareBw2TestBattleCodeInjection,
   stageCodeInjectionDll,
@@ -34,6 +36,7 @@ const mainMenuSkipB2 = new Uint8Array(readFileSync(new URL("../assets/codeinject
 const mainMenuSkipW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url)));
 const formEvolutionB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/FormEvolutionB2.dll", import.meta.url)));
 const formEvolutionW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/FormEvolutionW2.dll", import.meta.url)));
+const overworldWeatherRuntimeW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PokewebOverworldWeatherW2.dll", import.meta.url)));
 
 describe("PMC installer", () => {
   it("parses bundled PMC metadata", () => {
@@ -381,6 +384,34 @@ describe("PMC installer", () => {
 
     expect(detectBundledDoubleBattleFixDll(project)).toBe("patched");
     expect(parseRpm(doubleBattleFixW2, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCModulePriority: 4 });
+  });
+
+  it("bundles and recognizes the White 2 overworld weather runtime", () => {
+    const romBytes = makeBw2LikeRom();
+    const project = makeProject(romBytes, "W2");
+    installPmcBytes(project, pmcW2, romBytes);
+
+    expect(readAscii(overworldWeatherRuntimeW2, 0, 4)).toBe("DLXF");
+    const runtime = parseRpm(overworldWeatherRuntimeW2, { allowedMagics: ["DLXF"] });
+    expect(new TextDecoder().decode(runtime.code)).toContain("PWTH-W2-RUNTIME-ABI2");
+    expect(runtime.symbols.map((symbol) => symbol.name)).toEqual(expect.arrayContaining([
+      "PWW_OverworldWeatherRuntimeAbi",
+      "PWW_OverworldWeatherRegistryFormat",
+      "PWW_OverworldWeatherRuntimeSignature",
+      "PWW_WeatherDispatchTable",
+      "PWW_ReloadWeatherRegistry",
+    ]));
+    expect(runtime.relocations.filter((relocation) =>
+      relocation.target.type === "FULL_COPY" && relocation.target.module === "36",
+    ).map((relocation) => relocation.target.address).sort((left, right) => left - right)).toEqual([
+      0x0219923c, 0x02199240, 0x02199364, 0x02199368, 0x021993dc,
+    ]);
+    expect(detectBundledOverworldWeatherRuntime(project)).toBe("unpatched");
+    stageCodeInjectionDll(project, OVERWORLD_WEATHER_RUNTIME_W2_FILENAME, overworldWeatherRuntimeW2, "patches");
+    expect(detectBundledOverworldWeatherRuntime(project)).toBe("patched");
+
+    const b2Project = makeProject(romBytes, "B2");
+    expect(detectBundledOverworldWeatherRuntime(b2Project)).toBe("unsupported");
   });
 
   it("recognizes bundled BW2 main menu skip DLLs", () => {

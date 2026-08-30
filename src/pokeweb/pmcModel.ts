@@ -7,6 +7,10 @@ import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 import {
+  OVERWORLD_WEATHER_REGISTRY_PATH,
+  serializeProjectOverworldWeatherRegistry,
+} from "./overworldWeatherRegistry";
+import {
   cloneRpm,
   createCodeOnlyRpm,
   createSymbolOnlyRpm,
@@ -76,6 +80,7 @@ const MAIN_MENU_SKIP_B2_URL = new URL("../assets/codeinjection/MainMenuSkipB2.dl
 const MAIN_MENU_SKIP_W2_URL = new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url);
 const FORM_EVOLUTION_B2_URL = new URL("../assets/codeinjection/FormEvolutionB2.dll", import.meta.url);
 const FORM_EVOLUTION_W2_URL = new URL("../assets/codeinjection/FormEvolutionW2.dll", import.meta.url);
+const OVERWORLD_WEATHER_RUNTIME_W2_URL = new URL("../assets/codeinjection/PokewebOverworldWeatherW2.dll", import.meta.url);
 
 const DOUBLE_BATTLE_FIX_FILENAMES: Record<"B2" | "W2", string> = {
   B2: "DoubleBattleFixB2.dll",
@@ -91,6 +96,8 @@ const FORM_EVOLUTION_FILENAMES: Record<"B2" | "W2", string> = {
   B2: "FormEvolutionB2.dll",
   W2: "FormEvolutionW2.dll",
 };
+
+export const OVERWORLD_WEATHER_RUNTIME_W2_FILENAME = "PokewebOverworldWeatherW2.dll";
 
 type Bw1Version = "B" | "W";
 
@@ -294,6 +301,56 @@ export async function stageBundledDoubleBattleFixDll(project: ProjectState): Pro
   return result;
 }
 
+export async function installBundledOverworldWeatherRuntime(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
+  if (project.session.baseRom !== "BW2" || project.session.baseVersion !== "W2") {
+    throw new Error("The bundled overworld weather runtime currently requires stock US White 2 (IRDO).");
+  }
+  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+  if (!romBytes) throw new Error("Reload the ROM before installing the overworld weather runtime.");
+  if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+
+  const response = await fetch(OVERWORLD_WEATHER_RUNTIME_W2_URL);
+  if (!response.ok) throw new Error(`Could not load bundled overworld weather runtime (${response.status})`);
+  const result = stageCodeInjectionDll(
+    project,
+    OVERWORLD_WEATHER_RUNTIME_W2_FILENAME,
+    new Uint8Array(await response.arrayBuffer()),
+    "patches",
+    romBytes,
+  );
+  for (const effect of project.overworldWeather?.customEffects ?? []) {
+    if (effect.clone) effect.clone.runtimeReady = true;
+  }
+  stageRomPath(
+    project,
+    new NintendoDSRom(romBytes),
+    OVERWORLD_WEATHER_REGISTRY_PATH,
+    serializeProjectOverworldWeatherRegistry(project),
+  );
+  recordGenericChange(
+    project,
+    "code_injection",
+    `${OVERWORLD_WEATHER_RUNTIME_W2_FILENAME} and its 49-slot PWTH registry were staged for six-bit overworld weather IDs.`,
+    "Overworld Weather Runtime",
+    { key: "code-injection:overworld-weather" },
+  );
+  return result;
+}
+
+export async function syncBundledOverworldWeatherRegistry(project: ProjectState): Promise<void> {
+  if (detectBundledOverworldWeatherRuntime(project) !== "patched") {
+    throw new Error("Install the bundled White 2 overworld weather runtime before writing PWTH registry entries.");
+  }
+  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+  if (!romBytes) throw new Error("Reload the ROM before updating the overworld weather registry.");
+  stageRomPath(
+    project,
+    new NintendoDSRom(romBytes),
+    OVERWORLD_WEATHER_REGISTRY_PATH,
+    serializeProjectOverworldWeatherRegistry(project),
+  );
+}
+
 export async function stageBundledMainMenuSkipDll(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
   if (project.session.baseRom !== "BW2") {
     throw new Error("The bundled main menu skip patch currently requires the BW2 PMC runtime.");
@@ -355,6 +412,12 @@ export function detectBundledFormEvolutionDll(project: ProjectState): "patched" 
     return "unsupported";
   }
   const path = `patches/${FORM_EVOLUTION_FILENAMES[project.session.baseVersion]}`;
+  return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === path.toLowerCase()) ? "patched" : "unpatched";
+}
+
+export function detectBundledOverworldWeatherRuntime(project: ProjectState): "patched" | "unpatched" | "unsupported" {
+  if (project.session.baseRom !== "BW2" || project.session.baseVersion !== "W2") return "unsupported";
+  const path = `patches/${OVERWORLD_WEATHER_RUNTIME_W2_FILENAME}`;
   return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === path.toLowerCase()) ? "patched" : "unpatched";
 }
 

@@ -22,8 +22,9 @@ import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
 import { pokemonFormLabel, pokemonFormSpeciesLabel, pokemonFormSuffix } from "./pokemonFormLabels";
 import { getPokemonCount, getPokemonExportRecord, getPokemonSummaryRecord, isPokemonPersonalRecord, type PokemonSummaryRecord } from "./pokemonModel";
-import { decodeRecord, type DocGeneratorState, type ProjectState, type ReadableRecord } from "./projectStore";
+import { decodeRecord, type DocGeneratorState, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTextBank } from "./textModel";
+import { getTutorMoveCompatibilityGroups, type TutorCompatibilityGroupDefinition } from "./tutorMoveModel";
 import {
   TYPE_CHART_VANILLA_TYPE_COUNT,
   getTypeChart,
@@ -665,6 +666,76 @@ function buildDexOverrides(project: ProjectState): Record<string, unknown> {
   };
 }
 
+function percentageFraction(value: unknown): [number, number] | null {
+  const percent = Number(value ?? 0);
+  if (!Number.isInteger(percent) || percent <= 0) return null;
+
+  let left = Math.abs(percent);
+  let right = 100;
+  while (right !== 0) {
+    const remainder = left % right;
+    left = right;
+    right = remainder;
+  }
+
+  return [percent / left, 100 / left];
+}
+
+function moveCritFields(move: ReadableRecord): Record<string, unknown> {
+  const critBoost = Number(move.crit ?? 0);
+  if (!Number.isFinite(critBoost) || critBoost <= 0) return {};
+
+  return {
+    // The ROM stores bonus crit stages; Showdown's neutral crit ratio is 1.
+    critRatio: critBoost + 1,
+    ...(critBoost === 6 ? { willCrit: true } : {}),
+  };
+}
+
+function moveRecoveryFields(move: { raw: RawRecord; readable: ReadableRecord }): Record<string, unknown> {
+  const isDrain = String(move.readable.effect_category ?? "") === "Lifesteal";
+  const rawRecoil = Number(move.raw.recoil ?? 0);
+  const recoilOrDrain = percentageFraction(isDrain ? rawRecoil : move.readable.recoil);
+  const healingPercent = Number(move.readable.healing ?? 0);
+  // Gen 5 also uses this byte as a signed value for special HP costs (for
+  // example, Struggle stores -25 as 0xe7). Only 1-100 are recovery amounts.
+  const heal = healingPercent <= 100 ? percentageFraction(healingPercent) : null;
+
+  return {
+    ...(recoilOrDrain
+      ? isDrain
+        ? { drain: recoilOrDrain }
+        : { recoil: recoilOrDrain }
+      : {}),
+    ...(heal ? { heal } : {}),
+  };
+}
+
+function moveMetadataFields(move: { raw: RawRecord; readable: ReadableRecord }): Record<string, unknown> {
+  return {
+    ...moveCritFields(move.readable),
+    ...moveRecoveryFields(move),
+  };
+}
+
+export function buildMoveMetadataOverrides(project: ProjectState): Record<string, Record<string, unknown>> {
+  return Object.fromEntries(buildMoveMetadataEntries(project).map((entry) => [entry.name, entry.metadata]));
+}
+
+export function buildMoveMetadataEntries(
+  project: ProjectState,
+): Array<{ id: number; name: string; metadata: Record<string, unknown> }> {
+  const out: Array<{ id: number; name: string; metadata: Record<string, unknown> }> = [];
+  for (let id = 1; id < getMoveCount(project); id += 1) {
+    const move = getMoveRecord(project, id);
+    const metadata = moveMetadataFields(move);
+    if (Object.keys(metadata).length === 0) continue;
+    const name = showdownName(project.texts.banks.moves?.[id] ?? move.readable.name ?? `Move ${id}`);
+    out.push({ id, name, metadata });
+  }
+  return out;
+}
+
 function buildCalcMoves(project: ProjectState): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (let id = 1; id < getMoveCount(project); id += 1) {
@@ -680,9 +751,8 @@ function buildCalcMoves(project: ProjectState): Record<string, unknown> {
       e_id: move.raw.effect ?? 0,
       ...(move.readable.target === "All adjacent opponents" ? { target: "allAdjacentFoes" } : {}),
       ...(move.readable.target === "All excluding user" ? { target: "allAdjacent" } : {}),
-      ...(Number(move.readable.crit ?? 0) === 6 ? { willCrit: true } : {}),
+      ...moveMetadataFields(move),
       ...(Number(move.readable.min_hits ?? 0) > 0 ? { multihit: [move.readable.min_hits, move.readable.max_hits] } : {}),
-      ...(Number(move.readable.recoil ?? 0) > 0 && Number(move.readable.recoil ?? 0) < 100 ? { recoil: [move.readable.recoil, 100] } : {}),
       ...(hasSheerForceSecondary(move.readable) ? { secondaries: true } : {}),
       ...moveFlags(move.readable),
     };
@@ -709,9 +779,8 @@ function buildDexMoves(project: ProjectState): Record<string, unknown> {
       e_id: move.raw.effect ?? 0,
       ...(move.readable.target === "All adjacent opponents" ? { tar: "allAdjacentFoes" } : {}),
       ...(move.readable.target === "All excluding user" ? { tar: "allAdjacent" } : {}),
-      ...(Number(move.readable.crit ?? 0) === 6 ? { willCrit: true } : {}),
+      ...moveMetadataFields(move),
       ...(Number(move.readable.min_hits ?? 0) > 0 ? { multihit: [move.readable.min_hits, move.readable.max_hits] } : {}),
-      ...(Number(move.readable.recoil ?? 0) > 0 && Number(move.readable.recoil ?? 0) < 100 ? { recoil: [move.readable.recoil, 100] } : {}),
       ...(hasSheerForceSecondary(move.readable) ? { secondaries: true } : {}),
       ...moveFlags(move.readable),
     };
@@ -756,6 +825,7 @@ function buildCalcPokemon(project: ProjectState): Record<string, unknown> {
 function buildDexPokemon(project: ProjectState): Record<string, unknown> {
   const out: Record<string, Record<string, unknown>> = {};
   const records: Array<{ name: string; record: ReturnType<typeof getPokemonExportRecord> }> = [];
+  const tutorGroups = getTutorMoveCompatibilityGroups(project);
   for (let id = 1; id < getPokemonCount(project); id += 1) {
     if (!isPokemonPersonalRecord(project, id)) continue;
     const record = getPokemonExportRecord(project, id);
@@ -778,6 +848,7 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
       learnset_info: {
         learnset: record.learnset.slice(0, 25).map((move) => [move.level, showdownName(move.moveName)]),
         tms: record.tmCompatibility.filter((tm) => tm.enabled).map((tm) => showdownName(tm.moveName)),
+        ...(tutorGroups.length > 0 ? { tutors: dexTutorMoves(record.rawPersonal, tutorGroups) } : {}),
       },
       abs: calcPokemonAbilities(project, id, record),
     };
@@ -800,6 +871,18 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
 
   addDexFormRelationships(project, out);
   return out;
+}
+
+function dexTutorMoves(rawPersonal: RawRecord, groups: TutorCompatibilityGroupDefinition[]): string[] {
+  return groups.flatMap((group) =>
+    group.moves
+      .filter((move) => compatibilityBitEnabled(rawPersonal, group.field, move.compatibilityIndex))
+      .map((move) => showdownName(move.moveName)),
+  );
+}
+
+function compatibilityBitEnabled(raw: RawRecord, field: string, bit: number): boolean {
+  return Math.floor(Number(raw[field] ?? 0) / 2 ** bit) % 2 === 1;
 }
 
 function addDexFormRelationships(project: ProjectState, out: Record<string, Record<string, unknown>>): void {
@@ -999,10 +1082,11 @@ function safePokemonSummaryRecord(project: ProjectState, id: number): PokemonSum
 
 function buildDexAbilities(project: ProjectState): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const ability of project.texts.banks.abilities ?? []) {
+  const descriptions = abilityDescriptions(project);
+  for (const [id, ability] of (project.texts.banks.abilities ?? []).entries()) {
     const name = titleizeAbility(ability);
     if (!name || name === "None") continue;
-    out[toId(name)] = { name };
+    out[toId(name)] = { name, desc: descriptions[id] ?? "" };
   }
   return out;
 }
@@ -1433,7 +1517,10 @@ function buildFormattedTrainerSets(project: ProjectState): Record<string, Record
         level: pok.level,
         ai: trainer.readable.ai ?? trainer.raw.ai ?? 0,
         noCh: false,
-        tr_id: trainerId,
+        // Trainer IDs in battle logs are the trainer NARC member index. Keep
+        // the exported value tied to the decoded record identity so sparse or
+        // reordered trainer tables cannot be renumbered by export iteration.
+        tr_id: trainer.id,
         diff: docs.trainerDiffs[String(trainerId)] ?? 0,
         ivs: { hp: iv, at: iv, df: iv, sa: iv, sd: iv, sp: iv },
         battle_type: trainer.readable.battle_type_1,
@@ -1595,6 +1682,16 @@ function moveFlags(readable: ReadableRecord): Record<string, unknown> {
 
 function moveDescriptions(project: ProjectState): string[] {
   const bank = project.session.baseRom === "BW2" ? 402 : 202;
+  try {
+    return getTextBank(project, "message_texts", bank).map((entry) => String(entry?.[1] ?? "").replace(/\\n/gu, " "));
+  } catch {
+    return [];
+  }
+}
+
+function abilityDescriptions(project: ProjectState): string[] {
+  const bank = project.session.baseRom === "BW2" ? 375 : project.session.baseRom === "BW" ? 183 : undefined;
+  if (bank === undefined) return [];
   try {
     return getTextBank(project, "message_texts", bank).map((entry) => String(entry?.[1] ?? "").replace(/\\n/gu, " "));
   } catch {
