@@ -183,6 +183,50 @@ export type StarterState = {
   dirtyOverlayIds: number[];
 };
 
+export type OverworldWeatherPreviewState = {
+  imageBytes?: Uint8Array;
+  imageMime?: string;
+  behavior?: string;
+  tint?: string;
+  particle?: {
+    characterBytes: Uint8Array;
+    paletteBytes: Uint8Array;
+    cellBytes: Uint8Array;
+    animationBytes: Uint8Array;
+  };
+};
+
+export type OverworldWeatherCustomEffect = {
+  id: number;
+  name: string;
+  description?: string;
+  sourceFileName: string;
+  importedAt: string;
+  runtimeModulePaths: string[];
+  clone?: {
+    donorId: number;
+    behavior: string;
+    channels: string[];
+    tint?: string;
+    runtimeReady: boolean;
+    particleResource?: { animation: number; cell: number; character: number; palette: number };
+    auxiliaryResourceIds: number[];
+    lightingResourceId?: number;
+    runtime: {
+      particleDensity: number;
+      movementSpeed: number;
+      fogIntensity: number;
+      fogColor: string;
+      screenScrollSpeed: number;
+    };
+  };
+  preview?: OverworldWeatherPreviewState;
+};
+
+export type OverworldWeatherState = {
+  customEffects: OverworldWeatherCustomEffect[];
+};
+
 export type PatchState = {
   dirtyOverlayIds: number[];
   arm9OverlayTable?: Uint8Array;
@@ -231,6 +275,7 @@ export type ProjectState = {
   map3dAreaEdits?: Map3dAreaEditState;
   fileSystem?: FileSystemEditState;
   codeInjection?: CodeInjectionState;
+  overworldWeather?: OverworldWeatherState;
   pwanAnimations?: PwanAnimationState;
   starters?: StarterState;
   patches?: PatchState;

@@ -22,6 +22,7 @@ import "./styles/pwanAnimation.css";
 import "./styles/moveBackgrounds.css";
 import "./styles/battleBackgrounds.css";
 import "./styles/headerBattleEnvironments.css";
+import "./styles/overworldWeather.css";
 import "./styles/randomizer.css";
 import "./styles/trainerMusic.css";
 
@@ -47,6 +48,8 @@ import { renderCodeInjectionEditor } from "./ui/codeInjectionEditor";
 import { renderFileSystemEditor } from "./ui/fileSystemEditor";
 import { renderPatchesEditor } from "./ui/patchesEditor";
 import { renderHeaderEditor } from "./ui/headerEditor";
+import { renderOverworldWeatherEditor, stopOverworldWeatherEditorPreview } from "./ui/overworldWeatherEditor";
+import { renderOverworldWeatherGraphicsEditor, stopOverworldWeatherGraphicsEditor } from "./ui/overworldWeatherGraphicsEditor";
 import { renderEncounterEditor } from "./ui/encounterEditor";
 import { renderItemEditor, renderMoveAnimationPage, renderMoveEditor } from "./ui/moveItemEditor";
 import { renderMoveEffectHandlerEditor } from "./ui/moveEffectHandlerEditor";
@@ -85,6 +88,8 @@ type AppRoute =
   | "codeInjection"
   | "patches"
   | "headers"
+  | "weather"
+  | "weatherGraphics"
   | "overworlds"
   | "maps3d"
   | "pokemon"
@@ -177,6 +182,8 @@ const APP_ROUTES: AppRoute[] = [
   "codeInjection",
   "patches",
   "headers",
+  "weather",
+  "weatherGraphics",
   "overworlds",
   "maps3d",
   "pokemon",
@@ -215,6 +222,8 @@ const EDITOR_REQUIREMENTS: Record<
   NarcName[]
 > = {
   headers: ["headers", "message_texts"],
+  weather: ["headers", "message_texts"],
+  weatherGraphics: [],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
   pokemonSprites: ["personal", "pokemon_sprites", "pokemon_icons"],
@@ -459,6 +468,8 @@ window.addEventListener("popstate", (event) => {
 function renderApp(): void {
   stopTrainerSpriteEditorPlayback();
   stopTrainerMusicEditorPlayback();
+  stopOverworldWeatherEditorPreview();
+  stopOverworldWeatherGraphicsEditor();
   syncDocumentTitle();
   route = safeRoute(route);
   appRoot.innerHTML = `
@@ -487,6 +498,32 @@ function renderApp(): void {
       canVisit("overworlds") ? openOverworld : undefined,
     );
     content.querySelector<HTMLButtonElement>("#debug-narcs-btn")?.addEventListener("click", () => navigate("debugNarcs"));
+    return;
+  }
+
+  if (route === "weather") {
+    renderOverworldWeatherEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
+  if (route === "weatherGraphics") {
+    content.innerHTML = `<div class="weather-graphics-loading">Loading weather graphics…</div>`;
+    void renderOverworldWeatherGraphicsEditor(
+      project,
+      content,
+      () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      },
+      () => navigate("weather"),
+    ).catch((error) => {
+      content.innerHTML = `<div class="weather-graphics-loading -error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
+    });
     return;
   }
 
@@ -890,6 +927,7 @@ function renderNav(): string {
       <div class="header-left">
         ${navItem("headers", "Headers & Overworlds")}
         ${navItem("maps3d", "Maps")}
+        ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
         ${navItem("pokemon", "Pokemon")}
         ${navItem("trainers", "Trainers")}
         ${gen4 ? "" : renderFacilitiesMenu()}
@@ -959,6 +997,19 @@ function renderFacilitiesMenu(): string {
       <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Facilities</button>
       <div class="header-more-menu">
         ${facilityRoutes.map(([facilityRoute, label]) => navItem(facilityRoute, label)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderWeatherMenu(): string {
+  const active = route === "weather" || route === "weatherGraphics";
+  return `
+    <div class="header-more ${active ? "-active" : ""}">
+      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Weather</button>
+      <div class="header-more-menu">
+        ${navItem("weather", "Area Assignments")}
+        ${navItem("weatherGraphics", "Graphics Editor")}
       </div>
     </div>
   `;
@@ -1795,6 +1846,8 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "codeInjection") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
+  if (nextRoute === "weather") return project.session.baseRom === "BW2" && EDITOR_REQUIREMENTS.weather.every((name) => project?.narcs[name]);
+  if (nextRoute === "weatherGraphics") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerSprites") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.trdata);
   if (nextRoute === "animatedSprites") {
     const status = getPwanRuntimeStatus(project);

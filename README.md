@@ -94,6 +94,10 @@ npm run build
 npm test
 ```
 
+To refresh crit, recoil, drain, and healing metadata in existing Dynamic Calc
+and DDex JavaScript sources from an updated ROM, see
+[Move metadata source enrichment](docs/move-metadata-source-enrichment.md).
+
 ### Black 2 Upgrade
 
 The Code Injection page can install Black 2 Upgrade only on the exact clean US
