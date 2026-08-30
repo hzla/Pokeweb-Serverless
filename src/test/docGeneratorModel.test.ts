@@ -44,6 +44,50 @@ describe("docGeneratorModel", () => {
     expect(findIndexCalls).toBe(0);
   });
 
+  it("exports ability descriptions and BW2 tutor compatibility in the legacy dex payload shape", () => {
+    const project = makeProject();
+    project.texts.messageTexts = Array.from({ length: 376 }, () => []);
+    project.texts.messageTexts[375] = [
+      ["0_0", " -", 0],
+      ["0_1", "Powers up Grass-type moves\\nwhen in trouble.", 0],
+      ["0_2", "The Pokemon raises opposing PP usage.", 0],
+    ];
+
+    const bulbasaur = decodeRecord(project, "personal", 1).raw!;
+    bulbasaur.tutors = 2 ** 0;
+    bulbasaur.driftveil_tutor = 2 ** 6;
+    bulbasaur.lentimas_tutor = 2 ** 12;
+    bulbasaur.humilau_tutor = 2 ** 10;
+    bulbasaur.nacrene_tutor = 2 ** 13;
+
+    const tutorBytes = new Uint8Array(60 * 12);
+    writeInt(tutorBytes, 19 * 12, 4, 6); // Driftveil slot 6 -> Solar Beam
+    writeInt(tutorBytes, 55 * 12, 4, 4); // Lentimas slot 12 -> Razor Leaf
+    writeInt(tutorBytes, 10 * 12, 4, 2); // Humilau slot 10 -> Vine Whip
+    writeInt(tutorBytes, 41 * 12, 4, 3); // Nacrene slot 13 -> Growl
+    project.narcs.tutor_moves = makeStore("tutor_moves", [tutorBytes], 1);
+
+    const [file] = generateDexDownloads(project, "Volt White Plus");
+    const payload = JSON.parse(String(file.contents).replace(/^overrides = /u, "").replace(/;\n$/u, ""));
+
+    expect(payload.abilities.overgrow).toEqual({
+      name: "Overgrow",
+      desc: "Powers up Grass-type moves when in trouble.",
+    });
+    expect(payload.abilities.pressure).toEqual({
+      name: "Pressure",
+      desc: "The Pokemon raises opposing PP usage.",
+    });
+    expect(payload.poks.Bulbasaur.learnset_info.tutors).toEqual([
+      "Grass Pledge",
+      "Solar Beam",
+      "Razor Leaf",
+      "Vine Whip",
+      "Growl",
+    ]);
+    expect(payload.poks.Ivysaur.learnset_info.tutors).toEqual([]);
+  });
+
   it("builds Gen 5 Dynamic Calc bridge payloads from generated calc data", () => {
     const project = makeProject();
     const payload = generateCalcBridgePayload(project, "Volt White Plus");
@@ -58,6 +102,25 @@ describe("docGeneratorModel", () => {
     expect(payload.scriptText.startsWith("var backup_data = ")).toBe(true);
     expect(payload.scriptText.endsWith(";")).toBe(true);
     expect(payload.scriptText).toContain('"title": "Volt White Plus"');
+  });
+
+  it("exports trainer NARC member indexes as calc trainer IDs", () => {
+    const project = makeProject();
+    const file = generateCalcDownload(project, "Volt White Plus");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+    const exportedSets = Object.values(payload.formatted_sets as Record<string, Record<string, { tr_id: number }>>)
+      .flatMap((sets) => Object.values(sets));
+
+    // The fixture deliberately leaves trainer members 0-6 empty. Export must
+    // retain member 7, rather than compacting it to the first populated row.
+    expect(exportedSets.length).toBeGreaterThan(0);
+    expect(new Set(exportedSets.map((set) => set.tr_id))).toEqual(new Set([7]));
+
+    const bridge = generateCalcBridgePayload(project, "Volt White Plus");
+    const bridgePayload = JSON.parse(bridge.scriptText.replace(/^var backup_data = /u, "").replace(/;$/u, ""));
+    const bridgeSets = Object.values(bridgePayload.formatted_sets as Record<string, Record<string, { tr_id: number }>>)
+      .flatMap((sets) => Object.values(sets));
+    expect(new Set(bridgeSets.map((set) => set.tr_id))).toEqual(new Set([7]));
   });
 
   it("packages Pokemon, move, and trainer text docs in one zip", () => {
@@ -159,6 +222,42 @@ describe("docGeneratorModel", () => {
     expect(payload.moves).toHaveProperty("HP Fighting");
     expect(payload.moves).not.toHaveProperty("Hp Fighting");
     expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].moves).toContain("HP Fighting");
+  });
+
+  it("exports crit, recoil, drain, and heal metadata to calc and dex moves", () => {
+    const project = makeProject();
+    setProjectMoves(
+      project,
+      [
+        {},
+        { type: 1, category: 1, power: 90, accuracy: 100, pp: 20, crit: 1, recoil: 231 },
+        { type: 11, effect_category: 8, category: 2, power: 75, accuracy: 100, pp: 10, recoil: 50 },
+        { type: 0, effect_category: 3, category: 0, accuracy: 101, pp: 10, healing: 50, target: 7 },
+        { type: 1, category: 1, power: 40, accuracy: 100, pp: 10, crit: 6 },
+        { type: 0, category: 1, power: 120, accuracy: 100, pp: 15, recoil: 223 },
+        { type: 1, category: 1, power: 40, accuracy: 100, pp: 10 },
+        { type: 0, category: 1, power: 50, accuracy: 101, pp: 1, healing: 231 },
+      ],
+      ["None", "Take Down", "Giga Drain", "Recover", "Storm Throw", "Double-Edge", "Pound", "Struggle"],
+    );
+
+    const calcFile = generateCalcDownload(project, "Volt White Plus");
+    const calcMoves = JSON.parse(calcFile.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, "")).moves;
+    const [dexFile] = generateDexDownloads(project, "Volt White Plus");
+    const dexMoves = JSON.parse(String(dexFile.contents).replace(/^overrides = /u, "").replace(/;\n$/u, "")).moves;
+
+    for (const moves of [calcMoves, dexMoves]) {
+      expect(moves["Take Down"]).toMatchObject({ critRatio: 2, recoil: [1, 4] });
+      expect(moves["Giga Drain"].drain).toEqual([1, 2]);
+      expect(moves.Recover.heal).toEqual([1, 2]);
+      expect(moves["Storm Throw"]).toMatchObject({ critRatio: 7, willCrit: true });
+      expect(moves["Double-Edge"].recoil).toEqual([33, 100]);
+      expect(moves.Pound).not.toHaveProperty("critRatio");
+      expect(moves.Pound).not.toHaveProperty("recoil");
+      expect(moves.Pound).not.toHaveProperty("drain");
+      expect(moves.Pound).not.toHaveProperty("heal");
+      expect(moves.Struggle).not.toHaveProperty("heal");
+    }
   });
 
   it("exports Sheer Force secondaries only for target afflictions, target drops, and user boosts", () => {

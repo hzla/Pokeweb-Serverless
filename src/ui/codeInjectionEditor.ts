@@ -1,7 +1,9 @@
 import {
   detectBundledFormEvolutionDll,
   detectBundledDoubleBattleFixDll,
+  detectBundledOverworldWeatherRuntime,
   getPmcInstallStatus,
+  installBundledOverworldWeatherRuntime,
   installBundledPmc,
   listCodeInjectionDlls,
   stageBundledDoubleBattleFixDll,
@@ -47,6 +49,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const formEvolutionInstalled = formEvolutionStatus === "patched";
   const doubleBattleFixStatus = detectBundledDoubleBattleFixDll(project);
   const doubleBattleFixSupported = status.installed && doubleBattleFixStatus !== "unsupported";
+  const weatherRuntimeStatus = detectBundledOverworldWeatherRuntime(project);
+  const weatherRuntimeInstalled = weatherRuntimeStatus === "patched";
+  const weatherRuntimeSupported = weatherRuntimeStatus !== "unsupported";
   const pwanRuntimeStatus = getPwanRuntimeStatus(project);
   const pwanRuntimeInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.installed;
   const pwanRuntimeCanUninstall = pwanRuntimeInstalled && canUninstallPwanRuntime(project);
@@ -113,6 +118,39 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
             <div class="code-injection-note" id="pmc-install-note">Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.</div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Overworld Weather Runtime</h2>
+              <p>Installs a resident 64-entry field-weather dispatcher and a data-driven registry so IDs 15–63 can clone stock behavior without per-effect code patches.</p>
+            </div>
+            <span class="code-injection-status ${weatherRuntimeInstalled ? "-installed" : weatherRuntimeSupported ? "" : "-error"}">
+              ${weatherRuntimeInstalled ? "Installed" : weatherRuntimeSupported ? "Ready" : "Unsupported"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US White 2 (IRDO)</strong></div>
+            <div><span>Custom Slots</span><strong>49 · IDs 15–63</strong></div>
+            <div><span>Registry</span><strong>weather/pwth.bin</strong></div>
+            <div><span>Generic Resources</span><strong>NCGR · NCLR · NCER · NANR · 2× BTX0</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+            <div><span>Runtime ABI</span><strong>2 · PWTH v1</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-weather-runtime-btn" type="button" ${weatherRuntimeSupported ? "" : "disabled"}>
+              ${weatherRuntimeInstalled ? "Reinstall Weather Runtime" : "Install Weather Runtime"}
+            </button>
+            <div class="code-injection-note" id="weather-runtime-note">
+              ${
+                weatherRuntimeInstalled
+                  ? "The one-time runtime and PWTH registry are staged. Weather Graphics can now create independently editable slots without another code patch."
+                  : weatherRuntimeSupported
+                    ? "Installs PMC when needed, then stages PokewebOverworldWeatherW2.dll in patches/."
+                    : "A separately audited build is required for Black 2, BW1, and non-US revisions."
+              }
+            </div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -317,6 +355,26 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       button.disabled = false;
       button.textContent = previousText;
       if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const weatherRuntimeButton = root.querySelector<HTMLButtonElement>("#install-weather-runtime-btn");
+  const weatherRuntimeNote = root.querySelector<HTMLDivElement>("#weather-runtime-note");
+  weatherRuntimeButton?.addEventListener("click", async () => {
+    const previousText = weatherRuntimeButton.textContent ?? "Install Weather Runtime";
+    try {
+      weatherRuntimeButton.disabled = true;
+      weatherRuntimeButton.textContent = "Installing...";
+      if (weatherRuntimeNote) weatherRuntimeNote.textContent = status.installed ? "Staging the weather DLL and PWTH registry." : "Installing PMC, then staging the weather DLL and PWTH registry.";
+      const result = await installBundledOverworldWeatherRuntime(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#weather-runtime-note");
+      if (refreshedNote) refreshedNote.textContent = `${result.fileName} staged at ${result.path}. The 49 PWTH slots are ready for data-driven clones from Weather Graphics.`;
+    } catch (error) {
+      weatherRuntimeButton.disabled = false;
+      weatherRuntimeButton.textContent = previousText;
+      if (weatherRuntimeNote) weatherRuntimeNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 
