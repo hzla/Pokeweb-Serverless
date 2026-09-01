@@ -31,6 +31,16 @@ import {
   type WeatherEffectDefinition,
   type WeatherPreviewBehavior,
 } from "./overworldWeatherModel";
+import {
+  normalizeWeatherCloneRuntime,
+  WEATHER_FOG_DEFAULT_FADE_IN_FRAMES,
+  WEATHER_FOG_DEFAULT_FADE_OUT_FRAMES,
+  WEATHER_FOG_DEFAULT_SLOPE,
+  WEATHER_FOG_DEFAULT_TABLE,
+  WEATHER_FOG_DEPTH_START,
+  WEATHER_FOG_DEFAULT_DEPTH_DELTA,
+  type WeatherCloneRuntime,
+} from "./overworldWeatherRuntimeModel";
 
 export type WeatherCharacterData = {
   memberId: number;
@@ -79,8 +89,6 @@ export type WeatherGraphicsDocument = {
   clone?: OverworldWeatherCustomEffect["clone"];
 };
 
-export type WeatherCloneRuntime = NonNullable<NonNullable<OverworldWeatherCustomEffect["clone"]>["runtime"]>;
-
 const STOCK_AUXILIARY_RESOURCES: Record<number, Array<{ memberId: number; role: string }>> = {
   4: [{ memberId: 42, role: "Blizzard foreground plane (BTX0)" }],
   6: [{ memberId: 41, role: "Thunder-rain foreground plane (BTX0)" }],
@@ -114,6 +122,7 @@ export async function loadWeatherGraphicsDocument(project: ProjectState, weather
     .map((memberId) => ({ memberId, effectIds: weatherEffectsReferencingMember(project, memberId) }))
     .filter((entry) => entry.effectIds.length > 1);
   const clone = project.overworldWeather?.customEffects.find((candidate) => candidate.id === weatherId)?.clone;
+  if (clone) clone.runtime = normalizeWeatherCloneRuntime(clone.runtime);
   const lighting = await loadWeatherLightingDocument(project, weatherId);
   return { effect, particle, lighting, auxiliary, sharedResources, clone };
 }
@@ -264,14 +273,8 @@ export async function replaceWeatherResource(project: ProjectState, memberId: nu
 export async function updateWeatherCloneRuntime(project: ProjectState, weatherId: number, update: Partial<WeatherCloneRuntime>): Promise<void> {
   const effect = project.overworldWeather?.customEffects.find((candidate) => candidate.id === weatherId);
   if (!effect?.clone) throw new Error("Runtime template values can only be changed on a cloned custom weather.");
-  const current = effect.clone.runtime;
-  effect.clone.runtime = {
-    particleDensity: clampNumber(update.particleDensity ?? current.particleDensity, 0, 4),
-    movementSpeed: clampNumber(update.movementSpeed ?? current.movementSpeed, 0, 4),
-    fogIntensity: clampNumber(update.fogIntensity ?? current.fogIntensity, 0, 2),
-    fogColor: /^#[0-9a-f]{6}$/iu.test(update.fogColor ?? current.fogColor) ? (update.fogColor ?? current.fogColor) : current.fogColor,
-    screenScrollSpeed: clampNumber(update.screenScrollSpeed ?? current.screenScrollSpeed, -4, 4),
-  };
+  const current = normalizeWeatherCloneRuntime(effect.clone.runtime);
+  effect.clone.runtime = normalizeWeatherCloneRuntime({ ...current, ...update });
   effect.clone.tint = effect.clone.runtime.fogColor;
   await syncBundledOverworldWeatherRegistry(project);
   recordGenericChange(project, "file_system", `Updated custom weather ${weatherId} runtime template.`, `Weather ${weatherId}`, {
@@ -385,10 +388,15 @@ function findBlock(bytes: Uint8Array, stamp: string): number {
 }
 
 function defaultCloneRuntime(behavior: WeatherPreviewBehavior, channels: string[], tint?: string): WeatherCloneRuntime {
+  const hasFog = behavior === "fog" || channels.includes("fog");
   return {
     particleDensity: behavior === "fog" || behavior === "clear" ? 0 : 1,
     movementSpeed: 1,
-    fogIntensity: behavior === "fog" || channels.includes("fog") ? 1 : 0,
+    fogOffset: hasFog ? WEATHER_FOG_DEPTH_START - WEATHER_FOG_DEFAULT_DEPTH_DELTA : WEATHER_FOG_DEPTH_START,
+    fogSlope: WEATHER_FOG_DEFAULT_SLOPE,
+    fogTable: [...WEATHER_FOG_DEFAULT_TABLE],
+    fogFadeInFrames: WEATHER_FOG_DEFAULT_FADE_IN_FRAMES,
+    fogFadeOutFrames: WEATHER_FOG_DEFAULT_FADE_OUT_FRAMES,
     fogColor: tint && /^#[0-9a-f]{6}$/iu.test(tint) ? tint : behavior === "sand" ? "#b79555" : "#d5e2e5",
     screenScrollSpeed: 1,
   };
@@ -407,8 +415,4 @@ function nextPowerOfTwo(value: number): number {
   let result = 1;
   while (result < value) result *= 2;
   return result;
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : min;
 }

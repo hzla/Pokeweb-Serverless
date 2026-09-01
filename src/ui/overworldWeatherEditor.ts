@@ -21,6 +21,7 @@ import {
   type WeatherPreviewBehavior,
 } from "../pokeweb/overworldWeatherModel";
 import type { WeatherLightingRecord } from "../pokeweb/overworldWeatherLightingModel";
+import { normalizeWeatherCloneRuntime, previewFogStrength, type WeatherCloneRuntime } from "../pokeweb/overworldWeatherRuntimeModel";
 import { escapeHtml } from "./dom";
 import { renderWeatherResourceFootprint } from "./weatherResourceFootprint";
 
@@ -106,7 +107,7 @@ export function renderOverworldWeatherEditor(project: ProjectState, root: HTMLEl
           </div>
           <div class="weather-area-table">
             <div class="weather-area-row -header">
-              <div></div><div>Area ID</div><div>Location</div><div>Header default</div><div>Effective calendar schedule</div><div>Preview</div>
+              <div></div><div>Area ID</div><div>Matrix ID</div><div>Location</div><div>Header default</div><div>Effective calendar schedule</div><div>Preview</div>
             </div>
             ${Object.entries(project.headers!.rows).map(([rowIdText, row]) => {
               const rowId = Number(rowIdText);
@@ -115,9 +116,10 @@ export function renderOverworldWeatherEditor(project: ProjectState, root: HTMLEl
               const calendarZone = calendar?.zones.get(Number(row.index));
               const effectiveWeatherIds = [...new Set([weatherId, ...(calendarZone?.weatherIds ?? [])])].sort((a, b) => a - b);
               return `
-                <div class="weather-area-row" data-weather-row="${rowId}" data-weather-ids="${effectiveWeatherIds.join(" ")}" data-search="${escapeHtml(`${row.index} ${rowId} ${row.location_name}`.toLowerCase())}">
+                <div class="weather-area-row" data-weather-row="${rowId}" data-weather-ids="${effectiveWeatherIds.join(" ")}" data-search="${escapeHtml(`${row.index} ${rowId} ${row.matrix_id} ${row.location_name}`.toLowerCase())}">
                   <label class="weather-row-check"><input type="checkbox" data-weather-select="${rowId}" ${selectedRows.has(rowId) ? "checked" : ""} /><span class="sr-only">Select ${escapeHtml(String(row.location_name))}</span></label>
                   <div class="weather-area-id">${row.index}</div>
+                  <div class="weather-matrix-id">${escapeHtml(String(row.matrix_id))}</div>
                   <div class="weather-area-name">${escapeHtml(String(row.location_name))}</div>
                   <select class="filter-input weather-area-select" data-weather-assignment="${rowId}">${assignmentOptions(assignable, weatherId, effect)}</select>
                   <div class="weather-calendar-cell">${renderCalendarSchedule(calendarZone, effects, Boolean(calendar), calendarError)}</div>
@@ -387,7 +389,7 @@ export function mountWeatherPreview(
   const render = (now: number): void => {
     const tick = (now - started) / (1000 / 60);
     drawTestScene(context, preview.effect, lighting);
-    drawWeatherLayer(context, preview.effect, tick, preview.runtime?.fogIntensity, lighting?.fogColor ?? preview.runtime?.fogColor);
+    drawWeatherLayer(context, preview.effect, tick, preview.runtime, lighting?.fogColor ?? preview.runtime?.fogColor);
     const frame = preview.particle ? nitroCellEffectFrameAt(preview.particle, tick / 2) : undefined;
     const sprite = frame ? particleCanvases.get(frame.index) : undefined;
     for (const particle of particles) {
@@ -483,13 +485,23 @@ function mixHexColors(colors: string[]): string {
   return `#${[0, 1, 2].map((channel) => Math.round(channels.reduce((sum, color) => sum + color[channel], 0) / Math.max(1, channels.length)).toString(16).padStart(2, "0")).join("")}`;
 }
 
-function drawWeatherLayer(context: CanvasRenderingContext2D, effect: WeatherEffectDefinition, tick: number, fogIntensity = 1, fogColor?: string): void {
+function drawWeatherLayer(context: CanvasRenderingContext2D, effect: WeatherEffectDefinition, tick: number, runtime?: WeatherCloneRuntime, fogColor?: string): void {
   if (effect.behavior === "fog" || effect.behavior === "mirage" || effect.channels.includes("fog")) {
     const tint = fogColor ?? effect.tint ?? "#dbe3e4";
-    const intensity = Math.max(0, Math.min(2, fogIntensity));
     const gradient = context.createLinearGradient(0, 25, 0, 192);
-    gradient.addColorStop(0, hexAlpha(tint, Math.min(1, (effect.id === 11 || effect.id === 14 ? 0.12 : 0.04) * intensity)));
-    gradient.addColorStop(1, hexAlpha(tint, Math.min(1, (effect.id === 13 || effect.id === 14 ? 0.72 : 0.48) * intensity)));
+    if (runtime) {
+      const fog = normalizeWeatherCloneRuntime(runtime);
+      const strength = previewFogStrength(fog);
+      const fade = previewFogFade(fog, tick);
+      const slopeCurve = 2 ** ((9 - fog.fogSlope) / 6);
+      fog.fogTable.forEach((density, index) => {
+        const position = (index / 31) ** slopeCurve;
+        gradient.addColorStop(position, hexAlpha(tint, Math.min(1, density / 127 * .32 * strength * fade)));
+      });
+    } else {
+      gradient.addColorStop(0, hexAlpha(tint, effect.id === 11 || effect.id === 14 ? 0.12 : 0.02));
+      gradient.addColorStop(1, hexAlpha(tint, effect.id === 13 || effect.id === 14 ? 0.72 : 0.26));
+    }
     context.fillStyle = gradient;
     context.fillRect(0, 0, 256, 192);
   }
@@ -504,6 +516,17 @@ function drawWeatherLayer(context: CanvasRenderingContext2D, effect: WeatherEffe
       context.stroke();
     }
   }
+}
+
+function previewFogFade(runtime: WeatherCloneRuntime, tick: number): number {
+  const fadeInEnd = runtime.fogFadeInFrames;
+  const holdEnd = fadeInEnd + 120;
+  const fadeOutEnd = holdEnd + runtime.fogFadeOutFrames;
+  const phase = tick % (fadeOutEnd + 45);
+  if (phase < fadeInEnd) return phase / fadeInEnd;
+  if (phase < holdEnd) return 1;
+  if (phase < fadeOutEnd) return 1 - (phase - holdEnd) / runtime.fogFadeOutFrames;
+  return 0;
 }
 
 function particlePosition(behavior: WeatherPreviewBehavior, x: number, y: number, speed: number, phase: number, tick: number): { x: number; y: number } {

@@ -846,7 +846,7 @@ function renderApp(): void {
   }
 
   if (route === "infoText") {
-    renderTextEditor(project, content, "message_texts", "Info Text", () => {
+    renderTextEditor(project, content, "message_texts", "Message Text", () => {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
@@ -914,14 +914,6 @@ function renderMap3dEditorLoadError(root: HTMLElement, error: unknown): void {
 
 function renderNav(): string {
   if (!project) return `<div id="header"></div>`;
-  const gen4 = isGen4Project(project);
-  const bw2Links =
-    project.session.baseRom === "BW2"
-      ? `
-        ${navItem("marts", "Marts")}
-        ${navItem("grottos", "Grottoes")}
-      `
-      : "";
   return `
     <div id="header">
       <div class="header-left">
@@ -929,15 +921,11 @@ function renderNav(): string {
         ${navItem("maps3d", "Maps")}
         ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
         ${navItem("pokemon", "Pokemon")}
-        ${navItem("trainers", "Trainers")}
-        ${gen4 ? "" : renderFacilitiesMenu()}
-        ${navItem("encounters", "Encounters")}
-        ${navItem("moves", "Moves")}
-        ${navItem("items", "Items")}
-        ${navItem("tms", "TMs")}
-        ${bw2Links}
-        ${gen4 ? "" : navItem("storyText", "Story Text")}
-        ${navItem("infoText", "Info Text")}
+        ${renderTrainersMenu()}
+        ${renderEncountersMenu()}
+        ${renderMovesMenu()}
+        ${renderItemsMenu()}
+        ${renderTextsMenu()}
         ${renderMoreMenu()}
       </div>
       <div class="header-status" id="header-status">${dirty ? renderDirtyIndicatorLink() : ""}</div>
@@ -965,16 +953,12 @@ function renderMoreMenu(): string {
     ["randomizer", "Randomizer"],
     ["starters", "Scripted PKMN"],
     ["types", "Type Chart"],
-    ["tutorMoves", "Tutor Moves"],
-    ["moveEffectHandlers", "Move Effect Handlers"],
-    ["moveBackgrounds", "Move Backgrounds"],
     ["battleBackgrounds", "Battle Backgrounds"],
     ["changelog", "Changelog"],
     ["patches", "Patches"],
     ["codeInjection", "Code Injection"],
     ["fileSystem", "File System"],
   ];
-  if (project && isGen5Project(project)) moreRoutes.unshift(["trainerMusic", "Trainer Music"]);
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
   return `
     <div class="header-more ${active ? "-active" : ""}">
@@ -986,17 +970,21 @@ function renderMoreMenu(): string {
   `;
 }
 
-function renderFacilitiesMenu(): string {
-  const facilityRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = [
-    ["facilities", "Subway / PWT"],
-    ["wbtFacilities", "Black Tower / White Treehollow"],
-  ];
-  const active = facilityRoutes.some(([facilityRoute]) => route === facilityRoute);
+function renderTrainersMenu(): string {
+  const trainerRoutes: Array<[Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds" | "pokemonSprites">, string]> = project && !isGen4Project(project)
+    ? [
+      ["facilities", "Subway / PWT"],
+      ["wbtFacilities", "Black Tower / White Treehollow"],
+      ["trainerMusic", "Trainer Music"],
+    ]
+    : [];
+  const active = route === "trainers" || trainerRoutes.some(([trainerRoute]) => route === trainerRoute);
   return `
     <div class="header-more ${active ? "-active" : ""}">
-      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Facilities</button>
+      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Trainers</button>
       <div class="header-more-menu">
-        ${facilityRoutes.map(([facilityRoute, label]) => navItem(facilityRoute, label)).join("")}
+        ${navItem("trainers", "Main Trainers")}
+        ${trainerRoutes.map(([trainerRoute, label]) => navItem(trainerRoute, label)).join("")}
       </div>
     </div>
   `;
@@ -1010,6 +998,65 @@ function renderWeatherMenu(): string {
       <div class="header-more-menu">
         ${navItem("weather", "Area Assignments")}
         ${navItem("weatherGraphics", "Graphics Editor")}
+      </div>
+    </div>
+  `;
+}
+
+function renderEncountersMenu(): string {
+  const grottoAvailable = project?.session.baseRom === "BW2";
+  const active = route === "encounters" || (grottoAvailable && route === "grottos");
+  return `
+    <div class="header-more ${active ? "-active" : ""}">
+      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Encounters</button>
+      <div class="header-more-menu">
+        ${navItem("encounters", "Wild Encounters")}
+        ${grottoAvailable ? navItem("grottos", "Hidden Grottos") : ""}
+      </div>
+    </div>
+  `;
+}
+
+function renderItemsMenu(): string {
+  const martsAvailable = project?.session.baseRom === "BW2";
+  const active = route === "items" || (martsAvailable && route === "marts");
+  return `
+    <div class="header-more ${active ? "-active" : ""}">
+      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Items</button>
+      <div class="header-more-menu">
+        ${navItem("items", "Item Data")}
+        ${martsAvailable ? navItem("marts", "Marts") : ""}
+      </div>
+    </div>
+  `;
+}
+
+function renderMovesMenu(): string {
+  const active = route === "moves" || route === "moveAnimation" || route === "tms"
+    || route === "tutorMoves" || route === "moveEffectHandlers" || route === "moveBackgrounds";
+  return `
+    <div class="header-more ${active ? "-active" : ""}">
+      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Moves</button>
+      <div class="header-more-menu">
+        ${navItem("moves", "Move Data")}
+        ${navItem("tms", "TMs")}
+        ${navItem("tutorMoves", "Tutor Data")}
+        ${navItem("moveEffectHandlers", "Move Effect Handlers")}
+        ${navItem("moveBackgrounds", "Move Backgrounds")}
+      </div>
+    </div>
+  `;
+}
+
+function renderTextsMenu(): string {
+  const storyAvailable = project ? !isGen4Project(project) : false;
+  const active = (storyAvailable && route === "storyText") || route === "infoText";
+  return `
+    <div class="header-more ${active ? "-active" : ""}">
+      <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Texts</button>
+      <div class="header-more-menu">
+        ${storyAvailable ? navItem("storyText", "Story Text") : ""}
+        ${navItem("infoText", "Message Text")}
       </div>
     </div>
   `;

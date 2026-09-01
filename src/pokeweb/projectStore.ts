@@ -215,7 +215,11 @@ export type OverworldWeatherCustomEffect = {
     runtime: {
       particleDensity: number;
       movementSpeed: number;
-      fogIntensity: number;
+      fogOffset: number;
+      fogSlope: number;
+      fogTable: number[];
+      fogFadeInFrames: number;
+      fogFadeOutFrames: number;
       fogColor: string;
       screenScrollSpeed: number;
     };

@@ -136,7 +136,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><span>Registry</span><strong>weather/pwth.bin</strong></div>
             <div><span>Generic Resources</span><strong>NCGR · NCLR · NCER · NANR · 2× BTX0</strong></div>
             <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
-            <div><span>Runtime ABI</span><strong>2 · PWTH v1</strong></div>
+            <div><span>Runtime ABI</span><strong>3 · PWTH v2</strong></div>
           </div>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-weather-runtime-btn" type="button" ${weatherRuntimeSupported ? "" : "disabled"}>

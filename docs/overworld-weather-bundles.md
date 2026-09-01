@@ -36,19 +36,21 @@ the retail dispatcher rows.
 ## PWTH registry summary
 
 `weather/pwth.bin` is little-endian and begins with the signature `PWTH`.
-Its 16-byte header contains format version `1`, entry size `48`, first ID `15`,
+Its 16-byte header contains format version `2`, entry size `68`, first ID `15`,
 and entry count `49`. The fixed-size rows then cover IDs `15` through `63` in
 order. Resource index `0xFFFF` means "not used."
 
 Rows store channel flags, donor ID, the four particle member indices, two
 auxiliary member indices, particle density and movement multipliers, fog
-intensity/color/slope/fade values, screen scroll speed, and reserved fields.
-Multipliers are Q8.8; fog colors are RGB5. The exact byte offsets and runtime
+color, exact native depth offset, hardware slope enum, 32-entry blend table,
+separate fade-in/fade-out durations, and screen scroll speed. Multipliers are
+Q8.8; fog colors are RGB5. The exact byte offsets and runtime
 validation rules are documented alongside the patch in
 `White2Upgrade/OVERWORLD_WEATHER_RUNTIME.md`.
 
-ABI 2 applies all six resource redirects. It also applies fog RGB, intensity,
-slope, and fade timing for generic fog donors. Particle density, movement speed,
+ABI 3 applies all six resource redirects. It also applies fog RGB, native
+offset, slope, full blend table, and fade timing for generic fog donors.
+Particle density, movement speed,
 and screen-plane scroll values are currently previewed and preserved in the
 registry but are not yet applied by the native donor callbacks.
 

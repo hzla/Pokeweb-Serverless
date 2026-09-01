@@ -10,6 +10,7 @@ import { loadActiveRomBytes } from "./persistence";
 import { getPmcInstallStatus, installBundledPmc, stageCodeInjectionDll } from "./pmcModel";
 import type { BaseVersion } from "./constants";
 import type { OverworldWeatherCustomEffect, ProjectState } from "./projectStore";
+import { normalizeWeatherCloneRuntime, type WeatherCloneRuntime } from "./overworldWeatherRuntimeModel";
 
 export const OVERWORLD_WEATHER_ARCHIVE_PATH = "a/0/5/5";
 export const OVERWORLD_WEATHER_CALENDAR_PATH = "a/0/9/6";
@@ -37,13 +38,7 @@ export type OverworldWeatherPreview = {
   particle?: NitroCellEffect;
   customImageBytes?: Uint8Array;
   customImageMime?: string;
-  runtime?: {
-    particleDensity: number;
-    movementSpeed: number;
-    fogIntensity: number;
-    fogColor: string;
-    screenScrollSpeed: number;
-  };
+  runtime?: WeatherCloneRuntime;
   warnings: string[];
 };
 
@@ -362,7 +357,8 @@ export async function loadOverworldWeatherPreview(project: ProjectState, weather
   const effect = getWeatherEffects(project).find((candidate) => candidate.id === weatherId);
   if (!effect) throw new Error(`Unknown weather ID: ${weatherId}`);
   const custom = project.overworldWeather?.customEffects.find((candidate) => candidate.id === weatherId);
-  const runtime = custom?.clone?.runtime;
+  const runtime = custom?.clone ? normalizeWeatherCloneRuntime(custom.clone.runtime) : undefined;
+  if (custom?.clone && runtime) custom.clone.runtime = runtime;
   const warnings: string[] = [];
   if (custom?.preview?.imageBytes) {
     return { effect, customImageBytes: custom.preview.imageBytes, customImageMime: custom.preview.imageMime, runtime, warnings };

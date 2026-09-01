@@ -392,8 +392,10 @@ describe("PMC installer", () => {
     installPmcBytes(project, pmcW2, romBytes);
 
     expect(readAscii(overworldWeatherRuntimeW2, 0, 4)).toBe("DLXF");
+    expect(readU32(overworldWeatherRuntimeW2, 4)).toBeGreaterThanOrEqual(0x2ea0);
     const runtime = parseRpm(overworldWeatherRuntimeW2, { allowedMagics: ["DLXF"] });
-    expect(new TextDecoder().decode(runtime.code)).toContain("PWTH-W2-RUNTIME-ABI2");
+    expect(new TextDecoder().decode(runtime.code)).toContain("PWTH-W2-RUNTIME-ABI3");
+    expect(new TextDecoder().decode(runtime.code)).toContain("3.0.0");
     expect(runtime.symbols.map((symbol) => symbol.name)).toEqual(expect.arrayContaining([
       "PWW_OverworldWeatherRuntimeAbi",
       "PWW_OverworldWeatherRegistryFormat",
@@ -401,11 +403,37 @@ describe("PMC installer", () => {
       "PWW_WeatherDispatchTable",
       "PWW_ReloadWeatherRegistry",
     ]));
+    expect(runtime.symbols.filter((symbol) => (symbol.attributes & 4) !== 0)).toEqual([]);
+    expect([...new Set(runtime.relocations
+      .filter((relocation) => relocation.target.module !== "base")
+      .map((relocation) => relocation.target.module))]).toEqual(["36"]);
     expect(runtime.relocations.filter((relocation) =>
       relocation.target.type === "FULL_COPY" && relocation.target.module === "36",
     ).map((relocation) => relocation.target.address).sort((left, right) => left - right)).toEqual([
-      0x0219923c, 0x02199240, 0x02199364, 0x02199368, 0x021993dc,
+      0x02180e0a, 0x0219923c, 0x02199240, 0x02199364, 0x02199368, 0x021993dc,
     ]);
+    const zoneSentinelPatch = runtime.symbols.find((symbol) => symbol.name === "FULL_COPY_36_0x2180E0A");
+    const setHook = runtime.symbols.find((symbol) => symbol.name === "THUMB_BRANCH_36_0x21991E0");
+    const taskStartHook = runtime.symbols.find((symbol) => symbol.name === "THUMB_BRANCH_36_0x2199658");
+    const dispatchLiteralPatches = runtime.symbols.filter((symbol) =>
+      symbol.name?.startsWith("FULL_COPY_36_0x2199") && symbol.size === 4,
+    );
+    expect(zoneSentinelPatch).toBeDefined();
+    expect(setHook).toBeDefined();
+    expect(taskStartHook).toBeDefined();
+    expect(dispatchLiteralPatches).toHaveLength(5);
+    expect(dispatchLiteralPatches.every((symbol) => (symbol.address & 3) === 0)).toBe(true);
+    expect([...runtime.code.subarray(zoneSentinelPatch!.address, zoneSentinelPatch!.address + 4)]).toEqual([0xc0, 0x46, 0xc0, 0x46]);
+    expect(readU16(runtime.code, setHook!.address + 18)).toBe(0x0005); // movs r5, r0
+    expect(readU16(runtime.code, setHook!.address + 20)).toBe(0x89a8); // ldrh r0, [r5, #12]
+    expect(readU16(runtime.code, taskStartHook!.address + 14)).toBe(0x6201); // descriptor is stored before r1 is reused
+    expect(readU16(runtime.code, taskStartHook!.address + 18)).toBe(0xbc02); // pop PMC veneer's saved LR
+    expect(readU16(runtime.code, taskStartHook!.address + 20)).toBe(0x468e); // return directly to the retail caller
+    expect(readU16(runtime.code, taskStartHook!.address + 24)).toBe(0x0001); // movs r1, r0
+    expect(readU16(runtime.code, taskStartHook!.address + 26)).toBe(0x3124); // adds r1, #36
+    expect(readU16(runtime.code, taskStartHook!.address + 30)).toBe(0x4718); // bx r3 remains outside aligned ABS32 words
+    expect(hasU32(runtime.code, 0x021991e9)).toBe(true);
+    expect(hasU32(runtime.code, 0x02199661)).toBe(true);
     expect(detectBundledOverworldWeatherRuntime(project)).toBe("unpatched");
     stageCodeInjectionDll(project, OVERWORLD_WEATHER_RUNTIME_W2_FILENAME, overworldWeatherRuntimeW2, "patches");
     expect(detectBundledOverworldWeatherRuntime(project)).toBe("patched");
@@ -610,6 +638,13 @@ function makeBw2LikeRom(fileCount = 345, filenames = new Folder({ files: ["base.
 
 function align(value: number, alignment: number): number {
   return (value + alignment - 1) & ~(alignment - 1);
+}
+
+function hasU32(bytes: Uint8Array, value: number): boolean {
+  for (let offset = 0; offset + 4 <= bytes.length; offset += 2) {
+    if (readU32(bytes, offset) === value) return true;
+  }
+  return false;
 }
 
 function duplicateFntFileIds(fnt: Uint8Array): number[] {
