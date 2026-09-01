@@ -8,6 +8,7 @@ import { addTrainerTextFromTemplate, getTrainerTextLines, type TrainerTextLine }
 import { publicAsset } from "../assetUrl";
 import { learnsetEntries } from "./pokemonModel";
 import { pokemonFormSuffix } from "./pokemonFormLabels";
+import { detectSpecifyTrainerNaturesPatch } from "./romPatchModel";
 
 export type TrainerPokemonSlot = {
   slot: number;
@@ -368,7 +369,7 @@ export function importTrainerPokemonShowdownText(project: ProjectState, trainerI
   trpok.raw[`species_id_${slot}`] = speciesId;
   trpok.raw[`level_${slot}`] = parsed.level ?? 100;
   trpok.raw[`ivs_${slot}`] = parsed.ivs ?? 255;
-  trpok.raw[`padding_${slot}`] = parseTrainerNatureValue(parsed.nature ?? "Auto");
+  trpok.raw[`padding_${slot}`] = detectSpecifyTrainerNaturesPatch(project) === "patched" ? parseTrainerNatureValue(parsed.nature ?? "Auto") : 0;
   trpok.raw[`form_${slot}`] = parsed.form ?? 0;
 
   const abilitySlot = parsed.ability === undefined ? Number(trpok.readable[`ability_${slot}`] ?? 0) : trainerAbilitySlotFromShowdown(project, speciesId, parsed.ability);

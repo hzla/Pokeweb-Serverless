@@ -13,6 +13,7 @@ import {
   type OverworldWeatherRegistryEntry,
 } from "../pokeweb/overworldWeatherRegistry";
 import type { ProjectState } from "../pokeweb/projectStore";
+import { WEATHER_FOG_DEFAULT_TABLE } from "../pokeweb/overworldWeatherRuntimeModel";
 
 describe("overworld weather PWTH registry", () => {
   it("writes the fixed 16-byte header followed by exactly 49 empty rows", () => {
@@ -20,10 +21,10 @@ describe("overworld weather PWTH registry", () => {
 
     expect(bytes.length).toBe(OVERWORLD_WEATHER_REGISTRY_HEADER_SIZE
       + OVERWORLD_WEATHER_CUSTOM_ENTRY_COUNT * OVERWORLD_WEATHER_REGISTRY_ENTRY_SIZE);
-    expect(bytes.length).toBe(2368);
+    expect(bytes.length).toBe(3348);
     expect(readAscii(bytes, 0, 4)).toBe("PWTH");
-    expect(readU16(bytes, 4)).toBe(1);
-    expect(readU16(bytes, 6)).toBe(48);
+    expect(readU16(bytes, 4)).toBe(2);
+    expect(readU16(bytes, 6)).toBe(68);
     expect([...bytes.slice(8, 12)]).toEqual([15, 49, 16, 0]);
 
     const parsed = parseOverworldWeatherRegistry(bytes);
@@ -47,10 +48,14 @@ describe("overworld weather PWTH registry", () => {
       enabled: true,
       donorBehaviorId: 9,
       channelFlags: WeatherRegistryChannel.Fog,
-      fogIntensityQ8_8: 0x0180,
+      fogOffset: 32123,
       fogRed5: 4,
       fogGreen5: 12,
       fogBlue5: 27,
+      fogSlope: 3,
+      fogFadeInFrames: 120,
+      fogFadeOutFrames: 44,
+      fogTable: Array.from({ length: 32 }, (_unused, index) => index * 4),
     });
 
     const bytes = writeOverworldWeatherRegistry([rain, fog]);
@@ -59,7 +64,8 @@ describe("overworld weather PWTH registry", () => {
     expect(parsed.entries[0]).toEqual(rain);
     expect(parsed.entries[1]).toEqual(fog);
     expect(readU16(bytes, 16 + 4)).toBe(300);
-    expect(readU16(bytes, 16 + 48 + 20)).toBe(0x0180);
+    expect(readU16(bytes, 16 + 68 + 20)).toBe(32123);
+    expect([...bytes.slice(16 + 68 + 36, 16 + 68 + 68)]).toEqual(Array.from({ length: 32 }, (_unused, index) => index * 4));
   });
 
   it("serializes runtime-ready clones and leaves all other custom slots disabled", () => {
@@ -81,7 +87,11 @@ describe("overworld weather PWTH registry", () => {
             runtime: {
               particleDensity: 1.5,
               movementSpeed: 0.75,
-              fogIntensity: 0,
+              fogOffset: 32735,
+              fogSlope: 7,
+              fogTable: Array.from({ length: 32 }, (_unused, index) => 127 - index),
+              fogFadeInFrames: 12,
+              fogFadeOutFrames: 34,
               fogColor: "#204060",
               screenScrollSpeed: -0.5,
             },
@@ -104,7 +114,11 @@ describe("overworld weather PWTH registry", () => {
       auxiliaryMemberIds: [404, 405],
       particleDensityQ8_8: 0x0180,
       movementSpeedQ8_8: 0x00c0,
-      fogIntensityQ8_8: 0,
+      fogOffset: 32735,
+      fogSlope: 7,
+      fogFadeInFrames: 12,
+      fogFadeOutFrames: 34,
+      fogTable: Array.from({ length: 32 }, (_unused, index) => 127 - index),
       screenScrollSpeedQ8_8: -0x0080,
     });
     expect(parsed.entries.slice(1).every((candidate) => !candidate.enabled)).toBe(true);
@@ -131,7 +145,7 @@ function entry(weatherId: number, overrides: Partial<OverworldWeatherRegistryEnt
     auxiliaryMemberIds: [OVERWORLD_WEATHER_UNUSED_RESOURCE, OVERWORLD_WEATHER_UNUSED_RESOURCE],
     particleDensityQ8_8: 0x0100,
     movementSpeedQ8_8: 0x0100,
-    fogIntensityQ8_8: 0x0100,
+    fogOffset: 32575,
     fogRed5: 27,
     fogGreen5: 28,
     fogBlue5: 28,
@@ -140,6 +154,7 @@ function entry(weatherId: number, overrides: Partial<OverworldWeatherRegistryEnt
     fogFadeInFrames: 90,
     fogFadeOutFrames: 50,
     entryFlags: 0,
+    fogTable: [...WEATHER_FOG_DEFAULT_TABLE],
     ...overrides,
   };
 }

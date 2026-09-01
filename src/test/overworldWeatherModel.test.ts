@@ -135,7 +135,17 @@ describe("overworldWeatherModel", () => {
           runtimeReady: true,
           particleResource: { animation: 100, cell: 101, character: 102, palette: 103 },
           auxiliaryResourceIds: [],
-          runtime: { particleDensity: 1, movementSpeed: 1, fogIntensity: 0, fogColor: "#d5e2e5", screenScrollSpeed: 1 },
+          runtime: {
+            particleDensity: 1,
+            movementSpeed: 1,
+            fogOffset: 32735,
+            fogSlope: 9,
+            fogTable: Array.from({ length: 32 }, (_unused, index) => Math.round(index * 127 / 31)),
+            fogFadeInFrames: 90,
+            fogFadeOutFrames: 50,
+            fogColor: "#d5e2e5",
+            screenScrollSpeed: 1,
+          },
         },
       }],
     };
