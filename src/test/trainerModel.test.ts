@@ -21,6 +21,17 @@ import { decodeRecord, type NarcStore, type ProjectState } from "../pokeweb/proj
 import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 
+const SHOWDOWN_IMPORT_TEXT = [
+  "Partner (Ivysaur) (F) @ Potion",
+  "Ability: Chlorophyll",
+  "Level: 42",
+  "Jolly Nature",
+  "IVs: 31 HP / 30 Atk / 29 Def / 28 SpA / 27 SpD / 26 Spe",
+  "Form: 2",
+  "- Razor Leaf",
+  "- Solar Beam",
+].join("\n");
+
 describe("trainerModel", () => {
   it("uses the trainer form index for Pokemon sprite fallbacks", () => {
     expect(trainerPokemonSpriteSlug("Rotom", 0)).toBe("rotom");
@@ -155,24 +166,10 @@ describe("trainerModel", () => {
     );
   });
 
-  it("imports Showdown text into one trainer Pokemon slot", () => {
+  it("imports Showdown text without storing nature data when the ROM nature patch is absent", () => {
     const project = makeProject(0);
 
-    importTrainerPokemonShowdownText(
-      project,
-      1,
-      0,
-      [
-        "Partner (Ivysaur) (F) @ Potion",
-        "Ability: Chlorophyll",
-        "Level: 42",
-        "Jolly Nature",
-        "IVs: 31 HP / 30 Atk / 29 Def / 28 SpA / 27 SpD / 26 Spe",
-        "Form: 2",
-        "- Razor Leaf",
-        "- Solar Beam",
-      ].join("\n"),
-    );
+    importTrainerPokemonShowdownText(project, 1, 0, SHOWDOWN_IMPORT_TEXT);
 
     const trainer = getTrainerRecord(project, 1);
     expect(trainer.raw.template).toBe(3);
@@ -184,9 +181,8 @@ describe("trainerModel", () => {
       gender: "Female",
       level: 42,
       ivs: 235,
-      nature: "Jolly",
-      natureSetting: "Jolly",
-      natureValue: 14,
+      natureSetting: "Auto",
+      natureValue: 0,
       form: 2,
     });
     expect(decodeRecord(project, "trpok", 1).raw).toMatchObject({
@@ -195,7 +191,7 @@ describe("trainerModel", () => {
       ability_0: 34,
       level_0: 42,
       ivs_0: 235,
-      padding_0: 14,
+      padding_0: 0,
       form_0: 2,
       move_1_0: 4,
       move_2_0: 6,
@@ -205,6 +201,30 @@ describe("trainerModel", () => {
     expect(project.narcs.trdata?.dirty.has(1)).toBe(true);
     expect(project.narcs.trpok?.dirty.has(1)).toBe(true);
     expect(project.actionChangelog?.entries.some((entry) => entry.domain === "trpok" && entry.text.includes("Pokemon 1 was imported from Showdown text."))).toBe(true);
+
+    materializeProjectEdits(project);
+    expect(project.narcs.trpok!.rawFiles[1][2]).toBe(42);
+    expect(project.narcs.trpok!.rawFiles[1][3]).toBe(0);
+    expect(readU16(project.narcs.trpok!.rawFiles[1], 2)).toBe(42);
+  });
+
+  it("stores an imported Showdown nature when the ROM nature patch is applied", () => {
+    const project = makeProject(0);
+    project.patches = { dirtyOverlayIds: [], applied: { specifyTrainerNatures: true } };
+
+    importTrainerPokemonShowdownText(project, 1, 0, SHOWDOWN_IMPORT_TEXT);
+
+    expect(getTrainerRecord(project, 1).party[0]).toMatchObject({
+      level: 42,
+      nature: "Jolly",
+      natureSetting: "Jolly",
+      natureValue: 14,
+    });
+    expect(decodeRecord(project, "trpok", 1).raw).toMatchObject({ level_0: 42, padding_0: 14 });
+
+    materializeProjectEdits(project);
+    expect(project.narcs.trpok!.rawFiles[1][2]).toBe(42);
+    expect(project.narcs.trpok!.rawFiles[1][3]).toBe(14);
   });
 
   it("treats invalid stored trainer Pokemon nature bytes as Auto", () => {

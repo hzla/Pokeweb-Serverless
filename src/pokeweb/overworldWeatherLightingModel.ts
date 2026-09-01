@@ -90,7 +90,7 @@ export async function loadWeatherLightingDocument(project: ProjectState, weather
     bytes,
     source,
     sharedEffectIds: weatherIdsReferencingLightingMember(project, memberId),
-    // PWTH ABI 2 preserves donor lighting. A future runtime hook must consume a custom member redirect.
+    // PWTH ABI 3 preserves donor lighting. A future runtime hook must consume a custom member redirect.
     runtimeLinked: source !== "custom",
   };
 }
