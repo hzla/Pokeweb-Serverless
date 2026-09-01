@@ -24,6 +24,7 @@ import {
   type WeatherPaletteData,
 } from "../pokeweb/overworldWeatherGraphicsModel";
 import { CUSTOM_WEATHER_ID_MAX, CUSTOM_WEATHER_ID_MIN, getWeatherEffects, loadOverworldWeatherPreview } from "../pokeweb/overworldWeatherModel";
+import { WEATHER_FOG_DEFAULT_TABLE, WEATHER_FOG_SLOPES } from "../pokeweb/overworldWeatherRuntimeModel";
 import { escapeHtml } from "./dom";
 import { mountWeatherPreview } from "./overworldWeatherEditor";
 import { renderWeatherResourceFootprint } from "./weatherResourceFootprint";
@@ -175,13 +176,24 @@ function renderRuntimeSection(document: WeatherGraphicsDocument): string {
   const runtime = clone.runtime;
   return `<section class="weather-graphics-panel">
     <div class="weather-panel-heading"><h2>Runtime template</h2><span class="weather-data-kind ${clone.runtimeReady ? "-ready" : "-code"}">${clone.runtimeReady ? "PWTH registered" : "one-time expansion required"}</span></div>
-    <p>These values form the row in <code>weather/pwth.bin</code>. ABI 2 applies fog intensity/color; density, movement, and scroll remain versioned preview fields for future behavior adapters.</p>
+    <p>These values form the row in <code>weather/pwth.bin</code>. ABI 3 sends the native fog offset, hardware slope, 32-entry blend table, fade timings, and color directly to the field renderer. Density, movement, and scroll remain versioned preview fields for future behavior adapters.</p>
     <div class="weather-runtime-grid">
       ${numberField("Particle density", "particleDensity", runtime.particleDensity, 0, 4, .1)}
       ${numberField("Movement speed", "movementSpeed", runtime.movementSpeed, 0, 4, .1)}
-      ${numberField("Fog intensity", "fogIntensity", runtime.fogIntensity, 0, 2, .05)}
       <label>Fog color<input data-runtime-field="fogColor" type="color" value="${escapeHtml(runtime.fogColor)}" /></label>
       ${numberField("Plane scroll speed", "screenScrollSpeed", runtime.screenScrollSpeed, -4, 4, .1)}
+    </div>
+    <div class="weather-native-fog">
+      <div class="weather-native-fog-heading"><div><h3>Native depth fog</h3><p>Exact Nintendo DS field-fog parameters. A larger offset pushes the blend farther from the camera; table entries are hardware density values from 0–127. The 2D preview approximates depth and cycles through both fade durations.</p></div><button class="btn -default" id="weather-reset-fog-table" type="button">Reset stock table</button></div>
+      <div class="weather-runtime-grid">
+        ${numberField("Depth offset", "fogOffset", runtime.fogOffset, 0, 32767, 1)}
+        <label>Hardware slope<select class="filter-input" data-runtime-field="fogSlope">${WEATHER_FOG_SLOPES.map((slope) => `<option value="${slope.value}" ${runtime.fogSlope === slope.value ? "selected" : ""}>${slope.value}: ${slope.ratio}${slope.value === 9 ? " (stock)" : ""}</option>`).join("")}</select></label>
+        ${numberField("Fade-in duration (frames)", "fogFadeInFrames", runtime.fogFadeInFrames, 1, 600, 1)}
+        ${numberField("Fade-out duration (frames)", "fogFadeOutFrames", runtime.fogFadeOutFrames, 1, 600, 1)}
+      </div>
+      <div class="weather-fog-table" aria-label="32-entry native fog blend table">
+        ${runtime.fogTable.map((value, index) => `<label><span>${index}</span><input class="filter-input" data-fog-table-index="${index}" type="number" min="0" max="127" step="1" value="${value}" /></label>`).join("")}
+      </div>
     </div>
   </section>`;
 }
@@ -199,7 +211,7 @@ function renderLightingSection(
     ? `<div class="weather-lighting-note -warning"><strong>Shared lighting member.</strong> Member ${lighting.memberId} is referenced by weather ${lighting.sharedEffectIds.join(", ")}. Editing it changes every listed effect; clone first if they should diverge.</div>`
     : "";
   const sourceWarning = lighting.source === "custom" && !lighting.runtimeLinked
-    ? `<div class="weather-lighting-note -runtime"><strong>Custom preview resource.</strong> This clone has its own appended lighting member, so edits are independent and visible here. PWTH ABI 2 still uses the donor's lighting in-game; its native lighting lookup must be extended to consume this member ID.</div>`
+    ? `<div class="weather-lighting-note -runtime"><strong>Custom preview resource.</strong> This clone has its own appended lighting member, so edits are independent and visible here. PWTH ABI 3 still uses the donor's lighting in-game; its native lighting lookup must be extended to consume this member ID.</div>`
     : lighting.source === "inherited"
       ? `<div class="weather-lighting-note -warning"><strong>Inherited donor lighting.</strong> This older clone has no independent lighting member and currently edits the donor table.</div>`
       : "";
@@ -528,15 +540,37 @@ function bindAnimation(project: ProjectState, root: HTMLElement, document: Weath
 }
 
 function bindRuntime(project: ProjectState, root: HTMLElement, state: EditorState, render: () => Promise<void>, onDirty?: () => void): void {
-  root.querySelectorAll<HTMLInputElement>("[data-runtime-field]").forEach((input) => input.addEventListener("change", async () => {
+  root.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-runtime-field]").forEach((input) => input.addEventListener("change", async () => {
     try {
-      await updateWeatherCloneRuntime(project, state.effectId, { [input.dataset.runtimeField!]: input.type === "color" ? input.value : Number(input.value) });
-      state.status = "Updated runtime template preview values.";
+      await updateWeatherCloneRuntime(project, state.effectId, { [input.dataset.runtimeField!]: input instanceof HTMLInputElement && input.type === "color" ? input.value : Number(input.value) });
+      state.status = "Updated native weather runtime values.";
       state.error = false;
       onDirty?.();
     } catch (error) { showError(state, error); }
     await render();
   }));
+  root.querySelectorAll<HTMLInputElement>("[data-fog-table-index]").forEach((input) => input.addEventListener("change", async () => {
+    try {
+      const effect = project.overworldWeather?.customEffects.find((candidate) => candidate.id === state.effectId);
+      if (!effect?.clone) throw new Error("Fog tables can only be changed on cloned custom weather.");
+      const table = [...effect.clone.runtime.fogTable];
+      table[Number(input.dataset.fogTableIndex)] = Number(input.value);
+      await updateWeatherCloneRuntime(project, state.effectId, { fogTable: table });
+      state.status = `Updated native fog blend-table entry ${input.dataset.fogTableIndex}.`;
+      state.error = false;
+      onDirty?.();
+    } catch (error) { showError(state, error); }
+    await render();
+  }));
+  root.querySelector<HTMLButtonElement>("#weather-reset-fog-table")?.addEventListener("click", async () => {
+    try {
+      await updateWeatherCloneRuntime(project, state.effectId, { fogTable: [...WEATHER_FOG_DEFAULT_TABLE] });
+      state.status = "Restored the stock 32-entry fog blend table.";
+      state.error = false;
+      onDirty?.();
+    } catch (error) { showError(state, error); }
+    await render();
+  });
 }
 
 async function saveCells(project: ProjectState, state: EditorState, cellBank: NonNullable<WeatherGraphicsDocument["particle"]>["cellBank"], render: () => Promise<void>, onDirty?: () => void): Promise<void> {

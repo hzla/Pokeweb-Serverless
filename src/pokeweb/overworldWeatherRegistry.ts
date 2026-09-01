@@ -1,11 +1,12 @@
 import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import type { OverworldWeatherCustomEffect, ProjectState } from "./projectStore";
+import { normalizeWeatherCloneRuntime, WEATHER_FOG_DEFAULT_TABLE } from "./overworldWeatherRuntimeModel";
 
 export const OVERWORLD_WEATHER_REGISTRY_PATH = "weather/pwth.bin";
 export const OVERWORLD_WEATHER_REGISTRY_MAGIC = "PWTH";
-export const OVERWORLD_WEATHER_REGISTRY_VERSION = 1;
+export const OVERWORLD_WEATHER_REGISTRY_VERSION = 2;
 export const OVERWORLD_WEATHER_REGISTRY_HEADER_SIZE = 16;
-export const OVERWORLD_WEATHER_REGISTRY_ENTRY_SIZE = 48;
+export const OVERWORLD_WEATHER_REGISTRY_ENTRY_SIZE = 68;
 export const OVERWORLD_WEATHER_FIRST_CUSTOM_ID = 15;
 export const OVERWORLD_WEATHER_CUSTOM_ENTRY_COUNT = 49;
 export const OVERWORLD_WEATHER_LAST_CUSTOM_ID = 63;
@@ -32,7 +33,7 @@ export type OverworldWeatherRegistryEntry = {
   auxiliaryMemberIds: [number, number];
   particleDensityQ8_8: number;
   movementSpeedQ8_8: number;
-  fogIntensityQ8_8: number;
+  fogOffset: number;
   fogRed5: number;
   fogGreen5: number;
   fogBlue5: number;
@@ -41,6 +42,7 @@ export type OverworldWeatherRegistryEntry = {
   fogFadeInFrames: number;
   fogFadeOutFrames: number;
   entryFlags: number;
+  fogTable: number[];
 };
 
 export type OverworldWeatherRegistry = {
@@ -115,6 +117,7 @@ export function parseOverworldWeatherRegistry(bytes: Uint8Array): OverworldWeath
 
 function registryEntryFromClone(effect: OverworldWeatherCustomEffect): OverworldWeatherRegistryEntry {
   const clone = effect.clone!;
+  const runtime = normalizeWeatherCloneRuntime(clone.runtime);
   const particle = clone.particleResource;
   const auxiliary: [number, number] = [
     clone.auxiliaryResourceIds[0] ?? OVERWORLD_WEATHER_UNUSED_RESOURCE,
@@ -127,7 +130,7 @@ function registryEntryFromClone(effect: OverworldWeatherCustomEffect): Overworld
   if (clone.behavior === "fog" || clone.channels.includes("fog")) channelFlags |= WeatherRegistryChannel.Fog;
   if (clone.channels.includes("lighting")) channelFlags |= WeatherRegistryChannel.Lighting;
   if (clone.channels.includes("sound")) channelFlags |= WeatherRegistryChannel.Sound;
-  const [fogRed5, fogGreen5, fogBlue5] = rgb5(clone.runtime.fogColor);
+  const [fogRed5, fogGreen5, fogBlue5] = rgb5(runtime.fogColor);
   return {
     weatherId: effect.id,
     enabled: true,
@@ -138,17 +141,18 @@ function registryEntryFromClone(effect: OverworldWeatherCustomEffect): Overworld
     characterMemberId: particle?.character ?? OVERWORLD_WEATHER_UNUSED_RESOURCE,
     paletteMemberId: particle?.palette ?? OVERWORLD_WEATHER_UNUSED_RESOURCE,
     auxiliaryMemberIds: auxiliary,
-    particleDensityQ8_8: q8_8(clone.runtime.particleDensity, 0, 4),
-    movementSpeedQ8_8: q8_8(clone.runtime.movementSpeed, 0, 4),
-    fogIntensityQ8_8: q8_8(clone.runtime.fogIntensity, 0, 2),
+    particleDensityQ8_8: q8_8(runtime.particleDensity, 0, 4),
+    movementSpeedQ8_8: q8_8(runtime.movementSpeed, 0, 4),
+    fogOffset: runtime.fogOffset,
     fogRed5,
     fogGreen5,
     fogBlue5,
-    fogSlope: 9,
-    screenScrollSpeedQ8_8: signedQ8_8(clone.runtime.screenScrollSpeed, -4, 4),
-    fogFadeInFrames: 90,
-    fogFadeOutFrames: 50,
+    fogSlope: runtime.fogSlope,
+    screenScrollSpeedQ8_8: signedQ8_8(runtime.screenScrollSpeed, -4, 4),
+    fogFadeInFrames: runtime.fogFadeInFrames,
+    fogFadeOutFrames: runtime.fogFadeOutFrames,
     entryFlags: 0,
+    fogTable: [...runtime.fogTable],
   };
 }
 
@@ -165,7 +169,7 @@ function emptyEntry(weatherId: number): OverworldWeatherRegistryEntry {
     auxiliaryMemberIds: [OVERWORLD_WEATHER_UNUSED_RESOURCE, OVERWORLD_WEATHER_UNUSED_RESOURCE],
     particleDensityQ8_8: 0x0100,
     movementSpeedQ8_8: 0x0100,
-    fogIntensityQ8_8: 0x0100,
+    fogOffset: 32575,
     fogRed5: 27,
     fogGreen5: 28,
     fogBlue5: 28,
@@ -174,6 +178,7 @@ function emptyEntry(weatherId: number): OverworldWeatherRegistryEntry {
     fogFadeInFrames: 90,
     fogFadeOutFrames: 50,
     entryFlags: 0,
+    fogTable: [...WEATHER_FOG_DEFAULT_TABLE],
   };
 }
 
@@ -194,7 +199,7 @@ function writeRegistryEntry(bytes: Uint8Array, index: number, entry: OverworldWe
   writeU16(bytes, offset + 14, entry.auxiliaryMemberIds[1]);
   writeU16(bytes, offset + 16, entry.particleDensityQ8_8);
   writeU16(bytes, offset + 18, entry.movementSpeedQ8_8);
-  writeU16(bytes, offset + 20, entry.fogIntensityQ8_8);
+  writeU16(bytes, offset + 20, entry.fogOffset);
   bytes[offset + 22] = entry.fogRed5;
   bytes[offset + 23] = entry.fogGreen5;
   bytes[offset + 24] = entry.fogBlue5;
@@ -203,6 +208,9 @@ function writeRegistryEntry(bytes: Uint8Array, index: number, entry: OverworldWe
   writeU16(bytes, offset + 28, entry.fogFadeInFrames);
   writeU16(bytes, offset + 30, entry.fogFadeOutFrames);
   writeU32(bytes, offset + 32, entry.entryFlags);
+  for (let tableIndex = 0; tableIndex < 32; tableIndex += 1) {
+    bytes[offset + 36 + tableIndex] = Math.max(0, Math.min(127, Math.round(entry.fogTable[tableIndex] ?? 0)));
+  }
 }
 
 function readRegistryEntry(bytes: Uint8Array, index: number): OverworldWeatherRegistryEntry {
@@ -220,7 +228,7 @@ function readRegistryEntry(bytes: Uint8Array, index: number): OverworldWeatherRe
     auxiliaryMemberIds: [readU16(bytes, offset + 12), readU16(bytes, offset + 14)],
     particleDensityQ8_8: readU16(bytes, offset + 16),
     movementSpeedQ8_8: readU16(bytes, offset + 18),
-    fogIntensityQ8_8: readU16(bytes, offset + 20),
+    fogOffset: readU16(bytes, offset + 20),
     fogRed5: bytes[offset + 22],
     fogGreen5: bytes[offset + 23],
     fogBlue5: bytes[offset + 24],
@@ -229,6 +237,7 @@ function readRegistryEntry(bytes: Uint8Array, index: number): OverworldWeatherRe
     fogFadeInFrames: readU16(bytes, offset + 28),
     fogFadeOutFrames: readU16(bytes, offset + 30),
     entryFlags: readU32(bytes, offset + 32),
+    fogTable: [...bytes.slice(offset + 36, offset + 68)],
   };
 }
 
