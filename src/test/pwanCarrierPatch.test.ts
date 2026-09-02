@@ -50,6 +50,21 @@ describe("pwanCarrierPatch", () => {
     expect(readU32(store.rawFiles[57]!, 16)).toBe((PWAN_FRONT_NCEC_Y - PWAN_CARRIER_BASELINE_RAISE_PX) << 8);
   });
 
+  it("patches already-uncompressed RGCN carrier graphics", () => {
+    const project = makeProject();
+    const store = project.narcs.pokemon_sprites!;
+    store.rawFiles[40] = decompressNitro(store.rawFiles[40]!);
+    store.rawFiles[42] = decompressNitro(store.rawFiles[42]!);
+    expect(store.rawFiles[40]?.[0]).toBe(0x52);
+    const front = compileGifToPwan(new Uint8Array(Buffer.from(SINGLE_PIXEL_GIF_BASE64, "base64")));
+
+    expect(() => applyPwanCarrierPatch(project, makeOverride(2, front.pwanBytes, undefined), makeCarrier())).not.toThrow();
+
+    expect(store.rawFiles[40]?.[0]).toBe(0x11);
+    expect(decompressNitro(store.rawFiles[40]!).slice(-0x1200).some((byte) => byte !== 0)).toBe(true);
+    expect(decompressNitro(store.rawFiles[42]!).slice(-0x4000).some((byte) => byte !== 0)).toBe(true);
+  });
+
   it("lifts tall back carriers", () => {
     expect(deriveBackNcecY(makeTallPwan())).toBe(PWAN_BACK_NCEC_Y);
   });
