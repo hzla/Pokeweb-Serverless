@@ -9,6 +9,7 @@ import type { PwanLibraryEntry, PwanLibraryManifest } from "../src/pokeweb/pwanL
 
 type BuildPwanLibraryOptions = {
   romPath: string;
+  iconRomPath: string;
   trackerPath: string;
   reportsDir: string;
   outDir: string;
@@ -43,6 +44,7 @@ type ReportIndex = {
 type BuildReport = {
   format: "pokeweb-pwan-library-build-report-v2";
   sourceRom: string;
+  iconSourceRom: string;
   archivePath: string;
   archiveBytes: number;
   entryCount: number;
@@ -66,6 +68,7 @@ type BuildReport = {
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
 const WORKSPACE_ROOT = path.resolve(REPO_ROOT, "..");
+const W2U_ORIGINAL_ROOT = path.resolve(WORKSPACE_ROOT, "..", "White2Upgrade-Original-pokeweb");
 const W2U_FORM_SPRITE_START = 724;
 const POKEMON_ICON_ARCHIVE_PATH = "a/0/0/7";
 const POKEMON_ICON_PALETTE_MAP_PATH = "pokeicon_palette_map.bin";
@@ -81,6 +84,7 @@ const GEN8PLUS_ICON_ARCHIVE_START = GEN8PLUS_STATIC_ASSET_START * ICONS_PER_SPEC
 export function defaultBuildPwanLibraryOptions(): BuildPwanLibraryOptions {
   return {
     romPath: path.join(WORKSPACE_ROOT, "White2Upgrade", "White2Upgrade.nds"),
+    iconRomPath: path.join(W2U_ORIGINAL_ROOT, "build", "White2Upgrade.nds"),
     trackerPath: path.join(WORKSPACE_ROOT, "White2Expansion", "data", "pokemon.gen6.json"),
     reportsDir: path.join(WORKSPACE_ROOT, "White2Upgrade", "assets", "pokeweb_pwan"),
     outDir: path.join(REPO_ROOT, "src", "assets", "pwan", "library"),
@@ -96,12 +100,15 @@ export async function buildPwanLibrary(options: BuildPwanLibraryOptions): Promis
   if (!archiveBytes) throw new Error(`ROM file ${archiveFileId} for ${PWAN_ARCHIVE_PATH} is empty.`);
   const overrides = parsePwanArchiveBytes(archiveBytes);
   const libraryArchive = new NARC(archiveBytes);
-  const iconArchive = readRomNarc(rom, POKEMON_ICON_ARCHIVE_PATH);
-  const iconPaletteMap = readRomFile(rom, POKEMON_ICON_PALETTE_MAP_PATH);
+  const iconRom = options.iconRomPath === options.romPath
+    ? rom
+    : new NintendoDSRom(new Uint8Array(await readFile(options.iconRomPath)));
+  const iconArchive = readRomNarc(iconRom, POKEMON_ICON_ARCHIVE_PATH);
+  const iconPaletteMap = readRomFile(iconRom, POKEMON_ICON_PALETTE_MAP_PATH);
   const trackerRows = JSON.parse(await readFile(options.trackerPath, "utf8")) as TrackerRow[];
   const reportIndex = await loadReportIndex(options.reportsDir);
   const entries = overrides.map((override) => buildManifestEntry(override, trackerRows, reportIndex));
-  const missingIcons = appendIconPayloads(libraryArchive, iconArchive, iconPaletteMap, entries);
+  const missingIcons = appendIconPayloads(libraryArchive, iconArchive, iconPaletteMap, entries, trackerRows);
   const libraryArchiveBytes = libraryArchive.save();
   const iconCount = entries.filter((entry) => entry.icon).length;
   const frontCount = entries.filter((entry) => entry.hasFront).length;
@@ -112,6 +119,7 @@ export async function buildPwanLibrary(options: BuildPwanLibraryOptions): Promis
     format: "pokeweb-pwan-library-v2",
     generatedAt: new Date().toISOString(),
     sourceRom: path.relative(REPO_ROOT, options.romPath),
+    iconSourceRom: path.relative(REPO_ROOT, options.iconRomPath),
     archivePath: PWAN_ARCHIVE_PATH,
     archiveBytes: libraryArchiveBytes.length,
     entryCount: entries.length,
@@ -126,6 +134,7 @@ export async function buildPwanLibrary(options: BuildPwanLibraryOptions): Promis
   const report: BuildReport = {
     format: "pokeweb-pwan-library-build-report-v2",
     sourceRom: options.romPath,
+    iconSourceRom: options.iconRomPath,
     archivePath: PWAN_ARCHIVE_PATH,
     archiveBytes: libraryArchiveBytes.length,
     entryCount: entries.length,
@@ -149,13 +158,15 @@ function appendIconPayloads(
   iconArchive: NARC,
   paletteMap: Uint8Array,
   entries: PwanLibraryEntry[],
+  trackerRows: TrackerRow[],
 ): string[] {
   const missing: string[] = [];
   for (const entry of entries) {
-    const sourceBase = sourceIconBase(entry, iconArchive);
+    const source = sourceIconLocation(entry, iconArchive, trackerRows);
+    const sourceBase = source.archiveIndex;
     const male = iconArchive.files[sourceBase];
     const female = iconArchive.files[sourceBase + 1] ?? new Uint8Array();
-    const paletteKey = entry.formIndex > 0 ? entry.assetIndex : entry.speciesId;
+    const paletteKey = source.paletteKey;
     const packedPalette = paletteMap[paletteKey];
     if (!male?.length || packedPalette === undefined) {
       missing.push(entry.id);
@@ -175,21 +186,37 @@ function appendIconPayloads(
       femaleMemberId,
       malePaletteId,
       femalePaletteId,
+      sourceArchiveIndex: sourceBase,
+      sourcePaletteKey: paletteKey,
     };
   }
   return missing;
 }
 
-function sourceIconBase(entry: PwanLibraryEntry, iconArchive: NARC): number {
-  if (entry.formIndex > 0) return entry.assetIndex * ICONS_PER_SPECIES + ICON_ARCHIVE_OFFSET;
+function sourceIconLocation(entry: PwanLibraryEntry, iconArchive: NARC, trackerRows: TrackerRow[]): { archiveIndex: number; paletteKey: number } {
+  if (entry.formIndex > 0) {
+    const tracker = findTrackerRow(trackerRows, entry.speciesId, entry.formIndex, entry.assetIndex);
+    const directFormId = numberValue(tracker?.id);
+    const directArchiveIndex = directFormId === undefined ? undefined : directFormId * ICONS_PER_SPECIES + ICON_ARCHIVE_OFFSET;
+    if (directArchiveIndex !== undefined && iconArchive.files[directArchiveIndex]?.length) {
+      return { archiveIndex: directArchiveIndex, paletteKey: directFormId };
+    }
+    return { archiveIndex: entry.assetIndex * ICONS_PER_SPECIES + ICON_ARCHIVE_OFFSET, paletteKey: entry.assetIndex };
+  }
   if (entry.speciesId >= GEN7_SPECIES_START && entry.speciesId <= GEN7_SPECIES_END) {
-    return GEN7_ICON_ARCHIVE_START + (entry.speciesId - GEN7_SPECIES_START) * ICONS_PER_SPECIES;
+    return {
+      archiveIndex: GEN7_ICON_ARCHIVE_START + (entry.speciesId - GEN7_SPECIES_START) * ICONS_PER_SPECIES,
+      paletteKey: entry.speciesId,
+    };
   }
   if (entry.speciesId >= GEN8PLUS_SPECIES_START) {
     const relocated = GEN8PLUS_ICON_ARCHIVE_START + (entry.speciesId - GEN8PLUS_SPECIES_START) * ICONS_PER_SPECIES;
-    if (iconArchive.files[relocated]?.length) return relocated;
+    if (iconArchive.files[relocated]?.length) return { archiveIndex: relocated, paletteKey: entry.speciesId };
   }
-  return entry.speciesId * ICONS_PER_SPECIES + ICON_ARCHIVE_OFFSET;
+  return {
+    archiveIndex: entry.speciesId * ICONS_PER_SPECIES + ICON_ARCHIVE_OFFSET,
+    paletteKey: entry.speciesId,
+  };
 }
 
 function readRomNarc(rom: NintendoDSRom, archivePath: string): NARC {
@@ -425,6 +452,9 @@ function parseArgs(argv: string[]): BuildPwanLibraryOptions {
     if (arg === "--rom" && value) {
       options.romPath = path.resolve(value);
       index += 1;
+    } else if (arg === "--icon-rom" && value) {
+      options.iconRomPath = path.resolve(value);
+      index += 1;
     } else if (arg === "--tracker" && value) {
       options.trackerPath = path.resolve(value);
       index += 1;
@@ -448,7 +478,7 @@ function printHelp(): void {
   console.log(`Build Hzla's bundled PWAN library.
 
 Usage:
-  npm run pwan:library -- [--rom ../White2Upgrade/White2Upgrade.nds] [--tracker ../White2Expansion/data/pokemon.gen6.json] [--reports-dir ../White2Upgrade/assets/pokeweb_pwan]
+  npm run pwan:library -- [--rom ../White2Upgrade/White2Upgrade.nds] [--icon-rom ../../White2Upgrade-Original-pokeweb/build/White2Upgrade.nds] [--tracker ../White2Expansion/data/pokemon.gen6.json] [--reports-dir ../White2Upgrade/assets/pokeweb_pwan]
 `);
 }
 

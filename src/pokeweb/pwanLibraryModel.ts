@@ -9,7 +9,7 @@ import {
   upsertPwanOverride,
 } from "./pwanAnimationModel";
 import { applyPwanCarrierPatch, loadBundledPwanCarrierTemplate, type PwanCarrierTemplate } from "./pwanCarrierPatch";
-import { installPokemonIconPayload, type PokemonIconPayload } from "./pokemonSpriteModel";
+import { installPokemonIconPayload, resolvePokemonIconAddress, type PokemonIconPayload } from "./pokemonSpriteModel";
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide } from "./projectStore";
 
 export type PwanLibraryCreditSource = "tracker" | "import-report" | "missing";
@@ -32,6 +32,8 @@ export type PwanLibraryEntry = {
     femaleMemberId: number;
     malePaletteId: number;
     femalePaletteId: number;
+    sourceArchiveIndex?: number;
+    sourcePaletteKey?: number;
   };
 };
 
@@ -39,6 +41,7 @@ export type PwanLibraryManifest = {
   format: "pokeweb-pwan-library-v1" | "pokeweb-pwan-library-v2";
   generatedAt: string;
   sourceRom: string;
+  iconSourceRom?: string;
   archivePath: string;
   archiveBytes: number;
   entryCount: number;
@@ -128,7 +131,12 @@ export function importPwanLibraryEntryFromLoadedLibrary(
   const saved = findPwanOverrideForSpecies(project, targetSpeciesId);
   if (!saved) throw new Error(`PWAN library import for species ${targetSpeciesId} did not save.`);
   applyPwanCarrierPatch(project, saved, carrier);
-  if (icon) installPokemonIconPayload(project, target.assetIndex, icon);
+  if (icon) installPokemonIconPayload(
+    project,
+    target.assetIndex,
+    icon,
+    resolvePokemonIconAddress(project, target.speciesId, target.formIndex, target.assetIndex),
+  );
   recordGenericChange(project, "pokemon_sprites", `Imported ${entry.name} from Hzla's PWAN Library.`, `Species ${target.speciesId}`, {
     key: `pwan-library-import:${target.speciesId}:${target.formIndex}:${entry.id}`,
   });

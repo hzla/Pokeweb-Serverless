@@ -12,6 +12,7 @@ import {
   getPokemonMultiCellAnimation,
   getPokemonMultiCells,
   getPokemonIconImage,
+  getPokemonIconPaletteAssignment,
   getPokemonPalettes,
   getPokemonRigAtlasDimensions,
   getPokemonSpriteFormOptions,
@@ -19,6 +20,7 @@ import {
   getRigCells,
   importPokemonAnimationBundle,
   importPokemonSpritePackage,
+  installPokemonIconPayload,
   parsePokemonAnimation,
   parsePokemonCellBank,
   parsePokemonMultiCells,
@@ -26,12 +28,14 @@ import {
   pokemonAnimationPlayerStateAtTick,
   pokemonAnimationSequenceTotalTicks,
   replaceRigCells,
+  resolvePokemonIconAddress,
   resolvePokemonSpriteId,
   scalePokemonAnimationDurations,
   setPokemonAnimation,
   setPokemonAnimationFrame,
   setPokemonCellBank,
   setPokemonIconImage,
+  setPokemonIconPaletteAssignment,
   setPokemonMultiCellAnimation,
   setPokemonMultiCells,
   setPokemonPalette,
@@ -120,6 +124,59 @@ describe("pokemonSpriteModel", () => {
     expect(resolvePokemonSpriteId(project, 810)).toBe(1200);
     expect(resolvePokemonSpriteId(project, 899)).toBe(1289);
     expect(resolvePokemonSpriteId(project, 1023)).toBe(1413);
+  });
+
+  it("resolves W2U icon archive and palette keys independently from battle sprite IDs", () => {
+    const project = makeW2uProject();
+    const icons = project.narcs.pokemon_icons!.rawFiles;
+    icons.length = 2162;
+    icons.fill(new Uint8Array(), 12);
+    icons[2160] = makeIconFile();
+
+    expect(resolvePokemonIconAddress(project, 448, 1, 815)).toEqual({ archiveSpriteId: 1076, paletteKey: 1076 });
+    expect(resolvePokemonIconAddress(project, 1076, 0, 815)).toEqual({ archiveSpriteId: 1076, paletteKey: 1076 });
+    expect(resolvePokemonIconAddress(project, 730, 0, 958)).toEqual({ archiveSpriteId: 956, paletteKey: 730 });
+    expect(resolvePokemonIconAddress(project, 899, 0, 1289)).toEqual({ archiveSpriteId: 1289, paletteKey: 899 });
+  });
+
+  it("reads and writes W2U external icon palette assignments", () => {
+    const project = makeW2uProject();
+    project.fileSystem = {
+      replacements: {},
+      additions: { "pokeicon_palette_map.bin": new Uint8Array(1100) },
+    };
+
+    setPokemonIconPaletteAssignment(project, 1076, "male", 2);
+    setPokemonIconPaletteAssignment(project, 1076, "female", 1);
+
+    expect(project.fileSystem.additions?.["pokeicon_palette_map.bin"]?.[1076]).toBe(0x12);
+    expect(getPokemonIconPaletteAssignment(project, 1076, "male")).toEqual({ editable: true, paletteId: 2 });
+    expect(getPokemonIconPaletteAssignment(project, 1076, "female")).toEqual({ editable: true, paletteId: 1 });
+    expect(project.arm9Dirty).not.toBe(true);
+  });
+
+  it("installs a W2U Mega icon into its direct form-personal archive slot", () => {
+    const project = makeW2uProject();
+    const icons = project.narcs.pokemon_icons!.rawFiles;
+    icons.length = 2162;
+    icons.fill(new Uint8Array(), 12);
+    icons[2160] = makeIconFile();
+    project.fileSystem = {
+      replacements: {},
+      additions: { "pokeicon_palette_map.bin": new Uint8Array(1100) },
+    };
+    const male = Uint8Array.of(0x52, 1, 2, 3);
+
+    installPokemonIconPayload(project, 815, {
+      male,
+      female: new Uint8Array(),
+      malePaletteId: 2,
+      femalePaletteId: 1,
+    }, resolvePokemonIconAddress(project, 448, 1, 815));
+
+    expect(icons[2160]).toEqual(male);
+    expect(project.narcs.pokemon_icons?.dirty.has(2160)).toBe(true);
+    expect(project.fileSystem.additions?.["pokeicon_palette_map.bin"]?.[1076]).toBe(0x12);
   });
 
   it("does not reverse-map normal species IDs through hacked cosmetic form ranges", () => {

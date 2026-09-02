@@ -1,4 +1,5 @@
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { NintendoDSRom } from "../nds/rom";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
@@ -25,6 +26,10 @@ export type PokemonIconPayload = {
   female: Uint8Array;
   malePaletteId: number;
   femalePaletteId: number;
+};
+export type PokemonIconAddress = {
+  archiveSpriteId: number;
+  paletteKey: number;
 };
 export type RgbColor = { r: number; g: number; b: number };
 export type RgbaImageData = { width: number; height: number; pixels: Uint8ClampedArray };
@@ -198,6 +203,7 @@ const W2U_FORM_SPRITE_START = 724;
 const W2U_GEN7_SPECIES_START = 722;
 const W2U_GEN7_SPECIES_END = 809;
 const W2U_GEN7_STATIC_SPRITE_START = 950;
+const W2U_GEN7_ICON_SPRITE_START = 948;
 const W2U_GEN8_SPECIES_START = 810;
 const W2U_GEN9_SPECIES_END = 1023;
 const W2U_GEN8_STATIC_SPRITE_START = 1200;
@@ -206,6 +212,11 @@ const IMAGE_DATA_OFFSET = 48;
 export const DEFAULT_RIG_ATLAS_DIMENSIONS: RigAtlasDimensions = { width: 256, height: 128 };
 export const EXPANDED_RIG_ATLAS_DIMENSIONS: RigAtlasDimensions = { width: 256, height: 256 };
 const TRANSPARENT_ALPHA_THRESHOLD = 128;
+const W2U_DIRECT_MEGA_ICON_SPECIES = new Set([
+  3, 9, 15, 18, 65, 80, 94, 115, 127, 130, 142, 181, 208, 212, 214, 229, 248,
+  254, 257, 260, 282, 302, 303, 306, 308, 310, 319, 323, 334, 354, 359, 362, 373,
+  376, 380, 381, 428, 445, 448, 460, 475, 531,
+]);
 
 const SPRITE_UNSCRAMBLE_RECTS = [
   [0, 0, 64, 64, 0, 0],
@@ -408,7 +419,12 @@ export function setPokemonIconImage(project: ProjectState, spriteId: number, var
   recordPokemonSpriteAsset(project, "pokemon_icons", spriteId, `Icon ${variant} image changed.`);
 }
 
-export function installPokemonIconPayload(project: ProjectState, spriteId: number, payload: PokemonIconPayload): void {
+export function installPokemonIconPayload(
+  project: ProjectState,
+  spriteId: number,
+  payload: PokemonIconPayload,
+  address: PokemonIconAddress = { archiveSpriteId: spriteId, paletteKey: spriteId },
+): void {
   const store = project.narcs.pokemon_icons;
   if (!store) throw new Error("Pokemon icon NARC is not loaded");
   if (!payload.male.length) throw new Error("Pokemon icon payload is missing its male/default icon");
@@ -418,18 +434,63 @@ export function installPokemonIconPayload(project: ProjectState, spriteId: numbe
     }
   }
 
-  const maleIndex = iconFileIndex(project, spriteId, "male");
-  const femaleIndex = iconFileIndex(project, spriteId, "female");
+  const maleIndex = iconFileIndex(project, address.archiveSpriteId, "male");
+  const femaleIndex = iconFileIndex(project, address.archiveSpriteId, "female");
   if (femaleIndex >= store.rawFiles.length) throw new Error(`Pokemon icon sprite ${spriteId} is outside the loaded icon archive`);
 
-  ensurePokemonIconPaletteAssignmentCapacity(project, spriteId);
-  setPokemonIconPaletteAssignment(project, spriteId, "male", payload.malePaletteId);
-  setPokemonIconPaletteAssignment(project, spriteId, "female", payload.femalePaletteId);
+  ensurePokemonIconPaletteAssignmentCapacity(project, address.paletteKey);
+  setPokemonIconPaletteAssignment(project, address.paletteKey, "male", payload.malePaletteId);
+  setPokemonIconPaletteAssignment(project, address.paletteKey, "female", payload.femalePaletteId);
   store.rawFiles[maleIndex] = payload.male.slice();
   store.rawFiles[femaleIndex] = payload.female.slice();
   markDirty(project, "pokemon_icons", maleIndex);
   markDirty(project, "pokemon_icons", femaleIndex);
   recordPokemonSpriteAsset(project, "pokemon_icons", spriteId, "PWAN Library icon installed.");
+}
+
+export function resolvePokemonIconAddress(
+  project: ProjectState,
+  speciesId: number,
+  formIndex = 0,
+  spriteId = resolvePokemonSpriteId(project, speciesId, formIndex),
+): PokemonIconAddress {
+  if (!usesW2uExpandedPokegra(project)) return { archiveSpriteId: spriteId, paletteKey: spriteId };
+
+  const formOwner = formIndex <= 0 ? findPokemonPersonalFormOwner(project, speciesId) : undefined;
+  if (formOwner) {
+    speciesId = formOwner.speciesId;
+    formIndex = formOwner.formIndex;
+  }
+
+  if (formIndex > 0 && isW2uDirectMegaIconForm(speciesId, formIndex)) {
+    const record = decodeRecord(project, "personal", speciesId);
+    const firstFormId = Number(record.raw?.form_id ?? 0);
+    const formPersonalId = firstFormId > 0 ? firstFormId + formIndex - 1 : 0;
+    const directIndex = iconFileIndex(project, formPersonalId, "male");
+    if (formPersonalId > 0 && project.narcs.pokemon_icons?.rawFiles[directIndex]?.length) {
+      return { archiveSpriteId: formPersonalId, paletteKey: formPersonalId };
+    }
+  }
+
+  if (formIndex <= 0 && speciesId >= W2U_GEN7_SPECIES_START && speciesId <= W2U_GEN7_SPECIES_END) {
+    return {
+      archiveSpriteId: W2U_GEN7_ICON_SPRITE_START + speciesId - W2U_GEN7_SPECIES_START,
+      paletteKey: speciesId,
+    };
+  }
+  if (formIndex <= 0 && speciesId >= W2U_GEN8_SPECIES_START && speciesId <= W2U_GEN9_SPECIES_END) {
+    return {
+      archiveSpriteId: W2U_GEN8_STATIC_SPRITE_START + speciesId - W2U_GEN8_SPECIES_START,
+      paletteKey: speciesId,
+    };
+  }
+  return { archiveSpriteId: spriteId, paletteKey: formIndex > 0 ? spriteId : speciesId };
+}
+
+export function isW2uDirectMegaIconForm(speciesId: number, formIndex: number): boolean {
+  if (formIndex <= 0) return false;
+  if (speciesId === 6 || speciesId === 150) return formIndex <= 2;
+  return formIndex === 1 && W2U_DIRECT_MEGA_ICON_SPECIES.has(speciesId);
 }
 
 export function getPokemonIconPalettes(project: ProjectState): RgbColor[][] {
@@ -448,6 +509,15 @@ export function genderedPokemonIcons(project: ProjectState, spriteId: number): b
 }
 
 export function getPokemonIconPaletteAssignment(project: ProjectState, spriteId: number, variant: PokemonIconVariant): { editable: boolean; paletteId: number } {
+  const external = externalIconPaletteMap(project);
+  if (external) {
+    const value = external.bytes[spriteId];
+    if (value === undefined) return { editable: false, paletteId: 0 };
+    return {
+      editable: true,
+      paletteId: variant === "female" ? (value >>> 4) & 0x0f : value & 0x0f,
+    };
+  }
   const layout = iconPaletteAssignmentLayout(project);
   const index = iconPaletteAssignmentIndex(project, spriteId);
   if (!layout || index === undefined || index >= layout.capacity) return { editable: false, paletteId: 0 };
@@ -459,6 +529,14 @@ export function getPokemonIconPaletteAssignment(project: ProjectState, spriteId:
 }
 
 export function ensurePokemonIconPaletteAssignmentCapacity(project: ProjectState, spriteId: number): void {
+  const external = externalIconPaletteMap(project);
+  if (external) {
+    if (spriteId < external.bytes.length) return;
+    const out = new Uint8Array(spriteId + 1);
+    out.set(external.bytes);
+    external.commit(out);
+    return;
+  }
   const config = iconPaletteAssignmentConfig(project);
   const layout = iconPaletteAssignmentLayout(project);
   const index = iconPaletteAssignmentIndex(project, spriteId);
@@ -502,6 +580,7 @@ export function ensurePokemonIconPaletteAssignmentCapacity(project: ProjectState
 }
 
 export function repairPokemonIconPaletteAssignmentPlacement(project: ProjectState): boolean {
+  if (externalIconPaletteMap(project)) return false;
   const config = iconPaletteAssignmentConfig(project);
   const layout = iconPaletteAssignmentLayout(project);
   if (!config || !layout || !iconPaletteAssignmentOverlapsPmc(project, layout)) return false;
@@ -512,6 +591,18 @@ export function repairPokemonIconPaletteAssignmentPlacement(project: ProjectStat
 
 export function setPokemonIconPaletteAssignment(project: ProjectState, spriteId: number, variant: PokemonIconVariant, paletteId: number): void {
   if (!Number.isInteger(paletteId) || paletteId < 0 || paletteId > 2) throw new Error("Icon palette must be 0, 1, or 2");
+  const external = externalIconPaletteMap(project);
+  if (external) {
+    const out = new Uint8Array(Math.max(external.bytes.length, spriteId + 1));
+    out.set(external.bytes);
+    const value = out[spriteId] ?? 0;
+    out[spriteId] = variant === "female" ? (value & 0x0f) | (paletteId << 4) : (value & 0xf0) | paletteId;
+    external.commit(out);
+    recordFieldChange(project, "pokemon_icons", pokemonSpriteSubject(project, spriteId), `${variant} icon palette`, (variant === "female" ? (value >>> 4) & 0x0f : value & 0x0f), paletteId, {
+      key: `pokemon-icon-palette:${spriteId}:${variant}`,
+    });
+    return;
+  }
   ensurePokemonIconPaletteAssignmentCapacity(project, spriteId);
   const layout = iconPaletteAssignmentLayout(project);
   const assignmentIndex = iconPaletteAssignmentIndex(project, spriteId);
@@ -528,6 +619,17 @@ export function setPokemonIconPaletteAssignment(project: ProjectState, spriteId:
 }
 
 export function clearPokemonIconPaletteAssignment(project: ProjectState, spriteId: number): void {
+  const external = externalIconPaletteMap(project);
+  if (external) {
+    if (spriteId >= external.bytes.length) throw new Error("Icon palette assignments are not available for this ROM");
+    const out = external.bytes.slice();
+    out[spriteId] = 0;
+    external.commit(out);
+    recordGenericChange(project, "pokemon_icons", `Removed the icon palette assignment for sprite ${spriteId}.`, pokemonSpriteSubject(project, spriteId), {
+      key: `pokemon-icon-palette-delete:${spriteId}`,
+    });
+    return;
+  }
   const layout = iconPaletteAssignmentLayout(project);
   const assignmentIndex = iconPaletteAssignmentIndex(project, spriteId);
   if (!layout || assignmentIndex === undefined || assignmentIndex >= layout.capacity) {
@@ -1272,6 +1374,41 @@ const DEFAULT_GEN5_ARM9_RAM_ADDRESS = 0x02004000;
 const ARM9_MAIN_MEMORY_END = 0x02400000;
 const ICON_PALETTE_RELOCATION_HEADER_SIZE = 16;
 const ICON_PALETTE_RELOCATION_MAGIC = Uint8Array.of(0x50, 0x57, 0x49, 0x43, 0x4f, 0x4e, 0x50, 0x4c); // PWICONPL
+const EXTERNAL_ICON_PALETTE_MAP_PATH = "pokeicon_palette_map.bin";
+
+type ExternalIconPaletteMap = {
+  bytes: Uint8Array;
+  commit: (bytes: Uint8Array) => void;
+};
+
+function externalIconPaletteMap(project: ProjectState): ExternalIconPaletteMap | undefined {
+  const additionKey = Object.keys(project.fileSystem?.additions ?? {}).find((candidate) => candidate.toLowerCase() === EXTERNAL_ICON_PALETTE_MAP_PATH);
+  if (additionKey) {
+    const bytes = project.fileSystem?.additions?.[additionKey];
+    if (!bytes) return undefined;
+    return {
+      bytes,
+      commit: (next) => {
+        project.fileSystem!.additions![additionKey] = next;
+      },
+    };
+  }
+
+  if (!project.originalRomBytes) return undefined;
+  const rom = new NintendoDSRom(project.originalRomBytes);
+  const fileId = rom.filenames.idOf(EXTERNAL_ICON_PALETTE_MAP_PATH);
+  if (fileId === undefined) return undefined;
+  const bytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
+  if (!bytes) return undefined;
+  return {
+    bytes,
+    commit: (next) => {
+      project.fileSystem ??= { replacements: {} };
+      project.fileSystem.replacements ??= {};
+      project.fileSystem.replacements[fileId] = next;
+    },
+  };
+}
 
 function iconPaletteAssignmentConfig(project: ProjectState): IconPaletteAssignmentConfig | undefined {
   const whiteVersion = project.session.baseVersion === "W" || project.session.baseVersion === "W2";
