@@ -20,6 +20,12 @@ export type PokemonSpriteVariant = {
   gender: "male" | "female";
 };
 export type PokemonIconVariant = "male" | "female";
+export type PokemonIconPayload = {
+  male: Uint8Array;
+  female: Uint8Array;
+  malePaletteId: number;
+  femalePaletteId: number;
+};
 export type RgbColor = { r: number; g: number; b: number };
 export type RgbaImageData = { width: number; height: number; pixels: Uint8ClampedArray };
 export type IndexedImageData = { width: number; height: number; indices: Uint8Array };
@@ -400,6 +406,30 @@ export function setPokemonIconImage(project: ProjectState, spriteId: number, var
   store.rawFiles[fileIndex] = out;
   store.dirty.add(fileIndex);
   recordPokemonSpriteAsset(project, "pokemon_icons", spriteId, `Icon ${variant} image changed.`);
+}
+
+export function installPokemonIconPayload(project: ProjectState, spriteId: number, payload: PokemonIconPayload): void {
+  const store = project.narcs.pokemon_icons;
+  if (!store) throw new Error("Pokemon icon NARC is not loaded");
+  if (!payload.male.length) throw new Error("Pokemon icon payload is missing its male/default icon");
+  for (const paletteId of [payload.malePaletteId, payload.femalePaletteId]) {
+    if (!Number.isInteger(paletteId) || paletteId < 0 || paletteId > 2) {
+      throw new Error("Pokemon icon payload palette IDs must be 0, 1, or 2");
+    }
+  }
+
+  const maleIndex = iconFileIndex(project, spriteId, "male");
+  const femaleIndex = iconFileIndex(project, spriteId, "female");
+  if (femaleIndex >= store.rawFiles.length) throw new Error(`Pokemon icon sprite ${spriteId} is outside the loaded icon archive`);
+
+  ensurePokemonIconPaletteAssignmentCapacity(project, spriteId);
+  setPokemonIconPaletteAssignment(project, spriteId, "male", payload.malePaletteId);
+  setPokemonIconPaletteAssignment(project, spriteId, "female", payload.femalePaletteId);
+  store.rawFiles[maleIndex] = payload.male.slice();
+  store.rawFiles[femaleIndex] = payload.female.slice();
+  markDirty(project, "pokemon_icons", maleIndex);
+  markDirty(project, "pokemon_icons", femaleIndex);
+  recordPokemonSpriteAsset(project, "pokemon_icons", spriteId, "PWAN Library icon installed.");
 }
 
 export function getPokemonIconPalettes(project: ProjectState): RgbColor[][] {
@@ -1304,7 +1334,7 @@ function iconPaletteAssignmentValid(project: ProjectState, offset: number): bool
   if (project.arm9.length < offset + 16) return false;
   for (let i = 0; i < 16; i += 1) {
     const value = project.arm9[offset + i];
-    if (value !== 0 && value !== 17 && value !== 34) return false;
+    if ((value & 0x0f) > 2 || ((value >>> 4) & 0x0f) > 2) return false;
   }
   return true;
 }

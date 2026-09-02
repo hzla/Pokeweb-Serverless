@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { NARC } from "../src/nds/narc";
 import { NintendoDSRom } from "../src/nds/rom";
 import { PWAN_ARCHIVE_PATH, parsePwanArchiveBytes, pwanAssetIndex } from "../src/pokeweb/pwanAnimationModel";
 import type { PwanAnimationOverride } from "../src/pokeweb/projectStore";
@@ -40,7 +41,7 @@ type ReportIndex = {
 };
 
 type BuildReport = {
-  format: "pokeweb-pwan-library-build-report-v1";
+  format: "pokeweb-pwan-library-build-report-v2";
   sourceRom: string;
   archivePath: string;
   archiveBytes: number;
@@ -50,6 +51,8 @@ type BuildReport = {
     back: number;
     total: number;
   };
+  iconCount: number;
+  missingIcons: string[];
   oneSidedEntries: string[];
   missingCredits: string[];
   trackerReportMismatches: Array<{
@@ -64,6 +67,16 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
 const WORKSPACE_ROOT = path.resolve(REPO_ROOT, "..");
 const W2U_FORM_SPRITE_START = 724;
+const POKEMON_ICON_ARCHIVE_PATH = "a/0/0/7";
+const POKEMON_ICON_PALETTE_MAP_PATH = "pokeicon_palette_map.bin";
+const ICON_ARCHIVE_OFFSET = 8;
+const ICONS_PER_SPECIES = 2;
+const GEN7_SPECIES_START = 722;
+const GEN7_SPECIES_END = 809;
+const GEN7_ICON_ARCHIVE_START = 1904;
+const GEN8PLUS_SPECIES_START = 810;
+const GEN8PLUS_STATIC_ASSET_START = 1200;
+const GEN8PLUS_ICON_ARCHIVE_START = GEN8PLUS_STATIC_ASSET_START * ICONS_PER_SPECIES + ICON_ARCHIVE_OFFSET;
 
 export function defaultBuildPwanLibraryOptions(): BuildPwanLibraryOptions {
   return {
@@ -82,20 +95,27 @@ export async function buildPwanLibrary(options: BuildPwanLibraryOptions): Promis
   const archiveBytes = rom.files[archiveFileId];
   if (!archiveBytes) throw new Error(`ROM file ${archiveFileId} for ${PWAN_ARCHIVE_PATH} is empty.`);
   const overrides = parsePwanArchiveBytes(archiveBytes);
+  const libraryArchive = new NARC(archiveBytes);
+  const iconArchive = readRomNarc(rom, POKEMON_ICON_ARCHIVE_PATH);
+  const iconPaletteMap = readRomFile(rom, POKEMON_ICON_PALETTE_MAP_PATH);
   const trackerRows = JSON.parse(await readFile(options.trackerPath, "utf8")) as TrackerRow[];
   const reportIndex = await loadReportIndex(options.reportsDir);
   const entries = overrides.map((override) => buildManifestEntry(override, trackerRows, reportIndex));
+  const missingIcons = appendIconPayloads(libraryArchive, iconArchive, iconPaletteMap, entries);
+  const libraryArchiveBytes = libraryArchive.save();
+  const iconCount = entries.filter((entry) => entry.icon).length;
   const frontCount = entries.filter((entry) => entry.hasFront).length;
   const backCount = entries.filter((entry) => entry.hasBack).length;
   const missingCredits = entries.filter((entry) => entry.credits.trim().length === 0).map((entry) => entry.id);
   const trackerReportMismatches = entries.flatMap((entry) => creditMismatch(entry, reportIndex));
   const manifest: PwanLibraryManifest = {
-    format: "pokeweb-pwan-library-v1",
+    format: "pokeweb-pwan-library-v2",
     generatedAt: new Date().toISOString(),
     sourceRom: path.relative(REPO_ROOT, options.romPath),
     archivePath: PWAN_ARCHIVE_PATH,
-    archiveBytes: archiveBytes.length,
+    archiveBytes: libraryArchiveBytes.length,
     entryCount: entries.length,
+    iconCount,
     sideCount: {
       front: frontCount,
       back: backCount,
@@ -104,22 +124,84 @@ export async function buildPwanLibrary(options: BuildPwanLibraryOptions): Promis
     entries: entries.sort((a, b) => a.name.localeCompare(b.name) || a.speciesId - b.speciesId || a.formIndex - b.formIndex || a.assetIndex - b.assetIndex),
   };
   const report: BuildReport = {
-    format: "pokeweb-pwan-library-build-report-v1",
+    format: "pokeweb-pwan-library-build-report-v2",
     sourceRom: options.romPath,
     archivePath: PWAN_ARCHIVE_PATH,
-    archiveBytes: archiveBytes.length,
+    archiveBytes: libraryArchiveBytes.length,
     entryCount: entries.length,
     sideCount: manifest.sideCount,
+    iconCount,
+    missingIcons,
     oneSidedEntries: entries.filter((entry) => entry.hasFront !== entry.hasBack).map((entry) => entry.id),
     missingCredits,
     trackerReportMismatches,
   };
 
   await mkdir(options.outDir, { recursive: true });
-  await writeFile(path.join(options.outDir, "pwan.narc"), archiveBytes);
+  await writeFile(path.join(options.outDir, "pwan.narc"), libraryArchiveBytes);
   await writeJson(path.join(options.outDir, "manifest.json"), manifest);
   await writeJson(path.join(options.outDir, "build-report.json"), report);
   return { manifest, report };
+}
+
+function appendIconPayloads(
+  libraryArchive: NARC,
+  iconArchive: NARC,
+  paletteMap: Uint8Array,
+  entries: PwanLibraryEntry[],
+): string[] {
+  const missing: string[] = [];
+  for (const entry of entries) {
+    const sourceBase = sourceIconBase(entry, iconArchive);
+    const male = iconArchive.files[sourceBase];
+    const female = iconArchive.files[sourceBase + 1] ?? new Uint8Array();
+    const paletteKey = entry.formIndex > 0 ? entry.assetIndex : entry.speciesId;
+    const packedPalette = paletteMap[paletteKey];
+    if (!male?.length || packedPalette === undefined) {
+      missing.push(entry.id);
+      continue;
+    }
+    const malePaletteId = packedPalette & 0x0f;
+    const femalePaletteId = (packedPalette >>> 4) & 0x0f;
+    if (malePaletteId > 2 || femalePaletteId > 2) {
+      throw new Error(`PWAN library icon ${entry.id} uses unsupported packed palette ${packedPalette}.`);
+    }
+    const maleMemberId = libraryArchive.files.length;
+    libraryArchive.files.push(male.slice());
+    const femaleMemberId = libraryArchive.files.length;
+    libraryArchive.files.push(female.slice());
+    entry.icon = {
+      maleMemberId,
+      femaleMemberId,
+      malePaletteId,
+      femalePaletteId,
+    };
+  }
+  return missing;
+}
+
+function sourceIconBase(entry: PwanLibraryEntry, iconArchive: NARC): number {
+  if (entry.formIndex > 0) return entry.assetIndex * ICONS_PER_SPECIES + ICON_ARCHIVE_OFFSET;
+  if (entry.speciesId >= GEN7_SPECIES_START && entry.speciesId <= GEN7_SPECIES_END) {
+    return GEN7_ICON_ARCHIVE_START + (entry.speciesId - GEN7_SPECIES_START) * ICONS_PER_SPECIES;
+  }
+  if (entry.speciesId >= GEN8PLUS_SPECIES_START) {
+    const relocated = GEN8PLUS_ICON_ARCHIVE_START + (entry.speciesId - GEN8PLUS_SPECIES_START) * ICONS_PER_SPECIES;
+    if (iconArchive.files[relocated]?.length) return relocated;
+  }
+  return entry.speciesId * ICONS_PER_SPECIES + ICON_ARCHIVE_OFFSET;
+}
+
+function readRomNarc(rom: NintendoDSRom, archivePath: string): NARC {
+  return new NARC(readRomFile(rom, archivePath));
+}
+
+function readRomFile(rom: NintendoDSRom, filePath: string): Uint8Array {
+  const fileId = rom.filenames.idOf(filePath);
+  if (fileId === undefined) throw new Error(`ROM does not contain ${filePath}`);
+  const bytes = rom.files[fileId];
+  if (!bytes) throw new Error(`ROM file ${fileId} for ${filePath} is empty.`);
+  return bytes;
 }
 
 function buildManifestEntry(override: PwanAnimationOverride, trackerRows: TrackerRow[], reportIndex: ReportIndex): PwanLibraryEntry {
@@ -374,6 +456,7 @@ if (!process.env.VITEST) {
   const { manifest, report } = await buildPwanLibrary(parseArgs(process.argv.slice(2)));
   console.log(`Wrote ${manifest.entryCount} PWAN library entries to ${path.relative(process.cwd(), defaultBuildPwanLibraryOptions().outDir)}`);
   console.log(`Archive: ${(manifest.archiveBytes / 1024 / 1024).toFixed(1)} MB, sides: ${manifest.sideCount.total} (${manifest.sideCount.front} front, ${manifest.sideCount.back} back)`);
+  console.log(`Icons: ${report.iconCount}, missing: ${report.missingIcons.length}`);
   console.log(`One-sided entries: ${report.oneSidedEntries.length}`);
   console.log(`Missing credits: ${report.missingCredits.length}`);
   console.log(`Tracker/report credit mismatches: ${report.trackerReportMismatches.length}`);
