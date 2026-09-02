@@ -1,13 +1,15 @@
 import { recordGenericChange } from "./actionChangelog";
+import { NARC } from "../nds/narc";
 import {
   buildPwanOverrideSideFromPwanBytes,
   ensurePwanAnimationState,
   findPwanOverrideForSpecies,
-  parsePwanArchiveBytes,
+  parsePwanArchive,
   resolvePwanSpeciesTarget,
   upsertPwanOverride,
 } from "./pwanAnimationModel";
 import { applyPwanCarrierPatch, loadBundledPwanCarrierTemplate, type PwanCarrierTemplate } from "./pwanCarrierPatch";
+import { installPokemonIconPayload, type PokemonIconPayload } from "./pokemonSpriteModel";
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide } from "./projectStore";
 
 export type PwanLibraryCreditSource = "tracker" | "import-report" | "missing";
@@ -25,15 +27,22 @@ export type PwanLibraryEntry = {
   credits: string;
   creditSource: PwanLibraryCreditSource;
   notes?: string;
+  icon?: {
+    maleMemberId: number;
+    femaleMemberId: number;
+    malePaletteId: number;
+    femalePaletteId: number;
+  };
 };
 
 export type PwanLibraryManifest = {
-  format: "pokeweb-pwan-library-v1";
+  format: "pokeweb-pwan-library-v1" | "pokeweb-pwan-library-v2";
   generatedAt: string;
   sourceRom: string;
   archivePath: string;
   archiveBytes: number;
   entryCount: number;
+  iconCount?: number;
   sideCount: {
     front: number;
     back: number;
@@ -46,6 +55,7 @@ export type LoadedPwanLibrary = {
   manifest: PwanLibraryManifest;
   entries: PwanLibraryEntry[];
   overridesByEntryId: Map<string, PwanAnimationOverride>;
+  iconsByEntryId: Map<string, PokemonIconPayload>;
 };
 
 export type ImportPwanLibraryEntryOptions = {
@@ -95,6 +105,9 @@ export function importPwanLibraryEntryFromLoadedLibrary(
   const source = library.overridesByEntryId.get(entry.id);
   if (!source) throw new Error(`PWAN library entry ${entry.name} is not present in the bundled archive.`);
   if (!source.front && !source.back) throw new Error(`PWAN library entry ${entry.name} does not include an importable side.`);
+  const icon = library.iconsByEntryId.get(entry.id);
+  if (entry.icon && !icon) throw new Error(`PWAN library entry ${entry.name} has an invalid icon payload.`);
+  if (icon && !project.narcs.pokemon_icons) throw new Error("Pokemon Icons must be loaded before importing a PWAN Library icon.");
 
   ensurePwanAnimationState(project);
   const target = resolvePwanSpeciesTarget(project, targetSpeciesId);
@@ -115,6 +128,7 @@ export function importPwanLibraryEntryFromLoadedLibrary(
   const saved = findPwanOverrideForSpecies(project, targetSpeciesId);
   if (!saved) throw new Error(`PWAN library import for species ${targetSpeciesId} did not save.`);
   applyPwanCarrierPatch(project, saved, carrier);
+  if (icon) installPokemonIconPayload(project, target.assetIndex, icon);
   recordGenericChange(project, "pokemon_sprites", `Imported ${entry.name} from Hzla's PWAN Library.`, `Species ${target.speciesId}`, {
     key: `pwan-library-import:${target.speciesId}:${target.formIndex}:${entry.id}`,
   });
@@ -122,16 +136,21 @@ export function importPwanLibraryEntryFromLoadedLibrary(
 }
 
 export function parsePwanLibraryArchive(manifest: PwanLibraryManifest, archiveBytes: Uint8Array): LoadedPwanLibrary {
-  const overrides = parsePwanArchiveBytes(archiveBytes);
+  const archive = new NARC(archiveBytes);
+  const overrides = parsePwanArchive(archive);
   const overridesByEntryId = new Map<string, PwanAnimationOverride>();
+  const iconsByEntryId = new Map<string, PokemonIconPayload>();
   for (const entry of manifest.entries) {
     const source = findLibraryOverride(overrides, entry);
     if (source) overridesByEntryId.set(entry.id, source);
+    const icon = iconPayloadFromArchive(archive, entry);
+    if (icon) iconsByEntryId.set(entry.id, icon);
   }
   return {
     manifest,
     entries: [...manifest.entries].sort((a, b) => a.name.localeCompare(b.name) || a.speciesId - b.speciesId || a.formIndex - b.formIndex || a.assetIndex - b.assetIndex),
     overridesByEntryId,
+    iconsByEntryId,
   };
 }
 
@@ -150,6 +169,19 @@ function findLibraryOverride(overrides: PwanAnimationOverride[], entry: PwanLibr
     overrides.find((override) => override.speciesId === entry.speciesId && (override.formIndex ?? 0) === entry.formIndex) ??
     overrides.find((override) => (override.assetIndex ?? override.speciesId) === entry.assetIndex)
   );
+}
+
+function iconPayloadFromArchive(archive: NARC, entry: PwanLibraryEntry): PokemonIconPayload | undefined {
+  if (!entry.icon) return undefined;
+  const male = archive.files[entry.icon.maleMemberId];
+  const female = archive.files[entry.icon.femaleMemberId];
+  if (!male?.length || !female) return undefined;
+  return {
+    male: male.slice(),
+    female: female.slice(),
+    malePaletteId: entry.icon.malePaletteId,
+    femalePaletteId: entry.icon.femalePaletteId,
+  };
 }
 
 function cloneLibrarySide(side: PwanOverrideSide, entry: PwanLibraryEntry, sideName: "front" | "back"): PwanOverrideSide {
