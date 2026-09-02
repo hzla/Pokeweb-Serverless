@@ -1,9 +1,10 @@
 {
   "format": "pokeweb-pwan-library-v2",
-  "generatedAt": "2026-09-02T16:50:44.348Z",
+  "generatedAt": "2026-09-02T18:07:43.091Z",
   "sourceRom": "../White2Upgrade/White2Upgrade.nds",
+  "iconSourceRom": "../../White2Upgrade-Original-pokeweb/build/White2Upgrade.nds",
   "archivePath": "zz_pokeweb_pwan/pwan.narc",
-  "archiveBytes": 58404380,
+  "archiveBytes": 58401164,
   "entryCount": 297,
   "iconCount": 297,
   "sideCount": {
@@ -29,7 +30,9 @@
         "maleMemberId": 2393,
         "femaleMemberId": 2394,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1370,
+        "sourcePaletteKey": 681
       }
     },
     {
@@ -49,7 +52,9 @@
         "maleMemberId": 2395,
         "femaleMemberId": 2396,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1370,
+        "sourcePaletteKey": 681
       }
     },
     {
@@ -69,7 +74,9 @@
         "maleMemberId": 2435,
         "femaleMemberId": 2436,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1404,
+        "sourcePaletteKey": 698
       }
     },
     {
@@ -89,7 +96,9 @@
         "maleMemberId": 2549,
         "femaleMemberId": 2550,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1964,
+        "sourcePaletteKey": 752
       }
     },
     {
@@ -108,8 +117,10 @@
       "icon": {
         "maleMemberId": 2737,
         "femaleMemberId": 2738,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2648,
+        "sourcePaletteKey": 930
       }
     },
     {
@@ -128,8 +139,10 @@
       "icon": {
         "maleMemberId": 2749,
         "femaleMemberId": 2750,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2660,
+        "sourcePaletteKey": 936
       }
     },
     {
@@ -149,7 +162,9 @@
         "maleMemberId": 2399,
         "femaleMemberId": 2400,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1374,
+        "sourcePaletteKey": 683
       }
     },
     {
@@ -169,7 +184,9 @@
         "maleMemberId": 2437,
         "femaleMemberId": 2438,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1406,
+        "sourcePaletteKey": 699
       }
     },
     {
@@ -189,7 +206,9 @@
         "maleMemberId": 2465,
         "femaleMemberId": 2466,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1434,
+        "sourcePaletteKey": 713
       }
     },
     {
@@ -209,7 +228,9 @@
         "maleMemberId": 2413,
         "femaleMemberId": 2414,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1386,
+        "sourcePaletteKey": 689
       }
     },
     {
@@ -229,7 +250,9 @@
         "maleMemberId": 2681,
         "femaleMemberId": 2682,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2592,
+        "sourcePaletteKey": 902
       }
     },
     {
@@ -249,7 +272,9 @@
         "maleMemberId": 2755,
         "femaleMemberId": 2756,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2666,
+        "sourcePaletteKey": 939
       }
     },
     {
@@ -269,7 +294,9 @@
         "maleMemberId": 2463,
         "femaleMemberId": 2464,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1432,
+        "sourcePaletteKey": 712
       }
     },
     {
@@ -289,7 +316,9 @@
         "maleMemberId": 2565,
         "femaleMemberId": 2566,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1980,
+        "sourcePaletteKey": 760
       }
     },
     {
@@ -309,7 +338,9 @@
         "maleMemberId": 2411,
         "femaleMemberId": 2412,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1384,
+        "sourcePaletteKey": 688
       }
     },
     {
@@ -329,7 +360,9 @@
         "maleMemberId": 2665,
         "femaleMemberId": 2666,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2072,
+        "sourcePaletteKey": 806
       }
     },
     {
@@ -349,7 +382,9 @@
         "maleMemberId": 2567,
         "femaleMemberId": 2568,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1982,
+        "sourcePaletteKey": 761
       }
     },
     {
@@ -369,7 +404,9 @@
         "maleMemberId": 2329,
         "femaleMemberId": 2330,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1316,
+        "sourcePaletteKey": 654
       }
     },
     {
@@ -388,8 +425,10 @@
       "icon": {
         "maleMemberId": 2771,
         "femaleMemberId": 2772,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2682,
+        "sourcePaletteKey": 947
       }
     },
     {
@@ -408,8 +447,10 @@
       "icon": {
         "maleMemberId": 2769,
         "femaleMemberId": 2770,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2680,
+        "sourcePaletteKey": 946
       }
     },
     {
@@ -429,7 +470,9 @@
         "maleMemberId": 2501,
         "femaleMemberId": 2502,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1918,
+        "sourcePaletteKey": 729
       }
     },
     {
@@ -449,7 +492,9 @@
         "maleMemberId": 2605,
         "femaleMemberId": 2606,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2018,
+        "sourcePaletteKey": 779
       }
     },
     {
@@ -469,7 +514,9 @@
         "maleMemberId": 2343,
         "femaleMemberId": 2344,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1326,
+        "sourcePaletteKey": 659
       }
     },
     {
@@ -489,7 +536,9 @@
         "maleMemberId": 2637,
         "femaleMemberId": 2638,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2048,
+        "sourcePaletteKey": 794
       }
     },
     {
@@ -509,7 +558,9 @@
         "maleMemberId": 2447,
         "femaleMemberId": 2448,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1414,
+        "sourcePaletteKey": 703
       }
     },
     {
@@ -529,7 +580,9 @@
         "maleMemberId": 2643,
         "femaleMemberId": 2644,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2054,
+        "sourcePaletteKey": 797
       }
     },
     {
@@ -549,7 +602,9 @@
         "maleMemberId": 2751,
         "femaleMemberId": 2752,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2662,
+        "sourcePaletteKey": 937
       }
     },
     {
@@ -569,7 +624,9 @@
         "maleMemberId": 2747,
         "femaleMemberId": 2748,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2658,
+        "sourcePaletteKey": 935
       }
     },
     {
@@ -589,7 +646,9 @@
         "maleMemberId": 2517,
         "femaleMemberId": 2518,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1934,
+        "sourcePaletteKey": 737
       }
     },
     {
@@ -609,7 +668,9 @@
         "maleMemberId": 2323,
         "femaleMemberId": 2324,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1312,
+        "sourcePaletteKey": 652
       }
     },
     {
@@ -629,7 +690,9 @@
         "maleMemberId": 2319,
         "femaleMemberId": 2320,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1308,
+        "sourcePaletteKey": 650
       }
     },
     {
@@ -649,7 +712,9 @@
         "maleMemberId": 2423,
         "femaleMemberId": 2424,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1392,
+        "sourcePaletteKey": 692
       }
     },
     {
@@ -669,7 +734,9 @@
         "maleMemberId": 2425,
         "femaleMemberId": 2426,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1394,
+        "sourcePaletteKey": 693
       }
     },
     {
@@ -689,7 +756,9 @@
         "maleMemberId": 2573,
         "femaleMemberId": 2574,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1988,
+        "sourcePaletteKey": 764
       }
     },
     {
@@ -709,7 +778,9 @@
         "maleMemberId": 2629,
         "femaleMemberId": 2630,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2040,
+        "sourcePaletteKey": 790
       }
     },
     {
@@ -729,7 +800,9 @@
         "maleMemberId": 2627,
         "femaleMemberId": 2628,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2038,
+        "sourcePaletteKey": 789
       }
     },
     {
@@ -749,7 +822,9 @@
         "maleMemberId": 2523,
         "femaleMemberId": 2524,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1940,
+        "sourcePaletteKey": 740
       }
     },
     {
@@ -769,7 +844,9 @@
         "maleMemberId": 2521,
         "femaleMemberId": 2522,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1938,
+        "sourcePaletteKey": 739
       }
     },
     {
@@ -788,8 +865,10 @@
       "icon": {
         "maleMemberId": 2697,
         "femaleMemberId": 2698,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2608,
+        "sourcePaletteKey": 910
       }
     },
     {
@@ -809,7 +888,9 @@
         "maleMemberId": 2529,
         "femaleMemberId": 2530,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1944,
+        "sourcePaletteKey": 742
       }
     },
     {
@@ -828,8 +909,10 @@
       "icon": {
         "maleMemberId": 2731,
         "femaleMemberId": 2732,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2642,
+        "sourcePaletteKey": 927
       }
     },
     {
@@ -849,7 +932,9 @@
         "maleMemberId": 2489,
         "femaleMemberId": 2490,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1906,
+        "sourcePaletteKey": 723
       }
     },
     {
@@ -869,7 +954,9 @@
         "maleMemberId": 2491,
         "femaleMemberId": 2492,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1908,
+        "sourcePaletteKey": 724
       }
     },
     {
@@ -889,7 +976,9 @@
         "maleMemberId": 2445,
         "femaleMemberId": 2446,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1412,
+        "sourcePaletteKey": 702
       }
     },
     {
@@ -909,7 +998,9 @@
         "maleMemberId": 2331,
         "femaleMemberId": 2332,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1318,
+        "sourcePaletteKey": 655
       }
     },
     {
@@ -929,7 +1020,9 @@
         "maleMemberId": 2547,
         "femaleMemberId": 2548,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1962,
+        "sourcePaletteKey": 751
       }
     },
     {
@@ -949,7 +1042,9 @@
         "maleMemberId": 2611,
         "femaleMemberId": 2612,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2022,
+        "sourcePaletteKey": 781
       }
     },
     {
@@ -969,7 +1064,9 @@
         "maleMemberId": 2479,
         "femaleMemberId": 2480,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1446,
+        "sourcePaletteKey": 719
       }
     },
     {
@@ -989,7 +1086,9 @@
         "maleMemberId": 2345,
         "femaleMemberId": 2346,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1328,
+        "sourcePaletteKey": 660
       }
     },
     {
@@ -1008,8 +1107,10 @@
       "icon": {
         "maleMemberId": 2735,
         "femaleMemberId": 2736,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2646,
+        "sourcePaletteKey": 929
       }
     },
     {
@@ -1029,7 +1130,9 @@
         "maleMemberId": 2391,
         "femaleMemberId": 2392,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1368,
+        "sourcePaletteKey": 680
       }
     },
     {
@@ -1049,7 +1152,9 @@
         "maleMemberId": 2419,
         "femaleMemberId": 2420,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1390,
+        "sourcePaletteKey": 691
       }
     },
     {
@@ -1069,7 +1174,9 @@
         "maleMemberId": 2607,
         "femaleMemberId": 2608,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2020,
+        "sourcePaletteKey": 780
       }
     },
     {
@@ -1088,8 +1195,10 @@
       "icon": {
         "maleMemberId": 2687,
         "femaleMemberId": 2688,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2598,
+        "sourcePaletteKey": 905
       }
     },
     {
@@ -1109,7 +1218,9 @@
         "maleMemberId": 2383,
         "femaleMemberId": 2384,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1362,
+        "sourcePaletteKey": 677
       }
     },
     {
@@ -1129,7 +1240,9 @@
         "maleMemberId": 2327,
         "femaleMemberId": 2328,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1314,
+        "sourcePaletteKey": 653
       }
     },
     {
@@ -1148,8 +1261,10 @@
       "icon": {
         "maleMemberId": 2729,
         "femaleMemberId": 2730,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2640,
+        "sourcePaletteKey": 926
       }
     },
     {
@@ -1169,7 +1284,9 @@
         "maleMemberId": 2365,
         "femaleMemberId": 2366,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1346,
+        "sourcePaletteKey": 669
       }
     },
     {
@@ -1189,7 +1306,9 @@
         "maleMemberId": 2349,
         "femaleMemberId": 2350,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1332,
+        "sourcePaletteKey": 662
       }
     },
     {
@@ -1209,7 +1328,9 @@
         "maleMemberId": 2347,
         "femaleMemberId": 2348,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1330,
+        "sourcePaletteKey": 661
       }
     },
     {
@@ -1229,7 +1350,9 @@
         "maleMemberId": 2367,
         "femaleMemberId": 2368,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1348,
+        "sourcePaletteKey": 670
       }
     },
     {
@@ -1248,8 +1371,10 @@
       "icon": {
         "maleMemberId": 2691,
         "femaleMemberId": 2692,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2602,
+        "sourcePaletteKey": 907
       }
     },
     {
@@ -1269,7 +1394,9 @@
         "maleMemberId": 2371,
         "femaleMemberId": 2372,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1350,
+        "sourcePaletteKey": 671
       }
     },
     {
@@ -1289,7 +1416,9 @@
         "maleMemberId": 2551,
         "femaleMemberId": 2552,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1966,
+        "sourcePaletteKey": 753
       }
     },
     {
@@ -1309,7 +1438,9 @@
         "maleMemberId": 2335,
         "femaleMemberId": 2336,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1320,
+        "sourcePaletteKey": 656
       }
     },
     {
@@ -1329,7 +1460,9 @@
         "maleMemberId": 2337,
         "femaleMemberId": 2338,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1322,
+        "sourcePaletteKey": 657
       }
     },
     {
@@ -1348,8 +1481,10 @@
       "icon": {
         "maleMemberId": 2695,
         "femaleMemberId": 2696,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2606,
+        "sourcePaletteKey": 909
       }
     },
     {
@@ -1369,7 +1504,9 @@
         "maleMemberId": 2381,
         "femaleMemberId": 2382,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1360,
+        "sourcePaletteKey": 676
       }
     },
     {
@@ -1388,8 +1525,10 @@
       "icon": {
         "maleMemberId": 2745,
         "femaleMemberId": 2746,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2656,
+        "sourcePaletteKey": 934
       }
     },
     {
@@ -1409,7 +1548,9 @@
         "maleMemberId": 2375,
         "femaleMemberId": 2376,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1354,
+        "sourcePaletteKey": 673
       }
     },
     {
@@ -1429,7 +1570,9 @@
         "maleMemberId": 2581,
         "femaleMemberId": 2582,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1996,
+        "sourcePaletteKey": 768
       }
     },
     {
@@ -1449,7 +1592,9 @@
         "maleMemberId": 2449,
         "femaleMemberId": 2450,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1416,
+        "sourcePaletteKey": 704
       }
     },
     {
@@ -1469,7 +1614,9 @@
         "maleMemberId": 2461,
         "femaleMemberId": 2462,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1430,
+        "sourcePaletteKey": 711
       }
     },
     {
@@ -1489,7 +1636,9 @@
         "maleMemberId": 2767,
         "femaleMemberId": 2768,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2678,
+        "sourcePaletteKey": 945
       }
     },
     {
@@ -1509,7 +1658,9 @@
         "maleMemberId": 2339,
         "femaleMemberId": 2340,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1324,
+        "sourcePaletteKey": 658
       }
     },
     {
@@ -1529,7 +1680,9 @@
         "maleMemberId": 2515,
         "femaleMemberId": 2516,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1932,
+        "sourcePaletteKey": 736
       }
     },
     {
@@ -1549,7 +1702,9 @@
         "maleMemberId": 2513,
         "femaleMemberId": 2514,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1930,
+        "sourcePaletteKey": 735
       }
     },
     {
@@ -1569,7 +1724,9 @@
         "maleMemberId": 2647,
         "femaleMemberId": 2648,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2058,
+        "sourcePaletteKey": 799
       }
     },
     {
@@ -1589,7 +1746,9 @@
         "maleMemberId": 2615,
         "femaleMemberId": 2616,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2026,
+        "sourcePaletteKey": 783
       }
     },
     {
@@ -1609,7 +1768,9 @@
         "maleMemberId": 2441,
         "femaleMemberId": 2442,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1410,
+        "sourcePaletteKey": 701
       }
     },
     {
@@ -1629,7 +1790,9 @@
         "maleMemberId": 2429,
         "femaleMemberId": 2430,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1398,
+        "sourcePaletteKey": 695
       }
     },
     {
@@ -1649,7 +1812,9 @@
         "maleMemberId": 2427,
         "femaleMemberId": 2428,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1396,
+        "sourcePaletteKey": 694
       }
     },
     {
@@ -1669,7 +1834,9 @@
         "maleMemberId": 2389,
         "femaleMemberId": 2390,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1366,
+        "sourcePaletteKey": 679
       }
     },
     {
@@ -1689,7 +1856,9 @@
         "maleMemberId": 2483,
         "femaleMemberId": 2484,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1448,
+        "sourcePaletteKey": 720
       }
     },
     {
@@ -1709,7 +1878,9 @@
         "maleMemberId": 2497,
         "femaleMemberId": 2498,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1914,
+        "sourcePaletteKey": 727
       }
     },
     {
@@ -1729,7 +1900,9 @@
         "maleMemberId": 2405,
         "femaleMemberId": 2406,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1380,
+        "sourcePaletteKey": 686
       }
     },
     {
@@ -1749,7 +1922,9 @@
         "maleMemberId": 2613,
         "femaleMemberId": 2614,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2024,
+        "sourcePaletteKey": 782
       }
     },
     {
@@ -1769,7 +1944,9 @@
         "maleMemberId": 2645,
         "femaleMemberId": 2646,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2056,
+        "sourcePaletteKey": 798
       }
     },
     {
@@ -1788,8 +1965,10 @@
       "icon": {
         "maleMemberId": 2759,
         "femaleMemberId": 2760,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2670,
+        "sourcePaletteKey": 941
       }
     },
     {
@@ -1808,8 +1987,10 @@
       "icon": {
         "maleMemberId": 2677,
         "femaleMemberId": 2678,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2588,
+        "sourcePaletteKey": 900
       }
     },
     {
@@ -1829,7 +2010,9 @@
         "maleMemberId": 2453,
         "femaleMemberId": 2454,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1422,
+        "sourcePaletteKey": 707
       }
     },
     {
@@ -1849,7 +2032,9 @@
         "maleMemberId": 2597,
         "femaleMemberId": 2598,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2010,
+        "sourcePaletteKey": 775
       }
     },
     {
@@ -1869,7 +2054,9 @@
         "maleMemberId": 2617,
         "femaleMemberId": 2618,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2028,
+        "sourcePaletteKey": 784
       }
     },
     {
@@ -1889,7 +2076,9 @@
         "maleMemberId": 2707,
         "femaleMemberId": 2708,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2618,
+        "sourcePaletteKey": 915
       }
     },
     {
@@ -1909,7 +2098,9 @@
         "maleMemberId": 2359,
         "femaleMemberId": 2360,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1342,
+        "sourcePaletteKey": 667
       }
     },
     {
@@ -1929,7 +2120,9 @@
         "maleMemberId": 2493,
         "femaleMemberId": 2494,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1910,
+        "sourcePaletteKey": 725
       }
     },
     {
@@ -1949,7 +2142,9 @@
         "maleMemberId": 2717,
         "femaleMemberId": 2718,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2628,
+        "sourcePaletteKey": 920
       }
     },
     {
@@ -1969,7 +2164,9 @@
         "maleMemberId": 2633,
         "femaleMemberId": 2634,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2044,
+        "sourcePaletteKey": 792
       }
     },
     {
@@ -1989,7 +2186,9 @@
         "maleMemberId": 2553,
         "femaleMemberId": 2554,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1968,
+        "sourcePaletteKey": 754
       }
     },
     {
@@ -2009,7 +2208,9 @@
         "maleMemberId": 2535,
         "femaleMemberId": 2536,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1950,
+        "sourcePaletteKey": 745
       }
     },
     {
@@ -2028,8 +2229,10 @@
       "icon": {
         "maleMemberId": 2763,
         "femaleMemberId": 2764,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2674,
+        "sourcePaletteKey": 943
       }
     },
     {
@@ -2049,7 +2252,9 @@
         "maleMemberId": 2651,
         "femaleMemberId": 2652,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2062,
+        "sourcePaletteKey": 801
       }
     },
     {
@@ -2069,7 +2274,9 @@
         "maleMemberId": 2407,
         "femaleMemberId": 2408,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1382,
+        "sourcePaletteKey": 687
       }
     },
     {
@@ -2089,7 +2296,9 @@
         "maleMemberId": 2539,
         "femaleMemberId": 2540,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1954,
+        "sourcePaletteKey": 747
       }
     },
     {
@@ -2109,7 +2318,9 @@
         "maleMemberId": 2657,
         "femaleMemberId": 2658,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2064,
+        "sourcePaletteKey": 802
       }
     },
     {
@@ -2129,7 +2340,9 @@
         "maleMemberId": 2761,
         "femaleMemberId": 2762,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2672,
+        "sourcePaletteKey": 942
       }
     },
     {
@@ -2149,7 +2362,9 @@
         "maleMemberId": 2727,
         "femaleMemberId": 2728,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2638,
+        "sourcePaletteKey": 925
       }
     },
     {
@@ -2168,8 +2383,10 @@
       "icon": {
         "maleMemberId": 2293,
         "femaleMemberId": 2294,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2162,
+        "sourcePaletteKey": 1077
       }
     },
     {
@@ -2188,8 +2405,10 @@
       "icon": {
         "maleMemberId": 2267,
         "femaleMemberId": 2268,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2284,
+        "sourcePaletteKey": 1138
       }
     },
     {
@@ -2208,8 +2427,10 @@
       "icon": {
         "maleMemberId": 2269,
         "femaleMemberId": 2270,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2286,
+        "sourcePaletteKey": 1139
       }
     },
     {
@@ -2228,8 +2449,10 @@
       "icon": {
         "maleMemberId": 2255,
         "femaleMemberId": 2256,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2148,
+        "sourcePaletteKey": 1070
       }
     },
     {
@@ -2248,8 +2471,10 @@
       "icon": {
         "maleMemberId": 2205,
         "femaleMemberId": 2206,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2174,
+        "sourcePaletteKey": 1083
       }
     },
     {
@@ -2269,7 +2494,9 @@
         "maleMemberId": 2261,
         "femaleMemberId": 2262,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2216,
+        "sourcePaletteKey": 1104
       }
     },
     {
@@ -2288,8 +2515,10 @@
       "icon": {
         "maleMemberId": 2231,
         "femaleMemberId": 2232,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2130,
+        "sourcePaletteKey": 1061
       }
     },
     {
@@ -2309,7 +2538,9 @@
         "maleMemberId": 2307,
         "femaleMemberId": 2308,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2220,
+        "sourcePaletteKey": 1106
       }
     },
     {
@@ -2329,7 +2560,9 @@
         "maleMemberId": 2263,
         "femaleMemberId": 2264,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2150,
+        "sourcePaletteKey": 1071
       }
     },
     {
@@ -2348,8 +2581,10 @@
       "icon": {
         "maleMemberId": 2415,
         "femaleMemberId": 2416,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2344,
+        "sourcePaletteKey": 1168
       }
     },
     {
@@ -2369,7 +2604,9 @@
         "maleMemberId": 2783,
         "femaleMemberId": 2784,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2376,
+        "sourcePaletteKey": 1184
       }
     },
     {
@@ -2388,8 +2625,10 @@
       "icon": {
         "maleMemberId": 2195,
         "femaleMemberId": 2196,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2262,
+        "sourcePaletteKey": 1127
       }
     },
     {
@@ -2408,8 +2647,10 @@
       "icon": {
         "maleMemberId": 2245,
         "femaleMemberId": 2246,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2142,
+        "sourcePaletteKey": 1067
       }
     },
     {
@@ -2428,8 +2669,10 @@
       "icon": {
         "maleMemberId": 2315,
         "femaleMemberId": 2316,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2314,
+        "sourcePaletteKey": 1153
       }
     },
     {
@@ -2449,7 +2692,9 @@
         "maleMemberId": 2191,
         "femaleMemberId": 2192,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2134,
+        "sourcePaletteKey": 1063
       }
     },
     {
@@ -2469,7 +2714,9 @@
         "maleMemberId": 2193,
         "femaleMemberId": 2194,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2136,
+        "sourcePaletteKey": 1064
       }
     },
     {
@@ -2488,8 +2735,10 @@
       "icon": {
         "maleMemberId": 2325,
         "femaleMemberId": 2326,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2318,
+        "sourcePaletteKey": 1155
       }
     },
     {
@@ -2508,8 +2757,10 @@
       "icon": {
         "maleMemberId": 2265,
         "femaleMemberId": 2266,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2282,
+        "sourcePaletteKey": 1137
       }
     },
     {
@@ -2528,8 +2779,10 @@
       "icon": {
         "maleMemberId": 2203,
         "femaleMemberId": 2204,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2268,
+        "sourcePaletteKey": 1130
       }
     },
     {
@@ -2549,7 +2802,9 @@
         "maleMemberId": 2525,
         "femaleMemberId": 2526,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2352,
+        "sourcePaletteKey": 1172
       }
     },
     {
@@ -2568,8 +2823,10 @@
       "icon": {
         "maleMemberId": 2301,
         "femaleMemberId": 2302,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2302,
+        "sourcePaletteKey": 1147
       }
     },
     {
@@ -2588,8 +2845,10 @@
       "icon": {
         "maleMemberId": 2333,
         "femaleMemberId": 2334,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2320,
+        "sourcePaletteKey": 1156
       }
     },
     {
@@ -2608,8 +2867,10 @@
       "icon": {
         "maleMemberId": 2481,
         "femaleMemberId": 2482,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2232,
+        "sourcePaletteKey": 1112
       }
     },
     {
@@ -2628,8 +2889,10 @@
       "icon": {
         "maleMemberId": 2421,
         "femaleMemberId": 2422,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2346,
+        "sourcePaletteKey": 1169
       }
     },
     {
@@ -2648,8 +2911,10 @@
       "icon": {
         "maleMemberId": 2221,
         "femaleMemberId": 2222,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2274,
+        "sourcePaletteKey": 1133
       }
     },
     {
@@ -2669,7 +2934,9 @@
         "maleMemberId": 2609,
         "femaleMemberId": 2610,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2356,
+        "sourcePaletteKey": 1174
       }
     },
     {
@@ -2688,8 +2955,10 @@
       "icon": {
         "maleMemberId": 2313,
         "femaleMemberId": 2314,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2312,
+        "sourcePaletteKey": 1152
       }
     },
     {
@@ -2708,8 +2977,10 @@
       "icon": {
         "maleMemberId": 2303,
         "femaleMemberId": 2304,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2304,
+        "sourcePaletteKey": 1148
       }
     },
     {
@@ -2729,7 +3000,9 @@
         "maleMemberId": 2305,
         "femaleMemberId": 2306,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2306,
+        "sourcePaletteKey": 1149
       }
     },
     {
@@ -2749,7 +3022,9 @@
         "maleMemberId": 2675,
         "femaleMemberId": 2676,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2364,
+        "sourcePaletteKey": 1178
       }
     },
     {
@@ -2768,8 +3043,10 @@
       "icon": {
         "maleMemberId": 2229,
         "femaleMemberId": 2230,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2278,
+        "sourcePaletteKey": 1135
       }
     },
     {
@@ -2789,7 +3066,9 @@
         "maleMemberId": 2369,
         "femaleMemberId": 2370,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2336,
+        "sourcePaletteKey": 1164
       }
     },
     {
@@ -2809,7 +3088,9 @@
         "maleMemberId": 2297,
         "femaleMemberId": 2298,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2118,
+        "sourcePaletteKey": 1055
       }
     },
     {
@@ -2828,8 +3109,10 @@
       "icon": {
         "maleMemberId": 2295,
         "femaleMemberId": 2296,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2218,
+        "sourcePaletteKey": 1105
       }
     },
     {
@@ -2848,8 +3131,10 @@
       "icon": {
         "maleMemberId": 2285,
         "femaleMemberId": 2286,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2290,
+        "sourcePaletteKey": 1141
       }
     },
     {
@@ -2869,7 +3154,9 @@
         "maleMemberId": 2287,
         "femaleMemberId": 2288,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2292,
+        "sourcePaletteKey": 1142
       }
     },
     {
@@ -2888,8 +3175,10 @@
       "icon": {
         "maleMemberId": 2249,
         "femaleMemberId": 2250,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2128,
+        "sourcePaletteKey": 1060
       }
     },
     {
@@ -2908,8 +3197,10 @@
       "icon": {
         "maleMemberId": 2211,
         "femaleMemberId": 2212,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2106,
+        "sourcePaletteKey": 1049
       }
     },
     {
@@ -2928,8 +3219,10 @@
       "icon": {
         "maleMemberId": 2271,
         "femaleMemberId": 2272,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2230,
+        "sourcePaletteKey": 1111
       }
     },
     {
@@ -2949,7 +3242,9 @@
         "maleMemberId": 2775,
         "femaleMemberId": 2776,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2368,
+        "sourcePaletteKey": 1180
       }
     },
     {
@@ -2969,7 +3264,9 @@
         "maleMemberId": 2583,
         "femaleMemberId": 2584,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2354,
+        "sourcePaletteKey": 1173
       }
     },
     {
@@ -2988,8 +3285,10 @@
       "icon": {
         "maleMemberId": 2317,
         "femaleMemberId": 2318,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2316,
+        "sourcePaletteKey": 1154
       }
     },
     {
@@ -3009,7 +3308,9 @@
         "maleMemberId": 2341,
         "femaleMemberId": 2342,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2322,
+        "sourcePaletteKey": 1157
       }
     },
     {
@@ -3029,7 +3330,9 @@
         "maleMemberId": 2219,
         "femaleMemberId": 2220,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2170,
+        "sourcePaletteKey": 1081
       }
     },
     {
@@ -3049,7 +3352,9 @@
         "maleMemberId": 2443,
         "femaleMemberId": 2444,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2348,
+        "sourcePaletteKey": 1170
       }
     },
     {
@@ -3069,7 +3374,9 @@
         "maleMemberId": 2299,
         "femaleMemberId": 2300,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2300,
+        "sourcePaletteKey": 1146
       }
     },
     {
@@ -3088,8 +3395,10 @@
       "icon": {
         "maleMemberId": 2237,
         "femaleMemberId": 2238,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2176,
+        "sourcePaletteKey": 1084
       }
     },
     {
@@ -3108,8 +3417,10 @@
       "icon": {
         "maleMemberId": 2241,
         "femaleMemberId": 2242,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2146,
+        "sourcePaletteKey": 1069
       }
     },
     {
@@ -3128,8 +3439,10 @@
       "icon": {
         "maleMemberId": 2213,
         "femaleMemberId": 2214,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2168,
+        "sourcePaletteKey": 1080
       }
     },
     {
@@ -3148,8 +3461,10 @@
       "icon": {
         "maleMemberId": 2275,
         "femaleMemberId": 2276,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2186,
+        "sourcePaletteKey": 1089
       }
     },
     {
@@ -3168,8 +3483,10 @@
       "icon": {
         "maleMemberId": 2277,
         "femaleMemberId": 2278,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2184,
+        "sourcePaletteKey": 1088
       }
     },
     {
@@ -3188,8 +3505,10 @@
       "icon": {
         "maleMemberId": 2283,
         "femaleMemberId": 2284,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2258,
+        "sourcePaletteKey": 1125
       }
     },
     {
@@ -3208,8 +3527,10 @@
       "icon": {
         "maleMemberId": 2289,
         "femaleMemberId": 2290,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2294,
+        "sourcePaletteKey": 1143
       }
     },
     {
@@ -3228,8 +3549,10 @@
       "icon": {
         "maleMemberId": 2291,
         "femaleMemberId": 2292,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2296,
+        "sourcePaletteKey": 1144
       }
     },
     {
@@ -3249,7 +3572,9 @@
         "maleMemberId": 2653,
         "femaleMemberId": 2654,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2358,
+        "sourcePaletteKey": 1175
       }
     },
     {
@@ -3268,8 +3593,10 @@
       "icon": {
         "maleMemberId": 2655,
         "femaleMemberId": 2656,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2360,
+        "sourcePaletteKey": 1176
       }
     },
     {
@@ -3288,8 +3615,10 @@
       "icon": {
         "maleMemberId": 2409,
         "femaleMemberId": 2410,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2342,
+        "sourcePaletteKey": 1167
       }
     },
     {
@@ -3308,8 +3637,10 @@
       "icon": {
         "maleMemberId": 2259,
         "femaleMemberId": 2260,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2180,
+        "sourcePaletteKey": 1086
       }
     },
     {
@@ -3328,8 +3659,10 @@
       "icon": {
         "maleMemberId": 2253,
         "femaleMemberId": 2254,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2178,
+        "sourcePaletteKey": 1085
       }
     },
     {
@@ -3349,7 +3682,9 @@
         "maleMemberId": 2257,
         "femaleMemberId": 2258,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2144,
+        "sourcePaletteKey": 1068
       }
     },
     {
@@ -3369,7 +3704,9 @@
         "maleMemberId": 2227,
         "femaleMemberId": 2228,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2276,
+        "sourcePaletteKey": 1134
       }
     },
     {
@@ -3389,7 +3726,9 @@
         "maleMemberId": 2387,
         "femaleMemberId": 2388,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2340,
+        "sourcePaletteKey": 1166
       }
     },
     {
@@ -3408,8 +3747,10 @@
       "icon": {
         "maleMemberId": 2223,
         "femaleMemberId": 2224,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2138,
+        "sourcePaletteKey": 1065
       }
     },
     {
@@ -3429,7 +3770,9 @@
         "maleMemberId": 2225,
         "femaleMemberId": 2226,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2140,
+        "sourcePaletteKey": 1066
       }
     },
     {
@@ -3448,8 +3791,10 @@
       "icon": {
         "maleMemberId": 2197,
         "femaleMemberId": 2198,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2228,
+        "sourcePaletteKey": 1110
       }
     },
     {
@@ -3468,8 +3813,10 @@
       "icon": {
         "maleMemberId": 2217,
         "femaleMemberId": 2218,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2156,
+        "sourcePaletteKey": 1074
       }
     },
     {
@@ -3488,8 +3835,10 @@
       "icon": {
         "maleMemberId": 2363,
         "femaleMemberId": 2364,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2324,
+        "sourcePaletteKey": 1158
       }
     },
     {
@@ -3509,7 +3858,9 @@
         "maleMemberId": 2199,
         "femaleMemberId": 2200,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2382,
+        "sourcePaletteKey": 1187
       }
     },
     {
@@ -3529,7 +3880,9 @@
         "maleMemberId": 2201,
         "femaleMemberId": 2202,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2384,
+        "sourcePaletteKey": 1188
       }
     },
     {
@@ -3548,8 +3901,10 @@
       "icon": {
         "maleMemberId": 2279,
         "femaleMemberId": 2280,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2240,
+        "sourcePaletteKey": 1116
       }
     },
     {
@@ -3568,8 +3923,10 @@
       "icon": {
         "maleMemberId": 2251,
         "femaleMemberId": 2252,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2214,
+        "sourcePaletteKey": 1103
       }
     },
     {
@@ -3588,8 +3945,10 @@
       "icon": {
         "maleMemberId": 2273,
         "femaleMemberId": 2274,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2260,
+        "sourcePaletteKey": 1126
       }
     },
     {
@@ -3609,7 +3968,9 @@
         "maleMemberId": 2235,
         "femaleMemberId": 2236,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2154,
+        "sourcePaletteKey": 1073
       }
     },
     {
@@ -3628,8 +3989,10 @@
       "icon": {
         "maleMemberId": 2309,
         "femaleMemberId": 2310,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2308,
+        "sourcePaletteKey": 1150
       }
     },
     {
@@ -3649,7 +4012,9 @@
         "maleMemberId": 2773,
         "femaleMemberId": 2774,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2366,
+        "sourcePaletteKey": 1179
       }
     },
     {
@@ -3669,7 +4034,9 @@
         "maleMemberId": 2311,
         "femaleMemberId": 2312,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2310,
+        "sourcePaletteKey": 1151
       }
     },
     {
@@ -3688,8 +4055,10 @@
       "icon": {
         "maleMemberId": 2239,
         "femaleMemberId": 2240,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2280,
+        "sourcePaletteKey": 1136
       }
     },
     {
@@ -3709,7 +4078,9 @@
         "maleMemberId": 2209,
         "femaleMemberId": 2210,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2422,
+        "sourcePaletteKey": 1207
       }
     },
     {
@@ -3729,7 +4100,9 @@
         "maleMemberId": 2281,
         "femaleMemberId": 2282,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2288,
+        "sourcePaletteKey": 1140
       }
     },
     {
@@ -3748,8 +4121,10 @@
       "icon": {
         "maleMemberId": 2215,
         "femaleMemberId": 2216,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2272,
+        "sourcePaletteKey": 1132
       }
     },
     {
@@ -3768,8 +4143,10 @@
       "icon": {
         "maleMemberId": 2233,
         "femaleMemberId": 2234,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2226,
+        "sourcePaletteKey": 1109
       }
     },
     {
@@ -3789,7 +4166,9 @@
         "maleMemberId": 2247,
         "femaleMemberId": 2248,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2210,
+        "sourcePaletteKey": 1101
       }
     },
     {
@@ -3809,7 +4188,9 @@
         "maleMemberId": 2777,
         "femaleMemberId": 2778,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2370,
+        "sourcePaletteKey": 1181
       }
     },
     {
@@ -3829,7 +4210,9 @@
         "maleMemberId": 2779,
         "femaleMemberId": 2780,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2372,
+        "sourcePaletteKey": 1182
       }
     },
     {
@@ -3849,7 +4232,9 @@
         "maleMemberId": 2781,
         "femaleMemberId": 2782,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2374,
+        "sourcePaletteKey": 1183
       }
     },
     {
@@ -3868,8 +4253,10 @@
       "icon": {
         "maleMemberId": 2243,
         "femaleMemberId": 2244,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2152,
+        "sourcePaletteKey": 1072
       }
     },
     {
@@ -3888,8 +4275,10 @@
       "icon": {
         "maleMemberId": 2207,
         "femaleMemberId": 2208,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2270,
+        "sourcePaletteKey": 1131
       }
     },
     {
@@ -3909,7 +4298,9 @@
         "maleMemberId": 2669,
         "femaleMemberId": 2670,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2362,
+        "sourcePaletteKey": 1177
       }
     },
     {
@@ -3928,8 +4319,10 @@
       "icon": {
         "maleMemberId": 2477,
         "femaleMemberId": 2478,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2350,
+        "sourcePaletteKey": 1171
       }
     },
     {
@@ -3949,7 +4342,9 @@
         "maleMemberId": 2673,
         "femaleMemberId": 2674,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2078,
+        "sourcePaletteKey": 809
       }
     },
     {
@@ -3969,7 +4364,9 @@
         "maleMemberId": 2671,
         "femaleMemberId": 2672,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2076,
+        "sourcePaletteKey": 808
       }
     },
     {
@@ -3988,8 +4385,10 @@
       "icon": {
         "maleMemberId": 2693,
         "femaleMemberId": 2694,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2604,
+        "sourcePaletteKey": 908
       }
     },
     {
@@ -4009,7 +4408,9 @@
         "maleMemberId": 2385,
         "femaleMemberId": 2386,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1364,
+        "sourcePaletteKey": 678
       }
     },
     {
@@ -4029,7 +4430,9 @@
         "maleMemberId": 2603,
         "femaleMemberId": 2604,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2016,
+        "sourcePaletteKey": 778
       }
     },
     {
@@ -4049,7 +4452,9 @@
         "maleMemberId": 2595,
         "femaleMemberId": 2596,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2008,
+        "sourcePaletteKey": 774
       }
     },
     {
@@ -4069,7 +4474,9 @@
         "maleMemberId": 2555,
         "femaleMemberId": 2556,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1970,
+        "sourcePaletteKey": 755
       }
     },
     {
@@ -4089,7 +4496,9 @@
         "maleMemberId": 2543,
         "femaleMemberId": 2544,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1958,
+        "sourcePaletteKey": 749
       }
     },
     {
@@ -4109,7 +4518,9 @@
         "maleMemberId": 2545,
         "femaleMemberId": 2546,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1960,
+        "sourcePaletteKey": 750
       }
     },
     {
@@ -4128,8 +4539,10 @@
       "icon": {
         "maleMemberId": 2741,
         "femaleMemberId": 2742,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2652,
+        "sourcePaletteKey": 932
       }
     },
     {
@@ -4149,7 +4562,9 @@
         "maleMemberId": 2743,
         "femaleMemberId": 2744,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2654,
+        "sourcePaletteKey": 933
       }
     },
     {
@@ -4169,7 +4584,9 @@
         "maleMemberId": 2661,
         "femaleMemberId": 2662,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2068,
+        "sourcePaletteKey": 804
       }
     },
     {
@@ -4189,7 +4606,9 @@
         "maleMemberId": 2649,
         "femaleMemberId": 2650,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2060,
+        "sourcePaletteKey": 800
       }
     },
     {
@@ -4209,7 +4628,9 @@
         "maleMemberId": 2635,
         "femaleMemberId": 2636,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2046,
+        "sourcePaletteKey": 793
       }
     },
     {
@@ -4229,7 +4650,9 @@
         "maleMemberId": 2467,
         "femaleMemberId": 2468,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1436,
+        "sourcePaletteKey": 714
       }
     },
     {
@@ -4249,7 +4672,9 @@
         "maleMemberId": 2469,
         "femaleMemberId": 2470,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1438,
+        "sourcePaletteKey": 715
       }
     },
     {
@@ -4269,7 +4694,9 @@
         "maleMemberId": 2715,
         "femaleMemberId": 2716,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2626,
+        "sourcePaletteKey": 919
       }
     },
     {
@@ -4288,8 +4715,10 @@
       "icon": {
         "maleMemberId": 2709,
         "femaleMemberId": 2710,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2620,
+        "sourcePaletteKey": 916
       }
     },
     {
@@ -4309,7 +4738,9 @@
         "maleMemberId": 2575,
         "femaleMemberId": 2576,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1990,
+        "sourcePaletteKey": 765
       }
     },
     {
@@ -4329,7 +4760,9 @@
         "maleMemberId": 2527,
         "femaleMemberId": 2528,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1942,
+        "sourcePaletteKey": 741
       }
     },
     {
@@ -4348,8 +4781,10 @@
       "icon": {
         "maleMemberId": 2685,
         "femaleMemberId": 2686,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2596,
+        "sourcePaletteKey": 904
       }
     },
     {
@@ -4369,7 +4804,9 @@
         "maleMemberId": 2587,
         "femaleMemberId": 2588,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2000,
+        "sourcePaletteKey": 770
       }
     },
     {
@@ -4389,7 +4826,9 @@
         "maleMemberId": 2377,
         "femaleMemberId": 2378,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1356,
+        "sourcePaletteKey": 674
       }
     },
     {
@@ -4409,7 +4848,9 @@
         "maleMemberId": 2379,
         "femaleMemberId": 2380,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1358,
+        "sourcePaletteKey": 675
       }
     },
     {
@@ -4429,7 +4870,9 @@
         "maleMemberId": 2577,
         "femaleMemberId": 2578,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1992,
+        "sourcePaletteKey": 766
       }
     },
     {
@@ -4449,7 +4892,9 @@
         "maleMemberId": 2719,
         "femaleMemberId": 2720,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2630,
+        "sourcePaletteKey": 921
       }
     },
     {
@@ -4468,8 +4913,10 @@
       "icon": {
         "maleMemberId": 2721,
         "femaleMemberId": 2722,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2632,
+        "sourcePaletteKey": 922
       }
     },
     {
@@ -4489,7 +4936,9 @@
         "maleMemberId": 2723,
         "femaleMemberId": 2724,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2634,
+        "sourcePaletteKey": 923
       }
     },
     {
@@ -4509,7 +4958,9 @@
         "maleMemberId": 2455,
         "femaleMemberId": 2456,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1424,
+        "sourcePaletteKey": 708
       }
     },
     {
@@ -4529,7 +4980,9 @@
         "maleMemberId": 2639,
         "femaleMemberId": 2640,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2050,
+        "sourcePaletteKey": 795
       }
     },
     {
@@ -4549,7 +5002,9 @@
         "maleMemberId": 2505,
         "femaleMemberId": 2506,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1922,
+        "sourcePaletteKey": 731
       }
     },
     {
@@ -4569,7 +5024,9 @@
         "maleMemberId": 2659,
         "femaleMemberId": 2660,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2066,
+        "sourcePaletteKey": 803
       }
     },
     {
@@ -4589,7 +5046,9 @@
         "maleMemberId": 2499,
         "femaleMemberId": 2500,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1916,
+        "sourcePaletteKey": 728
       }
     },
     {
@@ -4609,7 +5068,9 @@
         "maleMemberId": 2503,
         "femaleMemberId": 2504,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1920,
+        "sourcePaletteKey": 730
       }
     },
     {
@@ -4629,7 +5090,9 @@
         "maleMemberId": 2459,
         "femaleMemberId": 2460,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1428,
+        "sourcePaletteKey": 710
       }
     },
     {
@@ -4649,7 +5112,9 @@
         "maleMemberId": 2361,
         "femaleMemberId": 2362,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1344,
+        "sourcePaletteKey": 668
       }
     },
     {
@@ -4669,7 +5134,9 @@
         "maleMemberId": 2589,
         "femaleMemberId": 2590,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2002,
+        "sourcePaletteKey": 771
       }
     },
     {
@@ -4689,7 +5156,9 @@
         "maleMemberId": 2705,
         "femaleMemberId": 2706,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2616,
+        "sourcePaletteKey": 914
       }
     },
     {
@@ -4709,7 +5178,9 @@
         "maleMemberId": 2701,
         "femaleMemberId": 2702,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2612,
+        "sourcePaletteKey": 912
       }
     },
     {
@@ -4728,8 +5199,10 @@
       "icon": {
         "maleMemberId": 2703,
         "femaleMemberId": 2704,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2614,
+        "sourcePaletteKey": 913
       }
     },
     {
@@ -4749,7 +5222,9 @@
         "maleMemberId": 2321,
         "femaleMemberId": 2322,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1310,
+        "sourcePaletteKey": 651
       }
     },
     {
@@ -4769,7 +5244,9 @@
         "maleMemberId": 2531,
         "femaleMemberId": 2532,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1946,
+        "sourcePaletteKey": 743
       }
     },
     {
@@ -4789,7 +5266,9 @@
         "maleMemberId": 2533,
         "femaleMemberId": 2534,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1948,
+        "sourcePaletteKey": 744
       }
     },
     {
@@ -4809,7 +5288,9 @@
         "maleMemberId": 2487,
         "femaleMemberId": 2488,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1904,
+        "sourcePaletteKey": 722
       }
     },
     {
@@ -4829,7 +5310,9 @@
         "maleMemberId": 2559,
         "femaleMemberId": 2560,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1974,
+        "sourcePaletteKey": 757
       }
     },
     {
@@ -4849,7 +5332,9 @@
         "maleMemberId": 2561,
         "femaleMemberId": 2562,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1976,
+        "sourcePaletteKey": 758
       }
     },
     {
@@ -4869,7 +5354,9 @@
         "maleMemberId": 2585,
         "femaleMemberId": 2586,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1998,
+        "sourcePaletteKey": 769
       }
     },
     {
@@ -4889,7 +5376,9 @@
         "maleMemberId": 2353,
         "femaleMemberId": 2354,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1336,
+        "sourcePaletteKey": 664
       }
     },
     {
@@ -4909,7 +5398,9 @@
         "maleMemberId": 2557,
         "femaleMemberId": 2558,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1972,
+        "sourcePaletteKey": 756
       }
     },
     {
@@ -4929,7 +5420,9 @@
         "maleMemberId": 2765,
         "femaleMemberId": 2766,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2676,
+        "sourcePaletteKey": 944
       }
     },
     {
@@ -4949,7 +5442,9 @@
         "maleMemberId": 2593,
         "femaleMemberId": 2594,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2006,
+        "sourcePaletteKey": 773
       }
     },
     {
@@ -4969,7 +5464,9 @@
         "maleMemberId": 2699,
         "femaleMemberId": 2700,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2610,
+        "sourcePaletteKey": 911
       }
     },
     {
@@ -4989,7 +5486,9 @@
         "maleMemberId": 2373,
         "femaleMemberId": 2374,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1352,
+        "sourcePaletteKey": 672
       }
     },
     {
@@ -5009,7 +5508,9 @@
         "maleMemberId": 2417,
         "femaleMemberId": 2418,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1388,
+        "sourcePaletteKey": 690
       }
     },
     {
@@ -5029,7 +5530,9 @@
         "maleMemberId": 2451,
         "femaleMemberId": 2452,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1418,
+        "sourcePaletteKey": 705
       }
     },
     {
@@ -5049,7 +5552,9 @@
         "maleMemberId": 2403,
         "femaleMemberId": 2404,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1378,
+        "sourcePaletteKey": 685
       }
     },
     {
@@ -5069,7 +5574,9 @@
         "maleMemberId": 2733,
         "femaleMemberId": 2734,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2644,
+        "sourcePaletteKey": 928
       }
     },
     {
@@ -5088,8 +5595,10 @@
       "icon": {
         "maleMemberId": 2683,
         "femaleMemberId": 2684,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2594,
+        "sourcePaletteKey": 903
       }
     },
     {
@@ -5109,7 +5618,9 @@
         "maleMemberId": 2631,
         "femaleMemberId": 2632,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2042,
+        "sourcePaletteKey": 791
       }
     },
     {
@@ -5129,7 +5640,9 @@
         "maleMemberId": 2355,
         "femaleMemberId": 2356,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1338,
+        "sourcePaletteKey": 665
       }
     },
     {
@@ -5148,8 +5661,10 @@
       "icon": {
         "maleMemberId": 2713,
         "femaleMemberId": 2714,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2624,
+        "sourcePaletteKey": 918
       }
     },
     {
@@ -5169,7 +5684,9 @@
         "maleMemberId": 2689,
         "femaleMemberId": 2690,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2600,
+        "sourcePaletteKey": 906
       }
     },
     {
@@ -5189,7 +5706,9 @@
         "maleMemberId": 2397,
         "femaleMemberId": 2398,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1372,
+        "sourcePaletteKey": 682
       }
     },
     {
@@ -5208,8 +5727,10 @@
       "icon": {
         "maleMemberId": 2739,
         "femaleMemberId": 2740,
-        "malePaletteId": 2,
-        "femalePaletteId": 2
+        "malePaletteId": 1,
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2650,
+        "sourcePaletteKey": 931
       }
     },
     {
@@ -5229,7 +5750,9 @@
         "maleMemberId": 2663,
         "femaleMemberId": 2664,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2070,
+        "sourcePaletteKey": 805
       }
     },
     {
@@ -5249,7 +5772,9 @@
         "maleMemberId": 2569,
         "femaleMemberId": 2570,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1984,
+        "sourcePaletteKey": 762
       }
     },
     {
@@ -5269,7 +5794,9 @@
         "maleMemberId": 2563,
         "femaleMemberId": 2564,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1978,
+        "sourcePaletteKey": 759
       }
     },
     {
@@ -5289,7 +5816,9 @@
         "maleMemberId": 2401,
         "femaleMemberId": 2402,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1376,
+        "sourcePaletteKey": 684
       }
     },
     {
@@ -5309,7 +5838,9 @@
         "maleMemberId": 2439,
         "femaleMemberId": 2440,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1408,
+        "sourcePaletteKey": 700
       }
     },
     {
@@ -5329,7 +5860,9 @@
         "maleMemberId": 2753,
         "femaleMemberId": 2754,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2664,
+        "sourcePaletteKey": 938
       }
     },
     {
@@ -5349,7 +5882,9 @@
         "maleMemberId": 2351,
         "femaleMemberId": 2352,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1334,
+        "sourcePaletteKey": 663
       }
     },
     {
@@ -5368,8 +5903,10 @@
       "icon": {
         "maleMemberId": 2725,
         "femaleMemberId": 2726,
-        "malePaletteId": 1,
-        "femalePaletteId": 1
+        "malePaletteId": 0,
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2636,
+        "sourcePaletteKey": 924
       }
     },
     {
@@ -5389,7 +5926,9 @@
         "maleMemberId": 2623,
         "femaleMemberId": 2624,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2034,
+        "sourcePaletteKey": 787
       }
     },
     {
@@ -5409,7 +5948,9 @@
         "maleMemberId": 2625,
         "femaleMemberId": 2626,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2036,
+        "sourcePaletteKey": 788
       }
     },
     {
@@ -5429,7 +5970,9 @@
         "maleMemberId": 2619,
         "femaleMemberId": 2620,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2030,
+        "sourcePaletteKey": 785
       }
     },
     {
@@ -5449,7 +5992,9 @@
         "maleMemberId": 2621,
         "femaleMemberId": 2622,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2032,
+        "sourcePaletteKey": 786
       }
     },
     {
@@ -5469,7 +6014,9 @@
         "maleMemberId": 2711,
         "femaleMemberId": 2712,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2622,
+        "sourcePaletteKey": 917
       }
     },
     {
@@ -5489,7 +6036,9 @@
         "maleMemberId": 2601,
         "femaleMemberId": 2602,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2014,
+        "sourcePaletteKey": 777
       }
     },
     {
@@ -5509,7 +6058,9 @@
         "maleMemberId": 2495,
         "femaleMemberId": 2496,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1912,
+        "sourcePaletteKey": 726
       }
     },
     {
@@ -5529,7 +6080,9 @@
         "maleMemberId": 2509,
         "femaleMemberId": 2510,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1926,
+        "sourcePaletteKey": 733
       }
     },
     {
@@ -5549,7 +6102,9 @@
         "maleMemberId": 2541,
         "femaleMemberId": 2542,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1956,
+        "sourcePaletteKey": 748
       }
     },
     {
@@ -5569,7 +6124,9 @@
         "maleMemberId": 2457,
         "femaleMemberId": 2458,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1426,
+        "sourcePaletteKey": 709
       }
     },
     {
@@ -5589,7 +6146,9 @@
         "maleMemberId": 2507,
         "femaleMemberId": 2508,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1924,
+        "sourcePaletteKey": 732
       }
     },
     {
@@ -5609,7 +6168,9 @@
         "maleMemberId": 2571,
         "femaleMemberId": 2572,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1986,
+        "sourcePaletteKey": 763
       }
     },
     {
@@ -5629,7 +6190,9 @@
         "maleMemberId": 2599,
         "femaleMemberId": 2600,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2012,
+        "sourcePaletteKey": 776
       }
     },
     {
@@ -5649,7 +6212,9 @@
         "maleMemberId": 2591,
         "femaleMemberId": 2592,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2004,
+        "sourcePaletteKey": 772
       }
     },
     {
@@ -5669,7 +6234,9 @@
         "maleMemberId": 2433,
         "femaleMemberId": 2434,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1402,
+        "sourcePaletteKey": 697
       }
     },
     {
@@ -5689,7 +6256,9 @@
         "maleMemberId": 2431,
         "femaleMemberId": 2432,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1400,
+        "sourcePaletteKey": 696
       }
     },
     {
@@ -5708,8 +6277,10 @@
       "icon": {
         "maleMemberId": 2679,
         "femaleMemberId": 2680,
-        "malePaletteId": 0,
-        "femalePaletteId": 0
+        "malePaletteId": 2,
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 2590,
+        "sourcePaletteKey": 901
       }
     },
     {
@@ -5729,7 +6300,9 @@
         "maleMemberId": 2519,
         "femaleMemberId": 2520,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1936,
+        "sourcePaletteKey": 738
       }
     },
     {
@@ -5749,7 +6322,9 @@
         "maleMemberId": 2357,
         "femaleMemberId": 2358,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1340,
+        "sourcePaletteKey": 666
       }
     },
     {
@@ -5769,7 +6344,9 @@
         "maleMemberId": 2485,
         "femaleMemberId": 2486,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1450,
+        "sourcePaletteKey": 721
       }
     },
     {
@@ -5789,7 +6366,9 @@
         "maleMemberId": 2757,
         "femaleMemberId": 2758,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 2668,
+        "sourcePaletteKey": 940
       }
     },
     {
@@ -5809,7 +6388,9 @@
         "maleMemberId": 2579,
         "femaleMemberId": 2580,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1994,
+        "sourcePaletteKey": 767
       }
     },
     {
@@ -5829,7 +6410,9 @@
         "maleMemberId": 2537,
         "femaleMemberId": 2538,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1952,
+        "sourcePaletteKey": 746
       }
     },
     {
@@ -5849,7 +6432,9 @@
         "maleMemberId": 2471,
         "femaleMemberId": 2472,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1440,
+        "sourcePaletteKey": 716
       }
     },
     {
@@ -5869,7 +6454,9 @@
         "maleMemberId": 2641,
         "femaleMemberId": 2642,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2052,
+        "sourcePaletteKey": 796
       }
     },
     {
@@ -5889,7 +6476,9 @@
         "maleMemberId": 2511,
         "femaleMemberId": 2512,
         "malePaletteId": 2,
-        "femalePaletteId": 2
+        "femalePaletteId": 2,
+        "sourceArchiveIndex": 1928,
+        "sourcePaletteKey": 734
       }
     },
     {
@@ -5909,7 +6498,9 @@
         "maleMemberId": 2473,
         "femaleMemberId": 2474,
         "malePaletteId": 0,
-        "femalePaletteId": 0
+        "femalePaletteId": 0,
+        "sourceArchiveIndex": 1442,
+        "sourcePaletteKey": 717
       }
     },
     {
@@ -5929,7 +6520,9 @@
         "maleMemberId": 2667,
         "femaleMemberId": 2668,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 2074,
+        "sourcePaletteKey": 807
       }
     },
     {
@@ -5949,7 +6542,9 @@
         "maleMemberId": 2475,
         "femaleMemberId": 2476,
         "malePaletteId": 1,
-        "femalePaletteId": 1
+        "femalePaletteId": 1,
+        "sourceArchiveIndex": 1444,
+        "sourcePaletteKey": 718
       }
     }
   ]
