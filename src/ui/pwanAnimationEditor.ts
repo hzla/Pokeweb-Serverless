@@ -1370,10 +1370,12 @@ function renderOverlaySpeciesSelectOptions(project: ProjectState, selectedSpecie
 }
 
 function renderPwanLibraryPanel(project: ProjectState): string {
-  const canImport = Boolean(project.narcs.pokemon_sprites);
   if (pwanLibraryUiState.status === "ready" && pwanLibraryUiState.library) {
     const entries = listLoadedPwanLibraryEntries(pwanLibraryUiState.library);
     const selectedEntry = selectedPwanLibraryEntry(entries);
+    const missingSprites = !project.narcs.pokemon_sprites;
+    const missingIcons = Boolean(selectedEntry?.icon) && !project.narcs.pokemon_icons;
+    const canImport = !missingSprites && !missingIcons;
     return `
       <div class="pwan-panel pwan-library-panel">
         <div class="pwan-section-title">
@@ -1393,7 +1395,7 @@ function renderPwanLibraryPanel(project: ProjectState): string {
         ${
           canImport
             ? ""
-            : `<div class="pwan-library-message -error">Pokemon Sprites must be loaded before importing community assets.</div>`
+            : `<div class="pwan-library-message -error">${missingSprites ? "Pokemon Sprites" : "Pokemon Icons"} must be loaded before importing this community asset.</div>`
         }
         ${pwanLibraryUiState.message ? `<div class="pwan-library-message ${pwanLibraryUiState.messageError ? "-error" : ""}">${escapeHtml(pwanLibraryUiState.message)}</div>` : ""}
       </div>
@@ -1427,6 +1429,7 @@ function renderPwanLibraryEntryDetails(entry: PwanLibraryEntry): string {
         <span class="pwan-side-badge ${entry.hasFront ? "-front" : "-missing"}">F</span>
         <span class="pwan-side-badge ${entry.hasBack ? "-back" : "-missing"}">B</span>
         <span>Asset ${entry.assetIndex}</span>
+        ${entry.icon ? `<span>Icon included</span>` : ""}
       </div>
       <div><strong>Credits</strong><span>${escapeHtml(entry.credits || "Missing credit")}</span></div>
       ${entry.notes ? `<div><strong>Notes</strong><span>${escapeHtml(entry.notes)}</span></div>` : ""}
@@ -1646,7 +1649,7 @@ function installSpeciesPwanEvents(project: ProjectState, root: HTMLElement, spec
     refresh();
     try {
       await importPwanLibraryEntry(project, speciesId, pwanLibraryUiState.selectedEntryId, { library: pwanLibraryUiState.library });
-      pwanLibraryUiState.message = entry ? `Imported ${entry.name}.` : "Imported community asset.";
+      pwanLibraryUiState.message = entry ? `Imported ${entry.name}${entry.icon ? " with its icon" : ""}.` : "Imported community asset.";
       pwanLibraryUiState.messageError = false;
       options.onDirty?.();
     } catch (error) {
