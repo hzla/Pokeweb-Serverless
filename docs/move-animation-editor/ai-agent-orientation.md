@@ -72,5 +72,5 @@ Constraints:
 - `Pokeweb-Serverless/move-animation-reference/move-animation-reference.md`
 - `Pokeweb-Serverless/docs/spa-editing-reference.md`
 - `docs/move-animation-workflow-review.md`
+- `docs/move-animation-tooling-improvements.md`
 - `Pokeweb-Serverless/docs/move-animation-editor/`
-

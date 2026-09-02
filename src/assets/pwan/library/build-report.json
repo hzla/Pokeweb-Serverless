@@ -1,29 +1,31 @@
 {
-  "format": "pokeweb-pwan-library-build-report-v1",
-  "sourceRom": "/path/to/Port-Pokeweb/White2Upgrade/White2Upgrade.nds",
+  "format": "pokeweb-pwan-library-build-report-v2",
+  "sourceRom": "/Users/andylee/Repos/Port-Pokeweb/White2Upgrade/White2Upgrade.nds",
   "archivePath": "zz_pokeweb_pwan/pwan.narc",
-  "archiveBytes": 58075884,
+  "archiveBytes": 58404380,
   "entryCount": 297,
   "sideCount": {
     "front": 297,
     "back": 283,
     "total": 580
   },
+  "iconCount": 297,
+  "missingIcons": [],
   "oneSidedEntries": [
-    "932-0-1079",
-    "36-1-1040",
     "902-0-1040",
+    "939-0-1086",
+    "36-1-1040",
     "691-1-1079",
     "670-6-1074",
     "475-1-817",
     "229-1-776",
     "801-1-1085",
     "801-2-1086",
-    "939-0-1086",
-    "938-0-1085",
     "18-1-729",
+    "302-1-782",
+    "932-0-1079",
     "928-0-1074",
-    "302-1-782"
+    "938-0-1085"
   ],
   "missingCredits": [],
   "trackerReportMismatches": [
@@ -34,10 +36,64 @@
       "reportCredits": "pompomking"
     },
     {
+      "id": "26-1-1038",
+      "name": "Mega Raichu X",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "26-2-1039",
+      "name": "Mega Raichu Y",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "36-1-1040",
+      "name": "Mega Clefable",
+      "trackerCredits": "RetroNC",
+      "reportCredits": "retromc"
+    },
+    {
+      "id": "71-1-1041",
+      "name": "Mega Victreebel",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "121-1-1042",
+      "name": "Mega Starmie",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "149-1-1043",
+      "name": "Mega Dragonite",
+      "trackerCredits": "RetroNC",
+      "reportCredits": "retromc"
+    },
+    {
+      "id": "154-1-1044",
+      "name": "Mega Meganium",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "160-1-1045",
+      "name": "Mega Feraligatr",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "181-1-745",
       "name": "Mega Ampharos",
       "trackerCredits": "Moon Black 2; Smogon Sprite Project",
       "reportCredits": "Smogon Sprite Project"
+    },
+    {
+      "id": "227-1-1046",
+      "name": "Mega Skarmory",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "229-1-776",
@@ -70,10 +126,34 @@
       "reportCredits": "Smogon Sprite Project"
     },
     {
+      "id": "358-1-1047",
+      "name": "Mega Chimecho",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "359-2-1049",
+      "name": "Mega Absol Z",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "398-1-1050",
+      "name": "Mega Staraptor",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "445-1-1051",
       "name": "Mega Garchomp",
       "trackerCredits": "Moon Black 2; Smogon Sprite Project",
       "reportCredits": "Smogon Sprite Project"
+    },
+    {
+      "id": "445-2-1052",
+      "name": "Mega Garchomp Z",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "448-1-1053",
@@ -82,10 +162,88 @@
       "reportCredits": "Smogon Sprite Project"
     },
     {
+      "id": "448-2-1054",
+      "name": "Mega Lucario Z",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "475-1-817",
       "name": "Mega Gallade",
       "trackerCredits": "Moon Black 2; pompomking",
       "reportCredits": "pompomking"
+    },
+    {
+      "id": "478-1-1055",
+      "name": "Mega Froslass",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "485-1-1056",
+      "name": "Mega Heatran",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "491-1-1057",
+      "name": "Mega Darkrai",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "500-1-1058",
+      "name": "Mega Emboar",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "530-1-1059",
+      "name": "Mega Excadrill",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "545-1-1060",
+      "name": "Mega Scolipede",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "560-1-1061",
+      "name": "Mega Scrafty",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "604-1-1062",
+      "name": "Mega Eelektross",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "609-1-1063",
+      "name": "Mega Chandelure",
+      "trackerCredits": "RetroNC; ghasty001",
+      "reportCredits": "retromc; ghasty001"
+    },
+    {
+      "id": "623-1-1064",
+      "name": "Mega Golurk",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "652-1-1065",
+      "name": "Mega Chesnaught",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "655-1-1066",
+      "name": "Mega Delphox",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "658-0-658",
@@ -94,10 +252,34 @@
       "reportCredits": "pompomking"
     },
     {
+      "id": "658-1-1067",
+      "name": "Mega Greninja",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "668-1-1068",
+      "name": "Mega Pyroar",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "670-6-1074",
+      "name": "Mega Floette",
+      "trackerCredits": "RetroNC",
+      "reportCredits": "retromc"
+    },
+    {
       "id": "677-0-677",
       "name": "Espurr",
       "trackerCredits": "Smogon Sprite Project; noellembrooks",
       "reportCredits": "noellembrooks"
+    },
+    {
+      "id": "678-2-1076",
+      "name": "Mega Meowstic",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "681-1-887",
@@ -106,10 +288,28 @@
       "reportCredits": "skidmarc25"
     },
     {
+      "id": "687-1-1077",
+      "name": "Mega Malamar",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "689-1-1078",
+      "name": "Mega Barbaracle",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "691-0-691",
       "name": "Dragalge",
       "trackerCredits": "Smogon Sprite Project; Ghasty001",
       "reportCredits": "Ghasty001"
+    },
+    {
+      "id": "691-1-1079",
+      "name": "Mega Dragalge",
+      "trackerCredits": "RetroNC",
+      "reportCredits": "retromc"
     },
     {
       "id": "701-0-701",
@@ -118,10 +318,22 @@
       "reportCredits": "pompomking"
     },
     {
+      "id": "701-1-1080",
+      "name": "Mega Hawlucha",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "715-0-715",
       "name": "Noivern",
       "trackerCredits": "diegotoon20; pl-enhanced",
       "reportCredits": "pl-enhanced"
+    },
+    {
+      "id": "718-1-1081",
+      "name": "Mega Zygarde",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "722-0-722",
@@ -218,6 +430,12 @@
       "name": "Crabominable",
       "trackerCredits": "Smogon Sprite Project; Antiant",
       "reportCredits": "Antiant"
+    },
+    {
+      "id": "740-1-1082",
+      "name": "Mega Crabominable",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "742-0-742",
@@ -340,6 +558,12 @@
       "reportCredits": "Antiant"
     },
     {
+      "id": "768-1-1083",
+      "name": "Mega Golisopod",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "769-0-769",
       "name": "Sandygast",
       "trackerCredits": "Smogon Sprite Project; MallowOut",
@@ -410,6 +634,12 @@
       "name": "Drampa",
       "trackerCredits": "Smogon Sprite Project; Antiant; Coyotango",
       "reportCredits": "Antiant; Coyotango"
+    },
+    {
+      "id": "780-1-1084",
+      "name": "Mega Drampa",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "781-0-969",
@@ -514,6 +744,18 @@
       "reportCredits": "uppa"
     },
     {
+      "id": "801-1-1085",
+      "name": "Mega Magearna",
+      "trackerCredits": "RetroNC",
+      "reportCredits": "retromc"
+    },
+    {
+      "id": "801-2-1086",
+      "name": "Mega Magearna (Original Color)",
+      "trackerCredits": "RetroNC",
+      "reportCredits": "retromc"
+    },
+    {
       "id": "804-0-804",
       "name": "Naganadel",
       "trackerCredits": "Smogon Sprite Project; Antiant",
@@ -532,135 +774,345 @@
       "reportCredits": "Antiant"
     },
     {
+      "id": "807-1-1087",
+      "name": "Mega Zeraora",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "808-0-808",
       "name": "Meltan",
       "trackerCredits": "Smogon Sprite Project; GalacticArtistMuffin; arinoelle (back)",
       "reportCredits": "GalacticArtistMuffin; arinoelle (back)"
     },
     {
+      "id": "870-1-1088",
+      "name": "Mega Falinks",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "900-0-1038",
+      "name": "Kleavor",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "901-0-1039",
+      "name": "Ursaluna",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "902-0-1040",
+      "name": "Basculegion",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc"
+    },
+    {
+      "id": "903-0-1041",
+      "name": "Sneasler",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "904-0-1042",
+      "name": "Overqwil",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "905-0-1043",
+      "name": "Enamorus",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc"
+    },
+    {
+      "id": "906-0-1044",
+      "name": "Sprigatito",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "907-0-1045",
+      "name": "Floragato",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "908-0-1046",
+      "name": "Meowscarada",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "909-0-1047",
+      "name": "Fuecoco",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "910-0-1049",
-      "name": "Mega Gengar",
-      "trackerCredits": "diegotoon20; hzla",
+      "name": "Crocalor",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "911-0-1050",
+      "name": "Skeledirge",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "912-0-1052",
+      "name": "Quaxly",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "913-0-1054",
+      "name": "Quaxwell",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "914-0-1055",
+      "name": "Quaquaval",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "915-0-1056",
+      "name": "Lechonk",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "916-0-1057",
+      "name": "Oinkologne",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "917-0-1058",
+      "name": "Tarountula",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "918-0-1059",
+      "name": "Spidops",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "919-0-1060",
-      "name": "Mega Gardevoir",
-      "trackerCredits": "Moon Black 2; Smogon Sprite Project",
+      "name": "Nymble",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "920-0-1061",
-      "name": "Mega Ampharos",
-      "trackerCredits": "Moon Black 2; Smogon Sprite Project",
+      "name": "Lokix",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "921-0-1062",
-      "name": "Mega Venusaur",
-      "trackerCredits": "Moon Black 2",
+      "name": "Pawmi",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "922-0-1063",
-      "name": "Mega Charizard X",
-      "trackerCredits": "Smogon Sprite Project; diegotoon20",
+      "name": "Pawmo",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; ghasty001"
     },
     {
       "id": "923-0-1064",
-      "name": "Mega Charizard Y",
-      "trackerCredits": "hzla; noellembrooks",
+      "name": "Pawmot",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "924-0-1065",
-      "name": "Mega Mewtwo X",
-      "trackerCredits": "Smogon Sprite Project; hzla",
+      "name": "Tandemaus",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "925-0-1066",
-      "name": "Mega Mewtwo Y",
-      "trackerCredits": "Smogon Sprite Project",
+      "name": "Maushold",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "926-0-1067",
-      "name": "Mega Blaziken",
-      "trackerCredits": "Moon Black 2; Smogon Sprite Project; hzla; pl-enhanced",
+      "name": "Fidough",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "927-0-1068",
-      "name": "Mega Medicham",
-      "trackerCredits": "Smogon Sprite Project; hzla",
+      "name": "Dachsbun",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "928-0-1074",
-      "name": "Mega Pinsir",
-      "trackerCredits": "hzla; pompomking",
+      "name": "Smoliv",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc"
     },
     {
+      "id": "929-0-1076",
+      "name": "Dolliv",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "930-0-1077",
-      "name": "Mega Abomasnow",
-      "trackerCredits": "Smogon Sprite Project",
+      "name": "Arboliva",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "931-0-1078",
+      "name": "Squawkabilly",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "932-0-1079",
-      "name": "Mega Blastoise",
-      "trackerCredits": "Moon Black 2",
+      "name": "Nacli",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc"
     },
     {
       "id": "933-0-1080",
-      "name": "Mega Kangaskhan",
-      "trackerCredits": "diegotoon20; hzla; pompomking",
+      "name": "Naclstack",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "934-0-1081",
-      "name": "Mega Gyarados",
-      "trackerCredits": "diegotoon20; hzla",
+      "name": "Garganacl",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "935-0-1082",
+      "name": "Charcadet",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "936-0-1083",
-      "name": "Mega Alakazam",
-      "trackerCredits": "Smogon Sprite Project; diegotoon20",
+      "name": "Armarouge",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "937-0-1084",
-      "name": "Mega Heracross",
-      "trackerCredits": "diegotoon20; hzla",
+      "name": "Ceruledge",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "938-0-1085",
-      "name": "Mega Mawile",
-      "trackerCredits": "Smogon Sprite Project",
+      "name": "Tadbulb",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc"
     },
     {
       "id": "939-0-1086",
-      "name": "Mega Manectric",
-      "trackerCredits": "Smogon Sprite Project; hzla",
+      "name": "Bellibolt",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc"
     },
     {
+      "id": "940-0-1087",
+      "name": "Wattrel",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
       "id": "941-0-1088",
-      "name": "Mega Latios",
-      "trackerCredits": "Smogon Sprite Project; hzla",
+      "name": "Kilowattrel",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
       "reportCredits": "retromc; Aronousqui20"
     },
     {
       "id": "942-0-1089",
-      "name": "Mega Latias",
-      "trackerCredits": "Smogon Sprite Project; hzla",
+      "name": "Maschiff",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "943-0-1090",
+      "name": "Mabosstiff",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "944-0-1091",
+      "name": "Shroodle",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "945-0-1092",
+      "name": "Grafaiai",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "946-0-1093",
+      "name": "Bramblin",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "947-0-1094",
+      "name": "Brambleghast",
+      "trackerCredits": "Smogon/Sprites Animados Contributors",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "952-1-1089",
+      "name": "Mega Scovillain",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "970-1-1090",
+      "name": "Mega Glimmora",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "978-1-1091",
+      "name": "Mega Tatsugiri (Curly Form)",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "978-2-1092",
+      "name": "Mega Tatsugiri (Droopy Form)",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "978-3-1093",
+      "name": "Mega Tatsugiri (Stretchy Form)",
+      "trackerCredits": "RetroNC; aronousqui20",
+      "reportCredits": "retromc; Aronousqui20"
+    },
+    {
+      "id": "998-1-1094",
+      "name": "Mega Baxcalibur",
+      "trackerCredits": "RetroNC; aronousqui20",
       "reportCredits": "retromc; Aronousqui20"
     }
   ]

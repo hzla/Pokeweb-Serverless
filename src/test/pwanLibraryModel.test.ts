@@ -1,6 +1,7 @@
 import { statSync, readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { writeU32 } from "../nds/binary";
+import { NARC } from "../nds/narc";
 import { buildPwanArchive } from "../pokeweb/pwanAnimationModel";
 import { PWAN_CARRIER_METADATA_OFFSETS, PWAN_FRONT_NCEC_Y, type PwanCarrierTemplate } from "../pokeweb/pwanCarrierPatch";
 import { PWAN_FRAME_BYTES, PWAN_HEIGHT, PWAN_PALETTE_COLORS, PWAN_WIDTH, pwanPalette } from "../pokeweb/pwanCompiler";
@@ -56,6 +57,31 @@ describe("pwanLibraryModel", () => {
     expect(saved.nativePaletteSource).toBe("front");
   });
 
+  it("installs a bundled icon and its palette assignment into the selected target", () => {
+    const source = makeOverride(4, makePwanBytes(2), makePwanBytes(3));
+    const entry = makeEntry("4-0-4", 4, 0, 4, true, true);
+    const archive = new NARC(buildPwanArchive([source]));
+    const male = Uint8Array.of(1, 2, 3, 4);
+    const female = Uint8Array.of(5, 6, 7);
+    entry.icon = {
+      maleMemberId: archive.files.length,
+      femaleMemberId: archive.files.length + 1,
+      malePaletteId: 2,
+      femalePaletteId: 1,
+    };
+    archive.files.push(male, female);
+    const library = parsePwanLibraryArchive(makeManifest([entry]), archive.save());
+    const project = makeProject(80, true);
+
+    importPwanLibraryEntryFromLoadedLibrary(project, 2, entry.id, library, makeCarrier());
+
+    expect(project.narcs.pokemon_icons?.rawFiles[12]).toEqual(male);
+    expect(project.narcs.pokemon_icons?.rawFiles[13]).toEqual(female);
+    expect(project.narcs.pokemon_icons?.dirty.has(12)).toBe(true);
+    expect(project.narcs.pokemon_icons?.dirty.has(13)).toBe(true);
+    expect(project.arm9[0x8c578 + 2]).toBe(0x12);
+  });
+
   it("uses the Black 2 carrier set for bundled community imports", async () => {
     const source = makeOverride(4, makePwanBytes(2), makePwanBytes(3));
     const entry = makeEntry("4-0-4", 4, 0, 4, true, true);
@@ -84,17 +110,21 @@ describe("pwanLibraryModel", () => {
 
   it("keeps the generated W2U library manifest in sync with the bundled archive", () => {
     const manifest = JSON.parse(readFileSync(new URL("../assets/pwan/library/manifest.json", import.meta.url), "utf8")) as PwanLibraryManifest;
-    const archive = statSync(new URL("../assets/pwan/library/pwan.narc", import.meta.url));
+    const archiveUrl = new URL("../assets/pwan/library/pwan.narc", import.meta.url);
+    const archive = statSync(archiveUrl);
+    const loaded = parsePwanLibraryArchive(manifest, new Uint8Array(readFileSync(archiveUrl)));
     const missingCredits = manifest.entries.filter((entry) => entry.credits.trim().length === 0);
 
-    expect(manifest.format).toBe("pokeweb-pwan-library-v1");
+    expect(manifest.format).toBe("pokeweb-pwan-library-v2");
     expect(manifest.entryCount).toBe(297);
+    expect(manifest.iconCount).toBe(297);
     expect(manifest.sideCount).toEqual({ front: 297, back: 283, total: 580 });
     expect(manifest.entries).toHaveLength(297);
+    expect(manifest.entries.every((entry) => entry.icon)).toBe(true);
+    expect(loaded.iconsByEntryId.size).toBe(297);
     expect(manifest.entries.filter((entry) => entry.hasFront !== entry.hasBack)).toHaveLength(14);
     expect(missingCredits).toEqual([]);
     expect(archive.size).toBe(manifest.archiveBytes);
-    expect(manifest.archiveBytes).toBe(58_075_884);
   });
 });
 
@@ -185,7 +215,8 @@ function makePwanBytes(timelineCount: number, ticks = 1): Uint8Array {
   return out;
 }
 
-function makeProject(spriteFileCount = 80): ProjectState {
+function makeProject(spriteFileCount = 80, withIcons = false): ProjectState {
+  const arm9 = new Uint8Array(withIcons ? 0x8c578 + 756 : 0);
   return {
     session: {
       romName: "test",
@@ -196,10 +227,11 @@ function makeProject(spriteFileCount = 80): ProjectState {
       blacklist: [],
     },
     romInfo: { title: "test", idCode: "IRDO", fileName: "test.nds", size: 0 },
-    arm9: new Uint8Array(),
+    arm9,
     overlays: {},
     narcs: {
       pokemon_sprites: makeStore(Array.from({ length: spriteFileCount }, () => new Uint8Array())),
+      ...(withIcons ? { pokemon_icons: makeStore(Array.from({ length: 80 }, () => new Uint8Array())) } : {}),
     },
     texts: { banks: {} },
     formats: {},
