@@ -172,7 +172,7 @@ function patchNcgr(project: ProjectState, absoluteIndex: number, tiledData: Uint
   if (!store) throw new Error("Pokemon Sprites must be loaded before applying PWAN carrier patches.");
   const file = store.rawFiles[absoluteIndex];
   if (!file || file.length === 0) throw new Error(`Pokemon sprite file ${absoluteIndex} is missing.`);
-  const decompressed = new Uint8Array(decompressNitro(file));
+  const decompressed = new Uint8Array(file[0] === 0x10 || file[0] === 0x11 ? decompressNitro(file) : file);
   if (decompressed.length < tiledData.length) throw new Error(`Pokemon sprite file ${absoluteIndex} is too small for ${tiledData.length} bytes of PWAN fallback data.`);
   decompressed.set(tiledData, decompressed.length - tiledData.length);
   writeSpriteFile(project, absoluteIndex, compressLz11Literal(decompressed));
