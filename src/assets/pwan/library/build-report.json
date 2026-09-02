@@ -1,8 +1,9 @@
 {
   "format": "pokeweb-pwan-library-build-report-v2",
   "sourceRom": "/Users/andylee/Repos/Port-Pokeweb/White2Upgrade/White2Upgrade.nds",
+  "iconSourceRom": "/Users/andylee/Repos/White2Upgrade-Original-pokeweb/build/White2Upgrade.nds",
   "archivePath": "zz_pokeweb_pwan/pwan.narc",
-  "archiveBytes": 58404380,
+  "archiveBytes": 58401164,
   "entryCount": 297,
   "sideCount": {
     "front": 297,

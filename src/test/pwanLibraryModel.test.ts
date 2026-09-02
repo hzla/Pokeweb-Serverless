@@ -122,6 +122,11 @@ describe("pwanLibraryModel", () => {
     expect(manifest.entries).toHaveLength(297);
     expect(manifest.entries.every((entry) => entry.icon)).toBe(true);
     expect(loaded.iconsByEntryId.size).toBe(297);
+    const megaCharizardX = manifest.entries.find((entry) => entry.key === "MEGA_CHARIZARD_X");
+    const litten = manifest.entries.find((entry) => entry.key === "SPECIES_725");
+    expect(megaCharizardX?.icon?.sourceArchiveIndex).toBe(2134);
+    expect(litten?.icon?.sourceArchiveIndex).toBe(1910);
+    expect(loaded.iconsByEntryId.get(megaCharizardX!.id)?.male).not.toEqual(loaded.iconsByEntryId.get(litten!.id)?.male);
     expect(manifest.entries.filter((entry) => entry.hasFront !== entry.hasBack)).toHaveLength(14);
     expect(missingCredits).toEqual([]);
     expect(archive.size).toBe(manifest.archiveBytes);

@@ -21,6 +21,7 @@ import {
   pokemonAnimationPlayerStateAtTick,
   pokemonAnimationSequenceTotalTicks,
   replaceRigCells,
+  resolvePokemonIconAddress,
   resolvePokemonSpriteId,
   scalePokemonAnimationDurations,
   setPokemonAnimation,
@@ -45,6 +46,7 @@ import {
   type PokemonCellOam,
   type PokemonMultiCellNode,
   type PokemonMultiCell,
+  type PokemonIconAddress,
   type PokemonIconVariant,
   type PokemonPaletteKind,
   type PokemonSpriteVariant,
@@ -332,9 +334,10 @@ export function renderPokemonSpriteEditor(
     const forms = getPokemonSpriteFormOptions(project, speciesId);
     const selectedForm = forms.find((form) => form.formIndex === formIndex) ?? forms[0];
     const spriteId = selectedForm.spriteId;
+    const iconAddress = resolvePokemonIconAddress(project, speciesId, selectedForm.formIndex, spriteId);
     state.speciesId = speciesId;
     const entry = getPokemonSpriteEntry(project, spriteId);
-    const iconAssignment = getPokemonIconPaletteAssignment(project, spriteId, state.iconVariant);
+    const iconAssignment = getPokemonIconPaletteAssignment(project, iconAddress.paletteKey, state.iconVariant);
     state.iconPaletteId = Math.min(2, iconAssignment.paletteId);
     const rigCells = getRigCells(project, spriteId, state.rigSide);
     state.selectedCell = clamp(state.selectedCell, 0, Math.max(0, rigCells.cells.length - 1));
@@ -413,10 +416,10 @@ export function renderPokemonSpriteEditor(
         </section>
       </main>
     `;
-    attachSpriteEditor(project, root, speciesId, selectedForm.formIndex, spriteId, options);
+    attachSpriteEditor(project, root, speciesId, selectedForm.formIndex, spriteId, iconAddress, options);
     adjustAnimationCanvasDisplaySize(root);
     drawAllPreviews(project, spriteId, root);
-    drawIconPreview(project, spriteId);
+    drawIconPreview(project, iconAddress.archiveSpriteId);
     drawRigEditor(project, spriteId, rigCells);
     drawAnimationEditor(project, spriteId, root);
     drawGifViewer(root);
@@ -428,7 +431,15 @@ export function renderPokemonSpriteEditor(
   }
 }
 
-function attachSpriteEditor(project: ProjectState, root: HTMLElement, speciesId: number, formIndex: number, spriteId: number, options: RenderOptions): void {
+function attachSpriteEditor(
+  project: ProjectState,
+  root: HTMLElement,
+  speciesId: number,
+  formIndex: number,
+  spriteId: number,
+  iconAddress: PokemonIconAddress,
+  options: RenderOptions,
+): void {
   const status = root.querySelector<HTMLElement>("#sprite-status");
   let paletteHighlight: PaletteHighlight;
   const setStatus = (message: string) => {
@@ -568,11 +579,11 @@ function attachSpriteEditor(project: ProjectState, root: HTMLElement, speciesId:
   });
   root.querySelector<HTMLInputElement>("#icon-palette-id")?.addEventListener("change", (event) => {
     state.iconPaletteId = clamp(Number((event.currentTarget as HTMLInputElement).value), 0, 2);
-    drawIconPreview(project, spriteId);
+    drawIconPreview(project, iconAddress.archiveSpriteId);
   });
   root.querySelector("#icon-set-palette")?.addEventListener("click", () => {
     try {
-      setPokemonIconPaletteAssignment(project, spriteId, state.iconVariant, state.iconPaletteId);
+      setPokemonIconPaletteAssignment(project, iconAddress.paletteKey, state.iconVariant, state.iconPaletteId);
       options.onDirty?.();
       setStatus("Updated icon palette assignment");
       rerender();
@@ -582,7 +593,7 @@ function attachSpriteEditor(project: ProjectState, root: HTMLElement, speciesId:
   });
   root.querySelector("#icon-export-png")?.addEventListener("click", () => {
     try {
-      downloadPng(getPokemonIconImage(project, spriteId, state.iconVariant, state.iconPaletteId), `${spriteFileBaseName(spriteId)}_${state.iconVariant}_icon.png`);
+      downloadPng(getPokemonIconImage(project, iconAddress.archiveSpriteId, state.iconVariant, state.iconPaletteId), `${spriteFileBaseName(spriteId)}_${state.iconVariant}_icon.png`);
     } catch (error) {
       setStatus(errorMessage(error));
     }
@@ -591,7 +602,7 @@ function attachSpriteEditor(project: ProjectState, root: HTMLElement, speciesId:
     try {
       const file = (event.currentTarget as HTMLInputElement).files?.[0];
       if (!file) return;
-      setPokemonIconImage(project, spriteId, state.iconVariant, state.iconPaletteId, await imageFileToRgba(file));
+      setPokemonIconImage(project, iconAddress.archiveSpriteId, state.iconVariant, state.iconPaletteId, await imageFileToRgba(file));
       options.onDirty?.();
       setStatus("Imported icon PNG");
       rerender();
