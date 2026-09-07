@@ -3,6 +3,7 @@ import movieIconUrl from "../assets/svgs/movie.png";
 import { PROPERTIES, CATEGORIES, typeNamesForProject } from "../pokeweb/constants";
 import {
   decompileMoveAnimation,
+  EMPTY_MOVE_ANIMATION_SCRIPT,
   getMoveAnimationTargetInfo,
   hasMoveAnimationScript,
   type MoveAnimationTargetInfo,
@@ -240,13 +241,18 @@ export function renderMoveAnimationPage(
     panel.innerHTML = `<div class="move-animation-error">Move animation NARCs were not loaded for this ROM session.</div>`;
     return;
   }
+  let script = EMPTY_MOVE_ANIMATION_SCRIPT;
+  let recoveryNotice: string | undefined;
   try {
-    const script = decompileMoveAnimation(project, moveId);
-    panel.innerHTML = renderMoveAnimationEditor(script);
-    installMoveAnimationEditor(panel, project, moveId, { onDirty, onTestMove });
+    script = decompileMoveAnimation(project, moveId);
   } catch (error) {
-    panel.innerHTML = `<div class="move-animation-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
+    recoveryNotice = `${error instanceof Error ? error.message : String(error)}. A new empty script is ready.`;
   }
+  panel.innerHTML = renderMoveAnimationEditor(script, {
+    donorMoveOptions: renderMoveAnimationDonorOptions(project, moveId),
+    recoveryNotice,
+  });
+  installMoveAnimationEditor(panel, project, moveId, { onDirty, onTestMove });
 }
 
 function renderMoveAnimationTargetLabel(target: MoveAnimationTargetInfo | undefined): string {
@@ -261,6 +267,17 @@ function renderMoveAnimationMoveOptions(project: ProjectState, selectedMoveId: n
     const move = getMoveRecord(project, id);
     const name = titleize(String(move.readable.name ?? `Move ${id}`));
     options.push(`<option value="${id}" ${id === selectedMoveId ? "selected" : ""}>${escapeHtml(name)} - ${id}</option>`);
+  }
+  return options.join("");
+}
+
+function renderMoveAnimationDonorOptions(project: ProjectState, targetMoveId: number): string {
+  const options = ['<option value="">Choose a move</option>'];
+  for (let id = 0; id < getMoveCount(project); id += 1) {
+    if (id === targetMoveId) continue;
+    const move = getMoveRecord(project, id);
+    const name = titleize(String(move.readable.name ?? `Move ${id}`));
+    options.push(`<option value="${id}">${escapeHtml(name)} - ${id}</option>`);
   }
   return options.join("");
 }

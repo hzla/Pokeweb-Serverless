@@ -8,6 +8,7 @@ import { NintendoDSRom } from "../src/nds/rom";
 import { VERSION_BY_ARM9_SAMPLE, type BaseRom, type BaseVersion } from "../src/pokeweb/constants";
 import { getMoveAnimationDisplayCommandName } from "../src/pokeweb/moveAnimationCommandNames";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript, type ParsedMoveAnimationCommand } from "../src/pokeweb/moveAnimationModel";
+import { analyzeMoveAnimationSegments, type MoveAnimationSegmentRange } from "../src/pokeweb/moveAnimationSegments";
 import { parseSpaArchive } from "../src/pokeweb/nitroSpa";
 import { decodeGen5TextBank } from "../src/pokeweb/text";
 
@@ -88,6 +89,7 @@ type MoveIndexEntry = {
   backgrounds: Array<{ backgroundId: number; moves: string[]; tags: string[] }>;
   soundIds: number[];
   cameraCommands: string[];
+  phases: MoveAnimationSegmentRange[];
   hasSpecialBackground: boolean;
   tags: string[];
   summary: string;
@@ -209,6 +211,7 @@ function indexMove(
     backgrounds: [],
     soundIds: [],
     cameraCommands: [],
+    phases: [],
     hasSpecialBackground: false,
     tags: [],
     summary: "",
@@ -218,6 +221,7 @@ function indexMove(
   try {
     const script = decompileMoveAnimationBytes(bytes);
     const parsed = parseMoveAnimationScript(script);
+    const phases = analyzeMoveAnimationSegments(script).inferred;
     const commands = [...parsed.scripts.values()].flat();
     const commandNames = unique(commands.map((command) => getMoveAnimationDisplayCommandName(command.name)));
     const spaResourceMap = new Map<string, { spaId: number; resourceId?: number; commands: Set<string>; tags: Set<string> }>();
@@ -258,7 +262,7 @@ function indexMove(
       moves: backgroundDocById.get(backgroundId)?.moves ?? [],
       tags: backgroundDocById.get(backgroundId)?.tags ?? [],
     }));
-    const tags = inferMoveTags(moveName, moveDescription, commands, spaResources, backgrounds);
+    const tags = unique([...inferMoveTags(moveName, moveDescription, commands, spaResources, backgrounds), ...phases.map((phase) => phase.name)]).sort();
     const summary = summarizeMove(moveName, moveDescription, [...spaIds], backgrounds, tags, commandNames);
 
     return {
@@ -272,6 +276,7 @@ function indexMove(
       backgrounds,
       soundIds: [...soundIds].sort((a, b) => a - b),
       cameraCommands: [...cameraCommands].sort(),
+      phases,
       hasSpecialBackground: backgroundIds.size > 0,
       tags,
       summary,

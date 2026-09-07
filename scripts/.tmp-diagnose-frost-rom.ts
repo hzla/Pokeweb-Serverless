@@ -5,11 +5,10 @@ import { NintendoDSRom } from "../src/nds/rom";
 import type { Folder } from "../src/nds/fnt";
 import { detectNarcRepairReasons } from "../src/pokeweb/romRepairModel";
 
-const paths = [
-  "/Users/andylee/Downloads/radiantchromelatest.nds",
-  "/Users/andylee/Downloads/radiantchromelatest-form-evolution.nds",
-  "/Users/andylee/Downloads/radiantchromelatest-modified.nds",
-];
+const paths = process.argv.slice(2);
+if (paths.length === 0) {
+  throw new Error("Usage: vite-node scripts/.tmp-diagnose-frost-rom.ts <rom.nds> [comparison-rom.nds ...]");
+}
 
 function pathMap(root: Folder): Map<number, string> {
   const out = new Map<number, string>();
