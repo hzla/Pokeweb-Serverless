@@ -28,19 +28,27 @@ const POKEWEB_DOCS = [
   "docs/move-animation-editor/README.md",
   "docs/move-animation-editor/ai-agent-orientation.md",
   "docs/move-animation-editor/command-reference.md",
+  "docs/move-animation-editor/preview-swan-conformance.md",
   "docs/move-animation-editor/script-vs-spa.md",
   "docs/move-animation-editor/spa-particle-reference.md",
   "docs/move-animation-editor/workflow-guides.md",
 ];
 
 const POKEWEB_TOOLS = [
+  ".moveanim.local.example.json",
   "package.json",
   "package-lock.json",
   "scripts/enable-test-battle-move-animations.ts",
   "scripts/generate-white2upgrade-gen6-animation-bundle.ts",
   "scripts/move-animation-helper.ts",
   "scripts/move-animation-index.ts",
+  "scripts/generate-move-animation-docs.ts",
   "scripts/move-animation-workflow.ts",
+  "scripts/lib/move-animation-donors.ts",
+  "scripts/lib/move-animation-snapshots.ts",
+  "scripts/lib/move-animation-tooling.ts",
+  "scripts/lib/move-animation-workflow-config.ts",
+  "scripts/lib/spa-texture-import.ts",
   "scripts/verify-move-expansion-install.ts",
   "src/assets/data/B2W2_MOVSCRCMD.s",
   "src/assets/data/moveAnimationCommandDocs.json",
@@ -56,7 +64,10 @@ const POKEWEB_TOOLS = [
   "src/pokeweb/moveAnimationModel.ts",
   "src/pokeweb/moveAnimationParamSemantics.ts",
   "src/pokeweb/moveAnimationPreviewModel.ts",
+  "src/pokeweb/moveAnimationSegments.ts",
+  "src/pokeweb/moveAnimationVmSchema.ts",
   "src/pokeweb/nitroSpa.ts",
+  "src/pokeweb/spaTransform.ts",
   "src/pokeweb/splEmitterSimulator.ts",
   "src/test/moveAnimationCodeEditor.test.ts",
   "src/test/moveAnimationCommandSummary.test.ts",
@@ -64,6 +75,8 @@ const POKEWEB_TOOLS = [
   "src/test/moveAnimationDocumentation.test.ts",
   "src/test/moveAnimationModel.test.ts",
   "src/test/moveAnimationPreviewModel.test.ts",
+  "src/test/moveAnimationTooling.test.ts",
+  "src/test/moveAnimationToolingP1P2.test.ts",
 ];
 
 const REFERENCE_INDEX = [
@@ -71,6 +84,8 @@ const REFERENCE_INDEX = [
   "move-animation-reference/move-animation-reference.json",
   "move-animation-reference/move-animation-reference.md",
   "move-animation-reference/spa-reference.json",
+  "move-animation-reference/staged-ownership.json",
+  "move-animation-reference/staged-ownership.md",
 ];
 
 const W2U_FILES = [

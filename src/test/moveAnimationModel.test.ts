@@ -7,7 +7,9 @@ import {
   compileMoveAnimation,
   decompileMoveAnimation,
   decompileMoveAnimationBytes,
+  EMPTY_MOVE_ANIMATION_SCRIPT,
   formatMoveAnimationScriptParameters,
+  getMoveAnimationParticleIds,
   getMoveAnimationTargetInfo,
   parseMoveAnimationScript,
   remapMoveAnimationParticleIds,
@@ -16,6 +18,7 @@ import {
   updateMoveAnimationScript,
 } from "../pokeweb/moveAnimationModel";
 import { updateMoveField } from "../pokeweb/moveItemModel";
+import { copyMoveSpaArchive } from "../pokeweb/moveSpaModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
 const SINGLE_SCRIPT = `
@@ -116,6 +119,36 @@ TerminateMoveScript
     expect(new Set(parsed.headerLabels)).toEqual(new Set(["SCRIPT_60"]));
     expect(parsed.labelOrder).toEqual(["SCRIPT_60"]);
     expect([...bytes]).toEqual([...compileMoveAnimation(project, 1, SINGLE_SCRIPT)]);
+  });
+
+  it("provides a valid empty animation for uninitialized move slots", () => {
+    const project = makeProject();
+    const bytes = compileMoveAnimation(project, 1, EMPTY_MOVE_ANIMATION_SCRIPT);
+
+    expect(decompileMoveAnimationBytes(bytes)).toBe(EMPTY_MOVE_ANIMATION_SCRIPT);
+  });
+
+  it("lists unique SPA references in script order", () => {
+    expect(getMoveAnimationParticleIds(`
+LoadSPA 22
+Emit 22, 0, ATTACKER, DEFENDER, 0, 0, 0, 1x, 1x, 1x, 1x
+LoadSPA 9
+DeleteParticle 22
+TerminateMoveScript
+`)).toEqual([22, 9]);
+  });
+
+  it("copies a donor SPA into an editable target slot", async () => {
+    const project = makeProject();
+    const donor = new Uint8Array([1, 2, 3, 4]);
+    project.narcs.move_spas = makeStore("move_spas", [new Uint8Array([0]), donor, new Uint8Array([9])]);
+
+    const copied = await copyMoveSpaArchive(project, 2, 1);
+
+    expect([...copied]).toEqual([...donor]);
+    expect([...project.narcs.move_spas.rawFiles[2]]).toEqual([...donor]);
+    expect(project.narcs.move_spas.rawFiles[2]).not.toBe(donor);
+    expect(project.narcs.move_spas.dirty.has(2)).toBe(true);
   });
 
   it("remaps every particle command while preserving unrelated parameters", () => {

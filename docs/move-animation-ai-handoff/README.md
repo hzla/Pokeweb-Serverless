@@ -38,8 +38,8 @@ Read these in order before changing an animation:
 
 Use the command reference, SPA editing reference, donor index, and Swan excerpt
 as lookup material rather than loading all of them into the initial context.
-`move-animation-tooling-improvements.md` is a roadmap; commands described there
-may not be implemented yet.
+`move-animation-tooling-improvements.md` records the implemented P0-P2 workflow.
+The optional emulator-capture roadmap item is intentionally excluded.
 
 ## Initial Commands
 
@@ -47,19 +47,20 @@ From the recipient's full Pokeweb clone:
 
 ```bash
 npm ci
+npm run moveanim:workflow -- doctor
 npm run moveanim:workflow -- brief
-npm run moveanim:workflow -- next-spa \
-  --repo /path/to/White2Upgrade \
-  --repo /path/to/White2Upgrade-build
+npm run moveanim:workflow -- next-spa
 ```
 
-The current workflow still requires explicit paths on a new machine. The local
-configuration resolver described in the tooling roadmap has not been built.
+Create `.moveanim.local.json` from `.moveanim.local.example.json` first. The
+file is gitignored; CLI options and `MOVEANIM_*` environment variables can
+override it without placing machine paths in committed files.
 
 For an active move, create `work/<slug>/` beside `Pokeweb-Serverless` and keep
 its generator authoritative while iterating. Do not hand-edit generated binary
 animations or SPAs. Do not search archived move work unless the task involves
-that exact move.
+that exact move. Use `moveanim:workflow scaffold` for a manifest-ready
+workspace and `finish`/`finalize` for the verified completion path.
 
 ## Non-Negotiable Rules
 

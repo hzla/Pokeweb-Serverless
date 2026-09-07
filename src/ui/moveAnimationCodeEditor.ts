@@ -8,7 +8,7 @@ import {
   getMoveAnimationDisplayCommandName,
   getMoveAnimationGenericCommandAliases,
 } from "../pokeweb/moveAnimationCommandNames";
-import { getMoveAnimationCommandDefinitions } from "../pokeweb/moveAnimationModel";
+import { getMoveAnimationVmSchema } from "../pokeweb/moveAnimationVmSchema";
 import {
   getMoveAnimationEnumCompletions,
   isMoveAnimationEnumToken,
@@ -51,7 +51,7 @@ type ColorParamInfo = { red: number; green: number; blue: number };
 type ParamToken = { text: string; from: number; to: number; index: number };
 type CodeDecorationRange = { from: number; to: number; decoration: Decoration; priority: number };
 
-const commandDefinitions = getMoveAnimationCommandDefinitions();
+const commandDefinitions = getMoveAnimationVmSchema();
 const commandNamesLower = new Set<string>();
 const commandDefinitionsByName = new Map<string, (typeof commandDefinitions)[number]>();
 for (const definition of commandDefinitions) {
@@ -274,7 +274,7 @@ function buildMoveAnimationCommandCompletions(): Completion[] {
   const options = new Map<string, Completion>();
   for (const definition of commandDefinitions) {
     const doc = commandDocs.get(definition.name.toLowerCase());
-    const params = doc?.params.map((param) => param.name) ?? definition.params;
+    const params = doc?.params.map((param) => param.name) ?? definition.params.map((param) => param.name);
     const signature = params.length ? ` ${params.join(", ")}` : "";
     const displayName = getMoveAnimationDisplayCommandName(definition.name);
     options.set(displayName.toLowerCase(), {
@@ -289,7 +289,7 @@ function buildMoveAnimationCommandCompletions(): Completion[] {
 }
 
 function commandAliasesForDefinition(definition: (typeof commandDefinitions)[number]): string[] {
-  return [definition.name, getMoveAnimationDisplayCommandName(definition.name), ...getMoveAnimationCommandAliases(definition.name), ...getMoveAnimationGenericCommandAliases(definition.opcode)];
+  return definition.aliases;
 }
 
 function buildMoveAnimationLabelCompletions(text: string): Completion[] {

@@ -14,8 +14,18 @@ import { loadBattleBackgroundCatalog, type BattleBackgroundVariant } from "../po
 import { loadBattlePlatformCatalog, type BattlePlatformVariant } from "../pokeweb/battlePlatformModel";
 import { getMoveAnimationDisplayCommandName } from "../pokeweb/moveAnimationCommandNames";
 import { summarizeMoveAnimationCommandLine } from "../pokeweb/moveAnimationCommandSummary";
-import { compileMoveAnimation, decompileMoveAnimationBytes, formatMoveAnimationScriptParameters, updateMoveAnimationScript, type MoveAnimationParamDisplayMode } from "../pokeweb/moveAnimationModel";
+import {
+  compileMoveAnimation,
+  decompileMoveAnimation,
+  decompileMoveAnimationBytes,
+  formatMoveAnimationScriptParameters,
+  getMoveAnimationParticleIds,
+  remapMoveAnimationParticleIds,
+  updateMoveAnimationScript,
+  type MoveAnimationParamDisplayMode,
+} from "../pokeweb/moveAnimationModel";
 import { getMoveAnimationParamSemanticHelp } from "../pokeweb/moveAnimationParamSemantics";
+import { copyMoveSpaArchive } from "../pokeweb/moveSpaModel";
 import {
   loadMoveAnimationBattleEnvironment,
   MOVE_PREVIEW_BACKGROUND_INDEX,
@@ -35,6 +45,11 @@ import { installMoveSpaEditor, type MoveSpaEditorController } from "./moveSpaEdi
 export type MoveAnimationEditorOptions = {
   onDirty?: () => void;
   onTestMove?: (moveId: number, scriptText: string) => Promise<void>;
+};
+
+export type MoveAnimationEditorRenderOptions = {
+  donorMoveOptions?: string;
+  recoveryNotice?: string;
 };
 
 type MoveOptions = MoveAnimationEditorOptions & {
@@ -290,8 +305,9 @@ export function attachMoveInteractions(root: HTMLElement, project: ProjectState,
   runFilter();
 }
 
-export function renderMoveAnimationEditor(script: string): string {
+export function renderMoveAnimationEditor(script: string, options: MoveAnimationEditorRenderOptions = {}): string {
   return `
+    ${options.recoveryNotice ? `<div class="move-animation-recovery-notice" role="status">${escapeHtml(options.recoveryNotice)}</div>` : ""}
     <div class="move-animation-toolbar">
       <button class="script-btn move-animation-apply" type="button">Apply Script</button>
       <button class="script-btn move-animation-revert" type="button">Revert</button>
@@ -305,6 +321,16 @@ export function renderMoveAnimationEditor(script: string): string {
       <input class="move-animation-import-bin-file" type="file" accept=".bin,.dat,application/octet-stream" hidden>
       <div class="move-animation-status"></div>
     </div>
+    ${options.donorMoveOptions ? `
+      <div class="move-animation-copy-tools">
+        <label>
+          <span>Copy from move</span>
+          <select class="move-animation-copy-source">${options.donorMoveOptions}</select>
+        </label>
+        <button class="script-btn move-animation-copy-script" type="button" disabled>Copy Script</button>
+        <button class="script-btn move-animation-copy-script-spa" type="button" title="Clone the donor's primary SPA into this move's SPA slot and update its script references" disabled>Copy Script + SPA</button>
+      </div>
+    ` : ""}
     <textarea class="move-animation-source" hidden>${escapeHtml(script)}</textarea>
     <div class="move-animation-workspace">
       <div class="move-animation-script-pane">
@@ -375,6 +401,10 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   const backgroundSelect = pageRoot?.querySelector<HTMLSelectElement>("#move-animation-background-select") ?? undefined;
   const platformSelect = pageRoot?.querySelector<HTMLSelectElement>("#move-animation-platform-select") ?? undefined;
   const swapSidesInput = pageRoot?.querySelector<HTMLInputElement>("#move-animation-swap-sides") ?? undefined;
+  const copySourceSelect = panel.querySelector<HTMLSelectElement>(".move-animation-copy-source") ?? undefined;
+  const copyScriptButton = panel.querySelector<HTMLButtonElement>(".move-animation-copy-script") ?? undefined;
+  const copyScriptSpaButton = panel.querySelector<HTMLButtonElement>(".move-animation-copy-script-spa") ?? undefined;
+  const recoveryNotice = panel.querySelector<HTMLElement>(".move-animation-recovery-notice") ?? undefined;
   const savedSwappedSides = loadMoveAnimationSwapSidesPreference();
   let audioEnabled = loadMoveAnimationAudioPreference();
   if (swapSidesInput) swapSidesInput.checked = savedSwappedSides;
@@ -557,6 +587,63 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
     saveMoveAnimationSwapSidesPreference(swapSidesInput.checked);
     refreshEnvironmentPreview();
   });
+  const setCopyControlsBusy = (busy: boolean): void => {
+    if (copySourceSelect) copySourceSelect.disabled = busy;
+    const hasDonor = copySourceSelect?.value !== "";
+    if (copyScriptButton) copyScriptButton.disabled = busy || !hasDonor;
+    if (copyScriptSpaButton) copyScriptSpaButton.disabled = busy || !hasDonor;
+  };
+  const copyFromMove = async (includePrimarySpa: boolean): Promise<void> => {
+    if (!editor || !copySourceSelect || copySourceSelect.value === "") return;
+    const donorMoveId = Number(copySourceSelect.value);
+    if (!Number.isSafeInteger(donorMoveId) || donorMoveId < 0 || donorMoveId === moveId) return;
+    const donorLabel = copySourceSelect.selectedOptions[0]?.textContent?.trim() ?? `Move ${donorMoveId}`;
+    setCopyControlsBusy(true);
+    if (status) {
+      status.textContent = `Copying ${donorLabel}`;
+      status.classList.remove("-error");
+    }
+    try {
+      let scriptText = decompileMoveAnimation(project, donorMoveId);
+      let spaStatus = "";
+      if (includePrimarySpa) {
+        const donorSpaIds = getMoveAnimationParticleIds(scriptText);
+        if (donorSpaIds.length === 0) throw new Error(`${donorLabel} does not reference an SPA`);
+        const sourceSpaId = donorSpaIds.includes(donorMoveId) ? donorMoveId : donorSpaIds[0];
+        const remapped = remapMoveAnimationParticleIds(
+          compileMoveAnimation(project, moveId, scriptText),
+          new Map([[sourceSpaId, moveId]]),
+        );
+        scriptText = decompileMoveAnimationBytes(remapped.bytes);
+        await copyMoveSpaArchive(project, moveId, sourceSpaId);
+        spaStatus = ` and SPA ${sourceSpaId} to ${moveId}`;
+        if (donorSpaIds.length > 1) spaStatus += `; ${donorSpaIds.length - 1} additional SPA reference${donorSpaIds.length === 2 ? " remains" : "s remain"} shared`;
+      }
+      updateMoveAnimationScript(project, moveId, scriptText);
+      setEditorScriptForDisplayMode(scriptText);
+      lastGood = editor.getValue();
+      editor.setInvalid(false);
+      recoveryNotice?.remove();
+      await refreshScriptDependents();
+      options.onDirty?.();
+      schedulePreviewRefresh();
+      if (status) {
+        status.textContent = `Copied ${donorLabel} script${spaStatus}`;
+        status.classList.remove("-error");
+      }
+    } catch (error) {
+      editor.setInvalid(true);
+      if (status) {
+        status.textContent = error instanceof Error ? error.message : String(error);
+        status.classList.add("-error");
+      }
+    } finally {
+      setCopyControlsBusy(false);
+    }
+  };
+  copySourceSelect?.addEventListener("change", () => setCopyControlsBusy(false));
+  copyScriptButton?.addEventListener("click", () => void copyFromMove(false));
+  copyScriptSpaButton?.addEventListener("click", () => void copyFromMove(true));
   void loadMoveAnimationEnvironmentSelectors(project, backgroundSelect, platformSelect, battleEnvironmentSelection)
     .then((selection) => {
       battleEnvironmentSelection = { ...selection, swappedSides: battleEnvironmentSelection.swappedSides };
@@ -568,6 +655,7 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
       const scriptText = editor.getValue();
       updateMoveAnimationScript(project, moveId, scriptText);
       lastGood = scriptText;
+      recoveryNotice?.remove();
       if (status) {
         status.textContent = "Applied";
         status.classList.remove("-error");
@@ -663,6 +751,7 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
 	      const scriptText = decompileMoveAnimationBytes(new Uint8Array(await file.arrayBuffer()));
 	      setEditorScriptForDisplayMode(scriptText);
 	      editor.setInvalid(false);
+      recoveryNotice?.remove();
       await spaEditor?.ensureReferences(editor.getValue());
       schedulePreviewRefresh();
       if (status) {

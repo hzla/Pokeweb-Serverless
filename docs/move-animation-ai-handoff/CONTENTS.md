@@ -13,8 +13,14 @@
 
 - `move-animation-helper.ts`: extract, decompile, compile, and append SPA data.
 - `move-animation-index.ts`: build donor, background, and SPA indexes.
-- `move-animation-workflow.ts`: brief, SPA allocation, staging, built-ROM
-  verification, and active-workspace scaffolding.
+- `move-animation-workflow.ts` plus `scripts/lib/move-animation-*`: shared local
+  configuration, doctor, generic inspection/diff/lint, retail budget modeling,
+  donor search/preparation, phase composition, deterministic preview snapshots,
+  SPA allocation, staging, exact built-ROM/routing verification, and
+  manifest-driven start/finish/finalize/reopen lifecycle.
+- `spaTransform.ts` and `spa-texture-import.ts`: explicit donor field policies,
+  compact resource extraction, recolor/orientation transforms, and quantified
+  direct/A5I3/A3I5 PNG import.
 - `enable-test-battle-move-animations.ts`: enables animations in test-battle
   saves.
 - `generate-white2upgrade-gen6-animation-bundle.ts` and

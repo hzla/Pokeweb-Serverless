@@ -41,6 +41,13 @@ const BACKGROUND_MARKER_COMMANDS = new Set(["DistortBackground", "BackgroundPale
 const CAMERA_COMMANDS = new Set(["MoveCamera", "AdjustCamera", "CameraMoveAngle", "CameraProjection", "CameraPosPush", "ShakeScreen"]);
 const WAIT_FOR_PENDING_COMMANDS = new Set(["LetCMDsFinish"]);
 
+export function getMoveAnimationPreviewSupport(command: string): "supported" | "marker" | "unsupported" {
+  if (command === "Wait" || WAIT_FOR_PENDING_COMMANDS.has(command) || command === "LoadSPA" || SPA_COMMANDS.has(command) || command === "LoadBackground" || BACKGROUND_RENDER_COMMANDS.has(command) || CAMERA_COMMANDS.has(command)) return "supported";
+  if (isGen5BattleSpriteCommand(command)) return command === "FreezeSprite" || command === "PokemonBlinkFlag" ? "marker" : "supported";
+  if (MARKER_COMMANDS.has(command) || BACKGROUND_MARKER_COMMANDS.has(command)) return "marker";
+  return "unsupported";
+}
+
 export type MoveAnimationTimelineEvent = {
   id: string;
   frame: number;

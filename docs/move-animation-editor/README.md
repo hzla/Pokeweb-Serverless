@@ -30,19 +30,18 @@ If a recolored particle keeps drifting back to the donor color, a projectile ign
 
 ## Recommended Workflow
 
-1. Identify the donor move ID, actual animation member, referenced SPA IDs, resource IDs, texture IDs, backgrounds, and sounds.
-2. Preview the donor animation before editing.
-3. Edit script-only timing/camera/sound/background pieces first.
-4. Clone or append donor SPAs when particle appearance needs to change.
-5. Scrub donor SPA fields deliberately instead of assuming texture replacement is enough.
-6. Preview one layer at a time.
-7. Test in-game after major reintroductions.
+1. Run `npm run moveanim:workflow -- find-donor` to identify donor commands, phases, SPA resources, textures, backgrounds, sounds, and camera use.
+2. Run `npm run moveanim:workflow -- start` to extract donors, reserve SPA IDs, and create an active manifest and generator.
+3. Use `segments`, `extract-segment`, and `compose` for readable donor phase assembly.
+4. Use `src/pokeweb/spaTransform.ts` for explicit clone, scrub, recolor, texture, and compact-extraction operations.
+5. Run manifest lint and `snapshots --frames auto` while iterating.
+6. Use `finish`, then `finalize --archive-work`, for staging, build, built-ROM verification, ROM copy, and archival.
 
 ## Semantic Script Parameters
 
 BW2 move animation scripts still compile to the game's original numeric VM bytecode, but the editor can display and accept friendlier tokens for parameters with known swan constants.
 
-- Enum-like parameters can use names such as `MOVE_INTERPOLATION`, `CAMERA_DEFENDER`, `SIDE_NONE`, `SIDE_ATTACKER`, `POS_A`, `POKEMON_ATTACKER`, `SE2`, and `WAIT_PARTICLE`.
+- Enum-like parameters use short canonical names such as `INTERPOLATION`, `DEFENDER`, `NONE`, `ATTACKER`, `POS_A`, `TARGET`, `SE2`, and `PARTICLE`. Older prefixed spellings remain accepted aliases.
 - Exact swan-style names such as `BTLEFF_PARTICLE_PLAY_SIDE_NONE` are also accepted for mapped parameters.
 - Legacy aliases remain accepted where useful, such as `CAMERA_DEFENCE`, `SIDE_ATTACK`, `POKEMON_TARGET`, and `DEFENSE` spellings for source constants that use `DEFENCE`.
 - FX32 multiplier parameters can use `1x`, `0.5x`, and `2x`; these compile to `4096`, `2048`, and `8192`.
@@ -55,8 +54,9 @@ Only parameters with known semantic metadata are rewritten to friendly names dur
 
 ## Documentation Map
 
-- [Command Reference](command-reference.md): exhaustive command and parameter docs generated from `src/assets/data/moveAnimationCommandDocs.json`.
-- [SPA Particle Reference](spa-particle-reference.md): archive, emitter, texture, curve, child, and behavior fields.
+- [Command Reference](command-reference.md): exhaustive command, parameter, state, task, preview, and Swan-handler docs generated from the unified schema.
+- [SPA Particle Reference](spa-particle-reference.md): generated archive, emitter, texture, curve, child, and behavior field guidance.
+- [Preview/Swan Conformance](preview-swan-conformance.md): generated opcode-to-handler and preview-support matrix with fixture ownership.
 - [Workflow Guides](workflow-guides.md): common edits from recolors to projectiles and animation splicing.
 - [Script vs SPA Boundary](script-vs-spa.md): what can be changed in script only and what requires SPA edits.
 - [AI Agent Orientation](ai-agent-orientation.md): prompt/template and guardrails for future animation work.

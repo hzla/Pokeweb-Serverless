@@ -133,8 +133,8 @@ export async function buildPwanLibrary(options: BuildPwanLibraryOptions): Promis
   };
   const report: BuildReport = {
     format: "pokeweb-pwan-library-build-report-v2",
-    sourceRom: options.romPath,
-    iconSourceRom: options.iconRomPath,
+    sourceRom: path.relative(REPO_ROOT, options.romPath),
+    iconSourceRom: path.relative(REPO_ROOT, options.iconRomPath),
     archivePath: PWAN_ARCHIVE_PATH,
     archiveBytes: libraryArchiveBytes.length,
     entryCount: entries.length,
@@ -424,7 +424,7 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
 }
 
 function numberValue(value: unknown): number | undefined {
-  return Number.isInteger(value) ? value : undefined;
+  return typeof value === "number" && Number.isInteger(value) ? value : undefined;
 }
 
 function stringValue(value: unknown): string | undefined {
