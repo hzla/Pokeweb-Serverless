@@ -1,5 +1,6 @@
 import { getMoveAnimationCommandDoc } from "./moveAnimationDocumentation";
 import { parseMoveAnimationScript, type ParsedMoveAnimationCommand } from "./moveAnimationModel";
+import { getMoveAnimationVmCommandSchema } from "./moveAnimationVmSchema";
 import type { SpaArchive, SpaResource, SpaTexture } from "./nitroSpa";
 
 export type MoveAnimationAnalysisEvent = {
@@ -157,12 +158,13 @@ export function analyzeMoveAnimationScript(scriptText: string): MoveAnimationScr
 
 function commandEvent(label: string, frame: number, command: ParsedMoveAnimationCommand): MoveAnimationAnalysisEvent {
   const doc = getMoveAnimationCommandDoc(command.name);
+  const schema = getMoveAnimationVmCommandSchema(command.opcode);
   return {
     label,
     frame,
     command: command.name,
     params: command.params.slice(),
-    category: doc?.category ?? commandCategory(command.name),
+    category: schema?.category ?? doc?.category ?? commandCategory(command.name),
     boundary: commandBoundary(command.name),
     summary: commandSummary(command),
   };

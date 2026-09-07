@@ -29,3 +29,6 @@ docs/hg-animation-debug-workflow.md
 src/test/local/
 *.local.test.ts
 *.local.test.tsx
+
+# Machine-local move animation workflow paths.
+.moveanim.local.json
