@@ -106,7 +106,7 @@ async function main(): Promise<void> {
       id,
       key: move.key,
       name: move.name,
-      generation: id <= 621 ? 6 : 7,
+      generation: generationForMove(id),
     }];
   });
 
@@ -317,6 +317,13 @@ function generationForSpecies(speciesId: number): number {
   if (speciesId <= 721) return 6;
   if (speciesId <= 809) return 7;
   if (speciesId <= 905) return 8;
+  return 9;
+}
+
+function generationForMove(moveId: number): number {
+  if (moveId <= 621) return 6;
+  if (moveId <= 742) return 7;
+  if (moveId <= 850) return 8;
   return 9;
 }
 

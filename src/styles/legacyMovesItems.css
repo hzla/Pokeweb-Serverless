@@ -1199,6 +1199,61 @@
   gap: 14px;
 }
 
+#moves .move-animation-recovery-notice {
+  background: #202433;
+  border-left: 3px solid #f1c75b;
+  color: #e8e1c5;
+  font-size: 14px;
+  padding: 10px 12px;
+}
+
+#moves .move-animation-copy-tools {
+  align-items: end;
+  background: #202433;
+  border: 1px solid #3a4052;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+#moves .move-animation-copy-tools label {
+  display: grid;
+  gap: 4px;
+  min-width: min(320px, 100%);
+}
+
+#moves .move-animation-copy-tools label span {
+  color: #aeb7ca;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+#moves .move-animation-copy-tools select {
+  background: #1b1f2d;
+  border: 1px solid #4a5268;
+  color: #f2f2f2;
+  font: inherit;
+  min-height: 38px;
+  padding: 0 34px 0 10px;
+}
+
+#moves .move-animation-copy-tools .script-btn {
+  background: #343b4d;
+  border: 1px solid #4a5268;
+  color: #f2f2f2;
+  cursor: pointer;
+  font: inherit;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+#moves .move-animation-copy-tools .script-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 #moves .move-animation-toolbar .script-btn {
   background: #50c3a5;
   border: 0;

@@ -1,4 +1,3 @@
-import commandMacros from "../assets/data/B2W2_MOVSCRCMD.s?raw";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { recordGenericChange } from "./actionChangelog";
 import type { NarcName } from "./constants";
@@ -9,6 +8,7 @@ import {
   resolveMoveAnimationCommandName,
 } from "./moveAnimationCommandNames";
 import { formatMoveAnimationParam, parseMoveAnimationParamToken } from "./moveAnimationParamSemantics";
+import { getMoveAnimationVmSchema } from "./moveAnimationVmSchema";
 import { usesExpandedBw2Data } from "./black2UpgradeModel";
 import { MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
 import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
@@ -16,7 +16,6 @@ import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 const ADDRESSES_PER_ENTRY = 0x0e;
 const BATTLE_ANIMATION_OFFSET = 561;
 const WHITE2UPGRADE_FIRST_EXPANDED_MOVE_ANIMATION_ID = 560;
-const END_COMMANDS = new Set(["CallMoveAnimation", "TerminateMoveScript"]);
 const PARTICLE_ID_COMMANDS = new Set([
   "LoadSPA",
   "DoSPAAnimation",
@@ -73,7 +72,14 @@ export type MoveAnimationTargetInfo = {
 
 export type MoveAnimationParamDisplayMode = "semantic" | "numeric";
 
-const COMMANDS = parseCommandMacros(commandMacros);
+export const EMPTY_MOVE_ANIMATION_SCRIPT = "TerminateMoveScript\n";
+
+const COMMANDS: MoveAnimationCommandDefinition[] = getMoveAnimationVmSchema().map((command) => ({
+  opcode: command.opcode,
+  name: command.name,
+  params: command.params.map((param) => param.name),
+  ends: command.completion === "terminates",
+}));
 const COMMANDS_BY_NAME = buildCommandNameMap(COMMANDS);
 const COMMANDS_BY_OPCODE = new Map(COMMANDS.map((command) => [command.opcode, command]));
 const RGB555_PACKED_COMMANDS = new Set(["ChangeColor", "ChangeBackgroundColor", "ObjectPaletteFade"]);
@@ -174,6 +180,17 @@ export function decompileMoveAnimationBytes(bytes: Uint8Array): string {
 
 export function compileMoveAnimation(_project: ProjectState, _moveId: number, scriptText: string): Uint8Array {
   return compileAnimationScript(scriptText);
+}
+
+export function getMoveAnimationParticleIds(scriptText: string): number[] {
+  const parsed = parseMoveAnimationScript(scriptText);
+  const particleIds = new Set<number>();
+  for (const commands of parsed.scripts.values()) {
+    for (const command of commands) {
+      if (PARTICLE_ID_COMMANDS.has(command.name) && command.params.length > 0) particleIds.add(command.params[0] ?? 0);
+    }
+  }
+  return [...particleIds];
 }
 
 export function remapMoveAnimationParticleIds(
@@ -615,30 +632,6 @@ function parseIntegerToken(token: string, label: string): number {
   const value = sign * (normalized.toLowerCase().startsWith("0x") ? Number.parseInt(normalized.slice(2), 16) : Number.parseInt(normalized, 10));
   if (!Number.isSafeInteger(value) || value < -2147483648 || value > 2147483647) throw new Error(`${label} must fit in signed 32-bit range`);
   return value;
-}
-
-function parseCommandMacros(source: string): MoveAnimationCommandDefinition[] {
-  const lines = source.split(/\r?\n/u);
-  const commands: MoveAnimationCommandDefinition[] = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const macro = /^\.macro\s+([A-Za-z_][A-Za-z0-9_]*)\s*(.*)$/u.exec(lines[index].trim());
-    if (!macro) continue;
-    const name = macro[1];
-    const params = macro[2].trim() ? macro[2].trim().split(/\s+/u) : [];
-    let opcode: number | undefined;
-    for (let scan = index + 1; scan < lines.length; scan += 1) {
-      const text = lines[scan].trim();
-      const opcodeMatch = /^\.hword\s+(\d+)$/u.exec(text);
-      if (opcodeMatch) {
-        opcode = Number(opcodeMatch[1]);
-        break;
-      }
-      if (text === ".endm") break;
-    }
-    if (opcode === undefined) continue;
-    commands.push({ opcode, name, params, ends: END_COMMANDS.has(name) });
-  }
-  return commands;
 }
 
 function stripComment(line: string): string {

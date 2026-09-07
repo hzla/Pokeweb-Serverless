@@ -10,6 +10,7 @@
     "test": "vitest run",
     "moveanim:helper": "vite-node scripts/move-animation-helper.ts",
     "moveanim:index": "vite-node scripts/move-animation-index.ts",
+    "moveanim:docs": "vite-node scripts/generate-move-animation-docs.ts",
     "moveanim:workflow": "vite-node scripts/move-animation-workflow.ts",
     "pokemonanim:helper": "vite-node scripts/pokemon-animation-helper.ts",
     "gen6sprites:pipeline": "vite-node scripts/gen6-sprite-pipeline.ts",

@@ -1,0 +1,7 @@
+{
+  "buildRepo": "/path/to/White2Upgrade-Original-pokeweb",
+  "mirrorRepo": "/path/to/Port-Pokeweb/White2Upgrade",
+  "cleanRom": "/path/to/cleanwhite2.nds",
+  "outputRom": "/path/to/White2Upgrade.nds",
+  "java": "/path/to/java"
+}

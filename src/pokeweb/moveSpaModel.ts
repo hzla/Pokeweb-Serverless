@@ -1,5 +1,6 @@
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { recordGenericChange } from "./actionChangelog";
 import { invalidateMoveSpaArchiveCache } from "./moveAnimationPreviewModel";
 import { loadActiveRomBytes } from "./persistence";
 import { parseSpaArchive, serializeSpaArchive, type SpaArchive } from "./nitroSpa";
@@ -36,6 +37,27 @@ export async function updateMoveSpaArchive(project: ProjectState, spaId: number,
   archive.textures = reparsed.textures;
   archive.warnings = reparsed.warnings;
   invalidateMoveSpaArchiveCache(project, spaId);
+  return bytes;
+}
+
+export async function copyMoveSpaArchive(project: ProjectState, targetSpaId: number, sourceSpaId: number): Promise<Uint8Array> {
+  const store = await ensureMoveSpaStore(project);
+  if (!Number.isInteger(sourceSpaId) || sourceSpaId < 0 || sourceSpaId >= store.rawFiles.length) {
+    throw new Error(`Move SPA ${sourceSpaId} does not exist in move_spas`);
+  }
+  if (!Number.isInteger(targetSpaId) || targetSpaId < 0 || targetSpaId >= store.rawFiles.length) {
+    throw new Error(`Move SPA ${targetSpaId} does not exist in move_spas`);
+  }
+  const source = store.rawFiles[sourceSpaId];
+  if (!source) throw new Error(`Move SPA ${sourceSpaId} does not exist in move_spas`);
+  const bytes = source.slice();
+  store.rawFiles[targetSpaId] = bytes;
+  store.records.delete(targetSpaId);
+  markDirty(project, "move_spas", targetSpaId);
+  invalidateMoveSpaArchiveCache(project, targetSpaId);
+  recordGenericChange(project, "move_spas", `Move SPA ${targetSpaId} copied from SPA ${sourceSpaId}.`, `SPA ${targetSpaId}`, {
+    key: `move-spa-copy:${targetSpaId}`,
+  });
   return bytes;
 }
 
