@@ -131,7 +131,7 @@ export function renderMoveEditor(
           <div class="move-name" data-narc="learnset">Name</div>
           <div class="move-type">Type</div>
           <div class="move-cat" data-field-name="category">Category</div>
-          <div class="move-effect">AI Effect Handler</div>
+          <div class="move-effect" title="AI sequence used to evaluate this move. Descriptions reflect original Gen 5 behavior; changing this ID alone does not add that battle effect.">AI Effect Handler</div>
           <div class="move-power">Pow</div>
           <div class="move-accuracy">Acc</div>
         </div>
@@ -345,7 +345,7 @@ function renderMoveRow(move: MoveRecord, showTextBanks: boolean): string {
 function renderMoveEffectField(move: MoveRecord): string {
   return `
     <div class="move-effect">
-      ${editable("move", "effect", move.readable.effect, "move-effect-name", { autofill: "effects" })}
+      ${editable("move", "effect", move.readable.effect, "move-effect-name", { autofill: "effects", title: String(move.readable.effect) })}
       <label class="move-effect-id">
         <span>ID</span>
         <input class="move-effect-id-input" type="number" inputmode="numeric" min="0" max="${EFFECTS.length - 1}" value="${escapeHtml(String(move.raw.effect ?? 0))}">
@@ -519,12 +519,13 @@ function editable(
   field: string,
   value: unknown,
   className: string,
-  options: { autofill?: string; type?: string; part?: string } = {},
+  options: { autofill?: string; type?: string; part?: string; title?: string } = {},
 ): string {
   const autofill = options.autofill ? ` data-autocomplete-spy data-autofill="${options.autofill}"` : "";
   const type = options.type ? ` data-type="${options.type}"` : "";
   const part = options.part ? ` data-part-key="${escapeHtml(options.part)}"` : "";
-  return `<div autocorrect="off" data-narc="${narc}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}${part}>${escapeHtml(String(value ?? ""))}</div>`;
+  const title = options.title ? ` title="${escapeHtml(options.title)}"` : "";
+  return `<div autocorrect="off" data-narc="${narc}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}${part}${title}>${escapeHtml(String(value ?? ""))}</div>`;
 }
 
 function inputOptions(value: string): { autofill?: string; type?: string } {
