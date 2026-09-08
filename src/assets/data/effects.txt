@@ -1,338 +1,338 @@
-None
-Causes Sleep
-Chance to Poison
-Damages target; heals user up to 50% of damage dealt
-Chance to Burn
-Chance to Freeze
-Chance to Paralyze
-Selfdestruct/ Explosion effect
-Damages sleeping target; heals user up to 50% of damage dealt
-Mirror Move effect
-Raises Atk
-Raises Def
-Raises Spd
-Raises SpAtk
-Raises SpDef
-Raises Accuracy
-Raises Evasion
-Always hits
-Lowers Atk
-Lowers Def
-Lowers Spd
-Lowers SpAtk
-Lowers SpDef
-Lowers Accuracy
-Lowers Evasion
-Resets stat changes
-Bide effect
-Locked into move for 2-3 turns; confuses user after
-Whirlwind/ Roar effect
-Hits target multiple times
-Changes user's type to match one of its moves
-Chance to Flinch
-Restores up to Heal% max HP
-Badly Poisons
-Pay Day effect
-1/2 damage from Special attacks
-Chance of either Paralyzing; Burning; or Freezing target
-Causes Sleep and restores all HP
-OHKO
-Charging turn; high crit ratio
-Deals damage equal to 1/2 target's current hp
-Deals 40 damage
-Binding move effect
-High crit ratio
-Hits twice
-Deals 1/2 user's max HP to user if it misses
-Prevents lowering of stats
-Sharply raises crit ratio
-Recoil% damage dealt to self
-Guaranteed Confusion
-Sharply raises Atk
-Sharply raises Def
-Sharply raises Spd
-Sharply raises SpAtk
-Sharply raises SpDef
-Sharply raises Accuracy
-Sharply raises Evasion
-Transform effect
-Sharply lowers Atk
-Sharply lowers Def
-Sharply lowers Spd
-Sharply lowers SpAtk
-Sharply lowers SpDef
-Sharply lowers Accuracy
-Sharply lowers Evasion
-1/2 damage from Physical attacks
-Guaranteed Poison
-Guaranteed Paralysis
-Lowers Atk
-Lowers Def
-Lowers Spd
-Lowers SpAtk
-Lowers SpDef
-Lowers Accuracy
-Lowers Evasion
-Attacks next turn; chance of flinch; increased crit ratio
-Chance to Confuse
-Hits twice; chance to poison
-Vital Throw effect
-Substitute effect
-Recharge turn
-Locked into move; raises Atk whenever hit
-Copies user-selected move
-Metronome effect
-Leech Seed effect
-Splash effect
-Disables last move used for 4-7 turns
-Deals damage equal to user's level
-Deals up to user's level x1.5 damage
-2x last amount of damage received
-Locks target into last move used for 3-7 turns
-Pain Split effect
-Can only be used while asleep; chance of causing Flinch
-Conversion2 effect
-Next move used by user guaranteed to hit
-Sketch effect
-96
-Sleep Talk effect
-Destiny Bond effect
-Higher power the less HP the user has
-Decreases PP of target's last move used by 4
-False Swipe effect
-Heal Bell effect
-+ Priority
-Hits the target up to 3 times; increases power by 10 with each hit
-Steals target's held item
-Prevents target from switching out or fleeing
-If asleep; target takes damage equal to 1/4 its max HP at the end of every turn
-Raises Evasion; weak to Stomp/Rollout/Bodyslam
-Curse effect
-110
-Protect/ Detect effect
-Spikes effect
-Ignores type immunities
-All users on field faint in 3 turns
-Causes Sandstorm
-Allows user to endure a fatal hit and survive at 1 HP
-Rollout effect
-Sharply raises target's Atk and causes Confusion
-2x power for every consecutive hit
-Infatuates target of opposite gender
-Return effect
-Present Effect
-Frustration effect
-Safeguard effect
-Thaws user; chance to Burn
-Magnitude effect
-Baton Pass effect
-Pursuit effect
-Removes all hazards/ binding moves on user's side of the field
-Inflicts 20 damage
-131
-Synthesis effect
-133
-134
-Hidden Power effect
-Causes Rain
-Causes Harsh Sunlight
-Chance of raising Def
-Chance of raising Atk
-Omni Boost
-141
-Belly Drum effect
-Copies all of target's stat boosts
-Mirror Coat effect
-Raises Def; attacks next turn
-Twister effect
-2x Damage on Pokemon using Dig
-Future Sight effect
-2x Damage on Pokemon using Bounce/Fly
-Causes flinch and 2x damage if target has used Minimize
-Charging turn unless in Harsh Sunlight
-Always hits in rain; chance to Paralyze
-Flees from wild single battle
-Beat Up effect
-Fly effect
-Raises Def and 2x Rollout/ Ice Ball power
-157
-Guaranteed Flinch; can only be used turn 1
-Uproar effect
-Stockpile effect
-Spit Up effect
-Swallow effect
-163
-Causes Hail
-Torment effect
-Raises target's SpAtk and causes Confusion
-Guaranteed Burn; activates Flash Fire
-User faints and target's Atk and SpAtk are lowered sharply
-2x power if user is Poisoned; Paralyzed; or Burned.
-Focus Punch effect
-2x power if target is Paralyzed; cures target of Paralysis
-Redirects all moves to user
-Nature Power effect
-Next move deals 2x damage if it is Electric-type
-Target can't use status moves for 3-5 turns
-Ally's attack deals 1.5x damage this turn
-User switches held items with target
-User copies target's Ability
-1/2 of user's max HP is restored at the end of next turn
-Assist effect
-Ingrain effect
-Lowers user's Atk and Def
-Reflects status moves back at their user
-User regains a consumed held item
-2x power if the user has been hit this turn
-Removes Light Screen/ Reflect from target's side of the field
-Yawn effect
-Renders the target's held item unusable
-Target's HP becomes equal to the user's current HP
-Power= Base power x(user's current HP/ user's max HP)
-User swaps Abilities with the target
-Target is prevented from using moves shared with the user
-Cures user of Burn; Poison; or Paralysis
-Grudge effect
-If any Pokemon uses a beneficial status move; the user uses it instead
-Inflicts greater damage on heavier targets
-Secret Power effect
-1/3 damage dealt recoil
-Guaranteed Confusion
-Chance of causing Burn; increased Crit ratio
-Weakens Electric-type moves by 50% until user switches out
-Chance of Badly Poisoning
-Type changes to match weather
-Lowers user's SpAtk harshly
-Lowers target's Atk and Def
-Raises user's Def and SpDef
-Can hit Pokemon during semi-invulnerable turns of Fly/Bounce
-Raises user's Atk and Def
-Chance of causing Poison; increased crit ratio
-Weakens Fire-type moves by 50% until user switches out
-Raises user's SpAtk and SpDef
-Raises user's Atk and Spd
-Camouflage effect
-Roost effect
-Gravity effect
-2x power if target is asleep; wakes up target
-Causes all moves to ignore changes to the target's Evasiveness
-Lowers user's Spd
-Power = min(150; (25 x Target's Current Speed / User's Current Speed) + 1)
-Healing Wish effect
-2x power if target is at or below 1/2 HP
-Natural Gift effect
-Can only hit targets that have used Protect/ Detect
-Consumes target's berry
-2x Spd for user's party for 3 turns
-Sharply raises a random stat of the target
-Damage= 1.5x damage dealt by the target's last attack
-Switches user out after dealing damage
-Lowers user's Def and SpDef
-2x Power if user moves after target
-2x damage if the target has already taken damage this turn
-Prevents the target from using its held item or having items used on it
-Power and effect determined by held item
-Cures user of any status condition and afflicts the target with it
-The less PP the move has; the greater its Power
-Heal Block effect
-Power = Base power + 120 x (Target's Current HP / Target's Maximum HP)
-Swaps the user's Atk stat with its Def stat
-Suppresses the target's Ability
-Prevents opponents from landing critical hits on the user's party for 5 turns
-If the target has not moved yet; the user copies their move and uses it with 1.5x power
-User uses the last move that was used in battle
-Swaps the user's Atk and SpAtk buffs with the target's Atk and SpAtk buffs
-Swaps the user's Def and SpDef buffs with the target's Def and SpDef buffs
-Power= 60 + (20x # of stat increases of target)
-Fails unless the user has used all of its other moves at least once
-Changes the target's Ability to Insomnia
-Fails if the target did not select a damaging move or has already moved
-Toxic Spikes effect
-Swaps the user's stat changes with the target's
-Restores 1/16 of the user's max HP at the end of every turn
-User becomes immune to Ground-type attacks and field hazards for 5 turns
-Chance of causing Burn; 1/3 damage dealt recoil
-Struggle effect
-Dive effect
-Dig effect
-2x Damage on Pokemon using Dive
-Defog effect
-Trick Room effect
-Always hits in Hail
-Whirlpool effect
-1/3 damage dealt recoil
-Bounce effect
-264
-Lowers opposite gender target's SpAtk harshly
-Stealth Rocks effect
-Chatter effect
-Type= Type of Plate held by user
-1/2 damage dealt recoil
-Lunar Dance effect
-Chance of lowering target's SpDef harshly
-Shadow Force effect
-Chance of causing Burn; chance of causing Flinch
-Chance of causing Freeze; chance of causing Flinch
-Chance of causing Paralysis; chance of causing Flinch
-Chance of raising user's SpAtk
-Boost Attack and Accuracy
-Block multi targeting moves
-Split Def and SpDef with target
-Split Atk and SpAtk with target
-Swap Def and SpDef of all Pokemon
-Deal Physical dmg with SpAtk stat
-Deal double dmg to poisoned targets
-Sharply Raise Speed and reduce weight 
-Make all moves hit target
-Suppress all held item effects
-Ground the target
-Always crit
-Flame Blurst effect
-Raise SpAtk, SpDef, and Speed
-Deal more damage the heavier the user
-Hits all adjacent Pokémon that share a type
-Deal more damage the faster the user
-Change target type to water
-Deal damage and raise speed
-Deal damage and sharply lower Def of target
-Deal damage using target's Atk stat
-Change target ability to Simple
-Make the target's ability the same as the user's
-Force the target to attack first next turn
-Round effect
-Echoes Voice effect
-Deal damage ignoring target stat changes
-Deal damage and remove target stat changes
-Deal damage based on amount of user's stat increases
-Protect allies against priority moves
-Swap positions with ally
-Lower Def and SpDef, Sharply raise Atk, SpAtk, and Speed
-Restore target's hp
-Deal double damage to status inflicted targets
-Sky Drop Effect
-Raise Atk and sharply raise Speed
-Circle Throw effect
-Deal damage and remove target's berry
-Force target to move last this turn
-Raise Atk and SpAtk, doubled in sunlight
-Double damage when not holding an item
-Change user's type to target's
-Deal double damage if a teamate fainted last turn
-Deal damage equal to user's HP
-Raise SpAtk by 3 Stages
-Raise Atk, Def, and Accuracy
-Give held item to target
-Water Pledge effect
-Fire Pledge effect
-Grass Pledge effect
-Raise Atk and SpAtk
-Raise Def by 3 Stages
-Chance to put target to sleep
-Deal damage and lower target's speed
-Freeze Shock effect
-Ice Burn effect
-Unknown
-Deal damage and lower user's Def, SpDef, and Speed
-Fusion Flare effect
-Fusion Bolt Effect
-Hurricane effect
+Standard damage (no special AI effect)
+Put the target to sleep
+Damage; may poison the target
+Drain HP: restore the user's HP by 1/2 of the damage dealt
+Damage; may burn the target
+Damage; may freeze the target
+Damage; may paralyze the target
+Self-Destruct / Explosion: damage nearby Pokemon; the user faints
+Dream Eater: damage a sleeping target; drain 1/2 of the damage dealt
+Mirror Move: use the selected target's last move if it is eligible for copying
+Raise the user's Attack by 1 stage
+Raise the user's Defense by 1 stage
+Raise the user's Speed by 1 stage (unused by vanilla moves)
+Raise the user's Sp. Atk by 1 stage (unused by vanilla moves)
+Raise the user's Sp. Def by 1 stage (unused by vanilla moves)
+Raise the user's Accuracy by 1 stage (unused by vanilla moves)
+Raise the user's Evasion by 1 stage
+Damage without an accuracy check (type immunities still apply)
+Lower the target's Attack by 1 stage
+Lower the target's Defense by 1 stage
+Lower the target's Speed by 1 stage (String Shot / Low Sweep / Electroweb)
+Lower the target's Sp. Atk by 1 stage (unused by vanilla moves)
+Lower the target's Sp. Def by 1 stage (unused by vanilla moves)
+Lower the target's Accuracy by 1 stage
+Lower the target's Evasion by 1 stage
+Haze: reset all active Pokemon's stat stages
+Bide: wait for 2 turns; return twice the damage received
+Thrash / Petal Dance / Outrage: attack for 2-3 turns; then confuse the user
+Roar / Whirlwind: force the target to switch, or end a wild battle
+Hit the target 2-5 times in one turn
+Conversion: change the user's type to a type of one of its moves
+Damage; may make the target flinch
+Restore the user's HP (normally 1/2 of its maximum HP)
+Toxic: badly poison the target; poison damage increases each turn
+Pay Day: damage; scatter money worth 5 times the user's level per use
+Light Screen: reduce special damage to the user's side for 5 turns
+Tri Attack: damage; may burn, freeze, or paralyze the target
+Rest: fully heal the user and cure its status; put it to sleep for 2 turns
+One-hit KO: faint the target if the move hits; fails against higher levels
+Razor Wind: charge, then attack next turn with a higher critical-hit ratio
+Super Fang: damage equal to 1/2 of the target's current HP
+Dragon Rage: deal 40 HP of fixed damage
+Bind / Wrap: damage and trap the target; residual damage for 4-5 turns
+Damage with a higher critical-hit ratio
+Hit the target twice in one turn
+Jump Kick / High Jump Kick: lose 1/2 of the user's max HP if the attack fails to hit
+Mist: protect the user's side from opponents' stat reductions for 5 turns
+Focus Energy: raise the user's critical-hit ratio by 2 stages
+Damage; recoil equal to 1/4 of the damage dealt
+Confuse the selected target (Confuse Ray / Supersonic / Sweet Kiss)
+Raise the user's Attack by 2 stages
+Raise the user's Defense by 2 stages
+Raise the user's Speed by 2 stages
+Raise the user's Sp. Atk by 2 stages
+Raise the user's Sp. Def by 2 stages
+Raise the user's Accuracy by 2 stages (unused by vanilla moves)
+Raise the user's Evasion by 2 stages (unused by vanilla moves)
+Transform: copy the target's form, types, ability, stats except HP, stat stages, and moves
+Lower the target's Attack by 2 stages
+Lower the target's Defense by 2 stages
+Lower the target's Speed by 2 stages
+Lower the target's Sp. Atk by 2 stages (unused by vanilla moves)
+Lower the target's Sp. Def by 2 stages
+Lower the target's Accuracy by 2 stages (unused by vanilla moves)
+Lower the target's Evasion by 2 stages (unused by vanilla moves)
+Reflect: reduce physical damage to the user's side for 5 turns
+Poison the target (Poison Powder / Poison Gas)
+Paralyze the target (Thunder Wave / Stun Spore / Glare)
+Damage; may lower the target's Attack by 1 stage
+Damage; may lower the target's Defense by 1 stage
+Damage; may lower the target's Speed by 1 stage (Bubble Beam / Icy Wind family)
+Damage; may lower the target's Sp. Atk by 1 stage
+Damage; may lower the target's Sp. Def by 1 stage
+Damage; may lower the target's Accuracy by 1 stage
+Unused AI slot 74 (no vanilla move assigned)
+Sky Attack: charge, then attack; higher critical-hit ratio and a chance to flinch
+Damage; may confuse the target
+Twineedle: hit twice; each hit may poison the target
+Vital Throw: low-priority damage without an accuracy check
+Substitute: spend 1/4 of the user's max HP to create a decoy
+Damage; the user must recharge on the next turn
+Rage: damage; raise the user's Attack by 1 stage when hit after using this move
+Mimic: temporarily replace this move with the target's last eligible move
+Metronome: use a random eligible move
+Leech Seed: drain 1/8 of the target's max HP each turn to heal the user's position
+Splash: no battle effect
+Disable: prevent use of the target's last move for 4 turns
+Seismic Toss / Night Shade: fixed damage equal to the user's level
+Psywave: random fixed damage from 0.5 to 1.5 times the user's level
+Counter: return twice the physical attack damage the user received this turn
+Encore: force the target to repeat its last move for 3 turns
+Pain Split: average the user's and target's current HP, capped by each one's max HP
+Snore: damage only while the user is asleep; may make the target flinch
+Conversion 2: change to a type that resists or is immune to the target's last move
+Lock-On / Mind Reader: the user's next attack against this target bypasses accuracy checks
+Sketch: permanently replace this move with the target's last eligible move
+Unused AI slot 96 (no vanilla move assigned)
+Sleep Talk: use a random eligible move the user knows while asleep
+Destiny Bond: if an opponent KOs the user before its next move, that opponent also faints
+Flail / Reversal: power increases as the user's remaining HP decreases
+Spite: reduce the PP of the target's last move by 4
+False Swipe: damage that leaves the target with at least 1 HP
+Heal Bell / Aromatherapy: cure major status conditions across the user's party
+Damage with increased priority (Quick Attack / Extreme Speed family)
+Triple Kick: up to 3 hits at 10, 20, then 30 power; stop if a hit misses
+Thief / Covet: damage; steal the target's held item if the user has none
+Mean Look / Block / Spider Web: prevent the target from switching or fleeing
+Nightmare: a sleeping target loses 1/4 of its max HP each turn until it wakes
+Minimize: raise the user's Evasion by 2 stages; Stomp and Steamroller deal double damage
+Curse: Ghost users spend 1/2 max HP; target loses 1/4 max HP per turn; otherwise user +1 Attack/Defense, -1 Speed
+Unused AI slot 110 (no vanilla move assigned)
+Protect / Detect: block attacks on the user this turn; repeated use is less likely to succeed
+Spikes: damage grounded opponents on entry; stack up to 3 layers
+Foresight / Odor Sleuth: ignore the target's Evasion boosts; Normal/Fighting can hit its Ghost type
+Perish Song: affected active Pokemon faint after 3 turns unless they switch out
+Sandstorm: set sandstorm weather for 5 turns
+Endure: survive damaging hits this turn with at least 1 HP
+Rollout / Ice Ball: lock into up to 5 attacks; power doubles per hit and after Defense Curl
+Swagger: confuse the target and raise its Attack by 2 stages
+Fury Cutter: power doubles with consecutive successful uses, up to 160
+Attract: infatuate a target of the opposite gender
+Return: power increases with the user's friendship, up to 102
+Present: randomly attack at 40/80/120 power or heal 1/4 of the target's max HP
+Frustration: power increases as the user's friendship decreases, up to 102
+Safeguard: protect the user's side from major status conditions and confusion for 5 turns
+Flame Wheel / Sacred Fire: thaw the user; damage with a chance to burn
+Magnitude: random power from 10 to 150; double damage against a target using Dig
+Baton Pass: switch out and pass stat stages and transferable effects to the replacement
+Pursuit: strike a switching target before it leaves, with double power
+Rapid Spin: damage; free the user from binding and Leech Seed, and clear its side's entry hazards
+Sonic Boom: deal 20 HP of fixed damage
+Unused AI slot 131 (no vanilla move assigned)
+Synthesis / Morning Sun / Moonlight: heal 1/2 max HP; 2/3 in sun, 1/4 in other weather
+Unused legacy Synthesis AI slot (vanilla Synthesis uses 132)
+Unused legacy Moonlight AI slot (vanilla Moonlight uses 132)
+Hidden Power: type and power depend on the user's IVs
+Rain Dance: set rain for 5 turns
+Sunny Day: set sunlight for 5 turns
+Damage; may raise the user's Defense by 1 stage
+Damage; may raise the user's Attack by 1 stage
+Ancient Power family: damage; may raise the user's Attack, Defense, Sp. Atk, Sp. Def, and Speed by 1
+Unused AI slot 141 (no vanilla move assigned)
+Belly Drum: spend 1/2 of the user's max HP to maximize its Attack stage
+Psych Up: copy the target's stat stages, including reductions
+Mirror Coat: return twice the special attack damage the user received this turn
+Skull Bash: charge and raise the user's Defense by 1 stage; attack next turn
+Twister: damage with a chance to flinch; double damage against a target using Fly/Bounce
+Earthquake: double damage against a target using Dig
+Future Sight / Doom Desire: strike the target's position 2 turns later
+Gust: double damage against a target using Fly/Bounce
+Stomp / Steamroller: damage with a chance to flinch; double damage against Minimize
+Solar Beam: charge unless sunny; half power in rain, sandstorm, or hail
+Thunder: may paralyze; bypass accuracy in rain, 50% accuracy in sun; can hit Fly/Bounce
+Teleport: flee a wild battle; fails in trainer battles
+Beat Up: one hit per eligible party member; fainted or statused members do not contribute
+Fly: become semi-invulnerable in the air, then attack next turn
+Defense Curl: raise the user's Defense by 1 stage; double Rollout/Ice Ball power
+Unused legacy Soft-Boiled AI slot (vanilla Soft-Boiled uses 32)
+Fake Out: priority damage and flinch; succeeds only on the user's first turn after entering
+Uproar: attack for 3 turns; wake sleeping Pokemon and prevent sleep while uproar continues
+Stockpile: store up to 3 charges; each raises the user's Defense and Sp. Def by 1 stage
+Spit Up: 100 power per Stockpile charge; consume charges and their stat boosts
+Swallow: consume Stockpile charges and their boosts to heal 1/4, 1/2, or all max HP
+Unused AI slot 163 (no vanilla move assigned)
+Hail: set hail weather for 5 turns
+Torment: prevent the target from using the same move on consecutive turns
+Flatter: confuse the target and raise its Sp. Atk by 1 stage
+Will-O-Wisp: burn the target
+Memento: the user faints; lower the target's Attack and Sp. Atk by 2 stages
+Facade: double power if the user is poisoned, paralyzed, or burned
+Focus Punch: low-priority attack; fail if the user takes attack damage before moving
+Smelling Salts: double power against a paralyzed target; cure its paralysis
+Follow Me / Rage Powder: redirect opponents' eligible single-target moves to the user this turn
+Nature Power: use a move determined by the battle environment
+Charge: user +1 Sp. Def; double the power of its next non-Charge move if Electric
+Taunt: restrict the target to damaging moves for 3 turns
+Helping Hand: boost an ally's attack power by 50% this turn
+Trick / Switcheroo: swap the user's and target's held items
+Role Play: copy the target's ability onto the user
+Wish: at the end of next turn, heal the user's position by 1/2 of the original user's max HP
+Assist: use a random eligible move known by another party member
+Ingrain: heal 1/16 max HP each turn; root the user and prevent switching or forced switching
+Superpower: damage; lower the user's Attack and Defense by 1 stage
+Magic Coat: reflect eligible status moves aimed at the user this turn
+Recycle: restore the user's consumed held item if it is not holding another
+Revenge / Avalanche: double power if the target damaged the user this turn
+Brick Break: damage; remove Reflect and Light Screen from the target's side
+Yawn: make the target drowsy; it falls asleep at the end of the next turn
+Knock Off: damage; remove the target's held item for the rest of the battle
+Endeavor: damage equal to the target's current HP minus the user's; fail if not positive
+Eruption / Water Spout: power scales with the user's current HP / max HP
+Skill Swap: swap the user's and target's abilities
+Imprison: opponents cannot use moves the user knows while the user stays in battle
+Refresh: cure the user's poison, burn, or paralysis
+Grudge: if a damaging move KOs the user before its next move, reduce that move's PP to 0
+Snatch: steal the next eligible healing or stat-boosting move used this turn
+Low Kick / Grass Knot: power increases with the target's weight (20-120)
+Secret Power: damage; secondary effect depends on the battle environment
+Double-Edge / Brave Bird / Wood Hammer: recoil equal to 1/3 of damage dealt
+Teeter Dance: confuse all adjacent Pokemon except the user, including allies
+Blaze Kick: higher critical-hit ratio and a chance to burn
+Mud Sport: reduce Electric move power to about 1/3 while the user stays in battle
+Poison Fang: damage; may badly poison the target
+Weather Ball: change type with weather and double power while weather is active
+Damage; lower the user's Sp. Atk by 2 stages
+Tickle: lower the target's Attack and Defense by 1 stage
+Cosmic Power / Defend Order: raise the user's Defense and Sp. Def by 1 stage
+Sky Uppercut: can hit a target during Fly/Bounce without a power bonus
+Bulk Up: raise the user's Attack and Defense by 1 stage
+Poison Tail / Cross Poison: higher critical-hit ratio and a chance to poison
+Water Sport: reduce Fire move power to about 1/3 while the user stays in battle
+Calm Mind: raise the user's Sp. Atk and Sp. Def by 1 stage
+Dragon Dance: raise the user's Attack and Speed by 1 stage
+Camouflage: change the user's type based on the battle environment
+Roost: heal 1/2 of the user's max HP; remove its Flying type for the rest of the turn
+Gravity: ground all Pokemon and increase move accuracy for 5 turns; restrict airborne moves
+Miracle Eye: ignore the target's Evasion boosts; Psychic can hit its Dark type
+Wake-Up Slap: double power against a sleeping target; wake it up
+Hammer Arm: damage; lower the user's Speed by 1 stage
+Gyro Ball: power = 1 + 25 x target Speed / user Speed, capped at 150
+Healing Wish: the user faints; fully heal the replacement's HP and major status
+Brine: double power when the target has at most 1/2 of its max HP
+Natural Gift: consume the user's Berry; its type and power determine the attack
+Feint: damage through Protect/Detect; remove protection, including Wide Guard and Quick Guard
+Pluck / Bug Bite: damage; consume the target's Berry and apply its effect to the user
+Tailwind: double Speed on the user's side for 4 turns
+Acupressure: raise one random non-maximized stat of the user or an ally by 2 stages
+Metal Burst: return 1.5 times the attack damage the user received this turn
+U-turn / Volt Switch: damage the target, then switch the user out
+Close Combat: damage; lower the user's Defense and Sp. Def by 1 stage
+Payback: double power if the target has already acted this turn
+Assurance: double power if the target has already taken damage this turn
+Embargo: suppress the target's held item and prevent trainer item use on it for 5 turns
+Fling: consume and throw the user's held item; power and effect depend on the item
+Psycho Shift: transfer the user's major status condition to the target, curing the user
+Trump Card: bypass accuracy checks; power rises from 40 to 200 as remaining PP falls
+Heal Block: prevent the target's HP recovery for 5 turns
+Wring Out / Crush Grip: power scales with the target's remaining HP, from 1 to 120
+Power Trick: swap the user's Attack and Defense values; leave stat stages unchanged
+Gastro Acid: suppress the target's ability until it switches out
+Lucky Chant: prevent critical hits against the user's side for 5 turns
+Me First: use the target's selected damaging move first at 1.5 times power
+Copycat: use the last eligible move used in battle
+Power Swap: swap Attack and Sp. Atk stat stages with the target, including reductions
+Guard Swap: swap Defense and Sp. Def stat stages with the target, including reductions
+Punishment: power = 60 + 20 per positive target stat stage, capped at 200
+Last Resort: usable only after the user has used each of its other known moves since entering
+Worry Seed: change the target's ability to Insomnia
+Sucker Punch: priority damage; fail unless the target is about to use a damaging move
+Toxic Spikes: poison grounded switch-ins; 2 layers badly poison; grounded Poison types remove them
+Heart Swap: swap all stat stages with the target, including reductions
+Aqua Ring: restore 1/16 of the user's max HP at the end of each turn
+Magnet Rise: give the user Ground immunity for 5 turns unless grounded
+Flare Blitz: thaw the user; may burn the target; recoil equal to 1/3 of damage dealt
+Struggle: typeless damage; recoil equal to 1/4 of the user's max HP
+Dive: become semi-invulnerable underwater, then attack next turn
+Dig: become semi-invulnerable underground, then attack next turn
+Surf: double damage against a target using Dive
+Defog: lower target Evasion by 1; clear its side's screens, Mist, Safeguard, and entry hazards
+Trick Room: slower Pokemon act first within each priority bracket for 5 turns; reuse cancels it
+Blizzard: damage with a chance to freeze; bypass accuracy checks in hail
+Whirlpool: trap for 4-5 turns with residual damage; double damage against a target using Dive
+Volt Tackle: damage with a chance to paralyze; recoil equal to 1/3 of damage dealt
+Bounce: become semi-invulnerable in the air; attack next turn with a chance to paralyze
+Unused AI slot 264 (no vanilla move assigned)
+Captivate: lower an opposite-gender target's Sp. Atk by 2 stages
+Stealth Rock: damage opponents on entry based on their Rock weakness or resistance
+Chatter: damage; Chatot's recorded voice determines a 0%, 10%, or 30% confusion chance
+Judgment / Techno Blast: type depends on the user's held Plate / Drive
+Head Smash: damage; recoil equal to 1/2 of damage dealt
+Lunar Dance: the user faints; fully restore the replacement's HP, PP, and major status
+Seed Flare: damage; may lower the target's Sp. Def by 2 stages
+Shadow Force: vanish, then attack next turn through protection
+Fire Fang: damage; separate chances to burn and flinch
+Ice Fang: damage; separate chances to freeze and flinch
+Thunder Fang: damage; separate chances to paralyze and flinch
+Damage; may raise the user's Sp. Atk by 1 stage
+Hone Claws: raise the user's Attack and Accuracy by 1 stage
+Wide Guard: protect the user's side from spread damaging moves this turn
+Guard Split: average the user's and target's Defense and Sp. Def values, ignoring stat stages
+Power Split: average the user's and target's Attack and Sp. Atk values, ignoring stat stages
+Wonder Room: swap Defense and Sp. Def values for all Pokemon for 5 turns; reuse cancels it
+Psyshock / Psystrike / Secret Sword: special damage using the target's Defense instead of Sp. Def
+Venoshock: double power against a poisoned or badly poisoned target
+Autotomize: raise the user's Speed by 2 stages and reduce its weight by 100 kg
+Telekinesis: lift the target for 3 turns; non-OHKO moves bypass accuracy, but Ground moves miss
+Magic Room: suppress held-item effects for 5 turns; reuse cancels it
+Smack Down: damage and ground the target; cancel Fly/Bounce and airborne Ground immunity
+Storm Throw / Frost Breath: damage that always critically hits unless critical hits are blocked
+Flame Burst: damage the target; its adjacent allies each lose 1/16 of their max HP
+Quiver Dance: raise the user's Sp. Atk, Sp. Def, and Speed by 1 stage
+Heavy Slam / Heat Crash: power depends on the user's weight relative to the target (40-120)
+Synchronoise: damage adjacent Pokemon sharing at least one of the user's types
+Electro Ball: power depends on the user's Speed relative to the target (40-150)
+Soak: replace the target's types with Water
+Flame Charge: damage; raise the user's Speed by 1 stage
+Acid Spray: damage; lower the target's Sp. Def by 2 stages
+Foul Play: calculate damage using the target's Attack and Attack stage instead of the user's
+Simple Beam: change the target's ability to Simple
+Entrainment: replace the target's ability with the user's ability
+After You: make the target act immediately after the user this turn
+Round: other Round users follow immediately; subsequent Rounds have double power this turn
+Echoed Voice: power increases by 40 per consecutive turn used by anyone, up to 200
+Chip Away / Sacred Sword: damage while ignoring the target's defensive stat stages and Evasion
+Clear Smog: damage without an accuracy check; reset the target's stat stages
+Stored Power: power = 20 + 20 per positive stat stage on the user
+Quick Guard: protect the user's side from increased-priority attacks this turn
+Ally Switch: swap positions with an ally; in triples, only the two outer positions swap
+Shell Smash: user -1 Defense/Sp. Def; +2 Attack/Sp. Atk/Speed
+Heal Pulse: restore 1/2 of the target's max HP
+Hex: double power against a target with a major status condition
+Sky Drop: carry and immobilize the target; drop it next turn; Flying targets take no damage
+Shift Gear: raise the user's Attack by 1 stage and Speed by 2 stages
+Circle Throw / Dragon Tail: low-priority damage, then force the target to switch or end a wild battle
+Incinerate: damage; destroy the target's Berry without activating it
+Quash: make the target act last this turn
+Growth: raise the user's Attack and Sp. Atk by 1 stage, or 2 stages in sunlight
+Acrobatics: double power when the user is not holding an item
+Reflect Type: copy the target's types onto the user
+Retaliate: double power if an ally fainted on the previous turn
+Final Gambit: fixed damage equal to the user's current HP; the user faints
+Tail Glow: raise the user's Sp. Atk by 3 stages
+Coil: raise the user's Attack, Defense, and Accuracy by 1 stage
+Bestow: give the user's held item to a target that is not holding one
+Water Pledge: with an ally's Fire Pledge, double allies' secondary-effect chances; with Grass Pledge, quarter opposing Speed (combo: 150 power, 4 turns)
+Fire Pledge: with an ally's Water Pledge, double allies' secondary-effect chances; with Grass Pledge, non-Fire foes lose 1/8 max HP per turn (combo: 150 power, 4 turns)
+Grass Pledge: with an ally's Water Pledge, quarter opposing Speed; with Fire Pledge, non-Fire foes lose 1/8 max HP per turn (combo: 150 power, 4 turns)
+Work Up: raise the user's Attack and Sp. Atk by 1 stage
+Cotton Guard: raise the user's Defense by 3 stages
+Relic Song: damage with a chance to sleep; change Meloetta's form
+Glaciate: damage; lower the target's Speed by 1 stage
+Freeze Shock: charge, then attack next turn with a chance to paralyze
+Ice Burn: charge, then attack next turn with a chance to burn
+Unused AI slot 333 (legacy Donaritsukeru; no vanilla move assigned)
+V-create: damage; lower the user's Defense, Sp. Def, and Speed by 1 stage
+Fusion Flare: double power if Fusion Bolt was the previous successful move this turn
+Fusion Bolt: double power if Fusion Flare was the previous successful move this turn
+Hurricane: may confuse; bypass accuracy in rain, 50% accuracy in sun; can hit Fly/Bounce

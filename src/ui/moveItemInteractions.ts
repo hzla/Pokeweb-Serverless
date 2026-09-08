@@ -1232,7 +1232,10 @@ function syncMoveRow(card: HTMLElement, result: FieldUpdateResult, fieldName: st
   }
   if (fieldName === "effect") {
     const effectName = card.querySelector<HTMLElement>("[contenteditable='true'][data-field-name='effect']");
-    if (effectName) effectName.textContent = String(result.value);
+    if (effectName) {
+      effectName.textContent = String(result.value);
+      effectName.title = String(result.value);
+    }
     const effectId = card.querySelector<HTMLInputElement>(".move-effect-id-input");
     if (effectId) effectId.value = String(result.rawValue);
   }

@@ -6,6 +6,9 @@ import { copyMoveAnimationScript } from "./moveAnimationModel";
 import { MOVE_EXPANSION_FIRST_USABLE_ID, usesFrostMoveExpansionLayout } from "./moveExpansionPatch";
 import { decodeRecord, markDirty, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 
+// Line index is the ROM's AISeqNo (0-337). Keep every slot, including unused ones,
+// and keep labels unique ignoring case: text selection resolves them back to IDs.
+// Source audit and vanilla move assignments: docs/move-ai-effects.md.
 export const EFFECTS = effectsText.split(/\r?\n/u).filter((line) => line.length > 0);
 export const RESULT_EFFECTS = resultEffectsText.split(/\r?\n/u).filter((line) => line.length > 0);
 
