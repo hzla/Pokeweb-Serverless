@@ -4,7 +4,7 @@ import { Folder, saveFnt } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
-import { updateMoveSpaArchive } from "../pokeweb/moveSpaModel";
+import { copyMoveSpaArchive, updateMoveSpaArchive } from "../pokeweb/moveSpaModel";
 import { findSpaTextureReferences, parseSpaArchive, removeSpaTexture, serializeSpaArchive } from "../pokeweb/nitroSpa";
 import type { SpaChildResource, SpaTexture } from "../pokeweb/nitroSpa";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -144,6 +144,25 @@ describe("move SPA writeback", () => {
     const exportedSpaNarc = new NARC(exportedRom.getFileByName("a/0/0/6"));
     expect(parseSpaArchive(exportedSpaNarc.files[1]).resources[0].emissionCount).toBe(7);
     expect(parseSpaArchive(exportedSpaNarc.files[0]).resources[0].emissionCount).toBe(2);
+  });
+
+  it("extends move_spas when a donor is copied to a new expanded-move slot", async () => {
+    const spaNarc = new NARC();
+    spaNarc.files = [makeSyntheticSpa(), makeSyntheticSpa()];
+    const project = makeProject(makeRomWithMoveSpas(spaNarc.save()));
+
+    await copyMoveSpaArchive(project, 4, 1);
+
+    expect(project.narcs.move_spas?.rawFiles).toHaveLength(5);
+    expect(project.narcs.move_spas?.fileCount).toBe(5);
+    expect(project.narcs.move_spas?.rawFiles[2]).toHaveLength(0);
+    expect(project.narcs.move_spas?.dirty.has(4)).toBe(true);
+
+    const exported = await exportModifiedRom(project);
+    const exportedRom = new NintendoDSRom(exported);
+    const exportedSpaNarc = new NARC(exportedRom.getFileByName("a/0/0/6"));
+    expect(exportedSpaNarc.files).toHaveLength(5);
+    expect(exportedSpaNarc.files[4]).toEqual(spaNarc.files[1]);
   });
 });
 

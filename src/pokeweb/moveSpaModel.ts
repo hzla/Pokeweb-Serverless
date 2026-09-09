@@ -26,7 +26,7 @@ export async function updateMoveSpaArchive(project: ProjectState, spaId: number,
   const bytes = serializeSpaArchive(archive);
   const reparsed = parseSpaArchive(bytes);
   const store = await ensureMoveSpaStore(project);
-  if (!Number.isInteger(spaId) || spaId < 0 || spaId >= store.rawFiles.length) throw new Error(`Move SPA ${spaId} does not exist in move_spas`);
+  ensureMoveSpaSlot(store, spaId);
   store.rawFiles[spaId] = bytes;
   store.records.delete(spaId);
   markDirty(project, "move_spas", spaId);
@@ -45,9 +45,7 @@ export async function copyMoveSpaArchive(project: ProjectState, targetSpaId: num
   if (!Number.isInteger(sourceSpaId) || sourceSpaId < 0 || sourceSpaId >= store.rawFiles.length) {
     throw new Error(`Move SPA ${sourceSpaId} does not exist in move_spas`);
   }
-  if (!Number.isInteger(targetSpaId) || targetSpaId < 0 || targetSpaId >= store.rawFiles.length) {
-    throw new Error(`Move SPA ${targetSpaId} does not exist in move_spas`);
-  }
+  ensureMoveSpaSlot(store, targetSpaId);
   const source = store.rawFiles[sourceSpaId];
   if (!source) throw new Error(`Move SPA ${sourceSpaId} does not exist in move_spas`);
   const bytes = source.slice();
@@ -59,6 +57,12 @@ export async function copyMoveSpaArchive(project: ProjectState, targetSpaId: num
     key: `move-spa-copy:${targetSpaId}`,
   });
   return bytes;
+}
+
+function ensureMoveSpaSlot(store: NarcStore, spaId: number): void {
+  if (!Number.isInteger(spaId) || spaId < 0) throw new Error("Move SPA ID must be a non-negative integer");
+  while (store.rawFiles.length <= spaId) store.rawFiles.push(new Uint8Array());
+  store.fileCount = store.rawFiles.length;
 }
 
 export async function exportMoveSpaArchive(project: ProjectState, spaId: number, archiveOverride?: SpaArchive): Promise<Uint8Array> {
