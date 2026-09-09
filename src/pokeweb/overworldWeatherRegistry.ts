@@ -4,9 +4,9 @@ import { normalizeWeatherCloneRuntime, WEATHER_FOG_DEFAULT_TABLE } from "./overw
 
 export const OVERWORLD_WEATHER_REGISTRY_PATH = "weather/pwth.bin";
 export const OVERWORLD_WEATHER_REGISTRY_MAGIC = "PWTH";
-export const OVERWORLD_WEATHER_REGISTRY_VERSION = 2;
+export const OVERWORLD_WEATHER_REGISTRY_VERSION = 3;
 export const OVERWORLD_WEATHER_REGISTRY_HEADER_SIZE = 16;
-export const OVERWORLD_WEATHER_REGISTRY_ENTRY_SIZE = 68;
+export const OVERWORLD_WEATHER_REGISTRY_ENTRY_SIZE = 72;
 export const OVERWORLD_WEATHER_FIRST_CUSTOM_ID = 15;
 export const OVERWORLD_WEATHER_CUSTOM_ENTRY_COUNT = 49;
 export const OVERWORLD_WEATHER_LAST_CUSTOM_ID = 63;
@@ -19,6 +19,12 @@ export const enum WeatherRegistryChannel {
   Fog = 1 << 3,
   Lighting = 1 << 4,
   Sound = 1 << 5,
+}
+
+export const enum WeatherRegistryLightingMode {
+  Donor = 0,
+  Custom = 1,
+  Area = 2,
 }
 
 export type OverworldWeatherRegistryEntry = {
@@ -43,6 +49,8 @@ export type OverworldWeatherRegistryEntry = {
   fogFadeOutFrames: number;
   entryFlags: number;
   fogTable: number[];
+  lightingMemberId: number;
+  lightingMode: WeatherRegistryLightingMode;
 };
 
 export type OverworldWeatherRegistry = {
@@ -128,7 +136,8 @@ function registryEntryFromClone(effect: OverworldWeatherCustomEffect): Overworld
   if (clone.auxiliaryResourceIds.length >= 1) channelFlags |= WeatherRegistryChannel.BgFront;
   if (clone.auxiliaryResourceIds.length >= 2) channelFlags |= WeatherRegistryChannel.BgBack;
   if (clone.behavior === "fog" || clone.channels.includes("fog")) channelFlags |= WeatherRegistryChannel.Fog;
-  if (clone.channels.includes("lighting")) channelFlags |= WeatherRegistryChannel.Lighting;
+  const lightingMode = clone.lightingMode ?? (clone.lightingResourceId === undefined ? "area" : "custom");
+  if (lightingMode === "custom") channelFlags |= WeatherRegistryChannel.Lighting;
   if (clone.channels.includes("sound")) channelFlags |= WeatherRegistryChannel.Sound;
   const [fogRed5, fogGreen5, fogBlue5] = rgb5(runtime.fogColor);
   return {
@@ -153,6 +162,8 @@ function registryEntryFromClone(effect: OverworldWeatherCustomEffect): Overworld
     fogFadeOutFrames: runtime.fogFadeOutFrames,
     entryFlags: 0,
     fogTable: [...runtime.fogTable],
+    lightingMemberId: lightingMode === "custom" ? clone.lightingResourceId! : OVERWORLD_WEATHER_UNUSED_RESOURCE,
+    lightingMode: lightingMode === "custom" ? WeatherRegistryLightingMode.Custom : WeatherRegistryLightingMode.Area,
   };
 }
 
@@ -179,6 +190,8 @@ function emptyEntry(weatherId: number): OverworldWeatherRegistryEntry {
     fogFadeOutFrames: 50,
     entryFlags: 0,
     fogTable: [...WEATHER_FOG_DEFAULT_TABLE],
+    lightingMemberId: OVERWORLD_WEATHER_UNUSED_RESOURCE,
+    lightingMode: WeatherRegistryLightingMode.Donor,
   };
 }
 
@@ -211,6 +224,9 @@ function writeRegistryEntry(bytes: Uint8Array, index: number, entry: OverworldWe
   for (let tableIndex = 0; tableIndex < 32; tableIndex += 1) {
     bytes[offset + 36 + tableIndex] = Math.max(0, Math.min(127, Math.round(entry.fogTable[tableIndex] ?? 0)));
   }
+  writeU16(bytes, offset + 68, entry.lightingMemberId);
+  bytes[offset + 70] = entry.lightingMode;
+  bytes[offset + 71] = 0;
 }
 
 function readRegistryEntry(bytes: Uint8Array, index: number): OverworldWeatherRegistryEntry {
@@ -238,6 +254,8 @@ function readRegistryEntry(bytes: Uint8Array, index: number): OverworldWeatherRe
     fogFadeOutFrames: readU16(bytes, offset + 30),
     entryFlags: readU32(bytes, offset + 32),
     fogTable: [...bytes.slice(offset + 36, offset + 68)],
+    lightingMemberId: readU16(bytes, offset + 68),
+    lightingMode: bytes[offset + 70] as WeatherRegistryLightingMode,
   };
 }
 

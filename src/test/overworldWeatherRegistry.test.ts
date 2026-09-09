@@ -9,6 +9,7 @@ import {
   parseOverworldWeatherRegistry,
   serializeProjectOverworldWeatherRegistry,
   WeatherRegistryChannel,
+  WeatherRegistryLightingMode,
   writeOverworldWeatherRegistry,
   type OverworldWeatherRegistryEntry,
 } from "../pokeweb/overworldWeatherRegistry";
@@ -21,10 +22,10 @@ describe("overworld weather PWTH registry", () => {
 
     expect(bytes.length).toBe(OVERWORLD_WEATHER_REGISTRY_HEADER_SIZE
       + OVERWORLD_WEATHER_CUSTOM_ENTRY_COUNT * OVERWORLD_WEATHER_REGISTRY_ENTRY_SIZE);
-    expect(bytes.length).toBe(3348);
+    expect(bytes.length).toBe(3544);
     expect(readAscii(bytes, 0, 4)).toBe("PWTH");
-    expect(readU16(bytes, 4)).toBe(2);
-    expect(readU16(bytes, 6)).toBe(68);
+    expect(readU16(bytes, 4)).toBe(3);
+    expect(readU16(bytes, 6)).toBe(72);
     expect([...bytes.slice(8, 12)]).toEqual([15, 49, 16, 0]);
 
     const parsed = parseOverworldWeatherRegistry(bytes);
@@ -47,7 +48,7 @@ describe("overworld weather PWTH registry", () => {
     const fog = entry(16, {
       enabled: true,
       donorBehaviorId: 9,
-      channelFlags: WeatherRegistryChannel.Fog,
+      channelFlags: WeatherRegistryChannel.Fog | WeatherRegistryChannel.Lighting,
       fogOffset: 32123,
       fogRed5: 4,
       fogGreen5: 12,
@@ -56,6 +57,8 @@ describe("overworld weather PWTH registry", () => {
       fogFadeInFrames: 120,
       fogFadeOutFrames: 44,
       fogTable: Array.from({ length: 32 }, (_unused, index) => index * 4),
+      lightingMemberId: 10,
+      lightingMode: WeatherRegistryLightingMode.Custom,
     });
 
     const bytes = writeOverworldWeatherRegistry([rain, fog]);
@@ -64,8 +67,10 @@ describe("overworld weather PWTH registry", () => {
     expect(parsed.entries[0]).toEqual(rain);
     expect(parsed.entries[1]).toEqual(fog);
     expect(readU16(bytes, 16 + 4)).toBe(300);
-    expect(readU16(bytes, 16 + 68 + 20)).toBe(32123);
-    expect([...bytes.slice(16 + 68 + 36, 16 + 68 + 68)]).toEqual(Array.from({ length: 32 }, (_unused, index) => index * 4));
+    expect(readU16(bytes, 16 + 72 + 20)).toBe(32123);
+    expect([...bytes.slice(16 + 72 + 36, 16 + 72 + 68)]).toEqual(Array.from({ length: 32 }, (_unused, index) => index * 4));
+    expect(readU16(bytes, 16 + 72 + 68)).toBe(10);
+    expect(bytes[16 + 72 + 70]).toBe(WeatherRegistryLightingMode.Custom);
   });
 
   it("serializes runtime-ready clones and leaves all other custom slots disabled", () => {
@@ -84,6 +89,7 @@ describe("overworld weather PWTH registry", () => {
             runtimeReady: true,
             particleResource: { animation: 400, cell: 401, character: 402, palette: 403 },
             auxiliaryResourceIds: [404, 405],
+            lightingMode: "area",
             runtime: {
               particleDensity: 1.5,
               movementSpeed: 0.75,
@@ -120,6 +126,8 @@ describe("overworld weather PWTH registry", () => {
       fogFadeOutFrames: 34,
       fogTable: Array.from({ length: 32 }, (_unused, index) => 127 - index),
       screenScrollSpeedQ8_8: -0x0080,
+      lightingMemberId: OVERWORLD_WEATHER_UNUSED_RESOURCE,
+      lightingMode: WeatherRegistryLightingMode.Area,
     });
     expect(parsed.entries.slice(1).every((candidate) => !candidate.enabled)).toBe(true);
   });
@@ -155,6 +163,8 @@ function entry(weatherId: number, overrides: Partial<OverworldWeatherRegistryEnt
     fogFadeOutFrames: 50,
     entryFlags: 0,
     fogTable: [...WEATHER_FOG_DEFAULT_TABLE],
+    lightingMemberId: OVERWORLD_WEATHER_UNUSED_RESOURCE,
+    lightingMode: WeatherRegistryLightingMode.Donor,
     ...overrides,
   };
 }

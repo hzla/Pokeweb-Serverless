@@ -135,6 +135,7 @@ describe("overworldWeatherModel", () => {
           runtimeReady: true,
           particleResource: { animation: 100, cell: 101, character: 102, palette: 103 },
           auxiliaryResourceIds: [],
+          lightingMode: "area",
           runtime: {
             particleDensity: 1,
             movementSpeed: 1,
