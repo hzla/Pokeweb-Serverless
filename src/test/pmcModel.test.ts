@@ -394,8 +394,8 @@ describe("PMC installer", () => {
     expect(readAscii(overworldWeatherRuntimeW2, 0, 4)).toBe("DLXF");
     expect(readU32(overworldWeatherRuntimeW2, 4)).toBeGreaterThanOrEqual(0x2ea0);
     const runtime = parseRpm(overworldWeatherRuntimeW2, { allowedMagics: ["DLXF"] });
-    expect(new TextDecoder().decode(runtime.code)).toContain("PWTH-W2-RUNTIME-ABI3");
-    expect(new TextDecoder().decode(runtime.code)).toContain("3.0.0");
+    expect(new TextDecoder().decode(runtime.code)).toContain("PWTH-W2-RUNTIME-ABI4");
+    expect(new TextDecoder().decode(runtime.code)).toContain("4.0.0");
     expect(runtime.symbols.map((symbol) => symbol.name)).toEqual(expect.arrayContaining([
       "PWW_OverworldWeatherRuntimeAbi",
       "PWW_OverworldWeatherRegistryFormat",
@@ -415,12 +415,16 @@ describe("PMC installer", () => {
     const zoneSentinelPatch = runtime.symbols.find((symbol) => symbol.name === "FULL_COPY_36_0x2180E0A");
     const setHook = runtime.symbols.find((symbol) => symbol.name === "THUMB_BRANCH_36_0x21991E0");
     const taskStartHook = runtime.symbols.find((symbol) => symbol.name === "THUMB_BRANCH_36_0x2199658");
+    const lightChangeHook = runtime.symbols.find((symbol) => symbol.name === "THUMB_BRANCH_36_0x2199774");
+    const lightSetHook = runtime.symbols.find((symbol) => symbol.name === "THUMB_BRANCH_36_0x2199780");
     const dispatchLiteralPatches = runtime.symbols.filter((symbol) =>
       symbol.name?.startsWith("FULL_COPY_36_0x2199") && symbol.size === 4,
     );
     expect(zoneSentinelPatch).toBeDefined();
     expect(setHook).toBeDefined();
     expect(taskStartHook).toBeDefined();
+    expect(lightChangeHook).toBeDefined();
+    expect(lightSetHook).toBeDefined();
     expect(dispatchLiteralPatches).toHaveLength(5);
     expect(dispatchLiteralPatches.every((symbol) => (symbol.address & 3) === 0)).toBe(true);
     expect([...runtime.code.subarray(zoneSentinelPatch!.address, zoneSentinelPatch!.address + 4)]).toEqual([0xc0, 0x46, 0xc0, 0x46]);
@@ -432,6 +436,10 @@ describe("PMC installer", () => {
     expect(readU16(runtime.code, taskStartHook!.address + 24)).toBe(0x0001); // movs r1, r0
     expect(readU16(runtime.code, taskStartHook!.address + 26)).toBe(0x3124); // adds r1, #36
     expect(readU16(runtime.code, taskStartHook!.address + 30)).toBe(0x4718); // bx r3 remains outside aligned ABS32 words
+    expect(readU16(runtime.code, lightChangeHook!.address + 4)).toBe(0xbc08); // pop PMC veneer's saved LR into r3
+    expect(readU16(runtime.code, lightChangeHook!.address + 6)).toBe(0x4718); // return directly to the donor callback
+    expect(readU16(runtime.code, lightSetHook!.address + 4)).toBe(0xbc08);
+    expect(readU16(runtime.code, lightSetHook!.address + 6)).toBe(0x4718);
     expect(hasU32(runtime.code, 0x021991e9)).toBe(true);
     expect(hasU32(runtime.code, 0x02199661)).toBe(true);
     expect(detectBundledOverworldWeatherRuntime(project)).toBe("unpatched");

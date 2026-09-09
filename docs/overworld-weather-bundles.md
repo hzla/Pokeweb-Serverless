@@ -29,6 +29,7 @@ behavior, then overrides independently appended members in weather archive
 - NCGR character
 - NCLR palette
 - up to two auxiliary NSBTX screen-plane resources
+- one independent `a/0/6/1` weather-light member, when the donor has one
 
 Disabled or invalid rows resolve to Clear. Stock IDs remain direct copies of
 the retail dispatcher rows.
@@ -36,21 +37,23 @@ the retail dispatcher rows.
 ## PWTH registry summary
 
 `weather/pwth.bin` is little-endian and begins with the signature `PWTH`.
-Its 16-byte header contains format version `2`, entry size `68`, first ID `15`,
+Its 16-byte header contains format version `3`, entry size `72`, first ID `15`,
 and entry count `49`. The fixed-size rows then cover IDs `15` through `63` in
 order. Resource index `0xFFFF` means "not used."
 
 Rows store channel flags, donor ID, the four particle member indices, two
 auxiliary member indices, particle density and movement multipliers, fog
 color, exact native depth offset, hardware slope enum, 32-entry blend table,
-separate fade-in/fade-out durations, and screen scroll speed. Multipliers are
+separate fade-in/fade-out durations, screen scroll speed, and the lighting mode
+plus optional `a/0/6/1` member ID. Multipliers are
 Q8.8; fog colors are RGB5. The exact byte offsets and runtime
 validation rules are documented alongside the patch in
 `White2Upgrade/OVERWORLD_WEATHER_RUNTIME.md`.
 
-ABI 3 applies all six resource redirects. It also applies fog RGB, native
+ABI 4 applies all six weather-graphics redirects. It also applies fog RGB, native
 offset, slope, full blend table, and fade timing for generic fog donors.
-Particle density, movement speed,
+Clones can use their independent weather-light member or clear the override so
+the current map's zone/area lighting remains active. Particle density, movement speed,
 and screen-plane scroll values are currently previewed and preserved in the
 registry but are not yet applied by the native donor callbacks.
 

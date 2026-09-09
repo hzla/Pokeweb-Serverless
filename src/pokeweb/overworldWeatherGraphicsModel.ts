@@ -193,6 +193,7 @@ export async function cloneWeatherEffect(
     } : undefined,
     auxiliaryResourceIds: donorAuxiliary.map((entry) => remap.get(entry.memberId)!),
     lightingResourceId,
+    lightingMode: lightingResourceId === undefined ? "area" : "custom",
     runtime,
   };
   const effect: OverworldWeatherCustomEffect = {
@@ -280,6 +281,29 @@ export async function updateWeatherCloneRuntime(project: ProjectState, weatherId
   recordGenericChange(project, "file_system", `Updated custom weather ${weatherId} runtime template.`, `Weather ${weatherId}`, {
     key: `overworld-weather-runtime:${weatherId}`,
   });
+}
+
+export async function updateWeatherCloneLightingMode(
+  project: ProjectState,
+  weatherId: number,
+  lightingMode: "custom" | "area",
+): Promise<void> {
+  const effect = project.overworldWeather?.customEffects.find((candidate) => candidate.id === weatherId);
+  if (!effect?.clone) throw new Error("Weather lighting can only be cleared on a cloned custom weather.");
+  if (lightingMode === "custom" && effect.clone.lightingResourceId === undefined) {
+    throw new Error("This clone has no independent weather-light member to restore.");
+  }
+  effect.clone.lightingMode = lightingMode;
+  await syncBundledOverworldWeatherRegistry(project);
+  recordGenericChange(
+    project,
+    "file_system",
+    lightingMode === "area"
+      ? `Cleared the weather-light override for custom weather ${weatherId}; maps now use their area lighting.`
+      : `Restored cloned weather-light data for custom weather ${weatherId}.`,
+    `Weather ${weatherId}`,
+    { key: `overworld-weather-lighting-mode:${weatherId}` },
+  );
 }
 
 export function weatherAuxiliaryResourceRefs(project: ProjectState, weatherId: number): Array<{ memberId: number; role: string }> {

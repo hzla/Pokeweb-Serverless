@@ -66,6 +66,7 @@ export type WeatherLightingDocument = {
   records: WeatherLightingRecord[];
   bytes: Uint8Array;
   source: "stock" | "custom" | "inherited";
+  mode: "stock" | "custom" | "area";
   sharedEffectIds: number[];
   runtimeLinked: boolean;
 };
@@ -84,14 +85,17 @@ export async function loadWeatherLightingDocument(project: ProjectState, weather
   const { narc } = await loadWeatherLightingNarc(project);
   const bytes = requireLightingMember(narc, memberId).slice();
   const source = custom?.clone?.lightingResourceId !== undefined ? "custom" : custom?.clone ? "inherited" : "stock";
+  const mode = custom?.clone
+    ? custom.clone.lightingMode ?? (custom.clone.lightingResourceId === undefined ? "area" : "custom")
+    : "stock";
   return {
     memberId,
     records: parseWeatherLightingMember(bytes),
     bytes,
     source,
+    mode,
     sharedEffectIds: weatherIdsReferencingLightingMember(project, memberId),
-    // PWTH ABI 3 preserves donor lighting. A future runtime hook must consume a custom member redirect.
-    runtimeLinked: source !== "custom",
+    runtimeLinked: mode === "stock" || mode === "custom",
   };
 }
 
