@@ -17,6 +17,7 @@ import {
   updateWeatherAnimation,
   updateWeatherCellBank,
   updateWeatherCharacterIndices,
+  updateWeatherCloneLightingMode,
   updateWeatherCloneRuntime,
   updateWeatherPaletteColor,
   type WeatherCharacterData,
@@ -94,7 +95,11 @@ export async function renderOverworldWeatherGraphicsEditor(
       renderAuxiliaryCanvases(root, document);
       const preview = await loadOverworldWeatherPreview(project, state.effectId);
       if (disposed || localRequest !== request) return;
-      previewStop = mountWeatherPreview(root, preview, document.lighting?.records[state.lightingRecordIndex]);
+      previewStop = mountWeatherPreview(
+        root,
+        preview,
+        document.lighting?.mode === "area" ? undefined : document.lighting?.records[state.lightingRecordIndex],
+      );
     } catch (error) {
       if (disposed || localRequest !== request) return;
       root.innerHTML = `<div class="weather-graphics-loading -error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
@@ -176,7 +181,7 @@ function renderRuntimeSection(document: WeatherGraphicsDocument): string {
   const runtime = clone.runtime;
   return `<section class="weather-graphics-panel">
     <div class="weather-panel-heading"><h2>Runtime template</h2><span class="weather-data-kind ${clone.runtimeReady ? "-ready" : "-code"}">${clone.runtimeReady ? "PWTH registered" : "one-time expansion required"}</span></div>
-    <p>These values form the row in <code>weather/pwth.bin</code>. ABI 3 sends the native fog offset, hardware slope, 32-entry blend table, fade timings, and color directly to the field renderer. Density, movement, and scroll remain versioned preview fields for future behavior adapters.</p>
+    <p>These values form the row in <code>weather/pwth.bin</code>. ABI 4 sends the native fog offset, hardware slope, 32-entry blend table, fade timings, color, and lighting mode directly to the field renderer. Density, movement, and scroll remain versioned preview fields for future behavior adapters.</p>
     <div class="weather-runtime-grid">
       ${numberField("Particle density", "particleDensity", runtime.particleDensity, 0, 4, .1)}
       ${numberField("Movement speed", "movementSpeed", runtime.movementSpeed, 0, 4, .1)}
@@ -210,11 +215,16 @@ function renderLightingSection(
   const sharedWarning = lighting.sharedEffectIds.length > 1
     ? `<div class="weather-lighting-note -warning"><strong>Shared lighting member.</strong> Member ${lighting.memberId} is referenced by weather ${lighting.sharedEffectIds.join(", ")}. Editing it changes every listed effect; clone first if they should diverge.</div>`
     : "";
-  const sourceWarning = lighting.source === "custom" && !lighting.runtimeLinked
-    ? `<div class="weather-lighting-note -runtime"><strong>Custom preview resource.</strong> This clone has its own appended lighting member, so edits are independent and visible here. PWTH ABI 3 still uses the donor's lighting in-game; its native lighting lookup must be extended to consume this member ID.</div>`
+  const sourceWarning = lighting.mode === "area"
+    ? `<div class="weather-lighting-note -runtime"><strong>Weather lighting cleared.</strong> This clone keeps its independent member for restoration. In-game, each map uses its normal zone/area lighting; the standalone preview uses neutral lighting.</div>`
+    : lighting.source === "custom"
+      ? `<div class="weather-lighting-note -runtime"><strong>Independent cloned lighting.</strong> This member is active in-game and can be edited without changing the donor weather.</div>`
     : lighting.source === "inherited"
       ? `<div class="weather-lighting-note -warning"><strong>Inherited donor lighting.</strong> This older clone has no independent lighting member and currently edits the donor table.</div>`
       : "";
+  const lightingModeAction = lighting.source === "custom"
+    ? `<button class="btn -default" id="weather-lighting-mode" data-lighting-mode="${lighting.mode === "area" ? "custom" : "area"}" type="button">${lighting.mode === "area" ? "Restore cloned lighting" : "Clear weather lighting"}</button>`
+    : "";
   return `<section class="weather-graphics-panel weather-lighting-panel">
     <div class="weather-panel-heading"><h2>Lighting and time of day</h2><span class="weather-data-kind">LIGHT_DATA · a/0/6/1</span></div>
     <p>Each keyframe stores four directional lights plus the model material, fog, and clear/background colors. The game chooses a season-specific time from the timezone and signed minute offset, then interpolates between records.</p>
@@ -240,6 +250,7 @@ function renderLightingSection(
     </div>
     <div class="weather-resource-meta">Lighting member ${lighting.memberId} · ${lighting.records.length} keyframes · ${lighting.bytes.length} bytes · vectors shown as signed fx16 / 4096</div>
     <div class="weather-resource-actions">
+      ${lightingModeAction}
       <button class="btn -default" id="weather-lighting-export" type="button">Export lighting data</button>
       <label class="btn -default">Replace lighting data<input type="file" id="weather-lighting-replace" accept=".bin,.dat" hidden /></label>
     </div>
@@ -431,6 +442,18 @@ function bindLighting(
   }));
   root.querySelector<HTMLButtonElement>("#weather-lighting-export")?.addEventListener("click", () => {
     downloadBytes(lighting.bytes, `weather_${state.effectId}_lighting_member_${lighting.memberId}.bin`);
+  });
+  root.querySelector<HTMLButtonElement>("#weather-lighting-mode")?.addEventListener("click", async (event) => {
+    try {
+      const mode = (event.currentTarget as HTMLButtonElement).dataset.lightingMode as "custom" | "area";
+      await updateWeatherCloneLightingMode(project, state.effectId, mode);
+      state.status = mode === "area"
+        ? "Cleared weather lighting; maps will use their normal zone/area lighting."
+        : "Restored this clone's independent weather lighting.";
+      state.error = false;
+      onDirty?.();
+    } catch (error) { showError(state, error); }
+    await render();
   });
   root.querySelector<HTMLInputElement>("#weather-lighting-replace")?.addEventListener("change", async (event) => {
     const file = (event.currentTarget as HTMLInputElement).files?.[0];

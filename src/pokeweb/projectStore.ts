@@ -212,6 +212,7 @@ export type OverworldWeatherCustomEffect = {
     particleResource?: { animation: number; cell: number; character: number; palette: number };
     auxiliaryResourceIds: number[];
     lightingResourceId?: number;
+    lightingMode: "custom" | "area";
     runtime: {
       particleDensity: number;
       movementSpeed: number;
