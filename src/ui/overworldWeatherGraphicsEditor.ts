@@ -18,6 +18,7 @@ import {
   updateWeatherAnimation,
   updateWeatherCellBank,
   updateWeatherCharacterIndices,
+  updateWeatherCloneFogMode,
   updateWeatherCloneLightingMode,
   updateWeatherCloneRuntime,
   updateWeatherPaletteColor,
@@ -130,10 +131,11 @@ function renderPage(project: ProjectState, document: WeatherGraphicsDocument, st
         ${renderWeatherResourceFootprint([
           { access: "write", target: "a/0/5/5", description: "Particles, cells, animations, palettes, and screen planes" },
           { access: "write", target: "a/0/6/1", description: "Weather time-of-day lighting keyframes" },
+          { access: "read", target: "a/0/8/0", description: "Map zone-fog offset/slope used by Preserve map fog; not modified here" },
           { access: "write", target: "weather/pwth.bin", description: "Custom-ID registry; NitroFS file, not a NARC" },
           { access: "patch", target: "overlay 36", description: "Custom-ID hooks; reinstall PMC rather than copying this overlay alone" },
           { access: "runtime", target: "overlays 74–78", description: "Donor effect code; unchanged and does not need copying" },
-        ], "To transplant stock graphical edits, copy a/0/5/5 and a/0/6/1. Custom IDs additionally require weather/pwth.bin and the bundled PMC runtime.")}
+        ], "To transplant stock graphical edits, copy a/0/5/5 and a/0/6/1. Custom IDs additionally require weather/pwth.bin and the bundled PMC runtime. Preserve map fog consumes the destination ROM's existing a/0/8/0 data.")}
         <label class="weather-field-label" for="weather-graphics-effect">Weather effect</label>
         <select class="filter-input" id="weather-graphics-effect">
           ${effects.map((effect) => `<option value="${effect.id}" ${effect.id === state.effectId ? "selected" : ""}>${effect.id}: ${escapeHtml(effect.name)}</option>`).join("")}
@@ -180,9 +182,13 @@ function renderRuntimeSection(document: WeatherGraphicsDocument): string {
     return `<section class="weather-graphics-panel"><div class="weather-panel-heading"><h2>Runtime behavior</h2><span class="weather-data-kind -code">overlay code</span></div><p>The stock effect's particle spawn rate, velocities, lifetime, fog depth/slope, sound, and screen-plane scrolling are hardcoded in its weather overlay. Its separate editable lighting keyframes are shown below.</p><p class="weather-help">Clone this effect to create an editable runtime template. Custom slots become assignable when the one-time weather expansion and its data registry are available.</p></section>`;
   }
   const runtime = clone.runtime;
+  const preserveMapFog = clone.fogMode === "map";
+  const fogModeNote = preserveMapFog
+    ? `<div class="weather-lighting-note -runtime"><strong>Map fog preserved.</strong> The donor's fog callbacks are suppressed in-game, and the current map's native fog offset/slope remains active. The values below are retained for restoration but are inactive. Clear weather lighting separately if the map's fog and background colors must also be retained.</div>`
+    : `<div class="weather-lighting-note -warning"><strong>Weather controls fog.</strong> The donor effect replaces any native map fog while it is active. Use Preserve map fog for special maps such as Clay's Gym; zeroing the table would disable the map blackout too.</div>`;
   return `<section class="weather-graphics-panel">
     <div class="weather-panel-heading"><h2>Runtime template</h2><span class="weather-data-kind ${clone.runtimeReady ? "-ready" : "-code"}">${clone.runtimeReady ? "PWTH registered" : "one-time expansion required"}</span></div>
-    <p>These values form the row in <code>weather/pwth.bin</code>. ABI 4 sends the native fog offset, hardware slope, 32-entry blend table, fade timings, color, and lighting mode directly to the field renderer. Density, movement, and scroll remain versioned preview fields for future behavior adapters.</p>
+    <p>These values form the row in <code>weather/pwth.bin</code>. ABI 5 sends the native fog offset, hardware slope, 32-entry blend table, fade timings, color, fog ownership, and lighting mode directly to the field renderer. Density, movement, and scroll remain versioned preview fields for future behavior adapters.</p>
     <div class="weather-runtime-grid">
       ${numberField("Particle density", "particleDensity", runtime.particleDensity, 0, 4, .1)}
       ${numberField("Movement speed", "movementSpeed", runtime.movementSpeed, 0, 4, .1)}
@@ -190,7 +196,8 @@ function renderRuntimeSection(document: WeatherGraphicsDocument): string {
       ${numberField("Plane scroll speed", "screenScrollSpeed", runtime.screenScrollSpeed, -4, 4, .1)}
     </div>
     <div class="weather-native-fog">
-      <div class="weather-native-fog-heading"><div><h3>Native depth fog</h3><p>Exact Nintendo DS field-fog parameters. A larger offset pushes the blend farther from the camera; table entries are hardware density values from 0–127. Setting every entry to 0 makes the depth-fog contribution transparent. The 2D preview approximates depth and cycles through both fade durations.</p></div><div class="weather-native-fog-actions"><button class="btn -default" id="weather-clear-fog-table" type="button">Set all to 0</button><button class="btn -default" id="weather-reset-fog-table" type="button">Reset stock table</button></div></div>
+      <div class="weather-native-fog-heading"><div><h3>Native depth fog</h3><p>Exact Nintendo DS field-fog parameters. A larger offset pushes the blend farther from the camera; table entries are hardware density values from 0–127. The 2D preview approximates depth and cycles through both fade durations.</p></div><div class="weather-native-fog-actions"><button class="btn -default" id="weather-fog-mode" data-fog-mode="${preserveMapFog ? "weather" : "map"}" type="button">${preserveMapFog ? "Restore weather fog" : "Preserve map fog"}</button><button class="btn -default" id="weather-clear-fog-table" type="button">Zero weather table</button><button class="btn -default" id="weather-reset-fog-table" type="button">Reset stock table</button></div></div>
+      ${fogModeNote}
       <div class="weather-runtime-grid">
         ${numberField("Depth offset", "fogOffset", runtime.fogOffset, 0, 32767, 1)}
         <label>Hardware slope<select class="filter-input" data-runtime-field="fogSlope">${WEATHER_FOG_SLOPES.map((slope) => `<option value="${slope.value}" ${runtime.fogSlope === slope.value ? "selected" : ""}>${slope.value}: ${slope.ratio}${slope.value === 9 ? " (stock)" : ""}</option>`).join("")}</select></label>
@@ -617,7 +624,19 @@ function bindRuntime(project: ProjectState, root: HTMLElement, state: EditorStat
   root.querySelector<HTMLButtonElement>("#weather-clear-fog-table")?.addEventListener("click", async () => {
     try {
       await updateWeatherCloneRuntime(project, state.effectId, { fogTable: Array.from({ length: 32 }, () => 0) });
-      state.status = "Set all 32 native fog blend-table entries to 0. Depth fog is now transparent.";
+      state.status = "Set all 32 custom-weather fog blend-table entries to 0. This disables depth fog when Weather controls fog; it does not preserve a map's native fog.";
+      state.error = false;
+      onDirty?.();
+    } catch (error) { showError(state, error); }
+    await render();
+  });
+  root.querySelector<HTMLButtonElement>("#weather-fog-mode")?.addEventListener("click", async (event) => {
+    try {
+      const mode = (event.currentTarget as HTMLButtonElement).dataset.fogMode as "weather" | "map";
+      await updateWeatherCloneFogMode(project, state.effectId, mode);
+      state.status = mode === "map"
+        ? "Preserving native map fog. Donor fog is suppressed; clear weather lighting too when the map's fog color must remain unchanged."
+        : "Restored donor weather fog controls for this clone.";
       state.error = false;
       onDirty?.();
     } catch (error) { showError(state, error); }

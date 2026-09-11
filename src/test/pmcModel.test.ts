@@ -394,8 +394,8 @@ describe("PMC installer", () => {
     expect(readAscii(overworldWeatherRuntimeW2, 0, 4)).toBe("DLXF");
     expect(readU32(overworldWeatherRuntimeW2, 4)).toBeGreaterThanOrEqual(0x2ea0);
     const runtime = parseRpm(overworldWeatherRuntimeW2, { allowedMagics: ["DLXF"] });
-    expect(new TextDecoder().decode(runtime.code)).toContain("PWTH-W2-RUNTIME-ABI4");
-    expect(new TextDecoder().decode(runtime.code)).toContain("4.0.0");
+    expect(new TextDecoder().decode(runtime.code)).toContain("PWTH-W2-RUNTIME-ABI5");
+    expect(new TextDecoder().decode(runtime.code)).toContain("5.0.0");
     expect(runtime.symbols.map((symbol) => symbol.name)).toEqual(expect.arrayContaining([
       "PWW_OverworldWeatherRuntimeAbi",
       "PWW_OverworldWeatherRegistryFormat",
@@ -442,6 +442,12 @@ describe("PMC installer", () => {
     expect(readU16(runtime.code, lightSetHook!.address + 6)).toBe(0x4718);
     expect(hasU32(runtime.code, 0x021991e9)).toBe(true);
     expect(hasU32(runtime.code, 0x02199661)).toBe(true);
+    expect(detectBundledOverworldWeatherRuntime(project)).toBe("unpatched");
+    const outdatedRuntime = overworldWeatherRuntimeW2.slice();
+    const signatureOffset = findBytes(outdatedRuntime, new TextEncoder().encode("PWTH-W2-RUNTIME-ABI5"));
+    expect(signatureOffset).toBeGreaterThanOrEqual(0);
+    outdatedRuntime[signatureOffset + "PWTH-W2-RUNTIME-ABI".length] = "4".charCodeAt(0);
+    stageCodeInjectionDll(project, OVERWORLD_WEATHER_RUNTIME_W2_FILENAME, outdatedRuntime, "patches");
     expect(detectBundledOverworldWeatherRuntime(project)).toBe("unpatched");
     stageCodeInjectionDll(project, OVERWORLD_WEATHER_RUNTIME_W2_FILENAME, overworldWeatherRuntimeW2, "patches");
     expect(detectBundledOverworldWeatherRuntime(project)).toBe("patched");
@@ -653,6 +659,16 @@ function hasU32(bytes: Uint8Array, value: number): boolean {
     if (readU32(bytes, offset) === value) return true;
   }
   return false;
+}
+
+function findBytes(haystack: Uint8Array, needle: Uint8Array): number {
+  outer: for (let offset = 0; offset + needle.length <= haystack.length; offset += 1) {
+    for (let index = 0; index < needle.length; index += 1) {
+      if (haystack[offset + index] !== needle[index]) continue outer;
+    }
+    return offset;
+  }
+  return -1;
 }
 
 function duplicateFntFileIds(fnt: Uint8Array): number[] {

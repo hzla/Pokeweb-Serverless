@@ -213,6 +213,7 @@ export type OverworldWeatherCustomEffect = {
     auxiliaryResourceIds: number[];
     lightingResourceId?: number;
     lightingMode: "custom" | "area";
+    fogMode: "weather" | "map";
     runtime: {
       particleDensity: number;
       movementSpeed: number;
