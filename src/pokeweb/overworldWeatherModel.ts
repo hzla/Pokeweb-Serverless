@@ -39,6 +39,7 @@ export type OverworldWeatherPreview = {
   customImageBytes?: Uint8Array;
   customImageMime?: string;
   runtime?: WeatherCloneRuntime;
+  fogMode?: "weather" | "map";
   warnings: string[];
 };
 
@@ -358,19 +359,21 @@ export async function loadOverworldWeatherPreview(project: ProjectState, weather
   if (!effect) throw new Error(`Unknown weather ID: ${weatherId}`);
   const custom = project.overworldWeather?.customEffects.find((candidate) => candidate.id === weatherId);
   const runtime = custom?.clone ? normalizeWeatherCloneRuntime(custom.clone.runtime) : undefined;
+  const fogMode = custom?.clone?.fogMode ?? "weather";
   if (custom?.clone && runtime) custom.clone.runtime = runtime;
   const warnings: string[] = [];
+  if (fogMode === "map") warnings.push("Map fog is preserved in-game; this standalone preview omits it because no area is selected.");
   if (custom?.preview?.imageBytes) {
-    return { effect, customImageBytes: custom.preview.imageBytes, customImageMime: custom.preview.imageMime, runtime, warnings };
+    return { effect, customImageBytes: custom.preview.imageBytes, customImageMime: custom.preview.imageMime, runtime, fogMode, warnings };
   }
   if (custom?.preview?.particle) {
     const resource = custom.preview.particle;
     const particle = parseNitroCellEffect(`custom-weather-${weatherId}`, 0, 0, 0, 0, resource.characterBytes, resource.paletteBytes, resource.cellBytes, resource.animationBytes, { originCentered: true });
-    return { effect, particle, runtime, warnings: [...warnings, ...particle.warnings] };
+    return { effect, particle, runtime, fogMode, warnings: [...warnings, ...particle.warnings] };
   }
-  if (!effect.particleResource) return { effect, runtime, warnings };
+  if (!effect.particleResource) return { effect, runtime, fogMode, warnings };
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
-  if (!romBytes) return { effect, warnings: ["Reload the source ROM to decode the original weather particle graphics."] };
+  if (!romBytes) return { effect, runtime, fogMode, warnings: [...warnings, "Reload the source ROM to decode the original weather particle graphics."] };
   try {
     const rom = new NintendoDSRom(romBytes);
     const fileId = rom.filenames.idOf(OVERWORLD_WEATHER_ARCHIVE_PATH);
@@ -389,9 +392,9 @@ export async function loadOverworldWeatherPreview(project: ProjectState, weather
       requireNarcMember(narc, resource.animation),
       { originCentered: true },
     );
-    return { effect, particle, runtime, warnings: [...warnings, ...particle.warnings] };
+    return { effect, particle, runtime, fogMode, warnings: [...warnings, ...particle.warnings] };
   } catch (error) {
-    return { effect, runtime, warnings: [error instanceof Error ? error.message : String(error)] };
+    return { effect, runtime, fogMode, warnings: [...warnings, error instanceof Error ? error.message : String(error)] };
   }
 }
 
@@ -406,7 +409,7 @@ function customDefinition(effect: OverworldWeatherCustomEffect): WeatherEffectDe
     status: "custom",
     behavior: previewBehavior(clone?.behavior ?? effect.preview?.behavior),
     channels: clone?.channels ?? [effect.preview?.particle ? "particles" : "custom runtime"],
-    tint: clone?.runtime.fogColor || clone?.tint || effect.preview?.tint,
+    tint: clone?.fogMode === "map" ? undefined : clone?.runtime.fogColor || clone?.tint || effect.preview?.tint,
     particleResource: clone?.particleResource,
     sourceFileName: effect.sourceFileName,
   };
