@@ -2,6 +2,7 @@ import { decodeBtxImages } from "../pokeweb/btxModel";
 import type { PokemonAnimationSequence, PokemonCell, PokemonCellOam } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import {
+  copyWeatherLightingKeyframeToAllTimes,
   replaceWeatherLightingResource,
   updateWeatherLightingRecord,
   weatherLightingSeasonTimes,
@@ -189,7 +190,7 @@ function renderRuntimeSection(document: WeatherGraphicsDocument): string {
       ${numberField("Plane scroll speed", "screenScrollSpeed", runtime.screenScrollSpeed, -4, 4, .1)}
     </div>
     <div class="weather-native-fog">
-      <div class="weather-native-fog-heading"><div><h3>Native depth fog</h3><p>Exact Nintendo DS field-fog parameters. A larger offset pushes the blend farther from the camera; table entries are hardware density values from 0–127. The 2D preview approximates depth and cycles through both fade durations.</p></div><button class="btn -default" id="weather-reset-fog-table" type="button">Reset stock table</button></div>
+      <div class="weather-native-fog-heading"><div><h3>Native depth fog</h3><p>Exact Nintendo DS field-fog parameters. A larger offset pushes the blend farther from the camera; table entries are hardware density values from 0–127. Setting every entry to 0 makes the depth-fog contribution transparent. The 2D preview approximates depth and cycles through both fade durations.</p></div><div class="weather-native-fog-actions"><button class="btn -default" id="weather-clear-fog-table" type="button">Set all to 0</button><button class="btn -default" id="weather-reset-fog-table" type="button">Reset stock table</button></div></div>
       <div class="weather-runtime-grid">
         ${numberField("Depth offset", "fogOffset", runtime.fogOffset, 0, 32767, 1)}
         <label>Hardware slope<select class="filter-input" data-runtime-field="fogSlope">${WEATHER_FOG_SLOPES.map((slope) => `<option value="${slope.value}" ${runtime.fogSlope === slope.value ? "selected" : ""}>${slope.value}: ${slope.ratio}${slope.value === 9 ? " (stock)" : ""}</option>`).join("")}</select></label>
@@ -228,11 +229,13 @@ function renderLightingSection(
   return `<section class="weather-graphics-panel weather-lighting-panel">
     <div class="weather-panel-heading"><h2>Lighting and time of day</h2><span class="weather-data-kind">LIGHT_DATA · a/0/6/1</span></div>
     <p>Each keyframe stores four directional lights plus the model material, fog, and clear/background colors. The game chooses a season-specific time from the timezone and signed minute offset, then interpolates between records.</p>
+    <p class="weather-lighting-help"><strong>Keyframe versus timezone:</strong> a keyframe is one of the 15 ordered lighting records and contains the visual values used as a transition target. Timezone is its Gen V time-of-day anchor—Morning, Noon, Evening, Night, or Midnight—not a geographic timezone. The minute offset shifts that season-dependent anchor to produce the effective clock times shown below.</p>
     ${sharedWarning}${sourceWarning}
     <div class="weather-selector-row weather-lighting-selector">
       <label>Keyframe<select class="filter-input" id="weather-lighting-record">${lighting.records.map((candidate, index) => `<option value="${index}" ${index === state.lightingRecordIndex ? "selected" : ""}>${index}: ${escapeHtml(timezoneName(candidate.timezone))} ${signedMinutes(candidate.changeMinutes)}</option>`).join("")}</select></label>
       <label>Timezone<select class="filter-input" data-lighting-record-field="timezone">${WEATHER_TIMEZONE_NAMES.map((name, index) => `<option value="${index}" ${record.timezone === index ? "selected" : ""}>${index}: ${name}</option>`).join("")}</select></label>
       <label>Change offset (minutes)<input class="filter-input" data-lighting-record-field="changeMinutes" type="number" min="-32768" max="32767" step="1" value="${record.changeMinutes}" /></label>
+      <button class="btn -default" id="weather-lighting-copy-all-times" type="button" title="Copy every visual value from this keyframe to all keyframes while retaining their time anchors">Copy lighting to all times</button>
     </div>
     <div class="weather-lighting-times" aria-label="Season-specific keyframe times">
       ${Object.entries(seasonTimes).map(([season, time]) => `<div><span>${season}</span><strong>${time}</strong></div>`).join("")}
@@ -443,6 +446,23 @@ function bindLighting(
   root.querySelector<HTMLButtonElement>("#weather-lighting-export")?.addEventListener("click", () => {
     downloadBytes(lighting.bytes, `weather_${state.effectId}_lighting_member_${lighting.memberId}.bin`);
   });
+  root.querySelector<HTMLButtonElement>("#weather-lighting-copy-all-times")?.addEventListener("click", async () => {
+    const sharedWarning = lighting.sharedEffectIds.length > 1
+      ? ` This lighting member is shared by weather IDs ${lighting.sharedEffectIds.join(", ")}.`
+      : "";
+    if (!window.confirm(`Copy all visual values from keyframe ${state.lightingRecordIndex} to every time-of-day keyframe? Timezone anchors and minute offsets will be preserved.${sharedWarning}`)) return;
+    try {
+      const recordCount = await copyWeatherLightingKeyframeToAllTimes(
+        project,
+        lighting.memberId,
+        state.lightingRecordIndex,
+      );
+      state.status = `Copied keyframe ${state.lightingRecordIndex} lighting to all ${recordCount} times. Timezone anchors and offsets were preserved.`;
+      state.error = false;
+      onDirty?.();
+    } catch (error) { showError(state, error); }
+    await render();
+  });
   root.querySelector<HTMLButtonElement>("#weather-lighting-mode")?.addEventListener("click", async (event) => {
     try {
       const mode = (event.currentTarget as HTMLButtonElement).dataset.lightingMode as "custom" | "area";
@@ -589,6 +609,15 @@ function bindRuntime(project: ProjectState, root: HTMLElement, state: EditorStat
     try {
       await updateWeatherCloneRuntime(project, state.effectId, { fogTable: [...WEATHER_FOG_DEFAULT_TABLE] });
       state.status = "Restored the stock 32-entry fog blend table.";
+      state.error = false;
+      onDirty?.();
+    } catch (error) { showError(state, error); }
+    await render();
+  });
+  root.querySelector<HTMLButtonElement>("#weather-clear-fog-table")?.addEventListener("click", async () => {
+    try {
+      await updateWeatherCloneRuntime(project, state.effectId, { fogTable: Array.from({ length: 32 }, () => 0) });
+      state.status = "Set all 32 native fog blend-table entries to 0. Depth fog is now transparent.";
       state.error = false;
       onDirty?.();
     } catch (error) { showError(state, error); }

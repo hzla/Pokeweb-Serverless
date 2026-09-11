@@ -376,6 +376,7 @@
 }
 .weather-native-fog-heading h3 { margin: 0; color: #fff; font-size: 14px; }
 .weather-native-fog-heading p { max-width: 760px; margin: 4px 0 0; }
+.weather-native-fog-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .weather-fog-table {
   display: grid;
   grid-template-columns: repeat(8, minmax(58px, 1fr));
@@ -408,8 +409,10 @@
 }
 .weather-lighting-note.-warning { color: #f4dca7; border-color: #786235; border-left-color: #e3b451; background: #433923; }
 .weather-lighting-note.-runtime { color: #d9e7ff; border-color: #53698d; border-left-color: #82a8e4; background: #28364e; }
+.weather-lighting-help { margin: -3px 0 12px; color: #bfc8df !important; }
+.weather-lighting-help strong { color: #eef2ff; }
 .weather-lighting-selector label:first-child { min-width: 230px; }
-.weather-lighting-selector label:last-child { min-width: 190px; }
+.weather-lighting-selector label:last-of-type { min-width: 190px; }
 .weather-lighting-times {
   display: grid;
   grid-template-columns: repeat(4, minmax(90px, 1fr));
