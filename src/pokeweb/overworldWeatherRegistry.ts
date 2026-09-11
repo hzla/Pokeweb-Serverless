@@ -4,7 +4,7 @@ import { normalizeWeatherCloneRuntime, WEATHER_FOG_DEFAULT_TABLE } from "./overw
 
 export const OVERWORLD_WEATHER_REGISTRY_PATH = "weather/pwth.bin";
 export const OVERWORLD_WEATHER_REGISTRY_MAGIC = "PWTH";
-export const OVERWORLD_WEATHER_REGISTRY_VERSION = 3;
+export const OVERWORLD_WEATHER_REGISTRY_VERSION = 4;
 export const OVERWORLD_WEATHER_REGISTRY_HEADER_SIZE = 16;
 export const OVERWORLD_WEATHER_REGISTRY_ENTRY_SIZE = 72;
 export const OVERWORLD_WEATHER_FIRST_CUSTOM_ID = 15;
@@ -25,6 +25,11 @@ export const enum WeatherRegistryLightingMode {
   Donor = 0,
   Custom = 1,
   Area = 2,
+}
+
+export const enum WeatherRegistryFogMode {
+  Weather = 0,
+  Map = 1,
 }
 
 export type OverworldWeatherRegistryEntry = {
@@ -51,6 +56,7 @@ export type OverworldWeatherRegistryEntry = {
   fogTable: number[];
   lightingMemberId: number;
   lightingMode: WeatherRegistryLightingMode;
+  fogMode: WeatherRegistryFogMode;
 };
 
 export type OverworldWeatherRegistry = {
@@ -164,6 +170,7 @@ function registryEntryFromClone(effect: OverworldWeatherCustomEffect): Overworld
     fogTable: [...runtime.fogTable],
     lightingMemberId: lightingMode === "custom" ? clone.lightingResourceId! : OVERWORLD_WEATHER_UNUSED_RESOURCE,
     lightingMode: lightingMode === "custom" ? WeatherRegistryLightingMode.Custom : WeatherRegistryLightingMode.Area,
+    fogMode: clone.fogMode === "map" ? WeatherRegistryFogMode.Map : WeatherRegistryFogMode.Weather,
   };
 }
 
@@ -192,6 +199,7 @@ function emptyEntry(weatherId: number): OverworldWeatherRegistryEntry {
     fogTable: [...WEATHER_FOG_DEFAULT_TABLE],
     lightingMemberId: OVERWORLD_WEATHER_UNUSED_RESOURCE,
     lightingMode: WeatherRegistryLightingMode.Donor,
+    fogMode: WeatherRegistryFogMode.Weather,
   };
 }
 
@@ -226,7 +234,7 @@ function writeRegistryEntry(bytes: Uint8Array, index: number, entry: OverworldWe
   }
   writeU16(bytes, offset + 68, entry.lightingMemberId);
   bytes[offset + 70] = entry.lightingMode;
-  bytes[offset + 71] = 0;
+  bytes[offset + 71] = entry.fogMode;
 }
 
 function readRegistryEntry(bytes: Uint8Array, index: number): OverworldWeatherRegistryEntry {
@@ -256,6 +264,7 @@ function readRegistryEntry(bytes: Uint8Array, index: number): OverworldWeatherRe
     fogTable: [...bytes.slice(offset + 36, offset + 68)],
     lightingMemberId: readU16(bytes, offset + 68),
     lightingMode: bytes[offset + 70] as WeatherRegistryLightingMode,
+    fogMode: bytes[offset + 71] as WeatherRegistryFogMode,
   };
 }
 

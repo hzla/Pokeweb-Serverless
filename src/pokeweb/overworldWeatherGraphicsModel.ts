@@ -194,6 +194,7 @@ export async function cloneWeatherEffect(
     auxiliaryResourceIds: donorAuxiliary.map((entry) => remap.get(entry.memberId)!),
     lightingResourceId,
     lightingMode: lightingResourceId === undefined ? "area" : "custom",
+    fogMode: "weather",
     runtime,
   };
   const effect: OverworldWeatherCustomEffect = {
@@ -303,6 +304,29 @@ export async function updateWeatherCloneLightingMode(
       : `Restored cloned weather-light data for custom weather ${weatherId}.`,
     `Weather ${weatherId}`,
     { key: `overworld-weather-lighting-mode:${weatherId}` },
+  );
+}
+
+export async function updateWeatherCloneFogMode(
+  project: ProjectState,
+  weatherId: number,
+  fogMode: "weather" | "map",
+): Promise<void> {
+  const effect = project.overworldWeather?.customEffects.find((candidate) => candidate.id === weatherId);
+  if (!effect?.clone) throw new Error("Fog ownership can only be changed on a cloned custom weather.");
+  if (detectBundledOverworldWeatherRuntime(project) !== "patched") {
+    await installBundledOverworldWeatherRuntime(project);
+  }
+  effect.clone.fogMode = fogMode;
+  await syncBundledOverworldWeatherRegistry(project);
+  recordGenericChange(
+    project,
+    "file_system",
+    fogMode === "map"
+      ? `Custom weather ${weatherId} now preserves the current map's native fog. Donor weather fog is suppressed.`
+      : `Custom weather ${weatherId} now uses its donor weather fog.`,
+    `Weather ${weatherId}`,
+    { key: `overworld-weather-fog-mode:${weatherId}` },
   );
 }
 

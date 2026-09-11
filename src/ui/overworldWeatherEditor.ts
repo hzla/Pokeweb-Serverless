@@ -388,8 +388,8 @@ export function mountWeatherPreview(
   const started = performance.now();
   const render = (now: number): void => {
     const tick = (now - started) / (1000 / 60);
-    drawTestScene(context, preview.effect, lighting);
-    drawWeatherLayer(context, preview.effect, tick, preview.runtime, lighting?.fogColor ?? preview.runtime?.fogColor);
+    drawTestScene(context, preview.effect, lighting, preview.fogMode);
+    drawWeatherLayer(context, preview.effect, tick, preview.runtime, lighting?.fogColor ?? preview.runtime?.fogColor, preview.fogMode);
     const frame = preview.particle ? nitroCellEffectFrameAt(preview.particle, tick / 2) : undefined;
     const sprite = frame ? particleCanvases.get(frame.index) : undefined;
     for (const particle of particles) {
@@ -427,7 +427,7 @@ function mountCustomImage(context: CanvasRenderingContext2D, canvas: HTMLCanvasE
   return () => { image.onload = null; URL.revokeObjectURL(url); };
 }
 
-function drawTestScene(context: CanvasRenderingContext2D, effect: WeatherEffectDefinition, lighting?: WeatherLightingRecord): void {
+function drawTestScene(context: CanvasRenderingContext2D, effect: WeatherEffectDefinition, lighting?: WeatherLightingRecord, fogMode?: "weather" | "map"): void {
   context.fillStyle = lighting?.backgroundColor ?? "#7aa8bb";
   context.fillRect(0, 0, 256, 80);
   context.fillStyle = "#547e42";
@@ -444,7 +444,7 @@ function drawTestScene(context: CanvasRenderingContext2D, effect: WeatherEffectD
   context.fillRect(193, 53, 12, 49);
   context.fillStyle = "#416839";
   context.beginPath(); context.arc(199, 45, 28, 0, Math.PI * 2); context.fill();
-  if (effect.tint) {
+  if (effect.tint && fogMode !== "map") {
     context.fillStyle = hexAlpha(effect.tint, effect.status === "stock" ? 0.2 : 0.14);
     context.fillRect(0, 0, 256, 192);
   }
@@ -485,8 +485,8 @@ function mixHexColors(colors: string[]): string {
   return `#${[0, 1, 2].map((channel) => Math.round(channels.reduce((sum, color) => sum + color[channel], 0) / Math.max(1, channels.length)).toString(16).padStart(2, "0")).join("")}`;
 }
 
-function drawWeatherLayer(context: CanvasRenderingContext2D, effect: WeatherEffectDefinition, tick: number, runtime?: WeatherCloneRuntime, fogColor?: string): void {
-  if (effect.behavior === "fog" || effect.behavior === "mirage" || effect.channels.includes("fog")) {
+function drawWeatherLayer(context: CanvasRenderingContext2D, effect: WeatherEffectDefinition, tick: number, runtime?: WeatherCloneRuntime, fogColor?: string, fogMode?: "weather" | "map"): void {
+  if (fogMode !== "map" && (effect.behavior === "fog" || effect.behavior === "mirage" || effect.channels.includes("fog"))) {
     const tint = fogColor ?? effect.tint ?? "#dbe3e4";
     const gradient = context.createLinearGradient(0, 25, 0, 192);
     if (runtime) {
