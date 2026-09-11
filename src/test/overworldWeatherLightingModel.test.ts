@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readU16 } from "../nds/binary";
 import {
+  copyWeatherLightingVisualsToAllKeyframes,
   parseWeatherLightingMember,
   STOCK_WEATHER_LIGHT_MEMBERS,
   weatherLightingMemberId,
@@ -73,6 +74,42 @@ describe("overworld weather lighting", () => {
       Autumn: "05:30",
       Winter: "06:30",
     });
+  });
+
+  it("copies one keyframe's complete visual payload to every time while preserving the schedule", () => {
+    const records = [
+      { ...emptyRecord(), timezone: 0, changeMinutes: -30, diffuse: "#ff0000" },
+      {
+        ...emptyRecord(),
+        timezone: 2,
+        changeMinutes: 15,
+        lights: [
+          light(true, "#123456", -1, 2, 3),
+          light(false, "#654321", 4, -5, 6),
+          light(true, "#abcdef", 0.25, 0.5, 0.75),
+          light(true, "#fedcba", -0.25, -0.5, -0.75),
+        ],
+        diffuse: "#102030",
+        ambient: "#405060",
+        specular: "#708090",
+        emission: "#a0b0c0",
+        fogColor: "#d0e0f0",
+        backgroundColor: "#112233",
+      },
+      { ...emptyRecord(), timezone: 4, changeMinutes: 45, ambient: "#00ff00" },
+    ];
+    const sourceBytes = writeWeatherLightingMember(records);
+    const copiedBytes = copyWeatherLightingVisualsToAllKeyframes(sourceBytes, 1);
+
+    expect(copiedBytes).toHaveLength(sourceBytes.length);
+    for (let index = 0; index < records.length; index += 1) {
+      const offset = index * WEATHER_LIGHT_RECORD_SIZE;
+      expect([...copiedBytes.slice(offset, offset + 4)]).toEqual([...sourceBytes.slice(offset, offset + 4)]);
+      expect([...copiedBytes.slice(offset + 4, offset + WEATHER_LIGHT_RECORD_SIZE)])
+        .toEqual([...sourceBytes.slice(WEATHER_LIGHT_RECORD_SIZE + 4, WEATHER_LIGHT_RECORD_SIZE * 2)]);
+    }
+    expect(parseWeatherLightingMember(copiedBytes).map((record) => [record.timezone, record.changeMinutes]))
+      .toEqual([[0, -30], [2, 15], [4, 45]]);
   });
 
   it("rejects truncated LIGHT_DATA members", () => {

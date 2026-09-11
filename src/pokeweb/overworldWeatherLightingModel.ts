@@ -174,6 +174,42 @@ export async function updateWeatherLightingRecord(
   });
 }
 
+export function copyWeatherLightingVisualsToAllKeyframes(bytes: Uint8Array, sourceRecordIndex: number): Uint8Array {
+  const records = parseWeatherLightingMember(bytes);
+  if (!Number.isInteger(sourceRecordIndex) || sourceRecordIndex < 0 || sourceRecordIndex >= records.length) {
+    throw new Error("Weather-light source keyframe index is out of range.");
+  }
+  const visualOffset = 4;
+  const visualSize = WEATHER_LIGHT_RECORD_SIZE - visualOffset;
+  const sourceOffset = sourceRecordIndex * WEATHER_LIGHT_RECORD_SIZE + visualOffset;
+  const sourceVisuals = bytes.slice(sourceOffset, sourceOffset + visualSize);
+  const out = bytes.slice();
+  for (let recordIndex = 0; recordIndex < records.length; recordIndex += 1) {
+    out.set(sourceVisuals, recordIndex * WEATHER_LIGHT_RECORD_SIZE + visualOffset);
+  }
+  return out;
+}
+
+export async function copyWeatherLightingKeyframeToAllTimes(
+  project: ProjectState,
+  memberId: number,
+  sourceRecordIndex: number,
+): Promise<number> {
+  const { rom, fileId, narc } = await loadWeatherLightingNarc(project);
+  const current = requireLightingMember(narc, memberId);
+  const bytes = copyWeatherLightingVisualsToAllKeyframes(current, sourceRecordIndex);
+  replaceNarcFile(project, rom, fileId, memberId, bytes);
+  const recordCount = bytes.length / WEATHER_LIGHT_RECORD_SIZE;
+  recordGenericChange(
+    project,
+    "file_system",
+    `Copied weather-light member ${memberId} keyframe ${sourceRecordIndex} visuals to all ${recordCount} times; schedule metadata was preserved.`,
+    `Weather lighting ${memberId}`,
+    { key: `weather-lighting:${memberId}` },
+  );
+  return recordCount;
+}
+
 export async function replaceWeatherLightingResource(project: ProjectState, memberId: number, bytes: Uint8Array): Promise<void> {
   const { rom, fileId, narc } = await loadWeatherLightingNarc(project);
   const current = requireLightingMember(narc, memberId);
