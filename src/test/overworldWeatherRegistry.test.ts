@@ -9,6 +9,7 @@ import {
   parseOverworldWeatherRegistry,
   serializeProjectOverworldWeatherRegistry,
   WeatherRegistryChannel,
+  WeatherRegistryFogMode,
   WeatherRegistryLightingMode,
   writeOverworldWeatherRegistry,
   type OverworldWeatherRegistryEntry,
@@ -24,7 +25,7 @@ describe("overworld weather PWTH registry", () => {
       + OVERWORLD_WEATHER_CUSTOM_ENTRY_COUNT * OVERWORLD_WEATHER_REGISTRY_ENTRY_SIZE);
     expect(bytes.length).toBe(3544);
     expect(readAscii(bytes, 0, 4)).toBe("PWTH");
-    expect(readU16(bytes, 4)).toBe(3);
+    expect(readU16(bytes, 4)).toBe(4);
     expect(readU16(bytes, 6)).toBe(72);
     expect([...bytes.slice(8, 12)]).toEqual([15, 49, 16, 0]);
 
@@ -59,6 +60,7 @@ describe("overworld weather PWTH registry", () => {
       fogTable: Array.from({ length: 32 }, (_unused, index) => index * 4),
       lightingMemberId: 10,
       lightingMode: WeatherRegistryLightingMode.Custom,
+      fogMode: WeatherRegistryFogMode.Map,
     });
 
     const bytes = writeOverworldWeatherRegistry([rain, fog]);
@@ -71,6 +73,7 @@ describe("overworld weather PWTH registry", () => {
     expect([...bytes.slice(16 + 72 + 36, 16 + 72 + 68)]).toEqual(Array.from({ length: 32 }, (_unused, index) => index * 4));
     expect(readU16(bytes, 16 + 72 + 68)).toBe(10);
     expect(bytes[16 + 72 + 70]).toBe(WeatherRegistryLightingMode.Custom);
+    expect(bytes[16 + 72 + 71]).toBe(WeatherRegistryFogMode.Map);
   });
 
   it("serializes runtime-ready clones and leaves all other custom slots disabled", () => {
@@ -90,6 +93,7 @@ describe("overworld weather PWTH registry", () => {
             particleResource: { animation: 400, cell: 401, character: 402, palette: 403 },
             auxiliaryResourceIds: [404, 405],
             lightingMode: "area",
+            fogMode: "map",
             runtime: {
               particleDensity: 1.5,
               movementSpeed: 0.75,
@@ -128,6 +132,7 @@ describe("overworld weather PWTH registry", () => {
       screenScrollSpeedQ8_8: -0x0080,
       lightingMemberId: OVERWORLD_WEATHER_UNUSED_RESOURCE,
       lightingMode: WeatherRegistryLightingMode.Area,
+      fogMode: WeatherRegistryFogMode.Map,
     });
     expect(parsed.entries.slice(1).every((candidate) => !candidate.enabled)).toBe(true);
   });
@@ -165,6 +170,7 @@ function entry(weatherId: number, overrides: Partial<OverworldWeatherRegistryEnt
     fogTable: [...WEATHER_FOG_DEFAULT_TABLE],
     lightingMemberId: OVERWORLD_WEATHER_UNUSED_RESOURCE,
     lightingMode: WeatherRegistryLightingMode.Donor,
+    fogMode: WeatherRegistryFogMode.Weather,
     ...overrides,
   };
 }

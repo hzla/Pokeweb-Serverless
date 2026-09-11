@@ -3,7 +3,7 @@ import { decompressCode } from "../nds/codeCompression";
 import { cloneFolder, type Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
-import { addRomFile, setRomFileReplacement } from "./fileSystemModel";
+import { addRomFile, getRomFileBytes, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 import {
@@ -98,6 +98,7 @@ const FORM_EVOLUTION_FILENAMES: Record<"B2" | "W2", string> = {
 };
 
 export const OVERWORLD_WEATHER_RUNTIME_W2_FILENAME = "PokewebOverworldWeatherW2.dll";
+const OVERWORLD_WEATHER_RUNTIME_W2_SIGNATURE = "PWTH-W2-RUNTIME-ABI5";
 
 type Bw1Version = "B" | "W";
 
@@ -418,7 +419,27 @@ export function detectBundledFormEvolutionDll(project: ProjectState): "patched" 
 export function detectBundledOverworldWeatherRuntime(project: ProjectState): "patched" | "unpatched" | "unsupported" {
   if (project.session.baseRom !== "BW2" || project.session.baseVersion !== "W2") return "unsupported";
   const path = `patches/${OVERWORLD_WEATHER_RUNTIME_W2_FILENAME}`;
-  return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === path.toLowerCase()) ? "patched" : "unpatched";
+  if (!listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === path.toLowerCase())) return "unpatched";
+  const stagedPath = Object.keys(project.fileSystem?.additions ?? {}).find((candidate) => candidate.toLowerCase() === path.toLowerCase());
+  let bytes = stagedPath ? project.fileSystem?.additions?.[stagedPath] : undefined;
+  if (!bytes && project.originalRomBytes) {
+    try {
+      const rom = new NintendoDSRom(project.originalRomBytes);
+      const fileId = rom.filenames.idOf(path);
+      if (fileId !== undefined) bytes = getRomFileBytes(project, rom, fileId);
+    } catch {
+      // The module listing remains useful for older saved projects without parseable ROM bytes.
+    }
+  }
+  if (!bytes) return "patched";
+  try {
+    const runtime = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+    return new TextDecoder().decode(runtime.code).includes(OVERWORLD_WEATHER_RUNTIME_W2_SIGNATURE)
+      ? "patched"
+      : "unpatched";
+  } catch {
+    return "unpatched";
+  }
 }
 
 export function getPmcInstallStatus(project: ProjectState): PmcInstallStatus {
