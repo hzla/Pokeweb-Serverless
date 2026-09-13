@@ -4,6 +4,8 @@
 
 Generated from `src/pokeweb/moveAnimationVmSchema.ts`, command docs, and semantic aliases.
 
+> Verification scope: schema semantics include BW1 observations. Independently recheck command signatures and behavior against the target BW2 ROM before claiming BW2 conformance.
+
 ## MoveCamera (0)
 
 Move the battle camera to a preset camera position.

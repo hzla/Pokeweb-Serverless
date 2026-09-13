@@ -1,0 +1,11 @@
+Segments:
+  - ID: 0x0
+    Name: ARM9
+    Type: EXECUTABLE
+  - ID: 0x5D
+    Name: 93
+    Type: OVERLAY
+  - ID: 0x83
+    Name: 131
+    Type: OVERLAY
+Symbols: []

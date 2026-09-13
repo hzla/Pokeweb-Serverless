@@ -136,7 +136,7 @@ async function archiveLegacyReadmes(label: string, repo: string): Promise<void> 
 
 function renderCommandReference(): string {
   const commands = getMoveAnimationVmSchema();
-  const lines = [GENERATED_MARKER, "", "# Move Animation VM Command Reference", "", "Generated from `src/pokeweb/moveAnimationVmSchema.ts`, command docs, and semantic aliases.", ""];
+  const lines = [GENERATED_MARKER, "", "# Move Animation VM Command Reference", "", "Generated from `src/pokeweb/moveAnimationVmSchema.ts`, command docs, and semantic aliases.", "", "> Verification scope: schema semantics include BW1 observations. Independently recheck command signatures and behavior against the target BW2 ROM before claiming BW2 conformance.", ""];
   for (const command of commands) {
     lines.push(`## ${command.displayName} (${command.opcode})`, "", command.description, "", `- Canonical VM name: \`${command.name}\``, `- Category: ${command.category}`, `- Preview: ${command.preview}`, `- Completion: ${command.completion}${command.taskGroup === undefined ? "" : `, task group ${command.taskGroup}`}`, `- State: reads ${command.state.reads.join(", ") || "none"}; writes ${command.state.writes.join(", ") || "none"}`, `- Accepted names: ${command.aliases.map((alias) => `\`${alias}\``).join(", ")}`, "");
     if (!command.params.length) {
@@ -162,8 +162,8 @@ function renderSpaReference(): string {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
-function renderConformanceReference(): string {
-  const lines = [GENERATED_MARKER, "", "# Preview Support Matrix", "", "This table ties every VM opcode to Pokeweb preview support. `supported` means the browser models visible/state behavior, `marker` means timing or intent is represented without full visuals, and `unsupported` is surfaced explicitly.", "", "| Opcode | Command | Preview | State | Completion |", "|---:|---|---|---|---|---|"];
+function renderPreviewSupportReference(): string {
+  const lines = [GENERATED_MARKER, "", "# Move Animation Preview Support", "", "This table records every VM opcode and its Pokeweb preview support. `supported` means the browser models visible/state behavior, `marker` means timing or intent is represented without full visuals, and `unsupported` is surfaced explicitly.", "", "> Verification scope: schema semantics include BW1 observations. Independently recheck the target BW2 ROM before claiming BW2 conformance.", "", "| Opcode | Command | Preview | State | Completion |", "|---:|---|---|---|---|"];
   for (const command of getMoveAnimationVmSchema()) {
     lines.push(`| ${command.opcode} | \`${command.displayName}\` | ${command.preview} | ${command.state.reads.join(", ")} -> ${command.state.writes.join(", ")} | ${command.completion}${command.taskGroup === undefined ? "" : ` / task ${command.taskGroup}`} |`);
   }

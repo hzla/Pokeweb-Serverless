@@ -4,6 +4,8 @@
 
 This table records every VM opcode and its Pokeweb preview support. `supported` means the browser models visible/state behavior, `marker` means timing or intent is represented without full visuals, and `unsupported` is surfaced explicitly.
 
+> Verification scope: schema semantics include BW1 observations. Independently recheck the target BW2 ROM before claiming BW2 conformance.
+
 | Opcode | Command | Preview | State | Completion |
 |---:|---|---|---|---|
 | 0 | `MoveCamera` | supported | camera -> camera | task / task 1 |

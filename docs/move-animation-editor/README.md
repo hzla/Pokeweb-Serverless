@@ -66,6 +66,10 @@ If a recolored particle keeps drifting back to the donor color, a projectile ign
 
 BW2 move animation scripts still compile to the game's original numeric VM bytecode, but the editor can display and accept friendlier tokens for parameters with known selector values.
 
+Verification scope: schema semantics include BW1 observations. Independently
+check the target BW2 ROM before drawing BW2 conclusions, including signatures
+where the two VM implementations differ.
+
 - Enum-like parameters use short canonical names such as `INTERPOLATION`, `DEFENDER`, `NONE`, `ATTACKER`, `POS_A`, `TARGET`, `SE2`, and `PARTICLE`. Older prefixed spellings remain accepted aliases.
 - Legacy aliases remain accepted where useful, such as `CAMERA_DEFENCE`, `SIDE_ATTACK`, `POKEMON_TARGET`, and `DEFENSE` spellings for source constants that use `DEFENCE`.
 - FX32 multiplier parameters can use `1x`, `0.5x`, and `2x`; these compile to `4096`, `2048`, and `8192`.

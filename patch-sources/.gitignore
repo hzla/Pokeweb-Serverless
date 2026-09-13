@@ -1,0 +1,4 @@
+# These are intentional source snapshots, not disposable build products.
+# Override the repository-wide generated-directory ignore for B2 hook copies.
+!**/generated/
+!**/generated/*.s
