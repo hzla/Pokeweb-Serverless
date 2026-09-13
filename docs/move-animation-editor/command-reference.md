@@ -4,6 +4,8 @@
 
 Generated from `src/pokeweb/moveAnimationVmSchema.ts`, command docs, and semantic aliases. Swan source locations are repository-relative.
 
+> Source identity: the current schema was originally audited against `reference_repos/swan_export`, which is BW1. It is not a BW2 conformance claim. Independently recheck command signatures and behavior against the target BW2 ROM.
+
 ## MoveCamera (0)
 
 Move the battle camera to a preset camera position.

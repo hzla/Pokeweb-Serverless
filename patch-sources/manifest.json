@@ -1,0 +1,1407 @@
+{
+  "format": 1,
+  "purpose": "Bookkeeping snapshot only; not a build input or a binary-reproducibility claim.",
+  "sourceRepositories": {
+    "w2u-runtime": "White2Upgrade-Original-pokeweb",
+    "weather-runtime": "White2Upgrade",
+    "pokeweb": "Pokeweb-Serverless",
+    "pmc": "PMC"
+  },
+  "excludedArtifacts": [
+    "Black2Upgrade.dll"
+  ],
+  "excludedDependencies": [
+    "Compiler toolchains and SDKs",
+    "External PMC libraries",
+    "ROM/data archives and save files",
+    "Full symbol databases and monolithic Black2Upgrade implementation"
+  ],
+  "normalization": "UTF-8 text with LF endings and a final newline; any machine-specific paths are replaced with <LOCAL_PATH>.",
+  "patches": [
+    {
+      "name": "battle-log",
+      "title": "Trainer battle log",
+      "artifacts": [
+        {
+          "name": "Black1BattleLog.dll",
+          "sha256": "84191b8bbbbca6d1180e568719b449a5ddd3a30874492e7ebbbc46fb2aa83f34"
+        },
+        {
+          "name": "White1BattleLog.dll",
+          "sha256": "648db52df9c02bae407c052b7e3eacacbe8d04fdb4dbbe16afb788790ceb211e"
+        },
+        {
+          "name": "Black2UpgradeBattleLog.dll",
+          "sha256": "53c6f410f1642f337a38c560a0730ba2dc4ada2d59e74acd38be70ee39cd0f07"
+        },
+        {
+          "name": "White2UpgradeBattleLog.dll",
+          "sha256": "f8357d4ec5e15164d947b75872a199914ac8e17338b88283fb3693ffc696c086"
+        }
+      ],
+      "note": "Shared B/W/B2/W2 implementation; includes the resolved-target/faint trampolines and the save-block patch source. Target macros select each game profile.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "battle-log/w2u_battle_log.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_battle_log.cpp"
+          },
+          "kind": "source",
+          "sha256": "e5f90d11b9ebb83843ca913ca23d1a58e3eb38ed64bba0387c42421b5bb63073",
+          "normalized": false
+        },
+        {
+          "path": "battle-log/w2u_battle_log_trampolines_pp.S",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_battle_log_trampolines_pp.S"
+          },
+          "kind": "source",
+          "sha256": "8b8d90760d4950075a28bcac1aa8e77240ea791cf218b5e756fd38d913c8659d",
+          "normalized": false
+        },
+        {
+          "path": "battle-log/w2u_battle_log_save_patch.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_battle_log_save_patch.s"
+          },
+          "kind": "source",
+          "sha256": "f27ea61d1238da055b026f3eb1a3b403b54cf7572d1cf5447e372824b47ef9ff",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "battle-counters",
+      "title": "Individual PK5 battle counters and KO moves",
+      "artifacts": [
+        {
+          "name": "Black1BattleCounters.dll",
+          "sha256": "5cc3e519b1fe4d71dc3adb22ddca6690a4a1e60578a0f2d52b1b356869616cd5"
+        },
+        {
+          "name": "White1BattleCounters.dll",
+          "sha256": "0ebabac8ef960c336d7081a200345bf16acbb2a6a28dba2040b27057d86a43c2"
+        },
+        {
+          "name": "Black2UpgradeBattleCounters.dll",
+          "sha256": "e523a20f159d5c6879e5b12d9b5af79800b25936e408e9c96a8d018b51f5c00f"
+        },
+        {
+          "name": "White2UpgradeBattleCounters.dll",
+          "sha256": "22a718f120faae09e504d8e7870a67918c368e820783f3dbc7c4a7f806f82833"
+        }
+      ],
+      "note": "Shared individual-counter implementation; BW2 also handles immediate KO move learning. Uses the shared PK5 and pending-move headers.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "battle-counters/w2u_pk5_battle_counters.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_pk5_battle_counters.cpp"
+          },
+          "kind": "source",
+          "sha256": "237ef6d5244ce0dfff662513bde8b09ff20741a36261bd3852431890182a9fce",
+          "normalized": false
+        },
+        {
+          "path": "battle-counters/tests/test_ko_move_pending.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/test_ko_move_pending.cpp"
+          },
+          "kind": "test",
+          "sha256": "a6072c092c0d5c89237bfffe2a8cb18be31845a8b4cb8eda4023c2d6080eb56e",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "battle-log-summary",
+      "title": "Battle counter summary display",
+      "artifacts": [
+        {
+          "name": "Black1BattleLogSummary.dll",
+          "sha256": "635d8c92225c89267c4b9b0b0a9b9f705ff95f390cb991f3586a298a5ad6ee7b"
+        },
+        {
+          "name": "White1BattleLogSummary.dll",
+          "sha256": "9e0ff9251324922cde7a254fb973fba1749c691997443a8fe26964cc5c8ef8ca"
+        },
+        {
+          "name": "Black2UpgradeBattleLogSummary.dll",
+          "sha256": "20b1d65fb1d5133e4d4c3497c4ece7fb88fc87a9110b74489815fa4ae76e95ab"
+        },
+        {
+          "name": "White2UpgradeBattleLogSummary.dll",
+          "sha256": "79f7d42b55908c5545781f93a9b87d63a657c3b87c9f60b15ba34bfc4bd6c339"
+        }
+      ],
+      "note": "Shared B/W/B2/W2 summary-screen implementation.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "battle-log-summary/w2u_battle_log_summary.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_battle_log_summary.cpp"
+          },
+          "kind": "source",
+          "sha256": "ac6e66bfca6736b1de9694e36842ad4ada64aea70059556545f7af9ac5c647c3",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "enhanced-party-menu",
+      "title": "Enhanced Party Menu and Battle Log Integration",
+      "artifacts": [
+        {
+          "name": "MenuEvolutionB2.dll",
+          "sha256": "02b4100ff4a8877a770eacf7e2861f0ab11c68cea8ff72a7438c3dce81a568ed"
+        },
+        {
+          "name": "MenuEvolutionW2.dll",
+          "sha256": "63b09c3309c5fc0aa3aeb5277e61379e4263969d2a25ec64b172dec6ffc3adde"
+        }
+      ],
+      "note": "EVOLVE, RELEARN, post-battle KO evolution, and field-script counter access. Both C++ translation units belong to this patch. The DLL filenames are intentionally unchanged.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "enhanced-party-menu/w2u_menu_evolution.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_menu_evolution.cpp"
+          },
+          "kind": "source",
+          "sha256": "0f1b584248dfb42a179485042de64d99cbac12ec6e50e1ba3562595a85365a3f",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/w2u_menu_evolution_script_api.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_menu_evolution_script_api.cpp"
+          },
+          "kind": "source",
+          "sha256": "d906e41bd80aefa539e13b746cae8797527b44860c0cdc5c90fdcd54e5f9fb5e",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/metadata/menu_evolution_b2_meta.yml",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "pmc/menu_evolution_b2_meta.yml"
+          },
+          "kind": "metadata",
+          "sha256": "1038f45027617253e6054f250be1a8458fe683d16e48f2c3b50bfb05e28e6013",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/metadata/menu_evolution_w2_meta.yml",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "pmc/menu_evolution_w2_meta.yml"
+          },
+          "kind": "metadata",
+          "sha256": "0cc22efd6804b7562dfc256d27dfc10238ec94f7ea44d2249e153402002019e2",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tests/test_menu_evolution_logic.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/test_menu_evolution_logic.cpp"
+          },
+          "kind": "test",
+          "sha256": "3075f752f050c046d77520372f5081cd4c5bc089de35fdd3f3800ff57dee80d5",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tests/test_menu_relearn_logic.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/test_menu_relearn_logic.cpp"
+          },
+          "kind": "test",
+          "sha256": "a6e0f82fcb13acecddf29b54bcf8cef5810985c05e0188d7504b4616603e45d2",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "pwan-battle",
+      "title": "PWAN battle sprites",
+      "artifacts": [
+        {
+          "name": "PokewebPwanBattleB2.dll",
+          "sha256": "70838f14a6030cf546d607bc01eff7fdc48f750729b242f07aaf8985b85fb9e0"
+        },
+        {
+          "name": "PokewebPwanBattleW2.dll",
+          "sha256": "91ba948ad66be24be8f6ad144d5838b6ccdf12c78ad374010e649e9bd1955923"
+        }
+      ],
+      "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "pwan-battle/w2u_pwan_frame_scratch.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_frame_scratch.cpp"
+          },
+          "kind": "source",
+          "sha256": "a826ec3ef30a3de5efff9c62a6b21406e2a40a88c28ab0e1e80c3bc5c6d72e44",
+          "normalized": false
+        },
+        {
+          "path": "pwan-battle/w2u_pwan_archive.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_archive.cpp"
+          },
+          "kind": "source",
+          "sha256": "6551e2b4d9cf3191d82219cb5ed8f6ff9ac0e6d5e552630f379f9bc9f276997a",
+          "normalized": false
+        },
+        {
+          "path": "pwan-battle/w2u_battle_anim.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_battle_anim.cpp"
+          },
+          "kind": "source",
+          "sha256": "6c24702509e5fcd7532c272bfc629864c1db79437231f7d6a93cc0cde4937d7e",
+          "normalized": false
+        },
+        {
+          "path": "pwan-battle/w2u_battle_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_battle_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "6807a345c30f7335c9d75efa09f60770b181e583b138c7fcb12daa7a9eefe68c",
+          "normalized": false
+        },
+        {
+          "path": "pwan-battle/b2_battle_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/b2_battle_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "433a639ce602675c232b4dd176b2bad8a48ff57f27edeac1029c9338e0f1c0c6",
+          "normalized": false
+        },
+        {
+          "path": "pwan-battle/pwan_types.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/pwan_types.h"
+          },
+          "kind": "source",
+          "sha256": "210f805eea53d62803d6df1cc440bf4112bf6d92b35fb73273cae8ac9d666952",
+          "normalized": false
+        },
+        {
+          "path": "pwan-battle/w2u_pwan_archive.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_archive.h"
+          },
+          "kind": "source",
+          "sha256": "270cb6491f52f2e1fb35857313b022d09bec96dba4633be0b01ce47c4fa701b5",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "pwan-summary",
+      "title": "PWAN summary sprites",
+      "artifacts": [
+        {
+          "name": "PokewebPwanSummaryB2.dll",
+          "sha256": "cdbbae687b227a7b9ac529727f0bba21e27a94a065c5a5ddf25fd80f3d5845a0"
+        },
+        {
+          "name": "PokewebPwanSummaryW2.dll",
+          "sha256": "bb4bdcf7cb11b6ca4f718478be3d3315c2a92e1cd81ce0c37cff48f4a9a1a54f"
+        }
+      ],
+      "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "pwan-summary/w2u_pwan_frame_scratch.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_frame_scratch.cpp"
+          },
+          "kind": "source",
+          "sha256": "a826ec3ef30a3de5efff9c62a6b21406e2a40a88c28ab0e1e80c3bc5c6d72e44",
+          "normalized": false
+        },
+        {
+          "path": "pwan-summary/w2u_pwan_archive.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_archive.cpp"
+          },
+          "kind": "source",
+          "sha256": "6551e2b4d9cf3191d82219cb5ed8f6ff9ac0e6d5e552630f379f9bc9f276997a",
+          "normalized": false
+        },
+        {
+          "path": "pwan-summary/w2u_summary_anim.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_summary_anim.cpp"
+          },
+          "kind": "source",
+          "sha256": "f0d07389c704e4ff00ab8a20dbdd17b5f9a72ffd9b1d2df3792995c424acb599",
+          "normalized": false
+        },
+        {
+          "path": "pwan-summary/w2u_summary_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_summary_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "f7e6b3eca67c4589bcd2f47a73b8bdd802c4b46bd6dc9216fb1a8295188c681d",
+          "normalized": false
+        },
+        {
+          "path": "pwan-summary/b2_summary_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/b2_summary_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "3deafdf0d6262a31933d38a9425fbd09a190679a6ff029da6eb6cb414df050ae",
+          "normalized": false
+        },
+        {
+          "path": "pwan-summary/pwan_types.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/pwan_types.h"
+          },
+          "kind": "source",
+          "sha256": "210f805eea53d62803d6df1cc440bf4112bf6d92b35fb73273cae8ac9d666952",
+          "normalized": false
+        },
+        {
+          "path": "pwan-summary/w2u_pwan_archive.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_archive.h"
+          },
+          "kind": "source",
+          "sha256": "270cb6491f52f2e1fb35857313b022d09bec96dba4633be0b01ce47c4fa701b5",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "pwan-misc",
+      "title": "PWAN misc sprites",
+      "artifacts": [
+        {
+          "name": "PokewebPwanMiscB2.dll",
+          "sha256": "93be335b929c665450142808aab09941fd22ff35f4b7e15626270e60cdd37ac5"
+        },
+        {
+          "name": "PokewebPwanMiscW2.dll",
+          "sha256": "997afa0ed6cb30cc9c76bdff53462290c96c9f0d69a744d720af4e28c60f2470"
+        }
+      ],
+      "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "pwan-misc/w2u_pwan_scratch.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_scratch.cpp"
+          },
+          "kind": "source",
+          "sha256": "5caf5fef9382dc9527a50b0d98ce7bed3e18594f2531852d22d6a573812cc2a7",
+          "normalized": false
+        },
+        {
+          "path": "pwan-misc/w2u_pwan_archive.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_archive.cpp"
+          },
+          "kind": "source",
+          "sha256": "6551e2b4d9cf3191d82219cb5ed8f6ff9ac0e6d5e552630f379f9bc9f276997a",
+          "normalized": false
+        },
+        {
+          "path": "pwan-misc/w2u_nonbattle_mcss.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_nonbattle_mcss.cpp"
+          },
+          "kind": "source",
+          "sha256": "a9f7339f872d499f9bbd41fd3be922c1ca4927741db197549a98f49f249f7e13",
+          "normalized": false
+        },
+        {
+          "path": "pwan-misc/w2u_egg_hatch_anim.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_egg_hatch_anim.cpp"
+          },
+          "kind": "source",
+          "sha256": "51d316e22d4757903a3184d8a8752dee8ebc513ef04275639bb5eab6bff63863",
+          "normalized": false
+        },
+        {
+          "path": "pwan-misc/w2u_evolution_anim.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_evolution_anim.cpp"
+          },
+          "kind": "source",
+          "sha256": "abbbc88d434b0dd8f8c9be427cd1614722a3a2a20be69c6ff31ed001b4f8bb39",
+          "normalized": false
+        },
+        {
+          "path": "pwan-misc/w2u_nonbattle_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_nonbattle_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "ce485c0f635034770349c5b7148b4027d7ff0f552952533e0f4c45a552cbcdcc",
+          "normalized": false
+        },
+        {
+          "path": "pwan-misc/b2_nonbattle_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/b2_nonbattle_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "b0b22561884726c75fb32b34ec931f7d0312675d4e98b70e770f72e149145011",
+          "normalized": false
+        },
+        {
+          "path": "pwan-misc/pwan_types.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/pwan_types.h"
+          },
+          "kind": "source",
+          "sha256": "210f805eea53d62803d6df1cc440bf4112bf6d92b35fb73273cae8ac9d666952",
+          "normalized": false
+        },
+        {
+          "path": "pwan-misc/w2u_pwan_archive.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_archive.h"
+          },
+          "kind": "source",
+          "sha256": "270cb6491f52f2e1fb35857313b022d09bec96dba4633be0b01ce47c4fa701b5",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "pwan-legacy-retired",
+      "title": "Retired PWAN compatibility stub",
+      "artifacts": [
+        {
+          "name": "PokewebPwanLegacyRetiredW2.dll",
+          "sha256": "65d88246013f7ac3a7d87168a8f5058091a2d8f7561d364a5a051c3e632447cb"
+        }
+      ],
+      "note": "Assembly-only compatibility stub; there is no C++ translation unit.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "pwan-legacy-retired/pwan_legacy_retired.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/pwan_legacy_retired.s"
+          },
+          "kind": "source",
+          "sha256": "8825e81330ace913fbaa7852516c3505e62c308c855a2b07964e9077c269967f",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "overworld-weather",
+      "title": "Custom overworld weather",
+      "artifacts": [
+        {
+          "name": "PokewebOverworldWeatherW2.dll",
+          "sha256": "390c159c29362f50f45d18e65a16b9b521f98534c8c1c50f0de16e3b685bb049"
+        }
+      ],
+      "note": "The active weather source is in the separate White2Upgrade checkout. Resource archives and local ROM builds are intentionally not included.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "overworld-weather/w2u_overworld_weather.cpp",
+          "origin": {
+            "repository": "weather-runtime",
+            "path": "src/w2u_overworld_weather.cpp"
+          },
+          "kind": "source",
+          "sha256": "fa5d14037a885bbfd7a8743b5d3f465f707013892300511a6528ee16ea1a61d7",
+          "normalized": false
+        },
+        {
+          "path": "overworld-weather/w2u_overworld_weather_hooks.s",
+          "origin": {
+            "repository": "weather-runtime",
+            "path": "src/w2u_overworld_weather_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "36e04127139f5619e445165d44d54befcdf19c653908722de0578b8357b80905",
+          "normalized": false
+        },
+        {
+          "path": "overworld-weather/tools/build_weather_registry.py",
+          "origin": {
+            "repository": "weather-runtime",
+            "path": "tools/build_weather_registry.py"
+          },
+          "kind": "tool",
+          "sha256": "4be2eac6b7fefb6e8e25aa962b2d09b4c4881d5afe9d98d6d5bf6f742c0b0acd",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "form-evolution",
+      "title": "Expanded-form evolution",
+      "artifacts": [
+        {
+          "name": "FormEvolutionB2.dll",
+          "sha256": "20a74815861f0eead7070673badb6a36e695f625ddc0208eb2a0446828622e11"
+        },
+        {
+          "name": "FormEvolutionW2.dll",
+          "sha256": "e0217ce8798f5e154ec09e70c00f950a21043828be962afb79db1acccd2c9e24"
+        }
+      ],
+      "note": "Original maintained runtime remains in Pokeweb runtime/form-evolution.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "form-evolution/build.sh",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/form-evolution/build.sh"
+          },
+          "kind": "build-tool",
+          "sha256": "08d38482075b05e5a21301c80ff62426fec4449f687c489ce5148aa83560f9db",
+          "normalized": false
+        },
+        {
+          "path": "form-evolution/form_evolution.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/form-evolution/form_evolution.cpp"
+          },
+          "kind": "source",
+          "sha256": "ec3d6aa9aa0231b7a61e8c1b72a1bae88030638b559e32d306cbb12ba224f7cf",
+          "normalized": false
+        },
+        {
+          "path": "form-evolution/metadata_b2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/form-evolution/metadata_b2.yml"
+          },
+          "kind": "source",
+          "sha256": "6347644072d2d5d51bad4a3affc8b13d7bb60df2b59c788c0ec105ab0eb38a77",
+          "normalized": false
+        },
+        {
+          "path": "form-evolution/metadata_w2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/form-evolution/metadata_w2.yml"
+          },
+          "kind": "source",
+          "sha256": "4987573ba6bb9365c1592c242db86a42bdbe66cca5472815c8ebca2704a1b965",
+          "normalized": false
+        },
+        {
+          "path": "form-evolution/symbols_b2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/form-evolution/symbols_b2.yml"
+          },
+          "kind": "source",
+          "sha256": "811e4eacd3120b88e45299b6b1c10c71155f96b46e334c6a67efacd1fe3bf4bf",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "porta-pc",
+      "title": "Portable PC",
+      "artifacts": [
+        {
+          "name": "PortaPCB2.dll",
+          "sha256": "9cc07b4e271c86261c0551b9a0d7d87642543fd79d043c9f4a9f12198198ca12"
+        },
+        {
+          "name": "PortaPCW2.dll",
+          "sha256": "1cefe7ef884f304a5c4066ea2fddb14e56ebb75f61be0833383cc25f1c58d64c"
+        }
+      ],
+      "note": "Assembly-only patch; original maintained runtime remains in Pokeweb runtime/porta-pc.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "porta-pc/ButtonScript.s",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/porta-pc/ButtonScript.s"
+          },
+          "kind": "source",
+          "sha256": "3a3150f53f222c8d7db1ff40095cfaef7ed80c3f5c47c4b7ac60be75dfe346cc",
+          "normalized": false
+        },
+        {
+          "path": "porta-pc/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/porta-pc/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "d30d0658b1ed272451d9bb60bc6e3f81870481cdcd7bb727bbc49eecb966400c",
+          "normalized": false
+        },
+        {
+          "path": "porta-pc/metadata_b2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/porta-pc/metadata_b2.yml"
+          },
+          "kind": "source",
+          "sha256": "6347644072d2d5d51bad4a3affc8b13d7bb60df2b59c788c0ec105ab0eb38a77",
+          "normalized": false
+        },
+        {
+          "path": "porta-pc/metadata_w2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/porta-pc/metadata_w2.yml"
+          },
+          "kind": "source",
+          "sha256": "4987573ba6bb9365c1592c242db86a42bdbe66cca5472815c8ebca2704a1b965",
+          "normalized": false
+        },
+        {
+          "path": "porta-pc/symbols_b2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/porta-pc/symbols_b2.yml"
+          },
+          "kind": "source",
+          "sha256": "a0616b154400b2b77ff54bdaaab5137afe985dfaa51fc9da3d08fe7e9dece9f3",
+          "normalized": false
+        },
+        {
+          "path": "porta-pc/symbols_w2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/porta-pc/symbols_w2.yml"
+          },
+          "kind": "source",
+          "sha256": "f92bd8e2f5215968504d005f29bcaacb8a4f40dba7e4595cdace37944a0e7125",
+          "normalized": false
+        },
+        {
+          "path": "porta-pc/verify.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/porta-pc/verify.py"
+          },
+          "kind": "build-tool",
+          "sha256": "d73402308b57fbe9aa4fadc72766d3ff122110beb2ade84d9708bad06ee7a40e",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "tag-battle-stabilization",
+      "title": "Tag-battle AI stabilization",
+      "artifacts": [
+        {
+          "name": "TagBattleStabilizationW2.dll",
+          "sha256": "7ed12b4c532f4156365510bb18106c62c39fa5bbf848f0ffbdd8ce01eadd4f2a"
+        }
+      ],
+      "note": "Original maintained runtime remains in Pokeweb runtime/tag-battle-stabilization.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "tag-battle-stabilization/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/tag-battle-stabilization/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "4a74c8378d74c6742939e626060e5f5d2e392b5ff782591d19a71d37eda3bddb",
+          "normalized": false
+        },
+        {
+          "path": "tag-battle-stabilization/metadata.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/tag-battle-stabilization/metadata.yml"
+          },
+          "kind": "source",
+          "sha256": "4987573ba6bb9365c1592c242db86a42bdbe66cca5472815c8ebca2704a1b965",
+          "normalized": false
+        },
+        {
+          "path": "tag-battle-stabilization/serialized_ai.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/tag-battle-stabilization/serialized_ai.cpp"
+          },
+          "kind": "source",
+          "sha256": "e34413b0211f21a2f26d2fb6c5e7ca5c0b344184da54355c3457b6ff7e35f9bf",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "black2upgrade-field",
+      "title": "Black2Upgrade field companion",
+      "artifacts": [
+        {
+          "name": "Black2UpgradeField.dll",
+          "sha256": "626ee3b515b695514042680a29f33542d055acc7a8336163d577e02dd8099f15"
+        }
+      ],
+      "note": "This is a separate bundled companion, not the excluded Black2Upgrade.dll monolith. It imports core helpers from that monolith. Original hook inputs and generated B2 assembly are both retained; no ELF/DLL build outputs are copied.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "black2upgrade-field/black2upgrade_metadata.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/black2upgrade_metadata.cpp"
+          },
+          "kind": "source",
+          "sha256": "8ece77f7d15a1c79fd4948d0e688f9ba0833a44526eadaadb59cef0871c9dcb8",
+          "normalized": false
+        },
+        {
+          "path": "black2upgrade-field/w2u_field_items.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pokeweb_gameplay/w2u_field_items.cpp"
+          },
+          "kind": "source",
+          "sha256": "5df323913d3c92ed7c46d2dddc357fb6533663c7aeab62f743194c228267778c",
+          "normalized": false
+        },
+        {
+          "path": "black2upgrade-field/w2u_field_item_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pokeweb_gameplay/w2u_field_item_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "f854c0038b3f9e97c0753d639e8c6e2e5bd72f44b9dbba54246b662ed0f8ea4e",
+          "normalized": false
+        },
+        {
+          "path": "black2upgrade-field/generated/b2u_field_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "build-stripped/src/b2u_field_hooks.s"
+          },
+          "kind": "generated-source",
+          "sha256": "18e8b80593834c989eaff0d1a383e266b0d443066bdf8db3a4879e7309fe4d8f",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "black2upgrade-pokedex",
+      "title": "Black2Upgrade Pokedex companion",
+      "artifacts": [
+        {
+          "name": "Black2UpgradePokedex.dll",
+          "sha256": "82edde02a9097414ab107e5d4e6c4527dbee45dd9e9f89557752705ce2a8594e"
+        }
+      ],
+      "note": "This is a separate bundled companion, not the excluded Black2Upgrade.dll monolith. It imports core helpers from that monolith. Original hook inputs and generated B2 assembly are both retained; no ELF/DLL build outputs are copied.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "black2upgrade-pokedex/black2upgrade_metadata.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/black2upgrade_metadata.cpp"
+          },
+          "kind": "source",
+          "sha256": "8ece77f7d15a1c79fd4948d0e688f9ba0833a44526eadaadb59cef0871c9dcb8",
+          "normalized": false
+        },
+        {
+          "path": "black2upgrade-pokedex/Expansion_NonBattleLimitAdjust.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pokedex_expansion/Expansion_NonBattleLimitAdjust.s"
+          },
+          "kind": "source",
+          "sha256": "03dc1a5dc1c4e6a59173785e440c9316fb54d88959af2fbf9aa41b8feda044be",
+          "normalized": false
+        },
+        {
+          "path": "black2upgrade-pokedex/generated/b2u_pokedex_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "build-stripped/src/b2u_pokedex_hooks.s"
+          },
+          "kind": "generated-source",
+          "sha256": "b79d50e8a408d4974a0ea26de6bcbc2f238470d93a018426bb0998f87867a686",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "black2upgrade-ui",
+      "title": "Black2Upgrade UI companion",
+      "artifacts": [
+        {
+          "name": "Black2UpgradeUI.dll",
+          "sha256": "bd7ff2ee419c38a629a2ae3212f3903c0fa6b33ef852a6420b0f9f9e17d366af"
+        }
+      ],
+      "note": "This is a separate bundled companion, not the excluded Black2Upgrade.dll monolith. It imports core helpers from that monolith. Original hook inputs and generated B2 assembly are both retained; no ELF/DLL build outputs are copied.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "black2upgrade-ui/black2upgrade_metadata.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/black2upgrade_metadata.cpp"
+          },
+          "kind": "source",
+          "sha256": "8ece77f7d15a1c79fd4948d0e688f9ba0833a44526eadaadb59cef0871c9dcb8",
+          "normalized": false
+        },
+        {
+          "path": "black2upgrade-ui/Fairy_LimitAdjust.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/type_expansion/Fairy_LimitAdjust.s"
+          },
+          "kind": "source",
+          "sha256": "4264d1c951610f0a73612d25d397761c6392a9f98324e2099d3f5ed296c272af",
+          "normalized": false
+        },
+        {
+          "path": "black2upgrade-ui/w2u_mega_summary_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pokeweb_gameplay/w2u_mega_summary_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "0e199c47d63f81f5e5e56496ac09d77b909a64e4fbec8cc82b2c9dc400d45a6f",
+          "normalized": false
+        },
+        {
+          "path": "black2upgrade-ui/generated/b2u_ui_hook_0.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "build-stripped/src/b2u_ui_hook_0.s"
+          },
+          "kind": "generated-source",
+          "sha256": "719890a793db8fef6f7f20295f24b06789714bf3354eab870cebb84d2efb3957",
+          "normalized": false
+        },
+        {
+          "path": "black2upgrade-ui/generated/b2u_ui_hook_1.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "build-stripped/src/b2u_ui_hook_1.s"
+          },
+          "kind": "generated-source",
+          "sha256": "486856a0a1837a78ef54d2e451dffbc6f7a0c9d1f1d4d1890416de8fe2616fed",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "pmc",
+      "title": "PMC loader framework",
+      "artifacts": [
+        {
+          "name": "PMC_B2.rpm",
+          "sha256": "38a31dd1650b25ccb7dbb942c5bad39527df649022e52935b8ae5ea48ac3dea1"
+        },
+        {
+          "name": "PMC_W2.rpm",
+          "sha256": "996b9c78ce3f5f8ed943e9a0b315c1e384e93a4fe29c18b6e06c157ea813c16f"
+        }
+      ],
+      "note": "Local framework, interface, print-service sources and build metadata. External libraries/toolchains are not vendored. This is a current-source snapshot, not a claim that the historical bundled RPMs were rebuilt from this exact revision. Existing license is retained.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "pmc/CMakeLists.txt",
+          "origin": {
+            "repository": "pmc",
+            "path": "CMakeLists.txt"
+          },
+          "kind": "metadata",
+          "sha256": "10ed13aa730f4ca0ba3ffa5833a56f3cd9e4bd25410bdd1f846fc1fa59f24518",
+          "normalized": false
+        },
+        {
+          "path": "pmc/LICENSE",
+          "origin": {
+            "repository": "pmc",
+            "path": "LICENSE"
+          },
+          "kind": "metadata",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "normalized": false
+        },
+        {
+          "path": "pmc/.gitmodules",
+          "origin": {
+            "repository": "pmc",
+            "path": ".gitmodules"
+          },
+          "kind": "metadata",
+          "sha256": "10a58cbe2d1d88aa6527c3a944794a96cdb40a5e51802d10c5b33a13de36f136",
+          "normalized": false
+        },
+        {
+          "path": "pmc/BuildFiles/version_b2.yml",
+          "origin": {
+            "repository": "pmc",
+            "path": "BuildFiles/version_b2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "ef0ae6ea3210ef629de142ded2ec9af2f79b4be341ba2f2b470dbca8b740d924",
+          "normalized": false
+        },
+        {
+          "path": "pmc/BuildFiles/version_w2.yml",
+          "origin": {
+            "repository": "pmc",
+            "path": "BuildFiles/version_w2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "d4f74892ab1cfe16cbf4d6ac9094d1a4f6c9fb3eaf62660b55b86d9ac570360f",
+          "normalized": false
+        },
+        {
+          "path": "pmc/Framework/CMakeLists.txt",
+          "origin": {
+            "repository": "pmc",
+            "path": "Framework/CMakeLists.txt"
+          },
+          "kind": "metadata",
+          "sha256": "fe0573fed7c8b006ee6bdc7ae886fc1e41061ca700761f403b9fd24e73b67c43",
+          "normalized": false
+        },
+        {
+          "path": "pmc/Framework/PMC_Common.h",
+          "origin": {
+            "repository": "pmc",
+            "path": "Framework/PMC_Common.h"
+          },
+          "kind": "source",
+          "sha256": "fcde9ada15dfd3d288bd3b7eef9f729adec3cc0ca5b36c4c4a677cf214788905",
+          "normalized": true
+        },
+        {
+          "path": "pmc/Framework/PMC_NTRExternalRelocator.h",
+          "origin": {
+            "repository": "pmc",
+            "path": "Framework/PMC_NTRExternalRelocator.h"
+          },
+          "kind": "source",
+          "sha256": "dc73ba49824dff87cb1d1fd67039649cfd808f10daa480c8ed9b83364bf2d352",
+          "normalized": true
+        },
+        {
+          "path": "pmc/Framework/PMC_RPMFramework.cpp",
+          "origin": {
+            "repository": "pmc",
+            "path": "Framework/PMC_RPMFramework.cpp"
+          },
+          "kind": "source",
+          "sha256": "caa011be0de4c3a18de49893f81e3f5a60aa6eb5a27bd90cbe5607839a9c1757",
+          "normalized": true
+        },
+        {
+          "path": "pmc/Framework/PMC_RPMFramework.h",
+          "origin": {
+            "repository": "pmc",
+            "path": "Framework/PMC_RPMFramework.h"
+          },
+          "kind": "source",
+          "sha256": "e1961d165253549236b8f36824a31653484691e6fab615152d343cfed357f94d",
+          "normalized": true
+        },
+        {
+          "path": "pmc/Interface/PMC_Interface.cpp",
+          "origin": {
+            "repository": "pmc",
+            "path": "Interface/PMC_Interface.cpp"
+          },
+          "kind": "source",
+          "sha256": "9243dfcb7fbe032a7b710916852005ee350e1e9602a18d80c38fa8176d8a700c",
+          "normalized": true
+        },
+        {
+          "path": "pmc/Interface/PMC_Interface.h",
+          "origin": {
+            "repository": "pmc",
+            "path": "Interface/PMC_Interface.h"
+          },
+          "kind": "source",
+          "sha256": "9a95decc4a3829ab2ed5359f7fe817d8dd5e77b6d17352249a7de022db825d21",
+          "normalized": true
+        },
+        {
+          "path": "pmc/Interface/PMC_AsmInterface.s",
+          "origin": {
+            "repository": "pmc",
+            "path": "Interface/PMC_AsmInterface.s"
+          },
+          "kind": "source",
+          "sha256": "040312468618282732e1e9071b516b29f31130d4aab6f61cf50cac9273556395",
+          "normalized": true
+        },
+        {
+          "path": "pmc/PrintService/CMakeLists.txt",
+          "origin": {
+            "repository": "pmc",
+            "path": "PrintService/CMakeLists.txt"
+          },
+          "kind": "metadata",
+          "sha256": "e1e1f0551f1b66ecbc61df207a0a2f82df53debafd1ddc8cc9b16f9f9d59e5af",
+          "normalized": false
+        },
+        {
+          "path": "pmc/PrintService/PrintService/PMC_ExceptionPrint.cpp",
+          "origin": {
+            "repository": "pmc",
+            "path": "PrintService/PrintService/PMC_ExceptionPrint.cpp"
+          },
+          "kind": "source",
+          "sha256": "4e161bb420517865889977dac82bbe17f63483ed2bebbee61618250ac9f9e32f",
+          "normalized": true
+        },
+        {
+          "path": "pmc/PrintService/PrintService/PMC_ExceptionPrint.h",
+          "origin": {
+            "repository": "pmc",
+            "path": "PrintService/PrintService/PMC_ExceptionPrint.h"
+          },
+          "kind": "source",
+          "sha256": "5959fb5b3a0265570a6e4207bc5a87cd6f50409eefa6c60fdd1333c06e0c772e",
+          "normalized": true
+        },
+        {
+          "path": "pmc/PrintService/PrintService/PMC_Print.cpp",
+          "origin": {
+            "repository": "pmc",
+            "path": "PrintService/PrintService/PMC_Print.cpp"
+          },
+          "kind": "source",
+          "sha256": "98a046f85f01465414c91b5c07a09ea367ef7634bde509e8fac91efaf8ab5f89",
+          "normalized": true
+        },
+        {
+          "path": "pmc/PrintService/PrintService/PMC_Print.h",
+          "origin": {
+            "repository": "pmc",
+            "path": "PrintService/PrintService/PMC_Print.h"
+          },
+          "kind": "source",
+          "sha256": "eaab0d7d0c7166926ddf814c5304ae164d5adbecf40396fb4e3dc217c11ed992",
+          "normalized": true
+        },
+        {
+          "path": "pmc/PrintService/PrintService/PMC_PrintService.cpp",
+          "origin": {
+            "repository": "pmc",
+            "path": "PrintService/PrintService/PMC_PrintService.cpp"
+          },
+          "kind": "source",
+          "sha256": "b411b5d428d5354753a3f7f80fdf6a88d93a460fc5109c0ac6a24622ed7e8438",
+          "normalized": true
+        },
+        {
+          "path": "pmc/PrintService/PrintService/PMC_PrintService.h",
+          "origin": {
+            "repository": "pmc",
+            "path": "PrintService/PrintService/PMC_PrintService.h"
+          },
+          "kind": "source",
+          "sha256": "4ecc6e2d5ce0b635ec2b7e7a9e9bee79940e8c9c06354530c856e9cb2859ae4f",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "double-battle-fix",
+      "title": "Single-NPC double-battle fix",
+      "artifacts": [
+        {
+          "name": "DoubleBattleFixB2.dll",
+          "sha256": "0ec0fdefa4437808b0e223691b3d0952bdbd792dfe95830d19a845a0d073b3e1"
+        },
+        {
+          "name": "DoubleBattleFixW2.dll",
+          "sha256": "d8ea7bfd01775ea0d30d235845a31f9a66a6876829747133d4d6661e7a841170"
+        }
+      ],
+      "note": "Original implementation source was not found in the available checkouts. The existing W2 validation/staging script is retained as supporting source only: its embedded payload is not C++ source and does not cover B2. Do not mistake this folder for a recovered implementation.",
+      "status": "original-source-unavailable",
+      "files": [
+        {
+          "path": "double-battle-fix/support/stage_double_battle_fix.py",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/stage_double_battle_fix.py"
+          },
+          "kind": "support-only",
+          "sha256": "ba5d02db6f59df14d3da8849b78dd46331d821a4d628c50c99ec7a918a1fc65b",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "main-menu-skip",
+      "title": "Test Battle main-menu skip",
+      "artifacts": [
+        {
+          "name": "MainMenuSkipB2.dll",
+          "sha256": "2b79eeda1dd533e9b489a504f87f55e646a99d45d5a79aa4f3af5842b2aece30"
+        },
+        {
+          "name": "MainMenuSkipW2.dll",
+          "sha256": "cd1da75cfb740ee1e5b9d3abacd23bf8209e3b6f536cbdd7bc336995518ca67f"
+        }
+      ],
+      "note": "Original implementation source was not found in the available checkouts. Only the existing bundled binaries and Pokeweb installer integration were located. No reconstructed implementation is substituted here.",
+      "status": "original-source-unavailable",
+      "files": []
+    }
+  ],
+  "sharedFiles": [
+    {
+      "path": "shared/include/w2u_battle.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/w2u_battle.h"
+      },
+      "kind": "header",
+      "sha256": "09b0c72a2839e1b80be5769db12dca5c8b6f868318dd68c73e2f52b2dde24141",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/w2u_battle_log.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/w2u_battle_log.h"
+      },
+      "kind": "header",
+      "sha256": "56df07f1b890475d7a67c42a1d96680b7aab93edba609aaba6211c4f3fd5fcb5",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/w2u_ko_move_pending.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/w2u_ko_move_pending.h"
+      },
+      "kind": "header",
+      "sha256": "27cfa28a7c0c4ed6f66e24127316dafdc9dd26ebd0c2039ef5e89b14810e0391",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/w2u_menu_evolution_logic.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/w2u_menu_evolution_logic.h"
+      },
+      "kind": "header",
+      "sha256": "8d5d3301e17860bfdb9b6472ba984e0ca2fc04308ede162dc26137fb44c82a82",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/w2u_menu_relearn_logic.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/w2u_menu_relearn_logic.h"
+      },
+      "kind": "header",
+      "sha256": "6112cf8bfdf9ff97e74f8c5ff06747a0942bff4efd89437bd8ad883b35070549",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/w2u_menu_evolution_script_api.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/w2u_menu_evolution_script_api.h"
+      },
+      "kind": "header",
+      "sha256": "1dd65ba5aed34511b69ba4615854ecda5dd27109b7f99877f348927af3a9513f",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/w2u_platform.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/w2u_platform.h"
+      },
+      "kind": "header",
+      "sha256": "d65a50b99f6bc6025745f73c4bf44c4d4253bc75223e57aa13690fc39920a5b6",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/personal_data.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/personal_data.h"
+      },
+      "kind": "header",
+      "sha256": "a279a16f329ead01b885f78f29d174512fcaf1a241071675cf247372c00355eb",
+      "normalized": true
+    },
+    {
+      "path": "shared/include/species_ids.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/species_ids.h"
+      },
+      "kind": "header",
+      "sha256": "00c578859b926e56259d275e356a4a55e9441515f38fa28ba79c3205c23f5770",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/Items.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/Items.h"
+      },
+      "kind": "header",
+      "sha256": "9f8d9cf2797aa4adc75a09989a867f00fb140fee1cc5dbd1892e403b4c6194e8",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/stdint.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/stdint.h"
+      },
+      "kind": "header",
+      "sha256": "1f5b613cd25d9d32de104f250a26c38c9d223855f7bf59db24ef5ddb05021935",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/swan/swantypes.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/swan/swantypes.h"
+      },
+      "kind": "header",
+      "sha256": "80861295a994548f498bd3008da1d62929715354977ab2820bd8733eb775c35d",
+      "normalized": true
+    },
+    {
+      "path": "shared/include/swan/nds/fs.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/swan/nds/fs.h"
+      },
+      "kind": "header",
+      "sha256": "5545bb0ebc0b9b255cbcfd0de452bbd3c13fc44ae59959eb33545cc593c18f22",
+      "normalized": false
+    },
+    {
+      "path": "shared/metadata/black1_battle_log_meta.yml",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "pmc/black1_battle_log_meta.yml"
+      },
+      "kind": "metadata",
+      "sha256": "499a8b911c264edff015d866219ec087bc2b7a65039495a1301d27f5c5f5f415",
+      "normalized": false
+    },
+    {
+      "path": "shared/metadata/white1_battle_log_meta.yml",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "pmc/white1_battle_log_meta.yml"
+      },
+      "kind": "metadata",
+      "sha256": "f1ef5c16c3f6632653adf513acd4974a0ae8fd1b8ff2813add74d1bf83d87a76",
+      "normalized": false
+    },
+    {
+      "path": "shared/metadata/bw1_battle_log_esdb.yml",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "pmc/bw1_battle_log_esdb.yml"
+      },
+      "kind": "metadata",
+      "sha256": "4f050dbd4d1385142e4388ce15b31a2f6fdc1df351cd7d937e361cf568e5ca10",
+      "normalized": false
+    },
+    {
+      "path": "shared/metadata/black2upgrade_companion_meta.yml",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "pmc/black2upgrade_companion_meta.yml"
+      },
+      "kind": "metadata",
+      "sha256": "f49b00f6e23f7a669d46c2b6592e17e1df80f240318a6ffac7be57fed2710bf1",
+      "normalized": false
+    },
+    {
+      "path": "shared/metadata/black2upgrade_aliases.json",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "pmc/black2upgrade_aliases.json"
+      },
+      "kind": "metadata",
+      "sha256": "856e91a80e3aefb37d8147f5b2e589eea5e069a00c9e60a5410784df5bcda5c4",
+      "normalized": false
+    },
+    {
+      "path": "shared/tools/generate_black2upgrade_asm.py",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "tools/generate_black2upgrade_asm.py"
+      },
+      "kind": "build-tool",
+      "sha256": "252d402f4ddcf76448199b5f6e9285c9c5841273d13a3e733563ae9c19628ec2",
+      "normalized": false
+    }
+  ]
+}

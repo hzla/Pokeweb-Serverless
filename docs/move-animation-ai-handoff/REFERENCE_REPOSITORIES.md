@@ -49,14 +49,17 @@ to the handoff archive.
 - Related public headers/symbols: `https://github.com/ds-pokemon-hacking/swan.git`
 - Public repository commit when audited:
   `4324f73a7659353a21bf4c523905c5d09cf6a066`
-- Local excerpt source: `reference_repos/swan_export`
+- Legacy excerpt source used by the current handoff builder:
+  `reference_repos/swan_export` (BW1, not BW2)
 - Purpose: retail VM command behavior, selectors, task completion, camera and
   sprite cleanup, emitter positioning, and hardware/runtime limits.
 
 The public Swan repository contains interface headers and symbol databases but
 not the full `btlv_effvm.c` behavior used for preview parity investigations.
-The handoff therefore includes only the relevant local source files. The full
-Swan export is not required.
+The existing handoff excerpt was taken from BW1 and must not be presented as
+definitive BW2 behavior. Current BW2 investigations require independent checks
+against the target BW2 ROM; the handoff builder and excerpt should be explicitly
+retained as cross-generation context before generating a new external bundle.
 
 ## Optional
 

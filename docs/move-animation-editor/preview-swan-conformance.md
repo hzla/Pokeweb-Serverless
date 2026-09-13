@@ -4,6 +4,8 @@
 
 This table ties every VM opcode to the Swan dispatch handler and Pokeweb preview support. `supported` means the browser models visible/state behavior, `marker` means timing or intent is represented without full visuals, and `unsupported` is surfaced explicitly.
 
+> Source identity: the current schema was originally audited against `reference_repos/swan_export`, which is BW1. Independently recheck the target BW2 ROM and re-audit differences before calling this matrix BW2-conformant.
+
 | Opcode | Command | Swan handler | Preview | State | Completion |
 |---:|---|---|---|---|---|
 | 0 | `MoveCamera` | `VMEC_CAMERA_MOVE` | supported | camera -> camera | task / task 1 |

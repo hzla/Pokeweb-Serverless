@@ -53,6 +53,8 @@ type CommandDoc = {
   params: Array<{ index: number; name: string; currentArg: string; description: string }>;
 };
 
+// Historical audit provenance only: swan_export is BW1. Re-audit this schema
+// against the target BW2 ROM before treating it as BW2-conformant.
 const SWAN_SOURCE = "reference_repos/swan_export/prog/src/battle/btlv/btlv_effvm.c";
 const TERMINATING_COMMANDS = new Set(["CallMoveAnimation", "TerminateMoveScript"]);
 const SWAN_HANDLERS = [

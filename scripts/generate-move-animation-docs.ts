@@ -136,7 +136,7 @@ async function archiveLegacyReadmes(label: string, repo: string): Promise<void> 
 
 function renderCommandReference(): string {
   const commands = getMoveAnimationVmSchema();
-  const lines = [GENERATED_MARKER, "", "# Move Animation VM Command Reference", "", "Generated from `src/pokeweb/moveAnimationVmSchema.ts`, command docs, and semantic aliases. Swan source locations are repository-relative.", ""];
+  const lines = [GENERATED_MARKER, "", "# Move Animation VM Command Reference", "", "Generated from `src/pokeweb/moveAnimationVmSchema.ts`, command docs, and semantic aliases. Swan source locations are repository-relative.", "", "> Source identity: the current schema was originally audited against `reference_repos/swan_export`, which is BW1. It is not a BW2 conformance claim. Independently recheck command signatures and behavior against the target BW2 ROM.", ""];
   for (const command of commands) {
     lines.push(`## ${command.displayName} (${command.opcode})`, "", command.description, "", `- Canonical VM name: \`${command.name}\``, `- Category: ${command.category}`, `- Swan: \`${command.swan.handler}\` in \`${command.swan.source}\``, `- Preview: ${command.preview}`, `- Completion: ${command.completion}${command.taskGroup === undefined ? "" : `, task group ${command.taskGroup}`}`, `- State: reads ${command.state.reads.join(", ") || "none"}; writes ${command.state.writes.join(", ") || "none"}`, `- Accepted names: ${command.aliases.map((alias) => `\`${alias}\``).join(", ")}`, "");
     if (!command.params.length) {
@@ -163,7 +163,7 @@ function renderSpaReference(): string {
 }
 
 function renderConformanceReference(): string {
-  const lines = [GENERATED_MARKER, "", "# Preview and Swan Conformance Matrix", "", "This table ties every VM opcode to the Swan dispatch handler and Pokeweb preview support. `supported` means the browser models visible/state behavior, `marker` means timing or intent is represented without full visuals, and `unsupported` is surfaced explicitly.", "", "| Opcode | Command | Swan handler | Preview | State | Completion |", "|---:|---|---|---|---|---|"];
+  const lines = [GENERATED_MARKER, "", "# Preview and Swan Conformance Matrix", "", "This table ties every VM opcode to the Swan dispatch handler and Pokeweb preview support. `supported` means the browser models visible/state behavior, `marker` means timing or intent is represented without full visuals, and `unsupported` is surfaced explicitly.", "", "> Source identity: the current schema was originally audited against `reference_repos/swan_export`, which is BW1. Independently recheck the target BW2 ROM and re-audit differences before calling this matrix BW2-conformant.", "", "| Opcode | Command | Swan handler | Preview | State | Completion |", "|---:|---|---|---|---|---|"];
   for (const command of getMoveAnimationVmSchema()) {
     lines.push(`| ${command.opcode} | \`${command.displayName}\` | \`${command.swan.handler}\` | ${command.preview} | ${command.state.reads.join(", ")} -> ${command.state.writes.join(", ")} | ${command.completion}${command.taskGroup === undefined ? "" : ` / task ${command.taskGroup}`} |`);
   }

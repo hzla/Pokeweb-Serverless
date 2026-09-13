@@ -66,6 +66,11 @@ If a recolored particle keeps drifting back to the donor color, a projectile ign
 
 BW2 move animation scripts still compile to the game's original numeric VM bytecode, but the editor can display and accept friendlier tokens for parameters with known swan constants.
 
+Source-identity warning: the current generated command schema was originally
+audited against `reference_repos/swan_export`, which is BW1. Independently check
+the target BW2 ROM before drawing BW2 conclusions, including signatures where
+the two VM implementations differ.
+
 - Enum-like parameters use short canonical names such as `INTERPOLATION`, `DEFENDER`, `NONE`, `ATTACKER`, `POS_A`, `TARGET`, `SE2`, and `PARTICLE`. Older prefixed spellings remain accepted aliases.
 - Exact swan-style names such as `BTLEFF_PARTICLE_PLAY_SIDE_NONE` are also accepted for mapped parameters.
 - Legacy aliases remain accepted where useful, such as `CAMERA_DEFENCE`, `SIDE_ATTACK`, `POKEMON_TARGET`, and `DEFENSE` spellings for source constants that use `DEFENCE`.

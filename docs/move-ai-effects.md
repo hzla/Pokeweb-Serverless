@@ -1,6 +1,9 @@
 # Move AI effect description audit
 
-Audited 2026-09-07 against the local `swan_export` Black 2 / White 2 source.
+Originally audited 2026-09-07 against local `swan_export`, which is Pokemon
+Black / White (BW1), not Black 2 / White 2. Move-specific runtime behavior
+differs between BW1 and BW2; conclusions require independent checks against
+the target BW2 ROM before they are treated as BW2 evidence.
 All 338 IDs (0-337) are retained in their original order in
 [`effects.txt`](../src/assets/data/effects.txt). Descriptions are unique under the
 editor's case-insensitive text lookup. Previously, duplicate descriptions could
@@ -26,15 +29,13 @@ An unused slot means no original move selects that ID, not that it is available 
 install new behavior. Some unassigned stat and healing sequences still have AI routines.
 Unidentified slots have unique, explicit unused labels rather than guessed mechanics.
 
-## Source and method
+## Audit method
 
-- [`resource/waza_tbl/wazaconv.pl`](../../reference_repos/swan_export/resource/waza_tbl/wazaconv.pl): `IDX_SeqNo = 24` identifies the zero-based source column.
-- [`resource/waza_tbl/waza.tab`](../../reference_repos/swan_export/resource/waza_tbl/waza.tab): move-to-AI-ID assignments, categories, targets, stat stages, chances, and move-family descriptions. Read as CP932; split records on newline, preserving embedded vertical tabs in cells.
-- [`prog/src/waza_tool/waza_tool.c`](../../reference_repos/swan_export/prog/src/waza_tool/waza_tool.c): `_WAZA_DATA.AISeqNo` and the `WAZAPARAM_AI_SEQNO` accessor.
-- [`prog/src/battle/tr_ai/tr_ai.c`](../../reference_repos/swan_export/prog/src/battle/tr_ai/tr_ai.c): `AI_CHECK_WAZASEQNO`, `AI_IF_WAZA_SEQNO_JUMP`, and `AI_IF_TABLE_JUMP` consume that value for AI decisions.
-- [`resource/tr_ai/tr_ai_basic.s`](../../reference_repos/swan_export/resource/tr_ai/tr_ai_basic.s) and [`tr_ai_expert.s`](../../reference_repos/swan_export/resource/tr_ai/tr_ai_expert.s): legacy and unused sequence identities. Some historical comments are stale; the actual move assignments take precedence.
-- [`prog/src/battle/handler/hand_waza.c`](../../reference_repos/swan_export/prog/src/battle/handler/hand_waza.c): move-specific runtime behavior. Its registration table is keyed by move ID, separately from AISeqNo.
-- [`prog/src/battle/handler/hand_field.c`](../../reference_repos/swan_export/prog/src/battle/handler/hand_field.c) and [`hand_side.c`](../../reference_repos/swan_export/prog/src/battle/handler/hand_side.c): field and side effects.
+Move-to-AI-ID assignments, categories, targets, stat stages, and chances must
+be considered separately. Trainer AI consumes `AISeqNo` for decisions; the
+move-specific runtime registration table is keyed by move ID instead. Field
+and side effects also have separate handlers. Actual move assignments and
+runtime behavior take precedence over historical descriptions.
 
 All 559 non-placeholder move assignments were checked against the AI ID at byte 16
 in the canonical `resource/waza_tbl/waza_tbl.narc` (560 records including move 0).

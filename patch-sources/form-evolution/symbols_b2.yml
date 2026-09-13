@@ -1,0 +1,15 @@
+Segments:
+  - ID: 0x0
+    Name: ARM9
+    Type: EXECUTABLE
+
+Symbols:
+  - Name: setChangedPkmSpecies
+    Segment: 0x0
+    Address: 0x0201c7b5
+  - Name: PokeParty_ChangeForme
+    Segment: 0x0
+    Address: 0x0201c865
+  - Name: PML_PersonalGetParamSingle
+    Segment: 0x0
+    Address: 0x0201ef1d

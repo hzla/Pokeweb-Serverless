@@ -1,0 +1,105 @@
+@ Generated from Expansion_NonBattleLimitAdjust.s for clean US Black 2 (IREO).
+.thumb
+
+.equ PkmnCnt, 1023
+
+.type THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x166, %function
+.type THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x124, %function
+.type THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x18E, %function
+.type THUMB_BRANCH_LINK_Pokedex_ReadMonName_0x14, %function
+.type THUMB_BRANCH_LINK_Pokedex_ReadMonEntry_0x24, %function
+
+@ Overlay 299 Patches
+@ Expand the space allocated by the process.
+
+@ Patch the render and init functions.
+FULL_COPY_Pokedex_CreateProc_0x12:
+    movs r6, #0x1B
+    lsl r6, r6, #8
+    .size FULL_COPY_Pokedex_CreateProc_0x12, . - FULL_COPY_Pokedex_CreateProc_0x12
+
+@ Adjust limiters
+FULL_COPY_Pokedex_BuildPkmEntry_0x1BC:
+    .word PkmnCnt
+    .size FULL_COPY_Pokedex_BuildPkmEntry_0x1BC, . - FULL_COPY_Pokedex_BuildPkmEntry_0x1BC
+
+FULL_COPY_Pokedex_ReadMonName_0x28:
+    .word PkmnCnt
+    .size FULL_COPY_Pokedex_ReadMonName_0x28, . - FULL_COPY_Pokedex_ReadMonName_0x28
+
+@ Call GetMonName
+THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x124:
+    add r1, r5, r1
+    push {r0}
+    mov r0, #0xC7
+    lsl r0, r0, #0x4
+    add r1, r1, r0
+    pop {r0}
+    str r0, [r1, #0x4]
+    bx lr
+    .size THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x124, . - THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x124
+
+THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x166:
+    add r1, r5, r1
+    push {r0}
+    mov r0, #0xC7
+    lsl r0, r0, #0x4
+    add r1, r1, r0
+    pop {r0}
+    str r0, [r1, #0x4]
+    bx lr
+    .size THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x166, . - THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x166
+
+THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x18E:
+    add r1, r5, r1
+    push {r0}
+    mov r0, #0xC7
+    lsl r0, r0, #0x4
+    add r1, r1, r0
+    pop {r0}
+    str r0, [r1, #0x4]
+    bx lr
+    .size THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x18E, . - THUMB_BRANCH_LINK_Pokedex_BuildPkmEntry_0x18E
+
+@ Call ReadMonName
+THUMB_BRANCH_LINK_Pokedex_ReadMonName_0x14:
+    add r0, r5, r0
+    push {r1}
+    mov r1, #0xC7
+    lsl r1, r1, #0x4
+    add r0, r1, r0
+    mov r1, r6
+    pop {r1}
+    bx lr
+    .size THUMB_BRANCH_LINK_Pokedex_ReadMonName_0x14, . - THUMB_BRANCH_LINK_Pokedex_ReadMonName_0x14
+
+@ Call ReadMon
+THUMB_BRANCH_LINK_Pokedex_ReadMonEntry_0x24:
+    mov r0, #0xC7
+    lsl r0, r0, #0x4
+    add r2, r0, r2
+    ldr r2, [r2, #0x4]
+    mov r0, r5
+    bx lr
+    .size THUMB_BRANCH_LINK_Pokedex_ReadMonEntry_0x24, . - THUMB_BRANCH_LINK_Pokedex_ReadMonEntry_0x24
+
+@ Overlay 302 search-engine limiters.
+FULL_COPY_302_0x021AE204:
+    .word PkmnCnt
+    .size FULL_COPY_302_0x021AE204, . - FULL_COPY_302_0x021AE204
+
+FULL_COPY_302_0x021AE2D0:
+    .word 2 * PkmnCnt
+    .size FULL_COPY_302_0x021AE2D0, . - FULL_COPY_302_0x021AE2D0
+
+FULL_COPY_302_0x021AE2D8:
+    .word PkmnCnt
+    .size FULL_COPY_302_0x021AE2D8, . - FULL_COPY_302_0x021AE2D8
+
+FULL_COPY_302_0x021AE33C:
+    .word 2 * PkmnCnt
+    .size FULL_COPY_302_0x021AE33C, . - FULL_COPY_302_0x021AE33C
+
+FULL_COPY_302_0x021AE344:
+    .word PkmnCnt
+    .size FULL_COPY_302_0x021AE344, . - FULL_COPY_302_0x021AE344
