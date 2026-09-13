@@ -15,6 +15,8 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | PWAN GIF support | Clean US Black 2 (`IREO`) or White 2 (`IRDO`) code layout | Both versions support the split summary, battle, and miscellaneous renderers. |
 | Trainer battle log | US Black 2 (`IREO`), White 2 (`IRDO`), or the corresponding Upgrade ROM | Uses a version-specific DLL, PMC, save blocks 29–31, the evolution NARC, and summary text bank 179. |
 | Single-NPC double battle fix | Black 2 / White 2 with PMC support | The fix is installed as a bundled DLXF patch. |
+| Tag Battle Stabilization | US White 2 (`IRDO`) with compatible battle AI hooks | Supports tag battles above the vanilla six opposing Pokemon by reducing simultaneous AI script memory use. |
+| Porta PC | US Black 2 (`IREO`) or White 2 (`IRDO`) with compatible field hooks | Press Start during normal overworld exploration to open the PC and access Pokemon boxes, including on rail maps such as Castelia City. |
 | Installed DLLs | Files in `patches/` or `lib/` | Patch DLLs are applied to the game; library DLLs are dependencies used by patches. |
 
 ## Code Injection Controls
@@ -31,6 +33,10 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | Install Battle Log | Checks six ARM9/battle/summary regions, installs PMC if needed, stages the version-specific stripped battle and summary DLLs, and generates ancestry from current evolution data. | US Black 2, White 2, Black2Upgrade, or White2Upgrade |
 | Uninstall Battle Log | Removes the staged battle and summary DLLs, removes or restores generated ancestry data, and restores normal Pal Pad/Wi-Fi save handling. Existing log records in the save remain untouched. | Available before the staged DLLs are exported and reloaded as part of a ROM. |
 | Single-NPC double battle fix | Installs a bundled patch that fixes trainer scripts where one visible NPC should start a double battle. | Black 2 or White 2 patch DLL |
+| Install Tag Battle Stabilization | Checks battle AI hooks, installs PMC if needed, and stages the stripped stabilization DLL. Recognizes the original `CascadeTagAI.dll` to avoid duplicate installation. | Two opposing trainers with four Pokemon each |
+| Uninstall Tag Battle Stabilization | Removes the stabilization DLL staged in the current project. | Available before exporting and reloading the DLL as part of a ROM |
+| Install/Update Porta PC | Installs PMC if needed and stages the matching stripped DLL. Replaces a recognized original ButtonScript DLL in place. | `PortaPCB2.dll` or `PortaPCW2.dll` |
+| Uninstall Porta PC | Removes a Porta PC DLL staged in the current project. | Available before the DLL becomes part of an imported ROM |
 | Installed DLLs sidebar | Lists each injected patch or library once by its complete ROM path. | `patches/DoubleBattleFixW2.dll` |
 | Add Patch DLL | Adds a DLXF Gen V patch DLL to `patches/`. | A battle-code patch DLL |
 | Add Library DLL | Adds a supporting library DLL to `lib/`. | A libRPM-compatible dependency |
@@ -58,6 +64,18 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 
 ## Workflows
 
+### Edit a Pokeweb ROM in Frost
+
+1. Open the **Export** menu and choose **Export for Frost**.
+2. Save the separate `-frost-compatible.nds` copy and open it in Frost.
+3. Edit ordinary game data and save normally in Frost. Reload that ROM in Pokeweb to continue editing; use **Export for Frost** again when returning to Frost.
+
+This option targets Pokeweb Gen V ROMs with the retail overlay layout or Pokeweb's recognized PMC installation. It retains installed DLLs, hooks, all archive contents, and root filenames. It reserves an overlay-first FAT slot for PMC and shifts the named filesystem together to match Frost's indexing assumptions. The named PMC image is retained for Pokeweb's injection tooling. Repeated compatibility exports do not add more slots.
+
+This is not a general repair for ROMs modified by arbitrary tools: rearranged/unknown overlays are rejected, and third-party patches that hard-code NitroFS file IDs are unsupported. Keep injection installation and PMC changes in Pokeweb, not Frost. Frost still has its own data-format limitations and rewrites some NARCs on save; keep backups and fully reboot the game for testing (do not resume a savestate made against a different ROM layout).
+
+Normal **Export ROM** remains available and does not opt into the conversion.
+
 ### Install a bundled gameplay patch
 
 1. Load the original ROM data and the relevant game data.
@@ -72,6 +90,28 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 2. Apply `Specify Trainer Pokemon Natures`.
 3. Open the Trainer editor.
 4. Set each Pokemon's `Nature` field, or leave it as `Auto` to preserve normal behavior.
+
+### Stabilize larger tag battles
+
+1. Load a US White 2 (`IRDO`) ROM with the supported battle AI layout.
+2. Open Code Injection and choose **Install Tag Battle Stabilization**. PMC is installed automatically if needed.
+3. Configure the trainers' teams in the Trainer editor, then export the ROM.
+4. Fully restart the game and test the battle from an ordinary in-game save. A mid-battle emulator save state can retain the previous ROM's loaded code.
+
+The patch allows tag battles containing more than the vanilla limit of six opposing Pokemon, such as four on each opposing trainer. It runs one trainer's AI at a time so different trainers do not keep multiple large AI script buffers in memory simultaneously, preventing the associated intermittent battle-start hang. This also helps ROM hacks with expanded AI scripts.
+
+Team sizes are still configured separately. The patch does not enlarge party storage or the battle heap, and each individual script must still fit in available memory. AI scheduling can change move choices through shared RNG ordering and can increase decision time. Other causes of crashes are outside this fix's scope. Black 2 and other regions are not supported by this bundled build.
+
+### Access the PC from the overworld
+
+1. Load a supported US Black 2 or White 2 ROM.
+2. Open Code Injection and choose **Install Porta PC**. If an original ButtonScript patch is detected, choose **Update Porta PC** to replace it in place.
+3. Export the ROM and fully restart it.
+4. Press **Start** while exploring to open the normal PC menu and access your boxes.
+
+Porta PC calls the ROM's existing PC script, including its usual menu choices. Grid, rail, and hybrid maps are supported, including Castelia City. Other field events take priority when they occur on the same frame. The shortcut is available during normal overworld exploration; it does not open boxes during battles, menus, or cutscenes. Team storage and save formats remain unchanged.
+
+After updating the DLL, export and restart the game from an ordinary in-game save. An older emulator save state contains the old hooks in RAM and is not a valid test of the update.
 
 ### Install PWAN animated-sprite support
 

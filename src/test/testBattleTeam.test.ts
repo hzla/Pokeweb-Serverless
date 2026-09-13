@@ -4,7 +4,7 @@ import { AUTO_ENCOUNTER_TABLE_KEY, encounterRollSelectionsForLevel, getEncounter
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { readGen5SavePokemon } from "../pokeweb/gen5SaveReader";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
-import { decryptPk5Party, encryptPk5Party, normalizeTestBattleSavePartyNicknames, parseShowdownTeam, patchTestBattleSavePlayerFirstPokemon, patchTestBattleSavePlayerParty } from "../pokeweb/testBattleTeam";
+import { decryptPk5Party, encryptPk5Party, experienceForLevel, normalizeTestBattleSavePartyNicknames, parseShowdownTeam, patchTestBattleSavePlayerFirstPokemon, patchTestBattleSavePlayerParty } from "../pokeweb/testBattleTeam";
 import { evolvePokemonForLevel, evolvePokemonForLevelTargets, forceFinalPokemonEvolution, forceFinalPokemonEvolutions, getEvolutionItems, replaceShowdownPokemonSpecies } from "../pokeweb/testTeamEvolution";
 
 describe("testBattleTeam", () => {
@@ -49,6 +49,81 @@ Ivysaur
     expect(() => parseShowdownTeam(project, "Bulbasaur\nAbility: Fake Ability")).toThrow(/Unknown ability: Fake Ability/u);
     expect(() => parseShowdownTeam(project, "Missingno")).toThrow(/Unknown Pokemon: Missingno/u);
     expect(() => parseShowdownTeam(makeProjectWithBulbasaurForm(), "Bulbasaur^2")).toThrow(/Form 2 is out of range/u);
+  });
+
+  it("accepts exact total Exp instead of Level, with Exp taking precedence in either order", () => {
+    const project = makeProject(); // Medium Slow, like Charizard.
+    expect(experienceForLevel(100, 3)).toBe(1059860);
+    for (const fields of ["Exp: 1059859", "Level: 100\nExp: 1059859", "exp: 1059859\nLevel: 100"]) {
+      expect(parseShowdownTeam(project, `Bulbasaur\n${fields}`)[0]).toMatchObject({
+        level: 99, experience: 1059859,
+      });
+    }
+    expect(parseShowdownTeam(project, "Bulbasaur\nExp: 0")[0]).toMatchObject({level: 1, experience: 0});
+    expect(parseShowdownTeam(project, "Bulbasaur\nLevel: 50")[0]).toMatchObject({level: 50});
+    expect(parseShowdownTeam(project, "Bulbasaur")[0]).toMatchObject({level: 100});
+  });
+
+  it("derives levels at exact thresholds and one EXP below for every growth rate", () => {
+    for (let rate = 0; rate < 6; rate += 1) {
+      const project = makeProject();
+      project.narcs.personal!.rawFiles[1][0x15] = rate;
+      for (const level of [2, 15, 36, 50, 68, 98, 100]) {
+        const threshold = experienceForLevel(level, rate);
+        expect(parseShowdownTeam(project, `Bulbasaur\nExp: ${threshold}`)[0]?.level).toBe(level);
+        expect(parseShowdownTeam(project, `Bulbasaur\nExp: ${threshold - 1}`)[0]?.level).toBe(level - 1);
+      }
+    }
+  });
+
+  it("uses the selected form's growth rate when resolving Exp", () => {
+    const project = makeProjectWithBulbasaurForm();
+    project.narcs.personal!.rawFiles[650][0x15] = 4; // Fast: level 100 at 800,000.
+    expect(parseShowdownTeam(project, "Bulbasaur^1\nExp: 799999")[0]).toMatchObject({
+      personalId: 650, formIndex: 1, level: 99, experience: 799999,
+    });
+    expect(() => parseShowdownTeam(project, "Bulbasaur^1\nExp: 800001")).toThrow(/between 0 and 800000/u);
+  });
+
+  it("rejects malformed or over-cap Exp rather than silently defaulting to level 100", () => {
+    for (const value of ["", "-1", "1.5", "NaN", "Infinity", "1e5", "9007199254740993"]) {
+      expect(() => parseShowdownTeam(makeProject(), `Bulbasaur\nLevel: 99\nExp: ${value}`)).toThrow(/Invalid Exp/u);
+    }
+    expect(() => parseShowdownTeam(makeProject(), "Bulbasaur\nExp: 1059861")).toThrow(/between 0 and 1059860/u);
+  });
+
+  it.each(["BW", "BW2"] as const)("writes exact Exp and level-99 stats to both %s save halves", (baseRom) => {
+    const project = makeProject();
+    const halfOffset = baseRom === "BW" ? 0x24000 : 0x26000;
+    const save = makeSaveWithTemplateParty(halfOffset);
+    const original = save.slice();
+    for (const patch of [patchTestBattleSavePlayerParty, patchTestBattleSavePlayerFirstPokemon]) {
+      const patched = patch(save, project, "Bulbasaur\nExp: 1059859\n- Tackle", baseRom);
+      for (const half of [0, halfOffset]) {
+        const offset = half + 0x18e08;
+        const encrypted = patched.subarray(offset, offset + 220);
+        const pokemon = decryptPk5Party(encrypted);
+        expect(readLe32(pokemon, 0x10)).toBe(1059859);
+        expect(pokemon[0x8c]).toBe(99);
+        expect(readLe16(pokemon, 0x8e)).toBe(228); // Current and max HP at 99, not 100.
+        expect(readLe16(pokemon, 0x90)).toBe(228);
+        let checksum = 0;
+        for (let i = 8; i < 136; i += 2) checksum = (checksum + readLe16(pokemon, i)) & 0xffff;
+        expect(readLe16(pokemon, 6)).toBe(checksum);
+        expect(encryptPk5Party(pokemon)).toEqual(encrypted);
+        expect(readLe16(patched, half + 0x19336)).toBe(crc16Ccitt(patched.subarray(half + 0x18e00, half + 0x19334)));
+        const tableOffset = baseRom === "BW" ? 0x23f00 : 0x25f00;
+        const tableLength = baseRom === "BW" ? 0x8c : 0x94;
+        const tableChecksum = baseRom === "BW" ? 0x23f9a : 0x25fa2;
+        expect(readLe16(patched, half + tableOffset + 26 * 2)).toBe(readLe16(patched, half + 0x19336));
+        expect(readLe16(patched, half + tableChecksum)).toBe(crc16Ccitt(patched.subarray(half + tableOffset, half + tableOffset + tableLength)));
+      }
+    }
+    expect(save).toEqual(original);
+    const zeroExp = patchTestBattleSavePlayerParty(save, project, "Bulbasaur\nExp: 0", baseRom);
+    const levelOne = decryptPk5Party(zeroExp.subarray(0x18e08, 0x18e08 + 220));
+    expect(readLe32(levelOne, 0x10)).toBe(0);
+    expect(levelOne[0x8c]).toBe(1);
   });
 
   it("accepts Species^formIndex alongside standard Showdown headers", () => {
