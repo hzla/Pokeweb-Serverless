@@ -12,6 +12,9 @@ import {
 } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
+import { ensureKoMoveLearnsetNarc, hasKoMoveLearnset, KO_MOVE_LEARNSET_PATH } from "./koMoveLearnsetModel";
+import { BATTLE_LOG_RUNTIME_VERSION, getBattleLogInstallStatus } from "./battleLogModel";
+import { parseRpm } from "./rpm";
 
 // The US B2/W2 party overlay loads message NARC member 178.  The Japanese
 // source labels this resource as msg_pokelist, but its retail-US member index
@@ -22,6 +25,8 @@ export const MENU_EVOLUTION_W2_FILENAME = "MenuEvolutionW2.dll";
 export const MENU_EVOLUTION_B2_FILENAME = "MenuEvolutionB2.dll";
 export const MENU_EVOLUTION_W2_PATH = `patches/${MENU_EVOLUTION_W2_FILENAME}`;
 export const MENU_EVOLUTION_B2_PATH = `patches/${MENU_EVOLUTION_B2_FILENAME}`;
+export const MENU_EVOLUTION_RUNTIME_VERSION = 3;
+export const MENU_EVOLUTION_BUNDLED_DLL_VERSION = "1.2.1";
 
 // Menu Evolution extends the retail three-operand GetPartyPokeParameter
 // command. These read-only IDs are shared with the runtime public header.
@@ -65,6 +70,7 @@ const MENU_EVOLUTION_LAYOUTS: Record<MenuEvolutionVersion, {
       { label: "Party command selection", overlayId: 165, address: 0x0219cf24, expectedHex: "00f07ef838bd000038b5051c" },
       { label: "Field evolution handoff", overlayId: 12, address: 0x0215c3a6, expectedHex: "c4f605fa061c0b480c4b0090" },
       { label: "Field evolution return", overlayId: 12, address: 0x0215c3e4, expectedHex: "10b5041ca0690068baf674fb206f0328" },
+      { label: "Post-battle KO evolution", overlayId: 166, address: 0x0219cfa4, expectedHex: "00f0dcf96868311c406a83f693f8301c" },
       { label: "Field-script battle counters", overlayId: 12, address: 0x0215701c, expectedHex: "f8b5061c0d1cfdf781fc041c" },
     ],
   },
@@ -81,6 +87,7 @@ const MENU_EVOLUTION_LAYOUTS: Record<MenuEvolutionVersion, {
       { label: "Party command selection", overlayId: 165, address: 0x0219cee4, expectedHex: "00f07ef838bd000038b5051c" },
       { label: "Field evolution handoff", overlayId: 12, address: 0x0215c366, expectedHex: "c4f60ffa061c0b480c4b0090" },
       { label: "Field evolution return", overlayId: 12, address: 0x0215c3a4, expectedHex: "10b5041ca0690068baf694fb206f0328" },
+      { label: "Post-battle KO evolution", overlayId: 166, address: 0x0219cf64, expectedHex: "00f0dcf96868311c406a83f69df8301c" },
       { label: "Field-script battle counters", overlayId: 12, address: 0x02156fdc, expectedHex: "f8b5061c0d1cfdf781fc041c" },
     ],
   },
@@ -105,6 +112,8 @@ export type MenuEvolutionCompatibilityReport = {
 
 export type MenuEvolutionInstallStatus = MenuEvolutionCompatibilityReport & {
   installed: boolean;
+  upToDate: boolean;
+  updateAvailable: boolean;
   pmcInstalled: boolean;
   dependencyInstalled: boolean;
   canUninstall: boolean;
@@ -116,6 +125,8 @@ export type MenuEvolutionInstallResult = {
   dllPath: string;
   messageBankId: number;
   messageEntryId: number;
+  koLearnsetPath: string;
+  koLearnsetMembers: number;
 };
 
 function menuEvolutionLayout(version: string) {
@@ -147,15 +158,58 @@ export function getMenuEvolutionInstallStatus(project: ProjectState): MenuEvolut
   const compatibility = detectMenuEvolutionCompatibility(project);
   const layout = menuEvolutionLayout(project.session.baseVersion);
   const installed = isMenuEvolutionInstalled(project);
+  const installedModule = layout
+    ? listCodeInjectionDlls(project).find((module) => module.path.toLowerCase() === layout.dllPath.toLowerCase())
+    : undefined;
+  const upToDate = Boolean(installed && layout
+    && (installedModule?.version === MENU_EVOLUTION_BUNDLED_DLL_VERSION
+      || installedMenuEvolutionVersion(project, layout) === MENU_EVOLUTION_BUNDLED_DLL_VERSION)
+    && hasKoMoveLearnset(project));
   return {
     ...compatibility,
     installed,
+    upToDate,
+    updateAvailable: installed && !upToDate,
     pmcInstalled: getPmcInstallStatus(project).installed,
     dependencyInstalled: hasMenuEvolutionBattleCounterDependency(project),
     canUninstall: installed && canUninstallMenuEvolution(project),
     dllPath: layout?.dllPath,
     messageEntryId: project.codeInjection?.menuEvolution?.messageEntryId,
   };
+}
+
+export function isKoMoveEditorAvailable(project: ProjectState): boolean {
+  const menuStatus = getMenuEvolutionInstallStatus(project);
+  if (!menuStatus.upToDate || !menuStatus.dependencyInstalled) return false;
+  return getBattleLogInstallStatus(project).upToDate;
+}
+
+function installedMenuEvolutionVersion(
+  project: ProjectState,
+  layout: NonNullable<ReturnType<typeof menuEvolutionLayout>>,
+): string | undefined {
+  const additionPath = Object.keys(project.fileSystem?.additions ?? {}).find(
+    (path) => path.toLowerCase() === layout.dllPath.toLowerCase(),
+  );
+  let bytes = additionPath ? project.fileSystem?.additions?.[additionPath] : undefined;
+  if (!bytes && project.originalRomBytes) {
+    try {
+      const rom = new NintendoDSRom(project.originalRomBytes);
+      const fileId = rom.filenames.idOf(layout.dllPath);
+      if (fileId !== undefined) bytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
+    } catch {
+      return undefined;
+    }
+  }
+  if (!bytes) return undefined;
+  try {
+    const metadata = parseRpm(bytes, { allowedMagics: ["DLXF"] }).metadata;
+    return metadata.PMCGameID === project.session.baseVersion && typeof metadata.PMCVersion === "string"
+      ? metadata.PMCVersion
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function detectMenuEvolutionCompatibility(
@@ -255,6 +309,9 @@ export async function installMenuEvolution(project: ProjectState): Promise<MenuE
   if (!hasMenuEvolutionBattleCounterDependency(project)) {
     throw new Error(`Install the battle log first; ${layout.counterDllPath} is required by Menu Evolution.`);
   }
+  if (!getBattleLogInstallStatus(project).upToDate) {
+    throw new Error(`Update the battle log before installing Menu Evolution; immediate KO moves require runtime version ${BATTLE_LOG_RUNTIME_VERSION}.`);
+  }
 
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the ROM before installing Menu Evolution.");
@@ -267,20 +324,29 @@ export async function installMenuEvolution(project: ProjectState): Promise<MenuE
   if (!response.ok) throw new Error(`Could not load the bundled Menu Evolution DLL (${response.status})`);
   const configuredDll = configureMenuEvolutionDll(new Uint8Array(await response.arrayBuffer()), messageEntryId);
   stageCodeInjectionDll(project, layout.dllFilename, configuredDll, "patches", romBytes);
+  const koLearnset = ensureKoMoveLearnsetNarc(project);
 
   project.codeInjection ??= {};
   project.codeInjection.menuEvolution = {
     messageBankId: MENU_EVOLUTION_MESSAGE_BANK_ID,
     messageEntryId,
+    koLearnsetPath: koLearnset.path,
+    runtimeVersion: MENU_EVOLUTION_RUNTIME_VERSION,
   };
   recordGenericChange(
     project,
     "code_injection",
-    `${layout.dllFilename} staged with message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID}, entry ${messageEntryId}.`,
+    `${layout.dllFilename} staged with post-battle KO evolution, mid-battle KO moves, message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID}, entry ${messageEntryId}, and ${koLearnset.members} KO learnset members.`,
     "Menu Evolution",
     { key: "code-injection:menu-evolution" },
   );
-  return { dllPath: layout.dllPath, messageBankId: MENU_EVOLUTION_MESSAGE_BANK_ID, messageEntryId };
+  return {
+    dllPath: layout.dllPath,
+    messageBankId: MENU_EVOLUTION_MESSAGE_BANK_ID,
+    messageEntryId,
+    koLearnsetPath: koLearnset.path,
+    koLearnsetMembers: koLearnset.members,
+  };
 }
 
 export function uninstallMenuEvolution(project: ProjectState): void {

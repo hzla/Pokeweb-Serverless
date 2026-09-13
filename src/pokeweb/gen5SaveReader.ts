@@ -1,7 +1,7 @@
 import { NATURES } from "./constants";
 import { pokemonSpeciesLabel } from "./pokemonLabels";
 import { decodeRecord, type ProjectState, type RawRecord } from "./projectStore";
-import { decryptPk5Party, decryptPk5Stored, experienceForLevel } from "./testBattleTeam";
+import { decryptPk5Party, decryptPk5Stored, levelForExperience } from "./testBattleTeam";
 
 const GEN5_SAVE_MINIMUM_SIZE = 0x19334;
 const PARTY_COUNT_OFFSET = 0x18e04;
@@ -211,13 +211,6 @@ function formatStats(stats: Record<StatKey, number>): string {
     `${stats.spd} SpD`,
     `${stats.spe} Spe`,
   ].join(" / ");
-}
-
-function levelForExperience(experience: number, growthRate: number): number {
-  for (let level = 100; level > 1; level -= 1) {
-    if (experience >= experienceForLevel(level, growthRate)) return level;
-  }
-  return 1;
 }
 
 function namedValue(values: string[] | undefined, id: number): string {

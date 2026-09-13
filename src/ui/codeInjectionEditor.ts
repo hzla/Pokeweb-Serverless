@@ -31,6 +31,12 @@ import {
   uninstallMenuEvolution,
 } from "../pokeweb/menuEvolutionModel";
 import {
+  getTagBattleStabilizationStatus,
+  installTagBattleStabilization,
+  uninstallTagBattleStabilization,
+} from "../pokeweb/tagBattleStabilizationModel";
+import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
+import {
   detectPwanRuntimeCompatibility,
   pwanCompatibilityFailureSummary,
   type PwanCompatibilityCheck,
@@ -49,6 +55,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const formEvolutionInstalled = formEvolutionStatus === "patched";
   const doubleBattleFixStatus = detectBundledDoubleBattleFixDll(project);
   const doubleBattleFixSupported = status.installed && doubleBattleFixStatus !== "unsupported";
+  const tagBattleStatus = getTagBattleStabilizationStatus(project);
+  const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
+  const portaPcStatus = getPortaPcStatus(project);
+  const portaPcCanInstall = portaPcStatus.supported && portaPcStatus.compatible
+    && (!portaPcStatus.installed || portaPcStatus.updateAvailable);
   const weatherRuntimeStatus = detectBundledOverworldWeatherRuntime(project);
   const weatherRuntimeInstalled = weatherRuntimeStatus === "patched";
   const weatherRuntimeSupported = weatherRuntimeStatus !== "unsupported";
@@ -64,7 +75,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const menuEvolutionStatus = getMenuEvolutionInstallStatus(project);
   const menuEvolutionCanInstall = menuEvolutionStatus.supported
     && menuEvolutionStatus.compatible
-    && menuEvolutionStatus.dependencyInstalled;
+    && menuEvolutionStatus.dependencyInstalled
+    && battleLogStatus.upToDate;
   const menuEvolutionCanUninstall = menuEvolutionStatus.installed && canUninstallMenuEvolution(project);
   if (shouldHydrateRomBytesForPwanCompatibility(project, pwanCompatibility)) {
     void hydrateRomBytesForPwanCompatibility(project, root, onDirty);
@@ -204,11 +216,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Menu Evolution</h2>
-              <p>Adds an Evolve command to eligible Pokémon in the BW2 field party menu and exposes individual battle counters to field scripts through command 0x010C.</p>
+              <p>Adds an EVOLVE command, post-battle KO evolution, and KO-threshold moves that can be learned immediately after a KO.</p>
             </div>
-            <span class="code-injection-status ${menuEvolutionStatus.installed ? "-installed" : menuEvolutionCanInstall ? "" : "-error"}">
+            <span class="code-injection-status ${menuEvolutionStatus.upToDate ? "-installed" : menuEvolutionCanInstall ? "" : "-error"}">
               ${
-                menuEvolutionStatus.installed
+                menuEvolutionStatus.updateAvailable
+                  ? "Update Available"
+                  : menuEvolutionStatus.upToDate
                   ? "Installed"
                   : !menuEvolutionStatus.supported
                     ? "Unsupported"
@@ -223,13 +237,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-facts">
             <div><span>ROM</span><strong>US ${escapeHtml(menuEvolutionDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
             <div><span>Methods</span><strong>Level, KOs, Battles, Used</strong></div>
+            <div><span>KO Moves</span><strong>32 per Pokémon</strong></div>
             <div><span>Battle Counters</span><strong>${menuEvolutionStatus.dependencyInstalled ? "Installed" : "Required"}</strong></div>
             <div><span>PMC</span><strong>${menuEvolutionStatus.pmcInstalled ? "Installed" : "Will Install"}</strong></div>
             <div><span>Hook Checks</span><strong>${menuEvolutionStatus.checked ? `${menuEvolutionStatus.passed}/${menuEvolutionStatus.checks.length}` : "On install"}</strong></div>
           </div>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-menu-evolution-btn" type="button" ${menuEvolutionCanInstall ? "" : "disabled"}>
-              ${menuEvolutionStatus.installed ? "Reinstall Menu Evolution" : "Install Menu Evolution"}
+              ${menuEvolutionStatus.updateAvailable ? "Update Menu Evolution" : menuEvolutionStatus.installed ? "Reinstall Menu Evolution" : "Install Menu Evolution"}
             </button>
             <button class="btn -default" id="uninstall-menu-evolution-btn" type="button" ${menuEvolutionCanUninstall ? "" : "disabled"}
               title="${menuEvolutionStatus.installed && !menuEvolutionCanUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Menu Evolution DLL."}">
@@ -237,8 +252,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </button>
             <div class="code-injection-note" id="menu-evolution-note">
               ${
-                !menuEvolutionStatus.dependencyInstalled
-                  ? "Install Trainer Battle Log first so the matching individual-counter DLL is available."
+                !menuEvolutionStatus.dependencyInstalled || !battleLogStatus.upToDate
+                  ? "Install or update Trainer Battle Log first so the immediate-KO counter runtime is available."
                   : `${escapeHtml(menuEvolutionStatus.message)} ${menuEvolutionStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."}`
               }
             </div>
@@ -306,6 +321,58 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <span>Implementation credits</span>
             <strong>Sunk</strong>
             <strong>Papaya</strong>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Tag Battle Stabilization</h2>
+              <p>Allows tag battles with more than the vanilla limit of six opposing Pokemon, such as two opponents with four Pokemon each. Runs one trainer's AI at a time to reduce script memory use and prevent the related battle-start hang.</p>
+            </div>
+            <span class="code-injection-status ${!tagBattleStatus.supported || !tagBattleStatus.compatible ? "-error" : tagBattleStatus.installed ? "-installed" : ""}">
+              ${!tagBattleStatus.supported ? "Unsupported" : !tagBattleStatus.compatible ? "Incompatible" : tagBattleStatus.installed ? "Installed" : "Ready"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Supported ROM</span><strong>US White 2</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <p>Configure each trainer's team in the Trainer editor. This patch does not change team sizes.</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-tag-battle-stabilization-btn" type="button" ${tagBattleCanInstall ? "" : "disabled"}>
+              Install Tag Battle Stabilization
+            </button>
+            <button class="btn -default" id="uninstall-tag-battle-stabilization-btn" type="button" ${tagBattleStatus.canUninstall ? "" : "disabled"}
+              title="${tagBattleStatus.installed && !tagBattleStatus.canUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Tag Battle Stabilization DLL."}">
+              Uninstall Tag Battle Stabilization
+            </button>
+            <div class="code-injection-note" id="tag-battle-stabilization-note">${escapeHtml(tagBattleStatus.message)}</div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Porta PC</h2>
+              <p>Press Start while exploring to open the in-game PC and access your Pokemon boxes. Supports grid and rail maps, including Castelia City. Uses the normal PC menu and gives other field events priority.</p>
+            </div>
+            <span class="code-injection-status ${!portaPcStatus.supported || !portaPcStatus.compatible ? "-error" : portaPcStatus.installed && !portaPcStatus.updateAvailable ? "-installed" : ""}">
+              ${!portaPcStatus.supported ? "Unsupported" : !portaPcStatus.compatible ? "Incompatible" : portaPcStatus.updateAvailable ? "Update Available" : portaPcStatus.installed ? "Installed" : "Ready"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Button</span><strong>Start</strong></div>
+            <div><span>Supported ROMs</span><strong>US Black 2 / White 2</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-porta-pc-btn" type="button" ${portaPcCanInstall ? "" : "disabled"}>
+              ${portaPcStatus.updateAvailable ? "Update Porta PC" : "Install Porta PC"}
+            </button>
+            <button class="btn -default" id="uninstall-porta-pc-btn" type="button" ${portaPcStatus.canUninstall ? "" : "disabled"}
+              title="${portaPcStatus.installed && !portaPcStatus.canUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Porta PC DLL."}">
+              Uninstall Porta PC
+            </button>
+            <div class="code-injection-note" id="porta-pc-note">${escapeHtml(portaPcStatus.message)}</div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -445,6 +512,66 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  const tagBattleButton = root.querySelector<HTMLButtonElement>("#install-tag-battle-stabilization-btn");
+  const tagBattleNote = root.querySelector<HTMLDivElement>("#tag-battle-stabilization-note");
+  tagBattleButton?.addEventListener("click", async () => {
+    try {
+      tagBattleButton.disabled = true;
+      tagBattleButton.textContent = "Installing...";
+      if (tagBattleNote) tagBattleNote.textContent = "Checking battle AI compatibility and installing Tag Battle Stabilization.";
+      await installTagBattleStabilization(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#tag-battle-stabilization-note");
+      if (refreshedNote) refreshedNote.textContent = "Tag Battle Stabilization is staged. Export the ROM to apply it.";
+    } catch (error) {
+      tagBattleButton.disabled = false;
+      tagBattleButton.textContent = "Install Tag Battle Stabilization";
+      if (tagBattleNote) tagBattleNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const uninstallTagBattleButton = root.querySelector<HTMLButtonElement>("#uninstall-tag-battle-stabilization-btn");
+  uninstallTagBattleButton?.addEventListener("click", () => {
+    try {
+      uninstallTagBattleStabilization(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      if (tagBattleNote) tagBattleNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const portaPcButton = root.querySelector<HTMLButtonElement>("#install-porta-pc-btn");
+  const portaPcNote = root.querySelector<HTMLDivElement>("#porta-pc-note");
+  portaPcButton?.addEventListener("click", async () => {
+    const previousText = portaPcButton.textContent;
+    try {
+      portaPcButton.disabled = true;
+      portaPcButton.textContent = "Installing...";
+      if (portaPcNote) portaPcNote.textContent = "Checking field compatibility and installing Porta PC.";
+      await installPortaPc(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#porta-pc-note");
+      if (refreshedNote) refreshedNote.textContent = "Porta PC is staged. Export the ROM, then press Start while exploring to use the PC.";
+    } catch (error) {
+      portaPcButton.disabled = false;
+      portaPcButton.textContent = previousText;
+      if (portaPcNote) portaPcNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  root.querySelector<HTMLButtonElement>("#uninstall-porta-pc-btn")?.addEventListener("click", () => {
+    try {
+      uninstallPortaPc(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      if (portaPcNote) portaPcNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
   const battleLogButton = root.querySelector<HTMLButtonElement>("#install-battle-log-btn");
   const battleLogNote = root.querySelector<HTMLDivElement>("#battle-log-note");
   battleLogButton?.addEventListener("click", async () => {
@@ -463,7 +590,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#battle-log-note");
       if (refreshedNote) {
-        refreshedNote.textContent = `Battle log ${updating ? "updated" : "staged"} at ${result.dllPath}, ${result.counterDllPath}, and ${result.summaryDllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.${refreshMenuEvolution ? " The installed Menu Evolution companion was refreshed for the new PK5 counter layout." : ""}`;
+        refreshedNote.textContent = `Battle log ${updating ? "updated" : "staged"} at ${result.dllPath}, ${result.counterDllPath}, and ${result.summaryDllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.${refreshMenuEvolution ? " The installed Menu Evolution companion was refreshed for immediate KO events and KO moves." : ""}`;
       }
     } catch (error) {
       const currentButton = root.querySelector<HTMLButtonElement>("#install-battle-log-btn") ?? battleLogButton;
@@ -500,14 +627,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       menuEvolutionButton.disabled = true;
       menuEvolutionButton.textContent = "Installing...";
       if (menuEvolutionNote) {
-        menuEvolutionNote.textContent = "Checking BW2 hooks, configuring the Evolve message, and staging the companion DLL.";
+        menuEvolutionNote.textContent = "Checking BW2 hooks, configuring EVOLVE, creating the KO learnset NARC, and staging the enhanced companion DLL.";
       }
       const result = await installMenuEvolution(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#menu-evolution-note");
       if (refreshedNote) {
-        refreshedNote.textContent = `Menu Evolution staged at ${result.dllPath} using message bank ${result.messageBankId}, entry ${result.messageEntryId}.`;
+        refreshedNote.textContent = `Menu Evolution staged at ${result.dllPath} using message bank ${result.messageBankId}, entry ${result.messageEntryId}; ${result.koLearnsetMembers} KO learnset members are available at ${result.koLearnsetPath}.`;
       }
     } catch (error) {
       const currentButton = root.querySelector<HTMLButtonElement>("#install-menu-evolution-btn") ?? menuEvolutionButton;

@@ -77,7 +77,7 @@ export function renderTrainerEditor(
       </button>
       <div class="trainer-test-team">
         <div class="filter-title">Test Team</div>
-        <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import. Use Bulbasaur^1 for form 1.">${escapeHtml(savedTestBattleTeamText)}</textarea>
+        <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import. Use Bulbasaur^1 for form 1. Exp: N sets exact total EXP instead of Level: N (Exp wins if both are present).">${escapeHtml(savedTestBattleTeamText)}</textarea>
         ${isGen5Project(project) ? `
           <div class="trainer-save-reader">
             <input id="trainer-save-upload" class="trainer-save-upload" type="file" accept=".sav,.dsv,.srm,application/octet-stream" hidden>

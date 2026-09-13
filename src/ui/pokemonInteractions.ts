@@ -24,10 +24,17 @@ import {
 import { findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import { updatePokemonTextName } from "../pokeweb/pokemonTextModel";
 import type { ProjectState } from "../pokeweb/projectStore";
+import {
+  appendPokemonKoMove,
+  copyPokemonKoMoves,
+  deletePokemonKoMove,
+  insertPokemonKoMove,
+  updatePokemonKoMoveField,
+} from "../pokeweb/koMoveLearnsetModel";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
 
-type PokemonEditableNarc = "personal" | "learnset" | "evolution" | "egg_moves";
+type PokemonEditableNarc = "personal" | "learnset" | "evolution" | "egg_moves" | "ko_learnset";
 type PokemonFieldUpdate = ReturnType<typeof updatePokemonField>;
 
 export type PokemonInteractionOptions = {
@@ -319,6 +326,36 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
       return;
     }
 
+    const koLearnsetAction = target.closest<HTMLElement>("[data-ko-learnset-action]");
+    if (koLearnsetAction) {
+      const card = koLearnsetAction.closest<HTMLElement>(".pokemon-card.filterable");
+      const speciesId = Number(card?.dataset.index);
+      const action = koLearnsetAction.dataset.koLearnsetAction;
+      const index = Number(koLearnsetAction.dataset.koLearnsetIndex);
+      if (!card || !Number.isInteger(speciesId)) return;
+      try {
+        if (action === "append") appendPokemonKoMove(project, speciesId);
+        else if (action === "copy") {
+          const input = koLearnsetAction.closest<HTMLElement>(".learnset-toolbar")?.querySelector<HTMLInputElement>(".ko-learnset-copy-source");
+          copyPokemonKoMoves(project, speciesId, Number(input?.value.trim()));
+        } else if (action === "insert" && Number.isInteger(index)) insertPokemonKoMove(project, speciesId, index);
+        else if (action === "delete" && Number.isInteger(index)) deletePokemonKoMove(project, speciesId, index);
+        else return;
+        refreshExpandedPanels(card, project, speciesId, "learnset", options);
+        options.onDirty?.();
+        stripeRows(root);
+      } catch (error) {
+        koLearnsetAction.classList.add("invalid");
+        const input = koLearnsetAction.closest<HTMLElement>(".learnset-toolbar")?.querySelector<HTMLInputElement>(".ko-learnset-copy-source");
+        if (input && action === "copy") {
+          input.classList.add("invalid");
+          input.title = error instanceof Error ? error.message : String(error);
+          input.focus();
+        }
+      }
+      return;
+    }
+
     const eggMoveAction = target.closest<HTMLElement>("[data-egg-move-action]");
     if (eggMoveAction) {
       const card = eggMoveAction.closest<HTMLElement>(".pokemon-card.filterable");
@@ -550,7 +587,7 @@ function installEditableFields(root: HTMLElement, project: ProjectState, options
     field.addEventListener("focusout", () => {
       const card = field.closest<HTMLElement>(".pokemon-card.filterable");
       const speciesId = Number(card?.dataset.index);
-      const narc = field.dataset.narc as "personal" | "learnset" | "evolution" | "egg_moves" | undefined;
+      const narc = field.dataset.narc as PokemonEditableNarc | undefined;
       const fieldName = field.dataset.fieldName;
       if (!card || !Number.isInteger(speciesId) || !narc || !fieldName) return;
 
@@ -559,7 +596,11 @@ function installEditableFields(root: HTMLElement, project: ProjectState, options
       if (nextValue === initialValue) return;
 
       try {
-        const result = narc === "egg_moves" ? updateEggMoveField(project, speciesId, fieldName, nextValue) : updatePokemonField(project, speciesId, narc, fieldName, nextValue);
+        const result = narc === "egg_moves"
+          ? updateEggMoveField(project, speciesId, fieldName, nextValue)
+          : narc === "ko_learnset"
+            ? updatePokemonKoMoveField(project, speciesId, fieldName, nextValue)
+            : updatePokemonField(project, speciesId, narc, fieldName, nextValue);
         field.textContent = String(result.value);
         field.classList.remove("invalid");
         field.style.border = "";
@@ -629,11 +670,12 @@ function visiblePokemonCards(root: HTMLElement): HTMLElement[] {
 }
 
 function isPokemonEditableNarc(narc: string): narc is PokemonEditableNarc {
-  return narc === "personal" || narc === "learnset" || narc === "evolution" || narc === "egg_moves";
+  return narc === "personal" || narc === "learnset" || narc === "evolution" || narc === "egg_moves" || narc === "ko_learnset";
 }
 
 function updatePokemonEditableField(project: ProjectState, speciesId: number, narc: PokemonEditableNarc, fieldName: string, value: string): PokemonFieldUpdate {
   if (narc === "egg_moves") return updateEggMoveField(project, speciesId, fieldName, value);
+  if (narc === "ko_learnset") return updatePokemonKoMoveField(project, speciesId, fieldName, value);
   return updatePokemonField(project, speciesId, narc, fieldName, value);
 }
 
