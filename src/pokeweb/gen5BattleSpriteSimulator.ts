@@ -30,6 +30,8 @@ export const GEN5_BATTLE_SPRITE_COMMANDS = new Set([
 export type Gen5BattleSpriteTarget = "user" | "target";
 
 export type Gen5BattleSpriteActorState = {
+  animationTick: number;
+  animationFrozen: boolean;
   exists: boolean;
   visible: boolean;
   positionOffset: [number, number, number];
@@ -61,6 +63,8 @@ type RuntimeTask = {
 };
 
 type RuntimeActor = {
+  animationTick: number;
+  animationStopFlags: number;
   target: Gen5BattleSpriteTarget;
   oddPosition: boolean;
   exists: boolean;
@@ -97,6 +101,7 @@ class Gen5BattleSpriteRuntime {
         actor.tasks.clear();
         continue;
       }
+      if (actor.animationStopFlags === 0) actor.animationTick += 1;
       for (const [channel, task] of [...actor.tasks.entries()]) {
         if (task.tick() && actor.tasks.get(channel) === task) actor.tasks.delete(channel);
       }
@@ -158,6 +163,11 @@ class Gen5BattleSpriteRuntime {
         applyBlinkCommand(actor, p);
         return;
       case "FreezeSprite":
+        // Retail keeps the ordinary and persistent stop flags independent.
+        if (p[1] === 1) actor.animationStopFlags |= 1;
+        else if (p[1] === 2) actor.animationStopFlags |= 2;
+        else if (p[1] === 3) actor.animationStopFlags &= ~2;
+        else actor.animationStopFlags &= ~1;
         return;
       case "ChangeColor":
         actor.tasks.set("palette", makePaletteTask(actor, p));
@@ -241,6 +251,8 @@ function runTimeline(timeline: MoveAnimationTimelineEvent[], targetFrame: number
 
 function makeActor(target: Gen5BattleSpriteTarget, oddPosition: boolean, defaultPosition: FixedVec3): RuntimeActor {
   return {
+    animationTick: 0,
+    animationStopFlags: 0,
     target,
     oddPosition,
     exists: true,
@@ -560,6 +572,8 @@ function actorState(actor: RuntimeActor): Gen5BattleSpriteActorState {
   ];
   const opacity = clamp(actor.alpha / 31, 0, 1);
   return {
+    animationTick: actor.animationTick,
+    animationFrozen: actor.animationStopFlags !== 0,
     exists: actor.exists,
     visible: actor.exists && !actor.vanish,
     positionOffset: fixedVecToWorld(totalOffset),

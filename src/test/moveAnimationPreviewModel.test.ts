@@ -333,7 +333,7 @@ describe("moveAnimationPreviewModel", () => {
 
     expect(preview.timeline.find((event) => event.command === "DistortSprite")?.status).toBe("supported");
     expect(preview.timeline.find((event) => event.command === "PokemonBlinkFlag")?.status).toBe("marker");
-    expect(preview.timeline.find((event) => event.command === "FreezeSprite")?.status).toBe("marker");
+    expect(preview.timeline.find((event) => event.command === "FreezeSprite")?.status).toBe("supported");
     expect(preview.timeline.find((event) => event.command === "TerminateMoveScript")?.frame).toBe(4);
     expect(preview.warnings.some((warning) => warning.command === "DistortSprite" || warning.command === "FreezeSprite")).toBe(false);
 

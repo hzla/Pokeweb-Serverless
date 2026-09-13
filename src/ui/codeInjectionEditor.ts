@@ -24,6 +24,7 @@ import {
   uninstallBattleLog,
 } from "../pokeweb/battleLogModel";
 import {
+  MENU_EVOLUTION_TITLE,
   canUninstallMenuEvolution,
   getMenuEvolutionInstallStatus,
   installMenuEvolution,
@@ -200,7 +201,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -default" id="uninstall-battle-log-btn" type="button" ${battleLogCanUninstall ? "" : "disabled"}
               title="${
                 battleLogStatus.installed && menuEvolutionStatus.installed
-                  ? "Uninstall Menu Evolution first."
+                  ? `Uninstall ${MENU_EVOLUTION_TITLE} first.`
                   : battleLogStatus.installed && !battleLogCanUninstall
                     ? "DLLs already built into the loaded ROM cannot be removed yet."
                     : "Remove the staged battle-log DLLs."
@@ -215,8 +216,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">
             <div>
-              <h2>Menu Evolution</h2>
-              <p>Adds an EVOLVE command, post-battle KO evolution, and KO-threshold moves that can be learned immediately after a KO.</p>
+              <h2>${MENU_EVOLUTION_TITLE}</h2>
+              <p>Adds EVOLVE and RELEARN party commands, post-battle KO evolution, and immediate KO-threshold moves. RELEARN opens the native move reminder with eligible level-up and KO moves, without a Heart Scale.</p>
             </div>
             <span class="code-injection-status ${menuEvolutionStatus.upToDate ? "-installed" : menuEvolutionCanInstall ? "" : "-error"}">
               ${
@@ -238,17 +239,18 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><span>ROM</span><strong>US ${escapeHtml(menuEvolutionDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
             <div><span>Methods</span><strong>Level, KOs, Battles, Used</strong></div>
             <div><span>KO Moves</span><strong>32 per Pokémon</strong></div>
+            <div><span>Relearn</span><strong>Current level + earned KOs</strong></div>
             <div><span>Battle Counters</span><strong>${menuEvolutionStatus.dependencyInstalled ? "Installed" : "Required"}</strong></div>
             <div><span>PMC</span><strong>${menuEvolutionStatus.pmcInstalled ? "Installed" : "Will Install"}</strong></div>
             <div><span>Hook Checks</span><strong>${menuEvolutionStatus.checked ? `${menuEvolutionStatus.passed}/${menuEvolutionStatus.checks.length}` : "On install"}</strong></div>
           </div>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-menu-evolution-btn" type="button" ${menuEvolutionCanInstall ? "" : "disabled"}>
-              ${menuEvolutionStatus.updateAvailable ? "Update Menu Evolution" : menuEvolutionStatus.installed ? "Reinstall Menu Evolution" : "Install Menu Evolution"}
+              ${menuEvolutionStatus.updateAvailable ? "Update" : menuEvolutionStatus.installed ? "Reinstall" : "Install"}
             </button>
             <button class="btn -default" id="uninstall-menu-evolution-btn" type="button" ${menuEvolutionCanUninstall ? "" : "disabled"}
-              title="${menuEvolutionStatus.installed && !menuEvolutionCanUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Menu Evolution DLL."}">
-              Uninstall Menu Evolution
+              title="${menuEvolutionStatus.installed && !menuEvolutionCanUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : `Remove the staged ${MENU_EVOLUTION_TITLE} DLL.`}">
+              Uninstall
             </button>
             <div class="code-injection-note" id="menu-evolution-note">
               ${
@@ -590,7 +592,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#battle-log-note");
       if (refreshedNote) {
-        refreshedNote.textContent = `Battle log ${updating ? "updated" : "staged"} at ${result.dllPath}, ${result.counterDllPath}, and ${result.summaryDllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.${refreshMenuEvolution ? " The installed Menu Evolution companion was refreshed for immediate KO events and KO moves." : ""}`;
+        refreshedNote.textContent = `Battle log ${updating ? "updated" : "staged"} at ${result.dllPath}, ${result.counterDllPath}, and ${result.summaryDllPath}; ancestry was generated from ${result.evolutionMembers} evolution records.${refreshMenuEvolution ? ` The installed ${MENU_EVOLUTION_TITLE} companion was refreshed for immediate KO events and KO moves.` : ""}`;
       }
     } catch (error) {
       const currentButton = root.querySelector<HTMLButtonElement>("#install-battle-log-btn") ?? battleLogButton;
@@ -622,19 +624,19 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const menuEvolutionButton = root.querySelector<HTMLButtonElement>("#install-menu-evolution-btn");
   const menuEvolutionNote = root.querySelector<HTMLDivElement>("#menu-evolution-note");
   menuEvolutionButton?.addEventListener("click", async () => {
-    const previousText = menuEvolutionButton.textContent ?? "Install Menu Evolution";
+    const previousText = menuEvolutionButton.textContent ?? "Install";
     try {
       menuEvolutionButton.disabled = true;
       menuEvolutionButton.textContent = "Installing...";
       if (menuEvolutionNote) {
-        menuEvolutionNote.textContent = "Checking BW2 hooks, configuring EVOLVE, creating the KO learnset NARC, and staging the enhanced companion DLL.";
+        menuEvolutionNote.textContent = "Checking BW2 hooks, configuring EVOLVE and RELEARN, preparing the KO learnset NARC, and staging the enhanced companion DLL.";
       }
       const result = await installMenuEvolution(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#menu-evolution-note");
       if (refreshedNote) {
-        refreshedNote.textContent = `Menu Evolution staged at ${result.dllPath} using message bank ${result.messageBankId}, entry ${result.messageEntryId}; ${result.koLearnsetMembers} KO learnset members are available at ${result.koLearnsetPath}.`;
+        refreshedNote.textContent = `${MENU_EVOLUTION_TITLE} staged at ${result.dllPath} using message bank ${result.messageBankId}, EVOLVE entry ${result.messageEntryId} and RELEARN entry ${result.relearnMessageEntryId}; ${result.koLearnsetMembers} KO learnset members are available at ${result.koLearnsetPath}.`;
       }
     } catch (error) {
       const currentButton = root.querySelector<HTMLButtonElement>("#install-menu-evolution-btn") ?? menuEvolutionButton;
@@ -654,7 +656,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#menu-evolution-note");
       if (refreshedNote) {
-        refreshedNote.textContent = "Menu Evolution removed. The Evolve text entry remains available for a later reinstall.";
+        refreshedNote.textContent = `${MENU_EVOLUTION_TITLE} removed. The EVOLVE and RELEARN text entries remain available for a later reinstall.`;
       }
     } catch (error) {
       uninstallMenuEvolutionButton.disabled = false;

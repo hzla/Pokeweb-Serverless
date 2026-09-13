@@ -14,6 +14,7 @@ import { parseNitroBackground, type NitroBackgroundImage, type NitroBackgroundPa
 import type { NitroCellEffect, NitroCellImage } from "./nitroCell";
 import { parseSpaArchive, type SpaArchive } from "./nitroSpa";
 import type { MoveAnimationBattleEnvironment } from "./moveAnimationBattleEnvironment";
+import type { PokemonBattleSpriteAnimation } from "./pokemonBattleSpriteAnimation";
 import { gen5BattleSpriteIdleFrame, isGen5BattleSpriteCommand } from "./gen5BattleSpriteSimulator";
 import type { RgbaImageData } from "./pokemonSpriteModel";
 import { splEmitterDurationFrames } from "./splEmitterSimulator";
@@ -43,7 +44,7 @@ const WAIT_FOR_PENDING_COMMANDS = new Set(["LetCMDsFinish"]);
 
 export function getMoveAnimationPreviewSupport(command: string): "supported" | "marker" | "unsupported" {
   if (command === "Wait" || WAIT_FOR_PENDING_COMMANDS.has(command) || command === "LoadSPA" || SPA_COMMANDS.has(command) || command === "LoadBackground" || BACKGROUND_RENDER_COMMANDS.has(command) || CAMERA_COMMANDS.has(command)) return "supported";
-  if (isGen5BattleSpriteCommand(command)) return command === "FreezeSprite" || command === "PokemonBlinkFlag" ? "marker" : "supported";
+  if (isGen5BattleSpriteCommand(command)) return command === "PokemonBlinkFlag" ? "marker" : "supported";
   if (MARKER_COMMANDS.has(command) || BACKGROUND_MARKER_COMMANDS.has(command)) return "marker";
   return "unsupported";
 }
@@ -291,6 +292,8 @@ export type MoveAnimationPreview = {
   actorSprites?: {
     userSprite: RgbaImageData;
     targetSprite: RgbaImageData;
+    userAnimation?: PokemonBattleSpriteAnimation;
+    targetAnimation?: PokemonBattleSpriteAnimation;
     swappedSides?: boolean;
   };
   backgroundPaletteAnimations?: Map<number, NitroBackgroundPaletteAnimation>;
@@ -621,7 +624,7 @@ function expandScript(
     }
 
     if (isGen5BattleSpriteCommand(command.name)) {
-      const visualNoop = command.name === "FreezeSprite" || command.name === "PokemonBlinkFlag";
+      const visualNoop = command.name === "PokemonBlinkFlag";
       const event = makeEvent(command, frame, visualNoop ? "marker" : "supported", spriteEventMessage(command), { sourceMoveId: moveId });
       timeline.push(event);
       continue;
@@ -711,7 +714,7 @@ function spriteEventMessage(command: ParsedMoveAnimationCommand): string {
   if (command.name === "SpriteOpacity") return `Adjust sprite opacity selector ${target}`;
   if (command.name === "PokemonMosaic") return `Apply sprite mosaic selector ${target}`;
   if (command.name === "PokemonBlinkFlag") return `Sprite blink timing selector ${target}; static preview image unchanged`;
-  if (command.name === "FreezeSprite") return `PWAN/cell playback flag selector ${target}; static preview image unchanged`;
+  if (command.name === "FreezeSprite") return `PWAN/cell playback flag ${command.params[1] ?? 0} for selector ${target}`;
   if (command.name === "ChangeColor") return `Fade sprite palette selector ${target}`;
   if (command.name === "ChangeVisibility") return `Change sprite visibility selector ${target}`;
   if (command.name === "PokemonShadowVanish") return `Change sprite shadow visibility selector ${target}`;

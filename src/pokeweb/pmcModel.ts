@@ -364,8 +364,10 @@ export async function stageBundledMainMenuSkipDll(project: ProjectState): Promis
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not load bundled main menu skip patch (${response.status})`);
 
+  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+  if (!romBytes) throw new Error("Reload the ROM before preparing Test Battle startup skipping.");
   const fileName = MAIN_MENU_SKIP_FILENAMES[project.session.baseVersion];
-  const result = stageCodeInjectionDll(project, fileName, new Uint8Array(await response.arrayBuffer()), "patches");
+  const result = stageCodeInjectionDll(project, fileName, new Uint8Array(await response.arrayBuffer()), "patches", romBytes);
   recordGenericChange(project, "code_injection", `${fileName} staged for Test Battle startup skipping.`, "Main Menu Skip", {
     key: "code-injection:main-menu-skip",
   });
@@ -1071,7 +1073,17 @@ function detectCodeInjectionDllsFromRom(rom: NintendoDSRom): NonNullable<NonNull
   for (const file of listNamedRomFiles(rom.filenames).sort((a, b) => a.path.localeCompare(b.path))) {
     const bytes = rom.files[file.id];
     if (!bytes || readAscii(bytes, 0, 4) !== "DLXF") continue;
+    const previousCount = modules.length;
     addDllModuleFromPath(file.path, seen, modules);
+    if (modules.length > previousCount) {
+      try {
+        const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+        modules[previousCount]!.version = stringMeta(rpm, "PMCVersion");
+        modules[previousCount]!.gameId = stringMeta(rpm, "PMCGameID");
+      } catch {
+        // Still list an opaque legacy DLL, but never guess its version.
+      }
+    }
   }
   return modules;
 }

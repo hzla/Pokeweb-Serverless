@@ -12,7 +12,7 @@ import {
 } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
-import { ensureKoMoveLearnsetNarc, hasKoMoveLearnset, KO_MOVE_LEARNSET_PATH } from "./koMoveLearnsetModel";
+import { ensureKoMoveLearnsetNarc, hasKoMoveLearnset, hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
 import { BATTLE_LOG_RUNTIME_VERSION, getBattleLogInstallStatus } from "./battleLogModel";
 import { parseRpm } from "./rpm";
 
@@ -20,13 +20,14 @@ import { parseRpm } from "./rpm";
 // source labels this resource as msg_pokelist, but its retail-US member index
 // is not the source tree's 158.
 export const MENU_EVOLUTION_MESSAGE_BANK_ID = 178;
-export const MENU_EVOLUTION_CONFIG_VERSION = 1;
+export const MENU_EVOLUTION_CONFIG_VERSION = 2;
 export const MENU_EVOLUTION_W2_FILENAME = "MenuEvolutionW2.dll";
 export const MENU_EVOLUTION_B2_FILENAME = "MenuEvolutionB2.dll";
 export const MENU_EVOLUTION_W2_PATH = `patches/${MENU_EVOLUTION_W2_FILENAME}`;
 export const MENU_EVOLUTION_B2_PATH = `patches/${MENU_EVOLUTION_B2_FILENAME}`;
-export const MENU_EVOLUTION_RUNTIME_VERSION = 3;
-export const MENU_EVOLUTION_BUNDLED_DLL_VERSION = "1.2.1";
+export const MENU_EVOLUTION_RUNTIME_VERSION = 5;
+export const MENU_EVOLUTION_BUNDLED_DLL_VERSION = "1.3.1";
+export const MENU_EVOLUTION_TITLE = "Enhanced Party Menu and Battle Log Integration";
 
 // Menu Evolution extends the retail three-operand GetPartyPokeParameter
 // command. These read-only IDs are shared with the runtime public header.
@@ -71,7 +72,14 @@ const MENU_EVOLUTION_LAYOUTS: Record<MenuEvolutionVersion, {
       { label: "Field evolution handoff", overlayId: 12, address: 0x0215c3a6, expectedHex: "c4f605fa061c0b480c4b0090" },
       { label: "Field evolution return", overlayId: 12, address: 0x0215c3e4, expectedHex: "10b5041ca0690068baf674fb206f0328" },
       { label: "Post-battle KO evolution", overlayId: 166, address: 0x0219cfa4, expectedHex: "00f0dcf96868311c406a83f693f8301c" },
+      { label: "Post-battle evolution resolver", overlayId: 166, address: 0x0219d2aa, expectedHex: "83f683fa0690208f0590608f40106087" },
       { label: "Field-script battle counters", overlayId: 12, address: 0x0215701c, expectedHex: "f8b5061c0d1cfdf781fc041c" },
+      { label: "Relearn field-event allocation", overlayId: 12, address: 0x0215b4d4, expectedHex: "1c4a7c23bbf6ecfb061cbbf6" },
+      { label: "Relearn field-event callback", overlayId: 12, address: 0x0215b548, expectedHex: "4db51502f0b583b00f1c051c3868141c0d285ed8" },
+      { label: "Relearn app-unload wait", overlayId: 12, address: 0x0215b6e4, expectedHex: "a0690068bbf6f4f9002824d10d2021e06368" },
+      { label: "Native reminder parameter layout", overlayId: 12, address: 0x021577f4, expectedHex: "041c266067600020a0600698e560206101206076" },
+      { label: "Native reminder entry point", overlayId: 12, address: 0x0215784c, expectedHex: "02010000e8b91902" },
+      { label: "Native reminder callbacks", overlayId: 258, address: 0x0219b9e8, expectedHex: "0199190275991902519a1902" },
     ],
   },
   B2: {
@@ -88,7 +96,14 @@ const MENU_EVOLUTION_LAYOUTS: Record<MenuEvolutionVersion, {
       { label: "Field evolution handoff", overlayId: 12, address: 0x0215c366, expectedHex: "c4f60ffa061c0b480c4b0090" },
       { label: "Field evolution return", overlayId: 12, address: 0x0215c3a4, expectedHex: "10b5041ca0690068baf694fb206f0328" },
       { label: "Post-battle KO evolution", overlayId: 166, address: 0x0219cf64, expectedHex: "00f0dcf96868311c406a83f69df8301c" },
+      { label: "Post-battle evolution resolver", overlayId: 166, address: 0x0219d26a, expectedHex: "83f68dfa0690208f0590608f40106087" },
       { label: "Field-script battle counters", overlayId: 12, address: 0x02156fdc, expectedHex: "f8b5061c0d1cfdf781fc041c" },
+      { label: "Relearn field-event allocation", overlayId: 12, address: 0x0215b494, expectedHex: "1c4a7c23bbf60cfc061cbbf6" },
+      { label: "Relearn field-event callback", overlayId: 12, address: 0x0215b508, expectedHex: "0db51502f0b583b00f1c051c3868141c0d285ed8" },
+      { label: "Relearn app-unload wait", overlayId: 12, address: 0x0215b6a4, expectedHex: "a0690068bbf614fa002824d10d2021e06368" },
+      { label: "Native reminder parameter layout", overlayId: 12, address: 0x021577b4, expectedHex: "041c266067600020a0600698e560206101206076" },
+      { label: "Native reminder entry point", overlayId: 12, address: 0x0215780c, expectedHex: "02010000a8b91902" },
+      { label: "Native reminder callbacks", overlayId: 258, address: 0x0219b9a8, expectedHex: "c198190235991902119a1902" },
     ],
   },
 };
@@ -119,12 +134,14 @@ export type MenuEvolutionInstallStatus = MenuEvolutionCompatibilityReport & {
   canUninstall: boolean;
   dllPath?: string;
   messageEntryId?: number;
+  relearnMessageEntryId?: number;
 };
 
 export type MenuEvolutionInstallResult = {
   dllPath: string;
   messageBankId: number;
   messageEntryId: number;
+  relearnMessageEntryId: number;
   koLearnsetPath: string;
   koLearnsetMembers: number;
 };
@@ -175,6 +192,7 @@ export function getMenuEvolutionInstallStatus(project: ProjectState): MenuEvolut
     canUninstall: installed && canUninstallMenuEvolution(project),
     dllPath: layout?.dllPath,
     messageEntryId: project.codeInjection?.menuEvolution?.messageEntryId,
+    relearnMessageEntryId: project.codeInjection?.menuEvolution?.relearnMessageEntryId,
   };
 }
 
@@ -224,7 +242,7 @@ export function detectMenuEvolutionCompatibility(
       checked: false,
       passed: 0,
       checks: [],
-      message: "Menu Evolution supports US Black 2 and White 2 only.",
+      message: `${MENU_EVOLUTION_TITLE} supports US Black 2 and White 2 only.`,
     };
   }
   if (!romBytes) {
@@ -248,7 +266,7 @@ export function detectMenuEvolutionCompatibility(
       checked: true,
       passed: 0,
       checks: [],
-      message: "The source ROM could not be parsed for Menu Evolution compatibility.",
+      message: `The source ROM could not be parsed for ${MENU_EVOLUTION_TITLE} compatibility.`,
     };
   }
   if (rom.idCode !== layout.idCode) {
@@ -296,33 +314,37 @@ export function detectMenuEvolutionCompatibility(
     passed,
     checks,
     message: compatible
-      ? `All ${checks.length} Menu Evolution hook regions match the US ${layout.displayName} layout.`
-      : `Menu Evolution compatibility failed (${passed}/${checks.length} hook regions matched).`,
+      ? `All ${checks.length} companion hook regions match the US ${layout.displayName} layout.`
+      : `${MENU_EVOLUTION_TITLE} compatibility failed (${passed}/${checks.length} hook regions matched).`,
   };
 }
 
 export async function installMenuEvolution(project: ProjectState): Promise<MenuEvolutionInstallResult> {
   const layout = menuEvolutionLayout(project.session.baseVersion);
   if (project.session.baseRom !== "BW2" || !layout) {
-    throw new Error("Menu Evolution supports US Black 2 and White 2 only.");
+    throw new Error(`${MENU_EVOLUTION_TITLE} supports US Black 2 and White 2 only.`);
   }
   if (!hasMenuEvolutionBattleCounterDependency(project)) {
-    throw new Error(`Install the battle log first; ${layout.counterDllPath} is required by Menu Evolution.`);
+    throw new Error(`Install the battle log first; ${layout.counterDllPath} is required by ${MENU_EVOLUTION_TITLE}.`);
   }
   if (!getBattleLogInstallStatus(project).upToDate) {
-    throw new Error(`Update the battle log before installing Menu Evolution; immediate KO moves require runtime version ${BATTLE_LOG_RUNTIME_VERSION}.`);
+    throw new Error(`Update the battle log before installing ${MENU_EVOLUTION_TITLE}; immediate KO moves require runtime version ${BATTLE_LOG_RUNTIME_VERSION}.`);
   }
 
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
-  if (!romBytes) throw new Error("Reload the ROM before installing Menu Evolution.");
+  if (!romBytes) throw new Error(`Reload the ROM before installing ${MENU_EVOLUTION_TITLE}.`);
   const compatibility = detectMenuEvolutionCompatibility(project, romBytes);
   if (!compatibility.compatible) throw new Error(compatibility.message);
+  // Autosave releases project.originalRomBytes; use the resolved IndexedDB
+  // source here instead of treating an installed KO archive as a new file.
+  hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(romBytes));
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
 
   const messageEntryId = ensureEvolveMessage(project);
+  const relearnMessageEntryId = ensureRelearnMessage(project);
   const response = await fetch(layout.dllUrl);
-  if (!response.ok) throw new Error(`Could not load the bundled Menu Evolution DLL (${response.status})`);
-  const configuredDll = configureMenuEvolutionDll(new Uint8Array(await response.arrayBuffer()), messageEntryId);
+  if (!response.ok) throw new Error(`Could not load the bundled ${MENU_EVOLUTION_TITLE} DLL (${response.status})`);
+  const configuredDll = configureMenuEvolutionDll(new Uint8Array(await response.arrayBuffer()), messageEntryId, relearnMessageEntryId);
   stageCodeInjectionDll(project, layout.dllFilename, configuredDll, "patches", romBytes);
   const koLearnset = ensureKoMoveLearnsetNarc(project);
 
@@ -330,20 +352,22 @@ export async function installMenuEvolution(project: ProjectState): Promise<MenuE
   project.codeInjection.menuEvolution = {
     messageBankId: MENU_EVOLUTION_MESSAGE_BANK_ID,
     messageEntryId,
+    relearnMessageEntryId,
     koLearnsetPath: koLearnset.path,
     runtimeVersion: MENU_EVOLUTION_RUNTIME_VERSION,
   };
   recordGenericChange(
     project,
     "code_injection",
-    `${layout.dllFilename} staged with post-battle KO evolution, mid-battle KO moves, message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID}, entry ${messageEntryId}, and ${koLearnset.members} KO learnset members.`,
-    "Menu Evolution",
+    `${layout.dllFilename} staged with EVOLVE and RELEARN, post-battle KO evolution, mid-battle KO moves, message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID}, entries ${messageEntryId}/${relearnMessageEntryId}, and ${koLearnset.members} KO learnset members.`,
+    MENU_EVOLUTION_TITLE,
     { key: "code-injection:menu-evolution" },
   );
   return {
     dllPath: layout.dllPath,
     messageBankId: MENU_EVOLUTION_MESSAGE_BANK_ID,
     messageEntryId,
+    relearnMessageEntryId,
     koLearnsetPath: koLearnset.path,
     koLearnsetMembers: koLearnset.members,
   };
@@ -352,55 +376,65 @@ export async function installMenuEvolution(project: ProjectState): Promise<MenuE
 export function uninstallMenuEvolution(project: ProjectState): void {
   const layout = menuEvolutionLayout(project.session.baseVersion);
   if (project.session.baseRom !== "BW2" || !layout) {
-    throw new Error("Menu Evolution supports US Black 2 and White 2 only.");
+    throw new Error(`${MENU_EVOLUTION_TITLE} supports US Black 2 and White 2 only.`);
   }
   if (!canUninstallMenuEvolution(project)) {
-    throw new Error("A Menu Evolution DLL already built into the loaded ROM cannot be removed by this editor yet.");
+    throw new Error("An enhanced party-menu DLL already built into the loaded ROM cannot be removed by this editor yet.");
   }
   removeStagedCodeInjectionDll(project, layout.dllPath);
   if (project.codeInjection) delete project.codeInjection.menuEvolution;
   recordGenericChange(
     project,
     "code_injection",
-    "The staged Menu Evolution DLL was removed. Its harmless Evolve text entry was retained.",
-    "Menu Evolution",
+    "The staged enhanced party-menu DLL was removed. Its harmless EVOLVE and RELEARN text entries were retained.",
+    MENU_EVOLUTION_TITLE,
     { key: "code-injection:menu-evolution" },
   );
 }
 
 export function ensureEvolveMessage(project: ProjectState): number {
+  return ensurePartyCommandMessage(project, "EVOLVE");
+}
+
+export function ensureRelearnMessage(project: ProjectState): number {
+  return ensurePartyCommandMessage(project, "RELEARN");
+}
+
+function ensurePartyCommandMessage(project: ProjectState, label: "EVOLVE" | "RELEARN"): number {
   const bank = getTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID);
   if (bank.length === 0) {
     throw new Error(`Message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID} is unavailable or empty.`);
   }
   const existing = bank.find((entry) => parseTextEntryId(entry[0]).block === 0
-    && entry[1].trim().toLowerCase() === "evolve");
+    && entry[1].trim().toUpperCase() === label);
   if (existing) {
-    if (existing[1] !== "EVOLVE") {
-      existing[1] = "EVOLVE";
+    if (existing[1] !== label) {
+      existing[1] = label;
       commitTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID);
     }
     return parseTextEntryId(existing[0]).entry;
   }
 
   const nextEntryId = Math.max(...bank.map((entry) => parseTextEntryId(entry[0]).entry)) + 1;
-  if (nextEntryId > 0xffff) {
-    throw new Error(`Message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID} has no available entry ID for Evolve.`);
+  if (nextEntryId >= 0xffff) {
+    throw new Error(`Message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID} has no available entry ID for ${label}.`);
   }
   addTextEntries(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID, 1);
   const appended = getTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID)
     .filter((entry) => parseTextEntryId(entry[0]).entry === nextEntryId);
-  if (appended.length === 0) throw new Error("The Evolve message entry could not be appended.");
+  if (appended.length === 0) throw new Error(`The ${label} message entry could not be appended.`);
   appended.forEach((entry) => {
-    entry[1] = "EVOLVE";
+    entry[1] = label;
   });
   commitTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID);
   return nextEntryId;
 }
 
-export function configureMenuEvolutionDll(bytes: Uint8Array, messageEntryId: number): Uint8Array {
-  if (!Number.isInteger(messageEntryId) || messageEntryId < 0 || messageEntryId > 0xffff) {
-    throw new Error(`Invalid Menu Evolution message entry ID: ${messageEntryId}`);
+export function configureMenuEvolutionDll(bytes: Uint8Array, messageEntryId: number, relearnMessageEntryId: number): Uint8Array {
+  for (const id of [messageEntryId, relearnMessageEntryId]) {
+    if (!Number.isInteger(id) || id < 0 || id >= 0xffff) {
+      throw new Error(`Invalid Menu Evolution message entry ID: ${id}`);
+    }
   }
   const matches = findAll(bytes, MENU_EVOLUTION_CONFIG_MAGIC);
   if (matches.length !== 1) {
@@ -408,14 +442,16 @@ export function configureMenuEvolutionDll(bytes: Uint8Array, messageEntryId: num
   }
   const output = bytes.slice();
   const offset = matches[0]!;
-  if (offset + 16 > output.length || readU16(output, offset + 8) !== MENU_EVOLUTION_CONFIG_VERSION) {
+  if (offset + 20 > output.length || readU16(output, offset + 8) !== MENU_EVOLUTION_CONFIG_VERSION) {
     throw new Error("The Menu Evolution DLL has an unsupported configuration layout.");
   }
-  output[offset + 10] = messageEntryId & 0xff;
-  output[offset + 11] = messageEntryId >>> 8;
-  const complement = messageEntryId ^ 0xffff;
-  output[offset + 12] = complement & 0xff;
-  output[offset + 13] = complement >>> 8;
+  for (const [field, id] of [[10, messageEntryId], [14, relearnMessageEntryId]] as const) {
+    output[offset + field] = id & 0xff;
+    output[offset + field + 1] = id >>> 8;
+    const complement = id ^ 0xffff;
+    output[offset + field + 2] = complement & 0xff;
+    output[offset + field + 3] = complement >>> 8;
+  }
   return output;
 }
 

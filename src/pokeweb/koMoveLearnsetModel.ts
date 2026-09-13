@@ -26,13 +26,43 @@ export function hasKoMoveLearnset(project: ProjectState): boolean {
   return Boolean(currentKoLearnsetBytes(project));
 }
 
+export function hydrateKoMoveLearnsetFromRom(project: ProjectState, rom: NintendoDSRom): void {
+  const fileId = rom.filenames.idOf(KO_MOVE_LEARNSET_PATH);
+  if (fileId === undefined) {
+    delete project.koMoveLearnsetSource;
+    return;
+  }
+  project.koMoveLearnsetSource = { fileId, bytes: rom.files[fileId]! };
+
+  // Older installers lost sight of the source archive after autosave removed
+  // originalRomBytes. They staged an empty duplicate, possibly followed by
+  // actual KO edits. Recover per member: retain original lists for untouched
+  // empty rows, but honor explicit edits (including an intentional deletion).
+  const duplicate = project.fileSystem?.additions?.[KO_MOVE_LEARNSET_PATH];
+  if (!duplicate) return;
+  const original = new NARC(project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId]);
+  const added = new NARC(duplicate);
+  validateKoMoveNarc(original);
+  validateKoMoveNarc(added);
+  const edited = new Set((project.actionChangelog?.entries ?? [])
+    .map((entry) => /^pokemon:(\d+):ko-learnset$/u.exec(entry.key)?.[1])
+    .filter((id): id is string => id !== undefined).map(Number));
+  for (let member = 0; member < added.files.length; member += 1) {
+    if (member >= original.files.length || edited.has(member) || decodeRawEntries(added.files[member]!).length > 0) {
+      original.files[member] = added.files[member]!;
+    }
+  }
+  setRomFileReplacement(project, fileId, original.save());
+  delete project.fileSystem!.additions![KO_MOVE_LEARNSET_PATH];
+}
+
 export function ensureKoMoveLearnsetNarc(project: ProjectState): { path: string; members: number; bytes: number } {
   const minimumMembers = Math.max(
     project.narcs.learnsets?.fileCount ?? 0,
     project.narcs.evolutions?.fileCount ?? 0,
     project.narcs.personal?.fileCount ?? 0,
   );
-  if (minimumMembers <= 0) throw new Error("Load Pokemon learnsets before installing Menu Evolution.");
+  if (minimumMembers <= 0) throw new Error("Load Pokemon learnsets before installing the enhanced party-menu patch.");
 
   const existing = currentKoLearnsetBytes(project);
   const narc = existing ? new NARC(existing) : new NARC();
@@ -192,7 +222,7 @@ function requiredKoMoveNarc(project: ProjectState): NARC {
   // direct member lookup just like the retail learnset NARC.
   ensureKoMoveLearnsetNarc(project);
   const narc = loadKoMoveNarc(project);
-  if (!narc) throw new Error("Install Menu Evolution to create the KO move learnset NARC.");
+  if (!narc) throw new Error("Install the enhanced party-menu patch to create the KO move learnset NARC.");
   return narc;
 }
 
@@ -205,33 +235,23 @@ function loadKoMoveNarc(project: ProjectState): NARC | undefined {
 }
 
 function currentKoLearnsetBytes(project: ProjectState): Uint8Array | undefined {
-  const added = project.fileSystem?.additions?.[KO_MOVE_LEARNSET_PATH];
-  if (added) return added;
-  const romBytes = project.originalRomBytes;
-  if (!romBytes) return undefined;
-  try {
-    const rom = new NintendoDSRom(romBytes);
-    const fileId = rom.filenames.idOf(KO_MOVE_LEARNSET_PATH);
-    if (fileId === undefined) return undefined;
-    return project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
-  } catch {
-    return undefined;
+  if (!project.koMoveLearnsetSource && project.originalRomBytes) {
+    hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(project.originalRomBytes));
   }
+  const source = project.koMoveLearnsetSource;
+  if (source) return project.fileSystem?.replacements?.[source.fileId] ?? source.bytes;
+  const added = project.fileSystem?.additions?.[KO_MOVE_LEARNSET_PATH];
+  return added;
 }
 
 function stageKoLearnsetBytes(project: ProjectState, bytes: Uint8Array): void {
-  const romBytes = project.originalRomBytes;
-  if (romBytes) {
-    try {
-      const rom = new NintendoDSRom(romBytes);
-      const fileId = rom.filenames.idOf(KO_MOVE_LEARNSET_PATH);
-      if (fileId !== undefined) {
-        setRomFileReplacement(project, fileId, bytes);
-        return;
-      }
-    } catch {
-      // Fall through to an append-only ROM addition.
-    }
+  if (!project.koMoveLearnsetSource && project.originalRomBytes) {
+    hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(project.originalRomBytes));
+  }
+  if (project.koMoveLearnsetSource) {
+    setRomFileReplacement(project, project.koMoveLearnsetSource.fileId, bytes);
+    delete project.fileSystem?.additions?.[KO_MOVE_LEARNSET_PATH];
+    return;
   }
   addRomFile(project, KO_MOVE_LEARNSET_PATH, bytes);
 }

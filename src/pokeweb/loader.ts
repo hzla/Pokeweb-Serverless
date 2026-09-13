@@ -27,6 +27,8 @@ import { parseHeaders } from "./headerModel";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { detectPmcInstallFromRom } from "./pmcModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
+import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
+import { hydrateBattleLogInstallMetadata } from "./battleLogModel";
 import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
 import { createFileStore, createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
 import { getStarterOverlayIds } from "./starterModel";
@@ -107,7 +109,9 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   };
   if (isGen5BaseRom(version.baseRom)) {
     project.codeInjection = detectPmcInstallFromRom(rom);
+    hydrateBattleLogInstallMetadata(project, rom);
     hydratePwanAnimationsFromRom(project, rom);
+    hydrateKoMoveLearnsetFromRom(project, rom);
   }
 
   const selectedNarcs = new Set<NarcName>(options.selectedNarcs ?? []);
