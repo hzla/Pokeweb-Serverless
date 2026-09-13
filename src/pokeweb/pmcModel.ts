@@ -742,9 +742,9 @@ function gen5FamilyForIdCode(idCode: string): "BW" | "BW2" | undefined {
 export function codeInjectionInsertedFiles(project: ProjectState, rom: NintendoDSRom): Array<{ fileId: number; path: string; bytes: Uint8Array }> {
   void project;
   void rom;
-  // New overlay data must be appended, not inserted at overlayId. Inserting
-  // before the named filesystem shifts baked archive file IDs used by battle
-  // effects and corrupts otherwise untouched animations.
+  // Normal exports keep existing NitroFS file IDs stable. The explicit Frost
+  // compatibility export reserves an overlay-first slot as a separate final
+  // conversion; do not apply that layout change to every Pokeweb export.
   return [];
 }
 

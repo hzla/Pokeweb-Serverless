@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { readAscii, readU16 } from "../nds/binary";
 import { EVO_METHODS } from "../pokeweb/constants";
 import { canUninstallBattleLog, uninstallBattleLog } from "../pokeweb/battleLogModel";
+import { ensureKoMoveLearnsetNarc } from "../pokeweb/koMoveLearnsetModel";
 import {
   MENU_EVOLUTION_B2_PATH,
   MENU_EVOLUTION_CONFIG_VERSION,
@@ -14,6 +15,7 @@ import {
   configureMenuEvolutionDll,
   ensureEvolveMessage,
   getMenuEvolutionInstallStatus,
+  isKoMoveEditorAvailable,
   uninstallMenuEvolution,
 } from "../pokeweb/menuEvolutionModel";
 import { evolutionParamAutofillKey } from "../pokeweb/pokemonModel";
@@ -44,6 +46,7 @@ describe("BW2 Menu Evolution", () => {
         "165:219bb3e:THUMB_BRANCH_LINK",
         "165:219cf24:THUMB_BRANCH_LINK",
         "165:219fe04:THUMB_BRANCH_LINK",
+        "166:219cfa4:THUMB_BRANCH_LINK",
       ]],
       ["B2", menuEvolutionB2, [
         "12:2156fdc:THUMB_BRANCH",
@@ -52,11 +55,12 @@ describe("BW2 Menu Evolution", () => {
         "165:219bafe:THUMB_BRANCH_LINK",
         "165:219cee4:THUMB_BRANCH_LINK",
         "165:219fdc4:THUMB_BRANCH_LINK",
+        "166:219cf64:THUMB_BRANCH_LINK",
       ]],
     ] as const) {
       expect(readAscii(dll, 0, 4)).toBe("DLXF");
       const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
-      expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
+      expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4, PMCVersion: "1.2.1" });
       expect(rpm.symbols.every((symbol) => symbol.name === null)).toBe(true);
       expect(externalHooks(dll)).toEqual(hooks);
     }
@@ -121,6 +125,22 @@ describe("BW2 Menu Evolution", () => {
 
     expect(missing).toMatchObject({ supported: true, compatible: true, installed: false, dependencyInstalled: false });
     expect(ready).toMatchObject({ supported: true, compatible: true, installed: false, dependencyInstalled: true });
+  });
+
+  it("keeps the KO Moves editor hidden when only its retained data NARC exists", () => {
+    const project = makeProject("W2", true);
+    project.narcs.learnsets = {
+      name: "learnsets",
+      fileId: 1,
+      sourcePath: "a/0/1/8",
+      fileCount: 4,
+      rawFiles: Array.from({ length: 4 }, () => new Uint8Array()),
+      records: new Map(),
+      dirty: new Set(),
+    };
+    ensureKoMoveLearnsetNarc(project);
+
+    expect(isKoMoveEditorAvailable(project)).toBe(false);
   });
 
   it("prevents removing battle counters while the companion remains installed", () => {

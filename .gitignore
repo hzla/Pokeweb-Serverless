@@ -20,6 +20,8 @@ generated/
 work/
 analysis/
 runtime/form-evolution/build/
+runtime/tag-battle-stabilization/build/
+runtime/porta-pc/build/
 
 # Local agent working notes.
 Agents.md

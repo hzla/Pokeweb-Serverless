@@ -353,6 +353,7 @@ let activePwanAnimationSpeciesId: number | undefined;
 let dirty = false;
 let hasExportBase = false;
 let refreshRomRequestInFlight = false;
+let romExportInProgress = false;
 const scheduleSave = debounceProjectSave();
 
 installIntegrationConsoleApi(
@@ -933,9 +934,14 @@ function renderNav(): string {
         ${navItem("docGenerators", "Doc Generators")}
         ${navItem("mastersheet", "Mastersheet")}
         ${renderRefreshRomButton()}
-        <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true" ${
-          hasExportBase ? "" : `title="Reload the ROM before exporting this older saved project"`
-        }>Export</a>
+        <div class="header-more">
+          <button class="header-item header-more-trigger" type="button" aria-haspopup="true" aria-expanded="false">Export</button>
+          <div class="header-more-menu">
+            <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true">Export ROM</a>
+            <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-frost-rom="true"
+              title="Export Pokeweb's Gen V PMC layout for Frost. Third-party code using hard-coded file IDs is not supported.">Export for Frost</a>
+          </div>
+        </div>
         <a class="header-item" href="#" data-route="upload">New</a>
       </div>
     </div>
@@ -1097,6 +1103,11 @@ function attachNav(): void {
     }
     await downloadRom();
   });
+  appRoot.querySelector<HTMLAnchorElement>("[data-export-frost-rom]")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    if (!project || !hasExportBase) return;
+    await downloadRom(true);
+  });
 
   appRoot.querySelector<HTMLButtonElement>("[data-refresh-rom]")?.addEventListener("click", async (event) => {
     event.preventDefault();
@@ -1178,18 +1189,20 @@ async function refreshRomFromLocalPath(button: HTMLButtonElement): Promise<void>
   }
 }
 
-async function downloadRom(): Promise<void> {
-  if (!project) return;
-  const link = appRoot.querySelector<HTMLAnchorElement>("[data-export-rom]");
+async function downloadRom(frostCompatibility = false): Promise<void> {
+  if (!project || romExportInProgress) return;
+  romExportInProgress = true;
+  const link = appRoot.querySelector<HTMLAnchorElement>(frostCompatibility ? "[data-export-frost-rom]" : "[data-export-rom]");
+  const exportLinks = appRoot.querySelectorAll<HTMLAnchorElement>("[data-export-rom], [data-export-frost-rom]");
   const previousText = link?.textContent ?? "Export";
-  const filename = `${project.session.romName || "pokeweb"}-modified.nds`;
+  const filename = `${project.session.romName || "pokeweb"}-${frostCompatibility ? "frost-compatible" : "modified"}.nds`;
   let saveStarted = false;
   try {
     if (link) {
       link.textContent = "Building...";
-      link.classList.add("disabled");
     }
-    const bytes = await exportModifiedRom(project);
+    exportLinks.forEach((item) => item.classList.add("disabled"));
+    const bytes = await exportModifiedRom(project, { frostCompatibility });
     if (bytes.length === 0) throw new Error("Export produced an empty ROM. No file was written.");
     const blob = bytesBlob(bytes, "application/octet-stream");
     await saveActiveProject(project);
@@ -1212,9 +1225,10 @@ async function downloadRom(): Promise<void> {
     const message = saveStarted ? "Saving the exported ROM failed." : "Export failed. No ROM file was saved.";
     window.alert(`${message}\n\n${errorMessage(error)}`);
   } finally {
+    romExportInProgress = false;
+    exportLinks.forEach((item) => item.classList.toggle("disabled", !hasExportBase));
     if (link) {
       link.textContent = previousText;
-      link.classList.toggle("disabled", !hasExportBase);
     }
   }
 }

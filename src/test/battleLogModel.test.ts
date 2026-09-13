@@ -89,6 +89,8 @@ describe("trainer battle log", () => {
       "167:21ae36d:THUMB_BRANCH",
     ]);
     expect(externalHooks(white2BattleCountersDll)).toEqual([
+      "167:21b7ed4:THUMB_BRANCH_LINK",
+      "167:21b8144:THUMB_BRANCH_LINK",
       "167:21bb3a9:THUMB_BRANCH",
     ]);
     expect(externalHooks(white2BattleLogSummaryDll)).toEqual([
@@ -111,6 +113,8 @@ describe("trainer battle log", () => {
       "167:21ae32d:THUMB_BRANCH",
     ]);
     expect(externalHooks(black2BattleCountersDll)).toEqual([
+      "167:21b7e94:THUMB_BRANCH_LINK",
+      "167:21b8104:THUMB_BRANCH_LINK",
       "167:21bb369:THUMB_BRANCH",
     ]);
     expect(externalHooks(black2BattleLogSummaryDll)).toEqual([
@@ -129,6 +133,46 @@ describe("trainer battle log", () => {
       expect(parseRpm(counters, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
       expect(parseRpm(summary, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
       expect([...externalHooks(battle), ...externalHooks(counters), ...externalHooks(summary)].sort()).toEqual([...addresses].sort());
+    }
+  });
+
+  it("passes the client's BattleMon from the retail stack to KO move learning", () => {
+    for (const [dll, hookAddress, archiveLookup] of [
+      [black2BattleCountersDll, 0x021b8104, 0x02070cc9],
+      [white2BattleCountersDll, 0x021b8144, 0x02070cf5],
+    ] as const) {
+      const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
+      const hook = rpm.relocations.find((relocation) =>
+        relocation.target.module === "167" && relocation.target.address === hookAddress)!;
+      const symbol = rpm.symbols[hook.sourceSymbolIndex]!;
+      const offset = (symbol.address - rpm.baseAddress) & ~1;
+      // push {r4,lr}; ldr r3,[sp,#8]: original caller's [sp,#0].
+      expect(rpm.code.subarray(offset, offset + 4)).toEqual(hexBytes("10b5029b"));
+      // The intervening BL uses normal PMC relocation; preserve its return.
+      expect(readU16(rpm.code, offset + 8)).toBe(0xbd10); // pop {r4,pc}
+      expect(countU32Occurrences(dll, archiveLookup)).toBe(1);
+    }
+  });
+
+  it("keeps the EXP shared state store reachable after learning, without entering a BL suffix", () => {
+    for (const [dll, delta, returnAddress] of [
+      [black2BattleCountersDll, 0, 0x021b8063],
+      [white2BattleCountersDll, 0x40, 0x021b80a3],
+    ] as const) {
+      const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
+      const hooks = rpm.relocations.filter((relocation) => relocation.target.module === "167");
+      // Retail wazaOboeSeq completion: movs r0,#1; b shared_state_store.
+      // E73D at 0x021B8052 jumps to 0x021B7ED0, not the preceding mov #13.
+      const sharedStore = 0x021b8052 + delta + 4 + (((0xe73d & 0x7ff) << 1) - 0x1000);
+      expect(sharedStore).toBe(0x021b7ed0 + delta);
+      expect(hooks.some((hook) => hook.target.address <= sharedStore
+        && sharedStore < hook.target.address + (hook.target.type === "THUMB_BRANCH_LINK" ? 4 : 8))).toBe(false);
+      const transition = hooks.find((hook) => hook.target.address === 0x021b7e94 + delta)!;
+      const symbol = rpm.symbols[transition.sourceSymbolIndex]!;
+      const offset = (symbol.address - rpm.baseAddress) & ~1;
+      expect(readU16(rpm.code, offset)).toBe(0x2800); // cmp exp,#0
+      expect(readU16(rpm.code, offset + 2) & 0xff00).toBe(0xd100); // bne: preserve nonzero EXP
+      expect(countU32Occurrences(dll, returnAddress)).toBe(1); // retail end-of-frame epilogue
     }
   });
 
@@ -345,12 +389,21 @@ describe("trainer battle log", () => {
       saveGuardInstalled: true,
     });
 
-    project.codeInjection.battleLog!.runtimeVersion = 3;
+    // v5 used server/client pointers; v6 overwrote a shared EXP tail; v7
+    // replayed level moves on KO-only checks. All need the v8 update even
+    // when persistence has released the original DLL bytes.
+    for (const oldVersion of [5, 6, 7]) {
+      project.codeInjection.battleLog!.runtimeVersion = oldVersion;
+      expect(getBattleLogInstallStatus(project)).toMatchObject({
+        installed: true, upToDate: false, updateAvailable: true,
+      });
+    }
+    project.codeInjection.battleLog!.runtimeVersion = 8;
     expect(getBattleLogInstallStatus(project)).toMatchObject({
       installed: true,
       upToDate: true,
       updateAvailable: false,
-      runtimeVersion: 3,
+      runtimeVersion: 8,
     });
   });
 
@@ -367,7 +420,7 @@ describe("trainer battle log", () => {
         installed: true,
         upToDate: true,
         updateAvailable: false,
-        runtimeVersion: 3,
+        runtimeVersion: version.endsWith("2") ? 8 : 3,
       });
     }
   });
@@ -388,7 +441,7 @@ describe("trainer battle log", () => {
       installed: true,
       upToDate: false,
       updateAvailable: true,
-      bundledRuntimeVersion: 3,
+      bundledRuntimeVersion: 8,
     });
   });
 });

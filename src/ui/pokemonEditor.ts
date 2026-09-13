@@ -50,6 +50,12 @@ import tutorsIcon from "../assets/svgs/tutors.svg?raw";
 import soundIcon from "../assets/svgs/sound_move.svg?raw";
 import { publicAsset } from "../assetUrl";
 import { installPokemonCryPanel, renderPokemonCryPanel } from "./pokemonCryEditor";
+import {
+  getPokemonKoMoves,
+  KO_MOVE_LEARNSET_MAX_MOVES,
+  type KoMoveLearnsetEntry,
+} from "../pokeweb/koMoveLearnsetModel";
+import { isKoMoveEditorAvailable } from "../pokeweb/menuEvolutionModel";
 
 const ICONS: Record<string, string> = {
   learnset: movesIcon,
@@ -364,6 +370,8 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
   const personalSpeciesMax = Math.max(1, getPokemonCount(project) - 1);
   const canAddLearnsetMove = record.learnset.length < learnsetLimit;
   const learnsetColumnSplit = Math.ceil(record.learnset.length / 2);
+  const koMovesAvailable = isKoMoveEditorAvailable(project);
+  const koMoves = koMovesAvailable ? getPokemonKoMoves(project, record.id) : [];
   const leftIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && field !== "height" && field !== "weight");
   const midIntegerFields = MISC_INTEGER_FIELDS.filter(([, field]) => field in record.rawPersonal && (field === "height" || field === "weight"));
   const textFields = PERSONAL_TEXT_FIELDS.filter(([, field]) => field in record.rawPersonal);
@@ -424,6 +432,7 @@ function renderExpanded(project: ProjectState, record: PokemonEditorRecord): str
           </div>
         </div>
       </div>
+      ${koMovesAvailable ? renderKoMoves(koMoves, learnsetSpeciesMax) : ""}
     </div>
     <div class="expanded-card-content expanded-tms">
       ${renderCompatibilityCopyToolbar("tm", "TM/HM", personalSpeciesMax)}
@@ -503,6 +512,49 @@ function renderLearnsetMove(move: LearnsetMove, canInsert: boolean): string {
       <div class="learnset-row-actions">
         <button class="learnset-icon-button" data-learnset-action="insert" data-learnset-index="${move.index + 1}" title="Insert move below" type="button" ${canInsert ? "" : "disabled"}>+</button>
         <button class="learnset-icon-button -danger" data-learnset-action="delete" data-learnset-index="${move.index}" title="Delete move" type="button">×</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderKoMoves(moves: KoMoveLearnsetEntry[], speciesMax: number): string {
+  const canInsert = moves.length < KO_MOVE_LEARNSET_MAX_MOVES;
+  const split = Math.ceil(moves.length / 2);
+  return `
+    <div class="learnset-panel ko-move-panel">
+      <div class="learnset-toolbar">
+        <div class="learnset-toolbar-actions">
+          <strong>KO Moves</strong>
+          <button class="btn -default" data-ko-learnset-action="append" type="button" ${canInsert ? "" : "disabled"}>Add Move</button>
+          <input class="learnset-copy-source ko-learnset-copy-source" type="number" inputmode="numeric" min="1" max="${speciesMax}" step="1" placeholder="Species ID" aria-label="KO learnset source species ID">
+          <button class="btn -default" data-ko-learnset-action="copy" type="button">Copy From</button>
+        </div>
+        <span class="learnset-count">${moves.length}/${KO_MOVE_LEARNSET_MAX_MOVES}</span>
+      </div>
+      <div class="learnset-columns">
+        <div class="expanded-left">
+          ${moves.slice(0, split).map((move) => renderKoMove(move, canInsert)).join("")}
+        </div>
+        <div class="expanded-left">
+          ${moves.slice(split).map((move) => renderKoMove(move, canInsert)).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderKoMove(move: KoMoveLearnsetEntry, canInsert: boolean): string {
+  return `
+    <div class="expanded-field multi learnset-row ko-move-row" data-ko-learnset-index="${move.index}">
+      <div data-require="move-name" data-narc="ko_learnset" data-field-name="ko_count_${move.index}" data-type="int-65535" class="move-level" contenteditable="true" title="Required KO count">${move.koCount}</div>
+      ${editable("ko_learnset", `move_id_${move.index}`, move.moveName, "move-name", { autofill: "move_names", require: "move-level" })}
+      <div class="move-type"><button class="btn -${typeClass(move.type)} -active" type="button">${escapeHtml(String(move.type).toUpperCase().slice(0, 3))}</button></div>
+      <div class="move-cat">${escapeHtml(String(move.category).slice(0, 3))}</div>
+      <div class="move-power">${escapeHtml(String(move.power))}</div>
+      <div class="move-accuracy">${escapeHtml(String(move.accuracy))}</div>
+      <div class="learnset-row-actions">
+        <button class="learnset-icon-button" data-ko-learnset-action="insert" data-ko-learnset-index="${move.index + 1}" title="Insert KO move below" type="button" ${canInsert ? "" : "disabled"}>+</button>
+        <button class="learnset-icon-button -danger" data-ko-learnset-action="delete" data-ko-learnset-index="${move.index}" title="Delete KO move" type="button">×</button>
       </div>
     </div>
   `;
@@ -648,7 +700,7 @@ function expandedField(label: string, value: string): string {
 }
 
 function editable(
-  narc: "personal" | "learnset" | "evolution" | "egg_moves",
+  narc: "personal" | "learnset" | "evolution" | "egg_moves" | "ko_learnset",
   field: string,
   value: unknown,
   className: string,

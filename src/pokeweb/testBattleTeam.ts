@@ -57,6 +57,8 @@ export type ShowdownPokemon = {
   abilitySlot: 1 | 2 | 3;
   abilityId: number;
   level: number;
+  /** Exact total EXP, when explicitly specified; takes precedence over Level. */
+  experience?: number;
   nature: number;
   gender: 0 | 1 | 2;
   evs: Record<StatKey, number>;
@@ -69,6 +71,7 @@ type DraftPokemon = {
   itemText?: string;
   abilityText?: string;
   level?: number;
+  experience?: number;
   nature?: string;
   gender?: "M" | "F";
   evs: Partial<Record<StatKey, number>>;
@@ -216,6 +219,16 @@ function parseShowdownDraft(block: string): DraftPokemon {
       continue;
     }
 
+    const experience = /^Exp:\s*(.*)$/iu.exec(line);
+    if (experience) {
+      const value = experience[1].trim();
+      if (!/^\d+$/u.test(value) || !Number.isSafeInteger(Number(value))) {
+        throw new Error(`Invalid Exp: ${value || "(empty)"}. Use a nonnegative whole-number total EXP.`);
+      }
+      draft.experience = Number(value);
+      continue;
+    }
+
     const evs = /^EVs:\s*(.+)$/iu.exec(line);
     if (evs) {
       draft.evs = parseStatList(evs[1], 0, 255, "EV");
@@ -280,7 +293,13 @@ function resolveDraftPokemon(project: ProjectState, draft: DraftPokemon): Showdo
   const personal = getPersonal(project, personalId);
   const itemId = draft.itemText ? resolveItemId(project, draft.itemText) : 0;
   const ability = resolveAbility(project, personal, draft.abilityText);
-  const level = draft.level ?? 100;
+  const growthRate = Number(personal.exp_rate ?? 0);
+  if (draft.experience !== undefined && draft.experience > experienceForLevel(100, growthRate)) {
+    throw new Error(`Exp for ${draft.speciesText} must be between 0 and ${experienceForLevel(100, growthRate)} (level 100).`);
+  }
+  const level = draft.experience === undefined
+    ? draft.level ?? 100
+    : levelForExperience(draft.experience, growthRate);
   const nature = resolveNature(draft.nature);
   const gender = resolveGender(personal, draft.gender);
   const evs = defaultStats(0);
@@ -298,6 +317,7 @@ function resolveDraftPokemon(project: ProjectState, draft: DraftPokemon): Showdo
     abilitySlot: ability.slot,
     abilityId: ability.id,
     level,
+    experience: draft.experience,
     nature,
     gender,
     evs,
@@ -534,7 +554,7 @@ function applyPokemonToPk5(project: ProjectState, data: Uint8Array, pokemon: Sho
   writeLe16(data, 0x08, pokemon.speciesId);
   writeLe16(data, 0x0a, pokemon.itemId);
   writeLe32(data, 0x0c, trainer.id32);
-  writeLe32(data, 0x10, experienceForLevel(pokemon.level, expRate));
+  writeLe32(data, 0x10, pokemon.experience ?? experienceForLevel(pokemon.level, expRate));
   data[0x14] = clampInt(baseFriendship, 0, 255);
   data[0x15] = pokemon.abilityId & 0xff;
   data[0x16] = 0;
@@ -621,6 +641,13 @@ function nonHpStat(base: number, iv: number, ev: number, level: number, nature: 
   if (raised === stat) return Math.floor(raw * 1.1);
   if (lowered === stat) return Math.floor(raw * 0.9);
   return raw;
+}
+
+export function levelForExperience(experience: number, growthRate: number): number {
+  for (let level = 100; level > 1; level -= 1) {
+    if (experience >= experienceForLevel(level, growthRate)) return level;
+  }
+  return 1;
 }
 
 export function experienceForLevel(level: number, growthRate: number): number {

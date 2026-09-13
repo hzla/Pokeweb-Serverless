@@ -126,6 +126,8 @@ export type CodeInjectionState = {
   menuEvolution?: {
     messageBankId: number;
     messageEntryId: number;
+    koLearnsetPath?: string;
+    runtimeVersion?: number;
   };
 };
 

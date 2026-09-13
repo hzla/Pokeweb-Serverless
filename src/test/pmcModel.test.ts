@@ -4,6 +4,7 @@ import { readAscii, readU16, readU32, writeU32 } from "../nds/binary";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
+import { exportFrostCompatibleRom } from "../pokeweb/frostCompatibility";
 import {
   detectBundledFormEvolutionDll,
   detectBundledMainMenuSkipDll,
@@ -31,6 +32,7 @@ import type { ProjectState } from "../pokeweb/projectStore";
 
 const pmcB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url)));
 const pmcW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url)));
+const doubleBattleFixB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/DoubleBattleFixB2.dll", import.meta.url)));
 const doubleBattleFixW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url)));
 const mainMenuSkipB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MainMenuSkipB2.dll", import.meta.url)));
 const mainMenuSkipW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url)));
@@ -39,6 +41,67 @@ const formEvolutionW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjec
 const overworldWeatherRuntimeW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PokewebOverworldWeatherW2.dll", import.meta.url)));
 
 describe("PMC installer", () => {
+  it.each(["B2", "W2"] as const)("exports %s in Frost's overlay-first layout without losing filenames or injected modules", async (version) => {
+    const source = makeBw2LikeRom();
+    if (version === "B2") source[14] = "E".charCodeAt(0);
+    const project = makeProject(source, version);
+    installPmcBytes(project, version === "B2" ? pmcB2 : pmcW2, source);
+    stageCodeInjectionDll(project, `DoubleBattleFix${version}.dll`, version === "B2" ? doubleBattleFixB2 : doubleBattleFixW2);
+    const normal = new NintendoDSRom(await exportModifiedRom(project));
+    const exported = await exportModifiedRom(project, { frostCompatibility: true });
+    const frost = new NintendoDSRom(exported);
+    expect(frost.filenames.firstId).toBe(345);
+    expect(frost.files.length).toBe(normal.files.length + 1);
+    expect(frost.fileId("base.bin")).toBe(345);
+    expect(frost.filenames.files).toEqual(normal.filenames.files);
+    expect(frost.arm9).toEqual(normal.arm9);
+    expect(frost.arm7).toEqual(normal.arm7);
+    expect(duplicateFntFileIds(frost.fntData)).toEqual([]);
+    for (let row = 0; row < 345; row += 1) {
+      expect(readU32(frost.arm9OverlayTable, row * 32 + 24)).toBe(row);
+    }
+    const checkPaths = (folder: Folder, prefix = "") => {
+      for (const name of folder.files) {
+        const path = prefix + name;
+        expect(frost.getFileByName(path)).toEqual(normal.getFileByName(path));
+        expect(frost.fileId(path)).toBe(normal.fileId(path) + 1);
+      }
+      for (const [name, child] of folder.folders) checkPaths(child, `${prefix}${name}/`);
+    };
+    checkPaths(normal.filenames);
+    expect(frost.files[344]).toEqual(frost.getFileByName("overlay/overlay_0344.bin"));
+    expect(detectPmcInstallFromRom(frost)?.modules?.some((module) => module.path === `patches/DoubleBattleFix${version}.dll`)).toBe(true);
+    expect(exportFrostCompatibleRom(exported)).toEqual(exported);
+    const reloaded = makeProject(exported, version);
+    reloaded.codeInjection = detectPmcInstallFromRom(frost);
+    const reexported = new NintendoDSRom(await exportModifiedRom(reloaded, { frostCompatibility: true }));
+    expect(reexported.files.length).toBe(frost.files.length);
+    expect(reexported.fileId("base.bin")).toBe(345);
+    expect(readU32(reexported.arm9OverlayTable, 344 * 32 + 24)).toBe(344);
+    expect(new NintendoDSRom(source).filenames.firstId).toBe(344);
+    const diverged = new NintendoDSRom(exported);
+    const changedPmc = diverged.files[344].slice();
+    changedPmc[0x100] ^= 1;
+    expect(() => exportFrostCompatibleRom(diverged.save({ files: new Map([[344, changedPmc]]) }))).toThrow(/copies differ/u);
+  });
+
+  it("leaves vanilla layout unchanged and rejects unfamiliar overlays or overlapping filenames", async () => {
+    const source = makeBw2LikeRom();
+    expect(exportFrostCompatibleRom(source)).toBe(source);
+    const project = makeProject(source, "W2");
+    installPmcBytes(project, pmcW2, source);
+    const bytes = await exportModifiedRom(project);
+    const bad = new NintendoDSRom(bytes);
+    writeU32(bad.arm9OverlayTable, 24, 8);
+    expect(() => exportFrostCompatibleRom(bad.save({ arm9OverlayTable: bad.arm9OverlayTable }))).toThrow(/rearranged/u);
+    const overlapping = new NintendoDSRom(bytes);
+    overlapping.filenames.folders.push(["invalid", new Folder({ firstId: 344, files: ["duplicate.bin"] })]);
+    expect(() => exportFrostCompatibleRom(overlapping.save({ filenames: overlapping.filenames }))).toThrow(/overlap/u);
+    const unknown = new NintendoDSRom(bytes);
+    unknown.filenames.folders = unknown.filenames.folders.filter(([name]) => name !== "codeinjection");
+    expect(() => exportFrostCompatibleRom(unknown.save({ filenames: unknown.filenames }))).toThrow(/recognized/u);
+  });
+
   it("parses bundled PMC metadata", () => {
     expect(parseRpm(pmcB2).metadata).toMatchObject({ PMCGameID: "B2", PMCVersion: "13.2.4" });
     expect(parseRpm(pmcW2).metadata).toMatchObject({ PMCGameID: "W2", PMCVersion: "13.2.4" });
@@ -611,6 +674,10 @@ function makeBw2LikeRom(fileCount = 345, filenames = new Folder({ files: ["base.
   const files = Array.from({ length: fileCount }, (_value, index) => Uint8Array.of(index & 0xff));
   const fnt = saveFnt(filenames);
   const overlayTable = new Uint8Array(344 * 32);
+  for (let row = 0; row < 344; row += 1) {
+    writeU32(overlayTable, row * 32, row);
+    writeU32(overlayTable, row * 32 + 24, row);
+  }
   writeU32(overlayTable, 0, 0);
   writeU32(overlayTable, 4, 0x021f8000);
   writeU32(overlayTable, 8, 0x2000);
