@@ -5,85 +5,85 @@
 This table records every VM opcode and its Pokeweb preview support. `supported` means the browser models visible/state behavior, `marker` means timing or intent is represented without full visuals, and `unsupported` is surfaced explicitly.
 
 | Opcode | Command | Preview | State | Completion |
-|---:|---|---|---|---|---|
-| 0 | `MoveCamera` | `MoveCamera` | supported | camera -> camera | task / task 1 |
-| 1 | `AdjustCamera` | `AdjustCamera` | supported | camera -> camera | task / task 1 |
-| 2 | `CameraMoveAngle` | `CameraMoveAngle` | supported | camera -> camera | task / task 1 |
-| 3 | `ShakeScreen` | `ShakeScreen` | supported | camera -> camera | task / task 1 |
-| 4 | `CameraProjection` | `CameraProjection` | supported | camera, projection -> camera, projection | task / task 1 |
-| 5 | `CameraPosPush` | `CameraPosPush` | supported | camera -> camera | immediate / task 1 |
-| 6 | `LoadSPA` | `LoadSPA` | supported | particle, camera, sprite -> particle | immediate / task 2 |
-| 7 | `Emit` | `Emit` | supported | particle, camera, sprite -> particle | task / task 2 |
-| 8 | `EmitFromCoordinates` | `EmitFromCoordinates` | supported | particle, camera, sprite -> particle | task / task 2 |
-| 9 | `EmitOrtho` | `EmitOrtho` | supported | particle, camera, sprite -> particle | task / task 2 |
-| 10 | `EmitAll` | `EmitAll` | unsupported | particle, camera, sprite -> particle | task / task 2 |
-| 11 | `DeleteParticle` | `DeleteParticle` | unsupported | particle, camera, sprite -> particle | immediate / task 2 |
-| 12 | `EmitProjectile` | `EmitProjectile` | supported | particle, camera, sprite -> particle | task / task 2 |
-| 13 | `EmitProjectileFromCoordinates` | `EmitProjectileFromCoordinates` | supported | particle, camera, sprite -> particle | task / task 2 |
-| 14 | `EmitOrthoProjectile` | `EmitOrthoProjectile` | supported | particle, camera, sprite -> particle | task / task 2 |
-| 15 | `EmitOrthoProjectileFromCoordinates` | `EmitOrthoProjectileFromCoordinates` | unsupported | particle, camera, sprite -> particle | task / task 2 |
-| 16 | `EmitCircle` | `EmitCircle` | supported | particle, camera, sprite -> particle | task / task 2 |
-| 17 | `EmitOrthoCircle` | `EmitOrthoCircle` | unsupported | particle, camera, sprite -> particle | task / task 2 |
-| 18 | `ShakeSprite` | `ShakeSprite` | supported | sprite -> sprite | task / task 3 |
-| 19 | `MoveSprite` | `MoveSprite` | supported | sprite -> sprite | task / task 3 |
-| 20 | `MoveSpriteSine` | `MoveSpriteSine` | supported | sprite -> sprite | task / task 3 |
-| 21 | `ScaleSprite` | `ScaleSprite` | supported | sprite -> sprite | task / task 3 |
-| 22 | `RotateSprite` | `RotateSprite` | supported | sprite -> sprite | task / task 3 |
-| 23 | `AdjustSpriteOpacity` | `AdjustSpriteOpacity` | supported | sprite -> sprite | task / task 3 |
-| 24 | `ApplySpriteMosaic` | `ApplySpriteMosaic` | supported | sprite -> sprite | task / task 3 |
-| 25 | `ToggleSpriteBlink` | `ToggleSpriteBlink` | marker | sprite -> sprite | task / task 3 |
-| 26 | `ToggleFreezeSprite` | `ToggleFreezeSprite` | marker | sprite -> sprite | immediate / task 3 |
-| 27 | `ChangeSpriteColor` | `ChangeSpriteColor` | supported | sprite -> sprite | task / task 3 |
-| 28 | `ToggleSpriteVisibility` | `ToggleSpriteVisibility` | supported | sprite -> sprite | task / task 3 |
-| 29 | `ToggleSpriteShadow` | `ToggleSpriteShadow` | supported | sprite -> sprite | task / task 3 |
-| 30 | `ScaleSpriteShadow` | `ScaleSpriteShadow` | supported | sprite -> sprite | task / task 3 |
-| 31 | `DeletePokemon` | `DeletePokemon` | supported | sprite -> sprite | task / task 3 |
-| 32 | `SetTrainerSprite` | `SetTrainerSprite` | unsupported | trainer -> trainer | task / task 3 |
-| 33 | `MoveTrainerSprite` | `MoveTrainerSprite` | unsupported | trainer -> trainer | task / task 3 |
-| 34 | `SetTrainerSpriteAnimation` | `SetTrainerSpriteAnimation` | unsupported | trainer -> trainer | immediate / task 3 |
-| 35 | `DeleteTrainerSprite` | `DeleteTrainerSprite` | unsupported | trainer -> trainer | task / task 3 |
-| 36 | `LoadBackground` | `LoadBackground` | supported | background -> background | immediate / task 5 |
-| 37 | `MoveBackground` | `MoveBackground` | supported | background -> background | task / task 5 |
-| 38 | `DistortBackground` | `DistortBackground` | marker | background -> background | task / task 5 |
-| 39 | `BackgroundPaletteAnimation` | `BackgroundPaletteAnimation` | marker | background -> background | task / task 5 |
-| 40 | `BackgroundPriority` | `BackgroundPriority` | marker | background -> background | immediate / task 5 |
-| 41 | `BackgroundAlpha` | `BackgroundAlpha` | supported | background -> background | task / task 5 |
-| 42 | `ChangeBackgroundColor` | `ChangeBackgroundColor` | supported | background -> background | task / task 5 |
-| 43 | `ApplyBackground` | `ApplyBackground` | supported | background -> background | immediate / task 5 |
-| 44 | `MoveWindow` | `MoveWindow` | unsupported | window -> window | task / task 17 |
-| 45 | `CreateBattleObject` | `CreateBattleObject` | unsupported | object -> object | immediate |
-| 46 | `MoveBattleObject` | `MoveBattleObject` | unsupported | object -> object | immediate |
-| 47 | `ScaleBattleObject` | `ScaleBattleObject` | unsupported | object -> object | immediate |
-| 48 | `SetBattleObjectAnimation` | `SetBattleObjectAnimation` | unsupported | object -> object | immediate |
-| 49 | `ObjectPaletteFade` | `ObjectPaletteFade` | unsupported | object -> object | immediate |
-| 50 | `DeleteBattleObject` | `DeleteBattleObject` | unsupported | object -> object | immediate |
-| 51 | `ToggleHUD` | `ToggleHUD` | unsupported | gauge -> gauge | immediate |
-| 52 | `PlaySound` | `PlaySound` | unsupported | audio -> audio | task / task 10 |
-| 53 | `StopSound` | `StopSound` | unsupported | audio -> audio | immediate / task 10 |
-| 54 | `SwitchAudioSide` | `SwitchAudioSide` | unsupported | audio -> audio | task / task 10 |
-| 55 | `AdjustSound` | `AdjustSound` | unsupported | audio -> audio | task / task 10 |
-| 56 | `LetCMDsFinish` | `LetCMDsFinish` | supported | flow -> flow | wait |
-| 57 | `Wait` | `Wait` | supported | flow -> flow | wait |
-| 58 | `AudioContainer` | `AudioContainer` | unsupported | flow -> flow | control |
-| 59 | `CheckMoveuser` | `CheckMoveuser` | unsupported | flow -> flow | control |
-| 60 | `IfWork` | `IfWork` | unsupported | flow -> flow | control |
-| 61 | `McssPositionCheck` | `McssPositionCheck` | unsupported | flow -> flow | control |
-| 62 | `SetWork` | `SetWork` | unsupported | flow -> flow | control |
-| 63 | `GetWork` | `GetWork` | unsupported | flow -> flow | control |
-| 64 | `SetParam` | `SetParam` | unsupported | flow -> flow | control |
-| 65 | `Substitute` | `Substitute` | unsupported | flow -> flow | control |
-| 66 | `Transform` | `Transform` | unsupported | flow -> flow | control |
-| 67 | `PlayPokemonCry` | `PlayPokemonCry` | unsupported | flow -> flow | control |
-| 68 | `BallMode` | `BallMode` | unsupported | flow -> flow | control |
-| 69 | `SetBallObject` | `SetBallObject` | unsupported | flow -> flow | control |
-| 70 | `CallSequence` | `CallSequence` | unsupported | flow -> flow | control |
-| 71 | `Return` | `Return` | unsupported | flow -> flow | control |
-| 72 | `CheckMoveUserElse` | `CheckMoveUserElse` | unsupported | flow -> flow | control |
-| 73 | `Pause` | `Pause` | unsupported | flow -> flow | control |
-| 74 | `CallMoveAnimation` | `CallMoveAnimation` | marker | flow -> flow | terminates |
-| 75 | `LandingWait` | `LandingWait` | unsupported | flow -> flow | wait |
-| 76 | `ReverseDrawSet` | `ReverseDrawSet` | unsupported | flow -> flow | control |
-| 77 | `TerminateMoveScript` | `TerminateMoveScript` | marker | flow -> flow | terminates |
+|---:|---|---|---|---|
+| 0 | `MoveCamera` | supported | camera -> camera | task / task 1 |
+| 1 | `AdjustCamera` | supported | camera -> camera | task / task 1 |
+| 2 | `CameraMoveAngle` | supported | camera -> camera | task / task 1 |
+| 3 | `ShakeScreen` | supported | camera -> camera | task / task 1 |
+| 4 | `CameraProjection` | supported | camera, projection -> camera, projection | task / task 1 |
+| 5 | `CameraPosPush` | supported | camera -> camera | immediate / task 1 |
+| 6 | `LoadSPA` | supported | particle, camera, sprite -> particle | immediate / task 2 |
+| 7 | `Emit` | supported | particle, camera, sprite -> particle | task / task 2 |
+| 8 | `EmitFromCoordinates` | supported | particle, camera, sprite -> particle | task / task 2 |
+| 9 | `EmitOrtho` | supported | particle, camera, sprite -> particle | task / task 2 |
+| 10 | `EmitAll` | unsupported | particle, camera, sprite -> particle | task / task 2 |
+| 11 | `DeleteParticle` | unsupported | particle, camera, sprite -> particle | immediate / task 2 |
+| 12 | `EmitProjectile` | supported | particle, camera, sprite -> particle | task / task 2 |
+| 13 | `EmitProjectileFromCoordinates` | supported | particle, camera, sprite -> particle | task / task 2 |
+| 14 | `EmitOrthoProjectile` | supported | particle, camera, sprite -> particle | task / task 2 |
+| 15 | `EmitOrthoProjectileFromCoordinates` | unsupported | particle, camera, sprite -> particle | task / task 2 |
+| 16 | `EmitCircle` | supported | particle, camera, sprite -> particle | task / task 2 |
+| 17 | `EmitOrthoCircle` | unsupported | particle, camera, sprite -> particle | task / task 2 |
+| 18 | `ShakeSprite` | supported | sprite -> sprite | task / task 3 |
+| 19 | `MoveSprite` | supported | sprite -> sprite | task / task 3 |
+| 20 | `MoveSpriteSine` | supported | sprite -> sprite | task / task 3 |
+| 21 | `ScaleSprite` | supported | sprite -> sprite | task / task 3 |
+| 22 | `RotateSprite` | supported | sprite -> sprite | task / task 3 |
+| 23 | `AdjustSpriteOpacity` | supported | sprite -> sprite | task / task 3 |
+| 24 | `ApplySpriteMosaic` | supported | sprite -> sprite | task / task 3 |
+| 25 | `ToggleSpriteBlink` | marker | sprite -> sprite | task / task 3 |
+| 26 | `ToggleFreezeSprite` | supported | sprite -> sprite | immediate / task 3 |
+| 27 | `ChangeSpriteColor` | supported | sprite -> sprite | task / task 3 |
+| 28 | `ToggleSpriteVisibility` | supported | sprite -> sprite | task / task 3 |
+| 29 | `ToggleSpriteShadow` | supported | sprite -> sprite | task / task 3 |
+| 30 | `ScaleSpriteShadow` | supported | sprite -> sprite | task / task 3 |
+| 31 | `DeletePokemon` | supported | sprite -> sprite | task / task 3 |
+| 32 | `SetTrainerSprite` | unsupported | trainer -> trainer | task / task 3 |
+| 33 | `MoveTrainerSprite` | unsupported | trainer -> trainer | task / task 3 |
+| 34 | `SetTrainerSpriteAnimation` | unsupported | trainer -> trainer | immediate / task 3 |
+| 35 | `DeleteTrainerSprite` | unsupported | trainer -> trainer | task / task 3 |
+| 36 | `LoadBackground` | supported | background -> background | immediate / task 5 |
+| 37 | `MoveBackground` | supported | background -> background | task / task 5 |
+| 38 | `DistortBackground` | marker | background -> background | task / task 5 |
+| 39 | `BackgroundPaletteAnimation` | marker | background -> background | task / task 5 |
+| 40 | `BackgroundPriority` | marker | background -> background | immediate / task 5 |
+| 41 | `BackgroundAlpha` | supported | background -> background | task / task 5 |
+| 42 | `ChangeBackgroundColor` | supported | background -> background | task / task 5 |
+| 43 | `ApplyBackground` | supported | background -> background | immediate / task 5 |
+| 44 | `MoveWindow` | unsupported | window -> window | task / task 17 |
+| 45 | `CreateBattleObject` | unsupported | object -> object | immediate |
+| 46 | `MoveBattleObject` | unsupported | object -> object | immediate |
+| 47 | `ScaleBattleObject` | unsupported | object -> object | immediate |
+| 48 | `SetBattleObjectAnimation` | unsupported | object -> object | immediate |
+| 49 | `ObjectPaletteFade` | unsupported | object -> object | immediate |
+| 50 | `DeleteBattleObject` | unsupported | object -> object | immediate |
+| 51 | `ToggleHUD` | unsupported | gauge -> gauge | immediate |
+| 52 | `PlaySound` | unsupported | audio -> audio | task / task 10 |
+| 53 | `StopSound` | unsupported | audio -> audio | immediate / task 10 |
+| 54 | `SwitchAudioSide` | unsupported | audio -> audio | task / task 10 |
+| 55 | `AdjustSound` | unsupported | audio -> audio | task / task 10 |
+| 56 | `LetCMDsFinish` | supported | flow -> flow | wait |
+| 57 | `Wait` | supported | flow -> flow | wait |
+| 58 | `AudioContainer` | unsupported | flow -> flow | control |
+| 59 | `CheckMoveuser` | unsupported | flow -> flow | control |
+| 60 | `IfWork` | unsupported | flow -> flow | control |
+| 61 | `McssPositionCheck` | unsupported | flow -> flow | control |
+| 62 | `SetWork` | unsupported | flow -> flow | control |
+| 63 | `GetWork` | unsupported | flow -> flow | control |
+| 64 | `SetParam` | unsupported | flow -> flow | control |
+| 65 | `Substitute` | unsupported | flow -> flow | control |
+| 66 | `Transform` | unsupported | flow -> flow | control |
+| 67 | `PlayPokemonCry` | unsupported | flow -> flow | control |
+| 68 | `BallMode` | unsupported | flow -> flow | control |
+| 69 | `SetBallObject` | unsupported | flow -> flow | control |
+| 70 | `CallSequence` | unsupported | flow -> flow | control |
+| 71 | `Return` | unsupported | flow -> flow | control |
+| 72 | `CheckMoveUserElse` | unsupported | flow -> flow | control |
+| 73 | `Pause` | unsupported | flow -> flow | control |
+| 74 | `CallMoveAnimation` | marker | flow -> flow | terminates |
+| 75 | `LandingWait` | unsupported | flow -> flow | wait |
+| 76 | `ReverseDrawSet` | unsupported | flow -> flow | control |
+| 77 | `TerminateMoveScript` | marker | flow -> flow | terminates |
 
 ## Fixture Coverage
 

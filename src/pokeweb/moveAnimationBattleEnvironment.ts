@@ -3,6 +3,7 @@ import { loadBattleEnvironmentArchives, parseBattleBackgroundVariants } from "./
 import { parseBattlePlatformVariants } from "./battlePlatformModel";
 import { getPokemonSpriteImage, resolvePokemonSpriteId, type RgbaImageData } from "./pokemonSpriteModel";
 import type { ProjectState } from "./projectStore";
+import { loadPokemonBattleSpriteAnimation, type PokemonBattleSpriteAnimation } from "./pokemonBattleSpriteAnimation";
 
 export const MOVE_PREVIEW_BACKGROUND_INDEX = 1;
 export const MOVE_PREVIEW_PLATFORM_INDEX = 6;
@@ -15,10 +16,14 @@ export type MoveAnimationBattleEnvironment = {
   platformSeasonIndex: number;
   swappedSides: boolean;
   speciesId: number;
+  userSpeciesId?: number;
+  targetSpeciesId?: number;
   background: BattleModelScene;
   platform: BattleModelScene;
   userSprite: RgbaImageData;
   targetSprite: RgbaImageData;
+  userAnimation?: PokemonBattleSpriteAnimation;
+  targetAnimation?: PokemonBattleSpriteAnimation;
 };
 
 type BattleVariant = {
@@ -33,6 +38,8 @@ export type MoveAnimationBattleEnvironmentSelection = {
   platformIndex?: number;
   platformSeasonIndex?: number;
   swappedSides?: boolean;
+  userSpeciesId?: number;
+  targetSpeciesId?: number;
 };
 
 export async function loadMoveAnimationBattleEnvironment(
@@ -63,19 +70,39 @@ export async function loadMoveAnimationBattleEnvironment(
   const platformBytes = graphics.files[platformVariant.resourceId];
   if (!backgroundBytes || !platformBytes) throw new Error("The selected battle preview model is missing from the graphics archive.");
 
-  const spriteId = resolvePokemonSpriteId(project, MOVE_PREVIEW_SPECIES_ID);
   return {
     backgroundIndex: backgroundVariant.tableIndex,
     backgroundSeasonIndex: backgroundVariant.seasonIndex,
     platformIndex: platformVariant.tableIndex,
     platformSeasonIndex: platformVariant.seasonIndex,
     swappedSides: selection.swappedSides ?? false,
-    speciesId: MOVE_PREVIEW_SPECIES_ID,
+    speciesId: selection.userSpeciesId ?? MOVE_PREVIEW_SPECIES_ID,
+    userSpeciesId: selection.userSpeciesId ?? MOVE_PREVIEW_SPECIES_ID,
+    targetSpeciesId: selection.targetSpeciesId ?? MOVE_PREVIEW_SPECIES_ID,
     background: decodeBattleModelScene(backgroundBytes, backgroundVariant.resourceId),
     platform: decodeBattleModelScene(platformBytes, platformVariant.resourceId),
-    userSprite: getPokemonSpriteImage(project, spriteId, { kind: "sprite", side: "back", gender: "male" }, "normal"),
-    targetSprite: getPokemonSpriteImage(project, spriteId, { kind: "sprite", side: "front", gender: "male" }, "normal"),
+    ...loadMoveAnimationActorSprites(project, selection),
   };
+}
+
+export function loadMoveAnimationActorSprites(
+  project: ProjectState,
+  selection: MoveAnimationBattleEnvironmentSelection = {},
+): Pick<MoveAnimationBattleEnvironment, "userSprite" | "targetSprite" | "userAnimation" | "targetAnimation"> {
+  const user = selection.userSpeciesId ?? MOVE_PREVIEW_SPECIES_ID;
+  const target = selection.targetSpeciesId ?? MOVE_PREVIEW_SPECIES_ID;
+  const load = (speciesId: number, side: "front" | "back") => {
+    const animation = loadPokemonBattleSpriteAnimation(project, speciesId, side);
+    const image = animation?.kind === "pwan"
+      ? animation.frameAtTick(0).parts[0]!.image
+      : getPokemonSpriteImage(project, resolvePokemonSpriteId(project, speciesId), { kind: "sprite", side, gender: "male" }, "normal");
+    return { animation, image };
+  };
+  // The renderer's source slots are physical near/back and far/front. It
+  // assigns them to logical user/target roles when swappedSides is enabled.
+  const near = load(selection.swappedSides ? target : user, "back");
+  const far = load(selection.swappedSides ? user : target, "front");
+  return { userSprite: near.image, targetSprite: far.image, userAnimation: near.animation, targetAnimation: far.animation };
 }
 
 export function selectMovePreviewBattleVariant<T extends BattleVariant>(

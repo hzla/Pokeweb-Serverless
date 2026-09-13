@@ -316,6 +316,22 @@ export function getBattleLogInstallStatus(project: ProjectState): BattleLogInsta
   };
 }
 
+/** Retain verified import metadata when autosave releases the source ROM. */
+export function hydrateBattleLogInstallMetadata(project: ProjectState, rom: NintendoDSRom): void {
+  const layout = battleLogLayout(project.session.baseVersion);
+  if (!layout || !isWifiListSyncDisabled(project, project.session.baseVersion as SupportedBattleLogVersion)) return;
+  const paths = [layout.dllPath, layout.counterDllPath, layout.summaryDllPath, BATTLE_LOG_ANCESTRY_PATH];
+  if (!paths.every((path) => rom.filenames.idOf(path) !== undefined)) return;
+  const sourceProject = { ...project, originalRomBytes: rom.data };
+  const current = isCurrentBattleLogRuntime(sourceProject, layout);
+  project.codeInjection ??= {};
+  project.codeInjection.battleLog = {
+    ...project.codeInjection.battleLog,
+    ancestryPath: BATTLE_LOG_ANCESTRY_PATH,
+    runtimeVersion: current ? Math.max(project.codeInjection.battleLog?.runtimeVersion ?? 0, layout.runtimeVersion) : undefined,
+  };
+}
+
 export function detectBattleLogCompatibility(
   project: ProjectState,
   romBytes: Uint8Array | undefined = project.originalRomBytes,
@@ -482,7 +498,7 @@ export function uninstallBattleLog(project: ProjectState): void {
     throw new Error("The battle log supports US Black, White, Black 2, White 2, and the corresponding Upgrade ROMs.");
   }
   if (hasMenuEvolutionCompanion(project)) {
-    throw new Error("Uninstall Menu Evolution before uninstalling its required battle-counter DLL.");
+    throw new Error("Uninstall Enhanced Party Menu and Battle Log Integration before uninstalling its required battle-counter DLL.");
   }
   if (!canUninstallBattleLog(project)) {
     throw new Error("Battle-log DLLs already built into the loaded ROM cannot be removed by this editor yet.");

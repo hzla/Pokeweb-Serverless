@@ -570,7 +570,7 @@ Control Pokemon animation playback flag.
 
 - Canonical VM name: `FreezeSprite`
 - Category: Pokemon/Trainer
-- Preview: marker
+- Preview: supported
 - Completion: immediate, task group 3
 - State: reads sprite; writes sprite
 - Accepted names: `FreezeSprite`, `ToggleFreezeSprite`, `FreezePokemon`, `CMD_1a`, `CMD_0x1a`

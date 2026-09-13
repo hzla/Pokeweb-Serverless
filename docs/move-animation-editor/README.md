@@ -6,6 +6,31 @@ This guide documents the Gen 5 move animation workflow in Pokeweb-Serverless. It
 
 Visible battle animation behavior belongs in the move animation VM script and SPA particle assets whenever possible. C or C++ hooks may choose when an animation starts or update battle state, but visual choreography such as particles, fades, sounds, waits, shakes, camera movement, and reveal timing should live in the script/SPA animation path.
 
+## Battle Sprite Playback
+
+Preview Environment has independent User Pokemon and Target Pokemon selectors.
+They use the loaded ROM's species/form records and remember valid selections
+across page changes and refreshes. Swapping sides preserves those identities
+and selects the appropriate front/back view for each role.
+
+The Gen 5 preview plays the displayed Pokemon's front/back animation alongside
+the move timeline. It prefers the selected side's PWAN override, then falls
+back to native NCEC/NANR/NMCR/NMAR rig playback, or a still image when no usable
+animation is available. Frame durations and native sequence playback modes are
+preserved. Animated frames share a fixed canvas and origin so their changing
+silhouettes do not resize or recenter the sprite.
+
+`ToggleFreezeSprite` (`FreezeSprite` internally) pauses only the selected
+Pokemon's pose clock. Movement, shakes, scale, tint, opacity, and visibility
+commands still run. Flags 1/0 set/clear the ordinary stop bit; flags 2/3
+set/clear the independent persistent stop bit. Playback resumes from the held
+pose without catching up. Seeking, restarting, looping, and playback speed use
+the move timeline rather than a separate wall-clock animation timer.
+
+This preview starts at the beginning of each sprite's animation. It does not
+reconstruct the pre-move battle's idle phase, HP-dependent animation speed,
+or status-driven animation pauses.
+
 ## What Lives Where
 
 Move animation scripts control sequence and staging:

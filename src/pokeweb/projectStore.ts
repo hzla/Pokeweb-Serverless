@@ -126,6 +126,7 @@ export type CodeInjectionState = {
   menuEvolution?: {
     messageBankId: number;
     messageEntryId: number;
+    relearnMessageEntryId?: number;
     koLearnsetPath?: string;
     runtimeVersion?: number;
   };
@@ -282,6 +283,8 @@ export type ProjectState = {
   docs?: DocGeneratorState;
   map3dAreaEdits?: Map3dAreaEditState;
   fileSystem?: FileSystemEditState;
+  /** Small ROM-backed archive retained when autosave releases originalRomBytes. */
+  koMoveLearnsetSource?: { fileId: number; bytes: Uint8Array };
   codeInjection?: CodeInjectionState;
   overworldWeather?: OverworldWeatherState;
   pwanAnimations?: PwanAnimationState;

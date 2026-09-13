@@ -6,6 +6,8 @@ import { NintendoDSRom } from "../nds/rom";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, tutorMoveTableOffset } from "./tutorMoveModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
+import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
+import { hydrateBattleLogInstallMetadata } from "./battleLogModel";
 import { isRomFsTypeChartStore, typeChartOverlayId, typeChartTableLength, typeChartTableOffset } from "./typeChartModel";
 
 const DB_NAME = "pokeweb-serverless";
@@ -156,7 +158,9 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   const romBytes = await loadActiveRomBytes();
   if (!romBytes) return;
   const rom = new NintendoDSRom(romBytes);
+  hydrateKoMoveLearnsetFromRom(project, rom);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
+  hydrateBattleLogInstallMetadata(project, rom);
   if (!project.pwanAnimations?.dirty && ((project.pwanAnimations?.overrides.length ?? 0) === 0 || !project.pwanAnimations?.detectedArchive)) {
     hydratePwanAnimationsFromRom(project, rom);
   }
