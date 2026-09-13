@@ -30,6 +30,7 @@ import { repairPokemonIconPaletteAssignmentPlacement } from "./pokemonSpriteMode
 import { repairAppendedPokemonFormNames } from "./pokemonFormModel";
 import type { ProjectState } from "./projectStore";
 import { exportFrostCompatibleRom } from "./frostCompatibility";
+import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
 
 export { materializeProjectEdits } from "./projectMaterialize";
 
@@ -51,6 +52,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   if (!originalRomBytes) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
   const rom = new NintendoDSRom(originalRomBytes);
+  hydrateKoMoveLearnsetFromRom(project, rom);
   const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
   materializeProjectEdits(project);
   repairLegacyMoveAnimationArchives(project);
@@ -80,12 +82,22 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   for (const [fileId, bytes] of fileSystemReplacementMap(project)) {
     if (!storeFileIds.has(fileId)) fileReplacements.set(fileId, bytes);
   }
+  // Legacy staging helpers could classify an existing path as an addition
+  // after autosave released the source bytes. Resolve paths against the real
+  // export base before planning new FAT/FNT entries. Explicit replacements
+  // and dirty editor stores are authoritative when both forms are present.
+  const newFiles: Array<{ path: string; bytes: Uint8Array }> = [];
+  for (const file of fileSystemAddedFiles(project)) {
+    const fileId = rom.filenames.idOf(file.path);
+    if (fileId === undefined) newFiles.push(file);
+    else if (!fileReplacements.has(fileId)) fileReplacements.set(fileId, file.bytes);
+  }
   materializeMap3dAreaEdits(project, rom, fileReplacements);
   normalizeMalformedNarcs(rom, fileReplacements);
   const codeInjectionInsertions = codeInjectionInsertedFiles(project, rom).map((file) => ({ ...file, bytes: normalizeMalformedNarcBytes(file.bytes) }));
   const plannedAdditions = planRomAdditions(
     rom,
-    fileSystemAddedFiles(project)
+    newFiles
       .filter((file) => !codeInjectionInsertions.some((inserted) => inserted.path === file.path))
       .map((file) => ({ ...file, bytes: normalizeMalformedNarcBytes(file.bytes) }))
       .sort(compareRomAdditionPaths),

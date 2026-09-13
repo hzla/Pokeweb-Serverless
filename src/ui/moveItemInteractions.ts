@@ -30,6 +30,7 @@ import {
   loadMoveAnimationBattleEnvironment,
   MOVE_PREVIEW_BACKGROUND_INDEX,
   MOVE_PREVIEW_PLATFORM_INDEX,
+  MOVE_PREVIEW_SPECIES_ID,
   type MoveAnimationBattleEnvironmentSelection,
 } from "../pokeweb/moveAnimationBattleEnvironment";
 import { updateMoveDescription, updateMoveTextName } from "../pokeweb/moveTextModel";
@@ -71,6 +72,21 @@ type SelectedBattleVariant = {
 
 const MOVE_ANIMATION_SWAP_SIDES_STORAGE_KEY = "pokeweb.moveAnimation.swapSides";
 const MOVE_ANIMATION_AUDIO_STORAGE_KEY = "pokeweb.moveAnimation.audioEnabled";
+const MOVE_ANIMATION_POKEMON_STORAGE_KEYS = {
+  user: "pokeweb.moveAnimation.userSpeciesId",
+  target: "pokeweb.moveAnimation.targetSpeciesId",
+};
+
+function initializePreviewPokemonSelect(select: HTMLSelectElement | undefined, role: "user" | "target"): number {
+  if (!select) return MOVE_PREVIEW_SPECIES_ID;
+  try {
+    const saved = localStorage.getItem(MOVE_ANIMATION_POKEMON_STORAGE_KEYS[role]);
+    if (saved && Array.from(select.options).some(option => option.value === saved)) select.value = saved;
+  } catch {
+    // Storage can be unavailable; the ROM's default selection still works.
+  }
+  return Number(select.value) || MOVE_PREVIEW_SPECIES_ID;
+}
 
 function loadMoveAnimationSwapSidesPreference(): boolean {
   if (typeof localStorage === "undefined") return false;
@@ -401,6 +417,8 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   const backgroundSelect = pageRoot?.querySelector<HTMLSelectElement>("#move-animation-background-select") ?? undefined;
   const platformSelect = pageRoot?.querySelector<HTMLSelectElement>("#move-animation-platform-select") ?? undefined;
   const swapSidesInput = pageRoot?.querySelector<HTMLInputElement>("#move-animation-swap-sides") ?? undefined;
+  const userPokemonSelect = pageRoot?.querySelector<HTMLSelectElement>("#move-animation-user-pokemon-select") ?? undefined;
+  const targetPokemonSelect = pageRoot?.querySelector<HTMLSelectElement>("#move-animation-target-pokemon-select") ?? undefined;
   const copySourceSelect = panel.querySelector<HTMLSelectElement>(".move-animation-copy-source") ?? undefined;
   const copyScriptButton = panel.querySelector<HTMLButtonElement>(".move-animation-copy-script") ?? undefined;
   const copyScriptSpaButton = panel.querySelector<HTMLButtonElement>(".move-animation-copy-script-spa") ?? undefined;
@@ -414,6 +432,8 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
     platformIndex: MOVE_PREVIEW_PLATFORM_INDEX,
     platformSeasonIndex: 0,
     swappedSides: savedSwappedSides,
+    userSpeciesId: initializePreviewPokemonSelect(userPokemonSelect, "user"),
+    targetSpeciesId: initializePreviewPokemonSelect(targetPokemonSelect, "target"),
   };
   let audioPreview: MoveAnimationAudioPreviewController | undefined;
   let docsPanel: MoveAnimationDocsPanelController | undefined;
@@ -504,6 +524,7 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
       } catch (error) {
         preview.warnings.push({ message: `Battle scene: ${error instanceof Error ? error.message : String(error)}` });
       }
+      if (requestId !== previewRequestId) return;
       const nextPreviewController = await installMoveAnimationPreview(previewHost, preview, {
         initialPlaying,
         onPhaseChange: (phaseIndex) => {
@@ -587,6 +608,15 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
     saveMoveAnimationSwapSidesPreference(swapSidesInput.checked);
     refreshEnvironmentPreview();
   });
+  for (const [role, select] of [["user", userPokemonSelect], ["target", targetPokemonSelect]] as const) {
+    select?.addEventListener("change", () => {
+      const speciesId = Number(select.value);
+      if (!Number.isSafeInteger(speciesId) || speciesId <= 0) return;
+      battleEnvironmentSelection = { ...battleEnvironmentSelection, [role === "user" ? "userSpeciesId" : "targetSpeciesId"]: speciesId };
+      try { localStorage.setItem(MOVE_ANIMATION_POKEMON_STORAGE_KEYS[role], String(speciesId)); } catch { /* Preview-only preference. */ }
+      refreshEnvironmentPreview();
+    });
+  }
   const setCopyControlsBusy = (busy: boolean): void => {
     if (copySourceSelect) copySourceSelect.disabled = busy;
     const hasDonor = copySourceSelect?.value !== "";
@@ -646,7 +676,13 @@ export function installMoveAnimationEditor(panel: HTMLElement, project: ProjectS
   copyScriptSpaButton?.addEventListener("click", () => void copyFromMove(true));
   void loadMoveAnimationEnvironmentSelectors(project, backgroundSelect, platformSelect, battleEnvironmentSelection)
     .then((selection) => {
-      battleEnvironmentSelection = { ...selection, swappedSides: battleEnvironmentSelection.swappedSides };
+      battleEnvironmentSelection = {
+        ...battleEnvironmentSelection,
+        backgroundIndex: selection.backgroundIndex,
+        backgroundSeasonIndex: selection.backgroundSeasonIndex,
+        platformIndex: selection.platformIndex,
+        platformSeasonIndex: selection.platformSeasonIndex,
+      };
     });
   void buildPreview(false);
   panel.querySelector<HTMLButtonElement>(".move-animation-apply")?.addEventListener("click", () => {
