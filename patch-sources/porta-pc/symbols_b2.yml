@@ -1,0 +1,26 @@
+Segments:
+  - ID: 0
+    Name: ARM9
+    Type: EXECUTABLE
+  - ID: 1
+    Name: 12
+    Type: OVERLAY
+  - ID: 2
+    Name: 36
+    Type: OVERLAY
+Symbols:
+  - Name: GCTX_HIDGetPressedKeys
+    Segment: 0
+    Address: 0x0203defd
+  - Name: EventScriptCall_Create
+    Segment: 1
+    Address: 0x0215366d
+  - Name: Field_GetHeapID
+    Segment: 2
+    Address: 0x021804c1
+  - Name: FieldEventProvider_Grid_CheckForEvent
+    Segment: 2
+    Address: 0x021814dd
+  - Name: FieldEventProvider_NoGrid_CheckForEvent
+    Segment: 2
+    Address: 0x02181a61
