@@ -60,7 +60,14 @@ function validateStrippedDlxf(bytes, path) {
     }
   }
   if (markerCount !== 1) throw new Error(`${path} contains ${markerCount} MEVOMSG configuration markers; expected one.`);
-  if (bytes.readUInt16LE(markerOffset + 8) !== 1) throw new Error(`${path} has an unsupported Menu Evolution configuration version.`);
+  if (markerOffset + 20 > bytes.length || bytes.readUInt16LE(markerOffset + 8) !== 2) {
+    throw new Error(`${path} has an unsupported Menu Evolution configuration version.`);
+  }
+  for (const field of [10, 14]) {
+    if (bytes.readUInt16LE(markerOffset + field) !== 0xffff || bytes.readUInt16LE(markerOffset + field + 2) !== 0) {
+      throw new Error(`${path} must leave both party-command message IDs for the installer to configure.`);
+    }
+  }
 }
 
 if (checkOnly) {

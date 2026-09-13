@@ -7,6 +7,40 @@ import {
 import type { MoveAnimationTimelineEvent } from "../pokeweb/moveAnimationPreviewModel";
 
 describe("gen5BattleSpriteSimulator", () => {
+  it("freezes only pose playback, resumes without catching up, and seeks deterministically", () => {
+    const timeline = [
+      event("FreezeSprite", [14, 1], 3),
+      event("ShakeSprite", [14, 1, 4096, 0, 2, 0, 0], 3),
+      event("FreezeSprite", [14, 0], 7),
+    ];
+    const held = simulateGen5BattleSprites(timeline, 6);
+    expect(held.user.animationTick).toBe(3);
+    expect(held.user.animationFrozen).toBe(true);
+    expect(held.target.animationTick).toBe(6);
+    expect(held.user.positionOffset[0]).toBe(1);
+    expect(simulateGen5BattleSprites(timeline, 8).user.animationTick).toBe(4);
+    expect(simulateGen5BattleSprites(timeline, 8).user.animationFrozen).toBe(false);
+    expect(simulateGen5BattleSprites(timeline, 1).user.animationTick).toBe(1);
+    expect(simulateGen5BattleSprites(timeline, 6, true).user.animationTick).toBe(3);
+    expect(gen5BattleSpriteIdleFrame(timeline, 3)).toBe(5);
+  });
+
+  it("keeps ordinary and persistent freeze bits independent for both actors", () => {
+    const timeline = [
+      event("FreezeSprite", [18, 2], 0),
+      event("FreezeSprite", [16, 1], 1),
+      event("FreezeSprite", [18, 0], 2),
+      event("FreezeSprite", [16, 1], 3),
+      event("FreezeSprite", [18, 3], 4),
+      event("FreezeSprite", [16, 0], 6),
+    ];
+    expect(simulateGen5BattleSprites(timeline, 3).user.animationTick).toBe(0);
+    const partial = simulateGen5BattleSprites(timeline, 5);
+    expect(partial.user.animationTick).toBe(1);
+    expect(partial.target.animationTick).toBe(0);
+    expect(simulateGen5BattleSprites(timeline, 7).target.animationTick).toBe(1);
+  });
+
   it("resolves only the occupied single-battle positions", () => {
     expect(resolveGen5BattleSpriteTargets(0)).toEqual(["user"]);
     expect(resolveGen5BattleSpriteTargets(1)).toEqual(["target"]);

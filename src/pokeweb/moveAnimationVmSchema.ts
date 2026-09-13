@@ -180,9 +180,9 @@ function completionForOpcode(opcode: number, ends: boolean): MoveAnimationVmComp
 }
 
 function previewSupport(command: string): MoveAnimationVmPreviewSupport {
-  if (["FreezeSprite", "PokemonBlinkFlag", "CallMoveAnimation", "TerminateMoveScript", "DistortBackground", "BackgroundPaletteAnimation", "BackgroundPriority"].includes(command)) return "marker";
+  if (["PokemonBlinkFlag", "CallMoveAnimation", "TerminateMoveScript", "DistortBackground", "BackgroundPaletteAnimation", "BackgroundPriority"].includes(command)) return "marker";
   if ([
-    "Wait", "LetCMDsFinish", "LoadSPA", "LoadBackground",
+    "Wait", "LetCMDsFinish", "LoadSPA", "LoadBackground", "FreezeSprite",
     "DoSPAAnimation", "DoSPAScreenAnimation", "DoSPAAnimation2", "DoSPAProjectileAnimation", "DoSPAProjectileAnimation2", "DoSPAProjectileAnimation3", "DoSPACircleAnimation",
     "MoveBackground", "BackgroundAlpha", "ChangeBackgroundColor", "ApplyBackground",
     "MoveCamera", "AdjustCamera", "CameraMoveAngle", "CameraProjection", "CameraPosPush", "ShakeScreen",

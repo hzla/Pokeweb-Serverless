@@ -30,6 +30,7 @@ import { escapeHtml } from "./dom";
 import { attachItemInteractions, attachMoveInteractions, installMoveAnimationEditor, renderMoveAnimationEditor } from "./moveItemInteractions";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { publicAsset } from "../assetUrl";
+import { pokemonPersonalDisplayIds, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 
 type ItemFieldSpec = readonly [field: string, max: number];
 
@@ -187,6 +188,8 @@ export function renderMoveAnimationPage(
   const moveName = titleize(String(move.readable.name ?? `Move ${moveId}`));
   const animationTarget = getMoveAnimationTargetInfo(project, moveId);
   const canTestMoveAnimation = hasMoveAnimationScript(project, moveId) && onTestMove !== undefined;
+  const pokemonOptions = pokemonPersonalDisplayIds(project).filter((id) => id > 0)
+    .map((id) => `<option value="${id}" ${id === 1 ? "selected" : ""}>${id} - ${escapeHtml(pokemonSpeciesLabel(project, id))}</option>`).join("");
   root.innerHTML = `
     <aside class="pokemon-filter move-animation-sidebar">
       <button class="btn -default move-animation-back" type="button">Back to Moves</button>
@@ -209,6 +212,14 @@ export function renderMoveAnimationPage(
           <select id="move-animation-platform-select" disabled>
             <option>Loading platforms…</option>
           </select>
+        </label>
+        <label class="move-animation-environment-select">
+          <span>User Pokemon</span>
+          <select id="move-animation-user-pokemon-select">${pokemonOptions}</select>
+        </label>
+        <label class="move-animation-environment-select">
+          <span>Target Pokemon</span>
+          <select id="move-animation-target-pokemon-select">${pokemonOptions}</select>
         </label>
         <label class="move-animation-side-toggle">
           <input id="move-animation-swap-sides" type="checkbox">

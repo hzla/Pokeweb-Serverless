@@ -597,7 +597,7 @@ Control Pokemon animation playback flag.
 - Canonical VM name: `FreezeSprite`
 - Category: Pokemon/Trainer
 - Swan: `VMEC_POKEMON_SET_ANM_FLAG` in `reference_repos/swan_export/prog/src/battle/btlv/btlv_effvm.c`
-- Preview: marker
+- Preview: supported
 - Completion: immediate, task group 3
 - State: reads sprite; writes sprite
 - Accepted names: `FreezeSprite`, `ToggleFreezeSprite`, `FreezePokemon`, `CMD_1a`, `CMD_0x1a`

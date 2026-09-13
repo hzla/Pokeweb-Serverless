@@ -21,6 +21,8 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { createBattleModelThreeObject, type BattleModelThreeObject } from "./battleBackgroundRenderer";
 import { escapeHtml } from "./dom";
 import { createMoveAnimationTimelineAudio } from "./moveAnimationTimelineAudio";
+import type { PokemonBattleSpriteAnimation } from "../pokeweb/pokemonBattleSpriteAnimation";
+import { createPokemonBattleSpriteRenderer } from "./pokemonBattleSpriteRenderer";
 
 type ThreeModule = typeof import("three");
 
@@ -360,10 +362,14 @@ function makeStage(THREE: ThreeModule, preview: MoveAnimationPreview): { group: 
   const sourceTargetImage = environment?.targetSprite ?? actorSprites?.targetSprite;
   const userImage = swappedSides ? sourceTargetImage : sourceUserImage;
   const targetImage = swappedSides ? sourceUserImage : sourceTargetImage;
+  const sourceUserAnimation = environment?.userAnimation ?? actorSprites?.userAnimation;
+  const sourceTargetAnimation = environment?.targetAnimation ?? actorSprites?.targetAnimation;
+  const userAnimation = swappedSides ? sourceTargetAnimation : sourceUserAnimation;
+  const targetAnimation = swappedSides ? sourceUserAnimation : sourceTargetAnimation;
   const userMade = makeActor(THREE, "USER", userPosition[0], userPosition[2], userScale, 0x6fc9ff, userImage, usesGen5Actors ? userPosition[1] : 0);
   const targetMade = makeActor(THREE, "TARGET", targetPosition[0], targetPosition[2], targetScale, 0xff9f65, targetImage, usesGen5Actors ? targetPosition[1] : 0);
-  const user = makeStageActor(THREE, userMade, userPosition, userImage, usesGen5Actors);
-  const target = makeStageActor(THREE, targetMade, targetPosition, targetImage, usesGen5Actors);
+  const user = makeStageActor(THREE, userMade, userPosition, userImage, usesGen5Actors, userAnimation, userScale);
+  const target = makeStageActor(THREE, targetMade, targetPosition, targetImage, usesGen5Actors, targetAnimation, targetScale);
   if (user.shadow) group.add(user.shadow);
   if (target.shadow) group.add(target.shadow);
   group.add(user.sprite, target.sprite);
@@ -414,12 +420,50 @@ function makeStageActor(
   anchor: readonly [number, number, number],
   image: RgbaImageData | undefined,
   withShadow: boolean,
+  animation?: PokemonBattleSpriteAnimation,
+  scale = 1,
 ): StageActor {
   const sprite = made.sprite;
   const textureCache = new Map<string, import("three").Texture>();
   if (sprite.material.map) textureCache.set(actorTextureKey(0, [0, 0, 0], 0), sprite.material.map);
+  const animated = animation ? createPokemonBattleSpriteRenderer(animation) : undefined;
+  animated?.render(0);
+  const animationTexture = animation ? rgbaCanvasTexture(THREE, {
+    width: animation.width, height: animation.height,
+    pixels: new Uint8ClampedArray(animation.width * animation.height * 4),
+  }, { minX: 0, minY: 0, maxX: animation.width - 1, maxY: animation.height - 1 }).texture : undefined;
+  if (animation && animationTexture && animated) {
+    const firstFrame = animated.canvas.getContext("2d")!.getImageData(0, 0, animation.width, animation.height);
+    const crop = rgbaContentBounds({ width: firstFrame.width, height: firstFrame.height, pixels: firstFrame.data });
+    textureCache.set("animation", animationTexture);
+    sprite.material.map = animationTexture;
+    // Match the still preview's initial placement, but never recrop/recenter
+    // subsequent poses: that would erase bobbing and change apparent scale.
+    sprite.center.set(((crop.minX + crop.maxX + 1) / 2 + 1) / (animation.width + 2), 1 - ((crop.minY + crop.maxY + 1) / 2 + 1) / (animation.height + 2));
+    sprite.position.set(anchor[0], anchor[1] + (crop.maxY - crop.minY + 3) * scale / GEN5_MCSS_PIXELS_PER_WORLD_UNIT / 2, anchor[2]);
+    sprite.scale.set((animation.width + 2) * scale / GEN5_MCSS_PIXELS_PER_WORLD_UNIT, (animation.height + 2) * scale / GEN5_MCSS_PIXELS_PER_WORLD_UNIT, 1);
+  }
   const shadow = withShadow && sprite.material.map ? makeActorShadow(THREE, sprite.material.map, sprite.scale) : undefined;
+  if (shadow && animation) shadow.geometry.translate(0.5 - sprite.center.x, 0.5 - sprite.center.y, 0);
+  let lastAnimationKey: string | undefined;
   const textureForState = (state: Gen5BattleSpriteActorState): import("three").Texture | undefined => {
+    if (animated && animationTexture) {
+      const key = `${animated.render(state.animationTick)}:${actorTextureKey(state.palette.evy, state.palette.color, state.mosaic)}`;
+      if (lastAnimationKey !== key) {
+        const canvas = animationTexture.image as HTMLCanvasElement;
+        const ctx = canvas.getContext("2d")!;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (state.palette.evy === 0 && state.mosaic === 0) ctx.drawImage(animated.canvas, 1, 1);
+        else {
+          const pixels = animated.canvas.getContext("2d")!.getImageData(0, 0, animated.canvas.width, animated.canvas.height);
+          const transformed = transformActorImage({ width: pixels.width, height: pixels.height, pixels: pixels.data }, state.palette.evy, state.palette.color, state.mosaic);
+          ctx.putImageData(new ImageData(new Uint8ClampedArray(transformed.pixels), transformed.width, transformed.height), 1, 1);
+        }
+        animationTexture.needsUpdate = true;
+        lastAnimationKey = key;
+      }
+      return animationTexture;
+    }
     if (!image) return sprite.material.map ?? undefined;
     const key = actorTextureKey(state.palette.evy, state.palette.color, state.mosaic);
     const cached = textureCache.get(key);
@@ -1984,24 +2028,7 @@ function rgbaCanvasTexture(
   const sourceContext = source.getContext("2d");
   sourceContext?.putImageData(new ImageData(new Uint8ClampedArray(image.pixels), image.width, image.height), 0, 0);
 
-  let { minX, minY, maxX, maxY } = crop ?? { minX: image.width, minY: image.height, maxX: -1, maxY: -1 };
-  if (!crop) {
-    for (let y = 0; y < image.height; y += 1) {
-      for (let x = 0; x < image.width; x += 1) {
-        if (image.pixels[(y * image.width + x) * 4 + 3] === 0) continue;
-        minX = Math.min(minX, x);
-        minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x);
-        maxY = Math.max(maxY, y);
-      }
-    }
-  }
-  if (maxX < minX || maxY < minY) {
-    minX = 0;
-    minY = 0;
-    maxX = image.width - 1;
-    maxY = image.height - 1;
-  }
+  const { minX, minY, maxX, maxY } = crop ?? rgbaContentBounds(image);
 
   const contentWidth = Math.max(1, maxX - minX + 1);
   const contentHeight = Math.max(1, maxY - minY + 1);
@@ -2014,6 +2041,22 @@ function rgbaCanvasTexture(
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   return { texture, width: canvas.width, height: canvas.height, crop: { minX, minY, maxX, maxY } };
+}
+
+function rgbaContentBounds(image: RgbaImageData): RgbaCrop {
+  let minX = image.width, minY = image.height, maxX = -1, maxY = -1;
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      if (image.pixels[(y * image.width + x) * 4 + 3] === 0) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  return maxX < minX || maxY < minY
+    ? { minX: 0, minY: 0, maxX: image.width - 1, maxY: image.height - 1 }
+    : { minX, minY, maxX, maxY };
 }
 
 function fallbackTexture(THREE: ThreeModule): import("three").CanvasTexture {

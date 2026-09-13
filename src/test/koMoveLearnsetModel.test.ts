@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readU16 } from "../nds/binary";
 import { NARC } from "../nds/narc";
+import { NintendoDSRom } from "../nds/rom";
+import { exportModifiedRom } from "../pokeweb/exportRom";
+import { recordGenericChange } from "../pokeweb/actionChangelog";
 import {
   KO_MOVE_LEARNSET_PATH,
   appendPokemonKoMove,
@@ -8,6 +11,7 @@ import {
   deletePokemonKoMove,
   ensureKoMoveLearnsetNarc,
   getPokemonKoMoves,
+  hydrateKoMoveLearnsetFromRom,
   updatePokemonKoMoveField,
 } from "../pokeweb/koMoveLearnsetModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
@@ -58,7 +62,71 @@ describe("KO move learnsets", () => {
     expect(new NARC(project.fileSystem?.additions?.[KO_MOVE_LEARNSET_PATH]).files).toHaveLength(4);
     expect(getPokemonKoMoves(project, 3)).toHaveLength(1);
   });
+
+  it("keeps imported KO moves editable after autosave releases the original ROM bytes", async () => {
+    const { project, source, fileId } = importedProject();
+    ensureKoMoveLearnsetNarc(project);
+    delete project.originalRomBytes; // The browser's saveActiveProject does this.
+
+    expect(getPokemonKoMoves(project, 1)).toMatchObject([{ moveId: 1, koCount: 5 }]);
+    updatePokemonKoMoveField(project, 1, "ko_count_0", "9");
+    expect(project.fileSystem?.additions?.[KO_MOVE_LEARNSET_PATH]).toBeUndefined();
+    expect(new NARC(project.fileSystem?.replacements?.[fileId]).files[1]).toEqual(
+      Uint8Array.of(1, 0, 9, 0, 255, 255, 255, 255),
+    );
+    project.originalRomBytes = source; // Export obtains these from IndexedDB in the browser.
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+    expect(exported.fileId(KO_MOVE_LEARNSET_PATH)).toBe(fileId);
+    expect(new NARC(exported.getFileByName(KO_MOVE_LEARNSET_PATH)).files[1]).toEqual(
+      Uint8Array.of(1, 0, 9, 0, 255, 255, 255, 255),
+    );
+  });
+
+  it("recovers a legacy blank duplicate during export without erasing original KO moves", async () => {
+    const { project, source, fileId } = importedProject();
+    const blank = new NARC();
+    blank.files = Array.from({ length: 4 }, () => Uint8Array.of(255, 255, 255, 255));
+    project.fileSystem!.additions![KO_MOVE_LEARNSET_PATH] = blank.save();
+
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+    expect(exported.files).toHaveLength(new NintendoDSRom(source).files.length);
+    expect(exported.fileId(KO_MOVE_LEARNSET_PATH)).toBe(fileId);
+    const archive = new NARC(exported.getFileByName(KO_MOVE_LEARNSET_PATH));
+    expect(archive.files).toHaveLength(4);
+    expect(archive.files[1]).toEqual(Uint8Array.of(1, 0, 5, 0, 255, 255, 255, 255));
+    expect(project.fileSystem?.additions?.[KO_MOVE_LEARNSET_PATH]).toBeUndefined();
+  });
+
+  it("keeps explicit edits and deletions when recovering a legacy duplicate", () => {
+    const { project, source } = importedProject();
+    const duplicate = new NARC();
+    duplicate.files = [Uint8Array.of(2, 0, 8, 0, 255, 255, 255, 255), Uint8Array.of(255, 255, 255, 255)];
+    project.fileSystem!.additions![KO_MOVE_LEARNSET_PATH] = duplicate.save();
+    recordGenericChange(project, "learnsets", "Pokemon 1 KO move slot 1 was removed.", "Pokemon 1 KO Moves", { key: "pokemon:1:ko-learnset" });
+    hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(source));
+    expect(getPokemonKoMoves(project, 0)).toMatchObject([{ moveId: 2, koCount: 8 }]);
+    expect(getPokemonKoMoves(project, 1)).toEqual([]);
+    // Rehydration and structured cloning (Test Battle/persistence) are safe.
+    delete project.originalRomBytes;
+    const clone = structuredClone(project);
+    hydrateKoMoveLearnsetFromRom(clone, new NintendoDSRom(source));
+    expect(getPokemonKoMoves(clone, 0)).toMatchObject([{ moveId: 2, koCount: 8 }]);
+    expect(getPokemonKoMoves(clone, 1)).toEqual([]);
+  });
 });
+
+function importedProject(): { project: ProjectState; source: Uint8Array; fileId: number } {
+  const archive = new NARC();
+  archive.files = [Uint8Array.of(255, 255, 255, 255), Uint8Array.of(1, 0, 5, 0, 255, 255, 255, 255)];
+  const source = new NintendoDSRom(new Uint8Array(0x200)).save({ addedFiles: [
+    { path: "other/data.bin", bytes: Uint8Array.of(42) },
+    { path: KO_MOVE_LEARNSET_PATH, bytes: archive.save() },
+  ] });
+  const project = makeProject(2);
+  for (const store of Object.values(project.narcs)) store!.fileId = -1;
+  project.originalRomBytes = source;
+  return { project, source, fileId: new NintendoDSRom(source).fileId(KO_MOVE_LEARNSET_PATH) };
+}
 
 function makeProject(memberCount: number): ProjectState {
   const store = (name: "personal" | "learnsets"): NarcStore => ({
