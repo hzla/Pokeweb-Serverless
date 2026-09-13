@@ -1,14 +1,17 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { NintendoDSRom } from "../src/nds/rom";
+import { NARC } from "../src/nds/narc";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import {
   MENU_EVOLUTION_MESSAGE_BANK_ID,
   detectMenuEvolutionCompatibility,
+  getMenuEvolutionInstallStatus,
   installMenuEvolution,
+  isKoMoveEditorAvailable,
 } from "../src/pokeweb/menuEvolutionModel";
-import { installBundledPmc, stageCodeInjectionDll } from "../src/pokeweb/pmcModel";
+import { installBattleLog } from "../src/pokeweb/battleLogModel";
 import { getTextBank, parseTextEntryId } from "../src/pokeweb/textModel";
 
 const romPath = process.argv[2];
@@ -22,7 +25,7 @@ if (rom.idCode !== "IREO" && rom.idCode !== "IRDO") {
 const version = rom.idCode === "IREO" ? "B2" : "W2";
 const counterFilename = version === "B2" ? "Black2UpgradeBattleCounters.dll" : "White2UpgradeBattleCounters.dll";
 const menuFilename = `MenuEvolution${version}.dll`;
-const project = await loadProjectFromRomBytes(romBytes, basename(romPath), { selectedNarcs: ["message_texts"] });
+const project = await loadProjectFromRomBytes(romBytes, basename(romPath), { selectedNarcs: ["message_texts", "evolutions"] });
 const compatibility = detectMenuEvolutionCompatibility(project);
 if (!compatibility.compatible) throw new Error(compatibility.message);
 
@@ -38,12 +41,11 @@ globalThis.fetch = (async (input: RequestInfo | URL) => {
 }) as typeof fetch;
 
 try {
-  await installBundledPmc(project);
-  const counterBytes = new Uint8Array(await readFile(new URL(`../src/assets/codeinjection/${counterFilename}`, import.meta.url)));
-  stageCodeInjectionDll(project, counterFilename, counterBytes, "patches");
+  await installBattleLog(project);
   const first = await installMenuEvolution(project);
   const second = await installMenuEvolution(project);
   if (second.messageEntryId !== first.messageEntryId) throw new Error("Idempotent reinstall changed the Evolve message ID.");
+  if (!isKoMoveEditorAvailable(project)) throw new Error("KO Moves editor did not become available after installing its current runtimes.");
 
   const matchingText = getTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID)
     .filter((entry) => entry[1] === "EVOLVE");
@@ -54,17 +56,26 @@ try {
   const installed = exported.getFileByName(`patches/${menuFilename}`);
   if (installed.length === 0) throw new Error(`${menuFilename} was not exported.`);
   if (exported.getFileByName(`patches/${counterFilename}`).length === 0) throw new Error(`${counterFilename} was not exported.`);
+  const koLearnsets = new NARC(exported.getFileByName(first.koLearnsetPath));
+  if (koLearnsets.files.length !== first.koLearnsetMembers) {
+    throw new Error(`Exported KO learnset has ${koLearnsets.files.length} members; expected ${first.koLearnsetMembers}.`);
+  }
   const configuredId = readConfiguredMessageId(installed);
   if (configuredId !== first.messageEntryId) {
     throw new Error(`Exported configuration uses message ${configuredId}; expected ${first.messageEntryId}.`);
   }
   const reloaded = await loadProjectFromRomBytes(exportedBytes, `menu-evolution-${version}.nds`, { selectedNarcs: ["message_texts"] });
+  const reloadedStatus = getMenuEvolutionInstallStatus(reloaded);
+  if (!reloadedStatus.upToDate) {
+    throw new Error(`Reloaded exported ROM did not recognize the current Menu Evolution runtime and KO learnset: ${JSON.stringify(reloadedStatus)}`);
+  }
+  if (!isKoMoveEditorAvailable(reloaded)) throw new Error("Reloaded exported ROM did not expose the KO Moves editor.");
   const exportedText = getTextBank(reloaded, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID)
     .find((entry) => parseTextEntryId(entry[0]).entry === configuredId)?.[1];
   if (exportedText !== "EVOLVE") {
     throw new Error(`Exported message ${configuredId} is ${JSON.stringify(exportedText)}, not EVOLVE.`);
   }
-  console.log(`${version} Menu Evolution install passed: ${compatibility.passed}/${compatibility.checks.length} hooks, PMC/counter dependency, configured Evolve text ${first.messageEntryId}, field-script counters, silent party-menu return, idempotent staging, and ROM export.`);
+  console.log(`${version} Menu Evolution install passed: ${compatibility.passed}/${compatibility.checks.length} hooks, PMC/counter dependency, configured Evolve text ${first.messageEntryId}, ${koLearnsets.files.length} KO learnset members, field-script counters, silent party-menu return, idempotent staging, and ROM export.`);
 } finally {
   globalThis.fetch = previousFetch;
 }

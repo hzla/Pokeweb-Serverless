@@ -42,8 +42,8 @@ export const WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_S
 export const BATTLE_LOG_ANCESTRY_PATH = "battlelog/ancestry.narc";
 export const BATTLE_LOG_EVOLUTION_PATH = "a/0/1/9";
 export const BATTLE_LOG_CAPACITY = 600;
-/** Version 3 records allied NPC partner KOs without crediting a player PK5. */
-export const BATTLE_LOG_RUNTIME_VERSION = 3;
+/** Version 8 keeps KO-only learning from replaying the current-level learnset. */
+export const BATTLE_LOG_RUNTIME_VERSION = 8;
 
 const SPECIES_COUNT = 1024;
 const EVOLUTION_SLOT_SIZE = 6;
@@ -79,6 +79,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
   summaryDllFilename: string;
   summaryDllPath: string;
   summaryDllUrl: URL;
+  runtimeVersion: number;
   runtimeFingerprints: {
     battle: RuntimeFingerprint;
     counters: RuntimeFingerprint;
@@ -101,9 +102,10 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url),
+    runtimeVersion: 8,
     runtimeFingerprints: {
-      battle: { length: 2432, fnv1a: 0x7316e56f },
-      counters: { length: 560, fnv1a: 0x5c161190 },
+      battle: { length: 2352, fnv1a: 0x76de8c7e },
+      counters: { length: 1648, fnv1a: 0xf7e99c0e },
       summary: { length: 896, fnv1a: 0x45f45047 },
     },
     wifiAddress: 0x02009f0c,
@@ -115,6 +117,11 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
       { label: "Faint detection", overlayId: 167, address: 0x021a8a64, expectedHex: "f8b582b00f1c041c381c12f007f9061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 167, address: 0x021ae36c, expectedHex: "f0b585b0041c039260681f1c02910a9dedf720fd04903869" },
       { label: "Individual PK5 counter RPC", overlayId: 167, address: 0x021bb3a8, expectedHex: "08b50d21fff722ff002801d1012008bd002008bd38b5051c" },
+      { label: "Zero-EXP KO move-learning transition", overlayId: 167, address: 0x021b7ed4, expectedHex: "00281ad0" },
+      { label: "Shared EXP state assignment", overlayId: 167, address: 0x021b7f0e, expectedHex: "0d202060" },
+      { label: "KO move lookup", overlayId: 167, address: 0x021b8144, expectedHex: "65f61ef9" },
+      { label: "KO move caller BattleMon stack slot", overlayId: 167, address: 0x021b80ec, expectedHex: "f0b5afb0041c0d1c101cc14e0092" },
+      { label: "KO learnset optional archive lookup", overlayId: 0, address: 0x02070cf4, expectedHex: "f0b5ddb017af051c0024081c00a93a1c" },
       { label: "Summary frag value", overlayId: 207, address: 0x021b6f32, expectedHex: "0721002265f63dff0004020c0220009001200190381c0021" },
       { label: "Summary frag formatting", overlayId: 207, address: 0x021b6f48, expectedHex: "002105236df6fcfa4120009001200190112080010290e169" },
     ],
@@ -131,9 +138,10 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url),
+    runtimeVersion: 8,
     runtimeFingerprints: {
-      battle: { length: 2544, fnv1a: 0xd9edf49c },
-      counters: { length: 672, fnv1a: 0x38fe5fb1 },
+      battle: { length: 2464, fnv1a: 0x13533c4e },
+      counters: { length: 1760, fnv1a: 0x398d8ef9 },
       summary: { length: 1008, fnv1a: 0x6d26cc5f },
     },
     wifiAddress: 0x02009f0c,
@@ -145,6 +153,11 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
       { label: "Faint detection", overlayId: 167, address: 0x021a8a24, expectedHex: "f8b582b00f1c041c381c12f007f9061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 167, address: 0x021ae32c, expectedHex: "f0b585b0041c039260681f1c02910a9dedf720fd04903869" },
       { label: "Individual PK5 counter RPC", overlayId: 167, address: 0x021bb368, expectedHex: "08b50d21fff722ff002801d1012008bd002008bd38b5051c" },
+      { label: "Zero-EXP KO move-learning transition", overlayId: 167, address: 0x021b7e94, expectedHex: "00281ad0" },
+      { label: "Shared EXP state assignment", overlayId: 167, address: 0x021b7ece, expectedHex: "0d202060" },
+      { label: "KO move lookup", overlayId: 167, address: 0x021b8104, expectedHex: "65f628f9" },
+      { label: "KO move caller BattleMon stack slot", overlayId: 167, address: 0x021b80ac, expectedHex: "f0b5afb0041c0d1c101cc14e0092" },
+      { label: "KO learnset optional archive lookup", overlayId: 0, address: 0x02070cc8, expectedHex: "f0b5ddb017af051c0024081c00a93a1c" },
       { label: "Summary frag value", overlayId: 207, address: 0x021b6ef2, expectedHex: "0721002265f647ff0004020c0220009001200190381c0021" },
       { label: "Summary frag formatting", overlayId: 207, address: 0x021b6f08, expectedHex: "002105236df606fb4120009001200190112080010290e169" },
     ],
@@ -161,6 +174,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url),
+    runtimeVersion: 3,
     runtimeFingerprints: {
       battle: { length: 2400, fnv1a: 0xcc96adea },
       counters: { length: 608, fnv1a: 0xe807d97f },
@@ -191,6 +205,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url),
+    runtimeVersion: 3,
     runtimeFingerprints: {
       battle: { length: 2400, fnv1a: 0xf45a813b },
       counters: { length: 608, fnv1a: 0xa57eca34 },
@@ -290,8 +305,8 @@ export function getBattleLogInstallStatus(project: ProjectState): BattleLogInsta
     installed,
     upToDate,
     updateAvailable,
-    runtimeVersion: upToDate ? Math.max(runtimeVersion ?? 0, BATTLE_LOG_RUNTIME_VERSION) : runtimeVersion,
-    bundledRuntimeVersion: BATTLE_LOG_RUNTIME_VERSION,
+    runtimeVersion: upToDate && layout ? Math.max(runtimeVersion ?? 0, layout.runtimeVersion) : runtimeVersion,
+    bundledRuntimeVersion: layout?.runtimeVersion ?? BATTLE_LOG_RUNTIME_VERSION,
     pmcInstalled: getPmcInstallStatus(project).installed,
     dllInstalled,
     counterDllInstalled,
@@ -441,13 +456,13 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   project.codeInjection.battleLog = {
     ancestryPath: BATTLE_LOG_ANCESTRY_PATH,
     ancestryFileId,
-    runtimeVersion: BATTLE_LOG_RUNTIME_VERSION,
+    runtimeVersion: layout.runtimeVersion,
   };
 
   recordGenericChange(
     project,
     "code_injection",
-    `Battle-log runtime v${BATTLE_LOG_RUNTIME_VERSION} staged with AI-partner KO attribution, split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
+    `Battle-log runtime v${layout.runtimeVersion} staged with${project.session.baseRom === "BW2" ? " immediate KO-counter commits for companion KO moves," : ""} AI-partner KO attribution, split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
     "Battle Log",
     { key: "code-injection:battle-log" },
   );
@@ -669,7 +684,7 @@ function isCurrentBattleLogRuntime(
 ): boolean {
   const markedVersion = project.codeInjection?.battleLog?.runtimeVersion;
   // Do not offer to replace a project written by a newer Pokeweb release.
-  if (markedVersion !== undefined && markedVersion > BATTLE_LOG_RUNTIME_VERSION) return true;
+  if (markedVersion !== undefined && markedVersion > layout.runtimeVersion) return true;
 
   const artifacts = [
     [layout.dllPath, layout.runtimeFingerprints.battle],
@@ -684,7 +699,7 @@ function isCurrentBattleLogRuntime(
     matchedArtifacts += 1;
   }
   if (matchedArtifacts === artifacts.length) return true;
-  return markedVersion === BATTLE_LOG_RUNTIME_VERSION;
+  return markedVersion === layout.runtimeVersion;
 }
 
 function effectiveRomPathBytes(project: ProjectState, path: string): Uint8Array | undefined {
