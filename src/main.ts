@@ -43,6 +43,7 @@ import { createNarcStore, getCachedRecordCount, type ProjectState } from "./poke
 import { typeChartOverlayId } from "./pokeweb/typeChartModel";
 import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
 import { buildMoveTestBattleDownloads, buildTestBattleDownloads } from "./pokeweb/testBattle";
+import { buildOverworldTestWarpDownloads, type OverworldTestWarpSelection } from "./pokeweb/testOverworldWarp";
 import { renderDebugNarcs } from "./ui/debugNarcs";
 import { renderCodeInjectionEditor } from "./ui/codeInjectionEditor";
 import { renderFileSystemEditor } from "./ui/fileSystemEditor";
@@ -577,6 +578,7 @@ function renderApp(): void {
         renderDirtyIndicator();
       },
       () => navigate("headers"),
+      launchOverworldTestWarp,
     );
     return;
   }
@@ -1298,6 +1300,31 @@ async function launchTestBattle(trainerId: number, showdownText = ""): Promise<v
       opponentTrainerId: trainerId,
       pokemonNames: project.texts.banks.pokedex?.slice() ?? [],
       testLabel: `trainer ${trainerId} test battle`,
+      romBytes,
+      saveBytes,
+    });
+  } catch (error) {
+    emulator.close();
+    throw error;
+  }
+}
+
+async function launchOverworldTestWarp(selection: OverworldTestWarpSelection): Promise<void> {
+  if (!project) return;
+  if (project.session.baseRom !== "BW2") throw new Error("Test Warp to Here is only available for Black 2 and White 2 ROMs.");
+  if (!hasExportBase) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
+  const activeProject = project;
+  const emulator = openTestBattleEmulator();
+  const name = `${activeProject.session.romName || "pokeweb"}-test-warp-${selection.overworldId}-${selection.x}-${selection.y}`;
+  try {
+    await saveActiveProject(activeProject);
+    const { romBytes, saveBytes } = await buildOverworldTestWarpDownloads(activeProject, selection);
+    await emulator.launch({
+      romName: `${name}.nds`,
+      saveName: `${name}.dsv`,
+      trainerId: 0,
+      pokemonNames: activeProject.texts.banks.pokedex?.slice() ?? [],
+      testLabel: `overworld ${selection.overworldId}, tile ${selection.x}, ${selection.y} — press Down in Aspertia City to warp`,
       romBytes,
       saveBytes,
     });

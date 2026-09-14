@@ -24,7 +24,7 @@ def main():
         assert not subprocess.check_output([str(TOOLS/'arm-none-eabi-nm'),'-u',str(elf)]).strip()
         # Load before ordinary priority-4 battle patches. This does not enlarge
         # the PMC heap; the unoptimized Cascade build has insufficient capacity.
-        version='0.3.9' if module=='TypeIcons' else '0.4.0'
+        version='0.3.11' if module=='TypeIcons' else '0.4.0'
         meta=build/(name+'.yml');meta.write_text(f'PMCGameID: {game}\nPMCModulePriority: 3\nPMCVersion: {version}\n')
         for debug in (True,False):
             dll=build/(name+('.debug' if debug else '')+'.dll')
@@ -44,7 +44,9 @@ def main():
                 fixed_state_bytes=rpm['bss'],expanded_rpm_bytes=rpm['expanded_size'],
                 retained_rpm_after_internal_fix_bytes=rpm['internal_fixed_size'],
                 rpm_metadata_overhead_bytes=rpm['expanded_size']-len(rpm['code'])-rpm['bss'],
-                icon_constants_bytes=208 if module=='TypeIcons' else 0,external_hook_count=len(external),external_modules=['168'],
+                icon_constants_bytes=208 if module=='TypeIcons' else 0,
+                caught_marker_constants_bytes=32 if module=='TypeIcons' else 0,
+                external_hook_count=len(external),external_modules=['168'],
                 pmc_module_state_bytes=36,pmc_overlay_list_bytes=8,pmc_extern_list_bytes=8,
                 pmc_allocator_headers_bytes=64,pmc_allocator_alignment_padding_bytes=4,
                 estimated_total_pmc_heap_bytes=rpm['expanded_size']+120,

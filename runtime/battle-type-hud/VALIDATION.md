@@ -1,4 +1,42 @@
-# Validation — Type Icons 0.3.9 / bundle 0.4.9
+# Validation — Type Icons 0.3.11 / bundle 0.4.11
+
+The relocated caught Poké Ball moves down exactly one DS pixel, from texture
+y=17 to y=18. Its x position, 8x8 native pixels, palette, type-icon placement,
+text positions and HP panel remain unchanged. The nontransparent art now spans
+rows 18–24 inside the verified lower-panel region; its transparent final row
+remains at y=25.
+
+Compiled B2/W2 placement, all status states, full graphics reload and exact
+teardown restoration pass. Installer upgrade and production build checks also
+pass. No game boot or frames were executed.
+
+# Historical validation — Type Icons 0.3.10 / bundle 0.4.10
+
+The native already-caught Poké Ball now occupies the center of the former
+lower-panel monotype position while enemy type icons remain beside the name.
+The game-provided marker is 8x8: its near-black outline encloses a red/white
+interior no wider than six pixels, so no resampling or palette change is needed.
+
+- Compiled B2 and W2 checks identify the exact native marker in gauge-parts
+  member 434, move only its nontransparent pixels, and preserve the patterned
+  panel beneath its transparent corners.
+- Singles, doubles and triples retain the marker with mono/dual type icons.
+  All six status labels hide the type icons while leaving the caught marker
+  visible. Full graphics reloads relocate it again, and panel removal restores
+  both the lower-panel background and the native marker tile byte for byte.
+- Existing type, header, name-width, OAM, captured-state, HP slash, palette,
+  Illusion, lifecycle and compatibility checks pass. Move Preview 0.4.0 remains
+  byte-identical.
+
+Writable state remains 364 bytes. The release DLL is 7,536 bytes, with 6,576
+bytes of code/constants and an estimated 7,808 retained PMC bytes including
+bookkeeping. This adds no graphics VRAM, sprites, palette banks, or battle-heap
+allocations. The 32-byte native marker raster is the only new art constant.
+
+No game boot or frames were executed. ROMs and supplied states were read only;
+final appearance and animation testing remain with the user.
+
+# Historical validation — Type Icons 0.3.9 / bundle 0.4.9
 
 Player singles name and type icons move 12 pixels right; gender and level
 move eight pixels right. Vertical alignment, HP/EXP panel and other layouts
