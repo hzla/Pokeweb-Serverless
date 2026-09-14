@@ -19,6 +19,7 @@ import {
 } from "../pokeweb/gen4ItemStandardizationModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { getCascadePersonalMigrationStatus, migrateCascadePersonalData } from "../pokeweb/cascadeWhitePersonalModel";
 
 type PatchStatus = {
   text: string;
@@ -35,6 +36,24 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
   const trainerNatureStatus = detectSpecifyTrainerNaturesPatch(project);
   const moveExpansionStatus = detectMoveExpansionPatch(project);
   const itemStandardizationStatus = detectPlatinumItemStandardization(project);
+  const cascadeStatus = getCascadePersonalMigrationStatus(project);
+  const cascadeCard = !cascadeStatus.visible ? "" : `
+    <section class="patch-card">
+      <div class="patch-card__body">
+        <div>
+          <h2>Editable Cascade AI Abilities</h2>
+          <p>${escapeHtml(cascadeStatus.message)}</p>
+          <p>Enables three AI ability slots and a reserved Hidden Ability Chance field in the Pokémon personal editor. Battle behavior requires a Cascade runtime that reads these fields.</p>
+        </div>
+        <div class="patch-card__meta">
+          <span class="patch-badge ${cascadeStatus.installed ? "-ok" : cascadeStatus.canMigrate ? "" : "-warn"}">${cascadeStatus.installed ? "Migrated" : cascadeStatus.canMigrate ? "Ready" : "Unavailable"}</span>
+          <span>Cascade White</span>
+        </div>
+      </div>
+      <div class="patch-card__actions">
+        <button class="btn -default" id="migrate-cascade-personal-btn" type="button" ${cascadeStatus.canMigrate ? "" : "disabled"}>Migrate AI Abilities</button>
+      </div>
+    </section>`;
   const hmPatchCard =
     hmStatus === "unsupported"
       ? ""
@@ -203,10 +222,20 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
         ${trainerNaturePatchCard}
         ${hmPatchCard}
         ${itemStandardizationPatchCard}
+        ${cascadeCard}
         <div class="patch-status ${status?.kind ? `-${status.kind}` : ""}" id="patch-status">${escapeHtml(status?.text ?? "")}</div>
       </main>
     </div>
   `;
+
+  root.querySelector<HTMLButtonElement>("#migrate-cascade-personal-btn")?.addEventListener("click", async (event) => {
+    await applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
+      confirmText: "Copy this ROM’s injected AI abilities into personal data and enable editing? Hidden Ability Chance will start at 0 for future runtime support.",
+      loadingText: "Validating Cascade ability data...",
+      successText: "Migrated Cascade AI abilities",
+      apply: migrateCascadePersonalData,
+    });
+  });
 
   root.querySelector<HTMLButtonElement>("#remove-dust-cloud-gems-btn")?.addEventListener("click", async (event) => {
     applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
