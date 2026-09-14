@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NARC } from "../nds/narc";
 import type { NarcName } from "../pokeweb/constants";
 import {
   GEN5_CALC_BRIDGE_CONFIG,
@@ -147,6 +148,64 @@ describe("docGeneratorModel", () => {
     expect(parseTrainerBattleScripts(makeTrainerBattleScriptBytes(), 20)).toEqual([7, 6]);
   });
 
+  it("resolves trainer IDs assigned to work variables on reachable script paths", () => {
+    const bytes = new Uint8Array(38);
+    writeInt(bytes, 0, 4, 2);
+    writeInt(bytes, 4, 2, 0xfd13);
+    [
+      0x28, 0x8000, 178,
+      0x85, 0x8000, 0, 0,
+      0x28, 0x8000, 179,
+      0x94, 0x8000, 0, 0, 0,
+      0x02,
+    ].forEach((value, index) => writeInt(bytes, 6 + index * 2, 2, value));
+
+    expect(parseTrainerBattleScripts(bytes, 813, "BW2")).toEqual([178, 179]);
+  });
+
+  it("uses the map overlay command layout before reading later battles", () => {
+    const bytes = new Uint8Array(20);
+    writeInt(bytes, 0, 4, 2);
+    writeInt(bytes, 4, 2, 0xfd13);
+    [1000, 0, 0x85, 341, 0, 0, 0x02].forEach((value, index) => writeInt(bytes, 6 + index * 2, 2, value));
+
+    expect(parseTrainerBattleScripts(bytes, 813, "BW2")).toEqual([]);
+    expect(parseTrainerBattleScripts(bytes, 813, "BW2", { overlayId: 52 })).toEqual([341]);
+  });
+
+  it("does not locate N from the Mistralton ItemSub operands or unreachable bytes", () => {
+    const bytes = new Uint8Array(26);
+    writeInt(bytes, 0, 4, 4);
+    writeInt(bytes, 4, 2, 0xfd13);
+    // cleanwhite2 script 222: ItemSub(item 134, quantity 5, result 0x802d).
+    // The old byte scan read item 134 (0x86) as a multi-trainer battle opcode.
+    [0xb6, 134, 5, 0x802d, 0x02, 0x85, 7, 0, 0].forEach((value, index) => writeInt(bytes, 8 + index * 2, 2, value));
+
+    expect(parseTrainerBattleScripts(bytes, 813, "BW2")).toEqual([]);
+    expect(parseTrainerBattleScripts(bytes, 813, "BW")).toEqual([]);
+  });
+
+  it("follows signed calls to trainer battles outside the entry's sequential range", () => {
+    const bytes = new Uint8Array(28);
+    writeInt(bytes, 0, 4, 16); // Entry starts at 20; its helper precedes it.
+    writeInt(bytes, 4, 2, 0xfd13);
+    [0x85, 7, 0, 0, 0x05].forEach((value, index) => writeInt(bytes, 8 + index * 2, 2, value));
+    writeInt(bytes, 20, 2, 0x04);
+    writeInt(bytes, 22, 4, -18);
+    writeInt(bytes, 26, 2, 0x02);
+
+    expect(parseTrainerBattleScripts(bytes, 20)).toEqual([7]);
+  });
+
+  it("stops at unknown commands rather than interpreting their operands as battles", () => {
+    const bytes = new Uint8Array(18);
+    writeInt(bytes, 0, 4, 4);
+    writeInt(bytes, 4, 2, 0xfd13);
+    [0xffff, 0x85, 7, 0, 0].forEach((value, index) => writeInt(bytes, 8 + index * 2, 2, value));
+
+    expect(parseTrainerBattleScripts(bytes, 20)).toEqual([]);
+  });
+
   it("finds odd-aligned trainer battle commands and applies their header difficulty", () => {
     const project = makeProject();
     const headerFormat = project.formats.headers!;
@@ -178,7 +237,59 @@ describe("docGeneratorModel", () => {
 
     expect(result.count).toBe(3);
     expect(project.docs?.trainerLocations).toEqual({ "6": ["Black City"], "7": ["Black City"] });
+    expect(project.docs?.trainerLocationSources).toEqual({
+      "6": [{ location: "Black City", overworldId: 0 }],
+      "7": [{ location: "Black City", overworldId: 0 }],
+    });
     expect(project.docs?.trainerDiffs).toEqual({ "6": 3, "7": 3 });
+  });
+
+  it("keeps the exact script overworld for indirect stadium trainer locations", () => {
+    const project = makeProject();
+    project.headers = { count: 2, rows: {
+      1: { index: 0, script_id: 0, overworlds_id: 0, location_name: "Nimbasa City" },
+      2: { index: 1, script_id: 3, overworlds_id: 1, location_name: "Nimbasa City" },
+    } } as ProjectState["headers"];
+    project.narcs.overworlds!.fileCount = 2;
+    project.narcs.overworlds!.rawFiles = [new Uint8Array(8), new Uint8Array(8)];
+    const script = new Uint8Array(16);
+    writeInt(script, 0, 4, 2);
+    [0xfd13, 0x1e3, 0, 0, 1, 0x02].forEach((value, i) => writeInt(script, 4 + i * 2, 2, value));
+    project.narcs.scripts!.rawFiles[3] = script;
+    const archive = new NARC();
+    archive.files = [new Uint8Array(8)];
+    writeInt(archive.files[0]!, 2, 2, 1);
+    writeInt(archive.files[0]!, 6, 2, 1);
+    project.trainerLocationTables = { stadium: { fileId: 553, bytes: archive.save() } };
+
+    enrichTrainerLocations(project);
+
+    expect(project.docs?.trainerLocations["1"]).toEqual(["Nimbasa City"]);
+    expect(project.docs?.trainerLocationSources?.["1"]).toEqual([{ location: "Nimbasa City", overworldId: 1 }]);
+  });
+
+  it("retains the originating overworld when several files have the same location name", () => {
+    const project = makeProject();
+    project.headers = {
+      count: 2,
+      rows: {
+        1: { index: 0, location_name: "Castelia City", overworlds_id: 0, script_id: 0 },
+        2: { index: 1, location_name: "Castelia City", overworlds_id: 1, script_id: 3 },
+      },
+    };
+    project.narcs.overworlds = makeStore("overworlds", [new Uint8Array(8), makeOverworldBytes()], 2);
+
+    enrichTrainerLocations(project);
+
+    // Trainer 7 is an NPC; trainer 6 is found only in the second header's battle script.
+    expect(project.docs?.trainerLocationSources).toEqual({
+      "6": [{ location: "Castelia City", overworldId: 1 }],
+      "7": [{ location: "Castelia City", overworldId: 1 }],
+    });
+    project.narcs.overworlds = makeStore("overworlds", [new Uint8Array(8), new Uint8Array(8)], 2);
+    project.headers.rows[2].script_id = 0;
+    enrichTrainerLocations(project);
+    expect(project.docs?.trainerLocationSources).toEqual({});
   });
 
   it("adds trainer difficulty adjustments to generated calc sets", () => {
@@ -874,14 +985,15 @@ function makeTrainerBattleScriptBytes(): Uint8Array {
 }
 
 function makeOddAlignedTrainerBattleScriptBytes(): Uint8Array {
-  const out = new Uint8Array(18);
+  const out = new Uint8Array(25);
   writeInt(out, 0, 4, 4);
   writeInt(out, 4, 2, 0xfd13);
-  out[8] = 0;
-  writeInt(out, 9, 2, 0x0085);
-  writeInt(out, 11, 2, 767);
-  writeInt(out, 13, 2, 0);
-  writeInt(out, 15, 2, 0);
+  writeInt(out, 8, 2, 0x0015); // VMRegSet32 has a byte operand and a four-byte operand.
+  writeInt(out, 15, 2, 0x0085);
+  writeInt(out, 17, 2, 767);
+  writeInt(out, 19, 2, 0);
+  writeInt(out, 21, 2, 0);
+  writeInt(out, 23, 2, 0x0002);
   return out;
 }
 

@@ -1,0 +1,571 @@
+{
+  "version": "1.0.3",
+  "games": {
+    "W2": {
+      "idCode": "IRDO",
+      "hooks": [
+        {
+          "label": "MenuCreate",
+          "overlayId": 165,
+          "address": 35257504,
+          "expectedHex": "f0b583b0061c101c00680c1c00270092",
+          "patchType": "FULL_COPY",
+          "patchSize": 8
+        },
+        {
+          "label": "MenuSelect",
+          "overlayId": 165,
+          "address": 35246116,
+          "expectedHex": "f0b591b0a325041cad0061590a1c7332",
+          "patchType": "FULL_COPY",
+          "patchSize": 8
+        },
+        {
+          "label": "Dispatch",
+          "overlayId": 12,
+          "address": 34977100,
+          "expectedHex": "f0b583b00f1c051c3868141c0d285ed8",
+          "patchType": "FULL_COPY",
+          "patchSize": 8
+        },
+        {
+          "label": "DrawLine",
+          "overlayId": 258,
+          "address": 35236108,
+          "expectedHex": "fff770ff",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Confirm",
+          "overlayId": 258,
+          "address": 35232298,
+          "expectedHex": "01f0b3ff",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Confirm",
+          "overlayId": 258,
+          "address": 35234124,
+          "expectedHex": "01f022fc",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35232590,
+          "expectedHex": "01f0bbfd",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35234196,
+          "expectedHex": "01f098fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239092,
+          "expectedHex": "00f008f9",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239386,
+          "expectedHex": "00f075f8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239410,
+          "expectedHex": "00f069f8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239464,
+          "expectedHex": "00f04ef8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239534,
+          "expectedHex": "00f02bf8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35240296,
+          "expectedHex": "fff7aefe",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35234268,
+          "expectedHex": "00f0fcfb",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35234794,
+          "expectedHex": "00f0f5fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239138,
+          "expectedHex": "fff779fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239216,
+          "expectedHex": "fff752fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239278,
+          "expectedHex": "fff733fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239400,
+          "expectedHex": "fff7f6f9",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239450,
+          "expectedHex": "fff7ddf9",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239518,
+          "expectedHex": "fff7bbf9",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "TypeIcons",
+          "overlayId": 258,
+          "address": 35234800,
+          "expectedHex": "00f0c6fe",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "TypeIcons",
+          "overlayId": 258,
+          "address": 35236150,
+          "expectedHex": "00f023fc",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "FixedText",
+          "overlayId": 258,
+          "address": 35232780,
+          "expectedHex": "00f05afc",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Private lower background",
+          "overlayId": 258,
+          "address": 35233572,
+          "expectedHex": "b1f62af8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Viewer callbacks",
+          "overlayId": 258,
+          "address": 35240424,
+          "expectedHex": "0199190275991902519a1902",
+          "patchType": "FULL_COPY",
+          "patchSize": 12
+        },
+        {
+          "label": "Tutor work size",
+          "overlayId": 258,
+          "address": 35232000,
+          "expectedHex": "f8b5161c0522041c01204f2112040127a0f63afc8a25ad00201c291c4f22a1f6fbf8041c00212a1cdef654ef2660",
+          "patchType": "",
+          "patchSize": 0
+        },
+        {
+          "label": "Tutor list offsets",
+          "overlayId": 258,
+          "address": 35235824,
+          "expectedHex": "f8b582b0051c1820141c44436e208000285c891881426fda286bce00adf688fe",
+          "patchType": "",
+          "patchSize": 0
+        },
+        {
+          "label": "Tutor bitmap layout",
+          "overlayId": 258,
+          "address": 35240908,
+          "expectedHex": "503c0000000201015d7215e92854000001030202758a15e9505c0000",
+          "patchType": "",
+          "patchSize": 0
+        },
+        {
+          "label": "Tutor resource load",
+          "overlayId": 258,
+          "address": 35237642,
+          "expectedHex": "03980094112100220123b0f698fc",
+          "patchType": "",
+          "patchSize": 0
+        }
+      ],
+      "resources": [
+        {
+          "member": 0,
+          "sha256": "8b524587bf8454887a71aaa4f59bef592c7f1b91e0ab6475fd7695940274f16b"
+        },
+        {
+          "member": 1,
+          "sha256": "fe04f76eeffecd565639f06c7c925fa961554130ba1732eac962bc275935c16f"
+        },
+        {
+          "member": 2,
+          "sha256": "deb47e76e2c3621c1846537491bbbf3ddfe031b34144f31a6e83f0edfd708ded"
+        },
+        {
+          "member": 5,
+          "sha256": "530c9fd0aca0bbc5dc55dccdc5b8ef828e3e85a50126e846037ad063746294de"
+        },
+        {
+          "member": 7,
+          "sha256": "0befdb2bcf3252013e5aa898dd3ce61c49abfcb73801acaf1d04ffebb25072ef"
+        },
+        {
+          "member": 8,
+          "sha256": "e8f68bb83ef5d94f5d9fc017b9bc89eb86b01058c2c3f46d1eef2c69b2c40413"
+        },
+        {
+          "member": 17,
+          "sha256": "4bca85979ec752e1dfd242d52f30b3a42bd8b667a6edfc6db671ae4d117c29c1"
+        }
+      ]
+    },
+    "B2": {
+      "idCode": "IREO",
+      "hooks": [
+        {
+          "label": "MenuCreate",
+          "overlayId": 165,
+          "address": 35257440,
+          "expectedHex": "f0b583b0061c101c00680c1c00270092",
+          "patchType": "FULL_COPY",
+          "patchSize": 8
+        },
+        {
+          "label": "MenuSelect",
+          "overlayId": 165,
+          "address": 35246052,
+          "expectedHex": "f0b591b0a325041cad0061590a1c7332",
+          "patchType": "FULL_COPY",
+          "patchSize": 8
+        },
+        {
+          "label": "Dispatch",
+          "overlayId": 12,
+          "address": 34977036,
+          "expectedHex": "f0b583b00f1c051c3868141c0d285ed8",
+          "patchType": "FULL_COPY",
+          "patchSize": 8
+        },
+        {
+          "label": "DrawLine",
+          "overlayId": 258,
+          "address": 35236044,
+          "expectedHex": "fff770ff",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Confirm",
+          "overlayId": 258,
+          "address": 35232234,
+          "expectedHex": "01f0b3ff",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Confirm",
+          "overlayId": 258,
+          "address": 35234060,
+          "expectedHex": "01f022fc",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35232526,
+          "expectedHex": "01f0bbfd",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35234132,
+          "expectedHex": "01f098fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239028,
+          "expectedHex": "00f008f9",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239322,
+          "expectedHex": "00f075f8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239346,
+          "expectedHex": "00f069f8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239400,
+          "expectedHex": "00f04ef8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35239470,
+          "expectedHex": "00f02bf8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "EnterButton",
+          "overlayId": 258,
+          "address": 35240232,
+          "expectedHex": "fff7aefe",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35234204,
+          "expectedHex": "00f0fcfb",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35234730,
+          "expectedHex": "00f0f5fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239074,
+          "expectedHex": "fff779fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239152,
+          "expectedHex": "fff752fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239214,
+          "expectedHex": "fff733fa",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239336,
+          "expectedHex": "fff7f6f9",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239386,
+          "expectedHex": "fff7ddf9",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Details",
+          "overlayId": 258,
+          "address": 35239454,
+          "expectedHex": "fff7bbf9",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "TypeIcons",
+          "overlayId": 258,
+          "address": 35234736,
+          "expectedHex": "00f0c6fe",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "TypeIcons",
+          "overlayId": 258,
+          "address": 35236086,
+          "expectedHex": "00f023fc",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "FixedText",
+          "overlayId": 258,
+          "address": 35232716,
+          "expectedHex": "00f05afc",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Private lower background",
+          "overlayId": 258,
+          "address": 35233508,
+          "expectedHex": "b1f634f8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
+          "label": "Viewer callbacks",
+          "overlayId": 258,
+          "address": 35240360,
+          "expectedHex": "c198190235991902119a1902",
+          "patchType": "FULL_COPY",
+          "patchSize": 12
+        },
+        {
+          "label": "Tutor work size",
+          "overlayId": 258,
+          "address": 35231936,
+          "expectedHex": "f8b5161c0522041c01204f2112040127a0f644fc8a25ad00201c291c4f22a1f605f9041c00212a1cdef65eef2660",
+          "patchType": "",
+          "patchSize": 0
+        },
+        {
+          "label": "Tutor list offsets",
+          "overlayId": 258,
+          "address": 35235760,
+          "expectedHex": "f8b582b0051c1820141c44436e208000285c891881426fda286bce00adf692fe",
+          "patchType": "",
+          "patchSize": 0
+        },
+        {
+          "label": "Tutor bitmap layout",
+          "overlayId": 258,
+          "address": 35240844,
+          "expectedHex": "503c0000000201015d7215e92854000001030202758a15e9505c0000",
+          "patchType": "",
+          "patchSize": 0
+        },
+        {
+          "label": "Tutor resource load",
+          "overlayId": 258,
+          "address": 35237578,
+          "expectedHex": "03980094112100220123b0f6a2fc",
+          "patchType": "",
+          "patchSize": 0
+        }
+      ],
+      "resources": [
+        {
+          "member": 0,
+          "sha256": "8b524587bf8454887a71aaa4f59bef592c7f1b91e0ab6475fd7695940274f16b"
+        },
+        {
+          "member": 1,
+          "sha256": "fe04f76eeffecd565639f06c7c925fa961554130ba1732eac962bc275935c16f"
+        },
+        {
+          "member": 2,
+          "sha256": "deb47e76e2c3621c1846537491bbbf3ddfe031b34144f31a6e83f0edfd708ded"
+        },
+        {
+          "member": 5,
+          "sha256": "530c9fd0aca0bbc5dc55dccdc5b8ef828e3e85a50126e846037ad063746294de"
+        },
+        {
+          "member": 7,
+          "sha256": "0befdb2bcf3252013e5aa898dd3ce61c49abfcb73801acaf1d04ffebb25072ef"
+        },
+        {
+          "member": 8,
+          "sha256": "e8f68bb83ef5d94f5d9fc017b9bc89eb86b01058c2c3f46d1eef2c69b2c40413"
+        },
+        {
+          "member": 17,
+          "sha256": "4bca85979ec752e1dfd242d52f30b3a42bd8b667a6edfc6db671ae4d117c29c1"
+        }
+      ]
+    }
+  }
+}

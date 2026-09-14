@@ -1,0 +1,29 @@
+{
+  "checks": {
+    "B2": [
+      "singles/rotation: native type chart, status moves default, PP untouched, unchanged frames have zero bitmap flushes or move-data queries",
+      "fixed damage does not acquire a false super-effective color",
+      "Hidden Power uses native IV type once per drawing; effective Normalize changes move type; Struggle and unsupported item/weather moves stay neutral",
+      "doubles/triples: default move buttons, exact glyph transfer, current enemy from key-table mapping, ally/spread default, cancellation clears label",
+      "five additional call-site wrappers preserve original calls, return value, callee-saved registers and fifth/sixth stack arguments",
+      "red: type immunities, Scrappy/Foresight/Miracle Eye, Levitate/Air Balloon/Magnet Rise/Telekinesis, grounding and Iron Ball dual-type order; active item suppression; absorption, Soundproof, Wonder Guard, Sturdy OHKO and ability bypass/suppression, with real native state readers",
+      "live immunity removal retints red to default without move-data reloads or client-state mutations",
+      "red target/ally transitions in doubles/triples; customized six-byte color table loads and fades correctly, and all three native palette entries restore"
+    ],
+    "W2": [
+      "singles/rotation: native type chart, status moves default, PP untouched, unchanged frames have zero bitmap flushes or move-data queries",
+      "fixed damage does not acquire a false super-effective color",
+      "Hidden Power uses native IV type once per drawing; effective Normalize changes move type; Struggle and unsupported item/weather moves stay neutral",
+      "doubles/triples: default move buttons, exact glyph transfer, current enemy from key-table mapping, ally/spread default, cancellation clears label",
+      "five additional call-site wrappers preserve original calls, return value, callee-saved registers and fifth/sixth stack arguments",
+      "red: type immunities, Scrappy/Foresight/Miracle Eye, Levitate/Air Balloon/Magnet Rise/Telekinesis, grounding and Iron Ball dual-type order; active item suppression; absorption, Soundproof, Wonder Guard, Sturdy OHKO and ability bypass/suppression, with real native state readers",
+      "live immunity removal retints red to default without move-data reloads or client-state mutations",
+      "red target/ally transitions in doubles/triples; customized six-byte color table loads and fades correctly, and all three native palette entries restore"
+    ]
+  },
+  "release_sha256": {
+    "B2": "fea4011d1409f152208b1e701afccdd6f8f55aa04c0e6440fcfa0a83cb1055d6",
+    "W2": "f4a4995a3195f9514676d76d6aed0c36aa1dcb9b748a41823bd3b3d8b72e3b63"
+  },
+  "writable_state_bytes": 20
+}

@@ -1,0 +1,15 @@
+{
+  "checks": [
+    "independent move-preview profile checks its five hooks",
+    "verified Cascade scanner and all other installed modules have no hook collisions",
+    "known insufficient PMC capacity is rejected without resizing the heap",
+    "all 17 icon conflicting DLL hook relocations are detected",
+    "malformed installed DLL produces a compatibility failure",
+    "unrecognized panel and HP-number graphics are rejected",
+    "exact expanded player NCGR/NCER accepted; arbitrary changes rejected",
+    "prior player NCER position accepted for verified upgrade",
+    "native call-site modifications are rejected before installation"
+  ],
+  "source_rom_unchanged": true,
+  "mutations": "in-memory only"
+}

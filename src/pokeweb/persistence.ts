@@ -7,6 +7,7 @@ import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffec
 import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, tutorMoveTableOffset } from "./tutorMoveModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
+import { hydrateTrainerLocationTables } from "./trainerLocationModel";
 import { hydrateBattleLogInstallMetadata } from "./battleLogModel";
 import { isRomFsTypeChartStore, typeChartOverlayId, typeChartTableLength, typeChartTableOffset } from "./typeChartModel";
 
@@ -159,6 +160,7 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   if (!romBytes) return;
   const rom = new NintendoDSRom(romBytes);
   hydrateKoMoveLearnsetFromRom(project, rom);
+  hydrateTrainerLocationTables(project, rom);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
   hydrateBattleLogInstallMetadata(project, rom);
   if (!project.pwanAnimations?.dirty && ((project.pwanAnimations?.overrides.length ?? 0) === 0 || !project.pwanAnimations?.detectedArchive)) {

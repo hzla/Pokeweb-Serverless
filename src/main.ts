@@ -63,7 +63,7 @@ import { renderStarterEditor } from "./ui/starterEditor";
 import { renderTmEditor } from "./ui/tmEditor";
 import { renderTutorMoveEditor } from "./ui/tutorMoveEditor";
 import { renderTypeChartEditor } from "./ui/typeChartEditor";
-import { renderTrainerEditor } from "./ui/trainerEditor";
+import { renderTrainerEditor, stopTrainerImageRendering } from "./ui/trainerEditor";
 import { renderTrainerSpriteEditor, stopTrainerSpriteEditorPlayback } from "./ui/trainerSpriteEditor";
 import { renderTrainerMusicEditor, stopTrainerMusicEditorPlayback } from "./ui/trainerMusicEditor";
 import { renderBattleFacilityEditor } from "./ui/battleFacilityEditor";
@@ -467,6 +467,8 @@ window.addEventListener("popstate", (event) => {
 });
 
 function renderApp(): void {
+  const previousContent = document.getElementById("content-container");
+  if (previousContent) stopTrainerImageRendering(previousContent);
   stopTrainerSpriteEditorPlayback();
   stopTrainerMusicEditorPlayback();
   stopOverworldWeatherEditorPreview();

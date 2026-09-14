@@ -1,0 +1,317 @@
+{
+  "game": "W2",
+  "rom_code": "IRDO",
+  "overlay_base": 35510944,
+  "functions": {
+    "Add": 35584736,
+    "AddPP": 35585200,
+    "Main": 35584196,
+    "Del": 35587752,
+    "Release": 35586132,
+    "Status": 35591784,
+    "GetPfd": 35520760,
+    "GetRule": 35520808,
+    "GetProxy": 33866808,
+    "PalAddr": 33865196,
+    "PPGet": 33672484,
+    "EffectiveTypes": 35369020,
+    "ViewSrc": 35369124,
+    "MoveDraw": 35575900,
+    "MoveClear": 35578496,
+    "MoveKey": 35581180,
+    "CreateScreen": 35564156,
+    "GetMainModule": 35520876,
+    "ViewToBattle": 35243908,
+    "FrontBattler": 35246536,
+    "TypeAffinity": 35377648,
+    "MoveParam": 33690284,
+    "FlushBitmap": 33849968,
+    "HiddenPower": 33675244,
+    "BattleStat": 35369460,
+    "CheckSick": 35371780,
+    "SickCont": 35371860,
+    "HeldItem": 35369856,
+    "FieldSim": 35248616,
+    "FieldEffect": 35479120,
+    "MoveFlag": 33690684,
+    "HpNumberBinding": 35586928,
+    "NameDraw": 35589944,
+    "SexDraw": 35590320,
+    "LevelDraw": 35591048,
+    "GaugePosition": 35587852,
+    "SpriteInit": 33870180,
+    "CellInit": 33870424,
+    "CellSelect": 33952132
+  },
+  "signatures": [
+    {
+      "name": "Add",
+      "segment": 168,
+      "address": 35584736,
+      "bytes": "f8b58ab0109f051c84203c1c4443281c02908030029000910299161c002009194422019388f6a4ed301c0d21cbf772fb"
+    },
+    {
+      "name": "AddPP",
+      "segment": 168,
+      "address": 35585200,
+      "bytes": "f0b589b00e9f051c84203c1c4443281c03908030039000910399161c002009194422019388f6bcec301ca02100222df6"
+    },
+    {
+      "name": "Main",
+      "segment": 168,
+      "address": 35584196,
+      "bytes": "f0b585b0061c4ef62dfb4624240130594002c00f5ad0f0f725fc32597a4911403151002852d0012850d0002100208422"
+    },
+    {
+      "name": "Del",
+      "segment": 168,
+      "address": 35587752,
+      "bytes": "78b581b0051c2e1c84200c1c4443b03630590007c00f15d0114a00a8138803805288428001220a4204d00023c25e5b1e"
+    },
+    {
+      "name": "Release",
+      "segment": 168,
+      "address": 35586132,
+      "bytes": "38b5051c4620000128580002c00f01282bd10024082c0ada281c211c00f01afb281c211c00f028fa641c082cf4db0024"
+    },
+    {
+      "name": "Status",
+      "segment": 168,
+      "address": 35591784,
+      "bytes": "f0b587b01d4e00ab051c0c1c03ce1f1c03c303ce03c303ce03c3306818604620000128588001800f022808d1a0003958842050432818bc30016007b0f0bd8420"
+    },
+    {
+      "name": "GetPfd",
+      "segment": 168,
+      "address": 35520760,
+      "bytes": "02480168632080000858"
+    },
+    {
+      "name": "GetRule",
+      "segment": 168,
+      "address": 35520808,
+      "bytes": "024801686f2080000858"
+    },
+    {
+      "name": "GetProxy",
+      "segment": 0,
+      "address": 33866808,
+      "bytes": "18b4031c0c1c1c33042203cb03c4521efbd11868206018bc7047"
+    },
+    {
+      "name": "PalAddr",
+      "segment": 0,
+      "address": 33865196,
+      "bytes": "30b585b00125002900d0022500ac211cfff7e4ff201c291c14f0d0fe05b030bd"
+    },
+    {
+      "name": "PPGet",
+      "segment": 0,
+      "address": 33672484,
+      "bytes": "70b5051c0c1c161c01f050f8281c211c321c01f09df8041c281c01f075f8201c70bd000070b5051c0c1c161c01f03ef8"
+    },
+    {
+      "name": "EffectiveTypes",
+      "segment": 167,
+      "address": 35369020,
+      "bytes": "08b500a9013100aafff7d0ff00a94878097813f087fa08bd"
+    },
+    {
+      "name": "ViewSrc",
+      "segment": 167,
+      "address": 35369124,
+      "bytes": "4268002a05d0c17e4906c90f01d0101c704700687047"
+    },
+    {
+      "name": "HpNumberBinding",
+      "segment": 168,
+      "address": 35586928,
+      "bytes": "0a98169b411c18a8817118a80090002001903548179a205a0f9902909a58109b206849595b595bf669fe6119486418a8"
+    },
+    {
+      "name": "NameDraw",
+      "segment": 168,
+      "address": 35589944,
+      "bytes": "f8b58cb00d1c041c59495a4f615a01920c200a1c3a40791c11430904090c57f601fb534b061ce35a082002211f402023"
+    },
+    {
+      "name": "SexDraw",
+      "segment": 168,
+      "address": 35590320,
+      "bytes": "f0b589b00f1c051c381c6d3002780e20800191010e1820300c18022a02d166263601341c3868002833d000a95bf6acf9"
+    },
+    {
+      "name": "LevelDraw",
+      "segment": 168,
+      "address": 35591048,
+      "bytes": "f8b58cb0404c061c0d1c315b3f4f04200a1c3a40791c11430904090c57f6daf8335b019003201f4020239b023b431b04"
+    },
+    {
+      "name": "GaugePosition",
+      "segment": 168,
+      "address": 35587852,
+      "bytes": "f0b59fb0009063480191018804af944639814188604b19aa79818188b981c088f8815e4801883980418879808188b980c0880c21f88018889b1c1080921c491e"
+    },
+    {
+      "name": "SpriteInit",
+      "segment": 0,
+      "address": 33870180,
+      "bytes": "f8b5051c0f1c161c0093fff7f9fe041ca56006aa12886830311c00f03bf8009a201c391cfff79aff201c311cfff7b8ff281c211cfff700ff201c0121fef7d6ff201cf8bd"
+    },
+    {
+      "name": "CellInit",
+      "segment": 0,
+      "address": 33870424,
+      "bytes": "10b5041cc868606008690021a06012f06bff011c201c62680c3013f0dfff10bdf0b587b00c1c051ce06868602069a860"
+    },
+    {
+      "name": "CellSelect",
+      "segment": 0,
+      "address": 33952132,
+      "bytes": "f8b5051c6968898800294fd0fff78af9281cfff787f9041c6f6b2188381cfef7ffff2863e8690121"
+    },
+    {
+      "name": "EnemyPositions",
+      "segment": 168,
+      "address": 35601916,
+      "bytes": "d80078002c002800d800640030001c00dc0080002c003400"
+    },
+    {
+      "name": "EnemyTriplePositions",
+      "segment": 168,
+      "address": 35601968,
+      "bytes": "d80078002c002800d800620030001400dc0075002c002700e000880028003a00"
+    }
+  ],
+  "hooks": [
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "Add",
+      "address": 35519082,
+      "bytes": "10f039f8"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "Add",
+      "address": 35519100,
+      "bytes": "10f030f8"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "Add",
+      "address": 35519118,
+      "bytes": "10f027f8"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "AddPP",
+      "address": 35519166,
+      "bytes": "10f0f7f8"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "AddPP",
+      "address": 35519184,
+      "bytes": "10f0eef8"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "AddPP",
+      "address": 35519202,
+      "bytes": "10f0e5f8"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "Main",
+      "address": 35517108,
+      "bytes": "10f006fb"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "Del",
+      "address": 35586160,
+      "bytes": "00f01afb"
+    },
+    {
+      "kind": "OFFSET",
+      "name": "Del",
+      "address": 35519232,
+      "bytes": "a9061f02"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "Release",
+      "address": 35584132,
+      "bytes": "00f0e6fb"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "Status",
+      "address": 35585144,
+      "bytes": "01f0f6fc"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "Status",
+      "address": 35585578,
+      "bytes": "01f01dfc"
+    },
+    {
+      "kind": "OFFSET",
+      "name": "Status",
+      "address": 35519488,
+      "bytes": "69161f02"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "NameDraw",
+      "address": 35587604,
+      "bytes": "00f090fc"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "SexDraw",
+      "address": 35587612,
+      "bytes": "00f048fd"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "LevelDraw",
+      "address": 35587630,
+      "bytes": "00f0abfe"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "LevelDraw",
+      "address": 35591682,
+      "bytes": "fff7c1fe"
+    }
+  ],
+  "resources": {
+    "430": "77b18c0c6cdbdfda1de37845e7401e9b7ea87705a3acd2da1a4ae341b965c642",
+    "431": "3054920f4d9b63e281628d51679698517634491e69c47358a80b3d7bd226321d",
+    "432": "b28abadf3cc7a755b8fa0b8b23daecd56aa67c1013e5e73a4adc72cd2a9a9306",
+    "433": "e158bcffb696ee8e8a3419d3dc29a8e869fcf4935b82b286035ec3aa4ae6b2b1",
+    "434": "ee7b0fc29339480fa219d9fdebe091fed8de1242b59886589203c1e51e9cf4ea",
+    "435": "48daf3c4ba1d0e8e8f93b5c9d391e7bb6bedba20db561032018cd4bebae0402b",
+    "436": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+    "437": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "438": "f66a0871290f9f8b25c7f5b1d3d366af792cef1252352a31cfe8b2613b4be925",
+    "439": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+    "440": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "441": "1a8273b0f7ae7c1f502628963c56cb3242a76d7ea8b71eb2d228c01a8383d335",
+    "442": "5917653e4ef44c039f050f380617078b2b2df7eae6e72c1874b15eb3910de5e1",
+    "443": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "444": "1220393e501a64eacc228de1fe7dd3975f2a0004ee0c350e5f1673148e240880",
+    "445": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+    "446": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "456": "7a727094dc51596f08cca831257a39098cf19ce9558c331e5caee6fb5f6f8fce",
+    "457": "29c984e5697870d196c69d2a99ffff5925afc8f0b8a62057d3d7d0f3f51cd09f",
+    "458": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca"
+  },
+  "reference_segments": {
+    "167": "e94a3f0582384f1d6fc2dc5296de5ba410f1d1ab7461f0c2d43c5dab0de5064a",
+    "168": "de6e021f9fd5efa587f4aebf35e560966231b7d30fcb70c79b86ca41ab093711",
+    "0": "013f8943fa632b0803451bb341473b44915a1756edaf3f9d2d18116822727c21"
+  }
+}
