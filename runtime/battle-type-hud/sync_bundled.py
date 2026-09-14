@@ -5,7 +5,7 @@ from rpm_read import read_rpm
 HERE=Path(__file__).resolve().parent
 ROOT=Path(os.environ.get('BTH_WORKSPACE_ROOT',HERE.parents[2] if HERE.parent.name=='runtime' else HERE.parents[1]))
 APP=ROOT/'Pokeweb-Serverless';ASSETS=APP/'src/assets/codeinjection';RUNTIME=APP/'runtime/battle-type-hud'
-version='0.4.9'
+version='0.4.11'
 manifest=json.loads((ASSETS/'battleTypeHudManifest.json').read_text())
 manifest['version']=version;manifest.setdefault('moveGames',{})
 memory=json.loads((HERE/'build/memory-report.json').read_text())
@@ -17,7 +17,7 @@ icon_names={'Add','AddPP','Main','Del','Release','Status','GetPfd','GetRule','Ge
 for game in ('B2','W2'):
  full=json.loads((HERE/f'profile-{game}.json').read_text())
  for module,key,state,hooks in (('TypeIcons','games',364,17),('MoveEffectiveness','moveGames',20,5)):
-  component_version='0.3.9' if module=='TypeIcons' else '0.4.0'
+  component_version='0.3.11' if module=='TypeIcons' else '0.4.0'
   name=module+game+'.dll';data=(HERE/'build'/name).read_bytes();rpm=read_rpm(data)
   assert rpm['bss']==state and len([r for r in rpm['relocations'] if r['module']!='base'])==hooks
   assert all(r['module'] in ('base','168') for r in rpm['relocations']) and all(not s['attributes']&2 for s in rpm['symbols'])

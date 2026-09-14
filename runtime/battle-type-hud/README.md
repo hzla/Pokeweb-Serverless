@@ -1,6 +1,6 @@
 # Type Icons and Move Effectiveness Preview
 
-Bundle 0.4.9 (Type Icons 0.3.9; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
+Bundle 0.4.11 (Type Icons 0.3.11; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
 Pokeweb's **Code Injection** page has two independent entries:
 
 - **Type Icons** → `TypeIconsB2.dll` / `TypeIconsW2.dll`.
@@ -37,6 +37,13 @@ independently. Pokeweb cannot yet delete an original ROM file.
   Native name/gender/level hooks restore original text coordinates before
   drawing, then apply the new spacing. Unsupported overflowing text fails
   before translation. Normal panel entrance/movement animations are retained.
+- In wild battles, the native already-caught Poké Ball moves out of the header
+  icon area to the center of the former lower-panel monotype position. The
+  game-provided 8x8 marker already has a near-black outline and a red/white
+  interior no wider than six pixels, so its pixels and native palette entries
+  are reused unchanged. Version 0.3.11 lowers it one pixel from the initial
+  relocated position. The marker remains visible when a status hides the
+  type icons and returns to its native tile before panel teardown.
 - Compact player icons retain (-53,0)/(-42,0), or (-48,0) for a monotype;
   regular doubles player icons retain y=-2 and centered monotypes.
 - Player singles icons now sit immediately left of the name at y=-10. Their
@@ -146,22 +153,23 @@ Both games have the same sizes; detailed hashes are in `reports/memory-report.js
 
 | Component | Type Icons release | Move Preview release |
 |---|---:|---:|
-| DLL on disk | 7,008 B | 3,504 B |
-| Code and constants | 6,064 B | 2,948 B |
+| DLL on disk | 7,536 B | 3,504 B |
+| Code and constants | 6,568 B | 2,948 B |
 | Fixed writable state | 364 B | 20 B |
-| Expanded RPM metadata/padding | 948 B | 568 B |
-| Expanded RPM allocation | 7,376 B | 3,536 B |
-| Retained RPM allocation after internal fixups | 7,176 B | 3,440 B |
-| Estimated PMC peak including bookkeeping | 7,496 B | 3,656 B |
-| Estimated PMC retained including bookkeeping | 7,296 B | 3,560 B |
+| Expanded RPM metadata/padding | 964 B | 568 B |
+| Expanded RPM allocation | 7,904 B | 3,536 B |
+| Retained RPM allocation after internal fixups | 7,688 B | 3,440 B |
+| Estimated PMC peak including bookkeeping | 8,024 B | 3,656 B |
+| Estimated PMC retained including bookkeeping | 7,808 B | 3,560 B |
 
-Installing both totals 384 writable bytes and approximately 10,856 retained
+Installing both totals 384 writable bytes and approximately 11,368 retained
 PMC bytes. Move Preview 0.4.0 adds approximately 768 retained PMC bytes compared with
 Move Preview 0.3.0, with no additional fixed state. Debug DLLs have
 identical executable code to release; full debug loader accounting is in the report.
 
 The original 188 icon-constant bytes comprise 144 symbol bytes, 36 RGB555 color
-bytes and an 8-byte shared circle. The exterior outline adds 20 constant bytes.
+bytes and an 8-byte shared circle. The exterior outline adds 20 constant bytes;
+the exact native caught-marker pixels add 32 constant bytes.
 There are also 212 bytes of verified panel-background patterns. Six 60-byte
 records use 24-byte background buffers. Only covered pixels need backing up:
 one bit per panel pixel, two bits for overlapping name pixels. The largest
@@ -211,8 +219,9 @@ values and stack arguments. B2 addresses are independently located with unique
 instruction signatures, not derived from a blanket W2 offset. Exact addresses
 and bytes are in `profile-TypeIcons-*.json` and `profile-MoveEffectiveness-*.json`.
 
-The drawing and packaging approach follows the existing scanner patch's
-halfword-safe direct-video drawing and PMC packaging.
+Source provenance: REDACTED_REFERENCE `prog/src/battle/btlv/btlv_gauge.c`,
+`btlv_input.c`, battle typing and move-data routines, plus the existing scanner
+patch's halfword-safe direct-video drawing and PMC packaging approach.
 
 Requirements: Python 3 plus `requirements.txt`, ARM GNU `arm-none-eabi` tools,
 Java/Javac and a CTRMap.jar containing RPMTool. Tested with ARM GNU 14.2.Rel1.

@@ -2,7 +2,7 @@
 from pathlib import Path
 import hashlib,json,shutil,zipfile
 HERE=Path(__file__).resolve().parent
-VERSION='0.4.9'
+VERSION='0.4.11'
 def sha(data):return hashlib.sha256(data).hexdigest()
 def main():
     memory=json.loads((HERE/'build/memory-report.json').read_text())

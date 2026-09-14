@@ -20,7 +20,7 @@
     "original_calls_preserved": true,
     "unrelated_game_ram_and_graphics_unchanged": true
   },
-  "release_sha256": "8fb6dbea13e16d9340719b97174136ee3c45c908c12a7f16cf634a1303a1ee32",
+  "release_sha256": "427b24da2820a10bc29e009e85307e856a23e94a3b1e1aa7ea986b51ea0da3e3",
   "writable_state_bytes": 364,
   "limitations": [
     "Read-only captured-memory regression, no game boot or frames.",

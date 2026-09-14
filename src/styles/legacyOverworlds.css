@@ -51,6 +51,17 @@
   background: #6272a4;
 }
 
+.overworld-test-warp[hidden] {
+  display: none;
+}
+
+.overworld-test-warp-status {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .ow-btn,
 .ow-tool {
   border: 0;

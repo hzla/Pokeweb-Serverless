@@ -4,6 +4,7 @@
       "approved symbols and source RGB colors independently match the type-ID table and circle mask",
       "all 24 client/party battler IDs survive creation and unchanged updates independently of panel position, including captured enemy ID 12",
       "all 18 original glyphs inside one-pixel outlines; 21x10 dual footprint, one-pixel gap, centered mono and transparent corners on both layouts",
+      "native 8x8 caught Pok\u00e9 Ball moved to the old type-icon center; type icons, all statuses, reload and removal preserve it in every enemy layout",
       "native HP slash shadows remap 4 to 2; white/gray strokes, transparency and every digit byte are preserved",
       "six simultaneous player/enemy panels; unchanged frames perform no video writes or redraws",
       "all six native status IDs hide/restore the whole icon area on all six panels",
@@ -28,6 +29,7 @@
       "approved symbols and source RGB colors independently match the type-ID table and circle mask",
       "all 24 client/party battler IDs survive creation and unchanged updates independently of panel position, including captured enemy ID 12",
       "all 18 original glyphs inside one-pixel outlines; 21x10 dual footprint, one-pixel gap, centered mono and transparent corners on both layouts",
+      "native 8x8 caught Pok\u00e9 Ball moved to the old type-icon center; type icons, all statuses, reload and removal preserve it in every enemy layout",
       "native HP slash shadows remap 4 to 2; white/gray strokes, transparency and every digit byte are preserved",
       "six simultaneous player/enemy panels; unchanged frames perform no video writes or redraws",
       "all six native status IDs hide/restore the whole icon area on all six panels",
@@ -51,8 +53,8 @@
     ]
   },
   "release_sha256": {
-    "B2": "8a8ca0f8ab66cff44ae96e3d11a51a01cf6a4ee8e35a91304c0c7ba566e23249",
-    "W2": "8fb6dbea13e16d9340719b97174136ee3c45c908c12a7f16cf634a1303a1ee32"
+    "B2": "a4f03ef420d69da65cbe8feee3353ea2ab03de3e5b3cf3a2a3f733d532572047",
+    "W2": "427b24da2820a10bc29e009e85307e856a23e94a3b1e1aa7ea986b51ea0da3e3"
   },
   "allocation_calls_from_module": 0,
   "writable_state_bytes": 364,

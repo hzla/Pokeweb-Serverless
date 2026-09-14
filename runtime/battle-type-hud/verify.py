@@ -19,11 +19,18 @@ G=0x02270000;PFD=0x02278000;PAL=0x02279000;TRANS=0x02279200
 BATTLE_IDS=(0,12,0,12,6,18,1,13)
 ASSETS=json.loads((HERE/'assets.json').read_text())
 EXPANSION=json.loads((HERE/'panel-expansion.json').read_text())
+CAUGHT_BALL=bytes.fromhex('00220200207128008277870212111102e211e102201e2e000022020000000000')
 def pixel(data,x,y):
     return (data[((y//8)*8+x//8)*32+(y%8)*4+(x%8)//2]>>((x&1)*4))&15
 def setpixel(data,x,y,c):
     p=((y//8)*8+x//8)*32+(y%8)*4+(x%8)//2;s=(x&1)*4
     data[p]=(data[p]&~(15<<s))|(c<<s)
+def caught_ball(data,moved):
+    left,top=(17,18) if moved else (8,8)
+    for y in range(8):
+        for x in range(8):
+            c=CAUGHT_BALL[y*4+x//2]>>(4*(x&1))&15
+            if c:setpixel(data,left+x,top+y,c)
 def name_origin(data):
     for x in range(8,24):
         if any(pixel(data,x,y) for y in range(5,16)):return min(x,18)-7
@@ -106,7 +113,7 @@ class Harness:
                 if r['type']=='OFFSET':self.put(r['address'],dest)
                 else:self.c.mem_write(r['address'],thumb_bl(r['address'],dest))
         self.state=BASE+next(s['address'] for s in debug['symbols'] if s['name']==('gBattleTypeHud' if module=='TypeIcons' else 'gBattleMoveHud'))
-        self.events=[];self.fakeReads=0;self.liveTypes={};self.fakeTypes={};self.writes=[]
+        self.events=[];self.fakeReads=0;self.liveTypes={};self.fakeTypes={};self.writes=[];self.caught=set()
         self.addReset=True;self.nativeHooks={}
         for name in ['Add','AddPP','Main','Del','Release','Status','GetPfd','PalAddr','PPGet','EffectiveTypes','NameDraw','SexDraw','LevelDraw']:
             address=self.profile['functions'][name]
@@ -151,6 +158,9 @@ class Harness:
             if self.addReset and p<8:
                 self.c.mem_write(0x06400000+p*0x1000,self.raw[(2 if t==2 else 0,p&1)])
                 self.c.mem_write(0x06408000+p*0x100,self.hpRaw)
+                if p in self.caught:
+                    ball=bytearray(self.raw[(2 if t==2 else 0,p&1)]);caught_ball(ball,False)
+                    self.c.mem_write(0x06400000+p*0x1000,bytes(ball))
             if p<8:self.put(G+0x40+p*0x84+112,8)
             if p<8:self.put(G+0x40+p*0x84+64,t)
         elif name=='GetPfd':result=PFD
@@ -176,7 +186,9 @@ class Harness:
         assert c.reg_read(UC_ARM_REG_PC)==stop,hex(c.reg_read(UC_ARM_REG_PC))
         assert c.reg_read(UC_ARM_REG_SP)==SP
         assert [c.reg_read(r) for r in SAVED]==preserved
-    def add(self,p,pair=(9,9),layout=0,index=0):
+    def add(self,p,pair=(9,9),layout=0,index=0,caught=False):
+        if caught:self.caught.add(p)
+        else:self.caught.discard(p)
         mon=0x02273000+p*0x300;self.liveTypes[mon]=pair
         if p&1:
             cellData=0x0227c000+p*0x40
@@ -195,6 +207,7 @@ class Harness:
         if p&1:enemy_header(expected,p)
         elif t==0:origin=player_header(expected)
         if not status:paint_expected(expected,pair,p,t,origin)
+        if p&1 and p in self.caught:caught_ball(expected,True)
         assert self.image(p,t)==expected,(self.game,p,pair,t,status,self.c.mem_read(self.state+360,1)[0])
         assert self.c.mem_read(self.state+360,1)[0]==0,('runtime compatibility failure',self.c.mem_read(self.state+360,1)[0])
     def setfade(self,bank,target,evy):
@@ -237,6 +250,21 @@ def test(game):
                 h.add(p,pair,t);h.check(p,pair,t)
         h.invoke('Del',G,p)
     checks.append('all 18 original glyphs inside one-pixel outlines; 21x10 dual footprint, one-pixel gap, centered mono and transparent corners on both layouts')
+    # The native caught marker occupies the first icon's new header slot. Its
+    # own 8x8 art already has a dark outline and a <=6px red/white interior;
+    # move it to the old lower-panel monotype center without allocating art.
+    native_parts=(HERE/'build'/f'{game}-resource-434.bin').read_bytes()[48:]
+    assert native_parts[0x1b*32:0x1c*32]==CAUGHT_BALL
+    for p,t in ((1,0),(3,1),(5,2)):
+        caught_h=Harness(game);caught_h.add(p,(9,2),t,caught=True);caught_h.check(p,(9,2),t)
+        image=bytearray(normalized(caught_h.raw[(2 if t==2 else 0,1)]));caught_ball(image,False)
+        for status in range(1,7):
+            caught_h.invoke('Status',G,status,p);caught_h.check(p,(9,2),t,status=True)
+            caught_h.invoke('Status',G,0,p);caught_h.check(p,(9,2),t)
+        # Reproduce a native image reload with the marker back in tile 9.
+        caught_h.c.mem_write(0x06400000+p*0x1000,bytes(image));caught_h.invoke('Main',G);caught_h.check(p,(9,2),t)
+        caught_h.invoke('Del',G,p);assert caught_h.image(p,t)==bytes(image)
+    checks.append('native 8x8 caught Poké Ball moved to the old type-icon center; type icons, all statuses, reload and removal preserve it in every enemy layout')
     # The number sprite shares the panel palette but has a separate image proxy.
     # Palette index 4 is its slash shadow; white/gray strokes are indices 1/14.
     slash=[v>>s&15 for v in h.hpRaw[96:128] for s in (0,4)]
