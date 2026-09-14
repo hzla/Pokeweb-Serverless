@@ -738,7 +738,7 @@ function getTrainerPokemonSlot(project: ProjectState, trainerId: number, slot: n
     ivs: Number(trpok.raw[`ivs_${slot}`] ?? 0),
     abilitySlot,
     resolvedAbilitySlot,
-    abilityName: abilityName(project, speciesId, resolvedAbilitySlot),
+    abilityName: abilityName(project, speciesId, resolvedAbilitySlot, form),
     gender: String(trpok.readable[`gender_${slot}`] ?? "Default"),
     form,
     itemName: trpok.readable[`item_id_${slot}`],
@@ -899,8 +899,8 @@ function parseClassId(project: ProjectState, value: string): number {
   return findValueIndex(project.texts.banks.tr_classes ?? [], value, "trainer class");
 }
 
-function abilityName(project: ProjectState, speciesId: number, abilitySlot: number): string | number {
-  const cascadeAbility = cascadeWhiteTrainerAbilityName(project, speciesId, abilitySlot);
+function abilityName(project: ProjectState, speciesId: number, abilitySlot: number, form = 0): string | number {
+  const cascadeAbility = cascadeWhiteTrainerAbilityName(project, speciesId, abilitySlot, form);
   if (cascadeAbility) return cascadeAbility;
   const personalId = normalizedSpeciesId(speciesId);
   if (!project.narcs.personal || personalId >= project.narcs.personal.fileCount) return "";

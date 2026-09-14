@@ -24,6 +24,14 @@ export function unpackExpandedPersonalAbilities(raw: RawRecord): void {
 }
 
 export function packedPersonalFieldValue(raw: RawRecord, field: string): number | undefined {
+  // Cascade's extra fields alias unused bytes of the existing tutor words.
+  // Preserve the other bits, including compatibility edits made after migration.
+  if (field === "padding" && raw.ability_4 !== undefined) {
+    return (raw.ability_4 & 255) | ((raw.ability_5 & 255) << 8) | ((raw.ability_6 & 255) << 16);
+  }
+  if (field === "driftveil_tutor" && raw.hidden_ability_chance !== undefined) {
+    return (((raw[field] ?? 0) & 0xff00ffff) | ((raw.hidden_ability_chance & 255) << 16)) >>> 0;
+  }
   const itemIndex = PERSONAL_ITEM_FIELDS.findIndex((candidate) => candidate === field);
   if (itemIndex >= 0) {
     const itemValue = raw[field];

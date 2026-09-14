@@ -1,6 +1,7 @@
 import { readU16, writeU16 } from "../nds/binary";
 import { recordFieldChange, recordGenericChange } from "./actionChangelog";
 import { cascadeWhitePersonalName } from "./cascadeWhiteModel";
+import { CASCADE_AI_FIELDS, hasCascadePersonalData, preserveCascadePersonalMigration } from "./cascadeWhitePersonalModel";
 import { EGG_GROUPS, EVO_METHODS, GROWTHS, typeNamesForProject, type NarcName } from "./constants";
 import { usesExpandedBw2Data } from "./black2UpgradeModel";
 import { PERSONAL_ABILITY_MAX_ID } from "./personalAbilityPacking";
@@ -28,6 +29,7 @@ export const MISC_INTEGER_FIELDS = [
   ["# of Forms", "num_forms", 255],
   ["Height", "height", 65535],
   ["Weight", "weight", 65535],
+  ["Hidden Ability Chance (reserved)", "hidden_ability_chance", 255],
 ] as const;
 
 export const PERSONAL_TEXT_FIELDS = [
@@ -662,6 +664,7 @@ export function getPokemonAutofills(project: ProjectState): Record<string, strin
   return {
     types: typeNamesForProject(project),
     abilities: project.texts.banks.abilities ?? [],
+    cascade_abilities: (project.texts.banks.abilities ?? []).slice(0, 256),
     items: project.texts.banks.items ?? [],
     egg_groups: EGG_GROUPS,
     growth_rates: GROWTHS.slice(0, 6),
@@ -790,6 +793,11 @@ function getPersonalCopyRecords(project: ProjectState, speciesId: number, source
 function updatePersonalField(project: ProjectState, raw: RawRecord, readable: ReadableRecord, field: string, inputValue: string): PokemonUpdateResult {
   enrichPersonalReadable(raw, readable);
 
+  const cascadeAbility = CASCADE_AI_FIELDS.some((candidate) => candidate === field);
+  if ((cascadeAbility || field === "hidden_ability_chance") && !hasCascadePersonalData(project)) {
+    throw new Error("Migrate Cascade AI abilities on the Patches page before editing this field.");
+  }
+
   if (isEvYieldField(field)) {
     const value = parseInteger(inputValue, 0, 3);
     raw[field] = value;
@@ -807,7 +815,8 @@ function updatePersonalField(project: ProjectState, raw: RawRecord, readable: Re
   }
 
   if (field.startsWith("ability_")) {
-    const rawValue = findAbilityIndex(project, inputValue, PERSONAL_ABILITY_MAX_ID);
+    const rawValue = findAbilityIndex(project, inputValue, cascadeAbility ? 255 : PERSONAL_ABILITY_MAX_ID);
+    if (cascadeAbility) preserveCascadePersonalMigration(project);
     raw[field] = rawValue;
     readable[field] = titleize(project.texts.banks.abilities?.[rawValue] ?? rawValue);
     return { value: readable[field], rawValue };
@@ -837,6 +846,7 @@ function updatePersonalField(project: ProjectState, raw: RawRecord, readable: Re
   const max = personalIntegerMax(field);
   if (max === undefined) throw new Error(`Unsupported personal field: ${field}`);
   const value = parseInteger(inputValue, 0, max);
+  if (field === "hidden_ability_chance") preserveCascadePersonalMigration(project);
   raw[field] = value;
   readable[field] = value;
   return { value, rawValue: value };
@@ -1020,7 +1030,7 @@ function enrichPersonalReadable(raw: RawRecord, readable: ReadableRecord): void 
 }
 
 function titleizeAbilityFields(readable: ReadableRecord): void {
-  for (const field of ["ability_1", "ability_2", "ability_3"]) {
+  for (const field of ["ability_1", "ability_2", "ability_3", ...CASCADE_AI_FIELDS]) {
     if (readable[field] !== undefined) readable[field] = titleize(readable[field]);
   }
 }

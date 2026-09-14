@@ -17,6 +17,7 @@ export type RomPatchId =
   | "fairyType"
   | "specifyTrainerNatures"
   | "moveExpansion"
+  | "cascadePersonalData"
   | "itemStandardization";
 
 export type RomPatchApplyResult = {
