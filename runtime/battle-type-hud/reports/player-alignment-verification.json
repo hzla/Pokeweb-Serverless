@@ -33,7 +33,7 @@
       "lower_panel_unchanged": true,
       "unchanged_update_no_writes": true,
       "statuses_restore": true,
-      "release_sha256": "8a8ca0f8ab66cff44ae96e3d11a51a01cf6a4ee8e35a91304c0c7ba566e23249"
+      "release_sha256": "a4f03ef420d69da65cbe8feee3353ea2ab03de3e5b3cf3a2a3f733d532572047"
     },
     "W2": {
       "checks": [
@@ -64,7 +64,7 @@
       "lower_panel_unchanged": true,
       "unchanged_update_no_writes": true,
       "statuses_restore": true,
-      "release_sha256": "8fb6dbea13e16d9340719b97174136ee3c45c908c12a7f16cf634a1303a1ee32"
+      "release_sha256": "427b24da2820a10bc29e009e85307e856a23e94a3b1e1aa7ea986b51ea0da3e3"
     }
   },
   "limitations": [
