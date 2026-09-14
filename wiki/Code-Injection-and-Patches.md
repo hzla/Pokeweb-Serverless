@@ -2,9 +2,11 @@
 
 ## Cascade personal-data migration
 
-The Patches page shows **Editable Cascade AI Abilities** for a detected Cascade White BW2 ROM containing an identifiable injected AI ability table, or an already migrated Cascade ROM. **Migrate AI Abilities** copies the loaded variant's numeric IDs into its Pokémon personal records and enables three editable AI ability slots plus a reserved Hidden Ability Chance byte. See [Pokemon Personal](Pokemon-Personal.md) for offsets and ranges.
+The Patches page shows **Editable Cascade AI Abilities** for a detected Cascade White BW2 ROM containing an identifiable injected AI ability table, or an already migrated Cascade ROM. **Migrate AI Abilities & Chances** copies the loaded variant's numeric ability IDs and raw hidden ability chance values into its Pokémon personal records and enables editing. See [Pokemon Personal](Pokemon-Personal.md) for offsets and ranges.
 
-The table is extracted from the loaded DLL rather than from Pokeweb's historical display-name list. Current byte-sized and older enum-sized table layouts are supported; missing, ambiguous, conflicting, truncated, or non-`u8` tables cannot be migrated. All target personal records are validated before any writes. This operation does not modify injected code or change battle behavior.
+Both tables are extracted from the loaded DLLs. Ability IDs come from the `A9_DamageCalc.cpp` table; raw chance multipliers come from the separate `WhiteListedPokemon` array in `newitems_support_structs.h`, compiled into `D2_FieldOverlays.dll`. Current byte-sized and older enum-sized ability layouts are supported; missing, ambiguous, conflicting, truncated, or non-`u8` tables cannot be migrated. All target personal records are validated before any writes. This operation does not modify injected code or change gameplay behavior.
+
+An earlier AI-only migration can use **Import Hidden Ability Chances** to fill zero-valued chance fields without overwriting AI ability edits or nonzero chances. Export retains a separate chance-import marker to prevent subsequent imports from resetting edited values.
 
 ## Purpose
 

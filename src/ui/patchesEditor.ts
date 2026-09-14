@@ -43,7 +43,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
         <div>
           <h2>Editable Cascade AI Abilities</h2>
           <p>${escapeHtml(cascadeStatus.message)}</p>
-          <p>Enables three AI ability slots and a reserved Hidden Ability Chance field in the Pokémon personal editor. Battle behavior requires a Cascade runtime that reads these fields.</p>
+          <p>Imports three AI ability slots and raw Hidden Ability Chance values from this ROM’s injected tables into the Pokémon personal editor. Gameplay use of these personal fields requires a Cascade runtime update.</p>
         </div>
         <div class="patch-card__meta">
           <span class="patch-badge ${cascadeStatus.installed ? "-ok" : cascadeStatus.canMigrate ? "" : "-warn"}">${cascadeStatus.installed ? "Migrated" : cascadeStatus.canMigrate ? "Ready" : "Unavailable"}</span>
@@ -51,7 +51,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
         </div>
       </div>
       <div class="patch-card__actions">
-        <button class="btn -default" id="migrate-cascade-personal-btn" type="button" ${cascadeStatus.canMigrate ? "" : "disabled"}>Migrate AI Abilities</button>
+        <button class="btn -default" id="migrate-cascade-personal-btn" type="button" ${cascadeStatus.canMigrate ? "" : "disabled"}>${cascadeStatus.abilitiesMigrated && !cascadeStatus.installed ? "Import Hidden Ability Chances" : "Migrate AI Abilities &amp; Chances"}</button>
       </div>
     </section>`;
   const hmPatchCard =
@@ -230,9 +230,11 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
 
   root.querySelector<HTMLButtonElement>("#migrate-cascade-personal-btn")?.addEventListener("click", async (event) => {
     await applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
-      confirmText: "Copy this ROM’s injected AI abilities into personal data and enable editing? Hidden Ability Chance will start at 0 for future runtime support.",
+      confirmText: cascadeStatus.abilitiesMigrated
+        ? "Import this ROM’s raw Hidden Ability Chance values into zero-valued fields? Existing AI abilities and nonzero chances will be preserved."
+        : "Copy this ROM’s injected AI abilities and raw Hidden Ability Chance values into personal data and enable editing?",
       loadingText: "Validating Cascade ability data...",
-      successText: "Migrated Cascade AI abilities",
+      successText: "Imported Cascade personal ability data",
       apply: migrateCascadePersonalData,
     });
   });

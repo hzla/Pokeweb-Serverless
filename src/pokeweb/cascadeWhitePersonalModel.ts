@@ -9,8 +9,10 @@ import type { RomPatchApplyResult } from "./romPatchModel";
 import { parseRpm } from "./rpm";
 
 export const CASCADE_PERSONAL_MARKER_PATH = "codeinjection/cascade-personal-v1.bin";
+export const CASCADE_CHANCES_MARKER_PATH = "codeinjection/cascade-hidden-ability-chances-v1.bin";
 export const CASCADE_AI_FIELDS = ["ability_4", "ability_5", "ability_6"] as const;
 const MARKER = new TextEncoder().encode("Pokeweb Cascade personal v1: AI=39,3a,3b; HA=3e\n");
+const CHANCES_MARKER = new TextEncoder().encode("Pokeweb Cascade hidden ability chances v1: raw WhiteListedPokemon u8 -> 3e\n");
 const PERSONAL_SIZE = 0x4c;
 const AI_ROW_COUNT = 651;
 type AbilityRow = readonly [number, number, number];
@@ -18,6 +20,7 @@ type AbilityTable = readonly AbilityRow[];
 type AbilitySource = { path: string; rows: AbilityTable };
 const romCache = new WeakMap<Uint8Array, NintendoDSRom>();
 const tableCache = new WeakMap<Uint8Array, AbilityTable | null>();
+const chanceTableCache = new WeakMap<Uint8Array, readonly number[] | null>();
 const migrationCache = new WeakMap<ProjectState, { files: Uint8Array[]; revision: number; source: AbilityTable; migrated: boolean }>();
 
 // CascadeWhite2CodeInjection/___BasicCodeInjectionForSharing/A_CoreBattle/
@@ -53,6 +56,30 @@ export function readCascadeAiAbilityTable(bytes: Uint8Array): AbilityTable | und
   return table;
 }
 
+// D_NonBattleItemChanges/newitems_support_structs.h: the separate u8
+// WhiteListedPokemon[651] compiled into D2_FieldOverlays.dll. These are raw
+// chance multipliers, not percentages. Keep variant values unchanged.
+const CHANCE_TABLE_ANCHOR = [0, 4, 4, 4, 4, 4, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 10, 10, 10, 0, 0, 0, 0, 8, 8, 4, 4, 0, 0, 6, 6, 6];
+
+export function readCascadeHiddenAbilityChanceTable(bytes: Uint8Array): readonly number[] | undefined {
+  const cached = chanceTableCache.get(bytes);
+  if (cached !== undefined) return cached ?? undefined;
+  const matches: number[][] = [];
+  try {
+    const { code } = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+    for (let start = 0; start + AI_ROW_COUNT <= code.length; start += 1) {
+      if (CHANCE_TABLE_ANCHOR.every((value, index) => code[start + index] === value)) {
+        matches.push(Array.from(code.subarray(start, start + AI_ROW_COUNT)));
+      }
+    }
+  } catch {
+    // Only copy a uniquely identified table from a supported injection DLL.
+  }
+  const table = matches.length === 1 ? matches[0] : undefined;
+  chanceTableCache.set(bytes, table ?? null);
+  return table;
+}
+
 function originalRom(project: ProjectState): NintendoDSRom | undefined {
   const bytes = project.originalRomBytes;
   if (!bytes) return undefined;
@@ -76,13 +103,13 @@ function pathBytes(project: ProjectState, path: string): Uint8Array | undefined 
   return rom && id !== undefined ? getRomFileBytes(project, rom, id) : undefined;
 }
 
-function abilitySource(project: ProjectState): AbilitySource | undefined {
+function injectedTableSource<T>(project: ProjectState, readTable: (bytes: Uint8Array) => T | undefined): { path: string; rows: T } | undefined {
   if (!detectCascadeWhiteRom(project)) return undefined;
-  const sources: AbilitySource[] = [];
+  const sources: Array<{ path: string; rows: T }> = [];
   for (const module of listCodeInjectionDlls(project)) {
     if (module.target !== "patches") continue;
     const bytes = pathBytes(project, module.path);
-    const rows = bytes && readCascadeAiAbilityTable(bytes);
+    const rows = bytes && readTable(bytes);
     if (rows) sources.push({ path: module.path, rows });
   }
   // Conflicting injected tables need an explicit runtime choice, not a guess.
@@ -90,9 +117,13 @@ function abilitySource(project: ProjectState): AbilitySource | undefined {
   return sources[0];
 }
 
-function markerPresent(project: ProjectState): boolean {
-  const bytes = pathBytes(project, CASCADE_PERSONAL_MARKER_PATH);
-  return bytes?.length === MARKER.length && MARKER.every((value, index) => bytes[index] === value);
+function abilitySource(project: ProjectState): AbilitySource | undefined {
+  return injectedTableSource(project, readCascadeAiAbilityTable);
+}
+
+function markerPresent(project: ProjectState, path = CASCADE_PERSONAL_MARKER_PATH, expected = MARKER): boolean {
+  const bytes = pathBytes(project, path);
+  return bytes?.length === expected.length && expected.every((value, index) => bytes[index] === value);
 }
 
 export function hasCascadePersonalData(project: ProjectState): boolean {
@@ -143,58 +174,72 @@ export function preserveCascadePersonalMigration(project: ProjectState): void {
   (project.patches.applied ??= {}).cascadePersonalData = true;
 }
 
-export type CascadePersonalMigrationStatus = { visible: boolean; installed: boolean; canMigrate: boolean; message: string; sourcePath?: string };
+export type CascadePersonalMigrationStatus = { visible: boolean; installed: boolean; canMigrate: boolean; message: string; sourcePath?: string; abilitiesMigrated?: boolean };
 
 export function getCascadePersonalMigrationStatus(project: ProjectState): CascadePersonalMigrationStatus {
   if (!detectCascadeWhiteRom(project)) return { visible: false, installed: false, canMigrate: false, message: "" };
-  if (hasCascadePersonalData(project)) return { visible: true, installed: true, canMigrate: false, message: "AI abilities and Hidden Ability Chance are editable in the Pokémon personal editor." };
-  const source = abilitySource(project);
-  if (!source) return { visible: false, installed: false, canMigrate: false, message: "No unambiguous supported AI ability table was found in the loaded Cascade DLLs." };
+  const abilitiesMigrated = hasCascadePersonalData(project);
+  if (abilitiesMigrated && markerPresent(project, CASCADE_CHANCES_MARKER_PATH, CHANCES_MARKER)) return { visible: true, installed: true, canMigrate: false, abilitiesMigrated, message: "AI abilities and Hidden Ability Chance were imported and are editable in the Pokémon personal editor." };
+  const source = abilitiesMigrated ? undefined : abilitySource(project);
+  if (!abilitiesMigrated && !source) return { visible: false, installed: false, canMigrate: false, message: "No unambiguous supported AI ability table was found in the loaded Cascade DLLs." };
+  const chances = injectedTableSource(project, readCascadeHiddenAbilityChanceTable);
+  if (!chances) return { visible: true, installed: false, canMigrate: false, abilitiesMigrated, message: "No unambiguous supported Hidden Ability Chance table was found in the loaded Cascade DLLs." };
   try {
-    migrationRows(project, source.rows);
-    return { visible: true, installed: false, canMigrate: true, sourcePath: source.path, message: "Copy this ROM’s AI ability slots into personal data and enable editing." };
+    migrationRows(project, source?.rows, chances.rows, abilitiesMigrated);
+    return { visible: true, installed: false, canMigrate: true, abilitiesMigrated, sourcePath: source?.path ?? chances.path, message: abilitiesMigrated
+      ? "Import this ROM’s Hidden Ability Chance values into the earlier migration’s zero-valued fields. Existing AI abilities and nonzero chances are preserved."
+      : "Copy this ROM’s AI ability slots and raw Hidden Ability Chance values into personal data and enable editing." };
   } catch (error) {
-    return { visible: true, installed: false, canMigrate: false, message: error instanceof Error ? error.message : String(error) };
+    return { visible: true, installed: false, canMigrate: false, abilitiesMigrated, message: error instanceof Error ? error.message : String(error) };
   }
 }
 
-function migrationRows(project: ProjectState, table: AbilityTable): Array<{ id: number; abilities?: AbilityRow }> {
+function migrationRows(project: ProjectState, table: AbilityTable | undefined, chances: readonly number[], abilitiesMigrated: boolean): Array<{ id: number; abilities?: AbilityRow; chance: number }> {
   const store = project.narcs.personal;
-  if (!store || table.some((_row, id) => store.rawFiles[id]?.length !== PERSONAL_SIZE)) throw new Error("Load the complete Cascade personal archive before migrating.");
-  if (pathBytes(project, CASCADE_PERSONAL_MARKER_PATH)) throw new Error("An unrecognized Cascade personal migration marker already exists.");
+  if (!store || chances.some((_row, id) => store.rawFiles[id]?.length !== PERSONAL_SIZE)) throw new Error("Load the complete Cascade personal archive before migrating.");
+  if (pathBytes(project, CASCADE_PERSONAL_MARKER_PATH) && !markerPresent(project)) throw new Error("An unrecognized Cascade personal migration marker already exists.");
+  if (pathBytes(project, CASCADE_CHANCES_MARKER_PATH) && !markerPresent(project, CASCADE_CHANCES_MARKER_PATH, CHANCES_MARKER)) throw new Error("An unrecognized Cascade chance import marker already exists.");
   const owners = new Map<number, number>();
   for (let species = 1; species < 650; species += 1) {
     const raw = decodeRecord(project, "personal", species).raw!;
     if (raw.form_id > 0) for (let form = 1; form < raw.num_forms; form += 1) owners.set(raw.form_id + form - 1, species);
   }
-  const result: Array<{ id: number; abilities?: AbilityRow }> = [];
+  const result: Array<{ id: number; abilities?: AbilityRow; chance: number }> = [];
   store.rawFiles.forEach((bytes, id) => {
     if (bytes.length !== PERSONAL_SIZE) return; // Regional Dex tables are not personal records.
     const raw = decodeRecord(project, "personal", id).raw!;
-    if ((raw.padding ?? 0) !== 0 || (((raw.driftveil_tutor ?? 0) >>> 16) & 255) !== 0) {
+    const existingChance = raw.hidden_ability_chance ?? (((raw.driftveil_tutor ?? 0) >>> 16) & 255);
+    if (!abilitiesMigrated && ((raw.padding ?? 0) !== 0 || existingChance !== 0)) {
       throw new Error(`Pokémon #${id} already has data in the migration bytes. No personal data was changed.`);
     }
-    result.push({ id, abilities: table[owners.get(id) ?? id] });
+    const sourceId = owners.get(id) ?? id;
+    result.push({ id, abilities: table?.[sourceId], chance: existingChance || chances[sourceId] || 0 });
   });
   return result;
 }
 
 export async function migrateCascadePersonalData(project: ProjectState): Promise<RomPatchApplyResult> {
   if (!detectCascadeWhiteRom(project)) throw new Error("This migration requires a Cascade White BW2 ROM with its AI injection patch.");
-  if (hasCascadePersonalData(project)) return { patchId: "cascadePersonalData", status: "already-applied", summary: "Cascade personal migration is already present. Existing edits were preserved." };
-  const source = abilitySource(project);
-  if (!source) throw new Error("Unable to identify a unique AI ability table in the loaded Cascade DLLs.");
-  const rows = migrationRows(project, source.rows); // Validate every record before writing any.
+  const abilitiesMigrated = hasCascadePersonalData(project);
+  if (abilitiesMigrated && markerPresent(project, CASCADE_CHANCES_MARKER_PATH, CHANCES_MARKER)) return { patchId: "cascadePersonalData", status: "already-applied", summary: "Cascade personal migration and chance import are already present. Existing edits were preserved." };
+  const source = abilitiesMigrated ? undefined : abilitySource(project);
+  if (!abilitiesMigrated && !source) throw new Error("Unable to identify a unique AI ability table in the loaded Cascade DLLs.");
+  const chances = injectedTableSource(project, readCascadeHiddenAbilityChanceTable);
+  if (!chances) throw new Error("Unable to identify a unique Hidden Ability Chance table in the loaded Cascade DLLs.");
+  const rows = migrationRows(project, source?.rows, chances.rows, abilitiesMigrated); // Validate every record before writing any.
   project.patches ??= { dirtyOverlayIds: [] };
   (project.patches.applied ??= {}).cascadePersonalData = true;
-  for (const { id, abilities } of rows) {
+  for (const { id, abilities, chance } of rows) {
     const record = decodeRecord(project, "personal", id);
-    CASCADE_AI_FIELDS.forEach((field, slot) => { record.raw![field] = abilities?.[slot] ?? 0; });
-    record.raw!.hidden_ability_chance = 0;
+    if (!abilitiesMigrated) CASCADE_AI_FIELDS.forEach((field, slot) => { record.raw![field] = abilities?.[slot] ?? 0; });
+    record.raw!.hidden_ability_chance = chance;
     enrichCascadePersonalRecord(project, record);
     markDirty(project, "personal", id);
   }
   preserveCascadePersonalMigration(project);
-  recordGenericChange(project, "personal", `Migrated Cascade AI ability slots from ${source.path} into ${rows.length} personal records.`, "Cascade personal migration");
-  return { patchId: "cascadePersonalData", status: "applied", summary: "Migrated Cascade AI abilities into personal data. Hidden Ability Chance starts at 0 and is reserved for future runtime support." };
+  addRomFile(project, CASCADE_CHANCES_MARKER_PATH, CHANCES_MARKER.slice());
+  recordGenericChange(project, "personal", `${source ? `Migrated AI ability slots from ${source.path} and imported` : "Imported"} raw Hidden Ability Chance values from ${chances.path} into ${rows.length} Cascade personal records.`, "Cascade personal migration");
+  return { patchId: "cascadePersonalData", status: "applied", summary: abilitiesMigrated
+    ? "Imported raw Hidden Ability Chance values into zero-valued fields. Existing AI abilities and nonzero chances were preserved."
+    : "Migrated Cascade AI abilities and raw Hidden Ability Chance values into personal data. Runtime support must be updated separately." };
 }
