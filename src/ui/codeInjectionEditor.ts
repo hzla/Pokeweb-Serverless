@@ -37,6 +37,8 @@ import {
   uninstallTagBattleStabilization,
 } from "../pokeweb/tagBattleStabilizationModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
+import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
+import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors } from "../pokeweb/battleTypeHudModel";
 import {
   detectPwanRuntimeCompatibility,
   pwanCompatibilityFailureSummary,
@@ -59,6 +61,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
+  const learnsetStatus = getLearnsetViewerStatus(project);
+  const battleHudStatus = getBattleTypeHudStatus(project);
+  const moveEffectivenessStatus = getMoveEffectivenessStatus(project);
+  const moveColors = moveEffectivenessStatus.colors ?? DEFAULT_MOVE_HIGHLIGHT_COLORS;
   const portaPcCanInstall = portaPcStatus.supported && portaPcStatus.compatible
     && (!portaPcStatus.installed || portaPcStatus.updateAvailable);
   const weatherRuntimeStatus = detectBundledOverworldWeatherRuntime(project);
@@ -261,6 +267,60 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </div>
           </div>
         </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Learnset Viewer</h2>
+              <p>Adds a standalone LEARNSET party command. Browse all current-form level-up moves, including known and future moves, with learning levels and base max PP. Read-only: no teaching or KO moves; RELEARN is unchanged.</p>
+            </div>
+            <span class="code-injection-status ${learnsetStatus.installed && !learnsetStatus.updateAvailable ? "-installed" : learnsetStatus.compatible ? "" : "-error"}">
+              ${learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : "Unsupported / Incompatible"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US W2 / B2 · vanilla or Upgrade</strong></div>
+            <div><span>Dependency</span><strong>PMC only</strong></div>
+            <div><span>Full party menu</span><strong>LEARNSET is hidden</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-learnset-viewer-btn" type="button" ${learnsetStatus.supported && learnsetStatus.compatible ? "" : "disabled"}>${learnsetStatus.updateAvailable ? "Update" : learnsetStatus.partial ? "Repair" : learnsetStatus.installed ? "Reinstall" : "Install"}</button>
+            <button class="btn -default" id="uninstall-learnset-viewer-btn" type="button" ${learnsetStatus.canUninstall ? "" : "disabled"} title="Only staged companions can be removed; built-in ROM files cannot yet be deleted.">Uninstall</button>
+            <div class="code-injection-note" id="learnset-viewer-note">${escapeHtml(learnsetStatus.message)}</div>
+          </div>
+        </section>
+        ${[
+          { id: "battle-hud", title: "Type Icons", status: battleHudStatus,
+            description: "Shows type icons on player and enemy health panels in singles, doubles and triples, including compact panels with EXP bars. Enemy icons and player singles icons sit left of the Pokémon’s name. Enemy text adjusts to keep icons clear of the screen edge. Status labels hide the icons until the condition clears. Installs independently of move highlighting." },
+          { id: "move-effectiveness", title: "Move Effectiveness Preview", status: moveEffectivenessStatus,
+            description: "Highlights damaging moves as super effective, not very effective, or immune. Includes standard BW2 type immunities, Levitate, Air Balloon, Magnet Rise, and blocking abilities with suppression and bypass checks. Singles and rotation use the opposing Pokémon; doubles and triples color the selected move name while choosing an enemy. Weather Ball, Natural Gift, Judgment and Techno Blast stay neutral. Custom ability and item mechanics need a compatible preview patch." },
+        ].map(card => `
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div><h2>${card.title}</h2><p>${card.description}</p></div>
+            <span class="code-injection-status ${card.status.installed && !card.status.updateAvailable ? "-installed" : card.status.compatible ? "" : "-error"}">
+              ${card.status.legacyCombined ? "Combined Patch Present" : card.status.updateAvailable ? "Update Available" : card.status.installed ? "Installed" : card.status.compatible ? "Ready" : "Unsupported / Incompatible"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>English Black 2 / White 2</strong></div>
+            <div><span>Dependency</span><strong>PMC only</strong></div>
+          </div>
+          ${card.id === "move-effectiveness" ? `<div class="code-injection-facts">
+            ${([
+              ["superEffective", "Super effective"], ["notVeryEffective", "Not very effective"], ["immune", "Immune / no damage"],
+            ] as const).map(([key, label]) => `<label><span>${label}</span>
+              <input type="color" data-move-highlight-color="${key}" aria-label="${label} color" value="${escapeHtml(moveColors[key])}">
+              <strong data-move-highlight-sample="${key}" style="color:${escapeHtml(moveColors[key])}">${label}</strong>
+            </label>`).join("")}
+          </div><p class="code-injection-note">Choose colors, then ${card.status.installed ? "reinstall" : "install"} to apply them. Colors are stored with DS color precision. The preview uses current ability/item state, including unrevealed effects.</p>
+          <button class="btn -default" type="button" id="reset-move-highlight-colors">Reset colors</button>` : ""}
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-${card.id}-btn" type="button" ${card.status.supported && card.status.compatible ? "" : "disabled"}>${card.status.legacyCombined ? "Replace combined" : card.status.updateAvailable ? "Update" : card.status.installed ? "Reinstall" : "Install"}</button>
+            <button class="btn -default" id="uninstall-${card.id}-btn" type="button" ${card.status.canUninstall ? "" : "disabled"} title="Only this project's staged standalone DLL can be removed.">Uninstall</button>
+            <div class="code-injection-note" id="${card.id}-note">${escapeHtml(card.status.message)}</div>
+          </div>
+        </section>`).join("")}
+
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">
             <div>
@@ -666,6 +726,59 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   });
 
   const input = root.querySelector<HTMLInputElement>("#code-injection-dll-input");
+  for (const [id, install, uninstall] of [
+    ["battle-hud", installBattleTypeHud, uninstallBattleTypeHud],
+    ["move-effectiveness", installMoveEffectiveness, uninstallMoveEffectiveness],
+  ] as const) {
+    for (const [verb, action] of [["install", install], ["uninstall", uninstall]] as const) {
+      const button = root.querySelector<HTMLButtonElement>(`#${verb}-${id}-btn`);
+      button?.addEventListener("click", async () => {
+        const note = root.querySelector<HTMLDivElement>(`#${id}-note`);
+        button.disabled = true;
+        if (note) note.textContent = "Checking and updating the patch...";
+        try {
+          if (id === "move-effectiveness" && verb === "install") {
+            const colors = Object.fromEntries([...root.querySelectorAll<HTMLInputElement>("[data-move-highlight-color]")]
+              .map(input => [input.dataset.moveHighlightColor!, input.value])) as MoveHighlightColors;
+            await installMoveEffectiveness(project, colors);
+          } else await action(project);
+          onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+        }
+        catch (error) { button.disabled = false; if (note) note.textContent = error instanceof Error ? error.message : String(error); }
+      });
+    }
+  }
+  root.querySelectorAll<HTMLInputElement>("[data-move-highlight-color]").forEach(input => {
+    input.addEventListener("input", () => {
+      const sample = root.querySelector<HTMLElement>(`[data-move-highlight-sample="${input.dataset.moveHighlightColor}"]`);
+      if (sample) sample.style.color = input.value;
+    });
+  });
+  root.querySelector<HTMLButtonElement>("#reset-move-highlight-colors")?.addEventListener("click", () => {
+    root.querySelectorAll<HTMLInputElement>("[data-move-highlight-color]").forEach(input => {
+      input.value = DEFAULT_MOVE_HIGHLIGHT_COLORS[input.dataset.moveHighlightColor as keyof MoveHighlightColors];
+      input.dispatchEvent(new Event("input"));
+    });
+  });
+  for (const [selector, action] of [
+    ["#install-learnset-viewer-btn", () => installLearnsetViewer(project)],
+    ["#uninstall-learnset-viewer-btn", () => uninstallLearnsetViewer(project)],
+  ] as const) {
+    const button = root.querySelector<HTMLButtonElement>(selector);
+    button?.addEventListener("click", async () => {
+      button.disabled = true;
+      const note = root.querySelector<HTMLDivElement>("#learnset-viewer-note");
+      if (note) note.textContent = "Checking and updating the LEARNSET companions...";
+      try {
+        await action();
+        onDirty();
+        renderCodeInjectionEditor(project, root, onDirty);
+      } catch (error) {
+        button.disabled = false;
+        if (note) note.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  }
   const dllNote = root.querySelector<HTMLDivElement>("#dll-install-note");
   let selectedTarget: CodeInjectionDllTarget = "patches";
   root.querySelectorAll<HTMLButtonElement>("[data-dll-target]").forEach((targetButton) => {

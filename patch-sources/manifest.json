@@ -1210,6 +1210,788 @@
       "note": "Original implementation source was not found in the available checkouts. Only the existing bundled binaries and Pokeweb installer integration were located. No reconstructed implementation is substituted here.",
       "status": "original-source-unavailable",
       "files": []
+    },
+    {
+      "name": "learnset-viewer",
+      "title": "Standalone LEARNSET party-menu viewer",
+      "artifacts": [
+        {
+          "name": "LearnsetMenuB2.dll",
+          "sha256": "8f50d01008a75c25818db79d4e437ccd4cabd00e326fa80f55a2f61fda039ca2"
+        },
+        {
+          "name": "LearnsetMenuW2.dll",
+          "sha256": "9c39ddc05f8e8ff44ffc99c0dd92d4e51123b91056f1d33bb385018ceccdda49"
+        },
+        {
+          "name": "LearnsetViewerB2.dll",
+          "sha256": "dcce4c03b926af03207a8af53d5ff4f30577754589be3c8a2344c63f1940fd39"
+        },
+        {
+          "name": "LearnsetViewerW2.dll",
+          "sha256": "799c3f980fa7bcd9a062747eb0f32b8adf65e5e8a41f2fc8b7c41475c5602913"
+        }
+      ],
+      "note": "Version 1.0.3. PMC-only menu/field and overlay-258 viewer companions; includes the CPU-side background-buffer redraw fix and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "learnset-viewer/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "2ce34620f6441520ff2e85144a2b6c6f03a69065a86ca2b3380595a417395d74",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/config.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/config.cpp"
+          },
+          "kind": "source",
+          "sha256": "f1ac07c79fa35259eb9eacf1d65d9e0dedfe73af52a4ed39c4f5acf9ed14d27e",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/logic.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/logic.h"
+          },
+          "kind": "source",
+          "sha256": "ba85d1ee0f0093b44db635e406cba41847f5f7a3b5450ecd26572c45336105cd",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/memory.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/memory.cpp"
+          },
+          "kind": "source",
+          "sha256": "52116ffaf5678d5ceb8a545d2f1192964052152cf81921d1c0a087489a7ed8e8",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/menu.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/menu.cpp"
+          },
+          "kind": "source",
+          "sha256": "5d27826fdd39eb8276ef7a8a03823738f63920cb126889acabb0a77680c1b998",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/preview.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/preview.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "fe893fa2eecca64ba927d39e14a4df626f4512d4b1d442e8863af9538e5f39a0",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "8a068547c372933da6e3271c134bfc07f5df5fb608992e50e39a3d1394de54c5",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/rom_inspect.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/rom_inspect.py"
+          },
+          "kind": "build-tool",
+          "sha256": "7220ff594d9e3b9a40724d2538396ff2b1ea3ed784b7dbf26e8625bfa9409cda",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/runtime.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/runtime.h"
+          },
+          "kind": "source",
+          "sha256": "f12cec6561cc39a2989e349bd0606e6479b467e882e551ccf95629ed2b81b4fe",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/test_logic.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/test_logic.cpp"
+          },
+          "kind": "test",
+          "sha256": "261d1a4ca7d21ad7688f875d3609d84bce62e07acb27d52e6007f01ae39df79c",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/verify_dst.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/verify_dst.py"
+          },
+          "kind": "test",
+          "sha256": "a5a4eb7d2dd5588677e76b77e3f3ce67dad68f31bb3c16d568d5f1eda4b8f34f",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/verify_graphics.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/verify_graphics.py"
+          },
+          "kind": "test",
+          "sha256": "bf5b9c5f93ea507711378a44d3ec2f04786847c18450f671574f295ddb9c0ca3",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/verify_runtime.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/verify_runtime.py"
+          },
+          "kind": "test",
+          "sha256": "b75d0a5ad84dba2407b2fb65227860e031078c7f6e5cff532520968f87774b2a",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/viewer.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/viewer.cpp"
+          },
+          "kind": "source",
+          "sha256": "e0be5b17e6fb24a892137f18e23649812805b950a2851c406d6ec3b9d4d713f0",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/metadata/learnsetViewerManifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/learnsetViewerManifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "2f684f9e14fd2157622e549ca0891bc26fb06ad0fb4f3eb90576c6e99f4a04b1",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/integration/learnsetViewerModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/learnsetViewerModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "b616cae46fe311c1accb5073a25b94f0688ee491826621a84aa7a316e810af95",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/tests/learnsetViewerModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/learnsetViewerModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "c44d7b3804828ba2e64fb708dd620fa9dc5fd1b9fe9e6730fc140d80c254a746",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/tests/verify-learnset-viewer-install.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-learnset-viewer-install.ts"
+          },
+          "kind": "test",
+          "sha256": "312c90add4038eece575f093094607c53f67d74c7f0318dbccdfc11431b23c54",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "battle-type-hud",
+      "title": "Battle Type Icons and Move Effectiveness Preview",
+      "artifacts": [
+        {
+          "name": "TypeIconsB2.dll",
+          "sha256": "8a8ca0f8ab66cff44ae96e3d11a51a01cf6a4ee8e35a91304c0c7ba566e23249"
+        },
+        {
+          "name": "TypeIconsW2.dll",
+          "sha256": "8fb6dbea13e16d9340719b97174136ee3c45c908c12a7f16cf634a1303a1ee32"
+        },
+        {
+          "name": "MoveEffectivenessB2.dll",
+          "sha256": "fea4011d1409f152208b1e701afccdd6f8f55aa04c0e6440fcfa0a83cb1055d6"
+        },
+        {
+          "name": "MoveEffectivenessW2.dll",
+          "sha256": "f4a4995a3195f9514676d76d6aed0c36aa1dcb9b748a41823bd3b3d8b72e3b63"
+        }
+      ],
+      "note": "Independent overlay-168 Type Icons 0.3.9 and Move Effectiveness 0.4.0 modules, catalog 0.4.9. Includes generated address/hook headers and private panel geometry. Canonical Pokeweb runtime snapshot originates from work/battle-type-hud; no emulator captures or build binaries are copied.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "battle-type-hud/analyze.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/analyze.py"
+          },
+          "kind": "build-tool",
+          "sha256": "60a07a90a92d1c08625f6545b11aa6c1344902e9b06b1f933fcd3fff3b4c4050",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/approved-icons.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/approved-icons.json"
+          },
+          "kind": "metadata",
+          "sha256": "d661c513e47d0b7d80ba41e6f28ed11b68b13f37552ef5781869ed9b27a75cd9",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/assets.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/assets.h"
+          },
+          "kind": "source",
+          "sha256": "e11c8ce0bcb1fe1036d9fbec1212cfd2deeed2d3000e779c1c1461b6c5cbf3fb",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/assets.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/assets.json"
+          },
+          "kind": "metadata",
+          "sha256": "186c076544e67cf085e3da53aa98de831600eaf126002f367c7a58ea842975f8",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/battle_type_hud.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/battle_type_hud.cpp"
+          },
+          "kind": "source",
+          "sha256": "4ae32a386f0e90e7ca8f09ebbf1ccf21868d1e3ed8b4702b777901c5c7ba3186",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "09fb64179a57a071f3fbe4317c05685121be976b7b5ec3fe157e991cc0fcc61d",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/Compact.java",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/Compact.java"
+          },
+          "kind": "build-tool",
+          "sha256": "e900fda33c585795af20ca9019fa5ccf17751924d284417dc60b3b37411f57eb",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/compatibility_tests.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/compatibility_tests.py"
+          },
+          "kind": "test",
+          "sha256": "8b78b3cc31adfe07c60a6d3c85a37f82ac6803cce4e2b28cdf9f1320a247db0e",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/compatibility.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/compatibility.py"
+          },
+          "kind": "build-tool",
+          "sha256": "215e422646226e4d0ca9084c31f4935c461ae0139a87a8c0c0b92b94e9a104cd",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/configure.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/configure.py"
+          },
+          "kind": "build-tool",
+          "sha256": "134ffeae548a5a7f008fdc319cb578ab033d0756c0cf378a5679843aa3d4e21a",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/esdb.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/esdb.yml"
+          },
+          "kind": "metadata",
+          "sha256": "064b5e3928dae401b395147d96f6625c791984b83a1f0d44dc950a1e005016ea",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/hud_common.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/hud_common.h"
+          },
+          "kind": "source",
+          "sha256": "4466f32c09e7613bf309aff31216d98210d2585fcfadb28f3e5235124f17af9b",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/IMMUNITY_FEASIBILITY.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/IMMUNITY_FEASIBILITY.md"
+          },
+          "kind": "documentation",
+          "sha256": "86e1a4cb61a062434c837b7cde54dc70b947ebf66b6c7c0dbe151efcbc99e71b",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/install.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/install.py"
+          },
+          "kind": "build-tool",
+          "sha256": "826b52e4c3c525b40b2fd6e4e712f43b465643982e24f86f7527bdbc48e1809f",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/live.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/live.py"
+          },
+          "kind": "build-tool",
+          "sha256": "34a05104ffc75696cd5f8718bde92ee5bb754525e489d1e30a769dd32da7a6e1",
+          "normalized": true
+        },
+        {
+          "path": "battle-type-hud/make_clean_test_rom.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/make_clean_test_rom.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "e9791c36a069bb7fa368af138f27cd32b3846334cc86787b4ea8e0ad059432b5",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/move_colors.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/move_colors.h"
+          },
+          "kind": "source",
+          "sha256": "7c74893822dce9580c751983580534038ed672f985931e6f28c357bbbec62d4e",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/move_effectiveness.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/move_effectiveness.cpp"
+          },
+          "kind": "source",
+          "sha256": "2450c7b575666e6ab16d460c6d6651577edb3ca3fed5e234ce6e0a3f672e8554",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/move_immunity.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/move_immunity.h"
+          },
+          "kind": "source",
+          "sha256": "22ab15f34957cde6d300683f8f640cdb14ee6e51604da22c72057114a80be1bf",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/native_integration.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/native_integration.py"
+          },
+          "kind": "test",
+          "sha256": "352b637dc49d8b7a3e085520b6acc236ecd275e3669fe4c71b270044aab81e79",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/native_move_integration.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/native_move_integration.py"
+          },
+          "kind": "test",
+          "sha256": "222f04c05261584d66021ab4d9c9c309ae1c87f4ba15344a74d151f9216b9c4b",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/package.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/package.py"
+          },
+          "kind": "build-tool",
+          "sha256": "dfc355a09a6a9a666ab23fa6f29cdf26a19c0eb53fe6baff9dcdc7912cde72ce",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/panel_expansion.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/panel_expansion.py"
+          },
+          "kind": "build-tool",
+          "sha256": "b2099d3da39cec271e21c442f74c8e398bdb001e4bf22502db50da23fab272ec",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/panel-expansion.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/panel-expansion.json"
+          },
+          "kind": "metadata",
+          "sha256": "95fa93edd482fc17d93e52a9fcacbd04a05021c8ba09659c5f06d1f525cfeaf9",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/preview.cjs",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/preview.cjs"
+          },
+          "kind": "build-tool",
+          "sha256": "305bca2a5a369909890d27dd5788ac1b4a31d437ba73f36e08cb116e5d8562d7",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/profile-B2.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-B2.json"
+          },
+          "kind": "metadata",
+          "sha256": "a591eae798f13b8007bc046bb88329e313cbfc5b790dd961bb586185a3007340",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/profile-MoveEffectiveness-B2.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-MoveEffectiveness-B2.json"
+          },
+          "kind": "metadata",
+          "sha256": "8c929fe31027bd28ac6f492b9b027324d6e569f2bbdaa88efc44bed9a629d0e7",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/profile-MoveEffectiveness-W2.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-MoveEffectiveness-W2.json"
+          },
+          "kind": "metadata",
+          "sha256": "0c8d8343400aec25d32dce3a21b2ad8dad3603f4e23f5573a6fae0d5698bab13",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/profile-TypeIcons-B2.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-TypeIcons-B2.json"
+          },
+          "kind": "metadata",
+          "sha256": "4caed4732fce28f9f3246c13efaf52886e68c0069445ebfeb5e966b4423c2836",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/profile-TypeIcons-W2.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-TypeIcons-W2.json"
+          },
+          "kind": "metadata",
+          "sha256": "e2be2afddadab8834bea96b0d05b0b571d2a773aeb8ce23cd8ba3634b7ad66f2",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/profile-W2.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-W2.json"
+          },
+          "kind": "metadata",
+          "sha256": "a89dab534c7ddf0ec4d7e4189290caa81b0b156caec0b27b4186aa92a34c21f5",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/PROGRESS.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/PROGRESS.md"
+          },
+          "kind": "documentation",
+          "sha256": "c336fe2e0ae47d015cbf62af97f3972696e7ba959eb6dc37aec33f700029f318",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "3e517d9df4be5ca72fb0bd9e334e95e875b3fc570f7cc6d69486f0e1c9dc417f",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/requirements.txt",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/requirements.txt"
+          },
+          "kind": "documentation",
+          "sha256": "397a753daa3c4d99d24ebc3550503d6abf2ebdbd82ac26287d2506f98cdf8166",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/rpm_read.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/rpm_read.py"
+          },
+          "kind": "build-tool",
+          "sha256": "8d5fed7a0c80e9e5a4be5328e7f1daa3487109839ae72e7d470a3226a542d4b6",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/sync_bundled.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/sync_bundled.py"
+          },
+          "kind": "build-tool",
+          "sha256": "af2dcbc0dd89f09b1051ed089bec3906ad09de5f8eb369285e2f53c1dc76da2e",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/VALIDATION.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/VALIDATION.md"
+          },
+          "kind": "documentation",
+          "sha256": "95103317a420fc506a6e37063c6193224ed0dfc5351ee69cd3d59aad06098f5f",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify_dst.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify_dst.py"
+          },
+          "kind": "test",
+          "sha256": "04f4753827526861087deda54e17d50473689c2ac158a7253ef347227b6106f9",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify_enemy_names.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify_enemy_names.py"
+          },
+          "kind": "test",
+          "sha256": "325646658c51378986cc587eddef4840fa452418a21c8f5cf3789ddf1a62057e",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify_layout.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify_layout.py"
+          },
+          "kind": "test",
+          "sha256": "4580472db64e5260dc616477496301b0874cd375d6d9842b0ee37e14cadd1b03",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify_moves.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify_moves.py"
+          },
+          "kind": "test",
+          "sha256": "b12cd5deb14aec0d7b26816e604a1a350a83e286284bfe442df308d4dc640eff",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify.py"
+          },
+          "kind": "test",
+          "sha256": "bd3e4b32001c34f4f1833a3dc32952d98425290cdad4b4c7b0d126565954411d",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/addresses-B2.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/addresses-B2.h"
+          },
+          "kind": "generated-header",
+          "sha256": "e891866248855f0d1e7b0e2037f986d28508660542eb0a67aa903ba7bac92160",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/hooks-TypeIcons-B2.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/hooks-TypeIcons-B2.h"
+          },
+          "kind": "generated-header",
+          "sha256": "4131bb62561a739255944ec9520d5a63e37842f40209651af47af15aa267e6d0",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/hooks-MoveEffectiveness-B2.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/hooks-MoveEffectiveness-B2.h"
+          },
+          "kind": "generated-header",
+          "sha256": "b88229aded1f03abb8ece7958abf10dfdfc57db38fbf75a8bfdd4b33914cfaef",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/addresses-W2.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/addresses-W2.h"
+          },
+          "kind": "generated-header",
+          "sha256": "29ca01bd85b74ecf680f35aa0bd64fdbaca14631e3f95bf4ac2f026c698909ea",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/hooks-TypeIcons-W2.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/hooks-TypeIcons-W2.h"
+          },
+          "kind": "generated-header",
+          "sha256": "fb2cb3c1f42b870163ae834c6af844b7607085aebc21f5f96a1bf60cc713b993",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/hooks-MoveEffectiveness-W2.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/hooks-MoveEffectiveness-W2.h"
+          },
+          "kind": "generated-header",
+          "sha256": "48b952f609b94fc9f01b245c63a9242abad641f8a816797d6d929656241b5934",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/metadata/battleTypeHudManifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/battleTypeHudManifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "b4c10eee0fdce87b4bf43dbe615d34d8d4bd44ffce2669d5e6eb0c3ff8418cf0",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/metadata/battleTypeHudPanelExpansion.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/battleTypeHudPanelExpansion.json"
+          },
+          "kind": "metadata",
+          "sha256": "95fa93edd482fc17d93e52a9fcacbd04a05021c8ba09659c5f06d1f525cfeaf9",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/integration/battleTypeHudModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/battleTypeHudModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "d3a89200b76aca94f4e5a55f24139dda8b24968ba6fe4f3203ebe124b2fa5056",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/tests/battleTypeHudModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/battleTypeHudModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "56b606323cb555f929ffe76e237bc7a24726e3f02f40efa784ed9bab4f0d49d3",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/integration/battleTypeHudResources.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/battleTypeHudResources.ts"
+          },
+          "kind": "support-only",
+          "sha256": "7a7b6fcbdbc84e6247e97a02b6c06a2c4e65367e88c7492f2c76e61159a2e005",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/tests/battleTypeHudResources.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/battleTypeHudResources.test.ts"
+          },
+          "kind": "test",
+          "sha256": "981aa180260d68509ea112a7284ff46c6d70485611b1d253636f687e417627b9",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/tests/verify-battle-hud-install.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-battle-hud-install.ts"
+          },
+          "kind": "test",
+          "sha256": "f908480eda6050e60f298bbe5b84af42a4f8c241a67f60968ced42d68035b640",
+          "normalized": false
+        }
+      ]
     }
   ],
   "sharedFiles": [
