@@ -16,18 +16,26 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml, scrollRowBelowStickyHeader, selectText } from "./dom";
 import { stripeRows } from "./legacyInteractions";
 
+export type TrainerPanel = "trainer" | number;
+
 export type TrainerInteractionOptions = {
   onDirty?: () => void;
   onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>;
   onOpenTrainerSprite?: (trainerClassId: number) => void;
   autofills: Record<string, string[]>;
   renderRow: (trainerId: number) => string;
+  renderPanel: (trainerId: number, panel: TrainerPanel) => string;
 };
 
 const AUTOCOMPLETE_CLICK_SUPPRESS_MS = 500;
 const autocompleteClickSuppressUntil = new WeakMap<HTMLElement, number>();
+const interactionControllers = new WeakMap<HTMLElement, AbortController>();
 
 export function attachTrainerInteractions(root: HTMLElement, project: ProjectState, options: TrainerInteractionOptions): void {
+  interactionControllers.get(root)?.abort();
+  const controller = new AbortController();
+  interactionControllers.set(root, controller);
+  const { signal } = controller;
   const searchInput = root.querySelector<HTMLInputElement>("#search-text");
   const searchButton = root.querySelector<HTMLButtonElement>("#search-text-btn");
   const runFilter = () => {
@@ -58,7 +66,7 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
         trainers?.insertAdjacentHTML("beforeend", options.renderRow(trainer.id));
         const nextCard = root.querySelector<HTMLElement>(`.trainer-card[data-index="${trainer.id}"]`);
         if (nextCard) {
-          installEditableFields(nextCard, project, options);
+          installEditableFields(nextCard, root, project, options);
           scrollRowBelowStickyHeader(nextCard);
         }
         filterTrainers(root, project, searchInput?.value ?? "");
@@ -119,6 +127,7 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
 
     const preview = target.closest<HTMLElement>(".trainer-poks .trainer-pokemon-preview");
     if (preview?.dataset.show) {
+      ensureTrainerPanel(root, card, project, options, Number(preview.dataset.show.replace("pok-", "")));
       showTrainerPokemon(card, preview);
       stripeRows(root);
       return;
@@ -201,10 +210,11 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
 
     const mainRow = target.closest<HTMLElement>("#trainers .trainer-card > .expanded-field-main");
     if (mainRow && !isTrainerRowControl(target)) {
+      ensureTrainerPanel(root, card, project, options, "trainer");
       toggleTrainerPanel(card);
       stripeRows(root);
     }
-  });
+  }, { signal });
 
   root.addEventListener("change", (event) => {
     const input = (event.target as HTMLElement).closest<HTMLInputElement>(".trainer-tmp-flag");
@@ -214,7 +224,7 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
     updateTrainerField(project, trainerId, input.dataset.fieldName, input.checked);
     replaceTrainerRow(root, project, card, trainerId, options);
     options.onDirty?.();
-  });
+  }, { signal });
 
   root.addEventListener("contextmenu", (event) => {
     const target = event.target as HTMLElement;
@@ -232,25 +242,30 @@ export function attachTrainerInteractions(root: HTMLElement, project: ProjectSta
       if (flag.dataset.fieldName === fieldName) flag.classList.toggle("-active", enabled);
     });
     if (updated > 0) options.onDirty?.();
-  });
+  }, { signal });
 
-  installEditableFields(root, project, options);
+  installEditableFields(root, root, project, options);
   runFilter();
 }
 
 export function filterTrainers(root: HTMLElement, project: ProjectState, searchText: string): HTMLElement[] {
   const visible: HTMLElement[] = [];
+  const hasTerms = searchText.split(",").some((term) => term.trim());
   root.querySelectorAll<HTMLElement>("#trainers .trainer-card").forEach((card) => {
     const trainerId = Number(card.dataset.index);
-    const show = Number.isInteger(trainerId) ? trainerMatchesSearch(getTrainerRecord(project, trainerId), searchText) : false;
+    const show = Number.isInteger(trainerId) && (!hasTerms || trainerMatchesSearch(
+      getTrainerRecord(project, trainerId),
+      searchText,
+      project.docs?.trainerLocations[String(trainerId)],
+    ));
     card.style.display = show ? "" : "none";
     if (show) visible.push(card);
   });
   return visible;
 }
 
-function installEditableFields(root: HTMLElement, project: ProjectState, options: TrainerInteractionOptions): void {
-  root.querySelectorAll<HTMLElement>("[contenteditable='true']").forEach((field) => {
+function installEditableFields(container: HTMLElement, root: HTMLElement, project: ProjectState, options: TrainerInteractionOptions): void {
+  container.querySelectorAll<HTMLElement>("[contenteditable='true']").forEach((field) => {
     if (field.dataset.trainerEditInstalled === "true") return;
     field.dataset.trainerEditInstalled = "true";
     let initialValue = field.textContent?.trim() ?? "";
@@ -335,7 +350,7 @@ function refreshTrainerRowMain(
   if (!nextMain || !currentMain) return;
 
   currentMain.replaceWith(nextMain);
-  installEditableFields(nextMain, project, options);
+  installEditableFields(nextMain, root, project, options);
   if (openPok !== undefined) {
     nextMain.querySelectorAll<HTMLElement>(`.trainer-poks .trainer-pokemon-preview[data-show="pok-${openPok}"]`).forEach((preview) => preview.classList.add("-active"));
   }
@@ -361,14 +376,33 @@ function replaceTrainerRow(root: HTMLElement, project: ProjectState, card: HTMLE
   card.outerHTML = options.renderRow(trainerId);
   const nextCard = root.querySelector<HTMLElement>(`.trainer-card[data-index="${trainerId}"]`);
   if (!nextCard) return;
-  installEditableFields(nextCard, project, options);
-  if (wasTrainerOpen) nextCard.querySelector<HTMLElement>(".expanded-trainer")?.classList.add("show-flex");
-  if (wasTextsOpen) nextCard.querySelector<HTMLElement>(".expanded-trainer")?.classList.add("-show-texts");
+  installEditableFields(nextCard, root, project, options);
+  if (wasTrainerOpen || wasTextsOpen) {
+    const panel = ensureTrainerPanel(root, nextCard, project, options, "trainer");
+    if (wasTrainerOpen) panel?.classList.add("show-flex");
+    if (wasTextsOpen) panel?.classList.add("-show-texts");
+  }
   if (openPok !== undefined) {
-    nextCard.querySelector<HTMLElement>(`.expanded-pok-${openPok}`)?.classList.add("show-flex");
-    nextCard.querySelectorAll<HTMLElement>(`.trainer-poks .trainer-pokemon-preview[data-show="pok-${openPok}"]`).forEach((preview) => preview.classList.add("-active"));
+    const panel = ensureTrainerPanel(root, nextCard, project, options, Number(openPok));
+    if (panel) {
+      panel.classList.add("show-flex");
+      nextCard.querySelectorAll<HTMLElement>(`.trainer-poks .trainer-pokemon-preview[data-show="pok-${openPok}"]`).forEach((preview) => preview.classList.add("-active"));
+    }
   }
   stripeRows(root);
+}
+
+function ensureTrainerPanel(root: HTMLElement, card: HTMLElement, project: ProjectState, options: TrainerInteractionOptions, panel: TrainerPanel): HTMLElement | undefined {
+  if (panel !== "trainer" && (!Number.isInteger(panel) || panel < 0)) return undefined;
+  const selector = panel === "trainer" ? ".expanded-trainer" : `.expanded-pok-${panel}`;
+  const existing = card.querySelector<HTMLElement>(selector);
+  if (existing) return existing;
+  const html = options.renderPanel(Number(card.dataset.index), panel);
+  if (!html) return undefined; // A deleted party slot must not reopen a stale editor.
+  card.insertAdjacentHTML("beforeend", html);
+  const created = card.querySelector<HTMLElement>(selector) ?? undefined;
+  if (created) installEditableFields(created, root, project, options);
+  return created;
 }
 
 function toggleTrainerPanel(card: HTMLElement): void {
@@ -466,7 +500,7 @@ function requestShowdownImportText(): Promise<string | undefined> {
 }
 
 function isTrainerRowControl(target: HTMLElement): boolean {
-  return Boolean(target.closest("button, input, label, [contenteditable='true'], [data-autocomplete], .suggestions, .add-trpok"));
+  return Boolean(target.closest("a, button, input, label, [contenteditable='true'], [data-autocomplete], .suggestions, .add-trpok"));
 }
 
 function installAutocomplete(field: HTMLElement, autofills: Record<string, string[]>, onSelect?: () => void): void {

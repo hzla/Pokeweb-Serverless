@@ -1,0 +1,146 @@
+{
+  "games": {
+    "B2": {
+      "species_names_measured": 649,
+      "player_names_measured": 649,
+      "player_name_shift": 12,
+      "player_info_shift": 8,
+      "player_icon_shift": 12,
+      "player_rightmost_header_pixel": 249,
+      "widest": [
+        {
+          "name": "Charmander",
+          "width": 50
+        },
+        {
+          "name": "Butterfree",
+          "width": 50
+        },
+        {
+          "name": "Kangaskhan",
+          "width": 50
+        },
+        {
+          "name": "Forretress",
+          "width": 50
+        },
+        {
+          "name": "Carracosta",
+          "width": 50
+        },
+        {
+          "name": "Ferrothorn",
+          "width": 50
+        },
+        {
+          "name": "Charmeleon",
+          "width": 49
+        },
+        {
+          "name": "Tentacruel",
+          "width": 49
+        }
+      ],
+      "minimum_screen_margin": 1,
+      "minimum_name_gap": 1,
+      "rightmost_header_pixel": 113,
+      "compiled_names": [
+        "Charmander",
+        "Butterfree",
+        "Kangaskhan",
+        "Forretress",
+        "Carracosta",
+        "Ferrothorn",
+        "Charmeleon",
+        "Tentacruel",
+        "Mew",
+        "Gengar",
+        "Feraligatr"
+      ],
+      "layouts": [
+        "singles",
+        "both doubles",
+        "all three triples"
+      ],
+      "level": 100,
+      "unchanged_update_no_writes": true,
+      "header_restored_on_removal": true,
+      "in_place_graphics_reload": true,
+      "name_gender_level_hooks_use_native_coordinates": true,
+      "release_sha256": "8a8ca0f8ab66cff44ae96e3d11a51a01cf6a4ee8e35a91304c0c7ba566e23249"
+    },
+    "W2": {
+      "species_names_measured": 649,
+      "player_names_measured": 649,
+      "player_name_shift": 12,
+      "player_info_shift": 8,
+      "player_icon_shift": 12,
+      "player_rightmost_header_pixel": 249,
+      "widest": [
+        {
+          "name": "Charmander",
+          "width": 50
+        },
+        {
+          "name": "Butterfree",
+          "width": 50
+        },
+        {
+          "name": "Kangaskhan",
+          "width": 50
+        },
+        {
+          "name": "Forretress",
+          "width": 50
+        },
+        {
+          "name": "Carracosta",
+          "width": 50
+        },
+        {
+          "name": "Ferrothorn",
+          "width": 50
+        },
+        {
+          "name": "Charmeleon",
+          "width": 49
+        },
+        {
+          "name": "Tentacruel",
+          "width": 49
+        }
+      ],
+      "minimum_screen_margin": 1,
+      "minimum_name_gap": 1,
+      "rightmost_header_pixel": 113,
+      "compiled_names": [
+        "Charmander",
+        "Butterfree",
+        "Kangaskhan",
+        "Forretress",
+        "Carracosta",
+        "Ferrothorn",
+        "Charmeleon",
+        "Tentacruel",
+        "Mew",
+        "Gengar",
+        "Feraligatr"
+      ],
+      "layouts": [
+        "singles",
+        "both doubles",
+        "all three triples"
+      ],
+      "level": 100,
+      "unchanged_update_no_writes": true,
+      "header_restored_on_removal": true,
+      "in_place_graphics_reload": true,
+      "name_gender_level_hooks_use_native_coordinates": true,
+      "release_sha256": "8fb6dbea13e16d9340719b97174136ee3c45c908c12a7f16cf634a1303a1ee32"
+    }
+  },
+  "limitations": [
+    "Retail English species names and battle font; no game boot or frames.",
+    "Native creation/status functions are instrumented fixtures; actual ARM DLLs are executed."
+  ]
+}

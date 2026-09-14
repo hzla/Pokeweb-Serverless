@@ -147,13 +147,13 @@ export function addTrainer(project: ProjectState, templateTrainerId?: number): T
   return getTrainerRecord(project, trainerId);
 }
 
-export function trainerMatchesSearch(record: TrainerRecord, searchText: string): boolean {
+export function trainerMatchesSearch(record: TrainerRecord, searchText: string, resolvedLocations: readonly string[] = []): boolean {
   const terms = searchText
     .split(",")
     .map((term) => term.trim().toLowerCase())
     .filter(Boolean);
   if (terms.length === 0) return true;
-  const haystack = JSON.stringify(record).toLowerCase();
+  const haystack = [JSON.stringify(record), ...resolvedLocations].join("\n").toLowerCase();
   return terms.some((term) => haystack.includes(term));
 }
 
