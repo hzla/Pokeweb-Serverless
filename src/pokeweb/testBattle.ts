@@ -218,7 +218,7 @@ export async function buildMoveTestBattleDownloads(project: ProjectState, moveId
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
 }
 
-async function exportTestBattleBaseRom(project: ProjectState): Promise<Uint8Array> {
+export async function exportTestBattleBaseRom(project: ProjectState): Promise<Uint8Array> {
   if (project.session.baseRom !== "BW2") return exportModifiedRom(project, { preserveOriginalLength: true });
   const temporaryProject = structuredClone(project) as ProjectState;
   await prepareBw2TestBattleCodeInjection(temporaryProject);
@@ -231,7 +231,7 @@ export async function loadHgAnimationTestBattleSave(kind: HgTestBattleSaveKind):
   return new Uint8Array(await response.arrayBuffer());
 }
 
-async function loadTestBattleSave(config: TestBattleConfig): Promise<TestBattleSave> {
+export async function loadTestBattleSave(config: TestBattleConfig): Promise<TestBattleSave> {
   const response = await fetch(config.saveUrl);
   if (!response.ok) throw new Error(`Failed to load bundled test battle save: ${response.status}`);
   const rawSaveBytes = rawSaveBytesFromDesmumeDsv(new Uint8Array(await response.arrayBuffer()));
@@ -771,7 +771,7 @@ function hasSaveHalf(saveBytes: Uint8Array, layout: TestBattleSaveLayout): boole
   return saveBytes.length >= layout.saveHalfOffset + layout.checksumBlockOffset + layout.checksumBlockLength;
 }
 
-function refreshTestBattleSaveBlockChecksum(
+export function refreshTestBattleSaveBlockChecksum(
   out: Uint8Array,
   layout: TestBattleSaveLayout,
   halfOffset: number,
@@ -889,7 +889,7 @@ function fieldOffset(format: Array<[number, string]>, field: string): number | u
   return undefined;
 }
 
-function toDesmumeDsv(saveBytes: Uint8Array): Uint8Array {
+export function toDesmumeDsv(saveBytes: Uint8Array): Uint8Array {
   if (hasDesmumeDsvCookie(saveBytes)) return saveBytes;
 
   const paddedSize = desmumePaddedSaveSize(saveBytes.length);

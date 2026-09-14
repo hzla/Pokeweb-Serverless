@@ -22,6 +22,7 @@ import {
 import { isGen4Project } from "../pokeweb/constants";
 import { ensureGen4OverworldSpriteResources, gen4SpecialOverworldIconName, getGen4OverworldSpriteDataUrl } from "../pokeweb/gen4OverworldSpriteModel";
 import type { ProjectState } from "../pokeweb/projectStore";
+import type { OverworldTestWarpSelection } from "../pokeweb/testOverworldWarp";
 import { escapeHtml, selectText } from "./dom";
 import { publicAsset } from "../assetUrl";
 import { gen4PermissionTileFill } from "./gen4MapPreviewRenderer";
@@ -100,6 +101,7 @@ export function renderOverworldEditor(
   overworldId: number,
   onDirty?: () => void,
   onBack?: () => void,
+  onTestWarp?: (selection: OverworldTestWarpSelection) => Promise<void>,
 ): void {
   let scene = getOverworldScene(project, overworldId);
   const isGen4 = isGen4Project(project);
@@ -139,6 +141,10 @@ export function renderOverworldEditor(
       <div class="sidebar-btns">
         <button class="ow-btn" id="back-headers" type="button">Back to Headers</button>
       </div>
+      ${project.session.baseRom === "BW2" && onTestWarp ? `<div class="sidebar-btns overworld-test-warp" id="test-warp-controls" hidden>
+        <button class="ow-btn" id="test-warp-here" type="button">Test Warp to Here</button>
+        <div class="overworld-test-warp-status" id="test-warp-status" role="status">Press Down in Aspertia City to warp to this tile.</div>
+      </div>` : ""}
       ${
         isGen4
           ? `<div class="popup-editor field-holder" id="tile-editor">
@@ -206,6 +212,9 @@ export function renderOverworldEditor(
   const entitySidebarContent = root.querySelector<HTMLDivElement>("#entity-sidebar-content");
   const permissionSidebarContent = root.querySelector<HTMLDivElement>("#permission-sidebar-content");
   const entityCommandButtons = root.querySelector<HTMLDivElement>("#entity-command-buttons");
+  const testWarpControls = root.querySelector<HTMLDivElement>("#test-warp-controls");
+  const testWarpButton = root.querySelector<HTMLButtonElement>("#test-warp-here");
+  const testWarpStatus = root.querySelector<HTMLDivElement>("#test-warp-status");
   if (!stage || !overworldPane || !canvas || !entities) return;
   const stageEl = stage;
   const overworldPaneEl = overworldPane;
@@ -506,6 +515,7 @@ export function renderOverworldEditor(
 
   function updatePermissionPanel(): void {
     if (isGen4) return;
+    if (testWarpControls) testWarpControls.hidden = !selectedTile;
     if (permissionSelected) {
       permissionSelected.textContent = selectedTile
         ? `Map ${selectedTile.mapId} tile ${selectedTile.index} @ ${selectedTile.x}, ${selectedTile.y} / class ${selectedTile.layer2} / flags ${formatHex16(selectedTile.layer3)}`
@@ -600,6 +610,24 @@ export function renderOverworldEditor(
     pendingPaintEdits.clear();
     if (changed > 0) onDirty?.();
   }
+
+  testWarpButton?.addEventListener("click", async () => {
+    if (!selectedTile || !onTestWarp || testWarpButton.disabled) return;
+    const selection = { overworldId, ...selectedTile };
+    testWarpButton.disabled = true;
+    testWarpButton.textContent = "Building...";
+    if (testWarpStatus) testWarpStatus.textContent = "Building ROM and preparing the test warp...";
+    try {
+      commitPermissionPaint();
+      await onTestWarp(selection);
+      if (testWarpStatus) testWarpStatus.textContent = `Test launched for tile ${selection.x}, ${selection.y}. Press Down in Aspertia City to warp there.`;
+    } catch (error) {
+      if (testWarpStatus) testWarpStatus.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      testWarpButton.disabled = false;
+      testWarpButton.textContent = "Test Warp to Here";
+    }
+  });
 
   function paintCanvasTileAt(clientX: number, clientY: number): void {
     applyBrushToTile(tileAt(scene, screenToWorld(clientX, clientY)));
