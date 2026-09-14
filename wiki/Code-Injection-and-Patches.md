@@ -1,5 +1,11 @@
 # Code Injection and Patches
 
+## Cascade personal-data migration
+
+The Patches page shows **Editable Cascade AI Abilities** for a detected Cascade White BW2 ROM containing an identifiable injected AI ability table, or an already migrated Cascade ROM. **Migrate AI Abilities** copies the loaded variant's numeric IDs into its Pokémon personal records and enables three editable AI ability slots plus a reserved Hidden Ability Chance byte. See [Pokemon Personal](Pokemon-Personal.md) for offsets and ranges.
+
+The table is extracted from the loaded DLL rather than from Pokeweb's historical display-name list. Current byte-sized and older enum-sized table layouts are supported; missing, ambiguous, conflicting, truncated, or non-`u8` tables cannot be migrated. All target personal records are validated before any writes. This operation does not modify injected code or change battle behavior.
+
 ## Purpose
 
 The Code Injection and Patches editors apply bundled binary changes to the ROM. These features are for behavior that cannot be represented as normal game data, such as adding a runtime, changing battle code, changing dust-cloud logic, or extending type support.

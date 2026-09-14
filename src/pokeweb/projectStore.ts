@@ -28,6 +28,7 @@ import { parseGen4EventFile } from "./gen4EventModel";
 import { parseGen4MapFile } from "./gen4MapModel";
 import { parseGen4MatrixFile } from "./gen4MatrixModel";
 import { unpackExpandedPersonalAbilities } from "./personalAbilityPacking";
+import { enrichCascadePersonalRecord } from "./cascadeWhitePersonalModel";
 
 export type RawRecord = Record<string, number>;
 export type ReadableRecord = Record<string, number | string>;
@@ -257,6 +258,7 @@ export type PatchState = {
     moveExpansion?: boolean;
     moveExpansionBundledAnimations?: boolean;
     moveExpansionGen6Animations?: boolean;
+    cascadePersonalData?: boolean;
   };
 };
 
@@ -335,12 +337,16 @@ export function decodeRecord(project: ProjectState, name: NarcName, id: number):
   if (!bytes) throw new Error(`Record ${id} does not exist in ${name}`);
 
   const cached = store.records.get(id);
-  if (cached?.raw && !(name === "trpok" && "difficulty_0" in cached.raw)) return cached;
+  if (cached?.raw && !(name === "trpok" && "difficulty_0" in cached.raw)) {
+    if (name === "personal") enrichCascadePersonalRecord(project, cached);
+    return cached;
+  }
 
   const record = cached ?? { id, bytes };
   record.raw = parseRawRecord(name, bytes, project, id);
   record.readable = toReadable(name, record.raw, project, id);
   store.records.set(id, record);
+  if (name === "personal") enrichCascadePersonalRecord(project, record);
   return record;
 }
 

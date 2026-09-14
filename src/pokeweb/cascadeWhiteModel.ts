@@ -2,6 +2,7 @@ import { listCodeInjectionDlls } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { cascadeWhiteAiAbilitiesForSpecies } from "./cascadeWhiteAiAbilities";
 import { isGen4Project } from "./constants";
+import { cascadePersonalAbilityId } from "./cascadeWhitePersonalModel";
 
 export const CASCADE_WHITE_AI_DLL_PATH = "patches/A2_AIChanges.dll";
 export const CASCADE_WHITE_TRAINER_ABILITY_SLOT_MAX = 6;
@@ -41,8 +42,11 @@ export function trainerAbilitySlotMax(project: ProjectState): number {
   return detectCascadeWhiteRom(project) ? CASCADE_WHITE_TRAINER_ABILITY_SLOT_MAX : 3;
 }
 
-export function cascadeWhiteTrainerAbilityName(project: ProjectState, speciesId: number, abilitySlot: number): string | undefined {
+export function cascadeWhiteTrainerAbilityName(project: ProjectState, speciesId: number, abilitySlot: number, form = 0): string | undefined {
   if (abilitySlot < 4 || abilitySlot > CASCADE_WHITE_TRAINER_ABILITY_SLOT_MAX || !detectCascadeWhiteRom(project)) return undefined;
+  const personalId = speciesId > 1024 ? speciesId % 1024 : speciesId;
+  const abilityId = cascadePersonalAbilityId(project, personalId, abilitySlot, form);
+  if (abilityId !== undefined) return project.texts.banks.abilities?.[abilityId] ?? String(abilityId);
   return cascadeWhiteAiAbilitiesForSpecies(speciesId)?.[abilitySlot - 4];
 }
 

@@ -26,6 +26,23 @@ The Pokemon Personal section edits species-level data: stats, typing, abilities,
 | Sp Def | Base Special Defense. Range `0-255`. | `85` |
 | Speed | Base Speed. Range `0-255`. | `100` |
 
+## Cascade AI Abilities
+
+For a detected Cascade White variant, **Patches → Editable Cascade AI Abilities → Migrate AI Abilities** copies the three AI-only ability IDs from the ROM's injected `WhiteListedPokemon` table into personal data. The existing read-only AI slots become editable Ability 4, 5, and 6 fields. Names come from the ROM's ability bank; numeric IDs `0–255` are also accepted.
+
+| Cascade field | Personal byte offset | Range |
+| --- | --- | --- |
+| Ability 4 | `0x39` | `0–255` |
+| Ability 5 | `0x3A` | `0–255` |
+| Ability 6 | `0x3B` | `0–255` |
+| Hidden Ability Chance (reserved) | `0x3E` | `0–255` |
+
+Hidden Ability Chance starts at `0`. It is a reserved byte with no percentage interpretation or gameplay effect yet. This operation only migrates data and enables the editor; the Cascade runtime must be updated separately to consume these fields.
+
+The personal record stays `0x4C` bytes. Existing special- and shard-tutor compatibility bits are preserved. Alternate forms inherit their base species' AI abilities where the personal form mapping identifies an owner; records without a source row or owner start with zero AI slots. Regional Pokédex lookup records are skipped.
+
+Export preserves a versioned `codeinjection/cascade-personal-v1.bin` marker, so reopening recognizes the migration even after the values have been edited. A complete matching migration can also be recognized without that marker. The migration refuses occupied target bytes and preserves existing edits when already installed.
+
 ## Expanded Personal Fields
 
 | Field | Meaning | Example |
