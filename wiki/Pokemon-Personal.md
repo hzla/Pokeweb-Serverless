@@ -28,7 +28,7 @@ The Pokemon Personal section edits species-level data: stats, typing, abilities,
 
 ## Cascade AI Abilities
 
-For a detected Cascade White variant, **Patches → Editable Cascade AI Abilities → Migrate AI Abilities** copies the three AI-only ability IDs from the ROM's injected `WhiteListedPokemon` table into personal data. The existing read-only AI slots become editable Ability 4, 5, and 6 fields. Names come from the ROM's ability bank; numeric IDs `0–255` are also accepted.
+For a detected Cascade White variant, **Patches → Editable Cascade AI Abilities → Migrate AI Abilities & Chances** copies the three AI-only ability IDs and hidden ability chance values from the ROM's injected tables into personal data. The existing read-only AI slots become editable Ability 4, 5, and 6 fields. Names come from the ROM's ability bank; numeric IDs `0–255` are also accepted.
 
 | Cascade field | Personal byte offset | Range |
 | --- | --- | --- |
@@ -37,11 +37,13 @@ For a detected Cascade White variant, **Patches → Editable Cascade AI Abilitie
 | Ability 6 | `0x3B` | `0–255` |
 | Hidden Ability Chance (reserved) | `0x3E` | `0–255` |
 
-Hidden Ability Chance starts at `0`. It is a reserved byte with no percentage interpretation or gameplay effect yet. This operation only migrates data and enables the editor; the Cascade runtime must be updated separately to consume these fields.
+Hidden Ability Chance imports the raw `u8` values from the separate `WhiteListedPokemon[651]` array declared in `D_NonBattleItemChanges/newitems_support_structs.h` and compiled into `D2_FieldOverlays.dll`. These are chance multipliers, not percentages: a stored `4` remains `4`. This operation only migrates data and enables the editor; the Cascade runtime must be updated separately to consume these personal fields.
 
-The personal record stays `0x4C` bytes. Existing special- and shard-tutor compatibility bits are preserved. Alternate forms inherit their base species' AI abilities where the personal form mapping identifies an owner; records without a source row or owner start with zero AI slots. Regional Pokédex lookup records are skipped.
+The personal record stays `0x4C` bytes. Existing special- and shard-tutor compatibility bits are preserved. Alternate forms inherit their base species' AI abilities and chance values where the personal form mapping identifies an owner; records without a source row or owner start with zero values. Regional Pokédex lookup records are skipped.
 
-Export preserves a versioned `codeinjection/cascade-personal-v1.bin` marker, so reopening recognizes the migration even after the values have been edited. A complete matching migration can also be recognized without that marker. The migration refuses occupied target bytes and preserves existing edits when already installed.
+Export preserves versioned `codeinjection/cascade-personal-v1.bin` and `codeinjection/cascade-hidden-ability-chances-v1.bin` markers, so reopening recognizes both imports even after the values have been edited. A complete matching AI migration can also be recognized without its marker. The initial migration refuses occupied target bytes and preserves existing edits when already installed.
+
+For ROMs migrated with the earlier button, **Import Hidden Ability Chances** fills zero-valued chance fields while preserving edited AI abilities and nonzero chances. Once imported, the chance marker prevents repeated imports from overwriting further edits, including chances deliberately set to zero.
 
 ## Expanded Personal Fields
 

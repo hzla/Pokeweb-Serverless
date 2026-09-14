@@ -5,8 +5,8 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { CASCADE_WHITE_AI_DLL_PATH, cascadeWhiteTrainerAbilityName } from "../pokeweb/cascadeWhiteModel";
 import {
-  CASCADE_PERSONAL_MARKER_PATH, getCascadePersonalMigrationStatus, hasCascadePersonalData,
-  migrateCascadePersonalData, readCascadeAiAbilityTable,
+  CASCADE_CHANCES_MARKER_PATH, CASCADE_PERSONAL_MARKER_PATH, getCascadePersonalMigrationStatus, hasCascadePersonalData,
+  migrateCascadePersonalData, readCascadeAiAbilityTable, readCascadeHiddenAbilityChanceTable,
 } from "../pokeweb/cascadeWhitePersonalModel";
 import { getNarcFormats } from "../pokeweb/formats";
 import { exportModifiedRom } from "../pokeweb/exportRom";
@@ -18,6 +18,7 @@ import { renderPatchesEditor } from "../ui/patchesEditor";
 import { renderCascadeAbilitySlots, renderPokemonExpandedSections } from "../ui/pokemonEditor";
 
 const DLL_PATH = "patches/A9_DamageCalc.dll";
+const CHANCE_DLL_PATH = "patches/D2_FieldOverlays.dll";
 
 describe("Cascade personal migration", () => {
   it.each([1, 2, 4])("reads a variant's actual %i-byte ability IDs from its injected table", (width) => {
@@ -33,6 +34,36 @@ describe("Cascade personal migration", () => {
     expect(readCascadeAiAbilityTable(makeDll(rows.slice(0, 10)))).toBeUndefined();
     rows[25][0] = 256;
     expect(readCascadeAiAbilityTable(makeDll(rows, 4))).toBeUndefined();
+  });
+
+  it("reads the variant's raw chance bytes without converting or clamping them", () => {
+    const chances = chanceRows();
+    expect(readCascadeHiddenAbilityChanceTable(makeChanceDll(chances))).toEqual(chances);
+    expect(chances[1]).toBe(4);
+    expect(chances[100]).toBe(255);
+  });
+
+  it("rejects ambiguous, truncated, and invalid chance DLLs", () => {
+    const chances = chanceRows();
+    expect(readCascadeHiddenAbilityChanceTable(makeChanceDll([...chances, ...chances]))).toBeUndefined();
+    expect(readCascadeHiddenAbilityChanceTable(makeChanceDll(chances.slice(0, 40)))).toBeUndefined();
+    expect(readCascadeHiddenAbilityChanceTable(new Uint8Array([1, 2, 3]))).toBeUndefined();
+    expect(readCascadeHiddenAbilityChanceTable(makeDll())).toBeUndefined();
+  });
+
+  it.each(["missing", "conflicting"])("refuses a %s chance table before making personal changes", async (failure) => {
+    const project = makeProject();
+    if (failure === "missing") delete project.fileSystem!.additions![CHANCE_DLL_PATH];
+    else {
+      const chances = chanceRows();
+      chances[100] = 17;
+      project.fileSystem!.additions!["patches/ConflictingChances.dll"] = makeChanceDll(chances);
+    }
+    expect(getCascadePersonalMigrationStatus(project)).toMatchObject({ visible: true, canMigrate: false });
+    await expect(migrateCascadePersonalData(project)).rejects.toThrow(/unique Hidden Ability Chance table/u);
+    expect(project.narcs.personal!.dirty.size).toBe(0);
+    expect(project.narcs.personal!.rawFiles[1][0x39]).toBe(0);
+    expect(project.fileSystem!.additions![CASCADE_PERSONAL_MARKER_PATH]).toBeUndefined();
   });
 
   it("gates the UI and writes on Cascade detection and usable injection data", async () => {
@@ -54,7 +85,7 @@ describe("Cascade personal migration", () => {
     await expect(migrateCascadePersonalData(project)).rejects.toThrow(/requires a Cascade/u);
   });
 
-  it("changes only the requested bytes, inherits form abilities, and preserves unsaved edits and the Dex table", async () => {
+  it("changes only the requested bytes, inherits form abilities and chances, and preserves unsaved edits and the Dex table", async () => {
     const project = makeProject();
     const store = project.narcs.personal!;
     const original = store.rawFiles.map((bytes) => bytes.slice());
@@ -62,21 +93,26 @@ describe("Cascade personal migration", () => {
     const result = await migrateCascadePersonalData(project);
     expect(result.status).toBe("applied");
     expect(store.dirty.has(654)).toBe(false); // Regional Dex table.
-    expect(getPokemonSummaryRecord(project, 1).rawPersonal).toMatchObject({ base_hp: 123, ability_4: 70, ability_5: 34, ability_6: 122, hidden_ability_chance: 0 });
-    expect(getPokemonSummaryRecord(project, 651).rawPersonal.ability_4).toBe(70); // Form of species 1.
-    expect(getPokemonSummaryRecord(project, 653).rawPersonal.ability_4).toBe(0); // No source row or form owner.
+    expect(getPokemonSummaryRecord(project, 1).rawPersonal).toMatchObject({ base_hp: 123, ability_4: 70, ability_5: 34, ability_6: 122, hidden_ability_chance: 4 });
+    expect(getPokemonSummaryRecord(project, 651).rawPersonal).toMatchObject({ ability_4: 70, hidden_ability_chance: 4 }); // Form of species 1.
+    expect(getPokemonSummaryRecord(project, 653).rawPersonal).toMatchObject({ ability_4: 0, hidden_ability_chance: 0 }); // No source row or form owner.
     materializeProjectEdits(project);
     for (let id = 0; id < store.rawFiles.length; id += 1) {
       const bytes = store.rawFiles[id];
       expect(bytes.length).toBe(original[id].length);
       for (let offset = 0; offset < bytes.length; offset += 1) {
         if ([0x39, 0x3a, 0x3b].includes(offset) && id !== 654) continue;
+        if (offset === 0x3e && id !== 654) {
+          expect(bytes[offset]).toBe(chanceRows()[id === 651 || id === 652 ? 1 : id] ?? 0);
+          continue;
+        }
         if (id === 1 && offset === 0) { expect(bytes[offset]).toBe(123); continue; }
         expect(bytes[offset]).toBe(original[id][offset]);
       }
     }
     expect([...store.rawFiles[25].slice(0x39, 0x3c)]).toEqual([201, 0, 255]);
     expect(project.fileSystem!.additions![CASCADE_PERSONAL_MARKER_PATH]).toBeDefined();
+    expect(project.fileSystem!.additions![CASCADE_CHANCES_MARKER_PATH]).toBeDefined();
   });
 
   it.each([0x39, 0x3a, 0x3b, 0x3e])("refuses occupied byte 0x%s atomically", async (offset) => {
@@ -126,6 +162,27 @@ describe("Cascade personal migration", () => {
     expect(reopened.narcs.personal!.rawFiles[1][0x39]).toBe(0);
   });
 
+  it("upgrades an earlier migration without overwriting ability edits or nonzero chances, then preserves zero edits on reimport", async () => {
+    const project = makeProject();
+    // Original migration initialized chances to zero and recorded only this flag/marker.
+    project.patches = { dirtyOverlayIds: [], applied: { cascadePersonalData: true } };
+    abilityRows().forEach((row, id) => project.narcs.personal!.rawFiles[id].set(row, 0x39));
+    updatePokemonField(project, 1, "personal", "ability_4", "0");
+    updatePokemonField(project, 2, "personal", "hidden_ability_chance", "173");
+    expect(getCascadePersonalMigrationStatus(project)).toMatchObject({ installed: false, canMigrate: true, abilitiesMigrated: true });
+    expect(patchesHtml(project)).toContain("Import Hidden Ability Chances");
+    await migrateCascadePersonalData(project);
+    expect(decodeRecord(project, "personal", 1).raw).toMatchObject({ ability_4: 0, ability_5: 34, ability_6: 122, hidden_ability_chance: 4 });
+    expect(decodeRecord(project, "personal", 2).raw!.hidden_ability_chance).toBe(173);
+    expect(decodeRecord(project, "personal", 651).raw!.hidden_ability_chance).toBe(4);
+    expect(getCascadePersonalMigrationStatus(project)).toMatchObject({ installed: true, canMigrate: false });
+    updatePokemonField(project, 1, "personal", "hidden_ability_chance", "0");
+    const reopened = await reopenRom(project);
+    expect((await migrateCascadePersonalData(reopened)).status).toBe("already-applied");
+    expect(decodeRecord(reopened, "personal", 1).raw).toMatchObject({ ability_4: 0, hidden_ability_chance: 0 });
+    expect(decodeRecord(reopened, "personal", 2).raw!.hidden_ability_chance).toBe(173);
+  });
+
   it("recognizes complete migrated bytes without metadata and persists detection when values are edited", async () => {
     const project = makeProject();
     const rows = abilityRows();
@@ -158,6 +215,19 @@ function makeDll(rows = abilityRows(), width = 1): Uint8Array {
   return writeRpm({ code, bssSize: 0, baseAddress: 0, symbols: [], relocations: [], metadata: {} }, { ident: "DLXF" });
 }
 
+function chanceRows(): number[] {
+  const chances = Array.from({ length: 651 }, (_, id) => id % 13);
+  chances.splice(0, 32, 0, 4, 4, 4, 4, 4, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 10, 10, 10, 0, 0, 0, 0, 8, 8, 4, 4, 0, 0, 6, 6, 6);
+  chances[100] = 255;
+  return chances;
+}
+
+function makeChanceDll(chances = chanceRows()): Uint8Array {
+  const code = new Uint8Array(16 + chances.length);
+  code.set(chances, 16);
+  return writeRpm({ code, bssSize: 0, baseAddress: 0, symbols: [], relocations: [], metadata: {} }, { ident: "DLXF" });
+}
+
 function makeProject(): ProjectState {
   const files = Array.from({ length: 654 }, () => {
     const bytes = new Uint8Array(0x4c);
@@ -173,7 +243,7 @@ function makeProject(): ProjectState {
     romInfo: { title: "Cascade", idCode: "IRDO", fileName: "cascade.nds", size: 0 },
     arm9: new Uint8Array(), overlays: {}, formats: getNarcFormats("BW2"), trpokInfo: [],
     codeInjection: { modules: [{ path: CASCADE_WHITE_AI_DLL_PATH, fileName: "A2_AIChanges.dll", target: "patches" }] },
-    fileSystem: { replacements: {}, additions: { [DLL_PATH]: makeDll() } },
+    fileSystem: { replacements: {}, additions: { [DLL_PATH]: makeDll(), [CHANCE_DLL_PATH]: makeChanceDll() } },
     texts: { banks: { abilities: Array.from({ length: 256 }, (_, id) => id === 201 ? "Custom Ability" : `Ability ${id}`) } },
     narcs: { personal: { name: "personal", sourcePath: "a/0/1/6", fileId: 0, fileCount: files.length, rawFiles: files, records: new Map(), dirty: new Set() } },
   };
@@ -195,11 +265,16 @@ async function reopenRom(project: ProjectState): Promise<ProjectState> {
     { path: "a/0/1/6", bytes: narc.save() },
     { path: CASCADE_WHITE_AI_DLL_PATH, bytes: makeDll([]) },
     { path: DLL_PATH, bytes: project.fileSystem!.additions![DLL_PATH] },
+    { path: CHANCE_DLL_PATH, bytes: project.fileSystem!.additions![CHANCE_DLL_PATH] },
   ] });
   const romBytes = await exportModifiedRom(project);
   const parsed = new NintendoDSRom(romBytes);
   expect(parsed.files[parsed.filenames.idOf(DLL_PATH)!]).toEqual(project.fileSystem!.additions![DLL_PATH]);
+  expect(parsed.files[parsed.filenames.idOf(CHANCE_DLL_PATH)!]).toEqual(project.fileSystem!.additions![CHANCE_DLL_PATH]);
   expect(parsed.files[parsed.filenames.idOf(CASCADE_PERSONAL_MARKER_PATH)!]).toEqual(project.fileSystem!.additions![CASCADE_PERSONAL_MARKER_PATH]);
+  if (project.fileSystem!.additions![CASCADE_CHANCES_MARKER_PATH]) {
+    expect(parsed.files[parsed.filenames.idOf(CASCADE_CHANCES_MARKER_PATH)!]).toEqual(project.fileSystem!.additions![CASCADE_CHANCES_MARKER_PATH]);
+  }
   const reopened = makeProject();
   reopened.originalRomBytes = romBytes;
   reopened.codeInjection = undefined;
