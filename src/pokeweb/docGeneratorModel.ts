@@ -1000,7 +1000,7 @@ function gen4TrainerPokemonFormExportName(project: ProjectState, pok: TrainerPok
 
 export function trainerPokemonExportAbility(project: ProjectState, pok: TrainerPokemonSlot, resolvedBaseName?: string): string {
   const resolvedSlot = Number(pok.resolvedAbilitySlot ?? pok.abilitySlot ?? 0);
-  if (resolvedSlot > 3) return titleizeAbility(cascadeWhiteTrainerAbilityName(project, pok.speciesId, resolvedSlot) ?? pok.abilityName);
+  if (resolvedSlot > 3) return titleizeAbility(cascadeWhiteTrainerAbilityName(project, pok.speciesId, resolvedSlot, pok.form) ?? pok.abilityName);
   const baseName = resolvedBaseName ?? pokemonExportName(project, pok.speciesId);
   if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return titleizeAbility(pok.abilityName);
 

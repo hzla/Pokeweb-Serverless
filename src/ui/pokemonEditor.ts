@@ -1,5 +1,6 @@
 import { EVO_METHODS, isGen4Project, typeNamesForProject } from "../pokeweb/constants";
 import { cascadeWhiteTrainerAbilityName, detectCascadeWhiteRom } from "../pokeweb/cascadeWhiteModel";
+import { hasCascadePersonalData } from "../pokeweb/cascadeWhitePersonalModel";
 import {
   BASE_STAT_FIELDS,
   EV_YIELD_FIELDS,
@@ -354,11 +355,13 @@ function installPokemonCardSpriteRendering(project: ProjectState, root: HTMLElem
   });
 }
 
-function renderCascadeAbilitySlots(project: ProjectState, speciesId: number): string {
+export function renderCascadeAbilitySlots(project: ProjectState, speciesId: number): string {
   if (!detectCascadeWhiteRom(project)) return "";
+  const migrated = hasCascadePersonalData(project);
   return [4, 5, 6]
     .map((slot) => {
       const ability = titleizeValue(cascadeWhiteTrainerAbilityName(project, speciesId, slot) ?? "");
+      if (migrated) return editable("personal", `ability_${slot}`, ability, "pokemon-card__ability", { autofill: "cascade_abilities", label: `AI Ability ${slot}` });
       return `<div class="pokemon-card__ability -readonly" title="Ability ${slot}" aria-label="Ability ${slot}">${escapeHtml(String(ability ?? ""))}</div>`;
     })
     .join("");
@@ -704,12 +707,13 @@ function editable(
   field: string,
   value: unknown,
   className: string,
-  options: { autofill?: string; type?: string; require?: string } = {},
+  options: { autofill?: string; type?: string; require?: string; label?: string } = {},
 ): string {
   const autofill = options.autofill ? ` data-autocomplete-spy data-autofill="${options.autofill}"` : "";
   const type = options.type ? ` data-type="${options.type}"` : "";
   const require = options.require ? ` data-require="${options.require}"` : "";
-  return `<div autocorrect="off" data-narc="${narc}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}${require}>${escapeHtml(String(value ?? ""))}</div>`;
+  const label = options.label ? ` aria-label="${escapeHtml(options.label)}" title="${escapeHtml(options.label)}"` : "";
+  return `<div autocorrect="off" data-narc="${narc}" data-field-name="${field}" class="${className}" contenteditable="true"${autofill}${type}${require}${label}>${escapeHtml(String(value ?? ""))}</div>`;
 }
 
 function icon(expand: string, label: string): string {
