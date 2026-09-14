@@ -1,0 +1,62 @@
+[
+  {
+    "component": "TypeIcons",
+    "game": "B2",
+    "rom": "/private/var/folders/h3/tcdqglp918j87l5wrl7mvcx80000gn/T/typehud-install-ssjesf9e/fixture.nds",
+    "rom_sha256": "18947d87641f657f41aea8328cbb29e3a880b5c6084fa8e36b9a5417a006033a",
+    "compatible": true,
+    "errors": [],
+    "hook_conflicts": [],
+    "installed_modules": [],
+    "scanner_present": false,
+    "verified_functions": 18,
+    "verified_hooks": 14,
+    "verified_resources": 20,
+    "pmc_capacity": null,
+    "output": "/private/var/folders/h3/tcdqglp918j87l5wrl7mvcx80000gn/T/typehud-install-ssjesf9e/output.nds",
+    "output_sha256": "2837874ca9e81fee406dd6f5b26b7792201ab0043ec8f9a112042dc32a28aac2",
+    "module": "TypeIconsB2.dll",
+    "dll_sha256": "ed3e08de341360da31d928306be19f0688a997180196a657e37c2105fb77cdc7",
+    "debug": false,
+    "original_payloads_preserved": 665,
+    "replaced_file_ids": [
+      358
+    ],
+    "original_file_ids_preserved": true,
+    "pmc_heap_resized": false,
+    "source_unchanged": true,
+    "ds_read_boundary": "0x20000000",
+    "new_data_end": "0x11924200",
+    "fixture": "Native file payloads; synthetic DS-only header with 512 MiB read boundary and corrected used size. Tests file preservation/resource staging only; no boot."
+  },
+  {
+    "component": "TypeIcons",
+    "game": "W2",
+    "rom": "/private/var/folders/h3/tcdqglp918j87l5wrl7mvcx80000gn/T/typehud-install-e4cwaeog/fixture.nds",
+    "rom_sha256": "f16fbf0ef63a6df99a8520c00b0b04988ed9b39ce8131d67dd7d947a22fe33e0",
+    "compatible": true,
+    "errors": [],
+    "hook_conflicts": [],
+    "installed_modules": [],
+    "scanner_present": false,
+    "verified_functions": 18,
+    "verified_hooks": 14,
+    "verified_resources": 20,
+    "pmc_capacity": null,
+    "output": "/private/var/folders/h3/tcdqglp918j87l5wrl7mvcx80000gn/T/typehud-install-e4cwaeog/output.nds",
+    "output_sha256": "65043e2babb5391a79da15c7e105ef6752dd95e185bf71a1aaecbca85ff1861b",
+    "module": "TypeIconsW2.dll",
+    "dll_sha256": "f3a257456bcf06c554564210a2cf6570ea3682bdbe6b349b1b15dda0bd2ce24f",
+    "debug": false,
+    "original_payloads_preserved": 665,
+    "replaced_file_ids": [
+      358
+    ],
+    "original_file_ids_preserved": true,
+    "pmc_heap_resized": false,
+    "source_unchanged": true,
+    "ds_read_boundary": "0x20000000",
+    "new_data_end": "0x118d1400",
+    "fixture": "Native file payloads; synthetic DS-only header with 512 MiB read boundary and corrected used size. Tests file preservation/resource staging only; no boot."
+  }
+]

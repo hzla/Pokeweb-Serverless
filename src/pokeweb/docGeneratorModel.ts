@@ -13,10 +13,13 @@ import {
   ENCOUNTER_WATER_PERCENTAGES,
   isGen4Project,
   TYPES,
+  type BaseRom,
 } from "./constants";
 import { cascadeWhitePersonalName, cascadeWhiteTrainerAbilityName } from "./cascadeWhiteModel";
 import { getEncounterCount, getEncounterRecord } from "./encounterModel";
 import { parseGen5ScriptEncounters, type Gen5ScriptEncounter } from "./gen5ScriptEncounterModel";
+import { gen5ResolvedScriptOperands, gen5ScriptCommandOffsets, type ScriptWalkOptions } from "./gen5ScriptCommands";
+import { indirectTrainerContext, parseIndirectTrainerScripts } from "./trainerLocationModel";
 import { parseHeaders } from "./headerModel";
 import { getMartCount, getMartRecord } from "./martGrottoModel";
 import { getItemCount, getItemRecord, getMoveCount, getMoveRecord } from "./moveItemModel";
@@ -460,6 +463,7 @@ export function enrichTrainerLocations(project: ProjectState): EnrichmentResult 
   requireNarcs(project, ["headers", "overworlds"]);
   const docs = ensureDocs(project);
   docs.trainerLocations = {};
+  docs.trainerLocationSources = {};
   docs.trainerDiffs = {};
   if (!project.headers) project.headers = parseHeaders(project);
 
@@ -476,7 +480,7 @@ export function enrichTrainerLocations(project: ProjectState): EnrichmentResult 
       const scriptId = Number(raw[`npc_${npc}_script_id`] ?? 0);
       if (!((scriptId > 3000 && scriptId < 4000) || (scriptId > 5000 && scriptId < 6000))) continue;
       const trainerId = scriptId % 1000;
-      addTrainerSource(docs, trainerId, location, diff);
+      addTrainerSource(docs, trainerId, location, diff, overworldId);
       count += 1;
     }
   }
@@ -484,7 +488,7 @@ export function enrichTrainerLocations(project: ProjectState): EnrichmentResult 
   const scriptCount = enrichTrainerLocationsFromScripts(project, docs);
   return {
     count: count + scriptCount,
-    message: `Found ${Object.keys(docs.trainerLocations).length} trainers across ${count} overworld NPCs and ${scriptCount} script battle references.`,
+    message: `Found ${Object.keys(docs.trainerLocations).length} trainers across ${count} overworld NPCs and ${scriptCount} script trainer references.`,
   };
 }
 
@@ -536,28 +540,19 @@ export function parseGroundItemScripts(bytes: Uint8Array): Map<number, number> {
   return map;
 }
 
-export function parseTrainerBattleScripts(bytes: Uint8Array, maxTrainerId = 65535): number[] {
-  const starts = scriptStarts(bytes);
-  const sorted = [...starts].sort((a, b) => a - b);
+export function parseTrainerBattleScripts(
+  bytes: Uint8Array,
+  maxTrainerId = 65535,
+  baseRom: BaseRom = "BW2",
+  options: ScriptWalkOptions = {},
+): number[] {
   const trainerIds: number[] = [];
-  starts.forEach((start) => {
-    const end = sorted.find((candidate) => candidate > start) ?? bytes.length;
-    // Byte-sized operands can leave later Gen V commands at odd offsets.
-    for (let offset = start; offset + 8 <= end; offset += 1) {
-      const command = readU16(bytes, offset);
-      if (command === 0x85 && offset + 8 <= end) {
-        addTrainerIds(trainerIds, maxTrainerId, [readU16(bytes, offset + 2), readU16(bytes, offset + 4)]);
-      } else if (command === 0x86 && offset + 10 <= end) {
-        addTrainerIds(trainerIds, maxTrainerId, [
-          readU16(bytes, offset + 2),
-          readU16(bytes, offset + 4),
-          readU16(bytes, offset + 6),
-        ]);
-      } else if (command === 0x94 && offset + 10 <= end) {
-        addTrainerIds(trainerIds, maxTrainerId, [readU16(bytes, offset + 2), readU16(bytes, offset + 4)]);
-      }
-    }
-  });
+  const operands = gen5ResolvedScriptOperands(bytes, baseRom, {
+    0x85: [2, 4],
+    0x86: [2, 4, 6],
+    0x94: [2, 4],
+  }, options);
+  for (const operand of operands) addTrainerIds(trainerIds, maxTrainerId, operand.values);
   return unique(trainerIds);
 }
 
@@ -1619,6 +1614,7 @@ function enrichTrainerLocationsFromScripts(project: ProjectState, docs: DocGener
   if (!scripts || !project.headers) return 0;
 
   const maxTrainerId = project.narcs.trdata?.fileCount ? project.narcs.trdata.fileCount - 1 : 65535;
+  const indirectContext = indirectTrainerContext(project);
   let count = 0;
   for (let rowId = 1; rowId <= project.headers.count; rowId += 1) {
     const row = project.headers.rows[rowId];
@@ -1628,12 +1624,102 @@ function enrichTrainerLocationsFromScripts(project: ProjectState, docs: DocGener
 
     const location = String(row.location_name ?? `Header ${rowId - 1}`);
     const diff = Number(row.difficulty_level_adjustment ?? 0);
-    for (const trainerId of parseTrainerBattleScripts(bytes, maxTrainerId)) {
-      addTrainerSource(docs, trainerId, location, diff);
+    const overworldId = Number(row.overworlds_id ?? row.map_id);
+    const validOverworldId = Number.isSafeInteger(overworldId) && overworldId >= 0 && overworldId < (project.narcs.overworlds?.fileCount ?? 0)
+      ? overworldId
+      : undefined;
+    const overlayId = indirectContext.field?.zoneOverlays[rowId - 1];
+    const trainerIds = trainerIdsFromScriptTree(project, scriptId, maxTrainerId, indirectContext, overlayId);
+    if (overlayId === 61 && indirectContext.dungeon) {
+      const pool = location === "Black Tower" ? indirectContext.dungeon.black : indirectContext.dungeon.white;
+      addTrainerIds(trainerIds, maxTrainerId, [...pool, 660, 661]);
+    }
+    for (const trainerId of unique(trainerIds)) {
+      addTrainerSource(docs, trainerId, location, diff, validOverworldId);
+      count += 1;
+    }
+  }
+  const overworlds = project.narcs.overworlds;
+  for (let overworldId = 0; overworldId < (overworlds?.fileCount ?? 0); overworldId += 1) {
+    const record = decodeRecord(project, "overworlds", overworldId);
+    if (!record.raw) continue;
+    let headerRowId = 0;
+    for (let rowId = 1; rowId <= project.headers.count; rowId += 1) {
+      const row = project.headers.rows[rowId];
+      if (Number(row.overworlds_id ?? row.map_id) === overworldId) { headerRowId = rowId; break; }
+    }
+    const row = project.headers.rows[headerRowId];
+    const location = String(row?.location_name ?? `Overworld ${overworldId}`);
+    const diff = Number(row?.difficulty_level_adjustment ?? 0);
+    const overlayId = headerRowId ? indirectContext.field?.zoneOverlays[headerRowId - 1] : undefined;
+    const npcCount = Number(record.raw.npc_count ?? 0);
+    for (let npc = 0; npc < npcCount; npc += 1) {
+      const eventScriptId = Number(record.raw[`npc_${npc}_script_id`] ?? -1);
+      const range = indirectContext.field?.globals.find((candidate) => eventScriptId >= candidate.start && eventScriptId <= candidate.end);
+      if (!range) continue;
+      const trainerIds = trainerIdsFromScriptTree(
+        project,
+        range.fileId,
+        maxTrainerId,
+        indirectContext,
+        overlayId,
+        [eventScriptId - range.start],
+      );
+      for (const trainerId of trainerIds) {
+        addTrainerSource(docs, trainerId, location, diff, overworldId);
+        count += 1;
+      }
+    }
+  }
+  if (project.session.baseRom === "BW2") {
+    for (const trainerId of indirectContext.funfest ?? []) {
+      if (trainerId <= 0 || trainerId > maxTrainerId) continue;
+      addTrainerSource(docs, trainerId, "Funfest Mission", 0);
       count += 1;
     }
   }
   return count;
+}
+
+function trainerIdsFromScriptTree(
+  project: ProjectState,
+  scriptId: number,
+  maxTrainerId: number,
+  indirectContext: ReturnType<typeof indirectTrainerContext>,
+  overlayId?: number,
+  entryIndices?: readonly number[],
+  visited = new Set<string>(),
+): number[] {
+  const scripts = project.narcs.scripts;
+  const bytes = scripts?.rawFiles[scriptId];
+  if (!bytes?.length) return [];
+  const key = `${scriptId}:${entryIndices?.join(",") ?? "*"}:${overlayId ?? "-"}`;
+  if (visited.has(key)) return [];
+  visited.add(key);
+  const options: ScriptWalkOptions = { overlayId, entryIndices };
+  const trainerIds = parseTrainerBattleScripts(bytes, maxTrainerId, project.session.baseRom, options);
+  if (project.session.baseRom === "BW2") {
+    addTrainerIds(trainerIds, maxTrainerId, parseIndirectTrainerScripts(bytes, indirectContext, options));
+    if (indirectContext.field?.wheelScriptFileIds.includes(scriptId)) {
+      addTrainerIds(trainerIds, maxTrainerId, indirectContext.field.wheel);
+    }
+    for (const offset of gen5ScriptCommandOffsets(bytes, "BW2", options)) {
+      if (readU16(bytes, offset) !== 0x1c) continue;
+      const target = readU16(bytes, offset + 2);
+      const range = indirectContext.field?.globals.find((candidate) => target >= candidate.start && target <= candidate.end);
+      if (!range) continue;
+      addTrainerIds(trainerIds, maxTrainerId, trainerIdsFromScriptTree(
+        project,
+        range.fileId,
+        maxTrainerId,
+        indirectContext,
+        overlayId,
+        [target - range.start],
+        visited,
+      ));
+    }
+  }
+  return unique(trainerIds);
 }
 
 function locationForOverworld(project: ProjectState, overworldId: number): string {
@@ -1733,16 +1819,22 @@ function addUnique(target: Record<string, string[]>, id: number, value: string):
   target[key] = unique([...(target[key] ?? []), value]);
 }
 
-function addTrainerSource(docs: DocGeneratorState, trainerId: number, location: string, diff: number): void {
+function addTrainerSource(docs: DocGeneratorState, trainerId: number, location: string, diff: number, overworldId?: number): void {
   addUnique(docs.trainerLocations, trainerId, location);
   const key = String(trainerId);
+  if (overworldId !== undefined) {
+    const sources = (docs.trainerLocationSources ??= {})[key] ??= [];
+    if (!sources.some((source) => source.location === location && source.overworldId === overworldId)) {
+      sources.push({ location, overworldId });
+    }
+  }
   const current = docs.trainerDiffs[key];
   docs.trainerDiffs[key] = current === undefined ? diff : Math.max(current, diff);
 }
 
 function addTrainerIds(target: number[], maxTrainerId: number, trainerIds: number[]): void {
   for (const trainerId of trainerIds) {
-    if (trainerId > 0 && trainerId <= maxTrainerId) target.push(trainerId);
+    if (trainerId > 0 && trainerId < 0x4000 && trainerId <= maxTrainerId) target.push(trainerId);
   }
 }
 

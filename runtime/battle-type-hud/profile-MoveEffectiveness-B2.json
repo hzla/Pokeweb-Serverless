@@ -1,0 +1,212 @@
+{
+  "game": "B2",
+  "rom_code": "IREO",
+  "overlay_base": 35510880,
+  "functions": {
+    "Add": 35584672,
+    "AddPP": 35585136,
+    "Main": 35584132,
+    "Del": 35587688,
+    "Release": 35586068,
+    "Status": 35591720,
+    "GetPfd": 35520696,
+    "GetRule": 35520744,
+    "GetProxy": 33866764,
+    "PalAddr": 33865152,
+    "PPGet": 33672440,
+    "EffectiveTypes": 35368956,
+    "ViewSrc": 35369060,
+    "MoveDraw": 35575836,
+    "MoveClear": 35578432,
+    "MoveKey": 35581116,
+    "CreateScreen": 35564092,
+    "GetMainModule": 35520812,
+    "ViewToBattle": 35243844,
+    "FrontBattler": 35246472,
+    "TypeAffinity": 35377584,
+    "MoveParam": 33690240,
+    "FlushBitmap": 33849924,
+    "HiddenPower": 33675200,
+    "BattleStat": 35369396,
+    "CheckSick": 35371716,
+    "SickCont": 35371796,
+    "HeldItem": 35369792,
+    "FieldSim": 35248552,
+    "FieldEffect": 35479056,
+    "MoveFlag": 33690640,
+    "HpNumberBinding": 35586864,
+    "NameDraw": 35589880,
+    "SexDraw": 35590256,
+    "LevelDraw": 35590984,
+    "GaugePosition": 35587788,
+    "SpriteInit": 33870136,
+    "CellInit": 33870380,
+    "CellSelect": 33952088
+  },
+  "signatures": [
+    {
+      "name": "PPGet",
+      "segment": 0,
+      "address": 33672440,
+      "bytes": "70b5051c0c1c161c01f050f8281c211c321c01f09df8041c281c01f075f8201c70bd000070b5051c0c1c161c01f03ef8"
+    },
+    {
+      "name": "EffectiveTypes",
+      "segment": 167,
+      "address": 35368956,
+      "bytes": "08b500a9013100aafff7d0ff00a94878097813f087fa08bd"
+    },
+    {
+      "name": "ViewSrc",
+      "segment": 167,
+      "address": 35369060,
+      "bytes": "4268002a05d0c17e4906c90f01d0101c704700687047"
+    },
+    {
+      "name": "MoveDraw",
+      "segment": 168,
+      "address": 35575836,
+      "bytes": "f0b5c7b0e34b3faa041c0e1c03cb0a9203c203cb03c203cb03c203cb03c2de4b37aa0b9203cb03c203cb03c203cb03c2"
+    },
+    {
+      "name": "MoveClear",
+      "segment": 168,
+      "address": 35578432,
+      "bytes": "70b584b0051ce96e02208143e96600232649181cea185b1c5054082bfadb244900242a18401c54540428fadb2b263601"
+    },
+    {
+      "name": "MoveKey",
+      "segment": 168,
+      "address": 35581116,
+      "bytes": "f8b584b0041c0a98009101921d1c0a904ff616f9071c4ff625f9039000200290e06ec007c00f01d102208743a16e8804c00f11d0a5480840a066201c00f0e4fb"
+    },
+    {
+      "name": "CreateScreen",
+      "segment": 168,
+      "address": 35564092,
+      "bytes": "f8b58ab0041c0491161c03f0fbfba16eb64801270840a066e16e01208143081c3843e0660498072800d93de300187844"
+    },
+    {
+      "name": "GetMainModule",
+      "segment": 168,
+      "address": 35520812,
+      "bytes": "02480168792080000858"
+    },
+    {
+      "name": "ViewToBattle",
+      "segment": 167,
+      "address": 35243844,
+      "bytes": "18b4046801230a1c1a4012066468120e002c0dd1002a114907d0405c002800d000231806000e18bc7047405c18bc7047"
+    },
+    {
+      "name": "FrontBattler",
+      "segment": 167,
+      "address": 35246472,
+      "bytes": "f8b5071c3e680c1c301c0091fff7e8f9611e09060c0e0099002500290dd00f493219525c904202d16a1c1206150e631e"
+    },
+    {
+      "name": "TypeAffinity",
+      "segment": 167,
+      "address": 35377584,
+      "bytes": "78b581b00c1c00a9051c201c013100aa11f0c4f9201c11f00ffa002806d000a94978281cfff7c4ff01b078bd00ae7178"
+    },
+    {
+      "name": "MoveParam",
+      "segment": 0,
+      "address": 33690240,
+      "bytes": "70b5041c1f480e1c016800292fd088680025002814dd4b686a00995a00290ad118489c520068221c0168a8000858152129f03afb04e08c4202d06d1c8542ebdb1048026891688d420bd16d1e5268690054520068221c0168a8000858152129f023fb084800680168a8000d5805e0064d1521281c221c29f017fb281c311c00f005f870bdf0131402f41314021f297dd84a187a44d2881204121497443e00420046004a004e0058005c0062006c0074007c008000840088008c0090009800a000"
+    },
+    {
+      "name": "FlushBitmap",
+      "segment": 0,
+      "address": 33849924,
+      "bytes": "38b5051ca878fdf715fb6a79a97951430c1c4443e868fef74bfe011ca8786b89221cfcf70bff38bd"
+    },
+    {
+      "name": "HiddenPower",
+      "segment": 0,
+      "address": 33675200,
+      "bytes": "38b546210022051c0024fff795fa0121084200d0641c281c47210022fff78cfa0121084200d0a41c281c48210022fff783fa0121084200d0241d281c49210022"
+    },
+    {
+      "name": "BattleStat",
+      "segment": 167,
+      "address": 35369396,
+      "bytes": "10b5041cfff760ff011c152900d980e048187844c088000400148744f400900096009c00a200a800b000b6002a003e00520066007a00c600ca00bc00e200d200c000ea00f000ce00201cfff753fffc3400042178000c01f075ff10bd201cfff749fffd3400042178000c01f06bff10bd201cfff73ffffe3400042178000c01f061ff10bd201cfff735ffff3400042178000c01f057ff10bd201cfff72bff012109020004615c000c01f04cff10bdfc20205610bdfd20205610bdfe20205610bdff20205610bd01200002205610bd1248205610bd1148205610bd207e10bdfa34207810bd208a10bde08910bda07e10bd201c102100f00cfc002801d0002010bd4f208000205a10bd0548205c10bda06810bd002010bdc046010100000201000041010000"
+    },
+    {
+      "name": "CheckSick",
+      "segment": 167,
+      "address": 35371716,
+      "bytes": "89004018c0694007400f01d00120704700207047"
+    },
+    {
+      "name": "SickCont",
+      "segment": 167,
+      "address": 35371796,
+      "bytes": "89004018c06970474018ac3000787047"
+    },
+    {
+      "name": "HeldItem",
+      "segment": 167,
+      "address": 35369792,
+      "bytes": "408a70474182704738b5051c"
+    },
+    {
+      "name": "FieldSim",
+      "segment": 167,
+      "address": 35248552,
+      "bytes": "af21890040587047"
+    },
+    {
+      "name": "FieldEffect",
+      "segment": 167,
+      "address": 35479056,
+      "bytes": "890041185220800008587047"
+    },
+    {
+      "name": "MoveFlag",
+      "segment": 0,
+      "address": 33690640,
+      "bytes": "70b5041c1f480e1c016800292fd088680025002814dd4b686a00995a00290ad118489c520068221c0168a8000858152129f072fa04e08c4202d06d1c8542ebdb1048026891688d420bd16d1e5268690054520068221c0168a8000858152129f05bfa084800680168a8000d5805e0064d1521281c221c29f04ffa281c311c00f005f870bdf0131402f4131402036a01228a40191c0120114200d100207047000038b5041c"
+    }
+  ],
+  "hooks": [
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "MoveDraw",
+      "address": 35564932,
+      "bytes": "02f04afd"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "MoveDraw",
+      "address": 35577816,
+      "bytes": "fff720fc"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "MoveKey",
+      "address": 35566182,
+      "bytes": "03f029fd"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "MoveKey",
+      "address": 35567132,
+      "bytes": "03f04efb"
+    },
+    {
+      "kind": "THUMB_BRANCH_LINK",
+      "name": "MoveClear",
+      "address": 35564102,
+      "bytes": "03f0fbfb"
+    }
+  ],
+  "resources": {},
+  "reference_segments": {
+    "167": "c315ed6fe2c187ebc0cc0d46a4ef7249470a80160f714866afebc8afa0a47e01",
+    "168": "966f5ab81883745580a66e487c04eb4c969b542bac38f753599579cf0f1e7e1d",
+    "0": "03b2e68d7ebc98f4c2d2e78d41d1ef85647f041a096ed65f3fe342e08859e92d"
+  }
+}

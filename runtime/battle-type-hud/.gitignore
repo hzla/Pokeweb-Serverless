@@ -1,0 +1,6 @@
+__pycache__/
+dist/
+build/*
+!build/*.dll
+!build/*.h
+!build/memory-report.json

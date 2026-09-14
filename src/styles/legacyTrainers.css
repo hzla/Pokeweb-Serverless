@@ -804,6 +804,17 @@
   display: block;
 }
 
+.trainer-location-link {
+  color: #1abc9c;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.trainer-location-link:hover,
+.trainer-location-link:focus-visible {
+  color: #4ddbbb;
+}
+
 .trainer-rom-sprite-link {
   align-items: center;
   background: transparent;

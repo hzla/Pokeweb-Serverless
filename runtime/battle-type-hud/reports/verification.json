@@ -1,0 +1,63 @@
+{
+  "compiled_arm_checks": {
+    "B2": [
+      "approved symbols and source RGB colors independently match the type-ID table and circle mask",
+      "all 24 client/party battler IDs survive creation and unchanged updates independently of panel position, including captured enemy ID 12",
+      "all 18 original glyphs inside one-pixel outlines; 21x10 dual footprint, one-pixel gap, centered mono and transparent corners on both layouts",
+      "native HP slash shadows remap 4 to 2; white/gray strokes, transparency and every digit byte are preserved",
+      "six simultaneous player/enemy panels; unchanged frames perform no video writes or redraws",
+      "all six native status IDs hide/restore the whole icon area on all six panels",
+      "removal and resource teardown clear bindings before the native release call",
+      "real native Illusion selector, cached disguise reads, and break to effective types",
+      "live type-pair changes without gauge recreation (engine service simulated)",
+      "current fade state, including one-frame-ahead native EVY, black/white/colored targets",
+      "repeated switching/replacement and duplicate-type collapse",
+      "image-proxy relocation retains the correct original palette for teardown",
+      "player/partner panels draw correctly; rotation icon panels remain outside this version",
+      "native graphics reload repaints current icons; changed battler identity clears the stale binding",
+      "HP digit updates untouched; number-only graphics reloads and proxy relocation repair only the slash without icon redraws",
+      "actual retail effective-type helper: Roost removes Flying, pure Flying becomes Normal, clearing restores Flying",
+      "all 17 icon PMC relocations; callee-saved registers, SP and fifth stack argument preserved",
+      "enemy mono/dual layouts remain enabled with absent HP number sprites and changed Lv. graphics; no writes to enemy number images",
+      "player singles name shifts +12 and gender/level +8; other player headers unchanged; enemy spacing, transparent corners, statuses and native name redraws preserve text",
+      "unknown native layout rejects the binding before any video write",
+      "unknown slash shape, invalid number-sprite pointer and overflowed proxy reject before graphics or palette writes",
+      "unexpanded or mismatched player cell rejects before any graphics write, including standalone DLL without the installer resource patch"
+    ],
+    "W2": [
+      "approved symbols and source RGB colors independently match the type-ID table and circle mask",
+      "all 24 client/party battler IDs survive creation and unchanged updates independently of panel position, including captured enemy ID 12",
+      "all 18 original glyphs inside one-pixel outlines; 21x10 dual footprint, one-pixel gap, centered mono and transparent corners on both layouts",
+      "native HP slash shadows remap 4 to 2; white/gray strokes, transparency and every digit byte are preserved",
+      "six simultaneous player/enemy panels; unchanged frames perform no video writes or redraws",
+      "all six native status IDs hide/restore the whole icon area on all six panels",
+      "removal and resource teardown clear bindings before the native release call",
+      "real native Illusion selector, cached disguise reads, and break to effective types",
+      "live type-pair changes without gauge recreation (engine service simulated)",
+      "current fade state, including one-frame-ahead native EVY, black/white/colored targets",
+      "repeated switching/replacement and duplicate-type collapse",
+      "image-proxy relocation retains the correct original palette for teardown",
+      "player/partner panels draw correctly; rotation icon panels remain outside this version",
+      "native graphics reload repaints current icons; changed battler identity clears the stale binding",
+      "HP digit updates untouched; number-only graphics reloads and proxy relocation repair only the slash without icon redraws",
+      "actual retail effective-type helper: Roost removes Flying, pure Flying becomes Normal, clearing restores Flying",
+      "actual Cascade Fairy-expanded effective-type helper, including Fairy/Flying with Roost",
+      "all 17 icon PMC relocations; callee-saved registers, SP and fifth stack argument preserved",
+      "enemy mono/dual layouts remain enabled with absent HP number sprites and changed Lv. graphics; no writes to enemy number images",
+      "player singles name shifts +12 and gender/level +8; other player headers unchanged; enemy spacing, transparent corners, statuses and native name redraws preserve text",
+      "unknown native layout rejects the binding before any video write",
+      "unknown slash shape, invalid number-sprite pointer and overflowed proxy reject before graphics or palette writes",
+      "unexpanded or mismatched player cell rejects before any graphics write, including standalone DLL without the installer resource patch"
+    ]
+  },
+  "release_sha256": {
+    "B2": "8a8ca0f8ab66cff44ae96e3d11a51a01cf6a4ee8e35a91304c0c7ba566e23249",
+    "W2": "8fb6dbea13e16d9340719b97174136ee3c45c908c12a7f16cf634a1303a1ee32"
+  },
+  "allocation_calls_from_module": 0,
+  "writable_state_bytes": 364,
+  "limitations": [
+    "Engine creation/update/status services are instrumented fixtures.",
+    "Move-specific semantics, actual switching/position commands and allocation counters require live testing."
+  ]
+}

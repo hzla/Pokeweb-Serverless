@@ -28,6 +28,8 @@ Only patch source, relevant headers, build/metadata text, tests, and license mat
 | [Expanded-form evolution](form-evolution/) | `FormEvolutionB2.dll`, `FormEvolutionW2.dll` | source-copied |
 | [Portable PC](porta-pc/) | `PortaPCB2.dll`, `PortaPCW2.dll` | source-copied |
 | [Tag-battle AI stabilization](tag-battle-stabilization/) | `TagBattleStabilizationW2.dll` | source-copied |
+| [Standalone LEARNSET viewer](learnset-viewer/) | `LearnsetMenuB2.dll`, `LearnsetMenuW2.dll`, `LearnsetViewerB2.dll`, `LearnsetViewerW2.dll` | source-copied |
+| [Battle Type Icons and Move Effectiveness Preview](battle-type-hud/) | `TypeIconsB2.dll`, `TypeIconsW2.dll`, `MoveEffectivenessB2.dll`, `MoveEffectivenessW2.dll` | source-copied |
 | [Black2Upgrade field companion](black2upgrade-field/) | `Black2UpgradeField.dll` | source-copied |
 | [Black2Upgrade Pokedex companion](black2upgrade-pokedex/) | `Black2UpgradePokedex.dll` | source-copied |
 | [Black2Upgrade UI companion](black2upgrade-ui/) | `Black2UpgradeUI.dll` | source-copied |
@@ -38,3 +40,33 @@ Only patch source, relevant headers, build/metadata text, tests, and license mat
 ## Source gaps
 
 Original source for **MainMenuSkipB2/W2** and **DoubleBattleFixB2/W2** was not found in the available local checkouts. Their folders explicitly record that gap; they do not contain guessed or decompiled C++ labeled as original source. DoubleBattleFix includes only the existing W2 staging/validation script as supporting material.
+
+## Refresh and validation
+
+The latest refresh includes LEARNSET **1.0.3** (background-buffer fix and two-pixel icon/level spacing),
+Type Icons **0.3.9**, and Move Effectiveness **0.4.0** (HUD catalog **0.4.9**).
+All previously listed source and artifact hashes were checked against the current
+canonical files and bundles. The manifest accounts for
+all 45 bundled DLL/RPM files: 44 grouped artifacts and the intentionally excluded
+monolithic `Black2Upgrade.dll`. Existing original-source gaps remain explicit.
+
+From the Pokeweb repository root:
+
+```sh
+node patch-sources/refresh.mjs
+node patch-sources/refresh.mjs --check
+```
+
+This opt-in bookkeeping tool refreshes manifest-listed sources, discovers the
+two new runtime groups' source/build/test text, normalizes private paths, and
+records current source and bundled-artifact SHA-256 values. It refuses to
+overwrite locally edited snapshots or silently omit an unregistered bundled
+DLL/RPM. A second refresh is a no-op. It does not run copied scripts, launch an
+emulator, rebuild modules, change bundled binaries, or delete files.
+
+Repository locations default to the existing sibling layout and can be overridden
+with `W2U_RUNTIME_ROOT`, `WEATHER_RUNTIME_ROOT`, and `PMC_SOURCE_ROOT`.
+Generated HUD address/hook headers are included, but build binaries, ROMs,
+screenshots, saves, and captured-memory reports are not. Copied integration tests
+and installers remain references for their canonical Pokeweb locations, not a
+standalone application source tree.

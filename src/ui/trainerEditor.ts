@@ -23,8 +23,9 @@ import {
 } from "../pokeweb/trainerModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { observeNearViewport } from "./nearViewport";
 import { requestEncounterRoll } from "./encounterRollModal";
-import { attachTrainerInteractions } from "./trainerInteractions";
+import { attachTrainerInteractions, type TrainerPanel } from "./trainerInteractions";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import {
   genderedPokemonIcons,
@@ -58,7 +59,6 @@ export function renderTrainerEditor(
   onOpenTrainerSprite?: (trainerClassId: number) => void,
 ): void {
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
-  const showNatureField = trainerNaturePatchStatus === "patched";
   const savedTestBattleTeamText = readSavedTestBattleTeamText(project);
   const enrichedTrainerLocations = autoEnrichTrainerLocations(project);
   const trainerMoreContent = [
@@ -110,7 +110,7 @@ export function renderTrainerEditor(
           <div class="trainer-poks">Pokemon</div>
         </div>
       </div>
-      ${renderTrainerRows(project, showNatureField)}
+      ${renderTrainerRows(project)}
     </div>
   `;
 
@@ -125,6 +125,7 @@ export function renderTrainerEditor(
     onOpenTrainerSprite,
     autofills: getTrainerAutofills(project),
     renderRow: (trainerId) => renderTrainerRow(project, trainerId),
+    renderPanel: (trainerId, panel) => renderTrainerPanel(project, trainerId, panel),
   });
   attachW2uSyncButton(root, project);
   installTestBattleTeamPersistence(project, root);
@@ -434,19 +435,24 @@ function testBattleTeamStorageKey(project: ProjectState): string {
 }
 
 export function renderTrainerRow(project: ProjectState, trainerId: number): string {
-  return renderTrainerCard(project, getTrainerRecord(project, trainerId), detectSpecifyTrainerNaturesPatch(project) === "patched");
+  return renderTrainerCard(project, getTrainerRecord(project, trainerId, { includeTexts: false }));
 }
 
-function renderTrainerRows(project: ProjectState, showNatureField: boolean): string {
+export function renderTrainerPanel(project: ProjectState, trainerId: number, panel: TrainerPanel): string {
+  const trainer = getTrainerRecord(project, trainerId, { includeTexts: panel === "trainer" });
+  if (panel === "trainer") return renderExpandedTrainer(trainer);
+  const pokemon = trainer.party.find((pok) => pok.slot === panel);
+  return pokemon ? renderTrainerPokemon(project, trainer, pokemon, detectSpecifyTrainerNaturesPatch(project) === "patched") : "";
+}
+
+function renderTrainerRows(project: ProjectState): string {
   const rows: string[] = [];
-  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) rows.push(renderTrainerCard(project, getTrainerRecord(project, trainerId), showNatureField));
+  for (let trainerId = 0; trainerId < getTrainerCount(project); trainerId += 1) rows.push(renderTrainerRow(project, trainerId));
   return rows.join("");
 }
 
-function renderTrainerCard(project: ProjectState, trainer: TrainerRecord, showNatureField: boolean): string {
+function renderTrainerCard(project: ProjectState, trainer: TrainerRecord): string {
   const trainerName = String(trainer.readable.name ?? `Trainer ${trainer.id}`);
-  const location = trainerLocationLabel(project, trainer.id);
-  const trainerNameLabel = location ? `${trainerName} - ${location}` : trainerName;
   return `
     <div class="expanded-field filterable trainer-card" data-index="${trainer.id}">
       <div class="expanded-field-main">
@@ -454,7 +460,7 @@ function renderTrainerCard(project: ProjectState, trainer: TrainerRecord, showNa
         <button class="field-btn test-battle-btn trainer-row-test-btn" type="button">Test</button>
         <div class="trainer-name">
           ${renderTrainerSprite(project, trainer)}
-          <span>${escapeHtml(trainerNameLabel)}</span>
+          <span>${escapeHtml(trainerName)}${renderTrainerLocation(project, trainer.id)}</span>
         </div>
         ${editable("trdata", "class", `${trainer.readable.class ?? ""} (${trainer.readable.class_id ?? trainer.raw.class ?? 0})`, "trainer-class", { autofill: "class_names" })}
         ${editable("trdata", "battle_type_1", trainer.readable.battle_type_1, "trainer-btype", { autofill: "battle_types" })}
@@ -467,31 +473,34 @@ function renderTrainerCard(project: ProjectState, trainer: TrainerRecord, showNa
           ${trainer.party.map((pok) => renderPartyPreview(project, pok)).join("")}
         </div>
       </div>
-      ${renderExpandedTrainer(trainer)}
-      ${trainer.party.map((pok) => renderTrainerPokemon(project, trainer, pok, showNatureField)).join("")}
     </div>
   `;
 }
 
 function autoEnrichTrainerLocations(project: ProjectState): boolean {
   if (!isGen5Project(project) || !project.narcs.headers || !project.narcs.overworlds) return false;
-  const before = JSON.stringify([project.docs?.trainerLocations ?? {}, project.docs?.trainerDiffs ?? {}]);
+  const before = JSON.stringify([project.docs?.trainerLocations ?? {}, project.docs?.trainerDiffs ?? {}, project.docs?.trainerLocationSources ?? {}]);
   try {
     enrichTrainerLocations(project);
   } catch (error) {
     console.warn("Failed to enrich trainer locations", error);
     return false;
   }
-  const after = JSON.stringify([project.docs?.trainerLocations ?? {}, project.docs?.trainerDiffs ?? {}]);
+  const after = JSON.stringify([project.docs?.trainerLocations ?? {}, project.docs?.trainerDiffs ?? {}, project.docs?.trainerLocationSources ?? {}]);
   return before !== after;
 }
 
-function trainerLocationLabel(project: ProjectState, trainerId: number): string {
-  return project.docs?.trainerLocations[String(trainerId)]?.[0] ?? "";
+function renderTrainerLocation(project: ProjectState, trainerId: number): string {
+  const source = project.docs?.trainerLocationSources?.[String(trainerId)]?.[0];
+  const location = source?.location ?? project.docs?.trainerLocations[String(trainerId)]?.[0];
+  if (!location) return "";
+  const label = escapeHtml(location);
+  if (!source) return ` - ${label}`;
+  return ` - <a class="trainer-location-link" href="#overworlds/${source.overworldId}" title="Open ${label} in the overworld editor">${label}</a>`;
 }
 
 function renderTrainerSprite(project: ProjectState, trainer: TrainerRecord): string {
-  if (!hasGen5TrainerSprites(project)) return `<img src="${trainer.spritePath}" alt="" onerror="this.style.display='none'">`;
+  if (!hasGen5TrainerSprites(project)) return `<img src="${trainer.spritePath}" loading="lazy" decoding="async" alt="" onerror="this.style.display='none'">`;
   const trainerClassId = Number(trainer.readable.class_id ?? trainer.raw.class ?? 0);
   const className = String(trainer.readable.class ?? `Trainer class ${trainerClassId}`);
   return `
@@ -499,6 +508,13 @@ function renderTrainerSprite(project: ProjectState, trainer: TrainerRecord): str
       <canvas class="trainer-rom-sprite" data-trainer-class-id="${trainerClassId}" data-trainer-sprite-version="${TRAINER_SPRITE_RENDER_VERSION}" width="96" height="96" aria-hidden="true"></canvas>
     </button>
   `;
+}
+
+export function stopTrainerImageRendering(root: HTMLElement): void {
+  trainerSpriteInstallations.get(root)?.disconnect();
+  trainerPokemonIconInstallations.get(root)?.disconnect();
+  trainerSpriteInstallations.delete(root);
+  trainerPokemonIconInstallations.delete(root);
 }
 
 function installTrainerSpriteRendering(project: ProjectState, root: HTMLElement): void {
@@ -550,44 +566,13 @@ function installTrainerSpriteRendering(project: ProjectState, root: HTMLElement)
     canvas.dataset.trainerSpriteRendered = "true";
   };
 
-  const intersectionObserver =
-    typeof IntersectionObserver === "undefined"
-      ? undefined
-      : new IntersectionObserver((entries) => {
-          for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
-            const canvas = entry.target as HTMLCanvasElement;
-            intersectionObserver?.unobserve(canvas);
-            void renderCanvas(canvas);
-          }
-        });
-
-  const observeCanvas = (canvas: HTMLCanvasElement): void => {
-    if (canvas.dataset.trainerSpriteObserved === "true") return;
-    canvas.dataset.trainerSpriteObserved = "true";
-    if (intersectionObserver) intersectionObserver.observe(canvas);
-    else void renderCanvas(canvas);
-  };
-
-  const scan = (): void => {
-    root.querySelectorAll<HTMLCanvasElement>("canvas.trainer-rom-sprite").forEach(observeCanvas);
-  };
-
-  const mutationObserver = new MutationObserver(scan);
-  mutationObserver.observe(root, { childList: true, subtree: true });
-  scan();
-
   trainerSpriteInstallations.set(root, {
-    disconnect: () => {
-      intersectionObserver?.disconnect();
-      mutationObserver.disconnect();
-    },
+    disconnect: observeNearViewport(root, "canvas.trainer-rom-sprite", (canvas) => void renderCanvas(canvas as HTMLCanvasElement)),
   });
 }
 
 function installTrainerPokemonIconRendering(project: ProjectState, root: HTMLElement): void {
   trainerPokemonIconInstallations.get(root)?.disconnect();
-  if (!isGen5Project(project) || !project.narcs.pokemon_icons) return;
 
   const imageCache = new Map<string, Promise<RgbaImageData | undefined>>();
   const loadImage = (spriteId: number, variant: PokemonIconVariant): Promise<RgbaImageData | undefined> => {
@@ -628,38 +613,22 @@ function installTrainerPokemonIconRendering(project: ProjectState, root: HTMLEle
     canvas.dataset.trainerPokemonIconRendered = "true";
   };
 
-  const intersectionObserver =
-    typeof IntersectionObserver === "undefined"
-      ? undefined
-      : new IntersectionObserver((entries) => {
-          for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
-            const canvas = entry.target as HTMLCanvasElement;
-            intersectionObserver?.unobserve(canvas);
-            void renderCanvas(canvas);
-          }
-        });
-
-  const observeCanvas = (canvas: HTMLCanvasElement): void => {
-    if (canvas.dataset.trainerPokemonIconObserved === "true") return;
-    canvas.dataset.trainerPokemonIconObserved = "true";
-    if (intersectionObserver) intersectionObserver.observe(canvas);
-    else void renderCanvas(canvas);
+  const renderPreview = async (preview: HTMLElement): Promise<void> => {
+    const canvas = preview.querySelector<HTMLCanvasElement>("canvas.trainer-pokemon-rom-icon");
+    if (canvas) {
+      await renderCanvas(canvas);
+      if (canvas.dataset.trainerPokemonIconRendered === "true") return;
+    }
+    const fallback = preview.querySelector<HTMLImageElement>("img[data-trainer-image-src]");
+    if (!fallback?.isConnected) return;
+    fallback.src = fallback.dataset.trainerImageSrc!;
+    delete fallback.dataset.trainerImageSrc;
   };
-
-  const scan = (): void => {
-    root.querySelectorAll<HTMLCanvasElement>("canvas.trainer-pokemon-rom-icon").forEach(observeCanvas);
-  };
-
-  const mutationObserver = new MutationObserver(scan);
-  mutationObserver.observe(root, { childList: true, subtree: true });
-  scan();
 
   trainerPokemonIconInstallations.set(root, {
-    disconnect: () => {
-      intersectionObserver?.disconnect();
-      mutationObserver.disconnect();
-    },
+    // Observe the visible cell, not its initially hidden ROM canvas. Fallback
+    // images get a URL only when needed and near the viewport.
+    disconnect: observeNearViewport(root, ".trainer-poks .wild", (preview) => void renderPreview(preview)),
   });
 }
 
@@ -864,7 +833,7 @@ function renderPartyPreview(project: ProjectState, pok: TrainerPokemonSlot): str
   return `
     <div class="wild">
       ${romIcon}
-      <img class="trainer-pokemon-preview trainer-pokemon-fallback-icon" src="${publicAsset(`images/pokesprite/${pok.spriteSlug}.png`)}" alt="" data-show="pok-${pok.slot}" onerror="this.src='${missingSprite}'">
+      <img class="trainer-pokemon-preview trainer-pokemon-fallback-icon" data-trainer-image-src="${publicAsset(`images/pokesprite/${pok.spriteSlug}.png`)}" loading="lazy" decoding="async" alt="" data-show="pok-${pok.slot}" onerror="this.onerror=null;this.src='${missingSprite}'">
     </div>
   `;
 }

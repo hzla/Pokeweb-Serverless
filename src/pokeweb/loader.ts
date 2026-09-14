@@ -28,6 +28,7 @@ import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffec
 import { detectPmcInstallFromRom } from "./pmcModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
 import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
+import { hydrateTrainerLocationTables } from "./trainerLocationModel";
 import { hydrateBattleLogInstallMetadata } from "./battleLogModel";
 import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
 import { createFileStore, createNarcStore, decodeRecord, type ProjectState } from "./projectStore";
@@ -112,6 +113,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     hydrateBattleLogInstallMetadata(project, rom);
     hydratePwanAnimationsFromRom(project, rom);
     hydrateKoMoveLearnsetFromRom(project, rom);
+    hydrateTrainerLocationTables(project, rom);
   }
 
   const selectedNarcs = new Set<NarcName>(options.selectedNarcs ?? []);

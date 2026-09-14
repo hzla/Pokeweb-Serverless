@@ -80,6 +80,7 @@ export type DocGeneratorState = {
   mastersheetMarkdown?: string;
   mastersheetHighlights?: MastersheetHighlightMap;
   trainerLocations: Record<string, string[]>;
+  trainerLocationSources?: Record<string, Array<{ location: string; overworldId: number }>>;
   trainerDiffs: Record<string, number>;
   itemLocations: Record<string, string[]>;
   groundItemScriptMap: Record<string, number>;
@@ -129,6 +130,12 @@ export type CodeInjectionState = {
     relearnMessageEntryId?: number;
     koLearnsetPath?: string;
     runtimeVersion?: number;
+  };
+  learnsetViewer?: {
+    runtimeVersion: string;
+    menuBankId: number;
+    viewerBankId: number;
+    messageIds: { menu: number; empty: number; error: number };
   };
 };
 
@@ -285,6 +292,7 @@ export type ProjectState = {
   fileSystem?: FileSystemEditState;
   /** Small ROM-backed archive retained when autosave releases originalRomBytes. */
   koMoveLearnsetSource?: { fileId: number; bytes: Uint8Array };
+  trainerLocationTables?: import("./trainerLocationModel").TrainerLocationTables;
   codeInjection?: CodeInjectionState;
   overworldWeather?: OverworldWeatherState;
   pwanAnimations?: PwanAnimationState;

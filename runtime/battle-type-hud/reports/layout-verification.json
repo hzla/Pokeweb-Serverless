@@ -1,0 +1,82 @@
+{
+  "B2": {
+    "placements": [
+      {
+        "native_name_first_x": -54,
+        "dual_left": -65,
+        "mono_left": -54,
+        "name_shift": 12,
+        "info_shift": 8,
+        "icon_shift": 12,
+        "top": -10,
+        "clearance": 2
+      },
+      {
+        "native_name_first_x": -48,
+        "dual_left": -59,
+        "mono_left": -48,
+        "name_shift": 12,
+        "info_shift": 8,
+        "icon_shift": 12,
+        "top": -10,
+        "clearance": 2
+      },
+      {
+        "native_name_first_x": -46,
+        "dual_left": -57,
+        "mono_left": -46,
+        "name_shift": 12,
+        "info_shift": 8,
+        "icon_shift": 12,
+        "top": -10,
+        "clearance": 2
+      }
+    ],
+    "header_translation_exact": true,
+    "lower_panel_unchanged": true,
+    "all_statuses_and_removal_restore": true,
+    "added_oam_pieces": 1,
+    "added_vram_per_regular_player": 256,
+    "doubles_extension_transparent": true
+  },
+  "W2": {
+    "placements": [
+      {
+        "native_name_first_x": -54,
+        "dual_left": -65,
+        "mono_left": -54,
+        "name_shift": 12,
+        "info_shift": 8,
+        "icon_shift": 12,
+        "top": -10,
+        "clearance": 2
+      },
+      {
+        "native_name_first_x": -48,
+        "dual_left": -59,
+        "mono_left": -48,
+        "name_shift": 12,
+        "info_shift": 8,
+        "icon_shift": 12,
+        "top": -10,
+        "clearance": 2
+      },
+      {
+        "native_name_first_x": -46,
+        "dual_left": -57,
+        "mono_left": -46,
+        "name_shift": 12,
+        "info_shift": 8,
+        "icon_shift": 12,
+        "top": -10,
+        "clearance": 2
+      }
+    ],
+    "header_translation_exact": true,
+    "lower_panel_unchanged": true,
+    "all_statuses_and_removal_restore": true,
+    "added_oam_pieces": 1,
+    "added_vram_per_regular_player": 256,
+    "doubles_extension_transparent": true
+  }
+}

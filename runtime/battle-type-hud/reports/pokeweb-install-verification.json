@@ -1,0 +1,84 @@
+[
+  {
+    "independentComponents": true,
+    "game": "B2",
+    "initial": {
+      "supported": true,
+      "compatible": true,
+      "checked": true,
+      "installed": false,
+      "updateAvailable": false,
+      "canUninstall": false,
+      "pmcInstalled": false,
+      "message": "Type Icons installs independently. PMC is installed automatically if needed."
+    },
+    "installed": {
+      "supported": true,
+      "compatible": true,
+      "checked": true,
+      "installed": true,
+      "updateAvailable": false,
+      "canUninstall": true,
+      "pmcInstalled": true,
+      "message": "Type Icons is installed.",
+      "dllPath": "patches/TypeIconsB2.dll",
+      "legacyCombined": false
+    },
+    "reimported": {
+      "supported": true,
+      "compatible": true,
+      "checked": true,
+      "installed": true,
+      "updateAvailable": false,
+      "canUninstall": false,
+      "pmcInstalled": true,
+      "message": "Type Icons is installed.",
+      "dllPath": "patches/TypeIconsB2.dll",
+      "legacyCombined": false
+    },
+    "stagedUninstall": true,
+    "imported038Upgrade": "DLL and prior NCER upgraded; all unrelated members preserved",
+    "panelExpansion": "438/439 only; exact hashes; idempotent reinstall; native resources restored on uninstall"
+  },
+  {
+    "independentComponents": true,
+    "game": "W2",
+    "initial": {
+      "supported": true,
+      "compatible": true,
+      "checked": true,
+      "installed": false,
+      "updateAvailable": false,
+      "canUninstall": false,
+      "pmcInstalled": false,
+      "message": "Type Icons installs independently. PMC is installed automatically if needed."
+    },
+    "installed": {
+      "supported": true,
+      "compatible": true,
+      "checked": true,
+      "installed": true,
+      "updateAvailable": false,
+      "canUninstall": true,
+      "pmcInstalled": true,
+      "message": "Type Icons is installed.",
+      "dllPath": "patches/TypeIconsW2.dll",
+      "legacyCombined": false
+    },
+    "reimported": {
+      "supported": true,
+      "compatible": true,
+      "checked": true,
+      "installed": true,
+      "updateAvailable": false,
+      "canUninstall": false,
+      "pmcInstalled": true,
+      "message": "Type Icons is installed.",
+      "dllPath": "patches/TypeIconsW2.dll",
+      "legacyCombined": false
+    },
+    "stagedUninstall": true,
+    "imported038Upgrade": "DLL and prior NCER upgraded; all unrelated members preserved",
+    "panelExpansion": "438/439 only; exact hashes; idempotent reinstall; native resources restored on uninstall"
+  }
+]
