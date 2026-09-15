@@ -124,6 +124,8 @@ export type CodeInjectionState = {
     ancestryFileId?: number;
     /** Browser-side runtime format marker. Version 2 stores the PK5 KO count in split safe bytes. */
     runtimeVersion?: number;
+    /** Verified resident retail-Wi-Fi isolation guard, retained across hydration. */
+    saveGuardVersion?: number;
   };
   menuEvolution?: {
     messageBankId: number;

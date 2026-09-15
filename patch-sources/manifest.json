@@ -19,6 +19,72 @@
   "normalization": "UTF-8 text with LF endings and a final newline; any machine-specific paths are replaced with <LOCAL_PATH>.",
   "patches": [
     {
+      "name": "battle-log-save-guard",
+      "title": "Battle-log save ownership",
+      "artifacts": [
+        {
+          "name": "BattleLogSaveGuardW2.dll",
+          "sha256": "b000818574f8a9f5084fe4bbfc7b84bbd540f8b74df4d3322e58264af96cc4af"
+        },
+        {
+          "name": "BattleLogSaveGuardB2.dll",
+          "sha256": "10ac2eb3f69a085d7c63c6eed3f6558a95d31042110936c5c337740a063ead80"
+        },
+        {
+          "name": "BattleLogSaveGuardW.dll",
+          "sha256": "6c4e58ec35d8be8faf99f38a6bbb0948e061e68eb2ac78132ce0a8e1102576eb"
+        },
+        {
+          "name": "BattleLogSaveGuardB.dll",
+          "sha256": "4f2aff9390f89594722cad9d8ee7314e83aee0532005a311bd871b4e1b978752"
+        }
+      ],
+      "note": "BW1 and BW2 address profiles are checked separately. Three resident accessor hooks isolate stock Wi-Fi workspaces in application RAM. See README for build profiles.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "battle-log-save-guard/w2u_battle_log_save_guard.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_battle_log_save_guard.cpp"
+          },
+          "kind": "source",
+          "sha256": "4de8ec1caf723f785c4065035a6e5e7d99dc174e517495b2881152fdc5b1ac44",
+          "normalized": false
+        },
+        {
+          "path": "battle-log-save-guard/battle_log_save_guard_bw2.yml",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "pmc/battle_log_save_guard_bw2.yml"
+          },
+          "kind": "address-profile",
+          "sha256": "8da1cbd4aec04e472e5f4a6a3d3ec51369706f7d99cd78b647e459ee43ed17a8",
+          "normalized": false
+        },
+        {
+          "path": "battle-log-save-guard/battle_log_save_guard_bw1.yml",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "pmc/battle_log_save_guard_bw1.yml"
+          },
+          "kind": "address-profile",
+          "sha256": "6f6d305c33ae6e01d8fb2e5c4b71465dd184b3cf24a66cfdb13e97fbae43660f",
+          "normalized": false
+        },
+        {
+          "path": "battle-log-save-guard/test_battle_log_save_guard.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/test_battle_log_save_guard.cpp"
+          },
+          "kind": "test",
+          "sha256": "452c300fa31f84bc38d2bc47aa09b59f3dcd438b1c38c6e8545f05821d08e870",
+          "normalized": false
+        }
+      ]
+    },
+    {
       "name": "battle-log",
       "title": "Trainer battle log",
       "artifacts": [
