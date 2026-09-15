@@ -13,6 +13,8 @@ import {
   detectBundledDoubleBattleFixDll,
   detectWhite2UpgradeDlls,
   getPmcInstallStatus,
+  getPmcUpdateConfirmationMessage,
+  installBundledOverworldWeatherRuntime,
   installPmcBytes,
   listCodeInjectionDlls,
   PMC_OVERLAY_ID_PATH,
@@ -519,6 +521,108 @@ describe("PMC installer", () => {
     expect(detectBundledOverworldWeatherRuntime(b2Project)).toBe("unsupported");
   });
 
+  it("preserves an existing anonymous PMC installation when installing overworld weather", async () => {
+    const installedProject = makeProject(makeBw2LikeRom(), "W2");
+    installPmcBytes(installedProject, pmcW2, installedProject.originalRomBytes!);
+    const installedRom = new NintendoDSRom(await exportModifiedRom(installedProject));
+    const overlayEntry = 344 * 32;
+    const namedOverlayId = installedRom.fileId("overlay/overlay_0344.bin");
+    const anonymousOverlay = installedRom.files[namedOverlayId]!.slice();
+
+    // Match the defining CTRMap/Cascade layout characteristic: the PMC image
+    // lives in a FAT slot referenced only by the overlay table, with no FNT
+    // path named overlay/overlay_0344.bin. The exact FAT ID is tool-dependent.
+    installedRom.filenames.folders = installedRom.filenames.folders.filter(([name]) => name !== "overlay");
+    writeU32(installedRom.arm9OverlayTable, overlayEntry + 8, PMC_OVERLAY_SIZE);
+    writeU32(installedRom.arm9OverlayTable, overlayEntry + 12, 0);
+    writeU32(installedRom.arm9OverlayTable, overlayEntry + 24, namedOverlayId);
+    const legacyBytes = installedRom.save({
+      arm9OverlayTable: installedRom.arm9OverlayTable,
+      filenames: installedRom.filenames,
+      files: new Map([[namedOverlayId, anonymousOverlay]]),
+    });
+    const legacyRom = new NintendoDSRom(legacyBytes);
+    const project = makeProject(legacyBytes, "W2");
+    project.codeInjection = undefined; // Simulate an old/stale saved project.
+
+    const originalArm9 = legacyRom.arm9.slice();
+    const originalOverlayTable = legacyRom.arm9OverlayTable.slice();
+    const originalPmcOverlay = legacyRom.files[namedOverlayId]!.slice();
+    const originalSymbolFile = legacyRom.getFileByName(PMC_SYMBOL_PATH).slice();
+    let bundledPmcFetches = 0;
+
+    await withBundledCodeInjectionFetch(async () => {
+      const previousFetch = globalThis.fetch;
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const url = input instanceof URL ? input : new URL(input instanceof Request ? input.url : String(input));
+        if (url.pathname.endsWith("/PMC_W2.rpm")) bundledPmcFetches += 1;
+        return previousFetch(input);
+      }) as typeof fetch;
+      try {
+        await installBundledOverworldWeatherRuntime(project);
+      } finally {
+        globalThis.fetch = previousFetch;
+      }
+    });
+
+    expect(bundledPmcFetches).toBe(0);
+    expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, overlayId: 344 });
+    expect(project.fileSystem?.additions?.["overlay/overlay_0344.bin"]).toBeUndefined();
+    expect(project.fileSystem?.replacements?.[legacyRom.fileId(PMC_SYMBOL_PATH)]).toBeUndefined();
+    expect(project.arm9Dirty).not.toBe(true);
+    expect(project.fileSystem?.additions?.[`patches/${OVERWORLD_WEATHER_RUNTIME_W2_FILENAME}`]).toEqual(overworldWeatherRuntimeW2);
+
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+    expect(exported.arm9).toEqual(originalArm9);
+    expect(exported.arm9OverlayTable).toEqual(originalOverlayTable);
+    expect(exported.files[namedOverlayId]).toEqual(originalPmcOverlay);
+    expect(exported.getFileByName(PMC_SYMBOL_PATH)).toEqual(originalSymbolFile);
+    expect(exported.filenames.idOf("overlay/overlay_0344.bin")).toBeUndefined();
+    expect(readAscii(exported.getFileByName(`patches/${OVERWORLD_WEATHER_RUNTIME_W2_FILENAME}`), 0, 4)).toBe("DLXF");
+  });
+
+  it("warns before Update PMC replaces an anonymous external installation", async () => {
+    const installedProject = makeProject(makeBw2LikeRom(), "W2");
+    installPmcBytes(installedProject, pmcW2, installedProject.originalRomBytes!);
+    const installedRom = new NintendoDSRom(await exportModifiedRom(installedProject));
+    const overlayEntry = 344 * 32;
+    const namedOverlayId = installedRom.fileId("overlay/overlay_0344.bin");
+    const anonymousOverlay = installedRom.files[namedOverlayId]!.slice();
+
+    installedRom.filenames.folders = installedRom.filenames.folders.filter(([name]) => name !== "overlay");
+    writeU32(installedRom.arm9OverlayTable, overlayEntry + 8, PMC_OVERLAY_SIZE);
+    writeU32(installedRom.arm9OverlayTable, overlayEntry + 12, 0);
+    writeU32(installedRom.arm9OverlayTable, overlayEntry + 24, namedOverlayId);
+    const externalBytes = installedRom.save({
+      arm9OverlayTable: installedRom.arm9OverlayTable,
+      filenames: installedRom.filenames,
+      files: new Map([[namedOverlayId, anonymousOverlay]]),
+    });
+    const externalRom = new NintendoDSRom(externalBytes);
+    const project = makeProject(externalBytes, "W2");
+    project.codeInjection = detectPmcInstallFromRom(externalRom);
+
+    const warning = getPmcUpdateConfirmationMessage(project, externalBytes);
+    expect(warning).toContain("Existing external/legacy PMC layout detected");
+    expect(warning).toContain(`anonymous NitroFS file ${namedOverlayId}`);
+    expect(warning).toContain("0x3000 file-backed bytes plus 0x0 BSS bytes");
+    expect(warning).toContain("Replace the PMC executable");
+    expect(warning).toContain("not a merge or repair");
+    expect(warning).toContain("not required to install the Overworld Weather Runtime");
+  });
+
+  it("does not show the external-layout warning for a current Pokeweb PMC installation", async () => {
+    const source = makeBw2LikeRom();
+    const installedProject = makeProject(source, "W2");
+    installPmcBytes(installedProject, pmcW2, source);
+    expect(getPmcUpdateConfirmationMessage(installedProject, source)).toBeUndefined();
+
+    const exported = await exportModifiedRom(installedProject);
+    const reloaded = makeProject(exported, "W2");
+    reloaded.codeInjection = detectPmcInstallFromRom(new NintendoDSRom(exported));
+    expect(getPmcUpdateConfirmationMessage(reloaded, exported)).toBeUndefined();
+  });
+
   it("recognizes bundled BW2 main menu skip DLLs", () => {
     const romBytes = makeBw2LikeRom();
     const project = makeProject(romBytes, "W2");
@@ -787,6 +891,7 @@ async function withBundledCodeInjectionFetch(run: () => Promise<void>): Promise<
     if (fileName === "MainMenuSkipW2.dll") return new Response(mainMenuSkipW2);
     if (fileName === "FormEvolutionB2.dll") return new Response(formEvolutionB2);
     if (fileName === "FormEvolutionW2.dll") return new Response(formEvolutionW2);
+    if (fileName === "PokewebOverworldWeatherW2.dll") return new Response(overworldWeatherRuntimeW2);
     return new Response(undefined, { status: 404 });
   }) as typeof fetch;
   try {

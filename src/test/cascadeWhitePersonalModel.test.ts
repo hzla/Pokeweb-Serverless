@@ -6,7 +6,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { CASCADE_WHITE_AI_DLL_PATH, cascadeWhiteTrainerAbilityName } from "../pokeweb/cascadeWhiteModel";
 import {
   CASCADE_CHANCES_MARKER_PATH, CASCADE_PERSONAL_MARKER_PATH, getCascadePersonalMigrationStatus, hasCascadePersonalData,
-  migrateCascadePersonalData, readCascadeAiAbilityTable, readCascadeHiddenAbilityChanceTable,
+  hydrateCascadePersonalSources, migrateCascadePersonalData, readCascadeAiAbilityTable, readCascadeHiddenAbilityChanceTable,
 } from "../pokeweb/cascadeWhitePersonalModel";
 import { getNarcFormats } from "../pokeweb/formats";
 import { exportModifiedRom } from "../pokeweb/exportRom";
@@ -21,6 +21,69 @@ const DLL_PATH = "patches/A9_DamageCalc.dll";
 const CHANCE_DLL_PATH = "patches/D2_FieldOverlays.dll";
 
 describe("Cascade personal migration", () => {
+  it("keeps the migration visible and usable after autosave releases the original ROM bytes", async () => {
+    const project = makeProject();
+    const rom = sourceRom(project);
+    project.originalRomBytes = rom.data;
+    project.fileSystem = undefined;
+    project.codeInjection = undefined;
+    expect(getCascadePersonalMigrationStatus(project)).toMatchObject({ visible: true, canMigrate: true });
+    hydrateCascadePersonalSources(project, rom);
+    delete project.originalRomBytes;
+
+    // IndexedDB persists a structured clone without the original ROM bytes.
+    const restored = structuredClone(project);
+    expect(getCascadePersonalMigrationStatus(restored)).toMatchObject({ visible: true, canMigrate: true });
+    expect(patchesHtml(restored)).toContain('id="migrate-cascade-personal-btn" type="button" >');
+    await migrateCascadePersonalData(restored);
+    materializeProjectEdits(restored);
+    expect([...restored.narcs.personal!.rawFiles[1].slice(0x39, 0x3c)]).toEqual([70, 34, 122]);
+    expect(restored.narcs.personal!.rawFiles[1][0x3e]).toBe(4);
+  });
+
+  it("rehydrates older saved projects and honors DLL replacements and staged additions", async () => {
+    const project = makeProject();
+    const rom = sourceRom(project);
+    project.fileSystem = undefined;
+    project.codeInjection = undefined;
+    expect(getCascadePersonalMigrationStatus(project).visible).toBe(false);
+    // Restore reads the ROM from IndexedDB without retaining originalRomBytes.
+    hydrateCascadePersonalSources(project, rom);
+    expect(getCascadePersonalMigrationStatus(project).canMigrate).toBe(true);
+    const abilities = abilityRows();
+    abilities[25] = [255, 201, 0];
+    const chances = chanceRows();
+    chances[100] = 173;
+    project.fileSystem = { replacements: {
+      [rom.filenames.idOf(DLL_PATH)!]: makeDll(abilities),
+      [rom.filenames.idOf(CHANCE_DLL_PATH)!]: makeChanceDll(chances),
+    } };
+    await migrateCascadePersonalData(project);
+    expect(decodeRecord(project, "personal", 25).raw).toMatchObject({ ability_4: 255, ability_5: 201, ability_6: 0 });
+    expect(decodeRecord(project, "personal", 100).raw!.hidden_ability_chance).toBe(173);
+
+    // A staged replacement for the same path must take precedence over both.
+    delete project.fileSystem.additions![CASCADE_CHANCES_MARKER_PATH];
+    chances[101] = 99;
+    project.fileSystem.additions![CHANCE_DLL_PATH] = makeChanceDll(chances);
+    updatePokemonField(project, 101, "personal", "hidden_ability_chance", "0");
+    await migrateCascadePersonalData(project);
+    expect(decodeRecord(project, "personal", 101).raw!.hidden_ability_chance).toBe(99);
+  });
+
+  it("retains exported migration markers after restore and preserves edited values", async () => {
+    const project = makeProject();
+    await migrateCascadePersonalData(project);
+    updatePokemonField(project, 1, "personal", "ability_4", "0");
+    updatePokemonField(project, 1, "personal", "hidden_ability_chance", "0");
+    const reopened = await reopenRom(project);
+    hydrateCascadePersonalSources(reopened, new NintendoDSRom(reopened.originalRomBytes!));
+    delete reopened.originalRomBytes;
+    expect(getCascadePersonalMigrationStatus(reopened)).toMatchObject({ visible: true, installed: true, canMigrate: false });
+    expect((await migrateCascadePersonalData(reopened)).status).toBe("already-applied");
+    expect(decodeRecord(reopened, "personal", 1).raw).toMatchObject({ ability_4: 0, hidden_ability_chance: 0 });
+  });
+
   it.each([1, 2, 4])("reads a variant's actual %i-byte ability IDs from its injected table", (width) => {
     const rows = abilityRows();
     rows[25] = [201, 0, 255];
@@ -253,6 +316,16 @@ function patchesHtml(project: ProjectState): string {
   const root = { innerHTML: "", querySelector: () => null };
   renderPatchesEditor(project, root as unknown as HTMLElement);
   return root.innerHTML;
+}
+
+function sourceRom(project: ProjectState): NintendoDSRom {
+  const rom = new NintendoDSRom(new Uint8Array(0x200));
+  rom.filenames = new Folder();
+  return new NintendoDSRom(rom.save({ addedFiles: [
+    { path: CASCADE_WHITE_AI_DLL_PATH, bytes: makeDll([]) },
+    { path: DLL_PATH, bytes: project.fileSystem!.additions![DLL_PATH] },
+    { path: CHANCE_DLL_PATH, bytes: project.fileSystem!.additions![CHANCE_DLL_PATH] },
+  ] }));
 }
 
 async function reopenRom(project: ProjectState): Promise<ProjectState> {
