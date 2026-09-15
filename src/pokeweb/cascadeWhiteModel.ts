@@ -28,7 +28,8 @@ export function detectCascadeWhiteRom(project: ProjectState): boolean {
   const cached = detectionCache.get(project);
   if (cached?.signature === signature) return cached.result;
   const targetPath = normalizeDllPath(CASCADE_WHITE_AI_DLL_PATH);
-  const result = listCodeInjectionDlls(project).some((module) => normalizeDllPath(module.path) === targetPath);
+  const result = listCodeInjectionDlls(project).some((module) => normalizeDllPath(module.path) === targetPath)
+    || Object.keys(project.cascadePersonalSources ?? {}).some((path) => normalizeDllPath(path) === targetPath);
   detectionCache.set(project, { signature, result });
   return result;
 }
@@ -61,7 +62,8 @@ function cascadeDetectionSignature(project: ProjectState): string {
     .join("|");
   const romBytes = project.originalRomBytes;
   const romSignature = romBytes ? `${romBytes.length}:${project.romInfo.idCode}:${project.romInfo.size}` : "";
-  return `${project.session.baseRom}:${project.session.baseVersion}:${stateModules}:${stagedModules}:${romSignature}`;
+  const retainedModules = Object.keys(project.cascadePersonalSources ?? {}).sort().join("|");
+  return `${project.session.baseRom}:${project.session.baseVersion}:${stateModules}:${stagedModules}:${romSignature}:${retainedModules}`;
 }
 
 function normalizeDllPath(path: string): string {
