@@ -14,6 +14,8 @@ import {
   stageCodeInjectionDll,
 } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
+import { battleLogSaveGuard, patchBattleLogGeonet, type BattleLogGuardVersion } from "./battleLogSaveGuard";
+import { parseRpm } from "./rpm";
 
 export const BATTLE_LOG_DLL_FILENAME = "White2UpgradeBattleLog.dll";
 export const BATTLE_LOG_DLL_PATH = `patches/${BATTLE_LOG_DLL_FILENAME}`;
@@ -42,8 +44,8 @@ export const WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_S
 export const BATTLE_LOG_ANCESTRY_PATH = "battlelog/ancestry.narc";
 export const BATTLE_LOG_EVOLUTION_PATH = "a/0/1/9";
 export const BATTLE_LOG_CAPACITY = 600;
-/** Version 8 keeps KO-only learning from replaying the current-level learnset. */
-export const BATTLE_LOG_RUNTIME_VERSION = 8;
+/** Version 9 isolates the retired Wi-Fi save users and disables Geonet aging. */
+export const BATTLE_LOG_RUNTIME_VERSION = 9;
 
 const SPECIES_COUNT = 1024;
 const EVOLUTION_SLOT_SIZE = 6;
@@ -102,7 +104,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 8,
+    runtimeVersion: 9,
     runtimeFingerprints: {
       battle: { length: 2352, fnv1a: 0x76de8c7e },
       counters: { length: 1648, fnv1a: 0xf7e99c0e },
@@ -138,7 +140,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 8,
+    runtimeVersion: 9,
     runtimeFingerprints: {
       battle: { length: 2464, fnv1a: 0x13533c4e },
       counters: { length: 1760, fnv1a: 0x398d8ef9 },
@@ -174,7 +176,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 3,
+    runtimeVersion: 4,
     runtimeFingerprints: {
       battle: { length: 2400, fnv1a: 0xcc96adea },
       counters: { length: 608, fnv1a: 0xe807d97f },
@@ -205,7 +207,7 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 3,
+    runtimeVersion: 4,
     runtimeFingerprints: {
       battle: { length: 2400, fnv1a: 0xf45a813b },
       counters: { length: 608, fnv1a: 0xa57eca34 },
@@ -276,11 +278,13 @@ export type BattleLogInstallResult = {
 
 export function canUninstallBattleLog(project: ProjectState): boolean {
   const layout = battleLogLayout(project.session.baseVersion);
+  const guardPath = layout ? battleLogSaveGuard(project.session.baseVersion as BattleLogGuardVersion).path : "";
   return Boolean(layout
     && !hasMenuEvolutionCompanion(project)
     && canRemoveStagedCodeInjectionDll(project, layout.dllPath)
     && canRemoveStagedCodeInjectionDll(project, layout.counterDllPath)
-    && canRemoveStagedCodeInjectionDll(project, layout.summaryDllPath));
+    && canRemoveStagedCodeInjectionDll(project, layout.summaryDllPath)
+    && (!hasRomPath(project, guardPath) || canRemoveStagedCodeInjectionDll(project, guardPath)));
 }
 
 export function getBattleLogInstallStatus(project: ProjectState): BattleLogInstallStatus {
@@ -292,15 +296,17 @@ export function getBattleLogInstallStatus(project: ProjectState): BattleLogInsta
   const summaryDllInstalled = Boolean(layout && modules.some((module) => module.path.toLowerCase() === layout.summaryDllPath.toLowerCase()));
   const ancestryInstalled = project.codeInjection?.battleLog?.ancestryPath === BATTLE_LOG_ANCESTRY_PATH
     || hasRomPath(project, BATTLE_LOG_ANCESTRY_PATH);
-  const saveGuardInstalled = Boolean(layout && isWifiListSyncDisabled(project, project.session.baseVersion as SupportedBattleLogVersion));
-  const installed = dllInstalled && counterDllInstalled && summaryDllInstalled && ancestryInstalled && saveGuardInstalled;
+  const saveGuardInstalled = Boolean(layout && isWifiListSyncDisabled(project, project.session.baseVersion as SupportedBattleLogVersion)
+    && isGeonetDisabled(project) && isCurrentSaveGuard(project));
+  // Legacy installs must offer Update even when they lack one or all guards.
+  const installed = dllInstalled && counterDllInstalled && summaryDllInstalled && ancestryInstalled;
   const runtimeVersion = project.codeInjection?.battleLog?.runtimeVersion;
-  const upToDate = Boolean(installed && layout && isCurrentBattleLogRuntime(project, layout));
-  const updateAvailable = installed && !upToDate;
+  const upToDate = Boolean(installed && saveGuardInstalled && layout && isCurrentBattleLogRuntime(project, layout));
+  const updateAvailable = (dllInstalled || counterDllInstalled || summaryDllInstalled) && !upToDate;
   return {
     ...compatibility,
     message: updateAvailable
-      ? `${compatibility.message} An older or unrecognized battle-log runtime is installed and can be updated in place.`
+      ? `${compatibility.message} An older, incomplete, or unrecognized battle-log installation can be updated in place.`
       : compatibility.message,
     installed,
     upToDate,
@@ -319,7 +325,7 @@ export function getBattleLogInstallStatus(project: ProjectState): BattleLogInsta
 /** Retain verified import metadata when autosave releases the source ROM. */
 export function hydrateBattleLogInstallMetadata(project: ProjectState, rom: NintendoDSRom): void {
   const layout = battleLogLayout(project.session.baseVersion);
-  if (!layout || !isWifiListSyncDisabled(project, project.session.baseVersion as SupportedBattleLogVersion)) return;
+  if (!layout) return;
   const paths = [layout.dllPath, layout.counterDllPath, layout.summaryDllPath, BATTLE_LOG_ANCESTRY_PATH];
   if (!paths.every((path) => rom.filenames.idOf(path) !== undefined)) return;
   const sourceProject = { ...project, originalRomBytes: rom.data };
@@ -329,6 +335,7 @@ export function hydrateBattleLogInstallMetadata(project: ProjectState, rom: Nint
     ...project.codeInjection.battleLog,
     ancestryPath: BATTLE_LOG_ANCESTRY_PATH,
     runtimeVersion: current ? Math.max(project.codeInjection.battleLog?.runtimeVersion ?? 0, layout.runtimeVersion) : undefined,
+    saveGuardVersion: isCurrentSaveGuard(sourceProject) ? 1 : undefined,
   };
 }
 
@@ -388,7 +395,8 @@ export function detectBattleLogCompatibility(
   } catch {
     overlays = new Map();
   }
-  const checks = layout.hooks.map((signature) => {
+  const guard = battleLogSaveGuard(project.session.baseVersion as BattleLogGuardVersion);
+  const checks = [...layout.hooks, ...guard.hooks, ...guard.imports, guard.daily].map((signature) => {
     const original = signature.overlayId === 0 ? undefined : overlays.get(signature.overlayId);
     const data = signature.overlayId === 0
       ? (project.arm9.length > 0 ? project.arm9 : decompressCode(rom.arm9))
@@ -402,7 +410,7 @@ export function detectBattleLogCompatibility(
       : undefined;
     const disabled = signature.overlayId === 0 && signature.address === layout.wifiAddress
       ? hexToBytes(layout.wifiDisabledHex)
-      : undefined;
+      : signature.address === guard.daily.address ? hexToBytes(guard.daily.disabledHex) : undefined;
     const matched = Boolean(actual && (bytesEqual(actual, expected) || Boolean(disabled && bytesEqual(actual, disabled))));
     return {
       label: signature.label,
@@ -414,6 +422,33 @@ export function detectBattleLogCompatibility(
         : `${signature.overlayId === 0 ? "ARM9" : `Overlay ${signature.overlayId}`} differs or is missing at ${hexAddress(signature.address)}.`,
     };
   });
+  // Runtime DLL hooks are not reflected in the ROM's clean ARM9 bytes. Reject
+  // another auto-loaded patch claiming an isolation entry (including a getter
+  // import that was replaced in a ROM hack), rather than depending on load order.
+  const auditProject = project.originalRomBytes === romBytes ? project : { ...project, originalRomBytes: romBytes };
+  for (const module of listCodeInjectionDlls(auditProject)) {
+    if (!/^patches\/[^/]+$/iu.test(module.path) || module.path.toLowerCase() === guard.path.toLowerCase()) continue;
+    const bytes = effectiveRomPathBytes(auditProject, module.path);
+    if (!bytes) continue;
+    try {
+      const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+      for (const relocation of rpm.relocations) {
+        if (relocation.target.module !== "ARM9") continue;
+        const start = relocation.target.address & ~1;
+        const size = relocation.target.type === "FULL_COPY"
+          ? rpm.symbols[relocation.sourceSymbolIndex]?.size ?? 0
+          : relocation.target.type.endsWith("LINK") ? 4 : 8;
+        for (const region of [...guard.hooks, ...guard.imports, guard.daily]) {
+          if (start >= region.address + region.expectedHex.length / 2 || start + size <= region.address) continue;
+          checks.push({label: region.label, overlayId: 0, address: start, matched: false,
+            message: `${module.path} also patches ${region.label}; resolve the hook conflict before installing the save guard.`});
+        }
+      }
+    } catch {
+      checks.push({label: "Save ownership conflict audit", overlayId: 0, address: 0, matched: false,
+        message: `Cannot inspect ${module.path} for conflicting save hooks.`});
+    }
+  }
   const passed = checks.filter((check) => check.matched).length;
   const compatible = passed === checks.length;
   return {
@@ -440,6 +475,22 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   if (!compatibility.compatible) throw new Error(compatibility.message);
   const rom = new NintendoDSRom(romBytes);
 
+  const guard = battleLogSaveGuard(project.session.baseVersion as BattleLogGuardVersion);
+  // Fetch/validate everything before staging or editing ARM9. A failed asset
+  // request must not leave the project with only half of its protections.
+  const responses = await Promise.all([layout.dllUrl, layout.counterDllUrl, layout.summaryDllUrl, guard.url].map((url) => fetch(url)));
+  if (responses.some((response) => !response.ok)) throw new Error("Could not load all bundled battle-log runtime DLLs.");
+  const [battleBytes, counterBytes, summaryBytes, guardBytes] = await Promise.all(responses.map(async (response) => new Uint8Array(await response.arrayBuffer())));
+  if (!matchesRuntimeFingerprint(battleBytes!, layout.runtimeFingerprints.battle)
+    || !matchesRuntimeFingerprint(counterBytes!, layout.runtimeFingerprints.counters)
+    || !matchesRuntimeFingerprint(summaryBytes!, layout.runtimeFingerprints.summary)) {
+    throw new Error("Bundled battle-log runtime is invalid; reload Pokeweb before installing.");
+  }
+  if (!matchesRuntimeFingerprint(guardBytes!, guardFingerprint(project.session.baseVersion as BattleLogGuardVersion))) {
+    throw new Error("Bundled battle-log save guard is invalid; reload Pokeweb before installing.");
+  }
+  const evolutionMembers = currentEvolutionMembers(project, rom);
+  const ancestryBytes = buildBattleLogAncestryNarc(evolutionMembers);
   const pmcStatus = getPmcInstallStatus(project);
   // Refresh BW1's bundled PMC even when an earlier browser session already
   // staged overlay 237. The initial BW1 release omitted GFLAppInit from its
@@ -447,20 +498,11 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   // leave that broken overlay in the persistent project.
   if (project.session.baseRom === "BW" || !pmcStatus.installed) await installBundledPmc(project);
   disableWifiListSync(project, rom, project.session.baseVersion as SupportedBattleLogVersion);
-  const [battleResponse, counterResponse, summaryResponse] = await Promise.all([
-    fetch(layout.dllUrl),
-    fetch(layout.counterDllUrl),
-    fetch(layout.summaryDllUrl),
-  ]);
-  if (!battleResponse.ok) throw new Error(`Could not load the bundled battle-log battle DLL (${battleResponse.status})`);
-  if (!counterResponse.ok) throw new Error(`Could not load the bundled battle-log counter DLL (${counterResponse.status})`);
-  if (!summaryResponse.ok) throw new Error(`Could not load the bundled battle-log summary DLL (${summaryResponse.status})`);
-  stageCodeInjectionDll(project, layout.dllFilename, new Uint8Array(await battleResponse.arrayBuffer()), "patches", romBytes);
-  stageCodeInjectionDll(project, layout.counterDllFilename, new Uint8Array(await counterResponse.arrayBuffer()), "patches", romBytes);
-  stageCodeInjectionDll(project, layout.summaryDllFilename, new Uint8Array(await summaryResponse.arrayBuffer()), "patches", romBytes);
-
-  const evolutionMembers = currentEvolutionMembers(project, rom);
-  const ancestryBytes = buildBattleLogAncestryNarc(evolutionMembers);
+  project.arm9 = patchBattleLogGeonet(project.arm9, rom.arm9RamAddress, project.session.baseVersion as BattleLogGuardVersion);
+  stageCodeInjectionDll(project, layout.dllFilename, battleBytes!, "patches", romBytes);
+  stageCodeInjectionDll(project, layout.counterDllFilename, counterBytes!, "patches", romBytes);
+  stageCodeInjectionDll(project, layout.summaryDllFilename, summaryBytes!, "patches", romBytes);
+  stageCodeInjectionDll(project, guard.filename, guardBytes!, "patches", romBytes);
   // Older installer builds staged this at the NitroFS root. A root file must
   // be inserted before the root's subdirectories, which shifts existing file
   // IDs and breaks consumers that cached the original IDs. Remove an
@@ -473,12 +515,13 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
     ancestryPath: BATTLE_LOG_ANCESTRY_PATH,
     ancestryFileId,
     runtimeVersion: layout.runtimeVersion,
+    saveGuardVersion: 1,
   };
 
   recordGenericChange(
     project,
     "code_injection",
-    `Battle-log runtime v${layout.runtimeVersion} staged with${project.session.baseRom === "BW2" ? " immediate KO-counter commits for companion KO moves," : ""} AI-partner KO attribution, split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, and Wi-Fi save blocks 29–31 retired.`,
+    `Battle-log runtime v${layout.runtimeVersion} staged with${project.session.baseRom === "BW2" ? " immediate KO-counter commits for companion KO moves," : ""} AI-partner KO attribution, split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, isolated Wi-Fi save blocks 29–31, and the daily Geonet rewrite disabled. Existing damaged records are not repaired.`,
     "Battle Log",
     { key: "code-injection:battle-log" },
   );
@@ -506,10 +549,13 @@ export function uninstallBattleLog(project: ProjectState): void {
 
   const version = project.session.baseVersion as SupportedBattleLogVersion;
   project.arm9 = restoreBattleLogWifiListSync(project.arm9, GEN5_ARM9_RAM_ADDRESS, version);
+  if (isGeonetDisabled(project)) project.arm9 = patchBattleLogGeonet(project.arm9, GEN5_ARM9_RAM_ADDRESS, version, true);
   project.arm9Dirty = true;
   removeStagedCodeInjectionDll(project, layout.dllPath);
   removeStagedCodeInjectionDll(project, layout.counterDllPath);
   removeStagedCodeInjectionDll(project, layout.summaryDllPath);
+  const guardPath = battleLogSaveGuard(version).path;
+  if (canRemoveStagedCodeInjectionDll(project, guardPath)) removeStagedCodeInjectionDll(project, guardPath);
 
   const ancestry = project.codeInjection?.battleLog;
   if (ancestry?.ancestryFileId !== undefined) clearRomFileReplacement(project, ancestry.ancestryFileId);
@@ -519,7 +565,7 @@ export function uninstallBattleLog(project: ProjectState): void {
   recordGenericChange(
     project,
     "code_injection",
-    "Split battle-log runtime DLLs removed and the Pal Pad/Wi-Fi save routine restored; existing battle-log save records were preserved.",
+    "Battle-log and save-guard DLLs removed; retail Geonet and Pal Pad routines restored. Existing save bytes were not edited, but retail Wi-Fi features may overwrite the retired log regions once logging is uninstalled.",
     "Battle Log",
     { key: "code-injection:battle-log" },
   );
@@ -716,6 +762,29 @@ function isCurrentBattleLogRuntime(
   }
   if (matchedArtifacts === artifacts.length) return true;
   return markedVersion === layout.runtimeVersion;
+}
+
+function guardFingerprint(version: BattleLogGuardVersion): RuntimeFingerprint {
+  return { length: 432, fnv1a: { W2: 0xa855a5c9, B2: 0x7ba8c26d, W: 0x6dc7147c, B: 0xbca020c4 }[version] };
+}
+
+function isCurrentSaveGuard(project: ProjectState): boolean {
+  const version = project.session.baseVersion as BattleLogGuardVersion;
+  const bytes = effectiveRomPathBytes(project, battleLogSaveGuard(version).path);
+  if (bytes) return matchesRuntimeFingerprint(bytes, guardFingerprint(version));
+  return project.codeInjection?.battleLog?.saveGuardVersion === 1
+    && listCodeInjectionDlls(project).some((module) => module.path === battleLogSaveGuard(version).path);
+}
+
+function isGeonetDisabled(project: ProjectState): boolean {
+  if (!battleLogLayout(project.session.baseVersion)) return false;
+  try {
+    const rom = project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes) : undefined;
+    const arm9 = project.arm9.length ? project.arm9 : rom ? decompressCode(rom.arm9) : new Uint8Array();
+    const daily = battleLogSaveGuard(project.session.baseVersion as BattleLogGuardVersion).daily;
+    const offset = daily.address - (rom?.arm9RamAddress ?? GEN5_ARM9_RAM_ADDRESS);
+    return bytesEqual(arm9.subarray(offset, offset + 16), hexToBytes(daily.disabledHex));
+  } catch { return false; }
 }
 
 function effectiveRomPathBytes(project: ProjectState, path: string): Uint8Array | undefined {

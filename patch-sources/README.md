@@ -17,6 +17,7 @@ Only patch source, relevant headers, build/metadata text, tests, and license mat
 | Source group | Bundled DLL/RPMs | Status |
 | --- | --- | --- |
 | [Trainer battle log](battle-log/) | `Black1BattleLog.dll`, `White1BattleLog.dll`, `Black2UpgradeBattleLog.dll`, `White2UpgradeBattleLog.dll` | source-copied |
+| [Battle-log save ownership](battle-log-save-guard/) | `BattleLogSaveGuardB.dll`, `BattleLogSaveGuardW.dll`, `BattleLogSaveGuardB2.dll`, `BattleLogSaveGuardW2.dll` | source-copied |
 | [Individual PK5 battle counters and KO moves](battle-counters/) | `Black1BattleCounters.dll`, `White1BattleCounters.dll`, `Black2UpgradeBattleCounters.dll`, `White2UpgradeBattleCounters.dll` | source-copied |
 | [Battle counter summary display](battle-log-summary/) | `Black1BattleLogSummary.dll`, `White1BattleLogSummary.dll`, `Black2UpgradeBattleLogSummary.dll`, `White2UpgradeBattleLogSummary.dll` | source-copied |
 | [Enhanced Party Menu and Battle Log Integration](enhanced-party-menu/) | `MenuEvolutionB2.dll`, `MenuEvolutionW2.dll` | source-copied |

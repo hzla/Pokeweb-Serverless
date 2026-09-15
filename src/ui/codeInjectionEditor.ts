@@ -177,7 +177,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Trainer Battle Log</h2>
-              <p>Records the player's team and KO attribution for trainer battles, then shows the species-family frag count in the summary screen's ID value field.</p>
+              <p>Records trainer-battle teams and KO attribution. Retires Wi-Fi save blocks 29–31 and isolates their former retail users, including daily Geonet maintenance. The save guard uses about 10 KiB of application RAM and less than 1 KiB of PMC memory. Updating prevents future corruption but cannot repair old damaged records.</p>
             </div>
             <span class="code-injection-status ${battleLogStatus.upToDate ? "-installed" : battleLogCanInstall ? "" : "-error"}">
               ${

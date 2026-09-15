@@ -1,4 +1,106 @@
-# Validation — Type Icons 0.3.11 / bundle 0.4.11
+# Validation — Type Icons 0.3.16 / bundle 0.4.16
+
+The caught Poké Ball remains at its native 8×8 enemy-header coordinates and is
+never cleared, copied, or repainted by the patch. Enemy text translation starts
+at x=16, directly after the x=8..15 marker slot. The runtime layout guard checks
+the unused x=0..7 region while accepting either native caught state.
+
+Compiled B2/W2 ARM checks preserve the marker byte for byte through gauge
+creation, all six status labels, native image reloads, unchanged updates, and
+teardown across singles, doubles, and triples. All taller-rhombus, effective
+type, Illusion, fade, palette, overlap restoration, and 649-name geometry checks
+also pass. Installer compatibility checks pass. No game boot or emulator frames
+were executed.
+
+The release DLLs are 7,824 bytes each with 6,840 bytes of code/constants, 364
+bytes of writable state, and approximately 8,080 bytes of retained PMC storage
+including bookkeeping. The removed marker handling saves 416 retained bytes and
+eliminates the 32-byte embedded marker raster. No battle-heap allocations,
+sprites, palette banks, or additional graphics allocations were introduced.
+
+# Historical validation — Type Icons 0.3.15 / bundle 0.4.15
+
+Every point-up rhombus is now 12×11. Its added row supplies type-colored padding
+beneath each lowered white initial while the 88-pixel near-black outline fully
+encloses the fill. Dual icons use offsets (0,0) and (5,6), retaining a 17×17
+combined footprint. A monotype retains its centered, one-pixel-raised position.
+
+The added center row and four shoulder pixels per icon restore from the exact
+native background table. The remaining 72 pixels per icon retain the one-bit
+backup, so two icons still require 18 bytes and writable state remains 364 bytes.
+The painter explicitly compares the second icon with live graphics at overlap
+pixels, ensuring its border covers the first icon even where black equals the
+native background.
+
+Compiled B2/W2 ARM checks pass for all 18 types, mono/dual drawing, overlapping
+paint and restoration, six HUD positions, status transitions, typing changes,
+Illusion, fades, image reloads, and teardown. OAM composition and all 649 retail
+name measurements pass. Installer compatibility checks pass. No game boot or
+emulator frames were executed.
+
+# Historical validation — Type Icons 0.3.14 / bundle 0.4.14
+
+Four black shoulder pixels were added to every 12×10 rhombus at local positions
+(3,1), (8,1), (3,8), and (8,8). They close the only gaps directly above and
+below the widest colored corner pixels, increasing the visible outline from 72
+to 76 pixels. The white initials move down one pixel. Monotype icons move up one
+pixel as a whole; dual icon coordinates are unchanged.
+
+The four new outline pixels restore from the exact native background table. The
+remaining 72 pixels per rhombus retain the existing one-bit backup, so two icons
+still require 18 bytes and writable state remains 364 bytes.
+
+Compiled B2/W2 ARM checks pass for all 18 types, mono/dual drawing, six HUD
+positions, status transitions, typing changes, Illusion, fades, image reloads,
+and teardown. OAM composition and all 649 retail-name measurements pass. No
+game boot or emulator frames were executed.
+
+# Historical validation — Type Icons 0.3.13 / bundle 0.4.13
+
+Type icons now use a 12×10 point-up rhombus, a compact white first initial, and
+the existing per-type colors. The Water initial is the requested five-pixel W:
+`10001 / 10001 / 10101 / 10101 / 01010`. Each outline covers 72 pixels. Dual
+types use two 72-pixel backups and form a 17×17 stack at offsets (0,0) and
+(5,7); monotypes use the centered offset (2,3).
+
+Compiled B2/W2 ARM checks cover all 18 IDs, mono and dual types, all six visible
+panel positions, status hide/restore, live type changes, Illusion, fades,
+rebindings, image reloads, the caught marker, HP slash protection, and teardown.
+Native OAM composition confirms the whole stack is within existing 128×32
+pieces. The enemy layout matrix measures all 649 English species names in the
+retail font: the left screen margin is one pixel and the minimum clear name gap
+is five pixels in singles, doubles, and triples.
+
+The release DLLs are 8,160 bytes each with 7,172 bytes of code/constants, 364
+bytes of writable state, and approximately 8,416 bytes of retained PMC storage
+including bookkeeping. There are no battle-heap allocations, new sprite
+objects, or new palette banks. The previous 256-byte transparent regular-player
+expansion is retained for installer upgrade compatibility but is not used by
+the new rhombus pixels.
+
+No game boot or emulator frames were executed. The user performs final visual
+and animation testing.
+
+# Historical validation — Type Icons 0.3.12 / bundle 0.4.12
+
+Type icons now use a point-up hexagonal silhouette in the same 10x10 footprint.
+The colored 8x8 mask changes only its top and bottom rows from four pixels to
+two; those rows contain no symbol ink in any of the 18 approved glyphs. The
+one-pixel exterior outline changes with the mask, while icon colors, symbols,
+spacing, coordinates and transparent corners remain unchanged.
+
+The new outline covers 72 rather than 76 pixels per icon. Backup indexing was
+updated and its largest dual-icon requirement falls from 172 bits to 160 bits,
+still inside the existing 24-byte record buffer. Writable state, graphics VRAM,
+sprite count, palette use and allocation behavior are unchanged.
+
+Compiled B2/W2 checks cover all 18 mono/dual icons, every panel layout, status
+restoration, native text overlap, caught marker, type changes, fades, reloads
+and teardown. Installer upgrades and the production build pass. No game boot
+or frames were executed. The complete circular implementation remains in
+`dist/BattleHudPatches-Circular-0.4.11.zip` and the original versioned archive.
+
+# Historical validation — Type Icons 0.3.11 / bundle 0.4.11
 
 The relocated caught Poké Ball moves down exactly one DS pixel, from texture
 y=17 to y=18. Its x position, 8x8 native pixels, palette, type-icon placement,
