@@ -1,4 +1,5 @@
-import { readU16, readU32 } from "../nds/binary";
+import { readAscii, readU16, readU32 } from "../nds/binary";
+import type { Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { detectCascadeWhiteRom } from "./cascadeWhiteModel";
@@ -95,22 +96,57 @@ function originalRom(project: ProjectState): NintendoDSRom | undefined {
   }
 }
 
+export function hydrateCascadePersonalSources(project: ProjectState, rom: NintendoDSRom): void {
+  // The live project drops originalRomBytes on its first autosave. Retain the
+  // small source files needed by synchronous detection, including export markers.
+  // Rehydrate from the base ROM on restore, including older saved projects.
+  if (project.session.baseRom !== "BW2") {
+    delete project.cascadePersonalSources;
+    return;
+  }
+  const sources: NonNullable<ProjectState["cascadePersonalSources"]> = {};
+  const collectDlls = (folder: Folder, parent: string): void => {
+    folder.files.forEach((name, index) => {
+      const fileId = folder.firstId + index;
+      const bytes = rom.files[fileId];
+      if (/\.dll$/iu.test(name) && bytes && readAscii(bytes, 0, 4) === "DLXF") {
+        sources[`${parent}/${name}`] = { fileId, bytes: bytes.slice() };
+      }
+    });
+    for (const [name, child] of folder.folders) collectDlls(child, `${parent}/${name}`);
+  };
+  for (const [name, folder] of rom.filenames.folders) {
+    if (name.toLowerCase() === "patches") collectDlls(folder, name);
+  }
+  for (const path of [CASCADE_PERSONAL_MARKER_PATH, CASCADE_CHANCES_MARKER_PATH]) {
+    const fileId = rom.filenames.idOf(path);
+    if (fileId !== undefined) sources[path] = { fileId, bytes: rom.files[fileId].slice() };
+  }
+  if (Object.keys(sources).length > 0) project.cascadePersonalSources = sources;
+  else delete project.cascadePersonalSources;
+}
+
 function pathBytes(project: ProjectState, path: string): Uint8Array | undefined {
   const added = Object.keys(project.fileSystem?.additions ?? {}).find((key) => key.toLowerCase() === path.toLowerCase());
   if (added) return project.fileSystem!.additions![added];
   const rom = originalRom(project);
   const id = rom?.filenames.idOf(path);
-  return rom && id !== undefined ? getRomFileBytes(project, rom, id) : undefined;
+  if (rom) return id !== undefined ? getRomFileBytes(project, rom, id) : undefined;
+  const source = Object.entries(project.cascadePersonalSources ?? {}).find(([key]) => key.toLowerCase() === path.toLowerCase())?.[1];
+  return source && (project.fileSystem?.replacements?.[source.fileId] ?? source.bytes);
 }
 
 function injectedTableSource<T>(project: ProjectState, readTable: (bytes: Uint8Array) => T | undefined): { path: string; rows: T } | undefined {
   if (!detectCascadeWhiteRom(project)) return undefined;
   const sources: Array<{ path: string; rows: T }> = [];
-  for (const module of listCodeInjectionDlls(project)) {
-    if (module.target !== "patches") continue;
-    const bytes = pathBytes(project, module.path);
+  const paths = new Set([
+    ...listCodeInjectionDlls(project).filter((module) => module.target === "patches").map((module) => module.path),
+    ...Object.keys(project.cascadePersonalSources ?? {}).filter((path) => /^patches\/.+\.dll$/iu.test(path)),
+  ]);
+  for (const path of paths) {
+    const bytes = pathBytes(project, path);
     const rows = bytes && readTable(bytes);
-    if (rows) sources.push({ path: module.path, rows });
+    if (rows) sources.push({ path, rows });
   }
   // Conflicting injected tables need an explicit runtime choice, not a guess.
   if (sources.slice(1).some((source) => JSON.stringify(source.rows) !== JSON.stringify(sources[0].rows))) return undefined;

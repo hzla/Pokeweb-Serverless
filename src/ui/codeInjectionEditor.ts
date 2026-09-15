@@ -3,6 +3,7 @@ import {
   detectBundledDoubleBattleFixDll,
   detectBundledOverworldWeatherRuntime,
   getPmcInstallStatus,
+  getPmcUpdateConfirmationMessage,
   installBundledOverworldWeatherRuntime,
   installBundledPmc,
   listCodeInjectionDlls,
@@ -472,6 +473,15 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   button?.addEventListener("click", async () => {
     const previousText = button.textContent ?? "Install PMC";
     try {
+      if (status.installed) {
+        const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+        if (!romBytes) throw new Error("Reload the ROM before updating PMC.");
+        const confirmation = getPmcUpdateConfirmationMessage(project, romBytes);
+        if (confirmation && !window.confirm(confirmation)) {
+          if (note) note.textContent = "PMC update cancelled; the existing installation was left unchanged.";
+          return;
+        }
+      }
       button.disabled = true;
       button.textContent = "Installing...";
       if (note) note.textContent = "Patching ARM9, writing PMC overlay, and staging codeinjection files.";
