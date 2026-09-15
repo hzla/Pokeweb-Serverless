@@ -2,6 +2,7 @@ import vanillaAbilitiesText from "../assets/data/vanilla_abilities.txt?raw";
 import vanillaItemsText from "../assets/data/vanilla_items.txt?raw";
 import vanillaMovesText from "../assets/data/vanilla_moves.txt?raw";
 import vanillaPokedexText from "../assets/data/vanilla_pokedex.txt?raw";
+import { createCalcItemValidator, resolveCalcItemName, type CalcItemValidation } from "./calcItemNames";
 import { readU16, readU32 } from "../nds/binary";
 import {
   BATTLE_TYPES,
@@ -41,6 +42,7 @@ export type TextDownloadFile = {
   filename: string;
   contents: string;
   mimeType: string;
+  itemValidation?: CalcItemValidation;
 };
 
 export type BinaryDownloadFile = {
@@ -76,6 +78,7 @@ export type CalcBridgePayload = {
   sourceGen: 5;
   scriptText: string;
   title: string;
+  itemValidation: CalcItemValidation;
 };
 
 type SearchCollection = Record<string, { name?: string; types?: string[]; type?: string; t?: string }>;
@@ -406,17 +409,18 @@ export function setDocRomTitle(project: ProjectState, title: string): void {
 }
 
 export function generateCalcDownload(project: ProjectState, title: string): TextDownloadFile {
-  const payload = buildCalcPayload(project, title.trim());
+  const { payload, itemValidation } = buildCalcPayload(project, title.trim());
   return {
     filename: `${safeFilename(title)}-calc.js`,
     contents: `backup_data = ${JSON.stringify(payload, null, 2)};\n`,
     mimeType: "text/javascript",
+    itemValidation,
   };
 }
 
 export function generateCalcBridgePayload(project: ProjectState, title: string): CalcBridgePayload {
   const exportTitle = title.trim();
-  const payload = buildCalcPayload(project, exportTitle);
+  const { payload, itemValidation } = buildCalcPayload(project, exportTitle);
   return {
     type: "ddex:calc-sync",
     config: { ...GEN5_CALC_BRIDGE_CONFIG },
@@ -424,6 +428,7 @@ export function generateCalcBridgePayload(project: ProjectState, title: string):
     sourceGen: 5,
     scriptText: `var backup_data = ${JSON.stringify(payload, null, 2)};`,
     title: exportTitle,
+    itemValidation,
   };
 }
 
@@ -565,9 +570,16 @@ export function buildGroundItemScriptMap(project: ProjectState): Map<number, num
   return parseGroundItemScripts(bytes);
 }
 
-function buildCalcPayload(project: ProjectState, title: string): Record<string, unknown> {
+function buildCalcPayload(project: ProjectState, title: string) {
   const typeChart = buildCalcTypeChart(project);
-  return {
+  const items = createCalcItemValidator();
+  const itemNames = project.texts.banks.items ?? [];
+  const itemId = (name: string) => toId(resolveCalcItemName(name) ?? name);
+  const itemReplacements = replacementMap(VANILLA.items, itemNames, itemId);
+  // Validate exported replacement targets, not unused retail/key-item names.
+  const replacementTargets = new Set(Object.values(itemReplacements));
+  for (const name of itemNames) if (typeof name === "string" && replacementTargets.has(itemId(name))) items.resolve(name);
+  const payload = {
     title,
     ...(typeChart ? { type_chart: typeChart } : {}),
     pok_replacements: replacementMap(VANILLA.pokedex, project.texts.banks.pokedex ?? [], (value) =>
@@ -575,11 +587,12 @@ function buildCalcPayload(project: ProjectState, title: string): Record<string, 
     ),
     move_replacements: replacementMap(VANILLA.moves, project.texts.banks.moves ?? [], (value) => toId(showdownName(value))),
     ability_replacements: replacementMap(VANILLA.abilities, project.texts.banks.abilities ?? [], toId),
-    item_replacements: replacementMap(VANILLA.items, project.texts.banks.items ?? [], (value) => toId(showdownItemName(value))),
+    item_replacements: itemReplacements,
     moves: buildCalcMoves(project),
-    poks: buildCalcPokemon(project),
-    formatted_sets: buildFormattedTrainerSets(project),
+    poks: buildDexPokemon(project, items.resolve),
+    formatted_sets: buildFormattedTrainerSets(project, items.resolve),
   };
+  return { payload, itemValidation: items.report };
 }
 
 function buildCalcTypeChart(project: ProjectState): CalcTypeChart | undefined {
@@ -813,11 +826,7 @@ function isBattlerTarget(move: ReadableRecord): boolean {
   return target.length > 0 && !NON_BATTLER_TARGETS.has(target);
 }
 
-function buildCalcPokemon(project: ProjectState): Record<string, unknown> {
-  return buildDexPokemon(project);
-}
-
-function buildDexPokemon(project: ProjectState): Record<string, unknown> {
+function buildDexPokemon(project: ProjectState, itemName: (value: unknown) => string = showdownItemName): Record<string, unknown> {
   const out: Record<string, Record<string, unknown>> = {};
   const records: Array<{ name: string; record: ReturnType<typeof getPokemonExportRecord> }> = [];
   const tutorGroups = getTutorMoveCompatibilityGroups(project);
@@ -831,7 +840,7 @@ function buildDexPokemon(project: ProjectState): Record<string, unknown> {
       name,
       num: id,
       types: types[0] === types[1] ? [types[0]] : types,
-      items: [record.personal.item_1, record.personal.item_2, record.personal.item_3].map((item) => showdownItemName(item)),
+      items: [record.personal.item_1, record.personal.item_2, record.personal.item_3].map(itemName),
       bs: {
         hp: record.personal.base_hp ?? 0,
         at: record.personal.base_atk ?? 0,
@@ -1491,7 +1500,7 @@ function addMartDexSources(project: ProjectState, out: Record<string, Record<str
   }
 }
 
-function buildFormattedTrainerSets(project: ProjectState): Record<string, Record<string, unknown>> {
+function buildFormattedTrainerSets(project: ProjectState, itemName: (value: unknown) => string): Record<string, Record<string, unknown>> {
   if (!project.narcs.trdata || !project.narcs.trpok || !project.narcs.personal) return {};
   const docs = ensureDocs(project);
   if (Object.keys(docs.trainerDiffs).length === 0 && project.narcs.headers && project.narcs.overworlds) enrichTrainerLocations(project);
@@ -1519,8 +1528,8 @@ function buildFormattedTrainerSets(project: ProjectState): Record<string, Record
         diff: docs.trainerDiffs[String(trainerId)] ?? 0,
         ivs: { hp: iv, at: iv, df: iv, sa: iv, sd: iv, sp: iv },
         battle_type: trainer.readable.battle_type_1,
-        reward_item: showdownItemName(trainer.readable.reward_item),
-        item: showdownItemName(pok.itemName ?? "None"),
+        reward_item: itemName(trainer.readable.reward_item),
+        item: itemName(pok.itemName ?? "None"),
         gender: resolveTrainerPokemonGender(project, trainer.id, pok.slot),
         nature: pok.nature,
         moves: calcTrainerMoves(project, trainer, pok).map((move) => showdownName(move)),

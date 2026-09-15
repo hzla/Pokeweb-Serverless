@@ -5,7 +5,20 @@
       "player_names_measured": 649,
       "player_name_shift": 12,
       "player_info_shift": 8,
-      "player_icon_shift": 12,
+      "player_dual_stack_screen": [
+        [
+          -64,
+          -1
+        ],
+        [
+          -59,
+          5
+        ]
+      ],
+      "player_mono_screen": [
+        -62,
+        1
+      ],
       "player_rightmost_header_pixel": 249,
       "widest": [
         {
@@ -42,7 +55,7 @@
         }
       ],
       "minimum_screen_margin": 1,
-      "minimum_name_gap": 1,
+      "minimum_name_gap": 5,
       "rightmost_header_pixel": 113,
       "compiled_names": [
         "Charmander",
@@ -67,14 +80,27 @@
       "header_restored_on_removal": true,
       "in_place_graphics_reload": true,
       "name_gender_level_hooks_use_native_coordinates": true,
-      "release_sha256": "a4f03ef420d69da65cbe8feee3353ea2ab03de3e5b3cf3a2a3f733d532572047"
+      "release_sha256": "71acd97e5186c2c61df4ae60d2edb1a316af5a0059ff09b8d0cf04de8d698151"
     },
     "W2": {
       "species_names_measured": 649,
       "player_names_measured": 649,
       "player_name_shift": 12,
       "player_info_shift": 8,
-      "player_icon_shift": 12,
+      "player_dual_stack_screen": [
+        [
+          -64,
+          -1
+        ],
+        [
+          -59,
+          5
+        ]
+      ],
+      "player_mono_screen": [
+        -62,
+        1
+      ],
       "player_rightmost_header_pixel": 249,
       "widest": [
         {
@@ -111,7 +137,7 @@
         }
       ],
       "minimum_screen_margin": 1,
-      "minimum_name_gap": 1,
+      "minimum_name_gap": 5,
       "rightmost_header_pixel": 113,
       "compiled_names": [
         "Charmander",
@@ -136,7 +162,7 @@
       "header_restored_on_removal": true,
       "in_place_graphics_reload": true,
       "name_gender_level_hooks_use_native_coordinates": true,
-      "release_sha256": "427b24da2820a10bc29e009e85307e856a23e94a3b1e1aa7ea986b51ea0da3e3"
+      "release_sha256": "c81f2836ce7936aff9fa8ca08fe8c72e4dd0421311e7ef51aab0d36400a89233"
     }
   },
   "limitations": [

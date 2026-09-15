@@ -11,6 +11,7 @@ import {
   uninstallBattleLog,
 } from "../pokeweb/battleLogModel";
 import { parseRpm } from "../pokeweb/rpm";
+import { battleLogSaveGuard } from "../pokeweb/battleLogSaveGuard";
 import type { ProjectState } from "../pokeweb/projectStore";
 
 const white2BattleLogDll = new Uint8Array(
@@ -386,24 +387,28 @@ describe("trainer battle log", () => {
       dllInstalled: true,
       counterDllInstalled: true,
       summaryDllInstalled: true,
-      saveGuardInstalled: true,
+      saveGuardInstalled: false,
     });
 
     // v5 used server/client pointers; v6 overwrote a shared EXP tail; v7
-    // replayed level moves on KO-only checks. All need the v8 update even
+    // replayed level moves on KO-only checks; v8 lacked isolation. All need v9
     // when persistence has released the original DLL bytes.
-    for (const oldVersion of [5, 6, 7]) {
+    for (const oldVersion of [5, 6, 7, 8]) {
       project.codeInjection.battleLog!.runtimeVersion = oldVersion;
       expect(getBattleLogInstallStatus(project)).toMatchObject({
         installed: true, upToDate: false, updateAvailable: true,
       });
     }
-    project.codeInjection.battleLog!.runtimeVersion = 8;
+    project.codeInjection.battleLog!.runtimeVersion = 9;
+    project.codeInjection.battleLog!.saveGuardVersion = 1;
+    const guard = battleLogSaveGuard("W2");
+    project.arm9.set(hexBytes(guard.daily.disabledHex), guard.daily.address - 0x02004000);
+    project.codeInjection.modules!.push({path: guard.path, target: "patches", fileName: guard.filename});
     expect(getBattleLogInstallStatus(project)).toMatchObject({
       installed: true,
       upToDate: true,
       updateAvailable: false,
-      runtimeVersion: 8,
+      runtimeVersion: 9,
     });
   });
 
@@ -420,7 +425,7 @@ describe("trainer battle log", () => {
         installed: true,
         upToDate: true,
         updateAvailable: false,
-        runtimeVersion: version.endsWith("2") ? 8 : 3,
+        runtimeVersion: version.endsWith("2") ? 9 : 4,
       });
     }
   });
@@ -441,8 +446,21 @@ describe("trainer battle log", () => {
       installed: true,
       upToDate: false,
       updateAvailable: true,
-      bundledRuntimeVersion: 8,
+      bundledRuntimeVersion: 9,
     });
+  });
+
+  it("offers repair when current DLLs lack either save ownership protection", () => {
+    const project = makeProject("W2");
+    installStatusFixtures(project, "White2UpgradeBattleLog.dll", white2BattleLogDll,
+      "White2UpgradeBattleCounters.dll", white2BattleCountersDll,
+      "White2UpgradeBattleLogSummary.dll", white2BattleLogSummaryDll);
+    const guard = battleLogSaveGuard("W2");
+    delete project.fileSystem!.additions![guard.path];
+    expect(getBattleLogInstallStatus(project)).toMatchObject({installed:true,upToDate:false,updateAvailable:true,saveGuardInstalled:false});
+    project.fileSystem!.additions![guard.path] = new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${guard.filename}`, import.meta.url)));
+    project.arm9.set(hexBytes(guard.daily.expectedHex),guard.daily.address-0x02004000);
+    expect(getBattleLogInstallStatus(project)).toMatchObject({installed:true,upToDate:false,updateAvailable:true,saveGuardInstalled:false});
   });
 });
 
@@ -497,12 +515,15 @@ function installStatusFixtures(
         : "7047024b1847c046c4070000442d0802";
   project.arm9 = new Uint8Array(guardOffset + 16);
   project.arm9.set(hexBytes(disabledGuard), guardOffset);
+  const guard = battleLogSaveGuard(project.session.baseVersion as "B" | "W" | "B2" | "W2");
+  project.arm9.set(hexBytes(guard.daily.disabledHex), guard.daily.address - 0x02004000);
   project.fileSystem = {
     replacements: {},
     additions: {
       [`patches/${battleName}`]: battle,
       [`patches/${counterName}`]: counters,
       [`patches/${summaryName}`]: summary,
+      [guard.path]: new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${guard.filename}`, import.meta.url))),
       "battlelog/ancestry.narc": new Uint8Array([1]),
     },
   };

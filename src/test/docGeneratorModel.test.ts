@@ -15,6 +15,8 @@ import {
 } from "../pokeweb/docGeneratorModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT } from "../pokeweb/overworldModel";
+import { updatePokemonField } from "../pokeweb/pokemonModel";
+import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { decodeRecord, markDirty, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
 import { TYPE_CHART_OFFSET, TYPE_CHART_TYPES, updateTypeChartValue } from "../pokeweb/typeChartModel";
 
@@ -324,6 +326,57 @@ describe("docGeneratorModel", () => {
     expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].reward_item).toBe("Black Glasses");
   });
 
+  it("canonicalizes calc held items, rewards, wild items and sync without changing dex or ROM names", () => {
+    const project = makeProject();
+    project.texts.banks.items![25] = "Tera K Rock";
+    project.narcs.trdata!.rawFiles[7] = packRows(project.formats.trdata!, [
+      { template: 2, class: 1, reward_item: 25, num_pokemon: 2 },
+    ]);
+    project.trpokInfo[7].template = 2;
+    project.narcs.trpok!.rawFiles[7] = packRows(
+      [[1, "ivs"], [1, "ability"], [1, "level"], [1, "padding"], [2, "species_id"], [2, "form"], [2, "item_id"]],
+      [
+        { ivs: 255, ability: 16, level: 42, species_id: 1, item_id: 25 },
+        { ivs: 255, ability: 16, level: 43, species_id: 4, form: 1, item_id: 0 },
+      ],
+    );
+    const file = generateCalcDownload(project, "Cascade");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+    const set = payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"];
+    expect(set.item).toBe("Tera K-Rock");
+    expect(set.reward_item).toBe("Tera K-Rock");
+    expect(payload.poks.Bulbasaur.items).toEqual(["Tera K-Rock", "None", "None"]);
+    expect(Object.values(payload.item_replacements)).toContain("terakrock");
+    expect(file.itemValidation!.normalized).toContainEqual({ from: "Tera K Rock", to: "Tera K-Rock" });
+    expect(file.itemValidation!.unmatched).not.toContain("Tera K Rock");
+    expect(payload).not.toHaveProperty("itemValidation");
+
+    const bridge = generateCalcBridgePayload(project, "Cascade");
+    expect(JSON.parse(bridge.scriptText.replace(/^var backup_data = /u, "").replace(/;$/u, ""))).toEqual(payload);
+    expect(bridge.itemValidation).toEqual(file.itemValidation);
+    const [dex] = generateDexDownloads(project, "Cascade");
+    const dexPayload = JSON.parse(String(dex.contents).replace(/^overrides = /u, "").replace(/;\n$/u, ""));
+    expect(dexPayload.poks.Bulbasaur.items[0]).toBe("Tera K Rock");
+    expect(project.texts.banks.items![25]).toBe("Tera K Rock");
+  });
+
+  it("preserves and reports unknown calc item names rather than hiding them", () => {
+    const project = makeProject();
+    project.texts.banks.items![25] = "New Hack Item";
+    const file = generateCalcDownload(project, "Test");
+    const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+    expect(payload.poks.Bulbasaur.items[0]).toBe("New Hack Item");
+    expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].reward_item).toBe("New Hack Item");
+    expect(Object.values(payload.item_replacements)).toContain("newhackitem");
+    expect(file.itemValidation!.unmatched.filter((name) => name === "New Hack Item")).toEqual(["New Hack Item"]);
+  });
+
+  it("accepts sparse item banks during calc validation", () => {
+    const project = makeProject();
+    delete project.texts.banks.items![10];
+    expect(() => generateCalcDownload(project, "Test")).not.toThrow();
+  });
+
   it("preserves the HP acronym in Hidden Power move names", () => {
     const project = makeProject();
     setProjectMoves(project, [{}, { type: 1, category: 1, power: 60, accuracy: 100, pp: 15 }], ["None", "HP FIGHTING"]);
@@ -628,6 +681,70 @@ describe("docGeneratorModel", () => {
 
     expect(calcPayload.poks.Bulbasaur.abs).toEqual(["Overgrow", "None", "None", "Drought", "Chlorophyll", "Flower Gift"]);
     expect(calcPayload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].ability).toBe("Drought");
+  });
+
+  it.each([4, 5, 6])("exports migrated AI ability slot %i from current personal data, including forms and restored projects", (slot) => {
+    const project = makeProject();
+    project.codeInjection = {
+      modules: [{ path: "patches/A2_AIChanges.dll", target: "patches", fileName: "A2_AIChanges.dll" }],
+    };
+    project.patches = { dirtyOverlayIds: [], applied: { cascadePersonalData: true } };
+    const abilities = project.texts.banks.abilities!;
+    ["Intimidate", "Download", "Technician"].forEach((name, index) => { abilities[201 + index] = name; });
+    ["Snow Warning", "Huge Power", "Speed Boost"].forEach((name, index) => { abilities[211 + index] = name; });
+    const editedBaseNames = ["Regenerator", "Magic Guard", "No Guard"];
+    const editedFormNames = ["Water Absorb", "Volt Absorb", "Motor Drive"];
+    const baseIds = [231, 232, 255];
+    const formIds = [241, 242, 243];
+    editedBaseNames.forEach((name, index) => { abilities[baseIds[index]] = name; });
+    editedFormNames.forEach((name, index) => { abilities[formIds[index]] = name; });
+    project.narcs.personal!.rawFiles[1].set([201, 202, 203], 0x39);
+    project.narcs.personal!.rawFiles[4].set([201, 202, 203], 0x39);
+    project.narcs.personal!.rawFiles[5].set([211, 212, 213], 0x39); // Deoxys-Attack.
+    project.narcs.trpok!.rawFiles[7][1] = slot * 16;
+    project.narcs.trpok!.rawFiles[7][9] = slot * 16;
+
+    // Decode/export first to catch stale trainer or personal ability-name caches.
+    const initial = JSON.parse(generateCalcDownload(project, "Cascade White").contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+    expect(initial.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].ability).toBe(abilities[197 + slot]);
+    expect(initial.formatted_sets["Deoxys-Attack"]["Lvl 43 Ace Trainer Dan - Black City"].ability).toBe(abilities[207 + slot]);
+
+    updatePokemonField(project, 1, "personal", `ability_${slot}`, String(baseIds[slot - 4]));
+    updatePokemonField(project, 5, "personal", `ability_${slot}`, String(formIds[slot - 4]));
+    const checkExports = (current: ProjectState): void => {
+      const file = generateCalcDownload(current, "Cascade White");
+      const payload = JSON.parse(file.contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+      expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].ability).toBe(editedBaseNames[slot - 4]);
+      expect(payload.formatted_sets["Deoxys-Attack"]["Lvl 43 Ace Trainer Dan - Black City"].ability).toBe(editedFormNames[slot - 4]);
+      expect(payload.poks.Bulbasaur.abs[slot - 1]).toBe(editedBaseNames[slot - 4]);
+      expect(payload.poks["Deoxys-Attack"].abs[slot - 1]).toBe(editedFormNames[slot - 4]);
+      const bridge = generateCalcBridgePayload(current, "Cascade White");
+      expect(JSON.parse(bridge.scriptText.replace(/^var backup_data = /u, "").replace(/;$/u, ""))).toEqual(payload);
+    };
+    checkExports(project); // Unsaved personal edits must be exported immediately.
+
+    materializeProjectEdits(project);
+    const restored = structuredClone(project);
+    delete restored.patches!.applied!.cascadePersonalData; // Detect the durable migration marker instead.
+    for (const store of Object.values(restored.narcs)) store?.records.clear();
+    expect(restored.narcs.personal!.rawFiles[1][0x39 + slot - 4]).toBe(baseIds[slot - 4]);
+    expect(restored.narcs.personal!.rawFiles[5][0x39 + slot - 4]).toBe(formIds[slot - 4]);
+    checkExports(restored);
+  });
+
+  it("exports zero-valued migrated AI abilities without falling back to the historical Cascade table", () => {
+    const project = makeProject();
+    project.codeInjection = {
+      modules: [{ path: "patches/A2_AIChanges.dll", target: "patches", fileName: "A2_AIChanges.dll" }],
+    };
+    project.patches = { dirtyOverlayIds: [], applied: { cascadePersonalData: true } };
+    for (const slot of [4, 5, 6]) {
+      project.narcs.trpok!.rawFiles[7][1] = slot * 16;
+      project.narcs.trpok!.records.clear();
+      const payload = JSON.parse(generateCalcDownload(project, "Cascade White").contents.replace(/^backup_data = /u, "").replace(/;\n$/u, ""));
+      expect(payload.formatted_sets.Bulbasaur["Lvl 42 Ace Trainer Dan - Black City"].ability).toBe("None");
+      expect(payload.poks.Bulbasaur.abs.slice(3)).toEqual(["None", "None", "None"]);
+    }
   });
 
   it("exports edited type charts in calc backup data", () => {

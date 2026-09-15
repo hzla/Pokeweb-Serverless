@@ -1,7 +1,7 @@
 """Verify each English ROM independently and generate private address profiles.
 
-Function profiles are verified against each target binary. B2 functions are
-found by unique instruction signatures, not an address delta.
+The W2 functions were identified from REDACTED_REFERENCE call graphs/disassembly. B2
+functions are found by unique instruction signatures, not an address delta.
 """
 from pathlib import Path
 import hashlib, json, re, struct
@@ -152,43 +152,62 @@ def main():
             lines=[line for h,line in zip(hooks,wrappers) if h['name'].startswith('Move')==(module=='MoveEffectiveness')]
             (HERE/'build'/f'hooks-{module}-{game}.h').write_text('\n'.join(lines)+'\n')
         print(game, 'independently matched',len(found),'functions;',len(hooks),'hooks')
-    # Asset generation: remove opaque corners using the approved shared mask.
+    # Asset generation: compact first initials in a 12x11 point-up rhombus.
     names='Normal Fighting Flying Poison Ground Rock Bug Ghost Steel Fire Water Grass Electric Psychic Ice Dragon Dark Fairy'.split()
     manifest=json.loads((HERE/'approved-icons.json').read_text())
-    icons={v['name']:v for v in manifest['icons']}; circle=[60,126,255,255,255,255,126,60]
+    icons={v['name']:v for v in manifest['icons']}
+    patterns={
+        'N':('1001','1101','1011','1001','1001'),
+        'F':('1111','1000','1110','1000','1000'),
+        'P':('1110','1001','1110','1000','1000'),
+        'G':('0111','1000','1011','1001','0111'),
+        'R':('1110','1001','1110','1010','1001'),
+        'B':('1110','1001','1110','1001','1110'),
+        'S':('0111','1000','0110','0001','1110'),
+        # Preserve the five-pixel W approved in the circular reference.
+        'W':('10001','10001','10101','10101','01010'),
+        'E':('1111','1000','1110','1000','1111'),
+        'I':('111','010','010','010','111'),
+        'D':('1110','1001','1001','1001','1110'),
+    }
+    # The four shoulder pixels at (3,1), (8,1), (3,9), and (8,9) close the
+    # border above and below the widest inner-corner pixels.
+    outline=[96,504,1020,2046,4095,4095,4095,2046,1020,504,96]
+    fill=[0,96,504,1020,2046,2046,2046,1020,504,96,0]
     rows=[];colors=[]
     for name in names:
-        v=icons[name]; rows.append([x&m for x,m in zip(v['whiteBitsMsbLeft'],circle)])
+        v=icons[name];glyph=patterns[name[0]];left=(12-len(glyph[0]))//2
+        symbol=[0]*11
+        for y,line in enumerate(glyph,3):
+            symbol[y]=sum(2048>>x for x,bit in enumerate(line,left) if bit=='1')
+            assert not symbol[y]&~fill[y]
+        rows.append(symbol)
         rgb=bytes.fromhex(next(c[1:] for c in v['colors'] if c!='#FFFFFF'))
         colors.append(sum((c>>3)<<(5*i) for i,c in enumerate(rgb)))
-    # Add an exterior four-neighbor border; the approved 8x8 glyphs are unchanged.
-    interior={(x+1,y+1) for y,row in enumerate(circle) for x in range(8) if row&(128>>x)}
-    outer=set(interior)
-    for x,y in interior:outer.update(((x-1,y),(x+1,y),(x,y-1),(x,y+1)))
-    outline=[sum(512>>x for x in range(10) if (x,y) in outer) for y in range(10)]
-    out='// Approved 8x8 glyphs, with a 10x10 exterior outline. Outside Outline is transparent.\n'
-    out+='constexpr u8 Circle[8] = {'+','.join(map(str,circle))+'};\n'
-    out+='constexpr u16 Outline[10] = {'+','.join(map(str,outline))+'};\n'
-    out+='constexpr u8 Symbols[18][8] = {\n'+''.join('  {'+','.join(map(str,row))+'}, // '+name+'\n' for row,name in zip(rows,names))+'};\n'
+    out='// Compact first initials in a 12x11 point-up rhombus and black outline.\n'
+    out+='constexpr u16 Fill[11] = {'+','.join(map(str,fill))+'};\n'
+    out+='constexpr u16 Outline[11] = {'+','.join(map(str,outline))+'};\n'
+    out+='constexpr u16 Symbols[18][11] = {\n'+''.join('  {'+','.join(map(str,row))+'}, // '+name+'\n' for row,name in zip(rows,names))+'};\n'
     out+='constexpr u16 Colors[18] = {'+','.join(hex(v) for v in colors)+'};\n'
-    out+='static_assert(sizeof(Circle)+sizeof(Symbols)+sizeof(Colors)==188, "asset budget");\n'
+    out+='static_assert(sizeof(Fill)+sizeof(Outline)+sizeof(Symbols)+sizeof(Colors)==476, "asset budget");\n'
     backgrounds=[]
-    for n,top in ((438,14),(435,16),(444,16),(441,16)):
+    width,height,left,top=26,17,0,15
+    for n in (438,435,444,441):
         raw=(HERE/'build'/f'W2-resource-{n}.bin').read_bytes()[48:]
         assert raw==(HERE/'build'/f'B2-resource-{n}.bin').read_bytes()[48:]
-        packed=bytearray(53)
-        for y in range(10):
-            for x in range(21):
-                a,b=x+11,y+top
+        packed=bytearray((width*height+1)//2)
+        for y in range(height):
+            for x in range(width):
+                a,b=x+left,y+top
                 v=(raw[((b//8)*8+a//8)*32+(b%8)*4+(a%8)//2]>>((a&1)*4))&15
                 v=2 if v in (4,15) else v
-                assert y or v==0
-                i=y*21+x;packed[i//4]|=(0,2,3,13).index(v)<<((i&3)*2)
+                i=y*width+x;packed[i//2]|=v<<((i&1)*4)
         backgrounds.append(list(packed))
-    out+='// Verified native pixels under the enlarged area, packed in two bits.\n'
-    out+='constexpr u8 PanelBackground[4][53] = {\n'+''.join('  {'+','.join(map(str,b))+'},\n' for b in backgrounds)+'};\n'
+    out+='// Verified native x=0..25, y=15..31 pixels, packed in four bits.\n'
+    out+='constexpr u8 PanelBackground[4][221] = {\n'+''.join('  {'+','.join(map(str,b))+'},\n' for b in backgrounds)+'};\n'
     (HERE/'assets.h').write_text(out)
-    (HERE/'assets.json').write_text(json.dumps(dict(names=names,circle=circle,outline=outline,symbols=rows,rgb555=colors),indent=2)+'\n')
+    (HERE/'assets.json').write_text(json.dumps(dict(names=names,fill=fill,outline=outline,symbols=rows,rgb555=colors,
+        iconWidth=12,iconHeight=11,stackDx=5,stackDy=6,stackTop=15),indent=2)+'\n')
 if __name__=='__main__':
     main()
     from panel_expansion import generate

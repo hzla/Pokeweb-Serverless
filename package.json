@@ -8,6 +8,8 @@
     "dev:codex": "vite --mode codex-dev --host 127.0.0.1 --port 5173 --strictPort",
     "build": "tsc && vite build",
     "test": "vitest run",
+    "calc:items:sync": "node scripts/sync-calc-item-names.mjs",
+    "calc:items:check": "node scripts/sync-calc-item-names.mjs --check",
     "moveanim:helper": "vite-node scripts/move-animation-helper.ts",
     "moveanim:index": "vite-node scripts/move-animation-index.ts",
     "moveanim:docs": "vite-node scripts/generate-move-animation-docs.ts",

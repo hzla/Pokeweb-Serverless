@@ -26,7 +26,7 @@ def setpixel(data,x,y,c):
     p=((y//8)*8+x//8)*32+(y%8)*4+(x%8)//2;s=(x&1)*4
     data[p]=(data[p]&~(15<<s))|(c<<s)
 def caught_ball(data,moved):
-    left,top=(17,18) if moved else (8,8)
+    left,top=8,8
     for y in range(8):
         for x in range(8):
             c=CAUGHT_BALL[y*4+x//2]>>(4*(x&1))&15
@@ -66,25 +66,20 @@ def player_header(data):
     return origin
 
 def paint_expected(data,pair,p,t,origin=None):
-    a,b=pair;singles=t==0 and not p&1
-    if origin is None:origin=name_origin(data)
-    positions=([(origin+11,a)] if a==b else [(origin,a),(origin+11,b)]) if singles else ([(16,a)] if a==b else [(11,a),(22,b)])
-    if p&1:
-        first=min((x for y in range(16) for x in range(16,80) if header_pixel(data,x,y)),default=max(24,87-{1:60,3:64,5:60,7:56}[p]))
-        left=first-22
-        positions=[(left+11,a)] if a==b else [(left,a),(left+11,b)]
-    for kind,(left,typ) in enumerate(positions):
-        for y in range(10):
-            for x in range(10):
-                if not ASSETS['outline'][y]&(512>>x):continue
-                inside=0<x<9 and 0<y<9 and ASSETS['circle'][y-1]&(128>>(x-1))
-                white=inside and ASSETS['symbols'][typ][y-1]&(128>>(x-1))
+    del t,origin
+    a,b=pair
+    anchor={1:60,3:64,5:60,7:56}.get(p)
+    base=65-anchor if anchor is not None else 0
+    positions=[(base+2,17,a)] if a==b else [(base,15,a),(base+5,21,b)]
+    for kind,(left,top,typ) in enumerate(positions):
+        for y in range(ASSETS['iconHeight']):
+            for x in range(12):
+                mask=2048>>x
+                if not ASSETS['outline'][y]&mask:continue
+                inside=ASSETS['fill'][y]&mask
+                white=inside and ASSETS['symbols'][typ][y]&mask
                 color=1 if white else (4 if kind==0 else 15) if inside else 2
-                if singles:
-                    xx,yy=left+x,2+y
-                    at=2048+((yy//8)*4+xx//8)*32+(yy%8)*4+(xx%8)//2;shift=(xx&1)*4
-                    data[at]=(data[at]&~(15<<shift))|(color<<shift)
-                else:setpixel(data,left+x,(6 if p&1 else 14 if t<2 else 16)+y,color)
+                setpixel(data,left+x,top+y,color)
 def normalized(data): return bytes((2 if v&15 in (4,15) else v&15)|((2 if v>>4 in (4,15) else v>>4)<<4) for v in data)
 def blend(c,t,e):
     return sum((((c>>s)&31)+(((((t>>s)&31)-((c>>s)&31))*e)>>4))<<s for s in (0,5,10))
@@ -207,7 +202,7 @@ class Harness:
         if p&1:enemy_header(expected,p)
         elif t==0:origin=player_header(expected)
         if not status:paint_expected(expected,pair,p,t,origin)
-        if p&1 and p in self.caught:caught_ball(expected,True)
+        if p&1 and p in self.caught:caught_ball(expected,False)
         assert self.image(p,t)==expected,(self.game,p,pair,t,status,self.c.mem_read(self.state+360,1)[0])
         assert self.c.mem_read(self.state+360,1)[0]==0,('runtime compatibility failure',self.c.mem_read(self.state+360,1)[0])
     def setfade(self,bank,target,evy):
@@ -222,17 +217,25 @@ def test(game):
     h=Harness(game);checks=[]
     approved={v['name']:v for v in json.loads((HERE/'approved-icons.json').read_text())['icons']}
     assert ASSETS['names']=='Normal Fighting Flying Poison Ground Rock Bug Ghost Steel Fire Water Grass Electric Psychic Ice Dragon Dark Fairy'.split()
-    assert ASSETS['circle']==[60,126,255,255,255,255,126,60]
-    interior={(x+1,y+1) for y,row in enumerate(ASSETS['circle']) for x in range(8) if row&(128>>x)}
-    outlined=set(interior)
-    for x,y in interior:outlined.update(((x-1,y),(x+1,y),(x,y-1),(x,y+1)))
-    assert len(outlined)==76 and ASSETS['outline']==[sum(512>>x for x in range(10) if (x,y) in outlined) for y in range(10)]
+    assert ASSETS['fill']==[0,96,504,1020,2046,2046,2046,1020,504,96,0]
+    assert ASSETS['outline']==[96,504,1020,2046,4095,4095,4095,2046,1020,504,96]
+    assert ASSETS['iconWidth']==12 and ASSETS['iconHeight']==11 and ASSETS['stackDx']==5 and ASSETS['stackDy']==6 and ASSETS['stackTop']==15
+    assert sum(bool(row&(2048>>x)) for row in ASSETS['outline'] for x in range(12))==88
+    assert all(ASSETS['outline'][y]&(2048>>x) for x,y in ((3,1),(8,1),(3,9),(8,9)))
+    assert all(not symbol[y]&~ASSETS['fill'][y] for symbol in ASSETS['symbols'] for y in range(11))
+    assert sum(bool(row&(2048>>x)) and y!=6 and not (y in (1,9) and x in (3,8))
+               for y,row in enumerate(ASSETS['outline']) for x in range(12))==72
+    # Water uses the exact five-wide W from the approved circular reference.
+    assert ASSETS['symbols'][10][3:8]==[272,272,336,336,160]
+    assert all(not symbol[0] and not symbol[1] and not symbol[2] for symbol in ASSETS['symbols'])
+    assert all(not symbol[7]&(2048>>x) or ASSETS['fill'][8]&(2048>>x)
+               for symbol in ASSETS['symbols'] for x in range(12))
     for name,rows,color in zip(ASSETS['names'],ASSETS['symbols'],ASSETS['rgb555']):
         icon=approved[name]
-        assert rows==[v&m for v,m in zip(icon['whiteBitsMsbLeft'],ASSETS['circle'])]
+        assert any(rows)
         rgb=bytes.fromhex(next(c[1:] for c in icon['colors'] if c!='#FFFFFF'))
         assert color==sum((c>>3)<<(5*i) for i,c in enumerate(rgb))
-    checks.append('approved symbols and source RGB colors independently match the type-ID table and circle mask')
+    checks.append('all 18 compact first initials, exact five-pixel Water W, source RGB colors and 12x11 point-up rhombus masks match')
     # Regression: packing IDs into three bits silently dropped the user's
     # enemy ID 12 as soon as creation tried to validate its binding.
     for battler_id in range(24):
@@ -249,10 +252,9 @@ def test(game):
             for pair in ((a,a),(a,(a+1)%18)):
                 h.add(p,pair,t);h.check(p,pair,t)
         h.invoke('Del',G,p)
-    checks.append('all 18 original glyphs inside one-pixel outlines; 21x10 dual footprint, one-pixel gap, centered mono and transparent corners on both layouts')
-    # The native caught marker occupies the first icon's new header slot. Its
-    # own 8x8 art already has a dark outline and a <=6px red/white interior;
-    # move it to the old lower-panel monotype center without allocating art.
+    checks.append('all 18 lowered initials have a full colored row beneath them inside fully outlined 12x11 rhombuses; dual types use a 5px-right/6px-down 17x17 stack and monotypes retain their raised position')
+    # The native caught marker remains in its original header slot while the
+    # type stack occupies the left edge of the lower panel.
     native_parts=(HERE/'build'/f'{game}-resource-434.bin').read_bytes()[48:]
     assert native_parts[0x1b*32:0x1c*32]==CAUGHT_BALL
     for p,t in ((1,0),(3,1),(5,2)):
@@ -264,7 +266,7 @@ def test(game):
         # Reproduce a native image reload with the marker back in tile 9.
         caught_h.c.mem_write(0x06400000+p*0x1000,bytes(image));caught_h.invoke('Main',G);caught_h.check(p,(9,2),t)
         caught_h.invoke('Del',G,p);assert caught_h.image(p,t)==bytes(image)
-    checks.append('native 8x8 caught Poké Ball moved to the old type-icon center; type icons, all statuses, reload and removal preserve it in every enemy layout')
+    checks.append('native 8x8 caught Poké Ball remains in its header slot; type icons, all statuses, reload and removal preserve it in every enemy layout')
     # The number sprite shares the panel palette but has a separate image proxy.
     # Palette index 4 is its slash shadow; white/gray strokes are indices 1/14.
     slash=[v>>s&15 for v in h.hpRaw[96:128] for s in (0,4)]
@@ -424,7 +426,7 @@ def test(game):
         h.invoke('NameDraw',G,G+0x40+p*0x84,0x2273000);h.check(p,(10,10),t)
         h.invoke('Status',G,1,p);h.check(p,(10,10),t,status=True)
         h.c.hook_del(hook)
-    checks.append('player singles name shifts +12 and gender/level +8; other player headers unchanged; enemy spacing, transparent corners, statuses and native name redraws preserve text')
+    checks.append('player singles name shifts +12 and gender/level +8; stacked rhombuses, transparent corners, statuses and native name redraws preserve panel text')
     h=Harness(game)
     # Incompatible layout must produce a diagnostic with zero unsafe writes.
     h.addReset=False;h.c.mem_write(0x06401000,b'\0'*2048);h.writes.clear();h.add(1)

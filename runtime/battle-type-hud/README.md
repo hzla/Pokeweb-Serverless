@@ -1,6 +1,6 @@
 # Type Icons and Move Effectiveness Preview
 
-Bundle 0.4.11 (Type Icons 0.3.11; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
+Bundle 0.4.16 (Type Icons 0.3.16; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
 Pokeweb's **Code Injection** page has two independent entries:
 
 - **Type Icons** → `TypeIconsB2.dll` / `TypeIconsW2.dll`.
@@ -20,74 +20,44 @@ independently. Pokeweb cannot yet delete an original ROM file.
 
 ## Type icons
 
-- Player, partner and enemy panels in singles, doubles and triples use the
-  approved 8×8 glyphs inside a one-pixel exterior outline: 10×10 overall.
-  Duplicate types collapse to one icon. Two icons occupy 21×10,
-  including a one-pixel gap between their outlines.
-- Enemy icons sit before the name, with their bottom outline aligned to the
-  name border. At resting singles/doubles/triples positions, dual icons leave
-  at least one pixel at the left screen edge, one between icons and one before
-  the name. Monotypes align nearest the name. The name moves right only as
-  needed; gender/level move only when necessary to retain a clear text gap.
-  All 649 retail English species names fit, including level 100. The widest
-  names advance 50 pixels in the native battle font. No glyphs are shortened.
-- Enemy icons and shifted text reuse the native 128x16 header inside its
-  existing two pieces; no enemy resource, VRAM or OAM expansion is needed.
-  The lower panel and HP bar retain their native positions and pixels.
-  Native name/gender/level hooks restore original text coordinates before
-  drawing, then apply the new spacing. Unsupported overflowing text fails
-  before translation. Normal panel entrance/movement animations are retained.
-- In wild battles, the native already-caught Poké Ball moves out of the header
-  icon area to the center of the former lower-panel monotype position. The
-  game-provided 8x8 marker already has a near-black outline and a red/white
-  interior no wider than six pixels, so its pixels and native palette entries
-  are reused unchanged. Version 0.3.11 lowers it one pixel from the initial
-  relocated position. The marker remains visible when a status hides the
-  type icons and returns to its native tile before panel teardown.
-- Compact player icons retain (-53,0)/(-42,0), or (-48,0) for a monotype;
-  regular doubles player icons retain y=-2 and centered monotypes.
-- Player singles icons now sit immediately left of the name at y=-10. Their
-  bottom outline aligns with the native name border at y=-1. The
-  21x10 dual pair leaves two clear pixels before the rendered name; a monotype
-  is right-aligned in that space. Native short/long name indents are detected
-  from their pixels. Relative to 0.3.8, player singles name and icons move
-  12 pixels right, while gender and all level graphics move eight pixels
-  right. Their vertical positions and the HP/EXP panel remain unchanged.
-  Native text callbacks receive the original coordinates before translation.
-- The installer expands regular-player NCGR member 438 by 256 transparent
-  bytes and NCER member 439 by eight bytes. One 32x16 OAM piece at (-68,-12)
-  expands the sprite boundary leftward. Doubles shares those resources but
-  leaves the added piece transparent. The original pieces and art are intact.
-  Pokeweb and install.py apply the matching resource edits; installing only
-  this DLL into an unexpanded ROM suppresses player icons with failure 2.
-  Reinstall is idempotent; the verified older expansion at (-80,-12) migrates
-  in place. Staged uninstall restores the native resources.
-- Doubles/triples player name and level graphics retain their original positions. Icons paint over
-  overlapping name pixels on the existing doubles layout. A name-redraw hook restores the saved text before
-  the native draw, then paints icons last. The backup preserves letters and
-  shadows so status labels can hide the entire icon without erasing the name.
-  The static Lv. shape requirement is removed.
-- Corners outside the outlined circle and the gap preserve the native panel.
-  The outline uses existing near-black index 2 (RGB555 0x0842). Native shadow
-  pixels using palette indices 4/15 become index 2; the reclaimed entries hold
-  type colors, and index 1 supplies white.
-- The player's HP-number sprite shares that palette. Its slash's index-4 shadow is also
-  remapped to index 2, fixing color bleed. White/gray slash strokes and all digit
-  tiles stay intact. Independent number-image reloads are detected. Enemy
-  icons do not require an HP-number sprite or validate its unused image.
-- Native status labels hide the icons. Clearing a status restores current
-  typing. The native effective-type helper includes temporary changes and
-  Roost and Reflect Type; custom Protean works when it updates the normal client
-  battle-type fields. Illusion uses cached disguise typing until it breaks.
-- Bindings come from the battler passed to gauge creation. Removal, rebinding,
-  native graphics reloads and resource teardown are intercepted. Six fixed
-  records cover all battlers; the existing sprites retain movement and fades.
-  Version 0.3.3 retains the full native battler ID byte: client/party IDs are
-  independent of panel position. The previous three-bit field truncated enemy
-  ID 12 to 4, clearing its binding before drawing. Existing record padding
-  accommodates the full ID without adding writable state.
-- Rotation **icons** and Pokéstar-specific layouts remain outside this version.
-  The separate rotation move-name preview is supported.
+- Player, partner and enemy panels in singles, doubles and triples use 12×11
+  point-up rhombuses with a one-pixel near-black outline, a type-colored center
+  and a compact white first initial. Four shoulder pixels complete the black
+  enclosure around the color fill. Every initial is lowered one pixel and has a full row of color beneath it; Water
+  uses the requested five-pixel-wide W. Duplicate types collapse to one centered rhombus.
+- Dual types form a 17×17 diagonal stack: the second rhombus begins five pixels
+  right and six pixels below the first. The stack overlaps the left edge of
+  the existing HUD graphics. It is painted in the native 128×32 image, so all
+  corners outside each rhombus preserve the pixels beneath them.
+- Enemy placement is adjusted for the singles, both doubles, and all three
+  triples anchors. The leftmost painted screen pixel is always x=1; the closest
+  rendered name begins at least five clear pixels after the stack. All 649
+  retail English species names fit at level 100. Native name, gender, and level
+  callbacks still draw at their original coordinates before spacing is applied.
+- Player singles keeps the established name shift of 12 pixels and the
+  gender/level shift of eight pixels. The dual stack begins at sprite-local
+  (-64,-1) and (-59,5); a monotype begins at (-62,1), one pixel above its former position. Compact player panels use
+  the same diagonal geometry in their existing 128×32 graphics.
+- The installer retains the earlier regular-player NCGR/NCER expansion for
+  upgrade compatibility: 256 transparent bytes and one transparent 32×16 OAM
+  piece. The rhombuses themselves now paint only inside the native pieces.
+  Reinstall remains idempotent and staged uninstall restores native resources.
+- The native 8×8 already-caught Poké Ball remains untouched in its original
+  header slot. Enemy header translation begins immediately after that slot, so
+  the patch no longer clears, copies, redraws, or validates the marker raster.
+- The outline uses existing near-black index 2. Native shadow pixels using
+  palette indices 4/15 become index 2; those reclaimed entries hold the two
+  type colors and index 1 supplies white. The player's separate HP-number slash
+  receives the same shadow remap, preventing palette color bleed.
+- Native status labels hide the rhombuses. Clearing a status redraws the current
+  effective typing. Temporary type changes, Roost, Reflect Type, and compatible
+  Protean implementations are read from live battle state. Illusion uses cached
+  disguise typing until it breaks.
+- Bindings use the battler passed to gauge creation. Switching, rebinding,
+  graphics reloads, and resource teardown restore saved pixels before reuse.
+  Six fixed records cover all visible battlers. Unchanged frames do no video
+  writes. Rotation icons and Pokéstar-specific layouts remain outside this
+  version; the separate rotation move-name preview is supported.
 
 ## Move colors
 
@@ -153,34 +123,31 @@ Both games have the same sizes; detailed hashes are in `reports/memory-report.js
 
 | Component | Type Icons release | Move Preview release |
 |---|---:|---:|
-| DLL on disk | 7,536 B | 3,504 B |
-| Code and constants | 6,568 B | 2,948 B |
+| DLL on disk | 7,824 B | 3,504 B |
+| Code and constants | 6,840 B | 2,948 B |
 | Fixed writable state | 364 B | 20 B |
-| Expanded RPM metadata/padding | 964 B | 568 B |
-| Expanded RPM allocation | 7,904 B | 3,536 B |
-| Retained RPM allocation after internal fixups | 7,688 B | 3,440 B |
-| Estimated PMC peak including bookkeeping | 8,024 B | 3,656 B |
-| Estimated PMC retained including bookkeeping | 7,808 B | 3,560 B |
+| Expanded RPM metadata/padding | 988 B | 568 B |
+| Expanded RPM allocation | 8,192 B | 3,536 B |
+| Retained RPM allocation after internal fixups | 7,960 B | 3,440 B |
+| Estimated PMC peak including bookkeeping | 8,312 B | 3,656 B |
+| Estimated PMC retained including bookkeeping | 8,080 B | 3,560 B |
 
-Installing both totals 384 writable bytes and approximately 11,368 retained
+Installing both totals 384 writable bytes and approximately 11,640 retained
 PMC bytes. Move Preview 0.4.0 adds approximately 768 retained PMC bytes compared with
 Move Preview 0.3.0, with no additional fixed state. Debug DLLs have
 identical executable code to release; full debug loader accounting is in the report.
 
-The original 188 icon-constant bytes comprise 144 symbol bytes, 36 RGB555 color
-bytes and an 8-byte shared circle. The exterior outline adds 20 constant bytes;
-the exact native caught-marker pixels add 32 constant bytes.
-There are also 212 bytes of verified panel-background patterns. Six 60-byte
-records use 24-byte background buffers. Only covered pixels need backing up:
-one bit per panel pixel, two bits for overlapping name pixels. The largest
-dual-icon backup uses 172 bits (22 bytes). Enemy and player singles transparent backgrounds need
-no saved pixels; their existing buffer stores a native-header checksum and two
-shift bytes instead. Header translation uses a 64-byte temporary row on the
-stack (112-byte compiler-reported function frame). Packed flags keep the
-state size unchanged. Icon diagnostics occupy four bytes; the separate move UI
-module occupies 20, making exactly 384 writable bytes when both are installed. The largest individual
-compiler-reported stack frame is 568 bytes, including the temporary 512-byte
-2bpp glyph copy during a screen transition. Native/nested stack use is separate.
+The 476 icon-constant bytes comprise 396 bytes of initial masks, 36 bytes
+of RGB555 colors, and 44 bytes for the fill and outline masks. Exact packed
+native background tables add 884 bytes; no caught-marker raster is embedded.
+Six 60-byte records use 24-byte background buffers. A dual stack backs up 144 variable
+covered pixels in 18 bytes; the added center row and four shoulder pixels per rhombus restore
+from the exact native background table, leaving six bytes for the native-header checksum,
+a spare byte, and text shifts. Header translation uses a 64-byte row on
+the stack. Icon diagnostics occupy four bytes; the separate move UI module uses
+20 bytes, for exactly 384 writable bytes when both are installed. The largest
+individual compiler-reported stack frame remains 568 bytes, including the
+move-preview glyph copy during a screen transition.
 
 The per-module PMC bookkeeping estimate is 36 bytes of module state, two 8-byte lists,
 four 16-byte allocator headers and four alignment bytes. Other installed
@@ -259,8 +226,8 @@ Debug DLLs retain symbols and have identical executable code. Inspect
 `gBattleTypeHud`: six 60-byte records, sticky failure at +360, wrapping binding
 count at +361, and wrapping 16-bit redraw count at +362.
 Within each icon record, flags occupy byte +56, palette bank +57,
-full battler ID +58; byte +59 holds layout in its low two bits and the singles
-icon origin in its high six bits (player singles and all enemy layouts). `gBattleMoveHud` is
+full battler ID +58; byte +59 holds layout in its low two bits and the detected
+name origin in its high six bits. `gBattleMoveHud` is
 20 bytes, with a sticky failure byte at +19. Failure codes are 1 bad pointer, 2 unsupported panel, 3 graphics
 mapping, 4 palette, 5 shared graphics/palette, 6 type ID, 7 text bitmap and
 8 occupied text palette slots. Runtime failures stop unsupported drawing;
