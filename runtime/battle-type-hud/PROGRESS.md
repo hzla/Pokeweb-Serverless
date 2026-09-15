@@ -1,20 +1,19 @@
 # Current iteration
 
-Bundle 0.4.3 contains Type Icons 0.3.3 and unchanged Move Preview 0.4.0.
-Type Icons retains the HP slash fix and one-pixel exterior outlines (10x10
-each, 21x10 with the gap). Names and levels return to their original positions;
-icons paint over overlapping text and restore it for status labels.
-The supplied captured state identified the missing enemy: its native battler ID
-12 was truncated to 4 by a three-bit record field, so validation discarded the
-binding before drawing. The full ID now occupies existing padding. A read-only
-compiled regression reproduces the old failure and verifies the new Electric
-icon against the captured gauge, using actual native getter routines.
-The name hook preserves native placement and paints icons last.
-Fixed icon state stays at 364 bytes; no sprites, palettes, VRAM or battle-heap
-allocations are added. All 14 icon hooks and 20 resources are verified for both games.
-Move Preview retains its red immunity highlighting and three color pickers.
-Both components remain independent. See README.md and VALIDATION.md.
+Bundle 0.4.16 contains Type Icons 0.3.16 and unchanged Move Preview 0.4.0.
+The native caught Poké Ball is again fully owned by the game at its original
+8×8 enemy-header coordinates. The patch no longer clears or redraws it. Header
+translation begins immediately after the marker slot, and runtime layout checks
+still validate the unused pixels before it.
 
-No in-game emulator testing for this or future battle UI work: the user tests
-manually. Build, installer and focused logic checks remain appropriate.
-No Cascade heap resizing or game-mechanics changes were made.
+The 12×11 point-up type rhombuses, 5-right/6-down dual stack, raised monotype,
+name spacing, status behavior, effective typing, Illusion, and palette handling
+are unchanged. The previous 0.3.15 DLLs are retained as installer upgrade
+fixtures.
+
+Removing the legacy marker raster and relocation path reduces each release DLL
+to 7,824 bytes and estimated retained PMC use to 8,080 bytes. Fixed state remains
+364 bytes, with no battle-heap allocations. Compiled ARM tests verify the native
+marker remains byte-identical through creation, all statuses, image reloads, and
+teardown in singles, doubles, and triples for B2 and W2. No in-game emulator
+testing was run.

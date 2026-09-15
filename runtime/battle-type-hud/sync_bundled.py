@@ -5,7 +5,7 @@ from rpm_read import read_rpm
 HERE=Path(__file__).resolve().parent
 ROOT=Path(os.environ.get('BTH_WORKSPACE_ROOT',HERE.parents[2] if HERE.parent.name=='runtime' else HERE.parents[1]))
 APP=ROOT/'Pokeweb-Serverless';ASSETS=APP/'src/assets/codeinjection';RUNTIME=APP/'runtime/battle-type-hud'
-version='0.4.11'
+version='0.4.16'
 manifest=json.loads((ASSETS/'battleTypeHudManifest.json').read_text())
 manifest['version']=version;manifest.setdefault('moveGames',{})
 memory=json.loads((HERE/'build/memory-report.json').read_text())
@@ -17,7 +17,7 @@ icon_names={'Add','AddPP','Main','Del','Release','Status','GetPfd','GetRule','Ge
 for game in ('B2','W2'):
  full=json.loads((HERE/f'profile-{game}.json').read_text())
  for module,key,state,hooks in (('TypeIcons','games',364,17),('MoveEffectiveness','moveGames',20,5)):
-  component_version='0.3.11' if module=='TypeIcons' else '0.4.0'
+  component_version='0.3.16' if module=='TypeIcons' else '0.4.0'
   name=module+game+'.dll';data=(HERE/'build'/name).read_bytes();rpm=read_rpm(data)
   assert rpm['bss']==state and len([r for r in rpm['relocations'] if r['module']!='base'])==hooks
   assert all(r['module'] in ('base','168') for r in rpm['relocations']) and all(not s['attributes']&2 for s in rpm['symbols'])
@@ -57,8 +57,12 @@ if HERE!=RUNTIME:
     shutil.copyfile(HERE/'build'/name,RUNTIME/'build'/name)
  shutil.copyfile(HERE/'build/memory-report.json',RUNTIME/'build/memory-report.json')
 (RUNTIME/'reports').mkdir(exist_ok=True)
-for name in ('memory-report.json','verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','captured-state-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json','standalone-install-verification.json'):
+for name in ('memory-report.json','verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json'):
  if (HERE/'build'/name).exists():shutil.copyfile(HERE/'build'/name,RUNTIME/'reports'/name)
+for name in ('captured-state-verification.json','standalone-install-verification.json'):
+ (RUNTIME/'reports'/name).unlink(missing_ok=True)
+ if (HERE/'build'/name).exists():
+  shutil.copyfile(HERE/'build'/name,RUNTIME/'reports'/('historical-'+name))
 for game in ('B2','W2'):
  live=HERE/'build'/f'live-{game}-split'
  for name,module in (('native-integration-0.json','TypeIcons'),('native-move-integration.json','MoveEffectiveness')):

@@ -3,33 +3,36 @@
     "placements": [
       {
         "native_name_first_x": -54,
-        "dual_left": -65,
-        "mono_left": -54,
+        "dual_left": -64,
+        "dual_second_left": -59,
+        "mono_left": -62,
         "name_shift": 12,
         "info_shift": 8,
-        "icon_shift": 12,
-        "top": -10,
-        "clearance": 2
+        "dual_top": -1,
+        "dual_second_top": 5,
+        "mono_top": 1
       },
       {
         "native_name_first_x": -48,
-        "dual_left": -59,
-        "mono_left": -48,
+        "dual_left": -64,
+        "dual_second_left": -59,
+        "mono_left": -62,
         "name_shift": 12,
         "info_shift": 8,
-        "icon_shift": 12,
-        "top": -10,
-        "clearance": 2
+        "dual_top": -1,
+        "dual_second_top": 5,
+        "mono_top": 1
       },
       {
         "native_name_first_x": -46,
-        "dual_left": -57,
-        "mono_left": -46,
+        "dual_left": -64,
+        "dual_second_left": -59,
+        "mono_left": -62,
         "name_shift": 12,
         "info_shift": 8,
-        "icon_shift": 12,
-        "top": -10,
-        "clearance": 2
+        "dual_top": -1,
+        "dual_second_top": 5,
+        "mono_top": 1
       }
     ],
     "header_translation_exact": true,
@@ -43,33 +46,36 @@
     "placements": [
       {
         "native_name_first_x": -54,
-        "dual_left": -65,
-        "mono_left": -54,
+        "dual_left": -64,
+        "dual_second_left": -59,
+        "mono_left": -62,
         "name_shift": 12,
         "info_shift": 8,
-        "icon_shift": 12,
-        "top": -10,
-        "clearance": 2
+        "dual_top": -1,
+        "dual_second_top": 5,
+        "mono_top": 1
       },
       {
         "native_name_first_x": -48,
-        "dual_left": -59,
-        "mono_left": -48,
+        "dual_left": -64,
+        "dual_second_left": -59,
+        "mono_left": -62,
         "name_shift": 12,
         "info_shift": 8,
-        "icon_shift": 12,
-        "top": -10,
-        "clearance": 2
+        "dual_top": -1,
+        "dual_second_top": 5,
+        "mono_top": 1
       },
       {
         "native_name_first_x": -46,
-        "dual_left": -57,
-        "mono_left": -46,
+        "dual_left": -64,
+        "dual_second_left": -59,
+        "mono_left": -62,
         "name_shift": 12,
         "info_shift": 8,
-        "icon_shift": 12,
-        "top": -10,
-        "clearance": 2
+        "dual_top": -1,
+        "dual_second_top": 5,
+        "mono_top": 1
       }
     ],
     "header_translation_exact": true,

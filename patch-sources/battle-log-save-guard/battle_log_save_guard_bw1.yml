@@ -1,0 +1,14 @@
+Segments:
+  - ID: 0
+    Name: ARM9
+    Type: EXECUTABLE
+Symbols:
+  - Name: SaveGuardHistory
+    Segment: 0
+    Address: 0x02009471
+  - Name: SaveGuardFriends
+    Segment: 0
+    Address: 0x02009D09
+  - Name: SaveGuardNegotiation
+    Segment: 0
+    Address: 0x02009EC9

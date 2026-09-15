@@ -1,74 +1,43 @@
 {
-  "loaded_old_code_matches": true,
-  "old_dll_sha256": "ca9b4789e6dfe4169cc8ed4834bd7d354583ed61f356a15d4c5ce647ba9a4198",
-  "captured_name_bottom": -1,
-  "captured_icon_bottom": 0,
+  "source": "compiled ARM/OAM fixtures; no game boot or frames",
   "corrected": {
     "B2": {
-      "checks": [
-        {
-          "types": [
-            7,
-            3
-          ],
-          "icon_bottom": -1,
-          "name_bottom": -1,
-          "name_shift": 12,
-          "info_shift": 8,
-          "icon_shift": 12
-        },
-        {
-          "types": [
-            13,
-            13
-          ],
-          "icon_bottom": -1,
-          "name_bottom": -1,
-          "name_shift": 12,
-          "info_shift": 8,
-          "icon_shift": 12
-        }
+      "release_sha256": "71acd97e5186c2c61df4ae60d2edb1a316af5a0059ff09b8d0cf04de8d698151",
+      "dual_stack_screen": [
+        [
+          -64,
+          -1
+        ],
+        [
+          -59,
+          5
+        ]
       ],
-      "header_translation_exact": true,
-      "lower_panel_unchanged": true,
-      "unchanged_update_no_writes": true,
-      "statuses_restore": true,
-      "release_sha256": "a4f03ef420d69da65cbe8feee3353ea2ab03de3e5b3cf3a2a3f733d532572047"
+      "mono_screen": [
+        -62,
+        1
+      ],
+      "name_shift": 12,
+      "info_shift": 8
     },
     "W2": {
-      "checks": [
-        {
-          "types": [
-            7,
-            3
-          ],
-          "icon_bottom": -1,
-          "name_bottom": -1,
-          "name_shift": 12,
-          "info_shift": 8,
-          "icon_shift": 12
-        },
-        {
-          "types": [
-            13,
-            13
-          ],
-          "icon_bottom": -1,
-          "name_bottom": -1,
-          "name_shift": 12,
-          "info_shift": 8,
-          "icon_shift": 12
-        }
+      "release_sha256": "c81f2836ce7936aff9fa8ca08fe8c72e4dd0421311e7ef51aab0d36400a89233",
+      "dual_stack_screen": [
+        [
+          -64,
+          -1
+        ],
+        [
+          -59,
+          5
+        ]
       ],
-      "header_translation_exact": true,
-      "lower_panel_unchanged": true,
-      "unchanged_update_no_writes": true,
-      "statuses_restore": true,
-      "release_sha256": "427b24da2820a10bc29e009e85307e856a23e94a3b1e1aa7ea986b51ea0da3e3"
+      "mono_screen": [
+        -62,
+        1
+      ],
+      "name_shift": 12,
+      "info_shift": 8
     }
-  },
-  "limitations": [
-    "Read-only capture inspection and compiled function fixtures; no game boot or frames.",
-    "Captured native name and OAM data; native gauge creation/update use fixture stubs."
-  ]
+  }
 }

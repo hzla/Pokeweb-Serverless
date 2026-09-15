@@ -7,6 +7,10 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const root = resolve(scriptDir, "..");
 const checkOnly = process.argv.includes("--check");
 const artifacts = [
+  ...["W2", "B2", "W", "B"].map((version) => ({
+    name: `BattleLogSaveGuard${version}.dll`,
+    source: resolve(root, `../../White2Upgrade-Original-pokeweb/build-stripped/src/battle_log/BattleLogSaveGuard${version}.dll`),
+  })),
   {
     name: "White2UpgradeBattleLog.dll",
     source: resolve(

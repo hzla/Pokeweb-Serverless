@@ -13,6 +13,7 @@ import {
 } from "../pokeweb/docGeneratorModel";
 import type { NarcName } from "../pokeweb/constants";
 import type { ProjectState } from "../pokeweb/projectStore";
+import type { CalcItemValidation } from "../pokeweb/calcItemNames";
 import { escapeHtml } from "./dom";
 
 type RenderOptions = {
@@ -68,6 +69,7 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
             </button>
           </div>
           ${missingText(project, calcRequirements())}
+          <div id="calc-item-validation" aria-live="polite"></div>
         </div>
         <div class="doc-section">
           <h2>Dex Generation</h2>
@@ -136,7 +138,9 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
     runAction(status, "Generating calc data", () => {
       const title = syncTitle();
       if (!title) throw new Error("Rom Title is required.");
-      downloadFile(generateCalcDownload(project, title));
+      const file = generateCalcDownload(project, title);
+      downloadFile(file);
+      if (file.itemValidation) showCalcItemValidation(root, file.itemValidation);
       return "Downloaded calc data.";
     });
   });
@@ -146,7 +150,7 @@ export function renderDocGenerators(project: ProjectState, root: HTMLElement, op
   });
 
   syncCalcButton?.addEventListener("click", () => {
-    syncCalc(project, status, syncTitle);
+    syncCalc(project, status, syncTitle, root);
   });
 
   dexButton?.addEventListener("click", () => {
@@ -243,7 +247,7 @@ function openCalc(status: HTMLElement | null): boolean {
   return true;
 }
 
-function syncCalc(project: ProjectState, status: HTMLElement | null, syncTitle: () => string): boolean {
+function syncCalc(project: ProjectState, status: HTMLElement | null, syncTitle: () => string, root: HTMLElement): boolean {
   const title = syncTitle();
   if (!title) {
     setCalcBridgeStatus("Rom Title is required.", status);
@@ -251,6 +255,7 @@ function syncCalc(project: ProjectState, status: HTMLElement | null, syncTitle: 
   }
 
   const syncPayload = generateCalcBridgePayload(project, title);
+  showCalcItemValidation(root, syncPayload.itemValidation);
   if (!calcBridgeState.calcWindow || calcBridgeState.calcWindow.closed) {
     calcBridgeState.calcReady = false;
     calcBridgeState.calcWindow = null;
@@ -281,7 +286,9 @@ function postCalcBridgePayload(payload: CalcBridgePayload): boolean {
     setCalcBridgeStatus("Open Calc first.");
     return false;
   }
-  calcBridgeState.calcWindow.postMessage(payload, getCalcBridgeOrigin());
+  // Validation is local UI metadata, not a change to the calc bridge protocol.
+  const { itemValidation: _itemValidation, ...message } = payload;
+  calcBridgeState.calcWindow.postMessage(message, getCalcBridgeOrigin());
   return true;
 }
 
@@ -313,6 +320,17 @@ function isLocalPokeweb(): boolean {
 function setCalcBridgeStatus(message: string, status: HTMLElement | null = activeBridgeStatus): void {
   calcBridgeState.status = message;
   if (status) status.textContent = message;
+}
+
+function showCalcItemValidation(root: HTMLElement, report: CalcItemValidation): void {
+  const target = root.querySelector<HTMLElement>("#calc-item-validation");
+  if (!target) return;
+  target.innerHTML = `
+    <details>
+      <summary>Calc items: ${report.normalized.length} spelling(s) normalized; ${report.unmatched.length} unrecognized name(s).</summary>
+      ${report.normalized.length ? `<p>Normalized: ${report.normalized.map(({ from, to }) => `${escapeHtml(from)} → ${escapeHtml(to)}`).join("; ")}</p>` : ""}
+      ${report.unmatched.length ? `<p>Not found in the calculator item catalog; preserved unchanged (some may be non-held items): ${report.unmatched.map(escapeHtml).join("; ")}. These need an entry in the calculator to be usable as held items.</p>` : ""}
+    </details>`;
 }
 
 function runAction(status: HTMLElement | null, pending: string, action: () => string): void {

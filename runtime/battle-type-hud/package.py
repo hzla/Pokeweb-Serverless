@@ -2,7 +2,7 @@
 from pathlib import Path
 import hashlib,json,shutil,zipfile
 HERE=Path(__file__).resolve().parent
-VERSION='0.4.11'
+VERSION='0.4.16'
 def sha(data):return hashlib.sha256(data).hexdigest()
 def main():
     memory=json.loads((HERE/'build/memory-report.json').read_text())
@@ -31,8 +31,10 @@ def main():
                 files[f'reports/{game}-{name}']=path
         if f'reports/{game}-native-move-integration.json' in files:
             for name in ('screen.png','move-colors.png'):files[f'previews/{game}-{name}']=live/name
-    for name in ('memory-report.json','verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','captured-state-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json','standalone-install-verification.json'):
+    for name in ('memory-report.json','verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json'):
         files['reports/'+name]=HERE/'build'/name
+    for name in ('captured-state-verification.json','standalone-install-verification.json'):
+        files['reports/historical-'+name]=HERE/'build'/name
     for path in (HERE/'build/icons').glob('*.png'):files['previews/icons/'+path.name]=path
     manifest={name:dict(bytes=p.stat().st_size,sha256=sha(p.read_bytes())) for name,p in sorted(files.items())}
     target=dist/f'BattleHudPatches-{VERSION}.zip'

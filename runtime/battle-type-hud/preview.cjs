@@ -5,16 +5,17 @@ try { ({PNG}=require('pngjs')); }
 catch { ({PNG}=require('../../Pokeweb-Serverless/node_modules/pngjs')); }
 const a=JSON.parse(fs.readFileSync(path.join(__dirname,'assets.json')));
 const out=path.join(__dirname,'build','icons');fs.mkdirSync(out,{recursive:true});
-const sheet=new PNG({width:6*14,height:3*14});
+const iw=a.iconWidth,ih=a.iconHeight,cellW=iw+4,cellH=ih+4;
+const sheet=new PNG({width:6*cellW,height:3*cellH});
 for(let t=0;t<18;t++){
-  const p=new PNG({width:10,height:10}),color=a.rgb555[t];
-  for(let y=0;y<10;y++)for(let x=0;x<10;x++){
-    const i=(y*10+x)*4,visible=a.outline[y]&(512>>x);
-    const inside=x>0&&x<9&&y>0&&y<9&&(a.circle[y-1]&(128>>(x-1)));
-    const white=inside&&(a.symbols[t][y-1]&(128>>(x-1)));
+  const p=new PNG({width:iw,height:ih}),color=a.rgb555[t];
+  for(let y=0;y<ih;y++)for(let x=0;x<iw;x++){
+    const i=(y*iw+x)*4,mask=2048>>x,visible=a.outline[y]&mask;
+    const inside=a.fill[y]&mask;
+    const white=inside&&(a.symbols[t][y]&mask);
     for(let c=0;c<3;c++)p.data[i+c]=!inside?16:white?247:Math.round(((color>>(c*5))&31)*255/31);
     p.data[i+3]=visible?255:0;
-    const j=(((t/6|0)*14+y+2)*sheet.width+(t%6)*14+x+2)*4;
+    const j=(((t/6|0)*cellH+y+2)*sheet.width+(t%6)*cellW+x+2)*4;
     p.data.copy(sheet.data,j,i,i+4);
   }
   fs.writeFileSync(path.join(out,a.names[t].toLowerCase()+'.png'),PNG.sync.write(p));

@@ -187,7 +187,7 @@ describe("Battle HUD bundled installer", () => {
     expect(getMoveEffectivenessStatus(p)).toMatchObject({ installed: true, updateAvailable: false, dllPath: "patches/OldPreview.dll" });
     expect(p.fileSystem!.additions!["patches/TypeIconsW2.dll"]).toEqual(icons);
   });
-  it.each(["0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.3.7", "0.3.8", "0.3.9", "0.3.10"])("updates imported %s icons without touching customized move colors", async version => {
+  it.each(["0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.3.7", "0.3.8", "0.3.9", "0.3.10", "0.3.11", "0.3.12", "0.3.13", "0.3.14", "0.3.15"])("updates imported %s icons without touching customized move colors", async version => {
     const p = project("W2"); assets();
     const colors = { superEffective: "#00ff00", notVeryEffective: "#0000ff", immune: "#ff00ff" };
     await installMoveEffectiveness(p, colors);
