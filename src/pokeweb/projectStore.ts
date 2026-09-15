@@ -295,6 +295,8 @@ export type ProjectState = {
   /** Small ROM-backed archive retained when autosave releases originalRomBytes. */
   koMoveLearnsetSource?: { fileId: number; bytes: Uint8Array };
   trainerLocationTables?: import("./trainerLocationModel").TrainerLocationTables;
+  /** Cascade DLLs and migration markers retained when autosave releases the ROM. */
+  cascadePersonalSources?: Record<string, { fileId: number; bytes: Uint8Array }>;
   codeInjection?: CodeInjectionState;
   overworldWeather?: OverworldWeatherState;
   pwanAnimations?: PwanAnimationState;

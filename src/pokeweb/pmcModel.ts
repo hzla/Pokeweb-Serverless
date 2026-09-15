@@ -308,7 +308,10 @@ export async function installBundledOverworldWeatherRuntime(project: ProjectStat
   }
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the ROM before installing the overworld weather runtime.");
-  if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  if (!getPmcInstallStatus(project).installed) {
+    adoptExistingPmcInstall(project, romBytes);
+    if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  }
 
   const response = await fetch(OVERWORLD_WEATHER_RUNTIME_W2_URL);
   if (!response.ok) throw new Error(`Could not load bundled overworld weather runtime (${response.status})`);
@@ -336,6 +339,34 @@ export async function installBundledOverworldWeatherRuntime(project: ProjectStat
     { key: "code-injection:overworld-weather" },
   );
   return result;
+}
+
+/**
+ * Restore missing serialized PMC state from the loaded ROM before a feature
+ * considers installing Pokeweb's bundled runtime. Older CTRMap/PMC installs
+ * commonly keep the overlay binary in an anonymous FAT slot referenced only
+ * by the overlay table, so the marker and overlay row are authoritative; do
+ * not replace that installation merely because it lacks Pokeweb's overlay
+ * filename.
+ */
+function adoptExistingPmcInstall(project: ProjectState, romBytes: Uint8Array): boolean {
+  const detected = detectPmcInstallFromRom(new NintendoDSRom(romBytes));
+  if (!detected?.pmc) return false;
+
+  const existingModules = project.codeInjection?.modules ?? [];
+  const modules = [...(detected.modules ?? [])];
+  for (const module of existingModules) {
+    const index = modules.findIndex((candidate) => candidate.path.toLowerCase() === module.path.toLowerCase());
+    if (index === -1) modules.push(module);
+    else modules[index] = module;
+  }
+
+  project.codeInjection = {
+    ...project.codeInjection,
+    pmc: detected.pmc,
+    modules: modules.length > 0 ? modules : undefined,
+  };
+  return true;
 }
 
 export async function syncBundledOverworldWeatherRegistry(project: ProjectState): Promise<void> {
@@ -461,6 +492,63 @@ export function getPmcInstallStatus(project: ProjectState): PmcInstallStatus {
     gameId: state?.gameId,
     message: `PMC is staged on overlay ${overlayId}.`,
   };
+}
+
+/**
+ * Explain the destructive parts of replacing an existing PMC installation
+ * when its ROM layout was not produced by Pokeweb's current installer. This
+ * includes the anonymous overlay FAT slot used by CTRMap/Cascade projects.
+ */
+export function getPmcUpdateConfirmationMessage(project: ProjectState, romBytes: Uint8Array): string | undefined {
+  const rom = new NintendoDSRom(romBytes);
+  const overlayId = readPmcOverlayId(project, rom);
+  if (overlayId === undefined) return undefined;
+
+  const expectedPath = overlayPathForId(overlayId);
+  // A PMC staged by the current project has not reached the source ROM yet,
+  // but its eventual layout is already known and does not need this warning.
+  if (project.fileSystem?.additions?.[expectedPath]) return undefined;
+
+  const entry = findOverlayEntry(rom.arm9OverlayTable, overlayId);
+  const expectedFileId = rom.filenames.idOf(expectedPath);
+  const reasons: string[] = [];
+  let currentLayout = `Overlay ${overlayId}`;
+
+  if (entry === undefined) {
+    reasons.push(`The marker names overlay ${overlayId}, but that overlay has no ARM9 overlay-table row.`);
+  } else {
+    const fileSize = readU32(rom.arm9OverlayTable, entry + 8);
+    const bssSize = readU32(rom.arm9OverlayTable, entry + 12);
+    const fileId = readU32(rom.arm9OverlayTable, entry + 24);
+    const sourcePath = listNamedRomFiles(rom.filenames).find((file) => file.id === fileId)?.path;
+    currentLayout = `Overlay ${overlayId} currently loads from ${sourcePath ? `“${sourcePath}”` : `anonymous NitroFS file ${fileId}`} and declares ${hex(fileSize)} file-backed bytes plus ${hex(bssSize)} BSS bytes.`;
+    if (expectedFileId !== fileId) {
+      reasons.push(expectedFileId === undefined
+        ? `The current PMC executable is not stored at “${expectedPath}”.`
+        : `The overlay row uses file ${fileId}, while “${expectedPath}” is file ${expectedFileId}.`);
+    }
+    if (fileSize + bssSize !== PMC_OVERLAY_RESERVED_SIZE) {
+      reasons.push(`Its declared memory range is ${hex(fileSize + bssSize)}, not Pokeweb’s ${hex(PMC_OVERLAY_RESERVED_SIZE)} reserved range.`);
+    }
+  }
+
+  if (reasons.length === 0) return undefined;
+  return [
+    "Existing external/legacy PMC layout detected.",
+    "",
+    currentLayout,
+    ...reasons.map((reason) => `• ${reason}`),
+    "",
+    "Updating PMC in Pokeweb will:",
+    `• Replace the PMC executable and ${PMC_SYMBOL_PATH} with Pokeweb’s bundled runtime.`,
+    "• Reapply PMC hooks to ARM9 and target overlays and recalculate the heap-start patch.",
+    `• Write the PMC executable at “${expectedPath}” and reserve ${hex(PMC_OVERLAY_RESERVED_SIZE)} bytes for its overlay.`,
+    "• Keep existing files under patches/ and lib/, but compatibility with the replaced PMC cannot be guaranteed.",
+    "",
+    "This is a replacement, not a merge or repair, and is not required to install the Overworld Weather Runtime.",
+    "",
+    "Continue with Update PMC?",
+  ].join("\n");
 }
 
 export function stageCodeInjectionDll(
