@@ -1,4 +1,25 @@
-# Validation — Type Icons 0.3.16 / bundle 0.4.16
+# Validation — selectable Type Icons / bundle 0.4.17
+
+Pokeweb bundles lettered Type Icons 0.3.17 and Circular Icons 0.3.17-circular
+for both English B2 and W2. The Type Icons card displays both 18-icon sheets and
+a checkbox chooses the DLL installed at the existing Type Icons path. Export,
+reimport, detection, reinstall, and switching in either direction retain one
+icon module and one set of hooks.
+
+The circular build uses the original approved 8×8 white symbols in 10×10
+outlined circles, centered in the shared 12×11 logical footprint. Both variants
+use the current 5-right/6-down diagonal stack and preserve the native caught
+Poké Ball in its header slot. Circular compiled-ARM checks cover all 18 type IDs,
+mono/dual rendering, every player and enemy panel slot, all six statuses, live
+type changes, unchanged-frame write suppression, and byte-exact teardown in B2
+and W2.
+
+The lettered DLL is 7,824 bytes with about 8,080 retained PMC bytes. The circular
+DLL is 7,840 bytes with about 8,096 retained PMC bytes. Both retain 364 bytes of
+fixed state and add no battle-heap allocations, sprites, palette banks, or
+additional graphics allocations. No game boot or emulator frames were executed.
+
+# Historical validation — Type Icons 0.3.16 / bundle 0.4.16
 
 The caught Poké Ball remains at its native 8×8 enemy-header coordinates and is
 never cleared, copied, or repainted by the patch. Enemy text translation starts

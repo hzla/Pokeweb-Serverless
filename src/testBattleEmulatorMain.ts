@@ -78,10 +78,11 @@ type TestBattleEmulatorSettings = {
   audioVolume: number;
 };
 
+const TITLE_PREVIEW = new URLSearchParams(window.location.search).get("mode") === "title";
 const DESMOND_INITIAL_MEMORY = 1024 * 1024 * 1024;
 const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-06-27-savestate";
-const TEST_BATTLE_EMULATOR_SETTINGS_STORAGE_KEY = "pokeweb.testBattleEmulator.settings.v1";
-const DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER = 4;
+const TEST_BATTLE_EMULATOR_SETTINGS_STORAGE_KEY = TITLE_PREVIEW ? "pokeweb.titleEmulator.settings.v1" : "pokeweb.testBattleEmulator.settings.v1";
+const DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER = TITLE_PREVIEW ? 1 : 4;
 const MIN_TEST_BATTLE_SPEED_MULTIPLIER = 0.05;
 const MAX_TEST_BATTLE_SPEED_MULTIPLIER = 8;
 const DEFAULT_TEST_BATTLE_AUDIO_VOLUME = 0;
@@ -143,7 +144,18 @@ let lastOpponentStatsPollAt = -Infinity;
 let lastOpponentBattleMainAddress: number | undefined;
 let lastOpponentPanelKey = "";
 
-setStatus("Waiting for battle data...");
+if (TITLE_PREVIEW) {
+  document.title = "Pokeweb Title Screen Preview";
+  document.body.classList.add("title-preview");
+  const heading = status?.querySelector("strong");
+  if (heading) heading.textContent = "Title Screen Preview";
+  document.querySelector("#pokeweb-debug-log")?.setAttribute("aria-label", "Title preview debug log");
+  const help = document.createElement("p");
+  help.id = "title-preview-help";
+  help.textContent = "The game boots normally. Enter = Start. Skip the opening movie to reach the title. Reopen Preview in game after editing assets.";
+  document.body.append(help);
+}
+setStatus(TITLE_PREVIEW ? "Waiting for title ROM…" : "Waiting for battle data...");
 shieldControlsFromEmulatorInput();
 installScreenSizeControl();
 installSpeedControl();
@@ -156,7 +168,7 @@ startReadyPings();
 
 function installMessageListener(): void {
   window.addEventListener("message", (event) => {
-    if (event.origin !== window.location.origin) return;
+    if (event.origin !== window.location.origin || event.source !== window.opener) return;
     const message = event.data as Partial<TestBattleLoadMessage>;
     if (message.type !== "pokeweb-test-battle-load" || message.sessionId !== sessionId) return;
     if (started) return;
@@ -166,13 +178,13 @@ function installMessageListener(): void {
   });
 
   window.setTimeout(() => {
-    if (!started) setError("No battle data arrived. Close this tab and try Test Battle again.");
+    if (!started) setError(TITLE_PREVIEW ? "No title ROM arrived. Close this tab and try Preview in game again." : "No battle data arrived. Close this tab and try Test Battle again.");
   }, 60000);
 }
 
 function startReadyPings(): void {
   if (!window.opener) {
-    setError("This page must be opened from the Pokeweb Test Battle button.");
+    setError(TITLE_PREVIEW ? "Open this page from the Title Screen editor’s Preview in game button." : "This page must be opened from the Pokeweb Test Battle button.");
     return;
   }
   notifyReady();
@@ -729,6 +741,7 @@ function readMainMemoryView(): Uint8Array | undefined {
 }
 
 function refreshOpponentPanel(force = false): void {
+  if (TITLE_PREVIEW) return;
   const now = performance.now();
   if (!force && now - lastOpponentStatsPollAt < OPPONENT_STATS_POLL_INTERVAL_MS) return;
   lastOpponentStatsPollAt = now;
@@ -1011,7 +1024,7 @@ function syncDesmondPlayerSize(): void {
     canvas {
       display: block;
       flex: 0 0 auto;
-      width: min(${percent}%, ${viewportWidth.toFixed(4)}vh);
+      width: min(${percent}%, ${viewportWidth.toFixed(4)}${TITLE_PREVIEW ? "cqh" : "vh"});
       height: auto;
       image-rendering: pixelated;
     }

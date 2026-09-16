@@ -5,6 +5,9 @@ import {
   loadMap3dZone,
   saveMap3dPermissionEdits,
   updateMap3dAreaMetadata,
+  updateMap3dBuilding,
+  addMap3dBuilding,
+  deleteMap3dBuilding,
   updateMap3dZoneMetadata,
   type Map3dAreaMetadata,
   type Map3dEntityOverlay,
@@ -19,6 +22,8 @@ import { buildGen4Map3dScene, ensureGen4Map3dResources, saveGen4Map3dPermissionE
 import { clampU16, formatHex16, GEN5_PERMISSION_FLAGS, gen5PermissionColorNumber } from "../pokeweb/gen5PermissionModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
+import { createMap3dBuildingInspector, pickMap3dBuilding } from "./map3dBuildingInspector";
+import type { MapGlbImport } from "../pokeweb/mapGlbImport";
 
 const PERMISSION_TILE_SIZE = 16;
 const MAP3D_VIEW_STORAGE_KEY = "pokeweb.maps3d.lastView";
@@ -44,6 +49,12 @@ type RendererState = {
   terrainGroup: THREE.Group;
   buildingGroup: THREE.Group;
   buildingBoundsGroup: THREE.Group;
+  buildingSelectionGroup: THREE.Group;
+  grid: THREE.GridHelper;
+  selectedBuildingIndex?: number;
+  isolateBuilding: boolean;
+  hideOtherBuildings: boolean;
+  onBuildingPick?: (index: number | undefined) => void;
   npcGroup: THREE.Group;
   overlayGroup: THREE.Group;
   permissionGroup: THREE.Group;
@@ -125,11 +136,17 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   let state: RendererState | undefined;
   let loadToken = 0;
   let activeData: Map3dSceneData | undefined;
+  let exporting = false;
+  let importing = false;
+  let pendingImport: MapGlbImport | undefined;
+  let lastImport: MapGlbImport | undefined;
+  const lockedControls = new Map<HTMLInputElement | HTMLSelectElement | HTMLButtonElement, boolean>();
   const dirtyPermissionEdits = new Map<string, Map3dPermissionEdit>();
 
   root.innerHTML = `
     <div class="pokemon-filter map3d-sidebar">
       <div class="filter-title">Maps</div>
+      <section id="map3d-import-review" class="map3d-building-inspector" aria-label="Review map import" hidden></section>
       <input class="filter-input" id="map3d-search" type="text" placeholder="Search zones" />
       <select class="filter-input map3d-zone-select" id="map3d-zone">
         ${zones.map((zone) => `<option value="${zone.zoneId}" ${zone.zoneId === activeZone ? "selected" : ""}>${escapeHtml(zone.label)}</option>`).join("")}
@@ -144,6 +161,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
           <option value="winter" ${activeSeason === "winter" ? "selected" : ""}>Winter</option>
         </select>
       </label>
+      <section class="map3d-building-inspector" id="map3d-building-inspector" aria-label="Building inspector"></section>
       <div class="map3d-metadata-editor">
         <strong>Zone / Area Metadata</strong>
         <div class="map3d-metadata-note">
@@ -252,13 +270,17 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
         <div class="map3d-toolbar-buttons">
           <button class="ow-tool" id="map3d-reset" type="button">Reset View</button>
           <button class="ow-tool" id="map3d-topdown" type="button">Top Down</button>
+          <button class="ow-tool" id="map3d-export" type="button" disabled title="Export the loaded map and season, including terrain, buildings, and textures">Export for Blender (.glb)</button>
+          ${project.session.baseRom === "BW2" ? '<button class="ow-tool" id="map3d-import" type="button" disabled>Import edited map GLB</button><button class="ow-tool" id="map3d-import-undo" type="button" disabled>Undo map import</button><input id="map3d-import-file" type="file" accept=".glb" hidden />' : ''}
         </div>
+        <div class="map3d-export-status" id="map3d-export-status" role="status" aria-live="polite"></div>
         <div class="map3d-controls">
           <strong>Controls</strong>
           <div>Drag: rotate</div>
           <div>Shift + drag: pan</div>
           <div>Arrow keys: pan</div>
           <div>Trackpad pinch or wheel: zoom</div>
+          <div>Click a building: inspect placement</div>
           <div>Collision overlay: click a tile to edit</div>
         </div>
       </div>
@@ -269,6 +291,12 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
 
   const select = root.querySelector<HTMLSelectElement>("#map3d-zone");
   const loadButton = root.querySelector<HTMLButtonElement>("#map3d-load");
+  const exportButton = root.querySelector<HTMLButtonElement>("#map3d-export");
+  const exportStatus = root.querySelector<HTMLDivElement>("#map3d-export-status");
+  const importButton = root.querySelector<HTMLButtonElement>("#map3d-import");
+  const importUndo = root.querySelector<HTMLButtonElement>("#map3d-import-undo");
+  const importFile = root.querySelector<HTMLInputElement>("#map3d-import-file");
+  const importReview = root.querySelector<HTMLElement>("#map3d-import-review")!;
   const seasonSelect = root.querySelector<HTMLSelectElement>("#map3d-season");
   const metadataSave = root.querySelector<HTMLButtonElement>("#map3d-meta-save");
   const metadataFields = {
@@ -310,14 +338,78 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   const warningsHost = root.querySelector<HTMLDivElement>("#map3d-warnings");
   if (!select || !canvasWrap) return;
   const zoneSelect = select;
+  const buildingInspector = createMap3dBuildingInspector(root.querySelector<HTMLElement>("#map3d-building-inspector")!, {
+    select: selectBuilding,
+    focus: () => { if (state) focusSelectedBuilding(state); },
+    editable: !isGen4Project(project),
+    add: (input) => {
+      if (pendingImport || importing) throw new Error("Apply or cancel the map import before editing placements.");
+      if (!state || !activeData) throw new Error("Load a map before adding a building.");
+      const index = addMap3dBuilding(project, activeData, input);
+      refreshBuildingPlacements(index);
+    },
+    remove: () => {
+      if (pendingImport || importing) throw new Error("Apply or cancel the map import before editing placements.");
+      if (!state || !activeData || state.selectedBuildingIndex === undefined) throw new Error("Select a building to delete.");
+      deleteMap3dBuilding(project, activeData, state.selectedBuildingIndex);
+      refreshBuildingPlacements(undefined);
+    },
+    edit: (field, value) => {
+      if (pendingImport || importing) return false;
+      if (!state || !activeData || state.selectedBuildingIndex === undefined) return false;
+      const changed = updateMap3dBuilding(project, activeData, state.selectedBuildingIndex, field, value);
+      if (!changed.length) return false;
+      for (const index of changed) {
+        const building = activeData.buildings[index];
+        const group = state.buildingGroup.children[index] as THREE.Group;
+        group.position.set(building.worldX, building.worldY, building.worldZ);
+        group.rotation.y = THREE.MathUtils.degToRad(building.rotationY);
+        if (field === "uid") {
+          clearGroup(group);
+          addPrimitivesToGroup(group, building.primitives, new Map());
+        }
+      }
+      refreshBuildingBounds(state, activeData);
+      applyCurrentLayerSettings(false);
+      onDirty?.();
+      return true;
+    },
+    hideOthers: (enabled) => {
+      if (!state) return;
+      state.hideOtherBuildings = enabled && state.selectedBuildingIndex !== undefined;
+      applyCurrentLayerSettings(false);
+    },
+    isolate: (enabled) => {
+      if (!state) return;
+      state.isolateBuilding = enabled && state.selectedBuildingIndex !== undefined;
+      applyCurrentLayerSettings(false);
+      if (state.isolateBuilding) focusSelectedBuilding(state);
+      else frameGroup(state);
+    },
+  });
 
   const setStatus = (message: string) => {
     if (message) console.info(`[Maps 3D] ${message}`);
   };
 
   const load = async (zoneId: number) => {
+    clearImportReview();
     const token = ++loadToken;
     activeZone = zoneId;
+    activeData = undefined;
+    buildingInspector.setData(undefined, "Loading map buildings…");
+    if (state) {
+      state.currentData = undefined;
+      state.selectedBuildingIndex = undefined;
+      state.isolateBuilding = false;
+      state.hideOtherBuildings = false;
+      clearGroup(state.buildingSelectionGroup);
+      applyCurrentLayerSettings(false);
+    }
+    if (exportButton) exportButton.disabled = true;
+    if (importButton) importButton.disabled = true;
+    if (importUndo) importUndo.disabled = true;
+    if (exportStatus) exportStatus.textContent = "";
     setStatus("Loading map assets...");
     try {
       const data = await loadMap3dEditorZone(project, zoneId, activeSeason, (message) => {
@@ -327,19 +419,25 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       activeData = data;
       dirtyPermissionEdits.clear();
       state ??= createRenderer(canvasWrap);
+      state.onBuildingPick = selectBuilding;
       state.onPermissionPick = (selection) => {
         selectPermissionTile(selection);
         if (permissionPaint?.checked) applyPermissionBrush();
       };
       renderSceneData(state, data);
+      buildingInspector.setData(data);
       writeMetadataForm(getMap3dZoneMetadata(project, zoneId), data);
       renderMap3dDiagnostics(warningsHost, data);
       applyCurrentLayerSettings(false);
       rememberMap3dView(project, zoneId, activeSeason);
       setStatus(data.label);
+      if (exportButton) exportButton.disabled = exporting;
+      refreshImportButtons();
     } catch (error) {
       if (token !== loadToken) return;
+      activeData = undefined;
       const message = error instanceof Error ? error.message : String(error);
+      buildingInspector.setData(undefined, `Map load failed: ${message}`);
       setStatus(message);
       if (warningsHost) warningsHost.innerHTML = `<strong>Map load failed</strong><div>${escapeHtml(message)}</div>`;
       state ??= createRenderer(canvasWrap);
@@ -359,6 +457,117 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
 
   loadButton?.addEventListener("click", () => {
     void load(Number(select.value));
+  });
+
+  exportButton?.addEventListener("click", async () => {
+    if (!activeData || exporting || importing || pendingImport) return;
+    if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before exporting a map for Blender."; return; }
+    const data = activeData;
+    exporting = true;
+    refreshImportButtons();
+    exportButton.disabled = true;
+    exportButton.textContent = "Exporting…";
+    if (exportStatus) exportStatus.textContent = `Preparing ${data.label} (${data.season})…`;
+    try {
+      const { exportMap3dGlb } = await import("../pokeweb/map3dExport");
+      const result = project.session.baseRom === "BW2"
+        ? await (await import("../pokeweb/mapGlbImport")).exportMapGlbForImport(project, data)
+        : await exportMap3dGlb(data);
+      const url = URL.createObjectURL(new Blob([result.bytes], { type: "model/gltf-binary" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = result.filename;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      if (exportStatus && activeData === data) {
+        exportStatus.textContent = `Exported ${result.chunkCount} terrain chunk${result.chunkCount === 1 ? "" : "s"} and ${result.buildingCount} building${result.buildingCount === 1 ? "" : "s"}. To import edits, keep the chunk/building parent objects and export the complete scene with Include → Custom Properties enabled and animations disabled.${result.warnings.length ? " Map loading reported warnings; check the diagnostics below for missing assets." : ""}`;
+      }
+    } catch (error) {
+      if (exportStatus && activeData === data) exportStatus.textContent = `Export failed: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      exporting = false;
+      exportButton.disabled = !activeData;
+      exportButton.textContent = "Export for Blender (.glb)";
+      refreshImportButtons();
+    }
+  });
+
+  function refreshImportButtons() {
+    if (importButton) importButton.disabled = !activeData || importing || exporting || !!pendingImport;
+    if (importUndo) importUndo.disabled = !activeData || importing || !!pendingImport || lastImport?.original.zoneId !== activeZone || lastImport.original.season !== activeSeason;
+    if (exportButton) exportButton.disabled = !activeData || importing || exporting || !!pendingImport;
+  }
+  function clearImportReview() {
+    pendingImport = undefined; importReview.hidden = true;
+    for (const [control, disabled] of lockedControls) control.disabled = disabled;
+    lockedControls.clear();
+    refreshImportButtons();
+  }
+  function showImportPreview(data: Map3dSceneData) {
+    if (!state) return;
+    renderSceneData(state, data);
+    buildingInspector.setData(undefined, "Apply or cancel the map import to resume placement editing.");
+    applyCurrentLayerSettings(false);
+  }
+  importButton?.addEventListener("click", () => {
+    if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before importing a map."; return; }
+    if (activeData && !importing && !pendingImport) importFile?.click();
+  });
+  importFile?.addEventListener("change", async () => {
+    const file = importFile.files?.[0], data = activeData;
+    importFile.value = "";
+    if (!file || !data || importing) return;
+    if (file.size > 64 * 1024 * 1024) { if (exportStatus) exportStatus.textContent = "Choose a GLB smaller than 64 MB."; return; }
+    importing = true; refreshImportButtons();
+    if (exportStatus) exportStatus.textContent = "Reading map edits and converting changed game resources…";
+    try {
+      const { prepareMapGlbImport } = await import("../pokeweb/mapGlbImport");
+      const result = await prepareMapGlbImport(project, data, new Uint8Array(await file.arrayBuffer()));
+      if (activeData !== data || !canvasWrap.isConnected) return;
+      if (!result.patches.length) { if (exportStatus) exportStatus.textContent = "No supported changes found. All native map resources remain unchanged. Texture image and shader edits are not imported."; return; }
+      pendingImport = result;
+      for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".map3d-sidebar input, .map3d-sidebar select, .map3d-sidebar button")) {
+        if (importReview.contains(control)) continue;
+        lockedControls.set(control, control.disabled); control.disabled = true;
+      }
+      importReview.innerHTML = `<strong>Review converted map</strong>
+        <p>${result.terrainModels} terrain models · ${result.buildingModels} building models</p>
+        <p>Placements: ${result.moved} moved · ${result.added} added · ${result.deleted} deleted</p>
+        <p>Original textures, native material settings, collision, walking heights, NPCs, and warps are retained. Texture-image and shader edits are not imported.</p>
+        ${result.notes.map(note => `<p>${escapeHtml(note)}</p>`).join("")}
+        <div class="map3d-building-actions"><button class="ow-tool" type="button" data-map-import="original">Show original</button><button class="ow-tool" type="button" data-map-import="converted">Show converted</button><button class="ow-tool" type="button" data-map-import="apply">Apply map import</button><button class="ow-tool" type="button" data-map-import="cancel">Cancel</button></div>`;
+      importReview.hidden = false;
+      showImportPreview(result.converted);
+      if (exportStatus) exportStatus.textContent = "Previewing converted game assets. Review shared-resource changes and placement deletions before applying.";
+    } catch (error) { if (activeData === data && exportStatus) exportStatus.textContent = `Import failed: ${error instanceof Error ? error.message : error}`; }
+    finally { importing = false; refreshImportButtons(); }
+  });
+  importReview.addEventListener("click", async event => {
+    const action = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-map-import]")?.dataset.mapImport;
+    const result = pendingImport;
+    if (!action || !result || importing) return;
+    if (action === "original" || action === "converted") { showImportPreview(action === "original" ? result.original : result.converted); return; }
+    if (action === "cancel") { clearImportReview(); if (state && activeData) { renderSceneData(state, activeData); buildingInspector.setData(activeData); applyCurrentLayerSettings(false); } if (exportStatus) exportStatus.textContent = "Map import canceled."; return; }
+    importing = true; refreshImportButtons();
+    try {
+      await (await import("../pokeweb/mapGlbImport")).applyMapGlbImport(project, result);
+      lastImport = result; onDirty?.(); clearImportReview(); await load(activeZone);
+      if (exportStatus) exportStatus.textContent = "Map import applied. Export the ROM to test it in-game. Undo map import is available while this editor stays open.";
+    } catch (error) { if (exportStatus) exportStatus.textContent = `Apply failed: ${error instanceof Error ? error.message : error}`; }
+    finally { importing = false; refreshImportButtons(); }
+  });
+  importUndo?.addEventListener("click", async () => {
+    if (!lastImport || importing || pendingImport) return;
+    if (dirtyPermissionEdits.size) { if (exportStatus) exportStatus.textContent = "Save permission edits before undoing the map import."; return; }
+    importing = true; refreshImportButtons();
+    try {
+      await (await import("../pokeweb/mapGlbImport")).applyMapGlbImport(project, lastImport, true);
+      lastImport = undefined; onDirty?.(); await load(activeZone);
+      if (exportStatus) exportStatus.textContent = "Restored all resources from before the map import.";
+    } catch (error) { if (exportStatus) exportStatus.textContent = `Undo failed: ${error instanceof Error ? error.message : error}`; }
+    finally { importing = false; refreshImportButtons(); }
   });
 
   seasonSelect?.addEventListener("change", () => {
@@ -457,8 +666,33 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   if (zones.length === 0) setStatus("No parsed headers are available.");
   else void load(initialZone);
 
+  function selectBuilding(index: number | undefined): void {
+    if (!state || !activeData || pendingImport || importing) return;
+    const building = index === undefined ? undefined : activeData.buildings[index];
+    const wasIsolated = state.isolateBuilding;
+    state.selectedBuildingIndex = building ? index : undefined;
+    if (!building) state.isolateBuilding = state.hideOtherBuildings = false;
+    else if (showBuildings) showBuildings.checked = true;
+    buildingInspector.select(state.selectedBuildingIndex);
+    applyCurrentLayerSettings();
+    if (state.isolateBuilding) focusSelectedBuilding(state);
+    else if (wasIsolated) frameGroup(state);
+  }
+
+  function refreshBuildingPlacements(index: number | undefined): void {
+    if (!state || !activeData) return;
+    renderBuildingPlacements(state, activeData);
+    state.selectedBuildingIndex = index;
+    if (index === undefined) state.isolateBuilding = state.hideOtherBuildings = false;
+    else if (showBuildings) showBuildings.checked = true;
+    buildingInspector.refreshPlacements(index);
+    applyCurrentLayerSettings(false);
+    renderMap3dDiagnostics(warningsHost, activeData);
+    onDirty?.();
+  }
+
   function selectPermissionTile(selection: PermissionSelection): void {
-    if (!state) return;
+    if (!state || pendingImport || importing) return;
     state.selectedPermission = selection;
     const tile = selection.tile;
     if (permissionPaint?.checked !== true) {
@@ -497,6 +731,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
   }
 
   function applyPermissionBrush(): void {
+    if (pendingImport || importing) return;
     if (!state?.selectedPermission || !activeData) {
       setStatus("Select a collision tile first.");
       return;
@@ -681,6 +916,31 @@ function readNumberInput(input: HTMLInputElement | null | undefined, label: stri
   return value;
 }
 
+/** Shared navigation and rendering for the map and standalone building viewers. */
+export function createBuildingLibraryPreview(container: HTMLElement) {
+  const state = createRenderer(container);
+  const reset = () => {
+    state.selectedBuildingIndex = 0;
+    focusSelectedBuilding(state);
+  };
+  return {
+    show(data: Map3dSceneData) {
+      renderSceneData(state, data);
+      applyLayerVisibility(state, true, false, false, false, false);
+      reset();
+    },
+    clear() {
+      clearGroup(state.buildingGroup);
+      clearGroup(state.buildingBoundsGroup);
+      clearGroup(state.buildingSelectionGroup);
+      state.currentData = undefined;
+      state.selectedBuildingIndex = undefined;
+    },
+    reset,
+    topDown: () => { reset(); state.yaw = 0; state.pitch = Math.PI / 2 - 0.001; },
+  };
+}
+
 function createRenderer(container: HTMLElement): RendererState {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x20232a);
@@ -697,11 +957,12 @@ function createRenderer(container: HTMLElement): RendererState {
   const terrainGroup = new THREE.Group();
   const buildingGroup = new THREE.Group();
   const buildingBoundsGroup = new THREE.Group();
+  const buildingSelectionGroup = new THREE.Group();
   const npcGroup = new THREE.Group();
   const overlayGroup = new THREE.Group();
   const permissionGroup = new THREE.Group();
   buildingBoundsGroup.visible = false;
-  group.add(terrainGroup, buildingGroup, buildingBoundsGroup, npcGroup, overlayGroup, permissionGroup);
+  group.add(terrainGroup, buildingGroup, buildingBoundsGroup, buildingSelectionGroup, npcGroup, overlayGroup, permissionGroup);
   scene.add(group);
 
   const state: RendererState = {
@@ -712,6 +973,10 @@ function createRenderer(container: HTMLElement): RendererState {
     terrainGroup,
     buildingGroup,
     buildingBoundsGroup,
+    buildingSelectionGroup,
+    grid,
+    isolateBuilding: false,
+    hideOtherBuildings: false,
     npcGroup,
     overlayGroup,
     permissionGroup,
@@ -748,6 +1013,13 @@ function createRenderer(container: HTMLElement): RendererState {
     camera.lookAt(state.target);
   };
   const animate = () => {
+    if (!container.isConnected) {
+      clearGroup(group);
+      grid.geometry.dispose();
+      (Array.isArray(grid.material) ? grid.material : [grid.material]).forEach(disposeMaterial);
+      renderer.dispose();
+      return;
+    }
     resize();
     updateCamera();
     updateNpcMovementPreview(state, performance.now());
@@ -779,15 +1051,24 @@ function createRenderer(container: HTMLElement): RendererState {
   });
   renderer.domElement.addEventListener("pointerup", (event) => {
     const moved = Math.hypot(event.clientX - state.startX, event.clientY - state.startY);
-    if (state.dragging && state.dragMode === "rotate" && moved < 4) pickPermissionTile(state, event);
+    if (state.dragging && state.dragMode === "rotate" && moved < 4 && state.currentData) {
+      if (state.permissionGroup.visible) pickPermissionTile(state, event);
+      else {
+        const rect = state.renderer.domElement.getBoundingClientRect();
+        state.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+        state.raycaster.setFromCamera(state.pointer, state.camera);
+        state.onBuildingPick?.(pickMap3dBuilding(state.raycaster, state.buildingGroup, state.terrainGroup));
+      }
+    }
     state.dragging = false;
   });
+  renderer.domElement.addEventListener("pointercancel", () => { state.dragging = false; });
   renderer.domElement.addEventListener(
     "wheel",
     (event) => {
       event.preventDefault();
       const clampedDelta = Math.max(-80, Math.min(80, event.deltaY));
-      state.distance = Math.min(12000, Math.max(80, state.distance * Math.exp(clampedDelta * 0.0018)));
+      state.distance = Math.min(12000, Math.max(16, state.distance * Math.exp(clampedDelta * 0.0018)));
     },
     { passive: false },
   );
@@ -858,6 +1139,10 @@ function panCameraTarget(state: RendererState, camera: THREE.PerspectiveCamera, 
 function renderSceneData(state: RendererState, data: Map3dSceneData): void {
   state.currentData = data;
   state.selectedPermission = undefined;
+  state.selectedBuildingIndex = undefined;
+  state.isolateBuilding = false;
+  state.hideOtherBuildings = false;
+  clearGroup(state.buildingSelectionGroup);
   clearGroup(state.terrainGroup);
   clearGroup(state.buildingGroup);
   clearGroup(state.buildingBoundsGroup);
@@ -893,15 +1178,7 @@ function renderSceneData(state: RendererState, data: Map3dSceneData): void {
     }
     state.terrainGroup.add(chunkGroup);
   }
-  for (const building of data.buildings) {
-    const buildingGroup = new THREE.Group();
-    buildingGroup.position.set(building.worldX, building.worldY, building.worldZ);
-    buildingGroup.rotation.y = THREE.MathUtils.degToRad(building.rotationY);
-    addPrimitivesToGroup(buildingGroup, building.primitives, textureCache);
-    state.buildingGroup.add(buildingGroup);
-    const boundsOverlay = createBuildingBoundsOverlay(building);
-    if (boundsOverlay) state.buildingBoundsGroup.add(boundsOverlay);
-  }
+  renderBuildingPlacements(state, data, textureCache);
   for (const npc of data.npcModels) {
     const npcGroup = new THREE.Group();
     const isSpriteNpc = npc.modelType === "sprite";
@@ -1293,12 +1570,70 @@ function makeLabelSprite(text: string, color: number): THREE.Sprite {
   return sprite;
 }
 
+function renderBuildingPlacements(state: RendererState, data: Map3dSceneData, textureCache = new Map<string, THREE.Texture>()): void {
+  clearGroup(state.buildingGroup);
+  for (const [index, building] of data.buildings.entries()) {
+    const group = new THREE.Group();
+    group.userData.map3dBuildingIndex = index;
+    group.position.set(building.worldX, building.worldY, building.worldZ);
+    group.rotation.y = THREE.MathUtils.degToRad(building.rotationY);
+    addPrimitivesToGroup(group, building.primitives, textureCache);
+    state.buildingGroup.add(group);
+  }
+  refreshBuildingBounds(state, data);
+}
+
+function refreshBuildingBounds(state: RendererState, data: Map3dSceneData): void {
+  clearGroup(state.buildingBoundsGroup);
+  for (const [index, building] of data.buildings.entries()) {
+    const bounds = createBuildingBoundsOverlay(building);
+    if (!bounds) continue;
+    bounds.userData.map3dBuildingIndex = index;
+    state.buildingBoundsGroup.add(bounds);
+  }
+}
+
 function applyLayerVisibility(state: RendererState, showBuildings: boolean, showBuildingBounds: boolean, showNpcs: boolean, showEntities: boolean, showPermissions: boolean): void {
-  state.buildingGroup.visible = showBuildings;
-  state.buildingBoundsGroup.visible = showBuildingBounds;
-  state.npcGroup.visible = showNpcs;
-  state.overlayGroup.visible = showEntities;
-  state.permissionGroup.visible = showPermissions;
+  const isolated = state.isolateBuilding && state.selectedBuildingIndex !== undefined;
+  state.terrainGroup.visible = !isolated;
+  state.grid.visible = !isolated;
+  state.buildingGroup.visible = showBuildings || isolated;
+  state.buildingBoundsGroup.visible = showBuildingBounds && !isolated;
+  state.npcGroup.visible = showNpcs && !isolated;
+  state.overlayGroup.visible = showEntities && !isolated;
+  state.permissionGroup.visible = showPermissions && !isolated;
+  const onlySelected = (isolated || state.hideOtherBuildings) && state.selectedBuildingIndex !== undefined;
+  for (const [index, group] of state.buildingGroup.children.entries()) group.visible = !onlySelected || index === state.selectedBuildingIndex;
+  for (const bounds of state.buildingBoundsGroup.children) bounds.visible = !onlySelected || bounds.userData.map3dBuildingIndex === state.selectedBuildingIndex;
+  clearGroup(state.buildingSelectionGroup);
+  const selected = state.selectedBuildingIndex === undefined ? undefined : state.buildingGroup.children[state.selectedBuildingIndex];
+  if (selected && state.buildingGroup.visible) {
+    const box = new THREE.Box3().setFromObject(selected);
+    if (!box.isEmpty()) {
+      const outline = new THREE.Box3Helper(box, 0x50f2ce);
+      const materials = Array.isArray(outline.material) ? outline.material : [outline.material];
+      for (const material of materials) {
+        material.depthTest = false;
+        material.depthWrite = false;
+      }
+      outline.renderOrder = 40;
+      state.buildingSelectionGroup.add(outline);
+    }
+  }
+}
+
+function focusSelectedBuilding(state: RendererState): void {
+  const selected = state.selectedBuildingIndex === undefined ? undefined : state.buildingGroup.children[state.selectedBuildingIndex];
+  if (!selected) return;
+  const box = new THREE.Box3().setFromObject(selected);
+  if (box.isEmpty()) return;
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+  const halfFov = THREE.MathUtils.degToRad(state.camera.fov / 2);
+  const limitingHalfFov = Math.min(halfFov, Math.atan(Math.tan(halfFov) * state.camera.aspect));
+  state.target.copy(sphere.center);
+  state.distance = Math.max(24, sphere.radius / Math.sin(limitingHalfFov) * 1.3);
+  state.yaw = Math.PI / 4;
+  state.pitch = 0.65;
 }
 
 function setMovementPreview(state: RendererState, enabled: boolean): void {
@@ -1644,6 +1979,7 @@ function disposeMaterial(material: THREE.Material): void {
 }
 
 function frameGroup(state: RendererState): void {
+  if (state.isolateBuilding) { focusSelectedBuilding(state); return; }
   const box = new THREE.Box3().setFromObject(state.group);
   if (box.isEmpty()) {
     state.target.set(0, 0, 0);
@@ -1659,7 +1995,9 @@ function frameGroup(state: RendererState): void {
 }
 
 function topDownGroup(state: RendererState): void {
-  const box = new THREE.Box3().setFromObject(state.group);
+  const target = state.isolateBuilding && state.selectedBuildingIndex !== undefined
+    ? state.buildingGroup.children[state.selectedBuildingIndex] ?? state.group : state.group;
+  const box = new THREE.Box3().setFromObject(target);
   if (box.isEmpty()) {
     state.target.set(0, 0, 0);
     state.distance = 1200;

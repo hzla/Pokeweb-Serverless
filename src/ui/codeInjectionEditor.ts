@@ -39,7 +39,7 @@ import {
 } from "../pokeweb/tagBattleStabilizationModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
-import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors } from "../pokeweb/battleTypeHudModel";
+import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
 import {
   detectPwanRuntimeCompatibility,
   pwanCompatibilityFailureSummary,
@@ -51,6 +51,8 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 
 const pwanCompatibilityHydrationProjects = new WeakSet<ProjectState>();
+const typeIconLettersPreview = new URL("../assets/codeinjection/type-icons-letters-preview.png", import.meta.url).href;
+const typeIconCircularPreview = new URL("../assets/codeinjection/type-icons-circular-preview.png", import.meta.url).href;
 
 export function renderCodeInjectionEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
   const status = getPmcInstallStatus(project);
@@ -291,7 +293,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         ${[
           { id: "battle-hud", title: "Type Icons", status: battleHudStatus,
-            description: "Shows type icons on player and enemy health panels in singles, doubles and triples, including compact panels with EXP bars. Enemy icons and player singles icons sit left of the Pokémon’s name. Enemy text adjusts to keep icons clear of the screen edge. Status labels hide the icons until the condition clears. Installs independently of move highlighting." },
+            description: "Shows type icons on player and enemy health panels in singles, doubles and triples, including compact panels with EXP bars. Choose lettered hexagons or the original circular symbol artwork. Both variants use the current diagonal placement and preserve the native caught marker. Status labels hide the icons until the condition clears. Installs independently of move highlighting." },
           { id: "move-effectiveness", title: "Move Effectiveness Preview", status: moveEffectivenessStatus,
             description: "Highlights damaging moves as super effective, not very effective, or immune. Includes standard BW2 type immunities, Levitate, Air Balloon, Magnet Rise, and blocking abilities with suppression and bypass checks. Singles and rotation use the opposing Pokémon; doubles and triples color the selected move name while choosing an enemy. Weather Ball, Natural Gift, Judgment and Techno Blast stay neutral. Custom ability and item mechanics need a compatible preview patch." },
         ].map(card => `
@@ -306,6 +308,23 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><span>ROM</span><strong>English Black 2 / White 2</strong></div>
             <div><span>Dependency</span><strong>PMC only</strong></div>
           </div>
+          ${card.id === "battle-hud" ? `<div class="type-icon-variant-picker">
+            <div class="type-icon-variant-previews" aria-label="Type icon variation previews">
+              <figure class="type-icon-variant-preview ${battleHudStatus.iconVariant === "circular" ? "" : "is-selected"}" data-type-icon-variant-card="letters">
+                <figcaption>Hexagonal letters</figcaption>
+                <img src="${typeIconLettersPreview}" alt="All 18 lettered hexagonal type icons" loading="lazy">
+              </figure>
+              <figure class="type-icon-variant-preview ${battleHudStatus.iconVariant === "circular" ? "is-selected" : ""}" data-type-icon-variant-card="circular">
+                <figcaption>Circular icons</figcaption>
+                <img src="${typeIconCircularPreview}" alt="All 18 circular symbol type icons" loading="lazy">
+              </figure>
+            </div>
+            <label class="type-icon-variant-toggle">
+              <input id="type-icon-circular-variant" type="checkbox" ${battleHudStatus.iconVariant === "circular" ? "checked" : ""}>
+              <span>Install circular symbol icons</span>
+            </label>
+            <p class="code-injection-note">Leave unchecked for hexagonal letters. Reinstalling replaces the active Type Icons DLL in place; it does not install both variants together.</p>
+          </div>` : ""}
           ${card.id === "move-effectiveness" ? `<div class="code-injection-facts">
             ${([
               ["superEffective", "Super effective"], ["notVeryEffective", "Not very effective"], ["immune", "Immune / no damage"],
@@ -751,6 +770,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             const colors = Object.fromEntries([...root.querySelectorAll<HTMLInputElement>("[data-move-highlight-color]")]
               .map(input => [input.dataset.moveHighlightColor!, input.value])) as MoveHighlightColors;
             await installMoveEffectiveness(project, colors);
+          } else if (id === "battle-hud" && verb === "install") {
+            const variant: TypeIconVariant = root.querySelector<HTMLInputElement>("#type-icon-circular-variant")?.checked ? "circular" : "letters";
+            await installBattleTypeHud(project, variant);
           } else await action(project);
           onDirty(); renderCodeInjectionEditor(project, root, onDirty);
         }
@@ -758,6 +780,15 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       });
     }
   }
+  const typeIconVariant = root.querySelector<HTMLInputElement>("#type-icon-circular-variant");
+  const updateTypeIconPreviewSelection = () => {
+    const selected: TypeIconVariant = typeIconVariant?.checked ? "circular" : "letters";
+    root.querySelectorAll<HTMLElement>("[data-type-icon-variant-card]").forEach(card => {
+      card.classList.toggle("is-selected", card.dataset.typeIconVariantCard === selected);
+    });
+  };
+  typeIconVariant?.addEventListener("change", updateTypeIconPreviewSelection);
+  updateTypeIconPreviewSelection();
   root.querySelectorAll<HTMLInputElement>("[data-move-highlight-color]").forEach(input => {
     input.addEventListener("input", () => {
       const sample = root.querySelector<HTMLElement>(`[data-move-highlight-sample="${input.dataset.moveHighlightColor}"]`);

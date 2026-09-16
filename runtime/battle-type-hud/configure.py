@@ -184,12 +184,37 @@ def main():
         rows.append(symbol)
         rgb=bytes.fromhex(next(c[1:] for c in v['colors'] if c!='#FFFFFF'))
         colors.append(sum((c>>3)<<(5*i) for i,c in enumerate(rgb)))
-    out='// Compact first initials in a 12x11 point-up rhombus and black outline.\n'
-    out+='constexpr u16 Fill[11] = {'+','.join(map(str,fill))+'};\n'
-    out+='constexpr u16 Outline[11] = {'+','.join(map(str,outline))+'};\n'
-    out+='constexpr u16 Symbols[18][11] = {\n'+''.join('  {'+','.join(map(str,row))+'}, // '+name+'\n' for row,name in zip(rows,names))+'};\n'
-    out+='constexpr u16 Colors[18] = {'+','.join(hex(v) for v in colors)+'};\n'
-    out+='static_assert(sizeof(Fill)+sizeof(Outline)+sizeof(Symbols)+sizeof(Colors)==476, "asset budget");\n'
+    # The alternate build keeps the approved circular symbols. Center its
+    # original 10x10 art inside the renderer's 12x11 logical footprint so both
+    # variants share placement, restoration and native caught-marker behavior.
+    circle8=[60,126,255,255,255,255,126,60]
+    circle_outline10=[120,252,510,1023,1023,1023,1023,510,252,120]
+    circular8=[
+        [0,36,60,66,66,36,24,0], [0,40,106,110,112,126,60,0],
+        [0,4,28,56,116,120,32,0], [0,48,112,52,4,24,60,0],
+        [0,36,8,24,126,36,24,0], [0,24,60,114,124,58,28,0],
+        [0,24,0,102,102,60,24,0], [0,24,62,42,126,62,20,0],
+        [0,60,80,108,10,42,28,0], [0,16,8,24,44,46,28,0],
+        [0,16,24,60,60,66,60,0], [0,8,40,44,108,108,44,0],
+        [0,8,24,48,28,8,16,0], [0,24,102,66,36,66,60,0],
+        [0,16,68,24,60,68,8,0], [0,36,60,126,90,24,24,0],
+        [0,0,66,82,82,36,24,0], [0,36,102,126,36,24,36,0],
+    ]
+    circular_fill=[0]+[v<<2 for v in circle8]+[0,0]
+    circular_outline=[v<<1 for v in circle_outline10]+[0]
+    circular_rows=[[0]+[v<<2 for v in symbol]+[0,0] for symbol in circular8]
+
+    def asset_header(comment,asset_fill,asset_outline,asset_rows):
+        text=comment+'\n'
+        text+='constexpr u16 Fill[11] = {'+','.join(map(str,asset_fill))+'};\n'
+        text+='constexpr u16 Outline[11] = {'+','.join(map(str,asset_outline))+'};\n'
+        text+='constexpr u16 Symbols[18][11] = {\n'+''.join('  {'+','.join(map(str,row))+'}, // '+name+'\n' for row,name in zip(asset_rows,names))+'};\n'
+        text+='constexpr u16 Colors[18] = {'+','.join(hex(v) for v in colors)+'};\n'
+        text+='static_assert(sizeof(Fill)+sizeof(Outline)+sizeof(Symbols)+sizeof(Colors)==476, "asset budget");\n'
+        return text
+
+    out=asset_header('// Compact first initials in a 12x11 point-up rhombus and black outline.',fill,outline,rows)
+    circular_out=asset_header('// Approved circular symbols centered in the shared 12x11 footprint.',circular_fill,circular_outline,circular_rows)
     backgrounds=[]
     width,height,left,top=26,17,0,15
     for n in (438,435,444,441):
@@ -203,11 +228,16 @@ def main():
                 v=2 if v in (4,15) else v
                 i=y*width+x;packed[i//2]|=v<<((i&1)*4)
         backgrounds.append(list(packed))
-    out+='// Verified native x=0..25, y=15..31 pixels, packed in four bits.\n'
-    out+='constexpr u8 PanelBackground[4][221] = {\n'+''.join('  {'+','.join(map(str,b))+'},\n' for b in backgrounds)+'};\n'
+    background_out='// Verified native x=0..25, y=15..31 pixels, packed in four bits.\n'
+    background_out+='constexpr u8 PanelBackground[4][221] = {\n'+''.join('  {'+','.join(map(str,b))+'},\n' for b in backgrounds)+'};\n'
+    out+=background_out;circular_out+=background_out
     (HERE/'assets.h').write_text(out)
+    (HERE/'assets-circular.h').write_text(circular_out)
     (HERE/'assets.json').write_text(json.dumps(dict(names=names,fill=fill,outline=outline,symbols=rows,rgb555=colors,
-        iconWidth=12,iconHeight=11,stackDx=5,stackDy=6,stackTop=15),indent=2)+'\n')
+        iconWidth=12,iconHeight=11,stackDx=5,stackDy=6,stackTop=15,variant='letters'),indent=2)+'\n')
+    (HERE/'assets-circular.json').write_text(json.dumps(dict(names=names,fill=circular_fill,outline=circular_outline,
+        symbols=circular_rows,rgb555=colors,iconWidth=12,iconHeight=11,stackDx=5,stackDy=6,stackTop=15,
+        variant='circular'),indent=2)+'\n')
 if __name__=='__main__':
     main()
     from panel_expansion import generate

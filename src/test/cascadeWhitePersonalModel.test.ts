@@ -178,15 +178,40 @@ describe("Cascade personal migration", () => {
     expect(project.fileSystem!.additions![CASCADE_CHANCES_MARKER_PATH]).toBeDefined();
   });
 
-  it.each([0x39, 0x3a, 0x3b, 0x3e])("refuses occupied byte 0x%s atomically", async (offset) => {
+  it.each([
+    [0x39, "ability_4"], [0x3a, "ability_5"], [0x3b, "ability_6"], [0x3e, "hidden_ability_chance"],
+  ] as const)("exposes copied personal fields from nonzero byte 0x%s without source tables or markers", (offset, field) => {
     const project = makeProject();
-    project.narcs.personal!.rawFiles[649][offset] = 17;
-    expect(getCascadePersonalMigrationStatus(project)).toMatchObject({ installed: false, canMigrate: false });
-    await expect(migrateCascadePersonalData(project)).rejects.toThrow(/already has data/u);
+    delete project.fileSystem!.additions![DLL_PATH];
+    delete project.fileSystem!.additions![CHANCE_DLL_PATH];
+    expect(hasCascadePersonalData(project)).toBe(false);
+    project.narcs.personal!.rawFiles = project.narcs.personal!.rawFiles.map((bytes) => bytes.slice());
+    project.narcs.personal!.rawFiles[651][offset] = 17; // An alternate form alone is sufficient.
+    expect(hasCascadePersonalData(project)).toBe(true);
+    expect(getCascadePersonalMigrationStatus(project)).toMatchObject({ visible: true, abilitiesMigrated: true });
+    expect(renderCascadeAbilitySlots(project, 651)).toContain('data-field-name="ability_4"');
+    expect(renderCascadeAbilitySlots(project, 651)).not.toContain("-readonly");
+    expect(renderPokemonExpandedSections(project, 651)).toContain('data-field-name="hidden_ability_chance"');
+    expect(decodeRecord(project, "personal", 651).raw![field]).toBe(17);
+    // Detection itself must not write migration data or markers.
     expect(project.narcs.personal!.dirty.size).toBe(0);
-    expect(project.patches?.applied?.cascadePersonalData).not.toBe(true);
     expect(project.fileSystem!.additions![CASCADE_PERSONAL_MARKER_PATH]).toBeUndefined();
-    expect(project.narcs.personal!.rawFiles[1][0x39]).toBe(0);
+    updatePokemonField(project, 651, "personal", field, "0");
+    materializeProjectEdits(project);
+    expect(hasCascadePersonalData(project)).toBe(true);
+    expect(project.fileSystem!.additions![CASCADE_PERSONAL_MARKER_PATH]).toBeDefined();
+  });
+
+  it("ignores tutor bits and non-personal records, and still requires a Cascade ROM", () => {
+    const project = makeProject();
+    // Fixtures already contain tutor bits, a nonzero 0x3F, and a filled Dex lookup record.
+    expect(hasCascadePersonalData(project)).toBe(false);
+    project.narcs.personal!.rawFiles[1][0x39] = 201;
+    project.narcs.personal!.revision = 1;
+    expect(hasCascadePersonalData(project)).toBe(true);
+    delete project.codeInjection;
+    expect(hasCascadePersonalData(project)).toBe(false);
+    expect(renderCascadeAbilitySlots(project, 1)).toBe("");
   });
 
   it("keeps custom fields editable and preserves them through tutor toggles/copies, materialization, and a ROM round trip", async () => {
@@ -256,6 +281,28 @@ describe("Cascade personal migration", () => {
     const reopened = await reopenRom(project);
     expect(hasCascadePersonalData(reopened)).toBe(true);
     expect(decodeRecord(reopened, "personal", 1).raw!.ability_4).toBe(0);
+  });
+
+  it("recognizes an edited a016 copied alone into a Cascade ROM with different injection tables", async () => {
+    const source = makeProject();
+    await migrateCascadePersonalData(source);
+    updatePokemonField(source, 1, "personal", "ability_4", "201");
+    updatePokemonField(source, 1, "personal", "hidden_ability_chance", "173");
+    materializeProjectEdits(source);
+    const personal = new NARC();
+    personal.files = source.narcs.personal!.rawFiles;
+
+    const target = makeProject();
+    const differentAbilities = abilityRows();
+    differentAbilities[1] = [1, 2, 3]; // The destination DLL no longer matches the migrated archive.
+    target.fileSystem!.additions![DLL_PATH] = makeDll(differentAbilities);
+    target.narcs.personal!.rawFiles = new NARC(personal.save()).files;
+    expect(target.fileSystem!.additions![CASCADE_PERSONAL_MARKER_PATH]).toBeUndefined();
+    expect(target.fileSystem!.additions![CASCADE_CHANCES_MARKER_PATH]).toBeUndefined();
+    expect(hasCascadePersonalData(target)).toBe(true);
+    expect(getPokemonSummaryRecord(target, 1).rawPersonal).toMatchObject({ ability_4: 201, hidden_ability_chance: 173 });
+    expect(cascadeWhiteTrainerAbilityName(target, 1, 4)).toBe("Custom Ability");
+    expect(renderCascadeAbilitySlots(target, 1)).toContain('data-field-name="ability_4"');
   });
 });
 

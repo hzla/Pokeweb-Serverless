@@ -93,7 +93,7 @@ class Harness:
         for base,data in blobs.values():self.c.mem_write(base,bytes(data))
         rpm=read_rpm((HERE/'build'/f'{module}{game}.dll').read_bytes())
         debug=read_rpm((HERE/'build'/f'{module}{game}.debug.dll').read_bytes())
-        assert rpm['code']==debug['code'] and rpm['bss']==debug['bss']==(364 if module=='TypeIcons' else 20)
+        assert rpm['code']==debug['code'] and rpm['bss']==debug['bss']==(364 if module.startswith('TypeIcons') else 20)
         self.c.mem_write(BASE,rpm['code']+b'\0'*rpm['bss'])
         self.entries={}
         for r in rpm['relocations']:
@@ -107,7 +107,7 @@ class Harness:
                 self.entries.setdefault(hook['name'],[]).append((r['type'],r['address'],dest))
                 if r['type']=='OFFSET':self.put(r['address'],dest)
                 else:self.c.mem_write(r['address'],thumb_bl(r['address'],dest))
-        self.state=BASE+next(s['address'] for s in debug['symbols'] if s['name']==('gBattleTypeHud' if module=='TypeIcons' else 'gBattleMoveHud'))
+        self.state=BASE+next(s['address'] for s in debug['symbols'] if s['name']==('gBattleTypeHud' if module.startswith('TypeIcons') else 'gBattleMoveHud'))
         self.events=[];self.fakeReads=0;self.liveTypes={};self.fakeTypes={};self.writes=[];self.caught=set()
         self.addReset=True;self.nativeHooks={}
         for name in ['Add','AddPP','Main','Del','Release','Status','GetPfd','PalAddr','PPGet','EffectiveTypes','NameDraw','SexDraw','LevelDraw']:

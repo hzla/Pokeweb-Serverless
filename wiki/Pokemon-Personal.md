@@ -41,7 +41,9 @@ Hidden Ability Chance imports the raw `u8` values from the separate `WhiteListed
 
 The personal record stays `0x4C` bytes. Existing special- and shard-tutor compatibility bits are preserved. Alternate forms inherit their base species' AI abilities and chance values where the personal form mapping identifies an owner; records without a source row or owner start with zero values. Regional Pokédex lookup records are skipped.
 
-Export preserves versioned `codeinjection/cascade-personal-v1.bin` and `codeinjection/cascade-hidden-ability-chances-v1.bin` markers, so reopening recognizes both imports even after the values have been edited. A complete matching AI migration can also be recognized without its marker. The initial migration refuses occupied target bytes and preserves existing edits when already installed.
+For a detected Cascade ROM, any nonzero value at `0x39`, `0x3A`, `0x3B`, or `0x3E` in a personal entry enables the expanded fields. This includes alternate forms. Copying an edited `a/0/1/6` archive alone is sufficient; the values do not need to match the destination ROM's injected tables. Tutor compatibility bits and regional Pokédex lookup records do not trigger detection.
+
+Export also preserves versioned `codeinjection/cascade-personal-v1.bin` and `codeinjection/cascade-hidden-ability-chances-v1.bin` markers. These retain detection when all custom values have been cleared to zero and record whether the chance import was performed. Existing AI ability edits are preserved when the expanded fields are already detected.
 
 For ROMs migrated with the earlier button, **Import Hidden Ability Chances** fills zero-valued chance fields while preserving edited AI abilities and nonzero chances. Once imported, the chance marker prevents repeated imports from overwriting further edits, including chances deliberately set to zero.
 
