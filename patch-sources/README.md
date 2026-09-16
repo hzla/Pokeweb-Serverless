@@ -44,7 +44,9 @@ Original source for **MainMenuSkipB2/W2** and **DoubleBattleFixB2/W2** was not f
 
 ## Refresh and validation
 
-The latest scoped refresh updates LEARNSET to **1.2.0** (D-pad party navigation, branch-responsive icons,
+The latest scoped refresh updates LEARNSET to **1.2.3** (evolution text lowered two pixels, flush sprite-card borders, lowered abilities,
+dark evolution panel, retail striped upper backdrop and aligned rows,
+D-pad party navigation, branch-responsive icons,
 buffered loading, compact gold stats, form abilities and cycle-safe chains). Other patch snapshots retain their
 previous versions and hashes; this refresh does not certify newly added bundles
 outside LEARNSET. Existing original-source gaps remain explicit.

@@ -482,7 +482,7 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       if (exportStatus && activeData === data) {
-        exportStatus.textContent = `Exported ${result.chunkCount} terrain chunk${result.chunkCount === 1 ? "" : "s"} and ${result.buildingCount} building${result.buildingCount === 1 ? "" : "s"}. To import edits, keep the chunk/building parent objects and export the complete scene with Include → Custom Properties enabled and animations disabled.${result.warnings.length ? " Map loading reported warnings; check the diagnostics below for missing assets." : ""}`;
+        exportStatus.textContent = `Exported ${result.chunkCount} terrain chunk${result.chunkCount === 1 ? "" : "s"} and ${result.buildingCount} building${result.buildingCount === 1 ? "" : "s"}. To import edits, keep the chunk/building parent objects and export the complete scene with Include → Custom Properties enabled and animations disabled. Keep texture dimensions power-of-two (8–1024 pixels), use PNG color textures, and bake complex shaders before import.${result.warnings.length ? " Map loading reported warnings; check the diagnostics below for missing assets." : ""}`;
       }
     } catch (error) {
       if (exportStatus && activeData === data) exportStatus.textContent = `Export failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -526,16 +526,16 @@ export function renderMap3dEditor(project: ProjectState, root: HTMLElement, onDi
       const { prepareMapGlbImport } = await import("../pokeweb/mapGlbImport");
       const result = await prepareMapGlbImport(project, data, new Uint8Array(await file.arrayBuffer()));
       if (activeData !== data || !canvasWrap.isConnected) return;
-      if (!result.patches.length) { if (exportStatus) exportStatus.textContent = "No supported changes found. All native map resources remain unchanged. Texture image and shader edits are not imported."; return; }
+      if (!result.patches.length) { if (exportStatus) exportStatus.textContent = "No supported changes found. All native map resources remain unchanged."; return; }
       pendingImport = result;
       for (const control of root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(".map3d-sidebar input, .map3d-sidebar select, .map3d-sidebar button")) {
         if (importReview.contains(control)) continue;
         lockedControls.set(control, control.disabled); control.disabled = true;
       }
       importReview.innerHTML = `<strong>Review converted map</strong>
-        <p>${result.terrainModels} terrain models · ${result.buildingModels} building models</p>
+        <p>${result.terrainModels} terrain models · ${result.buildingModels} building models · ${result.buildingVariants} new variants · ${result.importedTextures} textures</p>
         <p>Placements: ${result.moved} moved · ${result.added} added · ${result.deleted} deleted</p>
-        <p>Original textures, native material settings, collision, walking heights, NPCs, and warps are retained. Texture-image and shader edits are not imported.</p>
+        <p>Color textures, basic materials, geometry, and placements are imported. Existing material animations, collision, walking heights, NPCs, and warps are retained. Blender lighting and post-processing are not game assets.</p>
         ${result.notes.map(note => `<p>${escapeHtml(note)}</p>`).join("")}
         <div class="map3d-building-actions"><button class="ow-tool" type="button" data-map-import="original">Show original</button><button class="ow-tool" type="button" data-map-import="converted">Show converted</button><button class="ow-tool" type="button" data-map-import="apply">Apply map import</button><button class="ow-tool" type="button" data-map-import="cancel">Cancel</button></div>`;
       importReview.hidden = false;

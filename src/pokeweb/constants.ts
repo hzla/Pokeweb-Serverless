@@ -18,6 +18,8 @@ export type NarcName =
   | "area_data"
   | "map_textures"
   | "building_textures"
+  | "exterior_building_textures"
+  | "interior_building_textures"
   | "exterior_building_models"
   | "interior_building_models"
   | "matrix"

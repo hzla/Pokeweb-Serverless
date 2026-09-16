@@ -964,7 +964,7 @@ async function loadArchives(project: ProjectState): Promise<LazyArchives> {
     chunksFileId: rom.fileId(MAP_CHUNKS_PATH),
     mapReplace: firstFile(new NARC(rom.getFileByName(MAP_REPLACE_PATH))) ?? new Uint8Array(),
     areaTable: rom.getFileByName(AREA_TABLE_PATH),
-    textures: new NARC(rom.getFileByName(MAP_TEXTURES_PATH)),
+    textures: currentArchive(MAP_TEXTURES_PATH),
     npcRegistry: firstFile(new NARC(rom.getFileByName(baseRom === "BW2" ? MMODEL_INDEX_BW2_PATH : MMODEL_INDEX_BW_PATH))) ?? new Uint8Array(),
     moveModelResources: new NARC(rom.getFileByName(baseRom === "BW2" ? MMODEL_RES_BW2_PATH : MMODEL_RES_BW_PATH)),
     entities: new NARC(rom.getFileByName(baseRom === "BW2" ? ZONE_ENTITIES_BW2_PATH : ZONE_ENTITIES_BW_PATH)),

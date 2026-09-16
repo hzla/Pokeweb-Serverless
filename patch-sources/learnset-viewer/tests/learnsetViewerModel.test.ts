@@ -21,7 +21,7 @@ describe("standalone LEARNSET companions", () => {
       for (const [group, expected, count] of [["Menu", ["12", "165"], 3], ["Viewer", ["258"], 25]] as const) {
         const bytes = assets[`Learnset${group}${version}`]!;
         const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: "1.2.0", PMCModulePriority: 4 });
+        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: "1.2.3", PMCModulePriority: 4 });
         // The actual PMC activation loop visits only chains 0..4. Merely
         // matching our own manifest does not prove a DLL will load.
         expect(Number(rpm.metadata.PMCModulePriority)).toBeGreaterThanOrEqual(0);
@@ -38,7 +38,7 @@ describe("standalone LEARNSET companions", () => {
       for (const group of ["Menu", "Viewer"]) {
         const rpm = parseRpm(configureLearnsetViewerDll(assets[`Learnset${group}${version}`]!, { menu: 1, empty: 2, error: 3 }), { allowedMagics: ["DLXF"] });
         rpm.metadata.PMCModulePriority = 5;
-        rpm.metadata.PMCVersion = group === "Menu" ? "1.0.0" : "1.2.0";
+        rpm.metadata.PMCVersion = group === "Menu" ? "1.0.0" : "1.2.3";
         add(project, `Learnset${group}${version}`, writeRpm(rpm, { ident: "DLXF" }));
       }
       expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: true, compatible: true, updateAvailable: true, messageIds: { menu: 1, empty: 2, error: 3 } });

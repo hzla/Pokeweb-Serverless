@@ -2,12 +2,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PNG } from "pngjs";
-import { concatBytes, writeU32 } from "../nds/binary";
+import { readU16, concatBytes, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
 import { extractGameFreakContainer, loadMap3dZone, type Map3dSceneData } from "../pokeweb/map3dModel";
+import { materialRecords } from "../pokeweb/nitroResourceWriter";
+import { loadBuildingLibrary } from "../pokeweb/buildingLibraryModel";
 import { applyMapGlbImport, exportMapGlbForImport, prepareMapGlbImport } from "../pokeweb/mapGlbImport";
 import { compileStaticFaces } from "../pokeweb/nitroGeometryFaces";
 import { sameStaticGeometry } from "../pokeweb/staticMeshCompare";
@@ -122,6 +124,37 @@ describe.skipIf(!existsSync(romPath))("BW2 full map GLB import", () => {
     expect(project.narcs.maps!.dirty.size).toBe(0);
     expect(project.narcs.exterior_building_models).toBeUndefined();
   });
+  it("imports White Forest after removing animated leaves while preserving their unused native material records", async () => {
+    const { project } = await setup(), data = await loadMap3dZone(project, 424, { season: "spring" });
+    const bytes = new Uint8Array((await exportMapGlbForImport(project, data)).bytes);
+    expect((await prepareMapGlbImport(project, data, bytes)).patches).toHaveLength(0);
+    const file = unpack(bytes);
+    function removeLeaves(id: number) {
+      const node = file.json.nodes[id];
+      if (node.mesh !== undefined) {
+        const mesh = file.json.meshes[node.mesh];
+        mesh.primitives = mesh.primitives.filter((p: any) => file.json.materials[p.material].extras?.pokewebNativeMaterial !== "bc_ha01");
+        if (!mesh.primitives.length) delete node.mesh;
+      }
+      node.children?.forEach(removeLeaves);
+    }
+    roots(file, "terrain").forEach(removeLeaves);
+    const result = await prepareMapGlbImport(project, data, pack(file));
+    expect([result.terrainModels, result.buildingModels, result.importedTextures]).toEqual([1, 0, 0]);
+    expect(result.patches.map(p => p.index)).toEqual([366]);
+    for (const patch of result.patches) {
+      expect(patch.archive.name).toBe("maps");
+      const before = extractGameFreakContainer(patch.bytes).files, after = extractGameFreakContainer(patch.after).files;
+      expect(materialRecords(after[0])).toEqual(materialRecords(before[0]));
+      expect(after.slice(1)).toEqual(before.slice(1)); // Collision, placements and other members.
+    }
+    for (const chunk of result.converted.chunks) {
+      expect(chunk.primitives.some(p => p.material.name === "bc_ha01")).toBe(false);
+      const expected = data.chunks.find(c => c.chunkId === chunk.chunkId)!.primitives.filter(p => p.material.name !== "bc_ha01");
+      expect(sameStaticGeometry(expected.map(p => ({ ...p, materialName: p.material.name })), chunk.primitives.map(p => ({ ...p, materialName: p.material.name })))).toBe(true);
+    }
+    expect(project.narcs.maps!.dirty.size).toBe(0);
+  });
   it("imports interior terrain while retaining its interior building bundle", async () => {
     const { project } = await setup();
     const data = await loadMap3dZone(project, 428, { season: "winter" });
@@ -177,15 +210,55 @@ describe.skipIf(!existsSync(romPath))("BW2 full map GLB import", () => {
     expect([result.moved, result.added, result.deleted, result.buildingModels]).toEqual([1, 0, 0, 0]);
     expect(result.converted.buildings.some(b => b.uid === 305 && b.chunkId === destination.chunkId && b.worldX === destination.worldX && b.worldZ === destination.worldZ)).toBe(true);
   });
-  it("rejects conflicting shared mesh edits and missing terrain before changing project state", async () => {
+  it("creates variants for conflicting shared mesh edits and rejects missing terrain before changing project state", async () => {
     const { project, data } = await setup(), file = unpack(exported);
     const houses = roots(file, "building").filter((i: number) => file.json.nodes[i].extras.uid === 305);
     alterGeometry(file, houses[0]);
     alterGeometry(file, houses[1]); childMesh(file, houses[1]).translation[1] = 0.5;
-    await expect(prepareMapGlbImport(project, data, pack(file))).rejects.toThrow(/conflicting mesh edits/);
+    const variants = await prepareMapGlbImport(project, data, pack(file));
+    expect(variants.buildingVariants).toBe(1);
+    expect(variants.buildingModels).toBe(2);
+    expect(variants.converted.buildings.some(b => b.uid === 511)).toBe(true);
+    expect(project.narcs.exterior_building_models).toBeUndefined();
     const missing = unpack(exported); removeNode(missing, roots(missing, "terrain")[0]);
     await expect(prepareMapGlbImport(project, data, pack(missing))).rejects.toThrow(/exactly one parent/);
     expect(project.narcs.maps!.dirty.size).toBe(0);
+  });
+  it("imports a new emissive material and color texture, guards its archive, and undoes the native assets", async () => {
+    const { project, data } = await setup(), file = unpack(exported);
+    const house = roots(file, "building").find((i: number) => file.json.nodes[i].extras.uid === 305)!;
+    const node = childMesh(file, house), originalMesh = file.json.meshes[node.mesh];
+    const materialId = originalMesh.primitives[0].material, oldMaterial = file.json.materials[materialId];
+    const material = structuredClone(oldMaterial);
+    material.name = "New neon sign"; delete material.extras; delete material.extensions;
+    material.emissiveFactor = [0.3, 1, 0.5]; material.emissiveTexture = material.pbrMetallicRoughness.baseColorTexture;
+    material.pbrMetallicRoughness = { baseColorFactor: [0, 0, 0, 1] };
+    const addedMaterial = file.json.materials.length; file.json.materials.push(material);
+    const mesh = structuredClone(originalMesh); mesh.primitives[0].material = addedMaterial;
+    node.mesh = file.json.meshes.length; file.json.meshes.push(mesh);
+    const result = await prepareMapGlbImport(project, data, pack(file));
+    expect(result.importedTextures).toBe(1); expect(result.buildingModels).toBe(1);
+    const textures = result.patches.find(p => p.archive.name === "exterior_building_textures")!;
+    expect(textures).toBeDefined();
+    await applyMapGlbImport(project, result);
+    const asset = (await loadBuildingLibrary(project)).load("exterior:52:29");
+    const added = materialRecords(asset.modelBytes).find(m => m.name.startsWith("pw_m"))!;
+    expect(added.textureName).toMatch(/^pw_t/); expect(readU16(added.bytes, 30) & 0x20).toBe(0); // never wireframe
+    expect(asset.primitives.find(p => p.material.name === added.name)?.material.texture).toBeDefined();
+    await applyMapGlbImport(project, result, true);
+    expect(project.narcs.exterior_building_textures!.rawFiles[textures.index]).toEqual(textures.bytes);
+    project.narcs.exterior_building_textures!.rawFiles[textures.index] = concatBytes([textures.bytes, Uint8Array.of(1)]);
+    await expect(applyMapGlbImport(project, result)).rejects.toThrow(/changed during review/);
+  });
+  it("previews terrain texture edits from the staged archive before applying them", async () => {
+    const { project, data } = await setup(), file = unpack(exported);
+    const node = childMesh(file, roots(file, "terrain")[0]), primitive = file.json.meshes[node.mesh].primitives[0];
+    file.json.materials[primitive.material].pbrMetallicRoughness.baseColorFactor = [0.25, 1, 0.5, 1];
+    const result = await prepareMapGlbImport(project, data, pack(file));
+    expect(result.patches.some(p => p.archive.name === "map_textures")).toBe(true);
+    const changed = result.converted.chunks.flatMap(c => c.primitives).filter(p => p.material.texture?.name.startsWith("pw_t"));
+    expect(changed.length).toBeGreaterThan(0);
+    expect(project.narcs.map_textures).toBeUndefined();
   });
   it("rejects old exports, the wrong season, stale resources, and edits made after review", async () => {
     const { project, data } = await setup(), file = unpack(exported);
@@ -210,4 +283,56 @@ describe.skipIf(!existsSync(romPath))("BW2 full map GLB import", () => {
     unbound.json.scenes[0].nodes.push(child);
     await expect(prepareMapGlbImport(project, data, pack(unbound))).rejects.toThrow(/no map resource parent/);
   });
+});
+
+const blackRomPath = resolve(process.cwd(), "../cleanblack2.nds");
+describe.skipIf(!existsSync(blackRomPath))("Black City material animations", () => {
+  it("retains repeated facade UVs and warns if an edited GLB instead clamps their edges", async () => {
+    vi.stubGlobal("ImageData", TestImageData); vi.stubGlobal("OffscreenCanvas", TestCanvas); vi.stubGlobal("FileReader", TestFileReader);
+    const quiet = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(blackRomPath)), "cleanblack2.nds", { selectedNarcs: ["maps"] });
+      const data = await loadMap3dZone(project, 0, { season: "spring" });
+      const file = unpack(new Uint8Array((await exportMapGlbForImport(project, data)).bytes));
+      const parent = roots(file, "building").find((i: number) => file.json.nodes[i].extras.uid === 414)!;
+      const facadePrimitive = file.json.nodes[parent].children
+        .flatMap((i: number) => file.json.meshes[file.json.nodes[i].mesh]?.primitives ?? [])
+        .find((p: any) => file.json.materials[p.material].extras?.pokewebNativeMaterial === "bc_build_a");
+      const material = file.json.materials[facadePrimitive.material];
+      material.pbrMetallicRoughness.baseColorFactor = [0.25, 1, 0.5, 1];
+      const texture = file.json.textures[material.pbrMetallicRoughness.baseColorTexture.index];
+      const sampler = file.json.samplers[texture.sampler];
+      Object.assign(sampler, { wrapS: 33071, wrapT: 33071 });
+      const clamped = await prepareMapGlbImport(project, data, pack(file));
+      expect(clamped.notes.some(n => n.includes("bc_build_a") && n.includes("Clamp to Edge"))).toBe(true);
+      Object.assign(sampler, { wrapS: 10497, wrapT: 10497 });
+      const repeated = await prepareMapGlbImport(project, data, pack(file));
+      expect(repeated.notes.some(n => n.includes("Clamp to Edge"))).toBe(false);
+      const facade = repeated.converted.buildings.find(b => b.uid === 414)!.primitives.find(p => p.material.name === "bc_build_a")!;
+      expect([facade.material.repeatS, facade.material.repeatT]).toEqual([true, true]);
+      expect(facade.material.texture?.name).toMatch(/^pw_t/);
+      expect(facade.uvs!.some(v => v < 0 || v > 1)).toBe(true);
+      await applyMapGlbImport(project, repeated);
+      const asset = (await loadBuildingLibrary(project)).entries.find(e => e.kind === "exterior" && e.bundleId === data.buildingsId && e.uid === 414)!;
+      const native = materialRecords(asset.modelBytes).find(m => m.name === "bc_build_a")!;
+      expect(new DataView(native.bytes.buffer, native.bytes.byteOffset).getUint32(20, true) & 0x30000).toBe(0x30000);
+    } finally { vi.unstubAllGlobals(); quiet.mockRestore(); }
+  }, 30000);
+  it("preserves material animation blobs when building geometry is edited", async () => {
+    vi.stubGlobal("ImageData", TestImageData); vi.stubGlobal("OffscreenCanvas", TestCanvas); vi.stubGlobal("FileReader", TestFileReader);
+    const quiet = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const project = await loadProjectFromRomBytes(new Uint8Array(readFileSync(blackRomPath)), "cleanblack2.nds", { selectedNarcs: ["maps"] });
+      const data = await loadMap3dZone(project, 0, { season: "spring" });
+      const file = unpack(new Uint8Array((await exportMapGlbForImport(project, data)).bytes));
+      const baseline = (await loadBuildingLibrary(project)).entries.filter(e => e.bundleId === data.buildingsId && e.kind === "exterior");
+      const parent = roots(file, "building").find((i: number) => file.json.nodes[i].extras.uid === 414)!;
+      alterGeometry(file, parent);
+      const result = await prepareMapGlbImport(project, data, pack(file));
+      expect(result.buildingModels).toBe(1);
+      await applyMapGlbImport(project, result);
+      const after = (await loadBuildingLibrary(project)).entries.filter(e => e.bundleId === data.buildingsId && e.kind === "exterior");
+      for (const entry of baseline) expect(after.find(e => e.uid === entry.uid)?.metadataBytes).toEqual(entry.metadataBytes);
+    } finally { vi.unstubAllGlobals(); quiet.mockRestore(); }
+  }, 30000);
 });

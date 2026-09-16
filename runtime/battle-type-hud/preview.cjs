@@ -22,10 +22,14 @@ for(let t=0;t<18;t++){
       :at(a.outline,0,0);
     const primary=wedge?at(a.primary,0,0):false;
     const secondary=wedge?at(a.secondary,0,0):false;
-    const inside=wedge?(primary||secondary):stacked?(at(a.fill,0,0)||at(a.fill,a.stackDx,a.stackDy))
+    const primaryShade=wedge?at(a.primaryShade,0,0):false;
+    const secondaryShade=wedge?at(a.secondaryShade,0,0):false;
+    let inside=wedge?(primary||secondary||primaryShade||secondaryShade):stacked?(at(a.fill,0,0)||at(a.fill,a.stackDx,a.stackDy))
       :at(a.fill,0,0);
     const white=!stacked&&!wedge&&inside&&at(a.symbols[t],0,0);
-    const pixelColor=secondary?a.rgb555[(t+1)%18]:color;
+    const dither=primaryShade||secondaryShade;
+    const pixelColor=secondary||secondaryShade?a.rgb555[(t+1)%18]:color;
+    if(wedge&&dither&&!((x+y)&1)) inside=false;
     for(let c=0;c<3;c++)p.data[i+c]=!inside?16:white?247:Math.round(((pixelColor>>(c*5))&31)*255/31);
     p.data[i+3]=visible?255:0;
     const j=(((t/6|0)*cellH+y+2)*sheet.width+(t%6)*cellW+x+2)*4;
