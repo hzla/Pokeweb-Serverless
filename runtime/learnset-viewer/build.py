@@ -42,7 +42,17 @@ def calls(data, base, target):
     return found
 
 BUILD.mkdir(exist_ok=True)
-VERSION = "1.0.3"
+VERSION = "1.2.0"
+messages=json.loads((HERE/'info_messages.json').read_text())
+assert len({key for key,text in messages})==len(messages)
+header=['#pragma once', '#include "runtime.h"', 'enum class InfoMessage : u16 {']
+header += [f'    {key},' for key,text in messages]
+header += ['};',f'constexpr u32 InfoMessageCount={len(messages)};',
+           'struct InfoConfig { u8 magic[8]; u16 version,count; u16 ids[InfoMessageCount][2]; };',
+           'extern "C" { __attribute__((used,section(".learnset_info_config"))) volatile InfoConfig learnsetInfoConfig = {',
+           "    {'L','S','V','I','N','F','1',0},1,InfoMessageCount,{",
+           *['        {0xffff,0},' for _ in messages], '    }}; }']
+(BUILD/'info_messages.generated.h').write_text('\n'.join(header)+'\n')
 # PMC's priority-chain array has five entries (0..PMC_PATCH=4). Priority 5
 # writes past it and never reaches the overlay activation chain.
 PATCH_PRIORITY = 4
@@ -88,6 +98,12 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
                "push {r3}","ldr r3,1f","mov ip,r3","pop {r3}","bx ip",".balign 4",
                "1: .word LearnsetScreen",f".size {symbol},.-{symbol}"]
     signature("Private lower background",258,address,4,"THUMB_BRANCH_LINK",4)
+    address=0x2199fe4-delta
+    symbol=f"THUMB_BRANCH_LINK_258_0x{address:x}"
+    viewer += [".balign 4",f".global {symbol}",f".type {symbol},%function",".thumb_func",symbol+":",
+               "push {r3}","ldr r3,1f","mov ip,r3","pop {r3}","bx ip",".balign 4",
+               "1: .word LearnsetWindow",f".size {symbol},.-{symbol}"]
+    signature("Private upper window layout",258,address,4,"THUMB_BRANCH_LINK",4)
     address=0x219b9e8-delta
     symbol=f"FULL_COPY_258_0x{address:x}"
     viewer += [".balign 4",f".global {symbol}",f".type {symbol},%object",symbol+":",
@@ -98,18 +114,20 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
                               ("Tutor bitmap layout",0x219bbcc,28),("Tutor resource load",0x219af0a,14)]:
         signature(label,258,addr-delta,length)
     graphics=ndspy.narc.NARC(rom.getFileByName("a/1/2/5"))
-    resources=[{"member":n,"sha256":hashlib.sha256(graphics.files[n]).hexdigest()} for n in [0,1,2,5,7,8,17]]
+    resources=[{"member":n,"sha256":hashlib.sha256(graphics.files[n]).hexdigest()} for n in [0,1,2,4,5,7,8,17]]
     manifest["games"][game]={"idCode":bytes(rom.idCode).decode(),"hooks":signatures,"resources":resources}
     esdb=BUILD/f"symbols_{game}.yml"
     esdb.write_text("Segments:\n  - ID: 0\n    Name: ARM9\n    Type: EXECUTABLE\nSymbols: []\n")
     for group,asm in [("Menu",menu),("Viewer",viewer)]:
         (BUILD/f"{group}{game}.s").write_text("\n".join(asm)+"\n")
         objects=[]
-        for source in [HERE/f"{group.lower()}.cpp",HERE/"config.cpp",HERE/"memory.cpp"]:
+        sources=[HERE/f"{group.lower()}.cpp",HERE/"config.cpp",HERE/"memory.cpp"]
+        if group=='Viewer':sources.append(HERE/'info.cpp')
+        for source in sources:
             obj=BUILD/f"{source.stem}{group}{game}.o"; objects.append(obj)
             run(TOOLS/"arm-none-eabi-g++","-std=c++17","-mthumb","-march=armv5t","-mlong-calls","-Os","-Wall","-Wextra","-Werror",
                 "-fno-exceptions","-fno-rtti","-fno-unwind-tables","-fno-asynchronous-unwind-tables","-ffreestanding","-fno-builtin",
-                "-fvisibility=hidden",f"-DGAME_{game}","-c",source,"-o",obj)
+                "-fvisibility=hidden",f"-DGAME_{game}","-I",BUILD,"-I",HERE,"-c",source,"-o",obj)
         hook=BUILD/f"{group}{game}.o"; objects.append(hook)
         run(TOOLS/"arm-none-eabi-as","-mthumb","-march=armv5t",BUILD/f"{group}{game}.s","-o",hook)
         elf=BUILD/f"Learnset{group}{game}.elf"

@@ -139,6 +139,7 @@ export type CodeInjectionState = {
     menuBankId: number;
     viewerBankId: number;
     messageIds: { menu: number; empty: number; error: number };
+    infoMessageIds?: number[];
   };
 };
 

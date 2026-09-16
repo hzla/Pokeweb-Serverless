@@ -2,13 +2,14 @@
 from pathlib import Path
 import hashlib,json,shutil,zipfile
 HERE=Path(__file__).resolve().parent
-VERSION='0.4.17'
+VERSION='0.4.21'
 def sha(data):return hashlib.sha256(data).hexdigest()
 def main():
     memory=json.loads((HERE/'build/memory-report.json').read_text())
     alignment=json.loads((HERE/'build/player-alignment-verification.json').read_text())
     verified={module:json.loads((HERE/'build'/name).read_text()) for module,name in
-              (('TypeIcons','verification.json'),('TypeIconsCircular','circular-verification.json'),('MoveEffectiveness','move-verification.json'))}
+              (('TypeIcons','verification.json'),('TypeIconsCircular','circular-verification.json'),
+               ('TypeIconsSolid','solid-verification.json'),('MoveEffectiveness','move-verification.json'))}
     enemy_names=json.loads((HERE/'build/enemy-name-verification.json').read_text())
     dist=HERE/'dist';dist.mkdir(exist_ok=True);files={}
     for path in HERE.iterdir():
@@ -16,14 +17,14 @@ def main():
             files[path.name]=path
     for game in ('B2','W2'):
         files[f'build/addresses-{game}.h']=HERE/'build'/f'addresses-{game}.h'
-        for module in ('TypeIcons','TypeIconsCircular','MoveEffectiveness'):
+        for module in ('TypeIcons','TypeIconsCircular','TypeIconsSolid','MoveEffectiveness'):
             for suffix in ('','.debug'):
                 name=f'{module}{game}{suffix}.dll';path=HERE/'build'/name
                 assert sha(path.read_bytes())==memory[name]['sha256']
                 files['build/'+name]=path;shutil.copyfile(path,dist/name)
             assert verified[module]['release_sha256'][game]==memory[f'{module}{game}.dll']['sha256']
             if module=='TypeIcons':assert alignment['corrected'][game]['release_sha256']==verified[module]['release_sha256'][game]==enemy_names['games'][game]['release_sha256']
-            hook_module='TypeIcons' if module=='TypeIconsCircular' else module
+            hook_module='TypeIcons' if module.startswith('TypeIcons') else module
             name=f'hooks-{hook_module}-{game}.h';files['build/'+name]=HERE/'build'/name
         live=HERE/'build'/f'live-{game}-split'
         for name in ('native-integration-0.json','native-integration-1.json','native-move-integration.json','session.json'):
@@ -32,12 +33,13 @@ def main():
                 files[f'reports/{game}-{name}']=path
         if f'reports/{game}-native-move-integration.json' in files:
             for name in ('screen.png','move-colors.png'):files[f'previews/{game}-{name}']=live/name
-    for name in ('memory-report.json','verification.json','circular-verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json'):
+    for name in ('memory-report.json','verification.json','circular-verification.json','solid-verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json'):
         files['reports/'+name]=HERE/'build'/name
     for name in ('captured-state-verification.json','standalone-install-verification.json'):
         files['reports/historical-'+name]=HERE/'build'/name
     for path in (HERE/'build/icons').glob('*.png'):files['previews/icons/'+path.name]=path
     for path in (HERE/'build/icons-circular').glob('*.png'):files['previews/icons-circular/'+path.name]=path
+    for path in (HERE/'build/icons-solid').glob('*.png'):files['previews/icons-solid/'+path.name]=path
     manifest={name:dict(bytes=p.stat().st_size,sha256=sha(p.read_bytes())) for name,p in sorted(files.items())}
     target=dist/f'BattleHudPatches-{VERSION}.zip'
     with zipfile.ZipFile(target,'w',zipfile.ZIP_DEFLATED) as z:
