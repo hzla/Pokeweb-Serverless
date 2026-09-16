@@ -15,9 +15,12 @@ const roots = {
   pmc: process.env.PMC_SOURCE_ROOT || path.join(workspace, 'PMC'),
 };
 const check = process.argv.includes('--check');
-if (process.argv.slice(2).some(arg => arg !== '--check')) throw Error('Usage: node patch-sources/refresh.mjs [--check]');
+const onlyArgs = process.argv.slice(2).filter(arg => arg.startsWith('--only='));
+if (onlyArgs.length > 1 || process.argv.slice(2).some(arg => arg !== '--check' && !arg.startsWith('--only='))) throw Error('Usage: node patch-sources/refresh.mjs [--check] [--only=GROUP]');
+const only = onlyArgs[0]?.slice('--only='.length);
 const manifestPath = path.join(here, 'manifest.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+if (only !== undefined && !manifest.patches.some(p => p.name === only)) throw Error(`Unknown source group: ${only}`);
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const oldFiles = new Map([...manifest.patches.flatMap(p => p.files), ...manifest.sharedFiles].map(f => [f.path, f]));
 const pending = new Map();
@@ -59,7 +62,7 @@ const additions = [
   {
     name: 'learnset-viewer', title: 'Standalone LEARNSET party-menu viewer',
     artifacts: ['LearnsetMenuB2.dll', 'LearnsetMenuW2.dll', 'LearnsetViewerB2.dll', 'LearnsetViewerW2.dll'],
-    note: `Version ${learnset.version}. PMC-only menu/field and overlay-258 viewer companions; includes the CPU-side background-buffer redraw fix and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
+    note: `Version ${learnset.version}. PMC-only menu/field and overlay-258 viewer companions; includes D-pad party navigation, compact gold base stats, form ability names and hidden-ability colors, branch-responsive cycle-safe three-Pokemon evolution chains, buffered ROM reads, paged outgoing requirements, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
     extra: [
       file('learnset-viewer', 'metadata/learnsetViewerManifest.json', 'metadata', 'src/assets/codeinjection/learnsetViewerManifest.json'),
       file('learnset-viewer', 'integration/learnsetViewerModel.ts', 'support-only', 'src/pokeweb/learnsetViewerModel.ts'),
@@ -86,6 +89,7 @@ const additions = [
   },
 ];
 for (const group of additions) {
+  if (only && group.name !== only) continue;
   const updated = { name: group.name, title: group.title, artifacts: group.artifacts.map(name => ({ name })), note: group.note, status: 'source-copied', files: [...runtimeFiles(group.name), ...group.extra] };
   const index = manifest.patches.findIndex(p => p.name === group.name);
   if (index === -1) manifest.patches.push(updated);
@@ -95,12 +99,12 @@ const artifacts = new Set(manifest.excludedArtifacts);
 for (const patch of manifest.patches) for (const artifact of patch.artifacts) {
   if (artifacts.has(artifact.name)) throw Error(`Duplicate artifact: ${artifact.name}`);
   artifacts.add(artifact.name);
-  artifact.sha256 = hash(fs.readFileSync(safeJoin(path.join(app, 'src/assets/codeinjection'), artifact.name)));
+  if (!only || patch.name === only) artifact.sha256 = hash(fs.readFileSync(safeJoin(path.join(app, 'src/assets/codeinjection'), artifact.name)));
 }
 for (const name of fs.readdirSync(path.join(app, 'src/assets/codeinjection'))) {
-  if (/\.(dll|rpm)$/.test(name) && !artifacts.has(name)) throw Error(`Unaccounted bundled artifact: ${name}`);
+  if (!only && /\.(dll|rpm)$/.test(name) && !artifacts.has(name)) throw Error(`Unaccounted bundled artifact: ${name}`);
 }
-for (const entry of [...manifest.patches.flatMap(p => p.files), ...manifest.sharedFiles]) {
+for (const entry of [...manifest.patches.filter(p => !only || p.name === only).flatMap(p => p.files), ...(!only ? manifest.sharedFiles : [])]) {
   if (sourcePaths.has(entry.path)) throw Error(`Duplicate source: ${entry.path}`);
   sourcePaths.add(entry.path);
   const raw = fs.readFileSync(safeJoin(roots[entry.origin.repository], entry.origin.path));
@@ -124,4 +128,4 @@ if (!check) for (const [relative, bytes] of pending) {
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   fs.writeFileSync(destination, bytes);
 }
-console.log(`${check ? 'Verified' : 'Refreshed'} ${manifest.patches.length} source groups, ${sourcePaths.size} source entries, ${artifacts.size} accounted artifacts; ${pending.size} files ${check ? 'need updating' : 'updated'}.`);
+console.log(`${check ? 'Verified' : 'Refreshed'} ${only || 'all groups'}, ${sourcePaths.size} source entries; ${pending.size} files ${check ? 'need updating' : 'updated'}.`);

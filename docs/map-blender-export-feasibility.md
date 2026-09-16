@@ -14,13 +14,13 @@ This assessment is based on source inspection and dependency checks. A complete 
 
 ## Why the current editor already has the necessary data
 
-[Map3dSceneData](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/pokeweb/map3dModel.ts:236) contains the selected zone, season, chunk geometry, building geometry, world positions, building rotations, textures and diagnostic warnings. Each [primitive](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/pokeweb/map3dModel.ts:104) supplies indexed positions and optional UVs, normals and vertex colors.
+[Map3dSceneData](../src/pokeweb/map3dModel.ts#L236) contains the selected zone, season, chunk geometry, building geometry, world positions, building rotations, textures and diagnostic warnings. Each [primitive](../src/pokeweb/map3dModel.ts#L104) supplies indexed positions and optional UVs, normals and vertex colors.
 
-[The map loader](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/pokeweb/map3dModel.ts:526) already resolves seasonal resources, extracts terrain NSBMDs from Game Freak containers, supplies the area's external texture pack, stitches chunks into map coordinates and assembles placed buildings. These relationships are required to export a complete map; converting an isolated NSBMD does not reconstruct them.
+[The map loader](../src/pokeweb/map3dModel.ts#L526) already resolves seasonal resources, extracts terrain NSBMDs from Game Freak containers, supplies the area's external texture pack, stitches chunks into map coordinates and assembles placed buildings. These relationships are required to export a complete map; converting an isolated NSBMD does not reconstruct them.
 
-[renderSceneData](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/ui/map3dEditor.ts:858) turns the data into ordinary Three.js BufferGeometry meshes, material groups and positioned/rotated objects. [getTexture](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/ui/map3dEditor.ts:1597) creates RGBA DataTextures and sets wrapping, mirroring and nearest-neighbor filtering.
+[renderSceneData](../src/ui/map3dEditor.ts#L858) turns the data into ordinary Three.js BufferGeometry meshes, material groups and positioned/rotated objects. [getTexture](../src/ui/map3dEditor.ts#L1597) creates RGBA DataTextures and sets wrapping, mirroring and nearest-neighbor filtering.
 
-The installed exporter explicitly supports DataTexture → PNG conversion, embeds images in the binary GLB payload, and maps MeshBasicMaterial to the standard unlit material extension. See [image encoding](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/node_modules/three/examples/jsm/exporters/GLTFExporter.js:1378) and [unlit materials](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/node_modules/three/examples/jsm/exporters/GLTFExporter.js:2834). The public API supports asynchronous binary scene export: [Three.js documentation](https://threejs.org/docs/pages/GLTFExporter.html).
+The installed exporter explicitly supports DataTexture → PNG conversion, embeds images in the binary GLB payload, and maps MeshBasicMaterial to the standard unlit material extension. See [image encoding](../node_modules/three/examples/jsm/exporters/GLTFExporter.js#L1378) and [unlit materials](../node_modules/three/examples/jsm/exporters/GLTFExporter.js#L2834). The public API supports asynchronous binary scene export: [Three.js documentation](https://threejs.org/docs/pages/GLTFExporter.html).
 
 Blender has native glTF/GLB import support: [Blender manual](https://docs.blender.org/manual/en/3.6/addons/import_export/scene_gltf2.html).
 
@@ -37,14 +37,14 @@ Build an export-only scene from the loaded data or share mesh-construction helpe
 
 ## What Apicula contributes
 
-Apicula is a useful reference for Nitro geometry, materials, coordinate conventions, textures, skeletons and animation conversion. Its [GLTF converter](/Users/andylee/Repos/Port-Pokeweb/reference_repos/apicula/src/convert/gltf/mod.rs:36) already writes geometry, vertex colors, skinning and skeletal animation. Its 0BSD license permits reuse and adaptation: [license](/Users/andylee/Repos/Port-Pokeweb/reference_repos/apicula/LICENSE).
+Apicula is a useful reference for Nitro geometry, materials, coordinate conventions, textures, skeletons and animation conversion. Its [GLTF converter](../../reference_repos/apicula/src/convert/gltf/mod.rs#L36) already writes geometry, vertex colors, skinning and skeletal animation. Its 0BSD license permits reuse and adaptation: [license](../../reference_repos/apicula/LICENSE).
 
 Embedding the full executable would require additional work: the current crate includes the native glium viewer and a filesystem-oriented CLI. A browser port needs a conversion library with byte-array input/output and appropriate dependency separation. That is useful for broader native-model export, but this map button can use the scene data Pokeweb already owns.
 
 Two implementation details found in the local code matter for any future integration:
 
-- Apicula's GLB writer currently references separate PNG image files. Pokeweb would need to package those files or embed them to promise a single self-contained download. See [image URIs](/Users/andylee/Repos/Port-Pokeweb/reference_repos/apicula/src/convert/gltf/mod.rs:991).
-- Its README says material animations are not converted, but the local GLTF code contains an experimental UV-offset path using `EXT_property_animation`. That is not full texture-animation preservation or verified Blender compatibility. See [material-animation export](/Users/andylee/Repos/Port-Pokeweb/reference_repos/apicula/src/convert/gltf/mod.rs:674). This distinction does not affect the proposed static map export.
+- Apicula's GLB writer currently references separate PNG image files. Pokeweb would need to package those files or embed them to promise a single self-contained download. See [image URIs](../../reference_repos/apicula/src/convert/gltf/mod.rs#L991).
+- Its README says material animations are not converted, but the local GLTF code contains an experimental UV-offset path using `EXT_property_animation`. That is not full texture-animation preservation or verified Blender compatibility. See [material-animation export](../../reference_repos/apicula/src/convert/gltf/mod.rs#L674). This distinction does not affect the proposed static map export.
 
 ## Limits and checks
 

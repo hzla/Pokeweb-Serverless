@@ -13,8 +13,6 @@ The original assumption needs two refinements:
 
 ## Evidence and confidence
 
-Primary runtime reference: [BW2 title.c](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/title/title.c:50). This is Japanese BW2 source, not BW1.
-
 Read-only checks used the local `cleanwhite2.nds` (game code IRDO, revision 0) and `cleanblack2.nds` (IREO, revision 0):
 
 1. Both contain the expected 15-member title graphics archive at `a/0/2/6`.
@@ -32,8 +30,6 @@ Exact executable offsets for English title settings, modified-ROM compatibility,
 ### Logo screen
 
 The runtime sets up separate logo and background layers, sharing character graphics and palette data. It also creates an animated cell actor for Press Start. A separate text window is initialized but explicitly hidden in the active update path; editing a message string alone would not replace the visible Press Start artwork.
-
-Source: [2D setup](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/title/title.c:884), [scrolling update](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/title/title.c:993), [Press Start actor](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/title/title.c:1366).
 
 Verified `a/0/2/6` member mapping, with zero-based indexes:
 
@@ -59,8 +55,6 @@ PNG export is straightforward. PNG import needs tile allocation, palette quantiz
 ### 3D screen
 
 For each version the runtime explicitly loads three NSBMD model resources, three NSBCA skeletal animations, one NSBTA texture-coordinate animation for the third model, and one camera binary. Models supply their own textures. The credit artwork is composited as a 2D layer.
-
-Source: [resource and animation tables](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/title/title.c:1075).
 
 Verified `a/1/5/8` mapping:
 
@@ -88,8 +82,6 @@ These are triangulated decoder outputs, not DS hardware polygon counts or proof 
 
 ## Camera and title sequence
 
-The camera format is particularly accessible. Its original converter and runtime reader are present: [ica_converter.rb](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/tools/ica/ica_converter.rb:26), [LoadAnimeInfo](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/system/ica_anime.c:576), [UpdateBuf](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/system/ica_anime.c:697).
-
 The file has an 8-byte header: a little-endian frame count, scale/rotation/translation presence bytes, and padding. Each frame then contains the enabled XYZ triples as 32-bit floats, in scale, rotation, translation order. The runtime converts these floats to fixed-point values. Camera rotations are degrees; the camera adapter derives forward/up vectors from them.
 
 Both tested cameras contain 7,781 frames, rotation and translation only: `8 + 7781 × 24 = 186752` bytes. Both change from frame 1 onward. Frames 7300–7780 have one identical camera transform per version, confirming the fixed idle-loop view.
@@ -110,8 +102,6 @@ Source-defined sequence events include:
 
 Do not treat the title wait counter as identical to the animation frame counter: animation advances during fades and code can seek to later scenes. A future preview needs explicit scene presets and both concepts.
 
-Source: [sequence logic](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/title/title.c:325), [projection](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/title/title.c:1205), [camera orientation](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/system/ica_camera.c:25).
-
 ## Numerical editing: what is data and what needs a patch
 
 **Resource edits:** camera position/rotation per frame, frame counts, palette colors, tile placement, cell offsets, sprite frame durations, and supported model/material properties. These can be presented as ordinary fields and written into assets, with format validation.
@@ -126,16 +116,16 @@ Some requested transforms can be baked into camera or model assets to avoid exec
 
 | Existing component | Reuse | Remaining work |
 | --- | --- | --- |
-| [nitroBg.ts](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/pokeweb/nitroBg.ts:49) | Palette/tilemap decoding and image composition | Title layer composition and import constraints |
-| [nitroCell.ts](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/pokeweb/nitroCell.ts:73), Pokemon sprite tooling | NCER/NANR decoding, preview, editing patterns | Title-specific adapter, positions and persistence |
-| [moveBackgroundCompiler.ts](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/pokeweb/moveBackgroundCompiler.ts:64) | Quantization and tile-building techniques | Existing writer is tailored to 4bpp, six palettes, 512×512 maps; title logo requires a different 8bpp/shared-resource writer |
-| [battleModelScene.ts](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/pokeweb/battleModelScene.ts:23), Maps 3D | NSBMD geometry and texture decoding, Three.js infrastructure | Skeletal playback, texture animation, title camera and DS rendering details |
+| [nitroBg.ts](../src/pokeweb/nitroBg.ts#L49) | Palette/tilemap decoding and image composition | Title layer composition and import constraints |
+| [nitroCell.ts](../src/pokeweb/nitroCell.ts#L73), Pokemon sprite tooling | NCER/NANR decoding, preview, editing patterns | Title-specific adapter, positions and persistence |
+| [moveBackgroundCompiler.ts](../src/pokeweb/moveBackgroundCompiler.ts#L64) | Quantization and tile-building techniques | Existing writer is tailored to 4bpp, six palettes, 512×512 maps; title logo requires a different 8bpp/shared-resource writer |
+| [battleModelScene.ts](../src/pokeweb/battleModelScene.ts#L23), Maps 3D | NSBMD geometry and texture decoding, Three.js infrastructure | Skeletal playback, texture animation, title camera and DS rendering details |
 | NARC/ROM writers and project persistence | Replacing assets and rebuilding ROMs | A title model/route and consistent edit ownership |
-| [testBattleEmulatorMain.ts](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/testBattleEmulatorMain.ts:401) | Browser DS emulator, supplied ROM bytes, pause, stepping and savestates | A title launch mode and title-oriented controls |
+| [testBattleEmulatorMain.ts](../src/testBattleEmulatorMain.ts#L401) | Browser DS emulator, supplied ROM bytes, pause, stepping and savestates | A title launch mode and title-oriented controls |
 
-The present model reader accepts BMD0/BTX0 containers. It does not load title NSBCA/NSBTA animations. Its [NODEMIX handling](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/pokeweb/map3dModel.ts:1672) deliberately uses a static bind-pose approximation. Animated preview requires retaining the joint hierarchy, inverse bind matrices and vertex influences, then evaluating animation tracks; adding only a Three.js playback button is insufficient.
+The present model reader accepts BMD0/BTX0 containers. It does not load title NSBCA/NSBTA animations. Its [NODEMIX handling](../src/pokeweb/map3dModel.ts#L1672) deliberately uses a static bind-pose approximation. Animated preview requires retaining the joint hierarchy, inverse bind matrices and vertex influences, then evaluating animation tracks; adding only a Three.js playback button is insufficient.
 
-The existing export path gives loaded NARC stores precedence over filesystem replacements. Use one authoritative owner for each title archive and merge edits through it, so a generic file-editor change cannot silently compete with a title-editor change. See [exportRom.ts](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/src/pokeweb/exportRom.ts:64).
+The existing export path gives loaded NARC stores precedence over filesystem replacements. Use one authoritative owner for each title archive and merge edits through it, so a generic file-editor change cannot silently compete with a title-editor change. See [exportRom.ts](../src/pokeweb/exportRom.ts#L64).
 
 ## Preview recommendation
 
@@ -144,7 +134,7 @@ Provide two complementary views:
 1. **Asset/composition preview:** immediate 2D layers, texture previews and model inspection. Extend this into synchronized animation with an idle-loop preset, scene selection, frame stepping and scrubbing. Display at native 256×192 per screen with optional integer scaling.
 2. **In-game preview:** build a temporary ROM from current project edits and launch it through Pokeweb's existing emulator infrastructure in a dedicated title mode. This runs the game's actual composition, animation, camera, fades and screen-switch code.
 
-The emulator is the practical reference for fidelity, subject to emulator accuracy. Reconstructing every DS effect in Three.js is more work, especially transparency ordering, fixed-point transforms, lighting, and the frame-history blend implemented by [display capture](/Users/andylee/Repos/Port-Pokeweb/reference_repos/REDACTED_REFERENCE/prog/src/title/title.c:746).
+The emulator is the practical reference for fidelity, subject to emulator accuracy. Reconstructing every DS effect in Three.js is more work, especially transparency ordering, fixed-point transforms, lighting, and the frame-history blend implemented by display capture.
 
 For iteration, reload the edited ROM and re-enter the title. A savestate captured after title assets are loaded can restore stale geometry/textures from RAM and VRAM; it is not a reliable way to preview arbitrary new asset edits. A validated checkpoint before title resource loading could be investigated later. This title mode should be independent of test-battle preparation and its game-flow patches.
 
@@ -158,9 +148,9 @@ Export separate PNG layers/sprite sheets, original native resources, and a manif
 
 Export the original NSBMD/NSBCA/NSBTA files and camera data as the authoritative bundle. Offer GLB/Collada and texture PNGs for convenience once conversion support is available.
 
-[Apicula](https://github.com/scurest/apicula) can convert models and skeletal animation to common 3D formats. Its README says material and texture-pattern animations are not converted, but a subsequent code inspection found an experimental UV-offset export path using `EXT_property_animation` in the local GLTF converter. This is not complete NSBTA support or verified Blender compatibility. A GLB export therefore cannot be the sole lossless representation of this title scene; preserve NSBTA and the custom camera separately. See [the map export feasibility note](/Users/andylee/Repos/Port-Pokeweb/Pokeweb-Serverless/docs/map-blender-export-feasibility.md) for the code-level findings.
+[Apicula](https://github.com/scurest/apicula) can convert models and skeletal animation to common 3D formats. Its README says material and texture-pattern animations are not converted, but a subsequent code inspection found an experimental UV-offset export path using `EXT_property_animation` in the local GLTF converter. This is not complete NSBTA support or verified Blender compatibility. A GLB export therefore cannot be the sole lossless representation of this title scene; preserve NSBTA and the custom camera separately. See [the map export feasibility note](../docs/map-blender-export-feasibility.md) for the code-level findings.
 
-Blender output also needs conversion back into DS-native assets. Local CTRMapV includes [NSBMDWriter](/Users/andylee/Repos/Port-Pokeweb/reference_repos/CTRMapV/src/ctrmap/formats/ntr/nitrowriter/nsbmd/NSBMDWriter.java:19) and NSBCAWriter, exposed through its CreativeStudio integration. Upstream [NSBMD export settings](https://github.com/ds-pokemon-hacking/CTRMapV/blob/master/src/ctrmap/creativestudio/nitroplugin/NSBMDExportDialog.java) and [NSBCA export settings](https://github.com/ds-pokemon-hacking/CTRMapV/blob/master/src/ctrmap/creativestudio/nitroplugin/NSBCAExportDialog.java) confirm these capabilities. The [NNS Blender plugin](https://github.com/jellees/nns-blender-plugin) provides another route through intermediate model/animation formats, which still need binary conversion.
+Blender output also needs conversion back into DS-native assets. Local CTRMapV includes [NSBMDWriter](../../reference_repos/CTRMapV/src/ctrmap/formats/ntr/nitrowriter/nsbmd/NSBMDWriter.java#L19) and NSBCAWriter, exposed through its CreativeStudio integration. Upstream [NSBMD export settings](https://github.com/ds-pokemon-hacking/CTRMapV/blob/master/src/ctrmap/creativestudio/nitroplugin/NSBMDExportDialog.java) and [NSBCA export settings](https://github.com/ds-pokemon-hacking/CTRMapV/blob/master/src/ctrmap/creativestudio/nitroplugin/NSBCAExportDialog.java) confirm these capabilities. The [NNS Blender plugin](https://github.com/jellees/nns-blender-plugin) provides another route through intermediate model/animation formats, which still need binary conversion.
 
 These are candidate external workflows, not a tested end-to-end BW2 title round trip. Start by accepting validated, already-compiled Nitro resources. Direct arbitrary `.blend`, FBX or GLB import into a game-ready title should be treated as a separate converter project.
 

@@ -20,7 +20,7 @@ build.mkdir(exist_ok=True)
 binary = build / f"{rom.idCode.decode()}-ov{args.overlay}.bin"
 binary.write_bytes(data)
 objdump = WORKSPACE / "toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin/arm-none-eabi-objdump"
-dump = subprocess.check_output([str(objdump), "-D", "-b", "binary", "-m", "arm", "-M", "force-thumb", f"--adjust-vma={base}", str(binary)])
+dump = subprocess.check_output([str(objdump), "-D", "-b", "binary", "-m", "arm", "-M", "force-thumb", f"--adjust-vma={base}", binary.name], cwd=build)
 output = binary.with_suffix(".txt")
 output.write_bytes(dump)
-print(output, hex(base), len(data))
+print(output.relative_to(HERE.parents[1]), hex(base), len(data))

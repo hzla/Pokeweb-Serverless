@@ -66,10 +66,28 @@ def player_header(data):
     return origin
 
 def paint_expected(data,pair,p,t,origin=None):
-    del t,origin
+    del origin
     a,b=pair
     anchor={1:60,3:64,5:60,7:56}.get(p)
     base=65-anchor if anchor is not None else 0
+    solid=ASSETS.get('variant')=='solid'
+    if solid:
+        compact=bool(p&1) or t>=2
+        outline=ASSETS['compactOutline'] if compact else ASSETS['outline']
+        primary=ASSETS['compactPrimary'] if compact else ASSETS['primary']
+        secondary=ASSETS['compactSecondary'] if compact else ASSETS['secondary']
+        monofill=ASSETS['compactMonoFill'] if compact else ASSETS['monoFill']
+        left=(12 if t>=2 else 11) if p&1 else (9 if t>=2 else 7)
+        for y in range(len(outline)):
+            for x in range(12):
+                mask=2048>>x
+                if not outline[y]&mask:continue
+                if a==b and monofill[y]&mask:color=4
+                elif primary[y]&mask:color=4
+                elif secondary[y]&mask:color=15
+                else:color=2
+                setpixel(data,left+x,18+y,color)
+        return
     positions=[(base+2,17,a)] if a==b else [(base,15,a),(base+5,21,b)]
     for kind,(left,top,typ) in enumerate(positions):
         for y in range(ASSETS['iconHeight']):

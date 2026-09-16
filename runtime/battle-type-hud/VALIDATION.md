@@ -1,23 +1,27 @@
-# Validation — selectable Type Icons / bundle 0.4.17
+# Validation — selectable Type Icons / bundle 0.4.21
 
-Pokeweb bundles lettered Type Icons 0.3.17 and Circular Icons 0.3.17-circular
-for both English B2 and W2. The Type Icons card displays both 18-icon sheets and
-a checkbox chooses the DLL installed at the existing Type Icons path. Export,
-reimport, detection, reinstall, and switching in either direction retain one
-icon module and one set of hooks.
+Pokeweb bundles lettered Type Icons 0.3.17, Circular Icons 0.3.17-circular,
+and Angular HUD Wedges 0.3.21-solid for both English B2 and W2. The Type Icons
+card displays all three preview sheets and one selector chooses the DLL installed
+at the existing Type Icons path. Export, reimport, detection, reinstall, and
+switching among all three retain one icon module and one set of hooks.
 
-The circular build uses the original approved 8×8 white symbols in 10×10
-outlined circles, centered in the shared 12×11 logical footprint. Both variants
-use the current 5-right/6-down diagonal stack and preserve the native caught
-Poké Ball in its header slot. Circular compiled-ARM checks cover all 18 type IDs,
-mono/dual rendering, every player and enemy panel slot, all six statuses, live
-type changes, unchanged-frame write suppression, and byte-exact teardown in B2
-and W2.
+The angular build paints only native light checkerboard pixels. Its 11-row
+regular-player mask and seven-row enemy/compact-player mask follow each panel's
+own stair steps. Enemy masks begin one pixel farther left. Dual types retain a
+black diagonal divider; monotypes fill across its interior. Black pixels outside
+the exact mask, the bottom shadow and the caught Poké Ball remain byte-identical.
 
-The lettered DLL is 7,824 bytes with about 8,080 retained PMC bytes. The circular
-DLL is 7,840 bytes with about 8,096 retained PMC bytes. Both retain 364 bytes of
-fixed state and add no battle-heap allocations, sprites, palette banks, or
-additional graphics allocations. No game boot or emulator frames were executed.
+Angular-wedge compiled-ARM checks cover all 18 type IDs, mono and dual rendering, every
+player and enemy panel slot, all six statuses, live mono-to-dual changes,
+unchanged-frame write suppression, native caught-marker preservation, and exact
+teardown in B2 and W2. The lettered and circular binary hashes remain unchanged
+from bundle 0.4.17.
+
+The angular-wedge DLL is 7,184 bytes with about 7,488 retained PMC bytes. It
+retains 364 bytes of fixed state and adds no battle-heap allocations, sprites, palette
+banks, or separate graphics allocations. No game boot or emulator frames were
+executed.
 
 # Historical validation — Type Icons 0.3.16 / bundle 0.4.16
 

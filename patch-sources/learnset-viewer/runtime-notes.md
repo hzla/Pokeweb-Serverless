@@ -13,6 +13,103 @@ occupied. Eggs, battle/daycare menus, and item/mail submenus are excluded.
 
 ## Runtime design
 
+Release **1.2.0** adds party navigation to the species-info viewer. D-pad
+**Right** advances in party order (slot 1 to slot 2); **Left** goes backward.
+Both wrap and skip Eggs/empty slots; fainted Pokemon remain available. With only
+one eligible Pokemon, neither direction leaves or reloads the screen. L/R
+shoulders still page evolution requirements, and B/return closes to the party
+menu with the last viewed Pokemon selected. Each switch resets lower scrolling
+and the outgoing-evolution page, and refreshes both screens from that Pokemon's
+current species/form. Switching uses the native fade/end/init lifecycle rather
+than rewriting live tutor list or graphics pointers. It never visits the party
+menu between Pokemon and never teaches moves or changes party order.
+
+The upper-screen design remains private to LEARNSET. The title
+uses the ROM species name (not nickname), six current-form base stats use
+gold bars on a shared 0–255 scale, and a maximum of three native party icons
+shows the selected stage with a bright border. L/R pages through every outgoing
+evolution requirement, including text continuation pages, and updates the icons
+to follow the displayed outgoing option. Lower move rows,
+descriptions, power/accuracy, touch controls, and B/back behavior are unchanged.
+
+The stats column is 18 pixels narrower, with tighter label/value spacing. The
+icons are raised 24 pixels, their spacing is increased to fit clear right-pointing
+arrows, and up to three available ability names appear underneath, left-aligned
+in Title Case. Capitalization affects display copies only, not ROM text. These are
+the selected form's personal-data slots (bytes 24–26), not its current battle
+ability. Zero slots are omitted; duplicate IDs appear once and retain purple
+hidden-ability highlighting if one of their slots is hidden. Names come from
+ROM bank 487 with bank 374 as the fallback for extended names, matching Pokeweb.
+Long names are measured and truncated; missing names show their numeric ID.
+The L/R page indicator now sits beside the evolution-requirement heading so it
+does not overlap the ability list. Stats, title, abilities and the highlighted
+identity continue to describe the original selected Pokemon when paging.
+
+The bounded reader supports 76-byte personal records and 42/48-byte evolution
+records. It skips non-personal archive members, resolves form ownership, chooses
+the first predecessor by record/slot order, and initially follows the first
+outgoing slot. L/R replaces that selected stage's outgoing link with the paged
+option; any subsequent stage still follows its own first outgoing slot.
+The selected Pokemon is always included. Each direction is bounded to two
+neighbors; repeated species/form identities stop traversal, with continuation
+markers instead of a wraparound arrow. Cycles are valid data, not errors.
+All outgoing slots get text pages, including links to an already displayed
+ancestor or the selected stage itself. Those links never add duplicate icons
+or a wraparound arrow.
+When additional predecessors exist in a hack, the first-source rule determines
+which is displayed; it does not infer the particular Pokemon's ancestry.
+
+Evolution descriptions use verified BW2 method semantics, not the editor's
+legacy labels: methods 2/3 mean friendship plus day/night, and method 28 means
+the Chargestone Cave location check. Methods 29–31 describe the repository's
+KO/battles-brought/battles-used extensions. Unknown methods show their numeric
+method and parameter. Requirements are descriptive, not an eligibility checker;
+the patch does not implement or change evolution behavior.
+
+`info_messages.json` defines private viewer messages, appended/reused in bank
+401 by the installer. A separate `LSVINF1` configuration section contains their
+IDs/complements in the viewer DLL only. The original `LSVMSG1` configuration and
+field-owned request remain compatible. Update **both** companions through the
+Learnset Viewer card and export; copying raw bundled DLLs does not configure text.
+
+The upper renderer expands the title bitmap to 32×24 tiles, keeps valid 1×1
+unused windows for native cleanup, and suppresses the five original upper
+sprites. BG2 uses a private palette and CPU-side tilemap; the icon rectangles use
+their native ROM palettes. BG3 is hidden so transparent icon pixels cannot
+reveal old upper-screen graphics. No ROM graphics archive is replaced.
+
+All info parsing, strings, rendering, evolution paging, and mutable info state
+live in the overlay-258 viewer. The menu/field companion relaunches that viewer
+after a party switch. Each menu DLL is 3,056 bytes on disk / 2,856 bytes after
+internal relocation fixing, up by 272 fixed bytes from 1.1.3. Its persistent
+state is unchanged. The field-bridge split is not part of this release.
+The upper bitmap change adds 14,784 bytes to the tutor
+application heap's bitmap payload (not the PMC heap); temporary graph and text
+allocations also use heap 79 and are released during/after the session.
+
+Opening uses a 1 KiB FAT window plus a 4 KiB record window for the personal and
+evolution scans, one archive at a time. This replaces thousands of tiny seeks
+and reads without loading whole archives or retaining a cross-session cache.
+If this optional buffer cannot be allocated, the checked unbuffered reader
+still works. Initialization reuses one private message bank and one name bank,
+closing both before returning. Eight compact chain snapshots replace the full
+graph after initialization. Paging reuses three icon slots and reads only new
+identities; continuation pages never reopen personal/evolution/message data.
+All these buffers remain viewer/application-heap scoped, not battle-resident.
+
+On the clean Eevee fixture, directly instrumented filesystem reads drop from
+4,291 to 87 (about 98%); private/native message-bank opens drop from 32 to 10.
+These counts exclude reads internal to the native message routines. This is
+not a measured live-game loading time; retest the original 2–3 second delay.
+
+`verify_info.py` runs compiled Thumb code with filesystem/allocator/presentation
+boundaries instrumented, actual ROM fonts and icons, and native icon resolvers.
+It generates 256×192 previews in ignored `build/`. These checks are not a live
+game/emulator run. Test the new ROM from boot rather than restoring a state with
+old loaded DLLs. See `VALIDATION.md` for release checks and the emulator checklist.
+
+### Earlier releases
+
 Release **1.0.3** adds two native pixels between the type icon and the first
 level digit in every candidate row, including scrolled rows. The level/name
 starts at bitmap X=2 instead of 0; its measured width is reduced from 108 to
@@ -84,11 +181,18 @@ game addresses and hook bytes are separately verified for W2 and B2 by
 The private command `0x4c53` and transition marker `0x4c535631` are accepted
 only in the overworld party context. A field-owned request contains a retail
 28-byte tutor prefix, `LSV1` tag, version/size, at most 32 `{moveId, level}`
-records, and a separate terminated move-ID array. The bridge refuses to run
+records, and a separate terminated move-ID array. Request ABI version 2 adds
+an eight-byte party navigation suffix (party pointer, current/next slots) for
+a total of 244 bytes. It remains field-owned for the whole browsing session;
+the menu rebuilds its contents only after native viewer teardown and then
+starts overlay 258 again. Both companions must be updated together; an older
+request ABI is rejected before native initialization. The bridge refuses to run
 the retail tutor if its viewer companion is missing. The viewer recognizes
 mode `0xfe`, validates the request, and normalizes the retail mode to 1 before
 initialization. Its end callback clears active pointers before overlay unload;
-the field callback then frees the request and restores the selected party slot.
+the field callback either relaunches for the requested party slot or frees the
+request and restores the last viewed party slot. Count/index validation occurs
+again in the bridge; failed transitions safely return to the party menu.
 
 Species and form are read from the selected Pokemon, then resolved with the
 game's personal-data index routine. Level-up data comes directly from
@@ -103,11 +207,11 @@ Names and base max PP are read through retail routines. Labels use the game's
 font-width routine, retain `N - `, and shorten the name with `...` to fit 106
 pixels after the two-pixel inset. PP starts 120 pixels into the existing list
 bitmap, leaving its full
-48-pixel area. The upper learned-move panel and detail/category/power/accuracy
-renderers remain native. Confirmation is disabled and teaching/replacement
+48-pixel area. Lower detail/category/power/accuracy renderers remain native;
+the upper panel is now private to LEARNSET. Confirmation is disabled and teaching/replacement
 states are blocked; B/back enters the fade-out path without a question.
 
-Only the viewer's private copy of lower background member 2 in `a/1/2/5` is
+The viewer's private copy of lower background member 2 in `a/1/2/5` is
 modified. In rows 8–20, map columns 18/19 move to 21/22, with the intervening
 space filled from column 17. This shifts the diagonal divider exactly three
 8-pixel tiles without changing outer geometry. The highlighted cursor
@@ -149,8 +253,11 @@ From the Pokeweb-Serverless repository root:
 npm run learnset:build
 c++ -std=c++17 -Wall -Wextra -Werror runtime/learnset-viewer/test_logic.cpp -o runtime/learnset-viewer/build/test_logic
 runtime/learnset-viewer/build/test_logic
+c++ -std=c++17 -Wall -Wextra -Werror runtime/learnset-viewer/test_info.cpp -o runtime/learnset-viewer/build/test_info
+runtime/learnset-viewer/build/test_info
 python3 runtime/learnset-viewer/verify_runtime.py
-python3 runtime/learnset-viewer/verify_graphics.py GREEN_SCREEN.dst
+python3 runtime/learnset-viewer/verify_info.py
+python3 runtime/learnset-viewer/verify_graphics.py
 npm test
 npm run build
 npm run learnset:verify-rom -- INPUT.nds --enhanced-first
@@ -203,8 +310,8 @@ UI controls timed out; no battle was run.
    future moves, stable ascending levels, levels 0/1/55/100, descriptions/icons,
    and long names. Check all four rows while scrolling and using touch.
 2. Confirm PP shows the ROM's base maximum despite depleted PP or PP Ups.
-   Check both highlighted/unhighlighted bars, and confirm the upper panel is
-   unchanged. A must never teach; B/back must return to the same Pokemon.
+   Check both highlighted/unhighlighted bars and the new upper species-info
+   panel (see `VALIDATION.md`). A must never teach; B/back must return to the same Pokemon.
 3. Open/close repeatedly, then use RELEARN and ordinary tutors. Verify moves,
    PP, items and saved Pokemon data have not changed from viewing.
 4. Check an empty learnset and an invalid/unterminated learnset: each must show

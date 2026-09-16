@@ -45,6 +45,11 @@ for (const path of process.argv.slice(2)) {
   const circularRom = new NintendoDSRom(await exportModifiedRom(reimported));
   if (!Buffer.from(circularRom.getFileByName(status.dllPath!)!).equals(Buffer.from(circularExpected))) throw new Error("Circular variant switch failed.");
   if (getBattleTypeHudStatus(reimported).iconVariant !== "circular") throw new Error("Circular variant was not detected.");
+  await installBattleTypeHud(reimported, "solid");
+  const solidExpected = new Uint8Array(await readFile(new URL(`../src/assets/codeinjection/TypeIconsSolid${project.session.baseVersion}.dll`, import.meta.url)));
+  const solidRom = new NintendoDSRom(await exportModifiedRom(reimported));
+  if (!Buffer.from(solidRom.getFileByName(status.dllPath!)!).equals(Buffer.from(solidExpected))) throw new Error("Solid variant switch failed.");
+  if (getBattleTypeHudStatus(reimported).iconVariant !== "solid") throw new Error("Solid variant was not detected.");
   await installBattleTypeHud(reimported);
   const reinstalled = new NintendoDSRom(await exportModifiedRom(reimported));
   if (!Buffer.from(reinstalled.getFileByName("a/0/1/1")!).equals(Buffer.from(rom.getFileByName("a/0/1/1")!))) throw new Error("Reinstall changed the expanded panel again.");
@@ -75,7 +80,7 @@ for (const path of process.argv.slice(2)) {
   if (getMoveEffectivenessStatus(project).installed) throw new Error("Move preview uninstall failed.");
   const restored = new NARC(new NintendoDSRom(await exportModifiedRom(project)).getFileByName("a/0/1/1")!);
   for (let i = 0; i < originalArchive.files.length; ++i) if (!Buffer.from(unpack(restored.files[i]!)).equals(Buffer.from(unpack(originalArchive.files[i]!)))) throw new Error(`Uninstall did not restore member ${i}.`);
-  reports.push({ independentComponents: true, iconVariants: "letters and circular switch in place", game: project.session.baseVersion, initial: before, installed: status, reimported: reimportedStatus, stagedUninstall: true, imported038Upgrade: "DLL and prior NCER upgraded; all unrelated members preserved", panelExpansion: "438/439 only; exact hashes; idempotent reinstall; native resources restored on uninstall" });
+  reports.push({ independentComponents: true, iconVariants: "letters, circular and solid switch in place", game: project.session.baseVersion, initial: before, installed: status, reimported: reimportedStatus, stagedUninstall: true, imported038Upgrade: "DLL and prior NCER upgraded; all unrelated members preserved", panelExpansion: "438/439 only; exact hashes; idempotent reinstall; native resources restored on uninstall" });
 }
 const out = resolve("../work/battle-type-hud/build"); await mkdir(out, { recursive: true });
 await writeFile(resolve(out, "pokeweb-install-verification.json"), JSON.stringify(reports, null, 2)+"\n");

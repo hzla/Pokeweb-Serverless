@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
+  "version": "1.2.0",
   "games": {
     "W2": {
       "idCode": "IRDO",
@@ -213,6 +213,14 @@
           "patchSize": 4
         },
         {
+          "label": "Private upper window layout",
+          "overlayId": 258,
+          "address": 35233764,
+          "expectedHex": "aef682f8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
           "label": "Viewer callbacks",
           "overlayId": 258,
           "address": 35240424,
@@ -265,6 +273,10 @@
         {
           "member": 2,
           "sha256": "deb47e76e2c3621c1846537491bbbf3ddfe031b34144f31a6e83f0edfd708ded"
+        },
+        {
+          "member": 4,
+          "sha256": "c3b83cd0a63d9da5e59b9bcf072de477353b6bd5eeb78afa24d8902ed33a2cad"
         },
         {
           "member": 5,
@@ -496,6 +508,14 @@
           "patchSize": 4
         },
         {
+          "label": "Private upper window layout",
+          "overlayId": 258,
+          "address": 35233700,
+          "expectedHex": "aef68cf8",
+          "patchType": "THUMB_BRANCH_LINK",
+          "patchSize": 4
+        },
+        {
           "label": "Viewer callbacks",
           "overlayId": 258,
           "address": 35240360,
@@ -548,6 +568,10 @@
         {
           "member": 2,
           "sha256": "deb47e76e2c3621c1846537491bbbf3ddfe031b34144f31a6e83f0edfd708ded"
+        },
+        {
+          "member": 4,
+          "sha256": "c3b83cd0a63d9da5e59b9bcf072de477353b6bd5eeb78afa24d8902ed33a2cad"
         },
         {
           "member": 5,

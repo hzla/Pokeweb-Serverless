@@ -48,6 +48,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         if address in stubs:
             assert uc.reg_read(UC_ARM_REG_SP)%8==0, f"misaligned native call {address:x}"
             stubs[address]();return
+        assert 0x02300000<=address<0x02320000, f"uninstrumented native call {address:x}"
     uc.hook_add(UC_HOOK_CODE,intercept)
     def call(name,args):
         address=symbols.get(name,name)
@@ -80,6 +81,21 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     for group in ['Menu','Viewer']:
         config=symbols[group+':learnsetConfig']
         for i,n in enumerate([50,60,61]):uc.mem_write(config+10+i*4,struct.pack('<HH',n,n^65535))
+    # Execute the actual seven-argument window hook veneer, not just its C++
+    # destination. It must preserve width in r3 and all three stack arguments.
+    windows=[]
+    def window():
+        windows.append([r(i) for i in range(4)]+list(struct.unpack('<3I',uc.mem_read(uc.reg_read(UC_ARM_REG_SP),12))))
+        ret(0x2205000)
+    stubs[0x20480ec-delta]=window
+    hook=f'Viewer:THUMB_BRANCH_LINK_258_0x{0x2199fe4-ovdelta:x}'
+    call(hook,[2,1,0,20,3,15,1]);assert windows[-1]==[2,1,0,20,3,15,1]
+    active=symbols['Viewer:_ZN12_GLOBAL__N_16activeE']
+    w32(active,0x2206000)
+    call(hook,[2,1,0,20,3,15,1]);assert windows[-1]==[2,0,0,32,24,14,1]
+    call(hook,[2,7,5,11,16,15,1]);assert windows[-1]==[2,0,24,1,1,15,1]
+    call(hook,[6,8,9,21,11,15,1]);assert windows[-1]==[6,8,9,21,11,15,1]
+    w32(active,0)
     for fields in range(5):
         for extras in range(3):
             count=4+fields+extras
@@ -99,10 +115,19 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     stubs[0x2039dc8-delta]=lambda:ret(allocate(r(1)))
     stubs[0x203a278-delta]=lambda:(freed.append(r(0)),ret())
     for address in [0x2016ad8,0x201735c,0x201736c]:stubs[address]=lambda:ret(0x2210000)
-    stubs[0x201fe24-delta]=lambda:ret(6)
-    stubs[0x201ff34-delta]=lambda:ret(0x2220000)
-    stubs[0x201cd24-delta]=lambda:ret(6 if r(1)==5 else 0)
-    stubs[0x20204ac-delta]=lambda:ret(6)
+    party_count=[6];eggs=set();empty_slots=set();species=[6]*6;forms=[0]*6;keys=[0]
+    mon=lambda slot:0x2220000+slot*256
+    stubs[0x201fe24-delta]=lambda:ret(party_count[0])
+    def party_mon():
+        assert r(1)<party_count[0] and r(1)<6
+        ret(mon(r(1)))
+    stubs[0x201ff34-delta]=party_mon
+    def pokemon_field():
+        slot=(r(0)-mon(0))//256;assert 0<=slot<6
+        ret({5:0 if slot in empty_slots else species[slot],0x4c:int(slot in eggs),0x6f:forms[slot]}.get(r(1),0))
+    stubs[0x201cd24-delta]=pokemon_field
+    stubs[0x20204ac-delta]=lambda:ret(r(0)+r(1))
+    stubs[0x203df28-delta]=lambda:ret(keys[0])
     stubs[0x204aa5c-delta]=lambda:ret(0x2230000)
     stubs[0x204adac-delta]=lambda:ret(1024)
     stubs[0x204ab38-delta]=lambda:ret()
@@ -128,6 +153,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     stubs[0x2199a50-ovdelta]=lambda:ret(1)
     stubs[0x219b994-ovdelta]=lambda:(logs.append('native-confirm'),ret(2))
     stubs[0x219b6c8-ovdelta]=lambda:(logs.append(('button',r(1))),ret())
+    stubs[0x204c150-delta]=lambda:(logs.append(('visible',r(0),r(1))),ret())
     # Instrument the real row-formatting code and the seven-argument resource
     # veneer. The same test runs against both separately compiled games.
     strings={};ppcalls=[];transfers=[];buffered=[True];screen_buffers={}
@@ -162,6 +188,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     stubs[0x2044fbc-delta]=upload_buffer
     stubs[0x204af7c-delta]=lambda:(logs.append(('native-screen',r(0),r(1),r(2),r(3),*[u32(uc.reg_read(UC_ARM_REG_SP)+i*4) for i in range(3)])),ret())
     stubs[0x219a7f0-ovdelta]=lambda:(logs.append('native-row'),ret())
+    stubs[0x219a4c4-ovdelta]=lambda:(logs.append('native-fixed-text'),ret())
     for present in [False,True,True]:
         table=0x219b9e8-ovdelta
         callbacks=[symbols['Viewer:LearnsetViewer'+s] for s in ['Init','Main','End']]
@@ -170,6 +197,8 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         w32(seq,13);w32(partydata+0x50,0x4c535631);w32(partydata+0x4c,2)
         call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(seq)==12
         bridge,request=queue[-1];w32(viewerwork,request)
+        assert u16(request+32)==2 and u16(request+34)==244
+        assert uc.mem_read(request+240,2)==b'\x02\xff'
         saved=bytes(uc.mem_read(0x2220000,220))
         assert call(u32(bridge),[0x2243000,seq,request,viewerwork])==1
         if present:
@@ -224,7 +253,75 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         w32(seq,13);call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert freed.count(request)==1 and u32(seq)==11
         call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(partydata+0x4c)==2 and u32(seq)==12
         assert bytes(uc.mem_read(0x2220000,220))==saved
+    # Party navigation exercises both companions and a complete native End /
+    # parent-dispatch / native Init boundary for every change. Request ownership
+    # stays in the field; no list still used by the viewer is edited in place.
+    table=0x219b9e8-ovdelta
+    uc.mem_write(table,struct.pack('<3I',*[symbols['Viewer:LearnsetViewer'+s] for s in ['Init','Main','End']]))
+    w32(seq,13);w32(partydata+0x50,0x4c535631);w32(partydata+0x4c,0)
+    call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);bridge,request=queue[-1]
+    w32(viewerwork,request);call(u32(bridge),[0x2243000,seq,request,viewerwork])
+    saved=bytes(uc.mem_read(mon(0),6*256))
+    # Default count, bounded data and future/current moves are regenerated per
+    # species/form. Slot 2 is an Egg; slot 4 is an invalid empty record.
+    species[:]=[1,2,3,4,5,5];forms[5]=1;eggs.add(2);empty_slots.add(4)
+    records=[b'\xff'*4,struct.pack('<4H',11,5,65535,65535),struct.pack('<4H',12,10,65535,65535),
+             b'\xff'*4,b'\xff'*4,b'bad',struct.pack('<6H',16,50,17,80,65535,65535)]
+    image_data=b''.join(records);offset=0;fat_entries=[]
+    for record_data in records:fat_entries.append((offset,offset+len(record_data)));offset+=len(record_data)
+    fat=b'BTAF'+struct.pack('<IHH',12+len(records)*8,len(records),0)+b''.join(struct.pack('<II',*entry) for entry in fat_entries)
+    image=b'GMIF'+struct.pack('<I',8+len(image_data))+image_data
+    archive=b'NARC'+struct.pack('<IIHH',0x0100fffe,16+len(fat)+8+len(image),16,3)+fat+b'BTNF'+struct.pack('<I',8)+image
+    def switch(key,expected,count,status):
+        # A different lower scroll/cursor and outgoing-evolution page cannot
+        # carry into the new Pokemon's native initialization.
+        uc.mem_write(request+20,struct.pack('<HHBB',3,12,1,1))
+        before=len(queue);keys[0]=key;w32(seq,1)
+        call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
+        assert logs[-1]==8 and uc.mem_read(request+241,1)[0]==expected
+        assert len(queue)==before and request not in freed
+        # Repeat input during fade cannot enqueue a second transition.
+        w32(seq,8);call(u32(bridge+4),[0x2243000,seq,request,viewerwork]);assert len(queue)==before
+        call(u32(bridge+8),[0x2243000,seq,request,viewerwork]);assert u32(active)==0
+        keys[0]=0;w32(seq,13);call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork])
+        assert u32(seq)==12 and len(queue)==before+1 and queue[-1][1]==request and request not in freed
+        assert u32(request)==mon(expected) and uc.mem_read(request+240,2)==bytes([expected,255])
+        assert bytes(uc.mem_read(request+20,6))==b'\x00\x00\x00\x00\x00\xfe'
+        assert u16(request+164)==count and u16(request+166)==status
+        ids=[u16(request+168+i*2) for i in range(max(count,1)+1)]
+        assert ids[-1]==65535 and (count or ids[0]==1)
+        call(u32(bridge),[0x2243000,seq,request,viewerwork]);assert uc.mem_read(request+234,1)==b'\x01'
+    switch(0x10,1,1,0) # Right: slot 1 -> slot 2.
+    assert u16(request+168)==12
+    switch(0x10,3,0,1) # Skip Egg; empty learnset is still viewable.
+    switch(0x10,5,2,0) # Skip missing species; use current form's learnset.
+    assert u16(request+168)==16 and u16(request+170)==17
+    switch(0x10,0,1,0) # Right wraps.
+    forms[5]=0
+    switch(0x20,5,0,2) # Left wraps; malformed learnset never keeps old moves.
+    switch(0x20,3,0,1)
+    switch(0x20,1,1,0)
+    for i in range(3):switch(0x20,0,1,0);switch(0x10,1,1,0)
+    # L/R and B do not request a party transition; simultaneous Left+Right
+    # does nothing, and one non-Egg Pokemon never closes/reopens the viewer.
+    for key in [0x100,0x200,0x30,0x12]:
+        keys[0]=key;w32(seq,1);before=len(queue)
+        call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
+        assert uc.mem_read(request+241,1)==b'\xff' and len(queue)==before and logs[-1]==1
+    eggs.update([0,3,5])
+    for key in [0x10,0x20]:
+        keys[0]=key;w32(seq,1);call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
+        assert u32(seq)==1 and uc.mem_read(request+241,1)==b'\xff'
+    call(u32(bridge+8),[0x2243000,seq,request,viewerwork]);w32(seq,13)
+    call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert freed.count(request)==1 and u32(seq)==11
+    call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(partydata+0x4c)==1
+    assert bytes(uc.mem_read(mon(0),6*256))==saved
+    # Old/mixed request ABI is rejected before retail initialization.
+    legacy=allocate(236);uc.mem_write(legacy,bytes(uc.mem_read(request,236)))
+    uc.mem_write(legacy+25,b'\xfe');uc.mem_write(legacy+32,struct.pack('<HH',1,236));w32(legacy+28,0x3156534c)
+    assert call('Viewer:LearnsetViewerInit',[0x2243000,seq,legacy,viewerwork])==1 and u32(active)==0
     assert call('Viewer:LearnsetConfirm',[viewerwork])==2
     call('Viewer:LearnsetDrawLine',[viewerwork,0,0]);assert logs[-1]=='native-row'
+    call('Viewer:LearnsetFixedText',[viewerwork]);assert logs[-1]=='native-fixed-text'
     call('Viewer:LearnsetScreen',[0x2230000,2,7,24,2048,0,79]);assert logs[-1]==('native-screen',0x2230000,2,7,24,2048,0,79)
-    print(game, 'compiled wrappers: capacity, selection, trampolines, lifetime, read-only guard, rows/PP/scroll, private divider, missing companion, repeated sessions passed')
+    print(game, 'compiled wrappers: capacity, selection, trampolines, lifetime, read-only guard, rows/PP/scroll, private divider, missing companion, party Left/Right/wrap/Egg/empty/form navigation and ABI rejection, repeated sessions passed')
