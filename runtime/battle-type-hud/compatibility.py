@@ -65,7 +65,7 @@ def audit(path,module="TypeIcons"):
         capacity=dict(current_kib=160,insufficient=True,
             reason='Observed PMC fragmentation at overlay 168: largest free block 2328 bytes with scanner loaded.')
         errors.append('The recorded Cascade+scanner build has insufficient PMC capacity. Use a non-Cascade ROM or a future optimized build; this installer does not resize the PMC heap.')
-    result=dict(component=module,game=game,rom=str(Path(path).resolve()),rom_sha256=digest,
+    result=dict(component=module,game=game,rom=Path(path).name,rom_sha256=digest,
                 compatible=not errors,errors=errors,hook_conflicts=conflicts,installed_modules=installed,
                 scanner_present='CascadeScanLabel.dll' in installed,verified_functions=len(profile['signatures']),
                 verified_hooks=len(profile['hooks']),verified_resources=len(profile['resources']),pmc_capacity=capacity)

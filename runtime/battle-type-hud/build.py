@@ -3,10 +3,10 @@ from pathlib import Path
 import hashlib, json, os, subprocess
 HERE=Path(__file__).resolve().parent
 ROOT=Path(os.environ.get("BTH_WORKSPACE_ROOT",HERE.parents[2] if HERE.parent.name=="runtime" else HERE.parents[1]))
-TOOLS=Path(os.environ.get('BTH_TOOLCHAIN_BIN',ROOT/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'))
+TOOLS=Path(os.environ.get('BTH_TOOLCHAIN_BIN',ROOT/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin')).resolve()
 JAR=Path(os.environ.get('BTH_CTRMAP_JAR',ROOT/'White2Upgrade/CTRMap.jar'))
 from rpm_read import read_rpm
-def run(*args): subprocess.run([str(a) for a in args],check=True)
+def run(*args, cwd=None): subprocess.run([str(a) for a in args],check=True,cwd=cwd)
 def main():
     build=HERE/'build';build.mkdir(exist_ok=True)
     run('javac','-cp',JAR,'-d',build,HERE/'Compact.java')
@@ -14,6 +14,7 @@ def main():
     modules=(
         ('TypeIcons','battle_type_hud.cpp',364,17,None,'0.3.17'),
         ('TypeIconsCircular','battle_type_hud.cpp',364,17,'ICON_VARIANT_CIRCULAR','0.3.17-circular'),
+        ('TypeIconsSolid','battle_type_hud.cpp',364,17,'ICON_VARIANT_SOLID','0.3.21-solid'),
         ('MoveEffectiveness','move_effectiveness.cpp',20,5,None,'0.4.0'),
     )
     for game,module,source,state_size,hook_count,variant_define,version in [(g,*m) for g in ('B2','W2') for m in modules]:
@@ -24,9 +25,10 @@ def main():
             '-mno-thumb-interwork','-mno-long-calls','-Os','-Wall','-Wextra','-Werror',
             '-ffreestanding','-fno-jump-tables','-fvisibility=hidden','-fno-exceptions','-fno-rtti','-fstack-usage',
             '-fno-unwind-tables','-fno-asynchronous-unwind-tables','-DGAME_'+game,
-            '-c',HERE/source,'-o',obj]
+            '-c',source,'-o',obj]
         if variant_define: compile_args.insert(-4,'-D'+variant_define)
-        run(*compile_args)
+        # Relative source names keep stack-usage reports machine-independent.
+        run(*compile_args,cwd=HERE)
         run(TOOLS/'arm-none-eabi-ld','-r',obj,'-o',elf)
         assert not subprocess.check_output([str(TOOLS/'arm-none-eabi-nm'),'-u',str(elf)]).strip()
         # Load before ordinary priority-4 battle patches. This does not enlarge
@@ -50,7 +52,7 @@ def main():
                 fixed_state_bytes=rpm['bss'],expanded_rpm_bytes=rpm['expanded_size'],
                 retained_rpm_after_internal_fix_bytes=rpm['internal_fixed_size'],
                 rpm_metadata_overhead_bytes=rpm['expanded_size']-len(rpm['code'])-rpm['bss'],
-                icon_constants_bytes=476 if module.startswith('TypeIcons') else 0,
+                icon_constants_bytes=180 if module=='TypeIconsSolid' else 476 if module.startswith('TypeIcons') else 0,
                 caught_marker_constants_bytes=0,
                 external_hook_count=len(external),external_modules=['168'],
                 pmc_module_state_bytes=36,pmc_overlay_list_bytes=8,pmc_extern_list_bytes=8,
@@ -62,7 +64,7 @@ def main():
                 added_hardware_oam_pieces_per_regular_player=1 if module.startswith('TypeIcons') else 0,
                 existing_cell_resource_growth_bytes=8 if module.startswith('TypeIcons') else 0)
         (build/(name+'.disassembly.txt')).write_bytes(subprocess.check_output(
-            [str(TOOLS/'arm-none-eabi-objdump'),'-dr',str(elf)]))
+            [str(TOOLS/'arm-none-eabi-objdump'),'-dr',elf.name],cwd=build))
     (build/'memory-report.json').write_text(json.dumps(reports,indent=2)+'\n')
     print(json.dumps(reports,indent=2))
 if __name__=='__main__': main()

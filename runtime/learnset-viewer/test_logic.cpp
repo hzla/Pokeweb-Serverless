@@ -10,6 +10,19 @@ static std::vector<u8> records(std::initializer_list<Entry> values, bool termina
     return bytes;
 }
 int main() {
+    for(u32 count=0;count<=7;++count)for(u32 mask=0;mask<64;++mask)
+        for(u32 current=0;current<7;++current)for(bool forward:{false,true}) {
+            u32 calls=0;
+            auto eligible=[&](u32 slot){assert(slot<count && slot<6);++calls;return (mask&(1u<<slot))!=0;};
+            u32 expected=current;
+            if(count>=2 && count<=6 && current<count)for(u32 step=1;step<count;++step) {
+                const u32 slot=forward?(current+step)%count:(current+count-step)%count;
+                if(mask&(1u<<slot)){expected=slot;break;}
+            }
+            assert(nextPartySlot(current,count,forward,eligible)==expected && calls<6);
+        }
+    assert(nextPartySlot(0,6,true,[](u32){return true;})==1);
+    assert(nextPartySlot(0,6,false,[](u32){return true;})==5);
     auto bytes=records({{6,55},{8,1},{9,1},{6,55},{6,0},{6,100}});
     auto list=parse(bytes.data(),bytes.size(),1000);
     assert(list.status==Status::Ready && list.count==5);

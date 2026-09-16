@@ -15,13 +15,14 @@ import { parseRpm, type RpmModule } from "./rpm";
 
 type Version = "B2" | "W2";
 type Component = "icons" | "moves";
-export type TypeIconVariant = "letters" | "circular";
+export type TypeIconVariant = "letters" | "circular" | "solid";
 const URLS = {
   moves: { B2: new URL("../assets/codeinjection/MoveEffectivenessB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/MoveEffectivenessW2.dll", import.meta.url) },
 };
 const ICON_URLS = {
   letters: { B2: new URL("../assets/codeinjection/TypeIconsB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsW2.dll", import.meta.url) },
   circular: { B2: new URL("../assets/codeinjection/TypeIconsCircularB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsCircularW2.dll", import.meta.url) },
+  solid: { B2: new URL("../assets/codeinjection/TypeIconsSolidB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsSolidW2.dll", import.meta.url) },
 };
 const title = (kind: Component) => kind === "icons" ? "Type Icons" : "Move Effectiveness Preview";
 const profileFor = (v: Version, kind: Component) => kind === "icons" ? manifest.games[v] : manifest.moveGames[v];

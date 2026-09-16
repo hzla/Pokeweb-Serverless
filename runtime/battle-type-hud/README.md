@@ -1,9 +1,9 @@
 # Type Icons and Move Effectiveness Preview
 
-Bundle 0.4.17 (Type Icons 0.3.17; Circular Icons 0.3.17-circular; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
+Bundle 0.4.21 (Type Icons 0.3.17; Circular Icons 0.3.17-circular; Angular HUD Wedges 0.3.21-solid; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
 Pokeweb's **Code Injection** page has two independent entries:
 
-- **Type Icons** → choose lettered `TypeIconsB2/W2.dll` or circular `TypeIconsCircularB2/W2.dll` in the same installer card.
+- **Type Icons** → choose lettered, circular-symbol, or angular-wedge builds in the same installer card.
 - **Move Effectiveness Preview** → `MoveEffectivenessB2.dll` / `MoveEffectivenessW2.dll`.
 
 Install either or both; PMC is installed automatically if needed. Neither DLL
@@ -20,49 +20,53 @@ independently. Pokeweb cannot yet delete an original ROM file.
 
 ## Type icons
 
-The Code Injection card displays both complete 18-icon preview sheets. Leave
-**Install circular symbol icons** unchecked for the lettered point-up variant,
-or check it for the original circular symbols. Reinstalling switches the one
-active Type Icons DLL in place; both variants are never installed together.
-Imported current builds restore the matching selection automatically.
+The Code Injection card displays all three preview sheets. Choose the desired
+style from **Icon style**. Reinstalling switches the one active Type Icons DLL
+in place; multiple variants are never installed together. Imported current
+builds restore the matching selection automatically.
 
-- Player, partner and enemy panels in singles, doubles and triples use 12×11
-  point-up rhombuses with a one-pixel near-black outline, a type-colored center
-  and a compact white first initial. Four shoulder pixels complete the black
-  enclosure around the color fill. Every initial is lowered one pixel and has a full row of color beneath it; Water
-  uses the requested five-pixel-wide W. The alternate build centers the approved
-  8×8 white symbols and 10×10 outlined circles in the same logical footprint.
+- The lettered build uses 12×11 point-up icons with a one-pixel near-black
+  outline, a type-colored center and a compact white first initial. Water uses
+  the requested five-pixel-wide W. The circular build centers the approved 8×8
+  white symbols and 10×10 outlined circles in the same logical footprint.
   Duplicate types collapse to one centered icon.
-- Dual types form a 17×17 diagonal stack: the second rhombus begins five pixels
-  right and six pixels below the first. The stack overlaps the left edge of
-  the existing HUD graphics. It is painted in the native 128×32 image, so all
-  corners outside each rhombus preserve the pixels beneath them.
+- **Angular HUD wedges** replace only the light checkerboard pixels at the
+  panel's stair-stepped left edge. Enemy wedges begin one pixel farther left;
+  the remaining perimeter and the complete drop shadow stay untouched. Regular player panels use an 11-row painted face;
+  enemy and compact triple-player panels use a separate seven-row face. A dual
+  type colors the upper and lower fields independently and keeps a narrow black
+  divider. A monotype fills across the divider's interior.
+- The lettered and circular dual icons form a 17×17 diagonal stack: the second
+  icon begins five pixels right and six pixels below the first. The angular
+  style stays within its compact inset footprint. Every style is drawn directly
+  into the native 128×32 HUD graphics and applies to player, partner and enemy
+  panels in singles, doubles and triples.
 - Enemy placement is adjusted for the singles, both doubles, and all three
   triples anchors. The leftmost painted screen pixel is always x=1; the closest
-  rendered name begins at least five clear pixels after the stack. All 649
-  retail English species names fit at level 100. Native name, gender, and level
-  callbacks still draw at their original coordinates before spacing is applied.
+  rendered name begins at least five clear pixels after the reserved icon area.
+  All 649 retail English species names fit at level 100. Native name, gender and
+  level callbacks still draw at their original coordinates before spacing is
+  applied.
 - Player singles keeps the established name shift of 12 pixels and the
-  gender/level shift of eight pixels. The dual stack begins at sprite-local
-  (-64,-1) and (-59,5); a monotype begins at (-62,1), one pixel above its former position. Compact player panels use
-  the same diagonal geometry in their existing 128×32 graphics.
+  gender/level shift of eight pixels. Compact player panels use the same style
+  in their existing 128×32 graphics.
 - The installer retains the earlier regular-player NCGR/NCER expansion for
   upgrade compatibility: 256 transparent bytes and one transparent 32×16 OAM
-  piece. The rhombuses themselves now paint only inside the native pieces.
-  Reinstall remains idempotent and staged uninstall restores native resources.
+  piece. Current icons paint only inside native pieces. Reinstall remains
+  idempotent and staged uninstall restores native resources.
 - The native 8×8 already-caught Poké Ball remains untouched in its original
   header slot. Enemy header translation begins immediately after that slot, so
-  the patch no longer clears, copies, redraws, or validates the marker raster.
+  the patch does not clear, copy, redraw or validate the marker raster.
 - The outline uses existing near-black index 2. Native shadow pixels using
   palette indices 4/15 become index 2; those reclaimed entries hold the two
   type colors and index 1 supplies white. The player's separate HP-number slash
   receives the same shadow remap, preventing palette color bleed.
-- Native status labels hide the rhombuses. Clearing a status redraws the current
-  effective typing. Temporary type changes, Roost, Reflect Type, and compatible
-  Protean implementations are read from live battle state. Illusion uses cached
-  disguise typing until it breaks.
+- Native status labels hide the icons or wedges. Clearing a status redraws the
+  current effective typing. Temporary type changes, Roost, Reflect Type and
+  compatible Protean implementations are read from live battle state. Illusion
+  uses cached disguise typing until it breaks.
 - Bindings use the battler passed to gauge creation. Switching, rebinding,
-  graphics reloads, and resource teardown restore saved pixels before reuse.
+  graphics reloads and resource teardown restore saved pixels before reuse.
   Six fixed records cover all visible battlers. Unchanged frames do no video
   writes. Rotation icons and Pokéstar-specific layouts remain outside this
   version; the separate rotation move-name preview is supported.
@@ -129,31 +133,32 @@ rejects invalid bit 15, altered instructions/relocations or changed BSS size.
 
 Both games have the same sizes; detailed hashes are in `reports/memory-report.json`.
 
-| Component | Type Icons release | Move Preview release |
-|---|---:|---:|
-| DLL on disk | 7,824 B | 3,504 B |
-| Code and constants | 6,840 B | 2,948 B |
-| Fixed writable state | 364 B | 20 B |
-| Expanded RPM metadata/padding | 988 B | 568 B |
-| Expanded RPM allocation | 8,192 B | 3,536 B |
-| Retained RPM allocation after internal fixups | 7,960 B | 3,440 B |
-| Estimated PMC peak including bookkeeping | 8,312 B | 3,656 B |
-| Estimated PMC retained including bookkeeping | 8,080 B | 3,560 B |
+| Component | Letters | Circles | Angular wedges | Move Preview |
+|---|---:|---:|---:|---:|
+| DLL on disk | 7,824 B | 7,840 B | 7,184 B | 3,504 B |
+| Code and constants | 6,840 B | 6,836 B | 6,276 B | 2,948 B |
+| Fixed writable state | 364 B | 364 B | 364 B | 20 B |
+| Expanded RPM metadata/padding | 988 B | 1,008 B | 912 B | 568 B |
+| Expanded RPM allocation | 8,192 B | 8,208 B | 7,552 B | 3,536 B |
+| Retained RPM allocation after internal fixups | 7,960 B | 7,976 B | 7,368 B | 3,440 B |
+| Estimated PMC peak including bookkeeping | 8,312 B | 8,328 B | 7,672 B | 3,656 B |
+| Estimated PMC retained including bookkeeping | 8,080 B | 8,096 B | 7,488 B | 3,560 B |
 
 Installing Type Icons together with Move Preview totals 384 writable bytes and
-approximately 11,640 retained PMC bytes for letters or 11,656 bytes for circles.
-Only one icon variant is installed at a time. The circular DLL is 7,840 bytes
-on disk and uses approximately 8,096 retained PMC bytes. Move Preview 0.4.0 adds approximately 768 retained PMC bytes compared with
+approximately 11,640 retained PMC bytes for letters, 11,656 bytes for circles,
+or 11,048 bytes for angular wedges. Only one icon variant is installed at a
+time. Move Preview 0.4.0 adds approximately 768 retained PMC bytes compared with
 Move Preview 0.3.0, with no additional fixed state. Debug DLLs have
 identical executable code to release; full debug loader accounting is in the report.
 
-Each variant has 476 icon-constant bytes: 396 bytes of symbol masks, 36 bytes
-of RGB555 colors, and 44 bytes for the fill and outline masks. Exact packed
-native background tables add 884 bytes; no caught-marker raster is embedded.
-Six 60-byte records use 24-byte background buffers. A dual stack backs up 144 variable
-covered pixels in 18 bytes; the added center row and four shoulder pixels per rhombus restore
-from the exact native background table, leaving six bytes for the native-header checksum,
-a spare byte, and text shifts. Header translation uses a 64-byte row on
+The lettered and circular variants each have 476 icon-constant bytes: 396 bytes
+of symbol masks, 36 bytes of RGB555 colors, and 44 bytes for fill and outline
+masks. The angular variant uses 180 bytes: four 11-row regular masks, four
+seven-row compact masks and the same 36 color bytes. Exact packed native background tables add 884 bytes; no caught-marker
+raster is embedded. Six 60-byte records use 24-byte background buffers. A
+lettered or circular dual stack backs up 144 variable pixels in 18 bytes; the
+angular build backs up at most 55 painted checker-face pixels. Six buffer bytes remain for the
+native-header checksum, a spare byte and text shifts. Header translation uses a 64-byte row on
 the stack. Icon diagnostics occupy four bytes; the separate move UI module uses
 20 bytes, for exactly 384 writable bytes when both are installed. The largest
 individual compiler-reported stack frame remains 568 bytes, including the

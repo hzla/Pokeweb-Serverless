@@ -44,18 +44,18 @@ Original source for **MainMenuSkipB2/W2** and **DoubleBattleFixB2/W2** was not f
 
 ## Refresh and validation
 
-The latest refresh includes LEARNSET **1.0.3** (background-buffer fix and two-pixel icon/level spacing),
-Type Icons **0.3.9**, and Move Effectiveness **0.4.0** (HUD catalog **0.4.9**).
-All previously listed source and artifact hashes were checked against the current
-canonical files and bundles. The manifest accounts for
-all 45 bundled DLL/RPM files: 44 grouped artifacts and the intentionally excluded
-monolithic `Black2Upgrade.dll`. Existing original-source gaps remain explicit.
+The latest scoped refresh updates LEARNSET to **1.2.0** (D-pad party navigation, branch-responsive icons,
+buffered loading, compact gold stats, form abilities and cycle-safe chains). Other patch snapshots retain their
+previous versions and hashes; this refresh does not certify newly added bundles
+outside LEARNSET. Existing original-source gaps remain explicit.
 
 From the Pokeweb repository root:
 
 ```sh
 node patch-sources/refresh.mjs
 node patch-sources/refresh.mjs --check
+node patch-sources/refresh.mjs --only=learnset-viewer
+node patch-sources/refresh.mjs --only=learnset-viewer --check
 ```
 
 This opt-in bookkeeping tool refreshes manifest-listed sources, discovers the
@@ -64,6 +64,9 @@ records current source and bundled-artifact SHA-256 values. It refuses to
 overwrite locally edited snapshots or silently omit an unregistered bundled
 DLL/RPM. A second refresh is a no-op. It does not run copied scripts, launch an
 emulator, rebuild modules, change bundled binaries, or delete files.
+The optional `--only=GROUP` refreshes/checks that group's sources and artifacts
+without changing other groups or shared files. Complete bundle-inventory
+validation remains part of the unscoped command.
 
 Repository locations default to the existing sibling layout and can be overridden
 with `W2U_RUNTIME_ROOT`, `WEATHER_RUNTIME_ROOT`, and `PMC_SOURCE_ROOT`.

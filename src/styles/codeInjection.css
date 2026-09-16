@@ -176,7 +176,7 @@
 .type-icon-variant-previews {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .type-icon-variant-preview {
@@ -225,15 +225,38 @@
   padding: 11px 12px;
 }
 
-.type-icon-variant-toggle input {
+.type-icon-variant-toggle select {
   accent-color: #1abc9c;
-  height: 18px;
-  width: 18px;
+  background: #1f212a;
+  border: 1px solid rgb(98 114 164 / 75%);
+  border-radius: 4px;
+  color: #f2f2f2;
+  font: inherit;
+  margin-left: auto;
+  min-width: 210px;
+  padding: 7px 9px;
+}
+
+@media (max-width: 980px) {
+  .type-icon-variant-previews {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
   .type-icon-variant-previews {
     grid-template-columns: 1fr;
+  }
+
+  .type-icon-variant-toggle {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .type-icon-variant-toggle select {
+    margin-left: 0;
+    min-width: 0;
+    width: 100%;
   }
 }
 
