@@ -76,15 +76,21 @@ def paint_expected(data,pair,p,t,origin=None):
         outline=ASSETS['compactOutline'] if compact else ASSETS['outline']
         primary=ASSETS['compactPrimary'] if compact else ASSETS['primary']
         secondary=ASSETS['compactSecondary'] if compact else ASSETS['secondary']
+        primary_shade=ASSETS['compactPrimaryShade'] if compact else ASSETS['primaryShade']
+        secondary_shade=ASSETS['compactSecondaryShade'] if compact else ASSETS['secondaryShade']
         monofill=ASSETS['compactMonoFill'] if compact else ASSETS['monoFill']
+        monoshade=ASSETS['compactMonoShade'] if compact else ASSETS['monoShade']
         left=(12 if t>=2 else 11) if p&1 else (9 if t>=2 else 7)
         for y in range(len(outline)):
             for x in range(12):
                 mask=2048>>x
                 if not outline[y]&mask:continue
                 if a==b and monofill[y]&mask:color=4
+                elif a==b and monoshade[y]&mask:color=15
                 elif primary[y]&mask:color=4
                 elif secondary[y]&mask:color=15
+                elif primary_shade[y]&mask:color=4 if (x+y)&1 else 2
+                elif secondary_shade[y]&mask:color=15 if (x+y)&1 else 2
                 else:color=2
                 setpixel(data,left+x,18+y,color)
         return
@@ -377,11 +383,12 @@ def test(game):
         h.c.mem_write(mon+0xf8,bytes(pair));h.invoke('Main',G);h.check(1,pair)
     h.invoke('Del',G,1)
     checks.append('actual retail effective-type helper: Roost removes Flying, pure Flying becomes Normal, clearing restores Flying')
-    if game=='W2':
+    cascade_path=Path(os.environ.get('BTH_CASCADE_ROM',str(Path.home()/'Downloads/cascadescan-bumpers.nds')))
+    if game=='W2' and cascade_path.exists():
         # The user's Cascade ROM already expands the null type sentinel to 18.
         # Execute that real engine too; the HUD does not change type mechanics.
         import ndspy.rom
-        cascade=ndspy.rom.NintendoDSRom.fromFile(os.environ.get('BTH_CASCADE_ROM',str(Path.home()/'Downloads/cascadescan-bumpers.nds')))
+        cascade=ndspy.rom.NintendoDSRom.fromFile(cascade_path)
         ov=cascade.loadArm9Overlays([167])[167]
         h.c.mem_write(ov.ramAddress,bytes(ov.data))
         h.c.ctl_remove_cache(ov.ramAddress,ov.ramAddress+len(ov.data))

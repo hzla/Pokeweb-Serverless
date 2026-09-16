@@ -43,7 +43,6 @@
       "native graphics reload repaints current icons; changed battler identity clears the stale binding",
       "HP digit updates untouched; number-only graphics reloads and proxy relocation repair only the slash without icon redraws",
       "actual retail effective-type helper: Roost removes Flying, pure Flying becomes Normal, clearing restores Flying",
-      "actual Cascade Fairy-expanded effective-type helper, including Fairy/Flying with Roost",
       "all 17 icon PMC relocations; callee-saved registers, SP and fifth stack argument preserved",
       "enemy mono/dual layouts remain enabled with absent HP number sprites and changed Lv. graphics; no writes to enemy number images",
       "player singles name shifts +12 and gender/level +8; stacked rhombuses, transparent corners, statuses and native name redraws preserve panel text",

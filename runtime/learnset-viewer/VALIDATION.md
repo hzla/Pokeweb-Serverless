@@ -1,10 +1,30 @@
-# LEARNSET 1.2.0 validation
+# LEARNSET 1.2.3 validation
 
 Release checks performed on 2026-09-16. These are automated host tests,
 isolated compiled-Thumb tests, ROM inspection, and export/reload checks.
 **A complete live-game session has not been verified for this release.**
 
-Version 1.2.0 adds D-pad party navigation: Right advances, Left goes backward,
+Version 1.2.3 only moves the evolution text group down two native pixels to
+Y=140/156/172, including the page indicator and no-evolution/status messages.
+Panel geometry, other text, icons, controls and data logic are unchanged.
+Current checks: both stripped builds, `verify_info.py --layout-only` (normal,
+no-evolution, paged and wrapped text, bottom-edge bounds, unchanged backdrop/
+icons/abilities and cleanup), runtime/lower-graphics regressions, 55 focused
+installer tests, production build, privacy audit, and W2/B2 update/export/reload
+from 1.2.2. Full data/branch/failure coverage below was last run for 1.2.2;
+the entire long-running info suite was not repeated for this coordinate change.
+
+Version 1.2.2 aligns the sprite-card top/bottom borders with Y=40/88 row rules,
+preserving the complete native 32×32 icon at Y=48–79. Abilities move one full row
+down to Y=90/106/122. The bottom evolution panel is near-black again below its
+Y=136 teal divider. Stat placement, text paging, controls and lower UI are unchanged.
+
+Version 1.2.1 restored the retail tutor's faint horizontal rows and exact RGB555
+background colors to the private top screen. Stat and ability baselines follow
+the 16-pixel row grid. Seven colors and compact row runs are generated from verified
+US W2/B2 resources, without the old bars/name plate. The lower screen is unchanged.
+
+Version 1.2.0 added D-pad party navigation: Right advances, Left goes backward,
 both wrap and skip Eggs/empty slots, and one eligible Pokemon is a no-op.
 Native fade/end/init refreshes both screens without entering the party menu.
 B returns to the last viewed slot. L/R still changes the outgoing evolution
@@ -14,7 +34,7 @@ behavior, buffered scans, and overlay scopes are unchanged from 1.1.3.
 The ability list retains up to three distinct names from the selected form's
 ROM slots. The L/R indicator remains beside the requirement heading.
 
-## Automated coverage
+## Full regression baseline (1.2.2)
 
 - Both US W2/B2 companions build with warnings treated as errors, no undefined
   imports or static constructors, stripped RPM symbols, and priority 4.
@@ -40,8 +60,14 @@ ROM slots. The L/R indicator remains beside the requirement heading.
   overrides, primary bank 487 and expanded-bank 374 names, numeric fallbacks,
   long-name truncation, Title Case, fixed left alignment and hidden text color.
   Host casing tests cover spaces, hyphens, apostrophes and accented letters.
-  Pixel checks cover right-arrow orientation, raised icon palette rectangles,
-  gold bars and compact values.
+  Pixel checks cover right-arrow orientation, aligned icon palette rectangles,
+  gold bars and compact values. Both games' clear upper backdrop columns match
+  the retail map above the evolution panel. Every bottom-panel scanline is
+  checked for the restored near-black color and teal divider. Both complete card
+  edges are checked against the row rules, and icon bytes are compared unchanged
+  against the ROM for one-, two-, and three-card families and paged branches.
+  Clear lower-map samples have the same row/body colors. Background checks also
+  run after evolution paging and allocation failure; old upper BG3 stays hidden.
 - Tests execute the seven-argument window hook veneer, checking stack/register
   preservation, private upper-window dimensions, unchanged ordinary-tutor
   dimensions, and unchanged lower-window dimensions.
@@ -62,7 +88,7 @@ ROM slots. The L/R indicator remains beside the requirement heading.
 - 55 focused LEARNSET, enhanced-menu and PMC tests pass. The production build
   passes, with the existing large-JavaScript-chunk warnings.
 - Clean W2/B2 pass install/export/reload with enhanced menu installed in both
-  orders. Existing Upgrade W2/B2 pass update from 1.1.3 and export/reload with the paired 1.2.0
+  orders. Existing Upgrade W2/B2 pass update from 1.2.1 and export/reload with the paired 1.2.2
   companions. Checks include update detection, idempotence, private text reuse,
   unchanged shared tutor strings/graphics archives, and staged removal/reinstall.
 
@@ -77,9 +103,11 @@ Sizes are bytes from the stripped RPMs; W2 and B2 have the same sizes.
 | Companion | File | Expanded | Post-fix | Code | BSS |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Menu | 3,056 | 3,072 | 2,856 | 2,104 | 8 |
-| Viewer | 13,552 | 13,568 | 12,596 | 10,616 | 8 |
+| Viewer | 13,664 | 13,680 | 12,660 | 10,612 | 8 |
 
-Compared with 1.1.3, the viewer adds 224 post-fix bytes and the menu adds 272.
+Compared with 1.2.1, the viewer adds 48 post-fix bytes and the menu is unchanged.
+This update adds no heap allocations or runtime file reads. Compared with 1.1.3,
+the viewer adds 288 post-fix bytes and the menu adds 272.
 Viewer code remains scoped to overlay 258. The existing overlay-12/165 menu
 lifetime is unchanged, so its additional 272 fixed bytes may be present during
 battle; there is no new persistent state or battle-time allocation. The
@@ -113,7 +141,7 @@ failure paths show unavailable information without modifying the Pokemon.
 ## Loading measurements
 
 The same compiled harness was run on 1.1.2 before rebuilding and on 1.1.3;
-1.2.0 retains those upper-info opening counts. Native fade/initialization runs
+1.2.3 retains those upper-info opening counts. Native fade/initialization runs
 again for each party switch; a zero-latency switch is not claimed.
 Both US games give the same directly instrumented filesystem call counts:
 
@@ -141,8 +169,8 @@ instrumented presentation boundaries; they are not emulator screenshots.
 
 Upgrade test exports in the outer Repos folder:
 
-- `White2Upgrade-LEARNSET-1.2.0-test.nds`
-- `Black2Upgrade-LEARNSET-1.2.0-test.nds`
+- `White2Upgrade-LEARNSET-1.2.3-test.nds`
+- `Black2Upgrade-LEARNSET-1.2.3-test.nds`
 
 Original input ROMs were not overwritten. Refresh Pokeweb, update the paired
 Learnset Viewer patch and export, or use the named exports. Start from boot:
@@ -153,6 +181,9 @@ an old emulator save state restores old loaded DLL code and graphics state.
 1. Open Mew's LEARNSET: species title (not nickname), six ROM base stats,
    centered highlighted icon, "Does not evolve.", and no old learned-move
    panel/name box/large sprite. Check an evolved species with no outgoing link.
+   Check the retail slate background, faint rows and title rails. Card edges
+   must be flush with row lines, with unclipped icons and abilities one row lower.
+   Evolution text must retain the near-black panel beneath the teal divider.
 2. Check Nidorina and a two-stage family, alternate forms, edited stats, and
    long species names. The selected stage stays highlighted and its stats/title
    remain fixed. Check bars, icon colors, shadows, and all edges at native scale.

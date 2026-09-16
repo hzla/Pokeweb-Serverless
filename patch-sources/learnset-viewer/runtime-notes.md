@@ -13,6 +13,30 @@ occupied. Eggs, battle/daycare menus, and item/mail submenus are excluded.
 
 ## Runtime design
 
+Release **1.2.3** moves all evolution-panel text down two native pixels:
+heading/page indicator at Y=140 and requirement/status lines at Y=156/172.
+The black panel, sprites, stats, abilities and lower screen stay in place.
+`verify_info.py --layout-only` checks native-font placement, continuation pages
+and bottom-edge bounds on both games without rerunning the full data suite.
+
+Release **1.2.2** aligns both sprite-card borders exactly with row rules at
+Y=40/88. The original 32×32 icons sit at Y=48–79 with vertical padding: no
+cropping, scaling or new graphics allocation. Abilities move down one full row
+to Y=90/106/122. The evolution heading and requirements retain their positions,
+but their previous near-black panel is restored beneath the Y=136 teal rule.
+The lower screen, controls, data, gold bars and hidden-ability colors are unchanged.
+
+Release **1.2.1** restored the retail tutor's slate background, faint 16-pixel
+rows, title rails and bottom trim to the private upper panel. `background.py`
+extracts the exact RGB555 colors and clean row profile from the verified US
+W2/B2 tutor resources (shared palette/tiles 0/1, upper map 4), excluding the old
+move bars and name plate. Both games must match. The build embeds only seven
+colors and compact row runs; there are no new runtime reads or allocations.
+The six stat rows start at Y=42 with a 16-pixel stride, and the evolution
+heading/requirement lines now start at Y=140/156/172. Gold stat bars, teal selection, purple hidden abilities,
+all lower-screen geometry, and ordinary RELEARN remain unchanged. Allocation
+failure also retains the striped backdrop and a dismissible error message.
+
 Release **1.2.0** adds party navigation to the species-info viewer. D-pad
 **Right** advances in party order (slot 1 to slot 2); **Left** goes backward.
 Both wrap and skip Eggs/empty slots; fainted Pokemon remain available. With only
@@ -33,7 +57,7 @@ to follow the displayed outgoing option. Lower move rows,
 descriptions, power/accuracy, touch controls, and B/back behavior are unchanged.
 
 The stats column is 18 pixels narrower, with tighter label/value spacing. The
-icons are raised 24 pixels, their spacing is increased to fit clear right-pointing
+icons occupy the upper three-row cards, their spacing fits clear right-pointing
 arrows, and up to three available ability names appear underneath, left-aligned
 in Title Case. Capitalization affects display copies only, not ROM text. These are
 the selected form's personal-data slots (bytes 24–26), not its current battle
@@ -76,7 +100,8 @@ The upper renderer expands the title bitmap to 32×24 tiles, keeps valid 1×1
 unused windows for native cleanup, and suppresses the five original upper
 sprites. BG2 uses a private palette and CPU-side tilemap; the icon rectangles use
 their native ROM palettes. BG3 is hidden so transparent icon pixels cannot
-reveal old upper-screen graphics. No ROM graphics archive is replaced.
+reveal old upper-screen graphics. The private bitmap reproduces its clean row
+background. No ROM graphics archive is replaced.
 
 All info parsing, strings, rendering, evolution paging, and mutable info state
 live in the overlay-258 viewer. The menu/field companion relaunches that viewer
@@ -218,19 +243,11 @@ space filled from column 17. This shifts the diagonal divider exactly three
 (character 17, cell 7, animation 8) is an outline over this same background,
 so both states share the adjusted divider. No ROM graphics archive is replaced.
 
-## Source provenance and compatibility
+## Compatibility
 
-The primary behavioral reference is **REDACTED_REFERENCE (Japanese BW2)**:
-
-- `prog/src/app/waza_oshie/wo_main.c`, `wo_bmp_def.h`, and
-  `prog/include/app/waza_oshie.h` for tutor state, callbacks, windows and lists.
-- The party menu and field Pokemon-menu dispatch code for expanded menu
-  ownership and transition sequencing.
-- `resource/waza_oshie/` for resource relationships (US resource indexes are
-  independently read from the target ROM, not assumed from Japanese indexes).
-
-`swan_export` is BW1 and is not used as evidence for BW2 layouts. The build
-pins decompressed US overlays 12/165/258. `learnsetViewerManifest.json` records
+US resource indexes are independently read from the target ROM, not assumed
+from another region. The build pins decompressed US overlays 12/165/258.
+`learnsetViewerManifest.json` records
 hook/layout signatures, patch types/sizes, and retail resource SHA-256 values.
 The installer also inspects other staged/built-in RPM patch ranges, so a renamed
 conflicting DLL is still rejected. Module files are stripped, have no imports

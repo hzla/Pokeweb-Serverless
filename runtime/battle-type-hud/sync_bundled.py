@@ -5,7 +5,7 @@ from rpm_read import read_rpm
 HERE=Path(__file__).resolve().parent
 ROOT=Path(os.environ.get('BTH_WORKSPACE_ROOT',HERE.parents[2] if HERE.parent.name=='runtime' else HERE.parents[1]))
 APP=ROOT/'Pokeweb-Serverless';ASSETS=APP/'src/assets/codeinjection';RUNTIME=APP/'runtime/battle-type-hud'
-version='0.4.21'
+version='0.4.23'
 manifest=json.loads((ASSETS/'battleTypeHudManifest.json').read_text())
 manifest['version']=version;manifest.setdefault('moveGames',{})
 memory=json.loads((HERE/'build/memory-report.json').read_text())
@@ -53,11 +53,11 @@ for game in ('B2','W2'):
    profile['variants']={
     'letters':{'label':'Hexagonal letters','version':component_version,'dllSha256':digest},
     'circular':{'label':'Circular icons','version':circular_version,'dllSha256':circular_digest},
-    'solid':{'label':'Angular HUD wedges','version':'0.3.21-solid','dllSha256':hashlib.sha256((HERE/'build'/f'TypeIconsSolid{game}.dll').read_bytes()).hexdigest()},
+    'solid':{'label':'Angular HUD wedges','version':'0.3.23-solid','dllSha256':hashlib.sha256((HERE/'build'/f'TypeIconsSolid{game}.dll').read_bytes()).hexdigest()},
    }
    (ASSETS/circular_name).write_bytes(circular_data)
    solid_name=f'TypeIconsSolid{game}.dll';solid_data=(HERE/'build'/solid_name).read_bytes();solid_rpm=read_rpm(solid_data)
-   solid_digest=hashlib.sha256(solid_data).hexdigest();solid_version='0.3.21-solid'
+   solid_digest=hashlib.sha256(solid_data).hexdigest();solid_version='0.3.23-solid'
    assert solid_rpm['bss']==state and len([r for r in solid_rpm['relocations'] if r['module']!='base'])==hooks
    assert all(r['module'] in ('base','168') for r in solid_rpm['relocations']) and all(not s['attributes']&2 for s in solid_rpm['symbols'])
    assert solid_digest==memory[solid_name]['sha256']==solid_verified['release_sha256'][game]

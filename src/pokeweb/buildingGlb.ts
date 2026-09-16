@@ -22,7 +22,7 @@ export async function modelAssetHash(bytes: Uint8Array): Promise<string> {
 export type StaticGlbNode = { index: number; extras: Record<string, unknown>; world: Matrix4; meshes: StaticModelMesh[]; children: StaticGlbNode[] };
 
 /** Decode embedded geometry without executing extensions or fetching external resources. */
-export function readStaticGlb(bytes: Uint8Array, triangleLimit = 200_000): { metadata: any; nodes: StaticGlbNode[] } {
+export function readStaticGlb(bytes: Uint8Array, triangleLimit = 200_000): { metadata: any; nodes: StaticGlbNode[]; document: any; binary: Uint8Array } {
   check(bytes.length >= 28 && bytes.length <= 64 * 1024 * 1024, "Choose a GLB smaller than 64 MB.");
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   check(view.getUint32(0, true) === 0x46546c67 && view.getUint32(4, true) === 2 && view.getUint32(8, true) === bytes.length, "Invalid GLB 2.0 header.");
@@ -122,12 +122,12 @@ export function readStaticGlb(bytes: Uint8Array, triangleLimit = 200_000): { met
             colors!.set(color.values.slice(i * color.width, i * color.width + 3), i * 3);
           }
         }
-        meshes.push({ materialName, positions, indices: new Uint32Array(ids), uvs: uv && new Float32Array(uv.values), colors, normals });
+        meshes.push({ materialName, materialIndex: primitive.material, positions, indices: new Uint32Array(ids), uvs: uv && new Float32Array(uv.values), colors, normals });
       }
     }
     return { index, world, extras: node.extras ?? {}, meshes, children: (node.children ?? []).map((child: number) => visit(child, world, depth + 1)) };
   }
-  return { metadata, nodes: scene.nodes.map((node: number) => visit(node, new Matrix4(), 0)) };
+  return { metadata, nodes: scene.nodes.map((node: number) => visit(node, new Matrix4(), 0)), document, binary };
 }
 
 export function transformStaticMeshes(meshes: StaticModelMesh[], matrix: Matrix4): StaticModelMesh[] {

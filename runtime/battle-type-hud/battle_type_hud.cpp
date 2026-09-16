@@ -225,8 +225,8 @@ unsigned backIndex(const Record& r,unsigned kind,unsigned x,unsigned y) {
     // Only the native gray checker phase can vary, so one bit per backed pixel
     // is sufficient.
 #ifdef ICON_VARIANT_SOLID
-    static constexpr u8 tall[11]={0,5,10,15,20,25,30,35,40,45,50};
-    static constexpr u8 compact[7]={0,5,10,15,20,25,30};
+    static constexpr u8 tall[11]={0,7,14,21,28,35,42,49,56,63,70};
+    static constexpr u8 compact[7]={0,7,14,21,28,35,42};
     const u8* starts=solidCompact(r)?compact:tall;
 #elif defined(ICON_VARIANT_CIRCULAR)
     (void)r;
@@ -248,7 +248,13 @@ unsigned back(const Record& r,unsigned kind,unsigned x,unsigned y) {
     return c==3||c==13 ? (bits?13:3) : c;
 }
 bool snapshot(Record& r) {
+#ifdef ICON_VARIANT_SOLID
+    // Ten bytes hold the 77-pixel maximum backup. Keep the rest available for
+    // header identity and translation state.
+    for(unsigned i=0;i<12;++i) r.background[i]=0;
+#else
     for(unsigned i=0;i<18;++i) r.background[i]=0;
+#endif
     for(unsigned kind=0;kind<ICON_COUNT(r);++kind)
         for(unsigned y=0;y<ICON_HEIGHT(r);++y) for(unsigned x=0;x<12;++x) {
             if(!ICON_INK(r,x,y)) continue;
@@ -273,10 +279,21 @@ unsigned expected(const Record& r,unsigned kind,unsigned x,unsigned y) {
     const bool compact=solidCompact(r);
     const u16 primary=compact?SolidCompactPrimary[y]:SolidTallPrimary[y];
     const u16 secondary=compact?SolidCompactSecondary[y]:SolidTallSecondary[y];
+    const u16 primaryShade=compact?SolidCompactPrimaryShade[y]:SolidTallPrimaryShade[y];
+    const u16 secondaryShade=compact?SolidCompactSecondaryShade[y]:SolidTallSecondaryShade[y];
     const u16 monotype=compact?SolidCompactMono[y]:SolidTallMono[y];
+    const u16 monoShade=compact?SolidCompactMonoShade[y]:SolidTallMonoShade[y];
     if(mono(r) && (monotype&mask)) return 4;
+    // A monotype can use the otherwise-free secondary icon entry for its
+    // exact dark summary-label shade. Dual types need both reclaimed entries
+    // for their bright fills, so alternate the matching fill with black at
+    // transition pixels. This darkens the edge without touching the native
+    // HP green/yellow/red palette entries 5..12.
+    if(mono(r) && (monoShade&mask)) return 15;
     if(primary&mask) return 4;
     if(secondary&mask) return 15;
+    if(primaryShade&mask) return ((x+y)&1)?4:2;
+    if(secondaryShade&mask) return ((x+y)&1)?15:2;
     return 2;
 #else
     if(!(Fill[y]&mask)) return 2;
@@ -347,6 +364,18 @@ bool palette(Record& r,bool undo=false) {
     if(!f) { fail(BadPalette); return false; }
     const int evy=currentFade(*f,r.bank);
     if(evy<0) return false;
+#ifdef ICON_VARIANT_SOLID
+    const unsigned indices[2]={4,15};
+    for(unsigned i=0;i<2;++i) {
+        const unsigned at=r.bank*16+indices[i];
+        const unsigned type=i&1 ? (r.types&255) : (r.types>>8);
+        const u16 c=undo?r.original[i]:i&&mono(r)?BorderColors[type]:Colors[type];
+        f->source[at]=c;
+        const u16 shown=blend(c,f->target,evy);
+        f->transfer[at]=shown;
+        reinterpret_cast<volatile u16*>(0x05000200)[at]=shown;
+    }
+#else
     const unsigned indices[2]={4,15};
     for(unsigned i=0;i<2;++i) {
         const unsigned at=r.bank*16+indices[i];
@@ -356,6 +385,7 @@ bool palette(Record& r,bool undo=false) {
         f->transfer[at]=shown;
         reinterpret_cast<volatile u16*>(0x05000200)[at]=shown;
     }
+#endif
     return true;
 }
 bool expandedPanel(void* cell);
@@ -471,9 +501,14 @@ bool attach(Record& r) {
     FadeBank* f=fade(); if(!f) {fail(BadPalette);return false;}
     // A relocated image may retain its existing palette. Do not mistake our
     // own installed colors for the palette entries to restore at teardown.
-    const bool ours=previousBank==r.bank && (r.types>>8)<18 && (r.types&255)<18
+    bool ours=previousBank==r.bank && (r.types>>8)<18 && (r.types&255)<18
         && f->source[r.bank*16+4]==Colors[r.types>>8]
-        && f->source[r.bank*16+15]==Colors[r.types&255];
+        && f->source[r.bank*16+15]==
+#ifdef ICON_VARIANT_SOLID
+            (mono(r)?BorderColors[r.types&255]:Colors[r.types&255]);
+#else
+            Colors[r.types&255];
+#endif
     if(!ours) {r.original[0]=f->source[r.bank*16+4];r.original[1]=f->source[r.bank*16+15];}
     if(!protectHpNumbers(r)) return false;
     reclaim(r);r.valid=1;r.hash=0;r.background[21]=0;
@@ -493,8 +528,12 @@ void update(Record& r) {
     u16 pair=0;
     if(!types(r,pair)) {restore(r);return;}
     FadeBank* f=fade(); if(!f) {restore(r);return;}
-    const bool paletteDirty=f->source[r.bank*16+4]!=Colors[pair>>8]
+    bool paletteDirty=f->source[r.bank*16+4]!=Colors[pair>>8]
         ||f->source[r.bank*16+15]!=Colors[pair&255];
+#ifdef ICON_VARIANT_SOLID
+    paletteDirty=f->source[r.bank*16+4]!=Colors[pair>>8]
+        ||f->source[r.bank*16+15]!=(pair>>8==(pair&255)?BorderColors[pair&255]:Colors[pair&255]);
+#endif
     const u32 hash=checksum(r);
     if(pair==r.types && hash==r.hash && r.painted==!r.status && (r.status || !paletteDirty)) return;
     if(((r.pos&1)||besideName(r))&&(r.background[22]&128)&&

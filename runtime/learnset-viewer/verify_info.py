@@ -6,6 +6,7 @@ are instrumented; this is NOT a full game/emulator acceptance test.
 import json, struct, subprocess, sys, zlib
 from pathlib import Path
 import ndspy.rom, ndspy.narc, ndspy.codeCompression
+from background import profile, pixel_color
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE/'build/python'))
 from elftools.elf.elffile import ELFFile
@@ -73,6 +74,8 @@ class Harness:
         self.game=game;self.delta=0 if game=='W2' else 0x2c
         self.rom=ndspy.rom.NintendoDSRom.fromFile(HERE.parents[2]/('cleanwhite2.nds' if game=='W2' else 'cleanblack2.nds'))
         self.font=Font(self.rom)
+        self.tutor_files=ndspy.narc.NARC(self.rom.getFileByName('a/1/2/5')).files
+        self.background_rows=profile(self.tutor_files)
         self.c=Uc(UC_ARCH_ARM,UC_MODE_THUMB);self.c.ctl_set_cpu_model(UC_CPU_ARM_946)
         self.c.mem_map(0x02000000,0x1000000);self.c.mem_map(0x05000000,0x1000)
         self.c.mem_write(self.rom.arm9RamAddress,bytes(ndspy.codeCompression.decompress(self.rom.arm9)))
@@ -198,6 +201,7 @@ class Harness:
         text=self.strings[self.r(3)];x=self.r(1);y=self.r(2)
         width,glyph=self.font.text(text)
         assert x<256 and x+width<=256 and y+15<=192,(x,y,text,width)
+        if y>=136:assert y in (140,156,172),('evolution text baseline',x,y,text)
         self.draws.append((x,y,text))
         color=struct.unpack('<I',self.c.mem_read(self.c.reg_read(UC_ARM_REG_SP)+4,4))[0]
         self.colors.append((x,y,text,color))
@@ -224,13 +228,25 @@ class Harness:
         self.call('_Z8infoInitPvP7Request',WORK,REQUEST)
         assert not self.opened and len(self.hidden)==5 and all(flag==0 for _,flag in self.hidden)
         assert bytes(self.c.mem_read(0x2300500,220))==bytes([0xa5])*220
+        self.check_background()
     def pixel(self,x,y):
         at=((y//8)*32+x//8)*32+(y%8)*4+(x%8)//2
         return (self.c.mem_read(PIXELS+at,1)[0]>>((x&1)*4))&15
+    def check_background(self):
+        palette=struct.unpack('<16H',self.c.mem_read(0x5000000+14*32,32))
+        for y,expected in enumerate(self.background_rows):
+            if y==136:expected=palette[6]
+            elif y>136:expected=0x0c63  # Previous near-black evolution panel.
+            # x=255 may intentionally contain a chain continuation dot.
+            for x in (0,254):
+                assert palette[self.pixel(x,y)]==expected,('retail background mismatch',x,y)
+        for y in range(40,136,16):
+            assert palette[self.pixel(56,y)]==pixel_color(self.tutor_files,4,248,72)
+        assert self.bg[-1]==(3,0), 'Old upper move bars/name plate must stay hidden'
     def check_abilities(self):
         record=ndspy.narc.NARC(self.files['a/0/1/6']).files[self.personal_id(self.species,self.form)]
         ids=list(dict.fromkeys(i for i in record[24:27] if i))
-        draws=[(x,y,t,c) for x,y,t,c in self.colors if x>108 and y in [76,92,108]]
+        draws=[(x,y,t,c) for x,y,t,c in self.colors if x>108 and y in [90,106,122]]
         assert len(draws)==max(1,len(ids)),draws
         for i,id in enumerate(ids):
             name=next((self.messages[b][id] for b in [487,374] if id<len(self.messages[b]) and self.messages[b][id]),'#'+str(id))
@@ -245,9 +261,12 @@ class Harness:
         for i,(species,form) in enumerate(identities):
             member=self.call(0x2020fc1-self.delta,species,form,0,0)
             x=x0+i*48
-            actual=b''.join(bytes(self.c.mem_read(PIXELS+((4+t//4)*32+x//8+t%4)*32,32)) for t in range(16))
+            actual=b''.join(bytes(self.c.mem_read(PIXELS+((6+t//4)*32+x//8+t%4)*32,32)) for t in range(16))
             assert actual==archive.files[member][48:560],('wrong displayed icon',species,form)
-            assert self.pixel(x-2,30)==(7 if (species,form)==(self.species,self.form) else 4)
+            border=7 if (species,form)==(self.species,self.form) else 4
+            for y in (40,88):
+                for px in range(x-2,x+34):
+                    assert self.pixel(px,y)==border,('card edge not flush with row',px,y)
         del self.iconlookups[lookups:]
     def end(self):
         self.call('_Z7infoEndv');self.call('_Z7infoEndv');assert not self.allocations
@@ -255,6 +274,31 @@ class Harness:
 reports={}
 for game in ['W2','B2']:
     h=Harness(game)
+    if '--layout-only' in sys.argv:
+        # Focused visual regression for small positioning changes; the full
+        # data/branch/failure suite remains the default invocation.
+        for species,name in [(151,'mew'),(30,'nidorina'),(133,'eevee')]:
+            h.reset();h.species=species;h.start();h.preview(name);h.check_abilities()
+            if species==30:h.check_chain([(29,0),(30,0),(31,0)])
+            bottom=[(x,y,t) for x,y,t in h.draws if y>=136]
+            assert bottom and any(y==140 for x,y,t in bottom)
+            if species==133:
+                assert any(y==140 and t.startswith('L ') for x,y,t in bottom)
+                h.draws=[];h.keys=0x100;h.call('_Z9infoInputPv',WORK);h.check_background()
+            h.end()
+        h.reset();h.species=133
+        private_start=len(h.messages[401])-len(MESSAGES)
+        for i,(key,_) in enumerate(MESSAGES):
+            if key.startswith('Method'):
+                h.messages[401][private_start+i]='A lengthy evolution requirement with enough words to fill both lines and continue on another page without clipping the bottom edge of the screen.'
+        h.start();h.preview('long-requirement')
+        assert {y for x,y,t in h.draws if y>=136 and t}=={140,156,172}
+        h.draws=[];h.keys=0x100;h.call('_Z9infoInputPv',WORK)
+        assert any(y==140 and t.startswith('L 2/') for x,y,t in h.draws)
+        h.check_background();h.end()
+        reports[game]={'compiledLayoutTests':'passed','evolutionTextY':[140,156,172],'liveGameTest':False}
+        print(game,'compiled layout: evolution text +2px, page indicator, wrapped continuation, dark panel, icons/abilities and cleanup passed',flush=True)
+        continue
     if '--io-only' in sys.argv:
         reports[game]={}
         for species in [151,133]:
@@ -275,15 +319,22 @@ for game in ['W2','B2']:
     for species,name in [(151,'mew'),(30,'nidorina'),(133,'eevee'),(149,'dragonite'),(479,'rotom')]:
         h.reset();h.species=species;h.form=1 if species==479 else 0;h.start();h.preview(name)
         h.check_abilities()
+        chains={151:[(151,0)],30:[(29,0),(30,0),(31,0)],
+                149:[(147,0),(148,0),(149,0)],479:[(479,1)]}
+        if species==133:
+            evo=ndspy.narc.NARC(h.files['a/0/1/9']).files[133]
+            first=next(target for method,_,target in struct.iter_unpack('<HHH',evo) if method)
+            chains[133]=[(133,0),(first,0)]
+        h.check_chain(chains[species])
         opening_io[species]={'reads':h.reads.copy(),'messageOpens':h.message_opens,'readBytes':h.read_bytes}
         assert sum(h.reads.values())<100,h.reads
         for x,y,t in h.draws:
-            if x<56 and y in [32,48,64,80,96,112] and t.isdigit():assert x+h.font.text(t)[0]==52
-        assert h.pixel(57,36)==11 and h.pixel(57,38)==10
+            if x<56 and y in [42,58,74,90,106,122] and t.isdigit():assert x+h.font.text(t)[0]==52
+        assert h.pixel(57,46)==11 and h.pixel(57,48)==10
         if species==30:
-            assert h.pixel(164,47)==8 and h.pixel(161,44)==8
-            assert h.pixel(158,44)==1 and h.pixel(164,44)==1
-            assert h.u16(MAP+(4*32+15)*2)>>12==10
+            assert h.pixel(164,63)==8 and h.pixel(161,60)==8
+            assert h.pixel(158,60)==1 and h.pixel(164,60)==1
+            assert h.u16(MAP+(6*32+15)*2)>>12==10
         palette=struct.unpack('<16H',h.c.mem_read(0x5000000+14*32,32))
         r,g,b=[(palette[10]>>s)&31 for s in [0,5,10]];assert r>g>b
         r,g,b=[(palette[12]>>s)&31 for s in [0,5,10]];assert b>r>g
@@ -301,6 +352,7 @@ for game in ['W2','B2']:
             for keys in [0x100]*len(targets)+[0x200]*len(targets):
                 h.check_chain([(133,0),(targets[index],0)])
                 h.draws=[];h.keys=keys;h.call('_Z9infoInputPv',WORK)
+                h.check_background()
                 index=(index+(1 if keys==0x100 else -1))%len(targets)
                 assert {p:n for p,n in h.reads.items() if p!='a/0/0/7'}==base_reads
                 assert h.draws[0]==selected
@@ -321,7 +373,7 @@ for game in ['W2','B2']:
     h.files['a/0/0/2']=bytes(texts.save());h.messages[374]+=['']*(230-len(h.messages[374]));h.messages[374][229]='Grassy Surge'
     h.start();h.check_abilities();h.end()
     h.reset();h.messages[487][28]='An Extremely Long Custom Ability Name That Needs Truncation';h.start()
-    assert any(y==76 and t.endswith('...') for x,y,t in h.draws);h.preview('long-ability');h.end()
+    assert any(y==90 and t.endswith('...') for x,y,t in h.draws);h.preview('long-ability');h.end()
     h.reset();personal=ndspy.narc.NARC(h.files['a/0/1/6']);record=bytearray(personal.files[151]);record[24:27]=bytes(3);personal.files[151]=record;h.files['a/0/1/6']=bytes(personal.save())
     h.start();assert any(t=='No abilities.' for x,y,t in h.draws);h.end()
     h.reset()
@@ -345,11 +397,11 @@ for game in ['W2','B2']:
     evolutions.files[151]=b''.join(struct.pack('<3H',method,param,6) for method,param in [(1,0),(2,0),(8,80),(21,240),(22,133),(29,10),(31,20),(999,123)])
     h.files['a/0/1/9']=bytes(evolutions.save());h.start();h.preview('long-name-8-options')
     assert any(y==4 and '...' in t and t.endswith("'S INFO") for x,y,t in h.draws)
-    assert [t for x,y,t in h.draws if x<72 and y in [32,48,64,80,96,112] and t.isdigit()]==['1','255','100','255','1','100']
+    assert [t for x,y,t in h.draws if x<72 and y in [42,58,74,90,106,122] and t.isdigit()]==['1','255','100','255','1','100']
     seen=set()
     previous_reads=h.reads.copy()
     for i in range(50):
-        seen.update(t for x,y,t in h.draws if y in [152,168]);h.keys=0x100;h.call('_Z9infoInputPv',WORK)
+        seen.update(t for x,y,t in h.draws if y in [156,172]);h.keys=0x100;h.call('_Z9infoInputPv',WORK)
         assert h.reads==previous_reads # Same target/continuation pages reuse icons.
     assert any('Method 999' in t for t in seen) and any('KO count' in t for t in seen)
     h.keys=0x200;h.call('_Z9infoInputPv',WORK);h.end()
@@ -360,6 +412,6 @@ for game in ['W2','B2']:
     assert h.reads['a/0/1/6']>2000 and any(t=='Does not evolve.' for x,y,t in h.draws)
     h.end() # Cache allocation failure safely falls back to uncached reads.
     reports[game]={'peakInstrumentedInfoHeapBytes':max(peaks),'openingIO':opening_io,'menuLifetimeUnchanged':True,'compiledInfoTests':'passed','liveGameTest':False}
-    print(game,'compiled info: ROM data, fonts/icons, compact gold stats, right arrows, left-aligned Title Case abilities/hidden colors, branching/paging, cycles, failure and cleanup passed',flush=True)
-report='info-io.json' if '--io-only' in sys.argv else 'info-verification.json'
+    print(game,'compiled info: flush card borders/unclipped icons, lowered abilities, dark evolution panel, retail stripes, ROM data, branching/paging, cycles, failure and cleanup passed',flush=True)
+report='info-io.json' if '--io-only' in sys.argv else 'info-layout-verification.json' if '--layout-only' in sys.argv else 'info-verification.json'
 (HERE/'build'/report).write_text(json.dumps(reports,indent=2)+'\n')

@@ -1,6 +1,6 @@
 # Type Icons and Move Effectiveness Preview
 
-Bundle 0.4.21 (Type Icons 0.3.17; Circular Icons 0.3.17-circular; Angular HUD Wedges 0.3.21-solid; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
+Bundle 0.4.23 (Type Icons 0.3.17; Circular Icons 0.3.17-circular; Angular HUD Wedges 0.3.23-solid; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
 Pokeweb's **Code Injection** page has two independent entries:
 
 - **Type Icons** → choose lettered, circular-symbol, or angular-wedge builds in the same installer card.
@@ -35,7 +35,11 @@ builds restore the matching selection automatically.
   the remaining perimeter and the complete drop shadow stay untouched. Regular player panels use an 11-row painted face;
   enemy and compact triple-player panels use a separate seven-row face. A dual
   type colors the upper and lower fields independently and keeps a narrow black
-  divider. A monotype fills across the divider's interior.
+  divider, now one row higher. Each strip is two pixels wider. Monotypes use a
+  darker shade sampled from the retail summary type labels at their angled
+  edges. Dual types alternate the matching bright color with black at the seam
+  and corners, producing a darker transition without borrowing HP-bar colors.
+  A monotype fills across the divider.
 - The lettered and circular dual icons form a 17×17 diagonal stack: the second
   icon begins five pixels right and six pixels below the first. The angular
   style stays within its compact inset footprint. Every style is drawn directly
@@ -59,8 +63,13 @@ builds restore the matching selection automatically.
   the patch does not clear, copy, redraw or validate the marker raster.
 - The outline uses existing near-black index 2. Native shadow pixels using
   palette indices 4/15 become index 2; those reclaimed entries hold the two
-  type colors and index 1 supplies white. The player's separate HP-number slash
-  receives the same shadow remap, preventing palette color bleed.
+  type colors and index 1 supplies white in the symbol styles. Angular wedges
+  use the same two reclaimed entries: a monotype uses index 15 for its exact
+  dark edge shade, while dual types use the two bright colors plus black
+  dithering. Both dynamic entries follow the panel fade and restore at teardown.
+  Live HP-bar color entries 5–12 are never changed. The
+  player's separate HP-number slash receives the index-4 shadow remap,
+  preventing palette color bleed.
 - Native status labels hide the icons or wedges. Clearing a status redraws the
   current effective typing. Temporary type changes, Roost, Reflect Type and
   compatible Protean implementations are read from live battle state. Illusion
@@ -135,30 +144,30 @@ Both games have the same sizes; detailed hashes are in `reports/memory-report.js
 
 | Component | Letters | Circles | Angular wedges | Move Preview |
 |---|---:|---:|---:|---:|
-| DLL on disk | 7,824 B | 7,840 B | 7,184 B | 3,504 B |
-| Code and constants | 6,840 B | 6,836 B | 6,276 B | 2,948 B |
+| DLL on disk | 7,824 B | 7,840 B | 7,600 B | 3,504 B |
+| Code and constants | 6,840 B | 6,836 B | 6,592 B | 2,948 B |
 | Fixed writable state | 364 B | 364 B | 364 B | 20 B |
-| Expanded RPM metadata/padding | 988 B | 1,008 B | 912 B | 568 B |
-| Expanded RPM allocation | 8,192 B | 8,208 B | 7,552 B | 3,536 B |
-| Retained RPM allocation after internal fixups | 7,960 B | 7,976 B | 7,368 B | 3,440 B |
-| Estimated PMC peak including bookkeeping | 8,312 B | 8,328 B | 7,672 B | 3,656 B |
-| Estimated PMC retained including bookkeeping | 8,080 B | 8,096 B | 7,488 B | 3,560 B |
+| Expanded RPM metadata/padding | 988 B | 1,008 B | 1,012 B | 568 B |
+| Expanded RPM allocation | 8,192 B | 8,208 B | 7,968 B | 3,536 B |
+| Retained RPM allocation after internal fixups | 7,960 B | 7,976 B | 7,736 B | 3,440 B |
+| Estimated PMC peak including bookkeeping | 8,312 B | 8,328 B | 8,088 B | 3,656 B |
+| Estimated PMC retained including bookkeeping | 8,080 B | 8,096 B | 7,856 B | 3,560 B |
 
 Installing Type Icons together with Move Preview totals 384 writable bytes and
 approximately 11,640 retained PMC bytes for letters, 11,656 bytes for circles,
-or 11,048 bytes for angular wedges. Only one icon variant is installed at a
+or 11,416 bytes for angular wedges. Only one icon variant is installed at a
 time. Move Preview 0.4.0 adds approximately 768 retained PMC bytes compared with
 Move Preview 0.3.0, with no additional fixed state. Debug DLLs have
 identical executable code to release; full debug loader accounting is in the report.
 
 The lettered and circular variants each have 476 icon-constant bytes: 396 bytes
 of symbol masks, 36 bytes of RGB555 colors, and 44 bytes for fill and outline
-masks. The angular variant uses 180 bytes: four 11-row regular masks, four
-seven-row compact masks and the same 36 color bytes. Exact packed native background tables add 884 bytes; no caught-marker
+masks. The angular variant uses 324 bytes: seven 11-row regular masks, seven
+seven-row compact masks, 36 fill-color bytes and 36 retail-summary shade bytes. Exact packed native background tables add 884 bytes; no caught-marker
 raster is embedded. Six 60-byte records use 24-byte background buffers. A
 lettered or circular dual stack backs up 144 variable pixels in 18 bytes; the
-angular build backs up at most 55 painted checker-face pixels. Six buffer bytes remain for the
-native-header checksum, a spare byte and text shifts. Header translation uses a 64-byte row on
+angular build backs up at most 77 painted checker-face pixels in ten bytes. The remaining
+record bytes hold the native-header checksum, spare bytes and text shifts. Header translation uses a 64-byte row on
 the stack. Icon diagnostics occupy four bytes; the separate move UI module uses
 20 bytes, for exactly 384 writable bytes when both are installed. The largest
 individual compiler-reported stack frame remains 568 bytes, including the
@@ -201,9 +210,8 @@ values and stack arguments. B2 addresses are independently located with unique
 instruction signatures, not derived from a blanket W2 offset. Exact addresses
 and bytes are in `profile-TypeIcons-*.json` and `profile-MoveEffectiveness-*.json`.
 
-Source provenance: REDACTED_REFERENCE `prog/src/battle/btlv/btlv_gauge.c`,
-`btlv_input.c`, battle typing and move-data routines, plus the existing scanner
-patch's halfword-safe direct-video drawing and PMC packaging approach.
+The drawing and packaging approach follows the existing scanner patch's
+halfword-safe direct-video drawing and PMC packaging.
 
 Requirements: Python 3 plus `requirements.txt`, ARM GNU `arm-none-eabi` tools,
 Java/Javac and a CTRMap.jar containing RPMTool. Tested with ARM GNU 14.2.Rel1.

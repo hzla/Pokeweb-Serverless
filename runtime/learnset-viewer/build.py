@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import ndspy.rom
 import ndspy.narc
+from background import profile, header as background_header
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -42,7 +43,7 @@ def calls(data, base, target):
     return found
 
 BUILD.mkdir(exist_ok=True)
-VERSION = "1.2.0"
+VERSION = "1.2.3"
 messages=json.loads((HERE/'info_messages.json').read_text())
 assert len({key for key,text in messages})==len(messages)
 header=['#pragma once', '#include "runtime.h"', 'enum class InfoMessage : u16 {']
@@ -58,6 +59,7 @@ header += ['};',f'constexpr u32 InfoMessageCount={len(messages)};',
 PATCH_PRIORITY = 4
 assert 0 <= PATCH_PRIORITY <= 4
 manifest={"version":VERSION, "games":{}}
+background_rows=None
 for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0x40)]:
     rom=ndspy.rom.NintendoDSRom.fromFile(Path(os.environ.get(f"LEARNSET_{game}_ROM",WORKSPACE/filename)))
     assert bytes(rom.idCode)==(b"IRDO" if game=="W2" else b"IREO")
@@ -114,6 +116,10 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
                               ("Tutor bitmap layout",0x219bbcc,28),("Tutor resource load",0x219af0a,14)]:
         signature(label,258,addr-delta,length)
     graphics=ndspy.narc.NARC(rom.getFileByName("a/1/2/5"))
+    rows=profile(graphics.files)
+    if background_rows is not None: assert rows==background_rows, 'US W2/B2 tutor backgrounds differ'
+    background_rows=rows
+    (BUILD/'info_background.generated.h').write_text(background_header(rows))
     resources=[{"member":n,"sha256":hashlib.sha256(graphics.files[n]).hexdigest()} for n in [0,1,2,4,5,7,8,17]]
     manifest["games"][game]={"idCode":bytes(rom.idCode).decode(),"hooks":signatures,"resources":resources}
     esdb=BUILD/f"symbols_{game}.yml"

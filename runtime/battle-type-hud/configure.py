@@ -1,7 +1,7 @@
 """Verify each English ROM independently and generate private address profiles.
 
-The W2 functions were identified from REDACTED_REFERENCE call graphs/disassembly. B2
-functions are found by unique instruction signatures, not an address delta.
+Function profiles are verified against each target binary. B2 functions are
+found by unique instruction signatures, not an address delta.
 """
 from pathlib import Path
 import hashlib, json, re, struct
@@ -205,20 +205,33 @@ def main():
     circular_rows=[[0]+[v<<2 for v in symbol]+[0,0] for symbol in circular8]
     def mask(lo,hi): return sum(2048>>x for x in range(lo,hi+1))
     # Paint only the native checkerboard face. The HUD's own black outer edge,
-    # top/bottom border and shadow remain untouched. A one-pixel inner edge and
-    # the dual divider are the only black pixels introduced inside the face.
+    # top/bottom border and shadow remain untouched. Each widened strip keeps a
+    # one-pixel black inner edge. These shade masks mark the transition pixels:
+    # monotypes use the darker retail-summary color, while dual types dither
+    # their corresponding bright fill with black. The end pixels shade the
+    # angled corners too. The dual black divider is one row above its old
+    # position, with a transition row on either side.
     tall_starts=[2,2,1,1,0,0,1,2,3,4,5]
-    tall_mask=[mask(x,x+4) for x in tall_starts]
-    tall_primary=[mask(x,x+3) if y<5 else 0 for y,x in enumerate(tall_starts)]
-    tall_secondary=[mask(x,x+3) if y>5 else 0 for y,x in enumerate(tall_starts)]
-    tall_mono=[a|b for a,b in zip(tall_primary,tall_secondary)]
-    tall_mono[5]=mask(0,3)
+    tall_mask=[mask(x,x+6) for x in tall_starts]
+    tall_primary=[mask(x+1,x+4) if y<3 else 0 for y,x in enumerate(tall_starts)]
+    tall_secondary=[mask(x+1,x+4) if y>5 else 0 for y,x in enumerate(tall_starts)]
+    tall_primary_shade=[mask(x,x+5) if y==3 else mask(x,x)|mask(x+5,x+5) if y<3 else 0 for y,x in enumerate(tall_starts)]
+    tall_secondary_shade=[mask(x,x+5) if y==5 else mask(x,x)|mask(x+5,x+5) if y>5 else 0 for y,x in enumerate(tall_starts)]
+    tall_mono=[mask(x+1,x+4) for x in tall_starts]
+    tall_mono_shade=[mask(x,x)|mask(x+5,x+5) for x in tall_starts]
     compact_starts=[1,1,0,0,1,2,3]
-    compact_mask=[mask(x,x+4) for x in compact_starts]
-    compact_primary=[mask(x,x+3) if y<3 else 0 for y,x in enumerate(compact_starts)]
-    compact_secondary=[mask(x,x+3) if y>3 else 0 for y,x in enumerate(compact_starts)]
-    compact_mono=[a|b for a,b in zip(compact_primary,compact_secondary)]
-    compact_mono[3]=mask(0,3)
+    compact_mask=[mask(x,x+6) for x in compact_starts]
+    compact_primary=[mask(x+1,x+4) if y<1 else 0 for y,x in enumerate(compact_starts)]
+    compact_secondary=[mask(x+1,x+4) if y>3 else 0 for y,x in enumerate(compact_starts)]
+    compact_primary_shade=[mask(x,x+5) if y==1 else mask(x,x)|mask(x+5,x+5) if y<1 else 0 for y,x in enumerate(compact_starts)]
+    compact_secondary_shade=[mask(x,x+5) if y==3 else mask(x,x)|mask(x+5,x+5) if y>3 else 0 for y,x in enumerate(compact_starts)]
+    compact_mono=[mask(x+1,x+4) for x in compact_starts]
+    compact_mono_shade=[mask(x,x)|mask(x+5,x+5) for x in compact_starts]
+    # RGB555 colors taken from the dark border pixels of the retail BW2
+    # summary type labels (app_menu_common/p_st_type.ncl). Fairy uses the
+    # existing palette-2 purple border assigned to type ID 17 by BW2.
+    border_colors=[0x294a,0x18e9,0x4948,0x28e9,0x0d4e,0x0d4e,0x1da8,0x28e9,0x294a,
+                   0x048e,0x4948,0x1da8,0x0d4e,0x1ced,0x4948,0x48e9,0x18e9,0x48e9]
     solid_rows=[[0]*11 for _ in names]
 
     def asset_header(comment,asset_fill,asset_outline,asset_rows):
@@ -236,13 +249,20 @@ def main():
     solid_out+='constexpr u16 SolidTallMask[11] = {'+','.join(map(str,tall_mask))+'};\n'
     solid_out+='constexpr u16 SolidTallPrimary[11] = {'+','.join(map(str,tall_primary))+'};\n'
     solid_out+='constexpr u16 SolidTallSecondary[11] = {'+','.join(map(str,tall_secondary))+'};\n'
+    solid_out+='constexpr u16 SolidTallPrimaryShade[11] = {'+','.join(map(str,tall_primary_shade))+'};\n'
+    solid_out+='constexpr u16 SolidTallSecondaryShade[11] = {'+','.join(map(str,tall_secondary_shade))+'};\n'
     solid_out+='constexpr u16 SolidTallMono[11] = {'+','.join(map(str,tall_mono))+'};\n'
+    solid_out+='constexpr u16 SolidTallMonoShade[11] = {'+','.join(map(str,tall_mono_shade))+'};\n'
     solid_out+='constexpr u16 SolidCompactMask[7] = {'+','.join(map(str,compact_mask))+'};\n'
     solid_out+='constexpr u16 SolidCompactPrimary[7] = {'+','.join(map(str,compact_primary))+'};\n'
     solid_out+='constexpr u16 SolidCompactSecondary[7] = {'+','.join(map(str,compact_secondary))+'};\n'
+    solid_out+='constexpr u16 SolidCompactPrimaryShade[7] = {'+','.join(map(str,compact_primary_shade))+'};\n'
+    solid_out+='constexpr u16 SolidCompactSecondaryShade[7] = {'+','.join(map(str,compact_secondary_shade))+'};\n'
     solid_out+='constexpr u16 SolidCompactMono[7] = {'+','.join(map(str,compact_mono))+'};\n'
+    solid_out+='constexpr u16 SolidCompactMonoShade[7] = {'+','.join(map(str,compact_mono_shade))+'};\n'
     solid_out+='constexpr u16 Colors[18] = {'+','.join(hex(v) for v in colors)+'};\n'
-    solid_out+='static_assert(sizeof(SolidTallMask)+sizeof(SolidTallPrimary)+sizeof(SolidTallSecondary)+sizeof(SolidTallMono)+sizeof(SolidCompactMask)+sizeof(SolidCompactPrimary)+sizeof(SolidCompactSecondary)+sizeof(SolidCompactMono)+sizeof(Colors)==180, "asset budget");\n'
+    solid_out+='constexpr u16 BorderColors[18] = {'+','.join(hex(v) for v in border_colors)+'};\n'
+    solid_out+='static_assert(sizeof(SolidTallMask)+sizeof(SolidTallPrimary)+sizeof(SolidTallSecondary)+sizeof(SolidTallPrimaryShade)+sizeof(SolidTallSecondaryShade)+sizeof(SolidTallMono)+sizeof(SolidTallMonoShade)+sizeof(SolidCompactMask)+sizeof(SolidCompactPrimary)+sizeof(SolidCompactSecondary)+sizeof(SolidCompactPrimaryShade)+sizeof(SolidCompactSecondaryShade)+sizeof(SolidCompactMono)+sizeof(SolidCompactMonoShade)+sizeof(Colors)+sizeof(BorderColors)==324, "asset budget");\n'
     backgrounds=[]
     width,height,left,top=26,17,0,15
     for n in (438,435,444,441):
@@ -268,11 +288,15 @@ def main():
         symbols=circular_rows,rgb555=colors,iconWidth=12,iconHeight=11,stackDx=5,stackDy=6,stackTop=15,
         variant='circular'),indent=2)+'\n')
     (HERE/'assets-solid.json').write_text(json.dumps(dict(names=names,fill=tall_mono,outline=tall_mask,
-        primary=tall_primary,secondary=tall_secondary,monoFill=tall_mono,
+        primary=tall_primary,secondary=tall_secondary,
+        primaryShade=tall_primary_shade,secondaryShade=tall_secondary_shade,
+        monoFill=tall_mono,monoShade=tall_mono_shade,
         compactOutline=compact_mask,compactPrimary=compact_primary,
-        compactSecondary=compact_secondary,compactMonoFill=compact_mono,
-        symbols=solid_rows,rgb555=colors,
-        iconWidth=10,iconHeight=11,compactWidth=8,compactHeight=7,stackDx=0,stackDy=0,stackTop=18,
+        compactSecondary=compact_secondary,compactPrimaryShade=compact_primary_shade,
+        compactSecondaryShade=compact_secondary_shade,compactMonoFill=compact_mono,
+        compactMonoShade=compact_mono_shade,
+        symbols=solid_rows,rgb555=colors,borderRgb555=border_colors,
+        iconWidth=12,iconHeight=11,compactWidth=10,compactHeight=7,stackDx=0,stackDy=0,stackTop=18,
         previewMode='split-wedge',variant='solid'),indent=2)+'\n')
 if __name__=='__main__':
     main()

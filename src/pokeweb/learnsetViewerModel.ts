@@ -12,7 +12,7 @@ import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 
-export const LEARNSET_VIEWER_VERSION = "1.2.0";
+export const LEARNSET_VIEWER_VERSION = "1.2.3";
 export const LEARNSET_INFO_MESSAGES = infoMessages;
 const URLS = {
   W2: [new URL("../assets/codeinjection/LearnsetMenuW2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerW2.dll", import.meta.url)],

@@ -4,7 +4,7 @@ import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { modelAssetHash, readStaticGlb, transformStaticMeshes, type StaticGlbNode } from "./buildingGlb";
-import { assertStaticBuilding, replaceBuildingModelMember } from "./buildingImportModel";
+import { assertMaterialAnimatedBuilding, replaceBuildingModelMember } from "./buildingImportModel";
 import { invalidateBuildingLibrary, loadBuildingLibrary } from "./buildingLibraryModel";
 import { getRomFileBytes } from "./fileSystemModel";
 import { extractGameFreakContainer, getMap3dZoneMetadata, invalidateMap3dAssets, loadMap3dZone, type Map3dPrimitive, type Map3dSceneData } from "./map3dModel";
@@ -13,9 +13,12 @@ import type { MapGlbManifest } from "./mapGlbContract";
 import { writeStaticNitroModel, type StaticModelMesh } from "./nitroModelWriter";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, markDirty, type NarcStore, type ProjectState } from "./projectStore";
+import { materialRecords } from "./nitroResourceWriter";
+import { GlbMaterialCompiler } from "./glbMaterialImport";
+import { appendNitroTextures } from "./nitroTextureWriter";
 import { sameStaticGeometry } from "./staticMeshCompare";
 
-type StoreName = "maps" | "exterior_building_models" | "interior_building_models";
+type StoreName = "maps" | "exterior_building_models" | "interior_building_models" | "map_textures" | "exterior_building_textures" | "interior_building_textures";
 type Archive = { name: StoreName; path: string; fileId: number; narc: NARC };
 type Guard = { archive: Archive; index: number; bytes: Uint8Array };
 type Patch = Guard & { after: Uint8Array };
@@ -24,6 +27,8 @@ export type MapGlbImport = {
   converted: Map3dSceneData;
   terrainModels: number;
   buildingModels: number;
+  buildingVariants: number;
+  importedTextures: number;
   moved: number;
   added: number;
   deleted: number;
@@ -57,9 +62,11 @@ async function sources(project: ProjectState, data: Map3dSceneData) {
   };
   const maps = archive("maps", "a/0/0/8");
   const buildings = archive(`${kind}_building_models`, kind === "exterior" ? "a/2/2/5" : "a/2/2/6");
+  const terrainTextures = archive("map_textures", "a/0/1/4");
+  const buildingTextures = archive(`${kind}_building_textures`, kind === "exterior" ? "a/1/7/4" : "a/1/7/5");
   const library = await loadBuildingLibrary(project);
   const entries = library.entries.filter(e => e.kind === kind && e.bundleId === data.buildingsId);
-  return { rom, maps, buildings, library, entries, kind };
+  return { rom, maps, buildings, terrainTextures, buildingTextures, library, entries, kind };
 }
 type Sources = Awaited<ReturnType<typeof sources>>;
 function buildingEntry(source: Sources, uid: number) {
@@ -78,6 +85,7 @@ async function manifest(source: Sources, data: Map3dSceneData): Promise<MapGlbMa
   return { version: 1, game: `${source.rom.idCode}:${source.rom.data[0x1e]}`, zoneId: data.zoneId, season: data.season,
     matrixId: data.matrixId, areaId: data.areaId, areaMetadata: stable(data.areaMetadata), bundleKind: source.kind,
     bundleId: data.buildingsId, chunks, bundleHash: await modelAssetHash(bundle),
+    textures: { terrainId: data.textureId, terrainHash: await modelAssetHash(source.terrainTextures.narc.files[data.textureId]), buildingHash: await modelAssetHash(source.buildingTextures.narc.files[data.buildingsId]) },
     terrain: data.chunks.map(c => ({ id: `terrain:${c.matrixX}:${c.matrixY}:${c.chunkId}`, kind: "terrain", exported: hasGeometry(c.primitives),
       chunkId: c.chunkId, sourceChunkId: c.sourceChunkId, matrixX: c.matrixX, matrixY: c.matrixY })),
     buildings: data.buildings.map(b => {
@@ -151,6 +159,7 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
       : Object.keys(baseline).filter(k => stable((baseline as any)[k]) !== stable((inputManifest as any)[k])).join(", ");
     throw new Error(`Map resources or metadata changed since this GLB was exported (${difference}), or it belongs to another ROM. Export the current map again.`);
   }
+  const terrainMaterials = new GlbMaterialCompiler(imported), buildingMaterials = new GlbMaterialCompiler(imported);
   const refs = new Map([...baseline.terrain, ...baseline.buildings].filter(r => r.exported).map(r => [r.id, r]));
   const objects = new Map<string, StaticGlbNode[]>();
   function index(node: StaticGlbNode, owner?: string) {
@@ -176,24 +185,33 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
   };
   const guards: Guard[] = baseline.chunks.map(c => ({ archive: source.maps, index: c.id, bytes: source.maps.narc.files[c.id].slice() }));
   guards.push({ archive: source.buildings, index: data.buildingsId, bytes: source.buildings.narc.files[data.buildingsId].slice() });
+  guards.push({ archive: source.terrainTextures, index: data.textureId, bytes: source.terrainTextures.narc.files[data.textureId].slice() });
+  guards.push({ archive: source.buildingTextures, index: data.buildingsId, bytes: source.buildingTextures.narc.files[data.buildingsId].slice() });
   const chunkUpdates = new Map<number, Uint8Array>();
   const chunkBytes = (id: number) => chunkUpdates.get(id) ?? source.maps.narc.files[id];
-  const terrainEdits = new Map<number, StaticModelMesh[]>(), buildingEdits = new Map<number, StaticModelMesh[]>();
-  const result: MapGlbImport = { original: data, converted: data, terrainModels: 0, buildingModels: 0, moved: 0, added: 0, deleted: 0,
-    notes: [], guards, patches: [], context: context(project, data) };
-  function addGeometry(edits: Map<number, StaticModelMesh[]>, id: number, original: StaticModelMesh[], meshes: StaticModelMesh[], label: string) {
-    if (sameStaticGeometry(original, meshes)) return;
-    const previous = edits.get(id);
-    requireValue(!previous || (sameStaticGeometry(previous, meshes) && sameStaticGeometry(meshes, previous)), `${label} has conflicting mesh edits in different copies. It is a shared resource; use one consistent edit.`);
-    edits.set(id, meshes);
+  type Edit = { meshes: StaticModelMesh[]; template: Uint8Array; signature: string; sourceUid?: number };
+  const terrainEdits = new Map<number, Edit>(), buildingEdits = new Map<number, Edit>();
+  const reservedUids = new Set(source.entries.map(e => e.uid));
+  function variantUid(): number {
+    requireValue(source.entries.length + result.buildingVariants < 127, "The building bundle is full (127 resources). Remove unused resources before adding variants.");
+    for (let uid = 511; uid >= 0; uid--) if (!reservedUids.has(uid)) { reservedUids.add(uid); result.buildingVariants++; return uid; }
+    throw new Error("The building bundle has no free UIDs.");
   }
+  const result: MapGlbImport = { original: data, converted: data, terrainModels: 0, buildingModels: 0, buildingVariants: 0, importedTextures: 0, moved: 0, added: 0, deleted: 0,
+    notes: [], guards, patches: [], context: context(project, data) };
   for (const [i, ref] of baseline.terrain.entries()) {
     if (!ref.exported) continue;
     const nodes = objects.get(ref.id);
     requireValue(nodes?.length === 1, `Keep exactly one parent for terrain chunk ${ref.chunkId} at cell ${ref.matrixX}, ${ref.matrixY}.`);
     const chunk = data.chunks[i];
     const inverse = new Matrix4().makeTranslation(-chunk.worldX, -(chunk.worldY ?? 0), -chunk.worldZ);
-    addGeometry(terrainEdits, chunk.chunkId, staticMeshes(chunk.primitives), localMeshes(nodes[0], inverse), `Terrain chunk ${chunk.chunkId}`);
+    const meshes = localMeshes(nodes[0], inverse), model = extractGameFreakContainer(source.maps.narc.files[chunk.chunkId]).files[0];
+    const compiled = await terrainMaterials.compile(model, meshes, chunk.primitives);
+    if (compiled.changed || !sameStaticGeometry(staticMeshes(chunk.primitives), meshes)) {
+      const previous = terrainEdits.get(chunk.chunkId);
+      requireValue(!previous || (previous.signature === compiled.signature && sameStaticGeometry(previous.meshes, compiled.meshes) && sameStaticGeometry(compiled.meshes, previous.meshes)), `Terrain chunk ${chunk.chunkId} has conflicting edits in different cells.`);
+      terrainEdits.set(chunk.chunkId, compiled);
+    }
   }
 
   type Placement = { chunkId: number; record: Uint8Array };
@@ -225,37 +243,59 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
       ["x", "y", "z"].forEach((axis, a) => { const target = [building.worldX, building.worldY, building.worldZ][a]; if (Math.abs(position[axis as "x"] - target) < 0.002) position[axis as "x"] = target; });
       const transform = new Matrix4().makeTranslation(position.x, position.y, position.z).multiply(new Matrix4().makeRotationY(yaw * Math.PI / 180));
       const meshes = localMeshes(node, transform.clone().invert());
-      addGeometry(buildingEdits, building.uid, staticMeshes(building.primitives), meshes, `Building UID ${building.uid}`);
+      const asset = source.library.load(buildingEntry(source, building.uid).id);
+      const compiled = await buildingMaterials.compile(asset.modelBytes, meshes, building.primitives);
+      let targetUid = building.uid;
+      if (compiled.changed || !sameStaticGeometry(staticMeshes(building.primitives), meshes)) {
+        const variants = [...buildingEdits].filter(([, edit]) => edit.sourceUid === building.uid);
+        const match = variants.find(([, edit]) => edit.signature === compiled.signature && sameStaticGeometry(edit.meshes, compiled.meshes) && sameStaticGeometry(compiled.meshes, edit.meshes));
+        if (match) targetUid = match[0];
+        else { targetUid = variants.length ? variantUid() : building.uid; buildingEdits.set(targetUid, { ...compiled, sourceUid: building.uid }); }
+      }
       const moved = position.distanceTo(new Vector3(building.worldX, building.worldY, building.worldZ)) > 0.002;
       const destination = moved || copy > 0 ? data.chunks.find(c => position.x >= c.worldX - data.chunkSpan / 2 && position.x < c.worldX + data.chunkSpan / 2
         && position.z >= c.worldZ - data.chunkSpan / 2 && position.z < c.worldZ + data.chunkSpan / 2) : owner;
       requireValue(destination, `Building UID ${building.uid} moved outside the loaded map. Keep placements inside its terrain cells.`);
-      const placement = { chunkId: destination.chunkId, record: placementRecord(position.x - destination.worldX, position.y, destination.worldZ - position.z, yaw, building.uid) };
+      const placement = { chunkId: destination.chunkId, record: placementRecord(position.x - destination.worldX, position.y, destination.worldZ - position.z, yaw, targetUid) };
       if (copy > 0 || destination.chunkId !== ref.chunkId || !sameBytes(originalRecord, placement.record)) {
         requireValue(!repeats.has(ref.chunkId) && !repeats.has(destination.chunkId), "Placement edits to a chunk reused in multiple map cells are not supported yet.");
         if (copy > 0) { additions.push(placement); result.added++; }
-        else { changes.set(key, placement); result.moved++; }
+        else { changes.set(key, placement); if (moved || Math.abs(angleDifference) >= 0.001) result.moved++; }
       }
     }
   }
 
-  for (const [id, meshes] of terrainEdits) {
+  for (const [id, edit] of terrainEdits) {
     try {
-      const bytes = chunkBytes(id), model = extractGameFreakContainer(bytes).files[0];
-      chunkUpdates.set(id, replaceBuildingModelMember(bytes, 0, writeStaticNitroModel(model, meshes)));
+      const bytes = chunkBytes(id);
+      chunkUpdates.set(id, replaceBuildingModelMember(bytes, 0, writeStaticNitroModel(edit.template, edit.meshes)));
     } catch (error) { throw new Error(`Terrain chunk ${id}: ${error instanceof Error ? error.message : error}`); }
   }
   result.terrainModels = terrainEdits.size;
   let bundle = source.buildings.narc.files[data.buildingsId];
-  for (const [uid, meshes] of buildingEdits) {
-    const entry = buildingEntry(source, uid), asset = source.library.load(entry.id);
+  const clones: { metadata: Uint8Array; model: Uint8Array }[] = [];
+  for (const [uid, edit] of buildingEdits) {
+    const entry = buildingEntry(source, edit.sourceUid!), asset = source.library.load(entry.id);
     try {
-      assertStaticBuilding(asset);
+      assertMaterialAnimatedBuilding(asset);
       const memberCount = extractGameFreakContainer(bundle).files.length;
       requireValue(memberCount % 2 === 0, "Unpaired building bundle members.");
-      bundle = replaceBuildingModelMember(bundle, memberCount / 2 + entry.resourceIndex, writeStaticNitroModel(asset.modelBytes, meshes));
+      const model = writeStaticNitroModel(edit.template, edit.meshes);
+      if (uid === entry.uid) bundle = replaceBuildingModelMember(bundle, memberCount / 2 + entry.resourceIndex, model);
+      else { const metadata = entry.metadataBytes.slice(); writeU16(metadata, 0, uid); clones.push({ metadata, model }); }
     } catch (error) { throw new Error(`Building UID ${uid}: ${error instanceof Error ? error.message : error}`); }
-    result.notes.push(`UID ${uid}: replaces the shared model for all placements using ${source.kind} bundle ${data.buildingsId}, including other maps that use this bundle.`);
+    result.notes.push(uid === entry.uid
+      ? `UID ${uid}: updates the shared model in ${source.kind} bundle ${data.buildingsId}, including other maps using this bundle.`
+      : `UID ${uid}: separate variant of UID ${entry.uid}, retaining its behavior and material animations. Scripts that explicitly target the original UID will not target this variant.`);
+  }
+  if (clones.length) {
+    const files = extractGameFreakContainer(bundle).files, count = files.length / 2;
+    const headerEnd = 4 + (files.length + 1) * 4, padding = bundle.slice(headerEnd, readU32(bundle, 4));
+    const entries = [...files.slice(0, count), ...clones.map(c => c.metadata), ...files.slice(count), ...clones.map(c => c.model)];
+    const header = new Uint8Array(4 + (entries.length + 1) * 4); header.set(bundle.subarray(0, 4)); header[2] = entries.length;
+    let offset = header.length + padding.length;
+    entries.forEach((file, i) => { writeU32(header, 4 + i * 4, offset); offset += file.length; }); writeU32(header, 4 + entries.length * 4, offset);
+    bundle = concatBytes([header, padding, ...entries, bundle.subarray(readU32(bundle, 4 + files.length * 4))]);
   }
   result.buildingModels = buildingEdits.size;
   if (terrainEdits.size) result.notes.push("Terrain replacements also affect other maps or seasons that reference these same chunk resources.");
@@ -279,14 +319,20 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
     let slots = 0;
     for (const record of records) {
       const uid = record[14] * 256 + record[15];
-      const entry = source.entries.find(e => e.uid === uid);
+      const entry = source.entries.find(e => e.uid === (buildingEdits.get(uid)?.sourceUid ?? uid));
       slots += 1 + (entry && readU16(entry.metadataBytes, 4) < 512 ? 1 : 0);
     }
     requireValue(slots <= 32, `Chunk ${id} needs ${slots} building slots; BW2 supports 32. Remove buildings or move them to another chunk.`);
     chunkUpdates.set(id, replaceMember(bytes, 2, replacement));
   }
+  const terrainTextureBytes = appendNitroTextures(source.terrainTextures.narc.files[data.textureId], [...terrainMaterials.textures.values()]);
+  const buildingTextureBytes = appendNitroTextures(source.buildingTextures.narc.files[data.buildingsId], [...buildingMaterials.textures.values()]);
+  result.importedTextures = terrainMaterials.textures.size + buildingMaterials.textures.size;
+  result.notes.push(...new Set([...terrainMaterials.notes, ...buildingMaterials.notes]));
+  if (result.importedTextures) result.notes.push(`${result.importedTextures} texture resources imported. Existing texture resources and material animation data are retained. The preview shows a static animation pose.`);
   for (const guard of guards) {
-    const after = guard.archive.name === "maps" ? chunkUpdates.get(guard.index) : bundle;
+    const after = guard.archive.name === "maps" ? chunkUpdates.get(guard.index) : guard.archive.name === source.buildings.name ? bundle
+      : guard.archive.name === source.terrainTextures.name ? terrainTextureBytes : buildingTextureBytes;
     if (after && !sameBytes(guard.bytes, after)) result.patches.push({ ...guard, after });
   }
   if (result.patches.length) {
@@ -295,6 +341,15 @@ export async function prepareMapGlbImport(project: ProjectState, data: Map3dScen
     result.converted = await loadMap3dZone(previewProject, data.zoneId, { season: data.season });
     requireValue(result.converted.chunks.length === data.chunks.length, "Converted map failed terrain validation.");
     requireValue(result.converted.buildings.length === data.buildings.length + result.added - result.deleted, "Converted map failed building placement validation.");
+    const validateTextures = (primitives: Map3dPrimitive[], template: Uint8Array) => {
+      const records = materialRecords(template);
+      for (const primitive of primitives) {
+        const expected = records.find(r => r.name === primitive.material.name)?.textureName;
+        requireValue(!expected || primitive.material.texture?.name === expected, `Converted material ${primitive.material.name} is missing its texture ${expected}.`);
+      }
+    };
+    result.converted.chunks.forEach(c => { const edit = terrainEdits.get(c.chunkId); if (edit) validateTextures(c.primitives, edit.template); });
+    result.converted.buildings.forEach(b => { const edit = buildingEdits.get(b.uid); if (edit) validateTextures(b.primitives, edit.template); });
     const newWarnings = result.converted.warnings.filter(w => !data.warnings.includes(w));
     requireValue(!newWarnings.length, `Converted map failed validation: ${newWarnings.join("; ")}`);
   }
