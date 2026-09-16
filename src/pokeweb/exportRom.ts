@@ -51,7 +51,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   const originalRomBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!originalRomBytes) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
 
-  const rom = new NintendoDSRom(originalRomBytes);
+  const rom = new NintendoDSRom(originalRomBytes, { fileData: "view" });
   hydrateKoMoveLearnsetFromRom(project, rom);
   const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
   materializeProjectEdits(project);
