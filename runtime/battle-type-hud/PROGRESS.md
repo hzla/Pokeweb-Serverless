@@ -1,19 +1,20 @@
 # Current iteration
 
-Bundle 0.4.16 contains Type Icons 0.3.16 and unchanged Move Preview 0.4.0.
-The native caught Poké Ball is again fully owned by the game at its original
-8×8 enemy-header coordinates. The patch no longer clears or redraws it. Header
-translation begins immediately after the marker slot, and runtime layout checks
-still validate the unused pixels before it.
+Bundle 0.4.17 contains two selectable current Type Icons builds and unchanged
+Move Preview 0.4.0. The Code Injection card shows preview sheets for both and a
+checkbox that selects the circular symbols; unchecked installs the lettered
+point-up variant. Switching variants replaces the existing Type Icons DLL at
+its current path, so duplicate hooks are never installed.
 
-The 12×11 point-up type rhombuses, 5-right/6-down dual stack, raised monotype,
-name spacing, status behavior, effective typing, Illusion, and palette handling
-are unchanged. The previous 0.3.15 DLLs are retained as installer upgrade
-fixtures.
+The circular build uses the approved 18 white symbol masks and colored circles,
+centered inside the same 12×11 logical footprint as the letters. It shares the
+current 5-right/6-down diagonal placement, status behavior, live typing,
+Illusion, palette handling, lifecycle hooks, and native caught-marker behavior.
+It does not use the archived 0.3.11 marker relocation.
 
-Removing the legacy marker raster and relocation path reduces each release DLL
-to 7,824 bytes and estimated retained PMC use to 8,080 bytes. Fixed state remains
-364 bytes, with no battle-heap allocations. Compiled ARM tests verify the native
-marker remains byte-identical through creation, all statuses, image reloads, and
-teardown in singles, doubles, and triples for B2 and W2. No in-game emulator
-testing was run.
+Pokeweb recognizes either current variant after export/reimport, restores the
+matching checkbox, and upgrades historical builds through 0.3.16. Compiled ARM
+checks cover all circular masks, types, panel slots, statuses, type changes,
+unchanged frames, marker preservation, and teardown for B2 and W2. Focused
+installer tests cover both directions of in-place variant switching. No in-game
+emulator testing was run.

@@ -1,0 +1,25 @@
+{
+  "compiled_arm_checks": {
+    "B2": [
+      "all 18 approved circular symbols fit their outlined transparent masks",
+      "all 18 type IDs draw as mono/dual icons in all player and enemy slots",
+      "all six status labels restore the circular variant and preserve the native caught marker",
+      "live type changes repaint once; unchanged frames perform no video writes",
+      "teardown restores every panel and marker byte"
+    ],
+    "W2": [
+      "all 18 approved circular symbols fit their outlined transparent masks",
+      "all 18 type IDs draw as mono/dual icons in all player and enemy slots",
+      "all six status labels restore the circular variant and preserve the native caught marker",
+      "live type changes repaint once; unchanged frames perform no video writes",
+      "teardown restores every panel and marker byte"
+    ]
+  },
+  "release_sha256": {
+    "B2": "43cded546cdec15679131d4ef9a274cf7c65578d8bda79f98a1371cf7f9ac5af",
+    "W2": "17678c52fa3f6c11c8a45dbcfd1c16226de0aa96cc20f0bfa9e04a5b49154580"
+  },
+  "writable_state_bytes": 364,
+  "allocation_calls_from_module": 0,
+  "emulator_frames_executed": false
+}

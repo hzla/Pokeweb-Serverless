@@ -22,7 +22,7 @@ type AbilitySource = { path: string; rows: AbilityTable };
 const romCache = new WeakMap<Uint8Array, NintendoDSRom>();
 const tableCache = new WeakMap<Uint8Array, AbilityTable | null>();
 const chanceTableCache = new WeakMap<Uint8Array, readonly number[] | null>();
-const migrationCache = new WeakMap<ProjectState, { files: Uint8Array[]; revision: number; source: AbilityTable; migrated: boolean }>();
+const migrationCache = new WeakMap<ProjectState, { files: Uint8Array[]; revision: number; migrated: boolean }>();
 
 // CascadeWhite2CodeInjection/___BasicCodeInjectionForSharing/A_CoreBattle/
 // A9_DamageCalc.cpp: FourthAbility and WhiteListedPokemon[651]. Older builds
@@ -166,18 +166,16 @@ export function hasCascadePersonalData(project: ProjectState): boolean {
   if (!detectCascadeWhiteRom(project)) return false;
   if (project.patches?.applied?.cascadePersonalData || markerPresent(project)) return true;
   const store = project.narcs.personal;
-  const source = abilitySource(project);
-  if (!store || !source) return false;
+  if (!store) return false;
   const revision = store.revision ?? 0;
   const cached = migrationCache.get(project);
-  if (cached?.files === store.rawFiles && cached.revision === revision && cached.source === source.rows) return cached.migrated;
-  // Recognize a complete prior data migration even without our marker. Do not
-  // classify a handful of nonzero padding bytes as a completed migration.
-  const migrated = source.rows.slice(0, 650).every((row, id) => {
-    const bytes = store.rawFiles[id];
-    return bytes?.length === PERSONAL_SIZE && row.every((value, slot) => bytes[0x39 + slot] === value);
-  });
-  migrationCache.set(project, { files: store.rawFiles, revision, source: source.rows, migrated });
+  if (cached?.files === store.rawFiles && cached.revision === revision) return cached.migrated;
+  // These bytes are zero in unmodified personal records. Recognize a copied
+  // a/0/1/6 even after edits or DLL updates, without requiring external markers.
+  // Include alternate forms, but exclude regional Dex lookup records.
+  const migrated = store.rawFiles.some((bytes) => bytes.length === PERSONAL_SIZE
+    && (bytes[0x39] !== 0 || bytes[0x3a] !== 0 || bytes[0x3b] !== 0 || bytes[0x3e] !== 0));
+  migrationCache.set(project, { files: store.rawFiles, revision, migrated });
   return migrated;
 }
 
@@ -203,8 +201,7 @@ export function cascadePersonalAbilityId(project: ProjectState, personalId: numb
 }
 
 export function preserveCascadePersonalMigration(project: ProjectState): void {
-  // A ROM recognized by its original migrated values needs a durable marker
-  // before editing those values, otherwise reimport could no longer detect it.
+  // Keep detection even if the last nonzero custom value is edited back to zero.
   if (!markerPresent(project)) addRomFile(project, CASCADE_PERSONAL_MARKER_PATH, MARKER.slice());
   project.patches ??= { dirtyOverlayIds: [] };
   (project.patches.applied ??= {}).cascadePersonalData = true;

@@ -3,8 +3,9 @@ const fs=require('node:fs'),path=require('node:path');
 let PNG;
 try { ({PNG}=require('pngjs')); }
 catch { ({PNG}=require('../../Pokeweb-Serverless/node_modules/pngjs')); }
-const a=JSON.parse(fs.readFileSync(path.join(__dirname,'assets.json')));
-const out=path.join(__dirname,'build','icons');fs.mkdirSync(out,{recursive:true});
+function render(assetName,outputName){
+const a=JSON.parse(fs.readFileSync(path.join(__dirname,assetName)));
+const out=path.join(__dirname,'build',outputName);fs.mkdirSync(out,{recursive:true});
 const iw=a.iconWidth,ih=a.iconHeight,cellW=iw+4,cellH=ih+4;
 const sheet=new PNG({width:6*cellW,height:3*cellH});
 for(let t=0;t<18;t++){
@@ -30,3 +31,6 @@ for(let y=0;y<big.height;y++)for(let x=0;x<big.width;x++){
 }
 fs.writeFileSync(path.join(out,'preview-8x.png'),PNG.sync.write(big));
 console.log(out);
+}
+render('assets.json','icons');
+render('assets-circular.json','icons-circular');

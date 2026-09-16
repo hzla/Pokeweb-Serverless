@@ -49,6 +49,87 @@
   width: 100%;
 }
 
+.map3d-building-inspector {
+  display: grid;
+  gap: 8px;
+  background: #303448;
+  border: 1px solid #454b62;
+  border-radius: 5px;
+  padding: 10px;
+  color: #f2f2f2;
+  font-size: 13px;
+}
+
+.map3d-building-inspector .filter-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.map3d-building-list {
+  height: 132px;
+  font-size: 12px;
+}
+
+.map3d-building-list option {
+  padding: 5px;
+}
+
+.map3d-building-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.map3d-building-inspector button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.map3d-building-note {
+  color: #cbd5e1;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.map3d-building-details {
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.map3d-building-details dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px 8px;
+}
+
+.map3d-building-details dt { color: #cbd5e1; }
+.map3d-building-details dd { margin: 0; font-variant-numeric: tabular-nums; }
+.map3d-building-details input,
+.map3d-building-details select,
+.map3d-building-create input,
+.map3d-building-create select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 4px;
+  color: #f1f5f9;
+  background: #111827;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  font: inherit;
+}
+.map3d-building-details [aria-invalid="true"] { border-color: #f87171; }
+.map3d-building-error { color: #fca5a5; }
+.map3d-building-details summary { cursor: pointer; }
+.map3d-building-details ul { padding-left: 18px; }
+.map3d-building-create summary { cursor: pointer; }
+.map3d-building-create fieldset { display: grid; gap: 8px; border: 0; padding: 10px 0; min-width: 0; }
+.map3d-building-create label { display: grid; gap: 4px; font-size: 12px; }
+.map3d-building-delete { color: #ffb4b4; }
+.building-library-list { width: 100%; min-height: 240px; font-size: 12px; }
+.building-library-list option { padding: 6px; }
+
 .map3d-field {
   color: #f2f2f2;
   display: grid;
@@ -293,11 +374,33 @@
   position: absolute;
   top: 54px;
   z-index: 2;
+  max-width: calc(100% - 28px);
 }
 
 .map3d-toolbar-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.map3d-toolbar-buttons button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.map3d-export-status {
+  background: #202432;
+  border: 1px solid #454b62;
+  border-radius: 5px;
+  color: #eef2fb;
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 460px;
+  padding: 8px 10px;
+}
+
+.map3d-export-status:empty {
+  display: none;
 }
 
 .map3d-toolbar .map3d-controls {
@@ -329,4 +432,34 @@
     margin-left: 0;
     width: 100%;
   }
+}
+.map3d-building-inspector[hidden] {
+  display: none;
+}
+
+#map3d-import-review,
+#buildings-import-review {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+#map3d-import-review p,
+#buildings-import-review p {
+  margin: 0;
+}
+
+#map3d-import-review .map3d-building-actions,
+#buildings-import-review .map3d-building-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#map3d-import-review button,
+#buildings-import-review button {
+  min-width: 0;
+  width: 100%;
+  white-space: normal;
+  font-size: 12px;
 }

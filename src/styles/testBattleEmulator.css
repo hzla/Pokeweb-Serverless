@@ -410,3 +410,12 @@ canvas {
     max-height: calc(100vh - 250px);
   }
 }
+
+body.title-preview #pokeweb-opponent-stats { display: none; }
+body.title-preview #pokeweb-debug-log { display: none; }
+body.title-preview #desmond-player { inset: 126px 0 100px; container-type: size; }
+#title-preview-help { position: fixed; bottom: 12px; left: 16px; z-index: 10000; max-width: 340px; padding: 10px 12px; border-radius: 8px; background: #0f172adc; color: #cbd5e1; font-size: 12px; line-height: 1.5; pointer-events: none; }
+@media (max-width: 820px) {
+  body.title-preview #desmond-player { top: 210px; }
+  body.title-preview #pokeweb-controls { top: 96px; }
+}

@@ -1,5 +1,9 @@
 #include "hud_common.h"
+#ifdef ICON_VARIANT_CIRCULAR
+#include "assets-circular.h"
+#else
 #include "assets.h"
+#endif
 
 namespace {
 struct Record {
@@ -168,16 +172,26 @@ bool prepareHeader(Record& r) {
 }
 bool ink(unsigned x,unsigned y) { return Outline[y]&(2048u>>x); }
 bool backedInk(unsigned x,unsigned y) {
+#ifdef ICON_VARIANT_CIRCULAR
+    // Four symmetric tip pixels restore from the exact native table, leaving
+    // the same 72 one-bit backups per icon as the lettered variant.
+    return ink(x,y) && !((y==0||y==9)&&(x==4||x==7));
+#else
     // The added center row and four shoulder pixels restore from the exact
     // PanelBackground table, so the existing 18-byte dual backup remains
     // sufficient for the other 72 pixels per rhombus.
     return ink(x,y) && y!=6 && !((y==1||y==9)&&(x==3||x==8));
+#endif
 }
 unsigned backIndex(const Record& r,unsigned kind,unsigned x,unsigned y) {
     (void)r;
     // The backed subset covers 72 pixels. Only the native gray checker phase
     // can vary, so one bit per backed pixel is sufficient.
+#ifdef ICON_VARIANT_CIRCULAR
+    static constexpr u8 starts[11]={0,2,8,16,26,36,46,56,64,70,72};
+#else
     static constexpr u8 starts[11]={0,2,6,14,24,36,48,48,58,66,70};
+#endif
     unsigned before=0;
     for(unsigned i=0;i<x;++i) before+=backedInk(i,y)?1:0;
     const unsigned n=starts[y]+before;

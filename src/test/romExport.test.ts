@@ -10,9 +10,54 @@ import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import { parseHeaders, updateHeaderField } from "../pokeweb/headerModel";
 import { compactRomBytes } from "../pokeweb/persistence";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
+import { createNarcStore } from "../pokeweb/projectStore";
+import { addMap3dBuilding, deleteMap3dBuilding, extractGameFreakContainer, packGameFreakContainer, parseChunkBuildings, updateMap3dBuilding, type Map3dSceneData } from "../pokeweb/map3dModel";
 import { TYPE_CHART_FAIRY_TYPE_COUNT, TYPE_CHART_ROMFS_PATH, createRomFsTypeChartStore } from "../pokeweb/typeChartModel";
 
 describe("ROM export", () => {
+  it("exports added/deleted buildings with resized container offsets and a valid empty table", async () => {
+    const maps = new NARC();
+    maps.files = [packGameFreakContainer("WB", [Uint8Array.of(9), Uint8Array.of(8), new Uint8Array(4), Uint8Array.of(7)])];
+    const project = makeProject(makeRom([maps.save()]));
+    project.narcs.maps = createNarcStore("maps", "a/0/0/8", 0, maps);
+    const data = { buildings: [], chunks: [{ chunkId: 0, sourceChunkId: 0, matrixX: 0, matrixY: 0, worldX: 256, worldZ: 256 }],
+      buildingModels: [{ uid: 258, primitives: [{ positions: new Float32Array(9), indices: new Uint16Array([0, 1, 2]), material: { name: "test", diffuse: [1, 1, 1], alpha: 1 } }] }],
+    } as unknown as Map3dSceneData;
+    addMap3dBuilding(project, data, { chunkIndex: 0, uid: 258, worldX: 240, worldY: 16, worldZ: 280, rotationY: 180 });
+    let exported = new NintendoDSRom(await exportModifiedRom(project));
+    let files = extractGameFreakContainer(new NARC(exported.files[0]).files[0]).files;
+    expect(parseChunkBuildings(files[2], [], 0)).toEqual([{ x: -16, y: 16, z: -24, rotationY: 180, modelUid: 258 }]);
+    expect(files[3]).toEqual(Uint8Array.of(7));
+    deleteMap3dBuilding(project, data, 0);
+    exported = new NintendoDSRom(await exportModifiedRom(project));
+    files = extractGameFreakContainer(new NARC(exported.files[0]).files[0]).files;
+    expect(files[2]).toEqual(new Uint8Array(4));
+    expect(files[3]).toEqual(Uint8Array.of(7));
+  });
+
+  it("exports edited BW2 building positions and rotation into the native map NARC", async () => {
+    const placements = new Uint8Array(20);
+    writeU32(placements, 0, 1);
+    placements[19] = 1;
+    const maps = new NARC();
+    maps.files = [packGameFreakContainer("WB", [Uint8Array.of(9), Uint8Array.of(8), placements])];
+    const project = makeProject(makeRom([maps.save()]));
+    project.narcs.maps = createNarcStore("maps", "a/0/0/8", 0, maps);
+    const data = { buildings: [{ uid: 1, placementIndex: 0, chunkId: 0, sourceChunkId: 0,
+      chunkOrigin: { x: 256, y: 0, z: 768, matrixX: 0, matrixY: 1 },
+      worldX: 256, worldY: 0, worldZ: 768, rotationY: 0, primitives: [],
+    }] } as unknown as Map3dSceneData;
+    updateMap3dBuilding(project, data, 0, "worldX", 240.5);
+    updateMap3dBuilding(project, data, 0, "worldY", 80);
+    updateMap3dBuilding(project, data, 0, "worldZ", 800);
+    updateMap3dBuilding(project, data, 0, "rotationY", 270);
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+    const chunk = new NARC(exported.files[0]).files[0];
+    const files = extractGameFreakContainer(chunk).files;
+    expect(parseChunkBuildings(files[2], [], 0)).toEqual([{ x: -15.5, y: 80, z: -32, rotationY: 270, modelUid: 1 }]);
+    expect(files.slice(0, 2)).toEqual([Uint8Array.of(9), Uint8Array.of(8)]);
+  });
+
   it("rebuilds FAT entries with 0x200-aligned replacement files", () => {
     const source = makeRom([Uint8Array.of(1, 2, 3), Uint8Array.of(4)]);
     const rom = new NintendoDSRom(source);

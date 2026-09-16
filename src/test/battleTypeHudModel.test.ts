@@ -6,7 +6,7 @@ import { writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
-import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, moveHighlightRgb555, DEFAULT_MOVE_HIGHLIGHT_COLORS } from "../pokeweb/battleTypeHudModel";
+import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, moveHighlightRgb555, DEFAULT_MOVE_HIGHLIGHT_COLORS, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { detectPmcInstallFromRom, getPmcInstallStatus, stageCodeInjectionDll } from "../pokeweb/pmcModel";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -21,7 +21,8 @@ vi.mock("../assets/codeinjection/battleTypeHudManifest.json", async (original) =
   return { default: copy };
 });
 afterEach(() => vi.unstubAllGlobals());
-const dll = (v: string) => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/TypeIcons${v}.dll`, import.meta.url)));
+const dll = (v: string, variant: TypeIconVariant = "letters") => new Uint8Array(readFileSync(new URL(
+  `../assets/codeinjection/TypeIcons${variant === "circular" ? "Circular" : ""}${v}.dll`, import.meta.url)));
 function assets() {
   vi.stubGlobal("fetch", vi.fn(async (url: URL) => new Response(new Uint8Array(readFileSync(url)))));
 }
@@ -47,6 +48,26 @@ describe("Battle HUD bundled installer", () => {
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(manifest.games[v].dllSha256);
     expect(rpm.bssSize).toBeLessThanOrEqual(384);
     expect(rpm.symbols.some(s => s.attributes & 2)).toBe(false);
+    expect(rpm.relocations.filter(r => r.target.module !== "base").every(r => r.target.module === "168")).toBe(true);
+  });
+  it.each(["B2", "W2"] as const)("installs, detects and switches both %s icon variants in place", async v => {
+    const p = project(v); assets();
+    await installBattleTypeHud(p, "circular");
+    expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, iconVariant: "circular" });
+    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v, "circular"));
+    expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
+    const exported = new NintendoDSRom(await exportModifiedRom(p));
+    expect(getBattleTypeHudStatus(project(v, exported.data))).toMatchObject({ installed: true, iconVariant: "circular", updateAvailable: false });
+    await installBattleTypeHud(p, "letters");
+    expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, iconVariant: "letters" });
+    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v, "letters"));
+    expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
+  });
+  it.each(["B2", "W2"] as const)("verifies the distributed %s circular DLL against its manifest", v => {
+    const bytes = dll(v, "circular"); const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(manifest.games[v].variants.circular.dllSha256);
+    expect(rpm.metadata.PMCVersion).toBe(manifest.games[v].variants.circular.version);
+    expect(rpm.bssSize).toBe(364);
     expect(rpm.relocations.filter(r => r.target.module !== "base").every(r => r.target.module === "168")).toBe(true);
   });
   it("rejects a raw native hook change even if an unchanged overlay is cached", async () => {
@@ -187,7 +208,7 @@ describe("Battle HUD bundled installer", () => {
     expect(getMoveEffectivenessStatus(p)).toMatchObject({ installed: true, updateAvailable: false, dllPath: "patches/OldPreview.dll" });
     expect(p.fileSystem!.additions!["patches/TypeIconsW2.dll"]).toEqual(icons);
   });
-  it.each(["0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.3.7", "0.3.8", "0.3.9", "0.3.10", "0.3.11", "0.3.12", "0.3.13", "0.3.14", "0.3.15"])("updates imported %s icons without touching customized move colors", async version => {
+  it.each(["0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.3.7", "0.3.8", "0.3.9", "0.3.10", "0.3.11", "0.3.12", "0.3.13", "0.3.14", "0.3.15", "0.3.16"])("updates imported %s icons without touching customized move colors", async version => {
     const p = project("W2"); assets();
     const colors = { superEffective: "#00ff00", notVeryEffective: "#0000ff", immune: "#ff00ff" };
     await installMoveEffectiveness(p, colors);
