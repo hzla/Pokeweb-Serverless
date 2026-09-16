@@ -646,7 +646,7 @@ function codeInjectionDllsFromOriginalRom(project: ProjectState): CodeInjectionM
 
   let modules: CodeInjectionModule[] = [];
   try {
-    modules = detectCodeInjectionDllsFromRom(new NintendoDSRom(originalRomBytes));
+    modules = detectCodeInjectionDllsFromRom(new NintendoDSRom(originalRomBytes, { fileData: "view" }));
   } catch {
     // Older saved projects may not include parseable ROM bytes; staged DLLs still cover active edits.
   }

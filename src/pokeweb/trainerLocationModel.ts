@@ -28,12 +28,12 @@ export function hydrateTrainerLocationTables(project: ProjectState, rom: Nintend
   if (project.session.baseRom !== "BW2") return;
   const tables: TrainerLocationTables = {};
   const fileId = rom.filenames.idOf("a/2/0/6");
-  if (fileId !== undefined) tables.stadium = { fileId, bytes: rom.files[fileId]! };
+  if (fileId !== undefined) tables.stadium = { fileId, bytes: rom.files[fileId]!.slice() };
   const overlay = rom.loadArm9Overlays([89]).get(89);
-  if (overlay) tables.royalUnova = { fileId: overlay.fileId, bytes: rom.files[overlay.fileId]!, compressed: overlay.compressed };
+  if (overlay) tables.royalUnova = { fileId: overlay.fileId, bytes: rom.files[overlay.fileId]!.slice(), compressed: overlay.compressed };
   tables.runtime = {};
   for (const [id, runtime] of rom.loadArm9Overlays([12, 25, 61])) {
-    tables.runtime[id] = { fileId: runtime.fileId, bytes: rom.files[runtime.fileId]!, compressed: runtime.compressed, base: runtime.ramAddress };
+    tables.runtime[id] = { fileId: runtime.fileId, bytes: rom.files[runtime.fileId]!.slice(), compressed: runtime.compressed, base: runtime.ramAddress };
   }
   project.trainerLocationTables = tables;
 }
