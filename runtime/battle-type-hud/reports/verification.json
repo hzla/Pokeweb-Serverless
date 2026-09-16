@@ -53,8 +53,8 @@
     ]
   },
   "release_sha256": {
-    "B2": "71acd97e5186c2c61df4ae60d2edb1a316af5a0059ff09b8d0cf04de8d698151",
-    "W2": "c81f2836ce7936aff9fa8ca08fe8c72e4dd0421311e7ef51aab0d36400a89233"
+    "B2": "38f954d53472863971636e61293a4372e451d0911cd0a827b92a124d027924a6",
+    "W2": "0c74126d60d9142c6d976115a3d5e96f302bc55b829cf131b2d76e1048ba319b"
   },
   "allocation_calls_from_module": 0,
   "writable_state_bytes": 364,

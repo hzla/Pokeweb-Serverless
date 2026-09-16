@@ -1,9 +1,9 @@
 # Type Icons and Move Effectiveness Preview
 
-Bundle 0.4.16 (Type Icons 0.3.16; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
+Bundle 0.4.17 (Type Icons 0.3.17; Circular Icons 0.3.17-circular; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
 Pokeweb's **Code Injection** page has two independent entries:
 
-- **Type Icons** → `TypeIconsB2.dll` / `TypeIconsW2.dll`.
+- **Type Icons** → choose lettered `TypeIconsB2/W2.dll` or circular `TypeIconsCircularB2/W2.dll` in the same installer card.
 - **Move Effectiveness Preview** → `MoveEffectivenessB2.dll` / `MoveEffectivenessW2.dll`.
 
 Install either or both; PMC is installed automatically if needed. Neither DLL
@@ -20,11 +20,19 @@ independently. Pokeweb cannot yet delete an original ROM file.
 
 ## Type icons
 
+The Code Injection card displays both complete 18-icon preview sheets. Leave
+**Install circular symbol icons** unchecked for the lettered point-up variant,
+or check it for the original circular symbols. Reinstalling switches the one
+active Type Icons DLL in place; both variants are never installed together.
+Imported current builds restore the matching selection automatically.
+
 - Player, partner and enemy panels in singles, doubles and triples use 12×11
   point-up rhombuses with a one-pixel near-black outline, a type-colored center
   and a compact white first initial. Four shoulder pixels complete the black
   enclosure around the color fill. Every initial is lowered one pixel and has a full row of color beneath it; Water
-  uses the requested five-pixel-wide W. Duplicate types collapse to one centered rhombus.
+  uses the requested five-pixel-wide W. The alternate build centers the approved
+  8×8 white symbols and 10×10 outlined circles in the same logical footprint.
+  Duplicate types collapse to one centered icon.
 - Dual types form a 17×17 diagonal stack: the second rhombus begins five pixels
   right and six pixels below the first. The stack overlaps the left edge of
   the existing HUD graphics. It is painted in the native 128×32 image, so all
@@ -132,12 +140,14 @@ Both games have the same sizes; detailed hashes are in `reports/memory-report.js
 | Estimated PMC peak including bookkeeping | 8,312 B | 3,656 B |
 | Estimated PMC retained including bookkeeping | 8,080 B | 3,560 B |
 
-Installing both totals 384 writable bytes and approximately 11,640 retained
-PMC bytes. Move Preview 0.4.0 adds approximately 768 retained PMC bytes compared with
+Installing Type Icons together with Move Preview totals 384 writable bytes and
+approximately 11,640 retained PMC bytes for letters or 11,656 bytes for circles.
+Only one icon variant is installed at a time. The circular DLL is 7,840 bytes
+on disk and uses approximately 8,096 retained PMC bytes. Move Preview 0.4.0 adds approximately 768 retained PMC bytes compared with
 Move Preview 0.3.0, with no additional fixed state. Debug DLLs have
 identical executable code to release; full debug loader accounting is in the report.
 
-The 476 icon-constant bytes comprise 396 bytes of initial masks, 36 bytes
+Each variant has 476 icon-constant bytes: 396 bytes of symbol masks, 36 bytes
 of RGB555 colors, and 44 bytes for the fill and outline masks. Exact packed
 native background tables add 884 bytes; no caught-marker raster is embedded.
 Six 60-byte records use 24-byte background buffers. A dual stack backs up 144 variable

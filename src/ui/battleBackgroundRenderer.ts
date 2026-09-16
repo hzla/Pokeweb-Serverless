@@ -16,10 +16,10 @@ export type BattleModelThreeObject = {
   dispose: () => void;
 };
 
-export function createBattleModelThreeObject(data: Pick<BattleModelScene, "primitives">): BattleModelThreeObject {
+export function createBattleModelThreeObject(data: Pick<BattleModelScene, "primitives">, options: { nativeColors?: boolean } = {}): BattleModelThreeObject {
   const group = new THREE.Group();
   const textureCache = new Map<string, THREE.DataTexture>();
-  for (const primitive of data.primitives) addPrimitive(group, primitive, textureCache);
+  for (const primitive of data.primitives) addPrimitive(group, primitive, textureCache, Boolean(options.nativeColors));
   return {
     group,
     dispose: () => {
@@ -29,17 +29,17 @@ export function createBattleModelThreeObject(data: Pick<BattleModelScene, "primi
   };
 }
 
-export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleModelScene): BattleBackgroundRenderer {
+export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleModelScene, options: { nativeColors?: boolean } = {}): BattleBackgroundRenderer {
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setClearColor(0x202431, 1);
+  renderer.outputColorSpace = options.nativeColors ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
+  renderer.setClearColor(options.nativeColors ? new THREE.Color(0x20 / 255, 0x24 / 255, 0x31 / 255) : 0x202431, 1);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.domElement.setAttribute("aria-label", `Interactive 3D preview of battle model resource ${data.resourceId}`);
   renderer.domElement.tabIndex = 0;
   host.replaceChildren(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const model = createBattleModelThreeObject(data);
+  const model = createBattleModelThreeObject(data, options);
   scene.add(model.group);
 
   const camera = new THREE.PerspectiveCamera(26, 4 / 3, 0.25, 2048);
@@ -92,15 +92,19 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
       (bounds.minY + bounds.maxY) / 2,
       (bounds.minZ + bounds.maxZ) / 2,
     );
-    const radius = Math.max(
-      bounds.maxX - bounds.minX,
-      bounds.maxY - bounds.minY,
-      bounds.maxZ - bounds.minZ,
-      1,
-    ) * 0.72;
     yaw = Math.PI / 4;
     pitch = Math.PI / 7;
-    distance = radius * 1.9;
+    const half = new THREE.Vector3(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY, bounds.maxZ - bounds.minZ).multiplyScalar(.5);
+    const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    const up = new THREE.Vector3(-Math.sin(yaw) * Math.sin(pitch), Math.cos(pitch), -Math.cos(yaw) * Math.sin(pitch));
+    const towardCamera = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+    const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), tanX = tanY * camera.aspect;
+    distance = 1;
+    for (const x of [-half.x, half.x]) for (const y of [-half.y, half.y]) for (const z of [-half.z, half.z]) {
+      const corner = new THREE.Vector3(x, y, z), depth = corner.dot(towardCamera);
+      distance = Math.max(distance, depth + Math.abs(corner.dot(up)) / tanY, depth + Math.abs(corner.dot(right)) / tanX);
+    }
+    distance *= 1.08;
     camera.near = Math.max(0.1, distance / 1000);
     camera.far = Math.max(2048, distance * 8);
     camera.updateProjectionMatrix();
@@ -180,7 +184,7 @@ export function mountBattleBackgroundRenderer(host: HTMLElement, data: BattleMod
   return { resetBattleCamera, fitModel, dispose };
 }
 
-function addPrimitive(group: THREE.Group, primitive: Map3dPrimitive, textureCache: Map<string, THREE.DataTexture>): void {
+function addPrimitive(group: THREE.Group, primitive: Map3dPrimitive, textureCache: Map<string, THREE.DataTexture>, nativeColors: boolean): void {
   if (primitive.indices.length === 0 || primitive.positions.length === 0) return;
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(primitive.positions, 3));
@@ -188,7 +192,7 @@ function addPrimitive(group: THREE.Group, primitive: Map3dPrimitive, textureCach
   if (primitive.colors) geometry.setAttribute("color", new THREE.BufferAttribute(primitive.colors, 3));
   if (primitive.normals) geometry.setAttribute("normal", new THREE.BufferAttribute(primitive.normals, 3));
   geometry.setIndex(new THREE.BufferAttribute(primitive.indices, 1));
-  const texture = primitive.material.texture ? getTexture(textureCache, primitive.material.texture, primitive.material) : undefined;
+  const texture = primitive.material.texture ? getTexture(textureCache, primitive.material.texture, primitive.material, nativeColors) : undefined;
   const material = new THREE.MeshBasicMaterial({
     color: texture ? 0xffffff : new THREE.Color(...primitive.material.diffuse),
     vertexColors: Boolean(primitive.colors),
@@ -206,12 +210,13 @@ function getTexture(
   cache: Map<string, THREE.DataTexture>,
   data: DecodedTexture,
   material: Map3dPrimitive["material"],
+  nativeColors: boolean,
 ): THREE.DataTexture {
   const key = `${data.name}:${material.repeatS ? 1 : 0}:${material.repeatT ? 1 : 0}:${material.flipS ? 1 : 0}:${material.flipT ? 1 : 0}`;
   const cached = cache.get(key);
   if (cached) return cached;
   const texture = new THREE.DataTexture(data.rgba, data.width, data.height, THREE.RGBAFormat);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.colorSpace = nativeColors ? THREE.NoColorSpace : THREE.SRGBColorSpace;
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.wrapS = textureWrapMode(Boolean(material.repeatS), Boolean(material.flipS));

@@ -25,6 +25,7 @@ import "./styles/headerBattleEnvironments.css";
 import "./styles/overworldWeather.css";
 import "./styles/randomizer.css";
 import "./styles/trainerMusic.css";
+import "./styles/titleScreen.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, isGen5Project, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
@@ -41,7 +42,7 @@ import { prepareBw2FormEvolutionCodeInjection } from "./pokeweb/pmcModel";
 import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { typeChartOverlayId } from "./pokeweb/typeChartModel";
-import { openTestBattleEmulator } from "./pokeweb/testBattleEmulatorLauncher";
+import { openTestBattleEmulator, openTitleScreenEmulator } from "./pokeweb/testBattleEmulatorLauncher";
 import { buildMoveTestBattleDownloads, buildTestBattleDownloads } from "./pokeweb/testBattle";
 import { buildOverworldTestWarpDownloads, type OverworldTestWarpSelection } from "./pokeweb/testOverworldWarp";
 import { renderDebugNarcs } from "./ui/debugNarcs";
@@ -56,6 +57,7 @@ import { renderItemEditor, renderMoveAnimationPage, renderMoveEditor } from "./u
 import { renderMoveEffectHandlerEditor } from "./ui/moveEffectHandlerEditor";
 import { renderMoveBackgroundEditor } from "./ui/moveBackgroundEditor";
 import { renderBattleBackgroundEditor } from "./ui/battleBackgroundEditor";
+import { renderTitleScreenEditor, stopTitleScreenEditor } from "./ui/titleScreenEditor";
 import { renderPokemonEditor } from "./ui/pokemonEditor";
 import { renderPokemonSpriteEditor } from "./ui/pokemonSpriteEditor";
 import { renderPwanAnimationEditor } from "./ui/pwanAnimationEditor";
@@ -93,6 +95,7 @@ type AppRoute =
   | "weatherGraphics"
   | "overworlds"
   | "maps3d"
+  | "buildings"
   | "pokemon"
   | "pokemonSprites"
   | "animatedSprites"
@@ -111,6 +114,7 @@ type AppRoute =
   | "types"
   | "moveEffectHandlers"
   | "moveBackgrounds"
+  | "titleScreen"
   | "battleBackgrounds"
   | "randomizer"
   | "marts"
@@ -187,6 +191,7 @@ const APP_ROUTES: AppRoute[] = [
   "weatherGraphics",
   "overworlds",
   "maps3d",
+  "buildings",
   "pokemon",
   "pokemonSprites",
   "animatedSprites",
@@ -205,6 +210,7 @@ const APP_ROUTES: AppRoute[] = [
   "types",
   "moveEffectHandlers",
   "moveBackgrounds",
+  "titleScreen",
   "battleBackgrounds",
   "randomizer",
   "marts",
@@ -225,6 +231,7 @@ const EDITOR_REQUIREMENTS: Record<
   headers: ["headers", "message_texts"],
   weather: ["headers", "message_texts"],
   weatherGraphics: [],
+  buildings: [],
   overworlds: ["headers", "matrix", "maps", "overworlds"],
   pokemon: ["personal", "learnsets", "evolutions", "moves", "items"],
   pokemonSprites: ["personal", "pokemon_sprites", "pokemon_icons"],
@@ -244,6 +251,7 @@ const EDITOR_REQUIREMENTS: Record<
   moveEffectHandlers: ["moves"],
   moveBackgrounds: ["move_animations", "battle_animations"],
   battleBackgrounds: [],
+  titleScreen: [],
   randomizer: [],
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
@@ -470,6 +478,7 @@ window.addEventListener("popstate", (event) => {
 function renderApp(): void {
   const previousContent = document.getElementById("content-container");
   if (previousContent) stopTrainerImageRendering(previousContent);
+  stopTitleScreenEditor();
   stopTrainerSpriteEditorPlayback();
   stopTrainerMusicEditorPlayback();
   stopOverworldWeatherEditorPreview();
@@ -580,6 +589,20 @@ function renderApp(): void {
       () => navigate("headers"),
       launchOverworldTestWarp,
     );
+    return;
+  }
+
+  if (route === "buildings") {
+    content.innerHTML = `<div class="pokemon-filter map3d-sidebar"><div class="filter-title">Buildings</div><div class="map3d-status">Loading viewer...</div></div>`;
+    void import("./ui/buildingEditor").then(({ renderBuildingEditor }) => {
+      if (route === "buildings" && project) renderBuildingEditor(project, content, () => {
+        dirty = true;
+        scheduleSave(project!);
+        renderDirtyIndicator();
+      });
+    }).catch((error) => {
+      if (route === "buildings") content.innerHTML = `<div class="map3d-status">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
+    });
     return;
   }
 
@@ -790,6 +813,14 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "titleScreen") {
+    renderTitleScreenEditor(project, content, {
+      onDirty: () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); },
+      onPreview: launchTitleScreenPreview,
+    });
+    return;
+  }
+
   if (route === "battleBackgrounds") {
     renderBattleBackgroundEditor(project, content);
     return;
@@ -923,7 +954,7 @@ function renderNav(): string {
     <div id="header">
       <div class="header-left">
         ${navItem("headers", "Headers & Overworlds")}
-        ${navItem("maps3d", "Maps")}
+        ${renderMapsMenu()}
         ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
         ${navItem("pokemon", "Pokemon")}
         ${renderTrainersMenu()}
@@ -952,6 +983,14 @@ function renderNav(): string {
   `;
 }
 
+function renderMapsMenu(): string {
+  const active = route === "maps3d" || route === "buildings";
+  return `<div class="header-more ${active ? "-active" : ""}">
+    <button class="header-item header-more-trigger ${active ? "-active" : ""}" type="button" aria-haspopup="true" aria-expanded="false">Maps</button>
+    <div class="header-more-menu">${navItem("maps3d", "Map Editor")}${navItem("buildings", "Buildings")}</div>
+  </div>`;
+}
+
 function renderRefreshRomButton(): string {
   if (!canUseLocalRomBridge()) return "";
   const hasPath = Boolean(readStoredLocalRomPath());
@@ -969,6 +1008,7 @@ function renderMoreMenu(): string {
     ["codeInjection", "Code Injection"],
     ["fileSystem", "File System"],
   ];
+  if (project?.session.baseRom === "BW2") moreRoutes.splice(4, 0, ["titleScreen", "Title Screen"]);
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
   return `
     <div class="header-more ${active ? "-active" : ""}">
@@ -1282,6 +1322,17 @@ function showExportChangelogPrompt(): Promise<boolean> {
     document.body.append(dialog);
     dialog.querySelector<HTMLButtonElement>("#confirm-changelog-export")?.focus();
   });
+}
+
+async function launchTitleScreenPreview(): Promise<void> {
+  if (!project || project.session.baseRom !== "BW2" || !hasExportBase) throw new Error("Load a Black 2 or White 2 ROM to preview the title.");
+  const activeProject = project;
+  const emulator = openTitleScreenEmulator();
+  try {
+    await saveActiveProject(activeProject);
+    const romBytes = await exportModifiedRom(activeProject, { preserveOriginalLength: true });
+    await emulator.launch({ romName: `${activeProject.session.romName.replace(/\.nds$/i, "")}-title-preview.nds`, romBytes });
+  } catch (error) { emulator.close(); throw error; }
 }
 
 async function launchTestBattle(trainerId: number, showdownText = ""): Promise<void> {
@@ -1927,6 +1978,7 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (!project) return false;
   if (nextRoute === "changelog") return true;
+  if (nextRoute === "titleScreen") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerMusic") return isGen5Project(project);
   if (nextRoute === "docGenerators") return true;
   if (nextRoute === "mastersheet") {
@@ -1936,6 +1988,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "codeInjection") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
+  if (nextRoute === "buildings") return isGen5Project(project) && hasExportBase;
   if (nextRoute === "weather") return project.session.baseRom === "BW2" && EDITOR_REQUIREMENTS.weather.every((name) => project?.narcs[name]);
   if (nextRoute === "weatherGraphics") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerSprites") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.trdata);
@@ -2005,6 +2058,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       ? ` title="Reload the ROM before opening Patches"`
       : nextRoute === "maps3d"
         ? ` title="${project?.headers ? "Reload the ROM before opening Maps 3D" : "Missing parsed headers"}"`
+      : nextRoute === "buildings"
+        ? ` title="${project && isGen5Project(project) ? "Reload the ROM before opening Buildings" : "The building library currently supports BW and BW2"}"`
       : nextRoute === "mastersheet"
         ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? `Missing: ${requirements.filter((name) => !project?.narcs[name]).join(", ")}` : "Mastersheet generation is currently Gen 5-only"}"`
       : nextRoute === "animatedSprites"

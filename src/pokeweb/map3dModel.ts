@@ -7,6 +7,7 @@ import type { BaseRom } from "./constants";
 import type { HeaderRow } from "./headerModel";
 import { parseHeaders, updateHeaderField } from "./headerModel";
 import { createNarcStore, markDirty, type ProjectState } from "./projectStore";
+import { getRomFileBytes } from "./fileSystemModel";
 
 const MATRIX_PATH = "a/0/0/9";
 const MAP_CHUNKS_PATH = "a/0/0/8";
@@ -148,6 +149,7 @@ export type Map3dPermissionEdit = {
 export type Map3dBuilding = {
   uid: number;
   placementIndex?: number;
+  chunkOrigin?: { x: number; y: number; z: number; matrixX: number; matrixY: number };
   modelId?: number;
   sourceChunkId: number;
   chunkId: number;
@@ -255,6 +257,7 @@ export type Map3dSceneData = {
   permissionTileCount: number;
   chunks: Map3dChunk[];
   buildings: Map3dBuilding[];
+  buildingModels?: Array<{ uid: number; primitives: Map3dPrimitive[] }>;
   buildingDiagnostics?: Map3dBuildingDiagnostic[];
   entities: Map3dEntityOverlay[];
   npcModels: Map3dNpcModel[];
@@ -265,6 +268,7 @@ type LazyArchives = {
   baseRom: BaseRom;
   matrix: NARC;
   chunks: NARC;
+  chunksFileId: number;
   mapReplace: Uint8Array;
   areaTable: Uint8Array;
   textures: NARC;
@@ -446,6 +450,7 @@ type BuildPrimitive = {
 
 type BuildModelOptions = {
   recoverSkippedPieces?: boolean;
+  includeHiddenMaterials?: boolean;
 };
 
 type InfoBlockItem<T> = {
@@ -454,13 +459,19 @@ type InfoBlockItem<T> = {
 };
 
 class Map3dLoader {
+  private project?: ProjectState;
   private archives?: Promise<LazyArchives>;
   private archiveBaseRom?: BaseRom;
   private zoneCache = new Map<string, Promise<Map3dSceneData>>();
 
   loadZone(project: ProjectState, zoneId: number, options: Map3dLoadOptions = {}, onProgress?: (message: string) => void): Promise<Map3dSceneData> {
+    if (this.project !== project) {
+      this.project = project;
+      this.archives = undefined;
+      this.zoneCache.clear();
+    }
     const season = options.season ?? "spring";
-    const cacheKey = `${project.session.baseRom}:${zoneId}:${season}`;
+    const cacheKey = `${project.session.baseRom}:${zoneId}:${season}:${project.narcs.maps?.revision ?? 0}`;
     const cached = this.zoneCache.get(cacheKey);
     if (cached) return cached;
     const promise = this.loadZoneUncached(project, zoneId, season, onProgress);
@@ -476,6 +487,11 @@ class Map3dLoader {
     for (const key of [...this.zoneCache.keys()]) {
       if (key.includes(`:${zoneId}:`)) this.zoneCache.delete(key);
     }
+  }
+
+  invalidateAssets(): void {
+    this.archives = undefined;
+    this.zoneCache.clear();
   }
 
   async savePermissionEdits(project: ProjectState, edits: Map3dPermissionEdit[]): Promise<void> {
@@ -524,7 +540,12 @@ class Map3dLoader {
 
   private async loadZoneUncached(project: ProjectState, zoneId: number, season: Map3dSeason, onProgress?: (message: string) => void): Promise<Map3dSceneData> {
     onProgress?.("Reading ROM archives");
-    const archives = await this.getArchives(project.session.baseRom);
+    const archives = await this.getArchives(project);
+    if (!project.narcs.maps) {
+      const store = createNarcStore("maps", MAP_CHUNKS_PATH, archives.chunksFileId, archives.chunks);
+      store.rawFiles = archives.chunks.files.slice();
+      project.narcs.maps = store;
+    }
     const row = getHeaderRow(project, zoneId);
     const sourceMatrixId = Number(row.matrix_id ?? 0);
     const sourceAreaId = Number(row.texture_id ?? 0);
@@ -553,7 +574,7 @@ class Map3dLoader {
         if (sourceChunkId < 0) continue;
         if (matrix.hasZones && matrix.zoneIds[index] !== zoneId) continue;
         const chunkId = resolveChunkReplacement(replacementTable, matrixId, sourceChunkId, seasonIndex) ?? sourceChunkId;
-        const chunkContainer = archives.chunks.files[chunkId];
+        const chunkContainer = project.narcs.maps.rawFiles[chunkId]?.length ? project.narcs.maps.rawFiles[chunkId] : archives.chunks.files[chunkId];
         if (!chunkContainer) {
           warnings.push(`Chunk ${chunkId} is missing`);
           continue;
@@ -588,7 +609,7 @@ class Map3dLoader {
     }
 
     onProgress?.("Decoding building models");
-    const buildings = loadBuildingsForZone(archives, area, areaId, chunks, chunkContainers, warnings);
+    const { buildings, buildingModels } = loadBuildingsForZone(archives, area, areaId, chunks, chunkContainers, warnings);
     onProgress?.("Loading entity overlays");
     const entityData = loadEntityData(archives, row, warnings);
     onProgress?.("Decoding NPC models");
@@ -615,15 +636,17 @@ class Map3dLoader {
       permissionTileCount: chunks.reduce((sum, chunk) => sum + (chunk.permissions?.tiles.length ?? 0), 0),
       chunks,
       buildings,
+      buildingModels,
       entities: entityData.overlays,
       npcModels,
       warnings,
     };
   }
 
-  private async getArchives(baseRom: BaseRom): Promise<LazyArchives> {
+  private async getArchives(project: ProjectState): Promise<LazyArchives> {
+    const baseRom = project.session.baseRom;
     if (!this.archives || this.archiveBaseRom !== baseRom) {
-      this.archives = loadArchives(baseRom);
+      this.archives = loadArchives(project);
       this.archiveBaseRom = baseRom;
       this.zoneCache.clear();
     }
@@ -632,6 +655,7 @@ class Map3dLoader {
 }
 
 const map3dLoader = new Map3dLoader();
+export function invalidateMap3dAssets(): void { map3dLoader.invalidateAssets(); }
 
 export function getMap3dZones(project: ProjectState): Map3dZoneSummary[] {
   if (!project.headers) project.headers = parseHeaders(project);
@@ -908,29 +932,46 @@ export function readNitroResources(data: Uint8Array): NitroResources {
   return resources;
 }
 
+/** Read only model dictionary names, without decoding geometry or textures. */
+export function readNitroModelNames(data: Uint8Array): string[] {
+  if (data.length < 16 || readAscii(data, 0, 4) !== "BMD0") return [];
+  const names: string[] = [];
+  const count = readU16(data, 14);
+  if (16 + count * 4 > data.length) return names;
+  for (let i = 0; i < count; i += 1) {
+    const offset = readU32(data, 16 + i * 4);
+    if (offset + 8 > data.length || readAscii(data, offset, 4) !== "MDL0") continue;
+    names.push(...readInfoBlock(data, offset + 8, readU32Datum).map((item) => item.name));
+  }
+  return names;
+}
+
 export function firstNitroModelScale(resources: NitroResources): number {
   const scale = resources.models[0]?.upScale;
   return scale && Number.isFinite(scale) ? scale : 1;
 }
 
-async function loadArchives(baseRom: BaseRom): Promise<LazyArchives> {
-  const bytes = await loadActiveRomBytes();
+async function loadArchives(project: ProjectState): Promise<LazyArchives> {
+  const baseRom = project.session.baseRom;
+  const bytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!bytes) throw new Error("Reload the ROM before opening Maps 3D");
   const rom = new NintendoDSRom(bytes);
+  const currentArchive = (path: string) => new NARC(getRomFileBytes(project, rom, rom.fileId(path)));
   return {
     baseRom,
     matrix: new NARC(rom.getFileByName(MATRIX_PATH)),
     chunks: new NARC(rom.getFileByName(MAP_CHUNKS_PATH)),
+    chunksFileId: rom.fileId(MAP_CHUNKS_PATH),
     mapReplace: firstFile(new NARC(rom.getFileByName(MAP_REPLACE_PATH))) ?? new Uint8Array(),
     areaTable: rom.getFileByName(AREA_TABLE_PATH),
     textures: new NARC(rom.getFileByName(MAP_TEXTURES_PATH)),
     npcRegistry: firstFile(new NARC(rom.getFileByName(baseRom === "BW2" ? MMODEL_INDEX_BW2_PATH : MMODEL_INDEX_BW_PATH))) ?? new Uint8Array(),
     moveModelResources: new NARC(rom.getFileByName(baseRom === "BW2" ? MMODEL_RES_BW2_PATH : MMODEL_RES_BW_PATH)),
     entities: new NARC(rom.getFileByName(baseRom === "BW2" ? ZONE_ENTITIES_BW2_PATH : ZONE_ENTITIES_BW_PATH)),
-    buildingTexExt: new NARC(rom.getFileByName(baseRom === "BW2" ? BMODEL_TEX_EXT_BW2_PATH : BMODEL_TEX_EXT_BW_PATH)),
-    buildingTexInt: new NARC(rom.getFileByName(baseRom === "BW2" ? BMODEL_TEX_INT_BW2_PATH : BMODEL_TEX_INT_BW_PATH)),
-    buildingBundleExt: new NARC(rom.getFileByName(baseRom === "BW2" ? BMODEL_BUNDLE_EXT_BW2_PATH : BMODEL_BUNDLE_EXT_BW_PATH)),
-    buildingBundleInt: new NARC(rom.getFileByName(baseRom === "BW2" ? BMODEL_BUNDLE_INT_BW2_PATH : BMODEL_BUNDLE_INT_BW_PATH)),
+    buildingTexExt: currentArchive(baseRom === "BW2" ? BMODEL_TEX_EXT_BW2_PATH : BMODEL_TEX_EXT_BW_PATH),
+    buildingTexInt: currentArchive(baseRom === "BW2" ? BMODEL_TEX_INT_BW2_PATH : BMODEL_TEX_INT_BW_PATH),
+    buildingBundleExt: currentArchive(baseRom === "BW2" ? BMODEL_BUNDLE_EXT_BW2_PATH : BMODEL_BUNDLE_EXT_BW_PATH),
+    buildingBundleInt: currentArchive(baseRom === "BW2" ? BMODEL_BUNDLE_INT_BW2_PATH : BMODEL_BUNDLE_INT_BW_PATH),
   };
 }
 
@@ -974,12 +1015,12 @@ function loadBuildingsForZone(
   chunks: Map3dChunk[],
   chunkContainers: Map<number, Uint8Array[]>,
   warnings: string[],
-): Map3dBuilding[] {
+): { buildings: Map3dBuilding[]; buildingModels: NonNullable<Map3dSceneData["buildingModels"]> } {
   const buildingNarc = area.isExterior ? archives.buildingBundleExt : archives.buildingBundleInt;
   const textureNarc = area.isExterior ? archives.buildingTexExt : archives.buildingTexInt;
   const buildingsId = resolveBuildingsId(archives.baseRom, areaId, area);
   const bundleBytes = buildingNarc.files[buildingsId];
-  if (!bundleBytes) return [];
+  if (!bundleBytes) return { buildings: [], buildingModels: [] };
 
   let textureResources: NitroResources = { models: [], textures: [], palettes: [] };
   const textureBytes = textureNarc.files[buildingsId];
@@ -1012,7 +1053,7 @@ function loadBuildingsForZone(
     }
   } catch (error) {
     warnings.push(`Building bundle ${buildingsId}: ${error instanceof Error ? error.message : String(error)}`);
-    return [];
+    return { buildings: [], buildingModels: [] };
   }
 
   const buildings: Map3dBuilding[] = [];
@@ -1020,7 +1061,7 @@ function loadBuildingsForZone(
     const chunkFiles = chunkContainers.get(chunk.chunkId);
     const placementsBytes = chunkFiles?.[2] ?? chunkFiles?.at(-1);
     if (!placementsBytes) continue;
-    for (const placement of parseChunkBuildings(placementsBytes, warnings, chunk.chunkId)) {
+    for (const [placementIndex, placement] of parseChunkBuildings(placementsBytes, warnings, chunk.chunkId).entries()) {
       const resource = resourcesByUid.get(placement.modelUid);
       if (!resource) {
         warnings.push(`Chunk ${chunk.chunkId} references missing building ${placement.modelUid}`);
@@ -1028,6 +1069,8 @@ function loadBuildingsForZone(
       }
       buildings.push({
         uid: placement.modelUid,
+        placementIndex,
+        chunkOrigin: { x: chunk.worldX, y: chunk.worldY ?? 0, z: chunk.worldZ, matrixX: chunk.matrixX, matrixY: chunk.matrixY },
         sourceChunkId: chunk.sourceChunkId,
         chunkId: chunk.chunkId,
         worldX: chunk.worldX + placement.x,
@@ -1038,7 +1081,7 @@ function loadBuildingsForZone(
       });
     }
   }
-  return buildings;
+  return { buildings, buildingModels: [...resourcesByUid.values()].filter((model) => model.primitives.length > 0) };
 }
 
 function resolveBuildingsId(baseRom: BaseRom, areaId: number, area: AreaHeader3d): number {
@@ -1046,6 +1089,193 @@ function resolveBuildingsId(baseRom: BaseRom, areaId: number, area: AreaHeader3d
   if (areaId >= 210) return areaId - 210;
   if (areaId >= 2) return Math.floor((areaId - 2) / 4);
   return 0;
+}
+
+export type Map3dBuildingField = "worldX" | "worldY" | "worldZ" | "localX" | "localY" | "localZ" | "rotationY" | "uid";
+
+export type Map3dNewBuilding = {
+  chunkIndex: number;
+  uid: number;
+  worldX: number;
+  worldY: number;
+  worldZ: number;
+  rotationY: number;
+};
+
+function editableBuildingTable(project: ProjectState, chunkId: number) {
+  if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") throw new Error("Building placement editing currently supports BW and BW2.");
+  const store = project.narcs.maps;
+  const bytes = store?.rawFiles[chunkId];
+  if (!store || !bytes?.length) throw new Error("Reload the map before editing its buildings.");
+  const container = extractGameFreakContainer(bytes);
+  const placements = container.files[2];
+  const start = readU32(bytes, 12);
+  if (!placements || placements.length < 4 || start < 4 + (container.files.length + 1) * 4) throw new Error("The chunk has no valid building placement table.");
+  const count = readU32(placements, 0);
+  if (4 + count * 16 > placements.length) throw new Error("The building placement table is truncated.");
+  return { store, bytes, start, count, memberCount: container.files.length };
+}
+
+function buildingFixedPoint(value: number): number {
+  const fixed = Math.round(value * 4096);
+  if (!Number.isFinite(value) || !Number.isSafeInteger(fixed) || fixed < -2147483648 || fixed > 2147483647) throw new Error("Position is outside the game's coordinate range (−524288 to 524287.9997558594 relative to the chunk).");
+  return fixed >>> 0;
+}
+
+function buildingRotation(value: number): number {
+  if (!Number.isFinite(value) || value < 0 || value > 360) throw new Error("Rotation must be between 0 and 360 degrees.");
+  return Math.round(value * 65536 / 360) % 65536;
+}
+
+/** Splice exactly one record, retaining padding, unknown members and trailing bytes. */
+function spliceBuildingRecord(table: ReturnType<typeof editableBuildingTable>, index: number, record?: Uint8Array): Uint8Array {
+  const adding = record !== undefined;
+  const delta = adding ? 16 : -16;
+  const offset = table.start + 4 + index * 16;
+  const out = new Uint8Array(table.bytes.length + delta);
+  out.set(table.bytes.subarray(0, offset));
+  if (record) out.set(record, offset);
+  out.set(table.bytes.subarray(offset + (adding ? 0 : 16)), offset + (adding ? 16 : 0));
+  writeU32(out, table.start, table.count + (adding ? 1 : -1));
+  // Member 2 grows/shrinks; its start and all preceding members stay fixed.
+  for (let member = 3; member <= table.memberCount; member += 1) {
+    writeU32(out, 4 + member * 4, readU32(table.bytes, 4 + member * 4) + delta);
+  }
+  return out;
+}
+
+function commitBuildingTable(project: ProjectState, chunkId: number, bytes: Uint8Array): void {
+  const store = project.narcs.maps!;
+  store.rawFiles[chunkId] = bytes;
+  const record = store.records.get(chunkId);
+  if (record) record.bytes = bytes;
+  markDirty(project, "maps", chunkId);
+  map3dLoader.clearCache();
+}
+
+/** Append to the native table, even if some existing models could not be rendered. */
+export function addMap3dBuilding(project: ProjectState, data: Map3dSceneData, input: Map3dNewBuilding): number {
+  const chunk = Number.isSafeInteger(input.chunkIndex) ? data.chunks[input.chunkIndex] : undefined;
+  if (!chunk) throw new Error("Choose a loaded map chunk.");
+  const table = editableBuildingTable(project, chunk.chunkId);
+  clampInt(input.uid, 0, 65535, "Model UID");
+  const model = data.buildingModels?.find((candidate) => candidate.uid === input.uid && candidate.primitives.length);
+  if (!model) throw new Error("Choose a model available in this building bundle.");
+  const record = new Uint8Array(16);
+  writeU32(record, 0, buildingFixedPoint(input.worldX - chunk.worldX));
+  writeU32(record, 4, buildingFixedPoint(input.worldY));
+  writeU32(record, 8, buildingFixedPoint(chunk.worldZ - input.worldZ));
+  writeU16(record, 12, buildingRotation(input.rotationY));
+  record[14] = input.uid >>> 8;
+  record[15] = input.uid & 255;
+  const out = spliceBuildingRecord(table, table.count, record);
+  let selectedIndex = -1;
+  let addedCount = 0;
+  for (const [chunkIndex, instance] of data.chunks.entries()) {
+    if (instance.chunkId !== chunk.chunkId) continue;
+    if (chunkIndex === input.chunkIndex) selectedIndex = data.buildings.length;
+    data.buildings.push({
+      uid: input.uid, placementIndex: table.count, chunkId: instance.chunkId, sourceChunkId: instance.sourceChunkId,
+      chunkOrigin: { x: instance.worldX, y: instance.worldY ?? 0, z: instance.worldZ, matrixX: instance.matrixX, matrixY: instance.matrixY },
+      worldX: instance.worldX + readFx32(record, 0), worldY: readFx32(record, 4), worldZ: instance.worldZ - readFx32(record, 8),
+      rotationY: readU16(record, 12) * 360 / 65536, primitives: model.primitives,
+    });
+    addedCount += 1;
+  }
+  data.buildingCount = data.buildings.length;
+  if (data.buildingPlacementCount !== undefined) data.buildingPlacementCount += addedCount;
+  commitBuildingTable(project, chunk.chunkId, out);
+  recordGenericChange(project, "maps3d", `Added building UID ${input.uid} at placement ${table.count} in chunk ${chunk.chunkId}.`, `3D map chunk ${chunk.chunkId}`, { key: `map3d-building-add:${chunk.chunkId}:${table.store.revision}` });
+  return selectedIndex;
+}
+
+/** Remove the native record and renumber every remaining appearance of that chunk. */
+export function deleteMap3dBuilding(project: ProjectState, data: Map3dSceneData, index: number): void {
+  const building = data.buildings[index];
+  if (!building || !Number.isSafeInteger(building.placementIndex) || building.placementIndex! < 0) throw new Error("Select a building with an editable placement.");
+  const table = editableBuildingTable(project, building.chunkId);
+  const placementIndex = building.placementIndex!;
+  if (placementIndex >= table.count) throw new Error("The building placement is missing.");
+  const out = spliceBuildingRecord(table, placementIndex);
+  data.buildings = data.buildings.filter((candidate) => candidate.chunkId !== building.chunkId || candidate.placementIndex !== placementIndex);
+  for (const candidate of data.buildings) {
+    if (candidate.chunkId === building.chunkId && candidate.placementIndex !== undefined && candidate.placementIndex > placementIndex) candidate.placementIndex -= 1;
+  }
+  data.buildingCount = data.buildings.length;
+  if (data.buildingPlacementCount !== undefined) data.buildingPlacementCount -= data.chunks.filter((chunk) => chunk.chunkId === building.chunkId).length;
+  commitBuildingTable(project, building.chunkId, out);
+  recordGenericChange(project, "maps3d", `Deleted building UID ${building.uid} at placement ${placementIndex} in chunk ${building.chunkId}.`, `3D map chunk ${building.chunkId}`, { key: `map3d-building-delete:${building.chunkId}:${table.store.revision}` });
+}
+
+/** Edit one native placement, including every visible instance of a reused chunk. */
+export function updateMap3dBuilding(project: ProjectState, data: Map3dSceneData, index: number, field: Map3dBuildingField, value: number): number[] {
+  if (project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") throw new Error("Building placement editing currently supports BW and BW2.");
+  if (!Number.isFinite(value)) throw new Error("Enter a finite number.");
+  const building = data.buildings[index];
+  if (!building?.chunkOrigin || !Number.isSafeInteger(building.placementIndex) || building.placementIndex! < 0) throw new Error("This placement has no editable source record.");
+  const store = project.narcs.maps;
+  const bytes = store?.rawFiles[building.chunkId];
+  if (!store || !bytes?.length) throw new Error("Reload the map before editing its buildings.");
+  const container = extractGameFreakContainer(bytes);
+  const placements = container.files[2];
+  const start = readU32(bytes, 12);
+  if (!placements || start < 4 + (container.files.length + 1) * 4) throw new Error("The chunk has no valid building placement table.");
+  const warnings: string[] = [];
+  const before = parseChunkBuildings(placements, warnings, building.chunkId)[building.placementIndex!];
+  if (!before || warnings.length) throw new Error("The building placement table is truncated or the placement is missing.");
+  const affected = data.buildings.flatMap((candidate, i) => candidate.chunkId === building.chunkId && candidate.placementIndex === building.placementIndex ? [i] : []);
+  if (affected.some((i) => !data.buildings[i].chunkOrigin)) throw new Error("A shared placement is missing its chunk origin.");
+  const out = bytes.slice();
+  const recordOffset = start + 4 + building.placementIndex! * 16;
+  let coordinate: "x" | "y" | "z" | undefined;
+  let storedValue = value;
+  switch (field) {
+    case "worldX": coordinate = "x"; storedValue -= building.chunkOrigin.x; break;
+    case "worldY": coordinate = "y"; break;
+    case "worldZ": coordinate = "z"; storedValue = building.chunkOrigin.z - value; break;
+    case "localX": coordinate = "x"; break;
+    case "localY": coordinate = "y"; storedValue += building.chunkOrigin.y; break;
+    case "localZ": coordinate = "z"; storedValue = -value; break;
+    case "rotationY":
+      writeU16(out, recordOffset + 12, buildingRotation(value));
+      break;
+    case "uid":
+      clampInt(value, 0, 65535, "Model UID");
+      if (!data.buildingModels?.some((model) => model.uid === value && model.primitives.length)) throw new Error("Choose a model available in this building bundle.");
+      out[recordOffset + 14] = value >>> 8;
+      out[recordOffset + 15] = value & 255;
+      break;
+    default: throw new Error("Unknown building field.");
+  }
+  if (coordinate) {
+    writeU32(out, recordOffset + ({ x: 0, y: 4, z: 8 }[coordinate]), buildingFixedPoint(storedValue));
+  }
+  if (out.subarray(recordOffset, recordOffset + 16).every((byte, i) => byte === bytes[recordOffset + i])) return [];
+  const after = parseChunkBuildings(out.subarray(start, start + placements.length), [], building.chunkId)[building.placementIndex!];
+  store.rawFiles[building.chunkId] = out;
+  const record = store.records.get(building.chunkId);
+  if (record) record.bytes = out;
+  markDirty(project, "maps", building.chunkId);
+  const sourceField = coordinate ?? (field === "uid" ? "modelUid" : "rotationY");
+  recordFieldChange(project, "maps3d", `Chunk ${building.chunkId} building ${building.placementIndex}`, sourceField, before[sourceField], after[sourceField], {
+    key: `map3d-building:${building.chunkId}:${building.placementIndex}:${sourceField}`,
+  });
+  for (const i of affected) {
+    const instance = data.buildings[i];
+    instance.worldX = instance.chunkOrigin!.x + after.x;
+    instance.worldY = after.y;
+    instance.worldZ = instance.chunkOrigin!.z - after.z;
+    instance.rotationY = after.rotationY;
+    instance.uid = after.modelUid;
+    if (field === "uid") {
+      instance.primitives = data.buildingModels!.find((model) => model.uid === value)!.primitives;
+      instance.primitiveCount = instance.primitives.length;
+      instance.triangleCount = instance.primitives.reduce((sum, primitive) => sum + primitive.indices.length / 3, 0);
+    }
+    instance.bounds = undefined;
+  }
+  map3dLoader.clearCache();
+  return affected;
 }
 
 export function parseChunkBuildings(data: Uint8Array, warnings: string[], chunkId: number): ChunkBuildingPlacement[] {
@@ -1596,7 +1826,7 @@ export function buildModelPrimitives(resources: NitroResources, warnings: string
     for (const primitive of built) {
       if (primitive.vertices.length === 0 || primitive.indices.length === 0) continue;
       const material = model.materials[primitive.materialId] ?? model.materials[0];
-      if (isHiddenNitroMaterial(material)) continue;
+      if (!options.includeHiddenMaterials && isHiddenNitroMaterial(material)) continue;
       const resolvedTexture = material?.textureName ? textureByName.get(material.textureName) : undefined;
       const resolvedPalette = material?.paletteName ? paletteByName.get(material.paletteName) : undefined;
       const texture =

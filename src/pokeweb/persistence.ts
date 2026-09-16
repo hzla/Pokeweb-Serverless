@@ -67,11 +67,11 @@ export async function clearActiveProject(): Promise<void> {
 }
 
 export async function saveActiveRomBytes(bytes: Uint8Array, metadata?: ActiveRomMetadata): Promise<void> {
-  const compactBytes = compactRomBytes(bytes);
   const db = await openDb();
   const transaction = db.transaction(ROM_STORE_NAME, "readwrite");
   const store = transaction.objectStore(ROM_STORE_NAME);
-  const requests = [requestToPromise(store.put(compactBytes, ACTIVE_ROM_KEY))];
+  // Persist the export base as-is. ROM rebuilding/compaction belongs to export.
+  const requests = [requestToPromise(store.put(bytes, ACTIVE_ROM_KEY))];
   if (metadata) requests.push(requestToPromise(store.put(metadata, ACTIVE_ROM_METADATA_KEY)));
   await Promise.all(requests);
   db.close();
