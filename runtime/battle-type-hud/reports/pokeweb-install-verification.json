@@ -1,6 +1,7 @@
 [
   {
     "independentComponents": true,
+    "iconVariants": "letters and circular switch in place",
     "game": "W2",
     "initial": {
       "supported": true,
@@ -20,9 +21,10 @@
       "updateAvailable": false,
       "canUninstall": true,
       "pmcInstalled": true,
-      "message": "Type Icons is installed.",
+      "message": "Type Icons (Hexagonal letters) is installed.",
       "dllPath": "patches/TypeIconsW2.dll",
-      "legacyCombined": false
+      "legacyCombined": false,
+      "iconVariant": "letters"
     },
     "reimported": {
       "supported": true,
@@ -32,9 +34,10 @@
       "updateAvailable": false,
       "canUninstall": false,
       "pmcInstalled": true,
-      "message": "Type Icons is installed.",
+      "message": "Type Icons (Hexagonal letters) is installed.",
       "dllPath": "patches/TypeIconsW2.dll",
-      "legacyCombined": false
+      "legacyCombined": false,
+      "iconVariant": "letters"
     },
     "stagedUninstall": true,
     "imported038Upgrade": "DLL and prior NCER upgraded; all unrelated members preserved",
@@ -42,6 +45,7 @@
   },
   {
     "independentComponents": true,
+    "iconVariants": "letters and circular switch in place",
     "game": "B2",
     "initial": {
       "supported": true,
@@ -61,9 +65,10 @@
       "updateAvailable": false,
       "canUninstall": true,
       "pmcInstalled": true,
-      "message": "Type Icons is installed.",
+      "message": "Type Icons (Hexagonal letters) is installed.",
       "dllPath": "patches/TypeIconsB2.dll",
-      "legacyCombined": false
+      "legacyCombined": false,
+      "iconVariant": "letters"
     },
     "reimported": {
       "supported": true,
@@ -73,9 +78,10 @@
       "updateAvailable": false,
       "canUninstall": false,
       "pmcInstalled": true,
-      "message": "Type Icons is installed.",
+      "message": "Type Icons (Hexagonal letters) is installed.",
       "dllPath": "patches/TypeIconsB2.dll",
-      "legacyCombined": false
+      "legacyCombined": false,
+      "iconVariant": "letters"
     },
     "stagedUninstall": true,
     "imported038Upgrade": "DLL and prior NCER upgraded; all unrelated members preserved",

@@ -64,7 +64,6 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
 
 export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cached-rom.nds", options: LoadOptions = {}, onProgress?: LoadProgress): Promise<ProjectState> {
   const rom = new NintendoDSRom(bytes);
-  const compactBytes = rom.save();
   const sourceSha256 = await sha256Hex(bytes);
 
   await reportLoadProgress(onProgress, "Decompressing ARM9");
@@ -75,7 +74,8 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   const version = detectVersionInfo(sample, rom.idCode);
   const formats = getNarcFormats(version.baseRom);
   const project: ProjectState = {
-    originalRomBytes: compactBytes,
+    // Keep the input as the export base; rebuilding here duplicates the entire ROM.
+    originalRomBytes: bytes,
     session: {
       romName: fileName.replace(/\.nds$/iu, ""),
       generation: version.generation,

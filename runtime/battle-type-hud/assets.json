@@ -305,5 +305,6 @@
   "iconHeight": 11,
   "stackDx": 5,
   "stackDy": 6,
-  "stackTop": 15
+  "stackTop": 15,
+  "variant": "letters"
 }
