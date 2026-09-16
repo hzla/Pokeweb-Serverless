@@ -332,7 +332,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
                 <option value="solid" ${battleHudStatus.iconVariant === "solid" ? "selected" : ""}>Angular HUD wedges</option>
               </select>
             </label>
-            <p class="code-injection-note">Angular wedges fit the HUD's left face while retaining its lower shadow. Dual types keep a black divider; monotypes replace its interior with one continuous type color. Reinstalling replaces the active Type Icons DLL in place.</p>
+            <p class="code-injection-note">Angular wedges fit the HUD's left face while retaining its lower shadow. Monotypes use the dark summary-label shade at their edges; dual types use black-and-color shading so the native HP-bar palette stays intact. Dual types keep a raised black divider; monotypes remain continuous. Reinstalling replaces the active Type Icons DLL in place.</p>
           </div>` : ""}
           ${card.id === "move-effectiveness" ? `<div class="code-injection-facts">
             ${([

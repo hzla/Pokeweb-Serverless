@@ -62,7 +62,7 @@ const additions = [
   {
     name: 'learnset-viewer', title: 'Standalone LEARNSET party-menu viewer',
     artifacts: ['LearnsetMenuB2.dll', 'LearnsetMenuW2.dll', 'LearnsetViewerB2.dll', 'LearnsetViewerW2.dll'],
-    note: `Version ${learnset.version}. PMC-only menu/field and overlay-258 viewer companions; includes D-pad party navigation, compact gold base stats, form ability names and hidden-ability colors, branch-responsive cycle-safe three-Pokemon evolution chains, buffered ROM reads, paged outgoing requirements, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
+    note: `Version ${learnset.version}. PMC-only menu/field and overlay-258 viewer companions; includes flush sprite-card borders, lowered abilities, a dark evolution panel, the retail striped upper backdrop and aligned rows, D-pad party navigation, compact gold base stats, form ability names and hidden-ability colors, branch-responsive cycle-safe three-Pokemon evolution chains, buffered ROM reads, paged outgoing requirements, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
     extra: [
       file('learnset-viewer', 'metadata/learnsetViewerManifest.json', 'metadata', 'src/assets/codeinjection/learnsetViewerManifest.json'),
       file('learnset-viewer', 'integration/learnsetViewerModel.ts', 'support-only', 'src/pokeweb/learnsetViewerModel.ts'),

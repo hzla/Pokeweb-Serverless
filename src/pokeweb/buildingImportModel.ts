@@ -1,4 +1,4 @@
-import { readU16, readU32, writeU32 } from "../nds/binary";
+import { readAscii, readU16, readU32, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { modelAssetHash, readBuildingGlb } from "./buildingGlb";
@@ -22,6 +22,22 @@ export function assertStaticBuilding(asset: BuildingLibraryAsset): void {
     || [20, 24, 28, 32].some(offset => readU32(metadata, offset) !== 0xffffffff)) {
     throw new Error("Animated buildings are not supported by this first static importer. Choose a non-animated building.");
   }
+}
+
+/** Static geometry may retain material-only animation; joint animation cannot survive node flattening. */
+export function assertMaterialAnimatedBuilding(asset: BuildingLibraryAsset): void {
+  const metadata = asset.metadataBytes;
+  if (metadata.length < 36 || metadata[17] !== 0) throw new Error("Procedural building animation is unsupported.");
+  let animations = 0;
+  for (const offset of [20, 24, 28, 32]) {
+    const relative = readU32(metadata, offset); if (relative === 0xffffffff) continue;
+    const start = 16 + relative;
+    if (start < 36 || start + 16 > metadata.length || !["BTA0", "BMA0"].includes(readAscii(metadata, start, 4)) || start + readU32(metadata, start + 8) > metadata.length) {
+      throw new Error("This building uses joint or texture-pattern animation. Only existing texture-transform and material-color animations can accompany imported geometry.");
+    }
+    animations++;
+  }
+  if (!animations) assertStaticBuilding(asset);
 }
 
 export async function prepareBuildingImport(asset: BuildingLibraryAsset, glb: Uint8Array): Promise<BuildingImport> {

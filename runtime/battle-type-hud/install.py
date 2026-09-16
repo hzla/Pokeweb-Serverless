@@ -72,7 +72,7 @@ def install(source,destination,debug=False,module="TypeIcons"):
     assert rebuilt.getFileByName('patches/'+name)==dll
     destination.parent.mkdir(parents=True,exist_ok=True);destination.write_bytes(out)
     assert sha(source.read_bytes())==report['rom_sha256']
-    report.update(output=destination.name,output_sha256=sha(out),module=name,dll_sha256=sha(dll),
+    report.update(output=str(destination.resolve()),output_sha256=sha(out),module=name,dll_sha256=sha(dll),
                   debug=debug,original_payloads_preserved=len(rom.files)-len(replacements),replaced_file_ids=list(replacements),original_file_ids_preserved=True,
                   pmc_heap_resized=False,
                   source_unchanged=True,ds_read_boundary=hex(bound),new_data_end=hex(end))

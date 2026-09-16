@@ -24,6 +24,7 @@ export type MapGlbManifest = {
   /** Entire loaded chunk containers: geometry and placement edits share a baseline. */
   chunks: Array<{ id: number; hash: string }>;
   bundleHash: string;
+  textures?: { terrainId: number; terrainHash: string; buildingHash: string };
   terrain: MapGlbObject[];
   buildings: MapGlbObject[];
 };

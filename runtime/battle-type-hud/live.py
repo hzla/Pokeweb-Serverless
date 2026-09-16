@@ -2,8 +2,6 @@
 
 Usage: live.py W2 '[[0,600],[1,1],[0,300]]'
        live.py W2 '[["touch",218,167,4],[0,180]]'
-Set BTH_LIVE_SAVE (or BTH_LIVE_SAVE_W2 / BTH_LIVE_SAVE_B2) to the input save
-when starting a new session. Machine-local paths belong in the environment.
 """
 from pathlib import Path
 import hashlib, json, shutil, struct, sys, os
