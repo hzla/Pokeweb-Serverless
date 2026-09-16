@@ -2,6 +2,8 @@
 
 Usage: live.py W2 '[[0,600],[1,1],[0,300]]'
        live.py W2 '[["touch",218,167,4],[0,180]]'
+Set BTH_LIVE_SAVE (or BTH_LIVE_SAVE_W2 / BTH_LIVE_SAVE_B2) to the input save
+when starting a new session. Machine-local paths belong in the environment.
 """
 from pathlib import Path
 import hashlib, json, shutil, struct, sys, os
@@ -41,8 +43,10 @@ def report(emu,game,rom_path=None,module="TypeIcons"):
 def main():
     game=sys.argv[1];actions=json.loads(sys.argv[2]);folder=HERE/'build'/f'live-{game}{os.environ.get("BTH_LIVE_SUFFIX","")}'
     rom=folder/'typehud.nds';save=rom.with_suffix('.sav')
-    source=Path('/Users/andylee/Downloads')/('Cascade White Marlon Build - 20.sav' if game=='W2' else 'black2.sav')
-    if not save.exists():shutil.copyfile(source,save)
+    if not save.exists():
+        source=os.environ.get(f'BTH_LIVE_SAVE_{game}') or os.environ.get('BTH_LIVE_SAVE')
+        if not source:raise SystemExit('Set BTH_LIVE_SAVE to an input save before starting a new session.')
+        shutil.copyfile(Path(source),save)
     emu=MelonDS(ROOT/'work/scan-button/emulator-build/src/headless/libmelonds_headless.dylib')
     emu.open(rom);state=folder/'session.mln'
     if state.exists():emu.savestate.load_file(state)

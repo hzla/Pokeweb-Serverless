@@ -53,6 +53,7 @@ import { escapeHtml } from "./dom";
 const pwanCompatibilityHydrationProjects = new WeakSet<ProjectState>();
 const typeIconLettersPreview = new URL("../assets/codeinjection/type-icons-letters-preview.png", import.meta.url).href;
 const typeIconCircularPreview = new URL("../assets/codeinjection/type-icons-circular-preview.png", import.meta.url).href;
+const typeIconSolidPreview = new URL("../assets/codeinjection/type-icons-solid-preview.png", import.meta.url).href;
 
 export function renderCodeInjectionEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
   const status = getPmcInstallStatus(project);
@@ -274,7 +275,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Learnset Viewer</h2>
-              <p>Adds a standalone LEARNSET party command. Browse all current-form level-up moves, including known and future moves, with learning levels and base max PP. Read-only: no teaching or KO moves; RELEARN is unchanged.</p>
+              <p>Adds a standalone LEARNSET party command. D-pad Right/Left switches party Pokémon, skipping Eggs; L/R pages evolution requirements. Browse current-form base stats, abilities, and a cycle-safe evolution chain. Hidden abilities are purple. The lower screen lists all level-up moves with levels and base max PP. Read-only: no teaching or KO moves; RELEARN is unchanged.</p>
             </div>
             <span class="code-injection-status ${learnsetStatus.installed && !learnsetStatus.updateAvailable ? "-installed" : learnsetStatus.compatible ? "" : "-error"}">
               ${learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : "Unsupported / Incompatible"}
@@ -293,7 +294,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         ${[
           { id: "battle-hud", title: "Type Icons", status: battleHudStatus,
-            description: "Shows type icons on player and enemy health panels in singles, doubles and triples, including compact panels with EXP bars. Choose lettered hexagons or the original circular symbol artwork. Both variants use the current diagonal placement and preserve the native caught marker. Status labels hide the icons until the condition clears. Installs independently of move highlighting." },
+            description: "Shows type icons on player and enemy health panels in singles, doubles and triples, including compact panels with EXP bars. Choose lettered hexagons, the original circular symbol artwork, or solid type-colored wedges fitted into the HUD edge. Every style preserves the native caught marker. Status labels hide the icons until the condition clears. Installs independently of move highlighting." },
           { id: "move-effectiveness", title: "Move Effectiveness Preview", status: moveEffectivenessStatus,
             description: "Highlights damaging moves as super effective, not very effective, or immune. Includes standard BW2 type immunities, Levitate, Air Balloon, Magnet Rise, and blocking abilities with suppression and bypass checks. Singles and rotation use the opposing Pokémon; doubles and triples color the selected move name while choosing an enemy. Weather Ball, Natural Gift, Judgment and Techno Blast stay neutral. Custom ability and item mechanics need a compatible preview patch." },
         ].map(card => `
@@ -310,7 +311,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
           ${card.id === "battle-hud" ? `<div class="type-icon-variant-picker">
             <div class="type-icon-variant-previews" aria-label="Type icon variation previews">
-              <figure class="type-icon-variant-preview ${battleHudStatus.iconVariant === "circular" ? "" : "is-selected"}" data-type-icon-variant-card="letters">
+              <figure class="type-icon-variant-preview ${(battleHudStatus.iconVariant ?? "letters") === "letters" ? "is-selected" : ""}" data-type-icon-variant-card="letters">
                 <figcaption>Hexagonal letters</figcaption>
                 <img src="${typeIconLettersPreview}" alt="All 18 lettered hexagonal type icons" loading="lazy">
               </figure>
@@ -318,12 +319,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
                 <figcaption>Circular icons</figcaption>
                 <img src="${typeIconCircularPreview}" alt="All 18 circular symbol type icons" loading="lazy">
               </figure>
+              <figure class="type-icon-variant-preview ${battleHudStatus.iconVariant === "solid" ? "is-selected" : ""}" data-type-icon-variant-card="solid">
+                <figcaption>Angular HUD wedges</figcaption>
+                <img src="${typeIconSolidPreview}" alt="Angular dual-type HUD wedge examples" loading="lazy">
+              </figure>
             </div>
             <label class="type-icon-variant-toggle">
-              <input id="type-icon-circular-variant" type="checkbox" ${battleHudStatus.iconVariant === "circular" ? "checked" : ""}>
-              <span>Install circular symbol icons</span>
+              <span>Icon style</span>
+              <select id="type-icon-variant" aria-label="Type icon style">
+                <option value="letters" ${(battleHudStatus.iconVariant ?? "letters") === "letters" ? "selected" : ""}>Hexagonal letters</option>
+                <option value="circular" ${battleHudStatus.iconVariant === "circular" ? "selected" : ""}>Circular icons</option>
+                <option value="solid" ${battleHudStatus.iconVariant === "solid" ? "selected" : ""}>Angular HUD wedges</option>
+              </select>
             </label>
-            <p class="code-injection-note">Leave unchecked for hexagonal letters. Reinstalling replaces the active Type Icons DLL in place; it does not install both variants together.</p>
+            <p class="code-injection-note">Angular wedges fit the HUD's left face while retaining its lower shadow. Dual types keep a black divider; monotypes replace its interior with one continuous type color. Reinstalling replaces the active Type Icons DLL in place.</p>
           </div>` : ""}
           ${card.id === "move-effectiveness" ? `<div class="code-injection-facts">
             ${([
@@ -771,7 +780,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               .map(input => [input.dataset.moveHighlightColor!, input.value])) as MoveHighlightColors;
             await installMoveEffectiveness(project, colors);
           } else if (id === "battle-hud" && verb === "install") {
-            const variant: TypeIconVariant = root.querySelector<HTMLInputElement>("#type-icon-circular-variant")?.checked ? "circular" : "letters";
+            const variant = (root.querySelector<HTMLSelectElement>("#type-icon-variant")?.value ?? "letters") as TypeIconVariant;
             await installBattleTypeHud(project, variant);
           } else await action(project);
           onDirty(); renderCodeInjectionEditor(project, root, onDirty);
@@ -780,9 +789,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       });
     }
   }
-  const typeIconVariant = root.querySelector<HTMLInputElement>("#type-icon-circular-variant");
+  const typeIconVariant = root.querySelector<HTMLSelectElement>("#type-icon-variant");
   const updateTypeIconPreviewSelection = () => {
-    const selected: TypeIconVariant = typeIconVariant?.checked ? "circular" : "letters";
+    const selected = (typeIconVariant?.value ?? "letters") as TypeIconVariant;
     root.querySelectorAll<HTMLElement>("[data-type-icon-variant-card]").forEach(card => {
       card.classList.toggle("is-selected", card.dataset.typeIconVariantCard === selected);
     });

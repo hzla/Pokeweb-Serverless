@@ -21,8 +21,9 @@ vi.mock("../assets/codeinjection/battleTypeHudManifest.json", async (original) =
   return { default: copy };
 });
 afterEach(() => vi.unstubAllGlobals());
+const variantSuffix: Record<TypeIconVariant, string> = { letters: "", circular: "Circular", solid: "Solid" };
 const dll = (v: string, variant: TypeIconVariant = "letters") => new Uint8Array(readFileSync(new URL(
-  `../assets/codeinjection/TypeIcons${variant === "circular" ? "Circular" : ""}${v}.dll`, import.meta.url)));
+  `../assets/codeinjection/TypeIcons${variantSuffix[variant]}${v}.dll`, import.meta.url)));
 function assets() {
   vi.stubGlobal("fetch", vi.fn(async (url: URL) => new Response(new Uint8Array(readFileSync(url)))));
 }
@@ -50,7 +51,7 @@ describe("Battle HUD bundled installer", () => {
     expect(rpm.symbols.some(s => s.attributes & 2)).toBe(false);
     expect(rpm.relocations.filter(r => r.target.module !== "base").every(r => r.target.module === "168")).toBe(true);
   });
-  it.each(["B2", "W2"] as const)("installs, detects and switches both %s icon variants in place", async v => {
+  it.each(["B2", "W2"] as const)("installs, detects and switches all %s icon variants in place", async v => {
     const p = project(v); assets();
     await installBattleTypeHud(p, "circular");
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, iconVariant: "circular" });
@@ -58,15 +59,19 @@ describe("Battle HUD bundled installer", () => {
     expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
     const exported = new NintendoDSRom(await exportModifiedRom(p));
     expect(getBattleTypeHudStatus(project(v, exported.data))).toMatchObject({ installed: true, iconVariant: "circular", updateAvailable: false });
+    await installBattleTypeHud(p, "solid");
+    expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, iconVariant: "solid" });
+    expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v, "solid"));
+    expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
     await installBattleTypeHud(p, "letters");
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, updateAvailable: false, iconVariant: "letters" });
     expect(p.fileSystem!.additions![`patches/TypeIcons${v}.dll`]).toEqual(dll(v, "letters"));
     expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
   });
-  it.each(["B2", "W2"] as const)("verifies the distributed %s circular DLL against its manifest", v => {
-    const bytes = dll(v, "circular"); const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-    expect(createHash("sha256").update(bytes).digest("hex")).toBe(manifest.games[v].variants.circular.dllSha256);
-    expect(rpm.metadata.PMCVersion).toBe(manifest.games[v].variants.circular.version);
+  it.each((["B2", "W2"] as const).flatMap(v => (["circular", "solid"] as const).map(variant => [v, variant] as const)))("verifies the distributed %s %s DLL against its manifest", (v, variant) => {
+    const bytes = dll(v, variant); const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(manifest.games[v].variants[variant].dllSha256);
+    expect(rpm.metadata.PMCVersion).toBe(manifest.games[v].variants[variant].version);
     expect(rpm.bssSize).toBe(364);
     expect(rpm.relocations.filter(r => r.target.module !== "base").every(r => r.target.module === "168")).toBe(true);
   });

@@ -6,15 +6,27 @@ catch { ({PNG}=require('../../Pokeweb-Serverless/node_modules/pngjs')); }
 function render(assetName,outputName){
 const a=JSON.parse(fs.readFileSync(path.join(__dirname,assetName)));
 const out=path.join(__dirname,'build',outputName);fs.mkdirSync(out,{recursive:true});
-const iw=a.iconWidth,ih=a.iconHeight,cellW=iw+4,cellH=ih+4;
+const stacked=a.previewMode==='mono-stack';
+const wedge=a.previewMode==='split-wedge';
+const iw=stacked?a.iconWidth+a.stackDx:a.iconWidth;
+const ih=stacked?a.iconHeight+a.stackDy:a.iconHeight;
+const cellW=iw+4,cellH=ih+4;
 const sheet=new PNG({width:6*cellW,height:3*cellH});
 for(let t=0;t<18;t++){
   const p=new PNG({width:iw,height:ih}),color=a.rgb555[t];
   for(let y=0;y<ih;y++)for(let x=0;x<iw;x++){
-    const i=(y*iw+x)*4,mask=2048>>x,visible=a.outline[y]&mask;
-    const inside=a.fill[y]&mask;
-    const white=inside&&(a.symbols[t][y]&mask);
-    for(let c=0;c<3;c++)p.data[i+c]=!inside?16:white?247:Math.round(((color>>(c*5))&31)*255/31);
+    const at=(rows,ox,oy)=>x>=ox&&x<ox+a.iconWidth&&y>=oy&&y<oy+a.iconHeight
+      &&(rows[y-oy]&(2048>>(x-ox)));
+    const i=(y*iw+x)*4;
+    const visible=stacked?(at(a.outline,0,0)||at(a.outline,a.stackDx,a.stackDy))
+      :at(a.outline,0,0);
+    const primary=wedge?at(a.primary,0,0):false;
+    const secondary=wedge?at(a.secondary,0,0):false;
+    const inside=wedge?(primary||secondary):stacked?(at(a.fill,0,0)||at(a.fill,a.stackDx,a.stackDy))
+      :at(a.fill,0,0);
+    const white=!stacked&&!wedge&&inside&&at(a.symbols[t],0,0);
+    const pixelColor=secondary?a.rgb555[(t+1)%18]:color;
+    for(let c=0;c<3;c++)p.data[i+c]=!inside?16:white?247:Math.round(((pixelColor>>(c*5))&31)*255/31);
     p.data[i+3]=visible?255:0;
     const j=(((t/6|0)*cellH+y+2)*sheet.width+(t%6)*cellW+x+2)*4;
     p.data.copy(sheet.data,j,i,i+4);
@@ -34,3 +46,4 @@ console.log(out);
 }
 render('assets.json','icons');
 render('assets-circular.json','icons-circular');
+render('assets-solid.json','icons-solid');

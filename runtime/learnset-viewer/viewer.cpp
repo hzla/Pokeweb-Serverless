@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include "info.h"
 namespace {
 Request* active;
 bool ours(void* work) { return active && work && at<void*>(work,0)==&active->tutor; }
@@ -16,14 +17,17 @@ void draw(void* work,u32 window,int x,int y,void* text,u32 color) {
 }
 void visible(void* sprite,bool enabled) { native<void(*)(void*,u32)>(0x204c151,0x204c125)(sprite,enabled); }
 }
+extern "C" bool LearnsetIsActive() { return active!=nullptr; }
 extern "C" u32 LearnsetViewerInit(void* proc,int* seq,void* data,void* work) {
+    infoEnd();
     active=0;
     TutorData* tutor=static_cast<TutorData*>(data);
     if (tutor && tutor->mode==0xfe) {
         Request* request=static_cast<Request*>(data);
         // Only the private mode permits reading beyond the retail prefix.
-        if (request->magic!=RequestMagic || request->version!=1 || request->size!=sizeof(Request)
-            || request->list.count>MaxEntries || request->tutor.moves!=request->ids) return 1;
+        if (request->magic!=RequestMagic || request->version!=RequestVersion || request->size!=sizeof(Request)
+            || request->list.count>MaxEntries || request->tutor.moves!=request->ids
+            || !request->party || request->partySlot>=6) return 1;
         active=request;
         tutor->mode=1;
         request->viewerStarted=1;
@@ -37,10 +41,22 @@ extern "C" u32 LearnsetViewerMain(void* proc,int* seq,void* data,void* work) {
         if (*seq==14) *seq=8;
         if (*seq!=0 && *seq!=1 && *seq!=8 && *seq!=9 && *seq!=13) *seq=1;
         if (!active->list.count) visible(at<void*>(work,0x10c),false);
+        if (*seq==1) {
+            const u32 keys=native<u32(*)()>(0x203df29,0x203defd)();
+            // A/B keep precedence. Shoulders still belong to evolution pages.
+            if(!(keys&3) && ((keys&0x30)==0x20 || (keys&0x30)==0x10)) {
+                const u32 slot=nextPartySlot(active->partySlot,partyCount(active->party),(keys&0x10)!=0,
+                    [&](u32 i){return viewable(partyPokemon(active->party,i));});
+                if(slot==active->partySlot)return 0;
+                active->nextSlot=slot;
+                *seq=8; // Native fade, native End, then field-owned relaunch.
+            } else infoInput(work);
+        }
     }
     return native<Proc>(0x2199975,0x2199935)(proc,seq,data,work);
 }
 extern "C" u32 LearnsetViewerEnd(void* proc,int* seq,void* data,void* work) {
+    infoEnd();
     const u32 result=native<Proc>(0x2199a51,0x2199a11)(proc,seq,data,work);
     if (active && data==active) active->viewerStarted=0;
     active=0;
@@ -98,11 +114,14 @@ extern "C" void LearnsetTypeIcons(void* work) {
     for(u32 i=0;i<4;++i) visible(at<void*>(work,0x114+i*4),false);
 }
 extern "C" void LearnsetFixedText(void* work) {
-    native<void(*)(void*)>(0x219a4c5,0x219a485)(work);
-    if (!ours(work)) return;
-    void* window=at<void*>(work,0x28); // only the lower TEACH label
-    native<void(*)(void*,u32)>(0x2047169,0x204713d)(bitmap(window),0);
-    flush(window);
+    if (!ours(work)) {native<void(*)(void*)>(0x219a4c5,0x219a485)(work);return;}
+    // Preserve the two original lower labels, but do not execute the native
+    // upper writes into our intentionally reduced unused upper windows.
+    for(u32 i=0;i<2;++i) {
+        void* text=message(at<void*>(work,0x44),23+i);
+        if(text){draw(work,2+i,0,0,text,0x440);flush(at<void*>(work,12+i*4));stringFree(text);}
+    }
+    infoInit(work,active);
 }
 
 extern "C" void LearnsetScreen(void* arc,u32 member,u32 frame,u32 offset,u32 length,u32 compressed,u32 heap) {

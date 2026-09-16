@@ -1,7 +1,7 @@
 """Regression for the 1.0.1 green background, using retail buffer routines.
 
-Usage: python3 runtime/learnset-viewer/verify_graphics.py GREEN_SCREEN.dst
-Reads W2 captured memory and a synthetic B2 BG fixture. Runs only the compiled
+Usage: python3 runtime/learnset-viewer/verify_graphics.py [GREEN_SCREEN.dst]
+Uses synthetic BG fixtures, optionally captured W2 memory. Runs only the compiled
 screen wrapper and retail memory-copy/BG functions. No game boot or frames.
 """
 from pathlib import Path
@@ -36,7 +36,8 @@ for game, delta, filename in [('W2', 0, 'cleanwhite2.nds'), ('B2', 0x2c, 'cleanb
     c = Uc(UC_ARCH_ARM, UC_MODE_THUMB)
     c.ctl_set_cpu_model(UC_CPU_ARM_946)
     c.mem_map(0x02000000, 0x1000000)
-    if game == 'W2':
+    captured_mode = game == 'W2' and len(sys.argv) > 1
+    if captured_mode:
         captured = read_ram(Path(sys.argv[1]))
         c.mem_write(0x02000000, captured)
     else:
@@ -48,14 +49,14 @@ for game, delta, filename in [('W2', 0, 'cleanwhite2.nds'), ('B2', 0x2c, 'cleanb
     ldr = struct.unpack('<H', c.mem_read(getter, 2))[0]
     assert ldr & 0xff00 == 0x4900
     global_bg = read32(((getter+4)&~3) + (ldr&255)*4)
-    if game == 'B2':
+    if not captured_mode:
         write32(global_bg, 0x2270000)
         write32(0x2270000+7*44+8, 0x2272000)
         write32(0x2270000+7*44+12, 4096)
     bg = read32(global_bg)
     buffer = read32(bg+7*44+8)
     assert read32(bg+7*44+12) == 4096
-    assert bytes(c.mem_read(buffer, 4096)) == bytes(4096), 'Expected the captured empty lower BG buffer'
+    assert bytes(c.mem_read(buffer, 4096)) == bytes(4096), 'Expected an empty lower BG buffer'
     source = HERE/f'build/LearnsetViewer{game}.elf'
     linked = HERE/f'build/graphics-{game}.elf'
     subprocess.run([str(TOOLS/'arm-none-eabi-ld'), '-Ttext', hex(BASE), '-Tdata', hex(DATA), '-e', 'LearnsetScreen', str(source), '-o', str(linked)], check=True, capture_output=True)

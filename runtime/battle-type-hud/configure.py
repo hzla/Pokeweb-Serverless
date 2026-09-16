@@ -203,6 +203,23 @@ def main():
     circular_fill=[0]+[v<<2 for v in circle8]+[0,0]
     circular_outline=[v<<1 for v in circle_outline10]+[0]
     circular_rows=[[0]+[v<<2 for v in symbol]+[0,0] for symbol in circular8]
+    def mask(lo,hi): return sum(2048>>x for x in range(lo,hi+1))
+    # Paint only the native checkerboard face. The HUD's own black outer edge,
+    # top/bottom border and shadow remain untouched. A one-pixel inner edge and
+    # the dual divider are the only black pixels introduced inside the face.
+    tall_starts=[2,2,1,1,0,0,1,2,3,4,5]
+    tall_mask=[mask(x,x+4) for x in tall_starts]
+    tall_primary=[mask(x,x+3) if y<5 else 0 for y,x in enumerate(tall_starts)]
+    tall_secondary=[mask(x,x+3) if y>5 else 0 for y,x in enumerate(tall_starts)]
+    tall_mono=[a|b for a,b in zip(tall_primary,tall_secondary)]
+    tall_mono[5]=mask(0,3)
+    compact_starts=[1,1,0,0,1,2,3]
+    compact_mask=[mask(x,x+4) for x in compact_starts]
+    compact_primary=[mask(x,x+3) if y<3 else 0 for y,x in enumerate(compact_starts)]
+    compact_secondary=[mask(x,x+3) if y>3 else 0 for y,x in enumerate(compact_starts)]
+    compact_mono=[a|b for a,b in zip(compact_primary,compact_secondary)]
+    compact_mono[3]=mask(0,3)
+    solid_rows=[[0]*11 for _ in names]
 
     def asset_header(comment,asset_fill,asset_outline,asset_rows):
         text=comment+'\n'
@@ -215,6 +232,17 @@ def main():
 
     out=asset_header('// Compact first initials in a 12x11 point-up rhombus and black outline.',fill,outline,rows)
     circular_out=asset_header('// Approved circular symbols centered in the shared 12x11 footprint.',circular_fill,circular_outline,circular_rows)
+    solid_out='// Symbol-free type colors fitted only into the native light HUD face.\n'
+    solid_out+='constexpr u16 SolidTallMask[11] = {'+','.join(map(str,tall_mask))+'};\n'
+    solid_out+='constexpr u16 SolidTallPrimary[11] = {'+','.join(map(str,tall_primary))+'};\n'
+    solid_out+='constexpr u16 SolidTallSecondary[11] = {'+','.join(map(str,tall_secondary))+'};\n'
+    solid_out+='constexpr u16 SolidTallMono[11] = {'+','.join(map(str,tall_mono))+'};\n'
+    solid_out+='constexpr u16 SolidCompactMask[7] = {'+','.join(map(str,compact_mask))+'};\n'
+    solid_out+='constexpr u16 SolidCompactPrimary[7] = {'+','.join(map(str,compact_primary))+'};\n'
+    solid_out+='constexpr u16 SolidCompactSecondary[7] = {'+','.join(map(str,compact_secondary))+'};\n'
+    solid_out+='constexpr u16 SolidCompactMono[7] = {'+','.join(map(str,compact_mono))+'};\n'
+    solid_out+='constexpr u16 Colors[18] = {'+','.join(hex(v) for v in colors)+'};\n'
+    solid_out+='static_assert(sizeof(SolidTallMask)+sizeof(SolidTallPrimary)+sizeof(SolidTallSecondary)+sizeof(SolidTallMono)+sizeof(SolidCompactMask)+sizeof(SolidCompactPrimary)+sizeof(SolidCompactSecondary)+sizeof(SolidCompactMono)+sizeof(Colors)==180, "asset budget");\n'
     backgrounds=[]
     width,height,left,top=26,17,0,15
     for n in (438,435,444,441):
@@ -230,14 +258,22 @@ def main():
         backgrounds.append(list(packed))
     background_out='// Verified native x=0..25, y=15..31 pixels, packed in four bits.\n'
     background_out+='constexpr u8 PanelBackground[4][221] = {\n'+''.join('  {'+','.join(map(str,b))+'},\n' for b in backgrounds)+'};\n'
-    out+=background_out;circular_out+=background_out
+    out+=background_out;circular_out+=background_out;solid_out+=background_out
     (HERE/'assets.h').write_text(out)
     (HERE/'assets-circular.h').write_text(circular_out)
+    (HERE/'assets-solid.h').write_text(solid_out)
     (HERE/'assets.json').write_text(json.dumps(dict(names=names,fill=fill,outline=outline,symbols=rows,rgb555=colors,
         iconWidth=12,iconHeight=11,stackDx=5,stackDy=6,stackTop=15,variant='letters'),indent=2)+'\n')
     (HERE/'assets-circular.json').write_text(json.dumps(dict(names=names,fill=circular_fill,outline=circular_outline,
         symbols=circular_rows,rgb555=colors,iconWidth=12,iconHeight=11,stackDx=5,stackDy=6,stackTop=15,
         variant='circular'),indent=2)+'\n')
+    (HERE/'assets-solid.json').write_text(json.dumps(dict(names=names,fill=tall_mono,outline=tall_mask,
+        primary=tall_primary,secondary=tall_secondary,monoFill=tall_mono,
+        compactOutline=compact_mask,compactPrimary=compact_primary,
+        compactSecondary=compact_secondary,compactMonoFill=compact_mono,
+        symbols=solid_rows,rgb555=colors,
+        iconWidth=10,iconHeight=11,compactWidth=8,compactHeight=7,stackDx=0,stackDy=0,stackTop=18,
+        previewMode='split-wedge',variant='solid'),indent=2)+'\n')
 if __name__=='__main__':
     main()
     from panel_expansion import generate

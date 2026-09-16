@@ -1,4 +1,5 @@
 import manifest from "../assets/codeinjection/learnsetViewerManifest.json";
+import infoMessages from "../../runtime/learnset-viewer/info_messages.json";
 import { readU16, writeU16 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { NARC } from "../nds/narc";
@@ -11,7 +12,8 @@ import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 
-export const LEARNSET_VIEWER_VERSION = "1.0.3";
+export const LEARNSET_VIEWER_VERSION = "1.2.0";
+export const LEARNSET_INFO_MESSAGES = infoMessages;
 const URLS = {
   W2: [new URL("../assets/codeinjection/LearnsetMenuW2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerW2.dll", import.meta.url)],
   B2: [new URL("../assets/codeinjection/LearnsetMenuB2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerB2.dll", import.meta.url)],
@@ -44,6 +46,33 @@ export function configureLearnsetViewerDll(bytes: Uint8Array, ids: LearnsetMessa
     writeU16(output, offset + 12 + i * 4, value ^ 0xffff);
   }
   return output;
+}
+function infoConfigOffset(bytes: Uint8Array): number {
+  const marker = new TextEncoder().encode("LSVINF1\0");
+  const offsets: number[] = [];
+  for (let i = 0; i + marker.length <= bytes.length; ++i) if (marker.every((v, j) => bytes[i + j] === v)) offsets.push(i);
+  if (offsets.length !== 1) throw new Error("Learnset viewer must contain one info configuration marker.");
+  const at = offsets[0]!;
+  if (at + 12 + infoMessages.length * 4 > bytes.length || readU16(bytes, at + 8) !== 1 || readU16(bytes, at + 10) !== infoMessages.length) throw new Error("Unsupported Learnset info configuration.");
+  return at;
+}
+export function configureLearnsetInfoDll(bytes: Uint8Array, ids: readonly number[]): Uint8Array {
+  const at = infoConfigOffset(bytes), output = bytes.slice();
+  if (ids.length !== infoMessages.length) throw new Error("Incorrect Learnset info message count.");
+  ids.forEach((id, i) => {
+    if (!Number.isInteger(id) || id < 0 || id >= 0xffff) throw new Error("Invalid Learnset info message ID.");
+    writeU16(output, at + 12 + i * 4, id); writeU16(output, at + 14 + i * 4, id ^ 0xffff);
+  });
+  return output;
+}
+function validInfoConfiguration(bytes: Uint8Array): boolean {
+  try {
+    const at = infoConfigOffset(bytes);
+    return infoMessages.every((_, i) => {
+      const id = readU16(bytes, at + 12 + i * 4);
+      return id !== 0xffff && (id ^ readU16(bytes, at + 14 + i * 4)) === 0xffff;
+    });
+  } catch { return false; }
 }
 function readConfiguration(bytes: Uint8Array): LearnsetMessageIds | undefined {
   try {
@@ -102,7 +131,7 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
     if (paths.includes(module.path)) {
       const group = module.path === paths[0] ? "Menu" : "Viewer";
       const ids = readConfiguration(data);
-      if (!validModule(rpm, version, group) || !ids) status.updateAvailable = true;
+      if (!validModule(rpm, version, group) || !ids || (group === "Viewer" && !validInfoConfiguration(data))) status.updateAvailable = true;
       if (ids && status.messageIds && (ids.menu !== status.messageIds.menu || ids.empty !== status.messageIds.empty || ids.error !== status.messageIds.error)) status.updateAvailable = true;
       status.messageIds ??= ids;
       continue;
@@ -131,7 +160,7 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
   status.compatible = true;
   status.message = status.partial ? "Only one companion is installed. Install to repair the pair before exporting."
     : status.updateAvailable ? "An update or configuration repair is available."
-      : status.installed ? "LEARNSET is installed. Browse all level-up moves without teaching them."
+      : status.installed ? "LEARNSET is installed. Browse level-up moves, base stats, abilities, and evolution requirements without changing your Pokemon."
         : "Adds a read-only LEARNSET command when the overworld party menu has room. PMC is the only dependency.";
   return status;
 }
@@ -168,15 +197,20 @@ export async function installLearnsetViewer(project: ProjectState): Promise<Lear
     const data = new Uint8Array(await response.arrayBuffer());
     if (!validModule(parseRpm(data, { allowedMagics: ["DLXF"] }), version, i === 0 ? "Menu" : "Viewer")) throw new Error("The bundled Learnset companion failed verification.");
     configOffset(data);
+    if (i === 1) infoConfigOffset(data);
     return data;
   }));
   for (const bankId of [178, 401]) if (!getTextBank(project, "message_texts", bankId).length) throw new Error(`Message bank ${bankId} is unavailable.`);
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
   const ids = { menu: ensureMessage(project, 178, "LEARNSET"), empty: ensureMessage(project, 401, "No level-up moves."), error: ensureMessage(project, 401, "Learnset unavailable.") };
-  learnsetViewerPaths(version).forEach((path, i) => stageCodeInjectionDll(project, path.split("/").pop()!, configureLearnsetViewerDll(modules[i]!, ids), "patches", romBytes));
+  const infoMessageIds = infoMessages.map(([, text]) => ensureMessage(project, 401, text!));
+  learnsetViewerPaths(version).forEach((path, i) => {
+    const configured = configureLearnsetViewerDll(modules[i]!, ids);
+    stageCodeInjectionDll(project, path.split("/").pop()!, i === 1 ? configureLearnsetInfoDll(configured, infoMessageIds) : configured, "patches", romBytes);
+  });
   project.codeInjection ??= {};
-  project.codeInjection.learnsetViewer = { runtimeVersion: LEARNSET_VIEWER_VERSION, menuBankId: 178, viewerBankId: 401, messageIds: ids };
-  recordGenericChange(project, "code_injection", "Learnset Viewer installed: full level-up list, level-prefixed names, base max PP; no teaching or KO moves.", "Learnset Viewer", { key: "code-injection:learnset-viewer" });
+  project.codeInjection.learnsetViewer = { runtimeVersion: LEARNSET_VIEWER_VERSION, menuBankId: 178, viewerBankId: 401, messageIds: ids, infoMessageIds };
+  recordGenericChange(project, "code_injection", "Learnset Viewer installed: level-up list, base stats, abilities, and evolution information; read-only, no KO learnset moves.", "Learnset Viewer", { key: "code-injection:learnset-viewer" });
   return ids;
 }
 export function uninstallLearnsetViewer(project: ProjectState): void {

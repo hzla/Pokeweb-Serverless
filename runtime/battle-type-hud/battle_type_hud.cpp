@@ -1,6 +1,8 @@
 #include "hud_common.h"
 #ifdef ICON_VARIANT_CIRCULAR
 #include "assets-circular.h"
+#elif defined(ICON_VARIANT_SOLID)
+#include "assets-solid.h"
 #else
 #include "assets.h"
 #endif
@@ -53,10 +55,27 @@ void pixel(Record& r,unsigned x,unsigned y,unsigned color) {
     *dst=static_cast<u16>((*dst&~(15u<<shift))|(color<<shift));
 }
 bool mono(const Record& r) { return (r.types>>8)==(r.types&255); }
+#ifdef ICON_VARIANT_SOLID
+// The regular player face is 11 pixels tall. Enemy and triple-player faces are
+// seven pixels tall. Only their native light pixels are replaced; their black
+// outer borders and shadows remain untouched.
+bool solidCompact(const Record& r) { return (r.pos&1)||r.layout>=2; }
+#define ICON_COUNT(r) 1u
+#define ICON_HEIGHT(r) (solidCompact(r)?7u:11u)
+#else
 // Two 12x11 rhombuses use a five-pixel right and six-pixel down step.
 // y=15..31 stays inside the native 128x32 HUD pieces. A monotype is centered
 // horizontally and raised one pixel from the vertical center of the stack.
-unsigned iconY(const Record& r,unsigned kind) { (void)r;return 15+(mono(r)?2:6*kind); }
+#define ICON_COUNT(r) (mono(r)?1u:2u)
+#define ICON_HEIGHT(r) 11u
+#endif
+unsigned iconY(const Record& r,unsigned kind) {
+#ifdef ICON_VARIANT_SOLID
+    (void)r;(void)kind;return 18;
+#else
+    return 15+(mono(r)?2:6*kind);
+#endif
+}
 unsigned panelBack(const Record& r,unsigned x,unsigned y) {
     const unsigned i=(y-15)*26+x;
     return (PanelBackground[(r.layout>=2?2:0)+(r.pos&1)][i/2]>>((i&1)*4))&15;
@@ -64,6 +83,7 @@ unsigned panelBack(const Record& r,unsigned x,unsigned y) {
 unsigned nativeBack(const Record& r,unsigned x,unsigned y) {
     return panelBack(r,x,y);
 }
+#ifndef ICON_VARIANT_SOLID
 unsigned stackLeft(const Record& r) {
     if(!(r.pos&1)) return 0;
     // Resting enemy anchors are 60/64/60/56. Keep the leftmost painted pixel
@@ -71,8 +91,15 @@ unsigned stackLeft(const Record& r) {
     const unsigned anchor=r.pos==1?60:70-2*r.pos;
     return 65-anchor;
 }
+#endif
 unsigned iconLeft(const Record& r,unsigned kind) {
+#ifdef ICON_VARIANT_SOLID
+    (void)kind;
+    if(!(r.pos&1)) return r.layout>=2?9:7;
+    return r.layout>=2?12:11;
+#else
     return stackLeft(r)+(mono(r)?2:5*kind);
+#endif
 }
 unsigned nameOrigin(const Record& r) {
     // Native short/long names have different indents. Read the rendered name
@@ -170,6 +197,14 @@ bool prepareHeader(Record& r) {
     r.background[22]=static_cast<u8>(128|ns);r.background[23]=static_cast<u8>(is);
     return true;
 }
+#ifdef ICON_VARIANT_SOLID
+bool ink(const Record& r,unsigned x,unsigned y) {
+    return (solidCompact(r)?SolidCompactMask[y]:SolidTallMask[y])&(2048u>>x);
+}
+bool backedInk(const Record& r,unsigned x,unsigned y) { return ink(r,x,y); }
+#define ICON_INK(r,x,y) ink(r,x,y)
+#define ICON_BACKED_INK(r,x,y) backedInk(r,x,y)
+#else
 bool ink(unsigned x,unsigned y) { return Outline[y]&(2048u>>x); }
 bool backedInk(unsigned x,unsigned y) {
 #ifdef ICON_VARIANT_CIRCULAR
@@ -183,32 +218,40 @@ bool backedInk(unsigned x,unsigned y) {
     return ink(x,y) && y!=6 && !((y==1||y==9)&&(x==3||x==8));
 #endif
 }
+#define ICON_INK(r,x,y) ink(x,y)
+#define ICON_BACKED_INK(r,x,y) backedInk(x,y)
+#endif
 unsigned backIndex(const Record& r,unsigned kind,unsigned x,unsigned y) {
+    // Only the native gray checker phase can vary, so one bit per backed pixel
+    // is sufficient.
+#ifdef ICON_VARIANT_SOLID
+    static constexpr u8 tall[11]={0,5,10,15,20,25,30,35,40,45,50};
+    static constexpr u8 compact[7]={0,5,10,15,20,25,30};
+    const u8* starts=solidCompact(r)?compact:tall;
+#elif defined(ICON_VARIANT_CIRCULAR)
     (void)r;
-    // The backed subset covers 72 pixels. Only the native gray checker phase
-    // can vary, so one bit per backed pixel is sufficient.
-#ifdef ICON_VARIANT_CIRCULAR
     static constexpr u8 starts[11]={0,2,8,16,26,36,46,56,64,70,72};
 #else
+    (void)r;
     static constexpr u8 starts[11]={0,2,6,14,24,36,48,48,58,66,70};
 #endif
     unsigned before=0;
-    for(unsigned i=0;i<x;++i) before+=backedInk(i,y)?1:0;
+    for(unsigned i=0;i<x;++i) before+=ICON_BACKED_INK(r,i,y)?1:0;
     const unsigned n=starts[y]+before;
     return kind*72+n;
 }
 unsigned back(const Record& r,unsigned kind,unsigned x,unsigned y) {
     const unsigned i=backIndex(r,kind,x,y);
     const unsigned c=nativeBack(r,iconLeft(r,kind)+x,iconY(r,kind)+y);
-    if(!backedInk(x,y)) return c;
+    if(!ICON_BACKED_INK(r,x,y)) return c;
     const unsigned bits=(r.background[i/8]>>(i&7))&1;
     return c==3||c==13 ? (bits?13:3) : c;
 }
 bool snapshot(Record& r) {
     for(unsigned i=0;i<18;++i) r.background[i]=0;
-    for(unsigned kind=0;kind<(mono(r)?1u:2u);++kind)
-        for(unsigned y=0;y<11;++y) for(unsigned x=0;x<12;++x) {
-            if(!ink(x,y)) continue;
+    for(unsigned kind=0;kind<ICON_COUNT(r);++kind)
+        for(unsigned y=0;y<ICON_HEIGHT(r);++y) for(unsigned x=0;x<12;++x) {
+            if(!ICON_INK(r,x,y)) continue;
             const unsigned c=pixel(r,iconLeft(r,kind)+x,iconY(r,kind)+y);
             const unsigned want=nativeBack(r,iconLeft(r,kind)+x,iconY(r,kind)+y);
             unsigned bits=0;
@@ -216,7 +259,7 @@ bool snapshot(Record& r) {
                 if(c!=3&&c!=13) {fail(BadLayout);return false;}
                 bits=c==13;
             } else if(c!=want) {fail(BadLayout);return false;}
-            if(backedInk(x,y)) {
+            if(ICON_BACKED_INK(r,x,y)) {
                 const unsigned i=backIndex(r,kind,x,y);
                 r.background[i/8]|=static_cast<u8>(bits<<(i&7));
             }
@@ -225,15 +268,27 @@ bool snapshot(Record& r) {
 }
 unsigned expected(const Record& r,unsigned kind,unsigned x,unsigned y) {
     const unsigned mask=2048u>>x;
+#ifdef ICON_VARIANT_SOLID
+    (void)kind;
+    const bool compact=solidCompact(r);
+    const u16 primary=compact?SolidCompactPrimary[y]:SolidTallPrimary[y];
+    const u16 secondary=compact?SolidCompactSecondary[y]:SolidTallSecondary[y];
+    const u16 monotype=compact?SolidCompactMono[y]:SolidTallMono[y];
+    if(mono(r) && (monotype&mask)) return 4;
+    if(primary&mask) return 4;
+    if(secondary&mask) return 15;
+    return 2;
+#else
     if(!(Fill[y]&mask)) return 2;
     const unsigned type=kind?(r.types&255):(r.types>>8);
     return (Symbols[type][y]&mask)?1:kind?15:4;
+#endif
 }
 void restore(Record& r) {
     if(!r.valid||!r.painted) return;
-    for(unsigned kind=0;kind<(mono(r)?1u:2u);++kind)
-        for(unsigned y=0;y<11;++y) for(unsigned x=0;x<12;++x) {
-            if(!ink(x,y)) continue;
+    for(unsigned kind=0;kind<ICON_COUNT(r);++kind)
+        for(unsigned y=0;y<ICON_HEIGHT(r);++y) for(unsigned x=0;x<12;++x) {
+            if(!ICON_INK(r,x,y)) continue;
             const unsigned left=iconLeft(r,kind);
             // Preserve native writes since the previous repaint.
             if(pixel(r,left+x,iconY(r,kind)+y)==expected(r,kind,x,y))
@@ -365,18 +420,29 @@ bool layoutBackground(const Record& r) {
         for(unsigned i=1024;i<1152;++i) if(r.graphics[i]) return false;
     }
     if(r.status) return true; // the native label legitimately occupies this region
+#ifdef ICON_VARIANT_SOLID
+    // Validate only the native light face that this style replaces. The mask
+    // never includes the panel's black outer edge, bottom shadow or background.
+    for(unsigned y=0;y<ICON_HEIGHT(r);++y) for(unsigned x=0;x<12;++x) {
+        if(!ICON_INK(r,x,y)) continue;
+        unsigned c=pixel(r,iconLeft(r,0)+x,iconY(r,0)+y);
+        if(c==4||c==15) c=2;
+        if(c!=nativeBack(r,iconLeft(r,0)+x,iconY(r,0)+y)) return false;
+    }
+#else
     // Validate both dual-type locations and the centered monotype location
     // before reclaiming palette entries. Checking the exact three masks keeps
     // an unknown panel variant from receiving even a partially painted icon.
     for(unsigned kind=0;kind<3;++kind)
         for(unsigned y=0;y<11;++y) for(unsigned x=0;x<12;++x) {
-            if(!ink(x,y)) continue;
+            if(!ICON_INK(r,x,y)) continue;
             const unsigned left=stackLeft(r)+(kind==2?2:5*kind);
             const unsigned top=kind==2?17:15+6*kind;
             unsigned c=pixel(r,left+x,top+y);
             if(c==4||c==15) c=2;
             if(c!=nativeBack(r,left+x,top+y)) return false;
         }
+#endif
     return true;
 }
 bool attach(Record& r) {
@@ -445,15 +511,13 @@ void update(Record& r) {
     if(!r.status&&!snapshot(r)) {palette(r,true);r.gauge=nullptr;r.valid=0;return;}
     if(!r.status && palette(r)) {
         r.painted=1;
-        for(unsigned kind=0;kind<(mono(r)?1u:2u);++kind)
-            for(unsigned y=0;y<11;++y) for(unsigned x=0;x<12;++x) {
-                if(!ink(x,y)) continue;
+        for(unsigned kind=0;kind<ICON_COUNT(r);++kind)
+            for(unsigned y=0;y<ICON_HEIGHT(r);++y) for(unsigned x=0;x<12;++x) {
+                if(!ICON_INK(r,x,y)) continue;
                 const unsigned left=iconLeft(r,kind),top=iconY(r,kind);
                 const unsigned c=expected(r,kind,x,y);
-                // The 6-pixel diagonal step makes the two 11-pixel-tall
-                // rhombuses overlap. Compare against the live pixel so the
-                // second icon also covers paint from the first icon where its
-                // desired color happens to equal the native background.
+                // Compare against the live pixel so overlapping icon styles
+                // still repaint when a desired color matches native graphics.
                 if(c!=pixel(r,left+x,top+y)) pixel(r,left+x,top+y,c);
             }
     }

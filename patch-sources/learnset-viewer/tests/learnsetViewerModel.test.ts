@@ -4,19 +4,24 @@ import { readU16, writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import manifest from "../assets/codeinjection/learnsetViewerManifest.json";
-import { configureLearnsetViewerDll, getLearnsetViewerStatus, learnsetViewerPaths, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
+import { configureLearnsetViewerDll as configureBase, configureLearnsetInfoDll, LEARNSET_INFO_MESSAGES, getLearnsetViewerStatus, learnsetViewerPaths, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 const dll = (name: string) => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${name}.dll`, import.meta.url)));
 const assets = Object.fromEntries(["W2", "B2"].flatMap(version => ["Menu", "Viewer"].map(group => [`Learnset${group}${version}`, dll(`Learnset${group}${version}`)])));
+const infoIds = LEARNSET_INFO_MESSAGES.map((_, i) => 100 + i);
+function configureLearnsetViewerDll(bytes: Uint8Array, ids: { menu: number; empty: number; error: number }): Uint8Array {
+  const base = configureBase(bytes, ids);
+  return Buffer.from(bytes).includes(Buffer.from("LSVINF1\0")) ? configureLearnsetInfoDll(base, infoIds) : base;
+}
 
 describe("standalone LEARNSET companions", () => {
   for (const version of ["W2", "B2"] as const) {
     it(`${version}: stripped pair has only intended overlay dependencies, no dynamic imports or constructors`, () => {
-      for (const [group, expected, count] of [["Menu", ["12", "165"], 3], ["Viewer", ["258"], 24]] as const) {
+      for (const [group, expected, count] of [["Menu", ["12", "165"], 3], ["Viewer", ["258"], 25]] as const) {
         const bytes = assets[`Learnset${group}${version}`]!;
         const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: "1.0.3", PMCModulePriority: 4 });
+        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: "1.2.0", PMCModulePriority: 4 });
         // The actual PMC activation loop visits only chains 0..4. Merely
         // matching our own manifest does not prove a DLL will load.
         expect(Number(rpm.metadata.PMCModulePriority)).toBeGreaterThanOrEqual(0);
@@ -33,19 +38,37 @@ describe("standalone LEARNSET companions", () => {
       for (const group of ["Menu", "Viewer"]) {
         const rpm = parseRpm(configureLearnsetViewerDll(assets[`Learnset${group}${version}`]!, { menu: 1, empty: 2, error: 3 }), { allowedMagics: ["DLXF"] });
         rpm.metadata.PMCModulePriority = 5;
-        rpm.metadata.PMCVersion = group === "Menu" ? "1.0.0" : "1.0.3";
+        rpm.metadata.PMCVersion = group === "Menu" ? "1.0.0" : "1.2.0";
         add(project, `Learnset${group}${version}`, writeRpm(rpm, { ident: "DLXF" }));
       }
       expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: true, compatible: true, updateAvailable: true, messageIds: { menu: 1, empty: 2, error: 3 } });
     });
-    it(`${version}: offers the spacing update for an otherwise valid 1.0.2 pair`, () => {
+    it(`${version}: offers party navigation for an otherwise valid 1.1.3 pair`, () => {
       const project = fixture(version);
       for (const group of ["Menu", "Viewer"]) {
         const rpm = parseRpm(configureLearnsetViewerDll(assets[`Learnset${group}${version}`]!, { menu: 1, empty: 2, error: 3 }), { allowedMagics: ["DLXF"] });
-        rpm.metadata.PMCVersion = "1.0.2";
+        rpm.metadata.PMCVersion = "1.1.3";
         add(project, `Learnset${group}${version}`, writeRpm(rpm, { ident: "DLXF" }));
       }
       expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: true, compatible: true, updateAvailable: true, messageIds: { menu: 1, empty: 2, error: 3 } });
+    });
+    it(`${version}: upper message configuration is viewer-only and validated`, () => {
+      const bytes = assets[`LearnsetViewer${version}`]!;
+      const configured = configureLearnsetInfoDll(bytes, infoIds);
+      const at = Buffer.from(bytes).indexOf(Buffer.from("LSVINF1\0"));
+      expect(at).toBeGreaterThan(0);
+      for (let i = 0; i < bytes.length; ++i) if (i < at + 12 || i >= at + 12 + 4 * infoIds.length) expect(configured[i]).toBe(bytes[i]);
+      infoIds.forEach((id, i) => {
+        expect(readU16(configured, at + 12 + i * 4)).toBe(id);
+        expect(readU16(configured, at + 14 + i * 4)).toBe(id ^ 65535);
+      });
+      expect(() => configureLearnsetInfoDll(bytes, [])).toThrow();
+      expect(() => configureLearnsetInfoDll(bytes, infoIds.map(() => 65535))).toThrow();
+      expect(() => configureLearnsetInfoDll(assets[`LearnsetMenu${version}`]!, infoIds)).toThrow();
+      const project = fixture(version);
+      add(project, `LearnsetMenu${version}`, configureBase(assets[`LearnsetMenu${version}`]!, { menu: 1, empty: 2, error: 3 }));
+      add(project, `LearnsetViewer${version}`, configureBase(bytes, { menu: 1, empty: 2, error: 3 }));
+      expect(getLearnsetViewerStatus(project).updateAvailable).toBe(true);
     });
     it(`${version}: configuration modifies only allocated ID/complement fields`, () => {
       const bytes = assets[`LearnsetMenu${version}`]!;

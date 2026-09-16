@@ -1,0 +1,29 @@
+{
+  "compiled_arm_checks": {
+    "B2": [
+      "11-row regular-player and 7-row compact checker-face masks and all 18 source type colors match",
+      "all 18 type IDs draw as continuous mono or divided dual wedges in every regular and compact HUD slot",
+      "regular and compact monotypes replace the internal divider with continuous color; dual types keep it black",
+      "enemy masks shift left one pixel while all black pixels outside the mask and every bottom shadow remain untouched",
+      "all six status labels restore the solid variant and preserve the native caught marker",
+      "live mono-to-dual type changes repaint once; unchanged frames perform no video writes",
+      "teardown restores every panel and native caught-marker byte"
+    ],
+    "W2": [
+      "11-row regular-player and 7-row compact checker-face masks and all 18 source type colors match",
+      "all 18 type IDs draw as continuous mono or divided dual wedges in every regular and compact HUD slot",
+      "regular and compact monotypes replace the internal divider with continuous color; dual types keep it black",
+      "enemy masks shift left one pixel while all black pixels outside the mask and every bottom shadow remain untouched",
+      "all six status labels restore the solid variant and preserve the native caught marker",
+      "live mono-to-dual type changes repaint once; unchanged frames perform no video writes",
+      "teardown restores every panel and native caught-marker byte"
+    ]
+  },
+  "release_sha256": {
+    "B2": "f5563a2d9147ab1a76b4aa7028b758f918e55ef13de7326103585eeb3900e860",
+    "W2": "88145f2f3bf66ea816ccd7f2a4c87a9fe64e216910df34bd4b80f0eb3fb598f2"
+  },
+  "writable_state_bytes": 364,
+  "allocation_calls_from_module": 0,
+  "emulator_frames_executed": false
+}

@@ -94,6 +94,18 @@ npm run build
 npm test
 ```
 
+### Source privacy
+
+Keep personal usernames, machine-local absolute paths, and private capture paths
+out of sources, documentation, generated reports, and bundled artifacts. Use
+repository-relative paths or environment variables for local inputs.
+
+Run `npm run privacy:check` before committing. It scans tracked/nonignored working
+files and staged changes, including binary contents, without printing matched
+private text. After staging, `node scripts/check-source-privacy.mjs --index`
+checks the entire proposed tree. Ignored local configuration is not scanned by
+default; do not force-add it or unsanitized build logs.
+
 To refresh crit, recoil, drain, and healing metadata in existing Dynamic Calc
 and DDex JavaScript sources from an updated ROM, see
 [Move metadata source enrichment](docs/move-metadata-source-enrichment.md).

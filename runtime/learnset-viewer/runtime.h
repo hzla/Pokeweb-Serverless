@@ -21,15 +21,23 @@ struct Request {
     List list;
     u16 ids[MaxEntries + 1];
     u8 viewerStarted;
+    void* party;
+    u8 partySlot;
+    u8 nextSlot; // 0xff until the viewer requests a party switch.
+    u16 reserved;
 };
 static_assert(sizeof(TutorData) == 28, "Retail tutor request prefix");
 static_assert(__builtin_offsetof(Request, magic) == 28, "Viewer extension");
+static_assert(__builtin_offsetof(Request, party) == 236 && sizeof(Request)==244, "Version 2 party navigation suffix");
 using Proc = u32 (*)(void*, int*, void*, void*);
 struct ProcTable { Proc init; Proc main; Proc end; };
 using Dispatch = u32 (*)(void*, int*, void*);
 inline void* alloc(u32 heap, u32 size) { return native<void*(*)(u32,u32)>(0x2039dc9,0x2039d9d)(heap,size); }
 inline void release(void* p) { if (p) native<void(*)(void*)>(0x203a279,0x203a24d)(p); }
 inline u32 pokemonGet(void* p, u32 field) { return native<u32(*)(void*,u32,void*)>(0x201cd25,0x201ccf9)(p,field,0); }
+inline u32 partyCount(void* party) { return party?native<u32(*)(void*)>(0x201fe25,0x201fdf9)(party):0; }
+inline void* partyPokemon(void* party,u32 slot) { return native<void*(*)(void*,u32)>(0x201ff35,0x201ff09)(party,slot); }
+inline bool viewable(void* pokemon) { return pokemon && pokemonGet(pokemon,5) && !pokemonGet(pokemon,0x4c); }
 inline void* message(void* handle, u32 id) { return native<void*(*)(void*,u32)>(0x20489b9,0x204898d)(handle,id); }
 inline void* messageOpen(u32 bank,u32 heap) { return native<void*(*)(u32,u32,u32,u32)>(0x2048789,0x204875d)(0,2,bank,heap); }
 inline void messageClose(void* p) { native<void(*)(void*)>(0x2048801,0x20487d5)(p); }

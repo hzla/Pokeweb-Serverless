@@ -9,9 +9,22 @@ constexpr u16 End = 0xffff;
 constexpr u16 Command = 0x4c53;
 constexpr u32 Transition = 0x4c535631;
 constexpr u32 RequestMagic = 0x3156534c;
+constexpr u16 RequestVersion = 2;
 struct Entry { u16 moveId; u16 level; };
 enum class Status : u16 { Ready, Empty, Unavailable };
 struct List { Entry entries[MaxEntries]; u16 count; Status status; };
+// D-pad Right advances in party order; Left goes backwards. One bounded
+// pass skips Eggs/empty slots and returns the current slot if it is alone.
+template<class Eligible>
+inline u32 nextPartySlot(u32 current,u32 count,bool forward,Eligible eligible) {
+    if(count<2 || count>6 || current>=count)return current;
+    u32 slot=current;
+    for(u32 visited=1;visited<count;++visited) {
+        slot=forward?(slot+1==count?0:slot+1):(slot?slot-1:count-1);
+        if(eligible(slot))return slot;
+    }
+    return current;
+}
 inline u16 read16(const u8* p) { return u16(p[0] | (u16(p[1]) << 8)); }
 inline u32 read32(const u8* p) { return read16(p) | (u32(read16(p+2)) << 16); }
 
