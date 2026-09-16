@@ -159,7 +159,7 @@ function persistableProject(project: ProjectState, compactRawFiles: boolean): Pr
 async function hydratePersistedProject(project: ProjectState): Promise<void> {
   const romBytes = await loadActiveRomBytes();
   if (!romBytes) return;
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
   hydrateCascadePersonalSources(project, rom);
   hydrateKoMoveLearnsetFromRom(project, rom);
   hydrateTrainerLocationTables(project, rom);

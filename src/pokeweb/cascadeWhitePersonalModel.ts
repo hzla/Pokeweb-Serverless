@@ -87,7 +87,7 @@ function originalRom(project: ProjectState): NintendoDSRom | undefined {
   try {
     let rom = romCache.get(bytes);
     if (!rom) {
-      rom = new NintendoDSRom(bytes);
+      rom = new NintendoDSRom(bytes, { fileData: "view" });
       romCache.set(bytes, rom);
     }
     return rom;

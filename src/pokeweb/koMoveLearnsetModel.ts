@@ -32,7 +32,8 @@ export function hydrateKoMoveLearnsetFromRom(project: ProjectState, rom: Nintend
     delete project.koMoveLearnsetSource;
     return;
   }
-  project.koMoveLearnsetSource = { fileId, bytes: rom.files[fileId]! };
+  // This small archive outlives the parser and must not pin the entire ROM.
+  project.koMoveLearnsetSource = { fileId, bytes: rom.files[fileId]!.slice() };
 
   // Older installers lost sight of the source archive after autosave removed
   // originalRomBytes. They staged an empty duplicate, possibly followed by
@@ -236,7 +237,7 @@ function loadKoMoveNarc(project: ProjectState): NARC | undefined {
 
 function currentKoLearnsetBytes(project: ProjectState): Uint8Array | undefined {
   if (!project.koMoveLearnsetSource && project.originalRomBytes) {
-    hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(project.originalRomBytes));
+    hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(project.originalRomBytes, { fileData: "view" }));
   }
   const source = project.koMoveLearnsetSource;
   if (source) return project.fileSystem?.replacements?.[source.fileId] ?? source.bytes;
@@ -246,7 +247,7 @@ function currentKoLearnsetBytes(project: ProjectState): Uint8Array | undefined {
 
 function stageKoLearnsetBytes(project: ProjectState, bytes: Uint8Array): void {
   if (!project.koMoveLearnsetSource && project.originalRomBytes) {
-    hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(project.originalRomBytes));
+    hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(project.originalRomBytes, { fileData: "view" }));
   }
   if (project.koMoveLearnsetSource) {
     setRomFileReplacement(project, project.koMoveLearnsetSource.fileId, bytes);

@@ -795,7 +795,7 @@ function effectiveRomPathBytes(project: ProjectState, path: string): Uint8Array 
   if (additionPath) return project.fileSystem?.additions?.[additionPath];
   if (!project.originalRomBytes) return undefined;
   try {
-    const rom = new NintendoDSRom(project.originalRomBytes);
+    const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
     const fileId = rom.filenames.idOf(path);
     if (fileId === undefined) return undefined;
     return project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];

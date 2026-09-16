@@ -63,8 +63,9 @@ export async function loadProjectFromRomFile(file: File, options: LoadOptions = 
 }
 
 export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cached-rom.nds", options: LoadOptions = {}, onProgress?: LoadProgress): Promise<ProjectState> {
-  const rom = new NintendoDSRom(bytes);
-  const sourceSha256 = await sha256Hex(bytes);
+  const rom = new NintendoDSRom(bytes, { fileData: "view" });
+  // Only the Black 2 Upgrade installer needs an exact clean US base-ROM hash.
+  const sourceSha256 = rom.idCode === "IREO" ? await sha256Hex(bytes) : undefined;
 
   await reportLoadProgress(onProgress, "Decompressing ARM9");
   const arm9Compressed = isCodeCompressed(rom.arm9);
@@ -173,9 +174,12 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const source = new Uint8Array(bytes.length);
-  source.set(bytes);
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", source.buffer);
+  // Web Crypto accepts an ArrayBuffer-backed view, including its offset/length.
+  // Borrow normal ROM input; only shared buffers need an owned copy.
+  const source = bytes.buffer instanceof ArrayBuffer
+    ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    : new Uint8Array(bytes);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", source);
   return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
 }
 
@@ -201,7 +205,7 @@ function extractNarcSet(rom: NintendoDSRom, project: ProjectState, definitions: 
       const fileId = rom.fileId(definition.path);
       project.session.fileIds[definition.name] = fileId;
       if (definition.container === "file") {
-        project.narcs[definition.name] = createFileStore(definition.name, definition.path, fileId, rom.files[fileId]);
+        project.narcs[definition.name] = createFileStore(definition.name, definition.path, fileId, rom.files[fileId].slice());
         continue;
       }
       const narc = new NARC(rom.files[fileId]);

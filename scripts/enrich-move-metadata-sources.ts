@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildMoveMetadataEntries } from "../src/pokeweb/docGeneratorModel";
@@ -38,7 +39,8 @@ if (!args.check) {
 }
 
 console.log(`ROM: ${romPath}`);
-console.log(`SHA-256: ${project.romInfo.sourceSha256}`);
+// The browser loader hashes only US Black 2; this CLI still reports every source hash.
+console.log(`SHA-256: ${project.romInfo.sourceSha256 ?? createHash("sha256").update(project.originalRomBytes!).digest("hex")}`);
 console.log(`Moves with non-zero metadata: ${Object.keys(metadata).length}`);
 for (const { sourcePath, result } of outputs) {
   console.log(
