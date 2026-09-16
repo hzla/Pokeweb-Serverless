@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { concatBytes, readU32, writeU32 } from "../nds/binary";
+import { concatBytes, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { modelAssetHash, readBuildingGlb } from "../pokeweb/buildingGlb";
@@ -11,6 +11,7 @@ import { exportModifiedRom } from "../pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
 import { buildModelPrimitives, extractGameFreakContainer, loadMap3dZone, packGameFreakContainer, readNitroResources } from "../pokeweb/map3dModel";
 import { writeStaticNitroModel } from "../pokeweb/nitroModelWriter";
+import { materialRecords, replaceMaterialRecords } from "../pokeweb/nitroResourceWriter";
 import { sameStaticGeometry } from "../pokeweb/staticMeshCompare";
 
 function glb(document: any, binary: Uint8Array) {
@@ -100,6 +101,35 @@ describe.skipIf(!existsSync(romPath))("local BW2 static building conversion", ()
     const library = await loadBuildingLibrary(project);
     return { project, library, asset: library.load("exterior:52:29") };
   }
+  it.each([1, 2, 3])("retains unused UV-mode %i materials but rejects them when drawn", async mode => {
+    const { asset } = await setup();
+    const records = materialRecords(asset.modelBytes), target = records.find(r => r.name === asset.primitives[0].material.name)!;
+    const bytes = new Uint8Array(mode === 1 ? 60 : 108); bytes.set(target.bytes.subarray(0, 44));
+    writeU16(bytes, 2, bytes.length);
+    writeU32(bytes, 20, ((readU32(bytes, 20) & 0x3fffffff) | (mode << 30)) >>> 0);
+    writeU16(bytes, 30, readU16(bytes, 30) & ~8); // Non-identity translation in mode 1.
+    target.bytes = bytes;
+    const template = replaceMaterialRecords(asset.modelBytes, records);
+    const meshes = asset.primitives.map(p => ({ ...p, materialName: p.material.name }));
+    expect(() => writeStaticNitroModel(template, meshes)).toThrow(`Material "${target.name}" uses generated/transformed texture coordinates`);
+    const remaining = meshes.filter(m => m.materialName !== target.name);
+    expect(remaining.length).toBeGreaterThan(0);
+    const output = writeStaticNitroModel(template, remaining), resources = readNitroResources(output);
+    expect(materialRecords(output)).toEqual(records);
+    expect(resources.models[0].renderOps.some(op => op.kind === "bindMaterial" && op.material === records.indexOf(target))).toBe(false);
+    expect(buildModelPrimitives(resources, [], { includeHiddenMaterials: true }).some(p => p.material.name === target.name)).toBe(false);
+  });
+  it("still checks UV modes on automatically preserved shadow geometry", async () => {
+    const { asset } = await setup(), records = materialRecords(asset.modelBytes);
+    const shadow = buildModelPrimitives(readNitroResources(asset.modelBytes), [], { includeHiddenMaterials: true })
+      .find(p => p.material.name.toLowerCase().includes("h_kage") || p.material.texture?.name.toLowerCase().includes("h_kage"))!;
+    expect(shadow).toBeDefined();
+    const record = records.find(r => r.name === shadow.material.name)!;
+    writeU32(record.bytes, 20, ((readU32(record.bytes, 20) & 0x3fffffff) | 0x80000000) >>> 0);
+    const template = replaceMaterialRecords(asset.modelBytes, records);
+    expect(() => writeStaticNitroModel(template, asset.primitives.map(p => ({ ...p, materialName: p.material.name }))))
+      .toThrow(`Material "${record.name}" uses generated/transformed texture coordinates`);
+  });
   it("rebuilds native geometry while preserving native materials and hidden shadow geometry", async () => {
     const { asset } = await setup();
     const before = readNitroResources(asset.modelBytes);

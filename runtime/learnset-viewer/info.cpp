@@ -1,6 +1,7 @@
 #include "info.h"
 #include "info_logic.h"
 #include "info_messages.generated.h"
+#include "info_background.generated.h"
 
 namespace {
 // Only the overlay-258 module owns this state; no field/menu heap growth.
@@ -312,23 +313,32 @@ constexpr u16 colors[16]={rgb(48,50,65),rgb(48,50,65),rgb(32,33,43),rgb(24,27,31
     rgb(180,192,196),rgb(104,120,127),rgb(238,175,62),rgb(255,219,149),
     rgb(205,158,247),0,0,rgb(239,244,240)};
 u32 iconX(u32 index){return (state->chain.count==3?120:state->chain.count==2?144:168)+index*48;}
+constexpr u32 CardTop=40, CardBottom=88, IconY=48, StatY=42, AbilityY=90, EvolutionY=140;
+void background(u8* data) {
+    // Retail row colors/header/footer, without its move bars or name plate.
+    // Fill the existing bitmap; no new resource reads, hooks or allocations.
+    native<void(*)(u32,u32)>(0x2044cc5,0x2044c99)(3,0);
+    volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
+    palette[0]=TutorBackgroundBaseColor;
+    for(u32 i=0;i<16;++i)palette[14*16+i]=colors[i];
+    for(const auto& color:TutorBackgroundColors)palette[14*16+color.index]=color.value;
+    for(const auto& row:TutorBackgroundRuns)infoRect(data,0,row.y,256,row.height,row.color);
+    // Keep the old near-black evolution panel below the six stat rows.
+    infoRect(data,0,136,256,1,6);
+    infoRect(data,0,137,256,55,3);
+}
 void render() {
     u8* data=pixels();
     if(!data)return;
     // A full opaque BG2 panel covers retail BG3; disable BG3 so transparent
     // icon pixels cannot reveal the old move bars or name plate underneath.
-    native<void(*)(u32,u32)>(0x2044cc5,0x2044c99)(3,0);
+    background(data);
     volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
-    palette[0]=colors[0];
-    for(u32 i=0;i<16;++i)palette[14*16+i]=colors[i];
-    infoRect(data,0,0,256,192,1);infoRect(data,0,0,256,24,3);
-    infoRect(data,0,0,256,1,6);infoRect(data,0,23,256,1,6);
-    infoRect(data,108,31,1,95,4);infoRect(data,0,130,256,1,6);
-    infoRect(data,0,132,256,60,3);
+    infoRect(data,108,40,1,96,4);
     put(state->title,8,4);
     u16 text[128];
     if(state->statsValid)for(u32 i=0;i<6;++i) {
-        const u32 y=32+16*i;put(state->labels[i],6,y);
+        const u32 y=StatY+16*i;put(state->labels[i],6,y);
         number(text,state->stats[i]);put(text,52-int(measure(text)),y);
         infoRect(data,56,y+3,48,10,4);infoRect(data,57,y+4,46,8,2);
         infoRect(data,57,y+4,statBar(state->stats[i]),8,10);
@@ -338,49 +348,51 @@ void render() {
     }
     for(u32 i=0;i<state->chain.count;++i) {
         const u32 x=iconX(i),slot=state->iconSlots[i];
-        infoRect(data,x-2,30,36,36,i==state->chain.selected?7:4);
-        infoRect(data,x-1,31,34,34,1);
+        // Borders land on row rules; the unchanged 32x32 icon stays tile-aligned
+        // inside, with padding instead of cropping its first/last pixel rows.
+        infoRect(data,x-2,CardTop,36,CardBottom-CardTop+1,i==state->chain.selected?7:4);
+        infoRect(data,x-1,CardTop+1,34,CardBottom-CardTop-1,1);
         if(state->iconsValid[slot]) {
             for(u32 t=0;t<16;++t) {
                 palette[(10+i)*16+t]=state->palettes[slot][t];
                 const u32 tx=t%4,ty=t/4;
-                for(u32 b=0;b<32;++b)data[((4+ty)*32+x/8+tx)*32+b]=state->icons[slot][t*32+b];
+                for(u32 b=0;b<32;++b)data[((IconY/8+ty)*32+x/8+tx)*32+b]=state->icons[slot][t*32+b];
             }
-        } else {asciiText(text,128,"?");put(text,x+12,40);}
+        } else {asciiText(text,128,"?");put(text,x+12,IconY+8);}
         if(i+1<state->chain.count) {
             // A wider, explicit right-pointing arrow; no change to chain order.
-            infoRect(data,x+35,47,10,2,8);
-            for(u32 d=1;d<4;++d) {infoPixel(data,x+44-d,47-d,8);infoPixel(data,x+44-d,48+d,8);}
+            infoRect(data,x+35,IconY+15,10,2,8);
+            for(u32 d=1;d<4;++d) {infoPixel(data,x+44-d,IconY+15-d,8);infoPixel(data,x+44-d,IconY+16+d,8);}
         }
     }
     for(u32 dot=0;dot<3;++dot) {
-        if(state->chain.before)infoPixel(data,iconX(0)-7+dot*2,47,8);
-        if(state->chain.after)infoPixel(data,iconX(state->chain.count-1)+35+dot*2,47,8);
+        if(state->chain.before)infoPixel(data,iconX(0)-7+dot*2,IconY+15,8);
+        if(state->chain.after)infoPixel(data,iconX(state->chain.count-1)+35+dot*2,IconY+15,8);
     }
     const u32 count=state->abilities.count?state->abilities.count:1;
     for(u32 i=0;i<count;++i) {
         copyText(text,128,state->abilityNames[i]);
         if(state->abilities.count)infoTitleCase(text);
         ellipsis(text,132);
-        put(text,120,76+16*i,state->abilities.hidden[i]?0x3040:0x3c40);
+        put(text,120,AbilityY+16*i,state->abilities.hidden[i]?0x3040:0x3c40);
     }
     if(state->pageCount) {
         u32 headerWidth=240;
         if(state->pageCount>1) {
             asciiText(text,128,"L ");u32 n=2;n+=decimal(text+n,state->page+1);text[n++]='/';n+=decimal(text+n,state->pageCount);
             text[n++]=' ';text[n++]='R';text[n]=End;
-            const u32 width=measure(text);put(text,248-int(width),136);headerWidth-=width+8;
+            const u32 width=measure(text);put(text,248-int(width),EvolutionY);headerWidth-=width+8;
         }
         const Page& p=state->pages[state->page];
         u16 a[64],b[64];copyText(a,64,state->selectedName);copyText(b,64,state->targets[p.option]);
         ellipsis(a,(headerWidth-20)/2);ellipsis(b,(headerWidth-20)/2);u32 n=copyText(text,128,a);
         text[n++]=' ';text[n++]=0x2192;text[n++]=' ';copyText(text+n,128-n,b);
-        ellipsis(text,headerWidth);put(text,8,136);
+        ellipsis(text,headerWidth);put(text,8,EvolutionY);
         u32 offset=p.offset;
-        for(u32 row=0;row<2;++row) {offset=wrapInfo(state->requirements[p.option],offset,text,128,240,measure);put(text,8,152+row*16);}
+        for(u32 row=0;row<2;++row) {offset=wrapInfo(state->requirements[p.option],offset,text,128,240,measure);put(text,8,EvolutionY+16+row*16);}
     } else {
         u32 offset=0;
-        for(u32 row=0;row<3;++row){offset=wrapInfo(state->status,offset,text,128,240,measure);put(text,8,136+row*16);}
+        for(u32 row=0;row<3;++row){offset=wrapInfo(state->status,offset,text,128,240,measure);put(text,8,EvolutionY+row*16);}
     }
     void* window=at<void*>(state->work,0x38);
     native<void(*)(void*)>(0x2048271,0x2048245)(window);
@@ -389,7 +401,7 @@ void render() {
     // rectangles their original ROM palettes in the *CPU* map before upload.
     u16* map=native<u16*(*)(u32)>(0x2045841,0x2045815)(2);
     if(map)for(u32 i=0;i<state->chain.count;++i)if(state->iconsValid[state->iconSlots[i]])
-        for(u32 y=4;y<8;++y)for(u32 x=iconX(i)/8;x<iconX(i)/8+4;++x)
+        for(u32 y=IconY/8;y<IconY/8+4;++y)for(u32 x=iconX(i)/8;x<iconX(i)/8+4;++x)
             map[y*32+x]=u16((map[y*32+x]&0x0fff)|((10+i)<<12));
     native<void(*)(u32)>(0x2045ba9,0x2045b7d)(2);
 }
@@ -405,12 +417,11 @@ void infoInit(void* work,Request* request) {
         // screen. Native tutor windows already exist and own their buffers.
         void* window=at<void*>(work,0x38);
         void* bitmap=native<void*(*)(void*)>(0x2048521,0x20484f5)(window);
-        native<void(*)(void*,u32)>(0x2047169,0x204713d)(bitmap,1);
-        volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
-        for(u32 i=0;i<16;++i)palette[14*16+i]=colors[i];
+        u8* data=native<u8*(*)(void*)>(0x2046f21,0x2046ef5)(bitmap);
+        if(data)background(data);
         u16 text[32];asciiText(text,32,"Info unavailable.");
         void* buffer=at<void*>(work,0x4c);stringSet(buffer,text);
-        native<void(*)(void*,int,int,void*,void*,u32)>(0x2021d55,0x2021d29)(bitmap,8,32,buffer,at<void*>(work,0x60),0x3c40);
+        native<void(*)(void*,int,int,void*,void*,u32)>(0x2021d55,0x2021d29)(bitmap,8,StatY,buffer,at<void*>(work,0x60),0x3c40);
         native<void(*)(void*)>(0x2048271,0x2048245)(window);
         native<void(*)(void*)>(0x2048299,0x204826d)(window);
         native<void(*)(u32)>(0x2045ba9,0x2045b7d)(2);

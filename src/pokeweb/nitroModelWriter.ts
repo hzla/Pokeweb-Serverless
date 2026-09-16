@@ -1,9 +1,11 @@
 import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { buildModelPrimitives, readNitroResources } from "./map3dModel";
+import { writeDictionary, materialRecords } from "./nitroResourceWriter";
 import { compileStaticFaces } from "./nitroGeometryFaces";
 
 export type StaticModelMesh = {
   materialName: string;
+  materialIndex?: number;
   positions: Float32Array;
   indices: Uint32Array | Uint16Array;
   uvs?: Float32Array;
@@ -46,7 +48,6 @@ export function writeStaticNitroModel(template: Uint8Array, editedMeshes: Static
   const materials = source.materials;
   requireValue(materials.length > 0 && materials.length <= 255, "Unsupported material count.");
   requireValue(new Set(materials.map(m => m.name)).size === materials.length, "Native material names must be unique.");
-  requireValue(materials.every(m => m.textureTransformMode === 0), "This building uses generated/transformed texture coordinates, which are not supported yet.");
 
   const blocks: Uint8Array[] = [];
   let mdlIndex = -1;
@@ -91,6 +92,14 @@ export function writeStaticNitroModel(template: Uint8Array, editedMeshes: Static
   requireValue(editedMeshes.length > 0, "The GLB contains no building geometry.");
   requireValue(editedMeshes.every(m => !hidden(m.materialName)), "Native shadow materials are preserved automatically and cannot be replaced yet.");
   const byMaterial = materials.map(m => meshes.filter(mesh => mesh.materialName === m.name));
+  // Keep unused material records for native name bindings and animations. They
+  // generate no draw commands, so their UV mode cannot affect the compiled mesh.
+  // Include automatically preserved shadow geometry in the active-material check.
+  const records = materialRecords(template);
+  for (const [i, material] of materials.entries()) if (byMaterial[i].length) {
+    requireValue(material.textureTransformMode === 0 || (material.textureTransformMode === 1 && (readU16(records[i].bytes, 30) & 14) === 14),
+      `Material "${material.name}" uses generated/transformed texture coordinates that cannot be compiled as static UVs yet.`);
+  }
   const usesNormals = (name: string) => sourcePrimitives.some(p => p.material.name === name && p.normals && !p.colors);
   const usesColors = (name: string) => sourcePrimitives.some(p => p.material.name === name && p.colors);
   let triangles = 0;
@@ -129,7 +138,7 @@ export function writeStaticNitroModel(template: Uint8Array, editedMeshes: Static
   const scale = powerScale(maxCoordinate);
   requireValue(scale <= 4096, "The building is too large for this static converter.");
   const materialBytes = original.slice(matOffset, shpOffset);
-  const shapeDict = dictionary(materialBytes, 4);
+  const shapeDict = writeDictionary(materials.map((_m, i) => ({ name: `pw_shape_${i}`, data: new Uint8Array(4) })), 4);
   const displayLists: Uint8Array[] = [];
   const shapeFlags: number[] = [];
   for (const [materialId, material] of materials.entries()) {
