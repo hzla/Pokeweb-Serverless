@@ -31,7 +31,10 @@ export class Overlay {
     this.fileId = fileId;
     this.compressedSize = compressedSize;
     this.flags = flags;
-    this.data = this.compressed ? decompressCode(fileData) : fileData.slice();
+    const decoded = this.compressed ? decompressCode(fileData) : fileData;
+    // Decompression can return its input (or a view) for passthrough data.
+    // Editable overlays must never borrow a read-only ROM file's backing buffer.
+    this.data = decoded.buffer === fileData.buffer ? decoded.slice() : decoded;
   }
 
   get compressed(): boolean {

@@ -2,6 +2,15 @@ import { ByteLike, asUint8Array, readAscii, readU16, readU32, writeU16, writeU32
 import { Folder, addFilePath, cloneFolder, loadFnt, saveFnt, shiftFileIdsAtOrAfter } from "./fnt";
 import { Overlay, loadOverlayTable } from "./code";
 
+export type RomReadOptions = {
+  /**
+   * "view" borrows NitroFS file bytes from the input. Treat these files as
+   * read-only and copy any that enter editable or long-lived project state.
+   * Code sections and overlay tables remain independently owned in both modes.
+   */
+  fileData?: "copy" | "view";
+};
+
 export type RomSaveOptions = {
   arm9?: Uint8Array;
   arm9OverlayTable?: Uint8Array;
@@ -31,7 +40,7 @@ export class NintendoDSRom {
   files: Uint8Array[];
   banner: Uint8Array;
 
-  constructor(data: ByteLike) {
+  constructor(data: ByteLike, options: RomReadOptions = {}) {
     this.data = asUint8Array(data);
     if (this.data.length < 0x200) throw new Error("Input is too small to be a Nintendo DS ROM");
 
@@ -65,7 +74,7 @@ export class NintendoDSRom {
     for (let offset = fatOffset; offset + 8 <= fatOffset + fatLength; offset += 8) {
       const start = readU32(this.data, offset);
       const end = readU32(this.data, offset + 4);
-      this.files.push(this.data.slice(start, end));
+      this.files.push(options.fileData === "view" ? this.data.subarray(start, end) : this.data.slice(start, end));
     }
   }
 
