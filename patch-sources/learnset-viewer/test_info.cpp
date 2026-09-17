@@ -4,6 +4,37 @@
 #include <vector>
 using namespace learnset;
 int main() {
+    {
+        InfoNode family[32]={};Evolutions options[32]={};
+        for(u16 i=1;i<32;++i){family[i]={i,0,0,0,true,true};options[i].valid=true;}
+        auto link=[&](u16 a,u16 b){
+            options[a].entries[options[a].count++]={4,20,b};
+            if(!family[a].next)family[a].next=b;
+            if(!family[b].parent)family[b].parent=a;
+        };
+        u32 reads=0;
+        auto read=[&](u16 i){assert(i<32);++reads;return options[i];};
+        auto step=[&](u16 from,bool right,u16 target,u16 parent){
+            reads=0;auto result=familyStep(family,32,from,right,read);
+            assert(result.target==target && result.parent==parent && reads<=33);
+        };
+        link(1,2);link(2,3);
+        step(2,false,1,0);step(1,true,2,1);step(2,true,3,2);step(3,false,2,1);step(3,true,0,0);
+        link(4,5);link(4,5);link(4,6);link(4,7);
+        step(4,true,5,4);step(5,true,6,4);step(6,true,7,4);step(7,false,6,4);step(6,false,5,4);step(5,false,4,0);step(7,true,0,0);
+        link(8,9);link(8,11);link(9,10);link(11,12);
+        step(9,true,10,9);step(10,true,11,8);step(11,false,9,8);step(11,true,12,11);step(12,true,0,0);
+        link(13,13);step(13,true,0,0);step(13,false,0,0);
+        link(14,15);link(15,16);link(16,14);step(14,true,15,14);step(16,true,14,16);
+        // Corrupt/repeated parent chains cannot spin while searching for a sibling.
+        family[17].parent=18;family[18].parent=17;step(17,true,0,0);
+        family[19].parent=31;family[31].valid=false;step(19,false,0,0);
+        family[21].species=20;family[21].form=1;link(22,20);link(22,21);
+        step(20,true,21,22);step(21,false,20,22);
+        options[22].valid=false;step(20,true,0,0);
+        assert(!familyStep(family,32,32,true,read).target);
+        assert(!familyStep(family,MaxPersonal+1,1,true,read).target);
+    }
     u8 slots[]={8,8,24};Abilities abilities=infoAbilities(slots);
     assert(abilities.count==2 && abilities.ids[0]==8 && abilities.ids[1]==24);
     assert(!abilities.hidden[0] && abilities.hidden[1]);

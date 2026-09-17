@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readU16, writeU32 } from "../nds/binary";
+import { readU16, writeU16, writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import manifest from "../assets/codeinjection/learnsetViewerManifest.json";
@@ -21,7 +21,7 @@ describe("standalone LEARNSET companions", () => {
       for (const [group, expected, count] of [["Menu", ["12", "165"], 3], ["Viewer", ["258"], 25]] as const) {
         const bytes = assets[`Learnset${group}${version}`]!;
         const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: "1.2.3", PMCModulePriority: 4 });
+        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: "1.4.3", PMCModulePriority: 4 });
         // The actual PMC activation loop visits only chains 0..4. Merely
         // matching our own manifest does not prove a DLL will load.
         expect(Number(rpm.metadata.PMCModulePriority)).toBeGreaterThanOrEqual(0);
@@ -38,7 +38,7 @@ describe("standalone LEARNSET companions", () => {
       for (const group of ["Menu", "Viewer"]) {
         const rpm = parseRpm(configureLearnsetViewerDll(assets[`Learnset${group}${version}`]!, { menu: 1, empty: 2, error: 3 }), { allowedMagics: ["DLXF"] });
         rpm.metadata.PMCModulePriority = 5;
-        rpm.metadata.PMCVersion = group === "Menu" ? "1.0.0" : "1.2.3";
+        rpm.metadata.PMCVersion = group === "Menu" ? "1.0.0" : "1.4.3";
         add(project, `Learnset${group}${version}`, writeRpm(rpm, { ident: "DLXF" }));
       }
       expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: true, compatible: true, updateAvailable: true, messageIds: { menu: 1, empty: 2, error: 3 } });
@@ -52,7 +52,17 @@ describe("standalone LEARNSET companions", () => {
       }
       expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: true, compatible: true, updateAvailable: true, messageIds: { menu: 1, empty: 2, error: 3 } });
     });
+    it(`${version}: offers the species/type header update for a configured 1.4.2 pair`, () => {
+      const project = fixture(version);
+      for (const group of ["Menu", "Viewer"]) {
+        const rpm = parseRpm(configureLearnsetViewerDll(assets[`Learnset${group}${version}`]!, { menu: 1, empty: 2, error: 3 }), { allowedMagics: ["DLXF"] });
+        rpm.metadata.PMCVersion = "1.4.2";
+        add(project, `Learnset${group}${version}`, writeRpm(rpm, { ident: "DLXF" }));
+      }
+      expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: true, compatible: true, updateAvailable: true });
+    });
     it(`${version}: upper message configuration is viewer-only and validated`, () => {
+      expect(LEARNSET_INFO_MESSAGES[0]).toEqual(["Title", "{0}"]);
       const bytes = assets[`LearnsetViewer${version}`]!;
       const configured = configureLearnsetInfoDll(bytes, infoIds);
       const at = Buffer.from(bytes).indexOf(Buffer.from("LSVINF1\0"));
@@ -69,6 +79,16 @@ describe("standalone LEARNSET companions", () => {
       add(project, `LearnsetMenu${version}`, configureBase(assets[`LearnsetMenu${version}`]!, { menu: 1, empty: 2, error: 3 }));
       add(project, `LearnsetViewer${version}`, configureBase(bytes, { menu: 1, empty: 2, error: 3 }));
       expect(getLearnsetViewerStatus(project).updateAvailable).toBe(true);
+    });
+    it(`${version}: offers an update when the predecessor message is absent from the old viewer configuration`, () => {
+      expect(LEARNSET_INFO_MESSAGES.at(-1)).toEqual(["FromPredecessor", "From {0}: {1}"]);
+      const project = fixture(version);
+      add(project, `LearnsetMenu${version}`, configureLearnsetViewerDll(assets[`LearnsetMenu${version}`]!, { menu: 1, empty: 2, error: 3 }));
+      const previous = configureLearnsetViewerDll(assets[`LearnsetViewer${version}`]!, { menu: 1, empty: 2, error: 3 });
+      const offset = Buffer.from(previous).indexOf(Buffer.from("LSVINF1\0"));
+      writeU16(previous, offset + 10, LEARNSET_INFO_MESSAGES.length - 1);
+      add(project, `LearnsetViewer${version}`, previous);
+      expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: true, compatible: true, updateAvailable: true });
     });
     it(`${version}: configuration modifies only allocated ID/complement fields`, () => {
       const bytes = assets[`LearnsetMenu${version}`]!;
@@ -108,6 +128,14 @@ describe("standalone LEARNSET companions", () => {
       expect(getLearnsetViewerStatus(project).installed).toBe(false);
       expect(project.fileSystem!.additions![`patches/MenuEvolution${version}.dll`]).toBeDefined();
       for (const path of learnsetViewerPaths(version)) expect(project.fileSystem!.additions![path]).toBeUndefined();
+    });
+    it(`${version}: rejects the previously exported second-PMC placement instead of offering a DLL-only repair`, () => {
+      const project = fixture(version);
+      project.codeInjection!.pmc = { overlayId: 345, overlayPath: "overlay/overlay_0345.bin", symbolPath: "codeinjection/RPMSYM-PMC.rpm" };
+      const status = getLearnsetViewerStatus(project);
+      expect(status.supported).toBe(true);
+      expect(status.compatible).toBe(false);
+      expect(status.message).toContain("Reload the original ROM");
     });
   }
 });

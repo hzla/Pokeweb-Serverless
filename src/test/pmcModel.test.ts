@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readAscii, readU16, readU32, writeU32 } from "../nds/binary";
+import { readAscii, readU16, readU32, writeU16, writeU32 } from "../nds/binary";
+import { decompressCode } from "../nds/codeCompression";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { exportFrostCompatibleRom } from "../pokeweb/frostCompatibility";
 import {
+  adoptExistingPmcInstall,
   detectBundledFormEvolutionDll,
   detectBundledMainMenuSkipDll,
   detectBundledOverworldWeatherRuntime,
@@ -101,7 +103,9 @@ describe("PMC installer", () => {
     expect(() => exportFrostCompatibleRom(overlapping.save({ filenames: overlapping.filenames }))).toThrow(/overlap/u);
     const unknown = new NintendoDSRom(bytes);
     unknown.filenames.folders = unknown.filenames.folders.filter(([name]) => name !== "codeinjection");
-    expect(() => exportFrostCompatibleRom(unknown.save({ filenames: unknown.filenames }))).toThrow(/recognized/u);
+    const invalidStartup = decompressCode(unknown.arm9);
+    writeU16(invalidStartup, 0x0200400c - unknown.arm9RamAddress, 0x46c0);
+    expect(() => exportFrostCompatibleRom(unknown.save({ arm9: invalidStartup, filenames: unknown.filenames }))).toThrow(/recognized/u);
   });
 
   it("parses bundled PMC metadata", () => {
@@ -581,6 +585,73 @@ describe("PMC installer", () => {
     expect(readAscii(exported.getFileByName(`patches/${OVERWORLD_WEATHER_RUNTIME_W2_FILENAME}`), 0, 4)).toBe("DLXF");
   });
 
+  it.each(["W2", "B2"] as const)("recognizes and preserves %s markerless PMC on load, adoption and export", async (version) => {
+    const source = await makeMarkerlessPmcRom(version);
+    const rom = new NintendoDSRom(source);
+    const pmcFileId = readU32(rom.arm9OverlayTable, 344 * 32 + 24);
+    expect(rom.filenames.idOf(PMC_OVERLAY_ID_PATH)).toBeUndefined();
+    expect(rom.filenames.idOf(PMC_SYMBOL_PATH)).toBeUndefined();
+    expect(rom.filenames.idOf("overlay/overlay_0344.bin")).toBeUndefined();
+    expect(detectPmcInstallFromRom(rom)?.pmc).toMatchObject({ overlayId: 344, version: "13.2.4", gameId: version });
+
+    const project = makeProject(source, version);
+    project.arm9 = decompressCode(rom.arm9);
+    project.codeInjection = detectPmcInstallFromRom(rom);
+    // Old persisted projects may predate markerless detection. Preserve any
+    // staged modules while restoring only the missing loader state.
+    const filename = `DoubleBattleFix${version}.dll`;
+    stageCodeInjectionDll(project, filename, version === "W2" ? doubleBattleFixW2 : doubleBattleFixB2);
+    delete project.codeInjection!.pmc;
+    expect(getPmcInstallStatus(project).installed).toBe(false);
+    expect(adoptExistingPmcInstall(project, source)).toBe(true);
+    expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, overlayId: 344 });
+    expect(listCodeInjectionDlls(project).some(module => module.fileName === filename)).toBe(true);
+    expect(project.arm9Dirty).not.toBe(true);
+    expect(project.fileSystem?.additions?.[PMC_OVERLAY_ID_PATH]).toBeUndefined();
+
+    const exported = new NintendoDSRom(await exportModifiedRom(project));
+    expect(exported.arm9).toEqual(rom.arm9);
+    expect(exported.arm9OverlayTable).toEqual(rom.arm9OverlayTable);
+    expect(exported.files[pmcFileId]).toEqual(rom.files[pmcFileId]);
+    expect(detectPmcInstallFromRom(exported)?.pmc).toEqual(detectPmcInstallFromRom(rom)?.pmc);
+    expect(exported.filenames.idOf(PMC_OVERLAY_ID_PATH)).toBeUndefined();
+
+    // An explicit Update PMC still targets the existing overlay, with the
+    // external-layout warning; merely installing a feature must not do this.
+    const updater = makeProject(source, version);
+    updater.arm9 = decompressCode(rom.arm9);
+    expect(getPmcUpdateConfirmationMessage(updater, source)).toContain("Existing external/legacy PMC layout detected");
+    expect(installPmcBytes(updater, version === "W2" ? pmcW2 : pmcB2, source).overlayId).toBe(344);
+  });
+
+  it.each(["wrong game", "wrong base", "wrong overlay literal", "unloaded entry", "bad RPM", "bad wrapper", "inactive wrapper", "wrong overlay load"])(
+    "rejects markerless PMC with %s instead of installing a second loader", async (damage) => {
+      const rom = new NintendoDSRom(await makeMarkerlessPmcRom("W2"));
+      const row = 344 * 32, id = readU32(rom.arm9OverlayTable, row + 24);
+      const arm9 = decompressCode(rom.arm9);
+      const startup = 0x0200400c - rom.arm9RamAddress;
+      if (damage === "wrong game") rom.data[14] = "E".charCodeAt(0);
+      if (damage === "wrong base") writeU32(rom.arm9OverlayTable, row + 4, readU32(rom.arm9OverlayTable, row + 4) + 0x1000);
+      if (damage === "wrong overlay literal") writeU32(arm9, startup + 20, 345);
+      if (damage === "unloaded entry") {
+        const rpm = makeRelocationRpm("FUNCTION_THM", readU32(rom.arm9OverlayTable, row + 4) + PMC_OVERLAY_SIZE + 0x100);
+        rpm.relocations[0]!.target.address = 0x0200401a;
+        writeRelocationDataByType(rpm, rpm.relocations[0]!, arm9, 0x0200401a, rom.arm9RamAddress);
+      }
+      if (damage === "bad RPM") rom.files[id]![0] ^= 0xff;
+      if (damage === "bad wrapper") writeU16(arm9, startup, 0x46c0);
+      if (damage === "inactive wrapper") writeU32(arm9, 0x0200512a - rom.arm9RamAddress, 0);
+      if (damage === "wrong overlay load") writeU32(arm9, startup + 10, 0);
+      const source = rom.save({ arm9, arm9OverlayTable: rom.arm9OverlayTable });
+      expect(detectPmcInstallFromRom(new NintendoDSRom(source))?.pmc).toBeUndefined();
+      const project = makeProject(source, "W2");
+      expect(adoptExistingPmcInstall(project, source)).toBe(false);
+      expect(() => installPmcBytes(project, pmcW2, source)).toThrow(/refusing to add a second loader/u);
+      expect(project.arm9Dirty).not.toBe(true);
+      expect(project.fileSystem).toBeUndefined();
+    },
+  );
+
   it("warns before Update PMC replaces an anonymous external installation", async () => {
     const installedProject = makeProject(makeBw2LikeRom(), "W2");
     installPmcBytes(installedProject, pmcW2, installedProject.originalRomBytes!);
@@ -741,6 +812,19 @@ describe("PMC installer", () => {
     expect(() => validateCodeInjectionDll(pmcW2)).toThrow(/RPM module/u);
   });
 });
+
+async function makeMarkerlessPmcRom(version: "B2" | "W2"): Promise<Uint8Array> {
+  const source = makeBw2LikeRom();
+  if (version === "B2") source[14] = "E".charCodeAt(0);
+  const project = makeProject(source, version);
+  installPmcBytes(project, version === "W2" ? pmcW2 : pmcB2, source);
+  const rom = new NintendoDSRom(await exportModifiedRom(project));
+  // Keep the active loader and FAT slot, but remove both Pokeweb-specific
+  // directories and use the original CTRMap zero-BSS overlay reservation.
+  rom.filenames.folders = rom.filenames.folders.filter(([name]) => name !== "overlay" && name !== "codeinjection");
+  writeU32(rom.arm9OverlayTable, 344 * 32 + 12, 0);
+  return rom.save({ filenames: rom.filenames, arm9OverlayTable: rom.arm9OverlayTable });
+}
 
 function makeProject(originalRomBytes: Uint8Array, baseVersion: "B2" | "W2"): ProjectState {
   return {

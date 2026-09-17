@@ -13,7 +13,175 @@ occupied. Eggs, battle/daycare menus, and item/mail submenus are excluded.
 
 ## Runtime design
 
-Release **1.2.3** moves all evolution-panel text down two native pixels:
+Release **1.4.3** replaces the possessive INFO header with the uppercase ROM
+species name followed by its current-form type badges, vertically centered in
+the black strip. Single types appear once. Native font measurement reserves
+space for both badges and the existing party-slot cue before truncating long
+names. L/R family browsing and party navigation update the types along with
+the species. Invalid type data hides the badges rather than indexing past the
+native resource tables. The lower screen and ordinary tutors are unchanged.
+
+Two already-created upper tutor type actors provide the ROM's own artwork and
+palette mapping. Their native VBlank character queue and original teardown are
+reused; no new sprites, persistent graphics allocations, hooks, or battle-resident
+state are added. Info state grows four bytes. Updating through Pokeweb configures
+the new private `{0}` title template without replacing existing tutor messages.
+
+Release **1.4.2** keeps "Does not evolve further." on the first footer line
+and shows the immediate predecessor's evolution requirement underneath, such
+as "From Eevee: Use Fire Stone." for Flareon. Names and requirements come from
+the current ROM, not the party Pokemon's historical origin. Only records that
+target the selected species/form are shown; sibling branches are excluded.
+Only the last matching method/parameter pair in ROM slot order is shown; A
+does not cycle between alternative methods. Long text can still use continuation
+pages. The predecessor matches the displayed chain and any verified L/R
+navigation edge. Pokemon without a predecessor keep "Does not evolve.";
+Pokemon that can evolve retain their existing outgoing requirements.
+One new private message is appended/reused; update both companions through
+Pokeweb. Lower-screen behavior, graphics, hooks, and the request ABI are unchanged.
+
+Pokeweb's follow-up Test Warp/Battle export fix preserves incoming physical
+NitroFS file order across additional ROM rebuilds. This keeps PMC's early
+startup placement instead of moving it behind large archives. It does not
+change the 1.3.4 DLLs, UI, hooks or module lifetime. Refresh Pokeweb and create a
+new launch; an already generated broken launch or frozen state is not repaired.
+See [validation](VALIDATION.md#test-launch-startup-regression) for the reproduced
+Black 2 failure and boot checks.
+
+Pokeweb also recognizes verified markerless CTRMap PMC installations, including
+the original White2Upgrade loader. Installing LEARNSET preserves that loader
+instead of creating overlay 345 while startup still loads overlay 344. Unknown
+or mismatched loaders are rejected, not replaced. This is an installer fix;
+the fix first shipped alongside **1.4.1**. A previously exported ROM with the
+second-loader error must be rebuilt from the original input after refreshing
+Pokeweb; replacing the DLLs or restoring a frozen state cannot repair startup.
+See [markerless-loader validation](VALIDATION.md#markerless-pmc-startup-regression).
+
+Release **1.4.1** corrects the DS palette address used for the upper light
+panels: sub BG is at `0x05000400`, not the main OBJ sprite palette at
+`0x05000200`. This fixes the pink/red fill and blue shade. Background, rule
+and shading colors still come from the loaded ROM; neither OBJ palette nor
+the lower screen is modified.
+
+L/R now refreshes the info and move list in place. It does not fade to black,
+close the tutor, reload overlay 258, or recreate its graphics/cursor/heap.
+The old screen remains visible while data loads. A complete replacement native
+move-name list is prepared before committing; allocation failures preserve
+the old selection/list. The existing info allocation is reused, lower scroll
+and cursor reset, and native cleanup owns the replacement list on exit.
+D-pad party switches retain their existing fade/relaunch behavior.
+
+Release **1.4.0** makes the highlighted evolution stage browsable with L/R.
+Both screens now describe that species/form: title, base stats, abilities,
+evolution requirements and level-up learnset. Only its icon animates; all other
+icons stay on pose zero. D-pad Left/Right still switches real party slots and
+resets family browsing, while B/return restores that real party slot.
+
+R follows the highlighted species' first valid outgoing target, including a
+further evolution of a branch target before visiting sibling branches. At a
+terminal stage it advances to the next sibling in ROM slot order, ascending
+through predecessors if necessary. L selects a previous sibling when present;
+only the first sibling returns to its source. Eevee's target position therefore
+keeps its highlight while the target species changes, then L from its first
+target returns the highlight to Eevee. Endpoint presses do nothing; no sibling
+wrap is added. Duplicate target identities are one navigation stop, but all
+method records still have requirement pages. Traversal is bounded/cycle-safe.
+A cycles requirement/continuation pages without changing the focus or icons.
+
+Virtual species selections use private request data, never Pokemon setters or
+a fabricated party member. Version 1.4.0 used native fade/end/init for each
+family selection; 1.4.1 replaces that path with the in-place refresh above.
+The actual party Pokemon pointer remains unchanged; all graph, rendering,
+animation and navigation decisions remain in overlay 258. Earlier release
+notes below describe the controls at their original release.
+
+Release **1.3.10** animates the evolution icons with their ROM's two native
+32x32 poses, alternating every eight viewer ticks like the party menu's
+healthy idle sequence. All displayed species animate; borders and positions
+stay fixed. The viewer does not apply HP/status slowdown or the selected
+party slot's separate six-pixel hop to these informational icons. Both poses
+are cached in the existing session-owned info allocation. Idle updates touch
+only icon pixels and upload the bitmap characters, without rebuilding maps,
+redrawing text, reading the ROM or allocating memory. Missing icons remain
+static placeholders. Branch changes retain the current pose; closing the
+viewer frees both poses with the rest of its info state.
+
+Release **1.3.9** extends the right panel's three-pixel left shade and one-pixel
+edge up through the evolution-icon area, following the clipped upper corner.
+The outer border, ability rules at Y=100/116, text, icons and other colors stay
+unchanged. It adds no allocations, resources or hooks.
+
+Release **1.3.8** matches the light upper panels to the lower description panel.
+Stats and ability names already use the same native font; they now also use
+its ROM-loaded foreground and visible glyph-shadow colors. Hidden abilities
+stay purple with that same shadow. Font size, measurement and spacing do not
+change. The ability list adds the lower description's three-pixel left shade,
+one-pixel edge and subtle 16-pixel row rules. Those colors are read from the
+already-loaded lower palette, without modifying it or the shared graphics.
+A private ability palette keeps the title, dark evolution-text box, sprite
+colors, dark-teal selection frame and other accents unchanged. No new heap
+allocation or ROM read is needed.
+
+Release **1.3.7** darkens only the selected sprite's one-pixel frame to
+`#207878` (RGB555 `0x3de4`). It overrides index 7 in content palette bank 9;
+the title cue and fin accents keep their brighter teal in banks 14 and 13.
+All other colors, geometry, graphics, controls and allocations are unchanged.
+
+Release **1.3.6** reverts the 1.3.5 move-bar color experiment, restoring the
+charcoal evolution-text body. The evolution/abilities inset instead matches
+the pale gray stats-panel fill exactly. Its existing muted border and teal
+selected-icon frame are unchanged. Icon transparency and card interiors
+match the pale fill; ability text and arrows use dark ink, with a deeper
+purple for hidden abilities. Pale-matched glyph shadows avoid dark halos.
+The dark description fin/top strip, teal hatches, gutter, title, layout and
+lower screen remain unchanged. No new runtime reads or allocations are added.
+
+Release **1.3.4** changes the evolution/abilities inset to dark slate charcoal
+(`#282830`), between the near-black description cap and its lighter body.
+Icon transparency and the selected card's interior match the new fill. Muted
+borders, teal selection, text/shadows, gold bars and title rails remain unchanged.
+The description body loses its left/right/bottom teal outline; its dark cap,
+teal hatches, body shade and text positions stay unchanged.
+Content palette bank 9 copies bank 14 with
+one private fill index; bank 13 carries the same fill across the inset's final
+four rows. This uses another existing 32-byte hardware palette bank, no heap.
+
+Release **1.3.3** gives the description panel a two-tone Pokedex treatment:
+the fin and top strip share the same near-black fill, while the text body is
+lighter charcoal. Teal hatch marks and side/bottom outlines remain. Only the
+existing private footer palette and fill indexes change; geometry, spacing,
+text colors, upper panels, lower screen and controls are unchanged.
+
+Release **1.3.2** separates the upper panels from the description panel with a
+four-native-pixel slate-teal gutter at Y=132–135. Both upper panels end at Y=131;
+the fin rises from Y=136, with the gap continuing behind its diagonal edge.
+Stats use a 15-pixel row stride and abilities start at Y=84/100/116. Font sizes,
+icon positions, footer text at Y=140/156/172, and all lower-screen layout and
+controls remain unchanged. The footer outline is a quieter teal.
+
+Upper-background palette bank 13 copies bank 14 for tile rows Y=128–191,
+changing the gutter, footer-outline and (since 1.3.3) body colors. Text, native icon palettes,
+the selected-icon border, and original title rails retain their colors. This
+uses one previously unused 32-byte hardware palette bank, no additional heap
+allocation, and the same buffered tilemap/upload path, including error screens.
+
+Release **1.3.1** replaces the dense upper-screen row grid with a clipped pale
+stats panel and a shared dark evolution/ability inset with a muted clipped
+frame. Stat text is dark, gold bars have no individual outlines, and only the selected evolution icon has a
+teal frame. The native title rails remain; the black evolution footer gains a
+thin teal outline and a raised, hatched top-left fin inspired by the Pokedex.
+Its text still starts at Y=140/156/172 and stays inside the original bounds.
+A measured `< 2/6 >` header cue shows the physical party slot/count; D-pad navigation still
+skips Eggs and empty slots. One-member parties show `1/1`; invalid context omits
+the cue. Long species names truncate before the unchanged `'S INFO` suffix and
+never overlap the cue. No popup, new controls or lower-screen changes are added.
+The cue adds 24 bytes to viewer-owned info state, no additional allocation,
+ROM reads, hook sites, private messages or battle-resident storage.
+
+The 1.2.3 sources, paired bundles, installer model and preview were backed up
+before this redesign. Its configured test ROMs remain available separately.
+
+Release **1.2.3** moved all evolution-panel text down two native pixels:
 heading/page indicator at Y=140 and requirement/status lines at Y=156/172.
 The black panel, sprites, stats, abilities and lower screen stay in place.
 `verify_info.py --layout-only` checks native-font placement, continuation pages
@@ -35,7 +203,8 @@ colors and compact row runs; there are no new runtime reads or allocations.
 The six stat rows start at Y=42 with a 16-pixel stride, and the evolution
 heading/requirement lines now start at Y=140/156/172. Gold stat bars, teal selection, purple hidden abilities,
 all lower-screen geometry, and ordinary RELEARN remain unchanged. Allocation
-failure also retains the striped backdrop and a dismissible error message.
+failure also retains a dismissible error message. The 1.3.1 split panel replaces
+the body stripes while retaining the verified retail title rails.
 
 Release **1.2.0** adds party navigation to the species-info viewer. D-pad
 **Right** advances in party order (slot 1 to slot 2); **Left** goes backward.
@@ -51,13 +220,12 @@ menu between Pokemon and never teaches moves or changes party order.
 The upper-screen design remains private to LEARNSET. The title
 uses the ROM species name (not nickname), six current-form base stats use
 gold bars on a shared 0–255 scale, and a maximum of three native party icons
-shows the selected stage with a bright border. L/R pages through every outgoing
-evolution requirement, including text continuation pages, and updates the icons
-to follow the displayed outgoing option. Lower move rows,
+shows the focused stage with a dark teal border. L/R changes the focused species;
+A pages every outgoing requirement, including text continuation pages. Lower move rows,
 descriptions, power/accuracy, touch controls, and B/back behavior are unchanged.
 
 The stats column is 18 pixels narrower, with tighter label/value spacing. The
-icons occupy the upper three-row cards, their spacing fits clear right-pointing
+icons occupy the upper right area, their spacing fits clear right-pointing
 arrows, and up to three available ability names appear underneath, left-aligned
 in Title Case. Capitalization affects display copies only, not ROM text. These are
 the selected form's personal-data slots (bytes 24–26), not its current battle
@@ -65,16 +233,16 @@ ability. Zero slots are omitted; duplicate IDs appear once and retain purple
 hidden-ability highlighting if one of their slots is hidden. Names come from
 ROM bank 487 with bank 374 as the fallback for extended names, matching Pokeweb.
 Long names are measured and truncated; missing names show their numeric ID.
-The L/R page indicator now sits beside the evolution-requirement heading so it
+The A page indicator sits beside the evolution-requirement heading so it
 does not overlap the ability list. Stats, title, abilities and the highlighted
-identity continue to describe the original selected Pokemon when paging.
+identity describe the focused species; paging text alone does not change them.
 
 The bounded reader supports 76-byte personal records and 42/48-byte evolution
 records. It skips non-personal archive members, resolves form ownership, chooses
 the first predecessor by record/slot order, and initially follows the first
-outgoing slot. L/R replaces that selected stage's outgoing link with the paged
-option; any subsequent stage still follows its own first outgoing slot.
-The selected Pokemon is always included. Each direction is bounded to two
+outgoing slot. A verified incoming navigation edge overrides the predecessor
+when a hack has multiple sources for the same target. The focused species
+is always included. Each displayed direction is bounded to two
 neighbors; repeated species/form identities stop traversal, with continuation
 markers instead of a wraparound arrow. Cycles are valid data, not errors.
 All outgoing slots get text pages, including links to an already displayed
@@ -100,8 +268,8 @@ The upper renderer expands the title bitmap to 32×24 tiles, keeps valid 1×1
 unused windows for native cleanup, and suppresses the five original upper
 sprites. BG2 uses a private palette and CPU-side tilemap; the icon rectangles use
 their native ROM palettes. BG3 is hidden so transparent icon pixels cannot
-reveal old upper-screen graphics. The private bitmap reproduces its clean row
-background. No ROM graphics archive is replaced.
+reveal old upper-screen graphics. The private bitmap draws the new split panels
+and preserves the retail title rails. No ROM graphics archive is replaced.
 
 All info parsing, strings, rendering, evolution paging, and mutable info state
 live in the overlay-258 viewer. The menu/field companion relaunches that viewer
@@ -206,20 +374,22 @@ game addresses and hook bytes are separately verified for W2 and B2 by
 The private command `0x4c53` and transition marker `0x4c535631` are accepted
 only in the overworld party context. A field-owned request contains a retail
 28-byte tutor prefix, `LSV1` tag, version/size, at most 32 `{moveId, level}`
-records, and a separate terminated move-ID array. Request ABI version 2 adds
-an eight-byte party navigation suffix (party pointer, current/next slots) for
-a total of 244 bytes. It remains field-owned for the whole browsing session;
+records, and a separate terminated move-ID array. Request ABI version 3 keeps
+the eight-byte party-navigation suffix and adds current/pending virtual
+species/form selections with incoming-parent hints, for a total of 260 bytes.
+It remains field-owned for the whole browsing session;
 the menu rebuilds its contents only after native viewer teardown and then
 starts overlay 258 again. Both companions must be updated together; an older
 request ABI is rejected before native initialization. The bridge refuses to run
 the retail tutor if its viewer companion is missing. The viewer recognizes
 mode `0xfe`, validates the request, and normalizes the retail mode to 1 before
 initialization. Its end callback clears active pointers before overlay unload;
-the field callback either relaunches for the requested party slot or frees the
+the field callback either relaunches for a party/family selection or frees the
 request and restores the last viewed party slot. Count/index validation occurs
 again in the bridge; failed transitions safely return to the party menu.
 
-Species and form are read from the selected Pokemon, then resolved with the
+Species and form initially come from the selected Pokemon and subsequently
+from the validated private family selection, then resolve with the
 game's personal-data index routine. Level-up data comes directly from
 `a/0/1/8`. Bounded NARC reads validate headers, block lengths, member ranges,
 short reads, and the list terminator. Records allow levels 0–100 and valid move
@@ -274,6 +444,8 @@ c++ -std=c++17 -Wall -Wextra -Werror runtime/learnset-viewer/test_info.cpp -o ru
 runtime/learnset-viewer/build/test_info
 python3 runtime/learnset-viewer/verify_runtime.py
 python3 runtime/learnset-viewer/verify_info.py
+python3 runtime/learnset-viewer/verify_info.py --header-only
+python3 runtime/learnset-viewer/verify_info.py --terminal-only
 python3 runtime/learnset-viewer/verify_graphics.py
 npm test
 npm run build
