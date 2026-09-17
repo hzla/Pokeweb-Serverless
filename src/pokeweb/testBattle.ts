@@ -203,6 +203,22 @@ export async function buildTestBattleDownloads(project: ProjectState, trainerId:
   return { romBytes, saveBytes: toDesmumeDsv(patchedSaveBytes) };
 }
 
+/**
+ * Builds a normal overworld launch from the matching bundled test-battle save.
+ * The temporary ROM gets the same startup preparation as Test Battle, but no
+ * overworld, trainer, or save data is patched.
+ */
+export async function buildQuickLaunchDownloads(project: ProjectState): Promise<TestBattleDownload> {
+  const config = getTestBattleConfigForProject(project);
+  const [romBytes, loadedSave] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
+  return { romBytes, saveBytes: bundleTestBattleSaveForQuickLaunch(loadedSave.rawSaveBytes) };
+}
+
+/** Wrap the unmodified bundled save in the format consumed by the emulator. */
+export function bundleTestBattleSaveForQuickLaunch(rawSaveBytes: Uint8Array): Uint8Array {
+  return toDesmumeDsv(rawSaveBytes);
+}
+
 export async function buildMoveTestBattleDownloads(project: ProjectState, moveId: number, options: MoveTestBattleBuildOptions = {}): Promise<TestBattleDownload> {
   const config = getTestBattleConfigForProject(project);
 

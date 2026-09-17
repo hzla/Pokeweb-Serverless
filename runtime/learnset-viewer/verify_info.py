@@ -16,7 +16,8 @@ TOOLS=HERE.parents[2]/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-n
 REGS=[UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3,UC_ARM_REG_R4,UC_ARM_REG_R5,UC_ARM_REG_R6,UC_ARM_REG_R7]
 WORK, REQUEST, BITMAP, PIXELS, MAP, BUFFER, STOP, STACK=0x02300000,0x02301000,0x02302000,0x02310000,0x02318000,0x02319000,0x02ef0000,0x02ff0000
 MESSAGES=json.loads((HERE/'info_messages.json').read_text())
-INFO_BYTES=10380
+INFO_BYTES=10392
+GRAPH_NODE_BYTES=10
 
 def decode_bank(data):
     count=struct.unpack_from('<H',data,2)[0];block=struct.unpack_from('<I',data,12)[0];out=[]
@@ -384,7 +385,9 @@ class Harness:
         if any(y==41 and t=='HP' for x,y,t in self.draws):
             record=ndspy.narc.NARC(self.files['a/0/1/6']).files[self.personal_id(*self.identity())]
             if all(t<18 for t in record[6:8]):expected=list(dict.fromkeys(record[6:8]))
-        left=header[0][0]+self.font.text(header[0][1])[0]+4
+        left=right-(len(expected)*32+max(0,len(expected)-1)*2)
+        if expected:
+            assert header[0][0]+self.font.text(header[0][1])[0]+4<=left, 'Name/badge clearance'
         for i in range(5):
             actor=0x2300a00+i*0x100
             flags=struct.unpack('<I',self.c.mem_read(actor+0x60,4))[0]
@@ -392,6 +395,7 @@ class Harness:
             if i>=len(expected):continue
             assert struct.unpack('<hh',self.c.mem_read(actor+12,4))==(left+16+i*34,12)
             assert left+i*34+32<=right, ('badge overlaps party cue',header,expected)
+            if i==len(expected)-1:assert left+i*34+32==right, 'Fixed right alignment before party cue'
             assert struct.unpack('<I',self.c.mem_read(WORK+0x140+i*8,4))[0]==expected[i]
             palette=self.call(0x202d815-self.delta,expected[i])
             assert (flags>>12)&15==palette and flags>>31==1
@@ -484,17 +488,86 @@ class Harness:
         assert any(y==4 and text==name for x,y,text in self.draws)
     def end(self):
         self.call('_Z7infoEndv');self.call('_Z7infoEndv');assert not self.allocations
+    def retained_info_bytes(self):
+        return INFO_BYTES+len(ndspy.narc.NARC(self.files['a/0/1/6']).files)*GRAPH_NODE_BYTES
 
 reports={}
 for game in ['W2','B2']:
     h=Harness(game)
+    if '--cache-only' in sys.argv:
+        h.species=30;h.start();h.check_chain([(29,0),(30,0),(31,0)])
+        initial=dict(h.allocations);before=h.reads.copy();size=h.read_bytes
+        h.navigate(True,(31,0))
+        warm={'reads':{p:n-before.get(p,0) for p,n in h.reads.items()},'readBytes':h.read_bytes-size,
+              'retainedInfoBytes':sum(h.allocations.values()),'peakInfoBytes':h.peak}
+        assert sum(warm['reads'].values())<=30 and warm['readBytes']<1024,warm
+        assert warm['reads']['a/0/0/7']==0 and h.allocations==initial
+        for right,target in [(False,30),(False,29),(True,30),(True,31)]*3:
+            prior=h.reads.copy();h.navigate(right,(target,0))
+            assert h.allocations==initial and not h.opened
+            assert h.reads['a/0/1/6']-prior['a/0/1/6']==6
+            assert h.reads['a/0/0/7']==prior['a/0/0/7']
+        h.end()
+        # Reopen after a ROM edit: neither graph nor icon buffers survive End.
+        h.reset();h.species=30;evo=ndspy.narc.NARC(h.files['a/0/1/9'])
+        evo.files[30]=struct.pack('<3H',4,77,151)+bytes(36)
+        h.files['a/0/1/9']=bytes(evo.save());h.start();h.navigate(True,(151,0));h.end()
+        # A verified navigation hint is selection-local, not a persistent
+        # mutation of the cached deterministic predecessor graph.
+        h.reset();h.species=136;evo=ndspy.narc.NARC(h.files['a/0/1/9'])
+        evo.files[132]=struct.pack('<3H',4,44,136)+bytes(36)
+        h.files['a/0/1/9']=bytes(evo.save());h.c.mem_write(REQUEST+248,struct.pack('<HH',133,0))
+        h.start();assert any(t=='From Eevee: Use Fire Stone.' for x,y,t in h.draws)
+        h.c.mem_write(REQUEST+248,bytes(4));h.draws=[]
+        h.call('_Z10infoReloadPvP7Request',WORK,REQUEST)
+        assert any(t=='From Ditto: Level up to Lv. 44.' for x,y,t in h.draws),h.draws
+        h.end()
+        # Warm traversal of the supplied hacked cycle stays bounded and uses
+        # the same at-most-three, distinct-icon window as a fresh opening.
+        h.reset();h.species=513;evo=ndspy.narc.NARC(h.files['a/0/1/9'])
+        for source in [511,515]:evo.files[source]=bytes(48)
+        for source,target in [(513,514),(514,512),(512,516),(516,514)]:
+            evo.files[source]=struct.pack('<3H',4,30,target)+bytes(42)
+        h.files['a/0/1/9']=bytes(evo.save());h.start()
+        for target in [514,512,516,514,512,516]:
+            h.navigate(True,(target,0))
+        h.end()
+        # A form target keeps its own personal data and icon identity on warm
+        # reloads, not the species' base-form cached pixels.
+        h.reset();evo=ndspy.narc.NARC(h.files['a/0/1/9'])
+        evo.files[151]=struct.pack('<3H',4,9,h.personal_id(479,1))+bytes(36)
+        h.files['a/0/1/9']=bytes(evo.save());h.start()
+        h.navigate(True,(479,1));h.navigate(False,(151,0));h.end()
+        # If graph allocation fails, the screen remains dismissible and the
+        # existing info allocation can recover on the next reload.
+        h.reset();graph_bytes=h.retained_info_bytes()-INFO_BYTES;h.fail_alloc_sizes={graph_bytes}
+        h.call('_Z8infoInitPvP7Request',WORK,REQUEST)
+        assert list(h.allocations.values())==[INFO_BYTES] and not h.opened
+        assert any(t.startswith('Stats unavaila') for x,y,t in h.draws)
+        h.fail_alloc_sizes.clear();h.draws=[];h.colors=[]
+        h.call('_Z10infoReloadPvP7Request',WORK,REQUEST)
+        assert sum(h.allocations.values())==h.retained_info_bytes()
+        h.check_header();h.check_abilities();h.end()
+        # Unreadable evolution data must not mark an incomplete graph ready.
+        h.reset();good=h.files['a/0/1/9'];h.files['a/0/1/9']=b'bad';h.start()
+        assert any(t=='Evolution info unavailable.' for x,y,t in h.draws)
+        h.files['a/0/1/9']=good;h.draws=[];h.call('_Z10infoReloadPvP7Request',WORK,REQUEST)
+        assert any(t=='Does not evolve.' for x,y,t in h.draws);h.end()
+        reports[game]={'warmNidorinaToNidoqueen':warm,'cacheTests':'passed','liveGameTest':False}
+        print(game,'session graph/icon reuse, warm I/O, repeat navigation, edited-ROM reopen, parent hints, cycles, forms, allocation/read failure recovery and full teardown passed',warm,flush=True)
+        continue
     if '--header-only' in sys.argv:
         for species,form,name in [(151,0,'header-mew'),(6,0,'header-charizard'),
                                   (530,0,'header-excadrill'),(479,1,'header-rotom-heat'),
                                   (479,2,'header-rotom-wash')]:
             h.reset();h.species=species;h.form=form;h.start();h.check_type_uploads();h.preview(name)
-            assert sum(h.allocations.values())==INFO_BYTES
+            assert sum(h.allocations.values())==h.retained_info_bytes()
             h.end()
+        # Right anchoring uses the measured party cue, including 1/1, and
+        # falls back to the eight-pixel screen margin when context is absent.
+        for count,slot in [(1,0),(6,5),(0,0)]:
+            h.reset();h.species=6;h.party_count=count;h.c.mem_write(REQUEST+240,bytes([slot]))
+            h.start();h.check_type_uploads();h.preview('header-right-'+str(count));h.end()
         # Long ROM names retain all badges and the party cue. Type data may
         # be edited independently of the base species, including Fairy (17).
         h.reset();h.species=479;h.form=1;h.messages[90][479]='Extraordinarily Long Pokemon Species'
@@ -522,7 +595,7 @@ for game in ['W2','B2']:
         h.check_type_uploads();assert not h.type_uploads and h.reads==reads;h.end()
         h.reset();h.files['a/0/1/6']=b'bad';h.start();h.check_type_uploads();assert not h.type_uploads;h.end()
         h.reset();h.fail_alloc=True;h.start();h.check_type_uploads();assert not h.type_uploads;h.end()
-        reports[game]={'header':'passed','retainedInfoBytes':INFO_BYTES,'liveGameTest':False}
+        reports[game]={'header':'passed','infoStateBytes':INFO_BYTES,'graphNodeBytes':GRAPH_NODE_BYTES,'liveGameTest':False}
         print(game,'species-only header, native centered mono/dual type badges, edited/form/Fairy types, long names, native actor setters/VBlank dispatch, navigation, failure and cleanup passed',flush=True)
         continue
     if '--terminal-only' in sys.argv:
@@ -534,9 +607,9 @@ for game in ['W2','B2']:
                                            (149,'Dragonair','Level up to Lv. 55.','dragonite-incoming')]:
             h.reset();h.species=species;h.start();terminal(source,detail);h.preview(name)
             assert sum(h.reads.values())<100,h.reads
-            assert sum(h.allocations.values())==INFO_BYTES
+            assert sum(h.allocations.values())==h.retained_info_bytes()
             h.end()
-        print(game,'retail terminal-stage text, previews and unchanged retained memory passed',flush=True)
+        print(game,'retail terminal-stage text, previews and bounded retained memory passed',flush=True)
         # Not a fabricated historical record: use edited ROM requirements and
         # retain only the last matching slot, never a later sibling's method.
         h.reset();h.species=136;evo=ndspy.narc.NARC(h.files['a/0/1/9'])
@@ -597,8 +670,8 @@ for game in ['W2','B2']:
         terminal('Nidorina','Use Moon Stone.');h.navigate(False,(30,0))
         assert not any(t.startswith('From ') for t in footer());h.end()
         h.reset();h.fail_alloc=True;h.start();h.end()
-        reports[game]={'terminalRequirements':'passed','retainedInfoBytes':INFO_BYTES,'liveGameTest':False}
-        print(game,'terminal predecessor requirements: correct retail/edited/form edge, seven/eight-slot records, last matching method only, wrapping/A continuations, parent hints, no added retained memory, no paging I/O, read-only refresh and cleanup passed',flush=True)
+        reports[game]={'terminalRequirements':'passed','infoStateBytes':INFO_BYTES,'graphNodeBytes':GRAPH_NODE_BYTES,'liveGameTest':False}
+        print(game,'terminal predecessor requirements: correct retail/edited/form edge, seven/eight-slot records, last matching method only, wrapping/A continuations, parent hints, no paging I/O, read-only refresh and cleanup passed',flush=True)
         continue
     if '--navigation-only' in sys.argv:
         h.reset();h.species=30;h.start()
@@ -800,5 +873,5 @@ for game in ['W2','B2']:
     h.end() # Cache allocation failure safely falls back to uncached reads.
     reports[game]={'peakInstrumentedInfoHeapBytes':max(peaks),'openingIO':opening_io,'menuLifetimeUnchanged':True,'compiledInfoTests':'passed','liveGameTest':False}
     print(game,'compiled info: matching pale stats/inset, dark ability text and purple hidden abilities, selected-only frame/unclipped icons, party cue, charcoal footer/teal fin, ROM data, branching/paging, cycles, failure and cleanup passed',flush=True)
-report='info-header-verification.json' if '--header-only' in sys.argv else 'info-terminal-verification.json' if '--terminal-only' in sys.argv else 'info-navigation-verification.json' if '--navigation-only' in sys.argv else 'info-io.json' if '--io-only' in sys.argv else 'info-layout-verification.json' if '--layout-only' in sys.argv else 'info-verification.json'
+report='info-cache-verification.json' if '--cache-only' in sys.argv else 'info-header-verification.json' if '--header-only' in sys.argv else 'info-terminal-verification.json' if '--terminal-only' in sys.argv else 'info-navigation-verification.json' if '--navigation-only' in sys.argv else 'info-io.json' if '--io-only' in sys.argv else 'info-layout-verification.json' if '--layout-only' in sys.argv else 'info-verification.json'
 (HERE/'build'/report).write_text(json.dumps(reports,indent=2)+'\n')

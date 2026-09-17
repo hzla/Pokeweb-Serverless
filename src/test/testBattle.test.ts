@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getNarcFormats } from "../pokeweb/formats";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import {
+  bundleTestBattleSaveForQuickLaunch,
   getTestBattleConfig,
   getTestBattleConfigForProject,
   isTestBattleSaveAllBadgesSet,
@@ -167,6 +168,15 @@ describe("testBattle", () => {
     expect(readLe16(raw, 0x19586)).toBe(430);
     expect(readLe16(raw, 0x1958a)).toBe(1);
     expect(readLe16(raw, 0x1958e)).toBe(467);
+  });
+
+  it("keeps the bundled save unchanged for quick launch", () => {
+    const raw = rawSaveBytesFromDesmumeDsv(white2Save);
+    const original = raw.slice();
+    const bundled = bundleTestBattleSaveForQuickLaunch(raw);
+
+    expect(raw).toEqual(original);
+    expect(rawSaveBytesFromDesmumeDsv(bundled)).toEqual(original);
   });
 
   it("keeps move animations enabled in both halves of the bundled BW save", () => {

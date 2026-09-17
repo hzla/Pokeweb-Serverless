@@ -44,7 +44,10 @@ Original source for **MainMenuSkipB2/W2** and **DoubleBattleFixB2/W2** was not f
 
 ## Refresh and validation
 
-The latest scoped refresh updates LEARNSET to **1.4.1** (correct sub-BG palette addressing, no-fade read-only L/R family
+The latest scoped refresh updates LEARNSET to **1.4.5** (move-list click for
+evolution browsing, summary-page sound for party switching, session-owned
+graph/icon reuse for faster family browsing, right-aligned type
+header, terminal-stage predecessor requirements, correct sub-BG palette addressing, no-fade read-only L/R family
 navigation with virtual species learnsets/info, descendant-first branch browsing,
 A requirement pages, selected-only two-pose icon animation, native lower-screen
 font foreground/shadows and light fill, full-height right-panel left shading
