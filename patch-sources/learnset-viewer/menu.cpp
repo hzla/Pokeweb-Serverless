@@ -27,39 +27,22 @@ void reopen(void* work,int* seq) {
     at<u32>(work,4)=0; at<u32>(work,8)=0; at<u32>(work,12)=0; at<u32>(work,16)=4;
     *seq=11;
 }
-void buildList(Request* request) {
-    request->list={};
-    request->list.status=Status::Unavailable;
-    void* moveArc = native<void*(*)(u32,u32)>(0x204aa5d,0x204aa31)(21,4);
-    if (!moveArc) return;
-    auto count = native<u32(*)(void*)>(0x204adad,0x204ad81);
-    const u32 moveCount=count(moveArc);
-    native<void(*)(void*)>(0x204ab39,0x204ab0d)(moveArc);
-    const u32 species=pokemonGet(request->tutor.pokemon,5), form=pokemonGet(request->tutor.pokemon,0x6f);
-    const u32 personalId=native<u32(*)(u32,u32)>(0x20204ad,0x2020481)(species,form);
-    u32 arc[20]={};
-    native<void(*)(void*)>(0x2070ca9,0x2070c7d)(arc);
-    if (!native<u32(*)(void*,const char*)>(0x2070ecd,0x2070ea1)(arc,"a/0/1/8")) return;
-    const u32 fileSize=native<u32(*)(void*)>(0x2070ded,0x2070dc1)(arc);
-    u8 bytes[132];
-    const u32 size=readMember(fileSize,personalId,bytes,sizeof(bytes),[&](u32 offset,u8* data,u32 length) {
-        if (!native<u32(*)(void*,u32,u32)>(0x2070e55,0x2070e29)(arc,offset,0)) return false;
-        return native<int(*)(void*,void*,u32)>(0x2070e6d,0x2070e41)(arc,data,length)==int(length);
-    });
-    if (size) request->list=parse(bytes,size,moveCount);
-    native<u32(*)(void*)>(0x2070de1,0x2070db5)(arc);
-}
-bool launch(u32 slot) {
+bool launch(u32 slot,bool family=false) {
     const u32 count=partyCount(session->party);
     if(slot>=count || count>6)return false;
     void* pokemon=partyPokemon(session->party,slot);
     if(!viewable(pokemon))return false;
+    if(family) {
+        if(!session->nextView.identity.species)return false;
+        session->view=session->nextView;
+    } else session->view={{u16(pokemonGet(pokemon,5)),u16(pokemonGet(pokemon,0x6f))},{0,0}};
+    session->nextView={};
     // This runs only after the preceding app's native End has released its
     // windows, lists and heap. Never rewrite a request still used by a viewer.
     session->partySlot=slot;session->nextSlot=0xff;session->viewerStarted=0;
     session->tutor={pokemon,session->tutor.trainer,nullptr,session->tutor.gameSystem,
                     session->ids,0,0,0,0xfe,0,0};
-    buildList(session);
+    buildList(session,4);
     for(u32 i=0;i<MaxEntries+1;++i)session->ids[i]=End;
     for(u32 i=0;i<session->list.count;++i)session->ids[i]=session->list.entries[i].moveId;
     // A harmless native row keeps empty/error cursor allocations valid.
@@ -99,6 +82,9 @@ extern "C" u32 LearnsetDispatch(void* event,int* seq,void* work) {
     void* partyData=at<void*>(work,0x1c);
     const bool field=at<u32>(work,4)==0 && partyData && at<u32>(partyData,0x44)==0;
     if (*seq==13 && session && sessionOwner==work) {
+        if(!session->viewerStarted && session->nextSlot==BrowseFamily && launch(session->partySlot,true)) {
+            *seq=12;return 0;
+        }
         if(!session->viewerStarted && session->nextSlot!=0xff
             && session->nextSlot!=session->partySlot && launch(session->nextSlot)) {
             *seq=12;return 0;

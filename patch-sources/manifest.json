@@ -1283,22 +1283,22 @@
       "artifacts": [
         {
           "name": "LearnsetMenuB2.dll",
-          "sha256": "3cd219c1a78928c8bec99508bcd1961382742e1dacfca4eebb0625cf181e323e"
+          "sha256": "1ca914e041f773d448fb33b189850aaf3182afdcc99e0b2d8f10ea9bd346816b"
         },
         {
           "name": "LearnsetMenuW2.dll",
-          "sha256": "400b6eb21daccafb2bbe87aa2417c8f1ba0bb426b41f6742964df6434130b167"
+          "sha256": "e0fde62cf0de01817a16df017e1fcfe9922056503bd91cea9b567e497b3feeb1"
         },
         {
           "name": "LearnsetViewerB2.dll",
-          "sha256": "8bca1c9b977d5d61c0337732cdaf9ba4b97cbb9f1b2b79532e92c209dcc85f9d"
+          "sha256": "fb51c0eab856ed13ab79c38f235ed25e18c7b20615d09ed605d44d68822a9a3c"
         },
         {
           "name": "LearnsetViewerW2.dll",
-          "sha256": "ed1a3d63f8914526d7fce379330f37e7475a51e4ab9d6f7a02ecb7070aae8b12"
+          "sha256": "00ac7e945af70020617a2761c524613967b65c79c677b0bb356da59ea673941a"
         }
       ],
-      "note": "Version 1.2.3. PMC-only menu/field and overlay-258 viewer companions; includes flush sprite-card borders, lowered abilities, a dark evolution panel, the retail striped upper backdrop and aligned rows, D-pad party navigation, compact gold base stats, form ability names and hidden-ability colors, branch-responsive cycle-safe three-Pokemon evolution chains, buffered ROM reads, paged outgoing requirements, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
+      "note": "Version 1.4.3. PMC-only menu/field and overlay-258 viewer companions; includes correct sub-BG palette addressing and no-fade read-only L/R family navigation with virtual species learnsets/info, descendant-first branch browsing, A requirement pages, selected-only native two-pose icon animation, native lower-screen foreground/shadows and matching light upper panels, full-height right-panel left shading with unchanged ability row rules, purple hidden abilities, matching icon transparency, a dark teal selected-sprite frame with brighter title/fin accents unchanged, muted panel border, restored charcoal description body with a dark fin/top strip and no side/bottom borders, four-pixel slate-teal gutter, clipped stats panel, party-position header cue, retail title rails, D-pad party navigation, compact gold base stats, form ability names, cycle-safe three-Pokemon evolution chains, buffered ROM reads, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
       "status": "source-copied",
       "files": [
         {
@@ -1308,7 +1308,7 @@
             "path": "runtime/learnset-viewer/background.py"
           },
           "kind": "build-tool",
-          "sha256": "4c4263901a38b7b0b235c8c3d49739499c002e6d9810fe674b5e86f887ae7a06",
+          "sha256": "3129c009670dbcb8484eeb07c1203c62bda61f7bbf18cf60945c7c0bb6474fa6",
           "normalized": false
         },
         {
@@ -1318,7 +1318,7 @@
             "path": "runtime/learnset-viewer/build.py"
           },
           "kind": "build-tool",
-          "sha256": "027eb1d1aa1dbfbbe79c02acaf1e9c9193dc674928bf99f6a1ecedac6d222977",
+          "sha256": "4be5cfa1955920aa1c53b1e00e7bc83f3a820ffe0a18cff21503d1988e037832",
           "normalized": false
         },
         {
@@ -1338,7 +1338,7 @@
             "path": "runtime/learnset-viewer/info_logic.h"
           },
           "kind": "source",
-          "sha256": "0af76232a78e415ebdcb2d0b8f383a7587df2ca57ade68804724ce4d9b9020aa",
+          "sha256": "c704be03da85eaec26d9f5a8c7b1cbc11c0fca557af4456c9154b031a69d23e2",
           "normalized": false
         },
         {
@@ -1348,7 +1348,7 @@
             "path": "runtime/learnset-viewer/info_messages.json"
           },
           "kind": "metadata",
-          "sha256": "7fd470341c7c63a511c54ef3488c32af4bed2c02924ad320924a9fa6d6ce8e1e",
+          "sha256": "c8cc7562d0376ba86e034d6ddaa4efd2bb3b3c0802ab33276de72981b1331cd0",
           "normalized": false
         },
         {
@@ -1358,7 +1358,7 @@
             "path": "runtime/learnset-viewer/info.cpp"
           },
           "kind": "source",
-          "sha256": "56657436ad44b69f78c130397fff9cc59fe63dba59bc5462725e3599333d1c54",
+          "sha256": "611aca52048f0cc956e6ae60bc75112d642f2b3de8d8acdb48bac6473e68d7b0",
           "normalized": false
         },
         {
@@ -1368,7 +1368,7 @@
             "path": "runtime/learnset-viewer/info.h"
           },
           "kind": "source",
-          "sha256": "20ec6051a513985d06d5c08ca78993ccde9f6681adcbe8de2d9c24cdb1222a9d",
+          "sha256": "f9c9cbca27533a61c979e6dd9bdec55e01469fb776f046a15610285f5fdf0e2d",
           "normalized": false
         },
         {
@@ -1378,7 +1378,7 @@
             "path": "runtime/learnset-viewer/logic.h"
           },
           "kind": "source",
-          "sha256": "712c264d6a9210415dbff2d64afd02caff65d88c7f88b2fad27b4846f530d8ab",
+          "sha256": "a1ddbcbbeacd8dd49bb9556c4d58386634f42d1f0faa60cac1f75ca8daf3e78e",
           "normalized": false
         },
         {
@@ -1398,7 +1398,7 @@
             "path": "runtime/learnset-viewer/menu.cpp"
           },
           "kind": "source",
-          "sha256": "5c9516468e133d0fc1e251782d0567b20720f49c7a8f45447df7bede222d82fd",
+          "sha256": "c7cdd151f671d30e6fe7e4fe51ee5e191c49fc4c0a4e8113d50aa448b8eda8bf",
           "normalized": false
         },
         {
@@ -1418,7 +1418,7 @@
             "path": "runtime/learnset-viewer/README.md"
           },
           "kind": "documentation",
-          "sha256": "ae2d2b6682f49443324e8597e36d25cd63dfea02b77632435836bf673c5206a0",
+          "sha256": "39896ee9dc1a611afebb6dcb6511c4e051530049c25786fcff30195483237d08",
           "normalized": false
         },
         {
@@ -1438,7 +1438,7 @@
             "path": "runtime/learnset-viewer/runtime.h"
           },
           "kind": "source",
-          "sha256": "b11d69c9c14d50a6e0552f4cb3674595dafbe5cff16109f3897a0881d8330dd4",
+          "sha256": "577f2e4ef23ed50a7575f2f0bcc0baa1c2c4404ffc091d381cdbb71ba28fffb9",
           "normalized": false
         },
         {
@@ -1448,7 +1448,7 @@
             "path": "runtime/learnset-viewer/test_info.cpp"
           },
           "kind": "test",
-          "sha256": "066f3069ece36e681616d555b639b09fb2b8a2d71d2db9a433f24bbaae8d67f0",
+          "sha256": "95821d7ce3b097a35d0ff7cca6e426344f63d6b8f9ec62613198cec1e0877109",
           "normalized": false
         },
         {
@@ -1468,7 +1468,7 @@
             "path": "runtime/learnset-viewer/VALIDATION.md"
           },
           "kind": "documentation",
-          "sha256": "128340d97aac5517f70747b76a1498606a28759603ba56d3d50480e96e4f1148",
+          "sha256": "4ead77be79766aa8e601cacad78cd54554c32fb57f446301b16574bf36492d9f",
           "normalized": false
         },
         {
@@ -1498,7 +1498,7 @@
             "path": "runtime/learnset-viewer/verify_info.py"
           },
           "kind": "test",
-          "sha256": "b4d79e7a294c9c66820420ab2a44aad4395563da897891cf843825abf8eebe57",
+          "sha256": "5df4ddef27f6de624b893a6ae0d3e17d4e6e23504d103ce2b6570b8127f6058c",
           "normalized": false
         },
         {
@@ -1508,7 +1508,7 @@
             "path": "runtime/learnset-viewer/verify_runtime.py"
           },
           "kind": "test",
-          "sha256": "4589ebac1233671209a6ec45c4ce7a9acea8d9194d02deba8fc573f751bdb0c8",
+          "sha256": "107a3e5df208cb425c93007194a4b5244bfe9b9ae6383d75e3e92fdc5574d7fb",
           "normalized": false
         },
         {
@@ -1518,7 +1518,7 @@
             "path": "runtime/learnset-viewer/viewer.cpp"
           },
           "kind": "source",
-          "sha256": "7a24a2d6b07fe49a3ce51aa77f011c04c26ec29e0edcd874c6254781d19dab74",
+          "sha256": "ab1396f8bbc42dbdb2838dfa18fdee5cf8a6adb65f72446c55c45d686bcd9c44",
           "normalized": false
         },
         {
@@ -1528,7 +1528,7 @@
             "path": "src/assets/codeinjection/learnsetViewerManifest.json"
           },
           "kind": "metadata",
-          "sha256": "5625ca8c7eaff2f7edd35bb09c146b9488e89a563428fb5c7b4205f1a2b848b7",
+          "sha256": "a6f99a7b0827f6af8af99272206cfe30b88398c9cdf34e6adaff15a57b667da0",
           "normalized": false
         },
         {
@@ -1538,7 +1538,7 @@
             "path": "src/pokeweb/learnsetViewerModel.ts"
           },
           "kind": "support-only",
-          "sha256": "3a14b66aa9ed340289591e3bdef409a1fc616189bc81a199a6e5a6e4eabe2bfc",
+          "sha256": "18f04e002216a485275f34c0b61f5179ef6c13f79a5ca7130544dbaf236f54b6",
           "normalized": false
         },
         {
@@ -1548,7 +1548,7 @@
             "path": "src/test/learnsetViewerModel.test.ts"
           },
           "kind": "test",
-          "sha256": "361fd6b8b7ca68e4484f7c03d657968f0ea1aa879520111f9a2db19c3f863ad5",
+          "sha256": "64c47facbe7c2997ff53c86ee2095f6a1c0e6d668b168113bcd03b69c0156ea3",
           "normalized": false
         },
         {
@@ -1558,7 +1558,7 @@
             "path": "scripts/verify-learnset-viewer-install.ts"
           },
           "kind": "test",
-          "sha256": "57940dc2aac0c2fe1ef65dedab2d8747dc260da86075d4d3071041cf4b7f06bb",
+          "sha256": "e97bd320c4f5602b434520bf9ae23173ba3a49b1f98cea72399e968a3d3bb39c",
           "normalized": false
         }
       ]

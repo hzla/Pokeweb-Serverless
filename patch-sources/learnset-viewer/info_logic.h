@@ -61,6 +61,48 @@ inline Chain infoChain(const InfoNode* nodes,u32 count,u16 selected,u16 outgoing
     c.after=admissible(c.ids[c.count-1]==selected?next:nodes[c.ids[c.count-1]].next);
     return c;
 }
+struct FamilyStep { u16 target,parent; };
+inline u32 familyTargets(const InfoNode* nodes,u32 count,const Evolutions& e,u16* ids) {
+    if(!e.valid)return 0;
+    u32 n=0;
+    for(u32 i=0;i<e.count && i<8;++i) {
+        const u16 id=e.entries[i].target;
+        if(!id || id>=count || !nodes[id].valid)continue;
+        bool duplicate=false;
+        for(u32 j=0;j<n;++j)if(sameNode(nodes,id,ids[j]))duplicate=true;
+        if(!duplicate)ids[n++]=id;
+    }
+    return n;
+}
+// Forward visits the selected target's descendants before moving to its next
+// sibling. Backward visits previous siblings, then their source. No repeated
+// identity is followed inside a traversal; deliberate presses can browse cycles.
+template<class Read>
+inline FamilyStep familyStep(const InfoNode* nodes,u32 count,u16 selected,bool forward,Read read) {
+    if(!nodes || count>MaxPersonal || !selected || selected>=count || !nodes[selected].valid)return {};
+    u16 targets[8];
+    if(forward) {
+        const u32 n=familyTargets(nodes,count,read(selected),targets);
+        for(u32 i=0;i<n;++i)if(!sameNode(nodes,targets[i],selected))return {targets[i],selected};
+    }
+    u8 visited[MaxPersonal/8]={};
+    u16 current=selected;
+    for(u32 depth=0;depth<count;++depth) {
+        if(visited[current/8]&(1u<<(current&7)))break;
+        visited[current/8]|=1u<<(current&7);
+        const u16 parent=nodes[current].parent;
+        if(!parent || parent>=count || !nodes[parent].valid || sameNode(nodes,parent,current))break;
+        const u32 n=familyTargets(nodes,count,read(parent),targets);
+        u32 at=0;while(at<n && !sameNode(nodes,targets[at],current))++at;
+        if(!forward) {
+            if(at<n && at)return {targets[at-1],parent};
+            return {parent,nodes[parent].parent};
+        }
+        for(u32 i=at+1;i<n;++i)if(!sameNode(nodes,targets[i],selected))return {targets[i],parent};
+        current=parent;
+    }
+    return {};
+}
 inline u32 statBar(u32 value,u32 width=46) {
     u32 scaled=value*width+127,result=0;
     while(scaled>=255){scaled-=255;++result;}

@@ -9,7 +9,7 @@ import itertools
 import struct
 
 
-def pixel_color(files, member, x, y):
+def palette_index(files, member, x, y):
     palette, characters, screen = files[0], files[1], files[member]
     assert palette[:4] == b'RLCN' and characters[:4] == b'RGCN' and screen[:4] == b'RCSN'
     assert struct.unpack_from('<HH', screen, 24) == (256, 256)
@@ -21,7 +21,11 @@ def pixel_color(files, member, x, y):
         ty = 7 - ty
     packed = characters[48 + (entry & 1023) * 32 + ty * 4 + tx // 2]
     index = (packed >> ((tx & 1) * 4)) & 15
-    return struct.unpack_from('<H', palette, 40 + 2 * ((entry >> 12) * 16 + index))[0]
+    return (entry >> 12) * 16 + index
+
+
+def pixel_color(files, member, x, y):
+    return struct.unpack_from('<H', files[0], 40 + 2 * palette_index(files, member, x, y))[0]
 
 
 def profile(files):

@@ -229,6 +229,9 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
   if (gameId && gameId !== project.session.baseVersion) throw new Error(`This PMC binary is for ${gameId}, but the loaded ROM is ${project.session.baseVersion}.`);
 
   const overlayId = existingOverlayId ?? rom.arm9OverlayTable.length / 32;
+  if (project.session.baseRom === "BW2" && overlayId !== 344) {
+    throw new Error(`BW2 PMC requires overlay 344, but the selected overlay is ${overlayId}. The ROM may already contain an unrecognized PMC installation; refusing to add a second loader.`);
+  }
   if (bw1Version && overlayId !== BW1_PMC_LAYOUTS[bw1Version].overlayId) {
     throw new Error(`BW1 PMC requires overlay 237, but the next available overlay is ${overlayId}.`);
   }
@@ -345,11 +348,11 @@ export async function installBundledOverworldWeatherRuntime(project: ProjectStat
  * Restore missing serialized PMC state from the loaded ROM before a feature
  * considers installing Pokeweb's bundled runtime. Older CTRMap/PMC installs
  * commonly keep the overlay binary in an anonymous FAT slot referenced only
- * by the overlay table, so the marker and overlay row are authoritative; do
- * not replace that installation merely because it lacks Pokeweb's overlay
- * filename.
+ * by the overlay table. When the marker is absent, validate the executable's
+ * metadata and startup wrapper too; do not replace that installation merely
+ * because it lacks Pokeweb's marker or overlay filename.
  */
-function adoptExistingPmcInstall(project: ProjectState, romBytes: Uint8Array): boolean {
+export function adoptExistingPmcInstall(project: ProjectState, romBytes: Uint8Array): boolean {
   const detected = detectPmcInstallFromRom(new NintendoDSRom(romBytes));
   if (!detected?.pmc) return false;
 
@@ -691,12 +694,14 @@ export function validateCodeInjectionDll(bytes: Uint8Array): void {
 
 export function detectPmcInstallFromRom(rom: NintendoDSRom): NonNullable<ProjectState["codeInjection"]> | undefined {
   const modules = detectCodeInjectionDllsFromRom(rom);
-  const overlayId = parseOverlayIdBytes(getRomPathBytes(rom, PMC_OVERLAY_ID_PATH));
+  const markerId = parseOverlayIdBytes(getRomPathBytes(rom, PMC_OVERLAY_ID_PATH));
+  const external = markerId === undefined ? detectMarkerlessBw2Pmc(rom) : undefined;
+  const overlayId = markerId ?? external?.overlayId;
   if (overlayId === undefined) return modules.length > 0 ? { modules } : undefined;
   const entry = findOverlayEntry(rom.arm9OverlayTable, overlayId);
   const symbolBytes = getRomPathBytes(rom, PMC_SYMBOL_PATH);
-  let version: string | undefined;
-  let gameId: string | undefined;
+  let version: string | undefined = external?.version;
+  let gameId: string | undefined = external?.gameId;
   if (symbolBytes) {
     try {
       const rpm = parseRpm(symbolBytes);
@@ -717,6 +722,54 @@ export function detectPmcInstallFromRom(rom: NintendoDSRom): NonNullable<Project
     },
     modules: modules.length > 0 ? modules : undefined,
   };
+}
+
+/** Recognize the active CTRMap-style loader, not just a DLL directory or RPM
+ * signature. Preserve its anonymous FAT file and original overlay reservation.
+ * A markerless ROM must have matching metadata, relocation base, overlay row,
+ * and a startup wrapper that both loads and calls that same overlay. */
+function detectMarkerlessBw2Pmc(rom: NintendoDSRom): { overlayId: number; version: string; gameId: string } | undefined {
+  const gameId = rom.idCode === "IRDO" ? "W2" : rom.idCode === "IREO" ? "B2" : undefined;
+  if (!gameId) return undefined;
+  const overlayId = 344;
+  const row = findOverlayEntry(rom.arm9OverlayTable, overlayId);
+  if (row === undefined) return undefined;
+  const base = readU32(rom.arm9OverlayTable, row + 4);
+  const size = readU32(rom.arm9OverlayTable, row + 8);
+  const bytes = rom.files[readU32(rom.arm9OverlayTable, row + 24)];
+  if (!bytes || size < 0x20 || size > PMC_OVERLAY_RESERVED_SIZE || bytes.length !== size
+    || (readU32(rom.arm9OverlayTable, row + 28) & 0x01000000) !== 0
+    || readU32(rom.arm9OverlayTable, row + 16) !== base
+    || readU32(rom.arm9OverlayTable, row + 20) !== base) return undefined;
+  try {
+    const rpm = parseRpm(bytes);
+    const version = stringMeta(rpm, "PMCVersion");
+    if (!version || stringMeta(rpm, "PMCGameID") !== gameId
+      || stringMeta(rpm, "SymbolFile") !== "RPMSYM-PMC.rpm" || rpm.baseAddress !== base) return undefined;
+    const arm9 = decompressCode(rom.arm9);
+    const offset = 0x0200400c - rom.arm9RamAddress;
+    if (offset < 0 || offset + 24 > arm9.length) return undefined;
+    if (readU16(arm9, offset) !== 0xb500 || readU16(arm9, offset + 6) !== 0x2000
+      || readU16(arm9, offset + 8) !== 0x4902 || readU16(arm9, offset + 18) !== 0xbd00
+      || readU32(arm9, offset + 20) !== overlayId) return undefined;
+    const branchTarget = (address: number): number | undefined => {
+      const at = address - rom.arm9RamAddress;
+      if (at < 0 || at + 4 > arm9.length) return undefined;
+      const high = readU16(arm9, at), low = readU16(arm9, at + 2);
+      if ((high & 0xf800) !== 0xf000 || (low & 0xf800) !== 0xf800) return undefined;
+      const displacement = (((high & 0x7ff) << 12 | (low & 0x7ff) << 1) << 9) >> 9;
+      return address + 4 + displacement;
+    };
+    // US W2/B2 main -> wrapper -> GFLAppInit -> sys_load_overlay -> PMC.
+    // A dormant wrapper or a load call to another routine is not sufficient.
+    if (branchTarget(0x0200512a) !== 0x0200400c || branchTarget(0x0200400e) !== 0x020054b8
+      || branchTarget(0x02004016) !== (gameId === "W2" ? 0x020712dc : 0x020712b0)) return undefined;
+    const target = branchTarget(0x0200401a);
+    if (target === undefined || target < base + 0x20 || target >= base + 0x20 + rpm.code.length) return undefined;
+    return { overlayId, version, gameId };
+  } catch {
+    return undefined;
+  }
 }
 
 export type LegacyPmcRomStructureRepair = {
@@ -1082,7 +1135,7 @@ function romFolderHasFiles(root: Folder, path: string): boolean {
 }
 
 function readPmcOverlayId(project: ProjectState, rom: NintendoDSRom): number | undefined {
-  return project.codeInjection?.pmc?.overlayId ?? parseOverlayIdBytes(project.fileSystem?.additions?.[PMC_OVERLAY_ID_PATH]) ?? parseOverlayIdBytes(getRomPathBytes(rom, PMC_OVERLAY_ID_PATH));
+  return project.codeInjection?.pmc?.overlayId ?? parseOverlayIdBytes(project.fileSystem?.additions?.[PMC_OVERLAY_ID_PATH]) ?? parseOverlayIdBytes(getRomPathBytes(rom, PMC_OVERLAY_ID_PATH)) ?? detectMarkerlessBw2Pmc(rom)?.overlayId;
 }
 
 function parseOverlayIdBytes(bytes: Uint8Array | undefined): number | undefined {

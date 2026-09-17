@@ -19,7 +19,7 @@ export type RomSaveOptions = {
   files?: Map<number, Uint8Array>;
   insertedFiles?: Array<{ fileId: number; path?: string; bytes: Uint8Array }>;
   addedFiles?: Array<{ path: string; bytes: Uint8Array }>;
-  /** File IDs to place first in the NitroFS data region without changing their IDs. */
+  /** File IDs to place first; other files retain their incoming physical order. IDs never change. */
   priorityFileIds?: number[];
   alignFntFirstFileToArm9OverlayCount?: boolean;
   minimumLength?: number;
@@ -95,6 +95,14 @@ export class NintendoDSRom {
 
   save(options: RomSaveOptions = {}): Uint8Array {
     const files = this.files.map((file, id) => options.files?.get(id) ?? file);
+    // A second rebuild (Test Warp/Battle, for example) must not undo a prior
+    // export's early PMC placement by writing everything in logical ID order.
+    // Keep ranks paired with file bytes as insertions shift their logical IDs.
+    const sourceFatOffset = readU32(this.data, 0x48);
+    const sourceFileCount = Math.floor(readU32(this.data, 0x4c) / 8);
+    const placementRanks = files.map((_file, id) => id < sourceFileCount
+      ? readU32(this.data, sourceFatOffset + id * 8)
+      : Number.MAX_SAFE_INTEGER);
     const arm9OverlayTableBytes = options.arm9OverlayTable ?? this.arm9OverlayTable;
     let filenames = options.filenames ?? this.filenames;
     let fntData = this.fntData;
@@ -104,6 +112,7 @@ export class NintendoDSRom {
         if (!Number.isInteger(file.fileId) || file.fileId < 0 || file.fileId > files.length) throw new Error(`Invalid inserted file ID: ${file.fileId}`);
         filenames = shiftFileIdsAtOrAfter(filenames, file.fileId, 1);
         files.splice(file.fileId, 0, file.bytes);
+        placementRanks.splice(file.fileId, 0, Number.MAX_SAFE_INTEGER);
         if (file.path) filenames = addFilePath(filenames, file.path, file.fileId);
       }
       shouldRewriteFnt = true;
@@ -126,6 +135,7 @@ export class NintendoDSRom {
       for (const file of options.addedFiles) {
         filenames = addFilePath(filenames, file.path, files.length);
         files.push(file.bytes);
+        placementRanks.push(Number.MAX_SAFE_INTEGER);
       }
       shouldRewriteFnt = true;
     }
@@ -169,7 +179,8 @@ export class NintendoDSRom {
     const prioritySet = new Set(priorityFileIds);
     const physicalFileOrder = [
       ...priorityFileIds,
-      ...files.map((_file, id) => id).filter((id) => !prioritySet.has(id)),
+      ...files.map((_file, id) => id).filter((id) => !prioritySet.has(id))
+        .sort((a, b) => placementRanks[a] - placementRanks[b] || a - b),
     ];
     physicalFileOrder.forEach((id) => {
       const file = files[id];

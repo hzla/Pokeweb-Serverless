@@ -275,7 +275,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-panel__header">
             <div>
               <h2>Learnset Viewer</h2>
-              <p>Adds a standalone LEARNSET party command. D-pad Right/Left switches party Pokémon, skipping Eggs; L/R pages evolution requirements. Browse current-form base stats, abilities, and a cycle-safe evolution chain. Hidden abilities are purple. The lower screen lists all level-up moves with levels and base max PP. Read-only: no teaching or KO moves; RELEARN is unchanged.</p>
+              <p>Adds a standalone LEARNSET party command. D-pad Right/Left switches party Pokémon, skipping Eggs; L/R browses the evolution family and loads the highlighted species' info and learnset. Only its icon animates. A pages evolution requirements; final evolutions also show their predecessor's requirements. Hidden abilities are purple. The lower screen lists all level-up moves with levels and base max PP. Read-only: browsing never evolves Pokémon or teaches moves; no KO moves, and RELEARN is unchanged.</p>
             </div>
             <span class="code-injection-status ${learnsetStatus.installed && !learnsetStatus.updateAvailable ? "-installed" : learnsetStatus.compatible ? "" : "-error"}">
               ${learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : "Unsupported / Incompatible"}

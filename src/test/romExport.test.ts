@@ -97,6 +97,36 @@ describe("ROM export", () => {
     expect([...parsed.getFileByName("lib/Patch.dll")]).toEqual([0xaa, 0xbb]);
   });
 
+  it("keeps an early startup file early through repeated launch-time rebuilds", () => {
+    const source = makeRom([Uint8Array.of(1), Uint8Array.of(2), Uint8Array.of(3)]);
+    let bytes = new NintendoDSRom(source).save({ priorityFileIds: [2] });
+    const original = bytes.slice();
+    for (let pass = 0; pass < 3; pass += 1) {
+      bytes = new NintendoDSRom(bytes).save({ files: new Map([[1, new Uint8Array(0x300 + pass).fill(9)]]), preserveOriginalLength: true });
+      const rom = new NintendoDSRom(bytes);
+      expect(physicalFileOrder(bytes)).toEqual([2, 0, 1]);
+      expect(rom.fileId("file_2")).toBe(2);
+      expect([...rom.files[2]]).toEqual([3]);
+      expect(rom.arm9).toEqual(new NintendoDSRom(original).arm9);
+    }
+  });
+
+  it("tracks incoming placement through inserted/appended files and lets explicit priorities override it", () => {
+    const source = new NintendoDSRom(makeRom([Uint8Array.of(1), Uint8Array.of(2), Uint8Array.of(3)], []))
+      .save({ priorityFileIds: [2] });
+    const edited = new NintendoDSRom(source).save({
+      insertedFiles: [{ fileId: 1, bytes: Uint8Array.of(4) }],
+      addedFiles: [{ path: "extra.bin", bytes: Uint8Array.of(5) }],
+    });
+    expect(physicalFileOrder(edited)).toEqual([3, 0, 2, 1, 4]);
+    const rom = new NintendoDSRom(edited);
+    expect(rom.files.map((file) => [...file])).toEqual([[1], [4], [2], [3], [5]]);
+    expect(rom.fileId("extra.bin")).toBe(4);
+    const reprioritized = rom.save({ priorityFileIds: [4, 1, 4] });
+    expect(physicalFileOrder(reprioritized)).toEqual([4, 1, 3, 0, 2]);
+    expect(physicalFileOrder(new NintendoDSRom(reprioritized).save())).toEqual([4, 1, 3, 0, 2]);
+  });
+
   it("exports a stale addition to an existing path as a replacement without shifting IDs", async () => {
     const source = new NintendoDSRom(makeRom([Uint8Array.of(7)])).save({ addedFiles: [
       { path: "patches/Test.dll", bytes: Uint8Array.of(1) },
@@ -398,6 +428,12 @@ describe("ROM export", () => {
     expect(readU32(exportedRom.arm9, 0xfb0 + 0x14)).toBe(0);
   });
 });
+
+function physicalFileOrder(bytes: Uint8Array): number[] {
+  const fat = readU32(bytes, 0x48);
+  return Array.from({ length: readU32(bytes, 0x4c) / 8 }, (_, id) => id)
+    .sort((a, b) => readU32(bytes, fat + a * 8) - readU32(bytes, fat + b * 8) || a - b);
+}
 
 function makeProject(originalRomBytes: Uint8Array): ProjectState {
   return {

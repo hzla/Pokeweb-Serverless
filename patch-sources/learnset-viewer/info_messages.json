@@ -1,5 +1,5 @@
 [
-  ["Title", "{0}'S INFO"],
+  ["Title", "{0}"],
   ["HP", "HP"],
   ["Attack", "Atk"],
   ["Defense", "Def"],
@@ -43,5 +43,6 @@
   ["Method30", "Be brought to at least {0} battles."],
   ["Method31", "Participate in at least {0} battles."],
   ["AbilitiesUnavailable", "Abilities unavailable."],
-  ["NoAbilities", "No abilities."]
+  ["NoAbilities", "No abilities."],
+  ["FromPredecessor", "From {0}: {1}"]
 ]
