@@ -19,6 +19,10 @@ void draw(void* work,u32 window,int x,int y,void* text,u32 color) {
 }
 void visible(void* sprite,bool enabled) { native<void(*)(void*,u32)>(0x204c151,0x204c125)(sprite,enabled); }
 void freeList(void* lines) {native<void(*)(void*)>(0x2024fd9,0x2024fad)(lines);}
+constexpr u32 MoveListSound=1356,SummaryPageSound=1637;
+void navigationSound(u32 sound) {
+    native<void(*)(u32)>(0x2006255,0x2006255)(sound);
+}
 bool refreshFamily(void* work) {
     Request next=*active;
     next.view=next.nextView;next.nextView={};next.nextSlot=0xff;
@@ -92,10 +96,11 @@ extern "C" u32 LearnsetViewerMain(void* proc,int* seq,void* data,void* work) {
                     [&](u32 i){return viewable(partyPokemon(active->party,i));});
                 if(slot==active->partySlot)return 0;
                 active->nextSlot=slot;
+                navigationSound(SummaryPageSound);
                 *seq=8; // Native fade, native End, then field-owned relaunch.
             } else if(!(keys&3) && ((keys&0x300)==0x100 || (keys&0x300)==0x200)
                 && infoNavigate(work,active,(keys&0x100)!=0)) {
-                refreshFamily(work); // No fade, app restart or overlay reload.
+                if(refreshFamily(work))navigationSound(MoveListSound); // Successful changes only.
                 return 0;
             } else infoInput(work);
         }

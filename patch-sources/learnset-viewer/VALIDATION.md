@@ -1,10 +1,142 @@
-# LEARNSET 1.4.3 validation
+# LEARNSET 1.4.5 validation
 
-Release checks performed on 2026-09-16. These are automated host tests,
+Release checks performed on 2026-09-17. These are automated host tests,
 isolated compiled-Thumb tests, ROM inspection, and export/reload checks.
 **A complete live-game session has not been verified for this release.**
 
+## 1.4.5 separate navigation sounds
+
+L/R evolution browsing now uses system SE 1356 (`0x54c`), matching the tutor's
+native move-list row/scroll callback. D-pad party switching uses SE 1637
+(`0x665`), matching Left/Right page changes within a single Pokemon's summary.
+Neither action uses the previous release's Pokemon-switch sound 1636.
+The shared native sound entry remains Thumb `0x02006255` in both US games.
+
+Verified separately in W2/B2: the tutor row callback loads 1356 at
+`0x0219b4bc/0x0219b47c` from `0x0219b5b4/0x0219b574`; its scroll path uses
+the same literal. Summary Right/Left paths load 1637 at
+`0x021b4108/0x021b40c8` and `0x021b4136/0x021b40f6`, respectively, from
+`0x021b4210/0x021b41d0`. Build-time byte checks pin those paths and literals.
+These are verification references, not additional hooks or overlay dependencies.
+
+Only successful navigation plays one effect. Failed/no-op selections and
+repeated input during the native party fade stay silent. Ordinary tutors and
+the lower move-list sound are unchanged. No hook, ABI, private-message, layout,
+cache or allocation changes; both companion versions advance together.
+
+Both stripped viewer DLLs are 18,704 bytes (18,720 expanded; 15,236 code;
+BSS 8): +16 file/expanded bytes and +4 code bytes from 1.4.4. Menu DLLs
+remain 3,328 bytes and change only their paired version metadata.
+Compiled W2/B2 wrapper tests assert the two distinct IDs, exactly-once playback
+and silent failure/no-op paths. All 86 focused installer/PMC/export tests,
+production build, source-snapshot consistency and privacy checks pass.
+Updating both 1.4.4 test ROMs passes installation, idempotence, private-message
+preservation and export/reload. Both 1.4.5 test ROMs pass 900-frame startup
+smoke checks with matching battery saves. Audible output still needs in-game
+verification; the unchanged info/cache/header suites were not rerun for this
+sound-only change.
+
+Test ROMs in the outer Repos directory:
+
+- `White2Upgrade-LEARNSET-1.4.5-test.nds`
+- `Black2Upgrade-LEARNSET-1.4.5-test.nds`
+
+Manual check: compare L/R evolution browsing to moving up/down through the
+lower learnset list. Compare D-pad party changes to Left/Right summary pages
+of one Pokemon. Check both directions, quiet endpoints and repeated switching.
+Start from battery save, not a state containing the previous DLLs.
+
+## 1.4.4 navigation sound and session cache
+
+Successful L/R evolution selections and D-pad party changes use system SE 1636
+(`0x664`), the Pokemon-change sound verified independently in both US summary
+overlays. This is not the separate summary-tab sound 1637. The shared native
+Thumb entry point is `0x02006255` in both games. Build-time checks cover the
+summary's two Pokemon-switch call paths and sound literals, plus the native
+sound wrapper bytes. Overlay 207 is evidence only: no new hook, load or runtime
+dependency is introduced. Compiled wrapper tests assert exactly one click per
+successful selection and none for endpoints, conflicting input, failed refreshes,
+repeat input during a party fade or a party with no other eligible member.
+
+Type badges now form a right-aligned group ending eight native pixels before
+the measured party indicator, independent of species-name length. Dual badges
+retain their two-pixel gap, Y=12 centers and native artwork. Names reserve at
+least four pixels before the group and truncate with the native font metrics.
+With no valid party cue the group ends at X=248. No lower-screen change.
+
+The viewer retains the bounded 10-byte-per-record species/form graph until
+application teardown. Personal/form resolution and all evolution edges are
+scanned only once per session, not once per L/R press. The existing three icon
+buffers survive refresh and reload only when the displayed identity/gender
+changes. Four small evolution records are memoized within each load to avoid
+duplicate parent/sibling reads. The current stage's navigation-parent override
+is restored before returning, so it cannot corrupt later cached traversals.
+ROM file/message handles and whole-archive buffers remain temporary; only the
+compact graph and existing icon buffers persist. D-pad switching still closes
+and relaunches the application, so its native fade is unchanged.
+
+For a compiled W2 Nidorina-to-Nidoqueen info refresh, 1.4.3 performed 95 reads
+covering 178,246 bytes. The equivalent warm 1.4.4 refresh performs 28 reads
+covering 414 bytes: 12 message-archive reads, six personal reads, ten evolution
+reads and no icon reads. This is about 71% fewer calls and 99.8% fewer bytes.
+These are instrumented info-panel filesystem boundaries, not total game I/O or
+wall-clock speed: lower learnset/list work, native graphics/audio and physical
+storage behavior are not included. No claim of a measured live frame-time
+improvement is made.
+
+Info state is 10,392 bytes, up 12. A retail 710-record graph adds 7,100 retained
+bytes during the viewer, for 17,492 total; the graph's hard 4,096-record bound
+caps it at 40,960 bytes. The graph was already allocated temporarily during old
+refreshes, so the measured Nidoran info-heap peak changes by only 12 bytes,
+22,674 to 22,686. The state and graph are released before viewer unload, and
+reopening rebuilds them from the loaded ROM. Nothing new is retained in battle.
+
+Both viewer DLLs are 18,688 bytes (18,704 expanded; 15,232 code; BSS 8), up
+336 file/expanded bytes and 360 code bytes from 1.4.3. Menu DLLs remain 3,328
+bytes (3,344 expanded; 2,292 code; BSS 8), with paired version metadata only.
+Existing hooks, private messages, resource indexes and request ABI are unchanged.
+
+The 84 focused installer/PMC/export tests, host logic tests, compiled wrappers
+and divider-graphics checks pass. Real-ROM checks cover original White2Upgrade,
+updating the B2 1.4.3 test ROM, clean W2 with enhanced menu first, and clean B2
+with enhanced menu last. Installation is idempotent; export/reload preserves
+the existing PMC loader and shared tutor text/graphics. Both 1.4.4 companions
+are bundled, and configured 1.4.2/1.4.3 pairs are detected as needing an update.
+The production build and privacy check pass; both exported test ROMs pass
+900-frame startup smoke checks with matching bundled battery saves. This does
+not verify audible output, perceived navigation latency or interactive play.
+
+Compiled `--cache-only` checks pass in W2/B2: repeated warm selections reuse
+the same allocations and unchanged icons, edited ROM data is read on reopening,
+navigation hints do not leak, cycles and form targets resolve, failed allocations
+and archive reads recover, and teardown releases every tracked allocation.
+The full compiled info-data suite also passes. Updated `--header-only` checks
+verify the fixed right edge, single/dual types, one/multiple/no party cue,
+long names, form/edited types, native VBlank dispatch and cleanup in both games.
+Native-font/icon header previews were generated and visually inspected.
+Final `--navigation-only` and `--terminal-only` regressions also pass on both
+games, including sibling/descendant traversal, selected-only animation, last
+incoming method selection, continuation paging and read-only cleanup.
+
+Test ROMs in the outer Repos directory:
+
+- `White2Upgrade-LEARNSET-1.4.4-test.nds`
+- `Black2Upgrade-LEARNSET-1.4.4-test.nds`
+
+Manual checklist: start from battery save, not a state containing old loaded
+DLLs. Compare the summary's Pokemon-switch click with LEARNSET L/R and D-pad
+switches; verify one click per successful change and quiet endpoints. Browse
+Nidoran's family and Eevee's siblings repeatedly, check long/cyclic hacked
+families and forms, then close/reopen and change party slots. Confirm the
+selected icon, stats/types/abilities, requirements and lower learnset stay in
+sync, only the selected icon animates, ordinary RELEARN is unchanged and no
+Pokemon data changes. Check that single/dual type badges stay the same distance
+before the party cue for short/long names. Judge responsiveness in-game; party
+fades are expected.
+
 ## 1.4.3 species/type header
+
+The following records the previous release's checks from 2026-09-16.
 
 The header now contains the uppercase ROM species name and its current-form
 type badges instead of the possessive INFO suffix. Native font measurement
@@ -456,7 +588,9 @@ of this installer fix.
 
 ## Memory and lifetime
 
-This table records the 1.4.1 baseline; the 1.4.2 delta is recorded above.
+This section records the historical 1.4.1 baseline; later release deltas are
+recorded above. In particular, 1.4.4 retains the graph until session teardown
+instead of freeing it after every refresh as described in this older baseline.
 Sizes are bytes from the stripped RPMs; W2 and B2 have the same sizes.
 
 | Companion | File | Expanded | Post-fix | Code | BSS |
