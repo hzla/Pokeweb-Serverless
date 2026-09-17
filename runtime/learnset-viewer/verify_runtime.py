@@ -197,7 +197,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         w32(seq,13);w32(partydata+0x50,0x4c535631);w32(partydata+0x4c,2)
         call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(seq)==12
         bridge,request=queue[-1];w32(viewerwork,request)
-        assert u16(request+32)==2 and u16(request+34)==244
+        assert u16(request+32)==3 and u16(request+34)==260
         assert uc.mem_read(request+240,2)==b'\x02\xff'
         saved=bytes(uc.mem_read(0x2220000,220))
         assert call(u32(bridge),[0x2243000,seq,request,viewerwork])==1
@@ -302,6 +302,80 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     switch(0x20,3,0,1)
     switch(0x20,1,1,0)
     for i in range(3):switch(0x20,0,1,0);switch(0x10,1,1,0)
+    # The graph choice is ROM-tested in verify_info.py. Here execute the full
+    # in-place refresh, retaining app/window/cursor ownership with no seq=8.
+    nav_address=symbols['Viewer:_Z12infoNavigatePvP7Requestb']&~1
+    nav_target=[(5,1)];fail=[None];new_lists=set();refreshes=[];message_calls=[0]
+    def choose_family():
+        assert r(0)==viewerwork and r(1)==request
+        uc.mem_write(request+252,struct.pack('<4H',*nav_target[0],2,0))
+        uc.mem_write(request+241,b'\xfe');ret(1)
+    def new_list(count):
+        p=allocate((count+1)*8);uc.mem_write(p,bytes((count+1)*8))
+        w32(p+count*8,0xffffffff);w32(p+count*8+4,79);new_lists.add(p);return p
+    def delete_list(p):
+        assert p in new_lists and p not in freed
+        for i in range(33):
+            text=u32(p+8*i)
+            if text in (0,0xffffffff):break
+            assert text not in freed;freed.append(text)
+        else:assert False,'Missing native list terminator'
+        new_lists.remove(p);freed.append(p)
+    def list_create():
+        assert r(1)==79 and 1<=r(0)<=32
+        ret(0 if fail[0]=='list' else new_list(r(0)))
+    def message_open():
+        assert r(2)==403 and r(3)==79
+        message_calls[0]=0;ret(0 if fail[0]=='bank' else allocate(16))
+    def move_message():
+        message_calls[0]+=1
+        if fail[0]==message_calls[0]:ret(0);return
+        p=allocate(64);strings[p]='Move '+str(r(1))
+        uc.mem_write(p,strings[p].encode('utf-16le')+b'\xff\xff');ret(p)
+    stubs[nav_address]=choose_family
+    stubs[0x2024f8c-delta]=list_create
+    stubs[0x2024fd8-delta]=lambda:(delete_list(r(0)),ret())
+    stubs[0x2048788-delta]=message_open
+    stubs[0x2048800-delta]=lambda:(freed.append(r(0)),ret())
+    stubs[0x20489b8-delta]=move_message
+    stubs[0x2048590-delta]=lambda:(freed.append(r(0)),ret())
+    stubs[0x202ba90-delta]=lambda:(logs.append(('cursor',r(0),r(1))),ret())
+    reload_address=symbols['Viewer:_Z10infoReloadPvP7Request']&~1
+    stubs[reload_address]=lambda:(refreshes.append(struct.unpack('<2H',uc.mem_read(request+244,4))),ret())
+    for address,label in [(0x219a8ec,'redraw'),(0x219b77c,'scroll-controls'),(0x219b858,'scroll-arrows'),(0x219b2f4,'selection')]:
+        stubs[address-ovdelta]=lambda label=label:(logs.append(label),ret())
+    stubs[0x219a9d8-ovdelta]=lambda:(logs.append(('details',r(1))),ret())
+    initial_list=new_list(1);w32(viewerwork+0x58,initial_list)
+    w32(viewerwork+0x1c8,0x2257000)
+    for key,identity,count,status in [(0x100,(5,1),2,0),(0x200,(1,0),1,0),(0x100,(4,0),0,1),(0x100,(5,0),0,2),(0x200,(5,1),2,0)]*3:
+        nav_target[0]=identity;keys[0]=key;w32(seq,1);before=len(queue)
+        old=u32(viewerwork+0x58);uc.mem_write(request+20,struct.pack('<HHB',3,12,1))
+        call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
+        assert u32(seq)==1 and len(queue)==before and u32(active)==request
+        assert uc.mem_read(request+234,1)==b'\x01'
+        assert u32(request)==mon(1) and uc.mem_read(request+240,2)==b'\x01\xff'
+        assert struct.unpack('<2H',uc.mem_read(request+244,4))==identity
+        assert not any(uc.mem_read(request+252,8)) and u16(request+164)==count and u16(request+166)==status
+        assert not any(uc.mem_read(request+20,5)) and u32(request+16)==request+168
+        assert uc.mem_read(viewerwork+0x1b8,1)[0]==max(count,1)
+        assert old in freed and new_lists=={u32(viewerwork+0x58)}
+        assert refreshes[-1]==identity and ('details',u16(request+168) if count else 0xfffffffe) in logs
+        assert logs[-1]==('visible',u32(viewerwork+0x10c),int(bool(count)))
+        assert bytes(uc.mem_read(mon(0),6*256))==saved
+    # Failed refreshes leave the old selection, moves, list and display intact.
+    nav_target[0]=(5,1)
+    for failure in ['list','bank',1,2]:
+        fail[0]=failure;before=bytes(uc.mem_read(request,260));old=u32(viewerwork+0x58)
+        count=len(refreshes);call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
+        assert bytes(uc.mem_read(request,260))==before and u32(viewerwork+0x58)==old
+        assert len(refreshes)==count and new_lists=={old} and u32(seq)==1
+    fail[0]=None
+    # Native End owns the current list, including one created by a refresh.
+    stubs[0x2199a50-ovdelta]=lambda:((delete_list(u32(viewerwork+0x58)) if u32(viewerwork+0x58) in new_lists else None),ret(1))
+    del stubs[nav_address]
+    switch(0x10,3,0,1) # Party navigation discards the family selection.
+    assert struct.unpack('<4H',uc.mem_read(request+244,8))==(4,0,0,0)
+    switch(0x20,1,1,0)
     # L/R and B do not request a party transition; simultaneous Left+Right
     # does nothing, and one non-Egg Pokemon never closes/reopens the viewer.
     for key in [0x100,0x200,0x30,0x12]:
@@ -316,12 +390,13 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert freed.count(request)==1 and u32(seq)==11
     call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(partydata+0x4c)==1
     assert bytes(uc.mem_read(mon(0),6*256))==saved
-    # Old/mixed request ABI is rejected before retail initialization.
-    legacy=allocate(236);uc.mem_write(legacy,bytes(uc.mem_read(request,236)))
-    uc.mem_write(legacy+25,b'\xfe');uc.mem_write(legacy+32,struct.pack('<HH',1,236));w32(legacy+28,0x3156534c)
-    assert call('Viewer:LearnsetViewerInit',[0x2243000,seq,legacy,viewerwork])==1 and u32(active)==0
+    # Both old/mixed request ABIs are rejected before reading the new suffix.
+    for version,size in [(1,236),(2,244)]:
+        legacy=allocate(size);uc.mem_write(legacy,bytes(uc.mem_read(request,size)))
+        uc.mem_write(legacy+25,b'\xfe');uc.mem_write(legacy+32,struct.pack('<HH',version,size));w32(legacy+28,0x3156534c)
+        assert call('Viewer:LearnsetViewerInit',[0x2243000,seq,legacy,viewerwork])==1 and u32(active)==0
     assert call('Viewer:LearnsetConfirm',[viewerwork])==2
     call('Viewer:LearnsetDrawLine',[viewerwork,0,0]);assert logs[-1]=='native-row'
     call('Viewer:LearnsetFixedText',[viewerwork]);assert logs[-1]=='native-fixed-text'
     call('Viewer:LearnsetScreen',[0x2230000,2,7,24,2048,0,79]);assert logs[-1]==('native-screen',0x2230000,2,7,24,2048,0,79)
-    print(game, 'compiled wrappers: capacity, selection, trampolines, lifetime, read-only guard, rows/PP/scroll, private divider, missing companion, party Left/Right/wrap/Egg/empty/form navigation and ABI rejection, repeated sessions passed')
+    print(game, 'compiled wrappers: capacity, selection, trampolines, lifetime, read-only guard, rows/PP/scroll, private divider, missing companion, party Left/Right/wrap/Egg/empty/form navigation and ABI rejection, no-fade family refresh/rollback/native list ownership, repeated sessions passed')

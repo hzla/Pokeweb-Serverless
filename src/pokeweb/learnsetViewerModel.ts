@@ -7,12 +7,12 @@ import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
-import { canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
+import { adoptExistingPmcInstall, canRemoveStagedCodeInjectionDll, getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, removeStagedCodeInjectionDll, stageCodeInjectionDll } from "./pmcModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 
-export const LEARNSET_VIEWER_VERSION = "1.2.3";
+export const LEARNSET_VIEWER_VERSION = "1.4.3";
 export const LEARNSET_INFO_MESSAGES = infoMessages;
 const URLS = {
   W2: [new URL("../assets/codeinjection/LearnsetMenuW2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerW2.dll", import.meta.url)],
@@ -119,6 +119,9 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
   status.installed = installed.length === 2;
   status.partial = installed.length === 1;
   status.canUninstall = installed.length > 0 && installed.every(m => canRemoveStagedCodeInjectionDll(project, m.path));
+  const pmc = getPmcInstallStatus(project);
+  if (pmc.installed && pmc.overlayId !== 344) return { ...status,
+    message: "Unsupported PMC loader placement. Reload the original ROM and reinstall Learnset Viewer; updating the DLLs cannot repair this previously exported loader." };
   for (const module of listCodeInjectionDlls(project)) {
     if (module.target !== "patches") continue;
     const data = moduleBytes(project, rom, module.path);
@@ -201,7 +204,10 @@ export async function installLearnsetViewer(project: ProjectState): Promise<Lear
     return data;
   }));
   for (const bankId of [178, 401]) if (!getTextBank(project, "message_texts", bankId).length) throw new Error(`Message bank ${bankId} is unavailable.`);
-  if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  if (!getPmcInstallStatus(project).installed) {
+    adoptExistingPmcInstall(project, romBytes);
+    if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  }
   const ids = { menu: ensureMessage(project, 178, "LEARNSET"), empty: ensureMessage(project, 401, "No level-up moves."), error: ensureMessage(project, 401, "Learnset unavailable.") };
   const infoMessageIds = infoMessages.map(([, text]) => ensureMessage(project, 401, text!));
   learnsetViewerPaths(version).forEach((path, i) => {
