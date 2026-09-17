@@ -44,8 +44,19 @@ Original source for **MainMenuSkipB2/W2** and **DoubleBattleFixB2/W2** was not f
 
 ## Refresh and validation
 
-The latest scoped refresh updates LEARNSET to **1.2.3** (evolution text lowered two pixels, flush sprite-card borders, lowered abilities,
-dark evolution panel, retail striped upper backdrop and aligned rows,
+The latest scoped refresh updates LEARNSET to **1.4.1** (correct sub-BG palette addressing, no-fade read-only L/R family
+navigation with virtual species learnsets/info, descendant-first branch browsing,
+A requirement pages, selected-only two-pose icon animation, native lower-screen
+font foreground/shadows and light fill, full-height right-panel left shading
+with unchanged ability row rules,
+darker selected-sprite
+frame with other teal accents unchanged, pale stats-matched
+evolution/ability inset, matching icon transparency, dark text/arrows and deeper
+hidden-ability purple, muted panel border, two-tone description panel
+with a dark fin/top strip and lighter charcoal body without side/bottom borders,
+four-pixel slate-teal gutter, clipped pale stats panel,
+shared pale icon/ability inset, selected-only dark teal frame, party-position header cue,
+dark evolution panel with teal fin accents and retained retail title rails,
 D-pad party navigation, branch-responsive icons,
 buffered loading, compact gold stats, form abilities and cycle-safe chains). Other patch snapshots retain their
 previous versions and hashes; this refresh does not certify newly added bundles

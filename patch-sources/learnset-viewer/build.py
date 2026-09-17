@@ -13,7 +13,8 @@ import subprocess
 import tempfile
 import ndspy.rom
 import ndspy.narc
-from background import profile, header as background_header
+import ndspy.codeCompression
+from background import profile, palette_index, header as background_header
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -43,7 +44,7 @@ def calls(data, base, target):
     return found
 
 BUILD.mkdir(exist_ok=True)
-VERSION = "1.2.3"
+VERSION = "1.4.3"
 messages=json.loads((HERE/'info_messages.json').read_text())
 assert len({key for key,text in messages})==len(messages)
 header=['#pragma once', '#include "runtime.h"', 'enum class InfoMessage : u16 {']
@@ -64,7 +65,50 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
     rom=ndspy.rom.NintendoDSRom.fromFile(Path(os.environ.get(f"LEARNSET_{game}_ROM",WORKSPACE/filename)))
     assert bytes(rom.idCode)==(b"IRDO" if game=="W2" else b"IREO")
     overlays=rom.loadArm9Overlays([12,165,258])
+    arm9=ndspy.codeCompression.decompress(rom.arm9)
+    arm_delta=0 if game=='W2' else 0x2c
+    # Verify native list ownership and non-callback cursor reset separately.
+    for address,expected in [
+        (0x2024f8c,'78b581b0051c0c1c292000902004691c'),
+        (0x2024fd8,'10b5041c00f042f8201c15f049f910bd'),
+        (0x202ba90,'4173ff218173c1737047'),
+        (0x204c23c,'0a8849888281c1817047'),
+        (0x204c3a4,'18b4046e054b09072340090c0b4304490b40d10719430166')]:
+        offset=address-arm_delta-rom.arm9RamAddress
+        assert bytes(arm9[offset:offset+len(expected)//2]).hex()==expected
+    # Independently verify the healthy two-pose party-icon cycle in each ROM.
+    # NANR sequence 1 is the healthy party-icon idle animation.
+    icon_files=ndspy.narc.NARC(rom.getFileByName('a/0/0/7')).files
+    for member in (2,4,6):
+        anm=icon_files[member]
+        assert anm[:4]==b'RNAN' and anm[16:20]==b'KNBA'
+        seq,frames,contents=(24+struct.unpack_from('<I',anm,p)[0] for p in (28,32,36))
+        count,loop,kind,mode,offset=struct.unpack_from('<HHIII',anm,seq+16)
+        assert (count,loop,kind,mode)==(2,0,0x10000,2)
+        poses=[]
+        for i in range(count):
+            content,ticks=struct.unpack_from('<IH',anm,frames+offset+i*8)
+            poses.append((struct.unpack_from('<H',anm,contents+content)[0],ticks))
+        assert poses==[(0,8),(1,8)], f'Unexpected {game} healthy party-icon timing'
     for ovl,pin in PINS[game].items(): assert hashlib.sha256(overlays[ovl].data).hexdigest()==pin, f"Unexpected {game} overlay {ovl}"
+    # Header reuses the upper tutor's native type badges, not category actors.
+    # Verify both US resource mappings, single centered 32x16 cell and frame.
+    types=ndspy.narc.NARC(rom.getFileByName('a/0/8/2')).files
+    cell=types[60];anim=types[63]
+    assert struct.unpack_from('<HHI',cell,24)==(1,0,24)
+    assert struct.unpack_from('<HHI',cell,48)==(1,5,0)
+    assert struct.unpack_from('<3H',cell,56)==(0x40f8,0x81f0,0)
+    assert struct.unpack_from('<HHIII',anim,48)==(1,0,0x10000,2,0)
+    assert struct.unpack_from('<H',anim,72)[0]==0
+    for member in range(34,52):
+        assert len(types[member])==304 and types[member][:4]==b'RGCN'
+        assert struct.unpack_from('<I',types[member],40)[0]==256
+    at=0x202d80c-arm_delta-rom.arm9RamAddress
+    assert arm9[at:at+8].hex()=='5220704721207047'
+    assert arm9[at+20:at+32].hex()=='223070473b3070473e307047'
+    assert arm9[at+16:at+20]==struct.pack('<I',0x20920b8-arm_delta)
+    at=0x20920b8-arm_delta-rom.arm9RamAddress
+    assert bytes(arm9[at:at+18])==bytes([0,0,1,1,0,0,2,1,0,0,1,2,0,1,1,2,0,0])
     signatures=[]
     def signature(label,ovl,address,length,patchType="",patchSize=0):
         o=overlays[ovl]; offset=address-o.ramAddress
@@ -113,9 +157,21 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
     signature("Viewer callbacks",258,address,12,"FULL_COPY",12)
     # Layout-sensitive, non-hooked regions also gate installation.
     for label,addr,length in [("Tutor work size",0x2199900,0x2e),("Tutor list offsets",0x219a7f0,0x20),
-                              ("Tutor bitmap layout",0x219bbcc,28),("Tutor resource load",0x219af0a,14)]:
+                              ("Tutor bitmap layout",0x219bbcc,28),("Tutor resource load",0x219af0a,14),
+                              ("Tutor font palette load",0x2199f4e,0x34),
+                              ("Tutor list redraw",0x219a8ec,0x50),
+                              ("Tutor list ownership and count",0x219a93c,0x9c),
+                              ("Tutor selected cursor refresh",0x219b2f4,0x84),
+                              ("Tutor scroll control refresh",0x219b77c,0x6c),
+                              ("Tutor scroll arrow refresh",0x219b858,0x64),
+                              ("Tutor type graphics queue",0x219b0b8,0xc8),
+                              ("Tutor upper type resources",0x219af2a,0x120),
+                              ("Tutor upper type actors",0x219bf58,0x58)]:
         signature(label,258,addr-delta,length)
     graphics=ndspy.narc.NARC(rom.getFileByName("a/1/2/5"))
+    assert {palette_index(graphics.files,2,x,y) for x in (8,16,64,200) for y in (8,20,36)}=={17}, 'Unexpected lower description fill index'
+    assert {palette_index(graphics.files,2,x,8) for x in (0,1,2)}=={21}, 'Unexpected lower description left shade'
+    assert {palette_index(graphics.files,2,x,y) for x,y in ((3,8),(4,16),(120,32))}=={19}, 'Unexpected lower description rules'
     rows=profile(graphics.files)
     if background_rows is not None: assert rows==background_rows, 'US W2/B2 tutor backgrounds differ'
     background_rows=rows

@@ -1,7 +1,9 @@
 #include "runtime.h"
 #include "info.h"
+extern "C" void LearnsetDetails(void*,u32);
 namespace {
 Request* active;
+struct MenuLine {void* text;u32 id;};
 bool ours(void* work) { return active && work && at<void*>(work,0)==&active->tutor; }
 void* bitmap(void* window) { return native<void*(*)(void*)>(0x2048521,0x20484f5)(window); }
 void flush(void* window) {
@@ -16,6 +18,47 @@ void draw(void* work,u32 window,int x,int y,void* text,u32 color) {
         bitmap(at<void*>(work,4+window*4)),x,y,text,at<void*>(work,0x60),color);
 }
 void visible(void* sprite,bool enabled) { native<void(*)(void*,u32)>(0x204c151,0x204c125)(sprite,enabled); }
+void freeList(void* lines) {native<void(*)(void*)>(0x2024fd9,0x2024fad)(lines);}
+bool refreshFamily(void* work) {
+    Request next=*active;
+    next.view=next.nextView;next.nextView={};next.nextSlot=0xff;
+    active->nextView={};active->nextSlot=0xff;
+    if(!next.view.identity.species)return false;
+    buildList(&next,79);
+    next.tutor.cursor=next.tutor.scroll=0;next.tutor.page=0;
+    const u32 count=next.list.count?next.list.count:1;
+    for(u32 i=0;i<MaxEntries+1;++i)next.ids[i]=End;
+    for(u32 i=0;i<next.list.count;++i)next.ids[i]=next.list.entries[i].moveId;
+    if(!next.list.count)next.ids[0]=1;
+    // Prepare a complete native-owned list before changing the live request.
+    // On allocation/name failure, retain the old screen and all its pointers.
+    auto* lines=native<MenuLine*(*)(u32,u32)>(0x2024f8d,0x2024f61)(count,79);
+    if(!lines)return false;
+    void* names=messageOpen(403,79);
+    if(!names){freeList(lines);return false;}
+    for(u32 i=0;i<count;++i) {
+        lines[i]={message(names,next.ids[i]),next.ids[i]};
+        if(!lines[i].text){messageClose(names);freeList(lines);return false;}
+    }
+    messageClose(names);
+    void* old=at<void*>(work,0x58);
+    *active=next; // tutor.moves still points at active->ids, never stack storage.
+    at<void*>(work,0x58)=lines;at<u8>(work,0x1b8)=count;
+    at<u8>(work,0x1bb)=at<u8>(work,0x1bc)=at<u8>(work,0x1bd)=0;
+    at<u16>(work,0x1cc)=0;
+    native<void(*)(void*,u32)>(0x202ba91,0x202ba65)(at<void*>(work,0x1c8),0);
+    freeList(old);
+    infoReload(work,active);
+    // Retail list redraw already calls our row/type hooks. Reset both scroll
+    // controls, cursor and details; empty/error lists stay dismissible.
+    native<void(*)(void*)>(0x219a8ed,0x219a8ad)(work);
+    LearnsetDetails(work,active->ids[0]);
+    native<void(*)(void*)>(0x219b77d,0x219b73d)(work);
+    native<void(*)(void*)>(0x219b859,0x219b819)(work);
+    native<void(*)(void*,u32,u32)>(0x219b2f5,0x219b2b5)(work,0,3);
+    visible(at<void*>(work,0x10c),active->list.count!=0);
+    return true;
+}
 }
 extern "C" bool LearnsetIsActive() { return active!=nullptr; }
 extern "C" u32 LearnsetViewerInit(void* proc,int* seq,void* data,void* work) {
@@ -43,13 +86,17 @@ extern "C" u32 LearnsetViewerMain(void* proc,int* seq,void* data,void* work) {
         if (!active->list.count) visible(at<void*>(work,0x10c),false);
         if (*seq==1) {
             const u32 keys=native<u32(*)()>(0x203df29,0x203defd)();
-            // A/B keep precedence. Shoulders still belong to evolution pages.
+            // A/B keep precedence. D-pad changes party; shoulders browse family.
             if(!(keys&3) && ((keys&0x30)==0x20 || (keys&0x30)==0x10)) {
                 const u32 slot=nextPartySlot(active->partySlot,partyCount(active->party),(keys&0x10)!=0,
                     [&](u32 i){return viewable(partyPokemon(active->party,i));});
                 if(slot==active->partySlot)return 0;
                 active->nextSlot=slot;
                 *seq=8; // Native fade, native End, then field-owned relaunch.
+            } else if(!(keys&3) && ((keys&0x300)==0x100 || (keys&0x300)==0x200)
+                && infoNavigate(work,active,(keys&0x100)!=0)) {
+                refreshFamily(work); // No fade, app restart or overlay reload.
+                return 0;
             } else infoInput(work);
         }
     }
@@ -68,7 +115,6 @@ extern "C" void LearnsetDrawLine(void* work,u8 scroll,u8 pos) {
     }
     const u32 index=u32(scroll)+pos;
     if (index>=active->list.count || pos>=4) return;
-    struct MenuLine { void* text; u32 id; };
     MenuLine* lines=at<MenuLine*>(work,0x58);
     void* buffer=at<void*>(work,0x4c);
     const u16* name=stringText(lines[index].text);
