@@ -39,7 +39,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     u32=lambda p:struct.unpack("<I",uc.mem_read(p,4))[0]
     w32=lambda p,n:uc.mem_write(p,struct.pack("<I",n))
     u16=lambda p:struct.unpack("<H",uc.mem_read(p,2))[0]
-    stubs={};logs=[];draws=[];freed=[];queue=[];arena=[0x2260000]
+    stubs={};logs=[];draws=[];freed=[];queue=[];arena=[0x2260000];sounds=[]
     def allocate(size):
         p=arena[0];arena[0]=(p+size+7)&~7;return p
     def ret(value=0):uc.reg_write(REGS[0],value);uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
@@ -128,6 +128,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     stubs[0x201cd24-delta]=pokemon_field
     stubs[0x20204ac-delta]=lambda:ret(r(0)+r(1))
     stubs[0x203df28-delta]=lambda:ret(keys[0])
+    stubs[0x2006254]=lambda:(sounds.append(r(0)),ret())
     stubs[0x204aa5c-delta]=lambda:ret(0x2230000)
     stubs[0x204adac-delta]=lambda:ret(1024)
     stubs[0x204ab38-delta]=lambda:ret()
@@ -276,12 +277,14 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         # A different lower scroll/cursor and outgoing-evolution page cannot
         # carry into the new Pokemon's native initialization.
         uc.mem_write(request+20,struct.pack('<HHBB',3,12,1,1))
-        before=len(queue);keys[0]=key;w32(seq,1)
+        before=len(queue);keys[0]=key;w32(seq,1);heard=len(sounds)
         call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
         assert logs[-1]==8 and uc.mem_read(request+241,1)[0]==expected
+        assert sounds[heard:]==[1637], 'One summary page-change sound per party switch'
         assert len(queue)==before and request not in freed
         # Repeat input during fade cannot enqueue a second transition.
         w32(seq,8);call(u32(bridge+4),[0x2243000,seq,request,viewerwork]);assert len(queue)==before
+        assert sounds[heard:]==[1637], 'No repeated sound during a party fade'
         call(u32(bridge+8),[0x2243000,seq,request,viewerwork]);assert u32(active)==0
         keys[0]=0;w32(seq,13);call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork])
         assert u32(seq)==12 and len(queue)==before+1 and queue[-1][1]==request and request not in freed
@@ -348,10 +351,11 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     initial_list=new_list(1);w32(viewerwork+0x58,initial_list)
     w32(viewerwork+0x1c8,0x2257000)
     for key,identity,count,status in [(0x100,(5,1),2,0),(0x200,(1,0),1,0),(0x100,(4,0),0,1),(0x100,(5,0),0,2),(0x200,(5,1),2,0)]*3:
-        nav_target[0]=identity;keys[0]=key;w32(seq,1);before=len(queue)
+        nav_target[0]=identity;keys[0]=key;w32(seq,1);before=len(queue);heard=len(sounds)
         old=u32(viewerwork+0x58);uc.mem_write(request+20,struct.pack('<HHB',3,12,1))
         call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
         assert u32(seq)==1 and len(queue)==before and u32(active)==request
+        assert sounds[heard:]==[1356], 'One move-list click per family switch'
         assert uc.mem_read(request+234,1)==b'\x01'
         assert u32(request)==mon(1) and uc.mem_read(request+240,2)==b'\x01\xff'
         assert struct.unpack('<2H',uc.mem_read(request+244,4))==identity
@@ -366,9 +370,10 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     nav_target[0]=(5,1)
     for failure in ['list','bank',1,2]:
         fail[0]=failure;before=bytes(uc.mem_read(request,260));old=u32(viewerwork+0x58)
-        count=len(refreshes);call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
+        count=len(refreshes);heard=len(sounds);call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
         assert bytes(uc.mem_read(request,260))==before and u32(viewerwork+0x58)==old
         assert len(refreshes)==count and new_lists=={old} and u32(seq)==1
+        assert len(sounds)==heard, 'Failed refreshes are silent'
     fail[0]=None
     # Native End owns the current list, including one created by a refresh.
     stubs[0x2199a50-ovdelta]=lambda:((delete_list(u32(viewerwork+0x58)) if u32(viewerwork+0x58) in new_lists else None),ret(1))
@@ -379,13 +384,15 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     # L/R and B do not request a party transition; simultaneous Left+Right
     # does nothing, and one non-Egg Pokemon never closes/reopens the viewer.
     for key in [0x100,0x200,0x30,0x12]:
-        keys[0]=key;w32(seq,1);before=len(queue)
+        keys[0]=key;w32(seq,1);before=len(queue);heard=len(sounds)
         call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
         assert uc.mem_read(request+241,1)==b'\xff' and len(queue)==before and logs[-1]==1
+        assert len(sounds)==heard, 'No click for endpoints, conflicting keys or B'
     eggs.update([0,3,5])
     for key in [0x10,0x20]:
-        keys[0]=key;w32(seq,1);call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
+        keys[0]=key;w32(seq,1);heard=len(sounds);call(u32(bridge+4),[0x2243000,seq,request,viewerwork])
         assert u32(seq)==1 and uc.mem_read(request+241,1)==b'\xff'
+        assert len(sounds)==heard, 'No click when there is no other eligible party member'
     call(u32(bridge+8),[0x2243000,seq,request,viewerwork]);w32(seq,13)
     call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert freed.count(request)==1 and u32(seq)==11
     call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(partydata+0x4c)==1

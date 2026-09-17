@@ -1283,22 +1283,22 @@
       "artifacts": [
         {
           "name": "LearnsetMenuB2.dll",
-          "sha256": "1ca914e041f773d448fb33b189850aaf3182afdcc99e0b2d8f10ea9bd346816b"
+          "sha256": "78be4990c150c8879f22c9972c10da3a32f0ae1d19cef2762dbdaeb4a4f18ecb"
         },
         {
           "name": "LearnsetMenuW2.dll",
-          "sha256": "e0fde62cf0de01817a16df017e1fcfe9922056503bd91cea9b567e497b3feeb1"
+          "sha256": "cf1357c30c7176a0109763d0cf211b8ca6aea4b96466829d06d05c2b5b61869b"
         },
         {
           "name": "LearnsetViewerB2.dll",
-          "sha256": "fb51c0eab856ed13ab79c38f235ed25e18c7b20615d09ed605d44d68822a9a3c"
+          "sha256": "045ee1c972df1433d76b955f7bd72cd4875c185cee625fbf4eba5d1439024fce"
         },
         {
           "name": "LearnsetViewerW2.dll",
-          "sha256": "00ac7e945af70020617a2761c524613967b65c79c677b0bb356da59ea673941a"
+          "sha256": "5084ce63621079cd4230ce8bc0f18e9b02a4902f4ff95635ff7136379cc52d39"
         }
       ],
-      "note": "Version 1.4.3. PMC-only menu/field and overlay-258 viewer companions; includes correct sub-BG palette addressing and no-fade read-only L/R family navigation with virtual species learnsets/info, descendant-first branch browsing, A requirement pages, selected-only native two-pose icon animation, native lower-screen foreground/shadows and matching light upper panels, full-height right-panel left shading with unchanged ability row rules, purple hidden abilities, matching icon transparency, a dark teal selected-sprite frame with brighter title/fin accents unchanged, muted panel border, restored charcoal description body with a dark fin/top strip and no side/bottom borders, four-pixel slate-teal gutter, clipped stats panel, party-position header cue, retail title rails, D-pad party navigation, compact gold base stats, form ability names, cycle-safe three-Pokemon evolution chains, buffered ROM reads, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
+      "note": "Version 1.4.5. PMC-only menu/field and overlay-258 viewer companions; includes the move-list click for successful evolution navigation and summary-page sound for party switching, session-owned evolution graph and icon reuse, species/type header, correct sub-BG palette addressing and no-fade read-only L/R family navigation with virtual species learnsets/info, descendant-first branch browsing, A requirement pages, selected-only native two-pose icon animation, native lower-screen foreground/shadows and matching light upper panels, full-height right-panel left shading with unchanged ability row rules, purple hidden abilities, matching icon transparency, a dark teal selected-sprite frame with brighter title/fin accents unchanged, muted panel border, restored charcoal description body with a dark fin/top strip and no side/bottom borders, four-pixel slate-teal gutter, clipped stats panel, party-position header cue, retail title rails, D-pad party navigation, compact gold base stats, form ability names, cycle-safe three-Pokemon evolution chains, buffered ROM reads, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
       "status": "source-copied",
       "files": [
         {
@@ -1318,7 +1318,7 @@
             "path": "runtime/learnset-viewer/build.py"
           },
           "kind": "build-tool",
-          "sha256": "4be5cfa1955920aa1c53b1e00e7bc83f3a820ffe0a18cff21503d1988e037832",
+          "sha256": "507f7a156f6d7148e2ebc971779a441de7bf9972761b9173d96184793dc8ff99",
           "normalized": false
         },
         {
@@ -1358,7 +1358,7 @@
             "path": "runtime/learnset-viewer/info.cpp"
           },
           "kind": "source",
-          "sha256": "611aca52048f0cc956e6ae60bc75112d642f2b3de8d8acdb48bac6473e68d7b0",
+          "sha256": "959f404f9e28d714fa3b1a9ec4b7449c6fe86b4e5f10c39678a4c180237ae8de",
           "normalized": false
         },
         {
@@ -1418,7 +1418,7 @@
             "path": "runtime/learnset-viewer/README.md"
           },
           "kind": "documentation",
-          "sha256": "39896ee9dc1a611afebb6dcb6511c4e051530049c25786fcff30195483237d08",
+          "sha256": "5c4fbe419e9594cbaef28f9f949d48b75ed0e2178ca62a64b9df482d410022f2",
           "normalized": false
         },
         {
@@ -1468,7 +1468,7 @@
             "path": "runtime/learnset-viewer/VALIDATION.md"
           },
           "kind": "documentation",
-          "sha256": "4ead77be79766aa8e601cacad78cd54554c32fb57f446301b16574bf36492d9f",
+          "sha256": "1c4bb6eef420d1b3d75b9f3cf1e18fdf2b75d054531d2c207380b29e931514d7",
           "normalized": false
         },
         {
@@ -1498,7 +1498,7 @@
             "path": "runtime/learnset-viewer/verify_info.py"
           },
           "kind": "test",
-          "sha256": "5df4ddef27f6de624b893a6ae0d3e17d4e6e23504d103ce2b6570b8127f6058c",
+          "sha256": "a0baa37d817345fae94a2c6e77cee13fd277836741260800b45656e909f19669",
           "normalized": false
         },
         {
@@ -1508,7 +1508,7 @@
             "path": "runtime/learnset-viewer/verify_runtime.py"
           },
           "kind": "test",
-          "sha256": "107a3e5df208cb425c93007194a4b5244bfe9b9ae6383d75e3e92fdc5574d7fb",
+          "sha256": "675551f9d08b70626cd89f44252294b6478de9ff0ed666e8e2980b565a4ad3be",
           "normalized": false
         },
         {
@@ -1518,7 +1518,7 @@
             "path": "runtime/learnset-viewer/viewer.cpp"
           },
           "kind": "source",
-          "sha256": "ab1396f8bbc42dbdb2838dfa18fdee5cf8a6adb65f72446c55c45d686bcd9c44",
+          "sha256": "0c87726f19dbeac64d7593f6a41ba960afa567a848aea783efbe02e91a223dcf",
           "normalized": false
         },
         {
@@ -1528,7 +1528,7 @@
             "path": "src/assets/codeinjection/learnsetViewerManifest.json"
           },
           "kind": "metadata",
-          "sha256": "a6f99a7b0827f6af8af99272206cfe30b88398c9cdf34e6adaff15a57b667da0",
+          "sha256": "de631672f6fa3a318042c470b35101e9e92e9235fe5c740db983426d26502788",
           "normalized": false
         },
         {
@@ -1538,7 +1538,7 @@
             "path": "src/pokeweb/learnsetViewerModel.ts"
           },
           "kind": "support-only",
-          "sha256": "18f04e002216a485275f34c0b61f5179ef6c13f79a5ca7130544dbaf236f54b6",
+          "sha256": "cfd81c65e7baa0196978e189620a05179cdfd3db22fd405dded55ba26ddde812",
           "normalized": false
         },
         {
@@ -1548,7 +1548,7 @@
             "path": "src/test/learnsetViewerModel.test.ts"
           },
           "kind": "test",
-          "sha256": "64c47facbe7c2997ff53c86ee2095f6a1c0e6d668b168113bcd03b69c0156ea3",
+          "sha256": "5a6991366f4e3164b3167bdf91ea136a87687593a373a0bf17f74673cf319508",
           "normalized": false
         },
         {
