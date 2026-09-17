@@ -13,6 +13,32 @@ occupied. Eggs, battle/daycare menus, and item/mail submenus are excluded.
 
 ## Runtime design
 
+Release **1.4.5** separates the navigation sounds: L/R evolution browsing uses
+the native tutor move-list click, while D-pad party switching uses the native
+summary screen's Left/Right page-change sound. Successful changes play once;
+endpoints, conflicting input and failed refreshes remain silent. The lower
+move list keeps its original sound. Layout, navigation caching and lifetimes
+are unchanged. Update both companions through Pokeweb.
+
+Release **1.4.4** plays the summary screen's Pokemon-switch click when an
+L/R family change or D-pad party change succeeds. Endpoint presses, conflicting
+directions and failed family refreshes do not play the click.
+Header type badges are now right-aligned: the last badge ends eight native
+pixels before the party cue, with two pixels between dual-type badges. The
+species name retains at least four pixels of clearance and truncates as needed.
+Without a party cue, badges end at the eight-pixel screen margin.
+
+Family navigation now retains the bounded species/form evolution graph and
+three icon buffers for the current viewer session instead of rescanning all
+personal/evolution records and reloading unchanged icons on every L/R press.
+Selected-form stats, abilities, requirements and learnsets still come from the
+ROM. Temporary archive/message handles close before input resumes, and both
+the graph and icons are freed with the application on exit or a party switch.
+No new battle-resident state is added. Real party switches retain their native
+fade/relaunch; this optimization targets in-place evolution navigation.
+See [validation](VALIDATION.md#144-navigation-sound-and-session-cache) for the
+measured I/O reduction, memory tradeoff and emulator checklist.
+
 Release **1.4.3** replaces the possessive INFO header with the uppercase ROM
 species name followed by its current-form type badges, vertically centered in
 the black strip. Single types appear once. Native font measurement reserves
@@ -277,17 +303,19 @@ after a party switch. Each menu DLL is 3,056 bytes on disk / 2,856 bytes after
 internal relocation fixing, up by 272 fixed bytes from 1.1.3. Its persistent
 state is unchanged. The field-bridge split is not part of this release.
 The upper bitmap change adds 14,784 bytes to the tutor
-application heap's bitmap payload (not the PMC heap); temporary graph and text
-allocations also use heap 79 and are released during/after the session.
+application heap's bitmap payload (not the PMC heap). Graph and text allocations
+also use heap 79; 1.4.4 retains the graph until session teardown, while temporary
+text allocations still close during loading.
 
 Opening uses a 1 KiB FAT window plus a 4 KiB record window for the personal and
 evolution scans, one archive at a time. This replaces thousands of tiny seeks
 and reads without loading whole archives or retaining a cross-session cache.
 If this optional buffer cannot be allocated, the checked unbuffered reader
 still works. Initialization reuses one private message bank and one name bank,
-closing both before returning. Eight compact chain snapshots replace the full
-graph after initialization. Paging reuses three icon slots and reads only new
-identities; continuation pages never reopen personal/evolution/message data.
+closing both before returning. Eight compact chain snapshots drive paging;
+1.4.4 additionally keeps the graph for subsequent in-place family selections.
+Paging reuses three icon slots; continuation pages never reopen
+personal/evolution/message data.
 All these buffers remain viewer/application-heap scoped, not battle-resident.
 
 On the clean Eevee fixture, directly instrumented filesystem reads drop from
@@ -444,6 +472,8 @@ c++ -std=c++17 -Wall -Wextra -Werror runtime/learnset-viewer/test_info.cpp -o ru
 runtime/learnset-viewer/build/test_info
 python3 runtime/learnset-viewer/verify_runtime.py
 python3 runtime/learnset-viewer/verify_info.py
+python3 runtime/learnset-viewer/verify_info.py --cache-only
+python3 runtime/learnset-viewer/verify_info.py --navigation-only
 python3 runtime/learnset-viewer/verify_info.py --header-only
 python3 runtime/learnset-viewer/verify_info.py --terminal-only
 python3 runtime/learnset-viewer/verify_graphics.py

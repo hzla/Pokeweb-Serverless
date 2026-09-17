@@ -9,20 +9,26 @@ constexpr u32 Heap=79, TextCapacity=256;
 struct Page { u16 offset; u8 option; bool incoming; };
 struct DisplayChain { Chain chain; InfoNode nodes[3]; };
 struct IconKey { u16 species,form,gender; };
-struct InfoState {
+struct InfoView {
     void* work;
     u16 selectedName[64], title[96], partyCue[12], requirements[8][TextCapacity];
     u16 targets[8][64], labels[6][16], status[64];
     u16 statsUnavailable[64];
     u16 abilityNames[3][64]; Abilities abilities;
-    u8 icons[3][1024]; u16 palettes[3][16];
     u8 iconFrame,iconTicks;
     u8 types[2],typeCount;
-    u8 stats[6]; bool statsValid, evolutionValid, iconsValid[3];
+    u8 stats[6]; bool statsValid, evolutionValid;
     Chain chain; DisplayChain branches[8]; u16 gender;
-    IconKey iconKeys[3]; u8 iconSlots[3];
+    u8 iconSlots[3];
     Page pages[128]; u16 pageCount,page;
     ViewSelection navigation[2];
+};
+struct InfoState : InfoView {
+    // Read-only ROM data shared by selections within this viewer session.
+    // Native windows, party data and the field request are never cached here.
+    u8 icons[3][1024]; u16 palettes[3][16];
+    IconKey iconKeys[3]; bool iconsValid[3];
+    InfoNode* graph; u32 graphCount; bool graphReady;
 };
 InfoState* state;
 
@@ -137,7 +143,9 @@ void headerTypes() {
     const u32 width=state->partyCue[0]==End?240:232-measure(state->partyCue);
     const u32 badges=state->typeCount?4+state->typeCount*32+(state->typeCount-1)*2:0;
     ellipsis(state->title,width-badges);
-    const u32 left=8+measure(state->title)+4;
+    // Anchor the final badge eight pixels before the party cue, independent
+    // of species-name length. Keep a minimum four-pixel name/badge gap.
+    const u32 left=8+width-badges+4;
     for(u32 i=0;i<2;++i) {
         void* actor=at<void*>(state->work,0x124+4*i);
         if(i<state->typeCount) {
@@ -260,25 +268,36 @@ void load(Request* request) {
     privateString(messages,InfoMessage::StatsUnavailable,state->statsUnavailable,64);
     privateString(messages,InfoMessage::AbilitiesUnavailable,state->abilityNames[0],64);
     if(!personal.open("a/0/1/6") || !personal.count || personal.count>MaxPersonal || !species || species>=personal.count)return;
-    InfoNode* nodes=static_cast<InfoNode*>(alloc(Heap,personal.count*sizeof(InfoNode)));
-    if(!nodes)return;
-    personal.buffer();
-    for(u32 i=0;i<personal.count;++i)nodes[i]={};
-    u8 record[76];
-    for(u32 i=1;i<personal.count;++i) {
-        if(personal.member(i,record,76)==76) {nodes[i].species=i;nodes[i].valid=true;}
+    if(state->graphCount!=personal.count) {
+        release(state->graph);state->graph=nullptr;state->graphCount=0;state->graphReady=false;
     }
-    for(u32 i=1;i<personal.count;++i) {
-        if(!nodes[i].valid || nodes[i].form || personal.member(i,record,76)!=76)continue;
-        const u32 first=read16(record+28),forms=record[32];
-        if(!first || forms<2 || forms>32 || first>=personal.count || forms-1>personal.count-first)continue;
-        for(u32 f=1;f<forms;++f)if(nodes[first+f-1].valid && !nodes[first+f-1].form) {
-            nodes[first+f-1].species=i;nodes[first+f-1].form=f;
+    if(!state->graph) {
+        state->graph=static_cast<InfoNode*>(alloc(Heap,personal.count*sizeof(InfoNode)));
+        if(state->graph)state->graphCount=personal.count;
+    }
+    InfoNode* nodes=state->graph;
+    if(!nodes)return;
+    const bool rebuild=!state->graphReady;
+    u8 record[76];
+    if(rebuild) {
+        personal.buffer();
+        for(u32 i=0;i<personal.count;++i)nodes[i]={};
+        for(u32 i=1;i<personal.count;++i) {
+            if(personal.member(i,record,76)==76) {nodes[i].species=i;nodes[i].valid=true;}
+        }
+        for(u32 i=1;i<personal.count;++i) {
+            if(!nodes[i].valid || nodes[i].form || personal.member(i,record,76)!=76)continue;
+            const u32 first=read16(record+28),forms=record[32];
+            if(!first || forms<2 || forms>32 || first>=personal.count || forms-1>personal.count-first)continue;
+            for(u32 f=1;f<forms;++f)if(nodes[first+f-1].valid && !nodes[first+f-1].form) {
+                nodes[first+f-1].species=i;nodes[first+f-1].form=f;
+            }
         }
     }
     // Use the game's current form resolver (including any compatible hooks).
     const u32 selected=native<u32(*)(u32,u32)>(0x20204ad,0x2020481)(species,form);
-    if(selected>=personal.count || !nodes[selected].valid){release(nodes);return;}
+    if(selected>=personal.count || !nodes[selected].valid)return;
+    u16 defaultParent=nodes[selected].parent;
     if(personal.member(selected,record,76)==76) {
         const u8 offsets[]={0,1,2,4,5,3};
         for(u32 i=0;i<6;++i)state->stats[i]=record[offsets[i]];
@@ -304,25 +323,36 @@ void load(Request* request) {
     personal.unbuffer();
     Evolutions options={},incoming={};
     if(evolutions.open("a/0/1/9") && evolutions.count<=MaxPersonal) {
-        evolutions.buffer();
-        for(u32 source=1;source<evolutions.count && source<personal.count;++source) {
-            if(!nodes[source].valid)continue;
-            u8 raw[48]; const u32 length=evolutions.member(source,raw,48);
-            Evolutions e=parseEvolutions(raw,length,personal.count);
-            if(e.valid)for(u32 i=0;i<e.count;++i)if(!nodes[e.entries[i].target].valid)e.valid=false;
-            nodes[source].evolutionValid=e.valid;
-            if(source==selected)options=e;
-            if(!e.valid)continue;
-            for(u32 i=0;i<e.count;++i) {
-                const u16 target=e.entries[i].target;
-                if(!nodes[source].next)nodes[source].next=target;
-                if(!nodes[target].parent)nodes[target].parent=source;
+        if(rebuild) {
+            evolutions.buffer();
+            for(u32 source=1;source<evolutions.count && source<personal.count;++source) {
+                if(!nodes[source].valid)continue;
+                u8 raw[48]; const u32 length=evolutions.member(source,raw,48);
+                Evolutions e=parseEvolutions(raw,length,personal.count);
+                if(e.valid)for(u32 i=0;i<e.count;++i)if(!nodes[e.entries[i].target].valid)e.valid=false;
+                nodes[source].evolutionValid=e.valid;
+                if(!e.valid)continue;
+                for(u32 i=0;i<e.count;++i) {
+                    const u16 target=e.entries[i].target;
+                    if(!nodes[source].next)nodes[source].next=target;
+                    if(!nodes[target].parent)nodes[target].parent=source;
+                }
             }
+            state->graphReady=true;
         }
+        // Sibling navigation/requirements often ask for the same parent more
+        // than once. Keep four tiny records on the stack, not whole archives.
+        struct Recent {u16 id; Evolutions data;} recent[4]={};u32 cursor=0;
         auto read=[&](u16 source) {
+            for(u32 i=0;i<4;++i)if(recent[i].id==source)return recent[i].data;
             u8 raw[48];const u32 length=evolutions.member(source,raw,48);
-            return parseEvolutions(raw,length,personal.count);
+            auto e=parseEvolutions(raw,length,personal.count);
+            if(e.valid)for(u32 i=0;i<e.count;++i)if(!nodes[e.entries[i].target].valid)e.valid=false;
+            recent[cursor]={source,e};cursor=(cursor+1)&3;
+            return e;
         };
+        options=read(u16(selected));
+        defaultParent=nodes[selected].parent;
         // Preserve the actual source when following an edge in a ROM with
         // multiple possible predecessors. Never trust an unrelated parent hint.
         const auto hint=request->view.parent;
@@ -362,8 +392,8 @@ void load(Request* request) {
         }
         evolutions.unbuffer();
     }
-    // Snapshot only the at-most-three identities for each option. The full
-    // graph is temporary; paging never rescans personal/evolution archives.
+    // Snapshot the at-most-three identities for each option. The graph and
+    // icon pixels are session-owned; paging never performs ROM reads.
     const u32 branches=options.valid && options.count?options.count:1;
     for(u32 b=0;b<branches;++b) {
         auto& branch=state->branches[b];
@@ -394,7 +424,9 @@ void load(Request* request) {
             for(u32 n=0;n<2;++n)offset=wrapInfo(state->requirements[i],offset,line,128,240,measure);
         }while(state->requirements[i][offset]!=End);
     }
-    release(nodes);
+    // A selected stage's verified navigation hint must not leak into another
+    // selection's deterministic predecessor lookup in the shared graph.
+    nodes[selected].parent=defaultParent;
 }
 constexpr u16 rgb(u32 r,u32 g,u32 b){return (r>>3)|((g>>3)<<5)|((b>>3)<<10);}
 constexpr u16 colors[16]={rgb(48,50,65),rgb(48,50,65),rgb(32,33,43),rgb(24,27,31),
@@ -643,7 +675,7 @@ void infoReload(void* work,Request* request) {
     if(!state || state->work!=work)return;
     // Keep the existing application/windows/VRAM alive. Loading touches only
     // CPU state; the old screen stays visible until buffered uploads are ready.
-    *state={};state->work=work;
+    static_cast<InfoView&>(*state)={};state->work=work;
     load(request);headerTypes();render();
 }
 bool infoNavigate(void* work,Request* request,bool forward) {
@@ -653,7 +685,7 @@ bool infoNavigate(void* work,Request* request,bool forward) {
     request->nextView=next;request->nextSlot=BrowseFamily;
     return true;
 }
-void infoEnd() {InfoState* old=state;state=nullptr;release(old);}
+void infoEnd() {InfoState* old=state;state=nullptr;if(old)release(old->graph);release(old);}
 
 // Only called at the tutor's window-creation call site. Keep valid tiny
 // windows for unused upper slots so the original destruction loop is intact.

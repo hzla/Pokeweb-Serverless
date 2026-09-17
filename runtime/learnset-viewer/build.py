@@ -44,7 +44,7 @@ def calls(data, base, target):
     return found
 
 BUILD.mkdir(exist_ok=True)
-VERSION = "1.4.3"
+VERSION = "1.4.5"
 messages=json.loads((HERE/'info_messages.json').read_text())
 assert len({key for key,text in messages})==len(messages)
 header=['#pragma once', '#include "runtime.h"', 'enum class InfoMessage : u16 {']
@@ -67,6 +67,24 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
     overlays=rom.loadArm9Overlays([12,165,258])
     arm9=ndspy.codeCompression.decompress(rom.arm9)
     arm_delta=0 if game=='W2' else 0x2c
+    # Summary-screen page changes (Left/Right), not Pokemon changes (Up/Down).
+    # These are evidence checks only: no dependency on or hook into overlay 207.
+    summary=rom.loadArm9Overlays([207])[207]
+    sound_evidence=[(0x21b4108,'414852f6a3f8' if game=='W2' else '414852f6c3f8'),
+                    (0x21b4136,'364852f68cf8' if game=='W2' else '364852f6acf8'),
+                    (0x21b4210,'65060000')]
+    for address,expected in sound_evidence:
+        at=address-delta-summary.ramAddress
+        assert bytes(summary.data[at:at+len(expected)//2]).hex()==expected
+    # Tutor move-list row changes and scrolling use system SE 1356.
+    list_sound_evidence=[(0x219b4b8,'032c18dc3d486af6c9fe' if game=='W2' else '032c18dc3d486af6e9fe'),
+                         (0x219b550,'18486af67ffe' if game=='W2' else '18486af69ffe'),
+                         (0x219b5b4,'4c050000')]
+    for address,expected in list_sound_evidence:
+        at=address-delta-overlays[258].ramAddress
+        assert bytes(overlays[258].data[at:at+len(expected)//2]).hex()==expected
+    at=0x2006254-rom.arm9RamAddress
+    assert arm9[at:at+12].hex()=='0021014bc943184715620002'
     # Verify native list ownership and non-callback cursor reset separately.
     for address,expected in [
         (0x2024f8c,'78b581b0051c0c1c292000902004691c'),

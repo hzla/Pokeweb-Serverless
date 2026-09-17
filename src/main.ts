@@ -43,7 +43,7 @@ import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveP
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { typeChartOverlayId } from "./pokeweb/typeChartModel";
 import { openTestBattleEmulator, openTitleScreenEmulator } from "./pokeweb/testBattleEmulatorLauncher";
-import { buildMoveTestBattleDownloads, buildTestBattleDownloads } from "./pokeweb/testBattle";
+import { buildMoveTestBattleDownloads, buildQuickLaunchDownloads, buildTestBattleDownloads } from "./pokeweb/testBattle";
 import { buildOverworldTestWarpDownloads, type OverworldTestWarpSelection } from "./pokeweb/testOverworldWarp";
 import { renderDebugNarcs } from "./ui/debugNarcs";
 import { renderCodeInjectionEditor } from "./ui/codeInjectionEditor";
@@ -363,6 +363,7 @@ let dirty = false;
 let hasExportBase = false;
 let refreshRomRequestInFlight = false;
 let romExportInProgress = false;
+let quickLaunchInFlight = false;
 const scheduleSave = debounceProjectSave();
 
 installIntegrationConsoleApi(
@@ -374,7 +375,23 @@ installIntegrationConsoleApi(
   },
 );
 
+installQuickLaunchHotkey();
 void boot();
+
+function installQuickLaunchHotkey(): void {
+  document.addEventListener("keydown", (event) => {
+    if (event.repeat || !event.metaKey || !event.altKey || event.ctrlKey || event.shiftKey || event.code !== "KeyP") return;
+    event.preventDefault();
+    if (quickLaunchInFlight) return;
+
+    quickLaunchInFlight = true;
+    void launchQuickLaunch().catch((error) => {
+      window.alert(`Quick launch failed.\n\n${errorMessage(error)}`);
+    }).finally(() => {
+      quickLaunchInFlight = false;
+    });
+  }, { capture: true });
+}
 
 async function boot(): Promise<void> {
   if (CODEX_DEV_MODE) {
@@ -1351,6 +1368,31 @@ async function launchTestBattle(trainerId: number, showdownText = ""): Promise<v
       opponentTrainerId: trainerId,
       pokemonNames: project.texts.banks.pokedex?.slice() ?? [],
       testLabel: `trainer ${trainerId} test battle`,
+      romBytes,
+      saveBytes,
+    });
+  } catch (error) {
+    emulator.close();
+    throw error;
+  }
+}
+
+async function launchQuickLaunch(): Promise<void> {
+  if (!project) return;
+  if (!hasExportBase) throw new Error("This saved project does not include the original ROM bytes. Please load the ROM again before exporting.");
+
+  const activeProject = project;
+  const emulator = openTestBattleEmulator();
+  const baseName = activeProject.session.romName || "pokeweb";
+  try {
+    await saveActiveProject(activeProject);
+    const { romBytes, saveBytes } = await buildQuickLaunchDownloads(activeProject);
+    await emulator.launch({
+      romName: `${baseName}-quick-launch.nds`,
+      saveName: `${baseName}-quick-launch.dsv`,
+      trainerId: 0,
+      pokemonNames: activeProject.texts.banks.pokedex?.slice() ?? [],
+      testLabel: "quick launch",
       romBytes,
       saveBytes,
     });
