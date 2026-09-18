@@ -133,6 +133,7 @@ canvas {
 
 #pokeweb-pause,
 #pokeweb-step,
+#pokeweb-download-save,
 #pokeweb-savestate,
 #pokeweb-load-last-state {
   min-width: 64px;
@@ -147,10 +148,12 @@ canvas {
 
 #pokeweb-pause:hover,
 #pokeweb-step:hover,
+#pokeweb-download-save:hover,
 #pokeweb-savestate:hover,
 #pokeweb-load-last-state:hover,
 #pokeweb-pause:focus-visible,
 #pokeweb-step:focus-visible,
+#pokeweb-download-save:focus-visible,
 #pokeweb-savestate:focus-visible,
 #pokeweb-load-last-state:focus-visible {
   border-color: rgba(45, 212, 191, 0.72);
@@ -165,6 +168,7 @@ canvas {
 
 #pokeweb-pause:disabled,
 #pokeweb-step:disabled,
+#pokeweb-download-save:disabled,
 #pokeweb-savestate:disabled,
 #pokeweb-load-last-state:disabled {
   cursor: not-allowed;
