@@ -9,6 +9,8 @@ import { exportFrostCompatibleRom } from "../pokeweb/frostCompatibility";
 import {
   adoptExistingPmcInstall,
   detectBundledFormEvolutionDll,
+  detectBundledBgmToggleDll,
+  configureBundledBgmRuntime,
   detectBundledMainMenuSkipDll,
   detectBundledOverworldWeatherRuntime,
   detectPmcInstallFromRom,
@@ -17,6 +19,8 @@ import {
   getPmcInstallStatus,
   getPmcUpdateConfirmationMessage,
   installBundledOverworldWeatherRuntime,
+  installBundledBgmToggleDll,
+  readBgmRuntimeConfig,
   installPmcBytes,
   listCodeInjectionDlls,
   PMC_OVERLAY_ID_PATH,
@@ -42,6 +46,8 @@ const mainMenuSkipB2 = new Uint8Array(readFileSync(new URL("../assets/codeinject
 const mainMenuSkipW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url)));
 const formEvolutionB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/FormEvolutionB2.dll", import.meta.url)));
 const formEvolutionW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/FormEvolutionW2.dll", import.meta.url)));
+const bgmToggleB2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/BgmToggleB2.dll", import.meta.url)));
+const bgmToggleW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/BgmToggleW2.dll", import.meta.url)));
 const overworldWeatherRuntimeW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PokewebOverworldWeatherW2.dll", import.meta.url)));
 
 describe("PMC installer", () => {
@@ -741,6 +747,111 @@ describe("PMC installer", () => {
     }
   });
 
+  it("bundles versioned global background-music toggles for both BW2 revisions", () => {
+    for (const [version, dll, heldKeysAddress] of [
+      ["B2", bgmToggleB2, 0x0203df21],
+      ["W2", bgmToggleW2, 0x0203df4d],
+    ] as const) {
+      expect(readAscii(dll, 0, 4)).toBe("DLXF");
+      const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
+      expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4, PMCVersion: "3.0.0" });
+      expect(rpm.bssSize).toBe(0x24);
+      expect(externalHooks(dll)).toEqual([
+        "ARM9:2005336:THUMB_BRANCH_LINK",
+        "ARM9:2005e02:THUMB_BRANCH_LINK",
+        "ARM9:2005e62:THUMB_BRANCH_LINK",
+        "ARM9:2005eb0:THUMB_BRANCH_LINK",
+        "ARM9:2005fa2:THUMB_BRANCH_LINK",
+        version === "W2" ? "ARM9:206dc84:THUMB_BRANCH_LINK" : "ARM9:206dc58:THUMB_BRANCH_LINK",
+      ].sort());
+      const globals = rpm.symbols.filter((symbol) => (symbol.attributes & 4) !== 0).map((symbol) => symbol.address);
+      expect(globals).toContain(0x02005c18);
+      expect(globals).toContain(version === "W2" ? 0x0206db6c : 0x0206db40);
+      expect(globals).toContain(version === "W2" ? 0x0206d108 : 0x0206d0dc);
+      expect(globals).toContain(heldKeysAddress - 1);
+      expect(readBgmRuntimeConfig(dll)).toEqual({
+        shortcutEnabled: true,
+        streamedBgmEnabled: false,
+        targetSequenceId: 0xffff,
+        streamId: 0xffff,
+        originalSequenceFileId: 0xffff,
+        shadowFileId: 0xffff,
+        streamFileId: 0xffff,
+        abiVersion: 2,
+        mappings: [],
+      });
+    }
+  });
+
+  it("installs the matching background-music toggle once PMC is available", async () => {
+    for (const [version, expectedDll] of [["B2", bgmToggleB2], ["W2", bgmToggleW2]] as const) {
+      const romBytes = makeBw2LikeRom();
+      if (version === "B2") romBytes[14] = "E".charCodeAt(0);
+      const project = makeProject(romBytes, version);
+      const hooks = version === "B2"
+        ? [[0x5336, "00f06ffc"], [0x5e02, "fff7c9ff"], [0x5e62, "65f0bbff"], [0x5eb0, "65f0d8ff"], [0x5fa2, "65f08dff"], [0x6dc58, "fff740fa"]] as const
+        : [[0x5336, "00f06ffc"], [0x5e02, "fff7c9ff"], [0x5e62, "65f0d1ff"], [0x5eb0, "65f0eeff"], [0x5fa2, "65f0a3ff"], [0x6dc84, "fff740fa"]] as const;
+      for (const [address, hexBytes] of hooks) project.arm9.set(Uint8Array.from(hexBytes.match(/../gu)!.map((byte) => Number.parseInt(byte, 16))), address);
+
+      await withBundledCodeInjectionFetch(async () => {
+        const result = await installBundledBgmToggleDll(project);
+        expect(result).toMatchObject({
+          path: `patches/BgmToggle${version}.dll`,
+          fileName: `BgmToggle${version}.dll`,
+          target: "patches",
+          gameId: version,
+          version: "3.0.0",
+        });
+        expect(getPmcInstallStatus(project)).toMatchObject({ installed: true, gameId: version });
+        expect(detectBundledBgmToggleDll(project)).toBe("patched");
+        const staged = project.fileSystem?.additions?.[`patches/BgmToggle${version}.dll`];
+        expect(staged).toBeTruthy();
+        expect(readBgmRuntimeConfig(staged!)).toMatchObject({ shortcutEnabled: true, streamedBgmEnabled: false });
+
+        const exportedRom = new NintendoDSRom(await exportModifiedRom(project));
+        const reimportedProject = makeProject(exportedRom.save(), version);
+        reimportedProject.codeInjection = detectPmcInstallFromRom(exportedRom);
+        expect(detectBundledBgmToggleDll(reimportedProject)).toBe("patched");
+      });
+    }
+  });
+
+  it("patches and re-reads versioned streamed-BGM runtime configuration for both revisions", async () => {
+    await withBundledCodeInjectionFetch(async () => {
+      for (const version of ["B2", "W2"] as const) {
+        const configured = await configureBundledBgmRuntime(version, {
+          shortcutEnabled: true,
+          streamedBgmEnabled: true,
+          targetSequenceId: 1200,
+          streamId: 1,
+          originalSequenceFileId: 4500,
+          shadowFileId: 5197,
+          streamFileId: 5198,
+        });
+        expect(parseRpm(configured, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCVersion: "3.0.0" });
+        expect(readBgmRuntimeConfig(configured)).toMatchObject({
+          shortcutEnabled: true,
+          streamedBgmEnabled: true,
+          targetSequenceId: 1200,
+          streamId: 1,
+          originalSequenceFileId: 4500,
+          shadowFileId: 5197,
+          streamFileId: 5198,
+        });
+      }
+    });
+  });
+
+  it("rejects an incompatible ARM9 before staging the background-music runtime", async () => {
+    const romBytes = makeBw2LikeRom();
+    const project = makeProject(romBytes, "W2");
+    await withBundledCodeInjectionFetch(async () => {
+      await expect(installBundledBgmToggleDll(project)).rejects.toThrow(/hook at 0x2005336 is incompatible/u);
+    });
+    expect(project.codeInjection).toBeUndefined();
+    expect(project.fileSystem).toBeUndefined();
+  });
+
   it("prepares the matching BW2 form-evolution runtime only once", async () => {
     for (const [version, expectedDll] of [
       ["B2", formEvolutionB2],
@@ -975,6 +1086,8 @@ async function withBundledCodeInjectionFetch(run: () => Promise<void>): Promise<
     if (fileName === "MainMenuSkipW2.dll") return new Response(mainMenuSkipW2);
     if (fileName === "FormEvolutionB2.dll") return new Response(formEvolutionB2);
     if (fileName === "FormEvolutionW2.dll") return new Response(formEvolutionW2);
+    if (fileName === "BgmToggleB2.dll") return new Response(bgmToggleB2);
+    if (fileName === "BgmToggleW2.dll") return new Response(bgmToggleW2);
     if (fileName === "PokewebOverworldWeatherW2.dll") return new Response(overworldWeatherRuntimeW2);
     return new Response(undefined, { status: 404 });
   }) as typeof fetch;

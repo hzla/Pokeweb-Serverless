@@ -3,7 +3,7 @@ import { concatBytes, readAscii, readU16, readU32, writeU16, writeU32 } from "..
 import { compressCode, decompressCode, isCodeCompressed } from "../nds/codeCompression";
 import { Folder, saveFnt } from "../nds/fnt";
 import { NARC, hasCtrMapIncompatibleFntb, hasEarlyFimgMagic } from "../nds/narc";
-import { NintendoDSRom } from "../nds/rom";
+import { crc16, NintendoDSRom, romDeviceCapacityByte } from "../nds/rom";
 import { exportModifiedRom, materializeProjectEdits, prepareArm9Download } from "../pokeweb/exportRom";
 import { addRomFile, importArm9Bytes } from "../pokeweb/fileSystemModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
@@ -239,6 +239,58 @@ describe("ROM export", () => {
     expect(readU32(exported, 0x1c0)).toBe(1);
     expect(readU32(exported, 0x1d0)).toBe(1);
     expect(readU32(exported, 0x80)).toBe(exported.length);
+  });
+
+  it("moves the NTR/TWL boundary past grown NitroFS files on every rebuild", () => {
+    const original = makeRom([Uint8Array.of(1), Uint8Array.of(2, 3)]);
+    const source = new Uint8Array(0x80000 + 0x400);
+    source.set(original);
+    source[0x12] = 2;
+    writeU16(source, 0x90, 1);
+    writeU16(source, 0x92, 1);
+    writeU32(source, 0x210, source.length);
+    writeU32(source, 0x1c0, 0x80000);
+    writeU32(source, 0x1cc, 4);
+    writeU32(source, 0x1d0, 0x80200);
+    writeU32(source, 0x1dc, 4);
+    source.set([4, 5, 6, 7], 0x80000);
+    source.set([8, 9, 10, 11], 0x80200);
+
+    let bytes: Uint8Array = source;
+    for (const length of [0x90000, 0x110000, 4]) {
+      // A large sound replacement displaces the following gameplay archive;
+      // a second rebuild models Quick Launch/Test Warp, then removal shrinks it.
+      bytes = new NintendoDSRom(bytes).save({ files: new Map([[0, new Uint8Array(length)]]), minimumLength: 0x200000 });
+      const fat = readU32(bytes, 0x48);
+      const end = readU32(bytes, 0x80);
+      const boundary = readU16(bytes, 0x92) * 0x80000;
+      expect(boundary).toBe(Math.ceil(end / 0x80000) * 0x80000);
+      expect(readU16(bytes, 0x90)).toBe(readU16(bytes, 0x92));
+      for (let id = 0; id < 2; id += 1) {
+        expect(readU32(bytes, fat + id * 8)).toBeLessThan(boundary);
+        expect(readU32(bytes, fat + id * 8 + 4)).toBeLessThanOrEqual(boundary);
+      }
+      expect(readU32(bytes, 0x1c0)).toBe(boundary);
+      expect(bytes.slice(boundary, boundary + 4)).toEqual(Uint8Array.of(4, 5, 6, 7));
+      const arm7i = readU32(bytes, 0x1d0);
+      expect(arm7i).toBeGreaterThanOrEqual(boundary + 4);
+      expect(bytes.slice(arm7i, arm7i + 4)).toEqual(Uint8Array.of(8, 9, 10, 11));
+      expect(new NintendoDSRom(bytes).files[1]).toEqual(Uint8Array.of(2, 3));
+      expect(readU32(bytes, 0x210)).toBe(bytes.length);
+      expect(readU16(bytes, 0x15e)).toBe(crc16(bytes.subarray(0, 0x15e)));
+    }
+  });
+
+  it("advertises the tested 2 GiB capacity for exports above 512 MiB", () => {
+    expect(romDeviceCapacityByte(0x20000000, 0)).toBe(0x0c);
+    expect(romDeviceCapacityByte(600_000_000, 0x0c)).toBe(0x0e);
+    expect(romDeviceCapacityByte(0x70000000, 0x0c)).toBe(0x0e);
+    expect(romDeviceCapacityByte(600_000_000, 0x0f)).toBe(0x0f);
+  });
+
+  it("rejects exports at the signed 2 GiB layout limit before allocation", () => {
+    const rom = new NintendoDSRom(makeRom([Uint8Array.of(1)]));
+    expect(() => rom.save({ minimumLength: 0x80000000 })).toThrow(/signed 2 GiB limit/u);
   });
 
   it("materializes aggregate header edits before NARC rebuild", async () => {

@@ -5,7 +5,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { addRomFile, getRomFileBytes, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
-import type { ProjectState } from "./projectStore";
+import { getStreamedBgmConfigs, type ProjectState } from "./projectStore";
 import {
   OVERWORLD_WEATHER_REGISTRY_PATH,
   serializeProjectOverworldWeatherRegistry,
@@ -80,6 +80,8 @@ const MAIN_MENU_SKIP_B2_URL = new URL("../assets/codeinjection/MainMenuSkipB2.dl
 const MAIN_MENU_SKIP_W2_URL = new URL("../assets/codeinjection/MainMenuSkipW2.dll", import.meta.url);
 const FORM_EVOLUTION_B2_URL = new URL("../assets/codeinjection/FormEvolutionB2.dll", import.meta.url);
 const FORM_EVOLUTION_W2_URL = new URL("../assets/codeinjection/FormEvolutionW2.dll", import.meta.url);
+const BGM_TOGGLE_B2_URL = new URL("../assets/codeinjection/BgmToggleB2.dll", import.meta.url);
+const BGM_TOGGLE_W2_URL = new URL("../assets/codeinjection/BgmToggleW2.dll", import.meta.url);
 const OVERWORLD_WEATHER_RUNTIME_W2_URL = new URL("../assets/codeinjection/PokewebOverworldWeatherW2.dll", import.meta.url);
 
 const DOUBLE_BATTLE_FIX_FILENAMES: Record<"B2" | "W2", string> = {
@@ -95,6 +97,50 @@ const MAIN_MENU_SKIP_FILENAMES: Record<"B2" | "W2", string> = {
 const FORM_EVOLUTION_FILENAMES: Record<"B2" | "W2", string> = {
   B2: "FormEvolutionB2.dll",
   W2: "FormEvolutionW2.dll",
+};
+
+const BGM_TOGGLE_FILENAMES: Record<"B2" | "W2", string> = {
+  B2: "BgmToggleB2.dll",
+  W2: "BgmToggleW2.dll",
+};
+
+const BGM_RUNTIME_CONFIG_HASH = 0x59ce771e;
+const BGM_RUNTIME_CONFIG_MAGIC = 0x53424750;
+const BGM_RUNTIME_CONFIG_MARKER = 0x32474250;
+const BGM_RUNTIME_CONFIG_SIZE = 32;
+const BGM_RUNTIME_ENTRY_SIZE = 10;
+const BGM_RUNTIME_HOOK_BYTES: Record<"B2" | "W2", Array<{ address: number; bytes: number[] }>> = {
+  B2: [
+    { address: 0x02005336, bytes: [0x00, 0xf0, 0x6f, 0xfc] },
+    { address: 0x02005e02, bytes: [0xff, 0xf7, 0xc9, 0xff] },
+    { address: 0x02005e62, bytes: [0x65, 0xf0, 0xbb, 0xff] },
+    { address: 0x02005eb0, bytes: [0x65, 0xf0, 0xd8, 0xff] },
+    { address: 0x02005fa2, bytes: [0x65, 0xf0, 0x8d, 0xff] },
+    { address: 0x0206dc58, bytes: [0xff, 0xf7, 0x40, 0xfa] },
+  ],
+  W2: [
+    { address: 0x02005336, bytes: [0x00, 0xf0, 0x6f, 0xfc] },
+    { address: 0x02005e02, bytes: [0xff, 0xf7, 0xc9, 0xff] },
+    { address: 0x02005e62, bytes: [0x65, 0xf0, 0xd1, 0xff] },
+    { address: 0x02005eb0, bytes: [0x65, 0xf0, 0xee, 0xff] },
+    { address: 0x02005fa2, bytes: [0x65, 0xf0, 0xa3, 0xff] },
+    { address: 0x0206dc84, bytes: [0xff, 0xf7, 0x40, 0xfa] },
+  ],
+};
+
+export type BgmRuntimeMapping = {
+  targetSequenceId: number;
+  streamId: number;
+  originalSequenceFileId: number;
+  shadowFileId: number;
+  streamFileId: number;
+};
+
+export type BgmRuntimeConfig = BgmRuntimeMapping & {
+  shortcutEnabled: boolean;
+  streamedBgmEnabled: boolean;
+  mappings?: BgmRuntimeMapping[];
+  abiVersion?: number;
 };
 
 export const OVERWORLD_WEATHER_RUNTIME_W2_FILENAME = "PokewebOverworldWeatherW2.dll";
@@ -444,11 +490,184 @@ export async function prepareBw2FormEvolutionCodeInjection(project: ProjectState
   return result;
 }
 
+export async function installBundledBgmToggleDll(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
+  if (project.session.baseRom !== "BW2" || (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2")) {
+    throw new Error("The bundled background-music toggle requires a US Black 2 or White 2 ROM.");
+  }
+
+  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+  if (!romBytes) throw new Error("Reload the ROM before installing the background-music toggle.");
+  assertBundledBgmRuntimeCompatibility(project, romBytes);
+  if (!getPmcInstallStatus(project).installed) {
+    adoptExistingPmcInstall(project, romBytes);
+    if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  }
+
+  const version = project.session.baseVersion;
+  const fileName = BGM_TOGGLE_FILENAMES[version];
+  const runtimePath = `patches/${fileName}`;
+  const streamed = getStreamedBgmConfigs(project);
+  const stagedRuntime = Object.entries(project.fileSystem?.additions ?? {}).find(([path]) => path.toLowerCase() === runtimePath.toLowerCase())?.[1];
+  const sourceRom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const existingRuntimeFileId = sourceRom.filenames.idOf(runtimePath);
+  const existingRuntime = stagedRuntime ?? (existingRuntimeFileId === undefined ? undefined : getRomFileBytes(project, sourceRom, existingRuntimeFileId));
+  const importedConfig = existingRuntime ? readBgmRuntimeConfig(existingRuntime) : undefined;
+  if (existingRuntime && !importedConfig) throw new Error("The installed music runtime has an unreadable configuration; cannot safely replace it.");
+  const mappings = streamed.length ? streamed : importedConfig?.mappings ?? [];
+  const bytes = await configureBundledBgmRuntime(version, {
+    shortcutEnabled: true,
+    mappings,
+  });
+  const result = stageCodeInjectionDll(project, fileName, bytes, "patches", romBytes);
+  streamed.forEach((mapping) => { mapping.toggleEnabled = true; });
+  recordGenericChange(
+    project,
+    "code_injection",
+    `${fileName} staged to mute or unmute the native background-music channel with L + R + Select.`,
+    "Background Music Toggle",
+    { key: "code-injection:bgm-toggle" },
+  );
+  return result;
+}
+
+export function assertBundledBgmRuntimeCompatibility(project: ProjectState, romBytes: Uint8Array): void {
+  const version = project.session.baseVersion;
+  if (version !== "B2" && version !== "W2") throw new Error("The background-music runtime supports US Black 2 and White 2 only.");
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const expectedId = version === "B2" ? "IREO" : "IRDO";
+  if (rom.idCode !== expectedId) throw new Error(`The loaded ROM is ${rom.idCode}, not the supported ${expectedId} revision.`);
+  const arm9 = project.arm9.length > 0 ? project.arm9 : decompressCode(rom.arm9);
+  for (const hook of BGM_RUNTIME_HOOK_BYTES[version]) {
+    const offset = hook.address - rom.arm9RamAddress;
+    const actual = arm9.subarray(offset, offset + hook.bytes.length);
+    if (actual.length !== hook.bytes.length || hook.bytes.some((value, index) => actual[index] !== value)) {
+      throw new Error(`The ARM9 background-music hook at 0x${hook.address.toString(16)} is incompatible with this ROM.`);
+    }
+  }
+}
+
+export async function configureBundledBgmRuntime(
+  version: "B2" | "W2",
+  config: BgmRuntimeConfig | { shortcutEnabled: boolean; mappings: BgmRuntimeMapping[] },
+): Promise<Uint8Array> {
+  const response = await fetch(version === "B2" ? BGM_TOGGLE_B2_URL : BGM_TOGGLE_W2_URL);
+  if (!response.ok) throw new Error(`Could not load bundled ${version} background-music runtime (${response.status})`);
+  const rpm = parseRpm(new Uint8Array(await response.arrayBuffer()), { allowedMagics: ["DLXF"] });
+  const symbol = rpm.symbols.find((candidate) => candidate.nameHash === BGM_RUNTIME_CONFIG_HASH);
+  if (!symbol || symbol.size !== BGM_RUNTIME_CONFIG_SIZE || symbol.address + symbol.size > rpm.code.length) {
+    throw new Error("The bundled background-music runtime has no compatible configuration block.");
+  }
+  const offset = symbol.address;
+  if (readU32(rpm.code, offset) !== BGM_RUNTIME_CONFIG_MAGIC || readU32(rpm.code, offset + 20) !== BGM_RUNTIME_CONFIG_MARKER) {
+    throw new Error("The bundled background-music runtime configuration failed its integrity check.");
+  }
+  const mappings = [...(config.mappings ?? ("streamedBgmEnabled" in config && config.streamedBgmEnabled ? [config] : []))]
+    .sort((a, b) => a.targetSequenceId - b.targetSequenceId);
+  validateBgmMappings(mappings);
+  // Materialize BSS in place before appending the variable-length table. All
+  // existing symbol addresses and relocation targets remain unchanged.
+  const tableOffset = Math.ceil((rpm.code.length + rpm.bssSize) / 4) * 4;
+  const code = new Uint8Array(tableOffset + mappings.length * BGM_RUNTIME_ENTRY_SIZE);
+  code.set(rpm.code);
+  rpm.code = code;
+  rpm.bssSize = 0;
+  mappings.forEach((mapping, index) => bgmMappingIds(mapping).forEach((id, field) => {
+    writeU16(code, tableOffset + index * BGM_RUNTIME_ENTRY_SIZE + field * 2, id);
+  }));
+  writeU16(rpm.code, offset + 4, 2);
+  writeU16(rpm.code, offset + 6, (config.shortcutEnabled ? 1 : 0) | (mappings.length ? 2 : 0));
+  writeU32(rpm.code, offset + 8, tableOffset - offset);
+  writeU16(rpm.code, offset + 12, mappings.length);
+  writeU16(rpm.code, offset + 14, BGM_RUNTIME_ENTRY_SIZE);
+  writeU16(rpm.code, offset + 18, BGM_RUNTIME_CONFIG_SIZE);
+  writeU32(rpm.code, offset + 24, bgmTableHash(code.subarray(tableOffset)));
+  return writeRpm(rpm, { ident: "DLXF" });
+}
+
+function bgmMappingIds(mapping: BgmRuntimeMapping): number[] {
+  return [mapping.targetSequenceId, mapping.streamId, mapping.originalSequenceFileId, mapping.shadowFileId, mapping.streamFileId];
+}
+
+function validateBgmMappings(mappings: BgmRuntimeMapping[]): void {
+  if (mappings.length > 0xffff) throw new Error("Too many background-music mappings for the native 16-bit IDs.");
+  const targets = new Set<number>();
+  const streams = new Set<number>();
+  const ownedFiles = new Set<number>();
+  for (const mapping of mappings) {
+    if (bgmMappingIds(mapping).some((id) => !Number.isInteger(id) || id < 0 || id >= 0xffff)) {
+      throw new Error("Background-music runtime IDs must fit in 16 bits and cannot use the 0xffff sentinel.");
+    }
+    if (targets.has(mapping.targetSequenceId) || streams.has(mapping.streamId) || mapping.streamId === 0
+      || ownedFiles.has(mapping.shadowFileId) || ownedFiles.has(mapping.streamFileId) || mapping.shadowFileId === mapping.streamFileId) {
+      throw new Error("Background-music mappings contain duplicate targets, streams, or owned files.");
+    }
+    targets.add(mapping.targetSequenceId);
+    streams.add(mapping.streamId);
+    ownedFiles.add(mapping.shadowFileId);
+    ownedFiles.add(mapping.streamFileId);
+  }
+}
+
+function bgmTableHash(bytes: Uint8Array): number {
+  let hash = 0x811c9dc5;
+  for (const byte of bytes) hash = Math.imul(hash ^ byte, 16777619);
+  return hash >>> 0;
+}
+
+export function readBgmRuntimeConfig(bytes: Uint8Array): BgmRuntimeConfig | undefined {
+  try {
+    const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+    const symbol = rpm.symbols.find((candidate) => candidate.nameHash === BGM_RUNTIME_CONFIG_HASH);
+    if (!symbol || ![24, BGM_RUNTIME_CONFIG_SIZE].includes(symbol.size) || symbol.address + symbol.size > rpm.code.length) return undefined;
+    const offset = symbol.address;
+    if (readU32(rpm.code, offset) !== BGM_RUNTIME_CONFIG_MAGIC || readU16(rpm.code, offset + 18) !== symbol.size) return undefined;
+    const abiVersion = readU16(rpm.code, offset + 4);
+    const flags = readU16(rpm.code, offset + 6);
+    if (flags & ~3) return undefined;
+    const readMapping = (at: number): BgmRuntimeMapping => ({
+      targetSequenceId: readU16(rpm.code, at), streamId: readU16(rpm.code, at + 2),
+      originalSequenceFileId: readU16(rpm.code, at + 4), shadowFileId: readU16(rpm.code, at + 6),
+      streamFileId: readU16(rpm.code, at + 8),
+    });
+    let mappings: BgmRuntimeMapping[];
+    if (abiVersion === 1 && symbol.size === 24 && readU32(rpm.code, offset + 20) === 0x31474250) {
+      mappings = flags & 2 ? [readMapping(offset + 8)] : [];
+    } else if (abiVersion === 2 && symbol.size === 32 && readU32(rpm.code, offset + 20) === BGM_RUNTIME_CONFIG_MARKER) {
+      const count = readU16(rpm.code, offset + 12);
+      const start = offset + readU32(rpm.code, offset + 8);
+      const end = start + count * BGM_RUNTIME_ENTRY_SIZE;
+      if (readU16(rpm.code, offset + 14) !== BGM_RUNTIME_ENTRY_SIZE || start < offset + symbol.size
+        || start % 2 || end > rpm.code.length || Boolean(flags & 2) !== Boolean(count)
+        || bgmTableHash(rpm.code.subarray(start, end)) !== readU32(rpm.code, offset + 24)) return undefined;
+      mappings = Array.from({ length: count }, (_, index) => readMapping(start + index * BGM_RUNTIME_ENTRY_SIZE));
+      if (mappings.some((mapping, index) => index > 0 && mapping.targetSequenceId <= mappings[index - 1]!.targetSequenceId)) return undefined;
+    } else return undefined;
+    validateBgmMappings(mappings);
+    return {
+      shortcutEnabled: (flags & 1) !== 0,
+      streamedBgmEnabled: (flags & 2) !== 0,
+      ...(mappings[0] ?? { targetSequenceId: 0xffff, streamId: 0xffff, originalSequenceFileId: 0xffff, shadowFileId: 0xffff, streamFileId: 0xffff }),
+      mappings,
+      abiVersion,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export function detectBundledFormEvolutionDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {
   if (project.session.baseRom !== "BW2" || (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2")) {
     return "unsupported";
   }
   const path = `patches/${FORM_EVOLUTION_FILENAMES[project.session.baseVersion]}`;
+  return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === path.toLowerCase()) ? "patched" : "unpatched";
+}
+
+export function detectBundledBgmToggleDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {
+  if (project.session.baseRom !== "BW2" || (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2")) {
+    return "unsupported";
+  }
+  const path = `patches/${BGM_TOGGLE_FILENAMES[project.session.baseVersion]}`;
   return listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === path.toLowerCase()) ? "patched" : "unpatched";
 }
 
@@ -583,7 +802,7 @@ export function stageCodeInjectionDll(
   const existingRomFileId = (() => {
     if (!romBytes) return undefined;
     try {
-      return new NintendoDSRom(romBytes).filenames.idOf(path);
+      return new NintendoDSRom(romBytes, { fileData: "view" }).filenames.idOf(path);
     } catch {
       return undefined;
     }
