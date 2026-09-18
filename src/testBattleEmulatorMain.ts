@@ -108,6 +108,7 @@ const audioSlider = document.querySelector<HTMLInputElement>("#pokeweb-audio");
 const audioValue = document.querySelector<HTMLOutputElement>("#pokeweb-audio-value");
 const pauseButton = document.querySelector<HTMLButtonElement>("#pokeweb-pause");
 const stepButton = document.querySelector<HTMLButtonElement>("#pokeweb-step");
+const downloadSaveButton = document.querySelector<HTMLButtonElement>("#pokeweb-download-save");
 const savestateButton = document.querySelector<HTMLButtonElement>("#pokeweb-savestate");
 const loadLastStateButton = document.querySelector<HTMLButtonElement>("#pokeweb-load-last-state");
 const controls = document.querySelector<HTMLDivElement>("#pokeweb-controls");
@@ -225,6 +226,13 @@ function installPlaybackControls(): void {
     syncPlaybackState();
     debugLog("Stepping one frame.");
   });
+  downloadSaveButton?.addEventListener("click", () => {
+    try {
+      setStatus(downloadLoadedSave());
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    }
+  });
   savestateButton?.addEventListener("click", async () => {
     setPaused(true, false);
     try {
@@ -252,6 +260,7 @@ function installPlaybackControls(): void {
 function setPlaybackControlsEnabled(enabled: boolean): void {
   if (pauseButton) pauseButton.disabled = !enabled;
   if (stepButton) stepButton.disabled = !enabled;
+  if (downloadSaveButton) downloadSaveButton.disabled = !enabled;
   if (savestateButton) savestateButton.disabled = !enabled;
   syncLastStateControl();
 }
@@ -727,6 +736,17 @@ function readCurrentBatterySaveBytes(): Uint8Array | undefined {
   return copyHeapBytes(pointer, size);
 }
 
+function downloadLoadedSave(): string {
+  const currentSave = readCurrentBatterySaveBytes();
+  const save = currentSave ?? activeSaveBytes;
+  if (!save) throw new Error("The loaded save is not available yet.");
+  const filename = safeSaveFilename(activeSaveName);
+  downloadBytes(save, filename, "application/octet-stream");
+  const source = currentSave ? "current battery save" : "loaded save";
+  debugLog(`Downloaded ${source} as ${filename} (${formatByteCount(save.length)}).`);
+  return `Downloaded ${filename} (${formatByteCount(save.length)}).`;
+}
+
 function readMainMemoryBytes(): Uint8Array | undefined {
   const memory = readMainMemoryView();
   return memory ? new Uint8Array(memory) : undefined;
@@ -865,6 +885,11 @@ function safeFilenameBase(value: string): string {
     .replace(/[^a-z0-9._-]+/giu, "-")
     .replace(/^-+|-+$/gu, "");
   return normalized || "pokeweb-test-battle";
+}
+
+function safeSaveFilename(value: string): string {
+  const extension = value.match(/\.[a-z0-9]+$/iu)?.[0].toLowerCase() ?? ".sav";
+  return `${safeFilenameBase(value)}${extension}`;
 }
 
 function timestampForFilename(date: Date): string {
