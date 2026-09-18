@@ -2138,6 +2138,334 @@
           "normalized": false
         }
       ]
+    },
+    {
+      "name": "bgm-toggle",
+      "title": "Background-music toggle and streamed replacement",
+      "artifacts": [
+        {
+          "name": "BgmToggleB2.dll",
+          "sha256": "eddb5a525bdb1f957fa4c92c85fe895477da669f47f056b98f7ff64d7d51cb02"
+        },
+        {
+          "name": "BgmToggleW2.dll",
+          "sha256": "69c05b1922fe03ca88d0d3b7ee05597b4e0796355aea28b78f29408bdf3783dd"
+        }
+      ],
+      "note": "Shared US Black 2 / White 2 runtime 3.0.0 for a volume-mute shortcut and a variable-length table of native SDAT stream replacements. ABI 1 single-track migration, per-track updates/removal, and export/reimport are supported. Uses one guarded 32 KiB native output buffer, 4 KiB low-memory fallback, and native heap rollback. The installer retains its 512 MiB export safety limit. Multi-track gameplay verification is pending; host and archive checks do not certify playback.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "bgm-toggle/BgmToggle.s",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/BgmToggle.s"
+          },
+          "kind": "source",
+          "sha256": "a41f4cd2c8fc1098236489adcdff749ef8d194b9ebd02c83e6d5f4f56d31ac8d",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "1ff826b22a6bf10d708dc20a1cddd91fe98b81ec23f129f3846fa9237bb3e5ee",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/mapping.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/mapping.c"
+          },
+          "kind": "source",
+          "sha256": "ab1ee3ec4bbc4e06d1dd6a2c28b44e0832a827e61b3a3a01a89786f384ee1964",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/metadata_b2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/metadata_b2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "a6af79a93e3d8f2a50838bf6edf54ee2f16016ca29b9de087a2d9a74a51fe93c",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/metadata_w2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/metadata_w2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "dcfeb0969ce10de8413af44860d1836922af40fcf30ebccf4f8f89901e721e53",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "efaea3d213ed56e6dc2333cce67154b4c4f2638503e93034403fe5ca0a23d11b",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/stream_buffer.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/stream_buffer.c"
+          },
+          "kind": "source",
+          "sha256": "6c7c66915522061f84d7acf8c992714ad73a9b4ceff63ce0b7eb6227992d1c53",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/stream_buffer.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/stream_buffer.h"
+          },
+          "kind": "source",
+          "sha256": "1a5a86cb4ae3de3016f3f98be2af1eb133b6b19fc78fbc78588023b0e66721da",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/symbols_b2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/symbols_b2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "e19795b403d0553caa8d75d915fcbfcdf924e596759d1a867b666fb79ac53228",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/symbols_w2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/symbols_w2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "a94e5ee9fd8824debae81e55083f9e0e6c68d30056b2e2b0b133a7db791dd264",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/test_mapping.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/test_mapping.c"
+          },
+          "kind": "test",
+          "sha256": "51686dd6a0147090f862a1d4591c56a2ea079860d78e1a20f22cb86db0b95581",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/test_stream_buffer.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/test_stream_buffer.c"
+          },
+          "kind": "test",
+          "sha256": "0366347e1f307268db09b23f6a1085b33649b02fa96a4f94a50021e93f89d26d",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/test.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/test.py"
+          },
+          "kind": "test",
+          "sha256": "de236f467b3588dd5918a165177de65921aba07c2e05ca419c2940513a8e58d6",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/verify.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bgm-toggle/verify.py"
+          },
+          "kind": "test",
+          "sha256": "8c1ebfc0068091a5f5f8f625ca053cb725b35d2a020fe0dc1dcdb2669d58a948",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/pmcModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/pmcModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "a43284f87840b6777ae8ef37c7e51385e30d181088eb390f592993570d25ff9c",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/streamedBgmModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/streamedBgmModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "0a1b772c6b8e3ba426adf3920a382aa53f3a0abb40738e1f52bf4e758156b7c5",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/rom.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/nds/rom.ts"
+          },
+          "kind": "support-only",
+          "sha256": "f391bd6248606dc5f22ecd06a51153c2f3ed23289ae480922453a15c70b28f89",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/musicEditor.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/ui/musicEditor.ts"
+          },
+          "kind": "support-only",
+          "sha256": "d1341a6b0816400d64fad6b92b05d8215b326b74f124a107733066c0d3701218",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/musicReference.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/musicReference.ts"
+          },
+          "kind": "support-only",
+          "sha256": "0d131b48cd3e04de781431b1e63e07043fc3251ad838055f12543511f93606a1",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/musicEditor.css",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/styles/musicEditor.css"
+          },
+          "kind": "support-only",
+          "sha256": "6393c675dda357eb6ca12518a8d60b6f88c85ab6876a50e9a375799ae92b181c",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/projectStore.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/projectStore.ts"
+          },
+          "kind": "support-only",
+          "sha256": "5c1baac3ba776475db16a14a8bb24b8cb0d9574e330f043fa99f4322398618a6",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/codeInjectionEditor.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/ui/codeInjectionEditor.ts"
+          },
+          "kind": "support-only",
+          "sha256": "074888d9211c32195ff5c42e4a6b4ad14043ae74464b181b106e225ba2684886",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/codeInjection.css",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/styles/codeInjection.css"
+          },
+          "kind": "support-only",
+          "sha256": "b48cfe89761ba3d04c2b456590c73909f557ab49cd85aa1b5c1e53e2449f0c85",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/integration/package.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "package.json"
+          },
+          "kind": "build-tool",
+          "sha256": "64f1ff73e903fbacc9ef6c3e077a7e696d0954c05904a939c7d502a46b36271e",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/tests/pmcModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/pmcModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "f54fd4091c9aa4bd9d29ac181d736b727bb29c3e751bbd3b0d4e701c9c3dfe88",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/tests/streamedBgmModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/streamedBgmModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "7af3ad913216dc2ecc2adb0678e86dd684f9ea9866a463a2c60427b8a0f9004f",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/tests/bgmRuntimeMappings.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/bgmRuntimeMappings.test.ts"
+          },
+          "kind": "test",
+          "sha256": "cc6a5f33e1ec67762a3e17e93b9bcd5fe790f7f69240c0619f5c99ff22dd9652",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/tests/musicEditor.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/musicEditor.test.ts"
+          },
+          "kind": "test",
+          "sha256": "a5181cec1b058aa990a404e070b643332df2863f76e52493d7ee8dc0c667e83d",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/tests/musicReference.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/musicReference.test.ts"
+          },
+          "kind": "test",
+          "sha256": "c4db6328fae3afdd1339fee942991169e0fd290a00c7a541861ecd68f4df681f",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/tests/romExport.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/romExport.test.ts"
+          },
+          "kind": "test",
+          "sha256": "96e923c56c4e20cce0fb8c338446e3fcbe0ffed111e03fa71895d218f98e41f3",
+          "normalized": false
+        },
+        {
+          "path": "bgm-toggle/tests/verify-streamed-bgm-install.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-streamed-bgm-install.ts"
+          },
+          "kind": "test",
+          "sha256": "2a6643654152b9639c2ef504a632c90aed27a8843929f06ef46d087f2cb13e27",
+          "normalized": false
+        }
+      ]
     }
   ],
   "sharedFiles": [

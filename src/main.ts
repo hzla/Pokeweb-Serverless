@@ -25,6 +25,7 @@ import "./styles/headerBattleEnvironments.css";
 import "./styles/overworldWeather.css";
 import "./styles/randomizer.css";
 import "./styles/trainerMusic.css";
+import "./styles/musicEditor.css";
 import "./styles/titleScreen.css";
 
 import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, isGen5Project, type NarcName } from "./pokeweb/constants";
@@ -47,6 +48,7 @@ import { buildMoveTestBattleDownloads, buildQuickLaunchDownloads, buildTestBattl
 import { buildOverworldTestWarpDownloads, type OverworldTestWarpSelection } from "./pokeweb/testOverworldWarp";
 import { renderDebugNarcs } from "./ui/debugNarcs";
 import { renderCodeInjectionEditor } from "./ui/codeInjectionEditor";
+import { renderMusicEditor } from "./ui/musicEditor";
 import { renderFileSystemEditor } from "./ui/fileSystemEditor";
 import { renderPatchesEditor } from "./ui/patchesEditor";
 import { renderHeaderEditor } from "./ui/headerEditor";
@@ -89,6 +91,7 @@ type AppRoute =
   | "upload"
   | "fileSystem"
   | "codeInjection"
+  | "music"
   | "patches"
   | "headers"
   | "weather"
@@ -185,6 +188,7 @@ const APP_ROUTES: AppRoute[] = [
   "upload",
   "fileSystem",
   "codeInjection",
+  "music",
   "patches",
   "headers",
   "weather",
@@ -239,6 +243,7 @@ const EDITOR_REQUIREMENTS: Record<
   starters: ["personal", "pokemon_sprites", "starter_sprites", "scripts", "story_texts"],
   trainers: ["trdata", "trpok", "personal", "items", "moves", "trtext_table", "trtext_offsets"],
   trainerMusic: [],
+  music: [],
   trainerSprites: ["trdata"],
   facilities: ["moves", "items"],
   wbtFacilities: ["moves", "items"],
@@ -573,6 +578,15 @@ function renderApp(): void {
 
   if (route === "codeInjection") {
     renderCodeInjectionEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+
+  if (route === "music") {
+    renderMusicEditor(project, content, () => {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
@@ -1020,6 +1034,7 @@ function renderMoreMenu(): string {
     ["starters", "Scripted PKMN"],
     ["types", "Type Chart"],
     ["battleBackgrounds", "Battle Backgrounds"],
+    ["music", "Music"],
     ["changelog", "Changelog"],
     ["patches", "Patches"],
     ["codeInjection", "Code Injection"],
@@ -1270,16 +1285,12 @@ async function downloadRom(frostCompatibility = false): Promise<void> {
     const saveHandle = await chooseRomSaveTargetForPreparedDownload(filename);
     if (saveHandle === null) return;
     saveStarted = true;
-    let successMessage: string;
     if (saveHandle) {
       await writeBlobToSaveHandle(saveHandle, blob);
-      successMessage = `ROM saved successfully:\n\n${filename}`;
     } else {
       downloadBlob(blob, filename);
-      successMessage = `ROM export started:\n\n${filename}`;
     }
     await maybeOfferChangelogExport(filename);
-    window.alert(successMessage);
     dirty = false;
     renderDirtyIndicator();
   } catch (error) {
@@ -2028,6 +2039,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   }
   if (nextRoute === "fileSystem") return hasExportBase;
   if (nextRoute === "codeInjection") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
+  if (nextRoute === "music") return hasExportBase && project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2");
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
   if (nextRoute === "buildings") return isGen5Project(project) && hasExportBase;
@@ -2081,6 +2093,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? ([] as NarcName[])
       : nextRoute === "codeInjection"
         ? ([] as NarcName[])
+      : nextRoute === "music"
+        ? ([] as NarcName[])
       : nextRoute === "patches"
         ? ([] as NarcName[])
       : nextRoute === "maps3d"
@@ -2096,6 +2110,8 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
       ? ` title="Reload the ROM before opening File System"`
     : nextRoute === "codeInjection"
       ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Reload the ROM before opening Code Injection" : "Code Injection is currently Gen V only"}"`
+    : nextRoute === "music"
+      ? ` title="${project?.session.baseRom === "BW2" ? "Reload the ROM before opening Music" : "Music replacement supports US Black 2 and White 2"}"`
     : nextRoute === "patches"
       ? ` title="Reload the ROM before opening Patches"`
       : nextRoute === "maps3d"
