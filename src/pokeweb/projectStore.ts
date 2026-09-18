@@ -103,6 +103,31 @@ export type FileSystemEditState = {
   additions?: Record<string, Uint8Array>;
 };
 
+export type StreamedBgmConfig = {
+  runtimeVersion: number;
+  targetSequenceId: number;
+  targetSequenceSymbol?: string;
+  sourceName: string;
+  encoding?: "pcm16" | "adpcm";
+  sampleRate: 32728;
+  channels: 2;
+  sampleCount: number;
+  loopStartSample: number;
+  loopEndSample: number;
+  encodedBytes: number;
+  audioSha256: string;
+  streamId: number;
+  streamFileId: number;
+  shadowFileId: number;
+  originalSequenceFileId: number;
+  toggleEnabled: boolean;
+};
+
+/** Read old saved projects without mutating them until a transaction commits. */
+export function getStreamedBgmConfigs(project: Pick<ProjectState, "codeInjection">): StreamedBgmConfig[] {
+  return project.codeInjection?.streamedBgms ?? (project.codeInjection?.streamedBgm ? [project.codeInjection.streamedBgm] : []);
+}
+
 export type CodeInjectionState = {
   pmc?: {
     overlayId: number;
@@ -119,6 +144,9 @@ export type CodeInjectionState = {
     version?: string;
     gameId?: string;
   }>;
+  /** Legacy single-track state; migrated on the next successful music edit. */
+  streamedBgm?: StreamedBgmConfig;
+  streamedBgms?: StreamedBgmConfig[];
   battleLog?: {
     ancestryPath: string;
     ancestryFileId?: number;

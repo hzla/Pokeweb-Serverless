@@ -1,0 +1,338 @@
+DLXF file | Code segment base address: 0x20 | BSS size: 0x24
+Symbol count: 36 | Relocation count: 47
+
+Symbol table:
+	Symbol 0 | <anonymous>
+		Address: 2005ce4
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 1 | <anonymous>
+		Address: 2005c9c
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 2 | <anonymous>
+		Address: 206d108
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 3 | <anonymous>
+		Address: 206be90
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 4 | <anonymous>
+		Address: 203df4c
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 5 | <anonymous>
+		Address: 2005d98
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 6 | <anonymous>
+		Address: 206beec
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 7 | <anonymous>
+		Address: 206be08
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 8 | <anonymous>
+		Address: 206dd10
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 9 | <anonymous>
+		Address: 206db6c
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 10 | <anonymous>
+		Address: 2005f94
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 11 | <anonymous>
+		Address: 206dd58
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 12 | <anonymous>
+		Address: 206dd2c
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 13 | <anonymous>
+		Address: 2005c18
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 14 | <anonymous>
+		Address: 460
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 15 | <anonymous>
+		Address: 444
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 16 | <anonymous>
+		Address: 438
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 17 | <anonymous>
+		Address: 45c
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 18 | <anonymous>
+		Address: 44c
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 19 | <anonymous>
+		Address: 450
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 20 | <anonymous>
+		Address: 454
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 21 | <anonymous>
+		Address: 43c
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 22 | <anonymous>
+		Address: 440
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 23 | <anonymous>
+		Address: 448
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 24 | <anonymous>
+		Address: 458
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 25 | <anonymous>
+		Address: 444
+		Type: VALUE
+		Size: 0
+		Attributes: []
+	Symbol 26 | Hash: d077431
+		Address: 464
+		Type: VALUE
+		Size: 4
+		Attributes: [Export symbol]
+	Symbol 27 | Hash: 17bfdcd7
+		Address: 0
+		Type: FUNCTION_THM
+		Size: 24
+		Attributes: [Export symbol]
+	Symbol 28 | Hash: 24fdaf87
+		Address: 262
+		Type: FUNCTION_THM
+		Size: 32
+		Attributes: [Export symbol]
+	Symbol 29 | Hash: 59ce771e
+		Address: 418
+		Type: VALUE
+		Size: 32
+		Attributes: [Export symbol]
+	Symbol 30 | Hash: 627e1e51
+		Address: f8
+		Type: FUNCTION_THM
+		Size: 132
+		Attributes: [Export symbol]
+	Symbol 31 | Hash: a3968f69
+		Address: 282
+		Type: FUNCTION_THM
+		Size: 52
+		Attributes: [Export symbol]
+	Symbol 32 | Hash: ccda57d9
+		Address: 2ec
+		Type: FUNCTION_THM
+		Size: 200
+		Attributes: [Export symbol]
+	Symbol 33 | Hash: d541f233
+		Address: 17c
+		Type: FUNCTION_THM
+		Size: 38
+		Attributes: [Export symbol]
+	Symbol 34 | Hash: f7492c99
+		Address: 1e0
+		Type: FUNCTION_THM
+		Size: 130
+		Attributes: [Export symbol]
+	Symbol 35 | Hash: fa925ad1
+		Address: 3b4
+		Type: FUNCTION_THM
+		Size: 100
+		Attributes: [Export symbol]
+
+Relocation table:
+	Relocation 0
+		Source symbol: null(FUNCTION_THM) @ 0x2005f94 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x52
+	Relocation 1
+		Source symbol: null(FUNCTION_THM) @ 0x206dd2c [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x70
+	Relocation 2
+		Source symbol: null(FUNCTION_THM) @ 0x2005ce4 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0xb4
+	Relocation 3
+		Source symbol: null(FUNCTION_THM) @ 0x206db6c [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0xc2
+	Relocation 4
+		Source symbol: null(FUNCTION_THM) @ 0x206dd10 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0xd2
+	Relocation 5
+		Source symbol: null(FUNCTION_THM) @ 0x2005c18 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0xfa
+	Relocation 6
+		Source symbol: null(FUNCTION_THM) @ 0x203df4c [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x108
+	Relocation 7
+		Source symbol: null(FUNCTION_THM) @ 0x2005c9c [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x13c
+	Relocation 8
+		Source symbol: null(FUNCTION_THM) @ 0x2005d98 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x180
+	Relocation 9
+		Source symbol: null(VALUE) @ 0x460 [0x0]
+		Target: OFFSET @ base :: 0x1a4
+	Relocation 10
+		Source symbol: null(VALUE) @ 0x444 [0x0]
+		Target: OFFSET @ base :: 0x1a8
+	Relocation 11
+		Source symbol: null(VALUE) @ 0x438 [0x0]
+		Target: OFFSET @ base :: 0x1ac
+	Relocation 12
+		Source symbol: null(VALUE) @ 0x45c [0x0]
+		Target: OFFSET @ base :: 0x1b4
+	Relocation 13
+		Source symbol: null(VALUE) @ 0x44c [0x0]
+		Target: OFFSET @ base :: 0x1bc
+	Relocation 14
+		Source symbol: null(VALUE) @ 0x450 [0x0]
+		Target: OFFSET @ base :: 0x1c0
+	Relocation 15
+		Source symbol: null(VALUE) @ 0x454 [0x0]
+		Target: OFFSET @ base :: 0x1c4
+	Relocation 16
+		Source symbol: null(VALUE) @ 0x43c [0x0]
+		Target: OFFSET @ base :: 0x1c8
+	Relocation 17
+		Source symbol: null(VALUE) @ 0x418 [0x20]
+		Target: OFFSET @ base :: 0x1cc
+	Relocation 18
+		Source symbol: null(VALUE) @ 0x440 [0x0]
+		Target: OFFSET @ base :: 0x1d0
+	Relocation 19
+		Source symbol: null(VALUE) @ 0x464 [0x4]
+		Target: OFFSET @ base :: 0x1d4
+	Relocation 20
+		Source symbol: null(VALUE) @ 0x448 [0x0]
+		Target: OFFSET @ base :: 0x1dc
+	Relocation 21
+		Source symbol: null(FUNCTION_THM) @ 0x206be08 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x1e4
+	Relocation 22
+		Source symbol: null(FUNCTION_THM) @ 0x206dd58 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x200
+	Relocation 23
+		Source symbol: null(FUNCTION_THM) @ 0x206dd2c [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x232
+	Relocation 24
+		Source symbol: null(FUNCTION_THM) @ 0x206dd10 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x252
+	Relocation 25
+		Source symbol: null(FUNCTION_THM) @ 0x206be90 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x266
+	Relocation 26
+		Source symbol: null(FUNCTION_THM) @ 0x206dd2c [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x276
+	Relocation 27
+		Source symbol: null(FUNCTION_THM) @ 0x206beec [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x2ac
+	Relocation 28
+		Source symbol: null(VALUE) @ 0x44c [0x0]
+		Target: OFFSET @ base :: 0x2b8
+	Relocation 29
+		Source symbol: null(VALUE) @ 0x450 [0x0]
+		Target: OFFSET @ base :: 0x2bc
+	Relocation 30
+		Source symbol: null(VALUE) @ 0x460 [0x0]
+		Target: OFFSET @ base :: 0x2c0
+	Relocation 31
+		Source symbol: null(VALUE) @ 0x458 [0x0]
+		Target: OFFSET @ base :: 0x2d0
+	Relocation 32
+		Source symbol: null(VALUE) @ 0x440 [0x0]
+		Target: OFFSET @ base :: 0x2d4
+	Relocation 33
+		Source symbol: null(VALUE) @ 0x454 [0x0]
+		Target: OFFSET @ base :: 0x2d8
+	Relocation 34
+		Source symbol: null(VALUE) @ 0x45c [0x0]
+		Target: OFFSET @ base :: 0x2dc
+	Relocation 35
+		Source symbol: null(VALUE) @ 0x438 [0x0]
+		Target: OFFSET @ base :: 0x2e4
+	Relocation 36
+		Source symbol: null(VALUE) @ 0x444 [0x0]
+		Target: OFFSET @ base :: 0x2e8
+	Relocation 37
+		Source symbol: null(FUNCTION_THM) @ 0x206d108 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x318
+	Relocation 38
+		Source symbol: null(FUNCTION_THM) @ 0x206d108 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x382
+	Relocation 39
+		Source symbol: null(FUNCTION_THM) @ 0x206d108 [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x39c
+	Relocation 40
+		Source symbol: null(VALUE) @ 0x464 [0x4]
+		Target: OFFSET @ base :: 0x3a8
+	Relocation 41
+		Source symbol: null(FUNCTION_THM) @ 0x262 [0x20]
+		Target: THUMB_BRANCH_LINK @ ARM9 :: 0x2005eb0
+	Relocation 42
+		Source symbol: null(FUNCTION_THM) @ 0x0 [0x18]
+		Target: THUMB_BRANCH_LINK @ ARM9 :: 0x206dc84
+	Relocation 43
+		Source symbol: null(FUNCTION_THM) @ 0x17c [0x26]
+		Target: THUMB_BRANCH_LINK @ ARM9 :: 0x2005e02
+	Relocation 44
+		Source symbol: null(FUNCTION_THM) @ 0x282 [0x34]
+		Target: THUMB_BRANCH_LINK @ ARM9 :: 0x2005fa2
+	Relocation 45
+		Source symbol: null(FUNCTION_THM) @ 0x1e0 [0x82]
+		Target: THUMB_BRANCH_LINK @ ARM9 :: 0x2005e62
+	Relocation 46
+		Source symbol: null(FUNCTION_THM) @ 0xf8 [0x84]
+		Target: THUMB_BRANCH_LINK @ ARM9 :: 0x2005336
+
+Metadata:
+	PMCGameID:
+		Type: STRING
+		Value: W2
+	PMCModulePriority:
+		Type: INT
+		Value: 4
+	PMCVersion:
+		Type: STRING
+		Value: 3.0.0

@@ -47,7 +47,7 @@ function file(group, relative, kind = 'source', originPath = `runtime/${group}/$
 }
 function runtimeFiles(group) {
   return fs.readdirSync(path.join(app, 'runtime', group), { withFileTypes: true })
-    .filter(entry => entry.isFile() && /\.(cpp|h|py|ts|json|java|yml|md|txt|cjs)$/.test(entry.name))
+    .filter(entry => entry.isFile() && /\.(c|cpp|h|py|ts|json|java|yml|md|txt|cjs|s|S)$/.test(entry.name))
     .sort((a, b) => a.name.localeCompare(b.name, 'en'))
     .map(entry => {
       const kind = /\.(md|txt)$/.test(entry.name) ? 'documentation'
@@ -85,6 +85,30 @@ const additions = [
         file('battle-type-hud', `tests/${name}.test.ts`, 'test', `src/test/${name}.test.ts`),
       ]),
       file('battle-type-hud', 'tests/verify-battle-hud-install.ts', 'test', 'scripts/verify-battle-hud-install.ts'),
+    ],
+  },
+  {
+    name: 'bgm-toggle', title: 'Background-music toggle and streamed replacement',
+    artifacts: ['BgmToggleB2.dll', 'BgmToggleW2.dll'],
+    note: 'Shared US Black 2 / White 2 runtime 3.0.0 for a volume-mute shortcut and a variable-length table of native SDAT stream replacements. ABI 1 single-track migration, per-track updates/removal, and export/reimport are supported. Uses one guarded 32 KiB native output buffer, 4 KiB low-memory fallback, and native heap rollback. The installer retains its 512 MiB export safety limit. Multi-track gameplay verification is pending; host and archive checks do not certify playback.',
+    extra: [
+      file('bgm-toggle', 'integration/pmcModel.ts', 'support-only', 'src/pokeweb/pmcModel.ts'),
+      file('bgm-toggle', 'integration/streamedBgmModel.ts', 'support-only', 'src/pokeweb/streamedBgmModel.ts'),
+      file('bgm-toggle', 'integration/rom.ts', 'support-only', 'src/nds/rom.ts'),
+      file('bgm-toggle', 'integration/musicEditor.ts', 'support-only', 'src/ui/musicEditor.ts'),
+      file('bgm-toggle', 'integration/musicReference.ts', 'support-only', 'src/pokeweb/musicReference.ts'),
+      file('bgm-toggle', 'integration/musicEditor.css', 'support-only', 'src/styles/musicEditor.css'),
+      file('bgm-toggle', 'integration/projectStore.ts', 'support-only', 'src/pokeweb/projectStore.ts'),
+      file('bgm-toggle', 'integration/codeInjectionEditor.ts', 'support-only', 'src/ui/codeInjectionEditor.ts'),
+      file('bgm-toggle', 'integration/codeInjection.css', 'support-only', 'src/styles/codeInjection.css'),
+      file('bgm-toggle', 'integration/package.json', 'build-tool', 'package.json'),
+      file('bgm-toggle', 'tests/pmcModel.test.ts', 'test', 'src/test/pmcModel.test.ts'),
+      file('bgm-toggle', 'tests/streamedBgmModel.test.ts', 'test', 'src/test/streamedBgmModel.test.ts'),
+      file('bgm-toggle', 'tests/bgmRuntimeMappings.test.ts', 'test', 'src/test/bgmRuntimeMappings.test.ts'),
+      file('bgm-toggle', 'tests/musicEditor.test.ts', 'test', 'src/test/musicEditor.test.ts'),
+      file('bgm-toggle', 'tests/musicReference.test.ts', 'test', 'src/test/musicReference.test.ts'),
+      file('bgm-toggle', 'tests/romExport.test.ts', 'test', 'src/test/romExport.test.ts'),
+      file('bgm-toggle', 'tests/verify-streamed-bgm-install.ts', 'test', 'scripts/verify-streamed-bgm-install.ts'),
     ],
   },
 ];

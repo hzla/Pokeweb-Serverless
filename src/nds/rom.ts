@@ -2,6 +2,11 @@ import { ByteLike, asUint8Array, readAscii, readU16, readU32, writeU16, writeU32
 import { Folder, addFilePath, cloneFolder, loadFnt, saveFnt, shiftFileIdsAtOrAfter } from "./fnt";
 import { Overlay, loadOverlayTable } from "./code";
 
+const NTR_TWL_ALIGNMENT = 0x80000;
+const STANDARD_DS_ROM_LIMIT = 0x20000000;
+const MAX_SUPPORTED_ROM_SIZE = 0x7fffffff;
+const OVERSIZE_DEVICE_CAPACITY = 0x0e;
+
 export type RomReadOptions = {
   /**
    * "view" borrows NitroFS file bytes from the input. Treat these files as
@@ -142,36 +147,10 @@ export class NintendoDSRom {
     if (shouldRewriteFnt) {
       fntData = saveFnt(filenames);
     }
+    const arm9Bytes = options.arm9 ?? this.arm9;
+    const arm7OverlayTableBytes = options.arm7OverlayTable ?? this.arm7OverlayTable;
     const headerSize = Math.max(readU32(this.data, 0x84) || 0x4000, 0x200);
-    const writer = new RomWriter(Math.max(this.data.length, headerSize + files.reduce((sum, file) => sum + align(file.length, 0x200), 0)));
-    writer.writeAt(0, this.data.subarray(0, Math.min(headerSize, this.data.length)));
-
-    let cursor = align(headerSize, 0x200);
-    const writeSection = (bytes: Uint8Array, alignment = 0x200): { offset: number; length: number } => {
-      cursor = align(cursor, alignment);
-      const offset = cursor;
-      writer.writeAt(offset, bytes);
-      cursor += bytes.length;
-      return { offset, length: bytes.length };
-    };
-
-    const writeOptionalSection = (bytes: Uint8Array, alignment = 0x200): { offset: number; length: number } =>
-      bytes.length > 0 ? writeSection(bytes, alignment) : { offset: 0, length: 0 };
-
-    const arm9 = writeSection(options.arm9 ?? this.arm9);
-    const arm9OverlayTable = writeOptionalSection(arm9OverlayTableBytes);
-    const arm7 = writeSection(this.arm7);
-    const arm7OverlayTable = writeOptionalSection(options.arm7OverlayTable ?? this.arm7OverlayTable);
-    const fnt = writeSection(fntData);
-
     const fatLength = files.length * 8;
-    cursor = align(cursor, 0x200);
-    const fatOffset = cursor;
-    writer.writeAt(fatOffset, new Uint8Array(fatLength));
-    cursor += fatLength;
-
-    const banner = this.banner.length > 0 ? writeSection(this.banner) : { offset: 0, length: 0 };
-
     const priorityFileIds = [...new Set(options.priorityFileIds ?? [])];
     for (const id of priorityFileIds) {
       if (!Number.isInteger(id) || id < 0 || id >= files.length) throw new Error(`Invalid priority file ID: ${id}`);
@@ -182,33 +161,96 @@ export class NintendoDSRom {
       ...files.map((_file, id) => id).filter((id) => !prioritySet.has(id))
         .sort((a, b) => placementRanks[a] - placementRanks[b] || a - b),
     ];
+    const twlSections = this.twlSections();
+    const minimumLength = Math.max(options.preserveOriginalLength ? this.data.length : 0, checkedMinimumLength(options.minimumLength));
+
+    // Plan the complete layout before allocating. Large exports otherwise
+    // force the growable writer to double past the requested size and then
+    // copy the entire ROM once more while trimming it.
+    let plannedCursor = align(headerSize, 0x200);
+    const planSection = (length: number, alignment = 0x200): void => {
+      plannedCursor = checkedAdd(align(plannedCursor, alignment), length);
+    };
+    const planOptionalSection = (length: number, alignment = 0x200): void => {
+      if (length > 0) planSection(length, alignment);
+    };
+    planSection(arm9Bytes.length);
+    planOptionalSection(arm9OverlayTableBytes.length);
+    planSection(this.arm7.length);
+    planOptionalSection(arm7OverlayTableBytes.length);
+    planSection(fntData.length);
+    planSection(fatLength);
+    planOptionalSection(this.banner.length);
+    for (const id of physicalFileOrder) planSection(files[id].length);
+    const plannedApplicationEnd = align(plannedCursor, 4);
+    if (twlSections.length > 0) {
+      plannedCursor = align(plannedCursor, NTR_TWL_ALIGNMENT);
+      for (const section of twlSections) planSection(section.length);
+    }
+    const plannedCompactLength = align(plannedCursor, 4);
+    const plannedRomLength = Math.max(plannedCompactLength, align(minimumLength, 4));
+    assertSupportedRomLength(plannedRomLength);
+
+    const writer = new RomWriter(plannedRomLength);
+    writer.writeAt(0, this.data.subarray(0, Math.min(headerSize, this.data.length)));
+
+    let cursor = align(headerSize, 0x200);
+    const writeSection = (bytes: Uint8Array, alignment = 0x200): { offset: number; length: number } => {
+      cursor = align(cursor, alignment);
+      const offset = cursor;
+      writer.writeAt(offset, bytes);
+      cursor = checkedAdd(cursor, bytes.length);
+      return { offset, length: bytes.length };
+    };
+
+    const writeOptionalSection = (bytes: Uint8Array, alignment = 0x200): { offset: number; length: number } =>
+      bytes.length > 0 ? writeSection(bytes, alignment) : { offset: 0, length: 0 };
+
+    const arm9 = writeSection(arm9Bytes);
+    const arm9OverlayTable = writeOptionalSection(arm9OverlayTableBytes);
+    const arm7 = writeSection(this.arm7);
+    const arm7OverlayTable = writeOptionalSection(arm7OverlayTableBytes);
+    const fnt = writeSection(fntData);
+
+    cursor = align(cursor, 0x200);
+    const fatOffset = cursor;
+    writer.writeAt(fatOffset, new Uint8Array(fatLength));
+    cursor = checkedAdd(cursor, fatLength);
+
+    const banner = this.banner.length > 0 ? writeSection(this.banner) : { offset: 0, length: 0 };
+
     physicalFileOrder.forEach((id) => {
       const file = files[id];
       cursor = align(cursor, 0x200);
       const start = cursor;
       writer.writeAt(start, file);
-      cursor += file.length;
+      cursor = checkedAdd(cursor, file.length);
       writeU32(writer.buffer, fatOffset + id * 8, start);
       writeU32(writer.buffer, fatOffset + id * 8 + 4, cursor);
     });
 
     const applicationEnd = align(cursor, 4);
-    const twlSections = this.twlSections();
     const twlSectionWrites: Array<{ offsetField: number; offset: number }> = [];
     if (twlSections.length > 0) {
-      cursor = align(cursor, 0x200);
+      // NDSRegionEnd / DSiRegionStart use 512 KiB units. Retail TWL-aware
+      // FS rejects NTR-mode opens at or beyond DSiRegionStart, even when FAT
+      // and the overall ROM size are correct. Growing a file (notably SDAT)
+      // must move this boundary along with all of the NitroFS data.
+      cursor = align(cursor, NTR_TWL_ALIGNMENT);
       for (const section of twlSections) {
         cursor = align(cursor, 0x200);
         const offset = cursor;
         writer.writeAt(offset, this.data.subarray(section.sourceOffset, section.sourceOffset + section.length));
-        cursor += section.length;
+        cursor = checkedAdd(cursor, section.length);
         twlSectionWrites.push({ offsetField: section.offsetField, offset });
       }
     }
 
     const compactRomLength = align(cursor, 4);
-    const minimumLength = Math.max(options.preserveOriginalLength ? this.data.length : 0, options.minimumLength ?? 0);
     const romLength = Math.max(compactRomLength, align(minimumLength, 4));
+    if (applicationEnd !== plannedApplicationEnd || romLength !== plannedRomLength) {
+      throw new Error("Internal ROM layout planning mismatch");
+    }
     const out = writer.trim(romLength);
     if (options.preserveOriginalLength && romLength > compactRomLength) out.fill(0xff, compactRomLength, romLength);
 
@@ -227,12 +269,15 @@ export class NintendoDSRom {
     writeU32(out, 0x68, banner.offset);
     writeU32(out, 0x80, twlSections.length > 0 ? applicationEnd : romLength);
     if (twlSections.length > 0) {
+      const regionBoundary = Math.ceil(applicationEnd / NTR_TWL_ALIGNMENT);
+      writeU16(out, 0x90, regionBoundary);
+      writeU16(out, 0x92, regionBoundary);
       for (const section of twlSectionWrites) {
         writeU32(out, section.offsetField, section.offset);
       }
       writeU32(out, 0x210, romLength);
     }
-    out[0x14] = deviceCapacityByte(romLength, this.data[0x14] ?? 0);
+    out[0x14] = romDeviceCapacityByte(romLength, this.data[0x14] ?? 0);
 
     if (arm9.offset < 0x8000 && out.length >= 0x8000) writeU16(out, 0x6c, crc16(out.subarray(arm9.offset, 0x8000)));
     writeU16(out, 0x15c, crc16(out.subarray(0xc0, 0xc0 + 156)));
@@ -265,7 +310,11 @@ class RomWriter {
   buffer: Uint8Array;
 
   constructor(size: number) {
-    this.buffer = new Uint8Array(size);
+    try {
+      this.buffer = new Uint8Array(size);
+    } catch (error) {
+      throw new Error(`Unable to allocate the ${formatByteSize(size)} ROM export buffer. Close other tabs or export on a device with more available memory.`, { cause: error });
+    }
   }
 
   writeAt(offset: number, bytes: Uint8Array): void {
@@ -275,7 +324,7 @@ class RomWriter {
 
   trim(length: number): Uint8Array {
     this.ensure(length);
-    return this.buffer.slice(0, length);
+    return length === this.buffer.length ? this.buffer : this.buffer.slice(0, length);
   }
 
   private ensure(length: number): void {
@@ -289,7 +338,10 @@ class RomWriter {
 }
 
 function align(value: number, alignment: number): number {
-  return (value + alignment - 1) & ~(alignment - 1);
+  if (!Number.isSafeInteger(value) || value < 0 || !Number.isSafeInteger(alignment) || alignment <= 0) {
+    throw new Error(`Cannot align invalid ROM layout value ${value} to ${alignment}`);
+  }
+  return Math.ceil(value / alignment) * alignment;
 }
 
 function bannerLength(data: Uint8Array, offset: number): number {
@@ -300,7 +352,9 @@ function bannerLength(data: Uint8Array, offset: number): number {
   return 0x840;
 }
 
-function deviceCapacityByte(romLength: number, minimum: number): number {
+export function romDeviceCapacityByte(romLength: number, minimum: number): number {
+  assertSupportedRomLength(romLength);
+  if (romLength > STANDARD_DS_ROM_LIMIT) return Math.max(minimum, OVERSIZE_DEVICE_CAPACITY);
   let value = 0;
   let capacity = 128 * 1024;
   while (capacity < romLength && value < 255) {
@@ -308,6 +362,31 @@ function deviceCapacityByte(romLength: number, minimum: number): number {
     capacity *= 2;
   }
   return Math.max(minimum, value);
+}
+
+function checkedMinimumLength(value: number | undefined): number {
+  if (value === undefined) return 0;
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error(`Invalid minimum ROM length: ${value}`);
+  assertSupportedRomLength(value);
+  return value;
+}
+
+function checkedAdd(left: number, right: number): number {
+  const result = left + right;
+  if (!Number.isSafeInteger(result)) throw new Error("ROM layout exceeds JavaScript's safe integer range");
+  assertSupportedRomLength(result);
+  return result;
+}
+
+function assertSupportedRomLength(length: number): void {
+  if (!Number.isSafeInteger(length) || length < 0 || length > MAX_SUPPORTED_ROM_SIZE) {
+    throw new Error(`ROM export size ${formatByteSize(length)} reaches or exceeds the supported signed 2 GiB limit`);
+  }
+}
+
+function formatByteSize(bytes: number): string {
+  if (!Number.isFinite(bytes)) return String(bytes);
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
 export function crc16(data: Uint8Array, initial = 0xffff): number {

@@ -27,6 +27,7 @@ Only patch source, relevant headers, build/metadata text, tests, and license mat
 | [Retired PWAN compatibility stub](pwan-legacy-retired/) | `PokewebPwanLegacyRetiredW2.dll` | source-copied |
 | [Custom overworld weather](overworld-weather/) | `PokewebOverworldWeatherW2.dll` | source-copied |
 | [Expanded-form evolution](form-evolution/) | `FormEvolutionB2.dll`, `FormEvolutionW2.dll` | source-copied |
+| [Background-music toggle and streamed replacement](bgm-toggle/) | `BgmToggleB2.dll`, `BgmToggleW2.dll` | source-copied |
 | [Portable PC](porta-pc/) | `PortaPCB2.dll`, `PortaPCW2.dll` | source-copied |
 | [Tag-battle AI stabilization](tag-battle-stabilization/) | `TagBattleStabilizationW2.dll` | source-copied |
 | [Standalone LEARNSET viewer](learnset-viewer/) | `LearnsetMenuB2.dll`, `LearnsetMenuW2.dll`, `LearnsetViewerB2.dll`, `LearnsetViewerW2.dll` | source-copied |
@@ -63,7 +64,18 @@ dark evolution panel with teal fin accents and retained retail title rails,
 D-pad party navigation, branch-responsive icons,
 buffered loading, compact gold stats, form abilities and cycle-safe chains). Other patch snapshots retain their
 previous versions and hashes; this refresh does not certify newly added bundles
-outside LEARNSET. Existing original-source gaps remain explicit.
+outside LEARNSET and background music. Existing original-source gaps remain explicit.
+
+The background-music snapshot now includes runtime 3.0.0, a variable-length
+replacement table with legacy migration and per-track editing/removal, the guarded native
+32 KiB buffer with low-memory fallback and host-only allocation tests, the streamed-SDAT
+installer/model, Music Editor UI integration, adaptive PCM16/IMA-ADPCM encoding,
+independent parser tests, and full-ROM B2/W2 archive round-trip verification.
+Long imports use block-seekable compression to reduce ROM size. ROM export
+updates the DS-accessible region boundary after sound-archive growth. Its
+shortcut is a volume mute; genuine game pause/resume remains separate. All tracks
+share one playback buffer. The installer retains its 512 MiB export safety
+limit. Multi-track host/archive checks passed; gameplay verification is pending.
 
 From the Pokeweb repository root:
 
@@ -75,7 +87,7 @@ node patch-sources/refresh.mjs --only=learnset-viewer --check
 ```
 
 This opt-in bookkeeping tool refreshes manifest-listed sources, discovers the
-two new runtime groups' source/build/test text, normalizes private paths, and
+newer runtime groups' source/build/test text, normalizes private paths, and
 records current source and bundled-artifact SHA-256 values. It refuses to
 overwrite locally edited snapshots or silently omit an unregistered bundled
 DLL/RPM. A second refresh is a no-op. It does not run copied scripts, launch an

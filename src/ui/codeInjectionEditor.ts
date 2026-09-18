@@ -1,10 +1,12 @@
 import {
   detectBundledFormEvolutionDll,
   detectBundledDoubleBattleFixDll,
+  detectBundledBgmToggleDll,
   detectBundledOverworldWeatherRuntime,
   getPmcInstallStatus,
   getPmcUpdateConfirmationMessage,
   installBundledOverworldWeatherRuntime,
+  installBundledBgmToggleDll,
   installBundledPmc,
   listCodeInjectionDlls,
   stageBundledDoubleBattleFixDll,
@@ -62,6 +64,8 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const formEvolutionInstalled = formEvolutionStatus === "patched";
   const doubleBattleFixStatus = detectBundledDoubleBattleFixDll(project);
   const doubleBattleFixSupported = status.installed && doubleBattleFixStatus !== "unsupported";
+  const bgmToggleStatus = detectBundledBgmToggleDll(project);
+  const bgmToggleSupported = bgmToggleStatus !== "unsupported";
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
@@ -141,6 +145,37 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
             <div class="code-injection-note" id="pmc-install-note">Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.</div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Background Music Toggle</h2>
+              <p>Press L + R + Select to mute or unmute background music in the overworld and battles. Sound effects, cries, and scripted game pauses are unchanged.</p>
+            </div>
+            <span class="code-injection-status ${bgmToggleStatus === "patched" ? "-installed" : bgmToggleStatus === "unsupported" ? "-error" : ""}">
+              ${bgmToggleStatus === "patched" ? "Installed" : bgmToggleStatus === "unsupported" ? "Unsupported" : "Ready"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
+            <div><span>Shortcut</span><strong>L + R + Select</strong></div>
+            <div><span>Scope</span><strong>Overworld + Battles</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-bgm-toggle-btn" type="button" ${bgmToggleSupported ? "" : "disabled"}>
+              ${bgmToggleStatus === "patched" ? "Reinstall Music Toggle" : "Install Music Toggle"}
+            </button>
+            <div class="code-injection-note" id="bgm-toggle-note">
+              ${
+                bgmToggleStatus === "patched"
+                  ? "The BGM toggle DLL is staged in patches/ and will be included in the exported ROM."
+                  : bgmToggleSupported
+                    ? "Installs PMC when needed, then stages the matching BGM toggle DLL in patches/."
+                    : "The bundled BGM toggle supports US Black 2 and White 2 only."
+              }
+            </div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -609,6 +644,26 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       doubleBattleButton.disabled = false;
       doubleBattleButton.textContent = previousText;
       if (doubleBattleNote) doubleBattleNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const bgmToggleButton = root.querySelector<HTMLButtonElement>("#install-bgm-toggle-btn");
+  const bgmToggleNote = root.querySelector<HTMLDivElement>("#bgm-toggle-note");
+  bgmToggleButton?.addEventListener("click", async () => {
+    const previousText = bgmToggleButton.textContent ?? "Install Music Toggle";
+    try {
+      bgmToggleButton.disabled = true;
+      bgmToggleButton.textContent = "Installing...";
+      if (bgmToggleNote) bgmToggleNote.textContent = status.installed ? "Staging the background-music toggle DLL." : "Installing PMC, then staging the background-music toggle DLL.";
+      const result = await installBundledBgmToggleDll(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#bgm-toggle-note");
+      if (refreshedNote) refreshedNote.textContent = `${result.fileName} staged at ${result.path}. Press L + R + Select in-game to mute or unmute BGM.`;
+    } catch (error) {
+      bgmToggleButton.disabled = false;
+      bgmToggleButton.textContent = previousText;
+      if (bgmToggleNote) bgmToggleNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 
