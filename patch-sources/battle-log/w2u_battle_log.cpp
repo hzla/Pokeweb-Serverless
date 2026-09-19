@@ -1,5 +1,6 @@
 #include "w2u_battle.h"
 #include "w2u_battle_log.h"
+#include "w2u_battle_log_attribution.h"
 
 #if !defined(W2U_TARGET_BW1)
 extern "C" void* MainModule_GetBtlSetup(MainModule* mainModule);
@@ -16,6 +17,11 @@ extern "C" b32 W2U_BattleLog_OriginalCheckFainted(
 extern "C" void W2U_BattleLog_OriginalNotifyBattleResult(
     MainModule* mainModule,
     u32 result);
+
+static_assert(sizeof(MoveDamageRec) == 8, "MoveDamageRec must match the retail BW/BW2 record");
+static_assert(__builtin_offsetof(MoveDamageRec, moveType) == 4, "MoveDamageRec move type offset");
+static_assert(__builtin_offsetof(MoveDamageRec, pokeID) == 5, "MoveDamageRec attacker ID offset");
+static_assert(__builtin_offsetof(MoveDamageRec, pokePos) == 6, "MoveDamageRec attacker position offset");
 
 namespace {
 
@@ -599,8 +605,24 @@ static bool IsValidCredit(u32 victimSlot, u32 creditedSlot)
     return (GetClientID(victimSlot) & 1) != (GetClientID(creditedSlot) & 1);
 }
 
-static u8 SelectCreditedSlot(ServerFlow* serverFlow, u32 victimSlot)
+static u8 SelectCreditedSlot(
+    ServerFlow* serverFlow,
+    BattleMon* victim,
+    u32 victimSlot)
 {
+    const u32 recordTurn = victim->damageRecTurn;
+    const u8 recordCount = victim->damageRecCount[recordTurn];
+    // Move damage records contain both the executing attacker's persistent
+    // battle slot (pokeID) and its transient field position (pokePos).  Credit
+    // the persistent ID so doubles switches cannot turn positions 0/2/4 into
+    // unrelated party slots.  End-of-turn/simple damage keeps using resolved
+    // target history below.
+    if (W2U_BattleLogHasCurrentDirectDamage(
+            serverFlow->turnCheckSeq,
+            (victim->turnFlag[0] & (1 << TURNFLAG_DAMAGED)) != 0,
+            recordCount)) {
+        return victim->damageRec[recordTurn][recordCount - 1].pokeID;
+    }
     const BattleStyle style = BattleLog_GetBattleStyle(serverFlow->mainModule);
     if ((style == BTL_STYLE_DOUBLE || style == BTL_STYLE_TRIPLE)
         && IsValidCredit(victimSlot, sLastTargeter[victimSlot])) {
@@ -636,12 +658,15 @@ static KOAttribution BuildAttribution(ServerFlow* serverFlow, BattleMon* victim)
         return attribution;
     }
 
-    const u8 creditedSlot = SelectCreditedSlot(serverFlow, victimSlot);
-    if (creditedSlot == kInvalidBattleSlot) {
+    const u8 creditedSlot = SelectCreditedSlot(serverFlow, victim, victimSlot);
+    if (creditedSlot >= kBattleSlotCount) {
         return attribution;
     }
 
     const u32 creditedClient = GetClientID(creditedSlot);
+    if ((victimClient & 1) == (creditedClient & 1)) {
+        return attribution;
+    }
     const u32 aiClient = victimClient == kPlayerClient ? creditedClient : victimClient;
     if (!IsEnemyClient(aiClient)) {
         return attribution;
