@@ -90,22 +90,22 @@
       "artifacts": [
         {
           "name": "Black1BattleLog.dll",
-          "sha256": "84191b8bbbbca6d1180e568719b449a5ddd3a30874492e7ebbbc46fb2aa83f34"
+          "sha256": "dda15e52ec37be84615c1e74e1e0f7c41ff6ba8da92c4074f54af0f92184fc83"
         },
         {
           "name": "White1BattleLog.dll",
-          "sha256": "648db52df9c02bae407c052b7e3eacacbe8d04fdb4dbbe16afb788790ceb211e"
+          "sha256": "10e1a875f26917d610899fe434b586fb459b59c9914e3669f4fbe291ca231e17"
         },
         {
           "name": "Black2UpgradeBattleLog.dll",
-          "sha256": "53c6f410f1642f337a38c560a0730ba2dc4ada2d59e74acd38be70ee39cd0f07"
+          "sha256": "29c8f3a27275b35d538a3e0085dc5715b27261b1cf67162933b6ef21617f183e"
         },
         {
           "name": "White2UpgradeBattleLog.dll",
-          "sha256": "f8357d4ec5e15164d947b75872a199914ac8e17338b88283fb3693ffc696c086"
+          "sha256": "b10e07cebe3ce25d9ddc4c459f33580e313391149ab5088c49ead6feae232bfe"
         }
       ],
-      "note": "Shared B/W/B2/W2 implementation; includes the resolved-target/faint trampolines and the save-block patch source. Target macros select each game profile.",
+      "note": "Shared B/W/B2/W2 implementation; includes direct-damage-first KO attribution using the retail damage record's persistent attacker ID, resolved-target/faint trampolines, and the save-block patch source. Target macros select each game profile.",
       "status": "source-copied",
       "files": [
         {
@@ -115,7 +115,27 @@
             "path": "src/battle_log/w2u_battle_log.cpp"
           },
           "kind": "source",
-          "sha256": "e5f90d11b9ebb83843ca913ca23d1a58e3eb38ed64bba0387c42421b5bb63073",
+          "sha256": "7a85914fcb60df4a6012d7b63b6eb868f209fa41de7346f2af9c4de3a4e7d36b",
+          "normalized": false
+        },
+        {
+          "path": "battle-log/w2u_battle_log_attribution.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "include/w2u_battle_log_attribution.h"
+          },
+          "kind": "header",
+          "sha256": "df2f6218a6c08608b09dbf33c89ab8b07426db9775fc43a7cf8eb942dc277002",
+          "normalized": false
+        },
+        {
+          "path": "battle-log/test_battle_log_attribution.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/test_battle_log_attribution.cpp"
+          },
+          "kind": "test",
+          "sha256": "f50f2d8865567fb6143f863aad43aed20b4aab5374a29c9eb6d5903af08ca361",
           "normalized": false
         },
         {
@@ -2212,7 +2232,7 @@
             "path": "runtime/bgm-toggle/README.md"
           },
           "kind": "documentation",
-          "sha256": "efaea3d213ed56e6dc2333cce67154b4c4f2638503e93034403fe5ca0a23d11b",
+          "sha256": "f66c55cbfd95061f0c2abfe9acd8a86a7417010c5876cc7f0ee9303fb0a0b43a",
           "normalized": false
         },
         {
@@ -2312,7 +2332,7 @@
             "path": "src/pokeweb/streamedBgmModel.ts"
           },
           "kind": "support-only",
-          "sha256": "0a1b772c6b8e3ba426adf3920a382aa53f3a0abb40738e1f52bf4e758156b7c5",
+          "sha256": "b2f35e27797d42bc2ea948947a2fffa1dc46de205f1e07515be1458f54a89c9b",
           "normalized": false
         },
         {
@@ -2332,7 +2352,7 @@
             "path": "src/ui/musicEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "d1341a6b0816400d64fad6b92b05d8215b326b74f124a107733066c0d3701218",
+          "sha256": "5bacc335902ca0067be40dfbdef5e425962fc02fa30f5fb474144f5993ad17cd",
           "normalized": false
         },
         {
@@ -2352,7 +2372,7 @@
             "path": "src/styles/musicEditor.css"
           },
           "kind": "support-only",
-          "sha256": "6393c675dda357eb6ca12518a8d60b6f88c85ab6876a50e9a375799ae92b181c",
+          "sha256": "f4a2c7f97bd77f2695eb27134d60537cb67124dff88382d4a7765d92bc8880fe",
           "normalized": false
         },
         {
@@ -2362,7 +2382,7 @@
             "path": "src/pokeweb/projectStore.ts"
           },
           "kind": "support-only",
-          "sha256": "5c1baac3ba776475db16a14a8bb24b8cb0d9574e330f043fa99f4322398618a6",
+          "sha256": "7efff074103305d8e9198d2d3390a21bc2d282bf3067567d7e68b486918968c2",
           "normalized": false
         },
         {
@@ -2372,7 +2392,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "074888d9211c32195ff5c42e4a6b4ad14043ae74464b181b106e225ba2684886",
+          "sha256": "3c519dd764842d52fe0f6646df4484794c71ce5b6d47adc66ece4580a4009a70",
           "normalized": false
         },
         {
@@ -2412,7 +2432,7 @@
             "path": "src/test/streamedBgmModel.test.ts"
           },
           "kind": "test",
-          "sha256": "7af3ad913216dc2ecc2adb0678e86dd684f9ea9866a463a2c60427b8a0f9004f",
+          "sha256": "28f3b98869bc08956f270914cd877449e432bab0ab965d6930482eea3c89103d",
           "normalized": false
         },
         {
@@ -2432,7 +2452,7 @@
             "path": "src/test/musicEditor.test.ts"
           },
           "kind": "test",
-          "sha256": "a5181cec1b058aa990a404e070b643332df2863f76e52493d7ee8dc0c667e83d",
+          "sha256": "ef75dec57f33f7a3751f96b113b60b627791c0a645511731654b653923eeba69",
           "normalized": false
         },
         {
@@ -2476,7 +2496,7 @@
         "path": "include/w2u_battle.h"
       },
       "kind": "header",
-      "sha256": "09b0c72a2839e1b80be5769db12dca5c8b6f868318dd68c73e2f52b2dde24141",
+      "sha256": "17685d0ef540f02361c874cf1e10440dc489e5fa037049990577477b4d700322",
       "normalized": false
     },
     {

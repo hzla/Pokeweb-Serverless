@@ -13,7 +13,13 @@ import {
   removeStagedCodeInjectionDll,
   stageCodeInjectionDll,
 } from "./pmcModel";
-import { getStreamedBgmConfigs, type ProjectState, type StreamedBgmConfig } from "./projectStore";
+import {
+  getNativeStreamReplacementConfigs,
+  getStreamedBgmConfigs,
+  type NativeStreamReplacementConfig,
+  type ProjectState,
+  type StreamedBgmConfig,
+} from "./projectStore";
 
 export const STREAMED_BGM_SAMPLE_RATE = 32_728 as const;
 export const STREAMED_BGM_CHANNELS = 2 as const;
@@ -75,6 +81,32 @@ export type StreamedBgmInstallInput = {
   loopStartSeconds?: number;
   loopEndSeconds?: number;
   shortcutEnabled: boolean;
+};
+
+export type NativeSdatStream = {
+  id: number;
+  symbol: string;
+  fileId: number;
+  volume: number;
+  priority: number;
+  playerId: number;
+  encoding: "pcm8" | StreamedBgmEncoding | "unknown";
+  loop: boolean;
+  channels: number;
+  sampleRate: number;
+  loopStartSample: number;
+  sampleCount: number;
+  encodedBytes: number;
+};
+
+export type NativeStreamInstallInput = {
+  sourceName: string;
+  pcm: StereoPcm;
+  streamId: number;
+  encoding: StreamedBgmEncoding;
+  loop: boolean;
+  loopStartSeconds?: number;
+  loopEndSeconds?: number;
 };
 
 export type StreamedBgmStatus =
@@ -279,6 +311,73 @@ function rebuildSdat(parts: SdatParts): Uint8Array {
   return out;
 }
 
+function sdatSymbols(symb: Uint8Array | undefined, part: number): string[] {
+  if (!symb) return [];
+  requireMagic(symb, 0, "SYMB");
+  const table = readU32(symb, 8 + part * 4);
+  if (!table) return [];
+  requireRange(symb, table, 4, `SDAT SYMB table ${part}`);
+  const count = readU32(symb, table);
+  requireRange(symb, table + 4, count * 4, `SDAT SYMB table ${part}`);
+  return Array.from({ length: count }, (_unused, id) => {
+    const offset = readU32(symb, table + 4 + id * 4);
+    if (!offset) return "";
+    requireRange(symb, offset, 1, `SDAT SYMB ${part} entry ${id}`);
+    let end = offset;
+    while (end < symb.length && symb[end] !== 0) end += 1;
+    if (end >= symb.length) throw new Error(`SDAT SYMB ${part} entry ${id} is not null terminated.`);
+    return readAscii(symb, offset, end - offset);
+  });
+}
+
+export function listNativeSdatStreams(sdatBytes: Uint8Array): NativeSdatStream[] {
+  const parts = parseSdat(sdatBytes);
+  const table = infoTableOffset(parts.info, 7);
+  const count = readU32(parts.info, table);
+  const symbols = sdatSymbols(parts.symb, 7);
+  const streams: NativeSdatStream[] = [];
+  for (let id = 0; id < count; id += 1) {
+    const record = infoRecordOffset(parts.info, 7, id);
+    const fileId = readU16(parts.info, record);
+    const bytes = parts.files[fileId];
+    if (!bytes) throw new Error(`SDAT stream ${id} references missing file ${fileId}.`);
+    requireMagic(bytes, 0, "STRM");
+    if (bytes.length < STRM_HEADER_SIZE || readU32(bytes, 8) !== bytes.length) {
+      throw new Error(`SDAT stream ${id} has a malformed STRM header.`);
+    }
+    const format = bytes[0x18];
+    streams.push({
+      id,
+      symbol: symbols[id] || `STRM_${id}`,
+      fileId,
+      volume: parts.info[record + 4] ?? 127,
+      priority: parts.info[record + 5] ?? 64,
+      playerId: parts.info[record + 6] ?? 0,
+      encoding: format === 0 ? "pcm8" : format === 1 ? "pcm16" : format === 2 ? "adpcm" : "unknown",
+      loop: bytes[0x19] !== 0,
+      channels: bytes[0x1a] ?? 0,
+      sampleRate: readU16(bytes, 0x1c),
+      loopStartSample: readU32(bytes, 0x20),
+      sampleCount: readU32(bytes, 0x24),
+      encodedBytes: bytes.length,
+    });
+  }
+  return streams;
+}
+
+export function replaceNativeSdatStream(sdatBytes: Uint8Array, streamId: number, strmBytes: Uint8Array): Uint8Array {
+  requireMagic(strmBytes, 0, "STRM");
+  if (strmBytes.length < STRM_HEADER_SIZE || readU32(strmBytes, 8) !== strmBytes.length) {
+    throw new Error("The replacement STRM header is malformed.");
+  }
+  const parts = parseSdat(sdatBytes);
+  const record = infoRecordOffset(parts.info, 7, streamId);
+  const fileId = readU16(parts.info, record);
+  if (!parts.files[fileId]) throw new Error(`SDAT stream ${streamId} references missing file ${fileId}.`);
+  parts.files[fileId] = strmBytes;
+  return rebuildSdat(parts);
+}
+
 export function createSilentShadowSseq(): Uint8Array {
   // A long rest followed by a jump back to the rest keeps the native BGM
   // handle alive without allocating a voice or producing samples.
@@ -350,7 +449,12 @@ function pcm16(value: number): number {
   return clamped < 0 ? Math.round(clamped * 0x8000) : Math.round(clamped * 0x7fff);
 }
 
-export function encodePcm16Strm(pcm: StereoPcm, loopStartSample = 0, loopEndSample = pcm.left.length): EncodedStreamedBgm {
+export function encodePcm16Strm(
+  pcm: StereoPcm,
+  loopStartSample = 0,
+  loopEndSample = pcm.left.length,
+  loop = true,
+): EncodedStreamedBgm {
   const resampled = pcm.sampleRate === STREAMED_BGM_SAMPLE_RATE ? pcm : resampleStereoPcm(pcm);
   const start = Math.round(loopStartSample * STREAMED_BGM_SAMPLE_RATE / pcm.sampleRate);
   const end = Math.round(loopEndSample * STREAMED_BGM_SAMPLE_RATE / pcm.sampleRate);
@@ -368,7 +472,7 @@ export function encodePcm16Strm(pcm: StereoPcm, loopStartSample = 0, loopEndSamp
   out.set(new TextEncoder().encode("HEAD"), 0x10);
   writeU32(out, 0x14, 0x50);
   out[0x18] = 1; // PCM16
-  out[0x19] = 1; // Loop
+  out[0x19] = loop ? 1 : 0;
   out[0x1a] = 2;
   out[0x1b] = 0;
   writeU16(out, 0x1c, STREAMED_BGM_SAMPLE_RATE);
@@ -376,7 +480,7 @@ export function encodePcm16Strm(pcm: StereoPcm, loopStartSample = 0, loopEndSamp
   // expression produces 0x000f and causes the native stream player to run at
   // the wrong cadence.
   writeU16(out, 0x1e, Math.round(16_756_991 / (STREAMED_BGM_SAMPLE_RATE * 32)));
-  writeU32(out, 0x20, start);
+  writeU32(out, 0x20, loop ? start : 0);
   writeU32(out, 0x24, end);
   writeU32(out, 0x28, STRM_HEADER_SIZE);
   writeU32(out, 0x2c, 1);
@@ -397,7 +501,7 @@ export function encodePcm16Strm(pcm: StereoPcm, loopStartSample = 0, loopEndSamp
     sampleRate: STREAMED_BGM_SAMPLE_RATE,
     channels: STREAMED_BGM_CHANNELS,
     sampleCount: end,
-    loopStartSample: start,
+    loopStartSample: loop ? start : 0,
     loopEndSample: end,
   };
 }
@@ -467,7 +571,12 @@ export function streamedBgmEncodingLabel(encoding: StreamedBgmEncoding): string 
   return encoding === "pcm16" ? "Stereo PCM16" : "Stereo IMA ADPCM";
 }
 
-export function encodeAdpcmStrm(pcm: StereoPcm, loopStartSample = 0, loopEndSample = pcm.left.length): EncodedStreamedBgm {
+export function encodeAdpcmStrm(
+  pcm: StereoPcm,
+  loopStartSample = 0,
+  loopEndSample = pcm.left.length,
+  loop = true,
+): EncodedStreamedBgm {
   const resampled = pcm.sampleRate === STREAMED_BGM_SAMPLE_RATE ? pcm : resampleStereoPcm(pcm);
   const start = Math.round(loopStartSample * STREAMED_BGM_SAMPLE_RATE / pcm.sampleRate);
   const end = Math.round(loopEndSample * STREAMED_BGM_SAMPLE_RATE / pcm.sampleRate);
@@ -489,11 +598,11 @@ export function encodeAdpcmStrm(pcm: StereoPcm, loopStartSample = 0, loopEndSamp
   out.set(new TextEncoder().encode("HEAD"), 0x10);
   writeU32(out, 0x14, 0x50);
   out[0x18] = 2; // Nitro IMA ADPCM
-  out[0x19] = 1;
+  out[0x19] = loop ? 1 : 0;
   out[0x1a] = STREAMED_BGM_CHANNELS;
   writeU16(out, 0x1c, STREAMED_BGM_SAMPLE_RATE);
   writeU16(out, 0x1e, Math.round(16_756_991 / (STREAMED_BGM_SAMPLE_RATE * 32)));
-  writeU32(out, 0x20, start);
+  writeU32(out, 0x20, loop ? start : 0);
   writeU32(out, 0x24, end);
   writeU32(out, 0x28, STRM_HEADER_SIZE);
   writeU32(out, 0x2c, numBlocks);
@@ -520,7 +629,7 @@ export function encodeAdpcmStrm(pcm: StereoPcm, loopStartSample = 0, loopEndSamp
     sampleRate: STREAMED_BGM_SAMPLE_RATE,
     channels: STREAMED_BGM_CHANNELS,
     sampleCount: end,
-    loopStartSample: start,
+    loopStartSample: loop ? start : 0,
     loopEndSample: end,
   };
 }
@@ -756,6 +865,12 @@ function commitMusicState(project: ProjectState, configs: StreamedBgmConfig[]): 
   else delete project.codeInjection.streamedBgms;
 }
 
+function commitNativeStreamState(project: ProjectState, configs: NativeStreamReplacementConfig[]): void {
+  project.codeInjection ??= {};
+  if (configs.length) project.codeInjection.nativeStreamReplacements = configs;
+  else delete project.codeInjection.nativeStreamReplacements;
+}
+
 /** Detect both legacy ABI 1 ROMs and variable-length ABI 2 tables without
  * changing project state before the caller's transaction has succeeded. */
 async function readInstalledMusic(project: ProjectState, rom: NintendoDSRom, version: "B2" | "W2", sdatBytes: Uint8Array): Promise<{ configs: StreamedBgmConfig[]; shortcutEnabled: boolean }> {
@@ -798,6 +913,121 @@ async function readInstalledMusic(project: ProjectState, rom: NintendoDSRom, ver
 
 export async function installStreamedBgm(project: ProjectState, input: StreamedBgmInstallInput): Promise<StreamedBgmConfig> {
   return musicTransaction(project, (draft) => installStreamedBgmTransaction(draft, input));
+}
+
+function nativeStreamBytes(sdatBytes: Uint8Array, streamId: number): { descriptor: NativeSdatStream; bytes: Uint8Array } {
+  const descriptor = listNativeSdatStreams(sdatBytes).find((stream) => stream.id === streamId);
+  if (!descriptor) throw new Error(`Native stream ${streamId} does not exist.`);
+  const parts = parseSdat(sdatBytes);
+  return { descriptor, bytes: parts.files[descriptor.fileId]! };
+}
+
+export async function installNativeStreamReplacement(
+  project: ProjectState,
+  input: NativeStreamInstallInput,
+): Promise<NativeStreamReplacementConfig> {
+  return musicTransaction(project, async (draft) => {
+    const { rom } = await projectRom(draft);
+    const sdat = await loadNitroSdatFromProject(draft);
+    if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
+    if (getStreamedBgmConfigs(draft).some((mapping) => mapping.streamId === input.streamId)) {
+      throw new Error("This stream belongs to a sequence replacement. Update that track from Installed replacements instead.");
+    }
+    const current = nativeStreamBytes(sdat.bytes, input.streamId);
+    const baseSdat = rom.files[sdat.sourceFileId];
+    if (!baseSdat) throw new Error("The loaded ROM no longer contains the original sound archive.");
+    const original = nativeStreamBytes(baseSdat, input.streamId);
+    if (current.descriptor.fileId !== original.descriptor.fileId) {
+      throw new Error("The stream's SDAT file reference differs from the loaded ROM; direct replacement is unsafe.");
+    }
+
+    const configs = getNativeStreamReplacementConfigs(draft);
+    const previous = configs.find((config) => config.streamId === input.streamId);
+    if (previous) {
+      if (await sha256Hex(current.bytes) !== previous.audioSha256) {
+        throw new Error("The installed native stream changed outside this editor; refusing to overwrite it.");
+      }
+      if (await sha256Hex(original.bytes) !== previous.originalAudioSha256) {
+        throw new Error("The loaded ROM's original stream no longer matches this replacement.");
+      }
+    }
+
+    const startSeconds = input.loop ? input.loopStartSeconds ?? 0 : 0;
+    const endSeconds = input.loopEndSeconds ?? input.pcm.left.length / input.pcm.sampleRate;
+    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || startSeconds < 0 || endSeconds <= startSeconds) {
+      throw new Error("Loop start and track end must describe a non-empty range inside the imported audio.");
+    }
+    const loopStartSample = Math.round(startSeconds * input.pcm.sampleRate);
+    const loopEndSample = Math.round(endSeconds * input.pcm.sampleRate);
+    const encoded = input.encoding === "pcm16"
+      ? encodePcm16Strm(input.pcm, loopStartSample, loopEndSample, input.loop)
+      : encodeAdpcmStrm(input.pcm, loopStartSample, loopEndSample, input.loop);
+    const rebuilt = replaceNativeSdatStream(sdat.bytes, input.streamId, encoded.bytes);
+    assertRomCapacity(draft, rom, sdat.bytes.length, rebuilt.length, 0);
+
+    const config: NativeStreamReplacementConfig = {
+      streamId: input.streamId,
+      streamFileId: current.descriptor.fileId,
+      streamSymbol: current.descriptor.symbol,
+      sourceName: input.sourceName,
+      encoding: encoded.encoding,
+      sampleRate: STREAMED_BGM_SAMPLE_RATE,
+      channels: STREAMED_BGM_CHANNELS,
+      sampleCount: encoded.sampleCount,
+      loop: input.loop,
+      loopStartSample: encoded.loopStartSample,
+      loopEndSample: encoded.loopEndSample,
+      encodedBytes: encoded.bytes.length,
+      audioSha256: await sha256Hex(encoded.bytes),
+      originalAudioSha256: previous?.originalAudioSha256 ?? await sha256Hex(original.bytes),
+    };
+    commitNativeStreamState(draft, [
+      ...configs.filter((entry) => entry.streamId !== input.streamId),
+      config,
+    ].sort((a, b) => a.streamId - b.streamId));
+    replaceRomFile(draft, rom, sdat.sourceFileId, rebuilt);
+    invalidateNitroSdatCache(draft);
+    recordGenericChange(
+      draft,
+      "code_injection",
+      `Native stream ${input.streamId} replaced with ${input.sourceName}.`,
+      "Native Stream Replacement",
+      { key: `music:native-stream:${input.streamId}` },
+    );
+    return config;
+  });
+}
+
+export async function removeNativeStreamReplacement(project: ProjectState, streamId: number): Promise<void> {
+  return musicTransaction(project, async (draft) => {
+    const { rom } = await projectRom(draft);
+    const sdat = await loadNitroSdatFromProject(draft);
+    if (sdat.sourceFileId === undefined) throw new Error("The active SDAT has no NitroFS file ID.");
+    const configs = getNativeStreamReplacementConfigs(draft);
+    const config = configs.find((entry) => entry.streamId === streamId);
+    if (!config) throw new Error(`Native stream ${streamId} is not managed by this project.`);
+    const current = nativeStreamBytes(sdat.bytes, streamId);
+    if (current.descriptor.fileId !== config.streamFileId || await sha256Hex(current.bytes) !== config.audioSha256) {
+      throw new Error("The installed native stream changed outside this editor; refusing to overwrite it.");
+    }
+    const baseSdat = rom.files[sdat.sourceFileId];
+    if (!baseSdat) throw new Error("The loaded ROM no longer contains the original sound archive.");
+    const original = nativeStreamBytes(baseSdat, streamId);
+    if (original.descriptor.fileId !== config.streamFileId || await sha256Hex(original.bytes) !== config.originalAudioSha256) {
+      throw new Error("The loaded ROM's original stream no longer matches this replacement.");
+    }
+    const rebuilt = replaceNativeSdatStream(sdat.bytes, streamId, original.bytes);
+    replaceRomFile(draft, rom, sdat.sourceFileId, rebuilt);
+    commitNativeStreamState(draft, configs.filter((entry) => entry.streamId !== streamId));
+    invalidateNitroSdatCache(draft);
+    recordGenericChange(
+      draft,
+      "code_injection",
+      `Native stream ${streamId} restored from the loaded ROM.`,
+      "Native Stream Replacement",
+      { key: `music:native-stream:${streamId}` },
+    );
+  });
 }
 
 async function installStreamedBgmTransaction(project: ProjectState, input: StreamedBgmInstallInput): Promise<StreamedBgmConfig> {

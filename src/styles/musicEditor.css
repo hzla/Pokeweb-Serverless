@@ -67,6 +67,7 @@
   gap: 18px;
   grid-template-areas:
     "editor"
+    "native"
     "installed"
     "reference";
   grid-template-columns: minmax(0, 1fr);
@@ -80,6 +81,7 @@
 }
 
 .music-editor-primary-panel { grid-area: editor; }
+.music-editor-native-panel { grid-area: native; }
 .music-editor-installed-panel { grid-area: installed; }
 .music-reference-panel { grid-area: reference; }
 
@@ -198,9 +200,27 @@
   outline-offset: -2px;
 }
 
-.music-reference-panel .music-reference-caution {
+.music-reference-caution {
   border-left: 3px solid #ffb86c;
   padding-left: 10px;
+}
+
+.native-stream-reference {
+  border-top: 1px solid #44475a;
+  margin-top: 24px;
+  padding-top: 18px;
+}
+
+.native-stream-reference h3 {
+  margin: 0;
+}
+
+.native-stream-reference-scroll {
+  max-height: 360px;
+}
+
+.native-stream-reference-table {
+  min-width: 560px;
 }
 
 #music-reference-status {
@@ -287,6 +307,7 @@
     align-items: start;
     grid-template-areas:
       "editor reference"
+      "native reference"
       "installed reference";
     grid-template-columns: minmax(400px, 0.8fr) minmax(600px, 1.2fr);
   }

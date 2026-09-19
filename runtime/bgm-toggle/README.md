@@ -14,6 +14,20 @@ Adding/removing a track automatically installs the matching current runtime;
 **Update Music Runtime** upgrades existing tracks without reconverting them.
 Export and fresh-boot; do not load an old emulator state to test new runtime code.
 
+The separate **Native streamed music** panel edits an existing SDAT `STRM`
+directly. Retail US Black 2 and White 2 expose stream 0 (`STRM_TITLE`) for the
+title/opening presentation. Imported MP3/WAV audio can replace it as PCM16 or
+IMA ADPCM, with optional looping, without installing a sequence redirect, the
+background-music DLL, or its 32 KiB gameplay replacement buffer. The categorized
+stream reference lists the retail title stream, streams appended by sequence
+replacements, and any other streams found in the active ROM. Appended custom
+streams are read-only there and remain managed by their sequence entries.
+
+Direct-stream removal verifies the current and original audio hashes, then
+restores bytes from the ROM loaded for the saved project. Its management metadata
+is project state rather than an embedded ROM marker. If an exported ROM is later
+imported as a new project, that ROM becomes the new restoration baseline.
+
 Each mapping uses a private silent SSEQ and native STRM. The installer verifies
 the owned tail, rebuilds it in one transaction, and renumbers surviving owned
 IDs when a middle entry is removed. Unrelated content and title stream 0 are

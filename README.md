@@ -2,6 +2,16 @@
 
 Pokeweb Serverless is a browser-based Gen 5 ROM editor for Pokemon Black, White, Black 2, and White 2. 
 
+## UI Design Reference
+
+The [Gen 5 UI design guide for agents](docs/gen5-ui-design-guide.md) documents
+game-screen patterns and a subtle charcoal-and-teal web adaptation. Its
+[standalone visual reference](docs/gen5-ui-reference/index.html) includes the
+supplied screenshots, component states, and an interactive Pokémon editor mockup.
+Open the HTML file directly with its sibling assets, or visit
+`/docs/gen5-ui-reference/index.html` on the local dev server. The mockup uses sample
+data; it does not change the live editor or load a ROM.
+
 ## Editor Coverage
 
 ### ROM and Project Tools

@@ -16,8 +16,11 @@ import {
   encodeAdpcmStrm,
   encodePcm16Strm,
   estimateStreamedBgmBytes,
+  installNativeStreamReplacement,
   installStreamedBgmInSdat,
   installStreamedBgm,
+  listNativeSdatStreams,
+  removeNativeStreamReplacement,
   removeStreamedBgm,
   rebuildStreamedBgmMappings,
   removeStreamedBgmFromSdat,
@@ -147,6 +150,15 @@ describe("BW2 streamed BGM encoding", () => {
     expect(meanError(decodedRight, expectedRight)).toBeLessThan(300);
     expect(chooseStreamedBgmEncoding(STREAMED_BGM_COMPRESSION_THRESHOLD - 10_000, sampleCount)).toBe("adpcm");
     expect(chooseStreamedBgmEncoding(1_000_000, sampleCount)).toBe("pcm16");
+  });
+
+  it("can emit non-looping native PCM16 and ADPCM streams", () => {
+    const pcm = { sampleRate: STREAMED_BGM_SAMPLE_RATE, left: new Float32Array(8), right: new Float32Array(8) };
+    for (const encoded of [encodePcm16Strm(pcm, 3, 8, false), encodeAdpcmStrm(pcm, 3, 8, false)]) {
+      expect(encoded.bytes[0x19]).toBe(0);
+      expect(readU32(encoded.bytes, 0x20)).toBe(0);
+      expect(encoded.loopStartSample).toBe(0);
+    }
   });
 
   it("builds a valid silent looping shadow sequence", () => {
@@ -330,6 +342,29 @@ describe("multiple streamed BGM replacements", () => {
     expect(sdat.files[adpcm.streamFileId]!.data[0x18]).toBe(2);
     expect(sdat.files[pcm16.streamFileId]!.data[0x18]).toBe(1);
     expect(adpcm.encodedBytes).toBeLessThan(pcm16.encodedBytes);
+  });
+
+  it("replaces and restores a native stream without disturbing sequence replacements", async () => {
+    const project = makeRuntimeUpdateProject("W2");
+    const before = project.fileSystem!.replacements[0]!.slice();
+    const mappedHash = project.codeInjection!.streamedBgm!.audioSha256;
+    expect(listNativeSdatStreams(before).map((stream) => stream.id)).toEqual([0, 1]);
+
+    const installed = await installNativeStreamReplacement(project, {
+      sourceName: "title.mp3", pcm, streamId: 0, encoding: "adpcm", loop: false,
+    });
+    const streams = listNativeSdatStreams(project.fileSystem!.replacements[0]!);
+    expect(installed).toMatchObject({ streamId: 0, streamFileId: 1, encoding: "adpcm", loop: false });
+    expect(streams[0]).toMatchObject({ id: 0, encoding: "adpcm", loop: false, loopStartSample: 0 });
+    expect(project.codeInjection!.streamedBgm!.audioSha256).toBe(mappedHash);
+    await expect(installNativeStreamReplacement(project, {
+      sourceName: "managed.mp3", pcm, streamId: 1, encoding: "adpcm", loop: true,
+    })).rejects.toThrow(/sequence replacement/u);
+
+    await removeNativeStreamReplacement(project, 0);
+    expect(project.fileSystem!.replacements[0]).toEqual(before);
+    expect(project.codeInjection!.nativeStreamReplacements).toBeUndefined();
+    expect(project.codeInjection!.streamedBgm!.audioSha256).toBe(mappedHash);
   });
 
   it("supports dozens of mappings and restores shared originals with byte-exact uninstall", () => {

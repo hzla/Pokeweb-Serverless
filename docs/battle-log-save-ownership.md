@@ -1,4 +1,4 @@
-# Battle-log save ownership — runtime bundle 9 (BW2) / 4 (BW1)
+# Battle-log save ownership — runtime bundle 10 (BW2) / 5 (BW1)
 
 ## Fault and prevention
 

@@ -4,7 +4,7 @@ Status: **source-copied**.
 
 Bundled artifacts: `Black1BattleLog.dll`, `White1BattleLog.dll`, `Black2UpgradeBattleLog.dll`, `White2UpgradeBattleLog.dll`.
 
-Shared B/W/B2/W2 implementation; includes the resolved-target/faint trampolines and the save-block patch source. Target macros select each game profile.
+Shared B/W/B2/W2 implementation; includes direct-damage-first KO attribution using the retail damage record's persistent attacker ID, resolved-target/faint trampolines, and the save-block patch source. Target macros select each game profile.
 
 These are bookkeeping copies only. Existing source/build locations remain authoritative. Shared headers and metadata are in [../shared](../shared/). See the root manifest for file hashes and repo-relative origins.
 
