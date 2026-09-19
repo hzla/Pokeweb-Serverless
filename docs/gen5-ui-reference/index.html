@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="A Gen 5 interface reference for agents: game patterns, restrained web components, and a sample Pokémon editor.">
+  <title>Gen 5 UI · Pokeweb design reference</title>
+  <link rel="stylesheet" href="reference.css">
+  <script src="reference.js" defer></script>
+</head>
+<body class="g5-reference">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="masthead">
+    <a class="brand" href="#"><span class="brand-mark" aria-hidden="true">P<span>05</span></span><span>POKEWEB<span class="brand-sub">INTERFACE REFERENCE</span></span></a>
+    <a class="guide-link" href="../gen5-ui-design-guide.md">Read the agent guide <span aria-hidden="true">↗</span></a>
+  </header>
+  <main id="main" tabindex="-1">
+    <section class="intro" aria-labelledby="intro-title">
+      <div>
+        <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> GENERATION 05 / DESIGN STUDY</p>
+        <h1 id="intro-title">Gen 5,<br><span>translated.</span></h1>
+        <p class="intro-copy">The shapes, rhythm, and clarity of Unova’s interfaces.<br class="wide-only"> A practical reference for game screens and modern editing tools.</p>
+        <div class="profile-tags"><span>01 / Game screens</span><span>02 / Web applications</span></div>
+      </div>
+      <aside class="design-note" aria-label="Chosen web direction">
+        <div class="note-index">THE WEB DIRECTION <span>↘</span></div>
+        <h2>Familiar structure.<br>Room to work.</h2>
+        <p>Charcoal surfaces. Teal selection. Quiet diagonals. Readable text and the multi-record workflow you already know.</p>
+        <div class="mini-palette" aria-label="Charcoal, panel gray, teal, and off-white"><span></span><span></span><span></span><span></span></div>
+        <p class="micro">Proposed styling · Sample data · No ROM required</p>
+      </aside>
+    </section>
+
+    <nav class="section-nav" aria-label="Reference sections">
+      <a href="#workspace"><span>01</span> Workspace</a><a href="#components"><span>02</span> Components</a><a href="#game"><span>03</span> Game screens</a><a href="#sources"><span>04</span> Sources</a>
+    </nav>
+
+    <section id="workspace" class="reference-section" aria-labelledby="workspace-title">
+      <div class="section-heading"><div><p class="eyebrow">01 / WEB APPLICATION</p><h2 id="workspace-title">An editor, with a sense of place.</h2></div><p>The existing cards-and-filters model.<br> Subtle Gen 5 framing, at browser scale.</p></div>
+      <div class="workspace">
+        <div class="workspace-top"><span class="workspace-wordmark">POKEWEB <small>/ CONCEPT</small></span><span id="change-status" class="change-status" role="status">Sample data · unchanged</span><button id="reset-sample" class="button compact" type="button">Reset sample</button></div>
+        <nav class="editor-nav" aria-label="Sample editor destinations">
+          <button type="button" disabled>Headers &amp; Overworlds</button><button type="button" disabled>Maps</button><a href="#workspace" aria-current="page">Pokémon</a><button type="button" disabled>Trainers</button><button type="button" disabled>Encounters</button><button type="button" disabled>Moves</button><button type="button" disabled>Items</button><button type="button" disabled>Texts</button><button type="button" disabled>More</button>
+        </nav>
+        <div class="editor-layout">
+          <aside class="filter-panel" aria-label="Sample Pokémon filters">
+            <p class="eyebrow">PERSONAL DATA</p><h3>Find a Pokémon</h3>
+            <label for="species-search">Name or Pokédex number</label>
+            <div class="search-box"><span aria-hidden="true">⌕</span><input id="species-search" type="search" placeholder="Search records…" autocomplete="off"></div>
+            <fieldset class="filter-types"><legend>Type</legend><div class="filter-buttons"><button type="button" data-type="all" aria-pressed="true">All</button><button type="button" data-type="Grass" aria-pressed="false">Grass</button><button type="button" data-type="Water" aria-pressed="false">Water</button><button type="button" data-type="Fire" aria-pressed="false">Fire</button><button type="button" data-type="Steel" aria-pressed="false">Steel</button></div></fieldset>
+            <button id="clear-filters" type="button" class="button clear-button">Clear filters</button>
+            <div class="help-panel"><span class="eyebrow">TRY THE REFERENCE</span><p>Filter records, expand a card, or edit a base stat. Values stay in this page until you reload.</p><p class="micro">Other editor destinations are unavailable in this sample.</p></div>
+            <label class="checkbox-label"><input id="long-label" type="checkbox"> Stress-test a long name</label>
+          </aside>
+          <div class="records-panel">
+            <div class="records-header"><div><h3>Pokémon <span class="subtle">/ Personal</span></h3><p>Identity, abilities, and base statistics</p></div><span id="result-count" role="status" aria-live="polite">4 of 4 records</span></div>
+            <noscript><p class="help-panel">Enable JavaScript to explore the sample records. The component and source sections below remain available.</p></noscript>
+            <div id="records"></div>
+            <div id="empty-results" class="empty-state" hidden><span aria-hidden="true">∅</span><h4>No matching records</h4><p>Try another name or clear the type filter.</p><button id="empty-clear" class="button" type="button">Clear filters</button></div>
+            <div class="workspace-foot"><span>GEN V <span aria-hidden="true">/</span> 4 illustrative records</span><span>In-memory demo · Export unavailable</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="section-footnote">Concept only. Editing here does not change the live app, a project, or a ROM. Sample sprites are existing repository icons.</p>
+    </section>
+
+    <section id="components" class="reference-section" aria-labelledby="components-title">
+      <div class="section-heading"><div><p class="eyebrow">02 / COMPONENT LANGUAGE</p><h2 id="components-title">A few rules. Consistent signals.</h2></div><p>Flat surfaces, deliberate borders,<br> and a separate visual role for every state.</p></div>
+      <div class="component-grid">
+        <article class="component-card state-card"><div class="component-label"><span>01</span> INTERACTION STATES</div><h3>Selection stays. Focus moves.</h3><p>A selected surface records a choice. The outer light outline follows the keyboard.</p><div class="state-grid">
+          <div><span class="state-swatch">Personal</span><small>Default</small></div><div><span class="state-swatch state-hover">Personal</span><small>Hover · illustration</small></div><div><span class="state-swatch state-focus">Personal</span><small>Focus · illustration</small></div><div><span class="state-swatch state-selected">Personal <b aria-hidden="true">✓</b></span><small>Selected</small></div><div><button type="button" class="state-swatch" disabled>Export ROM</button><small>Disabled · no ROM</small></div><div><span class="state-swatch state-changed"><span aria-hidden="true">●</span> Sample changes</span><small>Changed · explicit label</small></div>
+        </div></article>
+        <article class="component-card"><div class="component-label"><span>02</span> OPTIONS &amp; HELP</div><h3>One row, one decision.</h3><p>The options screen becomes a familiar radio group, with a clear label and persistent value.</p><fieldset class="option-group"><legend>Preview detail</legend><div><label><input type="radio" name="detail" value="compact" checked> Compact</label><label><input type="radio" name="detail" value="extended"> Extended</label></div></fieldset><div class="help-panel" id="option-help" role="status">Compact preview keeps the essential identity and statistics in view.</div><p class="micro">A standalone component example; it does not change the editor above.</p></article>
+        <article class="component-card"><div class="component-label"><span>03</span> INPUT &amp; VALIDATION</div><h3>Make the correction clear.</h3><p>Keep the entered value visible. Explain the accepted range beside the field.</p><label for="example-stat">Base Speed <span class="micro">/ sample field</span></label><input id="example-stat" type="number" value="300" min="1" max="255" required aria-invalid="true" aria-describedby="example-error"><p id="example-error" class="field-error">Enter a whole number from 1 to 255.</p><p class="micro">Try 113 to see the valid state. Error feedback uses text and a boundary, in addition to color.</p></article>
+        <article class="component-card"><div class="component-label"><span>04</span> PALETTE &amp; GEOMETRY</div><h3>Accent with intention.</h3><div class="token-list"><div><i class="swatch-bg"></i><span>Page</span><code>#171b1d</code></div><div><i class="swatch-surface"></i><span>Surface</span><code>#202628</code></div><div><i class="swatch-accent"></i><span>Selected accent</span><code>#62d6bd</code></div><div><i class="swatch-focus"></i><span>Keyboard focus</span><code>#b2f5e6</code></div></div><p class="micro">Proposed web tokens. An 8px cut belongs on a decorative corner; focus rings and text stay unclipped.</p></article>
+      </div>
+    </section>
+
+    <section id="game" class="reference-section" aria-labelledby="game-title">
+      <div class="section-heading"><div><p class="eyebrow">03 / GAME-SCREEN PROFILE</p><h2 id="game-title">Think in two deliberate spaces.</h2></div><p>Composition diagrams, not native renders.<br> Each frame uses a 256 × 192 coordinate space.</p></div>
+      <div class="game-layout">
+        <div class="game-copy"><span class="profile-label">OPTIONS FAMILY</span><h3>Context above.<br>Choices below.</h3><p>Give the top screen a clear explanatory role. Keep settings aligned on the lower screen, with separate signals for the active row and its selected value.</p><ol><li><strong>Allocate rectangles first.</strong><span>Title, help, values, actions. Keep text horizontal.</span></li><li><strong>Budget text with real metrics.</strong><span>Measure the target font. Page content before clipping it.</span></li><li><strong>Verify the native target.</strong><span>BW1 and BW2 need separate asset and runtime checks.</span></li></ol><p class="micro">The diagrams use browser vector text as a placeholder. They establish neither native palette values nor hardware compatibility.</p></div>
+        <div class="screens">
+          <figure><div class="screen-caption"><span>TOP / CONTEXT</span><span>256 × 192</span></div><svg class="game-screen" viewBox="0 0 256 192" width="256" height="192" role="img" aria-labelledby="top-screen-title"><title id="top-screen-title">Proposed top-screen layout: title, context field, and text-speed help panel.</title><defs><pattern id="crosses" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M16 10v12M10 16h12" stroke="#144c43" stroke-width="2"/></pattern></defs><rect width="256" height="192" fill="#101918"/><rect y="24" width="256" height="112" fill="url(#crosses)"/><rect width="256" height="23" fill="#222c2a"/><path d="M0 23h256" stroke="#62d6bd"/><g fill="#edf2ef" font-family="sans-serif" font-size="10"><text x="12" y="15">OPTIONS</text><text x="242" y="15" text-anchor="end" fill="#62d6bd">01 / 05</text></g><path d="M8 136h232l8 8v40H8Z" fill="#293634" stroke="#78918b"/><g fill="#edf2ef" font-family="sans-serif" font-size="10"><text x="18" y="153">Text speed</text><text x="18" y="168" fill="#c3d1cc">Choose how quickly dialogue appears.</text></g></svg><figcaption>Solid help surface over a quiet patterned field.</figcaption></figure>
+          <div class="screen-hinge" aria-hidden="true"><span></span><span></span></div>
+          <figure><div class="screen-caption"><span>BOTTOM / SELECTION</span><span>256 × 192</span></div><svg class="game-screen" viewBox="0 0 256 192" width="256" height="192" role="img" aria-labelledby="bottom-screen-title"><title id="bottom-screen-title">Proposed bottom-screen layout with active Text Speed row, selected Fast value, and confirm/cancel action legends.</title><rect width="256" height="192" fill="#101918"/><rect width="256" height="22" fill="#222c2a"/><text x="12" y="15" fill="#edf2ef" font-family="sans-serif" font-size="10">SETTINGS</text><g stroke="#517b71"><rect x="8" y="30" width="240" height="28" fill="#284840" stroke="#b2f5e6" stroke-width="2"/><rect x="8" y="66" width="240" height="28" fill="#26332f"/><rect x="8" y="102" width="240" height="28" fill="#26332f"/></g><g fill="#3e5650"><path d="M9 31h89l12 13-12 13H9Z"/><path d="M9 67h89l12 13-12 13H9Z"/><path d="M9 103h89l12 13-12 13H9Z"/></g><g font-family="sans-serif" font-size="9" fill="#edf2ef"><text x="16" y="48">TEXT SPEED</text><text x="16" y="84">BATTLE SCENE</text><text x="16" y="120">SOUND</text><text x="118" y="48" fill="#b7c7c1">SLOW</text><text x="163" y="48" fill="#b7c7c1">MID</text><text x="210" y="48" fill="#b2f5e6">FAST</text><text x="127" y="84" fill="#62d6bd">ON</text><text x="197" y="84" fill="#b7c7c1">OFF</text><text x="127" y="120" fill="#62d6bd">STEREO</text><text x="197" y="120" fill="#b7c7c1">MONO</text></g><g fill="#62d6bd"><rect x="201" y="41" width="4" height="6"/><rect x="118" y="77" width="4" height="6"/><rect x="118" y="113" width="4" height="6"/></g><path d="M8 159h240" stroke="#517b71"/><text x="12" y="179" font-family="sans-serif" font-size="9" fill="#edf2ef">A  CONFIRM</text><text x="244" y="179" text-anchor="end" font-family="sans-serif" font-size="9" fill="#edf2ef">B  BACK</text></svg><figcaption>Light row outline ≠ persistent value marker.</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="sources" class="reference-section" aria-labelledby="sources-title">
+      <div class="section-heading"><div><p class="eyebrow">04 / REFERENCE ATLAS</p><h2 id="sources-title">Read the source. Name the adaptation.</h2></div><p>Five supplied images, with distinct visual jobs.<br> Select an image to inspect the original capture.</p></div>
+      <div class="source-grid">
+        <figure class="source-card"><a class="source-image" href="assets/summary-adaptations.png" aria-label="Open full adapted summary collage"><img src="assets/summary-adaptations.png" alt="Adapted summary and memo screens with diagonal information panels." loading="lazy" width="1184" height="1732"></a><figcaption><span class="source-kind">A / ADAPTED REFERENCE</span><h3>Summary &amp; memo</h3><p>Ruled data, dark labels, light values, and a subject plane.</p><p class="source-limit">Plugin and later-generation content. Not stock White 2 evidence.</p></figcaption></figure>
+        <figure class="source-card"><a class="source-image" href="assets/white2-main-menu.png" aria-label="Open full White 2 main menu capture"><img src="assets/white2-main-menu.png" alt="Six tab-shaped main-menu tiles with a cyan selected Pokémon tile." loading="lazy" width="988" height="632"></a><figcaption><span class="source-kind">B / WHITE 2 CAPTURE</span><h3>Main menu</h3><p>Predictable tile geometry and a strong selected surface.</p><p class="source-limit">Adaptation: a quiet active rule in web navigation.</p></figcaption></figure>
+        <figure class="source-card"><a class="source-image" href="assets/white2-bag.png" aria-label="Open full White 2 bag capture"><img src="assets/white2-bag.png" alt="Blue bag interface separating item detail from pocket and item selection." loading="lazy" width="976" height="1370"></a><figcaption><span class="source-kind">C / WHITE 2 CAPTURE</span><h3>Bag</h3><p>Category, selection, and explanation have separate places.</p><p class="source-limit">Adaptation: stable detail and adjacent selection.</p></figcaption></figure>
+        <figure class="source-card"><a class="source-image" href="assets/white2-options.png" aria-label="Open full White 2 options capture"><img src="assets/white2-options.png" alt="Teal options rows with separate active-row and chosen-value indicators." loading="lazy" width="990" height="1366"></a><figcaption><span class="source-kind">D / WHITE 2 CAPTURE</span><h3>Options</h3><p>Aligned settings, contextual help, and two levels of emphasis.</p><p class="source-limit">Adaptation: native radios with distinct keyboard focus.</p></figcaption></figure>
+        <figure class="source-card"><a class="source-image" href="assets/white2-pokedex.png" aria-label="Open full White 2 Pokédex capture"><img src="assets/white2-pokedex.png" alt="Red Pokédex grid with dark numbered entries and yellow selection." loading="lazy" width="984" height="1456"></a><figcaption><span class="source-kind">E / WHITE 2 CAPTURE</span><h3>Pokédex</h3><p>Aligned IDs and names, a selection marker, and catalog rhythm.</p><p class="source-limit">Adaptation: numbered rows; red stays in this game family.</p></figcaption></figure>
+      </div>
+      <p class="section-footnote">Captures are enlarged and/or cropped. Colors and dimensions are visual references, not verified native palette entries or layout measurements. BW2 appearance does not establish BW1 parity.</p>
+    </section>
+    <section class="handoff" aria-label="Agent handoff"><div><p class="eyebrow">FROM REFERENCE TO IMPLEMENTATION</p><h2>Choose a profile. Preserve the task.</h2><p>The guide contains tokens, component recipes, generation briefs, and a Pokeweb adoption map.</p></div><a class="button primary" href="../gen5-ui-design-guide.md">Open the agent guide <span aria-hidden="true">↗</span></a></section>
+  </main>
+  <footer class="page-footer"><span>POKEWEB / GEN 5 UI REFERENCE</span><a href="validation.md">Validation &amp; limits</a><span>Design study · v1</span></footer>
+  <dialog id="reset-dialog" aria-labelledby="reset-title" aria-describedby="reset-description"><form method="dialog"><p class="eyebrow">SAMPLE WORKSPACE</p><h2 id="reset-title">Reset the sample?</h2><p id="reset-description">Restore the four example records and clear the filters. Changes exist only in this page.</p><div class="dialog-actions"><button class="button" value="cancel" autofocus>Keep editing</button><button class="button primary" value="reset">Reset sample</button></div></form></dialog>
+</body>
+</html>

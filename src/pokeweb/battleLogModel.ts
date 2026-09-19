@@ -44,8 +44,8 @@ export const WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH = `patches/${WHITE1_BATTLE_LOG_S
 export const BATTLE_LOG_ANCESTRY_PATH = "battlelog/ancestry.narc";
 export const BATTLE_LOG_EVOLUTION_PATH = "a/0/1/9";
 export const BATTLE_LOG_CAPACITY = 600;
-/** Version 9 isolates the retired Wi-Fi save users and disables Geonet aging. */
-export const BATTLE_LOG_RUNTIME_VERSION = 9;
+/** Version 11 reads the persistent attacker ID from the retail damage-record layout. */
+export const BATTLE_LOG_RUNTIME_VERSION = 11;
 
 const SPECIES_COUNT = 1024;
 const EVOLUTION_SLOT_SIZE = 6;
@@ -104,9 +104,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White2UpgradeBattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 9,
+    runtimeVersion: 11,
     runtimeFingerprints: {
-      battle: { length: 2352, fnv1a: 0x76de8c7e },
+      battle: { length: 2384, fnv1a: 0x8e685405 },
       counters: { length: 1648, fnv1a: 0xf7e99c0e },
       summary: { length: 896, fnv1a: 0x45f45047 },
     },
@@ -140,9 +140,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK2_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK2_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black2UpgradeBattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 9,
+    runtimeVersion: 11,
     runtimeFingerprints: {
-      battle: { length: 2464, fnv1a: 0x13533c4e },
+      battle: { length: 2496, fnv1a: 0x99233906 },
       counters: { length: 1760, fnv1a: 0x398d8ef9 },
       summary: { length: 1008, fnv1a: 0x6d26cc5f },
     },
@@ -176,9 +176,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 4,
+    runtimeVersion: 6,
     runtimeFingerprints: {
-      battle: { length: 2400, fnv1a: 0xcc96adea },
+      battle: { length: 2416, fnv1a: 0xda44e297 },
       counters: { length: 608, fnv1a: 0xe807d97f },
       summary: { length: 944, fnv1a: 0x38e5e842 },
     },
@@ -207,9 +207,9 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 4,
+    runtimeVersion: 6,
     runtimeFingerprints: {
-      battle: { length: 2400, fnv1a: 0xf45a813b },
+      battle: { length: 2416, fnv1a: 0x9027e07a },
       counters: { length: 608, fnv1a: 0xa57eca34 },
       summary: { length: 944, fnv1a: 0x6bf2476a },
     },
@@ -521,7 +521,7 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   recordGenericChange(
     project,
     "code_injection",
-    `Battle-log runtime v${layout.runtimeVersion} staged with${project.session.baseRom === "BW2" ? " immediate KO-counter commits for companion KO moves," : ""} AI-partner KO attribution, split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, isolated Wi-Fi save blocks 29–31, and the daily Geonet rewrite disabled. Existing damaged records are not repaired.`,
+    `Battle-log runtime v${layout.runtimeVersion} staged with${project.session.baseRom === "BW2" ? " immediate KO-counter commits for companion KO moves," : ""} direct-damage-first KO attribution, AI-partner KO attribution, split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, isolated Wi-Fi save blocks 29–31, and the daily Geonet rewrite disabled. Existing damaged records are not repaired.`,
     "Battle Log",
     { key: "code-injection:battle-log" },
   );

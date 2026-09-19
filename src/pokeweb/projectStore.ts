@@ -123,9 +123,30 @@ export type StreamedBgmConfig = {
   toggleEnabled: boolean;
 };
 
+export type NativeStreamReplacementConfig = {
+  streamId: number;
+  streamFileId: number;
+  streamSymbol?: string;
+  sourceName: string;
+  encoding: "pcm16" | "adpcm";
+  sampleRate: 32728;
+  channels: 2;
+  sampleCount: number;
+  loop: boolean;
+  loopStartSample: number;
+  loopEndSample: number;
+  encodedBytes: number;
+  audioSha256: string;
+  originalAudioSha256: string;
+};
+
 /** Read old saved projects without mutating them until a transaction commits. */
 export function getStreamedBgmConfigs(project: Pick<ProjectState, "codeInjection">): StreamedBgmConfig[] {
   return project.codeInjection?.streamedBgms ?? (project.codeInjection?.streamedBgm ? [project.codeInjection.streamedBgm] : []);
+}
+
+export function getNativeStreamReplacementConfigs(project: Pick<ProjectState, "codeInjection">): NativeStreamReplacementConfig[] {
+  return project.codeInjection?.nativeStreamReplacements ?? [];
 }
 
 export type CodeInjectionState = {
@@ -147,6 +168,7 @@ export type CodeInjectionState = {
   /** Legacy single-track state; migrated on the next successful music edit. */
   streamedBgm?: StreamedBgmConfig;
   streamedBgms?: StreamedBgmConfig[];
+  nativeStreamReplacements?: NativeStreamReplacementConfig[];
   battleLog?: {
     ancestryPath: string;
     ancestryFileId?: number;

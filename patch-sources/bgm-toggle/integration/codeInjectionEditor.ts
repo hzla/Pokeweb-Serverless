@@ -326,6 +326,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -default" id="uninstall-learnset-viewer-btn" type="button" ${learnsetStatus.canUninstall ? "" : "disabled"} title="Only staged companions can be removed; built-in ROM files cannot yet be deleted.">Uninstall</button>
             <div class="code-injection-note" id="learnset-viewer-note">${escapeHtml(learnsetStatus.message)}</div>
           </div>
+          <div class="code-injection-credits" aria-label="Learnset Viewer credits">
+            <span>Designed in collaboration with</span>
+            <strong>TrustyPeaches</strong>
+          </div>
         </section>
         ${[
           { id: "battle-hud", title: "Type Icons", status: battleHudStatus,
@@ -383,6 +387,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <button class="btn -default" id="uninstall-${card.id}-btn" type="button" ${card.status.canUninstall ? "" : "disabled"} title="Only this project's staged standalone DLL can be removed.">Uninstall</button>
             <div class="code-injection-note" id="${card.id}-note">${escapeHtml(card.status.message)}</div>
           </div>
+          ${card.id === "battle-hud" ? `<div class="code-injection-credits" aria-label="Type Icons credits">
+            <span>Designed in collaboration with</span>
+            <strong>TrustyPeaches</strong>
+          </div>` : ""}
         </section>`).join("")}
 
         <section class="code-injection-panel">

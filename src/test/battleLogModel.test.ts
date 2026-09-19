@@ -391,15 +391,17 @@ describe("trainer battle log", () => {
     });
 
     // v5 used server/client pointers; v6 overwrote a shared EXP tail; v7
-    // replayed level moves on KO-only checks; v8 lacked isolation. All need v9
+    // replayed level moves on KO-only checks; v8 lacked isolation; v9 used
+    // target history even when the engine recorded a direct damage source;
+    // v10 read the attacker's transient field position as a persistent slot.
     // when persistence has released the original DLL bytes.
-    for (const oldVersion of [5, 6, 7, 8]) {
+    for (const oldVersion of [5, 6, 7, 8, 9, 10]) {
       project.codeInjection.battleLog!.runtimeVersion = oldVersion;
       expect(getBattleLogInstallStatus(project)).toMatchObject({
         installed: true, upToDate: false, updateAvailable: true,
       });
     }
-    project.codeInjection.battleLog!.runtimeVersion = 9;
+    project.codeInjection.battleLog!.runtimeVersion = 11;
     project.codeInjection.battleLog!.saveGuardVersion = 1;
     const guard = battleLogSaveGuard("W2");
     project.arm9.set(hexBytes(guard.daily.disabledHex), guard.daily.address - 0x02004000);
@@ -408,7 +410,7 @@ describe("trainer battle log", () => {
       installed: true,
       upToDate: true,
       updateAvailable: false,
-      runtimeVersion: 9,
+      runtimeVersion: 11,
     });
   });
 
@@ -425,7 +427,7 @@ describe("trainer battle log", () => {
         installed: true,
         upToDate: true,
         updateAvailable: false,
-        runtimeVersion: version.endsWith("2") ? 9 : 4,
+        runtimeVersion: version.endsWith("2") ? 11 : 6,
       });
     }
   });
@@ -446,7 +448,7 @@ describe("trainer battle log", () => {
       installed: true,
       upToDate: false,
       updateAvailable: true,
-      bundledRuntimeVersion: 9,
+      bundledRuntimeVersion: 11,
     });
   });
 
