@@ -285,10 +285,10 @@ struct MoveSet {
 struct MoveDamageRec {
     u16 moveID;
     u16 damage;
-    u8 damageType;
     u8 moveType;
     u8 pokeID;
     u8 pokePos;
+    u8 padding;
 };
 
 struct BattleAction_Fight {

@@ -1,6 +1,12 @@
 import { loadNitroSdatFromProject, type NitroSdat } from "../pokeweb/nitroSound";
 import { detectBundledBgmToggleDll } from "../pokeweb/pmcModel";
-import { getStreamedBgmConfigs, type ProjectState, type StreamedBgmConfig } from "../pokeweb/projectStore";
+import {
+  getNativeStreamReplacementConfigs,
+  getStreamedBgmConfigs,
+  type NativeStreamReplacementConfig,
+  type ProjectState,
+  type StreamedBgmConfig,
+} from "../pokeweb/projectStore";
 import {
   buildMusicReference,
   filterMusicReference,
@@ -11,10 +17,14 @@ import {
 import {
   decodeAudioFile,
   detectStreamedBgmStatus,
+  installNativeStreamReplacement,
   installStreamedBgm,
+  listNativeSdatStreams,
+  removeNativeStreamReplacement,
   removeStreamedBgm,
   streamedBgmEncodingLabel,
   updateStreamedBgmRuntime,
+  type NativeSdatStream,
   type StreamedBgmEncoding,
   type StereoPcm,
 } from "../pokeweb/streamedBgmModel";
@@ -22,6 +32,7 @@ import { escapeHtml } from "./dom";
 
 type StreamedBgmDraft = {
   sequences?: Array<{ id: number; symbol: string }>;
+  nativeStreams?: NativeSdatStream[];
   hydrating?: boolean;
   pcm?: StereoPcm;
   sourceName?: string;
@@ -34,7 +45,35 @@ type StreamedBgmDraft = {
   message?: string;
   referenceSearch?: string;
   referenceCategory?: MusicReferenceFilter;
+  nativePcm?: StereoPcm;
+  nativeSourceName?: string;
+  nativePreviewUrl?: string;
+  nativeStreamId: number;
+  nativeEncoding: StreamedBgmEncoding;
+  nativeLoop: boolean;
+  nativeLoopStartSeconds: number;
+  nativeLoopEndSeconds?: number;
+  nativeMessage?: string;
+  nativeReferenceSearch?: string;
+  nativeReferenceCategory?: NativeStreamReferenceCategory;
+  nativeInitialized?: boolean;
   busy?: boolean;
+};
+
+export const NATIVE_STREAM_REFERENCE_CATEGORIES = {
+  title: "Title & opening",
+  custom: "Custom replacements",
+  other: "Other streams",
+} as const;
+
+export type NativeStreamReferenceCategory = keyof typeof NATIVE_STREAM_REFERENCE_CATEGORIES | "all";
+
+export type NativeStreamReferenceEntry = {
+  stream: NativeSdatStream;
+  category: Exclude<NativeStreamReferenceCategory, "all">;
+  title: string;
+  description: string;
+  managedSequenceId?: number;
 };
 
 const streamedBgmDrafts = new WeakMap<ProjectState, StreamedBgmDraft>();
@@ -62,16 +101,80 @@ export function renderStreamedBgmEncodingOptions(selected: StreamedBgmEncoding):
     <option value="pcm16" ${selected === "pcm16" ? "selected" : ""}>Maximum quality — Stereo PCM16</option>`;
 }
 
+export function buildNativeStreamReference(
+  streams: readonly NativeSdatStream[],
+  mappings: readonly StreamedBgmConfig[],
+): NativeStreamReferenceEntry[] {
+  return streams.map((stream) => {
+    const mapping = mappings.find((entry) => entry.streamId === stream.id);
+    if (mapping) {
+      return {
+        stream,
+        category: "custom",
+        title: `Sequence ${mapping.targetSequenceId}`,
+        description: `${mapping.targetSequenceSymbol ?? "Unnamed BGM"} · ${mapping.sourceName}`,
+        managedSequenceId: mapping.targetSequenceId,
+      };
+    }
+    if (stream.id === 0 || stream.symbol === "STRM_TITLE") {
+      return {
+        stream,
+        category: "title",
+        title: "Title screen",
+        description: "Opening/title presentation music. This is played directly as a native stream, not as a SEQ_BGM sequence.",
+      };
+    }
+    return {
+      stream,
+      category: "other",
+      title: stream.symbol,
+      description: "Native streamed audio found in this ROM's SDAT.",
+    };
+  });
+}
+
+export function filterNativeStreamReference(
+  entries: readonly NativeStreamReferenceEntry[],
+  search: string,
+  category: NativeStreamReferenceCategory,
+): NativeStreamReferenceEntry[] {
+  const query = search.trim().toLocaleLowerCase();
+  return entries.filter((entry) => {
+    if (category !== "all" && entry.category !== category) return false;
+    if (!query) return true;
+    return [entry.title, entry.description, entry.stream.id, entry.stream.symbol, entry.stream.fileId, entry.managedSequenceId]
+      .some((value) => String(value ?? "").toLocaleLowerCase().includes(query));
+  });
+}
+
+export function renderNativeStreamReferenceRows(entries: readonly NativeStreamReferenceEntry[], selectedId: number): string {
+  if (!entries.length) return `<tr><td colspan="3" class="music-reference-empty">No matching streams in this category.</td></tr>`;
+  return entries.map((entry) => `<tr>
+    <th scope="row"><strong>${escapeHtml(entry.title)}</strong><small>${escapeHtml(NATIVE_STREAM_REFERENCE_CATEGORIES[entry.category])}</small></th>
+    <td>${entry.managedSequenceId === undefined
+      ? `<button type="button" class="music-reference-id" data-native-stream-reference-id="${entry.stream.id}" aria-pressed="${entry.stream.id === selectedId}" aria-label="Select stream ${entry.stream.id}, ${escapeHtml(entry.title)}"><strong>${entry.stream.id}</strong></button>`
+      : `<strong>${entry.stream.id}</strong><small>Managed by BGM sequence ${entry.managedSequenceId}</small>`}
+      <code>${escapeHtml(entry.stream.symbol)}</code></td>
+    <td>${escapeHtml(entry.description)}<small>${entry.stream.channels} ch · ${entry.stream.sampleRate.toLocaleString()} Hz · ${entry.stream.encoding.toUpperCase()} · ${(entry.stream.encodedBytes / 0x10_0000).toFixed(2)} MiB</small></td>
+  </tr>`).join("");
+}
+
 function getStreamedBgmDraft(project: ProjectState): StreamedBgmDraft {
   let draft = streamedBgmDrafts.get(project);
   if (!draft) {
     const installed = getStreamedBgmConfigs(project)[0];
+    const nativeInstalled = getNativeStreamReplacementConfigs(project)[0];
     draft = {
       targetSequenceId: installed?.targetSequenceId ?? 0,
       encoding: installed?.encoding ?? (installed ? "pcm16" : "adpcm"),
       loopStartSeconds: installed ? installed.loopStartSample / installed.sampleRate : 0,
       loopEndSeconds: installed ? installed.loopEndSample / installed.sampleRate : undefined,
       shortcutEnabled: installed?.toggleEnabled ?? detectBundledBgmToggleDll(project) === "patched",
+      nativeStreamId: nativeInstalled?.streamId ?? 0,
+      nativeEncoding: nativeInstalled?.encoding ?? "adpcm",
+      nativeLoop: nativeInstalled?.loop ?? false,
+      nativeLoopStartSeconds: nativeInstalled ? nativeInstalled.loopStartSample / nativeInstalled.sampleRate : 0,
+      nativeLoopEndSeconds: nativeInstalled ? nativeInstalled.loopEndSample / nativeInstalled.sampleRate : undefined,
     };
     streamedBgmDrafts.set(project, draft);
   }
@@ -85,6 +188,7 @@ function hydrateSequenceList(project: ProjectState, root: HTMLElement, onDirty: 
   void Promise.all([loadNitroSdatFromProject(project), detectStreamedBgmStatus(project)])
     .then(([sdat, detected]) => {
       draft.sequences = listMusicEditorSequences(sdat);
+      draft.nativeStreams = listNativeSdatStreams(sdat.bytes);
       const installed = getStreamedBgmConfigs(project)[0];
       if (installed) {
         draft.shortcutEnabled = installed.toggleEnabled;
@@ -99,12 +203,28 @@ function hydrateSequenceList(project: ProjectState, root: HTMLElement, onDirty: 
         draft.targetSequenceId = draft.sequences[0]?.id ?? 0;
         draft.encoding = "adpcm";
       }
+      if (!draft.nativeInitialized) {
+        const nativeInstalled = getNativeStreamReplacementConfigs(project).find((entry) => entry.streamId === draft.nativeStreamId);
+        const nativeStream = draft.nativeStreams.find((entry) => entry.id === draft.nativeStreamId)
+          ?? draft.nativeStreams.find((entry) => !getStreamedBgmConfigs(project).some((mapping) => mapping.streamId === entry.id));
+        if (nativeStream) draft.nativeStreamId = nativeStream.id;
+        draft.nativeEncoding = nativeInstalled?.encoding ?? "adpcm";
+        draft.nativeLoop = nativeInstalled?.loop ?? nativeStream?.loop ?? false;
+        draft.nativeLoopStartSeconds = nativeInstalled
+          ? nativeInstalled.loopStartSample / nativeInstalled.sampleRate
+          : (nativeStream?.loopStartSample ?? 0) / Math.max(1, nativeStream?.sampleRate ?? 1);
+        draft.nativeLoopEndSeconds = nativeInstalled
+          ? nativeInstalled.loopEndSample / nativeInstalled.sampleRate
+          : nativeStream ? nativeStream.sampleCount / Math.max(1, nativeStream.sampleRate) : undefined;
+        draft.nativeInitialized = true;
+      }
       draft.message = undefined;
       if (!hadStreamedState && detected.installed) onDirty();
     })
     .catch((error) => {
       draft.message = error instanceof Error ? error.message : String(error);
       draft.sequences = [];
+      draft.nativeStreams = [];
     })
     .finally(() => {
       draft.hydrating = false;
@@ -117,6 +237,7 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
   hydrateSequenceList(project, root, onDirty, draft);
 
   const configs = getStreamedBgmConfigs(project);
+  const nativeConfigs = getNativeStreamReplacementConfigs(project);
   const config = configs.find((entry) => entry.targetSequenceId === draft.targetSequenceId);
   const configTargetIsBgm = !config || Boolean(config.targetSequenceSymbol?.startsWith("SEQ_BGM_"));
   const supported = project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2");
@@ -130,11 +251,11 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
       <aside class="music-editor-sidebar">
         <div class="music-editor-kicker">Gen 5 sound editor</div>
         <h1>Music</h1>
-        <p>Import mixed audio tracks for Black 2 or White 2 background music. Each sequence can have its own replacement.</p>
+        <p>Import mixed audio for Black 2 or White 2 sequence-driven BGM and native streamed tracks.</p>
         <div class="music-editor-sidebar__summary">
           <span>Installed replacements</span>
-          <strong>${configs.length} track${configs.length === 1 ? "" : "s"}</strong>
-          <small>${configs.length ? `${(configs.reduce((total, entry) => total + entry.encodedBytes, 0) / 0x10_0000).toFixed(2)} MiB of audio · one shared playback buffer` : "The original SDAT is unchanged."}</small>
+          <strong>${configs.length + nativeConfigs.length} track${configs.length + nativeConfigs.length === 1 ? "" : "s"}</strong>
+          <small>${configs.length + nativeConfigs.length ? `${([...configs, ...nativeConfigs].reduce((total, entry) => total + entry.encodedBytes, 0) / 0x10_0000).toFixed(2)} MiB of custom audio` : "The original SDAT is unchanged."}</small>
         </div>
       </aside>
       <main class="music-editor-main">
@@ -170,6 +291,7 @@ export function renderMusicEditor(project: ProjectState, root: HTMLElement, onDi
             <div class="code-injection-note" id="streamed-bgm-note">${escapeHtml(draft.message ?? (config ? (configTargetIsBgm ? `${config.sourceName} is installed. Removing it restores only the verified replacement data.` : `This older installation targets non-BGM sequence ${config.targetSequenceId} (${config.targetSequenceSymbol ?? "unknown"}). Choose a SEQ_BGM target, import the audio again, and reconfigure it before testing.`) : draft.hydrating ? "Loading SDAT background-music sequence names…" : "Choose a SEQ_BGM target and import MP3 or WAV audio. Full-track looping is the default."))}</div>
           </div>
         </section>
+        ${renderNativeStreamPanel(draft, configs, nativeConfigs, supported)}
         <section class="code-injection-panel music-editor-panel music-editor-installed-panel" aria-labelledby="installed-music-title">
           <h2 id="installed-music-title">Installed replacements (${configs.length})</h2>
           <p>Select a target to import new audio for it, or remove it individually. Other replacements are retained. Size estimates exclude small archive/runtime overhead.</p>
@@ -200,6 +322,77 @@ export function renderInstalledMusicRows(configs: readonly StreamedBgmConfig[]):
     <td><button class="btn" type="button" data-music-select="${config.targetSequenceId}" aria-label="Select replacement ${config.targetSequenceId}">Select</button>
       <button class="btn -default" type="button" data-music-remove="${config.targetSequenceId}" aria-label="Remove replacement ${config.targetSequenceId}">Remove</button></td>
   </tr>`).join("");
+}
+
+function renderNativeStreamPanel(
+  draft: StreamedBgmDraft,
+  mappings: readonly StreamedBgmConfig[],
+  configs: readonly NativeStreamReplacementConfig[],
+  supported: boolean,
+): string {
+  if (!supported) return "";
+  const streams = draft.nativeStreams ?? [];
+  const managedStreamIds = new Set(mappings.map((mapping) => mapping.streamId));
+  const editableStreams = streams.filter((stream) => !managedStreamIds.has(stream.id));
+  const selected = editableStreams.find((stream) => stream.id === draft.nativeStreamId);
+  const config = configs.find((entry) => entry.streamId === draft.nativeStreamId);
+  const duration = draft.nativePcm ? draft.nativePcm.left.length / draft.nativePcm.sampleRate : undefined;
+  const end = draft.nativeLoopEndSeconds ?? duration;
+  const referenceEntries = buildNativeStreamReference(streams, mappings);
+  const category = draft.nativeReferenceCategory ?? "title";
+  const matches = filterNativeStreamReference(referenceEntries, draft.nativeReferenceSearch ?? "", category);
+  const categoryLabel = category === "all" ? "All streams" : NATIVE_STREAM_REFERENCE_CATEGORIES[category];
+  return `<section class="code-injection-panel music-editor-panel music-editor-native-panel" aria-labelledby="native-stream-title">
+    <h2 id="native-stream-title">Native streamed music</h2>
+    <p>Replace an existing SDAT STRM directly. This uses BW2's built-in stream player; no sequence redirect, DLL hook, or gameplay replacement buffer is added.</p>
+    <div class="code-injection-actions streamed-bgm-controls">
+      <label>Target stream
+        <select id="native-stream-target" ${editableStreams.length ? "" : "disabled"}>
+          ${editableStreams.map((stream) => `<option value="${stream.id}" ${stream.id === draft.nativeStreamId ? "selected" : ""}>${stream.id} — ${escapeHtml(stream.symbol)}</option>`).join("")}
+        </select>
+      </label>
+      <label>MP3 or WAV
+        <input id="native-stream-file" type="file" accept="audio/mpeg,audio/wav,.mp3,.wav" ${selected ? "" : "disabled"} />
+      </label>
+      ${draft.nativePreviewUrl ? `<audio id="native-stream-preview" controls preload="metadata" src="${escapeHtml(draft.nativePreviewUrl)}"></audio>` : ""}
+      <label>Storage encoding
+        <select id="native-stream-encoding" ${selected ? "" : "disabled"}>${renderStreamedBgmEncodingOptions(draft.nativeEncoding)}</select>
+      </label>
+      <label class="streamed-bgm-shortcut"><input id="native-stream-loop" type="checkbox" ${draft.nativeLoop ? "checked" : ""} ${selected ? "" : "disabled"} /> Loop after reaching the track end</label>
+      <div class="streamed-bgm-loop-grid">
+        <label>Loop start (seconds)<input id="native-stream-loop-start" type="number" min="0" step="0.001" value="${draft.nativeLoopStartSeconds.toFixed(3)}" ${selected && draft.nativeLoop ? "" : "disabled"} /></label>
+        <label>Track end (seconds)<input id="native-stream-loop-end" type="number" min="0" step="0.001" value="${end?.toFixed(3) ?? ""}" placeholder="Full track" ${selected ? "" : "disabled"} /></label>
+      </div>
+      <div class="music-editor-buttons">
+        <button class="btn -primary" id="install-native-stream-btn" type="button" ${selected && draft.nativePcm ? "" : "disabled"}>${config ? "Update Stream Replacement" : "Replace Stream"}</button>
+        <button class="btn -default" id="remove-native-stream-btn" type="button" ${config ? "" : "disabled"}>Restore Loaded-ROM Stream</button>
+      </div>
+      <div class="code-injection-note" id="native-stream-note">${escapeHtml(draft.nativeMessage ?? (config
+        ? `${config.sourceName} replaces stream ${config.streamId} (${config.streamSymbol ?? selected?.symbol ?? "unnamed"}).`
+        : selected ? `Stream ${selected.id} (${selected.symbol}) is ${selected.encoding.toUpperCase()}, ${selected.sampleRate.toLocaleString()} Hz, ${(selected.encodedBytes / 0x10_0000).toFixed(2)} MiB.`
+          : "No directly editable native streams were found."))}</div>
+    </div>
+    <div class="native-stream-reference">
+      <h3>Stream ID reference</h3>
+      <p>Locate streamed audio in the active ROM by category. Click a directly editable stream ID to select it above.</p>
+      <div class="music-reference-tabs" role="tablist" aria-label="Stream categories">
+        <button type="button" class="music-reference-tab ${category === "all" ? "-active" : ""}" role="tab" aria-selected="${category === "all"}" data-native-reference-category="all">All streams</button>
+        ${Object.entries(NATIVE_STREAM_REFERENCE_CATEGORIES).map(([value, label]) => `<button type="button" class="music-reference-tab ${category === value ? "-active" : ""}" role="tab" aria-selected="${category === value}" data-native-reference-category="${value}">${escapeHtml(label)}</button>`).join("")}
+      </div>
+      <div class="music-reference-filters"><label>Search streams
+        <input id="native-reference-search" type="search" placeholder="Try title, STRM_TITLE, sequence ID, or stream ID" value="${escapeHtml(draft.nativeReferenceSearch ?? "")}" />
+      </label></div>
+      <p class="music-reference-caution">Custom replacement streams are listed for reference but remain managed by their BGM sequence entries above.</p>
+      <p id="native-reference-status" role="status">${matches.length} ${categoryLabel.toLocaleLowerCase()} entries</p>
+      <div class="music-reference-scroll native-stream-reference-scroll" tabindex="0" role="tabpanel" aria-label="${escapeHtml(categoryLabel)} stream ID reference table">
+        <table class="music-reference-table native-stream-reference-table">
+          <caption>Black 2 / White 2 · ${escapeHtml(categoryLabel)}</caption>
+          <thead><tr><th scope="col">Use</th><th scope="col">Stream ID</th><th scope="col">Location / notes</th></tr></thead>
+          <tbody id="native-reference-rows">${draft.hydrating ? `<tr><td colspan="3" class="music-reference-empty">Loading SDAT streams…</td></tr>` : renderNativeStreamReferenceRows(matches, draft.nativeStreamId)}</tbody>
+        </table>
+      </div>
+    </div>
+  </section>`;
 }
 
 export function renderMusicReferenceRows(entries: readonly MusicReferenceEntry[], selectedId: number): string {
@@ -250,15 +443,18 @@ function renderMusicReferencePanel(draft: StreamedBgmDraft, supported: boolean):
 }
 
 function installMusicEditorInteractions(project: ProjectState, root: HTMLElement, onDirty: () => void, draft: StreamedBgmDraft): void {
-  const runEdit = async (operation: () => Promise<void>) => {
+  const runEdit = async (operation: () => Promise<void>, messageTarget: "sequence" | "native" = "sequence") => {
     if (draft.busy) return;
     draft.busy = true;
     root.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>("input, button, select").forEach((element) => { element.disabled = true; });
     try {
       await operation();
+      draft.nativeStreams = listNativeSdatStreams((await loadNitroSdatFromProject(project)).bytes);
       onDirty();
     } catch (error) {
-      draft.message = error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
+      if (messageTarget === "native") draft.nativeMessage = message;
+      else draft.message = message;
     } finally {
       draft.busy = false;
       renderMusicEditor(project, root, onDirty);
@@ -286,6 +482,130 @@ function installMusicEditorInteractions(project: ProjectState, root: HTMLElement
   const referenceRows = root.querySelector<HTMLTableSectionElement>("#music-reference-rows");
   const referenceStatus = root.querySelector<HTMLElement>("#music-reference-status");
   const referenceTablePanel = root.querySelector<HTMLElement>("#music-reference-table-panel");
+  const nativeTarget = root.querySelector<HTMLSelectElement>("#native-stream-target");
+  const nativeFile = root.querySelector<HTMLInputElement>("#native-stream-file");
+  const nativeEncoding = root.querySelector<HTMLSelectElement>("#native-stream-encoding");
+  const nativeLoop = root.querySelector<HTMLInputElement>("#native-stream-loop");
+  const nativeLoopStart = root.querySelector<HTMLInputElement>("#native-stream-loop-start");
+  const nativeLoopEnd = root.querySelector<HTMLInputElement>("#native-stream-loop-end");
+  const nativeInstall = root.querySelector<HTMLButtonElement>("#install-native-stream-btn");
+  const nativeRemove = root.querySelector<HTMLButtonElement>("#remove-native-stream-btn");
+  const nativeNote = root.querySelector<HTMLElement>("#native-stream-note");
+  const nativeReferenceSearch = root.querySelector<HTMLInputElement>("#native-reference-search");
+  const nativeReferenceTabs = root.querySelectorAll<HTMLButtonElement>("[data-native-reference-category]");
+  const nativeReferenceRows = root.querySelector<HTMLTableSectionElement>("#native-reference-rows");
+  const nativeReferenceStatus = root.querySelector<HTMLElement>("#native-reference-status");
+
+  const nativeReferenceEntries = buildNativeStreamReference(draft.nativeStreams ?? [], getStreamedBgmConfigs(project));
+  const applyNativeTarget = (streamId: number) => {
+    const stream = draft.nativeStreams?.find((entry) => entry.id === streamId);
+    if (!stream) return;
+    const installed = getNativeStreamReplacementConfigs(project).find((entry) => entry.streamId === streamId);
+    draft.nativeStreamId = streamId;
+    draft.nativeEncoding = installed?.encoding ?? "adpcm";
+    draft.nativeLoop = installed?.loop ?? stream.loop;
+    draft.nativeLoopStartSeconds = installed
+      ? installed.loopStartSample / installed.sampleRate
+      : stream.loopStartSample / Math.max(1, stream.sampleRate);
+    draft.nativeLoopEndSeconds = installed
+      ? installed.loopEndSample / installed.sampleRate
+      : stream.sampleCount / Math.max(1, stream.sampleRate);
+    draft.nativeMessage = undefined;
+  };
+  const updateNativeInputs = () => {
+    const streamId = Number(nativeTarget?.value);
+    if (Number.isInteger(streamId)) draft.nativeStreamId = streamId;
+    if (nativeEncoding?.value === "adpcm" || nativeEncoding?.value === "pcm16") draft.nativeEncoding = nativeEncoding.value;
+    draft.nativeLoop = nativeLoop?.checked ?? false;
+    const start = Number(nativeLoopStart?.value);
+    if (Number.isFinite(start)) draft.nativeLoopStartSeconds = start;
+    const end = nativeLoopEnd?.value.trim() ?? "";
+    draft.nativeLoopEndSeconds = end ? Number(end) : undefined;
+    if (nativeLoopStart) nativeLoopStart.disabled = !draft.nativeLoop;
+  };
+  const filterNativeReference = () => {
+    draft.nativeReferenceSearch = nativeReferenceSearch?.value ?? "";
+    const category = draft.nativeReferenceCategory ?? "title";
+    const matches = filterNativeStreamReference(nativeReferenceEntries, draft.nativeReferenceSearch, category);
+    if (nativeReferenceRows) nativeReferenceRows.innerHTML = renderNativeStreamReferenceRows(matches, draft.nativeStreamId);
+    const label = category === "all" ? "All streams" : NATIVE_STREAM_REFERENCE_CATEGORIES[category];
+    if (nativeReferenceStatus) nativeReferenceStatus.textContent = `${matches.length} ${label.toLocaleLowerCase()} entries`;
+  };
+
+  nativeTarget?.addEventListener("change", () => {
+    applyNativeTarget(Number(nativeTarget.value));
+    renderMusicEditor(project, root, onDirty);
+  });
+  nativeEncoding?.addEventListener("change", updateNativeInputs);
+  nativeLoop?.addEventListener("change", updateNativeInputs);
+  nativeLoopStart?.addEventListener("input", updateNativeInputs);
+  nativeLoopEnd?.addEventListener("input", updateNativeInputs);
+  nativeReferenceSearch?.addEventListener("input", filterNativeReference);
+  nativeReferenceTabs.forEach((tab) => tab.addEventListener("click", () => {
+    const category = tab.dataset.nativeReferenceCategory as NativeStreamReferenceCategory | undefined;
+    if (!category) return;
+    draft.nativeReferenceCategory = category;
+    renderMusicEditor(project, root, onDirty);
+  }));
+  nativeReferenceRows?.addEventListener("click", (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>("[data-native-stream-reference-id]");
+    if (!button) return;
+    applyNativeTarget(Number(button.dataset.nativeStreamReferenceId));
+    renderMusicEditor(project, root, onDirty);
+  });
+
+  nativeFile?.addEventListener("change", async () => {
+    const file = nativeFile.files?.[0];
+    if (!file) return;
+    await runEdit(async () => {
+      updateNativeInputs();
+      nativeFile.disabled = true;
+      if (nativeNote) nativeNote.textContent = `Decoding and resampling ${file.name}…`;
+      const pcm = await decodeAudioFile(file);
+      if (draft.nativePreviewUrl) URL.revokeObjectURL(draft.nativePreviewUrl);
+      draft.nativePcm = pcm;
+      draft.nativeSourceName = file.name;
+      draft.nativePreviewUrl = URL.createObjectURL(file);
+      draft.nativeLoopStartSeconds = 0;
+      draft.nativeLoopEndSeconds = pcm.left.length / pcm.sampleRate;
+      draft.nativeMessage = `${file.name} decoded to ${pcm.left.length.toLocaleString()} stereo samples.`;
+    }, "native");
+  });
+
+  nativeInstall?.addEventListener("click", async () => {
+    await runEdit(async () => {
+      updateNativeInputs();
+      if (!draft.nativePcm || !draft.nativeSourceName) throw new Error("Import an MP3 or WAV file first.");
+      nativeInstall.disabled = true;
+      nativeInstall.textContent = "Replacing…";
+      if (nativeNote) nativeNote.textContent = "Encoding the native stream, rebuilding SDAT, and validating ROM capacity.";
+      await installNativeStreamReplacement(project, {
+        sourceName: draft.nativeSourceName,
+        pcm: draft.nativePcm,
+        streamId: draft.nativeStreamId,
+        encoding: draft.nativeEncoding,
+        loop: draft.nativeLoop,
+        loopStartSeconds: draft.nativeLoopStartSeconds,
+        loopEndSeconds: draft.nativeLoopEndSeconds,
+      });
+      draft.nativeMessage = `${draft.nativeSourceName} now replaces native stream ${draft.nativeStreamId}.`;
+    }, "native");
+  });
+
+  nativeRemove?.addEventListener("click", async () => {
+    await runEdit(async () => {
+      if (nativeNote) nativeNote.textContent = "Verifying and restoring the stream from the loaded ROM…";
+      await removeNativeStreamReplacement(project, draft.nativeStreamId);
+      draft.nativeMessage = `Native stream ${draft.nativeStreamId} restored from the loaded ROM.`;
+      const stream = listNativeSdatStreams((await loadNitroSdatFromProject(project)).bytes)
+        .find((entry) => entry.id === draft.nativeStreamId);
+      if (stream) {
+        draft.nativeLoop = stream.loop;
+        draft.nativeLoopStartSeconds = stream.loopStartSample / Math.max(1, stream.sampleRate);
+        draft.nativeLoopEndSeconds = stream.sampleCount / Math.max(1, stream.sampleRate);
+      }
+    }, "native");
+  });
 
   const selectedReferenceCategory = () => draft.referenceCategory ?? "cities";
   const refreshReferenceTabs = () => {
