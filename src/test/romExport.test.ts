@@ -239,6 +239,66 @@ describe("ROM export", () => {
     expect(readU32(exported, 0x1c0)).toBe(1);
     expect(readU32(exported, 0x1d0)).toBe(1);
     expect(readU32(exported, 0x80)).toBe(exported.length);
+    expect(readU16(exported, 0x90)).toBe(Math.ceil(exported.length / 0x80000));
+    expect(readU16(exported, 0x92)).toBe(readU16(exported, 0x90));
+    expect(readU16(exported, 0x15e)).toBe(crc16(exported.subarray(0, 0x15e)));
+  });
+
+  it.each([
+    { label: "absent DSi payloads", twlSize: 0, payloadOffset: 0 },
+    { label: "stripped DSi payloads with stale offsets", twlSize: 0, payloadOffset: 0x300000 },
+    { label: "out-of-range DSi payloads", twlSize: 0x400000, payloadOffset: 0x300000 },
+  ])("refreshes the DS-accessible boundary with $label on every rebuild", ({ twlSize, payloadOffset }) => {
+    const source = makeRom([Uint8Array.of(1), Uint8Array.of(2, 3)]);
+    source[0x12] = 2;
+    writeU16(source, 0x90, 1);
+    writeU16(source, 0x92, 1);
+    writeU32(source, 0x210, twlSize);
+    writeU32(source, 0x1c0, payloadOffset);
+    writeU32(source, 0x1cc, payloadOffset ? 4 : 0);
+    writeU32(source, 0x1d0, payloadOffset ? payloadOffset + 0x200 : 0);
+    writeU32(source, 0x1dc, payloadOffset ? 4 : 0);
+    const original = source.slice();
+
+    let bytes: Uint8Array = source;
+    for (const length of [0x90000, 0x110000, 4]) {
+      // Replacing music can push a later map archive past the old boundary.
+      // Padding on Quick Launch/re-export must not determine that boundary.
+      bytes = new NintendoDSRom(bytes).save({ files: new Map([[0, new Uint8Array(length)]]), minimumLength: 0x200000 });
+      const fat = readU32(bytes, 0x48);
+      const applicationEnd = readU32(bytes, fat + 12);
+      const boundary = readU16(bytes, 0x92) * 0x80000;
+      expect(boundary).toBe(Math.ceil(applicationEnd / 0x80000) * 0x80000);
+      expect(readU16(bytes, 0x90)).toBe(readU16(bytes, 0x92));
+      for (let id = 0; id < 2; id += 1) {
+        expect(readU32(bytes, fat + id * 8)).toBeLessThan(boundary);
+        expect(readU32(bytes, fat + id * 8 + 4)).toBeLessThanOrEqual(boundary);
+      }
+      const parsed = new NintendoDSRom(bytes);
+      expect(parsed.files[0].length).toBe(length);
+      expect(parsed.files[0].every((byte) => byte === 0)).toBe(true);
+      expect(parsed.files[1]).toEqual(Uint8Array.of(2, 3));
+      expect(parsed.arm9).toEqual(Uint8Array.of(1, 2, 3, 4));
+      expect(parsed.arm7).toEqual(Uint8Array.of(5, 6, 7, 8));
+      expect(bytes.length).toBe(0x200000);
+      expect(readU32(bytes, 0x80)).toBe(bytes.length);
+      // Do not synthesize a DSi extension or change stripped payload fields.
+      expect(bytes.subarray(0x1c0, 0x1e0)).toEqual(original.subarray(0x1c0, 0x1e0));
+      expect(readU32(bytes, 0x210)).toBe(twlSize);
+      expect(readU16(bytes, 0x15e)).toBe(crc16(bytes.subarray(0, 0x15e)));
+    }
+    expect(source).toEqual(original);
+  });
+
+  it("preserves the reserved region fields for DS-only ROMs", () => {
+    const source = makeRom([Uint8Array.of(1)]);
+    source[0x12] = 0;
+    writeU16(source, 0x90, 0x1234);
+    writeU16(source, 0x92, 0x5678);
+    const saved = new NintendoDSRom(source).save({ files: new Map([[0, new Uint8Array(0x90000)]]) });
+    expect(readU16(saved, 0x90)).toBe(0x1234);
+    expect(readU16(saved, 0x92)).toBe(0x5678);
+    expect(readU16(saved, 0x15e)).toBe(crc16(saved.subarray(0, 0x15e)));
   });
 
   it("moves the NTR/TWL boundary past grown NitroFS files on every rebuild", () => {
