@@ -1,4 +1,10 @@
-# Following Pokémon for White 2 — development package
+# Following Pokémon for Black 2 and White 2 — development package
+
+Stock US Black 2 is available as **0.6.24-alpha** through the same dedicated
+Pokeweb editor. It uses separate `B2` PMC modules and a pinned IREO revision-0
+binary contract while sharing the stock Gen 5 sprite and interaction data. See
+[Black 2 compatibility and build details](BLACK2.md) and its
+[human emulator checklist](BLACK2-CHECKLIST.md). Black2Upgrade is not supported.
 
 White2Upgrade has a separate **0.7.15-alpha** profile with species 1–1023,
 available Gen 6–9 artwork and explicit missing-art/form placeholders. See
@@ -198,7 +204,10 @@ Run from the Pokeweb repository. Supply your own baseline ROM path:
 
 ```sh
 npm run following:verify-rom -- /path/to/clean-white2.nds
+npm run following:verify-rom -- /path/to/clean-black2.nds
 npm run following:build -- /path/to/clean-white2.nds
+npm run following:build-black2 -- /path/to/clean-black2.nds
+npm run following:build-black2 -- /path/to/clean-black2.nds --publish
 npm run following:build -- /path/to/clean-white2.nds --publish
 npm run following:build-rom -- /path/to/clean-white2.nds
 npm run following:verify-core
