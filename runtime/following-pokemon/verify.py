@@ -1,4 +1,4 @@
-"""Read-only IRDO revision-0 binary contract verifier. No patch is installed."""
+"""Read-only US Black 2/White 2 revision-0 binary verifier. No patch is installed."""
 import argparse
 import hashlib
 import json
@@ -11,11 +11,13 @@ import ndspy.codeCompression
 HERE = Path(__file__).resolve().parent
 
 def verify(path):
-    contract = json.loads((HERE / 'contract.json').read_text())
     data = Path(path).read_bytes()
+    code = data[12:16].decode('ascii', errors='replace')
+    contract_name = 'black2-contract.json' if code == 'IREO' else 'contract.json'
+    contract = json.loads((HERE / contract_name).read_text())
     target = contract['target']
     if data[12:16].decode('ascii', errors='replace') != target['gameCode'] or data[30] != target['revision']:
-        raise ValueError('Requires US White 2 IRDO revision 0')
+        raise ValueError('Requires stock US Black 2 or White 2 revision 0')
     if hashlib.sha256(data).hexdigest() != target['sha256']:
         raise ValueError('Input does not match the pinned clean ROM SHA-256')
     rom = ndspy.rom.NintendoDSRom(data)
