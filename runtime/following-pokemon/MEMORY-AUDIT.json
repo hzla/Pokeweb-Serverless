@@ -1,0 +1,322 @@
+{
+  "measurements": [
+    {
+      "profile": "stock",
+      "version": "0.6.24-alpha",
+      "modules": [
+        {
+          "name": "PokewebFollowingCoreW2",
+          "fileBytes": 2304,
+          "codeAndInitializedData": 1728,
+          "bss": 4,
+          "codePlusBss": 1732,
+          "expandedModuleBytes": 2320,
+          "symbols": 14,
+          "exportedSymbols": 10,
+          "allSymbolNamesStripped": true
+        },
+        {
+          "name": "PokewebFollowingEventsW2",
+          "fileBytes": 2752,
+          "codeAndInitializedData": 1320,
+          "bss": 88,
+          "codePlusBss": 1408,
+          "expandedModuleBytes": 2848,
+          "symbols": 53,
+          "exportedSymbols": 34,
+          "allSymbolNamesStripped": true
+        },
+        {
+          "name": "PokewebFollowingFieldW2",
+          "fileBytes": 28736,
+          "codeAndInitializedData": 24792,
+          "bss": 23692,
+          "codePlusBss": 48484,
+          "expandedModuleBytes": 52432,
+          "symbols": 150,
+          "exportedSymbols": 96,
+          "allSymbolNamesStripped": true
+        }
+      ],
+      "largestObjects": [
+        {
+          "name": "dataBytes",
+          "bytes": 8192,
+          "section": ".bss"
+        },
+        {
+          "name": "fwfield_follower",
+          "bytes": 7228,
+          "section": ".bss"
+        },
+        {
+          "name": "contextBytes",
+          "bytes": 4096,
+          "section": ".bss"
+        },
+        {
+          "name": "fwfield_index",
+          "bytes": 1302,
+          "section": ".bss"
+        },
+        {
+          "name": "fwfield_page",
+          "bytes": 1024,
+          "section": ".bss"
+        },
+        {
+          "name": "FollowingSceneDebug",
+          "bytes": 816,
+          "section": ".data"
+        },
+        {
+          "name": "talk",
+          "bytes": 632,
+          "section": ".bss"
+        },
+        {
+          "name": "scene",
+          "bytes": 572,
+          "section": ".bss"
+        },
+        {
+          "name": "fws_safe_commands",
+          "bytes": 340,
+          "section": ".rodata"
+        },
+        {
+          "name": "fwfx",
+          "bytes": 284,
+          "section": ".bss"
+        },
+        {
+          "name": "fwemote",
+          "bytes": 184,
+          "section": ".bss"
+        },
+        {
+          "name": "FollowingDebug",
+          "bytes": 88,
+          "section": ".data"
+        },
+        {
+          "name": "FollowingRenderDebug",
+          "bytes": 80,
+          "section": ".data"
+        },
+        {
+          "name": "fwfield_restore",
+          "bytes": 60,
+          "section": ".bss"
+        },
+        {
+          "name": "FollowingTalkDebug",
+          "bytes": 48,
+          "section": ".data"
+        }
+      ],
+      "fixedPayloadBytes": 51624,
+      "registryBytes": 61808,
+      "registryRecords": 2574,
+      "registryHeapBytes": 0,
+      "pageBytes": 1024,
+      "indexBytes": 1302,
+      "conversationCapacity": 8192,
+      "contextualCapacity": 4096,
+      "giftScratchCapacity": 4096,
+      "largestSpeciesGroups": [
+        [
+          201,
+          56
+        ],
+        [
+          493,
+          34
+        ],
+        [
+          351,
+          16
+        ],
+        [
+          585,
+          16
+        ],
+        [
+          586,
+          16
+        ]
+      ],
+      "maxSpeciesBytesAtRuntimeStride": 1344,
+      "directoryBytesAt16BitRowOffsets": 1302,
+      "conversationBytes": 3852,
+      "contextualBytes": 76,
+      "giftBytes": 76
+    },
+    {
+      "profile": "white2upgrade",
+      "version": "0.7.15-alpha",
+      "modules": [
+        {
+          "name": "PokewebFollowingCoreW2",
+          "fileBytes": 2528,
+          "codeAndInitializedData": 1948,
+          "bss": 4,
+          "codePlusBss": 1952,
+          "expandedModuleBytes": 2544,
+          "symbols": 14,
+          "exportedSymbols": 10,
+          "allSymbolNamesStripped": true
+        },
+        {
+          "name": "PokewebFollowingEventsW2",
+          "fileBytes": 2752,
+          "codeAndInitializedData": 1320,
+          "bss": 88,
+          "codePlusBss": 1408,
+          "expandedModuleBytes": 2848,
+          "symbols": 53,
+          "exportedSymbols": 34,
+          "allSymbolNamesStripped": true
+        },
+        {
+          "name": "PokewebFollowingFieldW2",
+          "fileBytes": 28752,
+          "codeAndInitializedData": 24808,
+          "bss": 24440,
+          "codePlusBss": 49248,
+          "expandedModuleBytes": 53200,
+          "symbols": 150,
+          "exportedSymbols": 96,
+          "allSymbolNamesStripped": true
+        }
+      ],
+      "largestObjects": [
+        {
+          "name": "dataBytes",
+          "bytes": 8192,
+          "section": ".bss"
+        },
+        {
+          "name": "fwfield_follower",
+          "bytes": 7228,
+          "section": ".bss"
+        },
+        {
+          "name": "contextBytes",
+          "bytes": 4096,
+          "section": ".bss"
+        },
+        {
+          "name": "fwfield_index",
+          "bytes": 2050,
+          "section": ".bss"
+        },
+        {
+          "name": "fwfield_page",
+          "bytes": 1024,
+          "section": ".bss"
+        },
+        {
+          "name": "FollowingSceneDebug",
+          "bytes": 816,
+          "section": ".data"
+        },
+        {
+          "name": "talk",
+          "bytes": 632,
+          "section": ".bss"
+        },
+        {
+          "name": "scene",
+          "bytes": 572,
+          "section": ".bss"
+        },
+        {
+          "name": "fws_safe_commands",
+          "bytes": 340,
+          "section": ".rodata"
+        },
+        {
+          "name": "fwfx",
+          "bytes": 284,
+          "section": ".bss"
+        },
+        {
+          "name": "fwemote",
+          "bytes": 184,
+          "section": ".bss"
+        },
+        {
+          "name": "FollowingDebug",
+          "bytes": 88,
+          "section": ".data"
+        },
+        {
+          "name": "FollowingRenderDebug",
+          "bytes": 80,
+          "section": ".data"
+        },
+        {
+          "name": "fwfield_restore",
+          "bytes": 60,
+          "section": ".bss"
+        },
+        {
+          "name": "FollowingTalkDebug",
+          "bytes": 48,
+          "section": ".data"
+        }
+      ],
+      "fixedPayloadBytes": 52608,
+      "registryBytes": 56648,
+      "registryRecords": 4718,
+      "registryHeapBytes": 0,
+      "pageBytes": 1024,
+      "indexBytes": 2050,
+      "conversationCapacity": 8192,
+      "contextualCapacity": 4096,
+      "giftScratchCapacity": 4096,
+      "largestSpeciesGroups": [
+        [
+          666,
+          80
+        ],
+        [
+          201,
+          56
+        ],
+        [
+          676,
+          40
+        ],
+        [
+          493,
+          36
+        ],
+        [
+          25,
+          28
+        ]
+      ],
+      "maxSpeciesBytesAtRuntimeStride": 960,
+      "directoryBytesAt16BitRowOffsets": 2050,
+      "conversationBytes": 3852,
+      "contextualBytes": 76,
+      "giftBytes": 76
+    }
+  ],
+  "previousReleaseMeasurements": [
+    {
+      "profile": "stock",
+      "version": "0.6.15-alpha",
+      "fixedPayloadBytes": 43152
+    },
+    {
+      "profile": "white2upgrade",
+      "version": "0.7.6-alpha",
+      "fixedPayloadBytes": 44132
+    }
+  ],
+  "limits": "Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.",
+  "implementationStatus": "ROM registry streaming and 8 KiB conversation buffers implemented; automated checks passed, game emulator acceptance pending."
+}

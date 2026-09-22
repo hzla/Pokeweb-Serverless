@@ -17,6 +17,7 @@ import "./styles/legacyStarters.css";
 import "./styles/fileSystem.css";
 import "./styles/legacyTypes.css";
 import "./styles/codeInjection.css";
+import "./styles/followingPokemon.css";
 import "./styles/legacyPatches.css";
 import "./styles/pwanAnimation.css";
 import "./styles/moveBackgrounds.css";
@@ -48,6 +49,7 @@ import { buildMoveTestBattleDownloads, buildQuickLaunchDownloads, buildTestBattl
 import { buildOverworldTestWarpDownloads, type OverworldTestWarpSelection } from "./pokeweb/testOverworldWarp";
 import { renderDebugNarcs } from "./ui/debugNarcs";
 import { renderCodeInjectionEditor } from "./ui/codeInjectionEditor";
+import { renderFollowingPokemonEditor } from "./ui/followingPokemonEditor";
 import { renderMusicEditor } from "./ui/musicEditor";
 import { renderFileSystemEditor } from "./ui/fileSystemEditor";
 import { renderPatchesEditor } from "./ui/patchesEditor";
@@ -91,6 +93,7 @@ type AppRoute =
   | "upload"
   | "fileSystem"
   | "codeInjection"
+  | "followingPokemon"
   | "music"
   | "patches"
   | "headers"
@@ -188,6 +191,7 @@ const APP_ROUTES: AppRoute[] = [
   "upload",
   "fileSystem",
   "codeInjection",
+  "followingPokemon",
   "music",
   "patches",
   "headers",
@@ -229,7 +233,7 @@ const APP_ROUTES: AppRoute[] = [
 ];
 
 const EDITOR_REQUIREMENTS: Record<
-  Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">,
+  Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "followingPokemon" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">,
   NarcName[]
 > = {
   headers: ["headers", "message_texts"],
@@ -578,6 +582,14 @@ function renderApp(): void {
 
   if (route === "codeInjection") {
     renderCodeInjectionEditor(project, content, () => {
+      dirty = true;
+      scheduleSave(project!);
+      renderDirtyIndicator();
+    });
+    return;
+  }
+  if (route === "followingPokemon") {
+    renderFollowingPokemonEditor(project, content, () => {
       dirty = true;
       scheduleSave(project!);
       renderDirtyIndicator();
@@ -988,6 +1000,7 @@ function renderNav(): string {
         ${renderMapsMenu()}
         ${project.session.baseRom === "BW2" ? renderWeatherMenu() : ""}
         ${navItem("pokemon", "Pokemon")}
+        ${navItem("followingPokemon", "Following Pokémon")}
         ${renderTrainersMenu()}
         ${renderEncountersMenu()}
         ${renderMovesMenu()}
@@ -1960,6 +1973,9 @@ function hydrateProject(nextProject: ProjectState | undefined): void {
   nextProject.pwanAnimations.dirty ??= false;
   nextProject.pwanAnimations.overrides ??= [];
   nextProject.pwanAnimations.nativeCarrierBackups ??= {};
+  nextProject.trainerPwanAnimations ??= { overrides: [] };
+  nextProject.trainerPwanAnimations.dirty ??= false;
+  nextProject.trainerPwanAnimations.overrides ??= [];
   nextProject.patches ??= { dirtyOverlayIds: [], applied: {} };
   nextProject.patches.dirtyOverlayIds ??= [];
   nextProject.patches.applied ??= {};
@@ -2023,6 +2039,7 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
   if (Object.values(currentProject.narcs).some((store) => (store?.dirty.size ?? 0) > 0)) return true;
   if (currentProject.fileSystem && (Object.keys(currentProject.fileSystem.replacements).length > 0 || Object.keys(currentProject.fileSystem.additions ?? {}).length > 0)) return true;
   if (currentProject.pwanAnimations?.dirty || currentProject.pwanAnimations?.runtimeInstalled) return true;
+  if (currentProject.trainerPwanAnimations?.dirty || currentProject.trainerPwanAnimations?.runtimeInstalled) return true;
   if ((currentProject.starters?.dirtyOverlayIds.length ?? 0) > 0) return true;
   if ((currentProject.patches?.dirtyOverlayIds.length ?? 0) > 0) return true;
   return false;
@@ -2039,6 +2056,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   }
   if (nextRoute === "fileSystem") return hasExportBase;
   if (nextRoute === "codeInjection") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
+  if (nextRoute === "followingPokemon") return hasExportBase && project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2");
   if (nextRoute === "music") return hasExportBase && project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2");
   if (nextRoute === "patches") return hasExportBase && (project.session.baseRom === "BW" || project.session.baseRom === "BW2");
   if (nextRoute === "maps3d") return Boolean(project.headers && hasExportBase);
@@ -2074,7 +2092,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
     return EDITOR_REQUIREMENTS.wbtFacilities.every((name) => project?.narcs[name]) && Boolean(project.narcs.wbt_sets || project.narcs.wbt_trainers || project.narcs.wbt_area_pools);
   }
   if ((nextRoute === "marts" || nextRoute === "grottos") && project.session.baseRom !== "BW2") return false;
-  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">;
+  const editorRoute = nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "followingPokemon" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">;
   return EDITOR_REQUIREMENTS[editorRoute].every((name) => project?.narcs[name]);
 }
 
@@ -2091,7 +2109,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? mastersheetRequirements()
       : nextRoute === "fileSystem"
         ? ([] as NarcName[])
-      : nextRoute === "codeInjection"
+      : nextRoute === "codeInjection" || nextRoute === "followingPokemon"
         ? ([] as NarcName[])
       : nextRoute === "music"
         ? ([] as NarcName[])
@@ -2103,13 +2121,15 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
         ? ([] as NarcName[])
       : nextRoute === "tutorMoves"
         ? ([] as NarcName[])
-      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">];
+      : EDITOR_REQUIREMENTS[nextRoute as Exclude<AppRoute, "upload" | "fileSystem" | "codeInjection" | "followingPokemon" | "patches" | "debugNarcs" | "grottoOdds" | "docGenerators" | "mastersheet" | "maps3d" | "changelog" | "tutorMoves">];
   const missing = enabled
     ? ""
     : nextRoute === "fileSystem"
       ? ` title="Reload the ROM before opening File System"`
     : nextRoute === "codeInjection"
       ? ` title="${project?.session.baseRom === "BW" || project?.session.baseRom === "BW2" ? "Reload the ROM before opening Code Injection" : "Code Injection is currently Gen V only"}"`
+    : nextRoute === "followingPokemon"
+      ? ` title="${project?.session.baseRom === "BW2" ? "Reload the ROM before opening Following Pokémon" : "Following Pokémon supports Black 2 and White 2 projects"}"`
     : nextRoute === "music"
       ? ` title="${project?.session.baseRom === "BW2" ? "Reload the ROM before opening Music" : "Music replacement supports US Black 2 and White 2"}"`
     : nextRoute === "patches"

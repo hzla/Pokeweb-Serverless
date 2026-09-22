@@ -10,6 +10,8 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { parseRpm } from "../pokeweb/rpm";
 import {
   chooseStreamedBgmEncoding,
+  cropStereoPcm,
+  decodeNativeSdatStreamPcm,
   detectStreamedBgmStatus,
   createSilentShadowSseq,
   downmixToStereo,
@@ -21,6 +23,7 @@ import {
   installStreamedBgm,
   listNativeSdatStreams,
   removeNativeStreamReplacement,
+  replaceNativeSdatStream,
   removeStreamedBgm,
   rebuildStreamedBgmMappings,
   removeStreamedBgmFromSdat,
@@ -158,6 +161,33 @@ describe("BW2 streamed BGM encoding", () => {
       expect(encoded.bytes[0x19]).toBe(0);
       expect(readU32(encoded.bytes, 0x20)).toBe(0);
       expect(encoded.loopStartSample).toBe(0);
+    }
+  });
+
+  it("crops imported stereo PCM on exact sample boundaries", () => {
+    const cropped = cropStereoPcm({
+      sampleRate: 4,
+      left: Float32Array.of(0, 0.25, 0.5, 0.75, 1),
+      right: Float32Array.of(0, -0.25, -0.5, -0.75, -1),
+    }, 1, 4);
+    expect(cropped.left).toEqual(Float32Array.of(0.25, 0.5, 0.75));
+    expect(cropped.right).toEqual(Float32Array.of(-0.25, -0.5, -0.75));
+    expect(() => cropStereoPcm(cropped, 2, 2)).toThrow(/Crop times/u);
+  });
+
+  it("decodes bounded PCM16 and ADPCM native-stream previews", () => {
+    const source = {
+      sampleRate: STREAMED_BGM_SAMPLE_RATE,
+      left: Float32Array.from({ length: 2_000 }, (_value, index) => Math.sin(index / 20) * 0.5),
+      right: Float32Array.from({ length: 2_000 }, (_value, index) => Math.cos(index / 20) * 0.5),
+    };
+    for (const encoded of [encodePcm16Strm(source), encodeAdpcmStrm(source)]) {
+      const sdat = replaceNativeSdatStream(makeSdat(), 0, encoded.bytes);
+      const preview = decodeNativeSdatStreamPcm(sdat, 0, 1_000 / STREAMED_BGM_SAMPLE_RATE);
+      expect(preview.left).toHaveLength(1_000);
+      expect(preview.right).toHaveLength(1_000);
+      const meanError = preview.left.reduce((sum, value, index) => sum + Math.abs(value - source.left[index]!), 0) / preview.left.length;
+      expect(meanError).toBeLessThan(encoded.encoding === "pcm16" ? 0.0001 : 0.02);
     }
   });
 
@@ -344,6 +374,37 @@ describe("multiple streamed BGM replacements", () => {
     expect(adpcm.encodedBytes).toBeLessThan(pcm16.encodedBytes);
   });
 
+  it("crops the imported source before applying a crop-relative loop point", async () => {
+    const project = makeRuntimeUpdateProject("W2");
+    const config = await installStreamedBgm(project, {
+      sourceName: "cropped.wav",
+      pcm,
+      targetSequenceId: 0,
+      encoding: "pcm16",
+      trimStartSeconds: 1 / STREAMED_BGM_SAMPLE_RATE,
+      trimEndSeconds: 4 / STREAMED_BGM_SAMPLE_RATE,
+      loopStartSeconds: 1 / STREAMED_BGM_SAMPLE_RATE,
+      shortcutEnabled: false,
+    });
+    expect(config).toMatchObject({
+      sampleCount: 3,
+      loopStartSample: 1,
+      loopEndSample: 3,
+      sourceTrimStartSeconds: 1 / STREAMED_BGM_SAMPLE_RATE,
+      sourceTrimEndSeconds: 4 / STREAMED_BGM_SAMPLE_RATE,
+    });
+    const sdat = parseNitroSdat(project.fileSystem!.replacements[0]!, "cropped");
+    const strm = sdat.files[config.streamFileId]!.data;
+    expect(((readU16(strm, 0x68) << 16) >> 16) / 32768).toBeCloseTo(0.2, 3);
+    await installStreamedBgm(project, {
+      sourceName: "other.wav", pcm, targetSequenceId: 2, encoding: "adpcm", shortcutEnabled: false,
+    });
+    expect(project.codeInjection!.streamedBgms!.find((entry) => entry.targetSequenceId === 0)).toMatchObject({
+      sourceTrimStartSeconds: 1 / STREAMED_BGM_SAMPLE_RATE,
+      sourceTrimEndSeconds: 4 / STREAMED_BGM_SAMPLE_RATE,
+    });
+  });
+
   it("replaces and restores a native stream without disturbing sequence replacements", async () => {
     const project = makeRuntimeUpdateProject("W2");
     const before = project.fileSystem!.replacements[0]!.slice();
@@ -386,7 +447,7 @@ describe("multiple streamed BGM replacements", () => {
   it("leaves all project edits unchanged on conversion or runtime-fetch failure", async () => {
     const project = makeRuntimeUpdateProject("W2");
     const before = structuredClone(project);
-    await expect(installStreamedBgm(project, { sourceName: "invalid.wav", pcm, targetSequenceId: 0, loopEndSeconds: 100, shortcutEnabled: true })).rejects.toThrow(/Loop/u);
+    await expect(installStreamedBgm(project, { sourceName: "invalid.wav", pcm, targetSequenceId: 0, loopEndSeconds: 100, shortcutEnabled: true })).rejects.toThrow(/Crop/u);
     expect(project).toEqual(before);
     vi.stubGlobal("fetch", async () => new Response(null, { status: 503 }));
     await expect(installStreamedBgm(project, { sourceName: "valid.wav", pcm, targetSequenceId: 0, shortcutEnabled: true })).rejects.toThrow(/503/u);

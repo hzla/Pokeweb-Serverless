@@ -14,9 +14,11 @@ describe("bundled PWAN runtime artifacts", () => {
       "PokewebPwanSummaryW2.dll": "W2",
       "PokewebPwanBattleW2.dll": "W2",
       "PokewebPwanMiscW2.dll": "W2",
+      "PokewebPwanTrainerW2.dll": "W2",
       "PokewebPwanSummaryB2.dll": "B2",
       "PokewebPwanBattleB2.dll": "B2",
       "PokewebPwanMiscB2.dll": "B2",
+      "PokewebPwanTrainerB2.dll": "B2",
       "PokewebPwanLegacyRetiredW2.dll": "W2",
     } as const;
     const manifest = JSON.parse(readFileSync(assetUrl("pwan-runtime-manifest.json"), "utf8")) as {

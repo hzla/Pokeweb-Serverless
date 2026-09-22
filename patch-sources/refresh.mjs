@@ -20,7 +20,7 @@ if (onlyArgs.length > 1 || process.argv.slice(2).some(arg => arg !== '--check' &
 const only = onlyArgs[0]?.slice('--only='.length);
 const manifestPath = path.join(here, 'manifest.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-if (only !== undefined && !manifest.patches.some(p => p.name === only)) throw Error(`Unknown source group: ${only}`);
+if (only !== undefined && !manifest.patches.some(p => p.name === only) && only !== 'pwan-trainer') throw Error(`Unknown source group: ${only}`);
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const oldFiles = new Map([...manifest.patches.flatMap(p => p.files), ...manifest.sharedFiles].map(f => [f.path, f]));
 const pending = new Map();
@@ -59,6 +59,27 @@ function runtimeFiles(group) {
     });
 }
 const additions = [
+  {
+    name: 'pwan-trainer', title: 'PWAN trainer sprites',
+    artifacts: ['PokewebPwanTrainerB2.dll', 'PokewebPwanTrainerW2.dll'],
+    note: 'Standalone stock-US B2/W2 overlay-168 runtime for front-trainer PWAN animations. It redirects configured graphics to one appended carrier, streams per-instance texture and palette data, and remains independent from the Pokémon PWAN DLLs.',
+    runtime: false,
+    extra: [
+      file('pwan-trainer', 'README.md', 'documentation', 'patch-sources/pwan-trainer/README.md'),
+      ...['w2u_trainer_anim.cpp', 'w2u_trainer_hooks.s', 'b2_trainer_hooks.s', 'w2u_pwan_archive.cpp', 'w2u_pwan_archive.h', 'w2u_pwan_frame_scratch.cpp', 'pwan_types.h'].map(name => ({
+        path: `pwan-trainer/${name}`,
+        origin: { repository: 'w2u-runtime', path: `src/pwan_animation/${name}` },
+        kind: 'source',
+      })),
+      { path: 'pwan-trainer/meson.build', origin: { repository: 'w2u-runtime', path: 'src/pwan_animation/meson.build' }, kind: 'build-tool' },
+      ...['trainerPwanCompatibilityModel', 'trainerSpriteModel', 'pokemonSpriteWriters'].map(name =>
+        file('pwan-trainer', `integration/${name}.ts`, 'support-only', `src/pokeweb/${name}.ts`)),
+      file('pwan-trainer', 'tests/trainerPwanAnimationModel.test.ts', 'test', 'src/test/trainerPwanAnimationModel.test.ts'),
+      file('pwan-trainer', 'tests/trainerPwanPalette.test.ts', 'test', 'src/test/trainerPwanPalette.test.ts'),
+      file('pwan-trainer', 'tests/lib/trainer-pwan-palette.ts', 'test', 'scripts/lib/trainer-pwan-palette.ts'),
+      file('pwan-trainer', 'tests/verify-trainer-pwan-emulator.ts', 'test', 'scripts/verify-trainer-pwan-emulator.ts'),
+    ],
+  },
   {
     name: 'learnset-viewer', title: 'Standalone LEARNSET party-menu viewer',
     artifacts: ['LearnsetMenuB2.dll', 'LearnsetMenuW2.dll', 'LearnsetViewerB2.dll', 'LearnsetViewerW2.dll'],
@@ -114,7 +135,7 @@ const additions = [
 ];
 for (const group of additions) {
   if (only && group.name !== only) continue;
-  const updated = { name: group.name, title: group.title, artifacts: group.artifacts.map(name => ({ name })), note: group.note, status: 'source-copied', files: [...runtimeFiles(group.name), ...group.extra] };
+  const updated = { name: group.name, title: group.title, artifacts: group.artifacts.map(name => ({ name })), note: group.note, status: 'source-copied', files: [...(group.runtime === false ? [] : runtimeFiles(group.name)), ...group.extra] };
   const index = manifest.patches.findIndex(p => p.name === group.name);
   if (index === -1) manifest.patches.push(updated);
   else manifest.patches[index] = updated;

@@ -123,11 +123,12 @@ button.header-item {
 }
 
 #content-container {
+  box-sizing: border-box;
   display: flex;
-  top: 40px;
-  overflow: auto;
-  width: 100%;
   height: 100vh;
+  overflow: auto;
+  padding-top: 50px;
+  width: 100%;
 }
 
 .pokemon-filter {
@@ -230,6 +231,7 @@ button.header-item {
   #content-container {
     display: flex;
     flex-wrap: wrap;
+    padding-top: 0;
     position: static;
   }
 
