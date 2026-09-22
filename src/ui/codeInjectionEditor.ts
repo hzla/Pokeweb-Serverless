@@ -20,6 +20,13 @@ import {
   uninstallPwanRuntime,
 } from "../pokeweb/pwanAnimationModel";
 import {
+  canUninstallTrainerPwanRuntime,
+  getTrainerPwanRuntimeStatus,
+  installTrainerPwanRuntime,
+  uninstallTrainerPwanRuntime,
+} from "../pokeweb/trainerPwanAnimationModel";
+import { detectTrainerPwanCompatibility, trainerPwanCompatibilityFailureSummary } from "../pokeweb/trainerPwanCompatibilityModel";
+import {
   battleLogDisplayName,
   canUninstallBattleLog,
   getBattleLogInstallStatus,
@@ -84,6 +91,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const pwanLegacyInstalled = pwanRuntimeStatus.supported && pwanRuntimeStatus.legacyInstalled;
   const pwanCompatibility = detectPwanRuntimeCompatibility(project);
   const pwanCanInstall = pwanRuntimeStatus.supported && pwanCompatibility.compatible;
+  const trainerPwanStatus = getTrainerPwanRuntimeStatus(project);
+  const trainerPwanCompatibility = detectTrainerPwanCompatibility(project);
+  const trainerPwanInstalled = trainerPwanStatus.supported && trainerPwanStatus.installed;
+  const trainerPwanCanInstall = trainerPwanStatus.supported && (trainerPwanCompatibility.compatible || (!project.originalRomBytes && trainerPwanCompatibility.checks.every((check) => check.status === "missing")));
+  const trainerPwanCanUninstall = trainerPwanInstalled && canUninstallTrainerPwanRuntime(project);
   const battleLogStatus = getBattleLogInstallStatus(project);
   const battleLogCanInstall = battleLogStatus.supported && battleLogStatus.compatible;
   const battleLogCanUninstall = battleLogStatus.installed && canUninstallBattleLog(project);
@@ -145,6 +157,31 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
             <div class="code-injection-note" id="pmc-install-note">Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.</div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Trainer PWAN GIF Support</h2>
+              <p>Installs the independent battle-intro runtime used by PWAN GIFs in the Trainer Class Sprite Editor.</p>
+            </div>
+            <span class="code-injection-status ${trainerPwanInstalled ? "-installed" : trainerPwanCanInstall ? "" : "-error"}">
+              ${trainerPwanInstalled ? "Installed" : trainerPwanCanInstall ? "Ready" : trainerPwanStatus.supported ? "Incompatible" : "Unsupported"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Sprites</span><strong>Front trainers</strong></div>
+            <div><span>Runtime</span><strong>Standalone</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+            <div><span>ROM</span><strong>${escapeHtml(project.session.baseVersion)}</strong></div>
+            <div><span>Hook Checks</span><strong>${trainerPwanCompatibility.passed}/${trainerPwanCompatibility.checks.length}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-trainer-pwan-runtime-btn" type="button" ${trainerPwanCanInstall ? "" : "disabled"}>
+              ${trainerPwanInstalled ? "Reinstall Trainer PWAN Support" : "Install Trainer PWAN Support"}
+            </button>
+            <button class="btn -default" id="uninstall-trainer-pwan-runtime-btn" type="button" ${trainerPwanCanUninstall ? "" : "disabled"}>Uninstall Trainer PWAN Support</button>
+            <div class="code-injection-note" id="trainer-pwan-runtime-note">${escapeHtml(trainerPwanCanInstall || trainerPwanInstalled ? trainerPwanStatus.message : trainerPwanCompatibilityFailureSummary(trainerPwanCompatibility))}</div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -632,6 +669,33 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       uninstallPwanButton.disabled = false;
       const currentNote = root.querySelector<HTMLDivElement>("#pwan-runtime-note") ?? pwanNote;
       if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const trainerPwanButton = root.querySelector<HTMLButtonElement>("#install-trainer-pwan-runtime-btn");
+  const trainerPwanNote = root.querySelector<HTMLDivElement>("#trainer-pwan-runtime-note");
+  trainerPwanButton?.addEventListener("click", async () => {
+    const previousText = trainerPwanButton.textContent ?? "Install Trainer PWAN Support";
+    try {
+      trainerPwanButton.disabled = true;
+      trainerPwanButton.textContent = "Installing...";
+      if (trainerPwanNote) trainerPwanNote.textContent = "Installing PMC if needed and staging the trainer PWAN runtime.";
+      await installTrainerPwanRuntime(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      trainerPwanButton.disabled = false;
+      trainerPwanButton.textContent = previousText;
+      if (trainerPwanNote) trainerPwanNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+  root.querySelector<HTMLButtonElement>("#uninstall-trainer-pwan-runtime-btn")?.addEventListener("click", () => {
+    try {
+      uninstallTrainerPwanRuntime(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      if (trainerPwanNote) trainerPwanNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 

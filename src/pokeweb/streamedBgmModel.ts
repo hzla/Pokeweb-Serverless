@@ -78,7 +78,11 @@ export type StreamedBgmInstallInput = {
   targetSequenceSymbol?: string;
   /** Explicit per-track storage format. Omit to retain the legacy automatic policy. */
   encoding?: StreamedBgmEncoding;
+  /** Start/end positions in the imported source. Loop points are relative to the cropped result. */
+  trimStartSeconds?: number;
+  trimEndSeconds?: number;
   loopStartSeconds?: number;
+  /** Legacy alias for trimEndSeconds, retained for programmatic callers. */
   loopEndSeconds?: number;
   shortcutEnabled: boolean;
 };
@@ -105,7 +109,11 @@ export type NativeStreamInstallInput = {
   streamId: number;
   encoding: StreamedBgmEncoding;
   loop: boolean;
+  /** Start/end positions in the imported source. Loop points are relative to the cropped result. */
+  trimStartSeconds?: number;
+  trimEndSeconds?: number;
   loopStartSeconds?: number;
+  /** Legacy alias for trimEndSeconds, retained for programmatic callers. */
   loopEndSeconds?: number;
 };
 
@@ -378,6 +386,78 @@ export function replaceNativeSdatStream(sdatBytes: Uint8Array, streamId: number,
   return rebuildSdat(parts);
 }
 
+/** Decode a bounded preview of an SDAT stream without materializing the full track. */
+export function decodeNativeSdatStreamPcm(sdatBytes: Uint8Array, streamId: number, maxSeconds = 15): StereoPcm {
+  const { descriptor, bytes } = nativeStreamBytes(sdatBytes, streamId);
+  if (descriptor.channels < 1 || descriptor.channels > 2) {
+    throw new Error(`Preview supports mono or stereo streams; stream ${streamId} has ${descriptor.channels} channels.`);
+  }
+  if (!Number.isFinite(maxSeconds) || maxSeconds <= 0 || descriptor.sampleRate <= 0 || descriptor.sampleCount <= 0) {
+    throw new Error(`Stream ${streamId} has invalid preview timing metadata.`);
+  }
+  const encoding = bytes[0x18];
+  if (encoding !== 0 && encoding !== 1 && encoding !== 2) throw new Error(`Stream ${streamId} uses an unsupported encoding.`);
+  const dataOffset = readU32(bytes, 0x28);
+  const blockCount = readU32(bytes, 0x2c);
+  const fullBlockSize = readU32(bytes, 0x30);
+  const fullBlockSamples = readU32(bytes, 0x34);
+  const lastBlockSize = readU32(bytes, 0x38);
+  const lastBlockSamples = readU32(bytes, 0x3c);
+  if (!blockCount || !fullBlockSize || !fullBlockSamples || !lastBlockSize || !lastBlockSamples) {
+    throw new Error(`Stream ${streamId} has malformed block metadata.`);
+  }
+  const previewSamples = Math.min(descriptor.sampleCount, Math.max(1, Math.floor(descriptor.sampleRate * maxSeconds)));
+  const channels = Array.from({ length: descriptor.channels }, () => new Float32Array(previewSamples));
+  let writeOffset = 0;
+  let blockOffset = dataOffset;
+  for (let block = 0; block < blockCount && writeOffset < previewSamples; block += 1) {
+    const isLast = block === blockCount - 1;
+    const blockSize = isLast ? lastBlockSize : fullBlockSize;
+    const blockSamples = isLast ? lastBlockSamples : fullBlockSamples;
+    const outputSamples = Math.min(blockSamples, previewSamples - writeOffset);
+    for (let channel = 0; channel < descriptor.channels; channel += 1) {
+      const channelOffset = blockOffset + channel * blockSize;
+      requireRange(bytes, channelOffset, blockSize, `STRM block ${block} channel ${channel}`);
+      if (encoding === 0) {
+        if (blockSize < blockSamples) throw new Error(`Stream ${streamId} has a short PCM8 block.`);
+        for (let sample = 0; sample < outputSamples; sample += 1) {
+          channels[channel]![writeOffset + sample] = ((bytes[channelOffset + sample]! << 24) >> 24) / 128;
+        }
+      } else if (encoding === 1) {
+        if (blockSize < blockSamples * 2) throw new Error(`Stream ${streamId} has a short PCM16 block.`);
+        for (let sample = 0; sample < outputSamples; sample += 1) {
+          channels[channel]![writeOffset + sample] = ((readU16(bytes, channelOffset + sample * 2) << 16) >> 16) / 32768;
+        }
+      } else {
+        if (blockSize < 4 + Math.ceil(blockSamples / 2)) throw new Error(`Stream ${streamId} has a short ADPCM block.`);
+        let decodedSample = (readU16(bytes, channelOffset) << 16) >> 16;
+        let stepIndex = Math.max(0, Math.min(ADPCM_STEP_TABLE.length - 1, bytes[channelOffset + 2]! & 0x7f));
+        for (let sample = 0; sample < outputSamples; sample += 1) {
+          const packed = bytes[channelOffset + 4 + (sample >> 1)]!;
+          const code = (sample & 1) === 0 ? packed & 0x0f : packed >> 4;
+          const step = ADPCM_STEP_TABLE[stepIndex]!;
+          let delta = step >> 3;
+          if (code & 1) delta += step >> 2;
+          if (code & 2) delta += step >> 1;
+          if (code & 4) delta += step;
+          decodedSample += code & 8 ? -delta : delta;
+          decodedSample = Math.max(-0x8000, Math.min(0x7fff, decodedSample));
+          stepIndex = Math.max(0, Math.min(ADPCM_STEP_TABLE.length - 1, stepIndex + ADPCM_INDEX_TABLE[code]!));
+          channels[channel]![writeOffset + sample] = decodedSample / 32768;
+        }
+      }
+    }
+    writeOffset += outputSamples;
+    blockOffset += blockSize * descriptor.channels;
+  }
+  if (writeOffset !== previewSamples) throw new Error(`Stream ${streamId} ended before its declared sample count.`);
+  return {
+    sampleRate: descriptor.sampleRate,
+    left: channels[0]!,
+    right: descriptor.channels === 1 ? channels[0]!.slice() : channels[1]!,
+  };
+}
+
 export function createSilentShadowSseq(): Uint8Array {
   // A long rest followed by a jump back to the rest keeps the native BGM
   // handle alive without allocating a voice or producing samples.
@@ -414,6 +494,23 @@ export function resampleStereoPcm(source: StereoPcm, targetRate = STREAMED_BGM_S
     right[i] = source.right[base]! + (source.right[next]! - source.right[base]!) * fraction;
   }
   return { sampleRate: targetRate, left, right };
+}
+
+/** Keep one sample-aligned source interval. The returned arrays do not alias the decoded import. */
+export function cropStereoPcm(source: StereoPcm, startSample = 0, endSample = source.left.length): StereoPcm {
+  if (source.left.length !== source.right.length || source.left.length === 0 || !Number.isFinite(source.sampleRate) || source.sampleRate <= 0) {
+    throw new Error("The decoded audio has invalid channel or sample-rate data.");
+  }
+  const start = Math.round(startSample);
+  const end = Math.round(endSample);
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > source.left.length) {
+    throw new Error("Crop times must keep a non-empty range inside the imported audio.");
+  }
+  return {
+    sampleRate: source.sampleRate,
+    left: source.left.slice(start, end),
+    right: source.right.slice(start, end),
+  };
 }
 
 export function downmixToStereo(channels: Float32Array[], sampleRate: number): StereoPcm {
@@ -906,6 +1003,8 @@ async function readInstalledMusic(project: ProjectState, rom: NintendoDSRom, ver
       encodedBytes: strm.length,
       audioSha256,
       toggleEnabled: shortcutEnabled,
+      sourceTrimStartSeconds: previous?.sourceTrimStartSeconds,
+      sourceTrimEndSeconds: previous?.sourceTrimEndSeconds,
     });
   }
   return { configs, shortcutEnabled };
@@ -920,6 +1019,27 @@ function nativeStreamBytes(sdatBytes: Uint8Array, streamId: number): { descripto
   if (!descriptor) throw new Error(`Native stream ${streamId} does not exist.`);
   const parts = parseSdat(sdatBytes);
   return { descriptor, bytes: parts.files[descriptor.fileId]! };
+}
+
+function cropImportedAudio(
+  pcm: StereoPcm,
+  trimStartSeconds: number | undefined,
+  trimEndSeconds: number | undefined,
+  legacyEndSeconds: number | undefined,
+): { pcm: StereoPcm; startSeconds: number; endSeconds: number } {
+  const sourceDuration = pcm.left.length / pcm.sampleRate;
+  const startSeconds = trimStartSeconds ?? 0;
+  const endSeconds = trimEndSeconds ?? legacyEndSeconds ?? sourceDuration;
+  if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || startSeconds < 0 || endSeconds <= startSeconds || endSeconds > sourceDuration + 0.5 / pcm.sampleRate) {
+    throw new Error("Crop start and end must keep a non-empty range inside the imported audio.");
+  }
+  const startSample = Math.round(startSeconds * pcm.sampleRate);
+  const endSample = Math.min(pcm.left.length, Math.round(endSeconds * pcm.sampleRate));
+  return {
+    pcm: cropStereoPcm(pcm, startSample, endSample),
+    startSeconds: startSample / pcm.sampleRate,
+    endSeconds: endSample / pcm.sampleRate,
+  };
 }
 
 export async function installNativeStreamReplacement(
@@ -952,16 +1072,16 @@ export async function installNativeStreamReplacement(
       }
     }
 
-    const startSeconds = input.loop ? input.loopStartSeconds ?? 0 : 0;
-    const endSeconds = input.loopEndSeconds ?? input.pcm.left.length / input.pcm.sampleRate;
-    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || startSeconds < 0 || endSeconds <= startSeconds) {
-      throw new Error("Loop start and track end must describe a non-empty range inside the imported audio.");
+    const cropped = cropImportedAudio(input.pcm, input.trimStartSeconds, input.trimEndSeconds, input.loopEndSeconds);
+    const loopStartSeconds = input.loop ? input.loopStartSeconds ?? 0 : 0;
+    if (!Number.isFinite(loopStartSeconds) || loopStartSeconds < 0 || loopStartSeconds >= cropped.pcm.left.length / cropped.pcm.sampleRate) {
+      throw new Error("Loop start must be inside the cropped audio.");
     }
-    const loopStartSample = Math.round(startSeconds * input.pcm.sampleRate);
-    const loopEndSample = Math.round(endSeconds * input.pcm.sampleRate);
+    const loopStartSample = Math.round(loopStartSeconds * cropped.pcm.sampleRate);
+    const loopEndSample = cropped.pcm.left.length;
     const encoded = input.encoding === "pcm16"
-      ? encodePcm16Strm(input.pcm, loopStartSample, loopEndSample, input.loop)
-      : encodeAdpcmStrm(input.pcm, loopStartSample, loopEndSample, input.loop);
+      ? encodePcm16Strm(cropped.pcm, loopStartSample, loopEndSample, input.loop)
+      : encodeAdpcmStrm(cropped.pcm, loopStartSample, loopEndSample, input.loop);
     const rebuilt = replaceNativeSdatStream(sdat.bytes, input.streamId, encoded.bytes);
     assertRomCapacity(draft, rom, sdat.bytes.length, rebuilt.length, 0);
 
@@ -980,6 +1100,8 @@ export async function installNativeStreamReplacement(
       encodedBytes: encoded.bytes.length,
       audioSha256: await sha256Hex(encoded.bytes),
       originalAudioSha256: previous?.originalAudioSha256 ?? await sha256Hex(original.bytes),
+      sourceTrimStartSeconds: cropped.startSeconds,
+      sourceTrimEndSeconds: cropped.endSeconds,
     };
     commitNativeStreamState(draft, [
       ...configs.filter((entry) => entry.streamId !== input.streamId),
@@ -1041,22 +1163,22 @@ async function installStreamedBgmTransaction(project: ProjectState, input: Strea
   if (!targetSymbol?.startsWith("SEQ_BGM_")) {
     throw new Error(`Sequence ${input.targetSequenceId}${targetSymbol ? ` (${targetSymbol})` : ""} is not a background-music sequence.`);
   }
-  const startSeconds = input.loopStartSeconds ?? 0;
-  const endSeconds = input.loopEndSeconds ?? input.pcm.left.length / input.pcm.sampleRate;
-  if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || startSeconds < 0 || endSeconds <= startSeconds) {
-    throw new Error("Loop start and end must describe a non-empty range inside the imported audio.");
+  const cropped = cropImportedAudio(input.pcm, input.trimStartSeconds, input.trimEndSeconds, input.loopEndSeconds);
+  const loopStartSeconds = input.loopStartSeconds ?? 0;
+  if (!Number.isFinite(loopStartSeconds) || loopStartSeconds < 0 || loopStartSeconds >= cropped.pcm.left.length / cropped.pcm.sampleRate) {
+    throw new Error("Loop start must be inside the cropped audio.");
   }
   const currentRuntime = findRuntimeBytes(project, rom, version);
   const { configs: current } = await readInstalledMusic(project, rom, version, sdat.bytes);
   const updating = current.find((mapping) => mapping.targetSequenceId === input.targetSequenceId);
-  const loopStartSample = Math.round(startSeconds * input.pcm.sampleRate);
-  const loopEndSample = Math.round(endSeconds * input.pcm.sampleRate);
-  const resampledEndSample = Math.round(loopEndSample * STREAMED_BGM_SAMPLE_RATE / input.pcm.sampleRate);
+  const loopStartSample = Math.round(loopStartSeconds * cropped.pcm.sampleRate);
+  const loopEndSample = cropped.pcm.left.length;
+  const resampledEndSample = Math.round(loopEndSample * STREAMED_BGM_SAMPLE_RATE / cropped.pcm.sampleRate);
   const encoding = input.encoding
     ?? chooseStreamedBgmEncoding(sdat.bytes.length - (updating?.encodedBytes ?? 0), resampledEndSample);
   const encoded = encoding === "pcm16"
-    ? encodePcm16Strm(input.pcm, loopStartSample, loopEndSample)
-    : encodeAdpcmStrm(input.pcm, loopStartSample, loopEndSample);
+    ? encodePcm16Strm(cropped.pcm, loopStartSample, loopEndSample)
+    : encodeAdpcmStrm(cropped.pcm, loopStartSample, loopEndSample);
   const replacements = current.map((mapping) => ({
     targetSequenceId: mapping.targetSequenceId,
     bytes: mapping.targetSequenceId === input.targetSequenceId ? encoded.bytes : sdat.files[mapping.streamFileId]!.data,
@@ -1081,6 +1203,8 @@ async function installStreamedBgmTransaction(project: ProjectState, input: Strea
     encodedBytes: encoded.bytes.length,
     audioSha256: audioHash,
     toggleEnabled: input.shortcutEnabled,
+    sourceTrimStartSeconds: cropped.startSeconds,
+    sourceTrimEndSeconds: cropped.endSeconds,
   };
   const states = archive.mappings.map((entry) => ({
     ...(entry.targetSequenceId === input.targetSequenceId ? state : current.find((old) => old.targetSequenceId === entry.targetSequenceId)!),

@@ -1,0 +1,3 @@
+import{readFile}from'node:fs/promises';import{NintendoDSRom}from'../src/nds/rom';import{parseRpm}from'../src/pokeweb/rpm';
+const r=new NintendoDSRom(new Uint8Array(await readFile(process.argv[2])),{fileData:'view'});
+function walk(f:typeof r.filenames,p=''):void{f.files.forEach((n,i)=>{if(!n.endsWith('.dll')||!p.startsWith('patches'))return;const data=r.files[f.firstId+i],m=parseRpm(data,{allowedMagics:['DLXF']});console.log(n,m.code.length,m.bssSize,[...new Set(m.relocations.map(x=>x.target.module).filter(x=>x!=='base'))].join(','));});f.folders.forEach(([n,c])=>walk(c,p+n+'/'));}walk(r.filenames);

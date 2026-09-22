@@ -172,7 +172,7 @@ export function getNodeBytes(project: ProjectState, rom: NintendoDSRom, ref: Fil
   return new Uint8Array();
 }
 
-export function getRomFileBytes(project: ProjectState, rom: NintendoDSRom, fileId: number): Uint8Array {
+export function getRomFileBytes(project: ProjectState, rom: Pick<NintendoDSRom, "files">, fileId: number): Uint8Array {
   const store = narcStoreForFile(project, fileId);
   if (store) return new NARCWithStore(store).save();
   return project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId] ?? new Uint8Array();

@@ -121,6 +121,9 @@ export type StreamedBgmConfig = {
   shadowFileId: number;
   originalSequenceFileId: number;
   toggleEnabled: boolean;
+  /** Source-file crop retained for editor display; runtime playback uses the encoded sample range. */
+  sourceTrimStartSeconds?: number;
+  sourceTrimEndSeconds?: number;
 };
 
 export type NativeStreamReplacementConfig = {
@@ -138,6 +141,9 @@ export type NativeStreamReplacementConfig = {
   encodedBytes: number;
   audioSha256: string;
   originalAudioSha256: string;
+  /** Source-file crop retained for editor display; runtime playback uses the encoded sample range. */
+  sourceTrimStartSeconds?: number;
+  sourceTrimEndSeconds?: number;
 };
 
 /** Read old saved projects without mutating them until a transaction commits. */
@@ -240,6 +246,26 @@ export type PwanAnimationState = {
   loadError?: string;
   overrides: PwanAnimationOverride[];
   nativeCarrierBackups?: Record<string, Uint8Array[]>;
+};
+
+export type TrainerPwanAnimationOverride = {
+  graphicIndex: number;
+  assetIndex?: number;
+  animation: PwanOverrideSide;
+};
+
+export type TrainerPwanAnimationState = {
+  dirty?: boolean;
+  runtimeInstalled?: boolean;
+  detectedArchive?: {
+    path: string;
+    version: number;
+    count: number;
+    carrierGraphicIndex: number;
+  };
+  loadError?: string;
+  carrierGraphicIndex?: number;
+  overrides: TrainerPwanAnimationOverride[];
 };
 
 export type StarterState = {
@@ -353,6 +379,7 @@ export type ProjectState = {
   codeInjection?: CodeInjectionState;
   overworldWeather?: OverworldWeatherState;
   pwanAnimations?: PwanAnimationState;
+  trainerPwanAnimations?: TrainerPwanAnimationState;
   starters?: StarterState;
   patches?: PatchState;
   actionChangelog?: ActionChangelogState;

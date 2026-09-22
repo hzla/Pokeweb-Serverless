@@ -23,6 +23,7 @@ import {
   type RigCell,
 } from "./pokemonSpriteModel";
 import {
+  buildPokemonAnimationAssetBundle,
   buildPokemonAnimationFile,
   buildPokemonMultiCellAnimationFile,
   parsePokemonAnimationBundle,
@@ -295,6 +296,43 @@ export function applyTrainerSpriteGifBuild(project: ProjectState, build: Trainer
 
 export function getTrainerClassIdsSharingGraphic(project: ProjectState, trainerClassId: number): number[] {
   return trainerClassIdsForGraphic(project, trainerClassGraphicIndex(project, trainerClassId));
+}
+
+export function trainerGraphicIndexForClass(project: ProjectState, trainerClassId: number): number {
+  return trainerClassGraphicIndex(project, trainerClassId);
+}
+
+export function trainerClassIdsForGraphicIndex(project: ProjectState, graphicIndex: number): number[] {
+  return trainerClassIdsForGraphic(project, graphicIndex);
+}
+
+export function buildTrainerPwanCarrierFiles(project: ProjectState): Uint8Array[] {
+  const store = project.narcs.trainer_sprites;
+  if (!store || store.rawFiles.length < TRAINER_SPRITE_FILES_PER_ENTRY) {
+    throw new Error("Trainer sprite NARC is not loaded");
+  }
+  const template = store.rawFiles.slice(0, TRAINER_SPRITE_FILES_PER_ENTRY);
+  const empty = { width: 256, height: 256, pixels: new Uint8ClampedArray(256 * 256 * 4) };
+  const palette = Array.from({ length: 16 }, () => ({ r: 0, g: 0, b: 0 }));
+  const animation = buildPokemonAnimationAssetBundle({
+    side: "front",
+    loopDuration: 1,
+    // MCSS cell Y is upward-positive and the trainer origin is at its feet.
+    // A bottom-center pivot keeps the multi-cell node at (0, 0), with the
+    // bottom-aligned 96x96 PWAN canvas entirely above that native baseline.
+    parts: [{ name: "pwan", cellX: 0, cellY: 0, width: 96, height: 96, spriteX: -48, spriteY: 96, pivot: { x: 48, y: 96 } }],
+  });
+  const raw = [
+    encodeTrainerCharacterImage(decompressNitroIfNeeded(template[0]), empty, palette, "NCGR"),
+    encodeTrainerCharacterImage(decompressNitroIfNeeded(template[1]), empty, palette, "NCBR"),
+    requiredAnimationBundleFile(animation.files[4], "NCER"),
+    requiredAnimationBundleFile(animation.files[5], "NANR"),
+    requiredAnimationBundleFile(animation.files[6], "NMCR"),
+    requiredAnimationBundleFile(animation.files[7], "NMAR"),
+    requiredAnimationBundleFile(animation.files[8], "NCEC"),
+    encodeTrainerPalette(decompressNitroIfNeeded(template[7]), palette),
+  ];
+  return raw.map((file, index) => preserveNitroCompression(template[index], file));
 }
 
 export function getTrainerClassSpriteImage(project: ProjectState, trainerClassId: number): RgbaImageData {
@@ -844,7 +882,7 @@ function trainerSpriteSubject(project: ProjectState, build: TrainerSpriteGifBuil
   return labels.length === 1 ? labels[0] : `Shared trainer graphic ${build.graphicIndex}: ${labels.join(", ")}`;
 }
 
-function trainerSpriteNarcPath(project: ProjectState): string | undefined {
+export function trainerSpriteNarcPath(project: ProjectState): string | undefined {
   if (project.session.baseRom === "BW") return "a/0/7/2";
   if (project.session.baseRom === "BW2") return "a/0/7/1";
   return undefined;
