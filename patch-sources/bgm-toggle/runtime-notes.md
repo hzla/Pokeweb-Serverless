@@ -28,6 +28,15 @@ restores bytes from the ROM loaded for the saved project. Its management metadat
 is project state rather than an embedded ROM marker. If an exported ROM is later
 imported as a new project, that ROM becomes the new restoration baseline.
 
+Both replacement panels can prepare a 15-second browser preview of the track
+the selected target currently plays. Unmodified `SSEQ` targets use the browser's
+SDAT sequence renderer; installed replacement streams and native `STRM` targets
+are decoded directly from the active archive. Imported MP3/WAV controls honor
+the configured crop window during playback. **Keep from** and **Keep until** are
+source-file times, while a loop start is relative to the cropped result. Cropping
+is sample-aligned, happens before resampling/encoding, and never modifies the
+source file on disk.
+
 Each mapping uses a private silent SSEQ and native STRM. The installer verifies
 the owned tail, rebuilds it in one transaction, and renumbers surviving owned
 IDs when a middle entry is removed. Unrelated content and title stream 0 are

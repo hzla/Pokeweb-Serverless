@@ -13,13 +13,21 @@ import {
 } from "./pmcModel";
 import { findPokemonPersonalFormOwner } from "./pokemonLabels";
 import { resolvePokemonSpriteId } from "./pokemonSpriteModel";
-import type { ProjectState, PwanAnimationOverride, PwanAnimationState, PwanOverrideSide, PwanPaletteSource } from "./projectStore";
+import type { ProjectState, PwanAnimationOverride, PwanAnimationState, PwanOverrideSide, PwanPaletteSource, TrainerPwanAnimationOverride } from "./projectStore";
 import { markDirty } from "./projectStore";
 import { loadActiveRomBytes } from "./persistence";
 import { applyPwanCarrierPatch, deriveBackNcecY, loadBundledPwanCarrierTemplate } from "./pwanCarrierPatch";
 import { compileGifToPwan, parsePwanHeader, PWAN_MAX_TIMELINE, pwanFramesPerSecond, pwanPalette, scalePwanTimelineSpeed, shiftPwanFrames, pwanVisibleHeight, validatePwan, type PwanCompileResult } from "./pwanCompiler";
 import { compileGifToPwanAsync } from "./pwanCompilerClient";
 import { detectPwanRuntimeCompatibility, pwanCompatibilityFailureSummary } from "./pwanCompatibilityModel";
+import {
+  buildTrainerPwanConfig,
+  getTrainerPwanRuntimeStatus,
+  hydrateTrainerPwanAnimationsFromRom,
+  materializeTrainerPwanCarrier,
+  TRAINER_PWAN_CONFIG_MEMBER_ID,
+  trainerPwanAssetMemberId,
+} from "./trainerPwanAnimationModel";
 
 export type PwanSide = "front" | "back";
 export type PwanFrameScaleMode = "nearest" | "outlineFill";
@@ -142,6 +150,7 @@ export function hydratePwanAnimationsFromRom(project: ProjectState, rom: Nintend
     };
     state.loadError = undefined;
     state.dirty = false;
+    hydrateTrainerPwanAnimationsFromRom(project, rom, PWAN_ARCHIVE_PATH);
   } catch (error) {
     state.loadError = error instanceof Error ? error.message : String(error);
     state.detectedArchive = undefined;
@@ -556,25 +565,49 @@ export function setPwanOverrideSideOffset(
 
 export async function materializePwanAnimations(project: ProjectState, rom?: NintendoDSRom): Promise<void> {
   const state = project.pwanAnimations;
-  if (!state?.dirty) return;
-  clearMaterializedPwanFiles(project);
+  const trainerState = project.trainerPwanAnimations;
+  const speciesDirty = Boolean(state?.dirty);
+  const trainerDirty = Boolean(trainerState?.dirty);
+  if (!speciesDirty && !trainerDirty) return;
+  rom ??= project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes, { fileData: "view" }) : undefined;
+  const archiveFileId = rom?.filenames.idOf(PWAN_ARCHIVE_PATH);
+  const archiveBytes = (archiveFileId === undefined ? undefined : project.fileSystem?.replacements?.[archiveFileId])
+    ?? project.fileSystem?.additions?.[PWAN_ARCHIVE_PATH]
+    ?? (archiveFileId === undefined ? undefined : rom?.files[archiveFileId]);
+  const sourceArchive = archiveBytes ? new NARC(archiveBytes) : undefined;
   const overrides = activePwanOverrides(project.pwanAnimations?.overrides ?? []);
-  const status = getPwanRuntimeStatus(project);
-  if (!status.supported) throw new Error(status.message);
-  if (!status.installed) throw new Error("Install the PWAN animation runtime before exporting animated sprite overrides.");
-  if (overrides.length === 0) {
-    writePwanArchiveFile(project, rom, buildPwanArchive([]));
-    return;
+  const trainerOverrides = project.trainerPwanAnimations?.overrides ?? [];
+  if (speciesDirty) {
+    const status = getPwanRuntimeStatus(project);
+    if (!status.supported) throw new Error(status.message);
+    if (overrides.length > 0 && !status.installed) throw new Error("Install the PWAN animation runtime before exporting animated Pokémon sprite overrides.");
   }
-  if (!project.narcs.pokemon_sprites) throw new Error("Pokemon Sprites must be loaded before exporting PWAN animation overrides.");
-
-  const carrier = await loadBundledPwanCarrierTemplate(project.session.baseVersion === "B2" ? "B2" : "W2");
+  if (trainerDirty) {
+    const status = getTrainerPwanRuntimeStatus(project);
+    if (!status.supported) throw new Error(status.message);
+    if (trainerOverrides.length > 0 && !status.installed) throw new Error("Install the trainer PWAN runtime before exporting animated trainer sprite overrides.");
+  }
   const sorted = [...overrides].sort((a, b) => a.speciesId - b.speciesId || (a.formIndex ?? 0) - (b.formIndex ?? 0));
-  sorted.forEach((override) => {
-    validatePwanOverrideTarget(project, override);
-    applyPwanCarrierPatch(project, override, carrier);
+  // Both PWAN domains share one archive, but their native carrier stores are
+  // independent. Rebuilding one domain must not touch the other's carriers.
+  if (speciesDirty && sorted.length > 0) {
+    if (!project.narcs.pokemon_sprites) throw new Error("Pokemon Sprites must be loaded before exporting PWAN animation overrides.");
+    const carrier = await loadBundledPwanCarrierTemplate(project.session.baseVersion === "B2" ? "B2" : "W2");
+    sorted.forEach((override) => {
+      validatePwanOverrideTarget(project, override);
+      applyPwanCarrierPatch(project, override, carrier);
+    });
+  }
+  const trainerCarrier = trainerDirty
+    ? await materializeTrainerPwanCarrier(project)
+    : trainerState?.carrierGraphicIndex ?? 0xffff;
+  const bytes = mergePwanArchive(sourceArchive, {
+    species: speciesDirty || !sourceArchive ? sorted : undefined,
+    trainer: trainerDirty || !sourceArchive ? { overrides: trainerOverrides, carrierGraphicIndex: trainerCarrier } : undefined,
   });
-  writePwanArchiveFile(project, rom, buildPwanArchive(sorted));
+  // Keep the last staged archive available until the replacement is complete.
+  clearMaterializedPwanFiles(project, speciesDirty);
+  writePwanArchiveFile(project, rom, bytes);
 }
 
 export function buildPwanConfig(overrides: PwanAnimationOverride[]): Uint8Array {
@@ -599,13 +632,45 @@ export function buildPwanConfig(overrides: PwanAnimationOverride[]): Uint8Array 
   return out;
 }
 
-export function buildPwanArchive(overrides: PwanAnimationOverride[]): Uint8Array {
-  const active = sortedPwanOverrides(overrides);
-  const files: Uint8Array[] = [buildPwanConfig(active)];
-  for (const override of active) {
-    const assetIndex = pwanAssetIndex(override);
-    if (override.front) files[pwanArchiveMemberId(assetIndex, "front")] = override.front.pwanBytes;
-    if (override.back) files[pwanArchiveMemberId(assetIndex, "back")] = override.back.pwanBytes;
+export function buildPwanArchive(
+  overrides: PwanAnimationOverride[],
+  trainerOverrides: TrainerPwanAnimationOverride[] = [],
+  trainerCarrierGraphicIndex = 0xffff,
+): Uint8Array {
+  return mergePwanArchive(undefined, {
+    species: overrides,
+    trainer: { overrides: trainerOverrides, carrierGraphicIndex: trainerCarrierGraphicIndex },
+  });
+}
+
+/** Omitted domains retain their exact config and asset member bytes. */
+export function mergePwanArchive(
+  source: NARC | undefined,
+  updates: {
+    species?: PwanAnimationOverride[];
+    trainer?: { overrides: TrainerPwanAnimationOverride[]; carrierGraphicIndex: number };
+  },
+): Uint8Array {
+  let files = source?.files.slice(0, TRAINER_PWAN_CONFIG_MEMBER_ID) ?? [buildPwanConfig([])];
+  if (updates.species !== undefined) {
+    const active = sortedPwanOverrides(updates.species);
+    files = [buildPwanConfig(active)];
+    for (const override of active) {
+      const assetIndex = pwanAssetIndex(override);
+      if (override.front) files[pwanArchiveMemberId(assetIndex, "front")] = override.front.pwanBytes;
+      if (override.back) files[pwanArchiveMemberId(assetIndex, "back")] = override.back.pwanBytes;
+    }
+  }
+  const trainer = updates.trainer;
+  if (trainer === undefined) {
+    source?.files.slice(TRAINER_PWAN_CONFIG_MEMBER_ID).forEach((file, index) => {
+      files[TRAINER_PWAN_CONFIG_MEMBER_ID + index] = file;
+    });
+  } else if (trainer.overrides.length > 0 || trainer.carrierGraphicIndex !== 0xffff) {
+    files[TRAINER_PWAN_CONFIG_MEMBER_ID] = buildTrainerPwanConfig(trainer.overrides, trainer.carrierGraphicIndex);
+    for (const override of trainer.overrides) {
+      files[trainerPwanAssetMemberId(override.assetIndex ?? override.graphicIndex)] = override.animation.pwanBytes;
+    }
   }
   const maxMember = Math.max(0, files.length - 1);
   for (let memberId = 0; memberId <= maxMember; memberId += 1) files[memberId] ??= new Uint8Array();
@@ -873,12 +938,14 @@ function align4(value: number): number {
   return (value + 3) & ~3;
 }
 
-function clearMaterializedPwanFiles(project: ProjectState): void {
+function clearMaterializedPwanFiles(project: ProjectState, clearLegacySpeciesFiles: boolean): void {
   const additions = project.fileSystem?.additions;
   if (!additions) return;
   delete additions[PWAN_ARCHIVE_PATH];
-  for (const path of Object.keys(additions)) {
-    if (/^pokeweb_pwan\//u.test(path)) delete additions[path];
+  if (clearLegacySpeciesFiles) {
+    for (const path of Object.keys(additions)) {
+      if (/^pokeweb_pwan\//u.test(path)) delete additions[path];
+    }
   }
 }
 

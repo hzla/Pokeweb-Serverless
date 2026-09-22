@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "sourceGame": "HeartGold IPKE",
+  "mood": 0,
+  "rules": 34,
+  "messages": 27,
+  "motions": 12,
+  "emotes": 7,
+  "resourceMembers": 14,
+  "dataSha256": "e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894",
+  "dataBytes": 3852,
+  "emotesSha256": "ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7",
+  "emotesBytes": 10076,
+  "emotesCrc32": 3172626185,
+  "sourceRuleIds": [
+    472,
+    400,
+    307,
+    222,
+    436,
+    363,
+    93,
+    92,
+    84,
+    88,
+    89,
+    90,
+    91,
+    85,
+    103,
+    97,
+    99,
+    100,
+    83,
+    441,
+    185,
+    186,
+    187,
+    96,
+    432,
+    125,
+    126,
+    127,
+    86,
+    226,
+    376,
+    264,
+    205,
+    254
+  ],
+  "excludedOccurrenceRows": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    60,
+    61,
+    62,
+    63,
+    64
+  ],
+  "texts": [
+    {
+      "sourceMessage": 48,
+      "text": "{nickname} is steadily keeping up\nwith you!"
+    },
+    {
+      "sourceMessage": 49,
+      "text": "{nickname} seems to want to play with\n{player}!"
+    },
+    {
+      "sourceMessage": 50,
+      "text": "{nickname} is regarding you with\nadoration!"
+    },
+    {
+      "sourceMessage": 51,
+      "text": "{nickname} is doing its best to keep\nup with you!"
+    },
+    {
+      "sourceMessage": 53,
+      "text": "{nickname} is happily cuddling up to\nyou!"
+    },
+    {
+      "sourceMessage": 54,
+      "text": "{nickname} looks very happy!"
+    },
+    {
+      "sourceMessage": 55,
+      "text": "{nickname} seems to be feeling great\nabout walking with you!"
+    },
+    {
+      "sourceMessage": 58,
+      "text": "{nickname} is focusing its attention\non you."
+    },
+    {
+      "sourceMessage": 59,
+      "text": "{nickname} turned to face you\nand smiled!"
+    },
+    {
+      "sourceMessage": 61,
+      "text": "{nickname} is happily skipping about!"
+    },
+    {
+      "sourceMessage": 62,
+      "text": "{nickname} seems to be very happy!"
+    },
+    {
+      "sourceMessage": 65,
+      "text": "{nickname} is staring straight in this\ndirection!"
+    },
+    {
+      "sourceMessage": 83,
+      "text": "{nickname} is nipping at your feet!"
+    },
+    {
+      "sourceMessage": 132,
+      "text": "{nickname} began poking you in the\nstomach!"
+    },
+    {
+      "sourceMessage": 150,
+      "text": "{nickname} is wandering around."
+    },
+    {
+      "sourceMessage": 165,
+      "text": "{nickname} is trying very hard to\nkeep up with you..."
+    },
+    {
+      "sourceMessage": 169,
+      "text": "{nickname} is glowing with health!"
+    },
+    {
+      "sourceMessage": 197,
+      "text": "{nickname} is looking down steadily."
+    },
+    {
+      "sourceMessage": 208,
+      "text": "{nickname} seems a little tired."
+    },
+    {
+      "sourceMessage": 248,
+      "text": "{nickname} seems very cold!"
+    },
+    {
+      "sourceMessage": 293,
+      "text": "{nickname} is dizzy!"
+    },
+    {
+      "sourceMessage": 306,
+      "text": "{nickname} is still feeling great!"
+    },
+    {
+      "sourceMessage": 328,
+      "text": "{nickname}'s burn looks painful!"
+    },
+    {
+      "sourceMessage": 355,
+      "text": "{nickname} is poking at your feet."
+    },
+    {
+      "sourceMessage": 359,
+      "text": "{nickname} seems to be about to fall\nover!"
+    },
+    {
+      "sourceMessage": 364,
+      "text": "{nickname} is poking at your belly."
+    },
+    {
+      "sourceMessage": 395,
+      "text": "{nickname} is shivering with the\neffects of being poisoned..."
+    }
+  ]
+}

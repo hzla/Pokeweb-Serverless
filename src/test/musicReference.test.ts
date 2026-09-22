@@ -7,6 +7,9 @@ import { renderMusicReferenceRows } from "../ui/musicEditor";
 const sequences = [
   { id: 1060, symbol: "SEQ_BGM_POKECEN" },
   { id: 1104, symbol: "SEQ_BGM_SW_C_12" },
+  { id: 1114, symbol: "SEQ_BGM_EYE_01" },
+  { id: 1122, symbol: "SEQ_BGM_EYE_09" },
+  { id: 1127, symbol: "SEQ_BGM_EYE_NEO_PLASMA" },
   { id: 1128, symbol: "SEQ_BGM_VS_NORAPOKE" },
   { id: 1129, symbol: "SEQ_BGM_VS_TSUYOPOKE" },
   { id: 1130, symbol: "SEQ_BGM_VS_TRAINER" },
@@ -19,6 +22,8 @@ const sequences = [
   { id: 1179, symbol: "SEQ_BGM_SW_R_19_WI" },
   { id: 1260, symbol: "SEQ_BGM_VS_IRIS" },
   { id: 1262, symbol: "SEQ_BGM_VS_HUE" },
+  { id: 1243, symbol: "SEQ_BGM_EYE_DANCER" },
+  { id: 1244, symbol: "SEQ_BGM_EYE_CLOWN" },
 ];
 
 describe("BW2 music reference", () => {
@@ -96,6 +101,24 @@ describe("BW2 music reference", () => {
     expect(byId(1262).title).toBe("Hugh — rival");
     expect(byId(1146).category).toBe("battleEvents");
     expect(byId(1147).title).toContain("last Pokémon");
+  });
+
+  it("lists trainer-notice music separately from battle music", () => {
+    expect(BW2_MUSIC_REFERENCE.filter((entry) => entry.category === "trainerApproaches").flatMap((entry) => entry.tracks.map((track) => track.symbol))).toEqual([
+      ...Array.from({ length: 13 }, (_unused, index) => `SEQ_BGM_EYE_${String(index + 1).padStart(2, "0")}`),
+      "SEQ_BGM_EYE_NEO_PLASMA",
+      "SEQ_BGM_EYE_DANCER",
+      "SEQ_BGM_EYE_CLOWN",
+    ]);
+    const entries = buildMusicReference(sequences);
+    const approaches = filterMusicReference(entries, "", "trainerApproaches");
+    expect(approaches.map((entry) => entry.tracks[0].id)).toEqual([1114, 1122, 1127, 1243, 1244]);
+    expect(filterMusicReference(entries, "scientist", "trainerApproaches")[0].tracks[0].id).toBe(1122);
+    expect(filterMusicReference(entries, "plasma grunt", "trainerApproaches")[0].tracks[0].id).toBe(1127);
+    expect(filterMusicReference(entries, "harlequin variant", "trainerApproaches")[0].tracks[0].id).toBe(1244);
+    expect(filterMusicReference(entries, "trainer approach", "all")).toHaveLength(5);
+    expect(approaches.every((entry) => entry.category === "trainerApproaches")).toBe(true);
+    expect(filterMusicReference(entries, "", "battles").some((entry) => entry.tracks.some((track) => track.id === 1114))).toBe(false);
   });
 
   it("renders accessible selection buttons and an empty state", () => {
