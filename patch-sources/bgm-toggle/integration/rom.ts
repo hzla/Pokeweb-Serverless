@@ -268,10 +268,16 @@ export class NintendoDSRom {
     writeU32(out, 0x5c, arm7OverlayTable.length);
     writeU32(out, 0x68, banner.offset);
     writeU32(out, 0x80, twlSections.length > 0 ? applicationEnd : romLength);
-    if (twlSections.length > 0) {
+    if (this.data[0x12] === 2) {
+      // DSi-enhanced games enforce this boundary even in DS mode with their
+      // DSi payloads stripped (including a cleared total-size field at 0x210).
+      // Cover all rebuilt NitroFS data, not optional trailing ROM padding.
+      // Keep this independent of relocating or synthesizing DSi payloads.
       const regionBoundary = Math.ceil(applicationEnd / NTR_TWL_ALIGNMENT);
       writeU16(out, 0x90, regionBoundary);
       writeU16(out, 0x92, regionBoundary);
+    }
+    if (twlSections.length > 0) {
       for (const section of twlSectionWrites) {
         writeU32(out, section.offsetField, section.offset);
       }

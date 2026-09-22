@@ -165,7 +165,9 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   hydrateTrainerLocationTables(project, rom);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
   hydrateBattleLogInstallMetadata(project, rom);
-  if (!project.pwanAnimations?.dirty && ((project.pwanAnimations?.overrides.length ?? 0) === 0 || !project.pwanAnimations?.detectedArchive)) {
+  if (!project.pwanAnimations?.dirty && !project.trainerPwanAnimations?.dirty &&
+      (((project.pwanAnimations?.overrides.length ?? 0) === 0 || !project.pwanAnimations?.detectedArchive) ||
+       ((project.trainerPwanAnimations?.overrides.length ?? 0) === 0 || !project.trainerPwanAnimations?.detectedArchive))) {
     hydratePwanAnimationsFromRom(project, rom);
   }
 

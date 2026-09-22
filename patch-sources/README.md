@@ -24,6 +24,7 @@ Only patch source, relevant headers, build/metadata text, tests, and license mat
 | [PWAN battle sprites](pwan-battle/) | `PokewebPwanBattleB2.dll`, `PokewebPwanBattleW2.dll` | source-copied |
 | [PWAN summary sprites](pwan-summary/) | `PokewebPwanSummaryB2.dll`, `PokewebPwanSummaryW2.dll` | source-copied |
 | [PWAN misc sprites](pwan-misc/) | `PokewebPwanMiscB2.dll`, `PokewebPwanMiscW2.dll` | source-copied |
+| [PWAN trainer sprites](pwan-trainer/) | `PokewebPwanTrainerB2.dll`, `PokewebPwanTrainerW2.dll` | source-copied |
 | [Retired PWAN compatibility stub](pwan-legacy-retired/) | `PokewebPwanLegacyRetiredW2.dll` | source-copied |
 | [Custom overworld weather](overworld-weather/) | `PokewebOverworldWeatherW2.dll` | source-copied |
 | [Expanded-form evolution](form-evolution/) | `FormEvolutionB2.dll`, `FormEvolutionW2.dll` | source-copied |

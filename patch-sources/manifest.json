@@ -2232,7 +2232,7 @@
             "path": "runtime/bgm-toggle/README.md"
           },
           "kind": "documentation",
-          "sha256": "f66c55cbfd95061f0c2abfe9acd8a86a7417010c5876cc7f0ee9303fb0a0b43a",
+          "sha256": "8f4670f606d2c37a60af176cc991f03571ba71a298928138aa4fdefad4808bed",
           "normalized": false
         },
         {
@@ -2332,7 +2332,7 @@
             "path": "src/pokeweb/streamedBgmModel.ts"
           },
           "kind": "support-only",
-          "sha256": "b2f35e27797d42bc2ea948947a2fffa1dc46de205f1e07515be1458f54a89c9b",
+          "sha256": "af2bbe1cdc2353d5b92de6e8aae3ddca38151d11876653a70a95cbf2374b4b5f",
           "normalized": false
         },
         {
@@ -2342,7 +2342,7 @@
             "path": "src/nds/rom.ts"
           },
           "kind": "support-only",
-          "sha256": "f391bd6248606dc5f22ecd06a51153c2f3ed23289ae480922453a15c70b28f89",
+          "sha256": "17ecbb8948dba14fd3f0e804565c6b16330e4dd42ae23b1e8e47a4835ec009f1",
           "normalized": false
         },
         {
@@ -2352,7 +2352,7 @@
             "path": "src/ui/musicEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "5bacc335902ca0067be40dfbdef5e425962fc02fa30f5fb474144f5993ad17cd",
+          "sha256": "d86fefcc61fd433595c46b18fcf3315bcbc83915c2dfb0e0a8fb992555455273",
           "normalized": false
         },
         {
@@ -2362,7 +2362,7 @@
             "path": "src/pokeweb/musicReference.ts"
           },
           "kind": "support-only",
-          "sha256": "0d131b48cd3e04de781431b1e63e07043fc3251ad838055f12543511f93606a1",
+          "sha256": "de95edf4b5588cb43fa94fed873cf1c2cdd0d1bf9d971799f86de9e2ef1c4239",
           "normalized": false
         },
         {
@@ -2372,7 +2372,7 @@
             "path": "src/styles/musicEditor.css"
           },
           "kind": "support-only",
-          "sha256": "f4a2c7f97bd77f2695eb27134d60537cb67124dff88382d4a7765d92bc8880fe",
+          "sha256": "e61fbcc7c303432bd1f4e833d8bfa52c48f8f2ba7fba4ba2d49afbbdb107278a",
           "normalized": false
         },
         {
@@ -2382,7 +2382,7 @@
             "path": "src/pokeweb/projectStore.ts"
           },
           "kind": "support-only",
-          "sha256": "7efff074103305d8e9198d2d3390a21bc2d282bf3067567d7e68b486918968c2",
+          "sha256": "fc3c3fa25a75c146185a561c9e83f1a5e988ec4a7185aa76cdb0142f4a17331a",
           "normalized": false
         },
         {
@@ -2392,7 +2392,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "3c519dd764842d52fe0f6646df4484794c71ce5b6d47adc66ece4580a4009a70",
+          "sha256": "ead8a24aa341ab6731abef4bdaed93c52aed9e6ab8bd8358ee75af6b05018a3f",
           "normalized": false
         },
         {
@@ -2432,7 +2432,7 @@
             "path": "src/test/streamedBgmModel.test.ts"
           },
           "kind": "test",
-          "sha256": "28f3b98869bc08956f270914cd877449e432bab0ab965d6930482eea3c89103d",
+          "sha256": "35bf4d778e5825b2ee011b19c482842577551da199ab0b7d6c64ca40dc46cbde",
           "normalized": false
         },
         {
@@ -2462,7 +2462,7 @@
             "path": "src/test/musicReference.test.ts"
           },
           "kind": "test",
-          "sha256": "c4db6328fae3afdd1339fee942991169e0fd290a00c7a541861ecd68f4df681f",
+          "sha256": "f670b1b0a190f8e4ed64f1c96653ab4f92497d3857631a035669377c698dd467",
           "normalized": false
         },
         {
@@ -2472,7 +2472,7 @@
             "path": "src/test/romExport.test.ts"
           },
           "kind": "test",
-          "sha256": "96e923c56c4e20cce0fb8c338446e3fcbe0ffed111e03fa71895d218f98e41f3",
+          "sha256": "19c0fbf8e621c96cb502dc2257528103624f884d76659cd782a9849b845d51bc",
           "normalized": false
         },
         {
@@ -2483,6 +2483,184 @@
           },
           "kind": "test",
           "sha256": "2a6643654152b9639c2ef504a632c90aed27a8843929f06ef46d087f2cb13e27",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "pwan-trainer",
+      "title": "PWAN trainer sprites",
+      "artifacts": [
+        {
+          "name": "PokewebPwanTrainerB2.dll",
+          "sha256": "92bf13c19995e2961dfb65f2c581916377bbccc98ffa6a1d9ba4c378d56c7b1b"
+        },
+        {
+          "name": "PokewebPwanTrainerW2.dll",
+          "sha256": "a1fbc821ab538c8ca3ff643549c597f97d6e8de299ec95025637abfeab0d14ba"
+        }
+      ],
+      "note": "Standalone stock-US B2/W2 overlay-168 runtime for front-trainer PWAN animations. It redirects configured graphics to one appended carrier, streams per-instance texture and palette data, and remains independent from the Pokémon PWAN DLLs.",
+      "status": "source-copied",
+      "files": [
+        {
+          "path": "pwan-trainer/README.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "patch-sources/pwan-trainer/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "09920744c6ff31be18382bde4b8d135fe35823dcf746e1904f0ae3753bd34073",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/w2u_trainer_anim.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_trainer_anim.cpp"
+          },
+          "kind": "source",
+          "sha256": "b085916e49ff1b4ea651673143e199bb699e8f93e8548ef3ae37a216bdef7f91",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/w2u_trainer_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_trainer_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "4d0ebfe2f1e6214e07956345025bdf6a3c27bd9a91d3d2839246ef5789eefdce",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/b2_trainer_hooks.s",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/b2_trainer_hooks.s"
+          },
+          "kind": "source",
+          "sha256": "c0f72286d5fef6adb69b0010d3585184c922f076ba01ef011eb7948b372b1fc0",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/w2u_pwan_archive.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_archive.cpp"
+          },
+          "kind": "source",
+          "sha256": "6551e2b4d9cf3191d82219cb5ed8f6ff9ac0e6d5e552630f379f9bc9f276997a",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/w2u_pwan_archive.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_archive.h"
+          },
+          "kind": "source",
+          "sha256": "270cb6491f52f2e1fb35857313b022d09bec96dba4633be0b01ce47c4fa701b5",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/w2u_pwan_frame_scratch.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/w2u_pwan_frame_scratch.cpp"
+          },
+          "kind": "source",
+          "sha256": "a826ec3ef30a3de5efff9c62a6b21406e2a40a88c28ab0e1e80c3bc5c6d72e44",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/pwan_types.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/pwan_types.h"
+          },
+          "kind": "source",
+          "sha256": "210f805eea53d62803d6df1cc440bf4112bf6d92b35fb73273cae8ac9d666952",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/meson.build",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/pwan_animation/meson.build"
+          },
+          "kind": "build-tool",
+          "sha256": "3b70bcf4156fc21f386985964335e6fb63cdd4313da4c0764826e2c008cda80c",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/integration/trainerPwanCompatibilityModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/trainerPwanCompatibilityModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "994ec22d738f4385e6caebb86fec455f06c3ef2355703e2722536cede047bfe0",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/integration/trainerSpriteModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/trainerSpriteModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "c8a0156a257c403cc0973b6982c61a15f6c30d7f31e065e1417c2edea7776db7",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/integration/pokemonSpriteWriters.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/pokemonSpriteWriters.ts"
+          },
+          "kind": "support-only",
+          "sha256": "554b03e5ce73c5742e01722084bcafa3207dd0af71f4069fe147f7cc9cfae9b1",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/tests/trainerPwanAnimationModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/trainerPwanAnimationModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "7b4988fe6ad707d608cd7eda86b40d4816f31d988c8b2195c22024b591fcf233",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/tests/trainerPwanPalette.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/trainerPwanPalette.test.ts"
+          },
+          "kind": "test",
+          "sha256": "eca5eeeae264ddc745f1d357e0bbcd598ddba92af88940f0c28f5d5e3855b77d",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/tests/lib/trainer-pwan-palette.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/lib/trainer-pwan-palette.ts"
+          },
+          "kind": "test",
+          "sha256": "9c9992a7361ccdd2e1969c927d2f123501c03a2941574633254667b9b364a73d",
+          "normalized": false
+        },
+        {
+          "path": "pwan-trainer/tests/verify-trainer-pwan-emulator.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-trainer-pwan-emulator.ts"
+          },
+          "kind": "test",
+          "sha256": "705576f753190d04d9659be99388c1a895a2d6fcf42cfc71c8d70ced01f42f3d",
           "normalized": false
         }
       ]

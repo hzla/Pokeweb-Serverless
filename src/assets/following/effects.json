@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "sourceGame": "HeartGold IPKE",
+  "archive": "a/1/0/3",
+  "members": [
+    {
+      "member": 129,
+      "magic": "BMD0",
+      "sha256": "6349be51a204500bad463649a58b6f4ada383f32a3fdb13994aa65f4464a0a9e",
+      "bytes": 768
+    },
+    {
+      "member": 104,
+      "magic": "BMD0",
+      "sha256": "0838c97ab3f1d11265c75ac4b85c2c5d773768eba414d953f1ff5f7a0ee2e3cc",
+      "bytes": 2024
+    },
+    {
+      "member": 164,
+      "magic": "BTA0",
+      "sha256": "0d265b24edbe808ad8f848969deecceb76dbe7fd804e5096583627b3069a152e",
+      "bytes": 184
+    }
+  ],
+  "sha256": "d910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0",
+  "crc32": 1939270876,
+  "bytes": 3052,
+  "sendOutBallTicks": 2,
+  "flashTicks": 8,
+  "recallShrinkTicks": 4,
+  "recallBallTicks": 4
+}

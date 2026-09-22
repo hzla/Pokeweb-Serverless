@@ -19,9 +19,11 @@ const artifactSpecs = [
   { name: "PokewebPwanSummaryW2.dll", gameId: "W2", scope: "summary" },
   { name: "PokewebPwanBattleW2.dll", gameId: "W2", scope: "battle" },
   { name: "PokewebPwanMiscW2.dll", gameId: "W2", scope: "misc" },
+  { name: "PokewebPwanTrainerW2.dll", gameId: "W2", scope: "trainer" },
   { name: "PokewebPwanSummaryB2.dll", gameId: "B2", scope: "summary" },
   { name: "PokewebPwanBattleB2.dll", gameId: "B2", scope: "battle" },
   { name: "PokewebPwanMiscB2.dll", gameId: "B2", scope: "misc" },
+  { name: "PokewebPwanTrainerB2.dll", gameId: "B2", scope: "trainer" },
   { name: "PokewebPwanLegacyRetiredW2.dll", gameId: "W2", scope: "retirement" },
 ];
 const artifactNames = artifactSpecs.map((artifact) => artifact.name);
