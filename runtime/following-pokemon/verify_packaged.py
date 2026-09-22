@@ -8,6 +8,7 @@ from pathlib import Path
 HERE=Path(__file__).resolve().parent
 import os
 PACKAGE_BUILD=Path(os.environ.get('FOLLOWING_BUILD_DIR',HERE/'build'))
+MODULE_SUFFIX=os.environ.get('FOLLOWING_MODULE_SUFFIX','W2')
 sys.path.insert(0,str(HERE/'build/python'))
 from elftools.elf.elffile import ELFFile
 import capstone
@@ -66,14 +67,14 @@ def relocate(path,base,imports=None):
  return loaded
 
 def load_events(uc,base=0x022c0000):
- dll=PACKAGE_BUILD/'PokewebFollowingEventsW2.dll'
- audit(dll,PACKAGE_BUILD/'PokewebFollowingEventsW2.elf')
+ dll=PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.dll'
+ audit(dll,PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.elf')
  uc.mem_write(base,bytes(relocate(dll,base)))
  return module_exports(dll,base)
 
 def load_dependencies(uc,events_base=0x022c0000,core_base=0x022d0000):
- events=PACKAGE_BUILD/'PokewebFollowingEventsW2.dll';core=PACKAGE_BUILD/'PokewebFollowingCoreW2.dll'
- audit(events,PACKAGE_BUILD/'PokewebFollowingEventsW2.elf');audit(core,PACKAGE_BUILD/'PokewebFollowingCoreW2.elf')
+ events=PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.dll';core=PACKAGE_BUILD/f'PokewebFollowingCore{MODULE_SUFFIX}.dll'
+ audit(events,PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.elf');audit(core,PACKAGE_BUILD/f'PokewebFollowingCore{MODULE_SUFFIX}.elf')
  uc.mem_write(events_base,bytes(relocate(events,events_base)))
  uc.mem_write(core_base,bytes(relocate(core,core_base)))
  exports=module_exports(events,events_base);exports.update(module_exports(core,core_base));return exports
@@ -186,6 +187,6 @@ def execute(dll,elf):
 
 if __name__=='__main__':
  parser=argparse.ArgumentParser(description=__doc__)
- parser.add_argument('--dll',type=Path,default=PACKAGE_BUILD/'PokewebFollowingFieldW2.dll')
- parser.add_argument('--elf',type=Path,default=PACKAGE_BUILD/'PokewebFollowingFieldW2.elf')
+ parser.add_argument('--dll',type=Path,default=PACKAGE_BUILD/f'PokewebFollowingField{MODULE_SUFFIX}.dll')
+ parser.add_argument('--elf',type=Path,default=PACKAGE_BUILD/f'PokewebFollowingField{MODULE_SUFFIX}.elf')
  args=parser.parse_args();execute(args.dll,args.elf)

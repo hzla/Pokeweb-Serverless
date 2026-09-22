@@ -68,7 +68,7 @@ describe("follower asset transactions",()=>{
     expect(()=>readFollowerWorkspace(project,rom)).toThrow(/reference/);
   });
   it("rejects unsupported game regions and revisions before changing state",async()=>{
-    const {project}=fixture();project.originalRomBytes=new Uint8Array(512);project.originalRomBytes.set(new TextEncoder().encode('IREO'),12);
+    const {project}=fixture();project.originalRomBytes=new Uint8Array(512);project.originalRomBytes.set(new TextEncoder().encode('IRDP'),12);
     const before=structuredClone(project);expect((await checkFollowerCompatibility(project)).compatible).toBe(false);expect(project).toEqual(before);
     project.originalRomBytes.set(new TextEncoder().encode('IRDO'),12);project.originalRomBytes[30]=1;
     expect((await checkFollowerCompatibility(project)).compatible).toBe(false);
@@ -134,7 +134,7 @@ describe("walking alpha ownership",()=>{
     await setFollowerAlphaEnabled(project,false);expect((await readFollowerAlphaInstall(project))?.enabled).toBe(false);
     expect(new DataView(project.fileSystem!.additions![FOLLOWER_NATIVE_PATH].buffer).getUint32(4,true)).toBe(0);
     expect(project.fileSystem!.additions!['unrelated.bin']).toEqual(Uint8Array.of(9));
-    await expect(setFollowerAlphaEnabled(project,true)).rejects.toThrow(/IRDO revision/); // synthetic fixture is not a compatible ROM
+    await expect(setFollowerAlphaEnabled(project,true)).rejects.toThrow(/Black 2 or White 2 revision 0/); // synthetic fixture is not a compatible ROM
     const effects=project.fileSystem!.additions![FOLLOWER_EFFECTS_PATH];effects[100]^=1;
     await expect(setFollowerAlphaEnabled(project,false)).rejects.toThrow(/effect assets have changed/);
     effects[100]^=1;
