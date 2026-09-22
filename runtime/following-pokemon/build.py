@@ -1,5 +1,6 @@
 """Build the field, resident event, and registry-extension PMC modules."""
 import argparse
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -9,10 +10,16 @@ REPO=HERE.parents[1]
 WORKSPACE=REPO.parent
 TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WORKSPACE/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'))
 JAR=Path(os.environ.get('RPM_TOOL_JAR',WORKSPACE/'White2Upgrade/CTRMap.jar'))
-UPGRADE=os.environ.get('FOLLOWING_PROFILE')=='white2upgrade'
-BUILD=Path(os.environ.get('FOLLOWING_BUILD_DIR', HERE/('build/white2upgrade' if UPGRADE else 'build')))
+PROFILE=os.environ.get('FOLLOWING_PROFILE','stock')
+if PROFILE not in ('stock','black2','white2upgrade'):raise ValueError('FOLLOWING_PROFILE must be stock, black2, or white2upgrade')
+UPGRADE=PROFILE=='white2upgrade'
+BLACK2=PROFILE=='black2'
+BUILD=Path(os.environ.get('FOLLOWING_BUILD_DIR', HERE/('build/white2upgrade' if UPGRADE else 'build/black2' if BLACK2 else 'build')))
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
 VERSION='0.7.15-alpha' if UPGRADE else '0.6.24-alpha'
+SUFFIX='B2' if BLACK2 else 'W2'
+CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'contract.json')
+os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX
 def run(*args): subprocess.run([str(a) for a in args],check=True)
 def dedupe_versions(entries):
     seen=set(); result=[]
@@ -26,7 +33,7 @@ def build(rom, publish=False):
     if publish and int(os.environ.get('FOLLOWING_TEST_CYCLES','100'))<100:
         raise ValueError('Publishing requires at least 100 conversation/scene test cycles')
     if UPGRADE:
-        import hashlib, json
+        import hashlib
         contract=json.loads((HERE/'upgrade-contract.json').read_text())
         if hashlib.sha256(Path(rom).read_bytes()).hexdigest()!=contract['sourceRomSha256']:
             raise ValueError('Input does not match the pinned White2Upgrade source ROM SHA-256')
@@ -41,20 +48,31 @@ def build(rom, publish=False):
     if (REPO/'src/assets/following/contextual-items.narc').stat().st_size>4096:
         raise ValueError('Follower gift archive exceeds the shared 4 KiB runtime buffer')
     for meta in ('metadata.yml','field-metadata.yml','events-metadata.yml'):
-        (BUILD/meta).write_text((HERE/meta).read_text().replace('0.6.10-alpha',VERSION))
+        text=(HERE/meta).read_text().replace('0.6.10-alpha',VERSION)
+        if BLACK2:text=text.replace('PMCGameID: W2','PMCGameID: B2')
+        (BUILD/meta).write_text(text)
     from generate_scene_policy import generate
     generate()
+    from black2_port import port_source
     objects=[]
     for name in ['core','object_codes','registry','following','field','effects','reactions','interaction','gifts','events','scene','render','render_math']:
         obj=BUILD/(name+'.o');objects.append(obj)
+        source=HERE/(name+'.c')
+        if BLACK2:
+            source=BUILD/(name+'.c');source.write_text(port_source((HERE/(name+'.c')).read_text()))
         run(TOOLS/'arm-none-eabi-gcc','-mthumb','-mcpu=arm946e-s','-Os','-std=c11',
             '-fno-jump-tables','-ffreestanding','-fvisibility=hidden','-fno-builtin','-fno-unwind-tables','-fno-asynchronous-unwind-tables',
-            *(['-DFW_UPGRADE=1'] if UPGRADE else []),'-Wall','-Wextra','-Werror','-c',HERE/(name+'.c'),'-o',obj)
-    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',HERE/'core.s','-o',BUILD/'core-hooks.o')
+            '-I',HERE,*(['-DFW_UPGRADE=1'] if UPGRADE else []),*(['-DFW_BLACK2=1'] if BLACK2 else []),'-Wall','-Wextra','-Werror','-c',source,'-o',obj)
+    def assembly(name):
+        source=HERE/name
+        if BLACK2:
+            source=BUILD/name;source.write_text(port_source((HERE/name).read_text()))
+        return source
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('core.s'),'-o',BUILD/'core-hooks.o')
     # Portable follower code is compiled separately, not pulled into the resident module.
-    elf=BUILD/'PokewebFollowingCoreW2.elf'
+    elf=BUILD/f'PokewebFollowingCore{SUFFIX}.elf'
     run(TOOLS/'arm-none-eabi-ld','-r',*objects[:3],BUILD/'core-hooks.o','-o',elf)
-    output=BUILD/'PokewebFollowingCoreW2.dll'
+    output=BUILD/f'PokewebFollowingCore{SUFFIX}.dll'
     output.unlink(missing_ok=True)
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',elf,'--fourcc','DLXF','-o',output,
         '--esdb',HERE/'symbols.yml','--meta',BUILD/'metadata.yml','--generate-relocations','--strip')
@@ -62,28 +80,29 @@ def build(rom, publish=False):
     import re
     targets=re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',dump.decode())
     external=[item for item in targets if item[1]!='base']
-    if external!=[('FULL_COPY','ARM9','0x200fe34'),('FULL_COPY','12','0x2167fb8')]:
+    contract_data=json.loads(CONTRACT.read_text())
+    expected_core=sorted((h['kind'],h['segment'],hex(h['address'])) for h in contract_data['hooks'] if h.get('module')=='core')
+    if sorted(external)!=expected_core:
         raise ValueError('Unexpected core relocation targets: '+repr(external))
     if 'Import symbol' in dump.decode():raise ValueError('Unresolved core imports')
     (BUILD/'core.dump.txt').write_bytes(dump)
-    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',HERE/'events.s','-o',BUILD/'events-hooks.o')
-    events=BUILD/'PokewebFollowingEventsW2.elf'
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('events.s'),'-o',BUILD/'events-hooks.o')
+    events=BUILD/f'PokewebFollowingEvents{SUFFIX}.elf'
     run(TOOLS/'arm-none-eabi-ld','-r',BUILD/'events.o',BUILD/'events-hooks.o','-o',events)
-    events_dll=BUILD/'PokewebFollowingEventsW2.dll';events_dll.unlink(missing_ok=True)
+    events_dll=BUILD/f'PokewebFollowingEvents{SUFFIX}.dll';events_dll.unlink(missing_ok=True)
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',events,'--fourcc','DLXF','-o',events_dll,
         '--esdb',HERE/'symbols.yml','--meta',BUILD/'events-metadata.yml','--generate-relocations','--strip')
     events_dump=subprocess.check_output(['java','-cp',str(JAR),'rpm.cli.RPMDump','--fourcc','DLXF','-i',str(events_dll)])
     (BUILD/'events.dump.txt').write_bytes(events_dump)
     if 'Import symbol' in events_dump.decode():raise ValueError('Unresolved event module imports')
-    import json
-    hooks=json.loads((HERE/'contract.json').read_text())['hooks']
+    hooks=contract_data['hooks']
     expected=sorted((h['kind'],h['segment'],hex(h['address'])) for h in hooks if h.get('module')=='events')
     actual=sorted(t for t in re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',events_dump.decode()) if t[1]!='base')
     if actual!=expected:raise ValueError('Unexpected event module hooks: '+repr(actual))
-    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',HERE/'field.s','-o',BUILD/'field-hooks.o')
-    field=BUILD/'PokewebFollowingFieldW2.elf'
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('field.s'),'-o',BUILD/'field-hooks.o')
+    field=BUILD/f'PokewebFollowingField{SUFFIX}.elf'
     run(TOOLS/'arm-none-eabi-ld','-r',BUILD/'field.o',BUILD/'effects.o',BUILD/'following.o',BUILD/'reactions.o',BUILD/'interaction.o',BUILD/'gifts.o',BUILD/'scene.o',BUILD/'render.o',BUILD/'render_math.o',BUILD/'field-hooks.o','-o',field)
-    field_dll=BUILD/'PokewebFollowingFieldW2.dll'
+    field_dll=BUILD/f'PokewebFollowingField{SUFFIX}.dll'
     field_dll.unlink(missing_ok=True)
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',field,'--fourcc','DLXF','-o',field_dll,
         '--esdb',HERE/'field-symbols.yml','--meta',BUILD/'field-metadata.yml','--generate-relocations','--strip')
@@ -94,25 +113,27 @@ def build(rom, publish=False):
     from verify_packaged import verify_imports
     verify_imports(field_dll,events_dll,output)
     targets=re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',field_dump.decode())
-    if sorted(t for t in targets if t[1]!='base')!=sorted([('THUMB_BRANCH_LINK','36','0x2180078'),('FULL_COPY','36','0x21801e4'),('THUMB_BRANCH_LINK','36','0x218119a'),('THUMB_BRANCH_LINK','36','0x218122e'),('THUMB_BRANCH_LINK','36','0x21818bc'),('THUMB_BRANCH_LINK','36','0x2181a6c')]):raise ValueError('Unexpected field hooks')
+    expected_field=sorted((h['kind'],h['segment'],hex(h['address'])) for h in contract_data['hooks'] if h.get('module')=='field')
+    if sorted(t for t in targets if t[1]!='base')!=expected_field:raise ValueError('Unexpected field hooks')
     if field_dll.stat().st_size<1024:raise ValueError('Field DLL was not generated')
     # RPM repacks call instructions; checking only a separately linked ELF can
     # miss invalid ARM/Thumb encodings introduced during DLL generation.
     run(os.environ.get('PYTHON','python3'),HERE/'verify_packaged.py')
     if UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_interactions.py')
-    else: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
-    run(os.environ.get('PYTHON','python3'),HERE/'verify_render.py')
+    elif not BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
+    if not BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_render.py')
     if publish:
-        import hashlib, json, shutil
+        import hashlib, shutil
         assets=REPO/'src/assets/following'
         if UPGRADE: assets=assets/'white2upgrade'
+        elif BLACK2: assets=assets/'black2'
         assets.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(field_dll,assets/field_dll.name)
         shutil.copyfile(events_dll,assets/events_dll.name)
         shutil.copyfile(output,assets/output.name)
         old_runtime=json.loads((assets/'runtime.json').read_text()) if (assets/'runtime.json').exists() else None
         old_current=({key:old_runtime[key] for key in ('version','fieldSha256','eventsSha256','eventsAbi','coreSha256','coreAbi')} if old_runtime else None)
-        previous_versions=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'stock-0.6.15-receipt.json').read_text()),json.loads((HERE/'stock-0.6.14-receipt.json').read_text()),json.loads((HERE/'stock-0.6.13-receipt.json').read_text()),json.loads((HERE/'stock-0.6.12-receipt.json').read_text()),json.loads((HERE/'stock-0.6.11-receipt.json').read_text()),
+        previous_versions=[] if BLACK2 else dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'stock-0.6.15-receipt.json').read_text()),json.loads((HERE/'stock-0.6.14-receipt.json').read_text()),json.loads((HERE/'stock-0.6.13-receipt.json').read_text()),json.loads((HERE/'stock-0.6.12-receipt.json').read_text()),json.loads((HERE/'stock-0.6.11-receipt.json').read_text()),
             {'version': '0.6.9-alpha', 'fieldSha256': '75646645ec262e5a07dade75af572b490dddabdf1d299ef4885753b9280a813b', 'eventsSha256': 'c99bc16f9745df1b8647cf169f9e2c2de8599b25c05953b395dc649417797fb9', 'eventsAbi': 2, 'coreSha256': '3a442efc82ab76ed525d24931320e51ff9d631c2da3736c4039e9ddc5d231b30', 'coreAbi': 1, 'registrySha256': '30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58', 'descriptorsSha256': 'f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939', 'resourcesSha256': 'c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6', 'effectsSha256': 'd910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0', 'interactionsSha256': 'e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894', 'emotesSha256': 'ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7'},
             {'version': '0.6.8-alpha', 'fieldSha256': '481b56d37d2be98ff8db891642f76b181c8eb1b5923d6542e6517070e33d0555', 'eventsSha256': '51f3a5ad5aeefcef8b0403607c79ba8c8237f950adf5ec7525d091863f080636', 'eventsAbi': 2, 'coreSha256': '23c286b07ba85a1576551fc56a349dfec79ff1910a5f1817c3863a4a925f7d35', 'coreAbi': 1, 'registrySha256': '30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58', 'descriptorsSha256': 'f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939', 'resourcesSha256': 'c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6', 'effectsSha256': 'd910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0', 'interactionsSha256': 'e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894', 'emotesSha256': 'ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7'},
             {'version':'0.6.7-alpha','fieldSha256':'23a347b389cddcdd403b2127231424900e1ba7cc0ce58207bb5b4199580824e9','eventsSha256':'9536e2f107454e71fd0b5bf23bc4fe56eaa1a46743823b770f33734fcafd0767','eventsAbi':2,'coreSha256':'0b2e4aea438da6ce6920ce535ee5a4e1bbf18131032fb1fcbc36e071ea6a827b','coreAbi':1,'registrySha256':'30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58','descriptorsSha256':'f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939','resourcesSha256':'c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6','effectsSha256':'d910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0','interactionsSha256':'e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894','emotesSha256':'ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7'},

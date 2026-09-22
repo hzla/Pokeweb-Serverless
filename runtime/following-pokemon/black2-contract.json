@@ -1,0 +1,3235 @@
+{
+  "schemaVersion": 1,
+  "runtimeAbi": 1,
+  "target": {
+    "gameCode": "IREO",
+    "revision": 0,
+    "sha256": "2e6b2415354aa41471bc7617068dce059a59931bf5c4348a264f8043f297683a"
+  },
+  "registry": {
+    "path": "a/0/4/7",
+    "member": 0,
+    "stockRows": 1008,
+    "stride": 28,
+    "headerBytes": 4,
+    "extensionCodeBase": 12288,
+    "maxExtensionRows": 4096
+  },
+  "resources": {
+    "path": "a/0/4/8",
+    "stockMembers": 975,
+    "maxMembers": 65535
+  },
+  "hooks": [
+    {
+      "id": "object-code-lookup",
+      "segment": "ARM9",
+      "address": 33619508,
+      "expectedHex": "0e49884218d301210903884207d30c49884204d20b49401a0004000c704702210903884207d30b31884204d20649401a0004000c70470a207047c046790100006c120000870e00001b1c0000",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=u16 object code; r0=u16 registry row; absolute veneer uses caller-scratch r3 and preserves SP/LR/r4-r11",
+      "displaced": [
+        "ldr r1, [pc, #0x38]",
+        "cmp r0, r1",
+        "blo 0x0200fe6c",
+        "movs r1, #1"
+      ],
+      "continuation": "whole-function replacement; return to incoming caller",
+      "conflicts": "any patch into this function or its four literals",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "core"
+    },
+    {
+      "id": "descriptor-offset-width",
+      "segment": "12",
+      "address": 35028856,
+      "expectedHex": "081d0004020ca869",
+      "replacementHex": "081d021cc046a869",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r1=28*row; r5=actor system; output r2=4+28*row and r0=descriptor archive; flags dead before ARC read",
+      "displaced": [
+        "adds r0, r1, #4",
+        "lsls r0, r0, #16",
+        "lsrs r2, r0, #16",
+        "ldr r0, [r5, #0x18]"
+      ],
+      "continuation": "0x02167f80",
+      "conflicts": "descriptor loader replacement or edits to 0x02167f78..0x02167f7f",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "core"
+    },
+    {
+      "id": "field-actor-update",
+      "segment": "36",
+      "address": 35127352,
+      "expectedHex": "e6f79efb",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=actor system; forward native update exactly once; preserve r4-r11",
+      "displaced": [
+        "bl 0x02166778"
+      ],
+      "continuation": "0x0218003c",
+      "conflicts": "field actor update callsite",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "field"
+    },
+    {
+      "id": "field-unload",
+      "segment": "36",
+      "address": 35127716,
+      "expectedHex": "70b50d1c061ca86b",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=game system; r1=field; native prologue preserves r4-r6,LR",
+      "displaced": [
+        "push {r4,r5,r6,lr}",
+        "adds r5,r1,#0",
+        "adds r6,r0,#0",
+        "ldr r0,[r5,#0x38]"
+      ],
+      "continuation": "0x021801ac",
+      "conflicts": "field unload prologue",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "field"
+    },
+    {
+      "id": "field-billboard-draw",
+      "segment": "36",
+      "address": 35131886,
+      "expectedHex": "cef633fa",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=secondary billboard system (field+0xc4); r1=camera; r2=light; forward native draw once, then follower effects; no actor correction; preserve r4-r11 and SP",
+      "displaced": [
+        "bl 0x0204f658"
+      ],
+      "continuation": "0x021811f2",
+      "conflicts": "secondary billboard renderer callsite",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "field"
+    },
+    {
+      "id": "follower-grid-event",
+      "segment": "36",
+      "address": 35133564,
+      "expectedHex": "fff72efe",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=game system; r1=field; r2=effect-delete flag; r3=menu flag; original provider first, r0=event or NULL; preserve r4-r11, SP and native event ownership",
+      "displaced": [
+        "bl 0x021814dc"
+      ],
+      "continuation": "0x02181880",
+      "conflicts": "field event provider callsite",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "field"
+    },
+    {
+      "id": "follower-rail-event",
+      "segment": "36",
+      "address": 35133996,
+      "expectedHex": "00f018f8",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=game system; r1=field; original provider first, r0=event or NULL; preserve r4-r11, SP and native event ownership",
+      "displaced": [
+        "bl 0x02181a60"
+      ],
+      "continuation": "0x02181a30",
+      "conflicts": "field event provider callsite",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "field"
+    },
+    {
+      "id": "event-opcode-fetch",
+      "segment": "ARM9",
+      "address": 33642864,
+      "expectedHex": "00f03af8",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=VM; returns u16 opcode after exactly one native Read16; sees both dispatch tables without consuming operands; r4-r11 and aligned SP preserved",
+      "displaced": [
+        "bl 0x020159e8"
+      ],
+      "continuation": "0x02015974",
+      "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "event-callback",
+      "segment": "ARM9",
+      "address": 33647864,
+      "expectedHex": "08b5011cc2684368",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=live event; forwards callback(event,event+8,work) exactly once and returns native result; never reads event after callback",
+      "displaced": [
+        "push {r3,lr}",
+        "adds r1,r0,#0",
+        "ldr r2,[r0,#12]",
+        "ldr r3,[r0,#4]"
+      ],
+      "continuation": "whole-function replacement; return to caller",
+      "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "event-free",
+      "segment": "ARM9",
+      "address": 33647880,
+      "expectedHex": "10b5041ce0680028",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=live event; observer invalidates tokens before replaying original prologue; condition flags from cmp preserved by ldr/bx",
+      "displaced": [
+        "push {r4,lr}",
+        "adds r4,r0,#0",
+        "ldr r0,[r4,#12]",
+        "cmp r0,#0"
+      ],
+      "continuation": "0x02016d10",
+      "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "event-actor-action-queued",
+      "segment": "12",
+      "address": 35024524,
+      "expectedHex": "00f0c4f9",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=resolved actor, r1=action; inspect before native action/sequence flags commit; forward original SetNextActorAcmd",
+      "displaced": [
+        "bl 0x02167218"
+      ],
+      "continuation": "0x02166e90",
+      "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "event-actor-action-reset",
+      "segment": "12",
+      "address": 35024564,
+      "expectedHex": "00f0b0f9",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=resolved actor, r1=action; inspect before native action/sequence flags commit; forward original SetNextActorAcmd",
+      "displaced": [
+        "bl 0x02167218"
+      ],
+      "continuation": "0x02166eb8",
+      "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "event-actor-allocation",
+      "segment": "12",
+      "address": 35022838,
+      "expectedHex": "01f039f9",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=actor system; incoming SP points to copied 36-byte entity; observer runs before native slot selection; returns native free slot",
+      "displaced": [
+        "bl 0x02167a6c"
+      ],
+      "continuation": "0x021667fa",
+      "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "event-actor-position",
+      "segment": "12",
+      "address": 35027916,
+      "expectedHex": "70b50c1c2168161c",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=resolved actor, r1=world vector, r2=direction; inspect destination before any grid/world write; r3 caller-scratch",
+      "displaced": [
+        "push {r4,r5,r6,lr}",
+        "adds r4,r1,#0",
+        "ldr r1,[r4]",
+        "adds r6,r2,#0"
+      ],
+      "continuation": "0x02167bd4",
+      "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "event-actor-delete",
+      "segment": "12",
+      "address": 35023168,
+      "expectedHex": "10b5041c88300068",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=resolved actor; preserve native deletion for retail actors; follower conflict removes owned actor once",
+      "displaced": [
+        "push {r4,lr}",
+        "adds r4,r0,#0",
+        "adds r0,#0x88",
+        "ldr r0,[r0]"
+      ],
+      "continuation": "0x02166948",
+      "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "event-actor-world-step",
+      "segment": "12",
+      "address": 35025672,
+      "expectedHex": "0b1c021c03cb4432",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=actor r1=world position; observer before any world write; original void vector copy replicated exactly; r0-r3 caller scratch",
+      "displaced": [
+        "adds r3,r1,#0",
+        "adds r2,r0,#0",
+        "ldm r3!,{r0,r1}",
+        "adds r2,#0x44"
+      ],
+      "continuation": "whole-function replacement; return to caller",
+      "conflicts": "Any patch to native world position setter",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "event-vm-free",
+      "segment": "ARM9",
+      "address": 33642744,
+      "expectedHex": "004b18474da20302",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        4
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=VM; remove token without inspecting its already-freed environment; forward original HeapFree exactly once",
+      "displaced": [
+        "ldr r3,[pc,#0]",
+        "bx r3",
+        "literal 0x0203a24d"
+      ],
+      "continuation": "whole-function tailcall replacement; return to caller",
+      "conflicts": "VM destructor function and literal",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "field-actor-billboard-draw",
+      "segment": "36",
+      "address": 35131738,
+      "expectedHex": "cef67dfa",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=main actor billboard system (field+0xc0); r1=camera; r2=light; temporarily correct owned follower, forward native draw once, restore quad; preserve r4-r11 and SP",
+      "displaced": [
+        "bl 0x0204f658"
+      ],
+      "continuation": "0x0218115e",
+      "conflicts": "main actor billboard renderer callsite",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "field"
+    },
+    {
+      "id": "ambient-callback",
+      "segment": "12",
+      "address": 35025288,
+      "expectedHex": "08b5011c8c310968",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=actor; void return; original callback at actor+140, slot+8; synchronous context restored after callback; preserves r4-r11 and 8-byte stack alignment",
+      "displaced": [
+        "push {r3, lr}",
+        "adds r1, r0, #0",
+        "adds r1, #0x8c",
+        "ldr r1, [r1]"
+      ],
+      "continuation": "Whole dispatcher replacement; return to incoming LR",
+      "conflicts": "Any patch/relocation into this span",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "ambient-grid-collision",
+      "segment": "12",
+      "address": 34989304,
+      "expectedHex": "f0b583b00090883000680192",
+      "patchBytes": 12,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=actor,r1=x,r2=y,r3=z (signed grid coordinates); r0=BOOL; r3-preserving r4/LR veneer; native result retained unless autonomous follower conflict; preserves r4-r11 and 8-byte stack alignment",
+      "displaced": [
+        "push {r4, r5, r6, r7, lr}",
+        "sub sp, #0xc",
+        "str r0, [sp]",
+        "adds r0, #0x88",
+        "ldr r0, [r0]",
+        "str r2, [sp, #4]"
+      ],
+      "continuation": "Native trampoline resumes at 0x0215e504 after replaying 12 bytes",
+      "conflicts": "Any patch/relocation into this span",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    },
+    {
+      "id": "ambient-rail-collision",
+      "segment": "36",
+      "address": 35215060,
+      "expectedHex": "00f048f8",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=actor,r1=destination rail location; r0=BOOL; native check first; world destination resolved by native manager; preserves r4-r11 and 8-byte stack alignment",
+      "displaced": [
+        "bl #0x02195768"
+      ],
+      "continuation": "Return to 0x021956d8; native mask bit 4 unchanged",
+      "conflicts": "Any patch/relocation into this span",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "module": "events"
+    }
+  ],
+  "structureEvidence": {
+    "field": {
+      "zoneId": 224,
+      "status": "offset checked against the IREO revision-0 field binary; live emulator acceptance pending"
+    },
+    "actor": {
+      "size": 256,
+      "flags": 0,
+      "movementFlags": 4,
+      "id": 8,
+      "zone": 10,
+      "objectCode": 12,
+      "moveCode": 14,
+      "direction": 24,
+      "grid": 60,
+      "world": 68,
+      "drawOffset": 80,
+      "outerDrawOffset": 92,
+      "attributeDrawOffset": 104,
+      "system": 136,
+      "movementCallbacks": 140,
+      "drawingCallbacks": 144,
+      "movementWork": 148,
+      "movementWorkBytes": 16,
+      "descriptor": 228
+    },
+    "movementCallbacks": {
+      "size": 20,
+      "moveCode": 0,
+      "init": 4,
+      "update": 8,
+      "destroy": 12,
+      "recover": 16
+    },
+    "actorSystem": {
+      "capacity": 4,
+      "count": 6,
+      "descriptorArchive": 24,
+      "actors": 28,
+      "field": 64,
+      "cameraYawPointer": 68,
+      "cameraPitchFromYawPointer": 2,
+      "cache": 76,
+      "cacheCapacity": 26
+    },
+    "notSavedMovementFlag": 1048576,
+    "status": "IREO binary layouts and adapters verified; live emulator acceptance pending",
+    "interaction": {
+      "gameSystemEvent": 24,
+      "eventSize": 20,
+      "eventReturn": 0,
+      "eventCallback": 4,
+      "eventSequence": 8,
+      "eventWork": 12,
+      "eventGameSystem": 16,
+      "messageBackgroundWindowTable": 192,
+      "talkWindowSize": 52,
+      "talkWindowStringOwnedByWindow": 4,
+      "talkWindowSystem": 8,
+      "messageBackgroundTalkSystem": 348,
+      "partyStatusParameter": 157,
+      "partyFriendshipParameter": 9,
+      "partyNicknameRawParameter": 116,
+      "status": "US adapter disassembly checked; new conversation game execution pending",
+      "playerRailFlag": 8192,
+      "actorMovementWork": 148,
+      "gameSystemFrameEventFlag": 53
+    }
+  },
+  "releaseGates": {
+    "actorOwnership": false,
+    "saveExclusion": false,
+    "allMovementModes": false,
+    "scriptAndActivityGuards": false,
+    "interaction": false,
+    "resourceLifetime": false,
+    "appearanceCoverage": false,
+    "installExportReload": false,
+    "emulatorTransitions100": false,
+    "hardware": false
+  },
+  "nativeAdapters": [
+    {
+      "id": "actor-update",
+      "segment": "12",
+      "address": 35022712,
+      "expectedHex": "10b5041c606ad3f627ff201c",
+      "abi": "r0=ActorSystem*; void",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "actor-create",
+      "segment": "12",
+      "address": 35022976,
+      "expectedHex": "f0b589b0071c0d1c141c00a8",
+      "abi": "r0=system; r1=x; r2=z; r3=direction; stack=id,model,moveCode,zone; r0=Actor*",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "actor-delete",
+      "segment": "12",
+      "address": 35023168,
+      "expectedHex": "10b5041c8830006800f034fd",
+      "abi": "r0=Actor*; invokes drawing and movement destructors before clearing actor",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "actor-face",
+      "segment": "12",
+      "address": 35024984,
+      "expectedHex": "028b82830183704738b50c1c",
+      "abi": "r0=Actor*; r1=direction",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "field-player-actor",
+      "segment": "36",
+      "address": 35235488,
+      "expectedHex": "4068014b1847c046c9af1902",
+      "abi": "r0=FieldPlayer*; r0=Actor*",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "field-player-mode",
+      "segment": "36",
+      "address": 35235524,
+      "expectedHex": "4068014b1847c046ddaf1902",
+      "abi": "r0=FieldPlayer*; r0=mode",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "field-event-running",
+      "segment": "36",
+      "address": 35132108,
+      "expectedHex": "4068014b1847c046bd6a0102",
+      "abi": "r0=Field*; r0=boolean",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "story-partner-query",
+      "segment": "12",
+      "address": 35037812,
+      "expectedHex": "08b5adf68df80249aef696ff",
+      "abi": "r0=GameData*; r0=boolean; read-only",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "bag-access",
+      "segment": "ARM9",
+      "address": 33649492,
+      "expectedHex": "192109014058704765218900",
+      "abi": "r0=GameData*; r0=BagSave*",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "party-access",
+      "segment": "ARM9",
+      "address": 33649500,
+      "expectedHex": "652189004058704767218900",
+      "abi": "r0=GameData*; r0=Party*",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "party-count",
+      "segment": "ARM9",
+      "address": 33684984,
+      "expectedHex": "40687047f8b5071c0025fff7",
+      "abi": "r0=Party*; r0=count",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "party-slot",
+      "segment": "ARM9",
+      "address": 33685256,
+      "expectedHex": "dc2208304a43801870470000",
+      "abi": "r0=Party*; r1=index; r0=Pokemon*",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "party-param",
+      "segment": "ARM9",
+      "address": 33672440,
+      "expectedHex": "70b5051c0c1c161c01f050f8",
+      "abi": "r0=Pokemon*; r1=parameter; r2=0 for scalar; r0=value",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "party-shiny",
+      "segment": "ARM9",
+      "address": 33672620,
+      "expectedHex": "004b1847b5cd010238b5051c",
+      "abi": "r0=Pokemon*; r0=boolean",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "resource-heap-free",
+      "segment": "ARM9",
+      "address": 33792680,
+      "expectedHex": "10b5fff759fe041c01d142f0",
+      "abi": "r0=heap ID; r0=free bytes",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "file-init",
+      "segment": "ARM9",
+      "address": 34016380,
+      "expectedHex": "232100220902114382604260",
+      "abi": "r0=FSFile*",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "file-open",
+      "segment": "ARM9",
+      "address": 34016928,
+      "expectedHex": "014b01221847c046690d0702",
+      "abi": "r0=FSFile*; r1=path; r0=success",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "file-length",
+      "segment": "ARM9",
+      "address": 34016704,
+      "expectedHex": "38b582b0002401a9051c0194",
+      "abi": "r0=FSFile*; r0=length",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "file-read",
+      "segment": "ARM9",
+      "address": 34016832,
+      "expectedHex": "38b582b0051c00ab2b610091",
+      "abi": "r0=FSFile*; r1=destination; r2=length; r0=bytes read",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "file-close",
+      "segment": "ARM9",
+      "address": 34016692,
+      "expectedHex": "014b08210122184755050702",
+      "abi": "r0=FSFile*",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "save-exclusion",
+      "segment": "ARM9",
+      "address": 33618834,
+      "expectedHex": "0126360500984168314203d1",
+      "abi": "tests bit 20 of actor movement flags; skips serializer when set",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-resource-read",
+      "segment": "ARM9",
+      "address": 33854404,
+      "expectedHex": "f8b5051cb72080000b4f0090",
+      "abi": "r0=NitroFS NARC path; r1=member; r0=resource",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-resource-free",
+      "segment": "ARM9",
+      "address": 33854468,
+      "expectedHex": "10b5041c0fd0218807488142",
+      "abi": "r0=resource; free CPU data after releasing VRAM",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-texture-upload",
+      "segment": "ARM9",
+      "address": 33854636,
+      "expectedHex": "30b583b04568281c1ff0d6f8",
+      "abi": "r0=resource; r0=success",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-texture-free",
+      "segment": "ARM9",
+      "address": 33854772,
+      "expectedHex": "70b582b040681ff093f8041c",
+      "abi": "r0=resource; r0=success",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-texture-data",
+      "segment": "ARM9",
+      "address": 33855008,
+      "expectedHex": "4068014b1847c04665860602",
+      "abi": "r0=resource; r0=NNS texture block",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-palette-data",
+      "segment": "ARM9",
+      "address": 33855264,
+      "expectedHex": "08b5fff77dff816b401808bd",
+      "abi": "r0=resource; r0=palette",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-palette-size",
+      "segment": "ARM9",
+      "address": 33968824,
+      "expectedHex": "002802d0008ec00070470020",
+      "abi": "r0=NNS texture block; r0=palette byte count",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-model-create",
+      "segment": "ARM9",
+      "address": 33855276,
+      "expectedHex": "f8b582b0019040680c1c151c",
+      "abi": "r0=resource; r1=model index; r2=texture resource; r0=model",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-model-free",
+      "segment": "ARM9",
+      "address": 33855444,
+      "expectedHex": "38b5041c0dd02088064da842",
+      "abi": "r0=model",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-animation-create",
+      "segment": "ARM9",
+      "address": 33855500,
+      "expectedHex": "f8b582b0051c1948171c0090",
+      "abi": "r0=model; r1=resource; r2=animation index; r0=animation",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-animation-free",
+      "segment": "ARM9",
+      "address": 33855624,
+      "expectedHex": "38b5041c0dd02088064da842",
+      "abi": "r0=animation",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-object-create",
+      "segment": "ARM9",
+      "address": 33855672,
+      "expectedHex": "f0b583b0019019480f1c0290",
+      "abi": "r0=model; r1=animation array; r2=count; r0=object",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-object-free",
+      "segment": "ARM9",
+      "address": 33855796,
+      "expectedHex": "10b5041c0fd0618907488142",
+      "abi": "r0=object",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-animation-bind",
+      "segment": "ARM9",
+      "address": 33855860,
+      "expectedHex": "08b5426889005158002901d1",
+      "abi": "r0=object; r1=animation index",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-animation-frame",
+      "segment": "ARM9",
+      "address": 33855972,
+      "expectedHex": "436888001858002801d10020",
+      "abi": "r0=object; r1=animation index; r2=fx32 frame pointer",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-object-draw",
+      "segment": "ARM9",
+      "address": 33856348,
+      "expectedHex": "38b50d1cfff700fffff750fe",
+      "abi": "r0=object; r1=60-byte SRT matrix",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-material-bind",
+      "segment": "ARM9",
+      "address": 33875248,
+      "expectedHex": "38b50d1c041c281c2560faf7",
+      "abi": "r0=40-byte material; r1=private resource",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "effect-scene-draw",
+      "segment": "ARM9",
+      "address": 33876912,
+      "expectedHex": "f0b5f5b0019013900c300c1c",
+      "abi": "r0=60-byte billboard scene; r1=camera; r2=light",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "field-billboard-native-draw",
+      "segment": "ARM9",
+      "address": 33879640,
+      "expectedHex": "4068014b1847c046b1eb0402",
+      "abi": "r0=BlActSystem; r1=camera; r2=light",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-create",
+      "segment": "ARM9",
+      "address": 33647796,
+      "expectedHex": "f8b582b0051c019337200e1c",
+      "abi": "r0=game; r1=return event; r2=callback(event, sequence*, work*); r3=work bytes; r0=event. Native heap 4; preflight free capacity.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-free",
+      "segment": "ARM9",
+      "address": 33647880,
+      "expectedHex": "10b5041ce068002801d023f0",
+      "abi": "r0=owned, unlinked event; frees work and event",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-grid-provider",
+      "segment": "36",
+      "address": 35132636,
+      "expectedHex": "f8b59cb00c1c161c0021051c",
+      "abi": "r0=game;r1=field;r2=effect-delete*;r3=menu*;r0=event",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-rail-provider",
+      "segment": "36",
+      "address": 35134048,
+      "expectedHex": "f8b59cb0051c0c1c0ca8291c",
+      "abi": "r0=game;r1=field;r0=event",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "field-controller-type",
+      "segment": "36",
+      "address": 35128632,
+      "expectedHex": "08b54621890042581368054a",
+      "abi": "r0=field;r0=resolved grid (0) or no-grid controller",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "front-grid-position",
+      "segment": "36",
+      "address": 35236492,
+      "expectedHex": "f8b5051c0e1c171c1c1cfff7",
+      "abi": "r0=FieldPlayer;r1=x s16*;r2=y s16*;r3=z s16*",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "talk-route-collision",
+      "segment": "12",
+      "address": 34989232,
+      "expectedHex": "f8b582b00c1c061c08f0f6fe",
+      "abi": "r0=player actor;r1=direction;r0=collision mask; read-only",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "field-player-brake",
+      "segment": "36",
+      "address": 35235224,
+      "expectedHex": "10b5041c2068e5f7cbff0028",
+      "abi": "r0=FieldPlayer; native controller-specific force stop",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "field-player-observer",
+      "segment": "36",
+      "address": 35235512,
+      "expectedHex": "4068014b1847c046d9af1902",
+      "abi": "r0=FieldPlayer;r0=move state, 0=off,3=end",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pressed-keys",
+      "segment": "ARM9",
+      "address": 33808124,
+      "expectedHex": "08b5fff7ebf9fff7efff08bd",
+      "abi": "no arguments; r0=edge-triggered logical keys",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "held-keys",
+      "segment": "ARM9",
+      "address": 33808160,
+      "expectedHex": "08b5fff7d9f9fff7efff08bd",
+      "abi": "no arguments; r0=held logical keys",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "player-name",
+      "segment": "ARM9",
+      "address": 33649516,
+      "expectedHex": "08b5fff741ff203008bd0000",
+      "abi": "r0=GameData;r0=player info with UTF16 name at offset 0",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "sound-loading",
+      "segment": "ARM9",
+      "address": 33578172,
+      "expectedHex": "08b507484069002801d10020",
+      "abi": "no arguments;r0=sound loading flag; avoid blocking cry call",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pokemon-cry",
+      "segment": "ARM9",
+      "address": 33581556,
+      "expectedHex": "f0b585b0051c0e1c171c0493",
+      "abi": "r0=species;r1=form;r2=pan64;r3=chorus0;stack=volumeOffset0,speedOffset0,reverse0,user0;r0=handle",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pokemon-cry-speed",
+      "segment": "ARM9",
+      "address": 33581916,
+      "expectedHex": "10b534220a4b424398589c18",
+      "abi": "r0=valid voice handle;r1=signed additive waveform speed",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "field-message-background",
+      "segment": "36",
+      "address": 35128464,
+      "expectedHex": "806a704700697047406c7047",
+      "abi": "r0=field;r0=message BG system",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "field-heap",
+      "segment": "36",
+      "address": 35128512,
+      "expectedHex": "00887047c430006870470000",
+      "abi": "r0=field;r0=heap ID",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "string-create",
+      "segment": "ARM9",
+      "address": 33850672,
+      "expectedHex": "38b5051c64200090081c6900",
+      "abi": "r0=capacity UTF16 words;r1=heap;r0=string buffer",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "string-free",
+      "segment": "ARM9",
+      "address": 33850724,
+      "expectedHex": "014b0021416018474da20302",
+      "abi": "r0=string buffer",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "string-load",
+      "segment": "ARM9",
+      "address": 33850900,
+      "expectedHex": "30b4002242800e4c0a882388",
+      "abi": "r0=string buffer;r1=terminated UTF16; bounded by buffer capacity",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "talk-window-create",
+      "segment": "36",
+      "address": 35162008,
+      "expectedHex": "78b583b00e1c151c032e14da",
+      "abi": "r0=message BG;r1=slot1;r2=retained Vec*;r3=retained StrBuf*;stack=normal0,tail0;r0=embedded window or NULL. Caller retains StrBuf ownership.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "talk-window-close",
+      "segment": "36",
+      "address": 35162068,
+      "expectedHex": "10b5041c6068002801d0bff6",
+      "abi": "r0=window; starts native close, releases cursor",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "talk-window-wait",
+      "segment": "36",
+      "address": 35162100,
+      "expectedHex": "10b5041c6178a06802f074fe",
+      "abi": "r0=window;r0=closed; zeroes embedded 52-byte slot",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "talk-window-delete",
+      "segment": "36",
+      "address": 35162136,
+      "expectedHex": "10b5041c6068002801d0bff6",
+      "abi": "r0=window; immediate cancellation, clears cursor and embedded slot",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "talk-window-print",
+      "segment": "36",
+      "address": 35162244,
+      "expectedHex": "f8b5051c6978a86802f036fe",
+      "abi": "r0=window;r0=done; native text speed and page advance",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "talk-window-cursor",
+      "segment": "36",
+      "address": 35162568,
+      "expectedHex": "38b5041c1620616900010818",
+      "abi": "r0=window; draw native wait cursor",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "emote-material-layout",
+      "segment": "ARM9",
+      "address": 33875308,
+      "expectedHex": "38b5041c1348890040582372",
+      "abi": "r0=material;r1=format index0 (4bpp);r2=size0x22 (32x32);r3=frame width32;stack=frame height32",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "rail-talk-collision",
+      "segment": "36",
+      "address": 35215080,
+      "expectedHex": "014b00221847c046f5561902",
+      "abi": "r0=player rail actor;r1=direction;r0=collision mask; bits 0/1 are route limit/terrain; require rail flag and native work",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "rail-front-world",
+      "segment": "36",
+      "address": 35236240,
+      "expectedHex": "f0b589b0041c60680e1c151c",
+      "abi": "r0=FieldPlayer;r1=direction;r2=VecFx32 output; obtains one native rail tile along the current tangent",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "game-system-frame-order",
+      "segment": "ARM9",
+      "address": 33647016,
+      "expectedHex": "10b5041c00f06cf8e06900f065fd002802d01e2026f0eafde06900f049fd00280dd121696269201c00f0fcf9201c00f033f8201c00f0caf9606a15f00bf9a06823f0c6ff",
+      "abi": "r0=game system; cache current-event presence first, then run event providers and callbacks, then update the process/field. Observation only; no new hook.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-running-cache-update",
+      "segment": "ARM9",
+      "address": 33647240,
+      "expectedHex": "10b5041c00f094f93534207010bd",
+      "abi": "r0=game system; write whether current event exists to byte +0x35 before callbacks. Native frame cache is never changed by follower code.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-running-query",
+      "segment": "ARM9",
+      "address": 33647292,
+      "expectedHex": "10b5041c00f07af9002801d0012010bd3534207810bd",
+      "abi": "r0=game system; r0=1 if current event exists, otherwise cached byte +0x35, including after callbacks finish.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-update-loop",
+      "segment": "ARM9",
+      "address": 33647988,
+      "expectedHex": "70b5061c301cfff7b5fe051c01d1002070bdfff7b7ff002803d0012803d02128f0e7002070bd281c00f0a2f8041c281cfff7b0ff301c211cfff79efe002ce1d1012070bd",
+      "abi": "r0=game system; run current callback, free completed node, restore return node. Completion does not clear cached event-running byte.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-current-access",
+      "segment": "ARM9",
+      "address": 33647336,
+      "expectedHex": "8069704781617047",
+      "abi": "Get: r0=game -> r0=current event at +0x18. Set at +4: r0=game,r1=event.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-current-check",
+      "segment": "ARM9",
+      "address": 33648056,
+      "expectedHex": "08b5fff795fe002801d0012008bd002008bd",
+      "abi": "r0=game system; r0=boolean current event pointer, independent of cached frame state.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-callback-dispatch",
+      "segment": "ARM9",
+      "address": 33647864,
+      "expectedHex": "08b5011cc26843680831984708bd0000",
+      "abi": "r0=event; invoke callback with event, sequence address and work; r0=callback result.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-return-query",
+      "segment": "ARM9",
+      "address": 33648356,
+      "expectedHex": "00687047",
+      "abi": "r0=event; r0=return/parent event at +0.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-script-event-callback",
+      "segment": "12",
+      "address": 34944992,
+      "expectedHex": "70b55568061c281c1468fff7a1ff012801d1002070bd201c00f036fb281cfff7e1ff012808d1281c311cfff7d3ff281cfff78aff002070bd281cfff785ff012070bd0000",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-script-env-game",
+      "segment": "12",
+      "address": 34951532,
+      "expectedHex": "006a406870470000",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-script-env-system",
+      "segment": "12",
+      "address": 34951548,
+      "expectedHex": "006ac06870470000",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-script-work-event",
+      "segment": "12",
+      "address": 34946720,
+      "expectedHex": "40697047",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-script-normal-table",
+      "segment": "12",
+      "address": 35042616,
+      "expectedHex": "814115028541150289411502a1411502c5411502dd411502e9411502014215021d4315023143150245431502614315026d4315028d431502ad431502cd431502f14315022144150295471502b547150219421502314215024d42150281421502b1421502d9421502f9421502b14415020d4515028545150299451502b1451502f545150229461502494615026946150291461502b9461502ed4615020d471502d5471502ed471502094815022d4715024d47150271471502254815022d48150275481502b5481502d9481502cd971a0211871a0269871a0239881a02c1871a022d931a0245931a025d931a021d941a02258f1a02718f1a02f1901a02f9961a0251881a02f5891a0245891a02f5941a02e1951a023d961a02e1961a0269831a02b9901a02e5901a0239931a02bd971a0225771a02d5771a02f5771a02e5771a0259781a028d781a023d791a0285791a02d1791a021d7a1a02bd781a021d791a022d791a02f57a1a02297b1a02657a1a02ad7a1a0201861502597b1a02897b1a02f17b1a02457c1a02557c1a02bd7b1a02f5981a029d9f1a02ad9f1a0219a01a0261a01a02c9a01a025da21a0291a11a0265a11a02fda11a02a5a01a02d9a51a0255a51a0235aa1a0275aa1a02e59f1a021da51a0249a61a028da61a02a9a71a0289a81a028da21a02c9aa1a02e1a81a0219ab1a0271ab1a02ddab1a0211671a0269661a02b5661a025d671a02ed661a02ad671a02dd671a025d681a0209911a02d1681a02000000003d691a0261691a022560150255601502256a1a02a5691a02e1691a0200000000616a1a02a16a1a02c56a1a02a15f1502c95f1502f15f1502156d1a020000000000000000256e1a0200000000000000003d6f1a0221701a02656e1a025d701a0295701a02c1731a02ed731a0219741a02f9711a0221721a0249721a0259721a02d9721a02e9721a02b1731a0215841a0285841a027d851a02cd851a02f5851a0201851a0219b21a0279b41a02ad741a02fd741a024d751a029d751a02ed751a022d761a0251761a02c9e41a0285761a02257f1a0245801a025d811a028d7f1a02b97e1a02ad801a02dd801a0269841702f5841702458517027185170209561502395615026556150285561502c15615029d561502e5561502095715024157150279571502e158150295571502e55715021158150251581502615a1502f9581502dd5915022559150275591502415b1502915a1502e95a1502f9551502c5571502a55c1502e55c1502015d1502315d1502815d1502b55d1502d55d1502000000000d5e1502217c1502457c1502717c15023d7d1502617d1502dd7c15020d7d1502857d1502bd7d15022d7e15025d7e1502997e1502897c1502f57d1502117415023d7415026974150271641502b96415025565150291651502e5f41a02296315022d641502f56515027162150285f51a0259f61a02f5ed1a02456b1502d5f51a028d6b1502d16b1502bd681502b56515024969150275711502dd6f1502756f150285621502c96c1502716615021d68150261681502d56d150285671502c16e1502096f150221621502216e15026dee1a02ddee1a0261ef1a02fdf81a020167150225701502a570150295ba1a023db71a0275b91a02c1b91a0225ba1a0249ba1a02edba1a0295b81a02c9ba1a022db91a02e9b81a0269b71a02b1b71a02e9b71a0221b81a0200000000d5fc1a0200000000e1111602d96c1a0271581502219c15026ddc1a026d9c1502819c1502919c1502d99c15022de71a029de71a02bde71a02d5e71a02ede71a02c9e81a022de91a025de81a0205e91a0259e91a0271bb1a02a5741502c9741502a975150275e01a02e5751502e1dd1a0299761502017915022de01a022d7a1502b178150201e11a02a5df1a02b1a1170201a2170221a217025da2170295dc1a02b5dc1a02d5dc1a0219dd1a02797a15028d7a1502297b15025ddd1a02c5801502e58115028182150251851502d5881502e1851502598815027d8815020000000000000000000000001578150200000000f572170200000000c97217020000000095e31a025de41a0281601502b1601502dd60150299e41a0291fb1e02dd7b1502a9b11a02e1b11a02000000000000000000000000000000000000000000000000000000000000000079af1a0289af1a020000000000000000000000000000000089ae1a02c9ae1a021daf1a0205b01a023db01a0275b01a020000000000000000000000000000000000000000e1df1a0215721c0275721c02d9761c02451f1c02891f1c02cd1f1c02000000000000000000000000910a16023d0b1602f9b21a0229b31a0259b31a0289b31a0289b41a02c9b21a020000000079b21a02b9b31a02e9b31a0219b41a0249b41a0241ea1a028dea1a02ed2f1c02f5e41a025159160221f81a0209f71a02000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005fe1a0221fe1a0291fe1a0205f11a02b1f01a02895b1502a55b1502c55b150241f41502c5f41502a9f415029dfd1a02fdfc1a02dd0c16021d0d16025d0d160241f31a02b1f31a0271f31a0235f41a02796e1502557715028d5e1502e55e15023d5f1502f50f1602797d1702f58f150219301c0209311c025d311c02099e1502559d15027d9d1502a19d1502899e1502599f150291441602b9441602d94416020945160265451602a9451602f94516022d4616025d46160295461602cd4616020d4716024d47160285471602c54716020d481602dd77170245781702097917020d731c02dd731c0295ff1a0201ff1a02e1041702810517021d04170251041702cd051702bd0617020d071702b1041702d9de1a021ddf1a02657c1a02b57c1a025106170299061702a9031702dd03170219571602995516024d561602a9561602e1561602394816021d49160299741c02c958160299761c02fd4c1602694c1602cd4b1602154c1602494b1602e14a1602954b16025de51a0205611502296115028d011b02e1011b0231f51a02c9ef1a02b5f81a0221621c02c5771c0201781c02000000004d781c02d17a1c020000000011201c02cda21a024df91a0255951a02cde01a02ddf91a02259d1c0261ac1a025d6d1a0245001b02f5001b02a96f1a0269a91a0241731a021d9c16022d9c1602419c1602d57e150249bb1a02756e1a02c56e1a02000000000000000000000000f56d1a02ad6d1a02e1811a0215a71a02919f1502119d1502359d150215711a0209b21a0289631502dd9e1a023da51602e1a516024da6160271a616020000000000000000000000000000000000000000000000007d7b150245ad1a0259ad1a0291ad1a0200000000c9ad1a020000000000000000a5a6160219a7160249a716028de11a029da71602cda7160249ae1a0275ae1a020000000000000000057d1a02397d1a02397b1c020000000000000000c97b1c02517c1c029d7c1c0229731702057e1a02ed6f17022170170239901a02916f170279701702d170170251711702b571170219721702717217020000000000000000000000000000000045e21a0235e31a020000000000000000000000000000000065821a024d7317020000000000000000a9af1a0201e31a025d771a0235b11a0259b11a02ed8e1c02d18c1c02858e1c02d1911c02f1e31a02717d1a02a57d1a02d57d1a02457e1a0200000000000000000d7d1c02d57c1c02dd7d1c021d7e1c0279b11a0291b11a02b57b150295b01a0205b11a02cdb01a0215b11a0225b11a02000000000000000025961c02000000002da816025da81602d5a8160295a8160251a9160295a91602d9a916021daa1602bdaa160231ab1602c1ab1602ddab1602f9ab1602e5af1a02c5791c02057a1c0299a91a020000000065f81a020000000045e61a02f5a7160275ac16023d781c02c5ac1602e1ac1602000000000000000061df1a02fdac1602000000000000000000000000f9981c02d95b1502419a1c024d611502dda61602b9761a027d9a1c0200000000b19a1c02399b1c02899b1c02ed9b1c02959c1c02c99c1c02019b1c02259c1c025d9c1c0200000000b17f1c020000000025ad1602000000000d931c02e9931c020000000099b41a020db51a02316a15020000000000000000ed5b1502ad8b1502dd8b150200000000315c1502655c1502",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-vm-dispatch",
+      "segment": "ARM9",
+      "address": 33642796,
+      "expectedHex": "70b5051c697e002904d0012913d0022902d049e0002070bdea69002a09d0e96a9047012803d10020e86101206876012070bd01206876286a002802d10020687670bd281c00f03af8041ca868844215d36b699c4206d32869c018844202d2ea68002a02d10020687670bde31a9b00e96ad258281c9047012818d0dce72e6b002e09d0e96a6a6b281c231cb047002802d10020687670bd6b68a200e96a9a58281c9047012802d0c6e700206876012070bdc06a70470163426370470000",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-event-scheduler",
+      "segment": "ARM9",
+      "address": 33647988,
+      "expectedHex": "70b5061c301cfff7b5fe051c01d1002070bdfff7b7ff002803d0012803d02128f0e7002070bd281c00f0a2f8041c281cfff7b0ff301c211cfff79efe002ce1d1012070bd08b5fff7",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-event-cache",
+      "segment": "ARM9",
+      "address": 33647240,
+      "expectedHex": "10b5041c00f094f93534207010bd000008b5806823f074ff08bd000008b50349034a031cfff7f4ff08bdc04624000000b89e1c02",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-actor-action-store",
+      "segment": "12",
+      "address": 35025432,
+      "expectedHex": "c1847047",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-actor-slot-allocator",
+      "segment": "12",
+      "address": 35027564,
+      "expectedHex": "f8b5051c0024fff779fa0127ed69061c3f02281c0121fff7abfa002801d1281cf8bd641c",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-actor-spawn-grid",
+      "segment": "12",
+      "address": 35023676,
+      "expectedHex": "f8b584b00c1c051c1c3401f0e5fa002803d127886688606810e0281c01a901f0edfa01980111c812000d0818071303980111c812000d0818061302980090022039048003081800210190615e281c00f05dfb3904281c091400f070fb3904281c091400f087fb60680211d012010d51180901281c091400f04bfb009801110290c812000d081807133904281c091400f05bfb3904281c091400f078fb022031048003081802210390615e281c00f036fb3104281c091400f04dfb3104281c091400f070fb281c01a900f080fb04b0f8bd",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-actor-volume",
+      "segment": "12",
+      "address": 34989660,
+      "expectedHex": "78b4041c7c3425780026022d00d36e1e3c24045f36043614a619b14201dca14201da002412e0041c7d342478022c01d2002400e0641e240426144024045fa24202dca41ba24200daebe70124002c02d0012078bc7047012b27d1022d01d2002500e06d1e3623c45e2b041b14e318994201dca14201da002012e0011c7d310978022901d2002100e0491e09040b143a21405e824202dcc01a824200daebe70120002802d0012078bc7047002078bc",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-rail-work-pointer",
+      "segment": "12",
+      "address": 35025180,
+      "expectedHex": "94307047",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-rail-direction-key",
+      "segment": "ARM9",
+      "address": 33657572,
+      "expectedHex": "0149085c7047c0462001090208b533210091044b1421012220f07eff00214182",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-rail-cursor-step-request",
+      "segment": "36",
+      "address": 35326612,
+      "expectedHex": "18b4031c2c331b78002b0cd1031c01242c331c70031c00242d33c28501861c70012018bc7047002018bc7047",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-rail-cursor-step-update",
+      "segment": "36",
+      "address": 35326656,
+      "expectedHex": "70b5051ca96f498800297dd0298900297ad001f045f8002876d0281c002434300470281c2c30007800286dd02a8e37482e88825c2d20285613061b16c318281c2d30e98d0370012e03d1281c00f0c0fb041c002c0fd0281c32300470281c298e33300170281c012134300170291c281c383101f03bf82888864202d0281c01f0f7fa2d202856102801da002c3cd1281c00212c300170281c74300170281c5c300188281c64300180281c5e300188281c66300180281c60300188281c68300180281c62300188281c6a300180291c281c5c3101f02bf82b1c38332a1c03cb443203c218681060eb681c20da0f1907891ac141511808d0082904dd1020401a1818e86070bd581ae86070bdc04630521d02",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-rail-cursor-position",
+      "segment": "36",
+      "address": 35326428,
+      "expectedHex": "021c38320b1c03ca03c3106818607047",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-rail-cursor-initializer",
+      "segment": "36",
+      "address": 35330840,
+      "expectedHex": "4162c96a0223c161011c0380002333310b70011c32310b70011c2c310b70011c8267503274314360c3604361036282620b70038170470000",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-safe-choice-child",
+      "segment": "36",
+      "address": 35292052,
+      "expectedHex": "38b50d1c2868141c002804d0012809d0022813d01fe020680121acf731ff2868401c28602068acf731ff012813d12068adf716f82868401c28600ce060680028206802d0adf7aef801e0adf78df8012801d1012038bd002038bd",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-safe-camera-init-child",
+      "segment": "36",
+      "address": 35318264,
+      "expectedHex": "10b568f66dfa68f677f8d1f747fd041cd7f7b2fe002804d1201cd8f745fa012010bd002010bd",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-safe-camera-wait-child",
+      "segment": "36",
+      "address": 35318304,
+      "expectedHex": "08b568f659fa68f663f8d1f733fdd8f785fc002801d0002008bd012008bd",
+      "abi": "See events.h, scene.c and event-policy.json; pinned native implementation, no patched operands",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0000",
+      "segment": "12",
+      "address": 34947456,
+      "expectedHex": "002070470020704708b5c1f6cbfb0120",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0001",
+      "segment": "12",
+      "address": 34947460,
+      "expectedHex": "0020704708b5c1f6cbfb012008bd0000",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0002",
+      "segment": "12",
+      "address": 34947464,
+      "expectedHex": "08b5c1f6cbfb012008bd0000014b081c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0003",
+      "segment": "12",
+      "address": 34947488,
+      "expectedHex": "38b50c1c051cc1f61ffc011c201c01f0",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0004",
+      "segment": "12",
+      "address": 34947524,
+      "expectedHex": "10b5041cc1f61cfc021c216a201c8918",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0005",
+      "segment": "12",
+      "address": 34947548,
+      "expectedHex": "08b5c1f64dfc002008bd000038b50c1c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0006",
+      "segment": "12",
+      "address": 34947560,
+      "expectedHex": "38b50c1c051c201c00f0c0ff281c211c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0007",
+      "segment": "12",
+      "address": 34947584,
+      "expectedHex": "38b5051c0c1cc1f623fc281c211c00f0",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0008",
+      "segment": "12",
+      "address": 34947868,
+      "expectedHex": "10b5041cc1f662fb011c201cc1f684fb",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0009",
+      "segment": "12",
+      "address": 34947888,
+      "expectedHex": "10b5041c00f0ecfa011c201cc1f67afb",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-000a",
+      "segment": "12",
+      "address": 34947908,
+      "expectedHex": "70b5051c0e1cc1f681fb041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-000b",
+      "segment": "12",
+      "address": 34947936,
+      "expectedHex": "08b5c1f675fb002008bd000038b5051c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-000c",
+      "segment": "12",
+      "address": 34947948,
+      "expectedHex": "38b5051cc1f66efb041c281cc1f66afb",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-000d",
+      "segment": "12",
+      "address": 34947980,
+      "expectedHex": "38b5051cc1f65efb041c281cc1f65afb",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-000e",
+      "segment": "12",
+      "address": 34948012,
+      "expectedHex": "38b5051cc1f64efb041c281cc1f64afb",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-000f",
+      "segment": "12",
+      "address": 34948044,
+      "expectedHex": "38b5051cc1f63efb041c281cc1f63afb",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0010",
+      "segment": "12",
+      "address": 34948080,
+      "expectedHex": "70b50e1c051c301c00f0bcfec2f6caff",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0011",
+      "segment": "12",
+      "address": 34948128,
+      "expectedHex": "70b5061cc1f614fb041c301cc1f610fb",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0012",
+      "segment": "12",
+      "address": 34949012,
+      "expectedHex": "70b5051c0e1c00f0a5f8041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0013",
+      "segment": "12",
+      "address": 34949044,
+      "expectedHex": "70b5051c0e1c00f095f8041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0014",
+      "segment": "12",
+      "address": 34947608,
+      "expectedHex": "026a1378511c01625278491c0162816a",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0015",
+      "segment": "12",
+      "address": 34947632,
+      "expectedHex": "38b5051c296a0c78491c2962c1f6e2fb",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0016",
+      "segment": "12",
+      "address": 34947660,
+      "expectedHex": "18b4026a1478511c01625378491c826a",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0017",
+      "segment": "12",
+      "address": 34947712,
+      "expectedHex": "10b5041c236aa16a18785a1c22628000",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0018",
+      "segment": "12",
+      "address": 34947760,
+      "expectedHex": "10b5041c216aa36a08784a1c22628000",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0019",
+      "segment": "12",
+      "address": 34947800,
+      "expectedHex": "38b5051c00f004fb0488281cc1f680fb",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-001a",
+      "segment": "12",
+      "address": 34947832,
+      "expectedHex": "70b5051c0e1c00f0f3fa041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-001b",
+      "segment": "12",
+      "address": 34948272,
+      "expectedHex": "70b50d1c041c281c00f058fe281c00f0",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-001c",
+      "segment": "12",
+      "address": 34948364,
+      "expectedHex": "f8b50c1c051c201c00f02afe0090201c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-001d",
+      "segment": "12",
+      "address": 34948484,
+      "expectedHex": "10b5041c081c00f0fbfd201cc1f6c8f9",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-001e",
+      "segment": "12",
+      "address": 34948504,
+      "expectedHex": "10b5041cc1f632fa021c216a201c8918",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-001f",
+      "segment": "12",
+      "address": 34948528,
+      "expectedHex": "70b5051c296a0c78491c2962c1f622fa",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0020",
+      "segment": "12",
+      "address": 34948596,
+      "expectedHex": "38b5051c296a0c78491c2962c1f600fa",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0021",
+      "segment": "12",
+      "address": 34948648,
+      "expectedHex": "38b50d1cc1f6dcf9041c281c00f09efd",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0022",
+      "segment": "12",
+      "address": 34948680,
+      "expectedHex": "38b50d1c00f04cf9041c281c00f08efd",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0023",
+      "segment": "12",
+      "address": 34948712,
+      "expectedHex": "70b50e1c051c301c00f080fdc2f68efe",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0024",
+      "segment": "12",
+      "address": 34948752,
+      "expectedHex": "70b50e1c051c301c00f06cfdc2f67afe",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0025",
+      "segment": "12",
+      "address": 34948792,
+      "expectedHex": "f8b50c1c051c201c00f058fdc2f666fe",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0026",
+      "segment": "12",
+      "address": 34948844,
+      "expectedHex": "70b5051c0e1c00f0f9f8041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0027",
+      "segment": "12",
+      "address": 34948876,
+      "expectedHex": "70b5051c0e1c00f0e9f8041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0028",
+      "segment": "12",
+      "address": 34949076,
+      "expectedHex": "38b5051c00f086f8041c281cc1f602f9",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0029",
+      "segment": "12",
+      "address": 34949100,
+      "expectedHex": "70b5051c0e1c00f079f8041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-002a",
+      "segment": "12",
+      "address": 34949128,
+      "expectedHex": "70b5051c0e1c00f06bf8041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-002b",
+      "segment": "12",
+      "address": 34948908,
+      "expectedHex": "70b5051c0e1c00f0d9f8041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-002c",
+      "segment": "12",
+      "address": 34948940,
+      "expectedHex": "70b5051c0e1c00f0c9f8041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-002d",
+      "segment": "12",
+      "address": 34948976,
+      "expectedHex": "70b5051c0e1c00f0b7f8041c281c311c",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-002e",
+      "segment": "12",
+      "address": 34949156,
+      "expectedHex": "004b1847b9a41a02f8b50d1c281c00f0",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-002f",
+      "segment": "12",
+      "address": 34949164,
+      "expectedHex": "f8b50d1c281c00f0a7fc061c281c00f0",
+      "abi": "control-and-variables; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0031",
+      "segment": "12",
+      "address": 34949300,
+      "expectedHex": "08b50249c1f6e6f8012008bda1481502",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0032",
+      "segment": "12",
+      "address": 34949336,
+      "expectedHex": "08b50249c1f6d4f8012008bdc5481502",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0033",
+      "segment": "36",
+      "address": 35297228,
+      "expectedHex": "38b5051c081cabf7d7fcaaf767fb041c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0034",
+      "segment": "36",
+      "address": 35292944,
+      "expectedHex": "70b50c1c051c201cacf734fd281c211c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0035",
+      "segment": "36",
+      "address": 35293032,
+      "expectedHex": "f8b50c1c051c201cacf708fdabf7a8fb",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0036",
+      "segment": "36",
+      "address": 35293240,
+      "expectedHex": "08b5081cfff73cff002008bd08b54068",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0037",
+      "segment": "36",
+      "address": 35293120,
+      "expectedHex": "78b581b00d1c041c281cacf7cffc6ef6",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0038",
+      "segment": "36",
+      "address": 35296044,
+      "expectedHex": "014b00221847c04641921a02014b0122",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0039",
+      "segment": "36",
+      "address": 35296068,
+      "expectedHex": "08b5081cfff7daff002008bd08b54068",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-003a",
+      "segment": "36",
+      "address": 35296092,
+      "expectedHex": "f0b587b00d1c071c281cabf70dffaaf7",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-003b",
+      "segment": "36",
+      "address": 35296284,
+      "expectedHex": "38b5051c081cabf7affeaaf73ffd041c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-003c",
+      "segment": "36",
+      "address": 35295012,
+      "expectedHex": "f0b585b0051c0c1cabf7f0fc0390281c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-003d",
+      "segment": "36",
+      "address": 35295088,
+      "expectedHex": "f8b586b00c1c051c201cacf703f9aaf7",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-003e",
+      "segment": "36",
+      "address": 35295472,
+      "expectedHex": "08b5fff7d3fd012008bd000008b54068",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-003f",
+      "segment": "36",
+      "address": 35297016,
+      "expectedHex": "38b5051c01200c1caaf7e6fc002802d0",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0040",
+      "segment": "36",
+      "address": 35293264,
+      "expectedHex": "f0b589b0051c0c1cacf75af8071c281c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0041",
+      "segment": "36",
+      "address": 35293684,
+      "expectedHex": "10b5081cacf7b8fb6ef678f8041cd7f7",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0042",
+      "segment": "36",
+      "address": 35293508,
+      "expectedHex": "f0b585b00c1c201cacf70efc051c6ef6",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0043",
+      "segment": "36",
+      "address": 35296500,
+      "expectedHex": "f8b50c1c051c201cabf742fe061c281c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0044",
+      "segment": "36",
+      "address": 35296736,
+      "expectedHex": "08b5081cfff762ff002008bd08b54068",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0045",
+      "segment": "36",
+      "address": 35296828,
+      "expectedHex": "f8b586b0051c081c0291abf79dfd061c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0046",
+      "segment": "36",
+      "address": 35296992,
+      "expectedHex": "08b5081cfff788ff002008bd08b54068",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0047",
+      "segment": "36",
+      "address": 35292008,
+      "expectedHex": "70b50d1cacf7bcfa041c281cacf706ff",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0048",
+      "segment": "36",
+      "address": 35295416,
+      "expectedHex": "38b50c1c051c201cacf758f86ef696f8",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0049",
+      "segment": "36",
+      "address": 35295460,
+      "expectedHex": "014b01221847c046d98f1a0208b5fff7",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-004a",
+      "segment": "36",
+      "address": 35296056,
+      "expectedHex": "014b01221847c04641921a0208b5081c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-004b",
+      "segment": "36",
+      "address": 35297212,
+      "expectedHex": "08b502496cf662f9012008bd55971a02",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-004c",
+      "segment": "36",
+      "address": 35288868,
+      "expectedHex": "70b50e1c051c301cadf72afd041cacf7",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-004d",
+      "segment": "36",
+      "address": 35289044,
+      "expectedHex": "014a024b1847c046b5440202a5771a02",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-004e",
+      "segment": "36",
+      "address": 35289076,
+      "expectedHex": "f8b5051c081c0091adf7c2fcacf760fb",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-004f",
+      "segment": "36",
+      "address": 35289060,
+      "expectedHex": "014a024b1847c046c1440202a5771a02",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0050",
+      "segment": "36",
+      "address": 35289176,
+      "expectedHex": "f8b50f1c051c381cadf790fcacf72efb",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0051",
+      "segment": "36",
+      "address": 35289228,
+      "expectedHex": "f8b50f1c051c381cadf776fcacf714fb",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0052",
+      "segment": "36",
+      "address": 35289404,
+      "expectedHex": "f8b50c1c051c201cadf71efcacf7bcfa",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0053",
+      "segment": "36",
+      "address": 35289476,
+      "expectedHex": "f8b50e1c041c301cadf7fafb051c301c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0054",
+      "segment": "36",
+      "address": 35289552,
+      "expectedHex": "f8b50e1c041c301cadf7d4fb051c301c",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0055",
+      "segment": "36",
+      "address": 35289628,
+      "expectedHex": "f8b50e1c041c301cadf7aefbacf74cfa",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0056",
+      "segment": "36",
+      "address": 35289276,
+      "expectedHex": "f8b50f1c051c381cadf75efcacf7fcfa",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0057",
+      "segment": "36",
+      "address": 35289372,
+      "expectedHex": "014a024b1847c046d1430202ed781a02",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0058",
+      "segment": "36",
+      "address": 35289388,
+      "expectedHex": "014a024b1847c04635440202ed781a02",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0059",
+      "segment": "36",
+      "address": 35289844,
+      "expectedHex": "f8b50f1c051c381cadf742fbacf7e0f9",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-005a",
+      "segment": "36",
+      "address": 35289896,
+      "expectedHex": "f8b50f1c051c381cadf728fbacf7c6f9",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-005b",
+      "segment": "36",
+      "address": 35289700,
+      "expectedHex": "f8b50e1c041c301cadf78afbacf728fa",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-005c",
+      "segment": "36",
+      "address": 35289772,
+      "expectedHex": "f0b583b00e1c051c301cadf765fbacf7",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-005e",
+      "segment": "36",
+      "address": 35289944,
+      "expectedHex": "f8b50f1c051c381cadf710fbacf7aef9",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-005f",
+      "segment": "36",
+      "address": 35289992,
+      "expectedHex": "f8b50f1c051c381cadf7f8faacf796f9",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0060",
+      "segment": "36",
+      "address": 35290096,
+      "expectedHex": "70b5026a0d1c1478521c0262acf788fe",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0061",
+      "segment": "36",
+      "address": 35290180,
+      "expectedHex": "014a024b1847c04695460202197c1a02",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0062",
+      "segment": "36",
+      "address": 35290196,
+      "expectedHex": "014a024b1847c046c5460202197c1a02",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0063",
+      "segment": "36",
+      "address": 35290044,
+      "expectedHex": "f8b50f1c051c381cadf7defaacf77cf9",
+      "abi": "dialogue-and-formatting; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0064",
+      "segment": "36",
+      "address": 35297524,
+      "expectedHex": "f8b50c1c051c201cabf742fc281c211c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0065",
+      "segment": "36",
+      "address": 35299228,
+      "expectedHex": "08b502496bf672fd012008bd899f1a02",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0066",
+      "segment": "36",
+      "address": 35299244,
+      "expectedHex": "f8b50e1c051c301cabf7e2f8071c281c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0067",
+      "segment": "36",
+      "address": 35299352,
+      "expectedHex": "f8b50c1c051c201cabf7acf8061c281c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0068",
+      "segment": "36",
+      "address": 35299424,
+      "expectedHex": "f8b50f1c041c381cabf78cf8a9f71cff",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0069",
+      "segment": "36",
+      "address": 35299528,
+      "expectedHex": "f0b589b00c1c051c201cabf757f8a9f7",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-006a",
+      "segment": "36",
+      "address": 35299932,
+      "expectedHex": "70b5041c0d1caaf755fb061c201c291c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-006b",
+      "segment": "36",
+      "address": 35299728,
+      "expectedHex": "f0b585b00f1c061c381caaf7efff0290",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-006c",
+      "segment": "36",
+      "address": 35299684,
+      "expectedHex": "70b50e1c051c301cabf706f8041c281c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-006d",
+      "segment": "36",
+      "address": 35299836,
+      "expectedHex": "f0b583b0041c0d1caaf784fb0290201c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-006e",
+      "segment": "36",
+      "address": 35299492,
+      "expectedHex": "70b50e1c051c301c00f076fb041c281c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-006f",
+      "segment": "36",
+      "address": 35300824,
+      "expectedHex": "f8b50e1c051c301caaf7c4fd6cf684fa",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0070",
+      "segment": "36",
+      "address": 35300692,
+      "expectedHex": "f0b585b00c1c051c201caaf711fea9f7",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0071",
+      "segment": "36",
+      "address": 35301940,
+      "expectedHex": "f8b50c1c051c201cfff7aefe061c281c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0072",
+      "segment": "36",
+      "address": 35302004,
+      "expectedHex": "f8b50c1c051c201caaf77efb061c281c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0074",
+      "segment": "36",
+      "address": 35300636,
+      "expectedHex": "38b50d1c281caaf72ffe041c281c00f0",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0077",
+      "segment": "36",
+      "address": 35301288,
+      "expectedHex": "f8b58ab00d1c281caaf7e8fc0490a9f7",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0079",
+      "segment": "36",
+      "address": 35299980,
+      "expectedHex": "f8b5061c0d1caaf73dfb071c301c291c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-024f",
+      "segment": "36",
+      "address": 35299036,
+      "expectedHex": "f8b588b00c1c051caaf714fd071c201c",
+      "abi": "observed-actor-actions; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0098",
+      "segment": "36",
+      "address": 35286292,
+      "expectedHex": "70b50e1c051c301caef726fa041c301c",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-009b",
+      "segment": "36",
+      "address": 35286564,
+      "expectedHex": "38b5051c0c1c6ef6ddfd281c211cadf7",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-009e",
+      "segment": "36",
+      "address": 35286844,
+      "expectedHex": "f0b583b0081c0091aef712f9051c6ff6",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-009f",
+      "segment": "36",
+      "address": 35287072,
+      "expectedHex": "f8b50e1c051c301caef7a0f8041c6ff6",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00a0",
+      "segment": "36",
+      "address": 35286628,
+      "expectedHex": "08b502496ef60efe012008bd456e1a02",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00a1",
+      "segment": "36",
+      "address": 35287132,
+      "expectedHex": "f8b50c1c051c201caef782f8061c201c",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00a2",
+      "segment": "36",
+      "address": 35287188,
+      "expectedHex": "f8b50c1c051c201caef766f8061c201c",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00a6",
+      "segment": "36",
+      "address": 35287544,
+      "expectedHex": "38b50c1cadf788fb051c201cadf7beff",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00a7",
+      "segment": "36",
+      "address": 35287584,
+      "expectedHex": "08b5081cadf7aefffff7d2ff002008bd",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00a8",
+      "segment": "36",
+      "address": 35287624,
+      "expectedHex": "08b502496ef61cfc012008bd31721a02",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00a9",
+      "segment": "36",
+      "address": 35287640,
+      "expectedHex": "f8b50c1c051c201cadf784ff061c201c",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00aa",
+      "segment": "36",
+      "address": 35287768,
+      "expectedHex": "08b502496ef6d4fb012008bd8d721a02",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00ab",
+      "segment": "36",
+      "address": 35287784,
+      "expectedHex": "f8b50d1c041c281cadf748ff0090281c",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00ac",
+      "segment": "36",
+      "address": 35287984,
+      "expectedHex": "08b502496ef668fb012008bd99731a02",
+      "abi": "sound; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00ad",
+      "segment": "36",
+      "address": 35292180,
+      "expectedHex": "f0b589b00e1c041c301cacf7b1fe0690",
+      "abi": "in-dialogue-choices; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00ae",
+      "segment": "36",
+      "address": 35292292,
+      "expectedHex": "f8b58ab00c1c051c201cacf779fe071c",
+      "abi": "in-dialogue-choices; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00af",
+      "segment": "36",
+      "address": 35292540,
+      "expectedHex": "f8b584b00f1c041c381cacf7fdfd051c",
+      "abi": "in-dialogue-choices; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00b0",
+      "segment": "36",
+      "address": 35292620,
+      "expectedHex": "38b50d1c281cacf7d7fd041c281cacf7",
+      "abi": "in-dialogue-choices; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00b1",
+      "segment": "36",
+      "address": 35292660,
+      "expectedHex": "38b50d1c281cacf7c3fd041c281cacf7",
+      "abi": "in-dialogue-choices; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00b2",
+      "segment": "36",
+      "address": 35292416,
+      "expectedHex": "f8b58ab00c1c051c201cacf73bfe071c",
+      "abi": "in-dialogue-choices; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-013f",
+      "segment": "36",
+      "address": 35317548,
+      "expectedHex": "f8b50f1c381ca6f71bfd061c68f6daf9",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0140",
+      "segment": "36",
+      "address": 35317660,
+      "expectedHex": "10b5081ca6f7e4fc68f6a4f9041cd1f7",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0141",
+      "segment": "36",
+      "address": 35317692,
+      "expectedHex": "08b5081ca6f7d4fc68f694f9d1f764fe",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0142",
+      "segment": "36",
+      "address": 35317716,
+      "expectedHex": "08b5081ca6f7c8fc68f688f9d1f758fe",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0143",
+      "segment": "36",
+      "address": 35317740,
+      "expectedHex": "70b592b0051c081ca6f7bafc68f67af9",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0144",
+      "segment": "36",
+      "address": 35317960,
+      "expectedHex": "38b586b0051c081ca6f74cfc68f60cf9",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0145",
+      "segment": "36",
+      "address": 35318060,
+      "expectedHex": "38b50d1c281ca6f727fc041c281ca6f7",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0146",
+      "segment": "36",
+      "address": 35317852,
+      "expectedHex": "78b59db0041c081ca6f782fc68f642f9",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0147",
+      "segment": "36",
+      "address": 35318020,
+      "expectedHex": "38b5051c081ca6f72ffc68f6eff8d1f7",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0148",
+      "segment": "36",
+      "address": 35318104,
+      "expectedHex": "f8b58eb0041c0d1ca5f7d6ff061c201c",
+      "abi": "camera; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00cb",
+      "segment": "12",
+      "address": 34952804,
+      "expectedHex": "70b5051c0e1cfff73df9041c281c311c",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00cc",
+      "segment": "12",
+      "address": 34952836,
+      "expectedHex": "38b50d1cfff72ef9041c281cfff786fd",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00cd",
+      "segment": "12",
+      "address": 34952896,
+      "expectedHex": "70b50e1c051c301cfff754fd041c281c",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00cf",
+      "segment": "12",
+      "address": 34952932,
+      "expectedHex": "70b50e1c051c301cfff742fd041c281c",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00d0",
+      "segment": "12",
+      "address": 34952968,
+      "expectedHex": "f8b50f1c041c381cfff730fd051c201c",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00d1",
+      "segment": "12",
+      "address": 34953024,
+      "expectedHex": "f8b50f1c041c381cfff714fd051c201c",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00d2",
+      "segment": "12",
+      "address": 34953080,
+      "expectedHex": "38b50d1cfff7b4f8041c281cfff7f6fc",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00d3",
+      "segment": "12",
+      "address": 34953440,
+      "expectedHex": "38b50d1cfff700f8041c281cfff738fc",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00d4",
+      "segment": "12",
+      "address": 34953108,
+      "expectedHex": "70b596b0051c0e1cfff7a4f8041c281c",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00d5",
+      "segment": "12",
+      "address": 34953188,
+      "expectedHex": "70b5061c0d1cfff77df8041c301c291c",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00d7",
+      "segment": "12",
+      "address": 34953296,
+      "expectedHex": "38b50d1cfff748f8041c281cfff78afc",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00e0",
+      "segment": "12",
+      "address": 34952696,
+      "expectedHex": "08b5fff775f917210180002008bd0000",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-00e1",
+      "segment": "12",
+      "address": 34953156,
+      "expectedHex": "38b50d1cfff78ef8041c281cfff7d0fc",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "event-command-0290",
+      "segment": "36",
+      "address": 35288924,
+      "expectedHex": "f8b50e1c051c301cadf70efd041cacf7",
+      "abi": "read-only-context; VM and env arguments unchanged; native permission checker retained",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-grid-destination-height",
+      "segment": "12",
+      "address": 34990280,
+      "expectedHex": "38b584b0141c002500aa2560fff7daff012804d1039804b02060012038bd281c04b038bd",
+      "abi": "r0=actor r1=world sample r2=height output; BOOL terrain available; native terrain query preserves bridge floor selection",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-script-id",
+      "segment": "12",
+      "address": 34946780,
+      "expectedHex": "80887047",
+      "abi": "ScriptWork script identifier is u16 at +4; copied to diagnostics during live opcode dispatch",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-camera",
+      "segment": "36",
+      "address": 35317520,
+      "expectedHex": "10b5006868f6ecf9041cd1f7bbfe011c201cfff7d7ff012010bd0000",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-system-window",
+      "segment": "36",
+      "address": 35293252,
+      "expectedHex": "08b54068fff736ff012008bd",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-actor-window",
+      "segment": "36",
+      "address": 35295484,
+      "expectedHex": "08b54068fff7e0fd012008bd",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-plain-window",
+      "segment": "36",
+      "address": 35296080,
+      "expectedHex": "08b54068fff7d4ff012008bd",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-bg-window",
+      "segment": "36",
+      "address": 35296748,
+      "expectedHex": "08b54068fff75cff012008bd",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-sub-window",
+      "segment": "36",
+      "address": 35296376,
+      "expectedHex": "08b54068fff7e8ff012008bd",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-special-window",
+      "segment": "36",
+      "address": 35297004,
+      "expectedHex": "08b54068fff782ff012008bd",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-auto-print-flag",
+      "segment": "36",
+      "address": 35297288,
+      "expectedHex": "38b58068aaf74cfb051c09200924aaf75bfc002806d028680021def7d3f8201caaf73efc012038bd",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-sound-volume",
+      "segment": "36",
+      "address": 35286792,
+      "expectedHex": "10b500680c1c6ff6e3fd70f6c3fa2168002902d0012908d009e07f21002287f6d9fe2068401c206001e0012010bd002010bd0000",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-finish-sound-ambience",
+      "segment": "36",
+      "address": 35287348,
+      "expectedHex": "08b500686ff6cefc70f6aef9022187f68dfe012008bd0000",
+      "abi": "r0=24-byte cleanup work; r1=stage pointer; returns boolean done. Verified presentation cleanup only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-cleanup-command",
+      "segment": "12",
+      "address": 34949236,
+      "expectedHex": "38b50d1c281c00f083fc041c281c00f073fc281cfff75cfc011c01d1012038bd201cfef7f3ff012038bd0000",
+      "abi": "r0=VM; r1=environment. Creates cleanup child; returns suspend.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-cleanup-callback",
+      "segment": "12",
+      "address": 34947316,
+      "expectedHex": "f8b5151c2f1c2c1c0c37103428690f4982008e58002e01d10120f8bdfff7e2ff002807d0281c391cb047002800d001e00020f8bd2068401c20600020e860296968698142e2db0120f8bdc046fcb41602",
+      "abi": "r0=event; r1=event sequence; r2=24-byte work. Iterates table against active bitset; returns done.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-cleanup-create",
+      "segment": "12",
+      "address": 34947396,
+      "expectedHex": "f8b5051c01f01cf8041c281c01f00cf8094a061c00211823c2f6aafd071cc2f6bbfe06604560846000210161c1600f214161381cf8bdc046f5401502",
+      "abi": "r0=environment; returns event with work {game,environment,scriptWork,stage,index,limit=15}.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-cleanup-table",
+      "segment": "12",
+      "address": 35042556,
+      "expectedHex": "11e71a0245881a02fd901a0251931a02ed951a0279941a02ed961a02f9f41502c1721c0209981a02d9701a02f99c1502096f1a0235711a0200000000",
+      "abi": "15 function pointers; final entry is null. Only policy indices may remain visible.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-cleanup-registered",
+      "segment": "12",
+      "address": 34947280,
+      "expectedHex": "004b1847d94015020e2801db002070470349096801410120014200d10020704740e61602",
+      "abi": "r0=index; returns registered bit from 0x0216e640 for index below 14.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-cleanup-register",
+      "segment": "12",
+      "address": 34947184,
+      "expectedHex": "0249034b002004221847c04640e616025886070210b5041c0e2c09da00f024f8002805d1034801210268a1401143016010bdc04640e6160210b5041c0e2c0cda00f012f8002808d0044901220120a240801e0b6850401840086010bd40e61602",
+      "abi": "Reset/register/unregister the native 14-bit script cleanup mask.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-close-system-window",
+      "segment": "36",
+      "address": 35292856,
+      "expectedHex": "10b5041c0120abf707fd002816d0201cacf770fddff71aff201cacf775fd002805d08df697f8201c0021acf767fd201c0021acf75bfd0120abf7dafc10bd0000",
+      "abi": "r0=environment; free message window and icon; unregister bit 1.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-close-actor-window",
+      "segment": "36",
+      "address": 35294404,
+      "expectedHex": "38b5051c02200224abf700fa00280bd0281cacf769fadff79dfd281c0021acf75ffa201cabf7def938bd0000",
+      "abi": "r0=environment; free actor-attached message window; unregister bit 2.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-close-plain-window",
+      "segment": "36",
+      "address": 35296000,
+      "expectedHex": "38b5051c03200324aaf7e2fe00280bd0281cabf74bffdff7cbfb281c0021abf741ff201caaf7c0fe38bd0000",
+      "abi": "r0=environment; free plain message window; unregister bit 3.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-close-bg-window",
+      "segment": "36",
+      "address": 35296428,
+      "expectedHex": "70b5051cabf768fe061c0420aaf70afe002818d0281cabf773fedff7b9fd301caaf702fd041c301c0021aaf7fbfc002c02d0201c79f662fc281c0021abf75cfe0420aaf7dbfd70bd",
+      "abi": "r0=environment; free BG message window and font; unregister bit 4.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-close-sub-window",
+      "segment": "36",
+      "address": 35296336,
+      "expectedHex": "38b5051c05200524aaf73afe00280ad0281cabf78ffeaaf71ffd0068dff716fd201caaf719fe38bd",
+      "abi": "r0=environment; free subscreen message window; unregister bit 5.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-close-special-window",
+      "segment": "36",
+      "address": 35296760,
+      "expectedHex": "38b5051c06200624aaf766fd00280bd0281cabf7cffde0f79ffa281c0021abf7c5fd201caaf744fd38bd0000",
+      "abi": "r0=environment; free special message window; unregister bit 6.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "events-close-camera",
+      "segment": "36",
+      "address": 35317460,
+      "expectedHex": "38b50c1c051c201cd8f710fc201cd8f74df8002802d0201cd7f7faff281cd1f721ff012805d1281cd1f7ccfe012105f089fa0020a5f7cefc38bd0000",
+      "abi": "r0=field; r1=camera. Restore camera delay/area tracking and unregister bit 0; no actor translation.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "render-camera-projection",
+      "segment": "ARM9",
+      "address": 33859268,
+      "expectedHex": "00687047",
+      "abi": "Read-only camera layout: u32 projection at 0; 0 perspective, 1 frustum, 2 orthographic; other modes bypass correction.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "render-camera-eye",
+      "segment": "ARM9",
+      "address": 33859148,
+      "expectedHex": "021c20320b1c03ca03c3106818607047",
+      "abi": "Read-only camera eye VecFx32 at +32; getter copies three signed words.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "render-camera-target",
+      "segment": "ARM9",
+      "address": 33859212,
+      "expectedHex": "021c38320b1c03ca03c3106818607047",
+      "abi": "Read-only camera target VecFx32 at +56; getter copies three signed words.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "render-billboard-position",
+      "segment": "ARM9",
+      "address": 33876520,
+      "expectedHex": "83681c2048431818031d03ca03c310681860704783681c2048431818008a1080",
+      "abi": "Read-only layout witness: BBD scene actors at +8, 28-byte object stride, translation at object +4; no additional hook.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "render-billboard-submit",
+      "segment": "ARM9",
+      "address": 33876912,
+      "expectedHex": "f0b5f5b0019013900c300c1c151c139026f0c8f80198002181624eae201c311cfbf73cfd4baf201c391cfbf747fd201c48ac211cfbf752fd0198806a002808d139a80090301c391c221c012325f0c0ff05e0301c391c221c39ab24f08eeb2dac39a8211c24f076e8201c51a929f08eed4eac48ae2aaf201c311c3a1c25f0d2f900202b90381c391c25f00ceb5aaf381c23f004ec2a992c9a381c23f0abfc2a992c9a6ca823f0a6fc63a823f0f8eb201c45ac311c221c25f0b5f9201c211c25f0f2ea0198c06a01280bd101983021405e32210b900198405e34210a900198405e0ae04598000400140b904698000400140a904798000400140990002d29d0c94f002425ae210625aa281c090e0232fbf74ffd2106281c090e25aafbf75ffd0620305ea207641cc010800581080220305ec310bd4818400423f35edb109b051b0b1843084310433860308810437860042cd8dbb64801210160139840681290b348129914902c30016001601490016000200c9013984088002800dce2e10b990998ca10a949c0100a400a998005c9108905090b8008114308430890a448a34f800b1590a248a14d1690683016909f48483717906c3017909d484c351890803018909a4819908430199098481a9064301a9096481b90c0301b9094481d9040301d9092481c9044301c9090481e90c4301e908e481f9008301f908c48000622908b48c00521908a48401c249089482390c130239087484008209001980c9982681c2048431418105a8004820c2098824203d0218b8805c00f00d17ae10198282340685343c6184805c00fb07a16d00590208a05990490307a079004983ef028ec0798019a414308033621515e40180f90079801030f984018119011e00590208a05990490307a069004983ef010ec069841430803119006980103119840180f90208b0005c00f707a12d00390049805993ef0feeb0399019a48433821515e000340180e90039801030e98401810900de00290049805993ef0eaeb0299484300031090081c0103109840180e905048002141606068129924f0a4ff2790a068129924f09fff2890e068129924f09aff299020880004810f0a1c2420424351a8801827a925f0d2fee08a4349424a001180000918105e0222895e404225f084fe20880004800f032809d114201221625e205e14990a60159a0a60086009e014201221625e205e14990a600860159914980160f269b069d205716994460205f0688906c008014322980843111c014360460143219801220143169801607069022800d0002204203169801ac140179801601398018a408a0004014324980143189801601398818ac08a0004014319980160218bc806cb05c00e020413981b0f007e0904c0180b0f2399000619430843111c01431a98062201601398407ec1000f4843189a5e405e02215e5e04210d92595e1b9a01231360228b1204120f02d0089b1c9a0ee0034b0be0c8040004ff03000040040004ff7f0000bc460902d43f09021d9a136022881204920f032a30d1109a0904120212141204120c1304119a0004120212141204120c141c1c433c60040c0e98090c000200140004000c296000042c6002433a60296031040a0c0f992a60090209140904090c084338600d9819430004000c28602a60396028602c603be0109a0004120212141204120c1304119a000c120212141204120c141c1c4309043c600c0c0004211c01432960002129600e99090209140904090c09040a433a603204120c120414432c6000242c600f9c240224142404240c214339600d990904090c0a432a6000222a60221c1a433a6008432860002028601e98002101601f98012101600c98401c0c90139841880c98884200da6ae675b0f0bd",
+      "abi": "Read-only layout/dispatch witness for full camera-facing quad mode, sizes, iteration and polygon settings. The existing field draw call is the sole interception point.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "render-main-pass-arguments",
+      "segment": "36",
+      "address": 35131720,
+      "expectedHex": "281c291c2a1cc030b431b832006809681268",
+      "abi": "Read-only argument loading witness; executes before the separately verified BL hook.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "render-secondary-pass-arguments",
+      "segment": "36",
+      "address": 35131868,
+      "expectedHex": "281c291c2a1cc430b431b832006809681268",
+      "abi": "Read-only argument loading witness; executes before the separately verified BL hook.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "registry-file-seek",
+      "segment": "ARM9",
+      "address": 34016808,
+      "expectedHex": "08b582b000ab0361009101920e210122fff78cfb02b008bd",
+      "abi": "Thumb FS_SeekFile; r0 open FSFile, r1 signed byte offset, r2=0 absolute origin; r0 nonzero on success. 8-byte aligned stack. Executes synchronous command 14 via 0x02070554; no hook or displaced instructions.",
+      "purpose": "Seek bounded ROM registry pages on initialization or selected appearance changes only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "ambient-grid-body",
+      "segment": "12",
+      "address": 34989316,
+      "expectedHex": "844600980f1c00891a1cff2801d1514800e08020029000987c300078022801d2002000e0401e0004001438180004061400987d300078022801d2002000e0401e000461460014101a000405148988002000297cd96146c9698e4603027146c918009b8b426ed00b6801241c426ad0029c234267d13e23cc5e019b1b1b00d55b421b041b14012b29da0b1c7c331b780024022b00d35c1e3c23cb5e240424141c19a74201dc9e4201da002312e00b1c7d331b78022b01d2002300e05b1e40240c5f1b041b14a54202dce31a9a4200daebe70123002b02d003b00120f0bd3823cc5e019b1b1b00d55b421b041b14012b29da0b1c7c331b780024022b00d35c1e3623cb5e240424141c19a74201dc9e4201da002112e00b1c7d331b78022b01d2002300e05b1e1b041c143a23c95e8d4202dc091b8a4200daebe70121002902d003b00120f0bd61468988401c884285d3002003b0f0bd80800000",
+      "abi": "Native grid scan checks current and previous positions, +X/-Z dimensions; y grid difference <1; player ID 255 excludes 0x8080, NPC excludes 0x80.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "ambient-callback-body",
+      "segment": "12",
+      "address": 35025288,
+      "expectedHex": "08b5011c8c3109688968002900d0884708bd",
+      "abi": "Native move dispatcher uses actor+140 callback table, update at +8; null callback skipped.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "ambient-rail-body",
+      "segment": "36",
+      "address": 35215208,
+      "expectedHex": "f8b58ab0071c0c1cd1f7c4fc0090d1f717fc1ef067fb00210291051c211c07aa1af0b0ff281c1af02dff0124a403211cdef62afb051c009803a902aad2f764f8012845d16008019004ae0398b84238d08021d1f70ffc002833d103980199d1f709fc002801d1012000e00020002828d10398fff71dff041c1bf008f9002812d0201c1bf0fff8011c201c0022331c1bf00df807a8311c2a1c1bf0b0fa002802d00ab00120f8bd201c311c1bf039f807a8311c2a1c1bf0a2fa002802d00ab00120f8bd009803a902aad2f71ef80128bcd000200ab0f8bd",
+      "abi": "r0 actor,r1 destination location; BOOL return; current and reserved front rail locations tested.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "ambient-rail-grid-size",
+      "segment": "36",
+      "address": 35325420,
+      "expectedHex": "c26cd117100c0b040343022012040021800210184b411905000b0843",
+      "abi": "r0 rail manager; fixed-point rail grid length return; collision radius is result /4.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "ambient-rail-location-position",
+      "segment": "36",
+      "address": 35325676,
+      "expectedHex": "38b5051ce869141c00f0d0f8e869211c00f06ef938bd",
+      "abi": "r0 manager,r1 location,r2 Vec output; resolves world position using manager scratch cursor.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "ambient-rail-front",
+      "segment": "36",
+      "address": 35325972,
+      "expectedHex": "f8b5051c743000780e1c171c1c1c002804d0281c76300078864218d0291c2b1ca86f5c31321c6c33fff726ff291c75310870291c2a1ca86f6c315032fff74cff281c012174300170281c76300670002f05d0281c6c30391c0822c8f658e8002c05d02a1c503203ca03c41068206075352878f8bd",
+      "abi": "r0 unit,r1 action key,r2 optional location output,r3 optional Vec output; BOOL success. Called only for valid active unit.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "ambient-rail-old",
+      "segment": "36",
+      "address": 35326088,
+      "expectedHex": "021c44320b1c03ca03c3106818607047",
+      "abi": "r0 unit,r1 Vec output; obtains current location before a committed rail step.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "ambient-rail-action-key",
+      "segment": "36",
+      "address": 35326444,
+      "expectedHex": "3230007870470000",
+      "abi": "r0 unit; native active action key return.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "ambient-rail-sphere",
+      "segment": "36",
+      "address": 35327332,
+      "expectedHex": "30b403681c130b681b13e31a846825138c6824132d1b1c1c5c432b1c6b43e31844684868241a00d5644210134000011c414302208003844204da8b4202da012030bc7047002030bc7047",
+      "abi": "r0/r1 world vectors,r2 radius; BOOL return; vertical difference <8 world units and horizontal squared distance <(2 radius)^2.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "zone-delete-exclusion",
+      "segment": "12",
+      "address": 35027612,
+      "expectedHex": "f8b5071cfff762fa061c381cfff784fc00240090002e3ed9f96920020d1808580121014234d02021084231d12889ff282ed00098002807d0281c903000688168002901d0281c884729680220084212d0281c8c300068c168002901d0281c8847281c84300068002805d0d2f6cffd291c843100200860281c883000680621415e01221202491ec1800020291c10f796ed641cb442c0d3f8bdf8b50f1c",
+      "abi": "Actor flag bit 5 exempts only streamed zone actor deletion; ordinary DeleteActor and full teardown remain effective.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "menu-event-callback",
+      "segment": "12",
+      "address": 34973812,
+      "expectedHex": "78b587b0141c6169051c092941d849187944c988090409148f44120054007c00",
+      "abi": "Event work +8 game,+12 field; menu callback. Unknown children remain guarded.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "menu-return-callback",
+      "segment": "36",
+      "address": 35172712,
+      "expectedHex": "70b5151c041c287c002804d0012824d0022834d03ae0a868f5f7c2f90df00af9012833d1a868f5f793f9061c201c8bf69ffe8bf69dfc041c301cdcf733f9201c01218cf625f9a868f5f7aaf9e9680df059f9287c401c287418e0a868f5f7a0f90df0e8f8012811d1201c8bf681fe8bf67ffce9680906090e8cf6fef8e9e7a868f5f766f9dcf730f9012070bd002070bd",
+      "abi": "Event work +4 game,+8 field; pauses model movement, replaces subscreen, then unpauses.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-on-callback",
+      "segment": "33",
+      "address": 35100924,
+      "expectedHex": "78b587b00c1c2068151c032850d800187844c08800040014874406005c006c008e0025488cf698fc686806f0e3fd04a920f09afe0120069a0004111a00911118049a0191111a101802910390686806f0c3fd0bf0cffc042100aa061c0af0c8fa011c05d0301c00220023a9600af0f2fa2068401c20601be00f488cf61ffc8cf68bfc002814d1f3e70c488cf665fca868002809d0686806f09ffd0bf0abfca968012202230af0d6fae2e707b0012078bd002007b078bdc0465b0500005c050000",
+      "abi": "Event work +0 game,+4 field; PC prop and sound only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-idle-callback",
+      "segment": "33",
+      "address": 35101160,
+      "expectedHex": "78b587b00d1c2868141c002802d0012828d02ae0606806f077fd04a920f02efe0120069a0004111a00911118049a0191111a101802910390606806f057fd0bf063fc042100aa061c0af05cfa011c05d0301c01220223a1600af086fa2868401c286002e007b0012078bd002007b078bd",
+      "abi": "Event work +0 game,+4 field; PC prop only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-off-callback",
+      "segment": "33",
+      "address": 35101316,
+      "expectedHex": "78b587b00d1c2968141c002904d0012930d002293bd03de02069002802d11f488cf6d6fb606806f021fd04a920f0d8fd0120069a0004111a00911118049a0191111a101802910390606806f001fd0bf00dfc042100aa061c0af006fa011c05d0301c02220023a1600af030fa2868401c28600fe02069002807d108488cf65afb8cf6c6fb002805d1f0e7481cf0e707b0012078bd002007b078bdc0465d050000",
+      "abi": "Event work +0 game,+4 field; PC prop and sound only.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-subproc-callback",
+      "segment": "ARM9",
+      "address": 33658408,
+      "expectedHex": "131c002804d0012812d0022816d01ce018690090186859689a68db68fff7bcff011c281cfdf78cfb2068401c20600ce05969002901d098698847f5e79869002801d020f0effd012038bd002038bd0000",
+      "abi": "Storage subprocess wrapper; field lifecycle child, completion callback and free.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-subproc-call",
+      "segment": "ARM9",
+      "address": 33658208,
+      "expectedHex": "38b50c1c2168131c051c1868042925d849187944c988090409148f4408001e002a0034003a005968fff70cff011c281cfdf7eafb2068401c20600fe09968da681b69fdf779faf5e7fdf794fa002805d1f9e7fff76fffe9e7012038bd002038bd",
+      "abi": "Starts application and waits; only permitted in PC transaction.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-field-close",
+      "segment": "ARM9",
+      "address": 33657680,
+      "expectedHex": "f8b5141ca0680d1c27686668fef79ef800902868002802d0012807d017e0301c67f150f82868401c286010e0381cfdf7a9fb00280bd1009815f058fc012806d0e068002801d041f1fdf90120f8bd0020f8bd0000",
+      "abi": "Closes native field. Follower tears down normally; private pose survives in resident bridge.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-field-close-sound",
+      "segment": "ARM9",
+      "address": 33657812,
+      "expectedHex": "f8b5141ca0680d1c27686668fef75cf82868002802d0012807d012e0301c67f10ff82868401c28600be0381cfdf768fb002806d1e068002801d041f1c1f90120f8bd0020f8bd0000",
+      "abi": "Field close retaining audio.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-field-open",
+      "segment": "ARM9",
+      "address": 33657932,
+      "expectedHex": "38b50d1c28681468002804d001280ed0022814d015e0201cfdf736fb002810d1201cfdf719fb2868401c286009e0201cfdf738fb66f1d0ff002802d0f3e7012038bd002038bd0000",
+      "abi": "Field recreation callback.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-fade-in-command",
+      "segment": "36",
+      "address": 35304184,
+      "expectedHex": "18b581b00c1c201ca9f740ff201ca9f731ff041c6bf6f0fb011c00200090201c002200230ef0baf8002001b018bd0000",
+      "abi": "Opcode 0x1A3; admitted only for tracked PC VM.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-fade-out-command",
+      "segment": "36",
+      "address": 35304232,
+      "expectedHex": "18b581b00c1c201ca9f728ff201ca9f719ff041c6bf6d8fb011c00200090201c012200230ef0a2f8002001b018bd0000",
+      "abi": "Opcode 0x1A4; admitted only for tracked PC VM.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-fade-wait-command",
+      "segment": "36",
+      "address": 35304584,
+      "expectedHex": "08b502496af6fcfa012008bd5db21a02",
+      "abi": "Opcode 0x1A7; admitted only for tracked PC VM.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-command-0xea",
+      "segment": "12",
+      "address": 34954764,
+      "expectedHex": "f8b50f1c051c381cfff7aef9041cc1f6",
+      "abi": "s00EA_HOFCheckIntegrity; native r0 VM,r1 environment unchanged.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-command-0x130",
+      "segment": "36",
+      "address": 35305392,
+      "expectedHex": "70b50c1c201ca9f7d9fc051c201ca9f7",
+      "abi": "s0130_PokecenPCOpen; native r0 VM,r1 environment unchanged.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-command-0x131",
+      "segment": "36",
+      "address": 35305448,
+      "expectedHex": "70b50c1c201ca9f7bdfc051c201ca9f7",
+      "abi": "s0131_PokecenPCIdle; native r0 VM,r1 environment unchanged.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-command-0x132",
+      "segment": "36",
+      "address": 35305504,
+      "expectedHex": "f8b50f1c061c381ca9f7a0fc051c381c",
+      "abi": "s0132_PokecenPCClose; native r0 VM,r1 environment unchanged.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "pc-command-0x14f",
+      "segment": "36",
+      "address": 35315168,
+      "expectedHex": "f8b588b00e1c051c301ca7f7cbf90590",
+      "abi": "s014F_CallPC; native r0 VM,r1 environment unchanged.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "zone-npc-initial-position",
+      "segment": "12",
+      "address": 35023676,
+      "expectedHex": "f8b584b00c1c051c1c3401f0e5fa002803d127886688606810e0281c01a901f0edfa01980111c812000d0818071303980111c812000d0818061302980090022039048003081800210190615e281c00f05dfb3904281c091400f070fb3904281c091400f087fb60680211d012010d51180901281c091400f04bfb009801110290c812000d081807133904281c091400f05bfb3904281c091400f078fb022031048003081802210390615e281c00f036fb3104281c091400f04dfb3104281c091400f070fb281c01a900f080fb04b0f8bd",
+      "abi": "r0 Actor*, r1 36-byte entity; void; preserves r4-r7 and 8-byte stack alignment.",
+      "purpose": "Initial/previous/current grid fields are set before first world write. No movement sweep exists before movement initialization.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "grid-movement-initialized-bit",
+      "segment": "12",
+      "address": 34986684,
+      "expectedHex": "10b5041c09f058fb201c34f06dfd201c022109f07bfa10bd",
+      "abi": "r0 Actor*; void; flags|=2 after native move initialization.",
+      "purpose": "Distinguish zeroed actor placement from live movement.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "zone-npc-placement-data",
+      "segment": "12",
+      "address": 34984348,
+      "expectedHex": "18b4848aa1420fd22424006a4c430419a069002808d1211ca28102981c31a383486002a88088488018bc7047",
+      "abi": "r0 event data, r1 NPC index, r2 direction, r3 x, stack y/z; void.",
+      "purpose": "Opcode 0x1D9 changes only 36-byte zone entity records, rejects out-of-range index and rail entities; no live actor movement.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "interaction-progress-broadcast",
+      "segment": "33",
+      "address": 35090412,
+      "expectedHex": "70b50c1c051c201cdef7c6f8201cdef7",
+      "abi": "s0276_FunfestMissionBroadcast; r0 field VM and r1 environment remain native; reads two script operands and returns the native command result.",
+      "purpose": "Ordinary sign and static-furniture scripts report interaction progress after pausing actors. The command does not move actors or replace field ownership.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-pk5-gift-access",
+      "segment": "ARM9",
+      "address": 33672345,
+      "expectedHex": "b5021c918800248807c00f09d1022008439080101cd28808308021012402f011",
+      "abi": "PML_PkmDecrypt(r0=PartyPkm)->wasDecrypted; access helpers validate 128 decrypted bytes against core checksum, resolve PID Block C, and restore original encryption/fast-mode state.",
+      "purpose": "Read/write only logical Block C +0x1e low ten legacy metadata bits for follower gift claims.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-pk5-reencrypt",
+      "segment": "ARM9",
+      "address": 33672385,
+      "expectedHex": "b5051caa8800249007c00f012811d101290fd102208243281c083080210124aa",
+      "abi": "PML_PkmReEncrypt(r0=PartyPkm,r1=wasDecrypted); restores retail encrypted or fast-mode representation.",
+      "purpose": "Commit or restore a follower gift claim without retaining PK5 pointers.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-pk5-block",
+      "segment": "ARM9",
+      "address": 33681093,
+      "expectedHex": "231b031940490b8b0003490830c918515c40187047c0467404090208b5074a53",
+      "abi": "PML_PkmGetBlock(r0=PartyPkm,r1=PID,r2=logical block)->pointer; Block C is index 2.",
+      "purpose": "PID-safe legacy metadata access.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-bag-transaction",
+      "segment": "ARM9",
+      "address": 33587769,
+      "expectedHex": "b5fff7ddff002801d0012008bd002008bd000038b50d1c141cfff7d1ff002801",
+      "abi": "BagSave_CheckAvailItemSpace(r0=Bag,r1=item,r2=quantity,r3=heap 4)->BOOL; followed synchronously by BagSave_AddItem at 0x02008269.",
+      "purpose": "Validate capacity before atomic follower gift claim and Bag insertion.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-bag-add",
+      "segment": "ARM9",
+      "address": 33587817,
+      "expectedHex": "b5fff7efff002801d0012008bd002008bd000070b582b0051c0e1cfff7e2ff04",
+      "abi": "BagSave_AddItem(r0=Bag,r1=item,r2=quantity,r3=heap 4)->BOOL; retail pocket and stack handling.",
+      "purpose": "Add one-time follower gift; rollback claim bit on unexpected false.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    }
+  ],
+  "eventsAbi": 4,
+  "renderLayouts": {
+    "billboardStride": 28,
+    "positionOffset": 4,
+    "sizeOffsets": [
+      18,
+      20
+    ],
+    "drawFlagsOffset": 24,
+    "sceneActorsOffset": 8,
+    "sceneActorCountOffset": 14,
+    "actorSlotStride": 40,
+    "cameraEyeOffset": 32,
+    "cameraTargetOffset": 56,
+    "projectionTypeOffset": 0,
+    "scope": "Temporary owned follower quad only; restore translation and scale after native draw. Unsupported modes forward unchanged."
+  }
+}

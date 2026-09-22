@@ -58,6 +58,7 @@
     "animationviewer:build": "vite build --config vite.animation-viewer.config.js && vite-node scripts/build-white2expansion-animation-viewer-data.ts",
     "state:inspect": "vite-node scripts/inspect-test-battle-state.ts",
     "following:build-upgrade": "FOLLOWING_PROFILE=white2upgrade python3 runtime/following-pokemon/build.py",
+    "following:build-black2": "FOLLOWING_PROFILE=black2 python3 runtime/following-pokemon/build.py",
     "following:verify-fan-assets": "python3 runtime/following-pokemon/verify_fan_assets.py",
     "following:import-upgrade": "python3 runtime/following-pokemon/import_upgrade_assets.py",
     "following:verify-upgrade": "vite-node scripts/verify-following-white2upgrade.ts",

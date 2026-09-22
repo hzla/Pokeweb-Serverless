@@ -7,7 +7,7 @@ import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { installFollowerAlpha, followerRomSha256, followerProfile } from "../src/pokeweb/followingPokemonProject";
 import { getTestBattleConfig, loadTestBattleSave, toDesmumeDsv } from "../src/pokeweb/testBattle";
 const [inputPath, outputPath="runtime/following-pokemon/build/manual-test"] = process.argv.slice(2);
-if (!inputPath) throw new Error("Expected stock or audited White2Upgrade IRDO ROM path and optional output directory");
+if (!inputPath) throw new Error("Expected stock US Black 2/White 2 or audited White2Upgrade ROM path and optional output directory");
 globalThis.fetch=(async(input:RequestInfo|URL)=>{
  const url=new URL(input instanceof Request?input.url:String(input));
  if(url.protocol!=="file:")throw new Error(`Expected local asset ${url}`);
@@ -21,7 +21,7 @@ await installFollowerAlpha(project); // Idempotent installation must not duplica
 project.narcs = {};
 const rom=await exportModifiedRom(project);
 const profile=await followerProfile(project);
-const prefix=profile === "white2upgrade" ? "White2Upgrade-Following" : "White2-Following";
+const prefix=profile === "white2upgrade" ? "White2Upgrade-Following" : profile === "black2" ? "Black2-Following" : "White2-Following";
 const output=resolve(outputPath),name=`${prefix}-${state.version}`;
 await mkdir(output,{recursive:true});
 await writeFile(join(output,name+".nds"),rom);
@@ -37,7 +37,7 @@ const parseVersion=(value:string)=>{const match=/^(\d+)\.(\d+)\.(\d+)-alpha$/.ex
 const compareVersion=(a:number[],b:number[])=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2];
 const currentVersion=parseVersion(state.version)!;
 const priorSaves=(await readdir(deliveryDirectory)).flatMap(file=>{
- const match=/^(White2(?:Upgrade)?-Following)-(\d+\.\d+\.\d+-alpha)\.sav$/.exec(file),version=match && match[1] === prefix && parseVersion(match[2]);
+ const match=/^((?:Black2|White2(?:Upgrade)?)-Following)-(\d+\.\d+\.\d+-alpha)\.sav$/.exec(file),version=match && match[1] === prefix && parseVersion(match[2]);
  return version&&compareVersion(version,currentVersion)<0?[{file,version}]:[];
 }).sort((a,b)=>compareVersion(a.version,b.version));
 const deliverySave=join(deliveryDirectory,name+".sav");
