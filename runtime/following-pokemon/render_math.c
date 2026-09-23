@@ -29,7 +29,7 @@ static int axis(FwPoint d,FwPoint *out){
 }
 int fwr_correct(const FwPoint *world,const FwPoint *player_world,
  const FwrPose *native,const FwPoint *player_draw,const FwrCamera *camera,
- unsigned large,FwrPose *out,FwrResult *result){
+ unsigned flags,FwrPose *out,FwrResult *result){
  *out=*native;*result=(FwrResult){0};
  FwPoint direction,relative,base,ray;
  if(camera->projection>2||native->sx<=0||native->sy<=0||native->sx>32767||native->sy>32767
@@ -44,9 +44,20 @@ int fwr_correct(const FwPoint *world,const FwPoint *player_world,
  int32_t h=divide((int64_t)dot(base,horizontal)*4096,horizontal_length),target=-FWR_TIE_MARGIN;
  int front=h>FW_TILE/2,unequal=base.y>8192||base.y<-8192,lower=0;
  if(unequal){
-  if(!large||(!front&&base.y>0))return 0;
+  if(!(flags&FWR_LARGE)||(!front&&base.y>0))return 0;
   lower=!front;target=front?8*4096:-4*4096;
- }else if(front)target=FWR_TIE_MARGIN;
+ }else if(front){
+  target=FWR_TIE_MARGIN;
+  if((flags&FWR_NORTH)&&h<=3*FW_TILE/2){
+   /* The north-facing visual correction displaced the sprite by -7 Z and
+    * -2 Y. Restore its previous camera depth relative to the player by
+    * moving only the submitted quad along the eye ray. The projected sprite
+    * position remains fixed; the native shadow stays at its corrected anchor. */
+   FwPoint lost={(int32_t)0,FWR_NORTH_ART_Y*4096,FWR_NORTH_ANCHOR_Z*4096};
+   int32_t previousDepth=result->before+dot(lost,direction);
+   if(previousDepth>target)target=previousDepth;
+  }
+ }
  result->policy=lower?-2:(front?1:-1);
  int32_t current=result->before;
  if(lower?current>=target:(front?current>=target:current<=target))return 0;

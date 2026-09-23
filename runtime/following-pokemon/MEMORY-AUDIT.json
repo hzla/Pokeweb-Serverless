@@ -2,7 +2,7 @@
   "measurements": [
     {
       "profile": "stock",
-      "version": "0.6.27-alpha",
+      "version": "0.6.32-alpha",
       "modules": [
         {
           "name": "PokewebFollowingCoreW2",
@@ -28,11 +28,11 @@
         },
         {
           "name": "PokewebFollowingFieldW2",
-          "fileBytes": 28896,
-          "codeAndInitializedData": 24900,
+          "fileBytes": 29280,
+          "codeAndInitializedData": 25272,
           "bss": 18316,
-          "codePlusBss": 43216,
-          "expandedModuleBytes": 47216,
+          "codePlusBss": 43588,
+          "expandedModuleBytes": 47600,
           "symbols": 153,
           "exportedSymbols": 97,
           "allSymbolNamesStripped": true
@@ -115,7 +115,7 @@
           "section": ".data"
         }
       ],
-      "fixedPayloadBytes": 46356,
+      "fixedPayloadBytes": 46728,
       "registryBytes": 61808,
       "registryRecords": 2574,
       "registryHeapBytes": 0,
@@ -154,7 +154,7 @@
     },
     {
       "profile": "black2",
-      "version": "0.6.27-alpha",
+      "version": "0.6.32-alpha",
       "modules": [
         {
           "name": "PokewebFollowingCoreB2",
@@ -180,11 +180,11 @@
         },
         {
           "name": "PokewebFollowingFieldB2",
-          "fileBytes": 28896,
-          "codeAndInitializedData": 24900,
+          "fileBytes": 29280,
+          "codeAndInitializedData": 25272,
           "bss": 18316,
-          "codePlusBss": 43216,
-          "expandedModuleBytes": 47216,
+          "codePlusBss": 43588,
+          "expandedModuleBytes": 47600,
           "symbols": 153,
           "exportedSymbols": 97,
           "allSymbolNamesStripped": true
@@ -267,7 +267,7 @@
           "section": ".data"
         }
       ],
-      "fixedPayloadBytes": 46356,
+      "fixedPayloadBytes": 46728,
       "registryBytes": 61808,
       "registryRecords": 2574,
       "registryHeapBytes": 0,
@@ -306,7 +306,7 @@
     },
     {
       "profile": "white2upgrade",
-      "version": "0.7.18-alpha",
+      "version": "0.7.23-alpha",
       "modules": [
         {
           "name": "PokewebFollowingCoreW2",
@@ -332,11 +332,11 @@
         },
         {
           "name": "PokewebFollowingFieldW2",
-          "fileBytes": 28912,
-          "codeAndInitializedData": 24916,
+          "fileBytes": 29296,
+          "codeAndInitializedData": 25284,
           "bss": 19064,
-          "codePlusBss": 43980,
-          "expandedModuleBytes": 47984,
+          "codePlusBss": 44348,
+          "expandedModuleBytes": 48368,
           "symbols": 153,
           "exportedSymbols": 97,
           "allSymbolNamesStripped": true
@@ -419,7 +419,7 @@
           "section": ".data"
         }
       ],
-      "fixedPayloadBytes": 47340,
+      "fixedPayloadBytes": 47708,
       "registryBytes": 56648,
       "registryRecords": 4718,
       "registryHeapBytes": 0,
@@ -460,18 +460,18 @@
   "previousReleaseMeasurements": [
     {
       "profile": "stock",
-      "version": "0.6.26-alpha",
-      "fixedPayloadBytes": 46256
+      "version": "0.6.31-alpha",
+      "fixedPayloadBytes": 46648
     },
     {
       "profile": "black2",
-      "version": "0.6.26-alpha",
-      "fixedPayloadBytes": 46256
+      "version": "0.6.31-alpha",
+      "fixedPayloadBytes": 46648
     },
     {
       "profile": "white2upgrade",
-      "version": "0.7.17-alpha",
-      "fixedPayloadBytes": 47240
+      "version": "0.7.22-alpha",
+      "fixedPayloadBytes": 47628
     }
   ],
   "limits": "Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.",
