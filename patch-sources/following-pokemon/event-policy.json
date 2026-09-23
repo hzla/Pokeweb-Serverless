@@ -1,0 +1,1455 @@
+{
+  "schemaVersion": 1,
+  "abi": 1,
+  "default": "recall-before-dispatch",
+  "extended": "recall-before-dispatch; opcode fetch observes extended table as well",
+  "commands": [
+    {
+      "opcode": 0,
+      "name": "s0000_VMNop",
+      "category": "control-and-variables",
+      "handler": 34947521,
+      "segment": "12",
+      "expectedHex": "002070470020704708b5c1f6abfb0120"
+    },
+    {
+      "opcode": 1,
+      "name": "s0001_VMNop2",
+      "category": "control-and-variables",
+      "handler": 34947525,
+      "segment": "12",
+      "expectedHex": "0020704708b5c1f6abfb012008bd0000"
+    },
+    {
+      "opcode": 2,
+      "name": "s0002_VMHalt",
+      "category": "control-and-variables",
+      "handler": 34947529,
+      "segment": "12",
+      "expectedHex": "08b5c1f6abfb012008bd0000014b081c"
+    },
+    {
+      "opcode": 3,
+      "name": "s0003_VMSleep",
+      "category": "control-and-variables",
+      "handler": 34947553,
+      "segment": "12",
+      "expectedHex": "38b50c1c051cc1f6fffb011c201c01f0"
+    },
+    {
+      "opcode": 4,
+      "name": "s0004_VMCall",
+      "category": "control-and-variables",
+      "handler": 34947589,
+      "segment": "12",
+      "expectedHex": "10b5041cc1f6fcfb021c216a201c8918"
+    },
+    {
+      "opcode": 5,
+      "name": "s0005_VMReturn",
+      "category": "control-and-variables",
+      "handler": 34947613,
+      "segment": "12",
+      "expectedHex": "08b5c1f62dfc002008bd000038b50c1c"
+    },
+    {
+      "opcode": 6,
+      "name": "s0006_DebugPrint",
+      "category": "control-and-variables",
+      "handler": 34947625,
+      "segment": "12",
+      "expectedHex": "38b50c1c051c201c00f0c0ff281c211c"
+    },
+    {
+      "opcode": 7,
+      "name": "s0007_DebugStack",
+      "category": "control-and-variables",
+      "handler": 34947649,
+      "segment": "12",
+      "expectedHex": "38b5051c0c1cc1f603fc281c211c00f0"
+    },
+    {
+      "opcode": 8,
+      "name": "s0008_VMStackPushConst",
+      "category": "control-and-variables",
+      "handler": 34947933,
+      "segment": "12",
+      "expectedHex": "10b5041cc1f642fb011c201cc1f664fb"
+    },
+    {
+      "opcode": 9,
+      "name": "s0009_VMStackPush",
+      "category": "control-and-variables",
+      "handler": 34947953,
+      "segment": "12",
+      "expectedHex": "10b5041c00f0ecfa011c201cc1f65afb"
+    },
+    {
+      "opcode": 10,
+      "name": "s000A_VMStackPop",
+      "category": "control-and-variables",
+      "handler": 34947973,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1cc1f661fb041c281c311c"
+    },
+    {
+      "opcode": 11,
+      "name": "s000B_VMStackDiscard",
+      "category": "control-and-variables",
+      "handler": 34948001,
+      "segment": "12",
+      "expectedHex": "08b5c1f655fb002008bd000038b5051c"
+    },
+    {
+      "opcode": 12,
+      "name": "s000C_VMStackAdd",
+      "category": "control-and-variables",
+      "handler": 34948013,
+      "segment": "12",
+      "expectedHex": "38b5051cc1f64efb041c281cc1f64afb"
+    },
+    {
+      "opcode": 13,
+      "name": "s000D_VMStackSub",
+      "category": "control-and-variables",
+      "handler": 34948045,
+      "segment": "12",
+      "expectedHex": "38b5051cc1f63efb041c281cc1f63afb"
+    },
+    {
+      "opcode": 14,
+      "name": "s000E_VMStackMul",
+      "category": "control-and-variables",
+      "handler": 34948077,
+      "segment": "12",
+      "expectedHex": "38b5051cc1f62efb041c281cc1f62afb"
+    },
+    {
+      "opcode": 15,
+      "name": "s000F_VMStackDiv",
+      "category": "control-and-variables",
+      "handler": 34948109,
+      "segment": "12",
+      "expectedHex": "38b5051cc1f61efb041c281cc1f61afb"
+    },
+    {
+      "opcode": 16,
+      "name": "s0010_VMStackPushFlag",
+      "category": "control-and-variables",
+      "handler": 34948145,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301c00f0bcfec2f6aaff"
+    },
+    {
+      "opcode": 17,
+      "name": "s0011_VMStackCmp",
+      "category": "control-and-variables",
+      "handler": 34948193,
+      "segment": "12",
+      "expectedHex": "70b5061cc1f6f4fa041c301cc1f6f0fa"
+    },
+    {
+      "opcode": 18,
+      "name": "s0012_WorkAnd",
+      "category": "control-and-variables",
+      "handler": 34949077,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f0a5f8041c281c311c"
+    },
+    {
+      "opcode": 19,
+      "name": "s0013_WorkOr",
+      "category": "control-and-variables",
+      "handler": 34949109,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f095f8041c281c311c"
+    },
+    {
+      "opcode": 20,
+      "name": "s0014_VMRegSet8",
+      "category": "control-and-variables",
+      "handler": 34947673,
+      "segment": "12",
+      "expectedHex": "026a1378511c01625278491c0162816a"
+    },
+    {
+      "opcode": 21,
+      "name": "s0015_VMRegSet32",
+      "category": "control-and-variables",
+      "handler": 34947697,
+      "segment": "12",
+      "expectedHex": "38b5051c296a0c78491c2962c1f6c2fb"
+    },
+    {
+      "opcode": 22,
+      "name": "s0016_VMRegMov",
+      "category": "control-and-variables",
+      "handler": 34947725,
+      "segment": "12",
+      "expectedHex": "18b4026a1478511c01625378491c826a"
+    },
+    {
+      "opcode": 23,
+      "name": "s0017_VMRegCmp8",
+      "category": "control-and-variables",
+      "handler": 34947777,
+      "segment": "12",
+      "expectedHex": "10b5041c236aa16a18785a1c22628000"
+    },
+    {
+      "opcode": 24,
+      "name": "s0018_VMRegCmpConst8",
+      "category": "control-and-variables",
+      "handler": 34947825,
+      "segment": "12",
+      "expectedHex": "10b5041c216aa36a08784a1c22628000"
+    },
+    {
+      "opcode": 25,
+      "name": "s0019_WorkCmpConst",
+      "category": "control-and-variables",
+      "handler": 34947865,
+      "segment": "12",
+      "expectedHex": "38b5051c00f004fb0488281cc1f660fb"
+    },
+    {
+      "opcode": 26,
+      "name": "s001A_WorkCmpWork",
+      "category": "control-and-variables",
+      "handler": 34947897,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f0f3fa041c281c311c"
+    },
+    {
+      "opcode": 27,
+      "name": "s001B_RTCallGlobalAsync",
+      "category": "control-and-variables",
+      "handler": 34948337,
+      "segment": "12",
+      "expectedHex": "70b50d1c041c281c00f058fe281c00f0"
+    },
+    {
+      "opcode": 28,
+      "name": "s001C_RTCallGlobal",
+      "category": "control-and-variables",
+      "handler": 34948429,
+      "segment": "12",
+      "expectedHex": "f8b50c1c051c201c00f02afe0090201c"
+    },
+    {
+      "opcode": 29,
+      "name": "s001D_RTEndGlobal",
+      "category": "control-and-variables",
+      "handler": 34948549,
+      "segment": "12",
+      "expectedHex": "10b5041c081c00f0fbfd201cc1f6a8f9"
+    },
+    {
+      "opcode": 30,
+      "name": "s001E_VMJump",
+      "category": "control-and-variables",
+      "handler": 34948569,
+      "segment": "12",
+      "expectedHex": "10b5041cc1f612fa021c216a201c8918"
+    },
+    {
+      "opcode": 31,
+      "name": "s001F_VMJumpIf",
+      "category": "control-and-variables",
+      "handler": 34948593,
+      "segment": "12",
+      "expectedHex": "70b5051c296a0c78491c2962c1f602fa"
+    },
+    {
+      "opcode": 32,
+      "name": "s0020_VMCallIf",
+      "category": "control-and-variables",
+      "handler": 34948661,
+      "segment": "12",
+      "expectedHex": "38b5051c296a0c78491c2962c1f6e0f9"
+    },
+    {
+      "opcode": 33,
+      "name": "s0021_RTReserveScript",
+      "category": "control-and-variables",
+      "handler": 34948713,
+      "segment": "12",
+      "expectedHex": "38b50d1cc1f6bcf9041c281c00f09efd"
+    },
+    {
+      "opcode": 34,
+      "name": "s0022_FieldGetContinueFlag",
+      "category": "control-and-variables",
+      "handler": 34948745,
+      "segment": "12",
+      "expectedHex": "38b50d1c00f04cf9041c281c00f08efd"
+    },
+    {
+      "opcode": 35,
+      "name": "s0023_FlagSet",
+      "category": "control-and-variables",
+      "handler": 34948777,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301c00f080fdc2f66efe"
+    },
+    {
+      "opcode": 36,
+      "name": "s0024_FlagReset",
+      "category": "control-and-variables",
+      "handler": 34948817,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301c00f06cfdc2f65afe"
+    },
+    {
+      "opcode": 37,
+      "name": "s0025_FlagGet",
+      "category": "control-and-variables",
+      "handler": 34948857,
+      "segment": "12",
+      "expectedHex": "f8b50c1c051c201c00f058fdc2f646fe"
+    },
+    {
+      "opcode": 38,
+      "name": "s0026_WorkAdd",
+      "category": "control-and-variables",
+      "handler": 34948909,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f0f9f8041c281c311c"
+    },
+    {
+      "opcode": 39,
+      "name": "s0027_WorkSub",
+      "category": "control-and-variables",
+      "handler": 34948941,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f0e9f8041c281c311c"
+    },
+    {
+      "opcode": 40,
+      "name": "s0028_WorkSetConst",
+      "category": "control-and-variables",
+      "handler": 34949141,
+      "segment": "12",
+      "expectedHex": "38b5051c00f086f8041c281cc1f6e2f8"
+    },
+    {
+      "opcode": 41,
+      "name": "s0029_WorkGet",
+      "category": "control-and-variables",
+      "handler": 34949165,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f079f8041c281c311c"
+    },
+    {
+      "opcode": 42,
+      "name": "s002A_WorkSet",
+      "category": "control-and-variables",
+      "handler": 34949193,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f06bf8041c281c311c"
+    },
+    {
+      "opcode": 43,
+      "name": "s002B_WorkMul",
+      "category": "control-and-variables",
+      "handler": 34948973,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f0d9f8041c281c311c"
+    },
+    {
+      "opcode": 44,
+      "name": "s002C_WorkDiv",
+      "category": "control-and-variables",
+      "handler": 34949005,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f0c9f8041c281c311c"
+    },
+    {
+      "opcode": 45,
+      "name": "s002D_WorkMod",
+      "category": "control-and-variables",
+      "handler": 34949041,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1c00f0b7f8041c281c311c"
+    },
+    {
+      "opcode": 46,
+      "name": "s002E_ActorsPauseAll",
+      "category": "control-and-variables",
+      "handler": 34949221,
+      "segment": "12",
+      "expectedHex": "004b1847f9a41a02f8b50d1c281c00f0"
+    },
+    {
+      "opcode": 47,
+      "name": "s002F_ActorsUnpauseAll",
+      "category": "control-and-variables",
+      "handler": 34949229,
+      "segment": "12",
+      "expectedHex": "f8b50d1c281c00f0a7fc061c281c00f0"
+    },
+    {
+      "opcode": 48,
+      "name": "s0030_FinishAllEvents",
+      "category": "bounded-cleanup-child",
+      "handler": 34949301,
+      "segment": "12",
+      "expectedHex": "38b50d1c281c00f083fc041c281c00f073fc281cfff75cfc011c01d1012038bd201cfef7f3ff012038bd0000"
+    },
+    {
+      "opcode": 49,
+      "name": "s0031_ABKeyWait",
+      "category": "dialogue-and-formatting",
+      "handler": 34949365,
+      "segment": "12",
+      "expectedHex": "08b50249c1f6c6f8012008bde1481502"
+    },
+    {
+      "opcode": 50,
+      "name": "s0032_LastKeyWait",
+      "category": "dialogue-and-formatting",
+      "handler": 34949401,
+      "segment": "12",
+      "expectedHex": "08b50249c1f6b4f8012008bd05491502"
+    },
+    {
+      "opcode": 51,
+      "name": "s0033_MsgSetAutoscrolls",
+      "category": "dialogue-and-formatting",
+      "handler": 35297293,
+      "segment": "36",
+      "expectedHex": "38b5051c081cabf7d7fcaaf767fb041c"
+    },
+    {
+      "opcode": 52,
+      "name": "s0034_SystemMsg",
+      "category": "dialogue-and-formatting",
+      "handler": 35293009,
+      "segment": "36",
+      "expectedHex": "70b50c1c051c201cacf734fd281c211c"
+    },
+    {
+      "opcode": 53,
+      "name": "s0035_SystemMsgAsync",
+      "category": "dialogue-and-formatting",
+      "handler": 35293097,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cacf708fdabf7a8fb"
+    },
+    {
+      "opcode": 54,
+      "name": "s0036_InfoMsgClose",
+      "category": "dialogue-and-formatting",
+      "handler": 35293305,
+      "segment": "36",
+      "expectedHex": "08b5081cfff73cff002008bd08b54068"
+    },
+    {
+      "opcode": 55,
+      "name": "s0037_MsgSetLoadingSpinner",
+      "category": "dialogue-and-formatting",
+      "handler": 35293185,
+      "segment": "36",
+      "expectedHex": "78b581b00d1c041c281cacf7cffc6ef6"
+    },
+    {
+      "opcode": 56,
+      "name": "s0038_InfoMsg",
+      "category": "dialogue-and-formatting",
+      "handler": 35296109,
+      "segment": "36",
+      "expectedHex": "014b00221847c04681921a02014b0122"
+    },
+    {
+      "opcode": 57,
+      "name": "s0039_InfoMsgClose",
+      "category": "dialogue-and-formatting",
+      "handler": 35296133,
+      "segment": "36",
+      "expectedHex": "08b5081cfff7daff002008bd08b54068"
+    },
+    {
+      "opcode": 58,
+      "name": "s003A_MultiMsg",
+      "category": "dialogue-and-formatting",
+      "handler": 35296157,
+      "segment": "36",
+      "expectedHex": "f0b587b00d1c071c281cabf70dffaaf7"
+    },
+    {
+      "opcode": 59,
+      "name": "s003B_MsgWinCloseNo",
+      "category": "dialogue-and-formatting",
+      "handler": 35296349,
+      "segment": "36",
+      "expectedHex": "38b5051c081cabf7affeaaf73ffd041c"
+    },
+    {
+      "opcode": 60,
+      "name": "s003C_ActorMsg",
+      "category": "dialogue-and-formatting",
+      "handler": 35295077,
+      "segment": "36",
+      "expectedHex": "f0b585b0051c0c1cabf7f0fc0390281c"
+    },
+    {
+      "opcode": 61,
+      "name": "s003D_ParentActorMsg",
+      "category": "dialogue-and-formatting",
+      "handler": 35295153,
+      "segment": "36",
+      "expectedHex": "f8b586b00c1c051c201cacf703f9aaf7"
+    },
+    {
+      "opcode": 62,
+      "name": "s003E_ActorMsgClose",
+      "category": "dialogue-and-formatting",
+      "handler": 35295537,
+      "segment": "36",
+      "expectedHex": "08b5fff7d3fd012008bd000008b54068"
+    },
+    {
+      "opcode": 63,
+      "name": "s003F_MsgWinCloseAll",
+      "category": "dialogue-and-formatting",
+      "handler": 35297081,
+      "segment": "36",
+      "expectedHex": "38b5051c01200c1caaf7e6fc002802d0"
+    },
+    {
+      "opcode": 64,
+      "name": "s0040_MoneyWinDisp",
+      "category": "dialogue-and-formatting",
+      "handler": 35293329,
+      "segment": "36",
+      "expectedHex": "f0b589b0051c0c1cacf75af8071c281c"
+    },
+    {
+      "opcode": 65,
+      "name": "s0041_MoneyWinClose",
+      "category": "dialogue-and-formatting",
+      "handler": 35293749,
+      "segment": "36",
+      "expectedHex": "10b5081cacf7b8fb6ef658f8041cd7f7"
+    },
+    {
+      "opcode": 66,
+      "name": "s0042_MoneyWinUpdate",
+      "category": "dialogue-and-formatting",
+      "handler": 35293573,
+      "segment": "36",
+      "expectedHex": "f0b585b00c1c201cacf70efc051c6ef6"
+    },
+    {
+      "opcode": 67,
+      "name": "s0043_MsgPlaceSign",
+      "category": "dialogue-and-formatting",
+      "handler": 35296565,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cabf742fe061c281c"
+    },
+    {
+      "opcode": 68,
+      "name": "s0044_MsgPlaceSignClose",
+      "category": "dialogue-and-formatting",
+      "handler": 35296801,
+      "segment": "36",
+      "expectedHex": "08b5081cfff762ff002008bd08b54068"
+    },
+    {
+      "opcode": 69,
+      "name": "s0045_CheckerMsg",
+      "category": "dialogue-and-formatting",
+      "handler": 35296893,
+      "segment": "36",
+      "expectedHex": "f8b586b0051c081c0291abf79dfd061c"
+    },
+    {
+      "opcode": 70,
+      "name": "s0046_CheckerMsgClose",
+      "category": "dialogue-and-formatting",
+      "handler": 35297057,
+      "segment": "36",
+      "expectedHex": "08b5081cfff788ff002008bd08b54068"
+    },
+    {
+      "opcode": 71,
+      "name": "s0047_YesNoWin",
+      "category": "dialogue-and-formatting",
+      "handler": 35292073,
+      "segment": "36",
+      "expectedHex": "70b50d1cacf7bcfa041c281cacf706ff"
+    },
+    {
+      "opcode": 72,
+      "name": "s0048_ActorMsgGendered",
+      "category": "dialogue-and-formatting",
+      "handler": 35295481,
+      "segment": "36",
+      "expectedHex": "38b50c1c051c201cacf758f86ef676f8"
+    },
+    {
+      "opcode": 73,
+      "name": "s0049_ActorMsgVersioned",
+      "category": "dialogue-and-formatting",
+      "handler": 35295525,
+      "segment": "36",
+      "expectedHex": "014b00221847c04619901a0208b5fff7"
+    },
+    {
+      "opcode": 74,
+      "name": "s004A_ScreamMsg",
+      "category": "dialogue-and-formatting",
+      "handler": 35296121,
+      "segment": "36",
+      "expectedHex": "014b01221847c04681921a0208b5081c"
+    },
+    {
+      "opcode": 75,
+      "name": "s004B_MsgWaitAdvance",
+      "category": "dialogue-and-formatting",
+      "handler": 35297277,
+      "segment": "36",
+      "expectedHex": "08b502496cf642f9012008bd95971a02"
+    },
+    {
+      "opcode": 76,
+      "name": "s004C_WordSetPlayerName",
+      "category": "dialogue-and-formatting",
+      "handler": 35288933,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301cadf72afd041cacf7"
+    },
+    {
+      "opcode": 77,
+      "name": "s004D_WordSetItemName",
+      "category": "dialogue-and-formatting",
+      "handler": 35289109,
+      "segment": "36",
+      "expectedHex": "014a024b1847c046e1440202e5771a02"
+    },
+    {
+      "opcode": 78,
+      "name": "s004E_WordSetItemNameEx",
+      "category": "dialogue-and-formatting",
+      "handler": 35289141,
+      "segment": "36",
+      "expectedHex": "f8b5051c081c0091adf7c2fcacf760fb"
+    },
+    {
+      "opcode": 79,
+      "name": "s004F_WordSetItemNameWithArticle",
+      "category": "dialogue-and-formatting",
+      "handler": 35289125,
+      "segment": "36",
+      "expectedHex": "014a024b1847c046ed440202e5771a02"
+    },
+    {
+      "opcode": 80,
+      "name": "s0050_WordSetTMMoveName",
+      "category": "dialogue-and-formatting",
+      "handler": 35289241,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf790fcacf72efb"
+    },
+    {
+      "opcode": 81,
+      "name": "s0051_WordSetMoveName",
+      "category": "dialogue-and-formatting",
+      "handler": 35289293,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf776fcacf714fb"
+    },
+    {
+      "opcode": 82,
+      "name": "s0052_WordSetItemPocketName",
+      "category": "dialogue-and-formatting",
+      "handler": 35289469,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cadf71efcacf7bcfa"
+    },
+    {
+      "opcode": 83,
+      "name": "s0053_WordSetPartyPokeSpecies",
+      "category": "dialogue-and-formatting",
+      "handler": 35289541,
+      "segment": "36",
+      "expectedHex": "f8b50e1c041c301cadf7fafb051c301c"
+    },
+    {
+      "opcode": 84,
+      "name": "s0054_WordSetPartyPokeName",
+      "category": "dialogue-and-formatting",
+      "handler": 35289617,
+      "segment": "36",
+      "expectedHex": "f8b50e1c041c301cadf7d4fb051c301c"
+    },
+    {
+      "opcode": 85,
+      "name": "s0055_WordSetDaycarePokeSpecies",
+      "category": "dialogue-and-formatting",
+      "handler": 35289693,
+      "segment": "36",
+      "expectedHex": "f8b50e1c041c301cadf7aefbacf74cfa"
+    },
+    {
+      "opcode": 86,
+      "name": "s0056_WordSetPokeTypeName",
+      "category": "dialogue-and-formatting",
+      "handler": 35289341,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf75efcacf7fcfa"
+    },
+    {
+      "opcode": 87,
+      "name": "s0057_WordSetPokeSpecies",
+      "category": "dialogue-and-formatting",
+      "handler": 35289437,
+      "segment": "36",
+      "expectedHex": "014a024b1847c046fd4302022d791a02"
+    },
+    {
+      "opcode": 88,
+      "name": "s0058_WordSetPokeSpeciesWithArticle",
+      "category": "dialogue-and-formatting",
+      "handler": 35289453,
+      "segment": "36",
+      "expectedHex": "014a024b1847c046614402022d791a02"
+    },
+    {
+      "opcode": 89,
+      "name": "s0059_WordSetPlaceName",
+      "category": "dialogue-and-formatting",
+      "handler": 35289909,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf742fbacf7e0f9"
+    },
+    {
+      "opcode": 90,
+      "name": "s005A_WordSetTrendName",
+      "category": "dialogue-and-formatting",
+      "handler": 35289961,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf728fbacf7c6f9"
+    },
+    {
+      "opcode": 91,
+      "name": "s005B_WordSetDaycarePokeName",
+      "category": "dialogue-and-formatting",
+      "handler": 35289765,
+      "segment": "36",
+      "expectedHex": "f8b50e1c041c301cadf78afbacf728fa"
+    },
+    {
+      "opcode": 92,
+      "name": "s005C_WordSetNumber",
+      "category": "dialogue-and-formatting",
+      "handler": 35289837,
+      "segment": "36",
+      "expectedHex": "f0b583b00e1c051c301cadf765fbacf7"
+    },
+    {
+      "opcode": 94,
+      "name": "s005E_WordSetCountry",
+      "category": "dialogue-and-formatting",
+      "handler": 35290009,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf710fbacf7aef9"
+    },
+    {
+      "opcode": 95,
+      "name": "s005F_WordSetHobbyName",
+      "category": "dialogue-and-formatting",
+      "handler": 35290057,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf7f8faacf796f9"
+    },
+    {
+      "opcode": 96,
+      "name": "s0060_WordSetPassPowerName",
+      "category": "dialogue-and-formatting",
+      "handler": 35290161,
+      "segment": "36",
+      "expectedHex": "70b5026a0d1c1478521c0262acf788fe"
+    },
+    {
+      "opcode": 97,
+      "name": "s0061_WordSetTrainerClassName",
+      "category": "dialogue-and-formatting",
+      "handler": 35290245,
+      "segment": "36",
+      "expectedHex": "014a024b1847c046c1460202597c1a02"
+    },
+    {
+      "opcode": 98,
+      "name": "s0062_WordSetTrainerClassNameWithArticle",
+      "category": "dialogue-and-formatting",
+      "handler": 35290261,
+      "segment": "36",
+      "expectedHex": "014a024b1847c046f1460202597c1a02"
+    },
+    {
+      "opcode": 99,
+      "name": "s0063_WordSetSurveyAnswer",
+      "category": "dialogue-and-formatting",
+      "handler": 35290109,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf7defaacf77cf9"
+    },
+    {
+      "opcode": 100,
+      "name": "s0064_ActorCmdExec",
+      "category": "observed-actor-actions",
+      "handler": 35297589,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cabf742fc281c211c"
+    },
+    {
+      "opcode": 101,
+      "name": "s0065_ActorCmdWait",
+      "category": "observed-actor-actions",
+      "handler": 35299293,
+      "segment": "36",
+      "expectedHex": "08b502496bf652fd012008bdc99f1a02"
+    },
+    {
+      "opcode": 102,
+      "name": "s0066_ActorGetMoveCode",
+      "category": "observed-actor-actions",
+      "handler": 35299309,
+      "segment": "36",
+      "expectedHex": "f8b50e1c051c301cabf7e2f8071c281c"
+    },
+    {
+      "opcode": 103,
+      "name": "s0067_ActorGetGPos",
+      "category": "observed-actor-actions",
+      "handler": 35299417,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cabf7acf8061c281c"
+    },
+    {
+      "opcode": 104,
+      "name": "s0068_PlayerGetGPos",
+      "category": "observed-actor-actions",
+      "handler": 35299489,
+      "segment": "36",
+      "expectedHex": "f8b50f1c041c381cabf78cf8a9f71cff"
+    },
+    {
+      "opcode": 105,
+      "name": "s0069_ActorNew",
+      "category": "observed-actor-actions",
+      "handler": 35299593,
+      "segment": "36",
+      "expectedHex": "f0b589b00c1c051c201cabf757f8a9f7"
+    },
+    {
+      "opcode": 106,
+      "name": "s006A_ActorGetSpawnFlag",
+      "category": "observed-actor-actions",
+      "handler": 35299997,
+      "segment": "36",
+      "expectedHex": "70b5041c0d1caaf755fb061c201c291c"
+    },
+    {
+      "opcode": 107,
+      "name": "s006B_ActorAdd",
+      "category": "observed-actor-actions",
+      "handler": 35299793,
+      "segment": "36",
+      "expectedHex": "f0b585b00f1c061c381caaf7efff0290"
+    },
+    {
+      "opcode": 108,
+      "name": "s006C_ActorDelete",
+      "category": "observed-actor-actions",
+      "handler": 35299749,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301cabf706f8041c281c"
+    },
+    {
+      "opcode": 109,
+      "name": "s006D_ActorSetGPos",
+      "category": "observed-actor-actions",
+      "handler": 35299901,
+      "segment": "36",
+      "expectedHex": "f0b583b0041c0d1caaf784fb0290201c"
+    },
+    {
+      "opcode": 110,
+      "name": "s006E_PlayerGetDir",
+      "category": "observed-actor-actions",
+      "handler": 35299557,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301c00f076fb041c281c"
+    },
+    {
+      "opcode": 111,
+      "name": "s006F_PlayerGetActorInFront",
+      "category": "observed-actor-actions",
+      "handler": 35300889,
+      "segment": "36",
+      "expectedHex": "f8b50e1c051c301caaf7c4fd6cf664fa"
+    },
+    {
+      "opcode": 112,
+      "name": "s0070_ActorFindByGPos",
+      "category": "observed-actor-actions",
+      "handler": 35300757,
+      "segment": "36",
+      "expectedHex": "f0b585b00c1c051c201caaf711fea9f7"
+    },
+    {
+      "opcode": 113,
+      "name": "s0071_PlayerGetRailPos",
+      "category": "observed-actor-actions",
+      "handler": 35302005,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cfff7aefe061c281c"
+    },
+    {
+      "opcode": 114,
+      "name": "s0072_ActorGetRailPos",
+      "category": "observed-actor-actions",
+      "handler": 35302069,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201caaf77efb061c281c"
+    },
+    {
+      "opcode": 116,
+      "name": "s0074_ActorSetEyeToEye",
+      "category": "observed-actor-actions",
+      "handler": 35300701,
+      "segment": "36",
+      "expectedHex": "38b50d1c281caaf72ffe041c281c00f0"
+    },
+    {
+      "opcode": 119,
+      "name": "s0077_PlayerTurnByTrigger",
+      "category": "observed-actor-actions",
+      "handler": 35301353,
+      "segment": "36",
+      "expectedHex": "f8b58ab00d1c281caaf7e8fc0490a9f7"
+    },
+    {
+      "opcode": 121,
+      "name": "s0079_ActorGetUserParam",
+      "category": "observed-actor-actions",
+      "handler": 35300045,
+      "segment": "36",
+      "expectedHex": "f8b5061c0d1caaf73dfb071c301c291c"
+    },
+    {
+      "opcode": 152,
+      "name": "s0098_BGMPlay",
+      "category": "sound",
+      "handler": 35286357,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301caef726fa041c301c"
+    },
+    {
+      "opcode": 155,
+      "name": "s009B_BGMIsPlaying",
+      "category": "sound",
+      "handler": 35286629,
+      "segment": "36",
+      "expectedHex": "38b5051c0c1c6ef6bdfd281c211cadf7"
+    },
+    {
+      "opcode": 158,
+      "name": "s009E_BGMChangeMap",
+      "category": "sound",
+      "handler": 35286909,
+      "segment": "36",
+      "expectedHex": "f0b583b0081c0091aef712f9051c6ff6"
+    },
+    {
+      "opcode": 159,
+      "name": "s009F_BGMPlayPush",
+      "category": "sound",
+      "handler": 35287137,
+      "segment": "36",
+      "expectedHex": "f8b50e1c051c301caef7a0f8041c6ff6"
+    },
+    {
+      "opcode": 160,
+      "name": "s00A0_BGMWait",
+      "category": "sound",
+      "handler": 35286693,
+      "segment": "36",
+      "expectedHex": "08b502496ef6eefd012008bd856e1a02"
+    },
+    {
+      "opcode": 161,
+      "name": "s00A1_BGMPush",
+      "category": "sound",
+      "handler": 35287197,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201caef782f8061c201c"
+    },
+    {
+      "opcode": 162,
+      "name": "s00A2_BGMPop",
+      "category": "sound",
+      "handler": 35287253,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201caef766f8061c201c"
+    },
+    {
+      "opcode": 166,
+      "name": "s00A6_SEPlay",
+      "category": "sound",
+      "handler": 35287609,
+      "segment": "36",
+      "expectedHex": "38b50c1cadf788fb051c201cadf7beff"
+    },
+    {
+      "opcode": 167,
+      "name": "s00A7_SEStop",
+      "category": "sound",
+      "handler": 35287649,
+      "segment": "36",
+      "expectedHex": "08b5081cadf7aefffff7d2ff002008bd"
+    },
+    {
+      "opcode": 168,
+      "name": "s00A8_SEWait",
+      "category": "sound",
+      "handler": 35287689,
+      "segment": "36",
+      "expectedHex": "08b502496ef6fcfb012008bd71721a02"
+    },
+    {
+      "opcode": 169,
+      "name": "s00A9_MEPlay",
+      "category": "sound",
+      "handler": 35287705,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cadf784ff061c201c"
+    },
+    {
+      "opcode": 170,
+      "name": "s00AA_MEWait",
+      "category": "sound",
+      "handler": 35287833,
+      "segment": "36",
+      "expectedHex": "08b502496ef6b4fb012008bdcd721a02"
+    },
+    {
+      "opcode": 171,
+      "name": "s00AB_PVPlay",
+      "category": "sound",
+      "handler": 35287849,
+      "segment": "36",
+      "expectedHex": "f8b50d1c041c281cadf748ff0090281c"
+    },
+    {
+      "opcode": 172,
+      "name": "s00AC_PVWait",
+      "category": "sound",
+      "handler": 35288049,
+      "segment": "36",
+      "expectedHex": "08b502496ef648fb012008bdd9731a02"
+    },
+    {
+      "opcode": 173,
+      "name": "s00AD_ListMenuInitCommon",
+      "category": "in-dialogue-choices",
+      "handler": 35292245,
+      "segment": "36",
+      "expectedHex": "f0b589b00e1c041c301cacf7b1fe0690"
+    },
+    {
+      "opcode": 174,
+      "name": "s00AE_ListMenu_AnchorTopLeft",
+      "category": "in-dialogue-choices",
+      "handler": 35292357,
+      "segment": "36",
+      "expectedHex": "f8b58ab00c1c051c201cacf779fe071c"
+    },
+    {
+      "opcode": 175,
+      "name": "s00AF_ListMenuAdd",
+      "category": "in-dialogue-choices",
+      "handler": 35292605,
+      "segment": "36",
+      "expectedHex": "f8b584b00f1c041c381cacf7fdfd051c"
+    },
+    {
+      "opcode": 176,
+      "name": "s00B0_ListMenuShow",
+      "category": "in-dialogue-choices",
+      "handler": 35292685,
+      "segment": "36",
+      "expectedHex": "38b50d1c281cacf7d7fd041c281cacf7"
+    },
+    {
+      "opcode": 177,
+      "name": "s00B1_ListMenuShow2",
+      "category": "in-dialogue-choices",
+      "handler": 35292725,
+      "segment": "36",
+      "expectedHex": "38b50d1c281cacf7c3fd041c281cacf7"
+    },
+    {
+      "opcode": 178,
+      "name": "s00B2_ListMenu_AnchorTopRight",
+      "category": "in-dialogue-choices",
+      "handler": 35292481,
+      "segment": "36",
+      "expectedHex": "f8b58ab00c1c051c201cacf73bfe071c"
+    },
+    {
+      "opcode": 203,
+      "name": "s00CB_Random",
+      "category": "read-only-context",
+      "handler": 34952869,
+      "segment": "12",
+      "expectedHex": "70b5051c0e1cfff73df9041c281c311c"
+    },
+    {
+      "opcode": 204,
+      "name": "s00CC_RTGetTextFile",
+      "category": "read-only-context",
+      "handler": 34952901,
+      "segment": "12",
+      "expectedHex": "38b50d1cfff72ef9041c281cfff786fd"
+    },
+    {
+      "opcode": 205,
+      "name": "s00CD_RTCGetDayPart",
+      "category": "read-only-context",
+      "handler": 34952961,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cfff754fd041c281c"
+    },
+    {
+      "opcode": 207,
+      "name": "s00CF_RTCGetWeekDay",
+      "category": "read-only-context",
+      "handler": 34952997,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cfff742fd041c281c"
+    },
+    {
+      "opcode": 208,
+      "name": "s00D0_RTCGetDate",
+      "category": "read-only-context",
+      "handler": 34953033,
+      "segment": "12",
+      "expectedHex": "f8b50f1c041c381cfff730fd051c201c"
+    },
+    {
+      "opcode": 209,
+      "name": "s00D1_RTCGetTime",
+      "category": "read-only-context",
+      "handler": 34953089,
+      "segment": "12",
+      "expectedHex": "f8b50f1c041c381cfff714fd051c201c"
+    },
+    {
+      "opcode": 210,
+      "name": "s00D2_RTCGetSeason",
+      "category": "read-only-context",
+      "handler": 34953145,
+      "segment": "12",
+      "expectedHex": "38b50d1cfff7b4f8041c281cfff7f6fc"
+    },
+    {
+      "opcode": 211,
+      "name": "s00D3_RTGetZoneID",
+      "category": "read-only-context",
+      "handler": 34953505,
+      "segment": "12",
+      "expectedHex": "38b50d1cfff700f8041c281cfff738fc"
+    },
+    {
+      "opcode": 212,
+      "name": "s00D4_TrainerCardGetBirthDate",
+      "category": "read-only-context",
+      "handler": 34953173,
+      "segment": "12",
+      "expectedHex": "70b596b0051c0e1cfff7a4f8041c281c"
+    },
+    {
+      "opcode": 213,
+      "name": "s00D5_TrainerCardHasBadge",
+      "category": "read-only-context",
+      "handler": 34953253,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfff77df8041c301c291c"
+    },
+    {
+      "opcode": 215,
+      "name": "s00D7_TrainerCardGetBadgeCount",
+      "category": "read-only-context",
+      "handler": 34953361,
+      "segment": "12",
+      "expectedHex": "38b50d1cfff748f8041c281cfff78afc"
+    },
+    {
+      "opcode": 224,
+      "name": "s00E0_GameGetVersion",
+      "category": "read-only-context",
+      "handler": 34952761,
+      "segment": "12",
+      "expectedHex": "08b5fff775f916210180002008bd0000"
+    },
+    {
+      "opcode": 225,
+      "name": "s00E1_TrainerCardGetSex",
+      "category": "read-only-context",
+      "handler": 34953221,
+      "segment": "12",
+      "expectedHex": "38b50d1cfff78ef8041c281cfff7d0fc"
+    },
+    {
+      "opcode": 234,
+      "name": "s00EA_HOFCheckIntegrity",
+      "category": "pc-continuity",
+      "handler": 34954829,
+      "segment": "12",
+      "expectedHex": "f8b50f1c051c381cfff7aef9041cc1f6"
+    },
+    {
+      "opcode": 304,
+      "name": "s0130_PokecenPCOpen",
+      "category": "pc-continuity",
+      "handler": 35305457,
+      "segment": "36",
+      "expectedHex": "70b50c1c201ca9f7d9fc051c201ca9f7"
+    },
+    {
+      "opcode": 305,
+      "name": "s0131_PokecenPCIdle",
+      "category": "pc-continuity",
+      "handler": 35305513,
+      "segment": "36",
+      "expectedHex": "70b50c1c201ca9f7bdfc051c201ca9f7"
+    },
+    {
+      "opcode": 306,
+      "name": "s0132_PokecenPCClose",
+      "category": "pc-continuity",
+      "handler": 35305569,
+      "segment": "36",
+      "expectedHex": "f8b50f1c061c381ca9f7a0fc051c381c"
+    },
+    {
+      "opcode": 319,
+      "name": "s013F_EvCameraInit",
+      "category": "camera",
+      "handler": 35317613,
+      "segment": "36",
+      "expectedHex": "f8b50f1c381ca6f71bfd061c68f6baf9"
+    },
+    {
+      "opcode": 320,
+      "name": "s0140_EvCameraEnd",
+      "category": "camera",
+      "handler": 35317725,
+      "segment": "36",
+      "expectedHex": "10b5081ca6f7e4fc68f684f9041cd1f7"
+    },
+    {
+      "opcode": 321,
+      "name": "s0141_EvCameraUnbind",
+      "category": "camera",
+      "handler": 35317757,
+      "segment": "36",
+      "expectedHex": "08b5081ca6f7d4fc68f674f9d1f764fe"
+    },
+    {
+      "opcode": 322,
+      "name": "s0142_EvCameraRebind",
+      "category": "camera",
+      "handler": 35317781,
+      "segment": "36",
+      "expectedHex": "08b5081ca6f7c8fc68f668f9d1f758fe"
+    },
+    {
+      "opcode": 323,
+      "name": "s0143_EvCameraMoveTo",
+      "category": "camera",
+      "handler": 35317805,
+      "segment": "36",
+      "expectedHex": "70b592b0051c081ca6f7bafc68f65af9"
+    },
+    {
+      "opcode": 324,
+      "name": "s0144_EvCameraReturn",
+      "category": "camera",
+      "handler": 35318025,
+      "segment": "36",
+      "expectedHex": "38b586b0051c081ca6f74cfc68f6ecf8"
+    },
+    {
+      "opcode": 325,
+      "name": "s0145_EvCameraWait",
+      "category": "camera",
+      "handler": 35318125,
+      "segment": "36",
+      "expectedHex": "38b50d1c281ca6f727fc041c281ca6f7"
+    },
+    {
+      "opcode": 326,
+      "name": "s0146_EvCameraMoveToCommon",
+      "category": "camera",
+      "handler": 35317917,
+      "segment": "36",
+      "expectedHex": "78b59db0041c081ca6f782fc68f622f9"
+    },
+    {
+      "opcode": 327,
+      "name": "s0147_EvCameraMoveToDefault",
+      "category": "camera",
+      "handler": 35318085,
+      "segment": "36",
+      "expectedHex": "38b5051c081ca6f72ffc68f6cff8d1f7"
+    },
+    {
+      "opcode": 328,
+      "name": "s0148_EvCameraShake",
+      "category": "camera",
+      "handler": 35318169,
+      "segment": "36",
+      "expectedHex": "f8b58eb0041c0d1ca5f7d6ff061c201c"
+    },
+    {
+      "opcode": 332,
+      "name": "s014C_RTFreeUserHeap",
+      "category": "native-script-user-work-cleanup",
+      "handler": 34960873,
+      "segment": "12",
+      "expectedHex": "08b5081cfdf7eafdfcf7acfc012008bd"
+    },
+    {
+      "opcode": 335,
+      "name": "s014F_CallPC",
+      "category": "pc-continuity",
+      "handler": 35315233,
+      "segment": "36",
+      "expectedHex": "f8b588b00e1c051c301ca7f7cbf90590"
+    },
+    {
+      "opcode": 473,
+      "name": "s01D9_ObjInitNPCGPos",
+      "category": "spawn-data",
+      "handler": 34955133,
+      "segment": "12",
+      "expectedHex": "f8b584b0041c0d1cfef7e4fc0290201c291cfef7dffc0390201c291cfef7dafc00040714201c291cfef7d4fc00040614201c291cfef7cefc00040414281cfff7fbf8c1f63ff9310400912104090c01913b040299039a1b0c07f002f9002004b0f8bd"
+    },
+    {
+      "opcode": 591,
+      "name": "s024F_ActorWalkRoute",
+      "category": "observed-actor-actions",
+      "handler": 35299101,
+      "segment": "36",
+      "expectedHex": "f8b588b00c1c051caaf714fd071c201c"
+    },
+    {
+      "opcode": 630,
+      "name": "s0276_FunfestMissionBroadcast",
+      "category": "interaction-progress-broadcast",
+      "handler": 35090477,
+      "segment": "33",
+      "expectedHex": "70b50c1c051c201cdef7c6f8201cdef7"
+    },
+    {
+      "opcode": 656,
+      "name": "s0290_WordSetLoadRivalName",
+      "category": "read-only-context",
+      "handler": 35288989,
+      "segment": "36",
+      "expectedHex": "f8b50e1c051c301cadf70efd041cacf7"
+    }
+  ],
+  "safeChildCallbacks": [
+    34945057,
+    35292117,
+    35318329,
+    35318369
+  ],
+  "notes": [
+    "Allowlist describes executed commands only, not unreachable branches.",
+    "Actor commands require a second check on the resolved actor before commit.",
+    "All non-allowlisted opcodes retain native execution after immediate recall.",
+    "The field X menu is admitted by its native menu flag and exact event identity; child applications retain conservative recall.",
+    "The audited PC box opcode preserves one bounded actor pose in the resident bridge across its no-fade field restart.",
+    "0x1D9 edits pending zone NPC placement data only. Native allocation and initial-position notifications retain destination conflict checks; it never moves a live actor.",
+    "0x276 reports ordinary interaction progress to the Funfest mission subsystem. Stock sign and furniture scripts execute it after pausing actors; it does not move actors, replace the field, or start a communication activity."
+  ],
+  "finishers": [
+    {
+      "index": 0,
+      "name": "camera",
+      "handler": 35317585,
+      "segment": "36",
+      "expectedHex": "10b5006868f6ccf9041cd1f7bbfe011c201cfff7d7ff012010bd0000"
+    },
+    {
+      "index": 1,
+      "name": "system-window",
+      "handler": 35293317,
+      "segment": "36",
+      "expectedHex": "08b54068fff736ff012008bd"
+    },
+    {
+      "index": 2,
+      "name": "actor-window",
+      "handler": 35295549,
+      "segment": "36",
+      "expectedHex": "08b54068fff7e0fd012008bd"
+    },
+    {
+      "index": 3,
+      "name": "plain-window",
+      "handler": 35296145,
+      "segment": "36",
+      "expectedHex": "08b54068fff7d4ff012008bd"
+    },
+    {
+      "index": 4,
+      "name": "bg-window",
+      "handler": 35296813,
+      "segment": "36",
+      "expectedHex": "08b54068fff75cff012008bd"
+    },
+    {
+      "index": 5,
+      "name": "sub-window",
+      "handler": 35296441,
+      "segment": "36",
+      "expectedHex": "08b54068fff7e8ff012008bd"
+    },
+    {
+      "index": 6,
+      "name": "special-window",
+      "handler": 35297069,
+      "segment": "36",
+      "expectedHex": "08b54068fff782ff012008bd"
+    },
+    {
+      "index": 9,
+      "name": "auto-print-flag",
+      "handler": 35297353,
+      "segment": "36",
+      "expectedHex": "38b58068aaf74cfb051c09200924aaf75bfc002806d028680021def7d3f8201caaf73efc012038bd"
+    },
+    {
+      "index": 12,
+      "name": "sound-volume",
+      "handler": 35286857,
+      "segment": "36",
+      "expectedHex": "10b500680c1c6ff6c3fd70f6a3fa2168002902d0012908d009e07f21002287f6cffe2068401c206001e0012010bd002010bd0000"
+    },
+    {
+      "index": 13,
+      "name": "sound-ambience",
+      "handler": 35287413,
+      "segment": "36",
+      "expectedHex": "08b500686ff6aefc70f68ef9022187f683fe012008bd0000"
+    }
+  ]
+}

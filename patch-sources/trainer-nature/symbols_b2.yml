@@ -1,0 +1,20 @@
+Segments:
+  - ID: 0
+    Name: ARM9
+    Type: EXECUTABLE
+Symbols:
+  - Name: Trainer_SetupEx
+    Segment: 0
+    Address: 0x0201c465
+  - Name: Trainer_SetParam
+    Segment: 0
+    Address: 0x02030e01
+  - Name: Trainer_ExpForLevel
+    Segment: 0
+    Address: 0x0201d5b5
+  - Name: Trainer_Put
+    Segment: 0
+    Address: 0x0201cd1d
+  - Name: Trainer_RecalcStats
+    Segment: 0
+    Address: 0x0201d5f5
