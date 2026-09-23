@@ -13,6 +13,8 @@
 #define KEEP_ZONE 32u
 #define NOT_SAVE 1048576u
 #define NO_EFFECT 2097152u
+#define SHADOW_SET 16384u
+#define SHADOW_VANISH 32768u
 /* No retail structure owns this state. It is discarded with overlay 36. */
 static FwFollower fwfield_follower;
 static ActorSystem *fwfield_owner;
@@ -29,6 +31,7 @@ static unsigned fwfield_registrySize,fwfield_stride,fwfield_pageFirst,fwfield_pa
 API volatile struct {uint32_t magic,version,stage,registryBytes,cacheBytes,reads;} FollowingConfigDebug={.magic=0x47435746,.version=2,.cacheBytes=FW_REGISTRY_PAGE};
 /* Searchable emulator diagnostics; values never become save data. */
 API volatile struct { uint32_t magic,version,ticks,spawns,deletes,reason,species,fwfield_code,actor,fwfield_player,visible,resets,system,systemFlags,field,cameraYaw,cameraPitch,depthClass,depthX,depthY,depthZ,modelSize; } FollowingDebug={.magic=0x47445746,.version=2};
+API volatile struct { uint32_t magic,version,attempts,attached,actor,playerFlags,actorFlags; } FollowingShadowDebug={.magic=0x48535746,.version=1};
 static void cleanup(void);
 static void clear_restore(void){
  fwfield_restore.magic=0;fwfield_restore.player=(Vec){0,0,0};fwfield_restore.follower=(Vec){0,0,0};
@@ -251,7 +254,22 @@ static void before(ActorSystem *sys) {
 }
 API void FollowingUpdate(ActorSystem *sys) {
  fwfx_tick();before(sys); CALL(0x021667b9,void(*)(ActorSystem*))(sys);
- if(owned()){fwfx_prepare((Actor*)fwfield_follower.actor);fwfx_snapshot((Actor*)fwfield_follower.actor);}
+ if(owned()){
+  Actor *a=(Actor*)fwfield_follower.actor;
+  /* This actor's route callback writes coordinates directly, so the retail
+   * move-start attribute pass never registers its shadow. The audited native
+   * shadow helper owns the effect task, billboard, visibility and teardown. */
+  if(!(a->flags&HIDDEN) && fwfield_player && (fwfield_player->moveflags&SHADOW_SET) &&
+     !(fwfield_player->moveflags&SHADOW_VANISH) && !(a->moveflags&SHADOW_SET)){
+   FollowingShadowDebug.actor=(uint32_t)a;
+   FollowingShadowDebug.playerFlags=fwfield_player->moveflags;
+   FollowingShadowDebug.actorFlags=a->moveflags;
+   ++FollowingShadowDebug.attempts;
+   CALL(0x02194df5,void(*)(Actor*))(a);
+   FollowingShadowDebug.attached=!!(a->moveflags&SHADOW_SET);
+  }
+  fwfx_prepare(a);fwfx_snapshot(a);
+ }
 }
 API void FollowingDraw(void *system,void *camera,void *light){
  fwr_draw(system,camera,light,owned()?(Actor*)fwfield_follower.actor:0,fwfield_player);

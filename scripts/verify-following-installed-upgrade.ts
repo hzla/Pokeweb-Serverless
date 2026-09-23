@@ -7,7 +7,7 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
-import { installFollowerAlpha, readFollowerAlphaInstall, followerRuntimeVersion, readFollowingFile, readFollowerDialogueRules, writeFollowerDialogueRules, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH } from "../src/pokeweb/followingPokemonProject";
+import { installFollowerAlpha, readFollowerAlphaInstall, followerRuntimeVersion, followerProfile, readFollowingFile, readFollowerDialogueRules, writeFollowerDialogueRules, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH } from "../src/pokeweb/followingPokemonProject";
 
 const inputPath=process.argv[2];
 if(!inputPath)throw new Error("Expected a previously exported follower alpha ROM");
@@ -18,6 +18,7 @@ globalThis.fetch=(async(input:RequestInfo|URL)=>{
 }) as typeof fetch;
 const input=new Uint8Array(await readFile(inputPath));
 const project=await loadProjectFromRomBytes(input,basename(inputPath),{selectedNarcs:[]});
+const profile=await followerProfile(project);
 const currentVersion=await followerRuntimeVersion(project);
 const before=await readFollowerAlphaInstall(project);
 if(!before||before.version===currentVersion)throw new Error("Expected a recognized previous follower alpha");
@@ -45,6 +46,6 @@ const exported=await exportModifiedRom(project);
 const reopened=await loadProjectFromRomBytes(exported,"upgraded-follower.nds",{selectedNarcs:[]});
 assert.deepEqual(await readFollowerAlphaInstall(reopened),upgraded);
 assert.deepEqual(await readFollowerDialogueRules(reopened),authoredDialogue);
-for(const name of ["PokewebFollowingFieldW2.dll","PokewebFollowingEventsW2.dll","PokewebFollowingCoreW2.dll"])
+for(const name of ["Field","Events","Core"].map(part=>`PokewebFollowing${part}${profile==="black2"?"B2":"W2"}.dll`))
   assert.equal(reopened.codeInjection!.modules!.filter(module=>module.fileName===name).length,1);
 console.log(`${before.version} installed ROM upgraded to ${upgraded.version}; enabled state and authored zone-427 Mew dialogue retained, three runtime modules present once, export/reopen recognized.`);

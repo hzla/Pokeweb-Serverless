@@ -13,9 +13,10 @@ APP=HERE.parents[1]
 def audit(profile,rom_path):
  assets=APP/'src/assets/following';build=HERE/'build'
  if profile=='white2upgrade':assets/='white2upgrade';build/='white2upgrade'
+ if profile=='black2':assets/='black2';build/='black2'
  manifest=json.loads((assets/'runtime.json').read_text());modules=[];objects=[]
  for name in ['Core','Events','Field']:
-  stem='PokewebFollowing'+name+'W2';path=assets/(stem+'.dll');raw=path.read_bytes()
+  stem='PokewebFollowing'+name+('B2' if profile=='black2' else 'W2');path=assets/(stem+'.dll');raw=path.read_bytes()
   code,bss,symbols,rels=read_module(path)
   modules.append(dict(name=stem,fileBytes=len(raw),codeAndInitializedData=len(code),bss=bss,
                       codePlusBss=len(code)+bss,expandedModuleBytes=struct.unpack_from('<I',raw,4)[0],
@@ -36,6 +37,7 @@ def audit(profile,rom_path):
   species[value>>11 if version in (2,4) else value]+=1
  sizes={o['name']:o['bytes'] for o in objects}
  assert sizes['fwfield_page']==1024 and sizes['dataBytes']==8192 and sizes['contextBytes']==4096
+ assert sizes['fwfield_follower']==1852
  assert sizes['fwfield_index']==(1025 if profile=='white2upgrade' else 651)*2
  allocatedRegistry=0
  total=sum(m['codePlusBss'] for m in modules)+allocatedRegistry
@@ -49,9 +51,9 @@ def audit(profile,rom_path):
              conversationBytes=len(rom.getFileByName('following/interactions.bin')),contextualBytes=len(rom.getFileByName('following/contextual-dialogues.narc')),giftBytes=len(rom.getFileByName('following/contextual-items.narc')))
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('stock_rom',type=Path);p.add_argument('upgrade_rom',type=Path);a=p.parse_args()
- reports=[audit('stock',a.stock_rom),audit('white2upgrade',a.upgrade_rom)]
- previous=[dict(profile='stock',version='0.6.15-alpha',fixedPayloadBytes=43152),dict(profile='white2upgrade',version='0.7.6-alpha',fixedPayloadBytes=44132)]
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('stock_rom',type=Path);p.add_argument('black2_rom',type=Path);p.add_argument('upgrade_rom',type=Path);a=p.parse_args()
+ reports=[audit('stock',a.stock_rom),audit('black2',a.black2_rom),audit('white2upgrade',a.upgrade_rom)]
+ previous=[dict(profile='stock',version='0.6.26-alpha',fixedPayloadBytes=46256),dict(profile='black2',version='0.6.26-alpha',fixedPayloadBytes=46256),dict(profile='white2upgrade',version='0.7.17-alpha',fixedPayloadBytes=47240)]
  out={'measurements':reports,'previousReleaseMeasurements':previous,
       'limits':'Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.',
       'implementationStatus':'ROM registry streaming and 8 KiB conversation buffers implemented; automated checks passed, game emulator acceptance pending.'}
@@ -66,8 +68,11 @@ def main():
   'allocates a separate registry. Loader bookkeeping, allocator overhead,',
   'stack, native actor/effect/message allocations and VRAM remain separate.',
   'These numbers are not whole-game peak heap measurements.', '',
-  'Width-dependent spacing changes code and existing appearance metadata; stationary directional animation changes code only.',
-  'Neither introduces a new heap allocation or larger buffer: one existing sidecar padding byte caches the selected gap.', '',
+  'The 64-record trail replaces the earlier 256-record trail. Each 28-byte record stores',
+  'a sampled world position and route metadata. The follower sidecar shrinks from',
+  '7,228 to 1,852 bytes, saving 5,376 bytes in the field module for every profile.',
+  'A full trail still recalls and reseeds safely; slow movement and complex paths',
+  'require human emulator acceptance to confirm the smaller bound is sufficient.', '',
   '## Implemented behavior','',
   '- The complete appearance registry stays in ROM: 61,808 bytes for stock and',
   '  56,648 bytes for Upgrade. No full-registry buffer or heap allocation remains.',
@@ -87,15 +92,16 @@ def main():
   '- Upgrade reaction selection now accepts species 1–1023; stock remains 1–649.',
   '  Egg IDs remain excluded. Actual selected species reaches the native cry',
   '  call; this change does not install additional cry assets.', '',
-  'Both builds still use `-Os` and RPM `--strip`. Packaged symbol names are',
+  'All three builds still use `-Os` and RPM `--strip`. Packaged symbol names are',
   'stripped; exports/import hashes and required relocations remain. Debug ELFs',
   'are not installed into ROM. History capacity and drawing corrections are unchanged; trail distance now accounts for sprite width.', '',
   '## Verification and limits','',
-  'Packaged CPU tests compare every installed appearance and fallback, exercise',
-  '100 load/cache/unload cycles per profile, inject 16 file/data failures, and',
-  'check all 65,536 object codes with zero registry allocations. Native FS seek',
+  'Stock and Upgrade packaged CPU tests compare every installed appearance and fallback,',
+  'exercise 100 load/cache/unload cycles per profile, inject 16 file/data failures,',
+  'and check all 65,536 object codes with zero registry allocations. Black 2',
+  'passed its exact-ROM contract and packaged branch checks. Native FS seek',
   'instructions execute against a mocked synchronous filesystem dispatcher.',
-  'An isolated regression using the supplied Upgrade state retains 100,332 bytes',
+  'An earlier isolated regression using the supplied Upgrade state retained 100,332 bytes',
   'free on application heap 1 before, during and after registry setup. This',
   'does not measure native rendering allocations or PMC loader peaks.',
   'Host reaction tests cover both species limits and exact 8 KiB data boundaries.',

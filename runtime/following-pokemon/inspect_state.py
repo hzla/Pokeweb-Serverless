@@ -27,7 +27,7 @@ def desmume_ram(data):
 
 def diagnostics(ram):
  result={}
- for signature,count in [(b'FWDG',22),(b'FWFX',8),(b'FWRD',20),(b'FWCG',6)]:
+ for signature,count in [(b'FWDG',22),(b'FWFX',8),(b'FWRD',20),(b'FWCG',6),(b'FWSH',7)]:
   pos=ram.find(signature)
   if pos>=0:
    version=struct.unpack_from('<I',ram,pos+4)[0]

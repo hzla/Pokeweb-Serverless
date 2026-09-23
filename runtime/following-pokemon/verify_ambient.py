@@ -55,7 +55,7 @@ setup();grid(s.NPC,10,0,10)
 uc.mem_write(h.P+68,struct.pack('<iii',10*65536,0,11*65536))
 old=bytes(uc.mem_read(h.A+68,12));h.call('move',[h.A])
 assert h.u32(h.A)&4 and bytes(uc.mem_read(h.A+68,12))==old
-assert struct.unpack('<H',uc.mem_read(h.F+52+7168+6,2))[0]==0
+assert struct.unpack('<H',uc.mem_read(h.F+52+64*28+6,2))[0]==0
 # Leaving the old trail discarded avoids teleporting past the blocking actor.
 grid(s.NPC,8,0,8)
 for z in (12,13):

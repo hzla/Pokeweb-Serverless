@@ -362,6 +362,7 @@ export function buildGen5FollowerArchives(personalBytes: Uint8Array, appearanceB
     const sourceAt = 4 + sourceRow * 28, at = 4 + entry.descriptorRow * 28;
     expanded.set(stock.subarray(sourceAt, sourceAt + 28), at);
     const view = new DataView(expanded.buffer); view.setUint16(at, 0x3000 + entry.descriptorRow - 1008, true); view.setUint16(at + 16, entry.resourceId, true);
+    expanded[at + 4] = 1; // Follower-owned descriptor: enable the native ground-shadow effect.
     entry.offsets = [13, 14, 15].map(offset => (expanded[at + offset] << 24) >> 24) as [number, number, number];
   }
   descriptors.files[0] = expanded; deriveFollowerSpacing(registry, resources.files); validateFollowerRegistry(registry);
