@@ -53,8 +53,8 @@ together. Upgrades recompute spacing from installed artwork while preserving
 resources, descriptors and hashed zone policies.
 
 On ARM32, the selected gap occupies a previously unused byte at follower offset
-50; the trail remains at 52 and the sidecar remains 7,228 bytes. Static assertions
-protect both offsets and size. The ROM page cache stays 1,024 bytes, the species
+50; the trail remains at 52. The 64-record trail makes the current sidecar 1,852
+bytes. Static assertions protect both offsets and size. The ROM page cache stays 1,024 bytes, the species
 index stays 1,302/2,050 bytes, and conversation capacity stays 8,192 bytes. No new
 heap allocation or per-frame artwork decoding/file I/O is added. Code size can
 increase; see the generated [memory audit](MEMORY-AUDIT.md).

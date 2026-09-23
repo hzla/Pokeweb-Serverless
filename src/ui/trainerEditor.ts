@@ -721,7 +721,7 @@ function renderTrainerScriptArchivePanel(project: ProjectState): string {
 
 function renderTrainerNaturePatchPanel(project: ProjectState, status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (status === "unsupported") return "";
-  const badgeClass = status === "patched" ? "-ok" : status === "unknown" ? "-warn" : "";
+  const badgeClass = status === "patched" ? "-ok" : status === "unknown" || status === "legacy" ? "-warn" : "";
   const buttonDisabled = status === "patched" ? "disabled" : "";
   return `
     <div class="trainer-nature-patch-panel">
@@ -772,7 +772,7 @@ function installTrainerNaturePatchControl(
   const button = root.querySelector<HTMLButtonElement>("#trainer-nature-patch-btn");
   if (!button || status === "patched") return;
   button.addEventListener("click", async () => {
-    if (!window.confirm("Apply this ARM9 patch to enable explicit trainer Pokémon natures?\n\nExport the ROM after applying to keep this change.")) return;
+    if (!window.confirm("Install the PMC trainer nature runtime? Existing inline trainer nature hooks will be migrated.\n\nExport the ROM after applying to keep this change.")) return;
     const previousText = button.textContent ?? trainerNatureButtonLabel(status);
     button.disabled = true;
     button.textContent = "Applying...";
@@ -808,6 +808,7 @@ function trainerScriptArchiveBadgeClass(status: TrainerScriptArchiveStatus): str
 
 function trainerNatureStatusLabel(status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (status === "patched") return "Applied";
+  if (status === "legacy") return "Migration available";
   if (status === "unknown") return "Signature unknown";
   if (status === "unsupported") return "Unsupported";
   return "Ready";
@@ -815,6 +816,7 @@ function trainerNatureStatusLabel(status: ReturnType<typeof detectSpecifyTrainer
 
 function trainerNatureButtonLabel(status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (status === "patched") return "Applied";
+  if (status === "legacy") return "Migrate Patch";
   return "Apply Patch";
 }
 

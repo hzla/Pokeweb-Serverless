@@ -36,7 +36,10 @@ int main(void) {
     s.connection=5;assert(fw_trail_push(&t,&s,&out,6)==0);s.x+=4096;s.rail=3;assert(fw_trail_push(&t,&s,&out,6)==0);
     fw_trail_clear(&t);s=sample(0,0,0,1,FW_WORLD);assert(!fw_trail_push(&t,&s,&out,6));
     for(int i=0;i<1000;i++) assert(!fw_trail_push(&t,&s,&out,6));assert(t.count==1);
-    for(int i=1;i<256;i++){s.x=i;assert(!fw_trail_push(&t,&s,&out,6));}s.x++;assert(fw_trail_push(&t,&s,&out,6)==-1);
+    for(unsigned i=1;i<FW_TRAIL_CAPACITY;i++){s.x=(int)i;assert(!fw_trail_push(&t,&s,&out,6));}
+    assert(t.count==FW_TRAIL_CAPACITY);
+    s.x++;assert(fw_trail_push(&t,&s,&out,6)==-1&&t.count==0);
+    assert(fw_trail_push(&t,&s,&out,6)==0&&t.count==1);
     fw_trail_clear(&t);
     for(int i=0;i<=48;i++){s=sample(i*4096,i<16?0:(i<32?(i-16)*1024:0),0,1,FW_LEDGE);int r=fw_trail_push(&t,&s,&out,6);if(i>=38){assert(r==1);assert(out.kind==FW_LEDGE);assert(out.y==(i-38)*1024);}}
     /* Cardinal gaps at walking/running speeds and both coordinate signs. */

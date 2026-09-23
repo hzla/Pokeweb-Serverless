@@ -1,6 +1,6 @@
 # Validation record
 
-Status: **stock 0.6.24 and White2Upgrade 0.7.15 focused automated checks passed; emulator acceptance and hardware testing pending.**
+Status: **stock White 2/Black 2 0.6.27 and White2Upgrade 0.7.18 focused automated checks passed; follower-shadow appearance in melonDS and hardware testing pending.**
 The user confirmed the preceding menu and PC fixes, but reported continued recall
 at Floccesy Town / Route 20 in White2Upgrade. The supplied state was inspected
 read-only; no game emulator was run.
@@ -10,6 +10,120 @@ user-reported result, separate from the automated checks below.
 The earlier 0.2 walking module was exercised in the bundled Desmond DS emulator.
 Those results do not validate the new 0.3 renderer/effects. The clean input
 remains read-only. Hardware has not been tested.
+
+## Stock 0.6.27 / White2Upgrade 0.7.18 native shadow registration
+
+The user tested White2Upgrade 0.7.17 in melonDS and reported no follower
+shadow. The supplied `noshadow.mln` state (SHA-256
+`95e33ef0ee67d3e740c266d659c585b0026b00c8c8970df0112147cbc468ac25`)
+contains a visible follower with a shadow-enabled descriptor, but its native
+`SHADOW_SET` move bit is clear (`0x300802`); the player's bit is set
+(`0x4602`). Its actor and player states meet the revised registration gate.
+The earlier move-start flag did not invoke native shadow registration for the
+follower's direct-coordinate movement callback.
+
+The field module now calls the game's native shadow-registration helper after
+a visible follower update when the player has an active shadow and the
+follower has not registered one. The helper creates the game's normal field
+effect and sets `SHADOW_SET`; subsequent frames do not register duplicates.
+The exact helper bytes were verified at overlay 36 `0x02194DF4` for stock
+White 2 and White2Upgrade, and `0x02194DB4` for Black 2. All three packaged
+field modules contain one call target for their profile's helper. The actor
+is still nonpersistent; the native shadow task checks actor identity and
+visibility, and destroys its billboard when the actor is removed.
+
+The exact-ROM contracts, packaged CPU/interaction/scene/render checks,
+Pokeweb production build, three ROM exports, and install/reinstall/disable/
+remove round trips passed. The fixed PMC payloads are 46,356 bytes for stock
+White 2 and Black 2 and 47,340 bytes for White2Upgrade, an increase of 100
+bytes from the previous release. Native effect-task allocation is outside the
+fixed PMC payload and was not measured in game. No emulator or hardware test
+was run for this revision.
+
+Delivered ROM SHA-256:
+
+- stock White 2 0.6.27-alpha: `bffc65f003b9aa8a2a40c3b5b206c73f56a3c2981892a3bfc67585b71cb93f61`.
+- stock Black 2 0.6.27-alpha: `38d3a618a044afc8f77d2ba2d562e4034feed8908f95662ae7a6ef5fb957ab7f`.
+- White2Upgrade 0.7.18-alpha: `062ef1494f4c4bb922c7a55dde2676a77385ecec00c8582f844ac9ed28c3c7b0`.
+
+The same-basename `.sav` files were copied from the preceding alpha without
+modifying them. Human shadow cases H01–H03, B14, and U19 remain NOT RUN for
+this revision. Start with White2Upgrade U19 in melonDS using a cold boot.
+
+## Previous stock 0.6.26 / White2Upgrade 0.7.17 shadow attempt — visual failure
+
+The prior implementation described below passed static and package checks,
+but the user tested White2Upgrade 0.7.17 in melonDS and saw no follower shadow.
+Those checks did not establish live shadow registration. This historical
+attempt must not be treated as visual acceptance.
+
+
+
+HGSS follower resources include species-indexed shadow sizes and vertical
+offsets. This release uses the existing White 2 field-shadow effect instead:
+the follower-owned descriptor enables native shadow rendering, and its first
+accepted movement requests the native movement-start attribute pass. A PC
+return at a preserved visible pose requests the same pass. The native shadow
+task owns positioning, terrain height, visibility, and deletion; the patch
+does not allocate a new PMC shadow buffer or change sprite draw priority.
+
+The stock White 2 model archive confirms shadow type 1 on all 620 retail
+Pokémon-style descriptors. The built archive verifier and exported-ROM
+install/reopen tests confirm shadow type 1 on every appended follower
+descriptor across all three profiles. The stock package passed field,
+interaction, scene, ambient, continuity, and draw checks; Black 2 passed
+packaged branch checks, and White2Upgrade passed packaged interaction and
+render checks. The Pokeweb
+production build and install/reinstall/disable/remove round trips passed for
+all three exported ROMs. White2Upgrade retained 1,023-species coverage and
+rejected mismatched runtime fingerprints and hook conflicts. None of these
+checks establishes that the shadow is visually correct in game.
+
+The fixed packaged payload increased by 20 bytes in each profile compared
+with the previous alpha: 46,256 bytes for stock White 2 and Black 2, and
+47,240 bytes for White2Upgrade. Native shadow-task and billboard allocations
+are outside this fixed PMC audit and have not been measured in game.
+
+Delivered ROM SHA-256:
+
+- stock White 2 0.6.26-alpha: `9d4f810fceb51dad5abca15e4a2e3cea28d4f5a2864e02e14836fdd0f328049d`.
+- stock Black 2 0.6.26-alpha: `b5cf8973e21d9608428c4389b995f635f65d283b54a9934fbf554f41570a059b`.
+- White2Upgrade 0.7.17-alpha: `70fe0ea1478c875f7f452adfa4fd62428b2e39df43c48b29edabf2bd42f45e7c`.
+
+Existing stock White 2 and White2Upgrade saves were copied to matching new
+filenames without changing their sources. Black 2 received a fresh sample
+save because no preceding same-prefix alpha save was present. Emulator rows
+H01–H03, B14, and U19 remain NOT RUN for the human tester.
+
+## Stock White 2/Black 2 0.6.25 / White2Upgrade 0.7.16 trail reduction
+
+The movement trail capacity is 64 samples instead of 256. The follower sidecar
+is 1,852 bytes instead of 7,228 bytes, saving 5,376 bytes in each field module.
+The generated memory audit measured total fixed code/data/BSS at 46,236 bytes
+for stock White 2 and Black 2, and 47,220 bytes for White2Upgrade. The expanded
+module image requirements are 52,208 and 53,200 bytes respectively. These are
+packaged sizes, not measured game heap peaks; native graphics, loader bookkeeping,
+allocator overhead, stack, and VRAM remain outside this audit.
+
+Host movement tests passed reversals, repeated bends, elevation, overflow and
+reseeding at the 64-record bound. Stock packaged checks passed 100 conversation,
+scene, ambient-NPC, menu/PC and continuity cycles; the packaged draw fixture
+passed 12,000 submissions. Black 2 passed its exact-ROM contract and packaged
+branch checks. White2Upgrade passed packaged interaction and render checks.
+All three prior installed alphas upgraded with authored zone-427 dialogue,
+enabled state, and one copy of each matching module preserved. Each delivered
+ROM passed export/reopen, reinstall, disable/re-enable and removal/reinstall.
+No DS emulator or hardware was run for these versions.
+
+Delivered ROM SHA-256:
+
+- stock White 2 0.6.25-alpha: `25ac0299a89b1d4fae03a202f92ac27064949cb26acb4deb8c7824df280eb8be`.
+- stock Black 2 0.6.25-alpha: `422cc2c73fad03b16efbc15add6309582e75d9fe0bafbd6c95ad5b449a19cd0e`.
+- White2Upgrade 0.7.16-alpha: `6aab8eeff93ff966fce3c2a44162bfa10052511f3b7f69e000815852af05d1c9`.
+
+Matching saves were copied from the respective immediately preceding alpha;
+the source saves were not overwritten. Human acceptance should focus on M05,
+B13 and U18, especially slow stairs and curves with wide followers.
 
 ## Stock 0.6.24 / White2Upgrade 0.7.15 sign and furniture correction
 

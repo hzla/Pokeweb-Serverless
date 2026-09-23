@@ -2,7 +2,7 @@
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-VERSION = "0.6.24-alpha"
+VERSION = "0.6.27-alpha"
 
 CASES = [
     ("B01", "Cold boot an ordinary Black 2 save, walk one tile, then walk and run in all four directions.", "Exactly one party Pokémon appears and follows the recorded route without blocking movement."),
@@ -17,15 +17,17 @@ CASES = [
     ("B10", "Talk in a matching contextual-dialogue zone and claim a configured gift; repeat after saving and reloading.", "Dialogue selectors match the live zone. Each gift slot is claimable once per Pokémon and persists."),
     ("B11", "Run a story scene with forced movement and another scene where the player remains stationary.", "Forced movement recalls before it starts. Verified stationary presentation retains the paused follower."),
     ("B12", "Complete 100 mixed menu, dialogue, battle, door, seamless-map, PC, and save/reload cycles.", "No freeze, duplicate actor, stuck input, lingering effect, missing NPC, or accumulating allocation is observed."),
+    ("B13", "Walk very slowly through stairs and curved paths with the widest follower, then reverse, stop, and cross a seamless map boundary.", "The 64-record trail follows continuously without an unexpected recall or shortcut. Record any recall and the exact path."),
+    ("B14", "On ordinary ground, walk until the follower emerges and check its feet while stationary and moving. Repeat on stairs, grass, and during recall/return with a small and a 64-pixel follower.", "One native ground shadow follows the Pokémon's feet, uses terrain height, disappears with the follower, and does not duplicate after transitions or alter the player's shadow."),
 ]
 
 def generate():
     lines = [
         f"# Stock Black 2 Following Pokémon {VERSION} — emulator checklist",
         "",
-        "Use `Black2-Following-0.6.24-alpha.nds` with a same-basename `.sav`. Cold boot the ROM; do not resume a state made with another ROM. Emulator execution is assigned to the human tester and every row remains **NOT RUN** until results are recorded.",
+        f"Use `Black2-Following-{VERSION}.nds` with a same-basename `.sav`. Cold boot the ROM; do not resume a state made with another ROM. Emulator execution is assigned to the human tester and every row remains **NOT RUN** until results are recorded.",
         "",
-        "Start with B01–B06. If those pass, continue through B12. For a failure, save a state immediately before the trigger and record emulator/version, location, party lead, direction, and the ROM SHA-256.",
+        "Start with B01–B06 and B13. If those pass, continue through B12. For a failure, save a state immediately before the trigger and record emulator/version, location, party lead, direction, and the ROM SHA-256.",
         "",
         "| ID | Steps | Expected | Result / evidence |",
         "|---|---|---|---|",

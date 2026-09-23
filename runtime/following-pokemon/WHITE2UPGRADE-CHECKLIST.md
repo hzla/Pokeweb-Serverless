@@ -1,12 +1,12 @@
-# White2Upgrade follower 0.7.15-alpha — human emulator checklist
+# White2Upgrade follower 0.7.18-alpha — human emulator checklist
 
 All rows start NOT RUN. Automated CPU tests are not DS emulator results.
 Cold boot the versioned ROM with its same-basename ordinary save. Do not load a
-state captured under another ROM version. The prior 0.7.5 save was copied for
+state captured under another ROM version. The prior 0.7.16 save was copied for
 continuity; source saves remain intact. Keep expansion save copies separate from
 stock White 2 once later-generation Pokémon are obtained.
 
-Start with U01, U17 and U16, then U07a at Floccesy Town / Route 20, U15 and U02–U08. Test in melonDS; record the emulator version,
+Start with U01, U17, U16 and U18, then U07a at Floccesy Town / Route 20, U15 and U02–U08. Test in melonDS; record the emulator version,
 ROM hash, species/form/gender/shiny, location, result and screenshot/state for any
 failure. Existing detailed cases remain in [EMULATOR-CHECKLIST.md](EMULATOR-CHECKLIST.md).
 
@@ -14,7 +14,7 @@ failure. Existing detailed cases remain in [EMULATOR-CHECKLIST.md](EMULATOR-CHEC
 |---|---|---|---|
 | U17 | Run I01–I05 from EMULATOR-CHECKLIST with a stock follower and a wide Gen 6–9 follower. | The native directional idle loop runs only while visible ordinary following is active. Dialogue, menus, PC presentation, safe scenes and ball effects keep the current frame frozen. | NOT RUN |
 | U16 | Run W01–W05 from EMULATOR-CHECKLIST with narrow and wide Gen 6–9 art, forms, shinies and a placeholder. | Spacing follows maximum visible side width, up to six extra world units. Conversations, turns, stairs, menu/PC retention and seamless crossings remain correct. | NOT RUN |
-| U01 | Cold boot White2Upgrade-Following-0.7.15-alpha.nds with an ordinary matching save. Walk, run, reverse and stop. | Exactly one follower appears; no startup freeze, stuck input or duplicated actor. | NOT RUN |
+| U01 | Cold boot White2Upgrade-Following-0.7.18-alpha.nds with an ordinary matching save. Walk, run, reverse and stop. | Exactly one follower appears; no startup freeze, stuck input or duplicated actor. | NOT RUN |
 | U01a | After startup, close the X menu, enter/leave PC storage without party changes, then cross a seamless zone boundary. Separately test a door and a battle. | Menu closure and seamless crossings retain the follower. Unchanged PC lead returns visibly without ball effects. Doors/battles use normal recall/reseed; capture a state if absent. | NOT RUN |
 | U02 | Put Chespin (650), Rowlet (722), Grookey (810), and Iron Crown (1023) at the front in turn. Test all four directions. | Every lead uses its own artwork, including Iron Crown; none is skipped as an invalid species. | NOT RUN |
 | U03 | Use Sprigatito, Meowscarada, Koraidon, Miraidon, Poltchageist and Iron Crown, both normal and shiny. Then try an explicitly substituted alternate form. | Base species display matching artwork with correct directions and transparency. Alternate-form substitutions match UPGRADE-ASSET-COVERAGE.json without changing species or nickname. | NOT RUN |
@@ -31,5 +31,7 @@ failure. Existing detailed cases remain in [EMULATOR-CHECKLIST.md](EMULATOR-CHEC
 | U13 | Rapidly switch among stock Unown forms, Vivillon patterns, shiny/non-shiny and gender variants through the party and PC. Return to the field and talk each time. | Page changes preserve the correct appearance and real identity; no missing follower, stale form or delay that grows with repeated changes. | NOT RUN |
 | U14 | Complete 100 conversations rotating species 650, 722, 810 and 1023. Use long nicknames and normal/low HP; walk and open a menu between conversations. | All supported later-generation leads respond, text closes normally, one follower remains, and no accumulating effects or stuck controls occur. Mark allocation checks UNMEASURED without telemetry. | NOT RUN |
 | U12 | In Pokeweb reinstall, disable, reenable, export/reopen, remove and reinstall the follower. | Correct expansion profile is retained, no duplicate DLLs, and White2Upgrade modules/imported assets remain present. | NOT RUN |
+| U18 | Walk slowly on stairs and curved paths with a wide Gen 6–9 follower, reverse direction, then cross a seamless zone boundary. | The reduced 64-record trail keeps the follower on the actual path without an unexpected recall or shortcut. Record any recall and exact path. | NOT RUN |
+| U19 | Cold boot 0.7.18 with the matching save and Mewtwo as lead at the location of noshadow.mln. Walk two tiles until it appears, then stop and inspect its feet. Repeat with a small Gen 6–9 lead on flat terrain and stairs, and after a door or seamless boundary. | A single native shadow appears under Mewtwo and each other follower, tracks ground height, disappears on recall, and never duplicates or detaches from its feet. If absent, save a new 0.7.18 state. | NOT RUN |
 
 Hardware acceptance is separate and untested. For U09 record checkpoints 0 / 10 / 25 / 50 / 75 / 100, actor count, controls, visible effects and measured allocation counts.
