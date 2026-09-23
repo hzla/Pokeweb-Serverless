@@ -1,7 +1,7 @@
 """Refresh versioned alpha sections while preserving the broader checklist."""
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
-VERSION='0.6.27'
+VERSION='0.6.32'
 ASSET_CASES=[
 ('G501',f'Cold boot {VERSION} with Snivy, Tepig and Oshawott as lead in turn; walk, run and turn in all four directions.','Each species uses its own Gen 5 art and animation. Up and down facing match the player direction; no Bulbasaur fallback, palette corruption or frame-order error.'),
 ('G502','Repeat G501 with shiny Gen 5 leads, including one small species and Reshiram or Zekrom.','Shiny colors are visible only on the follower; unrelated actors keep their palettes.'),
@@ -217,6 +217,11 @@ SHADOW=[
 ('H01','Cold boot with a small follower, then a 64-pixel follower. Walk two tiles on flat outdoor ground, stop, turn and walk again.','One native ground shadow appears under the follower, tracks its feet and does not move with animation bob. The player keeps its own shadow.'),
 ('H02','Walk up and down stairs, across grass and a bridge, then cross a seamless map boundary.','The shadow follows native terrain height and stays below the follower. No detached or duplicate shadow appears after the boundary.'),
 ('H03','Open/close the X menu and PC, talk to the follower and an NPC, then enter a door or battle and return. Repeat 20 times.','The paused follower retains one shadow; recall removes it and return restores one. No leftover shadow, actor, or accumulating effect allocation.'),
+('H04','Compare a grounded Pokémon (Bulbasaur or Mewtwo) with a Flying-type Pokémon (Pidgeot or Charizard) on flat ground, then on stairs. Inspect feet and shadow while idle and walking.','The grounded sprite sits at its shadow with no raised-looking transparent gap. Flying-type artwork keeps its previous height. The shadow position and player sprite remain unchanged.'),
+('H05','For diagnosis only, compare a grounded follower in 0.6.28 and 0.6.29 at the same position.','The extra three pixels in 0.6.29 also move the native shadow. This is the known regression corrected by 0.6.30.'),
+('H06','Cold boot 0.6.30 with a grounded small follower and Serperior. Compare their shadows with the player shadow on flat ground, then walk and cross stairs.','The follower sprites keep their lowered artwork position while their full shadows stay at ground level, in line with the player shadow. Serperior has a complete shadow rather than a cut-off upper half.'),
+('H07','Cold boot 0.6.31 with Serperior. Face up and down on flat ground, then repeat while walking and on stairs. Compare the sprite and full shadow with the player.','Facing up moves the shadow about seven pixels and the artwork about five pixels upward; facing down moves both about six pixels downward. Left/right positioning and movement remain unchanged.'),
+('H08','Cold boot 0.6.32 with Serperior, walk north until it overlaps the player, and compare with 0.6.31 if available. Repeat with a smaller follower and on stairs.','Serperior draws in front of the player where their sprites overlap while walking north; its confirmed artwork/shadow placement, stairs, and side-facing depth remain stable.'),
 ]
 start='<!-- generated-shadow:start -->';end='<!-- generated-shadow:end -->'
 section=start+f'\n## {VERSION} follower ground shadow — human acceptance\n\nRun H01 first in melonDS after a cold boot. All rows remain NOT RUN until the human tester records results.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'

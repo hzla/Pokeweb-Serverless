@@ -14,9 +14,10 @@ def audit(profile,rom_path):
  assets=APP/'src/assets/following';build=HERE/'build'
  if profile=='white2upgrade':assets/='white2upgrade';build/='white2upgrade'
  if profile=='black2':assets/='black2';build/='black2'
+ if profile=='white2italy':assets/='white2italy';build/='white2italy'
  manifest=json.loads((assets/'runtime.json').read_text());modules=[];objects=[]
  for name in ['Core','Events','Field']:
-  stem='PokewebFollowing'+name+('B2' if profile=='black2' else 'W2');path=assets/(stem+'.dll');raw=path.read_bytes()
+  stem='PokewebFollowing'+name+('B2' if profile=='black2' else 'W2I' if profile=='white2italy' else 'W2');path=assets/(stem+'.dll');raw=path.read_bytes()
   code,bss,symbols,rels=read_module(path)
   modules.append(dict(name=stem,fileBytes=len(raw),codeAndInitializedData=len(code),bss=bss,
                       codePlusBss=len(code)+bss,expandedModuleBytes=struct.unpack_from('<I',raw,4)[0],
@@ -53,7 +54,7 @@ def audit(profile,rom_path):
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('stock_rom',type=Path);p.add_argument('black2_rom',type=Path);p.add_argument('upgrade_rom',type=Path);a=p.parse_args()
  reports=[audit('stock',a.stock_rom),audit('black2',a.black2_rom),audit('white2upgrade',a.upgrade_rom)]
- previous=[dict(profile='stock',version='0.6.26-alpha',fixedPayloadBytes=46256),dict(profile='black2',version='0.6.26-alpha',fixedPayloadBytes=46256),dict(profile='white2upgrade',version='0.7.17-alpha',fixedPayloadBytes=47240)]
+ previous=[dict(profile='stock',version='0.6.31-alpha',fixedPayloadBytes=46648),dict(profile='black2',version='0.6.31-alpha',fixedPayloadBytes=46648),dict(profile='white2upgrade',version='0.7.22-alpha',fixedPayloadBytes=47628)]
  out={'measurements':reports,'previousReleaseMeasurements':previous,
       'limits':'Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.',
       'implementationStatus':'ROM registry streaming and 8 KiB conversation buffers implemented; automated checks passed, game emulator acceptance pending.'}

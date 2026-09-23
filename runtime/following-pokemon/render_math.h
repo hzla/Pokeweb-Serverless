@@ -6,7 +6,11 @@ typedef struct { FwPoint eye,target; uint32_t projection; } FwrCamera;
 typedef struct { FwPoint position; int32_t sx,sy; } FwrPose;
 typedef struct { FwPoint axis; int32_t before,after,policy; } FwrResult;
 #define FWR_TIE_MARGIN 512 /* 1/8 world unit; a tile is 16 world units. */
+#define FWR_LARGE 1u
+#define FWR_NORTH 2u
+#define FWR_NORTH_ANCHOR_Z 7
+#define FWR_NORTH_ART_Y 2
 int fwr_correct(const FwPoint *world,const FwPoint *player_world,
     const FwrPose *native,const FwPoint *player_draw,const FwrCamera *camera,
-    unsigned large,FwrPose *output,FwrResult *result);
+    unsigned flags,FwrPose *output,FwrResult *result);
 #endif

@@ -2,15 +2,18 @@ import upgradeRuntimeManifest from "../assets/following/white2upgrade/runtime.js
 import laterManifest from "../assets/following/white2upgrade/later-followers.json";
 import upgradeContract from "../../runtime/following-pokemon/upgrade-contract.json";
 import interactionManifest from "../assets/following/interactions.json";
+import italyInteractionManifest from "../assets/following/white2italy/interactions.json";
 import { validateFollowerInteractions } from "./followingPokemonInteractions";
 import { FOLLOWER_DIALOGUE_NARC_PATH, decodeFollowerDialogueNarc, encodeFollowerDialogueNarc, type FollowerDialogueRule } from "./followingPokemonDialogues";
 import { FOLLOWER_ITEM_NARC_PATH, decodeFollowerItemNarc, encodeFollowerItemNarc, type FollowerItemRule } from "./followingPokemonItems";
 import stockRuntimeManifest from "../assets/following/runtime.json";
 import black2RuntimeManifest from "../assets/following/black2/runtime.json";
+import italyRuntimeManifest from "../assets/following/white2italy/runtime.json";
 import gen5Manifest from "../assets/following/gen5-followers.json";
 import effectsManifest from "../assets/following/effects.json";
 import contract from "../../runtime/following-pokemon/contract.json";
 import black2Contract from "../../runtime/following-pokemon/black2-contract.json";
+import italyContract from "../../runtime/following-pokemon/italy-contract.json";
 import { loadOverlayTable } from "../nds/code";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -21,7 +24,7 @@ import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
 import { parseRpm, writeRpm } from "./rpm";
-import { buildFollowerCatalog, deriveFollowerSpacing, followerSideGap, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
+import { buildFollowerCatalog, deriveFollowerGrounding, deriveFollowerSpacing, followerSideGap, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
   type FollowerAppearanceKey, type FollowerAssetEntry, type FollowerRegistry } from "./followingPokemonModel";
 
 export const FOLLOWER_MANIFEST_PATH = "following/assets.json";
@@ -53,8 +56,8 @@ export async function followerRomSha256(bytes: Uint8Array): Promise<string> {
   if (!promise) { promise = crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>).then(hash => toHex(new Uint8Array(hash))); romHashes.set(bytes, promise); }
   return promise;
 }
-export async function followerRom(project: ProjectState): Promise<FollowerRom> {
-  const bytes = project.originalRomBytes ?? await loadActiveRomBytes();
+export async function followerRom(project: ProjectState, sourceBytes?: Uint8Array): Promise<FollowerRom> {
+  const bytes = sourceBytes ?? project.originalRomBytes ?? await loadActiveRomBytes();
   if (!bytes) throw new Error("Reload the project's ROM before preparing follower assets.");
   const rom = new NintendoDSRom(bytes, { fileData: "view" });
   const needed = new Set<number>();
@@ -70,7 +73,7 @@ export async function followerRom(project: ProjectState): Promise<FollowerRom> {
     folder.folders.forEach(([name, child]) => collect(child, `${prefix}${name}/`));
   };
   collect(rom.filenames);
-  const overlayIds = new Set([...contract.hooks, ...contract.nativeAdapters, ...black2Contract.hooks, ...black2Contract.nativeAdapters, ...upgradeContract.nativeAdapters]
+  const overlayIds = new Set([...contract.hooks, ...contract.nativeAdapters, ...black2Contract.hooks, ...black2Contract.nativeAdapters, ...italyContract.hooks, ...italyContract.nativeAdapters, ...upgradeContract.nativeAdapters]
     .filter(site => site.segment !== "ARM9").map(site => Number(site.segment)));
   const table = project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable;
   for (let at = 0; at + 32 <= table.length; at += 32) {
@@ -86,7 +89,7 @@ export async function followerRom(project: ProjectState): Promise<FollowerRom> {
   };
   // Recognized installations and audited upgrade modules have their own checks.
   // Only an uninstalled stock ROM needs the full clean-ROM fingerprint.
-  if (((project.session.baseVersion === "W2" && source.idCode === "IRDO") || (project.session.baseVersion === "B2" && source.idCode === "IREO")) && source.revision === 0 &&
+  if (((project.session.baseVersion === "W2" && (source.idCode === "IRDO" || source.idCode === "IRDI")) || (project.session.baseVersion === "B2" && source.idCode === "IREO")) && source.revision === 0 &&
       !readFollowingFile(project, source, "patches/White2Upgrade.dll") && !readFollowingFile(project, source, FOLLOWER_INSTALL_PATH)) {
     source.sourceSha256 = await followerRomSha256(bytes);
   }
@@ -98,18 +101,25 @@ export function readFollowingFile(project: ProjectState, rom: FollowerFiles, pat
   const id = rom.filenames.idOf(path);
   return id === undefined ? undefined : getRomFileBytes(project, rom, id);
 }
-export type FollowerProfile = "stock" | "black2" | "white2upgrade";
+export type FollowerProfile = "stock" | "black2" | "white2upgrade" | "white2italy";
 export async function followerProfile(project: ProjectState, rom?: FollowerRom): Promise<FollowerProfile> {
   rom ??= await followerRom(project);
   if (project.session.baseVersion === "B2" || rom.idCode === "IREO") return "black2";
+  if (rom.idCode === "IRDI") return "white2italy";
   return readFollowingFile(project, rom, "patches/White2Upgrade.dll") ? "white2upgrade" : "stock";
 }
-function runtimeFor(profile: FollowerProfile): typeof stockRuntimeManifest { return profile === "white2upgrade" ? upgradeRuntimeManifest : profile === "black2" ? black2RuntimeManifest : stockRuntimeManifest; }
-function targetFor(profile: FollowerProfile): string { return profile === "white2upgrade" ? upgradeContract.sourceRomSha256 : profile === "black2" ? black2Contract.target.sha256 : contract.target.sha256; }
-function binaryContractFor(profile: FollowerProfile): typeof contract { return profile === "black2" ? black2Contract as typeof contract : contract; }
+type FollowerRuntimeManifest = {
+  version: string; fieldSha256: string; eventsSha256: string; eventsAbi: number; coreSha256: string; coreAbi: number;
+  previousVersions: Array<{ version: string; fieldSha256: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number;
+    registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; effectsSha256?: string | null; interactionsSha256?: string; emotesSha256?: string }>;
+};
+function runtimeFor(profile: FollowerProfile): FollowerRuntimeManifest { return profile === "white2upgrade" ? upgradeRuntimeManifest : profile === "black2" ? black2RuntimeManifest : profile === "white2italy" ? italyRuntimeManifest : stockRuntimeManifest; }
+function interactionFor(profile: FollowerProfile): typeof interactionManifest { return profile === "white2italy" ? italyInteractionManifest : interactionManifest; }
+function targetFor(profile: FollowerProfile): string { return profile === "white2upgrade" ? upgradeContract.sourceRomSha256 : profile === "black2" ? black2Contract.target.sha256 : profile === "white2italy" ? italyContract.target.sha256 : contract.target.sha256; }
+function binaryContractFor(profile: FollowerProfile): typeof contract { return profile === "black2" ? black2Contract as typeof contract : profile === "white2italy" ? italyContract as typeof contract : contract; }
 type FollowerModulePaths = { field: string; events: string; core: string; fieldName: string; eventsName: string; coreName: string };
 function modulePathsFor(profile: FollowerProfile): FollowerModulePaths {
-  const suffix = profile === "black2" ? "B2" : "W2";
+  const suffix = profile === "black2" ? "B2" : profile === "white2italy" ? "W2I" : "W2";
   return { field: `patches/PokewebFollowingField${suffix}.dll`, events: `patches/PokewebFollowingEvents${suffix}.dll`, core: `patches/PokewebFollowingCore${suffix}.dll`,
     fieldName: `PokewebFollowingField${suffix}.dll`, eventsName: `PokewebFollowingEvents${suffix}.dll`, coreName: `PokewebFollowingCore${suffix}.dll` };
 }
@@ -120,9 +130,10 @@ export async function checkFollowerCompatibility(project: ProjectState, rom?: Fo
   const profile = await followerProfile(project, rom), runtimeManifest = runtimeFor(profile);
   const modulePaths = modulePathsFor(profile);
   const white2 = project.session.baseVersion === "W2" && rom.idCode === "IRDO";
+  const white2italy = project.session.baseVersion === "W2" && rom.idCode === "IRDI";
   const black2 = project.session.baseVersion === "B2" && rom.idCode === "IREO";
-  if ((!white2 && !black2) || rom.revision !== 0)
-    return { compatible: false, message: "Following Pokémon requires stock US Black 2 or White 2 revision 0, or the audited White2Upgrade runtime.", checks };
+  if ((!white2 && !white2italy && !black2) || rom.revision !== 0)
+    return { compatible: false, message: "Following Pokémon requires an audited revision-0 Black 2, White 2, or Italian White 2 ROM.", checks };
   if (profile === "white2upgrade" && !white2) return { compatible: false, message: "The expansion follower profile is available only for White 2.", checks };
   checks.push({ name: `${rom.idCode} revision 0`, passed: true });
   const binaryContract = binaryContractFor(profile);
@@ -168,13 +179,13 @@ export async function checkFollowerCompatibility(project: ProjectState, rom?: Fo
     } catch { checks.push({ name: `Cannot audit patch ${module.path}`, passed: false }); }
   }
   const compatible = checks.every(c => c.passed);
-  return { compatible, checks, installation: installed, message: compatible ? `Binary adapters match. ${profile === "white2upgrade" ? "White2Upgrade Gen 6–9" : profile === "black2" ? "Stock Black 2 Gen 5" : "Stock White 2 Gen 5"} follower alpha available; emulator acceptance remains separate.` : "A follower hook region is modified or conflicts with an installed patch." };
+  return { compatible, checks, installation: installed, message: compatible ? `Binary adapters match. ${profile === "white2upgrade" ? "White2Upgrade Gen 6–9" : profile === "black2" ? "Stock Black 2 Gen 5" : profile === "white2italy" ? "Italian White 2 Gen 5" : "Stock White 2 Gen 5"} follower alpha available; emulator acceptance remains separate.` : "A follower hook region is modified or conflicts with an installed patch." };
 }
 export function readFollowerWorkspace(project: ProjectState, rom: FollowerFiles): FollowerAssetWorkspace | undefined {
   const bytes = readFollowingFile(project, rom, FOLLOWER_MANIFEST_PATH);
   if (!bytes) return;
   const value = JSON.parse(new TextDecoder().decode(bytes)) as FollowerAssetWorkspace;
-  if (value.schemaVersion !== 1 || ![contract.target.sha256, black2Contract.target.sha256, upgradeContract.sourceRomSha256].includes(value.targetSha256) || !value.imports || typeof value.imports !== "object") throw new Error("Unsupported follower asset workspace.");
+  if (value.schemaVersion !== 1 || ![contract.target.sha256, black2Contract.target.sha256, italyContract.target.sha256, upgradeContract.sourceRomSha256].includes(value.targetSha256) || !value.imports || typeof value.imports !== "object") throw new Error("Unsupported follower asset workspace.");
   validateFollowerRegistry(value.registry);
   for (const [key, item] of Object.entries(value.imports)) {
     if (!value.registry.entries.some(e => followerKey(e.key) === key) || item.path !== `following/asset-${key.replaceAll(":", "-")}.btx` || !Number.isInteger(item.crc32)) throw new Error("Invalid follower import reference.");
@@ -253,6 +264,16 @@ export const FOLLOWER_INTERACTIONS_PATH = "following/interactions.bin";
 export { FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH };
 export const FOLLOWER_EMOTES_PATH = "following/emotes.narc";
 export const FOLLOWER_EFFECTS_PATH = "following/effects.narc";
+export const FOLLOWER_LANGUAGE_PATH = "following/language.bin";
+function validateFollowerLanguageData(bytes: Uint8Array): void {
+  if (bytes.length < 48 || bytes.length > 400 || (bytes.length - 16) % 2 ||
+      new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0, true) !== 0x474c5746)
+    throw new Error("Invalid follower language record.");
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.getUint16(4, true) !== 1 || view.getUint16(6, true) !== 1 || view.getUint32(8, true) !== bytes.length ||
+      view.getUint32(12, true) !== followerCrc32(bytes.subarray(16)) || view.getUint16(bytes.length - 2, true) !== 0xffff)
+    throw new Error("Invalid follower language record checksum or text.");
+}
 export async function readFollowerItemRules(project: ProjectState, rom?: FollowerRom): Promise<FollowerItemRule[]> {
   rom ??= await followerRom(project);
   const bytes = readFollowingFile(project, rom, FOLLOWER_ITEM_NARC_PATH);
@@ -291,12 +312,12 @@ export async function writeFollowerDialogueRules(project: ProjectState, rules: F
 // NitroFS deletion is not available for reopened projects. A deterministic inert
 // module removes every follower hook without renumbering unrelated ROM files.
 const removedModule = (profile: FollowerProfile = "stock", priority = 4) => writeRpm({ code: Uint8Array.of(0x70,0x47,0,0), bssSize: 0, baseAddress: 0, symbols: [], relocations: [],
-  metadata: { PMCGameID: profile === "black2" ? "B2" : "W2", PMCVersion: "following-removed", PMCModulePriority: priority } }, { ident: "DLXF" });
+  metadata: { PMCGameID: profile === "black2" ? "B2" : profile === "white2italy" ? "W2I" : "W2", PMCVersion: "following-removed", PMCModulePriority: priority } }, { ident: "DLXF" });
 export const FOLLOWER_EVENTS_DLL_PATH = "patches/PokewebFollowingEventsW2.dll";
 export const FOLLOWER_DLL_B2_PATH = "patches/PokewebFollowingFieldB2.dll";
 export const FOLLOWER_EVENTS_B2_DLL_PATH = "patches/PokewebFollowingEventsB2.dll";
 export const FOLLOWER_RUNTIME_VERSION = stockRuntimeManifest.version;
-export type FollowerAlphaInstall = { schemaVersion: 1; profile?: FollowerProfile; version: string; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string };
+export type FollowerAlphaInstall = { schemaVersion: 1; profile?: FollowerProfile; version: string; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string };
 const upgradeFieldUrl = new URL("../assets/following/white2upgrade/PokewebFollowingFieldW2.dll", import.meta.url);
 const upgradeEventsUrl = new URL("../assets/following/white2upgrade/PokewebFollowingEventsW2.dll", import.meta.url);
 const upgradeCoreUrl = new URL("../assets/following/white2upgrade/PokewebFollowingCoreW2.dll", import.meta.url);
@@ -304,11 +325,16 @@ const laterResourcesUrl = new URL("../assets/following/white2upgrade/later-follo
 const black2FieldUrl = new URL("../assets/following/black2/PokewebFollowingFieldB2.dll", import.meta.url);
 const black2EventsUrl = new URL("../assets/following/black2/PokewebFollowingEventsB2.dll", import.meta.url);
 const black2CoreUrl = new URL("../assets/following/black2/PokewebFollowingCoreB2.dll", import.meta.url);
+const italyFieldUrl = new URL("../assets/following/white2italy/PokewebFollowingFieldW2I.dll", import.meta.url);
+const italyEventsUrl = new URL("../assets/following/white2italy/PokewebFollowingEventsW2I.dll", import.meta.url);
+const italyCoreUrl = new URL("../assets/following/white2italy/PokewebFollowingCoreW2I.dll", import.meta.url);
+const italyLanguageUrl = new URL("../assets/following/white2italy/language.bin", import.meta.url);
 const fieldModuleUrl = new URL("../assets/following/PokewebFollowingFieldW2.dll", import.meta.url);
 const eventsModuleUrl = new URL("../assets/following/PokewebFollowingEventsW2.dll", import.meta.url);
 const coreModuleUrl = new URL("../assets/following/PokewebFollowingCoreW2.dll", import.meta.url);
 const gen5ResourcesUrl = new URL("../assets/following/gen5-followers.narc", import.meta.url);
 const interactionsUrl = new URL("../assets/following/interactions.bin", import.meta.url);
+const italyInteractionsUrl = new URL("../assets/following/white2italy/interactions.bin", import.meta.url);
 const emotesUrl = new URL("../assets/following/interaction-emotes.narc", import.meta.url);
 const dialoguesUrl = new URL("../assets/following/contextual-dialogues.narc", import.meta.url);
 const itemsUrl = new URL("../assets/following/contextual-items.narc", import.meta.url);
@@ -327,7 +353,8 @@ export function buildGen5FollowerArchives(personalBytes: Uint8Array, appearanceB
   const descriptors = new NARC(descriptorBytes), resources = new NARC(resourceBytes), imported = new NARC(gen5Bytes);
   if (descriptors.files.length !== 1 || resources.files.length !== 975 || imported.files.length !== manifest.resources.length)
     throw new Error("Unsupported follower archive layout.");
-  const registry = buildFollowerCatalog(new NARC(personalBytes).files, readFollowerStockAppearances(appearanceBytes), descriptors.files[0], resources.files, laterBytes ? 1023 : 649);
+  const personal = new NARC(personalBytes).files;
+  const registry = buildFollowerCatalog(personal, readFollowerStockAppearances(appearanceBytes), descriptors.files[0], resources.files, laterBytes ? 1023 : 649);
   const later = laterBytes ? new NARC(laterBytes) : undefined;
   if (later && later.files.length !== laterManifest.resources.length) throw new Error("Invalid later-generation resource count.");
   const laterByKey = new Map(laterManifest.appearances.map(item => [followerKey({ ...item, gender: item.gender as 0|1|2 }), item]));
@@ -365,6 +392,9 @@ export function buildGen5FollowerArchives(personalBytes: Uint8Array, appearanceB
     expanded[at + 4] = 1; // Follower-owned descriptor: enable the native ground-shadow effect.
     entry.offsets = [13, 14, 15].map(offset => (expanded[at + offset] << 24) >> 24) as [number, number, number];
   }
+  deriveFollowerGrounding(registry, resources.files, personal);
+  // The registry carries the follower-only artwork offset. Descriptor Y also
+  // positions the native shadow, so leave the copied retail zero in that row.
   descriptors.files[0] = expanded; deriveFollowerSpacing(registry, resources.files); validateFollowerRegistry(registry);
   const registryBytes = encodeFollowerRegistry(registry, Boolean(laterBytes));
   return { registry, registryBytes, descriptors: descriptors.save(), resources: resources.save(),
@@ -375,7 +405,7 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
   const bytes = readFollowingFile(project, rom, FOLLOWER_INSTALL_PATH);
   if (!bytes) return;
   const state = JSON.parse(new TextDecoder().decode(bytes)) as FollowerAlphaInstall;
-  const profile = await followerProfile(project, rom), runtimeManifest = runtimeFor(profile);
+  const profile = await followerProfile(project, rom), runtimeManifest = runtimeFor(profile), activeInteractions = interactionFor(profile);
   const modulePaths = modulePathsFor(profile);
   const dll = readFollowingFile(project, rom, modulePaths.field), config = readFollowingFile(project, rom, FOLLOWER_NATIVE_PATH);
   if ((state.profile ?? "stock") !== profile) throw new Error("Follower installation belongs to a different ROM profile.");
@@ -420,8 +450,8 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
     if (state.effectsSha256 !== expectedEffects || !effects || await followerRomSha256(effects) !== state.effectsSha256)
       throw new Error("Follower effect assets have changed. Refusing to overwrite owned data.");
   }
-  const expectedInteractions = current ? interactionManifest.dataSha256 : previous && "interactionsSha256" in previous ? previous.interactionsSha256 : undefined;
-  const expectedEmotes = current ? interactionManifest.emotesSha256 : previous && "emotesSha256" in previous ? previous.emotesSha256 : undefined;
+  const expectedInteractions = current ? activeInteractions.dataSha256 : previous && "interactionsSha256" in previous ? previous.interactionsSha256 : undefined;
+  const expectedEmotes = current ? activeInteractions.emotesSha256 : previous && "emotesSha256" in previous ? previous.emotesSha256 : undefined;
   if (expectedInteractions || expectedEmotes) {
     const data = readFollowingFile(project, rom, FOLLOWER_INTERACTIONS_PATH), emotes = readFollowingFile(project, rom, FOLLOWER_EMOTES_PATH);
     if (!data || !emotes || state.interactionsSha256 !== expectedInteractions || state.emotesSha256 !== expectedEmotes ||
@@ -439,6 +469,12 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
     const itemBytes = readFollowingFile(project, rom, FOLLOWER_ITEM_NARC_PATH);
     if (!itemBytes || !state.itemsSha256 || await followerRomSha256(itemBytes) !== state.itemsSha256) throw new Error("Follower gift archive has changed or is missing. Refusing to overwrite owned data.");
     decodeFollowerItemNarc(itemBytes);
+  }
+  if (profile === "white2italy") {
+    const language = readFollowingFile(project, rom, FOLLOWER_LANGUAGE_PATH);
+    if (!state.languageSha256 || !language || await followerRomSha256(language) !== state.languageSha256)
+      throw new Error("Italian follower language data has changed or is missing. Refusing to overwrite owned data.");
+    validateFollowerLanguageData(language);
   }
   const view = new DataView(config.buffer, config.byteOffset, config.byteLength);
   if (extended) {
@@ -462,8 +498,10 @@ function stageFollowingFiles(project: ProjectState, rom: FollowerFiles, files: R
   project.fileSystem = { replacements, additions };
 }
 export async function installFollowerAlpha(project: ProjectState, rom?: FollowerRom): Promise<FollowerAlphaInstall> {
-  rom ??= await followerRom(project);
-  const profile = await followerProfile(project, rom), runtimeManifest = runtimeFor(profile);
+  const sourceRomBytes = project.originalRomBytes ?? await loadActiveRomBytes();
+  if (!sourceRomBytes) throw new Error("Reload the project's ROM before installing the follower.");
+  rom ??= await followerRom(project, sourceRomBytes);
+  const profile = await followerProfile(project, rom), runtimeManifest = runtimeFor(profile), activeInteractions = interactionFor(profile);
   const modulePaths = modulePathsFor(profile);
   const report = await checkFollowerCompatibility(project, rom);
   if (!report.compatible) throw new Error(report.message);
@@ -473,14 +511,14 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   const authoredItems = readFollowingFile(project, rom, FOLLOWER_ITEM_NARC_PATH);
   // Contextual archives may be authored before the runtime is installed. They are
   // validated below and become owned by this installation transaction.
-  const newOwned = existing?.version === runtimeManifest.version || existing?.coreSha256 ? [] : existing ? [modulePaths.core, FOLLOWER_RUNTIME_REGISTRY_PATH] : [modulePaths.field, modulePaths.events, modulePaths.core, FOLLOWER_NATIVE_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH];
+  const newOwned = existing?.version === runtimeManifest.version || existing?.coreSha256 ? [] : existing ? [modulePaths.core, FOLLOWER_RUNTIME_REGISTRY_PATH] : [modulePaths.field, modulePaths.events, modulePaths.core, FOLLOWER_NATIVE_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, ...(profile === "white2italy" ? [FOLLOWER_LANGUAGE_PATH] : [])];
   for (const path of newOwned)
     if (readFollowingFile(project, rom, path)) throw new Error(`Unowned follower file already exists: ${path}`);
   const [response, eventsResponse, coreResponse, gen5Response, effectsResponse, dataResponse, emoteResponse, dialoguesResponse, itemsResponse] = await Promise.all([
-    fetch(profile === "white2upgrade" ? upgradeFieldUrl : profile === "black2" ? black2FieldUrl : fieldModuleUrl),
-    fetch(profile === "white2upgrade" ? upgradeEventsUrl : profile === "black2" ? black2EventsUrl : eventsModuleUrl),
-    fetch(profile === "white2upgrade" ? upgradeCoreUrl : profile === "black2" ? black2CoreUrl : coreModuleUrl),
-    fetch(gen5ResourcesUrl), fetch(effectsUrl), fetch(interactionsUrl), fetch(emotesUrl), fetch(dialoguesUrl), fetch(itemsUrl)]);
+    fetch(profile === "white2upgrade" ? upgradeFieldUrl : profile === "black2" ? black2FieldUrl : profile === "white2italy" ? italyFieldUrl : fieldModuleUrl),
+    fetch(profile === "white2upgrade" ? upgradeEventsUrl : profile === "black2" ? black2EventsUrl : profile === "white2italy" ? italyEventsUrl : eventsModuleUrl),
+    fetch(profile === "white2upgrade" ? upgradeCoreUrl : profile === "black2" ? black2CoreUrl : profile === "white2italy" ? italyCoreUrl : coreModuleUrl),
+    fetch(gen5ResourcesUrl), fetch(effectsUrl), fetch(profile === "white2italy" ? italyInteractionsUrl : interactionsUrl), fetch(emotesUrl), fetch(dialoguesUrl), fetch(itemsUrl)]);
   if (!response.ok || !eventsResponse.ok || !coreResponse.ok || !gen5Response.ok) throw new Error("Could not load the follower runtime package.");
   const dll = new Uint8Array(await response.arrayBuffer());
   if (await followerRomSha256(dll) !== runtimeManifest.fieldSha256) throw new Error("Follower module fingerprint mismatch.");
@@ -495,8 +533,13 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   const data = new Uint8Array(await dataResponse.arrayBuffer()), emotes = new Uint8Array(await emoteResponse.arrayBuffer());
   const bundledDialogues = new Uint8Array(await dialoguesResponse.arrayBuffer()), bundledItems = new Uint8Array(await itemsResponse.arrayBuffer());
   const dialogues = (authoredDialogues ?? bundledDialogues).slice(), items = (authoredItems ?? bundledItems).slice();
+  const language = profile === "white2italy" ? existing?.version === runtimeManifest.version ? readFollowingFile(project, rom, FOLLOWER_LANGUAGE_PATH)?.slice() : new Uint8Array(await (await fetch(italyLanguageUrl)).arrayBuffer()) : undefined;
+  if (profile === "white2italy") {
+    if (!language) throw new Error("Italian follower language data is missing.");
+    validateFollowerLanguageData(language);
+  }
   const gen5Bytes = new Uint8Array(await gen5Response.arrayBuffer());
-  if (await followerRomSha256(data) !== interactionManifest.dataSha256 || await followerRomSha256(emotes) !== interactionManifest.emotesSha256)
+  if (await followerRomSha256(data) !== activeInteractions.dataSha256 || await followerRomSha256(emotes) !== activeInteractions.emotesSha256)
     throw new Error("Follower conversation asset fingerprint mismatch.");
   if (data.length > 8192) throw new Error("Follower conversations exceed the 8 KiB runtime buffer.");
   validateFollowerInteractions(data, emotes);
@@ -515,12 +558,21 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
     const decoded = decodeFollowerRegistry(readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH)!);
     descriptors = readFollowingFile(project, rom, FOLLOWER_DESCRIPTOR_PATH)!.slice();
     resources = readFollowingFile(project, rom, FOLLOWER_RESOURCE_PATH)!.slice();
-    deriveFollowerSpacing(decoded, new NARC(resources).files);
+    const resourceFiles = new NARC(resources).files;
+    deriveFollowerSpacing(decoded, resourceFiles);
+    deriveFollowerGrounding(decoded, resourceFiles, new NARC(readFollowingFile(project, rom, "a/0/1/6")!).files);
+    const descriptorArchive = new NARC(descriptors);
+    for (const entry of decoded.entries) descriptorArchive.files[0][4 + entry.descriptorRow * 28 + 14] = 0;
+    descriptors = descriptorArchive.save();
     const savedWorkspace = readFollowerWorkspace(project, rom);
     if (savedWorkspace) {
       assetWorkspace = structuredClone(savedWorkspace);
       const gaps = new Map(decoded.entries.map(e => [followerKey(e.key), e.sideGap]));
-      for (const e of assetWorkspace.registry.entries) if (gaps.has(followerKey(e.key))) e.sideGap = gaps.get(followerKey(e.key));
+      const heights = new Map(decoded.entries.map(e => [followerKey(e.key), e.offsets[1]]));
+      for (const e of assetWorkspace.registry.entries) {
+        if (gaps.has(followerKey(e.key))) e.sideGap = gaps.get(followerKey(e.key));
+        if (heights.has(followerKey(e.key))) e.offsets[1] = heights.get(followerKey(e.key))!;
+      }
     }
     registry = encodeFollowerRegistry(decoded, profile === "white2upgrade");
     // Preserve hashed diagnostic records verbatim through this data migration.
@@ -544,22 +596,23 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   const state: FollowerAlphaInstall = { schemaVersion: 1, profile, version: runtimeManifest.version, enabled: new DataView(config.buffer).getUint32(4, true) === 1, targetSha256: targetFor(profile),
     moduleSha256: runtimeManifest.fieldSha256, eventsSha256: runtimeManifest.eventsSha256, eventsAbi: runtimeManifest.eventsAbi, coreSha256: runtimeManifest.coreSha256, coreAbi: runtimeManifest.coreAbi,
     configCrc32: followerCrc32(config), registrySha256: await followerRomSha256(registry), descriptorsSha256: await followerRomSha256(descriptors), resourcesSha256: await followerRomSha256(resources),
-    effectsSha256: effectsManifest.sha256, interactionsSha256: interactionManifest.dataSha256, emotesSha256: interactionManifest.emotesSha256, dialoguesSha256: await followerRomSha256(dialogues), itemsSha256: await followerRomSha256(items) };
+    effectsSha256: effectsManifest.sha256, interactionsSha256: activeInteractions.dataSha256, emotesSha256: activeInteractions.emotesSha256, dialoguesSha256: await followerRomSha256(dialogues), itemsSha256: await followerRomSha256(items) };
+  if (language) state.languageSha256 = await followerRomSha256(language);
   // Stage PMC and all owned files privately; publish only after every operation succeeds.
   const staged = structuredClone({ ...project, originalRomBytes: undefined }) as ProjectState;
-  staged.originalRomBytes = project.originalRomBytes;
+  staged.originalRomBytes = sourceRomBytes;
   if (!getPmcInstallStatus(staged).installed) await installBundledPmc(staged);
   stageCodeInjectionDll(staged, modulePaths.fieldName, dll);
   stageCodeInjectionDll(staged, modulePaths.eventsName, eventsDll);
   stageCodeInjectionDll(staged, modulePaths.coreName, coreDll);
   stageFollowingFiles(staged, rom, { [FOLLOWER_NATIVE_PATH]: config, [FOLLOWER_RUNTIME_REGISTRY_PATH]: registry, [FOLLOWER_DESCRIPTOR_PATH]: descriptors, [FOLLOWER_RESOURCE_PATH]: resources,
     [FOLLOWER_EFFECTS_PATH]: effects, [FOLLOWER_INTERACTIONS_PATH]: data, [FOLLOWER_EMOTES_PATH]: emotes, [FOLLOWER_DIALOGUE_NARC_PATH]: dialogues,
-    [FOLLOWER_ITEM_NARC_PATH]: items, [FOLLOWER_INSTALL_PATH]: new TextEncoder().encode(JSON.stringify(state, null, 2) + "\n") });
+    [FOLLOWER_ITEM_NARC_PATH]: items, ...(language ? { [FOLLOWER_LANGUAGE_PATH]: language } : {}), [FOLLOWER_INSTALL_PATH]: new TextEncoder().encode(JSON.stringify(state, null, 2) + "\n") });
   if (assetWorkspace) stageFollowingFiles(staged, rom, {
     [FOLLOWER_MANIFEST_PATH]: new TextEncoder().encode(JSON.stringify(assetWorkspace, null, 2) + "\n"),
     [FOLLOWER_REGISTRY_PATH]: encodeFollowerRegistry(assetWorkspace.registry),
   });
-  recordGenericChange(staged, "following_pokemon", `${existing ? "Updated" : "Installed"} automatic walking follower ${state.version} ${profile === "white2upgrade" ? "for White2Upgrade with Gen 6–9 artwork and explicit placeholders" : `for stock ${profile === "black2" ? "Black 2" : "White 2"} with bundled Gen 5 overworld sprites`}.`, "Following Pokémon", { key: "following-runtime" });
+  recordGenericChange(staged, "following_pokemon", `${existing ? "Updated" : "Installed"} automatic walking follower ${state.version} ${profile === "white2upgrade" ? "for White2Upgrade with Gen 6–9 artwork and explicit placeholders" : `for stock ${profile === "black2" ? "Black 2" : profile === "white2italy" ? "Italian White 2" : "White 2"} with bundled Gen 5 overworld sprites`}.`, "Following Pokémon", { key: "following-runtime" });
   project.arm9 = staged.arm9; project.arm9Dirty = staged.arm9Dirty; project.overlays = staged.overlays; project.patches = staged.patches;
   project.fileSystem = staged.fileSystem; project.codeInjection = staged.codeInjection; project.actionChangelog = staged.actionChangelog;
   return state;
@@ -580,13 +633,15 @@ export async function setFollowerAlphaEnabled(project: ProjectState, enabled: bo
 
 /** Remove all follower hooks; retain artwork/data and shared PMC installation. */
 export async function removeFollowerAlpha(project: ProjectState, rom?: FollowerRom): Promise<void> {
-  rom ??= await followerRom(project);
+  const sourceRomBytes = project.originalRomBytes ?? await loadActiveRomBytes();
+  if (!sourceRomBytes) throw new Error("Reload the project's ROM before removing the follower.");
+  rom ??= await followerRom(project, sourceRomBytes);
   const profile = await followerProfile(project, rom), runtimeManifest = runtimeFor(profile), modulePaths = modulePathsFor(profile);
   const current = await readFollowerAlphaInstall(project, rom);
   if (!current || current.removed) return;
   // Upgrade legacy packages first in private state, so ownership is unambiguous.
   const staged = structuredClone({ ...project, originalRomBytes: undefined }) as ProjectState;
-  staged.originalRomBytes = project.originalRomBytes;
+  staged.originalRomBytes = sourceRomBytes;
   if (current.version !== runtimeManifest.version) await installFollowerAlpha(staged, rom);
   const owned = (await readFollowerAlphaInstall(staged, rom))!;
   const config = readFollowingFile(staged, rom, FOLLOWER_NATIVE_PATH)!.slice();

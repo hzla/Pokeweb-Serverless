@@ -4,9 +4,9 @@ Use this as a test record, not as a list of already verified behavior. Mark each
 row **PASS**, **FAIL**, **BLOCKED** (missing setup), or **NOT RUN**. Record the
 emulator and ROM build for every run. Hardware results belong in a separate log.
 
-## Start here: 0.6.27-alpha sign and furniture regression
+## Start here: 0.6.32-alpha sign and furniture regression
 
-Use `White2-Following-0.6.27-alpha.nds` and its same-basename `.sav`
+Use `White2-Following-0.6.32-alpha.nds` and its same-basename `.sav`
 from the workspace parent directory. The build copies the previous alpha save
 without overwriting an existing destination save. Cold boot from an ordinary
 save; old emulator states contain old runtime instructions.
@@ -31,13 +31,13 @@ replacements are not connected to the runtime. Generic A-button conversations ar
 this alpha's implemented/verified behavior; do not mark them passed by assumption.
 
 <!-- generated-conversations:start -->
-## 0.6.27 conversations — human acceptance
+## 0.6.32 conversations — human acceptance
 
 Start with C20 in melonDS to check the recall fix, then C01–C03 and C12–C13. These rows are **NOT RUN** until the human tester records results. The automated 100-conversation tests use native-service mocks and do not count as C16.
 
 | ID | Steps | Expected | Result / evidence |
 |---|---|---|---|
-| C01 | Cold boot 0.6.27 from an ordinary save. Walk two tiles, stop, turn toward the follower without walking into it, then tap A. | One visible follower faces the player; an HGSS motion/cry/emote and English response play. A/B closes the text; follower stays visible and movement resumes. | NOT RUN |
+| C01 | Cold boot 0.6.32 from an ordinary save. Walk two tiles, stop, turn toward the follower without walking into it, then tap A. | One visible follower faces the player; an HGSS motion/cry/emote and English response play. A/B closes the text; follower stays visible and movement resumes. | NOT RUN |
 | C02 | Repeat from north, south, east and west on flat open ground. | All four directions work. Facing away, standing too far away, or overlapping the follower does not start a conversation. | NOT RUN |
 | C03 | Face an NPC, sign, item or field-action target with the follower nearby. Repeat while holding A and while pressing A plus a direction. | The normal target/action takes priority. No doubled dialogue, skipped item or unintended follower event. | NOT RUN |
 | C04 | Approach across a wall, corner, ledge, bridge/underpass, disconnected floor, or vertical height difference. | Cannot talk through an obstruction or between floors. Following resumes normally after repositioning. | NOT RUN |
@@ -62,13 +62,13 @@ For C16, log checkpoints 0 / 10 / 25 / 50 / 75 / 100: map, follower actor count,
 <!-- generated-conversations:end -->
 
 <!-- generated-scenes:start -->
-## 0.6.27 external dialogue and scenes — human acceptance
+## 0.6.32 external dialogue and scenes — human acceptance
 
 Start with S02 at the supplied Aspertia City sign, then test static furniture and S01. Continue with S03, S14, S07–S08 and S12. Aspertia locations are suggested repeatable dialogue targets, not claims that the corrected build was emulator-tested. For scenes without a named stock fixture, record your location/save stage or mark BLOCKED. All results remain NOT RUN until entered by the human tester.
 
 | ID | Steps | Expected | Result / evidence |
 |---|---|---|---|
-| S01 | Cold boot 0.6.27 from an ordinary save in Aspertia City. Walk until the follower is visible, then talk to an NPC whose normal behavior includes random walking. Repeat while the NPC is beside the follower or facing a tile the follower occupies. | The NPC freezes for the conversation and the follower remains visible at the same position and facing. No recall/send-out occurs from the NPC's dormant queued route; normal wandering resumes after dismissal. | NOT RUN |
+| S01 | Cold boot 0.6.32 from an ordinary save in Aspertia City. Walk until the follower is visible, then talk to an NPC whose normal behavior includes random walking. Repeat while the NPC is beside the follower or facing a tile the follower occupies. | The NPC freezes for the conversation and the follower remains visible at the same position and facing. No recall/send-out occurs from the NPC's dormant queued route; normal wandering resumes after dismissal. | NOT RUN |
 | S02 | Read an Aspertia City outdoor sign, then inspect a trash can or other static furniture, then read another sign indoors or on a route. Repeat from each reachable direction with a wandering NPC nearby. | Follower stays visible and paused for every static interaction. Unrelated paused NPC routes do not recall it. Reading or inspecting again immediately works; facing turns alone do not recall. | NOT RUN |
 | S03 | Choose both Yes and No and each list-menu option in a conversation that stays in the field. Record the NPC and save/story stage. | Choice windows work normally. Follower remains for safe choices; an option entering an application/battle/warp recalls before that action. | NOT RUN |
 | S04 | Run a saved story scene in which the player stays stationary. Record the location, story stage and script/event ID if available. | Follower remains while audited commands and child events execute. If it recalls, capture FollowingSceneDebug reason/opcode rather than marking the scene safe by appearance alone. | NOT RUN |
@@ -91,13 +91,13 @@ Capture the ROM hash, native script ID (if available), event origin, opcode/acti
 <!-- generated-scenes:end -->
 
 <!-- generated-gen5-assets:start -->
-## 0.6.27 Gen 5 sprite acceptance
+## 0.6.32 Gen 5 sprite acceptance
 
-Run G509 first in melonDS for the palette correction, then G501 and explicitly check up versus down before continuing with G502–G505. These rows are **NOT RUN** until the human tester records results. Use a cold boot of the 0.6.27 ROM; an older emulator state contains earlier runtime instructions and resource tables.
+Run G509 first in melonDS for the palette correction, then G501 and explicitly check up versus down before continuing with G502–G505. These rows are **NOT RUN** until the human tester records results. Use a cold boot of the 0.6.32 ROM; an older emulator state contains earlier runtime instructions and resource tables.
 
 | ID | Steps | Expected | Result / evidence |
 |---|---|---|---|
-| G501 | Cold boot 0.6.27 with Snivy, Tepig and Oshawott as lead in turn; walk, run and turn in all four directions. | Each species uses its own Gen 5 art and animation. Up and down facing match the player direction; no Bulbasaur fallback, palette corruption or frame-order error. | NOT RUN |
+| G501 | Cold boot 0.6.32 with Snivy, Tepig and Oshawott as lead in turn; walk, run and turn in all four directions. | Each species uses its own Gen 5 art and animation. Up and down facing match the player direction; no Bulbasaur fallback, palette corruption or frame-order error. | NOT RUN |
 | G502 | Repeat G501 with shiny Gen 5 leads, including one small species and Reshiram or Zekrom. | Shiny colors are visible only on the follower; unrelated actors keep their palettes. | NOT RUN |
 | G503 | Compare male/female Unfezant, Frillish and Jellicent. | Each gender resolves to the matching artwork in normal and shiny states. | NOT RUN |
 | G504 | Test both Basculin forms, Darmanitan and Zen Mode, all Deerling/Sawsbuck seasons, Therian genies, three Kyurem forms, Keldeo, Meloetta and all Genesect drives. | Every valid White 2 form loads safely. Forms sharing source art remain stable and keep the actual party identity/cry. | NOT RUN |
@@ -111,9 +111,9 @@ Record species, form, gender, shiny state, map, emulator, ROM hash and a screens
 <!-- generated-gen5-assets:end -->
 
 <!-- generated-large-depth:start -->
-## 0.6.27 large-sprite draw priority — human acceptance
+## 0.6.32 large-sprite draw priority — human acceptance
 
-Run D04 and D12 first in melonDS, then D11, D10, D09, D07, D08 and D01–D03. These are the direct regressions for the supplied screenshots and stair states. Cold boot the 0.6.27 ROM; do not resume an old state after replacing the ROM because it contains the previous field module.
+Run D04 and D12 first in melonDS, then D11, D10, D09, D07, D08 and D01–D03. These are the direct regressions for the supplied screenshots and stair states. Cold boot the 0.6.32 ROM; do not resume an old state after replacing the ROM because it contains the previous field module.
 
 | ID | Steps | Expected | Result / evidence |
 |---|---|---|---|
@@ -134,7 +134,7 @@ For any failure, capture both actors at the overlap and record map, coordinates,
 <!-- generated-large-depth:end -->
 
 <!-- generated-menu-pc:start -->
-## 0.6.27 X-menu and PC retention — human acceptance
+## 0.6.32 X-menu and PC retention — human acceptance
 
 Run X01 and X04 first in melonDS. These rows are **NOT RUN** until the human tester records results. The PC Box restarts the field internally, so acceptance is based on seamless visible reconstruction at the same validated pose rather than preservation of the old actor allocation.
 
@@ -152,7 +152,7 @@ For any failure, record whether it occurred during the field-side PC animation, 
 <!-- generated-menu-pc:end -->
 
 <!-- generated-spacing:start -->
-## 0.6.27 width-dependent spacing — human acceptance
+## 0.6.32 width-dependent spacing — human acceptance
 
 Run W01–W05 on both profiles. Approximate pixels depend on camera scale; spacing uses native east/west world distance. All cases are NOT RUN until the human tester records results.
 
@@ -166,7 +166,7 @@ Run W01–W05 on both profiles. Approximate pixels depend on camera scale; spaci
 <!-- generated-spacing:end -->
 
 <!-- generated-idle:start -->
-## 0.6.27 stationary follower animation — human acceptance
+## 0.6.32 stationary follower animation — human acceptance
 
 Run I01–I04 on both profiles after a cold boot with the matching save. These rows are **NOT RUN** until the human tester records results.
 
@@ -180,7 +180,7 @@ Run I01–I04 on both profiles after a cold boot with the matching save. These r
 <!-- generated-idle:end -->
 
 <!-- generated-shadow:start -->
-## 0.6.27 follower ground shadow — human acceptance
+## 0.6.32 follower ground shadow — human acceptance
 
 Run H01 first in melonDS after a cold boot. All rows remain NOT RUN until the human tester records results.
 
@@ -189,6 +189,11 @@ Run H01 first in melonDS after a cold boot. All rows remain NOT RUN until the hu
 | H01 | Cold boot with a small follower, then a 64-pixel follower. Walk two tiles on flat outdoor ground, stop, turn and walk again. | One native ground shadow appears under the follower, tracks its feet and does not move with animation bob. The player keeps its own shadow. | NOT RUN |
 | H02 | Walk up and down stairs, across grass and a bridge, then cross a seamless map boundary. | The shadow follows native terrain height and stays below the follower. No detached or duplicate shadow appears after the boundary. | NOT RUN |
 | H03 | Open/close the X menu and PC, talk to the follower and an NPC, then enter a door or battle and return. Repeat 20 times. | The paused follower retains one shadow; recall removes it and return restores one. No leftover shadow, actor, or accumulating effect allocation. | NOT RUN |
+| H04 | Compare a grounded Pokémon (Bulbasaur or Mewtwo) with a Flying-type Pokémon (Pidgeot or Charizard) on flat ground, then on stairs. Inspect feet and shadow while idle and walking. | The grounded sprite sits at its shadow with no raised-looking transparent gap. Flying-type artwork keeps its previous height. The shadow position and player sprite remain unchanged. | NOT RUN |
+| H05 | For diagnosis only, compare a grounded follower in 0.6.28 and 0.6.29 at the same position. | The extra three pixels in 0.6.29 also move the native shadow. This is the known regression corrected by 0.6.30. | NOT RUN |
+| H06 | Cold boot 0.6.30 with a grounded small follower and Serperior. Compare their shadows with the player shadow on flat ground, then walk and cross stairs. | The follower sprites keep their lowered artwork position while their full shadows stay at ground level, in line with the player shadow. Serperior has a complete shadow rather than a cut-off upper half. | NOT RUN |
+| H07 | Cold boot 0.6.31 with Serperior. Face up and down on flat ground, then repeat while walking and on stairs. Compare the sprite and full shadow with the player. | Facing up moves the shadow about seven pixels and the artwork about five pixels upward; facing down moves both about six pixels downward. Left/right positioning and movement remain unchanged. | NOT RUN |
+| H08 | Cold boot 0.6.32 with Serperior, walk north until it overlaps the player, and compare with 0.6.31 if available. Repeat with a smaller follower and on stairs. | Serperior draws in front of the player where their sprites overlap while walking north; its confirmed artwork/shadow placement, stairs, and side-facing depth remain stable. | NOT RUN |
 <!-- generated-shadow:end -->
 
 ## Run record
@@ -383,7 +388,7 @@ compatibility explicitly unverified.
 
 
 <!-- generated-memory:start -->
-## 0.6.27 ROM registry and buffer acceptance
+## 0.6.32 ROM registry and buffer acceptance
 
 All cases are NOT RUN. Automated CPU tests do not establish emulator or hardware acceptance.
 
@@ -398,7 +403,7 @@ All cases are NOT RUN. Automated CPU tests do not establish emulator or hardware
 
 
 <!-- generated-ambient:start -->
-## 0.6.27 wandering NPC acceptance
+## 0.6.32 wandering NPC acceptance
 
 All rows start NOT RUN. Use a cold boot and an ordinary save. Record map, NPC, direction, species, ROM hash and a fresh state for failures.
 

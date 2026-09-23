@@ -5,10 +5,21 @@ import { readFileSync } from "node:fs";
 import { NintendoDSRom } from "../nds/rom";
 import { Folder } from "../nds/fnt";
 import type { ProjectState } from "../pokeweb/projectStore";
+import { stageCodeInjectionDll } from "../pokeweb/pmcModel";
 import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, type FollowerAssetWorkspace } from "../pokeweb/followingPokemonProject";
-import { followerKey } from "../pokeweb/followingPokemonModel";
+import { deriveFollowerGrounding, encodeFollowerFrames, followerGroundingPixels, followerKey } from "../pokeweb/followingPokemonModel";
 import contract from "../../runtime/following-pokemon/contract.json";
 const bytes=new Uint8Array(readFileSync(new URL("../assets/following/template-32-8.btx",import.meta.url)));
+const italianFieldDll=new Uint8Array(readFileSync(new URL("../assets/following/white2italy/PokewebFollowingFieldW2I.dll",import.meta.url)));
+describe("persisted Italian follower installation",()=>{
+  it("accepts W2I modules using the loaded IRDI identity after ROM bytes leave project state",()=>{
+    const project={session:{baseRom:"BW2",baseVersion:"W2"},romInfo:{idCode:"IRDI"},codeInjection:{pmc:{overlayId:344,gameId:"W2I"}},fileSystem:{additions:{},replacements:{}}} as unknown as ProjectState;
+    expect(project.originalRomBytes).toBeUndefined();
+    expect(stageCodeInjectionDll(project,"PokewebFollowingFieldW2I.dll",italianFieldDll).gameId).toBe("W2I");
+    project.romInfo.idCode="IRDO";
+    expect(()=>stageCodeInjectionDll(project,"PokewebFollowingFieldW2I.dll",italianFieldDll)).toThrow(/loaded ROM is W2/);
+  });
+});
 function fixture(){
   const workspace: FollowerAssetWorkspace={schemaVersion:1,targetSha256:contract.target.sha256,imports:{},registry:{runtimeAbi:1,descriptorCount:1009,resourceCount:975,zones:[],entries:[{
     key:{species:1,form:0,gender:0,shiny:true},descriptorRow:1008,resourceId:400,size:32,animationProfile:"pokemon-mirrored",offsets:[0,0,0],placeholder:true,placeholderReason:"Missing shiny",source:"stock",
@@ -17,6 +28,20 @@ function fixture(){
   const rom=new NintendoDSRom(new Uint8Array(512));return {project,rom,workspace};
 }
 describe("follower asset transactions",()=>{
+  it("grounds opaque feet while retaining Flying-form and explicit sprite heights",()=>{
+    const template=new Uint8Array(readFileSync(new URL("../assets/following/template-32-8.btx",import.meta.url)));
+    const rgba=new Uint8Array(32*32*4);rgba.set([255,0,0,255],(29*32+16)*4);
+    const artwork=encodeFollowerFrames(Array.from({length:8},()=>({width:32,height:32,rgba})),template);
+    expect(followerGroundingPixels(artwork,"pokemon-asymmetric")).toBe(2);
+    const base=new Uint8Array(33),flyingForm=new Uint8Array(33);base[28]=2;base[32]=2;flyingForm[6]=2;
+    const make=(form:number,row:number,vertical=0)=>({key:{species:1,form,gender:0 as const,shiny:false},descriptorRow:row,resourceId:0,size:32 as const,
+      animationProfile:"pokemon-asymmetric" as const,offsets:[0,vertical,0] as [number,number,number],placeholder:false,source:"stock" as const});
+    const registry={runtimeAbi:1,descriptorCount:1012,resourceCount:1,zones:[],entries:[make(0,1008),make(1,1009),make(0,1010,-7),make(0,1011,-2)]};
+    deriveFollowerGrounding(registry,[artwork],[new Uint8Array(33),base,flyingForm]);
+    expect(registry.entries.map(entry=>entry.offsets[1])).toEqual([-5,0,-7,-5]);
+    deriveFollowerGrounding(registry,[artwork],[new Uint8Array(33),base,flyingForm]);
+    expect(registry.entries.map(entry=>entry.offsets[1])).toEqual([-5,0,-7,-5]);
+  });
   it("validates a whole batch before any project mutation",()=>{
     const {project,rom,workspace}=fixture(),before=structuredClone(project);
     expect(()=>replaceFollowerAssets(project,rom,[{key:workspace.registry.entries[0].key,bytes,profile:"pokemon-asymmetric",source:"png",label:"valid"},
@@ -134,7 +159,7 @@ describe("walking alpha ownership",()=>{
     await setFollowerAlphaEnabled(project,false);expect((await readFollowerAlphaInstall(project))?.enabled).toBe(false);
     expect(new DataView(project.fileSystem!.additions![FOLLOWER_NATIVE_PATH].buffer).getUint32(4,true)).toBe(0);
     expect(project.fileSystem!.additions!['unrelated.bin']).toEqual(Uint8Array.of(9));
-    await expect(setFollowerAlphaEnabled(project,true)).rejects.toThrow(/Black 2 or White 2 revision 0/); // synthetic fixture is not a compatible ROM
+    await expect(setFollowerAlphaEnabled(project,true)).rejects.toThrow(/audited revision-0/); // synthetic fixture is not a compatible ROM
     const effects=project.fileSystem!.additions![FOLLOWER_EFFECTS_PATH];effects[100]^=1;
     await expect(setFollowerAlphaEnabled(project,false)).rejects.toThrow(/effect assets have changed/);
     effects[100]^=1;

@@ -1,4 +1,5 @@
 #include "interaction.h"
+#include "render.h"
 #include "effects.h"
 #include "gifts.h"
 #define API __attribute__((visibility("default")))
@@ -60,7 +61,7 @@ static void close_resources(void){
  fwfx_emote_end();
  if(talk.window){CALL(0x02188859,void(*)(void*))(talk.window);talk.window=0;}
  if(talk.string){CALL(0x02048591,void(*)(void*))(talk.string);talk.string=0;}
- if(valid_actor()){talk.actor->drawOffset=talk.offset;CALL(0x02167099,void(*)(Actor*,unsigned))(talk.actor,talk.face);talk.actor->flags|=16;}
+ if(valid_actor()){talk.actor->drawOffset=talk.offset;CALL(0x02167099,void(*)(Actor*,unsigned))(talk.actor,talk.face);fwr_anchor(talk.actor,talk.face);talk.actor->flags|=16;}
  if(talk.f&&talk.f->generation==talk.generation&&talk.f->actor==(uintptr_t)talk.actor)fw_end_interaction(talk.f);
  talk.active=0;needRelease=1;FollowingTalkDebug[2]=0;FollowingTalkDebug[7]++;
 }
@@ -123,7 +124,21 @@ static void cry(void){
  if(talk.cryPending==2&&handle<16)CALL(0x02006b5d,void(*)(unsigned,int))(handle,-2143);
  talk.cryPending=0;
 }
+#ifdef FW_ITALY
+/* Language data is loaded only on the Bag-full path into the shared contextual
+   scratch buffer. It has no permanent allocation and never truncates text. */
+static unsigned fwt_full_bag_text(uint16_t *out){
+ int size=file_read("rom:/following/language.bin",contextBytes,sizeof(contextBytes));
+ const uint8_t *bytes=(const uint8_t*)contextBytes;
+ if(size<18||fwr_u32(bytes)!=0x474c5746||fwr_u16(bytes+4)!=1||fwr_u16(bytes+6)!=1||fwr_u32(bytes+8)!=(unsigned)size||fwr_crc(bytes+16,(unsigned)size-16)!=fwr_u32(bytes+12))return 0;
+ unsigned words=((unsigned)size-16)/2;
+ if(((unsigned)size-16)&1||words<2||words>FWR_TEXT_CAPACITY||fwr_u16(bytes+16+(words-1)*2)!=0xffff)return 0;
+ for(unsigned i=0;i<words;++i)out[i]=fwr_u16(bytes+16+i*2);
+ return words-1;
+}
+#else
 static unsigned fwt_full_bag_text(uint16_t *out){static const uint16_t text[]={ 'T','h','e',' ','B','a','g',' ','i','s',' ','f','u','l','l','.',0xffff};for(unsigned i=0;i<17;++i)out[i]=text[i];return 16;}
+#endif
 static int message(void){
  if(!(talk.gift ? (talk.giftGranted ? fwr_item_text(&items,talk.itemRule,&talk.snapshot,talk.text,FWR_TEXT_CAPACITY) : fwt_full_bag_text(talk.text)) : (talk.contextual?fwr_context_text(&context,talk.contextRule,&talk.snapshot,talk.text,FWR_TEXT_CAPACITY):fwr_text(&data,talk.step.message,&talk.snapshot,talk.text,FWR_TEXT_CAPACITY))))return 0;
  void *bg=CALL(0x021804d1,void*(*)(void*))(talk.field);if(!bg||!PTR(bg,0x15c))return 0;
@@ -155,10 +170,11 @@ static int event_tick(void *event,int *seq,void *work){
   if(fwr_motion_tick(&data,talk.step.action,&talk.motion,talk.snapshot.pokemon.species==50||talk.snapshot.pokemon.species==51,&sound)){
    talk.actor->drawOffset=(Vec){talk.offset.x+talk.motion.x,talk.offset.y+talk.motion.y,talk.offset.z+talk.motion.z};
    CALL(0x02167099,void(*)(Actor*,unsigned))(talk.actor,talk.motion.face);
+   fwr_anchor(talk.actor,talk.motion.face);
    if(sound){talk.cryPending=talk.step.cry;cry();}
    break;
   }
-  talk.actor->drawOffset=talk.offset;CALL(0x02167099,void(*)(Actor*,unsigned))(talk.actor,talk.face);
+  talk.actor->drawOffset=talk.offset;CALL(0x02167099,void(*)(Actor*,unsigned))(talk.actor,talk.face);fwr_anchor(talk.actor,talk.face);
   talk.stage=2;break;
  }
  case 2:
@@ -215,7 +231,7 @@ void *fwt_begin(FwFollower *f,Actor *player,Actor *actor,void *field,void *game,
  talk.rule=(unsigned)(rule<0?0:rule);talk.contextRule=(unsigned)(contextRule<0?0:contextRule);talk.itemRule=(unsigned)(giftRule<0?0:giftRule);talk.contextual=contextRule>=0;talk.gift=giftRule>=0;talk.item=choice;talk.giftGranted=talk.gift?fwg_grant(gameData,&current,&choice):0;FollowingGiftDebug[9]=(uint32_t)talk.giftGranted; if(talk.gift&&talk.giftGranted<0){fw_end_interaction(f);return 0;}talk.stage=talk.stepIndex=talk.age=0;talk.window=talk.string=0;talk.released=talk.cryPending=talk.closing=talk.finished=0;
  talk.event=CALL(0x02016cb5,void*(*)(void*,void*,void*,unsigned))(game,0,event_tick,4);
  if(!talk.event){fw_end_interaction(f);return 0;}
- talk.active=1;actor->flags|=16;CALL(0x02167099,void(*)(Actor*,unsigned))(actor,talk.face);
+ talk.active=1;actor->flags|=16;CALL(0x02167099,void(*)(Actor*,unsigned))(actor,talk.face);fwr_anchor(actor,talk.face);
  CALL(0x0219a5d9,void(*)(void*))(PTR(field,0x94));
  FollowingTalkDebug[2]=1;FollowingTalkDebug[4]=talk.gift?(0x4000u|talk.itemRule):(talk.contextual?0x8000u|talk.contextRule:fwr_u16(data.bytes+data.rules+rule*12));FollowingTalkDebug[5]=snapshot->pokemon.species;FollowingTalkDebug[6]++;
  return talk.event;

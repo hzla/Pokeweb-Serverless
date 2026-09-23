@@ -1,0 +1,152 @@
+{
+  "profile": "white2italy",
+  "version": "0.6.33-alpha",
+  "modules": [
+    {
+      "name": "PokewebFollowingCoreW2I",
+      "fileBytes": 2304,
+      "codeAndInitializedData": 1728,
+      "bss": 4,
+      "codePlusBss": 1732,
+      "expandedModuleBytes": 2320,
+      "symbols": 14,
+      "exportedSymbols": 10,
+      "allSymbolNamesStripped": true
+    },
+    {
+      "name": "PokewebFollowingEventsW2I",
+      "fileBytes": 2752,
+      "codeAndInitializedData": 1320,
+      "bss": 88,
+      "codePlusBss": 1408,
+      "expandedModuleBytes": 2848,
+      "symbols": 53,
+      "exportedSymbols": 34,
+      "allSymbolNamesStripped": true
+    },
+    {
+      "name": "PokewebFollowingFieldW2I",
+      "fileBytes": 29568,
+      "codeAndInitializedData": 25444,
+      "bss": 18316,
+      "codePlusBss": 43760,
+      "expandedModuleBytes": 47888,
+      "symbols": 158,
+      "exportedSymbols": 96,
+      "allSymbolNamesStripped": true
+    }
+  ],
+  "largestObjects": [
+    {
+      "name": "dataBytes",
+      "bytes": 8192,
+      "section": ".bss"
+    },
+    {
+      "name": "contextBytes",
+      "bytes": 4096,
+      "section": ".bss"
+    },
+    {
+      "name": "fwfield_follower",
+      "bytes": 1852,
+      "section": ".bss"
+    },
+    {
+      "name": "fwfield_index",
+      "bytes": 1302,
+      "section": ".bss"
+    },
+    {
+      "name": "fwfield_page",
+      "bytes": 1024,
+      "section": ".bss"
+    },
+    {
+      "name": "FollowingSceneDebug",
+      "bytes": 816,
+      "section": ".data"
+    },
+    {
+      "name": "talk",
+      "bytes": 632,
+      "section": ".bss"
+    },
+    {
+      "name": "scene",
+      "bytes": 572,
+      "section": ".bss"
+    },
+    {
+      "name": "fws_safe_commands",
+      "bytes": 340,
+      "section": ".rodata"
+    },
+    {
+      "name": "fwfx",
+      "bytes": 284,
+      "section": ".bss"
+    },
+    {
+      "name": "fwemote",
+      "bytes": 184,
+      "section": ".bss"
+    },
+    {
+      "name": "FollowingDebug",
+      "bytes": 88,
+      "section": ".data"
+    },
+    {
+      "name": "FollowingRenderDebug",
+      "bytes": 80,
+      "section": ".data"
+    },
+    {
+      "name": "fwfield_restore",
+      "bytes": 60,
+      "section": ".bss"
+    },
+    {
+      "name": "FollowingTalkDebug",
+      "bytes": 48,
+      "section": ".data"
+    }
+  ],
+  "fixedPayloadBytes": 46900,
+  "registryBytes": 61808,
+  "registryRecords": 2574,
+  "registryHeapBytes": 0,
+  "pageBytes": 1024,
+  "indexBytes": 1302,
+  "conversationCapacity": 8192,
+  "contextualCapacity": 4096,
+  "giftScratchCapacity": 4096,
+  "largestSpeciesGroups": [
+    [
+      201,
+      56
+    ],
+    [
+      493,
+      34
+    ],
+    [
+      351,
+      16
+    ],
+    [
+      585,
+      16
+    ],
+    [
+      586,
+      16
+    ]
+  ],
+  "maxSpeciesBytesAtRuntimeStride": 1344,
+  "directoryBytesAt16BitRowOffsets": 1302,
+  "conversationBytes": 3668,
+  "contextualBytes": 76,
+  "giftBytes": 76
+}

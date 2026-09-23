@@ -1,7 +1,7 @@
 // Verifies migration from a real exported follower alpha. No emulator is run.
 import { NARC } from "../src/nds/narc";
 import { NintendoDSRom } from "../src/nds/rom";
-import { decodeFollowerRegistry, deriveFollowerSpacing } from "../src/pokeweb/followingPokemonModel";
+import { decodeFollowerRegistry, deriveFollowerGrounding, deriveFollowerSpacing } from "../src/pokeweb/followingPokemonModel";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
@@ -33,10 +33,14 @@ const upgraded=await installFollowerAlpha(project);
 if(before.coreSha256) {
   const compact=readFollowingFile(project,rom,FOLLOWER_RUNTIME_REGISTRY_PATH)!;
   const expected=decodeFollowerRegistry(previousRegistry);
-  deriveFollowerSpacing(expected,new NARC(previousResources).files);
+  const resources=new NARC(previousResources).files;
+  deriveFollowerSpacing(expected,resources);
+  deriveFollowerGrounding(expected,resources,new NARC(rom.getFileByName("a/0/1/6")).files);
   assert.deepEqual(decodeFollowerRegistry(compact),expected);
   assert.ok(compact.length<=previousRegistry.length);
-  assert.deepEqual(readFollowingFile(project,rom,FOLLOWER_DESCRIPTOR_PATH),previousDescriptors);
+  const updatedDescriptors=new NARC(previousDescriptors);
+  for(const entry of expected.entries)updatedDescriptors.files[0][4+entry.descriptorRow*28+14]=0;
+  assert.deepEqual(readFollowingFile(project,rom,FOLLOWER_DESCRIPTOR_PATH),updatedDescriptors.save());
   assert.deepEqual(readFollowingFile(project,rom,FOLLOWER_RESOURCE_PATH),previousResources);
 }
 assert.equal(upgraded.version,currentVersion);
@@ -46,6 +50,6 @@ const exported=await exportModifiedRom(project);
 const reopened=await loadProjectFromRomBytes(exported,"upgraded-follower.nds",{selectedNarcs:[]});
 assert.deepEqual(await readFollowerAlphaInstall(reopened),upgraded);
 assert.deepEqual(await readFollowerDialogueRules(reopened),authoredDialogue);
-for(const name of ["Field","Events","Core"].map(part=>`PokewebFollowing${part}${profile==="black2"?"B2":"W2"}.dll`))
+for(const name of ["Field","Events","Core"].map(part=>`PokewebFollowing${part}${profile==="black2"?"B2":profile==="white2italy"?"W2I":"W2"}.dll`))
   assert.equal(reopened.codeInjection!.modules!.filter(module=>module.fileName===name).length,1);
 console.log(`${before.version} installed ROM upgraded to ${upgraded.version}; enabled state and authored zone-427 Mew dialogue retained, three runtime modules present once, export/reopen recognized.`);

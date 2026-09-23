@@ -1,9 +1,32 @@
-# White2Upgrade Following Pokémon — 0.7.18-alpha
+# White2Upgrade Following Pokémon — 0.7.23-alpha
 
 This is a separate expansion profile of the follower accepted by the user in
 stock White 2 0.6.10. Movement, dialogue, menu/PC handling, scene guards, ball
 animations, and final actor draw correction use the same implementation. The
-stock package is 0.6.27 and is not replaced by the expansion DLLs.
+stock package is 0.6.32 and is not replaced by the expansion DLLs.
+
+Version 0.7.23 restores the north-facing follower's pre-anchor foreground
+camera depth during a close player overlap. The submitted sprite moves only
+along the eye ray, leaving its confirmed artwork/shadow position and stair
+policy in place; U24 needs visual acceptance.
+
+Version 0.7.22 adds facing-specific north/south ground-plane anchors so the
+follower artwork and native shadow move together. The north-facing artwork
+gets a separate two-pixel compensation. Logical movement and left/right
+anchors stay unchanged; U23 requires human visual acceptance.
+
+Version 0.7.21 applies the grounded-artwork Y offset only during the native
+sprite draw and restores the actor pose immediately. Its descriptor remains at
+ground for the separate shadow/effect pass. The preceding 0.7.20 descriptor
+offset lowered and sometimes clipped the shadow; U22 covers visual acceptance
+of the correction. Sprite resources and Flying artwork are unchanged.
+
+Version 0.7.20 added three pixels to the grounded descriptor offset. U21 records
+that historical change and its shadow-position regression.
+
+Version 0.7.19 lowered non-Flying follower artwork by its transparent bottom
+margin. Its shared descriptor offset also moved the native shadow. Flying
+artwork retained its earlier height; U20 records this historical build.
 
 Version 0.7.18 calls the verified native shadow-registration helper when a
 visible follower lacks a shadow and the player has one. In the reported
@@ -171,11 +194,11 @@ From Pokeweb-Serverless, with local paths substituted as needed:
 ```sh
 npm run following:import-upgrade -- /path/to/White2Upgrade.nds /path/to/hg-engine /path/to/text_Species_en.txt --png-root /path/to/followersprites
 npm run following:verify-fan-assets -- /path/to/followersprites
-npm run following:build-upgrade -- /path/to/cleanwhite2.nds --publish
+npm run following:build-upgrade -- /path/to/White2Upgrade.nds --publish
 npm run following:build-rom -- /path/to/White2Upgrade.nds runtime/following-pokemon/build/white2upgrade-test /path/to/previous.sav
-npm run following:verify-upgrade -- /path/to/White2Upgrade.nds /path/to/White2Upgrade-Following-0.7.18-alpha.nds
-FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade.py /path/to/White2Upgrade-Following-0.7.18-alpha.nds
-FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade_snapshot.py /path/to/nofollowers.mln /path/to/White2Upgrade-Following-0.7.18-alpha.nds
+npm run following:verify-upgrade -- /path/to/White2Upgrade.nds /path/to/White2Upgrade-Following-0.7.23-alpha.nds
+FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade.py /path/to/White2Upgrade-Following-0.7.23-alpha.nds
+FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade_snapshot.py /path/to/nofollowers.mln /path/to/White2Upgrade-Following-0.7.23-alpha.nds
 python3 runtime/following-pokemon/generate_upgrade_docs.py
 ```
 
@@ -185,12 +208,11 @@ The contract generator is for capturing an independently audited baseline, not
 for bypassing an unsupported-runtime rejection. Reimporting art does not require
 recompiling the modules.
 
-The batch builder delivers `White2Upgrade-Following-0.7.3-alpha.nds` to `Repos/`.
+The batch builder delivers `White2Upgrade-Following-0.7.23-alpha.nds` to `Repos/`.
 An explicit prior `.sav` can seed a new version; an existing destination save is
-preserved. Later expansion builds inherit the latest earlier expansion save.
-The 0.7.3 delivery copies the user's preceding 0.7.2 save for continuity. Keep an
-original copy before playing the expansion; expanded-species saves belong with
-White2Upgrade, not stock White 2.
+preserved. The 0.7.23 delivery copies the preceding 0.7.22 expansion save for
+continuity. Keep an original copy before playing the expansion;
+expanded-species saves belong with White2Upgrade, not stock White 2.
 
 ## Acceptance
 

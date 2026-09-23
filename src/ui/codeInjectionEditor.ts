@@ -48,7 +48,6 @@ import {
 } from "../pokeweb/tagBattleStabilizationModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
-import { getSaveMenuStatus, installSaveMenu } from "../pokeweb/saveMenuModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
 import {
   detectPwanRuntimeCompatibility,
@@ -78,7 +77,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
   const learnsetStatus = getLearnsetViewerStatus(project);
-  const saveMenuStatus = getSaveMenuStatus(project);
   const battleHudStatus = getBattleTypeHudStatus(project);
   const moveEffectivenessStatus = getMoveEffectivenessStatus(project);
   const moveColors = moveEffectivenessStatus.colors ?? DEFAULT_MOVE_HIGHLIGHT_COLORS;
@@ -159,19 +157,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
             <div class="code-injection-note" id="pmc-install-note">Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.</div>
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>White 2 Save Menu</h2>
-              <p>Animated trainer and party card with the White 2 town map.</p>
-            </div>
-            <span class="code-injection-status ${saveMenuStatus.installed && !saveMenuStatus.updateAvailable ? "-installed" : saveMenuStatus.supported ? "" : "-error"}">${saveMenuStatus.updateAvailable ? "Update Available" : saveMenuStatus.installed ? "Installed" : saveMenuStatus.supported ? "Ready" : "Unsupported"}</span>
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported && (!saveMenuStatus.installed || saveMenuStatus.updateAvailable) ? "" : "disabled"}>${saveMenuStatus.updateAvailable ? "Update Save Menu" : "Install Save Menu"}</button>
-            <div class="code-injection-note" id="save-menu-note">${escapeHtml(saveMenuStatus.message)}</div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -971,20 +956,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       }
     });
   }
-  root.querySelector<HTMLButtonElement>("#install-save-menu-btn")?.addEventListener("click", async (event) => {
-    const button = event.currentTarget as HTMLButtonElement;
-    button.disabled = true;
-    const note = root.querySelector<HTMLDivElement>("#save-menu-note");
-    if (note) note.textContent = "Checking the ROM and menu hook...";
-    try {
-      await installSaveMenu(project);
-      onDirty();
-      renderCodeInjectionEditor(project, root, onDirty);
-    } catch (error) {
-      button.disabled = false;
-      if (note) note.textContent = error instanceof Error ? error.message : String(error);
-    }
-  });
   const dllNote = root.querySelector<HTMLDivElement>("#dll-install-note");
   let selectedTarget: CodeInjectionDllTarget = "patches";
   root.querySelectorAll<HTMLButtonElement>("[data-dll-target]").forEach((targetButton) => {
