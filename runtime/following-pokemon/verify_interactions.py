@@ -127,19 +127,19 @@ def setup(direction=0,species=25,zone=0,reset_mon=True):
  global held,pressed
  assert not call('fwt_active')
  held=pressed=0;call('fwt_poll_input')
- uc.mem_write(F,bytes(7228));put(F,2);put(F+20,1);put(F+24,A)
+ uc.mem_write(F,bytes(1852));put(F,2);put(F+20,1);put(F+24,A)
  uc.mem_write(P,bytes(0x300));put(P,1|8192);put(P+148,P+0x600);put(A,1|128|256|32768);put(P+136,SYS);put(A+136,SYS);put(A+140,addr('fwfield_moves'));half(P+24,direction)
  x,z=10*65536,10*65536;ax=x+(-65536 if direction==2 else 65536 if direction==3 else 0);az=z+(-65536 if direction==0 else 65536 if direction==1 else 0)
  uc.mem_write(P+68,struct.pack('<iii',x,0,z));uc.mem_write(A+68,struct.pack('<iii',ax,0,az));uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,az//65536))
  for i,(sx,sz) in enumerate([(ax,az),(x,z)]):uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,sz,1,1,0,0,0,3,1))
- half(F+52+7168+6,2);put(FIELD+8,GAMEDATA);put(FIELD+0x94,P+0x400);put(FIELD+0x148,0);put(GAME+0x18,0)
+ half(F+52+64*28+6,2);put(FIELD+8,GAMEDATA);put(FIELD+0x94,P+0x400);put(FIELD+0x148,0);put(GAME+0x18,0)
  uc.mem_write(SNAP,struct.pack('<H4BHH2xIIIH4B12H9H',species,0,0,0,0,100,100,123,456,0,zone,100,direction^1,0,0,*([ord('P'),ord('i'),ord('k'),ord('a')]+[65535]*8),*([ord('U')]+[65535]*8)))
  if reset_mon:uc.mem_write(MON,bytes(0x100));put(MON,123);half(MON+4,2)
  put(BG+0x15c,BG+0x200);put(BG+0xfc,0)
  put(SYS+0x28,fieldbl);put(fieldbl+4,bl);put(bl+4,scene);put(bl+0x18,indices);half(bl+0x1c,1);put(indices,0)
  put(scene+4,mat);put(scene+8,bill);half(scene+12,1);half(scene+14,1)
  uc.mem_write(bill,bytes(28));held=pressed=1
- return bytes(uc.mem_read(A+68,12)),bytes(uc.mem_read(F+52,7176))
+ return bytes(uc.mem_read(A+68,12)),bytes(uc.mem_read(F+52,64*28+8))
 def begin():
  event=call('fwt_begin',[F,P,A,FIELD,GAME,SNAP])
  if event:put(GAME+0x18,event)
@@ -215,7 +215,7 @@ for i in range(CYCLES):
  else:raise AssertionError('stuck controller')
  assert not call('fwt_active');assert u32(F)==2
  held=pressed=1;assert not begin();call('fwt_poll_input');assert not begin()
- assert bytes(uc.mem_read(A+68,12))==world and bytes(uc.mem_read(F+52,7176))==trail
+ assert bytes(uc.mem_read(A+68,12))==world and bytes(uc.mem_read(F+52,64*28+8))==trail
  assert bytes(uc.mem_read(A+80,12))==bytes(12);balanced()
 assert visited==set(range(9)),visited
 # Cancel during each observed stage, including nested foreign event, reused actor, generation and fade.

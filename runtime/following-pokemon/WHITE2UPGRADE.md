@@ -1,9 +1,18 @@
-# White2Upgrade Following Pokémon — 0.7.15-alpha
+# White2Upgrade Following Pokémon — 0.7.18-alpha
 
 This is a separate expansion profile of the follower accepted by the user in
 stock White 2 0.6.10. Movement, dialogue, menu/PC handling, scene guards, ball
 animations, and final actor draw correction use the same implementation. The
-stock package is 0.6.24 and is not replaced by the expansion DLLs.
+stock package is 0.6.27 and is not replaced by the expansion DLLs.
+
+Version 0.7.18 calls the verified native shadow-registration helper when a
+visible follower lacks a shadow and the player has one. In the reported
+0.7.17 melonDS state, the follower descriptor requested a shadow but its
+native shadow-attached bit remained clear. U19 remains for visual acceptance.
+
+Version 0.7.16 reduces the movement trail to 64 world-position samples. The
+follower sidecar saves 5,376 bytes; overflow still recalls and reseeds. Slow
+stairs, curves, and seamless crossings require new emulator acceptance.
 
 Version 0.7.15 retains the paused-actor correction and admits the pinned
 interaction-progress broadcast used by ordinary sign and furniture scripts.
@@ -140,6 +149,8 @@ ROM data. This does not execute actor creation, GPU rendering or a DS emulator.
 | Upgrade 0.7.12 | 52,444 B (51.2 KiB) |
 | Stock 0.6.24 | 51,624 B (50.4 KiB) |
 | Upgrade 0.7.15 | 52,608 B (51.4 KiB) |
+| Stock 0.6.25 / Black 2 0.6.25 | 46,236 B (45.2 KiB) |
+| Upgrade 0.7.16 | 47,220 B (46.1 KiB) |
 
 These figures exclude loader metadata, allocator overhead, stack, variable
 native actor/effect/message resources and VRAM. They are not whole-game peaks.
@@ -162,9 +173,9 @@ npm run following:import-upgrade -- /path/to/White2Upgrade.nds /path/to/hg-engin
 npm run following:verify-fan-assets -- /path/to/followersprites
 npm run following:build-upgrade -- /path/to/cleanwhite2.nds --publish
 npm run following:build-rom -- /path/to/White2Upgrade.nds runtime/following-pokemon/build/white2upgrade-test /path/to/previous.sav
-npm run following:verify-upgrade -- /path/to/White2Upgrade.nds /path/to/White2Upgrade-Following-0.7.15-alpha.nds
-FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade.py /path/to/White2Upgrade-Following-0.7.15-alpha.nds
-FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade_snapshot.py /path/to/nofollowers.mln /path/to/White2Upgrade-Following-0.7.15-alpha.nds
+npm run following:verify-upgrade -- /path/to/White2Upgrade.nds /path/to/White2Upgrade-Following-0.7.18-alpha.nds
+FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade.py /path/to/White2Upgrade-Following-0.7.18-alpha.nds
+FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade_snapshot.py /path/to/nofollowers.mln /path/to/White2Upgrade-Following-0.7.18-alpha.nds
 python3 runtime/following-pokemon/generate_upgrade_docs.py
 ```
 

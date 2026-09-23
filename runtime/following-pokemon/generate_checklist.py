@@ -1,7 +1,7 @@
 """Refresh versioned alpha sections while preserving the broader checklist."""
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
-VERSION='0.6.24'
+VERSION='0.6.27'
 ASSET_CASES=[
 ('G501',f'Cold boot {VERSION} with Snivy, Tepig and Oshawott as lead in turn; walk, run and turn in all four directions.','Each species uses its own Gen 5 art and animation. Up and down facing match the player direction; no Bulbasaur fallback, palette corruption or frame-order error.'),
 ('G502','Repeat G501 with shiny Gen 5 leads, including one small species and Reshiram or Zekrom.','Shiny colors are visible only on the follower; unrelated actors keep their palettes.'),
@@ -139,7 +139,7 @@ save; old emulator states contain old runtime instructions.
 
 Start with S02 at the supplied Aspertia City sign, then inspect a trash can or other static furniture. The follower must stay visible throughout. Continue with S01 for a random-walking NPC and CD01 using zone 427 and Mew. The user confirmed the preceding menu and PC fixes; repeat X01, X04 and X05 as regressions. Then repeat N01–N08 for wandering NPCs, simultaneous movement, conversations,
 scripted routes and rail/elevation separation. The ROM registry cache and 8 KiB
-conversation buffer remain in place. Follow with M01–M04 and spot-check stairs,
+conversation buffer remain in place. Follow with M01–M05 and spot-check stairs,
 building frontage, menus and PC return for regressions.
 
 The user accepted stock 0.6.10 as good enough. Its movement and main actor-pass
@@ -155,6 +155,7 @@ cases=[
 ('M02','Switch rapidly between Unown forms, shiny/non-shiny, gender variants and unrelated species through party/PC screens. Repeat with first/last supported species.','Every appearance updates correctly across ROM cache pages; no stale sprite or missing follower.'),
 ('M03','Use long nicknames/player names and all text speeds. Complete 100 conversations with menus and map changes between them.','The 8 KiB conversation buffer preserves messages, motions and dismissal. No stuck controls or accumulating effects.'),
 ('M04','Complete 100 mixed field/battle/PC/door cycles. Record available heap and allocation counts at 0/10/25/50/75/100 when telemetry is available.','No growing allocation or duplicate actor. Otherwise mark allocation results UNMEASURED. Startup I/O time does not grow across cycles.'),
+('M05','Walk as slowly as possible on straight and diagonal stairs with a wide follower, reverse mid-step, then cross a seamless map boundary.','The 64-record trail remains continuous with no unexpected recall or shortcut. Record exact map and movement speed if it reseeds.'),
 ]
 section=start+f'\n## {VERSION} ROM registry and buffer acceptance\n\nAll cases are NOT RUN. Automated CPU tests do not establish emulator or hardware acceptance.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in cases)+end
@@ -211,3 +212,16 @@ if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(
 else:text=text.replace('## Run record',section+'\n\n## Run record')
 path.write_text(text)
 print(f'Regenerated {len(SPACING)} spacing and {len(IDLE)} stationary-animation cases; no emulator tests executed.')
+
+SHADOW=[
+('H01','Cold boot with a small follower, then a 64-pixel follower. Walk two tiles on flat outdoor ground, stop, turn and walk again.','One native ground shadow appears under the follower, tracks its feet and does not move with animation bob. The player keeps its own shadow.'),
+('H02','Walk up and down stairs, across grass and a bridge, then cross a seamless map boundary.','The shadow follows native terrain height and stays below the follower. No detached or duplicate shadow appears after the boundary.'),
+('H03','Open/close the X menu and PC, talk to the follower and an NPC, then enter a door or battle and return. Repeat 20 times.','The paused follower retains one shadow; recall removes it and return restores one. No leftover shadow, actor, or accumulating effect allocation.'),
+]
+start='<!-- generated-shadow:start -->';end='<!-- generated-shadow:end -->'
+section=start+f'\n## {VERSION} follower ground shadow — human acceptance\n\nRun H01 first in melonDS after a cold boot. All rows remain NOT RUN until the human tester records results.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {id} | {steps} | {expected} | NOT RUN |\n' for id,steps,expected in SHADOW)+end
+text=path.read_text()
+if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('## Run record',section+'\n\n## Run record')
+path.write_text(text)
