@@ -11,20 +11,27 @@ def main():
     build=HERE/'build';build.mkdir(exist_ok=True)
     run('javac','-cp',JAR,'-d',build,HERE/'Compact.java')
     reports={}
-    for game,module,source,state_size,hook_count in [(g,*m) for g in ('B2','W2') for m in (('TypeIcons','battle_type_hud.cpp',364,17),('MoveEffectiveness','move_effectiveness.cpp',20,5))]:
+    modules=(
+        ('TypeIcons','battle_type_hud.cpp',364,17,None,'0.3.17'),
+        ('TypeIconsCircular','battle_type_hud.cpp',364,17,'ICON_VARIANT_CIRCULAR','0.3.17-circular'),
+        ('TypeIconsSolid','battle_type_hud.cpp',364,17,'ICON_VARIANT_SOLID','0.3.23-solid'),
+        ('MoveEffectiveness','move_effectiveness.cpp',20,5,None,'0.4.0'),
+    )
+    for game,module,source,state_size,hook_count,variant_define,version in [(g,*m) for g in ('B2','W2') for m in modules]:
         assert (build/f'addresses-{game}.h').exists(), 'Run configure.py first'
         name=module+game
         obj=build/(name+'.o');elf=build/(name+'.elf')
-        run(TOOLS/'arm-none-eabi-g++','-std=c++14','-mthumb','-march=armv5t',
+        compile_args=[TOOLS/'arm-none-eabi-g++','-std=c++14','-mthumb','-march=armv5t',
             '-mno-thumb-interwork','-mno-long-calls','-Os','-Wall','-Wextra','-Werror',
             '-ffreestanding','-fno-jump-tables','-fvisibility=hidden','-fno-exceptions','-fno-rtti','-fstack-usage',
             '-fno-unwind-tables','-fno-asynchronous-unwind-tables','-DGAME_'+game,
-            '-c',HERE/source,'-o',obj)
+            '-c',HERE/source,'-o',obj]
+        if variant_define: compile_args.insert(-4,'-D'+variant_define)
+        run(*compile_args)
         run(TOOLS/'arm-none-eabi-ld','-r',obj,'-o',elf)
         assert not subprocess.check_output([str(TOOLS/'arm-none-eabi-nm'),'-u',str(elf)]).strip()
         # Load before ordinary priority-4 battle patches. This does not enlarge
         # the PMC heap; the unoptimized Cascade build has insufficient capacity.
-        version='0.3.9' if module=='TypeIcons' else '0.4.0'
         meta=build/(name+'.yml');meta.write_text(f'PMCGameID: {game}\nPMCModulePriority: 3\nPMCVersion: {version}\n')
         for debug in (True,False):
             dll=build/(name+('.debug' if debug else '')+'.dll')
@@ -44,15 +51,17 @@ def main():
                 fixed_state_bytes=rpm['bss'],expanded_rpm_bytes=rpm['expanded_size'],
                 retained_rpm_after_internal_fix_bytes=rpm['internal_fixed_size'],
                 rpm_metadata_overhead_bytes=rpm['expanded_size']-len(rpm['code'])-rpm['bss'],
-                icon_constants_bytes=208 if module=='TypeIcons' else 0,external_hook_count=len(external),external_modules=['168'],
+                icon_constants_bytes=324 if module=='TypeIconsSolid' else 476 if module.startswith('TypeIcons') else 0,
+                caught_marker_constants_bytes=0,
+                external_hook_count=len(external),external_modules=['168'],
                 pmc_module_state_bytes=36,pmc_overlay_list_bytes=8,pmc_extern_list_bytes=8,
                 pmc_allocator_headers_bytes=64,pmc_allocator_alignment_padding_bytes=4,
                 estimated_total_pmc_heap_bytes=rpm['expanded_size']+120,
                 estimated_retained_pmc_heap_bytes=rpm['internal_fixed_size']+120,
-                battle_heap_allocations=0,added_sprites=0,added_palette_banks=0,added_graphics_vram_bytes=256 if module=='TypeIcons' else 0,
-                added_graphics_vram_max_bytes=512 if module=='TypeIcons' else 0,
-                added_hardware_oam_pieces_per_regular_player=1 if module=='TypeIcons' else 0,
-                existing_cell_resource_growth_bytes=8 if module=='TypeIcons' else 0)
+                battle_heap_allocations=0,added_sprites=0,added_palette_banks=0,added_graphics_vram_bytes=256 if module.startswith('TypeIcons') else 0,
+                added_graphics_vram_max_bytes=512 if module.startswith('TypeIcons') else 0,
+                added_hardware_oam_pieces_per_regular_player=1 if module.startswith('TypeIcons') else 0,
+                existing_cell_resource_growth_bytes=8 if module.startswith('TypeIcons') else 0)
         (build/(name+'.disassembly.txt')).write_bytes(subprocess.check_output(
             [str(TOOLS/'arm-none-eabi-objdump'),'-dr',str(elf)]))
     (build/'memory-report.json').write_text(json.dumps(reports,indent=2)+'\n')

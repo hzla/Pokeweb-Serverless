@@ -51,6 +51,8 @@
 #define W2U_BATTLE_ACTOR_ENTRY_BYTES 0x5cu
 #define W2U_BATTLE_ACTOR_SPECIES_OFFSET 0x2cu
 #define W2U_BATTLE_ACTOR_FORM_OFFSET 0x30u
+#define W2U_BATTLE_ACTOR_STATUS_OFFSET 0x40u
+#define W2U_BATTLE_ACTOR_SHOWING_SUBSTITUTE 0x04u
 #define W2U_BATTLE_SPECIES_FORM_MASK 0x7ffu
 #define W2U_MINIOR_CORE_FORM_START 7u
 #define W2U_MINIOR_FORM_COUNT 14u
@@ -393,6 +395,20 @@ static void *GetMcssPointerByIndex(void *bmw, s32 mcssIndex)
     u8 *entry = (u8 *)bmw + W2U_BATTLE_ACTOR_ENTRY_BASE +
                 ((u32)mcssIndex * W2U_BATTLE_ACTOR_ENTRY_BYTES);
     return *(void **)entry;
+}
+
+static b32 IsNativeSubstituteVisible(void *bmw, s32 mcssIndex)
+{
+    if (!bmw || !IsSafeMcssTextureIndex(mcssIndex)) {
+        return false;
+    }
+    const u8 *entry = (const u8 *)bmw + W2U_BATTLE_ACTOR_ENTRY_BASE +
+                      ((u32)mcssIndex * W2U_BATTLE_ACTOR_ENTRY_BYTES);
+    // The species and saved MAW still describe the Pokemon while the live
+    // MCSS displays its doll. Test the visual flag, not the persistent
+    // Substitute flag: the game temporarily reveals the Pokemon to attack.
+    return (*(const u32 *)(entry + W2U_BATTLE_ACTOR_STATUS_OFFSET) &
+            W2U_BATTLE_ACTOR_SHOWING_SUBSTITUTE) != 0;
 }
 
 static void CopyPaletteToLiveMcss(ActorId actor)
@@ -1012,6 +1028,16 @@ static void UpdateActor(ActorId actor, void *bmw)
         return;
     }
     const BattleActorIdentity identity = GetMcssActorIdentity(bmw, cfg->position);
+    if (IsNativeSubstituteVisible(bmw, mcssIndex)) {
+        // Leave the native doll's texture, palette and cell geometry alone.
+        // Invalidating our copied frame also forces a complete PWAN refresh
+        // when the native Pokemon resources are restored, even for one-frame
+        // assets or when the MCSS pointer itself does not change.
+        RecordActorProfile(actor, cfg->position, mcssIndex, &identity,
+                           ASSET_NONE, false, false, 0xffffu);
+        DeactivateActor(actor);
+        return;
+    }
     BattleAssetId assetId = GetAssetForPositionSpecies(cfg->position, &identity);
     if (sNativeFormChangePosition == (s32)cfg->position &&
         !sNativeFormChangeSwapReached &&
@@ -1227,9 +1253,22 @@ extern "C" void W2U_BattleAnim_Draw(void)
 {
     W2U_BattleAnim_Profile.drawCalls = W2U_BattleAnim_Profile.drawCalls + 1u;
 
+    void *bmw = GetMcssWork();
+    if (!bmw) {
+        W2U_BattleAnim_Term();
+        return;
+    }
+
     b32 needsUpload = false;
     for (u32 i = 0; i < ACTOR_COUNT; ++i) {
         if (!sState.actor[i].active) {
+            continue;
+        }
+        if (IsNativeSubstituteVisible(bmw, sState.actor[i].mcssIndex)) {
+            // Native effects may swap the resources after our actor update.
+            // Drop any queued Pokemon upload before even changing the live
+            // palette proxy, so this frame also belongs entirely to the doll.
+            DeactivateActor((ActorId)i);
             continue;
         }
         SetMcssPaletteBase(sState.actor[i].mcss,
