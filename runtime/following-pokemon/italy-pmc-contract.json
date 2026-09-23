@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "gameCode": "IRDI",
+    "revision": 0,
+    "sha256": "04c7ae9f697b09f0558c9a508fc8960531c6429e5341bd699955f5ff925d600a"
+  },
+  "sourceSha256": "3e50aec3db401332175a5d2b5fe2a68ac1a05ec63995dba9d1506b1b51837446",
+  "pmcSourceVersion": "13.2.4",
+  "hooks": [
+    {
+      "id": "FULL_COPY_ARM9_0x0200400C_PMCBootCode",
+      "address": 33570828,
+      "sourceAddress": 33570828,
+      "kind": "FULL_COPY",
+      "patchBytes": 24,
+      "expectedHex": "ffde52b8edf89ad6bb77a3f293a9bc8daf6dc21f6c8b5ddd",
+      "sourceHex": "ffde3ef6f1cc58c8eccd14bc6e9049bd664de9f0807f868b"
+    },
+    {
+      "id": "FULL_COPY_main_0x6",
+      "address": 33575210,
+      "sourceAddress": 33575210,
+      "kind": "FULL_COPY",
+      "patchBytes": 4,
+      "expectedHex": "00f0c5f9",
+      "sourceHex": "00f0c5f9"
+    },
+    {
+      "id": "FULL_COPY_GetUserMemRegionDefaultStart_0x7C_AdjustHeapStart",
+      "address": 34059164,
+      "sourceAddress": 34059292,
+      "kind": "FULL_COPY",
+      "patchBytes": 4,
+      "expectedHex": "c0cf1f02",
+      "sourceHex": "c0d01f02"
+    },
+    {
+      "id": "FULL_COPY_sys_read_overlay_header_0xFC_UncapOverlayMaximum",
+      "address": 34017280,
+      "sourceAddress": 34017408,
+      "kind": "FULL_COPY",
+      "patchBytes": 4,
+      "expectedHex": "58010000",
+      "sourceHex": "58010000"
+    },
+    {
+      "id": "THUMB_BRANCH_LINK_GFL_OvlLoad_0x76",
+      "address": 33803822,
+      "sourceAddress": 33803950,
+      "kind": "THUMB_BRANCH_LINK",
+      "patchBytes": 4,
+      "expectedHex": "34f015fa",
+      "sourceHex": "34f015fa"
+    },
+    {
+      "id": "THUMB_BRANCH_LINK_GFL_OvlEntryUnload_0xA",
+      "address": 33803626,
+      "sourceAddress": 33803754,
+      "kind": "THUMB_BRANCH_LINK",
+      "patchBytes": 4,
+      "expectedHex": "34f08ffa",
+      "sourceHex": "34f08ffa"
+    }
+  ],
+  "imports": [
+    {
+      "id": "fs_normalize_path",
+      "address": 34014944,
+      "sourceAddress": 34015072,
+      "type": "FUNCTION_THM",
+      "expectedHex": "f8b584b0051c71480f1c002441680192",
+      "sourceHex": "f8b584b0051c71480f1c002441680192"
+    },
+    {
+      "id": "fs_call_syscmd",
+      "address": 34014464,
+      "sourceAddress": 34014592,
+      "type": "FUNCTION_THM",
+      "expectedHex": "f0b583b0051ce86800910121171c0026",
+      "sourceHex": "f0b583b0051ce86800910121171c0026"
+    },
+    {
+      "id": "memmove",
+      "address": 34093360,
+      "sourceAddress": 34093488,
+      "type": "FUNCTION_ARM",
+      "expectedHex": "000051e10700003a00c0a0e1000052e3",
+      "sourceHex": "000051e10700003a00c0a0e1000052e3"
+    },
+    {
+      "id": "memcpy",
+      "address": 34093328,
+      "sourceAddress": 34093456,
+      "type": "FUNCTION_ARM",
+      "expectedHex": "00c0a0e1000052e31eff2f010130d1e4",
+      "sourceHex": "00c0a0e1000052e31eff2f010130d1e4"
+    },
+    {
+      "id": "strtoul",
+      "address": 34108536,
+      "sourceAddress": 34108664,
+      "type": "FUNCTION_ARM",
+      "expectedHex": "38402de920d04de20050a0e100e0a0e3",
+      "sourceHex": "38402de920d04de20050a0e100e0a0e3"
+    },
+    {
+      "id": "GFLAppInit",
+      "address": 33576120,
+      "sourceAddress": 33576120,
+      "type": "FUNCTION_THM",
+      "expectedHex": "f8b575f0bdfb00281cd1002075f0befe",
+      "sourceHex": "f8b575f0fdfb00281cd1002075f0fefe"
+    },
+    {
+      "id": "romfs_fseek",
+      "address": 34016724,
+      "sourceAddress": 34016852,
+      "type": "FUNCTION_THM",
+      "expectedHex": "08b582b000ab0361009101920e210122",
+      "sourceHex": "08b582b000ab0361009101920e210122"
+    },
+    {
+      "id": "sys_mount_overlay",
+      "address": 34017284,
+      "sourceAddress": 34017412,
+      "type": "FUNCTION_THM",
+      "expectedHex": "f8b594b002af041c381c0026fff70afe",
+      "sourceHex": "f8b594b002af041c381c0026fff70afe"
+    },
+    {
+      "id": "romfs_fgetsize",
+      "address": 34016620,
+      "sourceAddress": 34016748,
+      "type": "FUNCTION_THM",
+      "expectedHex": "38b582b0002401a9051c019401f052f8",
+      "sourceHex": "38b582b0002401a9051c019401f052f8"
+    },
+    {
+      "id": "sys_unload_overlay",
+      "address": 34017932,
+      "sourceAddress": 34018060,
+      "type": "FUNCTION_THM",
+      "expectedHex": "18b58bb0031c00ac0a1c201c191cfff7",
+      "sourceHex": "18b58bb0031c00ac0a1c201c191cfff7"
+    },
+    {
+      "id": "sys_uncomp_blz",
+      "address": 33574388,
+      "sourceAddress": 33574388,
+      "type": "FUNCTION_ARM",
+      "expectedHex": "000050e32900000af0012de9060010e9",
+      "sourceHex": "000050e32900000af0012de9060010e9"
+    },
+    {
+      "id": "memset",
+      "address": 34093436,
+      "sourceAddress": 34093564,
+      "type": "FUNCTION_ARM",
+      "expectedHex": "10402de90040a0e11c0000eb0400a0e1",
+      "sourceHex": "10402de90040a0e11c0000eb0400a0e1"
+    },
+    {
+      "id": "cp15_flushDC",
+      "address": 34058328,
+      "sourceAddress": 34058456,
+      "type": "FUNCTION_ARM",
+      "expectedHex": "00c0a0e3001081e01f00c0e39acf07ee",
+      "sourceHex": "00c0a0e3001081e01f00c0e39acf07ee"
+    },
+    {
+      "id": "hw_isDSi",
+      "address": 34057272,
+      "sourceAddress": 34057400,
+      "type": "FUNCTION_THM",
+      "expectedHex": "0948c06900280bd10848017803200840",
+      "sourceHex": "0948c06900280bd10848017803200840"
+    },
+    {
+      "id": "fs_call_filecmd",
+      "address": 34019416,
+      "sourceAddress": 34019544,
+      "type": "FUNCTION_THM",
+      "expectedHex": "f0b583b00092021c92680d1c146a0122",
+      "sourceHex": "f0b583b00092021c92680d1c146a0122"
+    },
+    {
+      "id": "romfs_fclose",
+      "address": 34016608,
+      "sourceAddress": 34016736,
+      "type": "FUNCTION_THM",
+      "expectedHex": "014b0821012218470105070238b582b0",
+      "sourceHex": "014b0821012218478105070238b582b0"
+    },
+    {
+      "id": "romfs_fread",
+      "address": 34016748,
+      "sourceAddress": 34016876,
+      "type": "FUNCTION_THM",
+      "expectedHex": "38b582b0051c00ab2b61009101920021",
+      "sourceHex": "38b582b0051c00ab2b61009101920021"
+    },
+    {
+      "id": "romfs_fopen_id",
+      "address": 34016484,
+      "sourceAddress": 34016612,
+      "type": "FUNCTION_THM",
+      "expectedHex": "0fb408b582b005990023069a002909d0",
+      "sourceHex": "0fb408b582b005990023069a002909d0"
+    },
+    {
+      "id": "sys_load_overlay",
+      "address": 34017884,
+      "sourceAddress": 34018012,
+      "type": "FUNCTION_THM",
+      "expectedHex": "30b58bb0031c00ac0a1c201c191c0025",
+      "sourceHex": "30b58bb0031c00ac0a1c201c191c0025"
+    },
+    {
+      "id": "sys_get_overlay_size",
+      "address": 34016944,
+      "sourceAddress": 34017072,
+      "type": "FUNCTION_THM",
+      "expectedHex": "c2690121130e194202d01002000a7047",
+      "sourceHex": "c2690121130e194202d01002000a7047"
+    },
+    {
+      "id": "strlen",
+      "address": 34102600,
+      "sourceAddress": 34102728,
+      "type": "FUNCTION_ARM",
+      "expectedHex": "0020e0e30110d0e4012082e2000051e3",
+      "sourceHex": "0020e0e30110d0e4012082e2000051e3"
+    },
+    {
+      "id": "sys_read_overlay_header",
+      "address": 34017028,
+      "sourceAddress": 34017156,
+      "type": "FUNCTION_THM",
+      "expectedHex": "f0b5a9b0041c00200f1c56010090394d",
+      "sourceHex": "f0b5a9b0041c00200f1c56010090394d"
+    },
+    {
+      "id": "finit",
+      "address": 34016296,
+      "sourceAddress": 34016424,
+      "type": "FUNCTION_THM",
+      "expectedHex": "2321002209021143826042600260c261",
+      "sourceHex": "2321002209021143826042600260c261"
+    },
+    {
+      "id": "*ABS*0x200400d",
+      "address": 33570828,
+      "sourceAddress": 33570828,
+      "type": "FUNCTION_THM",
+      "expectedHex": "ffde52b8edf89ad6bb77a3f293a9bc8d",
+      "sourceHex": "ffde3ef6f1cc58c8eccd14bc6e9049bd"
+    }
+  ]
+}

@@ -35,12 +35,14 @@ uc.hook_add(UC_HOOK_CODE,spy,begin=0x0204f684,end=0x0204f684)
 F=addr('fwfield_follower')
 def setup(size=32,projection=0):
  uc.mem_write(P,bytes(0x2000))
+ uc.mem_write(F+51,b'\x00')
  put(addr('fwfield_owner'),SYS);put(addr('fwfield_player'),P);put(F+24,A)
  half(SYS+4,2);put(SYS+28,P);put(SYS+40,FBL);put(FBL+4,BL)
  put(BL+4,SCENE);put(BL+24,SLOTS);half(BL+28,2);put(SLOTS,0);put(SLOTS+40,1)
  put(SCENE+8,BILL);half(SCENE+14,2)
  for i,a in enumerate([P,A]):
   put(a,1);put(a+136,SYS);put(a+140,addr('fwfield_moves'));half(a+196,i)
+  half(a+24,2)
   half(BILL+28*i,13+i);half(BILL+28*i+18,8192 if i==0 else size*256);half(BILL+28*i+20,8192 if i==0 else size*256);half(BILL+28*i+24,0x121f)
  uc.mem_write(A+235,bytes([2 if size==64 else 0]));put(CAM,projection)
  vec(CAM+32,(0,200*4096,140*4096));vec(CAM+56,(0,0,0))
@@ -53,6 +55,15 @@ def draw():
  assert bytes(uc.mem_read(P,0x2000))==before
  assert bytes(uc.mem_read(F,7300))==trail
  return seen[-1]
+# The native control-Z byte shifts the model and its native shadow together,
+# while logical movement coordinates, other dimensions, and descriptor stay put.
+setup();uc.mem_write(A+243,b'\x03')
+before=bytes(uc.mem_read(A,256))
+for face,expected in ((0,-4),(1,9),(2,3),(3,3)):
+ call('fwr_anchor',[A,face]);assert read(A+128,'b')[0]==expected
+ after=bytes(uc.mem_read(A,256))
+ assert after[:128]==before[:128] and after[129:]==before[129:]
+call('fwr_anchor',[0,0])
 frames=0
 for size in (32,64):
  for projection in (0,1,2):
@@ -80,6 +91,42 @@ for base,expected in [((65536,65536,0),0),((65536,-32740,0),-2),((0,-65536,65536
  setup(64);vec(A+68,base);vec(BILL+32,(base[0],base[1]+6144,base[2]-8192))
  submitted,scales,depth=draw();assert depth[0]==expected,(base,depth)
  if expected==0:assert submitted==(base[0],base[1]+6144,base[2]-8192)
+# The registry Y offset must affect the follower quad only. Disable the player
+# billboard for this fixture so the depth correction cannot obscure the exact
+# five-pixel delta, then verify the native effects pass sees the original pose.
+setup();uc.mem_write(F+51,b'\xfb');half(BILL,0x400d)
+vec(BILL+32,(65536,6144,0));original=read(BILL+32,'3i')
+assert draw()[0]==(original[0],original[1]-5*4096,original[2])
+n=len(seen);call('FollowingEffectsDraw',[BL,CAM,LIGHT])
+assert len(seen)==n+1 and seen[-1][0]==original
+assert read(BILL+32,'3i')==original
+# The upward artwork receives a two-pixel correction relative to the shadow;
+# downward and lateral artwork retain their existing registry Y offset.
+for face,extra in ((0,-2),(1,0),(2,0),(3,0)):
+ setup();uc.mem_write(F+51,b'\xfb');half(BILL,0x400d);half(A+24,face)
+ vec(BILL+32,(65536,6144,0));original=read(BILL+32,'3i')
+ assert draw()[0]==(original[0],original[1]+(-5+extra)*4096,original[2])
+ assert read(BILL+32,'3i')==original
+# North-facing movement changed the billboard's ground-plane anchor. The
+# packaged main-pass correction must recover its former foreground depth while
+# preserving the new on-screen pose and leaving native effect/shadow data alone.
+setup();uc.mem_write(F+51,b'\xfa');half(A+24,2)
+vec(A+68,(0,0,65536));vec(BILL+32,(0,0,65536-2*4096))
+old_depth=draw()[2][1]
+setup();uc.mem_write(F+51,b'\xfa');half(A+24,0)
+vec(A+68,(0,0,65536));vec(BILL+32,(0,0,65536-9*4096))
+new_pose=read(BILL+32,'3i');north=draw();assert north[2][0]==1
+assert old_depth<=north[2][2]<old_depth+128,(old_depth,north[2])
+assert read(BILL+32,'3i')==new_pose
+n=len(seen);call('FollowingEffectsDraw',[BL,CAM,LIGHT])
+assert len(seen)==n+1 and seen[-1][0]==new_pose
+# Keep the draw-only offset active through the existing depth policies. No
+# temporary position or sidecar value may accumulate across repeated draws.
+for base in ((65536,0,0),(65536,65536,0),(65536,-32740,0),(0,-65536,65536)):
+ setup(64);uc.mem_write(F+51,b'\xfb');vec(A+68,base)
+ vec(BILL+32,(base[0],base[1]+6144,base[2]-8192))
+ first=draw()
+ assert all(draw()==first for _ in range(5))
 # Invalid/stale/unsupported objects forward once without mutating the scene.
 for invalid in ('hidden','unused','lost','foreign','slot','index','mode','camera','zero-camera','scale'):
  setup();vec(BILL+32,(65536,6144,0))
