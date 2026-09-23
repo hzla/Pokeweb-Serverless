@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "profile": "stock",
+  "version": "0.6.12-alpha",
+  "enabled": true,
+  "targetSha256": "3e50aec3db401332175a5d2b5fe2a68ac1a05ec63995dba9d1506b1b51837446",
+  "eventsSha256": "8745cf6b3a1959b870e55d308fb34b802554935edbdc23ceb18dfb1169365610",
+  "eventsAbi": 3,
+  "coreSha256": "a47dcd1d5426109ea3d66eda5d7df086bd507bb32b7aa2c9898b0a1a034f84c6",
+  "coreAbi": 2,
+  "configCrc32": 3451584612,
+  "registrySha256": "30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58",
+  "descriptorsSha256": "f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939",
+  "resourcesSha256": "c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6",
+  "effectsSha256": "d910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0",
+  "interactionsSha256": "e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894",
+  "emotesSha256": "ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7",
+  "fieldSha256": "9f4f783342379dc8dde14ae95d6e5f7729f02784136490ff75e7880479c10bec"
+}

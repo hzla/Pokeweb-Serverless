@@ -1,0 +1,14 @@
+{
+  "version": "0.7.0-alpha",
+  "eventsSha256": "6fffd67043f40f0257bc927aa82b14ad656266f0a050ba3ecac2203be36745b5",
+  "eventsAbi": 2,
+  "coreSha256": "a8298ff0087fe7d9dfb9cb5837ea206bf7e0f0b983a804541d9987ae33c0f01d",
+  "coreAbi": 1,
+  "registrySha256": "bef8a61dac9f2f1979e18d639e458a4615513b5c1a9adcaab9b62cac0be44bde",
+  "descriptorsSha256": "2f6f95a38accffe5424855ee4ac130bfedafb47a4c8ea69ce03572d171f66317",
+  "resourcesSha256": "e114d2ffa39aac69e0f84b6be5018f1c561482fe85bcecd61f30a81db67c4a5d",
+  "effectsSha256": "d910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0",
+  "interactionsSha256": "e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894",
+  "emotesSha256": "ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7",
+  "fieldSha256": "9b46bf7bc685e6d892da0a7fb1c4e1f1af2ced35e5ccf03dd1b0d33762587673"
+}

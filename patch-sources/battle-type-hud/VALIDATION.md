@@ -1,4 +1,172 @@
-# Validation — Type Icons 0.3.9 / bundle 0.4.9
+# Validation — selectable Type Icons / bundle 0.4.23
+
+Pokeweb bundles lettered Type Icons 0.3.17, Circular Icons 0.3.17-circular,
+and Angular HUD Wedges 0.3.23-solid for both English B2 and W2. The Type Icons
+card displays all three preview sheets and one selector chooses the DLL installed
+at the existing Type Icons path. Export, reimport, detection, reinstall, and
+switching among all three retain one icon module and one set of hooks.
+
+The angular build widens each native-face strip by two pixels. Its 11-row
+regular-player mask and seven-row enemy/compact-player mask follow each panel's
+own stair steps. Enemy masks retain their one-pixel left adjustment. Dual types
+retain a black diagonal divider one row above the prior position. Monotypes use
+the retail summary-label dark shade at their angled edges; dual transitions
+dither the matching type fill with black. This preserves the darkened edge and
+corner treatment without writing the live HP-bar palette. Monotypes fill across the divider. Black pixels outside the
+exact mask, the bottom shadow and the caught Poké Ball remain byte-identical.
+
+Angular-wedge compiled-ARM checks cover all 18 fill/shade pairs, mono and dual rendering, every
+player and enemy panel slot, all six statuses, live mono-to-dual changes,
+two-entry palette fading, byte-exact preservation of HP-bar entries 5–12,
+unchanged-frame write suppression, native
+caught-marker preservation, and exact teardown in B2 and W2.
+
+The angular-wedge DLL is 7,600 bytes with about 7,856 retained PMC bytes. It
+retains 364 bytes of fixed state and adds no battle-heap allocations, sprites, palette
+banks, or separate graphics allocations. No game boot or emulator frames were
+executed.
+
+# Historical validation — Type Icons 0.3.16 / bundle 0.4.16
+
+The caught Poké Ball remains at its native 8×8 enemy-header coordinates and is
+never cleared, copied, or repainted by the patch. Enemy text translation starts
+at x=16, directly after the x=8..15 marker slot. The runtime layout guard checks
+the unused x=0..7 region while accepting either native caught state.
+
+Compiled B2/W2 ARM checks preserve the marker byte for byte through gauge
+creation, all six status labels, native image reloads, unchanged updates, and
+teardown across singles, doubles, and triples. All taller-rhombus, effective
+type, Illusion, fade, palette, overlap restoration, and 649-name geometry checks
+also pass. Installer compatibility checks pass. No game boot or emulator frames
+were executed.
+
+The release DLLs are 7,824 bytes each with 6,840 bytes of code/constants, 364
+bytes of writable state, and approximately 8,080 bytes of retained PMC storage
+including bookkeeping. The removed marker handling saves 416 retained bytes and
+eliminates the 32-byte embedded marker raster. No battle-heap allocations,
+sprites, palette banks, or additional graphics allocations were introduced.
+
+# Historical validation — Type Icons 0.3.15 / bundle 0.4.15
+
+Every point-up rhombus is now 12×11. Its added row supplies type-colored padding
+beneath each lowered white initial while the 88-pixel near-black outline fully
+encloses the fill. Dual icons use offsets (0,0) and (5,6), retaining a 17×17
+combined footprint. A monotype retains its centered, one-pixel-raised position.
+
+The added center row and four shoulder pixels per icon restore from the exact
+native background table. The remaining 72 pixels per icon retain the one-bit
+backup, so two icons still require 18 bytes and writable state remains 364 bytes.
+The painter explicitly compares the second icon with live graphics at overlap
+pixels, ensuring its border covers the first icon even where black equals the
+native background.
+
+Compiled B2/W2 ARM checks pass for all 18 types, mono/dual drawing, overlapping
+paint and restoration, six HUD positions, status transitions, typing changes,
+Illusion, fades, image reloads, and teardown. OAM composition and all 649 retail
+name measurements pass. Installer compatibility checks pass. No game boot or
+emulator frames were executed.
+
+# Historical validation — Type Icons 0.3.14 / bundle 0.4.14
+
+Four black shoulder pixels were added to every 12×10 rhombus at local positions
+(3,1), (8,1), (3,8), and (8,8). They close the only gaps directly above and
+below the widest colored corner pixels, increasing the visible outline from 72
+to 76 pixels. The white initials move down one pixel. Monotype icons move up one
+pixel as a whole; dual icon coordinates are unchanged.
+
+The four new outline pixels restore from the exact native background table. The
+remaining 72 pixels per rhombus retain the existing one-bit backup, so two icons
+still require 18 bytes and writable state remains 364 bytes.
+
+Compiled B2/W2 ARM checks pass for all 18 types, mono/dual drawing, six HUD
+positions, status transitions, typing changes, Illusion, fades, image reloads,
+and teardown. OAM composition and all 649 retail-name measurements pass. No
+game boot or emulator frames were executed.
+
+# Historical validation — Type Icons 0.3.13 / bundle 0.4.13
+
+Type icons now use a 12×10 point-up rhombus, a compact white first initial, and
+the existing per-type colors. The Water initial is the requested five-pixel W:
+`10001 / 10001 / 10101 / 10101 / 01010`. Each outline covers 72 pixels. Dual
+types use two 72-pixel backups and form a 17×17 stack at offsets (0,0) and
+(5,7); monotypes use the centered offset (2,3).
+
+Compiled B2/W2 ARM checks cover all 18 IDs, mono and dual types, all six visible
+panel positions, status hide/restore, live type changes, Illusion, fades,
+rebindings, image reloads, the caught marker, HP slash protection, and teardown.
+Native OAM composition confirms the whole stack is within existing 128×32
+pieces. The enemy layout matrix measures all 649 English species names in the
+retail font: the left screen margin is one pixel and the minimum clear name gap
+is five pixels in singles, doubles, and triples.
+
+The release DLLs are 8,160 bytes each with 7,172 bytes of code/constants, 364
+bytes of writable state, and approximately 8,416 bytes of retained PMC storage
+including bookkeeping. There are no battle-heap allocations, new sprite
+objects, or new palette banks. The previous 256-byte transparent regular-player
+expansion is retained for installer upgrade compatibility but is not used by
+the new rhombus pixels.
+
+No game boot or emulator frames were executed. The user performs final visual
+and animation testing.
+
+# Historical validation — Type Icons 0.3.12 / bundle 0.4.12
+
+Type icons now use a point-up hexagonal silhouette in the same 10x10 footprint.
+The colored 8x8 mask changes only its top and bottom rows from four pixels to
+two; those rows contain no symbol ink in any of the 18 approved glyphs. The
+one-pixel exterior outline changes with the mask, while icon colors, symbols,
+spacing, coordinates and transparent corners remain unchanged.
+
+The new outline covers 72 rather than 76 pixels per icon. Backup indexing was
+updated and its largest dual-icon requirement falls from 172 bits to 160 bits,
+still inside the existing 24-byte record buffer. Writable state, graphics VRAM,
+sprite count, palette use and allocation behavior are unchanged.
+
+Compiled B2/W2 checks cover all 18 mono/dual icons, every panel layout, status
+restoration, native text overlap, caught marker, type changes, fades, reloads
+and teardown. Installer upgrades and the production build pass. No game boot
+or frames were executed. The complete circular implementation remains in
+`dist/BattleHudPatches-Circular-0.4.11.zip` and the original versioned archive.
+
+# Historical validation — Type Icons 0.3.11 / bundle 0.4.11
+
+The relocated caught Poké Ball moves down exactly one DS pixel, from texture
+y=17 to y=18. Its x position, 8x8 native pixels, palette, type-icon placement,
+text positions and HP panel remain unchanged. The nontransparent art now spans
+rows 18–24 inside the verified lower-panel region; its transparent final row
+remains at y=25.
+
+Compiled B2/W2 placement, all status states, full graphics reload and exact
+teardown restoration pass. Installer upgrade and production build checks also
+pass. No game boot or frames were executed.
+
+# Historical validation — Type Icons 0.3.10 / bundle 0.4.10
+
+The native already-caught Poké Ball now occupies the center of the former
+lower-panel monotype position while enemy type icons remain beside the name.
+The game-provided marker is 8x8: its near-black outline encloses a red/white
+interior no wider than six pixels, so no resampling or palette change is needed.
+
+- Compiled B2 and W2 checks identify the exact native marker in gauge-parts
+  member 434, move only its nontransparent pixels, and preserve the patterned
+  panel beneath its transparent corners.
+- Singles, doubles and triples retain the marker with mono/dual type icons.
+  All six status labels hide the type icons while leaving the caught marker
+  visible. Full graphics reloads relocate it again, and panel removal restores
+  both the lower-panel background and the native marker tile byte for byte.
+- Existing type, header, name-width, OAM, captured-state, HP slash, palette,
+  Illusion, lifecycle and compatibility checks pass. Move Preview 0.4.0 remains
+  byte-identical.
+
+Writable state remains 364 bytes. The release DLL is 7,536 bytes, with 6,576
+bytes of code/constants and an estimated 7,808 retained PMC bytes including
+bookkeeping. This adds no graphics VRAM, sprites, palette banks, or battle-heap
+allocations. The 32-byte native marker raster is the only new art constant.
+
+No game boot or frames were executed. ROMs and supplied states were read only;
+final appearance and animation testing remain with the user.
+
+# Historical validation — Type Icons 0.3.9 / bundle 0.4.9
 
 Player singles name and type icons move 12 pixels right; gender and level
 move eight pixels right. Vertical alignment, HP/EXP panel and other layouts

@@ -28,6 +28,8 @@ const sourcePaths = new Set();
 const readAssetManifest = name => JSON.parse(fs.readFileSync(path.join(app, 'src/assets/codeinjection', name), 'utf8'));
 const learnset = readAssetManifest('learnsetViewerManifest.json');
 const hud = readAssetManifest('battleTypeHudManifest.json');
+const following = ['runtime.json', 'black2/runtime.json', 'white2upgrade/runtime.json']
+  .map(name => JSON.parse(fs.readFileSync(path.join(app, 'src/assets/following', name), 'utf8')));
 
 function safeJoin(root, relative) {
   const full = path.resolve(root, relative);
@@ -47,7 +49,8 @@ function file(group, relative, kind = 'source', originPath = `runtime/${group}/$
 }
 function runtimeFiles(group) {
   return fs.readdirSync(path.join(app, 'runtime', group), { withFileTypes: true })
-    .filter(entry => entry.isFile() && /\.(c|cpp|h|py|ts|json|java|yml|md|txt|cjs|s|S)$/.test(entry.name))
+    .filter(entry => entry.isFile() && /\.(c|cpp|h|py|ts|json|java|yml|md|txt|cjs|s|S)$/.test(entry.name)
+      && !(group === 'save-menu' && entry.name === 'assets.generated.h'))
     .sort((a, b) => a.name.localeCompare(b.name, 'en'))
     .map(entry => {
       const kind = /\.(md|txt)$/.test(entry.name) ? 'documentation'
@@ -59,6 +62,51 @@ function runtimeFiles(group) {
     });
 }
 const additions = [
+  {
+    name: 'save-menu', title: 'White 2 save menu',
+    artifacts: ['SaveMenuW2.dll'],
+    note: 'Version 0.1.9 save-menu PMC module for a pinned White 2 Following Pokémon alpha ROM. Build source and four prepared native-art PNG inputs are copied; the pinned ROM, generated header, and validation captures are excluded. See runtime notes for the exact supported input and validation limits.',
+    extra: [
+      ...['native-badges.png', 'native-map-marker.png', 'native-map-start-node.png', 'native-map-title.png']
+        .map(name => file('save-menu', `assets/${name}`, 'binary-build-input', `runtime/save-menu/${name}`)),
+      file('save-menu', 'integration/saveMenuModel.ts', 'support-only', 'src/pokeweb/saveMenuModel.ts'),
+      file('save-menu', 'integration/codeInjectionEditor.ts', 'support-only', 'src/ui/codeInjectionEditor.ts'),
+      file('save-menu', 'tests/verify-save-menu-update.ts', 'test', 'scripts/verify-save-menu-update.ts'),
+    ],
+  },
+  {
+    name: 'trainer-nature', title: 'Specified trainer Pokémon natures',
+    artifacts: ['TrainerNatureB2.dll', 'TrainerNatureW2.dll'],
+    note: 'Version 1.2.0 PMC modules for US Black 2 and White 2. Includes the build source, both address/metadata profiles, installer and legacy ARM9 migration logic, and an export/reimport verification script.',
+    extra: [
+      file('trainer-nature', 'integration/trainerNaturePatch.ts', 'support-only', 'src/pokeweb/trainerNaturePatch.ts'),
+      file('trainer-nature', 'integration/romPatchModel.ts', 'support-only', 'src/pokeweb/romPatchModel.ts'),
+      file('trainer-nature', 'integration/trainerEditor.ts', 'support-only', 'src/ui/trainerEditor.ts'),
+      file('trainer-nature', 'tests/romPatchModel.test.ts', 'test', 'src/test/romPatchModel.test.ts'),
+      file('trainer-nature', 'tests/verify-trainer-nature-install.ts', 'test', 'scripts/verify-trainer-nature-install.ts'),
+    ],
+  },
+  {
+    name: 'following-pokemon', title: 'Following Pokémon',
+    artifacts: [
+      ...['PokewebFollowingCoreW2.dll', 'PokewebFollowingEventsW2.dll', 'PokewebFollowingFieldW2.dll'].map(name => `following/${name}`),
+      ...['PokewebFollowingCoreB2.dll', 'PokewebFollowingEventsB2.dll', 'PokewebFollowingFieldB2.dll'].map(name => `following/black2/${name}`),
+      ...['PokewebFollowingCoreW2.dll', 'PokewebFollowingEventsW2.dll', 'PokewebFollowingFieldW2.dll'].map(name => `following/white2upgrade/${name}`),
+    ],
+    note: `Stock US White 2 ${following[0].version}, stock US Black 2 ${following[1].version}, and White2Upgrade ${following[2].version} bundled runtime variants. Sources, generators, profile metadata, integration, and focused tests are copied. ROMs, sprite archives, save files, generated binaries, and emulator captures are excluded. Artifact hashes identify the exact bundled modules; no binary rebuild is implied.`,
+    extra: [
+      ...['runtime.json', 'black2/runtime.json', 'white2upgrade/runtime.json'].map(name =>
+        file('following-pokemon', `metadata/${name}`, 'metadata', `src/assets/following/${name}`)),
+      ...fs.readdirSync(path.join(app, 'runtime/following-pokemon/tests')).filter(name => /\.(c|h|py|json)$/.test(name))
+        .sort((a, b) => a.localeCompare(b, 'en')).map(name =>
+          file('following-pokemon', `tests/runtime/${name}`, 'test', `runtime/following-pokemon/tests/${name}`)),
+      file('following-pokemon', 'integration/followingPokemonProject.ts', 'support-only', 'src/pokeweb/followingPokemonProject.ts'),
+      ...['followingPokemon', 'followingPokemonProject', 'followingPokemonItems', 'followingPokemonMemory', 'followingPokemonEditor']
+        .map(name => file('following-pokemon', `tests/${name}.test.ts`, 'test', `src/test/${name}.test.ts`)),
+      file('following-pokemon', 'tests/verify-following-install.ts', 'test', 'scripts/verify-following-install.ts'),
+      file('following-pokemon', 'tests/verify-following-assets.ts', 'test', 'scripts/verify-following-assets.ts'),
+    ],
+  },
   {
     name: 'pwan-trainer', title: 'PWAN trainer sprites',
     artifacts: ['PokewebPwanTrainerB2.dll', 'PokewebPwanTrainerW2.dll'],
@@ -93,8 +141,8 @@ const additions = [
   },
   {
     name: 'battle-type-hud', title: 'Battle Type Icons and Move Effectiveness Preview',
-    artifacts: ['TypeIconsB2.dll', 'TypeIconsW2.dll', 'MoveEffectivenessB2.dll', 'MoveEffectivenessW2.dll'],
-    note: `Independent overlay-168 Type Icons ${hud.games.W2.version} and Move Effectiveness ${hud.moveGames.W2.version} modules, catalog ${hud.version}. Includes generated address/hook headers and private panel geometry. Canonical Pokeweb runtime snapshot originates from work/battle-type-hud; no emulator captures or build binaries are copied.`,
+    artifacts: ['TypeIconsB2.dll', 'TypeIconsW2.dll', 'TypeIconsCircularB2.dll', 'TypeIconsCircularW2.dll', 'TypeIconsSolidB2.dll', 'TypeIconsSolidW2.dll', 'MoveEffectivenessB2.dll', 'MoveEffectivenessW2.dll'],
+    note: `Independent overlay-168 Type Icons ${hud.games.W2.version}, Circular 0.3.17, Solid 0.3.23, and Move Effectiveness ${hud.moveGames.W2.version} modules, catalog ${hud.version}. Includes generated address/hook headers and private panel geometry. Canonical Pokeweb runtime snapshot originates from work/battle-type-hud; no emulator captures or build binaries are copied.`,
     extra: [
       ...['B2', 'W2'].flatMap(game => [
         file('battle-type-hud', `build/addresses-${game}.h`, 'generated-header'),
@@ -140,20 +188,26 @@ for (const group of additions) {
   if (index === -1) manifest.patches.push(updated);
   else manifest.patches[index] = updated;
 }
-const artifacts = new Set(manifest.excludedArtifacts);
+const artifacts = new Set(manifest.excludedArtifacts.map(name => `codeinjection/${name}`));
 for (const patch of manifest.patches) for (const artifact of patch.artifacts) {
-  if (artifacts.has(artifact.name)) throw Error(`Duplicate artifact: ${artifact.name}`);
-  artifacts.add(artifact.name);
-  if (!only || patch.name === only) artifact.sha256 = hash(fs.readFileSync(safeJoin(path.join(app, 'src/assets/codeinjection'), artifact.name)));
+  const location = artifact.name.includes('/') ? artifact.name : `codeinjection/${artifact.name}`;
+  if (artifacts.has(location)) throw Error(`Duplicate artifact: ${location}`);
+  artifacts.add(location);
+  if (!only || patch.name === only) artifact.sha256 = hash(fs.readFileSync(safeJoin(path.join(app, 'src/assets'), location)));
 }
 for (const name of fs.readdirSync(path.join(app, 'src/assets/codeinjection'))) {
-  if (!only && /\.(dll|rpm)$/.test(name) && !artifacts.has(name)) throw Error(`Unaccounted bundled artifact: ${name}`);
+  if (!only && /\.(dll|rpm)$/.test(name) && !artifacts.has(`codeinjection/${name}`)) throw Error(`Unaccounted bundled artifact: ${name}`);
+}
+for (const folder of ['following', 'following/black2', 'following/white2upgrade']) {
+  for (const name of fs.readdirSync(path.join(app, 'src/assets', folder))) {
+    if (!only && /\.(dll|rpm)$/.test(name) && !artifacts.has(`${folder}/${name}`)) throw Error(`Unaccounted bundled artifact: ${folder}/${name}`);
+  }
 }
 for (const entry of [...manifest.patches.filter(p => !only || p.name === only).flatMap(p => p.files), ...(!only ? manifest.sharedFiles : [])]) {
   if (sourcePaths.has(entry.path)) throw Error(`Duplicate source: ${entry.path}`);
   sourcePaths.add(entry.path);
   const raw = fs.readFileSync(safeJoin(roots[entry.origin.repository], entry.origin.path));
-  const normalized = normalize(raw);
+  const normalized = entry.kind === 'binary-build-input' ? raw : normalize(raw);
   const destination = safeJoin(here, entry.path);
   const existing = fs.existsSync(destination) ? fs.readFileSync(destination) : undefined;
   const old = oldFiles.get(entry.path);

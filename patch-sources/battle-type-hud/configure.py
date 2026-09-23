@@ -152,43 +152,152 @@ def main():
             lines=[line for h,line in zip(hooks,wrappers) if h['name'].startswith('Move')==(module=='MoveEffectiveness')]
             (HERE/'build'/f'hooks-{module}-{game}.h').write_text('\n'.join(lines)+'\n')
         print(game, 'independently matched',len(found),'functions;',len(hooks),'hooks')
-    # Asset generation: remove opaque corners using the approved shared mask.
+    # Asset generation: compact first initials in a 12x11 point-up rhombus.
     names='Normal Fighting Flying Poison Ground Rock Bug Ghost Steel Fire Water Grass Electric Psychic Ice Dragon Dark Fairy'.split()
     manifest=json.loads((HERE/'approved-icons.json').read_text())
-    icons={v['name']:v for v in manifest['icons']}; circle=[60,126,255,255,255,255,126,60]
+    icons={v['name']:v for v in manifest['icons']}
+    patterns={
+        'N':('1001','1101','1011','1001','1001'),
+        'F':('1111','1000','1110','1000','1000'),
+        'P':('1110','1001','1110','1000','1000'),
+        'G':('0111','1000','1011','1001','0111'),
+        'R':('1110','1001','1110','1010','1001'),
+        'B':('1110','1001','1110','1001','1110'),
+        'S':('0111','1000','0110','0001','1110'),
+        # Preserve the five-pixel W approved in the circular reference.
+        'W':('10001','10001','10101','10101','01010'),
+        'E':('1111','1000','1110','1000','1111'),
+        'I':('111','010','010','010','111'),
+        'D':('1110','1001','1001','1001','1110'),
+    }
+    # The four shoulder pixels at (3,1), (8,1), (3,9), and (8,9) close the
+    # border above and below the widest inner-corner pixels.
+    outline=[96,504,1020,2046,4095,4095,4095,2046,1020,504,96]
+    fill=[0,96,504,1020,2046,2046,2046,1020,504,96,0]
     rows=[];colors=[]
     for name in names:
-        v=icons[name]; rows.append([x&m for x,m in zip(v['whiteBitsMsbLeft'],circle)])
+        v=icons[name];glyph=patterns[name[0]];left=(12-len(glyph[0]))//2
+        symbol=[0]*11
+        for y,line in enumerate(glyph,3):
+            symbol[y]=sum(2048>>x for x,bit in enumerate(line,left) if bit=='1')
+            assert not symbol[y]&~fill[y]
+        rows.append(symbol)
         rgb=bytes.fromhex(next(c[1:] for c in v['colors'] if c!='#FFFFFF'))
         colors.append(sum((c>>3)<<(5*i) for i,c in enumerate(rgb)))
-    # Add an exterior four-neighbor border; the approved 8x8 glyphs are unchanged.
-    interior={(x+1,y+1) for y,row in enumerate(circle) for x in range(8) if row&(128>>x)}
-    outer=set(interior)
-    for x,y in interior:outer.update(((x-1,y),(x+1,y),(x,y-1),(x,y+1)))
-    outline=[sum(512>>x for x in range(10) if (x,y) in outer) for y in range(10)]
-    out='// Approved 8x8 glyphs, with a 10x10 exterior outline. Outside Outline is transparent.\n'
-    out+='constexpr u8 Circle[8] = {'+','.join(map(str,circle))+'};\n'
-    out+='constexpr u16 Outline[10] = {'+','.join(map(str,outline))+'};\n'
-    out+='constexpr u8 Symbols[18][8] = {\n'+''.join('  {'+','.join(map(str,row))+'}, // '+name+'\n' for row,name in zip(rows,names))+'};\n'
-    out+='constexpr u16 Colors[18] = {'+','.join(hex(v) for v in colors)+'};\n'
-    out+='static_assert(sizeof(Circle)+sizeof(Symbols)+sizeof(Colors)==188, "asset budget");\n'
+    # The alternate build keeps the approved circular symbols. Center its
+    # original 10x10 art inside the renderer's 12x11 logical footprint so both
+    # variants share placement, restoration and native caught-marker behavior.
+    circle8=[60,126,255,255,255,255,126,60]
+    circle_outline10=[120,252,510,1023,1023,1023,1023,510,252,120]
+    circular8=[
+        [0,36,60,66,66,36,24,0], [0,40,106,110,112,126,60,0],
+        [0,4,28,56,116,120,32,0], [0,48,112,52,4,24,60,0],
+        [0,36,8,24,126,36,24,0], [0,24,60,114,124,58,28,0],
+        [0,24,0,102,102,60,24,0], [0,24,62,42,126,62,20,0],
+        [0,60,80,108,10,42,28,0], [0,16,8,24,44,46,28,0],
+        [0,16,24,60,60,66,60,0], [0,8,40,44,108,108,44,0],
+        [0,8,24,48,28,8,16,0], [0,24,102,66,36,66,60,0],
+        [0,16,68,24,60,68,8,0], [0,36,60,126,90,24,24,0],
+        [0,0,66,82,82,36,24,0], [0,36,102,126,36,24,36,0],
+    ]
+    circular_fill=[0]+[v<<2 for v in circle8]+[0,0]
+    circular_outline=[v<<1 for v in circle_outline10]+[0]
+    circular_rows=[[0]+[v<<2 for v in symbol]+[0,0] for symbol in circular8]
+    def mask(lo,hi): return sum(2048>>x for x in range(lo,hi+1))
+    # Paint only the native checkerboard face. The HUD's own black outer edge,
+    # top/bottom border and shadow remain untouched. Each widened strip keeps a
+    # one-pixel black inner edge. These shade masks mark the transition pixels:
+    # monotypes use the darker retail-summary color, while dual types dither
+    # their corresponding bright fill with black. The end pixels shade the
+    # angled corners too. The dual black divider is one row above its old
+    # position, with a transition row on either side.
+    tall_starts=[2,2,1,1,0,0,1,2,3,4,5]
+    tall_mask=[mask(x,x+6) for x in tall_starts]
+    tall_primary=[mask(x+1,x+4) if y<3 else 0 for y,x in enumerate(tall_starts)]
+    tall_secondary=[mask(x+1,x+4) if y>5 else 0 for y,x in enumerate(tall_starts)]
+    tall_primary_shade=[mask(x,x+5) if y==3 else mask(x,x)|mask(x+5,x+5) if y<3 else 0 for y,x in enumerate(tall_starts)]
+    tall_secondary_shade=[mask(x,x+5) if y==5 else mask(x,x)|mask(x+5,x+5) if y>5 else 0 for y,x in enumerate(tall_starts)]
+    tall_mono=[mask(x+1,x+4) for x in tall_starts]
+    tall_mono_shade=[mask(x,x)|mask(x+5,x+5) for x in tall_starts]
+    compact_starts=[1,1,0,0,1,2,3]
+    compact_mask=[mask(x,x+6) for x in compact_starts]
+    compact_primary=[mask(x+1,x+4) if y<1 else 0 for y,x in enumerate(compact_starts)]
+    compact_secondary=[mask(x+1,x+4) if y>3 else 0 for y,x in enumerate(compact_starts)]
+    compact_primary_shade=[mask(x,x+5) if y==1 else mask(x,x)|mask(x+5,x+5) if y<1 else 0 for y,x in enumerate(compact_starts)]
+    compact_secondary_shade=[mask(x,x+5) if y==3 else mask(x,x)|mask(x+5,x+5) if y>3 else 0 for y,x in enumerate(compact_starts)]
+    compact_mono=[mask(x+1,x+4) for x in compact_starts]
+    compact_mono_shade=[mask(x,x)|mask(x+5,x+5) for x in compact_starts]
+    # RGB555 colors taken from the dark border pixels of the retail BW2
+    # summary type labels (app_menu_common/p_st_type.ncl). Fairy uses the
+    # existing palette-2 purple border assigned to type ID 17 by BW2.
+    border_colors=[0x294a,0x18e9,0x4948,0x28e9,0x0d4e,0x0d4e,0x1da8,0x28e9,0x294a,
+                   0x048e,0x4948,0x1da8,0x0d4e,0x1ced,0x4948,0x48e9,0x18e9,0x48e9]
+    solid_rows=[[0]*11 for _ in names]
+
+    def asset_header(comment,asset_fill,asset_outline,asset_rows):
+        text=comment+'\n'
+        text+='constexpr u16 Fill[11] = {'+','.join(map(str,asset_fill))+'};\n'
+        text+='constexpr u16 Outline[11] = {'+','.join(map(str,asset_outline))+'};\n'
+        text+='constexpr u16 Symbols[18][11] = {\n'+''.join('  {'+','.join(map(str,row))+'}, // '+name+'\n' for row,name in zip(asset_rows,names))+'};\n'
+        text+='constexpr u16 Colors[18] = {'+','.join(hex(v) for v in colors)+'};\n'
+        text+='static_assert(sizeof(Fill)+sizeof(Outline)+sizeof(Symbols)+sizeof(Colors)==476, "asset budget");\n'
+        return text
+
+    out=asset_header('// Compact first initials in a 12x11 point-up rhombus and black outline.',fill,outline,rows)
+    circular_out=asset_header('// Approved circular symbols centered in the shared 12x11 footprint.',circular_fill,circular_outline,circular_rows)
+    solid_out='// Symbol-free type colors fitted only into the native light HUD face.\n'
+    solid_out+='constexpr u16 SolidTallMask[11] = {'+','.join(map(str,tall_mask))+'};\n'
+    solid_out+='constexpr u16 SolidTallPrimary[11] = {'+','.join(map(str,tall_primary))+'};\n'
+    solid_out+='constexpr u16 SolidTallSecondary[11] = {'+','.join(map(str,tall_secondary))+'};\n'
+    solid_out+='constexpr u16 SolidTallPrimaryShade[11] = {'+','.join(map(str,tall_primary_shade))+'};\n'
+    solid_out+='constexpr u16 SolidTallSecondaryShade[11] = {'+','.join(map(str,tall_secondary_shade))+'};\n'
+    solid_out+='constexpr u16 SolidTallMono[11] = {'+','.join(map(str,tall_mono))+'};\n'
+    solid_out+='constexpr u16 SolidTallMonoShade[11] = {'+','.join(map(str,tall_mono_shade))+'};\n'
+    solid_out+='constexpr u16 SolidCompactMask[7] = {'+','.join(map(str,compact_mask))+'};\n'
+    solid_out+='constexpr u16 SolidCompactPrimary[7] = {'+','.join(map(str,compact_primary))+'};\n'
+    solid_out+='constexpr u16 SolidCompactSecondary[7] = {'+','.join(map(str,compact_secondary))+'};\n'
+    solid_out+='constexpr u16 SolidCompactPrimaryShade[7] = {'+','.join(map(str,compact_primary_shade))+'};\n'
+    solid_out+='constexpr u16 SolidCompactSecondaryShade[7] = {'+','.join(map(str,compact_secondary_shade))+'};\n'
+    solid_out+='constexpr u16 SolidCompactMono[7] = {'+','.join(map(str,compact_mono))+'};\n'
+    solid_out+='constexpr u16 SolidCompactMonoShade[7] = {'+','.join(map(str,compact_mono_shade))+'};\n'
+    solid_out+='constexpr u16 Colors[18] = {'+','.join(hex(v) for v in colors)+'};\n'
+    solid_out+='constexpr u16 BorderColors[18] = {'+','.join(hex(v) for v in border_colors)+'};\n'
+    solid_out+='static_assert(sizeof(SolidTallMask)+sizeof(SolidTallPrimary)+sizeof(SolidTallSecondary)+sizeof(SolidTallPrimaryShade)+sizeof(SolidTallSecondaryShade)+sizeof(SolidTallMono)+sizeof(SolidTallMonoShade)+sizeof(SolidCompactMask)+sizeof(SolidCompactPrimary)+sizeof(SolidCompactSecondary)+sizeof(SolidCompactPrimaryShade)+sizeof(SolidCompactSecondaryShade)+sizeof(SolidCompactMono)+sizeof(SolidCompactMonoShade)+sizeof(Colors)+sizeof(BorderColors)==324, "asset budget");\n'
     backgrounds=[]
-    for n,top in ((438,14),(435,16),(444,16),(441,16)):
+    width,height,left,top=26,17,0,15
+    for n in (438,435,444,441):
         raw=(HERE/'build'/f'W2-resource-{n}.bin').read_bytes()[48:]
         assert raw==(HERE/'build'/f'B2-resource-{n}.bin').read_bytes()[48:]
-        packed=bytearray(53)
-        for y in range(10):
-            for x in range(21):
-                a,b=x+11,y+top
+        packed=bytearray((width*height+1)//2)
+        for y in range(height):
+            for x in range(width):
+                a,b=x+left,y+top
                 v=(raw[((b//8)*8+a//8)*32+(b%8)*4+(a%8)//2]>>((a&1)*4))&15
                 v=2 if v in (4,15) else v
-                assert y or v==0
-                i=y*21+x;packed[i//4]|=(0,2,3,13).index(v)<<((i&3)*2)
+                i=y*width+x;packed[i//2]|=v<<((i&1)*4)
         backgrounds.append(list(packed))
-    out+='// Verified native pixels under the enlarged area, packed in two bits.\n'
-    out+='constexpr u8 PanelBackground[4][53] = {\n'+''.join('  {'+','.join(map(str,b))+'},\n' for b in backgrounds)+'};\n'
+    background_out='// Verified native x=0..25, y=15..31 pixels, packed in four bits.\n'
+    background_out+='constexpr u8 PanelBackground[4][221] = {\n'+''.join('  {'+','.join(map(str,b))+'},\n' for b in backgrounds)+'};\n'
+    out+=background_out;circular_out+=background_out;solid_out+=background_out
     (HERE/'assets.h').write_text(out)
-    (HERE/'assets.json').write_text(json.dumps(dict(names=names,circle=circle,outline=outline,symbols=rows,rgb555=colors),indent=2)+'\n')
+    (HERE/'assets-circular.h').write_text(circular_out)
+    (HERE/'assets-solid.h').write_text(solid_out)
+    (HERE/'assets.json').write_text(json.dumps(dict(names=names,fill=fill,outline=outline,symbols=rows,rgb555=colors,
+        iconWidth=12,iconHeight=11,stackDx=5,stackDy=6,stackTop=15,variant='letters'),indent=2)+'\n')
+    (HERE/'assets-circular.json').write_text(json.dumps(dict(names=names,fill=circular_fill,outline=circular_outline,
+        symbols=circular_rows,rgb555=colors,iconWidth=12,iconHeight=11,stackDx=5,stackDy=6,stackTop=15,
+        variant='circular'),indent=2)+'\n')
+    (HERE/'assets-solid.json').write_text(json.dumps(dict(names=names,fill=tall_mono,outline=tall_mask,
+        primary=tall_primary,secondary=tall_secondary,
+        primaryShade=tall_primary_shade,secondaryShade=tall_secondary_shade,
+        monoFill=tall_mono,monoShade=tall_mono_shade,
+        compactOutline=compact_mask,compactPrimary=compact_primary,
+        compactSecondary=compact_secondary,compactPrimaryShade=compact_primary_shade,
+        compactSecondaryShade=compact_secondary_shade,compactMonoFill=compact_mono,
+        compactMonoShade=compact_mono_shade,
+        symbols=solid_rows,rgb555=colors,borderRgb555=border_colors,
+        iconWidth=12,iconHeight=11,compactWidth=10,compactHeight=7,stackDx=0,stackDy=0,stackTop=18,
+        previewMode='split-wedge',variant='solid'),indent=2)+'\n')
 if __name__=='__main__':
     main()
     from panel_expansion import generate
