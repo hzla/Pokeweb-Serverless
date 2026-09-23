@@ -573,6 +573,13 @@
   },
   "nativeAdapters": [
     {
+      "id": "follower-native-shadow-register",
+      "segment": "36",
+      "address": 35212788,
+      "expectedHex": "38b5051cd2f7a0f9d2f71cfb002812d00124a403281c211cd2f716f900280ad1",
+      "abi": "Thumb; r0=live Actor*; checks native shadow eligibility and SHADOW_SET, creates the native field-effect shadow task, then marks the actor. Requires overlay 36 and initialized field-effect controller; no patch is written at this site."
+    },
+    {
       "id": "actor-update",
       "segment": "12",
       "address": 35022776,

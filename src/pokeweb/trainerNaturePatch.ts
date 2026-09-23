@@ -17,6 +17,9 @@ type TrainerNaturePatchSite = {
 };
 
 type TrainerNaturePatchConfig = {
+  levelSeedSites: readonly number[];
+  setupExAddress: number;
+  setupExCallSites: readonly number[];
   setupAddress: number;
   expForLevelAddress: number;
   setParamAddress: number;
@@ -96,6 +99,9 @@ const HELPER_RECALC_STATS_BL_OFFSET = 0x42;
 
 const PATCH_CONFIGS: Partial<Record<BaseVersion, TrainerNaturePatchConfig>> = {
   W2: {
+    levelSeedSites: [0x020309bc, 0x02030a9e, 0x02030bac, 0x02030cc0],
+    setupExAddress: 0x0201c490,
+    setupExCallSites: [0x02030a4c, 0x02030b30, 0x02030c5a, 0x02030d52],
     setupAddress: 0x02030e2c,
     expForLevelAddress: 0x0201d5e0,
     setParamAddress: 0x0201cd48,
@@ -108,6 +114,9 @@ const PATCH_CONFIGS: Partial<Record<BaseVersion, TrainerNaturePatchConfig>> = {
     ],
   },
   B2: {
+    levelSeedSites: [0x02030990, 0x02030a72, 0x02030b80, 0x02030c94],
+    setupExAddress: 0x0201c464,
+    setupExCallSites: [0x02030a20, 0x02030b04, 0x02030c2e, 0x02030d26],
     setupAddress: 0x02030e00,
     expForLevelAddress: 0x0201d5b4,
     setParamAddress: 0x0201cd1c,
@@ -160,6 +169,41 @@ export function detectTrainerNaturePatchState(
   if (siteStatuses.every((status) => status.state === "original")) return "unpatched";
   if (siteStatuses.every((status) => status.state === "patched")) return "patched";
   return "unknown";
+}
+
+/** Remove the old inline helper calls before installing the PMC runtime. */
+export function restoreLegacyTrainerNaturePatchToArm9(
+  arm9: Uint8Array,
+  baseVersion: BaseVersion,
+  arm9RamAddress = BW2_ARM9_RAM_BASE,
+): Uint8Array | undefined {
+  const config = PATCH_CONFIGS[baseVersion];
+  if (!config || detectTrainerNaturePatchState(arm9, baseVersion, arm9RamAddress) !== "patched") return undefined;
+  const restored = arm9.slice();
+  for (const site of config.sites) restored.set(site.original, site.address - arm9RamAddress);
+  return restored;
+}
+
+export function hasTrainerNaturePmcSetupSignatures(
+  arm9: Uint8Array,
+  baseVersion: BaseVersion,
+  arm9RamAddress = BW2_ARM9_RAM_BASE,
+): boolean {
+  const config = PATCH_CONFIGS[baseVersion];
+  if (!config) return false;
+  const levelSeedBytes = [
+    [0x40, 0x88, 0x18, 0x90],
+    [0x70, 0x88, 0x1c, 0x9b],
+    [0x40, 0x88, 0x12, 0x90],
+    [0x70, 0x88, 0x1c, 0x9b],
+  ];
+  return config.levelSeedSites.every((address, index) =>
+    matchesSequence(arm9, levelSeedBytes[index]!, address - arm9RamAddress),
+  ) && config.setupExCallSites.every((address) => {
+    const offset = address - arm9RamAddress;
+    return offset >= 0 && offset + 4 <= arm9.length &&
+      decodeThumbBlTarget(arm9, offset, address) === config.setupExAddress;
+  });
 }
 
 function patchSite(out: Uint8Array, site: TrainerNaturePatchSite, arm9RamAddress: number, hookAddress: number): void {

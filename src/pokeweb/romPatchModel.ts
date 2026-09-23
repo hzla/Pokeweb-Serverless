@@ -5,8 +5,9 @@ import { BW2_NARCS, TYPES, isGen5BaseRom, type Gen5BaseRom, type NarcName } from
 import { applyFairyTypeGeneralPatch } from "./generalPatchModel";
 import { loadActiveRomBytes } from "./persistence";
 import { createNarcStore, type NarcStore, type ProjectState } from "./projectStore";
-import { applyTrainerNaturePatchToArm9, detectTrainerNaturePatchState, type TrainerNaturePatchState } from "./trainerNaturePatch";
+import { detectTrainerNaturePatchState, hasTrainerNaturePmcSetupSignatures, restoreLegacyTrainerNaturePatchToArm9, type TrainerNaturePatchState } from "./trainerNaturePatch";
 import { installMoveExpansion, type MoveExpansionInstallOptions } from "./moveExpansionPatch";
+import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
 
 export { detectMoveExpansionPatch } from "./moveExpansionPatch";
 
@@ -45,6 +46,7 @@ export type AddFairyTypeSupportOptions = {
 };
 
 export type AddMoveExpansionOptions = MoveExpansionInstallOptions;
+export type SpecifyTrainerNaturesPatchState = TrainerNaturePatchState | "legacy";
 
 export type FairyModernTypingResult = {
   changed: boolean;
@@ -257,39 +259,48 @@ export async function specifyTrainerNatures(project: ProjectState): Promise<RomP
     throw new Error("Specify Trainer Pokémon Natures is currently available for Black 2 and White 2 only.");
   }
   if (project.arm9.length === 0) {
-    throw new Error("Reload the ROM before applying the trainer nature ARM9 patch.");
+    throw new Error("Reload the ROM before installing the trainer nature runtime.");
   }
-
-  const patched = applyTrainerNaturePatchToArm9(project.arm9, project.session.baseVersion, getProjectArm9RamAddress(project));
-  if (!patched) {
-    throw new Error("Could not find the Black 2 / White 2 trainer Pokémon setup signatures in ARM9. This ROM may already have a different trainer code patch or code layout.");
-  }
-
-  project.patches ??= { dirtyOverlayIds: [], applied: {} };
-  project.patches.applied ??= {};
-  project.patches.applied.specifyTrainerNatures = true;
-
-  if (patched.status === "already-applied") {
+  const status = detectSpecifyTrainerNaturesPatch(project);
+  if (status === "patched") {
     return {
       patchId: "specifyTrainerNatures",
       status: "already-applied",
-      offset: patched.offset,
-      summary: `Trainer nature helper is already installed at 0x${patched.hookAddress.toString(16)}.`,
+      summary: "The trainer nature PMC runtime is already installed.",
     };
   }
-
-  project.arm9 = patched.arm9;
-  project.arm9Dirty = true;
-
-  recordGenericChange(project, "patches", "Enabled explicit trainer Pokémon natures.", "Trainer Pokémon Natures", {
+  if (status === "unknown") {
+    throw new Error("Could not verify the Black 2 / White 2 trainer Pokémon setup call sites. This ROM may contain a conflicting trainer code patch.");
+  }
+  if (!hasTrainerNaturePmcSetupSignatures(project.arm9, project.session.baseVersion, getProjectArm9RamAddress(project))) {
+    throw new Error("Could not verify the trainer Pokémon level reads and creation calls required by the PMC nature runtime.");
+  }
+  const version = project.session.baseVersion;
+  const fileName = `TrainerNature${version}.dll`;
+  const response = await fetch(new URL(`../assets/codeinjection/${fileName}`, import.meta.url));
+  if (!response.ok) throw new Error(`Could not load the bundled ${version} trainer nature runtime (${response.status}).`);
+  const runtimeBytes = new Uint8Array(await response.arrayBuffer());
+  if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  if (status === "legacy") {
+    const restored = restoreLegacyTrainerNaturePatchToArm9(project.arm9, version, getProjectArm9RamAddress(project));
+    if (!restored) throw new Error("Could not safely restore the legacy trainer nature call sites.");
+    project.arm9 = restored;
+    project.arm9Dirty = true;
+  }
+  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+  stageCodeInjectionDll(project, fileName, runtimeBytes, "patches", romBytes);
+  project.patches ??= { dirtyOverlayIds: [], applied: {} };
+  project.patches.applied ??= {};
+  project.patches.applied.specifyTrainerNatures = true;
+  recordGenericChange(project, "patches", "Installed the PMC trainer nature runtime.", "Trainer Pokémon Natures", {
     key: "patch:specifyTrainerNatures",
   });
-
   return {
     patchId: "specifyTrainerNatures",
     status: "applied",
-    offset: patched.offset,
-    summary: `Enabled explicit trainer Pokémon natures with an ARM9 helper at 0x${patched.hookAddress.toString(16)}.`,
+    summary: status === "legacy"
+      ? "Migrated the legacy ARM9 trainer nature patch to a PMC DLL."
+      : "Installed explicit trainer Pokémon natures as a PMC DLL.",
   };
 }
 
@@ -424,10 +435,15 @@ export function detectFairyTypePatch(project: ProjectState): "patched" | "unpatc
   return project.patches?.applied?.fairyType || project.session.fairy ? "patched" : "unpatched";
 }
 
-export function detectSpecifyTrainerNaturesPatch(project: ProjectState): TrainerNaturePatchState {
+export function detectSpecifyTrainerNaturesPatch(project: ProjectState): SpecifyTrainerNaturesPatchState {
   if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") return "unsupported";
-  if (project.arm9.length === 0) return project.patches?.applied?.specifyTrainerNatures ? "patched" : "unknown";
-  return detectTrainerNaturePatchState(project.arm9, project.session.baseVersion, getProjectArm9RamAddress(project));
+  const arm9Status = project.arm9.length > 0
+    ? detectTrainerNaturePatchState(project.arm9, project.session.baseVersion, getProjectArm9RamAddress(project))
+    : "unknown";
+  if (arm9Status === "patched") return "legacy";
+  const path = `patches/trainernature${project.session.baseVersion.toLowerCase()}.dll`;
+  if (listCodeInjectionDlls(project).some((module) => module.path.toLowerCase() === path)) return "patched";
+  return arm9Status;
 }
 
 export function getDirtyPatchOverlayIds(project: ProjectState): number[] {

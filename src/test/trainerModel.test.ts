@@ -208,9 +208,11 @@ describe("trainerModel", () => {
     expect(readU16(project.narcs.trpok!.rawFiles[1], 2)).toBe(42);
   });
 
-  it("stores an imported Showdown nature when the ROM nature patch is applied", () => {
+  it("stores an imported Showdown nature when the PMC nature runtime is installed", () => {
     const project = makeProject(0);
-    project.patches = { dirtyOverlayIds: [], applied: { specifyTrainerNatures: true } };
+    project.codeInjection = {
+      modules: [{ path: "patches/TrainerNatureW2.dll", target: "patches", fileName: "TrainerNatureW2.dll", gameId: "W2" }],
+    };
 
     importTrainerPokemonShowdownText(project, 1, 0, SHOWDOWN_IMPORT_TEXT);
 

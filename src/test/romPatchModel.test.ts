@@ -10,9 +10,8 @@ import {
   applyRemoveDustCloudItemRewardsToOverlay,
   detectSpecifyTrainerNaturesPatch,
   makeHmsForgettable,
-  specifyTrainerNatures,
 } from "../pokeweb/romPatchModel";
-import { applyTrainerNaturePatchToArm9, detectTrainerNaturePatchState } from "../pokeweb/trainerNaturePatch";
+import { applyTrainerNaturePatchToArm9, detectTrainerNaturePatchState, restoreLegacyTrainerNaturePatchToArm9 } from "../pokeweb/trainerNaturePatch";
 
 describe("ROM patches", () => {
   it("parses bundled general patch sections", () => {
@@ -230,16 +229,13 @@ describe("ROM patches", () => {
     expect(detectTrainerNaturePatchState(arm9, "W2")).toBe("unknown");
   });
 
-  it("marks the project ARM9 dirty when enabling trainer natures", async () => {
+  it("detects legacy inline trainer natures and restores their call sites for migration", () => {
     const project = makeTypingProject();
-    project.arm9 = makeTrainerNatureArm9("W2");
-
-    const result = await specifyTrainerNatures(project);
-
-    expect(result.status).toBe("applied");
-    expect(project.arm9Dirty).toBe(true);
-    expect(project.patches?.applied?.specifyTrainerNatures).toBe(true);
-    expect(detectSpecifyTrainerNaturesPatch(project)).toBe("patched");
+    project.arm9 = applyTrainerNaturePatchToArm9(makeTrainerNatureArm9("W2"), "W2")!.arm9;
+    expect(detectSpecifyTrainerNaturesPatch(project)).toBe("legacy");
+    const restored = restoreLegacyTrainerNaturePatchToArm9(project.arm9, "W2");
+    expect(restored).toBeDefined();
+    expect(detectTrainerNaturePatchState(restored!, "W2")).toBe("unpatched");
   });
 
   it("updates later-generation Fairy Pokemon and move typings", async () => {

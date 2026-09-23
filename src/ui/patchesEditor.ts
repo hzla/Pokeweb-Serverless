@@ -110,10 +110,10 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
           <div class="patch-card__body">
             <div>
               <h2>Specify Trainer Pokémon Natures</h2>
-              <p>Lets trainer Pokémon use the Nature field from the trainer editor while preserving vanilla behavior when set to Auto.</p>
+              <p>Lets trainer Pokémon use the Nature field from the trainer editor through a PMC runtime while preserving vanilla behavior when set to Auto.</p>
             </div>
             <div class="patch-card__meta">
-              <span class="patch-badge ${trainerNatureStatus === "patched" ? "-ok" : trainerNatureStatus === "unknown" ? "-warn" : ""}">
+              <span class="patch-badge ${trainerNatureStatus === "patched" ? "-ok" : trainerNatureStatus === "unknown" || trainerNatureStatus === "legacy" ? "-warn" : ""}">
                 ${trainerNatureStatusLabel(trainerNatureStatus)}
               </span>
               <span>${project.session.baseVersion}</span>
@@ -290,8 +290,8 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
 
   root.querySelector<HTMLButtonElement>("#specify-trainer-natures-btn")?.addEventListener("click", async (event) => {
     applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
-      confirmText: "Apply this ARM9 patch to enable explicit trainer Pokémon natures?",
-      loadingText: "Looking for the Black 2 / White 2 trainer Pokémon setup code...",
+      confirmText: "Install the PMC trainer nature runtime? Existing inline trainer nature hooks will be migrated.",
+      loadingText: "Installing the Black 2 / White 2 trainer nature runtime...",
       successText: "Enabled explicit trainer Pokémon natures",
       apply: specifyTrainerNatures,
     });
@@ -329,6 +329,7 @@ function hmStatusLabel(value: ReturnType<typeof detectForgettableHmPatch>): stri
 
 function trainerNatureStatusLabel(value: ReturnType<typeof detectSpecifyTrainerNaturesPatch>): string {
   if (value === "patched") return "Applied";
+  if (value === "legacy") return "Migration available";
   if (value === "unsupported") return "Unsupported";
   if (value === "unknown") return "Signature unknown";
   return "Ready";

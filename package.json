@@ -39,6 +39,8 @@
     "learnset:verify-rom": "vite-node scripts/verify-learnset-viewer-install.ts",
     "learnset:preview": "vite-node runtime/learnset-viewer/preview.ts",
     "bgmtoggle:build": "python3 runtime/bgm-toggle/build.py",
+    "trainernature:build": "python3 runtime/trainer-nature/build.py",
+    "trainernature:verify-rom": "vite-node scripts/verify-trainer-nature-install.ts",
     "bgmtoggle:verify": "python3 runtime/bgm-toggle/verify.py",
     "bgmtoggle:test": "python3 runtime/bgm-toggle/test.py",
     "streamedbgm:verify-rom": "vite-node scripts/verify-streamed-bgm-install.ts",
