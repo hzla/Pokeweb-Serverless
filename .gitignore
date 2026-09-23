@@ -23,6 +23,9 @@ analysis/
 runtime/form-evolution/build/
 runtime/tag-battle-stabilization/build/
 runtime/porta-pc/build/
+runtime/save-menu/build/
+runtime/save-menu/assets.generated.h
+__pycache__/
 
 # Local agent working notes.
 Agents.md

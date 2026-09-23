@@ -1,17 +1,29 @@
 # Following Pokémon for Black 2 and White 2 — development package
 
-Stock US Black 2 is available as **0.6.24-alpha** through the same dedicated
+Stock US Black 2 is available as **0.6.27-alpha** through the same dedicated
 Pokeweb editor. It uses separate `B2` PMC modules and a pinned IREO revision-0
 binary contract while sharing the stock Gen 5 sprite and interaction data. See
 [Black 2 compatibility and build details](BLACK2.md) and its
 [human emulator checklist](BLACK2-CHECKLIST.md). Black2Upgrade is not supported.
 
-White2Upgrade has a separate **0.7.15-alpha** profile with species 1–1023,
+White2Upgrade has a separate **0.7.18-alpha** profile with species 1–1023,
 available Gen 6–9 artwork and explicit missing-art/form placeholders. See
 [White2Upgrade compatibility, build and limitations](WHITE2UPGRADE.md) and its
-[human checklist](WHITE2UPGRADE-CHECKLIST.md). Stock White 2 uses 0.6.24-alpha.
+[human checklist](WHITE2UPGRADE-CHECKLIST.md). Stock White 2 uses 0.6.27-alpha.
 The user accepted stock 0.6.10 as good enough; expansion emulator acceptance is
 still pending.
+
+The previous shadow build failed in melonDS: its follower descriptor requested
+a shadow, but the native shadow-attached flag remained clear. The latest build
+calls the verified native registration helper after the visible follower actor
+updates, so the game owns shadow positioning and teardown. H01–H03, B14, and
+U19 in the human checklists cover visual acceptance of this revised path.
+
+The current alphas use a 64-record movement trail instead of 256 records. This
+saves 5,376 bytes of field state on all three profiles. A full trail still
+recalls and reseeds safely; slow stairs, curves, and seamless crossings need
+fresh emulator checks. See [the memory audit](MEMORY-AUDIT.md) and M05/B13/U18
+in the human checklists.
 
 The current release stops dormant random-movement routes from causing recalls
 during NPC conversations, sign reading, and static-furniture interactions. It
@@ -53,11 +65,11 @@ scripted conflicts still recall. Follower movement also checks NPC reservations
 before committing a trail sample. See [ambient collision design](AMBIENT.md)
 and N01–N08 in the human checklist. Game-emulator acceptance remains pending.
 
-Both profiles now keep their appearance registry in ROM, with a 1 KiB page
+All three profiles now keep their appearance registry in ROM, with a 1 KiB page
 cache and a small species index. Conversation capacity is 8 KiB. Upgrade
 conversations accept species through 1023. Fixed code/buffer payloads are
 reported in MEMORY-AUDIT.md; native graphics/UI and loader costs remain
-separate. See [memory measurements](MEMORY-AUDIT.md). Both new releases require
+separate. See [memory measurements](MEMORY-AUDIT.md). All current releases require
 human cold-boot acceptance; the historical rendering implementation is unchanged.
 
 Version 0.6.9 regressed stair and overlap behavior: the correction was attached
