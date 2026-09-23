@@ -91,7 +91,7 @@ def setup():
  uc.mem_write(ENTITY,bytes(36));h.half(ENTITY,5);h.half(ENTITY+2,1);h.half(ENTITY+28,20);h.half(ENTITY+30,20)
  uc.mem_write(VM,bytes(0x1000));h.put(VM+4,0x0216b578);h.put(VM+8,0x2f3);h.put(VM+0x2c,ENV)
  h.put(ENV+0x20,PARAM);h.put(PARAM,WORK);h.put(PARAM+4,h.GAME);h.put(PARAM+12,h.SYS);h.put(WORK+20,h.EVENT)
- return bytes(uc.mem_read(h.F+52,7176)),bytes(uc.mem_read(h.A+24,2)),bytes(uc.mem_read(h.A+68,12))
+ return bytes(uc.mem_read(h.F+52,64*28+8)),bytes(uc.mem_read(h.A+24,2)),bytes(uc.mem_read(h.A+68,12))
 def event(pointer=h.EVENT,callback=0x02153821,parent=0):
  uc.mem_write(pointer,struct.pack('<5I',parent,callback,0,pointer+32,h.GAME));h.put(h.GAME+0x18,pointer)
  h.call(0x02016a88,[h.GAME]);h.call(0x02016cf8,[pointer])
@@ -102,7 +102,7 @@ def actor_pos(x,z,y=0):
  uc.mem_write(NPC+68,struct.pack('<iii',x*65536+32768,y*65536,z*65536+32768));uc.mem_write(NPC+60,struct.pack('<hhh',x,y,z))
 def kept(snapshot):
  assert h.u32(h.F+24)==h.A and h.u32(h.A)&1 and not h.u32(h.A)&4
- assert (bytes(uc.mem_read(h.F+52,7176)),bytes(uc.mem_read(h.A+24,2)),bytes(uc.mem_read(h.A+68,12)))==snapshot
+ assert (bytes(uc.mem_read(h.F+52,64*28+8)),bytes(uc.mem_read(h.A+24,2)),bytes(uc.mem_read(h.A+68,12)))==snapshot
 def recalled(reason):
  assert h.u32(h.F+24)==0 and not h.u32(h.A)&1,(reason,h.u32(debug+16))
  assert h.u32(debug+16)==reason,(reason,h.u32(debug+16))

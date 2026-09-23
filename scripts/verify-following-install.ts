@@ -4,6 +4,8 @@ import { basename } from "node:path";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { NintendoDSRom } from "../src/nds/rom";
+import { NARC } from "../src/nds/narc";
+import { decodeFollowerRegistry } from "../src/pokeweb/followingPokemonModel";
 import { installFollowerAlpha, readFollowerAlphaInstall, setFollowerAlphaEnabled, removeFollowerAlpha, followerProfile, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH, FOLLOWER_DLL_PATH, FOLLOWER_EVENTS_DLL_PATH, FOLLOWER_CORE_DLL_PATH, FOLLOWER_DLL_B2_PATH, FOLLOWER_EVENTS_B2_DLL_PATH, FOLLOWER_CORE_B2_DLL_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, FOLLOWER_NATIVE_PATH, FOLLOWER_EFFECTS_PATH } from "../src/pokeweb/followingPokemonProject";
 const path = process.argv[2];
 if (!path) throw new Error("Expected an exported walking-alpha ROM");
@@ -20,6 +22,10 @@ if (new DataView(config.buffer, config.byteOffset, config.byteLength).getUint32(
 await setFollowerAlphaEnabled(project, true);
 const restored = new NintendoDSRom(await exportModifiedRom(project), { fileData: "view" });
 const original = new NintendoDSRom(input, { fileData: "view" });
+const followerRows = decodeFollowerRegistry(original.files[original.filenames.idOf(FOLLOWER_RUNTIME_REGISTRY_PATH)!]).entries;
+const descriptorMember = new NARC(original.files[original.filenames.idOf(FOLLOWER_DESCRIPTOR_PATH)!]).files[0];
+if(followerRows.some(entry => descriptorMember[4 + entry.descriptorRow * 28 + 4] !== 1))
+ throw new Error("An installed follower descriptor does not enable the native ground shadow");
 for (const file of [...modules, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, FOLLOWER_NATIVE_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH]) {
  const a = original.files[original.filenames.idOf(file)!], b = restored.files[restored.filenames.idOf(file)!];
  if (a.length !== b.length || a.some((value, i) => value !== b[i])) throw new Error(`Reenable changed ${file}`);

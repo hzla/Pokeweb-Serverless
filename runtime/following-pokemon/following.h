@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #define FW_ABI 1
-#define FW_TRAIL_CAPACITY 256
+#define FW_TRAIL_CAPACITY 64
 #define FW_PARTY_CAPACITY 6
 #define FW_CODE_BASE 0x3000u
 #define FW_STOCK_ROWS 1008u

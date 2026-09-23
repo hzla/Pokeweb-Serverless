@@ -38,6 +38,11 @@ if(expandedDescriptors.files.length!==1||new DataView(expandedDescriptors.files[
   throw new Error("Expanded descriptor archive count mismatch.");
 if(expandedResources.files.length!==expanded.registry.resourceCount||decodedExpanded.entries.length!==expanded.registry.entries.length)
   throw new Error("Expanded resource/registry count mismatch.");
+if(expandedDescriptors.files[0].subarray(4, descriptors.files[0].length).some((value, index) => value !== descriptors.files[0][index + 4]))
+  throw new Error("Follower shadow setup changed a retail model descriptor.");
+for(const entry of expanded.registry.entries)
+  if(expandedDescriptors.files[0][4+entry.descriptorRow*28+4]!==1)
+    throw new Error(`Follower shadow descriptor missing for ${followerKey(entry.key)}.`);
 const gen5=expanded.registry.entries.filter(entry=>entry.key.species>=494);
 if(gen5.length!==624||gen5.some(entry=>entry.placeholder))throw new Error("Bundled Gen 5 appearance coverage is incomplete.");
 for(const entry of gen5)for(const direction of ["up","down","left","right"] as const)for(const tick of [0,10]){
