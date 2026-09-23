@@ -45,6 +45,7 @@ typedef struct {
     int8_t slot;
     uint8_t has_selection;
     uint8_t side_gap; /* Uses existing sidecar padding: 0..6 world units. */
+    int8_t sprite_y; /* Registry draw-only offset; native shadow stays grounded. */
     FwTrail trail;
 } FwFollower;
 int fw_select(const FwPokemon *party, unsigned count);

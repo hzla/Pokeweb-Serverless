@@ -69,6 +69,7 @@ static void move(Actor *a) {
  for(unsigned i=0;i<3;++i) a->previous[i]=a->grid[i];
  a->grid[0]=(int16_t)(target.x/FW_TILE); a->grid[1]=(int16_t)(target.y/FW_TILE); a->grid[2]=(int16_t)(target.z/FW_TILE);
  CALL(0x02167099,void(*)(Actor*,uint32_t))(a,target.direction);
+ fwr_anchor(a,target.direction);
  a->moveflags&=~(2048u|4096u);
  if(fwfield_follower.state!=FW_FOLLOWING)fwfx_out(a);
  if(!fwfx_hides_actor())a->flags&=~HIDDEN;
@@ -127,7 +128,7 @@ __attribute__((noinline)) static int config(void) {
 __attribute__((noinline)) static uint16_t model(const FwPokemon *p) {
  if(fwfield_configState!=1||!p||!p->species||p->species>FW_MAX_SPECIES)return 0;
  unsigned first=fwfield_index[p->species],end=fwfield_index[p->species+1];
- fwfield_follower.side_gap=0;
+ fwfield_follower.side_gap=0;fwfield_follower.sprite_y=0;
  uint16_t fallback=0x3000;int best=-100,opened=0;uint32_t file[32];
  for(unsigned i=first;i<end;++i){
   if(i<fwfield_pageFirst||i-fwfield_pageFirst>=fwfield_pageCount){
@@ -149,7 +150,7 @@ __attribute__((noinline)) static uint16_t model(const FwPokemon *p) {
   }else{species=read16(r);form=r[2];gender=r[3];shiny=r[4];row=read16(r+6);}
   if(species!=p->species)goto fail;
   int score=(form==p->form?8:form==0?0:-20)+(gender==p->gender?4:gender==2?2:-20)+(shiny==p->shiny?1:-20);
-  if(score>best){best=score;fallback=FW_CODE_BASE+row-FW_STOCK_ROWS;fwfield_follower.side_gap=fwfield_stride==12?(r[8]>>3)&7:r[15];}
+  if(score>best){best=score;fallback=FW_CODE_BASE+row-FW_STOCK_ROWS;fwfield_follower.side_gap=fwfield_stride==12?(r[8]>>3)&7:r[15];fwfield_follower.sprite_y=(int8_t)(fwfield_stride==12?r[10]:r[13]);}
  }
  if(opened)CALL(0x02070de1,int(*)(void*))(file);
  return first<end?fallback:0;
@@ -240,12 +241,14 @@ static void before(ActorSystem *sys) {
   if(!a)return;
   a->flags|=HIDDEN|NONBLOCKING|NO_QUERY|KEEP_ZONE; a->moveflags|=NOT_SAVE|NO_EFFECT; a->moveflags&=~(8u|2048u|4096u);
   a->callbacks=&fwfield_moves; a->world=fwfield_player->world;
+  fwr_anchor(a,fwfield_player->face);
   fwfield_follower.actor=(uintptr_t)a; fwfield_follower.state=FW_WAITING;
   if(fwfield_restore.magic==FWE_RESTORE_MAGIC&&fwfield_restore.zone==fwfield_player->zone
      &&fwfield_restore.player.x==fwfield_player->world.x&&fwfield_restore.player.y==fwfield_player->world.y&&fwfield_restore.player.z==fwfield_player->world.z){
    a->world=fwfield_restore.follower;
    for(unsigned i=0;i<3;++i)a->grid[i]=a->previous[i]=fwfield_restore.grid[i];
    CALL(0x02167099,void(*)(Actor*,uint32_t))(a,fwfield_restore.face);
+   fwr_anchor(a,fwfield_restore.face);
    a->flags&=~HIDDEN;fwfield_follower.state=FW_FOLLOWING;FollowingDebug.visible=1;fws_restored();
   }
   clear_restore();
@@ -272,7 +275,7 @@ API void FollowingUpdate(ActorSystem *sys) {
  }
 }
 API void FollowingDraw(void *system,void *camera,void *light){
- fwr_draw(system,camera,light,owned()?(Actor*)fwfield_follower.actor:0,fwfield_player);
+ fwr_draw(system,camera,light,owned()?(Actor*)fwfield_follower.actor:0,fwfield_player,fwfield_follower.sprite_y);
 }
 API void FollowingEffectsDraw(void *system,void *camera,void *light){
  CALL(0x0204f685,void(*)(void*,void*,void*))(system,camera,light);fwfx_draw(camera,light);
