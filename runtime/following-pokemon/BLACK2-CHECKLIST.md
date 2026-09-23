@@ -1,6 +1,6 @@
-# Stock Black 2 Following Pokémon 0.6.27-alpha — emulator checklist
+# Stock Black 2 Following Pokémon 0.6.32-alpha — emulator checklist
 
-Use `Black2-Following-0.6.27-alpha.nds` with a same-basename `.sav`. Cold boot the ROM; do not resume a state made with another ROM. Emulator execution is assigned to the human tester and every row remains **NOT RUN** until results are recorded.
+Use `Black2-Following-0.6.32-alpha.nds` with a same-basename `.sav`. Cold boot the ROM; do not resume a state made with another ROM. Emulator execution is assigned to the human tester and every row remains **NOT RUN** until results are recorded.
 
 Start with B01–B06 and B13. If those pass, continue through B12. For a failure, save a state immediately before the trigger and record emulator/version, location, party lead, direction, and the ROM SHA-256.
 
@@ -20,5 +20,10 @@ Start with B01–B06 and B13. If those pass, continue through B12. For a failure
 | B12 | Complete 100 mixed menu, dialogue, battle, door, seamless-map, PC, and save/reload cycles. | No freeze, duplicate actor, stuck input, lingering effect, missing NPC, or accumulating allocation is observed. | NOT RUN |
 | B13 | Walk very slowly through stairs and curved paths with the widest follower, then reverse, stop, and cross a seamless map boundary. | The 64-record trail follows continuously without an unexpected recall or shortcut. Record any recall and the exact path. | NOT RUN |
 | B14 | On ordinary ground, walk until the follower emerges and check its feet while stationary and moving. Repeat on stairs, grass, and during recall/return with a small and a 64-pixel follower. | One native ground shadow follows the Pokémon's feet, uses terrain height, disappears with the follower, and does not duplicate after transitions or alter the player's shadow. | NOT RUN |
+| B15 | Compare grounded Bulbasaur or Mewtwo with Flying-type Pidgeot or Charizard on flat ground and stairs, both idle and walking. | Grounded artwork sits at its existing shadow; Flying-type artwork keeps its prior height. Shadow position, player depth and stair draw order stay stable. | NOT RUN |
+| B16 | For diagnosis only, compare the same grounded follower at the same position in 0.6.28 and 0.6.29. | The extra three pixels in 0.6.29 also move the native shadow. This is the known regression corrected by 0.6.30. | NOT RUN |
+| B17 | Cold boot 0.6.30 with a small grounded follower and Serperior; compare their shadows with the player on flat ground and stairs. | The lowered sprite position is retained. Both follower shadows are complete and aligned to the player ground plane, with no cut-off lower half. | NOT RUN |
+| B18 | Cold boot 0.6.31 with Serperior. Face up and down on flat ground, then walk in both directions on stairs; check the full shadow as well as the sprite. | Upward facing moves the shadow about seven pixels and art about five pixels upward; downward facing moves both about six pixels downward. Left/right and collision positions remain stable. | NOT RUN |
+| B19 | Cold boot 0.6.32 with Serperior and walk north through a player overlap; then check north-facing stairs and lateral movement beside a building. | The follower has the foreground draw priority during the overlap without changing its artwork/shadow location or reintroducing stair/building clipping. | NOT RUN |
 
 Black 2 uses its own three PMC modules and binary contract. White 2 or expansion savestates do not validate this port because they retain different loaded code and addresses.

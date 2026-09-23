@@ -1,4 +1,4 @@
-# Stock Black 2 Following Pokémon — 0.6.27-alpha
+# Stock Black 2 Following Pokémon — 0.6.32-alpha
 
 Pokeweb supports stock US Black 2, game code `IREO`, revision 0. The pinned
 clean-ROM SHA-256 is
@@ -17,6 +17,29 @@ are identical.
 Version 0.6.25 reduces the bounded movement trail from 256 to 64 samples. The
 sidecar is 5,376 bytes smaller; overflow still recalls and reseeds. Slow stairs,
 curves, and map seams need emulator acceptance with the new bound.
+
+Version 0.6.32 restores the north-facing follower's previous camera depth
+against the player during a close foreground overlap. It translates only the
+submitted sprite along the camera ray, preserving the confirmed position and
+native shadow; B19 needs visual acceptance.
+
+Version 0.6.31 adds facing-specific north/south ground-plane anchors to move
+the follower artwork and its native shadow together without moving its logical
+world position. North artwork has a separate two-pixel compensation; left/right
+anchors remain unchanged. B18 requires human visual acceptance.
+
+Version 0.6.30 applies the grounded-artwork Y offset only during the native
+sprite draw and restores the actor pose immediately. The descriptor remains at
+ground for the separate shadow/effect pass. The preceding 0.6.29 descriptor
+offset lowered and sometimes clipped the shadow; B17 covers visual acceptance
+of the correction. Sprite resources and Flying artwork are unchanged.
+
+Version 0.6.29 added three pixels to the grounded descriptor offset. B16 records
+that historical change and its shadow-position regression.
+
+Version 0.6.28 lowered non-Flying follower artwork by its transparent bottom
+margin. Its shared descriptor offset also moved the native shadow. Flying
+artwork kept its prior height; B15 records this historical build.
 
 Version 0.6.27 calls the native shadow-registration helper for a visible
 follower when the player has a ground shadow. The prior move-start request
@@ -45,10 +68,10 @@ npm run following:build-black2 -- /path/to/clean-black2.nds
 npm run following:build-black2 -- /path/to/clean-black2.nds --publish
 FOLLOWING_PROFILE=black2 python3 runtime/following-pokemon/verify_runtime.py
 npm run following:build-rom -- /path/to/clean-black2.nds
-npx vite-node scripts/verify-following-install.ts /path/to/Black2-Following-0.6.27-alpha.nds
+npx vite-node scripts/verify-following-install.ts /path/to/Black2-Following-0.6.32-alpha.nds
 python3 runtime/following-pokemon/generate_black2_docs.py
 ```
 
 The manual build is copied to the workspace parent as
-`Black2-Following-0.6.27-alpha.nds`, with a same-basename save. Cold boot it;
+`Black2-Following-0.6.32-alpha.nds`, with a same-basename save. Cold boot it;
 states created with White 2 or another Black 2 ROM are not compatible evidence.

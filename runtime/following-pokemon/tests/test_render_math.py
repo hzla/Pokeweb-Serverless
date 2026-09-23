@@ -59,4 +59,25 @@ class Rendering(unittest.TestCase):
     applied,out,res=self.run_case(world,pose,cam)
     self.assertEqual(res.policy,policy)
     if not policy:self.assertEqual(bytes(out),bytes(pose))
+ def test_north_follower_keeps_previous_foreground_depth(self):
+  eye=(0,760739,581835);cam=Camera(Point(*eye),Point(),0)
+  world=Point(0,0,65536)
+  # The new north-facing native anchor moved seven Z units, and the artwork
+  # moved two additional Y units. Restore the previous *depth*, not its pixels.
+  old=Pose(Point(0,-6*4096,65536-2*4096),8192,8192)
+  current=Pose(Point(0,-8*4096,65536-9*4096),8192,8192)
+  _,_,old_result=self.run_case(world,old,cam,0)
+  applied,out,result=self.run_case(world,current,cam,2)
+  self.assertTrue(applied);self.assertEqual(result.policy,1)
+  self.assertGreaterEqual(result.after,old_result.before)
+  self.assertLess(result.after-old_result.before,128)
+  before=project(current,eye,False);after=project(out,eye,False)
+  self.assertLess(max(abs(x-y)for a,b in zip(before,after)for x,y in zip(a,b)),0.002/256)
+  # Lateral and unequal-height policies do not opt into the north repair.
+  _,_,side=self.run_case(world,current,cam,0)
+  self.assertLess(side.after,result.after)
+  upper=Point(0,65536,65536)
+  _,_,stairs=self.run_case(upper,current,cam,3)
+  _,_,prior_stairs=self.run_case(upper,current,cam,1)
+  self.assertEqual((stairs.policy,stairs.after),(prior_stairs.policy,prior_stairs.after))
 if __name__=='__main__':unittest.main()

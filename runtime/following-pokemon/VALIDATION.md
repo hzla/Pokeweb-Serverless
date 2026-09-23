@@ -1,6 +1,6 @@
 # Validation record
 
-Status: **stock White 2/Black 2 0.6.27 and White2Upgrade 0.7.18 focused automated checks passed; follower-shadow appearance in melonDS and hardware testing pending.**
+Status: **stock White 2/Black 2 0.6.32, Italian White 2 0.6.33, and White2Upgrade 0.7.23 focused automated checks passed; north-facing draw order in melonDS and hardware testing pending.**
 The user confirmed the preceding menu and PC fixes, but reported continued recall
 at Floccesy Town / Route 20 in White2Upgrade. The supplied state was inspected
 read-only; no game emulator was run.
@@ -10,6 +10,172 @@ user-reported result, separate from the automated checks below.
 The earlier 0.2 walking module was exercised in the bundled Desmond DS emulator.
 Those results do not validate the new 0.3 renderer/effects. The clean input
 remains read-only. Hardware has not been tested.
+
+## North-facing follower foreground depth
+
+The user confirmed the artwork and shadow positions in the tested build, then
+reported that the player drew over Serperior while both walked north. The
+north-facing ground-plane anchor moves the visible sprite away from the camera;
+its draw-only artwork adjustment moves it another two units vertically. The
+existing depth rule then places a close foreground follower only 1/8 world
+unit ahead of the player. That tiny margin does not reproduce the draw order
+the user had before the anchor change.
+
+For a close, equal-elevation north-facing follower logically in front of the
+player, the final draw calculation now restores the sprite's pre-anchor camera
+depth. It accounts for the seven-unit ground-plane shift and two-unit artwork
+shift, moving the submitted quad along the eye ray and scaling it to preserve
+the approved screen position. The corrected native shadow and logical actor
+position do not move. Side-facing and unequal-height stair policies retain
+their prior calculations.
+
+Host projection tests checked the north foreground result and projected quad
+corners. Packaged ARM946 tests executed the final depth function in all four
+profiles, checked that side/stair results stay unchanged, and verified native
+anchor ownership. The stock and Upgrade draw-pass suites also exercised the
+main retail submission path, including the north regression and 12,000 frames.
+Installation and previous-version update checks are separate from these
+render tests. **No game emulator or hardware visual result is claimed.**
+
+The fixed module payload is 46,728 bytes for stock White 2/Black 2, 46,900
+bytes for Italian White 2, and 47,708 bytes for White2Upgrade. These are
+packaged code/data/BSS measurements, not total heap peaks.
+
+Delivered ROM SHA-256:
+
+- stock White 2 0.6.32-alpha: `90ddf6acf2cf418ed0deee91fc5924305b1c73bc59eb6bd1171d2870ad9771ff`.
+- stock Black 2 0.6.32-alpha: `8bde85a59e82e1e5a7c5da0c56fe103a2a11302c5f2dc214642e27ca7b1e594c`.
+- Italian White 2 0.6.33-alpha: `f7dcc652ea7300cd28beac4ae993f228375f74150847ef4f934903e6b5b8794b`.
+- White2Upgrade 0.7.23-alpha: `bd0e512a116a302b77089d7e09eef68f77c92822811935f12a858e91f40d0c57`.
+
+Human cases H08, B19, I29 and U24 remain NOT RUN until the user tests them.
+
+## Directional artwork and shadow anchors
+
+After the sprite-only grounding correction, the user measured Serperior facing
+up about five pixels too low and its shadow about seven pixels too low. Facing
+down, both appeared about six pixels too high. The field module now changes
+the follower's native control-Z offset by −7 when facing up and +6 when facing
+down, resetting it to the descriptor baseline for left/right. The native
+sprite and shadow read this offset, while world/grid coordinates, collision,
+trail records and retail actors stay unchanged. A draw-only two-pixel
+compensation makes the north-facing artwork move less than its shadow.
+
+The packaged render verifier checked the native control byte for all four
+facings and no other actor-byte changes, the two-pixel artwork difference,
+billboard restoration and the unchanged effects pass. It also exercised
+12,000 main-pass submissions. All four builds passed hook, relocation and
+stack checks. The 2,574 stock/Black 2/Italian and 4,718 Upgrade appearance
+archives passed grounding checks; existing art resources were retained.
+Fresh install/export/reopen/toggle/removal passed for stock White 2, Black 2
+and Italian White 2; Upgrade profile/resource verification and updates from
+the immediately preceding releases passed. The Italian update retained
+authored dialogue and gifts. These are automated checks with mocked native
+rendering, **not game-emulator visual tests**.
+
+The fixed module payload is 46,648 bytes for stock White 2/Black 2, 46,820
+bytes for Italian White 2, and 47,628 bytes for White2Upgrade. These are not
+whole-game heap peaks. Each versioned ROM has a matching save copied from its
+preceding profile save without changing that source save.
+
+Delivered ROM SHA-256:
+
+- stock White 2 0.6.31-alpha: `8331c5d805baf9ef2e4a53da2ce0836a9833137817a707fb75b91c108f5cb131`.
+- stock Black 2 0.6.31-alpha: `8c64a972f89447563bc35835841dbcda32e2508139eb5b5e867c869b391d8552`.
+- Italian White 2 0.6.32-alpha: `91d7f357a33ea0d9de5fc2bdf3133176b8b9c87f9fcc2b325e1480a6e967940d`.
+- White2Upgrade 0.7.22-alpha: `079f5331f734ab2db7526cbecb121868c2f925dd7723b5b58f904f25d26a1a7f`.
+
+Human visual and hardware results are pending. H07, B18, I28 and U23 give
+the specific facing and stair checks.
+
+## Sprite-only grounding correction
+
+The user reported that the preceding grounded-artwork offset also lowered
+shadows and left only the upper part of some shadows visible, including
+Serperior. The prior installer put the offset in the follower-owned descriptor;
+the native shadow/effect path reads that same value. The current installer keeps
+the art offset in the ROM appearance registry but restores the appended
+descriptor's Y offset to zero. The field module applies the registry value only
+around the synchronous sprite billboard draw and restores the actor pose before
+the separate shadow/effect pass. No native retail descriptor is changed.
+
+All four delivered ROMs passed a per-appearance comparison with their immediate
+predecessors: all 2,574 stock/Italian and 4,718 Upgrade appearances retain the
+same registry art offsets and resource archive bytes, all appended descriptor Y
+offsets are zero, and native shadow flags remain enabled. The packaged render
+test submits the sprite five pixels lower while the shadow/effect pass sees the
+original pose; repeated flat-ground and stair draws do not accumulate the
+offset. Packaged branch/relocation checks, installation/update and authored-data
+retention, export/reopen, and applicable profile verifiers passed. The fixed PMC
+payload rises from 46,356 to 46,540 bytes in stock White 2/Black 2, from
+46,528 to 46,712 bytes in Italian White 2, and from 47,340 to 47,520 bytes in
+White2Upgrade. These are packaged payload measurements, not whole-game heap
+peaks. Same-basename saves were copied unchanged from the preceding releases.
+No emulator or hardware was run for this correction.
+
+Delivered ROM SHA-256:
+
+- stock White 2 0.6.30-alpha: `0242cc00a2d93d06e6234a9b7b09f623a1057d43888587ad07629ec1b6b69f7b`.
+- stock Black 2 0.6.30-alpha: `f537bb64432cf7592fe3b586858975e9da1df6c4f80a1d9b51eaf28cd127c168`.
+- Italian White 2 0.6.31-alpha: `9fcd5e848d2baf8209ce00c9b1ca0fe7543e9d54daa77ddee49d9774e366000c`.
+- White2Upgrade 0.7.21-alpha: `567a85c8bb3f673bed9a2d06a339e2113da52445389646b92dbaf83ac4cfd2fd`.
+
+## Previous additional three-pixel grounding adjustment
+
+The user supplied a screenshot showing a grounded follower still too high
+relative to its shadow and requested three more pixels of lowering. The
+preceding installer added three pixels to the existing transparent-bottom-margin
+offset for non-Flying appearances. It recognized the preceding automatic
+offset when upgrading an installed alpha. The user subsequently observed that
+the shadow moved with the sprite and that some shadows were clipped. The
+sprite-only correction above addresses this regression; its visual result
+remains pending.
+
+All four delivered ROMs passed a per-appearance comparison with their immediate
+predecessors: every non-Flying descriptor was exactly three pixels lower; Flying
+descriptors and the complete sprite resource archives were byte-identical.
+Native shadow flags remained enabled, and native shadow code and fixed PMC
+payload sizes were unchanged. Stock and Italian profiles each cover 2,266
+non-Flying and 308 Flying appearances; White2Upgrade covers 4,142 and 576.
+Install/update, export/reopen, authored-data retention and packaged runtime
+tests passed. Same-basename saves were copied unchanged from the prior alphas.
+
+Delivered ROM SHA-256:
+
+- stock White 2 0.6.29-alpha: `ef5de78216d0946085600d1b5a80c2942e116993887b8db36df3369ea992357d`.
+- stock Black 2 0.6.29-alpha: `942d55901063c78844c9b846f86433b460129d426026cc5fcc6d71351334699f`.
+- Italian White 2 0.6.30-alpha: `3883aba0e313e5161895dd874ff631cc1877355226f1f14991e7be58194eb5bc`.
+- White2Upgrade 0.7.20-alpha: `3bbbcf0923a36dd262485373ad4ec45d7adf83c8e9360a260405fe9b727a9ad4`.
+
+## Previous transparent-margin grounding adjustment
+
+An asset scan found transparent bottom rows in many follower frames, which made
+their artwork look lifted once the shadow became visible. That installer scanned
+every pose and set the follower-owned descriptor's vertical offset to the
+negative of the smallest bottom margin, capped at eight pixels, for non-Flying
+appearances with default offsets. Flying-type and explicitly offset artwork
+retained their height. Retail descriptor rows were unchanged. The descriptor
+offset also moved the native shadow, as the user later observed.
+
+Automated archive checks covered all 2,574 appearances in each stock profile
+and 4,718 in White2Upgrade. They verified descriptor offsets against the
+encoded art and confirmed that native shadow flags remain enabled. Focused
+install, update, export/reopen, disable/removal, relocation, and unit checks
+passed. Fixed PMC payload remains 46,356 bytes for stock White 2/Black 2,
+46,528 bytes for Italian White 2, and 47,340 bytes for White2Upgrade; this
+descriptor-only adjustment adds no fixed PMC heap use. The user subsequently
+observed that grounded artwork still appeared too high; that report prompted
+the additional offset above.
+
+Delivered ROM SHA-256:
+
+- stock White 2 0.6.28-alpha: `743ec4d72af83cb58303784f071580d384920379c4d9f057c88318541c92474b`.
+- stock Black 2 0.6.28-alpha: `de472e584dcada6e06c01098b8d6ec49351c5e79a46764cada8a41cdbd72a167`.
+- Italian White 2 0.6.29-alpha: `b27bd800f99b4a5156f302232722c2eeaaea0c8060493e32be25faf2c3581a17`.
+- White2Upgrade 0.7.19-alpha: `606897f690d713028cfc881cb24ae11e8c2b97518cac1b165f2a8d8d403b497e`.
+
+Each test ROM has a same-basename save copied byte-for-byte from the preceding
+alpha in its own profile. No emulator was run for this adjustment.
 
 ## Stock 0.6.27 / White2Upgrade 0.7.18 native shadow registration
 

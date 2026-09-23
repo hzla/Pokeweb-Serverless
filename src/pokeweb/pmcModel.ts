@@ -22,6 +22,7 @@ import {
   writeRpm,
   type RpmModule,
 } from "./rpm";
+import italianPmcContract from "../../runtime/following-pokemon/italy-pmc-contract.json";
 
 export type PmcInstallStatus =
   | { installed: false; supported: boolean; message: string }
@@ -74,6 +75,7 @@ const GEN5_RETAIL_ROOT_FILES: Record<"BW" | "BW2", { firstId: number; names: str
 
 const PMC_B2_URL = new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url);
 const PMC_W2_URL = new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url);
+const PMC_W2I_URL = new URL("../assets/codeinjection/PMC_W2I.rpm", import.meta.url);
 const DOUBLE_BATTLE_FIX_B2_URL = new URL("../assets/codeinjection/DoubleBattleFixB2.dll", import.meta.url);
 const DOUBLE_BATTLE_FIX_W2_URL = new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url);
 const MAIN_MENU_SKIP_B2_URL = new URL("../assets/codeinjection/MainMenuSkipB2.dll", import.meta.url);
@@ -246,13 +248,26 @@ const BW1_PMC_LAYOUTS: Record<Bw1Version, Bw1PmcLayout> = {
 export async function installBundledPmc(project: ProjectState): Promise<PmcInstallResult> {
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Reload the ROM before installing PMC.");
-  return installPmcBytes(project, await loadBundledPmcBytes(project.session.baseVersion), romBytes);
+  const idCode = readAscii(romBytes, 12, 4);
+  return installPmcBytes(project, await loadBundledPmcBytes(project.session.baseVersion, idCode), romBytes);
 }
 
-export async function loadBundledPmcBytes(version: ProjectState["session"]["baseVersion"]): Promise<Uint8Array> {
-  const response = await fetch(version === "B2" ? PMC_B2_URL : PMC_W2_URL);
+export async function loadBundledPmcBytes(version: ProjectState["session"]["baseVersion"], idCode?: string): Promise<Uint8Array> {
+  const response = await fetch(idCode === "IRDI" ? PMC_W2I_URL : version === "B2" ? PMC_B2_URL : PMC_W2_URL);
   if (!response.ok) throw new Error(`Could not load bundled PMC binary (${response.status})`);
   return new Uint8Array(await response.arrayBuffer());
+}
+
+function validateItalianPmcInstallSites(arm9: Uint8Array, rom: NintendoDSRom, romBytes: Uint8Array): void {
+  if (rom.idCode !== italianPmcContract.target.gameCode || romBytes[30] !== italianPmcContract.target.revision)
+    throw new Error("The Italian PMC loader requires IRDI revision 0.");
+  for (const site of [...italianPmcContract.hooks, ...italianPmcContract.imports]) {
+    const offset = site.address - rom.arm9RamAddress;
+    const expected = site.expectedHex;
+    if (offset < 0 || offset + expected.length / 2 > arm9.length ||
+        Array.from(arm9.subarray(offset, offset + expected.length / 2), byte => byte.toString(16).padStart(2, "0")).join("") !== expected)
+      throw new Error(`Italian PMC binary signature mismatch: ${site.id}`);
+  }
 }
 
 export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, romBytes: Uint8Array): PmcInstallResult {
@@ -270,9 +285,11 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
     retargetPmcForBw1(rpm, bw1Version);
     validateBw1PmcInstallSites(activeArm9, rom.arm9RamAddress, bw1Version, existingOverlayId !== undefined);
   }
+  if (rom.idCode === "IRDI" && existingOverlayId === undefined) validateItalianPmcInstallSites(activeArm9, rom, romBytes);
   const gameId = stringMeta(rpm, "PMCGameID");
   const version = stringMeta(rpm, "PMCVersion");
-  if (gameId && gameId !== project.session.baseVersion) throw new Error(`This PMC binary is for ${gameId}, but the loaded ROM is ${project.session.baseVersion}.`);
+  const expectedGameId = rom.idCode === "IRDI" ? "W2I" : project.session.baseVersion;
+  if (gameId && gameId !== expectedGameId) throw new Error(`This PMC binary is for ${gameId}, but the loaded ROM is ${expectedGameId}.`);
 
   const overlayId = existingOverlayId ?? rom.arm9OverlayTable.length / 32;
   if (project.session.baseRom === "BW2" && overlayId !== 344) {
@@ -791,8 +808,12 @@ export function stageCodeInjectionDll(
     const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
     version = stringMeta(rpm, "PMCVersion");
     gameId = stringMeta(rpm, "PMCGameID");
-    if (gameId && gameId !== project.session.baseVersion) {
-      throw new Error(`This DLL is for ${gameId}, but the loaded ROM is ${project.session.baseVersion}.`);
+    // Persisted browser projects keep their ROM bytes in IndexedDB. Use the
+    // loaded ROM identity when the caller has no in-memory byte buffer.
+    const romIdCode = romBytes ? readAscii(romBytes, 12, 4) : project.romInfo?.idCode;
+    const expectedGameId = romIdCode === "IRDI" ? "W2I" : project.session.baseVersion;
+    if (gameId && gameId !== expectedGameId) {
+      throw new Error(`This DLL is for ${gameId}, but the loaded ROM is ${expectedGameId}.`);
     }
   } catch (error) {
     if (error instanceof Error && /This DLL is for/u.test(error.message)) throw error;

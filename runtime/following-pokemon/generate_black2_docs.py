@@ -2,7 +2,7 @@
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-VERSION = "0.6.27-alpha"
+VERSION = "0.6.32-alpha"
 
 CASES = [
     ("B01", "Cold boot an ordinary Black 2 save, walk one tile, then walk and run in all four directions.", "Exactly one party Pokémon appears and follows the recorded route without blocking movement."),
@@ -19,6 +19,11 @@ CASES = [
     ("B12", "Complete 100 mixed menu, dialogue, battle, door, seamless-map, PC, and save/reload cycles.", "No freeze, duplicate actor, stuck input, lingering effect, missing NPC, or accumulating allocation is observed."),
     ("B13", "Walk very slowly through stairs and curved paths with the widest follower, then reverse, stop, and cross a seamless map boundary.", "The 64-record trail follows continuously without an unexpected recall or shortcut. Record any recall and the exact path."),
     ("B14", "On ordinary ground, walk until the follower emerges and check its feet while stationary and moving. Repeat on stairs, grass, and during recall/return with a small and a 64-pixel follower.", "One native ground shadow follows the Pokémon's feet, uses terrain height, disappears with the follower, and does not duplicate after transitions or alter the player's shadow."),
+    ("B15", "Compare grounded Bulbasaur or Mewtwo with Flying-type Pidgeot or Charizard on flat ground and stairs, both idle and walking.", "Grounded artwork sits at its existing shadow; Flying-type artwork keeps its prior height. Shadow position, player depth and stair draw order stay stable."),
+    ("B16", "For diagnosis only, compare the same grounded follower at the same position in 0.6.28 and 0.6.29.", "The extra three pixels in 0.6.29 also move the native shadow. This is the known regression corrected by 0.6.30."),
+    ("B17", "Cold boot 0.6.30 with a small grounded follower and Serperior; compare their shadows with the player on flat ground and stairs.", "The lowered sprite position is retained. Both follower shadows are complete and aligned to the player ground plane, with no cut-off lower half."),
+    ("B18", "Cold boot 0.6.31 with Serperior. Face up and down on flat ground, then walk in both directions on stairs; check the full shadow as well as the sprite.", "Upward facing moves the shadow about seven pixels and art about five pixels upward; downward facing moves both about six pixels downward. Left/right and collision positions remain stable."),
+    ("B19", "Cold boot 0.6.32 with Serperior and walk north through a player overlap; then check north-facing stairs and lateral movement beside a building.", "The follower has the foreground draw priority during the overlap without changing its artwork/shadow location or reintroducing stair/building clipping."),
 ]
 
 def generate():

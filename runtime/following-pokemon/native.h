@@ -18,10 +18,12 @@ struct Actor {
 typedef struct { uint32_t flags; uint16_t capacity,count,heap,resourceHeap,priority,pad;
  uint32_t light; void *resources,*descriptors; Actor *actors; void *rest[8]; void *field; const uint16_t *cameraYaw; } ActorSystem;
 _Static_assert(offsetof(FwFollower,trail)==52,"spacing uses sidecar padding");
+_Static_assert(offsetof(FwFollower,sprite_y)==51,"sprite offset uses sidecar padding");
 _Static_assert(sizeof(FwSample)==28,"trail sample layout");
 _Static_assert(sizeof(FwFollower)==1852,"64-sample follower sidecar");
 _Static_assert(sizeof(Actor)==256,"actor size");
 _Static_assert(offsetof(Actor,world)==68,"world");
+_Static_assert(offsetof(Actor,dimensions)+4==128,"native control Z offset");
 _Static_assert(offsetof(Actor,callbacks)==140,"callback");
 _Static_assert(offsetof(ActorSystem,field)==64,"field");
 _Static_assert(offsetof(ActorSystem,cameraYaw)==68,"camera yaw");

@@ -16,7 +16,7 @@ export type FollowerAssetEntry = {
   size: 32 | 64;
   sideGap?: number; // Derived from visible side artwork; 0..6 native world units.
   animationProfile: FollowerAnimationProfile;
-  offsets: [number, number, number];
+  offsets: [number, number, number]; // Y is applied to follower billboard only; native descriptor Y stays at actor ground.
   placeholder: boolean;
   placeholderReason?: string;
   source: "stock" | "hgss" | "hg-engine" | "png";
@@ -242,6 +242,52 @@ export function deriveFollowerSpacing(registry: FollowerRegistry, resources: rea
       cache.set(key, followerSideGap(resource, e.animationProfile));
     }
     e.sideGap = cache.get(key)!;
+  }
+}
+/** Measure empty rows below the visible feet across every pose. This is an
+ * install-time descriptor adjustment; the native shadow stays at actor ground. */
+export function followerGroundingPixels(resource: Uint8Array, profile: FollowerAnimationProfile): number {
+  validateFollowerResource(resource, profile);
+  const btx = parseBtx(resource), size = btx.textures[0].width;
+  let smallestMargin = size;
+  for (const texture of btx.textures) {
+    let margin = size;
+    for (let y = size - 1; y >= 0; --y) {
+      const start = btx.textureDataOffset + texture.imageOffsetBytes + y * size / 2;
+      if (resource.subarray(start, start + size / 2).some(value => value !== 0)) { margin = size - 1 - y; break; }
+    }
+    if (margin === size) throw new Error("Follower animation contains an empty frame.");
+    smallestMargin = Math.min(smallestMargin, margin);
+  }
+  return Math.min(8, smallestMargin);
+}
+export function followerHasFlyingType(personal: readonly Uint8Array[], key: FollowerAppearanceKey): boolean {
+  const base = personal[key.species];
+  if (!base || base.length < 33) throw new Error(`Missing personal record for species ${key.species}.`);
+  const firstForm = readU16(base, 28), formId = key.form && firstForm ? firstForm + key.form - 1 : key.species;
+  const record = personal[formId];
+  if (!record || record.length < 8) throw new Error(`Missing personal record for appearance ${followerKey(key)}.`);
+  return record[6] === 2 || record[7] === 2;
+}
+export const FOLLOWER_EXTRA_GROUNDING_PIXELS = 3;
+/** Preserve explicit descriptor offsets; ground only default-anchored,
+ * non-Flying appearances. Recognize the previous automatic foot-margin offset
+ * during upgrades, then add three pixels. Cache by resource so shiny/form
+ * variants cost no repeated texture scans. */
+export function deriveFollowerGrounding(registry: FollowerRegistry, resources: readonly Uint8Array[], personal: readonly Uint8Array[]): void {
+  const cache = new Map<string, number>();
+  for (const entry of registry.entries) {
+    if (followerHasFlyingType(personal, entry.key)) continue;
+    const key = `${entry.resourceId}:${entry.animationProfile}`;
+    if (!cache.has(key)) {
+      const resource = resources[entry.resourceId];
+      if (!resource) throw new Error("Missing follower grounding resource.");
+      cache.set(key, followerGroundingPixels(resource, entry.animationProfile));
+    }
+    const margin = cache.get(key)!;
+    const next = -margin - FOLLOWER_EXTRA_GROUNDING_PIXELS;
+    if (entry.offsets[1] === 0 || entry.offsets[1] === -margin || entry.offsets[1] === next)
+      entry.offsets[1] = next;
   }
 }
 export function validateFollowerResource(bytes: Uint8Array, profile: FollowerAnimationProfile): { size: 32 | 64; frames: number } {

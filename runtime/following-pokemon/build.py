@@ -11,14 +11,15 @@ WORKSPACE=REPO.parent
 TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WORKSPACE/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'))
 JAR=Path(os.environ.get('RPM_TOOL_JAR',WORKSPACE/'White2Upgrade/CTRMap.jar'))
 PROFILE=os.environ.get('FOLLOWING_PROFILE','stock')
-if PROFILE not in ('stock','black2','white2upgrade'):raise ValueError('FOLLOWING_PROFILE must be stock, black2, or white2upgrade')
+if PROFILE not in ('stock','black2','white2upgrade','white2italy'):raise ValueError('FOLLOWING_PROFILE must be stock, black2, white2upgrade, or white2italy')
 UPGRADE=PROFILE=='white2upgrade'
 BLACK2=PROFILE=='black2'
-BUILD=Path(os.environ.get('FOLLOWING_BUILD_DIR', HERE/('build/white2upgrade' if UPGRADE else 'build/black2' if BLACK2 else 'build')))
+ITALY=PROFILE=='white2italy'
+BUILD=Path(os.environ.get('FOLLOWING_BUILD_DIR', HERE/('build/white2upgrade' if UPGRADE else 'build/black2' if BLACK2 else 'build/white2italy' if ITALY else 'build')))
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
-VERSION='0.7.18-alpha' if UPGRADE else '0.6.27-alpha'
-SUFFIX='B2' if BLACK2 else 'W2'
-CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'contract.json')
+VERSION='0.7.23-alpha' if UPGRADE else '0.6.33-alpha' if ITALY else '0.6.32-alpha'
+SUFFIX='B2' if BLACK2 else 'W2I' if ITALY else 'W2'
+CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'italy-contract.json' if ITALY else 'contract.json')
 os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX
 def run(*args): subprocess.run([str(a) for a in args],check=True)
 def dedupe_versions(entries):
@@ -32,16 +33,20 @@ def dedupe_versions(entries):
 def build(rom, publish=False):
     if publish and int(os.environ.get('FOLLOWING_TEST_CYCLES','100'))<100:
         raise ValueError('Publishing requires at least 100 conversation/scene test cycles')
+    BUILD.mkdir(parents=True,exist_ok=True)
     if UPGRADE:
         import hashlib
         contract=json.loads((HERE/'upgrade-contract.json').read_text())
         if hashlib.sha256(Path(rom).read_bytes()).hexdigest()!=contract['sourceRomSha256']:
             raise ValueError('Input does not match the pinned White2Upgrade source ROM SHA-256')
     else: verify(rom)
-    BUILD.mkdir(parents=True,exist_ok=True)
+    if ITALY:
+        from verify_italian_binary import verify as verify_italian_binary
+        audit=verify_italian_binary(Path(os.environ.get('FOLLOWING_US_BASELINE',WORKSPACE/'cleanwhite2.nds')),Path(rom))
+        (BUILD/'binary-audit.json').write_text(json.dumps(audit,indent=2)+'\n')
     run('npx','vite-node',REPO/'scripts/verify-following-pc-script.ts',rom)
     run('npx','vite-node',REPO/'scripts/verify-following-seam-scripts.ts',rom)
-    if (REPO/'src/assets/following/interactions.bin').stat().st_size>8192:
+    if (REPO/'src/assets/following/white2italy/interactions.bin' if ITALY else REPO/'src/assets/following/interactions.bin').stat().st_size>8192:
         raise ValueError('Conversation package exceeds the 8 KiB runtime buffer')
     if (REPO/'src/assets/following/contextual-dialogues.narc').stat().st_size>4096:
         raise ValueError('Contextual dialogue archive exceeds the 4 KiB runtime buffer')
@@ -50,22 +55,26 @@ def build(rom, publish=False):
     for meta in ('metadata.yml','field-metadata.yml','events-metadata.yml'):
         text=(HERE/meta).read_text().replace('0.6.10-alpha',VERSION)
         if BLACK2:text=text.replace('PMCGameID: W2','PMCGameID: B2')
+        if ITALY:text=text.replace('PMCGameID: W2','PMCGameID: W2I')
         (BUILD/meta).write_text(text)
     from generate_scene_policy import generate
     generate()
-    from black2_port import port_source
+    if BLACK2:
+        from black2_port import port_source
+    elif ITALY:
+        from italy_port import port_source
     objects=[]
     for name in ['core','object_codes','registry','following','field','effects','reactions','interaction','gifts','events','scene','render','render_math']:
         obj=BUILD/(name+'.o');objects.append(obj)
         source=HERE/(name+'.c')
-        if BLACK2:
+        if BLACK2 or ITALY:
             source=BUILD/(name+'.c');source.write_text(port_source((HERE/(name+'.c')).read_text()))
         run(TOOLS/'arm-none-eabi-gcc','-mthumb','-mcpu=arm946e-s','-Os','-std=c11',
             '-fno-jump-tables','-ffreestanding','-fvisibility=hidden','-fno-builtin','-fno-unwind-tables','-fno-asynchronous-unwind-tables',
-            '-I',HERE,*(['-DFW_UPGRADE=1'] if UPGRADE else []),*(['-DFW_BLACK2=1'] if BLACK2 else []),'-Wall','-Wextra','-Werror','-c',source,'-o',obj)
+            '-I',HERE,*(['-DFW_UPGRADE=1'] if UPGRADE else []),*(['-DFW_BLACK2=1'] if BLACK2 else []),*(['-DFW_ITALY=1'] if ITALY else []),'-Wall','-Wextra','-Werror','-c',source,'-o',obj)
     def assembly(name):
         source=HERE/name
-        if BLACK2:
+        if BLACK2 or ITALY:
             source=BUILD/name;source.write_text(port_source((HERE/name).read_text()))
         return source
     run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('core.s'),'-o',BUILD/'core-hooks.o')
@@ -119,21 +128,28 @@ def build(rom, publish=False):
     # RPM repacks call instructions; checking only a separately linked ELF can
     # miss invalid ARM/Thumb encodings introduced during DLL generation.
     run(os.environ.get('PYTHON','python3'),HERE/'verify_packaged.py')
+    run(os.environ.get('PYTHON','python3'),HERE/'verify_anchor.py')
     if UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_interactions.py')
-    elif not BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
-    if not BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_render.py')
+    if ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_italy_runtime.py',rom)
+    elif not BLACK2 and not ITALY and not UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
+    if not BLACK2 and not ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_render.py')
     if publish:
         import hashlib, shutil
         assets=REPO/'src/assets/following'
         if UPGRADE: assets=assets/'white2upgrade'
         elif BLACK2: assets=assets/'black2'
+        elif ITALY: assets=assets/'white2italy'
         assets.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(field_dll,assets/field_dll.name)
         shutil.copyfile(events_dll,assets/events_dll.name)
         shutil.copyfile(output,assets/output.name)
         old_runtime=json.loads((assets/'runtime.json').read_text()) if (assets/'runtime.json').exists() else None
         old_current=({key:old_runtime[key] for key in ('version','fieldSha256','eventsSha256','eventsAbi','coreSha256','coreAbi')} if old_runtime else None)
-        previous_versions=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])) if BLACK2 else dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'stock-0.6.15-receipt.json').read_text()),json.loads((HERE/'stock-0.6.14-receipt.json').read_text()),json.loads((HERE/'stock-0.6.13-receipt.json').read_text()),json.loads((HERE/'stock-0.6.12-receipt.json').read_text()),json.loads((HERE/'stock-0.6.11-receipt.json').read_text()),
+        if ITALY and old_current:
+            interaction_manifest=assets/'interactions.json' if old_current['version']!='0.6.27-alpha' else REPO/'src/assets/following/interactions.json'
+            previous_interactions=json.loads(interaction_manifest.read_text())
+            old_current.update(interactionsSha256=previous_interactions['dataSha256'],emotesSha256=previous_interactions['emotesSha256'],effectsSha256=json.loads((REPO/'src/assets/following/effects.json').read_text())['sha256'])
+        previous_versions=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])) if BLACK2 or ITALY else dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'stock-0.6.15-receipt.json').read_text()),json.loads((HERE/'stock-0.6.14-receipt.json').read_text()),json.loads((HERE/'stock-0.6.13-receipt.json').read_text()),json.loads((HERE/'stock-0.6.12-receipt.json').read_text()),json.loads((HERE/'stock-0.6.11-receipt.json').read_text()),
             {'version': '0.6.9-alpha', 'fieldSha256': '75646645ec262e5a07dade75af572b490dddabdf1d299ef4885753b9280a813b', 'eventsSha256': 'c99bc16f9745df1b8647cf169f9e2c2de8599b25c05953b395dc649417797fb9', 'eventsAbi': 2, 'coreSha256': '3a442efc82ab76ed525d24931320e51ff9d631c2da3736c4039e9ddc5d231b30', 'coreAbi': 1, 'registrySha256': '30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58', 'descriptorsSha256': 'f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939', 'resourcesSha256': 'c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6', 'effectsSha256': 'd910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0', 'interactionsSha256': 'e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894', 'emotesSha256': 'ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7'},
             {'version': '0.6.8-alpha', 'fieldSha256': '481b56d37d2be98ff8db891642f76b181c8eb1b5923d6542e6517070e33d0555', 'eventsSha256': '51f3a5ad5aeefcef8b0403607c79ba8c8237f950adf5ec7525d091863f080636', 'eventsAbi': 2, 'coreSha256': '23c286b07ba85a1576551fc56a349dfec79ff1910a5f1817c3863a4a925f7d35', 'coreAbi': 1, 'registrySha256': '30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58', 'descriptorsSha256': 'f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939', 'resourcesSha256': 'c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6', 'effectsSha256': 'd910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0', 'interactionsSha256': 'e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894', 'emotesSha256': 'ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7'},
             {'version':'0.6.7-alpha','fieldSha256':'23a347b389cddcdd403b2127231424900e1ba7cc0ce58207bb5b4199580824e9','eventsSha256':'9536e2f107454e71fd0b5bf23bc4fe56eaa1a46743823b770f33734fcafd0767','eventsAbi':2,'coreSha256':'0b2e4aea438da6ce6920ce535ee5a4e1bbf18131032fb1fcbc36e071ea6a827b','coreAbi':1,'registrySha256':'30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58','descriptorsSha256':'f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939','resourcesSha256':'c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6','effectsSha256':'d910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0','interactionsSha256':'e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894','emotesSha256':'ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7'},
