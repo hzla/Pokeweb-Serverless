@@ -15,9 +15,14 @@ import { parseRpm, type RpmModule } from "./rpm";
 
 type Version = "B2" | "W2";
 type Component = "icons" | "moves";
+export type TypeIconVariant = "letters" | "circular" | "solid";
 const URLS = {
-  icons: { B2: new URL("../assets/codeinjection/TypeIconsB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsW2.dll", import.meta.url) },
   moves: { B2: new URL("../assets/codeinjection/MoveEffectivenessB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/MoveEffectivenessW2.dll", import.meta.url) },
+};
+const ICON_URLS = {
+  letters: { B2: new URL("../assets/codeinjection/TypeIconsB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsW2.dll", import.meta.url) },
+  circular: { B2: new URL("../assets/codeinjection/TypeIconsCircularB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsCircularW2.dll", import.meta.url) },
+  solid: { B2: new URL("../assets/codeinjection/TypeIconsSolidB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsSolidW2.dll", import.meta.url) },
 };
 const title = (kind: Component) => kind === "icons" ? "Type Icons" : "Move Effectiveness Preview";
 const profileFor = (v: Version, kind: Component) => kind === "icons" ? manifest.games[v] : manifest.moveGames[v];
@@ -50,7 +55,8 @@ function matchesCode(rpm: RpmModule, build: ConfigurableBuild & { codeHex: strin
     && code.slice((offset + 6) * 2) === build.codeHex.slice((offset + 6) * 2);
 }
 export type BattleTypeHudStatus = { supported: boolean; compatible: boolean; checked: boolean; installed: boolean;
-  updateAvailable: boolean; canUninstall: boolean; pmcInstalled: boolean; message: string; dllPath?: string; legacyCombined?: boolean; colors?: MoveHighlightColors };
+  updateAvailable: boolean; canUninstall: boolean; pmcInstalled: boolean; message: string; dllPath?: string; legacyCombined?: boolean;
+  colors?: MoveHighlightColors; iconVariant?: TypeIconVariant };
 const hex = (bytes: Uint8Array) => Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
 const hash = async (bytes: Uint8Array) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes))));
 function hookSize(rpm: RpmModule, r: RpmModule["relocations"][number]) {
@@ -66,6 +72,14 @@ function knownBuild(rpm: RpmModule, version: Version, kind: Component): string |
       return actual.target.module === r.module && actual.target.address === r.address && actual.target.type === r.type
         && symbol?.address === expected?.address && symbol?.type === expected?.type && symbol?.attributes === expected?.attributes;
     }).length === 1))?.[0];
+}
+function iconVariantForBuild(version: Version, build: string): TypeIconVariant | undefined {
+  const variants = manifest.games[version].variants;
+  const current = (Object.entries(variants) as [TypeIconVariant, { version: string }][]).find(([, value]) => value.version === build)?.[0];
+  if (current) return current;
+  const historical = /^0\.3\.(\d+)$/u.exec(build);
+  if (historical) return Number(historical[1]) <= 11 ? "circular" : "letters";
+  return build === "0.1.0" || build === "0.2.0" ? "circular" : undefined;
 }
 function getStatus(project: ProjectState, kind: Component, bytes = project.originalRomBytes): BattleTypeHudStatus {
   const status: BattleTypeHudStatus = { supported: false, compatible: false, checked: false, installed: false,
@@ -91,7 +105,10 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
     if (build) {
       if (status.installed) return { ...status, message: "Multiple Battle HUD DLLs are present. Remove the duplicate before installing." };
       status.installed = true; status.dllPath = entry.path; status.legacyCombined = iconBuild === "0.2.0";
-      status.updateAvailable = build !== profile.version;
+      if (kind === "icons" && iconBuild) status.iconVariant = iconVariantForBuild(v, iconBuild);
+      status.updateAvailable = kind === "icons"
+        ? !Object.values(manifest.games[v].variants).some(variant => variant.version === build)
+        : build !== profile.version;
       status.canUninstall = !status.legacyCombined && canRemoveStagedCodeInjectionDll(project, entry.path);
       if (kind === "moves" && moveBuild) {
         const installed = (manifest.moveGames[v].builds as Record<string, ConfigurableBuild>)[moveBuild];
@@ -127,11 +144,13 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
   status.compatible = true;
   status.message = status.legacyCombined ? `The combined patch is installed. Replace it with ${title(kind)} only, then install the other patch separately if wanted.`
     : status.updateAvailable ? `A ${title(kind)} update is available.`
-    : status.installed ? `${title(kind)} is installed.`
+    : status.installed ? kind === "icons" && status.iconVariant
+      ? `${title(kind)} (${manifest.games[v].variants[status.iconVariant].label}) is installed.`
+      : `${title(kind)} is installed.`
       : `${title(kind)} installs independently. PMC is installed automatically if needed.`;
   return status;
 }
-async function installHud(project: ProjectState, kind: Component, colors?: MoveHighlightColors) {
+async function installHud(project: ProjectState, kind: Component, colors?: MoveHighlightColors, iconVariant: TypeIconVariant = "letters") {
   const chosenColors = colors ? COLOR_KEYS.map(key => moveHighlightRgb555(colors[key])) : undefined;
   const bytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!bytes) throw new Error("Reload the ROM before installing Battle HUD.");
@@ -162,10 +181,12 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   if (await hash(bytes) === "8279bed45bde3d0f9e0309d29d4246fd695a5c5d6fa55346c401c0bbc7043b50") {
     throw new Error("This Cascade build has insufficient PMC space. Use a non-Cascade ROM or the creator's optimized build.");
   }
-  const response = await fetch(URLS[kind][v]);
+  const response = await fetch(kind === "icons" ? ICON_URLS[iconVariant][v] : URLS.moves[v]);
   if (!response.ok) throw new Error(`Could not load Battle HUD (${response.status}).`);
   const dll = new Uint8Array(await response.arrayBuffer());
-  if (await hash(dll) !== profile.dllSha256 || knownBuild(parseRpm(dll, { allowedMagics: ["DLXF"] }), v, kind) !== profile.version) throw new Error("The bundled Battle HUD DLL failed verification.");
+  const expectedVersion = kind === "icons" ? manifest.games[v].variants[iconVariant].version : profile.version;
+  const expectedHash = kind === "icons" ? manifest.games[v].variants[iconVariant].dllSha256 : profile.dllSha256;
+  if (await hash(dll) !== expectedHash || knownBuild(parseRpm(dll, { allowedMagics: ["DLXF"] }), v, kind) !== expectedVersion) throw new Error("The bundled Battle HUD DLL failed verification.");
   if (kind === "moves") {
     const build = (profile.builds as Record<string, ConfigurableBuild>)[profile.version];
     if (build?.colorOffset === undefined) throw new Error("This move-preview build has no verified color table.");
@@ -181,7 +202,8 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   const result = stageCodeInjectionDll(project, name, dll, "patches", bytes);
   const rom = new NintendoDSRom(bytes);
   for (const edit of panelEdits) replaceNarcFile(project, rom, edit.fileId, edit.member, edit.bytes);
-  recordGenericChange(project, "code_injection", `${title(kind)} installed.`, title(kind), { key: `code-injection:${kind}` });
+  const detail = kind === "icons" ? ` (${manifest.games[v].variants[iconVariant].label})` : "";
+  recordGenericChange(project, "code_injection", `${title(kind)}${detail} installed.`, title(kind), { key: `code-injection:${kind}` });
   return result;
 }
 function uninstallHud(project: ProjectState, kind: Component): void {
@@ -211,7 +233,7 @@ function uninstallHud(project: ProjectState, kind: Component): void {
 
 export const getBattleTypeHudStatus = (project: ProjectState, bytes = project.originalRomBytes) => getStatus(project, "icons", bytes);
 export const getMoveEffectivenessStatus = (project: ProjectState, bytes = project.originalRomBytes) => getStatus(project, "moves", bytes);
-export const installBattleTypeHud = (project: ProjectState) => installHud(project, "icons");
+export const installBattleTypeHud = (project: ProjectState, variant: TypeIconVariant = "letters") => installHud(project, "icons", undefined, variant);
 export const installMoveEffectiveness = (project: ProjectState, colors?: MoveHighlightColors) => installHud(project, "moves", colors);
 export const uninstallBattleTypeHud = (project: ProjectState) => uninstallHud(project, "icons");
 export const uninstallMoveEffectiveness = (project: ProjectState) => uninstallHud(project, "moves");

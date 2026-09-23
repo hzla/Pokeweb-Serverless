@@ -5,7 +5,7 @@ from rpm_read import read_rpm
 HERE=Path(__file__).resolve().parent
 ROOT=Path(os.environ.get('BTH_WORKSPACE_ROOT',HERE.parents[2] if HERE.parent.name=='runtime' else HERE.parents[1]))
 APP=ROOT/'Pokeweb-Serverless';ASSETS=APP/'src/assets/codeinjection';RUNTIME=APP/'runtime/battle-type-hud'
-version='0.4.9'
+version='0.4.23'
 manifest=json.loads((ASSETS/'battleTypeHudManifest.json').read_text())
 manifest['version']=version;manifest.setdefault('moveGames',{})
 memory=json.loads((HERE/'build/memory-report.json').read_text())
@@ -13,11 +13,13 @@ verified=json.loads((HERE/'build/verification.json').read_text())
 alignment=json.loads((HERE/'build/player-alignment-verification.json').read_text())
 enemy_names=json.loads((HERE/'build/enemy-name-verification.json').read_text())
 move_verified=json.loads((HERE/'build/move-verification.json').read_text())
+circular_verified=json.loads((HERE/'build/circular-verification.json').read_text())
+solid_verified=json.loads((HERE/'build/solid-verification.json').read_text())
 icon_names={'Add','AddPP','Main','Del','Release','Status','GetPfd','GetRule','GetProxy','PalAddr','PPGet','EffectiveTypes','ViewSrc','HpNumberBinding','NameDraw','SexDraw','LevelDraw','GaugePosition','EnemyPositions','EnemyTriplePositions','SpriteInit','CellInit','CellSelect'}
 for game in ('B2','W2'):
  full=json.loads((HERE/f'profile-{game}.json').read_text())
  for module,key,state,hooks in (('TypeIcons','games',364,17),('MoveEffectiveness','moveGames',20,5)):
-  component_version='0.3.9' if module=='TypeIcons' else '0.4.0'
+  component_version='0.3.17' if module=='TypeIcons' else '0.4.0'
   name=module+game+'.dll';data=(HERE/'build'/name).read_bytes();rpm=read_rpm(data)
   assert rpm['bss']==state and len([r for r in rpm['relocations'] if r['module']!='base'])==hooks
   assert all(r['module'] in ('base','168') for r in rpm['relocations']) and all(not s['attributes']&2 for s in rpm['symbols'])
@@ -38,6 +40,32 @@ for game in ('B2','W2'):
    at=color['address'];assert color['size']==6 and rpm['code'][at:at+6]==bytes.fromhex('5e2bb3621f21')
    assert all(r['module']!='base' or not at<=r['address']<at+6 for r in rpm['relocations'])
    build['colorOffset']=at
+  else:
+   circular_version='0.3.17-circular';circular_name=f'TypeIconsCircular{game}.dll'
+   circular_data=(HERE/'build'/circular_name).read_bytes();circular_rpm=read_rpm(circular_data)
+   circular_digest=hashlib.sha256(circular_data).hexdigest()
+   assert circular_rpm['bss']==state and len([r for r in circular_rpm['relocations'] if r['module']!='base'])==hooks
+   assert all(r['module'] in ('base','168') for r in circular_rpm['relocations']) and all(not s['attributes']&2 for s in circular_rpm['symbols'])
+   assert circular_digest==memory[circular_name]['sha256']==circular_verified['release_sha256'][game]
+   circular_build={'codeHex':circular_rpm['code'].hex(),'relocations':circular_rpm['relocations'],'bssSize':circular_rpm['bss'],
+    'symbols':[dict(address=s['address'],type=types[s['type']],attributes=s['attributes']) for s in circular_rpm['symbols']]}
+   profile['builds'][circular_version]=circular_build
+   profile['variants']={
+    'letters':{'label':'Hexagonal letters','version':component_version,'dllSha256':digest},
+    'circular':{'label':'Circular icons','version':circular_version,'dllSha256':circular_digest},
+    'solid':{'label':'Angular HUD wedges','version':'0.3.23-solid','dllSha256':hashlib.sha256((HERE/'build'/f'TypeIconsSolid{game}.dll').read_bytes()).hexdigest()},
+   }
+   (ASSETS/circular_name).write_bytes(circular_data)
+   solid_name=f'TypeIconsSolid{game}.dll';solid_data=(HERE/'build'/solid_name).read_bytes();solid_rpm=read_rpm(solid_data)
+   solid_digest=hashlib.sha256(solid_data).hexdigest();solid_version='0.3.23-solid'
+   assert solid_rpm['bss']==state and len([r for r in solid_rpm['relocations'] if r['module']!='base'])==hooks
+   assert all(r['module'] in ('base','168') for r in solid_rpm['relocations']) and all(not s['attributes']&2 for s in solid_rpm['symbols'])
+   assert solid_digest==memory[solid_name]['sha256']==solid_verified['release_sha256'][game]
+   solid_build={'codeHex':solid_rpm['code'].hex(),'relocations':solid_rpm['relocations'],'bssSize':solid_rpm['bss'],
+    'symbols':[dict(address=s['address'],type=types[s['type']],attributes=s['attributes']) for s in solid_rpm['symbols']]}
+   profile['builds'][solid_version]=solid_build
+   profile['variants']['solid']['dllSha256']=solid_digest
+   (ASSETS/solid_name).write_bytes(solid_data)
   profile['builds'][component_version]=build
   manifest[key][game]=profile;(ASSETS/name).write_bytes(data)
 (ASSETS/'battleTypeHudManifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
@@ -55,10 +83,20 @@ if HERE!=RUNTIME:
   for module in ('TypeIcons','MoveEffectiveness'):
    for name in (f'hooks-{module}-{game}.h',f'{module}{game}.dll',f'{module}{game}.debug.dll'):
     shutil.copyfile(HERE/'build'/name,RUNTIME/'build'/name)
+  for name in (f'TypeIconsCircular{game}.dll',f'TypeIconsCircular{game}.debug.dll',
+               f'TypeIconsSolid{game}.dll',f'TypeIconsSolid{game}.debug.dll'):
+   shutil.copyfile(HERE/'build'/name,RUNTIME/'build'/name)
  shutil.copyfile(HERE/'build/memory-report.json',RUNTIME/'build/memory-report.json')
+(ASSETS/'type-icons-letters-preview.png').write_bytes((HERE/'build/icons/preview-8x.png').read_bytes())
+(ASSETS/'type-icons-circular-preview.png').write_bytes((HERE/'build/icons-circular/preview-8x.png').read_bytes())
+(ASSETS/'type-icons-solid-preview.png').write_bytes((HERE/'build/icons-solid/preview-8x.png').read_bytes())
 (RUNTIME/'reports').mkdir(exist_ok=True)
-for name in ('memory-report.json','verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','captured-state-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json','standalone-install-verification.json'):
+for name in ('memory-report.json','verification.json','circular-verification.json','solid-verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json'):
  if (HERE/'build'/name).exists():shutil.copyfile(HERE/'build'/name,RUNTIME/'reports'/name)
+for name in ('captured-state-verification.json','standalone-install-verification.json'):
+ (RUNTIME/'reports'/name).unlink(missing_ok=True)
+ if (HERE/'build'/name).exists():
+  shutil.copyfile(HERE/'build'/name,RUNTIME/'reports'/('historical-'+name))
 for game in ('B2','W2'):
  live=HERE/'build'/f'live-{game}-split'
  for name,module in (('native-integration-0.json','TypeIcons'),('native-move-integration.json','MoveEffectiveness')):

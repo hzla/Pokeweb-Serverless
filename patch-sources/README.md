@@ -1,6 +1,6 @@
 # Bundled patch source bookkeeping
 
-This folder snapshots the source currently available for Pokeweb's bundled code-injection DLL/RPM patches. **It is not used by the app or by the existing build/synchronization scripts.** Edit the canonical source, rebuild there, then refresh the bundled artifact and bookkeeping copy separately.
+This folder snapshots the source currently available for Pokeweb's bundled code-injection DLL/RPM patches, including the Following Pokémon variants under `src/assets/following`. **It is not used by the app or by the existing build/synchronization scripts.** Edit the canonical source, rebuild there, then refresh the bundled artifact and bookkeeping copy separately.
 
 The monolithic `Black2Upgrade.dll` implementation is excluded. Its three separately bundled Field/Pokedex/UI companions are included, as are the separate battle-logging modules. B2/W2 and B/W variants with shared implementations are grouped together. Multi-file patches keep their C++ units, headers and hook assembly together.
 
@@ -8,7 +8,7 @@ This is a current-source snapshot, not proof that every historical bundled binar
 
 ## Privacy and contents
 
-Only patch source, relevant headers, build/metadata text, tests, and license material are included. No ROMs, saves, screenshots, local project settings, SDK/toolchain binaries, credentials, machine-specific absolute paths, or Git author/remotes metadata are included. Source references are repository names plus relative paths. Text line endings are normalized to LF; machine-specific paths, if present, are replaced with `<LOCAL_PATH>`.
+Patch source, relevant headers, build/metadata text, tests, license material, and the four prepared native-art PNG inputs for the save menu are included. ROMs, saves, emulator validation captures, local project settings, SDK/toolchain binaries, credentials, machine-specific absolute paths, and Git author/remotes metadata are excluded. Source references are repository names plus relative paths. Text line endings are normalized to LF; machine-specific paths, if present, are replaced with `<LOCAL_PATH>`. Binary PNG build inputs are copied byte-for-byte.
 
 `manifest.json` lists every copied source file, its repo-relative origin and SHA-256, plus the bundled artifact names and hashes at capture time. Shared project headers are under `shared/`; external SDK/framework dependencies and full symbol databases remain in the canonical build environments. Any copied build scripts are reference material, not standalone build entry points in this layout. Original licenses/attributions are retained where available; no new license is asserted.
 
@@ -32,7 +32,10 @@ Only patch source, relevant headers, build/metadata text, tests, and license mat
 | [Portable PC](porta-pc/) | `PortaPCB2.dll`, `PortaPCW2.dll` | source-copied |
 | [Tag-battle AI stabilization](tag-battle-stabilization/) | `TagBattleStabilizationW2.dll` | source-copied |
 | [Standalone LEARNSET viewer](learnset-viewer/) | `LearnsetMenuB2.dll`, `LearnsetMenuW2.dll`, `LearnsetViewerB2.dll`, `LearnsetViewerW2.dll` | source-copied |
-| [Battle Type Icons and Move Effectiveness Preview](battle-type-hud/) | `TypeIconsB2.dll`, `TypeIconsW2.dll`, `MoveEffectivenessB2.dll`, `MoveEffectivenessW2.dll` | source-copied |
+| [Battle Type Icons and Move Effectiveness Preview](battle-type-hud/) | B2/W2 Type Icons standard, circular, and solid variants; B2/W2 Move Effectiveness | source-copied |
+| [White 2 save menu](save-menu/) | `SaveMenuW2.dll` | source-copied |
+| [Specified trainer natures](trainer-nature/) | `TrainerNatureB2.dll`, `TrainerNatureW2.dll` | source-copied |
+| [Following Pokémon](following-pokemon/) | Core, Events, and Field DLLs for stock B2/W2 and White2Upgrade W2 | source-copied |
 | [Black2Upgrade field companion](black2upgrade-field/) | `Black2UpgradeField.dll` | source-copied |
 | [Black2Upgrade Pokedex companion](black2upgrade-pokedex/) | `Black2UpgradePokedex.dll` | source-copied |
 | [Black2Upgrade UI companion](black2upgrade-ui/) | `Black2UpgradeUI.dll` | source-copied |
@@ -46,34 +49,23 @@ Original source for **MainMenuSkipB2/W2** and **DoubleBattleFixB2/W2** was not f
 
 ## Refresh and validation
 
-The latest scoped refresh updates LEARNSET to **1.4.5** (move-list click for
-evolution browsing, summary-page sound for party switching, session-owned
-graph/icon reuse for faster family browsing, right-aligned type
-header, terminal-stage predecessor requirements, correct sub-BG palette addressing, no-fade read-only L/R family
-navigation with virtual species learnsets/info, descendant-first branch browsing,
-A requirement pages, selected-only two-pose icon animation, native lower-screen
-font foreground/shadows and light fill, full-height right-panel left shading
-with unchanged ability row rules,
-darker selected-sprite
-frame with other teal accents unchanged, pale stats-matched
-evolution/ability inset, matching icon transparency, dark text/arrows and deeper
-hidden-ability purple, muted panel border, two-tone description panel
-with a dark fin/top strip and lighter charcoal body without side/bottom borders,
-four-pixel slate-teal gutter, clipped pale stats panel,
-shared pale icon/ability inset, selected-only dark teal frame, party-position header cue,
-dark evolution panel with teal fin accents and retained retail title rails,
-D-pad party navigation, branch-responsive icons,
-buffered loading, compact gold stats, form abilities and cycle-safe chains). Other patch snapshots retain their
-previous versions and hashes; this refresh does not certify newly added bundles
-outside LEARNSET and background music. Existing original-source gaps remain explicit.
+This refresh registers the save-menu and trainer-nature DLLs, the circular and
+solid Type Icons variants, and all nine current Following Pokémon runtime DLLs.
+Their snapshots include the relevant runtime source, integration, metadata,
+build inputs and tests. Following Pokémon records stock Black 2, stock White 2,
+and White2Upgrade separately. The save-menu group is limited to the pinned
+White 2 Following Pokémon alpha ROM described in its runtime notes. Asset
+archives and validation captures remain outside this snapshot. All previously
+registered groups and their bundled-artifact hashes are refreshed too.
 
-The background-music snapshot now includes runtime 3.0.0, a variable-length
+The background-music snapshot includes runtime 3.0.0, a variable-length
 replacement table with legacy migration and per-track editing/removal, the guarded native
 32 KiB buffer with low-memory fallback and host-only allocation tests, the streamed-SDAT
 installer/model, Music Editor UI integration, adaptive PCM16/IMA-ADPCM encoding,
 independent parser tests, and full-ROM B2/W2 archive round-trip verification.
 Long imports use block-seekable compression to reduce ROM size. ROM export
-updates the DS-accessible region boundary after sound-archive growth. Its
+updates the DS-accessible region boundary after sound-archive growth, including
+ROMs with stripped DSi payloads. Its
 shortcut is a volume mute; genuine game pause/resume remains separate. All tracks
 share one playback buffer. The installer retains its 512 MiB export safety
 limit. Multi-track host/archive checks passed; gameplay verification is pending.
@@ -91,7 +83,7 @@ This opt-in bookkeeping tool refreshes manifest-listed sources, discovers the
 newer runtime groups' source/build/test text, normalizes private paths, and
 records current source and bundled-artifact SHA-256 values. It refuses to
 overwrite locally edited snapshots or silently omit an unregistered bundled
-DLL/RPM. A second refresh is a no-op. It does not run copied scripts, launch an
+DLL/RPM, including the three Following Pokémon distributions. A second refresh is a no-op. It does not run copied scripts, launch an
 emulator, rebuild modules, change bundled binaries, or delete files.
 The optional `--only=GROUP` refreshes/checks that group's sources and artifacts
 without changing other groups or shared files. Complete bundle-inventory

@@ -1,0 +1,92 @@
+[
+  {
+    "state": "minorheadclip.mln",
+    "sha256": "472556aeae466f12c5ec9c808d996cb88aebccbf907499d1cfb91b5643e2a08c",
+    "field": 36091104,
+    "main": 36107892,
+    "secondary": 36120172,
+    "effects": 36128896,
+    "actorSystemBillboards": 36107892,
+    "cameraProjection": 0,
+    "eye": [
+      2981888,
+      875414,
+      48128203
+    ],
+    "target": [
+      2981888,
+      114675,
+      47546368
+    ],
+    "followerWorld": [
+      3047424,
+      65551,
+      47546368
+    ],
+    "playerWorld": [
+      2981888,
+      98291,
+      47546368
+    ]
+  },
+  {
+    "state": "stairssink.mln",
+    "sha256": "df31d37680081b55e953d98a461140efe4a71d429851e2ce7048f3ac226a3d06",
+    "field": 36091104,
+    "main": 36107892,
+    "secondary": 36120172,
+    "effects": 36128896,
+    "actorSystemBillboards": 36107892,
+    "cameraProjection": 0,
+    "eye": [
+      2457600,
+      1268724,
+      47669451
+    ],
+    "target": [
+      2457600,
+      507985,
+      47087616
+    ],
+    "followerWorld": [
+      2457600,
+      557137,
+      47022080
+    ],
+    "playerWorld": [
+      2457600,
+      491601,
+      47087616
+    ]
+  },
+  {
+    "state": "stairssideclipping.mln",
+    "sha256": "0b9e8b0525ed8539ec6ac796ce9f42e2b34231fc74e7166423b1ebc672469f7c",
+    "field": 36091104,
+    "main": 36107892,
+    "secondary": 36120172,
+    "effects": 36128896,
+    "actorSystemBillboards": 36107892,
+    "cameraProjection": 0,
+    "eye": [
+      2850816,
+      1006486,
+      48128203
+    ],
+    "target": [
+      2850816,
+      245747,
+      47546368
+    ],
+    "followerWorld": [
+      2785280,
+      294899,
+      47546368
+    ],
+    "playerWorld": [
+      2850816,
+      229363,
+      47546368
+    ]
+  }
+]
