@@ -1,17 +1,34 @@
 # Following Pokémon for Black 2 and White 2 — development package
 
-Stock US Black 2 is available as **0.6.27-alpha** through the same dedicated
+Italian White 2 has a separate **IRDI revision-0** profile with W2I PMC modules.
+The current **0.6.33-alpha** keeps Italian dialogue and the direction-specific
+artwork/shadow anchors, while restoring north-facing foreground draw priority.
+The English-dialogue 0.6.27 and earlier Italian alphas are historical builds. See the [Italian build and
+compatibility notes](ITALY.md), [validation record](ITALY-VALIDATION.md), and
+[human melonDS checklist](ITALY-CHECKLIST.md). Emulator acceptance is pending.
+
+Stock US Black 2 is available as **0.6.32-alpha** through the same dedicated
 Pokeweb editor. It uses separate `B2` PMC modules and a pinned IREO revision-0
 binary contract while sharing the stock Gen 5 sprite and interaction data. See
 [Black 2 compatibility and build details](BLACK2.md) and its
 [human emulator checklist](BLACK2-CHECKLIST.md). Black2Upgrade is not supported.
 
-White2Upgrade has a separate **0.7.18-alpha** profile with species 1–1023,
+White2Upgrade has a separate **0.7.23-alpha** profile with species 1–1023,
 available Gen 6–9 artwork and explicit missing-art/form placeholders. See
 [White2Upgrade compatibility, build and limitations](WHITE2UPGRADE.md) and its
-[human checklist](WHITE2UPGRADE-CHECKLIST.md). Stock White 2 uses 0.6.27-alpha.
+[human checklist](WHITE2UPGRADE-CHECKLIST.md). Stock White 2 uses 0.6.32-alpha.
 The user accepted stock 0.6.10 as good enough; expansion emulator acceptance is
 still pending.
+
+The preceding alphas lowered grounded artwork using the follower descriptor's
+vertical offset. Native shadow drawing also reads that offset: the user observed
+lowered shadows and a clipped Serperior shadow. The preceding alphas keep that
+offset in the appearance registry and apply it only during the synchronous
+billboard draw. The descriptor offset is restored to ground, and the temporary
+sprite adjustment is removed before the shadow/effect pass. Flying artwork and
+sprite resources are unchanged. The current builds additionally adjust the
+native ground-plane anchor by facing so north/south artwork and the shadow
+move together. Visual acceptance is pending.
 
 The previous shadow build failed in melonDS: its follower descriptor requested
 a shadow, but the native shadow-attached flag remained clear. The latest build
