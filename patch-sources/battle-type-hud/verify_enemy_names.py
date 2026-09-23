@@ -86,11 +86,10 @@ def main():
             for p in (1,3,5,7):
                 raw,_=panel(h.raw[(2 if p==7 else 0,1)],font,name)
                 shifted=bytearray(raw);left=enemy_header(shifted,p);anchor={1:60,3:64,5:60,7:56}[p]
-                screen_left=anchor-64+left
-                # Count the shifted name's pixel span using its original span.
-                first=min(x for y in range(16) for x in range(16,80) if header_pixel(raw,x,y))
-                name_first=max(anchor-64+first,23)
-                gap=name_first-(screen_left+20)-1
+                screen_left=1
+                name_first=min(anchor-64+x for y in range(16) for x in range(16,80)
+                               if header_pixel(shifted,x,y))
+                gap=name_first-(screen_left+16)-1
                 minimum_margin=min(minimum_margin,screen_left);minimum_gap=min(minimum_gap,gap)
                 maximum_end=max(maximum_end,max(x+anchor-64 for y in range(16) for x in range(128) if header_pixel(shifted,x,y)))
                 assert screen_left>=1 and gap>=1 and maximum_end<256
@@ -181,7 +180,8 @@ def main():
             h.invoke(function,*args);h.c.hook_del(hook);h.check(0,(7,3));raw=next_raw
         h.invoke('Del',G,0);assert h.image(0)==raw
         reports[game]=dict(species_names_measured=len(all_names),player_names_measured=len(all_names),
-            player_name_shift=12,player_info_shift=8,player_icon_shift=12,player_rightmost_header_pixel=rightmost,widest=[dict(name=n,width=widths[n]) for n in widest],
+            player_name_shift=12,player_info_shift=8,player_dual_stack_screen=[[-64,-1],[-59,5]],
+            player_mono_screen=[-62,1],player_rightmost_header_pixel=rightmost,widest=[dict(name=n,width=widths[n]) for n in widest],
             minimum_screen_margin=minimum_margin,minimum_name_gap=minimum_gap,rightmost_header_pixel=maximum_end,
             compiled_names=chosen,layouts=['singles','both doubles','all three triples'],level=100,
             unchanged_update_no_writes=True,header_restored_on_removal=True,in_place_graphics_reload=True,

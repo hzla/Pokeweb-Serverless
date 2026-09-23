@@ -19,11 +19,18 @@ G=0x02270000;PFD=0x02278000;PAL=0x02279000;TRANS=0x02279200
 BATTLE_IDS=(0,12,0,12,6,18,1,13)
 ASSETS=json.loads((HERE/'assets.json').read_text())
 EXPANSION=json.loads((HERE/'panel-expansion.json').read_text())
+CAUGHT_BALL=bytes.fromhex('00220200207128008277870212111102e211e102201e2e000022020000000000')
 def pixel(data,x,y):
     return (data[((y//8)*8+x//8)*32+(y%8)*4+(x%8)//2]>>((x&1)*4))&15
 def setpixel(data,x,y,c):
     p=((y//8)*8+x//8)*32+(y%8)*4+(x%8)//2;s=(x&1)*4
     data[p]=(data[p]&~(15<<s))|(c<<s)
+def caught_ball(data,moved):
+    left,top=8,8
+    for y in range(8):
+        for x in range(8):
+            c=CAUGHT_BALL[y*4+x//2]>>(4*(x&1))&15
+            if c:setpixel(data,left+x,top+y,c)
 def name_origin(data):
     for x in range(8,24):
         if any(pixel(data,x,y) for y in range(5,16)):return min(x,18)-7
@@ -59,25 +66,44 @@ def player_header(data):
     return origin
 
 def paint_expected(data,pair,p,t,origin=None):
-    a,b=pair;singles=t==0 and not p&1
-    if origin is None:origin=name_origin(data)
-    positions=([(origin+11,a)] if a==b else [(origin,a),(origin+11,b)]) if singles else ([(16,a)] if a==b else [(11,a),(22,b)])
-    if p&1:
-        first=min((x for y in range(16) for x in range(16,80) if header_pixel(data,x,y)),default=max(24,87-{1:60,3:64,5:60,7:56}[p]))
-        left=first-22
-        positions=[(left+11,a)] if a==b else [(left,a),(left+11,b)]
-    for kind,(left,typ) in enumerate(positions):
-        for y in range(10):
-            for x in range(10):
-                if not ASSETS['outline'][y]&(512>>x):continue
-                inside=0<x<9 and 0<y<9 and ASSETS['circle'][y-1]&(128>>(x-1))
-                white=inside and ASSETS['symbols'][typ][y-1]&(128>>(x-1))
+    del origin
+    a,b=pair
+    anchor={1:60,3:64,5:60,7:56}.get(p)
+    base=65-anchor if anchor is not None else 0
+    solid=ASSETS.get('variant')=='solid'
+    if solid:
+        compact=bool(p&1) or t>=2
+        outline=ASSETS['compactOutline'] if compact else ASSETS['outline']
+        primary=ASSETS['compactPrimary'] if compact else ASSETS['primary']
+        secondary=ASSETS['compactSecondary'] if compact else ASSETS['secondary']
+        primary_shade=ASSETS['compactPrimaryShade'] if compact else ASSETS['primaryShade']
+        secondary_shade=ASSETS['compactSecondaryShade'] if compact else ASSETS['secondaryShade']
+        monofill=ASSETS['compactMonoFill'] if compact else ASSETS['monoFill']
+        monoshade=ASSETS['compactMonoShade'] if compact else ASSETS['monoShade']
+        left=(12 if t>=2 else 11) if p&1 else (9 if t>=2 else 7)
+        for y in range(len(outline)):
+            for x in range(12):
+                mask=2048>>x
+                if not outline[y]&mask:continue
+                if a==b and monofill[y]&mask:color=4
+                elif a==b and monoshade[y]&mask:color=15
+                elif primary[y]&mask:color=4
+                elif secondary[y]&mask:color=15
+                elif primary_shade[y]&mask:color=4 if (x+y)&1 else 2
+                elif secondary_shade[y]&mask:color=15 if (x+y)&1 else 2
+                else:color=2
+                setpixel(data,left+x,18+y,color)
+        return
+    positions=[(base+2,17,a)] if a==b else [(base,15,a),(base+5,21,b)]
+    for kind,(left,top,typ) in enumerate(positions):
+        for y in range(ASSETS['iconHeight']):
+            for x in range(12):
+                mask=2048>>x
+                if not ASSETS['outline'][y]&mask:continue
+                inside=ASSETS['fill'][y]&mask
+                white=inside and ASSETS['symbols'][typ][y]&mask
                 color=1 if white else (4 if kind==0 else 15) if inside else 2
-                if singles:
-                    xx,yy=left+x,2+y
-                    at=2048+((yy//8)*4+xx//8)*32+(yy%8)*4+(xx%8)//2;shift=(xx&1)*4
-                    data[at]=(data[at]&~(15<<shift))|(color<<shift)
-                else:setpixel(data,left+x,(6 if p&1 else 14 if t<2 else 16)+y,color)
+                setpixel(data,left+x,top+y,color)
 def normalized(data): return bytes((2 if v&15 in (4,15) else v&15)|((2 if v>>4 in (4,15) else v>>4)<<4) for v in data)
 def blend(c,t,e):
     return sum((((c>>s)&31)+(((((t>>s)&31)-((c>>s)&31))*e)>>4))<<s for s in (0,5,10))
@@ -91,7 +117,7 @@ class Harness:
         for base,data in blobs.values():self.c.mem_write(base,bytes(data))
         rpm=read_rpm((HERE/'build'/f'{module}{game}.dll').read_bytes())
         debug=read_rpm((HERE/'build'/f'{module}{game}.debug.dll').read_bytes())
-        assert rpm['code']==debug['code'] and rpm['bss']==debug['bss']==(364 if module=='TypeIcons' else 20)
+        assert rpm['code']==debug['code'] and rpm['bss']==debug['bss']==(364 if module.startswith('TypeIcons') else 20)
         self.c.mem_write(BASE,rpm['code']+b'\0'*rpm['bss'])
         self.entries={}
         for r in rpm['relocations']:
@@ -105,8 +131,8 @@ class Harness:
                 self.entries.setdefault(hook['name'],[]).append((r['type'],r['address'],dest))
                 if r['type']=='OFFSET':self.put(r['address'],dest)
                 else:self.c.mem_write(r['address'],thumb_bl(r['address'],dest))
-        self.state=BASE+next(s['address'] for s in debug['symbols'] if s['name']==('gBattleTypeHud' if module=='TypeIcons' else 'gBattleMoveHud'))
-        self.events=[];self.fakeReads=0;self.liveTypes={};self.fakeTypes={};self.writes=[]
+        self.state=BASE+next(s['address'] for s in debug['symbols'] if s['name']==('gBattleTypeHud' if module.startswith('TypeIcons') else 'gBattleMoveHud'))
+        self.events=[];self.fakeReads=0;self.liveTypes={};self.fakeTypes={};self.writes=[];self.caught=set()
         self.addReset=True;self.nativeHooks={}
         for name in ['Add','AddPP','Main','Del','Release','Status','GetPfd','PalAddr','PPGet','EffectiveTypes','NameDraw','SexDraw','LevelDraw']:
             address=self.profile['functions'][name]
@@ -151,6 +177,9 @@ class Harness:
             if self.addReset and p<8:
                 self.c.mem_write(0x06400000+p*0x1000,self.raw[(2 if t==2 else 0,p&1)])
                 self.c.mem_write(0x06408000+p*0x100,self.hpRaw)
+                if p in self.caught:
+                    ball=bytearray(self.raw[(2 if t==2 else 0,p&1)]);caught_ball(ball,False)
+                    self.c.mem_write(0x06400000+p*0x1000,bytes(ball))
             if p<8:self.put(G+0x40+p*0x84+112,8)
             if p<8:self.put(G+0x40+p*0x84+64,t)
         elif name=='GetPfd':result=PFD
@@ -176,7 +205,9 @@ class Harness:
         assert c.reg_read(UC_ARM_REG_PC)==stop,hex(c.reg_read(UC_ARM_REG_PC))
         assert c.reg_read(UC_ARM_REG_SP)==SP
         assert [c.reg_read(r) for r in SAVED]==preserved
-    def add(self,p,pair=(9,9),layout=0,index=0):
+    def add(self,p,pair=(9,9),layout=0,index=0,caught=False):
+        if caught:self.caught.add(p)
+        else:self.caught.discard(p)
         mon=0x02273000+p*0x300;self.liveTypes[mon]=pair
         if p&1:
             cellData=0x0227c000+p*0x40
@@ -195,6 +226,7 @@ class Harness:
         if p&1:enemy_header(expected,p)
         elif t==0:origin=player_header(expected)
         if not status:paint_expected(expected,pair,p,t,origin)
+        if p&1 and p in self.caught:caught_ball(expected,False)
         assert self.image(p,t)==expected,(self.game,p,pair,t,status,self.c.mem_read(self.state+360,1)[0])
         assert self.c.mem_read(self.state+360,1)[0]==0,('runtime compatibility failure',self.c.mem_read(self.state+360,1)[0])
     def setfade(self,bank,target,evy):
@@ -209,17 +241,25 @@ def test(game):
     h=Harness(game);checks=[]
     approved={v['name']:v for v in json.loads((HERE/'approved-icons.json').read_text())['icons']}
     assert ASSETS['names']=='Normal Fighting Flying Poison Ground Rock Bug Ghost Steel Fire Water Grass Electric Psychic Ice Dragon Dark Fairy'.split()
-    assert ASSETS['circle']==[60,126,255,255,255,255,126,60]
-    interior={(x+1,y+1) for y,row in enumerate(ASSETS['circle']) for x in range(8) if row&(128>>x)}
-    outlined=set(interior)
-    for x,y in interior:outlined.update(((x-1,y),(x+1,y),(x,y-1),(x,y+1)))
-    assert len(outlined)==76 and ASSETS['outline']==[sum(512>>x for x in range(10) if (x,y) in outlined) for y in range(10)]
+    assert ASSETS['fill']==[0,96,504,1020,2046,2046,2046,1020,504,96,0]
+    assert ASSETS['outline']==[96,504,1020,2046,4095,4095,4095,2046,1020,504,96]
+    assert ASSETS['iconWidth']==12 and ASSETS['iconHeight']==11 and ASSETS['stackDx']==5 and ASSETS['stackDy']==6 and ASSETS['stackTop']==15
+    assert sum(bool(row&(2048>>x)) for row in ASSETS['outline'] for x in range(12))==88
+    assert all(ASSETS['outline'][y]&(2048>>x) for x,y in ((3,1),(8,1),(3,9),(8,9)))
+    assert all(not symbol[y]&~ASSETS['fill'][y] for symbol in ASSETS['symbols'] for y in range(11))
+    assert sum(bool(row&(2048>>x)) and y!=6 and not (y in (1,9) and x in (3,8))
+               for y,row in enumerate(ASSETS['outline']) for x in range(12))==72
+    # Water uses the exact five-wide W from the approved circular reference.
+    assert ASSETS['symbols'][10][3:8]==[272,272,336,336,160]
+    assert all(not symbol[0] and not symbol[1] and not symbol[2] for symbol in ASSETS['symbols'])
+    assert all(not symbol[7]&(2048>>x) or ASSETS['fill'][8]&(2048>>x)
+               for symbol in ASSETS['symbols'] for x in range(12))
     for name,rows,color in zip(ASSETS['names'],ASSETS['symbols'],ASSETS['rgb555']):
         icon=approved[name]
-        assert rows==[v&m for v,m in zip(icon['whiteBitsMsbLeft'],ASSETS['circle'])]
+        assert any(rows)
         rgb=bytes.fromhex(next(c[1:] for c in icon['colors'] if c!='#FFFFFF'))
         assert color==sum((c>>3)<<(5*i) for i,c in enumerate(rgb))
-    checks.append('approved symbols and source RGB colors independently match the type-ID table and circle mask')
+    checks.append('all 18 compact first initials, exact five-pixel Water W, source RGB colors and 12x11 point-up rhombus masks match')
     # Regression: packing IDs into three bits silently dropped the user's
     # enemy ID 12 as soon as creation tried to validate its binding.
     for battler_id in range(24):
@@ -236,7 +276,21 @@ def test(game):
             for pair in ((a,a),(a,(a+1)%18)):
                 h.add(p,pair,t);h.check(p,pair,t)
         h.invoke('Del',G,p)
-    checks.append('all 18 original glyphs inside one-pixel outlines; 21x10 dual footprint, one-pixel gap, centered mono and transparent corners on both layouts')
+    checks.append('all 18 lowered initials have a full colored row beneath them inside fully outlined 12x11 rhombuses; dual types use a 5px-right/6px-down 17x17 stack and monotypes retain their raised position')
+    # The native caught marker remains in its original header slot while the
+    # type stack occupies the left edge of the lower panel.
+    native_parts=(HERE/'build'/f'{game}-resource-434.bin').read_bytes()[48:]
+    assert native_parts[0x1b*32:0x1c*32]==CAUGHT_BALL
+    for p,t in ((1,0),(3,1),(5,2)):
+        caught_h=Harness(game);caught_h.add(p,(9,2),t,caught=True);caught_h.check(p,(9,2),t)
+        image=bytearray(normalized(caught_h.raw[(2 if t==2 else 0,1)]));caught_ball(image,False)
+        for status in range(1,7):
+            caught_h.invoke('Status',G,status,p);caught_h.check(p,(9,2),t,status=True)
+            caught_h.invoke('Status',G,0,p);caught_h.check(p,(9,2),t)
+        # Reproduce a native image reload with the marker back in tile 9.
+        caught_h.c.mem_write(0x06400000+p*0x1000,bytes(image));caught_h.invoke('Main',G);caught_h.check(p,(9,2),t)
+        caught_h.invoke('Del',G,p);assert caught_h.image(p,t)==bytes(image)
+    checks.append('native 8x8 caught Poké Ball remains in its header slot; type icons, all statuses, reload and removal preserve it in every enemy layout')
     # The number sprite shares the panel palette but has a separate image proxy.
     # Palette index 4 is its slash shadow; white/gray strokes are indices 1/14.
     slash=[v>>s&15 for v in h.hpRaw[96:128] for s in (0,4)]
@@ -329,11 +383,12 @@ def test(game):
         h.c.mem_write(mon+0xf8,bytes(pair));h.invoke('Main',G);h.check(1,pair)
     h.invoke('Del',G,1)
     checks.append('actual retail effective-type helper: Roost removes Flying, pure Flying becomes Normal, clearing restores Flying')
-    if game=='W2':
+    cascade_path=Path(os.environ.get('BTH_CASCADE_ROM',str(Path.home()/'Downloads/cascadescan-bumpers.nds')))
+    if game=='W2' and cascade_path.exists():
         # The user's Cascade ROM already expands the null type sentinel to 18.
         # Execute that real engine too; the HUD does not change type mechanics.
         import ndspy.rom
-        cascade=ndspy.rom.NintendoDSRom.fromFile(os.environ.get('BTH_CASCADE_ROM',str(Path.home()/'Downloads/cascadescan-bumpers.nds')))
+        cascade=ndspy.rom.NintendoDSRom.fromFile(cascade_path)
         ov=cascade.loadArm9Overlays([167])[167]
         h.c.mem_write(ov.ramAddress,bytes(ov.data))
         h.c.ctl_remove_cache(ov.ramAddress,ov.ramAddress+len(ov.data))
@@ -396,7 +451,7 @@ def test(game):
         h.invoke('NameDraw',G,G+0x40+p*0x84,0x2273000);h.check(p,(10,10),t)
         h.invoke('Status',G,1,p);h.check(p,(10,10),t,status=True)
         h.c.hook_del(hook)
-    checks.append('player singles name shifts +12 and gender/level +8; other player headers unchanged; enemy spacing, transparent corners, statuses and native name redraws preserve text')
+    checks.append('player singles name shifts +12 and gender/level +8; stacked rhombuses, transparent corners, statuses and native name redraws preserve panel text')
     h=Harness(game)
     # Incompatible layout must produce a diagnostic with zero unsafe writes.
     h.addReset=False;h.c.mem_write(0x06401000,b'\0'*2048);h.writes.clear();h.add(1)
