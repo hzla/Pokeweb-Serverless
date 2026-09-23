@@ -1,7 +1,7 @@
 """Render native OAM pieces in memory; check placement without a game boot."""
 import hashlib, json, struct, sys
 from pathlib import Path
-from verify import HERE, Harness, G, ASSETS, normalized, setpixel, player_header
+from verify import HERE, Harness, G, ASSETS, normalized, setpixel, player_header, paint_expected
 from panel_expansion import transform
 
 def compose(cell, image):
@@ -39,26 +39,33 @@ def main():
             for pair in ((13,13),(9,2),(7,3),(17,17)):
                 h.raw[(0,0)]=bytes(base);h.c.mem_write(0x06400000,bytes(base));mon=h.add(0,pair)
                 h.check(0,pair)
-                actual=compose(cell,h.image(0));extra={p:c for p,c in actual.items() if shifted.get(p)!=c}
-                left=first-64-23+12+(11 if pair[0]==pair[1] else 0)
-                width=10 if pair[0]==pair[1] else 21
-                expected={(left+11*k+x,-10+y) for k in range(1 if pair[0]==pair[1] else 2)
-                          for y in range(10) for x in range(10) if ASSETS['outline'][y]&(512>>x)}
-                assert set(extra)==expected, (game,first,pair)
-                assert all(actual.get(p)==c for p,c in shifted.items()), 'translated header or native HP/EXP pixels changed'
-                assert max(x for x,y in extra)==first-64-3+12, 'two-pixel clearance before name'
-                assert max(y for x,y in extra)==max(y for x,y in native if y<0), 'name/icon bottom borders differ'
-                assert max(x for x,y in extra)-min(x for x,y in extra)+1==width
+                actual=compose(cell,h.image(0))
+                expected_image=bytearray(shifted_image);paint_expected(expected_image,pair,0,0)
+                assert actual==compose(cell,expected_image),(game,first,pair)
+                positions=[(2,17)] if pair[0]==pair[1] else [(0,15),(5,21)]
+                footprint={(left-64+x,top-16+y) for left,top in positions
+                           for y in range(ASSETS['iconHeight']) for x in range(12)
+                           if ASSETS['outline'][y]&(2048>>x)}
+                assert all(actual.get(p)==compose(cell,expected_image).get(p) for p in footprint)
+                assert min(x for x,y in footprint)==(-62 if pair[0]==pair[1] else -64)
+                assert max(y for x,y in footprint)==(11 if pair[0]==pair[1] else 15)
                 for status in range(1,7):
                     h.invoke('Status',G,status,0);assert compose(cell,h.image(0))==shifted
                     h.invoke('Status',G,0,0);assert compose(cell,h.image(0))==actual
                 h.invoke('Del',G,0);assert compose(cell,h.image(0))==native
-            checks.append(dict(native_name_first_x=first-64,dual_left=first-75,mono_left=first-64,name_shift=12,info_shift=8,icon_shift=12,top=-10,clearance=2))
+            checks.append(dict(native_name_first_x=first-64,dual_left=-64,dual_second_left=-59,
+                               mono_left=-62,name_shift=12,info_shift=8,
+                               dual_top=-1,dual_second_top=5,mono_top=1))
         # Shared regular-player resources must leave doubles' extension blank.
         h=Harness(game);h.add(2,(9,2),1);assert not any(h.image(2,1)[2048:])
         reports[game]=dict(placements=checks,header_translation_exact=True,lower_panel_unchanged=True,all_statuses_and_removal_restore=True,
                           added_oam_pieces=1,added_vram_per_regular_player=256,doubles_extension_transparent=True)
     (HERE/'build/layout-verification.json').write_text(json.dumps(reports,indent=2)+'\n')
+    alignment=dict(source='compiled ARM/OAM fixtures; no game boot or frames',corrected={
+        game:dict(release_sha256=hashlib.sha256((HERE/'build'/f'TypeIcons{game}.dll').read_bytes()).hexdigest(),
+                  dual_stack_screen=[[-64,-1],[-59,5]],mono_screen=[-62,1],
+                  name_shift=12,info_shift=8) for game in ('B2','W2')})
+    (HERE/'build/player-alignment-verification.json').write_text(json.dumps(alignment,indent=2)+'\n')
     print(json.dumps(reports,indent=2))
 
 def verify_capture(state_path, old_path):
