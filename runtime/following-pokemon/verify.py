@@ -13,11 +13,13 @@ HERE = Path(__file__).resolve().parent
 def verify(path):
     data = Path(path).read_bytes()
     code = data[12:16].decode('ascii', errors='replace')
-    contract_name = 'black2-contract.json' if code == 'IREO' else 'contract.json'
+    contract_name = {'IREO': 'black2-contract.json', 'IRDO': 'contract.json', 'IRDI': 'italy-contract.json'}.get(code)
+    if contract_name is None:
+        raise ValueError('Unsupported follower binary target')
     contract = json.loads((HERE / contract_name).read_text())
     target = contract['target']
     if data[12:16].decode('ascii', errors='replace') != target['gameCode'] or data[30] != target['revision']:
-        raise ValueError('Requires stock US Black 2 or White 2 revision 0')
+        raise ValueError('Requires the exact pinned revision-0 follower target')
     if hashlib.sha256(data).hexdigest() != target['sha256']:
         raise ValueError('Input does not match the pinned clean ROM SHA-256')
     rom = ndspy.rom.NintendoDSRom(data)
