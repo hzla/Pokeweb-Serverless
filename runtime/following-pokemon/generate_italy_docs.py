@@ -10,7 +10,7 @@ REPOS = HERE.parents[3]
 ASSETS = HERE.parents[1] / "src/assets/following/white2italy"
 
 CASES = [
- ("I01", "Cold boot 0.6.33 from an ordinary Italian IRDI save. Walk and run in four directions with a healthy non-Egg lead.", "Exactly one follower appears after walking; movement and controls remain responsive."),
+ ("I01", "Cold boot 0.6.38 from an ordinary Italian IRDI save. Walk and run in four directions with a healthy non-Egg lead.", "Exactly one follower appears after walking; movement and controls remain responsive."),
  ("I02", "Try an empty party, Eggs only, a fainted lead, and an all-fainted party before blackout.", "Selection follows the stock rules; no invalid actor or access during blackout."),
  ("I03", "Use small and large species, normal and shiny, alternate forms and gender differences; inspect up/down frames.", "Correct species/form palette and direction, with no placeholder except identified missing art."),
  ("I04", "Idle, turn rapidly, reverse into the follower and walk laterally beside a building.", "Idle animation works; overlap is passable and depth priority remains stable without building clipping."),
@@ -39,6 +39,11 @@ CASES = [
  ("I27", "Cold boot 0.6.31 with a small grounded follower and Serperior; compare their shadows with the player on flat ground and stairs.", "The sprite keeps its lowered artwork position while its full shadow stays at ground level, aligned with the player shadow. Serperior has a complete shadow rather than only its top half."),
  ("I28", "Cold boot 0.6.32 with Serperior. Face up and down on flat ground, then walk in both directions on stairs. Inspect the full shadow as well as the sprite; check left/right afterward.", "Facing up shifts shadow about seven pixels and art about five pixels upward; facing down shifts both about six pixels downward. Left/right positioning stays unchanged."),
  ("I29", "Cold boot 0.6.33 with Serperior, walk north until it overlaps the player, then check stairs and lateral movement beside a building.", "The north-facing follower draws in front of the player at the overlap; the confirmed sprite/shadow position and other depth cases remain stable."),
+ ("I30", "Cold boot 0.6.34 and walk a grounded follower through tall grass tile by tile. Repeat with a Flying-type follower and another terrain permission with a visible player step effect.", "The native terrain entry effect appears once per crossed tile for the grounded follower and does not appear for Flying types. No duplicate effect, shadow regression or change to Italian text."),
+ ("I31", "Cold boot 0.6.37 with a healthy visible follower. Press A+B to mount, walk and run in all directions, pause in a menu, then dismount.", "The seated rider stays on the Pokémon, movement follows Personal base Speed, and dismount returns the follower with its ball send-out effect."),
+ ("I32", "With HM03 and a Surf-knowing follower, ride toward water and return to land. Separately Surf on foot with a shiny or alternate-form Pokémon and one without custom art.", "The land mount hands off to its custom Surf sprite without a hop and returns on shore. Ordinary Surf prefers the selected follower, then the first party Surf knower; missing art uses the retail mount."),
+ ("I33", "Let Repel expire while walking and while land-mounted; choose No and Yes in separate runs.", "Both choices retain the follower or mount. Yes consumes one Repel; unrelated unsafe scripts retain their normal recall behavior."),
+ ("I34", "Cold boot 0.6.38 with Rapidash walking, then Reuniclus walking and A+B mounted. Check all directions while idle and moving, including lateral player overlap.", "Native shadows shade only the ground. Reuniclus walking keeps its existing appearance; while ridden, its pixels clear the player shadow, and rider and building priority stay stable."),
 ]
 
 
@@ -50,13 +55,13 @@ def generate():
     audit = json.loads((HERE / "build/white2italy/binary-audit.json").read_text())
     manifest = json.loads((ASSETS / "runtime.json").read_text())
     localized = json.loads((ASSETS / "interactions.json").read_text())
-    directional = REPOS / "White2Italy-Following-0.6.33-alpha.nds"
-    if manifest["version"] != "0.6.33-alpha" or localized["language"] != "it":
+    directional = REPOS / "White2Italy-Following-0.6.38-alpha.nds"
+    if manifest["version"] != "0.6.38-alpha" or localized["language"] != "it":
         raise ValueError("Italian release inputs differ from the audited package")
     lines = ["# Italian White 2 Following Pokémon", "",
              "The IRDI revision-0 port is installed through Pokeweb's Following Pokémon page. It includes stock species 1–649, movement, scenes, interactions, gifts and the existing Gen 5 art bundle.", "",
              "The current test ROM is available:", "",
-             f"- `White2Italy-Following-0.6.33-alpha.nds`: retains the facing-specific artwork/shadow anchors and restores the north-facing follower's prior foreground depth against the player; SHA-256 `{sha(directional)}`.", "",
+             f"- `White2Italy-Following-0.6.38-alpha.nds`: keeps A+B land riding, Gen 1–5 custom Surf sprites and Italian dialogue, and corrects Pokémon/shadow overdraw while walking or mounted; SHA-256 `{sha(directional)}`.", "",
              "Only the exact clean IRDI revision-0 source ROM is accepted. Italian saves use the `White2Italy-Following-*.sav` family; no US save is copied into it. If no Italian save is present, create one normally in the emulator.", "",
              "## Rebuild and verify", "",
              "Set `ITALIAN_W2_ROM` to the exact clean IRDI ROM and `ITALIAN_HGSS_ROM` to the Italian HeartGold ROM before running these commands from the Pokeweb repository root.",
@@ -67,17 +72,17 @@ def generate():
              "python3 runtime/following-pokemon/build_italy_language.py --language it --rom \"$ITALIAN_W2_ROM\"",
              "python3 runtime/following-pokemon/verify_italian_binary.py ../cleanwhite2.nds \"$ITALIAN_W2_ROM\"",
              "FOLLOWING_PROFILE=white2italy python3 runtime/following-pokemon/build.py \"$ITALIAN_W2_ROM\" --publish",
-             "npx vite-node scripts/verify-following-italy-install.ts \"$ITALIAN_W2_ROM\" runtime/following-pokemon/build/white2italy/White2Italy-Following-0.6.33-alpha.nds",
-             "npx vite-node scripts/verify-following-italy-upgrade.ts runtime/following-pokemon/build/white2italy/White2Italy-Following-0.6.32-alpha.nds runtime/following-pokemon/build/white2italy/italy-upgrade-check.nds",
+             "npx vite-node scripts/verify-following-install.ts ../../White2Italy-Following-0.6.38-alpha.nds",
+             "npx vite-node scripts/verify-following-installed-upgrade.ts ../../White2Italy-Following-0.6.37-alpha.nds",
              "npx vite-node scripts/verify-following-italy-assets.ts \"$ITALIAN_W2_ROM\"",
-             "npx vite-node scripts/verify-following-grounding.ts ../../White2Italy-Following-0.6.33-alpha.nds",
-             "python3 runtime/following-pokemon/audit_italy_memory.py ../../White2Italy-Following-0.6.33-alpha.nds",
+             "npx vite-node scripts/verify-following-grounding.ts ../../White2Italy-Following-0.6.38-alpha.nds",
+             "python3 runtime/following-pokemon/audit_italy_memory.py ../../White2Italy-Following-0.6.38-alpha.nds",
              "```", "",
-             "The prior alpha ROM in the build directory is retained for upgrade verification. Older release ROMs may be unavailable locally; the commands above build the current 0.6.33 package without overwriting saves.", "",
+             "The 0.6.37 ROM in `Repos/` is used for upgrade verification. The commands above build the current 0.6.38 package without overwriting saves.", "",
              "## Verification limits", "",
              f"Static audit: {audit['sites']} follower sites, {audit['scriptTableEntries']} script-table entries, {audit['safeCommands']} allowed commands, {audit['pmcHooks']} PMC hooks and {audit['pmcImports']} PMC imports checked.",
              "Packaged ARM946 instruction and relocation tests passed; clean install, reinstall, export/reopen, disable, removal and English-to-Italian update passed without launching an emulator. Italian retail message/script archives and stock object-code rows were preserved in the exported ROM.",
-             "Packaged field tests include 100 simulated follower conversations and 100 retained-actor scene cycles. A replacement artwork test passed through export/reopen without recompiling a DLL. The descriptor audit checks grounded/Flying offsets and unchanged retail rows; visual alignment remains for melonDS acceptance.",
+             "Packaged field tests include 100 simulated follower conversations and 100 retained-actor scene cycles, including both Repel choices. Land-input, rider draw, and Surf handoff tests use the translated final W2I modules. A replacement artwork test passed through export/reopen without recompiling a DLL. The descriptor audit checks grounded/Flying offsets and unchanged retail rows; visual alignment remains for melonDS acceptance.",
              "A later Pokeweb install report exposed a W2I/W2 DLL identity error after project persistence. Pokeweb now uses the loaded IRDI code when in-memory ROM bytes are absent and passes the retrieved source ROM to module staging. A focused identity test and clean-ROM installation/export round trip with a browser-storage stand-in pass; live browser confirmation remains pending.",
              "Game-emulator and DS hardware behavior are unverified. Use the separate human checklist for acceptance; a clean boot is required because a saved emulator state contains old runtime code.", ""]
     (HERE / "ITALY.md").write_text("\n".join(lines))
@@ -88,24 +93,28 @@ def generate():
     checklist += ["", "For any recall in I12–I14, capture `FollowingSceneDebug` reason/opcode/action and the field generation if possible. At I23, note actor count, heap use and texture/palette allocations when telemetry is available; mark them UNMEASURED otherwise.", ""]
     (HERE / "ITALY-CHECKLIST.md").write_text("\n".join(checklist))
     validation = ["# Italian White 2 follower validation", "",
-                  "Automated work executed for 0.6.33-alpha:", "",
+                  "Automated work executed for 0.6.38-alpha:", "",
                   f"- Exact IRDI SHA-256 and {audit['sites']} mapped hook/adapter signatures passed; {audit['translatedPointers']} translated pointers and {audit['translatedThumbCalls']} translated Thumb calls accounted for.",
                   f"- All {audit['scriptTableEntries']} script-table entries, {audit['safeCommands']} safe commands and {audit['safeFinishers']} finishers matched the target binary.",
                   f"- {audit['pmcHooks']} PMC hook sites and {audit['pmcImports']} imported entries matched. Exported PMC boot calls the Italian native initializer and overlay loader.",
                   "- W2I DLLs passed packaged ARMv5T call, relocation, stack, and movement-trail checks at three load addresses.",
+                  "- The native terrain-entry adapter has pinned IRDI bytes; grounded followers dispatch it once per crossed tile, while Flying followers skip it. Terrain visuals remain a human acceptance item.",
+                  "- Land-riding, custom Surf, and shore-transition hook bytes and translated native calls were audited against the exact IRDI binary; its seated rider source sheets match the US source sheets.",
+                  "- Packaged Surf catalog/party selection, entry hooks, cached jump draw, Repel Yes/No, mounted input, rider draw, and water/shore transitions passed CPU-level checks. In-game visual timing and graphics remain a human acceptance item.",
                   "- Packaged-runtime tests passed 100 simulated follower conversations, 100 conversation returns and 100 retained-actor scene cycles, including event-command policy checks and an Italian full-Bag response/rollback path.",
-                  "- Pokeweb clean install, idempotent install, export/reopen, disable/enable and removal passed. The 0.6.27-to-0.6.28 update preserved authored dialogue and gift rules.",
+                  "- Pokeweb clean install, idempotent install, export/reopen, disable/enable and removal passed. The 0.6.37-to-0.6.38 update retained enabled state and authored dialogue through export/reopen.",
                   "- A reported Pokeweb W2I/W2 installation error was traced to ROM bytes moving into browser storage. The DLL identity check now uses the loaded IRDI code when project bytes are absent; follower module staging receives the retrieved source ROM. A focused identity test and clean-ROM install/reinstall/export/reopen/disable/remove round trip with a browser-storage stand-in passed. Live browser recheck remains pending.",
                   "- Replacing one appearance asset passed export/reopen without rebuilding the DLLs.",
                   "- Grounding audit checked all 2,574 Italian appearances: 2,266 non-Flying and 308 Flying. Every appended descriptor Y is zero, and original stock descriptor rows and native shadow flags remain unchanged.",
                   "- Packaged draw-pass tests checked sprite-only vertical translation, immediate billboard restoration, and an unchanged native effects pass, including repeated flat and stair draws. GPU submission was simulated; no emulator visual test was run.",
+                  "- Walking and mounted shadow-depth tests check that submitted Pokémon quads clear the native ground-shadow footprint while their projected pixels, shadow ground anchor and later effects pass remain in place. Rapidash and mounted Reuniclus require human visual acceptance; walking Reuniclus is a control case.",
                   "- Packaged control-offset checks verified north/south adjustments affect only the follower's native control-Z byte, leaving world/grid/collision coordinates unchanged. The north two-pixel artwork correction is draw-only; visual pixel alignment requires emulator review.",
                   "- A north-facing draw regression compares the corrected submission with the pre-anchor foreground depth while preserving its new projected position and the native shadow/effect pose. Stair, lateral and unrelated actor depth policies are unchanged; emulator visual acceptance remains pending.",
                   "- Italian HeartGold reaction/motion/emote archives matched pinned layouts. All 27 selected messages imported without truncation; accented è and substitutions were validated. The Bag-full response matches Italian White 2 retail text.",
                   "- Italian retail text/script archives, personal data, appearance data and original object-code rows were byte-preserved by export.", "",
-                  "The user confirmed the tested sprite/shadow positioning, then reported that the player covered Serperior while walking north. Visual acceptance of the 0.6.33 depth correction is **pending**. DS-family hardware results: **not tested**. Automated checks cannot establish in-game field timing, native heap behavior or visual correctness.", ""]
+                  "The user confirmed the tested sprite/shadow positioning, then reported that the player covered Serperior while walking north. Visual acceptance of the 0.6.33 depth correction, 0.6.34 terrain effects, and new land/Surf presentation is **pending**. DS-family hardware results: **not tested**. Automated checks cannot establish in-game field timing, native heap behavior or visual correctness.", ""]
     (HERE / "ITALY-VALIDATION.md").write_text("\n".join(validation))
-    print("Generated Italian release notes, validation record and 29 human emulator cases; no emulator test was run.")
+    print("Generated Italian release notes, validation record and 34 human emulator cases; no emulator test was run.")
 
 
 if __name__ == "__main__":

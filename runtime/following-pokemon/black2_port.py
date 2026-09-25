@@ -58,6 +58,7 @@ def generate_contract(rom_path: Path, output: Path | None = None) -> dict:
     source = json.loads((HERE / "contract.json").read_text())
     segments = _segments(rom_path, source)
     result = json.loads(json.dumps(source))
+    # All follower, land-riding, and Surf hooks are pinned independently for IREO.
     result["target"] = {"gameCode": "IREO", "revision": 0, "sha256": BLACK2_SHA256}
     result["structureEvidence"]["field"]["status"] = "offset checked against the IREO revision-0 field binary; live emulator acceptance pending"
     result["structureEvidence"]["status"] = "IREO binary layouts and adapters verified; live emulator acceptance pending"

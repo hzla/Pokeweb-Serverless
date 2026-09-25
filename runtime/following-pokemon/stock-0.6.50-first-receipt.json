@@ -1,0 +1,8 @@
+{
+  "version": "0.6.50-alpha",
+  "fieldSha256": "575da2242fc11c90b1810999c4e2ea2d2699f9830ed977ee131fb37065583fbb",
+  "eventsSha256": "b60b13f1ab9d250dbc7ab8b650529fb5c4683b19f8b2d2fb3f82432091bf9670",
+  "eventsAbi": 4,
+  "coreSha256": "4c9d3557ecdc44cf8a70e23a50782eefe64da78174a61d4dc5b07be4f30031f6",
+  "coreAbi": 2
+}

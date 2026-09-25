@@ -79,6 +79,7 @@ def generate_contract(us_path: Path, italian_path: Path, output: Path | None = N
     ids = {int(site["segment"]) for site in sites if site["segment"] != "ARM9"}
     source_segments, target_segments = segments(us, ids), segments(italy, ids)
     result = json.loads(json.dumps(contract))
+    # All follower, land-riding, and Surf hooks are pinned independently for IRDI.
     result["target"] = {"gameCode": "IRDI", "revision": 0, "sha256": ITALIAN_SHA256}
     result["structureEvidence"]["status"] = "Italian binary contract; emulator acceptance pending"
     result["structureEvidence"]["field"]["status"] = "Italian overlay-36 layout requires separate verification"

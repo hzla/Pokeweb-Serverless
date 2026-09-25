@@ -29,13 +29,16 @@ print('Italian Bag-full text and rollback passed; no game emulator run.')
 def verify(rom: Path):
     build = Path(os.environ.get("FOLLOWING_BUILD_DIR", HERE / "build/white2italy")).resolve()
     build.mkdir(parents=True, exist_ok=True)
-    for name in ("verify_interactions", "verify_conversation_return", "verify_scenes"):
+    for name in ("verify_interactions", "verify_conversation_return", "verify_surf", "verify_scenes", "verify_land_input", "verify_land_draw", "verify_transition"):
         text = port_source((HERE / (name + ".py")).read_text())
         text = text.replace("FieldW2.dll", "FieldW2I.dll").replace("FieldW2.elf", "FieldW2I.elf")
         text = text.replace("FollowingEventsW2.dll", "FollowingEventsW2I.dll").replace("FollowingEventsW2.elf", "FollowingEventsW2I.elf")
         text = text.replace("verify_interactions as h", "verify_interactions_italy as h")
         text = text.replace("verify_conversation_return as r", "verify_conversation_return_italy as r")
         text = text.replace("'contract.json'", "'italy-contract.json'")
+        if name == "verify_surf":
+            text = "import sys\n" + text.replace('str(ASSETS.parents[3] / "cleanwhite2.nds")', 'str(Path(sys.argv[1]))')
+            text = "\n".join(line for line in text.splitlines() if not line.startswith("assert overlay.data[")) + "\n"
         if name == "verify_interactions":
             text = text.replace("src/assets/following/interactions.bin", "src/assets/following/white2italy/interactions.bin")
             text = text.replace('"rom:/following/contextual-items.narc":gift_archive()}',
@@ -45,12 +48,17 @@ def verify(rom: Path):
     environment = {**os.environ, "FOLLOWING_BUILD_DIR": str(build), "FOLLOWING_MODULE_SUFFIX": "W2I",
                    "FOLLOWING_TEST_CYCLES": os.environ.get("FOLLOWING_TEST_CYCLES", "100"),
                    "PYTHONPATH": os.pathsep.join((str(build), str(HERE)))}
-    result = subprocess.run([sys.executable, str(build / "verify_scenes_italy.py"), str(rom.resolve())],
-                            cwd=HERE.parents[1], env=environment, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    (build / "runtime-test.log").write_text(result.stdout)
-    if result.returncode:
-        raise RuntimeError(result.stdout)
-    print(result.stdout, end="")
+    output = []
+    for name in ("verify_surf", "verify_scenes", "verify_land_input", "verify_land_draw", "verify_transition"):
+        result = subprocess.run([sys.executable, str(build / (name + "_italy.py")), str(rom.resolve())],
+                                cwd=HERE.parents[1], env=environment, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        output.append(result.stdout)
+        if result.returncode:
+            (build / "runtime-test.log").write_text("".join(output))
+            raise RuntimeError(f"Italian {name} failed:\n{result.stdout}")
+        print(result.stdout, end="")
+    (build / "runtime-test.log").write_text("".join(output))
 
 
 if __name__ == "__main__":

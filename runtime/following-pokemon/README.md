@@ -1,24 +1,154 @@
 # Following Pokémon for Black 2 and White 2 — development package
 
+Black 2 **0.6.37-alpha**, White2Upgrade **0.7.32-alpha**, and Italian White 2
+**0.6.38-alpha** include A+B land riding, custom Surf art, the mounted
+water/shore handoff, both Repel continuation choices, and a draw-only shadow
+depth correction for walking followers and mounted Pokémon. Black 2 and Italian
+White 2 use the Gen 1–5 Surf catalog; White2Upgrade retains Gen 6–9 art.
+Each profile has its own PMC modules, binary contract, installer receipt, and
+save family. Packaged checks passed; cold-boot emulator acceptance is pending.
+
 Italian White 2 has a separate **IRDI revision-0** profile with W2I PMC modules.
-The current **0.6.33-alpha** keeps Italian dialogue and the direction-specific
-artwork/shadow anchors, while restoring north-facing foreground draw priority.
+The earlier **0.6.34-alpha** added native tile-entry effects for grounded followers
+while keeping Italian dialogue and the direction-specific artwork/shadow anchors.
 The English-dialogue 0.6.27 and earlier Italian alphas are historical builds. See the [Italian build and
 compatibility notes](ITALY.md), [validation record](ITALY-VALIDATION.md), and
 [human melonDS checklist](ITALY-CHECKLIST.md). Emulator acceptance is pending.
 
-Stock US Black 2 is available as **0.6.32-alpha** through the same dedicated
+Stock US Black 2 is available as **0.6.37-alpha** through the same dedicated
 Pokeweb editor. It uses separate `B2` PMC modules and a pinned IREO revision-0
 binary contract while sharing the stock Gen 5 sprite and interaction data. See
 [Black 2 compatibility and build details](BLACK2.md) and its
 [human emulator checklist](BLACK2-CHECKLIST.md). Black2Upgrade is not supported.
 
-White2Upgrade has a separate **0.7.23-alpha** profile with species 1–1023,
-available Gen 6–9 artwork and explicit missing-art/form placeholders. See
+Stock US White 2 **0.6.63-alpha** submits walking followers and mounted
+Pokémon ahead of their native ground shadows when a low billboard would be
+darkened by a later shadow pass. This changes only the submitted sprite depth;
+the projected art, native ground shadow, and logical actor position are retained.
+Packaged draw tests passed. Rapidash and mounted Reuniclus still need human
+visual acceptance, as do player/building overlaps.
+
+Stock US White 2 **0.6.62-alpha** preserves a walking follower or land mount
+when the player chooses Yes to continue using Repel. The retail item-use
+command is allowed only in the Repel continuation script; choosing No and
+unrelated unsafe scenes retain their existing behavior. The 0.6.61 terrain
+and Surf-transition fixes remain included. Human emulator acceptance is pending.
+
+Stock US White 2 **0.6.61-alpha** keeps the land rider's texture allocations
+alive through the first Surf frame. It loads the Surf materials before ending
+land-mount drawing, then releases the old rider textures after queued draw
+commands have cleared. This targets the one-frame striped sprite seen while
+turning into water. Entry also waits until the mounted player has reached the
+tile center; a completed two-tile shore exit corrects only the exact one-tile
+grid/visual mismatch seen in a supplied state. Cold-boot visual acceptance,
+including the Humilau City–Route 21 crossing, is pending.
+
+Stock US White 2 **0.6.60-alpha** requires the front tile's Water flag before
+starting the seamless land-mount Surf handoff. Humilau's light-blue
+Splash-only beach tiles remain land, even when their terrain class looks like
+water; Water+Splash shallows and ordinary Water tiles still qualify when
+native Surf permission passes. Cold-boot visual acceptance is pending.
+
+Stock US White 2 **0.6.59-alpha** recognizes water-flagged shoreline tiles
+such as Humilau's sand-water edge using the native two-tile collision and
+landing checks. It also keeps the chosen Surf mount across a party-menu
+round trip when the Pokémon and location are unchanged, and waits a field
+frame after loading Surf textures before drawing them to avoid transient
+striped pixels during land-to-water entry. Cold-boot visual acceptance is
+pending.
+
+Stock US White 2 **0.6.58-alpha** animates the land-mounted Pokémon's normal
+two-pose stride while walking as well as running. On the raised pose, its
+submitted sprite and seated rider rise together by one pixel; the player's
+ground shadow and actor positions stay unchanged. Holding B halves the pose
+duration, and stopping returns the rider to its seated idle pose. Human
+visual acceptance is pending.
+
+Stock US White 2 **0.6.57-alpha** keeps the custom Surf sprite hidden until
+the native entry effect supplies a mount object, then anchors it to the rider
+during the no-hop transfer. This addresses the transient broken sprite and
+the sprite appearing away from the rider before landing. The water guard now
+includes the game's ocean-water terrain IDs, including Humilau's `0x3f` tile,
+alongside the previously supported shoreline types. Cold-boot visual
+acceptance is pending.
+
+Stock US White 2 **0.6.56-alpha** aligns mounted Surf entry with the newly
+pressed direction. The native Surf task reads the player actor's facing when
+it creates the effect and selects its movement; a turn toward water could
+therefore use the previous facing and stop short of the water. Entry now turns
+the actor before starting the task and uses the saved input direction for its
+no-hop tile transfer. Event-creation failure restores the old facing. Human
+visual acceptance is pending.
+
+Stock US White 2 **0.6.55-alpha** fixes automatic land-mount Surf entry for a
+follower in the first party slot. The follower's selection slot can remain
+unresolved (`-1`) when the lead was chosen automatically; the land mount has
+already resolved the actual slot. Water entry now uses that validated mount
+slot. The user-supplied mounted state confirmed Arceus knew Surf, HM03 was in
+the Bag, and the adjacent tile was eligible water, but the old handoff
+rejected the unresolved slot. A new cold-boot visual check is pending.
+
+Stock US White 2 **0.6.54-alpha** retained a walking follower or land mount
+through the Repel continuation prompt and its No branch. Later user testing
+found that Yes still recalled when its item-use command ran. That remaining
+branch is addressed in 0.6.62. The field-event wrapper must have its native
+work shape, and prompt exceptions require Repel script 10144.
+
+Stock US White 2 **0.6.53-alpha** includes temporary land riding for the selected,
+visible, healthy follower. While stopped, press A+B together or hold one and
+press the other to mount or dismount. The bike-free animated rider uses the selected
+appearance's measured two-pose midpoint; Arceus's side poses are lifted ten
+pixels onto its back without moving any other pose. Flat-grid travel follows a capped Personal base-Speed curve: base Speed 0
+matches walking, Speed 100 matches the bicycle, and Speed 234 or higher is
+limited to one tile per frame. Holding B while moving speeds up the Pokémon's
+two-frame alternation and the trainer's three moving poses. Only the native
+bicycle's hair/upper-body animation is used; its handles, wheels and standing
+stop poses are excluded. On stopping, the rider remains seated.
+With HM03 in the Bag, moving toward water while riding a Pokémon that knows
+Surf starts that Pokémon's native Surf effect and carries it onto water without
+a jump. A valid shore exit returns to the same land mount without a hop.
+The selected mount cannot be replaced by a different party Surf user during
+this handoff. Missing HM03, Surf, usable art or permission leaves land riding
+intact. Each successful manual A+B mount plays the stock Surf-hop sound once.
+Ordinary menus pause the mount; doors, ordinary Surf begun on foot, battles,
+party changes and unsafe scenes end it. A cold reload resumes on foot.
+Only the selected anchor record and twelve rider textures load while mounted.
+After dismount, the follower waits for a safe trailing tile and returns with
+the normal ball send-out effect.
+See the [human checklist](EMULATOR-CHECKLIST.md); visual acceptance is pending.
+
+White2Upgrade has a separate **0.7.31-alpha** profile with species 1–1023,
+available Gen 6–9 land artwork, party-selected Surf mounts and explicit missing-art/form placeholders. See
 [White2Upgrade compatibility, build and limitations](WHITE2UPGRADE.md) and its
-[human checklist](WHITE2UPGRADE-CHECKLIST.md). Stock White 2 uses 0.6.32-alpha.
+[human checklist](WHITE2UPGRADE-CHECKLIST.md). Stock White 2 uses 0.6.62-alpha.
 The user accepted stock 0.6.10 as good enough; expansion emulator acceptance is
 still pending.
+
+Stock 0.6.49 and White2Upgrade 0.7.30 choose the current land follower as the
+Surf mount when it knows Surf. Otherwise they use the first non-Egg Surf knower
+in party order. Cycling with L/R changes that preference without reordering
+the party. Native Surf permission and the existing artwork fallback remain.
+Packaged CPU checks passed; in-game acceptance is pending.
+
+Stock 0.6.46 gives grounded followers the native grass fringe by querying the
+grid tile under the follower and asking the field-effect controller to create
+its grass task. The movement-context dispatcher that froze 0.6.44 remains
+disabled. Other terrain effects and in-game visual acceptance are pending.
+
+Stock 0.6.47, Black 2 0.6.34 and White2Upgrade 0.7.28 add overworld follower
+cycling. Tap R for the next eligible party member or L for the previous one;
+the order wraps without changing party slots. The visible follower recalls
+before the next one appears with a send-out effect. Eggs are skipped, healthy
+members take priority, and repeated input during an effect is ignored. The
+choice is field-runtime state rather than save data. The earlier Italian cycling
+build was withheld after its packaged scene check failed; the current Italian
+package includes cycling and passes the packaged scene check.
+
+Stock 0.6.48, Black 2 0.6.35 and White2Upgrade 0.7.29 retain the player route
+through the recall effect. The preceding cycle build could leave a wide follower
+hidden after a horizontal switch until the player moved again. The new build
+resummons it from the retained route; left and right wide-sprite cases now pass
+the packaged CPU check. In-game visual acceptance is pending.
 
 The preceding alphas lowered grounded artwork using the follower descriptor's
 vertical offset. Native shadow drawing also reads that offset: the user observed

@@ -17,7 +17,7 @@ BLACK2=PROFILE=='black2'
 ITALY=PROFILE=='white2italy'
 BUILD=Path(os.environ.get('FOLLOWING_BUILD_DIR', HERE/('build/white2upgrade' if UPGRADE else 'build/black2' if BLACK2 else 'build/white2italy' if ITALY else 'build')))
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
-VERSION='0.7.23-alpha' if UPGRADE else '0.6.33-alpha' if ITALY else '0.6.32-alpha'
+VERSION='0.7.32-alpha' if UPGRADE else '0.6.38-alpha' if ITALY else '0.6.63-alpha' if PROFILE=='stock' else '0.6.37-alpha'
 SUFFIX='B2' if BLACK2 else 'W2I' if ITALY else 'W2'
 CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'italy-contract.json' if ITALY else 'contract.json')
 os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX
@@ -25,8 +25,8 @@ def run(*args): subprocess.run([str(a) for a in args],check=True)
 def dedupe_versions(entries):
     seen=set(); result=[]
     for entry in entries:
-        key=entry.get('version')
-        if key==VERSION: continue
+        key=(entry.get('version'),entry.get('fieldSha256'))
+        if entry.get('version')==VERSION: continue
         if key in seen: continue
         seen.add(key);result.append(entry)
     return result
@@ -40,6 +40,10 @@ def build(rom, publish=False):
         if hashlib.sha256(Path(rom).read_bytes()).hexdigest()!=contract['sourceRomSha256']:
             raise ValueError('Input does not match the pinned White2Upgrade source ROM SHA-256')
     else: verify(rom)
+    if BLACK2:
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_black2_mount_binary.py',WORKSPACE/'cleanwhite2.nds',rom)
+    if UPGRADE:
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_upgrade_mount_binary.py',rom)
     if ITALY:
         from verify_italian_binary import verify as verify_italian_binary
         audit=verify_italian_binary(Path(os.environ.get('FOLLOWING_US_BASELINE',WORKSPACE/'cleanwhite2.nds')),Path(rom))
@@ -64,14 +68,14 @@ def build(rom, publish=False):
     elif ITALY:
         from italy_port import port_source
     objects=[]
-    for name in ['core','object_codes','registry','following','field','effects','reactions','interaction','gifts','events','scene','render','render_math']:
+    for name in ['core','object_codes','registry','following','field','effects','reactions','interaction','gifts','events','scene','render','render_math','surf','land','land_speed','transition']:
         obj=BUILD/(name+'.o');objects.append(obj)
         source=HERE/(name+'.c')
         if BLACK2 or ITALY:
             source=BUILD/(name+'.c');source.write_text(port_source((HERE/(name+'.c')).read_text()))
         run(TOOLS/'arm-none-eabi-gcc','-mthumb','-mcpu=arm946e-s','-Os','-std=c11',
             '-fno-jump-tables','-ffreestanding','-fvisibility=hidden','-fno-builtin','-fno-unwind-tables','-fno-asynchronous-unwind-tables',
-            '-I',HERE,*(['-DFW_UPGRADE=1'] if UPGRADE else []),*(['-DFW_BLACK2=1'] if BLACK2 else []),*(['-DFW_ITALY=1'] if ITALY else []),'-Wall','-Wextra','-Werror','-c',source,'-o',obj)
+            '-I',HERE,'-DFW_MOUNT=1','-DFW_ARCEUS_SURF=1',*(['-DFW_STOCK=1'] if PROFILE=='stock' else []),*(['-DFW_UPGRADE=1'] if UPGRADE else []),*(['-DFW_BLACK2=1'] if BLACK2 else []),*(['-DFW_ITALY=1'] if ITALY else []),'-Wall','-Wextra','-Werror','-c',source,'-o',obj)
     def assembly(name):
         source=HERE/name
         if BLACK2 or ITALY:
@@ -109,8 +113,11 @@ def build(rom, publish=False):
     actual=sorted(t for t in re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',events_dump.decode()) if t[1]!='base')
     if actual!=expected:raise ValueError('Unexpected event module hooks: '+repr(actual))
     run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('field.s'),'-o',BUILD/'field-hooks.o')
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('surf.s'),'-o',BUILD/'surf-hooks.o')
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('land.s'),'-o',BUILD/'land-hooks.o')
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('transition.s'),'-o',BUILD/'transition-hooks.o')
     field=BUILD/f'PokewebFollowingField{SUFFIX}.elf'
-    run(TOOLS/'arm-none-eabi-ld','-r',BUILD/'field.o',BUILD/'effects.o',BUILD/'following.o',BUILD/'reactions.o',BUILD/'interaction.o',BUILD/'gifts.o',BUILD/'scene.o',BUILD/'render.o',BUILD/'render_math.o',BUILD/'field-hooks.o','-o',field)
+    run(TOOLS/'arm-none-eabi-ld','-r',BUILD/'field.o',BUILD/'effects.o',BUILD/'following.o',BUILD/'reactions.o',BUILD/'interaction.o',BUILD/'gifts.o',BUILD/'scene.o',BUILD/'render.o',BUILD/'render_math.o',BUILD/'surf.o',BUILD/'surf-hooks.o',BUILD/'land.o',BUILD/'land_speed.o',BUILD/'land-hooks.o',BUILD/'transition.o',BUILD/'transition-hooks.o',BUILD/'field-hooks.o','-o',field)
     field_dll=BUILD/f'PokewebFollowingField{SUFFIX}.dll'
     field_dll.unlink(missing_ok=True)
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',field,'--fourcc','DLXF','-o',field_dll,
@@ -131,8 +138,23 @@ def build(rom, publish=False):
     run(os.environ.get('PYTHON','python3'),HERE/'verify_anchor.py')
     if UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_interactions.py')
     if ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_italy_runtime.py',rom)
+    elif BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_black2_runtime.py',rom)
     elif not BLACK2 and not ITALY and not UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
     if not BLACK2 and not ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_render.py')
+    if PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_surf.py')
+    if PROFILE=='stock':
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_land.py')
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_land_draw.py')
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_land_input.py',rom)
+    if PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_cycle.py',rom)
+    if PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_transition.py')
+    if UPGRADE and (REPO/'src/assets/following/white2upgrade/surf-registry.bin').exists():
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_surf_upgrade.py',rom)
+    if UPGRADE:
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_scenes.py',rom)
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_land_input.py',rom)
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_land_draw.py')
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_transition.py')
     if publish:
         import hashlib, shutil
         assets=REPO/'src/assets/following'
@@ -149,7 +171,7 @@ def build(rom, publish=False):
             interaction_manifest=assets/'interactions.json' if old_current['version']!='0.6.27-alpha' else REPO/'src/assets/following/interactions.json'
             previous_interactions=json.loads(interaction_manifest.read_text())
             old_current.update(interactionsSha256=previous_interactions['dataSha256'],emotesSha256=previous_interactions['emotesSha256'],effectsSha256=json.loads((REPO/'src/assets/following/effects.json').read_text())['sha256'])
-        previous_versions=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])) if BLACK2 or ITALY else dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'stock-0.6.15-receipt.json').read_text()),json.loads((HERE/'stock-0.6.14-receipt.json').read_text()),json.loads((HERE/'stock-0.6.13-receipt.json').read_text()),json.loads((HERE/'stock-0.6.12-receipt.json').read_text()),json.loads((HERE/'stock-0.6.11-receipt.json').read_text()),
+        previous_versions=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])) if BLACK2 or ITALY else dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'stock-0.6.50-first-receipt.json').read_text()),json.loads((HERE/'stock-0.6.15-receipt.json').read_text()),json.loads((HERE/'stock-0.6.14-receipt.json').read_text()),json.loads((HERE/'stock-0.6.13-receipt.json').read_text()),json.loads((HERE/'stock-0.6.12-receipt.json').read_text()),json.loads((HERE/'stock-0.6.11-receipt.json').read_text()),
             {'version': '0.6.9-alpha', 'fieldSha256': '75646645ec262e5a07dade75af572b490dddabdf1d299ef4885753b9280a813b', 'eventsSha256': 'c99bc16f9745df1b8647cf169f9e2c2de8599b25c05953b395dc649417797fb9', 'eventsAbi': 2, 'coreSha256': '3a442efc82ab76ed525d24931320e51ff9d631c2da3736c4039e9ddc5d231b30', 'coreAbi': 1, 'registrySha256': '30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58', 'descriptorsSha256': 'f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939', 'resourcesSha256': 'c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6', 'effectsSha256': 'd910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0', 'interactionsSha256': 'e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894', 'emotesSha256': 'ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7'},
             {'version': '0.6.8-alpha', 'fieldSha256': '481b56d37d2be98ff8db891642f76b181c8eb1b5923d6542e6517070e33d0555', 'eventsSha256': '51f3a5ad5aeefcef8b0403607c79ba8c8237f950adf5ec7525d091863f080636', 'eventsAbi': 2, 'coreSha256': '23c286b07ba85a1576551fc56a349dfec79ff1910a5f1817c3863a4a925f7d35', 'coreAbi': 1, 'registrySha256': '30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58', 'descriptorsSha256': 'f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939', 'resourcesSha256': 'c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6', 'effectsSha256': 'd910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0', 'interactionsSha256': 'e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894', 'emotesSha256': 'ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7'},
             {'version':'0.6.7-alpha','fieldSha256':'23a347b389cddcdd403b2127231424900e1ba7cc0ce58207bb5b4199580824e9','eventsSha256':'9536e2f107454e71fd0b5bf23bc4fe56eaa1a46743823b770f33734fcafd0767','eventsAbi':2,'coreSha256':'0b2e4aea438da6ce6920ce535ee5a4e1bbf18131032fb1fcbc36e071ea6a827b','coreAbi':1,'registrySha256':'30192d1ca20b6fae62a88421e8b505ac35202d4d5efa5c59fbcf7b62dcce2f58','descriptorsSha256':'f24b7c6833abd6d6a81078235b23875c8d79aac96862ff2b07ca0d26cf779939','resourcesSha256':'c18ccf5f1b16b85f33d727f01ca9f8a749ce75bfca20cfec6d74cd6a1249aec6','effectsSha256':'d910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0','interactionsSha256':'e0755091c6e7993d6573d0b9e1b574dd22084cf46ad4af3ac2f6313687907894','emotesSha256':'ca753098e14141d4b92a1f151271df099e3a516590d0febd8de911fd6346f1f7'},
@@ -167,7 +189,10 @@ def build(rom, publish=False):
             {'version':'0.3.1-alpha','fieldSha256':'c6dc102b29bab9fb7cd8a8522f8437e58eab1a423dc4e4193ac18ac991a09a21','effectsSha256':'d910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0'},
             {'version':'0.3.0-alpha','fieldSha256':'5ce8ecd2833ff53c4b2531621fff8527508c5931f9d0610de3b8626bdb7c8e5d','effectsSha256':'d910abbbf20657bd180d124a6f888574c8c2f091e02348e707c5fd29e879a5f0'}
         ])
-        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,'fieldSha256':hashlib.sha256(field_dll.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(events_dll.read_bytes()).hexdigest(),'eventsAbi':4,'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':2,'previousVersions':previous_versions},indent=2)+'\n')
+        if PROFILE=='stock':
+            first_053=json.loads((HERE/'stock-0.6.53-first-receipt.json').read_text())
+            previous_versions=[first_053]+[entry for entry in previous_versions if entry.get('fieldSha256')!=first_053['fieldSha256']]
+        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,'fieldSha256':hashlib.sha256(field_dll.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(events_dll.read_bytes()).hexdigest(),'eventsAbi':5,'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':2,'previousVersions':previous_versions},indent=2)+'\n')
     if publish and UPGRADE:
         manifest=json.loads((assets/'runtime.json').read_text())
         manifest['previousVersions']=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'upgrade-0.7.6-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.5-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.4-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.3-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.2-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.1-receipt.json').read_text())])

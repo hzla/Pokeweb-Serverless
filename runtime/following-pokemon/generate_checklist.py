@@ -21,6 +21,7 @@ path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
 path.write_text(text)
+
 print(f'Regenerated {len(ASSET_CASES)} Gen 5 sprite cases; no emulator tests executed.')
 CASES=[
 ('C01',f'Cold boot {VERSION} from an ordinary save. Walk two tiles, stop, turn toward the follower without walking into it, then tap A.','One visible follower faces the player; an HGSS motion/cry/emote and English response play. A/B closes the text; follower stays visible and movement resumes.'),
@@ -230,3 +231,253 @@ text=path.read_text()
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
 path.write_text(text)
+
+SURF_VERSION='0.6.49'
+SURF_CASES=[
+('SF01','Cold boot stock White 2 0.6.49 with a normal Swimming-folder Pokémon that knows Surf in party slot 1. Surf north, south, west and east.','Its four-direction swimming animation replaces the retail mount; the native seated rider and ripple remain. The rider keeps the approved ten-pixel lift while mounted.'),
+('SF02','Put two Pokémon that know Surf in the party, then use L/R to follow the later one. Start Surf and repeat after selecting the earlier one.','The currently selected follower supplies the mount in both cases, even when another Surf knower appears earlier in party order.'),
+('SF03','Test a shiny Surf knower and an eligible native-form variant with matching source sheets.','Matching shiny/form artwork appears. If a shiny form sheet is missing, same-form normal color takes priority over shiny base art.'),
+('SF04','Select a follower that does not know Surf with L/R, with Surf knowers in later party slots. Try Surf in each move slot, then reorder the party.','The first non-Egg Surf knower in party order supplies the mount when the selected follower lacks Surf. All four move slots are honored.'),
+('SF05','Try a fainted Surf knower, a move with zero PP, an Egg with Surf before a valid knower, and a party with no Surf knower.','Fainted and zero-PP members can supply art. Eggs are skipped. No qualifying member uses the retail mount; native Surf permission checks still decide whether entry is allowed.'),
+('SF06','Start Surf from shore in each reachable facing direction and watch the complete hop frame by frame.','The old 3D mount is suppressed during entry, the matching custom pose appears as its textures load, the rider draw priority is unchanged, and the ripple continues.'),
+('SF07','Surf and dismount repeatedly; change party order or moves, cross a map seam, enter a battle, save, and cold reload.','The mount tracks the current party, resources release on field teardown, and exactly one land follower resumes after dismount.'),
+('SF08','Cold boot with Azumarill knowing Surf. Compare its size with Arceus, then move while facing down and stop at several phases, including the location of facingdown.mln.','Azumarill uses a 32-pixel texture at half its 0.6.40 display size; Arceus remains 64 pixels. The rider stays behind the south-facing mount throughout movement and idle, with no alternating overlap.'),
+('SF09','Cold boot 0.6.49, Surf west onto the shore at the location of disembark.mln, and watch the last frames of the hop. Repeat in other reachable directions.','Once the mount disappears, the rider loses the ten-pixel riding lift immediately and follows the native landing arc; no brief invisible-platform pause or sudden extra drop occurs.'),
+('SF10','Cold boot 0.6.49, select a Surf knower with L/R while another Surf knower is earlier in the party, and enter Surf. Select a non-Surf follower and repeat.','The selected Surf-capable follower supplies the first mount. With a non-Surf follower, the first Surf knower in party order supplies the second mount. The selected land follower returns on dismount.'),
+]
+start='<!-- generated-surf:start -->';end='<!-- generated-surf:end -->'
+section=start+f'''\n## Start here: {SURF_VERSION}-alpha party Surf acceptance
+
+Use `White2-Following-{SURF_VERSION}-alpha.nds` and its same-basename `.sav` from the workspace parent directory. Cold boot from an ordinary save; old emulator states contain earlier runtime code. These cases target stock US White 2; White2Upgrade Surf has separate U26 and U30 cases. The rows below are **NOT RUN** until you record results. Earlier checklist sections remain available as regression cases.
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+'''
+section+=''.join(f'| {case} | {steps} | {expected} | NOT RUN |\n' for case,steps,expected in SURF_CASES)
+section+='\nFor a failure, record direction, Surf animation phase, selected party member, map, ROM hash and a state made with this ROM. The following runtime exports `FollowingSurfDebug` with loaded/active, capture/draw counts, frame and failure reason. Do not resume a state created by an older build.\n'+end
+text=path.read_text()
+if start in text and end in text:
+    text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+elif start in text:
+    # Repair a prior generated file that has a start marker without an end.
+    text=text.replace(start,section,1)
+else:
+    text=text.replace('## Start here:',section+'\n\n## Start here:',1)
+path.write_text(text)
+print(f'Regenerated {len(SURF_CASES)} Surf cases; no emulator tests executed.')
+
+TERRAIN_CASES=[
+('TE01','Cold boot stock White 2 0.6.46 with the matching save. Spawn a grounded follower in grass, then walk several tiles through grass and pavement.','A grass fringe appears under the follower when it first becomes visible in grass and on each grass tile entered. It disappears after leaving grass. The game remains responsive.'),
+('TE02','Repeat TE01 with a Flying-type follower and a large grounded follower. Stop, turn, open a menu, and resume walking.','Flying followers have no grass fringe. Grounded followers retain their grass fringe while stationary. No duplicate effect, shadow loss, or freeze.'),
+('TE03','Walk across dust, footprints, shallow water, stairs and bridge tiles where the player creates a native effect.','This build targets grass only; record those other missing effects for the next terrain pass. The unsafe native movement-context dispatcher remains unused.'),
+('TE04','Cold boot 0.6.46 with the matching save. Walk, then run repeatedly across the Virbank Complex / Virbank City matrix-0 seam in both directions. Repeat beside another seamless zone boundary.','The follower stays visible through the seam at walking and running speed, without a recall/send-out animation or duplicate actor. Scripted player moves and warps still recall normally.'),
+]
+start='<!-- generated-terrain:start -->';end='<!-- generated-terrain:end -->'
+section=start+'\n## Start here: 0.6.46-alpha stock grass and running seam\n\nThese checks are NOT RUN. Cold boot the matching versioned ROM and ordinary save; do not resume an older state. The supplied `noterrain.mln`, `noterrain2.mln`, `transitionrecall.mln`, and `followerfreeze.mln` contain older runtime code. This build uses the native grid-attribute query and grass task while keeping the unsafe movement-context dispatcher disabled.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in TERRAIN_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-surf:start -->',section+'\n\n<!-- generated-surf:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(TERRAIN_CASES)} terrain cases; no emulator tests executed.')
+
+CYCLE_CASES=[
+('CY01','Cold boot 0.6.48 with three healthy non-Egg party Pokémon. On open ground tap R twice, then L once; repeat at both ends of the party order.','R advances and L reverses through eligible party slots with wraparound. Each switch recalls the old follower before sending out the next; the party order does not change.'),
+('CY02','Press both shoulders together, hold one shoulder, and press either again during recall and send-out. Repeat while talking, in a menu, at a door, and during Surf.','Both shoulders together do nothing; one held press switches once. Input during an effect or another field owner cannot start another switch or leave two follower actors.'),
+('CY03','Place an Egg and a fainted Pokémon between two healthy members. Try a party with only one eligible member, then a party where every non-Egg is fainted.','Eggs are skipped. Healthy members take priority when available; if all are fainted, non-Egg members can be selected. One eligible member does not recall itself.'),
+('CY04','Select a follower with L/R, then open and close the menu and PC without changing the party. Reorder the party, cross a seamless zone, and try a battle.','The party order remains unchanged by cycling, and exactly one eligible follower returns after each transition. The manual choice survives actor-system replacement but may reset to the ordinary lead after a full field unload; record when that happens.'),
+('CY05','Cycle between a small sprite and a 64-pixel sprite while facing left and right, first while stationary and then while walking. Repeat near stairs or a building.','The new follower appears after recall without requiring an extra player step. Its spacing, shadow, and draw priority match its species without stale art or clipping.'),
+]
+start='<!-- generated-follower-cycle:start -->';end='<!-- generated-follower-cycle:end -->'
+section=start+'\n## 0.6.48-alpha L/R follower cycling — human acceptance\n\nCold boot the matching ROM and ordinary save. These cases are NOT RUN until recorded by the human tester; do not resume an older savestate.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in CYCLE_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-terrain:start -->',section+'\n\n<!-- generated-terrain:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(CYCLE_CASES)} follower-cycle cases; no emulator tests executed.')
+
+LAND_CASES=[
+('LM01','Cold boot the matching stock White 2 ROM and ordinary save. Select a healthy visible follower, stop on clear outdoor ground, and press A+B together. Repeat by holding A and pressing B, then holding B and pressing A.','Each stopped A+B press order mounts or dismounts instantly, with no Poké Ball effect. Dismount restores one safe trailing follower or waits hidden for a trailing tile.'),
+('LM02','Press A alone to inspect a sign, NPC and furniture. Hold B while moving and press A, then stop and press A while still holding B.','Ordinary A interactions work. Movement prevents mounting; stopped B-held plus newly pressed A mounts. L/R cycling on foot remains separate.'),
+('LM03','Mount small and 64-pixel followers, including mirrored, shiny, female, and form art. Face all four directions and observe both animation poses. Repeat with Arceus facing left and right.','The rider uses each appearance’s visible two-pose midpoint. Arceus’s side rider sits ten pixels higher on its back while its up/down positions are unchanged. Rider is in front facing up/sideways and behind the Pokémon facing down; priority does not flicker.'),
+('LM04','On a long flat path, compare mounts with different Personal base Speed values, such as Snorlax (30), Voltorb (100), and Arceus (120). If available, compare two Pokémon of one species at different levels or natures.','Mount pace follows Personal base Speed: Snorlax is slower, Voltorb matches bicycle pace, and Arceus is faster. Different levels or natures of the same species do not change its pace. The synthetic 0–255 curve and cap are covered by packaged tests.'),
+('LM05','Cross grass, slopes, stairs, bridges, and special terrain while mounted.','Native land collision, grass and special-terrain handling remain active. Slope and scripted movement keep native timing.'),
+('LM06','Run and walk across a seamless outdoor zone boundary while mounted.','The same selected mount remains visible without a recall/send-out sequence or duplicate follower.'),
+('LM07','Open and close an ordinary menu, then change the party or store the mounted Pokémon in the PC.','Ordinary menus pause and resume the mount; a changed or removed party member dismounts safely.'),
+('LM08','Enter a door, begin ordinary Surf while on foot, trigger a wild and trainer battle, then return outdoors.','The mount ends before unsafe modes, with no leftover mount or duplicate actor; the ordinary follower can resume afterward.'),
+('LM09','Dismount in a narrow passage or beside a blocking NPC, then move until a trailing tile is free. Watch the return frame by frame.','The follower does not occupy a blocked tile or flash through the player; one ball send-out plays when it reappears on a safe trailing tile.'),
+('LM10','Save while mounted and cold reload the save. Repeat mount/dismount 20 times and use L/R selection on foot.','The loaded save resumes with a normal follower. Repeated toggles do not leak graphics resources; L/R follower cycling remains unchanged on foot.'),
+('LM11','Ride while walking, then hold B to run and release B on a long flat path. Watch the mounted Pokémon and rider separately, then stop.','The Pokémon’s two movement frames and the trainer’s three bike-derived hair-sway frames both speed up while moving with B held. The rider remains in a seated idle pose when stopped; no bicycle wheels, handlebars, or ground-touching stop pose appears.'),
+('LM12','Mount a 64-pixel follower, hold B to run in each of the four directions, then repeat with a 32-pixel follower.','The mount alternates poses within its own texture; no flashing black rectangle or disappearing Pokémon appears in any direction.'),
+('ST01','Mount a healthy Surf-knowing follower with HM03 in the Bag. Walk toward eligible water in each direction, without pressing A.','The Surf effect starts on that attempted step, the same Pokémon carries the rider one tile onto water without a jump, and the ripple and draw order remain stable.'),
+('ST02','Surf to a clear shore in each direction and move onto land. Repeat at one-tile and two-tile shorelines.','The player moves through native collision without a hop and returns to the same land mount. Rider, Pokémon and shadow remain aligned.'),
+('ST03','Repeat ST01 after removing HM03, removing Surf from the mounted Pokémon, and mounting one without custom Surf artwork. Keep a different Surf user in another party slot.','Automatic entry does not occur; the mounted Pokémon is not replaced by another party member, and the land mount and ordinary controls remain usable.'),
+('ST04','Repeat ST01 with Surf at zero PP, then change party order and try again.','Zero PP does not block the handoff. The chosen mounted Pokémon remains the Surf mount if its party identity still matches.'),
+('ST05','Surf through an outdoor map seam, then leave the water. Repeat water entry and exit twenty times.','The handoff survives safe seams, returns to the same Pokémon, and neither mount art nor ripple leaks or duplicates.'),
+('ST06','While Surfing, change the party or remove the mount when the game permits, then leave the water; also test battle entry and an unsafe scripted scene.','Changed or unavailable Pokémon finish on foot. Battles and unsafe scenes do not restore a stale land mount.'),
+('ST07','Mount and dismount manually several times while listening, then perform automatic water entry.','Each successful manual mount plays one stock Surf-hop sound. Failed mounts and manual dismounts are silent; automatic entry has no duplicated sound.'),
+]
+start='<!-- generated-land-mount:start -->';end='<!-- generated-land-mount:end -->'
+section=start+'\n## Start here: 0.6.53-alpha stock White 2 land mounts and Surf handoff\n\nCold boot `White2-Following-0.6.53-alpha.nds` with its matching ordinary save. Do not resume an older state. These cases remain **NOT RUN** until the human tester records results.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in LAND_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-surf:start -->',section+'\n\n<!-- generated-surf:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(LAND_CASES)} land-mount cases; no emulator tests executed.')
+
+REPEL_CASES=[
+ ('RP01','With a visible walking follower, let Repel expire while another Repel remains. Choose No, then repeat and choose Yes. Stand still through the prompt and move afterward.','The same follower remains visible during both choices, with no recall or send-out. Repel use and the prompt behave normally.'),
+ ('RP02','Mount a follower on land, let Repel expire, and try both No and Yes. Repeat near water without entering it.','The same mount and rider remain visible and aligned throughout the prompt and after it closes. No dismount, recall, duplicate effect, or replacement occurs.'),
+ ('RP03','While riding a custom Surf Pokémon on water, let Repel expire and try both No and Yes.','The same Surf artwork and rider remain visible through the prompt. The native ripple and movement resume after the choice.'),
+ ('RP04','Enter a battle, doorway, or scripted warp after the Repel checks.','Those unsafe transitions still recall or end the follower/mount as before; Repel does not make other scripted events exempt.'),
+]
+start='<!-- generated-repel-continuation:start -->';end='<!-- generated-repel-continuation:end -->'
+section=start+'\n## 0.6.62-alpha Repel continuation — human acceptance\n\nCold boot `White2-Following-0.6.62-alpha.nds` with its matching save. After Yes, confirm that one Repel is consumed and the follower or mount never recalls. The supplied `repel.mln` contains an older runtime, so do not resume it to test this build. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in REPEL_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-land-mount:start -->',section+'\n\n<!-- generated-land-mount:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(REPEL_CASES)} Repel continuation cases; no emulator tests executed.')
+
+SURF_SLOT_CASES=[
+ ('SS01','Cold boot the 0.6.55 stock ROM with its matching save. Leave party slot 1 as the automatic follower rather than selecting it with L/R. Mount Arceus, confirm it knows Surf and HM03 is in the Bag, then press toward water.','The mounted Arceus begins Surf immediately instead of playing the blocked-movement bump. The water mount remains Arceus.'),
+ ('SS02','Repeat after selecting Arceus explicitly with L/R, then remove Surf or HM03 and try again.','Both automatic and explicit selection transition when eligible. Missing Surf or HM03 leaves the land mount in place and uses the ordinary blocked-movement response.'),
+ ('SS03','Leave water, remount, and repeat the crossing several times.','Shore exit restores the same land mount; repeated crossings do not duplicate mounts or leave art loaded after dismount.'),
+]
+start='<!-- generated-surf-slot:start -->';end='<!-- generated-surf-slot:end -->'
+section=start+'\n## 0.6.55-alpha mounted Surf handoff — human acceptance\n\nCold boot `White2-Following-0.6.55-alpha.nds` with its matching ordinary save. The supplied `mounted.mln` contains an older runtime and is diagnostic evidence, not a valid acceptance state for the new build. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SURF_SLOT_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-repel-continuation:start -->',section+'\n\n<!-- generated-repel-continuation:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(SURF_SLOT_CASES)} Surf-slot cases; no emulator tests executed.')
+
+SURF_DIRECTION_CASES=[
+ ('SD01','Cold boot 0.6.56 with Arceus mounted beside water. Face right, then press Up into the water. Repeat facing down and left before pressing Up.','The Surf Pokémon appears directly ahead, faces up from its first frame, and carries the rider onto the water tile. No sideways offset or land/water-border stall.'),
+ ('SD02','At accessible shores in all four directions, enter water after first facing each of the other three directions.','The pressed direction controls both the initial Surf effect and the tile transfer on all twelve mismatched-facing cases, including opposite-facing input.'),
+ ('SD03','Attempt the same turn toward a non-water obstruction or with HM03 or Surf missing, then turn and walk on land.','No Surf event starts; the rider remains mounted and ordinary facing and movement remain usable.'),
+ ('SD04','Enter and leave water repeatedly after a turn, then cross an outdoor map seam and repeat.','Each entry lands on water and each exit returns to the same mount without a stuck border, duplicate sprite, or stale facing.'),
+]
+start='<!-- generated-surf-direction:start -->';end='<!-- generated-surf-direction:end -->'
+section=start+'\n## 0.6.56-alpha mounted Surf direction — human acceptance\n\nCold boot `White2-Following-0.6.56-alpha.nds` with its matching ordinary save. `badtransition.mln` contains the previous runtime and is diagnostic evidence only. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SURF_DIRECTION_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-surf-slot:start -->',section+'\n\n<!-- generated-surf-slot:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(SURF_DIRECTION_CASES)} Surf-direction cases; no emulator tests executed.')
+
+SURF_ENTRY_CASES=[
+ ('SE01','Cold boot 0.6.57 with mounted Arceus at the Virbank shore. Face left, then press Right toward water. Repeat with each opposite and perpendicular facing.','The first water sprite is complete and remains beneath the rider throughout the transfer; it neither starts two tiles away nor snaps into place on landing.'),
+ ('SE02','Cold boot 0.6.57 at the Humilau ocean shore with mounted Arceus, HM03 in the Bag, and Surf known. Press Down into the adjacent ocean tile.','The mounted Surf handoff begins instead of a blocked-movement bump, and the rider lands on water.'),
+ ('SE03','Repeat across other Surfable shoreline and ocean tiles, then try dry obstructions and missing Surf or HM03.','Every game-Surfable water type accepts the handoff; dry or ineligible attempts leave the land mount and ordinary interaction intact.'),
+ ('SE04','Enter and leave water repeatedly, including after an outdoor seam.','Water art remains attached to the rider during entry, and the same land mount returns on shore without stale textures or duplicate sprites.'),
+]
+start='<!-- generated-surf-entry:start -->';end='<!-- generated-surf-entry:end -->'
+section=start+'\n## 0.6.57-alpha Surf entry art and ocean water — human acceptance\n\nCold boot `White2-Following-0.6.57-alpha.nds` with its matching ordinary save. Supplied savestates contain the previous runtime and are diagnostic evidence only. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SURF_ENTRY_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-surf-direction:start -->',section+'\n\n<!-- generated-surf-direction:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(SURF_ENTRY_CASES)} Surf-entry cases; no emulator tests executed.')
+
+MOUNT_BOB_CASES=[
+ ('MB01','Cold boot 0.6.58 with a grounded land mount. Walk on a flat path in each direction, then stop.','The Pokémon alternates its two walking poses and the Pokémon and seated rider rise together by one pixel on alternating poses. Both settle when stopped; the ground shadow stays fixed.'),
+ ('MB02','While mounted, hold B to run, release B without stopping, then stop and resume walking.','The two-pose bounce speeds up with B, changes cadence without a large position jump, and returns to the normal walking cadence.'),
+ ('MB03','Repeat with small and large follower sprites, including Arceus, and across grass, stairs and an outdoor seam.','The rider remains attached, the shadow stays at ground level, and terrain, draw order and seam continuity remain unchanged.'),
+]
+start='<!-- generated-mount-bob:start -->';end='<!-- generated-mount-bob:end -->'
+section=start+'\n## 0.6.58-alpha land-mount movement — human acceptance\n\nCold boot `White2-Following-0.6.58-alpha.nds` with its matching ordinary save. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in MOUNT_BOB_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-surf-entry:start -->',section+'\n\n<!-- generated-surf-entry:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(MOUNT_BOB_CASES)} mount-bob cases; no emulator tests executed.')
+
+SHORE_MENU_CASES=[
+ ('SM01','Cold boot 0.6.59 at the Humilau waterline with the same mounted Surf Pokémon. Press toward dry sand without opening a menu.','The shore exit uses the short two-tile transfer and restores the land mount on dry sand.'),
+ ('SM02','Surf to the Humilau waterline, open and close the party menu without changing the party, then press toward dry sand.','The same Pokémon returns as a land mount; there is no retail walking dismount.'),
+ ('SM03','While surfing, alter or remove the mounted Pokémon or its Surf move in the party menu, then leave the water.','The old mount is not restored; the native on-foot result remains safe.'),
+ ('SM04','Repeat at a one-tile dry shore and at a blocked rock or object frontage.','Ordinary shore spacing is unchanged and blocked destinations remain blocked.'),
+ ('SM05','Mount on land and enter water repeatedly in several directions, including a turn toward water.','No striped or corrupted pixels appear while the custom Surf art replaces the land mount.'),
+]
+start='<!-- generated-shore-menu:start -->';end='<!-- generated-shore-menu:end -->'
+section=start+'\n## 0.6.59-alpha shore, menu, and texture handoff — human acceptance\n\nCold boot `White2-Following-0.6.59-alpha.nds` with its matching ordinary save. The supplied earlier savestates are diagnostic evidence, not a cold-boot acceptance result. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SHORE_MENU_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-mount-bob:start -->',section+'\n\n<!-- generated-mount-bob:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(SHORE_MENU_CASES)} shore/menu cases; no emulator tests executed.')
+
+WATER_FLAG_CASES=[
+ ('WF01','Cold boot 0.6.60 in Humilau with a Surf-knowing land mount and HM03. Walk onto each light-blue Splash-only beach tile, then stop.','The player remains on the land mount through every Splash-only tile; no Surf effect, ripple, or movement lock starts.'),
+ ('WF02','From the last Splash-only tile, press toward the adjacent darker tile marked Water+Splash in Pokeweb.','That attempted Water step starts the custom Surf effect once. The same Pokémon carries the rider onto water without a jump or one-tile offset.'),
+ ('WF03','Repeat WF01–WF02 from each accessible direction, then return to dry sand.','Only tiles with Water set start Surf. The shore exit returns to the same land mount on dry land without a hop or corrupted sprite.'),
+ ('WF04','Try another map with an ordinary Water tile, and a blocked Water frontage.','An eligible Water tile still starts Surf; a blocked frontage never starts the custom handoff.'),
+]
+start='<!-- generated-water-flags:start -->';end='<!-- generated-water-flags:end -->'
+section=start+'\n## 0.6.60-alpha Water-versus-Splash entry — human acceptance\n\nCold boot `White2-Following-0.6.60-alpha.nds` with its matching ordinary save. The supplied image identifies the Pokeweb Water and Splash flags; it is not an emulator test. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in WATER_FLAG_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-shore-menu:start -->',section+'\n\n<!-- generated-shore-menu:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(WATER_FLAG_CASES)} Water/Splash cases; no emulator tests executed.')
+
+STRIPED_ENTRY_CASES=[
+ ('FE01','Cold boot 0.6.61 with mounted Arceus at the Humilau Water edge. Face Right, then press Down and watch the first three transition frames.','The previous land pose stays intact until the Surf pose is ready. No striped pixels appear on the Pokémon or rider.'),
+ ('FE02','Repeat the water entry after facing each other direction, including an opposite-facing turn.','Every first Surf frame is complete, correctly oriented and positioned beneath the rider.'),
+ ('FE03','Repeat land-to-water and water-to-land twenty times at Humilau and at a normal one-tile shore.','No texture corruption, missed mount, stale land art, or growing slowdown occurs.'),
+ ('FE04','At the Humilau City–Route 21 edge, ride south from sand into water, dismount on the small sand island, then keep holding Down into water and return to shore. Repeat while moving at full mounted speed.','The second Surf starts only from a completed centered step. Sprite, footprints, collision and adjacent tile checks remain on the same tile after every crossing.'),
+ ('FE05','Repeat FE04 in the opposite direction and with a pause between each water crossing.','The shore exit completes on the visible landing tile. Map-boundary crossing does not leave the game using a neighboring tile for collision or effects.'),
+]
+start='<!-- generated-striped-entry:start -->';end='<!-- generated-striped-entry:end -->'
+section=start+'\n## 0.6.61-alpha first-frame Surf texture handoff — human acceptance\n\nCold boot `White2-Following-0.6.61-alpha.nds` with its matching ordinary save. `strippedsprite.mln` contains the previous loaded runtime and is diagnostic evidence only. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in STRIPED_ENTRY_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text=text.replace('<!-- generated-water-flags:start -->',section+'\n\n<!-- generated-water-flags:start -->',1)
+path.write_text(text)
+print(f'Regenerated {len(STRIPED_ENTRY_CASES)} first-frame Surf cases; no emulator tests executed.')
+
+# Older runs could leave several adjacent start markers when a new generated
+# section was inserted ahead of an existing one. Keep reruns idempotent.
+import re
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+for marker in ('terrain','follower-cycle','repel-continuation','land-mount'):
+ start=f'<!-- generated-{marker}:start -->'
+ text=re.sub(r'(?m)(?:^'+re.escape(start)+r'\n){2,}',start+'\n',text)
+path.write_text(text)
+
+SHADOW_DEPTH_CASES=[
+ ('SD01','Cold boot 0.6.63 with Rapidash walking on flat ground. Face and walk in all four directions while looking at the lower body and native shadow.','The shadow darkens ground only; no Rapidash pixels are shaded or cut off.'),
+ ('SD02','With Reuniclus walking normally, repeat SD01, then press A+B to ride and repeat while stopped and moving.','Walking Reuniclus retains its previous appearance. Mounted Reuniclus stays in front of the player ground shadow, with the rider at the approved height.'),
+ ('SD03','Walk and ride beside a building, overlap the player laterally, traverse stairs, then dismount and remount.','Player/Pokémon priority stays stable, the follower does not clip through the building, shadows stay on the ground, and no depth offset accumulates.'),
+]
+start='<!-- generated-shadow-depth:start -->';end='<!-- generated-shadow-depth:end -->'
+section=start+'\n## 0.6.63-alpha follower and mount shadow depth — human acceptance\n\nCold boot `White2-Following-0.6.63-alpha.nds` with its matching save. The Rapidash and mounted Reuniclus reports are diagnostic evidence; the new presentation is **NOT RUN** until human emulator testing.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SHADOW_DEPTH_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text+='\n\n'+section+'\n'
+path.write_text(text)
+print(f'Regenerated {len(SHADOW_DEPTH_CASES)} shadow-depth cases; no emulator tests executed.')

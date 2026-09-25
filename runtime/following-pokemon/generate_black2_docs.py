@@ -2,7 +2,7 @@
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-VERSION = "0.6.32-alpha"
+VERSION = "0.6.37-alpha"
 
 CASES = [
     ("B01", "Cold boot an ordinary Black 2 save, walk one tile, then walk and run in all four directions.", "Exactly one party Pokémon appears and follows the recorded route without blocking movement."),
@@ -24,6 +24,12 @@ CASES = [
     ("B17", "Cold boot 0.6.30 with a small grounded follower and Serperior; compare their shadows with the player on flat ground and stairs.", "The lowered sprite position is retained. Both follower shadows are complete and aligned to the player ground plane, with no cut-off lower half."),
     ("B18", "Cold boot 0.6.31 with Serperior. Face up and down on flat ground, then walk in both directions on stairs; check the full shadow as well as the sprite.", "Upward facing moves the shadow about seven pixels and art about five pixels upward; downward facing moves both about six pixels downward. Left/right and collision positions remain stable."),
     ("B19", "Cold boot 0.6.32 with Serperior and walk north through a player overlap; then check north-facing stairs and lateral movement beside a building.", "The follower has the foreground draw priority during the overlap without changing its artwork/shadow location or reintroducing stair/building clipping."),
+    ("B20", "Cold boot 0.6.33 and walk a grounded follower through tall grass one tile at a time. Repeat with a Flying-type follower and on other terrain where the player creates a step effect.", "Grounded followers trigger the native tile-entry response once per crossed tile; Flying followers do not. Stopping does not repeat the effect, and no shadow or movement regression appears."),
+    ("B21", "Cold boot 0.6.35 with three eligible party Pokémon. Press R, then L, including at the ends of party order; try an Egg, a fainted member, and rapid presses during ball effects. Repeat while facing left and right with a wide follower.", "R selects the next eligible follower and L the previous, wrapping without changing party order. Each completed switch recalls the old follower before sending out the new one, even on horizontal facings; input during an effect cannot skip members."),
+    ("B22", "Cold boot 0.6.36 with a healthy visible follower. Press A+B to ride, walk and run in all directions, open and close the menu, then press A+B to dismount.", "The rider uses the Pokémon's back, speed tracks Personal base Speed, the menu retains the mount, and dismount returns the follower with the ball send-out effect."),
+    ("B23", "With HM03 in the Bag and a Surf-knowing follower, ride toward ordinary water and shoreline water, then return to land. Separately Surf on foot with another party Surf user, a shiny or form variant, and a species without custom art.", "The selected land mount hands off without a hop and returns after shore exit. Other Surf uses the preferred follower or first party Surf knower, matching Gen 1–5 art where available and the retail mount otherwise."),
+    ("B24", "While walking and again while land-mounted, let Repel expire; answer No, then repeat and answer Yes.", "Neither choice recalls the follower or mount. Yes consumes one Repel and the next effect begins; unrelated unsafe scripts still recall."),
+    ("B25", "Cold boot 0.6.37 with Rapidash walking, then Reuniclus walking and A+B mounted. Check each direction while idle and moving, including a sideways player overlap.", "Shadows shade the ground behind each Pokémon and never darken opaque Pokémon pixels. Walking Reuniclus keeps its previous appearance; the rider, player, and building depth order remains stable."),
 ]
 
 def generate():
