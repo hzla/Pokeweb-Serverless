@@ -24,6 +24,9 @@ export type ActiveRomMetadata = {
   fileName: string;
   fairy: boolean;
   selectedNarcs: string[];
+  idCode?: string;
+  sourceSize?: number;
+  sourceSha256?: string;
 };
 
 export async function saveActiveProject(project: ProjectState): Promise<void> {
@@ -32,7 +35,7 @@ export async function saveActiveProject(project: ProjectState): Promise<void> {
     delete project.originalRomBytes;
   }
   materializeProjectEdits(project);
-  const snapshot = persistableProject(project, await hasActiveRomBytes());
+  const snapshot = persistableProject(project, await activeRomMatchesProject(project));
   const db = await openDb();
   await requestToPromise(db.transaction(PROJECT_STORE_NAME, "readwrite").objectStore(PROJECT_STORE_NAME).put(snapshot, ACTIVE_PROJECT_KEY));
   db.close();
@@ -46,7 +49,7 @@ export async function loadActiveProject(): Promise<ProjectState | undefined> {
   db.close();
   let migratedOriginalRomBytes = false;
   if (project?.originalRomBytes) {
-    await saveActiveRomBytes(project.originalRomBytes);
+    await saveActiveRomBytes(project.originalRomBytes, activeRomMetadataFromProject(project));
     delete project.originalRomBytes;
     migratedOriginalRomBytes = true;
   }
@@ -77,6 +80,21 @@ export async function saveActiveRomBytes(bytes: Uint8Array, metadata?: ActiveRom
   db.close();
 }
 
+/** Reattach a missing export base without discarding the saved project's edits. */
+export async function reconnectActiveRom(project: ProjectState, bytes: Uint8Array, fileName: string): Promise<void> {
+  const rom = new NintendoDSRom(bytes, { fileData: "view" });
+  if (rom.idCode !== project.romInfo.idCode || rom.name !== project.romInfo.title ||
+      bytes.length !== project.romInfo.size || fileName !== project.romInfo.fileName)
+    throw new Error(`Choose the same source ROM, ${project.romInfo.fileName}, to keep this project's edits.`);
+  if (project.romInfo.sourceSha256) {
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
+    const hash = Array.from(digest, value => value.toString(16).padStart(2, "0")).join("");
+    if (hash !== project.romInfo.sourceSha256) throw new Error("The selected ROM differs from this project's source ROM.");
+  }
+  await saveActiveRomBytes(bytes, activeRomMetadataFromProject(project));
+  await hydratePersistedProject(project);
+}
+
 export function compactRomBytes(bytes: Uint8Array): Uint8Array {
   return new NintendoDSRom(bytes).save();
 }
@@ -100,6 +118,26 @@ export async function hasActiveRomBytes(): Promise<boolean> {
   const count = await requestToPromise<number>(db.transaction(ROM_STORE_NAME, "readonly").objectStore(ROM_STORE_NAME).count(ACTIVE_ROM_KEY));
   db.close();
   return count > 0;
+}
+
+/** A second tab may replace the origin-wide ROM cache while this project stays open. */
+export async function activeRomMatchesProject(project: ProjectState): Promise<boolean> {
+  const db = await openDb();
+  try {
+    const store = db.transaction(ROM_STORE_NAME, "readonly").objectStore(ROM_STORE_NAME);
+    const [metadata, count] = await Promise.all([
+      requestToPromise<ActiveRomMetadata | undefined>(store.get(ACTIVE_ROM_METADATA_KEY)),
+      requestToPromise<number>(store.count(ACTIVE_ROM_KEY)),
+    ]);
+    return count > 0 && (!metadata || (
+      metadata.fileName === project.romInfo.fileName &&
+      (metadata.idCode === undefined || metadata.idCode === project.romInfo.idCode) &&
+      (metadata.sourceSize === undefined || metadata.sourceSize === project.romInfo.size) &&
+      (metadata.sourceSha256 === undefined || metadata.sourceSha256 === project.romInfo.sourceSha256)
+    ));
+  } finally {
+    db.close();
+  }
 }
 
 export function debounceProjectSave(delayMs = 350): (project: ProjectState) => void {
@@ -157,6 +195,7 @@ function persistableProject(project: ProjectState, compactRawFiles: boolean): Pr
 }
 
 async function hydratePersistedProject(project: ProjectState): Promise<void> {
+  if (!await activeRomMatchesProject(project)) return;
   const romBytes = await loadActiveRomBytes();
   if (!romBytes) return;
   const rom = new NintendoDSRom(romBytes, { fileData: "view" });
@@ -232,6 +271,9 @@ function activeRomMetadataFromProject(project: ProjectState): ActiveRomMetadata 
     fileName: project.romInfo.fileName || `${project.session.romName || "cached-rom"}.nds`,
     fairy: project.session.fairy,
     selectedNarcs: Object.keys(project.narcs).filter((name) => Boolean(project.narcs[name as keyof ProjectState["narcs"]])),
+    idCode: project.romInfo.idCode,
+    sourceSize: project.romInfo.size,
+    sourceSha256: project.romInfo.sourceSha256,
   };
 }
 
