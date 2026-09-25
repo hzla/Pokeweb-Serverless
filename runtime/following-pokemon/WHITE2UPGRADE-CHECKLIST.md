@@ -1,12 +1,11 @@
-# White2Upgrade follower 0.7.32-alpha — human emulator checklist
+# White2Upgrade follower 0.7.33-alpha — human emulator checklist
 
 All rows start NOT RUN. Automated CPU tests are not DS emulator results.
-Cold boot the versioned ROM with its same-basename ordinary save. Do not load a
-state captured under another ROM version. The prior alpha save was copied for
-continuity; source saves remain intact. Keep expansion save copies separate from
+Export the 0.7.33-alpha package from Pokeweb and cold boot it with an ordinary
+matching save. Do not load a state captured under another ROM version. Keep expansion save copies separate from
 stock White 2 once later-generation Pokémon are obtained.
 
-Start with U34, U31–U33, U30, U29, U28, U27, U26, U25, U01, U17, U16 and U18, then U07a at Floccesy Town / Route 20, U15 and U02–U08. Test in melonDS; record the emulator version,
+Start with U35, U34, U31–U33, U30, U29, U28, U27, U26, U25, U01, U17, U16 and U18, then U07a at Floccesy Town / Route 20, U15 and U02–U08. Test in melonDS; record the emulator version,
 ROM hash, species/form/gender/shiny, location, result and screenshot/state for any
 failure. Existing detailed cases remain in [EMULATOR-CHECKLIST.md](EMULATOR-CHECKLIST.md).
 
@@ -14,7 +13,7 @@ failure. Existing detailed cases remain in [EMULATOR-CHECKLIST.md](EMULATOR-CHEC
 |---|---|---|---|
 | U17 | Run I01–I05 from EMULATOR-CHECKLIST with a stock follower and a wide Gen 6–9 follower. | The native directional idle loop runs only while visible ordinary following is active. Dialogue, menus, PC presentation, safe scenes and ball effects keep the current frame frozen. | NOT RUN |
 | U16 | Run W01–W05 from EMULATOR-CHECKLIST with narrow and wide Gen 6–9 art, forms, shinies and a placeholder. | Spacing follows maximum visible side width, up to six extra world units. Conversations, turns, stairs, menu/PC retention and seamless crossings remain correct. | NOT RUN |
-| U01 | Cold boot White2Upgrade-Following-0.7.32-alpha.nds with an ordinary matching save. Walk, run, reverse and stop. | Exactly one follower appears; no startup freeze, stuck input or duplicated actor. | NOT RUN |
+| U01 | Install 0.7.33-alpha on a clean White2Upgrade ROM in Pokeweb, export, and cold boot with an ordinary matching save. Walk, run, reverse and stop. | Exactly one follower appears; no startup freeze, stuck input or duplicated actor. | NOT RUN |
 | U01a | After startup, close the X menu, enter/leave PC storage without party changes, then cross a seamless zone boundary. Separately test a door and a battle. | Menu closure and seamless crossings retain the follower. Unchanged PC lead returns visibly without ball effects. Doors/battles use normal recall/reseed; capture a state if absent. | NOT RUN |
 | U02 | Put Chespin (650), Rowlet (722), Grookey (810), and Iron Crown (1023) at the front in turn. Test all four directions. | Every lead uses its own artwork, including Iron Crown; none is skipped as an invalid species. | NOT RUN |
 | U03 | Use Sprigatito, Meowscarada, Koraidon, Miraidon, Poltchageist and Iron Crown, both normal and shiny. Then try an explicitly substituted alternate form. | Base species display matching artwork with correct directions and transparency. Alternate-form substitutions match UPGRADE-ASSET-COVERAGE.json without changing species or nickname. | NOT RUN |
@@ -48,5 +47,6 @@ failure. Existing detailed cases remain in [EMULATOR-CHECKLIST.md](EMULATOR-CHEC
 | U32 | Ride a Surf-knowing later-generation follower toward ordinary water and Water+Splash shallows, then return to shore. Repeat ordinary Surf with a different selected follower and with missing custom art. | The mounted handoff preserves the same Pokémon without a hop; returning to shore restores the land mount. Ordinary Surf still prefers an eligible selected follower, then party order, and falls back to retail art when needed. | NOT RUN |
 | U33 | Let Repel expire while walking and while mounted; answer No and Yes in separate runs. | The follower or mount stays out for both choices. Yes consumes a Repel and unrelated scripted transitions retain their guards. | NOT RUN |
 | U34 | Cold boot 0.7.32 with Rapidash walking, then Reuniclus walking and A+B mounted. Check idle and movement in all four directions and a lateral player overlap. | The shadows stay on the ground without darkening Pokémon pixels. Walking Reuniclus remains visually unchanged; mounted Reuniclus clears the player shadow without losing rider or terrain depth order. | NOT RUN |
+| U35 | Cold boot 0.7.33 with Arceus and a wide later-generation follower in turn. Walk south through a player overlap, then check the same Pokémon while walking north, sideways beside a building, and on stairs. | The player stays in front on southward steps while each follower stays above its ground shadow. North-facing priority and building/stair order remain unchanged. | NOT RUN |
 
 Hardware acceptance is separate and untested. For U09 record checkpoints 0 / 10 / 25 / 50 / 75 / 100, actor count, controls, visible effects and measured allocation counts.

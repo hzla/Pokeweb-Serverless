@@ -1,6 +1,6 @@
-# Stock Black 2 Following Pokémon 0.6.37-alpha — emulator checklist
+# Stock Black 2 Following Pokémon 0.6.38-alpha — emulator checklist
 
-Use `Black2-Following-0.6.37-alpha.nds` with a same-basename `.sav`. Cold boot the ROM; do not resume a state made with another ROM. Emulator execution is assigned to the human tester and every row remains **NOT RUN** until results are recorded.
+Install the 0.6.38-alpha package on a clean Black 2 ROM in Pokeweb and export it. Cold boot the export with a matching Black 2 save; do not resume a state made with another ROM. Emulator execution is assigned to the human tester and every row remains **NOT RUN** until results are recorded.
 
 Start with B01–B06 and B13. If those pass, continue through B12. For a failure, save a state immediately before the trigger and record emulator/version, location, party lead, direction, and the ROM SHA-256.
 
@@ -31,5 +31,6 @@ Start with B01–B06 and B13. If those pass, continue through B12. For a failure
 | B23 | With HM03 in the Bag and a Surf-knowing follower, ride toward ordinary water and shoreline water, then return to land. Separately Surf on foot with another party Surf user, a shiny or form variant, and a species without custom art. | The selected land mount hands off without a hop and returns after shore exit. Other Surf uses the preferred follower or first party Surf knower, matching Gen 1–5 art where available and the retail mount otherwise. | NOT RUN |
 | B24 | While walking and again while land-mounted, let Repel expire; answer No, then repeat and answer Yes. | Neither choice recalls the follower or mount. Yes consumes one Repel and the next effect begins; unrelated unsafe scripts still recall. | NOT RUN |
 | B25 | Cold boot 0.6.37 with Rapidash walking, then Reuniclus walking and A+B mounted. Check each direction while idle and moving, including a sideways player overlap. | Shadows shade the ground behind each Pokémon and never darken opaque Pokémon pixels. Walking Reuniclus keeps its previous appearance; the rider, player, and building depth order remains stable. | NOT RUN |
+| B26 | Cold boot 0.6.38 with a large follower and walk south through a player overlap; repeat with a small follower, then walk north and sideways beside a building. | The player keeps foreground priority while walking south. The follower and its shadow stay aligned, and north/sideways priority remains stable. | NOT RUN |
 
 Black 2 uses its own three PMC modules and binary contract. White 2 or expansion savestates do not validate this port because they retain different loaded code and addresses.

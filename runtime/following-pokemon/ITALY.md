@@ -2,9 +2,9 @@
 
 The IRDI revision-0 port is installed through Pokeweb's Following Pokémon page. It includes stock species 1–649, movement, scenes, interactions, gifts and the existing Gen 5 art bundle.
 
-The current test ROM is available:
+Current runtime package:
 
-- `White2Italy-Following-0.6.38-alpha.nds`: keeps A+B land riding, Gen 1–5 custom Surf sprites and Italian dialogue, and corrects Pokémon/shadow overdraw while walking or mounted; SHA-256 `415baeeeedcd5231c1d634bf95fa8ea8b11d35691f34397e4cb4d81733c3c835`.
+- The 0.6.39-alpha runtime is bundled in Pokeweb. Install it on the exact clean IRDI ROM and export to make a test ROM; no prebuilt 0.6.39-alpha ROM was produced.
 
 Only the exact clean IRDI revision-0 source ROM is accepted. Italian saves use the `White2Italy-Following-*.sav` family; no US save is copied into it. If no Italian save is present, create one normally in the emulator.
 
@@ -20,14 +20,11 @@ python3 runtime/following-pokemon/import_interactions.py "$ITALIAN_HGSS_ROM" --l
 python3 runtime/following-pokemon/build_italy_language.py --language it --rom "$ITALIAN_W2_ROM"
 python3 runtime/following-pokemon/verify_italian_binary.py ../cleanwhite2.nds "$ITALIAN_W2_ROM"
 FOLLOWING_PROFILE=white2italy python3 runtime/following-pokemon/build.py "$ITALIAN_W2_ROM" --publish
-npx vite-node scripts/verify-following-install.ts ../../White2Italy-Following-0.6.38-alpha.nds
-npx vite-node scripts/verify-following-installed-upgrade.ts ../../White2Italy-Following-0.6.37-alpha.nds
+npx vite-node scripts/verify-following-installed-upgrade.ts ../../White2Italy-Following-0.6.38-alpha.nds
 npx vite-node scripts/verify-following-italy-assets.ts "$ITALIAN_W2_ROM"
-npx vite-node scripts/verify-following-grounding.ts ../../White2Italy-Following-0.6.38-alpha.nds
-python3 runtime/following-pokemon/audit_italy_memory.py ../../White2Italy-Following-0.6.38-alpha.nds
 ```
 
-The 0.6.37 ROM in `Repos/` is used for upgrade verification. The commands above build the current 0.6.38 package without overwriting saves.
+The 0.6.38-alpha ROM in `Repos/` is used for upgrade verification. The commands above build the current 0.6.39-alpha package without overwriting saves.
 
 ## Verification limits
 
