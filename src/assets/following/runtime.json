@@ -1,9 +1,9 @@
 {
-  "version": "0.6.63-alpha",
-  "fieldSha256": "bead54ddefdf2d5876ec3af58942d0bd4bc2630f78162bc0a85ddb24c9f659a9",
-  "eventsSha256": "5569a7bfb7bcb77713d8947e21bf301bf5aed4375b2aeef48abc6096e8cd138d",
+  "version": "0.6.64-alpha",
+  "fieldSha256": "f9ea370cb2b2e5e055c286e077c3ae7fb8220f34dc56938dc9a023099109e4c7",
+  "eventsSha256": "c8e91e3a5a35c27e16adc6bb8adb40adf9d9faac45963eac70dc307753540f62",
   "eventsAbi": 5,
-  "coreSha256": "7c4f91dc8864e9f8a0b2cc73ccaacbec90266cd6f64f67660cb5dde68debcb6b",
+  "coreSha256": "5f6bbc575780c9475fa104c24cef4e4b2bb4fc4b1e988b9b40d30babdee1edef",
   "coreAbi": 2,
   "previousVersions": [
     {
@@ -25,6 +25,14 @@
       "surfRegistrySha256": "8fb0d83e0b25963ab715f5bae9b648866c487f0ab505247861f079ba83d92054",
       "landRiderSha256": "3e24a8fac08aa7ea6a92ec0ecebe4b81ab86a093fed498863ac333ab13f28d8d",
       "landAnchorsSha256": "045bc996b038920ff0ef5fea9133c38f62644cab6bfbfaf9eff422bab30982c9"
+    },
+    {
+      "version": "0.6.63-alpha",
+      "fieldSha256": "bead54ddefdf2d5876ec3af58942d0bd4bc2630f78162bc0a85ddb24c9f659a9",
+      "eventsSha256": "5569a7bfb7bcb77713d8947e21bf301bf5aed4375b2aeef48abc6096e8cd138d",
+      "eventsAbi": 5,
+      "coreSha256": "7c4f91dc8864e9f8a0b2cc73ccaacbec90266cd6f64f67660cb5dde68debcb6b",
+      "coreAbi": 2
     },
     {
       "version": "0.6.62-alpha",

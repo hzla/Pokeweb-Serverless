@@ -17,7 +17,7 @@ BLACK2=PROFILE=='black2'
 ITALY=PROFILE=='white2italy'
 BUILD=Path(os.environ.get('FOLLOWING_BUILD_DIR', HERE/('build/white2upgrade' if UPGRADE else 'build/black2' if BLACK2 else 'build/white2italy' if ITALY else 'build')))
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
-VERSION='0.7.32-alpha' if UPGRADE else '0.6.38-alpha' if ITALY else '0.6.63-alpha' if PROFILE=='stock' else '0.6.37-alpha'
+VERSION='0.7.33-alpha' if UPGRADE else '0.6.39-alpha' if ITALY else '0.6.64-alpha' if PROFILE=='stock' else '0.6.38-alpha'
 SUFFIX='B2' if BLACK2 else 'W2I' if ITALY else 'W2'
 CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'italy-contract.json' if ITALY else 'contract.json')
 os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX

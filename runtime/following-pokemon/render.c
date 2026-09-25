@@ -28,14 +28,15 @@ static Billboard *billboard(void *system,Actor *a){
  return b;
 }
 void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int sprite_y){
- Billboard *b=0;FwrPose original={0},adjusted;FwrResult result={0};int applied=0,changed=0;
+ Billboard *b=0,*p=0;FwrPose original={0},adjusted,playerOriginal={0};FwrResult result={0};int applied=0,changed=0,playerChanged=0;
  FollowingRenderDebug.frames++;FollowingRenderDebug.applied=0;FollowingRenderDebug.actor=(uint32_t)a;
  FollowingRenderDebug.policy=FollowingRenderDebug.before=FollowingRenderDebug.after=0;
  if(system&&camera&&a&&player&&a!=player&&a->system==player->system){
-  b=billboard(system,a);Billboard *p=billboard(system,player);
+  b=billboard(system,a);p=billboard(system,player);
   if(b){
    original=(FwrPose){b->position,b->sx,b->sy};
    adjusted=original;
+   if(p)playerOriginal=(FwrPose){p->position,p->sx,p->sy};
    /* The descriptor Y offset also moves the game's attached shadow. Apply the
     * appearance offset only to this actor quad during synchronous submission;
     * effects and the following pass see the untouched native position. */
@@ -68,6 +69,20 @@ void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int s
      adjusted=corrected;changed=1;
     }
    }
+   if(p&&result.policy==-1&&player->face==1){
+    /* The shadow clearance runs after the ordinary player/follower ordering
+     * decision. On a southward step it can pull a large trailing sprite past
+     * the player. Advance only the player's submitted quad so the follower
+     * remains in front of its ground shadow and both screen poses stay fixed. */
+    FwrPose corrected;
+    int32_t finalDepth=result.after;
+    int32_t margin=a->descriptor[7]==2?FWR_SOUTH_BACK_LARGE:FWR_SOUTH_BACK_SMALL;
+    if(fwr_player_in_front(&adjusted,&playerOriginal,&cam,result.axis,margin,&corrected,&finalDepth)){
+     p->position=corrected.position;p->sx=(int16_t)corrected.sx;p->sy=(int16_t)corrected.sy;
+     playerChanged=1;
+    }
+    FollowingRenderDebug.after=finalDepth;
+   }
    FollowingRenderDebug.submitted=adjusted.position;
    FollowingRenderDebug.submittedSX=adjusted.sx;
    if(changed){b->position=adjusted.position;b->sx=(int16_t)adjusted.sx;b->sy=(int16_t)adjusted.sy;}
@@ -77,4 +92,5 @@ void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int s
  /* Drawing consumes the quad synchronously. Never leave a correction for the
   * next frame, another camera, native effects, save data, or the movement trail. */
  if(changed){b->position=original.position;b->sx=(int16_t)original.sx;b->sy=(int16_t)original.sy;}
+ if(playerChanged){p->position=playerOriginal.position;p->sx=(int16_t)playerOriginal.sx;p->sy=(int16_t)playerOriginal.sy;}
 }

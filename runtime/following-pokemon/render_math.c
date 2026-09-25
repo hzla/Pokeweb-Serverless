@@ -64,6 +64,24 @@ int fwr_above_shadow(const FwrPose *native,const FwPoint *ground,
  if(current>=target)return 0;
  return shift_depth(native,camera,direction,target-current+16,out);
 }
+int fwr_player_in_front(const FwrPose *follower,const FwrPose *player,
+                        const FwrCamera *camera,FwPoint direction,int32_t margin,
+                        FwrPose *out,int32_t *after){
+ *out=*player;
+ if(camera->projection>2||margin<FWR_TIE_MARGIN||margin>FW_TILE||
+    player->sx<=0||player->sy<=0||player->sx>32767||player->sy>32767)return 0;
+ FwPoint relative;
+ if(!delta(follower->position,player->position,&relative,8*FW_TILE))return 0;
+ int32_t current=dot(relative,direction),target=-margin;
+ if(after)*after=current;
+ if(current<=target)return 0;
+ if(!shift_depth(player,camera,direction,current-target+64,out))return 0;
+ if(after){
+  if(!delta(follower->position,out->position,&relative,8*FW_TILE)){*out=*player;*after=current;return 0;}
+  *after=dot(relative,direction);
+ }
+ return 1;
+}
 int fwr_correct(const FwPoint *world,const FwPoint *player_world,
  const FwrPose *native,const FwPoint *player_draw,const FwrCamera *camera,
  unsigned flags,FwrPose *out,FwrResult *result){

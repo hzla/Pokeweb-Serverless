@@ -12,6 +12,8 @@ typedef struct { FwPoint axis; int32_t before,after,policy; } FwrResult;
 #define FWR_NORTH_ART_Y 2
 #define FWR_FORCE_FRONT 4u
 #define FWR_FORCE_BACK 8u
+#define FWR_SOUTH_BACK_SMALL (6 * 4096)
+#define FWR_SOUTH_BACK_LARGE (12 * 4096)
 int fwr_correct(const FwPoint *world,const FwPoint *player_world,
     const FwrPose *native,const FwPoint *player_draw,const FwrCamera *camera,
     unsigned flags,FwrPose *output,FwrResult *result);
@@ -19,4 +21,8 @@ int fwr_correct(const FwPoint *world,const FwPoint *player_world,
  * projected image. The shadow itself remains at the native ground anchor. */
 int fwr_above_shadow(const FwrPose *native,const FwPoint *ground,
     const FwrCamera *camera,FwrPose *output);
+/* Preserve the player's foreground after follower shadow clearance without
+ * putting the follower behind its own shadow or moving either image on screen. */
+int fwr_player_in_front(const FwrPose *follower,const FwrPose *player,
+    const FwrCamera *camera,FwPoint axis,int32_t margin,FwrPose *output,int32_t *after);
 #endif

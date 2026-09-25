@@ -4,7 +4,7 @@ Cold boot a versioned IRDI ROM from an ordinary Italian save. Do not load a save
 
 | ID | Action | Expected result | Result |
 |---|---|---|---|
-| I01 | Cold boot 0.6.38 from an ordinary Italian IRDI save. Walk and run in four directions with a healthy non-Egg lead. | Exactly one follower appears after walking; movement and controls remain responsive. | NOT RUN |
+| I01 | Cold boot 0.6.39 from an ordinary Italian IRDI save. Walk and run in four directions with a healthy non-Egg lead. | Exactly one follower appears after walking; movement and controls remain responsive. | NOT RUN |
 | I02 | Try an empty party, Eggs only, a fainted lead, and an all-fainted party before blackout. | Selection follows the stock rules; no invalid actor or access during blackout. | NOT RUN |
 | I03 | Use small and large species, normal and shiny, alternate forms and gender differences; inspect up/down frames. | Correct species/form palette and direction, with no placeholder except identified missing art. | NOT RUN |
 | I04 | Idle, turn rapidly, reverse into the follower and walk laterally beside a building. | Idle animation works; overlap is passable and depth priority remains stable without building clipping. | NOT RUN |
@@ -38,5 +38,6 @@ Cold boot a versioned IRDI ROM from an ordinary Italian save. Do not load a save
 | I32 | With HM03 and a Surf-knowing follower, ride toward water and return to land. Separately Surf on foot with a shiny or alternate-form Pokémon and one without custom art. | The land mount hands off to its custom Surf sprite without a hop and returns on shore. Ordinary Surf prefers the selected follower, then the first party Surf knower; missing art uses the retail mount. | NOT RUN |
 | I33 | Let Repel expire while walking and while land-mounted; choose No and Yes in separate runs. | Both choices retain the follower or mount. Yes consumes one Repel; unrelated unsafe scripts retain their normal recall behavior. | NOT RUN |
 | I34 | Cold boot 0.6.38 with Rapidash walking, then Reuniclus walking and A+B mounted. Check all directions while idle and moving, including lateral player overlap. | Native shadows shade only the ground. Reuniclus walking keeps its existing appearance; while ridden, its pixels clear the player shadow, and rider and building priority stay stable. | NOT RUN |
+| I35 | Cold boot 0.6.39 with Arceus or another large follower. Walk south through a player overlap, then repeat with a small follower and check north, lateral building frontage, and stairs. | The player keeps foreground priority while walking south, each follower stays above its ground shadow, and earlier north/side/stair ordering remains stable. | NOT RUN |
 
 For any recall in I12–I14, capture `FollowingSceneDebug` reason/opcode/action and the field generation if possible. At I23, note actor count, heap use and texture/palette allocations when telemetry is available; mark them UNMEASURED otherwise.
