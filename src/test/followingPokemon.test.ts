@@ -5,7 +5,7 @@ import { decodeBtxImage } from "../pokeweb/btxModel";
 import {
   buildFollowerCatalog, compactFollowerRegistry, decodeFollowerRegistry, encodeFollowerFrames, encodeFollowerRegistry,
   enumerateFollowerAppearances, followerAnimationFrame, followerCrc32, followerDescriptorOffset,
-  followerFramesFromSheet, followerKey, followerPreview, followerSideGap, deriveFollowerSpacing, followerSheetFromFrames, stockFollowerRow,
+  followerFramesFromSheet, followerKey, followerPreview, followerSideGap, deriveFollowerSpacing, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerSheetFromFrames, stockFollowerRow,
   validateFollowerRegistry, validateFollowerResource, type FollowerFrame, type FollowerRegistry,
 } from "../pokeweb/followingPokemonModel";
 function registry(): FollowerRegistry { return {
@@ -97,6 +97,30 @@ describe("follower appearance registry",()=>{
   });
 });
 describe("follower billboard conversion",()=>{
+  it.each([32,64])("stores two-pose land rider anchors for %i-pixel art by appearance row",size=>{
+    const frames=Array.from({length:8},()=>({width:size,height:size,rgba:new Uint8Array(size*size*4)}));
+    for(let direction=0;direction<4;direction++){
+      frames[direction*2].rgba.set([255,0,0,255],((size/2-6)*size+size/2-6)*4);
+      frames[direction*2+1].rgba.set([255,0,0,255],((size/2+5)*size+size/2+5)*4);
+    }
+    const art=encodeFollowerFrames(frames,template(size));
+    const r=registry();r.entries[0].resourceId=0;r.entries[0].size=size as 32|64;r.entries[0].animationProfile="pokemon-asymmetric";r.resourceCount=1;
+    const registryBytes=encodeFollowerRegistry(r),anchors=encodeFollowerLandAnchors(r,[art],registryBytes);
+    expect(Array.from(anchors.subarray(16))).toEqual([0,-12,0,-11,0,-11,0,-11].map(value=>value&255));
+    expect(()=>validateFollowerLandAnchors(anchors,registryBytes,r.descriptorCount)).not.toThrow();
+    const corrupt=anchors.slice();corrupt[16]^=1;
+    expect(()=>validateFollowerLandAnchors(corrupt,registryBytes,r.descriptorCount)).toThrow(/does not match/);
+  });
+  it("adjusts only Arceus side-riding anchors above its long legs",()=>{
+    const size=64,frames=Array.from({length:8},()=>({width:size,height:size,rgba:new Uint8Array(size*size*4)}));
+    for(const frame of frames)frame.rgba.set([255,255,255,255],(32*size+32)*4);
+    const art=encodeFollowerFrames(frames,template(size));
+    const r=registry();r.entries[0].resourceId=0;r.entries[0].size=64;r.entries[0].animationProfile="pokemon-asymmetric";r.resourceCount=1;
+    const ordinary=encodeFollowerLandAnchors(r,[art],encodeFollowerRegistry(r));
+    r.entries[0].key.species=493;
+    const arceus=encodeFollowerLandAnchors(r,[art],encodeFollowerRegistry(r));
+    for(let i=0;i<8;i++)expect(new DataView(arceus.buffer).getInt8(16+i)).toBe(new DataView(ordinary.buffer).getInt8(16+i)-(i===5||i===7?10:0));
+  });
   it.each([32,64])("round-trips %i pixel sheets, independent sides, I4 palettes and transparency",size=>{
     const frames=Array.from({length:8},()=>frame(size));frames[6].rgba.set([0,0,248,255],0);
     const sheet=followerSheetFromFrames(frames);expect(followerFramesFromSheet(sheet)).toEqual(frames);

@@ -136,6 +136,111 @@
       "module": "field"
     },
     {
+      "id": "surf-mount-draw",
+      "segment": "36",
+      "address": 35277172,
+      "expectedHex": "1bf0c8fc",
+      "patchBytes": 4,
+      "instructionSizes": [4],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=field G3D object controller; r1=mount object index; on a validated custom mount capture its world transform and skip only this draw; otherwise forward FLD_G3DOBJ_CTRL_DrawObject once; preserve r4-r11, aligned SP, and the following ripple draw",
+      "displaced": ["bl 0x021c0308"],
+      "continuation": "0x021a4978",
+      "conflicts": "Surf effect mount draw callsite; cannot coexist with another replacement of 0x021a4974..0x021a4977",
+      "status": "Pinned IRDO bytes and call order inspected; packaged CPU checks passed, game emulator acceptance pending",
+      "module": "field"
+    },
+    {
+      "id": "surf-entry-mount-draw",
+      "segment": "36",
+      "address": 35278154,
+      "expectedHex": "1bf0ddfa",
+      "patchBytes": 4,
+      "instructionSizes": [4],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=field G3D object controller; r1=entry-jump mount object index; on a validated custom mount capture its world transform and skip only this draw; otherwise forward FLD_G3DOBJ_CTRL_DrawObject once. The following ripple draw at 0x021a4d52 remains native.",
+      "displaced": ["bl 0x021c0308"],
+      "continuation": "0x021a4d4e",
+      "conflicts": "Surf entry animation mount draw callsite; cannot coexist with another replacement of 0x021a4d4a..0x021a4d4d",
+      "status": "Pinned IRDO bytes and mid-jump object state inspected; packaged CPU checks passed, game emulator acceptance pending",
+      "module": "field"
+    },
+    {
+      "id": "mounted-surf-entry-step",
+      "segment": "36",
+      "address": 35368320,
+      "expectedHex": "acf7a2f8",
+      "patchBytes": 4,
+      "instructionSizes": [4],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=player MMDL; r1=native directional jump action. Only an armed land-to-water handoff substitutes a 2-frame one-grid walk in the saved pressed direction; otherwise forwards MMDL_SetAcmd unchanged.",
+      "displaced": ["bl 0x02166ec8"],
+      "continuation": "0x021bad84",
+      "conflicts": "native Surf-start task action request",
+      "status": "Exact stock bytes and native task branch audited; packaged CPU and human visual acceptance pending",
+      "module": "field"
+    },
+    {
+      "id": "mounted-surf-entry-finish",
+      "segment": "36",
+      "address": 35368334,
+      "expectedHex": "acf7bdf8",
+      "patchBytes": 4,
+      "instructionSizes": [4],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=player MMDL; r0=action-complete flag. For a shore attribute, starts a second grounded grid step before allowing the native Surf joint and mode change.",
+      "displaced": ["bl 0x02166f0c"],
+      "continuation": "0x021bad92",
+      "conflicts": "native Surf-start task completion query",
+      "status": "Exact stock bytes and native task branch audited; packaged CPU and human visual acceptance pending",
+      "module": "field"
+    },
+    {
+      "id": "mounted-surf-shore-span",
+      "segment": "36",
+      "address": 35138922,
+      "expectedHex": "1ff05bff",
+      "patchBytes": 4,
+      "instructionSizes": [4],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=front terrain, r6=front attribute flags; preserve retail 0x41/0x44 shoreline behavior and allow water-flagged frontage for an armed mount. Native collision and final dry-tile checks remain authoritative.",
+      "displaced": ["bl 0x021a2c24"],
+      "continuation": "0x02182d6e",
+      "conflicts": "native Surf shore span classification",
+      "status": "Exact stock bytes audited; diagnostic Humilau state showed water-flagged sand and native two-tile exit; packaged and cold-boot validation pending",
+      "module": "field"
+    },
+    {
+      "id": "mounted-surf-exit-step",
+      "segment": "36",
+      "address": 35138746,
+      "expectedHex": "e4f705f9",
+      "patchBytes": 4,
+      "instructionSizes": [4],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=player MMDL; r1=native directional shore jump. Only the event selected by native shore collision substitutes a 2-frame one-grid walk.",
+      "displaced": ["bl 0x02166ec8"],
+      "continuation": "0x02182cbe",
+      "conflicts": "native Surf shore-exit action request",
+      "status": "Exact stock bytes and native event branch audited; packaged CPU and human visual acceptance pending",
+      "module": "field"
+    },
+    {
+      "id": "mounted-surf-exit-finish",
+      "segment": "36",
+      "address": 35138752,
+      "expectedHex": "e4f724f9",
+      "patchBytes": 4,
+      "instructionSizes": [4],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=player MMDL; r0=action-complete flag. A validated shore event performs the second tile before native NORMAL mode and ripple teardown. At completion, reconcile the logical grid only for an exact one-tile discrepancy in the exit direction with centered world coordinates.",
+      "displaced": ["bl 0x02166f0c"],
+      "continuation": "0x02182cc4",
+      "conflicts": "native Surf shore-exit action completion query",
+      "status": "Exact stock bytes and native event branch audited; packaged CPU and human visual acceptance pending",
+      "module": "field"
+    },
+    {
       "id": "follower-grid-event",
       "segment": "36",
       "address": 35133628,
@@ -488,6 +593,21 @@
       "conflicts": "Any patch/relocation into this span",
       "status": "binary-verified",
       "module": "events"
+    },
+    {
+      "id": "land-mount-flat-step",
+      "segment": "36",
+      "address": 35247540,
+      "expectedHex": "c9f788fc",
+      "patchBytes": 4,
+      "instructionSizes": [4],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=player MMDL, r1=directional flat-grid walk code; forwards native setter exactly once and preserves r4-r11",
+      "displaced": ["bl 0x02166ec8"],
+      "continuation": "0x0219d5b8",
+      "conflicts": "Any patch into the ordinary flat-grid walk setter",
+      "status": "binary-verified; visual acceptance pending",
+      "module": "field"
     }
   ],
   "structureEvidence": {
@@ -573,11 +693,67 @@
   },
   "nativeAdapters": [
     {
+      "id": "land-mount-personal-base-speed",
+      "segment": "ARM9",
+      "address": 33681224,
+      "expectedHex": "10b5141cfff7deff211c01f0c1f910bd",
+      "abi": "Thumb PML_PersonalGetParamSingle; r0=species, r1=native form, r2=Personal_SPE (3), returns the form-aware Personal base Speed in r0. Called once when a mount begins. No patch is written at this site."
+    },
+    {
+      "id": "land-rider-player-sex",
+      "segment": "36",
+      "address": 35235612,
+      "expectedHex": "4068014b1847c04635b01902",
+      "abi": "Thumb; r0=FIELD_PLAYER*, reads its core pointer at +4 and dispatches to the native sex accessor. Returns 0 for male or 1 for female. No patch is written at this site."
+    },
+    {
       "id": "follower-native-shadow-register",
       "segment": "36",
       "address": 35212788,
       "expectedHex": "38b5051cd2f7a0f9d2f71cfb002812d00124a403281c211cd2f716f900280ad1",
       "abi": "Thumb; r0=live Actor*; checks native shadow eligibility and SHADOW_SET, creates the native field-effect shadow task, then marks the actor. Requires overlay 36 and initialized field-effect controller; no patch is written at this site."
+    },
+    {
+      "id": "follower-native-tile-entry-effects",
+      "segment": "36",
+      "address": 35212168,
+      "expectedHex": "f8b5051cfff7bcff002828d0",
+      "abi": "Thumb; r0=live Actor*. Requires a movement context at Actor+0x94. The synthetic stock grid follower has no such context and must not call this dispatcher. No patch is written at this site."
+    },
+    {
+      "id": "follower-native-tile-query-skip-predicate",
+      "segment": "12",
+      "address": 35026916,
+      "expectedHex": "08b501218902fff717fc002801d0012008bd002008bd",
+      "abi": "Thumb; r0=live Actor*. Returns true when Actor flag 0x400 blocks native terrain classification; clearing it on the synthetic stock grid actor is unsafe because Actor+0x94 is null. No patch is written at this site."
+    },
+    {
+      "id": "follower-grid-map-attribute",
+      "segment": "12",
+      "address": 34990308,
+      "expectedHex": "38b584b0141c002500aa2560fff7ecff012804d1029804b020600120",
+      "abi": "Thumb; r0=live grid Actor*, r1=12-byte tile-center world coordinate, r2=u32 attribute output. Returns BOOL. Uses the actor system's map mapper and does not read Actor+0x94."
+    },
+    {
+      "id": "follower-grass-controller",
+      "segment": "36",
+      "address": 35213080,
+      "expectedHex": "08b5d2f70ff9d2f765f8ebf713fb08bd",
+      "abi": "Thumb; r0=live Actor*, returns its field-effect controller. No patch is written at this site."
+    },
+    {
+      "id": "follower-grass-entry",
+      "segment": "36",
+      "address": 35212684,
+      "expectedHex": "10b5041c0020c04381420dd0081c0df04bfe2021084207d0201c00f0b7f8211c0122",
+      "abi": "Thumb; r0=live Actor*, r1=queried map attribute. Checks the grass flag and calls the native grass task adapter with animation enabled. Does not use the movement-context tile dispatcher."
+    },
+    {
+      "id": "follower-grass-task",
+      "segment": "36",
+      "address": 35274988,
+      "expectedHex": "f8b590b01c1c071c0d1c0292082c4bda02210226",
+      "abi": "Thumb; r0=field-effect controller, r1=live Actor*, r2=animation BOOL, r3=grass type. Owns grass task creation and position/lifetime checks. Reached through follower-grass-entry."
     },
     {
       "id": "actor-update",
@@ -634,6 +810,132 @@
       "address": 35037876,
       "expectedHex": "08b5adf66df80249aef68cff",
       "abi": "r0=GameData*; r0=boolean; read-only"
+    },
+    {
+      "id": "mounted-surf-bag-count",
+      "segment": "ARM9",
+      "address": 33588536,
+      "expectedHex": "08b50122fff7d4fe002801d1",
+      "abi": "BagSave_GetItemCountByID(r0=BagSave*,r1=item ID)->quantity; HM03 is item 422."
+    },
+    {
+      "id": "mounted-surf-sound",
+      "segment": "ARM9",
+      "address": 33579604,
+      "expectedHex": "0021014bc943184715620002",
+      "abi": "PMSND_PlaySE(r0=1374) is the stock jump/bounce sound request."
+    },
+    {
+      "id": "mounted-surf-event-create",
+      "segment": "ARM9",
+      "address": 33647796,
+      "expectedHex": "f8b582b0051c019337200e1c",
+      "abi": "GMEVENT_Create(r0=GameSys,r1=parent,r2=callback,r3=work bytes); event callback/work fields at +4/+12."
+    },
+    {
+      "id": "mounted-surf-task-work",
+      "segment": "ARM9",
+      "address": 33793788,
+      "expectedHex": "00697047426940681830484310187047",
+      "abi": "GFL_TCB_GetWork(r0=task)->task work; Surf wait at +2 and shore flag at +8."
+    },
+    {
+      "id": "mounted-surf-start-task",
+      "segment": "36",
+      "address": 35367892,
+      "expectedHex": "f8b5051c16480e1c0090191c",
+      "abi": "FIELD_PLAYER_GRID_SetEventNaminoriStart(r0=FieldPlayer,r1=direction,r2=front attribute,r3=event heap)->task."
+    },
+    {
+      "id": "mounted-surf-task-done",
+      "segment": "36",
+      "address": 35368004,
+      "expectedHex": "08b57ff659fd808808bd0000",
+      "abi": "FIELD_PLAYER_GRID_CheckEventNaminoriStart(r0=task)->finished."
+    },
+    {
+      "id": "mounted-surf-task-delete",
+      "segment": "36",
+      "address": 35368016,
+      "expectedHex": "10b5041c7ff652fd7ff60efb",
+      "abi": "FIELD_PLAYER_GRID_DeleteEventNaminoriStart(r0=task); frees task work and task."
+    },
+    {
+      "id": "mounted-surf-shore-event",
+      "segment": "36",
+      "address": 35138616,
+      "expectedHex": "f8b5151ce8680c1cfdf776fc",
+      "abi": "Native Surf-exit callback Thumb pointer 0x02182c39; its work has direction +4, shore flag +6, Field* +12."
+    },
+    {
+      "id": "mounted-surf-permission",
+      "segment": "36",
+      "address": 35236720,
+      "expectedHex": "70b582b0051c0c1cfff7c4fd",
+      "abi": "FIELD_PLAYER_CheckNaminoriUse(r0=FieldPlayer,r1=direction)->BOOL for mode, frontage and height. The caller separately requires Water set and Blocked clear in the front tile's packed flags."
+    },
+    {
+      "id": "mounted-surf-key-direction",
+      "segment": "36",
+      "address": 35235344,
+      "expectedHex": "4068014b1847c04661b11902",
+      "abi": "FIELD_PLAYER_GetKeyDir(r0=FieldPlayer,r1=held keys)->direction 0..3 or 9."
+    },
+    {
+      "id": "mounted-surf-front-position",
+      "segment": "36",
+      "address": 35236304,
+      "expectedHex": "f0b589b0041c60680e1c151c",
+      "abi": "FIELD_PLAYER_GetDirPos(r0=FieldPlayer,r1=direction,r2=Vec*)."
+    },
+    {
+      "id": "mounted-surf-front-attribute",
+      "segment": "36",
+      "address": 35269136,
+      "expectedHex": "08b584b000aae2f7cbfb0128",
+      "abi": "MAPATTR_GetAttribute(r0=mapper,r1=Vec*)->packed MAPATTR."
+    },
+    {
+      "id": "mounted-surf-terrain-id",
+      "segment": "36",
+      "address": 35269164,
+      "expectedHex": "0004000c70470000",
+      "abi": "MAPATTR_GetTerrainID(r0=packed attribute)->low 16-bit terrain ID."
+    },
+    {
+      "id": "mounted-surf-shore-terrain",
+      "segment": "36",
+      "address": 35269668,
+      "expectedHex": "412801d0442801d10120704700207047",
+      "abi": "Retail Surf-entry task treats terrain IDs 0x41 and 0x44 as two-step shoreline water."
+    },
+    {
+      "id": "mounted-surf-water-terrain",
+      "segment": "36",
+      "address": 35269712,
+      "expectedHex": "402801d10120704700207047",
+      "abi": "Retail terrain predicate for water ID 0x40; accepted alongside shoreline IDs before automatic entry."
+    },
+    {
+      "id": "mounted-surf-ocean-terrain",
+      "segment": "36",
+      "address": 35269872,
+      "expectedHex": "3d2809d03e2807d03f2805d0044940180004000c012801d80120704700207047beff0000",
+      "abi": "Retail terrain predicate for additional water IDs 0x3d, 0x3e, 0x3f, 0x42 and 0x43, including Humilau's 0x3f ocean tile."
+    },
+    {
+      "id": "mounted-surf-field-skill-zone",
+      "segment": "ARM9",
+      "address": 33655908,
+      "expectedHex": "10b5041cfff70aff002813d1",
+      "abi": "ZONEDATA_CheckFieldSkillUse(r0=zone ID)->BOOL; retain stock zone bans."
+    },
+    {
+      "id": "mounted-surf-reverse-area",
+      "segment": "ARM9",
+      "address": 33650148,
+      "expectedHex": "0149405c7047c046d2010000",
+      "abi": "GAMEDATA_GetIntrudeReverseArea(r0=GameData*)->BOOL; retain stock field-skill guard."
     },
     {
       "id": "bag-access",
@@ -2891,9 +3193,57 @@
       "expectedHex": "b5fff7efff002801d0012008bd002008bd000070b582b0051c0e1cfff7e2ff04",
       "abi": "BagSave_AddItem(r0=Bag,r1=item,r2=quantity,r3=heap 4)->BOOL; retail pocket and stack handling.",
       "purpose": "Add one-time follower gift; rollback claim bit on unexpected false."
+    },
+    {
+      "id": "mounted-surf-player-actor",
+      "segment": "36",
+      "address": 35235552,
+      "expectedHex": "4068014b1847c04609b01902",
+      "abi": "FLD_PLAYER_GetActor(r0=field player)->Actor*; reads field player +4 and forwards to the native actor accessor.",
+      "purpose": "Resolve the player actor before the mounted Surf event so the pressed direction can become the native facing."
+    },
+    {
+      "id": "mounted-surf-set-face",
+      "segment": "12",
+      "address": 35025048,
+      "expectedHex": "028b828301837047",
+      "abi": "Actor_SetFace(r0=Actor*,r1=direction); copies current face at +0x18 to old face at +0x1c, then stores direction at +0x18.",
+      "purpose": "Face the requested water tile before native Surf effect creation and movement selection."
+    },
+    {
+      "id": "mounted-surf-get-face",
+      "segment": "12",
+      "address": 35025080,
+      "expectedHex": "008b7047",
+      "abi": "Actor_GetFace(r0=Actor*) returns the halfword at +0x18.",
+      "purpose": "The native Surf task derives its initial effect and action from player facing; this must match the pressed water direction."
+    },
+    {
+      "id": "surf-material-init",
+      "segment": "ARM9",
+      "address": 33875352,
+      "expectedHex": "38b5041c13488900405823726061702010400111cd001048c91c",
+      "abi": "Billboard material initializer (r0=material,r1=palette row,r2=texture dimension exponents,r3=frame width,stack[0]=frame height). 0x22 describes 32x32; 0x33 describes 64x64. It computes atlas columns/rows at material +0x0a/+0x0b.",
+      "purpose": "Initialize Surf frame materials with a nonzero one-by-one atlas for both supported frame sizes."
+    },
+    {
+      "id": "surf-billboard-draw-live-flag",
+      "segment": "ARM9",
+      "address": 33877504,
+      "expectedHex": "105a8004820c2098824203d0218b8805c00f00d17ae10198",
+      "abi": "The retail billboard renderer skips actors whose flags +0x18 lack bit 9 (0x0200), before material selection and geometry submission.",
+      "purpose": "Ensure the private mount retains the actor-visible bit when drawing through the native renderer."
+    },
+    {
+      "id": "surf-native-mount-draw",
+      "segment": "36",
+      "address": 35390216,
+      "expectedHex": "08b5c26868204843",
+      "abi": "FLD_G3DOBJ_CTRL_DrawObject(r0=controller,r1=object index), void; the controller stores its object table at +12, each object is 0x68 bytes and its world translation begins at object +8. The native draw call does not consult controller +8 as a count.",
+      "purpose": "Forward stock mount drawing on nonmatching species or resource failure; retain the native ripple call unmodified."
     }
   ],
-  "eventsAbi": 4,
+  "eventsAbi": 5,
   "renderLayouts": {
     "billboardStride": 28,
     "positionOffset": 4,

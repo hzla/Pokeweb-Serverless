@@ -1,0 +1,146 @@
+{
+  "version": 2,
+  "members": 24,
+  "framesPerDirection": 3,
+  "directions": [
+    "up",
+    "down",
+    "left",
+    "right"
+  ],
+  "bikeFrames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "compositeSplitY": 18,
+  "bikeSampleOffsets": {
+    "male": [
+      [
+        0,
+        -2
+      ],
+      [
+        1,
+        -2
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        -1,
+        -1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        0,
+        -3
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        0,
+        -2
+      ],
+      [
+        0,
+        -3
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    "female": [
+      [
+        0,
+        -3
+      ],
+      [
+        1,
+        -3
+      ],
+      [
+        -1,
+        -2
+      ],
+      [
+        0,
+        -1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        -1,
+        0
+      ],
+      [
+        1,
+        -2
+      ],
+      [
+        1,
+        -3
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        -1,
+        -2
+      ],
+      [
+        -1,
+        -3
+      ],
+      [
+        -1,
+        -1
+      ]
+    ]
+  },
+  "bottomPixels": [
+    28,
+    27,
+    27,
+    27
+  ],
+  "sourceSha256": {
+    "male": {
+      "bike": "f9012789b0811fe5ff6da7107fcffe921f7134c383a48628eb340388df4697c4",
+      "seated": "15c226cab7fa0f744b5bd5b91242d80559091d51ad4a84c97ef49c42fbd54daa"
+    },
+    "female": {
+      "bike": "543b47e99ff4fb144fcdb4eeda29d8dfd72678dcf9e03d6cb85409e20970d871",
+      "seated": "2eac0a66d4d8ff58bfdcb4e826f58c5fd36ca23ab1b410ba21d7c45646aa70fb"
+    }
+  },
+  "bytes": 17236,
+  "sha256": "3e24a8fac08aa7ea6a92ec0ecebe4b81ab86a093fed498863ac333ab13f28d8d"
+}

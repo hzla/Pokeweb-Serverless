@@ -44,18 +44,32 @@ void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int s
    int delta=sprite_y-(int8_t)a->descriptor[14]-(a->face==0?FWR_NORTH_ART_Y:0);
    int64_t y=(int64_t)adjusted.position.y+(int64_t)delta*4096;
    if(delta&&y>=INT32_MIN&&y<=INT32_MAX){adjusted.position.y=(int32_t)y;changed=1;}
+   FwrCamera cam={*(FwPoint*)((uint8_t*)camera+32),*(FwPoint*)((uint8_t*)camera+56),U32(camera,0)};
    if(p&&b!=p){
     FwrPose corrected;
-    FwrCamera cam={*(FwPoint*)((uint8_t*)camera+32),*(FwPoint*)((uint8_t*)camera+56),U32(camera,0)};
     FwPoint world={a->world.x,a->world.y,a->world.z},pw={player->world.x,player->world.y,player->world.z};
     unsigned flags=(a->descriptor[7]==2?FWR_LARGE:0)|(a->face==0?FWR_NORTH:0);
     applied=fwr_correct(&world,&pw,&adjusted,&p->position,&cam,flags,&corrected,&result);
     if(applied){adjusted=corrected;changed=1;}
     FollowingRenderDebug.size=a->descriptor[7];FollowingRenderDebug.applied=applied;
     FollowingRenderDebug.policy=result.policy;FollowingRenderDebug.before=result.before;FollowingRenderDebug.after=result.after;
-    FollowingRenderDebug.axis=result.axis;FollowingRenderDebug.native=original.position;FollowingRenderDebug.submitted=adjusted.position;
-    FollowingRenderDebug.nativeSX=original.sx;FollowingRenderDebug.submittedSX=adjusted.sx;
+    FollowingRenderDebug.axis=result.axis;FollowingRenderDebug.native=original.position;
+    FollowingRenderDebug.nativeSX=original.sx;
    }
+   if((a->moveflags&0x4000u)&&!(a->moveflags&0x8000u)){
+    /* The native shadow is submitted in the later effect pass. Some lowered
+     * Pokémon quads sit behind its ground plane and are darkened by it. Move
+     * only the submitted quad along the camera ray; keep the shadow, screen
+     * pixels, logical position, and later effect pass where they are. */
+    FwPoint ground={a->world.x,a->world.y,
+                    a->world.z+(int8_t)a->dimensions[4]*4096};
+    FwrPose corrected;
+    if(fwr_above_shadow(&adjusted,&ground,&cam,&corrected)){
+     adjusted=corrected;changed=1;
+    }
+   }
+   FollowingRenderDebug.submitted=adjusted.position;
+   FollowingRenderDebug.submittedSX=adjusted.sx;
    if(changed){b->position=adjusted.position;b->sx=(int16_t)adjusted.sx;b->sy=(int16_t)adjusted.sy;}
   }
  }

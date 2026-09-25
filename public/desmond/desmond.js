@@ -2846,6 +2846,22 @@ module.exports = localforage_js;
            loadURL(u);
        };
     }
+
+        // Pokeweb already transferred the ROM into this tab. Pass those bytes
+        // straight to the loader instead of copying a 512 MiB ROM through a
+        // Blob URL, XMLHttpRequest, and another ArrayBuffer allocation.
+        player.loadBytes = function(bytes) {
+            var rom = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+            return tryLoadROM({
+                name: 'pokeweb.nds',
+                size: rom.byteLength,
+                slice: function(start, end) { return new Blob([rom.subarray(start, end)]); },
+                arrayBuffer: function() {
+                    if (rom.byteOffset === 0 && rom.byteLength === rom.buffer.byteLength) return Promise.resolve(rom.buffer);
+                    return Promise.resolve(rom.buffer.slice(rom.byteOffset, rom.byteOffset + rom.byteLength));
+                }
+            });
+        };
         
 function status(){
 console.log("loaded");
