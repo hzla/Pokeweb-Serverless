@@ -1,8 +1,0 @@
-Segments:
-  - ID: 0
-    Name: ARM9
-    Type: EXECUTABLE
-  - ID: 1
-    Name: 12
-    Type: OVERLAY
-Symbols: []
