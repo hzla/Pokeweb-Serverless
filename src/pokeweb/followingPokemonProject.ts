@@ -17,6 +17,8 @@ import upgradeSurfManifest from "../assets/following/white2upgrade/surf-mounts.j
 import contract from "../../runtime/following-pokemon/contract.json";
 import black2Contract from "../../runtime/following-pokemon/black2-contract.json";
 import italyContract from "../../runtime/following-pokemon/italy-contract.json";
+import bw2PmcContract from "../../runtime/following-pokemon/bw2-pmc-contract.json";
+import italyPmcContract from "../../runtime/following-pokemon/italy-pmc-contract.json";
 import { loadOverlayTable } from "../nds/code";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
@@ -26,7 +28,7 @@ import { getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
-import { parseRpm, writeRpm } from "./rpm";
+import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 import { buildFollowerCatalog, deriveFollowerGrounding, deriveFollowerSpacing, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerSideGap, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
   type FollowerAppearanceKey, type FollowerAssetEntry, type FollowerRegistry } from "./followingPokemonModel";
 
@@ -52,7 +54,6 @@ type FollowerFiles = Pick<NintendoDSRom, "filenames" | "files">;
 /** Detached source files needed by the follower editor; never retains the full ROM. */
 export type FollowerRom = FollowerFiles & Pick<NintendoDSRom, "idCode" | "arm9RamAddress" | "arm9OverlayTable"> & {
   revision: number;
-  sourceSha256?: string;
 };
 const romHashes = new WeakMap<Uint8Array, Promise<string>>();
 const toHex = (bytes: Uint8Array) => Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
@@ -94,12 +95,6 @@ export async function followerRom(project: ProjectState, sourceBytes?: Uint8Arra
     arm9RamAddress: rom.arm9RamAddress,
     arm9OverlayTable: rom.arm9OverlayTable,
   };
-  // Recognized installations and audited upgrade modules have their own checks.
-  // Only an uninstalled stock ROM needs the full clean-ROM fingerprint.
-  if (((project.session.baseVersion === "W2" && (source.idCode === "IRDO" || source.idCode === "IRDI")) || (project.session.baseVersion === "B2" && source.idCode === "IREO")) && source.revision === 0 &&
-      !readFollowingFile(project, source, "patches/White2Upgrade.dll") && !readFollowingFile(project, source, FOLLOWER_INSTALL_PATH)) {
-    source.sourceSha256 = await followerRomSha256(bytes);
-  }
   return source;
 }
 export function readFollowingFile(project: ProjectState, rom: FollowerFiles, path: string): Uint8Array | undefined {
@@ -124,6 +119,16 @@ function runtimeFor(profile: FollowerProfile): FollowerRuntimeManifest { return 
 function interactionFor(profile: FollowerProfile): typeof interactionManifest { return profile === "white2italy" ? italyInteractionManifest : interactionManifest; }
 function targetFor(profile: FollowerProfile): string { return profile === "white2upgrade" ? upgradeContract.sourceRomSha256 : profile === "black2" ? black2Contract.target.sha256 : profile === "white2italy" ? italyContract.target.sha256 : contract.target.sha256; }
 function binaryContractFor(profile: FollowerProfile): typeof contract { return profile === "black2" ? black2Contract as typeof contract : profile === "white2italy" ? italyContract as typeof contract : contract; }
+export function followerModuleHookConflicts(rpm: RpmModule, hooks: readonly { segment: string; address: number; patchBytes: number }[]): boolean {
+  for (const relocation of rpm.relocations) {
+    const target = relocation.target;
+    if (target.module === "base") continue;
+    const symbol = rpm.symbols[relocation.sourceSymbolIndex];
+    const length = target.type === "FULL_COPY" ? symbol?.size : target.type === "THUMB_BRANCH" ? 8 : target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : 4;
+    if (!length || hooks.some(hook => hook.segment === target.module && target.address < hook.address + hook.patchBytes && target.address + length > hook.address)) return true;
+  }
+  return false;
+}
 type FollowerModulePaths = { field: string; events: string; core: string; fieldName: string; eventsName: string; coreName: string };
 function modulePathsFor(profile: FollowerProfile): FollowerModulePaths {
   const suffix = profile === "black2" ? "B2" : profile === "white2italy" ? "W2I" : "W2";
@@ -144,10 +149,17 @@ export async function checkFollowerCompatibility(project: ProjectState, rom?: Fo
   if (profile === "white2upgrade" && !white2) return { compatible: false, message: "The expansion follower profile is available only for White 2.", checks };
   checks.push({ name: `${rom.idCode} revision 0`, passed: true });
   const binaryContract = binaryContractFor(profile);
-  const pinned = rom.sourceSha256 === binaryContract.target.sha256;
-  const installed = pinned ? undefined : await readFollowerAlphaInstall(project, rom);
-  checks.push({ name: pinned ? "Pinned clean-ROM SHA-256" : `Recognized installation on ${rom.idCode} revision 0`, passed: pinned || !!installed || profile === "white2upgrade" });
-  if (!pinned && !installed && profile !== "white2upgrade") return { compatible: false, message: `The input ROM does not match the pinned clean ${profile === "black2" ? "Black 2" : "White 2"} baseline. Existing asset workspaces remain editable.`, checks };
+  if (!getPmcInstallStatus(project).installed) {
+    const pmcSites = rom.idCode === "IRDI" ? [...italyPmcContract.hooks, ...italyPmcContract.imports]
+      : [...bw2PmcContract.profiles[rom.idCode as "IRDO" | "IREO"].hooks, ...bw2PmcContract.profiles[rom.idCode as "IRDO" | "IREO"].imports];
+    for (const site of pmcSites) {
+      const at = site.address - rom.arm9RamAddress;
+      checks.push({ name: `PMC ${site.id}`, passed: at >= 0 && toHex(project.arm9.subarray(at, at + site.expectedHex.length / 2)) === site.expectedHex });
+    }
+  }
+  // A whole-ROM fingerprint changes for harmless text, script, or file-order edits.
+  // The binary contract and the archives we actually extend define compatibility.
+  const installed = await readFollowerAlphaInstall(project, rom);
   if (profile === "white2upgrade") {
     for (const required of upgradeContract.requiredModules) {
       const module = readFollowingFile(project, rom, required.path);
@@ -167,6 +179,20 @@ export async function checkFollowerCompatibility(project: ProjectState, rom?: Fo
     const at = hook.address - (base ?? 0);
     checks.push({ name: hook.id, passed: !!data && at >= 0 && toHex(data.subarray(at, at + hook.expectedHex.length / 2)) === hook.expectedHex });
   }
+  if (!installed) {
+    try {
+      const descriptor = new NARC(readFollowingFile(project, rom, FOLLOWER_DESCRIPTOR_PATH)!).files;
+      const resources = new NARC(readFollowingFile(project, rom, FOLLOWER_RESOURCE_PATH)!).files;
+      const personal = new NARC(readFollowingFile(project, rom, "a/0/1/6")!).files;
+      const appearances = readFollowerStockAppearances(readFollowingFile(project, rom, "a/2/0/8")!);
+      const rows = binaryContract.registry.stockRows;
+      if (descriptor.length !== 1 || descriptor[0].length !== 4 + rows * 28 || readU32(descriptor[0], 0) !== rows ||
+          resources.length !== binaryContract.resources.stockMembers || personal.length <= (profile === "white2upgrade" ? 1023 : 649))
+        throw new Error("Unexpected stock follower archive layout");
+      buildFollowerCatalog(personal, appearances, descriptor[0], resources, profile === "white2upgrade" ? 1023 : 649);
+      checks.push({ name: "Stock follower archive layout", passed: true });
+    } catch { checks.push({ name: "Stock follower archive layout", passed: false }); }
+  }
   for (const module of listCodeInjectionDlls(project)) {
     const data = readFollowingFile(project, rom, module.path);
     if (!data) { checks.push({ name: `Unreadable patch ${module.path}`, passed: false }); continue; }
@@ -175,18 +201,13 @@ export async function checkFollowerCompatibility(project: ProjectState, rom?: Fo
     if (module.path === modulePaths.core && [runtimeManifest.coreSha256, await followerRomSha256(removedModule(profile, 2)), ...runtimeManifest.previousVersions.flatMap(version => "coreSha256" in version ? [version.coreSha256] : [])].includes(await followerRomSha256(data))) continue;
     try {
       const rpm = parseRpm(data, { allowedMagics: ["DLXF"] });
-      for (const relocation of rpm.relocations) {
-        const target = relocation.target;
-        if (target.module === "base") continue;
-        const symbol = rpm.symbols[relocation.sourceSymbolIndex];
-        const length = target.type === "FULL_COPY" ? symbol?.size : target.type === "THUMB_BRANCH" ? 8 : 4;
-        const overlaps = !length || binarySites.some(h => h.segment === target.module && target.address < h.address + h.expectedHex.length / 2 && target.address + length > h.address);
-        if (overlaps) checks.push({ name: `Hook conflict: ${module.path}`, passed: false });
-      }
+      // Only hook write spans are owned. Native-adapter signatures can cover
+      // whole functions or tables that another DLL legitimately extends.
+      if (followerModuleHookConflicts(rpm, binaryContract.hooks)) checks.push({ name: `Hook conflict: ${module.path}`, passed: false });
     } catch { checks.push({ name: `Cannot audit patch ${module.path}`, passed: false }); }
   }
   const compatible = checks.every(c => c.passed);
-  return { compatible, checks, installation: installed, message: compatible ? `Binary adapters match. ${profile === "white2upgrade" ? "White2Upgrade Gen 6–9" : profile === "black2" ? "Stock Black 2 Gen 5" : profile === "white2italy" ? "Italian White 2 Gen 5" : "Stock White 2 Gen 5"} follower alpha available; emulator acceptance remains separate.` : "A follower hook region is modified or conflicts with an installed patch." };
+  return { compatible, checks, installation: installed, message: compatible ? `Binary adapters and follower archives match. ${profile === "white2upgrade" ? "White2Upgrade Gen 6–9" : profile === "black2" ? "Black 2 Gen 5" : profile === "white2italy" ? "Italian White 2 Gen 5" : "White 2 Gen 5"} follower alpha available; emulator acceptance remains separate.` : "A required follower binary site, archive layout, or patch hook is incompatible." };
 }
 export function readFollowerWorkspace(project: ProjectState, rom: FollowerFiles): FollowerAssetWorkspace | undefined {
   const bytes = readFollowingFile(project, rom, FOLLOWER_MANIFEST_PATH);

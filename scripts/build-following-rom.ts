@@ -8,7 +8,7 @@ import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { installFollowerAlpha, followerRomSha256, followerProfile } from "../src/pokeweb/followingPokemonProject";
 import { getTestBattleConfig, loadTestBattleSave, toDesmumeDsv } from "../src/pokeweb/testBattle";
-const [inputPath, outputPath="runtime/following-pokemon/build/manual-test"] = process.argv.slice(2);
+const [inputPath, outputPath=fileURLToPath(new URL("../../.pokeweb-local-archive/current/follower-roms/",import.meta.url))] = process.argv.slice(2);
 if (!inputPath) throw new Error("Expected an audited Black 2, White 2, Italian White 2, or White2Upgrade ROM path and optional output directory");
 globalThis.fetch=(async(input:RequestInfo|URL)=>{
  const url=new URL(input instanceof Request?input.url:String(input));

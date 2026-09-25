@@ -248,10 +248,10 @@ npm run following:import-upgrade -- /path/to/White2Upgrade.nds /path/to/hg-engin
 npm run following:verify-fan-assets -- /path/to/followersprites
 python3 runtime/following-pokemon/import_surf_mounts.py --profile white2upgrade
 npm run following:build-upgrade -- /path/to/White2Upgrade.nds --publish
-npm run following:build-rom -- /path/to/White2Upgrade.nds runtime/following-pokemon/build/white2upgrade-test /path/to/previous.sav
+npm run following:build-rom -- /path/to/White2Upgrade.nds ../.pokeweb-local-archive/current/follower-roms /path/to/previous.sav
 python3 runtime/following-pokemon/verify_surf_upgrade.py /path/to/White2Upgrade.nds
 npm run following:verify-upgrade -- /path/to/White2Upgrade.nds /path/to/White2Upgrade-Following-0.7.31-alpha.nds
-FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade.py /path/to/White2Upgrade-Following-0.7.31-alpha.nds
+FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_registry_stream.py --profile white2upgrade /path/to/White2Upgrade-Following-0.7.31-alpha.nds
 FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade_snapshot.py /path/to/nofollowers.mln /path/to/White2Upgrade-Following-0.7.31-alpha.nds
 python3 runtime/following-pokemon/generate_upgrade_docs.py
 ```

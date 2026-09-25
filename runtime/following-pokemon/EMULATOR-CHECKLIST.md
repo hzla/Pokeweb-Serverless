@@ -1,214 +1,26 @@
-# Following Pokémon — human emulator test checklist
+# Following Pokémon — human emulator checklist
 
-Use this as a test record, not as a list of already verified behavior. Mark each
-row **PASS**, **FAIL**, **BLOCKED** (missing setup), or **NOT RUN**. Record the
-emulator and ROM build for every run. Hardware results belong in a separate log.
+The generated checklist collects targeted regression cases before the baseline cases below. All rows begin NOT RUN; host and isolated-CPU checks are not game-emulator results. Cold boot the current profile export with an ordinary matching save. Record ROM hash, emulator version, map, species/form, facing, and a fresh state for failures.
 
-<!-- generated-follower-cycle:start -->
-## 0.6.48-alpha L/R follower cycling — human acceptance
+<!-- generated-gen5-assets:start -->
+## 0.6.32 Gen 5 sprite acceptance
 
-Cold boot the matching ROM and ordinary save. These cases are NOT RUN until recorded by the human tester; do not resume an older savestate.
+Run G509 first in melonDS for the palette correction, then G501 and explicitly check up versus down before continuing with G502–G505. These rows are **NOT RUN** until the human tester records results. Use a cold boot of the 0.6.32 ROM; an older emulator state contains earlier runtime instructions and resource tables.
 
 | ID | Steps | Expected | Result / evidence |
 |---|---|---|---|
-| CY01 | Cold boot 0.6.48 with three healthy non-Egg party Pokémon. On open ground tap R twice, then L once; repeat at both ends of the party order. | R advances and L reverses through eligible party slots with wraparound. Each switch recalls the old follower before sending out the next; the party order does not change. | NOT RUN |
-| CY02 | Press both shoulders together, hold one shoulder, and press either again during recall and send-out. Repeat while talking, in a menu, at a door, and during Surf. | Both shoulders together do nothing; one held press switches once. Input during an effect or another field owner cannot start another switch or leave two follower actors. | NOT RUN |
-| CY03 | Place an Egg and a fainted Pokémon between two healthy members. Try a party with only one eligible member, then a party where every non-Egg is fainted. | Eggs are skipped. Healthy members take priority when available; if all are fainted, non-Egg members can be selected. One eligible member does not recall itself. | NOT RUN |
-| CY04 | Select a follower with L/R, then open and close the menu and PC without changing the party. Reorder the party, cross a seamless zone, and try a battle. | The party order remains unchanged by cycling, and exactly one eligible follower returns after each transition. The manual choice survives actor-system replacement but may reset to the ordinary lead after a full field unload; record when that happens. | NOT RUN |
-| CY05 | Cycle between a small sprite and a 64-pixel sprite while facing left and right, first while stationary and then while walking. Repeat near stairs or a building. | The new follower appears after recall without requiring an extra player step. Its spacing, shadow, and draw priority match its species without stale art or clipping. | NOT RUN |
-<!-- generated-follower-cycle:end -->
+| G501 | Cold boot 0.6.32 with Snivy, Tepig and Oshawott as lead in turn; walk, run and turn in all four directions. | Each species uses its own Gen 5 art and animation. Up and down facing match the player direction; no Bulbasaur fallback, palette corruption or frame-order error. | NOT RUN |
+| G502 | Repeat G501 with shiny Gen 5 leads, including one small species and Reshiram or Zekrom. | Shiny colors are visible only on the follower; unrelated actors keep their palettes. | NOT RUN |
+| G503 | Compare male/female Unfezant, Frillish and Jellicent. | Each gender resolves to the matching artwork in normal and shiny states. | NOT RUN |
+| G504 | Test both Basculin forms, Darmanitan and Zen Mode, all Deerling/Sawsbuck seasons, Therian genies, three Kyurem forms, Keldeo, Meloetta and all Genesect drives. | Every valid White 2 form loads safely. Forms sharing source art remain stable and keep the actual party identity/cry. | NOT RUN |
+| G505 | Test Tornadus, Thundurus, Reshiram, Zekrom, Landorus and Kyurem indoors, outdoors, near doors and during follower dialogue. | 64-pixel followers render without clipping or invalid resource reads; recall/send-out and conversations still complete. | NOT RUN |
+| G506 | Reorder the party between two different Gen 5 species, evolve a Gen 5 lead, then deposit/withdraw it. | Appearance refreshes to the selected party member with exactly one follower and no stale sprite. | NOT RUN |
+| G507 | Cycle species 494–649 in normal and shiny states with a prepared save/tool, including every valid form and gender difference. | All 624 appearance keys display Gen 5 art; no missing-resource crash or Bulbasaur placeholder. | NOT RUN |
+| G508 | Run 100 mixed transitions while alternating small/large and normal/shiny Gen 5 leads. | No increasing load time, duplicate actor, stuck controls, palette bleed, or accumulating actor/texture/palette allocation. | NOT RUN |
+| G509 | Test normal and shiny Landorus in both forms and inspect all four directions and both walk frames. Spot-check Victini, Gigalith, Vanillite, Ferrothorn, Golett, Terrakion, both Tornadus and Thundurus forms, Reshiram, Zekrom and all Kyurem forms. | No opaque neon-magenta pixels appear. The 17 repaired resources use their normal-palette color at source sentinel entries while retaining the remaining shiny palette colors. | NOT RUN |
 
-<!-- generated-terrain:start -->
-## Start here: 0.6.46-alpha stock grass and running seam
-
-These checks are NOT RUN. Cold boot the matching versioned ROM and ordinary save; do not resume an older state. The supplied `noterrain.mln`, `noterrain2.mln`, `transitionrecall.mln`, and `followerfreeze.mln` contain older runtime code. This build uses the native grid-attribute query and grass task while keeping the unsafe movement-context dispatcher disabled.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| TE01 | Cold boot stock White 2 0.6.46 with the matching save. Spawn a grounded follower in grass, then walk several tiles through grass and pavement. | A grass fringe appears under the follower when it first becomes visible in grass and on each grass tile entered. It disappears after leaving grass. The game remains responsive. | NOT RUN |
-| TE02 | Repeat TE01 with a Flying-type follower and a large grounded follower. Stop, turn, open a menu, and resume walking. | Flying followers have no grass fringe. Grounded followers retain their grass fringe while stationary. No duplicate effect, shadow loss, or freeze. | NOT RUN |
-| TE03 | Walk across dust, footprints, shallow water, stairs and bridge tiles where the player creates a native effect. | This build targets grass only; record those other missing effects for the next terrain pass. The unsafe native movement-context dispatcher remains unused. | NOT RUN |
-| TE04 | Cold boot 0.6.46 with the matching save. Walk, then run repeatedly across the Virbank Complex / Virbank City matrix-0 seam in both directions. Repeat beside another seamless zone boundary. | The follower stays visible through the seam at walking and running speed, without a recall/send-out animation or duplicate actor. Scripted player moves and warps still recall normally. | NOT RUN |
-<!-- generated-terrain:end -->
-
-<!-- generated-striped-entry:start -->
-## 0.6.61-alpha first-frame Surf texture handoff — human acceptance
-
-Cold boot `White2-Following-0.6.61-alpha.nds` with its matching ordinary save. `strippedsprite.mln` contains the previous loaded runtime and is diagnostic evidence only. These cases are **NOT RUN** until recorded by the human tester.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| FE01 | Cold boot 0.6.61 with mounted Arceus at the Humilau Water edge. Face Right, then press Down and watch the first three transition frames. | The previous land pose stays intact until the Surf pose is ready. No striped pixels appear on the Pokémon or rider. | NOT RUN |
-| FE02 | Repeat the water entry after facing each other direction, including an opposite-facing turn. | Every first Surf frame is complete, correctly oriented and positioned beneath the rider. | NOT RUN |
-| FE03 | Repeat land-to-water and water-to-land twenty times at Humilau and at a normal one-tile shore. | No texture corruption, missed mount, stale land art, or growing slowdown occurs. | NOT RUN |
-| FE04 | At the Humilau City–Route 21 edge, ride south from sand into water, dismount on the small sand island, then keep holding Down into water and return to shore. Repeat while moving at full mounted speed. | The second Surf starts only from a completed centered step. Sprite, footprints, collision and adjacent tile checks remain on the same tile after every crossing. | NOT RUN |
-| FE05 | Repeat FE04 in the opposite direction and with a pause between each water crossing. | The shore exit completes on the visible landing tile. Map-boundary crossing does not leave the game using a neighboring tile for collision or effects. | NOT RUN |
-<!-- generated-striped-entry:end -->
-
-<!-- generated-water-flags:start -->
-## 0.6.60-alpha Water-versus-Splash entry — human acceptance
-
-Cold boot `White2-Following-0.6.60-alpha.nds` with its matching ordinary save. The supplied image identifies the Pokeweb Water and Splash flags; it is not an emulator test. These cases are **NOT RUN** until recorded by the human tester.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| WF01 | Cold boot 0.6.60 in Humilau with a Surf-knowing land mount and HM03. Walk onto each light-blue Splash-only beach tile, then stop. | The player remains on the land mount through every Splash-only tile; no Surf effect, ripple, or movement lock starts. | NOT RUN |
-| WF02 | From the last Splash-only tile, press toward the adjacent darker tile marked Water+Splash in Pokeweb. | That attempted Water step starts the custom Surf effect once. The same Pokémon carries the rider onto water without a jump or one-tile offset. | NOT RUN |
-| WF03 | Repeat WF01–WF02 from each accessible direction, then return to dry sand. | Only tiles with Water set start Surf. The shore exit returns to the same land mount on dry land without a hop or corrupted sprite. | NOT RUN |
-| WF04 | Try another map with an ordinary Water tile, and a blocked Water frontage. | An eligible Water tile still starts Surf; a blocked frontage never starts the custom handoff. | NOT RUN |
-<!-- generated-water-flags:end -->
-
-<!-- generated-shore-menu:start -->
-## 0.6.59-alpha shore, menu, and texture handoff — human acceptance
-
-Cold boot `White2-Following-0.6.59-alpha.nds` with its matching ordinary save. The supplied earlier savestates are diagnostic evidence, not a cold-boot acceptance result. These cases are **NOT RUN** until recorded by the human tester.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| SM01 | Cold boot 0.6.59 at the Humilau waterline with the same mounted Surf Pokémon. Press toward dry sand without opening a menu. | The shore exit uses the short two-tile transfer and restores the land mount on dry sand. | NOT RUN |
-| SM02 | Surf to the Humilau waterline, open and close the party menu without changing the party, then press toward dry sand. | The same Pokémon returns as a land mount; there is no retail walking dismount. | NOT RUN |
-| SM03 | While surfing, alter or remove the mounted Pokémon or its Surf move in the party menu, then leave the water. | The old mount is not restored; the native on-foot result remains safe. | NOT RUN |
-| SM04 | Repeat at a one-tile dry shore and at a blocked rock or object frontage. | Ordinary shore spacing is unchanged and blocked destinations remain blocked. | NOT RUN |
-| SM05 | Mount on land and enter water repeatedly in several directions, including a turn toward water. | No striped or corrupted pixels appear while the custom Surf art replaces the land mount. | NOT RUN |
-<!-- generated-shore-menu:end -->
-
-<!-- generated-mount-bob:start -->
-## 0.6.58-alpha land-mount movement — human acceptance
-
-Cold boot `White2-Following-0.6.58-alpha.nds` with its matching ordinary save. These cases are **NOT RUN** until recorded by the human tester.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| MB01 | Cold boot 0.6.58 with a grounded land mount. Walk on a flat path in each direction, then stop. | The Pokémon alternates its two walking poses and the Pokémon and seated rider rise together by one pixel on alternating poses. Both settle when stopped; the ground shadow stays fixed. | NOT RUN |
-| MB02 | While mounted, hold B to run, release B without stopping, then stop and resume walking. | The two-pose bounce speeds up with B, changes cadence without a large position jump, and returns to the normal walking cadence. | NOT RUN |
-| MB03 | Repeat with small and large follower sprites, including Arceus, and across grass, stairs and an outdoor seam. | The rider remains attached, the shadow stays at ground level, and terrain, draw order and seam continuity remain unchanged. | NOT RUN |
-<!-- generated-mount-bob:end -->
-
-<!-- generated-surf-entry:start -->
-## 0.6.57-alpha Surf entry art and ocean water — human acceptance
-
-Cold boot `White2-Following-0.6.57-alpha.nds` with its matching ordinary save. Supplied savestates contain the previous runtime and are diagnostic evidence only. These cases are **NOT RUN** until recorded by the human tester.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| SE01 | Cold boot 0.6.57 with mounted Arceus at the Virbank shore. Face left, then press Right toward water. Repeat with each opposite and perpendicular facing. | The first water sprite is complete and remains beneath the rider throughout the transfer; it neither starts two tiles away nor snaps into place on landing. | NOT RUN |
-| SE02 | Cold boot 0.6.57 at the Humilau ocean shore with mounted Arceus, HM03 in the Bag, and Surf known. Press Down into the adjacent ocean tile. | The mounted Surf handoff begins instead of a blocked-movement bump, and the rider lands on water. | NOT RUN |
-| SE03 | Repeat across other Surfable shoreline and ocean tiles, then try dry obstructions and missing Surf or HM03. | Every game-Surfable water type accepts the handoff; dry or ineligible attempts leave the land mount and ordinary interaction intact. | NOT RUN |
-| SE04 | Enter and leave water repeatedly, including after an outdoor seam. | Water art remains attached to the rider during entry, and the same land mount returns on shore without stale textures or duplicate sprites. | NOT RUN |
-<!-- generated-surf-entry:end -->
-
-<!-- generated-surf-direction:start -->
-## 0.6.56-alpha mounted Surf direction — human acceptance
-
-Cold boot `White2-Following-0.6.56-alpha.nds` with its matching ordinary save. `badtransition.mln` contains the previous runtime and is diagnostic evidence only. These cases are **NOT RUN** until recorded by the human tester.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| SD01 | Cold boot 0.6.56 with Arceus mounted beside water. Face right, then press Up into the water. Repeat facing down and left before pressing Up. | The Surf Pokémon appears directly ahead, faces up from its first frame, and carries the rider onto the water tile. No sideways offset or land/water-border stall. | NOT RUN |
-| SD02 | At accessible shores in all four directions, enter water after first facing each of the other three directions. | The pressed direction controls both the initial Surf effect and the tile transfer on all twelve mismatched-facing cases, including opposite-facing input. | NOT RUN |
-| SD03 | Attempt the same turn toward a non-water obstruction or with HM03 or Surf missing, then turn and walk on land. | No Surf event starts; the rider remains mounted and ordinary facing and movement remain usable. | NOT RUN |
-| SD04 | Enter and leave water repeatedly after a turn, then cross an outdoor map seam and repeat. | Each entry lands on water and each exit returns to the same mount without a stuck border, duplicate sprite, or stale facing. | NOT RUN |
-<!-- generated-surf-direction:end -->
-
-<!-- generated-surf-slot:start -->
-## 0.6.55-alpha mounted Surf handoff — human acceptance
-
-Cold boot `White2-Following-0.6.55-alpha.nds` with its matching ordinary save. The supplied `mounted.mln` contains an older runtime and is diagnostic evidence, not a valid acceptance state for the new build. These cases are **NOT RUN** until recorded by the human tester.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| SS01 | Cold boot the 0.6.55 stock ROM with its matching save. Leave party slot 1 as the automatic follower rather than selecting it with L/R. Mount Arceus, confirm it knows Surf and HM03 is in the Bag, then press toward water. | The mounted Arceus begins Surf immediately instead of playing the blocked-movement bump. The water mount remains Arceus. | NOT RUN |
-| SS02 | Repeat after selecting Arceus explicitly with L/R, then remove Surf or HM03 and try again. | Both automatic and explicit selection transition when eligible. Missing Surf or HM03 leaves the land mount in place and uses the ordinary blocked-movement response. | NOT RUN |
-| SS03 | Leave water, remount, and repeat the crossing several times. | Shore exit restores the same land mount; repeated crossings do not duplicate mounts or leave art loaded after dismount. | NOT RUN |
-<!-- generated-surf-slot:end -->
-
-<!-- generated-repel-continuation:start -->
-## 0.6.62-alpha Repel continuation — human acceptance
-
-Cold boot `White2-Following-0.6.62-alpha.nds` with its matching save. After Yes, confirm that one Repel is consumed and the follower or mount never recalls. The supplied `repel.mln` contains an older runtime, so do not resume it to test this build. These cases are **NOT RUN** until recorded by the human tester.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| RP01 | With a visible walking follower, let Repel expire while another Repel remains. Choose No, then repeat and choose Yes. Stand still through the prompt and move afterward. | The same follower remains visible during both choices, with no recall or send-out. Repel use and the prompt behave normally. | NOT RUN |
-| RP02 | Mount a follower on land, let Repel expire, and try both No and Yes. Repeat near water without entering it. | The same mount and rider remain visible and aligned throughout the prompt and after it closes. No dismount, recall, duplicate effect, or replacement occurs. | NOT RUN |
-| RP03 | While riding a custom Surf Pokémon on water, let Repel expire and try both No and Yes. | The same Surf artwork and rider remain visible through the prompt. The native ripple and movement resume after the choice. | NOT RUN |
-| RP04 | Enter a battle, doorway, or scripted warp after the Repel checks. | Those unsafe transitions still recall or end the follower/mount as before; Repel does not make other scripted events exempt. | NOT RUN |
-<!-- generated-repel-continuation:end -->
-
-<!-- generated-land-mount:start -->
-## Start here: 0.6.53-alpha stock White 2 land mounts and Surf handoff
-
-Cold boot `White2-Following-0.6.53-alpha.nds` with its matching ordinary save. Do not resume an older state. These cases remain **NOT RUN** until the human tester records results.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| LM01 | Cold boot the matching stock White 2 ROM and ordinary save. Select a healthy visible follower, stop on clear outdoor ground, and press A+B together. Repeat by holding A and pressing B, then holding B and pressing A. | Each stopped A+B press order mounts or dismounts instantly, with no Poké Ball effect. Dismount restores one safe trailing follower or waits hidden for a trailing tile. | NOT RUN |
-| LM02 | Press A alone to inspect a sign, NPC and furniture. Hold B while moving and press A, then stop and press A while still holding B. | Ordinary A interactions work. Movement prevents mounting; stopped B-held plus newly pressed A mounts. L/R cycling on foot remains separate. | NOT RUN |
-| LM03 | Mount small and 64-pixel followers, including mirrored, shiny, female, and form art. Face all four directions and observe both animation poses. Repeat with Arceus facing left and right. | The rider uses each appearance’s visible two-pose midpoint. Arceus’s side rider sits ten pixels higher on its back while its up/down positions are unchanged. Rider is in front facing up/sideways and behind the Pokémon facing down; priority does not flicker. | NOT RUN |
-| LM04 | On a long flat path, compare mounts with different Personal base Speed values, such as Snorlax (30), Voltorb (100), and Arceus (120). If available, compare two Pokémon of one species at different levels or natures. | Mount pace follows Personal base Speed: Snorlax is slower, Voltorb matches bicycle pace, and Arceus is faster. Different levels or natures of the same species do not change its pace. The synthetic 0–255 curve and cap are covered by packaged tests. | NOT RUN |
-| LM05 | Cross grass, slopes, stairs, bridges, and special terrain while mounted. | Native land collision, grass and special-terrain handling remain active. Slope and scripted movement keep native timing. | NOT RUN |
-| LM06 | Run and walk across a seamless outdoor zone boundary while mounted. | The same selected mount remains visible without a recall/send-out sequence or duplicate follower. | NOT RUN |
-| LM07 | Open and close an ordinary menu, then change the party or store the mounted Pokémon in the PC. | Ordinary menus pause and resume the mount; a changed or removed party member dismounts safely. | NOT RUN |
-| LM08 | Enter a door, begin ordinary Surf while on foot, trigger a wild and trainer battle, then return outdoors. | The mount ends before unsafe modes, with no leftover mount or duplicate actor; the ordinary follower can resume afterward. | NOT RUN |
-| LM09 | Dismount in a narrow passage or beside a blocking NPC, then move until a trailing tile is free. Watch the return frame by frame. | The follower does not occupy a blocked tile or flash through the player; one ball send-out plays when it reappears on a safe trailing tile. | NOT RUN |
-| LM10 | Save while mounted and cold reload the save. Repeat mount/dismount 20 times and use L/R selection on foot. | The loaded save resumes with a normal follower. Repeated toggles do not leak graphics resources; L/R follower cycling remains unchanged on foot. | NOT RUN |
-| LM11 | Ride while walking, then hold B to run and release B on a long flat path. Watch the mounted Pokémon and rider separately, then stop. | The Pokémon’s two movement frames and the trainer’s three bike-derived hair-sway frames both speed up while moving with B held. The rider remains in a seated idle pose when stopped; no bicycle wheels, handlebars, or ground-touching stop pose appears. | NOT RUN |
-| LM12 | Mount a 64-pixel follower, hold B to run in each of the four directions, then repeat with a 32-pixel follower. | The mount alternates poses within its own texture; no flashing black rectangle or disappearing Pokémon appears in any direction. | NOT RUN |
-| ST01 | Mount a healthy Surf-knowing follower with HM03 in the Bag. Walk toward eligible water in each direction, without pressing A. | The Surf effect starts on that attempted step, the same Pokémon carries the rider one tile onto water without a jump, and the ripple and draw order remain stable. | NOT RUN |
-| ST02 | Surf to a clear shore in each direction and move onto land. Repeat at one-tile and two-tile shorelines. | The player moves through native collision without a hop and returns to the same land mount. Rider, Pokémon and shadow remain aligned. | NOT RUN |
-| ST03 | Repeat ST01 after removing HM03, removing Surf from the mounted Pokémon, and mounting one without custom Surf artwork. Keep a different Surf user in another party slot. | Automatic entry does not occur; the mounted Pokémon is not replaced by another party member, and the land mount and ordinary controls remain usable. | NOT RUN |
-| ST04 | Repeat ST01 with Surf at zero PP, then change party order and try again. | Zero PP does not block the handoff. The chosen mounted Pokémon remains the Surf mount if its party identity still matches. | NOT RUN |
-| ST05 | Surf through an outdoor map seam, then leave the water. Repeat water entry and exit twenty times. | The handoff survives safe seams, returns to the same Pokémon, and neither mount art nor ripple leaks or duplicates. | NOT RUN |
-| ST06 | While Surfing, change the party or remove the mount when the game permits, then leave the water; also test battle entry and an unsafe scripted scene. | Changed or unavailable Pokémon finish on foot. Battles and unsafe scenes do not restore a stale land mount. | NOT RUN |
-| ST07 | Mount and dismount manually several times while listening, then perform automatic water entry. | Each successful manual mount plays one stock Surf-hop sound. Failed mounts and manual dismounts are silent; automatic entry has no duplicated sound. | NOT RUN |
-<!-- generated-land-mount:end -->
-
-<!-- generated-surf:start -->
-## Start here: 0.6.49-alpha party Surf acceptance
-
-Use `White2-Following-0.6.49-alpha.nds` and its same-basename `.sav` from the workspace parent directory. Cold boot from an ordinary save; old emulator states contain earlier runtime code. These cases target stock US White 2; White2Upgrade Surf has separate U26 and U30 cases. The rows below are **NOT RUN** until you record results. Earlier checklist sections remain available as regression cases.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| SF01 | Cold boot stock White 2 0.6.49 with a normal Swimming-folder Pokémon that knows Surf in party slot 1. Surf north, south, west and east. | Its four-direction swimming animation replaces the retail mount; the native seated rider and ripple remain. The rider keeps the approved ten-pixel lift while mounted. | NOT RUN |
-| SF02 | Put two Pokémon that know Surf in the party, then use L/R to follow the later one. Start Surf and repeat after selecting the earlier one. | The currently selected follower supplies the mount in both cases, even when another Surf knower appears earlier in party order. | NOT RUN |
-| SF03 | Test a shiny Surf knower and an eligible native-form variant with matching source sheets. | Matching shiny/form artwork appears. If a shiny form sheet is missing, same-form normal color takes priority over shiny base art. | NOT RUN |
-| SF04 | Select a follower that does not know Surf with L/R, with Surf knowers in later party slots. Try Surf in each move slot, then reorder the party. | The first non-Egg Surf knower in party order supplies the mount when the selected follower lacks Surf. All four move slots are honored. | NOT RUN |
-| SF05 | Try a fainted Surf knower, a move with zero PP, an Egg with Surf before a valid knower, and a party with no Surf knower. | Fainted and zero-PP members can supply art. Eggs are skipped. No qualifying member uses the retail mount; native Surf permission checks still decide whether entry is allowed. | NOT RUN |
-| SF06 | Start Surf from shore in each reachable facing direction and watch the complete hop frame by frame. | The old 3D mount is suppressed during entry, the matching custom pose appears as its textures load, the rider draw priority is unchanged, and the ripple continues. | NOT RUN |
-| SF07 | Surf and dismount repeatedly; change party order or moves, cross a map seam, enter a battle, save, and cold reload. | The mount tracks the current party, resources release on field teardown, and exactly one land follower resumes after dismount. | NOT RUN |
-| SF08 | Cold boot with Azumarill knowing Surf. Compare its size with Arceus, then move while facing down and stop at several phases, including the location of facingdown.mln. | Azumarill uses a 32-pixel texture at half its 0.6.40 display size; Arceus remains 64 pixels. The rider stays behind the south-facing mount throughout movement and idle, with no alternating overlap. | NOT RUN |
-| SF09 | Cold boot 0.6.49, Surf west onto the shore at the location of disembark.mln, and watch the last frames of the hop. Repeat in other reachable directions. | Once the mount disappears, the rider loses the ten-pixel riding lift immediately and follows the native landing arc; no brief invisible-platform pause or sudden extra drop occurs. | NOT RUN |
-| SF10 | Cold boot 0.6.49, select a Surf knower with L/R while another Surf knower is earlier in the party, and enter Surf. Select a non-Surf follower and repeat. | The selected Surf-capable follower supplies the first mount. With a non-Surf follower, the first Surf knower in party order supplies the second mount. The selected land follower returns on dismount. | NOT RUN |
-
-For a failure, record direction, Surf animation phase, selected party member, map, ROM hash and a state made with this ROM. The following runtime exports `FollowingSurfDebug` with loaded/active, capture/draw counts, frame and failure reason. Do not resume a state created by an older build.
-<!-- generated-surf:end -->
-
-## Start here: 0.6.32-alpha sign and furniture regression
-
-Use `White2-Following-0.6.32-alpha.nds` and its same-basename `.sav`
-from the workspace parent directory. The build copies the previous alpha save
-without overwriting an existing destination save. Cold boot from an ordinary
-save; old emulator states contain old runtime instructions.
-
-Start with S02 at the supplied Aspertia City sign, then inspect a trash can or other static furniture. The follower must stay visible throughout. Continue with S01 for a random-walking NPC and CD01 using zone 427 and Mew. The user confirmed the preceding menu and PC fixes; repeat X01, X04 and X05 as regressions. Then repeat N01–N08 for wandering NPCs, simultaneous movement, conversations,
-scripted routes and rail/elevation separation. The ROM registry cache and 8 KiB
-conversation buffer remain in place. Follow with M01–M05 and spot-check stairs,
-building frontage, menus and PC return for regressions.
-
-The user accepted stock 0.6.10 as good enough. Its movement and main actor-pass
-drawing corrections are unchanged. This does not mark every checklist row
-passed; the new release has automated CPU checks only.
-
-The alpha follows automatically during ordinary walking. Load a save with a
-non-Egg Pokémon, stand outdoors on foot, and walk at least one tile. The follower
-appears on the route you just walked. No A-button action, item, script, or in-game
-switch is needed. After a recall, walk again to let it reappear.
-
-Gen 5 Pokémon use bundled normal/shiny overworld art with explicit form and
-gender mappings. Earlier generations retain stock/fallback art. Prepared custom
-replacements are not connected to the runtime. Generic A-button conversations are included. The complete release requirements below deliberately extend beyond
-this alpha's implemented/verified behavior; do not mark them passed by assumption.
+Record species, form, gender, shiny state, map, emulator, ROM hash and a screenshot for any mismatch.
+<!-- generated-gen5-assets:end -->
 
 <!-- generated-conversations:start -->
 ## 0.6.32 conversations — human acceptance
@@ -270,25 +82,23 @@ Start with S02 at the supplied Aspertia City sign, then test static furniture an
 Capture the ROM hash, native script ID (if available), event origin, opcode/action, field generation, disposition and recall reason. Reason 1 = unknown command; 2 = unknown event; 3 = player movement; 4 = space conflict; 5 = actor ID; 6 = pool pressure; 7 = unsupported movement; 8/9 = event/VM capacity; 11 = actor loss; 12 = bridge failure; 13 = unsupported/invalid cleanup. `FollowingSceneDebug` begins with `FWSE` and contains a bounded 32-entry ring; do not dereference pointer-valued diagnostic identities.
 <!-- generated-scenes:end -->
 
-<!-- generated-gen5-assets:start -->
-## 0.6.32 Gen 5 sprite acceptance
+<!-- generated-menu-pc:start -->
+## 0.6.32 X-menu and PC retention — human acceptance
 
-Run G509 first in melonDS for the palette correction, then G501 and explicitly check up versus down before continuing with G502–G505. These rows are **NOT RUN** until the human tester records results. Use a cold boot of the 0.6.32 ROM; an older emulator state contains earlier runtime instructions and resource tables.
+Run X01 and X04 first in melonDS. These rows are **NOT RUN** until the human tester records results. The PC Box restarts the field internally, so acceptance is based on seamless visible reconstruction at the same validated pose rather than preservation of the old actor allocation.
 
 | ID | Steps | Expected | Result / evidence |
 |---|---|---|---|
-| G501 | Cold boot 0.6.32 with Snivy, Tepig and Oshawott as lead in turn; walk, run and turn in all four directions. | Each species uses its own Gen 5 art and animation. Up and down facing match the player direction; no Bulbasaur fallback, palette corruption or frame-order error. | NOT RUN |
-| G502 | Repeat G501 with shiny Gen 5 leads, including one small species and Reshiram or Zekrom. | Shiny colors are visible only on the follower; unrelated actors keep their palettes. | NOT RUN |
-| G503 | Compare male/female Unfezant, Frillish and Jellicent. | Each gender resolves to the matching artwork in normal and shiny states. | NOT RUN |
-| G504 | Test both Basculin forms, Darmanitan and Zen Mode, all Deerling/Sawsbuck seasons, Therian genies, three Kyurem forms, Keldeo, Meloetta and all Genesect drives. | Every valid White 2 form loads safely. Forms sharing source art remain stable and keep the actual party identity/cry. | NOT RUN |
-| G505 | Test Tornadus, Thundurus, Reshiram, Zekrom, Landorus and Kyurem indoors, outdoors, near doors and during follower dialogue. | 64-pixel followers render without clipping or invalid resource reads; recall/send-out and conversations still complete. | NOT RUN |
-| G506 | Reorder the party between two different Gen 5 species, evolve a Gen 5 lead, then deposit/withdraw it. | Appearance refreshes to the selected party member with exactly one follower and no stale sprite. | NOT RUN |
-| G507 | Cycle species 494–649 in normal and shiny states with a prepared save/tool, including every valid form and gender difference. | All 624 appearance keys display Gen 5 art; no missing-resource crash or Bulbasaur placeholder. | NOT RUN |
-| G508 | Run 100 mixed transitions while alternating small/large and normal/shiny Gen 5 leads. | No increasing load time, duplicate actor, stuck controls, palette bleed, or accumulating actor/texture/palette allocation. | NOT RUN |
-| G509 | Test normal and shiny Landorus in both forms and inspect all four directions and both walk frames. Spot-check Victini, Gigalith, Vanillite, Ferrothorn, Golett, Terrakion, both Tornadus and Thundurus forms, Reshiram, Zekrom and all Kyurem forms. | No opaque neon-magenta pixels appear. The 17 repaired resources use their normal-palette color at source sentinel entries while retaining the remaining shiny palette colors. | NOT RUN |
+| X01 | On flat ground with the follower visible, open and close the bottom-screen menu ten times without selecting an application, using both X and touch entry. | The follower remains visible and paused at the same position and facing while the menu is open. Closing it resumes the same actor and trail with no recall or send-out animation. | NOT RUN |
+| X02 | Repeat X01 on the reported stairs with a 64-pixel follower. Frame-step several frames while the menu is open and immediately after closing it. | The follower does not move under the menu. Its stair depth ordering remains stable and closing the menu does not introduce a one-frame draw-order change. | NOT RUN |
+| X03 | From the X menu, enter Party, Bag and Pokédex, then return to the field and walk. | Each child application may use the normal conservative recall. Returning creates exactly one follower, restores controls and never reuses a stale menu event. | NOT RUN |
+| X04 | Use a Pokémon Center PC with the follower visible. Watch the terminal turn-on/run/turn-off sequence, enter the Box, then close it without changing the party. | The follower remains visible during the field-side PC sequence. Entering the Box does not play a recall effect; after the field returns, the follower is immediately visible at the preserved pose with no send-out animation. | NOT RUN |
+| X05 | Enter the Box, deposit or reorder the previous lead so another eligible Pokémon is selected, then return to the field. Repeat after withdrawing it. | If the selected Pokémon changes, the old pose is rejected. After leaving the PC dialogue and walking, exactly one follower appears with the new identity/artwork/cry. Editing other party slots or boxes keeps the unchanged follower out. | NOT RUN |
+| X07 | Cold boot and walk both ways between Floccesy Town (zone 439) and Route 20 (zone 446) 20 times, including walking/running, stopping immediately on the seam, turns, and small/64-pixel followers. Also repeat on another seamless outdoor boundary. Also enter a door or gate with a fade. | Seamless crossings retain the visible actor and trail without ball effects. Doors/warps still recall. A new-zone cutscene, actor ID conflict or occupied trail may still require recall. | NOT RUN |
+| X06 | Repeat opening/closing the X menu 20 times and entering/leaving the PC Box 20 times, alternating movement and follower conversations between cycles. | No duplicate actor, stuck input, stale pose, unwanted ball effect, increasing pause or visible resource accumulation. Record heap/texture/palette counters when available; otherwise mark those counters UNMEASURED. | NOT RUN |
 
-Record species, form, gender, shiny state, map, emulator, ROM hash and a screenshot for any mismatch.
-<!-- generated-gen5-assets:end -->
+For any failure, record whether it occurred during the field-side PC animation, field teardown, Box UI, or field reconstruction. Include the party before/after and whether a recall or send-out effect appeared.
+<!-- generated-menu-pc:end -->
 
 <!-- generated-large-depth:start -->
 ## 0.6.32 large-sprite draw priority — human acceptance
@@ -312,24 +122,6 @@ Run D04 and D12 first in melonDS, then D11, D10, D09, D07, D08 and D01–D03. Th
 
 For any failure, capture both actors at the overlap and record map, coordinates, camera angle, follower species/form, direction of travel, and whether the follower should be in front or behind.
 <!-- generated-large-depth:end -->
-
-<!-- generated-menu-pc:start -->
-## 0.6.32 X-menu and PC retention — human acceptance
-
-Run X01 and X04 first in melonDS. These rows are **NOT RUN** until the human tester records results. The PC Box restarts the field internally, so acceptance is based on seamless visible reconstruction at the same validated pose rather than preservation of the old actor allocation.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| X01 | On flat ground with the follower visible, open and close the bottom-screen menu ten times without selecting an application, using both X and touch entry. | The follower remains visible and paused at the same position and facing while the menu is open. Closing it resumes the same actor and trail with no recall or send-out animation. | NOT RUN |
-| X02 | Repeat X01 on the reported stairs with a 64-pixel follower. Frame-step several frames while the menu is open and immediately after closing it. | The follower does not move under the menu. Its stair depth ordering remains stable and closing the menu does not introduce a one-frame draw-order change. | NOT RUN |
-| X03 | From the X menu, enter Party, Bag and Pokédex, then return to the field and walk. | Each child application may use the normal conservative recall. Returning creates exactly one follower, restores controls and never reuses a stale menu event. | NOT RUN |
-| X04 | Use a Pokémon Center PC with the follower visible. Watch the terminal turn-on/run/turn-off sequence, enter the Box, then close it without changing the party. | The follower remains visible during the field-side PC sequence. Entering the Box does not play a recall effect; after the field returns, the follower is immediately visible at the preserved pose with no send-out animation. | NOT RUN |
-| X05 | Enter the Box, deposit or reorder the previous lead so another eligible Pokémon is selected, then return to the field. Repeat after withdrawing it. | If the selected Pokémon changes, the old pose is rejected. After leaving the PC dialogue and walking, exactly one follower appears with the new identity/artwork/cry. Editing other party slots or boxes keeps the unchanged follower out. | NOT RUN |
-| X07 | Cold boot and walk both ways between Floccesy Town (zone 439) and Route 20 (zone 446) 20 times, including walking/running, stopping immediately on the seam, turns, and small/64-pixel followers. Also repeat on another seamless outdoor boundary. Also enter a door or gate with a fade. | Seamless crossings retain the visible actor and trail without ball effects. Doors/warps still recall. A new-zone cutscene, actor ID conflict or occupied trail may still require recall. | NOT RUN |
-| X06 | Repeat opening/closing the X menu 20 times and entering/leaving the PC Box 20 times, alternating movement and follower conversations between cycles. | No duplicate actor, stuck input, stale pose, unwanted ball effect, increasing pause or visible resource accumulation. Record heap/texture/palette counters when available; otherwise mark those counters UNMEASURED. | NOT RUN |
-
-For any failure, record whether it occurred during the field-side PC animation, field teardown, Box UI, or field reconstruction. Include the party before/after and whether a recall or send-out effect appeared.
-<!-- generated-menu-pc:end -->
 
 <!-- generated-spacing:start -->
 ## 0.6.32 width-dependent spacing — human acceptance
@@ -395,7 +187,7 @@ ROM build is not a valid clean-boot test.
 
 | ID | Steps | Expected | Result / evidence |
 |---|---|---|---|
-| A00 | In melonDS, cold boot 0.6.8 from an ordinary save, load the overworld, wait two seconds, then press each direction and open/close X menu. | No startup lock; movement/menu inputs respond. If frozen, record whether music, NPCs, facing and menus still respond and save a new state. | NOT RUN |
+| A00 | In melonDS, cold boot the current stock White 2 alpha from an ordinary save, load the overworld, wait two seconds, then press each direction and open/close X menu. | No startup lock; movement/menu inputs respond. If frozen, record whether music, NPCs, facing and menus still respond and save a new state. | NOT RUN |
 | A01 | Cold boot with a healthy lead; load normally; walk two tiles. | Exactly one Pokémon appears automatically and follows roughly one tile behind. | NOT RUN |
 | A02 | Walk ten tiles in each direction; stop for ten seconds. | Correct facing, smooth motion; follower stops; player remains controllable. | NOT RUN |
 | A03 | Walk a rectangle, then alternate left/right quickly. | Follows the actual corners; no diagonal shortcut through walls, oscillation, or extra actor. | NOT RUN |
@@ -548,7 +340,6 @@ partner, `0x040` no eligible party member, `0x080` actor-pool reserve exhausted,
 `0x100` candidate IDs occupied, and `0x200` resource-heap reserve insufficient.
 A zero reason allows following but still requires a tile of valid trail to appear.
 
-
 A completed release requires no accumulating allocations, duplicate follower,
 stuck input, incorrect battle/encounter behavior, or callback after unload.
 All ordinary grid/rail/non-grid modes must pass. Every exception needs a map or
@@ -565,6 +356,35 @@ compatibility explicitly unverified.
 - Reproduction rate (for example 3/5 cold boots):
 - Screenshot/video and before/after state/trace paths:
 - Whether stock ROM reproduces the underlying event issue:
+
+## 0.6.24 contextual dialogue — human acceptance
+
+| ID | Procedure | Expected result | Result |
+|---|---|---|---|
+| CD01 | In Pokeweb, add zone 427 + Mew #151 with 100% chance and text containing `{nickname}`, `{player}`, and `{location}`. Export, cold boot in Aspertia City, and talk to Mew. | The authored contextual text replaces “Mew is looking around.” The live field zone is used even though the player actor's zone field is zero; all substitutions are readable. | NOT RUN |
+| CD02 | Change the same rule to a nonmatching species, then to a nonmatching type. | The generic follower conversation resumes; no input lock, crash, or stale text. | NOT RUN |
+| CD03 | Add two matching rules in reverse textual order, with distinct text. | The first listed rule always wins. | NOT RUN |
+| CD04 | Add a type rule for a dual-type follower and test on both stock and White2Upgrade where applicable. | A match against either native type triggers the contextual line. | NOT RUN |
+
+For the preceding location regression, `White2Upgrade-Following-0.7.12-alpha-Mew-Aspertia-test.nds`
+already contains CD01's zone-427/Mew rule and a wildcard fallback. Use its
+same-basename save and cold boot; do not resume the supplied state because it
+contains the preceding field module in RAM.
+
+## 0.6.24 / 0.7.15 one-time follower gifts — human acceptance
+
+The ordinary release archives are intentionally empty. The dedicated 0.7.13
+Mew gift test ROM contains the I01 rule described at the start of this file.
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| I01 | In Pokeweb, author slot 0 for a reachable zone/species with a normal Bag item. Export, cold boot, talk to the matching follower, save, reload, and talk again. | The first interaction gives the configured quantity, plays the follower presentation and configured text, then persists the claim. The second interaction falls through to contextual/generic dialogue. | NOT RUN |
+| I02 | Fill the relevant Bag pocket, then talk to an otherwise matching follower. Free space and repeat. | The full-Bag message appears and the claim stays clear. The gift succeeds after space is available. | NOT RUN |
+| I03 | Author rules that differ by zone, species, form, type, HP, friendship, status and facing. Check boundaries and reorder the rule list after claiming one slot. | The first matching ordered unclaimed rule wins. Stable slots keep prior claims after reorder. | NOT RUN |
+| I04 | Claim several slots on one follower, then reorder party, PC-store/withdraw, evolve, battle, save/reload, and obtain up to ten slots. | Claims remain with the individual Pokémon through ordinary save and party operations. No duplicate rewards or Battle Log counter changes. | NOT RUN |
+| I05 | Author more than ten gift rules, including multiple rules that reuse one claim slot for different zones or species. Claim one of them, then test another Pokémon and another rule sharing the slot. | The archive accepts the ordered rules. The original Pokémon cannot claim another rule in the consumed slot; another Pokémon can claim its own matching rule in that slot. | NOT RUN |
+
+Record ROM hash, rule slot, Pokémon PID/species/form, item/quantity, zone, Bag state, and save/reload evidence. Test external save/transfer tools separately because claim bits occupy legacy PK5 metadata.
 
 
 <!-- generated-memory:start -->
@@ -598,35 +418,6 @@ All rows start NOT RUN. Use a cold boot and an ordinary save. Record map, NPC, d
 | N07 | Repeat with small and large followers, shiny/form changes and, in Upgrade, Gen 6–9 leads. Recall using cycling/Surf, then observe the same NPC. | Collision uses native occupied space rather than all visible sprite pixels. Hidden/recalled followers leave no invisible blocker. | NOT RUN |
 | N08 | Enter/leave doors, battle and PC boxes near wandering NPCs; repeat save/load and disable/remove patch. | No stale collision callbacks or reservations. Unpatched/disabled behavior is restored; no follower state is saved. | NOT RUN |
 <!-- generated-ambient:end -->
-
-## 0.6.24 contextual dialogue — human acceptance
-
-| ID | Procedure | Expected result | Result |
-|---|---|---|---|
-| CD01 | In Pokeweb, add zone 427 + Mew #151 with 100% chance and text containing `{nickname}`, `{player}`, and `{location}`. Export, cold boot in Aspertia City, and talk to Mew. | The authored contextual text replaces “Mew is looking around.” The live field zone is used even though the player actor's zone field is zero; all substitutions are readable. | NOT RUN |
-| CD02 | Change the same rule to a nonmatching species, then to a nonmatching type. | The generic follower conversation resumes; no input lock, crash, or stale text. | NOT RUN |
-| CD03 | Add two matching rules in reverse textual order, with distinct text. | The first listed rule always wins. | NOT RUN |
-| CD04 | Add a type rule for a dual-type follower and test on both stock and White2Upgrade where applicable. | A match against either native type triggers the contextual line. | NOT RUN |
-
-For the preceding location regression, `White2Upgrade-Following-0.7.12-alpha-Mew-Aspertia-test.nds`
-already contains CD01's zone-427/Mew rule and a wildcard fallback. Use its
-same-basename save and cold boot; do not resume the supplied state because it
-contains the preceding field module in RAM.
-
-## 0.6.24 / 0.7.15 one-time follower gifts — human acceptance
-
-The ordinary release archives are intentionally empty. The dedicated 0.7.13
-Mew gift test ROM contains the I01 rule described at the start of this file.
-
-| ID | Steps | Expected | Result / evidence |
-|---|---|---|---|
-| I01 | In Pokeweb, author slot 0 for a reachable zone/species with a normal Bag item. Export, cold boot, talk to the matching follower, save, reload, and talk again. | The first interaction gives the configured quantity, plays the follower presentation and configured text, then persists the claim. The second interaction falls through to contextual/generic dialogue. | NOT RUN |
-| I02 | Fill the relevant Bag pocket, then talk to an otherwise matching follower. Free space and repeat. | The full-Bag message appears and the claim stays clear. The gift succeeds after space is available. | NOT RUN |
-| I03 | Author rules that differ by zone, species, form, type, HP, friendship, status and facing. Check boundaries and reorder the rule list after claiming one slot. | The first matching ordered unclaimed rule wins. Stable slots keep prior claims after reorder. | NOT RUN |
-| I04 | Claim several slots on one follower, then reorder party, PC-store/withdraw, evolve, battle, save/reload, and obtain up to ten slots. | Claims remain with the individual Pokémon through ordinary save and party operations. No duplicate rewards or Battle Log counter changes. | NOT RUN |
-| I05 | Author more than ten gift rules, including multiple rules that reuse one claim slot for different zones or species. Claim one of them, then test another Pokémon and another rule sharing the slot. | The archive accepts the ordered rules. The original Pokémon cannot claim another rule in the consumed slot; another Pokémon can claim its own matching rule in that slot. | NOT RUN |
-
-Record ROM hash, rule slot, Pokémon PID/species/form, item/quantity, zone, Bag state, and save/reload evidence. Test external save/transfer tools separately because claim bits occupy legacy PK5 metadata.
 
 
 <!-- generated-shadow-depth:start -->
