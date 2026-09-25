@@ -25,6 +25,7 @@ class Rendering(unittest.TestCase):
   subprocess.run(['cc','-shared','-fPIC','-std=c11','-Wall','-Wextra','-Werror',str(HERE/'render_math.c'),'-o',str(lib)],check=True)
   cls.lib=c.CDLL(str(lib));cls.lib.fwr_correct.argtypes=[c.POINTER(Point),c.POINTER(Point),c.POINTER(Pose),c.POINTER(Point),c.POINTER(Camera),c.c_uint,c.POINTER(Pose),c.POINTER(Result)]
   cls.lib.fwr_above_shadow.argtypes=[c.POINTER(Pose),c.POINTER(Point),c.POINTER(Camera),c.POINTER(Pose)]
+  cls.lib.fwr_player_in_front.argtypes=[c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Camera),Point,c.c_int32,c.POINTER(Pose),c.POINTER(c.c_int32)]
  @classmethod
  def tearDownClass(cls):cls.tmp.cleanup()
  def run_case(self,world,pose,cam,large=1):
@@ -100,4 +101,30 @@ class Rendering(unittest.TestCase):
    self.assertLess(max(abs(x-y)for a,b in zip(before,after)for x,y in zip(a,b)),4 if projection==2 else 0.002/256)
    again=Pose();self.assertEqual(self.lib.fwr_above_shadow(c.byref(out),c.byref(ground),c.byref(cam),c.byref(again)),0)
    self.assertEqual(bytes(out),bytes(again))
+ def test_south_follower_shadow_clearance_cannot_reverse_player_priority(self):
+  # walkdown.mln: Arceus is one tile north of the player. Its -5 Y artwork
+  # offset put it safely behind, then the +6 shadow clearance put it in front.
+  # Rebase the saved world coordinates so fixed-point arithmetic is identical.
+  world=Point(0,0,-16*4096);player=Point();player_draw=Point(0,-6484,0)
+  artwork=Pose(Point(0,-340-5*4096,-12*4096),16384,16384)
+  ground=Point(0,0,-10*4096)
+  eye=(0,760739,581835)
+  for projection in (0,1,2):
+   cam=Camera(Point(*eye),Point(),projection)
+   ordered=Pose();result=Result()
+   self.lib.fwr_correct(c.byref(world),c.byref(player),c.byref(artwork),c.byref(player_draw),c.byref(cam),1,c.byref(ordered),c.byref(result))
+   self.assertEqual(result.policy,-1)
+   raised=Pose();self.assertEqual(self.lib.fwr_above_shadow(c.byref(ordered),c.byref(ground),c.byref(cam),c.byref(raised)),1)
+   direction=xyz(result.axis)
+   depth=lambda pose:math.trunc(sum((a-b)*n for a,b,n in zip(xyz(raised.position),xyz(pose.position),direction))/4096)
+   player_pose=Pose(player_draw,8192,8192)
+   self.assertGreater(depth(player_pose),0) # The supplied frame's regression.
+   foreground=Pose();final=c.c_int32()
+   self.assertEqual(self.lib.fwr_player_in_front(c.byref(raised),c.byref(player_pose),c.byref(cam),result.axis,12*4096,c.byref(foreground),c.byref(final)),1)
+   self.assertLessEqual(final.value,-12*4096)
+   self.assertEqual(final.value,depth(foreground))
+   before=project(player_pose,eye,projection==2);after=project(foreground,eye,projection==2)
+   self.assertLess(max(abs(x-y)for a,b in zip(before,after)for x,y in zip(a,b)),4 if projection==2 else 0.002/256)
+   unchanged=Pose();self.assertEqual(self.lib.fwr_player_in_front(c.byref(raised),c.byref(foreground),c.byref(cam),result.axis,12*4096,c.byref(unchanged),c.byref(final)),0)
+   self.assertEqual(bytes(foreground),bytes(unchanged))
 if __name__=='__main__':unittest.main()
