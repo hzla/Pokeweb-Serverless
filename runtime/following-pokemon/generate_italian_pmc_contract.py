@@ -15,7 +15,7 @@ def generate(us_path: Path, italian_path: Path):
     target_base, target_data = segments(target, set())["ARM9"]
     repo = HERE.parents[1]
     symbols = json.loads(subprocess.check_output(
-        ["npx", "vite-node", "scripts/inspect-italian-pmc.ts"], cwd=repo, text=True))
+        ["npx", "vite-node", "scripts/inspect-pmc.ts"], cwd=repo, text=True))
     hooks = []
     for item in symbols["external"]:
         old = item["target"]["address"]

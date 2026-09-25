@@ -7,7 +7,8 @@ import { NintendoDSRom } from "../nds/rom";
 import { Folder } from "../nds/fnt";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { stageCodeInjectionDll } from "../pokeweb/pmcModel";
-import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, type FollowerAssetWorkspace } from "../pokeweb/followingPokemonProject";
+import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, followerModuleHookConflicts, type FollowerAssetWorkspace } from "../pokeweb/followingPokemonProject";
+import type { RpmModule } from "../pokeweb/rpm";
 import { deriveFollowerGrounding, encodeFollowerFrames, followerGroundingPixels, followerKey } from "../pokeweb/followingPokemonModel";
 import contract from "../../runtime/following-pokemon/contract.json";
 const bytes=new Uint8Array(readFileSync(new URL("../assets/following/template-32-8.btx",import.meta.url)));
@@ -29,6 +30,17 @@ function fixture(){
   const rom=new NintendoDSRom(new Uint8Array(512));return {project,rom,workspace};
 }
 describe("follower asset transactions",()=>{
+  it("allows other DLLs to extend an audited script table but rejects actual hook overlap",()=>{
+    const table=contract.nativeAdapters.find(site=>site.id==="events-script-normal-table")!;
+    const hook=contract.hooks.find(site=>site.id==="field-actor-update")!;
+    const rpm: RpmModule={code:new Uint8Array(4),bssSize:0,baseAddress:0,symbols:[{name:"table-entry",size:4,address:0,type:"VALUE",attributes:1}],
+      relocations:[{target:{module:table.segment,address:table.address+307*4,type:"FULL_COPY"},sourceSymbolIndex:0}],metadata:{}};
+    expect(followerModuleHookConflicts(rpm,contract.hooks)).toBe(false);
+    rpm.relocations[0].target={module:hook.segment,address:hook.address,type:"FULL_COPY"};
+    expect(followerModuleHookConflicts(rpm,contract.hooks)).toBe(true);
+    rpm.relocations[0].target={module:hook.segment,address:hook.address-6,type:"THUMB_BRANCH"};
+    expect(followerModuleHookConflicts(rpm,contract.hooks)).toBe(true);
+  });
   it("grounds opaque feet while retaining Flying-form and explicit sprite heights",()=>{
     const template=new Uint8Array(readFileSync(new URL("../assets/following/template-32-8.btx",import.meta.url)));
     const rgba=new Uint8Array(32*32*4);rgba.set([255,0,0,255],(29*32+16)*4);
