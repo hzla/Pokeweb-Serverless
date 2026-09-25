@@ -21,6 +21,7 @@ type TestBattleLoadMessage = {
 
 type DesmondPlayer = HTMLElement & {
   loadURL?: (url: string, callback?: () => void) => void;
+  loadBytes?: (bytes: Uint8Array) => Promise<void>;
   enableMicrophone?: () => void;
 };
 
@@ -80,7 +81,7 @@ type TestBattleEmulatorSettings = {
 
 const TITLE_PREVIEW = new URLSearchParams(window.location.search).get("mode") === "title";
 const DESMOND_INITIAL_MEMORY = 1024 * 1024 * 1024;
-const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-06-27-savestate";
+const DESMOND_ASSET_VERSION = "test-battle-desmond-2026-09-23-direct-rom";
 const TEST_BATTLE_EMULATOR_SETTINGS_STORAGE_KEY = TITLE_PREVIEW ? "pokeweb.titleEmulator.settings.v1" : "pokeweb.testBattleEmulator.settings.v1";
 const DEFAULT_TEST_BATTLE_SPEED_MULTIPLIER = TITLE_PREVIEW ? 1 : 4;
 const MIN_TEST_BATTLE_SPEED_MULTIPLIER = 0.05;
@@ -420,7 +421,6 @@ function waitForNextPaint(): Promise<void> {
 }
 
 async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
-  let romUrl: string | undefined;
   const label = message.testLabel ?? `trainer ${message.trainerId} test battle`;
   try {
     setStatus(`Loading ${label}...`);
@@ -461,8 +461,7 @@ async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
     styleDesmondPlayer(player);
 
     setStatus("Starting emulator...");
-    romUrl = URL.createObjectURL(new Blob([message.romBuffer], { type: "application/octet-stream" }));
-    await loadRom(player, romUrl);
+    await loadRom(player, new Uint8Array(message.romBuffer));
     setStatus("Waiting for emulator frames...");
     await waitForFrameProgress();
     setPlaybackControlsEnabled(true);
@@ -470,11 +469,6 @@ async function bootTestBattle(message: TestBattleLoadMessage): Promise<void> {
     setStatus(`Running ${label}.`);
   } catch (error) {
     setError(error instanceof Error ? error.message : String(error));
-  } finally {
-    if (romUrl) {
-      const urlToRevoke = romUrl;
-      window.setTimeout(() => URL.revokeObjectURL(urlToRevoke), 30000);
-    }
   }
 }
 
@@ -983,19 +977,14 @@ function crc32(bytes: Uint8Array): number {
 
 function getDesmondPlayer(): DesmondPlayer {
   const player = document.querySelector<DesmondPlayer>("#desmond-player");
-  if (!player || typeof player.loadURL !== "function") throw new Error("Desmond player did not initialize.");
+  if (!player || typeof player.loadBytes !== "function") throw new Error("Desmond player did not initialize.");
   return player;
 }
 
-function loadRom(player: DesmondPlayer, romUrl: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error("Timed out while loading the ROM in Desmond.")), 20000);
-    player.loadURL?.(romUrl, () => {
-      window.clearTimeout(timeout);
-      debugLog("Desmond reported ROM load complete.");
-      resolve();
-    });
-  });
+async function loadRom(player: DesmondPlayer, romBytes: Uint8Array): Promise<void> {
+  if (!player.loadBytes) throw new Error("Desmond player did not initialize.");
+  await player.loadBytes(romBytes);
+  debugLog("Desmond reported ROM load complete.");
 }
 
 function waitForFrameProgress(): Promise<void> {

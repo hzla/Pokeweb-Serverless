@@ -24,6 +24,7 @@ class Rendering(unittest.TestCase):
   cls.tmp=tempfile.TemporaryDirectory();lib=Path(cls.tmp.name)/'render.so'
   subprocess.run(['cc','-shared','-fPIC','-std=c11','-Wall','-Wextra','-Werror',str(HERE/'render_math.c'),'-o',str(lib)],check=True)
   cls.lib=c.CDLL(str(lib));cls.lib.fwr_correct.argtypes=[c.POINTER(Point),c.POINTER(Point),c.POINTER(Pose),c.POINTER(Point),c.POINTER(Camera),c.c_uint,c.POINTER(Pose),c.POINTER(Result)]
+  cls.lib.fwr_above_shadow.argtypes=[c.POINTER(Pose),c.POINTER(Point),c.POINTER(Camera),c.POINTER(Pose)]
  @classmethod
  def tearDownClass(cls):cls.tmp.cleanup()
  def run_case(self,world,pose,cam,large=1):
@@ -80,4 +81,23 @@ class Rendering(unittest.TestCase):
   _,_,stairs=self.run_case(upper,current,cam,3)
   _,_,prior_stairs=self.run_case(upper,current,cam,1)
   self.assertEqual((stairs.policy,stairs.after),(prior_stairs.policy,prior_stairs.after))
+ def test_billboard_stays_in_front_of_shadow_without_moving_on_screen(self):
+  # The supplied mounted Reuniclus state has its player shadow at this world
+  # point and the submitted mount below that ground plane.
+  ground=Point(2916352,65551,49381376)
+  eye=Point(2916352,842674,49963211);target=Point(2916352,81935,49381376)
+  pose=Pose(Point(2916352,59067-5*4096,49381376),8192,8192)
+  for projection in (0,1,2):
+   cam=Camera(eye,target,projection);out=Pose()
+   self.assertEqual(self.lib.fwr_above_shadow(c.byref(pose),c.byref(ground),c.byref(cam),c.byref(out)),1)
+   axis=[eye.x-target.x,eye.y-target.y,eye.z-target.z];n=math.sqrt(dot(axis,axis));axis=[x/n for x in axis]
+   offset=[xyz(out.position)[i]-xyz(ground)[i] for i in range(3)]
+   self.assertGreaterEqual(dot(offset,axis),6*4096-32)
+   local_eye=tuple(x-y for x,y in zip(xyz(eye),xyz(target)))
+   local_pose=Pose(Point(*(x-y for x,y in zip(xyz(pose.position),xyz(target)))),pose.sx,pose.sy)
+   local_out=Pose(Point(*(x-y for x,y in zip(xyz(out.position),xyz(target)))),out.sx,out.sy)
+   before=project(local_pose,local_eye,projection==2);after=project(local_out,local_eye,projection==2)
+   self.assertLess(max(abs(x-y)for a,b in zip(before,after)for x,y in zip(a,b)),4 if projection==2 else 0.002/256)
+   again=Pose();self.assertEqual(self.lib.fwr_above_shadow(c.byref(out),c.byref(ground),c.byref(cam),c.byref(again)),0)
+   self.assertEqual(bytes(out),bytes(again))
 if __name__=='__main__':unittest.main()

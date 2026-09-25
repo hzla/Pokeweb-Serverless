@@ -2,6 +2,21 @@
 #include "events.h"
 #define API __attribute__((visibility("default")))
 static struct {void *field,*game;uint32_t generation;FweObserver observer;unsigned notifying,restoreValid;FweRestore restore;Actor *ambient;} bridge;
+#ifdef FW_MOUNT
+static FweMount mountToken;
+static unsigned mountValid;
+static void discard_mount(void){mountValid=0;mountToken.game=0;}
+static void preserve_mount(void *field,uint32_t generation,const FweMount *mount){
+ if(!mount||!mount->game||bridge.field!=field||bridge.generation!=generation||PTR(field,8)!=mount->game)return;
+ mountToken=*mount;mountValid=1;
+}
+static int consume_mount(void *game,FweMount *mount){
+ if(!game||!mount||!mountValid)return 0;
+ int valid=mountToken.game==game;
+ if(valid)*mount=mountToken;
+ discard_mount();return valid;
+}
+#endif
 static void copy_restore(FweRestore *to,const FweRestore *from){
  volatile uint8_t *d=(volatile uint8_t*)to;const uint8_t *s=(const uint8_t*)from;
  for(unsigned i=0;i<sizeof(*to);++i)d[i]=s[i];
@@ -27,8 +42,16 @@ static int consume(FweRestore *restore){
  if(!restore||!bridge.restoreValid)return 0;
  copy_restore(restore,&bridge.restore);bridge.restoreValid=0;clear_restore();return 1;
 }
-static void discard(void){bridge.restoreValid=0;clear_restore();}
-API const FweApi FollowingEventsAPI={FWE_ABI,sizeof(FweApi),bind,unbind,preserve,consume,discard};
+static void discard(void){bridge.restoreValid=0;clear_restore();
+#ifdef FW_MOUNT
+ discard_mount();
+#endif
+}
+API const FweApi FollowingEventsAPI={FWE_ABI,sizeof(FweApi),bind,unbind,preserve,consume,discard
+#ifdef FW_MOUNT
+ ,preserve_mount,consume_mount,discard_mount
+#endif
+};
 static void notify(unsigned kind,void *subject,uintptr_t value){
  if(!bridge.observer||bridge.notifying)return;
  bridge.notifying=1;bridge.observer(kind,subject,value);bridge.notifying=0;

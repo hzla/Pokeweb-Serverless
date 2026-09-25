@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 2,
+  "maxSpecies": 649,
+  "sourceFolders": ["Swimming", "Swimming Shiny", "Levitates", "Levitates Shiny"],
+  "directionRows": [3, 0, 1, 2],
+  "sourcePixelScale": 2,
+  "textureSizes": [32, 64]
+}

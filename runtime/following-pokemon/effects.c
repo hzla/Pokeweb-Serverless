@@ -111,6 +111,7 @@ void fwfx_recall(Actor *a){
  position(a);fwfx.mode=2;fwfx.age=0;FollowingEffectsDebug[2]=2;FollowingEffectsDebug[5]=0;FollowingEffectsDebug[4]++;
 }
 int fwfx_busy(void){return fwfx.mode!=0;}
+int fwfx_available(void){return fwfx.ready==1;}
 int fwfx_hides_actor(void){return fwfx.mode==1 && fwfx.age<2;}
 void fwfx_tick(void){
  if(!fwfx.mode)return;

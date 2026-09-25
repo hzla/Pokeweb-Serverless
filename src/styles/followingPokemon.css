@@ -554,6 +554,15 @@
   margin: 0;
 }
 
+.following-sprite-credits p + p {
+  margin-top: 7px;
+}
+
+.following-sprite-credits strong {
+  color: #c8cad8;
+  font-weight: 700;
+}
+
 @media (max-width: 960px) {
   .following-editor-hero {
     grid-template-columns: 1fr;
@@ -630,4 +639,12 @@
     align-items: stretch;
     flex-direction: column;
   }
+}
+.following-mount-help {
+  margin: 0 0 1rem;
+  padding: .75rem 1rem;
+  border: 1px solid rgba(178, 139, 237, .34);
+  border-radius: .6rem;
+  color: var(--text-muted, #cbd0dc);
+  line-height: 1.5;
 }
