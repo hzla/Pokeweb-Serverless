@@ -1,9 +1,10 @@
-import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { NintendoDSRom } from "../nds/rom";
 import { NARC } from "../nds/narc";
 import { writeU32 } from "../nds/binary";
 import contract from "../../runtime/following-pokemon/contract.json";
+import bw2PmcContract from "../../runtime/following-pokemon/bw2-pmc-contract.json";
 import { loadActiveRomBytes } from "../pokeweb/persistence";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { encodeFollowerDialogueNarc } from "../pokeweb/followingPokemonDialogues";
@@ -13,6 +14,7 @@ import {
   readFollowerAlphaInstall, readFollowerDialogueRules, readFollowerItemRules, readFollowingFile,
   writeFollowerDialogueRules, writeFollowerItemRules,
   FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH, FOLLOWER_RESOURCE_PATH,
+  FOLLOWER_DESCRIPTOR_PATH, type FollowerRom,
 } from "../pokeweb/followingPokemonProject";
 
 vi.mock("../pokeweb/persistence", async importOriginal => ({
@@ -53,7 +55,57 @@ function fixture(upgrade = true) {
   return { source, project };
 }
 
+function compatibleStockFixture(): { project: ProjectState; rom: FollowerRom } {
+  const base = 0x02004000;
+  const arm9 = new Uint8Array(0x90000), overlays: Record<number, Uint8Array> = {};
+  const sites = [...contract.hooks, ...contract.nativeAdapters];
+  const overlayBases = new Map<number, number>();
+  for (const site of sites) if (site.segment !== "ARM9") {
+    const id = Number(site.segment);
+    overlayBases.set(id, Math.min(overlayBases.get(id) ?? site.address, site.address) & ~0xfff);
+  }
+  for (const [id, address] of overlayBases) {
+    const end = Math.max(...sites.filter(site => Number(site.segment) === id).map(site => site.address + site.expectedHex.length / 2));
+    overlays[id] = new Uint8Array(end - address);
+  }
+  const writeSite = (site: { segment?: string; address: number; expectedHex: string }) => {
+    const data = site.segment && site.segment !== "ARM9" ? overlays[Number(site.segment)] : arm9;
+    const at = site.address - (site.segment && site.segment !== "ARM9" ? overlayBases.get(Number(site.segment))! : base);
+    data.set(Uint8Array.from(site.expectedHex.match(/../g)!, byte => Number.parseInt(byte, 16)), at);
+  };
+  for (const site of sites) writeSite(site);
+  for (const site of [...bw2PmcContract.profiles.IRDO.hooks, ...bw2PmcContract.profiles.IRDO.imports]) writeSite(site);
+  const descriptor = new NARC(); descriptor.files = [new Uint8Array(4 + 1008 * 28)];
+  writeU32(descriptor.files[0], 0, 1008);
+  const resources = new NARC(); resources.files = Array.from({ length: 975 }, () => new Uint8Array());
+  resources.files[0] = new Uint8Array(readFileSync(new URL("../assets/following/template-32-8.btx", import.meta.url)));
+  const personal = new NARC(); personal.files = Array.from({ length: 710 }, () => new Uint8Array(76));
+  const appearances = new NARC(); appearances.files = [new Uint8Array(620 * 8)];
+  appearances.files[0][0] = 1; // The stock fallback appearance for every synthetic species.
+  const paths = [FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, "a/0/1/6", "a/2/0/8"];
+  const files = [descriptor.save(), resources.save(), personal.save(), appearances.save()];
+  const table = new Uint8Array(overlayBases.size * 32);
+  [...overlayBases].forEach(([id, address], index) => {
+    writeU32(table, index * 32, id); writeU32(table, index * 32 + 4, address);
+    writeU32(table, index * 32 + 8, overlays[id].length); writeU32(table, index * 32 + 24, paths.length + index);
+    files.push(overlays[id]);
+  });
+  const project = { session: {baseRom: "BW2", baseVersion: "W2"}, arm9, overlays, narcs: {}, fileSystem: { additions: {}, replacements: {} } } as unknown as ProjectState;
+  const rom = { idCode: "IRDO", revision: 0, arm9RamAddress: base, arm9OverlayTable: table, files,
+    filenames: { idOf: (path: string) => paths.indexOf(path) < 0 ? undefined : paths.indexOf(path) } } as unknown as FollowerRom;
+  return { project, rom };
+}
+
 describe("Following Pokémon ROM memory", () => {
+  it("accepts an uninstalled modified stock ROM when audited sites and archives match", async () => {
+    const { project, rom } = compatibleStockFixture();
+    expect((await checkFollowerCompatibility(project, rom)).compatible).toBe(true);
+    const hook = contract.hooks.find(site => site.segment === "ARM9")!;
+    project.arm9[hook.address - rom.arm9RamAddress] ^= 1;
+    const report = await checkFollowerCompatibility(project, rom);
+    expect(report.compatible).toBe(false);
+    expect(report.checks.find(check => check.name === hook.id)?.passed).toBe(false);
+  });
   it("shares one stored ROM read across page checks, rules, and rule saves", async () => {
     const { project } = fixture();
     const digest = vi.spyOn(crypto.subtle, "digest");
@@ -89,18 +141,18 @@ describe("Following Pokémon ROM memory", () => {
     expect(rom.files.reduce((sum, bytes) => sum + bytes.length, 0)).toBeLessThan(source.length / 4);
   });
 
-  it("keeps the clean-stock fingerprint requirement and does not hash adjacent backing bytes", async () => {
+  it("does not hash an edited stock ROM before checking its binary sites", async () => {
     const { source, project } = fixture(false);
     const backing = new Uint8Array(source.length + 64).fill(0x5a);
     backing.set(source, 32);
     project.originalRomBytes = backing.subarray(32, 32 + source.length);
     const digest = vi.spyOn(crypto.subtle, "digest");
     const rom = await followerRom(project);
-    expect(rom.sourceSha256).toBe(createHash("sha256").update(source).digest("hex"));
     const report = await checkFollowerCompatibility(project, rom);
     expect(report.compatible).toBe(false);
-    expect(report.message).toContain("pinned clean White 2 baseline");
-    expect(digest).toHaveBeenCalledTimes(1);
+    expect(report.checks.some(check => check.name === "object-code-lookup" && !check.passed)).toBe(true);
+    expect(report.message).toContain("binary site");
+    expect(digest).not.toHaveBeenCalled();
   });
 
   it("validates modified staged data even when reusing a detached source", async () => {

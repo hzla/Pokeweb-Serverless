@@ -3,4 +3,6 @@ dist/
 build/*
 !build/*.dll
 !build/*.h
+build/hooks-B2.h
+build/hooks-W2.h
 !build/memory-report.json

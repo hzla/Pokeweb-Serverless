@@ -27,8 +27,7 @@ runtime/save-menu/build/
 runtime/save-menu/assets.generated.h
 __pycache__/
 
-# Local agent working notes.
-Agents.md
+# Machine-local agent working notes belong outside this repository.
 docs/hg-animation-parity-checklist.md
 docs/hg-animation-debug-workflow.md
 
