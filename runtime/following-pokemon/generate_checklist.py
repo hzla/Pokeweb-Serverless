@@ -1,6 +1,7 @@
-"""Refresh versioned alpha sections while preserving the broader checklist."""
+"""Render the human checklist from a static template and generated case tables."""
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
+text=(HERE/'checklist-template.md').read_text()
 VERSION='0.6.32'
 ASSET_CASES=[
 ('G501',f'Cold boot {VERSION} with Snivy, Tepig and Oshawott as lead in turn; walk, run and turn in all four directions.','Each species uses its own Gen 5 art and animation. Up and down facing match the player direction; no Bulbasaur fallback, palette corruption or frame-order error.'),
@@ -17,10 +18,9 @@ start='<!-- generated-gen5-assets:start -->';end='<!-- generated-gen5-assets:end
 section=start+f'\n## {VERSION} Gen 5 sprite acceptance\n\nRun G509 first in melonDS for the palette correction, then G501 and explicitly check up versus down before continuing with G502–G505. These rows are **NOT RUN** until the human tester records results. Use a cold boot of the {VERSION} ROM; an older emulator state contains earlier runtime instructions and resource tables.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {id} | {steps} | {expected} | NOT RUN |\n' for id,steps,expected in ASSET_CASES)
 section+='\nRecord species, form, gender, shiny state, map, emulator, ROM hash and a screenshot for any mismatch.\n'+end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
-path.write_text(text)
 
 print(f'Regenerated {len(ASSET_CASES)} Gen 5 sprite cases; no emulator tests executed.')
 CASES=[
@@ -49,10 +49,9 @@ start='<!-- generated-conversations:start -->';end='<!-- generated-conversations
 section=start+f'\n## {VERSION} conversations — human acceptance\n\nStart with C20 in melonDS to check the recall fix, then C01–C03 and C12–C13. These rows are **NOT RUN** until the human tester records results. The automated 100-conversation tests use native-service mocks and do not count as C16.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {id} | {steps} | {expected} | NOT RUN |\n' for id,steps,expected in CASES)
 section+='\nFor C16, log checkpoints 0 / 10 / 25 / 50 / 75 / 100: map, follower actor count, controls, effects, field/PMC heap, texture and palette allocations. If telemetry is unavailable, mark allocations UNMEASURED rather than PASS. Attach a normal save and a fresh emulator state for failures.\n'+end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
-path.write_text(text)
 print(f'Regenerated {len(CASES)} human conversation cases; no emulator tests executed.')
 
 SCENES=[
@@ -79,10 +78,9 @@ start='<!-- generated-scenes:start -->';end='<!-- generated-scenes:end -->'
 section=start+f'\n## {VERSION} external dialogue and scenes — human acceptance\n\nStart with S02 at the supplied Aspertia City sign, then test static furniture and S01. Continue with S03, S14, S07–S08 and S12. Aspertia locations are suggested repeatable dialogue targets, not claims that the corrected build was emulator-tested. For scenes without a named stock fixture, record your location/save stage or mark BLOCKED. All results remain NOT RUN until entered by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {id} | {steps} | {expected} | NOT RUN |\n' for id,steps,expected in SCENES)
 section+='\nCapture the ROM hash, native script ID (if available), event origin, opcode/action, field generation, disposition and recall reason. Reason 1 = unknown command; 2 = unknown event; 3 = player movement; 4 = space conflict; 5 = actor ID; 6 = pool pressure; 7 = unsupported movement; 8/9 = event/VM capacity; 11 = actor loss; 12 = bridge failure; 13 = unsupported/invalid cleanup. `FollowingSceneDebug` begins with `FWSE` and contains a bounded 32-entry ring; do not dereference pointer-valued diagnostic identities.\n'+end
-text=path.read_text()
+
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
-path.write_text(text)
 print(f'Regenerated {len(SCENES)} human scene cases; no emulator tests executed.')
 
 MENU_CASES=[
@@ -98,10 +96,9 @@ start='<!-- generated-menu-pc:start -->';end='<!-- generated-menu-pc:end -->'
 section=start+f'\n## {VERSION} X-menu and PC retention — human acceptance\n\nRun X01 and X04 first in melonDS. These rows are **NOT RUN** until the human tester records results. The PC Box restarts the field internally, so acceptance is based on seamless visible reconstruction at the same validated pose rather than preservation of the old actor allocation.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {id} | {steps} | {expected} | NOT RUN |\n' for id,steps,expected in MENU_CASES)
 section+='\nFor any failure, record whether it occurred during the field-side PC animation, field teardown, Box UI, or field reconstruction. Include the party before/after and whether a recall or send-out effect appeared.\n'+end
-text=path.read_text()
+
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
-path.write_text(text)
 print(f'Regenerated {len(MENU_CASES)} X-menu/PC cases; no emulator tests executed.')
 
 DEPTH_CASES=[
@@ -122,33 +119,10 @@ start='<!-- generated-large-depth:start -->';end='<!-- generated-large-depth:end
 section=start+f'\n## {VERSION} large-sprite draw priority — human acceptance\n\nRun D04 and D12 first in melonDS, then D11, D10, D09, D07, D08 and D01–D03. These are the direct regressions for the supplied screenshots and stair states. Cold boot the {VERSION} ROM; do not resume an old state after replacing the ROM because it contains the previous field module.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {id} | {steps} | {expected} | NOT RUN |\n' for id,steps,expected in DEPTH_CASES)
 section+='\nFor any failure, capture both actors at the overlap and record map, coordinates, camera angle, follower species/form, direction of travel, and whether the follower should be in front or behind.\n'+end
-text=path.read_text()
+
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
-path.write_text(text)
 print(f'Regenerated {len(DEPTH_CASES)} large-sprite priority cases; no emulator tests executed.')
-
-# Keep the entry instructions in sync with generated versioned test rows.
-text=path.read_text()
-a=text.index('## Start here:');b=text.index('The alpha follows automatically',a)
-intro=f"""## Start here: {VERSION}-alpha sign and furniture regression
-
-Use `White2-Following-{VERSION}-alpha.nds` and its same-basename `.sav`
-from the workspace parent directory. The build copies the previous alpha save
-without overwriting an existing destination save. Cold boot from an ordinary
-save; old emulator states contain old runtime instructions.
-
-Start with S02 at the supplied Aspertia City sign, then inspect a trash can or other static furniture. The follower must stay visible throughout. Continue with S01 for a random-walking NPC and CD01 using zone 427 and Mew. The user confirmed the preceding menu and PC fixes; repeat X01, X04 and X05 as regressions. Then repeat N01–N08 for wandering NPCs, simultaneous movement, conversations,
-scripted routes and rail/elevation separation. The ROM registry cache and 8 KiB
-conversation buffer remain in place. Follow with M01–M05 and spot-check stairs,
-building frontage, menus and PC return for regressions.
-
-The user accepted stock 0.6.10 as good enough. Its movement and main actor-pass
-drawing corrections are unchanged. This does not mark every checklist row
-passed; the new release has automated CPU checks only.
-
-"""
-path.write_text(text[:a]+intro+text[b:])
 
 start='<!-- generated-memory:start -->';end='<!-- generated-memory:end -->'
 cases=[
@@ -160,10 +134,9 @@ cases=[
 ]
 section=start+f'\n## {VERSION} ROM registry and buffer acceptance\n\nAll cases are NOT RUN. Automated CPU tests do not establish emulator or hardware acceptance.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in cases)+end
-text=path.read_text()
+
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text+='\n\n'+section+'\n'
-path.write_text(text)
 
 start='<!-- generated-ambient:start -->';end='<!-- generated-ambient:end -->'
 cases=[
@@ -178,10 +151,9 @@ cases=[
 ]
 section=start+f'\n## {VERSION} wandering NPC acceptance\n\nAll rows start NOT RUN. Use a cold boot and an ordinary save. Record map, NPC, direction, species, ROM hash and a fresh state for failures.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in cases)+end
-text=path.read_text()
+
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text+='\n\n'+section+'\n'
-path.write_text(text)
 
 SPACING=[
 ('W01','Cold boot with a narrow follower, Sigilyph, then Zekrom. Walk/run left and right for 20 tiles, stop and reverse.','Wider visible artwork receives up to six extra world units of spacing; narrow art stays closer. The gap stays stable across animation frames; no extra rendering offset or sudden sideways jump.'),
@@ -193,10 +165,9 @@ SPACING=[
 start='<!-- generated-spacing:start -->';end='<!-- generated-spacing:end -->'
 section=start+f'\n## {VERSION} width-dependent spacing — human acceptance\n\nRun W01–W05 on both profiles. Approximate pixels depend on camera scale; spacing uses native east/west world distance. All cases are NOT RUN until the human tester records results.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {id} | {steps} | {expected} | NOT RUN |\n' for id,steps,expected in SPACING)+end
-text=path.read_text()
+
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
-path.write_text(text)
 
 IDLE=[
 ('I01','Cold boot with a small follower, then a 64-pixel follower. Stop for ten seconds facing north, south, east and west.','The follower continuously cycles its normal directional idle pose. It stays on the recorded trail position and keeps the selected facing.'),
@@ -208,10 +179,9 @@ IDLE=[
 start='<!-- generated-idle:start -->';end='<!-- generated-idle:end -->'
 section=start+f'\n## {VERSION} stationary follower animation — human acceptance\n\nRun I01–I04 on both profiles after a cold boot with the matching save. These rows are **NOT RUN** until the human tester records results.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {id} | {steps} | {expected} | NOT RUN |\n' for id,steps,expected in IDLE)+end
-text=path.read_text()
+
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
-path.write_text(text)
 print(f'Regenerated {len(SPACING)} spacing and {len(IDLE)} stationary-animation cases; no emulator tests executed.')
 
 SHADOW=[
@@ -227,10 +197,9 @@ SHADOW=[
 start='<!-- generated-shadow:start -->';end='<!-- generated-shadow:end -->'
 section=start+f'\n## {VERSION} follower ground shadow — human acceptance\n\nRun H01 first in melonDS after a cold boot. All rows remain NOT RUN until the human tester records results.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {id} | {steps} | {expected} | NOT RUN |\n' for id,steps,expected in SHADOW)+end
-text=path.read_text()
+
 if start in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('## Run record',section+'\n\n## Run record')
-path.write_text(text)
 
 SURF_VERSION='0.6.49'
 SURF_CASES=[
@@ -255,7 +224,7 @@ Use `White2-Following-{SURF_VERSION}-alpha.nds` and its same-basename `.sav` fro
 '''
 section+=''.join(f'| {case} | {steps} | {expected} | NOT RUN |\n' for case,steps,expected in SURF_CASES)
 section+='\nFor a failure, record direction, Surf animation phase, selected party member, map, ROM hash and a state made with this ROM. The following runtime exports `FollowingSurfDebug` with loaded/active, capture/draw counts, frame and failure reason. Do not resume a state created by an older build.\n'+end
-text=path.read_text()
+
 if start in text and end in text:
     text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 elif start in text:
@@ -263,7 +232,6 @@ elif start in text:
     text=text.replace(start,section,1)
 else:
     text=text.replace('## Start here:',section+'\n\n## Start here:',1)
-path.write_text(text)
 print(f'Regenerated {len(SURF_CASES)} Surf cases; no emulator tests executed.')
 
 TERRAIN_CASES=[
@@ -276,10 +244,9 @@ start='<!-- generated-terrain:start -->';end='<!-- generated-terrain:end -->'
 section=start+'\n## Start here: 0.6.46-alpha stock grass and running seam\n\nThese checks are NOT RUN. Cold boot the matching versioned ROM and ordinary save; do not resume an older state. The supplied `noterrain.mln`, `noterrain2.mln`, `transitionrecall.mln`, and `followerfreeze.mln` contain older runtime code. This build uses the native grid-attribute query and grass task while keeping the unsafe movement-context dispatcher disabled.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in TERRAIN_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-surf:start -->',section+'\n\n<!-- generated-surf:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(TERRAIN_CASES)} terrain cases; no emulator tests executed.')
 
 CYCLE_CASES=[
@@ -293,10 +260,9 @@ start='<!-- generated-follower-cycle:start -->';end='<!-- generated-follower-cyc
 section=start+'\n## 0.6.48-alpha L/R follower cycling — human acceptance\n\nCold boot the matching ROM and ordinary save. These cases are NOT RUN until recorded by the human tester; do not resume an older savestate.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in CYCLE_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-terrain:start -->',section+'\n\n<!-- generated-terrain:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(CYCLE_CASES)} follower-cycle cases; no emulator tests executed.')
 
 LAND_CASES=[
@@ -324,10 +290,9 @@ start='<!-- generated-land-mount:start -->';end='<!-- generated-land-mount:end -
 section=start+'\n## Start here: 0.6.53-alpha stock White 2 land mounts and Surf handoff\n\nCold boot `White2-Following-0.6.53-alpha.nds` with its matching ordinary save. Do not resume an older state. These cases remain **NOT RUN** until the human tester records results.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in LAND_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-surf:start -->',section+'\n\n<!-- generated-surf:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(LAND_CASES)} land-mount cases; no emulator tests executed.')
 
 REPEL_CASES=[
@@ -340,10 +305,9 @@ start='<!-- generated-repel-continuation:start -->';end='<!-- generated-repel-co
 section=start+'\n## 0.6.62-alpha Repel continuation — human acceptance\n\nCold boot `White2-Following-0.6.62-alpha.nds` with its matching save. After Yes, confirm that one Repel is consumed and the follower or mount never recalls. The supplied `repel.mln` contains an older runtime, so do not resume it to test this build. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in REPEL_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-land-mount:start -->',section+'\n\n<!-- generated-land-mount:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(REPEL_CASES)} Repel continuation cases; no emulator tests executed.')
 
 SURF_SLOT_CASES=[
@@ -355,10 +319,9 @@ start='<!-- generated-surf-slot:start -->';end='<!-- generated-surf-slot:end -->
 section=start+'\n## 0.6.55-alpha mounted Surf handoff — human acceptance\n\nCold boot `White2-Following-0.6.55-alpha.nds` with its matching ordinary save. The supplied `mounted.mln` contains an older runtime and is diagnostic evidence, not a valid acceptance state for the new build. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SURF_SLOT_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-repel-continuation:start -->',section+'\n\n<!-- generated-repel-continuation:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(SURF_SLOT_CASES)} Surf-slot cases; no emulator tests executed.')
 
 SURF_DIRECTION_CASES=[
@@ -371,10 +334,9 @@ start='<!-- generated-surf-direction:start -->';end='<!-- generated-surf-directi
 section=start+'\n## 0.6.56-alpha mounted Surf direction — human acceptance\n\nCold boot `White2-Following-0.6.56-alpha.nds` with its matching ordinary save. `badtransition.mln` contains the previous runtime and is diagnostic evidence only. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SURF_DIRECTION_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-surf-slot:start -->',section+'\n\n<!-- generated-surf-slot:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(SURF_DIRECTION_CASES)} Surf-direction cases; no emulator tests executed.')
 
 SURF_ENTRY_CASES=[
@@ -387,10 +349,9 @@ start='<!-- generated-surf-entry:start -->';end='<!-- generated-surf-entry:end -
 section=start+'\n## 0.6.57-alpha Surf entry art and ocean water — human acceptance\n\nCold boot `White2-Following-0.6.57-alpha.nds` with its matching ordinary save. Supplied savestates contain the previous runtime and are diagnostic evidence only. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SURF_ENTRY_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-surf-direction:start -->',section+'\n\n<!-- generated-surf-direction:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(SURF_ENTRY_CASES)} Surf-entry cases; no emulator tests executed.')
 
 MOUNT_BOB_CASES=[
@@ -402,10 +363,9 @@ start='<!-- generated-mount-bob:start -->';end='<!-- generated-mount-bob:end -->
 section=start+'\n## 0.6.58-alpha land-mount movement — human acceptance\n\nCold boot `White2-Following-0.6.58-alpha.nds` with its matching ordinary save. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in MOUNT_BOB_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-surf-entry:start -->',section+'\n\n<!-- generated-surf-entry:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(MOUNT_BOB_CASES)} mount-bob cases; no emulator tests executed.')
 
 SHORE_MENU_CASES=[
@@ -419,10 +379,9 @@ start='<!-- generated-shore-menu:start -->';end='<!-- generated-shore-menu:end -
 section=start+'\n## 0.6.59-alpha shore, menu, and texture handoff — human acceptance\n\nCold boot `White2-Following-0.6.59-alpha.nds` with its matching ordinary save. The supplied earlier savestates are diagnostic evidence, not a cold-boot acceptance result. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SHORE_MENU_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-mount-bob:start -->',section+'\n\n<!-- generated-mount-bob:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(SHORE_MENU_CASES)} shore/menu cases; no emulator tests executed.')
 
 WATER_FLAG_CASES=[
@@ -435,10 +394,9 @@ start='<!-- generated-water-flags:start -->';end='<!-- generated-water-flags:end
 section=start+'\n## 0.6.60-alpha Water-versus-Splash entry — human acceptance\n\nCold boot `White2-Following-0.6.60-alpha.nds` with its matching ordinary save. The supplied image identifies the Pokeweb Water and Splash flags; it is not an emulator test. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in WATER_FLAG_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-shore-menu:start -->',section+'\n\n<!-- generated-shore-menu:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(WATER_FLAG_CASES)} Water/Splash cases; no emulator tests executed.')
 
 STRIPED_ENTRY_CASES=[
@@ -452,20 +410,18 @@ start='<!-- generated-striped-entry:start -->';end='<!-- generated-striped-entry
 section=start+'\n## 0.6.61-alpha first-frame Surf texture handoff — human acceptance\n\nCold boot `White2-Following-0.6.61-alpha.nds` with its matching ordinary save. `strippedsprite.mln` contains the previous loaded runtime and is diagnostic evidence only. These cases are **NOT RUN** until recorded by the human tester.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in STRIPED_ENTRY_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text=text.replace('<!-- generated-water-flags:start -->',section+'\n\n<!-- generated-water-flags:start -->',1)
-path.write_text(text)
 print(f'Regenerated {len(STRIPED_ENTRY_CASES)} first-frame Surf cases; no emulator tests executed.')
 
 # Older runs could leave several adjacent start markers when a new generated
 # section was inserted ahead of an existing one. Keep reruns idempotent.
 import re
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 for marker in ('terrain','follower-cycle','repel-continuation','land-mount'):
  start=f'<!-- generated-{marker}:start -->'
  text=re.sub(r'(?m)(?:^'+re.escape(start)+r'\n){2,}',start+'\n',text)
-path.write_text(text)
 
 SHADOW_DEPTH_CASES=[
  ('SD01','Cold boot 0.6.63 with Rapidash walking on flat ground. Face and walk in all four directions while looking at the lower body and native shadow.','The shadow darkens ground only; no Rapidash pixels are shaded or cut off.'),
@@ -476,10 +432,9 @@ start='<!-- generated-shadow-depth:start -->';end='<!-- generated-shadow-depth:e
 section=start+'\n## 0.6.63-alpha follower and mount shadow depth — human acceptance\n\nCold boot `White2-Following-0.6.63-alpha.nds` with its matching save. The Rapidash and mounted Reuniclus reports are diagnostic evidence; the new presentation is **NOT RUN** until human emulator testing.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SHADOW_DEPTH_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text+='\n\n'+section+'\n'
-path.write_text(text)
 print(f'Regenerated {len(SHADOW_DEPTH_CASES)} shadow-depth cases; no emulator tests executed.')
 
 SOUTH_PRIORITY_CASES=[
@@ -490,8 +445,13 @@ start='<!-- generated-south-priority:start -->';end='<!-- generated-south-priori
 section=start+'\n## 0.6.64-alpha south-facing follower priority — human acceptance\n\nCold boot `White2-Following-0.6.64-alpha.nds` with its matching ordinary save. `walkdown.mln` contains the prior runtime and is diagnostic evidence only. These cases are **NOT RUN** until human emulator testing.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
 section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SOUTH_PRIORITY_CASES)
 section+=end
-path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+path=HERE/'EMULATOR-CHECKLIST.md'
 if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
 else:text+='\n\n'+section+'\n'
-path.write_text(text)
 print(f'Regenerated {len(SOUTH_PRIORITY_CASES)} south-priority cases; no emulator tests executed.')
+
+# Replace the rendered checklist only after every section is built.
+output=HERE/'EMULATOR-CHECKLIST.md'
+temporary=output.with_suffix('.tmp')
+temporary.write_text(text)
+temporary.replace(output)
