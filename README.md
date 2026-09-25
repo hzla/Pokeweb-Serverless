@@ -2,6 +2,8 @@
 
 Pokeweb Serverless is a browser-based Gen 5 ROM editor for Pokemon Black, White, Black 2, and White 2. 
 
+For a task-oriented source and documentation index, see the [repository map](docs/REPO-MAP.md). Agents start with the short [AGENTS.md](AGENTS.md) entrypoint.
+
 ## Editor Coverage
 
 ### ROM and Project Tools
