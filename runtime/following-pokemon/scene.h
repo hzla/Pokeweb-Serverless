@@ -10,6 +10,7 @@ int fws_attach(ActorSystem *sys,FwFollower *f,uint32_t generation,void (*recall)
 void fws_detach(void);
 void fws_set_player(Actor *player);
 void fws_mark_menu(void *event);
+int fws_menu_active(void);
 int fws_take_restore(FweRestore *restore);
 unsigned fws_poll(void);
 int fws_pc_fade(void);

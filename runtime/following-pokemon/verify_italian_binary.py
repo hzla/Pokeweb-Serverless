@@ -11,6 +11,7 @@ import struct
 from pathlib import Path
 
 import capstone
+import ndspy.narc
 
 from italy_port import HERE, ITALIAN_SHA256, US_SHA256, checked_rom, port_address, segments
 
@@ -24,6 +25,10 @@ def verify(us_path: Path, italian_path: Path):
     sites = contract["hooks"] + contract["nativeAdapters"]
     ids = {int(site["segment"]) for site in sites if site["segment"] != "ARM9"}
     source_segments, target_segments = segments(us, ids), segments(italy, ids)
+    source_riders = ndspy.narc.NARC(us.getFileByName("a/0/4/8")).files
+    target_riders = ndspy.narc.NARC(italy.getFileByName("a/0/4/8")).files
+    if any(source_riders[index] != target_riders[index] for index in (210, 211, 219, 220)):
+        raise ValueError("Italian seated rider source art differs")
     cs = capstone.Cs(capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB)
     cs.detail = True
     counts = {"sites": 0, "identicalSites": 0, "translatedPointers": 0, "translatedThumbCalls": 0}

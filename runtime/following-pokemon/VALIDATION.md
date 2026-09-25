@@ -1,6 +1,529 @@
 # Validation record
 
-Status: **stock White 2/Black 2 0.6.32, Italian White 2 0.6.33, and White2Upgrade 0.7.23 focused automated checks passed; north-facing draw order in melonDS and hardware testing pending.**
+Status: **stock White 2 0.6.63, Black 2 0.6.37, White2Upgrade 0.7.32, and Italian White 2 0.6.38 packaged and installer checks passed. Shadow presentation and prior feature acceptance remain pending human cold-boot tests.**
+
+## Walking and mounted shadow depth, September 24
+
+The Rapidash report concerns its own attached shadow. The supplied mounted
+Reuniclus state shows the follower shadow suppressed during riding while the
+player's ground shadow remains active; this explains why walking Reuniclus is
+not an affected example. Native shadows are drawn in a later effects pass.
+The new draw helper advances only a submitted Pokémon billboard ahead of the
+ground-shadow footprint when needed. It compensates perspective scale to keep
+the projected sprite pixels in place, then restores the native billboard
+before the effects pass. Actor world/grid position, shadow ground anchor,
+texture assets, and persistent state are unchanged.
+
+Host projection tests passed for perspective and orthographic cameras.
+Packaged ARM946 draw tests passed for shadow separation, all four mounted
+directions, rider priority, billboard restoration, repeated draws, scene
+ownership, and unchanged effects submission. The four profile builds passed
+their existing scene, interaction, Surf, land-riding, and transition checks.
+Each exported ROM passed Pokeweb install, reinstall, disable/reenable,
+removal, and export/reopen; upgrading from its immediately preceding alpha
+retained enabled state and authored dialogue. No game emulator was run.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.63-alpha.nds` | `601a0a862de3e6450b703cb1fc2cb8de02737c5c8ecb2a0bce3061bda3ff13bc` | 61,840 B |
+| Black 2 | `Black2-Following-0.6.37-alpha.nds` | `25fb58bcf00111511f97d96d1c883c579e5c51e639c485e595c4add79e4c5ba6` | 61,712 B |
+| White2Upgrade | `White2Upgrade-Following-0.7.32-alpha.nds` | `851aebf0e808eb7325b57d802b4ebcdf16d35a6906dc3abc936dc98f0373b991` | 62,700 B |
+| Italian White 2 | `White2Italy-Following-0.6.38-alpha.nds` | `415baeeeedcd5231c1d634bf95fa8ea8b11d35691f34397e4cb4d81733c3c835` | 61,888 B |
+
+The correction adds 816 bytes of fixed module payload per profile and no new
+runtime heap buffer. These figures exclude native graphics allocations,
+loader metadata, stack, and VRAM. Rapidash, walking and mounted Reuniclus,
+player overlaps, buildings, stairs, and repeated mount cycles remain **NOT
+RUN** visually; use the profile checklists before accepting the draw order.
+
+## Black 2, White2Upgrade, and Italian White 2 feature parity, September 24
+
+The three nonstock profiles now package the same A+B land-riding and custom
+Surf modules as stock White 2, including rider animation, mounted water/shore
+handoff, preferred-follower Surf selection, dismount send-out, and the scoped
+Repel Yes/No retention rule. Black 2 and Italian White 2 use the Gen 1–5 Surf
+catalog; White2Upgrade uses its Gen 1–9 catalog. Each has its own binary
+contract, PMC modules, installer receipt, and same-profile save family.
+
+Black 2's 34 mount hook/adapter sites and Italian White 2's 391 complete
+hook/adapter signatures matched their pinned revision-0 ROMs. White2Upgrade's
+34 mount signatures and source rider sheets matched its pinned ROM. Packaged
+ARM946 Surf selection/draw, scene, input, rider draw, and transition tests
+passed, including the Repel continuation's Yes branch, both water-entry and shore-exit paths,
+directional draw order, and texture handoff. Pokeweb install, export/reopen,
+disable/reenable, removal/reinstall, and upgrade from the prior delivered
+versions passed for all three profiles. The upgrade checks retained enabled
+state and authored dialogue. No game emulator was run; animation, terrain,
+and native graphics timing require the human cold-boot checklists.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Black 2 | `Black2-Following-0.6.36-alpha.nds` | `896d308009624e00ecd517cbe2a5c7c586d2d6651d13e3ab837cf270280b3751` | 60,896 B |
+| White2Upgrade | `White2Upgrade-Following-0.7.31-alpha.nds` | `0caaaca96658568973aee38efb0cbb8cab55a119faca8791c0d731e1b2a14a08` | 61,884 B |
+| Italian White 2 | `White2Italy-Following-0.6.37-alpha.nds` | `aa6dbfa707d32aaee2d37f534e9d16a56aebf56f2d892b469654498ec11610ad` | 61,072 B |
+
+The payload figures are code, initialized data, and BSS, not measured peak
+heap use. The Black 2 and White2Upgrade delivery saves were copied from their
+immediately preceding alpha save files without overwriting those files. No
+Italian save was present to copy; no US save was used.
+
+## Stock White 2 Repel Yes-branch retention, September 24
+
+The user's cold-boot check found that declining another Repel kept the follower,
+but accepting it still recalled the follower or mount. The earlier scene test
+modeled a choice without executing the Yes branch. The pinned stock script in
+`a/0/5/6` member 1248 skips item use on No; Yes executes native command
+`0x2c2` before formatting the player/item names and confirming use. That
+command was outside the scene policy. Stock 0.6.62 allows it only while script
+10144 is active. The native item-use handler and terrain code are unchanged.
+
+The packaged ARM946 scene test now checks both reachable branches against the
+retail script bytes and native command table. It keeps the follower through
+Yes and No, while the same opcode in another script still recalls. A packaged
+field-update test keeps an active land mount after the Yes opcode. The full
+100-cycle stock package suite, Pokeweb install/export/reopen/disable/removal,
+and an installed 0.6.61→0.6.62 upgrade with authored dialogue passed. The
+matching save was copied byte-for-byte from 0.6.61 without overwriting it.
+No game emulator was run; RP01–RP04 remain pending human checks.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.62-alpha.nds` | `7633d16fd220505db846bc990d82457e6e687b9cc551e30e970d0aedd5c061c9` | 61,024 B |
+
+The fixed payload is 12 bytes above 0.6.61; this is not a peak heap measure.
+
+## Stock White 2 Surf first-frame and shoreline alignment, September 24
+
+A headless diagnostic run resumed the supplied `strippedsprite.mln` on the
+previous 0.6.60 ROM. The striped sprite lasted one frame; the next Surf draw
+was complete. The saved player was already between tile centers when the
+next Surf entry began: its grid was `(784,190)` while its world X/Z position
+was approximately `(783.875,190.312)`. Entry now waits for a centered mounted
+step, so the native transfer starts from the same tile used for collision.
+The Surf textures are prepared while the land rider's texture allocations
+are still live; those old allocations are released after two field ticks to
+avoid reusing a key referenced by queued draw commands.
+
+The supplied `desynced.mln` on 0.6.60 showed the player actor's world Z at
+tile center `188.5` while its logical grid Z was `189`; the transition record
+reported a completed two-tile Up shore exit. The 0.6.61 completion path
+corrects the grid only if the actor is at a centered world position exactly
+one tile away in the recorded exit direction. The saved states are in
+different field zones (`0x1cf` and `0x1d1`); this is compatible with the
+reported Humilau City–Route 21 route but does not establish the boundary as
+the cause. The human checklist covers the repeated sand–water–island–water
+route across that boundary.
+
+Exact stock hook bytes and packaged ARM946 tests passed, including all four
+shore directions, sixteen old/new facing pairs, incomplete-step rejection,
+Water-versus-Splash gating, and the delayed one-shot texture release. The 39
+focused web tests, production build, install/reinstall, export/reopen,
+disable/reenable, removal/reinstall, artwork replacement, and
+0.6.60→0.6.61 upgrade passed; authored dialogue and gifts were retained.
+The fixed packaged payload is 61,012 bytes, 252 bytes above 0.6.60. This
+excludes the temporary overlap of native texture allocations and is not a
+measured peak heap charge. The new ROM itself was not run in an emulator;
+FE01–FE05 remain pending cold-boot visual acceptance by the user. The alpha
+save was copied from 0.6.60 without overwriting any existing save.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.61-alpha.nds` | `bcdc9277a9e4ffb6c7cee01eea4e01695336dcba5ab1e0cbad4c313e4d2df784` | 61,012 B |
+
+## Stock White 2 Water-versus-Splash entry, September 24
+
+Pokeweb exposes Water as flag `0x0002` and Splash as `0x0010`; both live in
+the high half of the packed map attribute. The previous mounted Surf entry
+guard checked only low-half terrain values, so a Splash-only tile with a
+water-like terrain value could start Surf early. The stock 0.6.60 guard now
+requires Water set and Blocked clear on the front tile in addition to the
+existing party, HM03, native movement, and scene checks. It no longer rejects
+Water+Splash shallows merely because their terrain value is sand (`0x17`).
+
+The packaged ARM946 test passed Splash-only terrain values `0x17`, `0x3f`,
+`0x40`, `0x41`, and `0x44`, blocked Water, ordinary Water, Humilau's
+Water+Splash sand attribute `0x160017`, all four directions and sixteen
+old/new facing pairs. The exact stock binary contract, 39 focused web tests,
+production build, install/export/reopen, disable/reenable,
+removal/reinstall, artwork replacement, and 0.6.59→0.6.60 upgrade with
+authored dialogue and gifts retained passed. The fixed packaged payload is
+60,760 bytes, 40 bytes below 0.6.59; this is not a measured steady-state
+heap charge. No game emulator was run for 0.6.60. WF01–WF04 require a cold
+boot and remain pending.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.60-alpha.nds` | `4f58024c8e385cd46deb89f6b8220df7e2742991f3eec62821d212390184b76a` | 60,760 B |
+
+## Stock White 2 shore, party menu, and Surf texture handoff, September 24
+
+In the supplied `humilauwater.mln`, a headless diagnostic run on 0.6.58
+reached the native shore check on every Up attempt. The collision query
+accepted the frontage, but its terrain ID was sand (`0x17`) with the water
+flag set (`0x16` flags), so the retail shore classifier did not request the
+required second tile and the final water-flag check rejected the exit. Forcing
+the native two-tile branch in the diagnostic run created the ordinary exit
+event and transferred the player to dry sand. Stock 0.6.59 classifies a
+water-flagged frontage as a two-tile shore only during an armed land/Surf
+handoff; native collision and final dry-tile flags still decide the landing.
+
+The party menu can unload the field module, which previously discarded the
+temporary mount identity. The resident event bridge now holds one menu-only
+token and restores it only when the same game, location, Surf mode, party
+slot, Pokémon identity, HP, and Surf move still match. A changed party or
+other scene leaves the retail on-foot exit. The Surf mount draw also waits
+until the field frame after its textures are uploaded; this is intended to
+avoid drawing a newly recycled VRAM key during the land-rider teardown.
+
+The supplied `glitchytransition.mln` was inspected frame by frame on the
+previous ROM; the saved frame resumes after the striped interval, so the
+artifact could not be reproduced from that state. The texture change requires
+cold-boot visual acceptance. Diagnostic emulator observations above are
+separate from packaged CPU and installer verification below.
+
+Exact stock hook bytes and packaged ARM946 tests passed for the shore span,
+native exit handoff, menu snapshot/restore, one-shot resident token, identity
+rejection, and upload-frame draw guard. The 39 focused web tests, production
+build, install/export/reopen, disable/reenable, removal/reinstall, artwork
+replacement, and 0.6.58→0.6.59 upgrade with authored dialogue and gifts intact
+also passed. The fixed packaged payload is 60,800 bytes, 820 bytes above
+0.6.58; this is not a steady-state heap measurement. SM01–SM05 remain pending
+on a cold boot of the new ROM.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.59-alpha.nds` | `cd3a86d33a5345029c183a6141131e27ea481d133c9f019229f44fadfb652344` | 60,800 B |
+
+## Stock White 2 land-mount walking bounce, September 24
+
+The retail male walking textures have a one-pixel top-edge change between
+movement poses, and Arceus's installed follower art alternates between opaque
+bottom rows 61 and 60 in its up/down pairs. This confirms the observed small
+vertical motion is present in the stock animation frames. The mounted follower
+was held in place, and the custom land draw only alternated its two-pose frame
+while B was held. Stock 0.6.58 now alternates that frame every ten field ticks
+while mounted and moving, or every five with B held. On the raised pose, the
+submitted mount and seated rider lift together by one world pixel. The shadow,
+native actor positions and stored billboards are unchanged; stopped mounts
+return to the seated idle frame without a lift.
+
+Packaged ARM946 draw tests cover normal and B-held cadence, B release, a
+stationary stop, all four directions, draw priority, shadow/body isolation,
+and restoration of the native billboards. The stock package, 39 focused web
+tests, production build, ROM install/export/reopen, disable/reenable, removal/
+reinstall and replacement artwork checks passed. The previous 0.6.57 ROM
+updates without changing authored dialogue or gifts. No game emulator was run
+for 0.6.58; MB01–MB03 remain pending on a cold boot.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.58-alpha.nds` | `7a1dff31a10cf71dc134542e57e56d0c65dc4815e9af94e372a299ae12bd1a05` | 59,980 B |
+
+## Stock White 2 mounted Surf art and ocean entry, September 24
+
+The supplied `mountedleft.mln` showed a provisional custom water sprite before
+the native Surf effect had provided a mount object. In `offsetsurfer.mln`, the
+effect object was roughly two tiles north of the rider during entry and only
+converged after landing. Stock 0.6.57 waits for the first validated native
+effect capture, then draws the custom sprite at the rider's position during
+the no-hop transfer. The native effect object's transform is not rewritten;
+ordinary Surf remains on its existing path.
+
+A diagnostic headless run of the previous build from `humilau.mln` found the
+adjacent ocean attribute `0x16003f`. The native frontage and height check
+returned true, but the custom filter accepted only terrain IDs `0x40`,
+`0x41`, and `0x44`. The stock guard now also uses the game's predicate for
+`0x3d`, `0x3e`, `0x3f`, `0x42`, and `0x43`. Packaged ARM946 tests cover every
+ID in `0x3d`–`0x44`, the exact Humilau attribute, dry rejection, all sixteen
+old/new facing pairs, the first native effect capture, rider alignment, and
+unchanged native object position. Exact ROM adapter bytes, install/export/
+reopen, disable/reenable, removal/reinstall, artwork replacement, upgrade
+from 0.6.56 with dialogue and gifts retained, 39 focused web tests, and the
+production build passed. The prior-build emulator run was diagnostic only;
+SE01–SE04 remain pending on a cold boot of 0.6.57.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.57-alpha.nds` | `2c158b81f507c54c436c0543126d15af50c654560f1f7ef297df57818a1fec06` | 59,924 B |
+
+## Stock White 2 mounted Surf direction fix, September 24
+
+When the player turned toward water from another facing, the native Surf task
+read the actor's previous facing to place its entry effect and choose the
+movement action. The custom no-hop transfer inherited that action, so a
+right-facing mount pressing Up could draw to the right and an opposite-facing
+mount could stop one tile short of the water. A read-only parse of the supplied
+`badtransition.mln` found the transition debug record in water phase with
+requested direction 0 (Up), consistent with the reported turn. Exact stock disassembly at
+`0x021bac90` and `0x021bad60` confirmed the facing read; the turn adapter
+at `0x02167098` copies the old face before storing the new one.
+
+Stock 0.6.56 turns the player actor to the pressed water direction before
+creating the native task, then uses the saved direction for the grounded
+tile transfer. Failed task or event creation restores the prior facing. The
+packaged ARM946 test covers all sixteen old/new facing pairs and both
+failure stages. Exact ROM hooks and new native adapter signatures, ROM
+install/export/reopen, disable/reenable, removal/reinstall, artwork
+replacement, update from 0.6.55 with authored dialogue and gifts retained,
+39 focused Pokeweb tests, and the production web build passed. No game
+emulator was run for this build; SD01–SD04 remain pending.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.56-alpha.nds` | `3cf779b47240834c54364ab8fa37d854707b16cae39223197116e56c33be362d` | 59,856 B |
+
+## Stock White 2 automatic-mount Surf fix, September 24
+
+The user tested 0.6.53 and 0.6.54 and heard the blocked-movement bump when
+riding Arceus toward water. Read-only inspection of `Repos/mounted.mln`
+(SHA-256 `b4493c566c251d6cce535ce66eb66fa37dd670e72f451a36eeb4c2b698be2835`)
+found a visible land mount whose follower selection slot was `-1`. The party
+lead was Arceus with Surf, HM03 was in the Bag, and the target tile was water
+attribute `0x830044`. Replaying the audited native eligibility path with right
+input on the state memory accepted the tile and party member when passed party
+slot 0. The old field handoff instead passed the unresolved follower slot,
+which its identity guard rejected before creating a Surf event.
+
+Stock 0.6.55 passes the active mount's resolved party slot to both the
+eligibility and event-creation calls after validating that mount against the
+party. The packaged field-event regression sets the follower selection slot
+to `-1`, the mount slot to 0, and confirms the handoff receives slot 0.
+Packaged runtime checks, the exact ROM contract, install/export/reopen,
+disable/reenable, removal/reinstall, artwork replacement, 0.6.54 update with
+authored dialogue and gifts retained, and the production web build passed.
+The fixed payload grew 40 bytes to 59,776 bytes. No cold-boot game-emulator
+acceptance was performed for this build; SS01–SS03 remain pending.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.55-alpha.nds` | `a2cc58722b80bab534c6c512d60a09f1a7f549eeda5c769302835409a88594ec` | 59,776 B |
+
+## Stock White 2 land/Surf handoff, September 24
+
+The stock 0.6.53 transition alpha starts the native Surf effect when a mounted
+Pokémon with Surf approaches water and HM03 is in the Bag. Four exact callsite
+hooks replace the native entry and shore-exit jumps with short grounded tile
+movements. The native task still owns ripple, mode changes and shore collision.
+The mounted party identity pins Surf art and is checked again before land
+remounting. Land and Surf textures are released in opposite order on each
+crossing. A successful manual A+B mount requests the native bounce sound.
+
+The pinned ROM contract matched all new hooks and native adapters. Packaged
+ARM946 checks passed for four directions, water and shore terrain, missing
+HM03 or Surf, native permission rejection, task/event handoff, two-step shore
+movement, remount identity and once-only sound. The complete stock package,
+39 focused Pokeweb tests, production build, and ROM install, export/reopen,
+disable, removal and artwork replacement passed. The current 0.6.54 package
+includes this transition code; 0.6.52 and both 0.6.53 field-module
+fingerprints upgraded to it while preserving authored dialogue and gifts.
+No game emulator was run; ST01–ST07 in the human checklist remain untested.
+
+The transition test ROM is `White2-Following-0.6.53-alpha.nds` (SHA-256
+`e0d302c95d433999bad1a87e92291310d5b9aaf5db8127b8681f7a788991f32d`)
+in `Repos/`. The existing 0.6.53 save was preserved. The current 0.6.54
+package also carries the handoff; its fixed payload is recorded in the
+[memory audit](MEMORY-AUDIT.md).
+
+## Stock White 2 Repel continuation, September 24
+
+Read-only inspection of `Repos/repel.mln` (SHA-256
+`b3ce4d4456ee2bdb7593f038b54086411fb278bba74d8fbbf1305d5c62449c48`)
+found script 10144's Repel continuation prompt. Its event path hit three
+conservative scene-guard recalls: a native field-work wrapper, command
+`0x116`, and the yes/no child callback. Stock 0.6.54 accepts the wrapper only
+with its pinned native work shape; it accepts the command and child only for
+the live Repel continuation script. Unknown callbacks and commands in other
+scripts still recall. No changes were made to Repel choice or item behavior.
+
+The packaged ARM946 scene regression kept the same follower through the
+prompt, but its Yes fixture did not execute the item-use branch. Later human
+testing found that Yes still recalled the follower. It rejected malformed
+wrapper work and identical commands or child callbacks in other scripts. A
+packaged field-update regression kept an active land mount and its follower
+actor throughout the prompt. The full
+100-cycle stock package suite and Pokeweb install, export/reopen,
+disable/reenable, removal/reinstall, and artwork replacement checks passed.
+The save is byte-identical to the 0.6.53 save; existing saves were preserved.
+No DS game emulator was run. RP01–RP04 remain human acceptance cases.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.54-alpha.nds` | `a180d17226e2347eb850c496cd84c0f1ceba060e30c61dff00661f6326a9ad9e` | 59,736 B |
+
+The payload is 2,800 bytes larger than the earlier 0.6.53 baseline; this build also includes the
+current land-to-Surf transition code in the working tree. It is not a
+measurement of the Repel guard alone.
+
+## Stock White 2 dismount send-out correction, September 24
+
+Dismount hides the mounted follower and clears its movement trail until a safe
+trailing tile exists. The previous dismount marker suppressed the ordinary
+ball send-out at that first safe tile, so the follower appeared instantly.
+Stock 0.6.53 removes that exception: the follower stays hidden for the opening
+effect frames and receives exactly one normal send-out when it returns.
+
+A packaged ARM946 regression covers mounted movement without a ball effect,
+the A+B dismount, stationary waiting, a safe trailing step, the send-out effect,
+and visibility after its opening frames. The complete stock package suite and
+ROM export/reopen/reinstall/disable/reenable/removal checks passed. No DS game
+emulator was run; LM09 remains a human visual acceptance case.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 historical baseline | `build/stock/White2-Following-0.6.53-alpha.nds` | `068820fb675a3ebfd0ce03fcacd9238b45d40c5d68c49be695c4a629dd387144` | 56,936 B |
+
+The fixed payload is 48 bytes smaller than 0.6.52. The matching `.sav` in
+`Repos/` is byte-identical to the 0.6.52 save; existing saves were preserved.
+
+## Stock White 2 base Speed and mounted B-run draw correction, September 24
+
+Stock 0.6.52 now reads field 3 (base Speed) from the selected species and
+form's native Personal record when mounting. It caches that byte for the
+existing capped flat-step speed curve. Level, nature, calculated party Speed,
+and temporary stat changes no longer affect mount pace. Party identity and
+form changes still end the mount. The Personal getter's Thumb entry bytes
+were verified against the pinned clean ROM.
+
+Read-only inspection of `Repos/blackbox.mln` (SHA-256
+`8ab81d0e5db34d730d5087dd49df17efc0a9468af6886f10b614540d558c9d36`)
+found the mounted follower using material index 16 with eight frames; material
+17 had no texture. The old B-run override flipped the material index between
+16 and 17, so one animation pose rendered as a large black rectangle. The
+override now keeps the material index fixed and alternates the two frames
+within that material. A packaged ARM946 draw check reproduces that exact
+material/frame layout, checks all four facing orders and restoration, and
+rejects reads of the calculated Speed parameter. The host speed-curve checks,
+complete stock package suite, Pokeweb export/reopen, reinstall,
+disable/reenable, removal/reinstall, artwork replacement, and upgrade from
+0.6.51 with authored dialogue all passed. Production build and privacy checks
+passed. No DS game emulator was run; LM04, LM11 and LM12 remain human visual
+and travel-rate acceptance cases.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.52-alpha.nds` | `b93111e0270b44284dc42415b7371b48c18d0775c8d44ee1ac77d865f711bacb` | 56,984 B |
+
+The payload is 16 bytes larger than 0.6.51. The matching save was copied from
+0.6.51 without overwriting existing saves.
+
+## Stock White 2 land mounts, September 24
+
+The stock 0.6.51-alpha package adds an A+B stationary land mount for the
+selected visible, healthy follower. Its 17,236-byte ROM archive holds twelve
+bike-free riding frames per trainer: the native moving bicycle head and hair
+are pixel-aligned to the native seated body. Bicycle handles, wheels, and
+ground-touching stationary poses are excluded. All 24 generated frames matched
+the user-approved preview at every visible pixel. The 20,608-byte ROM anchor
+table measures both animation poses of all 2,574 follower appearances. Only
+one eight-byte anchor record and twelve rider textures are read when mounting.
+The mounted follower shares the player
+position while its separate shadow is suppressed; the player keeps native
+ground movement and its own shadow. Mount state is not saved.
+
+The stock binary contract matched every hook and native adapter on the pinned
+revision-0 ROM. The published ARM946 package passed its existing packaged
+interaction, scene, continuity, render, Surf and cycling checks. Host tests
+for the actual speed-selection function passed Speed 0, 50, 100, 200, 233 and
+255, including exact bike rate at 100, the one-tile-per-frame cap, and native
+special-command preservation. A packaged input test checked ordinary A,
+B-held then A, A-held then B, simultaneous stationary A+B, directional input, L/R, and a
+duplicate event-provider call in the same frame. A packaged draw test checked
+all four rider/mount submission orders, player-body suppression, billboard
+restoration, three moving rider frames, faster B-held animation and seated idle.
+TypeScript checks and 31 focused Pokeweb tests
+passed. The delivered ROM passed export/reopen, reinstall, disable, reenable,
+removal and reinstall. A replacement appearance was applied after reopening;
+its land anchors were recomputed, exported and recognized on another reopen.
+An existing 0.6.50 ROM with an earlier field-module fingerprint upgraded to
+0.6.51 with authored dialogue intact and the exported result reopened.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.51-alpha.nds` | `2c08e0aacada86dc6931f26f2a492bd070e5f06d08c26924e31cb2bd39245159` | 56,968 B |
+
+The new fixed payload is 4,640 bytes larger than stock 0.6.49 and 944 bytes
+larger than 0.6.50. ROM art and
+anchor bytes are excluded from that heap figure; native graphics allocations,
+allocator overhead, stack and VRAM are also outside it. The matching save was
+copied without overwriting an existing save. No game emulator was run. LM01–
+LM11 in the human checklist remain **NOT RUN** for visual and gameplay
+acceptance, especially draw order, seams, menus and terrain.
+
+## Surf selection after L/R cycling, September 24
+
+Stock White 2 and White2Upgrade now check the selected land follower first for
+Surf. When it does not know Surf, the first non-Egg Surf knower in party order
+provides the mount. Packaged ARM946 tests cover a later selected follower
+beating an earlier knower, non-Surf fallback, stale/replaced identity, party
+reordering, and the four move slots. Native Surf permission remains unchanged.
+The selection adds 140 bytes to each profile's fixed code/data/BSS payload and
+no permanent buffer. Both complete package builds and ROM install, export,
+reopen, reinstall, disable, reenable, and removal checks passed. No DS game
+emulator was run; SF10 and U30 remain human visual acceptance cases.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.49-alpha.nds` | `e0adf715cdb4b79a501306cb26369214bc2bbd1a14efcc48af09f920cce38622` | 52,328 B |
+| White2Upgrade | `White2Upgrade-Following-0.7.30-alpha.nds` | `7fb6bd192888989a60fc3dcf048e97cff59384654be0ebab8a75671397c29373` | 53,064 B |
+
+Each ROM has a matching `.sav` in `Repos/` copied byte-for-byte from its
+immediately preceding version. Existing saves were preserved. Black 2 and
+Italian packages were not changed by this Surf selection update.
+
+## Horizontal L/R resummon correction, September 24
+
+The user reported that L/R switches while facing left or right recalled the
+visible follower but did not show the replacement until the player moved. The
+first cycling build seeded a new trail at the old sprite position. A wide
+sideways follower may stand more than one ordinary tile from the player, so
+the next route sample was rejected as disconnected and the replacement stayed
+hidden. The correction keeps the recorded player route through recall and
+advances it while the effect runs. The new actor uses a validated point on
+that route, then resumes normal following without a forced player step.
+
+The packaged ARM946 cycling test now covers both horizontal facings with a
+wide gap and player motion during recall. Stock's full packaged suite, the
+White2Upgrade and Black 2 builds, and Pokeweb export/reopen/reinstall/disable/
+reenable/removal checks passed. No game emulator was run by this work.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.48-alpha.nds` | `f88df1a39c5f72b19ced966738a8c57c17a8efa0a03620088a1db76fac5324f7` | 52,188 B |
+| White2Upgrade | `White2Upgrade-Following-0.7.29-alpha.nds` | `5ba7efb20ca394dcf27984f26c7cd90ccec2add268bf88322ba48f7cbd28fc29` | 52,924 B |
+| Black 2 | `Black2-Following-0.6.35-alpha.nds` | `024713a6a512addbf4fb931e02a3c7b5ef8ba3f2d40c745531f3a20d6cdaf61a` | 48,064 B |
+
+Each ROM has a matching `.sav` in `Repos/`. Existing saves were preserved.
+CY01–CY05, U29 and B21 remain human acceptance cases. The preceding 0.6.47,
+0.7.28 and 0.6.34 cycling alphas should not be used for horizontal switching.
+
+## L/R follower cycling, September 24
+
+Tap R for the next eligible party member or L for the previous one while
+ordinary field movement owns the follower. The selected party slot is held in
+field-only follower state; no party data is written. The old actor is recalled,
+then the new actor receives the existing send-out effect. Simultaneous shoulder
+presses and input during another effect are ignored. Eggs are skipped; healthy
+members take priority, with fainted non-Egg members available only if all are
+fainted. The manual choice is matched by Pokémon identity after a party reorder.
+
+Host selection tests and the packaged stock ARM946 keypress/effect sequence
+passed, including wraparound, busy-input rejection and unchanged party bytes.
+The stock package also passed its 100-cycle scene, ambient and continuity
+suites, render and Surf checks. White2Upgrade and Black 2 passed their packaged
+build checks. Pokeweb export/reopen/reinstall/disable/reenable/removal passed
+for all three delivered ROMs. No game emulator was run.
+
+| Profile | Delivered ROM | SHA-256 | Fixed packaged payload |
+|---|---|---|---:|
+| Stock White 2 | `White2-Following-0.6.47-alpha.nds` | `a3a4003faad70563ffdccb06e26241f82cb4c2e6d860ba391892f37b4f166e6f` | 52,052 B |
+| White2Upgrade | `White2Upgrade-Following-0.7.28-alpha.nds` | `b06717e92eabe9622deb81fd7d995fdbad48cac6c880b8b1d587645092a6b366` | 52,784 B |
+| Black 2 | `Black2-Following-0.6.34-alpha.nds` | `d31382f739b12d3528483bcdd0709e5977d362b1a965756cda3cb1cfb4bbff30` | 47,924 B |
+
+Italian 0.6.35 was compiled but not released: its packaged scene test recalls
+on action `0x54` where the test expects retention. The same failure reproduces
+with the already published Italian 0.6.34 module, so it is not caused by
+cycling. Italian visual and gameplay behavior was not tested here.
+
 The user confirmed the preceding menu and PC fixes, but reported continued recall
 at Floccesy Town / Route 20 in White2Upgrade. The supplied state was inspected
 read-only; no game emulator was run.
@@ -10,6 +533,127 @@ user-reported result, separate from the automated checks below.
 The earlier 0.2 walking module was exercised in the bundled Desmond DS emulator.
 Those results do not validate the new 0.3 renderer/effects. The clean input
 remains read-only. Hardware has not been tested.
+
+## Stock White 2 0.6.46 grid grass correction, September 24
+
+The user confirmed the 0.6.45 hang was fixed but supplied `noterrain2.mln`
+with both player and grounded follower standing in grass and no follower grass
+fringe. In that state, the player's cached map attribute is `0x240004`, while
+the synthetic follower's cached attribute is zero. Isolated ARM946 execution
+of the native grid-map query at both actors' tile centers returns `0x240004`
+for each. The separate native grass entry reaches its task creator and returns
+for the follower in the state RAM copy. `verify_terrain_state.py` reproduces
+these checks without advancing a game frame.
+
+Stock 0.6.46 queries the visible follower's tile after actor updates and
+invokes the native grass task once per tile, including first appearance in
+grass. It excludes Flying-type followers and keeps the unsafe movement-context
+dispatcher disabled. The small tile cache is field-runtime state, cleared on
+recall/unload; no save data or separate dynamic PMC allocation was added. Other tile
+effects remain outside this focused grass pass.
+
+The stock exact-ROM contract, packaged branch and render checks, 100 scene/
+ambient/continuity cycles, Surf checks, and Pokeweb export/reopen/reinstall/
+disable/enable/removal passed. The fixed packaged payload is 52,056 bytes.
+The delivered ROM is `White2-Following-0.6.46-alpha.nds` (SHA-256
+`a5483a9c38813bc9804fe08edd35166417336b604c2d05f8915926b8e092f725`).
+Its save is byte-identical to the 0.6.45 stock save. Other profile DLLs were
+not rebuilt. No game emulator was run; TE01–TE04 remain NOT RUN.
+
+## Stock White 2 0.6.45 stability correction, September 24
+
+The user reported that 0.6.44 froze as soon as the follower spawned. Its
+`followerfreeze.mln` state was inspected read-only. ARM9 was in an exception
+handler while the follower was inside the native tile-entry path with flag
+`0x400` cleared. The follower's movement-context pointer at Actor offset
+`0x94` was null. The native dispatcher calls through this context without a
+null guard; an isolated ARM946 call against the preceding state reached a
+read at address `0x2c` after the flag was cleared. This path is not safe for
+our synthetic grid actor. The older call-count test failed to exercise the
+real dispatcher and therefore missed the failure.
+
+Stock 0.6.45 removes that dispatcher call completely and retains the
+bounded running-seam correction from 0.6.44. The stock packaged CPU check
+now fails if the synthetic follower invokes the unsafe dispatcher at any
+tested movement step. The full stock package, scene, continuity, render and
+Surf checks passed, as did Pokeweb export/reopen/reinstall/disable/enable/
+removal. Fixed packaged payload is 50,748 bytes. The delivered ROM is
+`White2-Following-0.6.45-alpha.nds` (SHA-256
+`a5347fa7d7a66fa45ce898e0f67dfa1918d9be72bc967708ff5000138beeb4be`).
+Its save is byte-identical to the 0.6.44 stock save. Other profile DLLs were
+not rebuilt. No game emulator was run by this correction. Follower grass
+effects remain absent in stock until a grid-specific native path is audited;
+human stability and seam checks TE01–TE04 are NOT RUN.
+
+## Failed stock White 2 0.6.44 terrain experiment, September 24
+
+The user's `noterrain.mln` and `transitionrecall.mln` states were inspected
+read-only. The grounded follower in the first state was visible on a grass
+tile, but its actor flags included `0x400`. The exact stock native tile-entry
+dispatcher calls a predicate that rejects that bit before looking up the
+tile. The old CPU test only counted dispatcher calls, so it missed the early
+return. Stock 0.6.44 cleared `0x400` while the visible grounded
+follower crosses a tile and the native dispatcher runs, then restores the bit.
+Flying followers and idle frames remain excluded. The matching stock native
+predicate and dispatcher instruction bytes are pinned in `contract.json`.
+An isolated ARM946 call using the supplied state returned 1 from the stock
+skip predicate with `0x400` set and 0 with it cleared; the separate effect
+eligibility predicate returned 1 for that same follower.
+
+The running-transition state recorded `FollowingSceneDebug` reason 3 (player
+movement), action `0x58`, and no live event pointer at that action. The
+follower trail reset count was zero. The seam event had ended but the scene
+pause latch still owned the follower when the player resumed running. Stock
+0.6.44 added an exception for run actions `0x54`–`0x5B` and tile-bounded world steps in that
+event-end window. A new live event revokes the exemption; direct placements,
+large position changes, and scripted movement during a live event still
+recall before commit.
+
+The stock packaged CPU suite passed native predicate and temporary-flag
+checks, eight run-action variants, bounded-step and unsafe-movement guards,
+100 scene and ambient cycles, continuity, render and Surf regressions. Pokeweb
+export/reopen/reinstall/disable/enable/removal passed for the delivered stock
+ROM. The fixed module payload is 50,860 bytes, up from 50,720 bytes in
+0.6.43. The delivered ROM is
+`White2-Following-0.6.44-alpha.nds` (SHA-256
+`81c2534529404d5cd8e4e0db93fe20f940f14195d207e7efcb25720aa99b110e`).
+Its `.sav` is byte-identical to the prior stock 0.6.43 save; no other profile
+package was rebuilt. **No game emulator was run by the build.** The user then
+reported an immediate follower-spawn freeze in melonDS. The 0.6.44 terrain
+change must not be used; the separate 0.6.45 correction above removes it.
+
+## Earlier native terrain dispatcher pass, September 24
+
+The 0.6.43 stock and corresponding other-profile builds called the same
+overlay-36 tile-entry effect dispatcher
+used by retail actor movement once their visible actor crosses into a new
+grid tile. The selected party Pokémon's two native type values determine the
+Flying exclusion. Idle frames, turns in place, hidden actors and Flying types
+skip the call. The native field engine still owns effect lifetimes and the
+follower's shadow, world position and movement trail are unchanged.
+
+The dispatcher instruction bytes were checked against the exact stock White 2,
+Black 2, Italian White 2 and pinned White2Upgrade binaries. All four packaged
+modules passed build/relocation validation. A stock packaged CPU spy observed
+one dispatch per crossed tile over three consecutive tiles, with none for
+Flying or idle frames. The native effect service was mocked; this does not
+establish the resulting grass, dust, water or footstep visuals in game.
+The user subsequently confirmed stock grass was absent; the `0x400` native
+tile-query guard explained why call-count checks alone were insufficient.
+All four delivered ROMs passed Pokeweb export/reopen, reinstall, disable,
+enable, removal and reinstall checks. No emulator was run by the build.
+
+| Profile | Version | Delivered ROM SHA-256 | Fixed PMC module payload |
+|---|---|---|---:|
+| Stock White 2 | 0.6.43-alpha | `8b0b41721f6d4c4910e09f82554ba6f40262ea2078b5725b11f1a86966fc0bc1` | 50,720 B |
+| Black 2 | 0.6.33-alpha | `867762a2bea3dce50360ccbb6033ce9790f5f0773ca28db08f28d9f192698cc4` | 46,872 B |
+| Italian White 2 | 0.6.34-alpha | `83fb3c05adee0b9c17a262432ac6084f9516d94144356f64119db5d5c7dcc0e4` | 47,044 B |
+| White2Upgrade | 0.7.27-alpha | `6be086bdd013fd2d4c3c9042fa9f2fc75a81f256dead0be54e0f36900e74bae7` | 51,700 B |
+
+The stock, Black 2 and Upgrade delivery saves were copied from the immediately
+preceding versions without overwriting any destination. No Italian-family
+save existed, so none was copied and no US save was used. Human cases TE01–TE03,
+B20, I30 and U28 remain NOT RUN.
 
 ## North-facing follower foreground depth
 
@@ -1627,3 +2271,35 @@ The application exposes the Gen 5 sprite alpha with these limitations. Prepared
 arbitrary custom assets remain separate from the runtime archive generator. The checklist
 contains NOT RUN placeholders for human results; it is not a claim that those
 scenarios have passed.
+
+## Stock White 2 0.6.40 party Surf mounts
+
+The clean US White 2 binary contract and both mount-draw sites were verified before the stock-only package was published. The importer generated 1,455 sorted appearance records and 23,280 64-pixel texture members from the Swimming and Levitates normal/shiny source sets. Its 11,656-byte version-2 registry and 52,426,612-byte NARC remain in ROM. Every species 1–649 has normal and shiny base art; the imported native forms were checked against the stock personal archive. Numbered later-only forms were excluded, and 87 sheets used deterministic palette reduction. Source hashes and conversion metadata are in `surf-mounts.json`.
+
+Packaged ARM946 CPU tests passed for party order, all four Surf move slots, Egg rejection, fainted members, shiny/form/female lookup and fallback, invalid registry rejection, both entry hooks, cached jump-frame rendering, draw priority, ten-pixel rider lift/restoration, and resource teardown. The existing stock continuity/render suites passed. Pokeweb installation, idempotent reinstall, export/reopen, disable/reenable, removal/reinstall and upgrade from 0.6.39 in both enabled and disabled states passed. Authored dialogue and gift archives stayed byte-identical through the upgrade. TypeScript checking and `git diff --check` passed.
+
+The released ROM is `White2-Following-0.6.40-alpha.nds` in `Repos/`, SHA-256 `99e60d67a9a0dbf7f47d2f0407311336c42c7fc174f38c612a43c9ba5652ebc2`. Its same-basename `.sav` is byte-identical to the prior 0.6.39 alpha save. No emulator or hardware was run; visual acceptance remains with the user's cold-boot Surf checklist.
+
+## White2Upgrade 0.7.24 party Surf mounts
+
+The pinned White2Upgrade source ROM and both ordinary/shore-hop overlay hook bytes passed the Upgrade-specific audit. The version-2 Surf registry contains 2,324 sorted appearances and 37,184 texture members. All Gen 1–5 base species retain the stock Surf art; 360 later-generation species have matching normal base Surf art and 358 have shiny base art. Fourteen Gen 9 species lack matching Swimming/Levitates base sheets and use the retail mount. Native forms are mapped through the audited expansion appearance manifest, and every imported form is in the source ROM personal archive. Source hashes, palette reduction and missing-base IDs are recorded in the Upgrade Surf manifest.
+
+Packaged ARM946 instruction tests checked later-generation party selection, all four Surf move slots, Egg skipping, party order, species 1023, and no Surf knower. The shared packaging/render checks passed. The exported ROM passed Pokeweb compatibility and original-file integrity checks, reinstall, disable/reenable, removal/reinstall, and upgrade from 0.7.23 with authored dialogue and gifts unchanged. TypeScript checking and production Vite bundling passed. The fixed PMC module payload is 51,560 bytes, up from 47,708 bytes in 0.7.23; the 18,608-byte Surf index and 83,738,420-byte archive stay in ROM, with only the chosen 16 textures resident. Native graphics allocations and VRAM are not included in the fixed-payload measurement.
+
+The delivered ROM is `White2Upgrade-Following-0.7.24-alpha.nds` in `Repos/`, 577,670,904 bytes, SHA-256 `cdf84e12fa7ecf7ae51107762634baa64a8bd4213922d1f8dc89dd4f58450c0e`. Its matching `.sav` is byte-identical to the 0.7.23 expansion save. The ROM exceeds the standard 512 MiB DS cartridge size; Pokeweb can export/reopen it, but game-emulator compatibility is unverified. No game emulator or hardware was run. Human checklist U25 remains NOT RUN.
+
+## Surf art scale and south-facing draw order, 0.6.41 / 0.7.25
+
+The supplied `facingdown.mln` state identifies stock 0.6.40 with Azumarill selected as the Surf mount, facing south. Its source sheet uses 64-pixel cells, whereas Arceus uses 128-pixel cells. The old importer enlarged both to 64-pixel textures. The importer now preserves their intended 2:1 source-to-game scale: Azumarill becomes 32 pixels and Arceus remains 64 pixels. Other sheets with intermediate cell sizes use transparent 64-pixel textures for their halved art. The stock archive is 18,339,700 bytes with 1,387 small and 68 large appearances; the Upgrade archive is 29,081,396 bytes with 2,224 small and 100 large appearances. Both stay in ROM, with only the selected mount's 16 frames loaded.
+
+The south-facing mount still renders in the post-player pass. The forced depth policy now keeps at least a four-world-pixel lead or lag relative to the rider, so rider bobbing cannot collapse the prior near-tie into alternating depth order. Packaged CPU tests checked both forced policies, Azumarill's downsampled alpha pixels and texture dimensions, Arceus's 64-pixel art, catalog bounds, party selection, cached shore-hop frames, and rider lift. Stock and Upgrade package builds passed. Pokeweb export/reopen, reinstall, disable/reenable, removal/reinstall, and previous-Surf-version upgrades passed for both profiles, with authored dialogue and gifts unchanged. The Upgrade ROM additionally passed original-file preservation and conflict checks. TypeScript and production bundling passed. The editor footer now includes the supplied overworld sprite credits.
+
+The delivered ROMs are `White2-Following-0.6.41-alpha.nds` (SHA-256 `fac9cc8d29810578ed19ecec43e7e6091a93962d711a4308f78abb82c296a703`) and `White2Upgrade-Following-0.7.25-alpha.nds` (SHA-256 `dfaceabfa99dae5a365fa1fd81ac3a58ab8b57a63d9e914b4908f4a711b3caa4`) in `Repos/`, each with a same-basename save copied from its preceding alpha. No game emulator was run; visual acceptance remains pending.
+
+## Surf dismount rider height, 0.6.42 / 0.7.26
+
+Read-only inspection of `Repos/disembark.mln` (SHA-256 `b24e7b43e002a076b04b22ecf145d7fc59d4c6378aca664a5310312ee976e960`) found stock 0.6.41 at field tick 1204. The Surf state was still active, but the last native mount pose was captured at tick 1182. The mount draw guard therefore rejected it as stale, while the rider draw path continued to add ten world pixels to the player. At the saved frame the native player actor was six pixels above the old mount height in its shore-hop arc and 32 pixels away horizontally. The patch lift made that visible separation sixteen pixels even though the mount had vanished.
+
+The rider lift now uses the same one-frame mount-pose freshness requirement as the mount draw path. Its ten-pixel lift continues while mounted and ends as soon as the mount disappears, even if native Surf mode remains active during the landing animation. The native actor position, jump arc, shadow, and collision are unchanged. Packaged ARM946 tests executed fresh, one-frame-old, and stale mount frames and checked rider pose, draw order, and restoration. Stock and Upgrade builds passed their packaged checks. Both delivered ROMs passed update from the immediately prior Surf alpha with authored dialogue and gifts preserved, plus install/reinstall, export/reopen, disable/reenable, removal/reinstall, and production TypeScript/Vite build. The Upgrade original-file and conflict checks passed. No DS emulator or hardware was run.
+
+The delivered ROMs are `White2-Following-0.6.42-alpha.nds` (SHA-256 `30f4290e3cadaf061e42bf782835c6108369634cc69402ab403f6fbe845548e3`) and `White2Upgrade-Following-0.7.26-alpha.nds` (SHA-256 `37ef43a2ebb1f37de6311aa744e9423971dfc128691deb677d3541472283c530`) in `Repos/`. Each has a same-basename save copied byte-for-byte from the preceding alpha without overwriting existing saves. The fixed PMC payloads are 50,620 and 51,600 bytes, respectively; native graphics allocations and VRAM are outside this measure. Human cases SF09 and U27 remain NOT RUN.
