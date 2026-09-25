@@ -105,7 +105,6 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   const aggregateSpeciesOptions = aggregateSpeciesIds.map(id => `<option value="${escapeHtml(speciesDisplayValue(project, id))}"></option>`).join("");
   const panel = document.createElement("section"); panel.className = "code-injection-card following-pokemon-editor";
   panel.innerHTML = `<header class="following-editor-hero"><div><span class="following-editor-kicker">Field feature</span><h2>Following Pokémon</h2></div></header>
-    <p class="following-mount-help" data-fw-land-help hidden>While stopped outdoors, hold A or B and press the other button to ride the selected visible follower; repeat to dismount. The Pokémon’s Personal base Speed sets travel pace, regardless of level or nature. Holding B while moving speeds up both the Pokémon’s two-frame animation and the trainer’s three-frame riding animation. A mount that knows Surf can carry you onto water. Riding ends at doors, battles, and party changes, and is not saved.</p>
     <div class="following-editor-runtime-actions code-injection-actions"><button class="btn -primary" data-fw-prepare disabled>Prepare asset workspace</button>
     <button class="btn" data-fw-install disabled>Install follower alpha</button><button class="btn" data-fw-toggle hidden>Disable following</button><button class="btn" data-fw-remove hidden>Remove runtime</button></div>
     <section class="following-interaction-workspace"><div class="following-aggregate-toolbar"><label><span>View rules for Pokémon</span><input type="text" list="follower-overview-species" placeholder="Choose a Pokémon" autocomplete="off" data-fw-aggregate-species disabled></label>
@@ -124,7 +123,6 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   let rom: FollowerRom | undefined, workspace: FollowerAssetWorkspace | undefined, previewWorkspace: FollowerAssetWorkspace | undefined, selected = "", stock: Uint8Array[] | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   const error = panel.querySelector<HTMLElement>("[data-fw-error]")!;
-  const landHelp = panel.querySelector<HTMLElement>("[data-fw-land-help]")!;
   const prepare = panel.querySelector<HTMLButtonElement>("[data-fw-prepare]")!;
   const install = panel.querySelector<HTMLButtonElement>("[data-fw-install]")!;
   const toggle = panel.querySelector<HTMLButtonElement>("[data-fw-toggle]")!;
@@ -479,7 +477,6 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   }
   async function refreshRuntime(state: FollowerAlphaInstall | undefined): Promise<boolean> {
     if (!state) return false;
-    landHelp.hidden = !state.landRiderSha256 || !!state.removed;
     const runtimeVersion = await followerRuntimeVersion(project, rom);
     enabled = state.enabled;
     const importedArtwork = state.profile === "stock" && !!rom && followerArtworkPending(project, rom);
@@ -523,6 +520,10 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       if (workspace) renderAssets();
       const report = await checkFollowerCompatibility(project, rom);
       if (!panel.isConnected) return;
+      if (!report.compatible) {
+        const failed = report.checks.filter(check => !check.passed).slice(0, 3).map(check => check.name);
+        error.textContent = `${report.message}${failed.length ? ` Failed: ${failed.join(", ")}.` : ""}`;
+      }
       prepare.disabled = !!workspace || !report.compatible;
       if (!await refreshRuntime(report.installation)) { install.disabled = !report.compatible; await renderDialogues(); await renderItems(); }
     } catch (reason) { fail(reason); }
