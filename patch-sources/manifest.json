@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "purpose": "Bookkeeping snapshot only; not a build input or a binary-reproducibility claim.",
+  "purpose": "Canonical source provenance and on-demand external export; not a build input or binary-reproducibility claim.",
   "sourceRepositories": {
     "w2u-runtime": "White2Upgrade-Original-pokeweb",
     "weather-runtime": "White2Upgrade",
@@ -40,7 +40,7 @@
         }
       ],
       "note": "BW1 and BW2 address profiles are checked separately. Three resident accessor hooks isolate stock Wi-Fi workspaces in application RAM. See README for build profiles.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "battle-log-save-guard/w2u_battle_log_save_guard.cpp",
@@ -106,7 +106,7 @@
         }
       ],
       "note": "Shared B/W/B2/W2 implementation; includes direct-damage-first KO attribution using the retail damage record's persistent attacker ID, resolved-target/faint trampolines, and the save-block patch source. Target macros select each game profile.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "battle-log/w2u_battle_log.cpp",
@@ -182,7 +182,7 @@
         }
       ],
       "note": "Shared individual-counter implementation; BW2 also handles immediate KO move learning. Uses the shared PK5 and pending-move headers.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "battle-counters/w2u_pk5_battle_counters.cpp",
@@ -228,7 +228,7 @@
         }
       ],
       "note": "Shared B/W/B2/W2 summary-screen implementation.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "battle-log-summary/w2u_battle_log_summary.cpp",
@@ -256,7 +256,7 @@
         }
       ],
       "note": "EVOLVE, RELEARN, post-battle KO evolution, and field-script counter access. Both C++ translation units belong to this patch. The DLL filenames are intentionally unchanged.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "enhanced-party-menu/w2u_menu_evolution.cpp",
@@ -334,7 +334,7 @@
         }
       ],
       "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "pwan-battle/w2u_pwan_frame_scratch.cpp",
@@ -422,7 +422,7 @@
         }
       ],
       "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "pwan-summary/w2u_pwan_frame_scratch.cpp",
@@ -510,7 +510,7 @@
         }
       ],
       "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "pwan-misc/w2u_pwan_scratch.cpp",
@@ -614,7 +614,7 @@
         }
       ],
       "note": "Assembly-only compatibility stub; there is no C++ translation unit.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "pwan-legacy-retired/pwan_legacy_retired.s",
@@ -638,7 +638,7 @@
         }
       ],
       "note": "The active weather source is in the separate White2Upgrade checkout. Resource archives and local ROM builds are intentionally not included.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "overworld-weather/w2u_overworld_weather.cpp",
@@ -686,7 +686,7 @@
         }
       ],
       "note": "Original maintained runtime remains in Pokeweb runtime/form-evolution.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "form-evolution/build.sh",
@@ -754,7 +754,7 @@
         }
       ],
       "note": "Assembly-only patch; original maintained runtime remains in Pokeweb runtime/porta-pc.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "porta-pc/ButtonScript.s",
@@ -838,7 +838,7 @@
         }
       ],
       "note": "Original maintained runtime remains in Pokeweb runtime/tag-battle-stabilization.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "tag-battle-stabilization/build.py",
@@ -882,7 +882,7 @@
         }
       ],
       "note": "This is a separate bundled companion, not the excluded Black2Upgrade.dll monolith. It imports core helpers from that monolith. Original hook inputs and generated B2 assembly are both retained; no ELF/DLL build outputs are copied.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "black2upgrade-field/black2upgrade_metadata.cpp",
@@ -936,7 +936,7 @@
         }
       ],
       "note": "This is a separate bundled companion, not the excluded Black2Upgrade.dll monolith. It imports core helpers from that monolith. Original hook inputs and generated B2 assembly are both retained; no ELF/DLL build outputs are copied.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "black2upgrade-pokedex/black2upgrade_metadata.cpp",
@@ -980,7 +980,7 @@
         }
       ],
       "note": "This is a separate bundled companion, not the excluded Black2Upgrade.dll monolith. It imports core helpers from that monolith. Original hook inputs and generated B2 assembly are both retained; no ELF/DLL build outputs are copied.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "black2upgrade-ui/black2upgrade_metadata.cpp",
@@ -1045,10 +1045,14 @@
         {
           "name": "PMC_W2.rpm",
           "sha256": "996b9c78ce3f5f8ed943e9a0b315c1e384e93a4fe29c18b6e06c157ea813c16f"
+        },
+        {
+          "name": "PMC_W2I.rpm",
+          "sha256": "286b4bd96e0acbe82014eb0121ed674fd3618ba6d328b2cd3c300e88779d4dfe"
         }
       ],
-      "note": "Local framework, interface, print-service sources and build metadata. External libraries/toolchains are not vendored. This is a current-source snapshot, not a claim that the historical bundled RPMs were rebuilt from this exact revision. Existing license is retained.",
-      "status": "source-copied",
+      "note": "W2I retargets the pinned W2 loader through the audited Pokeweb adapter; B2/W2 framework sources remain in the PMC checkout. External toolchains and libraries are not vendored.",
+      "status": "source-available",
       "files": [
         {
           "path": "pmc/CMakeLists.txt",
@@ -1249,6 +1253,26 @@
           "kind": "source",
           "sha256": "4ecc6e2d5ce0b635ec2b7e7a9e9bee79940e8c9c06354530c856e9cb2859ae4f",
           "normalized": false
+        },
+        {
+          "path": "pmc/integration/build-italian-pmc.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/build-italian-pmc.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "3b425b886c4d2b3b9d2499e020efc3182704fd693d02ad5a203607d2c6b452e3",
+          "normalized": false
+        },
+        {
+          "path": "pmc/integration/inspect-italian-pmc.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/inspect-italian-pmc.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "4779a3818ccbd7abd1264a40d0dbc8cd1a1751102b80696ae50d248a06522800",
+          "normalized": false
         }
       ]
     },
@@ -1319,7 +1343,7 @@
         }
       ],
       "note": "Version 1.4.5. PMC-only menu/field and overlay-258 viewer companions; includes the move-list click for successful evolution navigation and summary-page sound for party switching, session-owned evolution graph and icon reuse, species/type header, correct sub-BG palette addressing and no-fade read-only L/R family navigation with virtual species learnsets/info, descendant-first branch browsing, A requirement pages, selected-only native two-pose icon animation, native lower-screen foreground/shadows and matching light upper panels, full-height right-panel left shading with unchanged ability row rules, purple hidden abilities, matching icon transparency, a dark teal selected-sprite frame with brighter title/fin accents unchanged, muted panel border, restored charcoal description body with a dark fin/top strip and no side/bottom borders, four-pixel slate-teal gutter, clipped stats panel, party-position header cue, retail title rails, D-pad party navigation, compact gold base stats, form ability names, cycle-safe three-Pokemon evolution chains, buffered ROM reads, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "learnset-viewer/background.py",
@@ -1438,7 +1462,7 @@
             "path": "runtime/learnset-viewer/README.md"
           },
           "kind": "documentation",
-          "sha256": "5c4fbe419e9594cbaef28f9f949d48b75ed0e2178ca62a64b9df482d410022f2",
+          "sha256": "0b1c2a6b4a6cc4eed0bf079d3dbfa637107241e6c10ba39216f5054e78476561",
           "normalized": false
         },
         {
@@ -1488,7 +1512,7 @@
             "path": "runtime/learnset-viewer/VALIDATION.md"
           },
           "kind": "documentation",
-          "sha256": "1c4bb6eef420d1b3d75b9f3cf1e18fdf2b75d054531d2c207380b29e931514d7",
+          "sha256": "aa71699c79dfd3593a9a2b1ba33d17e490fbddc116926c3bdbb77567e67cc654",
           "normalized": false
         },
         {
@@ -1621,7 +1645,7 @@
         }
       ],
       "note": "Independent overlay-168 Type Icons 0.3.17, Circular 0.3.17, Solid 0.3.23, and Move Effectiveness 0.4.0 modules, catalog 0.4.23. Includes generated address/hook headers and private panel geometry. Canonical Pokeweb runtime snapshot originates from work/battle-type-hud; no emulator captures or build binaries are copied.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "battle-type-hud/analyze.py",
@@ -2030,7 +2054,7 @@
             "path": "runtime/battle-type-hud/VALIDATION.md"
           },
           "kind": "documentation",
-          "sha256": "5222acc048824fe336c6fdb0e7832e20e4f42bb87f576d74e65893c8568b4f33",
+          "sha256": "63e43e3d197e2da535a945df3ea8c1812e1be09f7945f56506a5e6daadc7f9f5",
           "normalized": false
         },
         {
@@ -2249,7 +2273,7 @@
         }
       ],
       "note": "Shared US Black 2 / White 2 runtime 3.0.0 for a volume-mute shortcut and a variable-length table of native SDAT stream replacements. ABI 1 single-track migration, per-track updates/removal, and export/reimport are supported. Uses one guarded 32 KiB native output buffer, 4 KiB low-memory fallback, and native heap rollback. The installer retains its 512 MiB export safety limit. Multi-track gameplay verification is pending; host and archive checks do not certify playback.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "bgm-toggle/BgmToggle.s",
@@ -2398,7 +2422,7 @@
             "path": "src/pokeweb/pmcModel.ts"
           },
           "kind": "support-only",
-          "sha256": "a43284f87840b6777ae8ef37c7e51385e30d181088eb390f592993570d25ff9c",
+          "sha256": "44df9030248e02d342f7c2b44d684c6eb97297c718db56af2872c544b4346a21",
           "normalized": false
         },
         {
@@ -2468,7 +2492,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "66b4c5115e3524ab3cf83ac48b12a754e88f26a14b28714056e5fc6ae09a4b93",
+          "sha256": "ead8a24aa341ab6731abef4bdaed93c52aed9e6ab8bd8358ee75af6b05018a3f",
           "normalized": false
         },
         {
@@ -2488,7 +2512,7 @@
             "path": "package.json"
           },
           "kind": "build-tool",
-          "sha256": "f277a23ea9d06f3677427ba67a39efeb58fb2dc9b63b3a5f0b9841f8431d9ff6",
+          "sha256": "69efbe3d38c7acf74ab7d57fe307b30299daaf2e892d63618d4d5a0a71948353",
           "normalized": false
         },
         {
@@ -2577,7 +2601,7 @@
         }
       ],
       "note": "Standalone stock-US B2/W2 overlay-168 runtime for front-trainer PWAN animations. It redirects configured graphics to one appended carrier, streams per-instance texture and palette data, and remains independent from the Pokémon PWAN DLLs.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "pwan-trainer/README.md",
@@ -2751,7 +2775,7 @@
         }
       ],
       "note": "Version 0.1.9 save-menu PMC module for a pinned White 2 Following Pokémon alpha ROM. Build source and four prepared native-art PNG inputs are copied; the pinned ROM, generated header, and validation captures are excluded. See runtime notes for the exact supported input and validation limits.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "save-menu/assets.py",
@@ -2890,7 +2914,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "66b4c5115e3524ab3cf83ac48b12a754e88f26a14b28714056e5fc6ae09a4b93",
+          "sha256": "ead8a24aa341ab6731abef4bdaed93c52aed9e6ab8bd8358ee75af6b05018a3f",
           "normalized": false
         },
         {
@@ -2919,7 +2943,7 @@
         }
       ],
       "note": "Version 1.2.0 PMC modules for US Black 2 and White 2. Includes the build source, both address/metadata profiles, installer and legacy ARM9 migration logic, and an export/reimport verification script.",
-      "status": "source-copied",
+      "status": "source-available",
       "files": [
         {
           "path": "trainer-nature/build.py",
@@ -3039,43 +3063,55 @@
       "artifacts": [
         {
           "name": "following/PokewebFollowingCoreW2.dll",
-          "sha256": "1f65b9073aa8753a6ff45331960a6c4a11be6c91982a64bdee7297e34a745729"
+          "sha256": "5f6bbc575780c9475fa104c24cef4e4b2bb4fc4b1e988b9b40d30babdee1edef"
         },
         {
           "name": "following/PokewebFollowingEventsW2.dll",
-          "sha256": "3f909cf50525d5e5ca5de93eaa0614e41224997ad48bc982b969b47d9aacd816"
+          "sha256": "c8e91e3a5a35c27e16adc6bb8adb40adf9d9faac45963eac70dc307753540f62"
         },
         {
           "name": "following/PokewebFollowingFieldW2.dll",
-          "sha256": "9069e6f8a390c96207aecac32ef55eb4086a849b8999d86ba7aac6920403efe6"
+          "sha256": "f9ea370cb2b2e5e055c286e077c3ae7fb8220f34dc56938dc9a023099109e4c7"
         },
         {
           "name": "following/black2/PokewebFollowingCoreB2.dll",
-          "sha256": "fd636b8ce55015afb2ae793e666de7fdb096337f60bfbd499d13cd682c5c6891"
+          "sha256": "8d1a6f69ae4cb39aa540795f48fba1640dc9b8860b19ebd9f46fd1bb3f8a7fb5"
         },
         {
           "name": "following/black2/PokewebFollowingEventsB2.dll",
-          "sha256": "c4a9258aaa56024f8f55490309a5e0c9d4f4cba1254ff6a80b51fe79828ebf4b"
+          "sha256": "196e8b92fe8059e6be1163dcb3ba2f86ca3ba400bce55cfefe2c247ba134700a"
         },
         {
           "name": "following/black2/PokewebFollowingFieldB2.dll",
-          "sha256": "188f3955adb2d2b22ae73d4b7d3607c618bb53a5bcd6a60a41023038eecae8ce"
+          "sha256": "765fe97db74499b370810604a60a888ed6bb7a361aecaa086eb1c4da5e8ee833"
         },
         {
           "name": "following/white2upgrade/PokewebFollowingCoreW2.dll",
-          "sha256": "b54904c3650cfdb67cfd712e7d76a8a712cf9bdd0fae6fa23c33fe5759b0faeb"
+          "sha256": "209a57ad73d287b01c4bacdce0dfcfcd5cb864b2cbc84be45e7194584e5b89a2"
         },
         {
           "name": "following/white2upgrade/PokewebFollowingEventsW2.dll",
-          "sha256": "e068704143c11e964a3b332a429b9879d6865ebcb2cf32d188094c534775084d"
+          "sha256": "00122a9cbf1dc0cb9d8fa5b070f30ab253478c4e9a648fc3de400ae1a91d3aaf"
         },
         {
           "name": "following/white2upgrade/PokewebFollowingFieldW2.dll",
-          "sha256": "ad609faa6037f512ca6f52b19f99b325487876222349150aba7cf9b52b6e7da1"
+          "sha256": "7589e02e0f0899ded5e0f5a13c3f2bf3a87851720d5683ae191a59cf8a823404"
+        },
+        {
+          "name": "following/white2italy/PokewebFollowingCoreW2I.dll",
+          "sha256": "f89928636c1970c93b0b8176322e6bac77532738c67e40b385681418a934bc80"
+        },
+        {
+          "name": "following/white2italy/PokewebFollowingEventsW2I.dll",
+          "sha256": "130d17f3fb98f19f1e4eca24bee73736255927024a192cc47063f69e5104136b"
+        },
+        {
+          "name": "following/white2italy/PokewebFollowingFieldW2I.dll",
+          "sha256": "f7a23c74a4e21e0d07ee5a673eafcabde48ee70f2afb197d2835d3ec85999f43"
         }
       ],
-      "note": "Stock US White 2 0.6.27-alpha, stock US Black 2 0.6.27-alpha, and White2Upgrade 0.7.18-alpha bundled runtime variants. Sources, generators, profile metadata, integration, and focused tests are copied. ROMs, sprite archives, save files, generated binaries, and emulator captures are excluded. Artifact hashes identify the exact bundled modules; no binary rebuild is implied.",
-      "status": "source-copied",
+      "note": "Stock US White 2 0.6.64-alpha, stock US Black 2 0.6.38-alpha, White2Upgrade 0.7.33-alpha, and Italian White 2 0.6.39-alpha bundled runtime variants. Sources, generators, profile metadata, integration, and focused tests are recorded. ROMs, sprite archives, save files, generated binaries, and emulator captures are excluded. Artifact hashes identify the exact bundled modules; no binary rebuild is implied.",
+      "status": "source-available",
       "files": [
         {
           "path": "following-pokemon/AMBIENT.md",
@@ -3088,13 +3124,33 @@
           "normalized": false
         },
         {
+          "path": "following-pokemon/audit_italy_memory.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/audit_italy_memory.py"
+          },
+          "kind": "build-tool",
+          "sha256": "e4bd0e1dac0590202da96ec5e72f9641e9a008935ddd6caea03e0a9738eb57c3",
+          "normalized": false
+        },
+        {
           "path": "following-pokemon/audit_memory.py",
           "origin": {
             "repository": "pokeweb",
             "path": "runtime/following-pokemon/audit_memory.py"
           },
           "kind": "build-tool",
-          "sha256": "33eeece0ddf6e3ddc96e0aca97a991819707314bf6cb8d2ca74ad68ea02221d9",
+          "sha256": "95f69380cc19fd947a3a6065459e82e4cc8aa780245691dd782a86571bb41e24",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/BATTLE-ENTRY-RESEARCH.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/BATTLE-ENTRY-RESEARCH.md"
+          },
+          "kind": "documentation",
+          "sha256": "2d05d226b42f6ade82a89db7a8e7ed89e1743725d8daac25f82faa256537ad47",
           "normalized": false
         },
         {
@@ -3104,7 +3160,7 @@
             "path": "runtime/following-pokemon/black2_port.py"
           },
           "kind": "build-tool",
-          "sha256": "990e8e2f62b943962586d72f26fe590249afafe9079fbf23a55903e743c0e8b1",
+          "sha256": "1a3a85beb8c4b38aff8e5e6375d74dd864f36a8f5da5eb47acc309c4597767e9",
           "normalized": false
         },
         {
@@ -3114,7 +3170,7 @@
             "path": "runtime/following-pokemon/BLACK2-CHECKLIST.md"
           },
           "kind": "documentation",
-          "sha256": "dd5d542c80aef71c9f41cd153c8dfff172ce77006308c0c0624c2901a38ecad4",
+          "sha256": "08a9f3cd3aea856f73a9974718875eddc32fff8b5f8067d22bc990c2225e2053",
           "normalized": false
         },
         {
@@ -3124,7 +3180,7 @@
             "path": "runtime/following-pokemon/black2-contract.json"
           },
           "kind": "metadata",
-          "sha256": "0c9c83d522c6e8cf46d191e8e34722343cf7ac317730b0db1d89a5242ecf4941",
+          "sha256": "08506658c91875489bcb3976723516e105873da578b95e6ca130714379cc26a5",
           "normalized": false
         },
         {
@@ -3134,7 +3190,17 @@
             "path": "runtime/following-pokemon/BLACK2.md"
           },
           "kind": "documentation",
-          "sha256": "53aedeb95231505a483d0f3dd550b984b58483f4528bbb6774453f76311efe58",
+          "sha256": "56cff192a96f3202cb50d2b42f1c1b75d33068202d14cb67f981ffae189b35db",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/build_italy_language.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/build_italy_language.py"
+          },
+          "kind": "build-tool",
+          "sha256": "1374bda589d2d079962b7ceafdd2249ff43d6c931378cd04d56197ed199969fc",
           "normalized": false
         },
         {
@@ -3144,7 +3210,7 @@
             "path": "runtime/following-pokemon/build.py"
           },
           "kind": "build-tool",
-          "sha256": "6620449eee54ad53e0ece4c736269b33eb06eefb20b6e16d80dd9545cc697c95",
+          "sha256": "1fce9b60650d423601059476ff19e6fbc8ec2e4cd65f968f5a9a4e2abb1030af",
           "normalized": false
         },
         {
@@ -3155,6 +3221,16 @@
           },
           "kind": "build-tool",
           "sha256": "7a2a3734f0a2cedac31c2b3c518873824c5fdcee5e3f8a7c5b17f908180bb5d8",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/checklist-template.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/checklist-template.md"
+          },
+          "kind": "documentation",
+          "sha256": "1ff9ccf78dc38a1bfff3234ac6bb6672da6cab0203fa7d099785290deac63089",
           "normalized": false
         },
         {
@@ -3174,7 +3250,7 @@
             "path": "runtime/following-pokemon/contract.json"
           },
           "kind": "metadata",
-          "sha256": "91d691b32f7398b81585ea3c60b1f699a5ae025096411e70862f5cedae9ade76",
+          "sha256": "ab513905a5fdfcb10f13fe07c2053444aa95941b161700d3b301c45de1403752",
           "normalized": false
         },
         {
@@ -3234,7 +3310,7 @@
             "path": "runtime/following-pokemon/effects.c"
           },
           "kind": "source",
-          "sha256": "1def92b7197bf79c13345148c1ea07db2aaba2e727a001d04dab54ca7eb0a9c7",
+          "sha256": "2e22ddb9e07a9af4ee4cec9973882cf108e99ee78c3e11c1dd5afc5a1c44c766",
           "normalized": false
         },
         {
@@ -3244,7 +3320,7 @@
             "path": "runtime/following-pokemon/effects.h"
           },
           "kind": "source",
-          "sha256": "82f5b978794b350f6f16c8df1a296a8c38faf8e3b1765ae9db14a306b5a4a6a2",
+          "sha256": "47df884a187bdb9449cf24fb3b061e95104b9cf6b058124869dc81a426b436be",
           "normalized": false
         },
         {
@@ -3264,7 +3340,7 @@
             "path": "runtime/following-pokemon/EMULATOR-CHECKLIST.md"
           },
           "kind": "documentation",
-          "sha256": "acc30f2945bbebb0b45888fa271e64a38df04b04333bc7c0f3930d13ae8a3663",
+          "sha256": "249c882a2c6e41b5b9dead089d7b9bd2dd0f2e0d54075b4a4f3a9e8226c8fabe",
           "normalized": false
         },
         {
@@ -3294,7 +3370,7 @@
             "path": "runtime/following-pokemon/events.c"
           },
           "kind": "source",
-          "sha256": "75b1446dd739551b2ddd1bc115cbb34d8f8b60214ea9391650ae07e10ee0d244",
+          "sha256": "4114bc7a711c53ae62bdb94a16b4acd24f6e6fb38b098fe43650b0e947a66c1f",
           "normalized": false
         },
         {
@@ -3304,7 +3380,7 @@
             "path": "runtime/following-pokemon/events.h"
           },
           "kind": "source",
-          "sha256": "44b0b84849777cba969d6193c56197467b8503e67c963539ca484fe3d1bee12b",
+          "sha256": "d9727d376ca65e5dee66d76223cc1404ea29f9c7e12dcab61ce0d4277e44b997",
           "normalized": false
         },
         {
@@ -3364,7 +3440,7 @@
             "path": "runtime/following-pokemon/field.c"
           },
           "kind": "source",
-          "sha256": "b34ef7a79c4ea798cf8e9e157600c5fda3b29e573cf2e36fce3b6fa82d8a3b6f",
+          "sha256": "e73f01ed22b2009ad08e405430d8e07e28041c5471ca2692e7923ff23dc7d940",
           "normalized": false
         },
         {
@@ -3384,7 +3460,7 @@
             "path": "runtime/following-pokemon/following.c"
           },
           "kind": "source",
-          "sha256": "8ca5c0d85a7ff41905d9ae40fd7f419fabd58563b7f6683cdd06fc8c07986d5a",
+          "sha256": "77616e6cc2300efa76d755fb51ec1bf1514675282cf336839e1f4718ece3bbee",
           "normalized": false
         },
         {
@@ -3394,7 +3470,7 @@
             "path": "runtime/following-pokemon/following.h"
           },
           "kind": "source",
-          "sha256": "b9da2760a0b9b1dd144fe0f02173f60bf8cd4455238993734d21c2eedd931fee",
+          "sha256": "48530e5259f058e142bc4412ac3c384402163bb04e5545212ef9e638c113dc5b",
           "normalized": false
         },
         {
@@ -3404,7 +3480,7 @@
             "path": "runtime/following-pokemon/generate_black2_docs.py"
           },
           "kind": "build-tool",
-          "sha256": "1e90456e991bba92d8f9043859fef37851fa03b9f7a29873bbec4acc829ab7a8",
+          "sha256": "bf5a544b79772d85da7beacbf8bfffd16753a5b3479a9d8cf50108932b86f4e1",
           "normalized": false
         },
         {
@@ -3414,7 +3490,27 @@
             "path": "runtime/following-pokemon/generate_checklist.py"
           },
           "kind": "build-tool",
-          "sha256": "d80d13e3f8395d9014ff4ce5adc33a5bc5de52b5a27bd56b0b6c5cab0df5b641",
+          "sha256": "c59d324a98f45f71c15b98410cb7ca7e7db48f3ddb1fcfdba64d836e4e5a91c0",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/generate_italian_pmc_contract.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/generate_italian_pmc_contract.py"
+          },
+          "kind": "build-tool",
+          "sha256": "92b0289c818f6cc3d5532e68b034bce2352a6882906bdc392955a077ebedb44b",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/generate_italy_docs.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/generate_italy_docs.py"
+          },
+          "kind": "build-tool",
+          "sha256": "22040d1e452986890a4c34a891db30f7a8a500162f3ff38dd1b24ea8e575807e",
           "normalized": false
         },
         {
@@ -3425,6 +3521,16 @@
           },
           "kind": "build-tool",
           "sha256": "500cef08eb71ad4682b8550b8c6b3e8c42d19f4ca79c99e6b20cd6af7f2dfa17",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/generate_surf_notes.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/generate_surf_notes.py"
+          },
+          "kind": "build-tool",
+          "sha256": "caab0eff6ce8fc19e538e00701847dba1de84bdcaac7ee7813d76546509caf23",
           "normalized": false
         },
         {
@@ -3444,7 +3550,7 @@
             "path": "runtime/following-pokemon/generate_upgrade_docs.py"
           },
           "kind": "build-tool",
-          "sha256": "b846f2ef5a5afd68d978b988200a8db74c78d2b267949f60c588e83b41f5d507",
+          "sha256": "9f090f12ffce7bec39df3fa13bd4eeba6d5d2c17835b0a024350368bec06babd",
           "normalized": false
         },
         {
@@ -3524,7 +3630,27 @@
             "path": "runtime/following-pokemon/import_interactions.py"
           },
           "kind": "build-tool",
-          "sha256": "85eb0a443b32e4f6b0707f58e71e6e9f64cfb1730ced2693cb0e33e985693a3d",
+          "sha256": "c4343fd24d77c84f53141a6601b5e71896ab2c6409f89a9b28e3d00584319835",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/import_land_riders.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/import_land_riders.py"
+          },
+          "kind": "build-tool",
+          "sha256": "f9709503af02e6a8bb5465dba37930d73a3d2556963b58f2ceb2476859a0449a",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/import_surf_mounts.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/import_surf_mounts.py"
+          },
+          "kind": "build-tool",
+          "sha256": "94f4cec7eea1a78e5f98766bbad27265a897e7dc2baa45922c559bd6a3268de8",
           "normalized": false
         },
         {
@@ -3554,7 +3680,7 @@
             "path": "runtime/following-pokemon/interaction.c"
           },
           "kind": "source",
-          "sha256": "a631fa4b5a8b7ce55523d9fa23a3cd06614dbc539c1269718be9b5a0402bca06",
+          "sha256": "c130b7ec235ed43a337aea59aba9e4f8ca2fb75b6a6cd83cc8de06d012d6efb2",
           "normalized": false
         },
         {
@@ -3578,6 +3704,166 @@
           "normalized": false
         },
         {
+          "path": "following-pokemon/italy_port.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/italy_port.py"
+          },
+          "kind": "build-tool",
+          "sha256": "bf0f2602901509dfa481fa879717619bc2f194ac9d77d2421ab1834989cdb270",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/ITALY-CHECKLIST.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/ITALY-CHECKLIST.md"
+          },
+          "kind": "documentation",
+          "sha256": "7767849860a4f03ccd829cbd8177c1a918def5ac48bd7fd68b843a6c4d96fec9",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/italy-contract.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/italy-contract.json"
+          },
+          "kind": "metadata",
+          "sha256": "2a9fff6b6871a10794002cb840b59bf1b89e34f146e92c6396d4ea7a1ed02c09",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/italy-language-en.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/italy-language-en.json"
+          },
+          "kind": "metadata",
+          "sha256": "19042552752c854a80b8b32dbbd82cfd0b95e42b3246be8a825832dc14947406",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/italy-language-it.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/italy-language-it.json"
+          },
+          "kind": "metadata",
+          "sha256": "4160756cf5a41bc3d0929fc5cf65e20e2caac5fd2d9f143de4dd748695d5c3a2",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/ITALY-MEMORY-AUDIT.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/ITALY-MEMORY-AUDIT.json"
+          },
+          "kind": "metadata",
+          "sha256": "d15c4696e535c7a125150dee0b478e7bd93fa2893e2c2d8818e16df1612e4868",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/ITALY-MEMORY-AUDIT.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/ITALY-MEMORY-AUDIT.md"
+          },
+          "kind": "documentation",
+          "sha256": "167e737cd6d902ed851eb39ea67c179ec4e6cd86d894b99702b54c119abe66d9",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/italy-pmc-contract.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/italy-pmc-contract.json"
+          },
+          "kind": "metadata",
+          "sha256": "5691b7c5c3e482c2358f20a98d8b4d1ed8787c74f7d26ed1689c20905c17dab7",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/ITALY-VALIDATION.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/ITALY-VALIDATION.md"
+          },
+          "kind": "documentation",
+          "sha256": "4ec59d4dfdaa022c12dd601d6e8dd082771ef7040f62a87025027aef57a85e39",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/ITALY.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/ITALY.md"
+          },
+          "kind": "documentation",
+          "sha256": "da0d705fde504ab1f4e570cb8ced1c800c4127461b07c250a878d97efd96de37",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/land_speed.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/land_speed.c"
+          },
+          "kind": "source",
+          "sha256": "00cce44641b707b8067a5dd768e5c07be263c0e308f4551a099c6f66ee8e0d80",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/land_speed.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/land_speed.h"
+          },
+          "kind": "source",
+          "sha256": "33b89b77deedca7f05edbc3338814b5cbcd720bc84b7e9f2311c989e9c45862d",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/LAND-SURF-TRANSITION-RESEARCH.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/LAND-SURF-TRANSITION-RESEARCH.md"
+          },
+          "kind": "documentation",
+          "sha256": "2fdc08efbc5004142d48ba68cd2bf99a19aeebad6eeca303708dd12d5f0c6071",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/land.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/land.c"
+          },
+          "kind": "source",
+          "sha256": "e6a1f7d9a461dde8781c140632228f240ee83a2bbc27ad27db1ba12ea984cafc",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/land.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/land.h"
+          },
+          "kind": "source",
+          "sha256": "b22a173993de519e45a9ca34d736851387fca21ec07b5823fdc1c24b131434de",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/land.s",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/land.s"
+          },
+          "kind": "source",
+          "sha256": "b4d0ef0a1abfe117170bf4a867b57c9558ac1ddb333c8dd803eeaf6c71156736",
+          "normalized": false
+        },
+        {
           "path": "following-pokemon/make_templates.py",
           "origin": {
             "repository": "pokeweb",
@@ -3594,7 +3880,7 @@
             "path": "runtime/following-pokemon/MEMORY-AUDIT.json"
           },
           "kind": "metadata",
-          "sha256": "ad1d7fd2a942d7a5d5759577303658da25a08885d5f8e9f0d1e3c807834ad4d4",
+          "sha256": "f67d46be17de612768b55b0f1cc546ce602e0074195f1965b145fce6052d6cef",
           "normalized": false
         },
         {
@@ -3604,7 +3890,7 @@
             "path": "runtime/following-pokemon/MEMORY-AUDIT.md"
           },
           "kind": "documentation",
-          "sha256": "09d28c06ae7f91161774ecfadbfcd32b0dfe82869a5cabe7fe0a2680a4cad817",
+          "sha256": "b7e3f8337c17c3cafa1da8a67ecdb66cf04f0571ceb960e663c2af3453bbb0f0",
           "normalized": false
         },
         {
@@ -3624,7 +3910,7 @@
             "path": "runtime/following-pokemon/native.h"
           },
           "kind": "test",
-          "sha256": "ce4cc6b3606f8d888cdc3534a7e9bc0d2dfafa95668ff2d977924887469e38ed",
+          "sha256": "71c14ac467de21665dad35ada9fcdc59b1cf13b2152806475db2afe8b79ec353",
           "normalized": false
         },
         {
@@ -3664,7 +3950,7 @@
             "path": "runtime/following-pokemon/README.md"
           },
           "kind": "documentation",
-          "sha256": "40aa5f7da50172565aa2a75f20ecea9375fd413588939be9f73f69031fb9ebd8",
+          "sha256": "3ac301e40cd3dbf04ea8d20d0479ddfce76c4790de57f7996d49754838b2a588",
           "normalized": false
         },
         {
@@ -3694,7 +3980,7 @@
             "path": "runtime/following-pokemon/render_math.c"
           },
           "kind": "source",
-          "sha256": "a82803a2416d2318f9da8b220e1ec4fd73546ebe546d9222e07a4c634a2ed46f",
+          "sha256": "12e85c4c051c7a054fcc18afc9b27729fc85f24309cbc931442808b135497414",
           "normalized": false
         },
         {
@@ -3704,7 +3990,7 @@
             "path": "runtime/following-pokemon/render_math.h"
           },
           "kind": "source",
-          "sha256": "3b854a772074642752ce9d2b3b2768a6c298244938b9a2fe068c0d79912b5b3c",
+          "sha256": "92047d3b5c66b97e9a8c7c86e50a3167ecb0829e005d24361c5859277c0d7e54",
           "normalized": false
         },
         {
@@ -3714,7 +4000,7 @@
             "path": "runtime/following-pokemon/render.c"
           },
           "kind": "source",
-          "sha256": "094fad756f23a721d7651f02fe9ca13bdee92f9ca5d3edf7d1c73f474990733e",
+          "sha256": "12dc12fb76401635ffe745f941392fe233ad9bca46b8e76c7d05e0b442532cf2",
           "normalized": false
         },
         {
@@ -3724,7 +4010,7 @@
             "path": "runtime/following-pokemon/render.h"
           },
           "kind": "source",
-          "sha256": "1bb151290761bb69adf35c8457e9dc46d48f0298d7b350a18764831368de1297",
+          "sha256": "0add2abe0b60f56c941bd7721c46c09c1bc4d1d47127416490addcb73008cc6c",
           "normalized": false
         },
         {
@@ -3744,7 +4030,7 @@
             "path": "runtime/following-pokemon/scene.c"
           },
           "kind": "source",
-          "sha256": "bd265ab1b75b00724d3685650fb3f8ce7bd6466e6ccfe42e6117d6e443715ea9",
+          "sha256": "a651300e21889fda72cee5683824f290e5604148aae867ad4d80db541fac3cac",
           "normalized": false
         },
         {
@@ -3754,7 +4040,7 @@
             "path": "runtime/following-pokemon/scene.h"
           },
           "kind": "source",
-          "sha256": "4f38c89292ecdf3c7b7462b9c9a1bada8c943ce99d0d7c917ad095f184306c03",
+          "sha256": "4eb77a6d9c5698d78e7df33a8f80f7c2e6a55e67231a69766590054591ea37a7",
           "normalized": false
         },
         {
@@ -3828,6 +4114,86 @@
           "normalized": false
         },
         {
+          "path": "following-pokemon/stock-0.6.50-first-receipt.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/stock-0.6.50-first-receipt.json"
+          },
+          "kind": "metadata",
+          "sha256": "8e17eb75896b8c98757a4c6cd70ad90b7076b68bc600fe15b203345e63cd257b",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/stock-0.6.53-first-receipt.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/stock-0.6.53-first-receipt.json"
+          },
+          "kind": "metadata",
+          "sha256": "d18ca2c7312782ee37e868d4cdb57a216a41d09b3b620981555275edfd78cfef",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/SURF-ALPHA.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/SURF-ALPHA.md"
+          },
+          "kind": "documentation",
+          "sha256": "8677c118b2b1528ee18b876fb10ce74a327da1306de3c65de767c387f86f4c41",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/surf-sources-upgrade.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/surf-sources-upgrade.json"
+          },
+          "kind": "metadata",
+          "sha256": "2c1beb0fc5bdc5a7accce114e74df05b3e066817386b02cb129109702005eb6d",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/surf-sources.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/surf-sources.json"
+          },
+          "kind": "metadata",
+          "sha256": "05d90e22de1dafa3e0800f463a5531cd8e174e5eddb91b609694e6f68991d3f9",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/surf.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/surf.c"
+          },
+          "kind": "source",
+          "sha256": "78cc13f7a1b1ba5401e8218163a6191107462dd5744b552d1e8258f3bc708939",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/surf.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/surf.h"
+          },
+          "kind": "source",
+          "sha256": "0d07568697d764f4d7042a226e586df01e7c4f9f7efb7c2cde7fef85fa2188d1",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/surf.s",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/surf.s"
+          },
+          "kind": "source",
+          "sha256": "62ea54bf95d82f4bf8832f1038bf338d9e914cc8e25fca2aed1ff9b49e9a1cf8",
+          "normalized": false
+        },
+        {
           "path": "following-pokemon/symbols.yml",
           "origin": {
             "repository": "pokeweb",
@@ -3838,6 +4204,16 @@
           "normalized": false
         },
         {
+          "path": "following-pokemon/TEST-MAP.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/TEST-MAP.md"
+          },
+          "kind": "documentation",
+          "sha256": "6bb0b880b96e6138c138c371664313c5fa405b886e041d37e62c42c39fe3600c",
+          "normalized": false
+        },
+        {
           "path": "following-pokemon/test.py",
           "origin": {
             "repository": "pokeweb",
@@ -3845,6 +4221,36 @@
           },
           "kind": "test",
           "sha256": "badc4cf8b98f571191955a85d736be6d2459eceebf23de2df5768e1600d9acf2",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/transition.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/transition.c"
+          },
+          "kind": "source",
+          "sha256": "2ff770f446dcd7a5531c3950249d86f5d6e8e96cada12c0fe1361b81df67135d",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/transition.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/transition.h"
+          },
+          "kind": "source",
+          "sha256": "54f6caf0908df6ce8e4a6f8a0ae6f59c6018448d56c7e2178ee5b4dc7755b36e",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/transition.s",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/transition.s"
+          },
+          "kind": "source",
+          "sha256": "c0eb1b09784cd86ac725a0ab8fd893ff01a37b8ccfb7b082415f77f3077fe3f7",
           "normalized": false
         },
         {
@@ -3934,7 +4340,7 @@
             "path": "runtime/following-pokemon/upgrade-contract.json"
           },
           "kind": "metadata",
-          "sha256": "4de5e39d96ee32c088682822dde9d9a12121f1c54523c29a2f33c08f4cebfb18",
+          "sha256": "c7aa045392dda31000d6d9fa4846ee8e83f250830d27df11fc0cfd3284e53a89",
           "normalized": false
         },
         {
@@ -3944,7 +4350,7 @@
             "path": "runtime/following-pokemon/VALIDATION.md"
           },
           "kind": "documentation",
-          "sha256": "654550843a340774057f447e394c53113ddea0d693c40879fb86fbc2cdffe1d3",
+          "sha256": "5ff2cd0c1c57011b9c65fdf0039939fc4c4470df4549446935c42f09498644c2",
           "normalized": false
         },
         {
@@ -3954,7 +4360,27 @@
             "path": "runtime/following-pokemon/verify_ambient.py"
           },
           "kind": "test",
-          "sha256": "4064c6dbe241a668a4b0693e6bb51efb62521bcfe9e11052407da03e0043484d",
+          "sha256": "6da0161a992276af3a32c5eaf139e00d1aa6df0bb017ca75ae79d1790ecbfdc4",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_anchor.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_anchor.py"
+          },
+          "kind": "test",
+          "sha256": "e157f233e1455fb954c460e250fa4072c4b762005b50e3d6d733b38b1f23722d",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_black2_mount_binary.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_black2_mount_binary.py"
+          },
+          "kind": "test",
+          "sha256": "a5f32afa8d72732e68793cea382821a83e69425ace1ddcdcab2df497846b4ef1",
           "normalized": false
         },
         {
@@ -3964,7 +4390,7 @@
             "path": "runtime/following-pokemon/verify_continuity.py"
           },
           "kind": "test",
-          "sha256": "1fbf740a95938543bdb09dca460e779bac01de1643437e88d5cc4c148194232b",
+          "sha256": "a7d0d7d581daca5d71c396478908849915433e85bdefe5405be79b4b04886666",
           "normalized": false
         },
         {
@@ -3974,7 +4400,17 @@
             "path": "runtime/following-pokemon/verify_conversation_return.py"
           },
           "kind": "test",
-          "sha256": "cae7d34169c175a55968805cb9924e84423f8d36e8270d58644f549dea4cb490",
+          "sha256": "0c232216f08ceccd353899d1e7334df968496e8772582d79e4f6aa9de08fdbcf",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_cycle.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_cycle.py"
+          },
+          "kind": "test",
+          "sha256": "771e57cf5d2c1ddd280e1e9adbd5f5e0131fcb733723bc286abe0050d859f223",
           "normalized": false
         },
         {
@@ -4014,7 +4450,47 @@
             "path": "runtime/following-pokemon/verify_interactions.py"
           },
           "kind": "test",
-          "sha256": "81172c44e78de21f42770d1816cd45da7f731f738780da56ff445e165616cecf",
+          "sha256": "4b3f4d3a185a901f196d4349a815e61837124763733db327939baeff2bdf6c75",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_italian_binary.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_italian_binary.py"
+          },
+          "kind": "test",
+          "sha256": "cd35e44da09c8df4ae8644606347b223b8cc354f20e32a989a90f79b6002ddb1",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_land_draw.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_land_draw.py"
+          },
+          "kind": "test",
+          "sha256": "948433cc210cbfad8e08070ee103f798c3a006fa0dfa17703f4b719b470e4052",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_land_input.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_land_input.py"
+          },
+          "kind": "test",
+          "sha256": "95b249ea741183e9c4d2e485bffea47808d177af1212c2816eea4c5e2c297381",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_land.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_land.py"
+          },
+          "kind": "test",
+          "sha256": "cc510e623058ce522bf8983e42512e7c69086df91a973d9915afce1176055594",
           "normalized": false
         },
         {
@@ -4028,13 +4504,23 @@
           "normalized": false
         },
         {
+          "path": "following-pokemon/verify_profile_runtime.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_profile_runtime.py"
+          },
+          "kind": "test",
+          "sha256": "23243df5cd4fd94e4d175bbb92cf0aa70d41d7107568f3a2b7eec058398fa651",
+          "normalized": false
+        },
+        {
           "path": "following-pokemon/verify_registry_stream.py",
           "origin": {
             "repository": "pokeweb",
             "path": "runtime/following-pokemon/verify_registry_stream.py"
           },
           "kind": "test",
-          "sha256": "acc2ce5d8bc5db843fcb02461eba2b1e32fc3f67f67bbc1ca50c4078525c7928",
+          "sha256": "3b99b5a4ce416f59c4b0163c39b0f6de229c94e46d3017513bc4e985c57b15c1",
           "normalized": false
         },
         {
@@ -4044,7 +4530,7 @@
             "path": "runtime/following-pokemon/verify_render.py"
           },
           "kind": "test",
-          "sha256": "464b8cb997fec6aaef29716ad3e1de636b667eb80d136232ee20ab8396217937",
+          "sha256": "6fdf2880fc3f5fb00e2c00330db7cbb15ed0ebec567ee6affa8a8f278de41e12",
           "normalized": false
         },
         {
@@ -4064,7 +4550,57 @@
             "path": "runtime/following-pokemon/verify_scenes.py"
           },
           "kind": "test",
-          "sha256": "1895084833d6a47e63d05223ef8850c5339536bd7ba08e0e77dc4fea909ed57f",
+          "sha256": "2d7ee870fcacb9b4ea4cefe3907a7b1d6492c415dc4f6355c6d6bd14b99b9dad",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_surf_upgrade.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_surf_upgrade.py"
+          },
+          "kind": "test",
+          "sha256": "13dec4a68ca16d49013c2dd29174f4b872e46d9fb290ac9e87b126184063dcf6",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_surf.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_surf.py"
+          },
+          "kind": "test",
+          "sha256": "aa0f7c29aa407283e2d16995a4a19f61229056d3aaeaed977160d423310e1ecb",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_terrain_state.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_terrain_state.py"
+          },
+          "kind": "test",
+          "sha256": "3cc0266bd9300673a99e3a4fb049f375fa6d755f5ab7444e2af926d9cb79fe9c",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_transition.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_transition.py"
+          },
+          "kind": "test",
+          "sha256": "a46bf0dcebe1955f37ebbb20736401147e4528ec2f67c7178c01b0a19e2b5c57",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/verify_upgrade_mount_binary.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/following-pokemon/verify_upgrade_mount_binary.py"
+          },
+          "kind": "test",
+          "sha256": "ead8ee2faf123d565417a62068e49e2601923076128980abe4afc69854d0c1ed",
           "normalized": false
         },
         {
@@ -4078,23 +4614,13 @@
           "normalized": false
         },
         {
-          "path": "following-pokemon/verify_upgrade.py",
-          "origin": {
-            "repository": "pokeweb",
-            "path": "runtime/following-pokemon/verify_upgrade.py"
-          },
-          "kind": "test",
-          "sha256": "cca2d8a57a829668a1364b4063d3fbbbd96a0530f99a9bf7155963622535cffc",
-          "normalized": false
-        },
-        {
           "path": "following-pokemon/verify.py",
           "origin": {
             "repository": "pokeweb",
             "path": "runtime/following-pokemon/verify.py"
           },
           "kind": "test",
-          "sha256": "8b9767efb4524fe1dadc979747abc59676625c5b434ea1e1ab7f4fd6a2ea06e9",
+          "sha256": "2bcfa43499dfd8c250760e033e5be609c7a9367242097073d7d87965090d9862",
           "normalized": false
         },
         {
@@ -4104,7 +4630,7 @@
             "path": "runtime/following-pokemon/WHITE2UPGRADE-CHECKLIST.md"
           },
           "kind": "documentation",
-          "sha256": "8890cb235302aaf5c02a3ffdafdb22a3d25d00b3ebfabb43ef1ffc763e53f5b3",
+          "sha256": "0f3117bc1615e79e692deed23eb249db5a07bedb12decd19979da4c545f80185",
           "normalized": false
         },
         {
@@ -4114,7 +4640,7 @@
             "path": "runtime/following-pokemon/WHITE2UPGRADE.md"
           },
           "kind": "documentation",
-          "sha256": "864021b1ac043127e387d01652da3323a3a798ddd6e69f5647c7e81969474b64",
+          "sha256": "3056c9d0e03b545dbd196384f96b7b7025cd9775c4d625aab3ff1a039d432026",
           "normalized": false
         },
         {
@@ -4124,7 +4650,7 @@
             "path": "src/assets/following/runtime.json"
           },
           "kind": "metadata",
-          "sha256": "00d0dc58e31b2c41feb7cee1b48bec0fce33d2e86d27841a744889724fb32789",
+          "sha256": "44b544881c414f6d6868477306efa96feeb05bb2c578a041058ba0e9c2d8a348",
           "normalized": false
         },
         {
@@ -4134,7 +4660,7 @@
             "path": "src/assets/following/black2/runtime.json"
           },
           "kind": "metadata",
-          "sha256": "b6ebb84acf4ca1e8ff52660c60214cb6357875bb4388792cb0e5860a15b3897b",
+          "sha256": "492eb7458dae074ffbc9f433fd4903ce1445f11581b149094eb5fde9afefe76d",
           "normalized": false
         },
         {
@@ -4144,7 +4670,17 @@
             "path": "src/assets/following/white2upgrade/runtime.json"
           },
           "kind": "metadata",
-          "sha256": "cef2f0f85306d57c7618022ebf371fd02a91cbb390d520907261d707a0de48e0",
+          "sha256": "c3879f0b5dba6257d57a2c0229c9ceda795ea47877e00d80d492930da613307b",
+          "normalized": false
+        },
+        {
+          "path": "following-pokemon/metadata/white2italy/runtime.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/following/white2italy/runtime.json"
+          },
+          "kind": "metadata",
+          "sha256": "e2d35031ce8aae9a881670d6c0fbb3d885d4325bb8c066c998fb6e14c54be979",
           "normalized": false
         },
         {
@@ -4164,7 +4700,7 @@
             "path": "runtime/following-pokemon/tests/logic.c"
           },
           "kind": "test",
-          "sha256": "94ea61be66eb4f32ae04a301bcd18e65c6362cce19f0e9ceb7bb32a976819ec5",
+          "sha256": "9ec56020fa98a26ebcb79c4e7576f0b78f40297d953ae7b93c0d16eb88b87dfe",
           "normalized": false
         },
         {
@@ -4204,7 +4740,7 @@
             "path": "runtime/following-pokemon/tests/test_render_math.py"
           },
           "kind": "test",
-          "sha256": "9312c9494859b0694afd93f0af0f033092e18543876bb40fe8db759218536e86",
+          "sha256": "41c9c404f9f93cbf89ebd59d2d187c39eb5a8e350c5af26931a36588e9fc0dab",
           "normalized": false
         },
         {
@@ -4214,7 +4750,7 @@
             "path": "src/pokeweb/followingPokemonProject.ts"
           },
           "kind": "support-only",
-          "sha256": "169a90be22c6d7e4536204f59b7ebd1ff73824df7195d3f1e4fc06a818759dcf",
+          "sha256": "8a10b0bf5426f09228620f6927419ba7f15fbbfd34862eed5bc3caf4fe338193",
           "normalized": false
         },
         {
@@ -4224,7 +4760,7 @@
             "path": "src/test/followingPokemon.test.ts"
           },
           "kind": "test",
-          "sha256": "2eeb3e1332d81982a39f8ade54b771c4a4892a0306801637848cb302c397e32f",
+          "sha256": "3b6cb3d19b545d4e99cf75a7418f9222f0cd5d0bb937b5921f4d3be3a1cb3ada",
           "normalized": false
         },
         {
@@ -4234,7 +4770,7 @@
             "path": "src/test/followingPokemonProject.test.ts"
           },
           "kind": "test",
-          "sha256": "6facf3b881f7a4d4afc90f1060196bfd2d058f7917899fc6e2ca4e998467dc6f",
+          "sha256": "56399b6f022d25ff01cba4f3d1cef300b6882ffb1defc4e3861d5763148e08ed",
           "normalized": false
         },
         {
@@ -4274,7 +4810,7 @@
             "path": "scripts/verify-following-install.ts"
           },
           "kind": "test",
-          "sha256": "c18f8f11dbad90ec1449f184a64b0b36105a319dafb1ea76ff464ae9863fee5b",
+          "sha256": "ebfe5481a35336000ad6344b7a59932253e04c6a8462d0d4567435f5b98d09c2",
           "normalized": false
         },
         {

@@ -158,7 +158,9 @@ def verify(rom_path):
              lifecycleCycles=100,failures=failures,heapAllocations=0,balancedFileOpens=opens,balancedFileCloses=closes,
              objectMappings=65536,conversationSpeciesChecked=maximum,spacingSelectionsChecked=cases,legacyZeroSpacing=True,seekWrapper='Native instructions executed; synchronous FS dispatcher mocked',gameEmulatorRun=False)
 if __name__=='__main__':
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('rom',type=Path);p.add_argument('--report',type=Path);a=p.parse_args()
- output=json.dumps(verify(a.rom),indent=2)+'\n'
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('rom',type=Path);p.add_argument('--report',type=Path);p.add_argument('--profile',choices=('stock','white2upgrade'),default='stock');a=p.parse_args()
+ result=verify(a.rom)
+ if a.profile=='white2upgrade':assert result['speciesMax']==1023
+ output=json.dumps(result,indent=2)+'\n'
  if a.report:a.report.write_text(output)
  print(output)

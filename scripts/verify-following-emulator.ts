@@ -13,7 +13,7 @@ import { buildQuickLaunchDownloads } from '../src/pokeweb/testBattle';
 const [romPath, frameArg='5000']=process.argv.slice(2);
 const reload=process.argv.includes('--reload');
 if(!romPath)throw new Error('Expected the clean IRDO ROM path');
-const output=fileURLToPath(new URL('../runtime/following-pokemon/build/emulator/',import.meta.url));
+const output=fileURLToPath(new URL('../../.pokeweb-local-archive/current/emulator/',import.meta.url));
 await mkdir(output,{recursive:true});
 globalThis.fetch=(async(input:RequestInfo|URL)=>{
  const url=new URL(input instanceof Request?input.url:String(input));
