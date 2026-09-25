@@ -41,7 +41,7 @@ import { canUseLocalRomBridge, pickLocalRomFile, readDevRomFile, readLocalRomFil
 import { loadProjectFromRomBytes, loadProjectFromRomFile } from "./pokeweb/loader";
 import { moveEffectHandlerOverlayId } from "./pokeweb/moveEffectHandlerModel";
 import { prepareBw2FormEvolutionCodeInjection } from "./pokeweb/pmcModel";
-import { clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, saveActiveProject } from "./pokeweb/persistence";
+import { activeRomMatchesProject, clearActiveProject, debounceProjectSave, hasActiveRomBytes, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, reconnectActiveRom, saveActiveProject } from "./pokeweb/persistence";
 import { createNarcStore, getCachedRecordCount, type ProjectState } from "./pokeweb/projectStore";
 import { typeChartOverlayId } from "./pokeweb/typeChartModel";
 import { openTestBattleEmulator, openTitleScreenEmulator } from "./pokeweb/testBattleEmulatorLauncher";
@@ -370,6 +370,8 @@ let activeTrainerSpriteClassId: number | undefined;
 let activePwanAnimationSpeciesId: number | undefined;
 let dirty = false;
 let hasExportBase = false;
+let missingRomReturnRoute: AppRoute | undefined;
+let newProjectInFlight = false;
 let refreshRomRequestInFlight = false;
 let romExportInProgress = false;
 let quickLaunchInFlight = false;
@@ -415,16 +417,15 @@ async function boot(): Promise<void> {
   } else {
     try {
       project = await loadActiveProject();
-      hasExportBase = await hasActiveRomBytes();
+      hasExportBase = project ? await activeRomMatchesProject(project) : await hasActiveRomBytes();
       if (!project && hasExportBase) project = await restoreProjectFromCachedRom();
     } catch {
       project = await restoreProjectFromCachedRom();
       hasExportBase = Boolean(project);
     }
   }
-  if (project) {
+  if (project && hasExportBase) {
     hydrateProject(project);
-    hasExportBase = true;
   }
   const initialState = routeStateFromUrl() ?? routeStateFromStorage();
   activeOverworldId = initialState.overworldId;
@@ -433,8 +434,9 @@ async function boot(): Promise<void> {
   activePokemonSpriteFormIndex = initialState.pokemonSpriteFormIndex ?? 0;
   activeTrainerSpriteClassId = initialState.trainerSpriteClassId;
   activePwanAnimationSpeciesId = initialState.pwanAnimationSpeciesId;
-  route = project ? initialState.route : "upload";
-  if (project && route === "upload" && !window.location.hash) route = defaultLoadedRoute();
+  route = project && hasExportBase ? initialState.route : "upload";
+  if (project && !hasExportBase) missingRomReturnRoute = initialState.route;
+  if (project && hasExportBase && route === "upload" && !window.location.hash) route = defaultLoadedRoute();
   route = safeRoute(route);
   syncRouteStorage();
   syncBrowserHistory(true);
@@ -501,6 +503,25 @@ window.addEventListener("popstate", (event) => {
   applyRouteState(nextState, { fromHistory: true });
 });
 
+window.addEventListener("focus", checkCurrentSourceRom);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) checkCurrentSourceRom();
+});
+
+function checkCurrentSourceRom(): void {
+  if (!project || !hasExportBase || project.originalRomBytes || route === "upload") return;
+  const currentProject = project;
+  const showRecovery = () => {
+    if (project !== currentProject || !hasExportBase) return;
+    missingRomReturnRoute = route;
+    hasExportBase = false;
+    applyRouteState({ route: "upload" }, { replace: true });
+  };
+  void activeRomMatchesProject(currentProject).then(matches => {
+    if (!matches) showRecovery();
+  }).catch(showRecovery);
+}
+
 function renderApp(): void {
   const previousContent = document.getElementById("content-container");
   if (previousContent) stopTrainerImageRendering(previousContent);
@@ -520,6 +541,7 @@ function renderApp(): void {
   if (!content) throw new Error("Missing content container");
 
   attachNav();
+  checkCurrentSourceRom();
   if (!project || route === "upload") {
     renderUpload(content);
     return;
@@ -1217,6 +1239,7 @@ function attachNav(): void {
 }
 
 async function handleNewProjectClick(): Promise<void> {
+  if (newProjectInFlight) return;
   if (!project) {
     navigate("upload");
     return;
@@ -1227,7 +1250,19 @@ async function handleNewProjectClick(): Promise<void> {
     );
     if (!confirmed) return;
   }
-  applyRouteState({ route: "upload" }, { clearProject: true });
+  newProjectInFlight = true;
+  try {
+    await clearActiveProject();
+    project = undefined;
+    dirty = false;
+    hasExportBase = false;
+    missingRomReturnRoute = undefined;
+    applyRouteState({ route: "upload" });
+  } catch (error) {
+    window.alert(`Could not clear the saved project: ${errorMessage(error)}`);
+  } finally {
+    newProjectInFlight = false;
+  }
 }
 
 async function refreshRomFromLocalPath(button: HTMLButtonElement): Promise<void> {
@@ -1531,7 +1566,7 @@ function errorMessage(error: unknown): string {
 }
 
 function navigate(nextRoute: AppRoute): void {
-  applyRouteState({ route: nextRoute, overworldId: activeOverworldId }, { clearProject: nextRoute === "upload" });
+  applyRouteState({ route: nextRoute, overworldId: activeOverworldId });
 }
 
 function openOverworld(overworldId: number): void {
@@ -1611,6 +1646,10 @@ async function ensurePokemonFormAssets(): Promise<void> {
 }
 
 function renderUpload(root: HTMLElement): void {
+  if (project && !hasExportBase) {
+    renderSourceRomRecovery(root, project);
+    return;
+  }
   const mandatoryNarcs = new Set<NarcName>(MANDATORY_NARCS);
   const sectionedNarcs = new Set<NarcName>(NARC_LOAD_SECTIONS.flatMap((section) => section.names));
   const otherNarcs = SELECTABLE_NARCS.map((definition) => definition.name).filter((name) => !sectionedNarcs.has(name));
@@ -1884,6 +1923,41 @@ function renderUpload(root: HTMLElement): void {
     if (!text) return;
     downloadSharedTextFile("pokeweb-changelog.txt", text);
     statusText(changelogStatus, "Downloaded changelog text.");
+  });
+}
+
+function renderSourceRomRecovery(root: HTMLElement, currentProject: ProjectState): void {
+  root.innerHTML = `<section class="upload-page"><div class="upload-panel">
+    <h1>Reconnect source ROM</h1>
+    <p>The saved project is still here, but its source ROM is missing from this browser's storage. Select the same ROM to restore installation and export without discarding your edits.</p>
+    <label class="upload-dropzone"><span>Select ${escapeHtml(currentProject.romInfo.fileName)}</span>
+      <input id="reconnect-rom-input" type="file" accept=".nds" /></label>
+    <div class="upload-status" id="reconnect-rom-status" role="alert"></div>
+  </div></section>`;
+  const input = root.querySelector<HTMLInputElement>("#reconnect-rom-input")!;
+  const status = root.querySelector<HTMLElement>("#reconnect-rom-status")!;
+  input.addEventListener("change", async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    input.disabled = true;
+    status.textContent = "Checking source ROM…";
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (project !== currentProject) throw new Error("The active project changed; select the ROM again.");
+      await reconnectActiveRom(currentProject, bytes, file.name);
+      if (!await activeRomMatchesProject(currentProject)) throw new Error("The browser could not retain the source ROM. Check available browser storage.");
+      hydrateProject(currentProject);
+      hasExportBase = true;
+      status.textContent = "Source ROM reconnected. Opening editor…";
+      const returnRoute = missingRomReturnRoute ?? defaultLoadedRoute();
+      missingRomReturnRoute = undefined;
+      applyRouteState({ route: returnRoute }, { replace: true });
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : String(error);
+    } finally {
+      input.disabled = false;
+      input.value = "";
+    }
   });
 }
 
@@ -2177,7 +2251,7 @@ function defaultLoadedRoute(): AppRoute {
   return canVisit("headers") ? "headers" : "debugNarcs";
 }
 
-function applyRouteState(nextState: AppHistoryState, options: { replace?: boolean; fromHistory?: boolean; clearProject?: boolean } = {}): void {
+function applyRouteState(nextState: AppHistoryState, options: { replace?: boolean; fromHistory?: boolean } = {}): void {
   const requestedRoute = nextState.route;
   if (
     requestedRoute !== "upload" &&
@@ -2187,13 +2261,6 @@ function applyRouteState(nextState: AppHistoryState, options: { replace?: boolea
   )
     return;
   if (requestedRoute === "grottoOdds" && !canVisit("grottos")) return;
-
-  if (requestedRoute === "upload" && options.clearProject) {
-    project = undefined;
-    dirty = false;
-    hasExportBase = false;
-    void clearActiveProject();
-  }
 
   activeOverworldId = nextState.overworldId;
   activeMoveAnimationMoveId = nextState.moveAnimationMoveId;
