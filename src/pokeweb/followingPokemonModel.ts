@@ -1,6 +1,7 @@
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import { parseBtx, decodeBtxImage, type BtxImage } from "./btxModel";
+import landRiderManifest from "../assets/following/land-riders.json";
 
 export const FOLLOWING_ABI = 1;
 export const FOLLOWING_CODE_BASE = 0x3000;
@@ -243,6 +244,72 @@ export function deriveFollowerSpacing(registry: FollowerRegistry, resources: rea
     }
     e.sideGap = cache.get(key)!;
   }
+}
+/** Rider anchors. Records are indexed by extension descriptor row,
+ * never by rule ordering or species, so forms and replacement art stay stable. */
+export function encodeFollowerLandAnchors(registry: FollowerRegistry, resources: readonly Uint8Array[], registryBytes: Uint8Array): Uint8Array {
+  validateFollowerRegistry(registry);
+  const count = registry.descriptorCount - FOLLOWING_STOCK_ROWS;
+  const bytes = new Uint8Array(16 + count * 8);
+  const view = new DataView(bytes.buffer);
+  writeU32(bytes, 0, 0x4d4c5746); // FWLM
+  writeU16(bytes, 4, 1); writeU16(bytes, 6, count);
+  writeU32(bytes, 8, followerCrc32(registryBytes));
+  const cache = new Map<string, number[]>();
+  const rows = new Set<number>();
+  for (const entry of registry.entries) {
+    if (rows.has(entry.descriptorRow)) throw new Error("Duplicate land mount descriptor.");
+    rows.add(entry.descriptorRow);
+    const key = `${entry.resourceId}:${entry.animationProfile}`;
+    let anchors = cache.get(key);
+    if (!anchors) {
+      const resource = resources[entry.resourceId];
+      if (!resource) throw new Error("Missing land mount artwork.");
+      validateFollowerResource(resource, entry.animationProfile);
+      anchors = [];
+      for (const [directionIndex, direction] of FOLLOWER_DIRECTIONS.entries()) {
+        let left: number = entry.size, top: number = entry.size, right = -1, bottom = -1;
+        for (const tick of [0, 10]) {
+          const frame = followerPreview(resource, entry.animationProfile, direction, tick);
+          for (let y = 0; y < frame.height; y++) for (let x = 0; x < frame.width; x++) {
+            if (!frame.rgba[(y * frame.width + x) * 4 + 3]) continue;
+            left = Math.min(left, x); right = Math.max(right, x);
+            top = Math.min(top, y); bottom = Math.max(bottom, y);
+          }
+        }
+        if (right < left) throw new Error("Land mount artwork has no visible pixels.");
+        // Align the rider's opaque bottom with the two-pose visible midpoint.
+        // The rider bottom is measured from both retail gender sheets when
+        // the shared rider archive is generated.
+        const x = Math.round((left + right) / 2 - (entry.size - 1) / 2);
+        const riderBottom = landRiderManifest.bottomPixels[directionIndex] - 15.5;
+        const y = Math.round((top + bottom) / 2 - (entry.size - 1) / 2 - riderBottom);
+        if (x < -128 || x > 127 || y < -128 || y > 127) throw new Error("Land mount anchor exceeds signed-byte range.");
+        anchors.push(x, y);
+      }
+      cache.set(key, anchors);
+    }
+    const at = 16 + (entry.descriptorRow - FOLLOWING_STOCK_ROWS) * 8;
+    for (let i = 0; i < 8; i++) {
+      // Arceus's side silhouette includes long legs well below its saddle.
+      // Place the rider on its back without changing other appearances or
+      // the upward/downward Arceus poses. This is ROM data, not runtime code.
+      const correction = entry.key.species === 493 && (i === 5 || i === 7) ? -10 : 0;
+      view.setInt8(at + i, anchors[i] + correction);
+    }
+  }
+  if (rows.size !== count) throw new Error("Missing land mount descriptor.");
+  writeU32(bytes, 12, followerCrc32(bytes.subarray(16)));
+  return bytes;
+}
+export function validateFollowerLandAnchors(bytes: Uint8Array, registryBytes: Uint8Array, descriptorCount: number): void {
+  if (bytes.length < 16) throw new Error("Land mount anchor table is truncated.");
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const count = descriptorCount - FOLLOWING_STOCK_ROWS;
+  if (view.getUint32(0, true) !== 0x4d4c5746 || view.getUint16(4, true) !== 1 || view.getUint16(6, true) !== count ||
+      bytes.length !== 16 + count * 8 || view.getUint32(8, true) !== followerCrc32(registryBytes) ||
+      view.getUint32(12, true) !== followerCrc32(bytes.subarray(16)))
+    throw new Error("Land mount anchor table does not match follower artwork.");
 }
 /** Measure empty rows below the visible feet across every pose. This is an
  * install-time descriptor adjustment; the native shadow stays at actor ground. */

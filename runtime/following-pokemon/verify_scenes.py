@@ -5,7 +5,7 @@ Native UI/rendering/heap services are spies. This is not a DS emulator run.
 import verify_conversation_return as r
 from verify_packaged import *
 from unicorn import UC_HOOK_CODE
-import collections,json
+import collections,json,ndspy.narc
 h=r.h;uc=h.uc
 h.SYS=0x0220a000 # Separate the actor system from the expanded four-actor pool.
 ov=r.rom.loadArm9Overlays([12])[12];uc.mem_write(ov.ramAddress,bytes(ov.data))
@@ -31,7 +31,7 @@ def pop_return(regs):
  uc.reg_write(UC_ARM_REG_SP,sp+4*len(values));uc.reg_write(UC_ARM_REG_PC,values[-1])
 def native(u,pc,size,user):
  global callback_result
- if pc in (0x02153820,0x021a83d4,0x021aea38,0x021aea60,0x0203a278,0x02167aac,CHECK,0x021b0acc,0x021b0af8,0x021b0a14,0x02154184,0x021538c0) or pc in finisher_indices:
+ if pc in (0x02153820,0x021a82fc,0x021a83d4,0x021aea38,0x021aea60,0x0203a278,0x02167aac,CHECK,0x021b0acc,0x021b0af8,0x021b0a14,0x02154184,0x021538c0) or pc in finisher_indices:
   assert u.reg_read(UC_ARM_REG_SP)%8==0,hex(pc)
  if pc in finisher_indices:
   index=finisher_indices[pc];finisher_calls.append((index,h.u32(h.F+24)))
@@ -43,7 +43,7 @@ def native(u,pc,size,user):
  elif pc==0x021538c0:
   assert reg(0)==WORK and reg(1)==h.FOREIGN
   h.put(h.GAME+0x18,h.FOREIGN);ret()
- elif pc in (0x02153820,0x021a83d4,0x021aea38,0x021aea60):
+ elif pc in (0x02153820,0x021a82fc,0x021a83d4,0x021aea38,0x021aea60):
   observed.append(('callback',reg(0),h.u32(h.F+24),h.u32(h.F)))
   assert reg(1)==reg(0)+8 and reg(2)==h.u32(reg(0)+12)
   ret(callback_result)
@@ -164,6 +164,37 @@ for code in (0x1a3,0x1a4,0x1a7):
  setup();event();opcode(code);recalled(1)
 setup();event();opcode(0x130);event(h.FOREIGN,0x02008009,h.EVENT);recalled(2)
 
+# Repel continuation starts with a native field-work wrapper, then script
+# 10144 opens a yes/no child. The follower and its mount must stay allocated
+# through both choices; other scripts cannot inherit either scoped exception.
+repel_bank=ndspy.narc.NARC(r.rom.getFileByName('a/0/5/6')).files[1248]
+assert h.u32(0x0216b578+0x2c2*4)==0x021ae685 # Pinned native Repel-use handler.
+assert struct.unpack_from('<H',repel_bank,0x78)[0]==0x1f
+assert 0x7f+struct.unpack_from('<i',repel_bank,0x7b)[0]==0x93 # No skips item use.
+assert struct.unpack_from('<H',repel_bank,0x7f)[0]==0x2c2 # Yes consumes another Repel.
+assert struct.unpack_from('<H',repel_bank,0x83)[0]==0x4c # Player name.
+assert struct.unpack_from('<H',repel_bank,0x86)[0]==0x4d # Item name.
+for choice in (0,1):
+ snap=setup();h.put(h.GAME+0x1c,h.FIELD);h.put(h.EVENT+32,h.GAME);h.put(h.EVENT+40,h.FIELD)
+ event(h.EVENT,0x02019479);kept(snap);assert h.call('fws_poll')==1
+ h.call(0x02016d08,[h.EVENT]);h.put(h.GAME+0x18,0)
+ event();h.put(h.EVENT+32,WORK);h.half(WORK+4,10144)
+ opcode(0x116);opcode(0x47);kept(snap)
+ h.put(VEC+16,WORK);h.put(h.FOREIGN+32,VEC)
+ event(h.FOREIGN,0x021a82fd,h.EVENT);kept(snap)
+ h.call(0x02016d08,[h.FOREIGN]);h.put(h.GAME+0x18,h.EVENT)
+ if choice:
+  opcode(0x2c2);opcode(0x4c);opcode(0x4d);kept(snap)
+ opcode(0x30);opcode(0x2f);kept(snap)
+ finish();kept(snap)
+setup();h.put(h.GAME+0x1c,h.FIELD);h.put(h.EVENT+32,h.GAME);h.put(h.EVENT+40,0)
+event(h.EVENT,0x02019479);recalled(2)
+setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,10130);opcode(0x116);recalled(1)
+setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,10130);opcode(0x2c2);recalled(1)
+setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,10130)
+h.put(VEC+16,WORK);h.put(h.FOREIGN+32,VEC)
+event(h.FOREIGN,0x021a82fd,h.EVENT);recalled(2)
+
 # One-shot storage snapshot includes the real selected Pokemon, not just pose.
 RESTORE=VEC
 snap=setup();event();opcode(0x130);opcode(0x14f);h.call('fws_detach');h.put(h.F+20,2)
@@ -251,6 +282,22 @@ snap=setup();event();actor_pos(10,8);h.call(0x02166ec8,[NPC,9]);recalled(4);asse
 snap=setup();event();actor_pos(10,8,2);h.call(0x02166ec8,[NPC,9]);kept(snap)
 for code in (8,0x2c,0x34,0x43):
  setup();event();h.call(0x02166ec8,[h.P,code]);recalled(3)
+for code in range(0x54,0x5c):
+ snap=setup();event();h.put(h.GAME+0x18,0)
+ h.put(h.P,h.u32(h.P)|2) # initialized retail player uses world-step path
+ h.call(0x02166ec8,[h.P,code]);kept(snap)
+ uc.mem_write(VEC,struct.pack('<iii',11*65536,0,10*65536))
+ h.call(0x02167348,[h.P,VEC]);kept(snap)
+ # A later live event cannot inherit the event-end running exemption.
+ event();h.call(0x02166ec8,[h.P,code]);recalled(3)
+snap=setup();event();h.put(h.GAME+0x18,0);h.put(h.P,h.u32(h.P)|2)
+h.call(0x02166ec8,[h.P,0x58]);kept(snap)
+uc.mem_write(VEC,struct.pack('<iii',13*65536,0,10*65536))
+h.call(0x02167348,[h.P,VEC]);recalled(3) # teleport-scale step
+setup();event();h.put(h.GAME+0x18,0);h.put(h.P,h.u32(h.P)|2)
+h.call(0x02166ec8,[h.P,0x58])
+uc.mem_write(VEC,struct.pack('<iii',11*65536,0,10*65536))
+h.call(0x02167c0c,[h.P,VEC,0]);recalled(3) # direct placement
 setup();event();h.call(0x02166ec8,[NPC,0xc0]);recalled(7)
 
 # Common field-event setup pauses autonomous actor movement. A dormant queued
@@ -333,4 +380,4 @@ assert not h.call('fws_poll')
 for generation in range(2,12):
  h.put(h.F+20,generation);assert h.call('fws_attach',[h.SYS,h.F,generation,h.addr('scene_recall')|1])==1
  h.call('fws_detach')
-print(f'Scene checks passed: two linked packaged DLLs; {h.CYCLES} retained-actor cycles; all 65536 opcode classifications; retail normal/extended VM dispatch; child events; bounded concurrent VMs; paused autonomous routes; sign/furniture presentation; grid/rail/world conflicts; elevation; player movement; allocation/deletion ordering; completion latch; unload/reload. Native UI/geometry services isolated; emulator acceptance pending.')
+print(f'Scene checks passed: two linked packaged DLLs; {h.CYCLES} retained-actor cycles; all 65536 opcode classifications; retail normal/extended VM dispatch; retail Repel Yes/No script paths with unrelated-script rejection; child events; bounded concurrent VMs; paused autonomous routes; sign/furniture presentation; grid/rail/world conflicts; elevation; player movement; allocation/deletion ordering; completion latch; unload/reload. Native UI/geometry services isolated; emulator acceptance pending.')

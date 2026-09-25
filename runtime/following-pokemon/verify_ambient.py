@@ -112,4 +112,38 @@ uc.mem_write(QUERY,struct.pack('<iii',fpos[0]+7*4096,fpos[1],fpos[2]))
 h.call(0x02167348,[s.NPC,QUERY]);assert not h.u32(h.F+24)
 # Unload removes all field participation; resident queries forward unchanged.
 setup();h.call('fws_detach');callback(10,0,9);assert run()==0
-print('Ambient checks passed: 100 callback cycles; native grid result and fourth-argument preservation; player/sight/script exemption; hidden/elevation/old-tile/dimension checks; follower reservations; resolved rail destination; unload. Native map/rail services mocked; no DS game run.')
+
+# The native tile-entry dispatcher reads Actor+0x94 without a null check. Both
+# supplied states show that grid actors leave this movement context null, and
+# the 0.6.44 freeze proves that clearing flag 0x400 before calling it is unsafe.
+# Keep the stock synthetic actor out of that dispatcher even across tiles.
+tile_effect_calls=[]
+def tile_effect_spy(u,pc,size,user):
+ if pc==0x02194b88:
+  tile_effect_calls.append(h.A)
+uc.hook_add(UC_HOOK_CODE,tile_effect_spy)
+def follower_step(z):
+ uc.mem_write(h.P+68,struct.pack('<iii',10*65536+32768,0,z*65536+32768))
+ h.call('move',[h.A])
+setup();h.put(h.A,h.u32(h.A)|0x400);assert h.call(0x021677e4,[h.A])==1
+for z in (10,11,12,13,13):follower_step(z)
+assert not tile_effect_calls
+assert h.u32(h.A)&0x400 and h.call(0x021677e4,[h.A])==1
+tile_effect_calls.clear();setup();h.put(h.A,h.u32(h.A)|0x400)
+for z in (10,11,12,13):follower_step(z)
+assert not tile_effect_calls and h.u32(h.A)&0x400
+# The stock grid follower queries its own tile and asks only the safe native
+# grass-entry helper to create the effect. Entry is once per visible tile,
+# including initial appearance; Flying types and hidden actors are excluded.
+s.setup();h.terrain_attr=0x240004;h.grass_entries.clear()
+h.put(h.addr('fwfield_flying'),0)
+h.call('FollowingUpdate',[h.SYS]);assert h.grass_entries==[(h.A,0x240004)]
+assert h.terrain_queries[-1]==(h.A,(10*65536+32768,0,9*65536+32768))
+h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==1
+grid(h.A,10,0,10);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==2
+h.put(h.addr('fwfield_flying'),1);grid(h.A,10,0,11);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==2
+h.put(h.addr('fwfield_flying'),0);h.put(h.A,h.u32(h.A)|4);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==2
+h.put(h.A,h.u32(h.A)&~4);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==3
+h.terrain_attr=0;grid(h.A,10,0,12);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==3
+assert not tile_effect_calls
+print('Ambient checks passed: 100 callback cycles; native grid result and fourth-argument preservation; player/sight/script exemption; hidden/elevation/old-tile/dimension checks; follower reservations; resolved rail destination; unload; stock safe grass entry once per visible tile, with Flying/hidden exclusion. Native map/rail/effect services mocked; no DS game run.')

@@ -4,7 +4,7 @@ Native UI, actors and resources are spies, not a DS emulator. The actual pinned
 ARM9 event scheduler/latch and field event query execute on the ARM946 CPU.
 Importing the controller harness also runs its existing interaction checks.
 """
-import hashlib,sys
+import hashlib,os,sys
 import ndspy.rom,ndspy.codeCompression
 import verify_interactions as h
 from unicorn import UC_HOOK_CODE
@@ -12,8 +12,10 @@ from unicorn.arm_const import UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_SP,UC_ARM_R
 
 if len(sys.argv)!=2:raise SystemExit('Expected pinned clean ROM path')
 raw=h.Path(sys.argv[1]).read_bytes()
-contract=h.json.loads((h.HERE/'contract.json').read_text())
-assert hashlib.sha256(raw).hexdigest()==contract['target']['sha256']
+profile=os.environ.get('FOLLOWING_PROFILE','stock')
+contract=h.json.loads((h.HERE/('upgrade-contract.json' if profile=='white2upgrade' else 'contract.json')).read_text())
+expected_hash=contract['sourceRomSha256'] if profile=='white2upgrade' else contract['target']['sha256']
+assert hashlib.sha256(raw).hexdigest()==expected_hash
 rom=ndspy.rom.NintendoDSRom(raw)
 h.uc.mem_write(rom.arm9RamAddress,bytes(ndspy.codeCompression.decompress(rom.arm9)))
 ov=rom.loadArm9Overlays([36])[36];h.uc.mem_write(ov.ramAddress,bytes(ov.data))
@@ -31,7 +33,7 @@ def spy(u,pc,size,user):
  if pc==0x02166980:deletes.append(r0);h.put(r0,0)
  if pc in (0x0201735c,0x0201ff34):result=h.GAME+0x500
  if pc==0x0201fe24:result=1
- if pc==0x0201cd24:result={5:25,0x6f:0,0x6e:0,0x4c:0,0xa0:100,0xa1:100,0:123,7:456}[r1]
+ if pc==0x0201cd24:result={5:25,0x6f:0,0x6e:0,0x4c:0,0xa0:100,0xa1:100,0:123,7:456}.get(r1,0)
  u.reg_write(UC_ARM_REG_R0,result);u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR))
 h.uc.hook_add(UC_HOOK_CODE,spy)
 def setup():

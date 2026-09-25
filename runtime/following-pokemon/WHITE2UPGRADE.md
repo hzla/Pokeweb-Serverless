@@ -1,9 +1,61 @@
-# White2Upgrade Following Pokémon — 0.7.23-alpha
+# White2Upgrade Following Pokémon — 0.7.32-alpha
 
 This is a separate expansion profile of the follower accepted by the user in
 stock White 2 0.6.10. Movement, dialogue, menu/PC handling, scene guards, ball
 animations, and final actor draw correction use the same implementation. The
-stock package is 0.6.32 and is not replaced by the expansion DLLs.
+stock package is separate and is not replaced by the expansion DLLs.
+
+Version 0.7.32 corrects native shadow overdraw on walking and mounted Pokémon
+with a draw-only depth adjustment. Their on-screen position and the ground
+shadow stay in place. Packaged draw checks passed; U34 covers visual acceptance.
+
+Version 0.7.31 adds A+B land riding for supported Gen 1–9 followers, mounted
+Surf entry and shore return, and Repel Yes/No retention. It keeps the expanded
+Surf registry and follower-first party selection. Every mount hook and seated
+rider source sheet matches the pinned Upgrade ROM; packaged scene, rider, and
+transition checks passed. Cold-boot visual acceptance is pending.
+
+Version 0.7.30 prefers the currently selected follower for Surf artwork if it
+knows Surf. When it does not, the first non-Egg Surf knower in party order
+provides the mount. U30 covers in-game acceptance; no game emulator was run.
+
+Version 0.7.28 adds L/R overworld follower cycling through eligible party
+members, including later-generation species. The switch uses the existing
+recall and send-out effects and does not reorder the party. U29 covers human
+acceptance; no game emulator was run.
+
+Version 0.7.29 retains the player route through recall, so horizontal switches
+resummon wide followers without waiting for another player step.
+
+Version 0.7.27 dispatches the native terrain entry response once when a
+grounded follower crosses into a tile. Flying-type followers do not dispatch
+it. Grass flattening and other permission-dependent visuals need human
+acceptance in U28; no game emulator was run for this update.
+
+Version 0.7.26 ends the ten-pixel Surf rider lift when the native mount stops
+drawing during disembark. The field can retain Surf mode while its shore-hop
+animation finishes, so a stale mount transform no longer leaves the player
+visually suspended over land. The native landing arc and shadow are retained.
+U27 needs human visual acceptance; no game emulator was run for this update.
+
+Version 0.7.25 corrects the Surf sheet scale shared with stock 0.6.41.
+It downsamples doubled source pixels by two: 2,224 appearances now use
+32-pixel textures and 100 use 64-pixel textures, with 70/80-pixel source
+cells bottom-aligned without stretching. The archive is 29,081,396 bytes.
+The south-facing mount now stays at least four world pixels ahead of the
+lifted rider in camera depth, avoiding a bobbing-dependent tie. U26 needs
+human visual acceptance; no game emulator was run for this update.
+
+Version 0.7.24 adds party-based custom Surf mounts. The first non-Egg party
+Pokémon that knows Surf supplies the mount art, independently of the land
+follower. Fainted members and moves with zero PP still supply art; the native
+Surf permission check remains authoritative. The separate version-2 Surf
+archive has 2,324 appearances and 37,184 64-pixel frame resources. It covers
+all Gen 1–5 base species and 360 of 374 later base species, with mapped forms,
+female and shiny variants where matching art exists. Missing art uses the
+retail mount. See the Surf asset manifest for the 14 missing later bases.
+The archive and index stay in ROM; only the chosen mount's 16 frames are loaded.
+Visual Surf acceptance is pending a cold boot by the user.
 
 Version 0.7.23 restores the north-facing follower's pre-anchor foreground
 camera depth during a close player overlap. The submitted sprite moves only
@@ -98,8 +150,8 @@ Gen 1–5 keep the existing stock/Gen 5 artwork policy.
 
 The supplied `followersprites` pack provides normal and shiny base artwork for
 all 374 later-generation species. Its ordinary `Followers` and `Followers shiny`
-sheets are used; the swimming/levitating directories do not enable new traversal
-modes. Of 1,658 later-generation appearance keys, 120 still use explicit alternate
+sheets are used for land followers. The swimming/levitating directories now
+provide the separate Surf mount catalog. Of 1,658 later-generation land-follower appearance keys, 120 still use explicit alternate
 form substitutions. Four HG-engine resources retain available alternate-form art
 where the corresponding PNG is absent. See [coverage](UPGRADE-ASSET-COVERAGE.json)
 for exact keys/reasons; filenames are never treated as species numbers.
@@ -194,11 +246,13 @@ From Pokeweb-Serverless, with local paths substituted as needed:
 ```sh
 npm run following:import-upgrade -- /path/to/White2Upgrade.nds /path/to/hg-engine /path/to/text_Species_en.txt --png-root /path/to/followersprites
 npm run following:verify-fan-assets -- /path/to/followersprites
+python3 runtime/following-pokemon/import_surf_mounts.py --profile white2upgrade
 npm run following:build-upgrade -- /path/to/White2Upgrade.nds --publish
 npm run following:build-rom -- /path/to/White2Upgrade.nds runtime/following-pokemon/build/white2upgrade-test /path/to/previous.sav
-npm run following:verify-upgrade -- /path/to/White2Upgrade.nds /path/to/White2Upgrade-Following-0.7.23-alpha.nds
-FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade.py /path/to/White2Upgrade-Following-0.7.23-alpha.nds
-FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade_snapshot.py /path/to/nofollowers.mln /path/to/White2Upgrade-Following-0.7.23-alpha.nds
+python3 runtime/following-pokemon/verify_surf_upgrade.py /path/to/White2Upgrade.nds
+npm run following:verify-upgrade -- /path/to/White2Upgrade.nds /path/to/White2Upgrade-Following-0.7.31-alpha.nds
+FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade.py /path/to/White2Upgrade-Following-0.7.31-alpha.nds
+FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade_snapshot.py /path/to/nofollowers.mln /path/to/White2Upgrade-Following-0.7.31-alpha.nds
 python3 runtime/following-pokemon/generate_upgrade_docs.py
 ```
 
@@ -208,9 +262,9 @@ The contract generator is for capturing an independently audited baseline, not
 for bypassing an unsupported-runtime rejection. Reimporting art does not require
 recompiling the modules.
 
-The batch builder delivers `White2Upgrade-Following-0.7.23-alpha.nds` to `Repos/`.
+The batch builder delivers `White2Upgrade-Following-0.7.31-alpha.nds` to `Repos/`.
 An explicit prior `.sav` can seed a new version; an existing destination save is
-preserved. The 0.7.23 delivery copies the preceding 0.7.22 expansion save for
+preserved. The 0.7.27 delivery copies the preceding 0.7.26 expansion save for
 continuity. Keep an original copy before playing the expansion;
 expanded-species saves belong with White2Upgrade, not stock White 2.
 

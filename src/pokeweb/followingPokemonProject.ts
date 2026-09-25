@@ -11,6 +11,9 @@ import black2RuntimeManifest from "../assets/following/black2/runtime.json";
 import italyRuntimeManifest from "../assets/following/white2italy/runtime.json";
 import gen5Manifest from "../assets/following/gen5-followers.json";
 import effectsManifest from "../assets/following/effects.json";
+import surfManifest from "../assets/following/surf-mounts.json";
+import landRiderManifest from "../assets/following/land-riders.json";
+import upgradeSurfManifest from "../assets/following/white2upgrade/surf-mounts.json";
 import contract from "../../runtime/following-pokemon/contract.json";
 import black2Contract from "../../runtime/following-pokemon/black2-contract.json";
 import italyContract from "../../runtime/following-pokemon/italy-contract.json";
@@ -24,7 +27,7 @@ import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 import { getPmcInstallStatus, installBundledPmc, listCodeInjectionDlls, stageCodeInjectionDll } from "./pmcModel";
 import { parseRpm, writeRpm } from "./rpm";
-import { buildFollowerCatalog, deriveFollowerGrounding, deriveFollowerSpacing, followerSideGap, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
+import { buildFollowerCatalog, deriveFollowerGrounding, deriveFollowerSpacing, encodeFollowerLandAnchors, validateFollowerLandAnchors, followerSideGap, decodeFollowerRegistry, encodeFollowerRegistry, followerCrc32, followerKey, readFollowerStockAppearances, validateFollowerRegistry, validateFollowerResource,
   type FollowerAppearanceKey, type FollowerAssetEntry, type FollowerRegistry } from "./followingPokemonModel";
 
 export const FOLLOWER_MANIFEST_PATH = "following/assets.json";
@@ -34,6 +37,10 @@ export const FOLLOWER_CORE_DLL_PATH = "patches/PokewebFollowingCoreW2.dll";
 export const FOLLOWER_CORE_B2_DLL_PATH = "patches/PokewebFollowingCoreB2.dll";
 export const FOLLOWER_DESCRIPTOR_PATH = "a/0/4/7";
 export const FOLLOWER_RESOURCE_PATH = "a/0/4/8";
+export const FOLLOWER_SURF_RESOURCE_PATH = "following/surf-mounts.narc";
+export const FOLLOWER_SURF_REGISTRY_PATH = "following/surf-registry.bin";
+export const FOLLOWER_LAND_RIDER_PATH = "following/land-riders.narc";
+export const FOLLOWER_LAND_ANCHORS_PATH = "following/land-anchors.bin";
 export type FollowerAssetWorkspace = {
   schemaVersion: 1;
   targetSha256: string;
@@ -214,10 +221,25 @@ export async function prepareFollowerWorkspace(project: ProjectState, rom?: Foll
     const id = rom.filenames.idOf(path); if (id === undefined) throw new Error(`Missing ${path}`);
     return getRomFileBytes(project, rom, id);
   };
+  const profile = await followerProfile(project, rom);
+  if (compatibility.installation) {
+    // Exported installs already extend the retail archives. Seed a new editor
+    // workspace from the checked installed catalog, including any prior art.
+    const registryBytes = readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH);
+    if (!registryBytes) throw new Error("Installed follower catalog is missing.");
+    const registry = decodeFollowerRegistry(registryBytes);
+    const resources = new NARC(archive(FOLLOWER_RESOURCE_PATH)).files;
+    const descriptors = new NARC(archive(FOLLOWER_DESCRIPTOR_PATH)).files;
+    if (resources.length !== registry.resourceCount || descriptors.length !== 1 ||
+        new DataView(descriptors[0].buffer, descriptors[0].byteOffset, descriptors[0].byteLength).getUint32(0, true) !== registry.descriptorCount)
+      throw new Error("Installed follower artwork does not match its catalog.");
+    const workspace: FollowerAssetWorkspace = { schemaVersion: 1, targetSha256: targetFor(profile), registry, imports: {} };
+    commitWorkspace(project, rom, workspace, {}, `Prepared ${registry.entries.length} installed follower appearances for editing.`);
+    return workspace;
+  }
   const resources = new NARC(archive("a/0/4/8")).files;
   const descriptors = new NARC(archive("a/0/4/7")).files;
   if (descriptors.length !== 1 || resources.length !== 975) throw new Error("Unsupported overworld archive layout.");
-  const profile = await followerProfile(project, rom);
   const registry = buildFollowerCatalog(new NARC(archive("a/0/1/6")).files, readFollowerStockAppearances(archive("a/2/0/8")), descriptors[0], resources, profile === "white2upgrade" ? 1023 : 649);
   const workspace: FollowerAssetWorkspace = { schemaVersion: 1, targetSha256: targetFor(profile), registry, imports: {} };
   commitWorkspace(project, rom, workspace, {}, `Prepared ${registry.entries.length} follower appearances with explicit missing-art placeholders.`);
@@ -317,7 +339,7 @@ export const FOLLOWER_EVENTS_DLL_PATH = "patches/PokewebFollowingEventsW2.dll";
 export const FOLLOWER_DLL_B2_PATH = "patches/PokewebFollowingFieldB2.dll";
 export const FOLLOWER_EVENTS_B2_DLL_PATH = "patches/PokewebFollowingEventsB2.dll";
 export const FOLLOWER_RUNTIME_VERSION = stockRuntimeManifest.version;
-export type FollowerAlphaInstall = { schemaVersion: 1; profile?: FollowerProfile; version: string; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string };
+export type FollowerAlphaInstall = { schemaVersion: 1; profile?: FollowerProfile; version: string; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string };
 const upgradeFieldUrl = new URL("../assets/following/white2upgrade/PokewebFollowingFieldW2.dll", import.meta.url);
 const upgradeEventsUrl = new URL("../assets/following/white2upgrade/PokewebFollowingEventsW2.dll", import.meta.url);
 const upgradeCoreUrl = new URL("../assets/following/white2upgrade/PokewebFollowingCoreW2.dll", import.meta.url);
@@ -339,6 +361,44 @@ const emotesUrl = new URL("../assets/following/interaction-emotes.narc", import.
 const dialoguesUrl = new URL("../assets/following/contextual-dialogues.narc", import.meta.url);
 const itemsUrl = new URL("../assets/following/contextual-items.narc", import.meta.url);
 const effectsUrl = new URL("../assets/following/hgss-effects.narc", import.meta.url);
+const surfResourcesUrl = new URL("../assets/following/surf-mounts.narc", import.meta.url);
+const surfRegistryUrl = new URL("../assets/following/surf-registry.bin", import.meta.url);
+const landRiderUrl = new URL("../assets/following/land-riders.narc", import.meta.url);
+const upgradeSurfResourcesUrl = new URL("../assets/following/white2upgrade/surf-mounts.narc", import.meta.url);
+const upgradeSurfRegistryUrl = new URL("../assets/following/white2upgrade/surf-registry.bin", import.meta.url);
+
+export function validateFollowerSurfAssets(registry: Uint8Array, archive: Uint8Array, profile: FollowerProfile = "stock"): void {
+  const manifest = profile === "white2upgrade" ? upgradeSurfManifest : surfManifest;
+  const maxSpecies = profile === "white2upgrade" ? 1023 : 649;
+  const view = new DataView(registry.buffer, registry.byteOffset, registry.byteLength);
+  if (registry.length < 24 || view.getUint32(0, true) !== 0x4d535746 || view.getUint16(4, true) !== 2 ||
+      view.getUint16(6, true) !== 8 || view.getUint16(8, true) !== manifest.entries.length || view.getUint16(8, true) > 4095 ||
+      view.getUint16(10, true) !== maxSpecies || registry.length !== 16 + view.getUint16(8, true) * 8)
+    throw new Error("Invalid Surf appearance registry.");
+  const members = new NARC(archive).files;
+  if (view.getUint32(12, true) !== members.length || members.length !== view.getUint16(8, true) * 16 || members.length > 65535)
+    throw new Error("Surf resource count does not match its registry.");
+  let previous = "";
+  const used = new Set<number>(), bases = new Set<string>();
+  for (let i = 0; i < view.getUint16(8, true); i++) {
+    const at = 16 + i * 8, species = view.getUint16(at, true), form = registry[at + 2], gender = registry[at + 3], shiny = registry[at + 4];
+    const first = view.getUint16(at + 6, true), size = registry[at + 5];
+    const key = `${species.toString().padStart(4, "0")}:${form.toString().padStart(3, "0")}:${gender.toString().padStart(3, "0")}:${shiny}`;
+    if (species < 1 || species > maxSpecies || key <= previous || ![0, 1, 2, 255].includes(gender) || shiny > 1 ||
+        ![32, 64].includes(size) || first % 16 !== 0 || first + 16 > members.length || used.has(first))
+      throw new Error("Invalid Surf appearance entry.");
+    if (form === 0 && gender === 255) bases.add(`${species}:${shiny}`);
+    for (let frame = first; frame < first + 16; frame++)
+      if (members[frame]?.length < 48 || String.fromCharCode(...members[frame].subarray(0, 4)) !== "BTX0")
+        throw new Error("Invalid Surf texture member.");
+    used.add(first); previous = key;
+  }
+  if (used.size !== view.getUint16(8, true) ||
+      Array.from({ length: 649 }, (_, i) => i + 1).some(species => !bases.has(`${species}:0`) || !bases.has(`${species}:1`)) ||
+      (profile === "white2upgrade" && Array.from({ length: 374 }, (_, i) => i + 650)
+        .some(species => !upgradeSurfManifest.missingLaterBaseSpecies.includes(species) && !bases.has(`${species}:0`))))
+    throw new Error("Incomplete Surf appearance registry.");
+}
 
 export function encodeFollowerNativeConfig(registry: Uint8Array, descriptorCount: number, resourceCount: number, enabled = true): Uint8Array {
   const bytes = new Uint8Array(32), view = new DataView(bytes.buffer);
@@ -476,6 +536,40 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
       throw new Error("Italian follower language data has changed or is missing. Refusing to overwrite owned data.");
     validateFollowerLanguageData(language);
   }
+  if (current || state.surfSha256) {
+    const activeSurfManifest = profile === "white2upgrade" ? upgradeSurfManifest : surfManifest;
+    const resource = readFollowingFile(project, rom, FOLLOWER_SURF_RESOURCE_PATH);
+    const registry = readFollowingFile(project, rom, FOLLOWER_SURF_REGISTRY_PATH);
+    if (!resource || !registry || !state.surfSha256 || !state.surfRegistrySha256 ||
+        (current && (state.surfSha256 !== activeSurfManifest.sha256 || state.surfRegistrySha256 !== activeSurfManifest.registrySha256)) ||
+        await followerRomSha256(resource) !== state.surfSha256 || await followerRomSha256(registry) !== state.surfRegistrySha256)
+      throw new Error("Follower Surf assets have changed or are missing. Refusing to overwrite owned data.");
+    if (current) validateFollowerSurfAssets(registry, resource, profile);
+    else if (new DataView(registry.buffer, registry.byteOffset, registry.byteLength).getUint16(4, true) === 2)
+      validateFollowerSurfAssets(registry, resource, profile);
+    else if (profile === "stock") {
+      const old = new DataView(registry.buffer, registry.byteOffset, registry.byteLength);
+      if (registry.length !== 24 || old.getUint32(0, true) !== 0x4d535746 || old.getUint16(4, true) !== 1 ||
+          old.getUint16(8, true) !== 1 || old.getUint16(16, true) !== 493 || new NARC(resource).files.length !== 16)
+        throw new Error("Invalid prior Surf asset layout.");
+    }
+  }
+  if (current || state.landRiderSha256 !== undefined) {
+    const rider = readFollowingFile(project, rom, FOLLOWER_LAND_RIDER_PATH);
+    const anchors = readFollowingFile(project, rom, FOLLOWER_LAND_ANCHORS_PATH);
+    const registry = readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH);
+    const descriptor = readFollowingFile(project, rom, FOLLOWER_DESCRIPTOR_PATH);
+    if (!rider || !anchors || !registry || !descriptor || !state.landRiderSha256 || !state.landAnchorsSha256 ||
+        await followerRomSha256(rider) !== state.landRiderSha256 || await followerRomSha256(anchors) !== state.landAnchorsSha256 ||
+        (current && state.landRiderSha256 !== landRiderManifest.sha256))
+      throw new Error("Follower land mount assets have changed or are missing.");
+    const files = new NARC(rider).files;
+    if ((current ? files.length !== landRiderManifest.members : files.length !== 8 && files.length !== landRiderManifest.members) ||
+        files.some(file => file.length < 48 || String.fromCharCode(...file.subarray(0, 4)) !== "BTX0"))
+      throw new Error("Invalid land rider resource archive.");
+    const descriptorMember = new NARC(descriptor).files[0];
+    validateFollowerLandAnchors(anchors, registry, new DataView(descriptorMember.buffer, descriptorMember.byteOffset, descriptorMember.byteLength).getUint32(0, true));
+  }
   const view = new DataView(config.buffer, config.byteOffset, config.byteLength);
   if (extended) {
     const registry = readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH)!;
@@ -497,6 +591,23 @@ function stageFollowingFiles(project: ProjectState, rom: FollowerFiles, files: R
   }
   project.fileSystem = { replacements, additions };
 }
+export function followerArtworkPending(project: ProjectState, rom: FollowerFiles): boolean {
+  const workspace = readFollowerWorkspace(project, rom);
+  if (!workspace || !Object.keys(workspace.imports).length) return false;
+  const registry = readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH);
+  const resources = readFollowingFile(project, rom, FOLLOWER_RESOURCE_PATH);
+  if (!registry || !resources) return true;
+  const entries = decodeFollowerRegistry(registry).entries;
+  const files = new NARC(resources).files;
+  for (const [key, imported] of Object.entries(workspace.imports)) {
+    const entry = entries.find(candidate => followerKey(candidate.key) === key);
+    const authored = readFollowingFile(project, rom, imported.path);
+    if (!entry || !authored || followerCrc32(authored) !== imported.crc32) throw new Error(`Invalid follower replacement ${key}.`);
+    const installed = files[entry.resourceId];
+    if (!installed || installed.length !== authored.length || installed.some((byte, index) => byte !== authored[index])) return true;
+  }
+  return false;
+}
 export async function installFollowerAlpha(project: ProjectState, rom?: FollowerRom): Promise<FollowerAlphaInstall> {
   const sourceRomBytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!sourceRomBytes) throw new Error("Reload the project's ROM before installing the follower.");
@@ -506,12 +617,15 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   const report = await checkFollowerCompatibility(project, rom);
   if (!report.compatible) throw new Error(report.message);
   const existing = report.installation ?? await readFollowerAlphaInstall(project, rom);
-  if (existing?.version === runtimeManifest.version && !existing.removed) { if (!existing.enabled) return setFollowerAlphaEnabled(project, true, rom); return existing; }
+  const pendingArtwork = profile === "stock" && followerArtworkPending(project, rom);
+  if (existing?.version === runtimeManifest.version && existing.moduleSha256 === runtimeManifest.fieldSha256 && !existing.removed && !pendingArtwork) { if (!existing.enabled) return setFollowerAlphaEnabled(project, true, rom); return existing; }
   const authoredDialogues = readFollowingFile(project, rom, FOLLOWER_DIALOGUE_NARC_PATH);
   const authoredItems = readFollowingFile(project, rom, FOLLOWER_ITEM_NARC_PATH);
   // Contextual archives may be authored before the runtime is installed. They are
   // validated below and become owned by this installation transaction.
   const newOwned = existing?.version === runtimeManifest.version || existing?.coreSha256 ? [] : existing ? [modulePaths.core, FOLLOWER_RUNTIME_REGISTRY_PATH] : [modulePaths.field, modulePaths.events, modulePaths.core, FOLLOWER_NATIVE_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, ...(profile === "white2italy" ? [FOLLOWER_LANGUAGE_PATH] : [])];
+  if (!existing?.surfSha256) newOwned.push(FOLLOWER_SURF_RESOURCE_PATH, FOLLOWER_SURF_REGISTRY_PATH);
+  if (!existing?.landRiderSha256) newOwned.push(FOLLOWER_LAND_RIDER_PATH, FOLLOWER_LAND_ANCHORS_PATH);
   for (const path of newOwned)
     if (readFollowingFile(project, rom, path)) throw new Error(`Unowned follower file already exists: ${path}`);
   const [response, eventsResponse, coreResponse, gen5Response, effectsResponse, dataResponse, emoteResponse, dialoguesResponse, itemsResponse] = await Promise.all([
@@ -534,6 +648,17 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   const bundledDialogues = new Uint8Array(await dialoguesResponse.arrayBuffer()), bundledItems = new Uint8Array(await itemsResponse.arrayBuffer());
   const dialogues = (authoredDialogues ?? bundledDialogues).slice(), items = (authoredItems ?? bundledItems).slice();
   const language = profile === "white2italy" ? existing?.version === runtimeManifest.version ? readFollowingFile(project, rom, FOLLOWER_LANGUAGE_PATH)?.slice() : new Uint8Array(await (await fetch(italyLanguageUrl)).arrayBuffer()) : undefined;
+  const activeSurfManifest = profile === "white2upgrade" ? upgradeSurfManifest : surfManifest;
+  const surfResources = new Uint8Array(await (await fetch(profile === "white2upgrade" ? upgradeSurfResourcesUrl : surfResourcesUrl)).arrayBuffer());
+  const surfRegistry = new Uint8Array(await (await fetch(profile === "white2upgrade" ? upgradeSurfRegistryUrl : surfRegistryUrl)).arrayBuffer());
+  const landRider = new Uint8Array(await (await fetch(landRiderUrl)).arrayBuffer());
+  if (landRider && (await followerRomSha256(landRider) !== landRiderManifest.sha256 || new NARC(landRider).files.length !== landRiderManifest.members))
+    throw new Error("Bundled land rider fingerprint mismatch.");
+  if (surfResources && surfRegistry) {
+    if (await followerRomSha256(surfResources) !== activeSurfManifest.sha256 || await followerRomSha256(surfRegistry) !== activeSurfManifest.registrySha256)
+      throw new Error("Bundled Surf asset fingerprint mismatch.");
+    validateFollowerSurfAssets(surfRegistry, surfResources, profile);
+  }
   if (profile === "white2italy") {
     if (!language) throw new Error("Italian follower language data is missing.");
     validateFollowerLanguageData(language);
@@ -593,11 +718,52 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
       assetWorkspace = { schemaVersion: 1, targetSha256: targetFor(profile), registry: built.registry, imports: {} };
     if (existing && !existing.enabled) new DataView(config.buffer).setUint32(4, 0, true);
   }
+  if (pendingArtwork) {
+    const workspace = readFollowerWorkspace(project, rom)!;
+    const decoded = decodeFollowerRegistry(registry), resourceArchive = new NARC(resources), descriptorArchive = new NARC(descriptors);
+    for (const [key, imported] of Object.entries(workspace.imports)) {
+      const target = decoded.entries.find(entry => followerKey(entry.key) === key);
+      const authored = workspace.registry.entries.find(entry => followerKey(entry.key) === key);
+      const bytes = readFollowingFile(project, rom, imported.path);
+      if (!target || !authored || !bytes || followerCrc32(bytes) !== imported.crc32) throw new Error(`Invalid follower replacement ${key}.`);
+      validateFollowerResource(bytes, authored.animationProfile);
+      const installed = resourceArchive.files[target.resourceId];
+      if (installed?.length === bytes.length && installed.every((byte, index) => byte === bytes[index])) continue;
+      const resourceId = resourceArchive.files.length;
+      if (resourceId > 65534) throw new Error("Follower resource archive is full.");
+      resourceArchive.files.push(bytes.slice());
+      target.resourceId = resourceId; target.size = authored.size; target.animationProfile = authored.animationProfile;
+      target.placeholder = authored.placeholder; target.placeholderReason = authored.placeholderReason;
+      target.source = authored.source; target.sourceLabel = authored.sourceLabel;
+      const row = 4 + target.descriptorRow * 28;
+      const view = new DataView(descriptorArchive.files[0].buffer, descriptorArchive.files[0].byteOffset, descriptorArchive.files[0].byteLength);
+      view.setUint16(row + 16, resourceId, true);
+      descriptorArchive.files[0][row + 7] = authored.size === 64 ? 2 : 1;
+    }
+    decoded.resourceCount = resourceArchive.files.length;
+    deriveFollowerSpacing(decoded, resourceArchive.files);
+    deriveFollowerGrounding(decoded, resourceArchive.files, new NARC(readFollowingFile(project, rom, "a/0/1/6")!).files);
+    for (const entry of decoded.entries) descriptorArchive.files[0][4 + entry.descriptorRow * 28 + 14] = 0;
+    resources = resourceArchive.save(); descriptors = descriptorArchive.save();
+    const previous = registry, zoneBytes = decoded.zones.length * 8;
+    registry = encodeFollowerRegistry(decoded);
+    registry.set(previous.subarray(previous.length - zoneBytes), registry.length - zoneBytes);
+    new DataView(registry.buffer).setUint32(24, 0, true);
+    new DataView(registry.buffer).setUint32(24, followerCrc32(registry), true);
+    config = encodeFollowerNativeConfig(registry, decoded.descriptorCount, decoded.resourceCount);
+  }
+  const landAnchors = encodeFollowerLandAnchors(decodeFollowerRegistry(registry), new NARC(resources).files, registry);
+  if (landAnchors) {
+    const descriptorMember = new NARC(descriptors).files[0];
+    validateFollowerLandAnchors(landAnchors, registry, new DataView(descriptorMember.buffer, descriptorMember.byteOffset, descriptorMember.byteLength).getUint32(0, true));
+  }
   const state: FollowerAlphaInstall = { schemaVersion: 1, profile, version: runtimeManifest.version, enabled: new DataView(config.buffer).getUint32(4, true) === 1, targetSha256: targetFor(profile),
     moduleSha256: runtimeManifest.fieldSha256, eventsSha256: runtimeManifest.eventsSha256, eventsAbi: runtimeManifest.eventsAbi, coreSha256: runtimeManifest.coreSha256, coreAbi: runtimeManifest.coreAbi,
     configCrc32: followerCrc32(config), registrySha256: await followerRomSha256(registry), descriptorsSha256: await followerRomSha256(descriptors), resourcesSha256: await followerRomSha256(resources),
     effectsSha256: effectsManifest.sha256, interactionsSha256: activeInteractions.dataSha256, emotesSha256: activeInteractions.emotesSha256, dialoguesSha256: await followerRomSha256(dialogues), itemsSha256: await followerRomSha256(items) };
   if (language) state.languageSha256 = await followerRomSha256(language);
+  if (surfResources && surfRegistry) { state.surfSha256 = activeSurfManifest.sha256; state.surfRegistrySha256 = activeSurfManifest.registrySha256; }
+  if (landRider && landAnchors) { state.landRiderSha256 = landRiderManifest.sha256; state.landAnchorsSha256 = await followerRomSha256(landAnchors); }
   // Stage PMC and all owned files privately; publish only after every operation succeeds.
   const staged = structuredClone({ ...project, originalRomBytes: undefined }) as ProjectState;
   staged.originalRomBytes = sourceRomBytes;
@@ -607,7 +773,10 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   stageCodeInjectionDll(staged, modulePaths.coreName, coreDll);
   stageFollowingFiles(staged, rom, { [FOLLOWER_NATIVE_PATH]: config, [FOLLOWER_RUNTIME_REGISTRY_PATH]: registry, [FOLLOWER_DESCRIPTOR_PATH]: descriptors, [FOLLOWER_RESOURCE_PATH]: resources,
     [FOLLOWER_EFFECTS_PATH]: effects, [FOLLOWER_INTERACTIONS_PATH]: data, [FOLLOWER_EMOTES_PATH]: emotes, [FOLLOWER_DIALOGUE_NARC_PATH]: dialogues,
-    [FOLLOWER_ITEM_NARC_PATH]: items, ...(language ? { [FOLLOWER_LANGUAGE_PATH]: language } : {}), [FOLLOWER_INSTALL_PATH]: new TextEncoder().encode(JSON.stringify(state, null, 2) + "\n") });
+    [FOLLOWER_ITEM_NARC_PATH]: items, ...(language ? { [FOLLOWER_LANGUAGE_PATH]: language } : {}),
+    ...(surfResources && surfRegistry ? { [FOLLOWER_SURF_RESOURCE_PATH]: surfResources, [FOLLOWER_SURF_REGISTRY_PATH]: surfRegistry } : {}),
+    ...(landRider && landAnchors ? { [FOLLOWER_LAND_RIDER_PATH]: landRider, [FOLLOWER_LAND_ANCHORS_PATH]: landAnchors } : {}),
+    [FOLLOWER_INSTALL_PATH]: new TextEncoder().encode(JSON.stringify(state, null, 2) + "\n") });
   if (assetWorkspace) stageFollowingFiles(staged, rom, {
     [FOLLOWER_MANIFEST_PATH]: new TextEncoder().encode(JSON.stringify(assetWorkspace, null, 2) + "\n"),
     [FOLLOWER_REGISTRY_PATH]: encodeFollowerRegistry(assetWorkspace.registry),

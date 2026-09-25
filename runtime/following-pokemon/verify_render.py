@@ -1,7 +1,7 @@
 """Final packaged draw-stage checks. Native GPU submission is a spy, not an emulator."""
 from verify_packaged import *
 from unicorn import UC_HOOK_CODE
-import ndspy.rom,hashlib,sys
+import ndspy.rom,hashlib,sys,math
 import json
 DLL=PACKAGE_BUILD/'PokewebFollowingFieldW2.dll';ELF=PACKAGE_BUILD/'PokewebFollowingFieldW2.elf'
 code,bss,syms,rels,funcs,_=audit(DLL,ELF)
@@ -100,6 +100,16 @@ assert draw()[0]==(original[0],original[1]-5*4096,original[2])
 n=len(seen);call('FollowingEffectsDraw',[BL,CAM,LIGHT])
 assert len(seen)==n+1 and seen[-1][0]==original
 assert read(BILL+32,'3i')==original
+# A lowered grounded follower can sit behind its own native shadow plane.
+# The main pass must submit its pixels ahead of that plane while restoring the
+# original billboard for the later native shadow/effect pass.
+setup();put(A+4,0x4000);uc.mem_write(F+51,b'\xfb');half(BILL,0x400d)
+vec(BILL+32,(65536,6144,0));original=read(BILL+32,'3i')
+submitted=draw()[0];axis=(200/math.hypot(200,140),140/math.hypot(200,140))
+assert (submitted[1]*axis[0]+submitted[2]*axis[1])>=6*4096-64,submitted
+assert read(BILL+32,'3i')==original
+n=len(seen);call('FollowingEffectsDraw',[BL,CAM,LIGHT])
+assert len(seen)==n+1 and seen[-1][0]==original
 # The upward artwork receives a two-pixel correction relative to the shadow;
 # downward and lateral artwork retain their existing registry Y offset.
 for face,extra in ((0,-2),(1,0),(2,0),(3,0)):

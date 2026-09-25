@@ -1,6 +1,9 @@
 #include "scene.h"
 #include "interaction.h"
 #include "scene-policy.h"
+#ifdef FW_MOUNT
+#include "land.h"
+#endif
 #define API __attribute__((visibility("default")))
 #define EVENT_LIMIT 16u
 #define VM_LIMIT 48u
@@ -8,7 +11,11 @@ typedef struct {void *event;uintptr_t callback;} EventToken;
 typedef struct {void *vm,*event;} VmToken;
 static struct {
  ActorSystem *sys;Actor *player;FwFollower *f;void *field,*game;
- uint32_t generation,active,recalled,previousState,pcActive,pcFade,boxPreserve;void *menuRoot,*pcVm;void (*recall)(void);
+ uint32_t generation,active,recalled,previousState,pcActive,pcFade,boxPreserve;
+#ifdef FW_MOUNT
+ uint32_t naturalRun;
+#endif
+ void *menuRoot,*pcVm;void (*recall)(void);
  EventToken events[EVENT_LIMIT];VmToken vms[VM_LIMIT];
 } scene;
 /* Pointer values are diagnostic identities only; never follow saved tokens. */
@@ -42,6 +49,14 @@ int fws_safe_opcode(unsigned code){
  while(lo<hi){unsigned mid=(lo+hi)/2;if(fws_safe_commands[mid]<code)lo=mid+1;else hi=mid;}
  return lo<sizeof(fws_safe_commands)/sizeof(fws_safe_commands[0])&&fws_safe_commands[lo]==code;
 }
+/* Repel's continuation prompt is a field script, not a scene transition.
+   Check the live supervisor and its script work rather than granting its
+   choice-window callback to every script that happens to use that window. */
+static void *repel_script_work(void *event){
+ if(!event||U32(event,4)!=0x02153821u||PTR(event,16)!=scene.game)return 0;
+ void *work=PTR(event,12),*scriptWork=work?PTR(work,0):0;
+ return scriptWork&&*(uint16_t*)((uint8_t*)scriptWork+4)==10144u?scriptWork:0;
+}
 static int safe_callback(void *event,uintptr_t callback){
  void *work=PTR(event,12);
  /* Native menu and its replacement screen event are separately identified.
@@ -54,6 +69,20 @@ static int safe_callback(void *event,uintptr_t callback){
     callbacks are allowed only in an observed PC transaction. */
  if(scene.pcActive&&(callback==0x02019655u||callback==0x0201958du
     ||callback==0x0201937du||callback==0x02019401u||callback==0x02019479u))return 1;
+ /* This resident field-event wrapper waits for the field's own work before
+    the Repel script is created. Its constructor stores game at work+0 and
+    game->fieldWork at work+8; accepting that exact shape leaves later
+    callbacks and script commands subject to the normal guard. */
+ if(callback==0x02019479u)return work&&PTR(work,0)==scene.game
+   &&PTR(work,8)==PTR(scene.game,0x1c);
+ /* Native yes/no prompt child for the Repel continuation. Its work points
+    back to the parent script work at +16, so a different prompt cannot
+    borrow this exception by reusing the same callback address. */
+ if(callback==0x021a82fdu){
+  void *scriptWork=repel_script_work(PTR(event,0));
+  void *prompt=work?PTR(work,0):0;
+  return scriptWork&&prompt&&PTR(prompt,16)==scriptWork;
+ }
  if(callback==0x02154135u){ /* Native end-of-script cleanup child. */
   void *work=PTR(event,12);
   uint32_t active=*(volatile uint32_t*)0x0216e680;
@@ -92,10 +121,21 @@ static void inspect_chain(void){
 }
 static int min(int a,int b){return a<b?a:b;}
 static int max(int a,int b){return a>b?a:b;}
+#ifdef FW_MOUNT
+static int near_step(int32_t next,int32_t current,uint32_t limit){
+ uint32_t delta=(uint32_t)next-(uint32_t)current;
+ return delta<=limit || (uint32_t)(0u-delta)<=limit;
+}
+#endif
 /* Native volume convention: width grows +X and depth grows -Z. Swept
    occupied tiles include both endpoints; separate elevations stay separate.
    This intentionally overestimates a diagonal sweep, never uses screen space. */
 static int intersects(const Vec *from,const Vec *to,unsigned width,unsigned depth){
+#ifdef FW_MOUNT
+ /* A mounted follower shares the player's tile; native player collision
+  * remains authoritative, so the separate-follower reservation is disabled. */
+ if(fwland_active())return 0;
+#endif
  Actor *f=(Actor*)scene.f->actor;if(!f)return 0;
  int fx=f->grid[0],fz=f->grid[2],fw=max(f->dimensions[0],1),fd=max(f->dimensions[1],1);
  int x0=from->x/FW_TILE,x1=to->x/FW_TILE,z0=from->z/FW_TILE,z1=to->z/FW_TILE;
@@ -127,7 +167,16 @@ static void action(Actor *actor,unsigned code){
  if(!scene.active||scene.recalled||!scene.f->actor)return;
  if((uintptr_t)actor==scene.f->actor){recall(FWS_ACTOR_ID,FWE_ACTION,actor,code);return;}
  if(code<=3||(code>=0x3c&&code<=0x42)||code==0xfe||code==0xff)return;
- if(actor==scene.player){recall(FWS_PLAYER_MOVEMENT,FWE_ACTION,actor,code);return;}
+ if(actor==scene.player){
+#ifdef FW_MOUNT
+  /* The native seamless-zone event can finish between event polling and the
+     next player action. A held run then begins with no live event while our
+     presentation latch is still set. This is ordinary input movement, not a
+     script-owned movement command. A new event revokes the exemption. */
+  if(!PTR(scene.game,0x18)&&code>=0x54&&code<=0x5b){scene.naturalRun=1;return;}
+#endif
+  recall(FWS_PLAYER_MOVEMENT,FWE_ACTION,actor,code);return;
+ }
  /* Common field-event setup sets MMDL_MOVEBIT_PAUSE_MOVE on ordinary actors.
     A paused wanderer can still have a queued/local action inspected here, but
     its movement process cannot start it. Predicting that dormant route caused
@@ -237,6 +286,9 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
   return;
  }
  if(kind==FWE_CALLBACK){
+#ifdef FW_MOUNT
+  scene.naturalRun=0;
+#endif
   if(fwt_owns(scene.field)&&subject==PTR(scene.game,0x18))return;
   FollowingSceneDebug.event=(uintptr_t)subject;
   pause_scene();track_event(subject,value);
@@ -245,6 +297,9 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
   return;
  }
  if(kind==FWE_OPCODE){
+#ifdef FW_MOUNT
+  scene.naturalRun=0;
+#endif
   pause_scene();FollowingSceneDebug.opcode=value;FollowingSceneDebug.vm=(uintptr_t)subject;
   void *env=PTR(subject,0x2c),*param=PTR(env,0x20),*work=PTR(param,0);
   FollowingSceneDebug.script=work?*(uint16_t*)((uint8_t*)work+4):0xffff;
@@ -262,7 +317,11 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
    FollowingEventsAPI.preserve(scene.field,scene.generation,&restore);
    scene.boxPreserve=1;
   }
-  if(!fws_safe_opcode(value)&&!pcFade)recall(FWS_UNKNOWN_COMMAND,kind,subject,value);
+  /* Yes on the Repel prompt uses the retail spray-consumption command.
+     Keep it scoped to this script, just like its earlier setup command. */
+  if(!fws_safe_opcode(value)&&!pcFade
+     &&!((value==0x116u||value==0x2c2u)&&FollowingSceneDebug.script==10144u))
+   recall(FWS_UNKNOWN_COMMAND,kind,subject,value);
   return;
  }
  if(kind==FWE_ALLOCATE){
@@ -298,7 +357,15 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
  if(kind==FWE_POSITION||kind==FWE_WORLD_STEP){
   Actor *actor=subject;const Vec *target=(const Vec*)value;
   if(target->x==actor->world.x&&target->y==actor->world.y&&target->z==actor->world.z)return;
-  if(actor==scene.player)recall(FWS_PLAYER_MOVEMENT,kind,subject,0);
+  if(actor==scene.player){
+#ifdef FW_MOUNT
+   if(kind==FWE_WORLD_STEP&&scene.naturalRun&&!PTR(scene.game,0x18)
+      &&near_step(target->x,actor->world.x,FW_TILE)
+      &&near_step(target->y,actor->world.y,FW_TILE*2)
+      &&near_step(target->z,actor->world.z,FW_TILE))return;
+#endif
+   recall(FWS_PLAYER_MOVEMENT,kind,subject,0);
+  }
   else if((uintptr_t)actor==scene.f->actor)recall(FWS_ACTOR_ID,kind,subject,0);
   else if(intersects(kind==FWE_WORLD_STEP?&actor->world:target,target,max(actor->dimensions[0],1),max(actor->dimensions[1],1)))recall(FWS_COLLISION,kind,subject,0);
  }
@@ -317,6 +384,7 @@ void fws_mark_menu(void *event){
  if(!event||!scene.sys||scene.recalled)return;
  scene.menuRoot=event;pause_scene();track_event(event,U32(event,4));
 }
+int fws_menu_active(void){return scene.menuRoot&&!scene.recalled;}
 int fws_take_restore(FweRestore *restore){
  if(!scene.sys||FollowingEventsAPI.abi!=FWE_ABI||!FollowingEventsAPI.consume(restore))return 0;
  scene.pcActive=scene.pcFade=1;scene.previousState=FW_FOLLOWING;
@@ -330,11 +398,17 @@ unsigned fws_poll(void){
  if(!scene.sys)return 0;
  if(scene.sys->field!=scene.field||scene.f->generation!=scene.generation){fws_detach();return FWS_INVALID;}
  if(PTR(scene.game,0x18)){
+#ifdef FW_MOUNT
+  scene.naturalRun=0;
+#endif
   if(!fwt_owns(scene.field))inspect_chain();
  }else if(scene.active&&!*((uint8_t*)scene.game+0x35)){
   unsigned recalled=scene.recalled;
   if(scene.boxPreserve)FollowingEventsAPI.discard();
   scene.active=scene.recalled=scene.pcActive=scene.pcFade=scene.boxPreserve=0;
+#ifdef FW_MOUNT
+  scene.naturalRun=0;
+#endif
   scene.menuRoot=scene.pcVm=0;
   for(unsigned i=0;i<EVENT_LIMIT;++i)scene.events[i]=(EventToken){0};
   for(unsigned i=0;i<VM_LIMIT;++i)scene.vms[i]=(VmToken){0};

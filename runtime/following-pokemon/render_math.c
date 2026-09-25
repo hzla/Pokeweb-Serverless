@@ -27,11 +27,48 @@ static int axis(FwPoint d,FwPoint *out){
  int32_t length=(int32_t)root((uint32_t)(d.x*d.x+d.y*d.y+d.z*d.z));
  *out=(FwPoint){divide((int64_t)d.x*4096,length),divide((int64_t)d.y*4096,length),divide((int64_t)d.z*4096,length)};return 1;
 }
+static int shift_depth(const FwrPose *native,const FwrCamera *camera,FwPoint direction,
+                       int32_t change,FwrPose *out){
+ *out=*native;
+ if(change>2*FW_TILE||change<-2*FW_TILE)return 0;
+ if(camera->projection==2){
+  out->position.x+=divide((int64_t)direction.x*change,4096);
+  out->position.y+=divide((int64_t)direction.y*change,4096);
+  out->position.z+=divide((int64_t)direction.z*change,4096);
+ }else{
+  /* Shift on the eye ray and scale the quad so its screen pixels stay put. */
+  FwPoint ray;
+  if(!delta(camera->eye,native->position,&ray,1<<27))return 0;
+  int32_t distance=dot(ray,direction);
+  if(distance<4*FW_TILE||distance-change<4*FW_TILE)return 0;
+  out->position.x+=divide((int64_t)ray.x*change,distance);
+  out->position.y+=divide((int64_t)ray.y*change,distance);
+  out->position.z+=divide((int64_t)ray.z*change,distance);
+  out->sx+=divide(-(int64_t)native->sx*change,distance);
+  out->sy+=divide(-(int64_t)native->sy*change,distance);
+  if(out->sx<=0||out->sy<=0||out->sx>32767||out->sy>32767){*out=*native;return 0;}
+ }
+ return 1;
+}
+int fwr_above_shadow(const FwrPose *native,const FwPoint *ground,
+                     const FwrCamera *camera,FwrPose *out){
+ *out=*native;
+ if(camera->projection>2||native->sx<=0||native->sy<=0||native->sx>32767||native->sy>32767)return 0;
+ FwPoint direction,relative;
+ if(!delta(camera->eye,camera->target,&direction,1<<27)||!axis(direction,&direction)
+  ||!delta(native->position,*ground,&relative,8*FW_TILE))return 0;
+ /* The shadow sits one unit above ground and spans several ground pixels.
+  * Clear the whole footprint with a continuous depth clamp across bobbing
+  * frames, so the player/follower overlap cannot toggle at a threshold. */
+ int32_t current=dot(relative,direction),target=6*4096;
+ if(current>=target)return 0;
+ return shift_depth(native,camera,direction,target-current+16,out);
+}
 int fwr_correct(const FwPoint *world,const FwPoint *player_world,
  const FwrPose *native,const FwPoint *player_draw,const FwrCamera *camera,
  unsigned flags,FwrPose *out,FwrResult *result){
  *out=*native;*result=(FwrResult){0};
- FwPoint direction,relative,base,ray;
+ FwPoint direction,relative,base;
  if(camera->projection>2||native->sx<=0||native->sy<=0||native->sx>32767||native->sy>32767
   ||!delta(camera->eye,camera->target,&direction,1<<27)||!axis(direction,&direction)
   ||!delta(*world,*player_world,&base,4*FW_TILE)||!delta(native->position,*player_draw,&relative,8*FW_TILE))return 0;
@@ -43,7 +80,12 @@ int fwr_correct(const FwPoint *world,const FwPoint *player_world,
  if(horizontal_length<256)return 0;
  int32_t h=divide((int64_t)dot(base,horizontal)*4096,horizontal_length),target=-FWR_TIE_MARGIN;
  int front=h>FW_TILE/2,unequal=base.y>8192||base.y<-8192,lower=0;
- if(unequal){
+ if(flags&(FWR_FORCE_FRONT|FWR_FORCE_BACK)){
+  front=!!(flags&FWR_FORCE_FRONT);
+  /* Surf's seated rider and mount have overlapping quads. A tie-sized depth
+   * gap can quantize away as the rider bobs, switching their visible order. */
+  target=front?4*4096:-4*4096;
+ }else if(unequal){
   if(!(flags&FWR_LARGE)||(!front&&base.y>0))return 0;
   lower=!front;target=front?8*4096:-4*4096;
  }else if(front){
@@ -65,24 +107,7 @@ int fwr_correct(const FwPoint *world,const FwPoint *player_world,
  /* Cover fixed-point normalization and translation rounding at submission. */
  change+=change<0?-16:16;
  /* A corrupt/disconnected pose must never cause a large visual teleport. */
- if(change>2*FW_TILE||change<-2*FW_TILE)return 0;
- if(camera->projection==2){
-  out->position.x+=divide((int64_t)direction.x*change,4096);
-  out->position.y+=divide((int64_t)direction.y*change,4096);
-  out->position.z+=divide((int64_t)direction.z*change,4096);
- }else{
-  /* Move on the eye ray and scale the quad by the same ratio. Its projected
-   * anchor and corners stay fixed, including off-center perspective cameras. */
-  if(!delta(camera->eye,native->position,&ray,1<<27))return 0;
-  int32_t distance=dot(ray,direction);
-  if(distance<4*FW_TILE||distance-change<4*FW_TILE)return 0;
-  out->position.x+=divide((int64_t)ray.x*change,distance);
-  out->position.y+=divide((int64_t)ray.y*change,distance);
-  out->position.z+=divide((int64_t)ray.z*change,distance);
-  out->sx+=divide(-(int64_t)native->sx*change,distance);
-  out->sy+=divide(-(int64_t)native->sy*change,distance);
-  if(out->sx<=0||out->sy<=0||out->sx>32767||out->sy>32767){*out=*native;return 0;}
- }
+ if(!shift_depth(native,camera,direction,change,out))return 0;
  if(!delta(out->position,*player_draw,&relative,8*FW_TILE)){*out=*native;return 0;}
  result->after=dot(relative,direction);return 1;
 }

@@ -42,7 +42,18 @@ def audit(profile,rom_path):
  assert sizes['fwfield_index']==(1025 if profile=='white2upgrade' else 651)*2
  allocatedRegistry=0
  total=sum(m['codePlusBss'] for m in modules)+allocatedRegistry
+ surf_registry=rom.getFileByName('following/surf-registry.bin')
+ surf_archive=rom.getFileByName('following/surf-mounts.narc')
+ surf=dict(registryBytes=len(surf_registry),archiveBytes=len(surf_archive),
+           appearances=struct.unpack_from('<H',surf_registry,8)[0],residentTextureCount=16,
+           heapIndexBytes=0)
+ rider=rom.getFileByName('following/land-riders.narc')
+ anchors=rom.getFileByName('following/land-anchors.bin')
+ land=dict(riderArchiveBytes=len(rider),anchorTableBytes=len(anchors),
+           appearanceRows=struct.unpack_from('<H',anchors,6)[0],residentRiderTextures=12,
+           codeAndInitializedDataBytes=next(m['codeAndInitializedData'] for m in modules if 'Field' in m['name']))
  return dict(profile=profile,version=manifest['version'],modules=modules,
+             surf=surf,land=land,
              largestObjects=sorted(objects,key=lambda o:o['bytes'],reverse=True)[:15],
              fixedPayloadBytes=total,registryBytes=len(data),registryRecords=count,
              registryHeapBytes=allocatedRegistry,pageBytes=sizes['fwfield_page'],indexBytes=sizes['fwfield_index'],
@@ -54,7 +65,7 @@ def audit(profile,rom_path):
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('stock_rom',type=Path);p.add_argument('black2_rom',type=Path);p.add_argument('upgrade_rom',type=Path);a=p.parse_args()
  reports=[audit('stock',a.stock_rom),audit('black2',a.black2_rom),audit('white2upgrade',a.upgrade_rom)]
- previous=[dict(profile='stock',version='0.6.31-alpha',fixedPayloadBytes=46648),dict(profile='black2',version='0.6.31-alpha',fixedPayloadBytes=46648),dict(profile='white2upgrade',version='0.7.22-alpha',fixedPayloadBytes=47628)]
+ previous=[dict(profile='stock',version='0.6.62-alpha',fixedPayloadBytes=61024),dict(profile='black2',version='0.6.36-alpha',fixedPayloadBytes=60896),dict(profile='white2upgrade',version='0.7.31-alpha',fixedPayloadBytes=61884)]
  out={'measurements':reports,'previousReleaseMeasurements':previous,
       'limits':'Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.',
       'implementationStatus':'ROM registry streaming and 8 KiB conversation buffers implemented; automated checks passed, game emulator acceptance pending.'}
@@ -69,6 +80,8 @@ def main():
   'allocates a separate registry. Loader bookkeeping, allocator overhead,',
   'stack, native actor/effect/message allocations and VRAM remain separate.',
   'These numbers are not whole-game peak heap measurements.', '',
+  *[f"The {r['profile']} Surf catalog contains {r['surf']['appearances']:,} ROM-resident appearance records in a {r['surf']['registryBytes']:,}-byte index and a {r['surf']['archiveBytes']:,}-byte archive. It allocates no permanent index buffer; only the chosen mount's sixteen textures are loaded. Native graphics allocations and VRAM are outside the fixed-payload total." for r in reports if r['surf']], '',
+  *[f"The {r['profile']} land mount stores {r['land']['appearanceRows']:,} eight-byte rider anchors in {r['land']['anchorTableBytes']:,} ROM bytes and animated bike-free rider art in a {r['land']['riderArchiveBytes']:,}-byte archive. It reads one anchor record on mount and loads twelve rider textures only while mounted. The existing follower billboard supplies the Pokémon artwork; native graphics allocations and VRAM are not included in fixed payload." for r in reports if r['land']], '',
   'The 64-record trail replaces the earlier 256-record trail. Each 28-byte record stores',
   'a sampled world position and route metadata. The follower sidecar shrinks from',
   '7,228 to 1,852 bytes, saving 5,376 bytes in the field module for every profile.',
@@ -93,7 +106,7 @@ def main():
   '- Upgrade reaction selection now accepts species 1–1023; stock remains 1–649.',
   '  Egg IDs remain excluded. Actual selected species reaches the native cry',
   '  call; this change does not install additional cry assets.', '',
-  'All three builds still use `-Os` and RPM `--strip`. Packaged symbol names are',
+  'All audited builds still use `-Os` and RPM `--strip`. Packaged symbol names are',
   'stripped; exports/import hashes and required relocations remain. Debug ELFs',
   'are not installed into ROM. History capacity and drawing corrections are unchanged; trail distance now accounts for sprite width.', '',
   '## Verification and limits','',

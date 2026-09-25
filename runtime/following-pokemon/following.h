@@ -49,6 +49,9 @@ typedef struct {
     FwTrail trail;
 } FwFollower;
 int fw_select(const FwPokemon *party, unsigned count);
+/* L/R selection wraps over non-Egg party members, preferring healthy members
+ * exactly as automatic lead selection does. Does not reorder the party. */
+int fw_cycle_slot(const FwPokemon *party, unsigned count, int current, int direction);
 int fw_same_identity(const FwPokemon *a, const FwPokemon *b);
 int fw_tired(const FwPokemon *mon);
 /* The native billboard owns the directional loop.  This gate keeps its last

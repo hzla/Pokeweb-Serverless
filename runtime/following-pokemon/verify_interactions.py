@@ -51,13 +51,26 @@ def gift_archive():
  narc=ndspy.narc.NARC();narc.files=[bytes(member)];return narc.save()
 assets={"rom:/following/interactions.bin":(HERE.parents[1]/'src/assets/following/interactions.bin').read_bytes(),"rom:/following/emotes.narc":(HERE.parents[1]/'src/assets/following/interaction-emotes.narc').read_bytes(),"rom:/following/contextual-items.narc":gift_archive()}
 files={};calls=[];alloc=[];frees=[];held=pressed=0;free_bytes=131072;provider=0;controller=0;blocked=0;fail='';resource_counter=0;print_done=1;close_done=1
-native_addresses={0x02070ca8,0x02070ecc,0x02070dec,0x02070e6c,0x02070de0,0x0203a2d4,0x02180578,0x02195728,0x0219a9d0,0x0219aacc,0x0215e4f0,0x02016cb4,0x02016d08,0x02167098,0x0219a5d8,0x0203df4c,0x0203df28,0x02005cbc,0x020069f4,0x02006b5c,0x021804d0,0x02180500,0x0204855c,0x02048590,0x02048640,0x021887d8,0x02188814,0x02188834,0x02188858,0x021888c4,0x02188a08,0x020493f0,0x02049430,0x02049560,0x0204e598,0x0204e55c,0x0204ebdc,0x0218151c,0x02181aa0,0x02017354,0x0201735c,0x0201fe24,0x0201ff34,0x0201cd24,0x0201ccc4,0x0201ccec,0x0201eef0,0x02008238,0x02008268}
+native_addresses={0x02070ca8,0x02070ecc,0x02070dec,0x02070e6c,0x02070de0,0x0203a2d4,0x02180578,0x02195728,0x0219a9d0,0x0219aacc,0x0215e4f0,0x02016cb4,0x02016d08,0x02167098,0x02194b88,0x02194f18,0x0215e8e4,0x02194d8c,0x0219a5d8,0x0203df4c,0x0203df28,0x02005cbc,0x020069f4,0x02006b5c,0x021804d0,0x02180500,0x0204855c,0x02048590,0x02048640,0x021887d8,0x02188814,0x02188834,0x02188858,0x021888c4,0x02188a08,0x020493f0,0x02049430,0x02049560,0x0204e598,0x0204e55c,0x0204ebdc,0x0218151c,0x02181aa0,0x02017354,0x0201735c,0x0201fe24,0x0201ff34,0x0201cd24,0x0201ccc4,0x0201ccec,0x0201eef0,0x02008238,0x02008268}
 bag_adds=[]
+terrain_attr=0
+grass_entries=[]
+terrain_queries=[]
 def native(u,pc,size,user):
  global resource_counter
  if pc not in native_addresses:return
  assert u.reg_read(UC_ARM_REG_SP)%8==0,hex(pc)
  r=[u.reg_read(x) for x in [UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3]];r0,r1,r2,r3=r;calls.append((pc,*r));result=1
+ if pc==0x02194b88 and os.environ.get('FOLLOWING_PROFILE','stock')=='stock':
+  raise AssertionError('Stock synthetic actor must not call native movement-context tile dispatcher')
+ if pc==0x02194f18:result=scene
+ if pc==0x0215e8e4:
+  terrain_queries.append((r0,struct.unpack('<iii',u.mem_read(r1,12))))
+  put(r2,terrain_attr)
+  result=int(terrain_attr!=0)
+ if pc==0x02194d8c:
+  grass_entries.append((r0,r1))
+  result=0
  if pc==0x02070ecc:
   path=cstr(r1);result=int(path in assets and fail!='data');files[r0]=[path,0]
  if pc==0x02070dec:result=len(assets[files[r0][0]])

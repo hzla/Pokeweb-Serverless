@@ -11,6 +11,17 @@ int main(void) {
     party[0].species=1;party[0].egg=1;party[0].hp=10; assert(fw_select(party,1)==-1);
     party[1].species=2;party[2].species=3;party[2].hp=1;
     assert(fw_select(party,3)==2);party[2].hp=0;assert(fw_select(party,3)==1);
+    party[1].hp=1;party[2].hp=1;party[3].species=4;party[3].hp=1;
+    assert(fw_cycle_slot(party,4,1,1)==2);
+    assert(fw_cycle_slot(party,4,1,-1)==3);
+    assert(fw_cycle_slot(party,4,3,1)==1);
+    party[2].hp=0;assert(fw_cycle_slot(party,4,1,1)==3);
+    party[1].hp=party[3].hp=0;assert(fw_cycle_slot(party,4,1,1)==2);
+    party[2].egg=1;assert(fw_cycle_slot(party,4,1,1)==3);party[2].egg=0;
+    party[1].egg=party[3].egg=1;assert(fw_cycle_slot(party,4,2,1)==-1);
+    party[1].egg=party[3].egg=0;
+    assert(fw_cycle_slot(party,4,1,0)==-1 && fw_cycle_slot(party,7,1,1)==-1);
+    party[1].hp=26;party[2].hp=0;
     party[1].max_hp=100;party[1].hp=25;assert(fw_tired(&party[1]));party[1].hp=26;assert(!fw_tired(&party[1]));
     FwPokemon a=party[1],b=a;assert(fw_same_identity(&a,&b)); b.personality++;assert(!fw_same_identity(&a,&b));
     b=a;b.shiny=1;assert(!fw_same_identity(&a,&b)); b=a;b.form++;assert(!fw_same_identity(&a,&b));

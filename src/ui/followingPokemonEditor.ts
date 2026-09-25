@@ -2,7 +2,7 @@ import { unzipSync, zipSync } from "fflate";
 import { decodeRecord, type ProjectState } from "../pokeweb/projectStore";
 import { NARC } from "../nds/narc";
 import { downloadBytes, getRomFileBytes } from "../pokeweb/fileSystemModel";
-import { checkFollowerCompatibility, installFollowerAlpha, removeFollowerAlpha, readFollowerAlphaInstall, setFollowerAlphaEnabled, followerRom, prepareFollowerWorkspace, readFollowerAsset, readFollowerWorkspace, replaceFollowerAssets, followerRuntimeVersion, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_RUNTIME_REGISTRY_PATH, type FollowerAssetWorkspace, type FollowerRom, type FollowerAlphaInstall } from "../pokeweb/followingPokemonProject";
+import { checkFollowerCompatibility, installFollowerAlpha, removeFollowerAlpha, readFollowerAlphaInstall, setFollowerAlphaEnabled, followerRom, prepareFollowerWorkspace, readFollowerAsset, readFollowerWorkspace, replaceFollowerAssets, followerArtworkPending, followerRuntimeVersion, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_RUNTIME_REGISTRY_PATH, type FollowerAssetWorkspace, type FollowerRom, type FollowerAlphaInstall } from "../pokeweb/followingPokemonProject";
 import { typeNamesForProject } from "../pokeweb/constants";
 import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
 import { findPokemonBaseSpeciesId, findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
@@ -17,6 +17,16 @@ const templates = {
   64: new URL("../assets/following/template-64-8.btx", import.meta.url),
 };
 export const FOLLOWER_SPRITE_CREDITS = "Smogon Sprite Project, TraviS, LennyBitao, MyMarshlands, DarkusShadow, CarmaNekko, kiriaura, Gnomowladny, Krune, n-kin, JaegerLucciano23, joshr691, Jefelin, MultiDiegoDani, onigin_pixelart, Prodigal96, zerudez, leparagon, arinoelle, diegotoon20, gardow, greyenna, conyjams, kingofthe-x-roads, RayquazaFlygon, metalflygon08 on DeviantArt, and MaMe, maple, Layell, SelenaFF, Sopita Yorita, zlolxd - Pokémon Sprites";
+const FOLLOWER_OVERWORLD_CREDITS: Array<[string, string]> = [
+  ["Gen 1-5 Pokemon Overworlds", "MissingLukey, help-14, Kymoyonian, cSc-A7X, 2and2makes5, Pokegirl4ever, Fernandojl, Silver-Skies, TyranitarDark, Getsuei-H, Kid1513, Milomilotic11, Kyt666, kdiamo11, Chocosrawlooid, Syledude, Gallanty, Gizamimi-Pichu, 2and2makes5, Zyon17,LarryTurbo, spritesstealer, LarryTurbo"],
+  ["Gen 6+ Berry Tree Overworlds", "Anarlaurendil"],
+  ["Gen 6 Pokemon Overworlds", "princess-pheonix, LunarDusk, Wolfang62, TintjeMadelintje101, piphybuilder88"],
+  ["Gen 7 Pokemon Overworlds", "Larry Turbo, princess-pheonix"],
+  ["Gen 8 Pokemon Overworlds", "SageDeoxys, Wolfang62, LarryTurbo, tammyclaydon"],
+  ["PLA Pokemon Overworlds", "Boonzeet, DarkusShadow, princess-phoenix, Ezeart, WolfPP"],
+  ["Gen 9 Pokemon Overworlds", "Azria, DarkusShadow, EduarPokeN, Carmanekko, StarWolff, Caruban"],
+  ["PLZA Pokemon Overworlds", "DarkusShadow"],
+];
 const hpConditions: Array<[number, string]> = [[1, "Full HP"], [2, "75–99% HP"], [3, "50–74% HP"], [4, "25–49% HP"], [5, "Below 25% HP"]];
 const friendshipConditions: Array<[number, string]> = [[1, "Maximum (255)"], [2, "Very high (200–254)"], [3, "High (150–199)"], [4, "Friendly (90–149)"], [5, "Neutral (60–89)"], [6, "Low (30–59)"], [7, "Very low (1–29)"], [8, "Minimum (0)"], [9, "90 or higher"], [10, "Below 60"]];
 const statusConditions: Array<[number, string]> = [[1, "Healthy"], [2, "Burned"], [3, "Frozen"], [4, "Paralyzed"], [5, "Poisoned"], [7, "Any status condition"], [8, "Asleep"]];
@@ -95,6 +105,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   const aggregateSpeciesOptions = aggregateSpeciesIds.map(id => `<option value="${escapeHtml(speciesDisplayValue(project, id))}"></option>`).join("");
   const panel = document.createElement("section"); panel.className = "code-injection-card following-pokemon-editor";
   panel.innerHTML = `<header class="following-editor-hero"><div><span class="following-editor-kicker">Field feature</span><h2>Following Pokémon</h2></div></header>
+    <p class="following-mount-help" data-fw-land-help hidden>While stopped outdoors, hold A or B and press the other button to ride the selected visible follower; repeat to dismount. The Pokémon’s Personal base Speed sets travel pace, regardless of level or nature. Holding B while moving speeds up both the Pokémon’s two-frame animation and the trainer’s three-frame riding animation. A mount that knows Surf can carry you onto water. Riding ends at doors, battles, and party changes, and is not saved.</p>
     <div class="following-editor-runtime-actions code-injection-actions"><button class="btn -primary" data-fw-prepare disabled>Prepare asset workspace</button>
     <button class="btn" data-fw-install disabled>Install follower alpha</button><button class="btn" data-fw-toggle hidden>Disable following</button><button class="btn" data-fw-remove hidden>Remove runtime</button></div>
     <section class="following-interaction-workspace"><div class="following-aggregate-toolbar"><label><span>View rules for Pokémon</span><input type="text" list="follower-overview-species" placeholder="Choose a Pokémon" autocomplete="off" data-fw-aggregate-species disabled></label>
@@ -107,11 +118,13 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
     <div id="following-gift-panel" role="tabpanel" aria-labelledby="following-gift-tab" data-fw-items hidden></div>
     <div id="following-overview-panel" role="tabpanel" aria-labelledby="following-overview-tab" data-fw-overview hidden></div></section>
     <div data-fw-assets></div><p data-fw-error role="alert"></p>
-    <footer class="following-sprite-credits" aria-label="Follower sprite credits"><span>Sprite credits</span><p>${escapeHtml(FOLLOWER_SPRITE_CREDITS)}</p></footer>`;
+    <footer class="following-sprite-credits" aria-label="Follower sprite credits"><span>Sprite credits</span><p>${escapeHtml(FOLLOWER_SPRITE_CREDITS)}</p>
+      ${FOLLOWER_OVERWORLD_CREDITS.map(([category, creators]) => `<p><strong>${escapeHtml(category)}</strong> — ${escapeHtml(creators)}</p>`).join("")}</footer>`;
   root.append(panel);
   let rom: FollowerRom | undefined, workspace: FollowerAssetWorkspace | undefined, previewWorkspace: FollowerAssetWorkspace | undefined, selected = "", stock: Uint8Array[] | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   const error = panel.querySelector<HTMLElement>("[data-fw-error]")!;
+  const landHelp = panel.querySelector<HTMLElement>("[data-fw-land-help]")!;
   const prepare = panel.querySelector<HTMLButtonElement>("[data-fw-prepare]")!;
   const install = panel.querySelector<HTMLButtonElement>("[data-fw-install]")!;
   const toggle = panel.querySelector<HTMLButtonElement>("[data-fw-toggle]")!;
@@ -412,7 +425,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
         const response = await fetch(templates[frames[0].width as 32 | 64]); if (!response.ok) throw new Error("Missing billboard template.");
         const bytes = encodeFollowerFrames(frames, new Uint8Array(await response.arrayBuffer()));
         workspace = replaceFollowerAssets(project, rom, [{ key: entry.key, bytes, profile: "pokemon-asymmetric", source: "png", label: file.name }]);
-        error.textContent = ""; onDirty(); renderAssets();
+        error.textContent = ""; onDirty(); renderAssets(); await refreshRuntime(await readFollowerAlphaInstall(project, rom));
       } catch (reason) { fail(reason); }
     });
     assets.querySelector("[data-fw-export]")!.addEventListener("click", () => {
@@ -448,7 +461,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
           if (typeof e.path !== "string" || !files[e.path]) throw new Error("Asset pack resource is missing.");
           return { key: e.key, bytes: files[e.path], profile: e.profile, source: e.source ?? "png", label: file.name, placeholder: e.placeholder, placeholderReason: e.placeholderReason };
         });
-        workspace = replaceFollowerAssets(project, rom, updates); error.textContent = ""; onDirty(); renderAssets();
+        workspace = replaceFollowerAssets(project, rom, updates); error.textContent = ""; onDirty(); renderAssets(); await refreshRuntime(await readFollowerAlphaInstall(project, rom));
       } catch (reason) { fail(reason); }
     });
   }
@@ -466,9 +479,12 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   }
   async function refreshRuntime(state: FollowerAlphaInstall | undefined): Promise<boolean> {
     if (!state) return false;
+    landHelp.hidden = !state.landRiderSha256 || !!state.removed;
     const runtimeVersion = await followerRuntimeVersion(project, rom);
-    enabled = state.enabled; install.disabled = state.version === runtimeVersion && !state.removed;
-    install.textContent = state.removed ? "Reinstall follower alpha" : install.disabled ? `Installed ${state.version}` : `Update ${state.version} to ${runtimeVersion}`;
+    enabled = state.enabled;
+    const importedArtwork = state.profile === "stock" && !!rom && followerArtworkPending(project, rom);
+    install.disabled = state.version === runtimeVersion && !state.removed && !importedArtwork;
+    install.textContent = state.removed ? "Reinstall follower alpha" : importedArtwork && state.version === runtimeVersion ? "Apply follower artwork" : install.disabled ? `Installed ${state.version}` : `Update ${state.version} to ${runtimeVersion}`;
     toggle.hidden = !!state.removed; remove.hidden = !!state.removed; toggle.textContent = enabled ? "Disable following" : "Enable following";
     loadRuntimePreviewWorkspace();
     await renderDialogues(); await renderItems();
