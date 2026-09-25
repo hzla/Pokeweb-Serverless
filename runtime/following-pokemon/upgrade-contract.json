@@ -26,6 +26,13 @@
   ],
   "nativeAdapters": [
     {
+      "id": "follower-native-tile-entry-effects",
+      "segment": "36",
+      "address": 35212168,
+      "expectedHex": "f8b5051cfff7bcff002828d0",
+      "abi": "Thumb; r0=live Actor*. Refreshes native old/current tile permissions and dispatches tile-entry field effects through the field-effect controller. Called only for a visible grounded follower crossing a grid tile; no patch is written at this site."
+    },
+    {
       "id": "follower-native-shadow-register",
       "segment": "36",
       "address": 35212788,

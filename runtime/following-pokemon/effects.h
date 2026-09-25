@@ -10,6 +10,7 @@ void fwfx_cancel(void);
 void fwfx_destroy(void);
 int fwfx_hides_actor(void);
 int fwfx_busy(void);
+int fwfx_available(void);
 void fwfx_draw(void *camera,void *light);
 /* Private reaction emotes; frame resources never alias a native actor palette. */
 int fwfx_emote_begin(Actor *actor,unsigned member);

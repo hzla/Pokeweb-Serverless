@@ -99,6 +99,20 @@ for changed in (False,True):
   assert not h.u32(h.addr('fwfield_restore'))
 # Older/mismatched resident bridge must fail closed without calling a missing
 # optional function, and hidden followers must not gain a visible PC snapshot.
+s.setup();api=s.ex[symbol_hash('FollowingEventsAPI')]
+assert h.u32(api)==5 and h.u32(api+4)==40
+mount=s.VEC;received=s.MAN
+uc.mem_write(mount,bytes(64));h.put(mount,h.GAMEDATA);h.put(mount+20,151)
+h.call(h.u32(api+28),[h.FIELD,1,mount])
+h.call('fws_detach')
+uc.mem_write(received,bytes(64))
+assert h.call(h.u32(api+32),[h.GAMEDATA,received])==1
+assert bytes(uc.mem_read(received,44))==bytes(uc.mem_read(mount,44))
+assert h.call(h.u32(api+32),[h.GAMEDATA,received])==0, 'The menu token must be one-shot'
+s.setup();h.call(h.u32(api+28),[h.FIELD,1,mount])
+assert h.call(h.u32(api+32),[h.GAME,received])==0, 'A different game-data owner must reject the token'
+s.setup();h.call(h.u32(api+28),[h.FIELD,1,mount]);h.call(h.u32(api+36))
+assert h.call(h.u32(api+32),[h.GAMEDATA,received])==0, 'Battle or unsafe-scene discard must clear the menu token'
 s.setup();api=s.ex[symbol_hash('FollowingEventsAPI')];abi=h.u32(api);h.put(api,1)
 try:
  h.call('fws_detach');h.put(h.addr('fwfield_eventsReady'),0)
@@ -106,4 +120,4 @@ try:
 finally:h.put(api,abi)
 s.setup();s.event();s.opcode(0x130);h.put(h.A,h.u32(h.A)|4);s.opcode(0x14f)
 assert not h.call('fws_take_restore',[RESTORE])
-print(f'Continuity checks passed: {h.CYCLES} menu-close, PC presentation/fade cycles and native zone deletions; {h.CYCLES*34} real-map NPC initial placements, destination/sweep conflicts and spawn-data guards; {h.CYCLES} unchanged + {h.CYCLES} changed-identity storage reconstructions; keep-zone + non-save flags; unsafe child/fade and teardown guards. Native UI/map/allocation mocked; no emulator run.')
+print(f'Continuity checks passed: {h.CYCLES} menu-close, PC presentation/fade cycles and native zone deletions; one-shot mounted-Surf menu-token preservation, game-owner rejection and discard; {h.CYCLES*34} real-map NPC initial placements, destination/sweep conflicts and spawn-data guards; {h.CYCLES} unchanged + {h.CYCLES} changed-identity storage reconstructions; keep-zone + non-save flags; unsafe child/fade and teardown guards. Native UI/map/allocation mocked; no emulator run.')

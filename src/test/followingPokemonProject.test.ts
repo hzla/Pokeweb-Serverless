@@ -2,6 +2,7 @@ import interactionManifest from "../assets/following/interactions.json";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { NintendoDSRom } from "../nds/rom";
 import { Folder } from "../nds/fnt";
 import type { ProjectState } from "../pokeweb/projectStore";
@@ -100,8 +101,8 @@ describe("follower asset transactions",()=>{
   });
 });
 
-import { encodeFollowerNativeConfig, followerRomSha256, readFollowerAlphaInstall, setFollowerAlphaEnabled, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_DLL_PATH, FOLLOWER_EVENTS_DLL_PATH, FOLLOWER_CORE_DLL_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, FOLLOWER_NATIVE_PATH, FOLLOWER_INSTALL_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH } from "../pokeweb/followingPokemonProject";
-import { encodeFollowerRegistry, followerCrc32 } from "../pokeweb/followingPokemonModel";
+import { encodeFollowerNativeConfig, followerRomSha256, readFollowerAlphaInstall, setFollowerAlphaEnabled, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_DLL_PATH, FOLLOWER_EVENTS_DLL_PATH, FOLLOWER_CORE_DLL_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, FOLLOWER_NATIVE_PATH, FOLLOWER_INSTALL_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH, FOLLOWER_SURF_RESOURCE_PATH, FOLLOWER_SURF_REGISTRY_PATH, FOLLOWER_LAND_RIDER_PATH, FOLLOWER_LAND_ANCHORS_PATH } from "../pokeweb/followingPokemonProject";
+import { encodeFollowerRegistry, decodeFollowerRegistry, encodeFollowerLandAnchors, followerCrc32 } from "../pokeweb/followingPokemonModel";
 import runtimeManifest from "../assets/following/runtime.json";
 import effectsManifest from "../assets/following/effects.json";
 import { NARC } from "../nds/narc";
@@ -140,9 +141,15 @@ describe("walking alpha ownership",()=>{
     const {project}=fixture(),{config,registry}=nativeConfig(),descriptorArchive=new NARC(),resourceArchive=new NARC();
     descriptorArchive.files=[new Uint8Array(4+1009*28)];new DataView(descriptorArchive.files[0].buffer).setUint32(0,1009,true);
     resourceArchive.files=Array.from({length:975},()=>new Uint8Array());
+    const fixtureFrame=()=>{const rgba=new Uint8Array(32*32*4);rgba.set([255,0,0,255],(16*32+16)*4);return {width:32,height:32,rgba};};
+    resourceArchive.files[400]=encodeFollowerFrames(Array.from({length:6},fixtureFrame),new Uint8Array(readFileSync(new URL('../assets/following/template-32-6.btx',import.meta.url))));
     const descriptor=descriptorArchive.save(),resources=resourceArchive.save();
+    const surf=new Uint8Array(readFileSync(new URL('../assets/following/surf-mounts.narc',import.meta.url)));
+    const surfRegistry=new Uint8Array(readFileSync(new URL('../assets/following/surf-registry.bin',import.meta.url)));
+    const rider=new Uint8Array(readFileSync(new URL('../assets/following/land-riders.narc',import.meta.url)));
+    const anchors=encodeFollowerLandAnchors(decodeFollowerRegistry(registry),resourceArchive.files,registry);
     const dialogues=new Uint8Array(readFileSync(new URL('../assets/following/contextual-dialogues.narc',import.meta.url)));
-    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues)};
+    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues),surfSha256:await followerRomSha256(surf),surfRegistrySha256:await followerRomSha256(surfRegistry),landRiderSha256:await followerRomSha256(rider),landAnchorsSha256:await followerRomSha256(anchors)};
     Object.assign(project.fileSystem!.additions!,{
       [FOLLOWER_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingFieldW2.dll',import.meta.url))),
       [FOLLOWER_EVENTS_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingEventsW2.dll',import.meta.url))),
@@ -151,6 +158,8 @@ describe("walking alpha ownership",()=>{
       [FOLLOWER_INTERACTIONS_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/interactions.bin',import.meta.url))),
       [FOLLOWER_EMOTES_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/interaction-emotes.narc',import.meta.url))), [FOLLOWER_DIALOGUE_NARC_PATH]:dialogues,
       [FOLLOWER_NATIVE_PATH]:config,[FOLLOWER_INSTALL_PATH]:new TextEncoder().encode(JSON.stringify(state)),
+      [FOLLOWER_LAND_RIDER_PATH]:rider,[FOLLOWER_LAND_ANCHORS_PATH]:anchors,
+      [FOLLOWER_SURF_RESOURCE_PATH]:surf,[FOLLOWER_SURF_REGISTRY_PATH]:surfRegistry,
       [FOLLOWER_EFFECTS_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/hgss-effects.narc',import.meta.url))),
     });
     expect((await readFollowerAlphaInstall(project))?.enabled).toBe(true);
@@ -164,12 +173,13 @@ describe("walking alpha ownership",()=>{
     await expect(setFollowerAlphaEnabled(project,false)).rejects.toThrow(/effect assets have changed/);
     effects[100]^=1;
     const events=project.fileSystem!.additions![FOLLOWER_EVENTS_DLL_PATH];events[32]^=1;
-    const beforeEvents=structuredClone(project);
-    await expect(setFollowerAlphaEnabled(project,false)).rejects.toThrow(/event module has changed/);expect(project).toEqual(beforeEvents);
+    const fingerprints=()=>Object.entries(project.fileSystem!.additions!).map(([path,bytes])=>[path,createHash('sha256').update(bytes).digest('hex')]).sort(([a],[b])=>a.localeCompare(b));
+    const beforeEvents=fingerprints();
+    await expect(setFollowerAlphaEnabled(project,false)).rejects.toThrow(/event module has changed/);expect(fingerprints()).toEqual(beforeEvents);
     events[32]^=1;
     project.fileSystem!.additions![FOLLOWER_NATIVE_PATH]=config.slice();project.fileSystem!.additions![FOLLOWER_NATIVE_PATH][18]^=1;
-    const before=structuredClone(project);
-    await expect(setFollowerAlphaEnabled(project,false)).rejects.toThrow(/changed/);expect(project).toEqual(before);
+    const before=fingerprints();
+    await expect(setFollowerAlphaEnabled(project,false)).rejects.toThrow(/changed/);expect(fingerprints()).toEqual(before);
   });
 });
 

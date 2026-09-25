@@ -4,7 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
-import { followerRomSha256, installFollowerAlpha, readFollowerAlphaInstall, readFollowerDialogueRules,
+import { followerRomSha256, followerRuntimeVersion, installFollowerAlpha, readFollowerAlphaInstall, readFollowerDialogueRules,
   readFollowerItemRules, writeFollowerDialogueRules, writeFollowerItemRules,
   FOLLOWER_INTERACTIONS_PATH, FOLLOWER_LANGUAGE_PATH } from "../src/pokeweb/followingPokemonProject";
 import { NintendoDSRom } from "../src/nds/rom";
@@ -19,13 +19,13 @@ globalThis.fetch = (async (request: RequestInfo | URL) => {
 }) as typeof fetch;
 const project = await loadProjectFromRomBytes(new Uint8Array(await readFile(input)), basename(input), { selectedNarcs: [] });
 const previousVersion = (await readFollowerAlphaInstall(project))?.version;
-assert.ok(["0.6.27-alpha", "0.6.28-alpha", "0.6.29-alpha", "0.6.30-alpha", "0.6.31-alpha", "0.6.32-alpha"].includes(previousVersion ?? ""));
+assert.ok(["0.6.27-alpha", "0.6.28-alpha", "0.6.29-alpha", "0.6.30-alpha", "0.6.31-alpha", "0.6.32-alpha", "0.6.33-alpha", "0.6.34-alpha"].includes(previousVersion ?? ""));
 const dialogue = [{zone: 427, species: 151, text: "{nickname} saluta {player}!"}];
 const gifts = [{slot: 0, itemId: 1, quantity: 1, itemName: "Master Ball", text: "{nickname} found a {item}!", zone: 427, species: 151}];
 await writeFollowerDialogueRules(project, dialogue);
 await writeFollowerItemRules(project, gifts);
 const updated = await installFollowerAlpha(project);
-assert.equal(updated.version, "0.6.33-alpha");
+assert.equal(updated.version, await followerRuntimeVersion(project));
 assert.deepEqual(await readFollowerDialogueRules(project), dialogue);
 assert.deepEqual(await readFollowerItemRules(project), gifts);
 const bytes = await exportModifiedRom(project);
@@ -39,4 +39,4 @@ assert.equal(await followerRomSha256(rom.getFileByName(FOLLOWER_INTERACTIONS_PAT
 const language = rom.getFileByName(FOLLOWER_LANGUAGE_PATH), view = new DataView(language.buffer, language.byteOffset, language.byteLength);
 const text = Array.from({length:(language.length-18)/2}, (_,i) => String.fromCharCode(view.getUint16(16+i*2,true))).join("");
 assert.equal(text,"La Borsa è piena!");
-console.log(`Italian ${previousVersion} → 0.6.33 upgrade passed; authored dialogue/gifts retained and Italian generic reactions installed. No game emulator run.`);
+console.log(`Italian ${previousVersion} → ${updated.version} upgrade passed; authored dialogue/gifts retained and Italian generic reactions installed. No game emulator run.`);
