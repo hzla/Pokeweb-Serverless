@@ -6,7 +6,7 @@ import { writeU32 } from "../nds/binary";
 import { KO_MOVE_LEARNSET_PATH } from "../pokeweb/koMoveLearnsetModel";
 import { exportModifiedRom } from "../pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../pokeweb/loader";
-import { loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, saveActiveProject, saveActiveRomBytes } from "../pokeweb/persistence";
+import { activeRomMatchesProject, loadActiveProject, loadActiveRomBytes, loadActiveRomMetadata, reconnectActiveRom, saveActiveProject, saveActiveRomBytes } from "../pokeweb/persistence";
 
 const selectedNarcs = ["personal"] as const;
 let stores: Record<string, Map<IDBValidKey, unknown>>;
@@ -103,6 +103,70 @@ describe("ROM import and persistence without rebuilding", () => {
     expect(save).not.toHaveBeenCalled();
     expect(await loadActiveRomBytes()).toEqual(source);
     expect(await loadActiveRomMetadata()).toEqual(metadata);
+  });
+
+  it("reattaches a missing ROM without discarding saved edits", async () => {
+    const source = makePaddedRom("IRDO");
+    const project = await loadProjectFromRomBytes(source, "cleanwhite2.nds", { selectedNarcs: [...selectedNarcs] });
+    project.narcs.personal!.rawFiles[1][0] = 99;
+    project.narcs.personal!.dirty.add(1);
+    await saveActiveProject(project);
+    stores.roms.delete("active");
+    expect(await loadActiveRomBytes()).toBeUndefined();
+    expect(await activeRomMatchesProject(project)).toBe(false);
+    const stranded = (await loadActiveProject())!;
+    expect(stranded.arm9).toHaveLength(0);
+
+    await expect(reconnectActiveRom(stranded, makePaddedRom("IREO"), "cleanwhite2.nds")).rejects.toThrow(/same source ROM/);
+    await expect(reconnectActiveRom(stranded, source, "other.nds")).rejects.toThrow(/same source ROM/);
+    expect(await loadActiveRomBytes()).toBeUndefined();
+    await reconnectActiveRom(stranded, source, "cleanwhite2.nds");
+    expect(await loadActiveRomBytes()).toEqual(source);
+    expect(await activeRomMatchesProject(stranded)).toBe(true);
+    expect(stranded.arm9.length).toBeGreaterThan(0);
+    expect(stranded.narcs.personal!.rawFiles[0][0]).toBe(45);
+    expect(stranded.narcs.personal!.rawFiles[1][0]).toBe(99);
+    expect(stranded.narcs.personal!.dirty.has(1)).toBe(true);
+    const exported = new NintendoDSRom(await exportModifiedRom(stranded));
+    expect(new NARC(exported.getFileByName("a/0/1/6")).files[1][0]).toBe(99);
+  });
+
+  it("rejects a changed source ROM when an exact fingerprint was saved", async () => {
+    const source = makePaddedRom("IREO");
+    const project = await loadProjectFromRomBytes(source, "cleanblack2.nds", { selectedNarcs: [...selectedNarcs] });
+    await saveActiveProject(project);
+    stores.roms.delete("active");
+    const changed = source.slice();
+    changed[changed.length - 1] ^= 1;
+    await expect(reconnectActiveRom(project, changed, "cleanblack2.nds")).rejects.toThrow(/differs/);
+    expect(await loadActiveRomBytes()).toBeUndefined();
+  });
+
+  it("does not hydrate a saved project from a different tab's ROM", async () => {
+    const source = makePaddedRom("IRDO");
+    const project = await loadProjectFromRomBytes(source, "cleanwhite2.nds", { selectedNarcs: [...selectedNarcs] });
+    await saveActiveProject(project);
+    await saveActiveRomBytes(makePaddedRom("IREO"), { fileName: "cleanwhite2.nds", fairy: false, selectedNarcs: [], idCode: "IREO", sourceSize: source.length });
+    expect(await activeRomMatchesProject(project)).toBe(false);
+    await saveActiveRomBytes(makePaddedRom("IREO"), { fileName: "cleanblack2.nds", fairy: false, selectedNarcs: [] });
+    expect(await activeRomMatchesProject(project)).toBe(false);
+    const restored = (await loadActiveProject())!;
+    expect(restored.arm9).toHaveLength(0);
+    await reconnectActiveRom(restored, source, "cleanwhite2.nds");
+    expect(await activeRomMatchesProject(restored)).toBe(true);
+    expect(restored.arm9.length).toBeGreaterThan(0);
+  });
+
+  it("keeps source-derived data in the project snapshot when another tab replaces the ROM cache", async () => {
+    const source = makePaddedRom("IRDO");
+    const project = await loadProjectFromRomBytes(source, "cleanwhite2.nds", { selectedNarcs: [...selectedNarcs] });
+    await saveActiveProject(project);
+    await saveActiveRomBytes(makePaddedRom("IREO"), { fileName: "cleanblack2.nds", fairy: false, selectedNarcs: [] });
+
+    await saveActiveProject(project);
+    const snapshot = (await loadActiveProject())!;
+    expect(snapshot.arm9.length).toBeGreaterThan(0);
+    expect(snapshot.narcs.personal!.rawFiles[0][0]).toBe(45);
   });
 
   it("keeps retained archives, trainer sources, and editable ARM9 independent of the source ROM", async () => {

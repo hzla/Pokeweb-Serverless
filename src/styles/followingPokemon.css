@@ -640,11 +640,3 @@
     flex-direction: column;
   }
 }
-.following-mount-help {
-  margin: 0 0 1rem;
-  padding: .75rem 1rem;
-  border: 1px solid rgba(178, 139, 237, .34);
-  border-radius: .6rem;
-  color: var(--text-muted, #cbd0dc);
-  line-height: 1.5;
-}
