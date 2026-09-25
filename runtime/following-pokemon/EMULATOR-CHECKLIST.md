@@ -640,3 +640,15 @@ Cold boot `White2-Following-0.6.63-alpha.nds` with its matching save. The Rapida
 | SD02 | With Reuniclus walking normally, repeat SD01, then press A+B to ride and repeat while stopped and moving. | Walking Reuniclus retains its previous appearance. Mounted Reuniclus stays in front of the player ground shadow, with the rider at the approved height. | NOT RUN |
 | SD03 | Walk and ride beside a building, overlap the player laterally, traverse stairs, then dismount and remount. | Player/Pokémon priority stays stable, the follower does not clip through the building, shadows stay on the ground, and no depth offset accumulates. | NOT RUN |
 <!-- generated-shadow-depth:end -->
+
+
+<!-- generated-south-priority:start -->
+## 0.6.64-alpha south-facing follower priority — human acceptance
+
+Cold boot `White2-Following-0.6.64-alpha.nds` with its matching ordinary save. `walkdown.mln` contains the prior runtime and is diagnostic evidence only. These cases are **NOT RUN** until human emulator testing.
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| SP01 | Cold boot 0.6.64 with Arceus following. Walk south through the same overlap shown in walkdown.mln, then stop and repeat at several step phases. | The player remains in front of Arceus wherever their sprites intersect; neither sprite shifts on screen and the follower shadow remains on the ground. | NOT RUN |
+| SP02 | Repeat with a small grounded follower, a wide Flying follower, then walk north and sideways beside a building and traverse stairs. | South-facing overlap remains stable without changing the previously accepted north-facing priority, lateral building order, stairs or shadow placement. | NOT RUN |
+<!-- generated-south-priority:end -->
