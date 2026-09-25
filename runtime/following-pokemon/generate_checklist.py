@@ -481,3 +481,17 @@ if start in text and end in text:text=text[:text.index(start)]+section+text[text
 else:text+='\n\n'+section+'\n'
 path.write_text(text)
 print(f'Regenerated {len(SHADOW_DEPTH_CASES)} shadow-depth cases; no emulator tests executed.')
+
+SOUTH_PRIORITY_CASES=[
+ ('SP01','Cold boot 0.6.64 with Arceus following. Walk south through the same overlap shown in walkdown.mln, then stop and repeat at several step phases.','The player remains in front of Arceus wherever their sprites intersect; neither sprite shifts on screen and the follower shadow remains on the ground.'),
+ ('SP02','Repeat with a small grounded follower, a wide Flying follower, then walk north and sideways beside a building and traverse stairs.','South-facing overlap remains stable without changing the previously accepted north-facing priority, lateral building order, stairs or shadow placement.'),
+]
+start='<!-- generated-south-priority:start -->';end='<!-- generated-south-priority:end -->'
+section=start+'\n## 0.6.64-alpha south-facing follower priority — human acceptance\n\nCold boot `White2-Following-0.6.64-alpha.nds` with its matching ordinary save. `walkdown.mln` contains the prior runtime and is diagnostic evidence only. These cases are **NOT RUN** until human emulator testing.\n\n| ID | Steps | Expected | Result / evidence |\n|---|---|---|---|\n'
+section+=''.join(f'| {i} | {steps} | {expected} | NOT RUN |\n' for i,steps,expected in SOUTH_PRIORITY_CASES)
+section+=end
+path=HERE/'EMULATOR-CHECKLIST.md';text=path.read_text()
+if start in text and end in text:text=text[:text.index(start)]+section+text[text.index(end)+len(end):]
+else:text+='\n\n'+section+'\n'
+path.write_text(text)
+print(f'Regenerated {len(SOUTH_PRIORITY_CASES)} south-priority cases; no emulator tests executed.')

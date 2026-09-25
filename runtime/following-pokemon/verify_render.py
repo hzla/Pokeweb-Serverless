@@ -24,12 +24,13 @@ def call(name,args):
  assert uc.reg_read(UC_ARM_REG_PC)==STOP and uc.reg_read(UC_ARM_REG_SP)==STACK
  for i,r in enumerate(range(UC_ARM_REG_R4,UC_ARM_REG_R11+1)):assert uc.reg_read(r)==0x12340000+i
 P=0x02220000;A=P+256;SYS=P+0x1000;FBL=SYS+0x100;BL=SYS+0x200;SCENE=SYS+0x300;SLOTS=SYS+0x400;BILL=SYS+0x500;CAM=SYS+0x600;LIGHT=SYS+0x700
-seen=[];expected_args=[BL,CAM,LIGHT]
+seen=[];player_seen=[];expected_args=[BL,CAM,LIGHT]
 def spy(u,pc,size,user):
  if pc!=0x0204f684:return
  assert u.reg_read(UC_ARM_REG_SP)%8==0
  assert [u.reg_read(r) for r in [UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2]]==expected_args
  seen.append((read(BILL+28+4,'3i'),read(BILL+28+18,'2h'),read(addr('FollowingRenderDebug')+24,'3i')))
+ player_seen.append((read(BILL+4,'3i'),read(BILL+18,'2h')))
  u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR))
 uc.hook_add(UC_HOOK_CODE,spy,begin=0x0204f684,end=0x0204f684)
 F=addr('fwfield_follower')
@@ -137,6 +138,20 @@ for base in ((65536,0,0),(65536,65536,0),(65536,-32740,0),(0,-65536,65536)):
  vec(BILL+32,(base[0],base[1]+6144,base[2]-8192))
  first=draw()
  assert all(draw()==first for _ in range(5))
+# walkdown.mln: the follower is a tile north of the south-facing player, but
+# its subsequent shadow clearance moved the large submitted quad ahead of the
+# player. Recreate the observed local coordinates and enforce final priority.
+setup(64);half(P+24,1);half(A+24,1);put(A+4,0x4000)
+uc.mem_write(A+128,b'\x06');uc.mem_write(F+51,b'\xfb')
+vec(CAM+32,(0,760739,581835));vec(A+68,(0,0,-65536))
+vec(BILL+4,(0,-6484,0));vec(BILL+32,(0,-340,-49152))
+submitted,scales,depth=draw()
+assert depth[0]==-1 and depth[1]<0 and depth[2]<=-12*4096,(submitted,depth)
+axis=(3253,2488)
+player_submitted=player_seen[-1][0]
+assert (submitted[1]-player_submitted[1])*axis[0]+(submitted[2]-player_submitted[2])*axis[1]<=(-12*4096+128)*4096,(submitted,player_submitted)
+assert submitted[1]*axis[0]+(submitted[2]+40960)*axis[1]>=(6*4096-128)*4096,submitted
+assert all(draw()==(submitted,scales,depth) for _ in range(5))
 # Invalid/stale/unsupported objects forward once without mutating the scene.
 for invalid in ('hidden','unused','lost','foreign','slot','index','mode','camera','zero-camera','scale'):
  setup();vec(BILL+32,(65536,6144,0))

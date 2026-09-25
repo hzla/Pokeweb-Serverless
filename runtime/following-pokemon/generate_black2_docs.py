@@ -2,7 +2,7 @@
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-VERSION = "0.6.37-alpha"
+VERSION = "0.6.38-alpha"
 
 CASES = [
     ("B01", "Cold boot an ordinary Black 2 save, walk one tile, then walk and run in all four directions.", "Exactly one party Pokémon appears and follows the recorded route without blocking movement."),
@@ -30,13 +30,14 @@ CASES = [
     ("B23", "With HM03 in the Bag and a Surf-knowing follower, ride toward ordinary water and shoreline water, then return to land. Separately Surf on foot with another party Surf user, a shiny or form variant, and a species without custom art.", "The selected land mount hands off without a hop and returns after shore exit. Other Surf uses the preferred follower or first party Surf knower, matching Gen 1–5 art where available and the retail mount otherwise."),
     ("B24", "While walking and again while land-mounted, let Repel expire; answer No, then repeat and answer Yes.", "Neither choice recalls the follower or mount. Yes consumes one Repel and the next effect begins; unrelated unsafe scripts still recall."),
     ("B25", "Cold boot 0.6.37 with Rapidash walking, then Reuniclus walking and A+B mounted. Check each direction while idle and moving, including a sideways player overlap.", "Shadows shade the ground behind each Pokémon and never darken opaque Pokémon pixels. Walking Reuniclus keeps its previous appearance; the rider, player, and building depth order remains stable."),
+    ("B26", "Cold boot 0.6.38 with a large follower and walk south through a player overlap; repeat with a small follower, then walk north and sideways beside a building.", "The player keeps foreground priority while walking south. The follower and its shadow stay aligned, and north/sideways priority remains stable."),
 ]
 
 def generate():
     lines = [
         f"# Stock Black 2 Following Pokémon {VERSION} — emulator checklist",
         "",
-        f"Use `Black2-Following-{VERSION}.nds` with a same-basename `.sav`. Cold boot the ROM; do not resume a state made with another ROM. Emulator execution is assigned to the human tester and every row remains **NOT RUN** until results are recorded.",
+        f"Install the {VERSION} package on a clean Black 2 ROM in Pokeweb and export it. Cold boot the export with a matching Black 2 save; do not resume a state made with another ROM. Emulator execution is assigned to the human tester and every row remains **NOT RUN** until results are recorded.",
         "",
         "Start with B01–B06 and B13. If those pass, continue through B12. For a failure, save a state immediately before the trigger and record emulator/version, location, party lead, direction, and the ROM SHA-256.",
         "",

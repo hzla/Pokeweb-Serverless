@@ -1,6 +1,34 @@
 # Validation record
 
-Status: **stock White 2 0.6.63, Black 2 0.6.37, White2Upgrade 0.7.32, and Italian White 2 0.6.38 packaged and installer checks passed. Shadow presentation and prior feature acceptance remain pending human cold-boot tests.**
+Status: **stock White 2 0.6.64, Black 2 0.6.38, White2Upgrade 0.7.33, and Italian White 2 0.6.39 packaged and installer checks passed. South-facing player/follower priority and shadow presentation remain pending human cold-boot tests.**
+
+## South-facing player priority, September 24
+
+The offline `walkdown.mln` frame shows Arceus one world tile behind the player,
+both facing south. The ordinary depth policy chose the follower-behind case,
+but the later ground-shadow clearance advanced its submitted sprite quad past
+the player's draw depth. Its large artwork consequently covered player pixels.
+The correction keeps the follower ahead of its own ground shadow and advances
+only the player's quad for the synchronous draw submission when the follower is
+trailing a south-facing player. Perspective scale compensates the depth change
+so neither sprite moves on screen. Both native quads are restored immediately;
+world positions, shadows, movement trail, north/stair policies and persistent
+state are unchanged.
+
+The state-derived host regression and packaged ARM946 draw test cover the
+south-facing overlap, final shadow clearance, repeated frames and restoration.
+All four exact-profile module builds and Pokeweb package-update checks passed;
+the stock White 2 clean install/export/reopen/disable/reenable/removal check
+passed. Pokeweb's follower tests, production build and privacy check passed.
+No game emulator was run. SP01–SP02 and the profile south-facing cases remain
+for human visual acceptance.
+
+The delivered stock test ROM is `White2-Following-0.6.64-alpha.nds` in `Repos/`
+(SHA-256 `30bba56ab65b2460bc83c8038e1e1ccf01dd7240d8426915562ead7b2255b346`).
+Its matching save was copied without overwriting the prior save. Black 2,
+White2Upgrade and Italian White 2 have updated packages bundled in Pokeweb;
+they can be exported from their matching clean ROMs. No new prebuilt ROM was
+produced for those three profiles in this pass.
 
 ## Walking and mounted shadow depth, September 24
 
