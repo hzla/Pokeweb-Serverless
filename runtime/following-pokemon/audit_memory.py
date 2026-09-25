@@ -42,7 +42,18 @@ def audit(profile,rom_path):
  assert sizes['fwfield_index']==(1025 if profile=='white2upgrade' else 651)*2
  allocatedRegistry=0
  total=sum(m['codePlusBss'] for m in modules)+allocatedRegistry
+ surf_registry=rom.getFileByName('following/surf-registry.bin')
+ surf_archive=rom.getFileByName('following/surf-mounts.narc')
+ surf=dict(registryBytes=len(surf_registry),archiveBytes=len(surf_archive),
+           appearances=struct.unpack_from('<H',surf_registry,8)[0],residentTextureCount=16,
+           heapIndexBytes=0)
+ rider=rom.getFileByName('following/land-riders.narc')
+ anchors=rom.getFileByName('following/land-anchors.bin')
+ land=dict(riderArchiveBytes=len(rider),anchorTableBytes=len(anchors),
+           appearanceRows=struct.unpack_from('<H',anchors,6)[0],residentRiderTextures=12,
+           codeAndInitializedDataBytes=next(m['codeAndInitializedData'] for m in modules if 'Field' in m['name']))
  return dict(profile=profile,version=manifest['version'],modules=modules,
+             surf=surf,land=land,
              largestObjects=sorted(objects,key=lambda o:o['bytes'],reverse=True)[:15],
              fixedPayloadBytes=total,registryBytes=len(data),registryRecords=count,
              registryHeapBytes=allocatedRegistry,pageBytes=sizes['fwfield_page'],indexBytes=sizes['fwfield_index'],
@@ -54,7 +65,7 @@ def audit(profile,rom_path):
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('stock_rom',type=Path);p.add_argument('black2_rom',type=Path);p.add_argument('upgrade_rom',type=Path);a=p.parse_args()
  reports=[audit('stock',a.stock_rom),audit('black2',a.black2_rom),audit('white2upgrade',a.upgrade_rom)]
- previous=[dict(profile='stock',version='0.6.31-alpha',fixedPayloadBytes=46648),dict(profile='black2',version='0.6.31-alpha',fixedPayloadBytes=46648),dict(profile='white2upgrade',version='0.7.22-alpha',fixedPayloadBytes=47628)]
+ previous=[dict(profile='stock',version='0.6.62-alpha',fixedPayloadBytes=61024),dict(profile='black2',version='0.6.36-alpha',fixedPayloadBytes=60896),dict(profile='white2upgrade',version='0.7.31-alpha',fixedPayloadBytes=61884)]
  out={'measurements':reports,'previousReleaseMeasurements':previous,
       'limits':'Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.',
       'implementationStatus':'ROM registry streaming and 8 KiB conversation buffers implemented; automated checks passed, game emulator acceptance pending.'}

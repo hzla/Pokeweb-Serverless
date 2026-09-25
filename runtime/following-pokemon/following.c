@@ -9,6 +9,25 @@ int fw_select(const FwPokemon *party, unsigned count) {
     }
     return fallback;
 }
+int fw_cycle_slot(const FwPokemon *party, unsigned count, int current, int direction) {
+    if (!party || !count || count > FW_PARTY_CAPACITY || (direction != -1 && direction != 1)) return -1;
+    int baseline = fw_select(party, count);
+    if (baseline < 0) return -1;
+    if (current < 0 || (unsigned)current >= count) current = baseline;
+    int healthy = 0;
+    for (unsigned i = 0; i < count; ++i)
+        if (!party[i].egg && party[i].species && party[i].species <= FW_MAX_SPECIES && party[i].hp) healthy = 1;
+    int slot = current;
+    for (unsigned step = 1; step <= count; ++step) {
+        slot += direction;
+        if (slot < 0) slot = (int)count - 1;
+        else if ((unsigned)slot >= count) slot = 0;
+        const FwPokemon *mon = &party[slot];
+        if (!mon->egg && mon->species && mon->species <= FW_MAX_SPECIES && (!healthy || mon->hp))
+            return slot == current ? -1 : slot;
+    }
+    return -1;
+}
 int fw_same_identity(const FwPokemon *a, const FwPokemon *b) {
     return a->personality == b->personality && a->trainer == b->trainer &&
         a->species == b->species && a->form == b->form &&
