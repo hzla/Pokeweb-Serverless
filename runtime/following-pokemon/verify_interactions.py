@@ -5,7 +5,7 @@ from verify_packaged import *
 from unicorn import UC_HOOK_CODE
 import collections,json,os,ndspy.narc,zlib
 CYCLES=int(os.environ.get("FOLLOWING_TEST_CYCLES","100"))
-DLL=PACKAGE_BUILD/'PokewebFollowingFieldW2.dll';ELF=PACKAGE_BUILD/'PokewebFollowingFieldW2.elf'
+DLL=PACKAGE_BUILD/f'PokewebFollowingField{MODULE_SUFFIX}.dll';ELF=PACKAGE_BUILD/f'PokewebFollowingField{MODULE_SUFFIX}.elf'
 code,bss,syms,rels,funcs,_=audit(DLL,ELF)
 BASE=0x02300000;STOP=0x02008000;STACK=0x023f0000
 uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map(0x02000000,0x400000)
@@ -39,7 +39,7 @@ def call(name,args=()):
  return uc.reg_read(UC_ARM_REG_R0)
 F=0x02200000;P=0x02203000;A=P+0x100;SYS=P+0x200;FIELD=0x02204000;GAME=0x02205000;SNAP=0x02206000;BG=0x02207000;EVENT=0x02208000;STRING=EVENT+0x100;FOREIGN=EVENT+0x200
 scene=0x02209000;bill=scene+0x100;mat=scene+0x200;bl=scene+0x300;fieldbl=scene+0x400;indices=scene+0x500
-GAMEDATA=0x0220a000;PARTY=GAMEDATA+0x100;BAG=GAMEDATA+0x200;MON=GAMEDATA+0x300;BLOCK_C=MON+0x48
+GAMEDATA=0x0220a000;PARTY=GAMEDATA+0x100;BAG=GAMEDATA+0x200;MON=GAMEDATA+0x300;BLOCK_C=MON+0x48;SAVE_OPTIONS=GAMEDATA+0x600
 def gift_archive():
  name=[*map(ord,'Master Ball'),0xffff];message=[0xfff0,*map(ord,' found a '),0xfff3,ord('!'),0xffff]
  member=bytearray(16+28+(len(name)+len(message))*2);name_at=44;text_at=name_at+len(name)*2
@@ -51,8 +51,9 @@ def gift_archive():
  narc=ndspy.narc.NARC();narc.files=[bytes(member)];return narc.save()
 assets={"rom:/following/interactions.bin":(HERE.parents[1]/'src/assets/following/interactions.bin').read_bytes(),"rom:/following/emotes.narc":(HERE.parents[1]/'src/assets/following/interaction-emotes.narc').read_bytes(),"rom:/following/contextual-items.narc":gift_archive()}
 files={};calls=[];alloc=[];frees=[];held=pressed=0;free_bytes=131072;provider=0;controller=0;blocked=0;fail='';resource_counter=0;print_done=1;close_done=1
-native_addresses={0x02070ca8,0x02070ecc,0x02070dec,0x02070e6c,0x02070de0,0x0203a2d4,0x02180578,0x02195728,0x0219a9d0,0x0219aacc,0x0215e4f0,0x02016cb4,0x02016d08,0x02167098,0x02194b88,0x02194f18,0x0215e8e4,0x02194d8c,0x0219a5d8,0x0203df4c,0x0203df28,0x02005cbc,0x020069f4,0x02006b5c,0x021804d0,0x02180500,0x0204855c,0x02048590,0x02048640,0x021887d8,0x02188814,0x02188834,0x02188858,0x021888c4,0x02188a08,0x020493f0,0x02049430,0x02049560,0x0204e598,0x0204e55c,0x0204ebdc,0x0218151c,0x02181aa0,0x02017354,0x0201735c,0x0201fe24,0x0201ff34,0x0201cd24,0x0201ccc4,0x0201ccec,0x0201eef0,0x02008238,0x02008268}
+native_addresses={0x02006254,0x02070ca8,0x02070ecc,0x02070dec,0x02070e6c,0x02070de0,0x0203a2d4,0x02180578,0x02195728,0x0219a9d0,0x0219aacc,0x0215e4f0,0x02016cb4,0x02016d08,0x02167098,0x02194b88,0x02194f18,0x0215e8e4,0x02194d8c,0x0219a5d8,0x0203df4c,0x0203df28,0x02005cbc,0x020069f4,0x02006b5c,0x021804d0,0x02180500,0x0204855c,0x02048590,0x02048640,0x021887d8,0x02188814,0x02188834,0x02188858,0x021888c4,0x02188a08,0x020493f0,0x02049430,0x02049560,0x0204e598,0x0204e55c,0x0204ebdc,0x0218151c,0x02181aa0,0x02017354,0x0201735c,0x0201fe24,0x0201ff34,0x0201cd24,0x0201ccc4,0x0201ccec,0x0201eef0,0x02008238,0x02008268}
 bag_adds=[]
+native_addresses.add(0x02008ddc) # SaveData_GetConfig for the Options Off bit.
 terrain_attr=0
 grass_entries=[]
 terrain_queries=[]
@@ -77,6 +78,7 @@ def native(u,pc,size,user):
  if pc==0x02070e6c:
   path,off=files[r0];content=assets[path][off:off+r2];u.mem_write(r1,content);files[r0][1]+=len(content);result=len(content)
  if pc==0x0203a2d4:result=free_bytes
+ if pc==0x02008ddc:result=SAVE_OPTIONS
  if pc==0x02017354:assert r0==GAMEDATA;result=BAG
  if pc==0x0201735c:result=PARTY if r0==GAMEDATA else 0
  if pc==0x0201fe24:result=1 if r0==PARTY else 0
@@ -140,7 +142,7 @@ def setup(direction=0,species=25,zone=0,reset_mon=True):
  global held,pressed
  assert not call('fwt_active')
  held=pressed=0;call('fwt_poll_input')
- uc.mem_write(F,bytes(1852));put(F,2);put(F+20,1);put(F+24,A)
+ uc.mem_write(F,bytes(1856));put(F,2);put(F+20,1);put(F+24,A)
  uc.mem_write(P,bytes(0x300));put(P,1|8192);put(P+148,P+0x600);put(A,1|128|256|32768);put(P+136,SYS);put(A+136,SYS);put(A+140,addr('fwfield_moves'));half(P+24,direction)
  x,z=10*65536,10*65536;ax=x+(-65536 if direction==2 else 65536 if direction==3 else 0);az=z+(-65536 if direction==0 else 65536 if direction==1 else 0)
  uc.mem_write(P+68,struct.pack('<iii',x,0,z));uc.mem_write(A+68,struct.pack('<iii',ax,0,az));uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,az//65536))
@@ -189,15 +191,52 @@ for direction in range(4):
 # Wider lateral gap stays talkable from either side without relaxing walls,
 # elevation, native adjacent tiles, or straight connected-trail requirements.
 for direction in (2,3):
- setup(direction);uc.mem_write(F+50,b'\6');sign=-1 if direction==2 else 1
- for gap in (22,23):
-  x,z=10*65536+32768,10*65536+32768;ax=x+sign*gap*4096
-  uc.mem_write(P+68,struct.pack('<iii',x,0,z));uc.mem_write(A+68,struct.pack('<iii',ax,0,z))
-  uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,z//65536))
-  for i,sx in enumerate((ax,x)):uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
-  assert call('fwt_reach',[F,P,A,FIELD])==1
-  blocked=1;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
- put(A+68,x+sign*24*4096);assert not call('fwt_reach',[F,P,A,FIELD])
+ for side_gap in (6,12):
+  setup(direction);uc.mem_write(F+50,b'\6');uc.mem_write(F+1852,bytes((0,0,side_gap,side_gap)));sign=-1 if direction==2 else 1
+  for gap in (16+side_gap,17+side_gap):
+   x,z=10*65536+32768,10*65536+32768;ax=x+sign*gap*4096
+   uc.mem_write(P+68,struct.pack('<iii',x,0,z));uc.mem_write(A+68,struct.pack('<iii',ax,0,z))
+   uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,z//65536))
+   for i,sx in enumerate((ax,x)):uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
+   assert call('fwt_reach',[F,P,A,FIELD])==1
+   blocked=1;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
+  put(A+68,x+sign*(18+side_gap)*4096);assert not call('fwt_reach',[F,P,A,FIELD])
+# toofar.mln: the side-gap registry row is 4+6=10; the west-facing follower
+# world actor is 28 units away, one beyond the talk box, though the drawn art
+# is two units nearer. Clamp the actor and art together before native reach.
+setup(2);uc.mem_write(F+1852,bytes((0,0,10,10)))
+x,z=10*65536,10*65536;ax=x-28*4096
+uc.mem_write(P+68,struct.pack('<iii',x,0,z));uc.mem_write(A+68,struct.pack('<iii',ax,0,z))
+uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,z//65536))
+for i,sx in enumerate((ax,x)):
+ uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
+assert not call('fwt_reach',[F,P,A,FIELD])
+pose=SNAP+0x400;visual=pose+0x10
+uc.mem_write(pose,struct.pack('<3i',ax,0,z));uc.mem_write(visual,struct.pack('<3i',8192,6144,-8192))
+assert call('fw_clamp_dialogue_pose',[pose,P+68,visual,2,10])==1
+fixed=struct.unpack('<3i',uc.mem_read(pose,12));assert fixed[0]==x-27*4096
+uc.mem_write(A+68,struct.pack('<3i',*fixed))
+assert call('fwt_reach',[F,P,A,FIELD])==1
+blocked=1;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
+# The installed actor callback must apply that cap while the player stands
+# still, moving the native actor and its billboard anchor together. Reuse the
+# same saved-frame geometry and a stationary two-sample route.
+setup(2);uc.mem_write(F+1852,bytes((0,0,10,10)))
+uc.mem_write(P+68,struct.pack('<3i',x,0,z))
+uc.mem_write(A+68,struct.pack('<3i',ax,0,z))
+uc.mem_write(A+80,struct.pack('<3i',8192,6144,-8192))
+uc.mem_write(A+60,struct.pack('<3h',ax//65536,0,z//65536))
+for i,sx in enumerate((ax,x)):
+ uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
+owner=addr('fwfield_owner');follower=addr('fwfield_follower')
+put(owner,SYS);put(addr('fwfield_player'),P);put(addr('fwfield_generation'),1)
+uc.mem_write(follower,bytes(uc.mem_read(F,1856)))
+assert not call('fwt_reach',[follower,P,A,FIELD])
+call('move',[A]);assert u32(A+68)==x-27*4096
+assert u32(A+80)==8192 and u32(A+68)+u32(A+80)==x-25*4096
+assert call('fwt_reach',[follower,P,A,FIELD])==1
+call('move',[A]);assert u32(A+68)==x-27*4096
+put(owner,0);put(addr('fwfield_player'),0)
 # Vertical reach does not expand with the lateral spacing.
 setup(0);put(A+76,10*65536-22*4096);assert not call('fwt_reach',[F,P,A,FIELD])
 # Rail keys rotated 90 degrees relative to world compass still address the follower.

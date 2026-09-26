@@ -7,6 +7,8 @@ export const FOLLOWING_ABI = 1;
 export const FOLLOWING_CODE_BASE = 0x3000;
 export const FOLLOWING_STOCK_ROWS = 1008;
 export const FOLLOWING_MAX_ASSETS = 6144;
+export const FOLLOWER_DEFAULT_SIDE_GAP_BONUS = 6;
+export const FOLLOWER_MAX_DIRECTIONAL_GAP = 12;
 export type FollowerAppearanceKey = { species: number; form: number; gender: 0 | 1 | 2; shiny: boolean };
 export type FollowerAnimationProfile = "pokemon-mirrored" | "pokemon-asymmetric";
 export type FollowerAssetEntry = {
@@ -16,6 +18,8 @@ export type FollowerAssetEntry = {
   resourceId: number;
   size: 32 | 64;
   sideGap?: number; // Derived from visible side artwork; 0..6 native world units.
+  directionalGaps?: [number, number, number, number]; // Up, down, left, right; optional authored override.
+  riderAdjustments?: [[number, number], [number, number], [number, number], [number, number]]; // Draw-only x/y corrections.
   animationProfile: FollowerAnimationProfile;
   offsets: [number, number, number]; // Y is applied to follower billboard only; native descriptor Y stays at actor ground.
   placeholder: boolean;
@@ -23,6 +27,10 @@ export type FollowerAssetEntry = {
   source: "stock" | "hgss" | "hg-engine" | "png";
   sourceLabel?: string;
 };
+export function followerDefaultDirectionalGaps(entry: Pick<FollowerAssetEntry, "sideGap">): [number, number, number, number] {
+  const side = (entry.sideGap ?? 0) + FOLLOWER_DEFAULT_SIDE_GAP_BONUS;
+  return [0, 0, side, side];
+}
 export type FollowerZonePolicy = { zone: number; suppressed: boolean; reason: string };
 export type FollowerInstallState = {
   schemaVersion: 1; runtimeVersion: string; dataVersion: number; runtimeAbi: number;
@@ -69,6 +77,17 @@ export function validateFollowerRegistry(registry: FollowerRegistry): void {
     integer(entry.resourceId, 0, registry.resourceCount - 1, "resource reference");
     if (entry.sourceDescriptorRow !== undefined) integer(entry.sourceDescriptorRow, 0, FOLLOWING_STOCK_ROWS - 1, "source descriptor row");
     integer(entry.sideGap ?? 0, 0, 6, "sideways spacing");
+    if (entry.directionalGaps !== undefined) {
+      if (!Array.isArray(entry.directionalGaps) || entry.directionalGaps.length !== 4) throw new Error("Four directional gaps are required.");
+      entry.directionalGaps.forEach(gap => integer(gap, 0, FOLLOWER_MAX_DIRECTIONAL_GAP, "directional gap"));
+    }
+    if (entry.riderAdjustments !== undefined) {
+      if (!Array.isArray(entry.riderAdjustments) || entry.riderAdjustments.length !== 4) throw new Error("Four rider adjustments are required.");
+      entry.riderAdjustments.forEach(pair => {
+        if (!Array.isArray(pair) || pair.length !== 2) throw new Error("Each rider adjustment needs x and y.");
+        pair.forEach(value => integer(value, -32, 32, "rider adjustment"));
+      });
+    }
     if (![32, 64].includes(entry.size)) throw new Error("Follower size must be 32 or 64.");
     if (!["pokemon-mirrored", "pokemon-asymmetric"].includes(entry.animationProfile)) throw new Error("Unknown follower animation profile.");
     if (!Array.isArray(entry.offsets) || entry.offsets.length !== 3) throw new Error("Three sprite offsets are required.");
@@ -247,6 +266,30 @@ export function deriveFollowerSpacing(registry: FollowerRegistry, resources: rea
 }
 /** Rider anchors. Records are indexed by extension descriptor row,
  * never by rule ordering or species, so forms and replacement art stay stable. */
+export function followerLandAnchorDefaults(entry: FollowerAssetEntry, resource: Uint8Array): number[] {
+  validateFollowerResource(resource, entry.animationProfile);
+  const anchors: number[] = [];
+  for (const [directionIndex, direction] of FOLLOWER_DIRECTIONS.entries()) {
+    let left: number = entry.size, top: number = entry.size, right = -1, bottom = -1;
+    for (const tick of [0, 10]) {
+      const frame = followerPreview(resource, entry.animationProfile, direction, tick);
+      for (let y = 0; y < frame.height; y++) for (let x = 0; x < frame.width; x++) {
+        if (!frame.rgba[(y * frame.width + x) * 4 + 3]) continue;
+        left = Math.min(left, x); right = Math.max(right, x);
+        top = Math.min(top, y); bottom = Math.max(bottom, y);
+      }
+    }
+    if (right < left) throw new Error("Land mount artwork has no visible pixels.");
+    const x = Math.round((left + right) / 2 - (entry.size - 1) / 2);
+    const riderBottom = landRiderManifest.bottomPixels[directionIndex] - 15.5;
+    const y = Math.round((top + bottom) / 2 - (entry.size - 1) / 2 - riderBottom);
+    if (x < -128 || x > 127 || y < -128 || y > 127) throw new Error("Land mount anchor exceeds signed-byte range.");
+    anchors.push(x, y);
+  }
+  // Retain the approved Arceus saddle placement as the default data value.
+  if (entry.key.species === 493) { anchors[5] -= 10; anchors[7] -= 10; }
+  return anchors;
+}
 export function encodeFollowerLandAnchors(registry: FollowerRegistry, resources: readonly Uint8Array[], registryBytes: Uint8Array): Uint8Array {
   validateFollowerRegistry(registry);
   const count = registry.descriptorCount - FOLLOWING_STOCK_ROWS;
@@ -260,42 +303,17 @@ export function encodeFollowerLandAnchors(registry: FollowerRegistry, resources:
   for (const entry of registry.entries) {
     if (rows.has(entry.descriptorRow)) throw new Error("Duplicate land mount descriptor.");
     rows.add(entry.descriptorRow);
-    const key = `${entry.resourceId}:${entry.animationProfile}`;
+    const key = `${entry.resourceId}:${entry.animationProfile}:${entry.key.species === 493}`;
     let anchors = cache.get(key);
     if (!anchors) {
       const resource = resources[entry.resourceId];
       if (!resource) throw new Error("Missing land mount artwork.");
-      validateFollowerResource(resource, entry.animationProfile);
-      anchors = [];
-      for (const [directionIndex, direction] of FOLLOWER_DIRECTIONS.entries()) {
-        let left: number = entry.size, top: number = entry.size, right = -1, bottom = -1;
-        for (const tick of [0, 10]) {
-          const frame = followerPreview(resource, entry.animationProfile, direction, tick);
-          for (let y = 0; y < frame.height; y++) for (let x = 0; x < frame.width; x++) {
-            if (!frame.rgba[(y * frame.width + x) * 4 + 3]) continue;
-            left = Math.min(left, x); right = Math.max(right, x);
-            top = Math.min(top, y); bottom = Math.max(bottom, y);
-          }
-        }
-        if (right < left) throw new Error("Land mount artwork has no visible pixels.");
-        // Align the rider's opaque bottom with the two-pose visible midpoint.
-        // The rider bottom is measured from both retail gender sheets when
-        // the shared rider archive is generated.
-        const x = Math.round((left + right) / 2 - (entry.size - 1) / 2);
-        const riderBottom = landRiderManifest.bottomPixels[directionIndex] - 15.5;
-        const y = Math.round((top + bottom) / 2 - (entry.size - 1) / 2 - riderBottom);
-        if (x < -128 || x > 127 || y < -128 || y > 127) throw new Error("Land mount anchor exceeds signed-byte range.");
-        anchors.push(x, y);
-      }
+      anchors = followerLandAnchorDefaults(entry, resource);
       cache.set(key, anchors);
     }
     const at = 16 + (entry.descriptorRow - FOLLOWING_STOCK_ROWS) * 8;
     for (let i = 0; i < 8; i++) {
-      // Arceus's side silhouette includes long legs well below its saddle.
-      // Place the rider on its back without changing other appearances or
-      // the upward/downward Arceus poses. This is ROM data, not runtime code.
-      const correction = entry.key.species === 493 && (i === 5 || i === 7) ? -10 : 0;
-      view.setInt8(at + i, anchors[i] + correction);
+      view.setInt8(at + i, anchors[i]);
     }
   }
   if (rows.size !== count) throw new Error("Missing land mount descriptor.");

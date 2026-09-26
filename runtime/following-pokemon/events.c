@@ -1,7 +1,9 @@
 #include "native.h"
 #include "events.h"
 #define API __attribute__((visibility("default")))
-static struct {void *field,*game;uint32_t generation;FweObserver observer;unsigned notifying,restoreValid;FweRestore restore;Actor *ambient;} bridge;
+static struct {void *field,*game;uint32_t generation;FweObserver observer;unsigned notifying,restoreValid;FweRestore restore;Actor *ambient;
+ int (*holdCallback)(void);
+} bridge;
 #ifdef FW_MOUNT
 static FweMount mountToken;
 static unsigned mountValid;
@@ -26,13 +28,19 @@ static void clear_restore(void){
  bridge.restore.grid[0]=bridge.restore.grid[1]=bridge.restore.grid[2]=0;
  bridge.restore.face=bridge.restore.zone=0;
 }
-static int bind(void *field,void *game,uint32_t generation,FweObserver observer){
+static int bind(void *field,void *game,uint32_t generation,FweObserver observer
+                ,int (*holdCallback)(void)
+                ){
  if(!field||!game||!generation||!observer)return 0;
  if(bridge.observer&&(bridge.field!=field||bridge.generation!=generation))return 0;
- bridge.field=field;bridge.game=game;bridge.generation=generation;bridge.observer=observer;return 1;
+ bridge.field=field;bridge.game=game;bridge.generation=generation;bridge.observer=observer;
+ bridge.holdCallback=holdCallback;
+ return 1;
 }
 static void unbind(void *field,uint32_t generation){
- if(bridge.field==field&&bridge.generation==generation){bridge.observer=0;bridge.ambient=0;bridge.field=bridge.game=0;bridge.generation=0;}
+ if(bridge.field==field&&bridge.generation==generation){bridge.observer=0;bridge.ambient=0;bridge.field=bridge.game=0;bridge.generation=0;
+  bridge.holdCallback=0;
+ }
 }
 static void preserve(void *field,uint32_t generation,const FweRestore *restore){
  if(bridge.field!=field||bridge.generation!=generation||!restore||restore->magic!=FWE_RESTORE_MAGIC)return;
@@ -69,6 +77,10 @@ API unsigned FollowingEventOpcode(void *vm){
 }
 API int FollowingEventCallback(void *event){
  if(bridge.observer&&PTR(event,16)==bridge.game)notify(FWE_CALLBACK,event,U32(event,4));
+ /* Keep the native event node alive while the field-owned recall image and
+  * ball finish. Returning 0 is the retail "still running" callback result.
+  * No script command, warp, or scripted player movement advances in this wait. */
+ if(bridge.observer&&PTR(event,16)==bridge.game&&bridge.holdCallback&&bridge.holdCallback())return 0;
  /* The observer never edits the event. Fetch its arguments once, before the
     native callback can replace/free itself. No post-call event dereference. */
  int (*callback)(void*,void*,void*)=PTR(event,4);

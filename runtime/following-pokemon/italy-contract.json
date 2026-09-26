@@ -125,6 +125,33 @@
       "addressDelta": -256
     },
     {
+      "id": "field-player-recall-direction-gate",
+      "segment": "36",
+      "address": 35235088,
+      "expectedHex": "4068014b1847c04661b01902",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=field player, r1=key input; return 9 while recall is active, otherwise forward to the retail movement-direction function with player core at r0+4",
+      "displaced": [
+        "ldr r0,[r0,#4]",
+        "ldr r3,[pc,#4]",
+        "bx r3",
+        "nop"
+      ],
+      "continuation": "0x0219b061",
+      "conflicts": "field player direction veneer",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "module": "field",
+      "usExpectedHex": "4068014b1847c04661b11902",
+      "addressDelta": -256
+    },
+    {
       "id": "field-billboard-draw",
       "segment": "36",
       "address": 35131694,
@@ -698,6 +725,153 @@
       "module": "field",
       "usExpectedHex": "c9f788fc",
       "addressDelta": -256
+    },
+    {
+      "id": "options-init",
+      "segment": "140",
+      "address": 35245826,
+      "expectedHex": "01f027f8",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219cf02"
+      ],
+      "continuation": "0x0219cf06",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core",
+      "addressDelta": -256,
+      "usExpectedHex": "01f027f8"
+    },
+    {
+      "id": "options-exit",
+      "segment": "140",
+      "address": 35246000,
+      "expectedHex": "01f010f8",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219cfb0"
+      ],
+      "continuation": "0x0219cfb4",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core",
+      "addressDelta": -256,
+      "usExpectedHex": "01f010f8"
+    },
+    {
+      "id": "options-main",
+      "segment": "140",
+      "address": 35252846,
+      "expectedHex": "fff7b7fa",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219ea6e"
+      ],
+      "continuation": "0x0219ea72",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core",
+      "addressDelta": -256,
+      "usExpectedHex": "fff7b7fa"
+    },
+    {
+      "id": "options-select",
+      "segment": "140",
+      "address": 35249290,
+      "expectedHex": "00f0c9fa",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219dc8a"
+      ],
+      "continuation": "0x0219dc8e",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core",
+      "addressDelta": -256,
+      "usExpectedHex": "00f0c9fa"
+    },
+    {
+      "id": "options-compare-exit",
+      "segment": "140",
+      "address": 35252972,
+      "expectedHex": "fff71cff",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219eaec"
+      ],
+      "continuation": "0x0219eaf0",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core",
+      "addressDelta": -256,
+      "usExpectedHex": "fff71cff"
+    },
+    {
+      "id": "options-compare-cancel",
+      "segment": "140",
+      "address": 35253026,
+      "expectedHex": "fff701ff",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219eb22"
+      ],
+      "continuation": "0x0219eb26",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core",
+      "addressDelta": -256,
+      "usExpectedHex": "fff701ff"
+    },
+    {
+      "id": "options-commit",
+      "segment": "140",
+      "address": 35253550,
+      "expectedHex": "fff75dfd",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219ed2e"
+      ],
+      "continuation": "0x0219ed32",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core",
+      "addressDelta": -256,
+      "usExpectedHex": "fff75dfd"
     }
   ],
   "structureEvidence": {
@@ -967,7 +1141,7 @@
       "segment": "ARM9",
       "address": 33579604,
       "expectedHex": "0021014bc943184715620002",
-      "abi": "PMSND_PlaySE(r0=1374) is the stock jump/bounce sound request.",
+      "abi": "PMSND_PlaySE(r0=sound ID); stock Surf jump is 1374, and both battle switch-out return and send-out ball opening use 1383.",
       "usExpectedHex": "0021014bc943184715620002",
       "addressDelta": 0,
       "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending"
@@ -4419,7 +4593,7 @@
       "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending"
     }
   ],
-  "eventsAbi": 5,
+  "eventsAbi": 6,
   "renderLayouts": {
     "billboardStride": 28,
     "positionOffset": 4,
