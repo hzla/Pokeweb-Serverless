@@ -2,7 +2,7 @@
 #define FOLLOWING_EVENTS_H
 #include <stdint.h>
 #ifdef FW_MOUNT
-#define FWE_ABI 5u
+#define FWE_ABI 6u
 #else
 #define FWE_ABI 4u
 #endif
@@ -33,7 +33,9 @@ typedef struct {
 #endif
 typedef struct {
  uint32_t abi, size;
- int (*bind)(void *field,void *game,uint32_t generation,FweObserver observer);
+ int (*bind)(void *field,void *game,uint32_t generation,FweObserver observer
+             ,int (*holdCallback)(void)
+             );
  void (*unbind)(void *field,uint32_t generation);
  void (*preserve)(void *field,uint32_t generation,const FweRestore *restore);
  int (*consume)(FweRestore *restore);

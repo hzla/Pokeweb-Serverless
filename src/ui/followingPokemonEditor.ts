@@ -2,7 +2,7 @@ import { unzipSync, zipSync } from "fflate";
 import { decodeRecord, type ProjectState } from "../pokeweb/projectStore";
 import { NARC } from "../nds/narc";
 import { downloadBytes, getRomFileBytes } from "../pokeweb/fileSystemModel";
-import { checkFollowerCompatibility, installFollowerAlpha, removeFollowerAlpha, readFollowerAlphaInstall, setFollowerAlphaEnabled, followerRom, prepareFollowerWorkspace, readFollowerAsset, readFollowerWorkspace, replaceFollowerAssets, followerArtworkPending, followerRuntimeVersion, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_RUNTIME_REGISTRY_PATH, type FollowerAssetWorkspace, type FollowerRom, type FollowerAlphaInstall } from "../pokeweb/followingPokemonProject";
+import { checkFollowerCompatibility, installFollowerAlpha, removeFollowerAlpha, readFollowerAlphaInstall, setFollowerAlphaEnabled, followerRom, followerProfile, prepareFollowerWorkspace, readFollowerAsset, readFollowerWorkspace, replaceFollowerAssets, followerArtworkPending, followerRuntimeVersion, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_RUNTIME_REGISTRY_PATH, type FollowerAssetWorkspace, type FollowerRom, type FollowerAlphaInstall } from "../pokeweb/followingPokemonProject";
 import { typeNamesForProject } from "../pokeweb/constants";
 import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
 import { findPokemonBaseSpeciesId, findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
@@ -11,6 +11,7 @@ import type { FollowerItemRule } from "../pokeweb/followingPokemonItems";
 import { FOLLOWER_DIRECTIONS, decodeFollowerRegistry, encodeFollowerFrames, followerFramesFromSheet, followerKey, followerPreview, followerSheetFromFrames, type FollowerAssetEntry, type FollowerFrame } from "../pokeweb/followingPokemonModel";
 import { parseHeaders } from "../pokeweb/headerModel";
 import { escapeHtml } from "./dom";
+import { createFollowerPositionEditor } from "./followingPokemonPositionEditor";
 
 const templates = {
   32: new URL("../assets/following/template-32-8.btx", import.meta.url),
@@ -105,6 +106,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   const aggregateSpeciesOptions = aggregateSpeciesIds.map(id => `<option value="${escapeHtml(speciesDisplayValue(project, id))}"></option>`).join("");
   const panel = document.createElement("section"); panel.className = "code-injection-card following-pokemon-editor";
   panel.innerHTML = `<header class="following-editor-hero"><div><span class="following-editor-kicker">Field feature</span><h2>Following Pokémon</h2></div></header>
+    <label class="following-riding-option"><input type="checkbox" data-fw-riding> Riding and custom Surf</label><p data-fw-riding-status>Grounded followers only. Choose before installing.</p>
     <div class="following-editor-runtime-actions code-injection-actions"><button class="btn -primary" data-fw-prepare disabled>Prepare asset workspace</button>
     <button class="btn" data-fw-install disabled>Install follower alpha</button><button class="btn" data-fw-toggle hidden>Disable following</button><button class="btn" data-fw-remove hidden>Remove runtime</button></div>
     <section class="following-interaction-workspace"><div class="following-aggregate-toolbar"><label><span>View rules for Pokémon</span><input type="text" list="follower-overview-species" placeholder="Choose a Pokémon" autocomplete="off" data-fw-aggregate-species disabled></label>
@@ -121,10 +123,13 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       ${FOLLOWER_OVERWORLD_CREDITS.map(([category, creators]) => `<p><strong>${escapeHtml(category)}</strong> — ${escapeHtml(creators)}</p>`).join("")}</footer>`;
   root.append(panel);
   let rom: FollowerRom | undefined, workspace: FollowerAssetWorkspace | undefined, previewWorkspace: FollowerAssetWorkspace | undefined, selected = "", stock: Uint8Array[] | undefined;
+  let positionEnabled = false;
   let timer: ReturnType<typeof setInterval> | undefined;
   const error = panel.querySelector<HTMLElement>("[data-fw-error]")!;
   const prepare = panel.querySelector<HTMLButtonElement>("[data-fw-prepare]")!;
   const install = panel.querySelector<HTMLButtonElement>("[data-fw-install]")!;
+  const riding = panel.querySelector<HTMLInputElement>("[data-fw-riding]")!;
+  const ridingStatus = panel.querySelector<HTMLElement>("[data-fw-riding-status]")!;
   const toggle = panel.querySelector<HTMLButtonElement>("[data-fw-toggle]")!;
   const remove = panel.querySelector<HTMLButtonElement>("[data-fw-remove]")!;
   let enabled = false;
@@ -365,8 +370,10 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
     refreshAggregateAvailability();
   }
   const current = () => workspace?.registry.entries.find(e => followerKey(e.key) === selected);
+  let positionEditor: ReturnType<typeof createFollowerPositionEditor> | undefined;
   function renderAssets(): void {
     if (!workspace) return;
+    positionEditor?.destroy(); positionEditor = undefined;
     prepare.textContent = "Asset workspace prepared"; prepare.disabled = true;
     const count = workspace.registry.entries.filter(e => e.placeholder).length;
     assets.innerHTML = `<p>Editable catalog (bundled art is installed; custom replacements are not yet used by the runtime): ${workspace.registry.entries.length} appearances · ${count} placeholders · ${Object.keys(workspace.imports).length} replacements</p>
@@ -378,15 +385,16 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       <p>PNG layout: rows up, down, left, right; columns idle and step. Use 64×128 for 32-pixel frames or 128×256 for 64-pixel frames. Maximum 15 opaque DS colors plus transparency.</p>
       <div class="code-injection-actions"><button class="btn" data-fw-import>Replace selected PNG</button><button class="btn" data-fw-export>Export selected PNG</button>
       <button class="btn" data-fw-pack-export>Export asset pack</button><button class="btn" data-fw-pack-import>Import asset pack</button></div>
-      <input type="file" data-fw-png hidden accept="image/png"><input type="file" data-fw-zip hidden accept=".zip">`;
+      <input type="file" data-fw-png hidden accept="image/png"><input type="file" data-fw-zip hidden accept=".zip">
+      <div data-fw-position-editor></div>`;
     const select = assets.querySelector<HTMLSelectElement>("[data-fw-select]")!;
     const filter = assets.querySelector<HTMLInputElement>("[data-fw-filter]")!;
     const missing = assets.querySelector<HTMLInputElement>("[data-fw-missing]")!;
     function options(): void {
       const entries = workspace!.registry.entries.filter(e => (!filter.value || e.key.species === Number(filter.value)) && (!missing.checked || e.placeholder));
-      select.innerHTML = entries.map(e => `<option value="${followerKey(e.key)}">#${e.key.species} · form ${e.key.form} · ${["male", "female", "genderless"][e.key.gender]} · ${e.key.shiny ? "shiny" : "normal"}${e.placeholder ? " · placeholder" : ""}</option>`).join("");
+      select.innerHTML = entries.map(e => `<option value="${followerKey(e.key)}">${escapeHtml(pokemonSpeciesLabel(project, e.key.species))} #${e.key.species} · form ${e.key.form} · ${["male", "female", "genderless"][e.key.gender]} · ${e.key.shiny ? "shiny" : "normal"}${e.placeholder ? " · placeholder" : ""}</option>`).join("");
       if (entries.some(e => followerKey(e.key) === selected)) select.value = selected;
-      selected = select.value; preview();
+      selected = select.value; preview(); positionEditor?.refresh();
     }
     function preview(): void {
       if (timer) clearInterval(timer);
@@ -413,7 +421,22 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       } catch (reason) { fail(reason); }
     }
     filter.addEventListener("input", options); missing.addEventListener("change", options);
-    select.addEventListener("change", () => { selected = select.value; preview(); }); options();
+    const changeSelected = () => { selected = select.value; preview(); positionEditor?.refresh(); };
+    select.addEventListener("change", changeSelected); options();
+    if (rom && positionEnabled) positionEditor = createFollowerPositionEditor({
+      root: assets.querySelector<HTMLElement>("[data-fw-position-editor]")!, project, rom,
+      allowRiding: riding.checked,
+      workspace: () => workspace!, entry: current, followerResource: getAsset,
+      navigateFollower: step => {
+        const count = select.options.length;
+        if (!count) return;
+        select.selectedIndex = (select.selectedIndex + step + count) % count;
+        changeSelected();
+      },
+      playerResource: member => { const entry = current(); if (!entry) throw new Error("Select an appearance first."); getAsset(entry);
+        const bytes = stock?.[member]; if (!bytes) throw new Error("Player preview artwork is missing."); return bytes; },
+      changed: next => { workspace = next; onDirty(); },
+    });
     const png = assets.querySelector<HTMLInputElement>("[data-fw-png]")!;
     assets.querySelector("[data-fw-import]")!.addEventListener("click", () => { png.value = ""; png.click(); });
     png.addEventListener("change", async () => {
@@ -479,6 +502,9 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
     if (!state) return false;
     const runtimeVersion = await followerRuntimeVersion(project, rom);
     enabled = state.enabled;
+    riding.checked = (state.variant ?? "full") === "full";
+    riding.disabled = !state.removed;
+    ridingStatus.textContent = state.removed ? "Choose the package to reinstall." : riding.checked ? "Riding and custom Surf installed. Remove and reinstall to change." : "Grounded followers installed. Remove and reinstall to change.";
     const importedArtwork = state.profile === "stock" && !!rom && followerArtworkPending(project, rom);
     install.disabled = state.version === runtimeVersion && !state.removed && !importedArtwork;
     install.textContent = state.removed ? "Reinstall follower alpha" : importedArtwork && state.version === runtimeVersion ? "Apply follower artwork" : install.disabled ? `Installed ${state.version}` : `Update ${state.version} to ${runtimeVersion}`;
@@ -489,7 +515,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   }
   install.addEventListener("click", async () => {
     install.disabled = true;
-    try { const state = await installFollowerAlpha(project, rom); onDirty(); stock = undefined; await refreshRuntime(state); }
+    try { const state = await installFollowerAlpha(project, rom, { riding: riding.checked }); onDirty(); stock = undefined; await refreshRuntime(state); if (workspace) renderAssets(); }
     catch (reason) { fail(reason); install.disabled = false; }
   });
   remove.addEventListener("click", async () => {
@@ -504,6 +530,12 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
     catch (reason) { fail(reason); }
     finally { toggle.disabled = false; }
   });
+  riding.addEventListener("change", async () => {
+    ridingStatus.textContent = riding.checked ? "Riding and custom Surf will be installed." : "Only grounded followers will be installed.";
+    if (workspace) renderAssets();
+    try { const report = await checkFollowerCompatibility(project, rom, riding.checked ? "full" : "base"); install.disabled = !report.compatible; if (!report.compatible) error.textContent = report.message; else error.textContent = ""; }
+    catch (reason) { fail(reason); install.disabled = true; }
+  });
   prepare.addEventListener("click", async () => {
     prepare.disabled = true;
     try {
@@ -514,7 +546,8 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   });
   void (async () => {
     try {
-      rom = await followerRom(project); workspace = readFollowerWorkspace(project, rom);
+      rom = await followerRom(project); positionEnabled = true;
+      workspace = readFollowerWorkspace(project, rom);
       loadRuntimePreviewWorkspace();
       if (!panel.isConnected) return;
       if (workspace) renderAssets();
@@ -526,6 +559,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       }
       prepare.disabled = !!workspace || !report.compatible;
       if (!await refreshRuntime(report.installation)) { install.disabled = !report.compatible; await renderDialogues(); await renderItems(); }
+      else if (workspace) renderAssets();
     } catch (reason) { fail(reason); }
   })();
 }

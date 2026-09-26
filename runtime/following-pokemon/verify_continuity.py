@@ -100,7 +100,7 @@ for changed in (False,True):
 # Older/mismatched resident bridge must fail closed without calling a missing
 # optional function, and hidden followers must not gain a visible PC snapshot.
 s.setup();api=s.ex[symbol_hash('FollowingEventsAPI')]
-assert h.u32(api)==5 and h.u32(api+4)==40
+assert h.u32(api)==6 and h.u32(api+4)==40
 mount=s.VEC;received=s.MAN
 uc.mem_write(mount,bytes(64));h.put(mount,h.GAMEDATA);h.put(mount+20,151)
 h.call(h.u32(api+28),[h.FIELD,1,mount])
@@ -120,4 +120,10 @@ try:
 finally:h.put(api,abi)
 s.setup();s.event();s.opcode(0x130);h.put(h.A,h.u32(h.A)|4);s.opcode(0x14f)
 assert not h.call('fws_take_restore',[RESTORE])
-print(f'Continuity checks passed: {h.CYCLES} menu-close, PC presentation/fade cycles and native zone deletions; one-shot mounted-Surf menu-token preservation, game-owner rejection and discard; {h.CYCLES*34} real-map NPC initial placements, destination/sweep conflicts and spawn-data guards; {h.CYCLES} unchanged + {h.CYCLES} changed-identity storage reconstructions; keep-zone + non-save flags; unsafe child/fade and teardown guards. Native UI/map/allocation mocked; no emulator run.')
+s.setup();h.put(h.GAMEDATA,h.GAME);h.half(h.SAVE_OPTIONS,1<<11)
+h.call('FollowingUpdate',[h.SYS])
+assert not h.u32(h.F+24) and h.u32(h.addr('FollowingDebug')+20)&4096
+h.half(h.SAVE_OPTIONS,0)
+h.call('FollowingUpdate',[h.SYS])
+assert not h.u32(h.addr('FollowingDebug')+20)&4096
+print(f'Continuity checks passed: {h.CYCLES} menu-close, PC presentation/fade cycles and native zone deletions; one-shot mounted-Surf menu-token preservation, game-owner rejection and discard; {h.CYCLES*34} real-map NPC initial placements, destination/sweep conflicts and spawn-data guards; {h.CYCLES} unchanged + {h.CYCLES} changed-identity storage reconstructions; Followers Off/On; keep-zone + non-save flags; unsafe child/fade and teardown guards. Native UI/map/allocation mocked; no emulator run.')

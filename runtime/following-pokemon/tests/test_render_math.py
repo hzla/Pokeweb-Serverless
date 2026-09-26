@@ -25,7 +25,7 @@ class Rendering(unittest.TestCase):
   subprocess.run(['cc','-shared','-fPIC','-std=c11','-Wall','-Wextra','-Werror',str(HERE/'render_math.c'),'-o',str(lib)],check=True)
   cls.lib=c.CDLL(str(lib));cls.lib.fwr_correct.argtypes=[c.POINTER(Point),c.POINTER(Point),c.POINTER(Pose),c.POINTER(Point),c.POINTER(Camera),c.c_uint,c.POINTER(Pose),c.POINTER(Result)]
   cls.lib.fwr_above_shadow.argtypes=[c.POINTER(Pose),c.POINTER(Point),c.POINTER(Camera),c.POINTER(Pose)]
-  cls.lib.fwr_player_in_front.argtypes=[c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Camera),Point,c.c_int32,c.POINTER(Pose),c.POINTER(c.c_int32)]
+  cls.lib.fwr_player_in_front.argtypes=[c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Camera),Point,c.c_int32,c.c_int32,c.POINTER(Pose),c.POINTER(c.c_int32)]
  @classmethod
  def tearDownClass(cls):cls.tmp.cleanup()
  def run_case(self,world,pose,cam,large=1):
@@ -120,11 +120,11 @@ class Rendering(unittest.TestCase):
    player_pose=Pose(player_draw,8192,8192)
    self.assertGreater(depth(player_pose),0) # The supplied frame's regression.
    foreground=Pose();final=c.c_int32()
-   self.assertEqual(self.lib.fwr_player_in_front(c.byref(raised),c.byref(player_pose),c.byref(cam),result.axis,12*4096,c.byref(foreground),c.byref(final)),1)
+   self.assertEqual(self.lib.fwr_player_in_front(c.byref(raised),c.byref(player_pose),c.byref(cam),result.axis,12*4096,32*4096,c.byref(foreground),c.byref(final)),1)
    self.assertLessEqual(final.value,-12*4096)
    self.assertEqual(final.value,depth(foreground))
    before=project(player_pose,eye,projection==2);after=project(foreground,eye,projection==2)
    self.assertLess(max(abs(x-y)for a,b in zip(before,after)for x,y in zip(a,b)),4 if projection==2 else 0.002/256)
-   unchanged=Pose();self.assertEqual(self.lib.fwr_player_in_front(c.byref(raised),c.byref(foreground),c.byref(cam),result.axis,12*4096,c.byref(unchanged),c.byref(final)),0)
+   unchanged=Pose();self.assertEqual(self.lib.fwr_player_in_front(c.byref(raised),c.byref(foreground),c.byref(cam),result.axis,12*4096,32*4096,c.byref(unchanged),c.byref(final)),0)
    self.assertEqual(bytes(foreground),bytes(unchanged))
 if __name__=='__main__':unittest.main()

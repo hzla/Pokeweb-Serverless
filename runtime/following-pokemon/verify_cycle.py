@@ -85,7 +85,7 @@ assert uc.mem_read(h.F + 48, 1) == b'\1' and h.u32(h.addr('fwfield_cyclePending'
 assert h.u32(h.addr('fwfx') + 44) == 2, 'Recall must precede the new spawn'
 frame(0x100)
 assert selected() == 26 and h.u32(h.F + 24) == 0, 'Input during recall must not skip another member'
-for _ in range(7):
+for _ in range(11):
     frame()
 assert h.u32(h.F + 24) == h.A and selected() == 26, (hex(h.u32(h.F + 24)), selected(), h.u32(h.addr('fwfx') + 44), h.u32(h.addr('fwfield_cyclePending')), h.u32(h.addr('FollowingDebug') + 20))
 assert h.u32(h.addr('fwfx') + 44) == 1, 'The next member must receive a send-out effect'
@@ -115,7 +115,7 @@ for facing in (2, 3):
     uc.mem_write(h.A + 60, struct.pack('<hhh', old_x // 65536, 0, 10))
     frame(0x100)
     assert selected() == 26 and h.u32(h.F + 24) == 0
-    for step in range(8):
+    for step in range(12):
         if facing == 3:
             h.put(h.P + 68, 10 * 65536 + (step + 1) * 4096)
         frame()
@@ -123,4 +123,23 @@ for facing in (2, 3):
     frame()
     frame()
     assert not h.u32(h.A) & 4 and h.u32(h.F) == 2, (facing, 'horizontal follower remained hidden')
-print('Packaged L/R cycling passed: simultaneous-key guard, forward/backward selection, recall before send-out, busy-input guard, both wide horizontal facings including player movement, and unchanged party data. No DS game run.')
+# Run the exact eight-byte overlay replacement. Recall suppresses field-key
+# movement; after the ball finishes, the wrapper forwards the original core
+# and key arguments to the unchanged retail direction routine.
+direction_calls = []
+def direction_spy(u, pc, size, user):
+    if pc != 0x0219b160:
+        return
+    direction_calls.append((u.reg_read(UC_ARM_REG_R0), u.reg_read(UC_ARM_REG_R1)))
+    u.reg_write(UC_ARM_REG_R0, 3)
+    u.reg_write(UC_ARM_REG_PC, u.reg_read(UC_ARM_REG_LR))
+uc.hook_add(UC_HOOK_CODE, direction_spy)
+uc.mem_write(0x0219a610, bytes(uc.mem_read(h.addr('FULL_COPY_36_0x0219a610'), 8)))
+core = h.P + 0x800
+h.put(h.P + 4, core)
+h.put(h.addr('fwfx') + 44, 2)
+assert h.call(0x0219a610, [h.P, 0x80]) == 9 and not direction_calls
+h.put(h.addr('fwfx') + 44, 0)
+assert h.call(0x0219a610, [h.P, 0x80]) == 3
+assert direction_calls == [(core, 0x80)], direction_calls
+print('Packaged L/R cycling passed: recall timing, field-movement hold, retail direction forwarding, both wide horizontal facings, and unchanged party data. No DS game run.')

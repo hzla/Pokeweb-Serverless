@@ -372,6 +372,22 @@ for i in range(49):
 recalled(9)
 setup();event();h.put(h.F+20,2);r.field_frame();assert not h.u32(h.F+24) and h.u32(h.addr('FollowingDebug')+20)&1024
 
+# An unsafe native callback must wait for the whole recall before its script
+# can warp, move the player or tear down the field. The callback remains the
+# same node and resumes exactly once when the effect releases it.
+setup();h.put(h.addr('fwfx')+40,1);before=len(observed)
+event(h.EVENT,0x02008009)
+assert h.call('fwfx_recalling') and not any(item[0]=='unknown-child' for item in observed[before:])
+for _ in range(11):
+ h.call('fwfx_tick')
+ assert h.call(0x02016cf8,[h.EVENT])==0
+ assert not any(item[0]=='unknown-child' for item in observed[before:])
+h.call('fwfx_tick')
+assert not h.call('fwfx_recalling')
+assert h.call(0x02016cf8,[h.EVENT])==37
+assert [item for item in observed[before:] if item[0]=='unknown-child']==[('unknown-child',0)]
+h.put(h.addr('fwfx')+40,0) # Return the shared harness to its unloaded-effect baseline.
+
 # Unbind before unload. Resident hooks must be transparent without a field.
 setup();event();h.call('fws_detach');snap=bytes(uc.mem_read(debug,44))
 opcode(0xffff);assert bytes(uc.mem_read(debug,44))==snap
@@ -380,4 +396,4 @@ assert not h.call('fws_poll')
 for generation in range(2,12):
  h.put(h.F+20,generation);assert h.call('fws_attach',[h.SYS,h.F,generation,h.addr('scene_recall')|1])==1
  h.call('fws_detach')
-print(f'Scene checks passed: two linked packaged DLLs; {h.CYCLES} retained-actor cycles; all 65536 opcode classifications; retail normal/extended VM dispatch; retail Repel Yes/No script paths with unrelated-script rejection; child events; bounded concurrent VMs; paused autonomous routes; sign/furniture presentation; grid/rail/world conflicts; elevation; player movement; allocation/deletion ordering; completion latch; unload/reload. Native UI/geometry services isolated; emulator acceptance pending.')
+print(f'Scene checks passed: two linked packaged DLLs; {h.CYCLES} retained-actor cycles; all 65536 opcode classifications; retail normal/extended VM dispatch; retail Repel Yes/No script paths; 12-tick callback hold; child events; bounded concurrent VMs; paused routes; grid/rail/world conflicts; player movement; allocation/deletion ordering; completion latch; unload/reload. Native services isolated; emulator acceptance pending.')

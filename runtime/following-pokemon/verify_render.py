@@ -24,13 +24,15 @@ def call(name,args):
  assert uc.reg_read(UC_ARM_REG_PC)==STOP and uc.reg_read(UC_ARM_REG_SP)==STACK
  for i,r in enumerate(range(UC_ARM_REG_R4,UC_ARM_REG_R11+1)):assert uc.reg_read(r)==0x12340000+i
 P=0x02220000;A=P+256;SYS=P+0x1000;FBL=SYS+0x100;BL=SYS+0x200;SCENE=SYS+0x300;SLOTS=SYS+0x400;BILL=SYS+0x500;CAM=SYS+0x600;LIGHT=SYS+0x700
-seen=[];player_seen=[];expected_args=[BL,CAM,LIGHT]
+seen=[];player_seen=[];npc_seen=[];light_seen=[];expected_args=[BL,CAM,LIGHT]
 def spy(u,pc,size,user):
  if pc!=0x0204f684:return
  assert u.reg_read(UC_ARM_REG_SP)%8==0
  assert [u.reg_read(r) for r in [UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2]]==expected_args
  seen.append((read(BILL+28+4,'3i'),read(BILL+28+18,'2h'),read(addr('FollowingRenderDebug')+24,'3i')))
  player_seen.append((read(BILL+4,'3i'),read(BILL+18,'2h')))
+ npc_seen.append(read(BILL+56+4,'3i'))
+ light_seen.append((read(BILL+24,'H')[0],read(BILL+28+24,'H')[0]))
  u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR))
 uc.hook_add(UC_HOOK_CODE,spy,begin=0x0204f684,end=0x0204f684)
 F=addr('fwfield_follower')
@@ -44,7 +46,7 @@ def setup(size=32,projection=0):
  for i,a in enumerate([P,A]):
   put(a,1);put(a+136,SYS);put(a+140,addr('fwfield_moves'));half(a+196,i)
   half(a+24,2)
-  half(BILL+28*i,13+i);half(BILL+28*i+18,8192 if i==0 else size*256);half(BILL+28*i+20,8192 if i==0 else size*256);half(BILL+28*i+24,0x121f)
+  half(BILL+28*i,13+i);half(BILL+28*i+18,8192 if i==0 else size*256);half(BILL+28*i+20,8192 if i==0 else size*256);half(BILL+28*i+24,0x821f if i==0 else 0x121f)
  uc.mem_write(A+235,bytes([2 if size==64 else 0]));put(CAM,projection)
  vec(CAM+32,(0,200*4096,140*4096));vec(CAM+56,(0,0,0))
  vec(P+68,(0,0,0));vec(A+68,(65536,0,0));vec(BILL+4,(0,0,0))
@@ -65,6 +67,16 @@ for face,expected in ((0,-4),(1,9),(2,3),(3,3)):
  after=bytes(uc.mem_read(A,256))
  assert after[:128]==before[:128] and after[129:]==before[129:]
 call('fwr_anchor',[0,0])
+# The follower uses the player's scene light selection for the synchronous
+# actor pass, while retaining its own alpha and restoring the native mask for
+# the later shadow/effect pass.
+for player_mask in (0x0000,0x1000,0x4000,0x8000):
+ setup();half(BILL+24,player_mask|0x021f);half(BILL+28+24,0x121f)
+ draw()
+ assert light_seen[-1]==(player_mask|0x021f,player_mask|0x021f),light_seen[-1]
+ assert read(BILL+28+24,'H')[0]==0x121f
+ n=len(light_seen);call('FollowingEffectsDraw',[BL,CAM,LIGHT])
+ assert len(light_seen)==n+1 and light_seen[-1][1]==0x121f
 frames=0
 for size in (32,64):
  for projection in (0,1,2):
@@ -106,9 +118,16 @@ assert read(BILL+32,'3i')==original
 # original billboard for the later native shadow/effect pass.
 setup();put(A+4,0x4000);uc.mem_write(F+51,b'\xfb');half(BILL,0x400d)
 vec(BILL+32,(65536,6144,0));original=read(BILL+32,'3i')
-submitted=draw()[0];axis=(200/math.hypot(200,140),140/math.hypot(200,140))
+submitted,scales,_=draw();axis=(200/math.hypot(200,140),140/math.hypot(200,140))
 assert (submitted[1]*axis[0]+submitted[2]*axis[1])>=6*4096-64,submitted
 assert read(BILL+32,'3i')==original
+effect=SYS+0x800
+call('fwr_effect_pose',[A,BILL+32,effect])
+assert uc.reg_read(UC_ARM_REG_R0)==1
+assert read(effect,'3i2h')==(*submitted,*scales),'Recall must retain the visible corrected pose'
+vec(A+68,(65536,0,4096));call('fwr_effect_pose',[A,BILL+32,effect])
+assert uc.reg_read(UC_ARM_REG_R0)==0,'Moved actor reused a stale recall pose'
+vec(A+68,(65536,0,0))
 n=len(seen);call('FollowingEffectsDraw',[BL,CAM,LIGHT])
 assert len(seen)==n+1 and seen[-1][0]==original
 # The upward artwork receives a two-pixel correction relative to the shadow;
@@ -152,6 +171,47 @@ player_submitted=player_seen[-1][0]
 assert (submitted[1]-player_submitted[1])*axis[0]+(submitted[2]-player_submitted[2])*axis[1]<=(-12*4096+128)*4096,(submitted,player_submitted)
 assert submitted[1]*axis[0]+(submitted[2]+40960)*axis[1]>=(6*4096-128)*4096,submitted
 assert all(draw()==(submitted,scales,depth) for _ in range(5))
+# drawprio.mln: a south-facing Serperior occupies the tile north of a player
+# facing up. The player's own facing does not change the required depth order.
+# Repeat for every facing using the observed camera and actor coordinates.
+for player_face in range(4):
+ setup(64);half(P+24,player_face);half(A+24,1);put(A+4,0x4000)
+ uc.mem_write(A+128,b'\x06');uc.mem_write(F+51,b'\x00')
+ vec(P+68,(5406720,0,884736));vec(A+68,(5406720,0,819200))
+ vec(CAM+32,(5406720,777123,1466571));vec(CAM+56,(5406720,16384,884736))
+ vec(BILL+4,(5406720,-6484,884736));vec(BILL+32,(5406720,-340,835584))
+ initial=bytes(uc.mem_read(BILL,56));submitted,scales,depth=draw()
+ assert depth[0]==-1 and depth[2]<=-12*4096,(player_face,depth)
+ assert player_seen[-1][0]!=read(BILL+4,'3i'),player_face
+ assert bytes(uc.mem_read(BILL,56))==initial,player_face
+ assert all(draw()==(submitted,scales,depth) for _ in range(3)),player_face
+# badprio.mln: the follower is 28 world units west of the player while an
+# ordinary NPC is one tile north. The follower cannot overlap the player here;
+# moving the player's billboard during native scene submission put it in front
+# of that NPC. Use the saved actor and camera coordinates, rebased to zero.
+setup();half(P+24,3);half(A+24,3);put(A+4,0x4000)
+vec(P+68,(0,0,0));vec(A+68,(-28*4096,0,0))
+vec(CAM+32,(0,777123,581835));vec(CAM+56,(0,16384,0))
+vec(BILL+4,(0,-6484,0));vec(BILL+32,(-26*4096,-6484,-8192))
+half(SCENE+14,3);vec(BILL+56+4,(0,-6484,65536))
+half(BILL+56,15);half(BILL+56+18,8192);half(BILL+56+20,8192);half(BILL+56+24,0x121f)
+player_native=read(BILL+4,'3i');npc_native=read(BILL+56+4,'3i')
+for _ in range(5):
+ draw();assert player_seen[-1][0]==player_native
+ assert npc_seen[-1]==npc_native
+# When the follower does overlap the player, a nearby NPC still retains its
+# native foreground order even if the follower's shadow clearance asks for a
+# larger player shift. All three billboards are restored after submission.
+setup(64);put(A+4,0x4000);half(P+24,1);half(A+24,1)
+vec(CAM+32,(0,760739,581835));vec(A+68,(0,0,-65536))
+vec(BILL+4,(0,-6484,0));vec(BILL+32,(0,-340,-49152))
+half(SCENE+14,3);vec(BILL+56+4,(0,-6484,65536))
+half(BILL+56,15);half(BILL+56+18,8192);half(BILL+56+20,8192);half(BILL+56+24,0x121f)
+native=bytes(uc.mem_read(BILL,84));draw()
+axis=(3253,2488)
+player_depth=sum((npc_seen[-1][i]-player_seen[-1][0][i])*axis[i-1] for i in (1,2))//4096
+assert player_depth>=512,(player_seen[-1],npc_seen[-1],player_depth)
+assert bytes(uc.mem_read(BILL,84))==native
 # Invalid/stale/unsupported objects forward once without mutating the scene.
 for invalid in ('hidden','unused','lost','foreign','slot','index','mode','camera','zero-camera','scale'):
  setup();vec(BILL+32,(65536,6144,0))
@@ -198,4 +258,4 @@ for binding in json.loads((HERE/'tests/render-bindings.json').read_text()):
   if handle==BL:assert seen[-1][2][0]==-1 and seen[-1][2][2]<=-508
   else:assert seen[-1][0]==(65536,6144,0),'Secondary pass must not alter actor scene'
 print('Retail pass routing passed: main actor correction and unchanged secondary/effect ownership for three saved scene bindings.')
-print(f'Render checks passed: {frames} packaged submission frames, both sizes, all supported projection types, current animation/control offsets, rotated cameras, stairs, restoration, repeated draws, invalid handles and ABI. GPU draw is a spy; no emulator execution.')
+print(f'Render checks passed: {frames} packaged submission frames, both sizes, all supported projection types, corrected recall-pose capture and stale-pose rejection, current animation/control offsets, rotated cameras, stairs, restoration, repeated draws, invalid handles and ABI. GPU draw is a spy; no emulator execution.')
