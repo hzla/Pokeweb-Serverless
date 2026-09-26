@@ -16,7 +16,7 @@ uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map
 uc.mem_write(rom.arm9RamAddress,bytes(arm9))
 BASE=0x02300000;STOP=0x02008000;STACK=0x023f0000
 elfpath=BUILD/'field.linked.elf'
-subprocess.run([str(TOOLS/'arm-none-eabi-ld'),'-Ttext',hex(BASE),'-Tdata',hex(BASE+0x8000),'-e','FollowingUpdate',str(BUILD/'PokewebFollowingFieldW2.elf'),str(BUILD/'PokewebFollowingEventsW2.elf'),str(BUILD/'PokewebFollowingCoreW2.elf'),'-o',str(elfpath)],check=True)
+subprocess.run([str(TOOLS/'arm-none-eabi-ld'),'-Ttext',hex(BASE),'-Tdata',hex(BASE+0x20000),'-e','FollowingUpdate',str(BUILD/'PokewebFollowingFieldW2.elf'),str(BUILD/'PokewebFollowingEventsW2.elf'),str(BUILD/'PokewebFollowingCoreW2.elf'),'-o',str(elfpath)],check=True)
 symbols={}
 with elfpath.open('rb') as file:
  elf=ELFFile(file)

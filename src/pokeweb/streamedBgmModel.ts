@@ -938,7 +938,7 @@ async function musicTransaction<T>(project: ProjectState, operation: (draft: Pro
     ...project,
     arm9: installingPmc ? project.arm9.slice() : project.arm9,
     overlays: installingPmc ? Object.fromEntries(Object.entries(project.overlays).map(([id, bytes]) => [id, bytes?.slice()])) : project.overlays,
-    fileSystem: { replacements: { ...project.fileSystem?.replacements }, additions: { ...project.fileSystem?.additions } },
+    fileSystem: { replacements: { ...project.fileSystem?.replacements }, additions: { ...project.fileSystem?.additions }, tombstones: { ...project.fileSystem?.tombstones } },
     codeInjection: structuredClone(project.codeInjection),
     actionChangelog: structuredClone(project.actionChangelog),
   };

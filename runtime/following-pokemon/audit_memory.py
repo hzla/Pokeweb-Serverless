@@ -38,10 +38,19 @@ def audit(profile,rom_path):
   species[value>>11 if version in (2,4) else value]+=1
  sizes={o['name']:o['bytes'] for o in objects}
  assert sizes['fwfield_page']==1024 and sizes['dataBytes']==8192 and sizes['contextBytes']==4096
- assert sizes['fwfield_follower']==1852
+ assert sizes['fwfield_follower']==1856
  assert sizes['fwfield_index']==(1025 if profile=='white2upgrade' else 651)*2
  allocatedRegistry=0
  total=sum(m['codePlusBss'] for m in modules)+allocatedRegistry
+ suffix='B2' if profile=='black2' else 'W2I' if profile=='white2italy' else 'W2'
+ base_modules=[]
+ for name in ('Events','Field'):
+  stem=f'PokewebFollowing{name}{suffix}Base'
+  path=assets/(stem+'.dll')
+  code,bss,_,_=read_module(path)
+  assert (build/'base'/(stem+'.dll')).read_bytes()==path.read_bytes(),'Base build no longer matches packaged DLL'
+  base_modules.append(dict(name=stem,fileBytes=path.stat().st_size,codePlusBss=len(code)+bss))
+ base_total=next(m['codePlusBss'] for m in modules if 'Core' in m['name'])+sum(m['codePlusBss'] for m in base_modules)
  surf_registry=rom.getFileByName('following/surf-registry.bin')
  surf_archive=rom.getFileByName('following/surf-mounts.narc')
  surf=dict(registryBytes=len(surf_registry),archiveBytes=len(surf_archive),
@@ -52,8 +61,11 @@ def audit(profile,rom_path):
  land=dict(riderArchiveBytes=len(rider),anchorTableBytes=len(anchors),
            appearanceRows=struct.unpack_from('<H',anchors,6)[0],residentRiderTextures=12,
            codeAndInitializedDataBytes=next(m['codeAndInitializedData'] for m in modules if 'Field' in m['name']))
- return dict(profile=profile,version=manifest['version'],modules=modules,
-             surf=surf,land=land,
+ positioning_bytes=rom.getFileByName('following/positioning.narc')
+ positioning=dict(archiveBytes=len(positioning_bytes),residentCatalogBytes=0,
+                  selectedLandBytes=12,selectedSurfBytes=8) if positioning_bytes else None
+ return dict(profile=profile,version=manifest['version'],modules=modules,baseModules=base_modules,baseFixedPayloadBytes=base_total,fullMinusBaseBytes=total-base_total,
+             surf=surf,land=land,positioning=positioning,
              largestObjects=sorted(objects,key=lambda o:o['bytes'],reverse=True)[:15],
              fixedPayloadBytes=total,registryBytes=len(data),registryRecords=count,
              registryHeapBytes=allocatedRegistry,pageBytes=sizes['fwfield_page'],indexBytes=sizes['fwfield_index'],
@@ -63,28 +75,58 @@ def audit(profile,rom_path):
              conversationBytes=len(rom.getFileByName('following/interactions.bin')),contextualBytes=len(rom.getFileByName('following/contextual-dialogues.narc')),giftBytes=len(rom.getFileByName('following/contextual-items.narc')))
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('stock_rom',type=Path);p.add_argument('black2_rom',type=Path);p.add_argument('upgrade_rom',type=Path);a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('stock_rom',type=Path);p.add_argument('black2_rom',type=Path);p.add_argument('upgrade_rom',type=Path);p.add_argument('italy_rom',type=Path,nargs='?');a=p.parse_args()
  reports=[audit('stock',a.stock_rom),audit('black2',a.black2_rom),audit('white2upgrade',a.upgrade_rom)]
- previous=[dict(profile='stock',version='0.6.62-alpha',fixedPayloadBytes=61024),dict(profile='black2',version='0.6.36-alpha',fixedPayloadBytes=60896),dict(profile='white2upgrade',version='0.7.31-alpha',fixedPayloadBytes=61884)]
+ previous=[dict(profile='stock',version='0.6.75-alpha',fixedPayloadBytes=67956),dict(profile='black2',version='0.6.41-alpha',fixedPayloadBytes=67956),dict(profile='white2upgrade',version='0.7.36-alpha',fixedPayloadBytes=68944)]
+ if a.italy_rom:
+  reports.append(audit('white2italy',a.italy_rom))
+  previous.append(dict(profile='white2italy',version='0.6.42-alpha',fixedPayloadBytes=68132))
+ core_baselines={'stock':('0.6.75-alpha',3500),'black2':('0.6.41-alpha',3500),
+                 'white2italy':('0.6.42-alpha',3500),'white2upgrade':('0.7.36-alpha',3720)}
+ options_memory=[]
+ for r in reports:
+  core=next(m['codePlusBss'] for m in r['modules'] if 'Core' in m['name'])
+  old_version,old_core=core_baselines[r['profile']]
+  options_memory.append(dict(profile=r['profile'],previousVersion=old_version,
+    previousCoreFixedBytes=old_core,currentCoreFixedBytes=core,
+    addedCoreFixedBytes=core-old_core,temporaryMenuAllocationBytes=1684,
+    temporaryMarkerSlots=2))
  out={'measurements':reports,'previousReleaseMeasurements':previous,
+      'optionsMenuMemory':options_memory,
       'limits':'Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.',
       'implementationStatus':'ROM registry streaming and 8 KiB conversation buffers implemented; automated checks passed, game emulator acceptance pending.'}
  (HERE/'MEMORY-AUDIT.json').write_text(json.dumps(out,indent=2)+'\n')
  lines=['# Follower memory footprint','', 'Generated by `audit_memory.py` from the packaged DLLs, matching debug ELFs and delivered ROM data.', '',
-        '| Profile | Previous fixed payload | New fixed payload | Species index / page cache | Generic capacity / data | Context capacity / data | Gift scratch / data |', '|---|---:|---:|---:|---:|---:|---:|']
+        '| Profile | Previous full | Base fixed payload | Full fixed payload | Full − base | Species index / page cache | Generic capacity / data | Context capacity / data | Gift scratch / data |', '|---|---:|---:|---:|---:|---:|---:|---:|---:|']
  for r,old in zip(reports,previous):
-  lines.append(f"| {r['profile']} {r['version']} | {old['fixedPayloadBytes']:,} B | {r['fixedPayloadBytes']:,} B | {r['indexBytes']:,} / {r['pageBytes']:,} B | {r['conversationCapacity']:,} / {r['conversationBytes']:,} B | {r['contextualCapacity']:,} / {r['contextualBytes']:,} B | {r['giftScratchCapacity']:,} / {r['giftBytes']:,} B |")
+  earlier=f"{old['fixedPayloadBytes']:,} B" if old['fixedPayloadBytes'] is not None else 'not measured'
+  lines.append(f"| {r['profile']} {r['version']} | {earlier} | {r['baseFixedPayloadBytes']:,} B | {r['fixedPayloadBytes']:,} B | {r['fullMinusBaseBytes']:,} B | {r['indexBytes']:,} / {r['pageBytes']:,} B | {r['conversationCapacity']:,} / {r['conversationBytes']:,} B | {r['contextualCapacity']:,} / {r['contextualBytes']:,} B | {r['giftScratchCapacity']:,} / {r['giftBytes']:,} B |")
  lines+=['',
   'The fixed payload is packaged code plus initialized data and BSS, including',
   'the index, cache and conversation buffer. Neither new nor preceding release',
   'allocates a separate registry. Loader bookkeeping, allocator overhead,',
   'stack, native actor/effect/message allocations and VRAM remain separate.',
-  'These numbers are not whole-game peak heap measurements.', '',
+  'These numbers are not whole-game peak heap measurements. A fresh base',
+  'installation omits the Surf and land-rider archives, their registries and',
+  'anchors, and the associated resident textures.', '',
+  '## In-game Options row','',
+  'The installed resident core grows by '+', '.join(f"{r['profile']} {r['addedCoreFixedBytes']:,} B" for r in options_memory)+
+  ' compared with the preceding alpha cores. This is code, initialized data, and BSS;',
+  'base and full share the same core. The row styling reuses the retail BG',
+  'screen buffer and adds no temporary allocation. While Options is open,',
+  'the three existing native text windows allocate 1,684 bytes: 50 four-bit',
+  'tiles (1,600 bytes), three 16-byte',
+  'window records, and three 12-byte bitmap records. Two selection markers use',
+  'two slots in the menu’s existing actor pool. Closing Options releases the',
+  'windows and markers. These sizes exclude allocator bookkeeping and native',
+  'menu allocations already present in the retail game.', '',
   *[f"The {r['profile']} Surf catalog contains {r['surf']['appearances']:,} ROM-resident appearance records in a {r['surf']['registryBytes']:,}-byte index and a {r['surf']['archiveBytes']:,}-byte archive. It allocates no permanent index buffer; only the chosen mount's sixteen textures are loaded. Native graphics allocations and VRAM are outside the fixed-payload total." for r in reports if r['surf']], '',
   *[f"The {r['profile']} land mount stores {r['land']['appearanceRows']:,} eight-byte rider anchors in {r['land']['anchorTableBytes']:,} ROM bytes and animated bike-free rider art in a {r['land']['riderArchiveBytes']:,}-byte archive. It reads one anchor record on mount and loads twelve rider textures only while mounted. The existing follower billboard supplies the Pokémon artwork; native graphics allocations and VRAM are not included in fixed payload." for r in reports if r['land']], '',
+  *[f"The {r['profile']} positioning NARC is {r['positioning']['archiveBytes']:,} ROM bytes. The field code reads only a 12-byte land row or an 8-byte Surf row for the chosen appearance; it retains no extra catalog buffer in PMC heap." for r in reports if r['positioning']], '',
   'The 64-record trail replaces the earlier 256-record trail. Each 28-byte record stores',
   'a sampled world position and route metadata. The follower sidecar shrinks from',
-  '7,228 to 1,852 bytes, saving 5,376 bytes in the field module for every profile.',
+  '7,228 to 1,852 bytes in the earlier packages. All current profiles use',
+  '1,856 bytes for four directional positioning values.',
   'A full trail still recalls and reseeds safely; slow movement and complex paths',
   'require human emulator acceptance to confirm the smaller bound is sufficient.', '',
   '## Implemented behavior','',

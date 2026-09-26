@@ -7,7 +7,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { Folder } from "../nds/fnt";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { stageCodeInjectionDll } from "../pokeweb/pmcModel";
-import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, followerModuleHookConflicts, type FollowerAssetWorkspace } from "../pokeweb/followingPokemonProject";
+import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, followerModuleHookConflicts, type FollowerAssetWorkspace, type FollowerRom } from "../pokeweb/followingPokemonProject";
 import type { RpmModule } from "../pokeweb/rpm";
 import { deriveFollowerGrounding, encodeFollowerFrames, followerGroundingPixels, followerKey } from "../pokeweb/followingPokemonModel";
 import contract from "../../runtime/following-pokemon/contract.json";
@@ -113,7 +113,8 @@ describe("follower asset transactions",()=>{
   });
 });
 
-import { encodeFollowerNativeConfig, followerRomSha256, readFollowerAlphaInstall, setFollowerAlphaEnabled, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_DLL_PATH, FOLLOWER_EVENTS_DLL_PATH, FOLLOWER_CORE_DLL_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, FOLLOWER_NATIVE_PATH, FOLLOWER_INSTALL_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH, FOLLOWER_SURF_RESOURCE_PATH, FOLLOWER_SURF_REGISTRY_PATH, FOLLOWER_LAND_RIDER_PATH, FOLLOWER_LAND_ANCHORS_PATH } from "../pokeweb/followingPokemonProject";
+import { encodeFollowerNativeConfig, followerRomSha256, readFollowerAlphaInstall, setFollowerAlphaEnabled, updateFollowerPositioning, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_DLL_PATH, FOLLOWER_EVENTS_DLL_PATH, FOLLOWER_CORE_DLL_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, FOLLOWER_NATIVE_PATH, FOLLOWER_INSTALL_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH, FOLLOWER_SURF_RESOURCE_PATH, FOLLOWER_SURF_REGISTRY_PATH, FOLLOWER_LAND_RIDER_PATH, FOLLOWER_LAND_ANCHORS_PATH } from "../pokeweb/followingPokemonProject";
+import { FOLLOWER_POSITIONING_PATH, encodeFollowerPositioningNarc, decodeFollowerPositioningNarc } from "../pokeweb/followingPokemonPositioning";
 import { encodeFollowerRegistry, decodeFollowerRegistry, encodeFollowerLandAnchors, followerCrc32 } from "../pokeweb/followingPokemonModel";
 import runtimeManifest from "../assets/following/runtime.json";
 import effectsManifest from "../assets/following/effects.json";
@@ -150,7 +151,7 @@ describe("walking alpha ownership",()=>{
     expect(view.getUint32(24,true)).toBe(followerCrc32(registry));
   });
   it("toggles only fingerprinted owned config and retains unrelated artwork",async()=>{
-    const {project}=fixture(),{config,registry}=nativeConfig(),descriptorArchive=new NARC(),resourceArchive=new NARC();
+    const {project,rom}=fixture(),{config,registry}=nativeConfig(),descriptorArchive=new NARC(),resourceArchive=new NARC();
     descriptorArchive.files=[new Uint8Array(4+1009*28)];new DataView(descriptorArchive.files[0].buffer).setUint32(0,1009,true);
     resourceArchive.files=Array.from({length:975},()=>new Uint8Array());
     const fixtureFrame=()=>{const rgba=new Uint8Array(32*32*4);rgba.set([255,0,0,255],(16*32+16)*4);return {width:32,height:32,rgba};};
@@ -160,8 +161,9 @@ describe("walking alpha ownership",()=>{
     const surfRegistry=new Uint8Array(readFileSync(new URL('../assets/following/surf-registry.bin',import.meta.url)));
     const rider=new Uint8Array(readFileSync(new URL('../assets/following/land-riders.narc',import.meta.url)));
     const anchors=encodeFollowerLandAnchors(decodeFollowerRegistry(registry),resourceArchive.files,registry);
+    const positioning=encodeFollowerPositioningNarc(decodeFollowerRegistry(registry),registry,anchors,surfRegistry);
     const dialogues=new Uint8Array(readFileSync(new URL('../assets/following/contextual-dialogues.narc',import.meta.url)));
-    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues),surfSha256:await followerRomSha256(surf),surfRegistrySha256:await followerRomSha256(surfRegistry),landRiderSha256:await followerRomSha256(rider),landAnchorsSha256:await followerRomSha256(anchors)};
+    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues),surfSha256:await followerRomSha256(surf),surfRegistrySha256:await followerRomSha256(surfRegistry),landRiderSha256:await followerRomSha256(rider),landAnchorsSha256:await followerRomSha256(anchors),positioningSha256:await followerRomSha256(positioning)};
     Object.assign(project.fileSystem!.additions!,{
       [FOLLOWER_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingFieldW2.dll',import.meta.url))),
       [FOLLOWER_EVENTS_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingEventsW2.dll',import.meta.url))),
@@ -172,9 +174,17 @@ describe("walking alpha ownership",()=>{
       [FOLLOWER_NATIVE_PATH]:config,[FOLLOWER_INSTALL_PATH]:new TextEncoder().encode(JSON.stringify(state)),
       [FOLLOWER_LAND_RIDER_PATH]:rider,[FOLLOWER_LAND_ANCHORS_PATH]:anchors,
       [FOLLOWER_SURF_RESOURCE_PATH]:surf,[FOLLOWER_SURF_REGISTRY_PATH]:surfRegistry,
+      [FOLLOWER_POSITIONING_PATH]:positioning,
       [FOLLOWER_EFFECTS_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/hgss-effects.narc',import.meta.url))),
     });
     expect((await readFollowerAlphaInstall(project))?.enabled).toBe(true);
+    const authored = readFollowerWorkspace(project,rom)!;
+    authored.registry.entries[0].key.shiny = false;
+    project.fileSystem!.additions![FOLLOWER_MANIFEST_PATH] = new TextEncoder().encode(JSON.stringify(authored));
+    const updated = await updateFollowerPositioning(project,rom as unknown as FollowerRom,{landKey:followerKey(authored.registry.entries[0].key),gaps:[1,2,3,4],rider:[[1,0],[0,1],[-1,0],[0,-1]]});
+    expect(updated.registry.entries[0].directionalGaps).toEqual([1,2,3,4]);
+    expect(Array.from(decodeFollowerPositioningNarc(project.fileSystem!.additions![FOLLOWER_POSITIONING_PATH],registry,surfRegistry).land.slice(0,4))).toEqual([1,2,3,4]);
+    expect((await readFollowerAlphaInstall(project))?.positioningSha256).toBe(await followerRomSha256(project.fileSystem!.additions![FOLLOWER_POSITIONING_PATH]));
     await writeFollowerDialogueRules(project,[{zone:42,type:10,text:"{nickname} likes {location}!"}]);
     expect(await readFollowerDialogueRules(project)).toEqual([{zone:42,type:10,text:"{nickname} likes {location}!"}]);
     await setFollowerAlphaEnabled(project,false);expect((await readFollowerAlphaInstall(project))?.enabled).toBe(false);

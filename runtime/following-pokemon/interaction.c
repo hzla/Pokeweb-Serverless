@@ -82,9 +82,12 @@ void fwt_cancel(void){
 void fwt_unload(void){fwt_cancel();loaded=0;data=(FwrData){0};context=(FwrContext){0};items=(FwrItems){0};emotesValid=0;}
 static int abs32(int x){return x<0?-x:x;}
 int fwt_reach(FwFollower *f,Actor *p,Actor *a,void *field){
- if(!f||f->side_gap>FW_MAX_SIDE_GAP||f->state!=FW_FOLLOWING||!p||!a||(a->flags&4)||fwfx_busy()||p->face>3||f->trail.count<2)return 0;
+ if(!f||f->state!=FW_FOLLOWING||!p||!a||(a->flags&4)||fwfx_busy()||p->face>3||f->trail.count<2)return 0;
+ int gap=f->directional_gap[p->face];if(gap>(int)FW_MAX_DIRECTIONAL_GAP)return 0;
  int x=a->world.x-p->world.x,z=a->world.z-p->world.z,y=a->world.y-(p->world.y+p->drawOffset.y+p->externalOffset.y);
- if(abs32(x)>FW_TILE+f->side_gap*4096+4096||abs32(z)>FW_TILE+4096||abs32(y)>8*4096)return 0;
+ if(abs32(x)>(int)(p->face>=2?FW_DIALOGUE_REACH(gap):FW_DIALOGUE_REACH(0))||
+    abs32(z)>(int)(p->face<2?FW_DIALOGUE_REACH(gap):FW_DIALOGUE_REACH(0))||
+    abs32(y)>8*4096)return 0;
  unsigned controller=CALL(0x02180579,unsigned(*)(void*))(field);
  int vx=p->face==2?-256:p->face==3?256:0,vz=p->face==0?-256:p->face==1?256:0;
  if(controller){
@@ -99,7 +102,7 @@ int fwt_reach(FwFollower *f,Actor *p,Actor *a,void *field){
  /* Match the wider lateral trail, including a rotated rail tangent. The
     native adjacent-tile/obstruction and connected-corridor checks still apply. */
  int length=vx*vx+vz*vz,px=x/256,pz=z/256,along=px*vx+pz*vz,lateral=px*vz-pz*vx;
- if(!length||along<length/2||along>length+length/8+f->side_gap*vx*vx/16||abs32(lateral)>(int)((unsigned)length/3))return 0;
+ if(!length||along<length/2||along>length+length/8+gap*length/16||abs32(lateral)>(int)((unsigned)length/3))return 0;
  /* A bounded connected trail proves both actors occupy the same corridor.
     Use the rail tangent too, so rotated/curved paths retain normal reach. */
  for(unsigned i=0;i<f->trail.count;++i){const FwSample *s=&f->trail.samples[(f->trail.head+i)%FW_TRAIL_CAPACITY];
@@ -109,7 +112,12 @@ int fwt_reach(FwFollower *f,Actor *p,Actor *a,void *field){
  }
  if(!controller){
   int16_t gx,gy,gz;CALL(0x0219aacd,void(*)(void*,void*,void*,void*))(PTR(field,0x94),&gx,&gy,&gz);
-  if(a->grid[0]!=gx||a->grid[2]!=gz)return 0;
+  int dx=a->grid[0]-gx,dz=a->grid[2]-gz;
+  /* A twelve-unit side gap can place the follower in the next grid cell.
+     The distance and connected straight trail above still bound this case. */
+  int next=gap>8&&((p->face==0&&dx==0&&dz==-1)||(p->face==1&&dx==0&&dz==1)||
+      (p->face==2&&dx==-1&&dz==0)||(p->face==3&&dx==1&&dz==0));
+  if((dx||dz)&&!next)return 0;
   if(CALL(0x0215e4f1,unsigned(*)(Actor*,unsigned))(p,p->face))return 0;
  }
  return 1;

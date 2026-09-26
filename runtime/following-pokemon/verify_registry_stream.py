@@ -9,6 +9,8 @@ from verify_packaged import *
 def verify(rom_path):
  rom=ndspy.rom.NintendoDSRom.fromFile(rom_path)
  source={f'rom:/following/{n}':bytes(rom.getFileByName(f'following/{n}')) for n in ['native.bin','runtime-registry.bin']}
+ try:source['rom:/following/positioning.narc']=bytes(rom.getFileByName('following/positioning.narc'))
+ except ValueError:pass # Older profiles have no per-appearance positioning catalog.
  data=source['rom:/following/runtime-registry.bin'];version=struct.unpack_from('<H',data,4)[0];stride=12 if version in (2,4) else 24
  count,zonecount,desc,res=struct.unpack_from('<4H',data,12);maximum=1023 if version in (2,4) else 649
  rows=defaultdict(list);gaps={}
@@ -39,10 +41,10 @@ def verify(rom_path):
   uc.emu_start(fn,stop,count=50000000)
   assert uc.reg_read(UC_ARM_REG_PC)==stop and uc.reg_read(UC_ARM_REG_SP)==stack
   return uc.reg_read(UC_ARM_REG_R0)
- paths={};files=source.copy();reads=seeks=opens=closes=0;mode='ok';failAt=0
+ paths={};files=source.copy();reads=seeks=opens=closes=registry_reads=0;mode='ok';failAt=0
  original=(base+funcs['FollowingOriginalUnload'][0])&~1
  def fs(u,at,size,_):
-  nonlocal reads,seeks,opens,closes
+  nonlocal reads,seeks,opens,closes,registry_reads
   args=[u.reg_read(r) for r in regs];result=0
   assert u.reg_read(UC_ARM_REG_SP)%8==0
   if at in (0x02039dc8,0x02039d9c,0x02039e58):raise AssertionError('Registry must not allocate/free heap memory')
@@ -58,8 +60,9 @@ def verify(rom_path):
   elif at==0x02070e6c:
    path,pos=paths[args[0]];contents=files[path];result=min(args[2],len(contents)-pos);reads+=1
    if path.endswith('registry.bin'):
+    registry_reads+=1
     assert args[2]<=1024,'Unbounded read'
-    if mode=='short' or (failAt and reads==failAt):result=max(0,result-1)
+    if mode=='short' or (failAt and registry_reads==failAt):result=max(0,result-1)
    u.mem_write(args[1],contents[pos:pos+result]);paths[args[0]][1]+=result
   elif at==0x02070de0:
    assert args[0] in paths;del paths[args[0]];closes+=1;result=1
@@ -94,9 +97,9 @@ def verify(rom_path):
   for s in (0,1):assert model(sp,255,2,s)==expected(sp,255,2,s);cases+=1
  # Small groups fit one page: subsequent queries perform no filesystem operations.
  sp=next(sp for sp,v in rows.items() if len(v)*stride<=1024)
- assert model(sp,0,2,0)==expected(sp,0,2,0);before=(reads,seeks,opens)
+ assert model(sp,0,2,0)==expected(sp,0,2,0);before=registry_reads
  for _ in range(100):assert model(sp,0,2,0)==expected(sp,0,2,0)
- assert before==(reads,seeks,opens)
+ assert before==registry_reads,'Cached species reread the registry'
  assert model(0,0,0,0)==0 and model(maximum+1,0,0,0)==0
  for code in range(65536):
   want=code if code<0x179 else code-0xe87 if 0x1000<=code<0x126c else code-0x1c1b if 0x2000<=code<0x200b else 10
@@ -123,7 +126,7 @@ def verify(rom_path):
   if failure=='version':bad[4]=5;change(bad)
   if failure=='tail':change(bad[:-1])
   if failure=='spacing':bad[32+(8 if stride==12 else 15)]=((bad[40]&7)|56) if stride==12 else 7;change(bad)
-  if failure=='late-read':failAt=reads+6
+  if failure=='late-read':failAt=registry_reads+6
   assert config()==0,failure
   before=(reads,seeks,opens);assert config()==0 and before==(reads,seeks,opens)
   unload();failAt=0;failures+=1
