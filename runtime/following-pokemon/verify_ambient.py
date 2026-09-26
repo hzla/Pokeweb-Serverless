@@ -146,4 +146,4 @@ h.put(h.addr('fwfield_flying'),0);h.put(h.A,h.u32(h.A)|4);h.call('FollowingUpdat
 h.put(h.A,h.u32(h.A)&~4);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==3
 h.terrain_attr=0;grid(h.A,10,0,12);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==3
 assert not tile_effect_calls
-print('Ambient checks passed: 100 callback cycles; native grid result and fourth-argument preservation; player/sight/script exemption; hidden/elevation/old-tile/dimension checks; follower reservations; resolved rail destination; unload; stock safe grass entry once per visible tile, with Flying/hidden exclusion. Native map/rail/effect services mocked; no DS game run.')
+print('Ambient checks passed: 100 callback cycles; native grid result and fourth-argument preservation; player/sight/script exemption; hidden/elevation/old-tile/dimension checks; follower reservations; resolved rail destination; unload; safe grass entry once per visible tile, with Flying/hidden exclusion. Native map/rail/effect services mocked; no DS game run.')

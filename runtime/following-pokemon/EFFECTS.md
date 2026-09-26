@@ -1,62 +1,44 @@
-# HGSS overworld ball effects — 0.3.x alpha
+# Following Pokémon ball effects
 
-HGSS has distinct send-out and recall effects. `fldeff_mb_io.c` implements them
-in `EoaMB_Out_Move` and `EoaMB_In_Move`: a short ball display and flash on send-out;
-a white shrinking Pokémon followed by a ball on recall. Its
-`GMEVENT_MapChangeWorpPoint` path explicitly starts recall before proceeding.
-That source check establishes the warp path; it does not establish that every
-ordinary HGSS doorway uses the identical sequence.
+The imported compiled HeartGold IPKE resources in `a/1/0/3` supply the ball,
+send-out flash, and texture animation. `import_effects.py` packages members 129,
+104, and 164 into `src/assets/following/hgss-effects.narc` and records their
+hashes in `src/assets/following/effects.json`. The runtime validates the archive
+before loading it. These assets are shared across profiles.
 
-The imported resources are original compiled US HeartGold IPKE assets from
-`a/1/0/3`: member 129 (ball model), 104 (flash model), and 164 (texture animation).
-`import_effects.py` creates a three-member NARC and records hashes and lengths
-in `src/assets/following/effects.json`. The runtime checks its length and CRC
-before passing it to the native resource loader.
+Send-out shows the ball for two field updates, followed by eight flash
+updates as the follower appears. Recall now takes twelve updates on all four profiles.
+A private copy of the follower texture is mapped to the flash's light
+cyan and white, then the detached billboard holds for three updates, shrinks
+over five, and ends with four updates of the existing ball model. The normal
+follower palette and other actors are untouched. If no billboard snapshot can
+be taken, the ball stays visible through recall instead of leaving a blank gap.
 
-## White 2 adaptation
+The stock US White 2 battle-effect archive's switch-out return script (effect
+620, member 59) and send-out script (effect 621, member 60) both play SE 1383.
+Effect 619/member 58 is Sunny Day and plays SE 1565; the prior 0.6.71 recall
+used that twinkling cue by mistake. The field effect now plays SE 1383 once
+when recall starts and once when the ball opens at send-out update 2. Failed
+effect setup plays neither cue. The packaged CPU check pins all three battle
+script members and verifies the field calls; audible timing still requires a
+cold boot.
 
-- Uses the existing overlay-36 follower and a verified billboard-render callsite.
-  New code is a standalone PMC module; no reference game sources are built.
-- Send-out starts when a valid one-tile trail first permits the follower to
-  appear. The ball lasts two field ticks; the original flash animation plays
-  for eight ticks as the Pokémon becomes visible.
-- Recall starts on detected event/fade, player-mode or story-partner suppression.
-  It snapshots the follower's current billboard, removes the native actor,
-  and draws the detached image at scales 1, 1/2, approximately 1/3, and 1/4,
-  then shows the ball for four ticks. No scripted actor ID remains occupied.
-- A separate texture/palette resource supplies the white silhouette. Neither
-  the follower's original texture nor another actor's palette is modified.
-  Resources are uploaded once and reused; draw-time code does not allocate.
-- Field unload cancels effects and releases all owned render objects, animations,
-  models, texture/palette allocations and resource buffers. An interrupted
-  effect never delays a warp, battle or menu. Menu/system suspension may use
-  immediate removal rather than a complete visible recall.
-- The first appearance and subsequent returns require walking to seed the trail.
-  There is no new button, interaction or save field.
+The private recall texture uses the installed registry's validated resource
+count, so imported follower sprites beyond the retail archive's 975 members
+can use the same effect. The 0.6.68 build incorrectly used that retail limit.
+The 0.6.69 build loaded the private texture but cleared the cloned billboard's
+draw-enable and map-light bits. The current clone retains those bits and uses
+the last submitted ground/depth-corrected pose before shrinking in place.
 
-The port uses White 2's current billboard placement for the shrinking image.
-HGSS's additional size-specific positional adjustment is not enabled here;
-large Pokémon positioning needs visual review. Inspection of the HGSS send-out,
-recall, PC recall, and warp callers found no dedicated sound call paired with
-`FE_MB_IO_Add`; the effect implementation itself also contains no sound call.
-The port therefore keeps these effects silent instead of assigning an unrelated
-White 2 sound. The separate HGSS PC-box recall variant remains outside this
-animation change.
+The profile-pinned field-player direction hook returns the native no-direction value
+while recall is active. The resident event bridge also defers an unsafe native
+field callback until the effect completes, so a door or script cannot advance
+through the callback and unload the field early. Other game systems continue to
+update and render. If effects are unavailable, no recall wait is imposed. Field
+unload releases owned render objects and cancels any remaining effect.
 
-## Validation boundary
-
-The 0.3 module builds without unresolved imports and has exactly three field
-hooks. Binary signatures, render forwarding, stack/register preservation,
-effect sequencing, missing-asset fallback, private material ownership, absence
-of per-frame allocation/upload and idempotent destruction are checked with
-mocked native services. These are not DS rendering tests.
-
-The user reports the effects working in the browser emulator. A separate
-movement-helper instruction fault blocked 0.3.0 on melonDS; 0.3.1 fixes that
-encoding, with the user confirming that 0.3.1 fixed the melonDS freeze. See [validation](VALIDATION.md).
-**The full visual matrix remains pending human testing.** Check the FX rows
-in [the emulator checklist](EMULATOR-CHECKLIST.md). In particular, determine
-whether a doorway's fade allows the full recall to be seen, whether the flash
-aligns with the Pokémon, and whether the native scene looks unchanged afterward.
-Early teardown intentionally cancels unfinished effects rather than retaining
-resources across a field unload.
+Packaged ARM946 checks cover each profile's movement hook, callback wait,
+effect frames, fallback, palette isolation, resource ownership and teardown.
+These checks do not establish live-game visual timing or alignment. Cold-boot
+cases are in [the emulator checklist](EMULATOR-CHECKLIST.md); no emulator was
+run for the current profile builds.

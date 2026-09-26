@@ -1,4 +1,5 @@
 #include "following.h"
+#include <limits.h>
 int fw_select(const FwPokemon *party, unsigned count) {
     int fallback = -1;
     if (!party || count > FW_PARTY_CAPACITY) return -1;
@@ -88,13 +89,45 @@ static uint32_t distance(const FwSample *a, const FwSample *b) {
 /* One constant metric per appearance: horizontal span 16+gap, vertical 16.
  * Corners follow recorded poses instead of changing a distance target abruptly.
  * Integer weights keep cardinal spacing exact with no extra history buffer. */
-static uint32_t trail_distance(const FwSample *a, const FwSample *b, unsigned gap) {
-    uint32_t x = abs_delta(a->x, b->x) * 16u, z = abs_delta(a->z, b->z) * (16u+gap);
+static uint32_t trail_distance(const FwSample *a, const FwSample *b, const uint8_t gaps[4]) {
+    unsigned gx = b->x < a->x ? gaps[2] : gaps[3], gz = b->z < a->z ? gaps[0] : gaps[1];
+    uint32_t raw_x = abs_delta(a->x, b->x),raw_z = abs_delta(a->z, b->z);
+    uint32_t x = (raw_x*16u+15u+gx)/(16u+gx), z = (raw_z*16u+15u+gz)/(16u+gz);
     return isqrt((uint64_t)x * x + (uint64_t)z * z);
 }
+int fw_clamp_dialogue_pose(FwPoint *pose,const FwPoint *player,const FwPoint *art_offset,
+                           unsigned face,unsigned gap){
+    if(!pose||!player||face>3||gap>FW_MAX_DIRECTIONAL_GAP)return 0;
+    FwPoint offset=art_offset?*art_offset:(FwPoint){0,0,0};
+    int64_t along=face==0?(int64_t)player->z-pose->z:
+                  face==1?(int64_t)pose->z-player->z:
+                  face==2?(int64_t)player->x-pose->x:(int64_t)pose->x-player->x;
+    int64_t lateral=face<2?(int64_t)pose->x-player->x:(int64_t)pose->z-player->z;
+    int64_t art_along=along+(face==0?-(int64_t)offset.z:face==1?offset.z:face==2?-(int64_t)offset.x:offset.x);
+    int64_t art_lateral=lateral+(face<2?offset.x:offset.z);
+    int64_t height=(int64_t)pose->y-player->y;
+    int64_t limit=FW_DIALOGUE_REACH(gap);
+    /* A small draw-anchor displacement can put the world actor just beyond
+     * the coarse reach bound. Do not pull a distant or off-axis actor across
+     * a turn, wall, stair or discontinuity to make it talkable. */
+    int64_t farthest=along>art_along?along:art_along;
+    if(farthest<=limit||along>limit+2*4096||farthest>limit+10*4096||
+       lateral<-(int64_t)FW_TILE/3||lateral>(int64_t)FW_TILE/3||
+       art_lateral<-(int64_t)FW_TILE/3||art_lateral>(int64_t)FW_TILE/3||
+       height<-8*4096||height>8*4096)return 0;
+    int64_t shift=farthest-limit;
+    int64_t value=face==0?(int64_t)pose->z+shift:
+                  face==1?(int64_t)pose->z-shift:
+                  face==2?(int64_t)pose->x+shift:(int64_t)pose->x-shift;
+    if(value<INT32_MIN||value>INT32_MAX)return 0;
+    if(face<2)pose->z=(int32_t)value;
+    else pose->x=(int32_t)value;
+    return 1;
+}
 static unsigned index_at(const FwTrail *t, unsigned at) { return (t->head + at) % FW_TRAIL_CAPACITY; }
-int fw_trail_push(FwTrail *t, const FwSample *s, FwSample *out, unsigned gap) {
-    if (gap > FW_MAX_SIDE_GAP || !s || !out || s->kind > FW_WORLD || s->direction > 3 || !s->generation) { fw_trail_clear(t); return -1; }
+int fw_trail_push_directional(FwTrail *t, const FwSample *s, FwSample *out, const uint8_t gaps[4]) {
+    if (!gaps || gaps[0]>FW_MAX_DIRECTIONAL_GAP||gaps[1]>FW_MAX_DIRECTIONAL_GAP||gaps[2]>FW_MAX_DIRECTIONAL_GAP||gaps[3]>FW_MAX_DIRECTIONAL_GAP||
+        !s || !out || s->kind > FW_WORLD || s->direction > 3 || !s->generation) { fw_trail_clear(t); return -1; }
     if (!t->count) { t->samples[0] = *s; t->head = 0; t->count = 1; return 0; }
     const FwSample *last = &t->samples[index_at(t, t->count - 1)];
     uint32_t delta = distance(last, s);
@@ -106,15 +139,20 @@ int fw_trail_push(FwTrail *t, const FwSample *s, FwSample *out, unsigned gap) {
     /* Stationary facing changes must not consume the bounded history. */
     if (!delta && last->y == s->y) return 0;
     t->samples[index_at(t, t->count++)] = *s;
-    t->distance += trail_distance(last, s, gap);
-    if (t->distance < FW_TILE * (16u+gap)) return 0;
+    t->distance += trail_distance(last, s, gaps);
+    if (t->distance < FW_TILE) return 0;
     while (t->count > 1) {
         const FwSample *a = &t->samples[t->head];
         const FwSample *b = &t->samples[index_at(t, 1)];
-        uint32_t step = trail_distance(a, b, gap);
-        if (t->distance - step < FW_TILE * (16u+gap)) break;
+        uint32_t step = trail_distance(a, b, gaps);
+        if (t->distance - step < FW_TILE) break;
         t->distance -= step; t->head = (t->head + 1) % FW_TRAIL_CAPACITY; --t->count;
     }
     *out = t->samples[t->head];
     return 1;
+}
+int fw_trail_push(FwTrail *t, const FwSample *s, FwSample *out, unsigned gap) {
+    if(gap>FW_MAX_SIDE_GAP){fw_trail_clear(t);return -1;}
+    const uint8_t gaps[4]={0,0,(uint8_t)gap,(uint8_t)gap};
+    return fw_trail_push_directional(t,s,out,gaps);
 }
