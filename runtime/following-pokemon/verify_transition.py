@@ -81,6 +81,7 @@ def spy(u, pc, _size, _user):
 
 
 h.native_addresses.difference_update(native)
+h.native_addresses.discard(0x02006254)  # Preserve the actual SE argument for this focused spy.
 h.uc.hook_add(UC_HOOK_CODE, spy)
 h.uc.mem_write(selected, struct.pack('<HBBBBHHxxII', 151, 0, 0, 0, 0, 100, 100, 123, 456))
 h.put(h.FIELD + 8, h.GAMEDATA)

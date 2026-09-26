@@ -126,7 +126,9 @@ export function importArm9Bytes(project: ProjectState, rom: NintendoDSRom, bytes
 
 export function buildFileSystemSnapshot(project: ProjectState, romBytes: Uint8Array): FileSystemSnapshot {
   const rom = new NintendoDSRom(romBytes);
-  const named = listNamedFiles(rom.filenames).sort((a, b) => a.id - b.id);
+  const named = listNamedFiles(rom.filenames)
+    .filter(file => project.fileSystem?.tombstones?.[file.id] !== file.path)
+    .sort((a, b) => a.id - b.id);
   const namedIds = new Set(named.map((file) => file.id));
   const roots: FileSystemTreeNode[] = [];
   const pathRefs = new Map<string, FileSystemNodeRef>();

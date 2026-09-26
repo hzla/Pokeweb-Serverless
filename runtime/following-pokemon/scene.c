@@ -1,5 +1,6 @@
 #include "scene.h"
 #include "interaction.h"
+#include "effects.h"
 #include "scene-policy.h"
 #ifdef FW_MOUNT
 #include "land.h"
@@ -374,7 +375,9 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
 int fws_attach(ActorSystem *sys,FwFollower *f,uint32_t generation,void (*recallFn)(void)){
  fws_detach();scene.sys=sys;scene.field=sys->field;scene.game=scene.field?PTR(scene.field,4):0;
  scene.f=f;scene.generation=generation;scene.recall=recallFn;
- if(FollowingEventsAPI.abi!=FWE_ABI||FollowingEventsAPI.size!=sizeof(FweApi)||!FollowingEventsAPI.bind(scene.field,scene.game,generation,fws_observe)){
+ if(FollowingEventsAPI.abi!=FWE_ABI||FollowingEventsAPI.size!=sizeof(FweApi)||!FollowingEventsAPI.bind(scene.field,scene.game,generation,fws_observe
+   ,fwfx_recalling
+   )){
   scene.sys=0;FollowingSceneDebug.reason=FWS_BRIDGE;return 0;
  }
  return 1;

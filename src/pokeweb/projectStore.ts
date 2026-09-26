@@ -101,6 +101,8 @@ export type Map3dAreaEditState = Record<
 export type FileSystemEditState = {
   replacements: Record<number, Uint8Array>;
   additions?: Record<string, Uint8Array>;
+  /** Original paths whose payloads are replaced by empty reserved file IDs. */
+  tombstones?: Record<number, string>;
 };
 
 export type StreamedBgmConfig = {

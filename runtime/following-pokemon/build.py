@@ -15,10 +15,13 @@ if PROFILE not in ('stock','black2','white2upgrade','white2italy'):raise ValueEr
 UPGRADE=PROFILE=='white2upgrade'
 BLACK2=PROFILE=='black2'
 ITALY=PROFILE=='white2italy'
-BUILD=Path(os.environ.get('FOLLOWING_BUILD_DIR', HERE/('build/white2upgrade' if UPGRADE else 'build/black2' if BLACK2 else 'build/white2italy' if ITALY else 'build')))
+ROOT_BUILD=Path(os.environ.get('FOLLOWING_BUILD_ROOT', HERE/('build/white2upgrade' if UPGRADE else 'build/black2' if BLACK2 else 'build/white2italy' if ITALY else 'build')))
+VARIANT=os.environ.get('FOLLOWING_VARIANT','full')
+if VARIANT not in ('base','full'):raise ValueError('FOLLOWING_VARIANT must be base or full')
+BUILD=ROOT_BUILD/'base' if VARIANT=='base' else ROOT_BUILD
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
-VERSION='0.7.33-alpha' if UPGRADE else '0.6.39-alpha' if ITALY else '0.6.64-alpha' if PROFILE=='stock' else '0.6.38-alpha'
-SUFFIX='B2' if BLACK2 else 'W2I' if ITALY else 'W2'
+VERSION='0.7.37-alpha' if UPGRADE else '0.6.43-alpha' if ITALY else '0.6.76-alpha' if PROFILE=='stock' else '0.6.42-alpha'
+SUFFIX=('B2' if BLACK2 else 'W2I' if ITALY else 'W2')+('Base' if VARIANT=='base' else '')
 CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'italy-contract.json' if ITALY else 'contract.json')
 os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX
 def run(*args): subprocess.run([str(a) for a in args],check=True)
@@ -31,6 +34,9 @@ def dedupe_versions(entries):
         seen.add(key);result.append(entry)
     return result
 def build(rom, publish=False):
+    if VARIANT=='full':
+        env={**os.environ,'FOLLOWING_VARIANT':'base','FOLLOWING_BUILD_ROOT':str(ROOT_BUILD)}
+        subprocess.run([os.environ.get('PYTHON','python3'),str(HERE/'build.py'),str(rom)],env=env,check=True)
     if publish and int(os.environ.get('FOLLOWING_TEST_CYCLES','100'))<100:
         raise ValueError('Publishing requires at least 100 conversation/scene test cycles')
     BUILD.mkdir(parents=True,exist_ok=True)
@@ -40,9 +46,9 @@ def build(rom, publish=False):
         if hashlib.sha256(Path(rom).read_bytes()).hexdigest()!=contract['sourceRomSha256']:
             raise ValueError('Input does not match the pinned White2Upgrade source ROM SHA-256')
     else: verify(rom)
-    if BLACK2:
+    if BLACK2 and VARIANT=='full':
         run(os.environ.get('PYTHON','python3'),HERE/'verify_black2_mount_binary.py',WORKSPACE/'cleanwhite2.nds',rom)
-    if UPGRADE:
+    if UPGRADE and VARIANT=='full':
         run(os.environ.get('PYTHON','python3'),HERE/'verify_upgrade_mount_binary.py',rom)
     if ITALY:
         from verify_italian_binary import verify as verify_italian_binary
@@ -68,23 +74,26 @@ def build(rom, publish=False):
     elif ITALY:
         from italy_port import port_source
     objects=[]
-    for name in ['core','object_codes','registry','following','field','effects','reactions','interaction','gifts','events','scene','render','render_math','surf','land','land_speed','transition']:
+    sources=['core','object_codes','registry','options','following','field','effects','reactions','interaction','gifts','events','scene','render','render_math','positioning']
+    if VARIANT=='full':sources+=['surf','land','land_speed','transition']
+    for name in sources:
         obj=BUILD/(name+'.o');objects.append(obj)
         source=HERE/(name+'.c')
         if BLACK2 or ITALY:
             source=BUILD/(name+'.c');source.write_text(port_source((HERE/(name+'.c')).read_text()))
         run(TOOLS/'arm-none-eabi-gcc','-mthumb','-mcpu=arm946e-s','-Os','-std=c11',
             '-fno-jump-tables','-ffreestanding','-fvisibility=hidden','-fno-builtin','-fno-unwind-tables','-fno-asynchronous-unwind-tables',
-            '-I',HERE,'-DFW_MOUNT=1','-DFW_ARCEUS_SURF=1',*(['-DFW_STOCK=1'] if PROFILE=='stock' else []),*(['-DFW_UPGRADE=1'] if UPGRADE else []),*(['-DFW_BLACK2=1'] if BLACK2 else []),*(['-DFW_ITALY=1'] if ITALY else []),'-Wall','-Wextra','-Werror','-c',source,'-o',obj)
+            '-I',HERE,*(['-DFW_MOUNT=1','-DFW_ARCEUS_SURF=1'] if VARIANT=='full' else []),*(['-DFW_STOCK=1'] if PROFILE=='stock' else []),*(['-DFW_UPGRADE=1'] if UPGRADE else []),*(['-DFW_BLACK2=1'] if BLACK2 else []),*(['-DFW_ITALY=1'] if ITALY else []),'-Wall','-Wextra','-Werror','-c',source,'-o',obj)
     def assembly(name):
         source=HERE/name
         if BLACK2 or ITALY:
             source=BUILD/name;source.write_text(port_source((HERE/name).read_text()))
         return source
     run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('core.s'),'-o',BUILD/'core-hooks.o')
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('options.s'),'-o',BUILD/'options-hooks.o')
     # Portable follower code is compiled separately, not pulled into the resident module.
     elf=BUILD/f'PokewebFollowingCore{SUFFIX}.elf'
-    run(TOOLS/'arm-none-eabi-ld','-r',*objects[:3],BUILD/'core-hooks.o','-o',elf)
+    run(TOOLS/'arm-none-eabi-ld','-r',*objects[:4],BUILD/'core-hooks.o',BUILD/'options-hooks.o','-o',elf)
     output=BUILD/f'PokewebFollowingCore{SUFFIX}.dll'
     output.unlink(missing_ok=True)
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',elf,'--fourcc','DLXF','-o',output,
@@ -113,11 +122,15 @@ def build(rom, publish=False):
     actual=sorted(t for t in re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',events_dump.decode()) if t[1]!='base')
     if actual!=expected:raise ValueError('Unexpected event module hooks: '+repr(actual))
     run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('field.s'),'-o',BUILD/'field-hooks.o')
-    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('surf.s'),'-o',BUILD/'surf-hooks.o')
-    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('land.s'),'-o',BUILD/'land-hooks.o')
-    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('transition.s'),'-o',BUILD/'transition-hooks.o')
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('field-input.s'),'-o',BUILD/'field-input-hooks.o')
+    if VARIANT=='full':
+        for name in ('surf','land','transition'):
+            run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly(name+'.s'),'-o',BUILD/(name+'-hooks.o'))
     field=BUILD/f'PokewebFollowingField{SUFFIX}.elf'
-    run(TOOLS/'arm-none-eabi-ld','-r',BUILD/'field.o',BUILD/'effects.o',BUILD/'following.o',BUILD/'reactions.o',BUILD/'interaction.o',BUILD/'gifts.o',BUILD/'scene.o',BUILD/'render.o',BUILD/'render_math.o',BUILD/'surf.o',BUILD/'surf-hooks.o',BUILD/'land.o',BUILD/'land_speed.o',BUILD/'land-hooks.o',BUILD/'transition.o',BUILD/'transition-hooks.o',BUILD/'field-hooks.o','-o',field)
+    field_objects=['field','effects','following','reactions','interaction','gifts','scene','render','render_math','positioning']
+    if VARIANT=='full':field_objects+=['surf','land','land_speed','transition']
+    hook_objects=['field-hooks','field-input-hooks']+(['surf-hooks','land-hooks','transition-hooks'] if VARIANT=='full' else [])
+    run(TOOLS/'arm-none-eabi-ld','-r',*[BUILD/(name+'.o') for name in field_objects+hook_objects],'-o',field)
     field_dll=BUILD/f'PokewebFollowingField{SUFFIX}.dll'
     field_dll.unlink(missing_ok=True)
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',field,'--fourcc','DLXF','-o',field_dll,
@@ -129,32 +142,39 @@ def build(rom, publish=False):
     from verify_packaged import verify_imports
     verify_imports(field_dll,events_dll,output)
     targets=re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',field_dump.decode())
-    expected_field=sorted((h['kind'],h['segment'],hex(h['address'])) for h in contract_data['hooks'] if h.get('module')=='field')
+    mount_hook_ids={'surf-mount-draw','surf-entry-mount-draw','mounted-surf-entry-step','mounted-surf-entry-finish','mounted-surf-shore-span','mounted-surf-exit-step','mounted-surf-exit-finish','land-mount-flat-step'}
+    expected_field=sorted((h['kind'],h['segment'],hex(h['address'])) for h in contract_data['hooks'] if h.get('module')=='field' and (VARIANT=='full' or h['id'] not in mount_hook_ids))
     if sorted(t for t in targets if t[1]!='base')!=expected_field:raise ValueError('Unexpected field hooks')
     if field_dll.stat().st_size<1024:raise ValueError('Field DLL was not generated')
     # RPM repacks call instructions; checking only a separately linked ELF can
     # miss invalid ARM/Thumb encodings introduced during DLL generation.
     run(os.environ.get('PYTHON','python3'),HERE/'verify_packaged.py')
+    run(os.environ.get('PYTHON','python3'),HERE/'verify_options.py',rom)
     run(os.environ.get('PYTHON','python3'),HERE/'verify_anchor.py')
     if UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_interactions.py')
-    if ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','white2italy',rom)
-    elif BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','black2',rom)
-    elif not BLACK2 and not ITALY and not UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
-    if not BLACK2 and not ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_render.py')
-    if PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_surf.py')
-    if PROFILE=='stock':
+    if VARIANT=='full' and ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','white2italy',rom)
+    elif VARIANT=='full' and BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','black2',rom)
+    elif VARIANT=='full' and not BLACK2 and not ITALY and not UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
+    if VARIANT=='full' and not BLACK2 and not ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_render.py')
+    if VARIANT=='full' and PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_surf.py')
+    if VARIANT=='full' and PROFILE=='stock':
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_effects.py',rom)
         run(os.environ.get('PYTHON','python3'),HERE/'verify_land.py')
         run(os.environ.get('PYTHON','python3'),HERE/'verify_land_draw.py')
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_positioning.py')
         run(os.environ.get('PYTHON','python3'),HERE/'verify_land_input.py',rom)
-    if PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_cycle.py',rom)
-    if PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_transition.py')
-    if UPGRADE and (REPO/'src/assets/following/white2upgrade/surf-registry.bin').exists():
+    if VARIANT=='full' and PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_cycle.py',rom)
+    if VARIANT=='full' and PROFILE=='stock': run(os.environ.get('PYTHON','python3'),HERE/'verify_transition.py')
+    if VARIANT=='full' and UPGRADE and (REPO/'src/assets/following/white2upgrade/surf-registry.bin').exists():
         run(os.environ.get('PYTHON','python3'),HERE/'verify_surf_upgrade.py',rom)
-    if UPGRADE:
+    if VARIANT=='full' and UPGRADE:
         run(os.environ.get('PYTHON','python3'),HERE/'verify_scenes.py',rom)
         run(os.environ.get('PYTHON','python3'),HERE/'verify_land_input.py',rom)
         run(os.environ.get('PYTHON','python3'),HERE/'verify_land_draw.py')
         run(os.environ.get('PYTHON','python3'),HERE/'verify_transition.py')
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_cycle.py',rom)
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_positioning.py')
+        run(os.environ.get('PYTHON','python3'),HERE/'verify_ambient.py',rom)
     if publish:
         import hashlib, shutil
         assets=REPO/'src/assets/following'
@@ -165,6 +185,13 @@ def build(rom, publish=False):
         shutil.copyfile(field_dll,assets/field_dll.name)
         shutil.copyfile(events_dll,assets/events_dll.name)
         shutil.copyfile(output,assets/output.name)
+        base_build=ROOT_BUILD/'base'
+        base_suffix=('B2' if BLACK2 else 'W2I' if ITALY else 'W2')+'Base'
+        base_field=base_build/f'PokewebFollowingField{base_suffix}.dll'
+        base_events=base_build/f'PokewebFollowingEvents{base_suffix}.dll'
+        if not base_field.exists() or not base_events.exists():raise ValueError('Base follower package is missing')
+        shutil.copyfile(base_field,assets/base_field.name)
+        shutil.copyfile(base_events,assets/base_events.name)
         old_runtime=json.loads((assets/'runtime.json').read_text()) if (assets/'runtime.json').exists() else None
         old_current=({key:old_runtime[key] for key in ('version','fieldSha256','eventsSha256','eventsAbi','coreSha256','coreAbi')} if old_runtime else None)
         if ITALY and old_current:
@@ -192,7 +219,9 @@ def build(rom, publish=False):
         if PROFILE=='stock':
             first_053=json.loads((HERE/'stock-0.6.53-first-receipt.json').read_text())
             previous_versions=[first_053]+[entry for entry in previous_versions if entry.get('fieldSha256')!=first_053['fieldSha256']]
-        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,'fieldSha256':hashlib.sha256(field_dll.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(events_dll.read_bytes()).hexdigest(),'eventsAbi':5,'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':2,'previousVersions':previous_versions},indent=2)+'\n')
+        full_fingerprint={'fieldSha256':hashlib.sha256(field_dll.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(events_dll.read_bytes()).hexdigest(),'eventsAbi':6}
+        base_fingerprint={'fieldSha256':hashlib.sha256(base_field.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(base_events.read_bytes()).hexdigest(),'eventsAbi':4}
+        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,**full_fingerprint,'variants':{'base':base_fingerprint,'full':full_fingerprint},'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':2,'previousVersions':previous_versions},indent=2)+'\n')
     if publish and UPGRADE:
         manifest=json.loads((assets/'runtime.json').read_text())
         manifest['previousVersions']=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'upgrade-0.7.6-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.5-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.4-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.3-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.2-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.1-receipt.json').read_text())])

@@ -10,6 +10,7 @@ start = h.addr("fwland_begin") & ~1
 follow = h.addr("fwland_follow_player") & ~1
 move_state = 0x0219a6f8
 sound = 0x02006254
+h.native_addresses.discard(sound)  # This focused spy observes the original SE argument.
 surf_eligible = h.addr("fwtm_eligible") & ~1
 started = []
 sounds = []
@@ -56,7 +57,7 @@ h.put(h.addr("fwfield_tick"), h.u32(h.addr("fwfield_tick")) + 1)
 assert grid(3, 2) == 0 and len(started) == 2, "A-held then B must mount while stopped"
 h.put(h.addr("fwfield_tick"), h.u32(h.addr("fwfield_tick")) + 1)
 assert grid(3, 3) == 0 and len(started) == 3, "Simultaneous A+B must mount"
-assert sounds == [1374, 1374, 1374], "Each mocked successful mount plays one stock bounce sound"
+assert sounds == [1374, 1374, 1374], f"Each mocked successful mount plays one stock bounce sound: {sounds}"
 h.held, h.pressed = 3, 3
 assert h.call("FollowingRailEvents", [h.GAME, h.FIELD]) == 0 and len(started) == 3
 land = h.addr("land")

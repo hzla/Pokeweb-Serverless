@@ -1,7 +1,7 @@
 import { readU32, writeU32 } from "../nds/binary";
 import { setArm9CompressedStaticEnd } from "../nds/arm9ModuleParams";
 import { compressCode, isCodeCompressed } from "../nds/codeCompression";
-import { addFilePath, cloneFolder, type Folder, shiftFileIdsAtOrAfter } from "../nds/fnt";
+import { addFilePath, cloneFolder, reserveFilePath, type Folder, shiftFileIdsAtOrAfter } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import type { NarcName } from "./constants";
@@ -82,6 +82,13 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   for (const [fileId, bytes] of fileSystemReplacementMap(project)) {
     if (!storeFileIds.has(fileId)) fileReplacements.set(fileId, bytes);
   }
+  let reservedNames = rom.filenames;
+  const tombstones = Object.entries(project.fileSystem?.tombstones ?? {}).map(([id, path]) => [Number(id), path] as const);
+  for (const [fileId, path] of tombstones) {
+    if (rom.filenames.idOf(path) !== fileId || fileReplacements.get(fileId)?.length !== 0)
+      throw new Error(`Cannot strip changed ROM file: ${path}`);
+    reservedNames = reserveFilePath(reservedNames, path, fileId);
+  }
   // Legacy staging helpers could classify an existing path as an addition
   // after autosave released the source bytes. Resolve paths against the real
   // export base before planning new FAT/FNT entries. Explicit replacements
@@ -117,7 +124,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   const out = rom.save({
     arm9,
     arm9OverlayTable,
-    filenames: repairedLegacyPmcRootFnt ? rom.filenames : undefined,
+    filenames: tombstones.length ? reservedNames : repairedLegacyPmcRootFnt ? rom.filenames : undefined,
     files: fileReplacements,
     insertedFiles,
     addedFiles: plannedAdditions.addedFiles,

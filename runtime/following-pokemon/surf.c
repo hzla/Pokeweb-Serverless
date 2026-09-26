@@ -1,6 +1,7 @@
 #include "surf.h"
 #include "render.h"
 #include "render_math.h"
+#include "positioning.h"
 #include <limits.h>
 #ifdef FW_MOUNT
 #include "transition.h"
@@ -32,6 +33,7 @@ static struct {
  unsigned hasTemplate;
  uint8_t lookupForm,lookupGender,lookupShiny;
  uint32_t uploadTick;
+ int8_t riderOffsets[8];
 } surf;
 
 __attribute__((visibility("default"))) volatile struct {
@@ -59,17 +61,17 @@ static int lookup_record(void *file,unsigned count,unsigned species,unsigned for
     (record[5]!=32 && record[5]!=64) || member+16>members)return 0;
  *base=(uint16_t)member;*frameSize=record[5];return 1;
 }
-static int lookup(unsigned species,unsigned form,unsigned gender,unsigned shiny,uint16_t *base,uint16_t *frameSize){
+static int lookup(unsigned species,unsigned form,unsigned gender,unsigned shiny,uint16_t *base,uint16_t *frameSize,int8_t offsets[8]){
  uint32_t file[32];uint8_t header[16];
  CALL(0x02070ca9,void(*)(void*))(file);
  if(!CALL(0x02070ecd,int(*)(void*,const char*))(file,"rom:/following/surf-registry.bin"))return 0;
  unsigned size=CALL(0x02070ded,unsigned(*)(void*))(file);
- int found=0;
+ int found=0;unsigned count=0;
  if(size>=24 && CALL(0x02070e6d,unsigned(*)(void*,void*,unsigned))(file,header,16)==16 &&
     read32(header)==0x4d535746 && read16(header+4)==2 && read16(header+6)==8 &&
     read16(header+8)>=1298 && read16(header+8)<=(FW_MAX_SPECIES==1023u?4095u:2048u) && read16(header+10)==FW_MAX_SPECIES &&
     size==16u+8u*read16(header+8)){
-  unsigned count=read16(header+8),members=read32(header+12);
+  count=read16(header+8);unsigned members=read32(header+12);
   if(members==count*16u && members<=65535){
    for(unsigned f=0;f<2&&!found;++f){
     unsigned candidateForm=f?0:form;
@@ -83,6 +85,7 @@ static int lookup(unsigned species,unsigned form,unsigned gender,unsigned shiny,
   }
  }
  CALL(0x02070de1,int(*)(void*))(file);
+ if(found){uint8_t row[8];if(fwp_surf(*base/16u,count,row))for(unsigned i=0;i<8;++i)offsets[i]=(int8_t)row[i];}
  return found;
 }
 static void release_resources(void){
@@ -102,6 +105,7 @@ void fwsurf_destroy(void){
  surf.hasTemplate=0;
  surf.lookupSpecies=surf.memberBase=surf.frameSize=0;
  surf.lookupForm=surf.lookupGender=surf.lookupShiny=0;
+ for(unsigned i=0;i<8;++i)surf.riderOffsets[i]=0;
  FollowingSurfDebug.active=0;
 }
 static int load(void){
@@ -136,7 +140,7 @@ int fwsurf_prepare(ActorSystem *system,unsigned appearance,unsigned tick){
   surf.lookupForm=(uint8_t)form;surf.lookupGender=(uint8_t)gender;surf.lookupShiny=(uint8_t)shiny;
   surf.memberBase=0xffff;
   uint16_t base,size;
-  if(lookup(species,form,gender,shiny,&base,&size)){surf.memberBase=base;surf.frameSize=size;}
+  if(lookup(species,form,gender,shiny,&base,&size,surf.riderOffsets)){surf.memberBase=base;surf.frameSize=size;}
  }
  if(surf.memberBase==0xffff||CALL(0x0203a2d5,uint32_t(*)(uint32_t))(system->resourceHeap)<49152u)return 0;
  surf.entryPending=1;surf.entryTick=tick;surf.tick=tick;
@@ -156,7 +160,7 @@ void fwsurf_update(ActorSystem *system,unsigned appearance,unsigned surfing,unsi
   surf.lookupForm=(uint8_t)form;surf.lookupGender=(uint8_t)gender;surf.lookupShiny=(uint8_t)shiny;
   surf.memberBase=0xffff;
   uint16_t base,size;
-  if(lookup(species,form,gender,shiny,&base,&size)){surf.memberBase=base;surf.frameSize=size;}
+  if(lookup(species,form,gender,shiny,&base,&size,surf.riderOffsets)){surf.memberBase=base;surf.frameSize=size;}
  }
  if(surf.memberBase==0xffff)return;
  surf.owner=system;surf.tick=tick;
@@ -281,9 +285,7 @@ void fwsurf_draw(void *system,void *camera,void *light,unsigned afterPlayer){
  surf.billboard=*rider;
  surf.billboard.geom=(surf.billboard.geom&0xc000u)|frame;
  surf.billboard.face=0;
- /* Bit 9 marks a live billboard in the retail draw loop. The private
-  * mount must retain it even though its high presentation bits are reset. */
- surf.billboard.flags&=~0xf000u;
+ /* Preserve the rider's live billboard and map-light selection bits. */
  surf.billboard.sx=surf.billboard.sy=(int16_t)(surf.frameSize*256);
  surf.billboard.pos=mount;
  FwrCamera view={*(FwPoint*)((uint8_t*)camera+32),*(FwPoint*)((uint8_t*)camera+56),U32(camera,0)};
@@ -300,8 +302,6 @@ void fwsurf_draw(void *system,void *camera,void *light,unsigned afterPlayer){
  surf.scene=*native;
  surf.scene.actors=&surf.billboard;surf.scene.materials=surf.materials;
  surf.scene.actorCount=1;surf.scene.materialCount=16;
- surf.scene.diffuse=surf.scene.ambient=0x7fff;
- surf.scene.specular=surf.scene.emissive=0;
  CALL(0x0204ebdd,void(*)(void*,void*,void*))(&surf.scene,camera,light);
  FollowingSurfDebug.frame=frame;++FollowingSurfDebug.draws;
 }
@@ -312,15 +312,25 @@ void fwsurf_draw_scene(void *system,void *camera,void *light,Actor *follower,Act
  /* Surf mode remains active through part of the shore hop after the native
   * mount vanishes. Only lift the seated rider while that mount can draw. */
  if(!(surf.active&&surf.ready==1&&surf.tick!=surf.uploadTick&&surf.hasMount==2&&surf.tick-surf.captured<=1u))rider=0;
- int32_t nativeY=0;
+ Vec nativePosition={0};
  int lifted=0;
  if(rider){
-  int64_t y=(int64_t)rider->pos.y+10*4096;
-  if(y<=INT32_MAX && y>=INT32_MIN){nativeY=rider->pos.y;rider->pos.y=(int32_t)y;lifted=1;}
+  nativePosition=rider->pos;
+  unsigned face=surf.player->face;
+  int x=face<4u?surf.riderOffsets[face*2u]:0,yOffset=face<4u?surf.riderOffsets[face*2u+1u]:0;
+  FwPoint eye=*(FwPoint*)((uint8_t*)camera+32),target=*(FwPoint*)((uint8_t*)camera+56);
+  int32_t dx=eye.x-target.x,dz=eye.z-target.z;
+  int64_t y=(int64_t)rider->pos.y+(10-yOffset)*4096;
+  if(y<=INT32_MAX && y>=INT32_MIN){
+   rider->pos.y=(int32_t)y;
+   if((dz<0?-dz:dz)>=(dx<0?-dx:dx))rider->pos.x+=(dz<0?-x:x)*4096;
+   else rider->pos.z+=(dx<0?x:-x)*4096;
+   lifted=1;
+  }
  }
  fwsurf_draw(system,camera,light,0);
  fwr_draw(system,camera,light,follower,player,sprite_y);
  fwsurf_draw(system,camera,light,1);
  /* The effect pass, shadows, collision and next frame retain retail state. */
- if(lifted)rider->pos.y=nativeY;
+ if(lifted)rider->pos=nativePosition;
 }

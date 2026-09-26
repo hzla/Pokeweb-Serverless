@@ -1,4 +1,5 @@
 #include "land.h"
+#include "positioning.h"
 #include "render.h"
 #include "render_math.h"
 #include "land_speed.h"
@@ -84,6 +85,11 @@ void fwland_tick(unsigned tick){
 static int anchors(uint16_t code,uint32_t registryCrc,uint16_t descriptorCount,int8_t *out){
  if(descriptorCount<FW_STOCK_ROWS || code<FW_CODE_BASE ||
     (unsigned)(code-FW_CODE_BASE)>=descriptorCount-FW_STOCK_ROWS)return 0;
+ uint8_t positioned[12];
+ if(fwp_land(code-FW_CODE_BASE,descriptorCount-FW_STOCK_ROWS,registryCrc,positioned)){
+  for(unsigned i=0;i<8;++i)out[i]=(int8_t)positioned[i+4];
+  return 1;
+ }
  uint32_t file[32];uint8_t header[16],record[8];
  CALL(0x02070ca9,void(*)(void*))(file);
  if(!CALL(0x02070ecd,int(*)(void*,const char*))(file,"rom:/following/land-anchors.bin"))return 0;
@@ -184,7 +190,7 @@ static void draw_rider(void *system,void *camera,void *light,LandBillboard *moun
  LandScene *native=PTR(system,4);if(!native)return;
  land.rider=*player;
  land.rider.geom=(land.rider.geom&0xc000u)|(face*3u+pose);
- land.rider.frame=0;land.rider.flags&=~0xf000u;land.rider.flags|=512u;
+ land.rider.frame=0;land.rider.flags|=512u;
  land.rider.sx=land.rider.sy=32*256;
  land.rider.pos=mount->pos;
  int x=land.anchors[face*2],y=land.anchors[face*2+1];
@@ -205,7 +211,6 @@ static void draw_rider(void *system,void *camera,void *light,LandBillboard *moun
  }
  land.scene=*native;land.scene.actors=&land.rider;land.scene.materials=land.materials;
  land.scene.actorCount=1;land.scene.materialCount=12;
- land.scene.diffuse=land.scene.ambient=0x7fff;land.scene.specular=land.scene.emissive=0;
  CALL(0x0204ebdd,void(*)(void*,void*,void*))(&land.scene,camera,light);
  ++FollowingLandDebug.draws;
 }
@@ -217,13 +222,14 @@ void fwland_draw(void *system,void *camera,void *light,Actor *follower,Actor *pl
  if(!mount||!body||player->face>3){fwr_draw(system,camera,light,follower,player,spriteY);return;}
  LandBillboard originalMount=*mount;
  uint16_t bodyFlags=body->flags;
+ mount->flags=(mount->flags&~FWR_LIGHT_MASK)|(bodyFlags&FWR_LIGHT_MASK);
  int moving=land.hasDrawWorld && (land.drawWorld.x!=player->world.x ||
   land.drawWorld.y!=player->world.y || land.drawWorld.z!=player->world.z);
  land.drawWorld=player->world;land.hasDrawWorld=1;
  unsigned held=CALL(0x0203df4d,unsigned(*)(void))();
- unsigned riderPose=moving?(tick/(held&2u?5u:10u))%3u:1u;
- if(moving){
-  /* geom selects a material. Frame selects a pose inside that material.
+ unsigned cadence=(moving&&(held&2u))?5u:10u;
+ unsigned riderPose=(tick/cadence)%3u;
+ /* geom selects a material. Frame selects a pose inside that material.
    * Alternating geom can select an uninitialized material and submit a
    * black quad, especially for a 64-pixel appearance. The follower is
    * stationary while mounted, so drive its normal two-pose stride here. */
@@ -235,7 +241,6 @@ void fwland_draw(void *system,void *camera,void *light,Actor *follower,Actor *pl
   /* Match the small two-pose walking bounce; B halves its frame duration.
    * Carry fractional time through a run/walk change so the pose does not
    * jump when B is released. */
-  unsigned cadence=(held&2u)?5u:10u;
   unsigned elapsed=tick-land.runStartTick;
   if(elapsed>=cadence){
    unsigned advances=elapsed/cadence;
@@ -243,13 +248,12 @@ void fwland_draw(void *system,void *camera,void *light,Actor *follower,Actor *pl
    land.runStartTick+=advances*cadence;
   }
   mount->frame=(uint16_t)(base|land.runStartPose);
- }else land.runAnimating=0;
  mount->pos=body->pos;
  int delta=spriteY-(int8_t)follower->descriptor[14]-(player->face==0?2:0);
  mount->pos.y+=delta*4096;
  /* Lift the mounted pair by one rendered pixel on the raised stride pose.
   * The player's native ground shadow remains at its original position. */
- if(moving && (mount->frame&1u))mount->pos.y+=4096;
+ if(mount->frame&1u)mount->pos.y+=4096;
  if((player->moveflags&0x4000u)&&!(player->moveflags&0x8000u)){
   /* The follower's attached shadow is hidden while riding, but the player's
    * native ground shadow can otherwise darken a low mounted sprite. Keep that

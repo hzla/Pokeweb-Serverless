@@ -8,7 +8,8 @@ import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { installFollowerAlpha, followerRomSha256, followerProfile } from "../src/pokeweb/followingPokemonProject";
 import { getTestBattleConfig, loadTestBattleSave, toDesmumeDsv } from "../src/pokeweb/testBattle";
-const [inputPath, outputPath=fileURLToPath(new URL("../../.pokeweb-local-archive/current/follower-roms/",import.meta.url))] = process.argv.slice(2);
+const riding=process.argv.includes("--riding");
+const [inputPath, outputPath=fileURLToPath(new URL("../../.pokeweb-local-archive/current/follower-roms/",import.meta.url)), explicitSave] = process.argv.slice(2).filter(arg=>arg!=="--riding");
 if (!inputPath) throw new Error("Expected an audited Black 2, White 2, Italian White 2, or White2Upgrade ROM path and optional output directory");
 globalThis.fetch=(async(input:RequestInfo|URL)=>{
  const url=new URL(input instanceof Request?input.url:String(input));
@@ -17,16 +18,15 @@ globalThis.fetch=(async(input:RequestInfo|URL)=>{
 }) as typeof fetch;
 const project=await loadProjectFromRomBytes(new Uint8Array(await readFile(inputPath)),basename(inputPath),{selectedNarcs:[]});
 const profile=await followerProfile(project);
-const explicitSave=process.argv[4];
 if(profile==="white2italy"&&explicitSave)throw new Error("Italian builds accept only the existing Italian alpha save family; copy a save manually if needed.");
-const state=await installFollowerAlpha(project);
+const state=await installFollowerAlpha(project,undefined,{riding});
 await installFollowerAlpha(project); // Idempotent installation must not duplicate modules.
 // This batch command only installs the follower. Discard read-only editor stores
 // so unrelated automatic form-name repairs do not become part of the test patch.
 project.narcs = {};
 const rom=await exportModifiedRom(project);
 const prefix=profile === "white2upgrade" ? "White2Upgrade-Following" : profile === "black2" ? "Black2-Following" : profile === "white2italy" ? "White2Italy-Following" : "White2-Following";
-const output=resolve(outputPath),name=`${prefix}-${state.version}`;
+const output=resolve(outputPath),name=`${prefix}-${state.variant==="base"?"Base-":""}${state.version}`;
 await mkdir(output,{recursive:true});
 await writeFile(join(output,name+".nds"),rom);
 if(profile!=="white2italy"){
@@ -34,7 +34,7 @@ if(profile!=="white2italy"){
  await writeFile(join(output,name+".sav"),save.rawSaveBytes,{flag:"wx"}).catch((error:NodeJS.ErrnoException)=>{if(error.code!=="EEXIST")throw error;});
  await writeFile(join(output,name+".dsv"),toDesmumeDsv(save.rawSaveBytes),{flag:"wx"}).catch((error:NodeJS.ErrnoException)=>{if(error.code!=="EEXIST")throw error;});
 }
-await writeFile(join(output,"build.json"),JSON.stringify({version:state.version,profile,rom:name+".nds",sha256:await followerRomSha256(rom),moduleSha256:state.moduleSha256,eventsSha256:state.eventsSha256,eventsAbi:state.eventsAbi,coreSha256:state.coreSha256,coreAbi:state.coreAbi,registrySha256:state.registrySha256,descriptorsSha256:state.descriptorsSha256,resourcesSha256:state.resourcesSha256,effectsSha256:state.effectsSha256,interactionsSha256:state.interactionsSha256,emotesSha256:state.emotesSha256,dialoguesSha256:state.dialoguesSha256,itemsSha256:state.itemsSha256,languageSha256:state.languageSha256,surfSha256:state.surfSha256,surfRegistrySha256:state.surfRegistrySha256,landRiderSha256:state.landRiderSha256,landAnchorsSha256:state.landAnchorsSha256,gameEmulatorValidation:"Pending human testing"},null,2)+"\n");
+await writeFile(join(output,"build.json"),JSON.stringify({version:state.version,variant:state.variant,profile,rom:name+".nds",sha256:await followerRomSha256(rom),moduleSha256:state.moduleSha256,eventsSha256:state.eventsSha256,eventsAbi:state.eventsAbi,coreSha256:state.coreSha256,coreAbi:state.coreAbi,registrySha256:state.registrySha256,descriptorsSha256:state.descriptorsSha256,resourcesSha256:state.resourcesSha256,effectsSha256:state.effectsSha256,interactionsSha256:state.interactionsSha256,emotesSha256:state.emotesSha256,dialoguesSha256:state.dialoguesSha256,itemsSha256:state.itemsSha256,languageSha256:state.languageSha256,surfSha256:state.surfSha256,surfRegistrySha256:state.surfRegistrySha256,landRiderSha256:state.landRiderSha256,landAnchorsSha256:state.landAnchorsSha256,positioningSha256:state.positioningSha256,gameEmulatorValidation:"Pending human testing"},null,2)+"\n");
 // Deliver versioned alphas beside the workspace (Repos/ in this checkout).
 const deliveryDirectory=fileURLToPath(new URL("../../../",import.meta.url));
 const deliveryPath=join(deliveryDirectory,name+".nds");

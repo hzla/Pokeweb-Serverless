@@ -1,6 +1,7 @@
 #ifndef FW_EFFECTS_H
 #define FW_EFFECTS_H
 #include "native.h"
+void fwfx_set_resource_count(unsigned count);
 void fwfx_prepare(Actor *actor);
 void fwfx_snapshot(Actor *actor);
 void fwfx_out(Actor *actor);
@@ -10,6 +11,7 @@ void fwfx_cancel(void);
 void fwfx_destroy(void);
 int fwfx_hides_actor(void);
 int fwfx_busy(void);
+int fwfx_recalling(void);
 int fwfx_available(void);
 void fwfx_draw(void *camera,void *light);
 /* Private reaction emotes; frame resources never alias a native actor palette. */

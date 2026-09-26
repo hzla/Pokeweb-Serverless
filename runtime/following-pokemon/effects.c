@@ -1,6 +1,7 @@
 __attribute__((visibility("hidden"))) void *memset(void *to,int value,unsigned length){unsigned char *p=to;while(length--)*p++=(unsigned char)value;return to;}
 #include "effects.h"
 #include "effects_assets.h"
+#include "render.h"
 /* Freestanding aggregate copies; no dependency on a gameplay module's libc. */
 __attribute__((visibility("hidden"))) void *memcpy(void *to,const void *from,unsigned length){
  uint8_t *d=to;const uint8_t *s=from;while(length--)*d++=*s++;return to;
@@ -19,6 +20,18 @@ static struct {
  Scene scene; Billboard billboard; Material material,whiteMaterial;
  Transform transform;
 } fwfx;
+/* Set only from the validated installed registry. The retail archive has 975
+ * members, but imported follower appearances extend it. */
+static uint16_t fwfx_resourceCount;
+/* The two bright colors in the imported send-out flash palette (BGR555).
+ * Keep a little of the source sprite's light/dark structure in the silhouette. */
+#define FWFX_LIGHT_CYAN 0x7f93u
+#define FWFX_WHITE 0x7fffu
+#define FWFX_RECALL_TICKS 12
+#define FWFX_RECALL_SPRITE_TICKS 8
+/* Stock White 2 battle effects: switch-out return 620 and send-out 621 both
+ * use SE 1383 for the ball. Effect 619 is Sunny Day, not a ball effect. */
+#define FWFX_BALL_SE 1383u
 __attribute__((visibility("default"))) volatile uint32_t FollowingEffectsDebug[8]={0x58465746,1,0,0,0,0,0,0};
 static uint32_t checksum(const uint8_t *p,unsigned n){uint32_t c=~0u;while(n--){c^=*p++;for(unsigned j=0;j<8;++j)c=(c>>1)^((0u-(c&1))&0xedb88320u);}return ~c;}
 static int verified(void){
@@ -34,6 +47,11 @@ static void free_white(void){
  fwfx.snapshot=0;fwfx.whiteMaterial.texKey=fwfx.whiteMaterial.plttKey=0;FollowingEffectsDebug[7]=0;
 }
 void fwfx_cancel(void){fwfx.mode=0;FollowingEffectsDebug[2]=0;}
+void fwfx_set_resource_count(unsigned count){
+ if(count>65535)count=0;
+ if(fwfx_resourceCount!=count)free_white();
+ fwfx_resourceCount=(uint16_t)count;
+}
 void fwfx_destroy(void){
  fwfx_emote_end();
  fwfx_cancel();free_white();
@@ -70,7 +88,7 @@ void fwfx_prepare(Actor *actor){
  uint16_t id=*(uint16_t*)(actor->descriptor+16);
  if(fwfx.white && fwfx.whiteID==id)return;
  free_white();fwfx.whiteID=id;
- if(id>=975)return;
+ if(!fwfx_resourceCount || id>=fwfx_resourceCount)return;
  fwfx.white=CALL(0x020493f1,void*(*)(const char*,unsigned))("rom:/a/0/4/8",id);
  if(!fwfx.white)return;
  void *tex=CALL(0x0204964d,void*(*)(void*))(fwfx.white);
@@ -78,7 +96,19 @@ void fwfx_prepare(Actor *actor){
  unsigned length=CALL(0x020652e5,unsigned(*)(void*))(tex);
  uint16_t *palette=CALL(0x0204974d,uint16_t*(*)(void*))(fwfx.white);
  if(!palette || length>512 || !length){free_white();return;}
- for(unsigned i=0;i<length/2;++i)palette[i]=0x7fff;
+ unsigned count=length/2,minLight=~0u,maxLight=0;
+ for(unsigned i=1;i<count;++i){
+  unsigned color=palette[i];
+  unsigned light=3u*(color&31u)+6u*((color>>5)&31u)+((color>>10)&31u);
+  if(light<minLight)minLight=light;
+  if(light>maxLight)maxLight=light;
+ }
+ unsigned middle=minLight+(maxLight-minLight)/2u;
+ for(unsigned i=0;i<count;++i){
+  unsigned color=palette[i];
+  unsigned light=3u*(color&31u)+6u*((color>>5)&31u)+((color>>10)&31u);
+  palette[i]=(uint16_t)(i&&((minLight==maxLight)?(i&1u):(light>middle))?FWFX_WHITE:FWFX_LIGHT_CYAN);
+ }
  CALL(0x0204e55d,void(*)(void*,void*))(&fwfx.whiteMaterial,fwfx.white);
  if(!fwfx.whiteMaterial.texKey || !fwfx.whiteMaterial.plttKey)free_white();
 }
@@ -97,7 +127,15 @@ void fwfx_snapshot(Actor *a){
  fwfx.scene.actorCount=fwfx.scene.materialCount=1;
  fwfx.scene.diffuse=fwfx.scene.ambient=0x7fff;
  fwfx.scene.specular=fwfx.scene.emissive=0;
- fwfx.billboard.geom&=0xc000;fwfx.billboard.flags&=~0xf200;
+ fwfx.billboard.geom&=0xc000;
+ /* Keep the native draw-enable bit and its selected map lights. The old
+  * 0xf200 mask cleared both, leaving a loaded silhouette invisible. */
+ fwfx.billboard.flags|=0x0200u;
+ FwrEffectPose submitted;
+ if(fwr_effect_pose(a,&fwfx.billboard.pos,&submitted)){
+  fwfx.billboard.pos=submitted.position;
+  fwfx.billboard.sx=submitted.sx;fwfx.billboard.sy=submitted.sy;
+ }
  /* Preserve animation layout; bind the already uploaded private VRAM keys. */
  fwfx.material.resource=fwfx.white;
  fwfx.material.tex=fwfx.whiteMaterial.tex;fwfx.material.pltt=fwfx.whiteMaterial.pltt;
@@ -107,29 +145,32 @@ void fwfx_snapshot(Actor *a){
 static void position(Actor *a){fwfx.transform.pos=a->world;fwfx.transform.pos.z+=6*4096;}
 void fwfx_out(Actor *a){if(fwfx.ready!=1)return;position(a);fwfx.mode=1;fwfx.age=0;FollowingEffectsDebug[2]=1;FollowingEffectsDebug[5]=0;FollowingEffectsDebug[3]++;}
 void fwfx_recall(Actor *a){
- if(fwfx.ready!=1)return;
+ if(fwfx.ready!=1 || fwfx.mode==2)return;
  position(a);fwfx.mode=2;fwfx.age=0;FollowingEffectsDebug[2]=2;FollowingEffectsDebug[5]=0;FollowingEffectsDebug[4]++;
+ CALL(0x02006255,void(*)(unsigned))(FWFX_BALL_SE);
 }
 int fwfx_busy(void){return fwfx.mode!=0;}
+int fwfx_recalling(void){return fwfx.mode==2;}
 int fwfx_available(void){return fwfx.ready==1;}
 int fwfx_hides_actor(void){return fwfx.mode==1 && fwfx.age<2;}
 void fwfx_tick(void){
  if(!fwfx.mode)return;
- if(++fwfx.age>=(fwfx.mode==1?10:8)){fwfx_cancel();return;}
+ if(++fwfx.age>=(fwfx.mode==1?10:FWFX_RECALL_TICKS)){fwfx_cancel();return;}
+ if(fwfx.mode==1 && fwfx.age==2)CALL(0x02006255,void(*)(unsigned))(FWFX_BALL_SE);
  FollowingEffectsDebug[2]=fwfx.mode;FollowingEffectsDebug[5]=fwfx.age;
 }
 static void draw_emote(void *camera,void *light);
 void fwfx_draw(void *camera,void *light){
  draw_emote(camera,light);
  if(!fwfx.mode || fwfx.ready!=1)return;
- if(fwfx.mode==2 && fwfx.age<4){
-  if(fwfx.snapshot){
-   static const int scale[4]={4096,2048,1365,1024};
+ if(fwfx.mode==2 && fwfx.age<FWFX_RECALL_SPRITE_TICKS && fwfx.snapshot){
+   /* Three recolored frames establish the silhouette, then five quick steps
+    * pull it into the ball. The remaining four frames retain the ball art. */
+   static const int scale[8]={4096,4096,4096,3440,2784,2112,1456,768};
    Billboard original=fwfx.billboard;
    fwfx.billboard.sx=(fwfx.billboard.sx*scale[fwfx.age])>>12;
    fwfx.billboard.sy=(fwfx.billboard.sy*scale[fwfx.age])>>12;
    CALL(0x0204ebdd,void(*)(void*,void*,void*))(&fwfx.scene,camera,light);fwfx.billboard=original;
-  }
  }else if((fwfx.mode==1 && fwfx.age<2) || fwfx.mode==2){
   CALL(0x02049b89,void(*)(void*,void*))(fwfx.actors[0],&fwfx.transform);
  }else{

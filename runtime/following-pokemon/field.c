@@ -4,6 +4,7 @@
 #include "scene.h"
 #include "core_api.h"
 #include "render.h"
+#include "positioning.h"
 #ifdef FW_MOUNT
 #include "land.h"
 #include "transition.h"
@@ -29,20 +30,18 @@ static Actor *fwfield_player;
 static uint32_t fwfield_tick, fwfield_generation;
 static uint16_t fwfield_code;
 static uint8_t fwfield_flying;
-#ifdef FW_MOUNT
 static uint32_t fwfield_registryCrc;
 static uint16_t fwfield_descriptorCount;
+#ifdef FW_MOUNT
 static uint8_t fwfield_landCarry,fwfield_landCheckAfterPause;
 static uint32_t fwfield_landToggleTick;
 #endif
-#ifdef FW_STOCK
 /* Grid followers bypass the retail movement process. Remember only the last
  * visible tile whose field effect was checked; this is not save state. */
 static Actor *fwfield_terrainActor;
 static void *fwfield_terrainController;
 static int16_t fwfield_terrainX,fwfield_terrainZ;
 static uint16_t fwfield_terrainZone;
-#endif
 static int fwfield_configState,fwfield_eventsReady;
 /* A manual choice lives only in the field runtime; party data is untouched.
  * Keep the previous safe follower tile for the recall -> send-out sequence. */
@@ -92,12 +91,28 @@ static void move(Actor *a) {
  if(fwfield_follower.state==FW_INTERACTING||fwfield_follower.state==FW_EVENT_PAUSED){a->flags|=PAUSE_ANM;return;}
  FwSample sample={.x=fwfield_player->world.x,.y=fwfield_player->world.y+fwfield_player->drawOffset.y+fwfield_player->externalOffset.y,
  .z=fwfield_player->world.z,.generation=fwfield_generation,.space=1,.rail=0,.connection=0,.direction=(uint8_t)fwfield_player->face,.kind=FW_WORLD,.duration=1}, target;
- int result=fw_trail_push(&fwfield_follower.trail,&sample,&target,fwfield_follower.side_gap);
+ int result=fw_trail_push_directional(&fwfield_follower.trail,&sample,&target,fwfield_follower.directional_gap);
  if(result<0) { a->flags|=HIDDEN; fwfield_follower.state=FW_WAITING; FollowingDebug.visible=0; ++FollowingDebug.resets;animation_gate(a); return; }
  if(fwfield_follower.state==FW_FOLLOWING && !fwfx_hides_actor()){a->flags&=~HIDDEN;FollowingDebug.visible=1;}
- if(result!=1){animation_gate(a);return;}
+ if(result!=1)target=(FwSample){.x=a->world.x,.y=a->world.y,.z=a->world.z,
+                                .direction=(uint8_t)a->face};
+ int clamped=0;
+ if(fwfield_follower.state==FW_FOLLOWING&&!(a->flags&HIDDEN)&&!fwfx_busy()){
+  int64_t ox=(int64_t)a->drawOffset.x+a->externalOffset.x;
+  int64_t oy=(int64_t)a->drawOffset.y+a->externalOffset.y;
+  int64_t oz=(int64_t)a->drawOffset.z+a->externalOffset.z;
+  if(ox>=-8*4096&&ox<=8*4096&&oy>=-8*4096&&oy<=8*4096&&oz>=-8*4096&&oz<=8*4096){
+   FwPoint pose={target.x,target.y,target.z},playerPose={sample.x,sample.y,sample.z};
+   FwPoint artOffset={(int32_t)ox,(int32_t)oy,(int32_t)oz};
+   clamped=fw_clamp_dialogue_pose(&pose,&playerPose,&artOffset,fwfield_player->face,
+                                   fwfield_follower.directional_gap[fwfield_player->face]);
+   if(clamped){target.x=pose.x;target.z=pose.z;}
+  }
+ }
+ if(result!=1&&!clamped){animation_gate(a);return;}
  Vec next={target.x,target.y,target.z};
  if(!fws_step_clear(a,&next)){
+  if(result!=1){animation_gate(a);return;}
   if(!(a->flags&HIDDEN))fwfx_recall(a);
   a->flags|=HIDDEN;fwfield_follower.state=FW_WAITING;FollowingDebug.visible=0;
   fw_trail_clear(&fwfield_follower.trail);++FollowingDebug.resets;return;
@@ -121,11 +136,6 @@ static void move(Actor *a) {
   * synthetic stock actor. Calling it on a grid follower with flag 0x400
   * cleared dereferences a null Actor+0x94 context and freezes the game. Keep
   * stock out of this path until a grid-specific adapter is audited. */
-#ifndef FW_STOCK
- if(!fwfield_flying && !(a->flags&HIDDEN) &&
-    (a->previous[0]!=a->grid[0] || a->previous[2]!=a->grid[2]))
-  CALL(0x02194b89,void(*)(Actor*))(a);
-#endif
  animation_gate(a);
 }
 static const Moves fwfield_moves={0,noop,move,removed,noop};
@@ -141,13 +151,17 @@ static void cleanup_impl(int keepTrail) {
  if(owned()) CALL(0x02166981,void(*)(Actor*))((Actor*)fwfield_follower.actor);
  fwfield_follower.actor=0; fwfield_player=0; fwfield_follower.state=FW_ABSENT;
  if(!keepTrail)fw_trail_clear(&fwfield_follower.trail);
-#ifdef FW_STOCK
  fwfield_terrainActor=0;
-#endif
  fwfield_cyclePending=0;
  FollowingDebug.actor=FollowingDebug.visible=0;
 }
 static void cleanup(void) {cleanup_impl(0);}
+/* The retail key-direction veneer is used by ordinary field movement. A
+ * recall owns the player's next step until the ball effect has finished. */
+API unsigned FollowingPlayerMoveDir(void *player,unsigned key){
+ if(fwfx_recalling())return 9;
+ return CALL(0x0219b161,unsigned(*)(void*,unsigned))(PTR(player,4),key);
+}
 static void scene_recall(void){
 #ifdef FW_MOUNT
  if(fwland_active()&&owned()){((Actor*)fwfield_follower.actor)->flags|=HIDDEN;fwland_end();}
@@ -156,6 +170,14 @@ static void scene_recall(void){
  cleanup();
 }
 static uint16_t read16(const uint8_t *p){return p[0]|(uint16_t)p[1]<<8;}
+/* CONFIG bits 0..10 are retail settings. Bit 11 is the saved Followers Off
+ * choice; zero preserves the behavior of every existing save. */
+static int followers_off(void *game){
+ if(!game)return 0;
+ void *save=PTR(game,0);
+ void *options=save?CALL(0x02008ddd,void*(*)(void*))(save):0;
+ return options&&(*(const uint16_t*)options&(1u<<11));
+}
 static int registry_read(void *file,unsigned at,void *out,unsigned n){
  if(at>fwfield_registrySize||n>fwfield_registrySize-at)return 0;
  ++FollowingConfigDebug.reads;
@@ -175,9 +197,7 @@ __attribute__((noinline)) static int config(void) {
  CALL(0x02070de1,int(*)(void*))(file);
  if(ok)ok=header[0]==0x544e5746&&header[1]==1&&header[2]==2&&header[3]>=32&&header[3]<=REGISTRY_MAX&&header[4]<=65535&&header[5]<=65535&&header[7]==0;
  if(!ok)return 0;
-#ifdef FW_MOUNT
  fwfield_registryCrc=header[6];fwfield_descriptorCount=(uint16_t)header[4];
-#endif
  FollowingConfigDebug.stage=3;FollowingConfigDebug.registryBytes=header[3];
  CALL(0x02070ca9,void(*)(void*))(file);
  if(!CALL(0x02070ecd,int(*)(void*,const char*))(file,"rom:/following/runtime-registry.bin"))return 0;
@@ -187,8 +207,8 @@ __attribute__((noinline)) static int config(void) {
  ok=fwfield_registrySize==header[3]&&FollowingCoreAPI.configureStream(&input);
  CALL(0x02070de1,int(*)(void*))(file);
  fwfield_pageCount=0;
- if(ok){fwfield_stride=input.stride;fwfield_configState=1;FollowingConfigDebug.stage=7;}
- else {FollowingCoreAPI.clear();fwfield_registrySize=fwfield_stride=0;}
+ if(ok){fwfield_stride=input.stride;fwfx_set_resource_count(header[5]);fwfield_configState=1;FollowingConfigDebug.stage=7;}
+ else {fwfx_set_resource_count(0);FollowingCoreAPI.clear();fwfield_registrySize=fwfield_stride=0;}
  return ok;
 }
 /* Only called on selection/appearance changes, never during movement/drawing. */
@@ -220,6 +240,16 @@ __attribute__((noinline)) static uint16_t model(const FwPokemon *p) {
   if(score>best){best=score;fallback=FW_CODE_BASE+row-FW_STOCK_ROWS;fwfield_follower.side_gap=fwfield_stride==12?(r[8]>>3)&7:r[15];fwfield_follower.sprite_y=(int8_t)(fwfield_stride==12?r[10]:r[13]);}
  }
  if(opened)CALL(0x02070de1,int(*)(void*))(file);
+ fwfield_follower.directional_gap[0]=fwfield_follower.directional_gap[1]=0;
+ fwfield_follower.directional_gap[2]=fwfield_follower.directional_gap[3]=fwfield_follower.side_gap;
+ fwfield_follower.directional_gap[2]+=FW_DEFAULT_SIDE_GAP_BONUS;
+ fwfield_follower.directional_gap[3]+=FW_DEFAULT_SIDE_GAP_BONUS;
+ if(first<end&&fallback>=FW_CODE_BASE){
+  uint8_t positions[12];
+  if(fwp_land(fallback-FW_CODE_BASE,fwfield_descriptorCount-FW_STOCK_ROWS,fwfield_registryCrc,positions)){
+   for(unsigned i=0;i<4;++i)fwfield_follower.directional_gap[i]=positions[i];
+  }
+ }
  return first<end?fallback:0;
 fail:
  if(opened)CALL(0x02070de1,int(*)(void*))(file);
@@ -287,10 +317,12 @@ static void cycle_follower(void *game,void *field){
  FwPokemon next;int slot=-1;
  if(!select(game,field,&next,0,keys==0x100u?1:-1,&slot))return;
  uint8_t oldGap=fwfield_follower.side_gap;
+ uint8_t oldDirectional[4];for(unsigned i=0;i<4;++i)oldDirectional[i]=fwfield_follower.directional_gap[i];
  int8_t oldY=fwfield_follower.sprite_y;
  uint16_t code=model(&next);
  if(!code){
   fwfield_follower.side_gap=oldGap;fwfield_follower.sprite_y=oldY;
+  for(unsigned i=0;i<4;++i)fwfield_follower.directional_gap[i]=oldDirectional[i];
   fwfield_flying=oldFlying;
   return;
  }
@@ -312,7 +344,7 @@ static void cycle_track(void){
   .y=fwfield_player->world.y+fwfield_player->drawOffset.y+fwfield_player->externalOffset.y,
   .z=fwfield_player->world.z,.generation=fwfield_generation,.space=1,
   .direction=(uint8_t)fwfield_player->face,.kind=FW_WORLD,.duration=1},target;
- int step=fw_trail_push(&fwfield_follower.trail,&sample,&target,fwfield_follower.side_gap);
+ int step=fw_trail_push_directional(&fwfield_follower.trail,&sample,&target,fwfield_follower.directional_gap);
  if(step<0){fwfield_cyclePending=0;return;}
  if(step==1){
   fwfield_cyclePose=(Vec){target.x,target.y,target.z};
@@ -377,9 +409,11 @@ static void before(ActorSystem *sys) {
   fw_init(&fwfield_follower,++fwfield_generation);
   if(keepManual){fwfield_follower.selected=manual;fwfield_follower.slot=(int8_t)manualSlot;fwfield_follower.has_selection=1;}
   fwfield_eventsReady=fws_attach(sys,&fwfield_follower,fwfield_generation,scene_recall);
-  clear_restore();if(fwfield_eventsReady)fws_take_restore(&fwfield_restore);
+  clear_restore();
+  if(sys&&sys->field&&followers_off(PTR(sys->field,8)))FollowingEventsAPI.discard();
+  else if(fwfield_eventsReady)fws_take_restore(&fwfield_restore);
 #ifdef FW_MOUNT
-  if(fwfield_eventsReady){
+  if(fwfield_eventsReady&&sys&&sys->field&&!followers_off(PTR(sys->field,8))){
    FweMount mount;
    if(FollowingEventsAPI.consumeMount(PTR(sys->field,8),&mount)&&
       fwtm_menu_restore(sys->field,&mount)){
@@ -400,6 +434,7 @@ static void before(ActorSystem *sys) {
  FollowingDebug.system=(uint32_t)sys; FollowingDebug.systemFlags=sys->flags; FollowingDebug.field=(uint32_t)field;
  uint32_t reason=0;
  if(!config())reason|=1;
+ if(field&&followers_off(PTR(field,8)))reason|=4096;
  if(!fwfield_eventsReady)reason|=1024;
  if(eventState==FWS_RECALLED)reason|=2048;
  if(!field || (sys->flags&17)!=17 || (sys->flags&6))reason|=2;
@@ -533,9 +568,10 @@ static void before(ActorSystem *sys) {
   FollowingDebug.actor=(uint32_t)a; ++FollowingDebug.spawns;
  }
 }
-#ifdef FW_STOCK
 static void terrain_update(void) {
+#ifdef FW_MOUNT
  if(fwland_active())return;
+#endif
  if(!owned()) {fwfield_terrainActor=0;return;}
  Actor *a=(Actor*)fwfield_follower.actor;
  if((a->flags&HIDDEN)||fwfield_flying){fwfield_terrainActor=0;return;}
@@ -560,12 +596,11 @@ static void terrain_update(void) {
  if((attr>>16)&0x20u)
   CALL(0x02194d8d,void(*)(Actor*,uint32_t))(a,attr);
 }
-#endif
 API void FollowingUpdate(ActorSystem *sys) {
  fwfx_tick();before(sys);
 #ifdef FW_ARCEUS_SURF
  unsigned surfing=0;
- if(fwfield_configState==1&&sys&&sys->field){
+ if(fwfield_configState==1&&sys&&sys->field&&!followers_off(PTR(sys->field,8))){
   void *field=sys->field,*fp=PTR(field,0x94);
   surfing=fp&&CALL(0x0219a705,unsigned(*)(void*))(fp)==2;
   /* Arm both entry draw hooks while still on land; refresh party edits on
@@ -588,9 +623,7 @@ API void FollowingUpdate(ActorSystem *sys) {
 #ifdef FW_MOUNT
  if(fwland_active()&&owned()&&fwfield_player)fwland_follow_player((Actor*)fwfield_follower.actor,fwfield_player);
 #endif
-#ifdef FW_STOCK
  terrain_update();
-#endif
  if(owned()){
   Actor *a=(Actor*)fwfield_follower.actor;
   /* This actor's route callback writes coordinates directly, so the retail
@@ -632,11 +665,11 @@ extern int FollowingOriginalUnload(void*,void*);
 API int FollowingUnload(void *game,void *field) {
 #ifdef FW_MOUNT
  FweMount mount;
- if(fwfield_eventsReady&&fws_menu_active()&&fwtm_menu_snapshot(field,&mount))
+ if(fwfield_eventsReady&&!followers_off(PTR(field,8))&&fws_menu_active()&&fwtm_menu_snapshot(field,&mount))
   FollowingEventsAPI.preserveMount(field,fwfield_generation,&mount);
  else FollowingEventsAPI.discardMount();
 #endif
- fws_detach();fwfield_eventsReady=0;cleanup();fwt_unload();fwfx_destroy();FollowingCoreAPI.clear();
+ fws_detach();fwfield_eventsReady=0;cleanup();fwt_unload();fwfx_destroy();fwfx_set_resource_count(0);FollowingCoreAPI.clear();
 #ifdef FW_MOUNT
  fwfield_landCarry=0;
  fwtm_cancel();

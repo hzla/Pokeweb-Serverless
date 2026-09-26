@@ -66,6 +66,48 @@ int main(void) {
         s.direction=2;for(int idle=0;idle<60;idle++)assert(!fw_trail_push(&t,&s,&out,gap_value));
         assert(t.count==count&&t.head==head&&t.distance==dist&&!memcmp(&old,&out,sizeof(out)));
     }
+    /* Each facing gets its own offset; a prior direction's gap never leaks. */
+    const uint8_t directional[4]={1,2,11,12};
+    for(int direction=0;direction<4;direction++){
+        fw_trail_clear(&t);
+        int sign=(direction==0||direction==2)?-1:1, axis=direction<2, spacing=16+directional[direction];
+        for(int i=0;i<=40;i++){
+            s=sample(axis?0:sign*i*4096,0,axis?sign*i*4096:0,1,FW_WORLD);
+            s.direction=(uint8_t)direction;
+            int r=fw_trail_push_directional(&t,&s,&out,directional);
+            assert(r==(i>=spacing));
+            if(r)assert((axis?out.z:out.x)==sign*(i-spacing)*4096);
+        }
+    }
+    /* toofar.mln: the actor is 28 units west at a ten-unit side gap, while
+       dialogue reaches only 27. Its art is two units back toward the player. */
+    FwPoint playerPose={13795328,0,42696704};
+    FwPoint actorPose={13680640,0,42696704};
+    FwPoint artOffset={8192,6144,-8192};
+    assert(fw_clamp_dialogue_pose(&actorPose,&playerPose,&artOffset,2,10));
+    assert(actorPose.x==playerPose.x-(int32_t)FW_DIALOGUE_REACH(10));
+    assert(playerPose.x-(actorPose.x+artOffset.x)<=(int32_t)FW_DIALOGUE_REACH(10));
+    assert(!fw_clamp_dialogue_pose(&actorPose,&playerPose,&artOffset,2,10));
+    /* An art offset away from the player must also remain inside the cap. */
+    FwPoint outward={-8192,0,0};
+    assert(fw_clamp_dialogue_pose(&actorPose,&playerPose,&outward,2,10));
+    assert(playerPose.x-(actorPose.x+outward.x)==(int32_t)FW_DIALOGUE_REACH(10));
+    for(unsigned face=0;face<4;++face){
+        FwPoint origin={100*FW_TILE,0,100*FW_TILE},candidate=origin,art={0,0,0};
+        int32_t reach=(int32_t)FW_DIALOGUE_REACH(12);
+        if(face==0){candidate.z-=reach+4096;art.z=-8192;}
+        if(face==1){candidate.z+=reach+4096;art.z=8192;}
+        if(face==2){candidate.x-=reach+4096;art.x=-8192;}
+        if(face==3){candidate.x+=reach+4096;art.x=8192;}
+        assert(fw_clamp_dialogue_pose(&candidate,&origin,&art,face,12));
+        int32_t world=face==0?origin.z-candidate.z:face==1?candidate.z-origin.z:
+                      face==2?origin.x-candidate.x:candidate.x-origin.x;
+        assert(world<=reach&&world+8192==reach);
+    }
+    FwPoint distant={playerPose.x-33*4096,0,playerPose.z};
+    assert(!fw_clamp_dialogue_pose(&distant,&playerPose,0,2,10));
+    FwPoint offAxis={playerPose.x-28*4096,0,playerPose.z+8*4096};
+    assert(!fw_clamp_dialogue_pose(&offAxis,&playerPose,0,2,10));
     /* Repeated L bends and heights: every result is an actual earlier pose,
        advances monotonically through history, and never snaps a six-unit gap. */
     FwSample route[800];fw_trail_clear(&t);int x=0,z=0,last_index=-1;

@@ -59,6 +59,9 @@ put(scene + 4, materials)
 put(scene + 8, billboards)
 half(scene + 12, 18)
 half(scene + 14, 2)
+native_light_colors = (0x4210, 0x2108, 0x1084, 0x0421)
+for offset, color in zip((28, 30, 32, 34), native_light_colors):
+    half(scene + offset, color)
 # The supplied blackbox.mln state has a 64-pixel mount using material 16,
 # with eight directional frames inside it. Material 17 is uninitialized.
 half(materials + 16 * 40 + 4, 64)
@@ -73,7 +76,7 @@ for actor, index in ((follower, 0), (player, 1)):
     cpu.mem_write(at + 4, struct.pack("<3i", 100 * 4096, 0, 200 * 4096))
     half(at + 18, 32 * 256)
     half(at + 20, 32 * 256)
-    half(at + 24, 0x0200)
+    half(at + 24, 0x121f if index == 0 else 0x821f)
 half(billboards, 16)
 half(billboards + 16, 5)
 put(land + 4, follower)
@@ -92,6 +95,7 @@ def draw_spy(unit, pc, _size, _user):
     elif pc == 0x0204f684:
         assert not read(billboards + 28 + 24) & 0x0200, "Mounted native player body must be suppressed"
         assert read(billboards + 24) & 0x0200, "The follower mount must remain visible"
+        assert struct.unpack("<H", unit.mem_read(billboards + 24, 2))[0] & 0xf000 == 0x8000
         material = struct.unpack("<H", unit.mem_read(billboards, 2))[0] & 0x3fff
         frame = struct.unpack("<H", unit.mem_read(billboards + 16, 2))[0]
         rows = unit.mem_read(materials + material * 40 + 11, 1)[0]
@@ -105,6 +109,8 @@ def draw_spy(unit, pc, _size, _user):
         assert struct.unpack("<H", unit.mem_read(private_scene + 14, 2))[0] == 1
         assert struct.unpack("<H", unit.mem_read(private_scene + 12, 2))[0] == 12
         assert struct.unpack("<H", unit.mem_read(rider + 24, 2))[0] & 0x0200
+        assert struct.unpack("<H", unit.mem_read(rider + 24, 2))[0] & 0xf000 == 0x8000
+        assert struct.unpack("<4H", unit.mem_read(private_scene + 28, 8)) == native_light_colors
         submissions.append(("rider", struct.unpack("<3i", unit.mem_read(rider + 4, 12)),
                             struct.unpack("<H", unit.mem_read(rider, 2))[0]))
     else:
@@ -128,7 +134,7 @@ for direction in range(4):
     assert bytes(cpu.mem_read(billboards, 28)) == original_mount
     assert bytes(cpu.mem_read(billboards + 28, 28)) == original_body
     rider_pose = next(item[1] for item in submissions if item[0] == "rider")
-    assert next(item[2] for item in submissions if item[0] == "rider") & 0x3fff == direction * 3 + 1
+    assert next(item[2] for item in submissions if item[0] == "rider") & 0x3fff == direction * 3
     mount_pose = next(item[1] for item in submissions if item[0] == "mount")
     depth = mount_pose[1] + mount_pose[2] - rider_pose[1] - rider_pose[2]
     assert depth >= 4 * 4096 if direction == 1 else depth <= -4 * 4096, (direction, depth)
@@ -168,7 +174,7 @@ call("fwland_draw", [renderer, camera, light, follower, player, 0, 25])
 assert next(item[2:] for item in submissions if item[0] == "mount") == (16, 5)
 submissions.clear()
 call("fwland_draw", [renderer, camera, light, follower, player, 0, 26])
-assert next(item[2] for item in submissions if item[0] == "rider") & 0x3fff == 2 * 3 + 1
+assert next(item[2] for item in submissions if item[0] == "rider") & 0x3fff == 2 * 3 + 2
 
 # Ordinary mounted walking must now alternate the same two follower poses,
 # with a one-pixel vertical lift shared by the mount and seated rider. The
@@ -189,7 +195,12 @@ for tick, frame, lift in ((60, 5, 4096), (69, 5, 4096), (70, 4, 0), (80, 5, 4096
 assert walk_rider_y[0] == walk_rider_y[1] == walk_rider_y[3] and abs(walk_rider_y[0] - walk_rider_y[2] - 4096) <= 128, walk_rider_y
 submissions.clear()
 call("fwland_draw", [renderer, camera, light, follower, player, 0, 81])
-assert next(item[1][1] for item in submissions if item[0] == "mount") == 0, "The mounted bounce stops with movement"
+assert next(item[1][1] for item in submissions if item[0] == "mount") == 4096, "The mounted bounce continues at rest"
+for tick, lift in ((90, 0), (100, 4096)):
+    submissions.clear()
+    call("fwland_draw", [renderer, camera, light, follower, player, 0, tick])
+    assert next(item[1][1] for item in submissions if item[0] == "mount") == lift
+    assert bytes(cpu.mem_read(billboards + 28, 28)) == original_body
 for direction in range(4):
     half(player + 24, direction)
     half(billboards + 16, direction * 2 + 1)
@@ -265,4 +276,4 @@ for speed, expected in ((50, 0x50), (100, 0x14), (255, 0x54)):
     assert step_codes[-1] == expected, (speed, step_codes[-1], expected)
     debug = module_exports(dll, base)[symbol_hash("FollowingLandDebug")]
     assert read(debug + 28) == speed
-print("Packaged land rendering and base-Speed checks passed: four-direction priority, player-shadow separation, native body suppression, billboard restoration, walking/running two-pose stride and one-pixel paired bounce, Personal base Speed instead of calculated party Speed, three-frame animated rider and seated idle. GPU draw is a spy; no game emulator run.")
+print("Packaged land rendering and base-Speed checks passed: four-direction priority, player-shadow separation, native body suppression, billboard restoration, walking/running and stationary two-pose stride with one-pixel paired bounce, Personal base Speed instead of calculated party Speed, three-frame animated rider. GPU draw is a spy; no game emulator run.")
