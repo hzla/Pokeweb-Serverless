@@ -40,6 +40,24 @@ export function cloneFolder(folder: Folder): Folder {
   });
 }
 
+/** Hide a named NitroFS file while retaining its numeric FAT ID. */
+export function reserveFilePath(root: Folder, path: string, fileId: number): Folder {
+  const clone = cloneFolder(root);
+  const parts = path.split("/").filter(Boolean);
+  let folder = clone;
+  for (const name of parts.slice(0, -1)) {
+    const child = folder.folders.find(([candidate]) => candidate === name)?.[1];
+    if (!child) throw new Error(`Cannot reserve missing ROM path: ${path}`);
+    folder = child;
+  }
+  const index = fileId - folder.firstId;
+  if (index < 0 || folder.files[index] !== parts.at(-1)) throw new Error(`ROM file ID changed for ${path}`);
+  const reserved = `_removed_${fileId}`;
+  if (folder.files.includes(reserved)) throw new Error(`Reserved ROM path already exists: ${reserved}`);
+  folder.files[index] = reserved;
+  return clone;
+}
+
 export function shiftFileIdsAtOrAfter(root: Folder, fileId: number, amount: number): Folder {
   const clone = cloneFolder(root);
   const visit = (folder: Folder): void => {

@@ -27,6 +27,7 @@
   "bytes": 3052,
   "sendOutBallTicks": 2,
   "flashTicks": 8,
-  "recallShrinkTicks": 4,
+  "recallTintTicks": 3,
+  "recallShrinkTicks": 5,
   "recallBallTicks": 4
 }

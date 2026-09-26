@@ -115,6 +115,7 @@ def native_spy(u, pc, size, user):
     else:
         scene = u.reg_read(UC_ARM_REG_R0)
         mount_actor = read(scene + 8)
+        assert struct.unpack("<4H", u.mem_read(scene + 28, 8)) == native_light_colors
         drawn.append((scene, mount_actor, struct.unpack("<H", u.mem_read(mount_actor, 2))[0],
                       struct.unpack("<H", u.mem_read(mount_actor + 24, 2))[0]))
         draw_order.append(("mount", struct.unpack("<3i", u.mem_read(mount_actor + 4, 12))))
@@ -158,8 +159,10 @@ half(surf + 824, 64)
 put(system + 0x28, field_billboards); put(field_billboards + 4, billboards)
 put(billboards + 4, scene); put(billboards + 0x18, slots); half(billboards + 0x1c, 1)
 put(scene + 8, actor); half(scene + 14, 1)
+native_light_colors = (0x4210, 0x2108, 0x1084, 0x0421)
+for offset, color in zip((28, 30, 32, 34), native_light_colors): half(scene + offset, color)
 put(player, 1); put(player + 136, system); half(player + 196, 0)
-half(actor + 24, 0x121f); half(actor + 18, 8192); half(actor + 20, 8192)
+half(actor + 24, 0x821f); half(actor + 18, 8192); half(actor + 20, 8192)
 uc.mem_write(camera + 32, struct.pack("<3i", 0, 200 * 4096, 140 * 4096))
 for face in range(4):
     half(player + 24, face)
@@ -168,7 +171,7 @@ for face in range(4):
     assert len(drawn) == before + 1 and drawn[-1][2] < 16, (face, before, drawn, read(active), read(has_mount), read(tick), read(captured))
     assert drawn[-1][1] == surf + 712
     assert drawn[-1][3] & 0x0200, "Retail renderer would skip the mount without its live-billboard flag"
-    assert drawn[-1][3] & 0xf000 == 0, "The mount should not inherit rider presentation flags"
+    assert drawn[-1][3] & 0xf000 == 0x8000, "The mount must inherit the rider's map light selection"
     call("fwsurf_draw", [billboards, camera, light, int(face != 1)])
     assert len(drawn) == before + 1
 native_y = 0
@@ -378,8 +381,11 @@ def file_spy(u, pc, size, user):
     result = 1
     if pc == 0x02070ca8: file_positions[r0] = 0
     elif pc == 0x02070ecc:
-        assert bytes(u.mem_read(r1, len(b"rom:/following/surf-registry.bin"))) == b"rom:/following/surf-registry.bin"
-        file_positions[r0] = 0
+        path = bytes(u.mem_read(r1, 64)).split(b"\0", 1)[0]
+        if path == b"rom:/following/positioning.narc": result = 0 # Missing sidecar uses zero offsets.
+        else:
+            assert path == b"rom:/following/surf-registry.bin"
+            file_positions[r0] = 0
     elif pc == 0x02070dec: result = len(catalog)
     elif pc == 0x02070e54:
         assert r2 == 0 and r1 <= len(catalog)
@@ -416,4 +422,12 @@ for cycle in range(20):
     assert read(active) == 1
     call("fwsurf_update", [system, 493, 0, stamp + 3])
     assert read(active) == 0 and read(ready) == 0 and all(read(surf + 8 + i * 4) == 0 for i in range(16))
+call("fwsurf_update", [system, 493, 1, 400])
+put(active, 1); put(ready, 1)
+call("fwsurf_update", [system, 0, 1, 401])  # Saved Followers Off; keep native Surf active.
+assert read(surf) == 0 and read(active) == 0 and read(ready) == 0
+forwarded.clear()
+put(objects, 1)
+call(wrapper, [control, 0])
+assert forwarded == [(control, 0)], "An active Surf ride must return to the retail model when following turns Off"
 print("Surf catalog coverage/variants, party order and all Surf move slots, both entry hooks, cached jump rendering, rider priority/lift and teardown passed; no game emulator run.")

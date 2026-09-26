@@ -117,6 +117,31 @@
       "module": "field"
     },
     {
+      "id": "field-player-recall-direction-gate",
+      "segment": "36",
+      "address": 35235344,
+      "expectedHex": "4068014b1847c04661b11902",
+      "patchBytes": 8,
+      "instructionSizes": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "kind": "FULL_COPY",
+      "abi": "r0=field player, r1=key input; return 9 while recall is active, otherwise forward to the retail movement-direction function with player core at r0+4",
+      "displaced": [
+        "ldr r0,[r0,#4]",
+        "ldr r3,[pc,#4]",
+        "bx r3",
+        "nop"
+      ],
+      "continuation": "0x0219b161",
+      "conflicts": "field player direction veneer",
+      "status": "exact clean-ROM bytes audited; packaged ARM946 execution verified; emulator acceptance pending",
+      "module": "field"
+    },
+    {
       "id": "field-billboard-draw",
       "segment": "36",
       "address": 35131950,
@@ -141,10 +166,14 @@
       "address": 35277172,
       "expectedHex": "1bf0c8fc",
       "patchBytes": 4,
-      "instructionSizes": [4],
+      "instructionSizes": [
+        4
+      ],
       "kind": "THUMB_BRANCH_LINK",
       "abi": "r0=field G3D object controller; r1=mount object index; on a validated custom mount capture its world transform and skip only this draw; otherwise forward FLD_G3DOBJ_CTRL_DrawObject once; preserve r4-r11, aligned SP, and the following ripple draw",
-      "displaced": ["bl 0x021c0308"],
+      "displaced": [
+        "bl 0x021c0308"
+      ],
       "continuation": "0x021a4978",
       "conflicts": "Surf effect mount draw callsite; cannot coexist with another replacement of 0x021a4974..0x021a4977",
       "status": "Pinned IRDO bytes and call order inspected; packaged CPU checks passed, game emulator acceptance pending",
@@ -156,10 +185,14 @@
       "address": 35278154,
       "expectedHex": "1bf0ddfa",
       "patchBytes": 4,
-      "instructionSizes": [4],
+      "instructionSizes": [
+        4
+      ],
       "kind": "THUMB_BRANCH_LINK",
       "abi": "r0=field G3D object controller; r1=entry-jump mount object index; on a validated custom mount capture its world transform and skip only this draw; otherwise forward FLD_G3DOBJ_CTRL_DrawObject once. The following ripple draw at 0x021a4d52 remains native.",
-      "displaced": ["bl 0x021c0308"],
+      "displaced": [
+        "bl 0x021c0308"
+      ],
       "continuation": "0x021a4d4e",
       "conflicts": "Surf entry animation mount draw callsite; cannot coexist with another replacement of 0x021a4d4a..0x021a4d4d",
       "status": "Pinned IRDO bytes and mid-jump object state inspected; packaged CPU checks passed, game emulator acceptance pending",
@@ -171,10 +204,14 @@
       "address": 35368320,
       "expectedHex": "acf7a2f8",
       "patchBytes": 4,
-      "instructionSizes": [4],
+      "instructionSizes": [
+        4
+      ],
       "kind": "THUMB_BRANCH_LINK",
       "abi": "r0=player MMDL; r1=native directional jump action. Only an armed land-to-water handoff substitutes a 2-frame one-grid walk in the saved pressed direction; otherwise forwards MMDL_SetAcmd unchanged.",
-      "displaced": ["bl 0x02166ec8"],
+      "displaced": [
+        "bl 0x02166ec8"
+      ],
       "continuation": "0x021bad84",
       "conflicts": "native Surf-start task action request",
       "status": "Exact stock bytes and native task branch audited; packaged CPU and human visual acceptance pending",
@@ -186,10 +223,14 @@
       "address": 35368334,
       "expectedHex": "acf7bdf8",
       "patchBytes": 4,
-      "instructionSizes": [4],
+      "instructionSizes": [
+        4
+      ],
       "kind": "THUMB_BRANCH_LINK",
       "abi": "r0=player MMDL; r0=action-complete flag. For a shore attribute, starts a second grounded grid step before allowing the native Surf joint and mode change.",
-      "displaced": ["bl 0x02166f0c"],
+      "displaced": [
+        "bl 0x02166f0c"
+      ],
       "continuation": "0x021bad92",
       "conflicts": "native Surf-start task completion query",
       "status": "Exact stock bytes and native task branch audited; packaged CPU and human visual acceptance pending",
@@ -201,10 +242,14 @@
       "address": 35138922,
       "expectedHex": "1ff05bff",
       "patchBytes": 4,
-      "instructionSizes": [4],
+      "instructionSizes": [
+        4
+      ],
       "kind": "THUMB_BRANCH_LINK",
       "abi": "r0=front terrain, r6=front attribute flags; preserve retail 0x41/0x44 shoreline behavior and allow water-flagged frontage for an armed mount. Native collision and final dry-tile checks remain authoritative.",
-      "displaced": ["bl 0x021a2c24"],
+      "displaced": [
+        "bl 0x021a2c24"
+      ],
       "continuation": "0x02182d6e",
       "conflicts": "native Surf shore span classification",
       "status": "Exact stock bytes audited; diagnostic Humilau state showed water-flagged sand and native two-tile exit; packaged and cold-boot validation pending",
@@ -216,10 +261,14 @@
       "address": 35138746,
       "expectedHex": "e4f705f9",
       "patchBytes": 4,
-      "instructionSizes": [4],
+      "instructionSizes": [
+        4
+      ],
       "kind": "THUMB_BRANCH_LINK",
       "abi": "r0=player MMDL; r1=native directional shore jump. Only the event selected by native shore collision substitutes a 2-frame one-grid walk.",
-      "displaced": ["bl 0x02166ec8"],
+      "displaced": [
+        "bl 0x02166ec8"
+      ],
       "continuation": "0x02182cbe",
       "conflicts": "native Surf shore-exit action request",
       "status": "Exact stock bytes and native event branch audited; packaged CPU and human visual acceptance pending",
@@ -231,10 +280,14 @@
       "address": 35138752,
       "expectedHex": "e4f724f9",
       "patchBytes": 4,
-      "instructionSizes": [4],
+      "instructionSizes": [
+        4
+      ],
       "kind": "THUMB_BRANCH_LINK",
       "abi": "r0=player MMDL; r0=action-complete flag. A validated shore event performs the second tile before native NORMAL mode and ripple teardown. At completion, reconcile the logical grid only for an exact one-tile discrepancy in the exit direction with centered world coordinates.",
-      "displaced": ["bl 0x02166f0c"],
+      "displaced": [
+        "bl 0x02166f0c"
+      ],
       "continuation": "0x02182cc4",
       "conflicts": "native Surf shore-exit action completion query",
       "status": "Exact stock bytes and native event branch audited; packaged CPU and human visual acceptance pending",
@@ -600,14 +653,151 @@
       "address": 35247540,
       "expectedHex": "c9f788fc",
       "patchBytes": 4,
-      "instructionSizes": [4],
+      "instructionSizes": [
+        4
+      ],
       "kind": "THUMB_BRANCH_LINK",
       "abi": "r0=player MMDL, r1=directional flat-grid walk code; forwards native setter exactly once and preserves r4-r11",
-      "displaced": ["bl 0x02166ec8"],
+      "displaced": [
+        "bl 0x02166ec8"
+      ],
       "continuation": "0x0219d5b8",
       "conflicts": "Any patch into the ordinary flat-grid walk setter",
       "status": "binary-verified; visual acceptance pending",
       "module": "field"
+    },
+    {
+      "id": "options-init",
+      "segment": "140",
+      "address": 35246082,
+      "expectedHex": "01f027f8",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219d002"
+      ],
+      "continuation": "0x0219d006",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core"
+    },
+    {
+      "id": "options-exit",
+      "segment": "140",
+      "address": 35246256,
+      "expectedHex": "01f010f8",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219d0b0"
+      ],
+      "continuation": "0x0219d0b4",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core"
+    },
+    {
+      "id": "options-main",
+      "segment": "140",
+      "address": 35253102,
+      "expectedHex": "fff7b7fa",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219eb6e"
+      ],
+      "continuation": "0x0219eb72",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core"
+    },
+    {
+      "id": "options-select",
+      "segment": "140",
+      "address": 35249546,
+      "expectedHex": "00f0c9fa",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219dd8a"
+      ],
+      "continuation": "0x0219dd8e",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core"
+    },
+    {
+      "id": "options-compare-exit",
+      "segment": "140",
+      "address": 35253228,
+      "expectedHex": "fff71cff",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219ebec"
+      ],
+      "continuation": "0x0219ebf0",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core"
+    },
+    {
+      "id": "options-compare-cancel",
+      "segment": "140",
+      "address": 35253282,
+      "expectedHex": "fff701ff",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219ec22"
+      ],
+      "continuation": "0x0219ec26",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core"
+    },
+    {
+      "id": "options-commit",
+      "segment": "140",
+      "address": 35253806,
+      "expectedHex": "fff75dfd",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "Options overlay callsite; preserve native arguments and return address",
+      "displaced": [
+        "native Options call at 0x0219ee2e"
+      ],
+      "continuation": "0x0219ee32",
+      "conflicts": "Options menu callsite",
+      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "module": "core"
     }
   ],
   "structureEvidence": {
@@ -823,7 +1013,7 @@
       "segment": "ARM9",
       "address": 33579604,
       "expectedHex": "0021014bc943184715620002",
-      "abi": "PMSND_PlaySE(r0=1374) is the stock jump/bounce sound request."
+      "abi": "PMSND_PlaySE(r0=sound ID); stock Surf jump is 1374, and both battle switch-out return and send-out ball opening use 1383."
     },
     {
       "id": "mounted-surf-event-create",
@@ -3243,7 +3433,7 @@
       "purpose": "Forward stock mount drawing on nonmatching species or resource failure; retain the native ripple call unmodified."
     }
   ],
-  "eventsAbi": 5,
+  "eventsAbi": 6,
   "renderLayouts": {
     "billboardStride": 28,
     "positionOffset": 4,
