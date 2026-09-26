@@ -45,7 +45,7 @@ def setup():
  h.put(h.FIELD+4,h.GAME);h.put(h.FIELD+8,h.GAMEDATA);h.uc.mem_write(h.GAME+0x35,b'\0')
  h.put(h.addr('fwfield_eventsReady'),h.call('fws_attach',[h.SYS,h.F,1,h.addr('scene_recall')|1]));h.call('fws_set_player',[h.P])
  h.uc.mem_write(h.F+28,bytes(h.uc.mem_read(h.SNAP,20)));h.uc.mem_write(h.F+49,b'\1')
- h.put(h.F+52+64*28,65536*16) # One vertical tile in the weighted trail metric.
+ h.put(h.F+52+64*28,65536) # One vertical tile in the normalized trail metric.
  for offset,value in [(20,0),(32,h.A),(40,1)]:h.put(h.addr('FollowingDebug')+offset,value)
  return world
 def field_frame():

@@ -9,6 +9,7 @@ import { loadActiveRomBytes } from "../pokeweb/persistence";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { encodeFollowerDialogueNarc } from "../pokeweb/followingPokemonDialogues";
 import { encodeFollowerItemNarc } from "../pokeweb/followingPokemonItems";
+import { encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
 import {
   checkFollowerCompatibility, followerProfile, followerRom, followerRuntimeVersion,
   readFollowerAlphaInstall, readFollowerDialogueRules, readFollowerItemRules, readFollowingFile,
@@ -82,8 +83,10 @@ function compatibleStockFixture(): { project: ProjectState; rom: FollowerRom } {
   const personal = new NARC(); personal.files = Array.from({ length: 710 }, () => new Uint8Array(76));
   const appearances = new NARC(); appearances.files = [new Uint8Array(620 * 8)];
   appearances.files[0][0] = 1; // The stock fallback appearance for every synthetic species.
-  const paths = [FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, "a/0/1/6", "a/2/0/8"];
-  const files = [descriptor.save(), resources.save(), personal.save(), appearances.save()];
+  const optionsText = new NARC(); optionsText.files = Array.from({ length: 33 }, () => new Uint8Array());
+  optionsText.files[32] = encodeGen5TextBank(Array.from({ length: 31 }, (_, id): Gen5TextEntry => [`0_${id}`, "", 0]));
+  const paths = [FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, "a/0/1/6", "a/2/0/8", "a/0/0/2"];
+  const files = [descriptor.save(), resources.save(), personal.save(), appearances.save(), optionsText.save()];
   const table = new Uint8Array(overlayBases.size * 32);
   [...overlayBases].forEach(([id, address], index) => {
     writeU32(table, index * 32, id); writeU32(table, index * 32 + 4, address);

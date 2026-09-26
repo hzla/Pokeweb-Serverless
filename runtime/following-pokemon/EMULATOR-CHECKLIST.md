@@ -2,6 +2,60 @@
 
 The generated checklist collects targeted regression cases before the baseline cases below. All rows begin NOT RUN; host and isolated-CPU checks are not game-emulator results. Cold boot the current profile export with an ordinary matching save. Record ROM hash, emulator version, map, species/form, facing, and a fresh state for failures.
 
+## In-game Followers option — all four profiles
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| O01 | Cold boot a base and full export for each profile with an existing save. Open Options using buttons and by touch, scroll to the sixth row, and switch its value both ways. | The sixth row matches the other rows' background fill, beveled label backing, turquoise border, native font, highlight, selection marker, sound, and help text. It reads FOLLOWERS: ON/OFF, or SEGUACI: SÌ/NO in Italian. Existing saves show On. The first five settings, Confirm, and Quit remain usable. | NOT RUN |
+| O02 | Select Off, decline the confirmation prompt or quit, then reopen Options. Repeat with On. | The prior saved value returns after either canceled path. Confirm accepts the chosen value; a normal game save and cold boot retain it. Repeated opening and closing leaves no stale row graphics or input behavior. | NOT RUN |
+| O03 | In the base package, confirm Off with a follower visible, walk and change maps, then confirm On. | The follower disappears and does not respawn while Off. On restores normal spawning without changing the party or land-follower selection. | NOT RUN |
+| O04 | In the full package, confirm Off while land-mounted and again while riding a custom Surf mount on water; then confirm On. | Off ends land riding and clears pending restoration. On water, Surf itself continues and the retail mount replaces the custom one. On restores eligible custom Surf and grounded following at the next normal opportunity. | NOT RUN |
+| O05 | Disable following in Pokeweb, export and cold boot with a save set to Off; re-enable and cold boot again. | The sixth row is blank while the ROM-wide switch is disabled. Re-enabling reveals the prior saved Off choice. | NOT RUN |
+
+## Optional riding package acceptance — all four profiles
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| V01 | Cold boot a newly installed base-only ROM outdoors; walk, turn, talk, cycle with L/R, enter a building, and use native Surf. | Grounded followers, effects, recall, and walking gaps work. Native Surf uses its retail mount; A+B does not start land riding. | NOT RUN |
+| V02 | Cold boot the full variant with a Surf-capable follower; mount using A+B, enter water, dismount, and repeat after a menu and Repel prompt. | Current land riding, custom Surf, rider placement, and follower return behavior remain intact. | NOT RUN |
+| V03 | Convert a full installation to base by removing and reinstalling, then cold boot the exported ROM. | Grounded following still works; riding and custom Surf are absent, with no stale mount texture or effect. | NOT RUN |
+
+## Stock White 2 current recall timing, sound and NPC priority
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| R01 | Cold boot outdoors with a visible follower, then walk into a house or Pokémon Center in all four approach directions. | The follower turns light cyan and white, holds its silhouette briefly, shrinks into the ball, and finishes before the door script advances. The player cannot take another directional step during the 12-update recall; control returns normally after transition. | NOT RUN |
+| R02 | Press L or R to cycle followers, holding a movement direction through the recall and send-out. | The current follower completes its recolored shrink and ball sequence before the next appears. Player movement resumes when recall ends; L/R does not skip another party member. | NOT RUN |
+| R03 | Trigger a scripted warp, battle entrance, and forced movement scene with a visible follower; repeat with a missing effects archive or low resource memory if practical. | The native event finishes after recall when the effect is available. The script never deadlocks, and missing effects do not trap player input. Save/load and repeated transitions remain usable. | NOT RUN |
+| R04 | Cold boot 0.6.74 with the ordinary save used for `noani2.mln`, summon the same follower, and enter the same building. Observe the first eight recall updates. | The imported follower uses the light-cyan/white silhouette and shrink before the final four ball updates. The old state contains 0.6.69 code and cannot validate this build. | NOT RUN |
+| R05 | Cold boot 0.6.74 and summon a follower, then cycle with L/R and walk into a door with a visible follower. Compare the sound with a battle send-out and switch-out on the same ROM. | One stock ball cue plays for each send-out and recall. The Sunny Day twinkle used in 0.6.71 is absent. No repeated cue while the twelve recall updates run. | NOT RUN |
+| R06 | With a visible follower, open and close a safe menu or conversation; repeat a failed/unavailable effect if practical. | Staying visible makes no extra ball sound. An unavailable effect does not play a sound without its animation or trap input. | NOT RUN |
+| R07 | Cold boot near the ordinary NPC in `badprio.mln`. Stand and walk behind that NPC with a follower off to the side; repeat with a large follower directly behind the player. | The NPC covers the player where their sprites overlap. A nearby follower still respects the intended player/follower order and its shadow stays on the ground. | NOT RUN |
+
+## Stock White 2 current follower talk reach
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| G01 | Cold boot with the ordinary save near `toofar.mln`, face west toward the small follower and press A without taking a step. Repeat after walking left/right and stopping at several phases. | Dialogue opens while the follower stays at or inside the talk-reach limit. The actor, visible art and shadow remain together; no one-frame snap across a wall or NPC. | NOT RUN |
+| G02 | Repeat with a 12-unit authored side gap, a follower on each side, then face up/down and converse on flat ground and stairs. | The follower remains talkable when directly ahead and close to the limit. Off-axis, obstructed or separated followers cannot be talked to through walls or elevation. | NOT RUN |
+
+## Stock White 2 0.6.67 lighting and draw priority
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| L01 | Cold boot the current ROM in Castelia Sewers with a visible follower. Compare its brightness with the player while walking, stopping, and turning through lit and dark areas. | The follower follows the same map lighting changes as the player; its ground shadow remains correctly placed. | NOT RUN |
+| L02 | Repeat while riding a land Pokémon and while using a custom Surf mount. Enter and leave each mode, including a map-lighting change. | Mount and seated rider receive compatible lighting; neither becomes full-bright, black, or detached from the native shadow. | NOT RUN |
+| D06 | Put Serperior one tile north of the player facing down, then face the player up, down, left, and right without changing tiles. Walk and stop in each facing. | Serperior remains behind the player in all four facings, without flicker, overlap reversal, or moved ground shadow. | NOT RUN |
+
+## Stock White 2 0.6.66 positioning and mounted idle
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| P01 | Cold boot the new ROM with narrow and wide followers whose gaps have not been manually edited. Walk left and right, then inspect the default gap in Pokeweb. Set a custom left/right gap, save, export, and cold boot again. | The automatic side gap is the prior artwork-based value plus six units; the editor displays 6–12. A custom value overrides that default in both side directions. Up/down spacing, shadow anchors, and party order stay unchanged. | NOT RUN |
+| P02 | Set distinct X/Y rider adjustments for all four land-facing directions. Mount, move, stop, and turn. | The seated player stays at each chosen placement; mount and rider continue the one-pixel paired cadence while stopped, while the ground shadow stays fixed. | NOT RUN |
+| P03 | Set distinct Surf rider adjustments for a supported Surf appearance. Enter water, face all four directions, stop, dismount, and mount again. | The selected Surf appearance uses the authored rider offsets during entry and ordinary Surf, and unload/reload does not retain a stale appearance. | NOT RUN |
+| P04 | Reopen the exported ROM in Pokeweb, edit one positioning value, save, export again, then disable and re-enable following. | Authored values and receipt survive export/reopen and enable/disable; the game uses the changed value after a cold boot. | NOT RUN |
+
 <!-- generated-gen5-assets:start -->
 ## 0.6.32 Gen 5 sprite acceptance
 
@@ -67,7 +121,7 @@ Start with S02 at the supplied Aspertia City sign, then test static furniture an
 | S05 | During a stationary scene with a camera pan/zoom, sound or NPC emote, watch the follower and then return to walking. | Camera/presentation alone keeps the same actor. No duplicate effect, changed palette, facing reset, snapped position or send-out on resume. | NOT RUN |
 | S06 | Arrange a scripted NPC walking away from the follower, then a route passing nearby without occupying its native tile footprint. | Follower stays visible. NPC route, timing and destination are unchanged. Record any conservative recall with its action/reason. | NOT RUN |
 | S07 | Repeat with a scripted NPC route crossing the follower, including a multi-step route that crosses only after dialogue ends or actors are unpaused. | A dormant paused route does not recall. Once movement actually commits toward the occupied space, the follower disappears before the conflicting coordinate write. It stays suppressed until the whole event chain ends, then returns after walking. | NOT RUN |
-| S08 | Trigger forced player walking, jumping, stair/rail repositioning, teleportation and an ordinary facing turn separately. | Translation/jumping/repositioning recalls before movement. A simple facing turn keeps the follower. No input lock, blocking or change in scripted route. | NOT RUN |
+| S08 | Trigger forced player walking, jumping, stair/rail repositioning, teleportation and an ordinary facing turn separately. | Translation/jumping/repositioning recalls before movement. A simple facing turn keeps the follower. Recall holds player movement briefly; the scripted route then completes unchanged. | NOT RUN |
 | S09 | Test NPC placement/spawn at the follower and far away. Use a controlled script fixture if no repeatable stock scene is available. | Conflicting placement recalls before it executes. Distant verified placement keeps the follower. Unknown placement modes may recall with a specific diagnostic. | NOT RUN |
 | S10 | Use a developer fixture that requests the follower ID or exhausts the actor pool; also delete an unrelated actor. | Follower relinquishes its actor before native allocation. Unrelated deletion keeps the follower; no duplicate, missing story NPC or native allocation assertion. Mark BLOCKED without a fixture. | NOT RUN |
 | S11 | Repeat dialogue, facing and NPC routes on a curved rail area, a non-grid area and a bridge/underpass. Record map and coordinates. | Stationary dialogue remains visible in all exploration modes. Verified rail paths use their real curve/direction; separate elevations do not collide. Unsupported profiles recall with reason 7. | NOT RUN |
@@ -210,10 +264,10 @@ duplicate, stuck control or crash is always a failure.
 | ID | Steps | Expected / observation needed | Result / evidence |
 |---|---|---|---|
 | FX01 | Cold boot outdoors with a healthy small Pokémon; walk two tiles, then stop. | One brief Poké Ball, then a flash revealing one normal-color follower. The effect ends and walking still works. | NOT RUN |
-| FX02 | With follower visible, walk into a Pokémon Center or ordinary house. Repeat slowly. | Observe white shrinking silhouette → brief ball → disappearance. Record whether the door fade cuts the sequence short. Interior loads normally. | NOT RUN |
+| FX02 | With follower visible, walk into a Pokémon Center or ordinary house. Repeat slowly. | Observe light-cyan/white silhouette → shrink → brief ball → disappearance. The door script waits until recall completes. Interior loads normally. | NOT RUN |
 | FX03 | Walk inside, exit, then walk away from the doorway. | Send-out replays once after a valid trail. No old-map effect or extra follower remains. Repeat entry/exit ten times. | NOT RUN |
 | FX04 | Face each direction before triggering recall; walk/run through left/right turns immediately after send-out. | Ball/flash stay near the Pokémon; no offset to another tile, incorrect depth or sideways texture corruption. | NOT RUN |
-| FX05 | Open/close X menu after send-out completes; immediately enter a door after closing it; repeat rapid interruptions. | X menu preserves the visible follower without an effect. Door transition cancels safely with normal input, no stuck hidden/white follower and no lingering ball. | NOT RUN |
+| FX05 | Open/close X menu after send-out completes; immediately enter a door after closing it; repeat rapid interruptions. | X menu preserves the visible follower without an effect. Door transition waits for the recall and then proceeds with normal input, no stuck hidden follower and no lingering ball. | NOT RUN |
 | FX06 | Mount/dismount the bicycle; enter/leave Surf where available. | Recall on activity entry; one fresh send-out after returning to on-foot exploration and walking. | NOT RUN |
 | FX07 | Test a large, tall and floating Pokémon inside/outside. | Shrink/ball/flash align acceptably with the artwork. Record drift or clipping; size-specific HGSS positioning is not yet enabled. | NOT RUN |
 | FX08 | Trigger recall near another Pokémon NPC, ideally the same species; repeat at night and in weather. | Other actors retain their palettes; follower returns in its normal colors. Lighting/map rendering stays intact after the effect. | NOT RUN |
