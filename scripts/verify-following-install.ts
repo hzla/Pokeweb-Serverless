@@ -19,9 +19,9 @@ if (!path) throw new Error("Expected an exported walking-alpha ROM");
 const input = new Uint8Array(await readFile(path));
 const project = await loadProjectFromRomBytes(input, basename(path), { selectedNarcs: [] });
 const profile = await followerProfile(project);
-const modules = profile === "black2" ? [FOLLOWER_DLL_B2_PATH, FOLLOWER_EVENTS_B2_DLL_PATH, FOLLOWER_CORE_B2_DLL_PATH]
-  : profile === "white2italy" ? ["patches/PokewebFollowingFieldW2I.dll", "patches/PokewebFollowingEventsW2I.dll", "patches/PokewebFollowingCoreW2I.dll"]
-  : [FOLLOWER_DLL_PATH, FOLLOWER_EVENTS_DLL_PATH, FOLLOWER_CORE_DLL_PATH];
+const modules = profile === "black2" ? [FOLLOWER_DLL_B2_PATH, FOLLOWER_EVENTS_B2_DLL_PATH, FOLLOWER_CORE_B2_DLL_PATH, "patches/PokewebFollowingOptionsB2.dll"]
+  : profile === "white2italy" ? ["patches/PokewebFollowingFieldW2I.dll", "patches/PokewebFollowingEventsW2I.dll", "patches/PokewebFollowingCoreW2I.dll", "patches/PokewebFollowingOptionsW2I.dll"]
+  : [FOLLOWER_DLL_PATH, FOLLOWER_EVENTS_DLL_PATH, FOLLOWER_CORE_DLL_PATH, "patches/PokewebFollowingOptionsW2.dll"];
 if (!(await readFollowerAlphaInstall(project))?.enabled) throw new Error("Exported install was not recognized");
 await installFollowerAlpha(project);
 await setFollowerAlphaEnabled(project, false);

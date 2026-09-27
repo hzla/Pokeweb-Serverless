@@ -109,12 +109,12 @@ const additions = [
   {
     name: 'following-pokemon', title: 'Following Pokémon',
     artifacts: [
-      ...['PokewebFollowingCoreW2.dll', 'PokewebFollowingEventsW2.dll', 'PokewebFollowingFieldW2.dll'].map(name => `following/${name}`),
-      ...['PokewebFollowingCoreB2.dll', 'PokewebFollowingEventsB2.dll', 'PokewebFollowingFieldB2.dll'].map(name => `following/black2/${name}`),
-      ...['PokewebFollowingCoreW2.dll', 'PokewebFollowingEventsW2.dll', 'PokewebFollowingFieldW2.dll'].map(name => `following/white2upgrade/${name}`),
-      ...['PokewebFollowingCoreW2I.dll', 'PokewebFollowingEventsW2I.dll', 'PokewebFollowingFieldW2I.dll'].map(name => `following/white2italy/${name}`),
+      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/PokewebFollowing${name}.dll`),
+      ...['CoreB2', 'EventsB2', 'FieldB2', 'OptionsB2', 'EventsB2Base', 'FieldB2Base'].map(name => `following/black2/PokewebFollowing${name}.dll`),
+      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/white2upgrade/PokewebFollowing${name}.dll`),
+      ...['CoreW2I', 'EventsW2I', 'FieldW2I', 'OptionsW2I', 'EventsW2IBase', 'FieldW2IBase'].map(name => `following/white2italy/PokewebFollowing${name}.dll`),
     ],
-    note: `Stock US White 2 ${following[0].version}, stock US Black 2 ${following[1].version}, White2Upgrade ${following[2].version}, and Italian White 2 ${following[3].version} bundled runtime variants. Sources, generators, profile metadata, integration, and focused tests are recorded. ROMs, sprite archives, save files, generated binaries, and emulator captures are excluded. Artifact hashes identify the exact bundled modules; no binary rebuild is implied.`,
+    note: `Stock US White 2 ${following[0].version}, stock US Black 2 ${following[1].version}, White2Upgrade ${following[2].version}, and Italian White 2 ${following[3].version} bundled runtime variants. Sources, generators, profile metadata, integration, and focused tests are recorded. ROMs, sprite archives, save files, binary payloads, and emulator captures are excluded from source exports. Artifact hashes identify the exact bundled modules; no binary rebuild is implied.`,
     extra: [
       ...['runtime.json', 'black2/runtime.json', 'white2upgrade/runtime.json', 'white2italy/runtime.json'].map(name =>
         file('following-pokemon', `metadata/${name}`, 'metadata', `src/assets/following/${name}`)),
@@ -216,9 +216,10 @@ if (!pmcPatch.artifacts.some(artifact => artifact.name === 'PMC_W2I.rpm'))
 pmcPatch.note = 'W2I retargets the pinned W2 loader through the audited Pokeweb adapter; B2/W2 framework sources remain in the PMC checkout. External toolchains and libraries are not vendored.';
 for (const [name, origin] of [
   ['build-italian-pmc.ts', 'scripts/build-italian-pmc.ts'],
-  ['inspect-italian-pmc.ts', 'scripts/inspect-italian-pmc.ts'],
+  ['inspect-pmc.ts', 'scripts/inspect-pmc.ts'],
 ]) if (!pmcPatch.files.some(entry => entry.path === `pmc/integration/${name}`))
   pmcPatch.files.push(file('pmc', `integration/${name}`, 'build-tool', origin));
+pmcPatch.files = pmcPatch.files.filter(entry => entry.path !== 'pmc/integration/inspect-italian-pmc.ts');
 const artifacts = new Set(manifest.excludedArtifacts.map(name => `codeinjection/${name}`));
 for (const patch of manifest.patches) for (const artifact of patch.artifacts) {
   const location = artifact.name.includes('/') ? artifact.name : `codeinjection/${artifact.name}`;

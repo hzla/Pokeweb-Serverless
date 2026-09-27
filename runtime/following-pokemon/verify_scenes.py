@@ -5,18 +5,44 @@ Native UI/rendering/heap services are spies. This is not a DS emulator run.
 import verify_conversation_return as r
 from verify_packaged import *
 from unicorn import UC_HOOK_CODE
-import collections,json,ndspy.narc
+import collections,csv,json,ndspy.narc
 h=r.h;uc=h.uc
 h.SYS=0x0220a000 # Separate the actor system from the expanded four-actor pool.
 ov=r.rom.loadArm9Overlays([12])[12];uc.mem_write(ov.ramAddress,bytes(ov.data))
 EVENTS=PACKAGE_BUILD/'PokewebFollowingEventsW2.dll';EBASE=0x022c0000
 ex=load_dependencies(uc,EBASE,0x022d0000)
-install_hooks(uc,EVENTS,EBASE)
+install_hooks(uc,PACKAGE_BUILD/'PokewebFollowingCoreW2.dll',0x022d0000,ex)
+install_hooks(uc,EVENTS,EBASE,ex)
 install_hooks(uc,h.DLL,h.BASE,ex)
 NPC=h.A+256;ENTITY=0x0220b000;VM=0x0220c000;ENV=VM+0x100;PARAM=VM+0x200;WORK=VM+0x300;PROGRAM=VM+0x400
 EXT=VM+0x500;CHECK=VM+0x600;VEC=VM+0x700;RAIL=VM+0x800;MAN=VM+0x900
 observed=[];callback_result=0;checks=[];rail_curve=False;rail_broken=False;own_free=False
 policy=json.loads((HERE/'event-policy.json').read_text())
+with (HERE/'script-command-review.csv').open(newline='') as audit_file:
+ audit=list(csv.DictReader(audit_file))
+assert len(audit)==0x2f3 and all(int(row['opcode'],16)==index for index,row in enumerate(audit))
+assert {int(row['opcode'],16) for row in audit if row['decision'].startswith('allow-')}=={entry['opcode'] for entry in policy['commands']}
+policy_segments=r.rom.loadArm9Overlays([12,27,33,36])
+command_table=policy_segments[12]
+game_code=bytes(r.rom.idCode)
+if game_code==b'IREO':
+ from black2_port import port_address as command_address
+elif game_code==b'IRDI':
+ from italy_port import port_address as command_address
+else:
+ command_address=lambda address:address
+for row in audit:
+ if row['decision']=='unused-null-slot':
+  ptr=struct.unpack_from('<I',command_table.data,0x0216b578-command_table.ramAddress+4*int(row['opcode'],16))[0]
+  assert ptr==0,('unused command slot',row['opcode'])
+for entry in policy['commands']:
+ ptr=struct.unpack_from('<I',command_table.data,0x0216b578-command_table.ramAddress+4*entry['opcode'])[0]
+ assert ptr==command_address(entry['handler']),('command pointer',entry['opcode'])
+ if game_code==b'IRDO':
+  segment=policy_segments[int(entry['segment'])]
+  signature=bytes.fromhex(entry['expectedHex'])
+  at=(ptr&~1)-segment.ramAddress
+  assert bytes(segment.data[at:at+len(signature)])==signature,('command bytes',entry['opcode'])
 finisher_entries=struct.unpack('<15I',uc.mem_read(0x0216b53c,60))
 finisher_indices={address&~1:index for index,address in enumerate(finisher_entries) if address}
 finisher_calls=[];finisher_wait=False
@@ -31,7 +57,7 @@ def pop_return(regs):
  uc.reg_write(UC_ARM_REG_SP,sp+4*len(values));uc.reg_write(UC_ARM_REG_PC,values[-1])
 def native(u,pc,size,user):
  global callback_result
- if pc in (0x02153820,0x021a82fc,0x021a83d4,0x021aea38,0x021aea60,0x0203a278,0x02167aac,CHECK,0x021b0acc,0x021b0af8,0x021b0a14,0x02154184,0x021538c0) or pc in finisher_indices:
+ if pc in (0x02153820,0x021a7490,0x021a82fc,0x021a83d4,0x021aea38,0x021aea60,0x0203a278,0x02167aac,CHECK,0x021b0acc,0x021b0af8,0x021b0a14,0x02154184,0x021538c0) or pc in finisher_indices:
   assert u.reg_read(UC_ARM_REG_SP)%8==0,hex(pc)
  if pc in finisher_indices:
   index=finisher_indices[pc];finisher_calls.append((index,h.u32(h.F+24)))
@@ -43,7 +69,7 @@ def native(u,pc,size,user):
  elif pc==0x021538c0:
   assert reg(0)==WORK and reg(1)==h.FOREIGN
   h.put(h.GAME+0x18,h.FOREIGN);ret()
- elif pc in (0x02153820,0x021a82fc,0x021a83d4,0x021aea38,0x021aea60):
+ elif pc in (0x02153820,0x021a7490,0x021a82fc,0x021a83d4,0x021aea38,0x021aea60):
   observed.append(('callback',reg(0),h.u32(h.F+24),h.u32(h.F)))
   assert reg(1)==reg(0)+8 and reg(2)==h.u32(reg(0)+12)
   ret(callback_result)
@@ -142,6 +168,27 @@ for cycle in range(h.CYCLES):
 ui_event(h.EVENT,0x0215a8b5);h.call('fws_mark_menu',[h.EVENT]);h.call(0x02016d08,[h.EVENT])
 event(h.EVENT,0x02008009);recalled(2)
 
+# cry.mln records reason 2 on PVPlay's native child callback, even though
+# opcode AB itself is safe. PVPlayEx uses the same work and callback layout.
+# Only the child of that live script VM qualifies.
+for cycle in range(h.CYCLES):
+ snap=setup();event();
+ for sound in (0x98,0x9b,0x9e,0x9f,0xa0,0xa1,0xa2,0xa3,0xa4,0xa5,
+               0xa6,0xa7,0xa8,0xa9,0xaa,0xab,0xac,0x23a):opcode(sound)
+ uc.mem_write(h.FOREIGN+32,struct.pack('<HHII',278,0,0,ENV))
+ event(h.FOREIGN,0x021a7491,h.EVENT);kept(snap)
+ h.call(0x02016d08,[h.FOREIGN]);h.put(h.GAME+0x18,h.EVENT)
+ finish();kept(snap)
+setup();event();opcode(0xab)
+uc.mem_write(h.FOREIGN+32,struct.pack('<HHII',278,0,0,ENV+4))
+event(h.FOREIGN,0x021a7491,h.EVENT);recalled(2)
+setup();event();opcode(0xab)
+uc.mem_write(h.FOREIGN+32,struct.pack('<HHII',278,0,0,ENV))
+event(h.FOREIGN,0x021a7491);recalled(2)
+setup();event();opcode(0xab)
+uc.mem_write(h.FOREIGN+32,struct.pack('<HHII',278,0,0,ENV))
+event(h.FOREIGN,0x02008009,h.EVENT);recalled(2)
+
 # Exact US PC opcodes; 12D/12E/12F no longer receive PC exceptions.
 # 14C is harmless user-work cleanup, but must not preserve a PC pose.
 snap=setup();event();opcode(0x14c);kept(snap);assert not h.call('fws_take_restore',[VEC])
@@ -165,8 +212,9 @@ for code in (0x1a3,0x1a4,0x1a7):
 setup();event();opcode(0x130);event(h.FOREIGN,0x02008009,h.EVENT);recalled(2)
 
 # Repel continuation starts with a native field-work wrapper, then script
-# 10144 opens a yes/no child. The follower and its mount must stay allocated
-# through both choices; other scripts cannot inherit either scoped exception.
+# 10144 opens a yes/no child. Ordinary dialogue uses the same native prompt
+# callback. Both choices keep the follower; only Repel's spray command remains
+# limited to its verified script.
 repel_bank=ndspy.narc.NARC(r.rom.getFileByName('a/0/5/6')).files[1248]
 assert h.u32(0x0216b578+0x2c2*4)==0x021ae685 # Pinned native Repel-use handler.
 assert struct.unpack_from('<H',repel_bank,0x78)[0]==0x1f
@@ -189,11 +237,31 @@ for choice in (0,1):
  finish();kept(snap)
 setup();h.put(h.GAME+0x1c,h.FIELD);h.put(h.EVENT+32,h.GAME);h.put(h.EVENT+40,0)
 event(h.EVENT,0x02019479);recalled(2)
-setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,10130);opcode(0x116);recalled(1)
+snap=setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,10130);opcode(0x116);kept(snap)
 setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,10130);opcode(0x2c2);recalled(1)
-setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,10130)
+snap=setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,10130);opcode(0x47)
 h.put(VEC+16,WORK);h.put(h.FOREIGN+32,VEC)
+event(h.FOREIGN,0x021a82fd,h.EVENT);kept(snap)
+h.call(0x02016d08,[h.FOREIGN]);h.put(h.GAME+0x18,h.EVENT);finish();kept(snap)
+snap=setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,16);opcode(0x47)
+h.put(VEC+16,WORK);h.put(h.FOREIGN+32,VEC)
+event(h.FOREIGN,0x021a82fd,h.EVENT);kept(snap)
+h.call(0x02016d08,[h.FOREIGN]);h.put(h.GAME+0x18,h.EVENT);finish();kept(snap)
+# The same callback cannot borrow permission from a mismatched prompt or a
+# script work object that is no longer owned by the live supervisor.
+setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,16);opcode(0x47)
+h.put(VEC+16,WORK+4);h.put(h.FOREIGN+32,VEC)
 event(h.FOREIGN,0x021a82fd,h.EVENT);recalled(2)
+setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,16);opcode(0x47)
+h.put(WORK+20,h.FOREIGN);h.put(VEC+16,WORK);h.put(h.FOREIGN+32,VEC)
+event(h.FOREIGN,0x021a82fd,h.EVENT);recalled(2)
+# Every native dialogue-list layout and both show variants keep the follower
+# through their shared choice callback. Multi-message text itself stays safe.
+for initializer in (0xad,0xae,0xb2):
+ for show in (0xb0,0xb1):
+  snap=setup();event();h.put(h.EVENT+32,WORK);h.half(WORK+4,16)
+  for code in (0x3a,initializer,0xaf,show):opcode(code)
+  event(h.FOREIGN,0x021a83d5,h.EVENT);kept(snap)
 
 # One-shot storage snapshot includes the real selected Pokemon, not just pose.
 RESTORE=VEC
@@ -259,6 +327,15 @@ own_free=False
 # Every audited opcode and every unaudited standard/extended value is explicit.
 policy=json.loads((HERE/'event-policy.json').read_text());safe={e['opcode'] for e in policy['commands']}
 for code in range(0x10000):assert bool(h.call('fws_safe_opcode',[code]))==(code in safe)
+for code in (0x97,0xb5,0xfb,0x103,0x116,0x1c4,0x224,0x26e,0x2d4):
+ snap=setup();event();opcode(code);kept(snap)
+requested={int(row['opcode'],16) for row in audit if row['decision']=='allow-requested'}
+assert len(requested)==47
+requested_children={int(row['opcode'],16) for row in audit if row['decision'] in
+                    ('allow-requested-child-event','allow-requested-child-application')}
+assert len(requested_children)==18
+for code in sorted(requested|requested_children):
+ snap=setup();event();opcode(code);kept(snap)
 
 # Actual retail VM dispatch: normal checker retained, extended bypass retained,
 # only executed branch bytes are observed, operands are not fetched as opcodes.
