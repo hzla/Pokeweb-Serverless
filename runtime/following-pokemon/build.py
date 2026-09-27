@@ -1,4 +1,4 @@
-"""Build the field, resident event, and registry-extension PMC modules."""
+"""Build battle-resident core plus overlay-scoped event, field, and Options modules."""
 import argparse
 import json
 import os
@@ -20,7 +20,7 @@ VARIANT=os.environ.get('FOLLOWING_VARIANT','full')
 if VARIANT not in ('base','full'):raise ValueError('FOLLOWING_VARIANT must be base or full')
 BUILD=ROOT_BUILD/'base' if VARIANT=='base' else ROOT_BUILD
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
-VERSION='0.7.37-alpha' if UPGRADE else '0.6.43-alpha' if ITALY else '0.6.76-alpha' if PROFILE=='stock' else '0.6.42-alpha'
+VERSION='0.7.41-alpha' if UPGRADE else '0.6.47-alpha' if ITALY else '0.6.80-alpha' if PROFILE=='stock' else '0.6.46-alpha'
 SUFFIX=('B2' if BLACK2 else 'W2I' if ITALY else 'W2')+('Base' if VARIANT=='base' else '')
 CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'italy-contract.json' if ITALY else 'contract.json')
 os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX
@@ -62,7 +62,7 @@ def build(rom, publish=False):
         raise ValueError('Contextual dialogue archive exceeds the 4 KiB runtime buffer')
     if (REPO/'src/assets/following/contextual-items.narc').stat().st_size>4096:
         raise ValueError('Follower gift archive exceeds the shared 4 KiB runtime buffer')
-    for meta in ('metadata.yml','field-metadata.yml','events-metadata.yml'):
+    for meta in ('metadata.yml','field-metadata.yml','events-metadata.yml','options-metadata.yml'):
         text=(HERE/meta).read_text().replace('0.6.10-alpha',VERSION)
         if BLACK2:text=text.replace('PMCGameID: W2','PMCGameID: B2')
         if ITALY:text=text.replace('PMCGameID: W2','PMCGameID: W2I')
@@ -74,7 +74,7 @@ def build(rom, publish=False):
     elif ITALY:
         from italy_port import port_source
     objects=[]
-    sources=['core','object_codes','registry','options','following','field','effects','reactions','interaction','gifts','events','scene','render','render_math','positioning']
+    sources=['core','object_codes','registry','options','resident_events','following','field','effects','reactions','interaction','gifts','events','scene','render','render_math','positioning']
     if VARIANT=='full':sources+=['surf','land','land_speed','transition']
     for name in sources:
         obj=BUILD/(name+'.o');objects.append(obj)
@@ -90,10 +90,11 @@ def build(rom, publish=False):
             source=BUILD/name;source.write_text(port_source((HERE/name).read_text()))
         return source
     run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('core.s'),'-o',BUILD/'core-hooks.o')
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('resident_events.s'),'-o',BUILD/'resident-events-hooks.o')
     run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('options.s'),'-o',BUILD/'options-hooks.o')
     # Portable follower code is compiled separately, not pulled into the resident module.
     elf=BUILD/f'PokewebFollowingCore{SUFFIX}.elf'
-    run(TOOLS/'arm-none-eabi-ld','-r',*objects[:4],BUILD/'core-hooks.o',BUILD/'options-hooks.o','-o',elf)
+    run(TOOLS/'arm-none-eabi-ld','-r',BUILD/'core.o',BUILD/'object_codes.o',BUILD/'resident_events.o',BUILD/'core-hooks.o',BUILD/'resident-events-hooks.o','-o',elf)
     output=BUILD/f'PokewebFollowingCore{SUFFIX}.dll'
     output.unlink(missing_ok=True)
     run('java','-cp',JAR,'rpm.cli.RPMTool','-i',elf,'--fourcc','DLXF','-o',output,
@@ -108,6 +109,24 @@ def build(rom, publish=False):
         raise ValueError('Unexpected core relocation targets: '+repr(external))
     if 'Import symbol' in dump.decode():raise ValueError('Unresolved core imports')
     (BUILD/'core.dump.txt').write_bytes(dump)
+    options=BUILD/f'PokewebFollowingOptions{SUFFIX}.elf'
+    run(TOOLS/'arm-none-eabi-ld','-r',BUILD/'options.o',BUILD/'options-hooks.o','-o',options)
+    options_dll=BUILD/f'PokewebFollowingOptions{SUFFIX}.dll';options_dll.unlink(missing_ok=True)
+    run('java','-cp',JAR,'rpm.cli.RPMTool','-i',options,'--fourcc','DLXF','-o',options_dll,
+        '--esdb',HERE/'symbols.yml','--meta',BUILD/'options-metadata.yml','--generate-relocations','--strip')
+    options_dump=subprocess.check_output(['java','-cp',str(JAR),'rpm.cli.RPMDump','--fourcc','DLXF','-i',str(options_dll)])
+    (BUILD/'options.dump.txt').write_bytes(options_dump)
+    expected_options=sorted((h['kind'],h['segment'],hex(h['address'])) for h in contract_data['hooks'] if h.get('module')=='options')
+    actual_options=sorted(t for t in re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',options_dump.decode()) if t[1]!='base')
+    if actual_options!=expected_options:raise ValueError('Unexpected Options module hooks: '+repr(actual_options))
+    if VARIANT=='full':
+        from verify_packaged import read_module
+        base_build=ROOT_BUILD/'base'
+        base_suffix=SUFFIX+'Base'
+        for name,full in (('Core',output),('Options',options_dll)):
+            base=base_build/f'PokewebFollowing{name}{base_suffix}.dll'
+            if read_module(full)!=read_module(base):
+                raise ValueError(f'{name} differs between base and full; the installer shares the full module')
     run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('events.s'),'-o',BUILD/'events-hooks.o')
     events=BUILD/f'PokewebFollowingEvents{SUFFIX}.elf'
     run(TOOLS/'arm-none-eabi-ld','-r',BUILD/'events.o',BUILD/'events-hooks.o','-o',events)
@@ -116,7 +135,6 @@ def build(rom, publish=False):
         '--esdb',HERE/'symbols.yml','--meta',BUILD/'events-metadata.yml','--generate-relocations','--strip')
     events_dump=subprocess.check_output(['java','-cp',str(JAR),'rpm.cli.RPMDump','--fourcc','DLXF','-i',str(events_dll)])
     (BUILD/'events.dump.txt').write_bytes(events_dump)
-    if 'Import symbol' in events_dump.decode():raise ValueError('Unresolved event module imports')
     hooks=contract_data['hooks']
     expected=sorted((h['kind'],h['segment'],hex(h['address'])) for h in hooks if h.get('module')=='events')
     actual=sorted(t for t in re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',events_dump.decode()) if t[1]!='base')
@@ -127,7 +145,7 @@ def build(rom, publish=False):
         for name in ('surf','land','transition'):
             run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly(name+'.s'),'-o',BUILD/(name+'-hooks.o'))
     field=BUILD/f'PokewebFollowingField{SUFFIX}.elf'
-    field_objects=['field','effects','following','reactions','interaction','gifts','scene','render','render_math','positioning']
+    field_objects=['field','registry','effects','following','reactions','interaction','gifts','scene','render','render_math','positioning']
     if VARIANT=='full':field_objects+=['surf','land','land_speed','transition']
     hook_objects=['field-hooks','field-input-hooks']+(['surf-hooks','land-hooks','transition-hooks'] if VARIANT=='full' else [])
     run(TOOLS/'arm-none-eabi-ld','-r',*[BUILD/(name+'.o') for name in field_objects+hook_objects],'-o',field)
@@ -140,7 +158,7 @@ def build(rom, publish=False):
     # Exactly one data import supplies the versioned resident bridge. The
     # packaged verifier resolves it from the resident module's export hashes.
     from verify_packaged import verify_imports
-    verify_imports(field_dll,events_dll,output)
+    verify_imports(field_dll,events_dll,output,options_dll)
     targets=re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',field_dump.decode())
     mount_hook_ids={'surf-mount-draw','surf-entry-mount-draw','mounted-surf-entry-step','mounted-surf-entry-finish','mounted-surf-shore-span','mounted-surf-exit-step','mounted-surf-exit-finish','land-mount-flat-step'}
     expected_field=sorted((h['kind'],h['segment'],hex(h['address'])) for h in contract_data['hooks'] if h.get('module')=='field' and (VARIANT=='full' or h['id'] not in mount_hook_ids))
@@ -149,6 +167,7 @@ def build(rom, publish=False):
     # RPM repacks call instructions; checking only a separately linked ELF can
     # miss invalid ARM/Thumb encodings introduced during DLL generation.
     run(os.environ.get('PYTHON','python3'),HERE/'verify_packaged.py')
+    run(os.environ.get('PYTHON','python3'),HERE/'verify_resident_events.py')
     run(os.environ.get('PYTHON','python3'),HERE/'verify_options.py',rom)
     run(os.environ.get('PYTHON','python3'),HERE/'verify_anchor.py')
     if UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_interactions.py')
@@ -185,6 +204,7 @@ def build(rom, publish=False):
         shutil.copyfile(field_dll,assets/field_dll.name)
         shutil.copyfile(events_dll,assets/events_dll.name)
         shutil.copyfile(output,assets/output.name)
+        shutil.copyfile(options_dll,assets/options_dll.name)
         base_build=ROOT_BUILD/'base'
         base_suffix=('B2' if BLACK2 else 'W2I' if ITALY else 'W2')+'Base'
         base_field=base_build/f'PokewebFollowingField{base_suffix}.dll'
@@ -193,7 +213,7 @@ def build(rom, publish=False):
         shutil.copyfile(base_field,assets/base_field.name)
         shutil.copyfile(base_events,assets/base_events.name)
         old_runtime=json.loads((assets/'runtime.json').read_text()) if (assets/'runtime.json').exists() else None
-        old_current=({key:old_runtime[key] for key in ('version','fieldSha256','eventsSha256','eventsAbi','coreSha256','coreAbi')} if old_runtime else None)
+        old_current=({key:old_runtime[key] for key in ('version','fieldSha256','eventsSha256','eventsAbi','coreSha256','coreAbi','optionsModuleSha256') if key in old_runtime} if old_runtime else None)
         if ITALY and old_current:
             interaction_manifest=assets/'interactions.json' if old_current['version']!='0.6.27-alpha' else REPO/'src/assets/following/interactions.json'
             previous_interactions=json.loads(interaction_manifest.read_text())
@@ -221,12 +241,13 @@ def build(rom, publish=False):
             previous_versions=[first_053]+[entry for entry in previous_versions if entry.get('fieldSha256')!=first_053['fieldSha256']]
         full_fingerprint={'fieldSha256':hashlib.sha256(field_dll.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(events_dll.read_bytes()).hexdigest(),'eventsAbi':6}
         base_fingerprint={'fieldSha256':hashlib.sha256(base_field.read_bytes()).hexdigest(),'eventsSha256':hashlib.sha256(base_events.read_bytes()).hexdigest(),'eventsAbi':4}
-        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,**full_fingerprint,'variants':{'base':base_fingerprint,'full':full_fingerprint},'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':2,'previousVersions':previous_versions},indent=2)+'\n')
+        (assets/'runtime.json').write_text(json.dumps({'version':VERSION,**full_fingerprint,'variants':{'base':base_fingerprint,'full':full_fingerprint},'coreSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'coreAbi':3,'optionsModuleSha256':hashlib.sha256(options_dll.read_bytes()).hexdigest(),'previousVersions':previous_versions},indent=2)+'\n')
     if publish and UPGRADE:
         manifest=json.loads((assets/'runtime.json').read_text())
         manifest['previousVersions']=dedupe_versions(([old_current] if old_current else [])+(old_runtime.get('previousVersions',[]) if old_runtime else [])+[json.loads((HERE/'upgrade-0.7.6-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.5-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.4-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.3-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.2-receipt.json').read_text()),json.loads((HERE/'upgrade-0.7.1-receipt.json').read_text())])
         (assets/'runtime.json').write_text(json.dumps(manifest,indent=2)+'\n')
     print(f'Follower field module: {field_dll.name} ({field_dll.stat().st_size} bytes). Published: {publish}.')
     print(f'Follower core module: {output.name} ({output.stat().st_size} bytes). Published: {publish}.')
+    print(f'Follower Options module: {options_dll.name} ({options_dll.stat().st_size} bytes). Published: {publish}.')
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('rom',type=Path);p.add_argument('--publish',action='store_true');args=p.parse_args();build(args.rom,args.publish)

@@ -23,15 +23,11 @@
 1: .word \function
 .size \name,.-\name
 .endm
-branch THUMB_BRANCH_LINK_ARM9_0x02015970, FollowingEventOpcode
-replace FULL_COPY_ARM9_0x02016cf8, FollowingEventCallback
-replace FULL_COPY_ARM9_0x02016d08, FollowingEventFree
 branch THUMB_BRANCH_LINK_12_0x02166ecc, FollowingEventAction
 branch THUMB_BRANCH_LINK_12_0x02166ef4, FollowingEventAction
 replace FULL_COPY_12_0x02167c0c, FollowingEventPosition
 replace FULL_COPY_12_0x02166980, FollowingEventDelete
 replace FULL_COPY_12_0x02167348, FollowingEventWorldStep
-replace FULL_COPY_ARM9_0x020158f8, FollowingEventVmFree
 .balign 4
 .global THUMB_BRANCH_LINK_12_0x02166836
 .type THUMB_BRANCH_LINK_12_0x02166836,%function

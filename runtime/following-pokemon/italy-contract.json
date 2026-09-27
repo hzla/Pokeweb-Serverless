@@ -378,7 +378,7 @@
       "continuation": "0x02015974",
       "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
       "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
-      "module": "events",
+      "module": "core",
       "usExpectedHex": "00f03af8",
       "addressDelta": 0
     },
@@ -405,7 +405,7 @@
       "continuation": "whole-function replacement; return to caller",
       "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
       "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
-      "module": "events",
+      "module": "core",
       "usExpectedHex": "08b5011cc2684368",
       "addressDelta": 0
     },
@@ -432,7 +432,7 @@
       "continuation": "0x02016d10",
       "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
       "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
-      "module": "events",
+      "module": "core",
       "usExpectedHex": "10b5041ce0680028",
       "addressDelta": 0
     },
@@ -601,7 +601,7 @@
       "continuation": "whole-function tailcall replacement; return to caller",
       "conflicts": "VM destructor function and literal",
       "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
-      "module": "events",
+      "module": "core",
       "usExpectedHex": "004b184779a20302",
       "addressDelta": 0
     },
@@ -743,7 +743,7 @@
       "continuation": "0x0219cf06",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core",
+      "module": "options",
       "addressDelta": -256,
       "usExpectedHex": "01f027f8"
     },
@@ -764,7 +764,7 @@
       "continuation": "0x0219cfb4",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core",
+      "module": "options",
       "addressDelta": -256,
       "usExpectedHex": "01f010f8"
     },
@@ -785,7 +785,7 @@
       "continuation": "0x0219ea72",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core",
+      "module": "options",
       "addressDelta": -256,
       "usExpectedHex": "fff7b7fa"
     },
@@ -806,7 +806,7 @@
       "continuation": "0x0219dc8e",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core",
+      "module": "options",
       "addressDelta": -256,
       "usExpectedHex": "00f0c9fa"
     },
@@ -827,7 +827,7 @@
       "continuation": "0x0219eaf0",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core",
+      "module": "options",
       "addressDelta": -256,
       "usExpectedHex": "fff71cff"
     },
@@ -848,7 +848,7 @@
       "continuation": "0x0219eb26",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core",
+      "module": "options",
       "addressDelta": -256,
       "usExpectedHex": "fff701ff"
     },
@@ -869,7 +869,7 @@
       "continuation": "0x0219ed32",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core",
+      "module": "options",
       "addressDelta": -256,
       "usExpectedHex": "fff75dfd"
     }
