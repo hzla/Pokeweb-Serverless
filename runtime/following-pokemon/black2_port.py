@@ -20,6 +20,22 @@ BLACK2_SHA256 = "2e6b2415354aa41471bc7617068dce059a59931bf5c4348a264f8043f297683
 
 def port_address(address: int) -> int:
     """Translate a reviewed IRDO runtime address to stock US IREO revision 0."""
+    # These script handlers sit after profile-specific functions whose sizes
+    # differ from the surrounding overlay delta. The stock IREO dispatch
+    # table and matching function prologues pin each exception separately.
+    command_handlers = {
+        0x021AFFCD: 0x021AFF95, 0x021AFF39: 0x021AFF01,
+        0x021C9D59: 0x021C9D25, 0x021C992D: 0x021C98F9,
+        0x021C9CFD: 0x021C9CC9, 0x021C9B35: 0x021C9B01,
+        0x021C9C59: 0x021C9C25, 0x021C9C91: 0x021C9C5D,
+        0x021AFD0D: 0x021AFCD5, 0x021AFE3D: 0x021AFE05,
+        0x021AFE59: 0x021AFE21,
+        0x0217045D: 0x0217041D, 0x02170491: 0x02170451,
+        0x0217060D: 0x021705CD, 0x021704F1: 0x021704B1,
+        0x021C9341: 0x021C930D,
+    }
+    if address in command_handlers:
+        return command_handlers[address]
     # Black 2 removes 44 bytes immediately before the rail-direction helper;
     # every reviewed ARM9 adapter after that point follows the shifted layout.
     if 0x02018C00 <= address < 0x02100000:

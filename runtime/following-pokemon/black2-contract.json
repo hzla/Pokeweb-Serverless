@@ -348,7 +348,7 @@
       "continuation": "0x02015974",
       "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
       "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
-      "module": "events"
+      "module": "core"
     },
     {
       "id": "event-callback",
@@ -373,7 +373,7 @@
       "continuation": "whole-function replacement; return to caller",
       "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
       "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
-      "module": "events"
+      "module": "core"
     },
     {
       "id": "event-free",
@@ -398,7 +398,7 @@
       "continuation": "0x02016d10",
       "conflicts": "Any replacement of this callsite/function or a dependent adapter in this contract",
       "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
-      "module": "events"
+      "module": "core"
     },
     {
       "id": "event-actor-action-queued",
@@ -553,7 +553,7 @@
       "continuation": "whole-function tailcall replacement; return to caller",
       "conflicts": "VM destructor function and literal",
       "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
-      "module": "events"
+      "module": "core"
     },
     {
       "id": "field-actor-billboard-draw",
@@ -683,7 +683,7 @@
       "continuation": "0x0219cfc6",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core"
+      "module": "options"
     },
     {
       "id": "options-exit",
@@ -702,7 +702,7 @@
       "continuation": "0x0219d074",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core"
+      "module": "options"
     },
     {
       "id": "options-main",
@@ -721,7 +721,7 @@
       "continuation": "0x0219eb32",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core"
+      "module": "options"
     },
     {
       "id": "options-select",
@@ -740,7 +740,7 @@
       "continuation": "0x0219dd4e",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core"
+      "module": "options"
     },
     {
       "id": "options-compare-exit",
@@ -759,7 +759,7 @@
       "continuation": "0x0219ebb0",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core"
+      "module": "options"
     },
     {
       "id": "options-compare-cancel",
@@ -778,7 +778,7 @@
       "continuation": "0x0219ebe6",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core"
+      "module": "options"
     },
     {
       "id": "options-commit",
@@ -797,7 +797,7 @@
       "continuation": "0x0219edf2",
       "conflicts": "Options menu callsite",
       "status": "binary audit; packaged CPU verification required; visual acceptance pending",
-      "module": "core"
+      "module": "options"
     }
   ],
   "structureEvidence": {

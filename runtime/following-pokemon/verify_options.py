@@ -66,8 +66,8 @@ if len(sys.argv) > 1:
 BASE, STOP, STACK = 0x02300000, 0x02008000, 0x023f0000
 SCROLL, UI, SAVE, PRE, NOW = 0x02200000, 0x02200100, 0x02200200, 0x02200300, 0x02200400
 BG_TILES = 0x02210000
-DLL = PACKAGE_BUILD / f"PokewebFollowingCore{MODULE_SUFFIX}.dll"
-ELF = PACKAGE_BUILD / f"PokewebFollowingCore{MODULE_SUFFIX}.elf"
+DLL = PACKAGE_BUILD / f"PokewebFollowingOptions{MODULE_SUFFIX}.dll"
+ELF = PACKAGE_BUILD / f"PokewebFollowingOptions{MODULE_SUFFIX}.elf"
 _, _, _, _, functions, _ = audit(DLL, ELF)
 uc = Uc(UC_ARCH_ARM, UC_MODE_THUMB)
 uc.ctl_set_cpu_model(UC_CPU_ARM_946)

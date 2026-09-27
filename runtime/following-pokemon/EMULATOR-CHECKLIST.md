@@ -31,6 +31,8 @@ The generated checklist collects targeted regression cases before the baseline c
 | R05 | Cold boot 0.6.74 and summon a follower, then cycle with L/R and walk into a door with a visible follower. Compare the sound with a battle send-out and switch-out on the same ROM. | One stock ball cue plays for each send-out and recall. The Sunny Day twinkle used in 0.6.71 is absent. No repeated cue while the twelve recall updates run. | NOT RUN |
 | R06 | With a visible follower, open and close a safe menu or conversation; repeat a failed/unavailable effect if practical. | Staying visible makes no extra ball sound. An unavailable effect does not play a sound without its animation or trap input. | NOT RUN |
 | R07 | Cold boot near the ordinary NPC in `badprio.mln`. Stand and walk behind that NPC with a follower off to the side; repeat with a large follower directly behind the player. | The NPC covers the player where their sprites overlap. A nearby follower still respects the intended player/follower order and its shadow stays on the ground. | NOT RUN |
+| R08 | Cold boot the new export with the ordinary save for `drawprio.mln`; place the player one tile north of the NPC and a small follower beside the player. Stand, walk, and repeat across several follower bounce frames. | The NPC remains in front of the player wherever their sprites overlap; follower/player order and the follower's ground shadow remain stable. Repeat on all four profiles if the scene is reachable. | NOT RUN |
+| R09 | Talk to a follower, then a nearby ordinary NPC. Repeat follower conversations after dismissal, including a failed or unavailable interaction. | Each accepted follower conversation starts with the same single message beep as an NPC conversation. No cue plays for a rejected interaction or repeats while text opens. | NOT RUN |
 
 ## Stock White 2 current follower talk reach
 
@@ -100,7 +102,7 @@ Start with C20 in melonDS to check the recall fix, then C01–C03 and C12–C13.
 | C15 | Talk, save normally, cold boot the same ROM, and later open a copy of that save in unpatched White 2. | No persistent conversation state or duplicate actor; ordinary saves remain usable. Do not load an old emulator state to test a new DLL. | NOT RUN |
 | C16 | Perform 100 complete conversations at normal speed, moving between each. Every tenth conversation open a menu; every twentieth enter/exit a building. | No growing pause, actor duplication, leftover bubble/window, palette corruption or stuck controls. Log heap/texture/palette counts if debugger telemetry is available. | NOT RUN |
 | C17 | Repeat near a crowded NPC area, at night, in rain/snow and in grass. | Native scene remains intact. Bubbles have correct transparency/depth; no sustained allocation growth. Record elapsed time and baseline/end resources. | NOT RUN |
-| C18 | In Pokeweb install twice, export/reopen, disable/reexport, enable/reexport, then remove runtime/reexport and reinstall. | One field module and one resident event module when installed; disabled/removed build has no follower. Artwork retained. Removal leaves two inert file slots and shared PMC; no later unrelated edits are lost. | NOT RUN |
+| C18 | In Pokeweb install twice, export/reopen, disable/reexport, enable/reexport, then remove runtime/reexport and reinstall. | Four owned modules (core, events, field, Options) when installed; disabled/removed build has no follower. Artwork retained. Removal leaves inert file slots and shared PMC; no later unrelated edits are lost. | NOT RUN |
 | C19 | Developer fixture only: omit/corrupt dialogue data, omit emotes, exhaust effect allocations, or fail message creation. | Invalid dialogue data prevents starting. Missing cosmetics are skipped. Message failure cancels safely; field control remains. Record BLOCKED if no fault-injection setup. | NOT RUN |
 | C20 | Dismiss a conversation with A, stand still for five seconds, release and talk again without moving, then walk away. Repeat using B, all four directions, and a curved rail path. Immediately after another dismissal, trigger an NPC event, X menu, or door. | No ball, disappearance, duplicate actor or new send-out after the follower conversation alone. Repeat talk works without walking first; following resumes on the existing trail. Safe NPC/sign conversations and the X menu keep it visible; doors and unsafe scenes recall, then exactly one follower returns after walking. | NOT RUN |
 
@@ -497,3 +499,13 @@ Cold boot `White2-Following-0.6.64-alpha.nds` with its matching ordinary save. `
 | SP01 | Cold boot 0.6.64 with Arceus following. Walk south through the same overlap shown in walkdown.mln, then stop and repeat at several step phases. | The player remains in front of Arceus wherever their sprites intersect; neither sprite shifts on screen and the follower shadow remains on the ground. | NOT RUN |
 | SP02 | Repeat with a small grounded follower, a wide Flying follower, then walk north and sideways beside a building and traverse stairs. | South-facing overlap remains stable without changing the previously accepted north-facing priority, lateral building order, stairs or shadow placement. | NOT RUN |
 <!-- generated-south-priority:end -->
+
+## Cry-driven NPC dialogue — human acceptance
+
+Cold boot the current profile ROM from an ordinary save. Do not resume `cry.mln`,
+which contains the older runtime. These checks remain **NOT RUN** until recorded.
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| CR01 | Talk to the Pokémon NPC from `cry.mln` and watch the follower before dialogue, when the cry starts, and after it ends. Repeat while walking and while mounted. | The cry itself causes no recall ball or new send-out. If the follower disappears before the cry, record a fresh state at that earlier event boundary. | NOT RUN |
+| CR02 | Talk to an NPC whose script enters a battle or moves the player after a cry. | The cry alone keeps the follower; the later unsafe action recalls at its normal boundary. | NOT RUN |

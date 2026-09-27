@@ -6,6 +6,7 @@ typedef struct { FwPoint eye,target; uint32_t projection; } FwrCamera;
 typedef struct { FwPoint position; int32_t sx,sy; } FwrPose;
 typedef struct { FwPoint axis; int32_t before,after,policy; } FwrResult;
 #define FWR_TIE_MARGIN 512 /* 1/8 world unit; a tile is 16 world units. */
+#define FWR_NATIVE_FOREGROUND_GAP (4 * 4096) /* Retain native NPC/player depth. */
 #define FWR_LARGE 1u
 #define FWR_NORTH 2u
 #define FWR_NORTH_ANCHOR_Z 7

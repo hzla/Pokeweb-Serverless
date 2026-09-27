@@ -1,0 +1,756 @@
+opcode,name,decision,reason
+0x000,VMNop,allow-existing,control-and-variables
+0x001,VMNop2,allow-existing,control-and-variables
+0x002,VMHalt,allow-existing,control-and-variables
+0x003,VMSleep,allow-existing,control-and-variables
+0x004,VMCall,allow-existing,control-and-variables
+0x005,VMReturn,allow-existing,control-and-variables
+0x006,DebugPrint,allow-existing,control-and-variables
+0x007,DebugStack,allow-existing,control-and-variables
+0x008,StackPushConst,allow-existing,control-and-variables
+0x009,StackPush,allow-existing,control-and-variables
+0x00A,StackPop,allow-existing,control-and-variables
+0x00B,StackDiscard,allow-existing,control-and-variables
+0x00C,StackAdd,allow-existing,control-and-variables
+0x00D,StackSub,allow-existing,control-and-variables
+0x00E,StackMul,allow-existing,control-and-variables
+0x00F,StackDiv,allow-existing,control-and-variables
+0x010,StackPushFlag,allow-existing,control-and-variables
+0x011,StackCmp,allow-existing,control-and-variables
+0x012,WorkAnd,allow-existing,control-and-variables
+0x013,WorkOr,allow-existing,control-and-variables
+0x014,VMRegSet8,allow-existing,control-and-variables
+0x015,VMRegSet32,allow-existing,control-and-variables
+0x016,VMRegMov,allow-existing,control-and-variables
+0x017,VMRegCmp8,allow-existing,control-and-variables
+0x018,VMRegCmpConst8,allow-existing,control-and-variables
+0x019,WorkCmpConst,allow-existing,control-and-variables
+0x01A,WorkCmpWork,allow-existing,control-and-variables
+0x01B,RTCallGlobalAsync,allow-existing,control-and-variables
+0x01C,RTCallGlobal,allow-existing,control-and-variables
+0x01D,RTEndGlobal,allow-existing,control-and-variables
+0x01E,VMJump,allow-existing,control-and-variables
+0x01F,VMJumpIf,allow-existing,control-and-variables
+0x020,VMCallIf,allow-existing,control-and-variables
+0x021,RTReserveScript,allow-existing,control-and-variables
+0x022,FieldGetContinueFlag,allow-existing,control-and-variables
+0x023,FlagSet,allow-existing,control-and-variables
+0x024,FlagReset,allow-existing,control-and-variables
+0x025,FlagGet,allow-existing,control-and-variables
+0x026,WorkAdd,allow-existing,control-and-variables
+0x027,WorkSub,allow-existing,control-and-variables
+0x028,WorkSetConst,allow-existing,control-and-variables
+0x029,WorkGet,allow-existing,control-and-variables
+0x02A,WorkSet,allow-existing,control-and-variables
+0x02B,WorkMul,allow-existing,control-and-variables
+0x02C,WorkDiv,allow-existing,control-and-variables
+0x02D,WorkMod,allow-existing,control-and-variables
+0x02E,ActorPauseAll,allow-existing,control-and-variables
+0x02F,ActorUnlockAll,allow-existing,control-and-variables
+0x030,RTFinishSubEvents,allow-existing,bounded-cleanup-child
+0x031,InputWaitAB,allow-existing,dialogue-and-formatting
+0x032,InputWaitLast,allow-existing,dialogue-and-formatting
+0x033,MsgSetAutoscrolls,allow-existing,dialogue-and-formatting
+0x034,MsgSystem,allow-existing,dialogue-and-formatting
+0x035,MsgSystemAsync,allow-existing,dialogue-and-formatting
+0x036,MsgSystemClose,allow-existing,dialogue-and-formatting
+0x037,MsgSetLoadingSpinner,allow-existing,dialogue-and-formatting
+0x038,MsgInfo,allow-existing,dialogue-and-formatting
+0x039,MsgInfoClose,allow-existing,dialogue-and-formatting
+0x03A,MsgMulti,allow-existing,dialogue-and-formatting
+0x03B,MsgWinCloseNo,allow-existing,dialogue-and-formatting
+0x03C,MsgActorEx,allow-existing,dialogue-and-formatting
+0x03D,MsgActor,allow-existing,dialogue-and-formatting
+0x03E,MsgActorClose,allow-existing,dialogue-and-formatting
+0x03F,MsgWinCloseAll,allow-existing,dialogue-and-formatting
+0x040,MoneyWinDisp,allow-existing,dialogue-and-formatting
+0x041,MoneyWinClose,allow-existing,dialogue-and-formatting
+0x042,MoneyWinUpdate,allow-existing,dialogue-and-formatting
+0x043,MsgPlaceSign,allow-existing,dialogue-and-formatting
+0x044,MsgPlaceSignClose,allow-existing,dialogue-and-formatting
+0x045,MsgCheckerBG,allow-existing,dialogue-and-formatting
+0x046,MsgCheckerBGClose,allow-existing,dialogue-and-formatting
+0x047,YesNoWin,allow-existing,dialogue-and-formatting
+0x048,MsgActorGendered,allow-existing,dialogue-and-formatting
+0x049,MsgActorVersioned,allow-existing,dialogue-and-formatting
+0x04A,MsgScream,allow-existing,dialogue-and-formatting
+0x04B,MsgWaitAdvance,allow-existing,dialogue-and-formatting
+0x04C,WordSetPlayerName,allow-existing,dialogue-and-formatting
+0x04D,WordSetItemName,allow-existing,dialogue-and-formatting
+0x04E,WordSetItemNameEx,allow-existing,dialogue-and-formatting
+0x04F,WordSetItemNameWithArticle,allow-existing,dialogue-and-formatting
+0x050,WordSetTMMoveName,allow-existing,dialogue-and-formatting
+0x051,WordSetMoveName,allow-existing,dialogue-and-formatting
+0x052,WordSetItemPocketName,allow-existing,dialogue-and-formatting
+0x053,WordSetPartyPokeSpecies,allow-existing,dialogue-and-formatting
+0x054,WordSetPartyPokeName,allow-existing,dialogue-and-formatting
+0x055,WordSetDaycarePokeSpecies,allow-existing,dialogue-and-formatting
+0x056,WordSetPokeTypeName,allow-existing,dialogue-and-formatting
+0x057,WordSetPokeSpecies,allow-existing,dialogue-and-formatting
+0x058,WordSetPokeSpeciesWithArticle,allow-existing,dialogue-and-formatting
+0x059,WordSetPlaceName,allow-existing,dialogue-and-formatting
+0x05A,WordSetTrendName,allow-existing,dialogue-and-formatting
+0x05B,WordSetDaycarePokeName,allow-existing,dialogue-and-formatting
+0x05C,WordSetNumber,allow-existing,dialogue-and-formatting
+0x05D,WordSetMusicalInfo,allow-added,word-formatting
+0x05E,WordSetCountry,allow-existing,dialogue-and-formatting
+0x05F,WordSetHobbyName,allow-existing,dialogue-and-formatting
+0x060,WordSetPassPowerName,allow-existing,dialogue-and-formatting
+0x061,WordSetTrainerClassName,allow-existing,dialogue-and-formatting
+0x062,WordSetTrainerClassNameWithArticle,allow-existing,dialogue-and-formatting
+0x063,WordSetSurveyAnswer,allow-existing,dialogue-and-formatting
+0x064,ActorCmdExec,allow-existing,observed-actor-actions
+0x065,ActorCmdWait,allow-existing,observed-actor-actions
+0x066,ActorGetMoveCode,allow-existing,observed-actor-actions
+0x067,ActorGetGPos,allow-existing,observed-actor-actions
+0x068,PlayerGetGPos,allow-existing,observed-actor-actions
+0x069,ActorNew,allow-existing,observed-actor-actions
+0x06A,ActorGetSpawnFlag,allow-existing,observed-actor-actions
+0x06B,ActorAdd,allow-existing,observed-actor-actions
+0x06C,ActorDelete,allow-existing,observed-actor-actions
+0x06D,ActorSetGPos,allow-existing,observed-actor-actions
+0x06E,PlayerGetDir,allow-existing,observed-actor-actions
+0x06F,PlayerGetActorInFront,allow-existing,observed-actor-actions
+0x070,ActorFindByGPos,allow-existing,observed-actor-actions
+0x071,PlayerGetRailPos,allow-existing,observed-actor-actions
+0x072,ActorGetRailPos,allow-existing,observed-actor-actions
+0x073,ActorSetMoveCode,defer-actor-motion,Moves or teleports a field actor; the follower may overlap or conflict with its destination.
+0x074,ActorSetEyeToEye,allow-existing,observed-actor-actions
+0x075,PlayerSetSpecialSequence,defer-actor-motion,Changes player movement or position; recall before the scripted route can diverge from the follower trail.
+0x076,PlayerMoveToYAsync,defer-actor-motion,Changes player movement or position; recall before the scripted route can diverge from the follower trail.
+0x077,PlayerTurnByTrigger,allow-existing,observed-actor-actions
+0x078,PlayerGetExState,allow-added,read-only-context
+0x079,ActorGetUserParam,allow-existing,observed-actor-actions
+0x07A,ActorPlayRailSlipdown,defer-actor-motion,Moves or teleports a field actor; the follower may overlap or conflict with its destination.
+0x07B,ActorJumpToGPos,defer-actor-motion,Moves or teleports a field actor; the follower may overlap or conflict with its destination.
+0x07C,PlayerSetRailPos,defer-actor-motion,Changes player movement or position; recall before the scripted route can diverge from the follower trail.
+0x07D,ActorSetRailPos,defer-actor-motion,Moves or teleports a field actor; the follower may overlap or conflict with its destination.
+0x07E,ActorPlayTeleportSeq,defer-actor-motion,Moves or teleports a field actor; the follower may overlap or conflict with its destination.
+0x07F,TrainerEyeGetTrainerID,allow-added,trainer-state
+0x080,TrainerEyeEventInit,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x081,TrainerEyeEventStart,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x082,TrainerEyeGetActorID,allow-added,trainer-state
+0x083,TrainerEyeGetBattleType,allow-added,trainer-state
+0x084,ActorGetTrainerID,allow-added,trainer-state
+0x085,CallTrainerBattle,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x086,CallTrainerMultiBattle,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x087,TrainerEyeSayMessage,defer-battle,Part of the staged trainer-battle intro; retaining a follower through the subsequent battle handoff is not established.
+0x088,TrainerEyeGetMessageTypes,allow-added,trainer-state
+0x089,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x08A,TrainerGetBattleType,allow-added,trainer-state
+0x08B,TrainerBGMPlayPush,allow-requested-child-event,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Starts an asynchronous music child event; its callback ownership is not globally admitted.
+0x08C,CallTrainerLose,defer-battle,Returns from or concludes a battle; field actor reconstruction and party state must be re-evaluated.
+0x08D,TrainerBattleIsVictory,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x08E,CallTrainerBattleEnd,defer-battle,Returns from or concludes a battle; field actor reconstruction and party state must be re-evaluated.
+0x08F,TrainerClassBGMPlayPush,allow-requested-child-event,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Starts an asynchronous music child event; its callback ownership is not globally admitted.
+0x090,TrainerBGMPlay,allow-requested-child-event,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Starts an asynchronous music child event; its callback ownership is not globally admitted.
+0x091,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x092,TrainerGetFieldAction,allow-added,trainer-state
+0x093,TrainerGetPrizeItem,allow-added,trainer-state
+0x094,CallTradedPokemonBattle,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x095,TrainerFlagSet,allow-added,trainer-state
+0x096,TrainerFlagReset,allow-added,trainer-state
+0x097,TrainerFlagGet,allow-added,trainer-state
+0x098,BGMPlay,allow-existing,sound
+0x099,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x09A,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x09B,BGMIsPlaying,allow-existing,sound
+0x09C,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x09D,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x09E,BGMChangeMap,allow-existing,sound
+0x09F,BGMPlayPush,allow-existing,sound
+0x0A0,BGMWait,allow-existing,sound
+0x0A1,BGMPush,allow-existing,sound
+0x0A2,BGMPop,allow-existing,sound
+0x0A3,ISSSwitchEnable,allow-existing,sound
+0x0A4,ISSSwitchDisable,allow-existing,sound
+0x0A5,ISSSwitchQuery,allow-existing,sound
+0x0A6,SEPlay,allow-existing,sound
+0x0A7,SEStop,allow-existing,sound
+0x0A8,SEWait,allow-existing,sound
+0x0A9,MEPlay,allow-existing,sound
+0x0AA,MEWait,allow-existing,sound
+0x0AB,PVPlay,allow-existing,sound
+0x0AC,PVWait,allow-existing,sound
+0x0AD,ListMenuInitCommon,allow-existing,in-dialogue-choices
+0x0AE,ListMenuInitTL,allow-existing,in-dialogue-choices
+0x0AF,ListMenuAdd,allow-existing,in-dialogue-choices
+0x0B0,ListMenuShow,allow-existing,in-dialogue-choices
+0x0B1,ListMenuShow2,allow-existing,in-dialogue-choices
+0x0B2,ListMenuInitTR,allow-existing,in-dialogue-choices
+0x0B3,FadeEx,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x0B4,FadeExWait,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x0B5,ItemAdd,allow-added,inventory-and-money
+0x0B6,ItemSub,allow-added,inventory-and-money
+0x0B7,ItemCheckSpace,allow-added,inventory-and-money
+0x0B8,ItemCheckCount,allow-added,inventory-and-money
+0x0B9,ItemGetCount,allow-added,inventory-and-money
+0x0BA,ItemIsTMHM,allow-added,inventory-and-money
+0x0BB,ItemGetPocket,allow-added,inventory-and-money
+0x0BC,PhenomenonGetItemID,allow-added,inventory-and-money
+0x0BD,ItemGetClass,allow-added,inventory-and-money
+0x0BE,MapChangeFake,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x0BF,MapChangeWarpPad,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x0C0,MapChangeWarpRail,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x0C1,MapChangeQuicksand,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x0C2,MapChangeWarp,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x0C3,MapChangeUnionRoom,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x0C4,MapChangeCore,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x0C5,HMCallSurf,defer-presentation,Runs an HM field action with player or field effects; follower and mount state can change.
+0x0C6,HMCallWaterfall,defer-presentation,Runs an HM field action with player or field effects; follower and mount state can change.
+0x0C7,HMCallCut,defer-presentation,Runs an HM field action with player or field effects; follower and mount state can change.
+0x0C8,HMCallDiving,defer-presentation,Runs an HM field action with player or field effects; follower and mount state can change.
+0x0C9,CMD_C9,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0CA,CMD_CA,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0CB,Random,allow-existing,read-only-context
+0x0CC,RTGetTextFile,allow-existing,read-only-context
+0x0CD,RTCGetDayPart,allow-existing,read-only-context
+0x0CE,CMD_CE,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0CF,RTCGetWeekDay,allow-existing,read-only-context
+0x0D0,RTCGetDate,allow-existing,read-only-context
+0x0D1,RTCGetTime,allow-existing,read-only-context
+0x0D2,RTCGetSeason,allow-existing,read-only-context
+0x0D3,FieldGetZoneID,allow-existing,read-only-context
+0x0D4,TrainerCardGetBirthDate,allow-existing,read-only-context
+0x0D5,TrainerCardHasBadge,allow-existing,read-only-context
+0x0D6,TrainerCardAddBadge,allow-added,save-state
+0x0D7,TrainerCardGetBadgeCount,allow-existing,read-only-context
+0x0D8,MapReplaceIsEventSet,allow-added,save-state
+0x0D9,FieldSetTeleportZone,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0DA,MapReplaceSetEvent,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0DB,FieldSetNextZoneHere,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0DC,FieldSetNextZone,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0DD,PokeDexGetCount,allow-added,save-state
+0x0DE,PokeDexRegist,allow-added,save-state
+0x0DF,PokeDexIsRegist,allow-added,save-state
+0x0E0,GameGetVersion,allow-existing,read-only-context
+0x0E1,TrainerCardGetSex,allow-existing,read-only-context
+0x0E2,SaveDataCheckRequired,allow-added,save-state
+0x0E3,PlayerEnableRunningShoes,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0E4,CMD_E4,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0E5,CMD_E5,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0E6,CMD_E6,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0E7,CMD_E7,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0E8,CMD_E8,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0E9,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x0EA,HOFCheckIntegrity,allow-existing,pc-continuity
+0x0EB,DayCareCheckSpawnFlag,allow-added,daycare-queries
+0x0EC,DayCareBreed,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0ED,DayCareResetSeed,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x0EE,DayCareGetPkmCount,allow-added,daycare-queries
+0x0EF,DayCareCalcEggSpawnChance,allow-added,daycare-queries
+0x0F0,DayCareDeposit,defer-party-mutation,Deposits or withdraws a Pokémon; party order and follower identity can change.
+0x0F1,DayCareWithdraw,defer-party-mutation,Deposits or withdraws a Pokémon; party order and follower identity can change.
+0x0F2,DayCareGetSpecies,allow-added,daycare-queries
+0x0F3,DayCareGetForme,allow-added,daycare-queries
+0x0F4,DayCareCalcNewLevel,allow-added,daycare-queries
+0x0F5,DayCareCalcLevelGain,allow-added,daycare-queries
+0x0F6,DayCareCalcWithdrawCost,allow-added,daycare-queries
+0x0F7,DayCareCallPokeSelect,allow-requested-child-event,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Starts an asynchronous selection or mission child event; its callback lifetime is not globally admitted.
+0x0F8,DayCareGetSex,allow-added,daycare-queries
+0x0F9,MoneyAdd,allow-added,inventory-and-money
+0x0FA,MoneySub,allow-added,inventory-and-money
+0x0FB,MoneyCheck,allow-added,inventory-and-money
+0x0FC,PokePartySetHappiness,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x0FD,PokePartyAdjustHappiness,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x0FE,PokePartyGetSpecies,allow-added,party-queries
+0x0FF,PokePartyGetForme,allow-added,party-queries
+0x100,PokePartyCheckPokerus,allow-added,party-queries
+0x101,PokePartyIsFullHP,allow-added,party-queries
+0x102,PokePartyIsEgg,allow-added,party-queries
+0x103,PokePartyGetCount,allow-added,party-queries
+0x104,PokePartyRecoverAll,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x105,CallPokeNameInput,defer-party-mutation,Opens a party or Pokémon-selection application; the chosen party member and field state can change.
+0x106,CallEggHatch,defer-party-mutation,Opens a party or Pokémon-selection application; the chosen party member and field state can change.
+0x107,CallPokeSelect,defer-party-mutation,Opens a party or Pokémon-selection application; the chosen party member and field state can change.
+0x108,PokePartyGetMoveCount,allow-added,party-queries
+0x109,CallPokeMoveReplace,defer-party-mutation,Opens a party or Pokémon-selection application; the chosen party member and field state can change.
+0x10A,PokePartyGetMove,allow-added,party-queries
+0x10B,PokePartyLearnMove,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x10C,PokePartyAdd,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x10D,PokePartyGetMemberByType,allow-added,party-queries
+0x10E,PokePartyAddEx,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x10F,PokePartyAddEgg,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x110,PokePartyGetParam,allow-added,party-queries
+0x111,PokePartySetIV,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x112,PokePartyGetEVTotal,allow-added,party-queries
+0x113,PokePartyIsOriginGame,allow-added,party-queries
+0x114,PokePartyGetCountBySpecies,allow-added,party-queries
+0x115,PokePartyHasMove,allow-added,party-queries
+0x116,PokePartyHasMoveAny,allow-added,party-queries
+0x117,PokePartySetForme,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x118,PokePartyFind,allow-added,party-queries
+0x119,PokePartyIsFromWhiteForest,allow-added,party-queries
+0x11A,PokePartyGetMetDate,allow-added,party-queries
+0x11B,PokePartyGetTypes,allow-added,party-queries
+0x11C,PokePartyChangeRotomForme,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x11D,TrainerCardSetFavePokemon,allow-added,save-state
+0x11E,TrainerCardSaveGymVictoryParty,allow-added,save-state
+0x11F,WordSetGymVictoryParty,allow-added,word-formatting
+0x120,FieldTradeSavePokemon,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x121,BoxGetCount,allow-added,party-queries
+0x122,BoxAdd,defer-party-mutation,Changes Pokémon storage; party/storage identity and follower selection must be rechecked.
+0x123,BoxAddEx,defer-party-mutation,Changes Pokémon storage; party/storage identity and follower selection must be rechecked.
+0x124,BMHndAnmPlay,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x125,BMPlayHOFMachineSeq,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x126,BMChangeMdlID,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x127,BMCreateHandleByGPos,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x128,BMReleaseHandle,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x129,BMHndAudioVisualAnmPlay,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x12A,BMHndAnmWait,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x12B,BMAnmPlayInv,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x12C,BMHndAnmPause,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x12D,BMSetVisible,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x12E,BMAnmPlay,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x12F,PokecenPlayHealingSequence,defer-presentation,Creates or animates scripted model handles; the follower may conflict with cutscene ownership and layering.
+0x130,PokecenPCOpen,allow-existing,pc-continuity
+0x131,PokecenPCIdle,allow-existing,pc-continuity
+0x132,PokecenPCClose,allow-existing,pc-continuity
+0x133,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x134,CasteliaRushInit,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x135,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x136,FieldSetWeather,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x137,SaveDataWrite,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x138,SaveDataGetStatus,allow-added,save-state
+0x139,GameCommDisconnect,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x13A,GameCommGetStatus,allow-added,save-state
+0x13B,GameCommCheckDSiWiFi,allow-added,save-state
+0x13C,CMD_13C,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x13D,CMD_13D,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x13E,CMD_13E,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x13F,EVCameraInit,allow-existing,camera
+0x140,EVCameraEnd,allow-existing,camera
+0x141,EVCameraUnbind,allow-existing,camera
+0x142,EVCameraRebind,allow-existing,camera
+0x143,EVCameraMoveTo,allow-existing,camera
+0x144,EVCameraReturn,allow-existing,camera
+0x145,EVCameraWait,allow-existing,camera
+0x146,EVCameraMoveToCommon,allow-existing,camera
+0x147,EVCameraMoveToDefault,allow-existing,camera
+0x148,EVCameraShake,allow-existing,camera
+0x149,CallFriendlyShopBuy,allow-requested-child-application,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Opens a child application or menu; field update and input ownership may be suspended or replaced.
+0x14A,FieldOpen,defer-field-lifecycle,Opens or closes the field application; current follower actor lifetime cannot be retained.
+0x14B,FieldClose,defer-field-lifecycle,Opens or closes the field application; current follower actor lifetime cannot be retained.
+0x14C,RTFreeUserHeap,allow-existing,native-script-user-work-cleanup
+0x14D,CallRecordSystem,allow-requested-child-application,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Opens a child application or menu; field update and input ownership may be suspended or replaced.
+0x14E,CallBag,allow-requested-child-application,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Opens a child application or menu; field update and input ownership may be suspended or replaced.
+0x14F,CallPC,allow-existing,pc-continuity
+0x150,CallMailbox,allow-requested-child-application,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Opens a child application or menu; field update and input ownership may be suspended or replaced.
+0x151,CallPokedexDiploma,allow-requested-child-application,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Opens a child application or menu; field update and input ownership may be suspended or replaced.
+0x152,CallGeonet,allow-requested-child-application,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Opens a child application or menu; field update and input ownership may be suspended or replaced.
+0x153,CallPoke3Select,defer-party-mutation,Opens a party or Pokémon-selection application; the chosen party member and field state can change.
+0x154,Call3DDemo,defer-field-lifecycle,Starts or configures a field transition or separate scene; recall-free lifetime is not established.
+0x155,CallXTransceiver,allow-requested-child-application,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Opens a child application or menu; field update and input ownership may be suspended or replaced.
+0x156,CallGameClear,defer-field-lifecycle,Starts or configures a field transition or separate scene; recall-free lifetime is not established.
+0x157,ActorAnimationInit,defer-presentation,Controls a field actor animation; target actor and completion callback have not been globally audited.
+0x158,ActorAnimationFree,defer-presentation,Controls a field actor animation; target actor and completion callback have not been globally audited.
+0x159,ActorAnimationPlay,defer-presentation,Controls a field actor animation; target actor and completion callback have not been globally audited.
+0x15A,ActorAnimationWait,defer-presentation,Controls a field actor animation; target actor and completion callback have not been globally audited.
+0x15B,CMD_15B,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x15C,CMD_15C,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x15D,NetConnectWiFiClub,defer-field-lifecycle,Enters communication or C-Gear mode; the field application may suspend or change ownership.
+0x15E,NetConnectGTS,defer-field-lifecycle,Enters communication or C-Gear mode; the field application may suspend or change ownership.
+0x15F,CMD_15F,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x160,NetConnectWiFiBattle,defer-field-lifecycle,Enters communication or C-Gear mode; the field application may suspend or change ownership.
+0x161,NetConnectBattleVideo,defer-field-lifecycle,Enters communication or C-Gear mode; the field application may suspend or change ownership.
+0x162,NetConnectGTSNegotiation,defer-field-lifecycle,Enters communication or C-Gear mode; the field application may suspend or change ownership.
+0x163,CMD_163,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x164,CMD_164,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x165,CMD_165,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x166,CMD_166,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x167,CMD_167,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x168,CMD_168,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x169,CMD_169,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x16A,CMD_16A,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x16B,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x16C,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x16D,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x16E,CMD_16E,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x16F,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x170,CMD_170,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x171,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x172,CMD_172,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x173,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x174,CallWildBattle,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x175,CallWildBattleEnd,defer-battle,Returns from or concludes a battle; field actor reconstruction and party state must be re-evaluated.
+0x176,CallWildLose,defer-battle,Returns from or concludes a battle; field actor reconstruction and party state must be re-evaluated.
+0x177,WildBattleIsVictory,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Getter-looking command in a battle or actor-pair subsystem; verify scene assumptions
+0x178,WildBattleGetResult,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Getter-looking command in a battle or actor-pair subsystem; verify scene assumptions
+0x179,CallCaptureDemo,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x17A,CMD_17A,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x17B,CMD_17B,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x17C,CMD_17C,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x17D,CMD_17D,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x17E,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x17F,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x180,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x181,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x182,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x183,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x184,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x185,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x186,CMD_186,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x187,CMD_187,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x188,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x189,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x18A,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x18B,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x18C,CMD_18C,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x18D,CMD_18D,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x18E,CMD_18E,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x18F,CMD_18F,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x190,CMD_190,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x191,CMD_191,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x192,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x193,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x194,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x195,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x196,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x197,CGearPowerOn,defer-field-lifecycle,Enters communication or C-Gear mode; the field application may suspend or change ownership.
+0x198,FieldSubscreenChange,defer-field-lifecycle,Changes subscreen mode; field and menu resource ownership may change.
+0x199,FieldSubscreenReturn,defer-field-lifecycle,Changes subscreen mode; field and menu resource ownership may change.
+0x19A,CGearControlWarning,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x19B,PlayFieldEffect,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x19C,PlayHMCutInEffect,defer-presentation,Runs an HM field action with player or field effects; follower and mount state can change.
+0x19D,PlayAlderFlyEffect,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x19E,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x19F,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1A0,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1A1,CMD_1A1,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1A2,CallRoyalUnovaView,defer-field-lifecycle,Starts or configures a field transition or separate scene; recall-free lifetime is not established.
+0x1A3,FadeInBlackQ,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1A4,FadeOutBlackQ,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1A5,FadeInWhiteQ,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1A6,FadeOutWhiteQ,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1A7,FadeWait,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1A8,FadeInBlackQ_,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1A9,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1AA,CallSeasonBanner,defer-field-lifecycle,Starts or configures a field transition or separate scene; recall-free lifetime is not established.
+0x1AB,FadeInBlack,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1AC,FadeOutBlack,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1AD,FadeInWhite,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1AE,FadeOutWhite,defer-presentation,Changes screen visibility through a fade; follower draw/restore timing is only allowed in narrow audited contexts.
+0x1AF,CMD_1AF,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1B0,CMD_1B0,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1B1,CallLeagueLiftWarp,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x1B2,CMD_1B2,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1B3,CMD_1B3,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1B4,FieldTradeStart,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x1B5,FieldTradeCheck,allow-added,party-queries
+0x1B6,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1B7,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1B8,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1B9,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1BA,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1BB,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1BC,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1BD,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1BE,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1BF,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1C0,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x1C1,ElevatorSetTablePtr,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1C2,ElevatorBuildListMenu,allow-requested-child-event,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Starts an asynchronous selection or mission child event; its callback lifetime is not globally admitted.
+0x1C3,ElevatorChangeMap,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x1C4,PokeDexIsComplete,allow-added,save-state
+0x1C5,PokeDexGetEvaluationParams,allow-added,save-state
+0x1C6,PokeDexGiveNational,allow-added,save-state
+0x1C7,PokeDexHaveNational,allow-added,save-state
+0x1C8,PokeDexEnable,allow-added,save-state
+0x1C9,NDemoStart,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x1CA,NDemoEnd,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x1CB,NDemoReadyTalkMotion,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x1CC,CMD_1CC,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1CD,CMD_1CD,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1CE,CMD_1CE,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1CF,UnityTowerGetStateParam,allow-added,save-state
+0x1D0,UnityTowerCallFloorSelect,allow-requested-child-event,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Starts an asynchronous selection or mission child event; its callback lifetime is not globally admitted.
+0x1D1,MoveTutorCheckParty,allow-added,party-queries
+0x1D2,MoveTutorCheckPkm,allow-added,party-queries
+0x1D3,MoveTutorGetMoveID,allow-added,party-queries
+0x1D4,MoveTutorCallPokeSelect,defer-party-mutation,Opens a party or Pokémon-selection application; the chosen party member and field state can change.
+0x1D5,MoveReminderCheckPkm,allow-added,party-queries
+0x1D6,MoveReminderCallMoveSelect,defer-party-mutation,Opens a party or Pokémon-selection application; the chosen party member and field state can change.
+0x1D7,ObjInitProxyGPos,defer-actor-motion,Initializes a positioned field object; occupancy and follower collision have not been cleared globally.
+0x1D8,ObjInitWarpGPos,defer-actor-motion,Initializes a positioned field object; occupancy and follower collision have not been cleared globally.
+0x1D9,ObjInitNPCGPos,allow-existing,spawn-data
+0x1DA,CallPhraseSelect,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x1DB,CMD_1DB,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1DC,CMD_1DC,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1DD,CMD_1DD,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1DE,CMD_1DE,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1DF,CMD_1DF,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1E0,StadiumSetupActorsDouble,defer-presentation,Creates scripted stadium actors; actor pool and draw order can conflict with the follower.
+0x1E1,StadiumLoadTrainerTable,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1E2,StadiumFreeTrainerTable,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1E3,StadiumSetupActorSingle,defer-presentation,Creates scripted stadium actors; actor pool and draw order can conflict with the follower.
+0x1E4,StadiumSetupActorsTriple,defer-presentation,Creates scripted stadium actors; actor pool and draw order can conflict with the follower.
+0x1E5,StadiumResetTrainerFlags,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1E6,TrialHouseWorkInit,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1E7,TrialHouseWorkDelete,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1E8,TrialHousePrepareParty,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x1E9,TrialHouseCallTeamSelect,defer-party-mutation,Opens a party or Pokémon-selection application; the chosen party member and field state can change.
+0x1EA,TrialHousePrepareOpponent,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1EB,TrialHouseMsgDisp,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1EC,TrialHouseStartBattle,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x1ED,TrialHouseSetUseDownloaded,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1EE,TrialHouseUpdateBattleTestRank,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1EF,TrialHouseGetBattleTestRank,allow-added,save-state
+0x1F0,TrialHouseDownloadBattleTest,allow-requested-child-application,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Opens a child application or menu; field update and input ownership may be suspended or replaced.
+0x1F1,TrialHouseCalcPointsStars,allow-added,save-state
+0x1F2,TrialHouseGetDownloadedBattleStyle,allow-added,save-state
+0x1F3,TrialHouseSaveData,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1F4,TrialHouseShowResult,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x1F5,TrialHouseGetAvailableResultMask,allow-added,save-state
+0x1F6,CMD_1F6,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1F7,CMD_1F7,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1F8,CMD_1F8,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1F9,CMD_1F9,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1FA,PepQuizGenerate,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1FB,ItemCollectorCheckGroup,allow-added,other-queries
+0x1FC,ItemCollectorGetPrice,allow-added,other-queries
+0x1FD,CMD_1FD,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1FE,CMD_1FE,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x1FF,SurveyGetCurrentQuestionID,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Handler resides in an additional overlay; profile parity and callback behavior need checking
+0x200,SurveyGetCurrentAnswerIDs,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Handler resides in an additional overlay; profile parity and callback behavior need checking
+0x201,SurveyGetPopularOptionMsgID,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Handler resides in an additional overlay; profile parity and callback behavior need checking
+0x202,CMD_202,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x203,CMD_203,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x204,SurveyGetTime,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Handler resides in an additional overlay; profile parity and callback behavior need checking
+0x205,CallGreetingPhraseInput,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x206,CallThanksPhraseInput,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x207,CMD_207,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x208,CMD_208,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x209,CMD_209,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x20A,CMD_20A,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x20B,CMD_20B,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x20C,CMD_20C,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x20D,PokePartyFindEx,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x20E,CMD_20E,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x20F,CMD_20F,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x210,CMD_210,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x211,CMD_211,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x212,CMD_212,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x213,CMD_213,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x214,CallPokemonPreview,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x215,CMD_215,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x216,CMD_216,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x217,MapChangeEntreeForest,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x218,CMD_218,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x219,CMD_219,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x21A,WordSetEntreeForestPkmName,allow-added,word-formatting
+0x21B,EntreeForestSpawnAllPkm,defer-actor-motion,Creates or deletes field actors; follower actor pool and occupancy must be checked before the native operation.
+0x21C,EntreeForestStartBattle,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x21D,CMD_21D,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x21E,FishingChallengeGetRandomPkm,allow-added,other-queries
+0x21F,CMD_21F,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x220,CMD_220,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x221,CMD_221,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x222,CMD_222,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x223,PokePartyGetHiddenPowerType,allow-added,party-queries
+0x224,PokePartyGetIV,allow-added,party-queries
+0x225,ItemGetRandomOwnedTMMove,allow-added,other-queries
+0x226,CMD_226,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x227,RecordAdd,allow-added,save-state
+0x228,RecordGet,allow-added,save-state
+0x229,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x22A,CMD_22A,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x22B,CMD_22B,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x22C,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x22D,CMD_22D,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x22E,CMD_22E,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x22F,WordSetPastTradePkmName,allow-added,word-formatting
+0x230,MsgAbyssalRuins,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x231,CallGameManual,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x232,CMD_232,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x233,TrainerCardIsCountrySet,allow-added,save-state
+0x234,ActorFallDownToXZ,defer-actor-motion,Moves or teleports a field actor; the follower may overlap or conflict with its destination.
+0x235,BGMPlayEx,allow-requested-child-event,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Starts an asynchronous music child event; its callback ownership is not globally admitted.
+0x236,WordSetLoadItemCollectorPrice,allow-added,word-formatting
+0x237,ItemCollectorSell,allow-added,inventory-and-money
+0x238,BGMChangeMapEx,allow-requested-child-event,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Starts an asynchronous music child event; its callback ownership is not globally admitted.
+0x239,PlayerIsStockObjCode,allow-added,other-queries
+0x23A,PVPlayEx,allow-added,sound
+0x23B,CMD_23B,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x23C,CMD_23C,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x23D,CMD_23D,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x23E,DayCareGetSexForNamePrint,allow-added,word-formatting
+0x23F,CallPlaceNameDisp,allow-requested-child-application,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Opens a child application or menu; field update and input ownership may be suspended or replaced.
+0x240,CMD_240,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x241,CMD_241,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x242,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x243,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x244,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x245,BGMFadeOut,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Music or ambience transition may create a child event; callback ownership not established
+0x246,BGMFadeOutAll,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Music or ambience transition may create a child event; callback ownership not established
+0x247,MapChangeRail,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x248,PlayerMoveToYAsync_,defer-actor-motion,Changes player movement or position; recall before the scripted route can diverge from the follower trail.
+0x249,CMD_249,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x24A,CMD_24A,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x24B,FieldSubscreenDisable,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x24C,BGMAmbienceResume,allow-added,sound
+0x24D,CMD_24D,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x24E,PokePartyIsFullPP,allow-added,party-queries
+0x24F,ActorWalkRoute,allow-existing,observed-actor-actions
+0x250,ActorPairSet,defer-actor-motion,"Creates, ends, or drives a paired actor relationship; follower actor ownership and spacing may conflict."
+0x251,ActorPairEnd,defer-actor-motion,"Creates, ends, or drives a paired actor relationship; follower actor ownership and spacing may conflict."
+0x252,ActorPairGetTrID,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Getter-looking command in a battle or actor-pair subsystem; verify scene assumptions
+0x253,ActorPairSetMoveEnable,defer-actor-motion,"Creates, ends, or drives a paired actor relationship; follower actor ownership and spacing may conflict."
+0x254,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x255,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x256,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x257,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x258,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x259,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x25A,CMD_25A,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x25B,CMD_25B,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x25C,CMD_25C,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x25D,CMD_25D,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x25E,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x25F,CMD_25F,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x260,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x261,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x262,CMD_262,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x263,CMD_263,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x264,CMD_264,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x265,CMD_265,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x266,CMD_266,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x267,CMD_267,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x268,CMD_268,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x269,CMD_269,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x26A,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x26B,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x26C,WordSetMedalName,allow-added,word-formatting
+0x26D,WordSetMedalRank,allow-added,word-formatting
+0x26E,MedalGetCount,allow-added,other-queries
+0x26F,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x270,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x271,MedalAcknowledge,allow-added,save-state
+0x272,MedalGetGuruActor,allow-added,other-queries
+0x273,MedalGive,allow-added,save-state
+0x274,FunfestMissionStart,allow-requested-child-event,Admitted at project direction; child callback and scene-lifetime guards remain active. Previous concern: Starts an asynchronous selection or mission child event; its callback lifetime is not globally admitted.
+0x275,CMD_275,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x276,FunfestMissionBroadcast,allow-existing,interaction-progress-broadcast
+0x277,FunfestActorDelete,defer-actor-motion,Creates or deletes field actors; follower actor pool and occupancy must be checked before the native operation.
+0x278,FunfestDispSalesmanMessage,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x279,FunfestBGMReturn,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Music or ambience transition may create a child event; callback ownership not established
+0x27A,FunfestGetGenericInfo,allow-added,other-queries
+0x27B,FunfestGetItemExchangeInfo,allow-added,other-queries
+0x27C,FunfestGetItemSaleInfo,allow-added,other-queries
+0x27D,FunfestGetPokemonQuizInfo,allow-added,other-queries
+0x27E,FunfestGetPokemonQuizSpecies,allow-added,other-queries
+0x27F,FunfestGetPokemonQuizBogusSpecies,allow-added,other-queries
+0x280,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x281,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x282,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x283,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x284,CallPlaceSelect,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x285,CallWordSetPokeNameInput,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x286,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x287,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x288,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x289,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x28A,MapChangeFlyWarp,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x28B,CallEntralinkWarpOut,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x28C,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x28D,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x28E,CMD_28E,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x28F,CMD_28F,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x290,WordSetRivalName,allow-existing,read-only-context
+0x291,CMD_291,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x292,CMD_292,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x293,HiddenHollowCallWarpIn,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x294,HiddenHollowGetParam,allow-added,other-queries
+0x295,HiddenHollowReset,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x296,HiddenHollowCallWarpOut,defer-field-lifecycle,Changes map or field destination; the current follower actor belongs to the old field.
+0x297,CallWildBattleEx,defer-battle,"Starts a battle, trade, or capture scene; field actor lifetime and party state change."
+0x298,,blank-name-in-sheet,The supplied row has no command name; behavior not established
+0x299,WordSetLoadAbility,allow-added,word-formatting
+0x29A,WordSetLoadNature,allow-added,word-formatting
+0x29B,WordSetLoadJoinAvenueName,allow-added,word-formatting
+0x29C,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x29D,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x29E,MedalGetFieldEffectID,allow-added,other-queries
+0x29F,MedalDiscover,allow-added,save-state
+0x2A0,MedalIsObtained,allow-added,other-queries
+0x2A1,MedalGetMostCompleteCategory,allow-added,other-queries
+0x2A2,CMD_2A2,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2A3,CMD_2A3,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2A4,CMD_2A4,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2A5,CMD_2A5,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2A6,CMD_2A6,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2A7,CMD_2A7,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2A8,CMD_2A8,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2A9,CMD_2A9,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2AA,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2AB,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2AC,PlayerPlayLeafPileStuck,defer-actor-motion,Changes player movement or position; recall before the scripted route can diverge from the follower trail.
+0x2AD,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2AE,CMD_2AE,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2AF,GameGetDifficulty,allow-added,save-state
+0x2B0,CallUnovaLinkKeyUnlock,defer-field-lifecycle,Starts or configures a field transition or separate scene; recall-free lifetime is not established.
+0x2B1,CMD_2B1,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2B2,CMD_2B2,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2B3,CMD_2B3,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2B4,CMD_2B4,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2B5,CMD_2B5,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2B6,CMD_2B6,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2B7,CMD_2B7,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2B8,PedometerStart,allow-added,saved-step-counter
+0x2B9,PedometerEnd,allow-added,saved-step-counter
+0x2BA,PedometerGet,allow-added,other-queries
+0x2BB,Gym0601FanAmbienceStart,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Music or ambience transition may create a child event; callback ownership not established
+0x2BC,TVCheckCommercial,allow-added,other-queries
+0x2BD,TVGenCommercialMsgID,allow-added,other-queries
+0x2BE,ActorMoveLinear,defer-actor-motion,Moves or teleports a field actor; the follower may overlap or conflict with its destination.
+0x2BF,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2C0,FieldTradeGetSpecies,allow-added,party-queries
+0x2C1,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2C2,RepelRearm,scoped-only,Repel rearm is permitted only for the verified continuation script
+0x2C3,CMD_2C3,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2C4,CMD_2C4,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2C5,CMD_2C5,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2C6,JoinAvenueStoreStart,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2C7,JoinAvenueStoreEnd,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2C8,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2C9,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2CA,CallHappyPhraseInput,defer-presentation,"Runs a presentation, demo, or text-entry scene; field rendering or callback ownership can change."
+0x2CB,CMD_2CB,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2CC,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2CD,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2CE,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2CF,PokeDexCheckHabitatList,allow-added,save-state
+0x2D0,PokeDexEnableHabitatList,allow-added,save-state
+0x2D1,CMD_2D1,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2D2,FieldOpenRestoreLCD,defer-field-lifecycle,Opens or closes the field application; current follower actor lifetime cannot be retained.
+0x2D3,CMD_2D3,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2D4,ItemGetTMCount,allow-added,inventory-and-money
+0x2D5,CMD_2D5,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2D6,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2D7,CMD_2D7,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2D8,CMD_2D8,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2D9,CMD_2D9,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2DA,CMD_2DA,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2DB,UnityTowerSetFloor,defer-field-lifecycle,Starts or configures a field transition or separate scene; recall-free lifetime is not established.
+0x2DC,UnityTowerInitVisitorMessage,allow-added,word-formatting
+0x2DD,UnityTowerGetVisitorCount,allow-added,other-queries
+0x2DE,UnityTowerSetHobby,allow-added,save-state
+0x2DF,UnityTowerGetHobby,allow-added,other-queries
+0x2E0,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2E1,MedalDiscoverInitial,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2E2,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2E3,LensFlareRequest,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2E4,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2E5,HiddenHollowSet,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2E6,HiddenHollowCreateEvents,defer-actor-motion,Creates or deletes field actors; follower actor pool and occupancy must be checked before the native operation.
+0x2E7,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2E8,CMD_2E8,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2E9,CMD_2E9,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2EA,PokePartyAddNPoke,defer-party-mutation,"Mutates Pokémon party data; follower identity, form, or eligibility may need re-evaluation."
+0x2EB,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2EC,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2ED,CMD_2ED,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2EE,MusicalIsPropOwned,allow-added,save-state
+0x2EF,MusicalGetOwnedPropCount,allow-added,save-state
+0x2F0,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
+0x2F1,CMD_2F0,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2F2,CMD_2F1,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit

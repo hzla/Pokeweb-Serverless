@@ -156,7 +156,10 @@ def setup(direction=0,species=25,zone=0,reset_mon=True):
  uc.mem_write(bill,bytes(28));held=pressed=1
  return bytes(uc.mem_read(A+68,12)),bytes(uc.mem_read(F+52,64*28+8))
 def begin():
+ before=sum(pc==0x02006254 and r0==1351 for pc,r0,*_ in calls)
  event=call('fwt_begin',[F,P,A,FIELD,GAME,SNAP])
+ after=sum(pc==0x02006254 and r0==1351 for pc,r0,*_ in calls)
+ assert after-before==int(bool(event)),('dialogue start sound',event,before,after)
  if event:put(GAME+0x18,event)
  return event
 def stage():return u32(addr('FollowingTalkDebug')+12)

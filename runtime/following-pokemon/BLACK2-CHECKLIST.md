@@ -33,4 +33,4 @@ Start with B01–B06 and B13. If those pass, continue through B12. For a failure
 | B25 | Cold boot 0.6.37 with Rapidash walking, then Reuniclus walking and A+B mounted. Check each direction while idle and moving, including a sideways player overlap. | Shadows shade the ground behind each Pokémon and never darken opaque Pokémon pixels. Walking Reuniclus keeps its previous appearance; the rider, player, and building depth order remains stable. | NOT RUN |
 | B26 | Cold boot 0.6.38 with a large follower and walk south through a player overlap; repeat with a small follower, then walk north and sideways beside a building. | The player keeps foreground priority while walking south. The follower and its shadow stay aligned, and north/sideways priority remains stable. | NOT RUN |
 
-Black 2 uses its own three PMC modules and binary contract. White 2 or expansion savestates do not validate this port because they retain different loaded code and addresses.
+Black 2 uses its own four PMC modules and binary contract. White 2 or expansion savestates do not validate this port because they retain different loaded code and addresses.

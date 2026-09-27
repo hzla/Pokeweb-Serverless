@@ -46,38 +46,51 @@ def module_exports(path,base):
   result[get(hashes+i*4)]=(address if flags&4 else base+address)|(1 if typ==3 else 0)
  return result
 
-def verify_imports(field,events,core):
+def verify_imports(field,events,core,options):
  imports={s[2] for s in read_module(field)[2] if s[4]&2}
  assert imports=={symbol_hash('FollowingEventsAPI'),symbol_hash('FollowingCoreAPI')},imports
  assert imports<=module_exports(events,0).keys()|module_exports(core,0).keys()
- assert not any(s[4]&2 for s in read_module(events)[2])
+ event_imports={s[2] for s in read_module(events)[2] if s[4]&2}
+ assert event_imports=={symbol_hash(name) for name in (
+  'FollowingResidentEventBind','FollowingResidentEventClear',
+  'FollowingResidentTokenStore','FollowingResidentTokenConsume','FollowingResidentTokenDiscard')},event_imports
+ assert event_imports<=module_exports(core,0).keys()
  assert not any(s[4]&2 for s in read_module(core)[2])
+ assert not any(s[4]&2 for s in read_module(options)[2])
 
 def relocate(path,base,imports=None):
  code,bss,symbols,rels=read_module(path);loaded=code+bytes(bss)
  for at,module,kind,idx in rels:
   if module!=255:continue
   _,_,address,typ,flags,_=symbols[idx]
-  assert kind==0,'new internal relocation type requires coverage'
   if flags&2:
    assert imports and address in imports,'unresolved import'
    target=imports[address]
   else:target=(address if flags&4 else base+address)|(1 if typ==3 else 0)
-  struct.pack_into('<I',loaded,at,target)
+  if kind==0:struct.pack_into('<I',loaded,at,target)
+  elif kind==1:
+   delta=(target&~1)-(base+at+4)
+   assert typ==3 and target&1 and delta%2==0 and -(1<<22)<=delta<(1<<22)
+   struct.pack_into('<HH',loaded,at,0xf000|((delta>>12)&0x7ff),0xf800|((delta>>1)&0x7ff))
+  else:raise AssertionError('new internal relocation type requires coverage')
  return loaded
 
 def load_events(uc,base=0x022c0000):
  dll=PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.dll'
+ core=PACKAGE_BUILD/f'PokewebFollowingCore{MODULE_SUFFIX}.dll'
+ core_base=0x022d0000
+ uc.mem_write(core_base,bytes(relocate(core,core_base)))
  audit(dll,PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.elf')
- uc.mem_write(base,bytes(relocate(dll,base)))
+ uc.mem_write(base,bytes(relocate(dll,base,module_exports(core,core_base))))
  return module_exports(dll,base)
 
 def load_dependencies(uc,events_base=0x022c0000,core_base=0x022d0000):
  events=PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.dll';core=PACKAGE_BUILD/f'PokewebFollowingCore{MODULE_SUFFIX}.dll'
  audit(events,PACKAGE_BUILD/f'PokewebFollowingEvents{MODULE_SUFFIX}.elf');audit(core,PACKAGE_BUILD/f'PokewebFollowingCore{MODULE_SUFFIX}.elf')
- uc.mem_write(events_base,bytes(relocate(events,events_base)))
  uc.mem_write(core_base,bytes(relocate(core,core_base)))
- exports=module_exports(events,events_base);exports.update(module_exports(core,core_base));return exports
+ exports=module_exports(core,core_base)
+ uc.mem_write(events_base,bytes(relocate(events,events_base,exports)))
+ exports.update(module_exports(events,events_base));return exports
 
 def install_hooks(uc,path,base,imports=None):
  """Apply final RPM external relocations with the same Thumb BL arithmetic."""

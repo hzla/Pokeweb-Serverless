@@ -3,6 +3,7 @@
 #include "interaction.h"
 #include "scene.h"
 #include "core_api.h"
+#include "registry.h"
 #include "render.h"
 #include "positioning.h"
 #ifdef FW_MOUNT
@@ -204,7 +205,8 @@ __attribute__((noinline)) static int config(void) {
  fwfield_registrySize=CALL(0x02070ded,unsigned(*)(void*))(file);
  FwRegistryInput input={registry_read,file,fwfield_page,fwfield_index,FW_MAX_SPECIES+2,fwfield_registrySize,header[6],header[4],header[5],0,0};
  FollowingConfigDebug.stage=4;
- ok=fwfield_registrySize==header[3]&&FollowingCoreAPI.configureStream(&input);
+ ok=fwfield_registrySize==header[3]&&fw_registry_stream(&input)
+    &&FollowingCoreAPI.publish(input.descriptors);
  CALL(0x02070de1,int(*)(void*))(file);
  fwfield_pageCount=0;
  if(ok){fwfield_stride=input.stride;fwfx_set_resource_count(header[5]);fwfield_configState=1;FollowingConfigDebug.stage=7;}

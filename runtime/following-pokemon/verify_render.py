@@ -212,6 +212,21 @@ axis=(3253,2488)
 player_depth=sum((npc_seen[-1][i]-player_seen[-1][0][i])*axis[i-1] for i in (1,2))//4096
 assert player_depth>=512,(player_seen[-1],npc_seen[-1],player_depth)
 assert bytes(uc.mem_read(BILL,84))==native
+# New drawprio.mln: a small follower six world units east of the player still
+# triggers shadow clearance while an ordinary NPC is one tile south. Preserve
+# a whole-billboard depth gap in the native player/NPC order across bob frames.
+for bob in (0,6144):
+ setup();put(A+4,0x304002);half(P+24,2);half(A+24,3)
+ vec(CAM+32,(0,760739,581835));vec(CAM+56,(0,0,0))
+ vec(P+68,(0,0,0));vec(A+68,(24576,0,0))
+ vec(BILL+4,(0,-6484,0));vec(BILL+32,(32768,-6484+bob,-8192))
+ half(SCENE+14,3);vec(BILL+56+4,(0,-6484,65536))
+ half(BILL+56,8);half(BILL+56+18,8192);half(BILL+56+20,8192);half(BILL+56+24,0x121f)
+ native=bytes(uc.mem_read(BILL,84));draw()
+ axis=(3253,2488)
+ player_depth=sum((npc_seen[-1][i]-player_seen[-1][0][i])*axis[i-1] for i in (1,2))//4096
+ assert player_depth>=4*4096-32,(bob,player_seen[-1],npc_seen[-1],player_depth)
+ assert bytes(uc.mem_read(BILL,84))==native
 # Invalid/stale/unsupported objects forward once without mutating the scene.
 for invalid in ('hidden','unused','lost','foreign','slot','index','mode','camera','zero-camera','scale'):
  setup();vec(BILL+32,(65536,6144,0))
