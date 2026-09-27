@@ -16,7 +16,7 @@ def audit(profile,rom_path):
  if profile=='black2':assets/='black2';build/='black2'
  if profile=='white2italy':assets/='white2italy';build/='white2italy'
  manifest=json.loads((assets/'runtime.json').read_text());modules=[];objects=[]
- for name in ['Core','Events','Field']:
+ for name in ['Core','Events','Field','Options']:
   stem='PokewebFollowing'+name+('B2' if profile=='black2' else 'W2I' if profile=='white2italy' else 'W2');path=assets/(stem+'.dll');raw=path.read_bytes()
   code,bss,symbols,rels=read_module(path)
   modules.append(dict(name=stem,fileBytes=len(raw),codeAndInitializedData=len(code),bss=bss,
@@ -50,7 +50,7 @@ def audit(profile,rom_path):
   code,bss,_,_=read_module(path)
   assert (build/'base'/(stem+'.dll')).read_bytes()==path.read_bytes(),'Base build no longer matches packaged DLL'
   base_modules.append(dict(name=stem,fileBytes=path.stat().st_size,codePlusBss=len(code)+bss))
- base_total=next(m['codePlusBss'] for m in modules if 'Core' in m['name'])+sum(m['codePlusBss'] for m in base_modules)
+ base_total=sum(m['codePlusBss'] for m in modules if 'Core' in m['name'] or 'Options' in m['name'])+sum(m['codePlusBss'] for m in base_modules)
  surf_registry=rom.getFileByName('following/surf-registry.bin')
  surf_archive=rom.getFileByName('following/surf-mounts.narc')
  surf=dict(registryBytes=len(surf_registry),archiveBytes=len(surf_archive),
@@ -65,6 +65,8 @@ def audit(profile,rom_path):
  positioning=dict(archiveBytes=len(positioning_bytes),residentCatalogBytes=0,
                   selectedLandBytes=12,selectedSurfBytes=8) if positioning_bytes else None
  return dict(profile=profile,version=manifest['version'],modules=modules,baseModules=base_modules,baseFixedPayloadBytes=base_total,fullMinusBaseBytes=total-base_total,
+             battleResidentPayloadBytes=next(m['codePlusBss'] for m in modules if 'Core' in m['name']),
+             conditionalOverlay12PayloadBytes=next(m['codePlusBss'] for m in modules if 'Events' in m['name']),
              surf=surf,land=land,positioning=positioning,
              largestObjects=sorted(objects,key=lambda o:o['bytes'],reverse=True)[:15],
              fixedPayloadBytes=total,registryBytes=len(data),registryRecords=count,
@@ -77,24 +79,26 @@ def audit(profile,rom_path):
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('stock_rom',type=Path);p.add_argument('black2_rom',type=Path);p.add_argument('upgrade_rom',type=Path);p.add_argument('italy_rom',type=Path,nargs='?');a=p.parse_args()
  reports=[audit('stock',a.stock_rom),audit('black2',a.black2_rom),audit('white2upgrade',a.upgrade_rom)]
- previous=[dict(profile='stock',version='0.6.75-alpha',fixedPayloadBytes=67956),dict(profile='black2',version='0.6.41-alpha',fixedPayloadBytes=67956),dict(profile='white2upgrade',version='0.7.36-alpha',fixedPayloadBytes=68944)]
+ previous=[dict(profile='stock',version='0.6.77-alpha',fixedPayloadBytes=67924),dict(profile='black2',version='0.6.43-alpha',fixedPayloadBytes=67924),dict(profile='white2upgrade',version='0.7.38-alpha',fixedPayloadBytes=68816)]
  if a.italy_rom:
   reports.append(audit('white2italy',a.italy_rom))
-  previous.append(dict(profile='white2italy',version='0.6.42-alpha',fixedPayloadBytes=68132))
- core_baselines={'stock':('0.6.75-alpha',3500),'black2':('0.6.41-alpha',3500),
-                 'white2italy':('0.6.42-alpha',3500),'white2upgrade':('0.7.36-alpha',3720)}
- options_memory=[]
+  previous.append(dict(profile='white2italy',version='0.6.44-alpha',fixedPayloadBytes=68100))
+ core_baselines={'stock':('0.6.76-alpha',3768),'black2':('0.6.42-alpha',3768),
+                 'white2italy':('0.6.43-alpha',3768),'white2upgrade':('0.7.37-alpha',3988)}
+ battle_comparison=[];options_memory=[]
  for r in reports:
   core=next(m['codePlusBss'] for m in r['modules'] if 'Core' in m['name'])
   old_version,old_core=core_baselines[r['profile']]
-  options_memory.append(dict(profile=r['profile'],previousVersion=old_version,
-    previousCoreFixedBytes=old_core,currentCoreFixedBytes=core,
-    addedCoreFixedBytes=core-old_core,temporaryMenuAllocationBytes=1684,
-    temporaryMarkerSlots=2))
+  earlier=old_core+1684
+  battle_comparison.append(dict(profile=r['profile'],previousVersion=old_version,
+    previousCoreAndResidentEventsBytes=earlier,currentCoreBytes=core,
+    fixedPayloadSavedBytes=earlier-core))
+  options_memory.append(dict(profile=r['profile'],temporaryMenuAllocationBytes=1684,
+                             temporaryMarkerSlots=2))
  out={'measurements':reports,'previousReleaseMeasurements':previous,
-      'optionsMenuMemory':options_memory,
+      'battleResidencyComparison':battle_comparison,'optionsMenuMemory':options_memory,
       'limits':'Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.',
-      'implementationStatus':'ROM registry streaming and 8 KiB conversation buffers implemented; automated checks passed, game emulator acceptance pending.'}
+      'implementationStatus':'Field-only registry validation, overlay-scoped Options/events modules and resident ARM9 forwarding implemented; automated checks passed, game emulator acceptance pending.'}
  (HERE/'MEMORY-AUDIT.json').write_text(json.dumps(out,indent=2)+'\n')
  lines=['# Follower memory footprint','', 'Generated by `audit_memory.py` from the packaged DLLs, matching debug ELFs and delivered ROM data.', '',
         '| Profile | Previous full | Base fixed payload | Full fixed payload | Full − base | Species index / page cache | Generic capacity / data | Context capacity / data | Gift scratch / data |', '|---|---:|---:|---:|---:|---:|---:|---:|---:|']
@@ -109,10 +113,13 @@ def main():
   'These numbers are not whole-game peak heap measurements. A fresh base',
   'installation omits the Surf and land-rider archives, their registries and',
   'anchors, and the associated resident textures.', '',
+  '## Battle residency','',
+  'The resident follower core is the only module linked to ARM9 hooks after field teardown. Its packaged code, initialized data and BSS are '+', '.join(f"{r['profile']} {r['battleResidentPayloadBytes']:,} B" for r in reports)+'.',
+  'Compared with the preceding core plus resident event bridge, the fixed payload saved during battle is '+', '.join(f"{r['profile']} {entry['fixedPayloadSavedBytes']:,} B" for r,entry in zip(reports,battle_comparison))+'.',
+  'The event bridge has no ARM9 target and unloads when field overlays 12 and 36 close; the separate Options module targets only overlay 140. If overlay 12 remains loaded in a particular battle transition, the event bridge contributes an additional '+', '.join(f"{r['profile']} {r['conditionalOverlay12PayloadBytes']:,} B" for r in reports)+'.',
+  'The field module and its 8 KiB conversation buffer, 4 KiB contextual buffer, page cache, species index, trail, actor state, riding and Surf code are scoped to overlay 36. These figures exclude loader metadata, allocator overhead and native game allocations; live battle heap remains unmeasured.', '',
   '## In-game Options row','',
-  'The installed resident core grows by '+', '.join(f"{r['profile']} {r['addedCoreFixedBytes']:,} B" for r in options_memory)+
-  ' compared with the preceding alpha cores. This is code, initialized data, and BSS;',
-  'base and full share the same core. The row styling reuses the retail BG',
+  'The Options UI now lives in a separate overlay-140 module, so its code is absent during battle. The row styling reuses the retail BG',
   'screen buffer and adds no temporary allocation. While Options is open,',
   'the three existing native text windows allocate 1,684 bytes: 50 four-bit',
   'tiles (1,600 bytes), three 16-byte',
@@ -130,19 +137,18 @@ def main():
   'A full trail still recalls and reseeds safely; slow movement and complex paths',
   'require human emulator acceptance to confirm the smaller bound is sufficient.', '',
   '## Implemented behavior','',
-  '- The complete appearance registry stays in ROM: 61,808 bytes for stock and',
-  '  56,648 bytes for Upgrade. No full-registry buffer or heap allocation remains.',
+  '- The complete appearance registries stay in ROM: '+', '.join(f"{r['profile']} {r['registryBytes']:,} bytes" for r in reports)+'. No full-registry buffer or heap allocation remains.',
   '- Initialization streams validation and both checksums through a 1 KiB cache,',
   '  builds 16-bit species row boundaries, then publishes resident lookup bounds.',
-  '- Selection reads only the relevant species pages. Unown in the stock 24-byte',
-  '  format spans pages; lookup scoring remains identical across boundaries.',
+  '- Selection reads only the relevant species pages. Lookup scoring remains',
+  '  identical when a species group spans cache pages.',
   '  Cache hits do not read the file. Movement and drawing perform no registry I/O.',
   '- Invalid, short or missing data suppresses following safely. Every opened',
   '  file is closed. Unload clears cached state and the resident extension bounds.',
-  '- The resident bridge is ABI 2. Its reader callback is synchronous and is',
-  '  never retained after initialization. Core/field updates are staged together.',
+  '- The resident row-count bridge is ABI 3. Field setup validates and streams',
+  '  the registry synchronously, then publishes only the checked descriptor count.',
   '- Generic conversation capacity is 8,192 bytes. Build, installation and runtime reject',
-  '  oversized data rather than truncating it; current messages use 3,852 bytes.',
+  f"  oversized data rather than truncating it; current messages use at most {max(r['conversationBytes'] for r in reports):,} bytes.",
   '- Contextual dialogue and one-time gifts share one 4,096-byte fixed NARC scratch buffer; gifts load first and dialogue replaces it only when no unclaimed gift matches. It is loaded only',
   '  when the first follower conversation is attempted, with no PMC shared-heap allocation.',
   '- Upgrade reaction selection now accepts species 1–1023; stock remains 1–649.',

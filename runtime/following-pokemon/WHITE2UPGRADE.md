@@ -1,9 +1,16 @@
-# White2Upgrade Following Pokémon — 0.7.32-alpha
+# White2Upgrade Following Pokémon — 0.7.41-alpha
 
 This is a separate expansion profile of the follower accepted by the user in
 stock White 2 0.6.10. Movement, dialogue, menu/PC handling, scene guards, ball
 animations, and final actor draw correction use the same implementation. The
 stock package is separate and is not replaced by the expansion DLLs.
+
+The current package uses a small battle-resident core, an overlay-scoped event
+bridge, an overlay-36 field module, and a separate overlay-140 Options module.
+Registry validation runs in the field module; the core holds only validated
+object-code bounds, native event forwarding, and bounded transition tokens.
+The resident core API is ABI 3. See [MEMORY-AUDIT.md](MEMORY-AUDIT.md) for the
+packaged footprint and limits of the measurement.
 
 Version 0.7.32 corrects native shadow overdraw on walking and mounted Pokémon
 with a draw-only depth adjustment. Their on-screen position and the ground
@@ -193,7 +200,7 @@ streams header/record/zone validation and both checksums before publishing
 lookup bounds; later identity changes read only the matching species pages.
 File handles close before returning, and no registry I/O runs in movement or
 render callbacks. Missing/short/invalid data suppresses following safely.
-Core bridge ABI 2 uses a synchronous reader and retains no field callback.
+The current core bridge ABI 3 receives only the validated descriptor count and retains no field callback.
 Unload revokes extension bounds and invalidates the cache.
 
 Bounded FWCG v2 diagnostics contain stage, registry length, cache capacity and
@@ -250,9 +257,9 @@ python3 runtime/following-pokemon/import_surf_mounts.py --profile white2upgrade
 npm run following:build-upgrade -- /path/to/White2Upgrade.nds --publish
 npm run following:build-rom -- /path/to/White2Upgrade.nds ../.pokeweb-local-archive/current/follower-roms /path/to/previous.sav
 python3 runtime/following-pokemon/verify_surf_upgrade.py /path/to/White2Upgrade.nds
-npm run following:verify-upgrade -- /path/to/White2Upgrade.nds /path/to/White2Upgrade-Following-0.7.31-alpha.nds
-FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_registry_stream.py --profile white2upgrade /path/to/White2Upgrade-Following-0.7.31-alpha.nds
-FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade_snapshot.py /path/to/nofollowers.mln /path/to/White2Upgrade-Following-0.7.31-alpha.nds
+npm run following:verify-upgrade -- /path/to/White2Upgrade.nds /path/to/White2Upgrade-Following-0.7.41-alpha.nds
+FOLLOWING_PROFILE=white2upgrade FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_registry_stream.py --profile white2upgrade /path/to/White2Upgrade-Following-0.7.41-alpha.nds
+FOLLOWING_BUILD_DIR="$PWD/runtime/following-pokemon/build/white2upgrade" python3 runtime/following-pokemon/verify_upgrade_snapshot.py /path/to/nofollowers.mln /path/to/White2Upgrade-Following-0.7.41-alpha.nds
 python3 runtime/following-pokemon/generate_upgrade_docs.py
 ```
 
@@ -262,7 +269,7 @@ The contract generator is for capturing an independently audited baseline, not
 for bypassing an unsupported-runtime rejection. Reimporting art does not require
 recompiling the modules.
 
-The batch builder delivers `White2Upgrade-Following-0.7.31-alpha.nds` to `Repos/`.
+The batch builder delivers `White2Upgrade-Following-0.7.41-alpha.nds` to `Repos/`.
 An explicit prior `.sav` can seed a new version; an existing destination save is
 preserved. The 0.7.27 delivery copies the preceding 0.7.26 expansion save for
 continuity. Keep an original copy before playing the expansion;
