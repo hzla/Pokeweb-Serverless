@@ -7,6 +7,7 @@ import { writeRpm } from "../src/pokeweb/rpm";
 import { checkFollowerCompatibility, installFollowerAlpha, readFollowerAlphaInstall, readFollowingFile, FOLLOWER_RESOURCE_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH } from "../src/pokeweb/followingPokemonProject";
 import { decodeFollowerRegistry, followerPreview } from "../src/pokeweb/followingPokemonModel";
 import { NARC } from "../src/nds/narc";
+import { decodeGen5TextBank } from "../src/pokeweb/text";
 import laterManifest from "../src/assets/following/white2upgrade/later-followers.json";
 import contract from "../runtime/following-pokemon/contract.json";
 const [input, output] = process.argv.slice(2);
@@ -45,7 +46,15 @@ for(const [path,id] of files(a.filenames)) {
   // Standard export may normalize malformed NARC containers; all member bytes must stay identical.
   if(new TextDecoder().decode(x.subarray(0,4))!=="NARC") throw new Error(`Changed unrelated file ${path}`);
   const aa=new NARC(x).files,bb=new NARC(y).files;
-  if(aa.length!==bb.length || aa.some((f,j)=>f.length!==bb[j].length || f.some((v,k)=>v!==bb[j][k])))throw new Error(`Changed unrelated NARC member ${path}`);
+  const ownedOptions=new Map([[6,"FOLLOWERS"],[21,"ON"],[22,"OFF"],[30,"Choose whether Pokémon follow you."]]);
+  const changed=aa.some((f,j)=>{
+   if(path==="a/0/0/2"&&j===32){
+    const before=decodeGen5TextBank(f).map(entry=>entry[1]),after=decodeGen5TextBank(bb[j]).map(entry=>entry[1]);
+    return before.length!==after.length||before.some((text,id)=>ownedOptions.has(id)?after[id]!==ownedOptions.get(id):after[id]!==text);
+   }
+   return f.length!==bb[j].length||f.some((v,k)=>v!==bb[j][k]);
+  });
+  if(aa.length!==bb.length||changed)throw new Error(`Changed unrelated NARC member ${path}`);
  }
  unchanged++;
 }

@@ -2,56 +2,69 @@
   "measurements": [
     {
       "profile": "stock",
-      "version": "0.6.76-alpha",
+      "version": "0.6.80-alpha",
       "modules": [
         {
           "name": "PokewebFollowingCoreW2",
-          "fileBytes": 4832,
-          "codeAndInitializedData": 3724,
-          "bss": 44,
-          "codePlusBss": 3768,
-          "expandedModuleBytes": 4880,
-          "symbols": 36,
-          "exportedSymbols": 25,
+          "fileBytes": 1568,
+          "codeAndInitializedData": 652,
+          "bss": 136,
+          "codePlusBss": 788,
+          "expandedModuleBytes": 1712,
+          "symbols": 27,
+          "exportedSymbols": 22,
           "allSymbolNamesStripped": true
         },
         {
           "name": "PokewebFollowingEventsW2",
-          "fileBytes": 3168,
-          "codeAndInitializedData": 1544,
-          "bss": 140,
-          "codePlusBss": 1684,
-          "expandedModuleBytes": 3312,
-          "symbols": 62,
-          "exportedSymbols": 39,
+          "fileBytes": 2976,
+          "codeAndInitializedData": 1436,
+          "bss": 28,
+          "codePlusBss": 1464,
+          "expandedModuleBytes": 3008,
+          "symbols": 57,
+          "exportedSymbols": 34,
           "allSymbolNamesStripped": true
         },
         {
           "name": "PokewebFollowingFieldW2",
-          "fileBytes": 49280,
-          "codeAndInitializedData": 42696,
+          "fileBytes": 50704,
+          "codeAndInitializedData": 44072,
           "bss": 20076,
-          "codePlusBss": 62772,
-          "expandedModuleBytes": 69360,
-          "symbols": 249,
-          "exportedSymbols": 164,
+          "codePlusBss": 64148,
+          "expandedModuleBytes": 70784,
+          "symbols": 251,
+          "exportedSymbols": 166,
+          "allSymbolNamesStripped": true
+        },
+        {
+          "name": "PokewebFollowingOptionsW2",
+          "fileBytes": 2912,
+          "codeAndInitializedData": 1996,
+          "bss": 40,
+          "codePlusBss": 2036,
+          "expandedModuleBytes": 2960,
+          "symbols": 31,
+          "exportedSymbols": 15,
           "allSymbolNamesStripped": true
         }
       ],
       "baseModules": [
         {
           "name": "PokewebFollowingEventsW2Base",
-          "fileBytes": 2784,
-          "codePlusBss": 1452
+          "fileBytes": 2752,
+          "codePlusBss": 1352
         },
         {
           "name": "PokewebFollowingFieldW2Base",
-          "fileBytes": 36144,
-          "codePlusBss": 49872
+          "fileBytes": 37552,
+          "codePlusBss": 51244
         }
       ],
-      "baseFixedPayloadBytes": 55092,
-      "fullMinusBaseBytes": 13132,
+      "baseFixedPayloadBytes": 55420,
+      "fullMinusBaseBytes": 13016,
+      "battleResidentPayloadBytes": 788,
+      "conditionalOverlay12PayloadBytes": 1464,
       "surf": {
         "registryBytes": 11656,
         "archiveBytes": 18339700,
@@ -64,7 +77,7 @@
         "anchorTableBytes": 20608,
         "appearanceRows": 2574,
         "residentRiderTextures": 12,
-        "codeAndInitializedDataBytes": 42696
+        "codeAndInitializedDataBytes": 44072
       },
       "positioning": {
         "archiveBytes": 42612,
@@ -109,6 +122,11 @@
           "section": ".data"
         },
         {
+          "name": "fws_safe_commands",
+          "bytes": 746,
+          "section": ".rodata"
+        },
+        {
           "name": "land",
           "bytes": 700,
           "section": ".bss"
@@ -122,11 +140,6 @@
           "name": "scene",
           "bytes": 576,
           "section": ".bss"
-        },
-        {
-          "name": "fws_safe_commands",
-          "bytes": 340,
-          "section": ".rodata"
         },
         {
           "name": "fwfx",
@@ -149,7 +162,7 @@
           "section": ".data"
         }
       ],
-      "fixedPayloadBytes": 68224,
+      "fixedPayloadBytes": 68436,
       "registryBytes": 61808,
       "registryRecords": 2574,
       "registryHeapBytes": 0,
@@ -188,56 +201,69 @@
     },
     {
       "profile": "black2",
-      "version": "0.6.42-alpha",
+      "version": "0.6.46-alpha",
       "modules": [
         {
           "name": "PokewebFollowingCoreB2",
-          "fileBytes": 4832,
-          "codeAndInitializedData": 3724,
-          "bss": 44,
-          "codePlusBss": 3768,
-          "expandedModuleBytes": 4880,
-          "symbols": 36,
-          "exportedSymbols": 25,
+          "fileBytes": 1568,
+          "codeAndInitializedData": 652,
+          "bss": 136,
+          "codePlusBss": 788,
+          "expandedModuleBytes": 1712,
+          "symbols": 27,
+          "exportedSymbols": 22,
           "allSymbolNamesStripped": true
         },
         {
           "name": "PokewebFollowingEventsB2",
-          "fileBytes": 3168,
-          "codeAndInitializedData": 1544,
-          "bss": 140,
-          "codePlusBss": 1684,
-          "expandedModuleBytes": 3312,
-          "symbols": 62,
-          "exportedSymbols": 39,
+          "fileBytes": 2976,
+          "codeAndInitializedData": 1436,
+          "bss": 28,
+          "codePlusBss": 1464,
+          "expandedModuleBytes": 3008,
+          "symbols": 57,
+          "exportedSymbols": 34,
           "allSymbolNamesStripped": true
         },
         {
           "name": "PokewebFollowingFieldB2",
-          "fileBytes": 49280,
-          "codeAndInitializedData": 42696,
+          "fileBytes": 50704,
+          "codeAndInitializedData": 44072,
           "bss": 20076,
-          "codePlusBss": 62772,
-          "expandedModuleBytes": 69360,
-          "symbols": 249,
-          "exportedSymbols": 164,
+          "codePlusBss": 64148,
+          "expandedModuleBytes": 70784,
+          "symbols": 251,
+          "exportedSymbols": 166,
+          "allSymbolNamesStripped": true
+        },
+        {
+          "name": "PokewebFollowingOptionsB2",
+          "fileBytes": 2912,
+          "codeAndInitializedData": 1996,
+          "bss": 40,
+          "codePlusBss": 2036,
+          "expandedModuleBytes": 2960,
+          "symbols": 31,
+          "exportedSymbols": 15,
           "allSymbolNamesStripped": true
         }
       ],
       "baseModules": [
         {
           "name": "PokewebFollowingEventsB2Base",
-          "fileBytes": 2784,
-          "codePlusBss": 1452
+          "fileBytes": 2752,
+          "codePlusBss": 1352
         },
         {
           "name": "PokewebFollowingFieldB2Base",
-          "fileBytes": 36144,
-          "codePlusBss": 49872
+          "fileBytes": 37552,
+          "codePlusBss": 51244
         }
       ],
-      "baseFixedPayloadBytes": 55092,
-      "fullMinusBaseBytes": 13132,
+      "baseFixedPayloadBytes": 55420,
+      "fullMinusBaseBytes": 13016,
+      "battleResidentPayloadBytes": 788,
+      "conditionalOverlay12PayloadBytes": 1464,
       "surf": {
         "registryBytes": 11656,
         "archiveBytes": 18339700,
@@ -250,7 +276,7 @@
         "anchorTableBytes": 20608,
         "appearanceRows": 2574,
         "residentRiderTextures": 12,
-        "codeAndInitializedDataBytes": 42696
+        "codeAndInitializedDataBytes": 44072
       },
       "positioning": {
         "archiveBytes": 42612,
@@ -295,6 +321,11 @@
           "section": ".data"
         },
         {
+          "name": "fws_safe_commands",
+          "bytes": 746,
+          "section": ".rodata"
+        },
+        {
           "name": "land",
           "bytes": 700,
           "section": ".bss"
@@ -308,11 +339,6 @@
           "name": "scene",
           "bytes": 576,
           "section": ".bss"
-        },
-        {
-          "name": "fws_safe_commands",
-          "bytes": 340,
-          "section": ".rodata"
         },
         {
           "name": "fwfx",
@@ -335,7 +361,7 @@
           "section": ".data"
         }
       ],
-      "fixedPayloadBytes": 68224,
+      "fixedPayloadBytes": 68436,
       "registryBytes": 61808,
       "registryRecords": 2574,
       "registryHeapBytes": 0,
@@ -374,56 +400,69 @@
     },
     {
       "profile": "white2upgrade",
-      "version": "0.7.37-alpha",
+      "version": "0.7.41-alpha",
       "modules": [
         {
           "name": "PokewebFollowingCoreW2",
-          "fileBytes": 5056,
-          "codeAndInitializedData": 3944,
-          "bss": 44,
-          "codePlusBss": 3988,
-          "expandedModuleBytes": 5104,
-          "symbols": 36,
-          "exportedSymbols": 25,
+          "fileBytes": 1568,
+          "codeAndInitializedData": 652,
+          "bss": 136,
+          "codePlusBss": 788,
+          "expandedModuleBytes": 1712,
+          "symbols": 27,
+          "exportedSymbols": 22,
           "allSymbolNamesStripped": true
         },
         {
           "name": "PokewebFollowingEventsW2",
-          "fileBytes": 3168,
-          "codeAndInitializedData": 1544,
-          "bss": 140,
-          "codePlusBss": 1684,
-          "expandedModuleBytes": 3312,
-          "symbols": 62,
-          "exportedSymbols": 39,
+          "fileBytes": 2976,
+          "codeAndInitializedData": 1436,
+          "bss": 28,
+          "codePlusBss": 1464,
+          "expandedModuleBytes": 3008,
+          "symbols": 57,
+          "exportedSymbols": 34,
           "allSymbolNamesStripped": true
         },
         {
           "name": "PokewebFollowingFieldW2",
-          "fileBytes": 49296,
-          "codeAndInitializedData": 42716,
+          "fileBytes": 50848,
+          "codeAndInitializedData": 44216,
           "bss": 20824,
-          "codePlusBss": 63540,
-          "expandedModuleBytes": 70128,
-          "symbols": 249,
-          "exportedSymbols": 164,
+          "codePlusBss": 65040,
+          "expandedModuleBytes": 71680,
+          "symbols": 251,
+          "exportedSymbols": 166,
+          "allSymbolNamesStripped": true
+        },
+        {
+          "name": "PokewebFollowingOptionsW2",
+          "fileBytes": 2912,
+          "codeAndInitializedData": 1996,
+          "bss": 40,
+          "codePlusBss": 2036,
+          "expandedModuleBytes": 2960,
+          "symbols": 31,
+          "exportedSymbols": 15,
           "allSymbolNamesStripped": true
         }
       ],
       "baseModules": [
         {
           "name": "PokewebFollowingEventsW2Base",
-          "fileBytes": 2784,
-          "codePlusBss": 1452
+          "fileBytes": 2752,
+          "codePlusBss": 1352
         },
         {
           "name": "PokewebFollowingFieldW2Base",
-          "fileBytes": 36160,
-          "codePlusBss": 50640
+          "fileBytes": 37696,
+          "codePlusBss": 52136
         }
       ],
-      "baseFixedPayloadBytes": 56080,
-      "fullMinusBaseBytes": 13132,
+      "baseFixedPayloadBytes": 56312,
+      "fullMinusBaseBytes": 13016,
+      "battleResidentPayloadBytes": 788,
+      "conditionalOverlay12PayloadBytes": 1464,
       "surf": {
         "registryBytes": 18608,
         "archiveBytes": 29081396,
@@ -436,7 +475,7 @@
         "anchorTableBytes": 37760,
         "appearanceRows": 4718,
         "residentRiderTextures": 12,
-        "codeAndInitializedDataBytes": 42716
+        "codeAndInitializedDataBytes": 44216
       },
       "positioning": {
         "archiveBytes": 75292,
@@ -481,6 +520,11 @@
           "section": ".data"
         },
         {
+          "name": "fws_safe_commands",
+          "bytes": 746,
+          "section": ".rodata"
+        },
+        {
           "name": "land",
           "bytes": 700,
           "section": ".bss"
@@ -494,11 +538,6 @@
           "name": "scene",
           "bytes": 576,
           "section": ".bss"
-        },
-        {
-          "name": "fws_safe_commands",
-          "bytes": 340,
-          "section": ".rodata"
         },
         {
           "name": "fwfx",
@@ -521,7 +560,7 @@
           "section": ".data"
         }
       ],
-      "fixedPayloadBytes": 69212,
+      "fixedPayloadBytes": 69328,
       "registryBytes": 56648,
       "registryRecords": 4718,
       "registryHeapBytes": 0,
@@ -560,56 +599,69 @@
     },
     {
       "profile": "white2italy",
-      "version": "0.6.43-alpha",
+      "version": "0.6.47-alpha",
       "modules": [
         {
           "name": "PokewebFollowingCoreW2I",
-          "fileBytes": 4832,
-          "codeAndInitializedData": 3724,
-          "bss": 44,
-          "codePlusBss": 3768,
-          "expandedModuleBytes": 4880,
-          "symbols": 36,
-          "exportedSymbols": 25,
+          "fileBytes": 1568,
+          "codeAndInitializedData": 652,
+          "bss": 136,
+          "codePlusBss": 788,
+          "expandedModuleBytes": 1712,
+          "symbols": 27,
+          "exportedSymbols": 22,
           "allSymbolNamesStripped": true
         },
         {
           "name": "PokewebFollowingEventsW2I",
-          "fileBytes": 3168,
-          "codeAndInitializedData": 1544,
-          "bss": 140,
-          "codePlusBss": 1684,
-          "expandedModuleBytes": 3312,
-          "symbols": 62,
-          "exportedSymbols": 39,
+          "fileBytes": 2976,
+          "codeAndInitializedData": 1436,
+          "bss": 28,
+          "codePlusBss": 1464,
+          "expandedModuleBytes": 3008,
+          "symbols": 57,
+          "exportedSymbols": 34,
           "allSymbolNamesStripped": true
         },
         {
           "name": "PokewebFollowingFieldW2I",
-          "fileBytes": 49568,
-          "codeAndInitializedData": 42872,
+          "fileBytes": 50976,
+          "codeAndInitializedData": 44244,
           "bss": 20076,
-          "codePlusBss": 62948,
-          "expandedModuleBytes": 69648,
-          "symbols": 254,
-          "exportedSymbols": 163,
+          "codePlusBss": 64320,
+          "expandedModuleBytes": 71056,
+          "symbols": 256,
+          "exportedSymbols": 165,
+          "allSymbolNamesStripped": true
+        },
+        {
+          "name": "PokewebFollowingOptionsW2I",
+          "fileBytes": 2928,
+          "codeAndInitializedData": 1996,
+          "bss": 40,
+          "codePlusBss": 2036,
+          "expandedModuleBytes": 2976,
+          "symbols": 31,
+          "exportedSymbols": 15,
           "allSymbolNamesStripped": true
         }
       ],
       "baseModules": [
         {
           "name": "PokewebFollowingEventsW2IBase",
-          "fileBytes": 2784,
-          "codePlusBss": 1452
+          "fileBytes": 2752,
+          "codePlusBss": 1352
         },
         {
           "name": "PokewebFollowingFieldW2IBase",
-          "fileBytes": 36416,
-          "codePlusBss": 50044
+          "fileBytes": 37840,
+          "codePlusBss": 51420
         }
       ],
-      "baseFixedPayloadBytes": 55264,
-      "fullMinusBaseBytes": 13136,
+      "baseFixedPayloadBytes": 55596,
+      "fullMinusBaseBytes": 13012,
+      "battleResidentPayloadBytes": 788,
+      "conditionalOverlay12PayloadBytes": 1464,
       "surf": {
         "registryBytes": 11656,
         "archiveBytes": 18339700,
@@ -622,7 +674,7 @@
         "anchorTableBytes": 20608,
         "appearanceRows": 2574,
         "residentRiderTextures": 12,
-        "codeAndInitializedDataBytes": 42872
+        "codeAndInitializedDataBytes": 44244
       },
       "positioning": {
         "archiveBytes": 42612,
@@ -667,6 +719,11 @@
           "section": ".data"
         },
         {
+          "name": "fws_safe_commands",
+          "bytes": 746,
+          "section": ".rodata"
+        },
+        {
           "name": "land",
           "bytes": 700,
           "section": ".bss"
@@ -680,11 +737,6 @@
           "name": "scene",
           "bytes": 576,
           "section": ".bss"
-        },
-        {
-          "name": "fws_safe_commands",
-          "bytes": 340,
-          "section": ".rodata"
         },
         {
           "name": "fwfx",
@@ -707,7 +759,7 @@
           "section": ".data"
         }
       ],
-      "fixedPayloadBytes": 68400,
+      "fixedPayloadBytes": 68608,
       "registryBytes": 61808,
       "registryRecords": 2574,
       "registryHeapBytes": 0,
@@ -748,63 +800,77 @@
   "previousReleaseMeasurements": [
     {
       "profile": "stock",
-      "version": "0.6.75-alpha",
-      "fixedPayloadBytes": 67956
+      "version": "0.6.77-alpha",
+      "fixedPayloadBytes": 67924
     },
     {
       "profile": "black2",
-      "version": "0.6.41-alpha",
-      "fixedPayloadBytes": 67956
+      "version": "0.6.43-alpha",
+      "fixedPayloadBytes": 67924
     },
     {
       "profile": "white2upgrade",
-      "version": "0.7.36-alpha",
-      "fixedPayloadBytes": 68944
+      "version": "0.7.38-alpha",
+      "fixedPayloadBytes": 68816
     },
     {
       "profile": "white2italy",
-      "version": "0.6.42-alpha",
-      "fixedPayloadBytes": 68132
+      "version": "0.6.44-alpha",
+      "fixedPayloadBytes": 68100
+    }
+  ],
+  "battleResidencyComparison": [
+    {
+      "profile": "stock",
+      "previousVersion": "0.6.76-alpha",
+      "previousCoreAndResidentEventsBytes": 5452,
+      "currentCoreBytes": 788,
+      "fixedPayloadSavedBytes": 4664
+    },
+    {
+      "profile": "black2",
+      "previousVersion": "0.6.42-alpha",
+      "previousCoreAndResidentEventsBytes": 5452,
+      "currentCoreBytes": 788,
+      "fixedPayloadSavedBytes": 4664
+    },
+    {
+      "profile": "white2upgrade",
+      "previousVersion": "0.7.37-alpha",
+      "previousCoreAndResidentEventsBytes": 5672,
+      "currentCoreBytes": 788,
+      "fixedPayloadSavedBytes": 4884
+    },
+    {
+      "profile": "white2italy",
+      "previousVersion": "0.6.43-alpha",
+      "previousCoreAndResidentEventsBytes": 5452,
+      "currentCoreBytes": 788,
+      "fixedPayloadSavedBytes": 4664
     }
   ],
   "optionsMenuMemory": [
     {
       "profile": "stock",
-      "previousVersion": "0.6.75-alpha",
-      "previousCoreFixedBytes": 3500,
-      "currentCoreFixedBytes": 3768,
-      "addedCoreFixedBytes": 268,
       "temporaryMenuAllocationBytes": 1684,
       "temporaryMarkerSlots": 2
     },
     {
       "profile": "black2",
-      "previousVersion": "0.6.41-alpha",
-      "previousCoreFixedBytes": 3500,
-      "currentCoreFixedBytes": 3768,
-      "addedCoreFixedBytes": 268,
       "temporaryMenuAllocationBytes": 1684,
       "temporaryMarkerSlots": 2
     },
     {
       "profile": "white2upgrade",
-      "previousVersion": "0.7.36-alpha",
-      "previousCoreFixedBytes": 3720,
-      "currentCoreFixedBytes": 3988,
-      "addedCoreFixedBytes": 268,
       "temporaryMenuAllocationBytes": 1684,
       "temporaryMarkerSlots": 2
     },
     {
       "profile": "white2italy",
-      "previousVersion": "0.6.42-alpha",
-      "previousCoreFixedBytes": 3500,
-      "currentCoreFixedBytes": 3768,
-      "addedCoreFixedBytes": 268,
       "temporaryMenuAllocationBytes": 1684,
       "temporaryMarkerSlots": 2
     }
   ],
   "limits": "Fixed payloads exclude loader metadata, allocator overhead, native graphics/UI allocations, stack usage and VRAM. Expanded module sizes are loader image requirements, not measured steady-state heap charges.",
-  "implementationStatus": "ROM registry streaming and 8 KiB conversation buffers implemented; automated checks passed, game emulator acceptance pending."
+  "implementationStatus": "Field-only registry validation, overlay-scoped Options/events modules and resident ARM9 forwarding implemented; automated checks passed, game emulator acceptance pending."
 }

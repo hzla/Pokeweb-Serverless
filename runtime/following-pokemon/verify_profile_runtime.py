@@ -49,7 +49,7 @@ def verify(profile: str, rom: Path, only: tuple[str, ...] = ()) -> None:
     build.mkdir(parents=True, exist_ok=True)
     for name in CASES:
         source = port_source((HERE / f"{name}.py").read_text())
-        for stem in ("Field", "FollowingEvents"):
+        for stem in ("Field", "FollowingEvents", "FollowingCore"):
             source = source.replace(f"{stem}W2.dll", f"{stem}{suffix}.dll")
             source = source.replace(f"{stem}W2.elf", f"{stem}{suffix}.elf")
         source = source.replace("verify_interactions as h", f"verify_interactions_{tag} as h")

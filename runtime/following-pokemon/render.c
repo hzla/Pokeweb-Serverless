@@ -48,8 +48,9 @@ static int near_player(const Actor *follower,const Actor *player){
  return dx>=-radius&&dx<=radius&&dz>=-radius&&dz<=radius;
 }
 /* The player's temporary foreground shift must stop before any nearby native
- * NPC that the unmodified player would be behind. Keep a fixed-point margin
- * for depth quantization; the scene's other billboards remain untouched. */
+ * NPC that the unmodified player would be behind. An almost-tied center depth
+ * is not enough for whole textured billboards: leave a visible depth budget
+ * for the native NPC instead of letting the follower correction reorder it. */
 static int32_t player_advance_limit(void *system,const Billboard *player,
                                    const Billboard *follower,FwPoint direction){
  void *scene=PTR(system,4);
@@ -69,8 +70,10 @@ static int32_t player_advance_limit(void *system,const Billboard *player,
      dz < -2*FW_TILE||dz > 2*FW_TILE||
      dy < -2*FW_TILE||dy > 2*FW_TILE)continue;
   int32_t depth=(int32_t)((dx*direction.x+dy*direction.y+dz*direction.z)/4096);
-  if(depth>FWR_TIE_MARGIN&&depth-FWR_TIE_MARGIN<limit)
-   limit=depth-FWR_TIE_MARGIN;
+  if(depth>0){
+   int32_t allowed=depth>FWR_NATIVE_FOREGROUND_GAP?depth-FWR_NATIVE_FOREGROUND_GAP:0;
+   if(allowed<limit)limit=allowed;
+  }
  }
  return limit;
 }

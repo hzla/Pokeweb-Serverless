@@ -1,22 +1,23 @@
 {
-  "version": "0.6.76-alpha",
-  "fieldSha256": "d3e5280aff7770319e971309ce937e1ef873132779a3eea3532682844e0214c7",
-  "eventsSha256": "3c083d5c564ece757b333d57515f2fc5a35fe7461fb3d440cea7e344d8296ba3",
+  "version": "0.6.80-alpha",
+  "fieldSha256": "744900ce756332a225eb92e0495fcd55a38b8cfb8a7231963d1f67bf6d8b7d5f",
+  "eventsSha256": "4cde86086fecbcd5638c5d4dd88f30e9d602cc0b7109a54b5496bc3c9b90a421",
   "eventsAbi": 6,
   "variants": {
     "base": {
-      "fieldSha256": "462ad2e8d988eb3d4ef66d9f4ec25a2743435b8d7b5e3e27060ccab4af531b9c",
-      "eventsSha256": "70ceaf44e7edaf86339b806c8c50a92df762ccb5dac899e9af105ed4855fa901",
+      "fieldSha256": "13e06ef4c60d48f9e4b8b38ddaf4971fea5e6c701128a359c276d082b5a45b56",
+      "eventsSha256": "62289d54da582946dee8874a797887e3d64adabe0d8172dd3c07f4e446f443bd",
       "eventsAbi": 4
     },
     "full": {
-      "fieldSha256": "d3e5280aff7770319e971309ce937e1ef873132779a3eea3532682844e0214c7",
-      "eventsSha256": "3c083d5c564ece757b333d57515f2fc5a35fe7461fb3d440cea7e344d8296ba3",
+      "fieldSha256": "744900ce756332a225eb92e0495fcd55a38b8cfb8a7231963d1f67bf6d8b7d5f",
+      "eventsSha256": "4cde86086fecbcd5638c5d4dd88f30e9d602cc0b7109a54b5496bc3c9b90a421",
       "eventsAbi": 6
     }
   },
-  "coreSha256": "1a57bc9c466c03c02437570c4990227a79fa683d223f1636df5ccc939ce7ae73",
-  "coreAbi": 2,
+  "coreSha256": "c58fa3e99d6e83e7ff8fac9e4484597929816280d989919e82bf842c121fc4ee",
+  "coreAbi": 3,
+  "optionsModuleSha256": "af52f500e86d5be5f46b678622ee9b7ef57d896b7a55ca8720e90a78d4f08b95",
   "previousVersions": [
     {
       "version": "0.6.53-alpha",
@@ -37,6 +38,49 @@
       "surfRegistrySha256": "8fb0d83e0b25963ab715f5bae9b648866c487f0ab505247861f079ba83d92054",
       "landRiderSha256": "3e24a8fac08aa7ea6a92ec0ecebe4b81ab86a093fed498863ac333ab13f28d8d",
       "landAnchorsSha256": "045bc996b038920ff0ef5fea9133c38f62644cab6bfbfaf9eff422bab30982c9"
+    },
+    {
+      "version": "0.6.79-alpha",
+      "fieldSha256": "bdebb55406e10bff677c60842cf98fa5ded554c4b8a13a7802c59a1ad6a9bafc",
+      "eventsSha256": "2af5320db9963887eefbce022bae64e579a79341b8b9b40e40cb351159d2a30e",
+      "eventsAbi": 6,
+      "coreSha256": "deac9b62835c5ce683e3819f9c44227abbdae5dfa530fb2055f1680d3f945dc5",
+      "coreAbi": 3,
+      "optionsModuleSha256": "04a2301e32987d991338beddf5c10e7b82d2a81be08b2136eec0c56e68456d3e"
+    },
+    {
+      "version": "0.6.78-alpha",
+      "fieldSha256": "2df3414053cfe126ec537ff7be5942dbdc27f83a204b046199dd33d988b48e6b",
+      "eventsSha256": "b10780c2f784b511a76f55638a3754e96bc6995f216d6b057c3befb2f7b0fe26",
+      "eventsAbi": 6,
+      "coreSha256": "24f178d9f1496c80a77a240d0c4dcdf1abb1c7dd9e71cfb6c8905259167c2c4a",
+      "coreAbi": 3,
+      "optionsModuleSha256": "bf1abbf42248b5dfd58ceddcf0c9445c97626ade9fa7d2ee7df256df9c36cc79"
+    },
+    {
+      "fieldSha256": "15e566b8deb452e379c09681caf51839d63ab7d7fc8b593047c03d7071a78644",
+      "version": "0.6.77-alpha",
+      "eventsSha256": "c60981f522444783e87cb4b92d4afeff9d3aaab4ec868bb1c3214874dfa315ec",
+      "eventsAbi": 6,
+      "coreSha256": "8c5a2174e790670e04eec145f37f097ef013c96b483ac044e1228fb59fb44556",
+      "coreAbi": 3,
+      "optionsModuleSha256": "66ad8b8c2289fbfffe90699481ea928e8016a3a9e9c11a2c15f5ade9c377cd96"
+    },
+    {
+      "version": "0.6.77-alpha",
+      "fieldSha256": "fa3a79a2523175e4da18286ed94c1ef1abebc1f1a9d20c31a10f8544c0b4ab15",
+      "eventsSha256": "c60981f522444783e87cb4b92d4afeff9d3aaab4ec868bb1c3214874dfa315ec",
+      "eventsAbi": 6,
+      "coreSha256": "8c5a2174e790670e04eec145f37f097ef013c96b483ac044e1228fb59fb44556",
+      "coreAbi": 3
+    },
+    {
+      "version": "0.6.76-alpha",
+      "fieldSha256": "d3e5280aff7770319e971309ce937e1ef873132779a3eea3532682844e0214c7",
+      "eventsSha256": "3c083d5c564ece757b333d57515f2fc5a35fe7461fb3d440cea7e344d8296ba3",
+      "eventsAbi": 6,
+      "coreSha256": "1a57bc9c466c03c02437570c4990227a79fa683d223f1636df5ccc939ce7ae73",
+      "coreAbi": 2
     },
     {
       "version": "0.6.75-alpha",

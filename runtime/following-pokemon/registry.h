@@ -1,8 +1,6 @@
 #ifndef FW_REGISTRY_H
 #define FW_REGISTRY_H
 #include <stdint.h>
-#include <stddef.h>
-int fw_registry_validate(const uint8_t *data, size_t size, uint16_t descriptors, uint16_t resources);
 #define FW_REGISTRY_PAGE 1024u
 /* Callback/context are borrowed for one synchronous validation only. */
 typedef struct {

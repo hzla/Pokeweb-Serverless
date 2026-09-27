@@ -3,7 +3,6 @@ from pathlib import Path
 import json
 import struct
 import subprocess
-import zlib
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent/"build/python"))
 from elftools.elf.elffile import ELFFile
@@ -46,16 +45,15 @@ veneer=bytes(uc.mem_read(symbols[f'FULL_COPY_ARM9_0x{retail:08x}'],8))
 uc.mem_write(retail,veneer)
 uc.ctl_remove_cache(retail,retail+len(lookup["expectedHex"])//2)
 assert call(retail,(0x1000,))==377
-payload=bytearray(56);payload[:4]=b'FWDB'
-struct.pack_into('<HHIHHHHHH',payload,4,1,1,len(payload),1,0,1009,975,0x3000,1008)
-struct.pack_into('<HBBBBHHBBbbb',payload,32,25,0,0,0,0,1008,100,32,0,0,0,0)
-struct.pack_into('<I',payload,24,zlib.crc32(payload))
-ptr=0x02200000;uc.mem_write(ptr,bytes(payload))
-assert call('PokewebFollowingConfigure',(ptr,len(payload),1009,975))==1
+ptr=0x02200000
+assert call('PokewebFollowingPublish',(1009,))==1
 assert call(retail,(0x3000,))==1008
 assert call(retail,(0x3001,))==10
-payload[32]^=1;uc.mem_write(ptr,bytes(payload))
-assert call('PokewebFollowingConfigure',(ptr,len(payload),1009,975))==0
+assert call('PokewebFollowingPublish',(1008,))==0
+assert call(retail,(0x3000,))==10
+assert call('PokewebFollowingPublish',(1008+4096+1,))==0
+assert call('PokewebFollowingPublish',(1009,))==1
+call('PokewebFollowingClear')
 assert call(retail,(0x3000,))==10
 # Execute the exact FULL_COPY replacement, including its surrounding register contract.
 patch=contract['hooks'][1];addr=patch['address'];size=patch['patchBytes']
@@ -70,4 +68,4 @@ for row in [0,1007,1008,2340,2341,5103]:
     assert uc.reg_read(UC_ARM_REG_R2)==4+row*28
     assert uc.reg_read(UC_ARM_REG_R0)==0x02210000
     assert uc.reg_read(UC_ARM_REG_SP)==STACK
-print('Compiled ARM946 core passed: 65,536 retail comparisons, veneer ABI, registry rejection/revocation, offsets >64 KiB.')
+print('Compiled ARM946 core passed: 65,536 retail comparisons, veneer ABI, row publication/revocation, offsets >64 KiB.')

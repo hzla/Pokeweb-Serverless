@@ -31,7 +31,7 @@ draw-enable and map-light bits. The current clone retains those bits and uses
 the last submitted ground/depth-corrected pose before shrinking in place.
 
 The profile-pinned field-player direction hook returns the native no-direction value
-while recall is active. The resident event bridge also defers an unsafe native
+while recall is active. The field-scoped event bridge also defers an unsafe native
 field callback until the effect completes, so a door or script cannot advance
 through the callback and unload the field early. Other game systems continue to
 update and render. If effects are unavailable, no recall wait is imposed. Field

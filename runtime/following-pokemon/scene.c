@@ -50,13 +50,12 @@ int fws_safe_opcode(unsigned code){
  while(lo<hi){unsigned mid=(lo+hi)/2;if(fws_safe_commands[mid]<code)lo=mid+1;else hi=mid;}
  return lo<sizeof(fws_safe_commands)/sizeof(fws_safe_commands[0])&&fws_safe_commands[lo]==code;
 }
-/* Repel's continuation prompt is a field script, not a scene transition.
-   Check the live supervisor and its script work rather than granting its
-   choice-window callback to every script that happens to use that window. */
-static void *repel_script_work(void *event){
+/* Ordinary field-script Yes/No windows keep their follower. The prompt child
+   must point to the script work owned by its live native supervisor. */
+static void *script_event_work(void *event){
  if(!event||U32(event,4)!=0x02153821u||PTR(event,16)!=scene.game)return 0;
  void *work=PTR(event,12),*scriptWork=work?PTR(work,0):0;
- return scriptWork&&*(uint16_t*)((uint8_t*)scriptWork+4)==10144u?scriptWork:0;
+ return scriptWork&&PTR(scriptWork,20)==event?scriptWork:0;
 }
 static int safe_callback(void *event,uintptr_t callback){
  void *work=PTR(event,12);
@@ -76,11 +75,24 @@ static int safe_callback(void *event,uintptr_t callback){
     callbacks and script commands subject to the normal guard. */
  if(callback==0x02019479u)return work&&PTR(work,0)==scene.game
    &&PTR(work,8)==PTR(scene.game,0x1c);
- /* Native yes/no prompt child for the Repel continuation. Its work points
-    back to the parent script work at +16, so a different prompt cannot
-    borrow this exception by reusing the same callback address. */
+ /* PVPlay creates a child event to submit the cry. Its 12-byte work owns
+    the script environment at +8; accept it only under the live script VM
+    that issued the sound command. A reused callback address cannot borrow
+    this exception after that VM or its parent event is freed. */
+ if(callback==0x021a7491u){
+  void *env=work?PTR(work,8):0,*parent=PTR(event,0);
+  if(!env||!parent||U32(parent,4)!=0x02153821u||PTR(parent,16)!=scene.game)return 0;
+  for(unsigned i=0;i<VM_LIMIT;++i){
+   if(scene.vms[i].event!=parent||!scene.vms[i].vm||PTR(scene.vms[i].vm,0x2c)!=env)continue;
+   void *param=PTR(env,0x20),*sys=param?PTR(param,12):0;
+   return param&&PTR(param,4)==scene.game&&sys&&PTR(sys,64)==scene.field;
+  }
+  return 0;
+ }
+ /* Native Yes/No prompt child. Require the same parent script and prompt
+    work relationship observed in ordinary dialogue and Repel continuation. */
  if(callback==0x021a82fdu){
-  void *scriptWork=repel_script_work(PTR(event,0));
+  void *scriptWork=script_event_work(PTR(event,0));
   void *prompt=work?PTR(work,0):0;
   return scriptWork&&prompt&&PTR(prompt,16)==scriptWork;
  }
@@ -319,9 +331,10 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
    scene.boxPreserve=1;
   }
   /* Yes on the Repel prompt uses the retail spray-consumption command.
-     Keep it scoped to this script, just like its earlier setup command. */
+     Keep that command scoped to this script. The earlier move query is a
+     general read-only command in the audited allowlist. */
   if(!fws_safe_opcode(value)&&!pcFade
-     &&!((value==0x116u||value==0x2c2u)&&FollowingSceneDebug.script==10144u))
+     &&!(value==0x2c2u&&FollowingSceneDebug.script==10144u))
    recall(FWS_UNKNOWN_COMMAND,kind,subject,value);
   return;
  }

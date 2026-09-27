@@ -241,6 +241,9 @@ void *fwt_begin(FwFollower *f,Actor *player,Actor *actor,void *field,void *game,
  if(!talk.event){fw_end_interaction(f);return 0;}
  talk.active=1;actor->flags|=16;CALL(0x02167099,void(*)(Actor*,unsigned))(actor,talk.face);fwr_anchor(actor,talk.face);
  CALL(0x0219a5d9,void(*)(void*))(PTR(field,0x94));
+ /* Retail NPC talk scripts open with the field message cue. Play it only
+  * after our conversation event is owned, once per accepted interaction. */
+ CALL(0x02006255,void(*)(unsigned))(1351u);
  FollowingTalkDebug[2]=1;FollowingTalkDebug[4]=talk.gift?(0x4000u|talk.itemRule):(talk.contextual?0x8000u|talk.contextRule:fwr_u16(data.bytes+data.rules+rule*12));FollowingTalkDebug[5]=snapshot->pokemon.species;FollowingTalkDebug[6]++;
  return talk.event;
 }

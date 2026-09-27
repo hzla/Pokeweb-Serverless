@@ -1,38 +1,36 @@
 #include "native.h"
 #include "events.h"
+#include "resident_events.h"
 #define API __attribute__((visibility("default")))
-static struct {void *field,*game;uint32_t generation;FweObserver observer;unsigned notifying,restoreValid;FweRestore restore;Actor *ambient;
+API unsigned FollowingEventOpcode(void*);
+API int FollowingEventCallback(void*);
+API void FollowingEventFree(void*);
+API void FollowingEventVmFree(void*);
+static const FwrEvents residentHooks={FWRE_ABI,sizeof(FwrEvents),FollowingEventOpcode,FollowingEventCallback,FollowingEventFree,FollowingEventVmFree};
+_Static_assert(sizeof(FweRestore)==FWRE_RESTORE_BYTES,"resident restore token size");
+#ifdef FW_MOUNT
+_Static_assert(sizeof(FweMount)==FWRE_MOUNT_BYTES,"resident mount token size");
+#endif
+static struct {void *field,*game;uint32_t generation;FweObserver observer;unsigned notifying;Actor *ambient;
  int (*holdCallback)(void);
 } bridge;
 #ifdef FW_MOUNT
-static FweMount mountToken;
-static unsigned mountValid;
-static void discard_mount(void){mountValid=0;mountToken.game=0;}
+static void discard_mount(void){FollowingResidentTokenDiscard(FWRE_MOUNT_TOKEN);}
 static void preserve_mount(void *field,uint32_t generation,const FweMount *mount){
  if(!mount||!mount->game||bridge.field!=field||bridge.generation!=generation||PTR(field,8)!=mount->game)return;
- mountToken=*mount;mountValid=1;
+ FollowingResidentTokenStore(FWRE_MOUNT_TOKEN,mount,sizeof(*mount));
 }
 static int consume_mount(void *game,FweMount *mount){
- if(!game||!mount||!mountValid)return 0;
- int valid=mountToken.game==game;
- if(valid)*mount=mountToken;
- discard_mount();return valid;
+ if(!game||!mount||!FollowingResidentTokenConsume(FWRE_MOUNT_TOKEN,mount,sizeof(*mount)))return 0;
+ return mount->game==game;
 }
 #endif
-static void copy_restore(FweRestore *to,const FweRestore *from){
- volatile uint8_t *d=(volatile uint8_t*)to;const uint8_t *s=(const uint8_t*)from;
- for(unsigned i=0;i<sizeof(*to);++i)d[i]=s[i];
-}
-static void clear_restore(void){
- bridge.restore.magic=0;bridge.restore.player=(Vec){0,0,0};bridge.restore.follower=(Vec){0,0,0};
- bridge.restore.grid[0]=bridge.restore.grid[1]=bridge.restore.grid[2]=0;
- bridge.restore.face=bridge.restore.zone=0;
-}
 static int bind(void *field,void *game,uint32_t generation,FweObserver observer
                 ,int (*holdCallback)(void)
                 ){
  if(!field||!game||!generation||!observer)return 0;
  if(bridge.observer&&(bridge.field!=field||bridge.generation!=generation))return 0;
+ if(!FollowingResidentEventBind(&residentHooks))return 0;
  bridge.field=field;bridge.game=game;bridge.generation=generation;bridge.observer=observer;
  bridge.holdCallback=holdCallback;
  return 1;
@@ -40,17 +38,23 @@ static int bind(void *field,void *game,uint32_t generation,FweObserver observer
 static void unbind(void *field,uint32_t generation){
  if(bridge.field==field&&bridge.generation==generation){bridge.observer=0;bridge.ambient=0;bridge.field=bridge.game=0;bridge.generation=0;
   bridge.holdCallback=0;
+  FollowingResidentEventClear();
  }
+}
+/* PMC calls this before freeing an overlay-scoped event module. */
+API int DllMain(void *manager,void *module,int reason){
+ (void)manager;(void)module;
+ if(reason==1)FollowingResidentEventClear();
+ return 0;
 }
 static void preserve(void *field,uint32_t generation,const FweRestore *restore){
  if(bridge.field!=field||bridge.generation!=generation||!restore||restore->magic!=FWE_RESTORE_MAGIC)return;
- copy_restore(&bridge.restore,restore);bridge.restoreValid=1;
+ FollowingResidentTokenStore(FWRE_RESTORE_TOKEN,restore,sizeof(*restore));
 }
 static int consume(FweRestore *restore){
- if(!restore||!bridge.restoreValid)return 0;
- copy_restore(restore,&bridge.restore);bridge.restoreValid=0;clear_restore();return 1;
+ return restore&&FollowingResidentTokenConsume(FWRE_RESTORE_TOKEN,restore,sizeof(*restore));
 }
-static void discard(void){bridge.restoreValid=0;clear_restore();
+static void discard(void){FollowingResidentTokenDiscard(FWRE_RESTORE_TOKEN);
 #ifdef FW_MOUNT
  discard_mount();
 #endif
