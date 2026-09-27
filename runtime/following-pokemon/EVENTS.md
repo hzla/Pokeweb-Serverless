@@ -1,4 +1,4 @@
-# Visible followers during dialogue, menus and PC use — 0.6.24 / 0.7.15 alpha
+# Visible followers during dialogue, menus and PC use
 
 NPC/sign text, facing turns, choices and supported stationary scenes pause the
 follower at its current recorded pose. The actor, facing and trail survive the
@@ -22,19 +22,21 @@ recall before its conflicting world-position write. See [AMBIENT.md](AMBIENT.md)
 
 ## Modules and lifetime
 
-`PokewebFollowingEventsW2.dll` is resident (PMC priority 1). It wraps opcode
+`PokewebFollowingEventsW2.dll` is scoped to overlays 12 and 36 (PMC priority 1). It wraps opcode
 fetch, native event callback/free, VM free, resolved actor actions, slot
 allocation, placement, world-position writes and deletion. `events.h` defines
-bridge ABI 4: a data export with size/version and indirect bind, unbind,
+bridge ABI 4 in the base package and ABI 6 in the full package: a data export with size/version and indirect bind, unbind,
 preserve, consume and discard function pointers. The field DLL imports only this
 data symbol. No immediate intermodule ARM/Thumb call or shared native-structure
 extension is used.
 
 The overlay-36 field DLL registers its field, game-system identity and generation
 after field initialization. It clears registration before native field teardown.
-The resident module forwards native calls unchanged when unregistered. It may
-retain one bounded PC-Box restore snapshot across that teardown; every other
-scene registration is cleared.
+The small ARM9-resident core forwards native calls unchanged when the event
+bridge is unregistered. It retains one bounded PC-Box restore snapshot and one
+mount-return token across field/event teardown. The event module clears its
+callback registration before unload; no pointer into unloaded code remains in
+the core. Every other scene registration is cleared.
 
 Scene state lives outside native objects. The pause state differs from both
 `Interacting` and suppression; it does not clear the movement trail or snap to a
@@ -57,19 +59,31 @@ callsite in `VM_Run` precedes both standard and extended dispatch. Reading an
 operand does not invoke the observer. Native permission checks, branch behavior,
 arguments and return values remain unchanged.
 
-The allowlist covers 170 standard commands: basic control flow/variables,
+The allowlist covers 373 standard commands: basic control flow/variables,
 dialogue and name formatting, choices, ordinary sound, camera operations,
-read-only context and actor commands with additional resolved-action checks.
+read-only context, isolated save-data writes, and actor commands with
+additional resolved-action checks. The per-opcode review and commands still
+needing investigation are in [SCRIPT-COMMAND-REVIEW.md](SCRIPT-COMMAND-REVIEW.md).
+Every command outside the global allowlist and its exclusion reason is in
+[NON-ALLOWLISTED-COMMANDS.md](NON-ALLOWLISTED-COMMANDS.md).
 Opcode `0x276` is included as an interaction-progress broadcast. Stock sign
 and static-furniture scripts run it after actor pause and before their sound and
 message commands; it does not move actors, replace the field, or start a
 communication activity. The exact handler bytes in overlay 33 are pinned.
-All other standard commands and all extended commands recall before native
-dispatch. An untaken branch is never scanned. Supported child callbacks are the
-field script supervisor, choice list, two camera waits and the mandatory script-end
-cleanup child. Cleanup is allowed only with a valid native work layout and a
-registered-bit mask containing audited camera, message-window, auto-print and
-volume/ambience finalizers. The mask is checked before every callback, including
+Other standard commands, apart from the narrowly scoped PC fade and Repel
+exceptions, and all extended commands recall before native dispatch. An untaken
+branch is never scanned. Supported child callbacks include
+the field script supervisor, choice list, ordinary Yes/No prompt, two camera
+waits, the mandatory
+script-end cleanup child, and the Pokémon cry child created by `PVPlay`. The cry
+child is accepted only while its work points to the live script VM and parent
+event that issued the sound command. A Yes/No child is accepted only when its
+prompt work points to the script work owned by its live native supervisor; the
+Repel-use opcode remains scoped separately to its continuation script.
+Synchronous sound-only commands are allowed
+without changing follower state. Cleanup is allowed only with a valid native
+work layout and a registered-bit mask containing audited camera, message-window,
+auto-print and volume/ambience finalizers. The mask is checked before every callback, including
 resumed cleanup. Other finalizers and child callbacks recall before execution.
 
 Actor actions are checked again when each queued step is committed. Facing and
@@ -102,7 +116,7 @@ and other applications may still recall normally.
 PC on/run/off uses verified commands 0x130–0x132 and exact presentation callbacks.
 The tracked PC VM can fade into storage without a recall effect. Storage command
 0x14F snapshots the selected Pokémon identity and pose before field teardown.
-The resident bridge returns that snapshot once. Matching identity, zone and
+The core-held token returns that snapshot once. Matching identity, zone and
 player position permit visible reconstruction even while the PC dialogue is
 still active. A changed selected Pokémon rejects the old pose and returns via
 ordinary replacement after walking. See [CONTINUITY.md](CONTINUITY.md).

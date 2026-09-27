@@ -127,6 +127,7 @@ regression.field_frame()
 assert h.call("fws_poll") == 1 and h.call("fwland_active") == 1
 assert h.u32(h.addr("FollowingDebug") + 20) == 0 and h.u32(h.F + 24) == h.A
 prompt = h.EVENT + 0x120
+h.put(h.EVENT + 0x80 + 20, h.EVENT)
 h.put(prompt + 16, h.EVENT + 0x80)
 h.put(h.FOREIGN + 32, prompt)
 cpu.mem_write(h.FOREIGN, struct.pack("<5I", h.EVENT, 0x021a82fd, 0, h.FOREIGN + 32, h.GAME))

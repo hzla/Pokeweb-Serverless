@@ -749,6 +749,14 @@
       "expectedHex": "f0b583b00e1c051c301cadf765fbacf7"
     },
     {
+      "opcode": 93,
+      "name": "s005D_WordSetMusicalInfo",
+      "category": "word-formatting",
+      "handler": 34965057,
+      "segment": "12",
+      "expectedHex": "f0b589b00f1c041c381cfcf7bbfd051c"
+    },
+    {
       "opcode": 94,
       "name": "s005E_WordSetCountry",
       "category": "dialogue-and-formatting",
@@ -933,12 +941,140 @@
       "expectedHex": "f8b58ab00d1c281caaf7e8fc0490a9f7"
     },
     {
+      "opcode": 120,
+      "name": "s0078_PlayerGetExState",
+      "category": "read-only-context",
+      "handler": 35301577,
+      "segment": "36",
+      "expectedHex": "70b50e1c041c301caaf778fca9f708fb"
+    },
+    {
       "opcode": 121,
       "name": "s0079_ActorGetUserParam",
       "category": "observed-actor-actions",
       "handler": 35300045,
       "segment": "36",
       "expectedHex": "f8b5061c0d1caaf73dfb071c301c291c"
+    },
+    {
+      "opcode": 127,
+      "name": "s007F_TrainerEyeGetTrainerID",
+      "category": "trainer-state",
+      "handler": 35284817,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381caef734fd061c281c"
+    },
+    {
+      "opcode": 130,
+      "name": "s0082_TrainerEyeGetActorID",
+      "category": "trainer-state",
+      "handler": 35284893,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381caef70efd061c281c"
+    },
+    {
+      "opcode": 131,
+      "name": "s0083_TrainerEyeGetBattleType",
+      "category": "trainer-state",
+      "handler": 35284781,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301caef746fd0021adf7"
+    },
+    {
+      "opcode": 132,
+      "name": "s0084_ActorGetTrainerID",
+      "category": "trainer-state",
+      "handler": 35284973,
+      "segment": "36",
+      "expectedHex": "70b50e1c041c301caef7e6fc051cadf7"
+    },
+    {
+      "opcode": 136,
+      "name": "s0088_TrainerEyeGetMessageTypes",
+      "category": "trainer-state",
+      "handler": 35285265,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201caef754fcadf7fefa"
+    },
+    {
+      "opcode": 138,
+      "name": "s008A_TrainerGetBattleType",
+      "category": "trainer-state",
+      "handler": 35285373,
+      "segment": "36",
+      "expectedHex": "70b5051c0c1cadf7e5ff061c281c211c"
+    },
+    {
+      "opcode": 139,
+      "name": "s008B_TrainerBGMPlayPush",
+      "category": "requested-child-event",
+      "handler": 35285409,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201caef700fc061c201c"
+    },
+    {
+      "opcode": 141,
+      "name": "s008D_TrainerBattleIsVictory",
+      "category": "requested-admission",
+      "handler": 34955413,
+      "segment": "12",
+      "expectedHex": "38b50d1cfef746fc041c281cfff788f8"
+    },
+    {
+      "opcode": 143,
+      "name": "s008F_TrainerClassBGMPlayPush",
+      "category": "requested-child-event",
+      "handler": 35285477,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201caef7defb061c201c"
+    },
+    {
+      "opcode": 144,
+      "name": "s0090_TrainerBGMPlay",
+      "category": "requested-child-event",
+      "handler": 35285537,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201caef7c0fb061c201c"
+    },
+    {
+      "opcode": 146,
+      "name": "s0092_TrainerGetFieldAction",
+      "category": "trainer-state",
+      "handler": 35285665,
+      "segment": "36",
+      "expectedHex": "70b5051c0e1cadf753ff041c281c311c"
+    },
+    {
+      "opcode": 147,
+      "name": "s0093_TrainerGetPrizeItem",
+      "category": "trainer-state",
+      "handler": 35285729,
+      "segment": "36",
+      "expectedHex": "70b5051c0c1cadf733ff061c281c211c"
+    },
+    {
+      "opcode": 149,
+      "name": "s0095_TrainerFlagSet",
+      "category": "trainer-state",
+      "handler": 34955233,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cfff7e4f8c1f6d2f9"
+    },
+    {
+      "opcode": 150,
+      "name": "s0096_TrainerFlagReset",
+      "category": "trainer-state",
+      "handler": 34955273,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cfff7d0f8c1f6bef9"
+    },
+    {
+      "opcode": 151,
+      "name": "s0097_TrainerFlagGet",
+      "category": "trainer-state",
+      "handler": 34955313,
+      "segment": "12",
+      "expectedHex": "f8b50c1c051c201cfff7bcf8c1f6aaf9"
     },
     {
       "opcode": 152,
@@ -995,6 +1131,30 @@
       "handler": 35287253,
       "segment": "36",
       "expectedHex": "f8b50c1c051c201caef766f8061c201c"
+    },
+    {
+      "opcode": 163,
+      "name": "s00A3_SoundControlA3",
+      "category": "sound",
+      "handler": 35288065,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301cadf7d0fe6ff686fb"
+    },
+    {
+      "opcode": 164,
+      "name": "s00A4_SoundControlA4",
+      "category": "sound",
+      "handler": 35288109,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301cadf7bafe6ff670fb"
+    },
+    {
+      "opcode": 165,
+      "name": "s00A5_SoundControlA5",
+      "category": "sound",
+      "handler": 35288153,
+      "segment": "36",
+      "expectedHex": "f8b50e1c051c301cadf7a4fe6ff65afb"
     },
     {
       "opcode": 166,
@@ -1101,6 +1261,78 @@
       "expectedHex": "f8b58ab00c1c051c201cacf73bfe071c"
     },
     {
+      "opcode": 181,
+      "name": "s00B5_ItemAdd",
+      "category": "inventory-and-money",
+      "handler": 35288301,
+      "segment": "36",
+      "expectedHex": "f8b582b00c1c051c201cadf751fe061c"
+    },
+    {
+      "opcode": 182,
+      "name": "s00B6_ItemSub",
+      "category": "inventory-and-money",
+      "handler": 35288381,
+      "segment": "36",
+      "expectedHex": "f8b582b00c1c051c201cadf729fe061c"
+    },
+    {
+      "opcode": 183,
+      "name": "s00B7_ItemCheckSpace",
+      "category": "inventory-and-money",
+      "handler": 35288461,
+      "segment": "36",
+      "expectedHex": "f8b582b00c1c051c201cadf701fe061c"
+    },
+    {
+      "opcode": 184,
+      "name": "s00B8_ItemCheckCount",
+      "category": "inventory-and-money",
+      "handler": 35288541,
+      "segment": "36",
+      "expectedHex": "f8b582b00c1c051c201cadf7d9fd061c"
+    },
+    {
+      "opcode": 185,
+      "name": "s00B9_ItemGetCount",
+      "category": "inventory-and-money",
+      "handler": 35288621,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cadf7b2fd061c201c"
+    },
+    {
+      "opcode": 186,
+      "name": "s00BA_ItemIsTMHM",
+      "category": "inventory-and-money",
+      "handler": 35288685,
+      "segment": "36",
+      "expectedHex": "70b5051c0c1cadf76df9061c281c211c"
+    },
+    {
+      "opcode": 187,
+      "name": "s00BB_ItemGetPocket",
+      "category": "inventory-and-money",
+      "handler": 35288721,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cadf780fd061c281c"
+    },
+    {
+      "opcode": 188,
+      "name": "s00BC_PhenomenonGetItemID",
+      "category": "inventory-and-money",
+      "handler": 35317001,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301ca6f74cfe68f6ecfa"
+    },
+    {
+      "opcode": 189,
+      "name": "s00BD_ItemGetClass",
+      "category": "inventory-and-money",
+      "handler": 35288773,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201cadf766fd061c281c"
+    },
+    {
       "opcode": 203,
       "name": "s00CB_Random",
       "category": "read-only-context",
@@ -1181,12 +1413,84 @@
       "expectedHex": "70b5061c0d1cfff77df8041c301c291c"
     },
     {
+      "opcode": 214,
+      "name": "s00D6_TrainerCardAddBadge",
+      "category": "save-state",
+      "handler": 34953297,
+      "segment": "12",
+      "expectedHex": "30b585b00d1cfff77bf8041c281cfff7"
+    },
+    {
       "opcode": 215,
       "name": "s00D7_TrainerCardGetBadgeCount",
       "category": "read-only-context",
       "handler": 34953361,
       "segment": "12",
       "expectedHex": "38b50d1cfff748f8041c281cfff78afc"
+    },
+    {
+      "opcode": 216,
+      "name": "s00D8_MapReplaceIsEventSet",
+      "category": "save-state",
+      "handler": 34953889,
+      "segment": "12",
+      "expectedHex": "f8b50c1c051c201cfff784fb061c281c"
+    },
+    {
+      "opcode": 217,
+      "name": "s00D9_FieldSetTeleportZone",
+      "category": "requested-admission",
+      "handler": 34953529,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cfff738fc041c281c"
+    },
+    {
+      "opcode": 218,
+      "name": "s00DA_MapReplaceSetEvent",
+      "category": "requested-admission",
+      "handler": 34953757,
+      "segment": "12",
+      "expectedHex": "f8b582b00c1c051c201cfff7c1fb0090"
+    },
+    {
+      "opcode": 219,
+      "name": "s00DB_FieldSetNextZoneHere",
+      "category": "requested-admission",
+      "handler": 34953573,
+      "segment": "12",
+      "expectedHex": "f0b589b0081cfff723fc061cc1f640fc"
+    },
+    {
+      "opcode": 220,
+      "name": "s00DC_FieldSetNextZone",
+      "category": "requested-admission",
+      "handler": 34953653,
+      "segment": "12",
+      "expectedHex": "f8b58cb00c1c051c201cfff7f9fb0290"
+    },
+    {
+      "opcode": 221,
+      "name": "s00DD_PokeDexGetCount",
+      "category": "save-state",
+      "handler": 34954113,
+      "segment": "12",
+      "expectedHex": "f8b50f1c041c381cfff714fbb7f600fb"
+    },
+    {
+      "opcode": 222,
+      "name": "s00DE_PokeDexRegist",
+      "category": "save-state",
+      "handler": 34953937,
+      "segment": "12",
+      "expectedHex": "f8b582b00e1c051c301cfff76bfbb7f6"
+    },
+    {
+      "opcode": 223,
+      "name": "s00DF_PokeDexIsRegist",
+      "category": "save-state",
+      "handler": 34954025,
+      "segment": "12",
+      "expectedHex": "f8b50e1c051c301cfff740fbb7f62cfb"
     },
     {
       "opcode": 224,
@@ -1205,12 +1509,332 @@
       "expectedHex": "38b50d1cfff78ef8041c281cfff7d0fc"
     },
     {
+      "opcode": 226,
+      "name": "s00E2_SaveDataCheckRequired",
+      "category": "save-state",
+      "handler": 34954469,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cfff75efac0f6f2fe"
+    },
+    {
+      "opcode": 227,
+      "name": "s00E3_PlayerEnableRunningShoes",
+      "category": "requested-admission",
+      "handler": 34954533,
+      "segment": "12",
+      "expectedHex": "08b5081cfff744fac1f632fb0249c3f6"
+    },
+    {
       "opcode": 234,
       "name": "s00EA_HOFCheckIntegrity",
       "category": "pc-continuity",
       "handler": 34954829,
       "segment": "12",
       "expectedHex": "f8b50f1c051c381cfff7aef9041cc1f6"
+    },
+    {
+      "opcode": 235,
+      "name": "s00EB_DayCareCheckSpawnFlag",
+      "category": "daycare-queries",
+      "handler": 34962529,
+      "segment": "12",
+      "expectedHex": "38b50d1cfcf760fe041c281cfdf79efa"
+    },
+    {
+      "opcode": 236,
+      "name": "s00EC_DayCareBreed",
+      "category": "requested-admission",
+      "handler": 34962565,
+      "segment": "12",
+      "expectedHex": "38b50c1c201cfdf78ffa051c201cfdf7"
+    },
+    {
+      "opcode": 237,
+      "name": "s00ED_DayCareResetSeed",
+      "category": "requested-admission",
+      "handler": 34962609,
+      "segment": "12",
+      "expectedHex": "08b5081cfdf77afabef61aff28f088fc"
+    },
+    {
+      "opcode": 238,
+      "name": "s00EE_DayCareGetPkmCount",
+      "category": "daycare-queries",
+      "handler": 34962813,
+      "segment": "12",
+      "expectedHex": "38b50d1cfcf7d2fd041c281cfdf710fa"
+    },
+    {
+      "opcode": 239,
+      "name": "s00EF_DayCareCalcEggSpawnChance",
+      "category": "daycare-queries",
+      "handler": 34962849,
+      "segment": "12",
+      "expectedHex": "38b50d1cfcf7c0fd041c281cfdf7fef9"
+    },
+    {
+      "opcode": 242,
+      "name": "s00F2_DayCareGetSpecies",
+      "category": "daycare-queries",
+      "handler": 34962885,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfcf7adfd041c301c291c"
+    },
+    {
+      "opcode": 243,
+      "name": "s00F3_DayCareGetForme",
+      "category": "daycare-queries",
+      "handler": 34962941,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfcf791fd041c301c291c"
+    },
+    {
+      "opcode": 244,
+      "name": "s00F4_DayCareCalcNewLevel",
+      "category": "daycare-queries",
+      "handler": 34963053,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfcf759fd041c301c291c"
+    },
+    {
+      "opcode": 245,
+      "name": "s00F5_DayCareCalcLevelGain",
+      "category": "daycare-queries",
+      "handler": 34963101,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfcf741fd041c301c291c"
+    },
+    {
+      "opcode": 246,
+      "name": "s00F6_DayCareCalcWithdrawCost",
+      "category": "daycare-queries",
+      "handler": 34963161,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfcf723fd041c301c291c"
+    },
+    {
+      "opcode": 247,
+      "name": "s00F7_DayCareCallPokeSelect",
+      "category": "requested-child-event",
+      "handler": 34962633,
+      "segment": "12",
+      "expectedHex": "f8b50c1c051c201cfdf778fa0090281c"
+    },
+    {
+      "opcode": 248,
+      "name": "s00F8_DayCareGetSex",
+      "category": "daycare-queries",
+      "handler": 34962997,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfcf775fd041c301c291c"
+    },
+    {
+      "opcode": 249,
+      "name": "s00F9_MoneyAdd",
+      "category": "inventory-and-money",
+      "handler": 34960465,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cfdf7acfe041cbff6"
+    },
+    {
+      "opcode": 250,
+      "name": "s00FA_MoneySub",
+      "category": "inventory-and-money",
+      "handler": 34960509,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cfdf796fe041cbff6"
+    },
+    {
+      "opcode": 251,
+      "name": "s00FB_MoneyCheck",
+      "category": "inventory-and-money",
+      "handler": 34960553,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfdf73bfa041c301c291c"
+    },
+    {
+      "opcode": 254,
+      "name": "s00FE_PokePartyGetSpecies",
+      "category": "party-queries",
+      "handler": 34956693,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfef7c5f9041c301c291c"
+    },
+    {
+      "opcode": 255,
+      "name": "s00FF_PokePartyGetForme",
+      "category": "party-queries",
+      "handler": 34956753,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfef7a7f9041c301c291c"
+    },
+    {
+      "opcode": 256,
+      "name": "s0100_PokePartyCheckPokerus",
+      "category": "party-queries",
+      "handler": 35321125,
+      "segment": "36",
+      "expectedHex": "f8b50c1ca5f7fef9002500900580201c"
+    },
+    {
+      "opcode": 257,
+      "name": "s0101_PokePartyIsFullHP",
+      "category": "party-queries",
+      "handler": 34956137,
+      "segment": "12",
+      "expectedHex": "78b581b0061c0d1cfef7dafa041c301c"
+    },
+    {
+      "opcode": 258,
+      "name": "s0102_PokePartyIsEgg",
+      "category": "party-queries",
+      "handler": 34956397,
+      "segment": "12",
+      "expectedHex": "78b581b0061c0d1cfef758fa041c301c"
+    },
+    {
+      "opcode": 259,
+      "name": "s0103_PokePartyGetCount",
+      "category": "party-queries",
+      "handler": 34956853,
+      "segment": "12",
+      "expectedHex": "70b5041c0d1cfef775f9061c201c291c"
+    },
+    {
+      "opcode": 264,
+      "name": "s0108_PokePartyGetMoveCount",
+      "category": "party-queries",
+      "handler": 34958213,
+      "segment": "12",
+      "expectedHex": "f8b5051c0c1cfdf7cdfe071c281c211c"
+    },
+    {
+      "opcode": 266,
+      "name": "s010A_PokePartyGetMove",
+      "category": "party-queries",
+      "handler": 34958285,
+      "segment": "12",
+      "expectedHex": "f8b5061c0d1cfdf7a9fe041c301c291c"
+    },
+    {
+      "opcode": 269,
+      "name": "s010D_PokePartyGetMemberByType",
+      "category": "party-queries",
+      "handler": 34956789,
+      "segment": "12",
+      "expectedHex": "70b5041c0d1cfef795f9061c201c291c"
+    },
+    {
+      "opcode": 272,
+      "name": "s0110_PokePartyGetParam",
+      "category": "party-queries",
+      "handler": 34959389,
+      "segment": "12",
+      "expectedHex": "f8b5061c0d1cfdf781fc041c301c291c"
+    },
+    {
+      "opcode": 274,
+      "name": "s0112_PokePartyGetEVTotal",
+      "category": "party-queries",
+      "handler": 34955973,
+      "segment": "12",
+      "expectedHex": "f8b5041c0d1cfef72dfb061c201c291c"
+    },
+    {
+      "opcode": 275,
+      "name": "s0113_PokePartyIsOriginGame",
+      "category": "party-queries",
+      "handler": 34958601,
+      "segment": "12",
+      "expectedHex": "f8b582b0041c0e1cfdf70afe051c201c"
+    },
+    {
+      "opcode": 276,
+      "name": "s0114_PokePartyGetCountBySpecies",
+      "category": "party-queries",
+      "handler": 34956977,
+      "segment": "12",
+      "expectedHex": "f0b583b0051c0c1cfef74af9071c281c"
+    },
+    {
+      "opcode": 277,
+      "name": "s0115_PokePartyHasMove",
+      "category": "party-queries",
+      "handler": 34957405,
+      "segment": "12",
+      "expectedHex": "f8b5061c0d1cfef761f8041c301c291c"
+    },
+    {
+      "opcode": 278,
+      "name": "s0116_PokePartyHasMoveAny",
+      "category": "party-queries",
+      "handler": 34957473,
+      "segment": "12",
+      "expectedHex": "f8b50d1c041c281cfef784fcc0f656fd"
+    },
+    {
+      "opcode": 280,
+      "name": "s0118_PokePartyFind",
+      "category": "party-queries",
+      "handler": 34957253,
+      "segment": "12",
+      "expectedHex": "f0b583b0051c0c1cfef7c0f8071c281c"
+    },
+    {
+      "opcode": 281,
+      "name": "s0119_PokePartyIsFromWhiteForest",
+      "category": "party-queries",
+      "handler": 34959105,
+      "segment": "12",
+      "expectedHex": "f8b5061c0d1cfdf70ffd041c301c291c"
+    },
+    {
+      "opcode": 282,
+      "name": "s011A_PokePartyGetMetDate",
+      "category": "party-queries",
+      "handler": 34959177,
+      "segment": "12",
+      "expectedHex": "f8b582b000900d1cfdf7eafc041c0098"
+    },
+    {
+      "opcode": 283,
+      "name": "s011B_PokePartyGetTypes",
+      "category": "party-queries",
+      "handler": 34955873,
+      "segment": "12",
+      "expectedHex": "f8b5071c0e1cfef75ffb051c381c311c"
+    },
+    {
+      "opcode": 285,
+      "name": "s011D_TrainerCardSetFavePokemon",
+      "category": "save-state",
+      "handler": 35319469,
+      "segment": "36",
+      "expectedHex": "f8b582b00c1ca5f74dfd011c201c01aa"
+    },
+    {
+      "opcode": 286,
+      "name": "s011E_TrainerCardSaveGymVictoryParty",
+      "category": "save-state",
+      "handler": 35319581,
+      "segment": "36",
+      "expectedHex": "f0b585b00e1c051c301ca6f745f90190"
+    },
+    {
+      "opcode": 287,
+      "name": "s011F_WordSetGymVictoryParty",
+      "category": "word-formatting",
+      "handler": 35319713,
+      "segment": "36",
+      "expectedHex": "f0b585b00d1c041c281ca6f703f9071c"
+    },
+    {
+      "opcode": 289,
+      "name": "s0121_BoxGetCount",
+      "category": "party-queries",
+      "handler": 34957121,
+      "segment": "12",
+      "expectedHex": "f8b5051c0c1cfef7eff8061c281c211c"
     },
     {
       "opcode": 304,
@@ -1235,6 +1859,62 @@
       "handler": 35305569,
       "segment": "36",
       "expectedHex": "f8b50f1c061c381ca9f7a0fc051c381c"
+    },
+    {
+      "opcode": 308,
+      "name": "s0134_CasteliaRushInit",
+      "category": "requested-admission",
+      "handler": 35323149,
+      "segment": "36",
+      "expectedHex": "08b5081ca5f758faa4f7e8f84068d0f7"
+    },
+    {
+      "opcode": 310,
+      "name": "s0136_FieldSetWeather",
+      "category": "requested-admission",
+      "handler": 35000865,
+      "segment": "12",
+      "expectedHex": "f0b583b00d1c061c281cf3f7cbff281c"
+    },
+    {
+      "opcode": 311,
+      "name": "s0137_SaveDataWrite",
+      "category": "requested-admission",
+      "handler": 35286297,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201caef750fa061c201c"
+    },
+    {
+      "opcode": 312,
+      "name": "s0138_SaveDataGetStatus",
+      "category": "save-state",
+      "handler": 34953393,
+      "segment": "12",
+      "expectedHex": "f0b583b00e1c051c301cfff77bfcc2f6"
+    },
+    {
+      "opcode": 313,
+      "name": "s0139_GameCommDisconnect",
+      "category": "requested-admission",
+      "handler": 34970721,
+      "segment": "12",
+      "expectedHex": "78b581b00c1c051c201cfbf7abfafaf7"
+    },
+    {
+      "opcode": 314,
+      "name": "s013A_GameCommGetStatus",
+      "category": "save-state",
+      "handler": 35314861,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301ca7f77afa041c281c"
+    },
+    {
+      "opcode": 315,
+      "name": "s013B_GameCommCheckDSiWiFi",
+      "category": "save-state",
+      "handler": 34970797,
+      "segment": "12",
+      "expectedHex": "10b5faf73bfe041cdbf646fb20800020"
     },
     {
       "opcode": 319,
@@ -1317,12 +1997,36 @@
       "expectedHex": "f8b58eb0041c0d1ca5f7d6ff061c201c"
     },
     {
+      "opcode": 329,
+      "name": "s0149_CallFriendlyShopBuy",
+      "category": "requested-child-application",
+      "handler": 35306417,
+      "segment": "36",
+      "expectedHex": "f8b584b001900c1ca8f7cafe051c0198"
+    },
+    {
       "opcode": 332,
       "name": "s014C_RTFreeUserHeap",
       "category": "native-script-user-work-cleanup",
       "handler": 34960873,
       "segment": "12",
       "expectedHex": "08b5081cfdf7eafdfcf7acfc012008bd"
+    },
+    {
+      "opcode": 333,
+      "name": "s014D_CallRecordSystem",
+      "category": "requested-child-application",
+      "handler": 35315893,
+      "segment": "36",
+      "expectedHex": "f8b50e1c051c301ca7f782f80090301c"
+    },
+    {
+      "opcode": 334,
+      "name": "s014E_CallBag",
+      "category": "requested-child-application",
+      "handler": 34960933,
+      "segment": "12",
+      "expectedHex": "f8b584b00c1c061c201cfdf7bdfd201c"
     },
     {
       "opcode": 335,
@@ -1333,12 +2037,556 @@
       "expectedHex": "f8b588b00e1c051c301ca7f7cbf90590"
     },
     {
+      "opcode": 336,
+      "name": "s0150_CallMailbox",
+      "category": "requested-child-application",
+      "handler": 34961113,
+      "segment": "12",
+      "expectedHex": "f0b587b003900491081cfdf76ffd0590"
+    },
+    {
+      "opcode": 337,
+      "name": "s0151_CallPokedexDiploma",
+      "category": "requested-child-application",
+      "handler": 34961729,
+      "segment": "12",
+      "expectedHex": "f8b586b00f1c041c381cfdf72ffc0590"
+    },
+    {
+      "opcode": 338,
+      "name": "s0152_CallGeonet",
+      "category": "requested-child-application",
+      "handler": 35315821,
+      "segment": "36",
+      "expectedHex": "78b581b00c1c201ca7f79af8051c201c"
+    },
+    {
+      "opcode": 341,
+      "name": "s0155_CallXTransceiver",
+      "category": "requested-child-application",
+      "handler": 35316033,
+      "segment": "36",
+      "expectedHex": "f8b586b00f1c041c381ca7f73bf80390"
+    },
+    {
+      "opcode": 375,
+      "name": "s0177_WildBattleIsVictory",
+      "category": "requested-admission",
+      "handler": 34955505,
+      "segment": "12",
+      "expectedHex": "38b50d1cfef718fc041c281cfff75af8"
+    },
+    {
+      "opcode": 376,
+      "name": "s0178_WildBattleGetResult",
+      "category": "requested-admission",
+      "handler": 34955549,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cfff746f8c1f6c0f9"
+    },
+    {
+      "opcode": 410,
+      "name": "s019A_CGearControlWarning",
+      "category": "requested-admission",
+      "handler": 35419921,
+      "segment": "36",
+      "expectedHex": "f8b584b0061c081c8df754fd8cf7e4fb"
+    },
+    {
+      "opcode": 411,
+      "name": "s019B_PlayFieldEffect",
+      "category": "requested-admission",
+      "handler": 35397501,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201c93f712f9061c54f6"
+    },
+    {
+      "opcode": 437,
+      "name": "s01B5_FieldTradeCheck",
+      "category": "party-queries",
+      "handler": 35321673,
+      "segment": "36",
+      "expectedHex": "f0b583b00e1c041c301ca5f737fd301c"
+    },
+    {
+      "opcode": 449,
+      "name": "s01C1_ElevatorSetTablePtr",
+      "category": "requested-admission",
+      "handler": 35323453,
+      "segment": "36",
+      "expectedHex": "38b5051c0c1c65f6dffd021c296a201c"
+    },
+    {
+      "opcode": 450,
+      "name": "s01C2_ElevatorBuildListMenu",
+      "category": "requested-child-event",
+      "handler": 35323481,
+      "segment": "36",
+      "expectedHex": "f0b585b00d1c281ca5f718fa0490281c"
+    },
+    {
+      "opcode": 452,
+      "name": "s01C4_PokeDexIsComplete",
+      "category": "save-state",
+      "handler": 35320133,
+      "segment": "36",
+      "expectedHex": "f8b50f1c061c381ca6f732f85ef61ef8"
+    },
+    {
+      "opcode": 453,
+      "name": "s01C5_PokeDexGetEvaluationParams",
+      "category": "save-state",
+      "handler": 35320049,
+      "segment": "36",
+      "expectedHex": "f8b584b0041c0d1ca5f72afc0290201c"
+    },
+    {
+      "opcode": 454,
+      "name": "s01C6_PokeDexGiveNational",
+      "category": "save-state",
+      "handler": 34954185,
+      "segment": "12",
+      "expectedHex": "10b5081cfff7f2fab7f6defa041cb7f6"
+    },
+    {
+      "opcode": 455,
+      "name": "s01C7_PokeDexHaveNational",
+      "category": "save-state",
+      "handler": 34954213,
+      "segment": "12",
+      "expectedHex": "38b50d1cfef79efe041c281cfff7e0fa"
+    },
+    {
+      "opcode": 456,
+      "name": "s01C8_PokeDexEnable",
+      "category": "save-state",
+      "handler": 34954245,
+      "segment": "12",
+      "expectedHex": "08b5081cfff7d4fab7f6c0fab7f6dafa"
+    },
+    {
+      "opcode": 463,
+      "name": "s01CF_UnityTowerGetStateParam",
+      "category": "save-state",
+      "handler": 34999645,
+      "segment": "12",
+      "expectedHex": "f8b50c1c051c201cf4f72efa201cf4f7"
+    },
+    {
+      "opcode": 464,
+      "name": "s01D0_UnityTowerCallFloorSelect",
+      "category": "requested-child-event",
+      "handler": 34999709,
+      "segment": "12",
+      "expectedHex": "f8b584b00c1c051c201cf4f70dfa061c"
+    },
+    {
+      "opcode": 465,
+      "name": "s01D1_MoveTutorCheckParty",
+      "category": "party-queries",
+      "handler": 35320705,
+      "segment": "36",
+      "expectedHex": "f8b582b0051c0c1ca5f7e2fa071c281c"
+    },
+    {
+      "opcode": 466,
+      "name": "s01D2_MoveTutorCheckPkm",
+      "category": "party-queries",
+      "handler": 35320817,
+      "segment": "36",
+      "expectedHex": "f8b5041c0d1ca5f7abfa061c201c291c"
+    },
+    {
+      "opcode": 467,
+      "name": "s01D3_MoveTutorGetMoveID",
+      "category": "party-queries",
+      "handler": 35320753,
+      "segment": "36",
+      "expectedHex": "f8b5041c0d1ca5f7cbfa061c201c291c"
+    },
+    {
+      "opcode": 469,
+      "name": "s01D5_MoveReminderCheckPkm",
+      "category": "party-queries",
+      "handler": 34959033,
+      "segment": "12",
+      "expectedHex": "f8b5061c0d1cfdf733fd041c301c291c"
+    },
+    {
       "opcode": 473,
       "name": "s01D9_ObjInitNPCGPos",
       "category": "spawn-data",
       "handler": 34955133,
       "segment": "12",
       "expectedHex": "f8b584b0041c0d1cfef7e4fc0290201c291cfef7dffc0390201c291cfef7dafc00040714201c291cfef7d4fc00040614201c291cfef7cefc00040414281cfff7fbf8c1f63ff9310400912104090c01913b040299039a1b0c07f002f9002004b0f8bd"
+    },
+    {
+      "opcode": 481,
+      "name": "s01E1_StadiumLoadTrainerTable",
+      "category": "requested-admission",
+      "handler": 34971029,
+      "segment": "12",
+      "expectedHex": "10b5081cfbf714fa041c064bce200021"
+    },
+    {
+      "opcode": 482,
+      "name": "s01E2_StadiumFreeTrainerTable",
+      "category": "requested-admission",
+      "handler": 34971069,
+      "segment": "12",
+      "expectedHex": "10b5081cfbf700fa041cfaf769f90028"
+    },
+    {
+      "opcode": 485,
+      "name": "s01E5_StadiumResetTrainerFlags",
+      "category": "requested-admission",
+      "handler": 34971545,
+      "segment": "12",
+      "expectedHex": "70b5081cfbf712f9041cf9f79fffbcf6"
+    },
+    {
+      "opcode": 486,
+      "name": "s01E6_TrialHouseWorkInit",
+      "category": "requested-admission",
+      "handler": 35013841,
+      "segment": "12",
+      "expectedHex": "38b5081cf0f76afe051cb2f6fdfab3f6"
+    },
+    {
+      "opcode": 487,
+      "name": "s01E7_TrialHouseWorkDelete",
+      "category": "requested-admission",
+      "handler": 35013881,
+      "segment": "12",
+      "expectedHex": "10b5081cf0f756fe041cb2f6e9fab3f6"
+    },
+    {
+      "opcode": 490,
+      "name": "s01EA_TrialHousePrepareOpponent",
+      "category": "requested-admission",
+      "handler": 35014053,
+      "segment": "12",
+      "expectedHex": "f8b50c1c051c201cf0f70afe201cf0f7"
+    },
+    {
+      "opcode": 491,
+      "name": "s01EB_TrialHouseMsgDisp",
+      "category": "requested-admission",
+      "handler": 35014121,
+      "segment": "12",
+      "expectedHex": "f8b582b00c1c051c201cf0f7e7fd071c"
+    },
+    {
+      "opcode": 493,
+      "name": "s01ED_TrialHouseSetUseDownloaded",
+      "category": "requested-admission",
+      "handler": 35014253,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301cf0f7a6fd301cf0f7"
+    },
+    {
+      "opcode": 494,
+      "name": "s01EE_TrialHouseUpdateBattleTestRank",
+      "category": "requested-admission",
+      "handler": 35014301,
+      "segment": "12",
+      "expectedHex": "70b50c1c051c201cf0f78efd201cf0f7"
+    },
+    {
+      "opcode": 495,
+      "name": "s01EF_TrialHouseGetBattleTestRank",
+      "category": "save-state",
+      "handler": 35014357,
+      "segment": "12",
+      "expectedHex": "70b50c1c051c201cf0f772fd201cf0f7"
+    },
+    {
+      "opcode": 496,
+      "name": "s01F0_TrialHouseDownloadBattleTest",
+      "category": "requested-child-application",
+      "handler": 35014413,
+      "segment": "12",
+      "expectedHex": "f8b50e1c051c301cf0f756fd071c301c"
+    },
+    {
+      "opcode": 497,
+      "name": "s01F1_TrialHouseCalcPointsStars",
+      "category": "save-state",
+      "handler": 35014477,
+      "segment": "12",
+      "expectedHex": "f8b50c1c051c201cf0f736fd201cf0f7"
+    },
+    {
+      "opcode": 498,
+      "name": "s01F2_TrialHouseGetDownloadedBattleStyle",
+      "category": "save-state",
+      "handler": 35014541,
+      "segment": "12",
+      "expectedHex": "f8b50e1c051c301cf0f716fd301cf0f7"
+    },
+    {
+      "opcode": 499,
+      "name": "s01F3_TrialHouseSaveData",
+      "category": "requested-admission",
+      "handler": 35014597,
+      "segment": "12",
+      "expectedHex": "f8b50e1c051c301cf0f7fafc071c301c"
+    },
+    {
+      "opcode": 501,
+      "name": "s01F5_TrialHouseGetAvailableResultMask",
+      "category": "save-state",
+      "handler": 35014733,
+      "segment": "12",
+      "expectedHex": "70b50c1c051c201cf0f7b6fc201cf0f7"
+    },
+    {
+      "opcode": 506,
+      "name": "s01FA_PepQuizGenerate",
+      "category": "requested-admission",
+      "handler": 35419157,
+      "segment": "36",
+      "expectedHex": "f0b595b00f1c051c381c8df7c9fe0190"
+    },
+    {
+      "opcode": 507,
+      "name": "s01FB_ItemCollectorCheckGroup",
+      "category": "other-queries",
+      "handler": 35323853,
+      "segment": "36",
+      "expectedHex": "f8b584b00d1c041c281ca5f7f5f8061c"
+    },
+    {
+      "opcode": 508,
+      "name": "s01FC_ItemCollectorGetPrice",
+      "category": "other-queries",
+      "handler": 35323705,
+      "segment": "36",
+      "expectedHex": "f8b584b00e1c041c301ca5f73ff9a3f7"
+    },
+    {
+      "opcode": 511,
+      "name": "s01FF_SurveyGetCurrentQuestionID",
+      "category": "requested-admission",
+      "handler": 35062877,
+      "segment": "27",
+      "expectedHex": "70b50c1c051c201ce4f7aefe201ce4f7"
+    },
+    {
+      "opcode": 512,
+      "name": "s0200_SurveyGetCurrentAnswerIDs",
+      "category": "requested-admission",
+      "handler": 35062929,
+      "segment": "27",
+      "expectedHex": "f8b50c1c051c201ce4f794fe201ce4f7"
+    },
+    {
+      "opcode": 513,
+      "name": "s0201_SurveyGetPopularOptionMsgID",
+      "category": "requested-admission",
+      "handler": 35063309,
+      "segment": "27",
+      "expectedHex": "f8b584b00f1c041c381ce4f7d5fd381c"
+    },
+    {
+      "opcode": 516,
+      "name": "s0204_SurveyGetTime",
+      "category": "requested-admission",
+      "handler": 35063025,
+      "segment": "27",
+      "expectedHex": "70b50c1c051c201ce4f764fe201ce4f7"
+    },
+    {
+      "opcode": 525,
+      "name": "s020D_PokePartyFindEx",
+      "category": "requested-admission",
+      "handler": 35018585,
+      "segment": "12",
+      "expectedHex": "f8b586b00e1c051c301ceff727fd041c"
+    },
+    {
+      "opcode": 538,
+      "name": "s021A_WordSetEntreeForestPkmName",
+      "category": "word-formatting",
+      "handler": 35015765,
+      "segment": "12",
+      "expectedHex": "f8b5051c0c1ceff779fe061c281c211c"
+    },
+    {
+      "opcode": 542,
+      "name": "s021E_FishingChallengeGetRandomPkm",
+      "category": "other-queries",
+      "handler": 35317149,
+      "segment": "36",
+      "expectedHex": "f0b5bfb00f1c041c381c0025a6f704fe"
+    },
+    {
+      "opcode": 547,
+      "name": "s0223_PokePartyGetHiddenPowerType",
+      "category": "party-queries",
+      "handler": 35321201,
+      "segment": "36",
+      "expectedHex": "f8b5061c0d1ca5f7d7f9041c301c291c"
+    },
+    {
+      "opcode": 548,
+      "name": "s0224_PokePartyGetIV",
+      "category": "party-queries",
+      "handler": 35319817,
+      "segment": "36",
+      "expectedHex": "f0b585b0051c0c1c01aea5f79dfc0090"
+    },
+    {
+      "opcode": 549,
+      "name": "s0225_ItemGetRandomOwnedTMMove",
+      "category": "other-queries",
+      "handler": 35322101,
+      "segment": "36",
+      "expectedHex": "f8b50c1ca5f716f8051c201ca5f758fc"
+    },
+    {
+      "opcode": 551,
+      "name": "s0227_RecordAdd",
+      "category": "save-state",
+      "handler": 35420157,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201c8df7d2fc061c281c"
+    },
+    {
+      "opcode": 552,
+      "name": "s0228_RecordGet",
+      "category": "save-state",
+      "handler": 35420217,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201c8df7b4fc061c281c"
+    },
+    {
+      "opcode": 559,
+      "name": "s022F_WordSetPastTradePkmName",
+      "category": "word-formatting",
+      "handler": 35322253,
+      "segment": "36",
+      "expectedHex": "f0b585b00c1c051c201ca5f715fc061c"
+    },
+    {
+      "opcode": 560,
+      "name": "s0230_MsgAbyssalRuins",
+      "category": "requested-admission",
+      "handler": 35296661,
+      "segment": "36",
+      "expectedHex": "f8b584b00c1c051c201cabf711fe0190"
+    },
+    {
+      "opcode": 563,
+      "name": "s0233_TrainerCardIsCountrySet",
+      "category": "save-state",
+      "handler": 35429721,
+      "segment": "36",
+      "expectedHex": "38b50d1c8af7e4fd041c281c8bf722fa"
+    },
+    {
+      "opcode": 565,
+      "name": "s0235_BGMPlayEx",
+      "category": "requested-child-event",
+      "handler": 35286429,
+      "segment": "36",
+      "expectedHex": "f8b50e1c051c301caef702fa041c301c"
+    },
+    {
+      "opcode": 566,
+      "name": "s0236_WordSetLoadItemCollectorPrice",
+      "category": "word-formatting",
+      "handler": 35324029,
+      "segment": "36",
+      "expectedHex": "f8b588b00d1c041c281ca5f79df80590"
+    },
+    {
+      "opcode": 567,
+      "name": "s0237_ItemCollectorSell",
+      "category": "inventory-and-money",
+      "handler": 35324205,
+      "segment": "36",
+      "expectedHex": "f0b583b00d1c041c281ca5f745f8a3f7"
+    },
+    {
+      "opcode": 568,
+      "name": "s0238_BGMChangeMapEx",
+      "category": "requested-child-event",
+      "handler": 35287017,
+      "segment": "36",
+      "expectedHex": "f0b583b00f1c061c381caef7dbf8051c"
+    },
+    {
+      "opcode": 569,
+      "name": "s0239_PlayerIsStockObjCode",
+      "category": "other-queries",
+      "handler": 35301801,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301caaf708fca9f798fa"
+    },
+    {
+      "opcode": 570,
+      "name": "s023A_PVPlayEx",
+      "category": "sound",
+      "handler": 35287937,
+      "segment": "36",
+      "expectedHex": "f8b50d1c041c281cadf71cff0090281c"
+    },
+    {
+      "opcode": 574,
+      "name": "s023E_DayCareGetSexForNamePrint",
+      "category": "word-formatting",
+      "handler": 34963221,
+      "segment": "12",
+      "expectedHex": "f8b50e1c051c301cfdf746f9bef6e6fd"
+    },
+    {
+      "opcode": 575,
+      "name": "s023F_CallPlaceNameDisp",
+      "category": "requested-child-application",
+      "handler": 35306377,
+      "segment": "36",
+      "expectedHex": "38b5081ca9f70efb6af6aeff051cd4f7"
+    },
+    {
+      "opcode": 581,
+      "name": "s0245_BGMFadeOut",
+      "category": "requested-admission",
+      "handler": 35286581,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301caef7b6f9041c301c"
+    },
+    {
+      "opcode": 582,
+      "name": "s0246_BGMFadeOutAll",
+      "category": "requested-admission",
+      "handler": 35286509,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301caef7daf9041c301c"
+    },
+    {
+      "opcode": 587,
+      "name": "s024B_FieldSubscreenDisable",
+      "category": "requested-admission",
+      "handler": 34970997,
+      "segment": "12",
+      "expectedHex": "10b5081cfbf718fa041c0021bcf6defe"
+    },
+    {
+      "opcode": 588,
+      "name": "s024C_BGMAmbienceResume",
+      "category": "sound",
+      "handler": 35287381,
+      "segment": "36",
+      "expectedHex": "08b5081caef728f86ff6bcfc70f69cf9"
+    },
+    {
+      "opcode": 590,
+      "name": "s024E_PokePartyIsFullPP",
+      "category": "party-queries",
+      "handler": 34956233,
+      "segment": "12",
+      "expectedHex": "f8b582b0051c0c1cfef7aafa071c281c"
     },
     {
       "opcode": 591,
@@ -1349,6 +2597,70 @@
       "expectedHex": "f8b588b00c1c051caaf714fd071c201c"
     },
     {
+      "opcode": 594,
+      "name": "s0252_ActorPairGetTrID",
+      "category": "requested-admission",
+      "handler": 35038861,
+      "segment": "12",
+      "expectedHex": "38b50c1ceaf74af9051c201ceaf78cfd"
+    },
+    {
+      "opcode": 620,
+      "name": "s026C_WordSetMedalName",
+      "category": "word-formatting",
+      "handler": 35290437,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf73afaacf7d8f8"
+    },
+    {
+      "opcode": 621,
+      "name": "s026D_WordSetMedalRank",
+      "category": "word-formatting",
+      "handler": 35290489,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf720faacf7bef8"
+    },
+    {
+      "opcode": 622,
+      "name": "s026E_MedalGetCount",
+      "category": "other-queries",
+      "handler": 35421041,
+      "segment": "36",
+      "expectedHex": "f8b50d1c041c281c8df71cfb4ff6dafe"
+    },
+    {
+      "opcode": 625,
+      "name": "s0271_MedalAcknowledge",
+      "category": "save-state",
+      "handler": 35421185,
+      "segment": "36",
+      "expectedHex": "f0b585b00f1c041c381c8df7d3fa4ff6"
+    },
+    {
+      "opcode": 626,
+      "name": "s0272_MedalGetGuruActor",
+      "category": "other-queries",
+      "handler": 35421321,
+      "segment": "36",
+      "expectedHex": "f8b50e1c051c301c8df78cfa4ef62cff"
+    },
+    {
+      "opcode": 627,
+      "name": "s0273_MedalGive",
+      "category": "save-state",
+      "handler": 35421397,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301c8df76afa4ff628fe"
+    },
+    {
+      "opcode": 628,
+      "name": "s0274_FunfestMissionStart",
+      "category": "requested-child-event",
+      "handler": 35091305,
+      "segment": "33",
+      "expectedHex": "38b50d1c281cddf729ff041c281cddf7"
+    },
+    {
       "opcode": 630,
       "name": "s0276_FunfestMissionBroadcast",
       "category": "interaction-progress-broadcast",
@@ -1357,12 +2669,324 @@
       "expectedHex": "70b50c1c051c201cdef7c6f8201cdef7"
     },
     {
+      "opcode": 632,
+      "name": "s0278_FunfestDispSalesmanMessage",
+      "category": "requested-admission",
+      "handler": 35295353,
+      "segment": "36",
+      "expectedHex": "f0b585b00c1c051c201cacf79ff8071c"
+    },
+    {
+      "opcode": 633,
+      "name": "s0279_FunfestBGMReturn",
+      "category": "requested-admission",
+      "handler": 35090385,
+      "segment": "33",
+      "expectedHex": "f8b50c1c201cdef7f5f8051c201cdef7"
+    },
+    {
+      "opcode": 634,
+      "name": "s027A_FunfestGetGenericInfo",
+      "category": "other-queries",
+      "handler": 35090617,
+      "segment": "33",
+      "expectedHex": "f8b50c1c051c201cdef780f8061c201c"
+    },
+    {
+      "opcode": 635,
+      "name": "s027B_FunfestGetItemExchangeInfo",
+      "category": "other-queries",
+      "handler": 35090705,
+      "segment": "33",
+      "expectedHex": "f0b585b00c1c051c201cdef753f80290"
+    },
+    {
+      "opcode": 636,
+      "name": "s027C_FunfestGetItemSaleInfo",
+      "category": "other-queries",
+      "handler": 35090833,
+      "segment": "33",
+      "expectedHex": "f8b50e1c051c301cdef714f80090301c"
+    },
+    {
+      "opcode": 637,
+      "name": "s027D_FunfestGetPokemonQuizInfo",
+      "category": "other-queries",
+      "handler": 35090933,
+      "segment": "33",
+      "expectedHex": "f8b50c1c051c201cddf7e2ff201cddf7"
+    },
+    {
+      "opcode": 638,
+      "name": "s027E_FunfestGetPokemonQuizSpecies",
+      "category": "other-queries",
+      "handler": 35091033,
+      "segment": "33",
+      "expectedHex": "f8b50e1c051c301cddf7b0ff301cddf7"
+    },
+    {
+      "opcode": 639,
+      "name": "s027F_FunfestGetPokemonQuizBogusSpecies",
+      "category": "other-queries",
+      "handler": 35091121,
+      "segment": "33",
+      "expectedHex": "f8b50e1c051c301cddf784ff301cddf7"
+    },
+    {
       "opcode": 656,
       "name": "s0290_WordSetLoadRivalName",
       "category": "read-only-context",
       "handler": 35288989,
       "segment": "36",
       "expectedHex": "f8b50e1c051c301cadf70efd041cacf7"
+    },
+    {
+      "opcode": 660,
+      "name": "s0294_HiddenHollowGetParam",
+      "category": "other-queries",
+      "handler": 35425545,
+      "segment": "36",
+      "expectedHex": "f8b5beb00d1c041c281c8cf74ffa061c"
+    },
+    {
+      "opcode": 661,
+      "name": "s0295_HiddenHollowReset",
+      "category": "requested-admission",
+      "handler": 35425981,
+      "segment": "36",
+      "expectedHex": "f8b50d1c281c8cf777f9041c281c8cf7"
+    },
+    {
+      "opcode": 665,
+      "name": "s0299_WordSetLoadAbility",
+      "category": "word-formatting",
+      "handler": 35290597,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf7eaf9acf788f8"
+    },
+    {
+      "opcode": 666,
+      "name": "s029A_WordSetLoadNature",
+      "category": "word-formatting",
+      "handler": 35290645,
+      "segment": "36",
+      "expectedHex": "f8b50f1c051c381cadf7d2f9acf770f8"
+    },
+    {
+      "opcode": 667,
+      "name": "s029B_WordSetLoadJoinAvenueName",
+      "category": "word-formatting",
+      "handler": 35290757,
+      "segment": "36",
+      "expectedHex": "f8b58eb00c1c051c201cadf799f9acf7"
+    },
+    {
+      "opcode": 670,
+      "name": "s029E_MedalGetFieldEffectID",
+      "category": "other-queries",
+      "handler": 35421509,
+      "segment": "36",
+      "expectedHex": "78b583b00c1c051c201c8df731fa4ff6"
+    },
+    {
+      "opcode": 671,
+      "name": "s029F_MedalDiscover",
+      "category": "save-state",
+      "handler": 35421453,
+      "segment": "36",
+      "expectedHex": "70b50e1c051c301c8df74efa4ff60cfe"
+    },
+    {
+      "opcode": 672,
+      "name": "s02A0_MedalIsObtained",
+      "category": "other-queries",
+      "handler": 35421717,
+      "segment": "36",
+      "expectedHex": "f8b50e1c051c301c8df7caf94ff688fd"
+    },
+    {
+      "opcode": 673,
+      "name": "s02A1_MedalGetMostCompleteCategory",
+      "category": "other-queries",
+      "handler": 35421781,
+      "segment": "36",
+      "expectedHex": "f0b5afb0071c00250fa80c1c05604560"
+    },
+    {
+      "opcode": 687,
+      "name": "s02AF_GameGetDifficulty",
+      "category": "save-state",
+      "handler": 35039389,
+      "segment": "12",
+      "expectedHex": "70b50c1c051c201ceaf78efc201ceaf7"
+    },
+    {
+      "opcode": 696,
+      "name": "s02B8_PedometerStart",
+      "category": "saved-step-counter",
+      "handler": 35040257,
+      "segment": "12",
+      "expectedHex": "08b5081ceaf7d2faabf666ffacf692fe"
+    },
+    {
+      "opcode": 697,
+      "name": "s02B9_PedometerEnd",
+      "category": "saved-step-counter",
+      "handler": 35040285,
+      "segment": "12",
+      "expectedHex": "08b5081ceaf7c4faabf658ffacf684fe"
+    },
+    {
+      "opcode": 698,
+      "name": "s02BA_PedometerGet",
+      "category": "other-queries",
+      "handler": 35040313,
+      "segment": "12",
+      "expectedHex": "70b50e1c051c301ceaf7b4faabf648ff"
+    },
+    {
+      "opcode": 699,
+      "name": "s02BB_Gym0601FanAmbienceStart",
+      "category": "requested-admission",
+      "handler": 35303461,
+      "segment": "36",
+      "expectedHex": "08b5081caaf7c0f86bf654fd6cf634fa"
+    },
+    {
+      "opcode": 700,
+      "name": "s02BC_TVCheckCommercial",
+      "category": "other-queries",
+      "handler": 35420669,
+      "segment": "36",
+      "expectedHex": "f8b5051c0f1c00248cf7a4ff061c281c"
+    },
+    {
+      "opcode": 701,
+      "name": "s02BD_TVGenCommercialMsgID",
+      "category": "other-queries",
+      "handler": 35420733,
+      "segment": "36",
+      "expectedHex": "38b50c1c051c201c8df7befb201c8df7"
+    },
+    {
+      "opcode": 704,
+      "name": "s02C0_FieldTradeGetSpecies",
+      "category": "party-queries",
+      "handler": 35322021,
+      "segment": "36",
+      "expectedHex": "f8b50c1c051c201ca5f78afc201ca5f7"
+    },
+    {
+      "opcode": 710,
+      "name": "s02C6_JoinAvenueStoreStart",
+      "category": "requested-admission",
+      "handler": 35040517,
+      "segment": "12",
+      "expectedHex": "08b50448d2f674f80348d2f693f80020"
+    },
+    {
+      "opcode": 711,
+      "name": "s02C7_JoinAvenueStoreEnd",
+      "category": "requested-admission",
+      "handler": 35040545,
+      "segment": "12",
+      "expectedHex": "08b50448d2f666f80348d2f685f80020"
+    },
+    {
+      "opcode": 719,
+      "name": "s02CF_PokeDexCheckHabitatList",
+      "category": "save-state",
+      "handler": 35428653,
+      "segment": "36",
+      "expectedHex": "f8b5ffb0dbb00d1c041c281c8bf744fc"
+    },
+    {
+      "opcode": 720,
+      "name": "s02D0_PokeDexEnableHabitatList",
+      "category": "save-state",
+      "handler": 34954265,
+      "segment": "12",
+      "expectedHex": "08b5081cfff7cafab7f6b6fab7f6c6fa"
+    },
+    {
+      "opcode": 724,
+      "name": "s02D4_ItemGetTMCount",
+      "category": "inventory-and-money",
+      "handler": 35288825,
+      "segment": "36",
+      "expectedHex": "f8b50d1c041c281cadf758fd6ff626fe"
+    },
+    {
+      "opcode": 732,
+      "name": "s02DC_UnityTowerInitVisitorMessage",
+      "category": "word-formatting",
+      "handler": 35429629,
+      "segment": "36",
+      "expectedHex": "f8b584b00c1c051c201c8bf75dfa061c"
+    },
+    {
+      "opcode": 733,
+      "name": "s02DD_UnityTowerGetVisitorCount",
+      "category": "other-queries",
+      "handler": 35429173,
+      "segment": "36",
+      "expectedHex": "70b50c1c051c201c8bf742fb201c8bf7"
+    },
+    {
+      "opcode": 734,
+      "name": "s02DE_UnityTowerSetHobby",
+      "category": "save-state",
+      "handler": 35429465,
+      "segment": "36",
+      "expectedHex": "70b50c1c051c201c8bf7b0fa201c8bf7"
+    },
+    {
+      "opcode": 735,
+      "name": "s02DF_UnityTowerGetHobby",
+      "category": "other-queries",
+      "handler": 35429521,
+      "segment": "36",
+      "expectedHex": "70b50c1c051c201c8bf794fa201c8bf7"
+    },
+    {
+      "opcode": 737,
+      "name": "s02E1_MedalDiscoverInitial",
+      "category": "requested-admission",
+      "handler": 35422185,
+      "segment": "36",
+      "expectedHex": "38b50d1c281c8df7e1f84ff69ffc47f6"
+    },
+    {
+      "opcode": 739,
+      "name": "s02E3_LensFlareRequest",
+      "category": "requested-admission",
+      "handler": 35040613,
+      "segment": "12",
+      "expectedHex": "08b5081ceaf720faabf6b4fe0121acf6"
+    },
+    {
+      "opcode": 741,
+      "name": "s02E5_HiddenHollowSet",
+      "category": "requested-admission",
+      "handler": 35427137,
+      "segment": "36",
+      "expectedHex": "f8b582b00e1c051c301c8bf733ff0090"
+    },
+    {
+      "opcode": 750,
+      "name": "s02EE_MusicalIsPropOwned",
+      "category": "save-state",
+      "handler": 34966509,
+      "segment": "12",
+      "expectedHex": "70b5061c0d1cfbf7adfe041c301c291c"
+    },
+    {
+      "opcode": 751,
+      "name": "s02EF_MusicalGetOwnedPropCount",
+      "category": "save-state",
+      "handler": 34966557,
+      "segment": "12",
+      "expectedHex": "38b50d1cfbf782fe041c281cfcf7c4fa"
     }
   ],
   "safeChildCallbacks": [
@@ -1378,7 +3002,10 @@
     "The field X menu is admitted by its native menu flag and exact event identity; child applications retain conservative recall.",
     "The audited PC box opcode preserves one bounded actor pose in the resident bridge across its no-fade field restart.",
     "0x1D9 edits pending zone NPC placement data only. Native allocation and initial-position notifications retain destination conflict checks; it never moves a live actor.",
-    "0x276 reports ordinary interaction progress to the Funfest mission subsystem. Stock sign and furniture scripts execute it after pausing actors; it does not move actors, replace the field, or start a communication activity."
+    "0x276 reports ordinary interaction progress to the Funfest mission subsystem. Stock sign and furniture scripts execute it after pausing actors; it does not move actors, replace the field, or start a communication activity.",
+    "PVPlay's child callback is allowed only while its work points to the live script VM and parent event that issued the cry. Sound-only commands do not alter follower state.",
+    "The September command audit admits direct state queries, word formatting, synchronous ambience control, and isolated save-data writes. Scripted movement, party mutations, child applications, field teardown, event-driven music transitions, and commands with unresolved side effects remain excluded; native actor and callback guards still apply.",
+    "PVPlayEx uses the same child callback and work layout as PVPlay, including the live-script ownership guard. Event-driven BGM transitions remain excluded because they create different child callbacks."
   ],
   "finishers": [
     {
