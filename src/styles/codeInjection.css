@@ -26,6 +26,19 @@
   font-size: 22px;
 }
 
+.code-injection-sidebar__runtime {
+  margin-top: 22px;
+  padding: 14px;
+}
+
+.code-injection-sidebar__runtime .code-injection-panel__header {
+  flex-wrap: wrap;
+}
+
+.code-injection-sidebar__runtime .code-injection-facts {
+  grid-template-columns: 1fr;
+}
+
 .code-injection-sidebar__modules {
   border-top: 1px solid #44475a;
   margin-top: 22px;
@@ -46,6 +59,10 @@
 
 .code-injection-sidebar__modules .code-injection-actions .btn {
   width: 100%;
+}
+
+.code-injection-actions .code-injection-note:empty {
+  display: none;
 }
 
 .code-injection-sidebar__modules .code-injection-module-list {
@@ -76,6 +93,40 @@
 .code-injection-main {
   min-width: 0;
   padding: 24px;
+}
+
+.code-injection-tabs {
+  border-bottom: 1px solid #6272a4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.code-injection-tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #d6d7e2;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+.code-injection-tab:hover,
+.code-injection-tab.-active {
+  border-bottom-color: #69d6bd;
+  color: #69d6bd;
+}
+
+.code-injection-tab:focus-visible {
+  outline: 2px solid #69d6bd;
+  outline-offset: -2px;
+}
+
+.code-injection-tab-panel[hidden] {
+  display: none;
 }
 
 .code-injection-panel {
@@ -388,4 +439,17 @@
 .code-injection-module strong {
   color: #f2f2f2;
   font-size: 14px;
+}
+
+@media (max-width: 800px) {
+  .code-injection-page {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 0;
+  }
+
+  .code-injection-sidebar {
+    border-bottom: 1px solid #44475a;
+    border-right: 0;
+    min-height: 0;
+  }
 }

@@ -3,7 +3,17 @@ using u8=uint8_t;using u16=uint16_t;using u32=uint32_t;
 #include "assets.generated.h"
 extern "C" u32 OriginalSaveMenuMain(void*,void*,void*,void*);
 namespace {
-template<class F> F native(u32 address){return reinterpret_cast<F>(address);}
+// Stock English Black 2 links the shared ARM9 routines 0x2c bytes earlier
+// after its version-specific code. The menu overlay and input globals are
+// 0x40 bytes earlier. Keep all call sites expressed in White 2 addresses.
+constexpr u32 runtimeAddress(u32 address){
+#ifdef SAVE_MENU_B2
+    if(address>=0x02018c00&&address<0x02100000)return address-0x2c;
+    if(address>=0x02140000&&address<0x021b0000)return address-0x40;
+#endif
+    return address;
+}
+template<class F> F native(u32 address){return reinterpret_cast<F>(runtimeAddress(address));}
 template<class T> T& field(void* p,u32 at){return *reinterpret_cast<T*>(static_cast<u8*>(p)+at);}
 u16 load16(const u8* p){return u16(p[0])|u16(p[1])<<8;}
 u32 load32(const u8* p){return u32(load16(p))|u32(load16(p+2))<<16;}
@@ -36,7 +46,7 @@ u16 location=0xffff,trainer[16],place[40];
 u32 badgeMask=0,timeHours=0,timeMinutes=0,ticks=0;
 u8 markerTicker=47;
 bool initialized=false,hasSave=false,noGraphics=false,navLatch=false,zooming=false;
-bool continueHandoff=false;
+bool exitCover=false;
 u8* markerFrames=nullptr;
 u8* badgePixels=nullptr;
 u16* markerUnderlay=nullptr;
@@ -403,8 +413,8 @@ void readSave(void* work){
 void drawCardAnimation(){
     const u8* pose=(sex?Player1Pose0:Player0Pose0);
     const u32 animation=(ticks/8)%4;
-    if(animation==1)pose=sex?Player1Pose1:Player0Pose1;
-    if(animation==3)pose=sex?Player1Pose2:Player0Pose2;
+    if(animation==0)pose=sex?Player1Pose1:Player0Pose1;
+    if(animation==2)pose=sex?Player1Pose2:Player0Pose2;
     if(cardCanvas){
         stageSprite(cardCanvas,pose,sex?Player1Palette:Player0Palette);
         for(int i=0;i<6;++i){
@@ -525,19 +535,26 @@ extern "C" u32 SaveMenuMain(void* a,void* b,void* c,void* work){
     if(!work)return OriginalSaveMenuMain(a,b,c,work);
     const u32 state=field<u32>(work,0x190);
     if(state!=5&&state!=6){
-        if(continueHandoff)coverTransition();
+        if(exitCover)coverTransition();
         if(initialized)restoreGraphics();
         reset();
         const u32 result=OriginalSaveMenuMain(a,b,c,work);
         const u32 nextState=field<u32>(work,0x190);
-        if(continueHandoff||nextState==2)coverTransition();
-        if(continueHandoff&&nextState==2)continueHandoff=false;
+        if(exitCover||(nextState==2&&field<u8>(work,0x170)==0))coverTransition();
+        if(exitCover&&nextState==13)exitCover=false;
         return result;
+    }
+    // Let the game own the entire menu when there is no save to continue.
+    if(field<u8>(work,0x170)!=0){
+        if(initialized)restoreGraphics();
+        reset();
+        exitCover=false;
+        return OriginalSaveMenuMain(a,b,c,work);
     }
     if(noGraphics)return OriginalSaveMenuMain(a,b,c,work);
     if(state==6&&!initialized)return OriginalSaveMenuMain(a,b,c,work);
     if(!initialized){
-        continueHandoff=false;
+        exitCover=false;
         coverTransition();
         if(!captureGraphics()){
             noGraphics=true;*mainBrightness=0;*subBrightness=0;
@@ -555,7 +572,7 @@ extern "C" u32 SaveMenuMain(void* a,void* b,void* c,void* work){
         initialized=true;
     }
     const u32 pressed=native<u32(*)()>(0x0203df29)();
-    u32* keyRoot=*reinterpret_cast<u32**>(0x021418c4);
+    u32* keyRoot=*reinterpret_cast<u32**>(runtimeAddress(0x021418c4));
     u8* keyData=keyRoot?reinterpret_cast<u8*>(*keyRoot):nullptr;
     u32* keyPressed=keyData?reinterpret_cast<u32*>(keyData+(field<u8>(keyRoot,0x3d)==0x1e?0x28:0x1c)):nullptr;
     const u32 originalPressed=keyPressed?*keyPressed:0;
@@ -565,7 +582,7 @@ extern "C" u32 SaveMenuMain(void* a,void* b,void* c,void* work){
         if(originalPressed&(0x10|0x20|0x80|0x2))skipNative=true;
         else navLatch=false;
     }
-    u8* touch=*reinterpret_cast<u8**>(0x021418cc);
+    u8* touch=*reinterpret_cast<u8**>(runtimeAddress(0x021418cc));
     const bool tapped=touch&&field<u16>(touch,0x60)==1;
     const int tx=tapped?field<u16>(touch,0x5c):0;
     const int ty=tapped?field<u16>(touch,0x5e):0;
@@ -604,17 +621,22 @@ extern "C" u32 SaveMenuMain(void* a,void* b,void* c,void* work){
             }
         }
     }
+    const bool backingOut=hasSave&&!page&&!zooming&&!skipNative&&(pressed&0x2);
+    if(backingOut)coverTransition();
     if(keyPressed)*keyPressed=filtered;
     u32 result=skipNative?0:OriginalSaveMenuMain(a,b,c,work);
     if(keyPressed)*keyPressed=originalPressed;
     if(hasSave)field<u8>(work,0x179)=page?1:0;
     const u32 nextState=field<u32>(work,0x190);
     if(nextState!=5&&nextState!=6){
-        const bool loadingSave=hasSave&&!page&&nextState==3;
-        if(loadingSave)coverTransition();
-        restoreGraphics();reset();continueHandoff=loadingSave;
+        const bool coveredExit=backingOut||(hasSave&&!page&&nextState==3);
+        // Continue and B-to-title restore the old framebuffers during their
+        // handoff. Other native options keep their original warning screens.
+        if(coveredExit)coverTransition();
+        restoreGraphics();reset();exitCover=coveredExit;
         return result;
     }
+    if(backingOut)revealMenu();
     if(zoomCommit){
         setup(bottomDisplay);
         if(markerX+26<184&&markerY+29<48)nativeMapTitle();

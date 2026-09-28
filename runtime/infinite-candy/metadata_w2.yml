@@ -1,0 +1,13 @@
+PMCGameID: W2
+PMCModulePriority: 4
+PMCVersion: 1.0.0
+Segments:
+  - ID: 0
+    Name: ARM9
+    Type: EXECUTABLE
+  - ID: 1
+    Name: 12
+    Type: OVERLAY
+  - ID: 2
+    Name: 165
+    Type: OVERLAY

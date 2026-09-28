@@ -45,6 +45,13 @@ if (unrelatedId === undefined) throw new Error("Missing unrelated archive used b
 const unrelatedEdit = cleanRom.files[unrelatedId].slice();
 unrelatedEdit[unrelatedEdit.length - 1] ^= 1;
 project.fileSystem = { ...project.fileSystem, replacements: { ...project.fileSystem?.replacements, [unrelatedId]: unrelatedEdit } };
+const checkBattle = (output: NintendoDSRom, installed = true) => {
+ const suffix = output.idCode === "IREO" ? "B2" : output.idCode === "IRDI" ? "W2I" : "W2";
+ const module = parseRpm(output.getFileByName(`patches/PokewebFollowingBattle${suffix}.dll`), { allowedMagics: ["DLXF"] });
+ const hooks = module.relocations.filter(r => r.target.module !== "base");
+ if (hooks.length !== (installed ? 2 : 0) || hooks.some(r => r.target.module !== "167" || r.target.type !== "FULL_COPY"))
+  throw new Error("Battle intro hooks were not installed/removed correctly.");
+};
 const checkUnrelatedEdit = (output: NintendoDSRom) => {
   if (output.filenames.idOf(unrelatedPath) !== unrelatedId ||
       !output.files[unrelatedId].every((byte, index) => byte === unrelatedEdit[index]))
@@ -56,6 +63,7 @@ let exported = await exportModifiedRom(project);
 let rom = new NintendoDSRom(exported, { fileData: "view" });
 checkUnrelatedEdit(rom);
 checkOptions(rom, true);
+checkBattle(rom);
 for (const path of mounts) if (rom.filenames.idOf(path) !== undefined) throw new Error(`Base package contains ${path}`);
 if (rom.filenames.idOf("a/0/1/6") !== cleanRom.filenames.idOf("a/0/1/6")) throw new Error("Unrelated file ID moved during base install.");
 let reopened = await loadProjectFromRomBytes(exported, "base.nds", { selectedNarcs: [] });
@@ -74,12 +82,14 @@ const rows = decodeFollowerPositioningNarc(readFollowingFile(reopened, positionR
   readFollowingFile(reopened, positionRom, FOLLOWER_RUNTIME_REGISTRY_PATH)!);
 if (rows.surf.length || rows.land[(entry.descriptorRow - 1008) * 12] !== 1) throw new Error("Base walking gaps were not saved.");
 await removeFollowerAlpha(reopened);
+checkBattle(new NintendoDSRom(await exportModifiedRom(reopened), { fileData: "view" }), false);
 const full = await installFollowerAlpha(reopened, undefined, { riding: true });
 if (full.variant !== "full" || !full.surfSha256 || !full.landRiderSha256) throw new Error("Full package was not installed.");
 exported = await exportModifiedRom(reopened);
 rom = new NintendoDSRom(exported, { fileData: "view" });
 checkUnrelatedEdit(rom);
 checkOptions(rom, true);
+checkBattle(rom);
 const originalIds = mounts.map(path => rom.filenames.idOf(path));
 if (originalIds.some(id => id === undefined)) throw new Error("Full package lacks mount files.");
 reopened = await loadProjectFromRomBytes(exported, "full.nds", { selectedNarcs: [] });
@@ -91,6 +101,7 @@ exported = await exportModifiedRom(reopened);
 rom = new NintendoDSRom(exported, { fileData: "view" });
 checkUnrelatedEdit(rom);
 checkOptions(rom, true);
+checkBattle(rom);
 for (let i = 0; i < mounts.length; i++) {
   if (rom.filenames.idOf(mounts[i]) !== undefined || rom.files[originalIds[i]!].length !== 0)
     throw new Error(`Mount payload was not stripped: ${mounts[i]}`);

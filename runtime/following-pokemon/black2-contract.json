@@ -682,7 +682,7 @@
       ],
       "continuation": "0x0219cfc6",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
       "module": "options"
     },
     {
@@ -701,7 +701,7 @@
       ],
       "continuation": "0x0219d074",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
       "module": "options"
     },
     {
@@ -720,7 +720,7 @@
       ],
       "continuation": "0x0219eb32",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
       "module": "options"
     },
     {
@@ -739,7 +739,7 @@
       ],
       "continuation": "0x0219dd4e",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
       "module": "options"
     },
     {
@@ -758,7 +758,7 @@
       ],
       "continuation": "0x0219ebb0",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
       "module": "options"
     },
     {
@@ -777,7 +777,7 @@
       ],
       "continuation": "0x0219ebe6",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
       "module": "options"
     },
     {
@@ -796,8 +796,46 @@
       ],
       "continuation": "0x0219edf2",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
       "module": "options"
+    },
+    {
+      "id": "battle-wild-opening",
+      "module": "battle",
+      "segment": "167",
+      "address": 35459700,
+      "kind": "FULL_COPY",
+      "expectedHex": "05141d02",
+      "abi": "Native singles intro procedure pointer: int (int *sequence, void *menuWork).",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "continuation": "Native procedure remains intact; replace only its callback literal.",
+      "displaced": [
+        "32-bit native singles procedure pointer"
+      ],
+      "conflicts": "Another patch replacing this same callback literal"
+    },
+    {
+      "id": "battle-trainer-opening",
+      "module": "battle",
+      "segment": "167",
+      "address": 35459704,
+      "kind": "FULL_COPY",
+      "expectedHex": "f9151d02",
+      "abi": "Native singles intro procedure pointer: int (int *sequence, void *menuWork).",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "continuation": "Native procedure remains intact; replace only its callback literal.",
+      "displaced": [
+        "32-bit native singles procedure pointer"
+      ],
+      "conflicts": "Another patch replacing this same callback literal"
     }
   ],
   "structureEvidence": {
@@ -3792,6 +3830,118 @@
       "expectedHex": "08b5c26868204843",
       "abi": "FLD_G3DOBJ_CTRL_DrawObject(r0=controller,r1=object index), void; the controller stores its object table at +12, each object is 0x68 bytes and its world translation begins at object +8. The native draw call does not consult controller +8 as a count.",
       "purpose": "Forward stock mount drawing on nonmatching species or resource failure; retain the native ripple call unmodified.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-setup-status",
+      "module": "events",
+      "segment": "ARM9",
+      "address": 33651992,
+      "expectedHex": "021c9c3212689c3011430160704700009c30006808407047",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "wild-battle-event",
+      "module": "field",
+      "segment": "12",
+      "address": 35030204,
+      "expectedHex": "f0b58bb0141c039020680d1c0790aef605fb2968",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "trainer-battle-event",
+      "module": "field",
+      "segment": "12",
+      "address": 35031980,
+      "expectedHex": "f0b587b0171c039038680c1c0590786804900598adf696ff",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "wild-opening-native",
+      "module": "battle",
+      "segment": "167",
+      "address": 35460100,
+      "expectedHex": "f8b515270e1c3f01041c351cf05df035002804d0301c211cfff7dafff8bd2068",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "trainer-opening-native",
+      "module": "battle",
+      "segment": "167",
+      "address": 35460600,
+      "expectedHex": "f0b593b015270c1c3f01051c261ce05df036002805d0201c291cfff7dffe13b0",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-view-to-position",
+      "module": "battle",
+      "segment": "167",
+      "address": 35243844,
+      "expectedHex": "18b4046801230a1c1a4012066468120e002c0dd1002a1149",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-front-mon",
+      "module": "battle",
+      "segment": "167",
+      "address": 35246472,
+      "expectedHex": "f8b5071c3e680c1c301c0091fff7e8f9611e09060c0e0099",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-mon-id",
+      "module": "battle",
+      "segment": "167",
+      "address": 35368000,
+      "expectedHex": "407e704780897047",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-mon-view-data",
+      "module": "battle",
+      "segment": "167",
+      "address": 35369060,
+      "expectedHex": "4268002a05d0c17e4906c90f01d0101c704700687047",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-message-hide",
+      "module": "battle",
+      "segment": "167",
+      "address": 35469208,
+      "expectedHex": "08b5031c187d042833d800187844c08800040014",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-status-show",
+      "module": "battle",
+      "segment": "167",
+      "address": 35469708,
+      "expectedHex": "38b5041ce07a002814d04e256068ad00217a4059c9f7f2fb",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-mon-create",
+      "module": "battle",
+      "segment": "168",
+      "address": 35518492,
+      "expectedHex": "031c04480a1c0168192000010858191c014b184740421f02",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-effect-add",
+      "module": "battle",
+      "segment": "168",
+      "address": 35517128,
+      "expectedHex": "78b581b0051c00f08bfa002813d1002000901a4e62202b04",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "battle-effect-busy",
+      "module": "battle",
+      "segment": "168",
+      "address": 35518440,
+      "expectedHex": "30b40b487d21056889006c58091f2204130e6a582106090e",
       "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
     }
   ],
