@@ -4,6 +4,7 @@ import "./styles/legacyFields.css";
 import "./styles/legacyPokemon.css";
 import "./styles/legacyTrainers.css";
 import "./styles/legacyTrainerSprites.css";
+import "./styles/playerBackSprite.css";
 import "./styles/legacyEncounters.css";
 import "./styles/legacyMovesItems.css";
 import "./styles/legacyMartsGrottos.css";
@@ -72,6 +73,7 @@ import { renderTutorMoveEditor } from "./ui/tutorMoveEditor";
 import { renderTypeChartEditor } from "./ui/typeChartEditor";
 import { renderTrainerEditor, stopTrainerImageRendering } from "./ui/trainerEditor";
 import { renderTrainerSpriteEditor, stopTrainerSpriteEditorPlayback } from "./ui/trainerSpriteEditor";
+import { renderPlayerTrainerBackSpritePreview, stopPlayerTrainerBackSpritePlayback } from "./ui/playerTrainerBackSpritePreview";
 import { renderTrainerMusicEditor, stopTrainerMusicEditorPlayback } from "./ui/trainerMusicEditor";
 import { renderBattleFacilityEditor } from "./ui/battleFacilityEditor";
 import { renderGrottoEditor, renderGrottoOddsEditor, renderMartEditor } from "./ui/martGrottoEditor";
@@ -109,6 +111,7 @@ type AppRoute =
   | "trainers"
   | "trainerMusic"
   | "trainerSprites"
+  | "playerBackSprite"
   | "facilities"
   | "wbtFacilities"
   | "encounters"
@@ -207,6 +210,7 @@ const APP_ROUTES: AppRoute[] = [
   "trainers",
   "trainerMusic",
   "trainerSprites",
+  "playerBackSprite",
   "facilities",
   "wbtFacilities",
   "encounters",
@@ -249,6 +253,7 @@ const EDITOR_REQUIREMENTS: Record<
   trainerMusic: [],
   music: [],
   trainerSprites: ["trdata"],
+  playerBackSprite: [],
   facilities: ["moves", "items"],
   wbtFacilities: ["moves", "items"],
   encounters: ["encounters", "personal"],
@@ -293,6 +298,7 @@ const NARC_LABELS: Partial<Record<NarcName, string>> = {
   trdata: "Trainer Data",
   trpok: "Trainer Pokemon",
   trainer_sprites: "Trainer Sprites",
+  trainer_back_sprites: "Player Back Sprites",
   encounters: "Encounters",
   marts: "Marts",
   mart_counts: "Mart Counts",
@@ -331,7 +337,7 @@ const NARC_LOAD_SECTIONS: NarcLoadSection[] = [
   { title: "Sprites", names: ["pokemon_sprites", "pokemon_icons", "starter_sprites", "ow_sprites"], toggleable: true },
   { title: "Moves", names: ["moves", "tutor_moves", "move_animations", "battle_animations", "move_spas"], toggleable: true },
   { title: "Pokemon", names: ["personal", "learnsets", "evolutions", "egg_moves", "habitats", "ingame_trades"], toggleable: true },
-  { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets", "trainer_sprites"], toggleable: true },
+  { title: "Trainers", names: ["trdata", "trpok", "trtext_table", "trtext_offsets", "trainer_sprites", "trainer_back_sprites"], toggleable: true },
   {
     title: "Battle Facilities",
     names: [
@@ -527,6 +533,7 @@ function renderApp(): void {
   if (previousContent) stopTrainerImageRendering(previousContent);
   stopTitleScreenEditor();
   stopTrainerSpriteEditorPlayback();
+  stopPlayerTrainerBackSpritePlayback();
   stopTrainerMusicEditorPlayback();
   stopOverworldWeatherEditorPreview();
   stopOverworldWeatherGraphicsEditor();
@@ -751,6 +758,7 @@ function renderApp(): void {
       },
       (trainerId, showdownText) => launchTestBattle(trainerId, showdownText),
       openTrainerSprites,
+      () => navigate("playerBackSprite"),
     );
     return;
   }
@@ -780,6 +788,11 @@ function renderApp(): void {
       onBack: () => navigate("trainers"),
       onNavigateClass: openTrainerSprites,
     });
+    return;
+  }
+
+  if (route === "playerBackSprite") {
+    void renderPlayerTrainerBackSpritePreview(project, content, 0, { onBack: () => navigate("trainers") });
     return;
   }
 
@@ -1028,6 +1041,7 @@ function renderNav(): string {
         ${renderMovesMenu()}
         ${renderItemsMenu()}
         ${renderTextsMenu()}
+        ${navItem("codeInjection", "Code Injection")}
         ${renderMoreMenu()}
       </div>
       <div class="header-status" id="header-status">${dirty ? renderDirtyIndicatorLink() : ""}</div>
@@ -1072,7 +1086,6 @@ function renderMoreMenu(): string {
     ["music", "Music"],
     ["changelog", "Changelog"],
     ["patches", "Patches"],
-    ["codeInjection", "Code Injection"],
     ["fileSystem", "File System"],
   ];
   if (project?.session.baseRom === "BW2") moreRoutes.splice(4, 0, ["titleScreen", "Title Screen"]);
@@ -1093,6 +1106,7 @@ function renderTrainersMenu(): string {
       ["facilities", "Subway / PWT"],
       ["wbtFacilities", "Black Tower / White Treehollow"],
       ["trainerMusic", "Trainer Music"],
+      ...(project?.session.baseRom === "BW2" ? [["playerBackSprite", "Player Back Sprite"] as ["playerBackSprite", string]] : []),
     ]
     : [];
   const active = route === "trainers" || trainerRoutes.some(([trainerRoute]) => route === trainerRoute);
@@ -2138,6 +2152,7 @@ function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grotto
   if (nextRoute === "weather") return project.session.baseRom === "BW2" && EDITOR_REQUIREMENTS.weather.every((name) => project?.narcs[name]);
   if (nextRoute === "weatherGraphics") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerSprites") return (project.session.baseRom === "BW" || project.session.baseRom === "BW2") && Boolean(project.narcs.trdata);
+  if (nextRoute === "playerBackSprite") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "animatedSprites") {
     const status = getPwanRuntimeStatus(project);
     return Boolean(project.narcs.personal) && status.supported && status.installed;
@@ -2231,7 +2246,7 @@ function navItem(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoO
     route === nextRoute ||
     (nextRoute === "headers" && route === "overworlds") ||
     (nextRoute === "moves" && route === "moveAnimation") ||
-    (nextRoute === "trainers" && route === "trainerSprites");
+    (nextRoute === "trainers" && (route === "trainerSprites" || route === "playerBackSprite"));
   return `<a class="header-item ${active ? "-active" : ""} ${enabled ? "" : "disabled"}" href="${routeUrl(nextRoute)}" ${enabled ? `data-route="${nextRoute}"` : ""}${missing}>${label}</a>`;
 }
 

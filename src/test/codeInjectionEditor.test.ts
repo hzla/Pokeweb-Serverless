@@ -2,18 +2,21 @@ import { describe, expect, it } from "vitest";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { renderCodeInjectionEditor } from "../ui/codeInjectionEditor";
 
+function renderFixture(version: "W2" | "B2"): string {
+  const project: ProjectState = {
+    originalRomBytes: new Uint8Array(0x200),
+    session: { romName: "fixture", baseRom: "BW2", baseVersion: version, fairy: false, fileIds: {}, blacklist: [] },
+    romInfo: { title: "fixture", idCode: version === "W2" ? "IRDO" : "IREO", fileName: "fixture.nds", size: 0x200 },
+    arm9: new Uint8Array(), overlays: {}, narcs: {}, texts: { banks: {} }, formats: {}, trpokInfo: [],
+  };
+  const root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
+  renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
+  return root.innerHTML;
+}
+
 describe("code-injection design credits", () => {
   it.each(["W2", "B2"] as const)("credits TrustyPeaches only on the requested %s cards", (version) => {
-    const project: ProjectState = {
-      originalRomBytes: new Uint8Array(0x200),
-      session: { romName: "fixture", baseRom: "BW2", baseVersion: version, fairy: false, fileIds: {}, blacklist: [] },
-      romInfo: { title: "fixture", idCode: version === "W2" ? "IRDO" : "IREO", fileName: "fixture.nds", size: 0x200 },
-      arm9: new Uint8Array(), overlays: {}, narcs: {}, texts: { banks: {} }, formats: {}, trpokInfo: [],
-    };
-    const root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
-    renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
-
-    const cards = root.innerHTML.match(/<section class="code-injection-panel">[\s\S]*?<\/section>/g) ?? [];
+    const cards = renderFixture(version).match(/<section class="code-injection-panel">[\s\S]*?<\/section>/g) ?? [];
     for (const title of ["Learnset Viewer", "Type Icons"]) {
       const card = cards.find(html => html.includes(`<h2>${title}</h2>`));
       expect(card).toBeDefined();
@@ -24,5 +27,47 @@ describe("code-injection design credits", () => {
     expect(cards.filter(html => html.includes("TrustyPeaches"))).toHaveLength(2);
     expect(cards.find(html => html.includes("<h2>Move Effectiveness Preview</h2>")))
       .not.toContain("TrustyPeaches");
+  });
+});
+
+describe("code-injection patch categories", () => {
+  it("places every patch in its functional tab and keeps PMC in the sidebar", () => {
+    const html = renderFixture("W2");
+    const headings = (section: string) => [...section.matchAll(/<h2>([^<]+)<\/h2>/g)].map(match => match[1]);
+    const panelIds = ["infrastructure", "graphics", "quality-of-life", "add-ons"];
+    const panels = panelIds.map((id, index) => {
+      const start = html.indexOf(`id="code-injection-panel-${id}"`);
+      const end = index + 1 < panelIds.length
+        ? html.indexOf(`id="code-injection-panel-${panelIds[index + 1]}"`)
+        : html.indexOf("</main>", start);
+      expect(start).toBeGreaterThan(-1);
+      expect(end).toBeGreaterThan(start);
+      return html.slice(start, end);
+    });
+
+    expect(headings(panels[0])).toEqual([
+      "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log",
+    ]);
+    expect(headings(panels[1])).toEqual([
+      "Black 2 / White 2 Save Menu", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview",
+    ]);
+    expect(panels[1]).toContain('id="install-save-menu-btn"');
+    expect(panels[0]).not.toContain('id="install-save-menu-btn"');
+    expect(headings(panels[2])).toEqual(["Background Music Toggle"]);
+    expect(headings(panels[3])).toEqual([
+      "Infinite Rare Candy", "Hard Level Caps", "Single-NPC Double Battle Fix",
+      "Tag Battle Stabilization", "Porta PC", "Added-Form Evolution Support",
+    ]);
+    expect(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))).toContain("<h2>PMC Runtime</h2>");
+    expect(html.slice(html.indexOf("<main"), html.indexOf("</main>"))).not.toContain("<h2>PMC Runtime</h2>");
+    expect(html).toContain("<div><span>Version</span>");
+    expect(html).not.toContain("<span>Overlay</span>");
+    expect(html).not.toContain("<span>Base Address</span>");
+    expect(html).not.toContain("Install runtime support for prebuilt Gen V patch modules.");
+    expect(html).not.toContain("Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.");
+    expect(html).not.toContain("Patch DLLs are staged in patches/. Library DLLs are staged in lib/.");
+    const actionNotes = [...html.matchAll(/<div class="code-injection-note" id="[^"]+-note" aria-live="polite">([\s\S]*?)<\/div>/g)];
+    expect(actionNotes).toHaveLength(17);
+    expect(actionNotes.every((match) => match[1] === "")).toBe(true);
   });
 });

@@ -83,15 +83,16 @@ function runtimeFiles(group) {
 }
 const additions = [
   {
-    name: 'save-menu', title: 'White 2 save menu',
-    artifacts: ['SaveMenuW2.dll'],
-    note: 'Version 0.1.9 save-menu PMC module for a pinned White 2 Following Pokémon alpha ROM. Build source and four prepared native-art PNG inputs are copied; the pinned ROM, generated header, and validation captures are excluded. See runtime notes for the exact supported input and validation limits.',
+    name: 'save-menu', title: 'Black 2 / White 2 save menu',
+    artifacts: ['SaveMenuB2.dll', 'SaveMenuW2.dll'],
+    note: 'Version 0.2.3 PMC modules for compatible English Black 2 and White 2 ROMs. Native code, embedded art, location names, and map points are checked against audited binary signatures rather than a whole-ROM hash. Build source, compatibility data, and four prepared native-art PNG inputs are copied; source ROMs, generated header, save files, and validation captures are excluded. In-emulator acceptance of the B-to-title cover, native player walk, and no-save passthrough remains pending.',
     extra: [
       ...['native-badges.png', 'native-map-marker.png', 'native-map-start-node.png', 'native-map-title.png']
         .map(name => file('save-menu', `assets/${name}`, 'binary-build-input', `runtime/save-menu/${name}`)),
       file('save-menu', 'integration/saveMenuModel.ts', 'support-only', 'src/pokeweb/saveMenuModel.ts'),
       file('save-menu', 'integration/codeInjectionEditor.ts', 'support-only', 'src/ui/codeInjectionEditor.ts'),
       file('save-menu', 'tests/verify-save-menu-update.ts', 'test', 'scripts/verify-save-menu-update.ts'),
+      file('save-menu', 'tests/verify-save-menu-debug-skip.ts', 'test', 'scripts/verify-save-menu-debug-skip.ts'),
     ],
   },
   {
@@ -109,10 +110,10 @@ const additions = [
   {
     name: 'following-pokemon', title: 'Following Pokémon',
     artifacts: [
-      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/PokewebFollowing${name}.dll`),
-      ...['CoreB2', 'EventsB2', 'FieldB2', 'OptionsB2', 'EventsB2Base', 'FieldB2Base'].map(name => `following/black2/PokewebFollowing${name}.dll`),
-      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/white2upgrade/PokewebFollowing${name}.dll`),
-      ...['CoreW2I', 'EventsW2I', 'FieldW2I', 'OptionsW2I', 'EventsW2IBase', 'FieldW2IBase'].map(name => `following/white2italy/PokewebFollowing${name}.dll`),
+      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'BattleW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/PokewebFollowing${name}.dll`),
+      ...['CoreB2', 'EventsB2', 'FieldB2', 'OptionsB2', 'BattleB2', 'EventsB2Base', 'FieldB2Base'].map(name => `following/black2/PokewebFollowing${name}.dll`),
+      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'BattleW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/white2upgrade/PokewebFollowing${name}.dll`),
+      ...['CoreW2I', 'EventsW2I', 'FieldW2I', 'OptionsW2I', 'BattleW2I', 'EventsW2IBase', 'FieldW2IBase'].map(name => `following/white2italy/PokewebFollowing${name}.dll`),
     ],
     note: `Stock US White 2 ${following[0].version}, stock US Black 2 ${following[1].version}, White2Upgrade ${following[2].version}, and Italian White 2 ${following[3].version} bundled runtime variants. Sources, generators, profile metadata, integration, and focused tests are recorded. ROMs, sprite archives, save files, binary payloads, and emulator captures are excluded from source exports. Artifact hashes identify the exact bundled modules; no binary rebuild is implied.`,
     extra: [

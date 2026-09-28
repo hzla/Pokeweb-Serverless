@@ -2,6 +2,7 @@
 #include "interaction.h"
 #include "effects.h"
 #include "scene-policy.h"
+#include "battle-entry.h"
 #ifdef FW_MOUNT
 #include "land.h"
 #endif
@@ -16,7 +17,7 @@ static struct {
 #ifdef FW_MOUNT
  uint32_t naturalRun;
 #endif
- void *menuRoot,*pcVm;void (*recall)(void);
+ void *menuRoot,*pcVm,*battleRoot,*battleSetup;void (*recall)(void);
  EventToken events[EVENT_LIMIT];VmToken vms[VM_LIMIT];
 } scene;
 /* Pointer values are diagnostic identities only; never follow saved tokens. */
@@ -43,6 +44,7 @@ static void pause_scene(void){
 }
 static void recall(unsigned reason,unsigned kind,void *subject,uintptr_t value){
  pause_scene();
+ if(scene.battleSetup){U32(scene.battleSetup,FWB_STATUS)&=~FWB_PRESENT;scene.battleSetup=scene.battleRoot=0;}
  if(!scene.recalled){FollowingEventsAPI.discard();scene.pcActive=scene.pcFade=0;scene.recalled=1;log_event(kind,subject,value,reason);scene.recall();}
 }
 int fws_safe_opcode(unsigned code){
@@ -57,7 +59,63 @@ static void *script_event_work(void *event){
  void *work=PTR(event,12),*scriptWork=work?PTR(work,0):0;
  return scriptWork&&PTR(scriptWork,20)==event?scriptWork:0;
 }
+/* A visible, healthy party-slot-zero follower may carry into its own singles
+ * opening. Compare the actual battle copy too; scripted rental/reordered
+ * parties cannot inherit eligibility from the overworld slot number alone. */
+static int battle_lead(void *party){
+ /* slot is a manual override, not the resolved party position: -1 means
+  * automatic selection. The native slot-zero identity/HP checks below
+  * establish the actual lead for both automatic and explicit slot zero. */
+ if(!scene.f||scene.recalled||!scene.f->has_selection||scene.f->slot>0||scene.f->slot < -1
+    ||!scene.f->actor||fwfx_busy()||fwt_active())return 0;
+#ifdef FW_MOUNT
+ if(fwland_active())return 0;
+#endif
+ Actor *actor=(Actor*)scene.f->actor;
+ if(actor->system!=scene.sys||(actor->flags&5)!=1||!party)return 0;
+ unsigned count=CALL(0x0201fe25,unsigned(*)(void*))(party);
+ if(!count||count>6)return 0;
+ void *mon=CALL(0x0201ff35,void*(*)(void*,unsigned))(party,0);
+ if(!mon)return 0;
+ uint32_t(*param)(void*,unsigned,void*)=CALL(0x0201cd25,uint32_t(*)(void*,unsigned,void*));
+ return !param(mon,0x4c,0)&&param(mon,0xa0,0)
+  &&param(mon,0,0)==scene.f->selected.personality
+  &&param(mon,7,0)==scene.f->selected.trainer
+  &&param(mon,5,0)==scene.f->selected.species
+  &&param(mon,0x6f,0)==scene.f->selected.form;
+}
+static int battle_candidate(void){
+ return scene.field&&battle_lead(CALL(0x0201735d,void*(*)(void*))(PTR(scene.field,8)));
+}
+static int battle_event(void *event){
+ if(!event||PTR(event,16)!=scene.game)return 0;
+ uintptr_t cb=U32(event,4);void *work=PTR(event,12),*setup=0;
+ if(!work||PTR(work,0)!=scene.game)return 0;
+ if(cb==0x021684fdu)setup=PTR(work,4);
+ else if(cb==0x02168bedu){
+  if(U32(work,28)||U32(work,32))return 0; /* facility/rental lifetime */
+  setup=PTR(work,8);
+ }else return 0;
+ if(!fwb_local_single(setup)||U32(event,8)>3)return 0;
+ if(scene.battleSetup==setup&&!scene.recalled)return 1;
+ if(!battle_candidate()||!battle_lead(PTR(setup,0x24)))return 0;
+ U32(setup,FWB_STATUS)|=FWB_PRESENT;
+ scene.battleSetup=setup;scene.battleRoot=event;
+ return 1;
+}
+/* Transition children are owned by this validated battle event, including
+ * native encounter effects with profile-specific overlay callbacks. This
+ * exception cannot be borrowed by an unrelated script or later battle. */
+static int battle_chain(void *event){
+ for(unsigned depth=0;event&&depth<EVENT_LIMIT;++depth,event=PTR(event,0)){
+  if(PTR(event,16)!=scene.game)return 0;
+  if(battle_event(event))return 1;
+ }
+ return 0;
+}
+int fws_battle_entry(void){return scene.battleSetup&&!scene.recalled&&battle_chain(PTR(scene.game,0x18));}
 static int safe_callback(void *event,uintptr_t callback){
+ if(battle_chain(event))return 1;
  void *work=PTR(event,12);
  /* Native menu and its replacement screen event are separately identified.
     Never trust a recycled event address or an arbitrary child application. */
@@ -294,6 +352,7 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
  }
  if(kind==FWE_FREE){
   if(subject==scene.menuRoot)scene.menuRoot=0;
+  if(subject==scene.battleRoot)scene.battleRoot=scene.battleSetup=0;
   for(unsigned i=0;i<EVENT_LIMIT;++i)if(scene.events[i].event==subject)scene.events[i]=(EventToken){0};
   for(unsigned i=0;i<VM_LIMIT;++i)if(scene.vms[i].event==subject)scene.vms[i]=(VmToken){0};
   return;
@@ -334,6 +393,7 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
      Keep that command scoped to this script. The earlier move query is a
      general read-only command in the audited allowlist. */
   if(!fws_safe_opcode(value)&&!pcFade
+     &&!((value==0x85u||value==0x174u||value==0x297u)&&battle_candidate())
      &&!(value==0x2c2u&&FollowingSceneDebug.script==10144u))
    recall(FWS_UNKNOWN_COMMAND,kind,subject,value);
   return;
@@ -366,7 +426,7 @@ void fws_observe(unsigned kind,void *subject,uintptr_t value){
    if(hit)recall(FWS_COLLISION,kind,subject,0);
   }
  }
- if(!scene.active||scene.recalled||!scene.f->actor)return;
+ if(!scene.active||scene.recalled||!scene.f->actor||fws_battle_entry())return;
  if(kind==FWE_ACTION){FollowingSceneDebug.action=value;action(subject,value);}
  if(kind==FWE_POSITION||kind==FWE_WORLD_STEP){
   Actor *actor=subject;const Vec *target=(const Vec*)value;
@@ -425,7 +485,7 @@ unsigned fws_poll(void){
 #ifdef FW_MOUNT
   scene.naturalRun=0;
 #endif
-  scene.menuRoot=scene.pcVm=0;
+  scene.menuRoot=scene.pcVm=scene.battleRoot=scene.battleSetup=0;
   for(unsigned i=0;i<EVENT_LIMIT;++i)scene.events[i]=(EventToken){0};
   for(unsigned i=0;i<VM_LIMIT;++i)scene.vms[i]=(VmToken){0};
   if(!recalled&&scene.f->state==FW_EVENT_PAUSED)scene.f->state=(FwState)scene.previousState;

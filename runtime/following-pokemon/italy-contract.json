@@ -742,10 +742,10 @@
       ],
       "continuation": "0x0219cf06",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
       "module": "options",
-      "addressDelta": -256,
-      "usExpectedHex": "01f027f8"
+      "usExpectedHex": "01f027f8",
+      "addressDelta": -256
     },
     {
       "id": "options-exit",
@@ -763,10 +763,10 @@
       ],
       "continuation": "0x0219cfb4",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
       "module": "options",
-      "addressDelta": -256,
-      "usExpectedHex": "01f010f8"
+      "usExpectedHex": "01f010f8",
+      "addressDelta": -256
     },
     {
       "id": "options-main",
@@ -784,10 +784,10 @@
       ],
       "continuation": "0x0219ea72",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
       "module": "options",
-      "addressDelta": -256,
-      "usExpectedHex": "fff7b7fa"
+      "usExpectedHex": "fff7b7fa",
+      "addressDelta": -256
     },
     {
       "id": "options-select",
@@ -805,10 +805,10 @@
       ],
       "continuation": "0x0219dc8e",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
       "module": "options",
-      "addressDelta": -256,
-      "usExpectedHex": "00f0c9fa"
+      "usExpectedHex": "00f0c9fa",
+      "addressDelta": -256
     },
     {
       "id": "options-compare-exit",
@@ -826,10 +826,10 @@
       ],
       "continuation": "0x0219eaf0",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
       "module": "options",
-      "addressDelta": -256,
-      "usExpectedHex": "fff71cff"
+      "usExpectedHex": "fff71cff",
+      "addressDelta": -256
     },
     {
       "id": "options-compare-cancel",
@@ -847,10 +847,10 @@
       ],
       "continuation": "0x0219eb26",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
       "module": "options",
-      "addressDelta": -256,
-      "usExpectedHex": "fff701ff"
+      "usExpectedHex": "fff701ff",
+      "addressDelta": -256
     },
     {
       "id": "options-commit",
@@ -868,10 +868,52 @@
       ],
       "continuation": "0x0219ed32",
       "conflicts": "Options menu callsite",
-      "status": "binary audit; packaged CPU verification required; visual acceptance pending",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
       "module": "options",
+      "usExpectedHex": "fff75dfd",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-wild-opening",
+      "module": "battle",
+      "segment": "167",
+      "address": 35459508,
+      "kind": "FULL_COPY",
+      "expectedHex": "45131d02",
+      "abi": "Native singles intro procedure pointer: int (int *sequence, void *menuWork).",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "45141d02",
       "addressDelta": -256,
-      "usExpectedHex": "fff75dfd"
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "continuation": "Native procedure remains intact; replace only its callback literal.",
+      "displaced": [
+        "32-bit native singles procedure pointer"
+      ],
+      "conflicts": "Another patch replacing this same callback literal"
+    },
+    {
+      "id": "battle-trainer-opening",
+      "module": "battle",
+      "segment": "167",
+      "address": 35459512,
+      "kind": "FULL_COPY",
+      "expectedHex": "39151d02",
+      "abi": "Native singles intro procedure pointer: int (int *sequence, void *menuWork).",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "39161d02",
+      "addressDelta": -256,
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "continuation": "Native procedure remains intact; replace only its callback literal.",
+      "displaced": [
+        "32-bit native singles procedure pointer"
+      ],
+      "conflicts": "Another patch replacing this same callback literal"
     }
   ],
   "structureEvidence": {
@@ -4591,6 +4633,146 @@
       "usExpectedHex": "08b5c26868204843",
       "addressDelta": -232,
       "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending"
+    },
+    {
+      "id": "battle-setup-status",
+      "module": "events",
+      "segment": "ARM9",
+      "address": 33651992,
+      "expectedHex": "021c9c3212689c3011430160704700009c30006808407047",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "021c9c3212689c3011430160704700009c30006808407047",
+      "addressDelta": 0
+    },
+    {
+      "id": "wild-battle-event",
+      "module": "field",
+      "segment": "12",
+      "address": 35029996,
+      "expectedHex": "f0b58bb0141c039020680d1c0790aef66dfb2968",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "f0b58bb0141c039020680d1c0790aef6e5fa2968",
+      "addressDelta": -272
+    },
+    {
+      "id": "trainer-battle-event",
+      "module": "field",
+      "segment": "12",
+      "address": 35031772,
+      "expectedHex": "f0b587b0171c039038680c1c0590786804900598adf6feff",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "f0b587b0171c039038680c1c0590786804900598adf676ff",
+      "addressDelta": -272
+    },
+    {
+      "id": "wild-opening-native",
+      "module": "battle",
+      "segment": "167",
+      "address": 35459908,
+      "expectedHex": "f8b515270e1c3f01041c351cf05df035002804d0301c211cfff7dafff8bd2068",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "f8b515270e1c3f01041c351cf05df035002804d0301c211cfff7dafff8bd2068",
+      "addressDelta": -256
+    },
+    {
+      "id": "trainer-opening-native",
+      "module": "battle",
+      "segment": "167",
+      "address": 35460408,
+      "expectedHex": "f0b593b015270c1c3f01051c261ce05df036002805d0201c291cfff7dffe13b0",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "f0b593b015270c1c3f01051c261ce05df036002805d0201c291cfff7dffe13b0",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-view-to-position",
+      "module": "battle",
+      "segment": "167",
+      "address": 35243652,
+      "expectedHex": "18b4046801230a1c1a4012066468120e002c0dd1002a1149",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "18b4046801230a1c1a4012066468120e002c0dd1002a1149",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-front-mon",
+      "module": "battle",
+      "segment": "167",
+      "address": 35246280,
+      "expectedHex": "f8b5071c3e680c1c301c0091fff7e8f9611e09060c0e0099",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "f8b5071c3e680c1c301c0091fff7e8f9611e09060c0e0099",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-mon-id",
+      "module": "battle",
+      "segment": "167",
+      "address": 35367808,
+      "expectedHex": "407e704780897047",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "407e704780897047",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-mon-view-data",
+      "module": "battle",
+      "segment": "167",
+      "address": 35368868,
+      "expectedHex": "4268002a05d0c17e4906c90f01d0101c704700687047",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "4268002a05d0c17e4906c90f01d0101c704700687047",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-message-hide",
+      "module": "battle",
+      "segment": "167",
+      "address": 35469016,
+      "expectedHex": "08b5031c187d042833d800187844c08800040014",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "08b5031c187d042833d800187844c08800040014",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-status-show",
+      "module": "battle",
+      "segment": "167",
+      "address": 35469516,
+      "expectedHex": "38b5041ce07a002814d04e256068ad00217a4059c9f7f2fb",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "38b5041ce07a002814d04e256068ad00217a4059c9f7f2fb",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-mon-create",
+      "module": "battle",
+      "segment": "168",
+      "address": 35518300,
+      "expectedHex": "031c04480a1c0168192000010858191c014b184780411f02",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "031c04480a1c0168192000010858191c014b184780421f02",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-effect-add",
+      "module": "battle",
+      "segment": "168",
+      "address": 35516936,
+      "expectedHex": "78b581b0051c00f08bfa002813d1002000901a4e62202b04",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "78b581b0051c00f08bfa002813d1002000901a4e62202b04",
+      "addressDelta": -256
+    },
+    {
+      "id": "battle-effect-busy",
+      "module": "battle",
+      "segment": "168",
+      "address": 35518248,
+      "expectedHex": "30b40b487d21056889006c58091f2204130e6a582106090e",
+      "status": "Italian target bytes pinned; instruction/ABI audit and emulator acceptance pending",
+      "usExpectedHex": "30b40b487d21056889006c58091f2204130e6a582106090e",
+      "addressDelta": -256
     }
   ],
   "eventsAbi": 6,

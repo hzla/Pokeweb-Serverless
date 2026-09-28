@@ -79,7 +79,8 @@ def generate_contract(rom_path: Path, output: Path | None = None) -> dict:
     result["structureEvidence"]["field"]["status"] = "offset checked against the IREO revision-0 field binary; live emulator acceptance pending"
     result["structureEvidence"]["status"] = "IREO binary layouts and adapters verified; live emulator acceptance pending"
     for site in result["hooks"] + result.get("nativeAdapters", []):
-        site["address"] = port_address(site["address"])
+        from battle_port import port_address as battle_address
+        site["address"] = battle_address(site["address"],"black2") if site.get("module")=="battle" else port_address(site["address"])
         base, data = segments[site["segment"]]
         at = site["address"] - base
         length = len(bytes.fromhex(site["expectedHex"]))

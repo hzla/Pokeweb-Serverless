@@ -1,5 +1,5 @@
-"""Extract only the native White 2 art used by the save menu."""
-import hashlib
+"""Extract native English BW2 art used by the save menu."""
+import argparse
 import struct
 from pathlib import Path
 
@@ -9,8 +9,7 @@ import ndspy.lz10
 from PIL import Image
 
 HERE=Path(__file__).resolve().parent
-TARGET=HERE.parents[2].parent/'White2Upgrade-Following-0.7.16-alpha.nds'
-PIN='6aab8eeff93ff966fce3c2a44162bfa10052511f3b7f69e000815852af05d1c9'
+DEFAULT_ROM=HERE.parents[2]/'cleanwhite2.nds'
 
 def rgb555(pal,index):
     return struct.unpack_from('<H',pal,40+index*2)[0] | 0x8000
@@ -96,9 +95,10 @@ def native_glyphs(font_file,characters):
             rows.append(ink|(shade<<8))
     return lookup,characters.index(233),advances,rows
 
-def main():
-    assert hashlib.sha256(TARGET.read_bytes()).hexdigest()==PIN
-    rom=ndspy.rom.NintendoDSRom.fromFile(TARGET)
+def main(target=DEFAULT_ROM):
+    rom=ndspy.rom.NintendoDSRom.fromFile(target)
+    if bytes(rom.idCode) not in (b'IRDO',b'IREO'):
+        raise ValueError('Asset source must be English Black 2 or White 2.')
     players=ndspy.narc.NARC(rom.getFileByName('a/0/3/0')).files
     assert len(players)==24 and all(bytes(players[i][:4])==b'RGCN' for i in (5,7))
     maparc=ndspy.narc.NARC(rom.getFileByName('a/0/8/4')).files
@@ -110,7 +110,7 @@ def main():
             base=map_pixel(maparc[7],maparc[16],x,y)
             overlay=map_pixel(maparc[5],maparc[17],x,y)
             map_indices.append(overlay or base)
-    lines=['#pragma once','// Extracted from the pinned White 2 ROM at build time.']
+    lines=['#pragma once','// Extracted from a structurally checked English BW2 ROM at build time.']
     packed_map=ndspy.lz10.compress(bytes(map_indices))
     assert ndspy.lz10.decompress(packed_map)==bytes(map_indices)
     lines.append(emit('UnovaMapLz',packed_map,'u8',32))
@@ -147,7 +147,7 @@ def main():
     assert ndspy.lz10.decompress(packed_badges)==bytes(badge_pixels)
     lines.append(emit('BadgePalette',badge_palette,'u16'))
     lines.append(emit('BadgeLz',packed_badges,'u8',32))
-    # The save menu's location code indexes the White 2 location text bank.
+    # The English BW2 games share this location text bank and map artwork.
     # Decode it at build time so no menu-owned message handle is needed later.
     messages=ndspy.narc.NARC(rom.getFileByName('a/0/0/2')).files[109]
     block_count,count=struct.unpack_from('<HH',messages)
@@ -206,12 +206,29 @@ def main():
     assert len(points)==85*3 and len(set(points[::3]))==85
     assert points[points.index(439):points.index(439)+3]==[439,33,127]
     lines.append(emit('MapPoints',points,'u16'))
+    # Native NANR members 1/3, sequence 6: down-walk cells 7,0,6,0
+    # with eight ticks per cell. Cell 18 belongs to the faster movement set.
+    for animation in (players[1],players[3]):
+        bank=24
+        count,_,sequences,frames,values=struct.unpack_from('<HHIII',animation,bank)
+        assert count>6
+        frame_count,_,_,mode,frame_offset=struct.unpack_from('<HHIII',animation,bank+sequences+6*16)
+        assert frame_count==4 and mode==2
+        steps=[]
+        for step in range(frame_count):
+            value_offset,duration,_=struct.unpack_from('<IHH',animation,bank+frames+frame_offset+step*8)
+            cell=struct.unpack_from('<H',animation,bank+values+value_offset)[0]
+            steps.append((cell,duration))
+        assert steps==[(7,8),(0,8),(6,8),(0,8)]
     for sex,chars,palette in ((0,5,4),(1,7,6)):
         raw=players[chars]
-        for pose,cell in enumerate((0,6,18)):
+        for pose,cell in enumerate((0,7,6)):
             lines.append(emit(f'Player{sex}Pose{pose}',raw[48+cell*512:48+(cell+1)*512],'u8',32))
         lines.append(emit(f'Player{sex}Palette',[rgb555(players[palette],i) for i in range(16)],'u16'))
     (HERE/'assets.generated.h').write_text('\n'.join(lines))
     print('generated map/player/font assets',len(map_indices),'map pixels')
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--rom',type=Path,default=DEFAULT_ROM)
+    main(parser.parse_args().rom)
