@@ -509,3 +509,14 @@ which contains the older runtime. These checks remain **NOT RUN** until recorded
 |---|---|---|---|
 | CR01 | Talk to the Pokémon NPC from `cry.mln` and watch the follower before dialogue, when the cry starts, and after it ends. Repeat while walking and while mounted. | The cry itself causes no recall ball or new send-out. If the follower disappears before the cry, record a fresh state at that earlier event boundary. | NOT RUN |
 | CR02 | Talk to an NPC whose script enters a battle or moves the player after a cry. | The cry alone keeps the follower; the later unsafe action recalls at its normal boundary. | NOT RUN |
+
+## Visible follower battle opening
+
+These eligibility rules supersede unconditional battle-recall expectations in older cases above. Other unsafe actions still recall normally.
+
+Cold boot the current export with a matching ordinary save, on each profile and each package. Visual/audio acceptance is pending; CPU tests do not establish it.
+
+- Cold boot with a healthy visible grounded follower from party slot 1 and do not press L/R. Enter both a wild singles battle and a trainer singles battle; then repeat after explicitly cycling back to slot 1. It should stay out during the transition and already occupy the player platform. There should be no player throw, ball effect, or “Go!” message; the opponent intro, HP bars, entrance abilities, first turn, and return to the field must work normally.
+- Cycle to party slots 2–6 without reordering the party. The follower should recall and the normal first battler should receive the full retail opening.
+- Repeat with followers Off, a hidden follower, a fainted or Egg first slot, riding, a partner, and a doubles encounter. All should use retail openings.
+- Check shiny/form leads, repeated encounters, escape, victory, loss, and returning to a different map. Check the camera, sprite scale, sounds, HUD, and follower restoration. An interrupted encounter must not change the next battle’s opening.

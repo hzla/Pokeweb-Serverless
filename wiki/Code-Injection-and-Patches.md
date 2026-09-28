@@ -26,6 +26,8 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | Single-NPC double battle fix | Black 2 / White 2 with PMC support | The fix is installed as a bundled DLXF patch. |
 | Tag Battle Stabilization | US White 2 (`IRDO`) with compatible battle AI hooks | Supports tag battles above the vanilla six opposing Pokemon by reducing simultaneous AI script memory use. |
 | Porta PC | US Black 2 (`IREO`) or White 2 (`IRDO`) with compatible field hooks | Press Start during normal overworld exploration to open the PC and access Pokemon boxes, including on rail maps such as Castelia City. |
+| Infinite Candy | US Black 2 (`IREO`) or White 2 (`IRDO`) with unused item 622 | Adds a reusable Rare Candy effect and icon in Key Items using a PMC DLL; White2Upgrade and Black2Upgrade are excluded. |
+| Hard Level Caps | Stock US Black 2 (`IREO`) or White 2 (`IRDO`) | Caps battle EXP and Day Care growth using game work variable 16415. Infinite Candy respects the cap; ordinary Rare Candy ignores it. |
 | Installed DLLs | Files in `patches/` or `lib/` | Patch DLLs are applied to the game; library DLLs are dependencies used by patches. |
 
 ## Code Injection Controls
@@ -48,6 +50,8 @@ Use these tools carefully. They modify ARM9, overlays, or ROM files at known byt
 | Uninstall Tag Battle Stabilization | Removes the stabilization DLL staged in the current project. | Available before exporting and reloading the DLL as part of a ROM |
 | Install/Update Porta PC | Installs PMC if needed and stages the matching stripped DLL. Replaces a recognized original ButtonScript DLL in place. | `PortaPCB2.dll` or `PortaPCW2.dll` |
 | Uninstall Porta PC | Removes a Porta PC DLL staged in the current project. | Available before the DLL becomes part of an imported ROM |
+| Install Infinite Candy | Installs PMC if needed, stages the version-matched DLL, and fills item 622's data, name, and description. | Give item 622 through an event or save editor; Rare Candy at item 50 stays unchanged. Credit: PW2Code by Dararo. |
+| Install Hard Level Caps | Installs PMC if needed and stages the version-matched battle, Day Care, and item hooks. | Set the desired cap with `EventWorks.Set(16415, level)` in a game script. Zero leaves the default cap at 100. Credit: PW2Code by Dararo. |
 | Installed DLLs sidebar | Lists each injected patch or library once by its complete ROM path. | `patches/DoubleBattleFixW2.dll` |
 | Add Patch DLL | Adds a DLXF Gen V patch DLL to `patches/`. | A battle-code patch DLL |
 | Add Library DLL | Adds a supporting library DLL to `lib/`. | A libRPM-compatible dependency |

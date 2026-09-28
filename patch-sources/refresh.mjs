@@ -96,10 +96,10 @@ const additions = [
   {
     name: 'following-pokemon', title: 'Following Pokémon',
     artifacts: [
-      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/PokewebFollowing${name}.dll`),
-      ...['CoreB2', 'EventsB2', 'FieldB2', 'OptionsB2', 'EventsB2Base', 'FieldB2Base'].map(name => `following/black2/PokewebFollowing${name}.dll`),
-      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/white2upgrade/PokewebFollowing${name}.dll`),
-      ...['CoreW2I', 'EventsW2I', 'FieldW2I', 'OptionsW2I', 'EventsW2IBase', 'FieldW2IBase'].map(name => `following/white2italy/PokewebFollowing${name}.dll`),
+      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'BattleW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/PokewebFollowing${name}.dll`),
+      ...['CoreB2', 'EventsB2', 'FieldB2', 'OptionsB2', 'BattleB2', 'EventsB2Base', 'FieldB2Base'].map(name => `following/black2/PokewebFollowing${name}.dll`),
+      ...['CoreW2', 'EventsW2', 'FieldW2', 'OptionsW2', 'BattleW2', 'EventsW2Base', 'FieldW2Base'].map(name => `following/white2upgrade/PokewebFollowing${name}.dll`),
+      ...['CoreW2I', 'EventsW2I', 'FieldW2I', 'OptionsW2I', 'BattleW2I', 'EventsW2IBase', 'FieldW2IBase'].map(name => `following/white2italy/PokewebFollowing${name}.dll`),
     ],
     note: `Stock US White 2 ${following[0].version}, stock US Black 2 ${following[1].version}, White2Upgrade ${following[2].version}, and Italian White 2 ${following[3].version} bundled runtime variants. Sources, generators, profile metadata, integration, and focused tests are recorded. ROMs, sprite archives, save files, binary payloads, and emulator captures are excluded from source exports. Artifact hashes identify the exact bundled modules; no binary rebuild is implied.`,
     extra: [

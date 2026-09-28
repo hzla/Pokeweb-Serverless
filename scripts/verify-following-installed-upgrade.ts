@@ -44,12 +44,13 @@ if(before.coreSha256) {
   assert.deepEqual(readFollowingFile(project,rom,FOLLOWER_RESOURCE_PATH),previousResources);
 }
 assert.equal(upgraded.version,currentVersion);
+assert.equal(upgraded.variant,before.variant ?? "full");
 assert.equal(upgraded.enabled,before.enabled);
 assert.deepEqual(await readFollowerDialogueRules(project),authoredDialogue);
 const exported=await exportModifiedRom(project);
 const reopened=await loadProjectFromRomBytes(exported,"upgraded-follower.nds",{selectedNarcs:[]});
 assert.deepEqual(await readFollowerAlphaInstall(reopened),upgraded);
 assert.deepEqual(await readFollowerDialogueRules(reopened),authoredDialogue);
-for(const name of ["Field","Events","Core","Options"].map(part=>`PokewebFollowing${part}${profile==="black2"?"B2":profile==="white2italy"?"W2I":"W2"}.dll`))
+for(const name of ["Field","Events","Core","Options","Battle"].map(part=>`PokewebFollowing${part}${profile==="black2"?"B2":profile==="white2italy"?"W2I":"W2"}.dll`))
   assert.equal(reopened.codeInjection!.modules!.filter(module=>module.fileName===name).length,1);
-console.log(`${before.version} installed ROM upgraded to ${upgraded.version}; enabled state and authored zone-427 Mew dialogue retained, four runtime modules present once, export/reopen recognized.`);
+console.log(`${before.version} installed ROM upgraded to ${upgraded.version}; enabled state and authored zone-427 Mew dialogue retained, five runtime modules present once, export/reopen recognized.`);

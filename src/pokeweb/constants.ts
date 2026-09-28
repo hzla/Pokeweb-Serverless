@@ -37,6 +37,7 @@ export type NarcName =
   | "trdata"
   | "trpok"
   | "trainer_sprites"
+  | "trainer_back_sprites"
   | "encounters"
   | "habitats"
   | "marts"
@@ -176,6 +177,7 @@ export const BW2_NARCS: NarcDefinition[] = [
   { path: "a/0/9/1", name: "trdata" },
   { path: "a/0/9/2", name: "trpok" },
   { path: "a/0/7/1", name: "trainer_sprites" },
+  { path: "a/0/7/2", name: "trainer_back_sprites" },
   { path: "a/1/2/7", name: "encounters" },
   { path: "a/1/6/3", name: "ingame_trades" },
   { path: "a/2/9/6", name: "habitats" },

@@ -90,7 +90,8 @@ def generate_contract(us_path: Path, italian_path: Path, output: Path | None = N
         at = original - source_base
         if at < 0 or bytes(source[at:at + len(old)]) != old:
             raise ValueError(f"US source contract drift: {site['id']}")
-        site["address"] = port_address(original)
+        from battle_port import port_address as battle_address
+        site["address"] = battle_address(original,"white2italy") if site.get("module")=="battle" else port_address(original)
         target_base, target = target_segments[site["segment"]]
         at = site["address"] - target_base
         if at < 0 or at + len(old) > len(target):

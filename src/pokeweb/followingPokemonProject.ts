@@ -163,9 +163,9 @@ export async function followerProfile(project: ProjectState, rom?: FollowerRom):
   return readFollowingFile(project, rom, "patches/White2Upgrade.dll") ? "white2upgrade" : "stock";
 }
 type FollowerRuntimeManifest = {
-  version: string; fieldSha256: string; eventsSha256: string; eventsAbi: number; coreSha256: string; coreAbi: number; optionsModuleSha256: string;
+  version: string; fieldSha256: string; eventsSha256: string; eventsAbi: number; coreSha256: string; coreAbi: number; optionsModuleSha256: string; battleModuleSha256: string;
   variants?: Record<FollowerVariant, { fieldSha256: string; eventsSha256: string; eventsAbi: number }>;
-  previousVersions: Array<{ version: string; fieldSha256: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string;
+  previousVersions: Array<{ variant?: string; version: string; fieldSha256: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string;
     registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; effectsSha256?: string | null; interactionsSha256?: string; emotesSha256?: string }>;
 };
 function runtimeFor(profile: FollowerProfile): FollowerRuntimeManifest { return profile === "white2upgrade" ? upgradeRuntimeManifest : profile === "black2" ? black2RuntimeManifest : profile === "white2italy" ? italyRuntimeManifest : stockRuntimeManifest; }
@@ -182,10 +182,10 @@ export function followerModuleHookConflicts(rpm: RpmModule, hooks: readonly { se
   }
   return false;
 }
-type FollowerModulePaths = { field: string; events: string; core: string; options: string; fieldName: string; eventsName: string; coreName: string; optionsName: string };
+type FollowerModulePaths = { field: string; events: string; core: string; options: string; battle: string; battleName: string; fieldName: string; eventsName: string; coreName: string; optionsName: string };
 function modulePathsFor(profile: FollowerProfile): FollowerModulePaths {
   const suffix = profile === "black2" ? "B2" : profile === "white2italy" ? "W2I" : "W2";
-  return { field: `patches/PokewebFollowingField${suffix}.dll`, events: `patches/PokewebFollowingEvents${suffix}.dll`, core: `patches/PokewebFollowingCore${suffix}.dll`, options: `patches/PokewebFollowingOptions${suffix}.dll`,
+  return { battle: `patches/PokewebFollowingBattle${suffix}.dll`, battleName: `PokewebFollowingBattle${suffix}.dll`, field: `patches/PokewebFollowingField${suffix}.dll`, events: `patches/PokewebFollowingEvents${suffix}.dll`, core: `patches/PokewebFollowingCore${suffix}.dll`, options: `patches/PokewebFollowingOptions${suffix}.dll`,
     fieldName: `PokewebFollowingField${suffix}.dll`, eventsName: `PokewebFollowingEvents${suffix}.dll`, coreName: `PokewebFollowingCore${suffix}.dll`, optionsName: `PokewebFollowingOptions${suffix}.dll` };
 }
 export async function followerRuntimeVersion(project: ProjectState, rom?: FollowerRom): Promise<string> { return runtimeFor(await followerProfile(project, rom)).version; }
@@ -263,6 +263,7 @@ export async function checkFollowerCompatibility(project: ProjectState, rom?: Fo
     if (module.path === modulePaths.events && [runtimeManifest.eventsSha256, runtimeManifest.variants?.base.eventsSha256, await followerRomSha256(removedModule(profile, 1)), ...runtimeManifest.previousVersions.flatMap(version => "eventsSha256" in version ? [version.eventsSha256] : [])].includes(await followerRomSha256(data))) continue;
     if (module.path === modulePaths.core && [runtimeManifest.coreSha256, await followerRomSha256(removedModule(profile, 2)), ...runtimeManifest.previousVersions.flatMap(version => "coreSha256" in version ? [version.coreSha256] : [])].includes(await followerRomSha256(data))) continue;
     if (module.path === modulePaths.options && [runtimeManifest.optionsModuleSha256, await followerRomSha256(removedModule(profile, 3)), ...runtimeManifest.previousVersions.flatMap(version => version.optionsModuleSha256 ? [version.optionsModuleSha256] : [])].includes(await followerRomSha256(data))) continue;
+    if (module.path === modulePaths.battle && [runtimeManifest.battleModuleSha256, await followerRomSha256(removedModule(profile, 4)), ...runtimeManifest.previousVersions.flatMap(version => version.battleModuleSha256 ? [version.battleModuleSha256] : [])].includes(await followerRomSha256(data))) continue;
     try {
       const rpm = parseRpm(data, { allowedMagics: ["DLXF"] });
       // Only hook write spans are owned. Native-adapter signatures can cover
@@ -470,7 +471,7 @@ export const FOLLOWER_EVENTS_DLL_PATH = "patches/PokewebFollowingEventsW2.dll";
 export const FOLLOWER_DLL_B2_PATH = "patches/PokewebFollowingFieldB2.dll";
 export const FOLLOWER_EVENTS_B2_DLL_PATH = "patches/PokewebFollowingEventsB2.dll";
 export const FOLLOWER_RUNTIME_VERSION = stockRuntimeManifest.version;
-export type FollowerAlphaInstall = { schemaVersion: 1 | 2; variant?: FollowerVariant; profile?: FollowerProfile; version: string; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string; positioningSha256?: string; optionsTextSha256?: string; optionsOriginalText?: string[] };
+export type FollowerAlphaInstall = { schemaVersion: 1 | 2; variant?: FollowerVariant; profile?: FollowerProfile; version: string; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string; positioningSha256?: string; optionsTextSha256?: string; optionsOriginalText?: string[] };
 const upgradeFieldUrl = new URL("../assets/following/white2upgrade/PokewebFollowingFieldW2.dll", import.meta.url);
 const upgradeEventsUrl = new URL("../assets/following/white2upgrade/PokewebFollowingEventsW2.dll", import.meta.url);
 const upgradeCoreUrl = new URL("../assets/following/white2upgrade/PokewebFollowingCoreW2.dll", import.meta.url);
@@ -495,6 +496,12 @@ const baseModules = {
 } as const;
 const coreModuleUrl = new URL("../assets/following/PokewebFollowingCoreW2.dll", import.meta.url);
 const optionsModuleUrl = new URL("../assets/following/PokewebFollowingOptionsW2.dll", import.meta.url);
+const battleModules = {
+  stock: new URL("../assets/following/PokewebFollowingBattleW2.dll", import.meta.url),
+  black2: new URL("../assets/following/black2/PokewebFollowingBattleB2.dll", import.meta.url),
+  white2italy: new URL("../assets/following/white2italy/PokewebFollowingBattleW2I.dll", import.meta.url),
+  white2upgrade: new URL("../assets/following/white2upgrade/PokewebFollowingBattleW2.dll", import.meta.url),
+} as const;
 const gen5ResourcesUrl = new URL("../assets/following/gen5-followers.narc", import.meta.url);
 const interactionsUrl = new URL("../assets/following/interactions.bin", import.meta.url);
 const italyInteractionsUrl = new URL("../assets/following/white2italy/interactions.bin", import.meta.url);
@@ -614,7 +621,7 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
   if ((state.profile ?? "stock") !== profile) throw new Error("Follower installation belongs to a different ROM profile.");
   const current = !!fingerprint && state.version === runtimeManifest.version && state.moduleSha256 === (state.removed ? await followerRomSha256(removedModule(profile)) : fingerprint.fieldSha256);
   const removedHash = state.removed ? await followerRomSha256(removedModule(profile)) : undefined;
-  const previous = variant === "full" ? runtimeManifest.previousVersions.find(version => version.version === state.version && (state.removed ? removedHash : version.fieldSha256) === state.moduleSha256) : undefined;
+  const previous = runtimeManifest.previousVersions.find(version => (version.variant ?? "full") === variant && version.version === state.version && (state.removed ? removedHash : version.fieldSha256) === state.moduleSha256);
   const extendedPrevious = !current && previous && "coreSha256" in previous ? previous : undefined;
   const extended = current || !!extendedPrevious;
   if ((state.schemaVersion !== 1 && state.schemaVersion !== 2) || (state.schemaVersion === 2 && !state.variant) || !fingerprint || (!current && !previous) || state.targetSha256 !== targetFor(profile) || typeof state.enabled !== "boolean" || (state.removed && state.enabled) ||
@@ -637,6 +644,12 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
       const expectedOptions = state.removed ? await followerRomSha256(removedModule(profile, 3)) : current ? runtimeManifest.optionsModuleSha256 : extendedPrevious!.optionsModuleSha256!;
       if (state.optionsModuleSha256 !== expectedOptions || !options || await followerRomSha256(options) !== expectedOptions)
         throw new Error("Follower Options module has changed or is missing. Refusing to overwrite owned data.");
+    }
+    if (current || extendedPrevious?.battleModuleSha256) {
+      const battle = readFollowingFile(project, rom, modulePaths.battle);
+      const expectedBattle = state.removed ? await followerRomSha256(removedModule(profile, 4)) : current ? runtimeManifest.battleModuleSha256 : extendedPrevious!.battleModuleSha256!;
+      if (state.battleModuleSha256 !== expectedBattle || !battle || await followerRomSha256(battle) !== expectedBattle)
+        throw new Error("Follower Battle module has changed or is missing. Refusing to overwrite owned data.");
     }
     if (!registry || !descriptor || !resources || await followerRomSha256(registry) !== state.registrySha256 ||
         await followerRomSha256(descriptor) !== state.descriptorsSha256 || await followerRomSha256(resources) !== state.resourcesSha256)
@@ -800,18 +813,20 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   // validated below and become owned by this installation transaction.
   const newOwned = existing?.version === runtimeManifest.version || existing?.coreSha256 ? [] : existing ? [modulePaths.core, FOLLOWER_RUNTIME_REGISTRY_PATH] : [modulePaths.field, modulePaths.events, modulePaths.core, FOLLOWER_NATIVE_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, ...(profile === "white2italy" ? [FOLLOWER_LANGUAGE_PATH] : [])];
   if (!existing?.optionsModuleSha256) newOwned.push(modulePaths.options);
+  if (!existing?.battleModuleSha256) newOwned.push(modulePaths.battle);
   if (variant === "full" && !existing?.surfSha256) newOwned.push(FOLLOWER_SURF_RESOURCE_PATH, FOLLOWER_SURF_REGISTRY_PATH);
   if (variant === "full" && !existing?.landRiderSha256) newOwned.push(FOLLOWER_LAND_RIDER_PATH, FOLLOWER_LAND_ANCHORS_PATH);
   if (!existing?.positioningSha256) newOwned.push(FOLLOWER_POSITIONING_PATH);
   for (const path of newOwned)
     if (readFollowingFile(project, rom, path)) throw new Error(`Unowned follower file already exists: ${path}`);
-  const [response, eventsResponse, coreResponse, optionsResponse, gen5Response, effectsResponse, dataResponse, emoteResponse, dialoguesResponse, itemsResponse] = await Promise.all([
+  const [response, eventsResponse, coreResponse, optionsResponse, battleResponse, gen5Response, effectsResponse, dataResponse, emoteResponse, dialoguesResponse, itemsResponse] = await Promise.all([
     fetch(variant === "base" ? baseModules[profile][0] : profile === "white2upgrade" ? upgradeFieldUrl : profile === "black2" ? black2FieldUrl : profile === "white2italy" ? italyFieldUrl : fieldModuleUrl),
     fetch(variant === "base" ? baseModules[profile][1] : profile === "white2upgrade" ? upgradeEventsUrl : profile === "black2" ? black2EventsUrl : profile === "white2italy" ? italyEventsUrl : eventsModuleUrl),
     fetch(profile === "white2upgrade" ? upgradeCoreUrl : profile === "black2" ? black2CoreUrl : profile === "white2italy" ? italyCoreUrl : coreModuleUrl),
     fetch(profile === "white2upgrade" ? upgradeOptionsUrl : profile === "black2" ? black2OptionsUrl : profile === "white2italy" ? italyOptionsUrl : optionsModuleUrl),
+    fetch(battleModules[profile]),
     fetch(gen5ResourcesUrl), fetch(effectsUrl), fetch(profile === "white2italy" ? italyInteractionsUrl : interactionsUrl), fetch(emotesUrl), fetch(dialoguesUrl), fetch(itemsUrl)]);
-  if (!response.ok || !eventsResponse.ok || !coreResponse.ok || !optionsResponse.ok || !gen5Response.ok) throw new Error("Could not load the follower runtime package.");
+  if (!response.ok || !eventsResponse.ok || !coreResponse.ok || !optionsResponse.ok || !battleResponse.ok || !gen5Response.ok) throw new Error("Could not load the follower runtime package.");
   const dll = new Uint8Array(await response.arrayBuffer());
   if (await followerRomSha256(dll) !== fingerprint.fieldSha256) throw new Error("Follower module fingerprint mismatch.");
   const eventsDll = new Uint8Array(await eventsResponse.arrayBuffer());
@@ -819,6 +834,8 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   const coreDll = new Uint8Array(await coreResponse.arrayBuffer());
   if (await followerRomSha256(coreDll) !== runtimeManifest.coreSha256 || runtimeManifest.coreAbi !== 3) throw new Error("Follower core module fingerprint mismatch.");
   const optionsDll = new Uint8Array(await optionsResponse.arrayBuffer());
+  const battleDll = new Uint8Array(await battleResponse.arrayBuffer());
+  if (await followerRomSha256(battleDll) !== runtimeManifest.battleModuleSha256) throw new Error("Follower battle module fingerprint mismatch.");
   if (await followerRomSha256(optionsDll) !== runtimeManifest.optionsModuleSha256) throw new Error("Follower Options module fingerprint mismatch.");
   if (!effectsResponse.ok) throw new Error("Could not load the follower effects.");
   const effects = new Uint8Array(await effectsResponse.arrayBuffer());
@@ -966,7 +983,7 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
     decodeFollowerPositioningNarc(positioning, registry, surfRegistry);
   }
   const state: FollowerAlphaInstall = { schemaVersion: 2, variant, profile, version: runtimeManifest.version, enabled: new DataView(config.buffer).getUint32(4, true) === 1, targetSha256: targetFor(profile),
-    moduleSha256: fingerprint.fieldSha256, eventsSha256: fingerprint.eventsSha256, eventsAbi: fingerprint.eventsAbi, coreSha256: runtimeManifest.coreSha256, coreAbi: runtimeManifest.coreAbi, optionsModuleSha256: runtimeManifest.optionsModuleSha256,
+    moduleSha256: fingerprint.fieldSha256, eventsSha256: fingerprint.eventsSha256, eventsAbi: fingerprint.eventsAbi, coreSha256: runtimeManifest.coreSha256, coreAbi: runtimeManifest.coreAbi, optionsModuleSha256: runtimeManifest.optionsModuleSha256, battleModuleSha256: runtimeManifest.battleModuleSha256,
     configCrc32: followerCrc32(config), registrySha256: await followerRomSha256(registry), descriptorsSha256: await followerRomSha256(descriptors), resourcesSha256: await followerRomSha256(resources),
     effectsSha256: effectsManifest.sha256, interactionsSha256: activeInteractions.dataSha256, emotesSha256: activeInteractions.emotesSha256, dialoguesSha256: await followerRomSha256(dialogues), itemsSha256: await followerRomSha256(items),
     optionsTextSha256: await followerRomSha256(optionsText.bytes), optionsOriginalText: optionsText.original };
@@ -983,6 +1000,7 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   stageCodeInjectionDll(staged, modulePaths.eventsName, eventsDll);
   stageCodeInjectionDll(staged, modulePaths.coreName, coreDll);
   stageCodeInjectionDll(staged, modulePaths.optionsName, optionsDll);
+  stageCodeInjectionDll(staged, modulePaths.battleName, battleDll);
   stageFollowingFiles(staged, rom, { [FOLLOWER_OPTIONS_TEXT_PATH]: optionsText.bytes, [FOLLOWER_NATIVE_PATH]: config, [FOLLOWER_RUNTIME_REGISTRY_PATH]: registry, [FOLLOWER_DESCRIPTOR_PATH]: descriptors, [FOLLOWER_RESOURCE_PATH]: resources,
     [FOLLOWER_EFFECTS_PATH]: effects, [FOLLOWER_INTERACTIONS_PATH]: data, [FOLLOWER_EMOTES_PATH]: emotes, [FOLLOWER_DIALOGUE_NARC_PATH]: dialogues,
     [FOLLOWER_ITEM_NARC_PATH]: items, ...(language ? { [FOLLOWER_LANGUAGE_PATH]: language } : {}),
@@ -1034,7 +1052,8 @@ export async function removeFollowerAlpha(project: ProjectState, rom?: FollowerR
   const eventsStub = removedModule(profile, 1);
   const coreStub = removedModule(profile, 2);
   const optionsStub = removedModule(profile, 3);
-  const state = { ...owned, enabled: false, removed: true, moduleSha256: await followerRomSha256(stub), eventsSha256: await followerRomSha256(eventsStub), coreSha256: await followerRomSha256(coreStub), optionsModuleSha256: await followerRomSha256(optionsStub), configCrc32: followerCrc32(config) };
+  const battleStub = removedModule(profile, 4);
+  const state = { ...owned, enabled: false, removed: true, moduleSha256: await followerRomSha256(stub), eventsSha256: await followerRomSha256(eventsStub), coreSha256: await followerRomSha256(coreStub), optionsModuleSha256: await followerRomSha256(optionsStub), battleModuleSha256: await followerRomSha256(battleStub), configCrc32: followerCrc32(config) };
   const optionsSource = followerOptionsSource(staged, rom);
   const optionsText = optionsSource && owned.optionsOriginalText ? followerOptionsText(optionsSource, profile, owned.optionsOriginalText, true).bytes : undefined;
   if (optionsText) state.optionsTextSha256 = await followerRomSha256(optionsText);
@@ -1042,6 +1061,7 @@ export async function removeFollowerAlpha(project: ProjectState, rom?: FollowerR
   stageCodeInjectionDll(staged, modulePaths.eventsName, eventsStub);
   stageCodeInjectionDll(staged, modulePaths.coreName, coreStub);
   stageCodeInjectionDll(staged, modulePaths.optionsName, optionsStub);
+  stageCodeInjectionDll(staged, modulePaths.battleName, battleStub);
   stageFollowingFiles(staged, rom, { ...(optionsText ? { [FOLLOWER_OPTIONS_TEXT_PATH]: optionsText } : {}), [FOLLOWER_NATIVE_PATH]: config, [FOLLOWER_INSTALL_PATH]: new TextEncoder().encode(JSON.stringify(state, null, 2) + "\n") });
   if (optionsText) stageFollowerOptionsStore(staged, optionsText);
   recordGenericChange(staged, "following_pokemon", "Removed follower runtime hooks; assets and shared PMC retained.", "Following Pokémon", { key: "following-runtime" });
