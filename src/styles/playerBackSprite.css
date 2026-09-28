@@ -1,0 +1,79 @@
+.player-back-scope {
+  color: #aeb6c7;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.player-back-page .sprite-section-header > div > span {
+  color: #aeb6c7;
+  font-size: 12px;
+}
+
+#player-back-animation-canvas,
+.player-back-graphic canvas {
+  display: block;
+  image-rendering: pixelated;
+  max-width: 100%;
+}
+
+#player-back-animation-canvas {
+  border: 1px solid #44475a;
+  width: 100%;
+}
+
+.player-back-graphics-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.player-back-graphic {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.player-back-graphic > strong {
+  color: #eef2fb;
+  font-size: 13px;
+}
+
+.player-back-graphic > span {
+  color: #aeb6c7;
+  font-size: 12px;
+}
+
+.player-back-empty {
+  color: #aeb6c7;
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 180px;
+}
+
+.player-back-graphic .trainer-rig-atlas-wrap {
+  max-width: min(516px, 100%);
+}
+
+.player-back-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 16px;
+}
+
+.player-back-swatch {
+  align-items: center;
+  color: #aeb6c7;
+  display: grid;
+  font-size: 11px;
+  gap: 3px;
+  justify-items: center;
+}
+
+.player-back-swatch > span {
+  border: 1px solid #606577;
+  height: 24px;
+  width: 24px;
+}

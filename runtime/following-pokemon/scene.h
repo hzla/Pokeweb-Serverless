@@ -14,6 +14,7 @@ int fws_menu_active(void);
 int fws_take_restore(FweRestore *restore);
 unsigned fws_poll(void);
 int fws_pc_fade(void);
+int fws_battle_entry(void);
 void fws_restored(void);
 void fws_observe(unsigned kind,void *subject,uintptr_t value);
 int fws_safe_opcode(unsigned code);

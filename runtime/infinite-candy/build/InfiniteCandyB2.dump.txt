@@ -1,0 +1,41 @@
+DLXF file | Code segment base address: 0x20 | BSS size: 0x0
+Symbol count: 3 | Relocation count: 3
+
+Symbol table:
+	Symbol 0 | <anonymous>
+		Address: 200842c
+		Type: FUNCTION_THM
+		Size: 0
+		Attributes: [Global symbol]
+	Symbol 1 | Hash: 2247ce6
+		Address: 14
+		Type: FUNCTION_THM
+		Size: 32
+		Attributes: [Export symbol]
+	Symbol 2 | Hash: d4f38e2b
+		Address: 0
+		Type: FUNCTION_THM
+		Size: 12
+		Attributes: [Export symbol]
+
+Relocation table:
+	Relocation 0
+		Source symbol: null(FUNCTION_THM) @ 0x200842c [0x0]
+		Target: THUMB_BRANCH_LINK @ base :: 0x2a
+	Relocation 1
+		Source symbol: null(FUNCTION_THM) @ 0x0 [0xc]
+		Target: THUMB_BRANCH_LINK @ 12 :: 0x215b86c
+	Relocation 2
+		Source symbol: null(FUNCTION_THM) @ 0x14 [0x20]
+		Target: THUMB_BRANCH @ 165 :: 0x219e648
+
+Metadata:
+	PMCGameID:
+		Type: STRING
+		Value: B2
+	PMCModulePriority:
+		Type: INT
+		Value: 4
+	PMCVersion:
+		Type: STRING
+		Value: 1.0.0

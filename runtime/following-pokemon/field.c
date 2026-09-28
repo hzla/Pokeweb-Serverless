@@ -446,7 +446,7 @@ static void before(ActorSystem *sys) {
   fws_set_player(fwfield_player);
   if(!fwfield_player || !(fwfield_player->flags&USE) || (fwfield_player->flags&HIDDEN) || ((fwfield_player->moveflags&8)&&!ownTalk&&!paused))reason|=4;
   if(fp && CALL(0x0219a705,unsigned(*)(void*))(fp)!=0)reason|=8;
-  if((CALL(0x0218130d,int(*)(void*))(field)&&!ownTalk&&!paused) || (U32(field,0x148)&&!fws_pc_fade()))reason|=16;
+  if((CALL(0x0218130d,int(*)(void*))(field)&&!ownTalk&&!paused) || (U32(field,0x148)&&!fws_pc_fade()&&!fws_battle_entry()))reason|=16;
   if(CALL(0x0216a2b5,int(*)(void*))(game))reason|=32;
 #ifdef FW_MOUNT
   if(paused&&fwland_active())fwfield_landCheckAfterPause=1;
