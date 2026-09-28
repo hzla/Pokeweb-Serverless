@@ -1,0 +1,218 @@
+{
+  "W2": {
+    "gameCode": "IRDO",
+    "hook": 35248612,
+    "hookBytes": "38b519251c1c2d016159201c8a000849",
+    "functions": [
+      {
+        "address": 33791433,
+        "bytes": "f8b582b0051c022080030f1c284202d0"
+      },
+      {
+        "address": 33792633,
+        "bytes": "10b5041c00f0caf8201cfff7e9fd10bd"
+      },
+      {
+        "address": 34016853,
+        "bytes": "08b582b000ab0361009101920e210122"
+      },
+      {
+        "address": 34016877,
+        "bytes": "38b582b0051c00ab2b61009101920021"
+      },
+      {
+        "address": 34016425,
+        "bytes": "2321002209021143826042600260c261"
+      },
+      {
+        "address": 34016973,
+        "bytes": "014b01221847c046950d0702004b1847"
+      },
+      {
+        "address": 34016749,
+        "bytes": "38b582b0002401a9051c019401f052f8"
+      },
+      {
+        "address": 34016737,
+        "bytes": "014b0821012218478105070238b582b0"
+      },
+      {
+        "address": 33685945,
+        "bytes": "014b1a211847c0464974000238b5051c"
+      },
+      {
+        "address": 33685029,
+        "bytes": "40687047f8b5071c0025fff7f9ff061c"
+      },
+      {
+        "address": 33685301,
+        "bytes": "dc2208304a43801870470000f8b5051c"
+      },
+      {
+        "address": 33672485,
+        "bytes": "70b5051c0c1c161c01f050f8281c211c"
+      },
+      {
+        "address": 33689537,
+        "bytes": "f8b582b0051c6f000e1c141c0837002b"
+      },
+      {
+        "address": 33689697,
+        "bytes": "f8b5051c0c1c161c002b06d01b480121"
+      },
+      {
+        "address": 33590257,
+        "bytes": "407f7047007f704701777047c07e7047"
+      },
+      {
+        "address": 33590761,
+        "bytes": "08b51b21fef72cfb243008bd08b51b21"
+      },
+      {
+        "address": 33591225,
+        "bytes": "10b50c1cfff7a0ff021c803203ca03c4"
+      },
+      {
+        "address": 33808169,
+        "bytes": "08b5fff7ebf9fff7efff08bd10b5041c"
+      }
+    ],
+    "inputGlobals": [
+      {
+        "address": 33804484,
+        "bytes": "c4181402"
+      },
+      {
+        "address": 33805968,
+        "bytes": "cc181402"
+      }
+    ],
+    "artSha256": {
+      "a/0/3/0": "1d6db1b1b83825bcf0177186826e87644142205ad93d97b5abc234d5da7601f0",
+      "a/0/8/4": "641a6630cab1f9fd310baa5cf1f437072d20933ce50d6480289a34dfa74a4b08",
+      "a/0/2/3": "c5f59cbf1055623ba94dd6b166b38cd8ab436ed71f3d303b22caf6c6bd1a497c"
+    },
+    "mapDataSha256": {
+      "locationNames": "6ea26134b866fe186a67cbfd7d2147b144a7951f2aff63e70e5328addf2e910c",
+      "mapHeaderNames": "f839fc81fbd0cf719a73d3f741d7406b7bd487433234481834f3567ac952e601",
+      "mapPoints": "b5906697461194ef7aae34b88e3fc9bf58b2d6228612dd7f27ac3aca81687259"
+    },
+    "requiredPaths": [
+      "a/0/3/0",
+      "a/0/8/4",
+      "a/0/2/3",
+      "a/0/0/2",
+      "a/0/1/2",
+      "a/0/8/5",
+      "a/0/0/7"
+    ]
+  },
+  "B2": {
+    "gameCode": "IREO",
+    "hook": 35248548,
+    "hookBytes": "38b519251c1c2d016159201c8a000849",
+    "functions": [
+      {
+        "address": 33791389,
+        "bytes": "f8b582b0051c022080030f1c284202d0"
+      },
+      {
+        "address": 33792589,
+        "bytes": "10b5041c00f0caf8201cfff7e9fd10bd"
+      },
+      {
+        "address": 34016809,
+        "bytes": "08b582b000ab0361009101920e210122"
+      },
+      {
+        "address": 34016833,
+        "bytes": "38b582b0051c00ab2b61009101920021"
+      },
+      {
+        "address": 34016381,
+        "bytes": "2321002209021143826042600260c261"
+      },
+      {
+        "address": 34016929,
+        "bytes": "014b01221847c046690d0702004b1847"
+      },
+      {
+        "address": 34016705,
+        "bytes": "38b582b0002401a9051c019401f052f8"
+      },
+      {
+        "address": 34016693,
+        "bytes": "014b0821012218475505070238b582b0"
+      },
+      {
+        "address": 33685901,
+        "bytes": "014b1a211847c0464974000238b5051c"
+      },
+      {
+        "address": 33684985,
+        "bytes": "40687047f8b5071c0025fff7f9ff061c"
+      },
+      {
+        "address": 33685257,
+        "bytes": "dc2208304a43801870470000f8b5051c"
+      },
+      {
+        "address": 33672441,
+        "bytes": "70b5051c0c1c161c01f050f8281c211c"
+      },
+      {
+        "address": 33689493,
+        "bytes": "f8b582b0051c6f000e1c141c0837002b"
+      },
+      {
+        "address": 33689653,
+        "bytes": "f8b5051c0c1c161c002b06d01b480121"
+      },
+      {
+        "address": 33590257,
+        "bytes": "407f7047007f704701777047c07e7047"
+      },
+      {
+        "address": 33590761,
+        "bytes": "08b51b21fef72cfb243008bd08b51b21"
+      },
+      {
+        "address": 33591225,
+        "bytes": "10b50c1cfff7a0ff021c803203ca03c4"
+      },
+      {
+        "address": 33808125,
+        "bytes": "08b5fff7ebf9fff7efff08bd10b5041c"
+      }
+    ],
+    "inputGlobals": [
+      {
+        "address": 33804440,
+        "bytes": "84181402"
+      },
+      {
+        "address": 33805924,
+        "bytes": "8c181402"
+      }
+    ],
+    "artSha256": {
+      "a/0/3/0": "1d6db1b1b83825bcf0177186826e87644142205ad93d97b5abc234d5da7601f0",
+      "a/0/8/4": "641a6630cab1f9fd310baa5cf1f437072d20933ce50d6480289a34dfa74a4b08",
+      "a/0/2/3": "c5f59cbf1055623ba94dd6b166b38cd8ab436ed71f3d303b22caf6c6bd1a497c"
+    },
+    "mapDataSha256": {
+      "locationNames": "6ea26134b866fe186a67cbfd7d2147b144a7951f2aff63e70e5328addf2e910c",
+      "mapHeaderNames": "f839fc81fbd0cf719a73d3f741d7406b7bd487433234481834f3567ac952e601",
+      "mapPoints": "b5906697461194ef7aae34b88e3fc9bf58b2d6228612dd7f27ac3aca81687259"
+    },
+    "requiredPaths": [
+      "a/0/3/0",
+      "a/0/8/4",
+      "a/0/2/3",
+      "a/0/0/2",
+      "a/0/1/2",
+      "a/0/8/5",
+      "a/0/0/7"
+    ]
+  }
+}

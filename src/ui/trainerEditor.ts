@@ -57,6 +57,7 @@ export function renderTrainerEditor(
   onDirty?: () => void,
   onTestBattle?: (trainerId: number, showdownText: string) => Promise<void>,
   onOpenTrainerSprite?: (trainerClassId: number) => void,
+  onOpenPlayerBackSprite?: () => void,
 ): void {
   const trainerNaturePatchStatus = detectSpecifyTrainerNaturesPatch(project);
   const savedTestBattleTeamText = readSavedTestBattleTeamText(project);
@@ -75,6 +76,7 @@ export function renderTrainerEditor(
         <span class="svg">${addIcon}</span>
         Add Trainer
       </button>
+      ${project.session.baseRom === "BW2" ? `<button class="btn -default" id="player-back-sprite-open" type="button">Player Back Sprite</button>` : ""}
       <div class="trainer-test-team">
         <div class="filter-title">Test Team</div>
         <textarea id="test-battle-team-import" class="trainer-test-team-input" spellcheck="false" placeholder="Paste Showdown team import. Use Bulbasaur^1 for form 1. Exp: N sets exact total EXP instead of Level: N (Exp wins if both are present).">${escapeHtml(savedTestBattleTeamText)}</textarea>
@@ -117,8 +119,8 @@ export function renderTrainerEditor(
   if (enrichedTrainerLocations) onDirty?.();
   installTrainerSpriteRendering(project, root);
   installTrainerPokemonIconRendering(project, root);
-  installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite);
-  installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, trainerNaturePatchStatus);
+  installTrainerScriptArchiveControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
+  installTrainerNaturePatchControl(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite, trainerNaturePatchStatus);
   attachTrainerInteractions(root, project, {
     onDirty,
     onTestBattle,
@@ -128,6 +130,7 @@ export function renderTrainerEditor(
     renderPanel: (trainerId, panel) => renderTrainerPanel(project, trainerId, panel),
   });
   attachW2uSyncButton(root, project);
+  root.querySelector("#player-back-sprite-open")?.addEventListener("click", () => onOpenPlayerBackSprite?.());
   installTestBattleTeamPersistence(project, root);
   installTrainerSaveReader(project, root);
 }
@@ -741,6 +744,7 @@ function installTrainerScriptArchiveControl(
   onDirty: (() => void) | undefined,
   onTestBattle: ((trainerId: number, showdownText: string) => Promise<void>) | undefined,
   onOpenTrainerSprite: ((trainerClassId: number) => void) | undefined,
+  onOpenPlayerBackSprite?: () => void,
 ): void {
   const status = getTrainerScriptArchiveStatus(project);
   const button = root.querySelector<HTMLButtonElement>("#trainer-script-expand-btn");
@@ -752,7 +756,7 @@ function installTrainerScriptArchiveControl(
     try {
       const result = expandTrainerScriptArchive(project);
       if (result.addedEntries > 0) onDirty?.();
-      renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite);
+      renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
       button.disabled = false;
@@ -767,6 +771,7 @@ function installTrainerNaturePatchControl(
   onDirty: (() => void) | undefined,
   onTestBattle: ((trainerId: number, showdownText: string) => Promise<void>) | undefined,
   onOpenTrainerSprite: ((trainerClassId: number) => void) | undefined,
+  onOpenPlayerBackSprite: (() => void) | undefined,
   status: ReturnType<typeof detectSpecifyTrainerNaturesPatch>,
 ): void {
   const button = root.querySelector<HTMLButtonElement>("#trainer-nature-patch-btn");
@@ -779,7 +784,7 @@ function installTrainerNaturePatchControl(
     try {
       const result = await specifyTrainerNatures(project);
       if (result.status === "applied") onDirty?.();
-      renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite);
+      renderTrainerEditor(project, root, onDirty, onTestBattle, onOpenTrainerSprite, onOpenPlayerBackSprite);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
       button.disabled = false;

@@ -25,7 +25,7 @@ import {
   installTrainerPwanRuntime,
   uninstallTrainerPwanRuntime,
 } from "../pokeweb/trainerPwanAnimationModel";
-import { detectTrainerPwanCompatibility, trainerPwanCompatibilityFailureSummary } from "../pokeweb/trainerPwanCompatibilityModel";
+import { detectTrainerPwanCompatibility } from "../pokeweb/trainerPwanCompatibilityModel";
 import {
   battleLogDisplayName,
   canUninstallBattleLog,
@@ -48,6 +48,9 @@ import {
 } from "../pokeweb/tagBattleStabilizationModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
+import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
+import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
+import { getSaveMenuStatus, installSaveMenu } from "../pokeweb/saveMenuModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
 import {
   detectPwanRuntimeCompatibility,
@@ -63,8 +66,17 @@ const pwanCompatibilityHydrationProjects = new WeakSet<ProjectState>();
 const typeIconLettersPreview = new URL("../assets/codeinjection/type-icons-letters-preview.png", import.meta.url).href;
 const typeIconCircularPreview = new URL("../assets/codeinjection/type-icons-circular-preview.png", import.meta.url).href;
 const typeIconSolidPreview = new URL("../assets/codeinjection/type-icons-solid-preview.png", import.meta.url).href;
+const codeInjectionTabs = [
+  { id: "infrastructure", label: "Infrastructure and Dependencies" },
+  { id: "graphics", label: "Graphical/UI Enhancements" },
+  { id: "quality-of-life", label: "Quality of Life" },
+  { id: "add-ons", label: "Feature Add-Ons" },
+] as const;
+type CodeInjectionTab = (typeof codeInjectionTabs)[number]["id"];
+const activeCodeInjectionTabs = new WeakMap<HTMLElement, CodeInjectionTab>();
 
 export function renderCodeInjectionEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
+  const activeTab = activeCodeInjectionTabs.get(root) ?? "infrastructure";
   const status = getPmcInstallStatus(project);
   const modules = listCodeInjectionDlls(project);
   const formEvolutionStatus = detectBundledFormEvolutionDll(project);
@@ -73,6 +85,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const doubleBattleFixSupported = status.installed && doubleBattleFixStatus !== "unsupported";
   const bgmToggleStatus = detectBundledBgmToggleDll(project);
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
+  const infiniteCandyStatus = getInfiniteCandyStatus(project);
+  const levelCapsStatus = getLevelCapsStatus(project);
+  const saveMenuStatus = getSaveMenuStatus(project);
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
@@ -108,272 +123,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   if (shouldHydrateRomBytesForPwanCompatibility(project, pwanCompatibility)) {
     void hydrateRomBytesForPwanCompatibility(project, root, onDirty);
   }
-  root.innerHTML = `
-    <section class="code-injection-page">
-      <aside class="code-injection-sidebar">
-        <h1>Code Injection</h1>
-        <p>Install runtime support for prebuilt Gen V patch modules.</p>
-        <section class="code-injection-sidebar__modules">
-          <h2>Installed DLLs</h2>
-          <p>${status.installed ? "DLLs found under patches/ and lib/." : "Install PMC first, then add built patch DLLs."}</p>
-          <div class="code-injection-actions">
-            <button class="btn -primary" data-dll-target="patches" type="button" ${status.installed ? "" : "disabled"}>Add Patch DLL</button>
-            <button class="btn -default" data-dll-target="lib" type="button" ${status.installed ? "" : "disabled"}>Add Library DLL</button>
-            <input id="code-injection-dll-input" type="file" accept=".dll" hidden />
-            <div class="code-injection-note" id="dll-install-note">Patch DLLs are staged in patches/. Library DLLs are staged in lib/.</div>
-          </div>
-          <div class="code-injection-module-list">
-            ${
-              modules.length === 0
-                ? `<div class="code-injection-empty">No DLLs found.</div>`
-                : modules
-                    .map(
-                      (module) => `
-                        <div class="code-injection-module">
-                          <strong>${escapeHtml(module.path)}</strong>
-                        </div>
-                      `,
-                    )
-                    .join("")
-            }
-          </div>
-        </section>
-      </aside>
-      <main class="code-injection-main">
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>PMC Runtime</h2>
-              <p>${escapeHtml(status.message)}</p>
-            </div>
-            <span class="code-injection-status ${status.installed ? "-installed" : ""}">${status.installed ? "Installed" : "Not Installed"}</span>
-          </div>
-          <div class="code-injection-facts">
-            <div><span>ROM</span><strong>${escapeHtml(project.session.baseVersion)}</strong></div>
-            <div><span>Overlay</span><strong>${status.installed ? status.overlayId : "None"}</strong></div>
-            <div><span>Base Address</span><strong>${status.installed && status.overlayBaseAddress !== undefined ? `0x${status.overlayBaseAddress.toString(16)}` : "Pending"}</strong></div>
-            <div><span>PMC Version</span><strong>${status.installed && status.version ? escapeHtml(status.version) : "Bundled"}</strong></div>
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
-            <div class="code-injection-note" id="pmc-install-note">Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.</div>
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Trainer PWAN GIF Support</h2>
-              <p>Installs the independent battle-intro runtime used by PWAN GIFs in the Trainer Class Sprite Editor.</p>
-            </div>
-            <span class="code-injection-status ${trainerPwanInstalled ? "-installed" : trainerPwanCanInstall ? "" : "-error"}">
-              ${trainerPwanInstalled ? "Installed" : trainerPwanCanInstall ? "Ready" : trainerPwanStatus.supported ? "Incompatible" : "Unsupported"}
-            </span>
-          </div>
-          <div class="code-injection-facts">
-            <div><span>Sprites</span><strong>Front trainers</strong></div>
-            <div><span>Runtime</span><strong>Standalone</strong></div>
-            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
-            <div><span>ROM</span><strong>${escapeHtml(project.session.baseVersion)}</strong></div>
-            <div><span>Hook Checks</span><strong>${trainerPwanCompatibility.passed}/${trainerPwanCompatibility.checks.length}</strong></div>
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-trainer-pwan-runtime-btn" type="button" ${trainerPwanCanInstall ? "" : "disabled"}>
-              ${trainerPwanInstalled ? "Reinstall Trainer PWAN Support" : "Install Trainer PWAN Support"}
-            </button>
-            <button class="btn -default" id="uninstall-trainer-pwan-runtime-btn" type="button" ${trainerPwanCanUninstall ? "" : "disabled"}>Uninstall Trainer PWAN Support</button>
-            <div class="code-injection-note" id="trainer-pwan-runtime-note">${escapeHtml(trainerPwanCanInstall || trainerPwanInstalled ? trainerPwanStatus.message : trainerPwanCompatibilityFailureSummary(trainerPwanCompatibility))}</div>
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Background Music Toggle</h2>
-              <p>Press L + R + Select to mute or unmute background music in the overworld and battles. Sound effects, cries, and scripted game pauses are unchanged.</p>
-            </div>
-            <span class="code-injection-status ${bgmToggleStatus === "patched" ? "-installed" : bgmToggleStatus === "unsupported" ? "-error" : ""}">
-              ${bgmToggleStatus === "patched" ? "Installed" : bgmToggleStatus === "unsupported" ? "Unsupported" : "Ready"}
-            </span>
-          </div>
-          <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
-            <div><span>Shortcut</span><strong>L + R + Select</strong></div>
-            <div><span>Scope</span><strong>Overworld + Battles</strong></div>
-            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-bgm-toggle-btn" type="button" ${bgmToggleSupported ? "" : "disabled"}>
-              ${bgmToggleStatus === "patched" ? "Reinstall Music Toggle" : "Install Music Toggle"}
-            </button>
-            <div class="code-injection-note" id="bgm-toggle-note">
-              ${
-                bgmToggleStatus === "patched"
-                  ? "The BGM toggle DLL is staged in patches/ and will be included in the exported ROM."
-                  : bgmToggleSupported
-                    ? "Installs PMC when needed, then stages the matching BGM toggle DLL in patches/."
-                    : "The bundled BGM toggle supports US Black 2 and White 2 only."
-              }
-            </div>
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Overworld Weather Runtime</h2>
-              <p>Installs a resident 64-entry field-weather dispatcher and a data-driven registry so IDs 15–63 can clone stock behavior without per-effect code patches.</p>
-            </div>
-            <span class="code-injection-status ${weatherRuntimeInstalled ? "-installed" : weatherRuntimeSupported ? "" : "-error"}">
-              ${weatherRuntimeInstalled ? "Installed" : weatherRuntimeSupported ? "Ready" : "Unsupported"}
-            </span>
-          </div>
-          <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US White 2 (IRDO)</strong></div>
-            <div><span>Custom Slots</span><strong>49 · IDs 15–63</strong></div>
-            <div><span>Registry</span><strong>weather/pwth.bin</strong></div>
-            <div><span>Generic Resources</span><strong>NCGR · NCLR · NCER · NANR · 2× BTX0</strong></div>
-            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
-            <div><span>Runtime ABI</span><strong>5 · PWTH v4</strong></div>
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-weather-runtime-btn" type="button" ${weatherRuntimeSupported ? "" : "disabled"}>
-              ${weatherRuntimeInstalled ? "Reinstall Weather Runtime" : "Install Weather Runtime"}
-            </button>
-            <div class="code-injection-note" id="weather-runtime-note">
-              ${
-                weatherRuntimeInstalled
-                  ? "The one-time runtime and PWTH registry are staged. Weather Graphics can now create independently editable slots without another code patch."
-                  : weatherRuntimeSupported
-                    ? "Installs PMC when needed, then stages PokewebOverworldWeatherW2.dll in patches/."
-                    : "A separately audited build is required for Black 2, BW1, and non-US revisions."
-              }
-            </div>
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Trainer Battle Log</h2>
-              <p>Records trainer-battle teams and KO attribution. Retires Wi-Fi save blocks 29–31 and isolates their former retail users, including daily Geonet maintenance. The save guard uses about 10 KiB of application RAM and less than 1 KiB of PMC memory. Updating prevents future corruption but cannot repair old damaged records.</p>
-            </div>
-            <span class="code-injection-status ${battleLogStatus.upToDate ? "-installed" : battleLogCanInstall ? "" : "-error"}">
-              ${
-                battleLogStatus.updateAvailable
-                  ? "Update Available"
-                  : battleLogStatus.upToDate
-                    ? "Installed"
-                    : battleLogCanInstall
-                      ? "Ready"
-                      : battleLogStatus.supported
-                        ? "Incompatible"
-                        : "Unsupported"
-              }
-            </span>
-          </div>
-          <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US ${escapeHtml(battleLogDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
-            <div><span>Capacity</span><strong>600 battles</strong></div>
-            <div><span>Save Blocks</span><strong>29–31</strong></div>
-            <div><span>Runtime</span><strong>${battleLogStatus.updateAvailable ? `Update to v${battleLogStatus.bundledRuntimeVersion}` : battleLogStatus.upToDate ? `v${battleLogStatus.bundledRuntimeVersion}` : `Bundled v${battleLogStatus.bundledRuntimeVersion}`}</strong></div>
-            <div><span>Save Ownership</span><strong>${battleLogStatus.saveGuardInstalled ? "Active" : "Pending"}</strong></div>
-            <div><span>Hook Checks</span><strong>${battleLogStatus.checked ? `${battleLogStatus.passed}/${battleLogStatus.checks.length}` : "On install"}</strong></div>
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-battle-log-btn" type="button" ${battleLogCanInstall ? "" : "disabled"}>
-              ${battleLogStatus.updateAvailable ? "Update Battle Log" : battleLogStatus.installed ? "Reinstall Battle Log" : "Install Battle Log"}
-            </button>
-            <button class="btn -default" id="uninstall-battle-log-btn" type="button" ${battleLogCanUninstall ? "" : "disabled"}
-              title="${
-                battleLogStatus.installed && menuEvolutionStatus.installed
-                  ? `Uninstall ${MENU_EVOLUTION_TITLE} first.`
-                  : battleLogStatus.installed && !battleLogCanUninstall
-                    ? "DLLs already built into the loaded ROM cannot be removed yet."
-                    : "Remove the staged battle-log DLLs."
-              }">
-              Uninstall Battle Log
-            </button>
-            <div class="code-injection-note" id="battle-log-note">
-              ${escapeHtml(battleLogStatus.message)} ${battleLogStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."} Installing retires and overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Updating replaces the runtime DLLs without erasing existing battle history. Rename the summary screen's ID No. message to Frags in the text editor if desired.
-            </div>
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>${MENU_EVOLUTION_TITLE}</h2>
-              <p>Adds EVOLVE and RELEARN party commands, post-battle KO evolution, and immediate KO-threshold moves. RELEARN opens the native move reminder with eligible level-up and KO moves, without a Heart Scale.</p>
-            </div>
-            <span class="code-injection-status ${menuEvolutionStatus.upToDate ? "-installed" : menuEvolutionCanInstall ? "" : "-error"}">
-              ${
-                menuEvolutionStatus.updateAvailable
-                  ? "Update Available"
-                  : menuEvolutionStatus.upToDate
-                  ? "Installed"
-                  : !menuEvolutionStatus.supported
-                    ? "Unsupported"
-                    : !menuEvolutionStatus.dependencyInstalled
-                      ? "Dependency Missing"
-                      : menuEvolutionStatus.compatible
-                        ? "Ready"
-                        : "Incompatible"
-              }
-            </span>
-          </div>
-          <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US ${escapeHtml(menuEvolutionDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
-            <div><span>Methods</span><strong>Level, KOs, Battles, Used</strong></div>
-            <div><span>KO Moves</span><strong>32 per Pokémon</strong></div>
-            <div><span>Relearn</span><strong>Current level + earned KOs</strong></div>
-            <div><span>Battle Counters</span><strong>${menuEvolutionStatus.dependencyInstalled ? "Installed" : "Required"}</strong></div>
-            <div><span>PMC</span><strong>${menuEvolutionStatus.pmcInstalled ? "Installed" : "Will Install"}</strong></div>
-            <div><span>Hook Checks</span><strong>${menuEvolutionStatus.checked ? `${menuEvolutionStatus.passed}/${menuEvolutionStatus.checks.length}` : "On install"}</strong></div>
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-menu-evolution-btn" type="button" ${menuEvolutionCanInstall ? "" : "disabled"}>
-              ${menuEvolutionStatus.updateAvailable ? "Update" : menuEvolutionStatus.installed ? "Reinstall" : "Install"}
-            </button>
-            <button class="btn -default" id="uninstall-menu-evolution-btn" type="button" ${menuEvolutionCanUninstall ? "" : "disabled"}
-              title="${menuEvolutionStatus.installed && !menuEvolutionCanUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : `Remove the staged ${MENU_EVOLUTION_TITLE} DLL.`}">
-              Uninstall
-            </button>
-            <div class="code-injection-note" id="menu-evolution-note">
-              ${
-                !menuEvolutionStatus.dependencyInstalled || !battleLogStatus.upToDate
-                  ? "Install or update Trainer Battle Log first so the immediate-KO counter runtime is available."
-                  : `${escapeHtml(menuEvolutionStatus.message)} ${menuEvolutionStatus.pmcInstalled ? "PMC is installed." : "PMC will be installed automatically."}`
-              }
-            </div>
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
-              <h2>Learnset Viewer</h2>
-              <p>Adds a standalone LEARNSET party command. D-pad Right/Left switches party Pokémon, skipping Eggs; L/R browses the evolution family and loads the highlighted species' info and learnset. Only its icon animates. A pages evolution requirements; final evolutions also show their predecessor's requirements. Hidden abilities are purple. The lower screen lists all level-up moves with levels and base max PP. Read-only: browsing never evolves Pokémon or teaches moves; no KO moves, and RELEARN is unchanged.</p>
-            </div>
-            <span class="code-injection-status ${learnsetStatus.installed && !learnsetStatus.updateAvailable ? "-installed" : learnsetStatus.compatible ? "" : "-error"}">
-              ${learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : "Unsupported / Incompatible"}
-            </span>
-          </div>
-          <div class="code-injection-facts">
-            <div><span>ROM</span><strong>US W2 / B2 · vanilla or Upgrade</strong></div>
-            <div><span>Dependency</span><strong>PMC only</strong></div>
-            <div><span>Full party menu</span><strong>LEARNSET is hidden</strong></div>
-          </div>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-learnset-viewer-btn" type="button" ${learnsetStatus.supported && learnsetStatus.compatible ? "" : "disabled"}>${learnsetStatus.updateAvailable ? "Update" : learnsetStatus.partial ? "Repair" : learnsetStatus.installed ? "Reinstall" : "Install"}</button>
-            <button class="btn -default" id="uninstall-learnset-viewer-btn" type="button" ${learnsetStatus.canUninstall ? "" : "disabled"} title="Only staged companions can be removed; built-in ROM files cannot yet be deleted.">Uninstall</button>
-            <div class="code-injection-note" id="learnset-viewer-note">${escapeHtml(learnsetStatus.message)}</div>
-          </div>
-          <div class="code-injection-credits" aria-label="Learnset Viewer credits">
-            <span>Designed in collaboration with</span>
-            <strong>TrustyPeaches</strong>
-          </div>
-        </section>
-        ${[
-          { id: "battle-hud", title: "Type Icons", status: battleHudStatus,
-            description: "Shows type icons on player and enemy health panels in singles, doubles and triples, including compact panels with EXP bars. Choose lettered hexagons, the original circular symbol artwork, or solid type-colored wedges fitted into the HUD edge. Every style preserves the native caught marker. Status labels hide the icons until the condition clears. Installs independently of move highlighting." },
-          { id: "move-effectiveness", title: "Move Effectiveness Preview", status: moveEffectivenessStatus,
-            description: "Highlights damaging moves as super effective, not very effective, or immune. Includes standard BW2 type immunities, Levitate, Air Balloon, Magnet Rise, and blocking abilities with suppression and bypass checks. Singles and rotation use the opposing Pokémon; doubles and triples color the selected move name while choosing an enemy. Weather Ball, Natural Gift, Judgment and Techno Blast stay neutral. Custom ability and item mechanics need a compatible preview patch." },
-        ].map(card => `
+  const battleUiCards = [
+    { id: "battle-hud", title: "Type Icons", status: battleHudStatus,
+      description: "Shows type icons on player and enemy health panels in singles, doubles and triples, including compact panels with EXP bars. Choose lettered hexagons, the original circular symbol artwork, or solid type-colored wedges fitted into the HUD edge. Every style preserves the native caught marker. Status labels hide the icons until the condition clears. Installs independently of move highlighting." },
+    { id: "move-effectiveness", title: "Move Effectiveness Preview", status: moveEffectivenessStatus,
+      description: "Highlights damaging moves as super effective, not very effective, or immune. Includes standard BW2 type immunities, Levitate, Air Balloon, Magnet Rise, and blocking abilities with suppression and bypass checks. Singles and rotation use the opposing Pokémon; doubles and triples color the selected move name while choosing an enemy. Weather Ball, Natural Gift, Judgment and Techno Blast stay neutral. Custom ability and item mechanics need a compatible preview patch." },
+  ].map(card => `
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">
             <div><h2>${card.title}</h2><p>${card.description}</p></div>
@@ -422,14 +177,64 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-${card.id}-btn" type="button" ${card.status.supported && card.status.compatible ? "" : "disabled"}>${card.status.legacyCombined ? "Replace combined" : card.status.updateAvailable ? "Update" : card.status.installed ? "Reinstall" : "Install"}</button>
             <button class="btn -default" id="uninstall-${card.id}-btn" type="button" ${card.status.canUninstall ? "" : "disabled"} title="Only this project's staged standalone DLL can be removed.">Uninstall</button>
-            <div class="code-injection-note" id="${card.id}-note">${escapeHtml(card.status.message)}</div>
+            <div class="code-injection-note" id="${card.id}-note" aria-live="polite"></div>
           </div>
           ${card.id === "battle-hud" ? `<div class="code-injection-credits" aria-label="Type Icons credits">
             <span>Designed in collaboration with</span>
             <strong>TrustyPeaches</strong>
           </div>` : ""}
-        </section>`).join("")}
-
+        </section>`);
+  root.innerHTML = `
+    <section class="code-injection-page">
+      <aside class="code-injection-sidebar">
+        <h1>Code Injection</h1>
+        <section class="code-injection-panel code-injection-sidebar__runtime">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>PMC Runtime</h2>
+              <p>Shared runtime for the patch installers on this page.</p>
+            </div>
+            <span class="code-injection-status ${status.installed ? "-installed" : ""}">${status.installed ? "Installed" : "Not Installed"}</span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Version</span><strong>${status.installed && status.version ? escapeHtml(status.version) : "—"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-pmc-btn" type="button" ${status.supported ? "" : "disabled"}>${status.installed ? "Update PMC" : "Install PMC"}</button>
+            <div class="code-injection-note" id="pmc-install-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-sidebar__modules">
+          <h2>Installed DLLs</h2>
+          <p>${status.installed ? "DLLs found under patches/ and lib/." : "Install PMC first, then add built patch DLLs."}</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" data-dll-target="patches" type="button" ${status.installed ? "" : "disabled"}>Add Patch DLL</button>
+            <button class="btn -default" data-dll-target="lib" type="button" ${status.installed ? "" : "disabled"}>Add Library DLL</button>
+            <input id="code-injection-dll-input" type="file" accept=".dll" hidden />
+            <div class="code-injection-note" id="dll-install-note" aria-live="polite"></div>
+          </div>
+          <div class="code-injection-module-list">
+            ${
+              modules.length === 0
+                ? `<div class="code-injection-empty">No DLLs found.</div>`
+                : modules
+                    .map(
+                      (module) => `
+                        <div class="code-injection-module">
+                          <strong>${escapeHtml(module.path)}</strong>
+                        </div>
+                      `,
+                    )
+                    .join("")
+            }
+          </div>
+        </section>
+      </aside>
+      <main class="code-injection-main">
+        <div class="code-injection-tabs" role="tablist" aria-label="Patch categories">
+          ${codeInjectionTabs.map(tab => `<button class="code-injection-tab ${activeTab === tab.id ? "-active" : ""}" type="button" role="tab" id="code-injection-tab-${tab.id}" aria-controls="code-injection-panel-${tab.id}" aria-selected="${activeTab === tab.id}" tabindex="${activeTab === tab.id ? 0 : -1}" data-code-injection-tab="${tab.id}">${tab.label}</button>`).join("")}
+        </div>
+        <section class="code-injection-tab-panel" id="code-injection-panel-infrastructure" role="tabpanel" aria-labelledby="code-injection-tab-infrastructure" tabindex="0" ${activeTab === "infrastructure" ? "" : "hidden"}>
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">
             <div>
@@ -455,15 +260,270 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               title="${pwanRuntimeInstalled && !pwanRuntimeCanUninstall ? "DLLs already built into the loaded ROM cannot be removed yet." : "Remove the staged PWAN runtime DLLs."}">
               Uninstall PWAN GIF Support
             </button>
-            <div class="code-injection-note" id="pwan-runtime-note">
-              ${
-                pwanCanInstall
-                  ? project.session.baseVersion === "B2"
-                    ? "This stages the Black 2 Summary, Battle, and Misc PWAN DLLs."
-                    : "This stages the current Summary, Battle, and Misc PWAN DLLs and retires the legacy monolith."
-                  : escapeHtml(pwanCompatibilityFailureSummary(pwanCompatibility))
-              }
+            <div class="code-injection-note" id="pwan-runtime-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Trainer PWAN GIF Support</h2>
+              <p>Installs the independent battle-intro runtime used by PWAN GIFs in the Trainer Class Sprite Editor.</p>
             </div>
+            <span class="code-injection-status ${trainerPwanInstalled ? "-installed" : trainerPwanCanInstall ? "" : "-error"}">
+              ${trainerPwanInstalled ? "Installed" : trainerPwanCanInstall ? "Ready" : trainerPwanStatus.supported ? "Incompatible" : "Unsupported"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>Sprites</span><strong>Front trainers</strong></div>
+            <div><span>Runtime</span><strong>Standalone</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+            <div><span>ROM</span><strong>${escapeHtml(project.session.baseVersion)}</strong></div>
+            <div><span>Hook Checks</span><strong>${trainerPwanCompatibility.passed}/${trainerPwanCompatibility.checks.length}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-trainer-pwan-runtime-btn" type="button" ${trainerPwanCanInstall ? "" : "disabled"}>
+              ${trainerPwanInstalled ? "Reinstall Trainer PWAN Support" : "Install Trainer PWAN Support"}
+            </button>
+            <button class="btn -default" id="uninstall-trainer-pwan-runtime-btn" type="button" ${trainerPwanCanUninstall ? "" : "disabled"}>Uninstall Trainer PWAN Support</button>
+            <div class="code-injection-note" id="trainer-pwan-runtime-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Overworld Weather Runtime</h2>
+              <p>Installs a resident 64-entry field-weather dispatcher and a data-driven registry so IDs 15–63 can clone stock behavior without per-effect code patches.</p>
+            </div>
+            <span class="code-injection-status ${weatherRuntimeInstalled ? "-installed" : weatherRuntimeSupported ? "" : "-error"}">
+              ${weatherRuntimeInstalled ? "Installed" : weatherRuntimeSupported ? "Ready" : "Unsupported"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US White 2 (IRDO)</strong></div>
+            <div><span>Custom Slots</span><strong>49 · IDs 15–63</strong></div>
+            <div><span>Registry</span><strong>weather/pwth.bin</strong></div>
+            <div><span>Generic Resources</span><strong>NCGR · NCLR · NCER · NANR · 2× BTX0</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+            <div><span>Runtime ABI</span><strong>5 · PWTH v4</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-weather-runtime-btn" type="button" ${weatherRuntimeSupported ? "" : "disabled"}>
+              ${weatherRuntimeInstalled ? "Reinstall Weather Runtime" : "Install Weather Runtime"}
+            </button>
+            <div class="code-injection-note" id="weather-runtime-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Trainer Battle Log</h2>
+              <p>Records trainer-battle teams and KO attribution. Installing overwrites Pal Pad/Wi-Fi data in save blocks 29–31. Updating cannot repair previously damaged records.</p>
+            </div>
+            <span class="code-injection-status ${battleLogStatus.upToDate ? "-installed" : battleLogCanInstall ? "" : "-error"}">
+              ${
+                battleLogStatus.updateAvailable
+                  ? "Update Available"
+                  : battleLogStatus.upToDate
+                    ? "Installed"
+                    : battleLogCanInstall
+                      ? "Ready"
+                      : battleLogStatus.supported
+                        ? "Incompatible"
+                        : "Unsupported"
+              }
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US ${escapeHtml(battleLogDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
+            <div><span>Capacity</span><strong>600 battles</strong></div>
+            <div><span>Save Blocks</span><strong>29–31</strong></div>
+            <div><span>Runtime</span><strong>${battleLogStatus.updateAvailable ? `Update to v${battleLogStatus.bundledRuntimeVersion}` : battleLogStatus.upToDate ? `v${battleLogStatus.bundledRuntimeVersion}` : `Bundled v${battleLogStatus.bundledRuntimeVersion}`}</strong></div>
+            <div><span>Save Ownership</span><strong>${battleLogStatus.saveGuardInstalled ? "Active" : "Pending"}</strong></div>
+            <div><span>Hook Checks</span><strong>${battleLogStatus.checked ? `${battleLogStatus.passed}/${battleLogStatus.checks.length}` : "On install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-battle-log-btn" type="button" ${battleLogCanInstall ? "" : "disabled"}>
+              ${battleLogStatus.updateAvailable ? "Update Battle Log" : battleLogStatus.installed ? "Reinstall Battle Log" : "Install Battle Log"}
+            </button>
+            <button class="btn -default" id="uninstall-battle-log-btn" type="button" ${battleLogCanUninstall ? "" : "disabled"}
+              title="${
+                battleLogStatus.installed && menuEvolutionStatus.installed
+                  ? `Uninstall ${MENU_EVOLUTION_TITLE} first.`
+                  : battleLogStatus.installed && !battleLogCanUninstall
+                    ? "DLLs already built into the loaded ROM cannot be removed yet."
+                    : "Remove the staged battle-log DLLs."
+              }">
+              Uninstall Battle Log
+            </button>
+            <div class="code-injection-note" id="battle-log-note" aria-live="polite"></div>
+          </div>
+        </section>
+        </section>
+        <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Black 2 / White 2 Save Menu</h2>
+              <p>Animated trainer, party, and badge card with the Unova town map.</p>
+            </div>
+            <span class="code-injection-status ${saveMenuStatus.installed && !saveMenuStatus.updateAvailable ? "-installed" : saveMenuStatus.supported ? "" : "-error"}">
+              ${saveMenuStatus.updateAvailable ? "Update Available" : saveMenuStatus.installed ? "Installed" : saveMenuStatus.supported ? "Ready" : "Unsupported"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>English Black 2 or White 2, including compatible hacks</strong></div>
+            <div><span>Dependency</span><strong>PMC, installed automatically if needed</strong></div>
+          </div>
+          <p class="code-injection-note">${escapeHtml(saveMenuStatus.message)}</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported && (!saveMenuStatus.installed || saveMenuStatus.updateAvailable) ? "" : "disabled"}>
+              ${saveMenuStatus.updateAvailable ? "Update Save Menu" : saveMenuStatus.installed ? "Installed" : "Install Save Menu"}
+            </button>
+            <div class="code-injection-note" id="save-menu-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>${MENU_EVOLUTION_TITLE}</h2>
+              <p>Adds EVOLVE and RELEARN party commands, post-battle KO evolution, and immediate KO-threshold moves. Requires Trainer Battle Log.</p>
+            </div>
+            <span class="code-injection-status ${menuEvolutionStatus.upToDate ? "-installed" : menuEvolutionCanInstall ? "" : "-error"}">
+              ${
+                menuEvolutionStatus.updateAvailable
+                  ? "Update Available"
+                  : menuEvolutionStatus.upToDate
+                  ? "Installed"
+                  : !menuEvolutionStatus.supported
+                    ? "Unsupported"
+                    : !menuEvolutionStatus.dependencyInstalled
+                      ? "Dependency Missing"
+                      : menuEvolutionStatus.compatible
+                        ? "Ready"
+                        : "Incompatible"
+              }
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US ${escapeHtml(menuEvolutionDisplayName(project.session.baseVersion) ?? project.session.baseVersion)}</strong></div>
+            <div><span>Methods</span><strong>Level, KOs, Battles, Used</strong></div>
+            <div><span>KO Moves</span><strong>32 per Pokémon</strong></div>
+            <div><span>Relearn</span><strong>Current level + earned KOs</strong></div>
+            <div><span>Battle Counters</span><strong>${menuEvolutionStatus.dependencyInstalled ? "Installed" : "Required"}</strong></div>
+            <div><span>PMC</span><strong>${menuEvolutionStatus.pmcInstalled ? "Installed" : "Will Install"}</strong></div>
+            <div><span>Hook Checks</span><strong>${menuEvolutionStatus.checked ? `${menuEvolutionStatus.passed}/${menuEvolutionStatus.checks.length}` : "On install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-menu-evolution-btn" type="button" ${menuEvolutionCanInstall ? "" : "disabled"}>
+              ${menuEvolutionStatus.updateAvailable ? "Update" : menuEvolutionStatus.installed ? "Reinstall" : "Install"}
+            </button>
+            <button class="btn -default" id="uninstall-menu-evolution-btn" type="button" ${menuEvolutionCanUninstall ? "" : "disabled"}
+              title="${menuEvolutionStatus.installed && !menuEvolutionCanUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : `Remove the staged ${MENU_EVOLUTION_TITLE} DLL.`}">
+              Uninstall
+            </button>
+            <div class="code-injection-note" id="menu-evolution-note" aria-live="polite"></div>
+          </div>
+        </section>
+        ${battleUiCards[0] ?? ""}
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Learnset Viewer</h2>
+              <p>Adds a standalone LEARNSET party command. D-pad Right/Left switches party Pokémon, skipping Eggs; L/R browses the evolution family and loads the highlighted species' info and learnset. Only its icon animates. A pages evolution requirements; final evolutions also show their predecessor's requirements. Hidden abilities are purple. The lower screen lists all level-up moves with levels and base max PP. Read-only: browsing never evolves Pokémon or teaches moves; no KO moves, and RELEARN is unchanged.</p>
+            </div>
+            <span class="code-injection-status ${learnsetStatus.installed && !learnsetStatus.updateAvailable ? "-installed" : learnsetStatus.compatible ? "" : "-error"}">
+              ${learnsetStatus.partial ? "Incomplete" : learnsetStatus.updateAvailable ? "Update Available" : learnsetStatus.installed ? "Installed" : learnsetStatus.compatible ? "Ready" : "Unsupported / Incompatible"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US W2 / B2 · vanilla or Upgrade</strong></div>
+            <div><span>Dependency</span><strong>PMC only</strong></div>
+            <div><span>Full party menu</span><strong>LEARNSET is hidden</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-learnset-viewer-btn" type="button" ${learnsetStatus.supported && learnsetStatus.compatible ? "" : "disabled"}>${learnsetStatus.updateAvailable ? "Update" : learnsetStatus.partial ? "Repair" : learnsetStatus.installed ? "Reinstall" : "Install"}</button>
+            <button class="btn -default" id="uninstall-learnset-viewer-btn" type="button" ${learnsetStatus.canUninstall ? "" : "disabled"} title="Only staged companions can be removed; built-in ROM files cannot yet be deleted.">Uninstall</button>
+            <div class="code-injection-note" id="learnset-viewer-note" aria-live="polite"></div>
+          </div>
+          <div class="code-injection-credits" aria-label="Learnset Viewer credits">
+            <span>Designed in collaboration with</span>
+            <strong>TrustyPeaches</strong>
+          </div>
+        </section>
+        ${battleUiCards[1] ?? ""}
+        </section>
+        <section class="code-injection-tab-panel" id="code-injection-panel-quality-of-life" role="tabpanel" aria-labelledby="code-injection-tab-quality-of-life" tabindex="0" ${activeTab === "quality-of-life" ? "" : "hidden"}>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Background Music Toggle</h2>
+              <p>Press L + R + Select to mute or unmute background music in the overworld and battles. Sound effects, cries, and scripted game pauses are unchanged.</p>
+            </div>
+            <span class="code-injection-status ${bgmToggleStatus === "patched" ? "-installed" : bgmToggleStatus === "unsupported" ? "-error" : ""}">
+              ${bgmToggleStatus === "patched" ? "Installed" : bgmToggleStatus === "unsupported" ? "Unsupported" : "Ready"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
+            <div><span>Shortcut</span><strong>L + R + Select</strong></div>
+            <div><span>Scope</span><strong>Overworld + Battles</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-bgm-toggle-btn" type="button" ${bgmToggleSupported ? "" : "disabled"}>
+              ${bgmToggleStatus === "patched" ? "Reinstall Music Toggle" : "Install Music Toggle"}
+            </button>
+            <div class="code-injection-note" id="bgm-toggle-note" aria-live="polite"></div>
+          </div>
+        </section>
+        </section>
+        <section class="code-injection-tab-panel" id="code-injection-panel-add-ons" role="tabpanel" aria-labelledby="code-injection-tab-add-ons" tabindex="0" ${activeTab === "add-ons" ? "" : "hidden"}>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Infinite Rare Candy</h2>
+              <p>Adds a reusable level-up item to Key Items. Grant item 622 through an event or save editor; installation does not add it to existing saves.</p>
+            </div>
+            <span class="code-injection-status ${infiniteCandyStatus.installed ? "-installed" : infiniteCandyStatus.compatible ? "" : "-error"}">
+              ${infiniteCandyStatus.installed ? "Installed" : infiniteCandyStatus.compatible ? "Ready" : infiniteCandyStatus.supported ? "Incompatible" : "Unsupported"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
+            <div><span>Item ID</span><strong>622</strong></div>
+            <div><span>Bag</span><strong>Key Items</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-infinite-candy-btn" type="button" ${infiniteCandyStatus.compatible ? "" : "disabled"}>
+              ${infiniteCandyStatus.installed ? "Reinstall Infinite Candy" : "Install Infinite Candy"}
+            </button>
+            <div class="code-injection-note" id="infinite-candy-note" aria-live="polite"></div>
+            <div class="code-injection-credits">Item behavior adapted from PW2Code by Dararo.</div>
+          </div>
+        </section>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header">
+            <div>
+              <h2>Hard Level Caps</h2>
+              <p>Caps battle EXP and Day Care growth at the level set by <code>EventWorks.Set(16415, level)</code>. Infinite Candy respects the cap; regular Rare Candy can still reach level 100.</p>
+            </div>
+            <span class="code-injection-status ${levelCapsStatus.installed ? "-installed" : levelCapsStatus.compatible ? "" : "-error"}">
+              ${levelCapsStatus.installed ? "Installed" : levelCapsStatus.compatible ? "Ready" : levelCapsStatus.supported ? "Incompatible" : "Unsupported"}
+            </span>
+          </div>
+          <div class="code-injection-facts">
+            <div><span>ROM</span><strong>US Black 2 / White 2</strong></div>
+            <div><span>Cap variable</span><strong>16415</strong></div>
+            <div><span>Default</span><strong>100</strong></div>
+            <div><span>PMC</span><strong>${status.installed ? "Installed" : "Will Install"}</strong></div>
+          </div>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-level-caps-btn" type="button" ${levelCapsStatus.compatible ? "" : "disabled"}>
+              ${levelCapsStatus.installed ? "Reinstall Hard Level Caps" : "Install Hard Level Caps"}
+            </button>
+            <div class="code-injection-note" id="level-caps-note" aria-live="polite"></div>
+            <div class="code-injection-credits">Adapted from PW2Code by Dararo.</div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -481,12 +541,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </span>
           </div>
           <div class="code-injection-actions">
-            <button class="btn -primary" id="install-double-battle-fix-btn" type="button" ${doubleBattleFixSupported ? "" : "disabled"}>
+            <button class="btn -primary" id="install-double-battle-fix-btn" type="button" ${doubleBattleFixSupported ? "" : "disabled"} title="${status.installed ? "Install the bundled double battle fix." : "Install PMC first."}">
               Install Double Battle Fix
             </button>
-            <div class="code-injection-note" id="double-battle-fix-note">
-              ${status.installed ? "The patch DLL will be staged in patches/." : "Install PMC first, then stage the patch DLL."}
-            </div>
+            <div class="code-injection-note" id="double-battle-fix-note" aria-live="polite"></div>
           </div>
           <div class="code-injection-credits" aria-label="Double Battle Fix credits">
             <span>Implementation credits</span>
@@ -517,7 +575,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               title="${tagBattleStatus.installed && !tagBattleStatus.canUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Tag Battle Stabilization DLL."}">
               Uninstall Tag Battle Stabilization
             </button>
-            <div class="code-injection-note" id="tag-battle-stabilization-note">${escapeHtml(tagBattleStatus.message)}</div>
+            <div class="code-injection-note" id="tag-battle-stabilization-note" aria-live="polite"></div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -543,7 +601,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               title="${portaPcStatus.installed && !portaPcStatus.canUninstall ? "A DLL already built into the loaded ROM cannot be removed yet." : "Remove the staged Porta PC DLL."}">
               Uninstall Porta PC
             </button>
-            <div class="code-injection-note" id="porta-pc-note">${escapeHtml(portaPcStatus.message)}</div>
+            <div class="code-injection-note" id="porta-pc-note" aria-live="polite"></div>
           </div>
         </section>
         <section class="code-injection-panel">
@@ -572,9 +630,38 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             }
           </div>
         </section>
+        </section>
       </main>
     </section>
   `;
+
+  const tabButtons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-code-injection-tab]"));
+  const selectTab = (tab: CodeInjectionTab, focus = false): void => {
+    activeCodeInjectionTabs.set(root, tab);
+    for (const button of tabButtons) {
+      const selected = button.dataset.codeInjectionTab === tab;
+      button.classList.toggle("-active", selected);
+      button.setAttribute("aria-selected", String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      if (selected && focus) button.focus();
+    }
+    root.querySelectorAll<HTMLElement>(".code-injection-tab-panel").forEach((panel) => {
+      panel.hidden = panel.id !== `code-injection-panel-${tab}`;
+    });
+  };
+  tabButtons.forEach((button, index) => {
+    button.addEventListener("click", () => selectTab(codeInjectionTabs[index].id));
+    button.addEventListener("keydown", (event) => {
+      let nextIndex: number;
+      if (event.key === "ArrowRight") nextIndex = (index + 1) % tabButtons.length;
+      else if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+      else if (event.key === "Home") nextIndex = 0;
+      else if (event.key === "End") nextIndex = tabButtons.length - 1;
+      else return;
+      event.preventDefault();
+      selectTab(codeInjectionTabs[nextIndex].id, true);
+    });
+  });
 
   const button = root.querySelector<HTMLButtonElement>("#install-pmc-btn");
   const note = root.querySelector<HTMLDivElement>("#pmc-install-note");
@@ -592,12 +679,12 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       }
       button.disabled = true;
       button.textContent = "Installing...";
-      if (note) note.textContent = "Patching ARM9, writing PMC overlay, and staging codeinjection files.";
+      if (note) note.textContent = "Installing the runtime and preparing patch folders...";
       const result = await installBundledPmc(project);
       onDirty();
       renderCodeInjectionEditor(project, root, onDirty);
       const refreshedNote = root.querySelector<HTMLDivElement>("#pmc-install-note");
-      if (refreshedNote) refreshedNote.textContent = `PMC ${result.version ?? ""} installed on overlay ${result.overlayId}.`;
+      if (refreshedNote) refreshedNote.textContent = `PMC ${result.version ?? "runtime"} installed.`;
     } catch (error) {
       button.disabled = false;
       button.textContent = previousText;
@@ -736,6 +823,36 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       bgmToggleButton.disabled = false;
       bgmToggleButton.textContent = previousText;
       if (bgmToggleNote) bgmToggleNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const infiniteCandyButton = root.querySelector<HTMLButtonElement>("#install-infinite-candy-btn");
+  infiniteCandyButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#infinite-candy-note");
+    infiniteCandyButton.disabled = true;
+    if (note) note.textContent = "Checking item 622 and installing the patch...";
+    try {
+      await installInfiniteCandy(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      infiniteCandyButton.disabled = false;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const levelCapsButton = root.querySelector<HTMLButtonElement>("#install-level-caps-btn");
+  levelCapsButton?.addEventListener("click", async () => {
+    const note = root.querySelector<HTMLDivElement>("#level-caps-note");
+    levelCapsButton.disabled = true;
+    if (note) note.textContent = "Checking battle, Day Care, and item hooks...";
+    try {
+      await installLevelCaps(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+    } catch (error) {
+      levelCapsButton.disabled = false;
+      if (note) note.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 
@@ -886,6 +1003,28 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     } catch (error) {
       uninstallMenuEvolutionButton.disabled = false;
       const currentNote = root.querySelector<HTMLDivElement>("#menu-evolution-note") ?? menuEvolutionNote;
+      if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  const saveMenuButton = root.querySelector<HTMLButtonElement>("#install-save-menu-btn");
+  const saveMenuNote = root.querySelector<HTMLDivElement>("#save-menu-note");
+  saveMenuButton?.addEventListener("click", async () => {
+    const previousText = saveMenuButton.textContent ?? "Install Save Menu";
+    try {
+      saveMenuButton.disabled = true;
+      saveMenuButton.textContent = "Installing...";
+      if (saveMenuNote) saveMenuNote.textContent = "Checking the ROM and staging the save-menu patch...";
+      await installSaveMenu(project);
+      onDirty();
+      renderCodeInjectionEditor(project, root, onDirty);
+      const refreshedNote = root.querySelector<HTMLDivElement>("#save-menu-note");
+      if (refreshedNote) refreshedNote.textContent = "Save menu staged. Export a new ROM to use it.";
+    } catch (error) {
+      const currentButton = root.querySelector<HTMLButtonElement>("#install-save-menu-btn") ?? saveMenuButton;
+      const currentNote = root.querySelector<HTMLDivElement>("#save-menu-note") ?? saveMenuNote;
+      currentButton.disabled = false;
+      currentButton.textContent = previousText;
       if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });

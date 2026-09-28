@@ -163,11 +163,12 @@ describe("walking alpha ownership",()=>{
     const anchors=encodeFollowerLandAnchors(decodeFollowerRegistry(registry),resourceArchive.files,registry);
     const positioning=encodeFollowerPositioningNarc(decodeFollowerRegistry(registry),registry,anchors,surfRegistry);
     const dialogues=new Uint8Array(readFileSync(new URL('../assets/following/contextual-dialogues.narc',import.meta.url)));
-    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,optionsModuleSha256:runtimeManifest.optionsModuleSha256,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues),surfSha256:await followerRomSha256(surf),surfRegistrySha256:await followerRomSha256(surfRegistry),landRiderSha256:await followerRomSha256(rider),landAnchorsSha256:await followerRomSha256(anchors),positioningSha256:await followerRomSha256(positioning)};
+    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,optionsModuleSha256:runtimeManifest.optionsModuleSha256,battleModuleSha256:runtimeManifest.battleModuleSha256,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues),surfSha256:await followerRomSha256(surf),surfRegistrySha256:await followerRomSha256(surfRegistry),landRiderSha256:await followerRomSha256(rider),landAnchorsSha256:await followerRomSha256(anchors),positioningSha256:await followerRomSha256(positioning)};
     Object.assign(project.fileSystem!.additions!,{
       [FOLLOWER_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingFieldW2.dll',import.meta.url))),
       [FOLLOWER_EVENTS_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingEventsW2.dll',import.meta.url))),
       [FOLLOWER_CORE_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingCoreW2.dll',import.meta.url))),
+      "patches/PokewebFollowingBattleW2.dll":new Uint8Array(readFileSync(new URL("../assets/following/PokewebFollowingBattleW2.dll",import.meta.url))),
       [FOLLOWER_OPTIONS_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingOptionsW2.dll',import.meta.url))),
       [FOLLOWER_RUNTIME_REGISTRY_PATH]:registry,[FOLLOWER_DESCRIPTOR_PATH]:descriptor,[FOLLOWER_RESOURCE_PATH]:resources,
       [FOLLOWER_INTERACTIONS_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/interactions.bin',import.meta.url))),
@@ -192,6 +193,9 @@ describe("walking alpha ownership",()=>{
     expect(new DataView(project.fileSystem!.additions![FOLLOWER_NATIVE_PATH].buffer).getUint32(4,true)).toBe(0);
     expect(project.fileSystem!.additions!['unrelated.bin']).toEqual(Uint8Array.of(9));
     await expect(setFollowerAlphaEnabled(project,true)).rejects.toThrow(/audited revision-0/); // synthetic fixture is not a compatible ROM
+    const battle=project.fileSystem!.additions!["patches/PokewebFollowingBattleW2.dll"];battle[100]^=1;
+    await expect(setFollowerAlphaEnabled(project,false)).rejects.toThrow(/Battle module has changed/);
+    battle[100]^=1;
     const effects=project.fileSystem!.additions![FOLLOWER_EFFECTS_PATH];effects[100]^=1;
     await expect(setFollowerAlphaEnabled(project,false)).rejects.toThrow(/effect assets have changed/);
     effects[100]^=1;

@@ -104,12 +104,17 @@ export type TrainerSpriteAnimationFrame = {
 export type TrainerClassSpriteAnimation = {
   trainerClassId: number;
   graphicIndex: number;
+} & TrainerSpriteAnimation;
+
+export type TrainerSpriteAnimation = {
   canvasWidth: number;
   canvasHeight: number;
   frames: TrainerSpriteAnimationFrame[];
   totalTicks: number;
   cellSequenceCount: number;
   multiCellCount: number;
+  outerSequenceCount: number;
+  outerSequenceIndex: number;
   outerKeyFrameCount: number;
 };
 
@@ -251,7 +256,7 @@ export function buildTrainerSpriteGifPreview(
   ];
   const files = rawFiles.map((file, index) => preserveNitroCompression(targetFiles[index], file));
   const animation = trainerClassSpriteAnimationFromFiles(files, trainerClassId, graphicIndex);
-  const rigAtlas = trainerRigAtlasFromFiles(files);
+  const rigAtlas = decodeTrainerSpriteRigAtlas(files);
   const warnings = [...flipbook.report.warnings];
   if (loopInfo.kind === "finite" && appliedLoopCount > 1) warnings.push(`Expanded the native timeline to preserve ${appliedLoopCount} GIF loops`);
   return {
@@ -342,7 +347,7 @@ export function getTrainerClassSpriteImage(project: ProjectState, trainerClassId
 }
 
 export function getTrainerClassRigAtlas(project: ProjectState, trainerClassId: number): RgbaImageData {
-  return trainerRigAtlasFromFiles(trainerClassSpriteFiles(project, trainerClassId));
+  return decodeTrainerSpriteRigAtlas(trainerClassSpriteFiles(project, trainerClassId));
 }
 
 export function getTrainerClassSpriteAnimation(project: ProjectState, trainerClassId: number): TrainerClassSpriteAnimation {
@@ -351,6 +356,12 @@ export function getTrainerClassSpriteAnimation(project: ProjectState, trainerCla
 }
 
 function trainerClassSpriteAnimationFromFiles(files: Uint8Array[], trainerClassId: number, graphicIndex: number): TrainerClassSpriteAnimation {
+  return { trainerClassId, graphicIndex, ...decodeTrainerSpriteAnimation(files) };
+}
+
+/** Decode one native eight-file trainer graphic without assigning it to a trainer class. */
+export function decodeTrainerSpriteAnimation(files: Uint8Array[], outerSequenceIndex = 0): TrainerSpriteAnimation {
+  requireTrainerSpriteFiles(files);
   const palette = parseNitroPalette(decompressNitroIfNeeded(files[TRAINER_SPRITE_PALETTE_FILE]));
   const texture = decodeTrainerMcssTexture(decompressNitroIfNeeded(files[TRAINER_SPRITE_BITMAP_FILE]), palette);
   const ncecCells = parseRigCells(decompressNitroIfNeeded(files[TRAINER_SPRITE_NCEC_FILE])).cells;
@@ -362,29 +373,61 @@ function trainerClassSpriteAnimationFromFiles(files: Uint8Array[], trainerClassI
     "RAMN",
     "Multi-cell animation",
   );
-  const outerSequence = multiCellAnimation.sequences[0];
+  const outerSequence = multiCellAnimation.sequences[outerSequenceIndex];
+  if (!outerSequence) throw new Error(`Trainer graphic has no NMAR sequence ${outerSequenceIndex}`);
   const frames = renderTrainerMcssFrames(texture, ncecCells, animation.sequences, multiCells, outerSequence);
-  if (frames.length === 0) throw new Error(`Trainer class ${trainerClassId} has no renderable sprite frames`);
+  if (frames.length === 0) throw new Error("Trainer graphic has no renderable sprite frames");
   return {
-    trainerClassId,
-    graphicIndex,
     canvasWidth: TRAINER_SPRITE_CANVAS_WIDTH,
     canvasHeight: TRAINER_SPRITE_CANVAS_HEIGHT,
     frames,
     totalTicks: frames.length,
     cellSequenceCount: animation.sequences.length,
     multiCellCount: multiCells.length,
+    outerSequenceCount: multiCellAnimation.sequences.length,
+    outerSequenceIndex,
     outerKeyFrameCount: outerSequence?.frames.length ?? 0,
   };
 }
 
-function trainerRigAtlasFromFiles(files: Uint8Array[]): RgbaImageData {
+export function decodeTrainerSpriteRigAtlas(files: Uint8Array[]): RgbaImageData {
+  requireTrainerSpriteFiles(files);
   const palette = parseNitroPalette(decompressNitroIfNeeded(files[TRAINER_SPRITE_PALETTE_FILE]));
   return decodeTrainerMcssTexture(decompressNitroIfNeeded(files[TRAINER_SPRITE_BITMAP_FILE]), palette);
 }
 
-function decodeTrainerMcssTexture(bytes: Uint8Array, palette: NitroPaletteData): RgbaImageData {
-  const layout = trainerCharacterLayout(bytes, "NCBR");
+/** Encode an edited rig atlas while retaining the source NCBR layout and compression. */
+export function encodeTrainerSpriteRigAtlas(files: Uint8Array[], atlas: RgbaImageData): Uint8Array {
+  requireTrainerSpriteFiles(files);
+  const original = decodeTrainerSpriteRigAtlas(files);
+  if (atlas.width !== original.width || atlas.height !== original.height) {
+    throw new Error(`Trainer rig atlas must remain ${original.width}x${original.height}`);
+  }
+  const palette = parseNitroPalette(decompressNitroIfNeeded(files[TRAINER_SPRITE_PALETTE_FILE]))
+    .map(([r, g, b]) => ({ r, g, b }));
+  const encoded = encodeTrainerCharacterImage(decompressNitroIfNeeded(files[TRAINER_SPRITE_BITMAP_FILE]), atlas, palette, "NCBR");
+  return preserveNitroCompression(files[TRAINER_SPRITE_BITMAP_FILE], encoded);
+}
+
+export function decodeTrainerSpriteStaticGraphic(files: Uint8Array[]): RgbaImageData {
+  requireTrainerSpriteFiles(files);
+  const palette = parseNitroPalette(decompressNitroIfNeeded(files[TRAINER_SPRITE_PALETTE_FILE]));
+  return decodeTrainerMcssTexture(decompressNitroIfNeeded(files[0]), palette, "NCGR");
+}
+
+export function decodeTrainerSpritePalette(files: Uint8Array[]): NitroPaletteData {
+  requireTrainerSpriteFiles(files);
+  return parseNitroPalette(decompressNitroIfNeeded(files[TRAINER_SPRITE_PALETTE_FILE]));
+}
+
+function requireTrainerSpriteFiles(files: Uint8Array[]): void {
+  if (files.length !== TRAINER_SPRITE_FILES_PER_ENTRY || files.some((file) => !file?.length)) {
+    throw new Error("Trainer graphic is missing one or more of its eight native files");
+  }
+}
+
+function decodeTrainerMcssTexture(bytes: Uint8Array, palette: NitroPaletteData, label: "NCGR" | "NCBR" = "NCBR"): RgbaImageData {
+  const layout = trainerCharacterLayout(bytes, label);
   const { bitDepth, bitmapType, dataOffset, dataSize, height, tileCount, tilesWide, width } = layout;
   const rgba = new Uint8ClampedArray(width * height * 4);
   if (bitmapType) drawTrainerBitmapTexture(rgba, width, height, bytes, dataOffset, dataSize, bitDepth, palette);

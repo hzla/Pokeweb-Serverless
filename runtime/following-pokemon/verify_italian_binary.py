@@ -34,8 +34,10 @@ def verify(us_path: Path, italian_path: Path):
     counts = {"sites": 0, "identicalSites": 0, "translatedPointers": 0, "translatedThumbCalls": 0}
     by_id = {}
     for site in sites:
+        from battle_port import port_address as battle_address
+        translate = (lambda a: battle_address(a,"white2italy")) if site.get("module")=="battle" else port_address
         old_at = site["address"] - site["addressDelta"]
-        if port_address(old_at) != site["address"]:
+        if translate(old_at) != site["address"]:
             raise ValueError(f"Italian address mapping drift: {site['id']}")
         old = bytes.fromhex(site["usExpectedHex"])
         new = bytes.fromhex(site["expectedHex"])
@@ -53,7 +55,7 @@ def verify(us_path: Path, italian_path: Path):
                 continue
             before = struct.unpack_from("<I", old, offset)[0]
             after = struct.unpack_from("<I", new, offset)[0]
-            if before != after and 0x02000000 <= before < 0x02400000 and port_address(before) == after:
+            if before != after and 0x02000000 <= before < 0x02400000 and translate(before) == after:
                 mask[offset:offset+4] = [True]*4
                 counts["translatedPointers"] += 1
         for offset in range(0, len(old)-3, 2):
@@ -65,7 +67,7 @@ def verify(us_path: Path, italian_path: Path):
                 continue
             if before[0].mnemonic not in ("bl", "blx") or after[0].mnemonic != before[0].mnemonic:
                 continue
-            if port_address(before[0].operands[0].imm) == after[0].operands[0].imm:
+            if translate(before[0].operands[0].imm) == after[0].operands[0].imm:
                 mask[offset:offset+4] = [True]*4
                 counts["translatedThumbCalls"] += 1
         if not all(mask):
