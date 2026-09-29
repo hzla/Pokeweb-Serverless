@@ -373,7 +373,7 @@
             "path": "src/pwan_animation/w2u_battle_hooks.s"
           },
           "kind": "source",
-          "sha256": "6807a345c30f7335c9d75efa09f60770b181e583b138c7fcb12daa7a9eefe68c",
+          "sha256": "1bda9a1eba67ec4084a96a2f676abfd65a8bf42bd4e7c9407a0275f82449d65b",
           "normalized": false
         },
         {
@@ -647,7 +647,7 @@
             "path": "src/w2u_overworld_weather.cpp"
           },
           "kind": "source",
-          "sha256": "fa5d14037a885bbfd7a8743b5d3f465f707013892300511a6528ee16ea1a61d7",
+          "sha256": "658927b627548de2b9dbee53a0981a25a67da7790c90e82ad2fda148cddee208",
           "normalized": false
         },
         {
@@ -657,7 +657,7 @@
             "path": "src/w2u_overworld_weather_hooks.s"
           },
           "kind": "source",
-          "sha256": "36e04127139f5619e445165d44d54befcdf19c653908722de0578b8357b80905",
+          "sha256": "dcc28c144cea8ef6f45d6a88ce626f371ee37560019f9043e2020b5fa973ee6d",
           "normalized": false
         },
         {
@@ -2422,7 +2422,7 @@
             "path": "src/pokeweb/pmcModel.ts"
           },
           "kind": "support-only",
-          "sha256": "44df9030248e02d342f7c2b44d684c6eb97297c718db56af2872c544b4346a21",
+          "sha256": "081abf3f6c29ae8ba386ac747e01b9b8f1aa05e2acf31ffd2c20b4c74e9b5c59",
           "normalized": false
         },
         {
@@ -2482,7 +2482,7 @@
             "path": "src/pokeweb/projectStore.ts"
           },
           "kind": "support-only",
-          "sha256": "f2322d6e0790a98a579c4799d20b64a146bc303247a9dd670d6e621974d9ce10",
+          "sha256": "f43f3bb1ec2764aa86127b7ee1463643420a8ed8275f29aa93c48d670394e539",
           "normalized": false
         },
         {
@@ -2492,7 +2492,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "ead8a24aa341ab6731abef4bdaed93c52aed9e6ab8bd8358ee75af6b05018a3f",
+          "sha256": "7423f99c9462967aa2ace79603e62ec8c2f1e02bf5fa1a45afca3af131a2a108",
           "normalized": false
         },
         {
@@ -2502,7 +2502,7 @@
             "path": "src/styles/codeInjection.css"
           },
           "kind": "support-only",
-          "sha256": "b48cfe89761ba3d04c2b456590c73909f557ab49cd85aa1b5c1e53e2449f0c85",
+          "sha256": "4eb3bee057ba99a311988265e0563036327b498f01f5473f545bbcfc86cc618a",
           "normalized": false
         },
         {
@@ -2512,7 +2512,7 @@
             "path": "package.json"
           },
           "kind": "build-tool",
-          "sha256": "69efbe3d38c7acf74ab7d57fe307b30299daaf2e892d63618d4d5a0a71948353",
+          "sha256": "ab04a40c49193ca5e1d0e140537f566c9f513fce381568c25fd6c8db6a89b551",
           "normalized": false
         },
         {
@@ -2522,7 +2522,7 @@
             "path": "src/test/pmcModel.test.ts"
           },
           "kind": "test",
-          "sha256": "f54fd4091c9aa4bd9d29ac181d736b727bb29c3e751bbd3b0d4e701c9c3dfe88",
+          "sha256": "70bfcb89da6da95b1c6d22d26e770615252dadb044373231d7da44b9667b76f4",
           "normalized": false
         },
         {
@@ -2710,7 +2710,7 @@
             "path": "src/pokeweb/trainerSpriteModel.ts"
           },
           "kind": "support-only",
-          "sha256": "c8a0156a257c403cc0973b6982c61a15f6c30d7f31e065e1417c2edea7776db7",
+          "sha256": "66db0d5e9e283daf7a123507a071215db6abbfef82721f74c986f400310e6f8b",
           "normalized": false
         },
         {
@@ -2858,7 +2858,7 @@
             "path": "src/pokeweb/romPatchModel.ts"
           },
           "kind": "support-only",
-          "sha256": "a1901a9e4fb60f63389668733b6f0c74639bf8650cc5083fc92cd9dc255aea6d",
+          "sha256": "760bb63076e7afb7f440754b75465a6da950ea6dbf2a5e100ffe7ccbd43979d9",
           "normalized": false
         },
         {
@@ -2868,7 +2868,7 @@
             "path": "src/ui/trainerEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "95a0a93344af1d530699f84b7fa0829d2e30fdc0e661ae0bdc3a3852dc89fdbd",
+          "sha256": "cac3ae45efdcbee433750704faef0b6df6b23f785f0bf3f0603b1d84f02581f6",
           "normalized": false
         },
         {
@@ -5118,7 +5118,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "0bb5057cc8a85909e6d1966da07ef82a3b798dbf00b0a506b23028ff56ff82b4",
+          "sha256": "7423f99c9462967aa2ace79603e62ec8c2f1e02bf5fa1a45afca3af131a2a108",
           "normalized": false
         },
         {
@@ -5236,6 +5236,212 @@
           "normalized": false
         }
       ]
+    },
+    {
+      "name": "level-caps",
+      "title": "Hard level caps",
+      "artifacts": [
+        {
+          "name": "HardLevelCapsB2.dll",
+          "sha256": "8343b58ad0a537bdfb21619ca4bbf2026f08120400a78d718ad72b1c1c5751ca"
+        },
+        {
+          "name": "HardLevelCapsW2.dll",
+          "sha256": "c82381bbd86e97298891c41995fd1bedabf0e855d1c89af8850564c0c3853dbe"
+        }
+      ],
+      "note": "US Black 2 / White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "level-caps/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/level-caps/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "d0360d747ed6ec0bc3b3e43e4581d0e82d92319746cdc51a8be385466f5657d9",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/hooks.s",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/level-caps/hooks.s"
+          },
+          "kind": "source",
+          "sha256": "c6374fc0dfd0ce40407d4ef2aa8118c6f7abb5e2e4d9048cbde63f8cbb708bdf",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/level_caps.c",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/level-caps/level_caps.c"
+          },
+          "kind": "source",
+          "sha256": "4c4421bbfca37c3da71ceba6882ef8a6f60e9abc36c3f2ca5762e89dd4794913",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/level-caps/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "7feeb7b105b6343ee3b4d96c209f1b880f7c3101d9e5df2e04f248f6898cac7a",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/verify.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/level-caps/verify.py"
+          },
+          "kind": "test",
+          "sha256": "8b25b177ec2b4436ad779e698930bd729806f0bd91e1fd6b7ed9ab2bcbcf19cb",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/integration/levelCapsModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/levelCapsModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "a14e5a0f8b0a926d1834ecb3debc546e65d7270f80da6005da4c1f07d43f8a28",
+          "normalized": false
+        },
+        {
+          "path": "level-caps/tests/verify-level-caps-install.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-level-caps-install.ts"
+          },
+          "kind": "test",
+          "sha256": "460c3395a0ab91991f4e57377708d5e038b09067cf5711dfdfc97c194817afe9",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "infinite-candy",
+      "title": "Infinite Rare Candy",
+      "artifacts": [
+        {
+          "name": "InfiniteCandyB2.dll",
+          "sha256": "7607517a69fcb20c6ddfd6ace74dbfbae1fe80f58d8c896908a8e66919fe578a"
+        },
+        {
+          "name": "InfiniteCandyW2.dll",
+          "sha256": "ce0c677f6e094722321d9807ab06ea5a585d61f6587c985f3d4e0ed21bfbd659"
+        }
+      ],
+      "note": "US Black 2 / White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "infinite-candy/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/infinite-candy/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "60d57e2bc05df909815f14de2e9ac2316f7642f7d1602f346b2aeedfdbfeb9eb",
+          "normalized": false
+        },
+        {
+          "path": "infinite-candy/InfiniteCandy.s",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/infinite-candy/InfiniteCandy.s"
+          },
+          "kind": "source",
+          "sha256": "9495173e1dd63e9b78544e1ac44e8cb6c6b03a4a5ef21442f5e3001492456c61",
+          "normalized": false
+        },
+        {
+          "path": "infinite-candy/metadata_b2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/infinite-candy/metadata_b2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "a0f700f0576a6801e845f0f74a33164168212d2a5f4dd815f5bc579608540fb5",
+          "normalized": false
+        },
+        {
+          "path": "infinite-candy/metadata_w2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/infinite-candy/metadata_w2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "84aa71ea5e4a5ec97c3b07332ca7a589e20052710532b9bb54abb17ff288220d",
+          "normalized": false
+        },
+        {
+          "path": "infinite-candy/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/infinite-candy/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "313a25df4a4c34c115c31ea75d909693a824861b3fbb0bc8cbc0d39ee4657c08",
+          "normalized": false
+        },
+        {
+          "path": "infinite-candy/symbols_b2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/infinite-candy/symbols_b2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "ed3ccac63681ffcdee29f94a20a5d4252afabe0d4e075c7352f4a82cb321038e",
+          "normalized": false
+        },
+        {
+          "path": "infinite-candy/symbols_w2.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/infinite-candy/symbols_w2.yml"
+          },
+          "kind": "metadata",
+          "sha256": "6dc970211aec704cb59199cf28a66eecf2413351866a467d45c93b83068eff99",
+          "normalized": false
+        },
+        {
+          "path": "infinite-candy/verify.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/infinite-candy/verify.py"
+          },
+          "kind": "test",
+          "sha256": "40cdd07664b3c3713c4d0bc950b7e0bc7587545d0d4e20af5cec18c3b2af66ac",
+          "normalized": false
+        },
+        {
+          "path": "infinite-candy/integration/infiniteCandyModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/infiniteCandyModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "e175fbdeaf2a55511e324394f0d2be5d8011ba9d6c575dae25db3c8cd99ec651",
+          "normalized": false
+        },
+        {
+          "path": "infinite-candy/tests/verify-infinite-candy-install.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-infinite-candy-install.ts"
+          },
+          "kind": "test",
+          "sha256": "4cd206ea3b54c00675a24ec3d666bda53d72d505c3b0d2c98950399c0712925d",
+          "normalized": false
+        }
+      ]
     }
   ],
   "sharedFiles": [
@@ -5246,7 +5452,7 @@
         "path": "include/w2u_battle.h"
       },
       "kind": "header",
-      "sha256": "17685d0ef540f02361c874cf1e10440dc489e5fa037049990577477b4d700322",
+      "sha256": "29929d6f7a9e84232721e87cdd8a1cded5f607923f944051b593ac4f7bf039df",
       "normalized": false
     },
     {
