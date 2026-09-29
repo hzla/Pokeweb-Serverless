@@ -21,7 +21,9 @@ The installer removes these two commands from BW1 copies and reassembles labels 
 
 Frost's Black 1 Fairy patch prepends `0x2100` bytes to overlay 93 and lowers its RAM address. Pokeweb locates the move-command hook using its surrounding instructions, including when its original file offset has moved. Ambiguous or conflicting hooks are rejected. The installer preserves Fairy battle code and replaces recognized legacy animation routing with the coordinated Pokeweb helpers.
 
-Existing helper bytes are insufficient evidence that they will execute: the overlay table must load them too. Normal export repairs a truncated loader size only after recognizing the loader helper, its pointers, and the corresponding command call. This also handles imported ROMs without requiring the user to reinstall Move Expansion. Missing bundled assets in an older ROM require reinstalling with **Include Gen 6-7 Animations** checked.
+The routing helpers fit inside verified alignment padding in the two native overlays. The loader's original 32-byte BSS allocation is materialized as static data, preserving its native pointer and setting the table's BSS size to zero. Its total RAM footprint stays unchanged. Simply increasing the load size of older appended helpers is unsafe: those helpers overlap the party-selection overlays used when switching after a KO.
+
+Normal export migrates recognized older helper pairs, whether their load size was truncated or already enlarged. Migration validates the helpers, pointers, command target, native padding, and exact old tail length before replacing them; unrecognized extensions are left untouched. This handles imported ROMs without requiring the user to reopen the Move Expansion installer. Missing bundled assets in an older ROM require reinstalling with **Include Gen 6-7 Animations** checked.
 
 ## Regenerating the bundle
 
@@ -43,4 +45,4 @@ npm run moveexpansion:verify-rom -- /path/to/input.nds --include-bundled-animati
 npm run build
 ```
 
-The ROM verifier checks in-memory and post-export idempotence, preservation of pre-existing particle/background entries, complete background triplets, valid particle references, BW1 command adaptation, and overlay load sizes. Emulator checks are separate: a successful export is not evidence that every move animation has completed in-game.
+The ROM verifier checks in-memory and post-export idempotence, preservation of pre-existing particle/background entries, complete background triplets, valid particle references, BW1 command adaptation, overlay load sizes, zero BSS after materialization, and unchanged or reduced overlay RAM footprints. Emulator checks are separate: a successful export is not evidence that every move animation has completed in-game.

@@ -35,3 +35,9 @@ src/test/local/
 
 # Machine-local move animation workflow paths.
 .moveanim.local.json
+
+# Optional local maintenance, generation, and verification entry points.
+/scripts/*
+# Vite imports the local bridge; TypeScript/tests import the shared tooling.
+!/scripts/w2u-local-bridge.js
+!/scripts/lib/

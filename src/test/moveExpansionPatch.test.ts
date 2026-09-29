@@ -10,6 +10,7 @@ import {
   applyMoveExpansionRoutingHookToOverlay,
   detectMoveExpansionRoutingHook,
   parseMoveExpansionAnimationBundle,
+  planMoveExpansionRouting,
   repairMoveExpansionOverlayLoadSize,
   usesFrostMoveExpansionLayout,
 } from "../pokeweb/moveExpansionPatch";
@@ -45,7 +46,7 @@ describe("Move Expansion patch", () => {
   it.each([
     ["BW" as const, 0x3046, 0x33fcc, undefined, 0x021b6100, 0x021f6560],
     ["BW2" as const, 0x3536, 0x363cc, 0x6456, 0x021998c0, 0x021dda60],
-  ])("installs context-safe %s move animation routing and preserves BSS addresses", (baseRom, callerOffset, commandHookOffset, secondaryHookOffset, commandRamAddress, loaderRamAddress) => {
+  ])("recognizes the legacy appended %s helpers used by imported ROMs", (baseRom, callerOffset, commandHookOffset, secondaryHookOffset, commandRamAddress, loaderRamAddress) => {
     const bssSize = 0x20;
     const commandOverlay = new Uint8Array(commandHookOffset + 0x40);
     commandOverlay.set(COMMAND_CONTEXT, commandHookOffset - 8);
@@ -228,24 +229,68 @@ describe("Move Expansion patch", () => {
     }
   });
 
+  it.each(["BW", "BW2"] as const)("keeps %s routing inside both native overlay footprints and migrates old helpers", (baseRom) => {
+    const { loader, command, hook, caller, secondary } = routingFixture(baseRom);
+    const nativeFootprint = loader.data.length + loader.bssSize;
+    const compact = planMoveExpansionRouting(loader, command, baseRom)!;
+    expect(compact).toBeDefined();
+    expect(compact.loader.overlay.length).toBe(nativeFootprint);
+    expect(compact.command.overlay.length).toBe(command.data.length);
+    expect(compact.loader.overlay.slice(loader.data.length, loader.data.length + 4)).toEqual(new Uint8Array(4));
+    expect(detectMoveExpansionRoutingHook(compact.loader.overlay, baseRom)).toBe("patched");
+    const commandTarget = decodeThumbBlTarget(compact.command.overlay, hook, command.ramAddress + hook);
+    expect(commandTarget).toBeGreaterThanOrEqual(command.ramAddress);
+    expect(commandTarget).toBeLessThan(command.ramAddress + command.data.length);
+    const repeated = planMoveExpansionRouting({ ...loader, data: compact.loader.overlay, ramSize: nativeFootprint, bssSize: 0 }, { ...command, data: compact.command.overlay }, baseRom)!;
+    expect(repeated.loader.status).toBe("already-applied");
+    expect(repeated.command.status).toBe("already-applied");
+    if (secondary !== undefined) {
+      expect([...compact.loader.overlay.slice(caller + 12, caller + 14)]).toEqual([0x38, 0xd0]);
+      expect([...compact.loader.overlay.slice(secondary + 4, secondary + 6)]).toEqual([0x02, 0xd0]);
+    }
+    const old = applyMoveExpansionRoutingHookToOverlay(loader.data, baseRom, loader.ramAddress, 32)!;
+    const oldCommand = applyMoveExpansionCommandHookToOverlay(command.data, baseRom, command.ramAddress, 0, old.commandHelperAddress)!;
+    for (const ramSize of [loader.ramSize, old.overlay.length]) {
+      const migrated = planMoveExpansionRouting({ ...loader, data: old.overlay, ramSize }, { ...command, data: oldCommand.overlay }, baseRom)!;
+      expect(migrated.loader.overlay).toEqual(compact.loader.overlay);
+      expect(migrated.command.overlay).toEqual(compact.command.overlay);
+    }
+    const extra = new Uint8Array(old.overlay.length + 4);
+    extra.set(old.overlay);
+    expect(planMoveExpansionRouting({ ...loader, data: extra }, { ...command, data: oldCommand.overlay }, baseRom)).toBeUndefined();
+    const occupied = loader.data.slice();
+    occupied[occupied.length - 1] = 1;
+    expect(planMoveExpansionRouting({ ...loader, data: occupied }, command, baseRom)).toBeUndefined();
+    const extraGlobal = loader.data.slice();
+    writeU32(extraGlobal, 0, loader.ramAddress + loader.data.length + 4);
+    expect(planMoveExpansionRouting({ ...loader, data: extraGlobal }, command, baseRom)).toBeUndefined();
+    expect(planMoveExpansionRouting({ ...loader, bssSize: 64 }, command, baseRom)).toBeUndefined();
+  });
+
   it("installs after Frost Fairy prepends overlay 93, and repairs a stale helper load size on export", () => {
     const loaderBase = 0x021f6560;
     const loader = new Uint8Array(0x149c0);
     loader.set([0x00, 0xf0, 0x00, 0xf8, ...FROST_SIGNATURE], 0x3046);
+    setEndMarker(loader, "btlv_finger_cursor.c", 16);
     loader.set(ORIGINAL_BW_VISUAL_HOOK, 0x305e);
     const routing = applyMoveExpansionRoutingHookToOverlay(loader, "BW", loaderBase, 0x20)!;
     const command = new Uint8Array(0x3fb20);
     command.set(COMMAND_CONTEXT, 0x360cc - 8);
+    setEndMarker(command, "btl_field.c", 29);
     const hooked = applyMoveExpansionCommandHookToOverlay(command, "BW", 0x021b4000, 0x2a40, routing.commandHelperAddress)!;
     expect(hooked.status).toBe("applied");
     expect(decodeThumbBlTarget(hooked.overlay, 0x360cc, 0x021ea0cc)).toBe(routing.commandHelperAddress);
     expect(hooked.overlay.slice(0x33fcc, 0x33fd0)).toEqual(command.slice(0x33fcc, 0x33fd0));
     const table = new Uint8Array(64);
     [[93, 0x021b4000, command.length], [94, loaderBase, loader.length]].forEach((values, index) => values.forEach((value, field) => writeU32(table, index * 32 + field * 4, value)));
+    writeU32(table, 44, 32);
     const rom = { arm9OverlayTable: table, loadArm9Overlays: () => new Map() } as unknown as NintendoDSRom;
     const project = { session: { baseRom: "BW" }, overlays: { 93: hooked.overlay, 94: routing.overlay } } as unknown as ProjectState;
     expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(true);
-    expect(project.patches?.dirtyOverlayIds).toContain(94);
+    expect(project.patches?.dirtyOverlayIds).toEqual(expect.arrayContaining([93, 94]));
+    expect(project.overlays[94]!.length).toBe(loader.length + 32);
+    expect(project.patches?.arm9OverlayTable?.slice(44, 48)).toEqual(new Uint8Array(4));
+    expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(false);
     // A different command target must not trigger this narrowly scoped repair.
     project.overlays[93] = command;
     expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(false);
@@ -283,4 +328,28 @@ function decodeThumbBlTarget(data: Uint8Array, offset: number, fromAddress: numb
 
 function isThumbBl(data: Uint8Array, offset: number): boolean {
   return (readU16(data, offset) & 0xf800) === 0xf000 && (readU16(data, offset + 2) & 0xf800) === 0xf800;
+}
+
+function setEndMarker(data: Uint8Array, marker: string, trailingZeros: number): void {
+  data.set(new TextEncoder().encode(marker), data.length - trailingZeros - marker.length);
+}
+
+function routingFixture(baseRom: "BW" | "BW2") {
+  const bw = baseRom === "BW";
+  const caller = bw ? 0x3046 : 0x3536;
+  const hook = bw ? 0x33fcc : 0x363cc;
+  const secondary = bw ? undefined : 0x6456;
+  const loaderData = new Uint8Array(bw ? 0x149c0 : 0x167e0);
+  const commandData = new Uint8Array(bw ? 0x3da20 : 0x41740);
+  setEndMarker(loaderData, "btlv_finger_cursor.c", bw ? 16 : 24);
+  setEndMarker(commandData, bw ? "btl_field.c" : "pokewood_cutin.c", bw ? 29 : 16);
+  loaderData.set(ORIGINAL_CALLER, caller);
+  if (secondary !== undefined) loaderData.set([...ORIGINAL_SECONDARY_LOADER_HOOK, 0x02, 0xda], secondary);
+  else loaderData.set(ORIGINAL_BW_VISUAL_HOOK, caller + 0x18);
+  commandData.set(COMMAND_CONTEXT, hook - 8);
+  return {
+    loader: { data: loaderData, ramSize: loaderData.length, ramAddress: bw ? 0x021f6560 : 0x021dda60, bssSize: 32 },
+    command: { data: commandData, ramSize: commandData.length, ramAddress: bw ? 0x021b6100 : 0x021998c0, bssSize: 0 },
+    caller, hook, secondary,
+  };
 }

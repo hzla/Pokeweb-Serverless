@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { NARC } from "../nds/narc";
+import { NintendoDSRom } from "../nds/rom";
 import {
   TRAINER_SPRITE_FILE_FORMATS,
   applyTrainerSpriteGifBuild,
@@ -54,10 +55,9 @@ describe("trainerSpriteModel", () => {
   });
 
   it("renders the real BW multi-cell trainer timeline when the source fixture is available", () => {
-    const archiveUrl = new URL("../../../reference_repos/pokemon_wb_git/resource/trgra/trfgra.narc", import.meta.url);
-    if (!existsSync(archiveUrl)) return;
+    const archive = trainerSpriteFixture("BW");
+    if (!archive) return;
 
-    const archive = new NARC(new Uint8Array(readFileSync(archiveUrl)));
     const project = {
       session: { baseRom: "BW", baseVersion: "W", romName: "fixture.nds", fairy: false, fileIds: {}, blacklist: [] },
       narcs: { trainer_sprites: createNarcStore("trainer_sprites", "a/0/7/2", 0, archive) },
@@ -80,10 +80,10 @@ describe("trainerSpriteModel", () => {
   });
 
   it("builds, previews, and applies a complete native trainer bundle from a GIF", () => {
-    const archiveUrl = new URL("../../../reference_repos/pokemon_wb_git/resource/trgra/trfgra.narc", import.meta.url);
+    const archive = trainerSpriteFixture("BW");
     const gifUrl = new URL("../../node_modules/gifuct-js/demo/dog.gif", import.meta.url);
-    if (!existsSync(archiveUrl) || !existsSync(gifUrl)) return;
-    const project = fixtureProject(archiveUrl, "BW");
+    if (!archive || !existsSync(gifUrl)) return;
+    const project = fixtureProject(archive, "BW");
     const config = { ...defaultTrainerSpriteGifConfig(), strategy: "even" as const, maxUniqueFrames: 12, sourceFramePercent: 35 };
 
     const build = buildTrainerSpriteGifPreview(project, 0, new Uint8Array(readFileSync(gifUrl)), config);
@@ -103,17 +103,23 @@ describe("trainerSpriteModel", () => {
   });
 
   it("reports every BW2 trainer class affected by a shared graphic", () => {
-    const archiveUrl = new URL("../../../reference_repos/pokemon_wb_git/resource/trgra/trfgra.narc", import.meta.url);
-    if (!existsSync(archiveUrl)) return;
-    const project = fixtureProject(archiveUrl, "BW2");
+    const archive = trainerSpriteFixture("BW2");
+    if (!archive) return;
+    const project = fixtureProject(archive, "BW2");
 
     expect(getTrainerClassIdsSharingGraphic(project, 40)).toEqual([40, 47, 101]);
     expect(getTrainerClassIdsSharingGraphic(project, 47)).toEqual([40, 47, 101]);
   });
 });
 
-function fixtureProject(archiveUrl: URL, baseRom: "BW" | "BW2"): ProjectState {
-  const archive = new NARC(new Uint8Array(readFileSync(archiveUrl)));
+function trainerSpriteFixture(baseRom: "BW" | "BW2"): NARC | undefined {
+  const romUrl = new URL(baseRom === "BW" ? "../../../cleanblack.nds" : "../../../cleanwhite2.nds", import.meta.url);
+  if (!existsSync(romUrl)) return undefined;
+  const rom = new NintendoDSRom(new Uint8Array(readFileSync(romUrl)), { fileData: "view" });
+  return new NARC(rom.files[rom.fileId(baseRom === "BW" ? "a/0/7/2" : "a/0/7/1")]);
+}
+
+function fixtureProject(archive: NARC, baseRom: "BW" | "BW2"): ProjectState {
   return {
     session: { baseRom, baseVersion: baseRom === "BW2" ? "W2" : "W", romName: "fixture.nds", fairy: false, fileIds: {}, blacklist: [] },
     narcs: { trainer_sprites: createNarcStore("trainer_sprites", baseRom === "BW2" ? "a/0/7/1" : "a/0/7/2", 0, archive) },
