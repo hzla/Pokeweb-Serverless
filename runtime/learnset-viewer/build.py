@@ -44,7 +44,7 @@ def calls(data, base, target):
     return found
 
 BUILD.mkdir(exist_ok=True)
-VERSION = "1.4.5"
+VERSION = "1.5.0"
 messages=json.loads((HERE/'info_messages.json').read_text())
 assert len({key for key,text in messages})==len(messages)
 header=['#pragma once', '#include "runtime.h"', 'enum class InfoMessage : u16 {']

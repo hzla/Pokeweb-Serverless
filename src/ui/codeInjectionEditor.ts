@@ -50,7 +50,7 @@ import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/p
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
-import { getSaveMenuStatus, installSaveMenu } from "../pokeweb/saveMenuModel";
+import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
 import { getBattleTypeHudStatus, installBattleTypeHud, uninstallBattleTypeHud, getMoveEffectivenessStatus, installMoveEffectiveness, uninstallMoveEffectiveness, DEFAULT_MOVE_HIGHLIGHT_COLORS, type MoveHighlightColors, type TypeIconVariant } from "../pokeweb/battleTypeHudModel";
 import {
   detectPwanRuntimeCompatibility,
@@ -71,6 +71,7 @@ const codeInjectionTabs = [
   { id: "graphics", label: "Graphical/UI Enhancements" },
   { id: "quality-of-life", label: "Quality of Life" },
   { id: "add-ons", label: "Feature Add-Ons" },
+  { id: "debug-helpers", label: "Debug Helpers" },
 ] as const;
 type CodeInjectionTab = (typeof codeInjectionTabs)[number]["id"];
 const activeCodeInjectionTabs = new WeakMap<HTMLElement, CodeInjectionTab>();
@@ -87,7 +88,21 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const bgmToggleSupported = bgmToggleStatus !== "unsupported";
   const infiniteCandyStatus = getInfiniteCandyStatus(project);
   const levelCapsStatus = getLevelCapsStatus(project);
-  const saveMenuStatus = getSaveMenuStatus(project);
+  const testingPatchCard = (id: TestingPatchId) => {
+    const patch = TESTING_PATCHES[id];
+    const state = getTestingPatchStatus(project, id);
+    return `<section class="code-injection-panel">
+      <div class="code-injection-panel__header"><div>
+        <h2>${escapeHtml(patch.title)}</h2><p>${escapeHtml(patch.description)}</p>
+      </div><span class="code-injection-status ${state.installed ? "-installed" : state.compatible ? "" : "-error"}">${state.installed ? "Installed" : state.compatible ? "Ready" : state.supported ? "Incompatible" : "Unsupported"}</span></div>
+      <div class="code-injection-facts"><div><span>ROM</span><strong>US White 2</strong></div><div><span>Version</span><strong>0.1.0 alpha</strong></div></div>
+      <p>${escapeHtml(state.message)}</p>
+      <div class="code-injection-actions">
+        <button class="btn -primary" id="install-${id}-btn" type="button" ${state.compatible && !state.installed ? "" : "disabled"}>${state.installed ? "Installed" : `Install ${escapeHtml(patch.title)}`}</button>
+        ${state.canUninstall ? `<button class="btn -default" id="uninstall-${id}-btn" type="button">Remove</button>` : ""}
+        <div class="code-injection-note" id="${id}-note" aria-live="polite"></div>
+      </div></section>`;
+  };
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
@@ -363,28 +378,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">
             <div>
-              <h2>Black 2 / White 2 Save Menu</h2>
-              <p>Animated trainer, party, and badge card with the Unova town map.</p>
-            </div>
-            <span class="code-injection-status ${saveMenuStatus.installed && !saveMenuStatus.updateAvailable ? "-installed" : saveMenuStatus.supported ? "" : "-error"}">
-              ${saveMenuStatus.updateAvailable ? "Update Available" : saveMenuStatus.installed ? "Installed" : saveMenuStatus.supported ? "Ready" : "Unsupported"}
-            </span>
-          </div>
-          <div class="code-injection-facts">
-            <div><span>ROM</span><strong>English Black 2 or White 2, including compatible hacks</strong></div>
-            <div><span>Dependency</span><strong>PMC, installed automatically if needed</strong></div>
-          </div>
-          <p class="code-injection-note">${escapeHtml(saveMenuStatus.message)}</p>
-          <div class="code-injection-actions">
-            <button class="btn -primary" id="install-save-menu-btn" type="button" ${saveMenuStatus.supported && (!saveMenuStatus.installed || saveMenuStatus.updateAvailable) ? "" : "disabled"}>
-              ${saveMenuStatus.updateAvailable ? "Update Save Menu" : saveMenuStatus.installed ? "Installed" : "Install Save Menu"}
-            </button>
-            <div class="code-injection-note" id="save-menu-note" aria-live="polite"></div>
-          </div>
-        </section>
-        <section class="code-injection-panel">
-          <div class="code-injection-panel__header">
-            <div>
               <h2>${MENU_EVOLUTION_TITLE}</h2>
               <p>Adds EVOLVE and RELEARN party commands, post-battle KO evolution, and immediate KO-threshold moves. Requires Trainer Battle Log.</p>
             </div>
@@ -453,6 +446,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         ${battleUiCards[1] ?? ""}
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-quality-of-life" role="tabpanel" aria-labelledby="code-injection-tab-quality-of-life" tabindex="0" ${activeTab === "quality-of-life" ? "" : "hidden"}>
+        ${testingPatchCard("instant-fast-text")}
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">
             <div>
@@ -631,6 +625,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           </div>
         </section>
         </section>
+        <section class="code-injection-tab-panel" id="code-injection-panel-debug-helpers" role="tabpanel" aria-labelledby="code-injection-tab-debug-helpers" tabindex="0" ${activeTab === "debug-helpers" ? "" : "hidden"}>
+          ${testingPatchCard("walk-through-walls")}
+          ${testingPatchCard("instant-victory")}
+        </section>
       </main>
     </section>
   `;
@@ -805,6 +803,33 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       if (doubleBattleNote) doubleBattleNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });
+
+  for (const id of Object.keys(TESTING_PATCHES) as TestingPatchId[]) {
+    const button = root.querySelector<HTMLButtonElement>(`#install-${id}-btn`);
+    button?.addEventListener("click", async () => {
+      button.disabled = true;
+      const note = root.querySelector<HTMLDivElement>(`#${id}-note`);
+      if (note) note.textContent = "Checking compatibility and installing...";
+      try {
+        await installTestingPatch(project, id);
+        onDirty();
+        renderCodeInjectionEditor(project, root, onDirty);
+      } catch (error) {
+        button.disabled = false;
+        if (note) note.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+    root.querySelector<HTMLButtonElement>(`#uninstall-${id}-btn`)?.addEventListener("click", () => {
+      try {
+        uninstallTestingPatch(project, id);
+        onDirty();
+        renderCodeInjectionEditor(project, root, onDirty);
+      } catch (error) {
+        const note = root.querySelector<HTMLDivElement>(`#${id}-note`);
+        if (note) note.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  }
 
   const bgmToggleButton = root.querySelector<HTMLButtonElement>("#install-bgm-toggle-btn");
   const bgmToggleNote = root.querySelector<HTMLDivElement>("#bgm-toggle-note");
@@ -1003,28 +1028,6 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     } catch (error) {
       uninstallMenuEvolutionButton.disabled = false;
       const currentNote = root.querySelector<HTMLDivElement>("#menu-evolution-note") ?? menuEvolutionNote;
-      if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
-    }
-  });
-
-  const saveMenuButton = root.querySelector<HTMLButtonElement>("#install-save-menu-btn");
-  const saveMenuNote = root.querySelector<HTMLDivElement>("#save-menu-note");
-  saveMenuButton?.addEventListener("click", async () => {
-    const previousText = saveMenuButton.textContent ?? "Install Save Menu";
-    try {
-      saveMenuButton.disabled = true;
-      saveMenuButton.textContent = "Installing...";
-      if (saveMenuNote) saveMenuNote.textContent = "Checking the ROM and staging the save-menu patch...";
-      await installSaveMenu(project);
-      onDirty();
-      renderCodeInjectionEditor(project, root, onDirty);
-      const refreshedNote = root.querySelector<HTMLDivElement>("#save-menu-note");
-      if (refreshedNote) refreshedNote.textContent = "Save menu staged. Export a new ROM to use it.";
-    } catch (error) {
-      const currentButton = root.querySelector<HTMLButtonElement>("#install-save-menu-btn") ?? saveMenuButton;
-      const currentNote = root.querySelector<HTMLDivElement>("#save-menu-note") ?? saveMenuNote;
-      currentButton.disabled = false;
-      currentButton.textContent = previousText;
       if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
     }
   });

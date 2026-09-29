@@ -34,7 +34,7 @@ describe("code-injection patch categories", () => {
   it("places every patch in its functional tab and keeps PMC in the sidebar", () => {
     const html = renderFixture("W2");
     const headings = (section: string) => [...section.matchAll(/<h2>([^<]+)<\/h2>/g)].map(match => match[1]);
-    const panelIds = ["infrastructure", "graphics", "quality-of-life", "add-ons"];
+    const panelIds = ["infrastructure", "graphics", "quality-of-life", "add-ons", "debug-helpers"];
     const panels = panelIds.map((id, index) => {
       const start = html.indexOf(`id="code-injection-panel-${id}"`);
       const end = index + 1 < panelIds.length
@@ -49,15 +49,15 @@ describe("code-injection patch categories", () => {
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log",
     ]);
     expect(headings(panels[1])).toEqual([
-      "Black 2 / White 2 Save Menu", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview",
+      "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview",
     ]);
-    expect(panels[1]).toContain('id="install-save-menu-btn"');
-    expect(panels[0]).not.toContain('id="install-save-menu-btn"');
-    expect(headings(panels[2])).toEqual(["Background Music Toggle"]);
+    expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle"]);
     expect(headings(panels[3])).toEqual([
       "Infinite Rare Candy", "Hard Level Caps", "Single-NPC Double Battle Fix",
       "Tag Battle Stabilization", "Porta PC", "Added-Form Evolution Support",
     ]);
+    expect(headings(panels[4])).toEqual(["Walk Through Walls", "Instant Battle Victory"]);
+    expect(html).toContain(">Debug Helpers</button>");
     expect(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))).toContain("<h2>PMC Runtime</h2>");
     expect(html.slice(html.indexOf("<main"), html.indexOf("</main>"))).not.toContain("<h2>PMC Runtime</h2>");
     expect(html).toContain("<div><span>Version</span>");
@@ -67,7 +67,7 @@ describe("code-injection patch categories", () => {
     expect(html).not.toContain("Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.");
     expect(html).not.toContain("Patch DLLs are staged in patches/. Library DLLs are staged in lib/.");
     const actionNotes = [...html.matchAll(/<div class="code-injection-note" id="[^"]+-note" aria-live="polite">([\s\S]*?)<\/div>/g)];
-    expect(actionNotes).toHaveLength(17);
+    expect(actionNotes).toHaveLength(19);
     expect(actionNotes.every((match) => match[1] === "")).toBe(true);
   });
 });

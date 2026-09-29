@@ -111,6 +111,19 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     w32(work+0x40,0x4c53);w32(work+0x30,2)
     call('Menu:LearnsetMenuSelect',[work]);assert u32(partydata+0x50)==0x4c535631 and u32(partydata+0x4c)==2
     w32(work+0x40,9);call('Menu:LearnsetMenuSelect',[work]);assert logs==['native-select']
+    # Shared registration preserves native commands and appends CUSTOM UI only
+    # after the existing LEARNSET command has claimed a legal slot.
+    cfg=symbols['Menu:customUiConfig']
+    uc.mem_write(cfg+10,struct.pack('<4H',1,70,70^65535,1))
+    for count in [4,6,7,8]:
+        uc.mem_write(items,struct.pack('<8I',0,1,3,4,6,16,16,16))
+        uc.mem_write(menu,bytes(116));uc.mem_write(menu,bytes([count]))
+        for i in range(count):uc.mem_write(menu+2+2*i,struct.pack('<H',6 if i==count-1 else i))
+        call('Menu:LearnsetMenuCreate',[work,menu,items])
+        total=min(8,count+2);assert uc.mem_read(menu,1)[0]==total
+        assert u16(menu+2+2*(total-1))==6
+        assert (0x5057 in [u16(menu+2+2*i) for i in range(total)])==(count<=6)
+    w32(work+0x40,0x5057);call('Menu:LearnsetMenuSelect',[work]);assert u32(partydata+0x50)==0x50575549
     # Field handoff, tag recognition, missing-viewer fail-closed, and teardown.
     stubs[0x2039dc8-delta]=lambda:ret(allocate(r(1)))
     stubs[0x203a278-delta]=lambda:(freed.append(r(0)),ret())
@@ -190,15 +203,16 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     stubs[0x204af7c-delta]=lambda:(logs.append(('native-screen',r(0),r(1),r(2),r(3),*[u32(uc.reg_read(UC_ARM_REG_SP)+i*4) for i in range(3)])),ret())
     stubs[0x219a7f0-ovdelta]=lambda:(logs.append('native-row'),ret())
     stubs[0x219a4c4-ovdelta]=lambda:(logs.append('native-fixed-text'),ret())
-    for present in [False,True,True]:
+    for present,custom in [(False,False),(True,False),(True,True)]:
         table=0x219b9e8-ovdelta
         callbacks=[symbols['Viewer:LearnsetViewer'+s] for s in ['Init','Main','End']]
         if not present:callbacks[0]=0x2199901-ovdelta
         uc.mem_write(table,struct.pack('<3I',*callbacks))
-        w32(seq,13);w32(partydata+0x50,0x4c535631);w32(partydata+0x4c,2)
+        w32(seq,13);w32(partydata+0x50,0x50575549 if custom else 0x4c535631);w32(partydata+0x4c,2)
         call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(seq)==12
         bridge,request=queue[-1];w32(viewerwork,request)
         assert u16(request+32)==3 and u16(request+34)==260
+        assert u16(request+242)==(0x5057 if custom else 0)
         assert uc.mem_read(request+240,2)==b'\x02\xff'
         saved=bytes(uc.mem_read(0x2220000,220))
         assert call(u32(bridge),[0x2243000,seq,request,viewerwork])==1

@@ -1,5 +1,6 @@
 import manifest from "../assets/codeinjection/learnsetViewerManifest.json";
 import infoMessages from "../../runtime/learnset-viewer/info_messages.json";
+import { configureCustomUi, readCustomUiConfig } from "../customUi/runtimeConfig";
 import { readU16, writeU16 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { NARC } from "../nds/narc";
@@ -12,7 +13,7 @@ import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 
-export const LEARNSET_VIEWER_VERSION = "1.4.5";
+export const LEARNSET_VIEWER_VERSION = "1.5.0";
 export const LEARNSET_INFO_MESSAGES = infoMessages;
 const URLS = {
   W2: [new URL("../assets/codeinjection/LearnsetMenuW2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerW2.dll", import.meta.url)],
@@ -117,8 +118,11 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
   const paths = learnsetViewerPaths(version);
   const installed = listCodeInjectionDlls(project).filter(m => paths.includes(m.path));
   status.installed = installed.length === 2;
+  const sharedMenu = moduleBytes(project, rom, paths[0]);
+  if (sharedMenu && readCustomUiConfig(sharedMenu)?.learnsetEnabled === false) status.installed = false;
   status.partial = installed.length === 1;
   status.canUninstall = installed.length > 0 && installed.every(m => canRemoveStagedCodeInjectionDll(project, m.path));
+  if (sharedMenu && readCustomUiConfig(sharedMenu)?.enabled) status.canUninstall = false;
   const pmc = getPmcInstallStatus(project);
   if (pmc.installed && pmc.overlayId !== 344) return { ...status,
     message: "Unsupported PMC loader placement. Reload the original ROM and reinstall Learnset Viewer; updating the DLLs cannot repair this previously exported loader." };
@@ -186,6 +190,8 @@ export async function installLearnsetViewer(project: ProjectState): Promise<Lear
   if (!status.supported || !status.compatible) throw new Error(status.message);
   const version = project.session.baseVersion as Version;
   const rom = new NintendoDSRom(romBytes);
+  const priorMenu = moduleBytes(project, rom, learnsetViewerPaths(version)[0]);
+  const custom = priorMenu && readCustomUiConfig(priorMenu);
   const id = rom.filenames.idOf("a/1/2/5");
   if (id === undefined) throw new Error("Tutor graphics archive is missing.");
   const archive = new NARC(getRomFileBytes(project, rom, id));
@@ -211,7 +217,8 @@ export async function installLearnsetViewer(project: ProjectState): Promise<Lear
   const ids = { menu: ensureMessage(project, 178, "LEARNSET"), empty: ensureMessage(project, 401, "No level-up moves."), error: ensureMessage(project, 401, "Learnset unavailable.") };
   const infoMessageIds = infoMessages.map(([, text]) => ensureMessage(project, 401, text!));
   learnsetViewerPaths(version).forEach((path, i) => {
-    const configured = configureLearnsetViewerDll(modules[i]!, ids);
+    let configured = configureLearnsetViewerDll(modules[i]!, ids);
+    if (custom?.enabled && custom.validMenu) configured = configureCustomUi(configured, true, custom.menu, true);
     stageCodeInjectionDll(project, path.split("/").pop()!, i === 1 ? configureLearnsetInfoDll(configured, infoMessageIds) : configured, "patches", romBytes);
   });
   project.codeInjection ??= {};
@@ -220,6 +227,7 @@ export async function installLearnsetViewer(project: ProjectState): Promise<Lear
   return ids;
 }
 export function uninstallLearnsetViewer(project: ProjectState): void {
+  if (project.customUi?.installation?.enabled) throw new Error("Custom UI shares these runtime modules. Disable Custom UI before removing the shared runtime.");
   const status = getLearnsetViewerStatus(project);
   if (!status.canUninstall) throw new Error("Only staged Learnset companions can be removed. DLLs built into the loaded ROM cannot yet be deleted.");
   const paths = learnsetViewerPaths(project.session.baseVersion as Version);
