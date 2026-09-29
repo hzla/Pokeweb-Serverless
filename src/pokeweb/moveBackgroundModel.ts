@@ -10,6 +10,7 @@ import {
   type MoveBackgroundSourceImage,
 } from "./moveBackgroundCompiler";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript } from "./moveAnimationModel";
+import { moveBackgroundArchivePath } from "./moveExpansionPatch";
 import { ensureFileSystemState } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import { parseNitroPalette } from "./nitroBg";
@@ -147,9 +148,10 @@ async function loadMoveBackgroundArchive(project: ProjectState): Promise<{ fileI
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are unavailable. Reload the ROM to edit move backgrounds.");
   const rom = new NintendoDSRom(romBytes);
-  const fileId = rom.fileId(MOVE_BACKGROUND_GRAPHICS_PATH);
+  const backgroundPath = moveBackgroundArchivePath(project.session.baseRom === "BW" ? "BW" : "BW2");
+  const fileId = rom.fileId(backgroundPath);
   const bytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
-  if (!bytes) throw new Error(`Move-background archive ${MOVE_BACKGROUND_GRAPHICS_PATH} is missing.`);
+  if (!bytes) throw new Error(`Move-background archive ${backgroundPath} is missing.`);
   return { fileId, narc: new NARC(bytes) };
 }
 

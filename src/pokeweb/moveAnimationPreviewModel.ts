@@ -1,3 +1,5 @@
+import { getRomFileBytes } from "./fileSystemModel";
+import { moveBackgroundArchivePath } from "./moveExpansionPatch";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { loadActiveRomBytes } from "./persistence";
@@ -24,7 +26,6 @@ const FOCUS_PUNCH_CHARGE_BATTLE_ANIMATION_ID = 65;
 const FOCUS_PUNCH_MOVE_ID = 264;
 const HEADER_LABELS_PER_PHASE = 0x0e;
 const MOVE_SPA_PATH = "a/0/0/6";
-const MOVE_BACKGROUND_GRAPHICS_PATH = "a/0/9/4";
 
 const SPA_COMMANDS = new Set([
   "DoSPAAnimation",
@@ -771,14 +772,15 @@ async function loadMoveBackgroundUncached(project: ProjectState, backgroundId: n
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
   if (!romBytes) throw new Error("Original ROM bytes are unavailable. Reload the ROM to preview move backgrounds.");
   const rom = new NintendoDSRom(romBytes);
-  const fileId = rom.fileId(MOVE_BACKGROUND_GRAPHICS_PATH);
-  const archiveBytes = project.fileSystem?.replacements?.[fileId] ?? rom.files[fileId];
-  if (!archiveBytes) throw new Error(`Move-background archive ${MOVE_BACKGROUND_GRAPHICS_PATH} is missing.`);
+  const backgroundPath = moveBackgroundArchivePath(project.session.baseRom === "BW" ? "BW" : "BW2");
+  const fileId = rom.fileId(backgroundPath);
+  const archiveBytes = getRomFileBytes(project, rom, fileId);
+  if (!archiveBytes) throw new Error(`Move-background archive ${backgroundPath} is missing.`);
   const narc = new NARC(archiveBytes);
   const screen = narc.files[backgroundId];
   const characters = narc.files[backgroundId + 1];
   const palette = narc.files[backgroundId + 2];
-  if (!screen || !characters || !palette) throw new Error(`Move background ${backgroundId} is missing its screen/character/palette files in ${MOVE_BACKGROUND_GRAPHICS_PATH}`);
+  if (!screen || !characters || !palette) throw new Error(`Move background ${backgroundId} is missing its screen/character/palette files in ${backgroundPath}`);
   // The BW/BW2 battle VM loads move-background palettes starting at BG bank 8.
   return parseNitroBackground(backgroundId, screen, characters, palette, {
     paletteBankOffset: 8,

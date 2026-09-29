@@ -155,7 +155,7 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
             <div>
               <h2>Move Expansion</h2>
               <p>Expands the ROM to 1,000 move slots, installs Frost-compatible animation routing, and seeds 305 selectable moves from White2Upgrade with safe vanilla animations and no custom effect handlers.</p>
-              <p>The optional Gen 6-7 animation bundle includes White2Upgrade's scripts and prerequisite move particle files, with particle references relocated automatically when their original IDs are occupied.</p>
+              <p>The optional Gen 6-7 animation bundle includes White2Upgrade's scripts, particles, and backgrounds, adapted for Black / White or Black 2 / White 2. Existing animation assets are preserved. Black / White skips the sequel-only background distortion and palette-animation effects.</p>
               ${project.session.fairy ? "" : "<p>Fairy-type definitions are installed as Normal unless Fairy Type Support is already active.</p>"}
             </div>
             <div class="patch-card__meta">
@@ -279,9 +279,9 @@ export function renderPatchesEditor(project: ProjectState, root: HTMLElement, on
   root.querySelector<HTMLButtonElement>("#add-move-expansion-btn")?.addEventListener("click", async (event) => {
     const includeBundledAnimations = root.querySelector<HTMLInputElement>("#move-expansion-animations-checkbox")?.checked ?? false;
     applyPatchFromButton(event.currentTarget as HTMLButtonElement, root, project, onDirty, {
-      confirmText: `Expand this ROM to 1,000 move slots and install the animation-routing hook${includeBundledAnimations ? ", Gen 6-7 animation scripts, and prerequisite particle files" : ""}?`,
+      confirmText: `Expand this ROM to 1,000 move slots and install the animation-routing hook${includeBundledAnimations ? ", Gen 6-7 animation scripts, particles, and backgrounds" : ""}?`,
       loadingText: includeBundledAnimations
-        ? "Expanding move data and installing Gen 6-7 animations with relocated particle dependencies..."
+        ? "Expanding move data and installing Gen 6-7 animations, particles, and backgrounds..."
         : "Expanding move data, text, animations, and routing...",
       successText: "Installed Move Expansion",
       apply: (nextProject) => addMoveExpansion(nextProject, { includeBundledAnimations }),

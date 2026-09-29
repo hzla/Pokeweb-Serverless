@@ -44,6 +44,10 @@
     "levelcaps:build": "python3 runtime/level-caps/build.py",
     "levelcaps:verify": "python3 runtime/level-caps/verify.py",
     "levelcaps:verify-rom": "vite-node scripts/verify-level-caps-install.ts",
+    "debughelpers:build": "python3 runtime/debug-helpers/build.py",
+    "debughelpers:verify": "python3 runtime/debug-helpers/verify.py",
+    "debughelpers:verify-rom": "vite-node scripts/verify-testing-patches-install.ts",
+    "instanttext:build": "python3 runtime/instant-text/build.py",
     "trainernature:build": "python3 runtime/trainer-nature/build.py",
     "trainernature:verify-rom": "vite-node scripts/verify-trainer-nature-install.ts",
     "bgmtoggle:verify": "python3 runtime/bgm-toggle/verify.py",
@@ -91,7 +95,8 @@
     "following:import-interactions": "python3 runtime/following-pokemon/import_interactions.py",
     "following:verify-interactions": "python3 runtime/following-pokemon/verify_interactions.py",
     "following:verify-conversation-return": "python3 runtime/following-pokemon/verify_conversation_return.py",
-    "following:verify-scenes": "python3 runtime/following-pokemon/verify_scenes.py"
+    "following:verify-scenes": "python3 runtime/following-pokemon/verify_scenes.py",
+    "customui": "vite-node scripts/custom-ui.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",

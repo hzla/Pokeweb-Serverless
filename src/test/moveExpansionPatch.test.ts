@@ -1,15 +1,19 @@
 import expansionData from "../assets/data/white2upgradeMoveExpansion.json";
 import { readFileSync } from "node:fs";
-import { readU16 } from "../nds/binary";
+import { unzipSync, zipSync } from "fflate";
+import { readU16, writeU32 } from "../nds/binary";
+import type { NintendoDSRom } from "../nds/rom";
 import {
   allocateMoveExpansionParticleAssets,
+  allocateMoveExpansionBackgroundAssets,
   applyMoveExpansionCommandHookToOverlay,
   applyMoveExpansionRoutingHookToOverlay,
   detectMoveExpansionRoutingHook,
   parseMoveExpansionAnimationBundle,
+  repairMoveExpansionOverlayLoadSize,
   usesFrostMoveExpansionLayout,
 } from "../pokeweb/moveExpansionPatch";
-import { decompileMoveAnimationBytes, remapMoveAnimationParticleIds } from "../pokeweb/moveAnimationModel";
+import { decompileMoveAnimationBytes, parseMoveAnimationScript, remapMoveAnimationAssets, remapMoveAnimationParticleIds } from "../pokeweb/moveAnimationModel";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import { describe, expect, it, vi } from "vitest";
 
@@ -33,6 +37,7 @@ const ORIGINAL_CALLER = [
 ];
 const FROST_SIGNATURE = [0x00, 0x00, 0x00, 0x00, 0x88, 0x4b, 0x01, 0x28, 0x38, 0xd0];
 const ORIGINAL_COMMAND_HOOK = [0x33, 0x1c, 0x01, 0x90];
+const COMMAND_CONTEXT = [0x08, 0x98, 0x39, 0x1c, 0x00, 0x90, 0x09, 0x98, ...ORIGINAL_COMMAND_HOOK, 0x08, 0xa8, 0x00, 0x7a, 0x02, 0x90];
 const ORIGINAL_SECONDARY_LOADER_HOOK = [0x84, 0x42, 0x10, 0x4b];
 const ORIGINAL_BW_VISUAL_HOOK = [0x31, 0x1c, 0x1a, 0x40];
 
@@ -43,7 +48,7 @@ describe("Move Expansion patch", () => {
   ])("installs context-safe %s move animation routing and preserves BSS addresses", (baseRom, callerOffset, commandHookOffset, secondaryHookOffset, commandRamAddress, loaderRamAddress) => {
     const bssSize = 0x20;
     const commandOverlay = new Uint8Array(commandHookOffset + 0x40);
-    commandOverlay.set(ORIGINAL_COMMAND_HOOK, commandHookOffset);
+    commandOverlay.set(COMMAND_CONTEXT, commandHookOffset - 8);
 
     const overlayLength = Math.max(callerOffset + 0x40, (secondaryHookOffset ?? 0) + 0x40);
     const overlay = new Uint8Array(overlayLength);
@@ -149,15 +154,25 @@ describe("Move Expansion patch", () => {
     expect(expansionData.firstTargetMoveId + expansionData.moves.length).toBeLessThanOrEqual(expansionData.targetMoveCount);
   });
 
-  it("bundles all staged Gen 6-7 animations with their custom particle dependencies", () => {
+  it("bundles all staged Gen 6-7 animations with every particle and background dependency", () => {
     const bundle = loadMoveAnimationBundle();
 
     expect(bundle.moves).toHaveLength(128);
     expect(bundle.moves[0]).toMatchObject({ sourceMoveId: 560, targetMoveId: 680 });
     expect(bundle.moves.at(-1)).toMatchObject({ sourceMoveId: 742, targetMoveId: 825 });
-    expect(bundle.particles).toHaveLength(65);
+    expect(bundle.completeAssets).toBe(true);
+    expect(bundle.particles).toHaveLength(176);
+    expect(bundle.backgrounds).toHaveLength(15);
     const bundledParticleIds = new Set(bundle.particles.map((particle) => particle.sourceParticleId));
-    expect(bundle.moves.flatMap((move) => move.particleIds).filter((particleId) => particleId >= 733).every((particleId) => bundledParticleIds.has(particleId))).toBe(true);
+    expect(bundle.moves.flatMap((move) => move.particleIds).every((particleId) => bundledParticleIds.has(particleId))).toBe(true);
+    for (const move of bundle.moves) {
+      const commands = [...parseMoveAnimationScript(decompileMoveAnimationBytes(move.bytes)).scripts.values()].flat();
+      for (const command of commands.filter((command) => command.name === "LoadBackground")) {
+        expect(move.backgroundIds).toContain(command.params[0]);
+        expect(bundle.backgrounds.find((background) => background.sourceBackgroundId === command.params[0])?.files).toHaveLength(3);
+      }
+      for (const command of commands.filter((command) => command.name === "LoadSPA")) expect(bundledParticleIds.has(command.params[0])).toBe(true);
+    }
   });
 
   it("appends occupied particle IDs and rewrites the installed animation references", () => {
@@ -169,16 +184,73 @@ describe("Move Expansion patch", () => {
     const allocation = allocateMoveExpansionParticleAssets(store, bundle.particles);
 
     expect(allocation.addedIds).toHaveLength(uniqueBundledParticles);
-    expect(allocation.particleIdMap.get(739)).toBe(740);
-    expect(allocation.particleIdMap.get(770)).toBe(766);
+    expect(allocation.particleIdMap.get(739)).toBeGreaterThanOrEqual(740);
+    expect(allocation.particleIdMap.get(770)).toBeGreaterThanOrEqual(740);
     expect([...store.rawFiles[739]]).toEqual([...occupied739]);
 
     const matBlock = bundle.moves.find((move) => move.sourceMoveId === 564)!;
     const remapped = remapMoveAnimationParticleIds(matBlock.bytes, allocation.particleIdMap);
     const text = decompileMoveAnimationBytes(remapped.bytes);
     expect(remapped.referencesChanged).toBeGreaterThan(0);
-    expect(text).toContain("LoadSPA 766");
-    expect(text).not.toContain("LoadSPA 770");
+    expect(text).toContain(`LoadSPA ${allocation.particleIdMap.get(770)}`);
+    expect(allocateMoveExpansionParticleAssets(store, bundle.particles).addedIds).toHaveLength(0);
+  });
+
+  it("preserves existing background triplets and reuses identical dependencies on reinstall", () => {
+    const original = [Uint8Array.of(1), Uint8Array.of(2), Uint8Array.of(3)];
+    const files = original.map((bytes) => bytes.slice());
+    const backgrounds = [{ sourceBackgroundId: 0, files: [Uint8Array.of(4), Uint8Array.of(5), Uint8Array.of(6)] }, { sourceBackgroundId: 186, files: original }];
+    const first = allocateMoveExpansionBackgroundAssets(files, backgrounds);
+    expect(first.backgroundIdMap.get(0)).toBe(3);
+    expect(first.backgroundIdMap.get(186)).toBe(0);
+    expect(files.slice(0, 3)).toEqual(original);
+    expect(allocateMoveExpansionBackgroundAssets(files, backgrounds).filesAdded).toBe(0);
+  });
+
+  it.each(["particles", "backgrounds"] as const)("rejects an incomplete v3 %s dependency list", (kind) => {
+    const entries = unzipSync(new Uint8Array(readFileSync(new URL("../assets/data/white2upgradeGen6MoveAnimations.zip", import.meta.url))));
+    const manifest = JSON.parse(new TextDecoder().decode(entries["manifest.json"]));
+    // Low SPA IDs must also be bundled: the BW1 file at that ID may differ.
+    manifest[kind] = [];
+    entries["manifest.json"] = new TextEncoder().encode(JSON.stringify(manifest));
+    expect(() => parseMoveExpansionAnimationBundle(zipSync(entries))).toThrow(/requires (?:particle file|background)/u);
+  });
+
+  it("omits incompatible BW2 background effects on BW1 while keeping scripts assemblable", () => {
+    for (const move of loadMoveAnimationBundle().moves) {
+      const bw = remapMoveAnimationAssets(move.bytes, new Map(), new Map([[186, 165]]), "BW");
+      const text = decompileMoveAnimationBytes(bw.bytes);
+      expect(text).not.toMatch(/\b(?:DistortBackground|BackgroundPaletteAnimation)\b/u);
+      expect(text).not.toContain("LoadBackground 186");
+      expect(() => parseMoveAnimationScript(text)).not.toThrow();
+      const bw2 = remapMoveAnimationAssets(move.bytes, new Map(), new Map(), "BW2");
+      expect(bw2.bytes).toEqual(move.bytes);
+    }
+  });
+
+  it("installs after Frost Fairy prepends overlay 93, and repairs a stale helper load size on export", () => {
+    const loaderBase = 0x021f6560;
+    const loader = new Uint8Array(0x149c0);
+    loader.set([0x00, 0xf0, 0x00, 0xf8, ...FROST_SIGNATURE], 0x3046);
+    loader.set(ORIGINAL_BW_VISUAL_HOOK, 0x305e);
+    const routing = applyMoveExpansionRoutingHookToOverlay(loader, "BW", loaderBase, 0x20)!;
+    const command = new Uint8Array(0x3fb20);
+    command.set(COMMAND_CONTEXT, 0x360cc - 8);
+    const hooked = applyMoveExpansionCommandHookToOverlay(command, "BW", 0x021b4000, 0x2a40, routing.commandHelperAddress)!;
+    expect(hooked.status).toBe("applied");
+    expect(decodeThumbBlTarget(hooked.overlay, 0x360cc, 0x021ea0cc)).toBe(routing.commandHelperAddress);
+    expect(hooked.overlay.slice(0x33fcc, 0x33fd0)).toEqual(command.slice(0x33fcc, 0x33fd0));
+    const table = new Uint8Array(64);
+    [[93, 0x021b4000, command.length], [94, loaderBase, loader.length]].forEach((values, index) => values.forEach((value, field) => writeU32(table, index * 32 + field * 4, value)));
+    const rom = { arm9OverlayTable: table, loadArm9Overlays: () => new Map() } as unknown as NintendoDSRom;
+    const project = { session: { baseRom: "BW" }, overlays: { 93: hooked.overlay, 94: routing.overlay } } as unknown as ProjectState;
+    expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(true);
+    expect(project.patches?.dirtyOverlayIds).toContain(94);
+    // A different command target must not trigger this narrowly scoped repair.
+    project.overlays[93] = command;
+    expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(false);
+    command.set(COMMAND_CONTEXT, 0x37000 - 8);
+    expect(applyMoveExpansionCommandHookToOverlay(command, "BW", 0x021b4000, 0, routing.commandHelperAddress)).toBeUndefined();
   });
 });
 

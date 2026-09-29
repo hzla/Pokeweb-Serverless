@@ -314,7 +314,7 @@ export async function addMoveExpansion(
       ? ` ${result.fairyMovesMappedToNormal} Fairy-type definitions were safely mapped to Normal because Fairy Type Support is not installed.`
       : "";
   const bundledAnimationText = result.bundledAnimationsIncluded
-    ? ` The optional Gen 6-7 animation bundle is installed with ${result.bundledAnimationsInstalled} scripts; this run appended ${result.particleFilesInstalled} prerequisite particle files and rewrote ${result.particleReferencesRemapped} particle references for their allocated IDs.`
+    ? ` The optional Gen 6-7 animation bundle is installed with ${result.bundledAnimationsInstalled} scripts; this run appended ${result.particleFilesInstalled} particle files and ${result.backgroundFilesInstalled} background files, with references adapted for this ROM.`
     : "";
   const summary = result.changed
     ? `Expanded move data and animations to 1,000 entries, installed the Frost-compatible routing hook, and added ${result.importedMovesAdded} selectable White2Upgrade move definitions.${mappedFairyText}${bundledAnimationText}`

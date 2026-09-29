@@ -3,6 +3,7 @@
 #include "info_messages.generated.h"
 #include "info_background.generated.h"
 
+
 namespace {
 // Only the overlay-258 module owns this state; no field/menu heap growth.
 constexpr u32 Heap=79, TextCapacity=256;
@@ -31,6 +32,7 @@ struct InfoState : InfoView {
     InfoNode* graph; u32 graphCount; bool graphReady;
 };
 InfoState* state;
+u32 customRegions=63;
 
 // The game's asserting NARC reader is not used for user-edited data.
 // Bounds are checked before every filesystem read, including empty members.
@@ -160,7 +162,7 @@ void headerTypes() {
             at<volatile u32>(state->work,0x140+i*8)=state->types[i];
             at<volatile u32>(state->work,0x144+i*8)=1;
         } else at<volatile u32>(state->work,0x144+i*8)=0;
-        native<void(*)(void*,u32)>(0x204c151,0x204c125)(actor,i<state->typeCount);
+        native<void(*)(void*,u32)>(0x204c151,0x204c125)(actor,i<state->typeCount && (customRegions&1));
     }
 }
 bool bankString(Messages& messages,u32 bank,u32 id,u16* out,u32 capacity) {
@@ -459,6 +461,7 @@ bool drawIconPixels(u8* data) {
     return changed;
 }
 void animateIcons() {
+    if(!(customRegions&4))return;
     if(++state->iconTicks<IconFrameTicks)return;
     state->iconTicks=0;state->iconFrame^=1;
     u8* data=pixels();
@@ -554,6 +557,16 @@ u16* paletteMap() {
         map[y*32+x]=u16((map[y*32+x]&0x0fff)|((x>=14 && y>=10 && y<17?8:y<16?9:13)<<12));
     return map;
 }
+
+void customLoad(Request* request) {
+    customRegions=63;
+    if(request->reserved!=0x5057)return;
+    Archive arc;u8 program[32];
+    if(!arc.open("pokeweb/custom-ui.narc") || arc.member(2,program,32)!=32
+        || read32(program)!=0x4e555750 || read16(program+4)!=1 || read16(program+6)!=1
+        || read32(program+8)!=32 || read32(program+12)>63 || !(read32(program+12)&32))return;
+    customRegions=read32(program+12);
+}
 void render() {
     u8* data=pixels();
     if(!data)return;
@@ -561,19 +574,19 @@ void render() {
     // icon pixels cannot reveal the old move bars or name plate underneath.
     background(data);
     volatile u16* palette=reinterpret_cast<volatile u16*>(0x05000000);
-    put(state->title,8,4);
-    if(state->partyCue[0]!=End)put(state->partyCue,248-int(measure(state->partyCue)),4,(7<<10)|(3<<5));
+    if(customRegions&1)put(state->title,8,4);
+    if((customRegions&1) && state->partyCue[0]!=End)put(state->partyCue,248-int(measure(state->partyCue)),4,(7<<10)|(3<<5));
     u16 text[128];
-    if(state->statsValid)for(u32 i=0;i<6;++i) {
+    if((customRegions&2) && state->statsValid)for(u32 i=0;i<6;++i) {
         const u32 y=StatY+StatStep*i;put(state->labels[i],6,y,StatInk);
         number(text,state->stats[i]);put(text,52-int(measure(text)),y,StatInk);
         infoRect(data,57,y+4,46,8,8);
         infoRect(data,57,y+4,statBar(state->stats[i]),8,10);
         infoRect(data,57,y+4,statBar(state->stats[i]),2,11);
-    } else {
+    } else if(customRegions&2) {
         copyText(text,128,state->statsUnavailable);ellipsis(text,96);put(text,6,64,StatInk);
     }
-    for(u32 i=0;i<state->chain.count;++i) {
+    for(u32 i=0;(customRegions&4) && i<state->chain.count;++i) {
         const u32 x=iconX(i),slot=state->iconSlots[i];
         // Only the selected identity gets a frame. All native 32x32 icons
         // remain tile-aligned and unscaled, with no opaque default cards.
@@ -590,19 +603,19 @@ void render() {
             for(u32 d=1;d<4;++d) {infoPixel(data,x+44-d,IconY+15-d,4);infoPixel(data,x+44-d,IconY+16+d,4);}
         }
     }
-    drawIconPixels(data);
-    for(u32 dot=0;dot<3;++dot) {
+    if(customRegions&4)drawIconPixels(data);
+    for(u32 dot=0;(customRegions&4) && dot<3;++dot) {
         if(state->chain.before)infoPixel(data,iconX(0)-7+dot*2,IconY+15,4);
         if(state->chain.after)infoPixel(data,iconX(state->chain.count-1)+34+dot*2,IconY+15,4);
     }
     const u32 count=state->abilities.count?state->abilities.count:1;
-    for(u32 i=0;i<count;++i) {
+    for(u32 i=0;(customRegions&8) && i<count;++i) {
         copyText(text,128,state->abilityNames[i]);
         if(state->abilities.count)infoTitleCase(text);
         ellipsis(text,132);
         put(text,120,AbilityY+16*i,state->abilities.hidden[i]?HiddenAbilityInk:InsetTextInk);
     }
-    if(state->pageCount) {
+    if((customRegions&16) && state->pageCount) {
         u32 headerWidth=240;
         if(state->pageCount>1) {
             asciiText(text,128,"A ");u32 n=2;n+=decimal(text+n,state->page+1);text[n++]='/';n+=decimal(text+n,state->pageCount);
@@ -619,7 +632,7 @@ void render() {
         ellipsis(text,headerWidth);put(text,8,EvolutionY);
         u32 offset=p.offset;
         for(u32 row=0;row<2;++row) {offset=wrapInfo(state->requirements[p.option],offset,text,128,240,measure);put(text,8,EvolutionY+16+row*16);}
-    } else {
+    } else if(customRegions&16) {
         u32 offset=0;
         for(u32 row=0;row<3;++row){offset=wrapInfo(state->status,offset,text,128,240,measure);put(text,8,EvolutionY+row*16);}
     }
@@ -629,7 +642,7 @@ void render() {
     // MakeTransWindow creates a single-palette map. Assign the three icon
     // rectangles their original ROM palettes in the *CPU* map before upload.
     u16* map=paletteMap();
-    if(map)for(u32 i=0;i<state->chain.count;++i)if(state->iconsValid[state->iconSlots[i]])
+    if(map)for(u32 i=0;(customRegions&4) && i<state->chain.count;++i)if(state->iconsValid[state->iconSlots[i]])
         for(u32 y=IconY/8;y<IconY/8+4;++y)for(u32 x=iconX(i)/8;x<iconX(i)/8+4;++x)
             map[y*32+x]=u16((map[y*32+x]&0x0fff)|((10+i)<<12));
     native<void(*)(u32)>(0x2045ba9,0x2045b7d)(2);
@@ -658,7 +671,7 @@ void infoInit(void* work,Request* request) {
         return;
     }
     *state={};state->work=work;
-    load(request);headerTypes();render();
+    load(request);customLoad(request);headerTypes();render();
 }
 void infoInput(void* work) {
     if(!state || state->work!=work)return;
@@ -685,7 +698,7 @@ bool infoNavigate(void* work,Request* request,bool forward) {
     request->nextView=next;request->nextSlot=BrowseFamily;
     return true;
 }
-void infoEnd() {InfoState* old=state;state=nullptr;if(old)release(old->graph);release(old);}
+void infoEnd() {customRegions=63;InfoState* old=state;state=nullptr;if(old)release(old->graph);release(old);}
 
 // Only called at the tutor's window-creation call site. Keep valid tiny
 // windows for unused upper slots so the original destruction loop is intact.

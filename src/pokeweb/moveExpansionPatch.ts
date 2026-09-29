@@ -9,6 +9,7 @@ import { BW2_NARCS, BW_NARCS, HEADER_NARCS, isGen5BaseRom, type Gen5BaseRom, typ
 import { loadActiveRomBytes } from "./persistence";
 import { commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 import { createNarcStore, markDirty, type NarcStore, type ProjectState } from "./projectStore";
+import { getRomFileBytes, replaceRomFile } from "./fileSystemModel";
 
 export const MOVE_EXPANSION_TARGET_COUNT = 1000;
 export const MOVE_EXPANSION_FIRST_USABLE_ID = 680;
@@ -38,6 +39,8 @@ export type MoveExpansionInstallResult = {
   bundledAnimationsInstalled: number;
   particleFilesInstalled: number;
   particleReferencesRemapped: number;
+  backgroundFilesInstalled: number;
+  overlayLoadSizeRepaired: boolean;
 };
 
 export type MoveExpansionRoutingPatchResult = {
@@ -75,14 +78,19 @@ export type MoveExpansionParticleAllocation = {
   addedIds: number[];
 };
 
+export type MoveExpansionBundledBackground = { sourceBackgroundId: number; files: Uint8Array[] };
+
 type MoveExpansionAnimationBundle = {
+  completeAssets: boolean;
   moves: Array<{
     sourceMoveId: number;
     targetMoveId: number;
     particleIds: number[];
+    backgroundIds: number[];
     bytes: Uint8Array;
   }>;
   particles: MoveExpansionBundledParticle[];
+  backgrounds: MoveExpansionBundledBackground[];
 };
 
 type MoveTextBankConfig = {
@@ -112,6 +120,7 @@ type RoutingOverlay = {
   data: Uint8Array;
   ramAddress: number;
   bssSize: number;
+  ramSize: number;
 };
 
 const EXPANSION_ASSET = white2UpgradeMoveExpansionJson as ExpansionAsset;
@@ -235,6 +244,9 @@ export async function installMoveExpansion(
       ? parseMoveExpansionAnimationBundle(animationBundleBytes)
       : await loadMoveExpansionAnimationBundle()
     : undefined;
+  if (animationBundle && !animationBundle.completeAssets && project.session.baseRom === "BW") {
+    throw new Error("BW1 needs the current animation bundle with complete particle and background dependencies.");
+  }
 
   const layout = ROUTING_LAYOUTS[project.session.baseRom];
   const routingOverlay = await ensureRoutingOverlay(project, layout.loaderOverlayId);
@@ -271,14 +283,17 @@ export async function installMoveExpansion(
   const bundledAnimationSummary =
     animationBundle && stores.moveSpas
       ? await installBundledMoveAnimations(project, stores.moveAnimations, stores.moveSpas, animationBundle)
-      : { animationsChanged: 0, particlesAdded: 0, referencesRemapped: 0 };
+      : { animationsChanged: 0, particlesAdded: 0, backgroundFilesAdded: 0, referencesRemapped: 0 };
   const textEntriesAdded = expandMoveText(project, originalMoveCount, moveSummary.seededIds);
 
   if (commandPatch.status === "applied") {
     project.overlays[layout.commandOverlayId] = commandPatch.overlay;
     markPatchOverlayDirty(project, layout.commandOverlayId);
   }
-  if (routingPatch.status === "applied") {
+  const overlayLoadSizeRepaired = routingOverlay.ramSize < routingOverlay.data.length &&
+    detectMoveExpansionRoutingHook(routingOverlay.data, project.session.baseRom) === "patched" &&
+    !project.patches?.dirtyOverlayIds.includes(layout.loaderOverlayId);
+  if (routingPatch.status === "applied" || overlayLoadSizeRepaired) {
     project.overlays[layout.loaderOverlayId] = routingPatch.overlay;
     markPatchOverlayDirty(project, layout.loaderOverlayId);
   }
@@ -289,16 +304,18 @@ export async function installMoveExpansion(
   if (animationBundle) project.patches.applied.moveExpansionBundledAnimations = true;
 
   const changed =
+    overlayLoadSizeRepaired ||
     commandPatch.status === "applied" ||
     routingPatch.status === "applied" ||
     moveSummary.changed > 0 ||
     animationSummary.changed > 0 ||
     bundledAnimationSummary.animationsChanged > 0 ||
     bundledAnimationSummary.particlesAdded > 0 ||
+    bundledAnimationSummary.backgroundFilesAdded > 0 ||
     textEntriesAdded > 0;
   if (changed) {
     const animationDetail = animationBundle
-      ? ` Included ${animationBundle.moves.length} White2Upgrade Gen 6-7 animation scripts and their prerequisite particle files.`
+      ? ` Included ${animationBundle.moves.length} White2Upgrade Gen 6-7 animation scripts and their particle and background dependencies.`
       : "";
     recordGenericChange(
       project,
@@ -323,6 +340,8 @@ export async function installMoveExpansion(
     bundledAnimationsInstalled: animationBundle?.moves.length ?? 0,
     particleFilesInstalled: bundledAnimationSummary.particlesAdded,
     particleReferencesRemapped: bundledAnimationSummary.referencesRemapped,
+    backgroundFilesInstalled: bundledAnimationSummary.backgroundFilesAdded,
+    overlayLoadSizeRepaired,
   };
 }
 
@@ -403,7 +422,8 @@ export function applyMoveExpansionCommandHookToOverlay(
   _bssSize = 0,
   commandHelperAddress?: number,
 ): MoveExpansionRoutingPatchResult | undefined {
-  const hookOffset = ROUTING_LAYOUTS[baseRom].commandHookOffset;
+  const hookOffset = findCommandHookOffset(overlay, baseRom);
+  if (hookOffset === undefined) return undefined;
   const existingTarget = decodeThumbBlTarget(overlay, hookOffset, ramAddress + hookOffset);
   if (existingTarget !== undefined) {
     return commandHelperAddress === undefined || existingTarget !== commandHelperAddress
@@ -415,6 +435,22 @@ export function applyMoveExpansionCommandHookToOverlay(
   const out = overlay.slice();
   writeThumbBl(out, hookOffset, ramAddress + hookOffset, commandHelperAddress);
   return { status: "applied", overlay: out, commandHelperAddress };
+}
+
+// Frost's BW1 Fairy patch prepends code to overlay 93 and lowers its RAM base.
+// Locate the original instruction context rather than patching its old file offset.
+function findCommandHookOffset(overlay: Uint8Array, baseRom: Gen5BaseRom): number | undefined {
+  const originalOffset = ROUTING_LAYOUTS[baseRom].commandHookOffset;
+  const isHook = (offset: number) =>
+    matchesSequence(overlay, [0x08, 0x98, 0x39, 0x1c, 0x00, 0x90, 0x09, 0x98], offset - 8) &&
+    matchesSequence(overlay, [0x08, 0xa8, 0x00, 0x7a, 0x02, 0x90], offset + 4) &&
+    (matchesSequence(overlay, ORIGINAL_COMMAND_HOOK, offset) || isThumbBl(overlay, offset));
+  if (isHook(originalOffset)) return originalOffset;
+  const matches: number[] = [];
+  for (let offset = 8; offset + 10 <= overlay.length; offset += 2) {
+    if (isHook(offset)) matches.push(offset);
+  }
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export function applyMoveExpansionRoutingHookToOverlay(
@@ -437,6 +473,17 @@ export function applyMoveExpansionRoutingHookToOverlay(
     }
     const commandHelperAddress = ramAddress + firstHelperOffset + BW_VISUAL_HELPER_TEMPLATE.length;
     const globalAddress = commandHelperAddress + BW_COMMAND_GLOBAL_OFFSET;
+    if (
+      readU32(overlay, firstHelperOffset + BW_VISUAL_GLOBAL_LITERAL_OFFSET) !== globalAddress ||
+      readU32(overlay, commandHelperAddress - ramAddress + BW_COMMAND_GLOBAL_LITERAL_OFFSET) !== globalAddress ||
+      globalAddress - ramAddress + 4 > overlay.length
+    ) return undefined;
+    if (isLegacyMoveExpansionRoutingHook(overlay, layout)) {
+      const out = overlay.slice();
+      out.set(ORIGINAL_ROUTING_CALLER, layout.legacyCallerOffset);
+      return { status: "applied", overlay: out, helperOffset: firstHelperOffset, commandHelperAddress, globalAddress };
+    }
+    if (!matchesSequence(overlay, ORIGINAL_ROUTING_CALLER, layout.legacyCallerOffset)) return undefined;
     return { status: "already-applied", overlay, helperOffset: firstHelperOffset, commandHelperAddress, globalAddress };
   }
 
@@ -735,10 +782,11 @@ export function parseMoveExpansionAnimationBundle(bytes: Uint8Array): MoveExpans
     generations?: unknown;
     moves?: unknown;
     particles?: unknown;
+    backgrounds?: unknown;
   };
   const legacyGen6 = manifest.version === 1 && manifest.generation === 6;
   const currentGen6Gen7 =
-    manifest.version === 2 &&
+    (manifest.version === 2 || manifest.version === 3) &&
     Array.isArray(manifest.generations) &&
     manifest.generations.length === 2 &&
     manifest.generations[0] === 6 &&
@@ -749,6 +797,8 @@ export function parseMoveExpansionAnimationBundle(bytes: Uint8Array): MoveExpans
   if (!Array.isArray(manifest.moves) || !Array.isArray(manifest.particles)) {
     throw new Error("The move-expansion animation bundle manifest is incomplete.");
   }
+  const completeAssets = manifest.version === 3;
+  if (completeAssets && !Array.isArray(manifest.backgrounds)) throw new Error("The animation bundle is missing background dependencies.");
 
   const moves = manifest.moves.map((value) => {
     const entry = value as Record<string, unknown>;
@@ -756,13 +806,14 @@ export function parseMoveExpansionAnimationBundle(bytes: Uint8Array): MoveExpans
     const targetMoveId = requiredBundleInteger(entry.targetMoveId, `target move ID for source move ${sourceMoveId}`);
     const animation = requiredBundlePath(entry.animation, `animation path for source move ${sourceMoveId}`);
     const particleIds = requiredBundleIntegerArray(entry.particleIds, `particle IDs for source move ${sourceMoveId}`);
+    const backgroundIds = completeAssets ? requiredBundleIntegerArray(entry.backgroundIds, `background IDs for source move ${sourceMoveId}`) : [];
     const animationBytes = entries[animation];
     if (!animationBytes) throw new Error(`The move-expansion animation bundle is missing ${animation}.`);
     const expectedTarget = targetMoveIdForSource(sourceMoveId);
     if (expectedTarget !== targetMoveId) {
       throw new Error(`The move-expansion animation bundle maps source move ${sourceMoveId} to ${targetMoveId}; expected ${expectedTarget}.`);
     }
-    return { sourceMoveId, targetMoveId, particleIds, bytes: animationBytes };
+    return { sourceMoveId, targetMoveId, particleIds, backgroundIds, bytes: animationBytes };
   });
 
   const particles = manifest.particles.map((value) => {
@@ -773,15 +824,30 @@ export function parseMoveExpansionAnimationBundle(bytes: Uint8Array): MoveExpans
     if (!particleBytes) throw new Error(`The move-expansion animation bundle is missing ${particle}.`);
     return { sourceParticleId, bytes: particleBytes };
   });
+  const backgrounds = ((manifest.backgrounds ?? []) as unknown[]).map((value) => {
+    const entry = value as Record<string, unknown>;
+    const sourceBackgroundId = requiredBundleInteger(entry.sourceBackgroundId, "source background ID");
+    if (!Array.isArray(entry.files) || entry.files.length !== 3) throw new Error(`Background ${sourceBackgroundId} needs three files.`);
+    const files = entry.files.map((value) => {
+      const path = requiredBundlePath(value, `background ${sourceBackgroundId} file`);
+      if (!entries[path]) throw new Error(`The move-expansion animation bundle is missing ${path}.`);
+      return entries[path];
+    });
+    return { sourceBackgroundId, files };
+  });
   const bundledParticleIds = new Set(particles.map((particle) => particle.sourceParticleId));
+  const bundledBackgroundIds = new Set(backgrounds.map((background) => background.sourceBackgroundId));
   for (const move of moves) {
     for (const particleId of move.particleIds) {
-      if (particleId >= FIRST_BW2_ONLY_MOVE_PARTICLE_ID && !bundledParticleIds.has(particleId)) {
+      if ((completeAssets || particleId >= FIRST_BW2_ONLY_MOVE_PARTICLE_ID) && !bundledParticleIds.has(particleId)) {
         throw new Error(`Bundled animation ${move.sourceMoveId} requires particle file ${particleId}, which is not bundled.`);
       }
     }
+    for (const backgroundId of move.backgroundIds) {
+      if (!bundledBackgroundIds.has(backgroundId)) throw new Error(`Bundled animation ${move.sourceMoveId} requires background ${backgroundId}, which is not bundled.`);
+    }
   }
-  return { moves, particles };
+  return { completeAssets, moves, particles, backgrounds };
 }
 
 export function allocateMoveExpansionParticleAssets(
@@ -809,16 +875,23 @@ async function installBundledMoveAnimations(
   animationStore: NarcStore,
   particleStore: NarcStore,
   bundle: MoveExpansionAnimationBundle,
-): Promise<{ animationsChanged: number; particlesAdded: number; referencesRemapped: number }> {
+): Promise<{ animationsChanged: number; particlesAdded: number; backgroundFilesAdded: number; referencesRemapped: number }> {
+  const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
+  if (!romBytes) throw new Error("Reload the ROM before installing animation assets.");
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const backgroundFileId = rom.fileId(moveBackgroundArchivePath(project.session.baseRom as Gen5BaseRom));
+  const backgroundArchive = new NARC(getRomFileBytes(project, rom, backgroundFileId));
+  const backgrounds = allocateMoveExpansionBackgroundAssets(backgroundArchive.files, bundle.backgrounds);
+
+  const { remapMoveAnimationAssets } = await import("./moveAnimationModel");
   const allocation = allocateMoveExpansionParticleAssets(particleStore, bundle.particles);
   for (const particleId of allocation.addedIds) markDirty(project, "move_spas", particleId);
-
-  const { remapMoveAnimationParticleIds } = await import("./moveAnimationModel");
+  if (backgrounds.filesAdded > 0) replaceRomFile(project, rom, backgroundFileId, backgroundArchive.save());
   let animationsChanged = 0;
   let referencesRemapped = 0;
   for (const move of bundle.moves) {
-    const remapped = remapMoveAnimationParticleIds(move.bytes, allocation.particleIdMap);
-    referencesRemapped += remapped.referencesChanged;
+    const remapped = remapMoveAnimationAssets(move.bytes, allocation.particleIdMap, backgrounds.backgroundIdMap, project.session.baseRom as Gen5BaseRom);
+    referencesRemapped += remapped.particleReferencesChanged;
     const existing = animationStore.rawFiles[move.targetMoveId];
     if (existing && bytesEqual(existing, remapped.bytes)) continue;
     animationStore.rawFiles[move.targetMoveId] = remapped.bytes;
@@ -827,7 +900,31 @@ async function installBundledMoveAnimations(
     markDirty(project, "move_animations", move.targetMoveId);
     animationsChanged += 1;
   }
-  return { animationsChanged, particlesAdded: allocation.addedIds.length, referencesRemapped };
+  if (allocation.addedIds.length > 0 || backgrounds.filesAdded > 0) {
+    const { invalidateMoveBackgroundCache, invalidateMoveSpaArchiveCache } = await import("./moveAnimationPreviewModel");
+    invalidateMoveBackgroundCache(project);
+    invalidateMoveSpaArchiveCache(project);
+  }
+  return { animationsChanged, particlesAdded: allocation.addedIds.length, backgroundFilesAdded: backgrounds.filesAdded, referencesRemapped };
+}
+
+export function moveBackgroundArchivePath(baseRom: Gen5BaseRom): string {
+  return baseRom === "BW" ? "a/0/9/5" : "a/0/9/4";
+}
+
+export function allocateMoveExpansionBackgroundAssets(files: Uint8Array[], backgrounds: readonly MoveExpansionBundledBackground[]) {
+  const backgroundIdMap = new Map<number, number>();
+  const originalLength = files.length;
+  for (const background of [...backgrounds].sort((a, b) => a.sourceBackgroundId - b.sourceBackgroundId)) {
+    if (background.files.length !== 3) throw new Error("Move backgrounds require a screen, characters, and palette triplet.");
+    let targetId = files.findIndex((_file, index) => background.files.every((bytes, part) => files[index + part] && bytesEqual(files[index + part], bytes)));
+    if (targetId < 0) {
+      targetId = files.length;
+      files.push(...background.files.map((bytes) => bytes.slice()));
+    }
+    backgroundIdMap.set(background.sourceBackgroundId, targetId);
+  }
+  return { backgroundIdMap, filesAdded: files.length - originalLength };
 }
 
 function requiredBundleInteger(value: unknown, label: string): number {
@@ -894,17 +991,17 @@ async function ensureRoutingOverlay(project: ProjectState, overlayId: number): P
   const metadata = findOverlayMetadata(table, overlayId);
   if (!metadata) throw new Error(`Could not find overlay ${overlayId} in the ARM9 overlay table.`);
   const existing = project.overlays[overlayId];
-  if (existing?.length) return { data: existing, ramAddress: metadata.ramAddress, bssSize: metadata.bssSize };
+  if (existing?.length) return { data: existing, ...metadata };
   const overlay = rom.loadArm9Overlays([overlayId]).get(overlayId);
   if (!overlay) throw new Error(`Could not load overlay ${overlayId} from this ROM.`);
   project.overlays[overlayId] = overlay.data;
-  return { data: overlay.data, ramAddress: metadata.ramAddress, bssSize: metadata.bssSize };
+  return { data: overlay.data, ...metadata };
 }
 
-function findOverlayMetadata(table: Uint8Array, overlayId: number): { ramAddress: number; bssSize: number } | undefined {
+function findOverlayMetadata(table: Uint8Array, overlayId: number): { ramAddress: number; ramSize: number; bssSize: number } | undefined {
   for (let offset = 0; offset + 32 <= table.length; offset += 32) {
     if (readU32(table, offset) !== overlayId) continue;
-    return { ramAddress: readU32(table, offset + 4), bssSize: readU32(table, offset + 12) };
+    return { ramAddress: readU32(table, offset + 4), ramSize: readU32(table, offset + 8), bssSize: readU32(table, offset + 12) };
   }
   return undefined;
 }
@@ -959,8 +1056,32 @@ function detectCompleteMoveExpansionRouting(
 ): MoveExpansionRoutingState {
   const loaderState = detectMoveExpansionRoutingHook(loaderOverlay, baseRom);
   if (loaderState !== "patched") return loaderState;
+  const hookOffset = findCommandHookOffset(commandOverlay, baseRom);
+  return hookOffset !== undefined && isThumbBl(commandOverlay, hookOffset) ? "patched" : "unpatched";
+}
+
+/** Repair only the recognized pair of routing helpers and their call sites.
+ * A stale Fairy overlay-table entry can otherwise truncate executable helpers
+ * on every export, even if the user never opens the Move Expansion installer.
+ */
+export function repairMoveExpansionOverlayLoadSize(project: ProjectState, rom: NintendoDSRom): boolean {
+  const baseRom = project.session.baseRom;
+  if (!isGen5BaseRom(baseRom)) return false;
   const layout = ROUTING_LAYOUTS[baseRom];
-  return isThumbBl(commandOverlay, layout.commandHookOffset) ? "patched" : "unpatched";
+  const table = project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable;
+  const loader = findOverlayMetadata(table, layout.loaderOverlayId);
+  const command = findOverlayMetadata(table, layout.commandOverlayId);
+  if (!loader || !command) return false;
+  const overlays = rom.loadArm9Overlays([layout.loaderOverlayId, layout.commandOverlayId]);
+  const loaderBytes = project.overlays[layout.loaderOverlayId] ?? overlays.get(layout.loaderOverlayId)?.data;
+  const commandBytes = project.overlays[layout.commandOverlayId] ?? overlays.get(layout.commandOverlayId)?.data;
+  if (!loaderBytes || !commandBytes || loader.ramSize >= loaderBytes.length) return false;
+  if (detectMoveExpansionRoutingHook(loaderBytes, baseRom) !== "patched") return false;
+  const routing = applyMoveExpansionRoutingHookToOverlay(loaderBytes, baseRom, loader.ramAddress, loader.bssSize);
+  if (!routing || applyMoveExpansionCommandHookToOverlay(commandBytes, baseRom, command.ramAddress, command.bssSize, routing.commandHelperAddress)?.status !== "already-applied") return false;
+  project.overlays[layout.loaderOverlayId] = routing.overlay;
+  markPatchOverlayDirty(project, layout.loaderOverlayId);
+  return true;
 }
 
 function hasExpandedMoveData(project: ProjectState): boolean {

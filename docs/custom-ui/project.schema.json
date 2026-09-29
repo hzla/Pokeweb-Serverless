@@ -1,0 +1,2349 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pokeweb Custom UI project v1",
+  "description": "Data-only authoring document. Cross-reference, ROM asset and resource checks are performed by the shared validate/compile APIs.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "pokeweb.custom-ui"
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "screens": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "summary"
+              },
+              "page": {
+                "enum": [
+                  "info",
+                  "stats",
+                  "moves",
+                  "ribbons"
+                ]
+              },
+              "layoutVersion": {
+                "const": 1
+              }
+            },
+            "required": [
+              "kind",
+              "page"
+            ],
+            "additionalProperties": false
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "background": {
+            "type": "object",
+            "properties": {
+              "top": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "bottom": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              }
+            },
+            "required": [
+              "top",
+              "bottom"
+            ],
+            "additionalProperties": false
+          },
+          "elements": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "kind": {
+                  "enum": [
+                    "panel",
+                    "text",
+                    "image",
+                    "pokemon",
+                    "button",
+                    "list",
+                    "native"
+                  ]
+                },
+                "native": {
+                  "enum": [
+                    "learnset.background",
+                    "learnset.header",
+                    "learnset.stats",
+                    "learnset.family",
+                    "learnset.abilities",
+                    "learnset.evolution",
+                    "learnset.moves",
+                    "summary.info.top-art",
+                    "summary.info.bottom-art",
+                    "summary.stats.top-art",
+                    "summary.stats.bottom-art",
+                    "summary.moves.top-art",
+                    "summary.moves.bottom-art",
+                    "summary.ribbons.top-art",
+                    "summary.ribbons.bottom-art",
+                    "summary.info.dex",
+                    "summary.info.species",
+                    "summary.info.type",
+                    "summary.info.ot",
+                    "summary.info.id",
+                    "summary.info.experience",
+                    "summary.info.next-level",
+                    "summary.info.memo",
+                    "summary.info.exp-bar",
+                    "summary.stats.hp",
+                    "summary.stats.attack",
+                    "summary.stats.defense",
+                    "summary.stats.spAttack",
+                    "summary.stats.spDefense",
+                    "summary.stats.speed",
+                    "summary.stats.hp-bar",
+                    "summary.stats.ability",
+                    "summary.stats.move-0",
+                    "summary.stats.move-1",
+                    "summary.stats.move-2",
+                    "summary.stats.move-3",
+                    "summary.moves.move-0",
+                    "summary.moves.move-1",
+                    "summary.moves.move-2",
+                    "summary.moves.move-3",
+                    "summary.moves.category",
+                    "summary.moves.power",
+                    "summary.moves.accuracy",
+                    "summary.moves.description",
+                    "summary.ribbons.description",
+                    "summary.ribbons.grid",
+                    "summary.info.pokemon",
+                    "summary.info.nickname",
+                    "summary.info.level",
+                    "summary.info.item",
+                    "summary.stats.pokemon",
+                    "summary.stats.nickname",
+                    "summary.stats.level",
+                    "summary.stats.item",
+                    "summary.moves.pokemon",
+                    "summary.moves.nickname",
+                    "summary.moves.level",
+                    "summary.moves.item",
+                    "summary.ribbons.pokemon",
+                    "summary.ribbons.nickname",
+                    "summary.ribbons.level",
+                    "summary.ribbons.item"
+                  ]
+                },
+                "screen": {
+                  "enum": [
+                    "top",
+                    "bottom"
+                  ]
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 191
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 256
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 192
+                },
+                "hidden": {
+                  "type": "boolean"
+                },
+                "transparentFill": {
+                  "type": "boolean"
+                },
+                "locked": {
+                  "type": "boolean"
+                },
+                "moveIndex": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "paint": {
+                  "type": "object",
+                  "properties": {
+                    "fill": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "border": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "borderWidth": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    },
+                    "foreground": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "shadow": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    }
+                  },
+                  "required": [
+                    "fill",
+                    "border",
+                    "borderWidth",
+                    "foreground",
+                    "shadow"
+                  ],
+                  "additionalProperties": false
+                },
+                "text": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "literal": {
+                          "type": "string",
+                          "maxLength": 1024
+                        }
+                      },
+                      "required": [
+                        "literal"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "binding": {
+                          "enum": [
+                            "pokemon.ev.hp",
+                            "pokemon.ev.attack",
+                            "pokemon.ev.defense",
+                            "pokemon.ev.spAttack",
+                            "pokemon.ev.spDefense",
+                            "pokemon.ev.speed",
+                            "pokemon.iv.hp",
+                            "pokemon.iv.attack",
+                            "pokemon.iv.defense",
+                            "pokemon.iv.spAttack",
+                            "pokemon.iv.spDefense",
+                            "pokemon.iv.speed",
+                            "pokemon.stat.hp",
+                            "pokemon.stat.attack",
+                            "pokemon.stat.defense",
+                            "pokemon.stat.spAttack",
+                            "pokemon.stat.spDefense",
+                            "pokemon.stat.speed",
+                            "pokemon.ev.total",
+                            "pokemon.ability",
+                            "pokemon.abilityDescription",
+                            "pokemon.nature",
+                            "pokemon.ot",
+                            "pokemon.trainerId",
+                            "pokemon.experience",
+                            "pokemon.nextLevelExperience",
+                            "pokemon.memo",
+                            "pokemon.heldItem",
+                            "trainer.name",
+                            "trainer.playTime",
+                            "trainer.badges",
+                            "location.name",
+                            "party.count",
+                            "party.selected",
+                            "party.position",
+                            "pokemon.nickname",
+                            "pokemon.species",
+                            "pokemon.form",
+                            "pokemon.level",
+                            "pokemon.hp",
+                            "pokemon.maxHp",
+                            "pokemon.status",
+                            "pokemon.type1",
+                            "pokemon.type2",
+                            "move.name",
+                            "move.type",
+                            "move.category",
+                            "move.power",
+                            "move.accuracy",
+                            "move.pp",
+                            "move.description",
+                            "move.level",
+                            "view.name",
+                            "view.type1",
+                            "view.type2",
+                            "view.ability1",
+                            "view.ability2",
+                            "view.ability3",
+                            "view.hp",
+                            "view.attack",
+                            "view.defense",
+                            "view.spAttack",
+                            "view.spDefense",
+                            "view.speed",
+                            "view.evolutionTitle",
+                            "view.evolutionText",
+                            "view.evolutionPage"
+                          ]
+                        },
+                        "prefix": {
+                          "type": "string",
+                          "maxLength": 128
+                        },
+                        "suffix": {
+                          "type": "string",
+                          "maxLength": 128
+                        },
+                        "transform": {
+                          "enum": [
+                            "upper",
+                            "title"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "binding"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "align": {
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ]
+                },
+                "wrap": {
+                  "type": "boolean"
+                },
+                "font": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "image": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "rom"
+                        },
+                        "key": {
+                          "enum": [
+                            "summary:info:top",
+                            "summary:info:bottom",
+                            "summary:stats:top",
+                            "summary:stats:bottom",
+                            "summary:moves:top",
+                            "summary:moves:bottom",
+                            "summary:ribbons:top",
+                            "summary:ribbons:bottom"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "key"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "import"
+                        },
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "type"
+                        },
+                        "type": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 255
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "typeBinding"
+                        },
+                        "binding": {
+                          "enum": [
+                            "view.type1",
+                            "view.type2",
+                            "move.type"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "binding"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "pokemon": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "fixed"
+                        },
+                        "species": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535
+                        },
+                        "form": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 255
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "species",
+                        "form"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "party"
+                        },
+                        "slot": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 5
+                            },
+                            {
+                              "const": "selected"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "slot"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "family"
+                        },
+                        "index": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 2
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "index"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "animate": {
+                  "type": "boolean"
+                },
+                "action": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "open"
+                        },
+                        "screen": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "screen"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "back"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "close"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "summary"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "learnset"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "nextEvolution"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "selectParty"
+                        },
+                        "index": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "index"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "selectList"
+                        },
+                        "list": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                        },
+                        "delta": {
+                          "enum": [
+                            -1,
+                            1
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "list",
+                        "delta"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "family"
+                        },
+                        "delta": {
+                          "enum": [
+                            -1,
+                            1
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "delta"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "cycleParty"
+                        },
+                        "delta": {
+                          "enum": [
+                            -1,
+                            1
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "delta"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "const": "sound"
+                        },
+                        "sound": {
+                          "enum": [
+                            "confirm",
+                            "cursor",
+                            "cancel"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "sound"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "disabled": {
+                  "type": "boolean"
+                },
+                "states": {
+                  "type": "object",
+                  "properties": {
+                    "focused": {
+                      "type": "object",
+                      "properties": {
+                        "fill": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "border": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "borderWidth": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4
+                        },
+                        "foreground": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "shadow": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "required": [],
+                      "additionalProperties": false
+                    },
+                    "pressed": {
+                      "type": "object",
+                      "properties": {
+                        "fill": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "border": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "borderWidth": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4
+                        },
+                        "foreground": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "shadow": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "required": [],
+                      "additionalProperties": false
+                    },
+                    "disabled": {
+                      "type": "object",
+                      "properties": {
+                        "fill": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "border": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "borderWidth": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4
+                        },
+                        "foreground": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "shadow": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "required": [],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "neighbors": {
+                  "type": "object",
+                  "properties": {
+                    "up": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                    },
+                    "down": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                    },
+                    "left": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                    },
+                    "right": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "list": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "enum": [
+                        "party",
+                        "moves",
+                        "learnset"
+                      ]
+                    },
+                    "rows": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 12
+                    },
+                    "label": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "literal": {
+                              "type": "string",
+                              "maxLength": 1024
+                            }
+                          },
+                          "required": [
+                            "literal"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "binding": {
+                              "enum": [
+                                "pokemon.ev.hp",
+                                "pokemon.ev.attack",
+                                "pokemon.ev.defense",
+                                "pokemon.ev.spAttack",
+                                "pokemon.ev.spDefense",
+                                "pokemon.ev.speed",
+                                "pokemon.iv.hp",
+                                "pokemon.iv.attack",
+                                "pokemon.iv.defense",
+                                "pokemon.iv.spAttack",
+                                "pokemon.iv.spDefense",
+                                "pokemon.iv.speed",
+                                "pokemon.stat.hp",
+                                "pokemon.stat.attack",
+                                "pokemon.stat.defense",
+                                "pokemon.stat.spAttack",
+                                "pokemon.stat.spDefense",
+                                "pokemon.stat.speed",
+                                "pokemon.ev.total",
+                                "pokemon.ability",
+                                "pokemon.abilityDescription",
+                                "pokemon.nature",
+                                "pokemon.ot",
+                                "pokemon.trainerId",
+                                "pokemon.experience",
+                                "pokemon.nextLevelExperience",
+                                "pokemon.memo",
+                                "pokemon.heldItem",
+                                "trainer.name",
+                                "trainer.playTime",
+                                "trainer.badges",
+                                "location.name",
+                                "party.count",
+                                "party.selected",
+                                "party.position",
+                                "pokemon.nickname",
+                                "pokemon.species",
+                                "pokemon.form",
+                                "pokemon.level",
+                                "pokemon.hp",
+                                "pokemon.maxHp",
+                                "pokemon.status",
+                                "pokemon.type1",
+                                "pokemon.type2",
+                                "move.name",
+                                "move.type",
+                                "move.category",
+                                "move.power",
+                                "move.accuracy",
+                                "move.pp",
+                                "move.description",
+                                "move.level",
+                                "view.name",
+                                "view.type1",
+                                "view.type2",
+                                "view.ability1",
+                                "view.ability2",
+                                "view.ability3",
+                                "view.hp",
+                                "view.attack",
+                                "view.defense",
+                                "view.spAttack",
+                                "view.spDefense",
+                                "view.speed",
+                                "view.evolutionTitle",
+                                "view.evolutionText",
+                                "view.evolutionPage"
+                              ]
+                            },
+                            "prefix": {
+                              "type": "string",
+                              "maxLength": 128
+                            },
+                            "suffix": {
+                              "type": "string",
+                              "maxLength": 128
+                            },
+                            "transform": {
+                              "enum": [
+                                "upper",
+                                "title"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "binding"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "columns": {
+                      "type": "array",
+                      "maxItems": 4,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 255
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 256
+                          },
+                          "text": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "literal": {
+                                    "type": "string",
+                                    "maxLength": 1024
+                                  }
+                                },
+                                "required": [
+                                  "literal"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "binding": {
+                                    "enum": [
+                                      "pokemon.ev.hp",
+                                      "pokemon.ev.attack",
+                                      "pokemon.ev.defense",
+                                      "pokemon.ev.spAttack",
+                                      "pokemon.ev.spDefense",
+                                      "pokemon.ev.speed",
+                                      "pokemon.iv.hp",
+                                      "pokemon.iv.attack",
+                                      "pokemon.iv.defense",
+                                      "pokemon.iv.spAttack",
+                                      "pokemon.iv.spDefense",
+                                      "pokemon.iv.speed",
+                                      "pokemon.stat.hp",
+                                      "pokemon.stat.attack",
+                                      "pokemon.stat.defense",
+                                      "pokemon.stat.spAttack",
+                                      "pokemon.stat.spDefense",
+                                      "pokemon.stat.speed",
+                                      "pokemon.ev.total",
+                                      "pokemon.ability",
+                                      "pokemon.abilityDescription",
+                                      "pokemon.nature",
+                                      "pokemon.ot",
+                                      "pokemon.trainerId",
+                                      "pokemon.experience",
+                                      "pokemon.nextLevelExperience",
+                                      "pokemon.memo",
+                                      "pokemon.heldItem",
+                                      "trainer.name",
+                                      "trainer.playTime",
+                                      "trainer.badges",
+                                      "location.name",
+                                      "party.count",
+                                      "party.selected",
+                                      "party.position",
+                                      "pokemon.nickname",
+                                      "pokemon.species",
+                                      "pokemon.form",
+                                      "pokemon.level",
+                                      "pokemon.hp",
+                                      "pokemon.maxHp",
+                                      "pokemon.status",
+                                      "pokemon.type1",
+                                      "pokemon.type2",
+                                      "move.name",
+                                      "move.type",
+                                      "move.category",
+                                      "move.power",
+                                      "move.accuracy",
+                                      "move.pp",
+                                      "move.description",
+                                      "move.level",
+                                      "view.name",
+                                      "view.type1",
+                                      "view.type2",
+                                      "view.ability1",
+                                      "view.ability2",
+                                      "view.ability3",
+                                      "view.hp",
+                                      "view.attack",
+                                      "view.defense",
+                                      "view.spAttack",
+                                      "view.spDefense",
+                                      "view.speed",
+                                      "view.evolutionTitle",
+                                      "view.evolutionText",
+                                      "view.evolutionPage"
+                                    ]
+                                  },
+                                  "prefix": {
+                                    "type": "string",
+                                    "maxLength": 128
+                                  },
+                                  "suffix": {
+                                    "type": "string",
+                                    "maxLength": 128
+                                  },
+                                  "transform": {
+                                    "enum": [
+                                      "upper",
+                                      "title"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "binding"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "align": {
+                            "enum": [
+                              "left",
+                              "right"
+                            ]
+                          },
+                          "kind": {
+                            "enum": [
+                              "text",
+                              "typeIcon"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "width",
+                          "text",
+                          "align"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "rows",
+                    "label"
+                  ],
+                  "additionalProperties": false
+                },
+                "meter": {
+                  "type": "object",
+                  "properties": {
+                    "binding": {
+                      "enum": [
+                        "pokemon.ev.hp",
+                        "pokemon.ev.attack",
+                        "pokemon.ev.defense",
+                        "pokemon.ev.spAttack",
+                        "pokemon.ev.spDefense",
+                        "pokemon.ev.speed",
+                        "pokemon.iv.hp",
+                        "pokemon.iv.attack",
+                        "pokemon.iv.defense",
+                        "pokemon.iv.spAttack",
+                        "pokemon.iv.spDefense",
+                        "pokemon.iv.speed",
+                        "pokemon.stat.hp",
+                        "pokemon.stat.attack",
+                        "pokemon.stat.defense",
+                        "pokemon.stat.spAttack",
+                        "pokemon.stat.spDefense",
+                        "pokemon.stat.speed",
+                        "pokemon.ev.total",
+                        "pokemon.ability",
+                        "pokemon.abilityDescription",
+                        "pokemon.nature",
+                        "pokemon.ot",
+                        "pokemon.trainerId",
+                        "pokemon.experience",
+                        "pokemon.nextLevelExperience",
+                        "pokemon.memo",
+                        "pokemon.heldItem",
+                        "trainer.name",
+                        "trainer.playTime",
+                        "trainer.badges",
+                        "location.name",
+                        "party.count",
+                        "party.selected",
+                        "party.position",
+                        "pokemon.nickname",
+                        "pokemon.species",
+                        "pokemon.form",
+                        "pokemon.level",
+                        "pokemon.hp",
+                        "pokemon.maxHp",
+                        "pokemon.status",
+                        "pokemon.type1",
+                        "pokemon.type2",
+                        "move.name",
+                        "move.type",
+                        "move.category",
+                        "move.power",
+                        "move.accuracy",
+                        "move.pp",
+                        "move.description",
+                        "move.level",
+                        "view.name",
+                        "view.type1",
+                        "view.type2",
+                        "view.ability1",
+                        "view.ability2",
+                        "view.ability3",
+                        "view.hp",
+                        "view.attack",
+                        "view.defense",
+                        "view.spAttack",
+                        "view.spDefense",
+                        "view.speed",
+                        "view.evolutionTitle",
+                        "view.evolutionText",
+                        "view.evolutionPage"
+                      ]
+                    },
+                    "maximum": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    }
+                  },
+                  "required": [
+                    "binding",
+                    "maximum"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "kind",
+                "screen",
+                "x",
+                "y",
+                "width",
+                "height",
+                "hidden",
+                "paint",
+                "text",
+                "align",
+                "wrap",
+                "font",
+                "pokemon",
+                "animate",
+                "action",
+                "disabled",
+                "states",
+                "neighbors",
+                "list"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "shortcuts": {
+            "type": "object",
+            "properties": {
+              "a": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "open"
+                      },
+                      "screen": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "screen"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "back"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "close"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "summary"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "learnset"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "nextEvolution"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectParty"
+                      },
+                      "index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 5
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "index"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectList"
+                      },
+                      "list": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "list",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "family"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "cycleParty"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "sound"
+                      },
+                      "sound": {
+                        "enum": [
+                          "confirm",
+                          "cursor",
+                          "cancel"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "sound"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "left": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "open"
+                      },
+                      "screen": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "screen"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "back"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "close"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "summary"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "learnset"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "nextEvolution"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectParty"
+                      },
+                      "index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 5
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "index"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectList"
+                      },
+                      "list": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "list",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "family"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "cycleParty"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "sound"
+                      },
+                      "sound": {
+                        "enum": [
+                          "confirm",
+                          "cursor",
+                          "cancel"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "sound"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "right": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "open"
+                      },
+                      "screen": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "screen"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "back"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "close"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "summary"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "learnset"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "nextEvolution"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectParty"
+                      },
+                      "index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 5
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "index"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectList"
+                      },
+                      "list": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "list",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "family"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "cycleParty"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "sound"
+                      },
+                      "sound": {
+                        "enum": [
+                          "confirm",
+                          "cursor",
+                          "cancel"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "sound"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "l": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "open"
+                      },
+                      "screen": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "screen"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "back"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "close"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "summary"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "learnset"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "nextEvolution"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectParty"
+                      },
+                      "index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 5
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "index"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectList"
+                      },
+                      "list": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "list",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "family"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "cycleParty"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "sound"
+                      },
+                      "sound": {
+                        "enum": [
+                          "confirm",
+                          "cursor",
+                          "cancel"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "sound"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "r": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "open"
+                      },
+                      "screen": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "screen"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "back"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "close"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "summary"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "learnset"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "nextEvolution"
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectParty"
+                      },
+                      "index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 5
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "index"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "selectList"
+                      },
+                      "list": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "list",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "family"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "cycleParty"
+                      },
+                      "delta": {
+                        "enum": [
+                          -1,
+                          1
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "delta"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "sound"
+                      },
+                      "sound": {
+                        "enum": [
+                          "confirm",
+                          "cursor",
+                          "cancel"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "sound"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "background",
+          "elements"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "assets": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^assets/[a-zA-Z0-9_-]+\\.png$"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1024
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1024
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "path",
+          "width",
+          "height"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "launchers": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        },
+        "party": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "access": {
+      "type": "object",
+      "properties": {
+        "hotkey": {
+          "type": "object",
+          "properties": {
+            "screen": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+            },
+            "keys": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 4,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "L",
+                  "R",
+                  "A",
+                  "B",
+                  "X",
+                  "Y",
+                  "Start",
+                  "Select",
+                  "Up",
+                  "Down",
+                  "Left",
+                  "Right"
+                ]
+              }
+            }
+          },
+          "required": [
+            "screen",
+            "keys"
+          ],
+          "additionalProperties": false
+        },
+        "party": {
+          "type": "object",
+          "properties": {
+            "screen": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 24
+            }
+          },
+          "required": [
+            "screen",
+            "label"
+          ],
+          "additionalProperties": false
+        },
+        "cgear": {
+          "type": "object",
+          "properties": {
+            "screen": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 24
+            },
+            "x": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "y": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 191
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 256
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 192
+            },
+            "whenOff": {
+              "type": "boolean"
+            },
+            "paint": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "border": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "borderWidth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4
+                },
+                "foreground": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "shadow": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                }
+              },
+              "required": [
+                "fill",
+                "border",
+                "borderWidth",
+                "foreground",
+                "shadow"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "screen",
+            "label",
+            "x",
+            "y",
+            "width",
+            "height",
+            "whenOff",
+            "paint"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "name",
+    "screens",
+    "assets",
+    "launchers"
+  ],
+  "additionalProperties": false
+}

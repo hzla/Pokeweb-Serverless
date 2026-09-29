@@ -494,6 +494,31 @@ class Harness:
 reports={}
 for game in ['W2','B2']:
     h=Harness(game)
+    if '--custom-ui-only' in sys.argv:
+        h.species=30;h.start()
+        baseline=(bytes(h.c.mem_read(PIXELS,24576)),bytes(h.c.mem_read(MAP,2048)),bytes(h.c.mem_read(0x5000000,512)))
+        h.end()
+        for mask in [63,61,59,55,47,62,32,63]:
+            h.reset();h.species=30
+            program=bytearray(32);struct.pack_into('<4sHHII',program,0,b'PWUN',1,1,32,mask)
+            arc=ndspy.narc.NARC();arc.endiannessOfBeginning='>';arc.files=[b'{}',b'editor-only',program]
+            h.files['pokeweb/custom-ui.narc']=bytes(arc.save());h.c.mem_write(REQUEST+242,struct.pack('<H',0x5057))
+            before=bytes(h.c.mem_read(REQUEST,260));h.call('_Z8infoInitPvP7Request',WORK,REQUEST)
+            assert not h.opened and bytes(h.c.mem_read(REQUEST,260))==before
+            assert not any(y in [41,56,71,86,101,116] and x<72 for x,y,t in h.draws) if not mask&2 else True
+            if not mask&8:assert not any(y in [84,100,116] and x==120 for x,y,t in h.draws)
+            if not mask&16:assert not any(y>=140 for x,y,t in h.draws)
+            if mask==63:
+                actual=(bytes(h.c.mem_read(PIXELS,24576)),bytes(h.c.mem_read(MAP,2048)),bytes(h.c.mem_read(0x5000000,512)))
+                assert actual==baseline,'Imported full screen must be byte-identical to the current learnset renderer'
+                h.preview('custom-ui-native')
+            reads=h.reads.copy();allocation=dict(h.allocations)
+            for tick in range(32):h.call('_Z9infoInputPv',WORK)
+            assert h.reads==reads and h.allocations==allocation
+            h.end()
+        reports[game]={'nativeScreenEqualsExistingRenderer':True,'regionVisibility':True,'animationHasNoIO':True,'cleanup':True,'liveGameTest':False}
+        print(game,'Custom UI: native screen equality, region visibility, animation, immutable requests and cleanup passed',flush=True)
+        continue
     if '--cache-only' in sys.argv:
         h.species=30;h.start();h.check_chain([(29,0),(30,0),(31,0)])
         initial=dict(h.allocations);before=h.reads.copy();size=h.read_bytes
@@ -873,5 +898,5 @@ for game in ['W2','B2']:
     h.end() # Cache allocation failure safely falls back to uncached reads.
     reports[game]={'peakInstrumentedInfoHeapBytes':max(peaks),'openingIO':opening_io,'menuLifetimeUnchanged':True,'compiledInfoTests':'passed','liveGameTest':False}
     print(game,'compiled info: matching pale stats/inset, dark ability text and purple hidden abilities, selected-only frame/unclipped icons, party cue, charcoal footer/teal fin, ROM data, branching/paging, cycles, failure and cleanup passed',flush=True)
-report='info-cache-verification.json' if '--cache-only' in sys.argv else 'info-header-verification.json' if '--header-only' in sys.argv else 'info-terminal-verification.json' if '--terminal-only' in sys.argv else 'info-navigation-verification.json' if '--navigation-only' in sys.argv else 'info-io.json' if '--io-only' in sys.argv else 'info-layout-verification.json' if '--layout-only' in sys.argv else 'info-verification.json'
+report='custom-ui-native-verification.json' if '--custom-ui-only' in sys.argv else 'info-cache-verification.json' if '--cache-only' in sys.argv else 'info-header-verification.json' if '--header-only' in sys.argv else 'info-terminal-verification.json' if '--terminal-only' in sys.argv else 'info-navigation-verification.json' if '--navigation-only' in sys.argv else 'info-io.json' if '--io-only' in sys.argv else 'info-layout-verification.json' if '--layout-only' in sys.argv else 'info-verification.json'
 (HERE/'build'/report).write_text(json.dumps(reports,indent=2)+'\n')

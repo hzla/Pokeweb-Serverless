@@ -197,22 +197,41 @@ export function remapMoveAnimationParticleIds(
   bytes: Uint8Array,
   particleIdMap: ReadonlyMap<number, number>,
 ): { bytes: Uint8Array; referencesChanged: number } {
-  if (particleIdMap.size === 0) return { bytes, referencesChanged: 0 };
+  return remapMoveAnimationAssets(bytes, particleIdMap);
+}
+
+/** BW1's raster/palette-animation handlers only consume arguments and return.
+ * Omit these BW2 commands there: their native BW1 arities differ (4/5 vs 6/2).
+ * All other instructions, labels, and branch destinations are reassembled.
+ */
+export function remapMoveAnimationAssets(
+  bytes: Uint8Array,
+  particleIdMap: ReadonlyMap<number, number>,
+  backgroundIdMap: ReadonlyMap<number, number> = new Map(),
+  target: "BW" | "BW2" = "BW2",
+): { bytes: Uint8Array; referencesChanged: number; particleReferencesChanged: number } {
+  if (particleIdMap.size === 0 && backgroundIdMap.size === 0 && target === "BW2") return { bytes, referencesChanged: 0, particleReferencesChanged: 0 };
   let referencesChanged = 0;
+  let particleReferencesChanged = 0;
   const script = decompileAnimationBytes(bytes);
   const rewritten = script
     .split("\n")
     .map((line) => {
       const match = /^(\s*)([A-Za-z_][A-Za-z0-9_]*)(\s+)([-+]?\d+)(.*)$/u.exec(line);
-      if (!match || !PARTICLE_ID_COMMANDS.has(resolveMoveAnimationCommandName(match[2]))) return line;
+      if (!match) return line;
+      const name = resolveMoveAnimationCommandName(match[2]);
+      if (target === "BW" && (name === "DistortBackground" || name === "BackgroundPaletteAnimation")) return "";
+      const idMap = name === "LoadBackground" ? backgroundIdMap : PARTICLE_ID_COMMANDS.has(name) ? particleIdMap : undefined;
+      if (!idMap) return line;
       const sourceId = Number.parseInt(match[4], 10);
-      const targetId = particleIdMap.get(sourceId);
+      const targetId = idMap.get(sourceId);
       if (targetId === undefined || targetId === sourceId) return line;
       referencesChanged += 1;
+      if (PARTICLE_ID_COMMANDS.has(name)) particleReferencesChanged += 1;
       return `${match[1]}${match[2]}${match[3]}${targetId}${match[5]}`;
     })
     .join("\n");
-  return { bytes: compileAnimationScript(rewritten), referencesChanged };
+  return { bytes: compileAnimationScript(rewritten), referencesChanged, particleReferencesChanged };
 }
 
 export function repairMoveAnimationScriptBytes(bytes: Uint8Array): Uint8Array {

@@ -27,6 +27,22 @@ The Text editors expose story text and message/info text banks. These banks cont
 | Del Last Text(s) | Deletes entries from the end of the bank, keeping at least one entry. |
 | Text line | Editable text entry. Saves on blur. |
 
+## Find and Replace
+
+Find and replace is available in both Story Text and Info Text, in the bank list and inside an open bank. Choose **All banks** for the current text editor or **Current bank** to limit changes to the open bank. The separate bank-list search filter does not narrow an **All banks** replacement.
+
+Enter literal text in **Find**, then use **Find next** (or press Enter in either text field) to select each occurrence. Searches include parts of words; commas and regular-expression punctuation are treated literally. Enter replacement text in **Replace with**, or leave it empty to delete matches.
+
+| Matching mode | Behavior |
+| --- | --- |
+| Ignore case | Finds every capitalization and uses the replacement exactly as typed. |
+| Match case | Finds only the exact capitalization typed in Find. |
+| Capitalization aware | Finds every capitalization and adapts the replacement to uppercase, lowercase, or title case. Unusual mixed case uses the replacement as typed. |
+
+For example, replacing `Bulbasaur` with `Charmander` in capitalization-aware mode changes `BULBASAUR` to `CHARMANDER`, `bulbasaur` to `charmander`, and `Bulbasaur` to `Charmander`. Recognized text control codes are left intact when adapting capitalization.
+
+The panel shows the number of matches and actual replacements, plus the affected entry and bank counts. Occurrences already equal to their replacement do not count as changes. **Replace all…** asks for confirmation with the exact replacement count before applying changes. Cancel leaves the text unchanged. Changes appear in the session changelog and are saved through the editor's usual save/export flow.
+
 ## Entry IDs
 
 | Display | Meaning |

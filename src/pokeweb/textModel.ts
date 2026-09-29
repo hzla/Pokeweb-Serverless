@@ -11,6 +11,98 @@ export type TextBankSummary = {
   preview: Gen5TextEntry[];
 };
 
+export type TextReplacementMode = "ignore-case" | "match-case" | "capitalization-aware";
+
+export type TextReplacementPlan = {
+  narcName: TextNarcName;
+  matches: { bankId: number; entryIndex: number; offset: number; length: number }[];
+  changes: { bankId: number; entryIndex: number; entryId: string; before: string; after: string }[];
+  replacementCount: number;
+  bankCount: number;
+};
+
+/** Literal, non-overlapping matches. Only occurrences that change text count as replacements. */
+export function previewTextReplacement(
+  project: ProjectState,
+  narcName: TextNarcName,
+  find: string,
+  replacement: string,
+  mode: TextReplacementMode,
+  bankId?: number,
+): TextReplacementPlan {
+  const plan: TextReplacementPlan = { narcName, matches: [], changes: [], replacementCount: 0, bankCount: 0 };
+  if (!find) return plan;
+  const pattern = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), mode === "match-case" ? "gu" : "giu");
+  const banks = getTextBanks(project, narcName);
+  const bankIds = bankId === undefined ? banks.map((_, id) => id) : [bankId];
+  for (const id of bankIds) {
+    const bank = banks[id];
+    if (!bank) throw new Error(`Text bank ${id} does not exist.`);
+    let changed = false;
+    bank.forEach(([entryId, before], entryIndex) => {
+      // A callback keeps replacement text such as $& and $1 literal.
+      const after = before.replace(pattern, (match: string, offset: number) => {
+        plan.matches.push({ bankId: id, entryIndex, offset, length: match.length });
+        const value = mode === "capitalization-aware" ? matchTextCapitalization(match, replacement) : replacement;
+        if (value !== match) plan.replacementCount += 1;
+        return value;
+      });
+      if (before === after) return;
+      plan.changes.push({ bankId: id, entryIndex, entryId, before, after });
+      changed = true;
+    });
+    if (changed) plan.bankCount += 1;
+  }
+  return plan;
+}
+
+/** Validate and encode every affected bank before making any changes. */
+export function applyTextReplacement(project: ProjectState, plan: TextReplacementPlan): void {
+  if (plan.changes.length === 0) return;
+  const store = project.narcs[plan.narcName];
+  if (!store) throw new Error(`Text NARC is not loaded: ${plan.narcName}`);
+  const staged = new Map<number, Gen5TextEntry[]>();
+  for (const change of plan.changes) {
+    const bank = getTextBank(project, plan.narcName, change.bankId);
+    const entry = bank[change.entryIndex];
+    if (!entry || entry[0] !== change.entryId || entry[1] !== change.before) {
+      throw new Error("Text changed since the preview. Review replacements again.");
+    }
+    if (!staged.has(change.bankId)) staged.set(change.bankId, bank.map((value) => [...value]));
+    staged.get(change.bankId)![change.entryIndex][1] = change.after;
+  }
+  const encode = isGen4Project(project) ? encodeGen4TextBank : encodeGen5TextBank;
+  const encoded = Array.from(staged, ([bankId, bank]) => ({ bankId, bytes: encode(bank) }));
+  for (const change of plan.changes) {
+    getTextBank(project, plan.narcName, change.bankId)[change.entryIndex][1] = change.after;
+  }
+  for (const { bankId, bytes } of encoded) {
+    store.rawFiles[bankId] = bytes;
+    markDirty(project, plan.narcName, bankId);
+    refreshKnownTextBank(project, plan.narcName, bankId, getTextBank(project, plan.narcName, bankId));
+  }
+  for (const change of plan.changes) {
+    recordFieldChange(project, plan.narcName, `Text Bank ${change.bankId}`, `entry ${change.entryIndex}`, change.before, change.after, {
+      key: `text:${plan.narcName}:${change.bankId}:${change.entryIndex}`,
+    });
+  }
+}
+
+function matchTextCapitalization(match: string, replacement: string): string {
+  // Keep escaped line breaks, variables, and Gen IV control markers intact.
+  const controls = /(\\(?:x[\da-fA-F]{4}|[nfr])|VAR\([^)]*\)|\{[\da-fA-F]{4}(?:\s[^}]*)?\}|\{TRAINER_NAME:)/gu;
+  const plain = match.replace(controls, "");
+  if (plain.toUpperCase() === plain.toLowerCase()) return replacement;
+  const titleCase = (text: string) => text.replace(/\p{L}[\p{L}\p{M}'’]*/gu, (word) => {
+    const [first, ...rest] = Array.from(word);
+    return first.toUpperCase() + rest.join("").toLowerCase();
+  });
+  const convert = plain === plain.toUpperCase() ? (text: string) => text.toUpperCase()
+    : plain === plain.toLowerCase() ? (text: string) => text.toLowerCase()
+      : plain === titleCase(plain) ? titleCase : (text: string) => text;
+  return replacement.split(controls).map((part, index) => index % 2 === 0 ? convert(part) : part).join("");
+}
+
 export function getTextBankCount(project: ProjectState, narcName: TextNarcName): number {
   return getTextBanks(project, narcName).length;
 }

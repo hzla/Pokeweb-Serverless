@@ -58,22 +58,23 @@ extern "C" u32 OriginalDispatch(void*,int*,void*);
 extern "C" void LearnsetMenuCreate(void* work,void* rawMenu,u32* input) {
     OriginalMenuCreate(work,rawMenu,input);
     MenuWork* menu=static_cast<MenuWork*>(rawMenu);
-    if (!canAppend(input,menu->count,isField(work)) || menu->ids[menu->count-1]!=6
-        || !configured(learnsetConfig.menu,learnsetConfig.menuXor)) return;
-    void* text=message(at<void*>(work,0x138),learnsetConfig.menu);
-    if (!text) return;
-    const u32 index=menu->count-1;
-    menu->ids[index+1]=menu->ids[index]; menu->items[index+1]=menu->items[index];
-    menu->ids[index]=Command;
-    menu->items[index]={text,0x39e0,0,0};
-    ++menu->count;
+    if(!canAppend(input,menu->count,isField(work)) || menu->ids[menu->count-1]!=6)return;
+    auto append=[&](u16 id,u16 command) {
+        if(menu->count>=8)return;
+        void* text=message(at<void*>(work,0x138),id);if(!text)return;
+        const u32 index=menu->count-1;
+        menu->ids[index+1]=menu->ids[index];menu->items[index+1]=menu->items[index];
+        menu->ids[index]=command;menu->items[index]={text,0x39e0,0,0};++menu->count;
+    };
+    if(customUiConfig.learnsetEnabled && configured(learnsetConfig.menu,learnsetConfig.menuXor))append(learnsetConfig.menu,Command);
+    if(customUiConfig.version==1 && customUiConfig.enabled==1 && configured(customUiConfig.menu,customUiConfig.menuXor))append(customUiConfig.menu,CustomCommand);
 }
 extern "C" void LearnsetMenuSelect(void* work) {
-    if (isField(work) && at<u32>(work,0x40)==Command) {
+    if (isField(work) && (at<u32>(work,0x40)==Command || (at<u32>(work,0x40)==CustomCommand && customUiConfig.enabled==1))) {
         void* data=at<void*>(work,0x28c);
         at<u8>(work,12)=19;
         at<u32>(data,0x4c)=at<u32>(work,0x30);
-        at<u32>(data,0x50)=Transition;
+        at<u32>(data,0x50)=at<u32>(work,0x40)==CustomCommand?CustomTransition:Transition;
         return;
     }
     OriginalMenuSelect(work);
@@ -95,7 +96,8 @@ extern "C" u32 LearnsetDispatch(void* event,int* seq,void* work) {
         reopen(work,seq);
         return 0;
     }
-    if (*seq==13 && field && at<u32>(partyData,0x50)==Transition) {
+    if (*seq==13 && field && (at<u32>(partyData,0x50)==Transition || (at<u32>(partyData,0x50)==CustomTransition && customUiConfig.enabled==1))) {
+        const bool custom=at<u32>(partyData,0x50)==CustomTransition;
         at<u32>(partyData,0x50)=0;
         const u32 slot=at<u32>(partyData,0x4c);
         void* gs=*at<void**>(work,0x18);
@@ -109,7 +111,7 @@ extern "C" u32 LearnsetDispatch(void* event,int* seq,void* work) {
             if (session) {
                 *session={};
                 session->magic=RequestMagic; session->version=RequestVersion; session->size=sizeof(Request);
-                session->party=party;
+                session->party=party;session->reserved=custom?CustomCommand:0;
                 session->tutor.trainer=native<void*(*)(void*)>(0x201736d,0x201736d)(gd);
                 session->tutor.gameSystem=gs;
                 if(launch(slot)){*seq=12;return 0;}

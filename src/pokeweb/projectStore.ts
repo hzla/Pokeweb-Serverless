@@ -344,6 +344,7 @@ export type PatchState = {
 };
 
 export type ProjectState = {
+  customUi?: import("../customUi/document").Project;
   originalRomBytes?: Uint8Array;
   session: SessionSettings;
   romInfo: {

@@ -7,6 +7,7 @@ import manifest from "../assets/codeinjection/learnsetViewerManifest.json";
 import { configureLearnsetViewerDll as configureBase, configureLearnsetInfoDll, LEARNSET_INFO_MESSAGES, getLearnsetViewerStatus, learnsetViewerPaths, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
+import { configureCustomUi } from "../customUi/runtimeConfig";
 const dll = (name: string) => new Uint8Array(readFileSync(new URL(`../assets/codeinjection/${name}.dll`, import.meta.url)));
 const assets = Object.fromEntries(["W2", "B2"].flatMap(version => ["Menu", "Viewer"].map(group => [`Learnset${group}${version}`, dll(`Learnset${group}${version}`)])));
 const infoIds = LEARNSET_INFO_MESSAGES.map((_, i) => 100 + i);
@@ -17,11 +18,19 @@ function configureLearnsetViewerDll(bytes: Uint8Array, ids: { menu: number; empt
 
 describe("standalone LEARNSET companions", () => {
   for (const version of ["W2", "B2"] as const) {
+    it(`${version}: distinguishes a custom-only shared runtime from LEARNSET`, () => {
+      const project = fixture(version);
+      for (const group of ["Menu", "Viewer"]) {
+        const bytes = configureLearnsetViewerDll(assets[`Learnset${group}${version}`]!, { menu: 1, empty: 2, error: 3 });
+        add(project, `Learnset${group}${version}`, configureCustomUi(bytes, true, 4, false));
+      }
+      expect(getLearnsetViewerStatus(project)).toMatchObject({ installed: false, partial: false, compatible: true, canUninstall: false });
+    });
     it(`${version}: stripped pair has only intended overlay dependencies, no dynamic imports or constructors`, () => {
       for (const [group, expected, count] of [["Menu", ["12", "165"], 3], ["Viewer", ["258"], 25]] as const) {
         const bytes = assets[`Learnset${group}${version}`]!;
         const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
-        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: "1.4.5", PMCModulePriority: 4 });
+        expect(rpm.metadata).toMatchObject({ PMCGameID: version, PMCVersion: "1.5.0", PMCModulePriority: 4 });
         // The actual PMC activation loop visits only chains 0..4. Merely
         // matching our own manifest does not prove a DLL will load.
         expect(Number(rpm.metadata.PMCModulePriority)).toBeGreaterThanOrEqual(0);

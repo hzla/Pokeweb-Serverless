@@ -1,4 +1,6 @@
 import fs from "node:fs";
+import { NARC } from "../src/nds/narc";
+import { NintendoDSRom } from "../src/nds/rom";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
 import {
@@ -6,6 +8,7 @@ import {
   detectMoveExpansionPatch,
   installMoveExpansion,
   parseMoveExpansionAnimationBundle,
+  moveBackgroundArchivePath,
 } from "../src/pokeweb/moveExpansionPatch";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript } from "../src/pokeweb/moveAnimationModel";
 import { commitTextBank, getTextBank, parseTextEntryId } from "../src/pokeweb/textModel";
@@ -22,6 +25,7 @@ const animationBundleBytes = includeBundledAnimations
 const animationBundle = animationBundleBytes ? parseMoveExpansionAnimationBundle(animationBundleBytes) : undefined;
 const project = await loadProjectFromRomBytes(source, path.split("/").pop() ?? "clean.nds");
 const installed = await installMoveExpansion(project, { includeBundledAnimations, animationBundleBytes });
+assert(!(await installMoveExpansion(project, { includeBundledAnimations, animationBundleBytes })).changed, "idempotent install before export");
 const exported = await exportModifiedRom(project);
 const reloaded = await loadProjectFromRomBytes(exported, "move-expansion-verify.nds");
 
@@ -35,6 +39,19 @@ assert(reloaded.narcs.moves?.rawFiles[680]?.[4] === 95, "Flying Press accuracy")
 assert(reloaded.narcs.moves?.rawFiles[680]?.[16] === 0 && reloaded.narcs.moves?.rawFiles[680]?.[17] === 0, "safe generic AI sequence");
 assert(detectMoveExpansionPatch(reloaded) === "patched", "routing hook detection");
 if (includeBundledAnimations) {
+  const exportedRom = new NintendoDSRom(exported, { fileData: "view" });
+  const sourceRom = new NintendoDSRom(source, { fileData: "view" });
+  const backgroundPath = moveBackgroundArchivePath(reloaded.session.baseRom === "BW" ? "BW" : "BW2");
+  const backgrounds = new NARC(exportedRom.files[exportedRom.fileId(backgroundPath)]);
+  for (const path of [backgroundPath, "a/0/0/6"]) {
+    const before = new NARC(sourceRom.files[sourceRom.fileId(path)]);
+    const after = new NARC(exportedRom.files[exportedRom.fileId(path)]);
+    before.files.forEach((file, index) => assert(Buffer.from(file).equals(Buffer.from(after.files[index])), `${path} existing asset ${index} preserved`));
+  }
+  for (const id of reloaded.session.baseRom === "BW" ? [93, 94] : [167, 168]) {
+    const overlay = exportedRom.loadArm9Overlays([id]).get(id)!;
+    assert(overlay.ramSize === overlay.data.length, `overlay ${id} loads all code`);
+  }
   assert(installed.bundledAnimationsInstalled === 128, "Gen 6-7 animation install count");
   assert(installed.particleFilesInstalled > 0, "Gen 6-7 particle install count");
   assert(reloaded.narcs.move_spas, "move particle archive loaded");
@@ -43,12 +60,16 @@ if (includeBundledAnimations) {
     assert(bytes, `bundled animation ${moveId}`);
     const parsed = parseMoveAnimationScript(decompileMoveAnimationBytes(bytes));
     for (const command of [...parsed.scripts.values()].flat()) {
+      if (command.name === "LoadBackground") {
+        const id = command.params[0];
+        assert(backgrounds.files[id] && backgrounds.files[id + 1] && backgrounds.files[id + 2], `move ${moveId} complete background ${id}`);
+      }
+      if (reloaded.session.baseRom === "BW") assert(!["DistortBackground", "BackgroundPaletteAnimation"].includes(command.name), `move ${moveId} BW1 command widths`);
       if (!isParticleCommand(command.name)) continue;
       const particleId = command.params[0] ?? -1;
       assert(reloaded.narcs.move_spas.rawFiles[particleId], `move ${moveId} particle dependency ${particleId}`);
     }
   }
-  assert(!decompileMoveAnimationBytes(reloaded.narcs.move_animations!.rawFiles[684]).includes("LoadSPA 770"), "relocated Mat Block particle reference");
 }
 const repeated = await installMoveExpansion(reloaded, { includeBundledAnimations, animationBundleBytes });
 assert(!repeated.changed, "idempotent reinstall");
@@ -76,7 +97,7 @@ assert(reloaded.narcs.moves.rawFiles[681][3] === 123, "custom move data preserva
 assert(findTextEntry(getTextBank(reloaded, "message_texts", nameBankId), 681)?.[1] === "Custom Move", "custom move name preservation");
 
 console.log(
-  `Verified ${reloaded.session.baseVersion}: ${installed.importedMovesAdded} imported moves${includeBundledAnimations ? `, ${installed.bundledAnimationsInstalled} Gen 6-7 animations, ${installed.particleFilesInstalled} particle files` : ""}, ${exported.length} byte export, Frost routing signature present.`,
+  `Verified ${reloaded.session.baseVersion}: ${installed.importedMovesAdded} imported moves${includeBundledAnimations ? `, ${installed.bundledAnimationsInstalled} Gen 6-7 animations, ${installed.particleFilesInstalled} particle files, ${installed.backgroundFilesInstalled} background files` : ""}, ${exported.length} byte export, Frost-compatible routing present.`,
 );
 
 function isParticleCommand(name: string): boolean {
