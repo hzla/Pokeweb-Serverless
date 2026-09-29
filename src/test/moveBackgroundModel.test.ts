@@ -37,11 +37,12 @@ describe("moveBackgroundModel", () => {
     expect(moveBackgroundReferenceLabel(catalog.backgrounds[1]!.references[1]!)).toBe("Relic Song (#561)");
   });
 
-  it("appends an empty triplet and replaces it with converted image data", async () => {
+  it.each(["BW", "BW2"] as const)("appends, edits, and previews background triplets in the %s archive", async (baseRom) => {
     const templates = makeBackgroundTemplates();
     const archive = new NARC();
     archive.files = [templates.screen, templates.characters, templates.palette];
-    const project = makeArchiveProject(makeRomWithMoveBackgrounds(archive.save()));
+    const project = makeArchiveProject(makeRomWithMoveBackgrounds(archive.save(), baseRom === "BW" ? "5" : "4"));
+    project.session.baseRom = baseRom;
 
     expect(await getMoveBackgroundIds(project)).toEqual([0]);
     const backgroundId = await appendEmptyMoveBackground(project);
@@ -138,11 +139,11 @@ function makeArchiveProject(originalRomBytes: Uint8Array): ProjectState {
   };
 }
 
-function makeRomWithMoveBackgrounds(backgroundNarc: Uint8Array): Uint8Array {
+function makeRomWithMoveBackgrounds(backgroundNarc: Uint8Array, filename = "4"): Uint8Array {
   const fnt = saveFnt(new Folder({
     folders: [["a", new Folder({
       folders: [["0", new Folder({
-        folders: [["9", new Folder({ files: ["4"], firstId: 0 })]],
+        folders: [["9", new Folder({ files: [filename], firstId: 0 })]],
       })]],
     })]],
   }));

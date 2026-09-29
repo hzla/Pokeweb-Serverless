@@ -33,7 +33,6 @@ const manifestPath = path.join(here, 'manifest.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 manifest.purpose = 'Canonical source provenance and on-demand external export; not a build input or binary-reproducibility claim.';
 for (const patch of manifest.patches) if (patch.status === 'source-copied') patch.status = 'source-available';
-if (only !== undefined && !manifest.patches.some(p => p.name === only) && only !== 'pwan-trainer') throw Error(`Unknown source group: ${only}`);
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const oldFiles = new Map([...manifest.patches.flatMap(p => p.files), ...manifest.sharedFiles].map(f => [f.path, f]));
 const pending = new Map();
@@ -69,8 +68,7 @@ function file(group, relative, kind = 'source', originPath = `runtime/${group}/$
 }
 function runtimeFiles(group) {
   return fs.readdirSync(path.join(app, 'runtime', group), { withFileTypes: true })
-    .filter(entry => entry.isFile() && /\.(c|cpp|h|py|ts|json|java|yml|md|txt|cjs|s|S)$/.test(entry.name)
-      && !(group === 'save-menu' && entry.name === 'assets.generated.h'))
+    .filter(entry => entry.isFile() && /\.(c|cpp|h|py|ts|json|java|yml|md|txt|cjs|s|S)$/.test(entry.name))
     .sort((a, b) => a.name.localeCompare(b.name, 'en'))
     .map(entry => {
       const kind = /\.(md|txt)$/.test(entry.name) ? 'documentation'
@@ -83,16 +81,42 @@ function runtimeFiles(group) {
 }
 const additions = [
   {
-    name: 'save-menu', title: 'Black 2 / White 2 save menu',
-    artifacts: ['SaveMenuB2.dll', 'SaveMenuW2.dll'],
-    note: 'Version 0.2.3 PMC modules for compatible English Black 2 and White 2 ROMs. Native code, embedded art, location names, and map points are checked against audited binary signatures rather than a whole-ROM hash. Build source, compatibility data, and four prepared native-art PNG inputs are copied; source ROMs, generated header, save files, and validation captures are excluded. In-emulator acceptance of the B-to-title cover, native player walk, and no-save passthrough remains pending.',
+    name: 'level-caps', title: 'Hard level caps',
+    artifacts: ['HardLevelCapsB2.dll', 'HardLevelCapsW2.dll'],
+    note: 'US Black 2 / White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.',
     extra: [
-      ...['native-badges.png', 'native-map-marker.png', 'native-map-start-node.png', 'native-map-title.png']
-        .map(name => file('save-menu', `assets/${name}`, 'binary-build-input', `runtime/save-menu/${name}`)),
-      file('save-menu', 'integration/saveMenuModel.ts', 'support-only', 'src/pokeweb/saveMenuModel.ts'),
-      file('save-menu', 'integration/codeInjectionEditor.ts', 'support-only', 'src/ui/codeInjectionEditor.ts'),
-      file('save-menu', 'tests/verify-save-menu-update.ts', 'test', 'scripts/verify-save-menu-update.ts'),
-      file('save-menu', 'tests/verify-save-menu-debug-skip.ts', 'test', 'scripts/verify-save-menu-debug-skip.ts'),
+      file('level-caps', 'integration/levelCapsModel.ts', 'support-only', 'src/pokeweb/levelCapsModel.ts'),
+      file('level-caps', 'tests/verify-level-caps-install.ts', 'test', 'scripts/verify-level-caps-install.ts'),
+    ],
+  },
+  {
+    name: 'infinite-candy', title: 'Infinite Rare Candy',
+    artifacts: ['InfiniteCandyB2.dll', 'InfiniteCandyW2.dll'],
+    note: 'US Black 2 / White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.',
+    extra: [
+      file('infinite-candy', 'integration/infiniteCandyModel.ts', 'support-only', 'src/pokeweb/infiniteCandyModel.ts'),
+      file('infinite-candy', 'tests/verify-infinite-candy-install.ts', 'test', 'scripts/verify-infinite-candy-install.ts'),
+    ],
+  },
+  {
+    name: 'debug-helpers', title: 'White 2 Debug Helpers',
+    artifacts: ['WalkThroughWallsW2.dll', 'InstantBattleVictoryW2.dll'],
+    note: 'Independent US White 2 0.1.0 alpha developer DLLs: player grid collision toggle and local wild/trainer victory shortcut. Native code/CPU and export checks are distinct from full gameplay coverage.',
+    extra: [
+      file('debug-helpers', 'integration/testingPatchesModel.ts', 'support-only', 'src/pokeweb/testingPatchesModel.ts'),
+      file('debug-helpers', 'integration/codeInjectionEditor.ts', 'support-only', 'src/ui/codeInjectionEditor.ts'),
+      file('debug-helpers', 'tests/testingPatchesModel.test.ts', 'test', 'src/test/testingPatchesModel.test.ts'),
+      file('debug-helpers', 'tests/verify-testing-patches-install.ts', 'test', 'scripts/verify-testing-patches-install.ts'),
+    ],
+  },
+  {
+    name: 'instant-text', title: 'White 2 Instant Fast Text',
+    artifacts: ['InstantFastTextW2.dll'],
+    note: 'Independent US White 2 0.1.0 QoL DLL. Fast uses a bounded 128-character native stream budget; Slow/Normal and saved settings are preserved. Shares builder and CPU verifier with debug-helpers.',
+    extra: [
+      file('instant-text', 'integration/testingPatchesModel.ts', 'support-only', 'src/pokeweb/testingPatchesModel.ts'),
+      file('instant-text', 'tools/shared-build.py', 'build-tool', 'runtime/debug-helpers/build.py'),
+      file('instant-text', 'tests/shared-verify.py', 'test', 'runtime/debug-helpers/verify.py'),
     ],
   },
   {
@@ -153,7 +177,7 @@ const additions = [
   {
     name: 'learnset-viewer', title: 'Standalone LEARNSET party-menu viewer',
     artifacts: ['LearnsetMenuB2.dll', 'LearnsetMenuW2.dll', 'LearnsetViewerB2.dll', 'LearnsetViewerW2.dll'],
-    note: `Version ${learnset.version}. PMC-only menu/field and overlay-258 viewer companions; includes the move-list click for successful evolution navigation and summary-page sound for party switching, session-owned evolution graph and icon reuse, species/type header, correct sub-BG palette addressing and no-fade read-only L/R family navigation with virtual species learnsets/info, descendant-first branch browsing, A requirement pages, selected-only native two-pose icon animation, native lower-screen foreground/shadows and matching light upper panels, full-height right-panel left shading with unchanged ability row rules, purple hidden abilities, matching icon transparency, a dark teal selected-sprite frame with brighter title/fin accents unchanged, muted panel border, restored charcoal description body with a dark fin/top strip and no side/bottom borders, four-pixel slate-teal gutter, clipped stats panel, party-position header cue, retail title rails, D-pad party navigation, compact gold base stats, form ability names, cycle-safe three-Pokemon evolution chains, buffered ROM reads, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
+    note: `Version ${learnset.version}. Shared party command registration and a bounded Custom UI native-region program, with independent LEARNSET/Custom UI launch switches. PMC-only menu/field and overlay-258 viewer companions; includes the move-list click for successful evolution navigation and summary-page sound for party switching, session-owned evolution graph and icon reuse, species/type header, correct sub-BG palette addressing and no-fade read-only L/R family navigation with virtual species learnsets/info, descendant-first branch browsing, A requirement pages, selected-only native two-pose icon animation, native lower-screen foreground/shadows and matching light upper panels, full-height right-panel left shading with unchanged ability row rules, purple hidden abilities, matching icon transparency, a dark teal selected-sprite frame with brighter title/fin accents unchanged, muted panel border, restored charcoal description body with a dark fin/top strip and no side/bottom borders, four-pixel slate-teal gutter, clipped stats panel, party-position header cue, retail title rails, D-pad party navigation, compact gold base stats, form ability names, cycle-safe three-Pokemon evolution chains, buffered ROM reads, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
     extra: [
       file('learnset-viewer', 'metadata/learnsetViewerManifest.json', 'metadata', 'src/assets/codeinjection/learnsetViewerManifest.json'),
       file('learnset-viewer', 'integration/learnsetViewerModel.ts', 'support-only', 'src/pokeweb/learnsetViewerModel.ts'),
@@ -203,6 +227,7 @@ const additions = [
     ],
   },
 ];
+if (only !== undefined && !manifest.patches.some(p => p.name === only) && !additions.some(p => p.name === only)) throw Error(`Unknown source group: ${only}`);
 for (const group of additions) {
   if (only && group.name !== only) continue;
   const updated = { name: group.name, title: group.title, artifacts: group.artifacts.map(name => ({ name })), note: group.note, status: 'source-available', files: [...(group.runtime === false ? [] : runtimeFiles(group.name)), ...group.extra] };

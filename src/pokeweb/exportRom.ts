@@ -1,3 +1,4 @@
+import { materializeCustomUiSource } from "./customUiModel";
 import { readU32, writeU32 } from "../nds/binary";
 import { setArm9CompressedStaticEnd } from "../nds/arm9ModuleParams";
 import { compressCode, isCodeCompressed } from "../nds/codeCompression";
@@ -8,6 +9,7 @@ import type { NarcName } from "./constants";
 import { loadActiveRomBytes } from "./persistence";
 import { materializeMap3dAreaEdits } from "./map3dModel";
 import { repairLegacyMoveAnimationArchives } from "./moveAnimationModel";
+import { repairMoveExpansionOverlayLoadSize } from "./moveExpansionPatch";
 import { materializeProjectEdits } from "./projectMaterialize";
 import { fileSystemAddedFiles, fileSystemReplacementMap } from "./fileSystemModel";
 import {
@@ -55,7 +57,9 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   hydrateKoMoveLearnsetFromRom(project, rom);
   const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
   materializeProjectEdits(project);
+  materializeCustomUiSource(project, rom);
   repairLegacyMoveAnimationArchives(project);
+  repairMoveExpansionOverlayLoadSize(project, rom);
   await materializePwanAnimations(project, rom);
   pruneRedundantPatchesKeepAddition(project, rom);
   repairPokemonIconPaletteAssignmentPlacement(project);

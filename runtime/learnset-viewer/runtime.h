@@ -82,3 +82,9 @@ inline void buildList(Request* request,u32 heap) {
     if (size) request->list=parse(bytes,size,moveCount);
     native<u32(*)(void*)>(0x2070de1,0x2070db5)(arc);
 }
+
+// Shared party registration: each command is optional and capacity checked.
+struct CustomConfig {u8 magic[8];u16 version,enabled,menu,menuXor,learnsetEnabled,reserved;};
+extern "C" volatile CustomConfig customUiConfig;
+constexpr u16 CustomCommand=0x5057;
+constexpr u32 CustomTransition=0x50575549;
