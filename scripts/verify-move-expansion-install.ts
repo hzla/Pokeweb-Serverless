@@ -51,6 +51,10 @@ if (includeBundledAnimations) {
   for (const id of reloaded.session.baseRom === "BW" ? [93, 94] : [167, 168]) {
     const overlay = exportedRom.loadArm9Overlays([id]).get(id)!;
     assert(overlay.ramSize === overlay.data.length, `overlay ${id} loads all code`);
+    const before = sourceRom.loadArm9Overlays([id]).get(id)!;
+    assert(overlay.ramAddress === before.ramAddress, `overlay ${id} retains its RAM base`);
+    assert(overlay.ramSize + overlay.bssSize <= before.ramSize + before.bssSize, `overlay ${id} does not grow into party-selection memory`);
+    if (id === 94 || id === 168) assert(overlay.bssSize === 0, `overlay ${id} materialized BSS is not allocated twice`);
   }
   assert(installed.bundledAnimationsInstalled === 128, "Gen 6-7 animation install count");
   assert(installed.particleFilesInstalled > 0, "Gen 6-7 particle install count");
