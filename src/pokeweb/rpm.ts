@@ -445,8 +445,14 @@ function offsetForAbsolute(out: Uint8Array, absoluteAddress: number, targetBaseA
 }
 
 function writeThumbBranchLink(out: Uint8Array, offset: number, absoluteAddress: number, targetAddress: number): void {
-  let delta = targetAddress - (absoluteAddress + 4);
-  if ((targetAddress & 1) === 0 && delta < 0) delta = (delta + 3) & 0xfffffffc;
+  const thumbTarget = (targetAddress & 1) !== 0;
+  if ((absoluteAddress & 1) !== 0 || (!thumbTarget && (targetAddress & 3) !== 0)) {
+    throw new Error("Thumb call site or ARM target is misaligned.");
+  }
+  // BLX uses a word-aligned PC. At a site ending in ...2, an unaligned
+  // PC produces an odd low immediate, which ARM9 treats as undefined.
+  const pc = thumbTarget ? absoluteAddress + 4 : (absoluteAddress + 4) & ~3;
+  const delta = ((targetAddress & ~1) >>> 0) - pc;
   if (delta < -0x400000 || delta > 0x3fffff) {
     throw new Error(`Thumb BL target is out of range: 0x${absoluteAddress.toString(16)} -> 0x${targetAddress.toString(16)}`);
   }

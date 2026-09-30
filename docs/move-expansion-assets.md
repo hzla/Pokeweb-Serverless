@@ -25,6 +25,12 @@ The routing helpers fit inside verified alignment padding in the two native over
 
 Normal export migrates recognized older helper pairs, whether their load size was truncated or already enlarged. Migration validates the helpers, pointers, command target, native padding, and exact old tail length before replacing them; unrecognized extensions are left untouched. This handles imported ROMs without requiring the user to reopen the Move Expansion installer. Missing bundled assets in an older ROM require reinstalling with **Include Gen 6-7 Animations** checked.
 
+## BW1 startup compatibility
+
+Older BW1 PMC startup wrappers can contain two malformed Thumb-to-ARM calls, causing an undefined-instruction exception in melonDS before battle overlays load. The RPM relocation writer now computes BLX displacements from the word-aligned PC, including forward calls at addresses ending in `...2`. Thumb-to-Thumb BL calls retain their halfword-aligned PC behavior.
+
+Normal export repairs the recognized Black/White wrapper after validating its active entry call, RPM overlay, initializer destination, and both legacy call targets. Corrected calls are left unchanged; unknown wrappers are preserved. This startup repair changes no animation assets or overlay allocations. Test it from a fresh boot: an old savestate restores the faulty instructions and exception state from RAM.
+
 ## Regenerating the bundle
 
 Run from the repository root:

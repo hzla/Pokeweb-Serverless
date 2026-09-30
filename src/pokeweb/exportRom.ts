@@ -20,6 +20,7 @@ import {
   PMC_SYMBOL_PATH,
   pruneRedundantPatchesKeepAddition,
   repairLegacyPmcRootFnt,
+  repairLegacyBw1PmcBootCalls,
 } from "./pmcModel";
 import { materializePwanAnimations } from "./pwanAnimationModel";
 import { getDirtyStarterOverlayIds } from "./starterModel";
@@ -60,6 +61,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   materializeCustomUiSource(project, rom);
   repairLegacyMoveAnimationArchives(project);
   repairMoveExpansionOverlayLoadSize(project, rom);
+  repairLegacyBw1PmcBootCalls(project, rom);
   await materializePwanAnimations(project, rom);
   pruneRedundantPatchesKeepAddition(project, rom);
   repairPokemonIconPaletteAssignmentPlacement(project);

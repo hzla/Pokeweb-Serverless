@@ -36,7 +36,7 @@ export function exportFrostCompatibleRom(bytes: Uint8Array): Uint8Array {
     return bytes; // No injection: the normal export already has Frost's layout.
   }
   const pmc = detectPmcInstallFromRom(rom)?.pmc;
-  const gameId = { IRA: "B", IRB: "W", IRD: "W2", IRE: "B2" }[rom.idCode.slice(0, 3)];
+  const gameId = { IRA: "W", IRB: "B", IRD: "W2", IRE: "B2" }[rom.idCode.slice(0, 3)];
   if (!pmc?.version || pmc.gameId !== gameId || pmc.overlayId !== retailCount || count !== retailCount + 1) {
     return reject("The added overlay is not a recognized Pokeweb PMC installation.");
   }

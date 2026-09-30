@@ -51,6 +51,43 @@ const bgmToggleW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection
 const overworldWeatherRuntimeW2 = new Uint8Array(readFileSync(new URL("../assets/codeinjection/PokewebOverworldWeatherW2.dll", import.meta.url)));
 
 describe("PMC installer", () => {
+  it.each(["B", "W"] as const)("reimports and exports a %s PMC ROM in Frost's layout", async (version) => {
+    const source = makeBw2LikeRom(238, new Folder({ files: ["base.bin"], firstId: 237 }), 237);
+    source.set(new TextEncoder().encode(version === "B" ? "IRBO" : "IRAO"), 12);
+    const retail = new NintendoDSRom(source);
+    const table = new Uint8Array(238 * 32);
+    table.set(retail.arm9OverlayTable);
+    [237, 0x02217d20, PMC_OVERLAY_SIZE, PMC_OVERLAY_RESERVED_SIZE - PMC_OVERLAY_SIZE,
+      0x02217d20, 0x02217d20, 238, 0].forEach((value, index) => writeU32(table, 237 * 32 + index * 4, value));
+    const image = new Uint8Array(PMC_OVERLAY_SIZE);
+    image.set(new TextEncoder().encode("RPM0"));
+    const symbols = parseRpm(pmcB2);
+    symbols.metadata.PMCGameID = version;
+    symbols.metadata.PMCVersion = "13.2.4-bw1";
+    const normalBytes = retail.save({ arm9OverlayTable: table, addedFiles: [
+      { path: "overlay/overlay_0237.bin", bytes: image },
+      { path: PMC_OVERLAY_ID_PATH, bytes: new TextEncoder().encode("237") },
+      { path: PMC_SYMBOL_PATH, bytes: writeRpm(symbols) },
+    ] });
+    const normal = new NintendoDSRom(normalBytes);
+    const reloaded = makeProject(normalBytes, "W2");
+    reloaded.session.baseRom = "BW";
+    reloaded.session.baseVersion = version;
+    reloaded.codeInjection = detectPmcInstallFromRom(normal);
+    const exported = await exportModifiedRom(reloaded, { frostCompatibility: true });
+    const frost = new NintendoDSRom(exported);
+    expect(frost.filenames.firstId).toBe(238);
+    expect(frost.files.length).toBe(normal.files.length + 1);
+    expect(readU32(frost.arm9OverlayTable, 237 * 32 + 24)).toBe(237);
+    expect(frost.files[237]).toEqual(image);
+    expect(frost.getFileByName("overlay/overlay_0237.bin")).toEqual(image);
+    expect(frost.fileId("base.bin")).toBe(238);
+    expect(frost.arm9).toEqual(normal.arm9);
+    expect(frost.arm7).toEqual(normal.arm7);
+    expect(detectPmcInstallFromRom(frost)?.pmc?.gameId).toBe(version);
+    expect(exportFrostCompatibleRom(exported)).toEqual(exported);
+  });
+
   it.each(["B2", "W2"] as const)("exports %s in Frost's overlay-first layout without losing filenames or injected modules", async (version) => {
     const source = makeBw2LikeRom();
     if (version === "B2") source[14] = "E".charCodeAt(0);
@@ -141,6 +178,24 @@ describe("PMC installer", () => {
     writeRelocationDataByType(rpm, rpm.relocations[0]!, out, 0x02100000, 0x02100000);
 
     expect(readU16(out, 2) & 0xf800).toBe(0xe800);
+  });
+
+  it.each([
+    [0x0200400e, 0x02075cac], [0x02004016, 0x02079264],
+    [0x0200400c, 0x02075cac], [0x02100002, 0x02001000], [0x02100000, 0x02001000],
+  ])("encodes an aligned ARM call from %i to %i", (from, target) => {
+    const rpm = makeRelocationRpm("FUNCTION_ARM", target);
+    const out = new Uint8Array(4);
+    writeRelocationDataByType(rpm, rpm.relocations[0]!, out, from, from);
+    const high = readU16(out, 0), low = readU16(out, 2);
+    expect(low & 0xf801).toBe(0xe800);
+    const delta = (((high & 0x7ff) << 12 | (low & 0x7ff) << 1) << 9) >> 9;
+    expect(((from + 4) & ~3) + delta).toBe(target);
+  });
+
+  it("rejects a halfword-aligned ARM target", () => {
+    const rpm = makeRelocationRpm("FUNCTION_ARM", 0x02001002);
+    expect(() => writeRelocationDataByType(rpm, rpm.relocations[0]!, new Uint8Array(4), 0x02100000, 0x02100000)).toThrow(/misaligned/);
   });
 
   it("keeps Thumb BL when a Thumb relocation targets Thumb code", () => {
@@ -969,11 +1024,11 @@ function makeRelocationRpm(type: "FUNCTION_ARM" | "FUNCTION_THM", address: numbe
   };
 }
 
-function makeBw2LikeRom(fileCount = 345, filenames = new Folder({ files: ["base.bin"], firstId: 344 })): Uint8Array {
+function makeBw2LikeRom(fileCount = 345, filenames = new Folder({ files: ["base.bin"], firstId: 344 }), retailCount = 344): Uint8Array {
   const files = Array.from({ length: fileCount }, (_value, index) => Uint8Array.of(index & 0xff));
   const fnt = saveFnt(filenames);
-  const overlayTable = new Uint8Array(344 * 32);
-  for (let row = 0; row < 344; row += 1) {
+  const overlayTable = new Uint8Array(retailCount * 32);
+  for (let row = 0; row < retailCount; row += 1) {
     writeU32(overlayTable, row * 32, row);
     writeU32(overlayTable, row * 32 + 24, row);
   }
