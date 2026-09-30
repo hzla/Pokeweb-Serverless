@@ -1150,6 +1150,56 @@ function applyExternalRelocations(project: ProjectState, rom: NintendoDSRom, rpm
   project.arm9Dirty = true;
 }
 
+/** Correct the two known legacy BW1 PMC boot BLX encodings, preserving targets.
+ * Validate the active wrapper and its overlay before touching executable bytes.
+ */
+export function repairLegacyBw1PmcBootCalls(project: ProjectState, rom: NintendoDSRom): boolean {
+  const version = rom.idCode === "IRBO" ? "B" : rom.idCode === "IRAO" ? "W" : undefined;
+  if (!version || project.session.baseRom !== "BW") return false;
+  const layout = BW1_PMC_LAYOUTS[version];
+  const table = project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable;
+  const row = findOverlayEntry(table, layout.overlayId);
+  if (row === undefined) return false;
+  const bytes = project.overlays[layout.overlayId] ?? getRomFileBytes(project, rom, readU32(table, row + 24));
+  if (!bytes || readAscii(bytes, 0, 4) !== "RPM0") return false;
+  const arm9 = project.arm9.length ? project.arm9 : decompressCode(rom.arm9);
+  const base = rom.arm9RamAddress;
+  const boot = 0x0200400c;
+  const offset = boot - base;
+  if (offset < 0 || offset + 24 > arm9.length) return false;
+  if (readU16(arm9, offset) !== 0xb500 || readU16(arm9, offset + 6) !== 0x2000 ||
+      readU16(arm9, offset + 8) !== 0x4902 || readU16(arm9, offset + 18) !== 0xbd00 ||
+      readU32(arm9, offset + 20) !== layout.overlayId) return false;
+  const blTarget = (address: number): number | undefined => {
+    const at = address - base;
+    if (at < 0 || at + 4 > arm9.length) return undefined;
+    const high = readU16(arm9, at), low = readU16(arm9, at + 2);
+    if ((high & 0xf800) !== 0xf000 || (low & 0xf800) !== 0xf800) return undefined;
+    const delta = (((high & 0x7ff) << 12 | (low & 0x7ff) << 1) << 9) >> 9;
+    return address + 4 + delta;
+  };
+  const init = blTarget(boot + 14);
+  const overlayBase = readU32(table, row + 4);
+  const overlayLength = Math.min(bytes.length, readU32(table, row + 8));
+  if (blTarget(0x0200512a) !== boot || init === undefined || init < overlayBase + 0x20 || init >= overlayBase + overlayLength) return false;
+  const changes: Array<[number, number]> = [];
+  for (const [address, target] of [[boot + 2, layout.bootFsInitAddress], [boot + 10, layout.symbols.sys_load_overlay.address]]) {
+    const at = address - base;
+    const legacyDelta = target - (address + 4);
+    const fixedDelta = target - ((address + 4) & ~3);
+    const high = 0xf000 | ((fixedDelta >> 12) & 0x7ff);
+    const oldLow = 0xe800 | ((legacyDelta >> 1) & 0x7ff);
+    const newLow = 0xe800 | ((fixedDelta >> 1) & 0x7ff);
+    if (readU16(arm9, at) !== high || ![oldLow, newLow].includes(readU16(arm9, at + 2))) return false;
+    if (readU16(arm9, at + 2) !== newLow) changes.push([at + 2, newLow]);
+  }
+  if (!changes.length) return false;
+  project.arm9 = arm9.slice();
+  for (const [at, value] of changes) writeU16(project.arm9, at, value);
+  project.arm9Dirty = true;
+  return true;
+}
+
 function retargetPmcForBw1(rpm: RpmModule, version: Bw1Version): void {
   const layout = BW1_PMC_LAYOUTS[version];
   rpm.metadata.PMCGameID = version;
