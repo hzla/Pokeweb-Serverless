@@ -300,7 +300,7 @@ export async function installMoveExpansion(
     textEntriesAdded > 0;
   if (changed) {
     const animationDetail = animationBundle
-      ? ` Included ${animationBundle.moves.length} White2Upgrade Gen 6-7 animation scripts and their particle and background dependencies.`
+      ? ` Included ${animationBundle.moves.length} White2Upgrade Gen 6, 7 and 9 animation scripts and their particle and background dependencies.`
       : "";
     recordGenericChange(
       project,
@@ -870,7 +870,7 @@ function setSeedText(
 async function loadMoveExpansionAnimationBundle(): Promise<MoveExpansionAnimationBundle> {
   animationBundlePromise ??= fetch(white2UpgradeMoveAnimationsUrl)
     .then(async (response) => {
-      if (!response.ok) throw new Error(`Could not load the bundled Gen 6-7 move animations (${response.status}).`);
+      if (!response.ok) throw new Error(`Could not load the bundled move animations (${response.status}).`);
       return parseMoveExpansionAnimationBundle(new Uint8Array(await response.arrayBuffer()));
     })
     .catch((error) => {
@@ -894,13 +894,14 @@ export function parseMoveExpansionAnimationBundle(bytes: Uint8Array): MoveExpans
     backgrounds?: unknown;
   };
   const legacyGen6 = manifest.version === 1 && manifest.generation === 6;
-  const currentGen6Gen7 =
+  const currentGenerations =
     (manifest.version === 2 || manifest.version === 3) &&
     Array.isArray(manifest.generations) &&
-    manifest.generations.length === 2 &&
     manifest.generations[0] === 6 &&
-    manifest.generations[1] === 7;
-  if (manifest.format !== "pokeweb-move-expansion-animations" || (!legacyGen6 && !currentGen6Gen7)) {
+    manifest.generations[1] === 7 &&
+    (manifest.generations.length === 2 ||
+      (manifest.version === 3 && manifest.generations.length === 3 && manifest.generations[2] === 9));
+  if (manifest.format !== "pokeweb-move-expansion-animations" || (!legacyGen6 && !currentGenerations)) {
     throw new Error("The move-expansion animation bundle has an unsupported format or version.");
   }
   if (!Array.isArray(manifest.moves) || !Array.isArray(manifest.particles)) {

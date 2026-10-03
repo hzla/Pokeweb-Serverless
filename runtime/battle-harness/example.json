@@ -1,0 +1,14 @@
+{
+  "trainerId": 1,
+  "battleType": "Singles",
+  "trainer": {
+    "team": [
+      { "speciesId": 445, "level": 50, "abilitySlot": 1, "moves": [89, 337, 182, 242] }
+    ]
+  },
+  "player": {
+    "team": [
+      { "speciesId": 6, "level": 50, "abilitySlot": 1, "moves": [53, 403, 182, 337], "currentHp": 80, "status": "paralysis" }
+    ]
+  }
+}

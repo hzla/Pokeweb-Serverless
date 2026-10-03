@@ -57,6 +57,7 @@
     "typehud:sync": "python3 runtime/battle-type-hud/sync_bundled.py",
     "typehud:verify-rom": "vite-node scripts/verify-battle-hud-install.ts",
     "testbattle:enable-animations": "vite-node scripts/enable-test-battle-move-animations.ts",
+    "battle:harness": "vite-node scripts/build-battle-harness.ts",
     "black2upgrade:sync": "node scripts/sync-black2upgrade-artifacts.mjs",
     "black2upgrade:check": "node scripts/sync-black2upgrade-artifacts.mjs --check",
     "black2upgrade:rom": "vite-node scripts/build-black2upgrade-rom.ts",

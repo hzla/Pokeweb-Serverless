@@ -1,0 +1,20 @@
+{
+  "version": 5,
+  "dllSha256": "b48a12118a613c37dd65835af2983ef6ea2fa25787a3acda95196646a7372228",
+  "sources": {
+    "boot.c": "4059695f4811b2629b6224fd6b7772eeee9d3518cb7a1415f63b694214d79e2b",
+    "boot.s": "d2d808b434c3b4aead834c3deabd59584947be4c6aacedf714af7cd27c6d7a87",
+    "symbols.yml": "2628e6b555ab4e3456c28fc56f0e4a4b059d06274831de6cf580c5dd8f795d4e",
+    "build.py": "3f89eb7ee60a6a0b00f4070b138780fa5cbe58d9a70066cadd44d3efc8a1124a",
+    "test.py": "f22673af975388b9b7c34becfc3f49a66b14f69f3f57960d2842bd0650c81921"
+  },
+  "verification": {
+    "cpuChecks": 1400,
+    "codeBytes": 776,
+    "bssBytes": 4,
+    "fixedPayloadBytes": 780,
+    "temporaryEventBytes": 68,
+    "bootPath": "direct-save-to-battle",
+    "openingPresentation": "direct-placement"
+  }
+}

@@ -4,13 +4,17 @@ import { BW2_NARCS, BW_NARCS, HEADER_NARCS, type BaseRom, type NarcDefinition, t
 import { exportModifiedRom } from "./exportRom";
 import { getNarcFormats } from "./formats";
 import { compileMoveAnimation, getMoveAnimationTargetInfo } from "./moveAnimationModel";
-import { prepareBw2TestBattleCodeInjection } from "./pmcModel";
+import { listCodeInjectionDlls, prepareBw2TestBattleCodeInjection, stageCodeInjectionDll } from "./pmcModel";
 import { detectBw2Upgrade } from "./black2UpgradeModel";
+import { configureHarnessRuntime, patchHarnessExpandedPartyGuard, patchHarnessSave, patchHarnessTrainer, validateHarnessRom } from "./battleHarness";
+import { loadActiveRomBytes } from "./persistence";
 import type { ProjectState } from "./projectStore";
 import { normalizeTestBattleSavePartyNicknames, patchTestBattleSavePlayerFirstMove, patchTestBattleSavePlayerParty } from "./testBattleTeam";
 import { decodeGen5TextBank, encodeGen5TextBank, type Gen5TextEntry } from "./text";
 
 const TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/test.sav", import.meta.url);
+const BATTLE_HARNESS_URL = new URL("../assets/testbattle/BattleHarnessW2.dll", import.meta.url);
+const BATTLE_HARNESS_FILENAME = "BattleHarnessW2.dll";
 const BW_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/white.dsv", import.meta.url);
 const WHITE2_UPGRADE_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/White2Upgrade.dsv", import.meta.url);
 const BLACK2_UPGRADE_TEST_BATTLE_SAVE_URL = new URL("../assets/testbattle/Black2Upgrade.dsv", import.meta.url);
@@ -191,6 +195,14 @@ export function getTestBattleConfigForProject(project: ProjectState): TestBattle
 export async function buildTestBattleDownloads(project: ProjectState, trainerId: number, options: TestBattleBuildOptions = {}): Promise<TestBattleDownload> {
   const config = getTestBattleConfigForProject(project);
 
+  if (supportsAutomaticTestBattle(project)) {
+    const [romBytes, save] = await Promise.all([exportAutomaticTestBattleRom(project, trainerId), loadTestBattleSave(config)]);
+    const badges = patchTestBattleSaveBadges(save.rawSaveBytes, config);
+    const animations = patchTestBattleSaveMoveAnimations(badges, config);
+    const party = patchTestBattleSavePlayerParty(animations, project, options.playerTeamText ?? "", config.baseRom);
+    return { romBytes, saveBytes: toDesmumeDsv(patchHarnessSave(party, project, { trainerId })) };
+  }
+
   const [baseRomBytes, loadedSave] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
   const save = normalizeLoadedTestBattleSave(project, config, loadedSave);
   const trainerPatchedRom = patchTestBattleTrainerSlot(baseRomBytes, project, config, trainerId);
@@ -222,6 +234,15 @@ export function bundleTestBattleSaveForQuickLaunch(rawSaveBytes: Uint8Array): Ui
 export async function buildMoveTestBattleDownloads(project: ProjectState, moveId: number, options: MoveTestBattleBuildOptions = {}): Promise<TestBattleDownload> {
   const config = getTestBattleConfigForProject(project);
 
+  if (supportsAutomaticTestBattle(project)) {
+    const [baseRomBytes, save] = await Promise.all([exportAutomaticTestBattleRom(project, TEST_BATTLE_BASE_TRAINER_ID), loadTestBattleSave(config)]);
+    const romBytes = options.moveAnimationScriptText === undefined ? baseRomBytes : patchMoveAnimationScript(baseRomBytes, project, config, moveId, options.moveAnimationScriptText);
+    const badges = patchTestBattleSaveBadges(save.rawSaveBytes, config);
+    const animations = patchTestBattleSaveMoveAnimations(badges, config);
+    const party = patchTestBattleSavePlayerFirstMove(animations, project, moveId, config.baseRom);
+    return { romBytes, saveBytes: toDesmumeDsv(patchHarnessSave(party, project, { trainerId: TEST_BATTLE_BASE_TRAINER_ID })) };
+  }
+
   const [baseRomBytes, loadedSave] = await Promise.all([exportTestBattleBaseRom(project), loadTestBattleSave(config)]);
   const save = normalizeLoadedTestBattleSave(project, config, loadedSave);
   const movePatchedRom = options.moveAnimationScriptText === undefined ? baseRomBytes : patchMoveAnimationScript(baseRomBytes, project, config, moveId, options.moveAnimationScriptText);
@@ -237,7 +258,40 @@ export async function buildMoveTestBattleDownloads(project: ProjectState, moveId
 export async function exportTestBattleBaseRom(project: ProjectState): Promise<Uint8Array> {
   if (project.session.baseRom !== "BW2") return exportModifiedRom(project, { preserveOriginalLength: true });
   const temporaryProject = structuredClone(project) as ProjectState;
+  if (supportsAutomaticTestBattle(temporaryProject) && detectBw2Upgrade(temporaryProject) === "white2-upgrade") {
+    const bytes = project.originalRomBytes ?? await loadActiveRomBytes();
+    if (!bytes) throw new Error("Reload the ROM before preparing White2Upgrade startup.");
+    temporaryProject.originalRomBytes = bytes;
+    patchHarnessExpandedPartyGuard(temporaryProject, new NintendoDSRom(bytes, { fileData: "view" }).loadArm9Overlays([36]).get(36)!);
+  }
   await prepareBw2TestBattleCodeInjection(temporaryProject);
+  if (supportsAutomaticTestBattle(temporaryProject) && listCodeInjectionDlls(temporaryProject).some(module => module.fileName === BATTLE_HARNESS_FILENAME)) {
+    await stageBattleHarness(temporaryProject, 0, 0);
+  }
+  return exportModifiedRom(temporaryProject, { preserveOriginalLength: true });
+}
+
+export function supportsAutomaticTestBattle(project: ProjectState): boolean {
+  return project.session.baseRom === "BW2" && project.session.baseVersion === "W2" && project.romInfo.idCode === "IRDO";
+}
+
+async function stageBattleHarness(project: ProjectState, trainerId: number, rule: number): Promise<void> {
+  const response = await fetch(BATTLE_HARNESS_URL);
+  if (!response.ok) throw new Error(`Could not load bundled automatic battle runtime (${response.status})`);
+  stageCodeInjectionDll(project, BATTLE_HARNESS_FILENAME, configureHarnessRuntime(new Uint8Array(await response.arrayBuffer()), trainerId, rule));
+}
+
+async function exportAutomaticTestBattleRom(project: ProjectState, trainerId: number): Promise<Uint8Array> {
+  const temporaryProject = structuredClone(project) as ProjectState;
+  const bytes = project.originalRomBytes ?? await loadActiveRomBytes();
+  if (!bytes) throw new Error("Reload the ROM before preparing an automatic Test Battle.");
+  temporaryProject.originalRomBytes = bytes;
+  const rom = new NintendoDSRom(bytes, { fileData: "view" });
+  validateHarnessRom(rom, temporaryProject);
+  const rule = patchHarnessTrainer(temporaryProject, { trainerId });
+  if (detectBw2Upgrade(temporaryProject) === "white2-upgrade") patchHarnessExpandedPartyGuard(temporaryProject, rom.loadArm9Overlays([36]).get(36)!);
+  await prepareBw2TestBattleCodeInjection(temporaryProject);
+  await stageBattleHarness(temporaryProject, trainerId, rule);
   return exportModifiedRom(temporaryProject, { preserveOriginalLength: true });
 }
 
@@ -267,8 +321,8 @@ function patchMoveAnimationScript(romBytes: Uint8Array, project: ProjectState, c
   const rom = new NintendoDSRom(romBytes);
   const fileId =
     target.storeName === "move_animations"
-      ? project.narcs.move_animations?.fileId ?? project.session.fileIds.move_animations ?? rom.fileId(config.paths.move_animations)
-      : project.narcs.battle_animations?.fileId ?? project.session.fileIds.battle_animations ?? rom.fileId(config.paths.battle_animations);
+      ? rom.filenames.idOf(config.paths.move_animations) ?? project.narcs.move_animations?.fileId ?? project.session.fileIds.move_animations ?? rom.fileId(config.paths.move_animations)
+      : rom.filenames.idOf(config.paths.battle_animations) ?? project.narcs.battle_animations?.fileId ?? project.session.fileIds.battle_animations ?? rom.fileId(config.paths.battle_animations);
   const narc = new NARC(rom.files[fileId]);
   if (!narc.files[target.index]) throw new Error(`${target.storeName} entry ${target.index} does not exist.`);
   narc.files[target.index] = compileMoveAnimation(project, moveId, scriptText);

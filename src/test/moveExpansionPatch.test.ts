@@ -155,14 +155,19 @@ describe("Move Expansion patch", () => {
     expect(expansionData.firstTargetMoveId + expansionData.moves.length).toBeLessThanOrEqual(expansionData.targetMoveCount);
   });
 
-  it("bundles all staged Gen 6-7 animations with every particle and background dependency", () => {
+  it("bundles staged Gen 6-7 and all supplied Gen 9 animations with every dependency", () => {
     const bundle = loadMoveAnimationBundle();
 
-    expect(bundle.moves).toHaveLength(128);
+    expect(bundle.moves).toHaveLength(196);
     expect(bundle.moves[0]).toMatchObject({ sourceMoveId: 560, targetMoveId: 680 });
-    expect(bundle.moves.at(-1)).toMatchObject({ sourceMoveId: 742, targetMoveId: 825 });
+    expect(bundle.moves.find((move) => move.sourceMoveId === 742)).toMatchObject({ targetMoveId: 825 });
+    expect(bundle.moves.at(-1)).toMatchObject({ sourceMoveId: 919, targetMoveId: 984 });
+    expect(bundle.moves.filter((move) => move.sourceMoveId >= 852).map((move) => move.sourceMoveId)).toEqual(
+      Array.from({ length: 68 }, (_, index) => 852 + index),
+    );
+    expect(bundle.moves.some((move) => move.sourceMoveId === 851)).toBe(false);
     expect(bundle.completeAssets).toBe(true);
-    expect(bundle.particles).toHaveLength(176);
+    expect(bundle.particles).toHaveLength(244);
     expect(bundle.backgrounds).toHaveLength(15);
     const bundledParticleIds = new Set(bundle.particles.map((particle) => particle.sourceParticleId));
     expect(bundle.moves.flatMap((move) => move.particleIds).every((particleId) => bundledParticleIds.has(particleId))).toBe(true);
@@ -174,6 +179,15 @@ describe("Move Expansion patch", () => {
       }
       for (const command of commands.filter((command) => command.name === "LoadSPA")) expect(bundledParticleIds.has(command.params[0])).toBe(true);
     }
+  });
+
+  it("credits every bundled Gen 9 animation to Log(n)", () => {
+    const entries = unzipSync(new Uint8Array(readFileSync(new URL("../assets/data/white2upgradeGen6MoveAnimations.zip", import.meta.url))));
+    const manifest = JSON.parse(new TextDecoder().decode(entries["manifest.json"]));
+    const gen9 = manifest.moves.filter((move: { sourceMoveId: number }) => move.sourceMoveId >= 852);
+    expect(gen9).toHaveLength(68);
+    expect(gen9.every((move: { author?: string }) => move.author === "Log(n)")).toBe(true);
+    expect(new TextDecoder().decode(entries["CREDITS.txt"])).toContain("Log(n)");
   });
 
   it("appends occupied particle IDs and rewrites the installed animation references", () => {
@@ -215,6 +229,24 @@ describe("Move Expansion patch", () => {
     manifest[kind] = [];
     entries["manifest.json"] = new TextEncoder().encode(JSON.stringify(manifest));
     expect(() => parseMoveExpansionAnimationBundle(zipSync(entries))).toThrow(/requires (?:particle file|background)/u);
+  });
+
+  it.each([
+    [2, [6, 7], true],
+    [3, [6, 7], true],
+    [3, [6, 7, 9], true],
+    [2, [6, 7, 9], false],
+    [3, [6, 9, 7], false],
+    [3, [6, 7, 10], false],
+  ])("validates v%s generation list %j", (version, generations, supported) => {
+    const bytes = zipSync({
+      "manifest.json": new TextEncoder().encode(JSON.stringify({
+        format: "pokeweb-move-expansion-animations", version, generations,
+        moves: [], particles: [], backgrounds: [],
+      })),
+    });
+    if (supported) expect(() => parseMoveExpansionAnimationBundle(bytes)).not.toThrow();
+    else expect(() => parseMoveExpansionAnimationBundle(bytes)).toThrow(/unsupported format or version/u);
   });
 
   it("omits incompatible BW2 background effects on BW1 while keeping scripts assemblable", () => {
