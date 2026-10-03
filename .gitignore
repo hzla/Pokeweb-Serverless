@@ -23,6 +23,7 @@ analysis/
 runtime/form-evolution/build/
 runtime/tag-battle-stabilization/build/
 runtime/porta-pc/build/
+runtime/battle-harness/build/
 __pycache__/
 
 # Machine-local agent working notes belong outside this repository.
@@ -41,3 +42,5 @@ src/test/local/
 # Vite imports the local bridge; TypeScript/tests import the shared tooling.
 !/scripts/w2u-local-bridge.js
 !/scripts/lib/
+!/scripts/build-battle-harness.ts
+!/scripts/test-battle-harness-headless.py

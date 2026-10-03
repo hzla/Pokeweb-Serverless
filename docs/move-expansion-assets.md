@@ -1,6 +1,8 @@
 # Move Expansion animation assets
 
-The optional Gen 6–7 bundle contains 128 White2Upgrade animation scripts, all 176 referenced SPA particle files, and 15 screen/character/palette background triplets. Installing it provisions dependencies into the target ROM and rewrites script IDs. Assets already present with identical bytes are reused; differing assets are appended without replacing existing entries.
+All supplied Gen 9 move animations are by **Log(n)**. The bundle preserves this credit in its manifest and `CREDITS.txt`.
+
+The optional Gen 6, 7 and 9 bundle contains 196 White2Upgrade animation scripts, all 244 referenced SPA particle files, and 15 screen/character/palette background triplets. The Gen 9 import covers moves 852-919; Tera Blast (851) was not supplied. Installing the bundle provisions dependencies into the target ROM and rewrites script IDs. Assets already present with identical bytes are reused; differing assets are appended without replacing existing entries.
 
 | Resource | Black / White | Black 2 / White 2 |
 | --- | --- | --- |
@@ -23,7 +25,7 @@ Frost's Black 1 Fairy patch prepends `0x2100` bytes to overlay 93 and lowers its
 
 The routing helpers fit inside verified alignment padding in the two native overlays. The loader's original 32-byte BSS allocation is materialized as static data, preserving its native pointer and setting the table's BSS size to zero. Its total RAM footprint stays unchanged. Simply increasing the load size of older appended helpers is unsafe: those helpers overlap the party-selection overlays used when switching after a KO.
 
-Normal export migrates recognized older helper pairs, whether their load size was truncated or already enlarged. Migration validates the helpers, pointers, command target, native padding, and exact old tail length before replacing them; unrecognized extensions are left untouched. This handles imported ROMs without requiring the user to reopen the Move Expansion installer. Missing bundled assets in an older ROM require reinstalling with **Include Gen 6-7 Animations** checked.
+Normal export migrates recognized older helper pairs, whether their load size was truncated or already enlarged. Migration validates the helpers, pointers, command target, native padding, and exact old tail length before replacing them; unrecognized extensions are left untouched. This handles imported ROMs without requiring the user to reopen the Move Expansion installer. Missing bundled assets in an older ROM require reinstalling with **Include Gen 6, 7 and 9 Animations** checked.
 
 ## BW1 startup compatibility
 

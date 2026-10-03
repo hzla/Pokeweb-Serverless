@@ -591,6 +591,31 @@ function applyPokemonToPk5(project: ProjectState, data: Uint8Array, pokemon: Sho
   writeLe16(data, 0x9a, stats.spd);
 }
 
+/** Numeric harness inputs use the same form resolution and PK5 writer as Test Battle. */
+export function getTestBattlePersonal(project: ProjectState, speciesId: number, form = 0): { personalId: number; raw: RawRecord } {
+  const personalId = resolveFormPersonalId(project, speciesId, form);
+  return { personalId, raw: getPersonal(project, personalId) };
+}
+
+export function createTestBattlePartyPokemon(project: ProjectState, pokemon: ShowdownPokemon, save: Uint8Array, half: number, slot: number): Uint8Array {
+  const data = new Uint8Array(PK5_PARTY_SIZE);
+  applyPokemonToPk5(project, data, pokemon, getPersonal(project, pokemon.personalId), readSaveTrainerIdentity(save, half), slot);
+  return data;
+}
+
+export function recalculateTestBattlePartyStats(data: Uint8Array, pokemon: ShowdownPokemon, personal: RawRecord): void {
+  const stats = calculateStats(pokemon, personal);
+  const previousHp = readLe16(data, 0x8e);
+  writeLe32(data, 0x10, experienceForLevel(pokemon.level, Number(personal.exp_rate ?? 0)));
+  data[0x8c] = pokemon.level;
+  writeLe16(data, 0x8e, Math.min(previousHp, stats.hp));
+  for (const [index, key] of STAT_KEYS.entries()) writeLe16(data, 0x90 + index * 2, stats[key]);
+}
+
+export function refreshTestBattlePartyChecksums(save: Uint8Array, half: number): void {
+  refreshPartyBlockChecksums(save, getTestBattlePartySaveLayout("BW2"), half);
+}
+
 function speciesName(project: ProjectState, speciesId: number): string {
   return pokemonSpeciesLabel(project, speciesId);
 }
