@@ -56,8 +56,8 @@ if (includeBundledAnimations) {
     assert(overlay.ramSize + overlay.bssSize <= before.ramSize + before.bssSize, `overlay ${id} does not grow into party-selection memory`);
     if (id === 94 || id === 168) assert(overlay.bssSize === 0, `overlay ${id} materialized BSS is not allocated twice`);
   }
-  assert(installed.bundledAnimationsInstalled === 128, "Gen 6-7 animation install count");
-  assert(installed.particleFilesInstalled > 0, "Gen 6-7 particle install count");
+  assert(installed.bundledAnimationsInstalled === animationBundle?.moves.length, "bundled animation install count");
+  assert(installed.particleFilesInstalled > 0, "bundled particle install count");
   assert(reloaded.narcs.move_spas, "move particle archive loaded");
   for (const { targetMoveId: moveId } of animationBundle?.moves ?? []) {
     const bytes = reloaded.narcs.move_animations?.rawFiles[moveId];
@@ -101,7 +101,7 @@ assert(reloaded.narcs.moves.rawFiles[681][3] === 123, "custom move data preserva
 assert(findTextEntry(getTextBank(reloaded, "message_texts", nameBankId), 681)?.[1] === "Custom Move", "custom move name preservation");
 
 console.log(
-  `Verified ${reloaded.session.baseVersion}: ${installed.importedMovesAdded} imported moves${includeBundledAnimations ? `, ${installed.bundledAnimationsInstalled} Gen 6-7 animations, ${installed.particleFilesInstalled} particle files, ${installed.backgroundFilesInstalled} background files` : ""}, ${exported.length} byte export, Frost-compatible routing present.`,
+  `Verified ${reloaded.session.baseVersion}: ${installed.importedMovesAdded} imported moves${includeBundledAnimations ? `, ${installed.bundledAnimationsInstalled} bundled animations, ${installed.particleFilesInstalled} particle files, ${installed.backgroundFilesInstalled} background files` : ""}, ${exported.length} byte export, Frost-compatible routing present.`,
 );
 
 function isParticleCommand(name: string): boolean {

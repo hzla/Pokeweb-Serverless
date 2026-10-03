@@ -20,6 +20,7 @@ import {
   resolveTestBattleOverworldIdForSaveZone,
   testBattleScriptIdForTrainer,
   testBattleOverworldYFromSaveGridY,
+  supportsAutomaticTestBattle,
 } from "../pokeweb/testBattle";
 import { decryptPk5Party } from "../pokeweb/testBattleTeam";
 import { decodeGen5TextBank, encodeGen5TextBank } from "../pokeweb/text";
@@ -29,6 +30,18 @@ const white2Save = new Uint8Array(readFileSync(new URL("../assets/testbattle/tes
 const white2UpgradeSave = new Uint8Array(readFileSync(new URL("../assets/testbattle/White2Upgrade.dsv", import.meta.url)));
 
 describe("testBattle", () => {
+  it("uses automatic battle boot only for the audited White 2 executable family", () => {
+    const project = makeBw2Project([]);
+    project.romInfo.idCode = "IRDO";
+    expect(supportsAutomaticTestBattle(project)).toBe(true);
+    project.romInfo.idCode = "IRDI";
+    expect(supportsAutomaticTestBattle(project)).toBe(false);
+    project.session.baseVersion = "B2";
+    project.romInfo.idCode = "IREO";
+    expect(supportsAutomaticTestBattle(project)).toBe(false);
+    project.session.baseRom = "BW";
+    expect(supportsAutomaticTestBattle(project)).toBe(false);
+  });
   it("selects the BW test battle save and NARC paths", () => {
     const config = getTestBattleConfig("BW");
 

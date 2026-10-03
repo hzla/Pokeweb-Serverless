@@ -1452,7 +1452,7 @@
       "moveName": "Behemoth Blade",
       "file": "5_00000781.bin",
       "bytes": 1042,
-      "sha256": "baa0922d4cd43b29079f96e49a0bf621d4e8858184920cc06aec431545a11d9d",
+      "sha256": "73bd26de9661cbb2a963b8026e62e19e2a47e8e61a7123903520d9a0b7b2769c",
       "spas": [
         827
       ],
@@ -1466,7 +1466,7 @@
       "moveName": "Behemoth Bash",
       "file": "5_00000782.bin",
       "bytes": 1042,
-      "sha256": "5a1fe0c615c7323aabc9d4b681452febc7a453ea226d0bc5fb966e523112f22c",
+      "sha256": "1c43d38ce9c8e90e5ea339281f3c3e9b43f10acac20365c5fed8a6dde177c373",
       "spas": [
         826
       ],
@@ -1782,6 +1782,892 @@
         418,
         431,
         459
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 845,
+      "moveName": "Ceaseless Edge",
+      "file": "5_00000845.bin",
+      "bytes": 68,
+      "sha256": "a2826d30743d4b90d22b4873d3e3026f504cbd376d8a55f01d0fcaf4ae328e26",
+      "spas": [],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 846,
+      "moveName": "Bleakwind Storm",
+      "file": "5_00000846.bin",
+      "bytes": 68,
+      "sha256": "a2826d30743d4b90d22b4873d3e3026f504cbd376d8a55f01d0fcaf4ae328e26",
+      "spas": [],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 847,
+      "moveName": "Wildbolt Storm",
+      "file": "5_00000847.bin",
+      "bytes": 68,
+      "sha256": "a2826d30743d4b90d22b4873d3e3026f504cbd376d8a55f01d0fcaf4ae328e26",
+      "spas": [],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 848,
+      "moveName": "Sandsear Storm",
+      "file": "5_00000848.bin",
+      "bytes": 68,
+      "sha256": "a2826d30743d4b90d22b4873d3e3026f504cbd376d8a55f01d0fcaf4ae328e26",
+      "spas": [],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 849,
+      "moveName": "Lunar Blessing",
+      "file": "5_00000849.bin",
+      "bytes": 68,
+      "sha256": "a2826d30743d4b90d22b4873d3e3026f504cbd376d8a55f01d0fcaf4ae328e26",
+      "spas": [],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 850,
+      "moveName": "Take Heart",
+      "file": "5_00000850.bin",
+      "bytes": 68,
+      "sha256": "a2826d30743d4b90d22b4873d3e3026f504cbd376d8a55f01d0fcaf4ae328e26",
+      "spas": [],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 851,
+      "moveName": "Tera Blast",
+      "file": "5_00000851.bin",
+      "bytes": 68,
+      "sha256": "a2826d30743d4b90d22b4873d3e3026f504cbd376d8a55f01d0fcaf4ae328e26",
+      "spas": [],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 852,
+      "moveName": "Silk Trap",
+      "file": "5_00000852.bin",
+      "bytes": 634,
+      "sha256": "48925103a53c14e558b906e4d38a7893ff4ecb2378ffb75702dab17aaab43e00",
+      "spas": [
+        846
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 853,
+      "moveName": "Axe Kick",
+      "file": "5_00000853.bin",
+      "bytes": 1064,
+      "sha256": "72639af64fb83ad9234dd6786c843ca5492855c1280be39235d3f4cb178dcc48",
+      "spas": [
+        847
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 854,
+      "moveName": "Last Respects",
+      "file": "5_00000854.bin",
+      "bytes": 1498,
+      "sha256": "1bd832d10a824a1df03447173c936bc64ecd84410142d8cd0e11d90e2a2b84b1",
+      "spas": [
+        913
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 855,
+      "moveName": "Lumina Crash",
+      "file": "5_00000855.bin",
+      "bytes": 2350,
+      "sha256": "e9a3c7b6b58b3c8a0f403312c11da2957cd63d88edc1bcb3263ab3e0fa114cec",
+      "spas": [
+        914
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 856,
+      "moveName": "Order Up",
+      "file": "5_00000856.bin",
+      "bytes": 1502,
+      "sha256": "17b63bfe0c53154071187357a20aafc46c41a90065fdab2e130041a5b16d8d0a",
+      "spas": [
+        915
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 857,
+      "moveName": "Jet Punch",
+      "file": "5_00000857.bin",
+      "bytes": 1680,
+      "sha256": "c1044580b54485ec4d9b3bfdd2a1ad36fd97556e8110a729c73aa632dca58845",
+      "spas": [
+        916
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 858,
+      "moveName": "Spicy Extract",
+      "file": "5_00000858.bin",
+      "bytes": 944,
+      "sha256": "51e519e41c8b35fff2826defebf117775d14b3204023cda3855164f27a773e99",
+      "spas": [
+        917
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 859,
+      "moveName": "Spin Out",
+      "file": "5_00000859.bin",
+      "bytes": 1394,
+      "sha256": "e8bf8409055d307f21b3f11d22352cc4598d04b771a213d4ef08d42052831d2f",
+      "spas": [
+        918
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 860,
+      "moveName": "Population Bomb",
+      "file": "5_00000860.bin",
+      "bytes": 458,
+      "sha256": "b4eac4932e02d30a3fdd3a1a54c57bb8f6264e6434c5a836bfb0419171c6c7e4",
+      "spas": [
+        854
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 861,
+      "moveName": "Ice Spinner",
+      "file": "5_00000861.bin",
+      "bytes": 1452,
+      "sha256": "5c1284a538baa46df5b20e35ae5ba673fb29f58b2e056a2b04f13ed1c3d0fb45",
+      "spas": [
+        919
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 862,
+      "moveName": "Glaive Rush",
+      "file": "5_00000862.bin",
+      "bytes": 1558,
+      "sha256": "336df5b6ec5e333020057d8e89abef16d382c0e9699ec0471cbfe30c2a4d59a6",
+      "spas": [
+        920
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 863,
+      "moveName": "Revival Blessing",
+      "file": "5_00000863.bin",
+      "bytes": 766,
+      "sha256": "3dd9b76b7e30e6d1e831ef2f88d9d685b6ca168f519810769f6a4991b576588b",
+      "spas": [
+        857
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 864,
+      "moveName": "Salt Cure",
+      "file": "5_00000864.bin",
+      "bytes": 1578,
+      "sha256": "c1ecf322185346af3c6bc00753b6a3f72b1d97b829bed89396b90e32a1f51f93",
+      "spas": [
+        921
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 865,
+      "moveName": "Triple Dive",
+      "file": "5_00000865.bin",
+      "bytes": 1226,
+      "sha256": "34092580de6ae92db291f3a81f706f5e5b48d9a8fd97111a34a0c90b8d87bfc7",
+      "spas": [
+        922
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 866,
+      "moveName": "Mortal Spin",
+      "file": "5_00000866.bin",
+      "bytes": 1088,
+      "sha256": "d82e1ea202bc93093bfc98a50c156d70fa16559bcd0db0f9c537dd1577f96f2f",
+      "spas": [
+        923
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 867,
+      "moveName": "Doodle",
+      "file": "5_00000867.bin",
+      "bytes": 700,
+      "sha256": "261304ec49c02652f0fc348d8c37e712081319a1028413a42c8140ba6b62268c",
+      "spas": [
+        861
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 868,
+      "moveName": "Fillet Away",
+      "file": "5_00000868.bin",
+      "bytes": 526,
+      "sha256": "e701aaf98617c976b78e1f79fe28c9b47e45c3a6900ba5d9abc2feaa50fc9a3f",
+      "spas": [
+        862
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 869,
+      "moveName": "Kowtow Cleave",
+      "file": "5_00000869.bin",
+      "bytes": 1080,
+      "sha256": "1cf4caeed1ea0ebf42de6df97f19e4966a3fd08eb70dd3e42454754a954d1f6e",
+      "spas": [
+        863
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 870,
+      "moveName": "Flower Trick",
+      "file": "5_00000870.bin",
+      "bytes": 1456,
+      "sha256": "9414bb2a948a577936a69c16654e2c107b1b85b5cda6c8e869ad31788f9f18bc",
+      "spas": [
+        924
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 871,
+      "moveName": "Torch Song",
+      "file": "5_00000871.bin",
+      "bytes": 1290,
+      "sha256": "dd24ff8c13eb58bc04ae182cba1aea6381d48931ffe5b046722e2c2b7883e5cd",
+      "spas": [
+        925
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 872,
+      "moveName": "Aqua Step",
+      "file": "5_00000872.bin",
+      "bytes": 1950,
+      "sha256": "75aa7dae0313986c9e7d4b7202f308b6dd49a3ae639d7bd3279c2cda242a63fa",
+      "spas": [
+        926
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 873,
+      "moveName": "Raging Bull",
+      "file": "5_00000873.bin",
+      "bytes": 1304,
+      "sha256": "d9433b135bf63cab9b06a227c4e43a88c949c5182a1344cb94accf20b6783b4e",
+      "spas": [
+        867
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 874,
+      "moveName": "Make It Rain",
+      "file": "5_00000874.bin",
+      "bytes": 1132,
+      "sha256": "78ede1ead073ec7cac638a87b8e96e493ad94d10e47a92c69c2bc4e0b408f4a8",
+      "spas": [
+        868
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 875,
+      "moveName": "Psyblade",
+      "file": "5_00000875.bin",
+      "bytes": 1664,
+      "sha256": "0b0bf2a1b0a9fc565282b3fea166772f1a36a32e78e3761d1160ace4ee94f6f6",
+      "spas": [
+        927
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 876,
+      "moveName": "Hydro Steam",
+      "file": "5_00000876.bin",
+      "bytes": 1536,
+      "sha256": "57542386cde4b27c164c48075514645e48de1bf0892b8343210663097a9c037c",
+      "spas": [
+        928
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 877,
+      "moveName": "Ruination",
+      "file": "5_00000877.bin",
+      "bytes": 1876,
+      "sha256": "ad303d543a1ccef3b1e9701677481940e2fbffcb22a8bce57c1cb6259ea4d8b3",
+      "spas": [
+        929
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 878,
+      "moveName": "Collision Course",
+      "file": "5_00000878.bin",
+      "bytes": 1250,
+      "sha256": "996ca5e50086c40f5f3873990399a0d892eca2016189ec06f92abee9c5926093",
+      "spas": [
+        872
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 879,
+      "moveName": "Electro Drift",
+      "file": "5_00000879.bin",
+      "bytes": 1128,
+      "sha256": "3b49e839b9a3ec6192f8cdf69977b201e6f0c7051dffc9e51e55c091e74c66ce",
+      "spas": [
+        873
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 880,
+      "moveName": "Shed Tail",
+      "file": "5_00000880.bin",
+      "bytes": 442,
+      "sha256": "1ea18431e6f831d4f3c4a55dd379a86a2a037dfdfe14690b9a560485d6f98e9a",
+      "spas": [
+        874
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 881,
+      "moveName": "Chilly Reception",
+      "file": "5_00000881.bin",
+      "bytes": 766,
+      "sha256": "e2155fa96c1e7f90ca862f016fbc8f704a4a52b00441a7582922da0a62828180",
+      "spas": [
+        875
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 882,
+      "moveName": "Tidy Up",
+      "file": "5_00000882.bin",
+      "bytes": 1286,
+      "sha256": "d665821179d7eb296e142a205a9aa39efc8a4394cd4f6e60c5a6b868a924a388",
+      "spas": [
+        930
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 883,
+      "moveName": "Snowscape",
+      "file": "5_00000883.bin",
+      "bytes": 440,
+      "sha256": "d037d0878559c57e6fc0018477cc9d915203970e5cd083312e117b76bb867907",
+      "spas": [
+        877
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 884,
+      "moveName": "Pounce",
+      "file": "5_00000884.bin",
+      "bytes": 720,
+      "sha256": "81960c9a0b13b6103ff0f5b5aff82ebd4be2a6bb82b1f625dd684ea7ee936b94",
+      "spas": [
+        878
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 885,
+      "moveName": "Trailblaze",
+      "file": "5_00000885.bin",
+      "bytes": 850,
+      "sha256": "d7b06b8278d1afbfc268efb07ead571fcd6096f62fbb47f0998843bcd07e291c",
+      "spas": [
+        879
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 886,
+      "moveName": "Chilling Water",
+      "file": "5_00000886.bin",
+      "bytes": 724,
+      "sha256": "fc560e32d20eac96cf5e2004b448a17fc640924f7e7251cc23a8b03d5b13c07f",
+      "spas": [
+        880
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 887,
+      "moveName": "Hyper Drill",
+      "file": "5_00000887.bin",
+      "bytes": 988,
+      "sha256": "62613d826b6372d625c123e5cb8e4ca2dba876fd01057a6ed31053199004fdca",
+      "spas": [
+        881
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 888,
+      "moveName": "Twin Beam",
+      "file": "5_00000888.bin",
+      "bytes": 1202,
+      "sha256": "c7ea6a308489e9fcc6ef1dde328fc6075f2c2dad04a4cbff935829751ef3f2df",
+      "spas": [
+        931
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 889,
+      "moveName": "Rage Fist",
+      "file": "5_00000889.bin",
+      "bytes": 1146,
+      "sha256": "85fbc99ebaa5ad407b0317fc780f67063a7f51dbb2d95b3faaa4647b83290dea",
+      "spas": [
+        883
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 890,
+      "moveName": "Armor Cannon",
+      "file": "5_00000890.bin",
+      "bytes": 2154,
+      "sha256": "dc566dad368c4b14ecf25e8b32baff7ca15d4561f6539a2e8562ec7505dac639",
+      "spas": [
+        845
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 891,
+      "moveName": "Bitter Blade",
+      "file": "5_00000891.bin",
+      "bytes": 1198,
+      "sha256": "3f69d1e215e4fa64f24dfdaac646135aa244264032765be2f00c4a29069a79d3",
+      "spas": [
+        884
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 892,
+      "moveName": "Double Shock",
+      "file": "5_00000892.bin",
+      "bytes": 1784,
+      "sha256": "91e099baa81050701477aef60d1a8f54cf3b05947c77b50b29424316283e3a52",
+      "spas": [
+        932
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 893,
+      "moveName": "Gigaton Hammer",
+      "file": "5_00000893.bin",
+      "bytes": 1668,
+      "sha256": "2e436d18f48f4a59d41ac6f2c98f5574d3b6bc8872cbd6bb81de64403484b387",
+      "spas": [
+        933
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 894,
+      "moveName": "Comeuppance",
+      "file": "5_00000894.bin",
+      "bytes": 1312,
+      "sha256": "bc17fbbdb6d16792eacbcac615b79e50de21a9a5b6d7fba1179c5c412721b2eb",
+      "spas": [
+        887
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 895,
+      "moveName": "Aqua Cutter",
+      "file": "5_00000895.bin",
+      "bytes": 1070,
+      "sha256": "5e06477877987b52a64213cb9d47fa37068deec50c90bb7379285a9ca0c4d9d9",
+      "spas": [
+        888
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 896,
+      "moveName": "Blazing Torque",
+      "file": "5_00000896.bin",
+      "bytes": 1222,
+      "sha256": "8f3cdc14865e7f69f1526c9083910ad5914ca7e357d3a3bdfb218626c0b68195",
+      "spas": [
+        889
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 897,
+      "moveName": "Wicked Torque",
+      "file": "5_00000897.bin",
+      "bytes": 1266,
+      "sha256": "73fbf2b467c18d601b8e4b6cf6758b4232e7310c38d564e8d936e3714cc4c487",
+      "spas": [
+        890
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 898,
+      "moveName": "Noxious Torque",
+      "file": "5_00000898.bin",
+      "bytes": 1266,
+      "sha256": "3bf083c1b07aefd864bdd6f28b5a6df31e430b6044bdd3f047bbdb0872abc9e5",
+      "spas": [
+        891
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 899,
+      "moveName": "Combat Torque",
+      "file": "5_00000899.bin",
+      "bytes": 1222,
+      "sha256": "26231efec150904707b203d18f36a3e365883605452e5a726e29a35ba4b8a382",
+      "spas": [
+        892
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 900,
+      "moveName": "Magical Torque",
+      "file": "5_00000900.bin",
+      "bytes": 1222,
+      "sha256": "4efa56c3ece1d4a5d3345c12e67e5c331ffb78d637348226c4db08e22254a9ae",
+      "spas": [
+        893
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 901,
+      "moveName": "Blood Moon",
+      "file": "5_00000901.bin",
+      "bytes": 1230,
+      "sha256": "364b73fa3e5a3d8fafaab9b191066ec0927790a62ef52305ae08b3c484b4074e",
+      "spas": [
+        894
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 902,
+      "moveName": "Matcha Gotcha",
+      "file": "5_00000902.bin",
+      "bytes": 1282,
+      "sha256": "2953f0c13cfe9278ee3bb5aeef3c7fb750d25da32d08254212dc7f153b21ba8f",
+      "spas": [
+        895
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 903,
+      "moveName": "Syrup Bomb",
+      "file": "5_00000903.bin",
+      "bytes": 980,
+      "sha256": "216e77dbd62d115d3d73a813dd9e935845e7096699f62fc549399f745326d35c",
+      "spas": [
+        896
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 904,
+      "moveName": "Ivy Cudgel",
+      "file": "5_00000904.bin",
+      "bytes": 1282,
+      "sha256": "8661993d9e2081e538319d587bfa8636951de1862260f32e25472daca03be205",
+      "spas": [
+        897
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 905,
+      "moveName": "Electro Shot",
+      "file": "5_00000905.bin",
+      "bytes": 1716,
+      "sha256": "54d65e655a7291453fb6d1e88180adea8707840972db32d12c4328271becaaaf",
+      "spas": [
+        898
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 906,
+      "moveName": "Tera Starstorm",
+      "file": "5_00000906.bin",
+      "bytes": 2228,
+      "sha256": "a5ccee3fcab1f8890bcd8201b65c58fe6a00f74d818a841ddc0c067cd7ef026b",
+      "spas": [
+        934
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 907,
+      "moveName": "Fickle Beam",
+      "file": "5_00000907.bin",
+      "bytes": 1456,
+      "sha256": "2bece0cb9ae5fc981b7e470abe33c0e48b56a9d29393991c23c3983a8b53e4b5",
+      "spas": [
+        935
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 908,
+      "moveName": "Burning Bulwark",
+      "file": "5_00000908.bin",
+      "bytes": 708,
+      "sha256": "afa3d25b29eed7a48f06c0e5f949e8f5ec2a3fc026e2dd1547d63be96439df1d",
+      "spas": [
+        901
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 909,
+      "moveName": "Thunderclap",
+      "file": "5_00000909.bin",
+      "bytes": 1012,
+      "sha256": "50f19e7356b46bc2a9f542791801756b8a043798465068c954a1245d6b53c0ed",
+      "spas": [
+        902
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 910,
+      "moveName": "Mighty Cleave",
+      "file": "5_00000910.bin",
+      "bytes": 1200,
+      "sha256": "425d7dcfdb2339433223d813c2495423a1c36b30b25a62256e48186cafdc20a3",
+      "spas": [
+        903
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 911,
+      "moveName": "Tachyon Cutter",
+      "file": "5_00000911.bin",
+      "bytes": 1384,
+      "sha256": "9e8efb060c96d0cf73d9a23d612ecfd65e65939494f694808109e89265db9415",
+      "spas": [
+        936
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 912,
+      "moveName": "Hard Press",
+      "file": "5_00000912.bin",
+      "bytes": 1240,
+      "sha256": "dae991a2d045388b8ad6364e998bde37977ea741a23445bac09249e0af5be079",
+      "spas": [
+        905
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 913,
+      "moveName": "Dragon Cheer",
+      "file": "5_00000913.bin",
+      "bytes": 1730,
+      "sha256": "06cd0253243e29dc686953ff94bcf0bb9e7ba67a88f96ee0f79a2a2a5ae3aec3",
+      "spas": [
+        906
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 914,
+      "moveName": "Alluring Voice",
+      "file": "5_00000914.bin",
+      "bytes": 1208,
+      "sha256": "5e449f78798c2f2558959a02a2d36f1ebd06b0ba58ab9e8349536444cdddf9e6",
+      "spas": [
+        907
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 915,
+      "moveName": "Temper Flare",
+      "file": "5_00000915.bin",
+      "bytes": 1640,
+      "sha256": "98743f8d38afc68ece307510a408290b9656fd7f9a9203c2a091457bccc6f766",
+      "spas": [
+        937
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 916,
+      "moveName": "Supercell Slam",
+      "file": "5_00000916.bin",
+      "bytes": 1896,
+      "sha256": "efa1350a7d8ee0dc5f68683828a9408ca7f0278660d3ebda49d480fee68e52b8",
+      "spas": [
+        938
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 917,
+      "moveName": "Psychic Noise",
+      "file": "5_00000917.bin",
+      "bytes": 1572,
+      "sha256": "eba52b04fb7cbfad7fcfb08bb430b7bf3975a4672ddda606cbf805b4c38a81c0",
+      "spas": [
+        939
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 918,
+      "moveName": "Upper Hand",
+      "file": "5_00000918.bin",
+      "bytes": 1164,
+      "sha256": "e8b5ff81fe40ef4f2f88afad89b69d4e2b6f2893d88a54cc951fe72d21983d4a",
+      "spas": [
+        940
+      ],
+      "backgrounds": [],
+      "calledAnimations": []
+    },
+    {
+      "moveId": 919,
+      "moveName": "Malignant Chain",
+      "file": "5_00000919.bin",
+      "bytes": 2334,
+      "sha256": "f1831b2c0b3afdd8a10dcbae42b4a7044cf5fc10ddd63496ee13ab3dcb9c2c76",
+      "spas": [
+        941
       ],
       "backgrounds": [],
       "calledAnimations": []
@@ -2644,7 +3530,7 @@
       "spaId": 826,
       "file": "6_00000826.bin",
       "bytes": 2420,
-      "sha256": "03cb8edfc2c3013de48d64bb434afcf1237f9b9f58665baee744c3e280db18f5",
+      "sha256": "a9aeb63d57f67c8d1a2724d7808d741888487a277d191e0db78adfca789e170c",
       "resources": 2,
       "textures": 2,
       "usedByMoves": [
@@ -2655,11 +3541,795 @@
       "spaId": 827,
       "file": "6_00000827.bin",
       "bytes": 5436,
-      "sha256": "9d2c7d7880deb2305b11bb087eec3459670f3143476c42d548d1a3d31d750e55",
+      "sha256": "9e31a454c93f556007773b208572b4706c4c6ccd7dd069edf0f7791eeda8b8a5",
       "resources": 2,
       "textures": 2,
       "usedByMoves": [
         781
+      ]
+    },
+    {
+      "spaId": 828,
+      "file": "6_00000828.bin",
+      "bytes": 15216,
+      "sha256": "90d1701967e2a87e12c4b568d6550e74ce8f0c4a44b31e0f79b839f7c4299c07",
+      "resources": 5,
+      "textures": 5,
+      "usedByMoves": []
+    },
+    {
+      "spaId": 829,
+      "file": "6_00000829.bin",
+      "bytes": 9716,
+      "sha256": "1eebb7f4557bb264f49baf45b2c71976ccf2545b809b9b71a22f816c58a7a28b",
+      "resources": 3,
+      "textures": 3,
+      "usedByMoves": []
+    },
+    {
+      "spaId": 830,
+      "file": "6_00000830.bin",
+      "bytes": 10952,
+      "sha256": "bd1984ca0a0aa3fa5a7b02e80c1964d3d7ad5f7532c306f0c9098319e45fd451",
+      "resources": 4,
+      "textures": 4,
+      "usedByMoves": []
+    },
+    {
+      "spaId": 831,
+      "file": "6_00000831.bin",
+      "bytes": 35284,
+      "sha256": "9644db3bf80f5c6736fc6719a55a8dec825a9f6216faa538c3ec7073de4bd5b7",
+      "resources": 8,
+      "textures": 12,
+      "usedByMoves": []
+    },
+    {
+      "spaId": 845,
+      "file": "6_00000845.bin",
+      "bytes": 41316,
+      "sha256": "627881bd3956a2b6c1d2b5f7958b4e4771edefbaa45c5209f28979d032bb7876",
+      "resources": 25,
+      "textures": 10,
+      "usedByMoves": [
+        890
+      ]
+    },
+    {
+      "spaId": 846,
+      "file": "6_00000846.bin",
+      "bytes": 22548,
+      "sha256": "65c806018233921570a6b24fc5379b162cd8cff7f6f53d9488533a8ae9f8b606",
+      "resources": 7,
+      "textures": 5,
+      "usedByMoves": [
+        852
+      ]
+    },
+    {
+      "spaId": 847,
+      "file": "6_00000847.bin",
+      "bytes": 31352,
+      "sha256": "5b169a780e4640b3c0f96fbaf136fddf1a19af974515e9518f7b228284b4bb90",
+      "resources": 11,
+      "textures": 8,
+      "usedByMoves": [
+        853
+      ]
+    },
+    {
+      "spaId": 854,
+      "file": "6_00000854.bin",
+      "bytes": 13968,
+      "sha256": "402ec783eeb46a4dd7ba132d03be0ba16dd3f3095c4f22dfcebe2298e6c55fc3",
+      "resources": 4,
+      "textures": 4,
+      "usedByMoves": [
+        860
+      ]
+    },
+    {
+      "spaId": 857,
+      "file": "6_00000857.bin",
+      "bytes": 27084,
+      "sha256": "046cb9e110465cdcf2875e3f70fc2e53c08bc5f87e8630e23224c2299b534bea",
+      "resources": 10,
+      "textures": 7,
+      "usedByMoves": [
+        863
+      ]
+    },
+    {
+      "spaId": 861,
+      "file": "6_00000861.bin",
+      "bytes": 14340,
+      "sha256": "4362b75704c6814b58aa9a02402c2dd610eb0886fcd01138b37d039b2c73f17d",
+      "resources": 7,
+      "textures": 4,
+      "usedByMoves": [
+        867
+      ]
+    },
+    {
+      "spaId": 862,
+      "file": "6_00000862.bin",
+      "bytes": 17064,
+      "sha256": "6a317e291c9e3619c3cd6faee4845c5e06b67406b35c59852d200438474c1d3a",
+      "resources": 4,
+      "textures": 4,
+      "usedByMoves": [
+        868
+      ]
+    },
+    {
+      "spaId": 863,
+      "file": "6_00000863.bin",
+      "bytes": 18700,
+      "sha256": "331ac8e0c275d55e4f2a9cfcbd2187b87f634808c013fdeb824a7b257b5fe3ba",
+      "resources": 9,
+      "textures": 5,
+      "usedByMoves": [
+        869
+      ]
+    },
+    {
+      "spaId": 867,
+      "file": "6_00000867.bin",
+      "bytes": 25252,
+      "sha256": "0b5c5037845992c67a7801acce5b1a9c3ab6acbf6a41aeca25e8494a31f32489",
+      "resources": 11,
+      "textures": 8,
+      "usedByMoves": [
+        873
+      ]
+    },
+    {
+      "spaId": 868,
+      "file": "6_00000868.bin",
+      "bytes": 18868,
+      "sha256": "f23eaef1a07e9b884ec84bc1962acd1c2c7061697cc672dc02453734e5cef8cd",
+      "resources": 9,
+      "textures": 8,
+      "usedByMoves": [
+        874
+      ]
+    },
+    {
+      "spaId": 872,
+      "file": "6_00000872.bin",
+      "bytes": 31476,
+      "sha256": "872b0edaa810e06e58ed3cce24d24be3d4e4eb0b068275d58e7e3d97bdc746b7",
+      "resources": 12,
+      "textures": 8,
+      "usedByMoves": [
+        878
+      ]
+    },
+    {
+      "spaId": 873,
+      "file": "6_00000873.bin",
+      "bytes": 42576,
+      "sha256": "9ca6fc49611dfd654d7c59e7515956964a66b2943ec49432db3d4d17d5fe575a",
+      "resources": 10,
+      "textures": 10,
+      "usedByMoves": [
+        879
+      ]
+    },
+    {
+      "spaId": 874,
+      "file": "6_00000874.bin",
+      "bytes": 5584,
+      "sha256": "2b1f910ba0273c7d2ff6f6885065e2873f12b85cc5ea0376177a37dd8863c171",
+      "resources": 3,
+      "textures": 2,
+      "usedByMoves": [
+        880
+      ]
+    },
+    {
+      "spaId": 875,
+      "file": "6_00000875.bin",
+      "bytes": 14216,
+      "sha256": "d1a1cf4e1036d30f1e8afd0de0af5d2c6c7cdd733b5d633cb99fb2f790fe485a",
+      "resources": 6,
+      "textures": 4,
+      "usedByMoves": [
+        881
+      ]
+    },
+    {
+      "spaId": 877,
+      "file": "6_00000877.bin",
+      "bytes": 8540,
+      "sha256": "8743f79f9fd70bc4715d3dd1767ddf9293643714eb02a0a1ad4369553ba81a5b",
+      "resources": 2,
+      "textures": 2,
+      "usedByMoves": [
+        883
+      ]
+    },
+    {
+      "spaId": 878,
+      "file": "6_00000878.bin",
+      "bytes": 17160,
+      "sha256": "7800a7d7e9f1979c8d8dca152105a31c8ec694716efad8b4610fbbd0d94b7356",
+      "resources": 5,
+      "textures": 4,
+      "usedByMoves": [
+        884
+      ]
+    },
+    {
+      "spaId": 879,
+      "file": "6_00000879.bin",
+      "bytes": 18492,
+      "sha256": "aefc103f1a2ac2495bf1de3b55e9d2cac124fd067dda4af9719add8e6b2d2212",
+      "resources": 7,
+      "textures": 5,
+      "usedByMoves": [
+        885
+      ]
+    },
+    {
+      "spaId": 880,
+      "file": "6_00000880.bin",
+      "bytes": 23660,
+      "sha256": "b605c9585906959e81c6066331add3f2a3b9bfb941d2c0085f235c40f564cb5f",
+      "resources": 7,
+      "textures": 7,
+      "usedByMoves": [
+        886
+      ]
+    },
+    {
+      "spaId": 881,
+      "file": "6_00000881.bin",
+      "bytes": 50920,
+      "sha256": "855a9c8a6650428a0229b6ecdc884d1141dd0bf1918cff5e509e1fcadcf0c31a",
+      "resources": 9,
+      "textures": 12,
+      "usedByMoves": [
+        887
+      ]
+    },
+    {
+      "spaId": 883,
+      "file": "6_00000883.bin",
+      "bytes": 25144,
+      "sha256": "3b66ca7dd18d62acedaed0bf1bcec9c91dcccaa1dbdfabd713800254ce76962c",
+      "resources": 10,
+      "textures": 8,
+      "usedByMoves": [
+        889
+      ]
+    },
+    {
+      "spaId": 884,
+      "file": "6_00000884.bin",
+      "bytes": 23900,
+      "sha256": "97d2e6cf3a479d5136c84266e3c5466928642e9627161b87f4f97ecb0e280ea0",
+      "resources": 9,
+      "textures": 7,
+      "usedByMoves": [
+        891
+      ]
+    },
+    {
+      "spaId": 887,
+      "file": "6_00000887.bin",
+      "bytes": 39636,
+      "sha256": "31f5406c727b3f72decaa69741dad56a04c807dd627fdd253a5f48d1e0e433ac",
+      "resources": 11,
+      "textures": 10,
+      "usedByMoves": [
+        894
+      ]
+    },
+    {
+      "spaId": 888,
+      "file": "6_00000888.bin",
+      "bytes": 31500,
+      "sha256": "14aa0df3a648b4a4ebb873f605dff70cd6a8c675a4c065299adeb59fe00e4f22",
+      "resources": 12,
+      "textures": 8,
+      "usedByMoves": [
+        895
+      ]
+    },
+    {
+      "spaId": 889,
+      "file": "6_00000889.bin",
+      "bytes": 28148,
+      "sha256": "50b374ea998291bf846cbd4250d36f487188285c3ddc9efbb10ec35d8260033b",
+      "resources": 10,
+      "textures": 8,
+      "usedByMoves": [
+        896
+      ]
+    },
+    {
+      "spaId": 890,
+      "file": "6_00000890.bin",
+      "bytes": 32280,
+      "sha256": "f587d80234e31b58ca1cab899e90eefd8aa16fb772574e02523ac2d173315f5a",
+      "resources": 10,
+      "textures": 9,
+      "usedByMoves": [
+        897
+      ]
+    },
+    {
+      "spaId": 891,
+      "file": "6_00000891.bin",
+      "bytes": 28156,
+      "sha256": "01278cd9d8e9496fb8cbd5c365c3e5a6114f2791545f1da349d1ace56e8d796b",
+      "resources": 10,
+      "textures": 8,
+      "usedByMoves": [
+        898
+      ]
+    },
+    {
+      "spaId": 892,
+      "file": "6_00000892.bin",
+      "bytes": 28148,
+      "sha256": "85ae4d85d988b01b9b5fb0d3ee231be1404285fadb440a35c1e604dfaa1ce718",
+      "resources": 10,
+      "textures": 8,
+      "usedByMoves": [
+        899
+      ]
+    },
+    {
+      "spaId": 893,
+      "file": "6_00000893.bin",
+      "bytes": 32280,
+      "sha256": "51e5586921bfaf4cc76b4a4c4b3fda5acc13df49ff33ce001825056d4d831d48",
+      "resources": 10,
+      "textures": 9,
+      "usedByMoves": [
+        900
+      ]
+    },
+    {
+      "spaId": 894,
+      "file": "6_00000894.bin",
+      "bytes": 24192,
+      "sha256": "676713210c33b2ad294edd27d0151876643cf210aa0c668389025c6dc9b7174e",
+      "resources": 11,
+      "textures": 7,
+      "usedByMoves": [
+        901
+      ]
+    },
+    {
+      "spaId": 895,
+      "file": "6_00000895.bin",
+      "bytes": 16832,
+      "sha256": "b5a9c0d53ca5ddd04d99d73f39424d5559a7a7e75c6aea03fbc56034c5fb2e07",
+      "resources": 10,
+      "textures": 6,
+      "usedByMoves": [
+        902
+      ]
+    },
+    {
+      "spaId": 896,
+      "file": "6_00000896.bin",
+      "bytes": 7280,
+      "sha256": "f4e5b91bd82f1728b08032e599e6d18941a09106cf0b70be8eb1e69d5adc661f",
+      "resources": 8,
+      "textures": 3,
+      "usedByMoves": [
+        903
+      ]
+    },
+    {
+      "spaId": 897,
+      "file": "6_00000897.bin",
+      "bytes": 35620,
+      "sha256": "ef7df0910cec6f5f38b3ed2372f84baf55eab8f5678bd508a7e8d65a962ebc90",
+      "resources": 12,
+      "textures": 9,
+      "usedByMoves": [
+        904
+      ]
+    },
+    {
+      "spaId": 898,
+      "file": "6_00000898.bin",
+      "bytes": 35744,
+      "sha256": "867b145791abee8331bf41d3363bd216961cdf89442b15c965054bb154b39729",
+      "resources": 13,
+      "textures": 9,
+      "usedByMoves": [
+        905
+      ]
+    },
+    {
+      "spaId": 901,
+      "file": "6_00000901.bin",
+      "bytes": 22604,
+      "sha256": "3be538884b432eab1dc944c3cdfcb8edcb35999c9ba98aaecb421ed551683c38",
+      "resources": 7,
+      "textures": 6,
+      "usedByMoves": [
+        908
+      ]
+    },
+    {
+      "spaId": 902,
+      "file": "6_00000902.bin",
+      "bytes": 44524,
+      "sha256": "f54556c1656bd81a306fab12f65c7a359e79babb8ae1a5e0478c4975cb7f8b66",
+      "resources": 9,
+      "textures": 12,
+      "usedByMoves": [
+        909
+      ]
+    },
+    {
+      "spaId": 903,
+      "file": "6_00000903.bin",
+      "bytes": 24224,
+      "sha256": "a5a4c9415acb3c93979eb78e8953ff7b195f528fdf3fb6e6e4d45c5001e7b9e0",
+      "resources": 11,
+      "textures": 7,
+      "usedByMoves": [
+        910
+      ]
+    },
+    {
+      "spaId": 905,
+      "file": "6_00000905.bin",
+      "bytes": 19000,
+      "sha256": "56d14cace16dfc71ffa90b553a48d3c08da2401ba1fdaaf5f995614c8d180511",
+      "resources": 11,
+      "textures": 5,
+      "usedByMoves": [
+        912
+      ]
+    },
+    {
+      "spaId": 906,
+      "file": "6_00000906.bin",
+      "bytes": 52448,
+      "sha256": "32dcfc32d488903d972c34d72aa5ff3200c660a0b4a6d50a36b57a4e787f64e1",
+      "resources": 15,
+      "textures": 13,
+      "usedByMoves": [
+        913
+      ]
+    },
+    {
+      "spaId": 907,
+      "file": "6_00000907.bin",
+      "bytes": 50860,
+      "sha256": "cccebfb88105d28c72514bdf7f19583864579f83a96d0712b9779a635067d831",
+      "resources": 10,
+      "textures": 12,
+      "usedByMoves": [
+        914
+      ]
+    },
+    {
+      "spaId": 913,
+      "file": "6_00000913.bin",
+      "bytes": 28744,
+      "sha256": "a28c9d94997f6e540e7c492d3f8ad1a41b363a34893cbc3e8057fdc3558f35d5",
+      "resources": 15,
+      "textures": 8,
+      "usedByMoves": [
+        854
+      ]
+    },
+    {
+      "spaId": 914,
+      "file": "6_00000914.bin",
+      "bytes": 42044,
+      "sha256": "62ca46ab704f605a4ede106032fad31bda81ed7b51361b50bce8c86d16120ff0",
+      "resources": 31,
+      "textures": 10,
+      "usedByMoves": [
+        855
+      ]
+    },
+    {
+      "spaId": 915,
+      "file": "6_00000915.bin",
+      "bytes": 36656,
+      "sha256": "73a2951e3d19b6d00ab0c58f91d735e04077388edb93827859ae2b08c2929bcc",
+      "resources": 18,
+      "textures": 12,
+      "usedByMoves": [
+        856
+      ]
+    },
+    {
+      "spaId": 916,
+      "file": "6_00000916.bin",
+      "bytes": 46980,
+      "sha256": "9d9b74fd92214303ff9ac51a14f1ab2154603228b4690d05bec1c8fbe0f451a0",
+      "resources": 19,
+      "textures": 13,
+      "usedByMoves": [
+        857
+      ]
+    },
+    {
+      "spaId": 917,
+      "file": "6_00000917.bin",
+      "bytes": 15764,
+      "sha256": "7451ec07ff1218a6a0959e4bb2079233c44411cd8ab8fa3d0596f37ff3a27c78",
+      "resources": 9,
+      "textures": 5,
+      "usedByMoves": [
+        858
+      ]
+    },
+    {
+      "spaId": 918,
+      "file": "6_00000918.bin",
+      "bytes": 25692,
+      "sha256": "611b2c187caf3b37c92e7851143f82fcf925798250aae922ab035b34b362bf9d",
+      "resources": 14,
+      "textures": 8,
+      "usedByMoves": [
+        859
+      ]
+    },
+    {
+      "spaId": 919,
+      "file": "6_00000919.bin",
+      "bytes": 45460,
+      "sha256": "08c88e479787d0840c2b330d1891f52b85db3bed3847c1995c8bb3d0b90ad6bb",
+      "resources": 15,
+      "textures": 12,
+      "usedByMoves": [
+        861
+      ]
+    },
+    {
+      "spaId": 920,
+      "file": "6_00000920.bin",
+      "bytes": 37128,
+      "sha256": "e4ec328e29330bcd76ac922556feed0b966a11278fcf42f761d60b20f0e0bf37",
+      "resources": 16,
+      "textures": 10,
+      "usedByMoves": [
+        862
+      ]
+    },
+    {
+      "spaId": 921,
+      "file": "6_00000921.bin",
+      "bytes": 22344,
+      "sha256": "1e68683119295acf753d3ba569a69929fec11cbfb47f02c7b31974733a2c901d",
+      "resources": 21,
+      "textures": 7,
+      "usedByMoves": [
+        864
+      ]
+    },
+    {
+      "spaId": 922,
+      "file": "6_00000922.bin",
+      "bytes": 26912,
+      "sha256": "b1463a1802b7b279a34a226d9ba561a1ed28a4eb154f1576aeaa7010240d16cd",
+      "resources": 16,
+      "textures": 9,
+      "usedByMoves": [
+        865
+      ]
+    },
+    {
+      "spaId": 923,
+      "file": "6_00000923.bin",
+      "bytes": 15144,
+      "sha256": "fa157d7d1a156ac1808e0d0d527904a3558aebc502a6a36916912fb394b217b5",
+      "resources": 5,
+      "textures": 5,
+      "usedByMoves": [
+        866
+      ]
+    },
+    {
+      "spaId": 924,
+      "file": "6_00000924.bin",
+      "bytes": 43488,
+      "sha256": "31312d3be3acfcca5c60dfc6584838cd74d01f2a5a6c8b333c541b159f0f137b",
+      "resources": 16,
+      "textures": 13,
+      "usedByMoves": [
+        870
+      ]
+    },
+    {
+      "spaId": 925,
+      "file": "6_00000925.bin",
+      "bytes": 24456,
+      "sha256": "8d07fc748f702f7d9f55c606418e05258f644dfbff136a087edb9d1cd4e1452b",
+      "resources": 13,
+      "textures": 7,
+      "usedByMoves": [
+        871
+      ]
+    },
+    {
+      "spaId": 926,
+      "file": "6_00000926.bin",
+      "bytes": 33624,
+      "sha256": "31119cf0ae36ad96e6e900ec807709f9d8de5b32103a85fad62602d47caadfc9",
+      "resources": 21,
+      "textures": 9,
+      "usedByMoves": [
+        872
+      ]
+    },
+    {
+      "spaId": 927,
+      "file": "6_00000927.bin",
+      "bytes": 37640,
+      "sha256": "04e09301b3c654bd4a43eaf9d0b9a4bca3f2a02b78d9c862f2fba4b9e575dfb4",
+      "resources": 20,
+      "textures": 10,
+      "usedByMoves": [
+        875
+      ]
+    },
+    {
+      "spaId": 928,
+      "file": "6_00000928.bin",
+      "bytes": 29952,
+      "sha256": "ca73c3b0fbd1a92e3fb58d2a7c4a62e89a95a6842035b79fd881231627e798e2",
+      "resources": 16,
+      "textures": 9,
+      "usedByMoves": [
+        876
+      ]
+    },
+    {
+      "spaId": 929,
+      "file": "6_00000929.bin",
+      "bytes": 46356,
+      "sha256": "175c5c182f1ade27e4ceb637cd15a629a281982533a3f644d4c96906f4335a75",
+      "resources": 14,
+      "textures": 13,
+      "usedByMoves": [
+        877
+      ]
+    },
+    {
+      "spaId": 930,
+      "file": "6_00000930.bin",
+      "bytes": 19000,
+      "sha256": "ecb5b09acdacfc32cf1a2db6e8dec48748fef7cff3c5efdc93b4e2a6b60d9df7",
+      "resources": 11,
+      "textures": 5,
+      "usedByMoves": [
+        882
+      ]
+    },
+    {
+      "spaId": 931,
+      "file": "6_00000931.bin",
+      "bytes": 40096,
+      "sha256": "c34099fa47315b683b48e6223b128ec09692cf0a7136c37e5ac4b4108f5b03f5",
+      "resources": 15,
+      "textures": 10,
+      "usedByMoves": [
+        888
+      ]
+    },
+    {
+      "spaId": 932,
+      "file": "6_00000932.bin",
+      "bytes": 62380,
+      "sha256": "4865488191da8b9cb7f0be14367ae076d0c99996b5e500c7a740767587f3970f",
+      "resources": 19,
+      "textures": 16,
+      "usedByMoves": [
+        892
+      ]
+    },
+    {
+      "spaId": 933,
+      "file": "6_00000933.bin",
+      "bytes": 46712,
+      "sha256": "59c4ff97edbe980172496e67a1b020584a67909b94a793305b03f40cb9aa2803",
+      "resources": 17,
+      "textures": 13,
+      "usedByMoves": [
+        893
+      ]
+    },
+    {
+      "spaId": 934,
+      "file": "6_00000934.bin",
+      "bytes": 45196,
+      "sha256": "ceb3d0016511764fe0f8bdc4780133147a606be1a04abd6bcd55bccb0373f093",
+      "resources": 23,
+      "textures": 11,
+      "usedByMoves": [
+        906
+      ]
+    },
+    {
+      "spaId": 935,
+      "file": "6_00000935.bin",
+      "bytes": 40224,
+      "sha256": "0a34bc0f1cef43b49204deeef954b126545fef4b9c4da6b9da1f8b3d04ee702b",
+      "resources": 16,
+      "textures": 10,
+      "usedByMoves": [
+        907
+      ]
+    },
+    {
+      "spaId": 936,
+      "file": "6_00000936.bin",
+      "bytes": 26040,
+      "sha256": "0706fe04915a85df04855a354380bddae05905fbd08a343371007434fc83603c",
+      "resources": 10,
+      "textures": 6,
+      "usedByMoves": [
+        911
+      ]
+    },
+    {
+      "spaId": 937,
+      "file": "6_00000937.bin",
+      "bytes": 29952,
+      "sha256": "95b2f44d73e31e65394bbff757e938f72a7f10e7ea6a6f6161aab3a055f531fb",
+      "resources": 16,
+      "textures": 9,
+      "usedByMoves": [
+        915
+      ]
+    },
+    {
+      "spaId": 938,
+      "file": "6_00000938.bin",
+      "bytes": 70804,
+      "sha256": "0db39be8de47e29540747fcbcb1242a18e47e6fad78baee81c810b3103ada842",
+      "resources": 21,
+      "textures": 18,
+      "usedByMoves": [
+        916
+      ]
+    },
+    {
+      "spaId": 939,
+      "file": "6_00000939.bin",
+      "bytes": 47176,
+      "sha256": "6655ba0c0666928fe638cd44f0c73cb5480c39da71c84d133660fd629461a172",
+      "resources": 13,
+      "textures": 14,
+      "usedByMoves": [
+        917
+      ]
+    },
+    {
+      "spaId": 940,
+      "file": "6_00000940.bin",
+      "bytes": 24312,
+      "sha256": "475e32e56f407baa506b1ddae58d911a4e202adec8bf198d787a59fc3bb570fe",
+      "resources": 12,
+      "textures": 7,
+      "usedByMoves": [
+        918
+      ]
+    },
+    {
+      "spaId": 941,
+      "file": "6_00000941.bin",
+      "bytes": 25760,
+      "sha256": "49df2c3f3e123917da486cb29eb46819bb2142c046046047e37b4e793532853c",
+      "resources": 15,
+      "textures": 8,
+      "usedByMoves": [
+        919
       ]
     }
   ]
