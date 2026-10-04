@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { strFromU8, unzipSync } from "fflate";
 import { NARC } from "../nds/narc";
-import type { NarcName } from "../pokeweb/constants";
+import { BW2_MESSAGE_BANKS, type NarcName } from "../pokeweb/constants";
 import {
   GEN5_CALC_BRIDGE_CONFIG,
   generateCalcDownload,
@@ -14,10 +15,12 @@ import {
   trainerPokemonExportName,
 } from "../pokeweb/docGeneratorModel";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
+import { refreshDecodedTextState } from "../pokeweb/loader";
 import { OVERWORLD_GROUP_FORMATS, OVERWORLD_HEADER_FORMAT } from "../pokeweb/overworldModel";
 import { updatePokemonField } from "../pokeweb/pokemonModel";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import { decodeRecord, markDirty, type NarcStore, type ProjectState } from "../pokeweb/projectStore";
+import { encodeGen5TextBank, type Gen5TextEntry } from "../pokeweb/text";
 import { TYPE_CHART_OFFSET, TYPE_CHART_TYPES, updateTypeChartValue } from "../pokeweb/typeChartModel";
 
 describe("docGeneratorModel", () => {
@@ -137,6 +140,42 @@ describe("docGeneratorModel", () => {
     expect(zipText).toContain("voltwhiteplus_moves.txt");
     expect(zipText).toContain("voltwhiteplus_trainers.txt");
     expect(zipText).toContain("1 - Bulbasaur");
+  });
+
+  it("preserves Spanish names from encrypted message banks in all three UTF-8 docs", () => {
+    const project = makeProject();
+    project.texts.banks.moves![1] = "DEMOLICIÓN";
+    project.texts.banks.moves![2] = "PUÑO FUEGO";
+    project.texts.banks.abilities![1] = "Clorofila áéíóúñü";
+    project.texts.banks.tr_classes![1] = "Niña";
+    project.texts.banks.tr_names![7] = "Íñigo";
+    project.texts.banks.items![25] = "Poción";
+    project.texts.banks.locations![0] = "Ciudad Mayólica";
+    const messageFiles: Uint8Array[] = Array.from({ length: 488 }, () => new Uint8Array());
+    for (const [source, bankName] of BW2_MESSAGE_BANKS) {
+      const entries = project.texts.banks[bankName]!.map((text, index): Gen5TextEntry => [`0_${index}`, text, 0]);
+      messageFiles[typeof source === "number" ? source : source[0]] = encodeGen5TextBank(entries);
+    }
+    project.narcs.message_texts = makeStore("message_texts", messageFiles, messageFiles.length);
+    project.narcs.moves = makeStore("moves", Array.from({ length: 7 }, () => packRows(project.formats.moves!, [{}])), 7);
+    refreshDecodedTextState(project);
+
+    const zip = generateTextDocsDownload(project, "Black 2 Spain");
+    const files = unzipSync(zip.contents);
+    const pokedex = strFromU8(files["black2spain_pokedex.txt"]);
+    const moves = strFromU8(files["black2spain_moves.txt"]);
+    const trainers = strFromU8(files["black2spain_trainers.txt"]);
+
+    expect(pokedex).toContain("1 - Demolición");
+    expect(pokedex).toContain("15 - Puño Fuego");
+    expect(pokedex).toContain("Clorofila áéíóúñü");
+    expect(moves).toContain("Demolición");
+    expect(moves).toContain("Puño Fuego");
+    expect(trainers).toContain("Niña Íñigo");
+    expect(trainers).toContain("Poción");
+    expect(trainers).toContain("Ciudad Mayólica");
+    expect(project.texts.messageTexts![403][1][1]).toBe("DEMOLICIÓN");
+    expect(project.narcs.message_texts.dirty.size).toBe(0);
   });
 
   it("parses global item scripts for StoreInVar/WorkSetConst ground item ids", () => {

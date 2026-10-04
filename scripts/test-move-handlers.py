@@ -33,7 +33,7 @@ def state(emu, pointer):
             "previousMove": emu.memory.read_short(pointer + 0x14a),
             "previousMoveId": emu.memory.read_short(pointer + 0x14c),
             "statStages": [emu.memory.read_byte(pointer + 0xfc + i) for i in range(7)],
-            "conditions": [emu.memory.read_long(pointer + 28 + 4 * i) for i in range(6)],
+            "conditions": [emu.memory.read_long(pointer + 28 + 4 * i) for i in range(7)],
             "itemBlockedCondition": emu.memory.read_long(pointer + 28 + 4 * 19),
             "gastroAcidCondition": emu.memory.read_long(pointer + 28 + 4 * 16),
             "conditionFlags": emu.memory.read_byte(pointer + 0x155) | (emu.memory.read_byte(pointer + 0x156) << 8),
@@ -157,7 +157,7 @@ def verify_power(case, result, variant):
         check(calculation["category"] == variant["category"], "Wrong native move category")
         if "expectedMoveType" in case:
             check(calculation["moveType"] == case["expectedMoveType"], "Wrong native resolved move type")
-        check(calculation["critical"] == 0, "Unexpected critical hit")
+        check(calculation["critical"] == case.get("expectedCritical", 0), "Wrong critical-hit result")
         if variant["moveId"] == 803:
             check(attacker["stats"][4] < target["stats"][4], "Priority fixture must have a slower user")
         if expected_acted is not None:
@@ -166,14 +166,23 @@ def verify_power(case, result, variant):
             check(target["conditions"][case["expectedStatus"]] & 7, "Native setup did not establish the requested target status")
         stat_index = 0 if variant["category"] == 1 else 2
         defense_index = 1 if variant["category"] == 1 else 3
-        expected_damage = ((2 * attacker["level"] // 5 + 2) * power * attacker["stats"][stat_index] // target["stats"][defense_index]) // 50 + 2
+        attack_value = attacker["stats"][stat_index]
+        if "expectedAttackValue" in case:
+            check(calculation.get("attackValue") == case["expectedAttackValue"], "Wrong raw/staged/modified Body Press attacking value")
+            attack_value = case["expectedAttackValue"]
+        expected_damage = ((2 * attacker["level"] // 5 + 2) * power * attack_value // target["stats"][defense_index]) // 50 + 2
         # Native weather rounds before critical/random/STAB, not power or
         # final damage. A .5 tie rounds down at each fixed-ratio stage.
         expected_damage = (expected_damage * case.get("weatherRatio", 4096) + 2047) >> 12
+        if case.get("expectedCritical"):
+            expected_damage *= 2
         expected_damage = expected_damage * 85 // 100
         if case.get("expectedMoveType", variant.get("type")) in attacker.get("types", []):
             expected_damage = (expected_damage * 6144 + 2047) >> 12
         expected_damage = expected_damage * case.get("typeRatio", 4096) // 4096
+        if case.get("burnRatio"):
+            check(attacker["conditions"][4] & 7, "Native Flame Orb did not burn the attacker")
+            expected_damage = (expected_damage * case["burnRatio"] + 2047) >> 12
         check(calculation["preModifierDamage"] == expected_damage,
               f"Native pre-modifier damage {calculation['preModifierDamage']}, expected {expected_damage} from power {power}")
         if expected_powers[index] != variant["power"]:
@@ -193,7 +202,7 @@ def verify_power(case, result, variant):
             check(observed and all(value == expected for value in observed), "Wrong or unobserved native floating state")
         for side, expected in case.get("executionItems", {}).items():
             check(calculation[side]["item"] == expected, "Wrong held item at damage execution")
-        if expected_sub:
+        if expected_sub and not case.get("bypassSubstitute"):
             expected_sub = max(0, expected_sub - calculation["calculatedDamage"])
         else:
             expected_hp = max(0, expected_hp - calculation["calculatedDamage"])
@@ -397,6 +406,38 @@ def verify_take_heart(case, result, variant):
     return {"case": case["id"], "passed": True, "nativeSuccess": events[0]["success"],
             "userStages": after["attacker"]["statStages"], "defenderStages": after["defender"]["statStages"],
             "userStatus": active_status(after["attacker"]), "defenderStatus": active_status(after["defender"])}
+
+
+def verify_tidy_up(case, result, variant):
+    verify_completed(result, 882)
+    check(not result["damageCalls"], "Tidy Up incorrectly calculated damage")
+    before, after = result["before"], result["after"]
+    check(after["attacker"]["statStages"] == case["expectedUserStages"], "Wrong Tidy Up user boosts")
+    check(after["defender"]["statStages"] == before["defender"]["statStages"], "Tidy Up changed the opponent's stages")
+    events = result["takeHeartEvents"]
+    check(len(events) == 1 and events[0]["used"] and events[0]["success"] == case["nativeSuccess"], "Wrong native Tidy Up work/result")
+    check(events[0]["executingSlot"] == before["attacker"]["slot"], "Tidy Up was incorrectly stolen")
+    for side, key in (("attacker", "userSubstitute"), ("defender", "defenderSubstitute")):
+        if case.get(key):
+            check(before[side]["substituteHp"] > 0, "Required native Substitute was never established")
+        check(after[side]["substituteHp"] == 0, "Tidy Up left an active Substitute")
+        check(after[side]["hp"] == before[side]["hp"], "Tidy Up directly changed battler HP")
+    for side in range(2):
+        for index, effect in enumerate(("6", "7", "8")):
+            if "initialHazards" in case:
+                check(result["beforeSideEffects"][side][effect]["layers"] == case["initialHazards"][side][index], "Native hazard precondition not established")
+            check(result["afterSideEffects"][side][effect]["layers"] == 0, "Tidy Up left a native hazard")
+        if case.get("screensRemain"):
+            check(result["beforeSideEffects"][side]["0"]["layers"] > 0 and result["afterSideEffects"][side]["0"]["layers"] > 0, "Tidy Up removed or never established Reflect")
+    if "followup" in case:
+        next_ = case["followup"]
+        if next_["moveId"] == 564:
+            verify_completed(result["followup"], 564)
+            events = result["followup"]["takeHeartEvents"]
+            check(len(events) == 1 and events[0]["success"], "Sticky Web was not cleared: native reapplication failed")
+        else:
+            verify_power(next_["case"], result["followup"], {**variant, **{key: next_[key] for key in ("moveId", "power", "category", "type")}})
+    return {"case": case["id"], "passed": True, "nativeSuccess": case["nativeSuccess"]}
 
 
 def verify_hp_cost_boost(case, result, variant):
@@ -663,6 +704,30 @@ def verify_poltergeist(case, result, variant):
     return {**summary, "announcements": len(messages), "itemAfter": after["item"]}
 
 
+def verify_stat_history(case, result, variant):
+    summary = verify_power(case, result, variant)
+    calls = result["damageCalls"]
+    if "requiredOpponentMove" in case:
+        check(calls[0]["defender"]["previousMoveId"] == case["requiredOpponentMove"] and
+              calls[0]["defender"]["turnFlags"] & 2, "Stat-history opponent action never executed first")
+    if "expectedHistory" in case:
+        changes = [event for event in result["statHistoryEvents"] if event["slot"] == case["expectedHistory"]]
+        if case["historyVolume"]:
+            check(any(event["volume"] == case["historyVolume"] for event in changes), "Required applied stat event was not observed")
+        else:
+            check(not changes, "A prevented/replaced stage incorrectly emitted an applied change")
+    if "expectConditionalStatus" in case:
+        status = 4 if variant["moveId"] == 807 else 6
+        check(bool(result["after"]["defender"]["conditions"][status] & 7) == case["expectConditionalStatus"], "Wrong conditional burn/confusion result")
+    if case.get("bypassSubstitute"):
+        initial = calls[0]["defender"]["substituteHp"]
+        check(initial > 0 and result["after"]["defender"]["substituteHp"] == initial,
+              "Sound move did not bypass a real, preserved Substitute")
+    if "expectedBoosts" in case:
+        check(result["after"]["defender"]["statStages"] == case["expectedBoosts"], "Weakness Policy setup did not actually activate")
+    return summary
+
+
 class Observer:
     def __init__(self, emu, variant):
         self.emu, self.variant = emu, variant
@@ -691,6 +756,7 @@ class Observer:
         self.switch_in_events = []
         self.incoming_attacker = None
         self.selection_checks, self.selection_pending = [], {}
+        self.stat_history_events = []
         self.accuracy_ours = False
         self.accuracy_rolls, self.weather_reads = [], []
         self.weather_pending = {}
@@ -788,6 +854,19 @@ class Observer:
                     return
                 event.update(result=value, after=state(self.emu, event["clientPointer"]))
                 self.selection_checks.append(event)
+            self.returns[key] = self.emu.memory.register_exec(ret, returned)
+
+    def attack_stat(self, cpu, address):
+        if self.active_damage is None:
+            return
+        r = self.emu.memory.register_arm9
+        ret = r.lr & ~1
+        key = ("attack-stat", ret)
+        self.pending.setdefault(key, []).append(self.active_damage)
+        if key not in self.returns:
+            def returned(cpu, address):
+                if self.pending.get(key):
+                    self.pending[key].pop()["attackValue"] = self.emu.memory.register_arm9.r0
             self.returns[key] = self.emu.memory.register_exec(ret, returned)
 
     def rewrite(self, cpu, address):
@@ -929,6 +1008,10 @@ class Observer:
 
     def event_dispatch(self, cpu, address):
         r = self.emu.memory.register_arm9
+        if self.case and self.variant.get("moveId") in (807, 808, 914) and r.r1 == 0x5d:
+            volume = read_event_var(self.emu, 0x20)
+            self.stat_history_events.append({"slot": read_event_var(self.emu, 2),
+                "volume": volume if volume < 0x80000000 else volume - 0x100000000})
         if self.case and self.variant.get("moveId") in (792, 852, 908):
             if (r.r1 == 0x2e and read_event_var(self.emu, 4) == state(self.emu, self.pointers["attacker"])["slot"] and
                     read_event_var(self.emu, 3) == state(self.emu, self.pointers["defender"])["slot"]):
@@ -946,7 +1029,8 @@ class Observer:
             if slot >= 6:
                 self.pointers["defender"] = pointer
                 self.switch_in_events.append(mon)
-        if (self.case and self.active_move_id in (750, 850, 775, 868, 792, 852, 908) and r.r1 == 0xa0
+        if (self.case and self.active_move_id in (750, 850, 775, 868, 792, 852, 908, 882, 564)
+                and r.r1 == (0xa1 if self.active_move_id == 564 else 0xa0)
                 and read_event_var(self.emu, 0x12) == self.active_move_id):
             server, ret = r.r0, r.lr & ~1
             event = {"executingSlot": read_event_var(self.emu, 3),
@@ -1124,6 +1208,11 @@ def run_variant(args, spec):
                 # Explicit fixture preconditions, applied before any input. Never
                 # modify a calculated result or HP after the move begins.
                 target = observer.pointers["defender"]
+                if "userStats" in case:
+                    stats = case["userStats"]
+                    check(len(stats) == 5 and all(isinstance(value, int) and 0 < value <= 2000 for value in stats), "Invalid raw-stat fixture")
+                    for index, value in enumerate(stats):
+                        emu.memory.write_short(observer.pointers["attacker"] + 0xee + index * 2, value)
                 if "currentHp" in case:
                     check(0 < case["currentHp"] <= emu.memory.read_short(target + 14), "Invalid fixture current HP")
                     emu.memory.write_short(target + 16, case["currentHp"])
@@ -1164,6 +1253,7 @@ def run_variant(args, spec):
                     record["after"] = {side: state(emu, p) for side, p in observer.pointers.items()}
                     if "sideState" in variant:
                         record["afterSideEffects"] = read_side_effects(emu, variant["sideState"])
+                record["statHistoryEvents"] = observer.stat_history_events
                 record.update(damageCalls=observer.damage, rngOverrides=observer.rng_overrides,
                               announcements=observer.announcements, weatherReads=observer.weather_reads,
                               accuracyRolls=observer.accuracy_rolls, terrainEndMessages=observer.terrain_end_messages,
@@ -1192,6 +1282,8 @@ def run_variant(args, spec):
                     record["followup"].update(shieldEvents=observer.shield_events, shieldBreakEvents=observer.shield_break_events,
                         shieldHitEvents=observer.shield_hit_events, incomingDamageCalls=observer.incoming_damage)
                 summary = (verify_ruination(case, record) if manifest["move"] == "ruination" else
+                           verify_stat_history(case, record, variant) if manifest["move"] in ("lash-out", "burning-jealousy", "alluring-voice") else
+                           verify_tidy_up(case, record, variant) if manifest["move"] == "tidy-up" else
                            verify_dire_claw(case, record, variant) if manifest["move"] == "dire-claw" else
                            verify_take_heart(case, record, variant) if manifest["move"] == "take-heart" else
                            verify_hp_cost_boost(case, record, variant) if manifest["move"] in ("clangorous-soul", "fillet-away") else
@@ -1254,7 +1346,7 @@ def run_variant(args, spec):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--move", choices=["ice-spinner", "ruination", "barb-barrage", "dire-claw", "take-heart", "clangorous-soul", "fillet-away", "aura-wheel", "magic-powder", "obstruct", "silk-trap", "burning-bulwark", "hydro-steam", "terrain-pulse", "supercell-slam", "bolt-beak", "fishious-rend", "hard-press", "grav-apple", "psyblade", "rising-voltage", "scale-shot", "triple-axel", "steel-beam", "chloroblast", "steel-roller", "ceaseless-edge", "stone-axe", "collision-course", "electro-drift", "fickle-beam", "poltergeist", "grassy-glide", "bleakwind-storm", "sandsear-storm", "wildbolt-storm"], default="ruination")
+    parser.add_argument("--move", choices=["lash-out", "burning-jealousy", "alluring-voice", "tidy-up", "body-press", "ice-spinner", "ruination", "barb-barrage", "dire-claw", "take-heart", "clangorous-soul", "fillet-away", "aura-wheel", "magic-powder", "obstruct", "silk-trap", "burning-bulwark", "hydro-steam", "terrain-pulse", "supercell-slam", "bolt-beak", "fishious-rend", "hard-press", "grav-apple", "psyblade", "rising-voltage", "scale-shot", "triple-axel", "steel-beam", "chloroblast", "steel-roller", "ceaseless-edge", "stone-axe", "collision-course", "electro-drift", "fickle-beam", "poltergeist", "grassy-glide", "bleakwind-storm", "sandsear-storm", "wildbolt-storm"], default="ruination")
     parser.add_argument("--rom", type=Path, default=ROOT.parent.parent / "White2Upgrade.nds")
     parser.add_argument("--core", type=Path, help="Fresh stripped core DLL to install in the private fixture ROM")
     parser.add_argument("--save", type=Path, default=ROOT / "src/assets/testbattle/test.sav")
