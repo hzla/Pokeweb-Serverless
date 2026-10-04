@@ -40,6 +40,24 @@ describe("Gen V text backend", () => {
     expect(cleanDisplayText("\\x01E0\\x01E1 Trainer", false)).toBe("Pkmn Trainer");
   });
 
+  it("preserves international letters and title-cases complete Unicode words", () => {
+    expect(cleanDisplayText("áéíóúñü ÁÉÍÓÚÑÜ", false)).toBe("áéíóúñü ÁÉÍÓÚÑÜ");
+    expect(cleanDisplayText("DEMOLICIÓN", true)).toBe("Demolición");
+    expect(cleanDisplayText("PUÑO FUEGO", true)).toBe("Puño Fuego");
+    expect(cleanDisplayText("ÁCIDO ÉLITE", true)).toBe("Ácido Élite");
+    expect(cleanDisplayText("DÉMOLITION", true)).toBe("Démolition");
+    expect(cleanDisplayText("Pokémon ⑮ ⒆⒇", false)).toBe("Pokémon  F Pkmn");
+  });
+
+  it("round-trips Spanish letters in plain and compressed text without changing raw case", () => {
+    const entries: Gen5TextEntry[] = [
+      ["0_0", "DEMOLICIÓN áéíóúñü ÁÉÍÓÚÑÜ", 0],
+      ["0_1c", "Puño Fuego", 0],
+    ];
+    const decoded = decodeGen5TextBank(encodeGen5TextBank(entries));
+    expect(decoded.map(([id, text]) => [id, text])).toEqual(entries.map(([id, text]) => [id, text]));
+  });
+
   it("updates text banks in memory, rebuilds bytes, adds and deletes entries, and marks dirty", () => {
     const initial = encodeGen5TextBank([
       ["0_0", "Hello", 0],

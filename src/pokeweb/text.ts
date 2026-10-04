@@ -644,14 +644,12 @@ export function cleanDisplayText(value: string, nameCase = false): string {
     .replaceAll("⑮", " F")
     .replaceAll("⑭", " M")
     .replaceAll("⒆⒇", "Pkmn")
-    .replace(/\\x01E0\\x01E1/giu, "Pkmn")
-    .replaceAll("é", "e")
-    .replace(/[^\x00-\x7F]/gu, "");
+    .replace(/\\x01E0\\x01E1/giu, "Pkmn");
   return nameCase ? titleCaseName(cleaned) : cleaned;
 }
 
 function titleCaseName(value: string): string {
-  return value.replace(/[A-Za-z0-9]+/gu, (word) => {
+  return value.replace(/[\p{L}\p{M}\p{N}]+/gu, (word) => {
     if (/^\d+$/u.test(word)) return word;
     if (word.length === 1) return word.toUpperCase();
     return word[0].toUpperCase() + word.slice(1).toLowerCase();
