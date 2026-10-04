@@ -208,6 +208,39 @@ describe("testBattle", () => {
     expect(readLe16(patched, 0x47f9a)).toBe(crc16Ccitt(patched.subarray(0x47f00, 0x47f00 + 0x8c)));
   });
 
+  it.each(["BW", "BW2"] as const)("disables battle scenes in both %s save halves without changing other options or the input", (baseRom) => {
+    const config = getTestBattleConfig(baseRom);
+    const raw = rawSaveBytesFromDesmumeDsv(baseRom === "BW" ? whiteSave : white2Save);
+    const original = raw.slice();
+    const patched = patchTestBattleSaveMoveAnimations(raw, config, false);
+    const length = baseRom === "BW" ? 0x68 : 0xb0;
+    const checksumOffset = baseRom === "BW" ? 0x1946a : 0x194b2;
+    const allowed = new Set<number>();
+    for (const half of [0, config.saveLayout.saveHalfOffset]) {
+      expect(isTestBattleSaveMoveAnimationsEnabled(patched, config, half)).toBe(false);
+      expect(patched[half + 0x19400]).toBe(raw[half + 0x19400] | 0x80);
+      expect(readLe16(patched, half + checksumOffset)).toBe(crc16Ccitt(patched.subarray(half + 0x19400, half + 0x19400 + length)));
+      const tableEntry = half + config.saveLayout.checksumBlockOffset + 27 * 2;
+      expect(readLe16(patched, tableEntry)).toBe(readLe16(patched, half + checksumOffset));
+      expect(readLe16(patched, half + config.saveLayout.checksumBlockChecksumOffset!)).toBe(crc16Ccitt(patched.subarray(half + config.saveLayout.checksumBlockOffset, half + config.saveLayout.checksumBlockOffset + config.saveLayout.checksumBlockLength)));
+      allowed.add(half + 0x19400);
+      for (const offset of [half + checksumOffset, tableEntry, half + config.saveLayout.checksumBlockChecksumOffset!]) {
+        allowed.add(offset);
+        allowed.add(offset + 1);
+      }
+    }
+    const changed = [];
+    for (let i = 0; i < raw.length; i++) if (patched[i] !== raw[i]) changed.push(i);
+    expect(changed.every(offset => allowed.has(offset))).toBe(true);
+    expect(raw).toEqual(original);
+    const enabled = patchTestBattleSaveMoveAnimations(patched, config);
+    for (const half of [0, config.saveLayout.saveHalfOffset]) {
+      expect(isTestBattleSaveMoveAnimationsEnabled(enabled, config, half)).toBe(true);
+      expect(enabled[half + 0x19400]).toBe(raw[half + 0x19400] & ~0x80);
+    }
+    expect(patchTestBattleSaveMoveAnimations(patched, config, false)).toEqual(patched);
+  });
+
   it("resolves BW test battle save zone 62 to overworld 66 from headers", () => {
     const config = getTestBattleConfig("BW");
     const project = makeProjectWithHeader(62, 66);
