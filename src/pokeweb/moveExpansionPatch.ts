@@ -300,7 +300,7 @@ export async function installMoveExpansion(
     textEntriesAdded > 0;
   if (changed) {
     const animationDetail = animationBundle
-      ? ` Included ${animationBundle.moves.length} White2Upgrade Gen 6, 7 and 9 animation scripts and their particle and background dependencies.`
+      ? ` Included ${animationBundle.moves.length} White2Upgrade Gen 6-9 animation scripts and their particle and background dependencies.`
       : "";
     recordGenericChange(
       project,
@@ -900,7 +900,9 @@ export function parseMoveExpansionAnimationBundle(bytes: Uint8Array): MoveExpans
     manifest.generations[0] === 6 &&
     manifest.generations[1] === 7 &&
     (manifest.generations.length === 2 ||
-      (manifest.version === 3 && manifest.generations.length === 3 && manifest.generations[2] === 9));
+      (manifest.version === 3 &&
+        ((manifest.generations.length === 3 && [8, 9].includes(manifest.generations[2])) ||
+          (manifest.generations.length === 4 && manifest.generations[2] === 8 && manifest.generations[3] === 9))));
   if (manifest.format !== "pokeweb-move-expansion-animations" || (!legacyGen6 && !currentGenerations)) {
     throw new Error("The move-expansion animation bundle has an unsupported format or version.");
   }

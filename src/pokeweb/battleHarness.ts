@@ -161,6 +161,26 @@ export function patchHarnessTrainer(project: ProjectState, config: HarnessConfig
   harnessInteger(rule, 0, 3, "battle type");
   if (config.battleType !== undefined) data.raw.battle_type_1 = rule;
   const trainer = config.trainer;
+  // This is a test-only project. Explicit enemy abilities are authored into
+  // the selected Personal slot, then native trainer generation uses that slot.
+  // Validate all requests before modifying Personal; a species/form/slot cannot
+  // represent two different abilities in the same fixture ROM.
+  const overrides = new Map<string, { personalId: number; slot: number; abilityId: number }>();
+  for (const spec of trainer?.team ?? []) {
+    if (spec.abilityId === undefined) continue;
+    const mon = resolvePokemon(project, spec);
+    const key = `${mon.personalId}:${mon.abilitySlot}`;
+    const previous = overrides.get(key);
+    if (previous && previous.abilityId !== mon.abilityId) throw new Error(`Conflicting trainer ability overrides for Personal ${mon.personalId} slot ${mon.abilitySlot}; use different ability slots`);
+    overrides.set(key, { personalId: mon.personalId, slot: mon.abilitySlot, abilityId: mon.abilityId });
+  }
+  for (const { personalId, slot, abilityId } of overrides.values()) {
+    const personal = decodeRecord(project, "personal", personalId).raw!;
+    if (Number(personal[`ability_${slot}`]) !== abilityId) {
+      personal[`ability_${slot}`] = abilityId;
+      markDirty(project, "personal", personalId);
+    }
+  }
   if (trainer?.ai !== undefined) data.raw.ai = harnessInteger(trainer.ai, 0, 0xffffffff, "trainer AI flags");
   if (trainer?.trainerClass !== undefined) data.raw.class = harnessInteger(trainer.trainerClass, 0, 255, "trainerClass");
   if (trainer?.team) {
@@ -171,8 +191,6 @@ export function patchHarnessTrainer(project: ProjectState, config: HarnessConfig
     for (const [slot, spec] of trainer.team.entries()) {
       if (["currentHp", "status", "pp", "evs"].some(key => key in spec)) throw new Error("Trainer NARC teams do not support currentHp, status, pp, or EVs; use those fields on the player");
       const mon = resolvePokemon(project, spec);
-      const personal = getTestBattlePersonal(project, mon.speciesId, mon.formIndex).raw;
-      if (mon.abilityId !== Number(personal[`ability_${mon.abilitySlot}`])) throw new Error("Trainer abilityId must match a Personal ability slot; use abilitySlot");
       // Retail trainer data stores one byte of IV quality, not six separate IVs.
       if (new Set(Object.values(mon.ivs)).size !== 1) throw new Error("Trainer IVs must all be equal");
       Object.assign(party.raw, {

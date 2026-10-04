@@ -8,7 +8,7 @@ Use this map to choose a search scope. It describes the current working tree, no
 | ROM parsing, writing, and export | `src/nds/`, `src/pokeweb/loader.ts`, `src/pokeweb/exportRom.ts` | `src/pokeweb/projectMaterialize.ts`, `src/test/` |
 | Project state and browser persistence | `src/pokeweb/projectStore.ts`, `src/pokeweb/persistence.ts` | editor model and project tests |
 | Native code-injection patches | `runtime/<feature>/` | matching installer in `src/pokeweb/`, bundled DLL/RPM in `src/assets/` |
-| Automatic battle tests | `runtime/battle-harness/README.md`, `scripts/build-battle-harness.ts` | `src/pokeweb/battleHarness.ts`, `src/test/battleHarness.test.ts`, `scripts/test-battle-harness-headless.py` |
+| Automatic battle tests | `runtime/battle-harness/README.md`, `runtime/battle-harness/INTERACTION-TESTS.md`, `scripts/test-battle-interactions.py`, `scripts/test-move-handlers.py` | `src/pokeweb/battleHarness.ts`, `src/test/battleHarness.test.ts`, `scripts/build-battle-harness.ts`, `scripts/build-battle-interaction-fixtures.ts`, `scripts/build-move-handler-fixtures.ts`, `scripts/test-battle-harness-headless.py` |
 | Following Pokémon | `runtime/following-pokemon/README.md`, `runtime/following-pokemon/build.py` | `src/pokeweb/followingPokemonProject.ts`, `src/test/followingPokemon*.test.ts` |
 | LEARNSET and battle HUD | their `runtime/<feature>/README.md` | `src/assets/codeinjection/` and matching installer tests |
 | Asset conversion and visual references | relevant importer under `runtime/` or `scripts/` | `public/images/`, `move-animation-reference/`, `docs/` only as needed |

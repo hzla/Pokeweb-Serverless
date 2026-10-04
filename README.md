@@ -153,7 +153,7 @@ npm run black2upgrade:verify-rom
 
 ## Credits
 
-All supplied Gen 9 move animations are by **Log(n)**.
+All supplied Gen 8 and Gen 9 move animations are by **Log(n)**.
 
 Reference projects used while building:
 

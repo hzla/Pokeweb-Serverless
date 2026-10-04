@@ -18,6 +18,7 @@ dist/
 exports/
 projects/
 generated/
+# Local test fixtures, save copies, screenshots, logs and JSON reports.
 work/
 analysis/
 runtime/form-evolution/build/
@@ -44,3 +45,7 @@ src/test/local/
 !/scripts/lib/
 !/scripts/build-battle-harness.ts
 !/scripts/test-battle-harness-headless.py
+!/scripts/build-battle-interaction-fixtures.ts
+!/scripts/test-battle-interactions.py
+!/scripts/build-move-handler-fixtures.ts
+!/scripts/test-move-handlers.py

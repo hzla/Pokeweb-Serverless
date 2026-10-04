@@ -44,9 +44,9 @@ const rule = patchHarnessTrainer(project, config);
 const save = patchHarnessSave(rawSaveBytesFromDesmumeDsv(inputSave), project, config);
 const expandedPartyBootGuard = detectBw2Upgrade(project) === "white2-upgrade";
 if (expandedPartyBootGuard) patchHarnessExpandedPartyGuard(project, inputRom.loadArm9Overlays([36]).get(36)!);
-// Keep only explicitly authored trainer edits. Loading data for validation must
+// Keep only explicitly authored trainer/Personal edits. Loading data for validation must
 // not export editor normalization or incidental form-name repairs.
-for (const [name, store] of Object.entries(project.narcs)) if (name !== "trdata" && name !== "trpok" || !store?.dirty.size) delete project.narcs[name as keyof typeof project.narcs];
+for (const [name, store] of Object.entries(project.narcs)) if (!["trdata", "trpok", "personal"].includes(name) || !store?.dirty.size) delete project.narcs[name as keyof typeof project.narcs];
 await prepareBw2TestBattleCodeInjection(project);
 const build = await mkdtemp(`${tmpdir()}/pokeweb-battle-harness-`);
 let created: string[] = [];

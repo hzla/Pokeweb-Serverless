@@ -5,6 +5,7 @@ import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { configureHarnessRuntime, parseHarnessConfig, patchHarnessExpandedPartyGuard, patchHarnessSave, patchHarnessTrainer } from "../pokeweb/battleHarness";
 import { parseRpm, writeRpm } from "../pokeweb/rpm";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
+import { decodeRecord } from "../pokeweb/projectStore";
 import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import type { ProjectState, NarcStore } from "../pokeweb/projectStore";
 import { decryptPk5Party, patchTestBattleSavePlayerParty, refreshTestBattlePartyChecksums } from "../pokeweb/testBattleTeam";
@@ -158,11 +159,43 @@ describe("automatic battle harness", () => {
     expect(() => patchHarnessSave(save, project, { trainerId: 1, player: { edits: [{ slot: 0, currentHp: 65535 }] } })).toThrow(/currentHp/);
     expect(() => patchHarnessSave(save, project, { trainerId: 1, player: { team: [{ speciesId: 1, currentHp: 0 }] } })).toThrow(/eligible battler/);
     expect(() => patchHarnessSave(save, project, { trainerId: 1, player: { team: [{ speciesId: 1, form: 2 }] } })).toThrow(/Form 2/);
-    expect(() => patchHarnessTrainer(project, { trainerId: 1, trainer: { team: [{ speciesId: 1, abilityId: 99 }] } })).toThrow(/abilityId/);
+    expect(() => patchHarnessTrainer(project, { trainerId: 1, trainer: { team: [{ speciesId: 1, abilityId: 256 }] } })).toThrow(/abilityId/);
     const bad = save.slice(); bad[0x18e10] ^= 1; bad[0x26000 + 0x18e10] ^= 1;
     expect(() => patchHarnessSave(bad, project, { trainerId: 1 })).toThrow(/No valid/);
     const badMon = save.slice(); writeU16(badMon, 0x18e08 + 6, 0);
     // A torn block is excluded before a PK5 can be misinterpreted.
     expect(patchHarnessSave(badMon, project, { trainerId: 1 })).toEqual(badMon);
+  });
+  it("authors explicit enemy abilities into Personal slots without touching other rows or bytes", () => {
+    const { project } = fixture();
+    const before = project.narcs.personal!.rawFiles.map(row => row.slice());
+    patchHarnessTrainer(project, { trainerId: 1, trainer: { team: [
+      { speciesId: 1, abilitySlot: 1, abilityId: 50, moves: [1] },
+      { speciesId: 1, abilitySlot: 2, abilityId: 218, moves: [1] },
+    ] } });
+    expect([...project.narcs.personal!.dirty]).toEqual([1]);
+    materializeProjectEdits(project);
+    expect(project.narcs.personal!.rawFiles[0]).toEqual(before[0]);
+    expect(project.narcs.personal!.rawFiles[2]).toEqual(before[2]);
+    const row = project.narcs.personal!.rawFiles[1];
+    const allowed = new Set<number>();
+    let offset = 0;
+    for (const [size, key] of project.formats.personal!) {
+      if (key === "ability_1" || key === "ability_2") allowed.add(offset);
+      offset += size;
+    }
+    expect(Array.from(row, (value, at) => value === before[1][at] || allowed.has(at)).every(Boolean)).toBe(true);
+    expect(decodeRecord(project, "personal", 1).raw).toMatchObject({ ability_1: 50, ability_2: 218, ability_3: 3 });
+    expect(project.narcs.trpok!.rawFiles[1][1] >>> 4).toBe(1);
+    expect(project.narcs.trpok!.rawFiles[1][19] >>> 4).toBe(2);
+  });
+  it("rejects conflicting enemy Personal slot overrides before applying either", () => {
+    const { project } = fixture();
+    expect(() => patchHarnessTrainer(project, { trainerId: 1, trainer: { team: [
+      { speciesId: 1, abilitySlot: 2, abilityId: 50 },
+      { speciesId: 1, abilitySlot: 2, abilityId: 218 },
+    ] } })).toThrow(/Conflicting/);
+    expect(project.narcs.personal!.dirty.size).toBe(0);
+    expect(decodeRecord(project, "personal", 1).raw!.ability_2).toBe(2);
   });
 });

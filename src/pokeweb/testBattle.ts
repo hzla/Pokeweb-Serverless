@@ -739,11 +739,12 @@ export function isTestBattleSaveAllBadgesSet(saveBytes: Uint8Array, config: Test
   return (readLe32(saveBytes, halfOffset + config.saveLayout.miscBlockOffset + 4) & TEST_BATTLE_ALL_BADGES_MASK) === TEST_BATTLE_ALL_BADGES_MASK;
 }
 
-export function patchTestBattleSaveMoveAnimations(saveBytes: Uint8Array, config: TestBattleConfig): Uint8Array {
+/** Preserve other player options; browser tests enable animations by default. */
+export function patchTestBattleSaveMoveAnimations(saveBytes: Uint8Array, config: TestBattleConfig, enabled = true): Uint8Array {
   const out = saveBytes.slice();
-  patchTestBattleSaveMoveAnimationsHalf(out, config, 0);
+  patchTestBattleSaveMoveAnimationsHalf(out, config, 0, enabled);
   if (hasSaveHalf(out, config.saveLayout)) {
-    patchTestBattleSaveMoveAnimationsHalf(out, config, config.saveLayout.saveHalfOffset);
+    patchTestBattleSaveMoveAnimationsHalf(out, config, config.saveLayout.saveHalfOffset, enabled);
   }
   return out;
 }
@@ -752,10 +753,10 @@ export function isTestBattleSaveMoveAnimationsEnabled(saveBytes: Uint8Array, con
   return (saveBytes[halfOffset + TEST_BATTLE_PLAYER_DATA_BLOCK_OFFSET] & TEST_BATTLE_MOVE_ANIMATIONS_OFF_MASK) === 0;
 }
 
-function patchTestBattleSaveMoveAnimationsHalf(out: Uint8Array, config: TestBattleConfig, halfOffset: number): void {
+function patchTestBattleSaveMoveAnimationsHalf(out: Uint8Array, config: TestBattleConfig, halfOffset: number, enabled: boolean): void {
   const settingOffset = halfOffset + TEST_BATTLE_PLAYER_DATA_BLOCK_OFFSET;
   if (settingOffset >= out.length) throw new Error("The bundled test battle save is too small to contain player settings.");
-  out[settingOffset] &= ~TEST_BATTLE_MOVE_ANIMATIONS_OFF_MASK;
+  out[settingOffset] = (out[settingOffset] & ~TEST_BATTLE_MOVE_ANIMATIONS_OFF_MASK) | (enabled ? 0 : TEST_BATTLE_MOVE_ANIMATIONS_OFF_MASK);
   const isBw = config.baseRom === "BW";
   refreshTestBattleSaveBlockChecksum(
     out,
