@@ -43,7 +43,9 @@ export async function renderCustomUiEditor(project: ProjectState, container: HTM
   let accessEditor: ReturnType<typeof createCustomUiAccessPanel> | undefined;
   const status = el("p", "", "cui-status"), diagnostics = el("div", undefined, "cui-diagnostics");
   const title = el("h1", "Custom UI"); header.append(title, el("p", "Design two native DS screens. Turn on Interactable to try touch and button navigation."));
-  root.append(header, toolbar, status, columns, diagnostics); columns.append(left, center, rightRail); rightRail.append(right, accessPanel); center.append(previewToolbar);
+  const previewNotice = el("aside", undefined, "cui-preview-notice"); previewNotice.setAttribute("role", "note");
+  previewNotice.append(el("strong", "Experimental · Preview mode"), el("p", "The Custom UI editor is still under development. Previews may differ from in-game results, and ROM installation support is limited."));
+  root.append(header, previewNotice, toolbar, status, columns, diagnostics); columns.append(left, center, rightRail); rightRail.append(right, accessPanel); center.append(previewToolbar);
   const source = ensureCustomUi(project), history = new History(structuredClone(source.document));
   let activeScreen = history.document.screens[0].id, selected = new Set<string>(), zoom = 2, snap = true, interact = false, addTo: PhysicalScreen = "top", showRegions = true;
   let sample: GameData = structuredClone(fixtures.full), session: Interaction | undefined, compiled: Compilation, assets: Assets;

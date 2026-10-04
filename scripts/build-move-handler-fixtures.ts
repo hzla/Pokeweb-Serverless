@@ -1,4 +1,4 @@
-/** One-ROM, singles-only fixtures for focused move-handler regression suites. */
+/** One-ROM fixtures for focused native singles and doubles regressions. */
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
@@ -10,6 +10,8 @@ import { configureHarnessRuntime, patchHarnessExpandedPartyGuard, patchHarnessSa
 import { prepareBw2TestBattleCodeInjection, stageCodeInjectionDll } from "../src/pokeweb/pmcModel";
 import { detectBw2Upgrade } from "../src/pokeweb/black2UpgradeModel";
 import { getTestBattleConfig, patchTestBattleSaveMoveAnimations, rawSaveBytesFromDesmumeDsv } from "../src/pokeweb/testBattle";
+import type { HarnessPokemon } from "../src/pokeweb/battleHarness";
+import { doublesDefinitions, doublesVariants, type DoublesCase } from "./move-handler-doubles-fixtures";
 
 const args = new Map<string, string>();
 for (let i = 2; i < process.argv.length; i += 2) {
@@ -20,6 +22,8 @@ for (let i = 2; i < process.argv.length; i += 2) {
 for (const key of ["--move", "--rom", "--save", "--out"]) if (!args.has(key)) throw new Error(`Missing ${key}`);
 const moveName = args.get("--move")!;
 const definitions: Record<string, { id: number; type: number; power: number; category: number; accuracy: number; target?: number }> = {
+  ...doublesDefinitions,
+  coaching: { id: 811, type: 1, power: 0, category: 0, accuracy: 101, target: 2 },
   ruination: { id: 877, type: 16, power: 1, category: 2, accuracy: 90 },
   "barb-barrage": { id: 839, type: 3, power: 60, category: 1, accuracy: 100 },
   "dire-claw": { id: 827, type: 3, power: 80, category: 1, accuracy: 100 },
@@ -46,11 +50,32 @@ const definitions: Record<string, { id: number; type: number; power: number; cat
   chloroblast: { id: 835, type: 11, power: 150, category: 2, accuracy: 95 },
   "steel-roller": { id: 798, type: 8, power: 130, category: 1, accuracy: 100 },
   "ice-spinner": { id: 861, type: 14, power: 80, category: 1, accuracy: 100 },
+  "misty-explosion": { id: 802, type: 17, power: 100, category: 2, accuracy: 100, target: 4 },
+  "tar-shot": { id: 53, type: 9, power: 90, category: 2, accuracy: 100 },
+  "raging-bull": { id: 873, type: 0, power: 90, category: 1, accuracy: 100 },
+  "snap-trap": { id: 779, type: 11, power: 35, category: 1, accuracy: 100 },
+  "thunder-cage": { id: 819, type: 12, power: 80, category: 2, accuracy: 90 },
+  "no-retreat": { id: 748, type: 1, power: 0, category: 0, accuracy: 101, target: 7 },
+  "jaw-lock": { id: 746, type: 16, power: 80, category: 1, accuracy: 100 },
+  octolock: { id: 753, type: 1, power: 0, category: 0, accuracy: 100 },
+  "salt-cure": { id: 864, type: 5, power: 40, category: 1, accuracy: 100 },
+  "syrup-bomb": { id: 903, type: 11, power: 60, category: 2, accuracy: 85 },
+  "glaive-rush": { id: 862, type: 15, power: 120, category: 1, accuracy: 100 },
+  "stuff-cheeks": { id: 747, type: 0, power: 0, category: 0, accuracy: 101, target: 7 },
+  "corrosive-gas": { id: 810, type: 3, power: 0, category: 0, accuracy: 100, target: 4 },
+  "blood-moon": { id: 901, type: 0, power: 140, category: 2, accuracy: 100 },
+  "gigaton-hammer": { id: 893, type: 8, power: 160, category: 1, accuracy: 100 },
   "body-press": { id: 776, type: 1, power: 80, category: 1, accuracy: 100 },
   "tidy-up": { id: 882, type: 0, power: 0, category: 0, accuracy: 101, target: 7 },
   "lash-out": { id: 808, type: 16, power: 75, category: 1, accuracy: 100 },
   "burning-jealousy": { id: 807, type: 9, power: 70, category: 2, accuracy: 100, target: 5 },
   "alluring-voice": { id: 914, type: 17, power: 80, category: 2, accuracy: 100 },
+  "eerie-spell": { id: 826, type: 13, power: 80, category: 2, accuracy: 100 },
+  "encore-policy": { id: 227, type: 0, power: 0, category: 0, accuracy: 100 },
+  "meteor-beam": { id: 800, type: 5, power: 120, category: 2, accuracy: 90 },
+  "electro-shot": { id: 905, type: 12, power: 130, category: 2, accuracy: 100 },
+  "upper-hand": { id: 918, type: 1, power: 65, category: 1, accuracy: 100 },
+  "torque-policy": { id: 227, type: 0, power: 0, category: 0, accuracy: 100 },
   "ceaseless-edge": { id: 845, type: 16, power: 65, category: 1, accuracy: 90 },
   "stone-axe": { id: 830, type: 5, power: 65, category: 1, accuracy: 90 },
   "collision-course": { id: 878, type: 1, power: 100, category: 1, accuracy: 100 },
@@ -63,6 +88,9 @@ const definitions: Record<string, { id: number; type: number; power: number; cat
   "wildbolt-storm": { id: 847, type: 12, power: 100, category: 2, accuracy: 80, target: 5 },
 };
 const definition = definitions[moveName];
+const coaching = moveName === "coaching";
+const doublesSuite = Object.hasOwn(doublesDefinitions, moveName);
+const focusedDoubles = doublesVariants(moveName);
 if (!definition) throw new Error("Unsupported focused move suite");
 const moveId = definition.id, ruination = moveName === "ruination", barb = moveName === "barb-barrage";
 const direClaw = moveName === "dire-claw";
@@ -92,12 +120,28 @@ const hpCost = moveName === "steel-beam" || moveName === "chloroblast";
 const steelBeam = moveName === "steel-beam";
 const steelRoller = moveName === "steel-roller";
 const iceSpinner = moveName === "ice-spinner";
+const mistyExplosion = moveName === "misty-explosion";
+const tarShot = moveName === "tar-shot";
+const ragingBull = moveName === "raging-bull";
+const bindingMove = ["snap-trap", "thunder-cage"].includes(moveName);
+const persistentMove = ["no-retreat", "jaw-lock", "octolock", "salt-cure", "syrup-bomb"].includes(moveName);
+const noRetreat = moveName === "no-retreat", jawLock = moveName === "jaw-lock";
+const octolock = moveName === "octolock", saltCure = moveName === "salt-cure";
+const syrupBomb = moveName === "syrup-bomb";
+const glaiveRush = moveName === "glaive-rush", stuffCheeks = moveName === "stuff-cheeks";
+const consecutiveMove = ["blood-moon", "gigaton-hammer"].includes(moveName);
+const corrosiveGas = moveName === "corrosive-gas";
 const bodyPress = moveName === "body-press";
 const tidyUp = moveName === "tidy-up";
 const lashOut = moveName === "lash-out";
 const riseStatus = ["burning-jealousy", "alluring-voice"].includes(moveName);
 const statHistory = lashOut || riseStatus;
 const jealousy = moveName === "burning-jealousy";
+const eerieSpell = moveName === "eerie-spell", encorePolicy = moveName === "encore-policy";
+const energyCharge = ["meteor-beam", "electro-shot"].includes(moveName);
+const electroShot = moveName === "electro-shot";
+const upperHand = moveName === "upper-hand";
+const torquePolicy = moveName === "torque-policy";
 const hazards = moveName === "ceaseless-edge" || moveName === "stone-axe";
 const spikes = moveName === "ceaseless-edge";
 const collision = moveName === "collision-course", electro = moveName === "electro-drift", fickle = moveName === "fickle-beam";
@@ -126,41 +170,80 @@ if (!ruination) probes.push(
   { name: "ratio", address: 0x021a5b04, signature: "041c3220" },
   { name: "calculated", address: 0x021a5b26, signature: "08800398" },
 );
-if (bodyPress || lashOut) probes.push(
+if (bodyPress || lashOut || energyCharge || consecutiveMove) probes.push(
   { name: "attack_stat", address: 0x021aaecc, signature: "f8b51d1c071c28880e1c" },
 );
-if (poltergeist || steelRoller || iceSpinner) probes.push(
+if (eerieSpell || bindingMove) probes.push(
+  { name: "pp_work_push", address: 0x021ac424, signature: "014bc018014b1847781d0000" },
+  { name: "pp_work_pop", address: 0x021ac448, signature: "38b5051c0c1c00f023f8" },
+);
+if (bindingMove) probes.push({ name: "native_quotient", address: 0x021bd3c8, signature: "10b50c1c0e21" });
+if (poltergeist || steelRoller || iceSpinner || energyCharge) probes.push(
   { name: "message_setup", address: 0x021ac3b8, signature: "18b40904090c0906" },
   { name: "message_arg", address: 0x021ac3e0, signature: "18b444886204530e" },
 );
-if (direClaw || takeHeart || hpBoost || magicPowder || damageShield || tidyUp || statHistory) probes.push(
+if (doublesSuite || coaching || direClaw || takeHeart || hpBoost || magicPowder || damageShield || tidyUp || statHistory || encorePolicy || energyCharge || upperHand || torquePolicy || bindingMove || persistentMove || glaiveRush || stuffCheeks || corrosiveGas) probes.push(
   { name: "event_dispatch", address: 0x021bc940, signature: "08b50722012300f007f808bd" },
 );
-if (hpBoost) probes.push(
+if (doublesSuite) probes.push({name:"ui_phase",address:0x021cf004,signature:"10b5041c6369"});
+if (doublesSuite) probes.push({name:"spread_ratio",address:0x021a5a26,signature:"9202071c9142"});
+if (moveName === "make-it-rain") probes.push({name:"bonus_money",address:0x021abf68,signature:"38b5051c68680c1c"});
+if (doublesSuite) {
+  for (const [address,signature] of [
+    [0x021a5a22,"04220d999202071c9142"],
+    ...(moveName === "make-it-rain" ? [[0x0219cb00,"084bc25c1207d20f0bd1"],[0x0219cb24,"730400009f860100"],[0x0219f370,"c068014b1847c04601cb1902"]] : []),
+  ] as [number,string][]) {
+    const at = address - battle.ramAddress;
+    if (Buffer.from(battle.data.subarray(at,at+signature.length/2)).toString("hex") !== signature)
+      throw new Error("Unsupported native doubles damage/money layout");
+  }
+}
+if (doublesSuite) {
+  // Pin the callback identities/layout consumed by the native UI driver.
+  for (const [address, signature] of [
+    [0x021cf02c,"70b5051cbc300160"],
+    [0x021cf150,"08b5712189004058"],
+    [0x021cef90,"10b50c1c021c2068"],
+    [0x021cf1b0,"91ef1c02"],
+  ] as const) {
+    const at = address - battle.ramAddress;
+    if (Buffer.from(battle.data.subarray(at,at+signature.length/2)).toString("hex") !== signature)
+      throw new Error("Unsupported doubles UI callback contract");
+  }
+}
+if (hpBoost || stuffCheeks || consecutiveMove) probes.push(
   { name: "selection", address: 0x021b47f8, signature: "f0b585b0151c071c0e1c1c1ca52d02d1" },
 );
-if (storm || hydroSteam) probes.push(
+if (storm || hydroSteam || energyCharge) probes.push(
   { name: "weather", address: 0x021a65a0, signature: "70b50e4e041c301c16f0cefb" },
 );
 if (hydroSteam) probes.push(
   { name: "damage_weather", address: 0x021a5a3a, signature: "a17917f026fd011c012000038142" },
 );
-if (storm || supercellSlam || scaleShot || tripleAxel || hpCost || steelRoller || iceSpinner || hazards || auraWheel || magicPowder) probes.push(
+if (doublesSuite || storm || supercellSlam || scaleShot || tripleAxel || hpCost || steelRoller || iceSpinner || hazards || auraWheel || magicPowder || energyCharge || bindingMove || persistentMove || glaiveRush || corrosiveGas || consecutiveMove) probes.push(
   { name: "accuracy", address: 0x021a3544, signature: "f0b583b0061c0f1c151c1c1c" },
   { name: "accuracy_roll", address: 0x021a368e, signature: "642019f036fd2106090e8842" },
 );
-if (risingVoltage || terrainPulse) probes.push(
+if (risingVoltage || terrainPulse || mistyExplosion) probes.push(
   { name: "floating", address: 0x021aaa64, signature: "70b5051c02200c1c161c2bf021f8002808d1" },
 );
 for (const probe of probes) {
   const at = probe.address - battle.ramAddress;
   if (at < 0 || Buffer.from(battle.data.subarray(at, at + probe.signature.length / 2)).toString("hex") !== probe.signature) throw new Error(`Unsupported ${probe.name} probe signature`);
 }
+// ARM9 signature and battle-parameter layout are checked by validateHarnessRom.
+probes.push({ name: "battle_setup", address: 0x02016e38, signature: "f8b5051c161c0c1c1f1c2869" });
+if (bindingMove) {
+  const conditions = input.loadArm9Overlays([169]).get(169)!;
+  const address = 0x0689be56, signature = "00f05bf8a0800020";
+  if (Buffer.from(conditions.data.subarray(address - conditions.ramAddress, address - conditions.ramAddress + 8)).toString("hex") !== signature) throw new Error("Unsupported native bind residual call site");
+  probes.push({ name: "binding_residual", address, signature });
+}
 // Native US work-result aggregation: PopWork adds 0x1d78 to ServerFlow;
 // IsUsed extracts bit 30 and GetTotalResult extracts bit 29 of that state.
 // This observes whether either benefit really succeeded, including capped
 // stat-only failures, without writing native work results.
-if (takeHeart || hpBoost || magicPowder || damageShield || tidyUp) for (const [address, signature] of [
+if (coaching || takeHeart || hpBoost || magicPowder || damageShield || tidyUp) for (const [address, signature] of [
   [0x021ac448, "38b5051c0c1c00f023f80348211c281804f0e6fa38bdc046781d0000"],
   [0x021b0920, "00684000c00f7047"],
   [0x021b0958, "00688000c00f7047"],
@@ -203,7 +286,7 @@ if (auraWheel) for (const [address, signature] of [
 }
 // Read-only native side state. Validate the US overlay's count/active accessors
 // and table limits before observing its handler/count records at runtime.
-if (hazards) {
+if (hazards || ragingBull || moveName === "mortal-spin") {
   const side = input.loadArm9Overlays([169]).get(169)!;
   for (const [address, signature] of [
     [0x06898ce0, "e022424302480901801808587047c0466ce98906"],
@@ -226,11 +309,15 @@ if (poltergeist) {
     if (Buffer.from(battle.data.subarray(at, at + signature.length / 2)).toString("hex") !== signature) throw new Error("Unsupported field-state observation layout");
   }
 }
-if (storm || supercellSlam) {
+if (storm || supercellSlam || coaching || doublesSuite) {
   for (const [address, signature] of [[0x021bb41c, "18b407220a404905090e0124"], [0x021bb444, "55010000"]] as const) {
     const at = address - battle.ramAddress;
     if (Buffer.from(battle.data.subarray(at, at + signature.length / 2)).toString("hex") !== signature) throw new Error("Unsupported semi-invulnerability observation layout");
   }
+}
+if (coaching) {
+  const hiding = new DataView(battle.data.buffer, battle.data.byteOffset + 0x021d74d0 - battle.ramAddress, 16);
+  if ([3,5,4,6].some((flag,index) => hiding.getUint32(index * 4,true) !== flag)) throw new Error("Unsupported native semi-invulnerability flags");
 }
 globalThis.fetch = (async (request: RequestInfo | URL) => {
   const url = new URL(request instanceof Request ? request.url : String(request));
@@ -244,6 +331,8 @@ if (detectBw2Upgrade(project) !== "white2-upgrade") throw new Error("Move suites
 const move = new NARC(input.getFileByName("a/0/2/1")).files[moveId];
 if (!move || move.length !== 36 || move[0] !== definition.type || move[2] !== definition.category || move[3] !== definition.power || move[4] !== definition.accuracy || move[20] !== (definition.target ?? 0)) throw new Error(`Unexpected ${moveName} native metadata`);
 const moveView = new DataView(move.buffer, move.byteOffset, move.byteLength);
+if (coaching && (move[1] !== 13 || move.subarray(21,30).some(value => value !== 0) ||
+    moveView.getUint32(32,true) !== (1 << 13))) throw new Error("Coaching requires one custom boost transaction, ally selection, Substitute bypass and no Protect/reflection/Snatch flags");
 if (tidyUp && (move[1] !== 13 || move.subarray(21,30).some(value => value !== 0) || moveView.getUint32(32,true) !== 0)) throw new Error("Tidy Up requires custom global cleanup, single native boost work, and no Snatch flag");
 if (riseStatus && (move[1] !== 4 || moveView.getUint16(8,true) || move[10])) throw new Error("Conditional status requires custom status work, not an unconditional native status");
 if (barb && (moveView.getUint16(8, true) !== 5 || move[10] !== 50 || move[11] !== 1 || move[12] || move[13])) throw new Error("Barb Barrage requires 50% regular poison, not toxic poison");
@@ -271,7 +360,34 @@ if (hazards && (move[14] !== 0 || !(moveView.getUint32(32, true) & (1 << 17)) ||
 const player = { speciesId: auraWheel ? 877 : 151, form: 0, abilityId: tripleAxel || hpCost ? 50 : storm || supercellSlam ? 28 : 99, level: ruination ? 5 : 50, nature: 0,
   moves: ruination ? [moveId] : damageShield ? [moveId, 150, 182, 164] : magicPowder ? [moveId, 571, 567, 373] : auraWheel ? [moveId, 144, 182, 150] : takeHeart ? [moveId, 150, 164, 182] : direClaw ? [moveId, 77, 261, 182] : barb ? [moveId, 261, 92, 77] : gravApple ? [moveId, 356, 182] : psyblade ? [moveId, 604, 432, 182] : risingVoltage ? [moveId, 604, 356, 580] : steelRoller ? [moveId, 604, 875, 432] : hazards ? [moveId, 191, 446, 182] : electro ? [moveId, 571, 182] : poltergeist ? [moveId, 282, 373, 478] : grassyGlide ? [moveId, 580, 432, 678] : storm ? [moveId, 240, 241, 182] : [moveId, 182], itemId: 0 };
 const saveConfig = getTestBattleConfig("BW2", { white2Upgrade: true });
-const saveDefinitions: { file: string; player: typeof player; benchPlayer?: typeof player }[] = ruination ? [
+const saveDefinitions: { file: string; player: HarnessPokemon; benchPlayer?: HarnessPokemon; allyPlayer?: HarnessPokemon; battleType?: "Singles" | "Doubles" }[] = doublesSuite ? focusedDoubles.map(variant => ({file:variant.save,player:variant.player,allyPlayer:variant.allyPlayer,battleType:"Doubles"})) : coaching ? [
+  ...[50,86,126].map(abilityId => ({ file: `battle-ally-${abilityId}.sav`, player,
+    allyPlayer: { ...player, speciesId: 149, abilityId, moves: [150] }, battleType: "Doubles" as const })),
+  ...[182,164,19,578].map(allyMove => ({ file: `battle-ally-move-${allyMove}.sav`, player,
+    allyPlayer: { ...player, speciesId: 149, abilityId: 50, level: 100, moves: [allyMove] }, battleType: "Doubles" as const })),
+  { file: "battle-single.sav", player, battleType: "Singles" },
+] : glaiveRush ? [
+  { file: "battle.sav", player: { ...player, abilityId: 50, moves: [moveId,150,182,164] } },
+  { file: "battle-sash.sav", player: { ...player, abilityId: 50, itemId: 275, moves: [moveId,150,182,164] } },
+  { file: "battle-npc.sav", player: { ...player, abilityId: 50, moves: [moveId,33,150,182] } },
+  { file: "battle-truant.sav", player: { ...player, abilityId: 54, moves: [moveId,150,182,164] } },
+] : consecutiveMove ? [
+  { file: "battle.sav", player: { ...player, abilityId: 50, moves: [moveId,150,156,214] } },
+  { file: "battle-choice.sav", player: { ...player, abilityId: 50, itemId: 220, moves: [moveId,150,156,214] } },
+  { file: "battle-sleep.sav", player: { ...player, abilityId: 50, moves: [moveId,214,156] } },
+  { file: "battle-single.sav", player: { ...player, abilityId: 50, moves: [moveId] } },
+] : stuffCheeks ? [
+  ...[0,158,155,234].map(itemId => ({ file: `battle-item-${itemId}.sav`, player: { ...player, itemId, moves: [moveId,478,278,562] } })),
+  ...[86,126,167].map(abilityId => ({ file: `battle-ability-${abilityId}.sav`, player: { ...player, abilityId, itemId: abilityId === 167 ? 155 : 158, moves: [moveId,478,278,562] } })),
+] : corrosiveGas ? [
+  { file: "battle.sav", player: { ...player, moves: [moveId,478,46,150] } },
+  { file: "battle-moldbreaker.sav", player: { ...player, abilityId: 104, moves: [moveId,478,46,150] } },
+] : persistentMove ? [
+  { file: "battle.sav", player: { ...player, moves: [moveId,150,46,487] } },
+  { file: "battle-source-exit.sav", player: { ...player, moves: [moveId,150,46,487] }, benchPlayer: { ...player, speciesId: 149, abilityId: 28, moves: [150] } },
+  { file: "battle-ghost.sav", player: { ...player, speciesId: 94, moves: [moveId,150,46,487] } },
+  ...[86,126,125].map(abilityId => ({ file: `battle-ability-${abilityId}.sav`, player: { ...player, abilityId, moves: [moveId,150,46,487] } })),
+] : ruination ? [
   { file: "battle.sav", player }, { file: "battle-miss.sav", player: { ...player, abilityId: 28 } },
 ] : damageShield ? [
   { file: "battle.sav", player },
@@ -354,6 +470,39 @@ const saveDefinitions: { file: string; player: typeof player; benchPlayer?: type
   { file: "battle-miss.sav", player: { ...player, abilityId: 28 } },
   { file: "battle-sheerforce.sav", player: { ...player, abilityId: 125 } },
   { file: "battle-parentalbond.sav", player: { ...player, abilityId: 185 } },
+] : torquePolicy ? [
+  ...[227,102,166,383,382,689].map(caller => ({ file: `battle-call-${caller}.sav`, player: { ...player, moves: [caller] } })),
+  ...[896,897,898,899,900].flatMap(torque => [
+    { file: `battle-sleep-${torque}.sav`, player: { ...player, moves: [214,torque] } },
+    { file: `battle-assist-${torque}.sav`, player: { ...player, moves: [274] }, benchPlayer: { ...player, speciesId: 25, moves: [torque] } },
+  ]),
+] : bindingMove ? [
+  { file: "battle.sav", player: { ...player, moves: [moveId,150,182,164] } },
+  { file: "battle-band.sav", player: { ...player, itemId: 544, moves: [moveId,150,182,164] } },
+  { file: "battle-claw.sav", player: { ...player, itemId: 286, moves: [moveId,150,182,164] } },
+  { file: "battle-sheerforce.sav", player: { ...player, abilityId: 125, moves: [moveId,150,182,164] } },
+] : ragingBull ? [
+  ...[0,1,2,3].map(form => ({ file: `battle-form-${form}.sav`, player: { ...player, speciesId: 128, form, moves: [moveId,150,144,182] } })),
+  { file: "battle.sav", player: { ...player, moves: [moveId,150,144,182] } },
+  ...[96,182].map(abilityId => ({ file: `battle-ability-${abilityId}.sav`, player: { ...player, speciesId: 128, form: 2, abilityId, moves: [moveId,150,144,182] } })),
+  { file: "battle-pixilate-normal.sav", player: { ...player, abilityId: 182, moves: [moveId,150,144,182] } },
+] : tarShot ? [
+  { file: "battle.sav", player: { ...player, moves: [53,749,487,46] } },
+  { file: "battle-forest.sav", player: { ...player, moves: [53,749,571,46] } },
+] : mistyExplosion ? [
+  { file: "battle.sav", player: { ...player, moves: [moveId,581,432,604] } },
+  { file: "battle-airborne.sav", player: { ...player, itemId: 541, moves: [moveId,581,432,356] } },
+  ...[98,185,104].map(abilityId => ({ file: `battle-ability-${abilityId}.sav`, player: { ...player, abilityId, moves: [moveId,581,432,604] } })),
+] : upperHand ? [
+  { file: "battle.sav", player },
+  { file: "battle-sheerforce.sav", player: { ...player, abilityId: 125 } },
+] : energyCharge ? [
+  { file: "battle.sav", player: { ...player, moves: [moveId,240,241,478] } },
+  { file: "battle-herb.sav", player: { ...player, itemId: 271, moves: [moveId,240,241,478] } },
+  ...[86,126,125].map(abilityId => ({ file: `battle-ability-${abilityId}.sav`, player: { ...player, abilityId, moves: [moveId,240,241,478] } })),
+] : eerieSpell ? [
+  { file: "battle.sav", player },
+  { file: "battle-sheerforce.sav", player: { ...player, abilityId: 125 } },
 ] : statHistory ? [
   { file: "battle.sav", player: { ...player, moves: [moveId,150,182,164] } },
   ...[125,126,29].map(abilityId => ({ file: `battle-ability-${abilityId}.sav`, player: { ...player, abilityId, moves: [moveId,150,182,164] } })),
@@ -407,11 +556,12 @@ const saveDefinitions: { file: string; player: typeof player; benchPlayer?: type
 ] : moveName === "fishious-rend" ? [
   { file: "battle.sav", player }, { file: "battle-strongjaw.sav", player: { ...player, abilityId: 173 } },
 ] : [{ file: "battle.sav", player }];
-for (const { file, player: savedPlayer, benchPlayer } of saveDefinitions) {
-  const save = patchTestBattleSaveMoveAnimations(patchHarnessSave(rawSaveBytesFromDesmumeDsv(inputSave), project, { trainerId: 1, player: { team: [savedPlayer, ...(benchPlayer ? [benchPlayer] : [])] } }), saveConfig, false);
+for (const { file, player: savedPlayer, benchPlayer, allyPlayer, battleType } of saveDefinitions) {
+  const save = patchTestBattleSaveMoveAnimations(patchHarnessSave(rawSaveBytesFromDesmumeDsv(inputSave), project, { trainerId: 1, battleType, player: { team: [savedPlayer, ...(allyPlayer ? [allyPlayer] : []), ...(benchPlayer ? [benchPlayer] : [])] } }), saveConfig, false);
   await writeFile(resolve(directory, file), save, { flag: "wx" });
 }
-type MoveCase = { id: string; currentHp?: number; defenseStage?: number; blocked?: boolean;
+type MoveCase = DoublesCase & { id: string; currentHp?: number; defenseStage?: number; blocked?: boolean;
+  allyStages?: number[]; expectedAllyStages?: number[]; expectedAllyMove?: number; allySubstitute?: boolean; allyFly?: boolean;
   forceMiss?: boolean; substitute?: boolean; setupSlot?: number; setupAccuracyRoll?: number; expectedStatus?: number;
   expectedPowers?: number[]; effectivePowers?: number[]; expectedActed?: boolean[];
   completeTurn?: boolean; secondaryRoll?: number; expectPoison?: boolean;
@@ -446,15 +596,450 @@ type MoveCase = { id: string; currentHp?: number; defenseStage?: number; blocked
   nativeSuccess?: boolean; initialHazards?: number[][]; screensRemain?: boolean;
   userSubstitute?: boolean; defenderSubstitute?: boolean;
   bypassSubstitute?: boolean;
+  preexistingSubstitute?: boolean;
+  chargeTurns?: number; chargeBoost?: number;
+  opponentActs?: boolean;
+  forbiddenCalledMove?: number; sleepRequired?: boolean; expectedOpponentUses?: number;
+  defenderMovePp?: number; expectedPpDrain?: number; expectedLastMove?: number;
   expectConditionalStatus?: boolean; expectedHistory?: number; historyVolume?: number;
-  requiredOpponentMove?: number;
+  screensCleared?: boolean;
+  bindingDivisor?: number; bindingExpected?: boolean;
+  expectedTraps?: number[]; residualTurns?: number; residualSlots?: number[];
+  stageTimeline?: number[][]; residualDivisor?: number; residualTicks?: number;
+  incomingRatios?: number[]; incomingAccuracyRoll?: number; incomingCounts?: number[];
+  expectedConsumedItem?: number; expectedUserHp?: number; expectedItemRemoved?: boolean;
+  moveSlot?: number; incomingFixed?: boolean; npcGlaive?: boolean;
+  repeatSequence?: string; residualCases?: {expectedExecutedMove?: number; expectedPpSpent?: number}[];
+  sourceExit?: boolean;
   followup?: { slot: number; moveId: number; power: number; category: number; type: number; case: MoveCase } };
 type Variant = { name: string; trainerId: number; abilityId: number; trainerMove: number;
+  battleType?: "Singles" | "Doubles"; allyAbilityId?: number; allySpecies?: number; defenderAllySpecies?: number; defenderAllyAbilityId?: number;
+  allyMoves?: number[]; allyLevel?: number; defenderAllyMove?: number; defenderAllyLevel?: number;
+  moveId?: number;
   playerAbilityId: number; save: string; cases: MoveCase[]; defenderSpecies?: number;
   playerSpecies?: number; playerForm?: number; defenderForm?: number;
   incomingSpecies?: number; bench?: boolean; benchMove?: number; defenderItemId?: number; defenderLevel?: number;
   incomingAttackerSpecies?: number; abilitySlot?: 1 | 2 };
-const variants: Variant[] = lashOut ? [
+const variants: Variant[] = doublesSuite ? focusedDoubles : coaching ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, allyAbilityId: 50, save: "battle-ally-50.sav", cases: [
+    { id: "boost-ally-not-user-or-foes", expectedAllyStages: [7,7,6,6,6,6,6], completeTurn: true },
+    { id: "both-capped", allyStages: [12,12,6,6,6,6,6], expectedAllyStages: [12,12,6,6,6,6,6], completeTurn: true },
+    { id: "attack-capped-defense-still-rises", allyStages: [12,6,6,6,6,6,6], expectedAllyStages: [12,7,6,6,6,6,6], completeTurn: true },
+  ] },
+  ...[86,126].map((abilityId, index) => ({ name: abilityId === 86 ? "simple" : "contrary", trainerId: index + 2, abilityId: 50, trainerMove: 150,
+    playerAbilityId: 99, allyAbilityId: abilityId, save: `battle-ally-${abilityId}.sav`, cases: [
+      { id: abilityId === 86 ? "simple-doubles-native-boosts" : "contrary-reverses-native-boosts", expectedAllyStages: [abilityId === 86 ? 8 : 5, abilityId === 86 ? 8 : 5,6,6,6,6,6], completeTurn: true },
+      ...(abilityId === 86 ? [{ id: "simple-clamps-to-cap", allyStages: [11,11,6,6,6,6,6], expectedAllyStages: [12,12,6,6,6,6,6], completeTurn: true }] : [
+        { id: "contrary-at-floor-fails", allyStages: [0,0,6,6,6,6,6], expectedAllyStages: [0,0,6,6,6,6,6], completeTurn: true },
+        { id: "contrary-at-ceiling-still-lowers", allyStages: [12,12,6,6,6,6,6], expectedAllyStages: [11,11,6,6,6,6,6], completeTurn: true },
+      ]),
+    ] })),
+  ...[182,164,19,578].map((allyMove, index) => ({ name: `ally-move-${allyMove}`, trainerId: index + 4, abilityId: 50, trainerMove: 150,
+    playerAbilityId: 99, allyAbilityId: 50, save: `battle-ally-move-${allyMove}.sav`, cases: [
+      { id: ({182:"bypasses-protect",164:"bypasses-substitute",19:"excludes-semi-invulnerable-ally",578:"bypasses-crafty-shield"} as Record<number,string>)[allyMove],
+        expectedAllyMove: allyMove, expectedAllyStages: [allyMove === 19 ? 6 : 7,allyMove === 19 ? 6 : 7,6,6,6,6,6], allySubstitute: allyMove === 164, allyFly: allyMove === 19, completeTurn: true },
+    ] })),
+  { name: "singles", trainerId: 8, abilityId: 50, trainerMove: 150, playerAbilityId: 99, battleType: "Singles", save: "battle-single.sav", cases: [
+    { id: "no-ally-fails-without-self-boost", completeTurn: true },
+  ] },
+] : glaiveRush ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 33, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "same-turn-double-next-action-expires", userStats: [100,115,60,90,130], incomingRatios: [8192,4096], residualTurns: 1 },
+    { id: "next-turn-before-action-double", userStats: [100,115,60,90,20], incomingRatios: [4096,8192,4096], residualTurns: 2 },
+    { id: "protect-expires-window", userStats: [100,115,60,90,130], incomingRatios: [8192,4096,4096], incomingCounts: [1,0,1], residualTurns: 2, residualSlots: [2,1] },
+  ] },
+  { name: "accuracy", trainerId: 2, abilityId: 50, trainerMove: 88, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "bypasses-evasion-then-resumes-roll", userStats: [100,115,60,90,130], userStages: [6,6,6,6,6,6,12], incomingAccuracyRoll: 99, incomingRatios: [8192,4096], incomingCounts: [1,0], residualTurns: 1 },
+  ] },
+  { name: "fairy-immunity", trainerId: 3, abilityId: 50, trainerMove: 33, playerAbilityId: 50, defenderSpecies: 35, save: "battle.sav", cases: [
+    { id: "immunity-does-not-open-window", blocked: true, userStats: [100,115,60,90,130], incomingRatios: [4096] },
+  ] },
+  { name: "fixed", trainerId: 4, abilityId: 50, trainerMove: 162, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "super-fang-not-doubled", userStats: [100,115,60,90,130], incomingFixed: true, expectedUserHp: 88 },
+  ] },
+  { name: "ohko", trainerId: 5, abilityId: 50, trainerMove: 90, playerAbilityId: 50, save: "battle-sash.sav", cases: [
+    { id: "ohko-bypasses-accuracy", userStats: [100,115,60,90,130], incomingFixed: true, incomingAccuracyRoll: 99, expectedUserHp: 1 },
+  ] },
+  { name: "npc", trainerId: 6, abilityId: 50, trainerMove: 862, playerAbilityId: 50, save: "battle-npc.sav", cases: [
+    { id: "npc-nonzero-slot-owns-window", moveSlot: 1, npcGlaive: true, userStats: [100,115,60,90,20], expectedPowers: [50], damageRatios: [8192] },
+  ] },
+  { name: "truant", trainerId: 7, abilityId: 50, trainerMove: 33, playerAbilityId: 54, save: "battle-truant.sav", cases: [
+    { id: "loafing-action-expires-window", userStats: [100,115,60,90,130], incomingRatios: [8192,4096,4096], residualTurns: 2, residualCases: [{expectedExecutedMove:862,expectedPpSpent:0},{}] },
+  ] },
+] : consecutiveMove ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "successful-use-blocks-selection", followup: { slot: 0, moveId, power: definition.power, category: definition.category, type: definition.type, case: { id: "repeat-rejected", selectionRejected: true } } },
+    { id: "another-move-allows-selection", residualTurns: 1, residualSlots: [1], followup: { slot: 0, moveId, power: definition.power, category: definition.category, type: definition.type, case: { id: "after-splash", expectedPowers: [definition.power], damageRatios: [4096], ppSpent: 1, accuracyRoll: 0 } } },
+    { id: "miss-allows-selection", accuracyStage: 0, accuracyRoll: 99, expectedPowers: [], blocked: true, followup: { slot: 0, moveId, power: definition.power, category: definition.category, type: definition.type, case: { id: "missed-repeat-selectable", selectionRejected: false, expectedPowers: [], blocked: true, ppSpent: 1, accuracyRoll: 99 } } },
+  ] },
+  { name: "protect", trainerId: 2, abilityId: 50, trainerMove: 182, playerAbilityId: 50, save: "battle.sav", cases: [
+    // The second native Protect fails its consecutive-use roll, so this
+    // follow-up must actually deal damage after the first protected failure.
+    { id: "failed-hit-allows-selection", blocked: true, expectedPowers: [], followup: { slot: 0, moveId, power: definition.power, category: definition.category, type: definition.type, case: { id: "protected-repeat-selectable", expectedPowers: [definition.power], damageRatios: [4096], ppSpent: 1, accuracyRoll: 0 } } },
+  ] },
+  { name: "instruct", trainerId: 3, abilityId: 50, trainerMove: 689, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "instruct-can-repeat", userStats: [100,115,60,90,130], expectedPowers: [definition.power,definition.power], ppSpent: 2 },
+  ] },
+  { name: "sleep-talk", trainerId: 4, abilityId: 50, trainerMove: 150, playerAbilityId: 50, save: "battle-sleep.sav", cases: [
+    { id: "sleep-talk-can-repeat", userCurrentHp: 140, setupSlot: 2, moveSlot: 1, residualTurns: 1, residualSlots: [1], expectedPowers: [definition.power] },
+  ] },
+  ...["choice","single"].map(repeatSequence => ({ name: repeatSequence, trainerId: 5, abilityId: 50, trainerMove: 150, playerAbilityId: 50, save: `battle-${repeatSequence}.sav`, cases: [
+    { id: `${repeatSequence}-alternates-struggle`, repeatSequence, userStats: [60,115,60,90,20], residualTurns: 2, residualSlots: [0,0], residualCases: [{expectedExecutedMove:165,expectedPpSpent:0},{}], ...(repeatSequence === "choice" && definition.category === 1 ? {expectedAttackValue:90} : {}) },
+  ] })),
+  { name: "encore", trainerId: 6, abilityId: 50, trainerMove: 227, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "faster-encore-forces-once-then-struggle", userStats: [60,115,60,90,20], repeatSequence: "encore", residualTurns: 2, residualSlots: [1,0], residualCases: [{expectedExecutedMove:moveId,expectedPpSpent:0},{expectedExecutedMove:165,expectedPpSpent:0}] },
+  ] },
+] : stuffCheeks ? [
+  { name: "sitrus", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-item-158.sav", cases: [
+    { id: "full-hp-still-eats-and-boosts", expectedUserStages: [6,8,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 158, expectedUserHp: 175 },
+    { id: "forced-sitrus-single-heal", userCurrentHp: 140, expectedUserStages: [6,8,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 158, expectedUserHp: 175 },
+    { id: "defense-cap-does-not-eat", userStages: [6,12,6,6,6,6,6], expectedUserStages: [6,12,6,6,6,6,6], expectedUserItem: 158, expectedConsumedItem: 0, expectedUserHp: 175 },
+    { id: "recycle-restores-consumed-berry", expectedUserStages: [6,8,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 158, residualTurns: 1, residualSlots: [2], expectedItemAfter: 158 },
+    { id: "belch-after-forced-consumption", expectedUserStages: [6,8,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 158, residualTurns: 1, residualSlots: [3] },
+    { id: "magic-room-does-not-stop-forced-berry", setupSlot: 1, expectedUserStages: [6,8,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 158, expectedUserHp: 175 },
+  ] },
+  { name: "oran", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-item-155.sav", cases: [
+    { id: "forced-oran-hp-effect", userCurrentHp: 140, expectedUserStages: [6,8,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 155, expectedUserHp: 150 },
+  ] },
+  ...[0,234].map(itemId => ({ name: `no-berry-${itemId}`, trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: `battle-item-${itemId}.sav`, cases: [
+    { id: "selection-requires-berry", selectionRejected: true },
+  ] })),
+  ...[86,126].map(abilityId => ({ name: `ability-${abilityId}`, trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: abilityId, save: `battle-ability-${abilityId}.sav`, cases: [
+    { id: "native-defense-modifier", expectedUserStages: [6,abilityId === 86 ? 10 : 4,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 158, expectedUserHp: 175 },
+  ] })),
+  { name: "cheek-pouch", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 167, save: "battle-ability-167.sav", cases: [
+    { id: "cheek-pouch-once", userCurrentHp: 90, expectedUserStages: [6,8,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 155, expectedUserHp: 158 },
+  ] },
+  { name: "unnerve", trainerId: 2, abilityId: 127, trainerMove: 150, playerAbilityId: 99, defenderSpecies: 151, save: "battle-item-158.sav", cases: [
+    { id: "unnerve-does-not-stop-forced-berry", userCurrentHp: 140, expectedUserStages: [6,8,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 158, expectedUserHp: 175 },
+  ] },
+  { name: "embargo", trainerId: 3, abilityId: 50, trainerMove: 373, playerAbilityId: 99, save: "battle-item-158.sav", cases: [
+    { id: "embargo-does-not-stop-forced-berry", expectedUserStages: [6,8,6,6,6,6,6], expectedUserItem: 0, expectedConsumedItem: 158, expectedUserHp: 175 },
+  ] },
+  { name: "stolen", trainerId: 4, abilityId: 50, trainerMove: 282, playerAbilityId: 99, save: "battle-item-158.sav", cases: [
+    { id: "execution-rechecks-stolen-berry", expectedUserStages: Array(7).fill(6), expectedUserItem: 0, expectedConsumedItem: 0 },
+  ] },
+] : corrosiveGas ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, defenderItemId: 158, save: "battle.sav", cases: [
+    { id: "removes-without-consumption", expectedItemRemoved: true },
+    { id: "magic-room-does-not-protect-item", setupSlot: 1, expectedItemRemoved: true },
+  ] },
+  { name: "no-item", trainerId: 2, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "no-item-fails", expectedItemRemoved: false },
+  ] },
+  { name: "recycle", trainerId: 5, abilityId: 50, trainerMove: 278, playerAbilityId: 99, defenderItemId: 158, save: "battle.sav", cases: [
+    { id: "destroyed-berry-is-not-recyclable", expectedItemRemoved: true, residualTurns: 1, residualSlots: [3] },
+  ] },
+  { name: "sticky-hold", trainerId: 3, abilityId: 60, trainerMove: 150, playerAbilityId: 99, defenderSpecies: 88, defenderItemId: 158, save: "battle.sav", cases: [
+    { id: "sticky-hold-keeps-item", expectedItemRemoved: false },
+  ] },
+  { name: "mold-breaker", trainerId: 3, abilityId: 60, trainerMove: 150, playerAbilityId: 104, defenderSpecies: 88, defenderItemId: 158, save: "battle-moldbreaker.sav", cases: [
+    { id: "mold-breaker-ignores-sticky-hold", expectedItemRemoved: true },
+  ] },
+  ...[[487,112],[493,298],[649,116],[6,506]].map(([defenderSpecies,defenderItemId]) => ({ name: `protected-${defenderSpecies}`, trainerId: defenderSpecies, abilityId: 50, trainerMove: 150, playerAbilityId: 99, defenderSpecies, defenderItemId, save: "battle.sav", cases: [
+    { id: "species-linked-item-protected", expectedItemRemoved: false },
+  ] })),
+  { name: "ordinary-holder", trainerId: 4, abilityId: 50, trainerMove: 150, playerAbilityId: 99, defenderItemId: 112, save: "battle.sav", cases: [
+    { id: "ordinary-holder-loses-linked-item", expectedItemRemoved: true },
+  ] },
+  ...[182,164].map(trainerMove => ({ name: trainerMove === 182 ? "protect" : "substitute", trainerId: trainerMove, abilityId: 50, trainerMove, playerAbilityId: 99, defenderItemId: 158, save: "battle.sav", cases: [
+    { id: "blocked-keeps-item", expectedItemRemoved: false },
+  ] })),
+] : noRetreat ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "five-stats-and-self-trap", expectedUserStages: [7,7,7,7,7,6,6], expectedTraps: [1,0] },
+    { id: "all-capped-still-traps", userStages: Array(7).fill(12), expectedUserStages: Array(7).fill(12), expectedTraps: [1,0] },
+    { id: "repeat-fails", residualTurns: 1, residualSlots: [0], expectedUserStages: [7,7,7,7,7,6,6], expectedTraps: [1,0], stageTimeline: [[7,7,7,7,7,6,6]] },
+  ] },
+  ...[86,126].map(abilityId => ({ name: `ability-${abilityId}`, trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: abilityId, save: `battle-ability-${abilityId}.sav`, cases: [
+    { id: abilityId === 86 ? "simple" : "contrary", expectedUserStages: [...Array<number>(5).fill(abilityId === 86 ? 8 : 5),6,6], expectedTraps: [1,0] },
+  ] })),
+  { name: "ghost", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, playerSpecies: 94, save: "battle-ghost.sav", cases: [
+    { id: "ghost-once-without-trap", residualTurns: 1, residualSlots: [0], expectedUserStages: [7,7,7,7,7,6,6], expectedTraps: [0,0], stageTimeline: [[7,7,7,7,7,6,6]] },
+  ] },
+  { name: "already-trapped", trainerId: 1, abilityId: 50, trainerMove: 212, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "mean-look-permits-repeat", setupSlot: 1, residualTurns: 1, residualSlots: [0], expectedUserStages: [7,7,7,7,7,6,6], expectedTraps: [1,0], stageTimeline: [[8,8,8,8,8,6,6]] },
+  ] },
+] : jawLock ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "reciprocal-source-traps", expectedTraps: [1,1] },
+  ] },
+  { name: "ghost-user", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, playerSpecies: 94, save: "battle-ghost.sav", cases: [
+    { id: "ghost-user-is-not-trapped", expectedTraps: [0,1] },
+  ] },
+  { name: "ghost-target", trainerId: 2, abilityId: 50, trainerMove: 150, playerAbilityId: 99, defenderSpecies: 94, save: "battle.sav", cases: [
+    { id: "ghost-target-is-not-trapped", expectedTraps: [1,0] },
+  ] },
+  { name: "already-trapped", trainerId: 1, abilityId: 50, trainerMove: 212, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "existing-trap-prevents-reciprocal-effect", setupSlot: 1, expectedTraps: [1,0] },
+  ] },
+  { name: "shield-dust", trainerId: 2, abilityId: 19, trainerMove: 150, playerAbilityId: 99, defenderSpecies: 151, save: "battle.sav", cases: [
+    { id: "primary-effect-not-shield-dust-secondary", expectedTraps: [1,1] },
+  ] },
+  { name: "sheer-force", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 125, save: "battle-ability-125.sav", cases: [
+    { id: "primary-effect-not-sheer-force-secondary", expectedTraps: [1,1] },
+  ] },
+  { name: "protect", trainerId: 1, abilityId: 50, trainerMove: 182, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "protect-no-traps", blocked: true, expectedTraps: [0,0] },
+  ] },
+  { name: "substitute", trainerId: 1, abilityId: 50, trainerMove: 164, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "substitute-no-traps", substitute: true, expectedTraps: [0,0] },
+  ] },
+] : octolock ? [
+  { name: "source-exit", trainerId: 8, abilityId: 50, trainerMove: 46, playerAbilityId: 99, save: "battle-source-exit.sav", cases: [
+    { id: "source-leaves-before-first-tick", sourceExit: true, expectedTraps: [0,0], expectedDefenderStages: Array(7).fill(6) },
+  ] },
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "four-source-linked-ticks", expectedTraps: [0,1], expectedDefenderStages: [6,5,6,5,6,6,6], residualTurns: 3, stageTimeline: [[6,4,6,4,6,6,6],[6,3,6,3,6,6,6],[6,2,6,2,6,6,6]] },
+    { id: "floor-still-traps", defenderStages: [6,0,6,0,6,6,6], expectedTraps: [0,1], expectedDefenderStages: [6,0,6,0,6,6,6] },
+    { id: "reapplication-no-double-tick", expectedTraps: [0,1], expectedDefenderStages: [6,5,6,5,6,6,6], residualTurns: 1, residualSlots: [0], stageTimeline: [[6,4,6,4,6,6,6]] },
+  ] },
+  ...[29,86,126].map(abilityId => ({ name: `ability-${abilityId}`, trainerId: 2, abilityId, trainerMove: 150, playerAbilityId: 99, defenderSpecies: abilityId === 29 ? 376 : abilityId === 86 ? 63 : 327, save: "battle.sav", cases: [
+    { id: abilityId === 29 ? "clear-body" : abilityId === 86 ? "simple" : "contrary", expectedTraps: [0,1], expectedDefenderStages: [6, abilityId === 29 ? 6 : abilityId === 86 ? 4 : 7,6, abilityId === 29 ? 6 : abilityId === 86 ? 4 : 7,6,6,6] },
+  ] })),
+  { name: "ghost", trainerId: 2, abilityId: 50, trainerMove: 150, playerAbilityId: 99, defenderSpecies: 94, save: "battle.sav", cases: [
+    { id: "ghost-fails", expectedTraps: [0,0], expectedDefenderStages: Array(7).fill(6) },
+  ] },
+  ...[182,164].map(trainerMove => ({ name: trainerMove === 182 ? "protect" : "substitute", trainerId: 1, abilityId: 50, trainerMove, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "blocked-no-effect", expectedTraps: [0,0], expectedDefenderStages: Array(7).fill(6) },
+  ] })),
+] : saltCure || syrupBomb ? [
+  { name: "source-exit", trainerId: 8, abilityId: 50, trainerMove: 46, playerAbilityId: 99, save: "battle-source-exit.sav", cases: [
+    { id: saltCure ? "persists-after-source-exit" : "ends-on-source-exit", sourceExit: true, ...(saltCure ? {residualDivisor:8} : {expectedDefenderStages:Array(7).fill(6)}) },
+  ] },
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: saltCure ? [
+    { id: "four-residual-ticks", residualDivisor: 8, residualTurns: 3, residualTicks: 4 },
+    { id: "reapplication-no-extra-tick", residualDivisor: 8, residualTurns: 1, residualSlots: [0], residualTicks: 2 },
+  ] : [
+    { id: "exactly-three-speed-drops", expectedDefenderStages: [6,6,6,6,5,6,6], residualTurns: 3, stageTimeline: [[6,6,6,6,4,6,6],[6,6,6,6,3,6,6],[6,6,6,6,3,6,6]] },
+    { id: "reapplication-does-not-refresh", expectedDefenderStages: [6,6,6,6,5,6,6], residualTurns: 3, residualSlots: [0,1,1], stageTimeline: [[6,6,6,6,4,6,6],[6,6,6,6,3,6,6],[6,6,6,6,3,6,6]] },
+  ] },
+  ...(saltCure ? [9,81].map(defenderSpecies => ({ name: `species-${defenderSpecies}`, trainerId: 2, abilityId: 50, trainerMove: 150, playerAbilityId: 99, defenderSpecies, save: "battle.sav", cases: [
+    { id: "water-or-steel-quarter", residualDivisor: 4 },
+  ] })) : [29,86,126].map(abilityId => ({ name: `ability-${abilityId}`, trainerId: 2, abilityId, trainerMove: 150, playerAbilityId: 99, defenderSpecies: abilityId === 29 ? 376 : abilityId === 86 ? 63 : 327, save: "battle.sav", cases: [
+    { id: "native-stat-modifier", expectedDefenderStages: [6,6,6,6, abilityId === 29 ? 6 : abilityId === 86 ? 4 : 7,6,6] },
+  ] }))),
+  { name: "shield-dust", trainerId: 2, abilityId: 19, trainerMove: 150, playerAbilityId: 99, defenderSpecies: 151, save: "battle.sav", cases: [
+    { id: "shield-dust-suppresses-secondary", residualDivisor: 0, expectedDefenderStages: Array(7).fill(6) },
+  ] },
+  { name: "sheer-force", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 125, save: "battle-ability-125.sav", cases: [
+    { id: "sheer-force-boosts-without-secondary", residualDivisor: 0, expectedDefenderStages: Array(7).fill(6), effectivePowers: [saltCure ? 52 : 78] },
+  ] },
+  ...(saltCure ? [{ name: "magic-guard", trainerId: 2, abilityId: 98, trainerMove: 150, playerAbilityId: 99, defenderSpecies: 35, save: "battle.sav", cases: [
+    { id: "magic-guard-stops-residual", residualDivisor: 0 },
+  ] }] : [{ name: "bulletproof", trainerId: 2, abilityId: 171, trainerMove: 150, playerAbilityId: 99, defenderSpecies: 62, save: "battle.sav", cases: [
+    { id: "bulletproof-no-damage-or-secondary", blocked: true, expectedDefenderStages: Array(7).fill(6) },
+  ] }]),
+  { name: "protect", trainerId: 1, abilityId: 50, trainerMove: 182, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "protect-no-secondary", blocked: true, residualDivisor: 0, expectedDefenderStages: Array(7).fill(6) },
+  ] },
+  { name: "substitute", trainerId: 1, abilityId: 50, trainerMove: 164, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "substitute-no-secondary", substitute: true, residualDivisor: 0, expectedDefenderStages: Array(7).fill(6) },
+  ] },
+] : bindingMove ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "one-eighth-residual", bindingExpected: true, bindingDivisor: 8 },
+  ] },
+  { name: "binding-band", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-band.sav", cases: [
+    { id: "one-sixth-residual", bindingExpected: true, bindingDivisor: 6 },
+  ] },
+  { name: "grip-claw", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-claw.sav", cases: [
+    { id: "grip-claw-keeps-normal-residual", bindingExpected: true, bindingDivisor: 8 },
+  ] },
+  { name: "magic-guard", trainerId: 2, abilityId: 98, defenderSpecies: 35, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "magic-guard-stops-residual", bindingExpected: true, bindingDivisor: 0 },
+  ] },
+  { name: "shield-dust", trainerId: 3, abilityId: 19, defenderSpecies: 151, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "shield-dust-keeps-primary-binding", bindingExpected: true, bindingDivisor: 8 },
+  ] },
+  { name: "sheer-force", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 125, save: "battle-sheerforce.sav", cases: [
+    { id: "sheer-force-keeps-primary-binding", bindingExpected: true, bindingDivisor: 8, effectivePowers: [definition.power] },
+  ] },
+  { name: "protect", trainerId: 4, abilityId: 50, trainerMove: 182, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "protect-prevents-binding", blocked: true, bindingExpected: false, bindingDivisor: 0 },
+  ] },
+  { name: "substitute", trainerId: 5, abilityId: 50, trainerMove: 164, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "substitute-prevents-binding", substitute: true, bindingExpected: false, bindingDivisor: 0 },
+  ] },
+] : ragingBull ? [
+  ...[0,1,2,3].map((form,index) => ({ name: `form-${form}`, trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, playerSpecies: 128, playerForm: form, save: `battle-form-${form}.sav`, cases: [
+    { id: `form-${form}-resolved-type`, expectedMoveType: [0,1,9,10][index], typeRatio: form === 1 ? 8192 : 4096 },
+  ] })),
+  { name: "mew", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "non-tauros-normal", expectedMoveType: 0 },
+  ] },
+  { name: "normalize", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 96, playerSpecies: 128, playerForm: 2, save: "battle-ability-96.sav", cases: [
+    { id: "normalize-after-blaze-type", expectedMoveType: 0 },
+  ] },
+  { name: "pixilate-blaze", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 182, playerSpecies: 128, playerForm: 2, save: "battle-ability-182.sav", cases: [
+    { id: "non-normal-no-ate-bonus", expectedMoveType: 9 },
+  ] },
+  { name: "pixilate-normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 182, save: "battle-pixilate-normal.sav", cases: [
+    { id: "normal-ate-type-and-bonus", expectedMoveType: 17, effectivePowers: [108] },
+  ] },
+  { name: "electrify", trainerId: 2, abilityId: 50, trainerMove: 582, playerAbilityId: 99, playerSpecies: 128, playerForm: 2, save: "battle-form-2.sav", cases: [
+    { id: "electrify-after-blaze-type", expectedMoveType: 12, requiredOpponentMove: 582, userStats: [120,115,60,90,30] },
+  ] },
+  { name: "ion-deluge", trainerId: 3, abilityId: 50, trainerMove: 569, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "ion-deluge-converts-normal", expectedMoveType: 12, requiredOpponentMove: 569 },
+  ] },
+  ...[["reflect",115],["light-screen",113]].map(([name,trainerMove],index) => ({ name: String(name), trainerId: index + 4, abilityId: 50, trainerMove: Number(trainerMove), playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: `break-${name}-without-damage-reduction`, setupSlot: 1, expectedMoveType: 0, screensCleared: true },
+  ] })),
+  { name: "aurora-veil", trainerId: 6, abilityId: 117, trainerMove: 694, defenderSpecies: 126, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "break-veil-without-damage-reduction", setupSlot: 1, expectedMoveType: 0, screensCleared: true },
+  ] },
+  { name: "protect", trainerId: 7, abilityId: 50, trainerMove: 182, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "protect-blocks", blocked: true },
+  ] },
+  { name: "ghost", trainerId: 8, abilityId: 50, trainerMove: 150, defenderSpecies: 94, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "normal-immunity-blocks", blocked: true },
+  ] },
+] : tarShot ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "no-tar-normal-fire", typeRatio: 4096, expectedDefenseStage: 6, expectedDefenderStages: [6,6,6,6,6,6,6] },
+    { id: "tar-doubles-fire", setupSlot: 1, typeRatio: 8192, expectedDefenderStages: [6,6,6,6,5,6,6] },
+    { id: "repeat-speed-drop-not-multiplier", setupSlots: [1,1], typeRatio: 8192, expectedDefenderStages: [6,6,6,6,4,6,6] },
+    { id: "tar-succeeds-at-speed-floor", defenderStages: [6,6,6,6,0,6,6], setupSlot: 1, typeRatio: 8192, expectedDefenderStages: [6,6,6,6,0,6,6] },
+    { id: "target-type-change-keeps-tar", setupSlots: [1,2], typeRatio: 4096, expectedDefenderStages: [6,6,6,6,5,6,6] },
+  ] },
+  { name: "clear-body", trainerId: 2, abilityId: 29, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "clear-body-blocks-speed-not-tar", setupSlot: 1, typeRatio: 8192, expectedDefenderStages: [6,6,6,6,6,6,6] },
+  ] },
+  { name: "added-grass", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-forest.sav", cases: [
+    { id: "added-grass-and-tar-each-apply-once", setupSlots: [1,2], typeRatio: 16384, expectedDefenderStages: [6,6,6,6,5,6,6] },
+  ] },
+  { name: "sixteen-times", trainerId: 9, abilityId: 50, defenderSpecies: 212, trainerMove: 150, playerAbilityId: 99, save: "battle-forest.sav", cases: [
+    { id: "dual-weakness-added-grass-tar-sixteen-times", setupSlots: [1,2], typeRatio: 65536, allowFaint: true, expectedDefenderStages: [6,6,6,6,5,6,6] },
+  ] },
+  { name: "contrary", trainerId: 3, abilityId: 126, defenderSpecies: 531, abilitySlot: 2, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "contrary-raises-speed-keeps-tar", setupSlot: 1, typeRatio: 8192, expectedDefenderStages: [6,6,6,6,7,6,6] },
+  ] },
+  { name: "resistance", trainerId: 4, abilityId: 50, defenderSpecies: 79, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "water-resistance-becomes-neutral", setupSlot: 1, typeRatio: 4096, expectedDefenderStages: [6,6,6,6,5,6,6] },
+  ] },
+  { name: "wonder-guard", trainerId: 5, abilityId: 25, defenderSpecies: 25, abilitySlot: 2, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "wonder-guard-blocks-without-tar", blocked: true, expectedDefenderStages: [6,6,6,6,6,6,6] },
+    { id: "tar-changes-wonder-guard-result", setupSlot: 1, typeRatio: 8192, allowFaint: true, expectedDefenderStages: [6,6,6,6,5,6,6] },
+  ] },
+  { name: "flash-fire", trainerId: 6, abilityId: 18, defenderSpecies: 196, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "tar-does-not-remove-fire-ability-immunity", setupSlot: 1, blocked: true, expectedDefenderStages: [6,6,6,6,5,6,6] },
+  ] },
+  { name: "substitute", trainerId: 7, abilityId: 50, defenderSpecies: 291, trainerMove: 164, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "substitute-blocks-tar", setupSlot: 1, substitute: true, preexistingSubstitute: true, typeRatio: 8192, expectedDefenderStages: [6,6,6,6,6,6,6] },
+  ] },
+  { name: "switch", trainerId: 8, abilityId: 50, trainerMove: 150, bench: true, incomingSpecies: 143, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "switch-clears-tar", setupSlots: [1,3], typeRatio: 4096, expectedDefenderStages: [6,6,6,6,6,6,6] },
+  ] },
+] : mistyExplosion ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "no-terrain-self-faints", expectedPowers: [100] },
+    { id: "grounded-misty-boosts", setupSlot: 1, expectedPowers: [150], expectedFloating: { attacker: false } },
+    { id: "removed-terrain-no-boost", setupSlots: [1,2], expectedPowers: [100] },
+    { id: "replaced-terrain-no-boost", setupSlots: [1,3], expectedPowers: [100] },
+  ] },
+  { name: "airborne", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-airborne.sav", cases: [
+    { id: "airborne-misty-no-boost", setupSlot: 1, expectedPowers: [100], expectedFloating: { attacker: true } },
+    { id: "gravity-grounds-user-boost", setupSlots: [1,3], expectedPowers: [150], expectedFloating: { attacker: false } },
+  ] },
+  { name: "damp", trainerId: 2, abilityId: 6, trainerMove: 150, defenderSpecies: 531, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "damp-prevents-damage-and-faint", setupSlot: 1, blocked: true, userFaints: false },
+  ] },
+  { name: "mold-breaker", trainerId: 2, abilityId: 6, trainerMove: 150, defenderSpecies: 531, playerAbilityId: 104, save: "battle-ability-104.sav", cases: [
+    { id: "mold-breaker-ignores-damp", expectedPowers: [100] },
+  ] },
+  { name: "protect", trainerId: 3, abilityId: 50, trainerMove: 182, defenderSpecies: 143, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "protect-still-self-faints", blocked: true },
+  ] },
+  ...[98,185].map(abilityId => ({ name: `ability-${abilityId}`, trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: abilityId, save: `battle-ability-${abilityId}.sav`, cases: [
+    { id: abilityId===98 ? "magic-guard-does-not-prevent-faint" : "parental-bond-only-one-hit", expectedPowers: [100] },
+  ] })),
+] : torquePolicy ? [
+  ...[896,897,898,899,900].flatMap((torque,index) => [
+    ...[227,102,166,383,689].map(caller => ({ name: `${torque}-call-${caller}`, trainerId: index+1, abilityId: 50,
+      trainerMove: torque, defenderSpecies: 291, moveId: caller, playerAbilityId: 99, save: `battle-call-${caller}.sav`, cases: [
+        { id: `${torque}-rejects-${caller}`, forbiddenCalledMove: torque, expectedOpponentUses: 1, completeTurn: true },
+      ] })),
+    { name: `${torque}-me-first`, trainerId: index+6, abilityId: 50, trainerMove: torque, moveId: 382, playerAbilityId: 99, save: "battle-call-382.sav", cases: [
+      { id: `${torque}-rejects-me-first-before-target-acts`, forbiddenCalledMove: torque, expectedOpponentUses: 1, completeTurn: true },
+    ] },
+    { name: `${torque}-sleep-talk`, trainerId: 11, abilityId: 50, trainerMove: 147, defenderSpecies: 291, moveId: 214,
+      playerAbilityId: 99, save: `battle-sleep-${torque}.sav`, cases: [
+        { id: `${torque}-excluded-from-only-sleep-talk-candidate`, forbiddenCalledMove: torque, sleepRequired: true, expectedOpponentUses: 1, completeTurn: true },
+      ] },
+    { name: `${torque}-assist`, trainerId: 12, abilityId: 50, trainerMove: 150, defenderSpecies: 291, moveId: 274,
+      playerAbilityId: 99, save: `battle-assist-${torque}.sav`, cases: [
+        { id: `${torque}-excluded-from-only-assist-candidate`, forbiddenCalledMove: torque, expectedOpponentUses: 1, completeTurn: true },
+      ] },
+  ]),
+] : upperHand ? [
+  ...[["priority-zero",33,false,true], ["priority-one",98,true,false], ["priority-two",245,true,false],
+      ["priority-three",252,true,false], ["priority-four",182,false,true], ["status-priority-zero",150,false,true]]
+    .map(([name,trainerMove,succeeds,opponentActs],index) => ({ name: String(name), trainerId: index+1, abilityId: 50,
+      trainerMove: Number(trainerMove), playerAbilityId: 99, save: "battle.sav", cases: [
+        { id: String(name), blocked: !succeeds, opponentActs: Boolean(opponentActs), completeTurn: true },
+      ] })),
+  { name: "gale-wings", trainerId: 7, abilityId: 177, defenderSpecies: 291, trainerMove: 17, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "ability-granted-priority-qualifies", opponentActs: false, completeTurn: true, typeRatio: 1024 },
+  ] },
+  { name: "inner-focus", trainerId: 8, abilityId: 39, abilitySlot: 2, trainerMove: 98, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "inner-focus-vetoes-flinch-not-damage", opponentActs: true, completeTurn: true },
+  ] },
+  { name: "shield-dust", trainerId: 9, abilityId: 19, defenderSpecies: 25, trainerMove: 98, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "shield-dust-vetoes-flinch", opponentActs: true, completeTurn: true, typeRatio: 4096 },
+  ] },
+  { name: "sheer-force", trainerId: 2, abilityId: 50, trainerMove: 98, playerAbilityId: 125, save: "battle-sheerforce.sav", cases: [
+    { id: "sheer-force-boosts-suppresses-flinch", opponentActs: true, completeTurn: true, effectivePowers: [85] },
+  ] },
+] : energyCharge ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "native-two-turn-charge", chargeTurns: 2, chargeBoost: 1 },
+    { id: "special-attack-cap", chargeTurns: 2, chargeBoost: 0, userStages: [6,6,12,6,6,6,6] },
+    { id: "sun-does-not-skip", chargeTurns: 2, chargeBoost: 1, setupSlot: 2 },
+    { id: "rain-weather-rule", chargeTurns: electroShot ? 1 : 2, chargeBoost: 1, setupSlot: 1 },
+  ] },
+  { name: "power-herb", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-herb.sav", cases: [
+    { id: "herb-boosts-and-attacks-once", chargeTurns: 1, chargeBoost: 1, expectedUserItem: 0 },
+    { id: "magic-room-blocks-herb", chargeTurns: 2, chargeBoost: 1, expectedUserItem: 271, setupSlot: 3 },
+    ...(electroShot ? [{ id: "rain-preserves-unneeded-herb", chargeTurns: 1, chargeBoost: 1, expectedUserItem: 271, setupSlot: 1 }] : []),
+  ] },
+  { name: "simple", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 86, save: "battle-ability-86.sav", cases: [
+    { id: "simple-doubles-charge-boost", chargeTurns: 2, chargeBoost: 2 },
+  ] },
+  { name: "contrary", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 126, save: "battle-ability-126.sav", cases: [
+    { id: "contrary-reverses-charge-boost", chargeTurns: 2, chargeBoost: -1 },
+  ] },
+  { name: "sheer-force", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 125, save: "battle-ability-125.sav", cases: [
+    { id: "sheer-force-keeps-charge-boost", chargeTurns: 2, chargeBoost: 1, effectivePowers: [electroShot ? 169 : 120] },
+  ] },
+  { name: "cloud-nine", trainerId: 2, abilityId: 13, abilitySlot: 2, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "suppressed-rain-does-not-skip", chargeTurns: 2, chargeBoost: 1, setupSlot: 1 },
+  ] },
+] : eerieSpell ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    ...[1,2,3,4,5].map(pp => ({ id: `remaining-after-use-${pp-1}`, defenderMovePp: pp, expectedPpDrain: Math.min(3,pp-1), expectedLastMove: 150 })),
+    { id: "target-faints-no-pp-drain", currentHp: 1, allowFaint: true, expectedPpDrain: 0, expectedLastMove: 150 },
+  ] },
+  { name: "no-history", trainerId: 2, abilityId: 50, trainerMove: 150, defenderSpecies: 143, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "unacted-no-move-history", expectedPpDrain: 0, expectedLastMove: 0 },
+  ] },
+  { name: "substitute", trainerId: 3, abilityId: 50, trainerMove: 164, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "sound-bypasses-doll-and-drains-substitute-pp", bypassSubstitute: true, expectedPpDrain: 3, expectedLastMove: 164 },
+  ] },
+  { name: "shield-dust", trainerId: 4, abilityId: 19, trainerMove: 150, defenderSpecies: 142, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "shield-dust-suppresses-drain", expectedPpDrain: 0, expectedLastMove: 150 },
+  ] },
+  { name: "sheer-force", trainerId: 1, abilityId: 50, trainerMove: 150, defenderSpecies: 291, playerAbilityId: 125, save: "battle-sheerforce.sav", cases: [
+    { id: "sheer-force-boosts-no-drain", expectedPpDrain: 0, expectedLastMove: 150, effectivePowers: [104] },
+  ] },
+] : encorePolicy ? [
+  { name: "dynamax-cannon", trainerId: 1, abilityId: 50, trainerMove: 744, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "dynamax-cannon-rejects-encore", nativeSuccess: false, expectedLastMove: 744 },
+  ] },
+  { name: "native-control", trainerId: 2, abilityId: 50, trainerMove: 150, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "ordinary-move-can-be-encored", nativeSuccess: true, expectedLastMove: 150 },
+  ] },
+] : lashOut ? [
   { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
     { id: "no-drop-no-boost", expectedPowers: [75] },
     { id: "existing-negative-stage-not-current-drop", userStages: [6,6,6,6,2,6,6], expectedPowers: [75] },
@@ -1436,10 +2021,82 @@ const variants: Variant[] = lashOut ? [
   ] }] : []),
 ];
 const authoredAbilitySlots = new Map<string, number>();
+if (upperHand) for (const variant of variants) for (const test of variant.cases) {
+  test.expectedPowers = [65];
+  test.damageRatios = [4096];
+  test.typeRatio ??= 8192;
+}
+if (energyCharge) for (const variant of variants) for (const test of variant.cases) {
+  test.expectedPowers = [definition.power];
+  test.damageRatios = [4096];
+  test.accuracyRoll = 0;
+  const rank = (test.userStages?.[2] ?? 6) + test.chargeBoost!;
+  test.expectedAttackValue = rank >= 6 ? Math.floor(120 * (2 + rank - 6) / 2) : Math.floor(240 / (2 + 6 - rank));
+}
+if (mistyExplosion) for (const variant of variants) for (const test of variant.cases) {
+  test.userFaints ??= true;
+  test.damageRatios = [4096];
+  test.accuracyRoll = 0;
+}
+if (tarShot) for (const variant of variants) for (const test of variant.cases) {
+  test.expectedPowers = [90];
+  test.damageRatios = [4096];
+}
+if (ragingBull) for (const variant of variants) for (const test of variant.cases) {
+  test.expectedPowers = [90];
+  test.damageRatios = [4096];
+  test.typeRatio ??= 4096;
+}
+// Distinct native trainers keep variant species, moves and ability slots
+// independent while all variants still share one fixture ROM.
+if (persistentMove || glaiveRush || corrosiveGas || consecutiveMove) variants.forEach((variant,index) => { variant.trainerId = index + 1; });
+if (consecutiveMove) for (const variant of variants) for (const test of variant.cases) {
+  test.completeTurn = true;
+  test.userStats ??= [100,115,60,90,20];
+  test.expectedPowers ??= test.blocked ? [] : [definition.power];
+  test.ppSpent ??= 1;
+  test.accuracyRoll ??= 0;
+  test.damageRatios = test.expectedPowers.map(() => 4096);
+}
+if (glaiveRush || stuffCheeks || corrosiveGas) for (const variant of variants) for (const test of variant.cases) {
+  test.completeTurn = !test.selectionRejected;
+  test.ppSpent = 1;
+  test.accuracyRoll = 0;
+  test.secondaryRoll = 0;
+  if (glaiveRush) {
+    test.incomingAccuracyRoll ??= 0;
+    test.expectedPowers ??= test.blocked ? [] : [120];
+    test.damageRatios ??= test.expectedPowers.map(() => 4096);
+  } else test.userStats ??= [100,115,60,90,20];
+}
+if (persistentMove) for (const variant of variants) for (const test of variant.cases) {
+  test.completeTurn = true;
+  test.ppSpent = 1;
+  test.userStats ??= [120,115,60,90,20];
+  test.accuracyRoll = 0;
+  test.secondaryRoll = 0;
+  if (definition.power) {
+    test.expectedPowers ??= test.blocked ? [] : [definition.power];
+    test.damageRatios = test.expectedPowers.map(() => 4096);
+    test.typeRatio ??= jawLock && [94,151].includes(variant.defenderSpecies ?? 0) ? 8192 :
+      syrupBomb && variant.defenderSpecies === 376 || saltCure && variant.defenderSpecies === 81 ? 2048 : 4096;
+  }
+}
+if (bindingMove) for (const variant of variants) for (const test of variant.cases) {
+  test.userStats = [120,115,60,90,20];
+  test.expectedPowers = [definition.power];
+  test.damageRatios = [4096];
+  test.accuracyRoll = 0;
+  test.completeTurn = true;
+}
 if (statHistory) for (const variant of variants) for (const test of variant.cases) {
   test.expectedPowers ??= [definition.power];
-  test.damageRatios = [4096];
+  test.damageRatios = test.expectedPowers.map(() => 4096);
   test.typeRatio ??= jealousy ? 8192 : 4096;
+}
+if (eerieSpell) for (const variant of variants) for (const test of variant.cases) {
+  test.expectedPowers = [80];
+  test.damageRatios = [4096];
 }
 if (bodyPress) for (const variant of variants) for (const test of variant.cases) {
   test.userStats = [15,60,30,60,50];
@@ -1470,27 +2127,37 @@ if (tripleAxel || hpCost) for (const variant of variants) for (const test of var
   }
 }
 for (const variant of variants) {
-  for (const [species, form, slot] of [[variant.defenderSpecies ?? 143, variant.defenderForm ?? 0, variant.abilitySlot ?? (variant.abilityId === 25 || variant.abilityId === 29 ? 2 : 1)],
-    ...(variant.bench ? [[variant.incomingSpecies!, 0, 1]] : [])]) {
+  variant.battleType ??= coaching || doublesSuite ? "Doubles" : "Singles";
+  if (variant.battleType === "Doubles") {
+    variant.allySpecies ??= 149;
+    variant.defenderAllySpecies ??= 242;
+    variant.defenderAllyAbilityId ??= 50;
+  }
+  for (const [species, form, slot, ability] of [[variant.defenderSpecies ?? 143, variant.defenderForm ?? 0, variant.abilitySlot ?? (variant.abilityId === 25 || variant.abilityId === 29 ? 2 : 1), variant.abilityId],
+    ...(variant.bench ? [[variant.incomingSpecies!, 0, 1, variant.abilityId]] : []),
+    ...(variant.battleType === "Doubles" ? [[variant.defenderAllySpecies!, 0, 1, variant.defenderAllyAbilityId!]] : [])]) {
     const key = `${species}:${form}:${slot}`;
     const previous = authoredAbilitySlots.get(key);
-    if (previous !== undefined && previous !== variant.abilityId) throw new Error(`Conflicting fixture Personal ability slot ${key}: ${previous} / ${variant.abilityId}`);
-    authoredAbilitySlots.set(key, variant.abilityId);
+    if (previous !== undefined && previous !== ability) throw new Error(`Conflicting fixture Personal ability slot ${key}: ${previous} / ${ability}`);
+    authoredAbilitySlots.set(key, ability);
   }
 }
-for (const variant of variants) patchHarnessTrainer(project, { trainerId: variant.trainerId, battleType: "Singles", trainer: {
+for (const variant of variants) {
+  patchHarnessTrainer(project, { trainerId: variant.trainerId, battleType: variant.battleType, trainer: {
   ai: 0, team: [
     { speciesId: variant.defenderSpecies ?? 143, form: variant.defenderForm ?? 0, level: variant.defenderLevel ?? 50, itemId: variant.defenderItemId ?? 0, moves: [variant.trainerMove], abilityId: variant.abilityId, abilitySlot: variant.abilitySlot ?? (variant.abilityId === 25 || variant.abilityId === 29 ? 2 : 1) },
     ...(variant.bench ? [{ speciesId: variant.incomingSpecies!, level: 50, itemId: 0, moves: [variant.benchMove ?? 150], abilityId: variant.abilityId, abilitySlot: 1 as const }] : []),
+    ...(variant.battleType === "Doubles" ? [{ speciesId: variant.defenderAllySpecies!, level: variant.defenderAllyLevel ?? 50, moves: [variant.defenderAllyMove ?? 150], abilityId: variant.defenderAllyAbilityId!, abilitySlot: 1 as const }] : []),
   ],
 } });
+}
 patchHarnessExpandedPartyGuard(project, input.loadArm9Overlays([36]).get(36)!);
 const template = new Uint8Array(await readFile(new URL("../src/assets/testbattle/BattleHarnessW2.dll", import.meta.url)));
 const receipt = JSON.parse(await readFile(new URL("../src/assets/testbattle/BattleHarnessW2.json", import.meta.url), "utf8"));
 if (hash(template) !== receipt.dllSha256) throw new Error("Bundled harness receipt mismatch");
 for (const [name, expected] of Object.entries(receipt.sources)) if (hash(new Uint8Array(await readFile(new URL(`../runtime/battle-harness/${name}`, import.meta.url)))) !== expected) throw new Error(`Stale harness source receipt: ${name}`);
 await prepareBw2TestBattleCodeInjection(project);
-const configured = configureHarnessRuntime(template, 1, 0);
+const configured = configureHarnessRuntime(template, 1, coaching || doublesSuite ? 1 : 0);
 stageCodeInjectionDll(project, "BattleHarnessW2.dll", configured);
 let coreHash: string | undefined;
 if (args.has("--core")) {
@@ -1506,18 +2173,18 @@ const harness = exported.getFileByName("patches/BattleHarnessW2.dll");
 if (hash(harness) !== hash(configured)) throw new Error("Exported battle trigger differs from its configured bytes");
 if (coreHash && hash(exported.getFileByName("patches/White2Upgrade.dll")) !== coreHash) throw new Error("Export did not include the requested core build");
 const variantsWithPatches = variants.map(variant => {
-  const alternative = configureHarnessRuntime(template, variant.trainerId, 0);
+  const alternative = configureHarnessRuntime(template, variant.trainerId, variant.battleType === "Doubles" ? 1 : 0);
   const patches = [];
   for (let i = 0; i < configured.length; i++) if (configured[i] !== alternative[i]) patches.push({ offset: harness.byteOffset - rom.byteOffset + i, expected: configured[i], value: alternative[i] });
-  return { ...variant, moveId, defenderSpecies: variant.defenderSpecies ?? 143, category: definition.category,
-    power: definition.power, type: definition.type, controlledRng: !ruination, romPatches: patches };
+  return { ...variant, moveId: variant.moveId ?? moveId, defenderSpecies: variant.defenderSpecies ?? 143, category: definition.category,
+    power: definition.power, type: definition.type, targetType:definition.target ?? 0, controlledRng: !ruination, romPatches: patches };
 });
 const saves = [];
 for (const { file } of saveDefinitions) saves.push({ file, sha256: hash(new Uint8Array(await readFile(resolve(directory, file)))) });
 await writeFile(resolve(directory, "suite.json"), JSON.stringify({
-  format: "pokeweb-focused-move-1", move: moveName, moveId, battleType: "Singles", battleAnimationsEnabled: false,
+  format: "pokeweb-focused-move-1", move: moveName, moveId, battleType: coaching || doublesSuite ? "Doubles" : "Singles", battleAnimationsEnabled: false,
   inputRomSha256: hash(bytes), inputSaveSha256: hash(inputSave), coreSha256: coreHash,
-  sideState: hazards || tidyUp ? { base: 0x0689e960, sideStride: 0xe0, effectStride: 16, countOffset: 12, effects: tidyUp ? [0,1,6,7,8] : [6,8] } : undefined,
+  sideState: hazards || tidyUp || ragingBull || moveName === "mortal-spin" ? { base: 0x0689e960, sideStride: 0xe0, effectStride: 16, countOffset: 12, effects: ragingBull ? [0,1] : tidyUp || moveName === "mortal-spin" ? [0,1,6,7,8] : [6,8] } : undefined,
   harnessSha256: receipt.dllSha256, harnessCpuChecks: receipt.verification.cpuChecks,
   rom: { file: "battle.nds", sha256: hash(rom) }, saves, probes, variants: variantsWithPatches,
 }, null, 2) + "\n", { flag: "wx" });

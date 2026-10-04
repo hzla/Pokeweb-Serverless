@@ -97,7 +97,7 @@ describe("automatic battle harness", () => {
     for (const half of [0, 0x26000]) {
       const before = mon(save, 0, half), after = mon(output, 0, half);
       expect(readU16(after, 0x8e)).toBe(0);
-      expect(readU32(after, 0x88)).toBe(64);
+      expect(readU32(after, 0x88)).toBe(1);
       expect(Array.from(after.subarray(0x30, 0x34))).toEqual([0, 0, 0, 0]);
       expect(after.subarray(0, 6)).toEqual(before.subarray(0, 6));
       expect(after.subarray(0x48, 0x88)).toEqual(before.subarray(0x48, 0x88));
@@ -107,9 +107,18 @@ describe("automatic battle harness", () => {
     expect(save).toEqual(original);
     expect(patchHarnessSave(output, project, { trainerId: 1 })).toEqual(output); // Valid block and PK5 checksums.
   });
+  it("serializes BW2 status IDs and rejects obsolete bit masks", () => {
+    const { project, save } = fixture();
+    for (const [status,id] of [["healthy",0],["paralysis",1],["sleep",2],["freeze",3],["burn",4],["poison",5]] as const) {
+      const output=patchHarnessSave(save,project,{trainerId:1,player:{edits:[{slot:0,status}]}});
+      expect(readU32(mon(output),0x88)).toBe(id);
+    }
+    for (const status of [-1,6,8,16,32,64,128])
+      expect(()=>patchHarnessSave(save,project,{trainerId:1,player:{edits:[{slot:0,status}]}})).toThrow(/status/);
+  });
   it("replaces the party with numeric species/move/ability/form and condition settings", () => {
     const { project, save } = fixture();
-    const output = patchHarnessSave(save, project, { trainerId: 1, player: { team: [{ speciesId: 2, level: 60, abilityId: 3, abilitySlot: 3, moves: [2, 1], itemId: 1, currentHp: 12, status: "toxic", nature: 13, evs: { atk: 252, spe: 252, hp: 4 }, ivs: { spa: 0 } }] } });
+    const output = patchHarnessSave(save, project, { trainerId: 1, player: { team: [{ speciesId: 2, level: 60, abilityId: 3, abilitySlot: 3, moves: [2, 1], itemId: 1, currentHp: 12, status: "poison", nature: 13, evs: { atk: 252, spe: 252, hp: 4 }, ivs: { spa: 0 } }] } });
     const data = mon(output);
     expect(output[0x18e04]).toBe(1);
     expect(readU16(data, 8)).toBe(2);
@@ -117,7 +126,7 @@ describe("automatic battle harness", () => {
     expect(data[0x15]).toBe(3);
     expect(data[0x42] & 1).toBe(1);
     expect(readU16(data, 0x8e)).toBe(12);
-    expect(readU32(data, 0x88)).toBe(128);
+    expect(readU32(data, 0x88)).toBe(5);
     expect(readU16(data, 0x28)).toBe(2);
     expect(output.subarray(0x18e08 + 220, 0x18e08 + 1320).every(v => v === 0)).toBe(true);
     expect(patchHarnessSave(output, project, { trainerId: 1 })).toEqual(output);
@@ -130,7 +139,7 @@ describe("automatic battle harness", () => {
     expect(readU16(data, 8)).toBe(2);
     expect(readU16(data, 0x8e)).toBe(3);
     expect(readU16(data, 0x90)).toBeGreaterThan(readU16(mon(hurt), 0x90));
-    expect(readU32(data, 0x88)).toBe(16);
+    expect(readU32(data, 0x88)).toBe(4);
     expect(data[0x15]).toBe(2);
     expect(readU32(data, 0xc)).toBe(readU32(mon(hurt), 0xc));
   });
@@ -165,6 +174,15 @@ describe("automatic battle harness", () => {
     const badMon = save.slice(); writeU16(badMon, 0x18e08 + 6, 0);
     // A torn block is excluded before a PK5 can be misinterpreted.
     expect(patchHarnessSave(badMon, project, { trainerId: 1 })).toEqual(badMon);
+  });
+  it("requires two living non-Egg player Pokemon for doubles", () => {
+    const { project, save } = fixture();
+    const healthy = { speciesId: 1, moves: [1] };
+    expect(() => patchHarnessSave(save, project, { trainerId: 1, battleType: "Doubles", player: { team: [healthy] } })).toThrow(/2 eligible battlers/);
+    expect(() => patchHarnessSave(save, project, { trainerId: 1, battleType: "Doubles", player: { team: [healthy, { ...healthy, currentHp: 0 }] } })).toThrow(/2 eligible battlers/);
+    const output = patchHarnessSave(save, project, { trainerId: 1, battleType: "Doubles", player: { team: [healthy, healthy] } });
+    expect(output[0x18e04]).toBe(2);
+    expect(() => patchHarnessTrainer(project, { trainerId: 1, battleType: "Doubles", trainer: { team: [healthy] } })).toThrow(/too small/);
   });
   it("authors explicit enemy abilities into Personal slots without touching other rows or bytes", () => {
     const { project } = fixture();
