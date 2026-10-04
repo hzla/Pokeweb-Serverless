@@ -46,6 +46,11 @@ const definitions: Record<string, { id: number; type: number; power: number; cat
   chloroblast: { id: 835, type: 11, power: 150, category: 2, accuracy: 95 },
   "steel-roller": { id: 798, type: 8, power: 130, category: 1, accuracy: 100 },
   "ice-spinner": { id: 861, type: 14, power: 80, category: 1, accuracy: 100 },
+  "body-press": { id: 776, type: 1, power: 80, category: 1, accuracy: 100 },
+  "tidy-up": { id: 882, type: 0, power: 0, category: 0, accuracy: 101, target: 7 },
+  "lash-out": { id: 808, type: 16, power: 75, category: 1, accuracy: 100 },
+  "burning-jealousy": { id: 807, type: 9, power: 70, category: 2, accuracy: 100, target: 5 },
+  "alluring-voice": { id: 914, type: 17, power: 80, category: 2, accuracy: 100 },
   "ceaseless-edge": { id: 845, type: 16, power: 65, category: 1, accuracy: 90 },
   "stone-axe": { id: 830, type: 5, power: 65, category: 1, accuracy: 90 },
   "collision-course": { id: 878, type: 1, power: 100, category: 1, accuracy: 100 },
@@ -87,6 +92,12 @@ const hpCost = moveName === "steel-beam" || moveName === "chloroblast";
 const steelBeam = moveName === "steel-beam";
 const steelRoller = moveName === "steel-roller";
 const iceSpinner = moveName === "ice-spinner";
+const bodyPress = moveName === "body-press";
+const tidyUp = moveName === "tidy-up";
+const lashOut = moveName === "lash-out";
+const riseStatus = ["burning-jealousy", "alluring-voice"].includes(moveName);
+const statHistory = lashOut || riseStatus;
+const jealousy = moveName === "burning-jealousy";
 const hazards = moveName === "ceaseless-edge" || moveName === "stone-axe";
 const spikes = moveName === "ceaseless-edge";
 const collision = moveName === "collision-course", electro = moveName === "electro-drift", fickle = moveName === "fickle-beam";
@@ -115,11 +126,14 @@ if (!ruination) probes.push(
   { name: "ratio", address: 0x021a5b04, signature: "041c3220" },
   { name: "calculated", address: 0x021a5b26, signature: "08800398" },
 );
+if (bodyPress || lashOut) probes.push(
+  { name: "attack_stat", address: 0x021aaecc, signature: "f8b51d1c071c28880e1c" },
+);
 if (poltergeist || steelRoller || iceSpinner) probes.push(
   { name: "message_setup", address: 0x021ac3b8, signature: "18b40904090c0906" },
   { name: "message_arg", address: 0x021ac3e0, signature: "18b444886204530e" },
 );
-if (direClaw || takeHeart || hpBoost || magicPowder || damageShield) probes.push(
+if (direClaw || takeHeart || hpBoost || magicPowder || damageShield || tidyUp || statHistory) probes.push(
   { name: "event_dispatch", address: 0x021bc940, signature: "08b50722012300f007f808bd" },
 );
 if (hpBoost) probes.push(
@@ -146,7 +160,7 @@ for (const probe of probes) {
 // IsUsed extracts bit 30 and GetTotalResult extracts bit 29 of that state.
 // This observes whether either benefit really succeeded, including capped
 // stat-only failures, without writing native work results.
-if (takeHeart || hpBoost || magicPowder || damageShield) for (const [address, signature] of [
+if (takeHeart || hpBoost || magicPowder || damageShield || tidyUp) for (const [address, signature] of [
   [0x021ac448, "38b5051c0c1c00f023f80348211c281804f0e6fa38bdc046781d0000"],
   [0x021b0920, "00684000c00f7047"],
   [0x021b0958, "00688000c00f7047"],
@@ -230,6 +244,8 @@ if (detectBw2Upgrade(project) !== "white2-upgrade") throw new Error("Move suites
 const move = new NARC(input.getFileByName("a/0/2/1")).files[moveId];
 if (!move || move.length !== 36 || move[0] !== definition.type || move[2] !== definition.category || move[3] !== definition.power || move[4] !== definition.accuracy || move[20] !== (definition.target ?? 0)) throw new Error(`Unexpected ${moveName} native metadata`);
 const moveView = new DataView(move.buffer, move.byteOffset, move.byteLength);
+if (tidyUp && (move[1] !== 13 || move.subarray(21,30).some(value => value !== 0) || moveView.getUint32(32,true) !== 0)) throw new Error("Tidy Up requires custom global cleanup, single native boost work, and no Snatch flag");
+if (riseStatus && (move[1] !== 4 || moveView.getUint16(8,true) || move[10])) throw new Error("Conditional status requires custom status work, not an unconditional native status");
 if (barb && (moveView.getUint16(8, true) !== 5 || move[10] !== 50 || move[11] !== 1 || move[12] || move[13])) throw new Error("Barb Barrage requires 50% regular poison, not toxic poison");
 if (direClaw && (move[1] !== 4 || moveView.getUint16(8, true) !== 0 || move[10] !== 50 || move[14] !== 0 || !(moveView.getUint32(32, true) & 1))) throw new Error("Dire Claw requires a custom 50% status secondary, normal critical stage and contact");
 if (takeHeart && (move[1] !== 13 || move.subarray(21, 30).some(value => value !== 0) || !(moveView.getUint32(32, true) & (1 << 5)))) throw new Error("Take Heart requires custom combined effects and native Snatch eligibility");
@@ -338,6 +354,22 @@ const saveDefinitions: { file: string; player: typeof player; benchPlayer?: type
   { file: "battle-miss.sav", player: { ...player, abilityId: 28 } },
   { file: "battle-sheerforce.sav", player: { ...player, abilityId: 125 } },
   { file: "battle-parentalbond.sav", player: { ...player, abilityId: 185 } },
+] : statHistory ? [
+  { file: "battle.sav", player: { ...player, moves: [moveId,150,182,164] } },
+  ...[125,126,29].map(abilityId => ({ file: `battle-ability-${abilityId}.sav`, player: { ...player, abilityId, moves: [moveId,150,182,164] } })),
+] : tidyUp ? [
+  { file: "battle.sav", player: { ...player, moves: [moveId,191,164,564] } },
+  ...[86,126].map(abilityId => ({ file: `battle-ability-${abilityId}.sav`, player: { ...player, abilityId, moves: [moveId,191,164,564] } })),
+  { file: "battle-other-hazards.sav", player: { ...player, moves: [moveId,390,446,182] } },
+  { file: "battle-screens.sav", player: { ...player, moves: [moveId,115,150,182] } },
+  { file: "battle-terrain.sav", player: { ...player, moves: [moveId,604,805,182] } },
+] : bodyPress ? [
+  { file: "battle.sav", player: { ...player, moves: [moveId, 673, 150, 182] } },
+  { file: "battle-hugepower.sav", player: { ...player, abilityId: 37 } },
+  { file: "battle-furcoat.sav", player: { ...player, abilityId: 169 } },
+  { file: "battle-band.sav", player: { ...player, itemId: 220 } },
+  { file: "battle-eviolite.sav", player: { ...player, speciesId: 25, itemId: 538 } },
+  { file: "battle-burn.sav", player: { ...player, itemId: 273, moves: [moveId, 150, 182] } },
 ] : iceSpinner ? [
   { file: "battle.sav", player: { ...player, moves: [moveId, 604, 875, 432] } },
   { file: "battle-airborne.sav", player: { ...player, itemId: 541, moves: [moveId, 604, 875, 432] } },
@@ -410,13 +442,140 @@ type MoveCase = { id: string; currentHp?: number; defenseStage?: number; blocked
   paysHpCost?: boolean; expectedMaxHpParity?: number; expectedUserAbilitySuppressed?: boolean;
   hpBoostSuccess?: boolean; hpBoostEvents?: number; berryHealing?: boolean; expectedPayment?: number;
   selectionRejected?: boolean;
+  userStats?: number[]; expectedAttackValue?: number; expectedCritical?: number; burnRatio?: number;
+  nativeSuccess?: boolean; initialHazards?: number[][]; screensRemain?: boolean;
+  userSubstitute?: boolean; defenderSubstitute?: boolean;
+  bypassSubstitute?: boolean;
+  expectConditionalStatus?: boolean; expectedHistory?: number; historyVolume?: number;
+  requiredOpponentMove?: number;
   followup?: { slot: number; moveId: number; power: number; category: number; type: number; case: MoveCase } };
 type Variant = { name: string; trainerId: number; abilityId: number; trainerMove: number;
   playerAbilityId: number; save: string; cases: MoveCase[]; defenderSpecies?: number;
   playerSpecies?: number; playerForm?: number; defenderForm?: number;
   incomingSpecies?: number; bench?: boolean; benchMove?: number; defenderItemId?: number; defenderLevel?: number;
   incomingAttackerSpecies?: number; abilitySlot?: 1 | 2 };
-const variants: Variant[] = hpBoost ? [
+const variants: Variant[] = lashOut ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "no-drop-no-boost", expectedPowers: [75] },
+    { id: "existing-negative-stage-not-current-drop", userStages: [6,6,6,6,2,6,6], expectedPowers: [75] },
+  ] },
+  { name: "speed-drop", trainerId: 2, abilityId: 50, trainerMove: 184, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "actual-speed-drop-doubles", expectedPowers: [150], expectedHistory: 0, historyVolume: -2, requiredOpponentMove: 184 },
+    { id: "capped-drop-does-not-qualify", userStages: [6,6,6,6,0,6,6], expectedPowers: [75], expectedHistory: 0, historyVolume: 0, requiredOpponentMove: 184 },
+  ] },
+  { name: "contrary", trainerId: 2, abilityId: 50, trainerMove: 184, defenderSpecies: 291, playerAbilityId: 126, save: "battle-ability-126.sav", cases: [
+    { id: "contrary-rise-not-drop", expectedPowers: [75], expectedHistory: 0, historyVolume: 2, requiredOpponentMove: 184 },
+  ] },
+  { name: "clear-body", trainerId: 2, abilityId: 50, trainerMove: 184, defenderSpecies: 291, playerAbilityId: 29, save: "battle-ability-29.sav", cases: [
+    { id: "prevented-drop-not-history", expectedPowers: [75], expectedHistory: 0, historyVolume: 0, requiredOpponentMove: 184 },
+  ] },
+  { name: "haze", trainerId: 3, abilityId: 50, trainerMove: 114, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "haze-overwrite-not-drop", userStages: [6,8,6,6,6,6,6], expectedPowers: [75], expectedHistory: 0, historyVolume: 0, requiredOpponentMove: 114 },
+  ] },
+  { name: "topsy", trainerId: 4, abilityId: 50, trainerMove: 576, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "topsy-overwrite-not-drop", userStages: [6,8,6,6,6,6,6], expectedPowers: [75], expectedHistory: 0, historyVolume: 0, requiredOpponentMove: 576 },
+  ] },
+  { name: "intimidate", trainerId: 5, abilityId: 22, trainerMove: 150, defenderSpecies: 291, abilitySlot: 2, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "entry-intimidate-counts", expectedPowers: [150], expectedAttackValue: 80 },
+    { id: "new-turn-resets-history", setupSlot: 1, expectedPowers: [75], expectedAttackValue: 80 },
+  ] },
+  { name: "instruct-gooey", trainerId: 6, abilityId: 183, trainerMove: 689, defenderSpecies: 143, abilitySlot: 2, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "drop-between-actions-doubles-repeat", expectedPowers: [75,150], completeTurn: true, expectedHistory: 0, historyVolume: -1 },
+  ] },
+] : riseStatus ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "no-current-rise-no-status", expectConditionalStatus: false },
+    { id: "old-stage-not-current-rise", defenderStages: [6,6,6,6,8,6,6], expectConditionalStatus: false },
+  ] },
+  { name: "boost", trainerId: 2, abilityId: 50, trainerMove: 97, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "earlier-agility-qualifies", expectConditionalStatus: true, expectedHistory: 12, historyVolume: 2, requiredOpponentMove: 97 },
+    { id: "capped-stage-no-actual-rise", defenderStages: [6,6,6,6,12,6,6], expectConditionalStatus: false, expectedHistory: 12, historyVolume: 0, requiredOpponentMove: 97 },
+    { id: "previous-turn-rise-reset", setupSlots: [1,1,1], expectConditionalStatus: false, expectedHistory: 12, historyVolume: 0, requiredOpponentMove: 97 },
+  ] },
+  { name: "policy", trainerId: 3, abilityId: 50, trainerMove: 150, defenderSpecies: jealousy ? 291 : 197, defenderItemId: 129, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "same-hit-weakness-policy-too-late", expectConditionalStatus: false, expectedBoosts: [8,6,8,6,6,6,6], typeRatio: 8192 },
+  ] },
+  { name: "sheer-force", trainerId: 2, abilityId: 50, trainerMove: 97, defenderSpecies: 291, playerAbilityId: 125, save: "battle-ability-125.sav", cases: [
+    { id: "sheer-force-boosts-suppresses", expectConditionalStatus: false, effectivePowers: [jealousy ? 91 : 104] },
+  ] },
+  { name: "sheer-force-no-rise", trainerId: 1, abilityId: 50, trainerMove: 150, defenderSpecies: 291, playerAbilityId: 125, save: "battle-ability-125.sav", cases: [
+    { id: "sheer-force-boost-unconditional", expectConditionalStatus: false, effectivePowers: [jealousy ? 91 : 104] },
+  ] },
+  { name: "immunity", trainerId: 4, abilityId: jealousy ? 41 : 20, trainerMove: 97, defenderSpecies: 169, abilitySlot: 2, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: jealousy ? "water-veil-veto" : "own-tempo-veto", expectConditionalStatus: false, typeRatio: jealousy ? 4096 : 2048 },
+  ] },
+  { name: "shield-dust", trainerId: 5, abilityId: 19, trainerMove: 97, defenderSpecies: 142, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "shield-dust-veto", expectConditionalStatus: false, typeRatio: jealousy ? 2048 : 4096 },
+  ] },
+  { name: "contrary", trainerId: 6, abilityId: 126, trainerMove: 97, defenderSpecies: 121, abilitySlot: 2, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "contrary-actual-drop-no-status", expectConditionalStatus: false, expectedHistory: 12, historyVolume: -2, requiredOpponentMove: 97, typeRatio: jealousy ? 2048 : 4096 },
+  ] },
+  { name: "download-substitute", trainerId: 7, abilityId: 88, trainerMove: 164, defenderSpecies: 291, abilitySlot: 2, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: jealousy ? "substitute-blocks-conditional-burn" : "sound-bypasses-substitute-and-confuses", expectConditionalStatus: !jealousy,
+      substitute: jealousy, bypassSubstitute: !jealousy },
+  ] },
+] : tidyUp ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "boosts-with-nothing-to-clear", expectedUserStages: [7,6,6,6,7,6,6], nativeSuccess: true },
+    { id: "both-stats-capped-no-effects", userStages: [12,6,6,6,12,6,6], expectedUserStages: [12,6,6,6,12,6,6], nativeSuccess: false },
+    { id: "one-stat-capped", userStages: [12,6,6,6,6,6,6], expectedUserStages: [12,6,6,6,7,6,6], nativeSuccess: true },
+    { id: "own-substitute-cleared", setupSlot: 2, userSubstitute: true, expectedUserStages: [7,6,6,6,7,6,6], nativeSuccess: true },
+    { id: "substitute-benefit-at-capped-stats", setupSlot: 2, userStages: [12,6,6,6,12,6,6], userSubstitute: true, expectedUserStages: [12,6,6,6,12,6,6], nativeSuccess: true },
+  ] },
+  ...[86,126].map(abilityId => ({ name: `ability-${abilityId}`, trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: abilityId, save: `battle-ability-${abilityId}.sav`, cases: [
+    { id: abilityId === 86 ? "simple-doubles-both-boosts" : "contrary-reverses-both", expectedUserStages: abilityId === 86 ? [8,6,6,6,8,6,6] : [5,6,6,6,5,6,6], nativeSuccess: true },
+  ] })),
+  { name: "both-substitutes", trainerId: 2, abilityId: 50, trainerMove: 164, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "both-active-substitutes-cleared", setupSlot: 2, userSubstitute: true, defenderSubstitute: true, expectedUserStages: [7,6,6,6,7,6,6], nativeSuccess: true },
+  ] },
+  { name: "both-side-spikes", trainerId: 3, abilityId: 50, trainerMove: 191, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "spikes-on-both-sides-cleared", setupSlot: 1, initialHazards: [[1,0,0],[1,0,0]], expectedUserStages: [7,6,6,6,7,6,6], nativeSuccess: true },
+  ] },
+  { name: "other-hazards", trainerId: 3, abilityId: 50, trainerMove: 191, playerAbilityId: 99, save: "battle-other-hazards.sav", cases: [
+    { id: "toxic-spikes-rock-and-spikes-cleared", setupSlots: [1,2], initialHazards: [[2,0,0],[0,1,1]], expectedUserStages: [7,6,6,6,7,6,6], nativeSuccess: true },
+  ] },
+  { name: "sticky-web", trainerId: 4, abilityId: 50, trainerMove: 564, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "both-sticky-webs-can-be-reapplied", setupSlot: 3, expectedUserStages: [7,6,6,6,7,6,6], nativeSuccess: true,
+      followup: { slot: 3, moveId: 564, power: 0, category: 0, type: 6, case: { id: "web-reapplication", nativeSuccess: true } } },
+  ] },
+  { name: "screens", trainerId: 5, abilityId: 50, trainerMove: 115, playerAbilityId: 99, save: "battle-screens.sav", cases: [
+    { id: "reflect-on-both-sides-preserved", setupSlot: 1, expectedUserStages: [7,6,6,6,7,6,6], nativeSuccess: true, screensRemain: true },
+  ] },
+  { name: "terrain", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-terrain.sav", cases: [
+    { id: "electric-terrain-preserved", setupSlot: 1, expectedUserStages: [7,6,6,6,7,6,6], nativeSuccess: true,
+      followup: { slot: 2, moveId: 805, power: 50, category: 2, type: 0, case: { id: "terrain-pulse-after-tidy", expectedPowers: [100], effectivePowers: [130], expectedMoveType: 12 } } },
+  ] },
+  { name: "snatch", trainerId: 6, abilityId: 50, trainerMove: 289, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "not-snatchable", expectedUserStages: [7,6,6,6,7,6,6], nativeSuccess: true },
+  ] },
+] : bodyPress ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "raw-defense-not-attack", expectedAttackValue: 60 },
+    { id: "defense-plus-two", userStages: [6,8,6,6,6,6,6], expectedAttackValue: 120 },
+    { id: "attack-plus-six-ignored", userStages: [12,6,6,6,6,6,6], expectedAttackValue: 60 },
+    { id: "defense-minus-two", userStages: [6,4,6,6,6,6,6], expectedAttackValue: 30 },
+    { id: "critical-ignores-negative-defense", setupSlot: 1, userStages: [6,4,6,6,6,6,6], expectedAttackValue: 60, expectedCritical: 1 },
+    { id: "critical-retains-positive-defense", setupSlot: 1, userStages: [6,8,6,6,6,6,6], expectedAttackValue: 120, expectedCritical: 1 },
+  ] },
+  { name: "huge-power", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 37, save: "battle-hugepower.sav", cases: [
+    { id: "huge-power-still-doubles", expectedAttackValue: 120 },
+  ] },
+  { name: "fur-coat", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 169, save: "battle-furcoat.sav", cases: [
+    { id: "fur-coat-does-not-boost-offense", expectedAttackValue: 60 },
+  ] },
+  { name: "choice-band", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-band.sav", cases: [
+    { id: "choice-band-still-boosts", expectedAttackValue: 90 },
+  ] },
+  { name: "eviolite", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, playerSpecies: 25, save: "battle-eviolite.sav", cases: [
+    { id: "eviolite-does-not-boost-offense", expectedAttackValue: 60 },
+  ] },
+  { name: "burn", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-burn.sav", cases: [
+    { id: "burn-still-halves", setupSlot: 1, expectedAttackValue: 60, burnRatio: 2048 },
+  ] },
+  { name: "unaware", trainerId: 2, abilityId: 109, abilitySlot: 2, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "unaware-ignores-defense-boost", userStages: [6,12,6,6,6,6,6], expectedAttackValue: 60 },
+  ] },
+] : hpBoost ? [
   { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
     { id: "odd-maximum-rounding", hpBoostSuccess: true, expectedPayment: boostCost175, expectedUserStages: fullBoostStages },
     { id: "equal-payment-fails", userCurrentHp: boostCost175, hpBoostSuccess: false, expectedUserStages: Array(7).fill(6) },
@@ -1064,8 +1223,8 @@ const variants: Variant[] = hpBoost ? [
   { name: "airborne", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, save: "battle-airborne.sav", cases: [
     { id: "airborne-still-clears", setupSlot: 1, expectedPowers: [80], terrainEndMessages: 1 },
   ] },
-  { name: "protect", trainerId: 2, abilityId: 50, trainerMove: 182, playerAbilityId: 99, save: "battle.sav", cases: [
-    { id: "protected-terrain-retained", setupSlot: 1, blocked: true, terrainEndMessages: 0 },
+  { name: "protect", trainerId: 2, abilityId: 226, defenderSpecies: 289, trainerMove: 182, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "protected-terrain-retained", blocked: true, terrainEndMessages: 0 },
   ] },
   { name: "immune", trainerId: 3, abilityId: 25, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
     { id: "immune-terrain-retained", setupSlot: 1, blocked: true, terrainEndMessages: 0 },
@@ -1073,8 +1232,8 @@ const variants: Variant[] = hpBoost ? [
   { name: "miss", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 28, save: "battle-miss.sav", cases: [
     { id: "miss-terrain-retained", setupSlot: 1, accuracyStage: 0, evasionStage: 12, accuracyRoll: 99, forceMiss: true, blocked: true, terrainEndMessages: 0 },
   ] },
-  { name: "substitute", trainerId: 4, abilityId: 50, trainerMove: 164, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
-    { id: "substitute-clears", setupSlot: 1, expectedPowers: [80], substitute: true, typeRatio: 8192, terrainEndMessages: 1 },
+  { name: "substitute", trainerId: 4, abilityId: 226, trainerMove: 164, defenderSpecies: 291, playerAbilityId: 99, save: "battle.sav", cases: [
+    { id: "substitute-clears", expectedPowers: [80], substitute: true, typeRatio: 8192, terrainEndMessages: 1 },
   ] },
   { name: "rough-skin", trainerId: 5, abilityId: 24, defenderSpecies: 531, trainerMove: 150, playerAbilityId: 99, save: "battle.sav", cases: [
     { id: "contact-ko-retains-terrain", setupSlot: 1, userCurrentHp: 1, userFaints: true, expectedPowers: [80], terrainEndMessages: 0 },
@@ -1277,6 +1436,17 @@ const variants: Variant[] = hpBoost ? [
   ] }] : []),
 ];
 const authoredAbilitySlots = new Map<string, number>();
+if (statHistory) for (const variant of variants) for (const test of variant.cases) {
+  test.expectedPowers ??= [definition.power];
+  test.damageRatios = [4096];
+  test.typeRatio ??= jealousy ? 8192 : 4096;
+}
+if (bodyPress) for (const variant of variants) for (const test of variant.cases) {
+  test.userStats = [15,60,30,60,50];
+  test.expectedPowers = [80];
+  test.damageRatios = [4096];
+  test.typeRatio = 8192;
+}
 if (terrainPulse) for (const variant of variants) for (const test of variant.cases) {
   if (test.expectedPowers) test.damageRatios = [4096];
 }
@@ -1347,7 +1517,7 @@ for (const { file } of saveDefinitions) saves.push({ file, sha256: hash(new Uint
 await writeFile(resolve(directory, "suite.json"), JSON.stringify({
   format: "pokeweb-focused-move-1", move: moveName, moveId, battleType: "Singles", battleAnimationsEnabled: false,
   inputRomSha256: hash(bytes), inputSaveSha256: hash(inputSave), coreSha256: coreHash,
-  sideState: hazards ? { base: 0x0689e960, sideStride: 0xe0, effectStride: 16, countOffset: 12, effects: [6, 8] } : undefined,
+  sideState: hazards || tidyUp ? { base: 0x0689e960, sideStride: 0xe0, effectStride: 16, countOffset: 12, effects: tidyUp ? [0,1,6,7,8] : [6,8] } : undefined,
   harnessSha256: receipt.dllSha256, harnessCpuChecks: receipt.verification.cpuChecks,
   rom: { file: "battle.nds", sha256: hash(rom) }, saves, probes, variants: variantsWithPatches,
 }, null, 2) + "\n", { flag: "wx" });
