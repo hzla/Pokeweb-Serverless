@@ -1,6 +1,6 @@
 # Writing automated move and ability tests
 
-This reference is for humans and coding agents adding behavioral regression tests to Pokeweb. The runners execute real White2Upgrade battles in headless melonDS, select moves automatically, and check native damage against actual HP loss. They require no browser, menu navigation, or supervising agent. Implemented suites are Fluffy and the named singles move suites listed below; other illustrative examples are future designs, not existing coverage.
+This reference is for humans and coding agents adding behavioral regression tests to Pokeweb. The runners execute real White2Upgrade battles in headless melonDS, select moves automatically, and check native damage against actual HP loss. They require no browser, menu navigation, or supervising agent. Implemented suites are Fluffy, the named singles move suites listed below, Coaching, and the ten additional doubles suites below; other illustrative examples are future designs, not existing coverage.
 
 ## Run the existing suite
 
@@ -92,6 +92,55 @@ Omit `--fixtures` after rebuilding a handler: reuse intentionally tests the old 
 By default the runner deletes its newly exported `fixtures/battle.nds` when the test ends, whether it passes, fails during fixture building, or times out. It retains `battle.sav`, the fixture manifest, reports, screenshots and logs. Fresh runs prepare their save from the current test setup rather than silently reusing one from older tests. `--keep-fixtures` preserves the ROM as well so the complete fixture can be reused. A `--fixtures` directory supplied by the caller is read-only and is never cleaned. A ROM cleanup error makes the run fail and is recorded under `fixtureCleanup` in `result.json`. The standalone fixture builder intentionally retains its outputs; automatic ROM cleanup belongs to `battle:test`.
 
 Automated interaction saves force Battle Scene Off in both redundant halves of the save and refresh the player-option and checksum-table checksums. The manifest records `battleAnimationsEnabled: false`, and the runner independently checks the option bytes. Older cached fixtures with animations enabled are rejected; regenerate them by omitting `--fixtures`. This does not alter the bundled source save or browser animation-testing behavior. Future behavior suites should also disable animations; visual tests need a separate, explicitly animation-enabled path.
+
+## Doubles MVP: Coaching
+
+Run from this repository with a freshly built full ROM:
+
+```sh
+npm run battle:test:move -- --move coaching --rom ../../White2Upgrade-gen89-batch32-20261004.nds
+# A smaller smoke run: three restored cases from one doubles cold boot.
+npm run battle:test:move -- --move coaching --rom ../../White2Upgrade-gen89-batch32-20261004.nds --variant normal
+```
+
+`coaching` authors trainer battle rule 1 and configures the bundled cold-boot
+runtime with that same rule. The trainer has Snorlax and Blissey; the save has
+Mew and Dragonite. Both save halves disable animations. A native battle-setup
+probe independently checks the format and party counts, and ability-registration
+probes capture four separate server battlers: player slots 0/1 and foe slots
+12/13. Identifying only one battler per side is insufficient for doubles.
+
+Each case restores one battle-start memory snapshot, applies explicit stat-stage
+preconditions before input, and submits both player commands through the native
+UI. Coaching retains its first-slot/highlighted-ally input path. The additional
+doubles suites use the explicit move-slot/target driver described next.
+Replacement battlers, triples and multi-trainer ownership still need dedicated
+input paths and assertions, not writes to selected actions or calculated outcomes.
+
+The oracle waits for the next turn's command menu and checks all four Pokémon's
+identities, move histories, PP, HP, and stat stages. Only Dragonite may receive
+Coaching's boosts. The cases cover normal/capped boosts, Simple, Contrary,
+Protect, Substitute, Crafty Shield, Fly's semi-invulnerability, and a native
+singles no-ally failure control. Dragonite uses each defensive move itself;
+the test does not inject protection or semi-invulnerability flags. The W2
+native hiding-flag table and accessor signature are checked before execution.
+Coaching uses recipient-owned native stat-change work to pass Substitute's
+second native stat check; no doll removal or direct stage mutation occurs.
+NPCs use
+Splash, so no AI move selection forcing is needed.
+
+To add another doubles suite, extend the fixture definitions with `allyPlayer`,
+set each variant's `battleType`, `allySpecies`/`allyAbilityId`, and
+`defenderAllySpecies`/`defenderAllyAbilityId`, and add a move-specific oracle.
+Explicit enemy abilities still come from temporary Personal-slot overrides.
+The builder validates those overrides across both active enemies and variants.
+General harness save preparation requires at least two living non-Egg Pokémon
+for doubles (three for triples/rotation). Preserve the four-battler format
+checks, snapshot isolation, deadlines and default cleanup. Output remains
+ignored; fixture ROMs and snapshots are removed, fixture saves retained.
+
+This is focused Coaching behavior coverage, not proof of every doubles move,
+redirection, spread damage, multi-battle ownership, animation or battle teardown.
 
 ## What the Fluffy test proves
 
@@ -351,6 +400,45 @@ For repeated actions, retain the observed completion flag before end-of-turn res
 
 Both runners retain fixture saves and reports but delete generated fixture ROMs by default. Snapshots stay in memory and are released in `finally`. The focused runner reuses the same validated headless setup, save-option checks and temporary-worker cleanup as the ability runner. For the current Gen 8/9 implementation batch, the requested policy is to skip per-move emulator tests for reused/data-only effects and label them wired, not battle-tested; reserve new suites for genuinely new logic.
 
+### Source-linked effects and forced move use
+
+Additional suites include No Retreat, Jaw Lock, Octolock, Snap Trap, Thunder Cage,
+Salt Cure, Syrup Bomb, Stuff Cheeks, Corrosive Gas, Glaive Rush, Blood Moon and
+Gigaton Hammer. Run a complete suite or one explicit variant:
+
+```sh
+npm run battle:test:move -- --move octolock --rom ../../White2Upgrade-gen89-batch29-20261004.nds
+npm run battle:test:move -- --move syrup-bomb --rom ../../White2Upgrade-gen89-batch29-20261004.nds --variant source-exit
+npm run battle:test:move -- --move blood-moon --rom ../../White2Upgrade-gen89-batch29-20261004.nds --variant choice --variant encore
+```
+
+Choose the actual current ROM filename; these examples do not silently update
+the default ROM. Each run regenerates its fixtures unless `--fixtures` is used.
+
+For source-linked effects, author a real bench Pokémon and let native Roar
+remove the source. Octolock/Syrup Bomb must stop; Salt Cure must persist. Capture
+native action-end before departure resets the old battler's history/flags.
+Observe the replacement's actual registration before changing the current
+pointer; its PP must not be compared against the departed Pokémon's PP. Verify
+the native trap continuation's source ID and its release as well as residuals.
+
+Selection-only restrictions need both rejected-menu and called-move tests.
+Blood Moon/Gigaton Hammer distinguish the selected move from the executed
+payload: Sleep Talk spends its own PP, Instruct repeats the payload, faster
+Encore can rewrite an already-selected action, and a locked or single-move
+user must execute native Struggle without spending the restricted move's PP.
+Use `expectedExecutedMove` and `expectedPpSpent` for forced follow-up actions;
+the oracle still requires native completion/history and actual damage. Give
+the target enough HP to survive the entire sequence so a KO does not masquerade
+as a missing command menu. Glaive Rush additionally tests NPC slot ownership
+and expiry on a native Truant loafing action.
+
+Stuff Cheeks checks real berry effects/consumption, Recycle, Belch and single
+Cheek Pouch activation. Corrosive Gas must destroy without setting consumed-item
+history, and cannot allow native Recycle to restore that item. These suites
+are singles handler tests, not animation, doubles, teardown or whole-game
+regression coverage. Positive/negative oracle tests live in `test_move_handlers.py`.
+
 ## Snapshot batches and temporary enemy abilities
 
 One `battle.nds` and `battle.sav` serve all four moves. Snorlax's Personal row is temporarily given Run Away in slot 1 and Fluffy in slot 2. The base trainer selects slot 1; the Fluffy worker validates and changes only the slot-selector byte in its private ROM copy. This happens before native party generation and ability registration, not by changing a live BattleMon ability. The fixture manifest describes both variants and the exact byte patch. This avoids duplicate full ROM exports.
@@ -435,6 +523,68 @@ For an existing power-suite extension, the current case fields look like this:
 ```
 
 `expectedPowers` describes the mechanic's power; `effectivePowers` can separately declare reviewed ability adjustments. `typeRatio` models the fixture's actual matchup, and `damageRatios` asserts final modifiers and fixed-point rounding. `powerRolls` checks draws per calculation. A new HP/stat/weather family must supply a suitable oracle, not simply reuse these fields with guessed constants. Keep failure-focused unit tests alongside every oracle extension.
+
+## Additional doubles suites and fixtures
+
+Implemented suites: `decorate`, `expanding-force`, `snipe-shot`, `jungle-healing`,
+`life-dew`, `lunar-blessing`, `dragon-cheer`, `make-it-rain`, `matcha-gotcha`, and
+`mortal-spin`. They use a typed, data-only registry in
+`scripts/move-handler-doubles-fixtures.ts`; the main builder handles ROM/save
+construction and the runner handles native observations and assertions.
+
+```sh
+npm run battle:test:move -- --move make-it-rain --rom ../../White2Upgrade-gen89-batch37-20261004.nds
+npm run battle:test:move -- --move snipe-shot --rom ../../White2Upgrade-gen89-batch37-20261004.nds --variant follow-me
+npm run battle:test:move -- --move dragon-cheer --rom ../../White2Upgrade-gen89-batch37-20261004.nds --variant psych-up --variant transform
+```
+
+Author both parties with at least two usable Pokémon and set both trainer data
+and the boot runtime to Doubles. Cases name four roles: `attacker`, `ally`,
+`defender`, `defenderAlly` (native slots 0, 1, 12, 13). `moveSlot` and
+`allyMoveSlot` select each player's move; `targetRole` and `allyTargetRole`
+select legal native targets. The signature-pinned UI driver distinguishes
+action, move and target phases; it never writes selected battle commands.
+The foe target cells are reversed relative to party order, so do not infer
+screen coordinates from a slot number.
+
+For example, a Decorate case can specify:
+
+```ts
+{ id: "boost-ally", targetRole: "ally", completeTurn: true,
+  expectedStages: { ally: [8,6,8,6,6,6,6] } }
+```
+
+Use `setupCommands: [{ slot: 0, case: { id: "setup", allyMoveSlot: 1 } }]`
+for native setup turns with explicit partner commands. `followup` adds an
+observed later action and its own checks; Dragon Cheer copies are followed by
+real attacks with their native critical ranks observed. Healing tests establish
+ally Heal Block by protecting the user against a slow foe's spread Heal Block,
+then healing before that foe can act again. Do not aim Gen 5 Heal Block at an
+ally: its native move targets opponents.
+
+HP and stat stages are bounded pre-input fixtures. `statuses` can establish
+specified major statuses before input where trainer data cannot encode them;
+require `expectedStatusesBefore` as well as the expected post-move status.
+Player save `status` uses BW2 IDs 0–5, not old bit masks: healthy, paralysis,
+sleep, freeze, burn, poison. Sleep duration/Toxic escalation require native
+battle setup. A cure or thaw on a healthy fixture must fail its precondition.
+Protect/Substitute/Fly, hazards, traps and Heal Block are established with actual
+moves, not fabricated outcome flags.
+
+The doubles oracle verifies the next command menu and all four identities,
+commands and unchanged/expected stages. Damaging cases declare exact
+`expectedTargets`, power, spread and matchup ratios. An independent integer
+oracle includes native fixed-point rounding and terrain power. Matcha Gotcha
+drains actual clipped HP/Substitute damage and checks Ooze-before-healing order;
+Make It Rain observes the native bonus pool, not a synthetic money counter.
+Transform tests distinguish original ability/species from the copied surface.
+New oracle rules need positive and deliberately wrong-result unit tests in
+`runtime/battle-harness/test_move_handlers.py`.
+
+Current limitations: no triples/multi-trainer tests, complete prize payout,
+switch/teardown stress, native drain-KO/contact-KO cases or full B2 behavioral
+coverage. These are focused behavior tests, not animation acceptance. Outputs
+remain ignored, fixture ROMs/snapshots are cleaned, and saves are retained.
 
 ## Add multi-turn and status assertions
 

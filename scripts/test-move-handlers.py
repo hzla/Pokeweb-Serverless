@@ -1,7 +1,8 @@
-"""Focused singles move-handler regressions using native headless battles."""
+"""Focused singles/doubles move regressions using native headless battles."""
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -13,6 +14,22 @@ spec = importlib.util.spec_from_file_location("battle_shared", Path(__file__).wi
 shared = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(shared)
 check, read_mon, ROOT = shared.check, shared.read_mon, shared.ROOT
+
+
+def relative_worker_paths(directory, artifacts, workspace):
+    """Persist portable paths; workers always execute from the harness root."""
+    return {key: os.path.relpath(Path(value).resolve(), ROOT)
+            for key, value in (("directory", directory), ("artifacts", artifacts), ("workspace", workspace))}
+
+
+def portable_error(error):
+    if isinstance(error, (subprocess.CalledProcessError, subprocess.TimeoutExpired)):
+        command = [os.path.relpath(arg, ROOT) if isinstance(arg, str) and Path(arg).is_absolute() else arg
+                   for arg in error.cmd]
+        outcome = (f"exited with status {error.returncode}" if isinstance(error, subprocess.CalledProcessError)
+                   else f"exceeded {error.timeout} seconds")
+        return f"Command {command!r} {outcome}"
+    return str(error).replace(str(ROOT) + os.sep, "").replace(str(ROOT.parent.parent) + os.sep, "../../")
 
 
 def select_variants(manifest, names):
@@ -29,13 +46,21 @@ def state(emu, pointer):
             "currentSpecies": emu.memory.read_short(pointer + (0xec if emu.memory.read_byte(pointer + 27) & 0x20 else 12)),
             "form": emu.memory.read_byte(pointer + 0x141),
             "transformed": bool(emu.memory.read_byte(pointer + 27) & 0x20),
+            "currentAbility": emu.memory.read_short(pointer + 0x13c),
             "moveId": emu.memory.read_short(pointer + 0x10a), "pp": emu.memory.read_byte(pointer + 0x10c),
             "previousMove": emu.memory.read_short(pointer + 0x14a),
             "previousMoveId": emu.memory.read_short(pointer + 0x14c),
             "statStages": [emu.memory.read_byte(pointer + 0xfc + i) for i in range(7)],
             "conditions": [emu.memory.read_long(pointer + 28 + 4 * i) for i in range(7)],
+            "encoreCondition": emu.memory.read_long(pointer + 28 + 4 * 23),
+            "bindCondition": emu.memory.read_long(pointer + 28 + 4 * 8),
+            "leechSeedCondition": emu.memory.read_long(pointer + 28 + 4 * 18),
+            "trapCondition": emu.memory.read_long(pointer + 28 + 4 * 22),
+            "consumedItem": emu.memory.read_short(pointer + 20),
+            "chargeCondition": emu.memory.read_long(pointer + 28 + 4 * 26),
             "itemBlockedCondition": emu.memory.read_long(pointer + 28 + 4 * 19),
             "gastroAcidCondition": emu.memory.read_long(pointer + 28 + 4 * 16),
+            "healBlockCondition": emu.memory.read_long(pointer + 28 + 4 * 15),
             "conditionFlags": emu.memory.read_byte(pointer + 0x155) | (emu.memory.read_byte(pointer + 0x156) << 8),
             # Native surface moves are active; truth moves retain original PP
             # when Transform/Mimic unlinks them. Observe both without writes.
@@ -44,6 +69,155 @@ def state(emu, pointer):
             "originalMoves": [{"id": emu.memory.read_short(pointer + 0x104 + 14 * i),
                                "pp": emu.memory.read_byte(pointer + 0x106 + 14 * i)} for i in range(4)],
             "turnFlags": emu.memory.read_byte(pointer + 0x153) | (emu.memory.read_byte(pointer + 0x154) << 8)}
+
+def expected_battlers(variant):
+    battlers = {0: ("attacker", variant.get("playerSpecies", 151), variant["playerAbilityId"]),
+                12: ("defender", variant.get("defenderSpecies", 143), variant["abilityId"])}
+    if variant.get("battleType", "Singles") == "Doubles":
+        battlers.update({1: ("ally", variant["allySpecies"], variant["allyAbilityId"]),
+                         13: ("defenderAlly", variant["defenderAllySpecies"], variant["defenderAllyAbilityId"])})
+    return battlers
+
+
+DOUBLES_SUITES = ("decorate", "expanding-force", "snipe-shot", "jungle-healing", "life-dew", "lunar-blessing", "dragon-cheer", "make-it-rain", "matcha-gotcha", "mortal-spin")
+
+
+def verify_doubles(case, result, variant):
+    verify_completed(result, case.get("expectedExecutedMove",variant["moveId"]))
+    before, after = result["before"], result["after"]
+    check(set(before) == set(after) == {"attacker","ally","defender","defenderAlly"}, "Missing doubles battler")
+    setup = result["battleSetup"]
+    check(setup["rule"] == 1 and min(setup["playerCount"],setup["trainerCount"]) >= 2, "Not a native doubles battle")
+    check(result.get("fullTurnValidated"), "Doubles turn did not complete")
+    for slot, (role,species,ability) in expected_battlers(variant).items():
+        check(before[role]["slot"] == after[role]["slot"] == slot, "Wrong native slot")
+        check(before[role]["species"] == species and before[role]["ability"] == ability, "Wrong fixture identity")
+        wanted = case.get("expectedStages",{}).get(role,before[role]["statStages"])
+        check(after[role]["statStages"] == wanted, f"Wrong stages for {role}: {after[role]['statStages']} != {wanted}")
+        if role in case.get("expectedTypes",{}):
+            check(after[role]["types"] == case["expectedTypes"][role], f"Wrong post-move types for {role}")
+        if role in case.get("expectedHealing",{}):
+            expected = case["expectedHealing"][role]
+            check(after[role]["hp"] - before[role]["hp"] == expected,
+                  f"Wrong HP change for {role}: {after[role]['hp']-before[role]['hp']} != {expected}")
+        if role in case.get("expectedStatuses",{}):
+            wanted_status = case["expectedStatuses"][role]
+            check(active_status(after[role]) == ([wanted_status] if wanted_status else []), f"Wrong status for {role}")
+        if role in case.get("expectedStatusesBefore",{}):
+            wanted_status = case["expectedStatusesBefore"][role]
+            check(active_status(before[role]) == ([wanted_status] if wanted_status else []), f"Missing status precondition for {role}")
+        if role in case.get("expectedFocus",{}):
+            check(bool(after[role]["conditionFlags"] & (1 << 9)) == case["expectedFocus"][role], f"Wrong Focus Energy/Dragon Cheer state for {role}")
+        if role in case.get("expectedCriticalRanks",{}):
+            ranks = [e["rank"] for e in result["criticalRanks"] if e["slot"] == slot]
+            check(ranks and all(rank == case["expectedCriticalRanks"][role] for rank in ranks), f"Wrong critical rank for {role}: {ranks}")
+        if role != "attacker":
+            move = (variant.get("allyMoves",[150])[case.get("allyMoveSlot",0)] if role == "ally" else
+                    variant["trainerMove"] if role == "defender" else variant.get("defenderAllyMove",150))
+            check(after[role]["previousMoveId"] == move, f"{role} did not execute its command")
+    if "expectedTargets" in case:
+        target_slots = sorted(before[role]["slot"] for role in case["expectedTargets"])
+        calls = result["damageCalls"]
+        check(sorted(call["defender"]["slot"] for call in calls) == target_slots,
+              f"Wrong spread/redirect targets: {[call['defender']['slot'] for call in calls]} != {target_slots}")
+        for call in calls:
+            if "expectedBasePower" in case:
+                powers = call["powerRewrites"]
+                check((powers[-1] if powers else call["databasePower"]) == case["expectedBasePower"], "Wrong execution-time base power")
+            check(call["calculatedDamage"] > 0, "Damaging target received zero damage")
+            if "expectedSpread" in case:
+                check(call["targetDamageRatio"] == (3072 if case["expectedSpread"] else 4096), "Wrong native spread modifier")
+            user, target = call["attacker"],call["defender"]
+            physical = call["category"] == 1
+            power = case.get("expectedBasePower",call["databasePower"])
+            power = (power * case.get("terrainPowerRatio",4096) + 2047) // 4096
+            attack = user["stats"][0 if physical else 2]
+            defense = target["stats"][1 if physical else 3]
+            damage = ((2 * user["level"] // 5 + 2) * power * attack // defense) // 50 + 2
+            damage = (damage * call["targetDamageRatio"] + 2047) // 4096
+            check(call["critical"] == 0, "Unexpected critical hit")
+            damage = damage * 85 // 100
+            if call["moveType"] in user["types"]: damage = (damage * 6144 + 2047) // 4096
+            role = next(role for role in before if before[role]["slot"] == target["slot"])
+            damage = damage * case.get("typeRatios",{}).get(role,4096) // 4096
+            check(call["preModifierDamage"] == damage, f"Wrong independent base/spread/terrain damage: {call['preModifierDamage']} != {damage}")
+        for role in ("defender","defenderAlly"):
+            if role in case["expectedTargets"]:
+                check(after[role]["hp"] < before[role]["hp"], f"{role} was not damaged")
+            else:
+                check(after[role]["hp"] == before[role]["hp"], f"Wrong {role} was damaged")
+    if case.get("drain"):
+        amounts = {}
+        for call in result["damageCalls"]:
+            role = next(role for role in before if before[role]["slot"] == call["defender"]["slot"])
+            damage = min(call["calculatedDamage"],call["defender"]["substituteHp"] or call["defender"]["hp"])
+            amount = max(1,damage // 2)
+            if case.get("bigRoot"): amount = max(1,(amount * 5325 + 2047) // 4096)
+            amounts[role] = amount
+        hp = before["attacker"]["hp"]
+        for role in case.get("oozeRoles",[]): hp = max(0,hp-amounts[role])
+        if hp:
+            for role, amount in amounts.items():
+                if role not in case.get("oozeRoles",[]): hp = min(before["attacker"]["maxHp"],hp+amount)
+        check(after["attacker"]["hp"] == hp, f"Wrong ordered spread drain: {after['attacker']['hp']} != {hp}")
+    if "expectedNativeSuccess" in case:
+        events = result["takeHeartEvents"]
+        check(len(events) == 1 and events[0]["success"] == case["expectedNativeSuccess"], "Wrong native status-move success")
+    if "expectedCoins" in case:
+        check(sum(event["amount"] for event in result["coins"] if event["accepted"]) == case["expectedCoins"], "Wrong native Pay Day coin total")
+    if case.get("expectedTransform"):
+        check(after["attacker"]["transformed"] and after["attacker"]["currentSpecies"] == before["ally"]["species"], "Native Transform did not copy the ally")
+        check(after["attacker"]["currentAbility"] == after["ally"]["currentAbility"], "Native Transform did not copy the surface ability")
+    if "expectedAllyHealBlock" in case:
+        check(bool(before["ally"]["healBlockCondition"] & 7) == case["expectedAllyHealBlock"], "Missing native Heal Block precondition")
+    for key, snapshot in (("expectedHazardsBefore","beforeSideEffects"),("expectedHazardsAfter","afterSideEffects")):
+        if key in case:
+            effects = result[snapshot][0]
+            active = [int(effect) for effect in ("0","6","7","8") if effects[effect]["layers"]]
+            check(sorted(active) == sorted(case[key]), "Wrong own-side hazard lifetime")
+    for key, snapshot in (("expectedUserConditionsBefore","before"),("expectedUserConditionsAfter","after")):
+        if key in case:
+            mon = result[snapshot]["attacker"]
+            active = [condition for condition,field in ((8,"bindCondition"),(18,"leechSeedCondition")) if mon[field] & 7]
+            check(active == case[key], "Wrong binding/Leech Seed lifetime")
+    if "followup" in case:
+        next_variant = {**variant,"moveId":case["followup"]["moveId"], **{key:case["followup"][key] for key in ("playerAbilityId",) if key in case["followup"]}}
+        verify_doubles(case["followup"]["case"],result["followup"],next_variant)
+    return {"case":case["id"],"passed":True,"battleType":"Doubles","hpBefore":before["attacker"]["hp"],"hpAfter":after["attacker"]["hp"],"targets":[call["defender"]["slot"] for call in result["damageCalls"]],
+            "hp":{role:mon["hp"] for role,mon in after.items()},"stages":{role:mon["statStages"] for role,mon in after.items()}}
+
+
+def verify_coaching(case, result, variant):
+    verify_completed(result, 811)
+    before, after = result["before"], result["after"]
+    expected = expected_battlers(variant)
+    roles = {entry[0] for entry in expected.values()}
+    check(set(before) == set(after) == roles, "Missing active doubles battler")
+    setup = result["battleSetup"]
+    doubles = variant["battleType"] == "Doubles"
+    check(setup["rule"] == int(doubles), "Wrong native battle format")
+    check(min(setup["playerCount"], setup["trainerCount"]) >= (2 if doubles else 1), "Native parties too small")
+    check(not result["damageCalls"], "Coaching unexpectedly dealt damage")
+    changed = doubles and case["expectedAllyStages"] != before["ally"]["statStages"]
+    check(any(event.get("success") for event in result["takeHeartEvents"]) == changed,
+          "Native Coaching work success does not match the actual stat effect")
+    for native_slot, (role, species, ability) in expected.items():
+        check(before[role]["slot"] == after[role]["slot"] == native_slot, "Wrong native active slot")
+        check(before[role]["species"] == species and before[role]["ability"] == ability, "Wrong doubles fixture identity")
+        wanted = case["expectedAllyStages"] if role == "ally" else before[role]["statStages"]
+        check(after[role]["statStages"] == wanted, f"Wrong Coaching stages for {role}: {after[role]['statStages']}, expected {wanted}")
+        if role != "attacker":
+            move = case.get("expectedAllyMove",150) if role == "ally" else 150
+            check(after[role]["previousMoveId"] == move, f"{role} did not execute its own command")
+            check(after[role]["moves"][0]["pp"] == before[role]["moves"][0]["pp"] - 1, f"{role} command did not consume PP")
+        if role == "ally" and case.get("allySubstitute"):
+            check(after[role]["substituteHp"] > 0 and after[role]["hp"] == before[role]["hp"] - max(1,before[role]["maxHp"] // 4), "Ally Substitute was not established")
+        else:
+            check(after[role]["hp"] == before[role]["hp"], "Coaching changed HP")
+    if case.get("allyFly"):
+        check(after["ally"]["conditionFlags"] & 8, "Ally did not establish native Fly semi-invulnerability")
+    return {"case": case["id"], "passed": True, "hpBefore": before["attacker"]["hp"], "hpAfter": after["attacker"]["hp"],
+            "allyStages": after.get("ally",{}).get("statStages"), "battleType": variant["battleType"], "nativeSuccess": bool(changed)}
 
 
 def verify_storm(case, result, variant):
@@ -114,16 +288,18 @@ def verify_ruination(case, result):
     return summarize(case, before, after)
 
 
-def verify_completed(result, move_id, pp_spent=1):
+def verify_completed(result, move_id, pp_spent=1, executed_move=None):
     check(result.get("finished"), "Move attempt never completed")
     slot = result.get("selectedMoveSlot", 0)
     before, after = result["before"]["attacker"], result["after"]["attacker"]
     selected = before["moves"][slot] if "moves" in before else {"id": before["moveId"], "pp": before["pp"]}
     remaining = after["moves"][slot]["pp"] if "moves" in after else after["pp"]
+    if after.get("transformed") and not before.get("transformed"):
+        remaining = after["originalMoves"][slot]["pp"]
     check(selected["id"] == move_id, "Wrong move in selected slot")
     completed = result.get("completion", result["after"]["attacker"])
     check(completed["turnFlags"] & (1 << 1), "Native action-complete flag is missing")
-    check(result["after"]["attacker"]["previousMoveId"] == move_id, "Wrong completed move")
+    check(result["after"]["attacker"]["previousMoveId"] == (executed_move if executed_move is not None else move_id), "Wrong completed move")
     check(remaining == selected["pp"] - pp_spent,
           f"Move did not consume exactly {pp_spent} PP")
 
@@ -134,7 +310,7 @@ def summarize(case, before, after):
 
 
 def verify_power(case, result, variant):
-    verify_completed(result, variant["moveId"], case.get("ppSpent", len(case.get("expectedPowers", [variant["power"]]))))
+    verify_completed(result, case.get("selectedMoveId",variant["moveId"]), case.get("ppSpent", len(case.get("expectedPowers", [variant["power"]]))), case.get("expectedExecutedMove", variant["moveId"]))
     if case.get("blocked"):
         before, after = result["before"]["defender"], result["after"]["defender"]
         check(before["hp"] == after["hp"], "Immune target took damage")
@@ -211,7 +387,9 @@ def verify_power(case, result, variant):
     before, after = calls[0]["defender"], result["after"]["defender"]
     total = sum(call["calculatedDamage"] for call in calls) + disguise_cost
     if case.get("substitute"):
-        check(before["substituteHp"] > 0 and before["hp"] < result["before"]["defender"]["hp"],
+        check(before["substituteHp"] > 0 and
+              (result["before"]["defender"]["substituteHp"] > 0 and before["hp"] == result["before"]["defender"]["hp"]
+               if case.get("preexistingSubstitute") else before["hp"] < result["before"]["defender"]["hp"]),
               "Native target did not reduce its HP to establish Substitute before the attack")
         check(after["hp"] == expected_hp, "Attack incorrectly bypassed Substitute or spilled damage through its break")
         check(after["substituteHp"] == expected_sub, "Wrong Substitute damage")
@@ -227,9 +405,177 @@ def verify_power(case, result, variant):
         check(all(calls[0][side]["item"] == 541 for side in ("attacker", "defender")), "Both battlers must hold intact Air Balloons at damage execution")
     if "expectedUserItem" in case:
         check(calls[0]["attacker"]["item"] == case["expectedUserItem"], "Wrong user held item at execution")
+    if case.get("screensCleared"):
+        if variant["trainerMove"] in (113,115):
+            effect = 0 if variant["trainerMove"] == 115 else 1
+            check(result["beforeSideEffects"][1][str(effect)]["layers"] > 0, "Native screen was not established")
+        else:
+            check(result.get("setup") and result["before"]["defender"]["previousMoveId"] == 694,
+                  "Aurora Veil was not executed during setup")
+        check(all(value["layers"] == 0 for value in result["afterSideEffects"][1].values()), "Screen was not removed")
     check(result["rngOverrides"] > 0, "Controlled native RNG was never exercised")
     return {**summarize(case, before, after), "effectivePowers": effective_powers,
             "defenderSpecies": before["species"], "nativeExecutions": len(calls)}
+
+
+def verify_persistent(case, result, variant):
+    if variant["power"]:
+        summary = verify_power(case, {**result, "after": result["actionAfter"]}, variant)
+    else:
+        verify_completed({**result, "after":result["actionAfter"]}, variant["moveId"])
+        check(not result["damageCalls"], "Status move entered damage calculation")
+        summary = summarize(case, result["before"]["defender"], result["after"]["defender"])
+    after = result["after"]
+    if case.get("sourceExit"):
+        check(after["attacker"]["slot"] != result["before"]["attacker"]["slot"] and
+              after["attacker"]["species"] == 149, "Native Roar did not remove the effect source")
+    if "expectedTraps" in case:
+        traps = [int(bool(after[side]["trapCondition"] & 7)) for side in ("attacker","defender")]
+        check(traps == case["expectedTraps"], f"Wrong source-linked escape prevention: {traps}")
+        for side, other in (("attacker","defender"),("defender","attacker")):
+            if after[side]["trapCondition"] & 7 and variant["moveId"] == 746 and variant["trainerMove"] == 150:
+                check(after[side]["trapCondition"] & 7 == 3 and
+                      (after[side]["trapCondition"] >> 3) & 63 == after[other]["slot"], "Wrong Jaw Lock trap source")
+    stage_side = "attacker" if variant["moveId"] == 748 else "defender"
+    expected_stages = case.get("expectedUserStages" if stage_side == "attacker" else "expectedDefenderStages")
+    if expected_stages is not None:
+        check(after[stage_side]["statStages"] == expected_stages,
+              f"Wrong persistent stat result: {after[stage_side]['statStages']}, expected {expected_stages}")
+    turns = result.get("laterTurns", [])
+    for index, expected in enumerate(case.get("stageTimeline", [])):
+        check(turns[index]["after"][stage_side]["statStages"] == expected,
+              f"Wrong tick {index+2}: {turns[index]['after'][stage_side]['statStages']}, expected {expected}")
+    if variant["moveId"] == 864:
+        for turn in [result, *turns]:
+            direct = turn["actionAfter"]["defender"]
+            end = turn["after"]["defender"]
+            divisor = case.get("residualDivisor", 0)
+            expected = max(1,direct["maxHp"] // divisor) if divisor else 0
+            check(direct["hp"] - end["hp"] == expected,
+                  f"Wrong Salt Cure tick: {direct['hp'] - end['hp']}, expected {expected}")
+    for turn in turns:
+        verify_completed(turn, turn["before"]["attacker"]["moves"][turn["selectedMoveSlot"]]["id"])
+    return {**summary, "turnsValidated": len(turns)+1}
+
+
+def verify_forced_item(case, result, variant):
+    if case.get("selectionRejected"):
+        check(result.get("selectionRejected") and result["selectionChecks"][-1]["result"] == 1, "Move was selectable without a Berry")
+        check(result["after"]["attacker"]["moves"][0]["pp"] == result["before"]["attacker"]["moves"][0]["pp"], "Rejected selection consumed PP")
+        return {"case": case["id"], "passed": True, "nativeSuccess": False}
+    verify_completed(result, variant["moveId"])
+    check(not result["damageCalls"], "Item status move dealt damage")
+    before, after = result["before"], result["after"]
+    if variant["moveId"] == 747:
+        user = after["attacker"]
+        check(user["statStages"] == case["expectedUserStages"], "Wrong Stuff Cheeks Defense boost")
+        check(user["item"] == case["expectedUserItem"], "Wrong forced berry consumption")
+        check(user["consumedItem"] == case["expectedConsumedItem"], "Wrong consumed-item bookkeeping")
+        if "expectedUserHp" in case:
+            check(user["hp"] == case["expectedUserHp"], f"Wrong forced berry HP: {user['hp']}")
+        if case["id"] == "recycle-restores-consumed-berry":
+            turn = result["laterTurns"][0]
+            verify_completed(turn, 278)
+            check(turn["after"]["attacker"]["item"] == 158, "Recycle did not restore the eaten berry")
+        if case["id"] == "belch-after-forced-consumption":
+            verify_power({"id": "belch", "expectedPowers": [120], "ppSpent": 1, "damageRatios": [4096]}, result["laterTurns"][0],
+                         {"moveId": 562, "power": 120, "category": 2, "type": 3})
+    else:
+        target = after["defender"]
+        expected = 0 if case["expectedItemRemoved"] else before["defender"]["item"]
+        check(target["item"] == expected, "Wrong Corrosive Gas removal/protection")
+        check(target["consumedItem"] == before["defender"]["consumedItem"] == 0, "Destruction was incorrectly recorded as consumption")
+        for turn in result.get("laterTurns", []):
+            check(turn["after"]["defender"]["item"] == expected, "Destroyed item returned after native Recycle")
+            check(turn["after"]["defender"]["previousMoveId"] == 278, "Opponent did not execute Recycle")
+    return {**summarize(case, before["defender"], after["defender"]), "turnsValidated": 1+len(result.get("laterTurns",[]))}
+
+
+def verify_glaive_rush(case, result, variant):
+    if case.get("npcGlaive"):
+        summary = verify_power(case, result, {"moveId":33,"power":50,"type":0,"category":1})
+        check(result["after"]["defender"]["previousMoveId"] == 862, "NPC Glaive Rush did not execute")
+        check(result["before"]["attacker"]["hp"] > result["after"]["attacker"]["hp"], "NPC Glaive Rush did not hit")
+        return summary
+    summary = verify_power(case, {**result, "after": result["actionAfter"]}, variant)
+    if case["id"] == "loafing-action-expires-window":
+        loaf = result["laterTurns"][0]
+        verify_completed(loaf,150,0,862)
+        check(not loaf["damageCalls"], "Truant's inhibited action dealt damage")
+    if case.get("incomingFixed"):
+        check(result["after"]["attacker"]["hp"] == case["expectedUserHp"], "Wrong Glaive Rush fixed/OHKO interaction")
+        check(result["after"]["defender"]["previousMoveId"] == variant["trainerMove"], "Fixed/OHKO attack did not execute")
+        return summary
+    for index, turn in enumerate([result, *result.get("laterTurns",[])]):
+        calls = turn["incomingDamageCalls"]
+        count = case.get("incomingCounts", [1] * len(case["incomingRatios"]))[index]
+        check(len(calls) == count, f"Wrong incoming executions on turn {index+1}")
+        total = 0
+        for call in calls:
+            attacker, target = call["attacker"], call["defender"]
+            power = 50
+            base = ((2*attacker["level"]//5+2) * power * attacker["stats"][0] // target["stats"][1]) // 50 + 2
+            base = base * 85 // 100
+            if call["moveType"] in attacker["types"]:
+                base = (base*6144+2047) >> 12
+            check(call["critical"] == 0 and call["preModifierDamage"] == base, "Wrong independent incoming base damage")
+            ratio = case["incomingRatios"][index]
+            damage = max(1,(base*ratio+2047)>>12)
+            check(call["damageRatio"] == ratio and call["calculatedDamage"] == damage, "Wrong Glaive Rush damage window")
+            total += damage
+        # Substitute is a separate authored action; the remaining cases lose
+        # HP only to these actually executed incoming attacks.
+        check(turn["before"]["attacker"]["hp"] - turn["after"]["attacker"]["hp"] == total,
+              "Incoming doubled damage did not match actual HP loss")
+        foe_before, foe_after = turn["before"]["defender"], turn["after"]["defender"]
+        check(foe_after["moves"][0]["pp"] == foe_before["moves"][0]["pp"] - 1 and foe_after["previousMoveId"] == variant["trainerMove"], "Incoming move was not executed natively")
+    return {**summary, "turnsValidated": len(case["incomingRatios"])}
+
+
+def verify_consecutive_move(case, result, variant):
+    attacking = result
+    if case.get("moveSlot") == 1:
+        summary = verify_power({**case,"selectedMoveId":214}, attacking, variant)
+        check(result["before"]["attacker"]["conditions"][2] & 7, "Native Rest did not establish sleep")
+        for turn in result["laterTurns"]:
+            verify_power({"id":"repeated-sleep-talk", "selectedMoveId":214, "expectedPowers":[variant["power"]], "damageRatios":[4096], "ppSpent":1}, turn, variant)
+        for turn in [result, *result["laterTurns"]]:
+            check(turn["after"]["attacker"]["moves"][0]["pp"] == turn["before"]["attacker"]["moves"][0]["pp"], "Called payload incorrectly consumed PP")
+    else:
+        summary = verify_power(case, attacking, variant)
+    if case.get("repeatSequence"):
+        for index, turn in enumerate(result["laterTurns"]):
+            struggle = index == (1 if case["repeatSequence"] == "encore" else 0)
+            target_variant = {"moveId":165,"power":50,"category":1,"type":18} if struggle else variant
+            selected = turn["before"]["attacker"]["moves"][turn["selectedMoveSlot"]]["id"]
+            oracle = {"id":"forced-repeat-sequence", "selectedMoveId":selected,
+                "expectedExecutedMove": target_variant["moveId"], "expectedPowers":[target_variant["power"]],
+                "ppSpent":0 if struggle or case["repeatSequence"] == "encore" else 1, "damageRatios":[4096]}
+            if case["repeatSequence"] == "choice" and target_variant["category"] == 1:
+                oracle["expectedAttackValue"] = 90
+            verify_power(oracle, turn, target_variant)
+            if case["repeatSequence"] == "encore" and not struggle:
+                check(turn["before"]["attacker"]["moves"][0]["pp"]-turn["after"]["attacker"]["moves"][0]["pp"] == 1, "Forced Encore repeat did not consume its own PP")
+    if "followup" in case:
+        follow = result["followup"]
+        if case["followup"]["case"].get("selectionRejected"):
+            check(follow.get("selectionRejected") and follow["selectionChecks"][-1]["result"] == 1, "Repeated move remained selectable")
+            check(follow["before"]["attacker"]["pp"] == follow["after"]["attacker"]["pp"], "Rejected repeat consumed PP")
+        else:
+            verify_power(case["followup"]["case"], follow, variant)
+    return summary
+
+
+def verify_binding(case, result, variant):
+    summary = verify_power(case, {**result, "after": result["actionAfter"]}, variant)
+    action = result["actionAfter"]["defender"]
+    after = result["after"]["defender"]
+    check(bool(action["bindCondition"] & 7) == case["bindingExpected"], "Wrong native binding activation")
+    divisor = case["bindingDivisor"]
+    expected = max(1, action["maxHp"] // divisor) if divisor else 0
+    check(action["hp"] - after["hp"] == expected,
+          f"Wrong bind residual: {action['hp'] - after['hp']}, expected {expected}")
+    return {**summary, "residualDamage": expected, "bindCondition": after["bindCondition"]}
 
 
 def verify_aura_wheel(case, result, variant):
@@ -728,11 +1074,116 @@ def verify_stat_history(case, result, variant):
     return summary
 
 
+def verify_eerie_spell(case, result, variant):
+    summary = verify_power(case, result, variant)
+    target = result["damageCalls"][0]["defender"]
+    after = result["after"]["defender"]
+    check(target["previousMove"] == case["expectedLastMove"], "Wrong native last-used move history")
+    slot = next((i for i, move in enumerate(target["moves"]) if move["id"] == case["expectedLastMove"]), None)
+    work = result["ppWork"]
+    check(work == ([{"target": target["slot"], "slot": slot, "amount": case["expectedPpDrain"]}]
+                   if case["expectedPpDrain"] else []), "Wrong or missing native PP-reduction work")
+    later_move = None
+    if not target["turnFlags"] & 2 and after["turnFlags"] & 2:
+        # A frame can also complete the slow opponent's subsequent action.
+        # Account only for an observed native use, never hypothetical PP loss.
+        later_move = after["previousMoveId"]
+        check(later_move == variant["trainerMove"], "Unexpected subsequent opponent action")
+    for i, move in enumerate(target["moves"]):
+        expected = move["pp"] - (case["expectedPpDrain"] if i == slot else 0) - (1 if move["id"] == later_move else 0)
+        check(expected >= 0 and after["moves"][i] == {"id": move["id"], "pp": expected}, "Eerie Spell drained the wrong slot/amount or changed the move")
+    if case.get("bypassSubstitute"):
+        check(target["substituteHp"] > 0 and after["substituteHp"] == target["substituteHp"], "Eerie Spell did not preserve/bypass the real doll")
+    return {**summary, "ppDrained": case["expectedPpDrain"]}
+
+
+def verify_encore_policy(case, result, variant):
+    verify_completed(result, 227)
+    check(not result["damageCalls"], "Encore incorrectly calculated attack damage")
+    target = result["after"]["defender"]
+    check(target["previousMoveId"] == case["expectedLastMove"] and target["turnFlags"] & 2,
+          "The move required by the Encore case did not execute first")
+    events = result["takeHeartEvents"]
+    check(len(events) == 1 and events[0]["success"] == case["nativeSuccess"], "Wrong native Encore success/failure")
+    check(bool(target["encoreCondition"] & 7) == case["nativeSuccess"], "Wrong Encore condition result")
+    return {"case": case["id"], "passed": True, "nativeSuccess": case["nativeSuccess"]}
+
+
+def verify_energy_charge(case, result, variant):
+    summary = verify_power(case, result, variant)
+    first = result["chargeStart"]
+    before, charged = first["before"]["attacker"], first["after"]["attacker"]
+    expected = before["statStages"][:]
+    expected[2] += case["chargeBoost"]
+    check(charged["statStages"] == expected and result["after"]["attacker"]["statStages"] == expected,
+          "Charge boost was missing, duplicated or applied on the release turn")
+    check(bool(charged["chargeCondition"] & 7) == (case["chargeTurns"] == 2), "Wrong native charge lock")
+    check(not result["after"]["attacker"]["chargeCondition"] & 7, "Charge lock remained after release")
+    check(result["chargeEvents"].count(0x95) == 1 and result["chargeEvents"].count(0x96) == 1 and
+          result["chargeEvents"].count(0x98) == 1, "Wrong native charge-start/confirm/release dispatch count")
+    check(len(result["chargeMessages"]) == 1, "Charge announcement was missing or repeated")
+    expected_phase = (first["after"]["defender"]["hp"] == first["before"]["defender"]["hp"] if case["chargeTurns"] == 2 else
+                      first["after"]["defender"]["hp"] < first["before"]["defender"]["hp"])
+    check(expected_phase, "Attack occurred in the wrong phase")
+    if "expectedUserItem" in case:
+        check(result["after"]["attacker"]["item"] == case["expectedUserItem"], "Wrong Power Herb consumption")
+    return {**summary, "turns": case["chargeTurns"], "chargeBoost": case["chargeBoost"]}
+
+
+def verify_upper_hand(case, result, variant):
+    summary = verify_power(case, result, variant)
+    before, after = result["before"]["defender"], result["after"]["defender"]
+    expected = before["moves"][0]["pp"] - (1 if case["opponentActs"] else 0)
+    check(after["moves"][0]["pp"] == expected, "Upper Hand's native flinch/ability veto did not stop or permit the opponent's action")
+    check(bool(result["incomingDamageCalls"]) == (case["opponentActs"] and variant["trainerMove"] not in (150,182)),
+          "Wrong opposing damage after Upper Hand")
+    if not case.get("blocked"):
+        check(not result["damageCalls"][0]["defender"]["turnFlags"] & 2, "Upper Hand hit an already-acted target")
+    return {**summary, "opponentActs": case["opponentActs"]}
+
+
+def verify_tar_shot(case, result, variant):
+    summary = verify_power(case, result, variant)
+    check(result["before"]["defender"]["statStages"] == case["expectedDefenderStages"],
+          "Tar Shot did not apply exactly one native Speed stage per use")
+    expected_after = [6] * 7 if case.get("allowFaint") else case["expectedDefenderStages"]
+    check(result["after"]["defender"]["statStages"] == expected_after,
+          "Fire follow-up unexpectedly changed target stat stages")
+    for setup in result.get("setup", []):
+        verify_completed(setup, setup["before"]["attacker"]["moves"][setup["selectedMoveSlot"]]["id"])
+    return summary
+
+
+def verify_misty_explosion(case, result, variant):
+    summary = verify_power(case, result, variant)
+    before, after = result["before"]["attacker"], result["after"]["attacker"]
+    check((after["hp"] == 0) == case["userFaints"], "Wrong Misty Explosion self-faint outcome")
+    if not case["userFaints"]:
+        check(after["hp"] == before["hp"], "Damp blocked damage but still charged user HP")
+    return {**summary, "userFainted": after["hp"] == 0}
+
+
+def verify_torque_policy(case, result, variant):
+    verify_completed(result, variant["moveId"])
+    check(not result["damageCalls"], "A forbidden Torque was called and damaged its target")
+    before, after = result["before"]["attacker"], result["after"]["attacker"]
+    check(after["moves"][0]["id"] == variant["moveId"], "Forbidden Torque replaced Mimic/Sketch")
+    check(not result["after"]["defender"]["encoreCondition"] & 7, "Forbidden Torque was encored")
+    opponent = result["after"]["defender"]
+    check(opponent["moves"][0]["pp"] == result["before"]["defender"]["moves"][0]["pp"] - case["expectedOpponentUses"],
+          "The opponent did not use its required move once, or was incorrectly Instructed")
+    check(opponent["previousMoveId"] == variant["trainerMove"], "Required opponent action was not observed")
+    if case.get("sleepRequired"):
+        check(after["conditions"][2] & 7, "Sleep Talk test never established native sleep")
+    return {"case": case["id"], "passed": True, "nativeSuccess": False}
+
+
 class Observer:
     def __init__(self, emu, variant):
         self.emu, self.variant = emu, variant
         self.pointers, self.hooks, self.returns = {}, [], {}
         self.mon_pointers = {}
+        self.battle_setup_result = None
         self.ready = None
         self.reset(None)
 
@@ -740,9 +1191,13 @@ class Observer:
         self.case = case
         self.next_command = False
         self.action_complete = False
+        self.observed_action_end = None
         self.active_move_slot, self.active_move_id = 0, self.variant.get("moveId", 877)
         self.errors, self.damage, self.pending = [], [], {}
         self.active_damage = None
+        self.ui_state = None
+        self.critical_ranks = []
+        self.coins = []
         self.rng_overrides = 0
         self.announcements, self.message_pointers = [], {}
         self.terrain_end_messages = []
@@ -757,7 +1212,13 @@ class Observer:
         self.incoming_attacker = None
         self.selection_checks, self.selection_pending = [], {}
         self.stat_history_events = []
+        self.charge_events, self.charge_messages = [], []
+        self.turn_end_events = []
+        self.binding_residuals = []
+        self.native_quotients = []
+        self.pp_work, self.pp_work_pointers, self.pp_work_pending = [], set(), {}
         self.accuracy_ours = False
+        self.accuracy_incoming = False
         self.accuracy_rolls, self.weather_reads = [], []
         self.weather_pending = {}
         self.floating_pending = {}
@@ -779,7 +1240,23 @@ class Observer:
         mon = state(self.emu, pointer)
         self.mon_pointers[mon["slot"]] = pointer
         side = "attacker" if mon["slot"] < 6 else "defender"
+        if self.variant.get("battleType") == "Doubles":
+            expected = expected_battlers(self.variant)
+            check(mon["slot"] in expected, f"Unexpected active doubles slot {mon['slot']}")
+            side, species, ability = expected[mon["slot"]]
+            if self.case and self.case.get("expectedTransform") and side == "attacker" and mon["ability"] == self.variant["allyAbilityId"]:
+                # Native Transform re-registers the copied ability before its
+                # success tail sets the flag/species; verify that tail below.
+                ability = self.variant["allyAbilityId"]
+            check(mon["species"] == species and mon["ability"] == ability,
+                  f"Wrong doubles battler identity: slot={mon['slot']}, species={mon['species']}, ability={mon['ability']}, transformed={mon['transformed']}")
+            self.pointers[side] = pointer
+            return
         if self.case:
+            if side == "attacker" and self.case.get("sourceExit") and mon["slot"] != 0:
+                # Retain the acting source until its completion is captured.
+                # Roar's replacement has unrelated PP/history/turn flags.
+                self.incoming_attacker = pointer
             if side == "attacker" and self.variant.get("incomingAttackerSpecies") == mon["species"]:
                 self.incoming_attacker = pointer
             if side == "defender" and self.variant.get("incomingSpecies") == mon["species"]:
@@ -794,33 +1271,47 @@ class Observer:
         check(mon["ability"] == (self.variant["playerAbilityId"] if side == "attacker" else self.variant["abilityId"]), "Unexpected registered ability")
         self.pointers[side] = pointer
 
+    def battle_setup(self, cpu, address):
+        r = self.emu.memory.register_arm9
+        if r.r1 != 167:
+            return
+        bp = r.r3
+        check(self.emu.memory.read_long(bp) == 1, "Fixture is not a native trainer battle")
+        self.battle_setup_result = {"rule": self.emu.memory.read_long(bp + 4),
+            "playerCount": self.emu.memory.read_long(self.emu.memory.read_long(bp + 0x24) + 4),
+            "trainerCount": self.emu.memory.read_long(self.emu.memory.read_long(bp + 0x28) + 4)}
+        check(self.battle_setup_result["rule"] == (1 if self.variant.get("battleType") == "Doubles" else 0), "Wrong native battle format")
+
     def command(self, cpu, address):
         if self.emu.memory.read_long(self.emu.memory.register_arm9.r1) != 0:
             return
         if self.case is None:
             self.ready = self.emu.frame_count
         elif self.action_complete:
-            mon = state(self.emu, self.pointers["attacker"])
-            if mon["moves"][self.active_move_slot]["pp"] < self.initial_pp:
-                self.next_command = True
+            # execute_move already verifies PP and native action completion.
+            # A newly switched battler must not be compared with the old PP.
+            self.next_command = True
+            if self.case.get("sourceExit") and self.incoming_attacker is not None:
+                self.pointers["attacker"] = self.incoming_attacker
 
     def damage_probe(self, cpu, address):
         self.active_damage = None
         if not self.case:
             return
         registers = self.emu.memory.register_arm9
-        if self.variant.get("moveId") in (792, 852, 908) and registers.r1 == self.pointers.get("defender"):
+        if self.variant.get("moveId") in (792, 852, 908, 918) and registers.r1 == self.pointers.get("defender"):
             check(registers.r2 == self.pointers["attacker"], "Incoming move has the wrong shield target")
             self.incoming_damage.append({"moveId": self.emu.memory.read_short(registers.r3),
                                          "category": self.emu.memory.read_long(registers.r3 + 8)})
-        incoming_boost = self.variant.get("moveId") in (775, 868) and registers.r1 == self.pointers.get("defender")
+        incoming_boost = self.variant.get("moveId") in (775, 868, 862) and registers.r1 == self.pointers.get("defender")
         if incoming_boost:
             check(registers.r2 == self.pointers["attacker"], "Incoming HP boost attack has the wrong target")
         elif registers.r1 != self.pointers["attacker"]:
             return
         else:
-            check(registers.r2 == self.pointers["defender"], "Wrong damage target")
-            check(self.emu.memory.read_short(registers.r3) == self.active_move_id, "Wrong attacking move")
+            check(registers.r2 in ([self.pointers[role] for role in ("ally","defender","defenderAlly")] if self.variant.get("battleType") == "Doubles" else [self.pointers["defender"]]), "Wrong damage target")
+            expected_move = self.variant["moveId"] if self.variant.get("moveId") in (901,893) and self.active_move_id == 214 else self.active_move_id
+            check(self.emu.memory.read_short(registers.r3) == expected_move, "Wrong attacking move")
         calculation = {"frame": self.emu.frame_count, "attacker": state(self.emu, registers.r1),
                        "defender": state(self.emu, registers.r2), "powerRewrites": [], "powerRolls": 0,
                        "floatingChecks": [],
@@ -829,9 +1320,36 @@ class Observer:
         (self.incoming_damage if incoming_boost else self.damage).append(calculation)
         self.active_damage = calculation
 
+    def bonus_money(self, cpu, address):
+        if not self.case: return
+        r = self.emu.memory.register_arm9
+        event = {"amount":r.r1,"slot":r.r2,"accepted":False}
+        main = self.emu.memory.read_long(r.r0 + 4)
+        event.update(before=self.emu.memory.read_long(main + 0x434),main=main)
+        check(event["slot"] == 0, "Coins attributed to the wrong battler")
+        self.coins.append(event)
+        ret = r.lr & ~1
+        self.pending.setdefault(("coins",ret),[]).append(event)
+        if ("coins",ret) not in self.returns:
+            def returned(cpu,address):
+                if self.pending.get(("coins",address)):
+                    event = self.pending[("coins",address)].pop()
+                    event["accepted"] = bool(self.emu.memory.register_arm9.r0)
+                    event["after"] = self.emu.memory.read_long(event.pop("main") + 0x434)
+                    check(event["after"] - event["before"] == (event["amount"] if event["accepted"] else 0), "Native bonus pool did not match Pay Day work")
+            self.returns[("coins",ret)] = self.emu.memory.register_exec(ret,returned)
+
+    def ui_phase(self, cpu, address):
+        if not self.case:
+            return
+        core = self.emu.memory.register_arm9.r0
+        function = self.emu.memory.read_long(core + 20) & ~1
+        if function in (0x021cf02c,0x021cf150,0x021cef90):
+            self.ui_state = {"phase":function,"slot":self.emu.memory.read_long(core + 0xc0)}
+
     def selection(self, cpu, address):
         r = self.emu.memory.register_arm9
-        if not self.case or r.r2 != self.active_move_id or not r.r3:
+        if not self.case or r.r2 != self.active_move_id:
             return
         # The command client owns a separate BattleMon copy from the server's
         # registered battler. Match native identity, not allocation address.
@@ -855,6 +1373,53 @@ class Observer:
                 event.update(result=value, after=state(self.emu, event["clientPointer"]))
                 self.selection_checks.append(event)
             self.returns[key] = self.emu.memory.register_exec(ret, returned)
+
+    def native_quotient(self, cpu, address):
+        r = self.emu.memory.register_arm9
+        entry = {"hp": self.emu.memory.read_short(r.r0 + 14), "divisor": r.r1, "returnAddress": r.lr & ~1}
+        self.native_quotients.append(entry)
+        ret = r.lr & ~1
+        self.pending.setdefault(("quotient",ret), []).append(entry)
+        if ("quotient",ret) not in self.returns:
+            def returned(cpu,address):
+                if self.pending.get(("quotient",address)):
+                    self.pending[("quotient",address)].pop()["amount"] = self.emu.memory.register_arm9.r0
+            self.returns[("quotient",ret)] = self.emu.memory.register_exec(ret, returned)
+
+    def binding_residual(self, cpu, address):
+        r = self.emu.memory.register_arm9
+        entry = {"before": state(self.emu,r.r0), "divisor": r.r1, "frame": self.emu.frame_count,
+                 "branchHex": bytes(self.emu.memory.unsigned[address:address + 4]).hex(),
+                 "nativeVeneerHex": bytes(self.emu.memory.unsigned[0x0689bf10:0x0689bf20]).hex()}
+        self.binding_residuals.append(entry)
+        self.pending.setdefault("bind-return", []).append(entry)
+        if "bind-return" not in self.returns:
+            def returned(cpu,address):
+                if self.pending.get("bind-return"):
+                    self.pending["bind-return"].pop()["amount"] = self.emu.memory.register_arm9.r0
+            self.returns["bind-return"] = self.emu.memory.register_exec(address + 4, returned)
+
+    def pp_work_push(self, cpu, address):
+        r = self.emu.memory.register_arm9
+        if not self.case or self.active_move_id != 826 or r.r1 != 0xa:
+            return
+        ret = r.lr & ~1
+        self.pp_work_pending[ret] = self.pp_work_pending.get(ret, 0) + 1
+        key = ("pp-work", ret)
+        if key not in self.returns:
+            def returned(cpu, address):
+                if self.pp_work_pending.get(address, 0):
+                    self.pp_work_pending[address] -= 1
+                    self.pp_work_pointers.add(self.emu.memory.register_arm9.r0)
+            self.returns[key] = self.emu.memory.register_exec(ret, returned)
+
+    def pp_work_pop(self, cpu, address):
+        pointer = self.emu.memory.register_arm9.r1
+        if pointer in self.pp_work_pointers:
+            self.pp_work_pointers.remove(pointer)
+            self.pp_work.append({"amount": self.emu.memory.read_byte(pointer + 4),
+                                 "target": self.emu.memory.read_byte(pointer + 5),
+                                 "slot": self.emu.memory.read_byte(pointer + 6)})
 
     def attack_stat(self, cpu, address):
         if self.active_damage is None:
@@ -886,6 +1451,10 @@ class Observer:
         if self.active_damage is not None:
             self.active_damage["damageWeather"] = self.emu.memory.register_arm9.r0
 
+    def spread_ratio(self, cpu, address):
+        if self.active_damage is not None:
+            self.active_damage["targetDamageRatio"] = self.emu.memory.register_arm9.r1
+
     def calculated(self, cpu, address):
         if self.active_damage is not None:
             self.active_damage["calculatedDamage"] = self.emu.memory.register_arm9.r0
@@ -897,8 +1466,9 @@ class Observer:
 
     def accuracy(self, cpu, address):
         r = self.emu.memory.register_arm9
+        self.accuracy_incoming = bool(self.case and (self.variant.get("moveId") == 862 or self.variant.get("battleType") == "Doubles") and r.r1 == self.pointers.get("defender"))
         self.accuracy_ours = bool(self.case and r.r1 == self.pointers.get("attacker") and
-                                  self.emu.memory.read_short(r.r3) == self.active_move_id)
+                                  self.emu.memory.read_short(r.r3) == self.active_move_id) or self.accuracy_incoming
 
     def accuracy_roll(self, cpu, address):
         if self.accuracy_ours:
@@ -945,6 +1515,8 @@ class Observer:
     def message_setup(self, cpu, address):
         r = self.emu.memory.register_arm9
         self.message_pointers.pop(r.r0, None)
+        if self.case and self.active_move_id in (800,905) and r.r2 == 1352:
+            self.charge_messages.append({"frame": self.emu.frame_count, "mode": r.r1})
         if self.case and r.r2 == 1301:
             self.terrain_end_messages.append({"frame": self.emu.frame_count, "mode": r.r1})
         if not self.case or self.active_move_id != 809 or r.r2 != 1349:
@@ -988,7 +1560,10 @@ class Observer:
                             accuracy_draw = self.case["accuracyDraws"][index]
                         else:
                             accuracy_draw = self.case.get("accuracyRoll", 99)
+                        if self.accuracy_incoming:
+                            accuracy_draw = self.case.get("incomingAccuracyRoll", 0)
                         draw = (accuracy_draw if address == 0x021a3694 and self.accuracy_ours else
+                                0 if address == 0x021cc5d8 and self.variant.get("moveId") in (901,893) and self.active_move_id == 214 else
                                 self.case.get("statusChoice", 2) if controlled and self.active_move_id == 827 and bound == 3 else
                                 self.case.get("secondaryRoll", 99) if controlled and bound == 100 else bound - 1)
                         check(0 <= draw < bound, "Controlled RNG draw exceeds its bound")
@@ -1008,6 +1583,19 @@ class Observer:
 
     def event_dispatch(self, cpu, address):
         r = self.emu.memory.register_arm9
+        if self.active_damage is not None and r.r1 == 0x37:
+            self.active_damage["databasePower"] = read_event_var(self.emu,0x30)
+        if self.case and self.variant.get("battleType") == "Doubles" and r.r1 == 0x36:
+            self.critical_ranks.append({"slot":read_event_var(self.emu,3),"rank":read_event_var(self.emu,0x2c)})
+        if (self.case and self.case.get("sourceExit") and r.r1 == 2 and
+                read_event_var(self.emu, 2) == state(self.emu, self.pointers["attacker"])["slot"]):
+            # Native action-end follows the real action-complete flag. Capture
+            # before a later Roar resets the departed battler's history.
+            self.observed_action_end = {side: state(self.emu,p) for side,p in self.pointers.items()}
+        if self.case and self.variant.get("moveId") in (748,746,753,864,903,779,819) and r.r1 in (0x77,0x78,0x4d):
+            self.turn_end_events.append({"event": r.r1, "slot": read_event_var(self.emu, 2), "target": read_event_var(self.emu,6), "defender": read_event_var(self.emu,4), "frame": self.emu.frame_count})
+        if self.case and self.active_move_id in (800,905) and 0x95 <= r.r1 <= 0x98 and read_event_var(self.emu,3) == state(self.emu,self.pointers["attacker"])["slot"]:
+            self.charge_events.append(r.r1)
         if self.case and self.variant.get("moveId") in (807, 808, 914) and r.r1 == 0x5d:
             volume = read_event_var(self.emu, 0x20)
             self.stat_history_events.append({"slot": read_event_var(self.emu, 2),
@@ -1029,7 +1617,7 @@ class Observer:
             if slot >= 6:
                 self.pointers["defender"] = pointer
                 self.switch_in_events.append(mon)
-        if (self.case and self.active_move_id in (750, 850, 775, 868, 792, 852, 908, 882, 564)
+        if (self.case and self.active_move_id in (791,816,849,913,811, 750, 850, 775, 868, 792, 852, 908, 882, 564, 227, 747, 810)
                 and r.r1 == (0xa1 if self.active_move_id == 564 else 0xa0)
                 and read_event_var(self.emu, 0x12) == self.active_move_id):
             server, ret = r.r0, r.lr & ~1
@@ -1116,13 +1704,32 @@ def execute_move(emu, observer, maximum, slot=0):
     before = {side: state(emu, p) for side, p in observer.pointers.items()}
     side_before = read_side_effects(emu, observer.variant["sideState"]) if "sideState" in observer.variant else None
     selected = before["attacker"]["moves"][slot]
+    executed_id = observer.case.get("expectedExecutedMove", observer.variant["moveId"] if observer.variant.get("moveId") in (901,893) and selected["id"] == 214 else selected["id"])
     check(selected["id"] and selected["pp"], "Selected fixture move is missing or out of PP")
-    observer.active_move_id, observer.active_move_slot = selected["id"], slot
+    observer.active_move_id, observer.active_move_slot = observer.case.get("expectedExecutedMove",selected["id"]), slot
     observer.initial_pp = selected["pp"]
     observer.action_complete = observer.next_command = False
+    doubles = observer.variant.get("battleType") == "Doubles"
+    if doubles and observer.variant.get("moveId") == 811:
+        # Coaching's only legal target is the other player battler. Native UI
+        # highlights it; confirm Fight, first move, ally target, then the
+        # partner's Fight/first move. Do not write battle commands in memory.
+        check(slot == 0, "Doubles MVP supports first-slot moves only")
     for step in range(maximum):
-        emu.input.keypad_update(1 if 24 <= step < 27 else 0)
-        if step >= 60 and step % 12 < 3:
+        phase = observer.ui_state if doubles and observer.variant.get("moveId") != 811 else None
+        pulse = step >= 24 and step % 24 < 3
+        emu.input.keypad_update(1 if (pulse and (not phase or phase["phase"] == 0x021cf02c) if doubles else 24 <= step < 27) else 0)
+        if doubles and phase and pulse and phase["phase"] != 0x021cf02c:
+            partner = phase["slot"] == 1
+            choice = observer.case.get("allyMoveSlot",0) if partner else slot
+            if phase["phase"] == 0x021cf150:
+                emu.input.touch_set_pos(64 if choice % 2 == 0 else 192,50 if choice < 2 else 110)
+            else:
+                ally_move = observer.variant.get("allyMoves",[150])[choice] if partner else 0
+                target_role = observer.case.get("allyTargetRole","ally" if ally_move in (150,182,164,578,116,355) else "defender") if partner else observer.case.get("targetRole","attacker" if selected["id"] in (150,182,164,578,116,355) or (selected["id"] == observer.variant["moveId"] and observer.variant.get("targetType") in (6,7)) else "defender")
+                coordinates = {"defender":(192,50),"defenderAlly":(64,50),"attacker":(64,110),"ally":(192,110)}
+                emu.input.touch_set_pos(*coordinates[target_role])
+        elif not doubles and step >= 60 and step % 12 < 3:
             emu.input.touch_set_pos(64 if slot % 2 == 0 else 192, 50 if slot < 2 else 110)
         else:
             emu.input.touch_release()
@@ -1130,13 +1737,15 @@ def execute_move(emu, observer, maximum, slot=0):
         observer.raise_errors()
         check_arm9(emu)
         after = {side: state(emu, p) for side, p in observer.pointers.items()}
+        if observer.case.get("sourceExit") and observer.observed_action_end is not None:
+            after = observer.observed_action_end
         if observer.case.get("selectionRejected") and observer.selection_checks:
             check(observer.selection_checks[-1]["result"] == 1, "Blocked sound move was selectable")
             return {"finished": True, "selectionRejected": True, "selectedMoveSlot": slot,
                     "before": before, "after": after}
         if (after["attacker"]["turnFlags"] & (1 << 1)
-                and after["attacker"]["moves"][slot]["pp"] < selected["pp"]
-                and after["attacker"]["previousMoveId"] == selected["id"]):
+                and (after["attacker"]["moves"][slot]["pp"] == selected["pp"] if observer.case.get("expectedPpSpent") == 0 else after["attacker"]["moves"][slot]["pp"] < selected["pp"])
+                and after["attacker"]["previousMoveId"] == executed_id):
             observer.action_complete = True
             result = {"finished": True, "selectedMoveSlot": slot, "before": before, "after": after}
             if side_before is not None:
@@ -1188,7 +1797,7 @@ def run_variant(args, spec):
             observer.raise_errors()
             if observer.ready is not None:
                 break
-        check(observer.ready is not None and set(observer.pointers) == {"attacker", "defender"}, "Battle did not reach a registered command menu")
+        check(observer.ready is not None and set(observer.pointers) == {entry[0] for entry in expected_battlers(variant).values()}, "Battle did not reach a registered command menu")
         baseline = {side: bytes(emu.memory.unsigned[p:p + 0x200]) for side, p in observer.pointers.items()}
         baseline_pointers = dict(observer.pointers)
         frame = emu.frame_count
@@ -1207,7 +1816,25 @@ def run_variant(args, spec):
                     check(bytes(emu.memory.unsigned[observer.pointers[side]:observer.pointers[side] + len(raw)]) == raw, "Battler checkpoint was not restored")
                 # Explicit fixture preconditions, applied before any input. Never
                 # modify a calculated result or HP after the move begins.
+                for role, value in case.get("hp",{}).items():
+                    pointer = observer.pointers[role]
+                    check(isinstance(value,int) and 0 < value <= emu.memory.read_short(pointer + 14), "Invalid doubles HP precondition")
+                    emu.memory.write_short(pointer + 16,value)
+                for role, stages in case.get("stages",{}).items():
+                    check(len(stages) == 7 and all(isinstance(value,int) and 0 <= value <= 12 for value in stages), "Invalid doubles stage precondition")
+                    for index,value in enumerate(stages):
+                        emu.memory.write_byte(observer.pointers[role]+0xfc+index,value)
+                for role, status in case.get("statuses",{}).items():
+                    check(isinstance(status,int) and 0 <= status <= 5, "Invalid major-status fixture ID")
+                    for condition in range(1,6):
+                        # Native permanent-condition encoding, before inputs.
+                        emu.memory.write_long(observer.pointers[role]+28+4*condition,1 if condition == status else 0)
                 target = observer.pointers["defender"]
+                if "defenderMovePp" in case:
+                    pp = case["defenderMovePp"]
+                    check(isinstance(pp, int) and 1 <= pp <= 40, "Invalid defender PP precondition")
+                    emu.memory.write_byte(target + 0x104 + 2, pp)
+                    emu.memory.write_byte(target + 0x10a + 2, pp)
                 if "userStats" in case:
                     stats = case["userStats"]
                     check(len(stats) == 5 and all(isinstance(value, int) and 0 < value <= 2000 for value in stats), "Invalid raw-stat fixture")
@@ -1239,22 +1866,57 @@ def run_variant(args, spec):
                     check(len(stages) == 7 and all(isinstance(value, int) and 0 <= value <= 12 for value in stages), "Invalid defender stat-stage fixture")
                     for index, value in enumerate(stages):
                         emu.memory.write_byte(target + 0xfc + index, value)
-                for setup_slot in case.get("setupSlots", [case["setupSlot"]] if "setupSlot" in case else []):
-                    observer.reset({"id": "setup", "secondaryRoll": 99, "accuracyRoll": case.get("setupAccuracyRoll", 99)})
+                if "allyStages" in case:
+                    stages = case["allyStages"]
+                    check(len(stages) == 7 and all(isinstance(value, int) and 0 <= value <= 12 for value in stages), "Invalid ally stat-stage fixture")
+                    for index, value in enumerate(stages):
+                        emu.memory.write_byte(observer.pointers["ally"] + 0xfc + index, value)
+                setup_commands = case.get("setupCommands",[{"slot":slot,"case":{}} for slot in case.get("setupSlots", [case["setupSlot"]] if "setupSlot" in case else [])])
+                for command in setup_commands:
+                    setup_slot = command["slot"]
+                    observer.reset({"id": "setup", "secondaryRoll": 99, "accuracyRoll": case.get("setupAccuracyRoll", 99), "incomingAccuracyRoll":case.get("incomingAccuracyRoll",0), **command["case"]})
                     record.setdefault("setup", []).append(execute_move(emu, observer, args.max_frames, setup_slot))
                     wait_next_command(emu, observer, args.max_frames)
                     observer.reset(case)
-                record.update(execute_move(emu, observer, args.max_frames))
+                record.update(execute_move(emu, observer, args.max_frames, case.get("moveSlot",0)))
+                if "chargeTurns" in case:
+                    first = {"before": record["before"], "after": record["after"]}
+                    if case["chargeTurns"] == 2:
+                        check(not observer.damage, "Charging turn unexpectedly calculated damage")
+                        # A native charge lock automatically executes the next
+                        # turn. Waiting for a selectable menu would skip that
+                        # release and select a new, third-turn charge instead.
+                        for _ in range(args.max_frames):
+                            emu.input.keypad_update(0)
+                            emu.input.touch_release()
+                            emu.cycle()
+                            observer.raise_errors()
+                            check_arm9(emu)
+                            after = {side: state(emu, p) for side, p in observer.pointers.items()}
+                            if 0x98 in observer.charge_events and after["attacker"]["turnFlags"] & 2 and not after["attacker"]["chargeCondition"] & 7:
+                                record["after"] = after
+                                break
+                        else:
+                            raise AssertionError("Native locked attack turn never completed")
+                    record.update(chargeStart=first, chargeEvents=observer.charge_events, chargeMessages=observer.charge_messages)
                 if manifest["move"] == "poltergeist":
                     record["magicRoomActive"] = bool(emu.memory.read_long(0x021dd928 + 0x148 + 7 * 4))
                 record["completion"] = record["after"]["attacker"]
+                record["actionAfter"] = record["after"]
                 if case.get("completeTurn"):
                     wait_next_command(emu, observer, args.max_frames)
+                    result["fullTurnValidated"] = record["fullTurnValidated"] = True
                     record["after"] = {side: state(emu, p) for side, p in observer.pointers.items()}
                     if "sideState" in variant:
                         record["afterSideEffects"] = read_side_effects(emu, variant["sideState"])
                 record["statHistoryEvents"] = observer.stat_history_events
+                record["ppWork"] = observer.pp_work
+                record["turnEndEvents"] = observer.turn_end_events
+                record["bindingResiduals"] = observer.binding_residuals
+                record["nativeQuotients"] = observer.native_quotients
                 record.update(damageCalls=observer.damage, rngOverrides=observer.rng_overrides,
+                              criticalRanks=observer.critical_ranks,
+                              coins=observer.coins,
                               announcements=observer.announcements, weatherReads=observer.weather_reads,
                               accuracyRolls=observer.accuracy_rolls, terrainEndMessages=observer.terrain_end_messages,
                               statusRng=observer.status_rng, takeHeartEvents=observer.take_heart_events,
@@ -1265,7 +1927,17 @@ def run_variant(args, spec):
                 record["switchInEvents"] = observer.switch_in_events
                 if observer.incoming_attacker is not None:
                     record["incomingAttacker"] = state(emu, observer.incoming_attacker)
-                check(record["before"]["attacker"]["moveId"] == manifest["moveId"], "Fixture selected the wrong suite move")
+                if "residualTurns" in case:
+                    record["laterTurns"] = []
+                    for index in range(case["residualTurns"]):
+                        observer.reset({"id": "residual-followup", "accuracyRoll": 0, "secondaryRoll": 0, "incomingAccuracyRoll": case.get("incomingAccuracyRoll",0), **case.get("residualCases", [{}]*case["residualTurns"])[index]})
+                        turn = execute_move(emu, observer, args.max_frames, case.get("residualSlots", [1] * case["residualTurns"])[index])
+                        turn.update(completion=turn["after"]["attacker"], actionAfter=turn["after"])
+                        wait_next_command(emu, observer, args.max_frames)
+                        turn["after"] = {side: state(emu, p) for side, p in observer.pointers.items()}
+                        turn.update(damageCalls=observer.damage, incomingDamageCalls=observer.incoming_damage, rngOverrides=observer.rng_overrides)
+                        record["laterTurns"].append(turn)
+                check(record["before"]["attacker"]["moveId"] == variant["moveId"], "Fixture selected the wrong suite move")
                 if "followup" in case:
                     followup = case["followup"]
                     wait_next_command(emu, observer, args.max_frames)
@@ -1274,14 +1946,27 @@ def run_variant(args, spec):
                     record["followup"]["completion"] = record["followup"]["after"]["attacker"]
                     if followup["case"].get("completeTurn"):
                         wait_next_command(emu, observer, args.max_frames)
+                        record["followup"]["fullTurnValidated"] = True
                         record["followup"]["after"] = {side: state(emu, p) for side, p in observer.pointers.items()}
                     record["followup"].update(damageCalls=observer.damage, rngOverrides=observer.rng_overrides,
+                        battleSetup=observer.battle_setup_result, criticalRanks=observer.critical_ranks, coins=observer.coins,
                         terrainEndMessages=observer.terrain_end_messages, accuracyRolls=observer.accuracy_rolls,
                         takeHeartEvents=observer.take_heart_events, typeChangeEvents=observer.magic_powder_events,
                         switchInEvents=observer.switch_in_events)
                     record["followup"].update(shieldEvents=observer.shield_events, shieldBreakEvents=observer.shield_break_events,
-                        shieldHitEvents=observer.shield_hit_events, incomingDamageCalls=observer.incoming_damage)
-                summary = (verify_ruination(case, record) if manifest["move"] == "ruination" else
+                        shieldHitEvents=observer.shield_hit_events, incomingDamageCalls=observer.incoming_damage,
+                        selectionChecks=observer.selection_checks)
+                record["battleSetup"] = observer.battle_setup_result
+                summary = (verify_doubles(case, record, variant) if manifest["move"] in DOUBLES_SUITES else
+                           verify_coaching(case, record, variant) if manifest["move"] == "coaching" else
+                           verify_ruination(case, record) if manifest["move"] == "ruination" else
+                           verify_glaive_rush(case, record, variant) if manifest["move"] == "glaive-rush" else
+                           verify_consecutive_move(case, record, variant) if manifest["move"] in ("blood-moon","gigaton-hammer") else
+                           verify_forced_item(case, record, variant) if manifest["move"] in ("stuff-cheeks","corrosive-gas") else
+                           verify_persistent(case, record, variant) if manifest["move"] in ("no-retreat","jaw-lock","octolock","salt-cure","syrup-bomb") else
+                           verify_binding(case, record, variant) if manifest["move"] in ("snap-trap", "thunder-cage") else
+                           verify_eerie_spell(case, record, variant) if manifest["move"] == "eerie-spell" else
+                           verify_encore_policy(case, record, variant) if manifest["move"] == "encore-policy" else
                            verify_stat_history(case, record, variant) if manifest["move"] in ("lash-out", "burning-jealousy", "alluring-voice") else
                            verify_tidy_up(case, record, variant) if manifest["move"] == "tidy-up" else
                            verify_dire_claw(case, record, variant) if manifest["move"] == "dire-claw" else
@@ -1293,6 +1978,11 @@ def run_variant(args, spec):
                            verify_scale_shot(case, record, variant) if manifest["move"] == "scale-shot" else
                            verify_triple_axel(case, record, variant) if manifest["move"] == "triple-axel" else
                            verify_maximum_hp_cost(case, record, variant) if manifest["move"] in ("steel-beam", "chloroblast") else
+                           verify_torque_policy(case, record, variant) if manifest["move"] == "torque-policy" else
+                           verify_upper_hand(case, record, variant) if manifest["move"] == "upper-hand" else
+                           verify_misty_explosion(case, record, variant) if manifest["move"] == "misty-explosion" else
+                           verify_tar_shot(case, record, variant) if manifest["move"] == "tar-shot" else
+                           verify_energy_charge(case, record, variant) if manifest["move"] in ("meteor-beam", "electro-shot") else
                            verify_steel_roller(case, record, variant) if manifest["move"] in ("steel-roller", "ice-spinner") else
                            verify_hazard(case, record, variant) if manifest["move"] in ("ceaseless-edge", "stone-axe") else
                            verify_poltergeist(case, record, variant) if manifest["move"] == "poltergeist" else
@@ -1306,7 +1996,7 @@ def run_variant(args, spec):
                     wait_next_command(emu, observer, args.max_frames)
                     result["fullTurnValidated"] = record["fullTurnValidated"] = True
             except Exception as error:
-                record["error"] = str(error)
+                record["error"] = portable_error(error)
                 # Keep completed first-action observations if a follow-up fails.
                 for key, value in dict(damageCalls=observer.damage, rngOverrides=observer.rng_overrides,
                               announcements=observer.announcements, weatherReads=observer.weather_reads,
@@ -1329,7 +2019,7 @@ def run_variant(args, spec):
                 (artifacts / f"{variant['name']}-{case['id']}.json").write_text(json.dumps(record, indent=2) + "\n")
         result["passed"] = True
     except Exception as error:
-        result["error"] = str(error)
+        result["error"] = portable_error(error)
         raise
     finally:
         snapshot = None
@@ -1346,7 +2036,10 @@ def run_variant(args, spec):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--move", choices=["lash-out", "burning-jealousy", "alluring-voice", "tidy-up", "body-press", "ice-spinner", "ruination", "barb-barrage", "dire-claw", "take-heart", "clangorous-soul", "fillet-away", "aura-wheel", "magic-powder", "obstruct", "silk-trap", "burning-bulwark", "hydro-steam", "terrain-pulse", "supercell-slam", "bolt-beak", "fishious-rend", "hard-press", "grav-apple", "psyblade", "rising-voltage", "scale-shot", "triple-axel", "steel-beam", "chloroblast", "steel-roller", "ceaseless-edge", "stone-axe", "collision-course", "electro-drift", "fickle-beam", "poltergeist", "grassy-glide", "bleakwind-storm", "sandsear-storm", "wildbolt-storm"], default="ruination")
+    move_suites = ["snap-trap", "thunder-cage", "raging-bull", "tar-shot", "misty-explosion", "torque-policy", "upper-hand", "meteor-beam", "electro-shot", "eerie-spell", "encore-policy", "lash-out", "burning-jealousy", "alluring-voice", "tidy-up", "body-press", "ice-spinner", "ruination", "barb-barrage", "dire-claw", "take-heart", "clangorous-soul", "fillet-away", "aura-wheel", "magic-powder", "obstruct", "silk-trap", "burning-bulwark", "hydro-steam", "terrain-pulse", "supercell-slam", "bolt-beak", "fishious-rend", "hard-press", "grav-apple", "psyblade", "rising-voltage", "scale-shot", "triple-axel", "steel-beam", "chloroblast", "steel-roller", "ceaseless-edge", "stone-axe", "collision-course", "electro-drift", "fickle-beam", "poltergeist", "grassy-glide", "bleakwind-storm", "sandsear-storm", "wildbolt-storm"]
+    move_suites[:0] = ["coaching", "blood-moon", "gigaton-hammer", "glaive-rush", "stuff-cheeks", "corrosive-gas", "no-retreat", "jaw-lock", "octolock", "salt-cure", "syrup-bomb"]
+    move_suites[:0] = list(DOUBLES_SUITES)
+    parser.add_argument("--move", choices=move_suites, default="ruination")
     parser.add_argument("--rom", type=Path, default=ROOT.parent.parent / "White2Upgrade.nds")
     parser.add_argument("--core", type=Path, help="Fresh stripped core DLL to install in the private fixture ROM")
     parser.add_argument("--save", type=Path, default=ROOT / "src/assets/testbattle/test.sav")
@@ -1385,7 +2078,7 @@ def main(argv=None):
         if not args.fixtures:
             subprocess.run(command, cwd=ROOT, check=True)
         manifest = json.loads((directory / "suite.json").read_text())
-        check(manifest["format"] == "pokeweb-focused-move-1" and manifest["move"] == args.move and manifest["battleType"] == "Singles", "Wrong fixture contract")
+        check(manifest["format"] == "pokeweb-focused-move-1" and manifest["move"] == args.move and manifest["battleType"] == ("Doubles" if args.move == "coaching" or args.move in DOUBLES_SUITES else "Singles"), "Wrong fixture contract")
         variants = select_variants(manifest, args.variant)
         report.update(selectedVariants=[variant["name"] for variant in variants],
                       completeSuite=len(variants) == len(manifest["variants"]))
@@ -1399,7 +2092,7 @@ def main(argv=None):
             print(f"Running {args.move}/{variant['name']}...", flush=True)
             with tempfile.TemporaryDirectory(prefix="pokeweb-move-handler-") as workspace:
                 specification = artifacts / f"{variant['name']}-batch.input.json"
-                specification.write_text(json.dumps({"directory": str(directory), "artifacts": str(artifacts), "workspace": workspace,
+                specification.write_text(json.dumps({**relative_worker_paths(directory, artifacts, workspace),
                                                      "manifest": manifest, "variant": variant}, indent=2) + "\n")
                 worker = [sys.executable, str(Path(__file__).resolve()), "--worker-spec", str(specification), "--max-frames", str(args.max_frames)]
                 if args.full_turn_smoke:
@@ -1407,7 +2100,7 @@ def main(argv=None):
                 for option, value in (("--melon-python", args.melon_python), ("--melon-lib", args.melon_lib)):
                     if value:
                         worker += [option, str(value.resolve())]
-                subprocess.run(worker, check=True, timeout=args.trial_timeout)
+                subprocess.run(worker, cwd=ROOT, check=True, timeout=args.trial_timeout)
             result = json.loads((artifacts / f"{variant['name']}-batch.json").read_text())
             check(result["passed"] and result["snapshotReleased"], "Incomplete batch cleanup")
             if result["fullTurnValidated"]:
@@ -1421,13 +2114,13 @@ def main(argv=None):
                 print(f"PASS {result['case']}: {detail}", flush=True)
         report["passed"] = True
     except Exception as error:
-        report["error"] = str(error)
+        report["error"] = portable_error(error)
         print(f"FAIL: {error}", file=sys.stderr)
     finally:
         try:
             report["removedFixtureRoms"] = [] if args.keep_fixtures or args.fixtures else shared.cleanup_fixture_rom(directory)
         except Exception as error:
-            report.update(passed=False, cleanupError=str(error))
+            report.update(passed=False, cleanupError=portable_error(error))
         report["wallSeconds"] = round(time.monotonic() - start, 2)
         (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
         print(f"Report: {output / 'result.json'}", flush=True)

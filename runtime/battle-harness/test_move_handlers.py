@@ -20,7 +20,134 @@ def ruination_result(hp):
             "damageCalls": [], "rngOverrides": 0}
 
 
+class CoachingTests(unittest.TestCase):
+    def fixture(self):
+        variant = {"battleType": "Doubles", "playerAbilityId": 99, "abilityId": 50,
+                   "allySpecies": 149, "allyAbilityId": 50,
+                   "defenderAllySpecies": 242, "defenderAllyAbilityId": 50}
+        before = {role: {"slot": slot, "species": species, "ability": ability,
+                         "hp": 100, "maxHp": 100, "statStages": [6]*7,
+                         "moves": [{"id": 811 if role == "attacker" else 150, "pp": 10}],
+                         "previousMoveId": 0, "turnFlags": 0}
+                  for slot, (role,species,ability) in runner.expected_battlers(variant).items()}
+        after = deepcopy(before)
+        for role in after:
+            after[role].update(previousMoveId=811 if role == "attacker" else 150, turnFlags=2)
+            after[role]["moves"][0]["pp"] = 9
+        after["ally"]["statStages"] = [7,7,6,6,6,6,6]
+        return variant, {"id": "normal", "expectedAllyStages": [7,7,6,6,6,6,6]}, {
+            "finished": True, "before": before, "after": after, "damageCalls": [],
+            "battleSetup": {"rule": 1,"playerCount": 2,"trainerCount": 2}, "takeHeartEvents": [{"success": True}]}
+
+    def test_actual_four_battlers_and_commands_pass(self):
+        variant, case, result = self.fixture()
+        self.assertTrue(runner.verify_coaching(case,result,variant)["passed"])
+
+    def test_rejects_wrong_effect_or_fake_doubles(self):
+        mutations = [lambda r: r["after"]["ally"]["statStages"].__setitem__(0,6),
+                     lambda r: r["after"]["attacker"]["statStages"].__setitem__(0,7),
+                     lambda r: r["after"]["defender"]["statStages"].__setitem__(0,7),
+                     lambda r: r["after"].pop("defenderAlly"),
+                     lambda r: r["battleSetup"].update(rule=0),
+                     lambda r: r["battleSetup"].update(playerCount=1),
+                     lambda r: r["takeHeartEvents"][0].update(success=False),
+                     lambda r: r["after"]["ally"]["moves"][0].update(pp=10),
+                     lambda r: r["after"]["ally"].update(previousMoveId=182),
+                     lambda r: r["after"]["defenderAlly"].update(slot=12)]
+        for mutation in mutations:
+            variant, case, result = self.fixture()
+            mutation(result)
+            with self.assertRaises(AssertionError):
+                runner.verify_coaching(case,result,variant)
+
+
+class DoublesOracleTests(unittest.TestCase):
+    def fixture(self, move=791):
+        variant = {"moveId":move,"battleType":"Doubles","playerAbilityId":99,"abilityId":50,
+                   "allySpecies":149,"allyAbilityId":50,"defenderAllySpecies":242,"defenderAllyAbilityId":50,"trainerMove":150}
+        before = {role:{"slot":slot,"species":species,"ability":ability,"hp":100,"maxHp":200,
+                        "level":50,"stats":[100]*5,"types":[13,13],"statStages":[6]*7,
+                        "conditionFlags":0,"conditions":[0]*7,"substituteHp":0,
+                        "moves":[{"id":move if role=="attacker" else 150,"pp":10}],
+                        "turnFlags":0,"previousMoveId":0}
+                  for slot,(role,species,ability) in runner.expected_battlers(variant).items()}
+        after = deepcopy(before)
+        for role,mon in after.items():
+            mon.update(turnFlags=2,previousMoveId=move if role=="attacker" else 150)
+            mon["moves"][0]["pp"]=9
+        result = {"finished":True,"before":before,"after":after,"fullTurnValidated":True,
+                  "battleSetup":{"rule":1,"playerCount":2,"trainerCount":2},"damageCalls":[],"criticalRanks":[],"coins":[]}
+        return variant,result
+
+    def test_healing_requires_real_status_preconditions_and_four_native_commands(self):
+        variant,result = self.fixture()
+        result["before"]["attacker"]["conditions"][4]=1
+        result["before"]["ally"]["conditions"][5]=1
+        result["after"]["attacker"]["hp"]=150
+        result["after"]["ally"]["hp"]=150
+        case={"id":"cure","expectedStatusesBefore":{"attacker":4,"ally":5},"expectedStatuses":{"attacker":0,"ally":0},"expectedHealing":{"attacker":50,"ally":50}}
+        self.assertTrue(runner.verify_doubles(case,result,variant)["passed"])
+        for mutation in (lambda r:r["before"]["attacker"].update(conditions=[0]*7),
+                         lambda r:r["after"]["ally"].update(hp=149),
+                         lambda r:r["after"]["defenderAlly"].update(previousMoveId=0),
+                         lambda r:r.update(fullTurnValidated=False),
+                         lambda r:r["battleSetup"].update(rule=0)):
+            bad=deepcopy(result); mutation(bad)
+            with self.assertRaises(AssertionError):runner.verify_doubles(case,bad,variant)
+
+    def damage(self, move=874,power=120):
+        variant,result=self.fixture(move)
+        damage=((((22*power)//50+2)*3072+2047)//4096)*85//100
+        for role in ("defender","defenderAlly"):
+            result["damageCalls"].append({"attacker":deepcopy(result["before"]["attacker"]),
+                "defender":deepcopy(result["before"][role]),"databasePower":power,"powerRewrites":[],
+                "category":2,"moveType":8,"critical":0,"targetDamageRatio":3072,"preModifierDamage":damage,"calculatedDamage":damage})
+            result["after"][role]["hp"]-=damage
+        return variant,result
+
+    def test_spread_power_damage_and_once_per_action_drop_are_independent(self):
+        variant,result=self.damage()
+        result["after"]["attacker"]["statStages"][2]=5
+        result["coins"]=[{"amount":250,"accepted":True},{"amount":250,"accepted":True}]
+        case={"id":"rain","expectedTargets":["defender","defenderAlly"],"expectedBasePower":120,"expectedSpread":True,
+              "expectedStages":{"attacker":[6,6,5,6,6,6,6]},"expectedCoins":500}
+        self.assertTrue(runner.verify_doubles(case,result,variant)["passed"])
+        for mutation in (lambda r:r["damageCalls"][0].update(targetDamageRatio=4096),
+                         lambda r:r["damageCalls"][0].update(databasePower=80),
+                         lambda r:r["damageCalls"][0].update(preModifierDamage=999),
+                         lambda r:r["damageCalls"].pop(),
+                         lambda r:r["after"]["attacker"]["statStages"].__setitem__(2,4),
+                         lambda r:r["coins"].pop()):
+            bad=deepcopy(result); mutation(bad)
+            with self.assertRaises(AssertionError):runner.verify_doubles(case,bad,variant)
+
+    def test_liquid_ooze_is_processed_before_capped_healing(self):
+        variant,result=self.damage(902,80)
+        result["before"]["attacker"].update(hp=195,maxHp=200)
+        result["after"]["attacker"]["hp"]=195
+        case={"id":"ordered","expectedTargets":["defender","defenderAlly"],"expectedBasePower":80,"drain":True,"oozeRoles":["defenderAlly"]}
+        self.assertTrue(runner.verify_doubles(case,result,variant)["passed"])
+        result["after"]["attacker"]["hp"]=189
+        with self.assertRaisesRegex(AssertionError,"ordered spread drain"):runner.verify_doubles(case,result,variant)
+
+    def test_critical_stage_is_observed_not_inferred_from_the_focus_flag(self):
+        variant,result=self.fixture(913)
+        result["after"]["ally"]["conditionFlags"]=1<<9
+        result["criticalRanks"]=[{"slot":1,"rank":1}]
+        case={"id":"critical","expectedFocus":{"ally":True,"attacker":False},"expectedCriticalRanks":{"ally":1}}
+        self.assertTrue(runner.verify_doubles(case,result,variant)["passed"])
+        result["criticalRanks"][0]["rank"]=2
+        with self.assertRaisesRegex(AssertionError,"critical rank"):runner.verify_doubles(case,result,variant)
+
+
 class RuinationTests(unittest.TestCase):
+    def test_persisted_worker_paths_are_relative_and_resolve_from_root(self):
+        paths = runner.relative_worker_paths(runner.ROOT / "work/fixtures", runner.ROOT / "work/trials", Path(tempfile.gettempdir()) / "worker")
+        for key, expected in (("directory", runner.ROOT / "work/fixtures"),
+                              ("artifacts", runner.ROOT / "work/trials"),
+                              ("workspace", Path(tempfile.gettempdir()) / "worker")):
+            self.assertFalse(Path(paths[key]).is_absolute())
+            self.assertEqual((runner.ROOT / paths[key]).resolve(), expected.resolve())
     def test_variant_filter_is_explicit_and_fail_closed(self):
         manifest = {"variants": [{"name": "draws"}, {"name": "parental-bond"}]}
         self.assertEqual(runner.select_variants(manifest, None), manifest["variants"])
@@ -1255,6 +1382,84 @@ class PowerTests(unittest.TestCase):
         case.update(id="instruct", ppSpent=2, powerRolls=[1, 1])
         result["after"]["attacker"]["pp"] = 8
         self.assertTrue(runner.verify_power(case, result, variant)["passed"])
+
+
+class MoveLifetimeOutcomeTests(unittest.TestCase):
+    def status_result(self, move=753):
+        before = {"attacker": {"moveId":move,"pp":15,"slot":0,"species":151},
+                  "defender": {"hp":235,"substituteHp":0,"slot":12,"trapCondition":0,"statStages":[6]*7}}
+        action = {"attacker": {**before["attacker"],"pp":14,"turnFlags":2,"previousMoveId":move},
+                  "defender": deepcopy(before["defender"])}
+        return {"finished":True,"before":before,"after":deepcopy(action),"actionAfter":action,
+                "damageCalls":[],"completion":action["attacker"]}
+
+    def test_source_exit_requires_real_replacement_and_no_remaining_effect(self):
+        result = self.status_result()
+        result["after"]["attacker"].update(slot=1,species=149)
+        case = {"id":"exit","sourceExit":True,"expectedTraps":[0,0],"expectedDefenderStages":[6]*7}
+        result["after"]["attacker"]["trapCondition"] = 0
+        variant = {"moveId":753,"power":0}
+        self.assertTrue(runner.verify_persistent(case,result,variant)["passed"])
+        for mutate in (lambda r:r["after"]["attacker"].update(slot=0),
+                       lambda r:r["after"]["defender"].update(trapCondition=3),
+                       lambda r:r["after"]["defender"].update(statStages=[6,5,6,5,6,6,6])):
+            bad = deepcopy(result)
+            mutate(bad)
+            with self.assertRaises(AssertionError):
+                runner.verify_persistent(case,bad,variant)
+
+    def test_called_move_checks_selected_pp_and_actual_payload_separately(self):
+        result = self.status_result(214)
+        result["after"]["attacker"]["previousMoveId"] = 901
+        runner.verify_completed(result,214,1,901)
+        for key,value in (("pp",15),("previousMoveId",214),("turnFlags",0)):
+            bad = deepcopy(result)
+            bad["after"]["attacker"][key] = value
+            bad["completion"] = bad["after"]["attacker"]
+            with self.assertRaises(AssertionError):
+                runner.verify_completed(bad,214,1,901)
+
+    def test_native_forced_struggle_requires_unchanged_selected_pp(self):
+        result = self.status_result(893)
+        result["after"]["attacker"].update(pp=15,previousMoveId=165)
+        runner.verify_completed(result,893,0,165)
+        result["after"]["attacker"]["pp"] = 14
+        with self.assertRaisesRegex(AssertionError,"consume exactly 0"):
+            runner.verify_completed(result,893,0,165)
+
+    def test_switch_command_does_not_compare_replacements_unrelated_pp(self):
+        emu = SimpleNamespace(frame_count=1,memory=SimpleNamespace(
+            register_arm9=SimpleNamespace(r1=100),read_long=lambda at:0))
+        observer = runner.Observer(emu,{"moveId":753})
+        observer.reset({"sourceExit":True})
+        observer.pointers = {"attacker":10,"defender":20}
+        observer.incoming_attacker = 30
+        observer.action_complete = True
+        observer.command(None,None)
+        self.assertTrue(observer.next_command)
+        self.assertEqual(observer.pointers["attacker"],30)
+
+    def test_destroyed_item_cannot_be_recorded_as_consumed(self):
+        result = self.status_result(810)
+        result["before"]["defender"].update(item=158,consumedItem=0)
+        result["after"]["defender"].update(item=0,consumedItem=0)
+        case = {"id":"destroy","expectedItemRemoved":True}
+        self.assertTrue(runner.verify_forced_item(case,result,{"moveId":810})["passed"])
+        result["after"]["defender"]["consumedItem"] = 158
+        with self.assertRaisesRegex(AssertionError,"recorded as consumption"):
+            runner.verify_forced_item(case,result,{"moveId":810})
+
+    def test_stuff_cheeks_requires_boost_and_consumption_together(self):
+        result = self.status_result(747)
+        result["after"]["attacker"].update(item=0,consumedItem=158,statStages=[6,8,6,6,6,6,6],hp=175)
+        case = {"id":"full-hp","expectedUserStages":[6,8,6,6,6,6,6],"expectedUserItem":0,
+                "expectedConsumedItem":158,"expectedUserHp":175}
+        self.assertTrue(runner.verify_forced_item(case,result,{"moveId":747})["passed"])
+        for key,value in (("item",158),("consumedItem",0),("statStages",[6]*7)):
+            bad = deepcopy(result)
+            bad["after"]["attacker"][key] = value
+            with self.assertRaises(AssertionError):
+                runner.verify_forced_item(case,bad,{"moveId":747})
 
 
 if __name__ == "__main__":

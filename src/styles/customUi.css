@@ -1,6 +1,9 @@
 .cui-editor { --cui-preview-width: 512px; box-sizing: border-box; width: 100%; max-width: calc(var(--cui-preview-width) + 630px); min-width: 0; margin-inline: auto; padding: 24px 20px; color: var(--text-color, #e6ebf0); }
 .cui-header h1 { margin: 0; font-size: 24px; }
 .cui-header p, .cui-status { font-size: 13px; }
+.cui-preview-notice { margin-block: 12px; padding: 12px 14px; border: 1px solid #80683e; border-left: 3px solid #dcab58; border-radius: 6px; background: #302c23; color: #f0e4cc; font-size: 13px; line-height: 1.5; }
+.cui-preview-notice strong { color: #f3ce8f; }
+.cui-preview-notice p { margin: 4px 0 0; }
 .cui-toolbar, .cui-actions, .cui-toolbar-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .cui-toolbar { gap: 12px; padding-block: 10px; border-bottom: 1px solid #404753; }
 .cui-toolbar-group + .cui-toolbar-group { padding-left: 12px; border-left: 1px solid #404753; }
