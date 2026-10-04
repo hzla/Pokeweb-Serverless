@@ -1,7 +1,9 @@
 import expansionData from "../assets/data/white2upgradeMoveExpansion.json";
+import moveAnimationCredits from "../assets/data/white2upgradeGen6MoveAnimationsCredits.json";
+import { getBundledMoveAnimationAuthor, summarizeMoveAnimationCredits } from "../pokeweb/moveAnimationCredits";
 import { readFileSync } from "node:fs";
 import { unzipSync, zipSync } from "fflate";
-import { readU16, writeU32 } from "../nds/binary";
+import { readU16, readU32, writeU32 } from "../nds/binary";
 import type { NintendoDSRom } from "../nds/rom";
 import {
   allocateMoveExpansionParticleAssets,
@@ -155,19 +157,24 @@ describe("Move Expansion patch", () => {
     expect(expansionData.firstTargetMoveId + expansionData.moves.length).toBeLessThanOrEqual(expansionData.targetMoveCount);
   });
 
-  it("bundles staged Gen 6-7 and all supplied Gen 9 animations with every dependency", () => {
+  it("bundles staged Gen 6-7 and all supplied Gen 8-9 animations with every dependency", () => {
     const bundle = loadMoveAnimationBundle();
 
-    expect(bundle.moves).toHaveLength(196);
+    expect(bundle.moves).toHaveLength(285);
     expect(bundle.moves[0]).toMatchObject({ sourceMoveId: 560, targetMoveId: 680 });
     expect(bundle.moves.find((move) => move.sourceMoveId === 742)).toMatchObject({ targetMoveId: 825 });
     expect(bundle.moves.at(-1)).toMatchObject({ sourceMoveId: 919, targetMoveId: 984 });
+    expect(bundle.moves.filter((move) => move.sourceMoveId >= 744 && move.sourceMoveId <= 850).map((move) => move.sourceMoveId)).toEqual([
+      ...Array.from({ length: 13 }, (_, index) => 744 + index),
+      ...Array.from({ length: 76 }, (_, index) => 775 + index),
+    ]);
     expect(bundle.moves.filter((move) => move.sourceMoveId >= 852).map((move) => move.sourceMoveId)).toEqual(
       Array.from({ length: 68 }, (_, index) => 852 + index),
     );
     expect(bundle.moves.some((move) => move.sourceMoveId === 851)).toBe(false);
+    expect(bundle.moves.some((move) => move.sourceMoveId === 743 || (move.sourceMoveId >= 757 && move.sourceMoveId <= 774))).toBe(false);
     expect(bundle.completeAssets).toBe(true);
-    expect(bundle.particles).toHaveLength(244);
+    expect(bundle.particles).toHaveLength(333);
     expect(bundle.backgrounds).toHaveLength(15);
     const bundledParticleIds = new Set(bundle.particles.map((particle) => particle.sourceParticleId));
     expect(bundle.moves.flatMap((move) => move.particleIds).every((particleId) => bundledParticleIds.has(particleId))).toBe(true);
@@ -181,13 +188,39 @@ describe("Move Expansion patch", () => {
     }
   });
 
-  it("credits every bundled Gen 9 animation to Log(n)", () => {
+  it("credits every bundled Gen 8-9 animation to Log(n)", () => {
     const entries = unzipSync(new Uint8Array(readFileSync(new URL("../assets/data/white2upgradeGen6MoveAnimations.zip", import.meta.url))));
     const manifest = JSON.parse(new TextDecoder().decode(entries["manifest.json"]));
-    const gen9 = manifest.moves.filter((move: { sourceMoveId: number }) => move.sourceMoveId >= 852);
-    expect(gen9).toHaveLength(68);
-    expect(gen9.every((move: { author?: string }) => move.author === "Log(n)")).toBe(true);
-    expect(new TextDecoder().decode(entries["CREDITS.txt"])).toContain("Log(n)");
+    const credited = manifest.moves.filter((move: { sourceMoveId: number }) => move.sourceMoveId >= 744);
+    expect(credited).toHaveLength(157);
+    expect(credited.every((move: { author?: string }) => move.author === "Log(n)")).toBe(true);
+    const credits = new TextDecoder().decode(entries["CREDITS.txt"]);
+    expect(credits).toContain("Gen 8 move animations (moves 744-756 and 775-850): Log(n).");
+    expect(credits).toContain("Gen 9 move animations (moves 852-919): Log(n).");
+  });
+
+  it("keeps panel, bundle, and per-move credits in sync without counting replaced imports", () => {
+    const entries = unzipSync(new Uint8Array(readFileSync(new URL("../assets/data/white2upgradeGen6MoveAnimations.zip", import.meta.url))));
+    const manifest = JSON.parse(new TextDecoder().decode(entries["manifest.json"]));
+    for (const move of manifest.moves) expect(move.author).toBe(getBundledMoveAnimationAuthor(move.sourceMoveId));
+    expect(manifest.credits).toEqual(summarizeMoveAnimationCredits(manifest.moves));
+    expect(manifest.credits).toEqual(moveAnimationCredits);
+    expect(moveAnimationCredits).toEqual([
+      { author: "Blaze Black/Volt White 2 Redux", count: 11 },
+      { author: "Cascade White", count: 17 },
+      { author: "Log(n)", count: 157 },
+      { author: "Hzla", count: 100 },
+    ]);
+    expect(moveAnimationCredits.reduce((total, credit) => total + credit.count, 0)).toBe(manifest.moves.length);
+    const credits = new TextDecoder().decode(entries["CREDITS.txt"]);
+    for (const { author, count } of moveAnimationCredits) expect(credits).toContain(`${author} (${count} move animations)`);
+    for (const moveId of [776, 784, 813, 844, 895]) expect(getBundledMoveAnimationAuthor(moveId)).toBe("Log(n)");
+  });
+
+  it("preserves Terrain Pulse's five variants and Meteor Beam's two phases", () => {
+    const bundle = loadMoveAnimationBundle();
+    expect(readU32(bundle.moves.find((move) => move.sourceMoveId === 805)!.bytes, 0)).toBe(5);
+    expect(readU32(bundle.moves.find((move) => move.sourceMoveId === 800)!.bytes, 0)).toBe(2);
   });
 
   it("appends occupied particle IDs and rewrites the installed animation references", () => {
@@ -235,8 +268,13 @@ describe("Move Expansion patch", () => {
     [2, [6, 7], true],
     [3, [6, 7], true],
     [3, [6, 7, 9], true],
+    [3, [6, 7, 8], true],
+    [3, [6, 7, 8, 9], true],
     [2, [6, 7, 9], false],
+    [2, [6, 7, 8, 9], false],
     [3, [6, 9, 7], false],
+    [3, [6, 7, 9, 8], false],
+    [3, [6, 7, 8, 8], false],
     [3, [6, 7, 10], false],
   ])("validates v%s generation list %j", (version, generations, supported) => {
     const bytes = zipSync({

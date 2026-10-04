@@ -6,11 +6,14 @@ import expansionData from "../src/assets/data/white2upgradeMoveExpansion.json";
 import { NARC } from "../src/nds/narc";
 import { NintendoDSRom } from "../src/nds/rom";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript } from "../src/pokeweb/moveAnimationModel";
+import { getBundledMoveAnimationAuthor, summarizeMoveAnimationCredits, type MoveAnimationAuthor } from "../src/pokeweb/moveAnimationCredits";
 
 const FIRST_GEN6_MOVE_ID = 560;
 const LAST_GEN6_MOVE_ID = 621;
 const FIRST_GEN7_MOVE_ID = 622;
 const LAST_GEN7_MOVE_ID = 742;
+const FIRST_GEN8_MOVE_ID = 744;
+const LAST_GEN8_MOVE_ID = 850;
 const FIRST_GEN9_MOVE_ID = 852;
 const LAST_GEN9_MOVE_ID = 919;
 const SPA_COMMANDS = new Set([
@@ -29,7 +32,7 @@ const SPA_COMMANDS = new Set([
 ]);
 
 type BundleMove = {
-  author?: string;
+  author: MoveAnimationAuthor;
   sourceMoveId: number;
   targetMoveId: number;
   animation: string;
@@ -76,6 +79,9 @@ async function main(): Promise<void> {
     ...integerRange(FIRST_GEN7_MOVE_ID, LAST_GEN7_MOVE_ID).filter(
       (moveId) => stagedAnimationIds.has(moveId) && moveTargetBySource.has(moveId),
     ),
+    ...integerRange(FIRST_GEN8_MOVE_ID, LAST_GEN8_MOVE_ID).filter(
+      (moveId) => (moveId <= 756 || moveId >= 775) && stagedAnimationIds.has(moveId) && moveTargetBySource.has(moveId),
+    ),
     ...integerRange(FIRST_GEN9_MOVE_ID, LAST_GEN9_MOVE_ID).filter(
       (moveId) => stagedAnimationIds.has(moveId) && moveTargetBySource.has(moveId),
     ),
@@ -110,7 +116,7 @@ async function main(): Promise<void> {
     const archivePath = `move_animations/${sourceMoveId}.bin`;
     entries[archivePath] = bytes;
     moves.push({ sourceMoveId, targetMoveId, animation: archivePath, particleIds, backgroundIds, calledAnimationIds, sha256: sha256(bytes),
-      ...(sourceMoveId >= FIRST_GEN9_MOVE_ID && sourceMoveId <= LAST_GEN9_MOVE_ID ? { author: "Log(n)" } : {}),
+      author: getBundledMoveAnimationAuthor(sourceMoveId),
     });
   }
 
@@ -153,23 +159,35 @@ async function main(): Promise<void> {
     return { sourceBackgroundId, files, sha256: files.map((path) => sha256(entries[path])) };
   });
 
+  const credits = summarizeMoveAnimationCredits(moves);
   const manifest = {
     format: "pokeweb-move-expansion-animations",
     version: 3,
     source: "White2Upgrade-Original-pokeweb/data/graphics/move_animations and move_spas, plus BW2 particle and background dependencies",
     donor: { gameCode: donorGameCode, sha256: sha256(donorBytes), particles: "a/0/0/6", backgrounds: "a/0/9/4" },
-    generations: [6, 7, 9],
+    generations: [6, 7, 8, 9],
+    credits,
     moves,
     particles,
     backgrounds,
   };
   entries["manifest.json"] = new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`);
-  entries["CREDITS.txt"] = new TextEncoder().encode("Gen 9 move animations (moves 852-919): Log(n).\n");
+  entries["CREDITS.txt"] = new TextEncoder().encode([
+    "Move animation credits (current Gen 6-9 bundle):",
+    ...credits.map(({ author, count }) => `${author} (${count} move animations)`),
+    "",
+    "Gen 8 move animations (moves 744-756 and 775-850): Log(n).",
+    "Gen 9 move animations (moves 852-919): Log(n).",
+    "Counts cover currently bundled move scripts, not replaced donor versions or individual SPAs.",
+    "",
+  ].join("\n"));
   await writeFile(output, zipSync(entries, { level: 9, mtime: new Date("1980-01-02T00:00:00Z") }));
+  await writeFile(output.replace(/\.zip$/u, "Credits.json"), `${JSON.stringify(credits, null, 2)}\n`);
   const gen6Count = moves.filter((move) => move.sourceMoveId <= LAST_GEN6_MOVE_ID).length;
   const gen7Count = moves.filter((move) => move.sourceMoveId >= FIRST_GEN7_MOVE_ID && move.sourceMoveId <= LAST_GEN7_MOVE_ID).length;
+  const gen8Count = moves.filter((move) => move.sourceMoveId >= FIRST_GEN8_MOVE_ID && move.sourceMoveId <= LAST_GEN8_MOVE_ID).length;
   const gen9Count = moves.filter((move) => move.sourceMoveId >= FIRST_GEN9_MOVE_ID).length;
-  console.log(`Wrote ${gen6Count} Gen 6, ${gen7Count} Gen 7 and ${gen9Count} Gen 9 animations with ${particles.length} particle files and ${backgrounds.length} background triplets to ${output}`);
+  console.log(`Wrote ${gen6Count} Gen 6, ${gen7Count} Gen 7, ${gen8Count} Gen 8 and ${gen9Count} Gen 9 animations with ${particles.length} particle files and ${backgrounds.length} background triplets to ${output}`);
 }
 
 function uniqueSorted(values: Iterable<number>): number[] {
