@@ -12,7 +12,7 @@ export type HarnessPokemon = {
   speciesId: number; form?: number; level?: number; itemId?: number;
   abilitySlot?: 1 | 2 | 3; abilityId?: number; nature?: number; gender?: 0 | 1 | 2;
   moves?: number[]; ivs?: Stats; evs?: Stats; currentHp?: number;
-  status?: "healthy" | "sleep" | "poison" | "burn" | "freeze" | "paralysis" | "toxic" | number;
+  status?: "healthy" | "sleep" | "poison" | "burn" | "freeze" | "paralysis" | number;
   pp?: number[];
 };
 export type HarnessConfig = {
@@ -22,7 +22,9 @@ export type HarnessConfig = {
   player?: { team?: HarnessPokemon[]; edits?: (Partial<HarnessPokemon> & { slot: number })[] };
 };
 const STATS = ["hp", "atk", "def", "spe", "spa", "spd"] as const;
-const STATUS = { healthy: 0, sleep: 2, poison: 8, burn: 16, freeze: 32, paralysis: 64, toxic: 128 };
+// BW2's party condition is a major-status ID, not the older bit mask. Sleep
+// duration and escalating poison belong to battle state, not this save field.
+const STATUS = { healthy: 0, paralysis: 1, sleep: 2, freeze: 3, burn: 4, poison: 5 };
 const MON_KEYS = ["speciesId", "form", "level", "itemId", "abilitySlot", "abilityId", "nature", "gender", "moves", "ivs", "evs", "currentHp", "status", "pp"];
 const PARTY = 0x18e00, SIZE = 220;
 
@@ -242,7 +244,7 @@ function condition(data: Uint8Array, spec: Partial<HarnessPokemon>): void {
   if (spec.currentHp !== undefined) writeU16(data, 0x8e, harnessInteger(spec.currentHp, 0, readU16(data, 0x90), "currentHp"));
   if (spec.status !== undefined) {
     const status = typeof spec.status === "string" ? STATUS[spec.status] : spec.status;
-    writeU32(data, 0x88, harnessInteger(status, 0, 0xfff, "status"));
+    writeU32(data, 0x88, harnessInteger(status, 0, 5, "status"));
   }
   if (spec.pp !== undefined) {
     if (!Array.isArray(spec.pp) || spec.pp.length !== 4) throw new Error("pp must have four entries");
@@ -294,13 +296,15 @@ export function patchHarnessSave(save: Uint8Array, project: ProjectState, config
     }
     if (player?.team || player?.edits?.length) refreshTestBattlePartyChecksums(output, half);
     const finalCount = output[half + PARTY + 4];
-    let usable = false;
+    let usable = 0;
     for (let slot = 0; slot < finalCount; slot++) {
       const offset = half + PARTY + 8 + slot * SIZE;
       const data = decryptPk5Party(output.subarray(offset, offset + SIZE));
-      if (!(readU32(data, 0x38) & 0x40000000) && readU16(data, 0x8e)) usable = true;
+      if (!(readU32(data, 0x38) & 0x40000000) && readU16(data, 0x8e)) usable++;
     }
     if (!usable) throw new Error("The prepared player party has no non-Egg Pokemon with HP; native trainer battles require an eligible battler");
+    const required = config.battleType === "Doubles" ? 2 : config.battleType === "Triples" || config.battleType === "Rotation" ? 3 : 1;
+    if (usable < required) throw new Error(`The prepared player party needs ${required} eligible battlers for ${config.battleType}`);
   }
   return output;
 }

@@ -48,4 +48,5 @@ src/test/local/
 !/scripts/build-battle-interaction-fixtures.ts
 !/scripts/test-battle-interactions.py
 !/scripts/build-move-handler-fixtures.ts
+!/scripts/move-handler-doubles-fixtures.ts
 !/scripts/test-move-handlers.py
