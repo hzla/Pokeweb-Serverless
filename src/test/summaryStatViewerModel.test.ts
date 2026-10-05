@@ -86,7 +86,7 @@ describe.each(versions)("Summary IV/EV Viewer %s", version => {
     corrupt.code[0] ^= 1;
     expect(() => configureSummaryStatViewerDll(writeRpm(corrupt, { ident: "DLXF" }), { includeEvs: true })).toThrow(/Unrecognized/u);
   });
-  it.each(["1.0.0", "1.0.1"])("updates the exported %s viewer in place while preserving the EV choice", async (previousVersion) => {
+  it.each(["1.0.0", "1.0.1", "1.0.2"])("updates the exported %s viewer in place while preserving the EV choice", async (previousVersion) => {
     stubAssets(); const p = makeProject(version);
     await installSummaryStatViewer(p); uninstallSummaryStatViewer(p);
     const previous = new Uint8Array(readFileSync(new URL(`./fixtures/SummaryStatViewer${version}-v${previousVersion}.dll`, import.meta.url)));

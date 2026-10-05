@@ -12,6 +12,7 @@ from elftools.elf.elffile import ELFFile
 from unicorn import Uc,UC_ARCH_ARM,UC_MODE_THUMB,UC_HOOK_CODE
 from unicorn.arm_const import *
 import ndspy.rom
+import ndspy.narc
 import ndspy.codeCompression
 from build import TOOLS,HERE,WORKSPACE,HOOKS
 
@@ -49,6 +50,8 @@ def verify(game,od,ad):
     uc.mem_write(sound,sound_body)
     bitmap_get=0x2048520-ad
     uc.mem_write(bitmap_get,bytes(arm[bitmap_get-rom.arm9RamAddress:bitmap_get-rom.arm9RamAddress+4]))
+    sequence_if_changed=0x204c4e4-ad
+    uc.mem_write(sequence_if_changed,bytes(arm[sequence_if_changed-rom.arm9RamAddress:sequence_if_changed-rom.arm9RamAddress+26]))
     retail_ranges=[(0x21b8f50-od,0x21b92a4-od),(0x21b85e0-od,0x21b8820-od),(0x21b8ce4-od,0x21b8d88-od)]
     for start,end in retail_ranges:
         uc.mem_write(start,bytes(native_summary.data[start-native_summary.ramAddress:end-native_summary.ramAddress]))
@@ -74,7 +77,7 @@ def verify(game,od,ad):
         assert [r(i) for i in range(4,12)]==[0x11110000+i for i in range(4,12)],name
         return r(0)
     keys=0;touch=(0,0);next_cgr=0;failure=-1;fail_unit=False;fail_actor=False
-    live_cgr=set();actors=set();units=set();log=[];values={};uploads=[];seq={};positions={}
+    live_cgr=set();actors=set();units=set();log=[];values={};uploads=[];seq={};positions={};sequence_changes=[]
     native={};queue_busy=False;locked=False;cleared=[];window_uploads=[];sounds=[]
     def stub(w2,fn,ov=False):native[w2-(od if ov else ad)]=fn
     def intercept(_u,a,_s,_):
@@ -84,6 +87,7 @@ def verify(game,od,ad):
             native[a]();return
         assert (0x2300000<=a<0x2330000 or 0x203d91c-ad<=a<0x203d9c0-ad
                 or sound<=a<sound+12 or bitmap_get<=a<bitmap_get+4
+                or sequence_if_changed<=a<sequence_if_changed+26
                 or any(start<=a<end for start,end in retail_ranges)),f'Unexpected native call {a:x}'
     uc.hook_add(UC_HOOK_CODE,intercept)
     def cgr():
@@ -106,7 +110,9 @@ def verify(game,od,ad):
         if fail_actor:ret();return
         actors.add(0x2205000);ret(0x2205000)
     def remove_actor():actors.remove(r(0));log.append('actor');ret()
-    def set_seq():seq[r(0)]=r(1);ret()
+    def set_seq():
+        seq[r(0)]=r(1);sequence_changes.append((r(0),r(1)))
+        uc.mem_write(r(0)+0x5a,struct.pack('<H',r(1)));ret()
     def set_pos():positions[r(0)]=struct.unpack('<hh',read(r(1),4));ret()
     def get_proxy():uc.mem_write(r(1),struct.pack('<9I',*([r(0)]*9)));ret()
     def set_proxy():assert r(0) in actors or r(0) in (0x2206000,0x2206100,0x2206200);ret()
@@ -145,6 +151,7 @@ def verify(game,od,ad):
     stub(0x204b8e8,cgr);stub(0x204b9b8,release);stub(0x204bae4,replace)
     stub(0x204bf48,create_unit);stub(0x204bfc4,remove_unit);stub(0x204c06c,create_actor);stub(0x204c134,remove_actor)
     stub(0x204c4b4,set_seq);stub(0x204c23c,set_pos);stub(0x204bb84,get_proxy);stub(0x204c410,set_proxy)
+    stub(0x204c56c,lambda:ret())
     stub(0x204c150,lambda:ret());stub(0x204c54c,lambda:ret());stub(0x2021a68,lambda:ret())
     native[0x2006214]=sound_dispatch # execute the real sound wrapper; intercept only its tail dispatch
     stub(0x203df70,lambda:ret(keys));stub(0x203da38,touch_hit);stub(0x201cd24,getter)
@@ -185,6 +192,10 @@ def verify(game,od,ad):
             keys=0x10;call('SummaryKeys',[WORK]);assert u32(WORK+0x58)==expected[-1]
             for page in reversed(expected[:-1]):
                 keys=0x20;call('SummaryKeys',[WORK]);assert u32(WORK+0x58)==page
+                call('SummaryTick',[0x2208000])
+                if page==1:
+                    # The final Stats stop must restore native selected seq 4.
+                    assert seq[0x2206100]==(1 if u32(symbols['_ZN12_GLOBAL__N_17sessionE']+24) else 4)
             # Stats touch resets; the bar-chart tab starts IVs, even after EVs.
             width=30 if ribbons else 40
             for x,wanted in [(0,0),(width-1,0),(width,1),(width*2-1,1),(width*2,8),(width*3-1,8),(120,3),(152,4),(176,5),(200,6),(232,7)]:
@@ -193,6 +204,9 @@ def verify(game,od,ad):
                 touch=(90,180);assert call('SummaryHit',[table])==2
             write(WORK+0x24,8);call('SummaryTouch',[WORK]);assert u32(WORK+0x58)==1
             call('SummaryTick',[0x2208000]);assert seq[0x2205000]==5 and seq[0x2206100]==1
+            changes=len(sequence_changes)
+            for _ in range(20):call('SummaryTick',[0x2208000])
+            assert len(sequence_changes)==changes,'Unchanged footer sequences must not restart each frame'
             before=read(POKE,220)
             for mode,order in [(1,[70,71,72,74,75,73]),*([(2,[13,14,15,17,18,16])] if enabled else [])]:
                 if mode==2:keys=0x10;call('SummaryKeys',[WORK])
@@ -209,6 +223,10 @@ def verify(game,od,ad):
             keys=0x40;call('SummaryKeys',[WORK]);keys=0;write(WORK+0x58,3);call('SummaryKeys',[WORK]);write(WORK+0x58,1)
             assert call('SummaryValue',[POKE,160,0])==values[13 if enabled else 70]
             write(WORK+0x24,1);call('SummaryTouch',[WORK]);assert call('SummaryValue',[POKE,160,0])==160
+            call('SummaryTick',[0x2208000]);assert seq[0x2206100]==4 and seq[0x2205000]==2
+            changes=len(sequence_changes)
+            for _ in range(20):call('SummaryTick',[0x2208000])
+            assert len(sequence_changes)==changes,'Restored Stats flashing must retain the native animation phase'
             call('SummaryHp',[WORK,2,3,4,89,1,7]);assert log[-1]==('print',[WORK,2,3,4,89,1,7])
             # A ten-argument and seven-argument real hook veneer preserve r3/SP.
             for label,site,_ in HOOKS:
@@ -260,6 +278,30 @@ def verify(game,od,ad):
         call('SummaryEnd',[WORK]);assert not live_cgr and not actors and not units
     assert uploads and all(len(x)==2304 for x in uploads)
     assert sounds
-    print(f'{game}: ABI, IV/EV values/navigation, retail sound wrapper/touch scanner, native top-only draw and queued upload, unchanged bottom/HP-bar buffers, ownership and failure cleanup passed')
+    verify_titles(rom,read,symbols)
+    print(f'{game}: ABI, IV/EV values/navigation, retail sound/touch/conditional sequence code, restored Stats selection without frame resets, top-only queued uploads, native-style titles, ownership and failure cleanup passed')
+
+def verify_titles(rom,read,symbols):
+    files=ndspy.narc.NARC(rom.getFileByName('a/0/7/7')).files
+    chars=bytearray(files[11][48:8240]);native=struct.unpack_from('<96H',files[77],36)
+    def pixel(data,tiles,x,y):
+        t=tiles[y//8*32+x//8];xx=7-x%8 if t&1024 else x%8;yy=7-y%8 if t&2048 else y%8
+        return data[(t&1023)*32+yy*4+xx//2]>>(xx%2*4)&15
+    s=[[pixel(chars,native,190+x,14+y) for x in range(4)] for y in range(5)]
+    a=[[pixel(chars,native,201+x,14+y) for x in range(5)] for y in range(5)]
+    v=list(reversed(a));v[1]=v[1].copy();v[1][2]=3
+    chars[64*32:84*32]=read(symbols['_ZL11titleGlyphs'],640)
+    for label,stem_width in [('ivTitle',3),('evTitle',4)]:
+        title=struct.unpack('<96H',read(symbols['_ZL7'+label],192))
+        start=184+(40-(stem_width+5+4+2))//2
+        sx=start+stem_width+1+5+1;vx=start+stem_width+1
+        assert [[pixel(chars,title,sx+x,14+y) for x in range(4)] for y in range(5)]==s,'S must copy every native STATS pixel'
+        assert [[pixel(chars,title,vx+x,14+y) for x in range(5)] for y in range(5)]==v,'V must use the native diagonal shades'
+        assert all(pixel(chars,title,start+x,14+y) in (1,3) for y in range(5) for x in range(stem_width)),'I/E strokes must have no shadow pixels'
+        for y in range(24):
+            for x in range(256):
+                if 190<=x<220 and 13<=y<20:continue
+                assert pixel(chars,title,x,y)==pixel(chars,native,x,y),'Native bar and arrows must remain exact'
+        assert all(pixel(chars,title,x,19)==3 for x in range(190,220)),'No offset shadow below the baseline'
 
 for g,od,ad in [('W2',0,0),('B2',0x40,0x2c)]:verify(g,od,ad)

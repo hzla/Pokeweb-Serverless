@@ -20,7 +20,7 @@ bool evs() { return summaryStatConfiguration.version==1 && summaryStatConfigurat
     && summaryStatConfiguration.flags==1; }
 bool eligible(void* work) { return work && !at<u32>(work,0x38) && at<u8>(at<void*>(work,8),0xd)!=2; }
 bool custom() { return session.work && session.actor && session.variant && eligible(session.work); }
-void sequence(void* a,u32 n) { api<void(*)(void*,u32)>(0x204c4b4)(a,n); }
+void sequence(void* a,u32 n) { api<void(*)(void*,u32)>(0x204c4e4)(a,n); }
 void visible(void* a,bool on) { api<void(*)(void*,u32)>(0x204c150)(a,on); }
 void position(void* a,u16 x) { s16 xy[2]={static_cast<s16>(x),168}; api<void(*)(void*,const s16*)>(0x204c23c)(a,xy); }
 void proxy(void* a,u32 cgr) {
@@ -44,7 +44,9 @@ void footer() {
     }
     const bool stats=at<u32>(w,0x58)==1;
     sequence(session.actor,stats && session.variant?5:2);
-    if (stats && session.variant) sequence(at<void*>(w,0x17c),1);
+    // Same-page refresh bypasses the native page-show selection call. Restore
+    // Stats' selected sequence on return; conditional setters keep its phase.
+    if (stats && allowed && at<u32>(w,0x44)==1) sequence(at<void*>(w,0x17c),session.variant?1:4);
     // Native wait/transition states continue to own visibility of all pages.
     visible(session.actor,allowed && at<u32>(w,0x44)==1);
 }
