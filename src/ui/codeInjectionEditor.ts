@@ -48,6 +48,7 @@ import {
 } from "../pokeweb/tagBattleStabilizationModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
+import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
 import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
 import { getLevelCapsStatus, installLevelCaps } from "../pokeweb/levelCapsModel";
 import { TESTING_PATCHES, getTestingPatchStatus, installTestingPatch, uninstallTestingPatch, type TestingPatchId } from "../pokeweb/testingPatchesModel";
@@ -107,6 +108,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
   const learnsetStatus = getLearnsetViewerStatus(project);
+  const summaryStatStatus = getSummaryStatViewerStatus(project);
   const battleHudStatus = getBattleTypeHudStatus(project);
   const moveEffectivenessStatus = getMoveEffectivenessStatus(project);
   const moveColors = moveEffectivenessStatus.colors ?? DEFAULT_MOVE_HIGHLIGHT_COLORS;
@@ -375,6 +377,21 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
+        <section class="code-injection-panel">
+          <div class="code-injection-panel__header"><div>
+            <h2>Summary IV/EV Viewer</h2>
+            <p>View stored IVs and optional EVs in the native Pokémon Summary using Left/Right or the bar-chart tab. The normal HP bar and other Summary controls are preserved.</p>
+          </div><span class="code-injection-status ${summaryStatStatus.installed ? "-installed" : summaryStatStatus.compatible ? "" : "-error"}">${summaryStatStatus.updateAvailable ? "Update Available" : summaryStatStatus.installed ? "Installed" : summaryStatStatus.compatible ? "Ready" : summaryStatStatus.supported ? "Incompatible" : "Unsupported"}</span></div>
+          <div class="code-injection-facts"><div><span>ROM</span><strong>English US Black 2 / White 2</strong></div><div><span>Version</span><strong>${SUMMARY_STAT_VIEWER_VERSION}</strong></div></div>
+          <p>${escapeHtml(summaryStatStatus.message)}</p>
+          <label><input type="checkbox" id="summary-stat-evs" ${summaryStatStatus.options.includeEvs ? "checked" : ""} ${summaryStatStatus.compatible ? "" : "disabled"}> Include EV view</label>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-summary-stat-btn" type="button" ${summaryStatStatus.compatible ? "" : "disabled"}>${summaryStatStatus.updateAvailable ? "Update Viewer" : summaryStatStatus.installed ? "Apply Settings" : "Install Summary IV/EV Viewer"}</button>
+            <button class="btn -default" id="uninstall-summary-stat-btn" type="button" ${summaryStatStatus.canUninstall ? "" : "disabled"}
+              title="${summaryStatStatus.installed && !summaryStatStatus.canUninstall ? "A DLL built into the loaded ROM cannot yet be removed." : "Remove the staged viewer."}">Remove</button>
+            <div class="code-injection-note" id="summary-stat-note" aria-live="polite"></div>
+          </div>
+        </section>
         <section class="code-injection-panel">
           <div class="code-injection-panel__header">
             <div>
@@ -1099,6 +1116,25 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     });
   }
   const dllNote = root.querySelector<HTMLDivElement>("#dll-install-note");
+  for (const [selector, action] of [
+    ["#install-summary-stat-btn", () => installSummaryStatViewer(project, { includeEvs: root.querySelector<HTMLInputElement>("#summary-stat-evs")?.checked ?? true })],
+    ["#uninstall-summary-stat-btn", () => uninstallSummaryStatViewer(project)],
+  ] as const) {
+    const button = root.querySelector<HTMLButtonElement>(selector);
+    button?.addEventListener("click", async () => {
+      button.disabled = true;
+      const note = root.querySelector<HTMLElement>("#summary-stat-note");
+      if (note) note.textContent = "Checking Summary compatibility and staging changes…";
+      try {
+        await action(); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+        const updated = root.querySelector<HTMLElement>("#summary-stat-note");
+        if (updated) updated.textContent = "Changes staged. Export the ROM to use them.";
+      } catch (error) {
+        button.disabled = false;
+        if (note) note.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  }
   let selectedTarget: CodeInjectionDllTarget = "patches";
   root.querySelectorAll<HTMLButtonElement>("[data-dll-target]").forEach((targetButton) => {
     targetButton.addEventListener("click", () => {

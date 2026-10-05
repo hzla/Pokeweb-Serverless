@@ -3,6 +3,7 @@ import { NARC } from "../src/nds/narc";
 import { NintendoDSRom } from "../src/nds/rom";
 import { exportModifiedRom } from "../src/pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
+import { hydrateMissingOverlays } from "../src/pokeweb/persistence";
 import {
   MOVE_EXPANSION_TARGET_COUNT,
   detectMoveExpansionPatch,
@@ -26,7 +27,19 @@ const animationBundle = animationBundleBytes ? parseMoveExpansionAnimationBundle
 const project = await loadProjectFromRomBytes(source, path.split("/").pop() ?? "clean.nds");
 const installed = await installMoveExpansion(project, { includeBundledAnimations, animationBundleBytes });
 assert(!(await installMoveExpansion(project, { includeBundledAnimations, animationBundleBytes })).changed, "idempotent install before export");
+const sourceRomForRouting = new NintendoDSRom(source, { fileData: "view" });
+const routingOverlayIds = project.session.baseRom === "BW" ? [93, 94] : [167, 168];
+const commandId = routingOverlayIds[0];
+const patchedCommand = project.overlays[commandId];
+// Refresh requests the command overlay through its move-handler/type tables.
+hydrateMissingOverlays(project, sourceRomForRouting, routingOverlayIds);
+assert(project.overlays[commandId] === patchedCommand, "refresh preserves command routing hook");
+// Reproduce older hydration's partial install, then exercise the same export
+// repair used by Test In Game without changing any animation archive entries.
+project.overlays[commandId] = sourceRomForRouting.loadArm9Overlays([commandId]).get(commandId)!.data;
 const exported = await exportModifiedRom(project);
+const repairedCommand = new NintendoDSRom(exported, { fileData: "view" }).loadArm9Overlays([commandId]).get(commandId)!.data;
+assert(Buffer.from(repairedCommand).equals(Buffer.from(patchedCommand)), "export restores missing command routing hook");
 const reloaded = await loadProjectFromRomBytes(exported, "move-expansion-verify.nds");
 
 assert(reloaded.narcs.moves?.rawFiles.length === MOVE_EXPANSION_TARGET_COUNT, "move data count");

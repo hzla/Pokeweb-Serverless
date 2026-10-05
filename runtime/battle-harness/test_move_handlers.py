@@ -79,6 +79,24 @@ class DoublesOracleTests(unittest.TestCase):
                   "battleSetup":{"rule":1,"playerCount":2,"trainerCount":2},"damageCalls":[],"criticalRanks":[],"coins":[]}
         return variant,result
 
+    def test_doodle_requires_surface_change_and_native_reregistration(self):
+        variant,result=self.fixture(867)
+        for role,mon in result["before"].items():
+            mon["currentAbility"]=mon["ability"]
+            result["after"][role]["currentAbility"]=mon["ability"]
+        result["after"]["attacker"]["currentAbility"]=50
+        result["abilityRegistrations"]=[{"slot":0,"ability":50}]
+        result["takeHeartEvents"]=[{"success":True}]
+        case={"id":"doodle","expectedAbilities":{"attacker":50,"ally":50},"expectedNativeSuccess":True}
+        self.assertTrue(runner.verify_doubles(case,result,variant)["passed"])
+        for mutation in (lambda r:r["after"]["attacker"].update(currentAbility=99),
+                         lambda r:r["after"]["attacker"].update(ability=50),
+                         lambda r:r["abilityRegistrations"].clear(),
+                         lambda r:r["abilityRegistrations"].append({"slot":1,"ability":50}),
+                         lambda r:r["takeHeartEvents"][0].update(success=False)):
+            bad=deepcopy(result); mutation(bad)
+            with self.assertRaises(AssertionError):runner.verify_doubles(case,bad,variant)
+
     def test_healing_requires_real_status_preconditions_and_four_native_commands(self):
         variant,result = self.fixture()
         result["before"]["attacker"]["conditions"][4]=1
