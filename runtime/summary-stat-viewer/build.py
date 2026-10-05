@@ -18,7 +18,7 @@ BUILD=HERE/'build'
 ASSETS=REPO/'src/assets/codeinjection'
 TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WORKSPACE/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'))
 JAR=Path(os.environ.get('RPM_TOOL_JAR',WORKSPACE/'White2Upgrade/CTRMap.jar'))
-VERSION='1.0.2'
+VERSION='1.0.3'
 PINS={'W2':'26657348bd732a2e970d9244cd37817141013af0a62444a816f4333ebfadb985',
       'B2':'9cf7894e8f4244ce0b06b92e9113b14eefbfabf8174e7dbab8a7986497418cce'}
 HOOKS=[
@@ -34,6 +34,7 @@ HOOKS=[
 # helpers' offset. Optional anchors are independently verified retail BLs.
 APIS={
     0x204c4b4:(0x204c488,0x21b341a),0x204c150:(0x204c124,0x21b3dfc),
+    0x204c4e4:(0x204c4b8,None),
     0x204c23c:(0x204c210,None),0x204bb84:(0x204bb58,0x21b6bfa),
     0x204c410:(0x204c3e4,0x21b6c06),0x204c134:(0x204c108,0x21b3f2a),
     0x204bfc4:(0x204bf98,0x21b3682),0x204b9b8:(0x204b98c,0x21b3cf0),
@@ -104,25 +105,29 @@ def graphics(files):
     def pixel(x,y):
         m=native[y//8*32+x//8];tx=7-x%8 if m&1024 else x%8;ty=7-y%8 if m&2048 else y%8
         v=chars[(m&1023)*32+ty*4+tx//2];return v>>(tx%2*4)&15
-    s=[''.join('1' if pixel(190+x,14+y)==1 else '0' for x in range(4)) for y in range(5)]
-    glyph={'I':['111','010','010','010','111'],'V':['10001','10001','10001','01010','00100'],
-           'E':['1111','1000','1110','1000','1111'],'S':s}
+    # Copy S without binarizing its lighter diagonal edge pixels. V inherits
+    # the native A's mirrored diagonal shading, with the crossbar removed.
+    # Straight I/E strokes use only the native ink index, with no drop shadow.
+    s=[''.join(str(pixel(190+x,14+y)) for x in range(4)) for y in range(5)]
+    a=[''.join(str(pixel(201+x,14+y)) for x in range(5)) for y in range(5)]
+    assert s==['9111','1333','9119','3331','1119']
+    assert a==['33133','39193','31313','91119','13331']
+    v=list(reversed(a));v[1]=v[1][:2]+'3'+v[1][3:]
+    glyph={'I':['111','313','313','313','111'],'V':v,
+           'E':['1111','1333','1113','1333','1111'],'S':s}
     maps=[];tiles=bytearray()
     for label in ('IVS','EVS'):
         rows=[[pixel(184+x,8+y) for x in range(40)] for y in range(16)]
         for y in range(5,12):
             for x in range(6,36):rows[y][x]=3 # native bar fill, palette bank 1
-        width=sum(len(glyph[c][0])+2 for c in label)-2
+        width=sum(len(glyph[c][0])+1 for c in label)-1
         x=(40-width)//2
         for c in label:
             g=glyph[c]
             for yy,r in enumerate(g):
                 for xx,v in enumerate(r):
-                    if v=='1':rows[6+yy+1][x+xx+1]=9
-            for yy,r in enumerate(g):
-                for xx,v in enumerate(r):
-                    if v=='1':rows[6+yy][x+xx]=1
-            x+=len(g[0])+2
+                    rows[6+yy][x+xx]=int(v)
+            x+=len(g[0])+1
         m=list(native)
         for ty in range(2):
             for tx in range(5):
@@ -182,7 +187,7 @@ def main():
             signatures.append({'label':'Native Summary ABI','module':'207','address':a-delta,'expectedHex':bytes(o.data[at:at+8]).hex(),'patchSize':0})
         for a,(b,anchor) in APIS.items():
             address=a if game=='W2' else b
-            size=12 if a==0x2006254 else 8 # include the sound wrapper's tail-dispatch literal
+            size=12 if a==0x2006254 else 26 if a==0x204c4e4 else 8
             at=address-rom.arm9RamAddress;expected=bytes(arm[at:at+size])
             if game=='W2': w2_api_bytes[a]=expected
             else: assert expected==w2_api_bytes[a],(game,'API body mismatch',hex(address))
@@ -192,7 +197,8 @@ def main():
             signatures.append({'label':'Native API ABI','module':'ARM9','address':address,'expectedHex':expected.hex(),'patchSize':0})
         # Non-hooked HP-bar reads and footer palette scheduling must remain native.
         for a,n in [(0x21b92b4,4),(0x21b92c2,4),(0x21bafc4,36),(0x21b4c9a,0x42),
-                    (0x21b8f50,0x28),(0x21b929e,6),(0x21b85e0,0x8c),(0x21b8ce4,0xa4)]:
+                    (0x21b8f50,0x28),(0x21b929e,6),(0x21b85e0,0x8c),(0x21b8ce4,0xa4),
+                    (0x21b8bd4,16)]:
             at=a-delta-o.ramAddress
             signatures.append({'label':'Summary layout','module':'207','address':a-delta,'expectedHex':bytes(o.data[at:at+n]).hex(),'patchSize':0})
         stem=f'SummaryStatViewer{game}'
