@@ -1,6 +1,6 @@
 import { readAscii, readU32, writeU32 } from "../nds/binary";
 import { type Folder } from "../nds/fnt";
-import { NintendoDSRom } from "../nds/rom";
+import { NintendoDSRom, type RomSaveOptions } from "../nds/rom";
 import { detectPmcInstallFromRom, PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
 
 /**
@@ -15,7 +15,7 @@ import { detectPmcInstallFromRom, PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
  * code with hard-coded NitroFS FAT IDs is deliberately outside this option's
  * compatibility guarantee.
  */
-export function exportFrostCompatibleRom(bytes: Uint8Array): Uint8Array {
+export function exportFrostCompatibleRom(bytes: Uint8Array, options: Pick<RomSaveOptions, "forDsi"> = {}): Uint8Array {
   const rom = new NintendoDSRom(bytes);
   const retailCount = /^(IRA|IRB)/u.test(rom.idCode) ? 237 : /^(IRD|IRE)/u.test(rom.idCode) ? 344 : undefined;
   const reject = (reason: string): never => {
@@ -71,6 +71,7 @@ export function exportFrostCompatibleRom(bytes: Uint8Array): Uint8Array {
   // An insertion shifts all named paths together, preserving contiguous folder
   // ranges (especially /patches). Never erase the root filenames to fake firstId.
   return rom.save({
+    forDsi: options.forDsi,
     arm9OverlayTable: table,
     ...(alreadyReserved
       ? { files: new Map([[retailCount, image]]) }

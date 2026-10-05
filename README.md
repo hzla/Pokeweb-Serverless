@@ -75,6 +75,12 @@ npm run dev
 
 Then open the local Vite URL, load a `.nds`, choose the NARC groups you want available, make edits, and use `Export` to build the modified ROM.
 
+### ROM export modes
+
+`Export ROM` automatically preserves DS and DSi mode support when the source includes DSi data. This preserves the complete DSi payload, relocates encryption metadata, and rebuilds the sector, block, and master integrity hashes. Subsequent repacks, including Frost-compatible exports, use the same behavior. The source ROM must contain its original DSi programs and integrity tables; an older DS-only export may be missing that data. Autosave retains the source ROM unchanged.
+
+No BIOS upload is needed. The exporter decodes the common 4,168-byte KEY1 table from Base64 during the integrity rebuild and reads the digest HMAC key from the user's loaded ROM. Base64 is reversible obfuscation, not encryption. No BIOS image, firmware image, or NAND image is bundled. The exporter does not regenerate the retail RSA signature; DSi boot testing uses compatible homebrew loaders or emulator direct boot.
+
 ### Codex UI testing
 
 For automated local UI checks, start the loopback-only Codex dev mode:
