@@ -1,6 +1,7 @@
 import { ByteLike, asUint8Array, readAscii, readU16, readU32, writeU16, writeU32 } from "./binary";
 import { Folder, addFilePath, cloneFolder, loadFnt, saveFnt, shiftFileIdsAtOrAfter } from "./fnt";
 import { Overlay, loadOverlayTable } from "./code";
+import { planDsiDigest, readDsiDigestSource, writeDsiDigest } from "./dsiDigest";
 
 const NTR_TWL_ALIGNMENT = 0x80000;
 const STANDARD_DS_ROM_LIMIT = 0x20000000;
@@ -17,6 +18,8 @@ export type RomReadOptions = {
 };
 
 export type RomSaveOptions = {
+  /** Automatically preserve DSi support when source metadata exists; false explicitly opts out. */
+  forDsi?: boolean;
   arm9?: Uint8Array;
   arm9OverlayTable?: Uint8Array;
   arm7OverlayTable?: Uint8Array;
@@ -162,6 +165,14 @@ export class NintendoDSRom {
         .sort((a, b) => placementRanks[a] - placementRanks[b] || a - b),
     ];
     const twlSections = this.twlSections();
+    const hasDigestMetadata = this.isTwlExtended()
+      && (readU32(this.data, 0x1cc) > 0 || readU32(this.data, 0x1dc) > 0)
+      && this.hasTwlDigestMetadata();
+    const rebuildDsi = options.forDsi ?? hasDigestMetadata;
+    const digestSource = rebuildDsi ? readDsiDigestSource(this.data) : undefined;
+    if (rebuildDsi && (twlSections.length !== 2 || !digestSource)) {
+      throw new Error("Preserving DSi support requires the original ROM's complete DSi programs and integrity tables. Reload the original DSi-enhanced ROM; a DS-only export cannot supply missing DSi data.");
+    }
     const minimumLength = Math.max(options.preserveOriginalLength ? this.data.length : 0, checkedMinimumLength(options.minimumLength));
 
     // Plan the complete layout before allocating. Large exports otherwise
@@ -182,10 +193,14 @@ export class NintendoDSRom {
     planSection(fatLength);
     planOptionalSection(this.banner.length);
     for (const id of physicalFileOrder) planSection(files[id].length);
-    const plannedApplicationEnd = align(plannedCursor, 4);
+    const plannedFileEnd = align(plannedCursor, 4);
+    const digestLayout = digestSource ? planDsiDigest(digestSource, plannedFileEnd) : undefined;
+    const plannedApplicationEnd = digestLayout?.end ?? plannedFileEnd;
+    plannedCursor = plannedApplicationEnd;
     if (twlSections.length > 0) {
       plannedCursor = align(plannedCursor, NTR_TWL_ALIGNMENT);
-      for (const section of twlSections) planSection(section.length);
+      if (digestSource) planSection(digestSource.regionSize);
+      else for (const section of twlSections) planSection(section.length);
     }
     const plannedCompactLength = align(plannedCursor, 4);
     const plannedRomLength = Math.max(plannedCompactLength, align(minimumLength, 4));
@@ -229,26 +244,40 @@ export class NintendoDSRom {
       writeU32(writer.buffer, fatOffset + id * 8 + 4, cursor);
     });
 
-    const applicationEnd = align(cursor, 4);
+    const fileEnd = align(cursor, 4);
+    const applicationEnd = digestLayout?.end ?? fileEnd;
+    cursor = applicationEnd;
     const twlSectionWrites: Array<{ offsetField: number; offset: number }> = [];
+    let twlRegionStart = 0;
     if (twlSections.length > 0) {
       // NDSRegionEnd / DSiRegionStart use 512 KiB units. Retail TWL-aware
       // FS rejects NTR-mode opens at or beyond DSiRegionStart, even when FAT
       // and the overall ROM size are correct. Growing a file (notably SDAT)
       // must move this boundary along with all of the NitroFS data.
       cursor = align(cursor, NTR_TWL_ALIGNMENT);
-      for (const section of twlSections) {
-        cursor = align(cursor, 0x200);
-        const offset = cursor;
-        writer.writeAt(offset, this.data.subarray(section.sourceOffset, section.sourceOffset + section.length));
-        cursor = checkedAdd(cursor, section.length);
-        twlSectionWrites.push({ offsetField: section.offsetField, offset });
+      twlRegionStart = cursor;
+      if (digestSource) {
+        // Preserve the complete TWL span: its native digest hashes plaintext
+        // code, and includes padding between/after the encrypted binaries.
+        writer.writeAt(cursor, this.data.subarray(digestSource.regionStart, digestSource.regionStart + digestSource.regionSize));
+        for (const section of twlSections) {
+          twlSectionWrites.push({ offsetField: section.offsetField, offset: cursor + section.sourceOffset - digestSource.regionStart });
+        }
+        cursor = checkedAdd(cursor, digestSource.regionSize);
+      } else {
+        for (const section of twlSections) {
+          cursor = align(cursor, 0x200);
+          const offset = cursor;
+          writer.writeAt(offset, this.data.subarray(section.sourceOffset, section.sourceOffset + section.length));
+          cursor = checkedAdd(cursor, section.length);
+          twlSectionWrites.push({ offsetField: section.offsetField, offset });
+        }
       }
     }
 
     const compactRomLength = align(cursor, 4);
     const romLength = Math.max(compactRomLength, align(minimumLength, 4));
-    if (applicationEnd !== plannedApplicationEnd || romLength !== plannedRomLength) {
+    if (fileEnd !== plannedFileEnd || applicationEnd !== plannedApplicationEnd || romLength !== plannedRomLength) {
       throw new Error("Internal ROM layout planning mismatch");
     }
     const out = writer.trim(romLength);
@@ -282,6 +311,8 @@ export class NintendoDSRom {
         writeU32(out, section.offsetField, section.offset);
       }
       writeU32(out, 0x210, romLength);
+      relocateModcryptAreas(this.data, out);
+      if (digestSource && digestLayout) writeDsiDigest(out, digestSource, digestLayout, twlRegionStart);
     }
     out[0x14] = romDeviceCapacityByte(romLength, this.data[0x14] ?? 0);
 
@@ -308,7 +339,43 @@ export class NintendoDSRom {
   }
 
   private isTwlExtended(): boolean {
-    return (this.data[0x12] ?? 0) === 2 && readU32(this.data, 0x210) > 0;
+    return (this.data[0x12] ?? 0) === 2 && (readU32(this.data, 0x210) > 0 || this.hasTwlDigestMetadata());
+  }
+
+  private hasTwlDigestMetadata(): boolean {
+    for (let field = 0x1e0; field <= 0x204; field += 4) {
+      if (readU32(this.data, field) !== 0) return true;
+    }
+    return false;
+  }
+}
+
+function relocateModcryptAreas(source: Uint8Array, out: Uint8Array): void {
+  if (!(source[0x1c] & 2)) return;
+
+  // Modcrypt ranges are ROM offsets, independently of the ARM9i/ARM7i
+  // offsets. Keep their encrypted bytes and key/IV metadata intact, but move
+  // the ranges with the code so a DSi loader can find and decrypt them.
+  const binaries = [
+    { offset: 0x20, size: 0x2c }, { offset: 0x30, size: 0x3c },
+    { offset: 0x1c0, size: 0x1cc }, { offset: 0x1d0, size: 0x1dc },
+  ];
+  for (const [index, field] of [0x220, 0x228].entries()) {
+    const start = readU32(source, field), size = readU32(source, field + 4);
+    if (!start || !size) continue;
+    const binary = binaries.find(({ offset, size: sizeField }) => {
+      const base = readU32(source, offset), length = readU32(source, sizeField);
+      return base > 0 && base + length <= source.length && start >= base && start + size <= base + length;
+    });
+    if (!binary) {
+      throw new Error(`Cannot relocate DSi modcrypt area ${index + 1}: its encryption range is outside a preserved code section. Load the original ROM; an earlier export may have stale encryption offsets.`);
+    }
+    const relative = start - readU32(source, binary.offset);
+    const destination = readU32(out, binary.offset);
+    if (!destination || relative + size > readU32(out, binary.size) || destination + relative + size > out.length) {
+      throw new Error(`Cannot relocate DSi modcrypt area ${index + 1}: its encrypted code section was removed or shortened.`);
+    }
+    writeU32(out, field, destination + relative);
   }
 }
 

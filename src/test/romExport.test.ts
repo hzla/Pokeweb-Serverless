@@ -341,6 +341,62 @@ describe("ROM export", () => {
     }
   });
 
+  it.each(["IREO", "IRDO"])("relocates both modcrypt ranges with unchanged DSi code through repeated %s exports", (gameCode) => {
+    const source = new Uint8Array(0x180400);
+    source.set(makeRom([Uint8Array.of(1), Uint8Array.of(2, 3)]));
+    source.set(new TextEncoder().encode(gameCode), 0x0c);
+    source[0x12] = 2;
+    source[0x1c] = 3;
+    writeU32(source, 0x210, source.length);
+    writeU32(source, 0x1c0, 0x180000);
+    writeU32(source, 0x1cc, 0x100);
+    writeU32(source, 0x1d0, 0x180200);
+    writeU32(source, 0x1dc, 0x100);
+    writeU32(source, 0x220, 0x180020);
+    writeU32(source, 0x224, 0x40);
+    writeU32(source, 0x228, 0x180210);
+    writeU32(source, 0x22c, 0x80);
+    const arm9i = Uint8Array.from({ length: 0x100 }, (_, i) => i);
+    const arm7i = Uint8Array.from({ length: 0x100 }, (_, i) => 255 - i);
+    source.set(arm9i, 0x180000);
+    source.set(arm7i, 0x180200);
+    source.fill(0xa5, 0x300, 0x3b4); // Encryption key and IV material must stay intact.
+    const before = source.slice();
+
+    let bytes: Uint8Array = source;
+    for (const length of [4, 0x190000, 0x90000, 4]) {
+      bytes = new NintendoDSRom(bytes).save({ files: new Map([[0, new Uint8Array(length)]]) });
+      const first = readU32(bytes, 0x1c0), second = readU32(bytes, 0x1d0);
+      expect(readU32(bytes, 0x220)).toBe(first + 0x20);
+      expect(readU32(bytes, 0x228)).toBe(second + 0x10);
+      expect(readU32(bytes, 0x224)).toBe(0x40);
+      expect(readU32(bytes, 0x22c)).toBe(0x80);
+      expect(bytes.slice(first, first + arm9i.length)).toEqual(arm9i);
+      expect(bytes.slice(second, second + arm7i.length)).toEqual(arm7i);
+      expect(bytes.slice(0x300, 0x3b4)).toEqual(before.slice(0x300, 0x3b4));
+      expect(readU16(bytes, 0x15e)).toBe(crc16(bytes.subarray(0, 0x15e)));
+    }
+    expect(source).toEqual(before);
+  });
+
+  it("rejects an active DSi encryption range with a stale offset before returning an export", () => {
+    const source = new Uint8Array(0x80400);
+    source.set(makeRom([Uint8Array.of(1)]));
+    source[0x12] = 2;
+    source[0x1c] = 3;
+    writeU32(source, 0x210, source.length);
+    writeU32(source, 0x1c0, 0x80000);
+    writeU32(source, 0x1cc, 0x100);
+    writeU32(source, 0x220, 0x100000);
+    writeU32(source, 0x224, 0x40);
+    const before = source.slice();
+    expect(() => new NintendoDSRom(source).save()).toThrow("DSi modcrypt area 1: its encryption range is outside a preserved code section");
+    expect(source).toEqual(before);
+
+    source[0x1c] = 1; // Disabled encryption metadata is not interpreted.
+    expect(readU32(new NintendoDSRom(source).save(), 0x220)).toBe(0x100000);
+  });
+
   it("advertises the tested 2 GiB capacity for exports above 512 MiB", () => {
     expect(romDeviceCapacityByte(0x20000000, 0)).toBe(0x0c);
     expect(romDeviceCapacityByte(600_000_000, 0x0c)).toBe(0x0e);

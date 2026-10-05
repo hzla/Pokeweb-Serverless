@@ -1063,7 +1063,8 @@ function renderNav(): string {
         <div class="header-more">
           <button class="header-item header-more-trigger" type="button" aria-haspopup="true" aria-expanded="false">Export</button>
           <div class="header-more-menu">
-            <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true">Export ROM</a>
+            <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-rom="true"
+              title="Export the edited ROM, automatically preserving DS and DSi mode support when the source includes DSi data.">Export ROM</a>
             <a class="header-item ${hasExportBase ? "" : "disabled"}" href="#" data-export-frost-rom="true"
               title="Export Pokeweb's Gen V PMC layout for Frost. Third-party code using hard-coded file IDs is not supported.">Export for Frost</a>
           </div>

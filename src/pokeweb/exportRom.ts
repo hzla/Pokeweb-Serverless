@@ -38,6 +38,8 @@ import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
 export { materializeProjectEdits } from "./projectMaterialize";
 
 export type ExportModifiedRomOptions = {
+  /** DSi integrity rebuild is automatic; false explicitly requests a DS-only export. */
+  forDsi?: boolean;
   minimumRomLength?: number;
   preserveOriginalLength?: boolean;
   /** Opt-in overlay-first layout for editing Pokeweb Gen V ROMs in Frost. */
@@ -128,6 +130,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     .map((path) => resolvePlannedRomPathFileId(rom, plannedAdditions, insertedFiles, path))
     .filter((fileId): fileId is number => fileId !== undefined);
   const out = rom.save({
+    forDsi: options.forDsi,
     arm9,
     arm9OverlayTable,
     filenames: tombstones.length ? reservedNames : repairedLegacyPmcRootFnt ? rom.filenames : undefined,
@@ -138,7 +141,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     minimumLength: options.minimumRomLength,
     preserveOriginalLength: options.preserveOriginalLength,
   });
-  return options.frostCompatibility ? exportFrostCompatibleRom(out) : out;
+  return options.frostCompatibility ? exportFrostCompatibleRom(out, { forDsi: options.forDsi }) : out;
 }
 
 function codeInjectionPriorityPaths(project: ProjectState): string[] {
