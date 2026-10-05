@@ -21,6 +21,13 @@ int fwr_correct(const FwPoint *world,const FwPoint *player_world,
  * projected image. The shadow itself remains at the native ground anchor. */
 int fwr_above_shadow(const FwrPose *native,const FwPoint *ground,
     const FwrCamera *camera,FwrPose *output);
+/* Camera-facing grass clears its owner, but stays behind a nearer body. */
+int fwr_cover_feet(const FwrPose *grass,const FwrPose *body,
+    const FwrPose *other,const FwrCamera *camera,FwrPose *output);
+/* Raise an attached bubble in the camera plane, preserving horizontal center
+ * and depth even with a perspective camera. Height is in world 20.12 units. */
+int fwr_head_position(const FwPoint *base,const FwrCamera *camera,
+    int32_t height,FwPoint *output);
 /* Preserve the player's foreground after follower shadow clearance without
  * putting the follower behind its own shadow or moving either image on screen. */
 int fwr_player_in_front(const FwrPose *follower,const FwrPose *player,

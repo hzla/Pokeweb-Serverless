@@ -2,7 +2,7 @@
   "measurements": [
     {
       "profile": "stock",
-      "version": "0.6.82-alpha",
+      "version": "0.6.87-alpha",
       "modules": [
         {
           "name": "PokewebFollowingCoreW2",
@@ -28,13 +28,13 @@
         },
         {
           "name": "PokewebFollowingFieldW2",
-          "fileBytes": 51424,
-          "codeAndInitializedData": 44708,
-          "bss": 20084,
-          "codePlusBss": 64792,
-          "expandedModuleBytes": 71520,
-          "symbols": 254,
-          "exportedSymbols": 169,
+          "fileBytes": 53376,
+          "codeAndInitializedData": 46440,
+          "bss": 20140,
+          "codePlusBss": 66580,
+          "expandedModuleBytes": 73520,
+          "symbols": 263,
+          "exportedSymbols": 174,
           "allSymbolNamesStripped": true
         },
         {
@@ -68,12 +68,12 @@
         },
         {
           "name": "PokewebFollowingFieldW2Base",
-          "fileBytes": 38288,
-          "codePlusBss": 51900
+          "fileBytes": 40112,
+          "codePlusBss": 53588
         }
       ],
-      "baseFixedPayloadBytes": 56440,
-      "fullMinusBaseBytes": 13004,
+      "baseFixedPayloadBytes": 58128,
+      "fullMinusBaseBytes": 13104,
       "battleResidentPayloadBytes": 1152,
       "conditionalOverlay12PayloadBytes": 1464,
       "surf": {
@@ -88,7 +88,7 @@
         "anchorTableBytes": 20608,
         "appearanceRows": 2574,
         "residentRiderTextures": 12,
-        "codeAndInitializedDataBytes": 44708
+        "codeAndInitializedDataBytes": 46440
       },
       "positioning": {
         "archiveBytes": 42612,
@@ -134,7 +134,7 @@
         },
         {
           "name": "fws_safe_commands",
-          "bytes": 746,
+          "bytes": 748,
           "section": ".rodata"
         },
         {
@@ -154,12 +154,12 @@
         },
         {
           "name": "fwfx",
-          "bytes": 284,
+          "bytes": 304,
           "section": ".bss"
         },
         {
           "name": "fwemote",
-          "bytes": 184,
+          "bytes": 192,
           "section": ".bss"
         },
         {
@@ -168,12 +168,12 @@
           "section": ".data"
         },
         {
-          "name": "FollowingRenderDebug",
+          "name": "effectPose",
           "bytes": 80,
-          "section": ".data"
+          "section": ".bss"
         }
       ],
-      "fixedPayloadBytes": 69444,
+      "fixedPayloadBytes": 71232,
       "registryBytes": 61808,
       "registryRecords": 2574,
       "registryHeapBytes": 0,

@@ -97,3 +97,18 @@ THUMB_BRANCH_LINK_36_0x0218119a:
  bl FollowingDraw
  pop {r4,pc}
 .size THUMB_BRANCH_LINK_36_0x0218119a,.-THUMB_BRANCH_LINK_36_0x0218119a
+
+/* The native grass renderer is field+0xc8, before the secondary/shadow pass.
+ * Pin this additional call site only in the audited stock White 2 package. */
+.ifdef FW_STOCK
+.thumb
+.balign 4
+.global THUMB_BRANCH_LINK_36_0x021811b0
+.type THUMB_BRANCH_LINK_36_0x021811b0,%function
+.thumb_func
+THUMB_BRANCH_LINK_36_0x021811b0:
+ push {r4,lr}
+ bl FollowingTerrainDraw
+ pop {r4,pc}
+.size THUMB_BRANCH_LINK_36_0x021811b0,.-THUMB_BRANCH_LINK_36_0x021811b0
+.endif

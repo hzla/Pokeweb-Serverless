@@ -18,7 +18,7 @@ BUILD=HERE/'build'
 ASSETS=REPO/'src/assets/codeinjection'
 TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WORKSPACE/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'))
 JAR=Path(os.environ.get('RPM_TOOL_JAR',WORKSPACE/'White2Upgrade/CTRMap.jar'))
-VERSION='1.0.1'
+VERSION='1.0.2'
 PINS={'W2':'26657348bd732a2e970d9244cd37817141013af0a62444a816f4333ebfadb985',
       'B2':'9cf7894e8f4244ce0b06b92e9113b14eefbfabf8174e7dbab8a7986497418cce'}
 HOOKS=[
@@ -30,10 +30,24 @@ HOOKS=[
     ('SummaryTitleChars',0x21b3766,0x204add4),
     *[('SummaryValue',a,0x201cd24) for a in (0x21b8f8c,0x21b903e,0x21b909c,0x21b90fa,0x21b9158,0x21b91b6)],
 ]
-APIS=[0x204c4b4,0x204c150,0x204c23c,0x204bb84,0x204c410,0x204c134,0x204bfc4,
-      0x204b9b8,0x204b8e8,0x204bae4,0x204bf48,0x204c06c,0x204c54c,0x2006254,
-      0x2021a68,0x203df70,0x203da38,0x201cd24,0x204add4,0x20450ac,0x2045500]
-NATIVE=[0x21b2fc0,0x21b3198,0x21b4a10,0x21b404c,0x21b4220,0x21b4f04,0x21b5080]
+# Explicit W2 -> B2 entry points; early ARM9 functions do not share the UI
+# helpers' offset. Optional anchors are independently verified retail BLs.
+APIS={
+    0x204c4b4:(0x204c488,0x21b341a),0x204c150:(0x204c124,0x21b3dfc),
+    0x204c23c:(0x204c210,None),0x204bb84:(0x204bb58,0x21b6bfa),
+    0x204c410:(0x204c3e4,0x21b6c06),0x204c134:(0x204c108,0x21b3f2a),
+    0x204bfc4:(0x204bf98,0x21b3682),0x204b9b8:(0x204b98c,0x21b3cf0),
+    0x204b8e8:(0x204b8bc,None),0x204bae4:(0x204bab8,None),
+    0x204bf48:(0x204bf1c,0x21b3576),0x204c06c:(0x204c040,0x21b3de4),
+    0x204c54c:(0x204c520,0x21b3df2),0x2006254:(0x2006254,0x21b4276),
+    0x2021a68:(0x2021a3c,0x21b337a),0x203df70:(0x203df44,0x21b4050),
+    0x203da38:(0x203da0c,0x21b4012),0x201cd24:(0x201ccf8,0x21b8f8c),
+    0x204add4:(0x204ada8,0x21b3766),0x20450ac:(0x2045080,None),
+    0x2045500:(0x20454d4,0x21b8d4e),0x2048520:(0x20484f4,0x21b8612),
+    0x2047168:(0x204713c,0x21b934e),
+}
+NATIVE=[0x21b2fc0,0x21b3198,0x21b4a10,0x21b404c,0x21b4220,0x21b4f04,0x21b5080,
+        0x21b4e4c,0x21b8f50]
 
 def run(*args): subprocess.run([str(x) for x in args],check=True)
 def bl_target(b,address):
@@ -138,6 +152,11 @@ def main():
             } for g,p in prior['games'].items()}})
     manifest={'version':VERSION,'configMagic':'5353564346473100','previousVersions':previous,'games':{}}
     original_graphics=None
+    w2_api_bytes={}
+    profile=['#pragma once','inline u32 nativeApiAddress(u32 w2) {','#ifdef GAME_B2','switch (w2) {']
+    profile += [f'case 0x{a:x}: return 0x{b:x};' for a,(b,_) in APIS.items()]
+    profile += ['default: __builtin_trap();','}','#else','return w2;','#endif','}']
+    (BUILD/'profiles.generated.h').write_text('\n'.join(profile)+'\n')
     for game,filename,delta in [('W2','cleanwhite2.nds',0),('B2','cleanblack2.nds',0x40)]:
         rom=ndspy.rom.NintendoDSRom.fromFile(os.environ.get(f'SUMMARY_{game}_ROM',WORKSPACE/filename))
         assert bytes(rom.idCode)==(b'IRDO' if game=='W2' else b'IREO')
@@ -161,11 +180,19 @@ def main():
         for a in NATIVE:
             at=a-delta-o.ramAddress
             signatures.append({'label':'Native Summary ABI','module':'207','address':a-delta,'expectedHex':bytes(o.data[at:at+8]).hex(),'patchSize':0})
-        for a in APIS:
-            at=a-ad-rom.arm9RamAddress
-            signatures.append({'label':'Native API ABI','module':'ARM9','address':a-ad,'expectedHex':bytes(arm[at:at+8]).hex(),'patchSize':0})
+        for a,(b,anchor) in APIS.items():
+            address=a if game=='W2' else b
+            size=12 if a==0x2006254 else 8 # include the sound wrapper's tail-dispatch literal
+            at=address-rom.arm9RamAddress;expected=bytes(arm[at:at+size])
+            if game=='W2': w2_api_bytes[a]=expected
+            else: assert expected==w2_api_bytes[a],(game,'API body mismatch',hex(address))
+            if anchor is not None:
+                site=anchor-delta
+                assert bl_target(o.data[site-o.ramAddress:site-o.ramAddress+4],site)==address,(game,'API call mismatch',hex(site))
+            signatures.append({'label':'Native API ABI','module':'ARM9','address':address,'expectedHex':expected.hex(),'patchSize':0})
         # Non-hooked HP-bar reads and footer palette scheduling must remain native.
-        for a,n in [(0x21b92b4,4),(0x21b92c2,4),(0x21bafc4,36),(0x21b4c9a,0x42),(0x21b8f50,0x28)]:
+        for a,n in [(0x21b92b4,4),(0x21b92c2,4),(0x21bafc4,36),(0x21b4c9a,0x42),
+                    (0x21b8f50,0x28),(0x21b929e,6),(0x21b85e0,0x8c),(0x21b8ce4,0xa4)]:
             at=a-delta-o.ramAddress
             signatures.append({'label':'Summary layout','module':'207','address':a-delta,'expectedHex':bytes(o.data[at:at+n]).hex(),'patchSize':0})
         stem=f'SummaryStatViewer{game}'

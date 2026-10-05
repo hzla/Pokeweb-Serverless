@@ -145,5 +145,25 @@ h.put(h.addr('fwfield_flying'),1);grid(h.A,10,0,11);h.call('FollowingUpdate',[h.
 h.put(h.addr('fwfield_flying'),0);h.put(h.A,h.u32(h.A)|4);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==2
 h.put(h.A,h.u32(h.A)&~4);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==3
 h.terrain_attr=0;grid(h.A,10,0,12);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==3
+h.terrain_attr=0xffffffff;grid(h.A,10,0,13);h.call('FollowingUpdate',[h.SYS]);assert len(h.grass_entries)==3
+# Shallow-water entry uses the stock actor-bound shoal helper, and leaving
+# water (including an unmarked tile) clears its bit. Repeated updates on one
+# tile cannot create another effect task. Hidden/flying followers retire it.
+s.setup();h.terrain_attr=0x00100017;h.shoal_entries.clear()
+h.put(h.addr('fwfield_flying'),0)
+h.call('FollowingUpdate',[h.SYS])
+assert h.shoal_entries==[(h.A,0x17,h.scene)] and h.u32(h.A+4)&0x40000
+h.call('FollowingUpdate',[h.SYS]);assert len(h.shoal_entries)==1
+grid(h.A,10,0,10);h.call('FollowingUpdate',[h.SYS]);assert len(h.shoal_entries)==2
+h.terrain_attr=0;grid(h.A,10,0,11);h.call('FollowingUpdate',[h.SYS])
+assert h.shoal_entries[-1]==(h.A,0,h.scene) and not h.u32(h.A+4)&0x40000
+h.terrain_attr=0x00100017;grid(h.A,10,0,12);h.call('FollowingUpdate',[h.SYS])
+assert h.u32(h.A+4)&0x40000
+h.put(h.addr('fwfield_flying'),1);h.call('FollowingUpdate',[h.SYS])
+assert not h.u32(h.A+4)&0x40000
+h.put(h.addr('fwfield_flying'),0);h.call('FollowingUpdate',[h.SYS])
+assert h.u32(h.A+4)&0x40000
+h.put(h.A,h.u32(h.A)|4);h.call('FollowingUpdate',[h.SYS])
+assert not h.u32(h.A+4)&0x40000
 assert not tile_effect_calls
-print('Ambient checks passed: 100 callback cycles; native grid result and fourth-argument preservation; player/sight/script exemption; hidden/elevation/old-tile/dimension checks; follower reservations; resolved rail destination; unload; safe grass entry once per visible tile, with Flying/hidden exclusion. Native map/rail/effect services mocked; no DS game run.')
+print('Ambient checks passed: 100 callback cycles; native grid result and fourth-argument preservation; player/sight/script exemption; hidden/elevation/old-tile/dimension checks; follower reservations; resolved rail destination; unload; safe grass and shoal entry/exit, with Flying/hidden exclusion. Native map/rail/effect services mocked; no DS game run.')

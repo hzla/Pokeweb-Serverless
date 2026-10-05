@@ -25,6 +25,7 @@ def call(name,args):
  for i,r in enumerate(range(UC_ARM_REG_R4,UC_ARM_REG_R11+1)):assert uc.reg_read(r)==0x12340000+i
 P=0x02220000;A=P+256;SYS=P+0x1000;FBL=SYS+0x100;BL=SYS+0x200;SCENE=SYS+0x300;SLOTS=SYS+0x400;BILL=SYS+0x500;CAM=SYS+0x600;LIGHT=SYS+0x700
 seen=[];player_seen=[];npc_seen=[];light_seen=[];expected_args=[BL,CAM,LIGHT]
+EFFBL=0x02223800;GQUAD=0x02223a00;grass_seen=[]
 def spy(u,pc,size,user):
  if pc!=0x0204f684:return
  assert u.reg_read(UC_ARM_REG_SP)%8==0
@@ -33,6 +34,7 @@ def spy(u,pc,size,user):
  player_seen.append((read(BILL+4,'3i'),read(BILL+18,'2h')))
  npc_seen.append(read(BILL+56+4,'3i'))
  light_seen.append((read(BILL+24,'H')[0],read(BILL+28+24,'H')[0]))
+ if expected_args[0]==EFFBL:grass_seen.append((read(GQUAD+4,'3i'),read(GQUAD+18,'2h')))
  u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR))
 uc.hook_add(UC_HOOK_CODE,spy,begin=0x0204f684,end=0x0204f684)
 F=addr('fwfield_follower')
@@ -258,7 +260,7 @@ for binding in json.loads((HERE/'tests/render-bindings.json').read_text()):
  for start,site,stop,handle in [(0x2181188,0x218119a,0x218119e,BL),(0x218121c,0x218122e,0x2181232,binding['secondary']),(0x218119e,0x21811b0,0x21811b4,binding['effects'])]:
   stub='THUMB_BRANCH_LINK_36_'+f'0x{site:08x}'
   uc.mem_write(start,bytes(overlay.data[start-overlay.ramAddress:stop-overlay.ramAddress]))
-  if site!=0x21811b0:
+  if site!=0x21811b0 or stub in funcs:
    target=addr(stub)&~1;relative=target-(site+4)
    assert -(1<<22)<=relative<(1<<22)
    uc.mem_write(site,struct.pack('<HH',0xf000|((relative>>12)&0x7ff),0xf800|((relative>>1)&0x7ff)))
@@ -272,5 +274,46 @@ for binding in json.loads((HERE/'tests/render-bindings.json').read_text()):
   assert bytes(uc.mem_read(BILL,56))==before
   if handle==BL:assert seen[-1][2][0]==-1 and seen[-1][2][2]<=-508
   else:assert seen[-1][0]==(65536,6144,0),'Secondary pass must not alter actor scene'
-print('Retail pass routing passed: main actor correction and unchanged secondary/effect ownership for three saved scene bindings.')
+print('Retail pass routing passed: separate packaged actor, terrain (field+0xc8), and secondary/shadow hooks for three saved scene bindings.')
+# A grass task exists at nograss.mln, but its quad is behind the corrected
+# follower. Advance only this owned grass quad in the effect pass; reject
+# inactive/recycled tasks and other actors, and restore all native state.
+setup();expected_args=[BL,CAM,LIGHT];call('fwr_grass_clear',[]);put(A+4,0x4000);vec(BILL+32,(65536,6144,0));draw()
+task=0x02224000;controller=task+256;gscene=EFFBL+64;gslots=EFFBL+128
+uc.mem_write(task,bytes(300));put(task+4,1);put(task+188,0x021a419d);put(task+196,0x021a428d)
+put(task+28,controller);put(task+32,A);half(task+72,0);put(controller+4,EFFBL)
+put(EFFBL+4,gscene);put(EFFBL+24,gslots);half(EFFBL+28,1);put(gslots,0);put(gslots+36,task+24)
+put(gscene+8,GQUAD);half(gscene+14,1);half(GQUAD,0);half(GQUAD+18,8192);half(GQUAD+20,8192);half(GQUAD+24,0x121f)
+vec(GQUAD+4,(65536,9*4096,-2*4096));original=bytes(uc.mem_read(GQUAD,28))
+expected_args=[EFFBL,CAM,LIGHT]
+body=seen[-1][0];player=player_seen[-1][0];eye=read(CAM+32,'3i');axis=[v/math.sqrt(sum(x*x for x in eye)) for v in eye]
+for invalid in ('none','player','inactive','callback','actor','stamp','deleted-slot','slot-owner','tile','disabled','flat','invalid-work'):
+ put(task+4,0 if invalid=='inactive' else 1);put(task+196,0x02008001 if invalid=='callback' else 0x021a428d)
+ put(task+32,P if invalid=='player' else SYS if invalid=='actor' else A);half(task+64,1 if invalid=='stamp' else 0)
+ half(task+72,1 if invalid=='slot-owner' else 0);put(gslots+36,0x03000000 if invalid=='invalid-work' else task+24)
+ put(task+36,1 if invalid=='tile' else 0)
+ half(GQUAD+24,0x101f if invalid=='disabled' else 0x121f)
+ half(GQUAD,0x3fff if invalid=='deleted-slot' else 0xc000 if invalid=='flat' else 0);original=bytes(uc.mem_read(GQUAD,28))
+ if 'THUMB_BRANCH_LINK_36_0x021811b0' in funcs:call('THUMB_BRANCH_LINK_36_0x021811b0',[EFFBL,CAM,LIGHT])
+ else:call('fwr_effects_draw',[EFFBL,CAM,LIGHT,A])
+ changed=grass_seen[-1]!=(read(GQUAD+4,'3i'),read(GQUAD+18,'2h'))
+ assert changed==(invalid in ('none','player')),(invalid,grass_seen[-1])
+ if invalid in ('none','player'):
+  owner,other=(player,body) if invalid=='player' else (body,player)
+  depth=sum((grass_seen[-1][0][i]-owner[i])*axis[i] for i in range(3))
+  gap=sum((other[i]-owner[i])*axis[i] for i in range(3))
+  margin=min(4*4096,gap/3) if gap>0 else 4*4096
+  assert depth>=margin-128,('grass behind owner',invalid,depth,gap)
+  if gap>0:assert depth<=gap-margin+128,('grass covers nearer actor',invalid,depth,gap)
+ assert bytes(uc.mem_read(GQUAD,28))==original
+call('fwr_grass_clear',[]);call('fwr_effects_draw',[EFFBL,CAM,LIGHT,A]);assert grass_seen[-1]==(read(GQUAD+4,'3i'),read(GQUAD+18,'2h'))
+# Emote attachment moves in the camera's vertical plane, so it cannot drift
+# horizontally or change camera depth when raised above the follower.
+out=task+320;view=task+400
+for eye in ((0,200*4096,140*4096),(140*4096,200*4096,0),(-90*4096,200*4096,110*4096)):
+ vec(view,eye);vec(view+12,(0,0,0));put(view+24,0);vec(GQUAD,(5*4096,-3*4096,7*4096))
+ for height in (34*4096,66*4096):
+  call('fwr_head_position',[GQUAD,view,height,out]);head=read(out,'3i');base=read(GQUAD,'3i');d=[head[i]-base[i] for i in range(3)]
+  assert d[1]>0 and abs(sum(d[i]*eye[i] for i in range(3)))/math.sqrt(sum(v*v for v in eye))<128,(eye,height,d)
+  assert abs(d[0]*eye[2]-d[2]*eye[0])/math.hypot(eye[0],eye[2])<128,(eye,height,d)
 print(f'Render checks passed: {frames} packaged submission frames, both sizes, all supported projection types, corrected recall-pose capture and stale-pose rejection, current animation/control offsets, rotated cameras, stairs, restoration, repeated draws, invalid handles and ABI. GPU draw is a spy; no emulator execution.')

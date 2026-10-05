@@ -43,6 +43,12 @@ static Actor *fwfield_terrainActor;
 static void *fwfield_terrainController;
 static int16_t fwfield_terrainX,fwfield_terrainZ;
 static uint16_t fwfield_terrainZone;
+typedef struct {
+ uint32_t reserved[2];uint16_t oldTerrain,terrain;
+ uint32_t extra[2];void *controller;
+} FwShoalContext;
+_Static_assert(sizeof(FwShoalContext)==24 && offsetof(FwShoalContext,terrain)==10 &&
+               offsetof(FwShoalContext,controller)==20,"stock shoal context offsets");
 static int fwfield_configState,fwfield_eventsReady;
 /* A manual choice lives only in the field runtime; party data is untouched.
  * Keep the previous safe follower tile for the recall -> send-out sequence. */
@@ -145,6 +151,7 @@ static int owned(void) {
  return a && fwfield_owner && a>=fwfield_owner->actors && a<fwfield_owner->actors+fwfield_owner->capacity && (a->flags&USE) && a->system==fwfield_owner && a->callbacks==&fwfield_moves;
 }
 static void cleanup_impl(int keepTrail) {
+ fwr_grass_clear();
 #ifdef FW_MOUNT
  fwland_end();fwfield_landCheckAfterPause=0;
 #endif
@@ -218,7 +225,7 @@ __attribute__((noinline)) static uint16_t model(const FwPokemon *p) {
  if(fwfield_configState!=1||!p||!p->species||p->species>FW_MAX_SPECIES)return 0;
  unsigned first=fwfield_index[p->species],end=fwfield_index[p->species+1];
  fwfield_follower.side_gap=0;fwfield_follower.sprite_y=0;
- uint16_t fallback=0x3000;int best=-100,opened=0;uint32_t file[32];
+ uint16_t fallback=0x3000;int best=-100,opened=0,artX=0;uint32_t file[32];
  for(unsigned i=first;i<end;++i){
   if(i<fwfield_pageFirst||i-fwfield_pageFirst>=fwfield_pageCount){
    if(!opened){
@@ -239,13 +246,19 @@ __attribute__((noinline)) static uint16_t model(const FwPokemon *p) {
   }else{species=read16(r);form=r[2];gender=r[3];shiny=r[4];row=read16(r+6);}
   if(species!=p->species)goto fail;
   int score=(form==p->form?8:form==0?0:-20)+(gender==p->gender?4:gender==2?2:-20)+(shiny==p->shiny?1:-20);
-  if(score>best){best=score;fallback=FW_CODE_BASE+row-FW_STOCK_ROWS;fwfield_follower.side_gap=fwfield_stride==12?(r[8]>>3)&7:r[15];fwfield_follower.sprite_y=(int8_t)(fwfield_stride==12?r[10]:r[13]);}
+  if(score>best){best=score;fallback=FW_CODE_BASE+row-FW_STOCK_ROWS;fwfield_follower.side_gap=fwfield_stride==12?(r[8]>>3)&7:r[15];fwfield_follower.sprite_y=(int8_t)(fwfield_stride==12?r[10]:r[13]);
+   artX=(int8_t)(fwfield_stride==12?r[9]:r[12]);
+#ifdef FW_MOUNT
+   fwland_animation_profile(fwfield_stride==12?(r[8]&4u):r[11]);
+#endif
+  }
  }
  if(opened)CALL(0x02070de1,int(*)(void*))(file);
  fwfield_follower.directional_gap[0]=fwfield_follower.directional_gap[1]=0;
- fwfield_follower.directional_gap[2]=fwfield_follower.directional_gap[3]=fwfield_follower.side_gap;
- fwfield_follower.directional_gap[2]+=FW_DEFAULT_SIDE_GAP_BONUS;
- fwfield_follower.directional_gap[3]+=FW_DEFAULT_SIDE_GAP_BONUS;
+ if(artX<0)artX=-artX;
+ unsigned maximum=artX<10?10u-(unsigned)artX:0u;
+ unsigned gap=fwfield_follower.side_gap+FW_DEFAULT_SIDE_GAP_BONUS;
+ fwfield_follower.directional_gap[2]=fwfield_follower.directional_gap[3]=gap<maximum?gap:maximum;
  if(first<end&&fallback>=FW_CODE_BASE){
   uint8_t positions[12];
   if(fwp_land(fallback-FW_CODE_BASE,fwfield_descriptorCount-FW_STOCK_ROWS,fwfield_registryCrc,positions)){
@@ -572,11 +585,20 @@ static void before(ActorSystem *sys) {
 }
 static void terrain_update(void) {
 #ifdef FW_MOUNT
- if(fwland_active())return;
+ if(fwland_active()){
+  if(owned()){
+   Actor *a=(Actor*)fwfield_follower.actor;
+   if(a->moveflags&0x40000u)CALL(0x021676fd,void(*)(Actor*,unsigned))(a,0);
+  }
+  fwfield_terrainActor=0;return;
+ }
 #endif
  if(!owned()) {fwfield_terrainActor=0;return;}
  Actor *a=(Actor*)fwfield_follower.actor;
- if((a->flags&HIDDEN)||fwfield_flying){fwfield_terrainActor=0;return;}
+ if((a->flags&HIDDEN)||fwfield_flying){
+  if(a->moveflags&0x40000u)CALL(0x021676fd,void(*)(Actor*,unsigned))(a,0);
+  fwfield_terrainActor=0;return;
+ }
  /* This controller lookup is the same one used by the native grass entry
   * path. The grid-tile attribute query is separate from the rail movement
   * dispatcher, which dereferences our actor's absent +0x94 context. */
@@ -588,15 +610,21 @@ static void terrain_update(void) {
  Vec center={(int32_t)a->grid[0]*FW_TILE+FW_TILE/2,a->world.y,
              (int32_t)a->grid[2]*FW_TILE+FW_TILE/2};
  uint32_t attr=0;
- if(!CALL(0x0215e8e5,int(*)(Actor*,const Vec*,uint32_t*))(a,&center,&attr))return;
+ /* An unmarked tile reports no attribute. Still visit the shoal adapter so
+  * it clears the native effect bit and retires the attached splash task. */
+ CALL(0x0215e8e5,int(*)(Actor*,const Vec*,uint32_t*))(a,&center,&attr);
  fwfield_terrainActor=a;fwfield_terrainController=controller;
  fwfield_terrainX=a->grid[0];fwfield_terrainZ=a->grid[2];
  fwfield_terrainZone=a->zone;
- /* The native grass entry helper owns the effect task, tile height, season
-  * resources and actor-lifetime checks. It is safe for a grid actor and uses
-  * no movement-context pointer. Only its grass path is enabled here. */
- if((attr>>16)&0x20u)
-  CALL(0x02194d8d,void(*)(Actor*,uint32_t))(a,attr);
+ /* The stock shoal adapter reads only the current terrain ID at +10 and the
+  * effect controller at +20. It owns the actor-bound shallow-water task and
+  * its exit bit; unlike the movement dispatcher, it does not read +0x94. */
+ FwShoalContext shoal={0};
+ shoal.terrain=(uint16_t)attr;shoal.controller=controller;
+ CALL(0x0215e151,void(*)(Actor*,void*))(a,&shoal);
+ /* Grass remains an entry effect, once per crossed tile. */
+ if(attr!=UINT32_MAX&&((attr>>16)&0x20u))
+  CALL(0x02194d8d,void*(*)(Actor*,uint32_t))(a,attr);
 }
 API void FollowingUpdate(ActorSystem *sys) {
  fwfx_tick();before(sys);
@@ -662,6 +690,9 @@ API void FollowingDraw(void *system,void *camera,void *light){
 }
 API void FollowingEffectsDraw(void *system,void *camera,void *light){
  CALL(0x0204f685,void(*)(void*,void*,void*))(system,camera,light);fwfx_draw(camera,light);
+}
+API void FollowingTerrainDraw(void *system,void *camera,void *light){
+ fwr_effects_draw(system,camera,light,owned()?(Actor*)fwfield_follower.actor:0);
 }
 extern int FollowingOriginalUnload(void*,void*);
 API int FollowingUnload(void *game,void *field) {

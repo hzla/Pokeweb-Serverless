@@ -327,6 +327,9 @@ own_free=False
 # Every audited opcode and every unaudited standard/extended value is explicit.
 policy=json.loads((HERE/'event-policy.json').read_text());safe={e['opcode'] for e in policy['commands']}
 for code in range(0x10000):assert bool(h.call('fws_safe_opcode',[code]))==(code in safe)
+# Desert Resort -> Route 4 runs the synchronous indexed save-byte setter.
+# A data-only boundary script must retain the follower in both directions.
+snap=setup();event();opcode(0x262);opcode(2);kept(snap);finish();kept(snap)
 for code in (0x97,0xb5,0xfb,0x103,0x116,0x1c4,0x224,0x26e,0x2d4):
  snap=setup();event();opcode(code);kept(snap)
 requested={int(row['opcode'],16) for row in audit if row['decision']=='allow-requested'}

@@ -113,9 +113,10 @@ int fwt_reach(FwFollower *f,Actor *p,Actor *a,void *field){
  if(!controller){
   int16_t gx,gy,gz;CALL(0x0219aacd,void(*)(void*,void*,void*,void*))(PTR(field,0x94),&gx,&gy,&gz);
   int dx=a->grid[0]-gx,dz=a->grid[2]-gz;
-  /* A twelve-unit side gap can place the follower in the next grid cell.
+  /* A partial native step or draw-anchor clamp can put even a small follower
+     in the next grid cell beyond the normal target.
      The distance and connected straight trail above still bound this case. */
-  int next=gap>8&&((p->face==0&&dx==0&&dz==-1)||(p->face==1&&dx==0&&dz==1)||
+  int next=((p->face==0&&dx==0&&dz==-1)||(p->face==1&&dx==0&&dz==1)||
       (p->face==2&&dx==-1&&dz==0)||(p->face==3&&dx==1&&dz==0));
   if((dx||dz)&&!next)return 0;
   if(CALL(0x0215e4f1,unsigned(*)(Actor*,unsigned))(p,p->face))return 0;

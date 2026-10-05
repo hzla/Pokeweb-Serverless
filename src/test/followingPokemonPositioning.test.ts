@@ -44,14 +44,20 @@ describe("ROM-resident follower positioning", () => {
     expect(Array.from(decoded.land)).toEqual([1, 2, 3, 4, 9, 12, 14, 11, 17, 12, 20, 13]);
     expect(Array.from(decoded.surf)).toEqual([251, 5, 250, 6, 249, 7, 248, 8]);
   });
-  it("adds six side units to automatic gaps without changing authored gaps", () => {
+  it("caps appearance defaults for dialogue anchors without changing authored gaps", () => {
     const { registry, encoded, anchors, surf } = fixture();
     delete (registry.entries[0] as { directionalGaps?: number[] }).directionalGaps;
     let decoded = decodeFollowerPositioningNarc(encodeFollowerPositioningNarc(registry, encoded, anchors, surf), encoded, surf);
     expect(Array.from(decoded.land.subarray(0, 4))).toEqual([0, 0, 9, 9]);
     registry.entries[0].sideGap = 6;
     decoded = decodeFollowerPositioningNarc(encodeFollowerPositioningNarc(registry, encoded, anchors, surf), encoded, surf);
-    expect(Array.from(decoded.land.subarray(0, 4))).toEqual([0, 0, 12, 12]);
+    expect(Array.from(decoded.land.subarray(0, 4))).toEqual([0, 0, 10, 10]);
+    registry.entries[0].offsets[0] = -4;
+    decoded = decodeFollowerPositioningNarc(encodeFollowerPositioningNarc(registry, encoded, anchors, surf), encoded, surf);
+    expect(Array.from(decoded.land.subarray(0, 4))).toEqual([0, 0, 6, 6]);
+    registry.entries[0].directionalGaps = [1, 2, 12, 12];
+    decoded = decodeFollowerPositioningNarc(encodeFollowerPositioningNarc(registry, encoded, anchors, surf), encoded, surf);
+    expect(Array.from(decoded.land.subarray(0, 4))).toEqual([1, 2, 12, 12]);
   });
   it("rejects corrupt payloads, mismatched catalogs, and invalid authored offsets", () => {
     const { registry, encoded, anchors, surf } = fixture();

@@ -76,9 +76,25 @@ void attach(void* w) {
     footer();
 }
 void change(void* w,u32 page,u32 variant,bool touch) {
+    const bool sameStats=page==1 && at<u32>(w,0x58)==1;
     session.variant=variant;
     at<u32>(w,0x58)=page;
-    overlay<void(*)(void*)>(0x21b4a10)(w);
+    if (sameStats) {
+        void* skill=at<void*>(w,0x90);
+        // Clear only the six numeric CPU font buffers. Index 1 is the real
+        // HP bar; bottom move actors/windows and page ownership stay intact.
+        for (u32 i=0;i<7;i++) if (i!=1) {
+            void* buffer=api<void*(*)(void*)>(0x2048520)(at<void*>(skill,0x5c+i*4));
+            api<void(*)(void*,u32)>(0x2047168)(buffer,0);
+        }
+        overlay<void(*)(void*,u32)>(0x21b4e4c)(w,1);
+        // Native drawing sets skill+4 dirty. SkillUpdate waits for the print
+        // queue, then uploads the top windows/title using its existing path.
+        overlay<void(*)(void*,void*)>(0x21b8f50)(w,skill);
+        overlay<void(*)(void*,u32)>(0x21b4e4c)(w,0);
+    } else {
+        overlay<void(*)(void*)>(0x21b4a10)(w);
+    }
     api<void(*)(u32)>(0x2006254)(1637);
     at<u8>(w,0x1c)=touch?1:0;
 }

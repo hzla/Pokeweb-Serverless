@@ -50,6 +50,20 @@ static int shift_depth(const FwrPose *native,const FwrCamera *camera,FwPoint dir
  }
  return 1;
 }
+int fwr_head_position(const FwPoint *base,const FwrCamera *camera,int32_t height,FwPoint *out){
+ FwPoint view,right,up;
+ if(height<0||height>5*FW_TILE||!delta(camera->eye,camera->target,&view,1<<27)
+    ||!axis(view,&view))return 0;
+ right=(FwPoint){view.z,0,-view.x};
+ /* axis expects at least one full world unit; this vector is already unit. */
+ right.x*=4096;right.z*=4096;
+ if(!axis(right,&right))return 0;
+ up=(FwPoint){view.y*right.z,view.z*right.x-view.x*right.z,-view.y*right.x};
+ if(!axis(up,&up))return 0;
+ *out=(FwPoint){base->x+divide((int64_t)up.x*height,4096),
+  base->y+divide((int64_t)up.y*height,4096),base->z+divide((int64_t)up.z*height,4096)};
+ return 1;
+}
 int fwr_above_shadow(const FwrPose *native,const FwPoint *ground,
                      const FwrCamera *camera,FwrPose *out){
  *out=*native;
@@ -84,6 +98,30 @@ int fwr_player_in_front(const FwrPose *follower,const FwrPose *player,
   *after=dot(relative,direction);
  }
  return 1;
+}
+int fwr_cover_feet(const FwrPose *grass,const FwrPose *body,
+                   const FwrPose *other,const FwrCamera *camera,FwrPose *out){
+ *out=*grass;
+ FwPoint direction,relative;
+ if(camera->projection>2||!delta(camera->eye,camera->target,&direction,1<<27)||!axis(direction,&direction)
+    ||!delta(grass->position,body->position,&relative,8*FW_TILE))return 0;
+ /* Native geom type zero uses the inverse camera rotation for both actor
+  * and grass quads: every vertex shares its center's camera-normal depth.
+  * Keep the grass in its owner's depth interval, rather than advancing it
+  * in front of both actors. Its native height still counts toward depth. */
+ int32_t current=dot(relative,direction),lower=4*4096,upper=INT32_MAX;
+ if(other&&delta(other->position,body->position,&relative,8*FW_TILE)){
+  int32_t gap=dot(relative,direction);
+  if(gap>0){
+   if(gap<256)return 0;
+   int32_t margin=divide(gap,3);if(margin>lower)margin=lower;
+   lower=margin;upper=gap-margin;
+  }
+ }
+ if(current>=lower&&current<=upper)return 0;
+ int32_t change=current<lower?lower-current+16:upper-current-16;
+ if(camera->projection==2)change=divide((int64_t)change*4096,dot(direction,direction));
+ return shift_depth(grass,camera,direction,change,out);
 }
 int fwr_correct(const FwPoint *world,const FwPoint *player_world,
  const FwrPose *native,const FwPoint *player_draw,const FwrCamera *camera,

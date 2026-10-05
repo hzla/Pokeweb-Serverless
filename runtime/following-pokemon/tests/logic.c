@@ -108,6 +108,11 @@ int main(void) {
     assert(!fw_clamp_dialogue_pose(&distant,&playerPose,0,2,10));
     FwPoint offAxis={playerPose.x-28*4096,0,playerPose.z+8*4096};
     assert(!fw_clamp_dialogue_pose(&offAxis,&playerPose,0,2,10));
+    /* 0.6.84 toofar.mln: an eight-unit gap leaves the actor three units
+       outside its 25-unit reach after a partial native step. */
+    actorPose=(FwPoint){playerPose.x-28*4096,0,playerPose.z};
+    assert(fw_clamp_dialogue_pose(&actorPose,&playerPose,&artOffset,2,8));
+    assert(actorPose.x==playerPose.x-25*4096);
     /* Repeated L bends and heights: every result is an actual earlier pose,
        advances monotonically through history, and never snaps a six-unit gap. */
     FwSample route[800];fw_trail_clear(&t);int x=0,z=0,last_index=-1;

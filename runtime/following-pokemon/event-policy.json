@@ -2605,6 +2605,14 @@
       "expectedHex": "38b50c1ceaf74af9051c201ceaf78cfd"
     },
     {
+      "opcode": 610,
+      "name": "s0262_SaveByteSet",
+      "category": "control-and-variables",
+      "handler": 35038949,
+      "segment": "12",
+      "expectedHex": "70b5041c081ceaf75ffdacf6f3f9051c201cabf677f9061c201cabf673f9041c281cadf615f9a5f619fc311c221ca5f61dfc002070bd"
+    },
+    {
       "opcode": 620,
       "name": "s026C_WordSetMedalName",
       "category": "word-formatting",

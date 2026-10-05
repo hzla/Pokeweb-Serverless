@@ -2,6 +2,7 @@ __attribute__((visibility("hidden"))) void *memset(void *to,int value,unsigned l
 #include "effects.h"
 #include "effects_assets.h"
 #include "render.h"
+#include "render_math.h"
 /* Freestanding aggregate copies; no dependency on a gameplay module's libc. */
 __attribute__((visibility("hidden"))) void *memcpy(void *to,const void *from,unsigned length){
  uint8_t *d=to;const uint8_t *s=from;while(length--)*d++=*s++;return to;
@@ -17,6 +18,7 @@ _Static_assert(sizeof(Billboard)==28,"billboard actor ABI");
 static struct {
  void *resources[3],*models[2],*actors[2],*animation,*white;
  uint16_t whiteID; int ready,mode,age,snapshot;
+ uint8_t outlineTop[8],outlineBottom[8],outlineSize,outlineFrames;
  Scene scene; Billboard billboard; Material material,whiteMaterial;
  Transform transform;
 } fwfx;
@@ -42,9 +44,32 @@ static int verified(void){
  if(ok)ok=CALL(0x02070e6d,uint32_t(*)(void*,void*,uint32_t))(f,data,FW_EFFECT_BYTES)==FW_EFFECT_BYTES && checksum((uint8_t*)data,FW_EFFECT_BYTES)==FW_EFFECT_CRC;
  CALL(0x02070de1,int(*)(void*))(f);return ok;
 }
+/* Validated follower/emote assets are linear I4 frames with transparent index
+ * zero. Inspect the existing private resource before its GPU upload; shared
+ * native actor materials may have trimmed their CPU pixel data already.
+ * Keep only two byte-sized row bounds per pose, never a second texture copy. */
+int fwfx_outline(const void *texture,unsigned size,uint8_t *top,uint8_t *bottom){
+ if(!texture||(size!=32&&size!=64)||U32(texture,0)!=0x30584554u)return 0;
+ unsigned length=*(uint16_t*)((const uint8_t*)texture+12)*8u;
+ unsigned start=U32(texture,20),total=U32(texture,4),stride=size*size/2;
+ unsigned frames=length>>(size==64?11:9);
+ if(!frames||frames>8||(length&(stride-1))||total>128*1024||start<60||start>total||length>total-start)return 0;
+ const uint8_t *pixels=(const uint8_t*)texture+start;
+ for(unsigned f=0;f<frames;++f){
+  top[f]=(uint8_t)size;bottom[f]=0;
+  for(unsigned y=0;y<size;++y){
+   const uint8_t *row=pixels+f*stride+y*(size/2);
+   for(unsigned x=0;x<size/2;++x)if(row[x]){
+    if(top[f]==size)top[f]=(uint8_t)y;
+    bottom[f]=(uint8_t)y;break;
+   }
+  }
+ }
+ return (int)frames;
+}
 static void free_white(void){
  if(fwfx.white){CALL(0x02049561,int(*)(void*))(fwfx.white);CALL(0x02049431,void(*)(void*))(fwfx.white);fwfx.white=0;}
- fwfx.snapshot=0;fwfx.whiteMaterial.texKey=fwfx.whiteMaterial.plttKey=0;FollowingEffectsDebug[7]=0;
+ fwfx.snapshot=0;fwfx.outlineFrames=0;fwfx.whiteMaterial.texKey=fwfx.whiteMaterial.plttKey=0;FollowingEffectsDebug[7]=0;
 }
 void fwfx_cancel(void){fwfx.mode=0;FollowingEffectsDebug[2]=0;}
 void fwfx_set_resource_count(unsigned count){
@@ -93,6 +118,8 @@ void fwfx_prepare(Actor *actor){
  if(!fwfx.white)return;
  void *tex=CALL(0x0204964d,void*(*)(void*))(fwfx.white);
  if(!tex){free_white();return;}
+ fwfx.outlineSize=actor->descriptor[7]==2?64:32;
+ fwfx.outlineFrames=(uint8_t)fwfx_outline(tex,fwfx.outlineSize,fwfx.outlineTop,fwfx.outlineBottom);
  unsigned length=CALL(0x020652e5,unsigned(*)(void*))(tex);
  uint16_t *palette=CALL(0x0204974d,uint16_t*(*)(void*))(fwfx.white);
  if(!palette || length>512 || !length){free_white();return;}
@@ -180,9 +207,9 @@ void fwfx_draw(void *camera,void *light){
  }
 }
 
-static struct {void *resources[2];Scene scene;Billboard billboard;Material material[2];int active;unsigned frame;} fwemote;
+static struct {void *resources[2];Scene scene;Billboard billboard;Material material[2];int active;unsigned frame;Actor *actor;uint8_t bottomInset[2];} fwemote;
 void fwfx_emote_end(void){
- fwemote.active=0;
+ fwemote.active=0;fwemote.actor=0;
  for(unsigned i=0;i<2;++i)if(fwemote.resources[i]){CALL(0x02049561,int(*)(void*))(fwemote.resources[i]);CALL(0x02049431,void(*)(void*))(fwemote.resources[i]);fwemote.resources[i]=0;}
 }
 int fwfx_emote_begin(Actor *a,unsigned member){
@@ -197,21 +224,56 @@ int fwfx_emote_begin(Actor *a,unsigned member){
  fwemote.scene.actors=&fwemote.billboard;fwemote.scene.materials=fwemote.material;
  fwemote.scene.actorCount=1;fwemote.scene.materialCount=2;
  fwemote.scene.diffuse=fwemote.scene.ambient=0x7fff;fwemote.scene.specular=fwemote.scene.emissive=0;
- fwemote.billboard.geom&=0xc000;fwemote.billboard.flags&=~0xf200;
- fwemote.billboard.sx=fwemote.billboard.sy=4096;fwemote.billboard.face=0;
+ fwemote.billboard.geom&=0xc000;
+ /* Retain the follower's selected map lights and enable rendering for the
+  * private quad. Clearing 0xf200 made loaded emotes invisible. */
+ fwemote.billboard.flags=(fwemote.billboard.flags|0x0200u)&~0x0c00u;
+ fwemote.billboard.sx=fwemote.billboard.sy=8192;fwemote.billboard.face=0;
  for(unsigned i=0;i<2;++i){
   fwemote.material[i]=(Material){0};
   fwemote.resources[i]=CALL(0x020493f1,void*(*)(const char*,unsigned))("rom:/following/emotes.narc",member+i);
   if(!fwemote.resources[i]){fwfx_emote_end();return 0;}
+  uint8_t top[8],bottom[8];
+  void *tex=CALL(0x0204964d,void*(*)(void*))(fwemote.resources[i]);
+  fwemote.bottomInset[i]=fwfx_outline(tex,32,top,bottom)==1&&top[0]<32?(uint8_t)(31-bottom[0]):1;
   CALL(0x0204e599,void(*)(void*,unsigned,unsigned,unsigned,unsigned))(&fwemote.material[i],0,0x22,32,32);
   CALL(0x0204e55d,void(*)(void*,void*))(&fwemote.material[i],fwemote.resources[i]);
   if(!fwemote.material[i].texKey||!fwemote.material[i].plttKey){fwfx_emote_end();return 0;}
  }
- fwemote.active=1;fwfx_emote_frame(a,0);return 1;
+ fwemote.active=1;fwemote.actor=a;fwfx_emote_frame(a,0);return 1;
 }
 void fwfx_emote_frame(Actor *a,unsigned frame){
  if(!fwemote.active)return;
  fwemote.billboard.geom=(fwemote.billboard.geom&0xc000)|(frame&1);
- fwemote.billboard.pos=(Vec){a->world.x+a->drawOffset.x+a->externalOffset.x+a->attributeOffset.x,a->world.y+a->drawOffset.y+a->externalOffset.y+a->attributeOffset.y+32*4096,a->world.z+a->drawOffset.z+a->externalOffset.z+a->attributeOffset.z+4096};
+ fwemote.frame=frame;fwemote.actor=a;
 }
-static void draw_emote(void *camera,void *light){if(fwemote.active)CALL(0x0204ebdd,void(*)(void*,void*,void*))(&fwemote.scene,camera,light);}
+static void draw_emote(void *camera,void *light){
+ if(!fwemote.active||!fwemote.actor||!camera)return;
+ Actor *a=fwemote.actor;
+ void *fieldBl=PTR(a->system,0x28),*bl=fieldBl?PTR(fieldBl,4):0;
+ Scene *scene=bl?PTR(bl,4):0;unsigned id=*(uint16_t*)a->drawWork;
+ if(!scene||id>=*(uint16_t*)((uint8_t*)bl+0x1c))return;
+ unsigned index=U32(PTR(bl,0x18),id*40);if(index>=scene->actorCount)return;
+ Billboard *body=&scene->actors[index];
+ FwrEffectPose pose={body->pos,body->sx,body->sy};
+ fwr_effect_pose(a,&body->pos,&pose);
+ FwrCamera view={*(FwPoint*)((uint8_t*)camera+32),*(FwPoint*)((uint8_t*)camera+56),U32(camera,0)};
+ FwPoint base={pose.position.x,pose.position.y,pose.position.z},head;
+ /* A 32px emote uses the same pixel scale as the follower, including its
+  * draw-only depth compensation. The source bubble occupies 15x16 pixels. */
+ int large=body->sy>=12288;
+ fwemote.billboard.sx=large?pose.sx/2:pose.sx;
+ fwemote.billboard.sy=large?pose.sy/2:pose.sy;
+ unsigned size=large?64:32,top=0;
+ if(fwfx.white&&fwfx.whiteID==*(uint16_t*)(a->descriptor+16)&&fwfx.outlineSize==size&&body->face<fwfx.outlineFrames){
+  top=body->flags&0x0800u?size-1-fwfx.outlineBottom[body->face]:fwfx.outlineTop[body->face];
+  if(top>=size)top=0;
+ }
+ /* Align opaque edges: one source pixel of clear air above the follower's
+  * current pose, accounting for padding below the bubble's visible tip. */
+ int32_t height=(int32_t)(size-top+1)*(large?pose.sy/4:pose.sy/2)
+  -(int32_t)fwemote.bottomInset[fwemote.frame&1]*(fwemote.billboard.sy/2);
+ if(pose.sy<=0||!fwr_head_position(&base,&view,height,&head))return;
+ fwemote.billboard.pos=(Vec){head.x,head.y,head.z};
+ CALL(0x0204ebdd,void(*)(void*,void*,void*))(&fwemote.scene,camera,light);
+}

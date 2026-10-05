@@ -7,7 +7,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { isGen4Project, type NarcName } from "./constants";
 import { detectWhite2ExpandedRigAtlasPatchState } from "./expandedRigAtlasPatch";
-import type { NarcStore, ProjectState } from "./projectStore";
+import { markDirty, type NarcStore, type ProjectState } from "./projectStore";
 
 export type FileSystemTreeNode = {
   name: string;
@@ -210,8 +210,8 @@ export function replaceNarcFile(project: ProjectState, rom: NintendoDSRom, paren
     if (index < 0 || index >= store.rawFiles.length) throw new Error(`NARC subfile ${index} does not exist.`);
     store.rawFiles[index] = bytes;
     store.fileCount = store.rawFiles.length;
-    store.dirty.add(index);
     store.records.delete(index);
+    markDirty(project, store.name, index);
     recordGenericChange(project, "file_system", `Loaded editor NARC file ${parentFileId}/${index} replaced.`, `NARC file ${parentFileId}/${index}`, {
       key: `narc-file-replace:${parentFileId}:${index}`,
     });

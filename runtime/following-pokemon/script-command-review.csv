@@ -609,7 +609,7 @@ opcode,name,decision,reason
 0x25F,CMD_25F,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
 0x260,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
 0x261,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler
-0x262,CMD_262,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x262,SaveByteSet,allow-audited,"Audited US handler writes one indexed byte in save block 0x42 and returns synchronously; no actor, movement, warp, or child-event access."
 0x263,CMD_263,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
 0x264,CMD_264,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
 0x265,CMD_265,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit

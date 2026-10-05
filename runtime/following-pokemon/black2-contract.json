@@ -989,7 +989,31 @@
       "segment": "36",
       "address": 35274924,
       "expectedHex": "f8b590b01c1c071c0d1c0292082c4bda02210226",
-      "abi": "Thumb; r0=field-effect controller, r1=live Actor*, r2=animation BOOL, r3=grass type. Owns grass task creation and position/lifetime checks. Reached through follower-grass-entry.",
+      "abi": "Thumb; r0=field-effect controller, r1=live Actor*, r2=animation BOOL, r3=grass type. Owns grass task creation and position/lifetime checks. Reached through follower-grass-entry. Returns a native fixed-pool task. Work at task+24 holds Actor at +8, stamp at +40, and slot at +48; descriptor begins at task+184. Tokens are cleared before field teardown.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-shoal-state",
+      "segment": "12",
+      "address": 34988304,
+      "expectedHex": "38b50c1c051c608944f074fd01280dd1281c09f0d9fa00280cd16069291c60f085fc281c012109f0",
+      "abi": "Thumb; r0=live Actor*, r1=24-byte terrain context with current low terrain ID at +10 and field-effect controller at +20. Starts the stock shoal task for terrain 0x17 once, marks its actor bit, and clears the bit on exit. It does not read Actor+0x94.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-shoal-bit",
+      "segment": "12",
+      "address": 35026620,
+      "expectedHex": "08b5012904d101218904fff78ffc08bd01218904fff78efc",
+      "abi": "Thumb; r0=live Actor*, r1=BOOL. Sets or clears only the native shoal-effect move bit; clearing it lets the attached task self-delete when a follower is hidden or mounted.",
+      "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-shoal-task",
+      "segment": "36",
+      "address": 35383868,
+      "expectedHex": "38b584b00d1c1021041ce4f7b1fe0290039502a8009000220349201c00230192",
+      "abi": "Thumb; r0=field-effect controller, r1=live Actor*. Creates the actor-bound shoal effect task through the stock effect controller. Reached through follower-shoal-state.",
       "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
     },
     {
@@ -3943,6 +3967,13 @@
       "address": 35518440,
       "expectedHex": "30b40b487d21056889006c58091f2204130e6a582106090e",
       "status": "Black 2 binary signature and packaged relocation verified; game-emulator validation pending"
+    },
+    {
+      "id": "follower-grass-task-layout",
+      "segment": "36",
+      "address": 35456384,
+      "expectedHex": "ff3f0000340000005d411a0231421a024d421a02",
+      "abi": "Native fixed-pool descriptor: 52-byte work, init/destroy/update/draw callbacks. Work identity and billboard slot are checked before draw-only grass depth adjustment."
     }
   ],
   "eventsAbi": 6,

@@ -45,9 +45,5 @@ src/test/local/
 !/scripts/lib/
 !/scripts/build-battle-harness.ts
 !/scripts/test-battle-harness-headless.py
-!/scripts/build-battle-interaction-fixtures.ts
-!/scripts/test-battle-interactions.py
-!/scripts/build-move-handler-fixtures.ts
-!/scripts/move-handler-doubles-fixtures.ts
-!/scripts/test-move-handlers.py
+!/scripts/run-upgrade-battle-tests.py
 !/scripts/verify-summary-stat-viewer-install.ts

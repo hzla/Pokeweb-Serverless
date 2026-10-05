@@ -23,6 +23,13 @@
     11
   ],
   "compositeSplitY": 18,
+  "compositeLegY": 25,
+  "walkSampleY": [
+    2,
+    3,
+    3,
+    3
+  ],
   "bikeSampleOffsets": {
     "male": [
       [
@@ -134,13 +141,15 @@
   "sourceSha256": {
     "male": {
       "bike": "f9012789b0811fe5ff6da7107fcffe921f7134c383a48628eb340388df4697c4",
-      "seated": "15c226cab7fa0f744b5bd5b91242d80559091d51ad4a84c97ef49c42fbd54daa"
+      "seated": "15c226cab7fa0f744b5bd5b91242d80559091d51ad4a84c97ef49c42fbd54daa",
+      "walking": "75e27057a1e0557fb9805b1151dadacf527cf9e24bc3eed58dc2c7c95ba078c7"
     },
     "female": {
       "bike": "543b47e99ff4fb144fcdb4eeda29d8dfd72678dcf9e03d6cb85409e20970d871",
-      "seated": "2eac0a66d4d8ff58bfdcb4e826f58c5fd36ca23ab1b410ba21d7c45646aa70fb"
+      "seated": "2eac0a66d4d8ff58bfdcb4e826f58c5fd36ca23ab1b410ba21d7c45646aa70fb",
+      "walking": "2303a3993a1b814b857ea33634923ff94911b5219abd867fb4d220e3b28511b6"
     }
   },
   "bytes": 17236,
-  "sha256": "3e24a8fac08aa7ea6a92ec0ecebe4b81ab86a093fed498863ac333ab13f28d8d"
+  "sha256": "5fadafe90c1237bb3ac06613508ac04ccf952116f19abec00e148fc9d4203f23"
 }
