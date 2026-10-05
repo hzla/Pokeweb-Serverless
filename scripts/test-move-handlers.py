@@ -79,7 +79,7 @@ def expected_battlers(variant):
     return battlers
 
 
-DOUBLES_SUITES = ("decorate", "expanding-force", "snipe-shot", "jungle-healing", "life-dew", "lunar-blessing", "dragon-cheer", "make-it-rain", "matcha-gotcha", "mortal-spin")
+DOUBLES_SUITES = ("decorate", "expanding-force", "snipe-shot", "jungle-healing", "life-dew", "lunar-blessing", "dragon-cheer", "make-it-rain", "matcha-gotcha", "mortal-spin", "doodle", "rage-fist", "teatime", "court-change")
 
 
 def verify_doubles(case, result, variant):
@@ -89,9 +89,18 @@ def verify_doubles(case, result, variant):
     setup = result["battleSetup"]
     check(setup["rule"] == 1 and min(setup["playerCount"],setup["trainerCount"]) >= 2, "Not a native doubles battle")
     check(result.get("fullTurnValidated"), "Doubles turn did not complete")
+    if variant.get("category") == 0:
+        check(not result["damageCalls"], "Status move unexpectedly calculated attack damage")
     for slot, (role,species,ability) in expected_battlers(variant).items():
         check(before[role]["slot"] == after[role]["slot"] == slot, "Wrong native slot")
         check(before[role]["species"] == species and before[role]["ability"] == ability, "Wrong fixture identity")
+        if role in case.get("expectedAbilities",{}):
+            wanted_ability = case["expectedAbilities"][role]
+            check(after[role]["ability"] == ability and after[role]["currentAbility"] == wanted_ability,
+                  f"Wrong copied ability for {role}: {after[role]['ability']}/{after[role]['currentAbility']} != {wanted_ability}")
+            registrations = [e["ability"] for e in result["abilityRegistrations"] if e["slot"] == slot]
+            check(registrations == ([wanted_ability] if before[role]["currentAbility"] != wanted_ability else []),
+                  f"Wrong native ability re-registration for {role}: {registrations}")
         wanted = case.get("expectedStages",{}).get(role,before[role]["statStages"])
         check(after[role]["statStages"] == wanted, f"Wrong stages for {role}: {after[role]['statStages']} != {wanted}")
         if role in case.get("expectedTypes",{}):
@@ -100,6 +109,13 @@ def verify_doubles(case, result, variant):
             expected = case["expectedHealing"][role]
             check(after[role]["hp"] - before[role]["hp"] == expected,
                   f"Wrong HP change for {role}: {after[role]['hp']-before[role]['hp']} != {expected}")
+        if role in case.get("expectedQuarterHealing",[]):
+            expected = min(before[role]["maxHp"]-before[role]["hp"],max(1,before[role]["maxHp"]//4))
+            check(after[role]["hp"]-before[role]["hp"] == expected, f"Wrong quarter healing for {role}")
+        if role in case.get("expectedItems",{}):
+            check(after[role]["item"] == case["expectedItems"][role], f"Wrong held item for {role}: {after[role]['item']}")
+        if role in case.get("expectedConsumedItems",{}):
+            check(after[role]["consumedItem"] == case["expectedConsumedItems"][role], f"Wrong consumed item for {role}")
         if role in case.get("expectedStatuses",{}):
             wanted_status = case["expectedStatuses"][role]
             check(active_status(after[role]) == ([wanted_status] if wanted_status else []), f"Wrong status for {role}")
@@ -141,6 +157,9 @@ def verify_doubles(case, result, variant):
             role = next(role for role in before if before[role]["slot"] == target["slot"])
             damage = damage * case.get("typeRatios",{}).get(role,4096) // 4096
             check(call["preModifierDamage"] == damage, f"Wrong independent base/spread/terrain damage: {call['preModifierDamage']} != {damage}")
+            if "expectedFinalDamageRatio" in case:
+                expected = max(1,(damage * case["expectedFinalDamageRatio"] + 2047) // 4096)
+                check(call["calculatedDamage"] == expected, f"Wrong side-condition damage reduction: {call['calculatedDamage']} != {expected}")
         for role in ("defender","defenderAlly"):
             if role in case["expectedTargets"]:
                 check(after[role]["hp"] < before[role]["hp"], f"{role} was not damaged")
@@ -163,6 +182,31 @@ def verify_doubles(case, result, variant):
     if "expectedNativeSuccess" in case:
         events = result["takeHeartEvents"]
         check(len(events) == 1 and events[0]["success"] == case["expectedNativeSuccess"], "Wrong native status-move success")
+    if "expectedResolvedType" in case:
+        check(result["moveParamTypes"] and all(value == case["expectedResolvedType"] for value in result["moveParamTypes"]),
+              "Move was not converted to the required type")
+    for key,snapshot in (("expectedSideEffectsBefore","beforeSideEffects"),("expectedSideEffectsAfter","afterSideEffects")):
+        if key not in case: continue
+        for side,expected in enumerate(case[key]):
+            for effect,record in result[snapshot][side].items():
+                check(record["layers"] == expected.get(effect,0), f"Wrong side {side} effect {effect} layers")
+    for key,snapshot in (("expectedCustomSidesBefore","beforeCustomSides"),("expectedCustomSidesAfter","afterCustomSides")):
+        if key in case:
+            check(result[snapshot] == case[key], f"Wrong custom side ownership: {result[snapshot]} != {case[key]}")
+    if case.get("expectedSideSwap"):
+        for side in range(2):
+            for effect,old in result["beforeSideEffects"][1-side].items():
+                if not old["layers"]: continue
+                new=result["afterSideEffects"][side][effect]
+                check(new["condition"] == old["condition"] and new["layers"] == old["layers"] and new["handler"] and new["owner"] == side,
+                      "Side condition lost its duration, layers or registered factor")
+                check(new["elapsed"] == old["elapsed"] + int((old["condition"] & 7) == 2), "Side duration was refreshed instead of exchanged")
+    if "expectedSetupHits" in case:
+        hits = [event for turn in result.get("setup",[]) for event in turn["hitEvents"]
+                if event["defender"] == before["attacker"]["slot"] and event["damage"] > 0 and not event["substitute"]]
+        check(len(hits) == case["expectedSetupHits"], "Wrong native setup hit count")
+    if "expectedUserForm" in case:
+        check(before["attacker"]["form"] == case["expectedUserForm"], "Disguise setup did not change the native form")
     if "expectedCoins" in case:
         check(sum(event["amount"] for event in result["coins"] if event["accepted"]) == case["expectedCoins"], "Wrong native Pay Day coin total")
     if case.get("expectedTransform"):
@@ -181,7 +225,7 @@ def verify_doubles(case, result, variant):
             active = [condition for condition,field in ((8,"bindCondition"),(18,"leechSeedCondition")) if mon[field] & 7]
             check(active == case[key], "Wrong binding/Leech Seed lifetime")
     if "followup" in case:
-        next_variant = {**variant,"moveId":case["followup"]["moveId"], **{key:case["followup"][key] for key in ("playerAbilityId",) if key in case["followup"]}}
+        next_variant = {**variant, **{key:case["followup"][key] for key in ("moveId","power","category","type","playerAbilityId") if key in case["followup"]}}
         verify_doubles(case["followup"]["case"],result["followup"],next_variant)
     return {"case":case["id"],"passed":True,"battleType":"Doubles","hpBefore":before["attacker"]["hp"],"hpAfter":after["attacker"]["hp"],"targets":[call["defender"]["slot"] for call in result["damageCalls"]],
             "hp":{role:mon["hp"] for role,mon in after.items()},"stages":{role:mon["statStages"] for role,mon in after.items()}}
@@ -294,7 +338,9 @@ def verify_completed(result, move_id, pp_spent=1, executed_move=None):
     before, after = result["before"]["attacker"], result["after"]["attacker"]
     selected = before["moves"][slot] if "moves" in before else {"id": before["moveId"], "pp": before["pp"]}
     remaining = after["moves"][slot]["pp"] if "moves" in after else after["pp"]
-    if after.get("transformed") and not before.get("transformed"):
+    if ((after.get("transformed") and not before.get("transformed")) or
+            ("moves" in after and after["moves"][slot]["id"] != selected["id"] and
+             after.get("originalMoves",[])[slot]["id"] == selected["id"])):
         remaining = after["originalMoves"][slot]["pp"]
     check(selected["id"] == move_id, "Wrong move in selected slot")
     completed = result.get("completion", result["after"]["attacker"])
@@ -629,10 +675,10 @@ def verify_scale_shot(case, result, variant):
 def verify_triple_axel(case, result, variant):
     summary = verify_power(case, result, variant)
     rolls = result["accuracyRolls"]
-    check(len(rolls) == len(case["accuracyDraws"]), "Wrong number of Triple Axel accuracy checks")
+    check(len(rolls) == len(case["accuracyDraws"]), "Wrong number of per-strike accuracy checks")
     for roll, draw in zip(rolls, case["accuracyDraws"]):
         check(roll["threshold"] == 90 and roll["draw"] == draw,
-              "Triple Axel did not exercise native per-strike accuracy")
+              "Move did not exercise native per-strike accuracy")
     before, after = result["before"], result["after"]
     calls = result["damageCalls"]
     if "contactCostDivisor" in case:
@@ -1020,6 +1066,9 @@ def read_side_effects(emu, layout):
     return [{str(effect): {
         "handler": emu.memory.read_long(layout["base"] + side * layout["sideStride"] + effect * layout["effectStride"]),
         "condition": emu.memory.read_long(layout["base"] + side * layout["sideStride"] + effect * layout["effectStride"] + 4),
+        "elapsed": emu.memory.read_long(layout["base"] + side * layout["sideStride"] + effect * layout["effectStride"] + 8),
+        "owner": emu.memory.read_byte(emu.memory.read_long(layout["base"] + side * layout["sideStride"] + effect * layout["effectStride"]) + 0x3a)
+                 if emu.memory.read_long(layout["base"] + side * layout["sideStride"] + effect * layout["effectStride"]) else None,
         "layers": emu.memory.read_long(layout["base"] + side * layout["sideStride"] + effect * layout["effectStride"] + layout["countOffset"]),
     } for effect in layout["effects"]} for side in range(2)]
 
@@ -1183,6 +1232,7 @@ class Observer:
         self.emu, self.variant = emu, variant
         self.pointers, self.hooks, self.returns = {}, [], {}
         self.mon_pointers = {}
+        self.custom_side_candidates = set()
         self.battle_setup_result = None
         self.ready = None
         self.reset(None)
@@ -1197,6 +1247,9 @@ class Observer:
         self.active_damage = None
         self.ui_state = None
         self.critical_ranks = []
+        self.ability_registrations = []
+        self.hit_events = []
+        self.move_param_types = []
         self.coins = []
         self.rng_overrides = 0
         self.announcements, self.message_pointers = [], {}
@@ -1244,13 +1297,21 @@ class Observer:
             expected = expected_battlers(self.variant)
             check(mon["slot"] in expected, f"Unexpected active doubles slot {mon['slot']}")
             side, species, ability = expected[mon["slot"]]
+            registered_ability = mon["ability"]
+            if self.case and side in self.case.get("expectedAbilities",{}):
+                # Ability work changes the native surface, not party truth.
+                check(mon["ability"] == ability, "Doodle changed the party's original ability")
+                ability = self.case["expectedAbilities"][side]
+                registered_ability = mon["currentAbility"]
             if self.case and self.case.get("expectedTransform") and side == "attacker" and mon["ability"] == self.variant["allyAbilityId"]:
                 # Native Transform re-registers the copied ability before its
                 # success tail sets the flag/species; verify that tail below.
                 ability = self.variant["allyAbilityId"]
-            check(mon["species"] == species and mon["ability"] == ability,
-                  f"Wrong doubles battler identity: slot={mon['slot']}, species={mon['species']}, ability={mon['ability']}, transformed={mon['transformed']}")
+            check(mon["species"] == species and registered_ability == ability,
+                  f"Wrong doubles battler identity: slot={mon['slot']}, species={mon['species']}, ability={registered_ability}, transformed={mon['transformed']}")
             self.pointers[side] = pointer
+            if self.case:
+                self.ability_registrations.append({"slot":mon["slot"],"ability":registered_ability})
             return
         if self.case:
             if side == "attacker" and self.case.get("sourceExit") and mon["slot"] != 0:
@@ -1282,6 +1343,33 @@ class Observer:
             "trainerCount": self.emu.memory.read_long(self.emu.memory.read_long(bp + 0x28) + 4)}
         check(self.battle_setup_result["rule"] == (1 if self.variant.get("battleType") == "Doubles" else 0), "Wrong native battle format")
 
+    def side_factor(self, cpu, address):
+        r = self.emu.memory.register_arm9
+        if r.r0 != 2 or r.r1 not in (14,15): return
+        ret = r.lr & ~1
+        self.pending.setdefault(("side-factor",ret),[]).append(r.r1)
+        if ("side-factor",ret) not in self.returns:
+            def returned(cpu,address):
+                if not self.pending.get(("side-factor",address)): return
+                wanted=self.pending[("side-factor",address)].pop()
+                pointer=self.emu.memory.register_arm9.r0
+                if not pointer: return
+                check(0x02000000 <= pointer <= 0x023FFF00, "Invalid native side factor pointer")
+                check(self.emu.memory.read_short(pointer+0x38) == wanted, "Native side factor identity changed")
+                self.custom_side_candidates.add(pointer)
+            self.returns[("side-factor",ret)] = self.emu.memory.register_exec(ret,returned)
+
+    def custom_sides(self):
+        result=[{},{}]
+        for pointer in self.custom_side_candidates:
+            if not (self.emu.memory.read_long(pointer+0x18) & (1<<29)): continue
+            if self.emu.memory.read_long(pointer+0x10) != 2: continue
+            effect=self.emu.memory.read_short(pointer+0x38)
+            side=self.emu.memory.read_byte(pointer+0x3a)
+            if effect in (14,15) and side<2:
+                result[side][str(effect)] = result[side].get(str(effect),0)+1
+        return result
+
     def command(self, cpu, address):
         if self.emu.memory.read_long(self.emu.memory.register_arm9.r1) != 0:
             return
@@ -1311,7 +1399,10 @@ class Observer:
         else:
             check(registers.r2 in ([self.pointers[role] for role in ("ally","defender","defenderAlly")] if self.variant.get("battleType") == "Doubles" else [self.pointers["defender"]]), "Wrong damage target")
             expected_move = self.variant["moveId"] if self.variant.get("moveId") in (901,893) and self.active_move_id == 214 else self.active_move_id
-            check(self.emu.memory.read_short(registers.r3) == expected_move, "Wrong attacking move")
+            actual_move = self.emu.memory.read_short(registers.r3)
+            check(actual_move == expected_move, f"Wrong attacking move: {actual_move} != {expected_move}; "
+                  f"history={state(self.emu,registers.r1)['previousMoveId']}, "
+                  f"moves={state(self.emu,registers.r1)['moves']}, truth={state(self.emu,registers.r1)['originalMoves']}")
         calculation = {"frame": self.emu.frame_count, "attacker": state(self.emu, registers.r1),
                        "defender": state(self.emu, registers.r2), "powerRewrites": [], "powerRolls": 0,
                        "floatingChecks": [],
@@ -1583,6 +1674,11 @@ class Observer:
 
     def event_dispatch(self, cpu, address):
         r = self.emu.memory.register_arm9
+        if self.case and r.r1 == 0x101 and read_event_var(self.emu,0x12) == self.active_move_id:
+            self.move_param_types.append(read_event_var(self.emu,0x16))
+        if self.case and self.variant.get("moveId") == 889 and r.r1 == 0x4b:
+            self.hit_events.append({"attacker":read_event_var(self.emu,3),"defender":read_event_var(self.emu,4),
+                                    "damage":read_event_var(self.emu,0x32),"substitute":bool(read_event_var(self.emu,0x46))})
         if self.active_damage is not None and r.r1 == 0x37:
             self.active_damage["databasePower"] = read_event_var(self.emu,0x30)
         if self.case and self.variant.get("battleType") == "Doubles" and r.r1 == 0x36:
@@ -1617,7 +1713,7 @@ class Observer:
             if slot >= 6:
                 self.pointers["defender"] = pointer
                 self.switch_in_events.append(mon)
-        if (self.case and self.active_move_id in (791,816,849,913,811, 750, 850, 775, 868, 792, 852, 908, 882, 564, 227, 747, 810)
+        if (self.case and self.active_move_id in (791,816,849,913,811,867,752,756, 750, 850, 775, 868, 792, 852, 908, 882, 564, 227, 747, 810)
                 and r.r1 == (0xa1 if self.active_move_id == 564 else 0xa0)
                 and read_event_var(self.emu, 0x12) == self.active_move_id):
             server, ret = r.r0, r.lr & ~1
@@ -1703,6 +1799,7 @@ def patch_rom(rom, patches):
 def execute_move(emu, observer, maximum, slot=0):
     before = {side: state(emu, p) for side, p in observer.pointers.items()}
     side_before = read_side_effects(emu, observer.variant["sideState"]) if "sideState" in observer.variant else None
+    custom_before = observer.custom_sides() if observer.variant.get("moveId") == 756 else None
     selected = before["attacker"]["moves"][slot]
     executed_id = observer.case.get("expectedExecutedMove", observer.variant["moveId"] if observer.variant.get("moveId") in (901,893) and selected["id"] == 214 else selected["id"])
     check(selected["id"] and selected["pp"], "Selected fixture move is missing or out of PP")
@@ -1743,13 +1840,21 @@ def execute_move(emu, observer, maximum, slot=0):
             check(observer.selection_checks[-1]["result"] == 1, "Blocked sound move was selectable")
             return {"finished": True, "selectionRejected": True, "selectedMoveSlot": slot,
                     "before": before, "after": after}
+        remaining_pp = after["attacker"]["moves"][slot]["pp"]
+        if (after["attacker"]["moves"][slot]["id"] != selected["id"] and
+                after["attacker"]["originalMoves"][slot]["id"] == selected["id"]):
+            # Native Mimic replaces the surface move/PP. Completion consumes
+            # the original selected move's PP, not the freshly learned move's.
+            remaining_pp = after["attacker"]["originalMoves"][slot]["pp"]
         if (after["attacker"]["turnFlags"] & (1 << 1)
-                and (after["attacker"]["moves"][slot]["pp"] == selected["pp"] if observer.case.get("expectedPpSpent") == 0 else after["attacker"]["moves"][slot]["pp"] < selected["pp"])
+                and (remaining_pp == selected["pp"] if observer.case.get("expectedPpSpent") == 0 else remaining_pp < selected["pp"])
                 and after["attacker"]["previousMoveId"] == executed_id):
             observer.action_complete = True
             result = {"finished": True, "selectedMoveSlot": slot, "before": before, "after": after}
             if side_before is not None:
                 result.update(beforeSideEffects=side_before, afterSideEffects=read_side_effects(emu, observer.variant["sideState"]))
+            if custom_before is not None:
+                result.update(beforeCustomSides=custom_before,afterCustomSides=observer.custom_sides())
             return result
     raise AssertionError("Move attempt never completed")
 
@@ -1877,6 +1982,7 @@ def run_variant(args, spec):
                     observer.reset({"id": "setup", "secondaryRoll": 99, "accuracyRoll": case.get("setupAccuracyRoll", 99), "incomingAccuracyRoll":case.get("incomingAccuracyRoll",0), **command["case"]})
                     record.setdefault("setup", []).append(execute_move(emu, observer, args.max_frames, setup_slot))
                     wait_next_command(emu, observer, args.max_frames)
+                    record["setup"][-1]["hitEvents"] = observer.hit_events
                     observer.reset(case)
                 record.update(execute_move(emu, observer, args.max_frames, case.get("moveSlot",0)))
                 if "chargeTurns" in case:
@@ -1909,12 +2015,15 @@ def run_variant(args, spec):
                     record["after"] = {side: state(emu, p) for side, p in observer.pointers.items()}
                     if "sideState" in variant:
                         record["afterSideEffects"] = read_side_effects(emu, variant["sideState"])
+                    if variant.get("moveId") == 756:
+                        record["afterCustomSides"] = observer.custom_sides()
                 record["statHistoryEvents"] = observer.stat_history_events
                 record["ppWork"] = observer.pp_work
                 record["turnEndEvents"] = observer.turn_end_events
                 record["bindingResiduals"] = observer.binding_residuals
                 record["nativeQuotients"] = observer.native_quotients
                 record.update(damageCalls=observer.damage, rngOverrides=observer.rng_overrides,
+                              abilityRegistrations=observer.ability_registrations,
                               criticalRanks=observer.critical_ranks,
                               coins=observer.coins,
                               announcements=observer.announcements, weatherReads=observer.weather_reads,
@@ -1957,6 +2066,7 @@ def run_variant(args, spec):
                         shieldHitEvents=observer.shield_hit_events, incomingDamageCalls=observer.incoming_damage,
                         selectionChecks=observer.selection_checks)
                 record["battleSetup"] = observer.battle_setup_result
+                record["moveParamTypes"] = observer.move_param_types
                 summary = (verify_doubles(case, record, variant) if manifest["move"] in DOUBLES_SUITES else
                            verify_coaching(case, record, variant) if manifest["move"] == "coaching" else
                            verify_ruination(case, record) if manifest["move"] == "ruination" else
@@ -1976,7 +2086,7 @@ def run_variant(args, spec):
                            verify_magic_powder(case, record, variant) if manifest["move"] == "magic-powder" else
                            verify_damage_shield(case, record, variant) if manifest["move"] in ("obstruct", "silk-trap", "burning-bulwark") else
                            verify_scale_shot(case, record, variant) if manifest["move"] == "scale-shot" else
-                           verify_triple_axel(case, record, variant) if manifest["move"] == "triple-axel" else
+                           verify_triple_axel(case, record, variant) if manifest["move"] in ("triple-axel", "population-bomb") else
                            verify_maximum_hp_cost(case, record, variant) if manifest["move"] in ("steel-beam", "chloroblast") else
                            verify_torque_policy(case, record, variant) if manifest["move"] == "torque-policy" else
                            verify_upper_hand(case, record, variant) if manifest["move"] == "upper-hand" else
@@ -2039,6 +2149,7 @@ def main(argv=None):
     move_suites = ["snap-trap", "thunder-cage", "raging-bull", "tar-shot", "misty-explosion", "torque-policy", "upper-hand", "meteor-beam", "electro-shot", "eerie-spell", "encore-policy", "lash-out", "burning-jealousy", "alluring-voice", "tidy-up", "body-press", "ice-spinner", "ruination", "barb-barrage", "dire-claw", "take-heart", "clangorous-soul", "fillet-away", "aura-wheel", "magic-powder", "obstruct", "silk-trap", "burning-bulwark", "hydro-steam", "terrain-pulse", "supercell-slam", "bolt-beak", "fishious-rend", "hard-press", "grav-apple", "psyblade", "rising-voltage", "scale-shot", "triple-axel", "steel-beam", "chloroblast", "steel-roller", "ceaseless-edge", "stone-axe", "collision-course", "electro-drift", "fickle-beam", "poltergeist", "grassy-glide", "bleakwind-storm", "sandsear-storm", "wildbolt-storm"]
     move_suites[:0] = ["coaching", "blood-moon", "gigaton-hammer", "glaive-rush", "stuff-cheeks", "corrosive-gas", "no-retreat", "jaw-lock", "octolock", "salt-cure", "syrup-bomb"]
     move_suites[:0] = list(DOUBLES_SUITES)
+    move_suites.append("population-bomb")
     parser.add_argument("--move", choices=move_suites, default="ruination")
     parser.add_argument("--rom", type=Path, default=ROOT.parent.parent / "White2Upgrade.nds")
     parser.add_argument("--core", type=Path, help="Fresh stripped core DLL to install in the private fixture ROM")
