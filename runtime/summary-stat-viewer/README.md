@@ -1,7 +1,7 @@
 # BW2 Summary IV/EV Viewer
 
 Independent PMC companions for English US Black 2 (`IREO`) and White 2
-(`IRDO`), version 1.0.2. Compatible hacks must retain the verified Summary
+(`IRDO`), version 1.0.3. Compatible hacks must retain the verified Summary
 hooks, helper entry points, and native title/footer resources. BW1 and other
 language/revision profiles are unsupported.
 
@@ -18,12 +18,13 @@ path. A recognized renamed module is also updated in place. **Remove** follows
 the existing staged-DLL removal rules; DLLs already built into a loaded ROM
 cannot currently be deleted through this card.
 
-Version 1.0.0 and 1.0.1 installations are recognized and offer **Update Viewer**.
-The update replaces the same DLL and keeps the selected EV option. Version
-1.0.2 corrects Black 2's sound-helper call during navigation and refreshes only
-the top screen when switching Stats/IVs/EVs. The HP alignment and outlined
-horizontal bar-chart icon from 1.0.1 are retained. Export again and boot the
-updated ROM normally; an older save state can restore the previous DLL code.
+Versions 1.0.0–1.0.2 are recognized and offer **Update Viewer**. The update
+replaces the same DLL and keeps the selected EV option. Version 1.0.3 matches
+the native title lettering without an offset shadow and restores the flashing
+Stats selection after leaving IVs/EVs. The Black 2 navigation fix and top-only
+refresh from 1.0.2, HP alignment, and bar-chart icon are retained. Export again
+and boot the updated ROM normally; an older save state can restore the
+previous DLL code.
 
 Installation checks code signatures, graphics members, bundled-module
 integrity, configuration, duplicate modules, and competing relocation ranges.
@@ -70,8 +71,10 @@ native.
   to/from Status and Ribbons retain native full-page transitions.
 - One separately owned actor/unit borrows the native footer animation bank and
   palette. Its selected sequence uses the same animated palette as native
-  tabs, without a separate flashing timer. Native controls from x=120 onward
-  keep their positions and touch rectangles.
+  tabs, without a separate flashing timer. Returning to normal Stats restores
+  its native selected sequence. Conditional sequence changes preserve animation
+  progress between updates. Native controls from x=120 onward keep their
+  positions and touch rectangles.
 - Without Ribbons, tab allocations are 40 pixels at x=0, 40, 80. With Ribbons,
   allocations are 30 pixels at x=0, 30, 60, 90. Compacted borders preserve native
   icon pixels. The IV/EV icon contains three outlined horizontal bars, sharing
@@ -81,10 +84,13 @@ native.
   initialization before reveal; later updates only change actor proxies.
 - IVS/EVS use 20 previously unused tiles in the existing title character bank
   (640 bytes, no extra BG allocation). Title maps use immutable module storage
-  and the native window/map upload flow. Native bar palettes are retained.
+  and the native window/map upload flow. The S copies every native STATS pixel;
+  V borrows the native A's diagonal edge shades. I/E use solid native ink
+  strokes. There is no offset drop shadow. Baseline and one-pixel glyph spacing
+  match STATS, and native bar palettes/arrows are retained.
 - Session BSS is 108 bytes. The private unit/actor structures request 252 bytes
   from the native heap, in addition to native resource-manager bookkeeping.
-  Each bundled DLL is 11,472 bytes. This is not a measured peak-heap budget.
+  Each bundled DLL is 11,504 bytes. This is not a measured peak-heap budget.
 - Exit removes the actor, deletes the unit, then releases the private character
   banks before native animation-bank teardown. Resource-registration failures
   release successful earlier registrations and retain vanilla behavior.
