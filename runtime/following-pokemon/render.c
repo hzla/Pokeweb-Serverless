@@ -18,7 +18,55 @@ __attribute__((visibility("default"))) volatile struct {
 static struct {
  Actor *actor; Vec world,native; uint16_t resource;
  FwrEffectPose submitted;
+ Actor *player;Vec playerWorld;FwrEffectPose playerSubmitted;
 } effectPose;
+void fwr_grass_clear(void){effectPose.actor=effectPose.player=0;}
+void fwr_effects_draw(void *system,void *camera,void *light,Actor *a){
+ /* Native grass quads retain their task work in renderer slot +36. Walk the
+  * live slots rather than remembering entry calls: retail player steps and
+  * shared/recycled tiles need the same correction as follower-created grass. */
+ Billboard *changed[8];Billboard original[8];unsigned count=0;
+ if(system&&camera&&a&&effectPose.actor==a&&!(a->flags&4u)
+    &&effectPose.world.x==a->world.x&&effectPose.world.y==a->world.y&&effectPose.world.z==a->world.z){
+  void *scene=PTR(system,4);
+  FwrCamera view={*(FwPoint*)((uint8_t*)camera+32),*(FwPoint*)((uint8_t*)camera+56),U32(camera,0)};
+  unsigned capacity=*(uint16_t*)((uint8_t*)system+0x1c);
+  uint8_t *slots=PTR(system,0x18);
+  Actor *player=effectPose.player;
+  int playerLive=player&&player->system==a->system&&!(player->flags&4u)&&
+   player->world.x==effectPose.playerWorld.x&&player->world.y==effectPose.playerWorld.y&&player->world.z==effectPose.playerWorld.z;
+  for(unsigned i=0;scene&&slots&&capacity<=256&&i<capacity&&count<8;++i){
+   uint8_t *slot=slots+i*40;
+   unsigned index=U32(slot,0);if(index>=*(uint16_t*)((uint8_t*)scene+14))continue;
+   uint8_t *work=PTR(slot,36);
+   /* Other effect kinds also use opaque work pointers. Check the native RAM
+    * range before looking for the exact fixed-pool grass descriptor. */
+   if((uintptr_t)work<0x02000018u||(uintptr_t)work>0x023fff40u||((uintptr_t)work&3u))continue;
+   uint8_t *task=work-24;
+   /* Active task, exact grass callbacks, and the live actor stamp. Pool
+    * recycling cannot turn a stale token into an unrelated NPC effect. */
+   if(U32(task,4)!=1||U32(task,188)!=0x021a419du||U32(task,196)!=0x021a428du)continue;
+   Actor *owner=PTR(work,8);void *controller=PTR(work,4);
+   if((owner!=a&&(!playerLive||owner!=player))||!controller||PTR(controller,4)!=system
+      ||*(uint16_t*)(work+40)!=owner->id||*(uint16_t*)(work+42)!=owner->model
+      ||*(uint16_t*)(work+44)!=owner->zone||*(uint16_t*)(work+48)!=i
+      ||*(int32_t*)(work+12)!=owner->grid[0]||*(int32_t*)(work+16)!=owner->grid[2])continue;
+   Billboard *b=(Billboard*)PTR(scene,8)+index;
+   if((b->geom>>14)!=0||(b->geom&0x3fffu)==0x3fffu||!(b->flags&512))continue;
+   FwrPose native={b->position,b->sx,b->sy},out;
+   FwrPose followerBody={{effectPose.submitted.position.x,effectPose.submitted.position.y,effectPose.submitted.position.z},effectPose.submitted.sx,effectPose.submitted.sy};
+   FwrPose playerBody={{effectPose.playerSubmitted.position.x,effectPose.playerSubmitted.position.y,effectPose.playerSubmitted.position.z},effectPose.playerSubmitted.sx,effectPose.playerSubmitted.sy};
+   const FwrPose *body=owner==a?&followerBody:&playerBody;
+   const FwrPose *other=playerLive?(owner==a?&playerBody:&followerBody):0;
+   if(fwr_cover_feet(&native,body,other,&view,&out)){
+    changed[count]=b;original[count++]=*b;
+    b->position=out.position;b->sx=(int16_t)out.sx;b->sy=(int16_t)out.sy;
+   }
+  }
+ }
+ CALL(0x0204f685,void(*)(void*,void*,void*))(system,camera,light);
+ for(unsigned i=0;i<count;++i)*changed[i]=original[i];
+}
 int fwr_effect_pose(Actor *actor,const Vec *native,FwrEffectPose *out){
  if(!actor||!native||!out||effectPose.actor!=actor||
     effectPose.resource!=*(uint16_t*)(actor->descriptor+16)||
@@ -79,7 +127,7 @@ static int32_t player_advance_limit(void *system,const Billboard *player,
 }
 void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int sprite_y){
  Billboard *b=0,*p=0;FwrPose original={0},adjusted,playerOriginal={0};FwrResult result={0};int applied=0,changed=0,playerChanged=0,lightingChanged=0;uint16_t originalFlags=0;
- effectPose.actor=0;
+ effectPose.actor=effectPose.player=0;
  FollowingRenderDebug.frames++;FollowingRenderDebug.applied=0;FollowingRenderDebug.actor=(uint32_t)a;
  FollowingRenderDebug.policy=FollowingRenderDebug.before=FollowingRenderDebug.after=0;
  if(system&&camera&&a&&player&&a!=player&&a->system==player->system){
@@ -152,6 +200,8 @@ void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int s
     .position={adjusted.position.x,adjusted.position.y,adjusted.position.z},
     .sx=(int16_t)adjusted.sx,.sy=(int16_t)adjusted.sy};
    effectPose.actor=a;
+   if(p){effectPose.player=player;effectPose.playerWorld=player->world;
+    effectPose.playerSubmitted=(FwrEffectPose){{p->position.x,p->position.y,p->position.z},p->sx,p->sy};}
    if(changed){b->position=adjusted.position;b->sx=(int16_t)adjusted.sx;b->sy=(int16_t)adjusted.sy;}
   }
  }

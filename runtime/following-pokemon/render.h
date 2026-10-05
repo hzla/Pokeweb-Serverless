@@ -9,4 +9,6 @@ void fwr_anchor(Actor *actor,unsigned face);
 void fwr_draw(void *system,void *camera,void *light,Actor *follower,Actor *player,int sprite_y);
 /* Recall reuses the last submitted pose, after draw-only ground/depth fixes. */
 int fwr_effect_pose(Actor *actor,const Vec *native,FwrEffectPose *out);
+void fwr_grass_clear(void);
+void fwr_effects_draw(void *system,void *camera,void *light,Actor *follower);
 #endif

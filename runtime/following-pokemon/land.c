@@ -27,7 +27,7 @@ static struct {
  uint8_t sex,active,invalid,baseSpeed;
  uint32_t runStartTick;
  uint16_t runBaseFrame;
- uint8_t runStartPose,runAnimating,hasDrawWorld;
+ uint8_t runStartPose,runAnimating,hasDrawWorld,asymmetric;
  Vec drawWorld;
  uint32_t releaseTick;
  uint8_t releasePending;
@@ -47,6 +47,7 @@ static int same_party_mon(void *mon,const FwPokemon *selected){
   !param(mon,0x4c,0) && param(mon,0xa0,0);
 }
 int fwland_active(void){return land.active!=0;}
+void fwland_animation_profile(unsigned asymmetric){land.asymmetric=!!asymmetric;}
 int fwland_invalid(void){return land.invalid!=0;}
 int fwland_slot(void){return land.active&&!land.invalid?land.slot:-1;}
 int fwland_validate(void){
@@ -228,7 +229,11 @@ void fwland_draw(void *system,void *camera,void *light,Actor *follower,Actor *pl
  land.drawWorld=player->world;land.hasDrawWorld=1;
  unsigned held=CALL(0x0203df4d,unsigned(*)(void))();
  unsigned cadence=(moving&&(held&2u))?5u:10u;
- unsigned riderPose=(tick/cadence)%3u;
+ /* Three stored rider poses are neutral, left step and right step. Return
+  * through neutral between steps so an idle mount walks in place with both
+  * legs instead of replaying only one side of the stride. */
+ static const uint8_t riderStride[4]={0,1,0,2};
+ unsigned riderPose=riderStride[(tick/cadence)&3u];
  /* geom selects a material. Frame selects a pose inside that material.
    * Alternating geom can select an uninitialized material and submit a
    * black quad, especially for a 64-pixel appearance. The follower is
@@ -244,10 +249,16 @@ void fwland_draw(void *system,void *camera,void *light,Actor *follower,Actor *pl
   unsigned elapsed=tick-land.runStartTick;
   if(elapsed>=cadence){
    unsigned advances=elapsed/cadence;
-   land.runStartPose^=(uint8_t)(advances&1u);
+   land.runStartPose=(uint8_t)((land.runStartPose+advances)&3u);
    land.runStartTick+=advances*cadence;
   }
-  mount->frame=(uint16_t)(base|land.runStartPose);
+  mount->frame=(uint16_t)(base|(land.runStartPose&1u));
+  /* Six-frame HGSS art stores neutral/step, with only one front/back foot.
+   * Mirror the second step to complete that stride. Eight-frame imported
+   * art already supplies opposing poses; side views keep their direction. */
+  if(player->face<2 && !land.asymmetric){
+   mount->flags=(mount->flags&~0x0400u)|((land.runStartPose==3)?0x0400u:0);
+  }
  mount->pos=body->pos;
  int delta=spriteY-(int8_t)follower->descriptor[14]-(player->face==0?2:0);
  mount->pos.y+=delta*4096;

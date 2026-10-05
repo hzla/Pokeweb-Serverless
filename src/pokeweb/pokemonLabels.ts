@@ -1,7 +1,8 @@
 import { cascadeWhitePersonalName } from "./cascadeWhiteModel";
 import { pokemonFormSpeciesLabel } from "./pokemonFormLabels";
 import { getPokemonCount, getPokemonPersonalIds, isPokemonPersonalRecord, isPokemonReferenceId } from "./pokemonModel";
-import { decodeRecord, type ProjectState } from "./projectStore";
+import { decodeRecord, type NarcStore, type ProjectState } from "./projectStore";
+import type { FieldSpec } from "./formats";
 
 const FIRST_GEN5_FORM_PERSONAL_ID = 650;
 
@@ -10,6 +11,17 @@ export type PokemonPersonalFormOwner = {
   formIndex: number;
   formSpriteOffset: number;
 };
+
+type FormOwnerIndex = {
+  revision: number;
+  files: Uint8Array[];
+  fileCount: number;
+  fileLength: number;
+  format: FieldSpec[] | undefined;
+  owners: Map<number, PokemonPersonalFormOwner>;
+};
+
+const formOwnerIndexes = new WeakMap<NarcStore, FormOwnerIndex>();
 
 export function pokemonSpeciesLabel(project: ProjectState, speciesId: number): string {
   const cascadeName = cascadeWhitePersonalName(project, speciesId);
@@ -90,24 +102,38 @@ export function findPokemonBaseSpeciesId(project: ProjectState, inputValue: stri
 
 export function findPokemonPersonalFormOwner(project: ProjectState, speciesId: number): PokemonPersonalFormOwner | undefined {
   const store = project.narcs.personal;
+  if (!store || speciesId < FIRST_GEN5_FORM_PERSONAL_ID || !isPokemonPersonalRecord(project, speciesId)) return undefined;
+  const format = project.formats.personal;
+  const cached = formOwnerIndexes.get(store);
+  if (cached && cached.revision === (store.revision ?? 0) && cached.files === store.rawFiles &&
+      cached.fileCount === store.fileCount && cached.fileLength === store.rawFiles.length && cached.format === format) {
+    return cached.owners.get(speciesId);
+  }
+
+  // Build once per personal-data revision, including misses. Prefer an exact
+  // first-form pointer over an overlapping range, as the original lookup did.
   const count = getPokemonCount(project);
-  if (!store || speciesId < 0 || speciesId >= count || !isPokemonPersonalRecord(project, speciesId)) return undefined;
-  if (speciesId < FIRST_GEN5_FORM_PERSONAL_ID) return undefined;
-  let rangedMatch: PokemonPersonalFormOwner | undefined;
+  const owners = new Map<number, PokemonPersonalFormOwner>();
   for (let ownerId = 1; ownerId < count; ownerId += 1) {
-    if (ownerId === speciesId || !isPokemonPersonalRecord(project, ownerId)) continue;
+    if (!isPokemonPersonalRecord(project, ownerId)) continue;
     const owner = decodeRecord(project, "personal", ownerId);
     const formCount = Math.max(1, Number(owner.raw?.num_forms ?? 1));
     const firstFormId = Number(owner.raw?.form_id ?? 0);
     if (formCount <= 1 || firstFormId <= 0) continue;
-    const formIndex = speciesId - firstFormId + 1;
-    if (formIndex > 0 && formIndex < formCount) {
-      const match = { speciesId: ownerId, formIndex, formSpriteOffset: Number(owner.raw?.form ?? 0) };
-      if (firstFormId === speciesId) return match;
-      rangedMatch ??= match;
+    for (let formId = Math.max(FIRST_GEN5_FORM_PERSONAL_ID, firstFormId); formId < Math.min(count, firstFormId + formCount - 1); formId += 1) {
+      if (formId === ownerId || !isPokemonPersonalRecord(project, formId)) continue;
+      const formIndex = formId - firstFormId + 1;
+      const previous = owners.get(formId);
+      if (!previous || (formIndex === 1 && previous.formIndex !== 1)) {
+        owners.set(formId, { speciesId: ownerId, formIndex, formSpriteOffset: Number(owner.raw?.form ?? 0) });
+      }
     }
   }
-  return rangedMatch;
+  formOwnerIndexes.set(store, {
+    revision: store.revision ?? 0, files: store.rawFiles, fileCount: store.fileCount,
+    fileLength: store.rawFiles.length, format, owners,
+  });
+  return owners.get(speciesId);
 }
 
 function pokemonBaseSpeciesLabel(project: ProjectState, speciesId: number): string {

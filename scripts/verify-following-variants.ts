@@ -13,8 +13,8 @@ import { parseRpm } from "../src/pokeweb/rpm";
 import { NARC } from "../src/nds/narc";
 import { decodeGen5TextBank, encodeGen5TextBank } from "../src/pokeweb/text";
 
-const [cleanPath, legacyPath] = process.argv.slice(2);
-if (!cleanPath) throw new Error("Pass an audited clean ROM and optionally its previous combined alpha ROM.");
+const [cleanPath, previousPath] = process.argv.slice(2);
+if (!cleanPath) throw new Error("Pass an audited clean ROM and optionally its previous alpha ROM.");
 globalThis.fetch = (async (input: RequestInfo | URL) => {
   const url = new URL(input instanceof Request ? input.url : String(input));
   if (url.protocol !== "file:") throw new Error(`Unexpected asset URL: ${url}`);
@@ -119,11 +119,16 @@ if (module.relocations.some(rel => rel.target.module === "36" && [0x021a4974, 0x
   throw new Error("Base DLL contains a mount hook.");
 console.log("Fresh base, full install, conversion, physical asset strip, receipt reopen and walking gaps passed; no emulator run.");
 
-if (legacyPath) {
-  const legacy = await loadProjectFromRomBytes(new Uint8Array(await readFile(legacyPath)), basename(legacyPath), { selectedNarcs: [] });
-  if ((await readFollowerAlphaInstall(legacy))?.variant) throw new Error("Legacy receipt unexpectedly declares a variant.");
-  if ((await installFollowerAlpha(legacy)).variant !== "full") throw new Error("Legacy upgrade did not retain riding.");
-  const upgraded = await loadProjectFromRomBytes(await exportModifiedRom(legacy), "legacy-upgraded.nds", { selectedNarcs: [] });
-  if ((await readFollowerAlphaInstall(upgraded))?.variant !== "full") throw new Error("Upgraded legacy receipt did not reopen.");
-  console.log("Legacy combined alpha upgraded as full; no emulator run.");
+if (previousPath) {
+  const previous = await loadProjectFromRomBytes(new Uint8Array(await readFile(previousPath)), basename(previousPath), { selectedNarcs: [] });
+  const before = await readFollowerAlphaInstall(previous);
+  if (!before?.enabled) throw new Error("Previous alpha installation was not recognized.");
+  const expectedVariant = before.variant ?? "full";
+  const updated = await installFollowerAlpha(previous);
+  if (updated.variant !== expectedVariant) throw new Error("Previous alpha upgrade changed its installed variant.");
+  const upgraded = await loadProjectFromRomBytes(await exportModifiedRom(previous), "previous-upgraded.nds", { selectedNarcs: [] });
+  const reopened = await readFollowerAlphaInstall(upgraded);
+  if (reopened?.variant !== expectedVariant || reopened.version !== updated.version || reopened.moduleSha256 !== updated.moduleSha256)
+    throw new Error("Upgraded previous alpha receipt did not reopen with the current DLL.");
+  console.log(`Previous ${before.variant ?? "legacy combined"} alpha upgraded as ${expectedVariant}; no emulator run.`);
 }

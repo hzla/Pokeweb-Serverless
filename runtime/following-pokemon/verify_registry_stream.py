@@ -13,13 +13,14 @@ def verify(rom_path):
  except ValueError:pass # Older profiles have no per-appearance positioning catalog.
  data=source['rom:/following/runtime-registry.bin'];version=struct.unpack_from('<H',data,4)[0];stride=12 if version in (2,4) else 24
  count,zonecount,desc,res=struct.unpack_from('<4H',data,12);maximum=1023 if version in (2,4) else 649
- rows=defaultdict(list);gaps={}
+ rows=defaultdict(list);gaps={};profiles={}
  for i in range(count):
   at=32+i*stride
   if stride==12:
    key,row=struct.unpack_from('<IH',data,at);sp=key>>11;form=(key>>3)&255;gender=(key>>1)&3;shiny=key&1
   else:sp,form,gender,shiny,_,row=struct.unpack_from('<HBBBBH',data,at)
   rows[sp].append((form,gender,shiny,row));gaps[row]=(data[at+8]>>3)&7 if stride==12 else data[at+15]
+  profiles[row]=bool(data[at+8]&4) if stride==12 else bool(data[at+11])
  uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map(0x02000000,0x400000)
  base=0x02300000;core=0x022d0000;stop=0x02008000;stack=0x023f0000;pokemon=0x02210000
  dll=PACKAGE_BUILD/'PokewebFollowingFieldW2.dll';core_dll=PACKAGE_BUILD/'PokewebFollowingCoreW2.dll'
@@ -78,6 +79,8 @@ def verify(rom_path):
   uc.mem_write(pokemon,struct.pack('<HBBBBHH2xII',sp,f,g,s,0,30,30,1,2))
   result=call(base+funcs['model'][0],pokemon)
   if result:assert uc.mem_read(addr('fwfield_follower')+50,1)[0]==gaps[result-0x3000+1008], 'Selected appearance spacing mismatch'
+  if result and 'fwland_animation_profile' in funcs:
+   assert bool(uc.mem_read(addr('land')+677,1)[0])==profiles[result-0x3000+1008], 'Selected mount animation profile mismatch'
   return result
  def expected(sp,f,g,s):
   variants=rows.get(sp,[])

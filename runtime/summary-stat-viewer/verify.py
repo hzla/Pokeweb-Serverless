@@ -18,7 +18,7 @@ from build import TOOLS,HERE,WORKSPACE,HOOKS
 REGS=[UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3,
       UC_ARM_REG_R4,UC_ARM_REG_R5,UC_ARM_REG_R6,UC_ARM_REG_R7,
       UC_ARM_REG_R8,UC_ARM_REG_R9,UC_ARM_REG_R10,UC_ARM_REG_R11]
-STOP=0x2008000;STACK=0x23f0000;WORK=0x2200000;PARAM=0x2201000;POKE=0x2202000
+STOP=0x2008000;STACK=0x23f0000;WORK=0x2200000;PARAM=0x2201000;POKE=0x2202000;SKILL=0x2209000
 
 def verify(game,od,ad):
     uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map(0x2000000,0x400000)
@@ -38,6 +38,26 @@ def verify(game,od,ad):
         assert struct.unpack_from('<H',native_summary.data,site-od-native_summary.ramAddress)[0]==0x2069
     arm=ndspy.codeCompression.decompress(rom.arm9)
     uc.mem_write(0x203d91c-ad,bytes(arm[0x203d91c-ad-rom.arm9RamAddress:0x203d9c0-ad-rom.arm9RamAddress]))
+    # Derive the sound call from retail code, not the runtime's address table.
+    # Both games call 0x02006254; the former B2 offset jumped into an epilogue.
+    from build import bl_target
+    sound_site=0x21b4276-od
+    sound=bl_target(native_summary.data[sound_site-native_summary.ramAddress:sound_site-native_summary.ramAddress+4],sound_site)
+    assert sound==0x2006254
+    sound_body=bytes(arm[sound-rom.arm9RamAddress:sound-rom.arm9RamAddress+12])
+    assert sound_body==bytes.fromhex('0021014bc943184715620002')
+    uc.mem_write(sound,sound_body)
+    bitmap_get=0x2048520-ad
+    uc.mem_write(bitmap_get,bytes(arm[bitmap_get-rom.arm9RamAddress:bitmap_get-rom.arm9RamAddress+4]))
+    retail_ranges=[(0x21b8f50-od,0x21b92a4-od),(0x21b85e0-od,0x21b8820-od),(0x21b8ce4-od,0x21b8d88-od)]
+    for start,end in retail_ranges:
+        uc.mem_write(start,bytes(native_summary.data[start-native_summary.ramAddress:end-native_summary.ramAddress]))
+    for label,site,_ in HOOKS:
+        address=site-od
+        if any(start<=address<end for start,end in retail_ranges):
+            d=(symbols[label]&~1)-address-4
+            uc.mem_write(address,struct.pack('<HH',0xf000|((d>>12)&2047),0xf800|((d>>1)&2047)))
+    symbols['NativeSkillUpdate']=0x21b85e0-od
     r=lambda i:uc.reg_read(REGS[i])
     read=lambda p,n:bytes(uc.mem_read(p,n))
     u32=lambda p:struct.unpack('<I',read(p,4))[0]
@@ -55,14 +75,16 @@ def verify(game,od,ad):
         return r(0)
     keys=0;touch=(0,0);next_cgr=0;failure=-1;fail_unit=False;fail_actor=False
     live_cgr=set();actors=set();units=set();log=[];values={};uploads=[];seq={};positions={}
-    native={}
+    native={};queue_busy=False;locked=False;cleared=[];window_uploads=[];sounds=[]
     def stub(w2,fn,ov=False):native[w2-(od if ov else ad)]=fn
     def intercept(_u,a,_s,_):
         if a==STOP:uc.emu_stop();return
         if a in native:
             assert uc.reg_read(UC_ARM_REG_SP)%8==0,f'Unaligned native call {a:x}'
             native[a]();return
-        assert 0x2300000<=a<0x2330000 or 0x203d91c-ad<=a<0x203d9c0-ad,f'Unexpected native call {a:x}'
+        assert (0x2300000<=a<0x2330000 or 0x203d91c-ad<=a<0x203d9c0-ad
+                or sound<=a<sound+12 or bitmap_get<=a<bitmap_get+4
+                or any(start<=a<end for start,end in retail_ranges)),f'Unexpected native call {a:x}'
     uc.hook_add(UC_HOOK_CODE,intercept)
     def cgr():
         nonlocal next_cgr
@@ -105,16 +127,49 @@ def verify(game,od,ad):
     def copy_title():log.append(('title',args(10)));ret()
     def title_chars():log.append(('native-chars',args(7)));ret(8192)
     def extra_chars():log.append(('extra-chars',args(4)));ret()
+    def sound_dispatch():
+        assert args(2)==[1637,0xffffffff]
+        sounds.append(1637);ret()
+    def pokemon_lock():
+        nonlocal locked
+        assert r(0)==WORK and r(1) in (0,1) and bool(r(1))!=locked
+        locked=bool(r(1));ret()
+    def clear_font():
+        index=(r(0)-0x2220000)//0x40
+        assert index in (0,2,3,4,5,6) and r(1)==0
+        cleared.append(index);uc.mem_write(u32(r(0)),bytes(128));ret()
+    def upload_window():
+        index=(r(0)-0x2210000)//0x100
+        assert 0<=index<8,'Stats variants must upload only top windows'
+        window_uploads.append(index);ret()
     stub(0x204b8e8,cgr);stub(0x204b9b8,release);stub(0x204bae4,replace)
     stub(0x204bf48,create_unit);stub(0x204bfc4,remove_unit);stub(0x204c06c,create_actor);stub(0x204c134,remove_actor)
     stub(0x204c4b4,set_seq);stub(0x204c23c,set_pos);stub(0x204bb84,get_proxy);stub(0x204c410,set_proxy)
-    stub(0x204c150,lambda:ret());stub(0x204c54c,lambda:ret());stub(0x2021a68,lambda:ret());stub(0x2006254,lambda:ret())
+    stub(0x204c150,lambda:ret());stub(0x204c54c,lambda:ret());stub(0x2021a68,lambda:ret())
+    native[0x2006214]=sound_dispatch # execute the real sound wrapper; intercept only its tail dispatch
     stub(0x203df70,lambda:ret(keys));stub(0x203da38,touch_hit);stub(0x201cd24,getter)
     stub(0x204add4,title_chars);stub(0x20450ac,extra_chars);stub(0x2045500,copy_title)
     stub(0x21b2fc0,original_init,True);stub(0x21b3198,original_end,True);stub(0x21b404c,original_keys,True)
     stub(0x21b4a10,refresh,True);stub(0x21b4220,lambda:ret(),True)
     stub(0x21b4f04,lambda:(log.append(('slash',args(6))),ret()),True);stub(0x21b5080,print_right,True)
+    stub(0x21b4e4c,pokemon_lock,True);stub(0x21b4e1c,lambda:ret(POKE),True)
+    stub(0x2047168,clear_font)
+    stub(0x2024200,lambda:ret(0x2223000));stub(0x2024548,lambda:ret());stub(0x20242a0,lambda:ret())
+    stub(0x21ba57c,lambda:ret(0x440),True)
+    stub(0x2048788,lambda:ret(0x2223100));stub(0x20489b8,lambda:ret(0x2223200))
+    stub(0x2021ca8,lambda:ret());stub(0x2048590,lambda:ret());stub(0x2048800,lambda:ret())
+    stub(0x2021c48,lambda:ret(int(queue_busy)));stub(0x2048270,upload_window)
+    stub(0x2048298,lambda:ret());stub(0x2048500,lambda:ret(4));stub(0x2045ba8,lambda:ret())
+    stub(0x20457bc,lambda:ret());stub(0x2044fbc,lambda:ret());stub(0x2045080,lambda:ret())
+    stub(0x21b9804,lambda:ret(),True);stub(0x21ba67c,lambda:ret(),True)
     write(WORK,23);write(WORK+8,PARAM);write(WORK+0x44,1);write(WORK+0x98,7);write(WORK+0xfc,8);write(WORK+0xc8,99)
+    write(WORK+0x90,SKILL)
+    for i in range(13):
+        window=0x2210000+i*0x100;buffer=0x2220000+i*0x40
+        write(SKILL+0x5c+i*4,window);write(window+0xc,buffer);write(buffer,0x2221000+i*0x100)
+        uc.mem_write(0x2221000+i*0x100,bytes([i+1])*128)
+    write(SKILL+0x3c,0x2225000);write(0x2225008,128);write(SKILL+0x4c,0x2226000)
+    uc.mem_write(SKILL+0xb0,bytes(range(144))) # bottom move actors, retained across variant changes
     for i in range(3):write(WORK+0x178+i*4,0x2206000+i*0x100)
     table=0x2207000;uc.mem_write(table,bytes.fromhex('a8c00028a8c02850a8c05078a8c07890a8c090a8a8c0a8c0a8c0c8e0a8c0e800ff000000'))
     config=symbols['summaryStatConfiguration']
@@ -162,6 +217,31 @@ def verify(game,od,ad):
                     call(f'THUMB_BRANCH_LINK_207_0x{site-od:x}',[1,11,5,0,0,0,23]);assert log[-2][1]==[1,11,5,0,0,0,23]
                     assert log[-1][1][0::2]==[5,640] and log[-1][1][3]==64
             call('SummaryEnd',[WORK]);assert not live_cgr and not actors and not units
+    # Real native numeric drawing and SkillUpdate must retain bottom resources,
+    # leave the HP-bar bitmap intact, and wait for the queue before top uploads.
+    for enabled in (False,True):
+        write(config+12,int(enabled));write(config+16,int(enabled)^0x53535631)
+        write(WORK+0x58,1);write(WORK+0x40,0);write(WORK+0xc,0);write(SKILL+4,0)
+        call('SummaryInit',[WORK]);bottom=read(SKILL+0xb0,144);hpbar=read(0x2221100,128)
+        owned=(actors.copy(),units.copy(),live_cgr.copy(),len(uploads))
+        for key in ([0x10,0x10,0x20,0x20] if enabled else [0x10,0x20]):
+            keys=key;log.clear();cleared.clear();window_uploads.clear();sound_count=len(sounds)
+            call('SummaryKeys',[WORK])
+            assert cleared==[0,2,3,4,5,6] and not locked
+            assert not any(isinstance(x,tuple) and x[0]=='refresh' for x in log)
+            assert u32(WORK+0xc)==0 and u32(SKILL+4)==1 and len(sounds)==sound_count+1
+            assert read(SKILL+0xb0,144)==bottom and read(0x2221100,128)==hpbar
+            queue_busy=True;call('NativeSkillUpdate',[WORK,SKILL]);assert not window_uploads and u32(SKILL+4)==1
+            queue_busy=False;call('NativeSkillUpdate',[WORK,SKILL]);assert u32(SKILL+4)==0
+            assert window_uploads==list(range(8))*2
+            assert (actors,units,live_cgr,len(uploads))==owned
+        # Radar and Stats touches take the same targeted path.
+        for hit in (8,1):
+            log.clear();cleared.clear();write(WORK+0x24,hit);call('SummaryTouch',[WORK])
+            assert cleared==[0,2,3,4,5,6] and u32(WORK+0xc)==0
+            assert not any(isinstance(x,tuple) and x[0]=='refresh' for x in log)
+            call('NativeSkillUpdate',[WORK,SKILL])
+        call('SummaryEnd',[WORK])
     # Eggs and restricted contexts delegate navigation and display native values.
     for egg,mode in [(1,0),(0,2)]:
         write(WORK+0x38,egg);uc.mem_write(PARAM+0xd,bytes([mode]));call('SummaryInit',[WORK]);write(WORK+0x24,8)
@@ -179,6 +259,7 @@ def verify(game,od,ad):
         call('SummaryInit',[WORK]);assert len(live_cgr)==3 and len(actors)==1 and len(units)==1
         call('SummaryEnd',[WORK]);assert not live_cgr and not actors and not units
     assert uploads and all(len(x)==2304 for x in uploads)
-    print(f'{game}: ABI, IV/EV ordering/extremes, navigation, retail touch scanner, title request lifetime, ownership and failure cleanup passed')
+    assert sounds
+    print(f'{game}: ABI, IV/EV values/navigation, retail sound wrapper/touch scanner, native top-only draw and queued upload, unchanged bottom/HP-bar buffers, ownership and failure cleanup passed')
 
 for g,od,ad in [('W2',0,0),('B2',0x40,0x2c)]:verify(g,od,ad)

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "configMagic": "5353564346473100",
   "previousVersions": [
     {
@@ -154,15 +154,168 @@
           ]
         }
       }
+    },
+    {
+      "version": "1.0.1",
+      "games": {
+        "W2": {
+          "codeFingerprint": "0bc8c571",
+          "bssSize": 108,
+          "hooks": [
+            {
+              "module": "207",
+              "address": 35345190
+            },
+            {
+              "module": "207",
+              "address": 35345234
+            },
+            {
+              "module": "207",
+              "address": 35337082
+            },
+            {
+              "module": "207",
+              "address": 35340346
+            },
+            {
+              "module": "207",
+              "address": 35340356
+            },
+            {
+              "module": "207",
+              "address": 35340306
+            },
+            {
+              "module": "207",
+              "address": 35360718
+            },
+            {
+              "module": "207",
+              "address": 35360692
+            },
+            {
+              "module": "207",
+              "address": 35360776
+            },
+            {
+              "module": "207",
+              "address": 35360078
+            },
+            {
+              "module": "207",
+              "address": 35338086
+            },
+            {
+              "module": "207",
+              "address": 35360652
+            },
+            {
+              "module": "207",
+              "address": 35360830
+            },
+            {
+              "module": "207",
+              "address": 35360924
+            },
+            {
+              "module": "207",
+              "address": 35361018
+            },
+            {
+              "module": "207",
+              "address": 35361112
+            },
+            {
+              "module": "207",
+              "address": 35361206
+            }
+          ]
+        },
+        "B2": {
+          "codeFingerprint": "6e409897",
+          "bssSize": 108,
+          "hooks": [
+            {
+              "module": "207",
+              "address": 35345126
+            },
+            {
+              "module": "207",
+              "address": 35345170
+            },
+            {
+              "module": "207",
+              "address": 35337018
+            },
+            {
+              "module": "207",
+              "address": 35340282
+            },
+            {
+              "module": "207",
+              "address": 35340292
+            },
+            {
+              "module": "207",
+              "address": 35340242
+            },
+            {
+              "module": "207",
+              "address": 35360654
+            },
+            {
+              "module": "207",
+              "address": 35360628
+            },
+            {
+              "module": "207",
+              "address": 35360712
+            },
+            {
+              "module": "207",
+              "address": 35360014
+            },
+            {
+              "module": "207",
+              "address": 35338022
+            },
+            {
+              "module": "207",
+              "address": 35360588
+            },
+            {
+              "module": "207",
+              "address": 35360766
+            },
+            {
+              "module": "207",
+              "address": 35360860
+            },
+            {
+              "module": "207",
+              "address": 35360954
+            },
+            {
+              "module": "207",
+              "address": 35361048
+            },
+            {
+              "module": "207",
+              "address": 35361142
+            }
+          ]
+        }
+      }
     }
   ],
   "games": {
     "W2": {
       "idCode": "IRDO",
       "fileName": "SummaryStatViewerW2.dll",
-      "codeFingerprint": "0bc8c571",
+      "codeFingerprint": "c7688307",
       "bssSize": 108,
-      "sha256": "4f6f2a7454f1043c3b031d8aa9020cd8d8e782d9078e6bc0fda18d071791e3c5",
+      "sha256": "18c5571bbf8878444097b2b17b99ad19114dda6a88fd718bf310761c371a2b99",
       "signatures": [
         {
           "label": "SummaryInit",
@@ -333,6 +486,20 @@
           "patchSize": 0
         },
         {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35343948,
+          "expectedHex": "70b5051caa680c1c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35360592,
+          "expectedHex": "f0b58fb0051c0c1c",
+          "patchSize": 0
+        },
+        {
           "label": "Native API ABI",
           "module": "ARM9",
           "address": 33866932,
@@ -427,7 +594,7 @@
           "label": "Native API ABI",
           "module": "ARM9",
           "address": 33579604,
-          "expectedHex": "0021014bc9431847",
+          "expectedHex": "0021014bc943184715620002",
           "patchSize": 0
         },
         {
@@ -480,6 +647,20 @@
           "patchSize": 0
         },
         {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33850656,
+          "expectedHex": "c0687047407a7047",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33845608,
+          "expectedHex": "10b5021c1389202b",
+          "patchSize": 0
+        },
+        {
           "label": "Summary layout",
           "module": "207",
           "address": 35361460,
@@ -512,6 +693,27 @@
           "module": "207",
           "address": 35360592,
           "expectedHex": "f0b58fb0051c0c1cfbf760ff70210022039063f6dffe071c0126f120009680010190e16d281c6e22",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35361438,
+          "expectedHex": "66600fb0f0bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35358176,
+          "expectedHex": "f8b50d1c6a68071c002a0ad1aa68002a07d12a69002a04d12a6a002a01d101f001f96868012831d101260024a0002818c06d8ff685ff011c381c8430006869f613fb012801d1002604e0601c0006040e072cebd9012e19d10024a0002818c66d301c8ff615fe301c8ff626fe301c8ff657ff8df6a9fa601c0006040e072cecd9381c291c00f03efb00206860",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35359972,
+          "expectedHex": "f8b586b0071c0e1c0420002100248cf663fda0003018c56d281c8ff6b7fa281c8ff6c8fa281c8ff6f9fb8cf655f9601c0006040e072cecd9f26b0620111c92680c318cf6abf906208cf63cff03200090f06c00210c3001900020029003902020049005900520002220238cf6d7fb05208cf628ff301c90300068012193f6f6f994363068002193f6f1f96624a4003859002193f6ebf9201d3858002193f6e6f906b0f8bd",
           "patchSize": 0
         }
       ],
@@ -557,9 +759,9 @@
     "B2": {
       "idCode": "IREO",
       "fileName": "SummaryStatViewerB2.dll",
-      "codeFingerprint": "6e409897",
+      "codeFingerprint": "fd7c2f65",
       "bssSize": 108,
-      "sha256": "d7e0e3abdf5f0237bf92b97f31765e05893dce08434eff75d8fb1b4f815331ce",
+      "sha256": "54a74b6dc99e3fe86218630acd337459d91387475c027675a689a34f86e30d44",
       "signatures": [
         {
           "label": "SummaryInit",
@@ -730,6 +932,20 @@
           "patchSize": 0
         },
         {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35343884,
+          "expectedHex": "70b5051caa680c1c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35360528,
+          "expectedHex": "f0b58fb0051c0c1c",
+          "patchSize": 0
+        },
+        {
           "label": "Native API ABI",
           "module": "ARM9",
           "address": 33866888,
@@ -823,8 +1039,8 @@
         {
           "label": "Native API ABI",
           "module": "ARM9",
-          "address": 33579560,
-          "expectedHex": "071c094af9000020",
+          "address": 33579604,
+          "expectedHex": "0021014bc943184715620002",
           "patchSize": 0
         },
         {
@@ -877,6 +1093,20 @@
           "patchSize": 0
         },
         {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33850612,
+          "expectedHex": "c0687047407a7047",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33845564,
+          "expectedHex": "10b5021c1389202b",
+          "patchSize": 0
+        },
+        {
           "label": "Summary layout",
           "module": "207",
           "address": 35361396,
@@ -909,6 +1139,27 @@
           "module": "207",
           "address": 35360528,
           "expectedHex": "f0b58fb0051c0c1cfbf760ff70210022039063f6e9fe071c0126f120009680010190e16d281c6e22",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35361374,
+          "expectedHex": "66600fb0f0bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35358112,
+          "expectedHex": "f8b50d1c6a68071c002a0ad1aa68002a07d12a69002a04d12a6a002a01d101f001f96868012831d101260024a0002818c06d8ff68fff011c381c8430006869f61dfb012801d1002604e0601c0006040e072cebd9012e19d10024a0002818c66d301c8ff61ffe301c8ff630fe301c8ff661ff8df6b3fa601c0006040e072cecd9381c291c00f03efb00206860",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35359908,
+          "expectedHex": "f8b586b0071c0e1c0420002100248cf66dfda0003018c56d281c8ff6c1fa281c8ff6d2fa281c8ff603fc8cf65ff9601c0006040e072cecd9f26b0620111c92680c318cf6b5f906208cf646ff03200090f06c00210c3001900020029003902020049005900520002220238cf6e1fb05208cf632ff301c90300068012193f600fa94363068002193f6fbf96624a4003859002193f6f5f9201d3858002193f6f0f906b0f8bd",
           "patchSize": 0
         }
       ],

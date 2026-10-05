@@ -167,6 +167,11 @@
   position: relative;
 }
 
+.pokemon-card-placeholder {
+  box-sizing: border-box;
+  height: var(--pokemon-card-height, 340px);
+}
+
 .filterable {
   background: #282a36;
   color: #f2f2f2;
@@ -1289,6 +1294,10 @@
 }
 
 @media only screen and (max-width: 1180px) {
+  .pokemon-card-placeholder {
+    height: var(--pokemon-card-height, 640px);
+  }
+
   #personals {
     padding-top: 0;
   }
