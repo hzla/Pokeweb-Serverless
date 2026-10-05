@@ -836,6 +836,25 @@
         "32-bit native singles procedure pointer"
       ],
       "conflicts": "Another patch replacing this same callback literal"
+    },
+    {
+      "id": "field-terrain-billboard-draw",
+      "segment": "36",
+      "address": 35131824,
+      "expectedHex": "cef668fa",
+      "patchBytes": 4,
+      "instructionSizes": [
+        4
+      ],
+      "kind": "THUMB_BRANCH_LINK",
+      "abi": "r0=terrain billboard system (field+0xc8); r1=camera; r2=light; correct live owned player/follower grass quads, submit native terrain once and restore; preserve r4-r11 and SP",
+      "displaced": [
+        "bl 0x0204f684"
+      ],
+      "continuation": "0x021811b4",
+      "conflicts": "terrain billboard renderer callsite",
+      "status": "Stock IRDO call site and supplied grass task renderer ownership audited; packaged CPU routing required; human cold-boot visual acceptance pending",
+      "module": "field"
     }
   ],
   "structureEvidence": {
@@ -981,7 +1000,28 @@
       "segment": "36",
       "address": 35274988,
       "expectedHex": "f8b590b01c1c071c0d1c0292082c4bda02210226",
-      "abi": "Thumb; r0=field-effect controller, r1=live Actor*, r2=animation BOOL, r3=grass type. Owns grass task creation and position/lifetime checks. Reached through follower-grass-entry."
+      "abi": "Thumb; r0=field-effect controller, r1=live Actor*, r2=animation BOOL, r3=grass type. Owns grass task creation and position/lifetime checks. Reached through follower-grass-entry. Returns a native fixed-pool task. Work at task+24 holds Actor at +8, stamp at +40, and slot at +48; descriptor begins at task+184. Tokens are cleared before field teardown."
+    },
+    {
+      "id": "follower-shoal-state",
+      "segment": "12",
+      "address": 34988368,
+      "expectedHex": "38b50c1c051c608944f074fd01280dd1281c09f0d9fa00280cd16069291c60f081fc281c012109f0",
+      "abi": "Thumb; r0=live Actor*, r1=24-byte terrain context with current low terrain ID at +10 and field-effect controller at +20. Starts the stock shoal task for terrain 0x17 once, marks its actor bit, and clears the bit on exit. It does not read Actor+0x94."
+    },
+    {
+      "id": "follower-shoal-bit",
+      "segment": "12",
+      "address": 35026684,
+      "expectedHex": "08b5012904d101218904fff78ffc08bd01218904fff78efc",
+      "abi": "Thumb; r0=live Actor*, r1=BOOL. Sets or clears only the native shoal-effect move bit; clearing it lets the attached task self-delete when a follower is hidden or mounted."
+    },
+    {
+      "id": "follower-shoal-task",
+      "segment": "36",
+      "address": 35383924,
+      "expectedHex": "38b584b00d1c1021041ce4f7b5fe0290039502a8009000220349201c00230192",
+      "abi": "Thumb; r0=field-effect controller, r1=live Actor*. Creates the actor-bound shoal effect task through the stock effect controller. Reached through follower-shoal-state."
     },
     {
       "id": "actor-update",
@@ -3581,6 +3621,53 @@
       "address": 35518504,
       "expectedHex": "30b40b487d21056889006c58091f2204130e6a582106090e",
       "status": "Pinned binary adapter for follower opening."
+    },
+    {
+      "id": "follower-grass-task-layout",
+      "segment": "36",
+      "address": 35456440,
+      "expectedHex": "340000009d411a0271421a028d421a0261431a02",
+      "abi": "Native fixed-pool descriptor: 52-byte work, init/destroy/update/draw callbacks. Work identity and billboard slot are checked before draw-only grass depth adjustment."
+    },
+    {
+      "id": "billboard-slot-stride",
+      "segment": "ARM9",
+      "address": 33879076,
+      "expectedHex": "b86908900798811928204843089909900d18",
+      "abi": "Native allocator indexes renderer+24 entries with a 40-byte stride; renderer+28 is the bounded u16 slot capacity.",
+      "status": "Stock IRDO allocator instructions and supplied state slot/task links audited; no game emulator run"
+    },
+    {
+      "id": "billboard-slot-userdata",
+      "segment": "ARM9",
+      "address": 33879170,
+      "expectedHex": "e0692862206a08346862",
+      "abi": "Native allocator copies its 36-byte input record user data at +32 into the live 40-byte renderer slot at +36. Grass passes its fixed task work; slot ownership is checked against task work+48 before submission.",
+      "status": "Stock IRDO allocator instructions and supplied state slot/task links audited; no game emulator run"
+    },
+    {
+      "id": "effect-texture-pixel-size",
+      "segment": "ARM9",
+      "address": 33968648,
+      "expectedHex": "002802d08089c000704700207047",
+      "abi": "NNS TEX0 pixel byte count at +12 (u16 units of eight); linear pixel data offset at +20 is consumed by the native upload routine.",
+      "status": "Stock ARM9 instructions and shipped TEX0 assets audited; no game emulator run"
+    },
+    {
+      "id": "effect-texture-pixel-upload",
+      "segment": "ARM9",
+      "address": 33968710,
+      "expectedHex": "a889c2000ad0a968686909042818490b10f0a1ff",
+      "abi": "Native texture upload reads TEX0+12 for pixel length and TEX0+20 for pixel data offset.",
+      "status": "Stock ARM9 instructions and shipped TEX0 assets audited; no game emulator run"
+    },
+    {
+      "id": "effect-texture-pixel-trim",
+      "segment": "ARM9",
+      "address": 33875732,
+      "expectedHex": "282048431558281cfaf79efe041c281cfaf792ff021c5169201c5118091bebf7b1fd38bd",
+      "abi": "Native actor material trim routine resizes its resource at the TEX0 pixel-data offset. Bounds are read from the already loaded private recall resource, never the shared actor material.",
+      "status": "Stock ARM9 instructions and shipped TEX0 assets audited; no game emulator run"
     }
   ],
   "eventsAbi": 6,

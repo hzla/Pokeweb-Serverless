@@ -86,6 +86,7 @@ cpu.mem_write(camera + 32, struct.pack("<3i", 100 * 4096, 100 * 4096, 300 * 4096
 cpu.mem_write(camera + 56, struct.pack("<3i", 100 * 4096, 0, 200 * 4096))
 
 submissions = []
+mount_mirrors = []
 held = 0
 
 
@@ -97,6 +98,7 @@ def draw_spy(unit, pc, _size, _user):
         assert read(billboards + 24) & 0x0200, "The follower mount must remain visible"
         assert struct.unpack("<H", unit.mem_read(billboards + 24, 2))[0] & 0xf000 == 0x8000
         material = struct.unpack("<H", unit.mem_read(billboards, 2))[0] & 0x3fff
+        mount_mirrors.append(bool(struct.unpack("<H", unit.mem_read(billboards+24,2))[0]&0x0400))
         frame = struct.unpack("<H", unit.mem_read(billboards + 16, 2))[0]
         rows = unit.mem_read(materials + material * 40 + 11, 1)[0]
         assert material == 16 and frame < rows, (material, frame, rows)
@@ -157,7 +159,7 @@ put(player + 4, 0)
 half(player + 24, 2)
 half(billboards + 16, 5)
 original_mount = bytes(cpu.mem_read(billboards, 28))
-for tick, phase, rider_phase in ((10, 5, 2), (15, 4, 0), (20, 5, 1)):
+for tick, phase, rider_phase in ((10, 5, 0), (15, 4, 2), (20, 5, 0)):
     held = 2
     put(player + 68, 100 * 4096 + tick * 4096)
     submissions.clear()
@@ -174,7 +176,7 @@ call("fwland_draw", [renderer, camera, light, follower, player, 0, 25])
 assert next(item[2:] for item in submissions if item[0] == "mount") == (16, 5)
 submissions.clear()
 call("fwland_draw", [renderer, camera, light, follower, player, 0, 26])
-assert next(item[2] for item in submissions if item[0] == "rider") & 0x3fff == 2 * 3 + 2
+assert next(item[2] for item in submissions if item[0] == "rider") & 0x3fff == 2 * 3
 
 # Ordinary mounted walking must now alternate the same two follower poses,
 # with a one-pixel vertical lift shared by the mount and seated rider. The
@@ -196,11 +198,18 @@ assert walk_rider_y[0] == walk_rider_y[1] == walk_rider_y[3] and abs(walk_rider_
 submissions.clear()
 call("fwland_draw", [renderer, camera, light, follower, player, 0, 81])
 assert next(item[1][1] for item in submissions if item[0] == "mount") == 4096, "The mounted bounce continues at rest"
+rider_stride = []
 for tick, lift in ((90, 0), (100, 4096)):
     submissions.clear()
     call("fwland_draw", [renderer, camera, light, follower, player, 0, tick])
     assert next(item[1][1] for item in submissions if item[0] == "mount") == lift
+    rider_stride.append((next(item[2] for item in submissions if item[0] == "rider") & 0x3fff) - 2 * 3)
     assert bytes(cpu.mem_read(billboards + 28, 28)) == original_body
+for tick in (110, 120):
+    submissions.clear()
+    call("fwland_draw", [renderer, camera, light, follower, player, 0, tick])
+    rider_stride.append((next(item[2] for item in submissions if item[0] == "rider") & 0x3fff) - 2 * 3)
+assert rider_stride == [1, 0, 2, 0], rider_stride
 for direction in range(4):
     half(player + 24, direction)
     half(billboards + 16, direction * 2 + 1)
@@ -276,4 +285,21 @@ for speed, expected in ((50, 0x50), (100, 0x14), (255, 0x54)):
     assert step_codes[-1] == expected, (speed, step_codes[-1], expected)
     debug = module_exports(dll, base)[symbol_hash("FollowingLandDebug")]
     assert read(debug + 28) == speed
-print("Packaged land rendering and base-Speed checks passed: four-direction priority, player-shadow separation, native body suppression, billboard restoration, walking/running and stationary two-pose stride with one-pixel paired bounce, Personal base Speed instead of calculated party Speed, three-frame animated rider. GPU draw is a spy; no game emulator run.")
+# Pinsir has six source frames, although the native upload pads its texture
+# sheet to eight rows. Use the registry profile, not that padded GPU height.
+for asymmetric in (0,1):
+    call("fwland_animation_profile", [asymmetric])
+    for direction in range(4):
+        half(player+24,direction);half(billboards+16,(2 if direction==1 else 0 if direction==0 else 4)+1)
+        half(billboards+24,0x821f|(0x0400 if direction==3 else 0))
+        cpu.mem_write(land+675,b"\0")
+        stride=[]
+        for tick in (500,510,520,530):
+            submissions.clear();original=bytes(cpu.mem_read(billboards,28))
+            call("fwland_draw",[renderer,camera,light,follower,player,0,tick])
+            stride.append((next(x[3]&1 for x in submissions if x[0]=="mount"),mount_mirrors[-1]))
+            assert bytes(cpu.mem_read(billboards,28))==original
+        assert [x[0] for x in stride]==[1,0,1,0]
+        expected=[False,False,True,False] if not asymmetric and direction<2 else [direction==3]*4
+        assert [x[1] for x in stride]==expected,(asymmetric,direction,stride)
+print("Packaged land rendering and base-Speed checks passed: four-direction priority, player-shadow separation, native body suppression, billboard restoration, walking/running and stationary bounce, complete mirrored front/back mount stride, asymmetric and side-direction preservation, Personal base Speed, seated-rider stride. GPU draw is a spy; no game emulator run.")

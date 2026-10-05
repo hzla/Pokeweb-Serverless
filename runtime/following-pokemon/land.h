@@ -10,6 +10,7 @@ void fwland_end(void);
 void fwland_handoff(unsigned tick);
 void fwland_tick(unsigned tick);
 int fwland_active(void);
+void fwland_animation_profile(unsigned asymmetric);
 int fwland_invalid(void);
 int fwland_validate(void);
 /* The selected follower may use slot -1 for automatic lead selection. The

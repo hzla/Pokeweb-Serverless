@@ -52,7 +52,10 @@ export type PokemonInteractionOptions = {
 
 const pokemonInteractionInstallations = new WeakMap<HTMLElement, AbortController>();
 
-export function attachPokemonInteractions(root: HTMLElement, project: ProjectState, options: PokemonInteractionOptions): void {
+export function attachPokemonInteractions(root: HTMLElement, project: ProjectState, options: PokemonInteractionOptions): {
+  installCard: (card: HTMLElement) => void;
+  disconnect: () => void;
+} {
   pokemonInteractionInstallations.get(root)?.abort();
   const installation = new AbortController();
   pokemonInteractionInstallations.set(root, installation);
@@ -410,6 +413,13 @@ export function attachPokemonInteractions(root: HTMLElement, project: ProjectSta
   installPokemonTextFields(root, project, options);
   syncEvolutionMethodInfo(root);
   runFilter();
+  return {
+    installCard: (card) => {
+      installEditableFields(card, project, options);
+      installPokemonTextFields(card, project, options);
+    },
+    disconnect: () => installation.abort(),
+  };
 }
 
 function sortTmCompatibilityOptions(panel: HTMLElement): void {
@@ -558,9 +568,10 @@ export function filterPokemon(
   types = new Set<string>(),
 ): HTMLElement[] {
   const visible: HTMLElement[] = [];
+  const unfiltered = !searchText.split(",").some((term) => term.trim()) && generations.size === 0 && types.size === 0;
   root.querySelectorAll<HTMLElement>("#personals .pokemon-card.filterable").forEach((card) => {
     const speciesId = Number(card.dataset.index);
-    const show = Number.isInteger(speciesId) ? pokemonMatchesSearch(getPokemonSummaryRecord(project, speciesId), searchText, generations, types) : false;
+    const show = Number.isInteger(speciesId) && (unfiltered || pokemonMatchesSearch(getPokemonSummaryRecord(project, speciesId), searchText, generations, types));
     card.style.display = show ? "" : "none";
     if (show) visible.push(card);
   });

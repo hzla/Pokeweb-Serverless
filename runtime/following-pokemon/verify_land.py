@@ -9,7 +9,7 @@ import tempfile
 import ndspy.narc
 import ndspy.rom
 import ndspy.texture
-from import_land_riders import BIKE_SAMPLE_OFFSETS, COMPOSITE_SPLIT_Y, indexed_pixel
+from import_land_riders import BIKE_SAMPLE_OFFSETS, COMPOSITE_SPLIT_Y, COMPOSITE_LEG_Y, WALK_SAMPLE_Y, indexed_pixel
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -53,27 +53,38 @@ def asset_checks():
     manifest = json.loads((ROOT / "src/assets/following/land-riders.json").read_text())
     assert manifest["members"] == 24 and manifest["framesPerDirection"] == 3
     assert manifest["bikeFrames"] == list(range(12)) and manifest["compositeSplitY"] == 18
+    assert manifest["compositeLegY"] == COMPOSITE_LEG_Y == 25
+    assert manifest["walkSampleY"] == list(WALK_SAMPLE_Y)
     assert manifest["bikeSampleOffsets"] == {gender: [list(pair) for pair in offsets]
                                              for gender, offsets in BIKE_SAMPLE_OFFSETS.items()}
     assert manifest["bottomPixels"] == [28, 27, 27, 27]
     assert hashlib.sha256((ROOT / "src/assets/following/land-riders.narc").read_bytes()).hexdigest() == manifest["sha256"]
     source = ndspy.rom.NintendoDSRom.fromFile(str(ROOT.parent / "cleanwhite2.nds"))
     stock = ndspy.narc.NARC(source.getFileByName("a/0/4/8")).files
-    for sex, (bike_index, seated_index) in enumerate(((210, 211), (219, 220))):
+    for sex, (walk_index, bike_index, seated_index) in enumerate(((209, 210, 211), (218, 219, 220))):
         gender = ("male", "female")[sex]
-        bike, seated = (ndspy.texture.NSBTX(stock[index]) for index in (bike_index, seated_index))
+        walking, bike, seated = (ndspy.texture.NSBTX(stock[index]) for index in (walk_index, bike_index, seated_index))
         for direction in range(4):
             for phase in range(3):
                 member = ndspy.texture.NSBTX(archive.files[sex * 12 + direction * 3 + phase])
                 pixels = member.textures[0][1].data1
                 upper = bike.textures[direction * 3 + phase][1].data1
                 lower = seated.textures[direction][1].data1
+                legs = walking.textures[direction * 3 + phase][1].data1
                 dx, dy = BIKE_SAMPLE_OFFSETS[gender][direction * 3 + phase]
                 for y in range(32):
                     for x in range(32):
                         expected = (indexed_pixel(upper, x + dx, y + dy) if y < COMPOSITE_SPLIT_Y
-                                    else indexed_pixel(lower, x, y))
+                                    else indexed_pixel(lower, x, y) if y < COMPOSITE_LEG_Y
+                                    else indexed_pixel(legs, x, y + WALK_SAMPLE_Y[direction]))
                         assert indexed_pixel(pixels, x, y) == expected, (gender, direction, phase, x, y)
+    # A lower-body pixel change in each facing proves the three resources no
+    # longer reuse one static pair of seated legs.
+    for sex in range(2):
+        for direction in range(4):
+            lower = [tuple(indexed_pixel(ndspy.texture.NSBTX(archive.files[sex * 12 + direction * 3 + phase]).textures[0][1].data1, x, y)
+                           for y in range(COMPOSITE_LEG_Y, 32) for x in range(32)) for phase in range(3)]
+            assert len(set(lower)) == 3, (sex, direction, "static rider legs")
 
 
 if __name__ == "__main__":

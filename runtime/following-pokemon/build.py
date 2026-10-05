@@ -20,7 +20,7 @@ VARIANT=os.environ.get('FOLLOWING_VARIANT','full')
 if VARIANT not in ('base','full'):raise ValueError('FOLLOWING_VARIANT must be base or full')
 BUILD=ROOT_BUILD/'base' if VARIANT=='base' else ROOT_BUILD
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
-VERSION='0.7.43-alpha' if UPGRADE else '0.6.49-alpha' if ITALY else '0.6.82-alpha' if PROFILE=='stock' else '0.6.48-alpha'
+VERSION='0.7.43-alpha' if UPGRADE else '0.6.49-alpha' if ITALY else '0.6.87-alpha' if PROFILE=='stock' else '0.6.48-alpha'
 SUFFIX=('B2' if BLACK2 else 'W2I' if ITALY else 'W2')+('Base' if VARIANT=='base' else '')
 CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'italy-contract.json' if ITALY else 'contract.json')
 os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX
@@ -154,7 +154,7 @@ def build(rom, publish=False):
     expected=sorted((h['kind'],h['segment'],hex(h['address'])) for h in hooks if h.get('module')=='events')
     actual=sorted(t for t in re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',events_dump.decode()) if t[1]!='base')
     if actual!=expected:raise ValueError('Unexpected event module hooks: '+repr(actual))
-    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('field.s'),'-o',BUILD/'field-hooks.o')
+    run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',*(['--defsym','FW_STOCK=1'] if PROFILE=='stock' else []),assembly('field.s'),'-o',BUILD/'field-hooks.o')
     run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',assembly('field-input.s'),'-o',BUILD/'field-input-hooks.o')
     if VARIANT=='full':
         for name in ('surf','land','transition'):
@@ -176,7 +176,7 @@ def build(rom, publish=False):
     verify_imports(field_dll,events_dll,output,options_dll)
     targets=re.findall(r'Target: (\S+) @ (\S+) :: (\S+)',field_dump.decode())
     mount_hook_ids={'surf-mount-draw','surf-entry-mount-draw','mounted-surf-entry-step','mounted-surf-entry-finish','mounted-surf-shore-span','mounted-surf-exit-step','mounted-surf-exit-finish','land-mount-flat-step'}
-    expected_field=sorted((h['kind'],h['segment'],hex(h['address'])) for h in contract_data['hooks'] if h.get('module')=='field' and (VARIANT=='full' or h['id'] not in mount_hook_ids))
+    expected_field=sorted((h['kind'],h['segment'],hex(h['address'])) for h in contract_data['hooks'] if h.get('module')=='field' and (VARIANT=='full' or h['id'] not in mount_hook_ids) and (PROFILE=='stock' or h['id']!='field-terrain-billboard-draw'))
     if sorted(t for t in targets if t[1]!='base')!=expected_field:raise ValueError('Unexpected field hooks')
     if field_dll.stat().st_size<1024:raise ValueError('Field DLL was not generated')
     run(os.environ.get('PYTHON','python3'),HERE/'verify_battle_intro.py',rom)

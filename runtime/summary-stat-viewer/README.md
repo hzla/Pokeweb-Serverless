@@ -1,7 +1,7 @@
 # BW2 Summary IV/EV Viewer
 
 Independent PMC companions for English US Black 2 (`IREO`) and White 2
-(`IRDO`), version 1.0.1. Compatible hacks must retain the verified Summary
+(`IRDO`), version 1.0.2. Compatible hacks must retain the verified Summary
 hooks, helper entry points, and native title/footer resources. BW1 and other
 language/revision profiles are unsupported.
 
@@ -18,10 +18,12 @@ path. A recognized renamed module is also updated in place. **Remove** follows
 the existing staged-DLL removal rules; DLLs already built into a loaded ROM
 cannot currently be deleted through this card.
 
-Version 1.0.0 installations are recognized and offer **Update Viewer**. The
-update replaces the same DLL and keeps the selected EV option. Version 1.0.1
-aligns HP with the other numeric rows and replaces the radar with an outlined
-horizontal bar-chart icon.
+Version 1.0.0 and 1.0.1 installations are recognized and offer **Update Viewer**.
+The update replaces the same DLL and keeps the selected EV option. Version
+1.0.2 corrects Black 2's sound-helper call during navigation and refreshes only
+the top screen when switching Stats/IVs/EVs. The HP alignment and outlined
+horizontal bar-chart icon from 1.0.1 are retained. Export again and boot the
+updated ROM normally; an older save state can restore the previous DLL code.
 
 Installation checks code signatures, graphics members, bundled-module
 integrity, configuration, duplicate modules, and competing relocation ranges.
@@ -57,6 +59,15 @@ native.
 - Native Pokémon accessors read IVs/EVs. No Pokémon setters or gameplay
   mutations are introduced. The two separate HP-bar accessor calls are not
   replaced.
+- ARM9 entry points use explicit per-game mappings, checked against matching
+  retail function bytes and available Summary call sites. In particular, the
+  sound helper is at the same address in both games, unlike later UI helpers.
+- Stats variants retain the native page and its windows/actors. Only the six
+  numeric CPU font buffers are cleared, then the native Stats drawing function
+  runs within the native Pokémon read lock. Its existing dirty flag makes
+  SkillUpdate wait for queued text before uploading the top windows and title.
+  The HP-bar bitmap and bottom move resources stay intact. Actual page changes
+  to/from Status and Ribbons retain native full-page transitions.
 - One separately owned actor/unit borrows the native footer animation bank and
   palette. Its selected sequence uses the same animated palette as native
   tabs, without a separate flashing timer. Native controls from x=120 onward
@@ -73,7 +84,7 @@ native.
   and the native window/map upload flow. Native bar palettes are retained.
 - Session BSS is 108 bytes. The private unit/actor structures request 252 bytes
   from the native heap, in addition to native resource-manager bookkeeping.
-  Each bundled DLL is 11,376 bytes. This is not a measured peak-heap budget.
+  Each bundled DLL is 11,472 bytes. This is not a measured peak-heap budget.
 - Exit removes the actor, deletes the unit, then releases the private character
   banks before native animation-bank teardown. Resource-registration failures
   release successful earlier registrations and retain vanilla behavior.

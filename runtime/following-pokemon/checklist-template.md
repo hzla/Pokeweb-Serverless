@@ -2,6 +2,18 @@
 
 The generated checklist collects targeted regression cases before the baseline cases below. All rows begin NOT RUN; host and isolated-CPU checks are not game-emulator results. Cold boot the current profile export with an ordinary matching save. Record ROM hash, emulator version, map, species/form, facing, and a fresh state for failures.
 
+## Stock White 2 0.6.87 visual checks
+
+Cold boot the versioned ROM with its matching ordinary save; older diagnostic states retain their earlier loaded code.
+
+| ID | Steps | Expected | Result / evidence |
+|---|---|---|---|
+| T87 | At the locations in `headgrass.mln`, `followergrass.mln`, `wronggrassfacingdown.mln` and `sidewaysfollowerontopgrass.mln`, compare Followers Off/On. Walk up, down and sideways for several tiles, then turn; repeat walking/running and with small/large followers. Cross shallow water and return to grass. | Each squashed grass tile covers its owner’s feet. Walking down, follower grass stays behind the player; walking up, player grass stays behind the follower. Neither rear tile covers the nearer sprite’s head or body. Sideways feet coverage, shadows and splash remain correct. | NOT RUN |
+| M85 | Mount Pinsir and remain idle facing up and down for several complete cycles. Repeat walking, running, turning, and with an asymmetric imported mount. | Neutral, first foot, neutral, opposite foot all appear; side views keep their direction and the shared one-pixel bounce continues. | NOT RUN |
+| E86 | Talk to Azumarill, Pinsir and a large follower in all four directions. Repeat several reactions and use artwork with different transparent top margins. | The visible bubble tip is one pixel above the highest visible follower pixel in each pose. The bubble retains its current size, horizontal centering, lighting and clean teardown. | NOT RUN |
+| S85 | Cross Desert Resort / Route 4 southbound and northbound while walking, then running. | The follower remains visible through either crossing. Doors, warps, scripted movement, and battles retain their existing safety behavior. | NOT RUN |
+| D85 | Stop and talk to Azumarill from both sides at the reported location. Repeat with small/large followers, walking/running and all four facings; check a wall and different elevation. | The visual and logical follower poses stay inside dialogue reach after the partial-step lag settles. A blocked path or different elevation still prevents talking. New default gaps account for artwork width and X anchor; authored values remain editable. | NOT RUN |
+
 ## Run record
 
 - Date / tester:

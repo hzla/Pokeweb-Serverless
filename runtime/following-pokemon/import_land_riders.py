@@ -25,6 +25,10 @@ BIKE_SAMPLE_OFFSETS = {
                (1, -2), (1, -3), (1, -1), (-1, -2), (-1, -3), (-1, -1)),
 }
 COMPOSITE_SPLIT_Y = 18
+COMPOSITE_LEG_Y = 25
+# Keep the rider's approved bottom alignment while using the stock walking
+# frames for alternating feet. Up art has one extra pixel below its seat.
+WALK_SAMPLE_Y = (2, 3, 3, 3)
 
 
 def indexed_pixel(data: bytes, x: int, y: int) -> int:
@@ -42,35 +46,42 @@ def build(source: Path = SOURCE, dest: Path = DEST) -> dict:
     members = []
     inputs = {}
     bottom_pixels = [0, 0, 0, 0]
-    for gender, bike_index, seat_index in (("male", 210, 211), ("female", 219, 220)):
-        bike_raw, seat_raw = source_members[bike_index], source_members[seat_index]
+    for gender, walk_index, bike_index, seat_index in (("male", 209, 210, 211), ("female", 218, 219, 220)):
+        walk_raw, bike_raw, seat_raw = (source_members[index] for index in (walk_index, bike_index, seat_index))
         inputs[gender] = {"bike": hashlib.sha256(bike_raw).hexdigest(),
-                          "seated": hashlib.sha256(seat_raw).hexdigest()}
-        bike, seated = ndspy.texture.NSBTX(bike_raw), ndspy.texture.NSBTX(seat_raw)
-        if (len(bike.textures) != 16 or len(seated.textures) != 4 or
-            len(bike.palettes) != 1 or len(seated.palettes) != 1):
-            raise ValueError("Unexpected bicycle/seated rider texture layout")
-        if bike.palettes[0][1].colors != seated.palettes[0][1].colors:
-            raise ValueError("Bicycle and seated rider palettes differ")
+                          "seated": hashlib.sha256(seat_raw).hexdigest(),
+                          "walking": hashlib.sha256(walk_raw).hexdigest()}
+        walking, bike, seated = (ndspy.texture.NSBTX(raw) for raw in (walk_raw, bike_raw, seat_raw))
+        if (len(walking.textures) != 24 or len(bike.textures) != 16 or len(seated.textures) != 4 or
+            any(len(art.palettes) != 1 for art in (walking, bike, seated))):
+            raise ValueError("Unexpected walking/bicycle/seated rider texture layout")
+        if not (walking.palettes[0][1].colors == bike.palettes[0][1].colors == seated.palettes[0][1].colors):
+            raise ValueError("Walking, bicycle and seated rider palettes differ")
         for direction in range(4):
             lower = seated.textures[direction][1]
             for phase in range(3):
                 upper = bike.textures[direction * 3 + phase][1]
+                legs = walking.textures[direction * 3 + phase][1]
                 if any(art.format != 3 or not art.isColor0Transparent or
-                       art.width != 32 or art.height != 32 for art in (upper, lower)):
+                       art.width != 32 or art.height != 32 for art in (upper, lower, legs)):
                     raise ValueError("Unexpected rider pixel format")
                 # The native moving frames shift one or more pixels relative
                 # to the seated art. Register their heads before taking only
                 # the top 18 rows; the seated face/neck/torso below the cut
                 # remain continuous. Handles, wheels and bike stop poses
-                # 12–15 never enter this archive.
+                # 12–15 never enter this archive. The old composite copied
+                # one static seated leg pose into all three frames, so only
+                # the upper body moved. The final seven rows now use the
+                # corresponding stock walking step, shifted to the same foot
+                # baseline as the seated artwork.
                 dx, dy = BIKE_SAMPLE_OFFSETS[gender][direction * 3 + phase]
                 art = copy.copy(upper)
                 pixels = bytearray(32 * 32 // 2)
                 for y in range(32):
                     for x in range(32):
                         value = (indexed_pixel(upper.data1, x + dx, y + dy) if y < COMPOSITE_SPLIT_Y
-                                 else indexed_pixel(lower.data1, x, y))
+                                 else indexed_pixel(lower.data1, x, y) if y < COMPOSITE_LEG_Y
+                                 else indexed_pixel(legs.data1, x, y + WALK_SAMPLE_Y[direction]))
                         offset = (y * 32 + x) // 2
                         pixels[offset] |= value << (4 * (x & 1))
                 art.data1 = pixels
@@ -89,6 +100,7 @@ def build(source: Path = SOURCE, dest: Path = DEST) -> dict:
     result = {"version": 2, "members": 24, "framesPerDirection": 3,
               "directions": ["up", "down", "left", "right"],
               "bikeFrames": list(range(12)), "compositeSplitY": COMPOSITE_SPLIT_Y,
+              "compositeLegY": COMPOSITE_LEG_Y, "walkSampleY": WALK_SAMPLE_Y,
               "bikeSampleOffsets": BIKE_SAMPLE_OFFSETS, "bottomPixels": bottom_pixels,
               "sourceSha256": inputs, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
     MANIFEST.write_text(json.dumps(result, indent=2) + "\n")

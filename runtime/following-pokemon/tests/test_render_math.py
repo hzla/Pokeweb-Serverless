@@ -26,6 +26,8 @@ class Rendering(unittest.TestCase):
   cls.lib=c.CDLL(str(lib));cls.lib.fwr_correct.argtypes=[c.POINTER(Point),c.POINTER(Point),c.POINTER(Pose),c.POINTER(Point),c.POINTER(Camera),c.c_uint,c.POINTER(Pose),c.POINTER(Result)]
   cls.lib.fwr_above_shadow.argtypes=[c.POINTER(Pose),c.POINTER(Point),c.POINTER(Camera),c.POINTER(Pose)]
   cls.lib.fwr_player_in_front.argtypes=[c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Camera),Point,c.c_int32,c.c_int32,c.POINTER(Pose),c.POINTER(c.c_int32)]
+  cls.lib.fwr_head_position.argtypes=[c.POINTER(Point),c.POINTER(Camera),c.c_int32,c.POINTER(Point)]
+  cls.lib.fwr_cover_feet.argtypes=[c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Camera),c.POINTER(Pose)]
  @classmethod
  def tearDownClass(cls):cls.tmp.cleanup()
  def run_case(self,world,pose,cam,large=1):
@@ -53,6 +55,49 @@ class Rendering(unittest.TestCase):
   for cam in [Camera(Point(),Point(),0),Camera(Point(0,1000000,1000000),Point(),3),Camera(Point(2147483647,0,0),Point(-2147483648,0,0),0)]:
    pose=Pose(Point(65536,6144,0),8192,8192);applied,out,res=self.run_case(Point(65536,0,0),pose,cam)
    self.assertEqual(applied,0);self.assertEqual(bytes(pose),bytes(out))
+ def test_grass_covers_owner_without_covering_nearer_body(self):
+  for projection in (0,1,2):
+   for yaw in range(0,360,15):
+    angle=math.radians(yaw);pitch=math.radians(52.58)
+    eye=tuple(int(v*240*4096) for v in (math.sin(angle)*math.cos(pitch),math.sin(pitch),math.cos(angle)*math.cos(pitch)))
+    n=[v/math.sqrt(dot(eye,eye)) for v in eye];cam=Camera(Point(*eye),Point(),projection)
+    def at_depth(depth):return Pose(Point(*(int(v*depth) for v in n)),8192,8192)
+    owner=at_depth(0)
+    for gap in (-12*4096,512,2*4096,12*4096,20*4096):
+     other=at_depth(gap)
+     for initial in (-8*4096,2*4096,8*4096,24*4096):
+      grass=at_depth(initial);out=Pose()
+      self.lib.fwr_cover_feet(c.byref(grass),c.byref(owner),c.byref(other),c.byref(cam),c.byref(out))
+      depth=dot(xyz(out.position),n)
+      self.assertGreaterEqual(depth,min(4*4096,gap/3) - 64 if gap>0 else 4*4096-64)
+      if gap>0:self.assertLessEqual(depth,gap-min(4*4096,gap/3)+64)
+      before=project(grass,eye,projection==2);after=project(out,eye,projection==2)
+      error=max(abs(a-b) for p,q in zip(before,after) for a,b in zip(p,q))
+      self.assertLess(error,64 if projection==2 else .002/256)
+      again=Pose();self.assertFalse(self.lib.fwr_cover_feet(c.byref(out),c.byref(owner),c.byref(other),c.byref(cam),c.byref(again)))
+      self.assertEqual(bytes(out),bytes(again))
+  # Grass's native Y=9 contributes to camera-normal depth. Do not push an
+  # already-correct tile forward merely because its horizontal Z is behind.
+  cam=Camera(Point(0,760739,581835),Point(),0)
+  grass=Pose(Point(0,9*4096,-2*4096),8192,8192);owner=Pose(Point(0,-6484,0),8192,8192)
+  out=Pose();self.assertFalse(self.lib.fwr_cover_feet(c.byref(grass),c.byref(owner),None,c.byref(cam),c.byref(out)))
+  self.assertEqual(bytes(out),bytes(grass))
+ def test_emote_camera_plane_attachment(self):
+  base=Point(-24*4096,6*4096,7*4096)
+  for yaw in range(0,360,15):
+   for pitch in (20,35,45,52.58,65,75):
+    y,p=map(math.radians,(yaw,pitch));eye=tuple(int(v*240*4096) for v in (math.sin(y)*math.cos(p),math.sin(p),math.cos(y)*math.cos(p)))
+    cam=Camera(Point(*eye),Point(),0)
+    for height in (34*4096,66*4096):
+     head=Point();self.assertTrue(self.lib.fwr_head_position(c.byref(base),c.byref(cam),height,c.byref(head)))
+     diff=(head.x-base.x,head.y-base.y,head.z-base.z)
+     self.assertGreater(diff[1],0)
+     # Unit-vector rounding stays below 1/16 of a world pixel, even for a
+     # 64px quad. Native rasterization rounds more coarsely than this.
+     self.assertLess(abs(sum(diff[i]*eye[i] for i in range(3)))/math.sqrt(sum(v*v for v in eye)),256)
+     self.assertLess(abs(diff[0]*eye[2]-diff[2]*eye[0])/math.hypot(eye[0],eye[2]),256)
+  for eye,height in ((Point(),34*4096),(Point(0,240*4096,0),34*4096),(Point(0,240*4096,240*4096),-1)):
+   cam=Camera(eye,Point(),0);head=Point();self.assertFalse(self.lib.fwr_head_position(c.byref(base),c.byref(cam),height,c.byref(head)))
  def test_stair_policy_does_not_depend_on_bob(self):
   cam=Camera(Point(0,760739,581835),Point(),0)
   for y,policy in [(65536,0),(-32740,-2)]:

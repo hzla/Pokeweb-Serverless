@@ -38,6 +38,8 @@ import type { RgbaImageData } from "../pokeweb/pokemonSpriteModel";
 import type { ProjectState, ReadableRecord } from "../pokeweb/projectStore";
 import { escapeHtml } from "./dom";
 import { attachPokemonInteractions } from "./pokemonInteractions";
+import { installPokemonCardViewport } from "./pokemonCardViewport";
+import { observeNearViewport } from "./nearViewport";
 import { attachW2uSyncButton, renderW2uSyncButton } from "./w2uLocalSync";
 import { pokemonSpriteSlug } from "../pokeweb/spriteSlug";
 import evoIcon from "../assets/svgs/evo.svg?raw";
@@ -69,6 +71,7 @@ const ICONS: Record<string, string> = {
 };
 const POKEMON_CARD_SPRITE_RENDER_VERSION = "personal-front-sprite-v2";
 const pokemonCardSpriteInstallations = new WeakMap<HTMLElement, { disconnect: () => void }>();
+const pokemonCardViewportInstallations = new WeakMap<HTMLElement, () => void>();
 
 export function renderPokemonEditor(
   project: ProjectState,
@@ -78,6 +81,7 @@ export function renderPokemonEditor(
   onOpenPwan?: (speciesId: number) => void,
   onEnsureFormAssets?: () => Promise<void>,
 ): void {
+  pokemonCardViewportInstallations.get(root)?.();
   root.innerHTML = `
     <div class="pokemon-filter pokemon-filter-personal">
       <div class="filter-title">Search Text</div>
@@ -108,11 +112,11 @@ export function renderPokemonEditor(
       </div>
     </div>
     <div class="pokemon-list" id="personals">
-      ${renderPokemonCards(project, Boolean(onOpenPwan))}
+      ${pokemonPersonalDisplayIds(project).map(renderPokemonCardPlaceholder).join("")}
     </div>
   `;
 
-  attachPokemonInteractions(root, project, {
+  const interactions = attachPokemonInteractions(root, project, {
     onDirty,
     onOpenSprites,
     onOpenPwan,
@@ -136,27 +140,33 @@ export function renderPokemonEditor(
   });
   attachW2uSyncButton(root, project);
   installPokemonCardSpriteRendering(project, root);
+  pokemonCardViewportInstallations.set(root, installPokemonCardViewport(root, (card) => {
+    const record = getPokemonSummaryRecord(project, Number(card.dataset.index));
+    card.dataset.gen = String(record.gen);
+    card.innerHTML = renderPokemonCardContents(project, record, Boolean(onOpenPwan));
+    interactions.installCard(card);
+  }, () => {
+    interactions.disconnect();
+    pokemonCardSpriteInstallations.get(root)?.disconnect();
+    pokemonCardSpriteInstallations.delete(root);
+    pokemonCardViewportInstallations.delete(root);
+  }));
 }
 
 export function renderPokemonExpandedSections(project: ProjectState, speciesId: number): string {
   return renderExpanded(project, getPokemonRecord(project, speciesId));
 }
 
-function renderPokemonCards(project: ProjectState, showPwanIcon: boolean): string {
-  const cards: string[] = [];
-  for (const id of pokemonPersonalDisplayIds(project)) {
-    cards.push(renderPokemonCard(project, getPokemonSummaryRecord(project, id), showPwanIcon));
-  }
-  return cards.join("");
+export function renderPokemonCardPlaceholder(speciesId: number): string {
+  return `<div class="pokemon-card filterable pokemon-card-placeholder" data-index="${speciesId}" aria-hidden="true"></div>`;
 }
 
-function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, showPwanIcon: boolean): string {
+function renderPokemonCardContents(project: ProjectState, record: PokemonSummaryRecord, showPwanIcon: boolean): string {
   const pok = record.personal;
   const name = pokemonSpeciesLabel(project, record.id);
   const type1 = String(pok.type_1 ?? "");
   const type2 = String(pok.type_2 ?? "");
   return `
-    <div class="pokemon-card filterable" data-gen="${record.gen}" data-index="${record.id}">
       <div class="pokemon-card__info">
         <div class="pokemon-card__header">
           <div class="pokemon-card__img">
@@ -191,7 +201,6 @@ function renderPokemonCard(project: ProjectState, record: PokemonSummaryRecord, 
         ${spriteIcon()}
         ${showPwanIcon ? pwanIcon() : ""}
       </div>
-    </div>
   `;
 }
 
@@ -288,6 +297,8 @@ function installPokemonCardSpriteRendering(project: ProjectState, root: HTMLElem
           return undefined;
         });
       imageCache.set(speciesId, cached);
+      // Scrolling through the whole ROM should not retain every decoded sprite.
+      if (imageCache.size > 32) imageCache.delete(imageCache.keys().next().value!);
     }
     return cached;
   };
@@ -320,37 +331,13 @@ function installPokemonCardSpriteRendering(project: ProjectState, root: HTMLElem
     canvas.dataset.pokemonSpriteRendered = "true";
   };
 
-  const intersectionObserver =
-    typeof IntersectionObserver === "undefined"
-      ? undefined
-      : new IntersectionObserver((entries) => {
-          for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
-            const canvas = entry.target as HTMLCanvasElement;
-            intersectionObserver?.unobserve(canvas);
-            void renderCanvas(canvas);
-          }
-        });
-
-  const observeCanvas = (canvas: HTMLCanvasElement): void => {
-    if (canvas.dataset.pokemonSpriteObserved === "true") return;
-    canvas.dataset.pokemonSpriteObserved = "true";
-    if (intersectionObserver) intersectionObserver.observe(canvas);
-    else void renderCanvas(canvas);
-  };
-
-  const scan = (): void => {
-    root.querySelectorAll<HTMLCanvasElement>("canvas.pokemon-card-rom-sprite").forEach(observeCanvas);
-  };
-
-  const mutationObserver = new MutationObserver(scan);
-  mutationObserver.observe(root, { childList: true, subtree: true });
-  scan();
+  const disconnectImages = observeNearViewport(root, "canvas.pokemon-card-rom-sprite", (canvas) => {
+    void renderCanvas(canvas as HTMLCanvasElement);
+  });
 
   pokemonCardSpriteInstallations.set(root, {
     disconnect: () => {
-      intersectionObserver?.disconnect();
-      mutationObserver.disconnect();
+      disconnectImages();
     },
   });
 }

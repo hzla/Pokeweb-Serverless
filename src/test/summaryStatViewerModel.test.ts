@@ -86,16 +86,16 @@ describe.each(versions)("Summary IV/EV Viewer %s", version => {
     corrupt.code[0] ^= 1;
     expect(() => configureSummaryStatViewerDll(writeRpm(corrupt, { ident: "DLXF" }), { includeEvs: true })).toThrow(/Unrecognized/u);
   });
-  it("updates the exported 1.0.0 viewer in place while preserving the EV choice", async () => {
+  it.each(["1.0.0", "1.0.1"])("updates the exported %s viewer in place while preserving the EV choice", async (previousVersion) => {
     stubAssets(); const p = makeProject(version);
     await installSummaryStatViewer(p); uninstallSummaryStatViewer(p);
-    const previous = new Uint8Array(readFileSync(new URL(`./fixtures/SummaryStatViewer${version}-v1.0.0.dll`, import.meta.url)));
+    const previous = new Uint8Array(readFileSync(new URL(`./fixtures/SummaryStatViewer${version}-v${previousVersion}.dll`, import.meta.url)));
     stageCodeInjectionDll(p, `SummaryStatViewer${version}.dll`, configureSummaryStatViewerDll(previous, { includeEvs: false }));
     const exported = new NintendoDSRom(await exportModifiedRom(p));
     const reopened = makeProject(version, exported.data);
     const oldStatus = getSummaryStatViewerStatus(reopened);
     expect(oldStatus).toMatchObject({ installed: true, compatible: true, updateAvailable: true,
-      installedVersion: "1.0.0", options: { includeEvs: false } });
+      installedVersion: previousVersion, options: { includeEvs: false } });
     const id = exported.fileId(oldStatus.dllPath!);
     await installSummaryStatViewer(reopened, oldStatus.options);
     const updated = new NintendoDSRom(await exportModifiedRom(reopened));

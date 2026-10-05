@@ -107,11 +107,12 @@ int fw_clamp_dialogue_pose(FwPoint *pose,const FwPoint *player,const FwPoint *ar
     int64_t art_lateral=lateral+(face<2?offset.x:offset.z);
     int64_t height=(int64_t)pose->y-player->y;
     int64_t limit=FW_DIALOGUE_REACH(gap);
-    /* A small draw-anchor displacement can put the world actor just beyond
-     * the coarse reach bound. Do not pull a distant or off-axis actor across
+    /* A partial native step and draw-anchor displacement can put the world
+     * actor just beyond reach. Correct at most half a tile, within the same
+     * two-tile corridor. Do not pull a distant or off-axis actor across
      * a turn, wall, stair or discontinuity to make it talkable. */
     int64_t farthest=along>art_along?along:art_along;
-    if(farthest<=limit||along>limit+2*4096||farthest>limit+10*4096||
+    if(farthest<=limit||along>2*FW_TILE||along>limit+8*4096||farthest>limit+16*4096||
        lateral<-(int64_t)FW_TILE/3||lateral>(int64_t)FW_TILE/3||
        art_lateral<-(int64_t)FW_TILE/3||art_lateral>(int64_t)FW_TILE/3||
        height<-8*4096||height>8*4096)return 0;

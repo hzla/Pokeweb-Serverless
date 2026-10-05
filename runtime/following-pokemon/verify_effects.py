@@ -1,6 +1,7 @@
 """Compiled effect logic with mocked native services. Does not run a DS game."""
 from verify_field import *
-import collections,hashlib,json
+import collections,hashlib,json,math,ndspy.narc
+HERE=Path(__file__).resolve().parent
 # Battle effects begin at ID 561. Effect 619/member 58 is Sunny Day (SE 1565),
 # 620/member 59 is switch-out return, and 621/member 60 is send-out. Check the
 # clean US White 2 ROM scripts so an off-by-one effect ID cannot select weather.
@@ -22,6 +23,7 @@ uc.hook_del(spy_hook)
 asset=(Path(__file__).resolve().parents[2]/'src/assets/following/hgss-effects.narc').read_bytes()
 calls=[];allocations=[];frees=[];renders=[];sounds=[];file_ok=True;counter=0;free_bytes=131072
 PALETTE=0x02290000
+body_texture=0x02298000;emote_texture=0x02299000;resource_paths={};emote_poses=[];checking_emote=False
 def u32(at):return struct.unpack('<I',uc.mem_read(at,4))[0]
 def put(at,value):uc.mem_write(at,struct.pack('<I',value))
 def cstr(at):return bytes(uc.mem_read(at,100)).split(b'\0')[0].decode()
@@ -43,10 +45,11 @@ def native(u,address,size,user):
  if address in {0x20493f0,0x2049758,0x2049838,0x20498e4}:
   counter+=1;result=0x02280000+counter*0x100;allocations.append(result)
   if address==0x20493f0:
-   assert cstr(r0) in ('rom:/following/effects.narc','rom:/a/0/4/8')
+   assert cstr(r0) in ('rom:/following/effects.narc','rom:/a/0/4/8','rom:/following/emotes.narc')
+   resource_paths[result]=cstr(r0)
    if cstr(r0)=='rom:/a/0/4/8':assert r1==981,(r1,cstr(r0))
  if address in {0x2049430,0x2049800,0x20498b4,0x2049960}:frees.append(r0)
- if address==0x204964c:result=0x02298000
+ if address==0x204964c:result=emote_texture if resource_paths.get(r0)=='rom:/following/emotes.narc' else body_texture
  if address==0x20652e4:result=32
  if address==0x204974c:result=PALETTE
  if address==0x204e55c:
@@ -57,12 +60,30 @@ def native(u,address,size,user):
   flags=struct.unpack('<H',u.mem_read(bill+24,2))[0]
   assert flags&0x0200 and flags&0xf000==0x1000,'Recall lost visibility or map lighting'
   renders.append(('white',struct.unpack('<hh',u.mem_read(bill+18,4))))
+  if checking_emote:emote_poses.append(struct.unpack('<3i',u.mem_read(bill+4,12)))
  if address==0x2049b88:renders.append(('model',r0))
  if address==0x2049a10:renders.append(('frame',u32(r2)))
  u.reg_write(UC_ARM_REG_R0,result);u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR))
 uc.hook_add(UC_HOOK_CODE,native)
 def invoke(name,args=()):return call(symbols[name],args)
 def debug():return struct.unpack('<8I',uc.mem_read(symbols['FollowingEffectsDebug'],32))
+# Read real I4 nibbles, including a frame whose only visible pixel has index
+# one in the upper nibble. Reject malformed lengths before scanning any data.
+texture=0x022a0000;bounds=texture+20000
+for size in (32,64):
+ for frames in (1,6,8):
+  length=size*size*frames//2;uc.mem_write(texture,bytes(20000))
+  put(texture,0x30584554);put(texture+4,64+length);put(texture+20,64)
+  uc.mem_write(texture+12,struct.pack('<H',length//8))
+  expected=[]
+  for frame in range(frames):
+   top,bottom=3+frame,size-4-frame;expected.append((top,bottom))
+   for y in (top,bottom):uc.mem_write(texture+64+frame*size*size//2+y*size//2,b'\x10')
+  assert invoke('fwfx_outline',[texture,size,bounds,bounds+8])==frames
+  assert list(zip(uc.mem_read(bounds,frames),uc.mem_read(bounds+8,frames)))==expected
+  put(texture+4,64+length-1)
+  assert not invoke('fwfx_outline',[texture,size,bounds,bounds+8])
+assert not invoke('fwfx_outline',[texture,16,bounds,bounds+8])
 actor=0x02210000;uc.mem_write(actor,bytes(256));put(actor+136,system)
 uc.mem_write(actor+228+16,struct.pack('<H',981));put(system+40,0x02240000)
 put(0x02240004,0x02241000);put(0x02241004,0x02242000);put(0x02241018,0x02245000)
@@ -132,4 +153,39 @@ assert sum(x[0]==0x20493f0 and cstr(x[1])=='rom:/a/0/4/8' for x in calls)==previ
 invoke('fwfx_destroy');invoke('fwfx_set_resource_count',[0])
 assert collections.Counter(allocations)==collections.Counter(frees),(allocations,frees)
 assert sounds==[1383,1383,1383],'Teardown replayed sound'
-print('Effect checks passed: member 981 bounds, private palette/material, draw-enable and map lights, one-shot battle send-out/return cues, no per-frame allocation/upload, send-out frames, recall snapshot, ABI and idempotent teardown. Native services mocked; audible/game validation remains pending.')
+# Drive the actual prepared texture -> cached bounds -> emote draw path with
+# shipped 32/64px art. Read opaque pixels independently from the source atlas.
+followers=ndspy.narc.NARC((HERE.parents[1]/'src/assets/following/gen5-followers.narc').read_bytes())
+emotes=ndspy.narc.NARC((HERE.parents[1]/'src/assets/following/interaction-emotes.narc').read_bytes())
+camera=0x02221000;uc.mem_write(camera,bytes(80));uc.mem_write(camera+32,struct.pack('<3i',0,200*4096,140*4096))
+up=(0,140/math.hypot(200,140),-200/math.hypot(200,140))
+body_texture=0x022a0000;emote_texture=0x022b0000
+def pixels(resource):
+ at=resource.index(b'TEX0');block=resource[at:]
+ start=struct.unpack_from('<I',block,20)[0];length=struct.unpack_from('<H',block,12)[0]*8
+ return block,block[start:start+length]
+emote_block,emote_pixels=pixels(emotes.files[0]);uc.mem_write(emote_texture,emote_block)
+bubble_bottom=max(i//16 for i,value in enumerate(emote_pixels) if value)
+checking_emote=True
+for size,member in ((32,6),(64,314)):
+ invoke('fwfx_destroy');invoke('fwfx_set_resource_count',[1323])
+ block,art=pixels(followers.files[member]);uc.mem_write(body_texture,block)
+ uc.mem_write(actor,bytes(256));put(actor+136,system);uc.mem_write(actor+244,struct.pack('<H',981))
+ uc.mem_write(actor+235,bytes([2 if size==64 else 0]))
+ uc.mem_write(bill,struct.pack('<HHiiiHhhHHH',0,0,0,0,0,0,size*256,size*256,0,0x121f,0))
+ invoke('fwfx_prepare',[actor]);assert invoke('fwfx_emote_begin',[actor,0])
+ allocated=len(allocations);loads=len(calls)
+ for frame in range(len(art)//(size*size//2)):
+  pose=art[frame*size*size//2:(frame+1)*size*size//2]
+  rows=[i//(size//2) for i,value in enumerate(pose) if value]
+  for flipped in (False,True):
+   uc.mem_write(bill+16,struct.pack('<H',frame));uc.mem_write(bill+24,struct.pack('<H',0x121f|(0x0800 if flipped else 0)))
+   invoke('fwfx_emote_frame',[actor,frame&1]);invoke('fwfx_draw',[camera,0x02222000])
+   height=sum(emote_poses[-1][i]*up[i] for i in range(3))/4096
+   visible_top=size-1-max(rows) if flipped else min(rows)
+   gap=height+(31-bubble_bottom)-(size-visible_top)
+   assert abs(gap-1)<0.02,(size,frame,flipped,gap)
+ assert len(allocations)==allocated and not any(c[0] in (0x20493f0,0x204964c,0x204e55c) for c in calls[loads:]),'Per-draw texture work'
+ invoke('fwfx_emote_end');invoke('fwfx_destroy')
+assert collections.Counter(allocations)==collections.Counter(frees)
+print('Effect checks passed: I4 row bounds, one-pixel opaque-edge emote placement for shipped 32/64px poses and vertical flips, no per-frame scan/load/upload, member 981 bounds, private palette/material, lighting, one-shot ball cues, send-out/recall frames, ABI and teardown. Native services mocked; visual/audio acceptance pending.')

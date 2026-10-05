@@ -1,6 +1,6 @@
 # Summary IV/EV Viewer validation
 
-Validation date: 2026-10-04. Version: 1.0.1.
+Validation date: 2026-10-05. Version: 1.0.2.
 
 **Implementation and automated checks are complete. Live game acceptance
 remains pending the user's emulator testing.** No game emulator was run for
@@ -10,11 +10,12 @@ these checks, and no large test-ROM artifact was written to disk.
 
 | Check | Result | Scope |
 | --- | --- | --- |
-| Native builds | Pass, B2 and W2 | Separate retail overlay pins, all 17 hook destinations, helper/layout signatures, native graphics pins, no unresolved imports, RPM parse/dump |
-| Native Thumb harness | Pass, B2 and W2 | Compiled wrapper code and hook veneers; stack/register preservation; IV/EV field ordering and extremes; EV on/off; Ribbons on/off; navigation endpoints; native retail touch scanner; title-request lifetime; initialization upload order; resource ownership and failure cleanup |
+| Native builds | Pass, B2 and W2 | Separate retail overlay pins, all 17 hook destinations, explicit ARM9 mappings checked against retail bodies/call sites, helper/layout signatures, native graphics pins, no unresolved imports, RPM parse/dump |
+| Native Thumb harness | Pass, B2 and W2 | Compiled wrappers and hook veneers; real retail sound wrapper, touch scanner, numeric drawing, and SkillUpdate/top-display code; stack/register preservation; IV/EV ordering/extremes; EV/Ribbons on/off; navigation endpoints; title-request lifetime; upload order; resource ownership/failure cleanup |
+| Stats variant refresh | Pass, B2 and W2 in harness | Six numeric buffers cleared; HP-bar bitmap and bottom actor records retained; no full-page refresh or new actor/unit/character resources; Pokémon lock balanced; pending print queue prevents uploads; completion uploads only top windows and title |
 | Repeated open/close | Pass in harness | 25 additional cycles per game; no tracked actor, unit, or character registration remains after exit |
-| Focused installer/UI tests | 23 tests pass | Options/default checkbox, export/reload, updates including 1.0.0 → 1.0.1 with the same file ID/EV setting, renamed-module recognition, duplicates, conflicts, resource checks, staged removal, rollback, unsupported versions, companion overlap fixtures |
-| Clean retail ROM install/export | Pass, B2 and W2 on 1.0.0 | Install with automatic PMC, toggle EVs, staged remove/reinstall, ordinary export/reload, update existing file ID; native Summary overlay and graphics members retained. Version 1.0.1 update/export is covered by the focused fixtures. |
+| Focused installer/UI tests | 25 tests pass | Options/default checkbox, export/reload, 1.0.0 and 1.0.1 → 1.0.2 updates retaining file ID/EV setting, renamed-module recognition, duplicates, conflicts, resource checks, staged removal, rollback, unsupported versions, companion overlap fixtures |
+| Clean retail ROM install/export | Pass, B2 and W2 on 1.0.2 | Automatic PMC install, EV setting updates, staged removal/reinstall, export/reload, same-file replacement, unchanged native Summary overlay and graphics members; all ROM exports performed in memory |
 | Source preservation | Pass | Clean input ROM hashes unchanged in memory and on disk by real-ROM verification |
 | Decoded graphics review | Pass | IVS/EVS title maps and compact tab banks; updated outlined bar-chart icon inspected with nearest-neighbor enlargement |
 | Production build | Pass | TypeScript and Vite production build; existing bundle-size warning remains |
@@ -23,11 +24,32 @@ The supplied White 2 `summary.mln` was inspected as a RAM/layout reference;
 its 34,688-byte Summary overlay matched clean White 2. The state was not
 modified or run in an emulator.
 
+### Black 2 crash and moves refresh regression
+
+The supplied Black 2 crash state was inspected offline. The CPU was executing
+Summary work memory rather than code, consistent with a corrupted return. Both
+retail games' native Summary sound calls target `0x02006254`, but versions 1.0.0
+and 1.0.1 incorrectly subtracted `0x2c` for Black 2 and called `0x02006228`,
+inside another function. The earlier harness repeated that address assumption
+in its sound stub, so its passing result did not cover the real call.
+
+Version 1.0.2 uses explicit mappings. The harness independently decodes the
+retail sound call and executes its actual wrapper, intercepting only the final
+sound dispatch. Navigation preserves the stack and callee-saved registers in
+both games. No supplied save state is modified or included in test fixtures.
+
+Previously, each variant switch called the full native page refresh, deleting
+and recreating Stats windows and bottom move actors. The replacement uses the
+native top-window dirty flag. The regression harness executes the retail
+numeric draw and SkillUpdate functions, checks deferred uploads with a busy
+print queue, and confirms stable bottom records and resource ownership.
+
 ### What these results do not prove
 
-The native harness executes the compiled Thumb wrappers and the retail touch
-rectangle scanner. Most native APIs, including the Pokémon getter, are
-instrumented test doubles. Tests verify getter field IDs, ordering, returned
+The native harness executes the compiled Thumb wrappers, retail sound wrapper,
+touch rectangle scanner, numeric drawing, and top-display update functions.
+Supporting APIs, including the Pokémon getter and actual text/graphics uploads,
+are instrumented test doubles. Tests verify getter field IDs, ordering, returned
 values, and that the wrappers do not write the supplied Pokémon buffer. They
 do not prove live encrypted party/boxed data behavior or game-wide memory
 stability.
@@ -56,6 +78,8 @@ judge installation boot behavior, because it may restore pre-install code.
 - [ ] With EVs disabled, IVs advances directly to available Ribbons or stops.
 - [ ] Tapping the bar-chart tab enters IVs, including when EVs was selected. Tapping Stats
       restores normal Stats.
+- [ ] Switching Stats ↔ IVs ↔ EVs retains the bottom move names, PP, type icons,
+      highlighting, and artwork continuously, without a move-row flash.
 - [ ] Check distinct values in all six positions, including IV 0/31 and stored
       EV 0/252/255. Confirm HP, Attack, Defense, Sp. Atk, Sp. Def, Speed order.
 - [ ] HP shows one IV/EV number aligned with the other five values. Its real current-HP bar still shows normal

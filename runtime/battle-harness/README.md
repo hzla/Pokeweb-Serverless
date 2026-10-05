@@ -59,66 +59,28 @@ An explicit trainer `abilityId` temporarily edits that species/form's chosen Per
 
 ## Verification
 
-### Unattended move/ability interaction MVP
+### Upgrade move/ability regression tests
 
-For humans and agents adding tests, see [Writing automated move and ability tests](INTERACTION-TESTS.md) for usage examples, scenario design, native assertions and extension requirements.
+Mechanic scenarios, fixture builders, native runners, inventories, independent
+oracles, and their unit tests live in the sibling upgrade repository's
+[tests/battle reference](../../../../White2Upgrade-Original-pokeweb/tests/battle/README.md).
+Add future move/ability tests there, not here. This directory retains the
+production battle trigger used by the browser and its own CPU/runtime checks.
 
-Run the real White2Upgrade battle engine without a browser or agent:
-
-```sh
-npm run battle:test -- --suite fluffy
-npm run battle:test:move -- --move ruination --rom /path/game.nds --full-turn-smoke
-```
-
-By default this reads `../../White2Upgrade.nds` and the bundled test save. For another compatible US White 2 revision 0 upgrade build, pass `--rom /path/game.nds`; optionally pass `--save /path/game.sav` (raw BW2 or `.dsv`). Install the project dependencies with `npm ci` first. Python 3, Pillow, and the melonDS headless Python package/shared library are required. Set `MELONDS_PYTHON_PATH` and `MELONDS_HEADLESS_LIB`, or pass `--melon-python /path/python --melon-lib /path/library`. The existing workspace headless build is discovered automatically when present; the emulator itself is not bundled here. This command uses the shipped CPU-verified battle trigger and does not require a native compiler, Unicorn, Capstone, or pyelftools.
-
-The suite exports one shared ROM and one checksum-valid save. Player-controlled level-50 Mew knows all four attacks, and the AI's level-50 Snorlax knows only Splash. The temporary Personal NARC holds Run Away in Snorlax slot 1 and Fluffy in slot 2. Each ability variant cold-boots once, selecting its slot via a single validated trainer-data byte patch in a temporary ROM copy. At the first command menu, the runner takes an in-memory snapshot and restores it before each player-selected move. Eight damage observations therefore need only two cold boots; only the defender's ability changes within each pair.
-
-Interaction fixtures force the in-game Battle Scene option Off in both save halves, preserving other options and refreshing checksums. Browser trainer/move-animation tests still enable animations. Old cached fixtures must be regenerated without `--fixtures`; the runner checks both the manifest and actual save option bytes before running.
-
-| Attack | Property | Required Fluffy multiplier |
-|---|---|---|
-| Tackle | Contact, not Fire | 0.5× |
-| Swift | Non-contact, not Fire | 1× |
-| Flamethrower | Non-contact Fire | 2× |
-| Fire Punch | Contact Fire | 1× (both effects cancel) |
-
-Assertions check native ability registration, identical paired stats and pre-modifier damage, the engine's final damage multiplier, its calculated damage, and actual HP loss. Native battle RNG still executes, but its returned battle draws are controlled to avoid critical hits, use the same 85% damage roll, and avoid secondary effects. Normal tests never replace the ability handler or damage/HP results. This isolates Fluffy, rather than testing the RNG distribution. Executable probe signatures and ROM move contact/type data must match the supported ABI; unknown layouts fail instead of producing a misleading pass. Dynamically loaded handlers are exercised at their actual runtime addresses without hardcoding child DLL addresses.
-
-For a real-emulator negative control that deliberately neutralizes Fluffy's contact multiplier and requires the oracle to reject it:
+The existing npm commands are compatibility forwarders to that suite:
 
 ```sh
-npm run battle:test -- --suite fluffy --verify-detector
-```
-
-This extra attack is restored from the same Fluffy checkpoint, explicitly fault-injected and recorded separately; it adds no cold boot. Its rejection is required for this command to succeed. Verify isolation by running the moves in reverse order:
-
-```sh
-npm run battle:test -- --reverse-cases --verify-detector
-```
-
-Fast oracle, rollback and deadline unit checks need no emulator:
-
-```sh
+npm run battle:test -- --suite fluffy --rom fixtures/game.nds
+npm run battle:test:move -- --move gen67-audit --rom fixtures/game.nds
 npm run battle:test:unit
 ```
 
-Exit status is `0` only when every required case passes, otherwise `1`. No input ROM or user save is overwritten. Outputs go to a fresh timestamped `work/battle-interactions/` directory: fixture hashes/scenarios, `result.json`, per-move JSON/screenshots, and per-variant batch JSON/native logs. Each ability variant runs in its own process against parent-owned temporary ROM/save copies. The default limits are 2,400 frames for boot and each move case, and a hard 90-second wall-clock deadline for the whole variant batch; override with `--max-frames` and `--trial-timeout`. A timeout is a failure, not a skipped test. `--out` must name a new directory. The single exported ROM uses approximately the input ROM size on disk; temporary copies also need space where reflinks are unavailable.
-
-Snapshots are never written to disk. Restore checks the emulated frame counter and both battlers' raw state, and separately resets Python observations, pending RNG returns, keypad and touch input. The checkpoint is released at batch completion or failure. Parent-owned temporary ROM/save copies are cleaned even when a worker is killed by the deadline. Reports include cold-boot/restore counts, checkpoint size/hash and cleanup status, not snapshot contents.
-
-The runner also deletes its newly generated `fixtures/battle.nds` at completion, including builder failures and worker timeouts. It keeps `battle.sav`, `suite.json`, logs and reports. Fresh runs generate a save from the current test setup, so changed tests do not reuse an outdated save. Add `--keep-fixtures` to retain the exported ROM for reuse; fixture directories explicitly supplied through `--fixtures` are never modified or deleted. Cleanup errors fail the run and are recorded in `result.json`.
-
-All generated output is Git-ignored: the default `work/` tree is ignored, and both the runner and standalone fixture builder add a scoped `.gitignore` containing `*` to every newly created output directory. This also protects custom `--out` locations within the repository, including the generated ignore file itself.
-
-Opt in to keeping the exported ROM, then reuse the fixtures to skip exports (their hashes are checked):
-
-```sh
-npm run battle:test -- --out work/fluffy-reusable --keep-fixtures
-npm run battle:test -- --fixtures work/fluffy-reusable/fixtures
-```
-
-Fixture reuse tests that captured ROM build, not a newer ROM supplied alongside it. Omit `--fixtures` after changing handlers. Cached version 1 fixtures must also be regenerated for snapshot batching. The ability MVP covers these four first-hit Fluffy cases only, not ability suppression, Protective Pads, switching or multi-battles. The focused move runner covers named singles power, effectiveness, priority, accuracy, item and multi-hit stat-effect suites, including native setup actions, switching, Instruct and selected item/ability interactions; see [the test reference](INTERACTION-TESTS.md) for usage and exact scope. Child-DLL changes require a rebuilt full ROM, not a core-only override. Add controlled scenarios and explicit native outcome assertions for other mechanics; a screenshot alone is not a behavioral assertion. Visual/audio acceptance remains separate.
+The checkout is discovered at `../../White2Upgrade-Original-pokeweb`;
+`W2U_TEST_ROOT` overrides its location. Relative input paths are interpreted
+from the caller's directory; new outputs default to the upgrade repository's
+ignored `work/`. Native tests require headless melonDS; fast unit checks do not.
+Fixture ROMs/snapshots are deleted by default and fixture saves retained.
+No test logic is duplicated in the forwarding entry point.
 
 ### Battle trigger verification
 

@@ -50,15 +50,17 @@ def gift_archive():
  struct.pack_into('<I',member,12,zlib.crc32(member[16:])&0xffffffff)
  narc=ndspy.narc.NARC();narc.files=[bytes(member)];return narc.save()
 assets={"rom:/following/interactions.bin":(HERE.parents[1]/'src/assets/following/interactions.bin').read_bytes(),"rom:/following/emotes.narc":(HERE.parents[1]/'src/assets/following/interaction-emotes.narc').read_bytes(),"rom:/following/contextual-items.narc":gift_archive()}
-files={};calls=[];alloc=[];frees=[];held=pressed=0;free_bytes=131072;provider=0;controller=0;blocked=0;fail='';resource_counter=0;print_done=1;close_done=1
-native_addresses={0x02006254,0x02070ca8,0x02070ecc,0x02070dec,0x02070e6c,0x02070de0,0x0203a2d4,0x02180578,0x02195728,0x0219a9d0,0x0219aacc,0x0215e4f0,0x02016cb4,0x02016d08,0x02167098,0x02194b88,0x02194f18,0x0215e8e4,0x02194d8c,0x0219a5d8,0x0203df4c,0x0203df28,0x02005cbc,0x020069f4,0x02006b5c,0x021804d0,0x02180500,0x0204855c,0x02048590,0x02048640,0x021887d8,0x02188814,0x02188834,0x02188858,0x021888c4,0x02188a08,0x020493f0,0x02049430,0x02049560,0x0204e598,0x0204e55c,0x0204ebdc,0x0218151c,0x02181aa0,0x02017354,0x0201735c,0x0201fe24,0x0201ff34,0x0201cd24,0x0201ccc4,0x0201ccec,0x0201eef0,0x02008238,0x02008268}
+files={};calls=[];alloc=[];frees=[];held=pressed=0;free_bytes=131072;provider=0;controller=0;blocked=0;fail='';resource_counter=0;emote_draws=0;print_done=1;close_done=1
+native_addresses={0x02006254,0x02070ca8,0x02070ecc,0x02070dec,0x02070e6c,0x02070de0,0x0203a2d4,0x02180578,0x02195728,0x0219a9d0,0x0219aacc,0x0215e4f0,0x02016cb4,0x02016d08,0x02167098,0x02194b88,0x02194f18,0x0215e8e4,0x02194d8c,0x0215e150,0x021676fc,0x0219a5d8,0x0203df4c,0x0203df28,0x02005cbc,0x020069f4,0x02006b5c,0x021804d0,0x02180500,0x0204855c,0x02048590,0x02048640,0x021887d8,0x02188814,0x02188834,0x02188858,0x021888c4,0x02188a08,0x020493f0,0x02049430,0x02049560,0x0204e598,0x0204e55c,0x0204ebdc,0x0218151c,0x02181aa0,0x02017354,0x0201735c,0x0201fe24,0x0201ff34,0x0201cd24,0x0201ccc4,0x0201ccec,0x0201eef0,0x02008238,0x02008268}
 bag_adds=[]
 native_addresses.add(0x02008ddc) # SaveData_GetConfig for the Options Off bit.
+native_addresses.add(0x0204964c) # Optional CPU texture data for bubble bounds.
 terrain_attr=0
 grass_entries=[]
+shoal_entries=[]
 terrain_queries=[]
 def native(u,pc,size,user):
- global resource_counter
+ global resource_counter,emote_draws
  if pc not in native_addresses:return
  assert u.reg_read(UC_ARM_REG_SP)%8==0,hex(pc)
  r=[u.reg_read(x) for x in [UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3]];r0,r1,r2,r3=r;calls.append((pc,*r));result=1
@@ -71,6 +73,15 @@ def native(u,pc,size,user):
   result=int(terrain_attr!=0)
  if pc==0x02194d8c:
   grass_entries.append((r0,r1))
+  result=0
+ if pc==0x0215e150 and r0==A:
+  terrain=struct.unpack('<H',u.mem_read(r1+10,2))[0]
+  effect_controller=struct.unpack('<I',u.mem_read(r1+20,4))[0]
+  shoal_entries.append((r0,terrain,effect_controller))
+  put(r0+4,(u32(r0+4)&~0x40000)|(0x40000 if terrain==0x17 else 0))
+  result=0
+ if pc==0x021676fc and r0==A:
+  put(r0+4,(u32(r0+4)&~0x40000)|(0x40000 if r1 else 0))
   result=0
  if pc==0x02070ecc:
   path=cstr(r1);result=int(path in assets and fail!='data');files[r0]=[path,0]
@@ -133,8 +144,15 @@ def native(u,pc,size,user):
   resource_counter+=1;result=0 if fail=='emote' else 0x02220000+(resource_counter%100)*0x100
   if result:alloc.append(('resource',result))
  if pc==0x02049430:frees.append(('resource',r0))
+ if pc==0x0204964c:result=0 # Exercise the safe full-frame fallback here.
  if pc==0x0204e598:assert r1==0 and r2==0x22 and r3==32 and u32(u.reg_read(UC_ARM_REG_SP))==32
  if pc==0x0204e55c:put(r0+32,0 if fail=='vram' else 1);put(r0+36,1)
+ if pc==0x0204ebdc:
+  actor=u32(r0+8);flags=struct.unpack('<H',u.mem_read(actor+24,2))[0]
+  assert flags&0x0200 and flags&0xf000==0x1000,'Emote lost visibility or map lighting'
+  assert not flags&0x0c00,'Emote must not inherit the follower texture mirror'
+  assert struct.unpack('<2h',u.mem_read(actor+18,4))==(8192,8192),'32px emote was drawn at half size'
+  emote_draws+=1
  if pc in (0x0218151c,0x02181aa0):result=provider
  u.reg_write(UC_ARM_REG_R0,result);u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR))
 uc.hook_add(UC_HOOK_CODE,native)
@@ -240,6 +258,22 @@ assert u32(A+80)==8192 and u32(A+68)+u32(A+80)==x-25*4096
 assert call('fwt_reach',[follower,P,A,FIELD])==1
 call('move',[A]);assert u32(A+68)==x-27*4096
 put(owner,0);put(addr('fwfield_player'),0)
+# The new toofar.mln has only eight extra units, so the old >8-only second
+# grid-cell rule rejected it even after the coarse distance clamp.
+setup(2);uc.mem_write(F+1852,bytes((0,0,8,8)))
+uc.mem_write(P+68,struct.pack('<iii',x+32768,0,z))
+ax=x+32768-28*4096
+uc.mem_write(A+68,struct.pack('<iii',ax,0,z));uc.mem_write(A+80,struct.pack('<iii',8192,0,-8192))
+uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,z//65536))
+for i,sx in enumerate((ax,x+32768)):
+ uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,z,1,1,0,0,0,3,1))
+put(owner,SYS);put(addr('fwfield_player'),P);put(addr('fwfield_generation'),1)
+uc.mem_write(follower,bytes(uc.mem_read(F,1856)))
+assert not call('fwt_reach',[follower,P,A,FIELD])
+call('move',[A]);assert u32(A+68)==x+32768-25*4096
+assert call('fwt_reach',[follower,P,A,FIELD])==1
+blocked=1;assert not call('fwt_reach',[follower,P,A,FIELD]);blocked=0
+put(owner,0);put(addr('fwfield_player'),0)
 # Vertical reach does not expand with the lateral spacing.
 setup(0);put(A+76,10*65536-22*4096);assert not call('fwt_reach',[F,P,A,FIELD])
 # Rail keys rotated 90 degrees relative to world compass still address the follower.
@@ -250,11 +284,14 @@ assert call('fwt_reach',[F,P,A,FIELD])==1
 blocked=3;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
 assert begin();assert struct.unpack('<H',uc.mem_read(A+24,2))[0]==2;call('fwt_cancel');balanced();controller=0
 # Exercise both frames of all seven private resources, without changing native material data.
-setup();shared=bytes(uc.mem_read(mat,40))+bytes(uc.mem_read(bill,28))
+setup();half(bill+24,0x1600);half(bill+18,8192);half(bill+20,8192)
+uc.mem_write(0x02210000+32,struct.pack('<3i',0,200*4096,140*4096));uc.mem_write(0x02210000+56,bytes(12))
+shared=bytes(uc.mem_read(mat,40))+bytes(uc.mem_read(bill,28))
 for member in range(0,14,2):
  assert call('fwfx_emote_begin',[A,member])
  for frame in (0,1,0,1):call('fwfx_emote_frame',[A,frame]);call('fwfx_draw',[0x02210000,0x02211000])
  call('fwfx_emote_end');balanced()
+assert emote_draws==28,emote_draws
 assert bytes(uc.mem_read(mat,40))+bytes(uc.mem_read(bill,28))==shared
 # 100 complete simulated conversations; input must be released before dismissal.
 visited=set();reactions=set()
@@ -309,3 +346,30 @@ for failure in ('event','bg','string','window','emote','vram','sound'):
  assert not call('fwt_active');balanced();fail=''
 call('fwt_unload');setup();fail='data';assert not begin();balanced()
 print(f'Packaged interaction checks passed: ABI, priority veneers, four-direction reach, blocked/elevation rejection, {len(reactions)} randomly selected rules, {CYCLES} simulated conversations, all 9 interruption stages, nested event ownership and resource failures. Native services mocked; no DS game run.')
+
+if '--state' in sys.argv:
+ from verify_terrain_state import state_ram,state_follower,BASE as RAM_BASE
+ path=Path(sys.argv[sys.argv.index('--state')+1]);_,ram=state_ram(path)
+ debug=ram.find(b'FWDG');actor,player=struct.unpack_from('<II',ram,debug+32)
+ field=struct.unpack_from('<I',ram,debug+56)[0];sidecar=state_follower(ram)
+ cpu=Uc(UC_ARCH_ARM,UC_MODE_THUMB);cpu.mem_map(RAM_BASE,0x1000000);cpu.mem_write(RAM_BASE,ram);cpu.mem_map(0x04000000,0x100000)
+ newbase=0x02c00000;cpu.mem_write(newbase,bytes(relocate(DLL,newbase,{symbol_hash('FollowingCoreAPI'):STOP,symbol_hash('FollowingEventsAPI'):STOP})))
+ scratch=0x023ef000;stack=0x023ef800;pose=scratch+1860;art=pose+12
+ cpu.mem_write(scratch,ram[sidecar-RAM_BASE:sidecar-RAM_BASE+1856])
+ def captured_call(name,args):
+  cpu.reg_write(UC_ARM_REG_SP,stack);cpu.reg_write(UC_ARM_REG_LR,STOP|1)
+  for reg,value in zip((UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3),args):cpu.reg_write(reg,value)
+  for i,value in enumerate(args[4:]):cpu.mem_write(stack+i*4,struct.pack('<I',value))
+  cpu.emu_start((newbase+funcs[name][0])|1,STOP,count=500000)
+  assert cpu.reg_read(UC_ARM_REG_PC)==STOP,name
+  return cpu.reg_read(UC_ARM_REG_R0)
+ assert not captured_call('fwt_reach',[scratch,player,actor,field]),'Captured state did not reproduce the reach failure'
+ face=struct.unpack_from('<H',ram,player-RAM_BASE+24)[0];gap=ram[sidecar-RAM_BASE+1852+face]
+ cpu.mem_write(pose,ram[actor-RAM_BASE+68:actor-RAM_BASE+80])
+ offsets=struct.unpack_from('<6i',ram,actor-RAM_BASE+80)
+ cpu.mem_write(art,struct.pack('<3i',*(offsets[i]+offsets[i+3] for i in range(3))))
+ assert captured_call('fw_clamp_dialogue_pose',[pose,player+68,art,face,gap])==1
+ fixed=struct.unpack('<3i',cpu.mem_read(pose,12));cpu.mem_write(actor+68,struct.pack('<3i',*fixed))
+ cpu.mem_write(actor+60,struct.pack('<3h',*(v//65536 for v in fixed)))
+ assert captured_call('fwt_reach',[scratch,player,actor,field])==1,'Native grid/terrain still rejected the clamped follower'
+ print(f'Isolated dialogue state check passed: gap {gap}, logical and visual pose clamped, captured native grid/terrain checks accept dialogue. No field frame or emulator was run.')

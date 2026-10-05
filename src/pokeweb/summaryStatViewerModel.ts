@@ -120,7 +120,7 @@ export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatVi
   state.compatible = true;
   state.message = state.installed ? `Summary viewer installed (${state.options.includeEvs ? "IVs and EVs" : "IVs only"}).`
     : "Uses native Summary controls. PMC is installed automatically when needed; other gameplay patches are not required.";
-  if (state.updateAvailable) state.message += ` Version ${manifest.version} is available; update to align HP and use the bar-chart tab icon.`;
+  if (state.updateAvailable) state.message += ` Version ${manifest.version} is available; update to fix Black 2 navigation and keep moves visible between Stats views.`;
   return state;
 }
 export async function installSummaryStatViewer(project: ProjectState, options: SummaryStatViewerOptions = { includeEvs: true }): Promise<CodeInjectionDllInstallResult> {
