@@ -1,5 +1,26 @@
-import { describe, expect, it } from "vitest";
-import { hydrateNarcRawFiles } from "../pokeweb/persistence";
+import { describe, expect, it, vi } from "vitest";
+import { hydrateMissingOverlays, hydrateNarcRawFiles } from "../pokeweb/persistence";
+import type { ProjectState } from "../pokeweb/projectStore";
+import type { NintendoDSRom } from "../nds/rom";
+
+describe("Overlay persistence hydration", () => {
+  it("preserves saved routing and other overlay edits while hydrating missing data", () => {
+    const patched = Uint8Array.of(1, 2, 3);
+    const project = { overlays: { 167: patched, 168: new Uint8Array() } } as unknown as ProjectState;
+    const loadArm9Overlays = vi.fn((ids: number[]) => new Map(ids.map((id) => [id, { data: Uint8Array.of(id) }])));
+    const rom = { loadArm9Overlays } as unknown as NintendoDSRom;
+
+    hydrateMissingOverlays(project, rom, [167, 168, 168, 36]);
+
+    expect(loadArm9Overlays).toHaveBeenCalledTimes(1);
+    expect(loadArm9Overlays).toHaveBeenCalledWith([168, 36]);
+    expect(project.overlays[167]).toBe(patched);
+    expect(project.overlays[168]).toEqual(Uint8Array.of(168));
+    expect(project.overlays[36]).toEqual(Uint8Array.of(36));
+    hydrateMissingOverlays(project, rom, [167, 168, 36]);
+    expect(loadArm9Overlays).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("NARC persistence hydration", () => {
   it("retains appended files and intentionally empty dirty filler entries", () => {

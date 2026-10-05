@@ -8,6 +8,19 @@ export type DoublesCase = {
   statuses?: Partial<Record<BattleRole, number>>;
   stages?: Partial<Record<BattleRole, number[]>>;
   expectedStages?: Partial<Record<BattleRole, number[]>>;
+  expectedAbilities?: Partial<Record<BattleRole, number>>;
+  expectedSetupHits?: number;
+  expectedUserForm?: number;
+  expectedItems?: Partial<Record<BattleRole, number>>;
+  expectedConsumedItems?: Partial<Record<BattleRole, number>>;
+  expectedQuarterHealing?: BattleRole[];
+  expectedResolvedType?: number;
+  expectedSideEffectsBefore?: [Record<string,number>,Record<string,number>];
+  expectedSideEffectsAfter?: [Record<string,number>,Record<string,number>];
+  expectedSideSwap?: boolean;
+  expectedFinalDamageRatio?: number;
+  expectedCustomSidesBefore?: [Record<string,number>,Record<string,number>];
+  expectedCustomSidesAfter?: [Record<string,number>,Record<string,number>];
   expectedTypes?: Partial<Record<BattleRole, number[]>>;
   expectedHealing?: Partial<Record<BattleRole, number>>;
   expectedStatuses?: Partial<Record<BattleRole, number>>;
@@ -34,6 +47,7 @@ export type DoublesVariant = {
   allyMoves: number[]; allyLevel?: number; defenderSpecies?: number; defenderLevel?: number;
   defenderAllySpecies: number; defenderAllyAbilityId: number; defenderAllyMove?: number;
   defenderAllyLevel?: number; save: string; cases: DoublesCase[];
+  defenderItemId?: number; defenderAllyItemId?: number;
   battleType: "Doubles"; player: HarnessPokemon; allyPlayer: HarnessPokemon;
 };
 
@@ -48,6 +62,10 @@ export const doublesDefinitions = {
   "make-it-rain": { id: 874, type: 8, power: 120, category: 2, accuracy: 100, target: 5 },
   "matcha-gotcha": { id: 902, type: 11, power: 80, category: 2, accuracy: 90, target: 5 },
   "mortal-spin": { id: 866, type: 3, power: 30, category: 1, accuracy: 100, target: 5 },
+  doodle: { id: 867, type: 0, power: 0, category: 0, accuracy: 100, target: 3 },
+  "rage-fist": { id: 889, type: 7, power: 50, category: 1, accuracy: 100 },
+  teatime: { id: 752, type: 0, power: 0, category: 0, accuracy: 101, target: 8 },
+  "court-change": { id: 756, type: 0, power: 0, category: 0, accuracy: 101, target: 8 },
 };
 
 export function doublesVariants(name: string): DoublesVariant[] {
@@ -65,7 +83,119 @@ export function doublesVariants(name: string): DoublesVariant[] {
       save:`battle-${label}.sav`, battleType:"Doubles", player:user, allyPlayer:partner,...npc,
       cases: cases.map(test => ({completeTurn:true,accuracyRoll:0,secondaryRoll:99,...test})) });
   }
-  if (name === "decorate") {
+  if (name === "rage-fist") {
+    const setup = (hits:number,slot=1) => Array.from({length:hits},()=>({slot,case:{id:"receive-hit",allyTargetRole:"attacker" as BattleRole,allyMoveSlot:0}}));
+    const hitCase = (id:string,hits:number,turns=hits):DoublesCase => ({id,setupCommands:setup(turns),allyMoveSlot:1,
+      expectedSetupHits:hits,expectedTargets:["defender"],expectedBasePower:Math.min(350,50+50*hits),expectedSpread:false});
+    const target={defenderSpecies:442,defenderLevel:100};
+    add("history",[0,1,2,5,6,7].map(hits=>hitCase(`earlier-hits-${hits}`,hits)),{moves:[889,150,164,144]},{level:1,moves:[33,150]},target);
+    add("multi-hit",[hitCase("each-double-kick-strike-counts",2,1)],{moves:[889,150,164,144]},{level:1,moves:[24,150]},target);
+    add("skill-link",[hitCase("five-native-bullet-seed-hits",5,1)],{moves:[889,150,164,144]},{abilityId:92,level:1,moves:[331,150]},target);
+    add("substitute",[{id:"substitute-hit-does-not-count",setupCommands:[{slot:2,case:{id:"doll",allyMoveSlot:1}},...setup(1)],allyMoveSlot:1,
+      expectedSetupHits:0,expectedTargets:["defender"],expectedBasePower:50,expectedSpread:false}],{moves:[889,150,164,144]},{level:1,moves:[33,150]},target);
+    add("disguise",[{id:"disguise-counts-with-zero-direct-hp-damage",setupCommands:setup(1),allyMoveSlot:1,
+      expectedSetupHits:0,expectedUserForm:1,expectedTargets:["defender"],expectedBasePower:100,expectedSpread:false}],{speciesId:778,abilityId:209,moves:[889,150,164,144]},{level:1,moves:[55,150]},target);
+    add("transform",[{id:"transform-copies-partner-hit-history",setupCommands:[
+      {slot:1,case:{id:"hit-partner-once",targetRole:"ally",allyMoveSlot:1}},
+      {slot:1,case:{id:"hit-partner-twice",targetRole:"ally",allyMoveSlot:1}},
+      {slot:2,case:{id:"copy-partner",targetRole:"ally",allyMoveSlot:1,expectedTransform:true}}],
+      allyMoveSlot:1,expectedSetupHits:0,expectedTransform:true,expectedTargets:["defender"],expectedBasePower:150,expectedSpread:false,
+      typeRatios:{defender:4096}}],{moves:[889,33,144,150]},{level:100,moves:[889,150]},target);
+    add("mimic",[{id:"hits-before-user-rage-fist-registration",setupCommands:[
+      {slot:1,case:{id:"receive-hit-before-knowing-move",allyMoveSlot:0,allyTargetRole:"attacker"}},
+      {slot:0,case:{id:"learn-rage-fist-with-native-mimic",targetRole:"ally",allyMoveSlot:1}}],
+      allyMoveSlot:1,expectedSetupHits:1,expectedTargets:["defender"],expectedBasePower:100,expectedSpread:false}],
+      {moves:[102,150]},{level:1,moves:[889,150]},target);
+  } else if (name === "court-change") {
+    const empty:[Record<string,number>,Record<string,number>] = [{},{}];
+    add("empty",[{id:"no-side-conditions-fails",expectedNativeSuccess:false,expectedSideEffectsBefore:empty,expectedSideEffectsAfter:empty}]);
+    const screen = [{slot:1,case:{id:"put-up-reflect",allyMoveSlot:0,allyTargetRole:"ally" as BattleRole}}];
+    add("reflect",[{id:"reflect-moves-to-foes-with-remaining-duration",setupCommands:screen,allyMoveSlot:1,expectedNativeSuccess:true,
+      expectedSideEffectsBefore:[{"0":1},{}],expectedSideEffectsAfter:[{},{"0":1}],expectedSideSwap:true},
+      {id:"two-swaps-return-reflect-without-refresh",setupCommands:[...screen,{slot:0,case:{id:"first-swap",allyMoveSlot:1}}],allyMoveSlot:1,
+       expectedNativeSuccess:true,expectedSideEffectsBefore:[{},{"0":1}],expectedSideEffectsAfter:[{"0":1},{}],expectedSideSwap:true}],
+      {moves:[756,150]},{moves:[115,150]});
+    add("light-clay",[{id:"extended-screen-keeps-original-duration",setupCommands:screen,allyMoveSlot:1,expectedNativeSuccess:true,
+      expectedSideEffectsBefore:[{"0":1},{}],expectedSideEffectsAfter:[{},{"0":1}],expectedSideSwap:true}],{moves:[756,150]},
+      {moves:[115,150],itemId:269});
+    add("reflect-damage",[{id:"swapped-reflect-actually-protects-new-side",setupCommands:screen,allyMoveSlot:1,expectedNativeSuccess:true,
+      expectedSideEffectsBefore:[{"0":1},{}],expectedSideEffectsAfter:[{},{"0":1}],expectedSideSwap:true,
+      followup:{slot:2,moveId:33,power:50,category:1,type:0,case:{id:"tackle-newly-protected-foe",completeTurn:true,allyMoveSlot:1,
+        expectedTargets:["defender"],expectedBasePower:50,expectedSpread:false,expectedFinalDamageRatio:2703}}}],
+      {moves:[756,150,33]},{moves:[115,150]});
+    add("veil-damage",[{id:"swapped-veil-actually-protects-new-side",setupCommands:[{slot:1,case:{id:"hail",allyMoveSlot:1}},
+      {slot:1,case:{id:"veil",allyMoveSlot:0,allyTargetRole:"ally"}}],allyMoveSlot:2,expectedNativeSuccess:true,
+      expectedCustomSidesBefore:[{"15":1},{}],expectedCustomSidesAfter:[{},{"15":1}],
+      followup:{slot:2,moveId:33,power:50,category:1,type:0,case:{id:"tackle-veil-side",completeTurn:true,allyMoveSlot:2,
+        expectedTargets:["defender"],expectedBasePower:50,expectedSpread:false,expectedFinalDamageRatio:2703}}}],
+      {moves:[756,150,33],speciesId:471},{moves:[694,258,150],speciesId:362,itemId:269});
+    add("layers",[{id:"three-spikes-two-toxic-spikes-and-rocks-swap-without-damage",setupCommands:[
+      ...[0,0,0,1,1,2].map(allyMoveSlot=>({slot:1,case:{id:"lay-hazard",allyMoveSlot}}))],allyMoveSlot:3,expectedNativeSuccess:true,
+      expectedHealing:{attacker:0,ally:0,defender:0,defenderAlly:0},expectedSideEffectsBefore:[{},{"6":3,"7":2,"8":1}],
+      expectedSideEffectsAfter:[{"6":3,"7":2,"8":1},{}],expectedSideSwap:true}],{moves:[756,150]}, {moves:[191,390,446,150]});
+    for (const [move,id] of [[54,3],[219,2],[366,4],[381,5]]) {
+      add(`side-${id}`,[{id:`native-side-${id}-ownership-and-duration`,setupCommands:[{slot:1,case:{id:"native-side",allyMoveSlot:0,allyTargetRole:"ally"}}],allyMoveSlot:1,
+        expectedNativeSuccess:true,expectedSideEffectsBefore:[{[id]:1},{}],expectedSideEffectsAfter:[{},{[id]:1}],expectedSideSwap:true}],
+        {moves:[756,150]},{moves:[move,150]});
+    }
+    add("sticky-web",[{id:"sticky-web-custom-side-moves-without-active-stat-drop",setupCommands:[{slot:1,case:{id:"web",allyMoveSlot:0}}],
+      allyMoveSlot:1,expectedNativeSuccess:true,expectedSideSwap:true,expectedCustomSidesBefore:[{},{"14":1}],expectedCustomSidesAfter:[{"14":1},{}]}],{moves:[756,150]}, {moves:[564,150]});
+    add("aurora-veil",[{id:"custom-veil-keeps-remaining-duration",setupCommands:[{slot:1,case:{id:"hail",allyMoveSlot:1}},
+      {slot:1,case:{id:"veil",allyMoveSlot:0,allyTargetRole:"ally"}}],allyMoveSlot:2,expectedNativeSuccess:true,expectedSideSwap:true,
+      expectedCustomSidesBefore:[{"15":1},{}],expectedCustomSidesAfter:[{},{"15":1}]}],
+      {moves:[756,150],speciesId:471},{moves:[694,258,150],speciesId:362,itemId:269});
+  } else if (name === "teatime") {
+    const eaten = {expectedItems:{attacker:0,ally:0,defender:0,defenderAlly:0},
+      expectedConsumedItems:{attacker:155,ally:158,defender:149,defenderAlly:201},expectedNativeSuccess:true};
+    add("mixed",[{id:"four-berries-on-both-sides",hp:{attacker:100,ally:100},statuses:{defender:1},...eaten,
+      expectedHealing:{attacker:10},expectedQuarterHealing:["ally"],expectedStatuses:{defender:0},expectedStages:{defenderAlly:[7,6,6,6,6,6,6]}},
+      {id:"full-hp-and-no-status-still-consume",...eaten,expectedHealing:{attacker:0,ally:0},expectedStages:{defenderAlly:[7,6,6,6,6,6,6]}}],
+      {itemId:155},{itemId:158},{defenderItemId:149,defenderAllyItemId:201});
+    add("no-berries",[{id:"no-holder-fails",expectedNativeSuccess:false,expectedItems:{attacker:234,ally:0,defender:0,defenderAlly:0}}],{itemId:234});
+    add("unnerve",[{id:"unnerve-does-not-prevent-forced-consumption",hp:{attacker:100},expectedNativeSuccess:true,
+      expectedHealing:{attacker:10},expectedItems:{attacker:0},expectedConsumedItems:{attacker:155}}],{itemId:155},{},{defenderSpecies:248,abilityId:127});
+    add("magic-room",[{id:"magic-room-does-not-prevent-consumption",setupCommands:[{slot:1,case:{id:"room"}}],hp:{attacker:100},
+      expectedNativeSuccess:true,expectedHealing:{attacker:10},expectedItems:{attacker:0},expectedConsumedItems:{attacker:155}}],{itemId:155,moves:[752,478,150]});
+    add("embargo",[{id:"embargo-does-not-prevent-consumption",hp:{attacker:100},allyTargetRole:"attacker",expectedNativeSuccess:true,
+      expectedHealing:{attacker:10},expectedItems:{attacker:0},expectedConsumedItems:{attacker:155}}],{itemId:155},{level:100,moves:[373],abilityId:50});
+    add("substitute",[{id:"native-substitute-does-not-block-berry",expectedNativeSuccess:true,
+      expectedItems:{ally:0},expectedConsumedItems:{ally:158}}],{},{itemId:158,level:100,moves:[164]});
+    add("hiding",[{id:"flying-holder-is-not-consumed",expectedNativeSuccess:false,
+      expectedItems:{ally:155},expectedConsumedItems:{ally:0}}],{},{itemId:155,level:100,moves:[19]});
+    add("cheek-pouch",[{id:"forced-berry-triggers-cheek-pouch-once",hp:{attacker:60},expectedNativeSuccess:true,
+      expectedHealing:{attacker:68},expectedItems:{attacker:0},expectedConsumedItems:{attacker:155}}],{itemId:155,abilityId:167});
+    add("symbiosis",[{id:"donor-berry-transferred-and-not-eaten-twice",hp:{attacker:100},expectedNativeSuccess:true,
+      expectedHealing:{attacker:10},expectedItems:{attacker:158,ally:0},expectedConsumedItems:{attacker:155,ally:0}}],
+      {itemId:155},{abilityId:180,itemId:158});
+    add("volt-absorb",[{id:"electric-teatime-activates-volt-absorb-without-berry",hp:{defender:100},expectedResolvedType:12,
+      expectedNativeSuccess:false,expectedQuarterHealing:["defender"],expectedItems:{defender:0}}],{moves:[752,150]},
+      {level:100,moves:[569]},{defenderSpecies:134,abilityId:10});
+    add("lightning-rod",[{id:"electric-teatime-boosts-lightning-rod-without-berry",expectedNativeSuccess:false,expectedResolvedType:12,
+      expectedStages:{defender:[6,6,7,6,6,6,6]}}],{moves:[752,150]},{level:100,moves:[569]},{defenderSpecies:25,abilityId:31});
+    add("motor-drive",[{id:"electric-teatime-boosts-motor-drive-without-berry",expectedNativeSuccess:false,expectedResolvedType:12,
+      expectedStages:{defender:[6,6,6,6,7,6,6]}}],{moves:[752,150]},{level:100,moves:[569]},{defenderSpecies:466,abilityId:78});
+    add("electrify",[{id:"electrified-teatime-activates-volt-absorb",allyTargetRole:"attacker",hp:{defender:100},expectedResolvedType:12,
+      expectedNativeSuccess:false,expectedQuarterHealing:["defender"]}],{moves:[752,150]},
+      {level:100,moves:[582]},{defenderSpecies:134,abilityId:10});
+    add("absorber-berry",[{id:"absorption-retains-target-berry-but-other-holder-consumes",hp:{attacker:100,defender:100},expectedResolvedType:12,
+      expectedNativeSuccess:true,expectedQuarterHealing:["defender"],expectedHealing:{attacker:10},
+      expectedItems:{attacker:0,defender:155},expectedConsumedItems:{attacker:155,defender:0}}],{itemId:155,moves:[752,150]},
+      {level:100,moves:[569]},{defenderSpecies:134,abilityId:10,defenderItemId:155});
+    add("ground-type",[{id:"electric-teatime-still-consumes-ground-types-berry",expectedResolvedType:12,expectedNativeSuccess:true,
+      expectedItems:{defender:0},expectedConsumedItems:{defender:155}}],{moves:[752,150]},
+      {level:100,moves:[569]},{defenderSpecies:464,defenderItemId:155});
+  } else if (name === "doodle") {
+    add("normal",[{id:"copy-to-user-and-partner",expectedAbilities:{attacker:50,ally:50},expectedNativeSuccess:true},
+      {id:"repeat-copy-fails-without-reregistering",setupCommands:[{slot:0,case:{id:"first-copy",expectedAbilities:{attacker:50,ally:50}}}],expectedAbilities:{attacker:50,ally:50},expectedNativeSuccess:false}]);
+    add("one-matches",[{id:"matching-user-still-updates-partner",expectedAbilities:{attacker:50,ally:50},expectedNativeSuccess:true}],{abilityId:50},{abilityId:99});
+    add("both-match",[{id:"no-recipient-changes-fails",expectedAbilities:{attacker:50,ally:50},expectedNativeSuccess:false}],{abilityId:50});
+    add("protected-user",[{id:"protected-user-rejects-entire-transaction",expectedAbilities:{attacker:213,ally:50},expectedNativeSuccess:false}],{abilityId:213});
+    add("protected-partner",[{id:"protected-partner-does-not-partially-change-user",expectedAbilities:{attacker:99,ally:213},expectedNativeSuccess:false}],{}, {abilityId:213});
+    add("protected-target",[{id:"cannot-copy-multitype",expectedAbilities:{attacker:99,ally:50},expectedNativeSuccess:false}],{}, {},{defenderSpecies:493,abilityId:121});
+    add("receiver-target",[{id:"receiver-cannot-be-copied",expectedAbilities:{attacker:99,ally:50},expectedNativeSuccess:false}],{}, {},{defenderSpecies:766,abilityId:222});
+    add("receiver-recipient",[{id:"receiver-can-be-replaced",expectedAbilities:{attacker:50,ally:50},expectedNativeSuccess:true}],{abilityId:222},{abilityId:222});
+    add("custom-ability",[{id:"custom-ability-re-registers-both-allies",expectedAbilities:{attacker:169,ally:169},expectedNativeSuccess:true}],{}, {},{defenderSpecies:137,abilityId:169});
+  } else if (name === "decorate") {
     const boosted = [8,6,8,6,6,6,6];
     add("normal", [{id:"ally-attack-and-special-attack",targetRole:"ally",expectedStages:{ally:boosted}},
       {id:"capped-ally",targetRole:"ally",stages:{ally:[12,6,12,6,6,6,6]},expectedStages:{ally:[12,6,12,6,6,6,6]}}]);

@@ -17,6 +17,7 @@ import {
   usesFrostMoveExpansionLayout,
 } from "../pokeweb/moveExpansionPatch";
 import { decompileMoveAnimationBytes, parseMoveAnimationScript, remapMoveAnimationAssets, remapMoveAnimationParticleIds } from "../pokeweb/moveAnimationModel";
+import { parseSpaArchive } from "../pokeweb/nitroSpa";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 import { describe, expect, it, vi } from "vitest";
 
@@ -199,6 +200,31 @@ describe("Move Expansion patch", () => {
     expect(credits).toContain("Gen 9 move animations (moves 852-919): Log(n).");
   });
 
+  it("bundles half-speed Pyro Ball without the two rectangular impact layers", () => {
+    const bundle = loadMoveAnimationBundle();
+    const move = bundle.moves.find((entry) => entry.sourceMoveId === 780)!;
+    expect(move.targetMoveId).toBe(845);
+    const particle = bundle.particles.find((entry) => entry.sourceParticleId === 960)!;
+    const archive = parseSpaArchive(particle.bytes);
+    expect(archive.warnings).toEqual([]);
+    expect(archive.resources).toHaveLength(22);
+    expect(archive.textures).toHaveLength(14);
+    expect(archive.resources[0].particleLifeFrames).toBe(20);
+    expect(archive.resources[1].startDelayFrames).toBe(20);
+    expect(archive.resources[11].startDelayFrames).toBe(80);
+    expect(archive.resources[11].initVelAxisAmplifier).toBe(1);
+    expect(archive.resources[11].loopFrames).toBe(48);
+    // The old square-layer slots are now occupied by the retained sparks.
+    expect(archive.resources[19]).toMatchObject({ drawType: 1, emissionCount: 8 });
+    expect(archive.resources[20]).toMatchObject({ emissionCount: 3, startDelayFrames: 8 });
+    const commands = [...parseMoveAnimationScript(decompileMoveAnimationBytes(move.bytes)).scripts.values()].flat();
+    expect(commands[0].params[2]).toBe(24);
+    expect(commands.filter((command) => command.name === "Wait").map((command) => command.params[0])).toEqual([20, 20, 20, 20, 16, 12, 16, 20, 24]);
+    expect(commands.filter((command) => command.name === "PlaySound" && command.params[0] === 1475).map((command) => command.params[3])).toEqual([96, 112]);
+    const emitters = commands.filter((command) => command.name === "DoSPAAnimation").map((command) => command.params[1]);
+    expect([...emitters].sort((a, b) => a - b)).toEqual(Array.from({ length: 22 }, (_, index) => index));
+  });
+
   it("keeps panel, bundle, and per-move credits in sync without counting replaced imports", () => {
     const entries = unzipSync(new Uint8Array(readFileSync(new URL("../assets/data/white2upgradeGen6MoveAnimations.zip", import.meta.url))));
     const manifest = JSON.parse(new TextDecoder().decode(entries["manifest.json"]));
@@ -361,11 +387,42 @@ describe("Move Expansion patch", () => {
     expect(project.overlays[94]!.length).toBe(loader.length + 32);
     expect(project.patches?.arm9OverlayTable?.slice(44, 48)).toEqual(new Uint8Array(4));
     expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(false);
-    // A different command target must not trigger this narrowly scoped repair.
+    // A vanilla command overlay restored by old hydration is repairable.
     project.overlays[93] = command;
-    expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(false);
+    expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(true);
     command.set(COMMAND_CONTEXT, 0x37000 - 8);
     expect(applyMoveExpansionCommandHookToOverlay(command, "BW", 0x021b4000, 0, routing.commandHelperAddress)).toBeUndefined();
+  });
+
+  it.each(["BW", "BW2"] as const)("repairs partial %s routing without overwriting foreign hooks or helper code", (baseRom) => {
+    const { loader, command, hook } = routingFixture(baseRom);
+    const compact = planMoveExpansionRouting(loader, command, baseRom)!;
+    const patchedLoader = { ...loader, data: compact.loader.overlay, ramSize: compact.loader.overlay.length, bssSize: 0 };
+    for (const helperPresent of [false, true]) {
+      const partial = helperPresent ? compact.command.overlay.slice() : command.data.slice();
+      partial.set(ORIGINAL_COMMAND_HOOK, hook);
+      const repaired = planMoveExpansionRouting(patchedLoader, { ...command, data: partial }, baseRom)!;
+      expect(repaired.loader.status).toBe("already-applied");
+      expect(repaired.command.status).toBe("applied");
+      expect(repaired.command.overlay).toEqual(compact.command.overlay);
+      expect(repaired.loader.overlay).toEqual(compact.loader.overlay);
+    }
+    const occupied = command.data.slice();
+    occupied[occupied.length - 1] = 1;
+    expect(planMoveExpansionRouting(patchedLoader, { ...command, data: occupied }, baseRom)).toBeUndefined();
+    const foreign = compact.command.overlay.slice();
+    foreign[hook + 2] ^= 1;
+    expect(planMoveExpansionRouting(patchedLoader, { ...command, data: foreign }, baseRom)).toBeUndefined();
+    const table = new Uint8Array(64);
+    const ids = baseRom === "BW" ? [93, 94] : [167, 168];
+    [command, patchedLoader].forEach((overlay, index) => [ids[index], overlay.ramAddress, overlay.ramSize, overlay.bssSize]
+      .forEach((value, field) => writeU32(table, index * 32 + field * 4, value)));
+    const rom = { arm9OverlayTable: table, loadArm9Overlays: () => new Map() } as unknown as NintendoDSRom;
+    const project = { session: { baseRom }, overlays: { [ids[0]]: command.data, [ids[1]]: compact.loader.overlay } } as unknown as ProjectState;
+    expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(true);
+    expect(project.patches?.dirtyOverlayIds).toEqual([ids[0]]);
+    expect(project.overlays[ids[0]]).toEqual(compact.command.overlay);
+    expect(repairMoveExpansionOverlayLoadSize(project, rom)).toBe(false);
   });
 });
 

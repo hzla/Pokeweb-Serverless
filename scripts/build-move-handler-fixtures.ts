@@ -46,6 +46,7 @@ const definitions: Record<string, { id: number; type: number; power: number; cat
   "rising-voltage": { id: 804, type: 12, power: 70, category: 2, accuracy: 100 },
   "scale-shot": { id: 799, type: 15, power: 25, category: 1, accuracy: 90 },
   "triple-axel": { id: 813, type: 14, power: 20, category: 1, accuracy: 90 },
+  "population-bomb": { id: 860, type: 0, power: 20, category: 1, accuracy: 90 },
   "steel-beam": { id: 796, type: 8, power: 140, category: 2, accuracy: 95 },
   chloroblast: { id: 835, type: 11, power: 150, category: 2, accuracy: 95 },
   "steel-roller": { id: 798, type: 8, power: 130, category: 1, accuracy: 100 },
@@ -116,6 +117,7 @@ const hardPress = moveName === "hard-press", gravApple = moveName === "grav-appl
 const risingVoltage = moveName === "rising-voltage";
 const scaleShot = moveName === "scale-shot";
 const tripleAxel = moveName === "triple-axel";
+const populationBomb = moveName === "population-bomb";
 const hpCost = moveName === "steel-beam" || moveName === "chloroblast";
 const steelBeam = moveName === "steel-beam";
 const steelRoller = moveName === "steel-roller";
@@ -188,6 +190,7 @@ if (doublesSuite || coaching || direClaw || takeHeart || hpBoost || magicPowder 
 if (doublesSuite) probes.push({name:"ui_phase",address:0x021cf004,signature:"10b5041c6369"});
 if (doublesSuite) probes.push({name:"spread_ratio",address:0x021a5a26,signature:"9202071c9142"});
 if (moveName === "make-it-rain") probes.push({name:"bonus_money",address:0x021abf68,signature:"38b5051c68680c1c"});
+if (moveName === "court-change") probes.push({name:"side_factor",address:0x021bc75c,signature:"f8b5051c0e1c171c"});
 if (doublesSuite) {
   for (const [address,signature] of [
     [0x021a5a22,"04220d999202071c9142"],
@@ -220,7 +223,7 @@ if (storm || hydroSteam || energyCharge) probes.push(
 if (hydroSteam) probes.push(
   { name: "damage_weather", address: 0x021a5a3a, signature: "a17917f026fd011c012000038142" },
 );
-if (doublesSuite || storm || supercellSlam || scaleShot || tripleAxel || hpCost || steelRoller || iceSpinner || hazards || auraWheel || magicPowder || energyCharge || bindingMove || persistentMove || glaiveRush || corrosiveGas || consecutiveMove) probes.push(
+if (doublesSuite || storm || supercellSlam || scaleShot || tripleAxel || populationBomb || hpCost || steelRoller || iceSpinner || hazards || auraWheel || magicPowder || energyCharge || bindingMove || persistentMove || glaiveRush || corrosiveGas || consecutiveMove) probes.push(
   { name: "accuracy", address: 0x021a3544, signature: "f0b583b0061c0f1c151c1c1c" },
   { name: "accuracy_roll", address: 0x021a368e, signature: "642019f036fd2106090e8842" },
 );
@@ -329,7 +332,7 @@ if (detectBw2Upgrade(project) !== "white2-upgrade") throw new Error("Move suites
 // Read the native 36-byte record directly. The alignment word at byte 30 is
 // not move flags, and byte 11 is duration rather than the inflicted status.
 const move = new NARC(input.getFileByName("a/0/2/1")).files[moveId];
-if (!move || move.length !== 36 || move[0] !== definition.type || move[2] !== definition.category || move[3] !== definition.power || move[4] !== definition.accuracy || move[20] !== (definition.target ?? 0)) throw new Error(`Unexpected ${moveName} native metadata`);
+if (!move || move.length !== 36 || move[0] !== definition.type || move[2] !== definition.category || move[3] !== definition.power || move[4] !== definition.accuracy || move[20] !== (definition.target ?? 0)) throw new Error(`Unexpected ${moveName} native metadata: ${JSON.stringify(move && {length:move.length,type:move[0],category:move[2],power:move[3],accuracy:move[4],target:move[20]})}`);
 const moveView = new DataView(move.buffer, move.byteOffset, move.byteLength);
 if (coaching && (move[1] !== 13 || move.subarray(21,30).some(value => value !== 0) ||
     moveView.getUint32(32,true) !== (1 << 13))) throw new Error("Coaching requires one custom boost transaction, ally selection, Substitute bypass and no Protect/reflection/Snatch flags");
@@ -353,11 +356,12 @@ if (moveName === "sandsear-storm" && (moveView.getUint16(8, true) !== 4 || move[
 if (moveName === "wildbolt-storm" && (moveView.getUint16(8, true) !== 1 || move[10] !== 20)) throw new Error("Wildbolt Storm requires the native 20% paralysis chance");
 if (scaleShot && (move[1] !== 0 || move[7] !== 0x52 || move.subarray(21, 30).some(value => value !== 0))) throw new Error("Scale Shot requires native 2-5 hits without per-hit stat metadata");
 if (tripleAxel && (move[1] !== 0 || move[7] !== 0x33 || !(moveView.getUint32(32, true) & 1))) throw new Error("Triple Axel requires three physical contact strikes");
+if (populationBomb && (move[1] !== 0 || move[7] !== 0xaa || !(moveView.getUint32(32, true) & 1))) throw new Error("Population Bomb requires ten physical contact strikes");
 if (hpCost && (move[1] !== 0 || move[18] !== 0 || move.subarray(21, 30).some(value => value !== 0))) throw new Error("Maximum-HP cost moves require ordinary damage without ordinary recoil or stat metadata");
 if (hazards && (move[14] !== 0 || !(moveView.getUint32(32, true) & (1 << 17)) || !(moveView.getUint32(32, true) & 1))) throw new Error("Damaging hazards require normal critical stage, contact and slicing");
 // The deliberately low-level player is slower than the target. This lets
 // native Protect/Substitute finish before the tested move, without AI forcing.
-const player = { speciesId: auraWheel ? 877 : 151, form: 0, abilityId: tripleAxel || hpCost ? 50 : storm || supercellSlam ? 28 : 99, level: ruination ? 5 : 50, nature: 0,
+const player = { speciesId: auraWheel ? 877 : 151, form: 0, abilityId: tripleAxel || populationBomb || hpCost ? 50 : storm || supercellSlam ? 28 : 99, level: ruination ? 5 : 50, nature: 0,
   moves: ruination ? [moveId] : damageShield ? [moveId, 150, 182, 164] : magicPowder ? [moveId, 571, 567, 373] : auraWheel ? [moveId, 144, 182, 150] : takeHeart ? [moveId, 150, 164, 182] : direClaw ? [moveId, 77, 261, 182] : barb ? [moveId, 261, 92, 77] : gravApple ? [moveId, 356, 182] : psyblade ? [moveId, 604, 432, 182] : risingVoltage ? [moveId, 604, 356, 580] : steelRoller ? [moveId, 604, 875, 432] : hazards ? [moveId, 191, 446, 182] : electro ? [moveId, 571, 182] : poltergeist ? [moveId, 282, 373, 478] : grassyGlide ? [moveId, 580, 432, 678] : storm ? [moveId, 240, 241, 182] : [moveId, 182], itemId: 0 };
 const saveConfig = getTestBattleConfig("BW2", { white2Upgrade: true });
 const saveDefinitions: { file: string; player: HarnessPokemon; benchPlayer?: HarnessPokemon; allyPlayer?: HarnessPokemon; battleType?: "Singles" | "Doubles" }[] = doublesSuite ? focusedDoubles.map(variant => ({file:variant.save,player:variant.player,allyPlayer:variant.allyPlayer,battleType:"Doubles"})) : coaching ? [
@@ -457,6 +461,11 @@ const saveDefinitions: { file: string; player: HarnessPokemon; benchPlayer?: Har
   { file: "battle-contrary.sav", player: { ...player, abilityId: 126 } },
   { file: "battle-sheerforce.sav", player: { ...player, abilityId: 125 } },
   { file: "battle-miss.sav", player: { ...player, abilityId: 28 } },
+] : populationBomb ? [
+  { file: "battle.sav", player },
+  { file: "battle-skilllink.sav", player: { ...player, abilityId: 92 } },
+  { file: "battle-technician.sav", player: { ...player, abilityId: 101 } },
+  { file: "battle-parentalbond.sav", player: { ...player, abilityId: 185 } },
 ] : tripleAxel ? [
   { file: "battle.sav", player },
   { file: "battle-skilllink.sav", player: { ...player, abilityId: 92 } },
@@ -618,7 +627,7 @@ type Variant = { name: string; trainerId: number; abilityId: number; trainerMove
   moveId?: number;
   playerAbilityId: number; save: string; cases: MoveCase[]; defenderSpecies?: number;
   playerSpecies?: number; playerForm?: number; defenderForm?: number;
-  incomingSpecies?: number; bench?: boolean; benchMove?: number; defenderItemId?: number; defenderLevel?: number;
+  incomingSpecies?: number; bench?: boolean; benchMove?: number; defenderItemId?: number; defenderAllyItemId?: number; defenderLevel?: number;
   incomingAttackerSpecies?: number; abilitySlot?: 1 | 2 };
 const variants: Variant[] = doublesSuite ? focusedDoubles : coaching ? [
   { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 99, allyAbilityId: 50, save: "battle-ally-50.sav", cases: [
@@ -1662,6 +1671,43 @@ const variants: Variant[] = doublesSuite ? focusedDoubles : coaching ? [
     { id: "sheer-force-no-gravity", expectedPowers: [80], effectivePowers: [104], expectedDefenseStage: 6 },
     { id: "sheer-force-gravity", setupSlot: 1, expectedPowers: [120], effectivePowers: [156], expectedDefenseStage: 6 },
   ] },
+] : populationBomb ? [
+  { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "ten-strikes", accuracyDraws: [...Array(10).fill(89),99], expectedPowers: Array(10).fill(20) },
+    { id: "first-strike-miss", accuracyDraws: [90], blocked: true },
+    { id: "second-strike-miss", accuracyDraws: [89,90], expectedPowers: [20] },
+    { id: "seventh-strike-miss", accuracyDraws: [...Array(6).fill(89),90], expectedPowers: Array(6).fill(20) },
+    { id: "first-strike-ko", accuracyDraws: [0], currentHp: 1, allowFaint: true, expectedPowers: [20] },
+  ] },
+  { name: "skill-link", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 92, save: "battle-skilllink.sav", cases: [
+    { id: "ten-strikes-one-check", accuracyDraws: [89], expectedPowers: Array(10).fill(20) },
+    { id: "skill-link-first-check-miss", accuracyDraws: [90], blocked: true },
+  ] },
+  { name: "technician", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 101, save: "battle-technician.sav", cases: [
+    { id: "technician-all-strikes", accuracyDraws: [...Array(10).fill(0),99], expectedPowers: Array(10).fill(20), effectivePowers: Array(10).fill(30) },
+  ] },
+  { name: "parental-bond", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 185, save: "battle-parentalbond.sav", cases: [
+    { id: "no-eleventh-strike", accuracyDraws: [...Array(10).fill(0),99], expectedPowers: Array(10).fill(20) },
+  ] },
+  { name: "protect", trainerId: 2, abilityId: 50, trainerMove: 182, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "protect-stops-sequence", accuracyDraws: [], blocked: true },
+  ] },
+  { name: "ghost", trainerId: 3, abilityId: 50, defenderSpecies: 94, trainerMove: 150, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "ghost-immunity", accuracyDraws: [], blocked: true },
+  ] },
+  { name: "substitute", trainerId: 4, abilityId: 50, trainerMove: 164, defenderSpecies: 291, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "break-substitute-then-hp", accuracyDraws: Array(10).fill(0), expectedPowers: Array(10).fill(20), substitute: true, allowFaint: true },
+  ] },
+  { name: "helmet", trainerId: 5, abilityId: 50, trainerMove: 150, defenderItemId: 540, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "per-contact-recoil", accuracyDraws: [0,0,0,90], expectedPowers: [20,20,20], contactCostDivisor: 6 },
+    { id: "contact-ko-stops-sequence", accuracyDraws: [0], userCurrentHp: 1, expectedPowers: [20], contactCostDivisor: 6 },
+  ] },
+  { name: "rough-skin", trainerId: 6, abilityId: 24, trainerMove: 150, defenderSpecies: 531, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "per-contact-ability", accuracyDraws: [0,0,0,90], expectedPowers: [20,20,20], contactCostDivisor: 8 },
+  ] },
+  { name: "focus-sash", trainerId: 7, abilityId: 50, trainerMove: 150, defenderLevel: 1, defenderItemId: 275, playerAbilityId: 50, save: "battle.sav", cases: [
+    { id: "sash-does-not-stop-later-strike", accuracyDraws: [0,0], expectedPowers: [20,20], allowFaint: true },
+  ] },
 ] : tripleAxel ? [
   { name: "normal", trainerId: 1, abilityId: 50, trainerMove: 150, playerAbilityId: 50, save: "battle.sav", cases: [
     { id: "three-increasing-strikes", accuracyDraws: [89, 89, 89, 99], expectedPowers: [20, 40, 60] },
@@ -2116,7 +2162,7 @@ if (auraWheel) for (const variant of variants) {
 if (hazards) for (const variant of variants) for (const test of variant.cases) {
   if (test.expectedPowers) test.damageRatios = test.expectedPowers.map(() => 4096);
 }
-if (tripleAxel || hpCost) for (const variant of variants) for (const test of variant.cases) {
+if (tripleAxel || populationBomb || hpCost) for (const variant of variants) for (const test of variant.cases) {
   test.ppSpent ??= 1;
   if (hpCost) test.accuracyRoll ??= 0;
   if (test.expectedPowers) test.damageRatios = test.expectedPowers.map(() => 4096);
@@ -2147,7 +2193,7 @@ for (const variant of variants) {
   ai: 0, team: [
     { speciesId: variant.defenderSpecies ?? 143, form: variant.defenderForm ?? 0, level: variant.defenderLevel ?? 50, itemId: variant.defenderItemId ?? 0, moves: [variant.trainerMove], abilityId: variant.abilityId, abilitySlot: variant.abilitySlot ?? (variant.abilityId === 25 || variant.abilityId === 29 ? 2 : 1) },
     ...(variant.bench ? [{ speciesId: variant.incomingSpecies!, level: 50, itemId: 0, moves: [variant.benchMove ?? 150], abilityId: variant.abilityId, abilitySlot: 1 as const }] : []),
-    ...(variant.battleType === "Doubles" ? [{ speciesId: variant.defenderAllySpecies!, level: variant.defenderAllyLevel ?? 50, moves: [variant.defenderAllyMove ?? 150], abilityId: variant.defenderAllyAbilityId!, abilitySlot: 1 as const }] : []),
+    ...(variant.battleType === "Doubles" ? [{ speciesId: variant.defenderAllySpecies!, level: variant.defenderAllyLevel ?? 50, itemId: variant.defenderAllyItemId ?? 0, moves: [variant.defenderAllyMove ?? 150], abilityId: variant.defenderAllyAbilityId!, abilitySlot: 1 as const }] : []),
   ],
 } });
 }
@@ -2184,7 +2230,7 @@ for (const { file } of saveDefinitions) saves.push({ file, sha256: hash(new Uint
 await writeFile(resolve(directory, "suite.json"), JSON.stringify({
   format: "pokeweb-focused-move-1", move: moveName, moveId, battleType: coaching || doublesSuite ? "Doubles" : "Singles", battleAnimationsEnabled: false,
   inputRomSha256: hash(bytes), inputSaveSha256: hash(inputSave), coreSha256: coreHash,
-  sideState: hazards || tidyUp || ragingBull || moveName === "mortal-spin" ? { base: 0x0689e960, sideStride: 0xe0, effectStride: 16, countOffset: 12, effects: ragingBull ? [0,1] : tidyUp || moveName === "mortal-spin" ? [0,1,6,7,8] : [6,8] } : undefined,
+  sideState: hazards || tidyUp || ragingBull || moveName === "mortal-spin" || moveName === "court-change" ? { base: 0x0689e960, sideStride: 0xe0, effectStride: 16, countOffset: 12, effects: moveName === "court-change" ? Array.from({length:14},(_,id)=>id) : ragingBull ? [0,1] : tidyUp || moveName === "mortal-spin" ? [0,1,6,7,8] : [6,8] } : undefined,
   harnessSha256: receipt.dllSha256, harnessCpuChecks: receipt.verification.cpuChecks,
   rom: { file: "battle.nds", sha256: hash(rom) }, saves, probes, variants: variantsWithPatches,
 }, null, 2) + "\n", { flag: "wx" });

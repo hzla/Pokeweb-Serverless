@@ -31,6 +31,14 @@ describe("code-injection design credits", () => {
 });
 
 describe("code-injection patch categories", () => {
+  it.each(["W2", "B2"] as const)("offers the EV option by default on the %s Summary card", version => {
+    const card = renderFixture(version).match(/<section class="code-injection-panel">[\s\S]*?<\/section>/g)
+      ?.find(html => html.includes("<h2>Summary IV/EV Viewer</h2>"));
+    expect(card).toContain("Include EV view");
+    expect(card).toMatch(/id="summary-stat-evs" checked/u);
+    expect(card).toContain("Install Summary IV/EV Viewer");
+  });
+
   it("places every patch in its functional tab and keeps PMC in the sidebar", () => {
     const html = renderFixture("W2");
     const headings = (section: string) => [...section.matchAll(/<h2>([^<]+)<\/h2>/g)].map(match => match[1]);
@@ -49,7 +57,7 @@ describe("code-injection patch categories", () => {
       "PWAN GIF Support", "Trainer PWAN GIF Support", "Overworld Weather Runtime", "Trainer Battle Log",
     ]);
     expect(headings(panels[1])).toEqual([
-      "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview",
+      "Summary IV/EV Viewer", "Enhanced Party Menu and Battle Log Integration", "Type Icons", "Learnset Viewer", "Move Effectiveness Preview",
     ]);
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle"]);
     expect(headings(panels[3])).toEqual([
@@ -67,7 +75,7 @@ describe("code-injection patch categories", () => {
     expect(html).not.toContain("Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.");
     expect(html).not.toContain("Patch DLLs are staged in patches/. Library DLLs are staged in lib/.");
     const actionNotes = [...html.matchAll(/<div class="code-injection-note" id="[^"]+-note" aria-live="polite">([\s\S]*?)<\/div>/g)];
-    expect(actionNotes).toHaveLength(19);
+    expect(actionNotes).toHaveLength(20);
     expect(actionNotes.every((match) => match[1] === "")).toBe(true);
   });
 });

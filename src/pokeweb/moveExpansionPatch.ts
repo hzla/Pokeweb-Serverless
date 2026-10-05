@@ -597,7 +597,13 @@ export function planMoveExpansionRouting(loader: RoutingOverlay, command: Routin
   const existingCommandAddress = decodeThumbBlTarget(command.data, hook, command.ramAddress + hook);
   if (command.data[commandOffset - 1] !== 0 || loader.data[visualOffset - 1] !== 0) return undefined;
   if (compact) {
-    if (existingCommandAddress !== commandAddress || !matchesSequence(command.data, commandTemplate, commandOffset)) return undefined;
+    // Older project hydration could restore the vanilla command overlay while
+    // retaining the compact loader. Repair only pristine or exact helper bytes.
+    const originalHook = matchesSequence(command.data, ORIGINAL_COMMAND_HOOK, hook);
+    const exactHelper = matchesSequence(command.data, commandTemplate, commandOffset);
+    const emptyHelper = command.data.slice(commandOffset).every((byte) => byte === 0);
+    if (existingCommandAddress !== commandAddress && !originalHook) return undefined;
+    if (!exactHelper && !emptyHelper) return undefined;
   } else {
     if (!command.data.slice(commandOffset).every((byte) => byte === 0) ||
         !loader.data.slice(visualOffset, end).every((byte) => byte === 0)) return undefined;
@@ -1172,8 +1178,8 @@ function detectCompleteMoveExpansionRouting(
   return hookOffset !== undefined && isThumbBl(commandOverlay, hookOffset) ? "patched" : "unpatched";
 }
 
-/** Migrate recognized appended helpers without expanding the native RAM footprint.
- * Runs on ordinary export too, including ROMs whose old helpers already load.
+/** Repair recognized partial installs and migrate appended helpers without RAM growth.
+ * Runs on ordinary export too, including Test In Game exports.
  */
 export function repairMoveExpansionOverlayLoadSize(project: ProjectState, rom: NintendoDSRom): boolean {
   const baseRom = project.session.baseRom;

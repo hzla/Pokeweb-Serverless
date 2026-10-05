@@ -1,0 +1,955 @@
+{
+  "version": "1.0.1",
+  "configMagic": "5353564346473100",
+  "previousVersions": [
+    {
+      "version": "1.0.0",
+      "games": {
+        "W2": {
+          "codeFingerprint": "ab6cf969",
+          "bssSize": 108,
+          "hooks": [
+            {
+              "module": "207",
+              "address": 35345190
+            },
+            {
+              "module": "207",
+              "address": 35345234
+            },
+            {
+              "module": "207",
+              "address": 35337082
+            },
+            {
+              "module": "207",
+              "address": 35340346
+            },
+            {
+              "module": "207",
+              "address": 35340356
+            },
+            {
+              "module": "207",
+              "address": 35340306
+            },
+            {
+              "module": "207",
+              "address": 35360718
+            },
+            {
+              "module": "207",
+              "address": 35360692
+            },
+            {
+              "module": "207",
+              "address": 35360776
+            },
+            {
+              "module": "207",
+              "address": 35360078
+            },
+            {
+              "module": "207",
+              "address": 35338086
+            },
+            {
+              "module": "207",
+              "address": 35360652
+            },
+            {
+              "module": "207",
+              "address": 35360830
+            },
+            {
+              "module": "207",
+              "address": 35360924
+            },
+            {
+              "module": "207",
+              "address": 35361018
+            },
+            {
+              "module": "207",
+              "address": 35361112
+            },
+            {
+              "module": "207",
+              "address": 35361206
+            }
+          ]
+        },
+        "B2": {
+          "codeFingerprint": "ef790f2f",
+          "bssSize": 108,
+          "hooks": [
+            {
+              "module": "207",
+              "address": 35345126
+            },
+            {
+              "module": "207",
+              "address": 35345170
+            },
+            {
+              "module": "207",
+              "address": 35337018
+            },
+            {
+              "module": "207",
+              "address": 35340282
+            },
+            {
+              "module": "207",
+              "address": 35340292
+            },
+            {
+              "module": "207",
+              "address": 35340242
+            },
+            {
+              "module": "207",
+              "address": 35360654
+            },
+            {
+              "module": "207",
+              "address": 35360628
+            },
+            {
+              "module": "207",
+              "address": 35360712
+            },
+            {
+              "module": "207",
+              "address": 35360014
+            },
+            {
+              "module": "207",
+              "address": 35338022
+            },
+            {
+              "module": "207",
+              "address": 35360588
+            },
+            {
+              "module": "207",
+              "address": 35360766
+            },
+            {
+              "module": "207",
+              "address": 35360860
+            },
+            {
+              "module": "207",
+              "address": 35360954
+            },
+            {
+              "module": "207",
+              "address": 35361048
+            },
+            {
+              "module": "207",
+              "address": 35361142
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "games": {
+    "W2": {
+      "idCode": "IRDO",
+      "fileName": "SummaryStatViewerW2.dll",
+      "codeFingerprint": "0bc8c571",
+      "bssSize": 108,
+      "sha256": "4f6f2a7454f1043c3b031d8aa9020cd8d8e782d9078e6bc0fda18d071791e3c5",
+      "signatures": [
+        {
+          "label": "SummaryInit",
+          "module": "207",
+          "address": 35345190,
+          "expectedHex": "fdf74bfe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryEnd",
+          "module": "207",
+          "address": 35345234,
+          "expectedHex": "fdf721ff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTick",
+          "module": "207",
+          "address": 35337082,
+          "expectedHex": "6ef675fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryKeys",
+          "module": "207",
+          "address": 35340346,
+          "expectedHex": "00f007f8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTouch",
+          "module": "207",
+          "address": 35340356,
+          "expectedHex": "00f0ecf8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryHit",
+          "module": "207",
+          "address": 35340306,
+          "expectedHex": "89f611fd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlash",
+          "module": "207",
+          "address": 35360718,
+          "expectedHex": "fbf799ff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryHp",
+          "module": "207",
+          "address": 35360692,
+          "expectedHex": "fcf764f8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryMaxHp",
+          "module": "207",
+          "address": 35360776,
+          "expectedHex": "fcf73af8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTitle",
+          "module": "207",
+          "address": 35360078,
+          "expectedHex": "8cf6d7fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTitleChars",
+          "module": "207",
+          "address": 35338086,
+          "expectedHex": "97f635fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35360652,
+          "expectedHex": "63f6cafe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35360830,
+          "expectedHex": "63f671fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35360924,
+          "expectedHex": "63f642fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35361018,
+          "expectedHex": "63f613fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35361112,
+          "expectedHex": "63f6e4fd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35361206,
+          "expectedHex": "63f6b5fd",
+          "patchSize": 4
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35336128,
+          "expectedHex": "f8b5051ca8689722",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35336600,
+          "expectedHex": "38b5051c686887f6",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35342864,
+          "expectedHex": "10b5041c012100f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35340364,
+          "expectedHex": "70b5051c89f68eff",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35340832,
+          "expectedHex": "70b5041c616a0729",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344132,
+          "expectedHex": "70b582b0051c081c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344512,
+          "expectedHex": "78b583b0051c081c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33866932,
+          "expectedHex": "10b5041c5a300180",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33866064,
+          "expectedHex": "036e034ac9071a40",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33866300,
+          "expectedHex": "0a8849888281c181",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33864580,
+          "expectedHex": "18b40a1c07498001",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33866768,
+          "expectedHex": "38b50c1c051c201c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33866036,
+          "expectedHex": "10b5041ca068211c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33865668,
+          "expectedHex": "70b5051c00f0c2fb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33864120,
+          "expectedHex": "70b52a4c85014326",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33863912,
+          "expectedHex": "f0b589b0071c2e48",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33864420,
+          "expectedHex": "f8b5051c06980e1c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33865544,
+          "expectedHex": "f8b582b0061c0192",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33865836,
+          "expectedHex": "f8b58cb003901420",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33867084,
+          "expectedHex": "036e034ac9071a40",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33579604,
+          "expectedHex": "0021014bc9431847",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33692264,
+          "expectedHex": "f8b586b0051c0020",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33808240,
+          "expectedHex": "08b5fff7c7f9fff7",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33806904,
+          "expectedHex": "10b5041cfff762fc",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33672484,
+          "expectedHex": "70b5051c0c1c161c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33861076,
+          "expectedHex": "38b51c1c04ab151c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33837228,
+          "expectedHex": "38b5084c25682c24",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33838336,
+          "expectedHex": "78b587b02c244443",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35361460,
+          "expectedHex": "63f636fd",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35361474,
+          "expectedHex": "63f62ffd",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35368900,
+          "expectedHex": "a8c00028a8c02850a8c05078a8c07890a8c090a8a8c0a8c0a8c0c8e0a8c0e800ff000000",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35343514,
+          "expectedHex": "a06b002812d1a068407b02280ed05f25ad0060590121012697f64dfa206c002800d109e0281d2058311c08e05f25ad006059002197f63ffa281d2058002197f63afa",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35360592,
+          "expectedHex": "f0b58fb0051c0c1cfbf760ff70210022039063f6dffe071c0126f120009680010190e16d281c6e22",
+          "patchSize": 0
+        }
+      ],
+      "resources": [
+        {
+          "member": 5,
+          "sha256": "6b48c4e726d0493cc1ef7c7db68ebd58810dda3de8a344c30ab5ea4a798d35c1"
+        },
+        {
+          "member": 11,
+          "sha256": "3176478f72f7518a83f3ab50809c37798fc4ba1a4b631112f3e27193d2045ef7"
+        },
+        {
+          "member": 13,
+          "sha256": "8d32d0c4a961d07e5212c769a7e38a710b19f07ef35b764d0f6319a9492febca"
+        },
+        {
+          "member": 67,
+          "sha256": "3c52b555cbca9862a6f5948eada1c193dfd874e530b992fc9dbdf12293f3afd1"
+        },
+        {
+          "member": 71,
+          "sha256": "b639e8c95946a4c020f29e9eb559bae3407f237edbf41f32ec5a24ebaad36f84"
+        },
+        {
+          "member": 77,
+          "sha256": "4726c41fbed6e3fd0a8709424248cf045b9a98f37ee5f8869744748ae93991b0"
+        },
+        {
+          "member": 78,
+          "sha256": "53aa4920a943de108578fd2d143fcd28153ee348cad648600d90b4a12e9ddc1b"
+        },
+        {
+          "member": 80,
+          "sha256": "f997f43098660f0078fe87ef58486097e2dfa687c23080890a71e92f7a61d3be"
+        },
+        {
+          "member": 131,
+          "sha256": "e1c158d39344cc4bde047802049b1e679517ecfc7357d4e1fdad747f9536a0fa"
+        }
+      ]
+    },
+    "B2": {
+      "idCode": "IREO",
+      "fileName": "SummaryStatViewerB2.dll",
+      "codeFingerprint": "6e409897",
+      "bssSize": 108,
+      "sha256": "d7e0e3abdf5f0237bf92b97f31765e05893dce08434eff75d8fb1b4f815331ce",
+      "signatures": [
+        {
+          "label": "SummaryInit",
+          "module": "207",
+          "address": 35345126,
+          "expectedHex": "fdf74bfe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryEnd",
+          "module": "207",
+          "address": 35345170,
+          "expectedHex": "fdf721ff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTick",
+          "module": "207",
+          "address": 35337018,
+          "expectedHex": "6ef67ffb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryKeys",
+          "module": "207",
+          "address": 35340282,
+          "expectedHex": "00f007f8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTouch",
+          "module": "207",
+          "address": 35340292,
+          "expectedHex": "00f0ecf8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryHit",
+          "module": "207",
+          "address": 35340242,
+          "expectedHex": "89f61bfd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlash",
+          "module": "207",
+          "address": 35360654,
+          "expectedHex": "fbf799ff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryHp",
+          "module": "207",
+          "address": 35360628,
+          "expectedHex": "fcf764f8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryMaxHp",
+          "module": "207",
+          "address": 35360712,
+          "expectedHex": "fcf73af8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTitle",
+          "module": "207",
+          "address": 35360014,
+          "expectedHex": "8cf6e1fb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTitleChars",
+          "module": "207",
+          "address": 35338022,
+          "expectedHex": "97f63ffb",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35360588,
+          "expectedHex": "63f6d4fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35360766,
+          "expectedHex": "63f67bfe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35360860,
+          "expectedHex": "63f64cfe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35360954,
+          "expectedHex": "63f61dfe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35361048,
+          "expectedHex": "63f6eefd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "207",
+          "address": 35361142,
+          "expectedHex": "63f6bffd",
+          "patchSize": 4
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35336064,
+          "expectedHex": "f8b5051ca8689722",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35336536,
+          "expectedHex": "38b5051c686887f6",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35342800,
+          "expectedHex": "10b5041c012100f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35340300,
+          "expectedHex": "70b5051c89f698ff",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35340768,
+          "expectedHex": "70b5041c616a0729",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344068,
+          "expectedHex": "70b582b0051c081c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "207",
+          "address": 35344448,
+          "expectedHex": "78b583b0051c081c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33866888,
+          "expectedHex": "10b5041c5a300180",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33866020,
+          "expectedHex": "036e034ac9071a40",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33866256,
+          "expectedHex": "0a8849888281c181",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33864536,
+          "expectedHex": "18b40a1c07498001",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33866724,
+          "expectedHex": "38b50c1c051c201c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33865992,
+          "expectedHex": "10b5041ca068211c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33865624,
+          "expectedHex": "70b5051c00f0c2fb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33864076,
+          "expectedHex": "70b52a4c85014326",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33863868,
+          "expectedHex": "f0b589b0071c2e48",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33864376,
+          "expectedHex": "f8b5051c06980e1c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33865500,
+          "expectedHex": "f8b582b0061c0192",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33865792,
+          "expectedHex": "f8b58cb003901420",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33867040,
+          "expectedHex": "036e034ac9071a40",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33579560,
+          "expectedHex": "071c094af9000020",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33692220,
+          "expectedHex": "f8b586b0051c0020",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33808196,
+          "expectedHex": "08b5fff7c7f9fff7",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33806860,
+          "expectedHex": "10b5041cfff762fc",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33672440,
+          "expectedHex": "70b5051c0c1c161c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33861032,
+          "expectedHex": "38b51c1c04ab151c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33837184,
+          "expectedHex": "38b5084c25682c24",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33838292,
+          "expectedHex": "78b587b02c244443",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35361396,
+          "expectedHex": "63f640fd",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35361410,
+          "expectedHex": "63f639fd",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35368836,
+          "expectedHex": "a8c00028a8c02850a8c05078a8c07890a8c090a8a8c0a8c0a8c0c8e0a8c0e800ff000000",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35343450,
+          "expectedHex": "a06b002812d1a068407b02280ed05f25ad0060590121012697f657fa206c002800d109e0281d2058311c08e05f25ad006059002197f649fa281d2058002197f644fa",
+          "patchSize": 0
+        },
+        {
+          "label": "Summary layout",
+          "module": "207",
+          "address": 35360528,
+          "expectedHex": "f0b58fb0051c0c1cfbf760ff70210022039063f6e9fe071c0126f120009680010190e16d281c6e22",
+          "patchSize": 0
+        }
+      ],
+      "resources": [
+        {
+          "member": 5,
+          "sha256": "6b48c4e726d0493cc1ef7c7db68ebd58810dda3de8a344c30ab5ea4a798d35c1"
+        },
+        {
+          "member": 11,
+          "sha256": "3176478f72f7518a83f3ab50809c37798fc4ba1a4b631112f3e27193d2045ef7"
+        },
+        {
+          "member": 13,
+          "sha256": "8d32d0c4a961d07e5212c769a7e38a710b19f07ef35b764d0f6319a9492febca"
+        },
+        {
+          "member": 67,
+          "sha256": "3c52b555cbca9862a6f5948eada1c193dfd874e530b992fc9dbdf12293f3afd1"
+        },
+        {
+          "member": 71,
+          "sha256": "b639e8c95946a4c020f29e9eb559bae3407f237edbf41f32ec5a24ebaad36f84"
+        },
+        {
+          "member": 77,
+          "sha256": "4726c41fbed6e3fd0a8709424248cf045b9a98f37ee5f8869744748ae93991b0"
+        },
+        {
+          "member": 78,
+          "sha256": "53aa4920a943de108578fd2d143fcd28153ee348cad648600d90b4a12e9ddc1b"
+        },
+        {
+          "member": 80,
+          "sha256": "f997f43098660f0078fe87ef58486097e2dfa687c23080890a71e92f7a61d3be"
+        },
+        {
+          "member": 131,
+          "sha256": "e1c158d39344cc4bde047802049b1e679517ecfc7357d4e1fdad747f9536a0fa"
+        }
+      ]
+    }
+  }
+}

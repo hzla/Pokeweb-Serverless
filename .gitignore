@@ -50,3 +50,4 @@ src/test/local/
 !/scripts/build-move-handler-fixtures.ts
 !/scripts/move-handler-doubles-fixtures.ts
 !/scripts/test-move-handlers.py
+!/scripts/verify-summary-stat-viewer-install.ts

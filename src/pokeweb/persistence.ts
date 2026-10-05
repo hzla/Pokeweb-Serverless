@@ -240,15 +240,19 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   for (const overlayId of project.patches?.dirtyOverlayIds ?? []) {
     if (!project.overlays[overlayId] || project.overlays[overlayId]?.length === 0) overlayIds.push(overlayId);
   }
-  if (overlayIds.length > 0) {
-    const overlays = rom.loadArm9Overlays([...new Set(overlayIds)]);
-    for (const [id, overlay] of overlays) project.overlays[id] = overlay.data;
-  }
+  hydrateMissingOverlays(project, rom, overlayIds);
 
   hydrateOverlayBackedStore(project, "grotto_odds", 36);
   hydrateOverlayBackedStore(project, "tutor_moves", BW2_TUTOR_MOVE_OVERLAY_ID);
   hydrateOverlayBackedStore(project, "move_effects_table", moveEffectOverlayId);
   hydrateOverlayBackedStore(project, "type_chart", chartOverlayId);
+}
+
+export function hydrateMissingOverlays(project: ProjectState, rom: NintendoDSRom, overlayIds: number[]): void {
+  // Overlay-backed tables can request overlays that already contain saved patches.
+  const missingIds = [...new Set(overlayIds)].filter((id) => !project.overlays[id]?.length);
+  if (missingIds.length === 0) return;
+  for (const [id, overlay] of rom.loadArm9Overlays(missingIds)) project.overlays[id] = overlay.data;
 }
 
 export function hydrateNarcRawFiles(
