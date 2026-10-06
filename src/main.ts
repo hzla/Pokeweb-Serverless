@@ -85,6 +85,7 @@ import { renderDocGenerators } from "./ui/docGenerators";
 import { renderMastersheetEditor } from "./ui/mastersheetEditor";
 import { renderRandomizerEditor } from "./ui/randomizerEditor";
 import { repairReasonLabel, repairRomNarcs, romHeaderRepairReasonLabel, type RomRepairResult } from "./pokeweb/romRepairModel";
+import { attachDsiRomRepairCard, renderDsiRomRepairCard } from "./ui/dsiRomRepair";
 import {
   clearChangelogTabs as clearSharedChangelogTabs,
   downloadTextFile as downloadSharedTextFile,
@@ -1353,10 +1354,12 @@ async function downloadRom(frostCompatibility = false): Promise<void> {
       link.textContent = "Building...";
     }
     exportLinks.forEach((item) => item.classList.add("disabled"));
-    const bytes = await exportModifiedRom(project, { frostCompatibility });
+    const warnings: string[] = [];
+    const bytes = await exportModifiedRom(project, { frostCompatibility, onWarning: (warning) => warnings.push(warning.message) });
     if (bytes.length === 0) throw new Error("Export produced an empty ROM. No file was written.");
     const blob = bytesBlob(bytes, "application/octet-stream");
     await saveActiveProject(project);
+    if (warnings.length) window.alert(`Export warning\n\n${[...new Set(warnings)].join("\n\n")}`);
     const saveHandle = await chooseRomSaveTargetForPreparedDownload(filename);
     if (saveHandle === null) return;
     saveStarted = true;
@@ -1709,6 +1712,7 @@ function renderUpload(root: HTMLElement): void {
           <div class="upload-status" id="status"></div>
         </div>
         <div class="home-side-panels">
+          ${renderDsiRomRepairCard()}
           <div class="upload-panel repair-tool">
             <div class="changelog-generator__header">
               <div>
@@ -1759,6 +1763,7 @@ function renderUpload(root: HTMLElement): void {
   `;
 
   const input = root.querySelector<HTMLInputElement>("#rom-input");
+  attachDsiRomRepairCard(root, (bytes, filename) => downloadBlob(bytesBlob(bytes, "application/octet-stream"), filename));
   const localRomButton = root.querySelector<HTMLButtonElement>("#local-rom-open-btn");
   const fairyInput = root.querySelector<HTMLInputElement>("#fairy-input");
   const repairInput = root.querySelector<HTMLInputElement>("#repair-rom-input");

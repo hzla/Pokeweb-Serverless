@@ -5,6 +5,7 @@ import { compressCode, isCodeCompressed } from "../nds/codeCompression";
 import { addFilePath, cloneFolder, reserveFilePath, type Folder, shiftFileIdsAtOrAfter } from "../nds/fnt";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import type { DsiExportWarning } from "../nds/dsiWarning";
 import type { NarcName } from "./constants";
 import { loadActiveRomBytes } from "./persistence";
 import { materializeMap3dAreaEdits } from "./map3dModel";
@@ -40,6 +41,9 @@ export { materializeProjectEdits } from "./projectMaterialize";
 export type ExportModifiedRomOptions = {
   /** DSi integrity rebuild is automatic; false explicitly requests a DS-only export. */
   forDsi?: boolean;
+  /** Ordinary exports permit DS mode when the source's DSi metadata is damaged. */
+  allowDamagedDsi?: boolean;
+  onWarning?: (warning: DsiExportWarning) => void;
   minimumRomLength?: number;
   preserveOriginalLength?: boolean;
   /** Opt-in overlay-first layout for editing Pokeweb Gen V ROMs in Frost. */
@@ -131,6 +135,8 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     .filter((fileId): fileId is number => fileId !== undefined);
   const out = rom.save({
     forDsi: options.forDsi,
+    allowDamagedDsi: options.allowDamagedDsi ?? true,
+    onWarning: options.onWarning,
     arm9,
     arm9OverlayTable,
     filenames: tombstones.length ? reservedNames : repairedLegacyPmcRootFnt ? rom.filenames : undefined,

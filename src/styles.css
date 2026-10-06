@@ -101,6 +101,31 @@ img[src*="pokesprite/"] {
   display: none;
 }
 
+.dsi-repair-tool {
+  display: grid;
+  gap: 14px;
+}
+
+.dsi-repair-tool h2,
+.dsi-repair-tool .dsi-repair-description {
+  margin: 0;
+}
+
+.dsi-repair-description {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dsi-repair-tool .upload-status {
+  margin-top: 0;
+  overflow-wrap: anywhere;
+}
+
+.upload-status.dsi-repair-error {
+  border: 1px solid #ff7777;
+  color: #ffc2c2;
+}
+
 .rom-load-overlay {
   align-items: center;
   background: rgb(12 14 24 / 68%);
