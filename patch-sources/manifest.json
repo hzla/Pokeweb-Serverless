@@ -326,11 +326,11 @@
       "artifacts": [
         {
           "name": "PokewebPwanBattleB2.dll",
-          "sha256": "47e6117aa883bc2acb34cad9ea655d75dc9d3d64531a71804482931373156465"
+          "sha256": "3f61800eaafd8435bff68aeded8ce7115414c12cc37b83e530b3da8397ebd874"
         },
         {
           "name": "PokewebPwanBattleW2.dll",
-          "sha256": "b39ccf86fef21f7231478187d2826487c0ccf8b94bfe98008ab0df8c4250d22d"
+          "sha256": "28ac36131085171fa2dde44bcb54d488465b213443eb9c24ba742dc38febf6cb"
         }
       ],
       "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
@@ -363,7 +363,7 @@
             "path": "src/pwan_animation/w2u_battle_anim.cpp"
           },
           "kind": "source",
-          "sha256": "c4885f86c03147a90ce44616b5565cd84c3e9f12a59e6c6605faca39b3923e28",
+          "sha256": "73d628cbba9a01c0d36e0a231c01cdce6fd6031224b73b0a3d894f3aae100e59",
           "normalized": false
         },
         {
@@ -414,11 +414,11 @@
       "artifacts": [
         {
           "name": "PokewebPwanSummaryB2.dll",
-          "sha256": "110a191b4673a0b5ed3104e07657b0ae0bb3b001da2247adb9af8bcf0592a6cb"
+          "sha256": "5723d7d0f8d8c3e5ec4142ae6adf8ebc8b42ca243b5da740046299d2978a18b7"
         },
         {
           "name": "PokewebPwanSummaryW2.dll",
-          "sha256": "5596a9c5cea5a0c400f6765aa62fe30681869eb03383a2dd98971004cdec3db8"
+          "sha256": "5f7f875102c658ed804470920339d60f26f5ec8fce46c4a0b09e6501c085b335"
         }
       ],
       "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
@@ -451,7 +451,7 @@
             "path": "src/pwan_animation/w2u_summary_anim.cpp"
           },
           "kind": "source",
-          "sha256": "f0d07389c704e4ff00ab8a20dbdd17b5f9a72ffd9b1d2df3792995c424acb599",
+          "sha256": "f83b43465cfff7ff6feaea956afc1fbb04d925235bd5bbab1c1612446b14e080",
           "normalized": false
         },
         {
@@ -502,11 +502,11 @@
       "artifacts": [
         {
           "name": "PokewebPwanMiscB2.dll",
-          "sha256": "41204404c3f893e4fe3843a82f6f3754e17ab2664496221ef141abc20ebc2ba5"
+          "sha256": "87e92755dc2411ae1a89dcff86857d3dbc5db0bbc3f6bab52f382a89fff78fc8"
         },
         {
           "name": "PokewebPwanMiscW2.dll",
-          "sha256": "4c26a3b880dfcf8f190692313b5355750120924648162da6bc4cd0cb7e3b53f1"
+          "sha256": "f5fab7c75bfcb91c84684c3bc771d4354f9438e0b6de1b6bf60c97372fc3b0f6"
         }
       ],
       "note": "Sources are grouped by DLL family. Shared implementation files are deliberately copied into each family. B2 build-time address substitutions remain in the canonical build recipe; these copies are not an independent build tree.",
@@ -539,7 +539,7 @@
             "path": "src/pwan_animation/w2u_nonbattle_mcss.cpp"
           },
           "kind": "source",
-          "sha256": "a9f7339f872d499f9bbd41fd3be922c1ca4927741db197549a98f49f249f7e13",
+          "sha256": "43f6a90d36ce836f617ee8b94659dbb7d7e0af412391ebf34d5d30e7ae900132",
           "normalized": false
         },
         {
@@ -549,7 +549,7 @@
             "path": "src/pwan_animation/w2u_egg_hatch_anim.cpp"
           },
           "kind": "source",
-          "sha256": "51d316e22d4757903a3184d8a8752dee8ebc513ef04275639bb5eab6bff63863",
+          "sha256": "0f0a8ae74bcbbba7e8c49cff1aeb7ff190321f3c4acc59433d859c2e3c7f7eda",
           "normalized": false
         },
         {
@@ -559,7 +559,7 @@
             "path": "src/pwan_animation/w2u_evolution_anim.cpp"
           },
           "kind": "source",
-          "sha256": "abbbc88d434b0dd8f8c9be427cd1614722a3a2a20be69c6ff31ed001b4f8bb39",
+          "sha256": "d5d2ddde1afebe3e035e3b367c0dd5098154e3b3996bb10da268e0d4572a0a9c",
           "normalized": false
         },
         {
@@ -2462,7 +2462,7 @@
             "path": "src/nds/rom.ts"
           },
           "kind": "support-only",
-          "sha256": "17ecbb8948dba14fd3f0e804565c6b16330e4dd42ae23b1e8e47a4835ec009f1",
+          "sha256": "8e4bbfcfd960aa7ff49d521110b65a49f43c9f0d7334ff384d13bddea23d281a",
           "normalized": false
         },
         {
@@ -2512,7 +2512,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "7423f99c9462967aa2ace79603e62ec8c2f1e02bf5fa1a45afca3af131a2a108",
+          "sha256": "1d1e6453328be6eeb841747b5acb278bacbd770b357b569c0484abb4438466bf",
           "normalized": false
         },
         {
@@ -2532,7 +2532,7 @@
             "path": "package.json"
           },
           "kind": "build-tool",
-          "sha256": "ab04a40c49193ca5e1d0e140537f566c9f513fce381568c25fd6c8db6a89b551",
+          "sha256": "53f7a8f619a09347dd92467b4717ebd7d479f11275d5236a8c4f25efe160e0e3",
           "normalized": false
         },
         {
@@ -2592,7 +2592,7 @@
             "path": "src/test/romExport.test.ts"
           },
           "kind": "test",
-          "sha256": "19c0fbf8e621c96cb502dc2257528103624f884d76659cd782a9849b845d51bc",
+          "sha256": "c9f76c614007ea1b116ef5827312874e95603b4f53a9c96df8d47ac04ecd7966",
           "normalized": false
         },
         {
@@ -2613,11 +2613,11 @@
       "artifacts": [
         {
           "name": "PokewebPwanTrainerB2.dll",
-          "sha256": "92bf13c19995e2961dfb65f2c581916377bbccc98ffa6a1d9ba4c378d56c7b1b"
+          "sha256": "3d173e909303b348b77acfe4c2e9d661f90d7eda06c61df6f9eb6b20f090f378"
         },
         {
           "name": "PokewebPwanTrainerW2.dll",
-          "sha256": "a1fbc821ab538c8ca3ff643549c597f97d6e8de299ec95025637abfeab0d14ba"
+          "sha256": "fcdd22b9e3a184637500afbe12896d5e976d7066971c1b168c63ac54af3f8bb9"
         }
       ],
       "note": "Standalone stock-US B2/W2 overlay-168 runtime for front-trainer PWAN animations. It redirects configured graphics to one appended carrier, streams per-instance texture and palette data, and remains independent from the Pokémon PWAN DLLs.",
@@ -2640,7 +2640,7 @@
             "path": "src/pwan_animation/w2u_trainer_anim.cpp"
           },
           "kind": "source",
-          "sha256": "b085916e49ff1b4ea651673143e199bb699e8f93e8548ef3ae37a216bdef7f91",
+          "sha256": "bf2e949f01a38c33d6625210aa48496b179f28e6e6cd6f5a399b2e9dfb15386d",
           "normalized": false
         },
         {
@@ -2710,7 +2710,7 @@
             "path": "src/pwan_animation/meson.build"
           },
           "kind": "build-tool",
-          "sha256": "3b70bcf4156fc21f386985964335e6fb63cdd4313da4c0764826e2c008cda80c",
+          "sha256": "a665247c2b8cf36d64347daaf2fd89ee6d13dbe9b1df12171bafd94b8ee2be7a",
           "normalized": false
         },
         {
@@ -2720,7 +2720,7 @@
             "path": "src/pokeweb/trainerPwanCompatibilityModel.ts"
           },
           "kind": "support-only",
-          "sha256": "994ec22d738f4385e6caebb86fec455f06c3ef2355703e2722536cede047bfe0",
+          "sha256": "03e6ebfb0b09bf034ad66be6815ef049006e370b746f6f330be1ee7a91807246",
           "normalized": false
         },
         {
@@ -2750,7 +2750,7 @@
             "path": "src/test/trainerPwanAnimationModel.test.ts"
           },
           "kind": "test",
-          "sha256": "7b4988fe6ad707d608cd7eda86b40d4816f31d988c8b2195c22024b591fcf233",
+          "sha256": "a68dc78a6fc5f28c780bcc89e96571bf04d2a1eb15b2de08927921a1a1c955f9",
           "normalized": false
         },
         {
@@ -2878,7 +2878,7 @@
             "path": "src/pokeweb/romPatchModel.ts"
           },
           "kind": "support-only",
-          "sha256": "760bb63076e7afb7f440754b75465a6da950ea6dbf2a5e100ffe7ccbd43979d9",
+          "sha256": "ddee93034de7b195969c162e26991638d41e411753ecbb524824ebfb2c581cac",
           "normalized": false
         },
         {
@@ -2919,31 +2919,31 @@
       "artifacts": [
         {
           "name": "following/PokewebFollowingCoreW2.dll",
-          "sha256": "9283fdfd9fc16e6e89251f5f72bd90b381f53fb07cc211820339bc87420a88f3"
+          "sha256": "3f2ef8f0b59bd6df98e41bd7afa6923cbb53c1a43ba9961deef6838f8d85c7e7"
         },
         {
           "name": "following/PokewebFollowingEventsW2.dll",
-          "sha256": "5986bd050eabbc78f6262825c68215841d2cc387950cdd1a11e1240211c7c99a"
+          "sha256": "4317b8aa9515bde45d5abd7f7acefda229faa2d23f19e4d44202df866b19cdbe"
         },
         {
           "name": "following/PokewebFollowingFieldW2.dll",
-          "sha256": "96b3b4458393da10e3fae80b106b43b645963fe21eae520a986f786627894632"
+          "sha256": "838c043154bfb63edec40332c20c3d52bd37bc3ca07d749655ba5b1197ed4927"
         },
         {
           "name": "following/PokewebFollowingOptionsW2.dll",
-          "sha256": "4adc095409c7d53560d941035a8a6025aca34fe5b1a1b814515defff90ac1518"
+          "sha256": "8090c923b9850e995e73d30ad0d7a53723bc773d3bb0578abc776bfdb530ead5"
         },
         {
           "name": "following/PokewebFollowingBattleW2.dll",
-          "sha256": "7e60babe7ecd6ba1ba3f64abc6e60374acfa5d3d53f424105786af75564de838"
+          "sha256": "be4e10297d8252f9e7085b93e0df6e3bc7fa7bec54053c59e0a6d351c5d377e5"
         },
         {
           "name": "following/PokewebFollowingEventsW2Base.dll",
-          "sha256": "e9650287a52a0a27501a0586bad91781134427ae381e78d299a19fbc4188a710"
+          "sha256": "5555c96704e649fc2d2ec7d820d8557a3eb52cfff6f8a6f5e5d532511197ecb6"
         },
         {
           "name": "following/PokewebFollowingFieldW2Base.dll",
-          "sha256": "7070d751f65dabb8ea2942bff01f5616684a0867ebad2859455ac3798a10643e"
+          "sha256": "6789cb86a778b684b4e79f2dadd05f501a125390181fb91e417132c0a5f6514e"
         },
         {
           "name": "following/black2/PokewebFollowingCoreB2.dll",
@@ -3030,7 +3030,7 @@
           "sha256": "bab63e1021f664d7c4cca570a2dd17c2289c984a9b9a9a9a2536f35ae69c4f2f"
         }
       ],
-      "note": "Stock US White 2 0.6.87-alpha, stock US Black 2 0.6.48-alpha, White2Upgrade 0.7.43-alpha, and Italian White 2 0.6.49-alpha bundled runtime variants. Sources, generators, profile metadata, integration, and focused tests are recorded. ROMs, sprite archives, save files, binary payloads, and emulator captures are excluded from source exports. Artifact hashes identify the exact bundled modules; no binary rebuild is implied.",
+      "note": "Stock US White 2 0.6.88-alpha, stock US Black 2 0.6.48-alpha, White2Upgrade 0.7.43-alpha, and Italian White 2 0.6.49-alpha bundled runtime variants. Sources, generators, profile metadata, integration, and focused tests are recorded. ROMs, sprite archives, save files, binary payloads, and emulator captures are excluded from source exports. Artifact hashes identify the exact bundled modules; no binary rebuild is implied.",
       "status": "source-available",
       "files": [
         {
@@ -3180,7 +3180,7 @@
             "path": "runtime/following-pokemon/build.py"
           },
           "kind": "build-tool",
-          "sha256": "631951b90435928aa07bc8b3b82c041c3bb06fa35201f4fb6efae95628ad1f6d",
+          "sha256": "947ca04472848d788367c0e1970ed199eb5d676d593cf6394463f1d60b4dec0e",
           "normalized": false
         },
         {
@@ -3230,7 +3230,7 @@
             "path": "runtime/following-pokemon/contract.json"
           },
           "kind": "metadata",
-          "sha256": "cf749a31ed93eea0dc0b08dca95ec20a8658fa78ccac32bb0efed53ba210bd93",
+          "sha256": "9a10ff483260f41ace50f02cc9a6b5499e5a322b95745738ad510f2f9d630a12",
           "normalized": false
         },
         {
@@ -4020,7 +4020,7 @@
             "path": "runtime/following-pokemon/README.md"
           },
           "kind": "documentation",
-          "sha256": "7da972d77b567064ba16ddefb5988b5620b7025e6d52908f88ebd99908d8d2f7",
+          "sha256": "12b360d866afb11cc43c2423f53a7ddce0abb6709fec6706f99ab86c5461e9f1",
           "normalized": false
         },
         {
@@ -4070,7 +4070,7 @@
             "path": "runtime/following-pokemon/render.c"
           },
           "kind": "source",
-          "sha256": "1ff686e1dfcdc20b1f2000b095aefe34022f8000ac86e9f0f7cc4087dc019198",
+          "sha256": "68c653e0203480d6ef5cd1e26e1fda5e88bac49b344d42fd2a71d825c7e4cfdf",
           "normalized": false
         },
         {
@@ -4080,7 +4080,7 @@
             "path": "runtime/following-pokemon/render.h"
           },
           "kind": "source",
-          "sha256": "bfbaa9cfdc40a0b484c0e0bf95e0c89040605b3f3980e2f6db91787db08b11a0",
+          "sha256": "4de93a3e74df3f95581a7f3337f9bc1f2dfd233e675cbde4680451b1a5bb980b",
           "normalized": false
         },
         {
@@ -4680,7 +4680,7 @@
             "path": "runtime/following-pokemon/verify_render.py"
           },
           "kind": "test",
-          "sha256": "71b1e379f05e275d8aa105a256629a212965a3690f0d5bcdeac4ad228d652fdf",
+          "sha256": "7bb62554e729d6dbca798e6aea28fb417d7f7b483a350dd2f8ad990a169a30a4",
           "normalized": false
         },
         {
@@ -4810,7 +4810,7 @@
             "path": "src/assets/following/runtime.json"
           },
           "kind": "metadata",
-          "sha256": "10c9c4185a7230aa272e5b159f091b803cad98311e17276f7fc9fe0a77750867",
+          "sha256": "3bc6f56ffca9acb5e132128dac46649385a06c5a171c469f30b76e47d92c8dcc",
           "normalized": false
         },
         {
@@ -5138,7 +5138,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "7423f99c9462967aa2ace79603e62ec8c2f1e02bf5fa1a45afca3af131a2a108",
+          "sha256": "1d1e6453328be6eeb841747b5acb278bacbd770b357b569c0484abb4438466bf",
           "normalized": false
         },
         {
@@ -5462,6 +5462,163 @@
           "normalized": false
         }
       ]
+    },
+    {
+      "name": "dsi-compatibility",
+      "title": "Bundled patch DS/DSi memory audit",
+      "artifacts": [],
+      "note": "Source and binary inventory for 4 MiB pointer assumptions, with isolated packaged PWAN guard checks. This is not full game or hardware certification.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "dsi-compatibility/audit.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/dsi-compatibility/audit.json"
+          },
+          "kind": "metadata",
+          "sha256": "8cbba71db6d50ef9d57f1956601912f28db75723f53e680feb61a707ecee29f6",
+          "normalized": false
+        },
+        {
+          "path": "dsi-compatibility/audit.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/dsi-compatibility/audit.py"
+          },
+          "kind": "build-tool",
+          "sha256": "1c34bd7e2aa1cd95da30832e01359a03aaa8e33e0b5c380e9b747bdd331f3448",
+          "normalized": false
+        },
+        {
+          "path": "dsi-compatibility/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/dsi-compatibility/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "46e94aacf9c2b6bd93a9de1998891c976ab0d49e6717258ebf4ad4238b6261af",
+          "normalized": false
+        },
+        {
+          "path": "dsi-compatibility/verification.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/dsi-compatibility/verification.json"
+          },
+          "kind": "metadata",
+          "sha256": "424f9050152a1930060b1995b3b3b9cf26f882d76ce79200b1bbc92c0895d292",
+          "normalized": false
+        },
+        {
+          "path": "dsi-compatibility/verify.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/dsi-compatibility/verify.py"
+          },
+          "kind": "test",
+          "sha256": "461a2d5b768c4504612910e5ff3592fb262cae827ebaf7a0f3be32596874dfa5",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "summary-stat-viewer",
+      "title": "Summary IV/EV viewer",
+      "artifacts": [
+        {
+          "name": "SummaryStatViewerB2.dll",
+          "sha256": "9672f1c7538b30e4791806dec071031fd37bbf3265e78713dc406574d9913950"
+        },
+        {
+          "name": "SummaryStatViewerW2.dll",
+          "sha256": "f32bee5f8650224a4b0309d289b60e5c06cfc5aa3bd1f3664825ed86d62c231a"
+        }
+      ],
+      "note": "Independent B2/W2 native Summary Stats variants and shared footer tab. Canonical source and configuration metadata are recorded; game acceptance remains separate from native checks.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "summary-stat-viewer/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "b6b0cdffc5a506524406eb017153a60094976bee3b3aea73b5e35397742a3f2f",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "5a5b1329c6257fa5e4ea80a655ed17c97adb115babcd21d9df64b2bf716038d1",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/runtime.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/runtime.h"
+          },
+          "kind": "source",
+          "sha256": "90d66cc887723a8d573cfac27b17a4fa788fcd8d656c9c5805ea69ea67338bda",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/VALIDATION.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/VALIDATION.md"
+          },
+          "kind": "documentation",
+          "sha256": "5f9c00eb134332376acf557f08b42b4cf8db12a4076028463a13102cbb3233be",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/verify.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/verify.py"
+          },
+          "kind": "test",
+          "sha256": "e6d834e7c01e3b96f697e80814eea74900267cc9196c78d7552bd421ba13445e",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/viewer.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/viewer.cpp"
+          },
+          "kind": "source",
+          "sha256": "b03c832b0fdff6372a180e8ca5a6fff3c9fdadccde845435be791a63311e41ec",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/metadata/summaryStatViewerManifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/summaryStatViewerManifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "0503a4309f0b6ef21e2abd2c0673642d8de18129fe14e2baf7469c41f79dc0e5",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/integration/summaryStatViewerModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/summaryStatViewerModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "595de890c098a39ebf314061639c9b3428cfa7d1f863184ed4ea87610d27cf9b",
+          "normalized": false
+        }
+      ]
     }
   ],
   "sharedFiles": [
@@ -5472,7 +5629,7 @@
         "path": "include/w2u_battle.h"
       },
       "kind": "header",
-      "sha256": "29929d6f7a9e84232721e87cdd8a1cded5f607923f944051b593ac4f7bf039df",
+      "sha256": "c88af9edfea210e77b78696908a9c29cd1073c026a8851bed7fc4fe27b7b049e",
       "normalized": false
     },
     {
@@ -5642,7 +5799,7 @@
         "path": "pmc/black2upgrade_aliases.json"
       },
       "kind": "metadata",
-      "sha256": "a695b4b6cb1f39ce2c67936c0324335c9e15a73d8afc86011175febb89b1b4c6",
+      "sha256": "1501e8faafc0890d1cb012820ff48592e369292cc2dce9d13b43c15057deae64",
       "normalized": false
     },
     {
@@ -5653,6 +5810,46 @@
       },
       "kind": "build-tool",
       "sha256": "252d402f4ddcf76448199b5f6e9285c9c5841273d13a3e733563ae9c19628ec2",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/util/main_ram.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/util/main_ram.h"
+      },
+      "kind": "source",
+      "sha256": "1d64c730ee7398e02c33c28f612cf55ddc12f651d137251acb7c3ff55406d080",
+      "normalized": false
+    },
+    {
+      "path": "shared/include/swan/nds/hw.h",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "include/swan/nds/hw.h"
+      },
+      "kind": "source",
+      "sha256": "cb1ceb746297cca5c6c602c355c0b7bad1dfa84596bf2b8250078e08d0dc7cc4",
+      "normalized": false
+    },
+    {
+      "path": "shared/tests/test_main_ram.py",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "tools/tests/test_main_ram.py"
+      },
+      "kind": "test",
+      "sha256": "30c49b65c34ce0278e778c800745f300e48125f04a5f9ed408e7734539924712",
+      "normalized": false
+    },
+    {
+      "path": "shared/tests/check_pwan_substitute_runtime.py",
+      "origin": {
+        "repository": "w2u-runtime",
+        "path": "tools/tests/check_pwan_substitute_runtime.py"
+      },
+      "kind": "test",
+      "sha256": "371e67d0ac36262be3f72828b41248941baed92ba7e9a62df90b96d94a716530",
       "normalized": false
     }
   ]

@@ -35,6 +35,7 @@ export type PwanCompatibilityReport = {
 const DEFAULT_W2_ARM9_BASE_ADDRESS = 0x02004000;
 
 export const PWAN_W2_COMPATIBILITY_SIGNATURES: PwanCompatibilitySignature[] = [
+  { id: "arm9-dsi-mode", label: "ARM9 DS/DSi mode accessor", group: "ARM9 vanilla calls", module: "arm9", address: 0x0207acb9, windowStart: 0x0207acb8, expectedHex: "0948c06900280bd108480178032008400121012800d00021034841600121c161014840687047c046c4c4140200400004" },
   { id: "summary-update-hook", label: "Summary update hook", group: "Summary", module: "overlay", overlayId: 207, address: 0x021b337e, windowStart: 0x021b337a, expectedHex: "6ef675fb98f61ffaa06f66f6c6fb96f69cfb96f6c6fba06f" },
   { id: "summary-draw-hook", label: "Summary draw hook", group: "Summary", module: "overlay", overlayId: 207, address: 0x021b3396, windowStart: 0x021b3392, expectedHex: "66f651fc96f699fb3148251c0168226ae07e8a1a1206120e" },
   { id: "summary-term-hook", label: "Summary teardown hook", group: "Summary", module: "overlay", overlayId: 207, address: 0x021b31aa, windowStart: 0x021b31a6, expectedHex: "c173281c00f0a5fe281c00f00eff281c00f071fd291c9431" },
@@ -73,6 +74,7 @@ export const PWAN_W2_COMPATIBILITY_SIGNATURES: PwanCompatibilitySignature[] = [
 ];
 
 export const PWAN_B2_COMPATIBILITY_SIGNATURES: PwanCompatibilitySignature[] = [
+  { id: "arm9-dsi-mode", label: "ARM9 DS/DSi mode accessor", group: "ARM9 vanilla calls", module: "arm9", address: 0x0207ac8d, windowStart: 0x0207ac8c, expectedHex: "0948c06900280bd108480178032008400121012800d00021034841600121c161014840687047c04684c4140200400004" },
   { id: "battle-update-hook", label: "Battle update hook", group: "Battle", module: "overlay", overlayId: 168, address: 0x021df280, windowStart: 0x021df27c, expectedHex: "183008580af010fb6af608fc6af632fc201c29680c300858" },
   { id: "battle-draw-hook", label: "Battle draw hook", group: "Battle", module: "overlay", overlayId: 168, address: 0x021df2b8, windowStart: 0x021df2b4, expectedHex: "4ffb20886af6f2fb38bdc04640421f020406000478b581b0" },
   { id: "battle-term-hook", label: "Battle teardown hook", group: "Battle", module: "overlay", overlayId: 168, address: 0x021df208, windowStart: 0x021df204, expectedHex: "23f828685bf620f82e6070bd40421f0238b52a4d28680028" },

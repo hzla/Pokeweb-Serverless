@@ -1,4 +1,6 @@
 import { NintendoDSRom } from "../nds/rom";
+import { decompressCode } from "../nds/codeCompression";
+import { PWAN_B2_COMPATIBILITY_SIGNATURES, PWAN_W2_COMPATIBILITY_SIGNATURES } from "./pwanCompatibilityModel";
 import type { ProjectState } from "./projectStore";
 
 export type TrainerPwanCompatibilityCheck = {
@@ -42,8 +44,9 @@ export function detectTrainerPwanCompatibility(project: ProjectState): TrainerPw
     return { compatible: false, supportedBase: false, passed: 0, checks: [check] };
   }
   let source: { data: Uint8Array; ramAddress: number } | undefined;
+  let original: NintendoDSRom | undefined;
   if (project.originalRomBytes) {
-    try { source = new NintendoDSRom(project.originalRomBytes).loadArm9Overlays([168]).get(168); } catch { source = undefined; }
+    try { original = new NintendoDSRom(project.originalRomBytes); source = original.loadArm9Overlays([168]).get(168); } catch { source = undefined; }
   }
   const overlay = project.overlays[168];
   if (overlay && source) source = { data: overlay, ramAddress: source.ramAddress };
@@ -56,6 +59,15 @@ export function detectTrainerPwanCompatibility(project: ProjectState): TrainerPw
       ? { id, label, address, expectedHex, actualHex, status: "matched", message: `${label} matches the stock ${version} layout.` }
       : { id, label, address, expectedHex, actualHex, status: "changed", message: `${label} differs from the stock ${version} layout.` };
   });
+  const mode = (supportedVersion === "B2" ? PWAN_B2_COMPATIBILITY_SIGNATURES : PWAN_W2_COMPATIBILITY_SIGNATURES)
+    .find(signature => signature.id === "arm9-dsi-mode")!;
+  const arm9 = decompressCode(project.arm9?.length ? project.arm9 : original?.arm9 ?? new Uint8Array());
+  const offset = mode.windowStart - (original?.arm9RamAddress ?? 0x02004000);
+  const actualHex = offset >= 0 && offset + mode.expectedHex.length / 2 <= arm9.length
+    ? [...arm9.subarray(offset, offset + mode.expectedHex.length / 2)].map(value => value.toString(16).padStart(2, "0")).join("") : undefined;
+  const status = actualHex === undefined ? "missing" : actualHex === mode.expectedHex ? "matched" : "changed";
+  checks.push({ id: mode.id, label: mode.label, address: mode.address, expectedHex: mode.expectedHex, actualHex, status,
+    message: status === "matched" ? "Native DS/DSi mode accessor matches." : "Native DS/DSi mode accessor is missing or modified." });
   const passed = checks.filter((check) => check.status === "matched").length;
   return { compatible: checks.length > 0 && passed === checks.length, supportedBase: true, passed, checks };
 }

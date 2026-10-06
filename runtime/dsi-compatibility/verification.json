@@ -1,0 +1,90 @@
+{
+  "format": 1,
+  "scope": "Isolated compiled pointer guards; no game or display timing certification.",
+  "games": {
+    "W2": [
+      {
+        "artifact": "PokewebPwanSummaryW2.dll",
+        "sha256": "5f7f875102c658ed804470920339d60f26f5ec8fce46c4a0b09e6501c085b335",
+        "bytes": 5440,
+        "bss": 9384,
+        "guardFunctions": 1,
+        "rangeChecks": true,
+        "coldAndCachedMode": true,
+        "registerAndStackPreservation": true
+      },
+      {
+        "artifact": "PokewebPwanBattleW2.dll",
+        "sha256": "28ac36131085171fa2dde44bcb54d488465b213443eb9c24ba742dc38febf6cb",
+        "bytes": 6352,
+        "bss": 17400,
+        "guardFunctions": 1,
+        "rangeChecks": true,
+        "coldAndCachedMode": true,
+        "registerAndStackPreservation": true
+      },
+      {
+        "artifact": "PokewebPwanMiscW2.dll",
+        "sha256": "f5fab7c75bfcb91c84684c3bc771d4354f9438e0b6de1b6bf60c97372fc3b0f6",
+        "bytes": 10544,
+        "bss": 26732,
+        "guardFunctions": 3,
+        "rangeChecks": true,
+        "coldAndCachedMode": true,
+        "registerAndStackPreservation": true
+      },
+      {
+        "artifact": "PokewebPwanTrainerW2.dll",
+        "sha256": "fcdd22b9e3a184637500afbe12896d5e976d7066971c1b168c63ac54af3f8bb9",
+        "bytes": 3376,
+        "bss": 17176,
+        "guardFunctions": 1,
+        "rangeChecks": true,
+        "coldAndCachedMode": true,
+        "registerAndStackPreservation": true
+      }
+    ],
+    "B2": [
+      {
+        "artifact": "PokewebPwanSummaryB2.dll",
+        "sha256": "5723d7d0f8d8c3e5ec4142ae6adf8ebc8b42ca243b5da740046299d2978a18b7",
+        "bytes": 5440,
+        "bss": 9384,
+        "guardFunctions": 1,
+        "rangeChecks": true,
+        "coldAndCachedMode": true,
+        "registerAndStackPreservation": true
+      },
+      {
+        "artifact": "PokewebPwanBattleB2.dll",
+        "sha256": "3f61800eaafd8435bff68aeded8ce7115414c12cc37b83e530b3da8397ebd874",
+        "bytes": 6352,
+        "bss": 17400,
+        "guardFunctions": 1,
+        "rangeChecks": true,
+        "coldAndCachedMode": true,
+        "registerAndStackPreservation": true
+      },
+      {
+        "artifact": "PokewebPwanMiscB2.dll",
+        "sha256": "87e92755dc2411ae1a89dcff86857d3dbc5db0bbc3f6bab52f382a89fff78fc8",
+        "bytes": 10544,
+        "bss": 26732,
+        "guardFunctions": 3,
+        "rangeChecks": true,
+        "coldAndCachedMode": true,
+        "registerAndStackPreservation": true
+      },
+      {
+        "artifact": "PokewebPwanTrainerB2.dll",
+        "sha256": "3d173e909303b348b77acfe4c2e9d661f90d7eda06c61df6f9eb6b20f090f378",
+        "bytes": 3376,
+        "bss": 17176,
+        "guardFunctions": 1,
+        "rangeChecks": true,
+        "coldAndCachedMode": true,
+        "registerAndStackPreservation": true
+      }
+    ]
+  }
+}

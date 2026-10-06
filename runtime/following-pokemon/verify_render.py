@@ -6,7 +6,7 @@ import json
 DLL=PACKAGE_BUILD/'PokewebFollowingFieldW2.dll';ELF=PACKAGE_BUILD/'PokewebFollowingFieldW2.elf'
 code,bss,syms,rels,funcs,_=audit(DLL,ELF)
 BASE=0x02300000;STOP=0x02008000;STACK=0x023f0000
-uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map(0x02000000,0x400000)
+uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map(0x02000000,0x1000000)
 uc.mem_write(BASE,bytes(relocate(DLL,BASE,load_dependencies(uc))))
 raw=DLL.read_bytes();get=lambda o:struct.unpack_from('<I',raw,o)[0]
 h=get(8);info=h+get(h+8);sym=h+get(info+4);first,count=struct.unpack_from('<HH',raw,sym+8);hashat=h+get(sym+16)
@@ -307,6 +307,37 @@ for invalid in ('none','player','inactive','callback','actor','stamp','deleted-s
   if gap>0:assert depth<=gap-margin+128,('grass covers nearer actor',invalid,depth,gap)
  assert bytes(uc.mem_read(GQUAD,28))==original
 call('fwr_grass_clear',[]);call('fwr_effects_draw',[EFFBL,CAM,LIGHT,A]);assert grass_seen[-1]==(read(GQUAD+4,'3i'),read(GQUAD+18,'2h'))
+# Exercise the packaged guard with the actual cached-mode retail accessor.
+# The task is entirely in DSi's extra RAM, not a low-RAM alias.
+import ndspy.codeCompression
+arm9=ndspy.codeCompression.decompress(rom.arm9)
+mode_at=0x0207acb8
+uc.mem_write(mode_at,bytes(arm9[mode_at-rom.arm9RamAddress:mode_at-rom.arm9RamAddress+48]))
+mode_cache=read(mode_at+40,'I')[0]
+put(mode_cache+28,1)
+for dsi in (0,1):
+ put(mode_cache+4,dsi)
+ for pointer,wanted in ((0,0),(0x02000014,0),(0x02000018,1),(0x023fff40,1),
+                        (0x023fff44,dsi),(0x02400018,dsi),(0x02820018,dsi),
+                        (0x02ffff40,dsi),(0x02ffff44,0),(0x03000018,0),(0x02820019,0)):
+  call('fwr_grass_work_valid',[pointer]);assert uc.reg_read(UC_ARM_REG_R0)==wanted,(dsi,hex(pointer))
+ setup();expected_args=[BL,CAM,LIGHT];call('fwr_grass_clear',[])
+ put(A+4,0x4000);vec(BILL+32,(65536,6144,0));draw()
+ high_task=0x02820000;high_work=high_task+24
+ put(EFFBL+4,gscene);put(EFFBL+24,gslots);half(EFFBL+28,1);put(gscene+8,GQUAD);half(gscene+14,1)
+ put(gslots,0);put(gslots+36,high_work)
+ put(high_task+4,1);put(high_task+188,0x021a419d);put(high_task+196,0x021a428d)
+ put(high_work+8,A);put(high_work+4,FBL);put(FBL+4,EFFBL)
+ half(high_work+40,read(A+8,'H')[0]);half(high_work+42,read(A+12,'H')[0]);half(high_work+44,read(A+10,'H')[0]);half(high_work+48,0)
+ put(high_work+12,read(A+60,'h')[0]);put(high_work+16,read(A+64,'h')[0])
+ half(GQUAD,0);half(GQUAD+18,8192);half(GQUAD+20,8192);half(GQUAD+24,0x121f)
+ vec(GQUAD+4,(65536,9*4096,-2*4096));original=bytes(uc.mem_read(GQUAD,28))
+ expected_args=[EFFBL,CAM,LIGHT];call('fwr_effects_draw',[EFFBL,CAM,LIGHT,A])
+ changed=grass_seen[-1]!=(read(GQUAD+4,'3i'),read(GQUAD+18,'2h'))
+ assert changed==bool(dsi),(dsi,grass_seen[-1])
+ assert bytes(uc.mem_read(GQUAD,28))==original
+print('DS/DSi grass checks passed: exact pointer endpoints, alignment, extra-RAM task correction, original quad restoration, and register/stack preservation.')
+
 # Emote attachment moves in the camera's vertical plane, so it cannot drift
 # horizontally or change camera depth when raised above the follower.
 out=task+320;view=task+400

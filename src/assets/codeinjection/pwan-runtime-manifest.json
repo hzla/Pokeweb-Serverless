@@ -5,50 +5,50 @@
     "PokewebPwanSummaryW2.dll": {
       "gameId": "W2",
       "scope": "summary",
-      "sha256": "5596a9c5cea5a0c400f6765aa62fe30681869eb03383a2dd98971004cdec3db8",
-      "size": 5408
+      "sha256": "5f7f875102c658ed804470920339d60f26f5ec8fce46c4a0b09e6501c085b335",
+      "size": 5440
     },
     "PokewebPwanBattleW2.dll": {
       "gameId": "W2",
       "scope": "battle",
-      "sha256": "b39ccf86fef21f7231478187d2826487c0ccf8b94bfe98008ab0df8c4250d22d",
-      "size": 6208
+      "sha256": "28ac36131085171fa2dde44bcb54d488465b213443eb9c24ba742dc38febf6cb",
+      "size": 6352
     },
     "PokewebPwanMiscW2.dll": {
       "gameId": "W2",
       "scope": "misc",
-      "sha256": "4c26a3b880dfcf8f190692313b5355750120924648162da6bc4cd0cb7e3b53f1",
-      "size": 10208
+      "sha256": "f5fab7c75bfcb91c84684c3bc771d4354f9438e0b6de1b6bf60c97372fc3b0f6",
+      "size": 10544
     },
     "PokewebPwanTrainerW2.dll": {
       "gameId": "W2",
       "scope": "trainer",
-      "sha256": "a1fbc821ab538c8ca3ff643549c597f97d6e8de299ec95025637abfeab0d14ba",
-      "size": 3328
+      "sha256": "fcdd22b9e3a184637500afbe12896d5e976d7066971c1b168c63ac54af3f8bb9",
+      "size": 3376
     },
     "PokewebPwanSummaryB2.dll": {
       "gameId": "B2",
       "scope": "summary",
-      "sha256": "110a191b4673a0b5ed3104e07657b0ae0bb3b001da2247adb9af8bcf0592a6cb",
-      "size": 5408
+      "sha256": "5723d7d0f8d8c3e5ec4142ae6adf8ebc8b42ca243b5da740046299d2978a18b7",
+      "size": 5440
     },
     "PokewebPwanBattleB2.dll": {
       "gameId": "B2",
       "scope": "battle",
-      "sha256": "47e6117aa883bc2acb34cad9ea655d75dc9d3d64531a71804482931373156465",
-      "size": 6208
+      "sha256": "3f61800eaafd8435bff68aeded8ce7115414c12cc37b83e530b3da8397ebd874",
+      "size": 6352
     },
     "PokewebPwanMiscB2.dll": {
       "gameId": "B2",
       "scope": "misc",
-      "sha256": "41204404c3f893e4fe3843a82f6f3754e17ab2664496221ef141abc20ebc2ba5",
-      "size": 10208
+      "sha256": "87e92755dc2411ae1a89dcff86857d3dbc5db0bbc3f6bab52f382a89fff78fc8",
+      "size": 10544
     },
     "PokewebPwanTrainerB2.dll": {
       "gameId": "B2",
       "scope": "trainer",
-      "sha256": "92bf13c19995e2961dfb65f2c581916377bbccc98ffa6a1d9ba4c378d56c7b1b",
-      "size": 3328
+      "sha256": "3d173e909303b348b77acfe4c2e9d661f90d7eda06c61df6f9eb6b20f090f378",
+      "size": 3376
     },
     "PokewebPwanLegacyRetiredW2.dll": {
       "gameId": "W2",

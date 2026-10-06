@@ -8,8 +8,10 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { renderDsiRomRepairCard } from "../ui/dsiRomRepair";
 import { bytes, makeTwlRom, verifyAllDigests } from "./fixtures/dsiRom";
 
+const games = [["IRBO", "Black"], ["IRAO", "White"], ["IREO", "Black 2"], ["IRDO", "White 2"]] as const;
+
 describe("damaged DSi exports", () => {
-  it.each(["IREO", "IRDO"])("allows a warned %s DS export while preserving edits and original inputs", async (code) => {
+  it.each(games)("allows a warned %s DS export while preserving edits and original inputs", async (code) => {
     const donor = makeTwlRom(code);
     // Reproduce the old exporter's packed-program/stale-table layout.
     const source = new NintendoDSRom(donor).save({ forDsi: false });
@@ -73,7 +75,7 @@ describe("damaged DSi exports", () => {
 });
 
 describe("donor DSi repair", () => {
-  it.each(["IREO", "IRDO"])("repairs truncated %s DSi programs while preserving all edited DS content", async (code) => {
+  it.each(games)("repairs truncated %s DSi programs while preserving all edited DS content", async (code, game) => {
     const donor = makeTwlRom(code), source = donor.slice(0, 0x83680);
     source[0x4050] ^= 1;
     source[0x5600] ^= 1;
@@ -82,7 +84,7 @@ describe("donor DSi repair", () => {
     const progress: string[] = [];
     const result = await repairDsiRom(source, donor, (message) => { progress.push(message); });
     const original = new NintendoDSRom(source), repaired = new NintendoDSRom(result.bytes);
-    expect(result.game).toBe(code === "IREO" ? "Black 2" : "White 2");
+    expect(result.game).toBe(game);
     for (const key of ["arm9", "arm7", "arm9OverlayTable", "arm7OverlayTable", "fntData", "banner"] as const) expect(repaired[key]).toEqual(original[key]);
     expect(repaired.files).toEqual(original.files);
     const region = readU16(result.bytes, 0x92) * 0x80000;
@@ -96,14 +98,41 @@ describe("donor DSi repair", () => {
     expect(donor).toEqual(donorBefore);
   });
 
-  it("restores stripped metadata and supports compatible hacks with relocated digest configuration", async () => {
-    const donor = makeTwlRom("IRDO"), source = donor.slice(0, 0x80000);
+  it.each(games)("restores stripped %s metadata and supports relocated digest configuration", async (code) => {
+    const donor = makeTwlRom(code), source = donor.slice(0, 0x80000);
     source.copyWithin(0x4c00, 0x4900, 0x4940);
     source.fill(0, 0x4900, 0x4940);
     source.fill(0, 0x180, 0x1000);
     const result = await repairDsiRom(source, donor);
     expect(new NintendoDSRom(result.bytes).arm9).toEqual(new NintendoDSRom(source).arm9);
     verifyAllDigests(result.bytes);
+  });
+
+  it.each(games)("preserves intact %s DSi data through ordinary export and reload", async (code) => {
+    const source = makeTwlRom(code), before = source.slice(), warnings: DsiExportWarning[] = [];
+    const out = await exportModifiedRom(makeProject(source), { onWarning: (warning) => warnings.push(warning) });
+    expect(warnings).toEqual([]);
+    verifyAllDigests(out);
+    expect(new NintendoDSRom(out).save()).toEqual(out);
+    expect(source).toEqual(before);
+  });
+
+  it.each(games)("requires a matching %s donor rather than another game or revision", async (code, game) => {
+    const source = makeTwlRom(code), before = source.slice();
+    for (const [other] of games.filter(([other]) => other !== code)) {
+      const donor = makeTwlRom(other), donorBefore = donor.slice();
+      await expect(repairDsiRom(source, donor)).rejects.toThrow(`clean ${game} ROM`);
+      expect(donor).toEqual(donorBefore);
+    }
+    const revision = source.slice(); revision[0x1e] ^= 1;
+    await expect(repairDsiRom(source, revision)).rejects.toThrow("revision");
+    expect(source).toEqual(before);
+  });
+
+  it.each(["IRBJ", "IRAJ", "IPKE"])("rejects unsupported %s inputs without changing them", async (code) => {
+    const source = makeTwlRom(code), before = source.slice();
+    await expect(repairDsiRom(source, source)).rejects.toThrow("supports English");
+    expect(source).toEqual(before);
   });
 
   it("recovers absent mapping represented by 0/1 placeholders in stripped ROMs", async () => {
@@ -148,6 +177,7 @@ describe("donor DSi repair", () => {
     expect(dsiRepairedRomFilename("my-hack.NDS")).toBe("my-hack-dsi-repaired.nds");
     const card = renderDsiRomRepairCard();
     expect(card).toContain("DSi ROM Repair");
+    expect(card).toContain("Matching clean Black / White / Black 2 / White 2 ROM");
     expect(card.match(/type="file"/gu)).toHaveLength(2);
     expect(card).toContain('id="dsi-repair-download" type="button" disabled');
     expect(card).toContain('role="status"');
@@ -158,7 +188,7 @@ function makeProject(source: Uint8Array): ProjectState {
   const rom = new NintendoDSRom(source);
   return {
     originalRomBytes: source,
-    session: { romName: "fixture", baseVersion: rom.idCode === "IRDO" ? "W2" : "B2", baseRom: "BW2", fairy: false, fileIds: {}, blacklist: [] },
+    session: { romName: "fixture", baseVersion: rom.idCode === "IRDO" ? "W2" : rom.idCode === "IREO" ? "B2" : rom.idCode === "IRAO" ? "W" : "B", baseRom: ["IRBO", "IRAO"].includes(rom.idCode) ? "BW" : "BW2", fairy: false, fileIds: {}, blacklist: [] },
     romInfo: { title: rom.name, idCode: rom.idCode, fileName: "fixture.nds", size: source.length },
     arm9: rom.arm9, overlays: {}, narcs: {}, texts: { banks: {} }, formats: {}, trpokInfo: [],
   };

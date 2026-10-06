@@ -1,0 +1,749 @@
+{
+  "format": 1,
+  "scope": "4 MiB pointer limits; source review and executable inventory, not game compatibility certification.",
+  "sourceFilesScanned": 437,
+  "artifactCount": 97,
+  "sourceCandidates": [
+    {
+      "repository": "pokeweb",
+      "path": "runtime/battle-type-hud/hud_common.h",
+      "lines": [
+        17
+      ],
+      "sha256": "3e66fe34d803ce49bcbdb82b1372792d8fd54ba984bc68a80eb7cdec5ba5c04f"
+    },
+    {
+      "repository": "pokeweb",
+      "path": "runtime/following-pokemon/render.c",
+      "lines": [
+        28
+      ],
+      "sha256": "68c653e0203480d6ef5cd1e26e1fda5e88bac49b344d42fd2a71d825c7e4cfdf"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "include/extlib/Media/detail/yuv2rgb555.s",
+      "lines": [
+        562
+      ],
+      "sha256": "03d16618b59708f64bbcfaa3602f0705f85ef81c35d2e6c58eaba5c65bbe60a5"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "include/util/main_ram.h",
+      "lines": [
+        12
+      ],
+      "sha256": "1d64c730ee7398e02c33c28f612cf55ddc12f651d137251acb7c3ff55406d080"
+    },
+    {
+      "repository": "w2u-runtime",
+      "path": "src/pokeweb_gameplay/w2u_abilities.cpp",
+      "lines": [
+        906
+      ],
+      "sha256": "eda2c989f2c44cc098d95380ce9176c9bfddf63b1b2ac9d1280b1563ee44332f"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "src/assets/codeinjection/BattleLogSaveGuardB.dll",
+      "sha256": "4f2aff9390f89594722cad9d8ee7314e83aee0532005a311bd871b4e1b978752",
+      "codeBytes": 104,
+      "bssBytes": 4,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/BattleLogSaveGuardB2.dll",
+      "sha256": "10ac2eb3f69a085d7c63c6eed3f6558a95d31042110936c5c337740a063ead80",
+      "codeBytes": 104,
+      "bssBytes": 4,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/BattleLogSaveGuardW.dll",
+      "sha256": "6c4e58ec35d8be8faf99f38a6bbb0948e061e68eb2ac78132ce0a8e1102576eb",
+      "codeBytes": 104,
+      "bssBytes": 4,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/BattleLogSaveGuardW2.dll",
+      "sha256": "b000818574f8a9f5084fe4bbfc7b84bbd540f8b74df4d3322e58264af96cc4af",
+      "codeBytes": 104,
+      "bssBytes": 4,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/BgmToggleB2.dll",
+      "sha256": "eddb5a525bdb1f957fa4c92c85fe895477da669f47f056b98f7ff64d7d51cb02",
+      "codeBytes": 1092,
+      "bssBytes": 36,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/BgmToggleW2.dll",
+      "sha256": "69c05b1922fe03ca88d0d3b7ee05597b4e0796355aea28b78f29408bdf3783dd",
+      "codeBytes": 1092,
+      "bssBytes": 36,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black1BattleCounters.dll",
+      "sha256": "5cc3e519b1fe4d71dc3adb22ddca6690a4a1e60578a0f2d52b1b356869616cd5",
+      "codeBytes": 348,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black1BattleLog.dll",
+      "sha256": "dda15e52ec37be84615c1e74e1e0f7c41ff6ba8da92c4074f54af0f92184fc83",
+      "codeBytes": 1784,
+      "bssBytes": 92,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black1BattleLogSummary.dll",
+      "sha256": "635d8c92225c89267c4b9b0b0a9b9f705ff95f390cb991f3586a298a5ad6ee7b",
+      "codeBytes": 548,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black2Upgrade.dll",
+      "sha256": "d3d545dbc0f71304962dc2790a79597233ede120d6f3c93035f1209bab03a79c",
+      "codeBytes": 46360,
+      "bssBytes": 2852,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black2UpgradeBattleCounters.dll",
+      "sha256": "e523a20f159d5c6879e5b12d9b5af79800b25936e408e9c96a8d018b51f5c00f",
+      "codeBytes": 1100,
+      "bssBytes": 80,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black2UpgradeBattleLog.dll",
+      "sha256": "29c8f3a27275b35d538a3e0085dc5715b27261b1cf67162933b6ef21617f183e",
+      "codeBytes": 1736,
+      "bssBytes": 84,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black2UpgradeBattleLogSummary.dll",
+      "sha256": "20b1d65fb1d5133e4d4c3497c4ece7fb88fc87a9110b74489815fa4ae76e95ab",
+      "codeBytes": 548,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black2UpgradeField.dll",
+      "sha256": "626ee3b515b695514042680a29f33542d055acc7a8336163d577e02dd8099f15",
+      "codeBytes": 904,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black2UpgradePokedex.dll",
+      "sha256": "82edde02a9097414ab107e5d4e6c4527dbee45dd9e9f89557752705ce2a8594e",
+      "codeBytes": 108,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/Black2UpgradeUI.dll",
+      "sha256": "bd7ff2ee419c38a629a2ae3212f3903c0fa6b33ef852a6420b0f9f9e17d366af",
+      "codeBytes": 256,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/DoubleBattleFixB2.dll",
+      "sha256": "0ec0fdefa4437808b0e223691b3d0952bdbd792dfe95830d19a845a0d073b3e1",
+      "codeBytes": 532,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/DoubleBattleFixW2.dll",
+      "sha256": "d8ea7bfd01775ea0d30d235845a31f9a66a6876829747133d4d6661e7a841170",
+      "codeBytes": 532,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/FormEvolutionB2.dll",
+      "sha256": "20a74815861f0eead7070673badb6a36e695f625ddc0208eb2a0446828622e11",
+      "codeBytes": 136,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/FormEvolutionW2.dll",
+      "sha256": "e0217ce8798f5e154ec09e70c00f950a21043828be962afb79db1acccd2c9e24",
+      "codeBytes": 136,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/HardLevelCapsB2.dll",
+      "sha256": "8343b58ad0a537bdfb21619ca4bbf2026f08120400a78d718ad72b1c1c5751ca",
+      "codeBytes": 456,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/HardLevelCapsW2.dll",
+      "sha256": "c82381bbd86e97298891c41995fd1bedabf0e855d1c89af8850564c0c3853dbe",
+      "codeBytes": 456,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/InfiniteCandyB2.dll",
+      "sha256": "7607517a69fcb20c6ddfd6ace74dbfbae1fe80f58d8c896908a8e66919fe578a",
+      "codeBytes": 56,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/InfiniteCandyW2.dll",
+      "sha256": "ce0c677f6e094722321d9807ab06ea5a585d61f6587c985f3d4e0ed21bfbd659",
+      "codeBytes": 56,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/InstantBattleVictoryW2.dll",
+      "sha256": "2120a25871c4bac28669ccbea47a97d15fe8724d45891564ee3ce52ae6f30ba5",
+      "codeBytes": 220,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/InstantFastTextW2.dll",
+      "sha256": "14302494ba253180926c396697e5ffb65958be52235a9887ba1442d314d6990e",
+      "codeBytes": 72,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/LearnsetMenuB2.dll",
+      "sha256": "84e413f722229284c0ad2b0b3bad2ac592de6d6cbca50a637beb76a9301db61c",
+      "codeBytes": 2540,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/LearnsetMenuW2.dll",
+      "sha256": "164e67a72967532c7a4a5d39f50d7f8c4f4ca1dd511ff77f4f28a11c3571ff43",
+      "codeBytes": 2540,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/LearnsetViewerB2.dll",
+      "sha256": "0f906b685fbca33303aac4d3ffbae040b8690753f55ebc260e2f05217d9768f7",
+      "codeBytes": 15512,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/LearnsetViewerW2.dll",
+      "sha256": "9eb96af580b2605c90e3d5594cf0d756c0e99dbe5bda8138e2b5a87a15505d19",
+      "codeBytes": 15512,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/MainMenuSkipB2.dll",
+      "sha256": "2b79eeda1dd533e9b489a504f87f55e646a99d45d5a79aa4f3af5842b2aece30",
+      "codeBytes": 36,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/MainMenuSkipW2.dll",
+      "sha256": "cd1da75cfb740ee1e5b9d3abacd23bf8209e3b6f536cbdd7bc336995518ca67f",
+      "codeBytes": 36,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/MenuEvolutionB2.dll",
+      "sha256": "02b4100ff4a8877a770eacf7e2861f0ab11c68cea8ff72a7438c3dce81a568ed",
+      "codeBytes": 2912,
+      "bssBytes": 44,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/MenuEvolutionW2.dll",
+      "sha256": "63b09c3309c5fc0aa3aeb5277e61379e4263969d2a25ec64b172dec6ffc3adde",
+      "codeBytes": 2912,
+      "bssBytes": 44,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/MoveEffectivenessB2.dll",
+      "sha256": "8cb285aea96c8d85ea3ba778ed8334be57654f2270f15466eabc0d9384e22795",
+      "codeBytes": 2984,
+      "bssBytes": 20,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/MoveEffectivenessW2.dll",
+      "sha256": "bd9b562a681bc876fe092e4e3f2c2e51512deff4916e69e4edb019e3653d97a6",
+      "codeBytes": 2984,
+      "bssBytes": 20,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PMC_B2.rpm",
+      "sha256": "38a31dd1650b25ccb7dbb942c5bad39527df649022e52935b8ae5ea48ac3dea1",
+      "codeBytes": 6476,
+      "bssBytes": 92,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PMC_W2.rpm",
+      "sha256": "996b9c78ce3f5f8ed943e9a0b315c1e384e93a4fe29c18b6e06c157ea813c16f",
+      "codeBytes": 6476,
+      "bssBytes": 92,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PMC_W2I.rpm",
+      "sha256": "286b4bd96e0acbe82014eb0121ed674fd3618ba6d328b2cd3c300e88779d4dfe",
+      "codeBytes": 6476,
+      "bssBytes": 92,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebOverworldWeatherW2.dll",
+      "sha256": "390c159c29362f50f45d18e65a16b9b521f98534c8c1c50f0de16e3b685bb049",
+      "codeBytes": 2976,
+      "bssBytes": 8800,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebPwanBattleB2.dll",
+      "sha256": "3f61800eaafd8435bff68aeded8ce7115414c12cc37b83e530b3da8397ebd874",
+      "codeBytes": 4684,
+      "bssBytes": 17400,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebPwanBattleW2.dll",
+      "sha256": "28ac36131085171fa2dde44bcb54d488465b213443eb9c24ba742dc38febf6cb",
+      "codeBytes": 4684,
+      "bssBytes": 17400,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebPwanLegacyRetiredW2.dll",
+      "sha256": "65d88246013f7ac3a7d87168a8f5058091a2d8f7561d364a5a051c3e632447cb",
+      "codeBytes": 4,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebPwanMiscB2.dll",
+      "sha256": "87e92755dc2411ae1a89dcff86857d3dbc5db0bbc3f6bab52f382a89fff78fc8",
+      "codeBytes": 7792,
+      "bssBytes": 26732,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebPwanMiscW2.dll",
+      "sha256": "f5fab7c75bfcb91c84684c3bc771d4354f9438e0b6de1b6bf60c97372fc3b0f6",
+      "codeBytes": 7792,
+      "bssBytes": 26732,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebPwanSummaryB2.dll",
+      "sha256": "5723d7d0f8d8c3e5ec4142ae6adf8ebc8b42ca243b5da740046299d2978a18b7",
+      "codeBytes": 3984,
+      "bssBytes": 9384,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebPwanSummaryW2.dll",
+      "sha256": "5f7f875102c658ed804470920339d60f26f5ec8fce46c4a0b09e6501c085b335",
+      "codeBytes": 3984,
+      "bssBytes": 9384,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebPwanTrainerB2.dll",
+      "sha256": "3d173e909303b348b77acfe4c2e9d661f90d7eda06c61df6f9eb6b20f090f378",
+      "codeBytes": 2272,
+      "bssBytes": 17176,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PokewebPwanTrainerW2.dll",
+      "sha256": "fcdd22b9e3a184637500afbe12896d5e976d7066971c1b168c63ac54af3f8bb9",
+      "codeBytes": 2272,
+      "bssBytes": 17176,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PortaPCB2.dll",
+      "sha256": "9cc07b4e271c86261c0551b9a0d7d87642543fd79d043c9f4a9f12198198ca12",
+      "codeBytes": 48,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/PortaPCW2.dll",
+      "sha256": "1cefe7ef884f304a5c4066ea2fddb14e56ebb75f61be0833383cc25f1c58d64c",
+      "codeBytes": 48,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/SummaryStatViewerB2.dll",
+      "sha256": "9672f1c7538b30e4791806dec071031fd37bbf3265e78713dc406574d9913950",
+      "codeBytes": 10004,
+      "bssBytes": 108,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/SummaryStatViewerW2.dll",
+      "sha256": "f32bee5f8650224a4b0309d289b60e5c06cfc5aa3bd1f3664825ed86d62c231a",
+      "codeBytes": 10004,
+      "bssBytes": 108,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/TagBattleStabilizationW2.dll",
+      "sha256": "7ed12b4c532f4156365510bb18106c62c39fa5bbf848f0ffbdd8ce01eadd4f2a",
+      "codeBytes": 92,
+      "bssBytes": 4,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/TrainerNatureB2.dll",
+      "sha256": "a4ce5c8bdab4bf5eefa07faedfc70cc4c42e0ab8886fa53eca2ea594d484f7cf",
+      "codeBytes": 208,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/TrainerNatureW2.dll",
+      "sha256": "5f6b0fa9d34056ca556ed1745d48ee4f45a09b6d9c1ccd28eb1887375d68b774",
+      "codeBytes": 208,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/TypeIconsB2.dll",
+      "sha256": "2ef06fca00da5a1e9d7a99baa33dc6f7fbe994322efcae37edf715a531bbe037",
+      "codeBytes": 6880,
+      "bssBytes": 364,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/TypeIconsCircularB2.dll",
+      "sha256": "1eb5bd8a916979b945babcb40793cdfcb4b7ef4858b02fe469f8d5aa30536102",
+      "codeBytes": 6876,
+      "bssBytes": 364,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 6680,
+          "value": "0x00400000"
+        }
+      ]
+    },
+    {
+      "path": "src/assets/codeinjection/TypeIconsCircularW2.dll",
+      "sha256": "9c9eccebf0625babea538729493f1baeba481b3137f923c291dae4b56ec5192d",
+      "codeBytes": 6876,
+      "bssBytes": 364,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 6680,
+          "value": "0x00400000"
+        }
+      ]
+    },
+    {
+      "path": "src/assets/codeinjection/TypeIconsSolidB2.dll",
+      "sha256": "710665ad2326598a694d07afb798263e1e76e10e6c80bd93750d7da5f1a60e85",
+      "codeBytes": 6636,
+      "bssBytes": 364,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/TypeIconsSolidW2.dll",
+      "sha256": "6958865aa62c7882edc60c823977221f9706d352ec7055322b31741a5d00d214",
+      "codeBytes": 6636,
+      "bssBytes": 364,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/TypeIconsW2.dll",
+      "sha256": "c2cf8cd5bd50ca7c99fa616cb1d883c6512f05182265e4b773c091b9442019fe",
+      "codeBytes": 6880,
+      "bssBytes": 364,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/WalkThroughWallsW2.dll",
+      "sha256": "fd6563d597c14f642382da60929142fd4839f176ecab4130ef4c1a466cab4aee",
+      "codeBytes": 112,
+      "bssBytes": 8,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/White1BattleCounters.dll",
+      "sha256": "0ebabac8ef960c336d7081a200345bf16acbb2a6a28dba2040b27057d86a43c2",
+      "codeBytes": 348,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/White1BattleLog.dll",
+      "sha256": "10e1a875f26917d610899fe434b586fb459b59c9914e3669f4fbe291ca231e17",
+      "codeBytes": 1784,
+      "bssBytes": 92,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/White1BattleLogSummary.dll",
+      "sha256": "9e0ff9251324922cde7a254fb973fba1749c691997443a8fe26964cc5c8ef8ca",
+      "codeBytes": 548,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/White2UpgradeBattleCounters.dll",
+      "sha256": "22a718f120faae09e504d8e7870a67918c368e820783f3dbc7c4a7f806f82833",
+      "codeBytes": 1100,
+      "bssBytes": 80,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/White2UpgradeBattleLog.dll",
+      "sha256": "b10e07cebe3ce25d9ddc4c459f33580e313391149ab5088c49ead6feae232bfe",
+      "codeBytes": 1736,
+      "bssBytes": 84,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/codeinjection/White2UpgradeBattleLogSummary.dll",
+      "sha256": "79f7d42b55908c5545781f93a9b87d63a657c3b87c9f60b15ba34bfc4bd6c339",
+      "codeBytes": 548,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/PokewebFollowingBattleW2.dll",
+      "sha256": "be4e10297d8252f9e7085b93e0df6e3bc7fa7bec54053c59e0a6d351c5d377e5",
+      "codeBytes": 364,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/PokewebFollowingCoreW2.dll",
+      "sha256": "3f2ef8f0b59bd6df98e41bd7afa6923cbb53c1a43ba9961deef6838f8d85c7e7",
+      "codeBytes": 652,
+      "bssBytes": 136,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/PokewebFollowingEventsW2.dll",
+      "sha256": "4317b8aa9515bde45d5abd7f7acefda229faa2d23f19e4d44202df866b19cdbe",
+      "codeBytes": 1436,
+      "bssBytes": 28,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/PokewebFollowingEventsW2Base.dll",
+      "sha256": "5555c96704e649fc2d2ec7d820d8557a3eb52cfff6f8a6f5e5d532511197ecb6",
+      "codeBytes": 1324,
+      "bssBytes": 28,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/PokewebFollowingFieldW2.dll",
+      "sha256": "838c043154bfb63edec40332c20c3d52bd37bc3ca07d749655ba5b1197ed4927",
+      "codeBytes": 46492,
+      "bssBytes": 20140,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 28596,
+          "value": "0x023fff40"
+        }
+      ]
+    },
+    {
+      "path": "src/assets/following/PokewebFollowingFieldW2Base.dll",
+      "sha256": "6789cb86a778b684b4e79f2dadd05f501a125390181fb91e417132c0a5f6514e",
+      "codeBytes": 35148,
+      "bssBytes": 18492,
+      "boundaryLiteralCandidates": [
+        {
+          "offset": 26304,
+          "value": "0x023fff40"
+        }
+      ]
+    },
+    {
+      "path": "src/assets/following/PokewebFollowingOptionsW2.dll",
+      "sha256": "8090c923b9850e995e73d30ad0d7a53723bc773d3bb0578abc776bfdb530ead5",
+      "codeBytes": 1996,
+      "bssBytes": 40,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/black2/PokewebFollowingBattleB2.dll",
+      "sha256": "3330d243a03fdfa22d10bd0da3a1f0885facf9376507ad0e6c634953e3c11c42",
+      "codeBytes": 364,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/black2/PokewebFollowingCoreB2.dll",
+      "sha256": "ae4801c70c00459b61714db134a84c91ea64f55473bfa3b1b0c46dd4ae93cf8c",
+      "codeBytes": 652,
+      "bssBytes": 136,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/black2/PokewebFollowingEventsB2.dll",
+      "sha256": "df7b1d512bb9466f38101ad29714bce91206ec2cab32e9f0cb49981909cc2862",
+      "codeBytes": 1436,
+      "bssBytes": 28,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/black2/PokewebFollowingEventsB2Base.dll",
+      "sha256": "84471089eb4b44df025db545a02a692ad122335d25cca1744753724e80241864",
+      "codeBytes": 1324,
+      "bssBytes": 28,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/black2/PokewebFollowingFieldB2.dll",
+      "sha256": "07945da057165da1359b600afe3449f063ec1399dc02445460e8ea85d2b964a0",
+      "codeBytes": 44708,
+      "bssBytes": 20084,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/black2/PokewebFollowingFieldB2Base.dll",
+      "sha256": "5d5cee5d2353a7c106c3cc5c155868f5a1a2ecac4d19605ae52f7537292029d6",
+      "codeBytes": 33468,
+      "bssBytes": 18432,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/black2/PokewebFollowingOptionsB2.dll",
+      "sha256": "80f4597a23c8f0edc7bf1ddaedab24d61143ddee4446c8659ba4751f657ed267",
+      "codeBytes": 1996,
+      "bssBytes": 40,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2italy/PokewebFollowingBattleW2I.dll",
+      "sha256": "b9305d34550fa0ac584bb747d8b99ad1b1f2c88bdc0e8d5668358f42eb4907b2",
+      "codeBytes": 364,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2italy/PokewebFollowingCoreW2I.dll",
+      "sha256": "b6646a975519f2f433df839b4a325f4fec823b84f288b1c293e12d9e9703f903",
+      "codeBytes": 652,
+      "bssBytes": 136,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2italy/PokewebFollowingEventsW2I.dll",
+      "sha256": "abfcabc7a7160d13a9079eced770203444d5427ef7f8679e73fd098dcf77d1b6",
+      "codeBytes": 1436,
+      "bssBytes": 28,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2italy/PokewebFollowingEventsW2IBase.dll",
+      "sha256": "1bcb89e716720cc612ae02e80a5186523604de129b200566fccd6b34699984e8",
+      "codeBytes": 1324,
+      "bssBytes": 28,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2italy/PokewebFollowingFieldW2I.dll",
+      "sha256": "2396648720fab5c438017ee67fa2a751b5867ab1b47e7bd565c86b29ff54de43",
+      "codeBytes": 44880,
+      "bssBytes": 20084,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2italy/PokewebFollowingFieldW2IBase.dll",
+      "sha256": "bab63e1021f664d7c4cca570a2dd17c2289c984a9b9a9a9a2536f35ae69c4f2f",
+      "codeBytes": 33644,
+      "bssBytes": 18432,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2italy/PokewebFollowingOptionsW2I.dll",
+      "sha256": "956269dd46e72bd9487aa2e391e43a7b8a6382fe8d1e3726f5a6268bc1403454",
+      "codeBytes": 1996,
+      "bssBytes": 40,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2upgrade/PokewebFollowingBattleW2.dll",
+      "sha256": "7ca99fd85a265f0ba014538c4ea2580e1f181deef703230fb37b154e963851c4",
+      "codeBytes": 364,
+      "bssBytes": 0,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2upgrade/PokewebFollowingCoreW2.dll",
+      "sha256": "549201cf001cf0a9674d09911a1d38889408e6702b625b7931f66a18a9933935",
+      "codeBytes": 652,
+      "bssBytes": 136,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2upgrade/PokewebFollowingEventsW2.dll",
+      "sha256": "770361ebda830a8d7ddede084ca3cc5a5d2d4c853b0dfce2173728aaa11316f9",
+      "codeBytes": 1436,
+      "bssBytes": 28,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2upgrade/PokewebFollowingEventsW2Base.dll",
+      "sha256": "5e858d254f46c86d85945882f718b92abc5a5bdac2f138c1d19a5bef0f079123",
+      "codeBytes": 1324,
+      "bssBytes": 28,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2upgrade/PokewebFollowingFieldW2.dll",
+      "sha256": "ea596734d7298c56078d0f0d8288639cbda0b6e451ef3d04d007f5616314a231",
+      "codeBytes": 44852,
+      "bssBytes": 20832,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2upgrade/PokewebFollowingFieldW2Base.dll",
+      "sha256": "998d3644fd08ed0f5a9beda12eab9ba0f6ae8d613f42fb3fcc79b0083bfa8fde",
+      "codeBytes": 33612,
+      "bssBytes": 19180,
+      "boundaryLiteralCandidates": []
+    },
+    {
+      "path": "src/assets/following/white2upgrade/PokewebFollowingOptionsW2.dll",
+      "sha256": "40c271c8c102d7e183122018669465f059eafa4812d2428103b72455da0b6cd6",
+      "codeBytes": 1996,
+      "bssBytes": 40,
+      "boundaryLiteralCandidates": []
+    }
+  ]
+}
