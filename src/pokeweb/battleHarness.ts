@@ -5,6 +5,8 @@ import { BATTLE_TYPES } from "./constants";
 import { findPokemonBaseSpeciesId, pokemonSpeciesLabel } from "./pokemonLabels";
 import { decodeRecord, markDirty, type ProjectState } from "./projectStore";
 import { parseRpm, writeRpm } from "./rpm";
+import { PERSONAL_ABILITY_MAX_ID } from "./personalAbilityPacking";
+import { readPk5Ability, writePk5Ability } from "./pk5AbilityPacking";
 import { createTestBattlePartyPokemon, decryptPk5Party, encryptPk5Party, getTestBattlePersonal, recalculateTestBattlePartyStats, refreshTestBattlePartyChecksums, type ShowdownPokemon } from "./testBattleTeam";
 
 type Stats = Partial<ShowdownPokemon["ivs"]>;
@@ -146,7 +148,7 @@ function resolvePokemon(project: ProjectState, spec: HarnessPokemon): ShowdownPo
   if (Object.values(evs).reduce((a, b) => a + b, 0) > 510) throw new Error("Total EVs exceed 510");
   return {
     speciesId, personalId, formIndex, speciesName: pokemonSpeciesLabel(project, speciesId),
-    abilitySlot, abilityId: harnessInteger(spec.abilityId ?? Number(raw[`ability_${abilitySlot}`]), 1, 255, "abilityId"),
+    abilitySlot, abilityId: harnessInteger(spec.abilityId ?? Number(raw[`ability_${abilitySlot}`]), 1, PERSONAL_ABILITY_MAX_ID, "abilityId"),
     level: harnessInteger(spec.level ?? 50, 1, 100, "level"),
     itemId: harnessInteger(spec.itemId ?? 0, 0, (project.texts.banks.items?.length || 65536) - 1, "itemId"),
     nature: harnessInteger(spec.nature ?? 0, 0, 24, "nature"),
@@ -233,7 +235,7 @@ function readPokemon(data: Uint8Array): HarnessPokemon {
   const ivs = readU32(data, 0x38);
   return {
     speciesId: readU16(data, 8), form: data[0x40] >>> 3, level: data[0x8c], itemId: readU16(data, 0xa),
-    abilityId: data[0x15], abilitySlot: data[0x42] & 1 ? 3 : (readU32(data, 0) & 1) + 1 as 1 | 2,
+    abilityId: readPk5Ability(data), abilitySlot: data[0x42] & 1 ? 3 : (readU32(data, 0) & 1) + 1 as 1 | 2,
     nature: data[0x41], gender: ((data[0x40] >>> 1) & 3) as 0 | 1 | 2,
     moves: [0, 1, 2, 3].map(i => readU16(data, 0x28 + i * 2)),
     ivs: Object.fromEntries(STATS.map((key, i) => [key, (ivs >>> (i * 5)) & 31])),
@@ -284,7 +286,7 @@ export function patchHarnessSave(save: Uint8Array, project: ProjectState, config
         if (!(readU32(data, 0x38) & 0x80000000)) data.set(replacement.subarray(0x48, 0x5e), 0x48);
       }
       if (edit.itemId !== undefined) writeU16(data, 0xa, mon.itemId);
-      if (edit.abilityId !== undefined || edit.abilitySlot !== undefined || edit.speciesId !== undefined || edit.form !== undefined) { data[0x15] = mon.abilityId; data[0x42] = (data[0x42] & ~1) | Number(mon.abilitySlot === 3); writeU32(data, 0, (readU32(data, 0) & ~1) | Number(mon.abilitySlot === 2)); }
+      if (edit.abilityId !== undefined || edit.abilitySlot !== undefined || edit.speciesId !== undefined || edit.form !== undefined) { writePk5Ability(data, mon.abilityId); data[0x42] = (data[0x42] & ~1) | Number(mon.abilitySlot === 3); writeU32(data, 0, (readU32(data, 0) & ~1) | Number(mon.abilitySlot === 2)); }
       if (edit.moves !== undefined) { data.set(replacement.subarray(0x28, 0x34), 0x28); data.fill(0, 0x34, 0x38); }
       if (edit.evs !== undefined) data.set(replacement.subarray(0x18, 0x1e), 0x18);
       if (edit.ivs !== undefined) writeU32(data, 0x38, (readU32(data, 0x38) & 0xc0000000) | (readU32(replacement, 0x38) & 0x3fffffff));
