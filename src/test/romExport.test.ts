@@ -244,6 +244,29 @@ describe("ROM export", () => {
     expect(readU16(exported, 0x15e)).toBe(crc16(exported.subarray(0, 0x15e)));
   });
 
+  it("exports DS-only hacks with residual NTR digest fields without copying bogus DSi programs", async () => {
+    const source = makeRom([Uint8Array.of(1, 2, 3)]);
+    source[0x12] = 2;
+    // Header pattern from a DS-only hack: stale program/region fields, but
+    // no TWL size, TWL digest region, tables, or hashing dimensions.
+    for (const [field, value] of [[0x1c0, 1], [0x1cc, 1], [0x1d0, 1], [0x1dc, 0x1010100],
+      [0x1e0, 0x1000000], [0x1e4, 0x101]]) writeU32(source, field, value);
+    const before = source.slice();
+    let exported = await exportModifiedRom(makeProject(source));
+    for (let iteration = 0; iteration < 2; iteration += 1) {
+      expect(new NintendoDSRom(exported).files).toEqual([Uint8Array.of(1, 2, 3)]);
+      expect(readU32(exported, 0x210)).toBe(0);
+      expect(readU32(exported, 0x1c0)).toBe(1);
+      expect(readU32(exported, 0x1d0)).toBe(1);
+      expect(readU32(exported, 0x80)).toBe(exported.length);
+      expect(readU16(exported, 0x92)).toBe(readU16(exported, 0x90));
+      expect(readU16(exported, 0x15e)).toBe(crc16(exported.subarray(0, 0x15e)));
+      exported = new NintendoDSRom(exported).save();
+    }
+    expect(source).toEqual(before);
+    expect(() => new NintendoDSRom(source).save({ forDsi: true })).toThrow("unsupported sector or block dimensions");
+  });
+
   it.each([
     { label: "absent DSi payloads", twlSize: 0, payloadOffset: 0 },
     { label: "stripped DSi payloads with stale offsets", twlSize: 0, payloadOffset: 0x300000 },

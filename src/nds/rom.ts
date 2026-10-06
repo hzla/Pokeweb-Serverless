@@ -339,7 +339,11 @@ export class NintendoDSRom {
   }
 
   private isTwlExtended(): boolean {
-    return (this.data[0x12] ?? 0) === 2 && (readU32(this.data, 0x210) > 0 || this.hasTwlDigestMetadata());
+    // DS-only hacks can retain garbage NTR digest fields after stripping the
+    // extended header. Recognize an optional zero total-size field only when
+    // the header actually declares digest tables, not just NTR region bytes.
+    const declaresDigestTables = [0x1f0, 0x1f4, 0x1f8, 0x1fc].some((field) => readU32(this.data, field) !== 0);
+    return (this.data[0x12] ?? 0) === 2 && (readU32(this.data, 0x210) > 0 || declaresDigestTables);
   }
 
   private hasTwlDigestMetadata(): boolean {
