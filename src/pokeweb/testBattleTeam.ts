@@ -1,6 +1,7 @@
 import { NATURES, type BaseRom } from "./constants";
 import { findPokemonPersonalFormOwner, findPokemonSpeciesId, pokemonSpeciesLabel } from "./pokemonLabels";
 import { decodeRecord, type ProjectState, type RawRecord } from "./projectStore";
+import { writePk5Ability } from "./pk5AbilityPacking";
 
 const TEST_BATTLE_PARTY_BLOCK_OFFSET = 0x18e00;
 const TEST_BATTLE_PARTY_BLOCK_LENGTH = 0x534;
@@ -556,7 +557,6 @@ function applyPokemonToPk5(project: ProjectState, data: Uint8Array, pokemon: Sho
   writeLe32(data, 0x0c, trainer.id32);
   writeLe32(data, 0x10, pokemon.experience ?? experienceForLevel(pokemon.level, expRate));
   data[0x14] = clampInt(baseFriendship, 0, 255);
-  data[0x15] = pokemon.abilityId & 0xff;
   data[0x16] = 0;
   data[0x17] = trainer.language || 2;
 
@@ -575,6 +575,7 @@ function applyPokemonToPk5(project: ProjectState, data: Uint8Array, pokemon: Sho
   data[0x40] = ((pokemon.gender & 0x03) << 1) | ((pokemon.formIndex & 0x1f) << 3);
   data[0x41] = pokemon.nature;
   data[0x42] = pokemon.abilitySlot === 3 ? 1 : 0;
+  writePk5Ability(data, pokemon.abilityId);
   data[0x5f] = trainer.version;
   data.set(trainer.otNameBytes, 0x68);
   data[0x84] = (data[0x84] & 0x7f) | ((trainer.gender & 1) << 7);
