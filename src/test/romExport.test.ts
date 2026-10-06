@@ -236,8 +236,8 @@ describe("ROM export", () => {
     const exported = await exportModifiedRom(makeProject(source));
 
     expect(readU32(exported, 0x210)).toBe(0);
-    expect(readU32(exported, 0x1c0)).toBe(1);
-    expect(readU32(exported, 0x1d0)).toBe(1);
+    expect(readU32(exported, 0x1c0)).toBe(0);
+    expect(readU32(exported, 0x1d0)).toBe(0);
     expect(readU32(exported, 0x80)).toBe(exported.length);
     expect(readU16(exported, 0x90)).toBe(Math.ceil(exported.length / 0x80000));
     expect(readU16(exported, 0x92)).toBe(readU16(exported, 0x90));
@@ -256,8 +256,8 @@ describe("ROM export", () => {
     for (let iteration = 0; iteration < 2; iteration += 1) {
       expect(new NintendoDSRom(exported).files).toEqual([Uint8Array.of(1, 2, 3)]);
       expect(readU32(exported, 0x210)).toBe(0);
-      expect(readU32(exported, 0x1c0)).toBe(1);
-      expect(readU32(exported, 0x1d0)).toBe(1);
+      expect(readU32(exported, 0x1c0)).toBe(0);
+      expect(readU32(exported, 0x1d0)).toBe(0);
       expect(readU32(exported, 0x80)).toBe(exported.length);
       expect(readU16(exported, 0x92)).toBe(readU16(exported, 0x90));
       expect(readU16(exported, 0x15e)).toBe(crc16(exported.subarray(0, 0x15e)));

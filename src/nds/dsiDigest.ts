@@ -36,7 +36,7 @@ function span(source: Uint8Array, start: number, length: number): boolean {
 // Locate the digest key in the user's decompressed ARM9, authenticating each
 // candidate against the source block table. Only code offsets are bundled.
 // The aligned scan also supports hacks that move the native configuration.
-function digestHmacFromRom(source: Uint8Array, sectors: Uint8Array, expected: Uint8Array): HmacSha1 {
+export function digestHmacFromRom(source: Uint8Array, sectors: Uint8Array, expected: Uint8Array): HmacSha1 {
   const start = readU32(source, 0x20), size = readU32(source, 0x2c);
   if (!span(source, start, size)) invalid("the ARM9 program is missing");
   const arm9 = decompressCode(source.subarray(start, start + size));

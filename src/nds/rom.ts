@@ -1,7 +1,9 @@
 import { ByteLike, asUint8Array, readAscii, readU16, readU32, writeU16, writeU32 } from "./binary";
 import { Folder, addFilePath, cloneFolder, loadFnt, saveFnt, shiftFileIdsAtOrAfter } from "./fnt";
 import { Overlay, loadOverlayTable } from "./code";
-import { planDsiDigest, readDsiDigestSource, writeDsiDigest } from "./dsiDigest";
+import { planDsiDigest, readDsiDigestSource, writeDsiDigest, type DsiDigestSource } from "./dsiDigest";
+import { damagedDsiExportWarning, type DsiExportWarning } from "./dsiWarning";
+import { validateDsRomSections } from "./romValidation";
 
 const NTR_TWL_ALIGNMENT = 0x80000;
 const STANDARD_DS_ROM_LIMIT = 0x20000000;
@@ -20,6 +22,9 @@ export type RomReadOptions = {
 export type RomSaveOptions = {
   /** Automatically preserve DSi support when source metadata exists; false explicitly opts out. */
   forDsi?: boolean;
+  /** Permit a warned DS-mode export when the input's DSi data is damaged or missing. */
+  allowDamagedDsi?: boolean;
+  onWarning?: (warning: DsiExportWarning) => void;
   arm9?: Uint8Array;
   arm9OverlayTable?: Uint8Array;
   arm7OverlayTable?: Uint8Array;
@@ -164,14 +169,27 @@ export class NintendoDSRom {
       ...files.map((_file, id) => id).filter((id) => !prioritySet.has(id))
         .sort((a, b) => placementRanks[a] - placementRanks[b] || a - b),
     ];
-    const twlSections = this.twlSections();
+    let twlSections = this.twlSections();
     const hasDigestMetadata = this.isTwlExtended()
       && (readU32(this.data, 0x1cc) > 0 || readU32(this.data, 0x1dc) > 0)
       && this.hasTwlDigestMetadata();
     const rebuildDsi = options.forDsi ?? hasDigestMetadata;
-    const digestSource = rebuildDsi ? readDsiDigestSource(this.data) : undefined;
-    if (rebuildDsi && (twlSections.length !== 2 || !digestSource)) {
-      throw new Error("Preserving DSi support requires the original ROM's complete DSi programs and integrity tables. Reload the original DSi-enhanced ROM; a DS-only export cannot supply missing DSi data.");
+    let digestSource: DsiDigestSource | undefined;
+    let damagedDsi = false;
+    const allowFallback = options.allowDamagedDsi && options.forDsi !== true && options.forDsi !== false && this.data[0x12] === 2;
+    try {
+      digestSource = rebuildDsi || allowFallback ? readDsiDigestSource(this.data) : undefined;
+      if ((rebuildDsi || allowFallback) && (twlSections.length !== 2 || !digestSource)) {
+        throw new Error("Preserving DSi support requires the original ROM's complete DSi programs and integrity tables. Reload the original DSi-enhanced ROM; a DS-only export cannot supply missing DSi data.");
+      }
+      if (digestSource) validateModcryptAreas(this.data);
+    } catch (error) {
+      if (!allowFallback) throw error;
+      validateDsRomSections(this.data);
+      damagedDsi = true;
+      twlSections = [];
+      digestSource = undefined;
+      options.onWarning?.(damagedDsiExportWarning(this.data));
     }
     const minimumLength = Math.max(options.preserveOriginalLength ? this.data.length : 0, checkedMinimumLength(options.minimumLength));
 
@@ -282,6 +300,15 @@ export class NintendoDSRom {
     }
     const out = writer.trim(romLength);
     if (options.preserveOriginalLength && romLength > compactRomLength) out.fill(0xff, compactRomLength, romLength);
+    if (damagedDsi) {
+      // Do not publish dangling binary, digest or encryption offsets. Keep
+      // the native DS header and TWL memory mapping for later donor repair.
+      out.fill(0, 0x1c0, 0x208);
+      out.fill(0, 0x210, 0x214);
+      out.fill(0, 0x220, 0x230);
+      out.fill(0, 0x328, 0x33c);
+      out[0x1c] &= ~6;
+    }
 
     writeU32(out, 0x20, arm9.offset);
     writeU32(out, 0x2c, arm9.length);
@@ -380,6 +407,19 @@ function relocateModcryptAreas(source: Uint8Array, out: Uint8Array): void {
       throw new Error(`Cannot relocate DSi modcrypt area ${index + 1}: its encrypted code section was removed or shortened.`);
     }
     writeU32(out, field, destination + relative);
+  }
+}
+
+function validateModcryptAreas(source: Uint8Array): void {
+  if (!(source[0x1c] & 2)) return;
+  for (const field of [0x220, 0x228]) {
+    const start = readU32(source, field), size = readU32(source, field + 4);
+    if (!start && !size) continue;
+    const contained = [[0x20, 0x2c], [0x30, 0x3c], [0x1c0, 0x1cc], [0x1d0, 0x1dc]].some(([offset, sizeField]) => {
+      const base = readU32(source, offset), length = readU32(source, sizeField);
+      return start > 0 && size > 0 && base > 0 && base + length <= source.length && start >= base && start + size <= base + length;
+    });
+    if (!contained) throw new Error("Cannot preserve DSi support: a modcrypt encryption range is outside its code section. An earlier exporter may have left stale DSi offsets.");
   }
 }
 
