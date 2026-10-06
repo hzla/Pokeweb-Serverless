@@ -1,0 +1,58 @@
+{
+  "diagnosis": {
+    "loaded_old_code_matches": true,
+    "old_pointer_failure": 1,
+    "old_active_bindings": 0
+  },
+  "old": {
+    "failure": 1,
+    "panels_drawn": 0,
+    "gauge": "0x28558ac",
+    "battlers": [
+      "0x2805194",
+      "0x2805e6c"
+    ],
+    "captured_types": [
+      [
+        11,
+        11
+      ],
+      [
+        16,
+        16
+      ]
+    ],
+    "native_readers_executed": true,
+    "abi_preserved": true,
+    "unchanged_update_no_video_writes": true,
+    "cleanup_verified": false
+  },
+  "fixed": {
+    "failure": 0,
+    "panels_drawn": 2,
+    "gauge": "0x28558ac",
+    "battlers": [
+      "0x2805194",
+      "0x2805e6c"
+    ],
+    "captured_types": [
+      [
+        11,
+        11
+      ],
+      [
+        16,
+        16
+      ]
+    ],
+    "native_readers_executed": true,
+    "abi_preserved": true,
+    "unchanged_update_no_video_writes": true,
+    "cleanup_verified": true
+  },
+  "release_sha256": "6958865aa62c7882edc60c823977221f9706d352ec7055322b31741a5d00d214",
+  "limitations": [
+    "Supplied captured memory and isolated compiled function calls; no game boot or frames.",
+    "Native gauge creation/update/release are no-ops; native object, image, palette, type and mode readers execute."
+  ]
+}

@@ -39,3 +39,4 @@ constexpr unsigned NativeGaugePosition = 0x021f070d;
 constexpr unsigned NativeSpriteInit = 0x0204d165;
 constexpr unsigned NativeCellInit = 0x0204d259;
 constexpr unsigned NativeCellSelect = 0x02061185;
+constexpr unsigned NativeIsDsi = 0x0207acb9;

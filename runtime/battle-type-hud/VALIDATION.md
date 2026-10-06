@@ -1,8 +1,18 @@
 # Battle Type HUD — current validation
 
-Pokeweb bundle **0.4.23** provides lettered Type Icons 0.3.17, Circular Icons 0.3.17-circular, Angular HUD Wedges 0.3.23-solid, and independent Move Effectiveness Preview 0.4.0 for English Black 2 and White 2. Each installer keeps its own hooks. Selecting or switching an icon style retains one active icon module and one hook set; importing, reinstalling, and staged removal were covered by Pokeweb model/export checks. Unknown overlapping hooks and native resource changes are rejected.
+Pokeweb bundle **0.4.24** provides lettered Type Icons 0.3.18, Circular Icons 0.3.18-circular, Angular HUD Wedges 0.3.24-solid, and independent Move Effectiveness Preview 0.4.1 for English Black 2 and White 2. Each installer keeps its own hooks. Selecting or switching an icon style retains one active icon module and one hook set; importing, reinstalling, and staged removal were covered by Pokeweb model/export checks. Unknown overlapping hooks and native resource changes are rejected.
 
-The current angular-wedge compiled ARM checks covered all 18 mono/dual fill pairs, player and enemy panel slots, status labels, typing changes, palette fading, unchanged-frame write suppression, native caught-marker preservation, HP-bar palette entries 5–12, and teardown in B2 and W2. The module is 7,600 bytes with about 7,856 retained PMC bytes, 364 bytes of fixed state, and no added battle-heap allocation, sprite, palette bank, or graphics VRAM allocation. Those numbers describe the module and measured fixtures, not total battle memory.
+The current angular-wedge compiled ARM checks covered all 18 mono/dual fill pairs, player and enemy panel slots, status labels, typing changes, palette fading, unchanged-frame write suppression, native caught-marker preservation, HP-bar palette entries 5–12, and teardown in B2 and W2. The module is 7,648 bytes with about 7,904 retained PMC bytes, 364 bytes of fixed state, and no added battle-heap allocation, sprite, palette bank, or graphics VRAM allocation. Those numbers describe the module and measured fixtures, not total battle memory.
+
+`reports/dsi-verification.json` records DS/DSi pointer boundaries using each
+game's native mode getter, ABI preservation, and all three icon styles with
+gauge, battler, cell and palette objects exclusively in extended RAM. The
+move-preview pointer helper passes the same boundary checks.
+`reports/dsi-captured-state-verification.json` matches the old installed code in
+a supplied White 2 DSi capture, reproduces its pointer failure, and compares
+both corrected wedge panels against captured native graphics. Native readers
+execute; gauge creation, update and release use no-op fixtures. No game frames
+or hardware sessions were executed.
 
 The preview colors damaging move names for effective/resisted matchups using current battle typing; status moves retain normal color. Immunity remains grayish blue. Weather Ball, Natural Gift, Judgment, Techno Blast, and unsupported dynamic type changes remain neutral. Red immunity and broader ability/item/field exceptions are not implemented. This follows the verified BW2 behavior rather than substituting later-generation rules.
 

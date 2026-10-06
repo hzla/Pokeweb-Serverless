@@ -5,7 +5,7 @@ from rpm_read import read_rpm
 HERE=Path(__file__).resolve().parent
 ROOT=Path(os.environ.get('BTH_WORKSPACE_ROOT',HERE.parents[2] if HERE.parent.name=='runtime' else HERE.parents[1]))
 APP=ROOT/'Pokeweb-Serverless';ASSETS=APP/'src/assets/codeinjection';RUNTIME=APP/'runtime/battle-type-hud'
-version='0.4.23'
+version='0.4.24'
 manifest=json.loads((ASSETS/'battleTypeHudManifest.json').read_text())
 manifest['version']=version;manifest.setdefault('moveGames',{})
 memory=json.loads((HERE/'build/memory-report.json').read_text())
@@ -15,20 +15,22 @@ enemy_names=json.loads((HERE/'build/enemy-name-verification.json').read_text())
 move_verified=json.loads((HERE/'build/move-verification.json').read_text())
 circular_verified=json.loads((HERE/'build/circular-verification.json').read_text())
 solid_verified=json.loads((HERE/'build/solid-verification.json').read_text())
-icon_names={'Add','AddPP','Main','Del','Release','Status','GetPfd','GetRule','GetProxy','PalAddr','PPGet','EffectiveTypes','ViewSrc','HpNumberBinding','NameDraw','SexDraw','LevelDraw','GaugePosition','EnemyPositions','EnemyTriplePositions','SpriteInit','CellInit','CellSelect'}
+dsi_verified=json.loads((HERE/'build/dsi-verification.json').read_text())
+icon_names={'IsDsi','Add','AddPP','Main','Del','Release','Status','GetPfd','GetRule','GetProxy','PalAddr','PPGet','EffectiveTypes','ViewSrc','HpNumberBinding','NameDraw','SexDraw','LevelDraw','GaugePosition','EnemyPositions','EnemyTriplePositions','SpriteInit','CellInit','CellSelect'}
 for game in ('B2','W2'):
  full=json.loads((HERE/f'profile-{game}.json').read_text())
  for module,key,state,hooks in (('TypeIcons','games',364,17),('MoveEffectiveness','moveGames',20,5)):
-  component_version='0.3.17' if module=='TypeIcons' else '0.4.0'
+  component_version='0.3.18' if module=='TypeIcons' else '0.4.1'
   name=module+game+'.dll';data=(HERE/'build'/name).read_bytes();rpm=read_rpm(data)
   assert rpm['bss']==state and len([r for r in rpm['relocations'] if r['module']!='base'])==hooks
   assert all(r['module'] in ('base','168') for r in rpm['relocations']) and all(not s['attributes']&2 for s in rpm['symbols'])
   digest=hashlib.sha256(data).hexdigest();assert digest==memory[name]['sha256']
+  assert digest==dsi_verified['release_sha256'][game][module]
   if module=='TypeIcons':assert digest==verified['release_sha256'][game]==alignment['corrected'][game]['release_sha256']==enemy_names['games'][game]['release_sha256']
   else:assert digest==move_verified['release_sha256'][game]
   profile=dict(full);is_icon=module=='TypeIcons'
   profile['hooks']=[h for h in full['hooks'] if h['name'].startswith('Move')!=is_icon]
-  profile['signatures']=[s for s in full['signatures'] if (s['name'] in icon_names if is_icon else s['name'] not in icon_names or s['name'] in ('PPGet','EffectiveTypes','ViewSrc'))]
+  profile['signatures']=[s for s in full['signatures'] if (s['name'] in icon_names if is_icon else s['name'] not in icon_names or s['name'] in ('IsDsi','PPGet','EffectiveTypes','ViewSrc'))]
   profile['resources']=full['resources'] if is_icon else {}
   profile['dllSha256']=digest;profile['version']=component_version;profile['builds']=manifest[key].get(game,{}).get('builds',{})
   types=['NULL','VALUE','FUNCTION_ARM','FUNCTION_THM','SECTION']
@@ -41,26 +43,28 @@ for game in ('B2','W2'):
    assert all(r['module']!='base' or not at<=r['address']<at+6 for r in rpm['relocations'])
    build['colorOffset']=at
   else:
-   circular_version='0.3.17-circular';circular_name=f'TypeIconsCircular{game}.dll'
+   circular_version='0.3.18-circular';circular_name=f'TypeIconsCircular{game}.dll'
    circular_data=(HERE/'build'/circular_name).read_bytes();circular_rpm=read_rpm(circular_data)
    circular_digest=hashlib.sha256(circular_data).hexdigest()
    assert circular_rpm['bss']==state and len([r for r in circular_rpm['relocations'] if r['module']!='base'])==hooks
    assert all(r['module'] in ('base','168') for r in circular_rpm['relocations']) and all(not s['attributes']&2 for s in circular_rpm['symbols'])
    assert circular_digest==memory[circular_name]['sha256']==circular_verified['release_sha256'][game]
+   assert circular_digest==dsi_verified['release_sha256'][game]['TypeIconsCircular']
    circular_build={'codeHex':circular_rpm['code'].hex(),'relocations':circular_rpm['relocations'],'bssSize':circular_rpm['bss'],
     'symbols':[dict(address=s['address'],type=types[s['type']],attributes=s['attributes']) for s in circular_rpm['symbols']]}
    profile['builds'][circular_version]=circular_build
    profile['variants']={
     'letters':{'label':'Hexagonal letters','version':component_version,'dllSha256':digest},
     'circular':{'label':'Circular icons','version':circular_version,'dllSha256':circular_digest},
-    'solid':{'label':'Angular HUD wedges','version':'0.3.23-solid','dllSha256':hashlib.sha256((HERE/'build'/f'TypeIconsSolid{game}.dll').read_bytes()).hexdigest()},
+    'solid':{'label':'Angular HUD wedges','version':'0.3.24-solid','dllSha256':hashlib.sha256((HERE/'build'/f'TypeIconsSolid{game}.dll').read_bytes()).hexdigest()},
    }
    (ASSETS/circular_name).write_bytes(circular_data)
    solid_name=f'TypeIconsSolid{game}.dll';solid_data=(HERE/'build'/solid_name).read_bytes();solid_rpm=read_rpm(solid_data)
-   solid_digest=hashlib.sha256(solid_data).hexdigest();solid_version='0.3.23-solid'
+   solid_digest=hashlib.sha256(solid_data).hexdigest();solid_version='0.3.24-solid'
    assert solid_rpm['bss']==state and len([r for r in solid_rpm['relocations'] if r['module']!='base'])==hooks
    assert all(r['module'] in ('base','168') for r in solid_rpm['relocations']) and all(not s['attributes']&2 for s in solid_rpm['symbols'])
    assert solid_digest==memory[solid_name]['sha256']==solid_verified['release_sha256'][game]
+   assert solid_digest==dsi_verified['release_sha256'][game]['TypeIconsSolid']
    solid_build={'codeHex':solid_rpm['code'].hex(),'relocations':solid_rpm['relocations'],'bssSize':solid_rpm['bss'],
     'symbols':[dict(address=s['address'],type=types[s['type']],attributes=s['attributes']) for s in solid_rpm['symbols']]}
    profile['builds'][solid_version]=solid_build
@@ -91,8 +95,13 @@ if HERE!=RUNTIME:
 (ASSETS/'type-icons-circular-preview.png').write_bytes((HERE/'build/icons-circular/preview-8x.png').read_bytes())
 (ASSETS/'type-icons-solid-preview.png').write_bytes((HERE/'build/icons-solid/preview-8x.png').read_bytes())
 (RUNTIME/'reports').mkdir(exist_ok=True)
-for name in ('memory-report.json','verification.json','circular-verification.json','solid-verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json'):
+for name in ('memory-report.json','verification.json','circular-verification.json','solid-verification.json','move-verification.json','dsi-verification.json','compatibility-tests.json','pokeweb-install-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json'):
  if (HERE/'build'/name).exists():shutil.copyfile(HERE/'build'/name,RUNTIME/'reports'/name)
+capture=HERE/'build/dsi-captured-state-verification.json'
+if capture.exists() and json.loads(capture.read_text()).get('release_sha256')==memory['TypeIconsSolidW2.dll']['sha256']:
+ shutil.copyfile(capture,RUNTIME/'reports/dsi-captured-state-verification.json')
+else:
+ (RUNTIME/'reports/dsi-captured-state-verification.json').unlink(missing_ok=True)
 for name in ('captured-state-verification.json','standalone-install-verification.json'):
  (RUNTIME/'reports'/name).unlink(missing_ok=True)
  if (HERE/'build'/name).exists():

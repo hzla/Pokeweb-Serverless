@@ -2,7 +2,7 @@
   "source": "compiled ARM/OAM fixtures; no game boot or frames",
   "corrected": {
     "B2": {
-      "release_sha256": "38f954d53472863971636e61293a4372e451d0911cd0a827b92a124d027924a6",
+      "release_sha256": "2ef06fca00da5a1e9d7a99baa33dc6f7fbe994322efcae37edf715a531bbe037",
       "dual_stack_screen": [
         [
           -64,
@@ -21,7 +21,7 @@
       "info_shift": 8
     },
     "W2": {
-      "release_sha256": "0c74126d60d9142c6d976115a3d5e96f302bc55b829cf131b2d76e1048ba319b",
+      "release_sha256": "c2cf8cd5bd50ca7c99fa616cb1d883c6512f05182265e4b773c091b9442019fe",
       "dual_stack_screen": [
         [
           -64,

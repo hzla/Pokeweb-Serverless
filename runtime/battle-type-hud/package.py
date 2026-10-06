@@ -2,7 +2,7 @@
 from pathlib import Path
 import hashlib,json,shutil,zipfile
 HERE=Path(__file__).resolve().parent
-VERSION='0.4.23'
+VERSION='0.4.24'
 def sha(data):return hashlib.sha256(data).hexdigest()
 def main():
     memory=json.loads((HERE/'build/memory-report.json').read_text())
@@ -11,6 +11,7 @@ def main():
               (('TypeIcons','verification.json'),('TypeIconsCircular','circular-verification.json'),
                ('TypeIconsSolid','solid-verification.json'),('MoveEffectiveness','move-verification.json'))}
     enemy_names=json.loads((HERE/'build/enemy-name-verification.json').read_text())
+    dsi=json.loads((HERE/'build/dsi-verification.json').read_text())
     dist=HERE/'dist';dist.mkdir(exist_ok=True);files={}
     for path in HERE.iterdir():
         if path.name!='scanner_test.py' and path.is_file() and path.suffix in ('.md','.py','.cpp','.h','.json','.java','.yml','.txt','.cjs','.ts'):
@@ -23,6 +24,7 @@ def main():
                 assert sha(path.read_bytes())==memory[name]['sha256']
                 files['build/'+name]=path;shutil.copyfile(path,dist/name)
             assert verified[module]['release_sha256'][game]==memory[f'{module}{game}.dll']['sha256']
+            assert dsi['release_sha256'][game][module]==verified[module]['release_sha256'][game]
             if module=='TypeIcons':assert alignment['corrected'][game]['release_sha256']==verified[module]['release_sha256'][game]==enemy_names['games'][game]['release_sha256']
             hook_module='TypeIcons' if module.startswith('TypeIcons') else module
             name=f'hooks-{hook_module}-{game}.h';files['build/'+name]=HERE/'build'/name
@@ -33,8 +35,11 @@ def main():
                 files[f'reports/{game}-{name}']=path
         if f'reports/{game}-native-move-integration.json' in files:
             for name in ('screen.png','move-colors.png'):files[f'previews/{game}-{name}']=live/name
-    for name in ('memory-report.json','verification.json','circular-verification.json','solid-verification.json','move-verification.json','compatibility-tests.json','pokeweb-install-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json'):
+    for name in ('memory-report.json','verification.json','circular-verification.json','solid-verification.json','move-verification.json','dsi-verification.json','compatibility-tests.json','pokeweb-install-verification.json','layout-verification.json','player-alignment-verification.json','enemy-name-verification.json'):
         files['reports/'+name]=HERE/'build'/name
+    capture=HERE/'build/dsi-captured-state-verification.json'
+    if capture.exists() and json.loads(capture.read_text()).get('release_sha256')==memory['TypeIconsSolidW2.dll']['sha256']:
+        files['reports/dsi-captured-state-verification.json']=capture
     for name in ('captured-state-verification.json','standalone-install-verification.json'):
         files['reports/historical-'+name]=HERE/'build'/name
     for path in (HERE/'build/icons').glob('*.png'):files['previews/icons/'+path.name]=path
