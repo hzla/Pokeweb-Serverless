@@ -10,6 +10,7 @@ import { materializeProjectEdits } from "../pokeweb/projectMaterialize";
 import type { ProjectState, NarcStore } from "../pokeweb/projectStore";
 import { decryptPk5Party, patchTestBattleSavePlayerParty, refreshTestBattlePartyChecksums } from "../pokeweb/testBattleTeam";
 import type { NarcName } from "../pokeweb/constants";
+import { readPk5Ability } from "../pokeweb/pk5AbilityPacking";
 
 function fixture() {
   const formats = getNarcFormats("BW2");
@@ -143,6 +144,22 @@ describe("automatic battle harness", () => {
     expect(data[0x15]).toBe(2);
     expect(readU32(data, 0xc)).toBe(readU32(mon(hurt), 0xc));
   });
+  it.each([255, 256, 307, 511, 512, 1023])("round-trips expanded ability %i in both save halves", abilityId => {
+    const { project, save } = fixture();
+    const output = patchHarnessSave(save, project, { trainerId: 1, player: { team: [
+      { speciesId: 1, abilityId, abilitySlot: 3, moves: [1] },
+    ] } });
+    for (const half of [0, 0x26000]) {
+      expect(readPk5Ability(mon(output, 0, half))).toBe(abilityId);
+      expect(mon(output, 0, half)[0x42] & 1).toBe(1);
+    }
+    expect(patchHarnessSave(output, project, { trainerId: 1 })).toEqual(output);
+    const hurt = patchHarnessSave(output, project, { trainerId: 1, player: { edits: [{ slot: 0, currentHp: 3 }] } });
+    expect(readPk5Ability(mon(hurt))).toBe(abilityId);
+    const cleared = patchHarnessSave(hurt, project, { trainerId: 1, player: { edits: [{ slot: 0, abilityId: 2 }] } });
+    expect(readPk5Ability(mon(cleared))).toBe(2);
+    expect(mon(cleared)[0x42] & 1).toBe(1);
+  });
   it.each(["Singles", "Doubles", "Triples", "Rotation"] as const)("serializes only the selected trainer's %s team", battleType => {
     const { project } = fixture();
     const before = project.narcs.trdata!.rawFiles[0].slice();
@@ -168,7 +185,7 @@ describe("automatic battle harness", () => {
     expect(() => patchHarnessSave(save, project, { trainerId: 1, player: { edits: [{ slot: 0, currentHp: 65535 }] } })).toThrow(/currentHp/);
     expect(() => patchHarnessSave(save, project, { trainerId: 1, player: { team: [{ speciesId: 1, currentHp: 0 }] } })).toThrow(/eligible battler/);
     expect(() => patchHarnessSave(save, project, { trainerId: 1, player: { team: [{ speciesId: 1, form: 2 }] } })).toThrow(/Form 2/);
-    expect(() => patchHarnessTrainer(project, { trainerId: 1, trainer: { team: [{ speciesId: 1, abilityId: 256 }] } })).toThrow(/abilityId/);
+    expect(() => patchHarnessTrainer(project, { trainerId: 1, trainer: { team: [{ speciesId: 1, abilityId: 1024 }] } })).toThrow(/abilityId/);
     const bad = save.slice(); bad[0x18e10] ^= 1; bad[0x26000 + 0x18e10] ^= 1;
     expect(() => patchHarnessSave(bad, project, { trainerId: 1 })).toThrow(/No valid/);
     const badMon = save.slice(); writeU16(badMon, 0x18e08 + 6, 0);
