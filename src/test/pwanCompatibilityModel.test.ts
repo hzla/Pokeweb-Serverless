@@ -10,6 +10,14 @@ import type { ProjectState } from "../pokeweb/projectStore";
 const W2_ARM9_BASE_ADDRESS = 0x02004000;
 
 describe("pwanCompatibilityModel", () => {
+  it.each(["B2", "W2"] as const)("rejects an unknown %s mode getter", version => {
+    const signatures = version === "B2" ? PWAN_B2_COMPATIBILITY_SIGNATURES : PWAN_COMPATIBILITY_SIGNATURES;
+    const project = makeProject({ baseVersion: version, idCode: version === "B2" ? "IREO" : "IRDO", arm9: makeMatchingArm9Bytes(signatures) });
+    const mode = signatures.find(signature => signature.id === "arm9-dsi-mode")!;
+    expect(detectPwanRuntimeCompatibility(project).checks.find(check => check.id === mode.id)?.status).toBe("matched");
+    project.arm9[mode.windowStart - W2_ARM9_BASE_ADDRESS] ^= 0xff;
+    expect(detectPwanRuntimeCompatibility(project).checks.find(check => check.id === mode.id)?.status).toBe("changed");
+  });
   it("selects the full Black 2 split-runtime signature profile", () => {
     const report = detectPwanRuntimeCompatibility(makeProject({ baseVersion: "B2", idCode: "IRBO" }));
 

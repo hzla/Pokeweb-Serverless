@@ -275,7 +275,7 @@ describe("trainerPwanAnimationModel", () => {
         romInfo: { idCode: rom.idCode },
         overlays: {},
       } as unknown as ProjectState;
-      expect(detectTrainerPwanCompatibility(project)).toMatchObject({ compatible: true, passed: 4 });
+      expect(detectTrainerPwanCompatibility(project)).toMatchObject({ compatible: true, passed: 5 });
       const source = rom.loadArm9Overlays([168]).get(168)!;
       project.overlays[168] = source.data.slice();
       const hookAddress = version === "W2" ? 0x021e68d2 : 0x021e6892;

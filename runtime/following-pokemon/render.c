@@ -20,6 +20,14 @@ static struct {
  FwrEffectPose submitted;
  Actor *player;Vec playerWorld;FwrEffectPose playerSubmitted;
 } effectPose;
+/* Work points 24 bytes into a fixed-pool task; leave the complete checked
+ * task span inside real RAM, including the original 192-byte tail margin. */
+int fwr_grass_work_valid(const void *work){
+ uintptr_t address=(uintptr_t)work;
+ if(address<0x02000018u||(address&3u))return 0;
+ if(address<=0x023fff40u)return 1;
+ return address<=0x02ffff40u&&CALL(0x0207acb9,int(*)(void))()!=0;
+}
 void fwr_grass_clear(void){effectPose.actor=effectPose.player=0;}
 void fwr_effects_draw(void *system,void *camera,void *light,Actor *a){
  /* Native grass quads retain their task work in renderer slot +36. Walk the
@@ -41,7 +49,7 @@ void fwr_effects_draw(void *system,void *camera,void *light,Actor *a){
    uint8_t *work=PTR(slot,36);
    /* Other effect kinds also use opaque work pointers. Check the native RAM
     * range before looking for the exact fixed-pool grass descriptor. */
-   if((uintptr_t)work<0x02000018u||(uintptr_t)work>0x023fff40u||((uintptr_t)work&3u))continue;
+   if(!fwr_grass_work_valid(work))continue;
    uint8_t *task=work-24;
    /* Active task, exact grass callbacks, and the live actor stamp. Pool
     * recycling cannot turn a stale token into an unrelated NPC effect. */

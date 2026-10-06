@@ -18,6 +18,6 @@ export function damagedDsiExportWarning(source: Uint8Array): DsiExportWarning {
     code: previousExporter ? "previous-exporter-dsi" : "damaged-dsi",
     message: `${previousExporter
       ? "This ROM's DSi headers were affected by a previous version of the Pokeweb exporter."
-      : "This ROM's DSi headers or data are damaged or missing. A previous version of the Pokeweb exporter could have caused this."} Your edited ROM will still be exported for DS mode, but DSi mode will not work. Use DSi ROM Repair on the homepage with a matching clean Black 2 or White 2 ROM to restore DSi support.`,
+      : "This ROM's DSi headers or data are damaged or missing. A previous version of the Pokeweb exporter could have caused this."} Your edited ROM will still be exported for DS mode, but DSi mode will not work. Use DSi ROM Repair on the homepage with a matching clean Black, White, Black 2, or White 2 ROM to restore DSi support.`,
   };
 }

@@ -1,34 +1,34 @@
 {
-  "version": "0.6.87-alpha",
-  "fieldSha256": "96b3b4458393da10e3fae80b106b43b645963fe21eae520a986f786627894632",
-  "eventsSha256": "5986bd050eabbc78f6262825c68215841d2cc387950cdd1a11e1240211c7c99a",
+  "version": "0.6.88-alpha",
+  "fieldSha256": "838c043154bfb63edec40332c20c3d52bd37bc3ca07d749655ba5b1197ed4927",
+  "eventsSha256": "4317b8aa9515bde45d5abd7f7acefda229faa2d23f19e4d44202df866b19cdbe",
   "eventsAbi": 6,
   "variants": {
     "base": {
-      "fieldSha256": "7070d751f65dabb8ea2942bff01f5616684a0867ebad2859455ac3798a10643e",
-      "eventsSha256": "e9650287a52a0a27501a0586bad91781134427ae381e78d299a19fbc4188a710",
+      "fieldSha256": "6789cb86a778b684b4e79f2dadd05f501a125390181fb91e417132c0a5f6514e",
+      "eventsSha256": "5555c96704e649fc2d2ec7d820d8557a3eb52cfff6f8a6f5e5d532511197ecb6",
       "eventsAbi": 4
     },
     "full": {
-      "fieldSha256": "96b3b4458393da10e3fae80b106b43b645963fe21eae520a986f786627894632",
-      "eventsSha256": "5986bd050eabbc78f6262825c68215841d2cc387950cdd1a11e1240211c7c99a",
+      "fieldSha256": "838c043154bfb63edec40332c20c3d52bd37bc3ca07d749655ba5b1197ed4927",
+      "eventsSha256": "4317b8aa9515bde45d5abd7f7acefda229faa2d23f19e4d44202df866b19cdbe",
       "eventsAbi": 6
     }
   },
-  "coreSha256": "9283fdfd9fc16e6e89251f5f72bd90b381f53fb07cc211820339bc87420a88f3",
+  "coreSha256": "3f2ef8f0b59bd6df98e41bd7afa6923cbb53c1a43ba9961deef6838f8d85c7e7",
   "coreAbi": 3,
-  "battleModuleSha256": "7e60babe7ecd6ba1ba3f64abc6e60374acfa5d3d53f424105786af75564de838",
-  "optionsModuleSha256": "4adc095409c7d53560d941035a8a6025aca34fe5b1a1b814515defff90ac1518",
+  "battleModuleSha256": "be4e10297d8252f9e7085b93e0df6e3bc7fa7bec54053c59e0a6d351c5d377e5",
+  "optionsModuleSha256": "8090c923b9850e995e73d30ad0d7a53723bc773d3bb0578abc776bfdb530ead5",
   "previousVersions": [
     {
-      "version": "0.6.86-alpha",
-      "fieldSha256": "49ebc0fc003b19013396b17e1bf36a34b4de6f30c5658ffa5286521ec2ed5392",
-      "eventsSha256": "7d5d32027f5890155bbcbc5f0b2f90857aca81416b948256f27487d3060294c2",
+      "version": "0.6.87-alpha",
+      "fieldSha256": "7070d751f65dabb8ea2942bff01f5616684a0867ebad2859455ac3798a10643e",
+      "eventsSha256": "e9650287a52a0a27501a0586bad91781134427ae381e78d299a19fbc4188a710",
       "eventsAbi": 4,
-      "coreSha256": "b0c0d5ad05fc38c183b153e51abe462f94036c42c1eccb3d9d94d99579ef31b7",
+      "coreSha256": "9283fdfd9fc16e6e89251f5f72bd90b381f53fb07cc211820339bc87420a88f3",
       "coreAbi": 3,
-      "optionsModuleSha256": "a2b8a9f3b21487938046bae765df05a344658606ea4cf70467da9dede5c64a1f",
-      "battleModuleSha256": "33e9c85b68e7d78f7bbd1c7f52af99b666c9376ba68753d0d1738bde90296729",
+      "optionsModuleSha256": "4adc095409c7d53560d941035a8a6025aca34fe5b1a1b814515defff90ac1518",
+      "battleModuleSha256": "7e60babe7ecd6ba1ba3f64abc6e60374acfa5d3d53f424105786af75564de838",
       "variant": "base"
     },
     {
@@ -50,6 +50,27 @@
       "surfRegistrySha256": "8fb0d83e0b25963ab715f5bae9b648866c487f0ab505247861f079ba83d92054",
       "landRiderSha256": "3e24a8fac08aa7ea6a92ec0ecebe4b81ab86a093fed498863ac333ab13f28d8d",
       "landAnchorsSha256": "045bc996b038920ff0ef5fea9133c38f62644cab6bfbfaf9eff422bab30982c9"
+    },
+    {
+      "version": "0.6.87-alpha",
+      "fieldSha256": "96b3b4458393da10e3fae80b106b43b645963fe21eae520a986f786627894632",
+      "eventsSha256": "5986bd050eabbc78f6262825c68215841d2cc387950cdd1a11e1240211c7c99a",
+      "eventsAbi": 6,
+      "coreSha256": "9283fdfd9fc16e6e89251f5f72bd90b381f53fb07cc211820339bc87420a88f3",
+      "coreAbi": 3,
+      "optionsModuleSha256": "4adc095409c7d53560d941035a8a6025aca34fe5b1a1b814515defff90ac1518",
+      "battleModuleSha256": "7e60babe7ecd6ba1ba3f64abc6e60374acfa5d3d53f424105786af75564de838"
+    },
+    {
+      "version": "0.6.86-alpha",
+      "fieldSha256": "49ebc0fc003b19013396b17e1bf36a34b4de6f30c5658ffa5286521ec2ed5392",
+      "eventsSha256": "7d5d32027f5890155bbcbc5f0b2f90857aca81416b948256f27487d3060294c2",
+      "eventsAbi": 4,
+      "coreSha256": "b0c0d5ad05fc38c183b153e51abe462f94036c42c1eccb3d9d94d99579ef31b7",
+      "coreAbi": 3,
+      "optionsModuleSha256": "a2b8a9f3b21487938046bae765df05a344658606ea4cf70467da9dede5c64a1f",
+      "battleModuleSha256": "33e9c85b68e7d78f7bbd1c7f52af99b666c9376ba68753d0d1738bde90296729",
+      "variant": "base"
     },
     {
       "version": "0.6.86-alpha",

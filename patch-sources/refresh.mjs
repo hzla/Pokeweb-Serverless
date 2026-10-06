@@ -81,6 +81,20 @@ function runtimeFiles(group) {
 }
 const additions = [
   {
+    name: 'dsi-compatibility', title: 'Bundled patch DS/DSi memory audit', artifacts: [],
+    note: 'Source and binary inventory for 4 MiB pointer assumptions, with isolated packaged PWAN guard checks. This is not full game or hardware certification.',
+    extra: [],
+  },
+  {
+    name: 'summary-stat-viewer', title: 'Summary IV/EV viewer',
+    artifacts: ['SummaryStatViewerB2.dll', 'SummaryStatViewerW2.dll'],
+    note: 'Independent B2/W2 native Summary Stats variants and shared footer tab. Canonical source and configuration metadata are recorded; game acceptance remains separate from native checks.',
+    extra: [
+      file('summary-stat-viewer', 'metadata/summaryStatViewerManifest.json', 'metadata', 'src/assets/codeinjection/summaryStatViewerManifest.json'),
+      file('summary-stat-viewer', 'integration/summaryStatViewerModel.ts', 'support-only', 'src/pokeweb/summaryStatViewerModel.ts'),
+    ],
+  },
+  {
     name: 'level-caps', title: 'Hard level caps',
     artifacts: ['HardLevelCapsB2.dll', 'HardLevelCapsW2.dll'],
     note: 'US Black 2 / White 2 PMC modules. Runtime source, builder, verifier, and installer are inventoried; availability does not establish historical binary reproducibility.',
@@ -246,6 +260,14 @@ for (const [name, origin] of [
 ]) if (!pmcPatch.files.some(entry => entry.path === `pmc/integration/${name}`))
   pmcPatch.files.push(file('pmc', `integration/${name}`, 'build-tool', origin));
 pmcPatch.files = pmcPatch.files.filter(entry => entry.path !== 'pmc/integration/inspect-italian-pmc.ts');
+// Shared mode-aware memory helper used by the split sprite runtimes.
+for (const [name, origin, kind] of [
+  ['include/util/main_ram.h', 'include/util/main_ram.h', 'source'],
+  ['include/swan/nds/hw.h', 'include/swan/nds/hw.h', 'source'],
+  ['tests/test_main_ram.py', 'tools/tests/test_main_ram.py', 'test'],
+  ['tests/check_pwan_substitute_runtime.py', 'tools/tests/check_pwan_substitute_runtime.py', 'test'],
+]) if (!manifest.sharedFiles.some(entry => entry.path === `shared/${name}`))
+  manifest.sharedFiles.push({ path: `shared/${name}`, origin: { repository: 'w2u-runtime', path: origin }, kind });
 const artifacts = new Set(manifest.excludedArtifacts.map(name => `codeinjection/${name}`));
 for (const patch of manifest.patches) for (const artifact of patch.artifacts) {
   const location = artifact.name.includes('/') ? artifact.name : `codeinjection/${artifact.name}`;

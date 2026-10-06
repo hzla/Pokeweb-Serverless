@@ -9,7 +9,7 @@ export function renderDsiRomRepairCard(): string {
       <input id="dsi-repair-source" type="file" accept=".nds" />
     </label>
     <label class="changelog-file">
-      <span>Clean Black 2 / White 2 ROM</span>
+      <span>Matching clean Black / White / Black 2 / White 2 ROM</span>
       <input id="dsi-repair-donor" type="file" accept=".nds" />
     </label>
     <div class="changelog-actions repair-actions">
