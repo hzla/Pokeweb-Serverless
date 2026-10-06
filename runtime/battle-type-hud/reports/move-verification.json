@@ -22,8 +22,8 @@
     ]
   },
   "release_sha256": {
-    "B2": "fea4011d1409f152208b1e701afccdd6f8f55aa04c0e6440fcfa0a83cb1055d6",
-    "W2": "f4a4995a3195f9514676d76d6aed0c36aa1dcb9b748a41823bd3b3d8b72e3b63"
+    "B2": "8cb285aea96c8d85ea3ba778ed8334be57654f2270f15466eabc0d9384e22795",
+    "W2": "bd9b562a681bc876fe092e4e3f2c2e51512deff4916e69e4edb019e3653d97a6"
   },
   "writable_state_bytes": 20
 }

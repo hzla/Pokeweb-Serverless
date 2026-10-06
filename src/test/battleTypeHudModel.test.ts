@@ -93,6 +93,27 @@ describe("Battle HUD bundled installer", () => {
     expect(p.fileSystem?.additions?.["patches/TypeIconsW2.dll"]).toBeUndefined();
     expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, updateAvailable: false });
   });
+  it.each(["B2", "W2"] as const)("updates the previous %s angular-wedge DLL without changing its style or path", async v => {
+    const p = project(v); assets();
+    await installBattleTypeHud(p, "solid"); uninstallBattleTypeHud(p);
+    const old = new Uint8Array(readFileSync(new URL(`./fixtures/battle-type-hud/TypeIconsSolid${v}-0.3.23.dll`, import.meta.url)));
+    stageCodeInjectionDll(p, "MyTypeIcons.dll", old);
+    const imported = project(v, await exportModifiedRom(p));
+    expect(getBattleTypeHudStatus(imported)).toMatchObject({ installed: true, compatible: true, updateAvailable: true,
+      iconVariant: "solid", dllPath: "patches/MyTypeIcons.dll" });
+    await installBattleTypeHud(imported, getBattleTypeHudStatus(imported).iconVariant);
+    const updated = new NintendoDSRom(await exportModifiedRom(imported));
+    expect(updated.getFileByName("patches/MyTypeIcons.dll")).toEqual(dll(v, "solid"));
+    expect(updated.filenames.idOf(`patches/TypeIcons${v}.dll`)).toBeUndefined();
+    expect(getBattleTypeHudStatus(project(v, updated.data))).toMatchObject({ installed: true, updateAvailable: false, iconVariant: "solid" });
+  });
+  it.each(["B2", "W2"] as const)("rejects an unrecognized %s native DS/DSi mode getter before staging", async v => {
+    const p = project(v); assets();
+    const signature = manifest.games[v].signatures.find(s => s.name === "IsDsi")!;
+    p.arm9[signature.address - new NintendoDSRom(p.originalRomBytes!).arm9RamAddress] ^= 1;
+    await expect(installBattleTypeHud(p, "solid")).rejects.toThrow(/IsDsi/);
+    expect(p.codeInjection).toBeUndefined();
+  });
   it("rejects incompatible resources and fetch failures before staging PMC", async () => {
     const p = project("W2"); const a = new NARC(); a.files = Array.from({ length: 431 }, () => new Uint8Array([0]));
     p.fileSystem = { replacements: { 344: a.save() } };
@@ -169,7 +190,7 @@ describe("Battle HUD bundled installer", () => {
     expect(customized.length).toBe(original.length);
     const rpm = parseRpm(customized, { allowedMagics: ["DLXF"] });
     const base = parseRpm(original, { allowedMagics: ["DLXF"] });
-    const offset = manifest.moveGames[v].builds["0.4.0"].colorOffset;
+    const offset = manifest.moveGames[v].builds["0.4.1"].colorOffset;
     const changed = [...rpm.code.keys()].filter(i => rpm.code[i] !== base.code[i]);
     expect(changed.length).toBeGreaterThan(0);
     expect(changed.every(i => i >= offset && i < offset + 6)).toBe(true);
@@ -199,7 +220,7 @@ describe("Battle HUD bundled installer", () => {
     const original = new Uint8Array(readFileSync(new URL("../assets/codeinjection/MoveEffectivenessW2.dll", import.meta.url)));
     const rpm = parseRpm(original, { allowedMagics: ["DLXF"] });
     if (mutation === "code") rpm.code[0] ^= 1;
-    else if (mutation === "color high bit") rpm.code[manifest.moveGames.W2.builds["0.4.0"].colorOffset + 1] |= 0x80;
+    else if (mutation === "color high bit") rpm.code[manifest.moveGames.W2.builds["0.4.1"].colorOffset + 1] |= 0x80;
     else rpm.bssSize = 0;
     stageCodeInjectionDll(p, "CustomPreview.dll", writeRpm(rpm, { ident: "DLXF" }));
     expect(getMoveEffectivenessStatus(p).compatible).toBe(false);

@@ -9,6 +9,7 @@ import ndspy.narc, ndspy.lz10
 from analyze import HERE, ROOT, load, instructions
 
 FUNCTIONS = {
+    'IsDsi': (0, 0x0207acb8, 48),
     'Add': (168, 0x21efae0, 48), 'AddPP': (168, 0x21efcb0, 48),
     'Main': (168, 0x21ef8c4, 48), 'Del': (168, 0x21f06a8, 48),
     'Release': (168, 0x21f0054, 48), 'Status': (168, 0x21f1668, 64),
@@ -120,11 +121,11 @@ def main():
                      signatures=checks,hooks=hooks,resources=resources,
                      reference_segments={str(n):sha(d) for n,(b,d) in blobs.items()})
         (HERE/f'profile-{game}.json').write_text(json.dumps(profile,indent=2)+'\n')
-        icon_names={'Add','AddPP','Main','Del','Release','Status','GetPfd','GetRule','GetProxy','PalAddr','PPGet','EffectiveTypes','ViewSrc','HpNumberBinding','NameDraw','SexDraw','LevelDraw','GaugePosition','EnemyPositions','EnemyTriplePositions','SpriteInit','CellInit','CellSelect'}
+        icon_names={'IsDsi','Add','AddPP','Main','Del','Release','Status','GetPfd','GetRule','GetProxy','PalAddr','PPGet','EffectiveTypes','ViewSrc','HpNumberBinding','NameDraw','SexDraw','LevelDraw','GaugePosition','EnemyPositions','EnemyTriplePositions','SpriteInit','CellInit','CellSelect'}
         for module in ('TypeIcons','MoveEffectiveness'):
             part=dict(profile);icons=module=='TypeIcons'
             part['hooks']=[h for h in hooks if h['name'].startswith('Move')!=icons]
-            part['signatures']=[s for s in checks if (s['name'] in icon_names if icons else s['name'] not in icon_names or s['name'] in ('PPGet','EffectiveTypes','ViewSrc'))]
+            part['signatures']=[s for s in checks if (s['name'] in icon_names if icons else s['name'] not in icon_names or s['name'] in ('IsDsi','PPGet','EffectiveTypes','ViewSrc'))]
             part['resources']=resources if icons else {}
             (HERE/f'profile-{module}-{game}.json').write_text(json.dumps(part,indent=2)+'\n')
 
