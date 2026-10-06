@@ -14,6 +14,7 @@ import {
   type TrainerSpriteAnimationFrame,
 } from "../pokeweb/trainerSpriteModel";
 import type { ProjectState, TrainerPwanAnimationOverride } from "../pokeweb/projectStore";
+import { isW2AnimProject } from "../pokeweb/w2animAnimationModel";
 import {
   buildTrainerPwanOverride,
   findTrainerPwanOverride,
@@ -339,7 +340,7 @@ function renderTrainerPwanImporter(project: ProjectState, trainerClassId: number
     ? `<div class="trainer-gif-shared-warning"><strong>Shared graphic</strong><span>This animation also applies to ${affected.map((id) => escapeHtml(`${trainerClassName(project, id)} (${id})`)).join(", ")}.</span></div>`
     : "";
   return `<section class="sprite-section trainer-gif-section" id="trainer-gif-import-section">
-    <div class="sprite-section-header"><div><h2>Import GIF</h2><span>Compile a 96×96, 16-color PWAN animation for this front trainer graphic.</span></div>
+    <div class="sprite-section-header"><div><h2>Import GIF</h2><span>Compile a 96×96, 16-color ${isW2AnimProject(project) ? "w2anim" : "PWAN"} animation for this front trainer graphic.</span></div>
       <div class="sprite-actions -inline">
         <button class="btn -default" id="trainer-pwan-generate" type="button" ${trainerPwanState.source && runtime.supported && runtime.installed ? "" : "disabled"}>Generate Preview</button>
         <button class="btn -default" id="trainer-pwan-apply" type="button" ${build && runtime.supported && runtime.installed ? "" : "disabled"}>Apply PWAN</button>

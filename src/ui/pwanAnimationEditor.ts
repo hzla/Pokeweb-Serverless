@@ -1,4 +1,5 @@
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide, PwanPaletteSource } from "../pokeweb/projectStore";
+import { isW2AnimProject } from "../pokeweb/w2animAnimationModel";
 import {
   buildPwanOverrideAsync,
   buildPwanOverrideSideAsync,
@@ -115,7 +116,9 @@ export function renderPwanAnimationEditor(project: ProjectState, root: HTMLEleme
           <h1>Animated Sprites</h1>
           <div class="pwan-subtitle">${
             activeSpeciesId === undefined
-              ? project.session.baseVersion === "B2"
+              ? isW2AnimProject(project)
+                ? "w2anim GIF authoring for White 2 integration ROMs"
+                : project.session.baseVersion === "B2"
                 ? "PWAN GIF overrides for stock US Black 2"
                 : "PWAN GIF overrides for stock US White 2"
               : `#${activeSpeciesId} ${escapeHtml(speciesLabel(project, activeSpeciesId))}`
