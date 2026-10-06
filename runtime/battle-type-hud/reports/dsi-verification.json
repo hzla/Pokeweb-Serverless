@@ -1,0 +1,60 @@
+{
+  "compiled_arm_checks": {
+    "B2": {
+      "TypeIcons": [
+        "actual native mode getter gates aligned 4 MB DS / 16 MB DSi bounds; endpoints and invalid pointers rejected; ABI preserved",
+        "gauge, battlers, cells, cell attributes, Pokemon records and fade buffers exclusively in extended RAM; player/enemy single/double/triple pixels, types, status, fade, unchanged-frame suppression and cleanup match",
+        "DS-mode high addresses fail closed before a binding; accepted DSi addresses do not weaken DS validation"
+      ],
+      "TypeIconsCircular": [
+        "actual native mode getter gates aligned 4 MB DS / 16 MB DSi bounds; endpoints and invalid pointers rejected; ABI preserved",
+        "gauge, battlers, cells, cell attributes, Pokemon records and fade buffers exclusively in extended RAM; player/enemy single/double/triple pixels, types, status, fade, unchanged-frame suppression and cleanup match",
+        "DS-mode high addresses fail closed before a binding; accepted DSi addresses do not weaken DS validation"
+      ],
+      "TypeIconsSolid": [
+        "actual native mode getter gates aligned 4 MB DS / 16 MB DSi bounds; endpoints and invalid pointers rejected; ABI preserved",
+        "gauge, battlers, cells, cell attributes, Pokemon records and fade buffers exclusively in extended RAM; player/enemy single/double/triple pixels, types, status, fade, unchanged-frame suppression and cleanup match",
+        "DS-mode high addresses fail closed before a binding; accepted DSi addresses do not weaken DS validation"
+      ],
+      "MoveEffectiveness": [
+        "actual native mode getter gates aligned 4 MB DS / 16 MB DSi bounds; endpoints and invalid pointers rejected; ABI preserved"
+      ]
+    },
+    "W2": {
+      "TypeIcons": [
+        "actual native mode getter gates aligned 4 MB DS / 16 MB DSi bounds; endpoints and invalid pointers rejected; ABI preserved",
+        "gauge, battlers, cells, cell attributes, Pokemon records and fade buffers exclusively in extended RAM; player/enemy single/double/triple pixels, types, status, fade, unchanged-frame suppression and cleanup match",
+        "DS-mode high addresses fail closed before a binding; accepted DSi addresses do not weaken DS validation"
+      ],
+      "TypeIconsCircular": [
+        "actual native mode getter gates aligned 4 MB DS / 16 MB DSi bounds; endpoints and invalid pointers rejected; ABI preserved",
+        "gauge, battlers, cells, cell attributes, Pokemon records and fade buffers exclusively in extended RAM; player/enemy single/double/triple pixels, types, status, fade, unchanged-frame suppression and cleanup match",
+        "DS-mode high addresses fail closed before a binding; accepted DSi addresses do not weaken DS validation"
+      ],
+      "TypeIconsSolid": [
+        "actual native mode getter gates aligned 4 MB DS / 16 MB DSi bounds; endpoints and invalid pointers rejected; ABI preserved",
+        "gauge, battlers, cells, cell attributes, Pokemon records and fade buffers exclusively in extended RAM; player/enemy single/double/triple pixels, types, status, fade, unchanged-frame suppression and cleanup match",
+        "DS-mode high addresses fail closed before a binding; accepted DSi addresses do not weaken DS validation"
+      ],
+      "MoveEffectiveness": [
+        "actual native mode getter gates aligned 4 MB DS / 16 MB DSi bounds; endpoints and invalid pointers rejected; ABI preserved"
+      ]
+    }
+  },
+  "release_sha256": {
+    "B2": {
+      "TypeIcons": "2ef06fca00da5a1e9d7a99baa33dc6f7fbe994322efcae37edf715a531bbe037",
+      "TypeIconsCircular": "1eb5bd8a916979b945babcb40793cdfcb4b7ef4858b02fe469f8d5aa30536102",
+      "TypeIconsSolid": "710665ad2326598a694d07afb798263e1e76e10e6c80bd93750d7da5f1a60e85",
+      "MoveEffectiveness": "8cb285aea96c8d85ea3ba778ed8334be57654f2270f15466eabc0d9384e22795"
+    },
+    "W2": {
+      "TypeIcons": "c2cf8cd5bd50ca7c99fa616cb1d883c6512f05182265e4b773c091b9442019fe",
+      "TypeIconsCircular": "9c9eccebf0625babea538729493f1baeba481b3137f923c291dae4b56ec5192d",
+      "TypeIconsSolid": "6958865aa62c7882edc60c823977221f9706d352ec7055322b31741a5d00d214",
+      "MoveEffectiveness": "bd9b562a681bc876fe092e4e3f2c2e51512deff4916e69e4edb019e3653d97a6"
+    }
+  },
+  "emulator_frames_executed": false,
+  "game_boot_performed": false
+}

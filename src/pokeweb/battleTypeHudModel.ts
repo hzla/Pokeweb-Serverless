@@ -77,6 +77,8 @@ function iconVariantForBuild(version: Version, build: string): TypeIconVariant |
   const variants = manifest.games[version].variants;
   const current = (Object.entries(variants) as [TypeIconVariant, { version: string }][]).find(([, value]) => value.version === build)?.[0];
   if (current) return current;
+  if (/^0\.3\.\d+-solid$/u.test(build)) return "solid";
+  if (/^0\.3\.\d+-circular$/u.test(build)) return "circular";
   const historical = /^0\.3\.(\d+)$/u.exec(build);
   if (historical) return Number(historical[1]) <= 11 ? "circular" : "letters";
   return build === "0.1.0" || build === "0.2.0" ? "circular" : undefined;

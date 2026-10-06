@@ -188,7 +188,7 @@ const additions = [
   {
     name: 'battle-type-hud', title: 'Battle Type Icons and Move Effectiveness Preview',
     artifacts: ['TypeIconsB2.dll', 'TypeIconsW2.dll', 'TypeIconsCircularB2.dll', 'TypeIconsCircularW2.dll', 'TypeIconsSolidB2.dll', 'TypeIconsSolidW2.dll', 'MoveEffectivenessB2.dll', 'MoveEffectivenessW2.dll'],
-    note: `Independent overlay-168 Type Icons ${hud.games.W2.version}, Circular 0.3.17, Solid 0.3.23, and Move Effectiveness ${hud.moveGames.W2.version} modules, catalog ${hud.version}. Includes generated address/hook headers and private panel geometry. Canonical Pokeweb runtime snapshot originates from work/battle-type-hud; no emulator captures or build binaries are copied.`,
+    note: `Independent overlay-168 Type Icons ${hud.games.W2.version}, Circular ${hud.games.W2.variants.circular.version}, Solid ${hud.games.W2.variants.solid.version}, and Move Effectiveness ${hud.moveGames.W2.version} modules, catalog ${hud.version}. Includes generated address/hook headers, panel geometry, and isolated DS/DSi function checks. Canonical source is runtime/battle-type-hud; no emulator captures or build binaries are copied.`,
     extra: [
       ...['B2', 'W2'].flatMap(game => [
         file('battle-type-hud', `build/addresses-${game}.h`, 'generated-header'),

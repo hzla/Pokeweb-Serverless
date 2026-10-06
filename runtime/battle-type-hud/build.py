@@ -12,10 +12,10 @@ def main():
     run('javac','-cp',JAR,'-d',build,HERE/'Compact.java')
     reports={}
     modules=(
-        ('TypeIcons','battle_type_hud.cpp',364,17,None,'0.3.17'),
-        ('TypeIconsCircular','battle_type_hud.cpp',364,17,'ICON_VARIANT_CIRCULAR','0.3.17-circular'),
-        ('TypeIconsSolid','battle_type_hud.cpp',364,17,'ICON_VARIANT_SOLID','0.3.23-solid'),
-        ('MoveEffectiveness','move_effectiveness.cpp',20,5,None,'0.4.0'),
+        ('TypeIcons','battle_type_hud.cpp',364,17,None,'0.3.18'),
+        ('TypeIconsCircular','battle_type_hud.cpp',364,17,'ICON_VARIANT_CIRCULAR','0.3.18-circular'),
+        ('TypeIconsSolid','battle_type_hud.cpp',364,17,'ICON_VARIANT_SOLID','0.3.24-solid'),
+        ('MoveEffectiveness','move_effectiveness.cpp',20,5,None,'0.4.1'),
     )
     for game,module,source,state_size,hook_count,variant_define,version in [(g,*m) for g in ('B2','W2') for m in modules]:
         assert (build/f'addresses-{game}.h').exists(), 'Run configure.py first'

@@ -1,6 +1,6 @@
 # Type Icons and Move Effectiveness Preview
 
-Bundle 0.4.23 (Type Icons 0.3.17; Circular Icons 0.3.17-circular; Angular HUD Wedges 0.3.23-solid; Move Preview 0.4.0) for English Black 2 (IREO) and White 2 (IRDO).
+Bundle 0.4.24 (Type Icons 0.3.18; Circular Icons 0.3.18-circular; Angular HUD Wedges 0.3.24-solid; Move Preview 0.4.1) for English Black 2 (IREO) and White 2 (IRDO).
 Pokeweb's **Code Injection** page has two independent entries:
 
 - **Type Icons** → choose lettered, circular-symbol, or angular-wedge builds in the same installer card.
@@ -17,6 +17,21 @@ standalone module, preserving its existing filename. Install the other entry
 separately if wanted. This avoids duplicate hooks, even for renamed DLLs and
 modules already in an imported ROM. Staged standalone DLLs can be uninstalled
 independently. Pokeweb cannot yet delete an original ROM file.
+
+## DS and DSi modes
+
+The shared HUD pointer checks use the game's independently verified native
+mode getter. DS mode accepts aligned objects in the lower 4 MiB of main RAM;
+DSi mode accepts the full 16 MiB. Older builds rejected valid DSi battle heaps,
+so their installed hooks could run without drawing any icons or move colors.
+Updating keeps the existing DLL path and the installer selections.
+ROM export must also retain complete DSi programs and valid integrity tables.
+
+Both games and all three icon styles pass compiled function checks with battle
+objects and palette buffers in extended RAM. A supplied White 2 DSi capture
+also reproduces the old pointer failure and passes pixel comparison and cleanup
+with the corrected wedge DLL. These checks do not boot a game or advance frames;
+emulator and hardware acceptance remains with the user.
 
 ## Type icons
 
@@ -131,7 +146,7 @@ preserves colors read from an installed configurable build.
 
 The installer verifies the original bundled DLL, locates its code image through
 the RPM header, and edits exactly six bytes at the manifest's per-build
-`colorOffset`. Version 0.4.0 has code offset 2912 (file offset 2944) in both
+`colorOffset`. Version 0.4.1 has code offset 2948 (file offset 2980) in both
 independently built English DLLs. `gMovePreviewColors` is an immutable-at-runtime
 three-halfword table, loaded rather than compiled into immediate instructions.
 No compression, recompilation, relocation changes or file-size changes are
@@ -144,19 +159,19 @@ Both games have the same sizes; detailed hashes are in `reports/memory-report.js
 
 | Component | Letters | Circles | Angular wedges | Move Preview |
 |---|---:|---:|---:|---:|
-| DLL on disk | 7,824 B | 7,840 B | 7,600 B | 3,504 B |
-| Code and constants | 6,840 B | 6,836 B | 6,592 B | 2,948 B |
+| DLL on disk | 7,856 B | 7,872 B | 7,648 B | 3,536 B |
+| Code and constants | 6,880 B | 6,876 B | 6,636 B | 2,984 B |
 | Fixed writable state | 364 B | 364 B | 364 B | 20 B |
-| Expanded RPM metadata/padding | 988 B | 1,008 B | 1,012 B | 568 B |
-| Expanded RPM allocation | 8,192 B | 8,208 B | 7,968 B | 3,536 B |
-| Retained RPM allocation after internal fixups | 7,960 B | 7,976 B | 7,736 B | 3,440 B |
-| Estimated PMC peak including bookkeeping | 8,312 B | 8,328 B | 8,088 B | 3,656 B |
-| Estimated PMC retained including bookkeeping | 8,080 B | 8,096 B | 7,856 B | 3,560 B |
+| Expanded RPM metadata/padding | 980 B | 1,000 B | 1,016 B | 564 B |
+| Expanded RPM allocation | 8,224 B | 8,240 B | 8,016 B | 3,568 B |
+| Retained RPM allocation after internal fixups | 7,992 B | 8,008 B | 7,784 B | 3,472 B |
+| Estimated PMC peak including bookkeeping | 8,344 B | 8,360 B | 8,136 B | 3,688 B |
+| Estimated PMC retained including bookkeeping | 8,112 B | 8,128 B | 7,904 B | 3,592 B |
 
 Installing Type Icons together with Move Preview totals 384 writable bytes and
-approximately 11,640 retained PMC bytes for letters, 11,656 bytes for circles,
-or 11,416 bytes for angular wedges. Only one icon variant is installed at a
-time. Move Preview 0.4.0 adds approximately 768 retained PMC bytes compared with
+approximately 11,704 retained PMC bytes for letters, 11,720 bytes for circles,
+or 11,496 bytes for angular wedges. Only one icon variant is installed at a
+time. Move Preview 0.4.1 adds approximately 800 retained PMC bytes compared with
 Move Preview 0.3.0, with no additional fixed state. Debug DLLs have
 identical executable code to release; full debug loader accounting is in the report.
 
@@ -195,9 +210,9 @@ icons are redrawn. No hardware frame-time benchmark has been made.
 ## Compatibility and build
 
 Pokeweb and `compatibility.py` use independent profiles: Type Icons checks
-23 native function/position-table signature windows, 17 hooks and 20 panel resources (members
-430–446 and 456–458 of a/0/1/1). Move Preview checks 21 functions and five input hooks, with its
-text bitmap/palette validated at runtime. Together the profiles use 39 distinct
+24 native function/position-table signature windows, 17 hooks and 20 panel resources (members
+430–446 and 456–458 of a/0/1/1). Move Preview checks 22 functions and five input hooks, with its
+text bitmap/palette validated at runtime. Together the profiles use 40 distinct
 native functions plus two coordinate tables. Panel asset changes do not block the move-only installer. Installed DLL relocation ranges, including possible
 PMC veneers, are checked for collisions. The scanner's W2 hooks at
 0x021EA53C/0x021EA54E do not overlap. Unknown native code, graphics, duplicate
@@ -227,7 +242,7 @@ python build.py
 Checked-in generated address/hook headers permit building without ROM files.
 To regenerate profiles and private test fixtures, set `BTH_B2_ROM` and
 `BTH_W2_ROM` to matching clean English ROMs, then run `configure.py`, `build.py`,
-`verify.py`, `verify_layout.py`, `verify_enemy_names.py`, and `verify_moves.py`. `verify.py` and `compatibility_tests.py` also
+`verify.py`, `verify_layout.py`, `verify_enemy_names.py`, `verify_moves.py`, and `verify_dsi.py`. `verify.py` and `compatibility_tests.py` also
 use `BTH_CASCADE_ROM` for the recorded scanner/Fairy reference. These scripts
 never modify source ROMs. `verify_dst.py CAPTURE.dst OLD_0.3.2.dll [NEW.dll]`
 reproduces the reported missing enemy against the supplied captured memory,
@@ -236,14 +251,18 @@ then verifies the corrected Electric icon and unchanged unrelated RAM/graphics.
 alignment against the captured native name and OAM pieces with both new DLLs.
 It runs only compiled function fixtures, without booting a game or executing
 frames, and never writes the capture. Raw memory is not included in packages.
+`verify_mln.py CAPTURE.mln OLD.dll [NEW.dll]` checks a melonDS v14 White 2 DSi
+battle capture, executes the native readers, and compares old/fixed wedge
+drawing without advancing the game. `verify_dsi.py` covers both games' native
+mode getters, pointer boundaries, extended-RAM icon objects and cleanup.
 The standalone conservative `install.py INPUT OUTPUT --component icons` (or `--component moves`)
 requires PMC and refuses to overwrite output or accept unverified ROM tails.
 
 In Pokeweb, `npm run typehud:build` builds the runtime source snapshot;
 `npm run typehud:sync` verifies/copies builds into the catalog after the native
 fixture checks; `npm run typehud:verify-rom -- ROM...` exercises installation,
-export, reimport and staged uninstall. `sync_bundled.py` run from the canonical
-`work/battle-type-hud/` directory also refreshes the runtime source snapshot.
+export, reimport and staged uninstall. The canonical build and verification
+inputs are in `runtime/battle-type-hud/`.
 
 Debug DLLs retain symbols and have identical executable code. Inspect
 `gBattleTypeHud`: six 60-byte records, sticky failure at +360, wrapping binding

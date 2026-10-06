@@ -13,7 +13,11 @@ template<class T> T& field(void* p, unsigned offset) {
 }
 bool ram(const void* p) {
     const u32 n=reinterpret_cast<u32>(p);
-    return n>=0x02000000 && n<0x02400000 && !(n&3);
+    if(n<0x02000000 || (n&3)) return false;
+    if(n<0x02400000) return true;
+    // DSi-mode battle heaps occupy the additional main RAM. Keep the DS
+    // bound in DS mode, where these addresses are mirrors rather than heaps.
+    return n<0x03000000 && reinterpret_cast<u32(*)()>(NativeIsDsi)()!=0;
 }
 struct FadeBank {
     u16 *source, *transfer;

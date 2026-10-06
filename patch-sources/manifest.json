@@ -1613,38 +1613,38 @@
       "artifacts": [
         {
           "name": "TypeIconsB2.dll",
-          "sha256": "38f954d53472863971636e61293a4372e451d0911cd0a827b92a124d027924a6"
+          "sha256": "2ef06fca00da5a1e9d7a99baa33dc6f7fbe994322efcae37edf715a531bbe037"
         },
         {
           "name": "TypeIconsW2.dll",
-          "sha256": "0c74126d60d9142c6d976115a3d5e96f302bc55b829cf131b2d76e1048ba319b"
+          "sha256": "c2cf8cd5bd50ca7c99fa616cb1d883c6512f05182265e4b773c091b9442019fe"
         },
         {
           "name": "TypeIconsCircularB2.dll",
-          "sha256": "43cded546cdec15679131d4ef9a274cf7c65578d8bda79f98a1371cf7f9ac5af"
+          "sha256": "1eb5bd8a916979b945babcb40793cdfcb4b7ef4858b02fe469f8d5aa30536102"
         },
         {
           "name": "TypeIconsCircularW2.dll",
-          "sha256": "17678c52fa3f6c11c8a45dbcfd1c16226de0aa96cc20f0bfa9e04a5b49154580"
+          "sha256": "9c9eccebf0625babea538729493f1baeba481b3137f923c291dae4b56ec5192d"
         },
         {
           "name": "TypeIconsSolidB2.dll",
-          "sha256": "d5a02b008176f4bffe2c980bc509f182c1c2a4c9c768bda9ba4ed4edcbe1717b"
+          "sha256": "710665ad2326598a694d07afb798263e1e76e10e6c80bd93750d7da5f1a60e85"
         },
         {
           "name": "TypeIconsSolidW2.dll",
-          "sha256": "c0bbf7416b7631a01231be06c280e42bc2c46f6b717b3885429cc0542bce57bf"
+          "sha256": "6958865aa62c7882edc60c823977221f9706d352ec7055322b31741a5d00d214"
         },
         {
           "name": "MoveEffectivenessB2.dll",
-          "sha256": "fea4011d1409f152208b1e701afccdd6f8f55aa04c0e6440fcfa0a83cb1055d6"
+          "sha256": "8cb285aea96c8d85ea3ba778ed8334be57654f2270f15466eabc0d9384e22795"
         },
         {
           "name": "MoveEffectivenessW2.dll",
-          "sha256": "f4a4995a3195f9514676d76d6aed0c36aa1dcb9b748a41823bd3b3d8b72e3b63"
+          "sha256": "bd9b562a681bc876fe092e4e3f2c2e51512deff4916e69e4edb019e3653d97a6"
         }
       ],
-      "note": "Independent overlay-168 Type Icons 0.3.17, Circular 0.3.17, Solid 0.3.23, and Move Effectiveness 0.4.0 modules, catalog 0.4.23. Includes generated address/hook headers and private panel geometry. Canonical Pokeweb runtime snapshot originates from work/battle-type-hud; no emulator captures or build binaries are copied.",
+      "note": "Independent overlay-168 Type Icons 0.3.18, Circular 0.3.18-circular, Solid 0.3.24-solid, and Move Effectiveness 0.4.1 modules, catalog 0.4.24. Includes generated address/hook headers, panel geometry, and isolated DS/DSi function checks. Canonical source is runtime/battle-type-hud; no emulator captures or build binaries are copied.",
       "status": "source-available",
       "files": [
         {
@@ -1744,7 +1744,7 @@
             "path": "runtime/battle-type-hud/build.py"
           },
           "kind": "build-tool",
-          "sha256": "0dc324d4c939f6ab2f0648c1a1b303cb90edf83b291db1157665f40810202db3",
+          "sha256": "77e6463104bc2571a64a006a68fc9fd51f0545f13501a8ad17c5031d1f758f86",
           "normalized": false
         },
         {
@@ -1784,7 +1784,7 @@
             "path": "runtime/battle-type-hud/configure.py"
           },
           "kind": "build-tool",
-          "sha256": "fc3ddc38ec762e9bf7723438c5e9b4561067a29f6a059181f5a6f8b6e9b98480",
+          "sha256": "faf4628f05ab2b10d192fa8eca71855f6011372992eb8741910fb9a30f8229db",
           "normalized": false
         },
         {
@@ -1804,7 +1804,7 @@
             "path": "runtime/battle-type-hud/hud_common.h"
           },
           "kind": "source",
-          "sha256": "4466f32c09e7613bf309aff31216d98210d2585fcfadb28f3e5235124f17af9b",
+          "sha256": "3e66fe34d803ce49bcbdb82b1372792d8fd54ba984bc68a80eb7cdec5ba5c04f",
           "normalized": false
         },
         {
@@ -1904,7 +1904,7 @@
             "path": "runtime/battle-type-hud/package.py"
           },
           "kind": "build-tool",
-          "sha256": "807b75edc808adb26bba14c38dff59e7c4c2a0ae9dd6a3e9509501cf6a7c0f03",
+          "sha256": "77729cdb47e36be9658b9e905d6cd3f00e2a4da9a3c9e8f32a689b2d0d737c52",
           "normalized": false
         },
         {
@@ -1944,7 +1944,7 @@
             "path": "runtime/battle-type-hud/profile-B2.json"
           },
           "kind": "metadata",
-          "sha256": "a591eae798f13b8007bc046bb88329e313cbfc5b790dd961bb586185a3007340",
+          "sha256": "00f404ddf2e7f13f984cb86894b291f421e98da42f44b141f9e141a907368c03",
           "normalized": false
         },
         {
@@ -1954,7 +1954,7 @@
             "path": "runtime/battle-type-hud/profile-MoveEffectiveness-B2.json"
           },
           "kind": "metadata",
-          "sha256": "8c929fe31027bd28ac6f492b9b027324d6e569f2bbdaa88efc44bed9a629d0e7",
+          "sha256": "6c9d1f7432c4e0651a1e7804e5511e8a566441befd31ec924fa83c50df97723a",
           "normalized": false
         },
         {
@@ -1964,7 +1964,7 @@
             "path": "runtime/battle-type-hud/profile-MoveEffectiveness-W2.json"
           },
           "kind": "metadata",
-          "sha256": "0c8d8343400aec25d32dce3a21b2ad8dad3603f4e23f5573a6fae0d5698bab13",
+          "sha256": "b0fc30d7fec1965028514e69f0ccdfb242295ec7e3ba6900b6ddd08534d36f4a",
           "normalized": false
         },
         {
@@ -1974,7 +1974,7 @@
             "path": "runtime/battle-type-hud/profile-TypeIcons-B2.json"
           },
           "kind": "metadata",
-          "sha256": "4caed4732fce28f9f3246c13efaf52886e68c0069445ebfeb5e966b4423c2836",
+          "sha256": "59d07c15dac9a202b093fc70ad574b238fff10c1418ea4d370bbc3d9393e5d41",
           "normalized": false
         },
         {
@@ -1984,7 +1984,7 @@
             "path": "runtime/battle-type-hud/profile-TypeIcons-W2.json"
           },
           "kind": "metadata",
-          "sha256": "e2be2afddadab8834bea96b0d05b0b571d2a773aeb8ce23cd8ba3634b7ad66f2",
+          "sha256": "2519c767d9eadd70aa01b9769852199042e1d8c100f9ffcc24e228a22a3de8a1",
           "normalized": false
         },
         {
@@ -1994,7 +1994,7 @@
             "path": "runtime/battle-type-hud/profile-W2.json"
           },
           "kind": "metadata",
-          "sha256": "a89dab534c7ddf0ec4d7e4189290caa81b0b156caec0b27b4186aa92a34c21f5",
+          "sha256": "ad06bb55e8301d66f5b66c47d4ade5a9f7f6f7a19d1bacdc43a8aacc3ca9f144",
           "normalized": false
         },
         {
@@ -2004,7 +2004,7 @@
             "path": "runtime/battle-type-hud/PROGRESS.md"
           },
           "kind": "documentation",
-          "sha256": "cea733d8ba6f7c46ec1a8c4da475414c8070c6e457d8ae2eb6904ac6f18cf932",
+          "sha256": "8de3bd7608748add8a101e71951c947ad368b1322859a8c1a6d8e72f28587f59",
           "normalized": false
         },
         {
@@ -2014,7 +2014,7 @@
             "path": "runtime/battle-type-hud/README.md"
           },
           "kind": "documentation",
-          "sha256": "1b8858d4828c8add407d86861b30dc8d7f1883b24dfb833736639bd3a6d7f74c",
+          "sha256": "0be154e59b8eae2b0fd239087c5f7353cb03d0352c6f38a01a86a068de6c602d",
           "normalized": false
         },
         {
@@ -2044,7 +2044,7 @@
             "path": "runtime/battle-type-hud/sync_bundled.py"
           },
           "kind": "build-tool",
-          "sha256": "36fa65287d6526057cf80e44ce1a4bf8c38d005435835eaafc74e080f7213704",
+          "sha256": "75b99b21b37d878f55de564dc855723d11fccfc46da339c0a89d940572e9faaf",
           "normalized": false
         },
         {
@@ -2054,7 +2054,7 @@
             "path": "runtime/battle-type-hud/VALIDATION.md"
           },
           "kind": "documentation",
-          "sha256": "63e43e3d197e2da535a945df3ea8c1812e1be09f7945f56506a5e6daadc7f9f5",
+          "sha256": "92f3a6aeb0a9639349ebfabd96e20e0864c22d56858074b40f56173876d9ac03",
           "normalized": false
         },
         {
@@ -2065,6 +2065,16 @@
           },
           "kind": "test",
           "sha256": "60dd6d58ef819429a10cad6b54539de257116f0a4262e2140943fda26289802c",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify_dsi.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify_dsi.py"
+          },
+          "kind": "test",
+          "sha256": "70ed43e2cfb2b002bf595f78f080585751b02b03c7a31a6b201c474390ccf190",
           "normalized": false
         },
         {
@@ -2095,6 +2105,16 @@
           },
           "kind": "test",
           "sha256": "b49fa7b00e163d6e3faa74cc0be1e58dcaba043d068ed734f6a79da2ed3436f2",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify_mln.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify_mln.py"
+          },
+          "kind": "test",
+          "sha256": "f550a1a3b228574db07657f2b78cde59e83e6b6982b7133a4457ca08d97b50c7",
           "normalized": false
         },
         {
@@ -2134,7 +2154,7 @@
             "path": "runtime/battle-type-hud/build/addresses-B2.h"
           },
           "kind": "generated-header",
-          "sha256": "e891866248855f0d1e7b0e2037f986d28508660542eb0a67aa903ba7bac92160",
+          "sha256": "4c4143819e9d6e37d28d6c32e6ac3f56610199cec9ab16fe5e70340368936d69",
           "normalized": false
         },
         {
@@ -2164,7 +2184,7 @@
             "path": "runtime/battle-type-hud/build/addresses-W2.h"
           },
           "kind": "generated-header",
-          "sha256": "29ca01bd85b74ecf680f35aa0bd64fdbaca14631e3f95bf4ac2f026c698909ea",
+          "sha256": "663da6ea43a1c77510e3b5a95b3e6cbbb986386b87dc4b34a3229c5c06642d17",
           "normalized": false
         },
         {
@@ -2194,7 +2214,7 @@
             "path": "src/assets/codeinjection/battleTypeHudManifest.json"
           },
           "kind": "metadata",
-          "sha256": "97812b7eb91929631802386ffceaa300876fb259df0b32baec5ca1d8e43a722a",
+          "sha256": "bda592ccd1170ac633ff69be7fabe3d8d0d6c3c4a061c2734c57b3a5e6e3d81c",
           "normalized": false
         },
         {
@@ -2214,7 +2234,7 @@
             "path": "src/pokeweb/battleTypeHudModel.ts"
           },
           "kind": "support-only",
-          "sha256": "2dd34e378345445d518f5b46b35b64350c34bff5b91c3fa0647e99f57615fbb2",
+          "sha256": "aad02336b6320278803c5e66a895039e8580bb8069840ef96b14938f8ff102d9",
           "normalized": false
         },
         {
@@ -2224,7 +2244,7 @@
             "path": "src/test/battleTypeHudModel.test.ts"
           },
           "kind": "test",
-          "sha256": "f81d15855002263de4e1ddd07562a631e36b24e653849f487a0bc29ece16a53a",
+          "sha256": "8a38ef1ee1b828474c5489229d61d73008ee9f6b53586d51fb95af134abecb3c",
           "normalized": false
         },
         {
