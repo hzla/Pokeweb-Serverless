@@ -28,6 +28,7 @@ import { parseHeaders } from "./headerModel";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { detectPmcInstallFromRom } from "./pmcModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
+import { hydrateW2AnimFromRom } from "./w2animAnimationModel";
 import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
 import { hydrateTrainerLocationTables } from "./trainerLocationModel";
 import { hydrateCascadePersonalSources } from "./cascadeWhitePersonalModel";
@@ -116,7 +117,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
     hydrateCustomUi(project, rom);
     hydrateCascadePersonalSources(project, rom);
     hydrateBattleLogInstallMetadata(project, rom);
-    hydratePwanAnimationsFromRom(project, rom);
+    if (!hydrateW2AnimFromRom(project, rom)) hydratePwanAnimationsFromRom(project, rom);
     hydrateKoMoveLearnsetFromRom(project, rom);
     hydrateTrainerLocationTables(project, rom);
   }

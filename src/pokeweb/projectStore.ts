@@ -250,6 +250,14 @@ export type PwanAnimationState = {
   nativeCarrierBackups?: Record<string, Uint8Array[]>;
 };
 
+/** w2anim owns export/runtime state; PWAN bytes below are editor-only bridges. */
+export type W2AnimAnimationState = {
+  fileId: number;
+  sourceBytes: Uint8Array;
+  editorOriginals: Record<string, Uint8Array>;
+  editorTargets: Record<string, { assetIndex?: number; graphicIndex?: number; side: "front" | "back" }>;
+};
+
 export type TrainerPwanAnimationOverride = {
   graphicIndex: number;
   assetIndex?: number;
@@ -382,6 +390,7 @@ export type ProjectState = {
   codeInjection?: CodeInjectionState;
   overworldWeather?: OverworldWeatherState;
   pwanAnimations?: PwanAnimationState;
+  w2animAnimations?: W2AnimAnimationState;
   trainerPwanAnimations?: TrainerPwanAnimationState;
   starters?: StarterState;
   patches?: PatchState;
