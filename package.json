@@ -27,6 +27,7 @@
     "pwan:runtime:verify-rom": "vite-node scripts/verify-pwan-rom-compatibility.ts",
     "pwan:runtime:verify-b2-install": "vite-node scripts/verify-black2-pwan-install.ts",
     "pwan:runtime:verify-w2-migration": "vite-node scripts/verify-white2-pwan-migration.ts",
+    "w2anim:verify-rom": "vite-node scripts/verify-w2anim-roundtrip.ts",
     "battlelog:sync": "node scripts/sync-battle-log-artifact.mjs",
     "battlelog:check": "node scripts/sync-battle-log-artifact.mjs --check",
     "battlelog:verify-rom": "vite-node scripts/verify-battle-log-rom-compatibility.ts",

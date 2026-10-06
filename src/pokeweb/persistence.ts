@@ -6,6 +6,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { MOVE_EFFECT_HANDLER_TABLE_LENGTH, moveEffectHandlerOverlayId, moveEffectHandlerTableOffset } from "./moveEffectHandlerModel";
 import { BW2_TUTOR_MOVE_OVERLAY_ID, BW2_TUTOR_MOVE_TABLE_LENGTH, tutorMoveTableOffset } from "./tutorMoveModel";
 import { hydratePwanAnimationsFromRom } from "./pwanAnimationModel";
+import { hydrateW2AnimFromRom } from "./w2animAnimationModel";
 import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
 import { hydrateTrainerLocationTables } from "./trainerLocationModel";
 import { hydrateCascadePersonalSources } from "./cascadeWhitePersonalModel";
@@ -199,12 +200,13 @@ async function hydratePersistedProject(project: ProjectState): Promise<void> {
   const romBytes = await loadActiveRomBytes();
   if (!romBytes) return;
   const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const w2anim = hydrateW2AnimFromRom(project, rom);
   hydrateCascadePersonalSources(project, rom);
   hydrateKoMoveLearnsetFromRom(project, rom);
   hydrateTrainerLocationTables(project, rom);
   if (project.arm9.length === 0) project.arm9 = decompressCode(rom.arm9);
   hydrateBattleLogInstallMetadata(project, rom);
-  if (!project.pwanAnimations?.dirty && !project.trainerPwanAnimations?.dirty &&
+  if (!w2anim && !project.pwanAnimations?.dirty && !project.trainerPwanAnimations?.dirty &&
       (((project.pwanAnimations?.overrides.length ?? 0) === 0 || !project.pwanAnimations?.detectedArchive) ||
        ((project.trainerPwanAnimations?.overrides.length ?? 0) === 0 || !project.trainerPwanAnimations?.detectedArchive))) {
     hydratePwanAnimationsFromRom(project, rom);

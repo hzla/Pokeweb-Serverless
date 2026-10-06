@@ -16,6 +16,7 @@ import { compileGifToPwanAsync } from "./pwanCompilerClient";
 import { pwanFramesPerSecond, pwanPalette, scalePwanFrames, scalePwanTimelineSpeed, shiftPwanFrames, PWAN_MAX_TIMELINE } from "./pwanCompiler";
 import { buildTrainerPwanCarrierFiles, ensureTrainerSpriteStore } from "./trainerSpriteModel";
 import { detectTrainerPwanCompatibility, trainerPwanCompatibilityFailureSummary } from "./trainerPwanCompatibilityModel";
+import { hydrateW2AnimTrainerTarget, isW2AnimProject } from "./w2animAnimationModel";
 
 export const TRAINER_PWAN_CONFIG_MEMBER_ID = 3203;
 export const TRAINER_PWAN_ASSET_MEMBER_BASE = 3204;
@@ -59,6 +60,8 @@ export function hasTrainerPwanRuntimeDll(project: ProjectState): boolean {
 }
 
 export function getTrainerPwanRuntimeStatus(project: ProjectState): TrainerPwanRuntimeStatus {
+  if (isW2AnimProject(project)) return { supported: true, installed: true, pmcInstalled: true,
+    message: "w2anim is resident; trainer edits use its W2AS carrier streams, not PWAN DLLs." };
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     return { supported: false, installed: false, message: "Animated trainer PWAN support is available for stock US Black 2 and White 2 projects." };
   }
@@ -77,6 +80,7 @@ export function getTrainerPwanRuntimeStatus(project: ProjectState): TrainerPwanR
 }
 
 export async function installTrainerPwanRuntime(project: ProjectState): Promise<void> {
+  if (isW2AnimProject(project)) throw new Error("This ROM uses w2anim; installing trainer PWAN would overwrite its renderer hooks");
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     throw new Error("Animated trainer PWAN support is available for stock US Black 2 and White 2 projects.");
   }
@@ -101,11 +105,13 @@ export async function installTrainerPwanRuntime(project: ProjectState): Promise<
 }
 
 export function canUninstallTrainerPwanRuntime(project: ProjectState): boolean {
+  if (isW2AnimProject(project)) return false;
   const path = trainerPwanRuntimePath(project);
   return Boolean(path && canRemoveStagedCodeInjectionDll(project, path));
 }
 
 export function uninstallTrainerPwanRuntime(project: ProjectState): void {
+  if (isW2AnimProject(project)) throw new Error("The resident w2anim renderer cannot be uninstalled as a PWAN DLL");
   const path = trainerPwanRuntimePath(project);
   if (!path) throw new Error("Animated trainer PWAN support is available for stock US Black 2 and White 2 projects.");
   if (!canRemoveStagedCodeInjectionDll(project, path)) throw new Error("A trainer PWAN DLL already built into the loaded ROM cannot be removed by this editor yet.");
@@ -177,6 +183,7 @@ export function removeTrainerPwanOverride(project: ProjectState, graphicIndex: n
 }
 
 export function findTrainerPwanOverride(project: ProjectState, graphicIndex: number): TrainerPwanAnimationOverride | undefined {
+  hydrateW2AnimTrainerTarget(project, graphicIndex);
   return project.trainerPwanAnimations?.overrides.find((entry) => entry.graphicIndex === graphicIndex);
 }
 

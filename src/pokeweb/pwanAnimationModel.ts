@@ -20,6 +20,7 @@ import { applyPwanCarrierPatch, deriveBackNcecY, loadBundledPwanCarrierTemplate 
 import { compileGifToPwan, parsePwanHeader, PWAN_MAX_TIMELINE, pwanFramesPerSecond, pwanPalette, scalePwanTimelineSpeed, shiftPwanFrames, pwanVisibleHeight, validatePwan, type PwanCompileResult } from "./pwanCompiler";
 import { compileGifToPwanAsync } from "./pwanCompilerClient";
 import { detectPwanRuntimeCompatibility, pwanCompatibilityFailureSummary } from "./pwanCompatibilityModel";
+import { hydrateW2AnimPokemonTarget, isW2AnimProject, materializeW2AnimAnimations } from "./w2animAnimationModel";
 import {
   buildTrainerPwanConfig,
   getTrainerPwanRuntimeStatus,
@@ -160,6 +161,8 @@ export function hydratePwanAnimationsFromRom(project: ProjectState, rom: Nintend
 }
 
 export function getPwanRuntimeStatus(project: ProjectState): PwanRuntimeStatus {
+  if (isW2AnimProject(project)) return { supported: true, installed: true, pmcInstalled: true, legacyInstalled: false,
+    message: "w2anim is resident in this ROM. Animation edits use W2AS streams; no PWAN runtime is installed." };
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     return { supported: false, installed: false, message: "PWAN animation injection supports stock US Black 2 and White 2 projects." };
   }
@@ -214,6 +217,7 @@ export function hasLegacyPwanRuntimeDll(project: ProjectState): boolean {
 }
 
 export async function installPwanRuntime(project: ProjectState): Promise<void> {
+  if (isW2AnimProject(project)) throw new Error("This ROM uses w2anim; installing PWAN would overwrite its renderer hooks");
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     throw new Error("PWAN animation injection supports stock US Black 2 and White 2 projects.");
   }
@@ -241,11 +245,13 @@ export async function installPwanRuntime(project: ProjectState): Promise<void> {
 }
 
 export function canUninstallPwanRuntime(project: ProjectState): boolean {
+  if (isW2AnimProject(project)) return false;
   const paths = project.session.baseVersion === "B2" ? PWAN_B2_RUNTIME_PATHS : PWAN_W2_RUNTIME_PATHS;
   return paths.every((path) => canRemoveStagedCodeInjectionDll(project, path));
 }
 
 export function uninstallPwanRuntime(project: ProjectState): void {
+  if (isW2AnimProject(project)) throw new Error("The resident w2anim renderer cannot be uninstalled as a PWAN DLL");
   if (project.session.baseVersion !== "W2" && project.session.baseVersion !== "B2") {
     throw new Error("PWAN animation injection supports stock US Black 2 and White 2 projects.");
   }
@@ -564,6 +570,12 @@ export function setPwanOverrideSideOffset(
 }
 
 export async function materializePwanAnimations(project: ProjectState, rom?: NintendoDSRom): Promise<void> {
+  if (isW2AnimProject(project)) {
+    rom ??= project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes, { fileData: "view" }) : undefined;
+    if (!rom) throw new Error("Reload the w2anim ROM before exporting animations");
+    await materializeW2AnimAnimations(project, rom);
+    return;
+  }
   const state = project.pwanAnimations;
   const trainerState = project.trainerPwanAnimations;
   const speciesDirty = Boolean(state?.dirty);
@@ -765,6 +777,7 @@ export function listPwanSpeciesTargets(project: ProjectState): PwanSpeciesTarget
 
 export function findPwanOverrideForSpecies(project: ProjectState, speciesId: number, formIndex = 0): PwanAnimationOverride | undefined {
   const target = resolvePwanSpeciesTarget(project, speciesId, formIndex);
+  hydrateW2AnimPokemonTarget(project, target.speciesId, target.formIndex);
   const overrides = project.pwanAnimations?.overrides ?? [];
   return (
     overrides.find((entry) => entry.speciesId === target.speciesId && (entry.formIndex ?? 0) === target.formIndex) ??
