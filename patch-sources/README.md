@@ -4,7 +4,7 @@
 
 The manifest covers stock Black 2 and White 2, Italian White 2, White2Upgrade, and separate Black/White profiles where those patches exist. Following Pokémon has four separate runtime packages. Italian PMC uses the audited Pokeweb retargeting script; its bundled RPM is inventoried separately. The monolithic Black2Upgrade DLL is outside this source snapshot.
 
-Original source for the Main Menu Skip and Single-NPC Double Battle Fix modules was not found. Their recorded supporting files are not substitutes for original implementation source. The PMC license is retained at `pmc/LICENSE`. The trainer-sprite source note at `pwan-trainer/README.md` is a canonical provenance input. External SDKs, toolchains, full symbol databases, ROMs, saves, and emulator captures are excluded.
+Original source for Main Menu Skip and the B2/W2 Single-NPC Double Battle Fix modules was not found. Their recorded supporting files are not substitutes for original implementation source. The new Black 1 double-battle fix has its own canonical source in `runtime/double-battle-fix`; it does not establish reproducibility of the historical B2/W2 binaries. The PMC license is retained at `pmc/LICENSE`. The trainer-sprite source note at `pwan-trainer/README.md` is a canonical provenance input. External SDKs, toolchains, full symbol databases, ROMs, saves, and emulator captures are excluded.
 
 Tracked copies of canonical source were removed from this directory to avoid a second, stale source tree. Git history retains earlier snapshots. A source bundle can be materialized on demand **outside** this repository:
 

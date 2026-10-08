@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { renderCodeInjectionEditor } from "../ui/codeInjectionEditor";
 
-function renderFixture(version: "W2" | "B2"): string {
+function renderFixture(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): string {
   const project: ProjectState = {
     originalRomBytes: new Uint8Array(0x200),
-    session: { romName: "fixture", baseRom: "BW2", baseVersion: version, fairy: false, fileIds: {}, blacklist: [] },
+    session: { romName: "fixture", baseRom: version === "B" || version === "W" ? "BW" : "BW2", baseVersion: version, fairy: false, fileIds: {}, blacklist: [] },
     romInfo: { title: "fixture", idCode: version === "W2" ? "IRDO" : "IREO", fileName: "fixture.nds", size: 0x200 },
     arm9: new Uint8Array(), overlays: {}, narcs: {}, texts: { banks: {} }, formats: {}, trpokInfo: [],
   };
+  if (pmcInstalled) project.codeInjection = { pmc: { overlayId: 237, overlayBaseAddress: 0x02217d20, overlayPath: "overlay/overlay_0237.bin", symbolPath: "codeinjection/RPMSYM-PMC.rpm" } };
   const root = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
   renderCodeInjectionEditor(project, root as unknown as HTMLElement, () => {});
   return root.innerHTML;
@@ -31,6 +32,16 @@ describe("code-injection design credits", () => {
 });
 
 describe("code-injection patch categories", () => {
+  it("enables Black 1 doubles only after PMC is installed and leaves White 1 unavailable", () => {
+    const card = (version: "B" | "W", installed: boolean) => renderFixture(version, installed)
+      .match(/<section class="code-injection-panel">[\s\S]*?<\/section>/g)!
+      .find(html => html.includes("<h2>Single-NPC Double Battle Fix</h2>"))!;
+    expect(card("B", false)).toMatch(/id="install-double-battle-fix-btn"[^>]*disabled/u);
+    expect(card("B", true)).not.toMatch(/id="install-double-battle-fix-btn"[^>]*disabled/u);
+    expect(card("B", true)).toContain("US Black 1");
+    expect(card("W", true)).toContain("Unsupported");
+    expect(card("W", true)).toMatch(/id="install-double-battle-fix-btn"[^>]*disabled/u);
+  });
   it.each(["W2", "B2"] as const)("offers the EV option by default on the %s Summary card", version => {
     const card = renderFixture(version).match(/<section class="code-injection-panel">[\s\S]*?<\/section>/g)
       ?.find(html => html.includes("<h2>Summary IV/EV Viewer</h2>"));

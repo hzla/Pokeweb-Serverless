@@ -542,9 +542,9 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div>
               <h2>Single-NPC Double Battle Fix</h2>
               <p>${
-                project.session.baseRom === "BW2"
-                  ? "Stages the bundled DLXF patch that fixes common-script trainers changed from Singles to Doubles."
-                  : "A BW build of this DLXF patch is not bundled yet."
+                doubleBattleFixStatus !== "unsupported"
+                  ? "Fixes common-script trainers changed from Singles to Doubles. Available for US Black 1 and Black 2 / White 2; install PMC first."
+                  : "A White 1 build of this patch is not bundled yet."
               }</p>
             </div>
             <span class="code-injection-status ${doubleBattleFixStatus === "patched" ? "-installed" : ""}">

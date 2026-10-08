@@ -81,6 +81,21 @@ function runtimeFiles(group) {
 }
 const additions = [
   {
+    name: 'double-battle-fix', title: 'Single-NPC double-battle fix',
+    artifacts: ['DoubleBattleFixB.dll', 'DoubleBattleFixB2.dll', 'DoubleBattleFixW2.dll'],
+    status: 'partial-source-available',
+    note: 'Black 1 has a new source implementation and builder for US IRBO revision 0. Original B2/W2 implementation source remains unavailable; the retained W2 staging script embeds a binary payload and does not establish B2/W2 reproducibility. Native CPU and ROM export checks are separate from full in-game battle acceptance.',
+    extra: [
+      { path: 'double-battle-fix/support/stage_double_battle_fix.py', origin: { repository: 'w2u-runtime', path: 'tools/stage_double_battle_fix.py' }, kind: 'support-only' },
+      file('double-battle-fix', 'integration/pmcModel.ts', 'support-only', 'src/pokeweb/pmcModel.ts'),
+      file('double-battle-fix', 'integration/doubleBattleFixCompatibility.ts', 'source', 'src/pokeweb/doubleBattleFixCompatibility.ts'),
+      file('double-battle-fix', 'integration/codeInjectionEditor.ts', 'support-only', 'src/ui/codeInjectionEditor.ts'),
+      file('double-battle-fix', 'tests/doubleBattleFix.test.ts', 'test', 'src/test/doubleBattleFix.test.ts'),
+      file('double-battle-fix', 'tests/codeInjectionEditor.test.ts', 'test', 'src/test/codeInjectionEditor.test.ts'),
+      file('double-battle-fix', 'tests/verify-black1-double-battle-fix.ts', 'test', 'scripts/verify-black1-double-battle-fix.ts'),
+    ],
+  },
+  {
     name: 'dsi-compatibility', title: 'Bundled patch DS/DSi memory audit', artifacts: [],
     note: 'Source and binary inventory for 4 MiB pointer assumptions, with isolated packaged PWAN guard checks. This is not full game or hardware certification.',
     extra: [],
@@ -244,7 +259,7 @@ const additions = [
 if (only !== undefined && !manifest.patches.some(p => p.name === only) && !additions.some(p => p.name === only)) throw Error(`Unknown source group: ${only}`);
 for (const group of additions) {
   if (only && group.name !== only) continue;
-  const updated = { name: group.name, title: group.title, artifacts: group.artifacts.map(name => ({ name })), note: group.note, status: 'source-available', files: [...(group.runtime === false ? [] : runtimeFiles(group.name)), ...group.extra] };
+  const updated = { name: group.name, title: group.title, artifacts: group.artifacts.map(name => ({ name })), note: group.note, status: group.status || 'source-available', files: [...(group.runtime === false ? [] : runtimeFiles(group.name)), ...group.extra] };
   const index = manifest.patches.findIndex(p => p.name === group.name);
   if (index === -1) manifest.patches.push(updated);
   else manifest.patches[index] = updated;

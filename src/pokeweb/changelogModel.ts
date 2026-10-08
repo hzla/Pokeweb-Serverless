@@ -8,12 +8,30 @@ import { getPokemonRecord, getPokemonSummaryRecord, learnsetEntries } from "./po
 import { decodeRecord, type ProjectState, type RawRecord, type ReadableRecord } from "./projectStore";
 import { getTrainerRecord, type TrainerPokemonSlot } from "./trainerModel";
 import { loadProjectFromRomFile, type LoadOptions, type LoadProgress } from "./loader";
+import { buildChangelogDocuments, type ChangelogDocument } from "./changelogDocument";
+import type { ChangelogPokemonReference } from "./changelogIcons";
 
 export type ChangelogEntry = {
   domain: string;
   subject?: string;
+  recordId?: number;
+  pokemon?: ChangelogPokemonReference;
   text: string;
   parts?: ChangelogEntryPart[];
+  field?: { label: string; before: string; after: string; beforePokemon?: ChangelogPokemonReference; afterPokemon?: ChangelogPokemonReference };
+  comparison?: ChangelogComparison;
+  comparisonDetail?: boolean;
+};
+
+export type ChangelogComparison = {
+  title: string;
+  layout?: "fields";
+  columns: string[];
+  before: string[][];
+  after: string[][];
+  beforePokemon?: Array<ChangelogPokemonReference | undefined>;
+  afterPokemon?: Array<ChangelogPokemonReference | undefined>;
+  rate?: { before: string; after: string };
 };
 
 export type ChangelogEntryPart = {
@@ -35,9 +53,10 @@ export type ChangelogResult = {
   summary: ChangelogSummary;
   beforeVersion: BaseVersion;
   afterVersion: BaseVersion;
+  documents: ChangelogDocument[];
 };
 
-export type ChangelogOptions = Pick<LoadOptions, "fairy">;
+export type ChangelogOptions = Pick<LoadOptions, "fairy" | "selectedNarcs">;
 
 const SEMANTIC_NARCS = [
   "personal",
@@ -55,9 +74,9 @@ const SEMANTIC_NARCS = [
 
 const GENERIC_NARCS = ["maps", "matrix", "overworlds", "move_animations", "battle_animations", "move_spas", "regulations", "wbt_area_pools"] as const satisfies readonly NarcName[];
 
-const CHANGELOG_NARCS: NarcName[] = [...new Set<NarcName>([...MANDATORY_NARCS, ...SEMANTIC_NARCS, ...GENERIC_NARCS])];
+export const CHANGELOG_NARCS: NarcName[] = ["headers", ...SEMANTIC_NARCS, ...GENERIC_NARCS];
 
-const DOMAIN_TITLES: Record<string, string> = {
+export const CHANGELOG_DOMAIN_TITLES: Record<string, string> = {
   headers: "Headers",
   personal: "Pokemon Personal Data",
   learnsets: "Learnsets",
@@ -79,6 +98,21 @@ const DOMAIN_TITLES: Record<string, string> = {
   regulations: "Battle Regulations",
   wbt_area_pools: "Black Tower / White Treehollow Area Pools",
 };
+
+function selectedChangelogNarcs(options: ChangelogOptions): NarcName[] {
+  const selected = options.selectedNarcs ?? CHANGELOG_NARCS;
+  return CHANGELOG_NARCS.filter((name) => selected.includes(name));
+}
+
+export function changelogLoadNarcs(options: ChangelogOptions = {}): NarcName[] {
+  const selected = selectedChangelogNarcs(options);
+  const dependencies: NarcName[] = [...MANDATORY_NARCS];
+  if (selected.includes("evolutions")) dependencies.push("personal", "learnsets", "moves");
+  if (selected.includes("trdata") || selected.includes("trpok")) dependencies.push("trdata", "trpok", "personal");
+  if (selected.includes("encounters")) dependencies.push("personal");
+  if (selected.some((name) => ["personal", "learnsets", "evolutions", "trdata", "trpok", "encounters", "grottos"].includes(name))) dependencies.push("personal", "pokemon_icons");
+  return [...new Set([...selected, ...dependencies])];
+}
 
 const PERSONAL_FIELDS: Array<[string, string]> = [
   ["base_hp", "base HP"],
@@ -188,25 +222,28 @@ export async function generateChangelogFromRomFiles(
   let afterProject: ProjectState | undefined;
   try {
     onProgress?.("Loading original ROM");
-    beforeProject = await loadProjectFromRomFile(beforeFile, { ...options, selectedNarcs: CHANGELOG_NARCS }, onProgress);
+    beforeProject = await loadProjectFromRomFile(beforeFile, { ...options, selectedNarcs: changelogLoadNarcs(options) }, onProgress);
     onProgress?.("Loading modified ROM");
-    afterProject = await loadProjectFromRomFile(afterFile, { ...options, selectedNarcs: CHANGELOG_NARCS }, onProgress);
-    return generateChangelogFromProjects(beforeProject, afterProject);
+    afterProject = await loadProjectFromRomFile(afterFile, { ...options, selectedNarcs: changelogLoadNarcs(options) }, onProgress);
+    return generateChangelogFromProjects(beforeProject, afterProject, options);
   } finally {
     releaseProjectMemory(beforeProject);
     releaseProjectMemory(afterProject);
   }
 }
 
-export function generateChangelogFromProjects(beforeProject: ProjectState, afterProject: ProjectState): ChangelogResult {
+export function generateChangelogFromProjects(beforeProject: ProjectState, afterProject: ProjectState, options: ChangelogOptions = {}): ChangelogResult {
   validateSameBaseVersion(beforeProject, afterProject);
   const entries: ChangelogEntry[] = [];
-  addHeaderChanges(beforeProject, afterProject, entries);
-  addSemanticNarcChanges(beforeProject, afterProject, entries);
-  addGenericNarcChanges(beforeProject, afterProject, entries);
+  const selected = new Set(selectedChangelogNarcs(options));
+  if (selected.has("headers")) addHeaderChanges(beforeProject, afterProject, entries);
+  addSemanticNarcChanges(beforeProject, afterProject, entries, selected);
+  addGenericNarcChanges(beforeProject, afterProject, entries, selected);
   const summary = summarizeEntries(beforeProject.session.baseVersion, afterProject.session.baseVersion, entries);
+  const documents = buildChangelogDocuments(beforeProject, afterProject, entries, summary, [...selected], CHANGELOG_DOMAIN_TITLES);
   return {
-    text: renderChangelogText(beforeProject, afterProject, entries, summary),
+    text: entries.length ? entries.map((entry) => entry.text).join("\n") : documents.map((document) => document.emptyMessage).join("\n") || "No NARCs selected.",
+    documents,
     entries,
     summary,
     beforeVersion: beforeProject.session.baseVersion,
@@ -239,8 +276,9 @@ function addHeaderChanges(beforeProject: ProjectState, afterProject: ProjectStat
   }
 }
 
-function addSemanticNarcChanges(beforeProject: ProjectState, afterProject: ProjectState, entries: ChangelogEntry[]): void {
+function addSemanticNarcChanges(beforeProject: ProjectState, afterProject: ProjectState, entries: ChangelogEntry[], selected: Set<NarcName>): void {
   for (const name of SEMANTIC_NARCS) {
+    if (!selected.has(name)) continue;
     if (name === "grotto_odds") {
       addGrottoOddsChanges(beforeProject, afterProject, entries);
       continue;
@@ -251,6 +289,7 @@ function addSemanticNarcChanges(beforeProject: ProjectState, afterProject: Proje
     const count = Math.max(beforeStore?.fileCount ?? 0, afterStore?.fileCount ?? 0);
     for (let id = 0; id < count; id += 1) {
       if (!changedFile(beforeProject, afterProject, name, id)) continue;
+      const start = entries.length;
       switch (name) {
         case "personal":
           addPersonalChange(beforeProject, afterProject, id, entries);
@@ -283,6 +322,10 @@ function addSemanticNarcChanges(beforeProject: ProjectState, afterProject: Proje
           addGrottoChange(beforeProject, afterProject, id, entries);
           break;
       }
+      for (const entry of entries.slice(start)) {
+        entry.recordId = id;
+        if (name === "personal" || name === "learnsets" || name === "evolutions") entry.pokemon = { speciesId: id };
+      }
     }
   }
 }
@@ -303,12 +346,20 @@ function addLearnsetChange(beforeProject: ProjectState, afterProject: ProjectSta
   const before = optionalDecoded(beforeProject, "learnsets", id);
   const after = optionalDecoded(afterProject, "learnsets", id);
   const subject = pokemonName(afterProject, beforeProject, id);
+  const start = entries.length;
+  const beforeMoves = before?.raw ? learnsetEntries(before.raw) : [];
+  const afterMoves = after?.raw ? learnsetEntries(after.raw) : [];
+  const comparison: ChangelogComparison = {
+    title: "Learnset",
+    columns: ["Slot", "Level", "Move"],
+    before: beforeMoves.map((move, index) => [String(index + 1), String(move.level), moveName(beforeProject, move.moveId)]),
+    after: afterMoves.map((move, index) => [String(index + 1), String(move.level), moveName(afterProject, move.moveId)]),
+  };
   if (!before?.raw || !after?.raw) {
     push(entries, "learnsets", `${subject} learnset ${after ? "was added" : "was removed"}.`, subject);
+    attachComparison(entries, start, comparison);
     return;
   }
-  const beforeMoves = learnsetEntries(before.raw);
-  const afterMoves = learnsetEntries(after.raw);
   const count = Math.max(beforeMoves.length, afterMoves.length);
   for (let index = 0; index < count; index += 1) {
     const oldMove = beforeMoves[index];
@@ -320,6 +371,7 @@ function addLearnsetChange(beforeProject: ProjectState, afterProject: ProjectSta
     if (oldMove.moveId === newMove.moveId && oldMove.level === newMove.level) continue;
     push(entries, "learnsets", `${subject} learnset slot ${index + 1} changed from ${moveName(beforeProject, oldMove.moveId)} at level ${oldMove.level} to ${moveName(afterProject, newMove.moveId)} at level ${newMove.level}.`, subject);
   }
+  attachComparison(entries, start, comparison);
 }
 
 function addEvolutionChange(beforeProject: ProjectState, afterProject: ProjectState, id: number, entries: ChangelogEntry[]): void {
@@ -335,6 +387,11 @@ function addEvolutionChange(beforeProject: ProjectState, afterProject: ProjectSt
     pushIfDifferent(entries, "evolutions", subject, `evolution ${slot + 1} method`, before.evolutions[slot]?.method, after.evolutions[slot]?.method);
     pushIfDifferent(entries, "evolutions", subject, `evolution ${slot + 1} parameter`, before.evolutions[slot]?.param, after.evolutions[slot]?.param);
     pushIfDifferent(entries, "evolutions", subject, `evolution ${slot + 1} target`, before.evolutions[slot]?.target, after.evolutions[slot]?.target);
+    const targetEntry = entries[entries.length - 1];
+    if (targetEntry?.field?.label === `evolution ${slot + 1} target`) {
+      targetEntry.field.beforePokemon = { speciesId: Number(before.evolutions[slot]?.targetId ?? 0) };
+      targetEntry.field.afterPokemon = { speciesId: Number(after.evolutions[slot]?.targetId ?? 0) };
+    }
   }
 }
 
@@ -409,22 +466,33 @@ function addItemChange(beforeProject: ProjectState, afterProject: ProjectState, 
 }
 
 function addTrainerDataChange(beforeProject: ProjectState, afterProject: ProjectState, id: number, entries: ChangelogEntry[]): void {
-  const before = optionalRecord(beforeProject, "trdata", id, () => getTrainerRecord(beforeProject, id));
-  const after = optionalRecord(afterProject, "trdata", id, () => getTrainerRecord(afterProject, id));
+  const before = optionalDecoded(beforeProject, "trdata", id);
+  const after = optionalDecoded(afterProject, "trdata", id);
   const subject = trainerName(beforeProject, afterProject, id);
   if (!before || !after) {
     push(entries, "trdata", `${subject} trainer data ${after ? "was added" : "was removed"}.`, subject);
     return;
   }
-  for (const [field, label] of TRAINER_FIELDS) pushIfDifferent(entries, "trdata", subject, label, before.readable[field], after.readable[field]);
+  for (const [field, label] of TRAINER_FIELDS) pushIfDifferent(entries, "trdata", subject, label, before.readable?.[field], after.readable?.[field]);
 }
 
 function addTrainerPokemonChange(beforeProject: ProjectState, afterProject: ProjectState, id: number, entries: ChangelogEntry[]): void {
-  const before = optionalRecord(beforeProject, "trpok", id, () => getTrainerRecord(beforeProject, id));
-  const after = optionalRecord(afterProject, "trpok", id, () => getTrainerRecord(afterProject, id));
+  const before = optionalRecord(beforeProject, "trpok", id, () => getTrainerRecord(beforeProject, id, { includeTexts: false }));
+  const after = optionalRecord(afterProject, "trpok", id, () => getTrainerRecord(afterProject, id, { includeTexts: false }));
   const subject = trainerName(beforeProject, afterProject, id);
+  const start = entries.length;
+  const comparison: ChangelogComparison = {
+    title: "Team",
+    layout: "fields",
+    columns: ["Slot", "Pokemon", "Level", "IVs", "Ability", "Held item", "Gender", "Form", "Nature", "Moves"],
+    before: trainerTeamRows(before?.party ?? []),
+    after: trainerTeamRows(after?.party ?? []),
+    beforePokemon: (before?.party ?? []).map(trainerPokemonReference),
+    afterPokemon: (after?.party ?? []).map(trainerPokemonReference),
+  };
   if (!before || !after) {
     push(entries, "trpok", `${subject} trainer Pokemon data ${after ? "was added" : "was removed"}.`, subject);
+    attachComparison(entries, start, comparison);
     return;
   }
   const oldTeam = teamSummaryParts(before.party, after.party, "old");
@@ -436,6 +504,19 @@ function addTrainerPokemonChange(beforeProject: ProjectState, afterProject: Proj
     { text: "New Team: ", breakBefore: true },
     ...newTeam,
   ]);
+  attachComparison(entries, start, comparison);
+}
+
+function trainerTeamRows(party: TrainerPokemonSlot[]): string[][] {
+  return party.map((slot) => [
+    String(slot.slot + 1), slot.speciesName, String(slot.level), String(slot.ivs),
+    `Slot ${slot.abilitySlot}`, formatValue(slot.itemName ?? "None"), slot.gender, String(slot.form), slot.natureSetting,
+    slot.moves.filter((move) => String(move) !== "None" && String(move) !== "0").map(String).join(", ") || "None",
+  ]);
+}
+
+function trainerPokemonReference(slot: TrainerPokemonSlot): ChangelogPokemonReference {
+  return { speciesId: slot.speciesId, form: slot.form, female: slot.gender.toLowerCase() === "female" };
 }
 
 function teamSummaryParts(beforeParty: TrainerPokemonSlot[], afterParty: TrainerPokemonSlot[], side: "old" | "new"): ChangelogEntryPart[] {
@@ -479,19 +560,34 @@ function addEncounterChange(beforeProject: ProjectState, afterProject: ProjectSt
   const subject = encounterName(after, before, id);
   if (!before || !after) {
     push(entries, "encounters", `${subject} encounter data ${after ? "was added" : "was removed"}.`, subject);
-    return;
   }
   for (const season of ENCOUNTER_SEASONS) {
     for (const kind of [...ENCOUNTER_GRASS_FIELDS, ...ENCOUNTER_WATER_FIELDS]) {
       const slotCount = (ENCOUNTER_GRASS_FIELDS as readonly string[]).includes(kind) ? 12 : 5;
-      pushIfDifferent(entries, "encounters", subject, `${season} ${kindLabel(kind)} rate`, before.readable[`${season}_${kind}_rate`], after.readable[`${season}_${kind}_rate`]);
+      const start = entries.length;
+      const rateField = `${season}_${kind}_rate`;
+      pushIfDifferent(entries, "encounters", subject, `${season} ${kindLabel(kind)} rate`, before?.readable[rateField], after?.readable[rateField]);
       for (let slot = 0; slot < slotCount; slot += 1) {
         const base = `${season}_${kind}_slot_${slot}`;
-        pushIfDifferent(entries, "encounters", subject, `${season} ${kindLabel(kind)} slot ${slot}`, before.readable[base], after.readable[base]);
-        pushIfDifferent(entries, "encounters", subject, `${season} ${kindLabel(kind)} slot ${slot} form`, before.readable[`${base}_form`], after.readable[`${base}_form`]);
-        pushIfDifferent(entries, "encounters", subject, `${season} ${kindLabel(kind)} slot ${slot} min level`, before.readable[`${base}_min_level`], after.readable[`${base}_min_level`]);
-        pushIfDifferent(entries, "encounters", subject, `${season} ${kindLabel(kind)} slot ${slot} max level`, before.readable[`${base}_max_level`], after.readable[`${base}_max_level`]);
+        for (const [suffix, label] of [["", ""], ["_form", " form"], ["_min_level", " min level"], ["_max_level", " max level"]]) {
+          pushIfDifferent(entries, "encounters", subject, `${season} ${kindLabel(kind)} slot ${slot}${label}`, before?.readable[`${base}${suffix}`], after?.readable[`${base}${suffix}`]);
+        }
       }
+      const rows = (readable: ReadableRecord | undefined) => readable ? Array.from({ length: slotCount }, (_, slot) => {
+        const base = `${season}_${kind}_slot_${slot}`;
+        return [String(slot + 1), formatValue(readable[base]), formatValue(readable[`${base}_form`]), formatValue(readable[`${base}_min_level`]), formatValue(readable[`${base}_max_level`])];
+      }) : [];
+      const pokemon = (raw: RawRecord | undefined) => raw ? Array.from({ length: slotCount }, (_, slot) => {
+        const base = `${season}_${kind}_slot_${slot}`;
+        return { speciesId: Number(raw[base] ?? 0), form: Number(raw[`${base}_form`] ?? 0) };
+      }) : [];
+      attachComparison(entries, start, {
+        title: `${titleize(season)} · ${titleize(kindLabel(kind))}`,
+        columns: ["Slot", "Pokemon", "Form", "Min level", "Max level"],
+        before: rows(before?.readable), after: rows(after?.readable),
+        beforePokemon: pokemon(before?.raw), afterPokemon: pokemon(after?.raw),
+        rate: { before: formatValue(before?.readable[rateField]), after: formatValue(after?.readable[rateField]) },
+      });
     }
   }
 }
@@ -518,7 +614,12 @@ function addGrottoChange(beforeProject: ProjectState, afterProject: ProjectState
     return;
   }
   for (const field of Object.keys({ ...before.raw, ...after.raw })) {
+    const start = entries.length;
     pushIfDifferent(entries, "grottos", subject, grottoFieldLabel(field), before.readable[field], after.readable[field]);
+    if (entries.length > start && field.includes("_pok_")) {
+      entries[start].field!.beforePokemon = { speciesId: Number(before.raw[field] ?? 0) };
+      entries[start].field!.afterPokemon = { speciesId: Number(after.raw[field] ?? 0) };
+    }
   }
 }
 
@@ -535,8 +636,9 @@ function addGrottoOddsChanges(beforeProject: ProjectState, afterProject: Project
   }
 }
 
-function addGenericNarcChanges(beforeProject: ProjectState, afterProject: ProjectState, entries: ChangelogEntry[]): void {
+function addGenericNarcChanges(beforeProject: ProjectState, afterProject: ProjectState, entries: ChangelogEntry[], selected: Set<NarcName>): void {
   for (const name of GENERIC_NARCS) {
+    if (!selected.has(name)) continue;
     const beforeStore = beforeProject.narcs[name];
     const afterStore = afterProject.narcs[name];
     if (!beforeStore && !afterStore) continue;
@@ -558,7 +660,7 @@ function genericChangedLine(beforeProject: ProjectState, afterProject: ProjectSt
   if (name === "maps") return `Map file ${id} ${action}.`;
   if (name === "matrix") return `Matrix file ${id} ${action}.`;
   if (name === "overworlds") return `Overworld file ${id} ${action}.`;
-  return `${DOMAIN_TITLES[name] ?? name} file ${id} ${action}.`;
+  return `${CHANGELOG_DOMAIN_TITLES[name] ?? name} file ${id} ${action}.`;
 }
 
 function changedFile(beforeProject: ProjectState, afterProject: ProjectState, name: NarcName, id: number): boolean {
@@ -581,43 +683,23 @@ function optionalRecord<T>(project: ProjectState, name: NarcName, id: number, re
 function pushIfDifferent(entries: ChangelogEntry[], domain: string, subject: string, label: string, before: unknown, after: unknown): void {
   if (normalizeValue(before) === normalizeValue(after)) return;
   push(entries, domain, `${subject} ${label} changed from ${formatValue(before)} to ${formatValue(after)}.`, subject);
+  entries[entries.length - 1].field = { label, before: formatValue(before), after: formatValue(after) };
 }
 
 function push(entries: ChangelogEntry[], domain: string, text: string, subject?: string, parts?: ChangelogEntryPart[]): void {
   entries.push({ domain, subject, text, parts });
 }
 
+function attachComparison(entries: ChangelogEntry[], start: number, comparison: ChangelogComparison): void {
+  if (entries.length === start) return;
+  entries[start].comparison = comparison;
+  for (let index = start; index < entries.length; index += 1) entries[index].comparisonDetail = true;
+}
+
 function summarizeEntries(beforeVersion: BaseVersion, afterVersion: BaseVersion, entries: ChangelogEntry[]): ChangelogSummary {
   const domains: Record<string, number> = {};
   for (const entry of entries) domains[entry.domain] = (domains[entry.domain] ?? 0) + 1;
   return { beforeVersion, afterVersion, totalChanges: entries.length, domains };
-}
-
-function renderChangelogText(beforeProject: ProjectState, afterProject: ProjectState, entries: ChangelogEntry[], summary: ChangelogSummary): string {
-  const lines = [
-    `Changelog: ${beforeProject.session.romName} -> ${afterProject.session.romName}`,
-    `Game version: ${summary.beforeVersion}`,
-    `Total changes: ${summary.totalChanges}`,
-    "",
-  ];
-  if (entries.length === 0) {
-    lines.push("No changes detected in the selected Pokeweb data.");
-    return lines.join("\n");
-  }
-  const domains = [...new Set(entries.map((entry) => entry.domain))];
-  for (const domain of domains) {
-    lines.push(`${DOMAIN_TITLES[domain] ?? titleize(domain)} (${summary.domains[domain] ?? 0})`);
-    let previousSubject = "";
-    for (const entry of entries.filter((candidate) => candidate.domain === domain)) {
-      if ((domain === "personal" || domain === "learnsets" || domain === "evolutions") && previousSubject && entry.subject && entry.subject !== previousSubject) {
-        lines.push("");
-      }
-      lines.push(`- ${entry.text}`);
-      previousSubject = entry.subject ?? previousSubject;
-    }
-    lines.push("");
-  }
-  return lines.join("\n").trimEnd();
 }
 
 function pokemonName(primary: ProjectState, fallback: ProjectState, id: number): string {

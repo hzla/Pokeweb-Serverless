@@ -64,7 +64,8 @@ data; it does not change the live editor or load a ROM.
 
 - Story Text and Info Text editors for searching text banks, opening banks, editing entries, and adding/deleting entries at the end of a bank.
 - Doc Generators for Showdown calc publishing data, dex output, text docs, trainer location data, and item location data.
-- Changelog generation support in the model layer for summarizing edits between ROM/project states.
+- The homepage opens on **ROM Upload**, with separate **Repair** (DSi repair and NARC repair) and **Changelog Generator** tabs.
+- The changelog generator compares ROMs of the same exact game version. Select the supported NARCs to include, preview each section as a document, and download individual or combined PDFs or plain TXT files with ASCII tables. TXT exports uppercase changed values in the Updated columns; original and unchanged values keep their casing. Selected personal, learnset, and evolution changes share one **Pokemon** document in either format, grouped by Pokemon name; move changes are grouped by name; trainer settings and teams share one **Trainers** selection and document (`trdata` + `trpok`) with aligned original/updated columns. Learnsets and encounters use paired tables with highlighted updates in the preview and PDF, and side-by-side ASCII tables in TXT. PDFs embed an extracted icon beside each Pokemon name for personal data, learnsets, evolutions, encounters, hidden grotto Pokemon, and trainers, including settings-only trainer changes. Icons use the modified ROM when available, with the original ROM as a fallback. Missing icons are identified in the preview and PDF; text comparisons remain available. Complex assets use file-level summaries, and unavailable NARCs are identified in their documents.
 
 ## Quick Start
 

@@ -1,0 +1,124 @@
+{
+  "idCode": "IRBO",
+  "revision": 0,
+  "overlayBases": {
+    "10": 34951520,
+    "21": 35159808
+  },
+  "signatures": [
+    {
+      "overlayId": 21,
+      "address": 35316220,
+      "name": "FindClashActor",
+      "hex": "f8b586b0061c0d1c0092daf76ffd0190"
+    },
+    {
+      "overlayId": 10,
+      "address": 34972872,
+      "name": "GetBattleType",
+      "hex": "08b50221cff6b0fe0006000e08bd0000"
+    },
+    {
+      "overlayId": 21,
+      "address": 35163264,
+      "name": "GetGameSystem",
+      "hex": "4068704700887047b430006870470000"
+    },
+    {
+      "overlayId": 21,
+      "address": 35174060,
+      "name": "CountUsableParty",
+      "hex": "f8b586f621fd87f63ff900908ff6aef9"
+    },
+    {
+      "overlayId": 21,
+      "address": 35318064,
+      "name": "CreateTrainerClashEvent",
+      "hex": "10b50c1cdaf7a4f9e2210901221c0123"
+    },
+    {
+      "overlayId": 10,
+      "address": 34972728,
+      "name": "SetupTrainerClashSlot",
+      "hex": "38b50d1c141cfef7c7fa291cfef76efe"
+    },
+    {
+      "overlayId": 21,
+      "address": 35317972,
+      "name": "FindDoublePairActor",
+      "hex": "f8b582b00c1c0021051c0091bef7ccfe"
+    },
+    {
+      "overlayId": 21,
+      "address": 35317940,
+      "name": "InitTrainerSetup",
+      "hex": "38b50c1c051c201c6a60ab60bef77afe"
+    },
+    {
+      "overlayId": 10,
+      "address": 34973172,
+      "name": "GetScriptWork",
+      "hex": "006a00687047000008b5fff7f9fffef7"
+    },
+    {
+      "overlayId": 10,
+      "address": 34967436,
+      "name": "GetScriptId",
+      "hex": "808870478068704738b50d1c856007d0"
+    },
+    {
+      "overlayId": 10,
+      "address": 34970344,
+      "name": "ScriptReadVar",
+      "hex": "70b50e1c051c301c00f078fd041c301c"
+    },
+    {
+      "overlayId": 10,
+      "address": 34972768,
+      "name": "GetTrainerId",
+      "hex": "0549884204d20549401a0004000c7047"
+    },
+    {
+      "overlayId": 10,
+      "address": 34972852,
+      "name": "IsDoubleBattle",
+      "hex": "08b50221cff6bafe012801d1012008bd"
+    },
+    {
+      "overlayId": 10,
+      "address": 34972832,
+      "name": "IsDoublePair2",
+      "hex": "0349884201d30120704700207047c046"
+    },
+    {
+      "overlayId": 10,
+      "address": 34973164,
+      "name": "GetActorSystem",
+      "hex": "006ac06870470000006a006870470000"
+    },
+    {
+      "overlayId": 10,
+      "address": 35052828,
+      "name": "NextActor",
+      "hex": "f8b5151c041c0091fff7e4fb061c2868"
+    },
+    {
+      "overlayId": 10,
+      "address": 35050936,
+      "name": "GetActorScriptId",
+      "hex": "808a704708b5fff7fbff0349884201d1"
+    },
+    {
+      "overlayId": 21,
+      "address": 35315916,
+      "name": "TrainerSightHook",
+      "hex": "f8b58cb0002106aa051c0027002400f0"
+    },
+    {
+      "overlayId": 21,
+      "address": 35318704,
+      "name": "TrainerMessagesHook",
+      "hex": "f8b50c1c051c201cabf71cfdaaf7e6f9"
+    }
+  ]
+}

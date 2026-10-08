@@ -154,11 +154,13 @@ export function deletePokemonForm(project: ProjectState, requestedPersonalId: nu
   materializeProjectEdits(project);
 
   const remainingFormCount = availability.formCount - 1;
+  const firstPersonalId = Number(decodeRecord(project, "personal", availability.speciesId).raw?.form_id ?? 0);
   if (remainingFormCount <= 1) {
     updatePokemonField(project, availability.speciesId, "personal", "form_id", "0");
     updatePokemonField(project, availability.speciesId, "personal", "form", "0");
   }
   updatePokemonField(project, availability.speciesId, "personal", "num_forms", String(Math.max(1, remainingFormCount)));
+  syncAlternateFormCounts(project, firstPersonalId, remainingFormCount);
 
   const clearedEvolutionTargets = clearEvolutionTargets(project, availability.personalId);
   clearPokemonIconPaletteAssignment(project, availability.spriteId);
@@ -306,7 +308,7 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
   evolutionCopies.forEach((bytes) => appendFile(project, evolutions, "evolutions", bytes));
   appendPokemonFormNames(project, pokemonNameBankId, speciesId, appendPersonalId, personalCopies.length);
 
-  for (let id = appendPersonalId; id < appendPersonalId + personalCopies.length; id += 1) clearNestedFormMetadata(project, id);
+  for (let id = appendPersonalId; id < appendPersonalId + personalCopies.length; id += 1) clearNestedFormMetadata(project, id, newFormCount);
 
   // Retail Gen 5 sprite archives end with five reserved palette members. When
   // forms are appended, Frost groups those members and the following 15 slots
@@ -332,6 +334,7 @@ export function addPokemonForm(project: ProjectState, requestedSpeciesId: number
   updatePokemonField(project, speciesId, "personal", "form_id", String(personalStartId));
   updatePokemonField(project, speciesId, "personal", "form", String(formSpriteOffset));
   updatePokemonField(project, speciesId, "personal", "num_forms", String(newFormCount));
+  syncAlternateFormCounts(project, personalStartId, newFormCount);
 
   const subject = pokemonSpeciesLabel(project, speciesId);
   recordGenericChange(
@@ -543,14 +546,27 @@ function emptyEvolutionRecord(project: ProjectState, store: NarcStore, speciesId
   return new Uint8Array(Math.max(sourceLength, expectedLength));
 }
 
-function clearNestedFormMetadata(project: ProjectState, personalId: number): void {
+function clearNestedFormMetadata(project: ProjectState, personalId: number, formCount: number): void {
   const record = decodeRecord(project, "personal", personalId);
   if (!record.raw || !record.readable) throw new Error(`Unable to initialize form personal record ${personalId}.`);
   record.raw.form_id = 0;
   record.raw.form = 0;
-  record.raw.num_forms = 1;
+  record.raw.num_forms = formCount;
   record.readable.form_id = 0;
   record.readable.form = 0;
-  record.readable.num_forms = 1;
+  record.readable.num_forms = formCount;
   markDirty(project, "personal", personalId);
+}
+
+function syncAlternateFormCounts(project: ProjectState, firstPersonalId: number, formCount: number): void {
+  // Vanilla child records retain the species' total form count while their
+  // form pointers stay zero. Frost uses that count to recognize their sprites.
+  for (let id = firstPersonalId; id < firstPersonalId + formCount - 1; id += 1) {
+    const record = decodeRecord(project, "personal", id);
+    if (!record.raw || !record.readable) throw new Error(`Unable to update form personal record ${id}.`);
+    if (record.raw.num_forms === formCount) continue;
+    record.raw.num_forms = formCount;
+    record.readable.num_forms = formCount;
+    markDirty(project, "personal", id);
+  }
 }

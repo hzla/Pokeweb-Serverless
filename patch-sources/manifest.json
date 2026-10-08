@@ -1281,6 +1281,10 @@
       "title": "Single-NPC double-battle fix",
       "artifacts": [
         {
+          "name": "DoubleBattleFixB.dll",
+          "sha256": "a454f54ae412abef2f6123ca3ae85c67c1bc5cf669ac569100599160f6bda219"
+        },
+        {
           "name": "DoubleBattleFixB2.dll",
           "sha256": "0ec0fdefa4437808b0e223691b3d0952bdbd792dfe95830d19a845a0d073b3e1"
         },
@@ -1289,9 +1293,89 @@
           "sha256": "d8ea7bfd01775ea0d30d235845a31f9a66a6876829747133d4d6661e7a841170"
         }
       ],
-      "note": "Original implementation source was not found in the available checkouts. The existing W2 validation/staging script is retained as supporting source only: its embedded payload is not C++ source and does not cover B2. Do not mistake this folder for a recovered implementation.",
-      "status": "original-source-unavailable",
+      "note": "Black 1 has a new source implementation and builder for US IRBO revision 0. Original B2/W2 implementation source remains unavailable; the retained W2 staging script embeds a binary payload and does not establish B2/W2 reproducibility. Native CPU and ROM export checks are separate from full in-game battle acceptance.",
+      "status": "partial-source-available",
       "files": [
+        {
+          "path": "double-battle-fix/black1-contract.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/double-battle-fix/black1-contract.json"
+          },
+          "kind": "metadata",
+          "sha256": "626040316b8573e2c8252c804e75606049da21c4cfb6f0f191578173b46ffe93",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/black1.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/double-battle-fix/black1.cpp"
+          },
+          "kind": "source",
+          "sha256": "f787d5e38949126900b4fc6d0b345a0deda4bf830fddb5b56206aed4ba1d6797",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/double-battle-fix/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "2004696e2ef9d6c9c9b5d1852a28b8de6204d61f57385bdac46f3b842b004356",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/metadata.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/double-battle-fix/metadata.yml"
+          },
+          "kind": "metadata",
+          "sha256": "6fd4b001cd12adc641b994cfa659da2b4bf33d3dc105943ab574e8706bf7febd",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/prepare-tests.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/double-battle-fix/prepare-tests.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "e4f746de679fbedb6a908e355b94ad3e527160b3ccba0b58d1d063d41835d242",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/double-battle-fix/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "e101334231b5baf23790725f19af6f9d30bf0b2295d8b39d7ef6ca72b8094063",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/symbols.yml",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/double-battle-fix/symbols.yml"
+          },
+          "kind": "metadata",
+          "sha256": "f1103e66b385d6b9984abbc915fe078eeb0136f2a10596b0d8cdd4834bc5853f",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/test_runtime.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/double-battle-fix/test_runtime.py"
+          },
+          "kind": "test",
+          "sha256": "91efa84588462a329943d0c27949016ec3dbae76edfdcd9a116ba51347cf3066",
+          "normalized": false
+        },
         {
           "path": "double-battle-fix/support/stage_double_battle_fix.py",
           "origin": {
@@ -1300,6 +1384,66 @@
           },
           "kind": "support-only",
           "sha256": "ba5d02db6f59df14d3da8849b78dd46331d821a4d628c50c99ec7a918a1fc65b",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/integration/pmcModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/pmcModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "db722923b03091d472560eb8f09432a5aeeb2a1561441c08a15e205c69b599a3",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/integration/doubleBattleFixCompatibility.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/doubleBattleFixCompatibility.ts"
+          },
+          "kind": "source",
+          "sha256": "22365f2d09c83bdc29c344148a56aed4c7a0df1c62a5de292a312dde25bd28c0",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/integration/codeInjectionEditor.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/ui/codeInjectionEditor.ts"
+          },
+          "kind": "support-only",
+          "sha256": "92874dc555280134a81dac4f33dbbf6ce5a9e65544077f0958baaf1fa00247d4",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/tests/doubleBattleFix.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/doubleBattleFix.test.ts"
+          },
+          "kind": "test",
+          "sha256": "ad41868b9a68b3d594bfc3a4f8d38b06fcbfbd7c9d07a882ce63a19aa8c06354",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/tests/codeInjectionEditor.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/codeInjectionEditor.test.ts"
+          },
+          "kind": "test",
+          "sha256": "ee1692abce8639b408aca3a3e10c2cb2cdadf13027f86929b9fe69ce0756e2c5",
+          "normalized": false
+        },
+        {
+          "path": "double-battle-fix/tests/verify-black1-double-battle-fix.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "scripts/verify-black1-double-battle-fix.ts"
+          },
+          "kind": "test",
+          "sha256": "816aff9e647f3c16464ef12d6de898d619f4c0915a69975e9aeac2d352bf95a2",
           "normalized": false
         }
       ]
@@ -2442,7 +2586,7 @@
             "path": "src/pokeweb/pmcModel.ts"
           },
           "kind": "support-only",
-          "sha256": "081abf3f6c29ae8ba386ac747e01b9b8f1aa05e2acf31ffd2c20b4c74e9b5c59",
+          "sha256": "db722923b03091d472560eb8f09432a5aeeb2a1561441c08a15e205c69b599a3",
           "normalized": false
         },
         {
@@ -2512,7 +2656,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "1d1e6453328be6eeb841747b5acb278bacbd770b357b569c0484abb4438466bf",
+          "sha256": "92874dc555280134a81dac4f33dbbf6ce5a9e65544077f0958baaf1fa00247d4",
           "normalized": false
         },
         {
@@ -2532,7 +2676,7 @@
             "path": "package.json"
           },
           "kind": "build-tool",
-          "sha256": "53f7a8f619a09347dd92467b4717ebd7d479f11275d5236a8c4f25efe160e0e3",
+          "sha256": "73a854b99eef2da2b15d8fa22d6867a885b06beab5d654381e1257f7ca296b8e",
           "normalized": false
         },
         {
@@ -5138,7 +5282,7 @@
             "path": "src/ui/codeInjectionEditor.ts"
           },
           "kind": "support-only",
-          "sha256": "1d1e6453328be6eeb841747b5acb278bacbd770b357b569c0484abb4438466bf",
+          "sha256": "92874dc555280134a81dac4f33dbbf6ce5a9e65544077f0958baaf1fa00247d4",
           "normalized": false
         },
         {
