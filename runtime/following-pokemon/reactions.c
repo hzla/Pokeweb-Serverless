@@ -89,13 +89,25 @@ __attribute__((visibility("hidden"))) uint32_t __aeabi_uidiv(uint32_t n,uint32_t
 int fwr_context_validate(FwrContext *out,const void *buffer,unsigned size){
  const uint8_t *b;unsigned len;*out=(FwrContext){0};
  if(!narc_member(buffer,size,&b,&len))return 0;
- if(len<16||fwr_u32(b)!=0x44435746||fwr_u16(b+4)!=1||fwr_u32(b+8)!=len||fwr_crc(b+16,len-16)!=fwr_u32(b+12))return 0;
+ if(len<16||fwr_u32(b)!=0x44435746||(fwr_u16(b+4)!=1&&fwr_u16(b+4)!=2)||fwr_u32(b+8)!=len||fwr_crc(b+16,len-16)!=fwr_u32(b+12))return 0;
  unsigned count=fwr_u16(b+6);if(16+count*20>len)return 0;
  for(unsigned i=0;i<count;++i){const uint8_t *r=b+16+i*20;unsigned text=fwr_u32(r+12),words=fwr_u16(r+16);
-  if(r[6]>5||r[7]>10||r[8]>8||r[9]>4||!r[10]||r[11]||fwr_u16(r+18)||!words||words>FWR_TEXT_CAPACITY||text&1||text<16+count*20||text>len||words*2>len-text||fwr_u16(b+text+(words-1)*2)!=0xffff)return 0;
+  if(r[6]>5||r[7]>10||r[8]>8||r[9]>4||!r[10]||r[10]>100||r[11]>FWR_CONTEXT_MOTIONS||r[18]>FWR_CONTEXT_MOTIONS||r[19]||(fwr_u16(b+4)==1&&(r[11]||r[18]))||!words||words>FWR_TEXT_CAPACITY||text&1||text<16+count*20||text>len||words*2>len-text||fwr_u16(b+text+(words-1)*2)!=0xffff)return 0;
   for(unsigned j=0;j+1<words;++j){unsigned c=fwr_u16(b+text+j*2);if(!c||c==0xffff||(c>=0xf000&&c!=0xfff0&&c!=0xfff1&&c!=0xfff2&&c!=0xfffe))return 0;}
  }
  *out=(FwrContext){.bytes=b,.length=len,.ruleCount=count};return 1;
+}
+int fwr_context_step(const FwrContext *d,unsigned rule,unsigned step,FwrStep *out){
+ if(!d||!d->bytes||rule>=d->ruleCount)return 0;
+ const uint8_t *r=d->bytes+16+rule*20;
+ unsigned before=r[11],after=r[18],action=0;
+ if(before){if(!step)action=before;else --step;}
+ if(!action){
+  if(!step){*out=(FwrStep){.message=1,.wait=1};return 1;}
+  if(step!=1||!after)return 0;
+  action=after;
+ }
+ *out=(FwrStep){.action=(uint16_t)action,.cry=1,.wait=1};return 1;
 }
 int fwr_context_choose(const FwrContext *d,const FwrSnapshot *p,uint32_t *rng){
  if(!d||!d->bytes||p->pokemon.egg||!p->pokemon.species||p->pokemon.species>FW_MAX_SPECIES)return -1;

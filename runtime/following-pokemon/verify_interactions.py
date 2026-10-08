@@ -49,6 +49,14 @@ def gift_archive():
   for i,word in enumerate(words):struct.pack_into('<H',member,at+i*2,word)
  struct.pack_into('<I',member,12,zlib.crc32(member[16:])&0xffffffff)
  narc=ndspy.narc.NARC();narc.files=[bytes(member)];return narc.save()
+def context_archive(before=0,after=0,abi=2):
+ words=[0xfff0,*map(ord,' likes this place.'),0xffff]
+ member=bytearray(36+2*len(words))
+ struct.pack_into('<IHHI',member,0,0x44435746,abi,1,len(member))
+ struct.pack_into('<HH8BIHBB',member,16,427,0,255,255,0,0,0,0,100,before,36,len(words),after,0)
+ for i,word in enumerate(words):struct.pack_into('<H',member,36+i*2,word)
+ struct.pack_into('<I',member,12,zlib.crc32(member[16:])&0xffffffff)
+ narc=ndspy.narc.NARC();narc.files=[bytes(member)];return narc.save()
 assets={"rom:/following/interactions.bin":(HERE.parents[1]/'src/assets/following/interactions.bin').read_bytes(),"rom:/following/emotes.narc":(HERE.parents[1]/'src/assets/following/interaction-emotes.narc').read_bytes(),"rom:/following/contextual-items.narc":gift_archive()}
 files={};calls=[];alloc=[];frees=[];held=pressed=0;free_bytes=131072;provider=0;controller=0;blocked=0;fail='';resource_counter=0;emote_draws=0;print_done=1;close_done=1
 native_addresses={0x02006254,0x02070ca8,0x02070ecc,0x02070dec,0x02070e6c,0x02070de0,0x0203a2d4,0x02180578,0x02195728,0x0219a9d0,0x0219aacc,0x0215e4f0,0x02016cb4,0x02016d08,0x02167098,0x02194b88,0x02194f18,0x0215e8e4,0x02194d8c,0x0215e150,0x021676fc,0x0219a5d8,0x0203df4c,0x0203df28,0x02005cbc,0x020069f4,0x02006b5c,0x021804d0,0x02180500,0x0204855c,0x02048590,0x02048640,0x021887d8,0x02188814,0x02188834,0x02188858,0x021888c4,0x02188a08,0x020493f0,0x02049430,0x02049560,0x0204e598,0x0204e55c,0x0204ebdc,0x0218151c,0x02181aa0,0x02017354,0x0201735c,0x0201fe24,0x0201ff34,0x0201cd24,0x0201ccc4,0x0201ccec,0x0201eef0,0x02008238,0x02008268}
@@ -344,6 +352,62 @@ for failure in ('event','bg','string','window','emote','vram','sound'):
    if tick():break
   else:raise AssertionError(('failure stuck',failure))
  assert not call('fwt_active');balanced();fail=''
+# Custom motions use the ordinary bounded controller on both sides of text.
+# Observe the native window/cry order, not just which step IDs were decoded.
+context_path='rom:/following/contextual-dialogues.narc'
+for before,after,abi in [(0,0,1),(0,0,2),(2,0,2),(0,2,2)]+[(i,i,2) for i in range(1,13)]:
+ assets[context_path]=context_archive(before,after,abi)
+ world,trail=setup(0,25,427);start=len(calls);assert begin()==EVENT
+ assert u32(addr('FollowingTalkDebug')+16)==0x8000
+ for frame in range(500):
+  held=pressed=1 if stage()==6 and frame%3==0 else 0
+  if tick():break
+ else:raise AssertionError(('custom animation stuck',before,after))
+ observed=calls[start:];opens=[i for i,c in enumerate(observed) if c[0]==0x021887d8]
+ closes=[i for i,c in enumerate(observed) if c[0]==0x02188834]
+ cries=[i for i,c in enumerate(observed) if c[0]==0x020069f4]
+ assert len(opens)==len(closes)==1 and len(cries)==bool(before)+bool(after),(before,after,opens,closes,cries)
+ if before:assert cries[0]<opens[0]
+ if after:assert cries[-1]>closes[0]
+ assert bytes(uc.mem_read(A+68,12))==world and bytes(uc.mem_read(F+52,64*28+8))==trail
+ assert bytes(uc.mem_read(A+80,12))==bytes(12);assert not call('fwt_active');balanced()
+# Prefix and suffix cancellation must restore offsets and release only our event.
+for suffix in (False,True):
+ for interruption in ('cancel','fade','nested','message-failure','busy-cry'):
+  assets[context_path]=context_archive(2,2);setup(0,25,427);start=len(calls);assert begin()
+  if interruption=='busy-cry':fail='sound'
+  for frame in range(500):
+   held=pressed=1 if stage()==6 and frame%3==0 else 0
+   tick()
+   opened=any(c[0]==0x021887d8 for c in calls[start:])
+   closed=any(c[0]==0x02188834 for c in calls[start:])
+   if stage()==1 and (closed if suffix else not opened):break
+  else:raise AssertionError(('custom motion stage not reached',suffix,interruption))
+  if interruption=='fade':put(FIELD+0x148,1);assert tick()
+  elif interruption=='nested':put(FOREIGN,EVENT);put(GAME+0x18,FOREIGN);call('fwt_cancel');assert u32(GAME+0x18)==FOREIGN and u32(FOREIGN)==0
+  elif interruption in ('message-failure','busy-cry'):
+   fail='window' if interruption=='message-failure' else 'sound'
+   for frame in range(500):
+    held=pressed=1 if stage()==6 and frame%3==0 else 0
+    if tick():break
+   else:raise AssertionError('Custom error path stuck')
+  else:call('fwt_cancel')
+  fail='';assert not call('fwt_active');assert bytes(uc.mem_read(A+80,12))==bytes(12);balanced()
+# Ground-bound species suppress the jump but keep the original cry gate.
+assets[context_path]=context_archive(2,2)
+for species in (50,51):
+ world,trail=setup(0,species,427);assert begin()
+ for frame in range(500):
+  held=pressed=1 if stage()==6 and frame%3==0 else 0
+  done=tick();assert struct.unpack('<i',uc.mem_read(A+84,4))[0]==0
+  if done:break
+ else:raise AssertionError('Ground-bound custom motion stuck')
+ balanced()
+# Unsupported/corrupt context data falls back to ordinary reactions.
+assets[context_path]=context_archive(13,0);setup(0,25,427);assert begin()
+assert u32(addr('FollowingTalkDebug')+16)!=0x8000;call('fwt_cancel');balanced()
+assets.pop(context_path)
+print('Context animations passed: every motion before/after text, legacy text-only, exact window/cry order, grounded hop suppression, prefix/suffix cancellation and safe fallback; native services mocked.')
 call('fwt_unload');setup();fail='data';assert not begin();balanced()
 print(f'Packaged interaction checks passed: ABI, priority veneers, four-direction reach, blocked/elevation rejection, {len(reactions)} randomly selected rules, {CYCLES} simulated conversations, all 9 interruption stages, nested event ownership and resource failures. Native services mocked; no DS game run.')
 

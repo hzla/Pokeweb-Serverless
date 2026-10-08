@@ -2,7 +2,7 @@
   "measurements": [
     {
       "profile": "stock",
-      "version": "0.6.87-alpha",
+      "version": "0.6.88-alpha",
       "modules": [
         {
           "name": "PokewebFollowingCoreW2",
@@ -28,11 +28,11 @@
         },
         {
           "name": "PokewebFollowingFieldW2",
-          "fileBytes": 53376,
-          "codeAndInitializedData": 46440,
+          "fileBytes": 53552,
+          "codeAndInitializedData": 46616,
           "bss": 20140,
-          "codePlusBss": 66580,
-          "expandedModuleBytes": 73520,
+          "codePlusBss": 66756,
+          "expandedModuleBytes": 73696,
           "symbols": 263,
           "exportedSymbols": 174,
           "allSymbolNamesStripped": true
@@ -68,11 +68,11 @@
         },
         {
           "name": "PokewebFollowingFieldW2Base",
-          "fileBytes": 40112,
-          "codePlusBss": 53588
+          "fileBytes": 40288,
+          "codePlusBss": 53764
         }
       ],
-      "baseFixedPayloadBytes": 58128,
+      "baseFixedPayloadBytes": 58304,
       "fullMinusBaseBytes": 13104,
       "battleResidentPayloadBytes": 1152,
       "conditionalOverlay12PayloadBytes": 1464,
@@ -88,7 +88,7 @@
         "anchorTableBytes": 20608,
         "appearanceRows": 2574,
         "residentRiderTextures": 12,
-        "codeAndInitializedDataBytes": 46440
+        "codeAndInitializedDataBytes": 46616
       },
       "positioning": {
         "archiveBytes": 42612,
@@ -173,7 +173,7 @@
           "section": ".bss"
         }
       ],
-      "fixedPayloadBytes": 71232,
+      "fixedPayloadBytes": 71408,
       "registryBytes": 61808,
       "registryRecords": 2574,
       "registryHeapBytes": 0,

@@ -3,13 +3,31 @@ import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { followerCrc32 } from "./followingPokemonModel";
 
 export const FOLLOWER_DIALOGUE_NARC_PATH = "following/contextual-dialogues.narc";
-export const FOLLOWER_DIALOGUE_ABI = 1;
+export const FOLLOWER_DIALOGUE_ABI = 2;
 export const FOLLOWER_DIALOGUE_MAX_WORDS = 192;
 export const FOLLOWER_DIALOGUE_MAX_BYTES = 4096;
+// IDs match the twelve motions in the bundled English and Italian FWTK tables.
+export const FOLLOWER_DIALOGUE_ANIMATIONS = [
+  { id: 1, label: "Cry" },
+  { id: 2, label: "Hop" },
+  { id: 3, label: "Shake side to side" },
+  { id: 4, label: "Rock forward/back" },
+  { id: 5, label: "Look left/right" },
+  { id: 6, label: "Shuffle right" },
+  { id: 7, label: "Shuffle up" },
+  { id: 8, label: "Shuffle down" },
+  { id: 9, label: "Look around (left)" },
+  { id: 10, label: "Look around (right)" },
+  { id: 11, label: "Look around (up)" },
+  { id: 12, label: "Look around (down)" },
+] as const;
+export type FollowerDialogueAnimation = typeof FOLLOWER_DIALOGUE_ANIMATIONS[number]["id"];
 export type FollowerDialogueRule = {
   zone: number; species?: number; form?: number; type?: number;
   hp?: number; friendship?: number; status?: number; facing?: number; chance?: number;
   text: string;
+  beforeAnimation?: FollowerDialogueAnimation;
+  afterAnimation?: FollowerDialogueAnimation;
 };
 
 const magic = 0x44435746; // FWCD
@@ -46,6 +64,8 @@ export function validateFollowerDialogueRules(rules: FollowerDialogueRule[]): vo
     if (rule.status !== undefined) checkInt(rule.status, 0, 8, "status condition");
     if (rule.facing !== undefined) checkInt(rule.facing, 0, 4, "facing condition");
     if (rule.chance !== undefined) checkInt(rule.chance, 1, 100, "chance");
+    if (rule.beforeAnimation !== undefined) checkInt(rule.beforeAnimation, 1, 12, "before animation");
+    if (rule.afterAnimation !== undefined) checkInt(rule.afterAnimation, 1, 12, "after animation");
     encodeText(rule.text);
   }
 }
@@ -54,15 +74,17 @@ export function encodeFollowerDialogueNarc(rules: FollowerDialogueRule[]): Uint8
   validateFollowerDialogueRules(rules);
   const encoded = rules.map(rule => ({ rule, words: encodeText(rule.text) }));
   const size = headerBytes + encoded.length * ruleBytes + encoded.reduce((sum, item) => sum + item.words.length * 2, 0);
-  const data = new Uint8Array(size), view = new DataView(data.buffer);
-  writeU32(data, 0, magic); writeU16(data, 4, FOLLOWER_DIALOGUE_ABI); writeU16(data, 6, encoded.length); writeU32(data, 8, size);
+  const data = new Uint8Array(size);
+  // Text-only rules retain ABI 1 for existing installations.
+  const abi = rules.some(rule => rule.beforeAnimation || rule.afterAnimation) ? FOLLOWER_DIALOGUE_ABI : 1;
+  writeU32(data, 0, magic); writeU16(data, 4, abi); writeU16(data, 6, encoded.length); writeU32(data, 8, size);
   let textAt = headerBytes + encoded.length * ruleBytes;
   encoded.forEach(({ rule, words }, index) => {
     const at = headerBytes + index * ruleBytes;
     writeU16(data, at, rule.zone); writeU16(data, at + 2, rule.species ?? 0);
     data[at + 4] = rule.form ?? 255; data[at + 5] = rule.type ?? 255;
     data[at + 6] = rule.hp ?? 0; data[at + 7] = rule.friendship ?? 0; data[at + 8] = rule.status ?? 0; data[at + 9] = rule.facing ?? 0;
-    data[at + 10] = rule.chance ?? 100; data[at + 11] = 0; writeU32(data, at + 12, textAt); writeU16(data, at + 16, words.length); writeU16(data, at + 18, 0);
+    data[at + 10] = rule.chance ?? 100; data[at + 11] = rule.beforeAnimation ?? 0; writeU32(data, at + 12, textAt); writeU16(data, at + 16, words.length); data[at + 18] = rule.afterAnimation ?? 0;
     words.forEach((word, wordIndex) => writeU16(data, textAt + wordIndex * 2, word)); textAt += words.length * 2;
   });
   writeU32(data, 12, followerCrc32(data.subarray(16)));
@@ -74,14 +96,19 @@ export function decodeFollowerDialogueNarc(bytes: Uint8Array): FollowerDialogueR
   if (bytes.length > FOLLOWER_DIALOGUE_MAX_BYTES) throw new Error("Follower dialogue archive exceeds the 4 KiB runtime limit.");
   const narc = new NARC(bytes); if (narc.files.length !== 1) throw new Error("Follower dialogue archive must have one member.");
   const data = narc.files[0], view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  if (data.length < headerBytes || readU32(data, 0) !== magic || readU16(data, 4) !== FOLLOWER_DIALOGUE_ABI || readU32(data, 8) !== data.length || readU32(data, 12) !== followerCrc32(data.subarray(16))) throw new Error("Invalid follower dialogue archive.");
+  if (data.length < headerBytes || readU32(data, 0) !== magic || ![1, FOLLOWER_DIALOGUE_ABI].includes(readU16(data, 4)) || readU32(data, 8) !== data.length || readU32(data, 12) !== followerCrc32(data.subarray(16))) throw new Error("Invalid follower dialogue archive.");
+  const abi = readU16(data, 4);
   const count = readU16(data, 6); if (headerBytes + count * ruleBytes > data.length) throw new Error("Invalid follower dialogue rule count.");
   const rules: FollowerDialogueRule[] = [];
   for (let i = 0; i < count; ++i) {
     const at = headerBytes + i * ruleBytes, textAt = readU32(data, at + 12), words = readU16(data, at + 16);
-    if (!words || words > FOLLOWER_DIALOGUE_MAX_WORDS || textAt % 2 || textAt < headerBytes + count * ruleBytes || textAt + words * 2 > data.length || readU16(data, textAt + (words - 1) * 2) !== 0xffff || data[at + 11] || readU16(data, at + 18)) throw new Error("Invalid follower dialogue text reference.");
+    if (!words || words > FOLLOWER_DIALOGUE_MAX_WORDS || textAt % 2 || textAt < headerBytes + count * ruleBytes || textAt + words * 2 > data.length || readU16(data, textAt + (words - 1) * 2) !== 0xffff || data[at + 19] || data[at + 11] > 12 || data[at + 18] > 12 || (abi === 1 && (data[at + 11] || data[at + 18]))) throw new Error("Invalid follower dialogue text or animation reference.");
     const textWords = Array.from({ length: words }, (_, j) => view.getUint16(textAt + j * 2, true));
     rules.push({ zone: readU16(data, at), ...(readU16(data, at + 2) ? { species: readU16(data, at + 2) } : {}), ...(data[at + 4] !== 255 ? { form: data[at + 4] } : {}), ...(data[at + 5] !== 255 ? { type: data[at + 5] } : {}), ...(data[at + 6] ? { hp: data[at + 6] } : {}), ...(data[at + 7] ? { friendship: data[at + 7] } : {}), ...(data[at + 8] ? { status: data[at + 8] } : {}), ...(data[at + 9] ? { facing: data[at + 9] } : {}), ...(data[at + 10] !== 100 ? { chance: data[at + 10] } : {}), text: decodeText(textWords) });
+    // Animation fields use the previously reserved bytes, keeping rule size fixed.
+    const rule = rules.at(-1)!;
+    if (data[at + 11]) rule.beforeAnimation = data[at + 11] as FollowerDialogueAnimation;
+    if (data[at + 18]) rule.afterAnimation = data[at + 18] as FollowerDialogueAnimation;
   }
   validateFollowerDialogueRules(rules); return rules;
 }

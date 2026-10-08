@@ -163,7 +163,7 @@ export async function followerProfile(project: ProjectState, rom?: FollowerRom):
   return readFollowingFile(project, rom, "patches/White2Upgrade.dll") ? "white2upgrade" : "stock";
 }
 type FollowerRuntimeManifest = {
-  version: string; fieldSha256: string; eventsSha256: string; eventsAbi: number; coreSha256: string; coreAbi: number; optionsModuleSha256: string; battleModuleSha256: string;
+  version: string; dialogueAnimations?: boolean; fieldSha256: string; eventsSha256: string; eventsAbi: number; coreSha256: string; coreAbi: number; optionsModuleSha256: string; battleModuleSha256: string;
   variants?: Record<FollowerVariant, { fieldSha256: string; eventsSha256: string; eventsAbi: number }>;
   previousVersions: Array<{ variant?: string; version: string; fieldSha256: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string;
     registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; effectsSha256?: string | null; interactionsSha256?: string; emotesSha256?: string }>;
@@ -454,6 +454,10 @@ export async function writeFollowerDialogueRules(project: ProjectState, rules: F
   rom ??= await followerRom(project);
   const current = await readFollowerAlphaInstall(project, rom);
   const bytes = encodeFollowerDialogueNarc(rules);
+  if (rules.some(rule => rule.beforeAnimation || rule.afterAnimation)) {
+    if (!await followerDialogueAnimationsAvailable(project, rom)) throw new Error("Dialogue animations are not yet included in this profile's bundled runtime.");
+    if (current && !current.removed && !current.dialogueAnimations) throw new Error("Update the installed Following Pokémon runtime before saving dialogue animations.");
+  }
   const files: Record<string, Uint8Array> = { [FOLLOWER_DIALOGUE_NARC_PATH]: bytes };
   if (current) {
     const state = { ...current, dialoguesSha256: await followerRomSha256(bytes) };
@@ -461,6 +465,9 @@ export async function writeFollowerDialogueRules(project: ProjectState, rules: F
   }
   stageFollowingFiles(project, rom, files);
   recordGenericChange(project, "following_pokemon", `${current && !current.removed ? "Updated" : "Staged"} ${rules.length} conditional follower dialogue ${rules.length === 1 ? "rule" : "rules"}.`, "Following Pokémon", { key: "following-dialogues" });
+}
+export async function followerDialogueAnimationsAvailable(project: ProjectState, rom?: FollowerRom): Promise<boolean> {
+  return runtimeFor(await followerProfile(project, rom)).dialogueAnimations === true;
 }
 
 // NitroFS deletion is not available for reopened projects. A deterministic inert
@@ -471,7 +478,7 @@ export const FOLLOWER_EVENTS_DLL_PATH = "patches/PokewebFollowingEventsW2.dll";
 export const FOLLOWER_DLL_B2_PATH = "patches/PokewebFollowingFieldB2.dll";
 export const FOLLOWER_EVENTS_B2_DLL_PATH = "patches/PokewebFollowingEventsB2.dll";
 export const FOLLOWER_RUNTIME_VERSION = stockRuntimeManifest.version;
-export type FollowerAlphaInstall = { schemaVersion: 1 | 2; variant?: FollowerVariant; profile?: FollowerProfile; version: string; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string; positioningSha256?: string; optionsTextSha256?: string; optionsOriginalText?: string[] };
+export type FollowerAlphaInstall = { schemaVersion: 1 | 2; variant?: FollowerVariant; profile?: FollowerProfile; version: string; dialogueAnimations?: boolean; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string; positioningSha256?: string; optionsTextSha256?: string; optionsOriginalText?: string[] };
 const upgradeFieldUrl = new URL("../assets/following/white2upgrade/PokewebFollowingFieldW2.dll", import.meta.url);
 const upgradeEventsUrl = new URL("../assets/following/white2upgrade/PokewebFollowingEventsW2.dll", import.meta.url);
 const upgradeCoreUrl = new URL("../assets/following/white2upgrade/PokewebFollowingCoreW2.dll", import.meta.url);
@@ -805,6 +812,7 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   const pendingArtwork = profile === "stock" && followerArtworkPending(project, rom);
   if (existing?.version === runtimeManifest.version && existing.moduleSha256 === fingerprint.fieldSha256 && !existing.removed && !pendingArtwork) { if (!existing.enabled) return setFollowerAlphaEnabled(project, true, rom); return existing; }
   const authoredDialogues = readFollowingFile(project, rom, FOLLOWER_DIALOGUE_NARC_PATH);
+  if (authoredDialogues && !runtimeManifest.dialogueAnimations && decodeFollowerDialogueNarc(authoredDialogues).some(rule => rule.beforeAnimation || rule.afterAnimation)) throw new Error("The bundled follower runtime does not support the authored dialogue animations.");
   const authoredItems = readFollowingFile(project, rom, FOLLOWER_ITEM_NARC_PATH);
   const optionsSource = followerOptionsSource(project, rom);
   if (!optionsSource) throw new Error("Options text archive is missing.");
@@ -982,7 +990,7 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
     positioning = encodeFollowerPositioningNarc(positioningRegistry, registry, landAnchors, surfRegistry, variant === "full" ? authoredPositions?.surfAdjustments : undefined);
     decodeFollowerPositioningNarc(positioning, registry, surfRegistry);
   }
-  const state: FollowerAlphaInstall = { schemaVersion: 2, variant, profile, version: runtimeManifest.version, enabled: new DataView(config.buffer).getUint32(4, true) === 1, targetSha256: targetFor(profile),
+  const state: FollowerAlphaInstall = { schemaVersion: 2, variant, profile, version: runtimeManifest.version, dialogueAnimations: runtimeManifest.dialogueAnimations === true, enabled: new DataView(config.buffer).getUint32(4, true) === 1, targetSha256: targetFor(profile),
     moduleSha256: fingerprint.fieldSha256, eventsSha256: fingerprint.eventsSha256, eventsAbi: fingerprint.eventsAbi, coreSha256: runtimeManifest.coreSha256, coreAbi: runtimeManifest.coreAbi, optionsModuleSha256: runtimeManifest.optionsModuleSha256, battleModuleSha256: runtimeManifest.battleModuleSha256,
     configCrc32: followerCrc32(config), registrySha256: await followerRomSha256(registry), descriptorsSha256: await followerRomSha256(descriptors), resourcesSha256: await followerRomSha256(resources),
     effectsSha256: effectsManifest.sha256, interactionsSha256: activeInteractions.dataSha256, emotesSha256: activeInteractions.emotesSha256, dialoguesSha256: await followerRomSha256(dialogues), itemsSha256: await followerRomSha256(items),

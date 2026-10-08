@@ -26,6 +26,23 @@
   font-size: 22px;
 }
 
+.code-injection-sidebar__filter {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+  line-height: 1.45;
+  margin-top: 16px;
+}
+
+.code-injection-sidebar__filter input {
+  accent-color: #69d6bd;
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
 .code-injection-sidebar__runtime {
   margin-top: 22px;
   padding: 14px;
@@ -125,7 +142,9 @@
   outline-offset: -2px;
 }
 
-.code-injection-tab-panel[hidden] {
+.code-injection-tab-panel[hidden],
+.code-injection-panel[hidden],
+[data-code-injection-empty][hidden] {
   display: none;
 }
 

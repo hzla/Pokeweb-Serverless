@@ -171,8 +171,7 @@ static int event_tick(void *event,int *seq,void *work){
  switch(talk.stage){
  case 0:
   if(talk.gift){talk.step=(FwrStep){.message=1,.wait=1,.cry=talk.giftGranted?1:0,.bubble=talk.giftGranted?1:0};talk.stage=talk.giftGranted?2:4;break;}
-  if(talk.contextual){talk.step=(FwrStep){.message=1,.wait=1};talk.stage=4;break;}
-  if(!fwr_step(&data,talk.rule,talk.stepIndex,&talk.step))return finish_event();
+  if(!(talk.contextual?fwr_context_step(&context,talk.contextRule,talk.stepIndex,&talk.step):fwr_step(&data,talk.rule,talk.stepIndex,&talk.step)))return finish_event();
   talk.motion=(FwrMotion){.face=(uint8_t)talk.face};talk.stage=1;break;
  case 1:{
   int sound=0;
@@ -211,7 +210,7 @@ static int event_tick(void *event,int *seq,void *work){
   else if(++talk.age>120){FollowingTalkDebug[10]=3;return finish_event();}
   break;
  case 8:
-  if(talk.contextual||talk.gift)return finish_event();
+  if(talk.gift)return finish_event();
   if(++talk.age>=talk.step.wait){++talk.stepIndex;talk.stage=0;}break;
  default:return finish_event();
  }

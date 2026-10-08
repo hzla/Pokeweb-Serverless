@@ -6,7 +6,7 @@ import { NintendoDSRom } from "../src/nds/rom";
 import { decodeFollowerPositioningNarc, FOLLOWER_POSITIONING_PATH } from "../src/pokeweb/followingPokemonPositioning";
 import { followerKey } from "../src/pokeweb/followingPokemonModel";
 import { installFollowerAlpha, readFollowerAlphaInstall, removeFollowerAlpha, setFollowerAlphaEnabled,
-  prepareFollowerWorkspace, updateFollowerPositioning, followerRom, readFollowingFile,
+  prepareFollowerWorkspace, updateFollowerPositioning, followerRom, readFollowingFile, readFollowerDialogueRules, writeFollowerDialogueRules,
   FOLLOWER_LAND_ANCHORS_PATH, FOLLOWER_LAND_RIDER_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH,
   FOLLOWER_SURF_REGISTRY_PATH, FOLLOWER_SURF_RESOURCE_PATH } from "../src/pokeweb/followingPokemonProject";
 import { parseRpm } from "../src/pokeweb/rpm";
@@ -59,6 +59,15 @@ const checkUnrelatedEdit = (output: NintendoDSRom) => {
 };
 const base = await installFollowerAlpha(project);
 if (base.variant !== "base" || base.surfSha256 || base.landRiderSha256) throw new Error("Fresh install was not base-only.");
+const authoredDialogue = [{zone:42,species:151,text:"{nickname} likes this place.",
+  ...(base.dialogueAnimations ? {beforeAnimation:2 as const,afterAnimation:5 as const} : {})}];
+await writeFollowerDialogueRules(project, authoredDialogue);
+const checkDialogue = async (value: typeof project) => {
+  if (JSON.stringify(await readFollowerDialogueRules(value)) !== JSON.stringify(authoredDialogue))
+    throw new Error("Authored dialogue or its before/after animations changed.");
+  if (base.dialogueAnimations && !(await readFollowerAlphaInstall(value))?.dialogueAnimations)
+    throw new Error("Dialogue animation capability did not reopen in the receipt.");
+};
 let exported = await exportModifiedRom(project);
 let rom = new NintendoDSRom(exported, { fileData: "view" });
 checkUnrelatedEdit(rom);
@@ -68,6 +77,7 @@ for (const path of mounts) if (rom.filenames.idOf(path) !== undefined) throw new
 if (rom.filenames.idOf("a/0/1/6") !== cleanRom.filenames.idOf("a/0/1/6")) throw new Error("Unrelated file ID moved during base install.");
 let reopened = await loadProjectFromRomBytes(exported, "base.nds", { selectedNarcs: [] });
 if ((await readFollowerAlphaInstall(reopened))?.variant !== "base") throw new Error("Base receipt did not reopen.");
+await checkDialogue(reopened);
 await setFollowerAlphaEnabled(reopened, false);
 await setFollowerAlphaEnabled(reopened, true);
 const actorRom = await followerRom(reopened);
@@ -77,11 +87,13 @@ await updateFollowerPositioning(reopened, actorRom, { landKey: followerKey(entry
 exported = await exportModifiedRom(reopened);
 reopened = await loadProjectFromRomBytes(exported, "base-authored.nds", { selectedNarcs: [] });
 if (!(await readFollowerAlphaInstall(reopened))?.enabled) throw new Error("Enabled base receipt did not reopen.");
+await checkDialogue(reopened);
 const positionRom = await followerRom(reopened);
 const rows = decodeFollowerPositioningNarc(readFollowingFile(reopened, positionRom, FOLLOWER_POSITIONING_PATH)!,
   readFollowingFile(reopened, positionRom, FOLLOWER_RUNTIME_REGISTRY_PATH)!);
 if (rows.surf.length || rows.land[(entry.descriptorRow - 1008) * 12] !== 1) throw new Error("Base walking gaps were not saved.");
 await removeFollowerAlpha(reopened);
+await checkDialogue(reopened);
 checkBattle(new NintendoDSRom(await exportModifiedRom(reopened), { fileData: "view" }), false);
 const full = await installFollowerAlpha(reopened, undefined, { riding: true });
 if (full.variant !== "full" || !full.surfSha256 || !full.landRiderSha256) throw new Error("Full package was not installed.");
@@ -94,6 +106,7 @@ const originalIds = mounts.map(path => rom.filenames.idOf(path));
 if (originalIds.some(id => id === undefined)) throw new Error("Full package lacks mount files.");
 reopened = await loadProjectFromRomBytes(exported, "full.nds", { selectedNarcs: [] });
 if ((await readFollowerAlphaInstall(reopened))?.variant !== "full") throw new Error("Full receipt did not reopen.");
+await checkDialogue(reopened);
 await removeFollowerAlpha(reopened);
 const converted = await installFollowerAlpha(reopened, undefined, { riding: false });
 if (converted.variant !== "base") throw new Error("Full-to-base conversion failed.");
@@ -109,6 +122,7 @@ for (let i = 0; i < mounts.length; i++) {
 if (rom.filenames.idOf("a/0/1/6") !== cleanRom.filenames.idOf("a/0/1/6")) throw new Error("Conversion renumbered unrelated files.");
 reopened = await loadProjectFromRomBytes(exported, "converted.nds", { selectedNarcs: [] });
 if ((await readFollowerAlphaInstall(reopened))?.variant !== "base") throw new Error("Converted base receipt did not reopen.");
+await checkDialogue(reopened);
 const convertedRom = await followerRom(reopened);
 const convertedRows = decodeFollowerPositioningNarc(readFollowingFile(reopened, convertedRom, FOLLOWER_POSITIONING_PATH)!,
   readFollowingFile(reopened, convertedRom, FOLLOWER_RUNTIME_REGISTRY_PATH)!);
@@ -117,7 +131,7 @@ const modulePath = "patches/PokewebFollowingField" + (rom.idCode === "IREO" ? "B
 const module = parseRpm(rom.files[rom.filenames.idOf(modulePath)!], { allowedMagics: ["DLXF"] });
 if (module.relocations.some(rel => rel.target.module === "36" && [0x021a4974, 0x021a4d4a, 0x0219d5b4].includes(rel.target.address)))
   throw new Error("Base DLL contains a mount hook.");
-console.log("Fresh base, full install, conversion, physical asset strip, receipt reopen and walking gaps passed; no emulator run.");
+console.log(`Fresh base, full install, conversion, physical asset strip, receipt reopen, walking gaps and authored dialogue${base.dialogueAnimations ? " with before/after animations" : ""} passed; no emulator run.`);
 
 if (previousPath) {
   const previous = await loadProjectFromRomBytes(new Uint8Array(await readFile(previousPath)), basename(previousPath), { selectedNarcs: [] });
@@ -126,9 +140,11 @@ if (previousPath) {
   const expectedVariant = before.variant ?? "full";
   const updated = await installFollowerAlpha(previous);
   if (updated.variant !== expectedVariant) throw new Error("Previous alpha upgrade changed its installed variant.");
+  if (updated.dialogueAnimations) await writeFollowerDialogueRules(previous, authoredDialogue);
   const upgraded = await loadProjectFromRomBytes(await exportModifiedRom(previous), "previous-upgraded.nds", { selectedNarcs: [] });
   const reopened = await readFollowerAlphaInstall(upgraded);
   if (reopened?.variant !== expectedVariant || reopened.version !== updated.version || reopened.moduleSha256 !== updated.moduleSha256)
     throw new Error("Upgraded previous alpha receipt did not reopen with the current DLL.");
+  if (updated.dialogueAnimations) await checkDialogue(upgraded);
   console.log(`Previous ${before.variant ?? "legacy combined"} alpha upgraded as ${expectedVariant}; no emulator run.`);
 }

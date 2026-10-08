@@ -129,13 +129,22 @@ function nativeConfig() {
 describe("walking alpha ownership",()=>{
   it("stages contextual rules before installation without creating an ownership receipt", async()=>{
     const {project}=fixture();
-    await writeFollowerDialogueRules(project,[{zone:42,type:10,text:"{nickname} likes {location}!"}]);
+    const rules=[{zone:42,type:10,beforeAnimation:2 as const,afterAnimation:5 as const,text:"{nickname} likes {location}!"}];
+    await writeFollowerDialogueRules(project,rules);
     await writeFollowerItemRules(project,[{slot:0,itemId:1,quantity:1,itemName:"Potion",zone:42,text:"{nickname} found a {item}!"}]);
-    expect(await readFollowerDialogueRules(project)).toEqual([{zone:42,type:10,text:"{nickname} likes {location}!"}]);
+    expect(await readFollowerDialogueRules(project)).toEqual(rules);
     expect(await readFollowerItemRules(project)).toEqual([{slot:0,itemId:1,quantity:1,itemName:"Potion",zone:42,text:"{nickname} found a {item}!"}]);
     expect(project.fileSystem!.additions![FOLLOWER_DIALOGUE_NARC_PATH]).toBeDefined();
     expect(project.fileSystem!.additions![FOLLOWER_ITEM_NARC_PATH]).toBeDefined();
     expect(project.fileSystem!.additions![FOLLOWER_INSTALL_PATH]).toBeUndefined();
+  });
+  it("rejects animation rules for an unrebuilt profile before mutating authored data", async()=>{
+    const {project,rom}=fixture();
+    const profileRom=Object.assign(rom,{idCode:"IRDI",revision:0});
+    await writeFollowerDialogueRules(project,[{zone:42,text:"Existing text"}],profileRom);
+    const before=structuredClone(project);
+    await expect(writeFollowerDialogueRules(project,[{zone:42,beforeAnimation:2,text:"New text"}],profileRom)).rejects.toThrow(/not yet included/);
+    expect(project).toEqual(before);
   });
   it("keeps the effect archive byte-identical through ROM export normalization",()=>{
     const effects=new Uint8Array(readFileSync(new URL('../assets/following/hgss-effects.narc',import.meta.url)));
@@ -163,7 +172,7 @@ describe("walking alpha ownership",()=>{
     const anchors=encodeFollowerLandAnchors(decodeFollowerRegistry(registry),resourceArchive.files,registry);
     const positioning=encodeFollowerPositioningNarc(decodeFollowerRegistry(registry),registry,anchors,surfRegistry);
     const dialogues=new Uint8Array(readFileSync(new URL('../assets/following/contextual-dialogues.narc',import.meta.url)));
-    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,optionsModuleSha256:runtimeManifest.optionsModuleSha256,battleModuleSha256:runtimeManifest.battleModuleSha256,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues),surfSha256:await followerRomSha256(surf),surfRegistrySha256:await followerRomSha256(surfRegistry),landRiderSha256:await followerRomSha256(rider),landAnchorsSha256:await followerRomSha256(anchors),positioningSha256:await followerRomSha256(positioning)};
+    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,dialogueAnimations:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,optionsModuleSha256:runtimeManifest.optionsModuleSha256,battleModuleSha256:runtimeManifest.battleModuleSha256,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues),surfSha256:await followerRomSha256(surf),surfRegistrySha256:await followerRomSha256(surfRegistry),landRiderSha256:await followerRomSha256(rider),landAnchorsSha256:await followerRomSha256(anchors),positioningSha256:await followerRomSha256(positioning)};
     Object.assign(project.fileSystem!.additions!,{
       [FOLLOWER_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingFieldW2.dll',import.meta.url))),
       [FOLLOWER_EVENTS_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingEventsW2.dll',import.meta.url))),
@@ -187,8 +196,18 @@ describe("walking alpha ownership",()=>{
     expect(updated.registry.entries[0].directionalGaps).toEqual([1,2,3,4]);
     expect(Array.from(decodeFollowerPositioningNarc(project.fileSystem!.additions![FOLLOWER_POSITIONING_PATH],registry,surfRegistry).land.slice(0,4))).toEqual([1,2,3,4]);
     expect((await readFollowerAlphaInstall(project))?.positioningSha256).toBe(await followerRomSha256(project.fileSystem!.additions![FOLLOWER_POSITIONING_PATH]));
-    await writeFollowerDialogueRules(project,[{zone:42,type:10,text:"{nickname} likes {location}!"}]);
-    expect(await readFollowerDialogueRules(project)).toEqual([{zone:42,type:10,text:"{nickname} likes {location}!"}]);
+    const rules=[{zone:42,type:10,beforeAnimation:2 as const,afterAnimation:5 as const,text:"{nickname} likes {location}!"}];
+    const receipt=project.fileSystem!.additions![FOLLOWER_INSTALL_PATH];
+    project.fileSystem!.additions![FOLLOWER_INSTALL_PATH]=new TextEncoder().encode(JSON.stringify({...JSON.parse(new TextDecoder().decode(receipt)),dialogueAnimations:undefined}));
+    const authoredFingerprints=()=>Object.entries(project.fileSystem!.additions!).map(([path,bytes])=>[path,createHash('sha256').update(bytes).digest('hex')]).sort(([a],[b])=>a.localeCompare(b));
+    const beforeAnimation=authoredFingerprints(),beforeChangelog=structuredClone(project.actionChangelog);
+    await expect(writeFollowerDialogueRules(project,rules)).rejects.toThrow(/Update the installed/);
+    expect(authoredFingerprints()).toEqual(beforeAnimation);
+    expect(project.actionChangelog).toEqual(beforeChangelog);
+    project.fileSystem!.additions![FOLLOWER_INSTALL_PATH]=receipt;
+    await writeFollowerDialogueRules(project,rules);
+    expect(await readFollowerDialogueRules(project)).toEqual(rules);
+    expect((await readFollowerAlphaInstall(project))?.dialoguesSha256).toBe(await followerRomSha256(project.fileSystem!.additions![FOLLOWER_DIALOGUE_NARC_PATH]));
     await setFollowerAlphaEnabled(project,false);expect((await readFollowerAlphaInstall(project))?.enabled).toBe(false);
     expect(new DataView(project.fileSystem!.additions![FOLLOWER_NATIVE_PATH].buffer).getUint32(4,true)).toBe(0);
     expect(project.fileSystem!.additions!['unrelated.bin']).toEqual(Uint8Array.of(9));

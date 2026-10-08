@@ -2,11 +2,11 @@ import { unzipSync, zipSync } from "fflate";
 import { decodeRecord, type ProjectState } from "../pokeweb/projectStore";
 import { NARC } from "../nds/narc";
 import { downloadBytes, getRomFileBytes } from "../pokeweb/fileSystemModel";
-import { checkFollowerCompatibility, installFollowerAlpha, removeFollowerAlpha, readFollowerAlphaInstall, setFollowerAlphaEnabled, followerRom, followerProfile, prepareFollowerWorkspace, readFollowerAsset, readFollowerWorkspace, replaceFollowerAssets, followerArtworkPending, followerRuntimeVersion, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_RUNTIME_REGISTRY_PATH, type FollowerAssetWorkspace, type FollowerRom, type FollowerAlphaInstall } from "../pokeweb/followingPokemonProject";
+import { checkFollowerCompatibility, installFollowerAlpha, removeFollowerAlpha, readFollowerAlphaInstall, setFollowerAlphaEnabled, followerRom, followerProfile, prepareFollowerWorkspace, readFollowerAsset, readFollowerWorkspace, replaceFollowerAssets, followerArtworkPending, followerRuntimeVersion, readFollowerDialogueRules, writeFollowerDialogueRules, followerDialogueAnimationsAvailable, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_RUNTIME_REGISTRY_PATH, type FollowerAssetWorkspace, type FollowerRom, type FollowerAlphaInstall } from "../pokeweb/followingPokemonProject";
 import { typeNamesForProject } from "../pokeweb/constants";
 import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
 import { findPokemonBaseSpeciesId, findPokemonPersonalFormOwner, pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
-import type { FollowerDialogueRule } from "../pokeweb/followingPokemonDialogues";
+import { FOLLOWER_DIALOGUE_ANIMATIONS, type FollowerDialogueAnimation, type FollowerDialogueRule } from "../pokeweb/followingPokemonDialogues";
 import type { FollowerItemRule } from "../pokeweb/followingPokemonItems";
 import { FOLLOWER_DIRECTIONS, decodeFollowerRegistry, encodeFollowerFrames, followerFramesFromSheet, followerKey, followerPreview, followerSheetFromFrames, type FollowerAssetEntry, type FollowerFrame } from "../pokeweb/followingPokemonModel";
 import { parseHeaders } from "../pokeweb/headerModel";
@@ -20,7 +20,6 @@ const templates = {
 export const FOLLOWER_SPRITE_CREDITS = "Smogon Sprite Project, TraviS, LennyBitao, MyMarshlands, DarkusShadow, CarmaNekko, kiriaura, Gnomowladny, Krune, n-kin, JaegerLucciano23, joshr691, Jefelin, MultiDiegoDani, onigin_pixelart, Prodigal96, zerudez, leparagon, arinoelle, diegotoon20, gardow, greyenna, conyjams, kingofthe-x-roads, RayquazaFlygon, metalflygon08 on DeviantArt, and MaMe, maple, Layell, SelenaFF, Sopita Yorita, zlolxd - Pokémon Sprites";
 const FOLLOWER_OVERWORLD_CREDITS: Array<[string, string]> = [
   ["Gen 1-5 Pokemon Overworlds", "MissingLukey, help-14, Kymoyonian, cSc-A7X, 2and2makes5, Pokegirl4ever, Fernandojl, Silver-Skies, TyranitarDark, Getsuei-H, Kid1513, Milomilotic11, Kyt666, kdiamo11, Chocosrawlooid, Syledude, Gallanty, Gizamimi-Pichu, 2and2makes5, Zyon17,LarryTurbo, spritesstealer, LarryTurbo"],
-  ["Gen 6+ Berry Tree Overworlds", "Anarlaurendil"],
   ["Gen 6 Pokemon Overworlds", "princess-pheonix, LunarDusk, Wolfang62, TintjeMadelintje101, piphybuilder88"],
   ["Gen 7 Pokemon Overworlds", "Larry Turbo, princess-pheonix"],
   ["Gen 8 Pokemon Overworlds", "SageDeoxys, Wolfang62, LarryTurbo, tammyclaydon"],
@@ -34,6 +33,9 @@ const statusConditions: Array<[number, string]> = [[1, "Healthy"], [2, "Burned"]
 const facingConditions: Array<[number, string]> = [[1, "Facing right"], [2, "Facing left"], [3, "Facing up"], [4, "Facing down"]];
 const conditionOptions = (value: number | undefined, choices: Array<[number, string]>) =>
   `<option value="">Any</option>${choices.map(([id, label]) => `<option value="${id}"${value === id ? " selected" : ""}>${label}</option>`).join("")}`;
+export function followerDialogueAnimationOptions(value?: FollowerDialogueAnimation): string {
+  return `<option value="">None</option>${FOLLOWER_DIALOGUE_ANIMATIONS.map(({ id, label }) => `<option value="${id}"${value === id ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}`;
+}
 const referencedId = (value: string): number | undefined => {
   const text = value.trim(), direct = /^\d+$/u.exec(text), suffix = /#(\d+)\s*$/u.exec(text);
   return direct ? Number(direct[0]) : suffix ? Number(suffix[1]) : undefined;
@@ -107,8 +109,8 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   const panel = document.createElement("section"); panel.className = "code-injection-card following-pokemon-editor";
   panel.innerHTML = `<header class="following-editor-hero"><div><span class="following-editor-kicker">Field feature</span><h2>Following Pokémon</h2></div></header>
     <label class="following-riding-option"><input type="checkbox" data-fw-riding> Riding and custom Surf</label><p data-fw-riding-status>Grounded followers only. Choose before installing.</p>
-    <div class="following-editor-runtime-actions code-injection-actions"><button class="btn -primary" data-fw-prepare disabled>Prepare asset workspace</button>
-    <button class="btn" data-fw-install disabled>Install follower alpha</button><button class="btn" data-fw-toggle hidden>Disable following</button><button class="btn" data-fw-remove hidden>Remove runtime</button></div>
+    <div class="following-editor-runtime-actions code-injection-actions"><button class="btn -primary" data-fw-prepare disabled>Edit Follower Graphics</button>
+    <button class="btn" data-fw-install disabled>Install Followers System</button><button class="btn" data-fw-toggle hidden>Disable following</button><button class="btn" data-fw-remove hidden>Remove runtime</button></div>
     <section class="following-interaction-workspace"><div class="following-aggregate-toolbar"><label><span>View rules for Pokémon</span><input type="text" list="follower-overview-species" placeholder="Choose a Pokémon" autocomplete="off" data-fw-aggregate-species disabled></label>
       <datalist id="follower-overview-species">${aggregateSpeciesOptions}</datalist><p>Choose a Pokémon to see all global, species, form, and type rules that can apply to it.</p></div>
     <div class="following-interaction-tabs" role="tablist" aria-label="Follower interactions">
@@ -133,6 +135,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   const toggle = panel.querySelector<HTMLButtonElement>("[data-fw-toggle]")!;
   const remove = panel.querySelector<HTMLButtonElement>("[data-fw-remove]")!;
   let enabled = false;
+  let animationsNeedUpdate = false;
   const assets = panel.querySelector<HTMLElement>("[data-fw-assets]")!;
   const dialogues = panel.querySelector<HTMLElement>("[data-fw-dialogues]")!;
   const items = panel.querySelector<HTMLElement>("[data-fw-items]")!;
@@ -247,6 +250,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
   async function renderDialogues(): Promise<void> {
     const rules = dialogueDraft ?? await readFollowerDialogueRules(project, rom), types = typeNamesForProject(project);
     dialogueDraft = rules;
+    const animationsAvailable = await followerDialogueAnimationsAvailable(project, rom);
     const typeOptions = `<option value="">Any type</option>${types.map((name, id) => `<option value="${id}">${escapeHtml(name || `Type ${id}`)}</option>`).join("")}`;
     const speciesIds = getPokemonPersonalIds(project).filter(id => id > 0 && id <= 1023 && !findPokemonPersonalFormOwner(project, id));
     const speciesOptions = speciesIds.map(id => `<option value="${escapeHtml(speciesDisplayValue(project, id))}"></option>`).join("");
@@ -263,7 +267,9 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
         <label class="following-field"><span>Status</span><select data-d-status>${conditionOptions(rule.status, statusConditions)}</select></label>
         <label class="following-field"><span>Direction</span><select data-d-facing>${conditionOptions(rule.facing, facingConditions)}</select></label>
         <label class="following-field"><span>Trigger chance</span><div class="following-input-suffix"><input data-d-chance type="number" min="1" max="100" value="${rule.chance ?? 100}"><span>%</span></div></label>
+        <label class="following-field following-span-full"><span>Before dialogue</span><select data-d-before${animationsAvailable ? "" : " disabled"}>${followerDialogueAnimationOptions(rule.beforeAnimation)}</select></label>
         <label class="following-field following-span-full"><span>Dialogue text</span><textarea data-d-text rows="3" maxlength="191">${escapeHtml(rule.text)}</textarea><small>Tokens: {nickname}, {player}, {location}</small></label>
+        <label class="following-field following-span-full"><span>After dialogue</span><select data-d-after${animationsAvailable ? "" : " disabled"}>${followerDialogueAnimationOptions(rule.afterAnimation)}</select><small>${animationsAvailable ? `Plays after the dialogue is dismissed. Motions use their original cry cues; Diglett and Dugtrio stay grounded.${animationsNeedUpdate ? " Update the installed follower runtime before using animations." : ""}` : "Dialogue animations are not yet included in this profile’s bundled runtime."}</small></label>
       </div><div class="following-rule-footer"><span>Dialogue rule ${index + 1} · Rules are checked from top to bottom.</span><button class="btn following-remove-button" type="button" data-d-remove>Remove rule</button></div></div></details>`;
     dialogues.innerHTML = `<section class="following-editor-section"><div class="following-section-heading"><div><h3>Conditional dialogue</h3><p>Show special dialogue in a location or for a matching Pokémon. If no rule matches, the normal HGSS-style reaction is used.</p></div></div><datalist id="follower-dialogue-species">${speciesOptions}</datalist><div class="following-rule-list" data-d-rules>${rules.map(row).join("")}</div><div class="following-section-actions code-injection-actions"><button type="button" class="btn" data-d-add>Add dialogue rule</button><button type="button" class="btn -primary" data-d-save>Save dialogue</button></div><p class="following-save-status" data-d-status role="status"></p></section>`;
     const selectType = (root: Element, value?: number) => { const select = root.querySelector<HTMLSelectElement>("[data-d-type]")!; select.value = value === undefined ? "" : String(value); };
@@ -288,7 +294,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       const num = (selector: string) => { const value = root.querySelector<HTMLInputElement | HTMLSelectElement>(selector)!.value.trim(); return value ? Number(value) : undefined; };
       const typeValue = root.querySelector<HTMLSelectElement>("[data-d-type]")!.value;
       const species = root.querySelector<HTMLInputElement>("[data-d-species]")!.value.trim();
-      return { zone: Number(root.querySelector<HTMLInputElement>("[data-d-zone]")!.value), ...(species ? { species: parseSpeciesValue(project, species) } : {}), ...(num("[data-d-form]") !== undefined ? { form: num("[data-d-form]") } : {}), ...(typeValue ? { type: Number(typeValue) } : {}), ...(num("[data-d-hp]") !== undefined ? { hp: num("[data-d-hp]") } : {}), ...(num("[data-d-friendship]") !== undefined ? { friendship: num("[data-d-friendship]") } : {}), ...(num("[data-d-status]") !== undefined ? { status: num("[data-d-status]") } : {}), ...(num("[data-d-facing]") !== undefined ? { facing: num("[data-d-facing]") } : {}), chance: Number(root.querySelector<HTMLInputElement>("[data-d-chance]")!.value), text: root.querySelector<HTMLTextAreaElement>("[data-d-text]")!.value };
+      return { zone: Number(root.querySelector<HTMLInputElement>("[data-d-zone]")!.value), ...(species ? { species: parseSpeciesValue(project, species) } : {}), ...(num("[data-d-form]") !== undefined ? { form: num("[data-d-form]") } : {}), ...(typeValue ? { type: Number(typeValue) } : {}), ...(num("[data-d-hp]") !== undefined ? { hp: num("[data-d-hp]") } : {}), ...(num("[data-d-friendship]") !== undefined ? { friendship: num("[data-d-friendship]") } : {}), ...(num("[data-d-status]") !== undefined ? { status: num("[data-d-status]") } : {}), ...(num("[data-d-facing]") !== undefined ? { facing: num("[data-d-facing]") } : {}), chance: Number(root.querySelector<HTMLInputElement>("[data-d-chance]")!.value), ...(num("[data-d-before]") !== undefined ? { beforeAnimation: num("[data-d-before]") as FollowerDialogueAnimation } : {}), ...(num("[data-d-after]") !== undefined ? { afterAnimation: num("[data-d-after]") as FollowerDialogueAnimation } : {}), text: root.querySelector<HTMLTextAreaElement>("[data-d-text]")!.value };
     });
     const decode = decodeDialogueRules;
     dialogues.querySelector("[data-d-add]")!.addEventListener("click", () => { try { dialogueDraft = decode(); dialogueDraft.push({ zone: 0, text: "{nickname} is looking around." }); error.textContent = ""; void renderDialogues(); } catch (reason) { fail(reason); } });
@@ -502,6 +508,7 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
     if (!state) return false;
     const runtimeVersion = await followerRuntimeVersion(project, rom);
     enabled = state.enabled;
+    animationsNeedUpdate = !state.removed && !state.dialogueAnimations;
     riding.checked = (state.variant ?? "full") === "full";
     riding.disabled = !state.removed;
     ridingStatus.textContent = state.removed ? "Choose the package to reinstall." : riding.checked ? "Riding and custom Surf installed. Remove and reinstall to change." : "Grounded followers installed. Remove and reinstall to change.";
