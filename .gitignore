@@ -23,6 +23,7 @@ work/
 analysis/
 runtime/form-evolution/build/
 runtime/tag-battle-stabilization/build/
+runtime/double-battle-fix/build/
 runtime/porta-pc/build/
 runtime/battle-harness/build/
 __pycache__/
@@ -47,3 +48,4 @@ src/test/local/
 !/scripts/test-battle-harness-headless.py
 !/scripts/run-upgrade-battle-tests.py
 !/scripts/verify-summary-stat-viewer-install.ts
+!/scripts/verify-black1-double-battle-fix.ts

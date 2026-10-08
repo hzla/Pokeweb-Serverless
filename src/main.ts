@@ -35,7 +35,7 @@ import "./styles/titleScreen.css";
 import { MANDATORY_NARCS, SELECTABLE_NARCS, isGen4Project, isGen5Project, type NarcName } from "./pokeweb/constants";
 import { NARC } from "./nds/narc";
 import { NintendoDSRom } from "./nds/rom";
-import { generateChangelogFromRomFiles } from "./pokeweb/changelogModel";
+import { generateChangelogFromRomFiles, type ChangelogResult } from "./pokeweb/changelogModel";
 import { ensureActionChangelog, renderActionChangelogText, resetActionChangelog } from "./pokeweb/actionChangelog";
 import { exportModifiedRom } from "./pokeweb/exportRom";
 import { parseHeaders } from "./pokeweb/headerModel";
@@ -90,9 +90,10 @@ import {
   clearChangelogTabs as clearSharedChangelogTabs,
   downloadTextFile as downloadSharedTextFile,
   renderActionChangelogPage,
-  renderChangelogTabs as renderSharedChangelogTabs,
 } from "./ui/changelogView";
 import { escapeHtml } from "./ui/dom";
+import { attachHomeTabs } from "./ui/homeTabs";
+import { exportChangelogPdf, exportChangelogText, attachChangelogNarcPicker, renderChangelogGenerator, renderGeneratedChangelog, selectedChangelogNarcsFromPicker } from "./ui/changelogGenerator";
 
 type AppRoute =
   | "upload"
@@ -1686,7 +1687,13 @@ function renderUpload(root: HTMLElement): void {
   const narcSections = [...NARC_LOAD_SECTIONS, { title: "Other", names: otherNarcs }];
   root.innerHTML = `
     <section class="upload-page">
-      <div class="home-panels">
+      <div class="home-shell">
+        <nav class="home-tabs" role="tablist" aria-label="Homepage tools">
+          <button id="home-tab-upload" class="home-tab" type="button" role="tab" aria-selected="true" aria-controls="home-panel-upload" data-home-tab="upload">ROM Upload</button>
+          <button id="home-tab-repair" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-repair" tabindex="-1" data-home-tab="repair">Repair</button>
+          <button id="home-tab-changelog" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-changelog" tabindex="-1" data-home-tab="changelog">Changelog Generator</button>
+        </nav>
+        <section id="home-panel-upload" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-upload" data-home-panel="upload">
         <div class="upload-panel">
           <h1>Pokeweb</h1>
           <label class="upload-dropzone">
@@ -1711,7 +1718,8 @@ function renderUpload(root: HTMLElement): void {
           </div>
           <div class="upload-status" id="status"></div>
         </div>
-        <div class="home-side-panels">
+        </section>
+        <section id="home-panel-repair" class="home-tab-panel home-repair-panels" role="tabpanel" aria-labelledby="home-tab-repair" data-home-panel="repair" hidden>
           ${renderDsiRomRepairCard()}
           <div class="upload-panel repair-tool">
             <div class="changelog-generator__header">
@@ -1728,39 +1736,15 @@ function renderUpload(root: HTMLElement): void {
             </div>
             <div class="upload-status" id="repair-status"></div>
           </div>
-          <div class="upload-panel changelog-generator">
-            <div class="changelog-generator__header">
-              <div>
-                <h2>Changelog Generator</h2>
-              </div>
-            </div>
-            <div class="changelog-generator__inputs">
-              <label class="changelog-file">
-                <span>Original ROM</span>
-                <input id="changelog-before-input" type="file" accept=".nds" />
-              </label>
-              <label class="changelog-file">
-                <span>Modified ROM</span>
-                <input id="changelog-after-input" type="file" accept=".nds" />
-              </label>
-            </div>
-            <label class="upload-options changelog-option">
-              <input id="changelog-fairy-input" type="checkbox" />
-              <span>Fairy ROM offsets</span>
-            </label>
-            <div class="changelog-actions">
-              <button class="btn -default" id="generate-changelog-btn" type="button">Generate Changelog</button>
-              <button class="btn -default" id="copy-changelog-btn" type="button" disabled>Copy</button>
-              <button class="btn -default" id="download-changelog-btn" type="button" disabled>Download TXT</button>
-            </div>
-            <div class="upload-status" id="changelog-status"></div>
-            <textarea id="changelog-output" class="changelog-output" readonly></textarea>
-            <div id="changelog-tabs" class="changelog-tabs"></div>
-          </div>
-        </div>
+        </section>
+        <section id="home-panel-changelog" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-changelog" data-home-panel="changelog" hidden>
+          ${renderChangelogGenerator()}
+        </section>
       </div>
     </section>
   `;
+  attachHomeTabs(root);
+  attachChangelogNarcPicker(root);
 
   const input = root.querySelector<HTMLInputElement>("#rom-input");
   attachDsiRomRepairCard(root, (bytes, filename) => downloadBlob(bytesBlob(bytes, "application/octet-stream"), filename));
@@ -1773,9 +1757,9 @@ function renderUpload(root: HTMLElement): void {
   const changelogAfterInput = root.querySelector<HTMLInputElement>("#changelog-after-input");
   const changelogFairyInput = root.querySelector<HTMLInputElement>("#changelog-fairy-input");
   const generateChangelogButton = root.querySelector<HTMLButtonElement>("#generate-changelog-btn");
-  const copyChangelogButton = root.querySelector<HTMLButtonElement>("#copy-changelog-btn");
   const downloadChangelogButton = root.querySelector<HTMLButtonElement>("#download-changelog-btn");
-  const changelogOutput = root.querySelector<HTMLTextAreaElement>("#changelog-output");
+  const downloadChangelogTextButton = root.querySelector<HTMLButtonElement>("#download-changelog-txt-btn");
+  let generatedChangelog: ChangelogResult | undefined;
   const changelogStatus = root.querySelector<HTMLDivElement>("#changelog-status");
   const minimalNarcsButton = root.querySelector<HTMLButtonElement>("#minimal-narcs-btn");
   const status = root.querySelector<HTMLDivElement>("#status");
@@ -1907,54 +1891,44 @@ function renderUpload(root: HTMLElement): void {
       return;
     }
 
+    const selectedNarcs = selectedChangelogNarcsFromPicker(root);
+    if (selectedNarcs.length === 0) {
+      statusText(changelogStatus, "Select at least one NARC to compare.");
+      return;
+    }
+
     try {
       project = undefined;
       dirty = false;
       hasExportBase = false;
       await clearActiveProject();
       renderDirtyIndicator();
-      setChangelogBusy(root, true);
-      if (changelogOutput) changelogOutput.value = "";
+      generatedChangelog = undefined;
       clearSharedChangelogTabs(root);
+      setChangelogBusy(root, true);
       statusText(changelogStatus, "Cleared active editor session");
       const result = await generateChangelogFromRomFiles(
         beforeFile,
         afterFile,
-        { fairy: changelogFairyInput?.checked ?? false },
+        { fairy: changelogFairyInput?.checked ?? false, selectedNarcs },
         (message) => statusText(changelogStatus, message),
       );
-      if (changelogOutput) changelogOutput.value = result.text;
-      renderSharedChangelogTabs(root, result.entries);
-      if (copyChangelogButton) copyChangelogButton.disabled = result.text.length === 0;
-      if (downloadChangelogButton) downloadChangelogButton.disabled = result.text.length === 0;
-      statusText(changelogStatus, `Generated ${result.summary.totalChanges} changes.`);
+      generatedChangelog = result;
+      renderGeneratedChangelog(root, result);
+      if (downloadChangelogButton) downloadChangelogButton.disabled = result.documents.length === 0;
+      statusText(changelogStatus, `Generated ${result.summary.totalChanges} change${result.summary.totalChanges === 1 ? "" : "s"} across ${selectedNarcs.length} selected NARC${selectedNarcs.length === 1 ? "" : "s"} in ${result.documents.length} document${result.documents.length === 1 ? "" : "s"}.`);
     } catch (error) {
       statusText(changelogStatus, error instanceof Error ? error.message : String(error));
     } finally {
       setChangelogBusy(root, false);
-      if (changelogBeforeInput) changelogBeforeInput.value = "";
-      if (changelogAfterInput) changelogAfterInput.value = "";
-    }
-  });
-
-  copyChangelogButton?.addEventListener("click", async () => {
-    const text = changelogOutput?.value ?? "";
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      statusText(changelogStatus, "Copied changelog text.");
-    } catch {
-      changelogOutput?.select();
-      document.execCommand("copy");
-      statusText(changelogStatus, "Copied changelog text.");
     }
   });
 
   downloadChangelogButton?.addEventListener("click", () => {
-    const text = changelogOutput?.value ?? "";
-    if (!text) return;
-    downloadSharedTextFile("pokeweb-changelog.txt", text);
-    statusText(changelogStatus, "Downloaded changelog text.");
+    if (generatedChangelog) void exportChangelogPdf(root, generatedChangelog.documents, "pokeweb-changelog.pdf");
+  });
+  downloadChangelogTextButton?.addEventListener("click", () => {
+    if (generatedChangelog) exportChangelogText(root, generatedChangelog.documents, "pokeweb-changelog.txt");
   });
 }
 
@@ -2567,16 +2541,16 @@ function waitForNextPaint(): Promise<void> {
 }
 
 function setChangelogBusy(root: HTMLElement, busy: boolean): void {
-  const hasText = (root.querySelector<HTMLTextAreaElement>("#changelog-output")?.value ?? "").length > 0;
+  const hasDocuments = !!root.querySelector(".changelog-document-panel");
   const generateButton = root.querySelector<HTMLButtonElement>("#generate-changelog-btn");
-  const copyButton = root.querySelector<HTMLButtonElement>("#copy-changelog-btn");
-  const downloadButton = root.querySelector<HTMLButtonElement>("#download-changelog-btn");
   if (generateButton) generateButton.disabled = busy;
-  if (copyButton) copyButton.disabled = busy || !hasText;
-  if (downloadButton) downloadButton.disabled = busy || !hasText;
-  root.querySelectorAll<HTMLInputElement>("#changelog-before-input, #changelog-after-input, #changelog-fairy-input").forEach((input) => {
+  root.querySelectorAll<HTMLButtonElement>("#download-changelog-btn, #download-changelog-txt-btn").forEach((button) => {
+    button.disabled = busy || !hasDocuments;
+  });
+  root.querySelectorAll<HTMLInputElement>("#changelog-before-input, #changelog-after-input, #changelog-fairy-input, .changelog-narc-input").forEach((input) => {
     input.disabled = busy;
   });
+  root.querySelectorAll<HTMLButtonElement>("[data-changelog-select]").forEach((button) => { button.disabled = busy; });
 }
 
 function renderDirtyIndicator(): void {

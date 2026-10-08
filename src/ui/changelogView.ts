@@ -112,7 +112,7 @@ export function clearChangelogTabs(root: HTMLElement, selector = "#changelog-tab
 }
 
 export function downloadTextFile(filename: string, contents: string): void {
-  const blob = new Blob([contents], { type: "text/plain" });
+  const blob = new Blob([contents], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
