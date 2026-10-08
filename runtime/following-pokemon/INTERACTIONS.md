@@ -87,3 +87,41 @@ archive validation, claim lookup, the selected rule/item/slot, and transaction r
 The zone selector uses the live field object's audited `ZoneID` at offset `0xE0`.
 It does not use `FieldActor::ZoneID`: the player actor can report zero while the
 field object holds the current zone, as observed for Aspertia City zone 427.
+
+
+Custom dialogue supports an optional **Before dialogue** and **After dialogue**
+motion. Each selector defaults to None. The prefix finishes before the native
+message opens; the suffix starts only after dismissal and native window teardown.
+The existing event keeps movement paused until the suffix ends. Motions retain
+their imported cry gate, use the selected species/form, and restore visual offsets
+and facing on completion or cancellation. Diglett and Dugtrio omit vertical hops.
+No logical movement, trail or save state is changed.
+
+| Motion | Imported sequence length (field updates) |
+|---|---:|
+| Cry | 2 |
+| Hop | 9 |
+| Shake side to side | 20 |
+| Rock forward/back | 39 |
+| Look left/right | 60 |
+| Shuffle right, up, down | 19 each |
+| Look around left, right, up, down | 53 each |
+
+These are the twelve bundled motions; there is no separate full-circle spin.
+The duration excludes controller transitions and dialogue reading time. No new
+artwork or animation table is installed.
+
+`FWCD` ABI 2 reuses each 20-byte rule's formerly reserved bytes 11 and 18 for
+prefix/suffix motion IDs 0–12. The final reserved byte stays zero. Text-only
+archives remain ABI 1, and the new runtime accepts both formats. Archive size,
+4 KiB capacity and field BSS remain unchanged. The editor and installation receipt
+advertise animation support only for rebuilt packages; an older installed runtime
+must be updated before saving animated dialogue. Unrebuilt profiles cannot save
+animated rules, preventing silent fallback to generic text.
+
+Host checks cover all 169 prefix/suffix combinations and reject invalid IDs or
+reserved bytes. Packaged CPU checks exercise every motion on both sides of text,
+legacy text-only rules, exact cry/window order, prefix/suffix interruption cleanup,
+Diglett/Dugtrio hop suppression and corrupt-data fallback. Pokeweb checks cover
+archive round trips and authoring/export/reopen. Native services are mocked;
+visual timing, sound and native message rendering require human cold-boot testing.

@@ -3,6 +3,7 @@ import { autoTable, type CellInput, type RowInput, type UserOptions } from "jspd
 import { teamFields, type ChangelogDocument, type ChangelogField, type DocumentComparison } from "./changelogDocument";
 import type { ChangelogIcon } from "./changelogIcons";
 import { changelogIconPng } from "./changelogIconPng";
+import { prepareChangelogPdfNavigation } from "./changelogPdfNavigation";
 
 export type ChangelogPdfFonts = { regular: string; bold: string };
 const PURPLE: [number, number, number] = [73, 61, 111];
@@ -23,6 +24,7 @@ export function buildChangelogPdf(documents: ChangelogDocument[], fonts?: Change
   const height = pdf.internal.pageSize.getHeight();
   const margin = 12;
   const contentWidth = width - margin * 2;
+  const navigation = prepareChangelogPdfNavigation(pdf, documents, font, margin);
   const pageTitles = new Map<number, string>();
   const iconPngs = new Map<string, Uint8Array>();
   let section = "Changelog";
@@ -129,7 +131,9 @@ export function buildChangelogPdf(documents: ChangelogDocument[], fonts?: Change
     subjectTitle = "";
     if (index > 0) addPage();
     pageTitles.set(pageNumber(), section);
-    pdf.outline.add(null, document.title, { pageNumber: pageNumber() });
+    const contents = navigation.sections[index];
+    contents.heading.destination = { pageNumber: pageNumber(), top: 18 };
+    const outline = pdf.outline.add(null, document.title, { pageNumber: pageNumber() });
     text(`${document.title} changelog`, 21, true);
     text(`${document.narcs.join(" + ")}  |  ${document.version}  |  ${document.changes} change${document.changes === 1 ? "" : "s"}`, 10);
     text(`Original: ${document.original}`, 9);
@@ -137,9 +141,11 @@ export function buildChangelogPdf(documents: ChangelogDocument[], fonts?: Change
     if (document.iconWarning) text(document.iconWarning, 9);
     y += 2;
     if (!document.subjects.length) text(document.emptyMessage);
-    for (const subject of document.subjects) {
+    for (const [subjectIndex, subject] of document.subjects.entries()) {
       subjectTitle = subject.title;
       ensureSpace(32);
+      contents.subjects[subjectIndex].destination = { pageNumber: pageNumber(), top: Math.max(18, y - 8) };
+      pdf.outline.add(outline, subject.title, { pageNumber: pageNumber() });
       if (subject.icon) drawIcon(subject.icon, margin, y - 6);
       text(subject.title, 14, true, subject.icon ? 10 : 0);
       if (subject.pokemon.length) text("Team", 11, true);
@@ -160,12 +166,14 @@ export function buildChangelogPdf(documents: ChangelogDocument[], fonts?: Change
       y += 3;
     }
   }
+  navigation.draw();
   for (let page = 1; page <= pdf.getNumberOfPages(); page += 1) {
     pdf.setPage(page);
     pdf.setFont(font, "normal"); pdf.setFontSize(8); pdf.setTextColor(100, 105, 118);
     pdf.text("POKEWEB / ROM CHANGELOG", margin, 11);
-    pdf.text(pageTitles.get(page) ?? section, width - margin, 11, { align: "right", maxWidth: contentWidth - 65 });
+    pdf.text(page <= navigation.contentsPages ? "Contents" : pageTitles.get(page) ?? section, width - margin, 11, { align: "right", maxWidth: contentWidth - 65 });
     pdf.setDrawColor(213, 215, 222); pdf.setLineWidth(0.2); pdf.line(margin, 15, width - margin, 15);
+    if (navigation.contentsPages && page > navigation.contentsPages) pdf.textWithLink("Back to contents", margin, height - 7, { pageNumber: 1 });
     pdf.text(`${page} / ${pdf.getNumberOfPages()}`, width - margin, height - 7, { align: "right" });
   }
   return pdf;

@@ -4,6 +4,7 @@
 #define FWR_CAPACITY 8192u
 #define FWR_TEXT_CAPACITY 192u
 #define FWR_CONTEXT_CAPACITY 4096u
+#define FWR_CONTEXT_MOTIONS 12u
 typedef struct { const uint8_t *bytes; uint32_t length,rules,motions,messages,bubbles,emoteBytes,emoteCrc; uint16_t ruleCount,motionCount,messageCount,bubbleCount; } FwrData;
 typedef struct { FwPokemon pokemon; uint32_t status; uint16_t zone; uint8_t friendship,direction,type1,type2; uint16_t nickname[12],playerName[9]; } FwrSnapshot;
 typedef struct { const uint8_t *bytes; uint32_t length; uint16_t ruleCount; } FwrContext;
@@ -25,6 +26,7 @@ int fwr_item_choose(const FwrItems *d,const FwrSnapshot *p,uint16_t claims,FwrIt
 unsigned fwr_item_text(const FwrItems *d,unsigned rule,const FwrSnapshot *p,uint16_t *out,unsigned capacity);
 unsigned fwr_item_name(const FwrItems *d,unsigned rule,uint16_t *out,unsigned capacity);
 int fwr_step(const FwrData *d,unsigned rule,unsigned step,FwrStep *out);
+int fwr_context_step(const FwrContext *d,unsigned rule,unsigned step,FwrStep *out);
 unsigned fwr_text(const FwrData *d,unsigned message,const FwrSnapshot *p,uint16_t *out,unsigned capacity);
 unsigned fwr_context_text(const FwrContext *d,unsigned rule,const FwrSnapshot *p,uint16_t *out,unsigned capacity);
 /* Snapshot-relative visual motion; one frame per call, no world/grid changes. */

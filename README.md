@@ -44,7 +44,7 @@ Pokeweb Serverless is a browser-based Gen 5 ROM editor for Pokemon Black, White,
 
 - Story Text and Info Text editors for searching text banks, opening banks, editing entries, and adding/deleting entries at the end of a bank.
 - Doc Generators for Dynamic Calc and Dynamic Dex integration.
-- Changelog generation support in the model layer for summarizing edits between ROM/project states.
+- Changelog Generator compares selected NARCs between two ROMs, with individual or combined PDF and TXT exports. PDFs include a clickable table of contents and document outline bookmarks for every changed Pokemon, move, trainer, and other named entry. Original and updated values use aligned comparison tables; TXT exports uppercase changed values. Personal, learnset, and evolution changes share a Pokemon document, and trainer settings and teams share a Trainers document.
 >>>>>>> c241b8103ecb974d57aadc5de2faf55c01f6d713
 
 ## Quick Start

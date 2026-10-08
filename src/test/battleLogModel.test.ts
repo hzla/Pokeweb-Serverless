@@ -133,6 +133,11 @@ describe("trainer battle log", () => {
       expect(parseRpm(battle, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
       expect(parseRpm(counters, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
       expect(parseRpm(summary, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
+      // BW1 profiles use explicit native addresses. An unresolved libc import
+      // leaves a self-branch in the Summary draw wrapper at runtime.
+      for (const dll of [battle, counters, summary]) {
+        expect(parseRpm(dll, { allowedMagics: ["DLXF"] }).symbols.filter(symbol => symbol.attributes & 2)).toEqual([]);
+      }
       expect([...externalHooks(battle), ...externalHooks(counters), ...externalHooks(summary)].sort()).toEqual([...addresses].sort());
     }
   });
@@ -427,7 +432,7 @@ describe("trainer battle log", () => {
         installed: true,
         upToDate: true,
         updateAvailable: false,
-        runtimeVersion: version.endsWith("2") ? 11 : 6,
+        runtimeVersion: version.endsWith("2") ? 11 : 7,
       });
     }
   });

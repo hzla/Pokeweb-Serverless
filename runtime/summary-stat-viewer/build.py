@@ -57,7 +57,7 @@ def bl_target(b,address):
     d=((a&2047)<<12)|((c&2047)<<1)
     if d&0x400000:d-=0x800000
     return address+4+d
-def graphics(files):
+def graphics(files, bw1=False):
     raw=files[13][48:48+2304]
     assert len(raw)==2304 and struct.unpack_from('<I',files[80],32)[0]==2
     assert files[80][24:28]==struct.pack('<HH',9,0)
@@ -100,39 +100,63 @@ def graphics(files):
     chars=files[11][48:48+8192]
     native=struct.unpack_from('<96H',files[77],36)
     # All four native title maps reserve the blank tail of this character bank.
+    title_tiles=set()
     for n in (67,71,77,78):
-        assert max(v&1023 for v in struct.unpack_from('<1024H',files[n],36))<64
+        used={v&1023 for v in struct.unpack_from('<1024H',files[n],36)}
+        title_tiles.update(used)
+        if not bw1: assert max(used)<64
+    if bw1:
+        assert not title_tiles.intersection(list(range(64,74))+list(range(96,106)))
     def pixel(x,y):
         m=native[y//8*32+x//8];tx=7-x%8 if m&1024 else x%8;ty=7-y%8 if m&2048 else y%8
         v=chars[(m&1023)*32+ty*4+tx//2];return v>>(tx%2*4)&15
     # Copy S without binarizing its lighter diagonal edge pixels. V inherits
     # the native A's mirrored diagonal shading, with the crossbar removed.
     # Straight I/E strokes use only the native ink index, with no drop shadow.
-    s=[''.join(str(pixel(190+x,14+y)) for x in range(4)) for y in range(5)]
-    a=[''.join(str(pixel(201+x,14+y)) for x in range(5)) for y in range(5)]
-    assert s==['9111','1333','9119','3331','1119']
-    assert a==['33133','39193','31313','91119','13331']
-    v=list(reversed(a));v[1]=v[1][:2]+'3'+v[1][3:]
-    glyph={'I':['111','313','313','313','111'],'V':v,
-           'E':['1111','1333','1113','1333','1111'],'S':s}
+    if bw1:
+        s=[''.join(format(pixel(185+x,13+y),'x') for x in range(4)) for y in range(7)]
+        a=[''.join(format(pixel(198+x,13+y),'x') for x in range(4)) for y in range(7)]
+        assert s==['1221','2aa2','2aaa','1221','aaa2','2aa2','1221']
+        assert a==['1221','2aa2','2aa2','2222','2aa2','2aa2','2aa2']
+        # Copy V/E from the native BATTLE MOVES title. Inverting BW1's A
+        # produces a U, because its stems are straight rather than diagonal.
+        moves=struct.unpack_from('<96H',files[78],36)
+        def move_pixel(x,y):
+            m=moves[y//8*32+x//8];tx=7-x%8 if m&1024 else x%8;ty=7-y%8 if m&2048 else y%8
+            return chars[(m&1023)*32+ty*4+tx//2]>>(tx%2*4)&15
+        v=[''.join(format(move_pixel(222+x,13+y),'x') for x in range(4)) for y in range(7)]
+        e=[''.join(format(move_pixel(228+x,13+y),'x') for x in range(4)) for y in range(7)]
+        assert v==['2aa2','2aa2','2aa2','2aa2','1111','a22a','a11a']
+        assert e==['2222','2aaa','2aaa','222a','2aaa','2aaa','2222']
+        glyph={'I':['222','a2a','a2a','a2a','a2a','a2a','222'],'V':v,
+               'E':e,'S':s}
+    else:
+        s=[''.join(str(pixel(190+x,14+y)) for x in range(4)) for y in range(5)]
+        a=[''.join(str(pixel(201+x,14+y)) for x in range(5)) for y in range(5)]
+        assert s==['9111','1333','9119','3331','1119']
+        assert a==['33133','39193','31313','91119','13331']
+        v=list(reversed(a));v[1]=v[1][:2]+'3'+v[1][3:]
+        glyph={'I':['111','313','313','313','111'],'V':v,
+               'E':['1111','1333','1113','1333','1111'],'S':s}
     maps=[];tiles=bytearray()
     for label in ('IVS','EVS'):
         rows=[[pixel(184+x,8+y) for x in range(40)] for y in range(16)]
         for y in range(5,12):
-            for x in range(6,36):rows[y][x]=3 # native bar fill, palette bank 1
+            for x in range(1 if bw1 else 6,32 if bw1 else 36):rows[y][x]=10 if bw1 else 3
         width=sum(len(glyph[c][0])+1 for c in label)-1
-        x=(40-width)//2
+        x=((32 if bw1 else 40)-width)//2
         for c in label:
             g=glyph[c]
             for yy,r in enumerate(g):
                 for xx,v in enumerate(r):
-                    rows[6+yy][x+xx]=int(v)
+                    rows[(5 if bw1 else 6)+yy][x+xx]=int(v,16)
             x+=len(g[0])+1
         m=list(native)
         for ty in range(2):
             for tx in range(5):
-                index=64+len(tiles)//32
-                m[(ty+1)*32+tx+23]=0x1000|index
+                index=(64 if label=='IVS' else 96)+len(tiles)//32%10 if bw1 else 64+len(tiles)//32
+                pos=(ty+1)*32+tx+23
+                m[pos]=(native[pos]&0xf000)|index if bw1 else 0x1000|index
                 for yy in range(8):
                     for xx in range(0,8,2):tiles.append(rows[ty*8+yy][tx*8+xx]|rows[ty*8+yy][tx*8+xx+1]<<4)
         maps.append(m)

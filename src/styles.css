@@ -60,6 +60,8 @@ img[src*="pokesprite/"] {
 }
 
 .home-tab:focus-visible,
+.home-discord-button:focus-visible,
+.ai-use-disclaimer a:focus-visible,
 .changelog-tab:focus-visible {
   outline: 2px solid #8be9fd;
   outline-offset: 3px;
@@ -71,6 +73,37 @@ img[src*="pokesprite/"] {
 
 .home-tab-panel[hidden] {
   display: none;
+}
+
+.home-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 16px;
+  border-top: 1px solid #44475a;
+  padding-top: 20px;
+  text-align: center;
+}
+
+.home-footer p {
+  margin: 0;
+  color: #d6d7e2;
+  line-height: 1.5;
+}
+
+.home-discord-button {
+  display: inline-flex;
+  border-radius: 6px;
+  background: #5865f2;
+  color: #fff;
+  font-weight: 600;
+  padding: 12px 20px;
+  text-decoration: none;
+}
+
+.home-discord-button:hover {
+  background: #4752c4;
 }
 
 .home-repair-panels {
@@ -97,6 +130,19 @@ img[src*="pokesprite/"] {
 .upload-panel p {
   margin: 0 0 22px;
   color: #d6d7e2;
+}
+
+.ai-use-disclaimer p {
+  line-height: 1.6;
+}
+
+.ai-use-disclaimer a {
+  color: #8be9fd;
+  text-decoration: underline;
+}
+
+.ai-use-disclaimer p:last-child {
+  margin-bottom: 0;
 }
 
 .upload-dropzone {

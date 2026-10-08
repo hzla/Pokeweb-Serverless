@@ -95,7 +95,7 @@ const artifacts = [
         resolve(root, "../../White2Upgrade-Original-pokeweb/build-stripped/src/White1BattleLogSummary.dll"),
     ),
   },
-];
+].filter(artifact => !process.argv.includes("--bw1-only") || /^(Black1|White1)/u.test(artifact.name));
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 function validateStrippedDlxf(bytes, path) {
@@ -124,6 +124,9 @@ function validateStrippedDlxf(bytes, path) {
   for (let index = 0; index < symbolCount; index += 1) {
     if (bytes.readUInt16LE(symbolsStart + index * 12) !== 0) {
       throw new Error(`${path} is not stripped (symbol ${index} retains a name).`);
+    }
+    if (/^(Black1|White1)/u.test(path.split(/[\\/]/u).pop() ?? "") && (bytes[symbolsStart + index * 12 + 9] & 2)) {
+      throw new Error(`${path} contains an unresolved BW1 runtime import (symbol ${index}).`);
     }
   }
 }

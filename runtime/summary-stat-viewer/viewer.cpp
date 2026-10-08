@@ -1,5 +1,9 @@
 #include "runtime.h"
+#if defined(GAME_B) || defined(GAME_W)
+#include "graphics-bw1.generated.h"
+#else
 #include "graphics.generated.h"
+#endif
 
 extern "C" { __attribute__((used,section(".summary_config"))) volatile Configuration summaryStatConfiguration = {
     {'S','S','V','C','F','G','1',0},1,sizeof(Configuration),1,0x53535630
@@ -181,8 +185,15 @@ extern "C" void SummaryMaxHp(void* w,void* window,void* words,u32 id,u32 x,u32 y
 }
 extern "C" u32 SummaryTitleChars(void* arc,u32 member,u32 frame,u32 offset,u32 length,u32 compressed,u32 heap) {
     u32 result=api<u32(*)(void*,u32,u32,u32,u32,u32,u32)>(0x204add4)(arc,member,frame,offset,length,compressed,heap);
-    // Verified unused tiles 64..83 belong to BG5's existing character bank.
+    // BW1 uses all four title quarters. Keep its native title tiles intact by
+    // using independently verified gaps in two quarters of the same BG bank.
+#if defined(GAME_B) || defined(GAME_W)
+    api<void(*)(u32,const void*,u32,u32)>(0x20450ac)(5,titleGlyphs,320,64);
+    api<void(*)(u32,const void*,u32,u32)>(0x20450ac)(5,titleGlyphs+320,320,96);
+#else
+    // Verified unused tiles 64..83 belong to BW2's existing character bank.
     api<void(*)(u32,const void*,u32,u32)>(0x20450ac)(5,titleGlyphs,sizeof(titleGlyphs),64);
+#endif
     return result;
 }
 extern "C" void SummaryTitle(u32 frame,u32 x,u32 y,u32 width,u32 height,const u16* map,u32 sx,u32 sy,u32 sw,u32 sh) {

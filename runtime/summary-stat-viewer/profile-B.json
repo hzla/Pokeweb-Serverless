@@ -1,0 +1,255 @@
+{
+  "game": "B",
+  "idCode": "IRBO",
+  "revision": 0,
+  "overlayId": 131,
+  "overlaySha256": "6d6e3d0be849bcc6ed0e43a09b1d5e9ec55a94d541a9739beec8966dfa48a6ec",
+  "graphicsArchive": "a/0/7/8",
+  "apis": [
+    {
+      "reference": "0x204c4b4",
+      "address": "0x204b878",
+      "anchor": "0x21d469a"
+    },
+    {
+      "reference": "0x204c150",
+      "address": "0x204b3dc",
+      "anchor": "0x21d5084"
+    },
+    {
+      "reference": "0x204c4e4",
+      "address": "0x204b8a0",
+      "anchor": null
+    },
+    {
+      "reference": "0x204c23c",
+      "address": "0x204b528",
+      "anchor": null
+    },
+    {
+      "reference": "0x204bb84",
+      "address": "0x204ab84",
+      "anchor": "0x21d7d92"
+    },
+    {
+      "reference": "0x204c410",
+      "address": "0x204b784",
+      "anchor": "0x21d7d9e"
+    },
+    {
+      "reference": "0x204c134",
+      "address": "0x204b3b4",
+      "anchor": "0x21d51b2"
+    },
+    {
+      "reference": "0x204bfc4",
+      "address": "0x204b1cc",
+      "anchor": "0x21d4902"
+    },
+    {
+      "reference": "0x204b9b8",
+      "address": "0x204a8d4",
+      "anchor": "0x21d4f78"
+    },
+    {
+      "reference": "0x204b8e8",
+      "address": "0x204a7a0",
+      "anchor": null
+    },
+    {
+      "reference": "0x204bae4",
+      "address": "0x204aa94",
+      "anchor": null
+    },
+    {
+      "reference": "0x204bf48",
+      "address": "0x204b100",
+      "anchor": "0x21d47f6"
+    },
+    {
+      "reference": "0x204c06c",
+      "address": "0x204b294",
+      "anchor": "0x21d506c"
+    },
+    {
+      "reference": "0x204c54c",
+      "address": "0x204b92c",
+      "anchor": "0x21d507a"
+    },
+    {
+      "reference": "0x2006254",
+      "address": "0x20061e5",
+      "anchor": "0x21d54fe"
+    },
+    {
+      "reference": "0x2021a68",
+      "address": "0x201c4e5",
+      "anchor": "0x21d45fa"
+    },
+    {
+      "reference": "0x203df70",
+      "address": "0x203633c",
+      "anchor": "0x21d52d8"
+    },
+    {
+      "reference": "0x203da38",
+      "address": "0x2035c08",
+      "anchor": "0x21d529a"
+    },
+    {
+      "reference": "0x201cd24",
+      "address": "0x2017e1d",
+      "anchor": "0x21da0ec"
+    },
+    {
+      "reference": "0x204add4",
+      "address": "0x2049658",
+      "anchor": "0x21d49e6"
+    },
+    {
+      "reference": "0x20450ac",
+      "address": "0x2040b1c",
+      "anchor": null
+    },
+    {
+      "reference": "0x2045500",
+      "address": "0x20410d0",
+      "anchor": "0x21d9eae"
+    },
+    {
+      "reference": "0x2048520",
+      "address": "0x2045770",
+      "anchor": "0x21d9772"
+    },
+    {
+      "reference": "0x2047168",
+      "address": "0x2043b5c",
+      "anchor": "0x21da4a6"
+    }
+  ],
+  "native": [
+    {
+      "reference": "0x21b2fc0",
+      "address": "0x21d4240"
+    },
+    {
+      "reference": "0x21b3198",
+      "address": "0x21d4418"
+    },
+    {
+      "reference": "0x21b4a10",
+      "address": "0x21d5c98"
+    },
+    {
+      "reference": "0x21b404c",
+      "address": "0x21d52d4"
+    },
+    {
+      "reference": "0x21b4220",
+      "address": "0x21d54a8"
+    },
+    {
+      "reference": "0x21b4f04",
+      "address": "0x21d618c"
+    },
+    {
+      "reference": "0x21b5080",
+      "address": "0x21d62b4"
+    },
+    {
+      "reference": "0x21b4e4c",
+      "address": "0x21d60d4"
+    },
+    {
+      "reference": "0x21b8f50",
+      "address": "0x21da0b0"
+    }
+  ],
+  "hooks": [
+    {
+      "label": "SummaryInit",
+      "address": "0x21d655a",
+      "target": "0x21d4241"
+    },
+    {
+      "label": "SummaryEnd",
+      "address": "0x21d6586",
+      "target": "0x21d4419"
+    },
+    {
+      "label": "SummaryTick",
+      "address": "0x21d45fa",
+      "target": "0x201c4e5"
+    },
+    {
+      "label": "SummaryKeys",
+      "address": "0x21d52c2",
+      "target": "0x21d52d5"
+    },
+    {
+      "label": "SummaryTouch",
+      "address": "0x21d52cc",
+      "target": "0x21d54a9"
+    },
+    {
+      "label": "SummaryHit",
+      "address": "0x21d529a",
+      "target": "0x2035c08"
+    },
+    {
+      "label": "SummarySlash",
+      "address": "0x21da12e",
+      "target": "0x21d618d"
+    },
+    {
+      "label": "SummaryHp",
+      "address": "0x21da114",
+      "target": "0x21d62b5"
+    },
+    {
+      "label": "SummaryMaxHp",
+      "address": "0x21da168",
+      "target": "0x21d62b5"
+    },
+    {
+      "label": "SummaryTitle",
+      "address": "0x21d9eae",
+      "target": "0x20410d0"
+    },
+    {
+      "label": "SummaryTitleChars",
+      "address": "0x21d49e6",
+      "target": "0x2049658"
+    },
+    {
+      "label": "SummaryValue",
+      "address": "0x21da0ec",
+      "target": "0x2017e1d"
+    },
+    {
+      "label": "SummaryValue",
+      "address": "0x21da19e",
+      "target": "0x2017e1d"
+    },
+    {
+      "label": "SummaryValue",
+      "address": "0x21da1fc",
+      "target": "0x2017e1d"
+    },
+    {
+      "label": "SummaryValue",
+      "address": "0x21da25a",
+      "target": "0x2017e1d"
+    },
+    {
+      "label": "SummaryValue",
+      "address": "0x21da2b8",
+      "target": "0x2017e1d"
+    },
+    {
+      "label": "SummaryValue",
+      "address": "0x21da316",
+      "target": "0x2017e1d"
+    }
+  ]
+}

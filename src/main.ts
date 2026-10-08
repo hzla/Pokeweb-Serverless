@@ -1692,6 +1692,7 @@ function renderUpload(root: HTMLElement): void {
           <button id="home-tab-upload" class="home-tab" type="button" role="tab" aria-selected="true" aria-controls="home-panel-upload" data-home-tab="upload">ROM Upload</button>
           <button id="home-tab-repair" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-repair" tabindex="-1" data-home-tab="repair">Repair</button>
           <button id="home-tab-changelog" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-changelog" tabindex="-1" data-home-tab="changelog">Changelog Generator</button>
+          <button id="home-tab-ai-use-disclaimer" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-ai-use-disclaimer" tabindex="-1" data-home-tab="ai-use-disclaimer">AI Use Disclaimer</button>
         </nav>
         <section id="home-panel-upload" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-upload" data-home-panel="upload">
         <div class="upload-panel">
@@ -1740,6 +1741,19 @@ function renderUpload(root: HTMLElement): void {
         <section id="home-panel-changelog" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-changelog" data-home-panel="changelog" hidden>
           ${renderChangelogGenerator()}
         </section>
+        <section id="home-panel-ai-use-disclaimer" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-ai-use-disclaimer" data-home-panel="ai-use-disclaimer" hidden>
+          <div class="upload-panel ai-use-disclaimer">
+            <p><a href="https://github.com/hzla/Pokeweb" target="_blank" rel="noopener noreferrer">Pokeweb</a> was originally written in 2021 by hand by Hzla which included editors for</p>
+            <p>Personals, Learnsets, Evos, Moves, Move Animations, Overworlds, Headers, Marts, Grottos, Trainers, Items, Texts, Encounters</p>
+            <p>and included the following documentation generation features: Calc Export, Text Documentation export, Dex Export, Mastersheet Creation</p>
+            <p>The original repo was written mostly in Ruby/Python/JS/Html/CSS (the only languages I was familiar with) and required running a local server or using a hosted server to access which led to user friction for non technical users to install, and required monthly hosting costs on my end to allow non technical users to access online without installation.</p>
+            <p>in 2026 AI assistance was used to port the original repo to a JS only implementation that could be hosted for free on Github and as well as for future maintenance and the research and development of numerous Code Injection Patches (following Pokemon, streamed sprites/music etc.)</p>
+          </div>
+        </section>
+        <footer class="home-footer">
+          <a class="home-discord-button" href="https://discord.gg/NUchhdqqR" target="_blank" rel="noopener noreferrer">Discord</a>
+          <p>For Tech Support/Feature Requests/Updates</p>
+        </footer>
       </div>
     </section>
   `;
