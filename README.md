@@ -57,7 +57,7 @@ Then open the local Vite URL, load a `.nds`, choose the NARC groups you want ava
 
 ## Credits
 
-All supplied Gen 8 and Gen 9 move animations are by **Log(n)**.
+Should users choose to install from the animated sprite library, or move animation expansion library, relevant credits are listed on the install pages.
 
 Reference projects used while building:
 
