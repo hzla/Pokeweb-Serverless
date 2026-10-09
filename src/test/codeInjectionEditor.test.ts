@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { renderCodeInjectionEditor } from "../ui/codeInjectionEditor";
+import { MENU_EVOLUTION_TITLE } from "../pokeweb/menuEvolutionModel";
 
 function makeProject(version: "W2" | "B2" | "B" | "W", pmcInstalled = false): ProjectState {
   const idCode = { W2: "IRDO", B2: "IREO", B: "IRBO", W: "IRAO" }[version];
@@ -40,6 +41,16 @@ describe("code-injection design credits", () => {
 });
 
 describe("unsupported patch visibility", () => {
+  it.each(["B", "W"] as const)("shows all five released graphical patches by default on %s", version => {
+    const cards = renderFixture(version).match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!;
+    for (const title of ["Summary IV/EV Viewer", "Type Icons", "Move Effectiveness Preview", "Learnset Viewer", MENU_EVOLUTION_TITLE]) {
+      const card = cards.find(html => html.includes(`<h2>${title}</h2>`));
+      expect(card, title).toBeDefined();
+      const opening = card!.slice(0, card!.indexOf(">"));
+      expect(opening, title).toContain('data-code-injection-supported="true"');
+      expect(opening, title).not.toMatch(/\bhidden\b/u);
+    }
+  });
   it.each(["B", "W"] as const)("hides unsupported patches on %s while keeping supported patches and PMC visible", version => {
     const html = renderFixture(version);
     const cards = html.match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!;

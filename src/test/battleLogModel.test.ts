@@ -4,6 +4,7 @@ import { readAscii, readU16, readU32, writeU16 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import {
   buildBattleLogAncestryNarc,
+  canUninstallBattleLog,
   detectBattleLogCompatibility,
   getBattleLogInstallStatus,
   patchBattleLogWifiListSync,
@@ -127,8 +128,8 @@ describe("trainer battle log", () => {
 
   it("bundles versioned Black and White battle-log runtimes for overlays 93 and 131", () => {
     for (const [version, battle, counters, summary, addresses] of [
-      ["B", black1BattleLogDll, black1BattleCountersDll, black1BattleLogSummaryDll, ["93:21b916c:THUMB_BRANCH", "93:21c4f64:THUMB_BRANCH", "93:21ca7f4:THUMB_BRANCH", "93:21d5b68:THUMB_BRANCH", "131:21d80ce:THUMB_BRANCH_LINK", "131:21d80e4:THUMB_BRANCH_LINK", "131:21d80fe:THUMB_BRANCH_LINK"]],
-      ["W", white1BattleLogDll, white1BattleCountersDll, white1BattleLogSummaryDll, ["93:21b918c:THUMB_BRANCH", "93:21c4f84:THUMB_BRANCH", "93:21ca814:THUMB_BRANCH", "93:21d5b88:THUMB_BRANCH", "131:21d80ee:THUMB_BRANCH_LINK", "131:21d8104:THUMB_BRANCH_LINK", "131:21d811e:THUMB_BRANCH_LINK"]],
+      ["B", black1BattleLogDll, black1BattleCountersDll, black1BattleLogSummaryDll, ["93:21b916c:THUMB_BRANCH", "93:21c4f64:THUMB_BRANCH", "93:21ca7f4:THUMB_BRANCH", "93:21d5b68:THUMB_BRANCH", "93:21d2a9c:THUMB_BRANCH_LINK", "93:21d2d00:THUMB_BRANCH_LINK", "131:21d80ce:THUMB_BRANCH_LINK", "131:21d80e4:THUMB_BRANCH_LINK", "131:21d80fe:THUMB_BRANCH_LINK"]],
+      ["W", white1BattleLogDll, white1BattleCountersDll, white1BattleLogSummaryDll, ["93:21b918c:THUMB_BRANCH", "93:21c4f84:THUMB_BRANCH", "93:21ca814:THUMB_BRANCH", "93:21d5b88:THUMB_BRANCH", "93:21d2abc:THUMB_BRANCH_LINK", "93:21d2d20:THUMB_BRANCH_LINK", "131:21d80ee:THUMB_BRANCH_LINK", "131:21d8104:THUMB_BRANCH_LINK", "131:21d811e:THUMB_BRANCH_LINK"]],
     ] as const) {
       expect(parseRpm(battle, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
       expect(parseRpm(counters, { allowedMagics: ["DLXF"] }).metadata).toMatchObject({ PMCGameID: version, PMCModulePriority: 4 });
@@ -358,6 +359,19 @@ describe("trainer battle log", () => {
     expect(getBattleLogInstallStatus(project).installed).toBe(false);
   });
 
+  it.each(["B", "W", "B2", "W2"] as const)("keeps %s counters while an Enhanced Party Menu companion is present", (game) => {
+    const project = makeProject(game);
+    const path = `patches/MenuEvolution${game}.dll`;
+    project.codeInjection = {
+      modules: [{ path, target: "patches", fileName: `MenuEvolution${game}.dll` }],
+    };
+    const before = structuredClone(project);
+
+    expect(canUninstallBattleLog(project)).toBe(false);
+    expect(() => uninstallBattleLog(project)).toThrow(/Uninstall Enhanced Party Menu/u);
+    expect(project).toEqual(before);
+  });
+
   it("restores a disabled Wi-Fi List routine idempotently", () => {
     const disabled = hexBytes("7047024b1847c046c40700004c890702");
     const restored = restoreBattleLogWifiListSync(disabled, 0x02009f0c);
@@ -432,7 +446,7 @@ describe("trainer battle log", () => {
         installed: true,
         upToDate: true,
         updateAvailable: false,
-        runtimeVersion: version.endsWith("2") ? 11 : 7,
+        runtimeVersion: version.endsWith("2") ? 11 : 8,
       });
     }
   });

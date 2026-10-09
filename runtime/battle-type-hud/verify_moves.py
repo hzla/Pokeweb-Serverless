@@ -12,22 +12,29 @@ MAIN=0x02286000;CORE=0x02286100;CON=0x02286200;PARAM=0x02287000;KEYS=0x02287100
 FIELD=0x02288000
 
 def off(x,y):return ((y//8)*32+x//8)*32+(y%8)*4+(x%8)//2
-def getpix(h,x,y):return (h.c.mem_read(PIX+off(x,y),1)[0]>>((x&1)*4))&15
+def getpix(h,x,y):return (h.c.mem_read(h.move_pixels+off(x,y),1)[0]>>((x&1)*4))&15
 def setpix(h,x,y,col):
- a=PIX+off(x,y);v=h.c.mem_read(a,1)[0];s=(x&1)*4;h.c.mem_write(a,bytes([(v&~(15<<s))|col<<s]))
+ a=h.move_pixels+off(x,y);v=h.c.mem_read(a,1)[0];s=(x&1)*4;h.c.mem_write(a,bytes([(v&~(15<<s))|col<<s]))
 
-def test(game):
- h=Harness(game,"MoveEffectiveness");p=h.profile['functions'];c=h.c;calls=[]
+def test(game,factory=Harness,memory_offset=0):
+ h=factory(game,"MoveEffectiveness");p=h.profile['functions'];c=h.c;calls=[]
+ BIW,BMP,WIN,PIX,PFD,PAL,TRANS,MAIN,CORE,CON,PARAM,KEYS,FIELD=(v+memory_offset for v in
+  (0x02280000,0x02280400,0x02280420,0x02281000,0x02285000,0x02285100,0x02285300,
+   0x02286000,0x02286100,0x02286200,0x02287000,0x02287100,0x02288000))
+ h.move_pixels=PIX
+ layout=h.profile.get('layout',{'rule':0x50,'screen':0x58,'state':0x68,'pfd':0x64,
+  'window':0x2ac,'bitmap':0x2b0,'selectedActive':0x300,'selectedSlots':0x2c8,
+  'moveArray':0x2f0,'rotationMons':0x330})
  # Sub-BG palette writes and main-OBJ writes are independently bounded.
  h.paletteWrite=lambda c,a,address,size,value,u: None
- h.put(BIW+0x2b0,BMP);h.put(BIW+0x2ac,WIN);h.put(WIN+12,BMP)
- h.put(BMP,PIX);c.mem_write(BMP+4,struct.pack('<HHHH',256,96,32,0));h.put(BIW+0x64,PFD)
+ h.put(BIW+layout['bitmap'],BMP);h.put(BIW+layout['window'],WIN);h.put(WIN+12,BMP)
+ h.put(BMP,PIX);c.mem_write(BMP+4,struct.pack('<HHHH',256,96,32,0));h.put(BIW+layout['pfd'],PFD)
  h.put(PFD+20,PAL);h.put(PFD+24,TRANS);h.put(PFD+28,480)
  nativepal=[0x18c8,0x7fff,0x39ce,0x35f,0x18f,0x1df,0xee,0x243f,0x182f,0x37e0,0x2584]+[0x7c1f]*5
  palette=struct.pack('<16H',*nativepal)*16;c.mem_write(PAL,palette);c.mem_write(TRANS,palette)
  h.put(MAIN+4,CORE);h.put(CORE,MAIN);h.put(CORE+8,CON);h.put(CON,MAIN)
- mons=[0x02273000+i*0x300 for i in (1,3,5,6)];h.liveTypes.update({mons[0]:(11,8),mons[1]:(9,9),mons[2]:(10,10)})
- h.put(mons[3],0x02276000);h.put(BIW+0x330,mons[3]);h.put(MAIN+0x2bc,FIELD)
+ mons=[0x02273000+memory_offset+i*0x300 for i in (1,3,5,6)];h.liveTypes.update({mons[0]:(11,8),mons[1]:(9,9),mons[2]:(10,10)})
+ h.put(mons[3],0x02276000+memory_offset);h.put(BIW+layout['rotationMons'],mons[3]);h.put(MAIN+0x2bc,FIELD)
  def ability(mon,value):c.mem_write(mon+0x13c,struct.pack('<H',value))
  def condition(mon,id,value=1):h.put(mon+0x1c+id*4,value)
  def held(value):c.mem_write(mons[0]+0x12,struct.pack('<H',value))
@@ -47,7 +54,7 @@ def test(game):
   elif name=='ViewToBattle':result={0:3,1:0,3:0,5:1,7:2}.get(args[1],6)
   elif name=='FrontBattler':result=mons[args[1]]
   elif name=='MoveFlag':assert args[1]==8;calls.append(name);result=args[0]==304
-  elif name=='HiddenPower':assert args[0]==0x02276000;calls.append(name);result=9
+  elif name=='HiddenPower':assert args[0]==0x02276000+memory_offset;calls.append(name);result=9
   elif name=='FlushBitmap':calls.append(name)
   elif name=='MoveKey':
    args += [h.get(c.reg_read(UC_ARM_REG_SP)+i*4) for i in range(2)]
@@ -56,16 +63,19 @@ def test(game):
   for r in REGS+[UC_ARM_REG_R12]:c.reg_write(r,0xdeadbeef)
   c.reg_write(UC_ARM_REG_R0,result);c.reg_write(UC_ARM_REG_PC,c.reg_read(UC_ARM_REG_LR))
  for name in ['MoveDraw','MoveClear','MoveParam','MoveFlag','GetMainModule','ViewToBattle','FrontBattler','FlushBitmap','MoveKey','HiddenPower']:
-  c.hook_add(UC_HOOK_CODE,stub,name,begin=p[name],end=p[name])
+  c.hook_add(UC_HOOK_CODE,stub,name,begin=p[name]&~1,end=p[name]&~1)
  checks=[]
  def draw(rule,moves=(53,55,33,45),index=0):
-  h.put(BIW+0x50,rule);h.put(BIW+0x58,5 if rule==3 else 2)
-  c.mem_write(PARAM,struct.pack('<4H',*moves)+bytes(16));c.mem_write(BIW+0x2f0,struct.pack('<4H',*moves))
+  h.put(BIW+layout['rule'],rule);h.put(BIW+layout['screen'],5 if rule==3 else 2)
+  c.mem_write(PARAM,struct.pack('<4H',*moves)+bytes(16))
+  # BW1 rotation does not fill the normal move array. The compiled candidate
+  # must retain Draw's move snapshot across native key processing instead.
+  c.mem_write(BIW+layout['moveArray'],struct.pack('<4H',*moves) if not (game in ('B','W') and rule==3) else bytes(8))
   h.invoke('MoveDraw',BIW,PARAM,index=index)
  def letter(i):return getpix(h,31+(i%2)*128,10+(i//2)*48)
  def key(targets,button,cursor=0,index=0):
   rows=bytearray(b'\xff'*12*16);rows[cursor*12:cursor*12+len(targets)]=bytes(targets);rows[cursor*12+10]=button
-  c.mem_write(KEYS,bytes(rows));h.put(BIW+0x68,cursor<<5)
+  c.mem_write(KEYS,bytes(rows));h.put(BIW+layout['state'],cursor<<5)
   h.invoke('MoveKey',BIW,0x12345678,KEYS,0,0xffffffff,0x87654321,index=index)
   assert c.reg_read(UC_ARM_REG_R0)==0xffffffff
  for rule in (0,3):
@@ -86,12 +96,14 @@ def test(game):
  checks.append('Hidden Power uses native IV type once per drawing; effective Normalize changes move type; Struggle and unsupported item/weather moves stay neutral')
  for rule in (1,2):
   draw(rule);assert [letter(i) for i in range(4)]==[1]*4
-  h.put(BIW+0x300,0);c.mem_write(BIW+0x2c8,b'\x00')
+  h.put(BIW+layout['selectedActive'],0);c.mem_write(BIW+layout['selectedSlots'],b'\x00')
   before=[getpix(h,x,y) for y in range(10,26) for x in range(128)]
-  h.invoke('MoveClear',BIW,3);h.put(BIW+0x58,3)
+  h.invoke('MoveClear',BIW,3);h.put(BIW+layout['screen'],3)
   assert [getpix(h,x+64,y) for y in range(16) for x in range(128)]==before
   # Unusual key-table order proves the cursor ordinal is not used as an enemy ID.
   key([1],1,cursor=3);assert getpix(h,95,0)==11
+  if game in ('B','W'):
+   key([1,1,1,1],1,cursor=3);assert getpix(h,95,0)==11
   key([3],3,cursor=1);assert getpix(h,95,0)==12
   key([5],5,cursor=4);assert getpix(h,95,0)==(12 if rule==2 else 12)
   key([0],0,cursor=2);assert getpix(h,95,0)==1
@@ -155,9 +167,11 @@ def test(game):
  checks.append('live immunity removal retints red to default without move-data reloads or client-state mutations')
  reset((7,7))
  for rule in (1,2):
-  draw(rule,(33,45,45,45));h.put(BIW+0x300,0);c.mem_write(BIW+0x2c8,b'\0')
-  h.invoke('MoveClear',BIW,3);h.put(BIW+0x58,3)
+  draw(rule,(33,45,45,45));h.put(BIW+layout['selectedActive'],0);c.mem_write(BIW+layout['selectedSlots'],b'\0')
+  h.invoke('MoveClear',BIW,3);h.put(BIW+layout['screen'],3)
   key([1],1,cursor=3);assert getpix(h,95,0)==13
+  if game in ('B','W'):
+   key([1,1,1,1],1,cursor=3);assert getpix(h,95,0)==13
   key([3],3,cursor=1);assert getpix(h,95,0)==1
   key([1],1,cursor=3);assert getpix(h,95,0)==13
   key([0],0);assert getpix(h,95,0)==1

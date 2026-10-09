@@ -1,0 +1,570 @@
+{
+  "game": "W",
+  "rom_code": "IRAO",
+  "revision": 0,
+  "overlay_id": 94,
+  "overlay_base": 35612032,
+  "dsAccepted": false,
+  "implementation": "BW1 renderer candidate; DS gameplay acceptance pending",
+  "functions": {
+    "IsDsi": 34102612,
+    "Add": 35680481,
+    "AddPP": 35680937,
+    "Main": 35679957,
+    "Del": 35682689,
+    "Release": 35679817,
+    "Status": 35686453,
+    "NameDraw": 35684629,
+    "SexDraw": 35685001,
+    "LevelDraw": 35685745,
+    "GaugePosition": 35682785,
+    "GetPfd": 35620609,
+    "GetRule": 35620657,
+    "GetProxy": 33863648,
+    "PalAddr": 33861388,
+    "PaletteProxy": 33861336,
+    "PPGet": 33652281,
+    "ViewSrc": 35477637,
+    "PersonalParam": 33660077,
+    "PokemonBoxGetter": 33656401,
+    "EffectiveTypes": 35477533,
+    "EffectiveTypesBody": 35477449,
+    "CheckSick": 35480293,
+    "SpriteInit": 33869812,
+    "CellInit": 33870192,
+    "CellSelect": 33964468,
+    "PalFree": 33861052,
+    "PaletteNarcLoad": 33860656,
+    "PaletteReserveCore": 33873184,
+    "PaletteNarcLoadSimple": 33860868,
+    "CellResourceFree": 33861616,
+    "CharAlloc": 33859512,
+    "CharUpload": 33860268,
+    "CharFree": 33859820,
+    "UnitAlloc": 33861912,
+    "UnitFree": 33862116,
+    "ActorAlloc": 33862316,
+    "ActorFree": 33862604,
+    "ActorPosition": 33862976,
+    "ActorVisible": 33862644
+  },
+  "signatures": [
+    {
+      "name": "IsDsi",
+      "segment": 0,
+      "address": 34102612,
+      "mode": "ARM",
+      "bytes": "3c009fe51c0090e5000050e30900001a30009fe50120a0e30000d0e50110a0e3030000e2010050e314009fe50020a013042080e51c1080e504009fe5040090e51eff2fe16412150200400004"
+    },
+    {
+      "name": "Add",
+      "segment": 94,
+      "address": 35680480,
+      "mode": "THUMB",
+      "bytes": "f8b58ab0051c02908030109f02900091161c0299fc0100200919402201937bf6b0ec301c0d21cef765fc291988310860301c0e21cef75efc29190a1c8c3210600a1c0220903280071060a83100200860"
+    },
+    {
+      "name": "AddPP",
+      "segment": 94,
+      "address": 35680936,
+      "mode": "THUMB",
+      "bytes": "f0b589b0051c039080300e9f03900091161c0399fc0100200919402201937bf6cceb301ca021002210f6b2fd291988310860301ca121002210f6aafd29198c310860291902209031800708602919a831"
+    },
+    {
+      "name": "Main",
+      "segment": 94,
+      "address": 35679956,
+      "mode": "THUMB",
+      "bytes": "f0b585b0061c2ff60cea1124a40130594002c00f56d0f1f721fc325976491140315100284ed001284cd000210020c201b218b0321268d207d20f01d0012102e0401c0828f3db00293cd111229201b358"
+    },
+    {
+      "name": "Del",
+      "segment": 94,
+      "address": 35682688,
+      "mode": "THUMB",
+      "bytes": "78b581b0061c341ccd01b03460590007c00f15d0114a00a8138803805288428001220a4204d00023c25e5b1e53430380301c00aa00f014f86159082081436151"
+    },
+    {
+      "name": "Release",
+      "segment": 94,
+      "address": 35679816,
+      "mode": "THUMB",
+      "bytes": "38b50024051c082c0ada281c211c00f093fd281c211c00f0a5fc641c082cf4db1120800128584007c00f04d0fff512f8002001f063ff0024a0002818806943f6"
+    },
+    {
+      "name": "Status",
+      "segment": 94,
+      "address": 35686452,
+      "mode": "THUMB",
+      "bytes": "f0b587b0144b141c051c0e1c00aa03cb171c03c203cb03c203cb03c21868e401543510602859002814d0002e08d1002142f6c6ed2859002143f610e807b0f0bd012142f6beedb100795828590904090c43f604e807b0f0bd"
+    },
+    {
+      "name": "NameDraw",
+      "segment": 94,
+      "address": 35684628,
+      "mode": "THUMB",
+      "bytes": "f8b58cb00f1c041c5849594e615a01920c200a1c3240711c11430904090c3df64aeb524b051ce35a0820022133402026b60233431b0420221b0c3bf6a0ea0021061c3bf60eed019873212a1c0ff66afe"
+    },
+    {
+      "name": "SexDraw",
+      "segment": 94,
+      "address": 35685000,
+      "mode": "THUMB",
+      "bytes": "f0b589b00f1c051c381c6d3002780e20800191010e1820300c18022a02d166263601341c386800a943f696ea786c002817d0192711216869bf0589017a1801998019511820227af6d4eb152189016869"
+    },
+    {
+      "name": "LevelDraw",
+      "segment": 94,
+      "address": 35685744,
+      "mode": "THUMB",
+      "bytes": "f8b58cb03c4c051c0e1c295b3b4f04200a1c3a40791c11430904090c3df61ce92b5b019003201f4020239b023b431b04022120221b0c3bf674e80021071c3bf6e2ea0020311c00906c31097801980322"
+    },
+    {
+      "name": "GaugePosition",
+      "segment": 94,
+      "address": 35682784,
+      "mode": "THUMB",
+      "bytes": "f0b59fb0071c5c480091038804a95b4c0b8143884b8183888b81c088c881584803880b8043884b8083888b80c08819abc8800c212088a41c18809b1c491ef9d1504c11ab10212088a41c18809b1c491ef9d14d4c09ab10212088a41c18809b1c"
+    },
+    {
+      "name": "GetPfd",
+      "segment": 94,
+      "address": 35620608,
+      "mode": "THUMB",
+      "bytes": "02480168632080000858704740af2002"
+    },
+    {
+      "name": "GetRule",
+      "segment": 94,
+      "address": 35620656,
+      "mode": "THUMB",
+      "bytes": "024801686f2080000858704740af2002"
+    },
+    {
+      "name": "GetProxy",
+      "segment": 0,
+      "address": 33863648,
+      "mode": "ARM",
+      "bytes": "08402de91cc080e201e0a0e10f00bce80f00aee80f00bce80f00aee800009ce500008ee50880bde8"
+    },
+    {
+      "name": "PalAddr",
+      "segment": 0,
+      "address": 33861388,
+      "mode": "ARM",
+      "bytes": "30402de914d04de20150a0e3000051e300408de20250a0130410a0e1eaffffeb0400a0e10510a0e1376200eb14d08de23080bde8"
+    },
+    {
+      "name": "PaletteProxy",
+      "segment": 0,
+      "address": 33861336,
+      "mode": "ARM",
+      "bytes": "08402de924309fe51820a0e3003093e501e0a0e1101193e590122ce00f00bce80f00aee800009ce500008ee50880bde8946a1402"
+    },
+    {
+      "name": "PPGet",
+      "segment": 0,
+      "address": 33652280,
+      "mode": "THUMB",
+      "bytes": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c70bd000070b5051c0c1c161c00f062ff"
+    },
+    {
+      "name": "ViewSrc",
+      "segment": 93,
+      "address": 35477636,
+      "mode": "THUMB",
+      "bytes": "4268002a05d0c17e4906c90f01d0101c7047006870470000"
+    },
+    {
+      "name": "PersonalParam",
+      "segment": 0,
+      "address": 33660076,
+      "mode": "THUMB",
+      "bytes": "10b5141cfff7deff211c01f0bff810bd"
+    },
+    {
+      "name": "PokemonBoxGetter",
+      "segment": 0,
+      "address": 33656400,
+      "mode": "THUMB",
+      "bytes": "f8b584b0071c0091019239680022002400f0f8fe0122051c02923968381c012200f0f0fe061c3968381c022200f0eafe03903968381c032200f0e4fe009a011caf2a00d9b5e092187a44d288120412149744620166016e0174017a01c201d001da01de01e201e601ea01ee01f201f601fa01fe01020206020a020e02120216021a021e02220222022202220222022202220222022202220222022202220222022202220222022202220222022202220222022202220222022202220222024a024a024a024a02560256025602560262026202620262026e026e026e026e028802900296029c02a202a802ae02c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202c202ea02ee021e03240328032c0330035003be0274037a03800380038003800380038003800380038003800380038003800380038003800380038003800380038003ac03b003b603ba03be03c203c603ca03ce03d203d603da03de03e603ec03f0035e01b2015e015e015e015e015e015e015e015e015e015e017e018c019601f40326043c043c04002480e13c687ee1b888c007c40f7ae1b8888007fae7b8884007f7e7fc8872e12888002801d100200290029c6be1b8884007c40f0bd190e02c88002c07d030694000c00f04d1b8884007c00f00d15ae1af4c58e1317e2888aa680906c90efff762fa4fe1b8884007c00f00d0f0e72c8849e16c88a74884426ed9c1e76c6842e1ac6840e12c7b3ee16c7b3ce1ac7b3ae1ec7b38e12c7c36e16c7c34e1ac7c32e1ec7c30e12c7d2ee16c7d2ce1ac7d2ae1ec7d28e12c7e26e16c7e24e1ac7e22e1ec7e20e1009a0298193a0021009282f0dcefeb6900220a4003400021002051405840084301d1002002909ee70098363800904000345a06e100983a3800903018047a00e100983e3800903018047bfae00098423800904000305a00281cd000997118097b03f025f8ece03069c006c40ee9e030698005fae730694004f7e730690003f4e73069c001f1e730698000eee7b8884007c40f00d0d5e03069400055e7306953e7009a02984d3a0021009282f08cef736900220a4003400021002051405840084301d1002002904ee7307e3ce7317e28883a680906c90efef7e6fe041c307e062188432106090e8907490f08433076381c0830802100f07dfcf880a2e0307e0006b3e7747e9de0708b1de7f46999e0b8884007c00f06d04e484f490068019a2cf06eed8ee0019803992cf0a6eb89e0b8884007c00f07d0464847490068019a0b232cf0b6ee7de0039801990b2206f011f977e00398847d74e00398c47d71e0009a0298783a0021009282f02eef039a9469d269231c0a4003400021002051405840084301d100200290ede60198cce701990822dbe70c7c54e04c7c52e08c7c50e0cc7c4ee00c7d4ce04c7d4ae0cc8a48e00c8b46e08c7e44e0cc7e42e0087f4006440e3ee0087f0006bee64c7f39e0cc8b37e03469a000c00e4506e001c00e03052003c00ec2036004c00e8102e006a405e40ec00e640120430843104318432c1c04431ee028881d2801d0202803d13069c00f00d192e6012413e028880f49884206d1697b792903d1688800f072fc07e0317e009a0906a83ac90e009200f0d3fc041c201c04b0f8bdc046"
+    },
+    {
+      "name": "EffectiveTypes",
+      "segment": 93,
+      "address": 35477532,
+      "mode": "THUMB",
+      "bytes": "08b500a9013100aafff7d0ff00a94878097813f067fa08bd"
+    },
+    {
+      "name": "EffectiveTypesBody",
+      "segment": 93,
+      "address": 35477448,
+      "mode": "THUMB",
+      "bytes": "70b50d1c061c1821141c00f087fd311cf8310978022903d1002801d01121ffe72970f9363178022904d1002802d01120207000e0217029782078112906d1112801d1002020702078287070bd112800d1217070bd"
+    },
+    {
+      "name": "CheckSick",
+      "segment": 93,
+      "address": 35480292,
+      "mode": "THUMB",
+      "bytes": "89004018c0694007400f01d00120704700207047"
+    },
+    {
+      "name": "SpriteInit",
+      "segment": 0,
+      "address": 33869812,
+      "mode": "ARM",
+      "bytes": "f0412de90080a0e10170a0e10260a0e10350a0e13bfeffeb0040a0e1b821dde10610a0e1680084e2088084e52d0000eb0400a0e10710a0e10520a0e1aeffffeb0400a0e10610a0e1c5ffffeb0800a0e10410a0e155feffeb0400a0e10110a0e3e6f8ffeb0400a0e1f081bde8"
+    },
+    {
+      "name": "CellInit",
+      "segment": 0,
+      "address": 33870192,
+      "mode": "ARM",
+      "bytes": "10402de90c2091e50040a0e1100091e5042084e50010a0e3080084e5975500eb0010a0e1042094e50c0084e2405c00eb1080bde8"
+    },
+    {
+      "name": "CellSelect",
+      "segment": 0,
+      "address": 33964468,
+      "mode": "ARM",
+      "bytes": "f8402de90040a0e1041094e5b410d1e1000051e3f880bd08e1faffeb0400a0e1dffaffeb0050a0e1346094e5b010d5e10600a0e1a1f9ffeb300084e51c1094e53c0084e2042091e50110a0e3ff7002e2d3ffffeb"
+    },
+    {
+      "name": "PalFree",
+      "segment": 0,
+      "address": 33861052,
+      "mode": "ARM",
+      "bytes": "1810a0e338209fe5900103e0000092e5100190e5031080e0140091e50201c0e3020180e3140081e5000092e5100190e5031080e0140091e5020100e2140081e5"
+    },
+    {
+      "name": "PaletteNarcLoad",
+      "segment": 0,
+      "address": 33860656,
+      "mode": "ARM",
+      "bytes": "78402de90cd04de2c0409fe50260a0e1002094e50350a0e141cf82e2b621dce10040a0e3000052e30900009a0ce09ce51820a0e394e223e0143093e5a33fb0e1"
+    },
+    {
+      "name": "PaletteReserveCore",
+      "segment": 0,
+      "address": 33873184,
+      "mode": "ARM",
+      "bytes": "f04f2de90cd04de21840a0e3910408e030909de500a0a0e1020c59e302b0a0e100308de50c409ae50070a0331050a033026ca0330500003a020c49e20008a0e12098a0e10170a0e3015ca0e3026aa0e304108de20b00a0e15b5300eb08108de20b00a0e1495300eb000050e30cd08d02f08fbd08080084e0935600ebb433dde1000053e30b00000a08209de58302a0e1081092e5830251e10600009a0c1092e5001081e00c1082e508209de5081092e5000041e0080082e5b833dde1000053e30800000ab403dde1030080e0050050e1040000ca08109de58322a0e1080091e5830250e108208185000059e30500000a08109de5080091e5090080e0060050e1090046800800818500009de50010a0e3e5feffeb000050e30d00000a82cb00eb0050a0e1000057e30000000a14ca00eb08009de50910a0e1083084e00120a0e3015800eb000057e30100000a0500a0e1e6c800eb00009de50110a0e3d2feffeb000050e30d00000a7fcb00eb0050a0e1000057e30000000a01ca00eb08009de50910a0e1083084e00220a0e3ee5700eb000057e30100000a0500a0e164ca00eb0c009ae5081080e0140091e50201c0e3140081e50c109ae508009de5082081e0141092e5080090e5021101e20201c0e3000081e1140082e50cd08de2f08fbde8f8472de90cd04de21840a0e3910405e00090a0e130609de5"
+    },
+    {
+      "name": "PaletteNarcLoadSimple",
+      "segment": 0,
+      "address": 33860868,
+      "mode": "ARM",
+      "bytes": "f8402de9a8409fe50260a0e1002094e50350a0e1417f82e2b621d7e10040a0e3000052e30900009a0cc097e51820a0e394c223e0143093e5a33fb0e10400001a"
+    },
+    {
+      "name": "CellResourceFree",
+      "segment": 0,
+      "address": 33861616,
+      "mode": "ARM",
+      "bytes": "10402de91410a0e348209fe5900101e0000092e5142190e5010092e7014082e0000050e30200000aea95ffeb0000a0e3000084e5040094e5000050e30200000a"
+    },
+    {
+      "name": "CharAlloc",
+      "segment": 0,
+      "address": 33859512,
+      "mode": "ARM",
+      "bytes": "f8472de91cd04de214319fe50080a0e1000093e50170a0e1413f80e2b411d3e102e0a0e10060a0e3000051e30800009a082093e5061382e03c1091e5a11fb0e1"
+    },
+    {
+      "name": "CharUpload",
+      "segment": 0,
+      "address": 33860268,
+      "mode": "ARM",
+      "bytes": "f8432de920809de50070a0e10160a0e10250a0e10340a0e1000058e30100000a020058e31500001abc809fe50190a0e3000098e50910a0e10c0190e5070380e0"
+    },
+    {
+      "name": "CharFree",
+      "segment": 0,
+      "address": 33859820,
+      "mode": "ARM",
+      "bytes": "38402de9ec509fe50040a0e1000095e50c0190e5040380e02c0080e252a7ffeb000050e30500001a000095e50c1190e5040190e5041381e02c1081e268a7ffeb"
+    },
+    {
+      "name": "UnitAlloc",
+      "segment": 0,
+      "address": 33861912,
+      "mode": "ARM",
+      "bytes": "f8472de904d04de2b4409fe5b4509fe50280a0e10070a0e300a0a0e11860a0e30190a0e10800a0e10610a0e10720a0e10430a0e100508de57d95ffeb0620a0e1"
+    },
+    {
+      "name": "UnitFree",
+      "segment": 0,
+      "address": 33862116,
+      "mode": "ARM",
+      "bytes": "70402de90050a0e1990200ebbc00d5e10040a0e3000050e30b0000dae460a0e3940601e0002095e5010092e7000050e30100000a010082e06a0000ebbc00d5e1"
+    },
+    {
+      "name": "ActorAlloc",
+      "segment": 0,
+      "address": 33862316,
+      "mode": "ARM",
+      "bytes": "f0402de92cd04de27c409fe501c0a0e1001094e518e0a0e3105191e5147191e5925e26e014e0a0e300608de5937e25e0083095e50228a0e104308de50c3095e50c48a0e108308de50c3191e50c508de20060a0e10500a0e12418a0e12228a0e10c3383e0290700ebb844dde1b434dde140109de50600a0e10520a0e100408de5300700eb2cd08de2f080bde8"
+    },
+    {
+      "name": "ActorFree",
+      "segment": 0,
+      "address": 33862604,
+      "mode": "ARM",
+      "bytes": "10402de90040a0e1080094e50410a0e1990500eb680084e24c0700eb0400a0e1c20500eb1080bde8602090e5811fa0e10123c2e3a11282e1601080e51eff2fe1"
+    },
+    {
+      "name": "ActorPosition",
+      "segment": 0,
+      "address": 33862976,
+      "mode": "ARM",
+      "bytes": "b020d1e1b210d1e1bc20c0e1be10c0e11eff2fe1"
+    },
+    {
+      "name": "ActorVisible",
+      "segment": 0,
+      "address": 33862644,
+      "mode": "ARM",
+      "bytes": "602090e5811fa0e10123c2e3a11282e1601080e51eff2fe1600090e58002a0e1a00fa0e1"
+    },
+    {
+      "name": "EnemyPositions",
+      "segment": 94,
+      "address": 35695352,
+      "bytes": "d80078002c002800d800620030001c00dc0080002c003600"
+    },
+    {
+      "name": "EnemyTriplePositions",
+      "segment": 94,
+      "address": 35695404,
+      "bytes": "d80078002c002800d8005f0030001300dc0074002c002800e000890028003d00"
+    },
+    {
+      "name": "RotationPositions",
+      "segment": 94,
+      "address": 35695436,
+      "bytes": "d80078002c002800dc0074002c002800d8005f0030001300e000890028003d00"
+    },
+    {
+      "name": "GaugeCreation",
+      "segment": 94,
+      "address": 35681360,
+      "bytes": "f8b598b0041c081c161c039104280ad800187844c088000400148744080008003000300058000120311c014001d0a52000e0a8200790002901d0a62000e0a9200690002901d0a72014e0aa2012e00120311c014001d0ab2000e0ae200790002901d0ac2000e0af200690002901d0ad2000e0b02005900398032830d1351c022e00dbb51e042e01daa22000e0a3200490271ca80018370a90385843f668ec0020009001200190ab486b05205a04990022029060681b0c43f694eb0a997850f1f7f7f8051c0a980021385843f6f8ec021cd203281c0221120c20231af6e1f8201c0b9058309b4f0b90e05b07990022009060680023f50143f6cce80b99059a4851201c0c905c300c90e35b6068069943f6f0ec0c9900224851201c0d9060300d90e05bba2100230090606843f6b2e80d99bc224851201c0e9064300e90e35b6068bb2143f6d6ec0e9900224851201c0f9068300f90e05bb12100230090606843f698e80f99b3224851201c10906c301090e35b6068b22143f6bcec109900224851201c119070301190e05bb42100230090606843f67ee81199b3224851201c129074301290e35b6068b52143f6a2ec1299485101203040089011d1e05bb721002200906068002343f664e861198867e35b6068b821b92243f68cec6119c8675e4916a80a8802804a8842808a888280c988c180301c022e00dbb01e07218a1b510051188000139009918a1c16a98a7116a80090002001904f48271c205a0b99139a02900c9b183720684959ba585b5943f616ee611908640998139a411c16a8817116a800900020019042480d99205a0e9b029020684959ba585b5943f600ee6119486416a80090002001903a480f99205a139a109b029020684959ba585b5943f6eeed61198864f1f72bf8032815d1042e13db201c149054301490461916a80090002001902b48205a02902068216be26b636b43f6d4ed149912e0201c159054301590461916a80090002001902148205a02902068216ba26b636b43f6c0ed159948513068012144f606e9099816a9887116a80090002001901648261c205a1199139a0290129b20684959ba585b594c3643f6a4ed0021705143f644ee0898002815d10398022812d0032810d016a80090002001900748139a205a63190290996f2068ba58db6f43f68aed6119086518b0f8bdc04648040000e8aa2002f8b584b0051ccc0100912919086c0028"
+    },
+    {
+      "name": "GaugePositionBody",
+      "segment": 94,
+      "address": 35682784,
+      "bytes": "f0b59fb0071c5c480091038804a95b4c0b8143884b8183888b81c088c881584803880b8043884b8083888b80c08819abc8800c212088a41c18809b1c491ef9d1504c11ab10212088a41c18809b1c491ef9d14d4c09ab10212088a41c18809b1c491ef9d10098c501381c0390803003904059022805d10098810011a8465e11a80ce0032805d10098810009a8465e09a804e00098810019a8465e19a80230445e002a05d00020105e36180220105e241804a8068244827819006c08a9002243f6beec00980121084001900ad103984059002806d1311c103104a80182211c0d310be0019800280fd10398405901280bd0311c103104a80182e11d41827819406c08a9002243f69aec019806a980000290085e0022311804a8018206a902980231085e211804a841827819806c08a943f686ec029804a9085e0022311804a8018204a902980231085e211804a841827819406d08a943f672ec50377859002808d0083604a90e8215344c8208a9002243f666ec1fb0f0bdc046"
+    }
+  ],
+  "hooks": [
+    {
+      "name": "Add",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35618946,
+      "bytes": "0ff02df8"
+    },
+    {
+      "name": "Add",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35618964,
+      "bytes": "0ff024f8"
+    },
+    {
+      "name": "Add",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35618982,
+      "bytes": "0ff01bf8"
+    },
+    {
+      "name": "AddPP",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35619030,
+      "bytes": "0ff0e7f8"
+    },
+    {
+      "name": "AddPP",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35619048,
+      "bytes": "0ff0def8"
+    },
+    {
+      "name": "AddPP",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35619066,
+      "bytes": "0ff0d5f8"
+    },
+    {
+      "name": "Main",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35617124,
+      "bytes": "0ff0b6fa"
+    },
+    {
+      "name": "Del",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35679830,
+      "bytes": "00f093fd"
+    },
+    {
+      "name": "Del",
+      "kind": "OFFSET",
+      "address": 35619096,
+      "bytes": "81792002"
+    },
+    {
+      "name": "Release",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35616946,
+      "bytes": "0ff0c9fa"
+    },
+    {
+      "name": "Status",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35680878,
+      "bytes": "01f0e1fa"
+    },
+    {
+      "name": "Status",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35681308,
+      "bytes": "01f00afa"
+    },
+    {
+      "name": "Status",
+      "kind": "OFFSET",
+      "address": 35619336,
+      "bytes": "35882002"
+    },
+    {
+      "name": "NameDraw",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35682540,
+      "bytes": "00f012fc"
+    },
+    {
+      "name": "SexDraw",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35682548,
+      "bytes": "00f0c8fc"
+    },
+    {
+      "name": "LevelDraw",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35682566,
+      "bytes": "00f033fe"
+    },
+    {
+      "name": "LevelDraw",
+      "kind": "THUMB_BRANCH_LINK",
+      "address": 35686352,
+      "bytes": "fff7cefe"
+    }
+  ],
+  "layout": {
+    "panelBase": 64,
+    "panelStride": 128,
+    "panelFlags": 112,
+    "gaugeFlags": 1088,
+    "currentCell": 164,
+    "proxyWords": 9,
+    "hasPokestar": false
+  },
+  "coordinates": {
+    "EnemyPositions": [
+      216,
+      120,
+      44,
+      40,
+      216,
+      98,
+      48,
+      28,
+      220,
+      128,
+      44,
+      54
+    ],
+    "EnemyTriplePositions": [
+      216,
+      120,
+      44,
+      40,
+      216,
+      95,
+      48,
+      19,
+      220,
+      116,
+      44,
+      40,
+      224,
+      137,
+      40,
+      61
+    ],
+    "RotationPositions": [
+      216,
+      120,
+      44,
+      40,
+      220,
+      116,
+      44,
+      40,
+      216,
+      95,
+      48,
+      19,
+      224,
+      137,
+      40,
+      61
+    ]
+  },
+  "resources": {
+    "162": "75b1f4dacfe3848525ca96e868f6bd03bbf62ddc604ce39a2d8015749edbcb73",
+    "163": "6a7c172543a48a8f12365d48904a790aa2be9e8d6b7e31996aa42ee8e7af5587",
+    "164": "fb0f3677a3d4c44461a06e85fd09ca659b5425bdeaba978389dbe238f93a4e2e",
+    "165": "a3999da3d65aca729dd0aa5facfeb9832c0b3ea21ee33f6d48fe73b4f359056d",
+    "166": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+    "167": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "168": "64397a112961ff2a17c6402495ed19d640681d790ca58a4f13112ca56d098c6e",
+    "169": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+    "170": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "171": "3e1ae739920bde63df5965b6a4bd0433a3652876e9dda00c36958879bc7ea980",
+    "172": "5917653e4ef44c039f050f380617078b2b2df7eae6e72c1874b15eb3910de5e1",
+    "173": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "174": "0a07e992a32e1239a8ff48e3703de9714cc13a7b182e403a7465890b8bd26eba",
+    "175": "d2750024dc32683ec89d035bbca8b8f17c91fe9aaa217c5b6f7e79b7f48da38f",
+    "176": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "177": "a5944517dc18b40b5d6e051877ac78716f9e5ec794f1db1e33fca388d3ef3df9",
+    "178": "0d88172969357eb7a3178945b6e30a369eb608c98b93bdece2602e772c85364b",
+    "179": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "180": "e2a60be663d3f4d7b3b09ce822ed8eb69b6eba7979e37e69973fe7f0f70514e9",
+    "181": "b0a6e31cdc7c49c6834b4b34f4c4c9a0464d5fdf813b538a7c4c57284c8f71e9",
+    "182": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "183": "3dc58b10b87a804cb7e2e7ca56bf5fe6025d810b619fe2a26f7561e600b4aa8d",
+    "184": "c23dd7a64c6768761bc08fffb5446b5c69e613c509e808f934102f4d2f82e828",
+    "185": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca",
+    "186": "c35386b01e4a838a1b5d1aa70f52a4e282fa30f94cd5e78befc7b8a6d49c19a1",
+    "187": "29c984e5697870d196c69d2a99ffff5925afc8f0b8a62057d3d7d0f3f51cd09f",
+    "188": "30249884bd91f10bc9d4e13e7b1495f09991b6f488405a0cdbb61cfb402d10ca"
+  },
+  "spriteContextSlot": 34892436,
+  "paletteRegistry": {
+    "records": 272,
+    "count": 282,
+    "stride": 24,
+    "flags": 20,
+    "unusedMask": 2147483648
+  },
+  "reference_segments": {
+    "93": "c3237299f6cbf3855830e0ee69064090c71dbe2413ac297446b42738b2c384d6",
+    "94": "27c686dfe37696d72b1e734c32d8ecb40c80881dd65046177c40eb8fa8be9cc2",
+    "0": "2d36e7e501fee340e6af419492fb6e0648b8d75e872c718b450c2526dd1a681e"
+  }
+}

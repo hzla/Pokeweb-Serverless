@@ -27,7 +27,76 @@ so their installed hooks could run without drawing any icons or move colors.
 Updating keeps the existing DLL path and the installer selections.
 ROM export must also retain complete DSi programs and valid integrity tables.
 
-Both games and all three icon styles pass compiled function checks with battle
+## BW1 support
+
+English US Black 1 (`IRBO`) and White 1 (`IRAO`), revision 0, have independent
+native Type Icons profiles in `profile-TypeIcons-B.json` and
+`profile-TypeIcons-W.json`. They record explicit ARM/Thumb entry modes,
+overlay 94 hooks, BW1 panel stride and coordinates, and native resource
+fingerprints. All three styles are available through the normal installer after
+DS gameplay and visual acceptance in both games. The [BW1 release record](../BW1_UI_RELEASE.md)
+binds support to the tested native profiles and DLL hashes; changed builds
+remain disabled until accepted. Live DSi acceptance is pending.
+
+The BW1 panel art and palette differ from BW2. In particular, BW2's renderer
+reclaims colors that BW1 uses for native borders and shading. BW1 needs its
+own graphics/palette ownership and style masks to preserve its HP/EXP display.
+The BW1 renderer appends two 16×16 OBJ pieces and 256 transparent
+character bytes to each native panel. It paints only these appended tiles,
+keeps native cell attributes and palettes unchanged, and reserves OBJ palette
+banks 10–15 through the native resource manager after checking its registry.
+Unused retail palette memory may contain arbitrary prior colors; the module
+snapshots and restores them rather than requiring a blank bank. A bank claimed
+or overwritten by another runtime disables that binding. Status labels hide
+the private pieces; native movement, visibility and teardown remain in charge.
+BW1's angular mask uses its three white HP-face rows and two or seven gray
+face rows. These placements passed the recorded DS visual matrix in both games.
+
+```sh
+python3 runtime/battle-type-hud/configure_bw1.py
+python3 runtime/battle-type-hud/verify_bw1_bindings.py
+python3 runtime/battle-type-hud/panel_expansion_bw1.py
+python3 runtime/battle-type-hud/build.py --bw1
+python3 runtime/battle-type-hud/verify_bw1_renderer.py
+python3 runtime/battle-type-hud/bundle_bw1_candidates.py
+```
+
+Run these from the repository root. `BTH_B_ROM`, `BTH_W_ROM` and
+`BTH_TOOLCHAIN_BIN` override local inputs. The binding verifier executes the
+retail ARM mode getter, its cache and hardware-byte behavior, the nine-word
+graphics proxy getter, and compiled DS/DSi pointer guards. It checks stack
+and registers in both games. The renderer verifier executes the actual built
+DLLs, retail palette reservation/free, fade/proxy/palette getters, effective typing and Roost, visible
+source selection, and PK5 type dispatch. Gauge lifecycle and personal archive
+access use instrumented fixtures, and physical palette DMA is modeled. Four layouts, six panels, fades, status,
+typing changes, teardown, missing resources, palette conflicts and DS/extended
+RAM pointers pass. Native image and palette bytes remain unchanged in those
+fixtures. The separate DS gameplay/visual matrix is accepted; live DSi remains pending.
+
+The center panel records explicitly map native positions 0/1 in singles and
+doubles, and 2/3 in triples and rotation. Positions 4–7 retain their separate
+records. This avoids treating the center gauges as missing in six-panel battles.
+
+BW1 Move Preview has independent profiles and two separately built, DS-accepted DLLs.
+The verified retail state readers cover current types, abilities, items,
+condition records, field effects and native type affinity. Rotation retains
+the four moves supplied by native drawing because its ordinary move array is
+empty. The existing color settings and neutral fallback remain unchanged.
+
+```sh
+python3 runtime/battle-type-hud/configure_bw1_moves.py
+python3 runtime/battle-type-hud/build.py --bw1-moves
+python3 runtime/battle-type-hud/verify_bw1_moves.py
+python3 runtime/battle-type-hud/bundle_bw1_candidates.py --moves
+```
+
+The move verifier executes retail mechanics readers in both DS and extended
+RAM fixtures. Drawing, input-to-battler mapping, cached move records and Hidden
+Power inputs are instrumented. Five wrappers preserve stack arguments and
+registers; move glyphs, PP, custom colors, palette fades and restoration are
+checked. This does not certify a complete battle session or live DSi operation.
+
+Both BW2 games and all three icon styles pass compiled function checks with battle
 objects and palette buffers in extended RAM. A supplied White 2 DSi capture
 also reproduces the old pointer failure and passes pixel comparison and cleanup
 with the corrected wedge DLL. These checks do not boot a game or advance frames;
@@ -277,7 +346,7 @@ there is no allocated in-game error dialog.
 
 Red immunity highlighting and installer color customization are implemented
 in Move Preview 0.4.0. `IMMUNITY_FEASIBILITY.md` preserves the earlier assessment.
-See `VALIDATION.md` for completed automated checks. In-game emulator testing is
-left to the user, per their preference. Fairy at
+See `VALIDATION.md` for automated checks, scoped BW1 gameplay evidence and
+the remaining release checklist. Fairy at
 ID17 is included for compatible ROMs with Fairy support; this patch does not
 add Fairy mechanics, change save formats, or change damage calculations.

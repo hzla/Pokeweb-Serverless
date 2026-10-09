@@ -125,7 +125,7 @@ describe("BW2 Menu Evolution", () => {
   });
 
   it("publishes the field-script command and read-only counter parameter IDs", () => {
-    expect(MENU_EVOLUTION_GET_PARTY_PARAMETER_COMMAND).toBe(0x010c);
+    expect(MENU_EVOLUTION_GET_PARTY_PARAMETER_COMMAND).toBe(0x0110);
     expect(MENU_EVOLUTION_COUNTER_PARAMETER_IDS).toEqual({
       kos: 0x0400,
       battlesBrought: 0x0401,

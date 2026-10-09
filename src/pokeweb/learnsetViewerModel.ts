@@ -1,8 +1,9 @@
-import manifest from "../assets/codeinjection/learnsetViewerManifest.json";
+import manifestData from "../assets/codeinjection/learnsetViewerManifest.json";
 import infoMessages from "../../runtime/learnset-viewer/info_messages.json";
 import { configureCustomUi, readCustomUiConfig } from "../customUi/runtimeConfig";
 import { readU16, writeU16 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
+import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
@@ -18,8 +19,26 @@ export const LEARNSET_INFO_MESSAGES = infoMessages;
 const URLS = {
   W2: [new URL("../assets/codeinjection/LearnsetMenuW2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerW2.dll", import.meta.url)],
   B2: [new URL("../assets/codeinjection/LearnsetMenuB2.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerB2.dll", import.meta.url)],
+  B: [new URL("../assets/codeinjection/LearnsetMenuB.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerB.dll", import.meta.url)],
+  W: [new URL("../assets/codeinjection/LearnsetMenuW.dll", import.meta.url), new URL("../assets/codeinjection/LearnsetViewerW.dll", import.meta.url)],
 };
 type Version = keyof typeof URLS;
+type Group = "Menu" | "Viewer";
+type ModuleBuild = { fileName: string; sha256: string; codeFingerprint: string; bssSize: number;
+  symbols: Pick<RpmModule["symbols"][number], "address" | "type" | "attributes">[];
+  relocations: { module: string; address: number; type: string; symbol: number }[] };
+type Profile = {
+  idCode: string; revision?: number; dsAccepted?: boolean; version?: string;
+  partyOverlay?: number; dispatchOverlay?: number; tutorOverlay?: number; graphicsArchive?: string;
+  menuBankId?: number; viewerBankId?: number;
+  hooks: { label: string; overlayId: number; address: number; expectedHex: string; patchType: string; patchSize: number }[];
+  apis?: { label?: string; reference?: string; entry: number; segment: string | number; expectedHex: string }[];
+  resources: { archive?: string; member: number; sha256: string }[];
+  modules?: Record<Group, ModuleBuild>; previousBuilds?: Record<string, Record<Group, ModuleBuild>>;
+};
+const manifest = manifestData as { version: string; games: Record<Version, Profile> };
+const isVersion = (v: unknown): v is Version => v === "B" || v === "W" || v === "B2" || v === "W2";
+const isBw1 = (v: Version) => v === "B" || v === "W";
 const MAGIC = [0x4c, 0x53, 0x56, 0x4d, 0x53, 0x47, 0x31, 0];
 export type LearnsetMessageIds = { menu: number; empty: number; error: number };
 export type LearnsetViewerStatus = {
@@ -94,11 +113,43 @@ function hookSize(rpm: RpmModule, r: RpmModule["relocations"][number]) {
   return r.target.type === "FULL_COPY" ? rpm.symbols[r.sourceSymbolIndex]?.size ?? 0
     : r.target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : r.target.type === "THUMB_BRANCH" ? 12 : 4;
 }
-function validModule(rpm: RpmModule, version: Version, group: "Menu" | "Viewer") {
-  const overlays = group === "Menu" ? [12, 165] : [258];
+function codeFingerprint(code: Uint8Array): string {
+  const ranges: [number, number][] = [];
+  const config = configOffset(code); ranges.push([config + 10, config + 22]);
+  const customMarker = new TextEncoder().encode("PWUICFG1");
+  const custom = Array.from({ length: Math.max(0, code.length - 19) }, (_, i) => i)
+    .filter(i => customMarker.every((b, j) => code[i + j] === b));
+  if (custom.length !== 1 || readU16(code, custom[0]! + 8) !== 1) throw new Error("Unrecognized shared UI configuration.");
+  ranges.push([custom[0]! + 10, custom[0]! + 18]);
+  const infoMarker = new TextEncoder().encode("LSVINF1\0");
+  if (code.some((b, i) => b === infoMarker[0] && infoMarker.every((v, j) => code[i + j] === v))) {
+    const info = infoConfigOffset(code); ranges.push([info + 12, info + 12 + infoMessages.length * 4]);
+  }
+  let value = 0x811c9dc5;
+  for (let i = 0; i < code.length; ++i) value = Math.imul(value ^ (ranges.some(([start, end]) => i >= start && i < end) ? 0 : code[i]!), 0x1000193) >>> 0;
+  return value.toString(16).padStart(8, "0");
+}
+function matchesBuild(rpm: RpmModule, build: ModuleBuild): boolean {
+  try {
+    return rpm.baseAddress === 0 && rpm.bssSize === build.bssSize && codeFingerprint(rpm.code) === build.codeFingerprint
+      && rpm.symbols.length === build.symbols.length && build.symbols.every((s, i) => {
+        const actual = rpm.symbols[i]!; return actual.address === s.address && actual.type === s.type && actual.attributes === s.attributes;
+      }) && rpm.relocations.length === build.relocations.length && build.relocations.every(r => rpm.relocations.filter(a =>
+        a.target.module === r.module && a.target.address === r.address && a.target.type === r.type && a.sourceSymbolIndex === r.symbol).length === 1);
+  } catch { return false; }
+}
+function recognizedModule(rpm: RpmModule, version: Version, group: Group): boolean {
+  const profile = manifest.games[version];
+  const build = rpm.metadata.PMCVersion === profile.version ? profile.modules?.[group] : profile.previousBuilds?.[String(rpm.metadata.PMCVersion)]?.[group];
+  return !!build && rpm.metadata.PMCGameID === version && rpm.metadata.PMCModulePriority === 4 && matchesBuild(rpm, build);
+}
+function validModule(rpm: RpmModule, version: Version, group: Group) {
+  const profile = manifest.games[version];
+  const overlays = group === "Menu" ? [profile.dispatchOverlay ?? 12, profile.partyOverlay ?? 165] : [profile.tutorOverlay ?? 258];
   const hooks = externalHooks(rpm);
-  const expected = manifest.games[version].hooks.filter(h => h.patchSize && overlays.includes(h.overlayId));
-  return rpm.metadata.PMCGameID === version && rpm.metadata.PMCVersion === LEARNSET_VIEWER_VERSION
+  const expected = profile.hooks.filter(h => h.patchSize && overlays.includes(h.overlayId));
+  return (!isBw1(version) || recognizedModule(rpm, version, group))
+    && rpm.metadata.PMCGameID === version && rpm.metadata.PMCVersion === (profile.version ?? LEARNSET_VIEWER_VERSION)
     && rpm.metadata.PMCModulePriority === 4 && hooks.length === expected.length
     && !rpm.symbols.some(s => s.attributes & 2)
     && expected.every(h => hooks.filter(r => h.overlayId === Number(r.target.module) && h.address === r.target.address
@@ -109,14 +160,20 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
     updateAvailable: false, canUninstall: false, pmcInstalled: getPmcInstallStatus(project).installed,
     message: "Learnset Viewer supports US White 2 and Black 2 (vanilla or Upgrade)." };
   const version = project.session.baseVersion;
-  if (project.session.baseRom !== "BW2" || (version !== "W2" && version !== "B2")) return status;
+  if (!isVersion(version) || project.session.baseRom !== (isBw1(version) ? "BW" : "BW2")) return status;
   const layout = manifest.games[version];
   let rom: NintendoDSRom | undefined;
   try { if (bytes) rom = new NintendoDSRom(bytes); } catch { return { ...status, message: "Reload the ROM to verify Learnset Viewer compatibility." }; }
   if ((rom?.idCode ?? project.romInfo.idCode) !== layout.idCode) return status;
+  if (rom && rom.data[0x1e] !== (layout.revision ?? 0)) return { ...status, message: "Learnset Viewer requires English US revision 0." };
+  if (isBw1(version) && (!manifest.games.B.dsAccepted || !manifest.games.W.dsAccepted)) return { ...status,
+    message: "BW1 Learnset Viewer is awaiting DS gameplay and visual acceptance in Black and White." };
   status.supported = true;
   const paths = learnsetViewerPaths(version);
-  const installed = listCodeInjectionDlls(project).filter(m => paths.includes(m.path));
+  const allModules = listCodeInjectionDlls(project);
+  if (isBw1(version) && paths.some(path => allModules.filter(m => m.path.toLowerCase() === path.toLowerCase()).length > 1)) return { ...status,
+    message: "Duplicate Learnset companions are installed. Remove the duplicate before installing." };
+  const installed = allModules.filter(m => paths.includes(m.path));
   status.installed = installed.length === 2;
   const sharedMenu = moduleBytes(project, rom, paths[0]);
   if (sharedMenu && readCustomUiConfig(sharedMenu)?.learnsetEnabled === false) status.installed = false;
@@ -124,7 +181,7 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
   status.canUninstall = installed.length > 0 && installed.every(m => canRemoveStagedCodeInjectionDll(project, m.path));
   if (sharedMenu && readCustomUiConfig(sharedMenu)?.enabled) status.canUninstall = false;
   const pmc = getPmcInstallStatus(project);
-  if (pmc.installed && pmc.overlayId !== 344) return { ...status,
+  if (pmc.installed && pmc.overlayId !== (isBw1(version) ? 237 : 344)) return { ...status,
     message: "Unsupported PMC loader placement. Reload the original ROM and reinstall Learnset Viewer; updating the DLLs cannot repair this previously exported loader." };
   for (const module of listCodeInjectionDlls(project)) {
     if (module.target !== "patches") continue;
@@ -137,6 +194,8 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
     }
     if (paths.includes(module.path)) {
       const group = module.path === paths[0] ? "Menu" : "Viewer";
+      if (isBw1(version) && !recognizedModule(rpm, version, group)) return { ...status,
+        message: `Unrecognized Learnset companion: ${module.path}. Restore its verified DLL before updating.` };
       const ids = readConfiguration(data);
       if (!validModule(rpm, version, group) || !ids || (group === "Viewer" && !validInfoConfiguration(data))) status.updateAvailable = true;
       if (ids && status.messageIds && (ids.menu !== status.messageIds.menu || ids.empty !== status.messageIds.empty || ids.error !== status.messageIds.error)) status.updateAvailable = true;
@@ -153,7 +212,7 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
     status.checked = true;
     try {
       const overlays = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
-        (_id, fileId) => getRomFileBytes(project, rom!, fileId), new Set([12, 165, 258]));
+        (_id, fileId) => getRomFileBytes(project, rom!, fileId), new Set([layout.dispatchOverlay ?? 12, layout.partyOverlay ?? 165, layout.tutorOverlay ?? 258]));
       for (const signature of layout.hooks) {
         const overlay = overlays.get(signature.overlayId);
         const offset = overlay ? signature.address - overlay.ramAddress : -1;
@@ -161,6 +220,14 @@ export function getLearnsetViewerStatus(project: ProjectState, bytes = project.o
         if (!data || offset < 0 || hex(data.subarray(offset, offset + signature.expectedHex.length / 2)) !== signature.expectedHex) {
           return { ...status, message: `Learnset Viewer compatibility failed: ${signature.label}, overlay ${signature.overlayId}, 0x${signature.address.toString(16)}.` };
         }
+      }
+      const arm9 = project.arm9.length ? project.arm9 : decompressCode(rom.arm9);
+      for (const signature of layout.apis ?? []) {
+        const overlay = signature.segment === "ARM9" ? undefined : overlays.get(Number(signature.segment));
+        const data = signature.segment === "ARM9" ? arm9 : project.overlays[Number(signature.segment)] ?? overlay?.data;
+        const offset = (signature.entry & ~1) - (signature.segment === "ARM9" ? rom.arm9RamAddress : overlay?.ramAddress ?? 0);
+        if (!data || offset < 0 || hex(data.subarray(offset, offset + signature.expectedHex.length / 2)) !== signature.expectedHex) return { ...status,
+          message: `Learnset Viewer compatibility failed: native ${signature.label ?? signature.reference}, ${signature.segment}, 0x${signature.entry.toString(16)}.` };
       }
     } catch { return { ...status, message: "Could not read the party/tutor overlays for Learnset Viewer." }; }
   }
@@ -186,17 +253,29 @@ function ensureMessage(project: ProjectState, bankId: number, value: string): nu
 export async function installLearnsetViewer(project: ProjectState): Promise<LearnsetMessageIds> {
   const romBytes = project.originalRomBytes ?? await loadActiveRomBytes();
   if (!romBytes) throw new Error("Reload the ROM before installing Learnset Viewer.");
-  const status = getLearnsetViewerStatus(project, romBytes);
+  const staged: ProjectState = { ...project, originalRomBytes: romBytes, arm9: project.arm9.slice(),
+    overlays: Object.fromEntries(Object.entries(project.overlays).map(([id, data]) => [id, data?.slice()])),
+    narcs: structuredClone(project.narcs), texts: structuredClone(project.texts),
+    fileSystem: structuredClone(project.fileSystem), codeInjection: structuredClone(project.codeInjection),
+    patches: structuredClone(project.patches), actionChangelog: structuredClone(project.actionChangelog) };
+  const status = getLearnsetViewerStatus(staged, romBytes);
   if (!status.supported || !status.compatible) throw new Error(status.message);
   const version = project.session.baseVersion as Version;
-  const rom = new NintendoDSRom(romBytes);
-  const priorMenu = moduleBytes(project, rom, learnsetViewerPaths(version)[0]);
+  const profile = manifest.games[version];
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const paths = learnsetViewerPaths(version);
+  const priorMenu = moduleBytes(staged, rom, paths[0]);
+  const priorViewer = moduleBytes(staged, rom, paths[1]);
   const custom = priorMenu && readCustomUiConfig(priorMenu);
-  const id = rom.filenames.idOf("a/1/2/5");
-  if (id === undefined) throw new Error("Tutor graphics archive is missing.");
-  const archive = new NARC(getRomFileBytes(project, rom, id));
-  for (const resource of manifest.games[version].resources) {
-    const data = archive.files[resource.member];
+  const archives = new Map<string, NARC>();
+  for (const resource of profile.resources) {
+    const path = resource.archive ?? profile.graphicsArchive ?? "a/1/2/5";
+    if (!archives.has(path)) {
+      const id = rom.filenames.idOf(path);
+      if (id === undefined) throw new Error(`Learnset graphics archive ${path} is missing.`);
+      archives.set(path, new NARC(getRomFileBytes(staged, rom, id)));
+    }
+    const data = archives.get(path)!.files[resource.member];
     if (!data || await sha256(data) !== resource.sha256) throw new Error(`Unsupported tutor graphics member ${resource.member}; the LEARNSET divider cannot be safely adjusted.`);
   }
   // Fetch and validate both before touching text, PMC, or staged files.
@@ -204,26 +283,43 @@ export async function installLearnsetViewer(project: ProjectState): Promise<Lear
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Could not load Learnset companion (${response.status}).`);
     const data = new Uint8Array(await response.arrayBuffer());
+    const expectedHash = profile.modules?.[i === 0 ? "Menu" : "Viewer"].sha256;
+    if (expectedHash && await sha256(data) !== expectedHash) throw new Error("The bundled Learnset companion failed its integrity check.");
     if (!validModule(parseRpm(data, { allowedMagics: ["DLXF"] }), version, i === 0 ? "Menu" : "Viewer")) throw new Error("The bundled Learnset companion failed verification.");
     configOffset(data);
     if (i === 1) infoConfigOffset(data);
     return data;
   }));
-  for (const bankId of [178, 401]) if (!getTextBank(project, "message_texts", bankId).length) throw new Error(`Message bank ${bankId} is unavailable.`);
-  if (!getPmcInstallStatus(project).installed) {
-    adoptExistingPmcInstall(project, romBytes);
-    if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  const menuBank = profile.menuBankId ?? 178, viewerBank = profile.viewerBankId ?? 401;
+  for (const bankId of [menuBank, viewerBank]) if (!getTextBank(staged, "message_texts", bankId).length) throw new Error(`Message bank ${bankId} is unavailable.`);
+  if (!getPmcInstallStatus(staged).installed) {
+    adoptExistingPmcInstall(staged, romBytes);
+    if (!getPmcInstallStatus(staged).installed) await installBundledPmc(staged);
   }
-  const ids = { menu: ensureMessage(project, 178, "LEARNSET"), empty: ensureMessage(project, 401, "No level-up moves."), error: ensureMessage(project, 401, "Learnset unavailable.") };
-  const infoMessageIds = infoMessages.map(([, text]) => ensureMessage(project, 401, text!));
-  learnsetViewerPaths(version).forEach((path, i) => {
+  const hasId = (bank: number, id: number) => getTextBank(staged, "message_texts", bank).some(e => {
+    const parsed = parseTextEntryId(e[0]); return parsed.block === 0 && parsed.entry === id;
+  });
+  const saved = staged.codeInjection?.learnsetViewer;
+  const savedForProfile = saved?.menuBankId === menuBank && saved.viewerBankId === viewerBank ? saved : undefined;
+  const oldIds = priorMenu && readConfiguration(priorMenu) || priorViewer && readConfiguration(priorViewer) || savedForProfile?.messageIds;
+  const reuse = (id: number | undefined, bank: number, value: string) => id !== undefined && hasId(bank, id) ? id : ensureMessage(staged, bank, value);
+  const ids = { menu: reuse(oldIds?.menu, menuBank, "LEARNSET"), empty: reuse(oldIds?.empty, viewerBank, "No level-up moves."), error: reuse(oldIds?.error, viewerBank, "Learnset unavailable.") };
+  let oldInfo: number[] | undefined = savedForProfile?.infoMessageIds;
+  if (priorViewer && validInfoConfiguration(priorViewer)) {
+    const at = infoConfigOffset(priorViewer); oldInfo = infoMessages.map((_, i) => readU16(priorViewer, at + 12 + i * 4));
+  }
+  const infoMessageIds = infoMessages.map(([, text], i) => reuse(oldInfo?.[i], viewerBank, text!));
+  paths.forEach((path, i) => {
     let configured = configureLearnsetViewerDll(modules[i]!, ids);
     if (custom?.enabled && custom.validMenu) configured = configureCustomUi(configured, true, custom.menu, true);
-    stageCodeInjectionDll(project, path.split("/").pop()!, i === 1 ? configureLearnsetInfoDll(configured, infoMessageIds) : configured, "patches", romBytes);
+    stageCodeInjectionDll(staged, path.split("/").pop()!, i === 1 ? configureLearnsetInfoDll(configured, infoMessageIds) : configured, "patches", romBytes);
   });
-  project.codeInjection ??= {};
-  project.codeInjection.learnsetViewer = { runtimeVersion: LEARNSET_VIEWER_VERSION, menuBankId: 178, viewerBankId: 401, messageIds: ids, infoMessageIds };
-  recordGenericChange(project, "code_injection", "Learnset Viewer installed: level-up list, base stats, abilities, and evolution information; read-only, no KO learnset moves.", "Learnset Viewer", { key: "code-injection:learnset-viewer" });
+  staged.codeInjection ??= {};
+  staged.codeInjection.learnsetViewer = { runtimeVersion: profile.version ?? LEARNSET_VIEWER_VERSION, menuBankId: menuBank, viewerBankId: viewerBank, messageIds: ids, infoMessageIds };
+  recordGenericChange(staged, "code_injection", "Learnset Viewer installed: level-up list, base stats, abilities, and evolution information; read-only, no KO learnset moves.", "Learnset Viewer", { key: "code-injection:learnset-viewer" });
+  Object.assign(project, { originalRomBytes: romBytes, arm9: staged.arm9, arm9Dirty: staged.arm9Dirty,
+    overlays: staged.overlays, narcs: staged.narcs, texts: staged.texts, fileSystem: staged.fileSystem,
+    codeInjection: staged.codeInjection, patches: staged.patches, actionChangelog: staged.actionChangelog });
   return ids;
 }
 export function uninstallLearnsetViewer(project: ProjectState): void {
@@ -232,7 +328,8 @@ export function uninstallLearnsetViewer(project: ProjectState): void {
   if (!status.canUninstall) throw new Error("Only staged Learnset companions can be removed. DLLs built into the loaded ROM cannot yet be deleted.");
   const paths = learnsetViewerPaths(project.session.baseVersion as Version);
   for (const path of paths) if (canRemoveStagedCodeInjectionDll(project, path)) removeStagedCodeInjectionDll(project, path);
-  if (project.codeInjection) delete project.codeInjection.learnsetViewer;
+  // Retain private ID assignments alongside retained text so reinstall also
+  // preserves user-edited messages that no longer match the default strings.
   recordGenericChange(project, "code_injection", "Staged Learnset companions removed; private text entries retained for reinstall.", "Learnset Viewer", { key: "code-injection:learnset-viewer" });
 }
 function hex(bytes: Uint8Array): string { return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join(""); }

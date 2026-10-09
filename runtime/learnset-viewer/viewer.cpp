@@ -181,7 +181,7 @@ extern "C" void LearnsetScreen(void* arc,u32 member,u32 frame,u32 offset,u32 len
     void* screen=0;
     void* allocation=native<void*(*)(void*,u32,u32,void**,u32)>(0x204b359,0x204b32d)(arc,member,compressed,&screen,heap);
     if (!allocation || !screen || at<u16>(screen,0)!=256 || at<u32>(screen,8)!=2048) {
-        release(allocation); original(arc,member,frame,offset,length,compressed,heap); return;
+        releaseNativeAllocation(allocation); original(arc,member,frame,offset,length,compressed,heap); return;
     }
     u16* tiles=reinterpret_cast<u16*>(static_cast<u8*>(screen)+12);
     // Move the diagonal three 8px tiles. The row borders and type icon do
@@ -202,5 +202,5 @@ extern "C" void LearnsetScreen(void* arc,u32 member,u32 frame,u32 offset,u32 len
     } else {
         native<void(*)(u32,const void*,u32,u32)>(0x2044fdd,0x2044fb1)(frame,tiles,size,offset);
     }
-    release(allocation);
+    releaseNativeAllocation(allocation);
 }

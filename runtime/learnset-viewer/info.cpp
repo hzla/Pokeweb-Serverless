@@ -1,7 +1,11 @@
 #include "info.h"
 #include "info_logic.h"
 #include "info_messages.generated.h"
+#if defined(GAME_B) || defined(GAME_W)
+#include "info_background_bw1.generated.h"
+#else
 #include "info_background.generated.h"
+#endif
 
 
 namespace {
@@ -101,7 +105,7 @@ struct Messages : Archive {
     void* privateHandle=nullptr; void* nameHandle=nullptr; u32 nameBank=0;
     struct Bank {u16 id,count;bool checked,valid;}; Bank banks[6]={};
     void* handle(u32 bank,u32 id) {
-        const u16 ids[]={401,90,64,403,487,374};u32 slot=0;
+        const u16 ids[]={messageBank(401),messageBank(90),messageBank(64),messageBank(403),messageBank(487),messageBank(374)};u32 slot=0;
         while(slot<6 && ids[slot]!=bank)++slot;
         if(slot==6)return nullptr;
         auto& entry=banks[slot];
@@ -111,7 +115,7 @@ struct Messages : Archive {
             if(entry.valid)entry.count=read16(header+2);
         }
         if(!entry.valid || id>=entry.count)return nullptr;
-        if(bank==401) {
+        if(bank==messageBank(401)) {
             if(!privateHandle)privateHandle=messageOpen(bank,Heap);
             return privateHandle;
         }
@@ -166,6 +170,7 @@ void headerTypes() {
     }
 }
 bool bankString(Messages& messages,u32 bank,u32 id,u16* out,u32 capacity) {
+    bank=messageBank(bank);
     out[0]=End;
     void* handle=messages.handle(bank,id);
     if(!handle)return false;
@@ -280,15 +285,15 @@ void load(Request* request) {
     InfoNode* nodes=state->graph;
     if(!nodes)return;
     const bool rebuild=!state->graphReady;
-    u8 record[76];
+    u8 record[PersonalRecordSize];
     if(rebuild) {
         personal.buffer();
         for(u32 i=0;i<personal.count;++i)nodes[i]={};
         for(u32 i=1;i<personal.count;++i) {
-            if(personal.member(i,record,76)==76) {nodes[i].species=i;nodes[i].valid=true;}
+            if(personal.member(i,record,PersonalRecordSize)==PersonalRecordSize) {nodes[i].species=i;nodes[i].valid=true;}
         }
         for(u32 i=1;i<personal.count;++i) {
-            if(!nodes[i].valid || nodes[i].form || personal.member(i,record,76)!=76)continue;
+            if(!nodes[i].valid || nodes[i].form || personal.member(i,record,PersonalRecordSize)!=PersonalRecordSize)continue;
             const u32 first=read16(record+28),forms=record[32];
             if(!first || forms<2 || forms>32 || first>=personal.count || forms-1>personal.count-first)continue;
             for(u32 f=1;f<forms;++f)if(nodes[first+f-1].valid && !nodes[first+f-1].form) {
@@ -300,7 +305,7 @@ void load(Request* request) {
     const u32 selected=native<u32(*)(u32,u32)>(0x20204ad,0x2020481)(species,form);
     if(selected>=personal.count || !nodes[selected].valid)return;
     u16 defaultParent=nodes[selected].parent;
-    if(personal.member(selected,record,76)==76) {
+    if(personal.member(selected,record,PersonalRecordSize)==PersonalRecordSize) {
         const u8 offsets[]={0,1,2,4,5,3};
         for(u32 i=0;i<6;++i)state->stats[i]=record[offsets[i]];
         state->statsValid=true;
@@ -310,7 +315,7 @@ void load(Request* request) {
             state->types[0]=record[6];state->types[1]=record[7];
             state->typeCount=record[6]==record[7]?1:2;
         }
-        // BW2 personal bytes 24..26 are the two normal and hidden slots.
+        // Both verified personal layouts use bytes 24..26 for ability slots.
         state->abilities=infoAbilities(record+24);
         if(!state->abilities.count)privateString(messages,InfoMessage::NoAbilities,state->abilityNames[0],64);
         for(u32 i=0;i<state->abilities.count;++i) {

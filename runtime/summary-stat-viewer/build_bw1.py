@@ -1,7 +1,8 @@
-"""Build unreleased BW1 Summary candidates from independently pinned inputs.
+"""Build BW1 Summary companions from independently pinned inputs.
 
-Candidates and profiles stay in build/. Bundling and normal UI availability
-require separate DS gameplay acceptance; this builder does not certify it.
+Candidates and profiles stay in build/ unless --bundle-candidates is requested.
+Only artifacts and profiles recorded in the DS acceptance ledger receive
+normal installation support. This builder does not certify new gameplay.
 """
 import hashlib
 import json
@@ -9,10 +10,14 @@ import os
 from pathlib import Path
 import struct
 import subprocess
+import argparse
+import sys
 import ndspy.rom
 import ndspy.narc
 import ndspy.codeCompression
-from build import HERE, BUILD, TOOLS, JAR, VERSION, graphics, run
+from build import HERE, BUILD, ASSETS, REPO, TOOLS, JAR, VERSION, graphics, run
+sys.path.insert(0, str(HERE.parent))
+from bw1_release import ds_accepted
 
 
 def call_target(data, address):
@@ -42,6 +47,9 @@ def profile_header(profiles):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--bundle-candidates', action='store_true', help='Bundle companions and installer fixtures; only recorded builds receive DS acceptance.')
+    args = parser.parse_args()
     BUILD.mkdir(exist_ok=True)
     profiles = {game: json.loads((HERE / f'profile-{game}.json').read_text()) for game in ('B', 'W')}
     (BUILD / 'profiles-bw1.generated.h').write_text(profile_header(profiles))
@@ -121,15 +129,33 @@ def main():
         fingerprint = 0x811c9dc5
         for value in code:
             fingerprint = ((fingerprint ^ value) * 0x1000193) & 0xffffffff
+        resources = [{'member': n, 'sha256': hashlib.sha256(native_files[n]).hexdigest()}
+                     for n in (3, 9, 11, 65, 69, 75, 76, 78, 129)]
+        native_profile = {**profile, 'signatures': signatures, 'resources': resources}
         manifest['games'][game] = {'idCode': profile['idCode'], 'revision': profile['revision'],
-            'overlayId': 131, 'graphicsArchive': profile['graphicsArchive'], 'dsAccepted': False,
+            'overlayId': 131, 'graphicsArchive': profile['graphicsArchive'],
+            'dsAccepted': ds_accepted('summary-stat-viewer', game, native_profile, {output.name: data}),
+            'liveDsiAccepted': False,
             'fileName': output.name, 'codeFingerprint': f'{fingerprint:08x}',
             'bssSize': struct.unpack_from('<I', data, header + 12)[0],
             'sha256': hashlib.sha256(data).hexdigest(), 'signatures': signatures,
-            'resources': [{'member': n, 'sha256': hashlib.sha256(native_files[n]).hexdigest()}
-                          for n in (3, 9, 11, 65, 69, 75, 76, 78, 129)]}
-        print(output.name, len(data), 'candidate; DS acceptance pending')
+            'resources': resources}
+        print(output.name, len(data), 'DS accepted' if manifest['games'][game]['dsAccepted'] else 'candidate; DS acceptance pending')
     (BUILD / 'bw1-candidates.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    if args.bundle_candidates:
+        path = ASSETS / 'summaryStatViewerManifest.json'
+        shipped = json.loads(path.read_text())
+        assert shipped['version'] == VERSION, 'Build BW2 companions for the same version first'
+        for game, profile in manifest['games'].items():
+            (ASSETS / profile['fileName']).write_bytes((BUILD / profile['fileName']).read_bytes())
+            shipped['games'][game] = profile
+        path.write_text(json.dumps(shipped, indent=2) + '\n')
+        fixture = ndspy.narc.NARC()
+        fixture.files = [b''] * 130
+        for resource in manifest['games']['W']['resources']:
+            member = resource['member']
+            fixture.files[member] = native_files[member]
+        (REPO / 'src/test/fixtures/summaryStatViewerGraphicsBW1.narc').write_bytes(fixture.save())
 
 
 if __name__ == '__main__':

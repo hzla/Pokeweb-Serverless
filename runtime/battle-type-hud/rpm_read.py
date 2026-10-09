@@ -42,8 +42,15 @@ def read_rpm(b):
                                         module='base' if module == 255 else modules[module],
                                         type=TYPES[b[p+5]]))
     co, size = u32(info+16), u32(info+20)
+    metadata = {}
+    meta = relative(info+32)
+    if meta >= 0:
+        assert b[meta:meta+4] == b'META'
+        for i in range(u32(meta+4)):
+            p = meta+8+i*8
+            metadata[string(p)] = string(p+4) if b[p+2] == 0 else u32(p+4)
     fixed = relative(rel+8) + u32(h+12) if rel >= 0 and relative(rel+8) >= 0 else u32(4)
-    return dict(code=b[co:co+size], bss=u32(h+12), symbols=symbols,
+    return dict(code=b[co:co+size], bss=u32(h+12), symbols=symbols, metadata=metadata,
                 relocations=relocations, expanded_size=u32(4), internal_fixed_size=fixed)
 
 def thumb_bl(site, destination):

@@ -28,6 +28,11 @@ function frameCanvas(frame: BtxImage): PreviewFrame {
 function paint(ctx: CanvasRenderingContext2D, frame: PreviewFrame, x: number, y: number): void {
   ctx.drawImage(frame.image, Math.round(x - frame.width / 2), Math.round(y - frame.height / 2));
 }
+function paintRider(ctx: CanvasRenderingContext2D, rider: PreviewFrame, mount: PreviewFrame, x: number, y: number): void {
+  // Native mounted billboards share a bottom origin. Centering a 32px rider
+  // on a 64px mount otherwise puts the rider 16px above its in-game position.
+  paint(ctx, rider, x, y + (mount.height - rider.height) / 2);
+}
 /** Read one NARC member without allocating copies of the full Surf catalog. */
 function memberAt(narc: Uint8Array, index: number): Uint8Array {
   if (narc.length < 52 || String.fromCharCode(...narc.subarray(0, 4)) !== "NARC") throw new Error("Invalid Surf archive.");
@@ -235,14 +240,14 @@ export function createFollowerPositionEditor(args: {
         const mount = followerFrames[direction][phase % 2], rider = landRiderFrames[gender][direction * 3 + phase % 3];
         const riderX = px + landDefault[direction * 2] + landOffsets[direction][0];
         const riderY = py + landDefault[direction * 2 + 1] + landOffsets[direction][1];
-        if (direction === 1) { paint(ctx, rider, riderX, riderY); paint(ctx, mount, px, py); }
-        else { paint(ctx, mount, px, py); paint(ctx, rider, riderX, riderY); }
+        if (direction === 1) { paintRider(ctx, rider, mount, riderX, riderY); paint(ctx, mount, px, py); }
+        else { paint(ctx, mount, px, py); paintRider(ctx, rider, mount, riderX, riderY); }
       } else {
         if (!surfFrames[direction] || !seatedFrames[gender]) return;
         const mount = surfFrames[direction][phase % 4], rider = seatedFrames[gender][direction];
         const riderX = px + surfOffsets[direction][0], riderY = py - 10 + surfOffsets[direction][1];
-        if (direction === 1) { paint(ctx, rider, riderX, riderY); paint(ctx, mount, px, py); }
-        else { paint(ctx, mount, px, py); paint(ctx, rider, riderX, riderY); }
+        if (direction === 1) { paintRider(ctx, rider, mount, riderX, riderY); paint(ctx, mount, px, py); }
+        else { paint(ctx, mount, px, py); paintRider(ctx, rider, mount, riderX, riderY); }
       }
     });
   }

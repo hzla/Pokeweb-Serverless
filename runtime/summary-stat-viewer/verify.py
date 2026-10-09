@@ -21,13 +21,15 @@ REGS=[UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3,
       UC_ARM_REG_R8,UC_ARM_REG_R9,UC_ARM_REG_R10,UC_ARM_REG_R11]
 STOP=0x2008000;STACK=0x23f0000;WORK=0x2200000;PARAM=0x2201000;POKE=0x2202000;SKILL=0x2209000
 
-def verify(game,od,ad,bw1=None):
+def verify(game,od,ad,bw1=None,extended=False):
+    # Exercise work/Pokémon pointers in DSi extended RAM independently of code.
+    WORK,PARAM,POKE,SKILL=[n+(0x800000 if extended else 0) for n in (0x2200000,0x2201000,0x2202000,0x2209000)]
     # BW1 supplies independently decoded entry points, including ARM mode.
     addr=lambda reference,ov=False: (bw1['addresses'][reference]&~1) if bw1 else reference-(od if ov else ad)
     thumb=lambda reference,ov=False: (True if ov else bool(bw1['addresses'][reference]&1)) if bw1 else True
     hooks=bw1['hooks'] if bw1 else [(label,site-od,target) for label,site,target in HOOKS]
     overlay_id=131 if bw1 else 207
-    uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map(0x2000000,0x400000)
+    uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map(0x2000000,0x1000000 if extended else 0x400000)
     src=HERE/f'build/SummaryStatViewer{game}.elf';linked=src.with_suffix('.linked.elf')
     subprocess.run([str(TOOLS/'arm-none-eabi-ld'),'-Ttext','0x2300000','-Tdata','0x2320000','-e','SummaryInit',str(src),'-o',str(linked)],check=True,capture_output=True)
     symbols={}
@@ -295,7 +297,7 @@ def verify(game,od,ad,bw1=None):
     assert uploads and all(len(x)==2304 for x in uploads)
     assert sounds
     verify_titles(rom,read,symbols,bool(bw1))
-    print(f'{game}: ABI, IV/EV values/navigation, retail sound/touch/conditional sequence code, restored Stats selection without frame resets, top-only queued uploads, ownership and failure cleanup passed')
+    print(f'{game} ({"extended RAM" if extended else "DS RAM"}): ABI, IV/EV values/navigation, retail sound/touch/conditional sequence code, restored Stats selection without frame resets, top-only queued uploads, ownership and failure cleanup passed')
 
 def verify_titles(rom,read,symbols,bw1=False):
     files=ndspy.narc.NARC(rom.getFileByName('a/0/7/8' if bw1 else 'a/0/7/7')).files

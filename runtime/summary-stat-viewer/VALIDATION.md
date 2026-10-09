@@ -1,10 +1,71 @@
 # Summary IV/EV Viewer validation
 
-Validation date: 2026-10-05. Version: 1.0.3.
+BW2 validation date: 2026-10-05. Version: 1.0.3.
 
-**Implementation and automated checks are complete. Live game acceptance
-remains pending the user's emulator testing.** No game emulator was run for
-these checks, and no large test-ROM artifact was written to disk.
+**BW2 implementation and automated checks are complete. BW2 live game
+acceptance remains pending.** No game emulator was run for the BW2 checks
+below, and their real-ROM exports were performed in memory.
+
+## BW1 port status (2026-10-08)
+
+Black 1 and White 1 US revision 0 candidates compile separately and pass the
+native harness. The harness executes retail ARM/Thumb helpers and Summary
+code, checks register/stack preservation,
+IV/EV controls and numeric ordering, exact native title pixels, allocation
+failures, and repeated cleanup. Supporting getters and upload APIs remain
+instrumented doubles; these results are distinct from gameplay acceptance.
+The BW1 harness repeats these checks with Summary work, parameters, Pokémon,
+and Stats objects in extended RAM. This checks pointer use by compiled code;
+it does not boot in DSi mode or exercise native DSi heap allocation.
+
+Installer tests cover both BW1 profiles, both acceptance flags, wrong
+revision, automatic PMC installation, recognized reinstalls, retained EV
+settings after export/reopen, duplicate and conflicting modules, changed
+code/resources, staged removal, rollback, and Battle Log companion overlap.
+Real-ROM validation exports exercise the normal installer with PMC absent
+in Black and present in White, then reopen and change settings in place.
+Native Summary overlays and graphics members, and source ROM hashes remain
+unchanged.
+
+DS-mode cold-boot checks with copied battery data have exercised normal
+Summary appearance, IV/EV values and title lettering, keyboard navigation,
+Pokémon switching, touch access, and exit/re-entry in both games. The
+corrected BW1 Battle Log runtime (version 7) also opens its counter display
+alongside the viewer. Version 7 removes an unresolved compiler-generated
+memory-copy import that previously stalled the Summary counter draw.
+
+**Both BW1 profiles passed the recorded DS release checks.** Separate copied-save fixtures also
+exercise Heat Rotom with distinct IVs and EVs up to 255 in both games. Direct
+Egg entry retains native Status-only navigation; switching from Stats/IVs/EVs
+skips Eggs. IV-only gameplay retains IVs, omits EVs, and returns to normal Stats
+in both games. Black's combined IV-only session also retains native HP-bar
+pixels and all party bytes.
+Combined builds also pass scoped normal Status/Stats/IV/EV and move-detail
+navigation with Battle Log and the other four patches installed. Native
+RELEARN uses its restricted move-selection Summary and replaces a move normally
+in both games. Boxed Mewtwo displays IVs in native stat order, matching the stored
+PK5 values; all 720 stored Pokémon remain byte-for-byte unchanged in both
+captured sessions. A separately seeded boxed Ribbon exercises native Ribbons,
+the four-tab footer, Left navigation, IV-tab touch and Pokémon switching in
+both games; all stored Pokémon remain unchanged after exit. Combined builds
+also return from KO learning, post-battle evolution and cold save reload to
+working Learnset and EV pages without changing the reloaded party. These
+observations are part of the BW1 DS matrix, alongside the further checks below.
+Six-member combined parties show Shedinja's native 1/1 HP with IVs and EVs.
+Six additional cold boots exercise yellow, red and empty HP bars in both
+games. Exact native bar pixels persist through Stats/IVs/EVs; all 1,320 party
+bytes and six checksums remain unchanged, with exit cleanup confirmed.
+Five additional complete Summary entry/exit cycles in each game retain all
+1,320 party bytes and leave work/actor/unit pointers cleared and all three
+character registrations released. Menu/viewer/Summary → wild battle → field →
+Learnset/IVs/EVs/party transitions work in the same native sessions. Post-battle
+menu browsing retains all six Pokémon records and their checksums; Summary
+exit again clears its working pointers and graphics registrations.
+The [BW1 release record](../BW1_UI_RELEASE.md) identifies the tested builds and
+separates DS gameplay evidence from compiled checks and pending BW2 acceptance.
+Live DSi acceptance is pending. Separately named validation ROMs and emulator
+captures are local output, not distributed acceptance artifacts. Original
+ROMs and user saves are preserved.
 
 ## Automated results
 
@@ -63,7 +124,7 @@ the harness. A static decoded comparison was inspected with the supplied
 state's BG palette; this is an asset comparison, not an emulator capture of
 the new version. The state was read only.
 
-### What these results do not prove
+### What the BW2 isolated results do not prove
 
 The native harness executes the compiled Thumb wrappers, retail sound wrapper,
 touch rectangle scanner, conditional sequence setter, numeric drawing, and

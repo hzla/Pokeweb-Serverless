@@ -512,10 +512,11 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
     riding.checked = (state.variant ?? "full") === "full";
     riding.disabled = !state.removed;
     ridingStatus.textContent = state.removed ? "Choose the package to reinstall." : riding.checked ? "Riding and custom Surf installed. Remove and reinstall to change." : "Grounded followers installed. Remove and reinstall to change.";
+    if (state.externalRuntime) ridingStatus.textContent = "External runtime. Dialogue, gifts and positioning are editable; installation is managed outside Pokeweb.";
     const importedArtwork = state.profile === "stock" && !!rom && followerArtworkPending(project, rom);
-    install.disabled = state.version === runtimeVersion && !state.removed && !importedArtwork;
-    install.textContent = state.removed ? "Reinstall follower alpha" : importedArtwork && state.version === runtimeVersion ? "Apply follower artwork" : install.disabled ? `Installed ${state.version}` : `Update ${state.version} to ${runtimeVersion}`;
-    toggle.hidden = !!state.removed; remove.hidden = !!state.removed; toggle.textContent = enabled ? "Disable following" : "Enable following";
+    install.disabled = !!state.externalRuntime || (state.version === runtimeVersion && !state.removed && !importedArtwork);
+    install.textContent = state.externalRuntime ? `External: ${state.externalRuntime.label}` : state.removed ? "Reinstall follower alpha" : importedArtwork && state.version === runtimeVersion ? "Apply follower artwork" : install.disabled ? `Installed ${state.version}` : `Update ${state.version} to ${runtimeVersion}`;
+    toggle.hidden = !!state.removed || !!state.externalRuntime; remove.hidden = !!state.removed || !!state.externalRuntime; toggle.textContent = enabled ? "Disable following" : "Enable following";
     loadRuntimePreviewWorkspace();
     await renderDialogues(); await renderItems();
     return true;
@@ -560,11 +561,11 @@ export function renderFollowingPokemonEditor(project: ProjectState, root: HTMLEl
       if (workspace) renderAssets();
       const report = await checkFollowerCompatibility(project, rom);
       if (!panel.isConnected) return;
-      if (!report.compatible) {
+      if (!report.compatible && !report.installation?.externalRuntime) {
         const failed = report.checks.filter(check => !check.passed).slice(0, 3).map(check => check.name);
         error.textContent = `${report.message}${failed.length ? ` Failed: ${failed.join(", ")}.` : ""}`;
       }
-      prepare.disabled = !!workspace || !report.compatible;
+      prepare.disabled = !!workspace || (!report.compatible && !report.installation?.externalRuntime);
       if (!await refreshRuntime(report.installation)) { install.disabled = !report.compatible; await renderDialogues(); await renderItems(); }
       else if (workspace) renderAssets();
     } catch (reason) { fail(reason); }

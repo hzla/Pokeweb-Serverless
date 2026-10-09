@@ -4,6 +4,16 @@
 
 The manifest covers stock Black 2 and White 2, Italian White 2, White2Upgrade, and separate Black/White profiles where those patches exist. Following Pokémon has four separate runtime packages. Italian PMC uses the audited Pokeweb retargeting script; its bundled RPM is inventoried separately. The monolithic Black2Upgrade DLL is outside this source snapshot.
 
+The five BW1 Graphical/UI patches have a separate DS acceptance ledger and
+build guard in `runtime/`. Their provenance includes the tested-profile and
+artifact hashes, verifier and release evidence. Live DSi acceptance remains
+pending; the source inventory itself does not establish gameplay acceptance.
+
+The shared mode-aware RAM helper and its tests originate in the BW2 integration
+checkout recorded as `w2u-integration`. `W2U_INTEGRATION_ROOT` can select that
+checkout; `W2U_RUNTIME_ROOT` selects the separate runtime checkout. Their source
+origins remain distinct even where a header has identical contents.
+
 Original source for Main Menu Skip and the B2/W2 Single-NPC Double Battle Fix modules was not found. Their recorded supporting files are not substitutes for original implementation source. The new Black 1 double-battle fix has its own canonical source in `runtime/double-battle-fix`; it does not establish reproducibility of the historical B2/W2 binaries. The PMC license is retained at `pmc/LICENSE`. The trainer-sprite source note at `pwan-trainer/README.md` is a canonical provenance input. External SDKs, toolchains, full symbol databases, ROMs, saves, and emulator captures are excluded.
 
 Tracked copies of canonical source were removed from this directory to avoid a second, stale source tree. Git history retains earlier snapshots. A source bundle can be materialized on demand **outside** this repository:

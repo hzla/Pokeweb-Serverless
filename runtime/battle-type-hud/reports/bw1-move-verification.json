@@ -1,0 +1,78 @@
+{
+  "checks": [
+    {
+      "game": "B",
+      "extendedRam": false,
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false,
+      "dllSha256": "f3d3d00679078d8846905da9ff30e2a43d88f2db7fe025c37878dfad31d3765c",
+      "checks": [
+        "singles/rotation: native type chart, status moves default, PP untouched, unchanged frames have zero bitmap flushes or move-data queries",
+        "fixed damage does not acquire a false super-effective color",
+        "Hidden Power uses native IV type once per drawing; effective Normalize changes move type; Struggle and unsupported item/weather moves stay neutral",
+        "doubles/triples: default move buttons, exact glyph transfer, current enemy from key-table mapping, ally/spread default, cancellation clears label",
+        "five additional call-site wrappers preserve original calls, return value, callee-saved registers and fifth/sixth stack arguments",
+        "red: type immunities, Scrappy/Foresight/Miracle Eye, Levitate/Air Balloon/Magnet Rise/Telekinesis, grounding and Iron Ball dual-type order; active item suppression; absorption, Soundproof, Wonder Guard, Sturdy OHKO and ability bypass/suppression, with real native state readers",
+        "live immunity removal retints red to default without move-data reloads or client-state mutations",
+        "red target/ally transitions in doubles/triples; customized six-byte color table loads and fades correctly, and all three native palette entries restore"
+      ]
+    },
+    {
+      "game": "B",
+      "extendedRam": true,
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false,
+      "dllSha256": "f3d3d00679078d8846905da9ff30e2a43d88f2db7fe025c37878dfad31d3765c",
+      "checks": [
+        "singles/rotation: native type chart, status moves default, PP untouched, unchanged frames have zero bitmap flushes or move-data queries",
+        "fixed damage does not acquire a false super-effective color",
+        "Hidden Power uses native IV type once per drawing; effective Normalize changes move type; Struggle and unsupported item/weather moves stay neutral",
+        "doubles/triples: default move buttons, exact glyph transfer, current enemy from key-table mapping, ally/spread default, cancellation clears label",
+        "five additional call-site wrappers preserve original calls, return value, callee-saved registers and fifth/sixth stack arguments",
+        "red: type immunities, Scrappy/Foresight/Miracle Eye, Levitate/Air Balloon/Magnet Rise/Telekinesis, grounding and Iron Ball dual-type order; active item suppression; absorption, Soundproof, Wonder Guard, Sturdy OHKO and ability bypass/suppression, with real native state readers",
+        "live immunity removal retints red to default without move-data reloads or client-state mutations",
+        "red target/ally transitions in doubles/triples; customized six-byte color table loads and fades correctly, and all three native palette entries restore"
+      ]
+    },
+    {
+      "game": "W",
+      "extendedRam": false,
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false,
+      "dllSha256": "f021d83f005b920190446d04bf97cb6cbfb5a5a9b4af5b2cb8a0fe5449a83a5f",
+      "checks": [
+        "singles/rotation: native type chart, status moves default, PP untouched, unchanged frames have zero bitmap flushes or move-data queries",
+        "fixed damage does not acquire a false super-effective color",
+        "Hidden Power uses native IV type once per drawing; effective Normalize changes move type; Struggle and unsupported item/weather moves stay neutral",
+        "doubles/triples: default move buttons, exact glyph transfer, current enemy from key-table mapping, ally/spread default, cancellation clears label",
+        "five additional call-site wrappers preserve original calls, return value, callee-saved registers and fifth/sixth stack arguments",
+        "red: type immunities, Scrappy/Foresight/Miracle Eye, Levitate/Air Balloon/Magnet Rise/Telekinesis, grounding and Iron Ball dual-type order; active item suppression; absorption, Soundproof, Wonder Guard, Sturdy OHKO and ability bypass/suppression, with real native state readers",
+        "live immunity removal retints red to default without move-data reloads or client-state mutations",
+        "red target/ally transitions in doubles/triples; customized six-byte color table loads and fades correctly, and all three native palette entries restore"
+      ]
+    },
+    {
+      "game": "W",
+      "extendedRam": true,
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false,
+      "dllSha256": "f021d83f005b920190446d04bf97cb6cbfb5a5a9b4af5b2cb8a0fe5449a83a5f",
+      "checks": [
+        "singles/rotation: native type chart, status moves default, PP untouched, unchanged frames have zero bitmap flushes or move-data queries",
+        "fixed damage does not acquire a false super-effective color",
+        "Hidden Power uses native IV type once per drawing; effective Normalize changes move type; Struggle and unsupported item/weather moves stay neutral",
+        "doubles/triples: default move buttons, exact glyph transfer, current enemy from key-table mapping, ally/spread default, cancellation clears label",
+        "five additional call-site wrappers preserve original calls, return value, callee-saved registers and fifth/sixth stack arguments",
+        "red: type immunities, Scrappy/Foresight/Miracle Eye, Levitate/Air Balloon/Magnet Rise/Telekinesis, grounding and Iron Ball dual-type order; active item suppression; absorption, Soundproof, Wonder Guard, Sturdy OHKO and ability bypass/suppression, with real native state readers",
+        "live immunity removal retints red to default without move-data reloads or client-state mutations",
+        "red target/ally transitions in doubles/triples; customized six-byte color table loads and fades correctly, and all three native palette entries restore"
+      ]
+    }
+  ],
+  "writableStateBytes": 28,
+  "fixtureLimitations": "Execute BW1 move-preview candidates with retail mechanics/state readers.\n\nDrawing, view-to-battler mapping, cached move records and Hidden Power inputs\nare instrumented ABI fixtures. Native type chart, current types, conditions,\nability/item/field readers and the mode getter execute unchanged. This is\ncompiled coverage of DS/extended-RAM fixtures, not live DSi acceptance."
+}

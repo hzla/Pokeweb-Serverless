@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import manifest from "../assets/codeinjection/battleTypeHudManifest.json";
 import { writeU32 } from "../nds/binary";
 import { Folder } from "../nds/fnt";
@@ -17,10 +17,15 @@ vi.mock("../assets/codeinjection/battleTypeHudManifest.json", async (original) =
   const copy = structuredClone(value.default);
   // Small synthetic resource, so tests exercise hash rejection without a ROM.
   const { createHash } = await import("node:crypto");
-  for (const game of Object.values(copy.games)) game.resources = { "430": createHash("sha256").update("PLTT").digest("hex") } as typeof game.resources;
+  for (const [name, game] of Object.entries(copy.games)) if (name.endsWith("2")) game.resources = { "430": createHash("sha256").update("PLTT").digest("hex") } as typeof game.resources;
   return { default: copy };
 });
-afterEach(() => vi.unstubAllGlobals());
+const acceptance = { B: manifest.games.B.dsAccepted, W: manifest.games.W.dsAccepted };
+const moveAcceptance = { B: manifest.moveGames.B.dsAccepted, W: manifest.moveGames.W.dsAccepted };
+afterEach(() => {
+  vi.unstubAllGlobals(); manifest.games.B.dsAccepted = acceptance.B; manifest.games.W.dsAccepted = acceptance.W;
+  manifest.moveGames.B.dsAccepted = moveAcceptance.B; manifest.moveGames.W.dsAccepted = moveAcceptance.W;
+});
 const variantSuffix: Record<TypeIconVariant, string> = { letters: "", circular: "Circular", solid: "Solid" };
 const dll = (v: string, variant: TypeIconVariant = "letters") => new Uint8Array(readFileSync(new URL(
   `../assets/codeinjection/TypeIcons${variantSuffix[variant]}${v}.dll`, import.meta.url)));
@@ -250,24 +255,170 @@ describe("Battle HUD bundled installer", () => {
     expect(getBattleTypeHudStatus(imported)).toMatchObject({ installed: true, updateAvailable: false });
   });
 });
-function project(v: "B2" | "W2", bytes?: Uint8Array): ProjectState {
+describe.each(["B", "W"] as const)("BW1 Type Icons candidate %s", { timeout: 20000 }, v => {
+  beforeEach(() => { manifest.games.B.dsAccepted = manifest.games.W.dsAccepted = true; });
+  it("requires acceptance in both games and rejects later revisions", async () => {
+    const p = project(v); assets();
+    expect(acceptance).toEqual({ B: true, W: true });
+    const moveSupported = getMoveEffectivenessStatus(project(v)).supported;
+    for (const [b, w] of [[false, false], [true, false], [false, true]]) {
+      manifest.games.B.dsAccepted = b; manifest.games.W.dsAccepted = w;
+      const before = structuredClone(p);
+      await expect(installBattleTypeHud(p)).rejects.toThrow(/awaiting DS gameplay/u);
+      expect(p).toEqual(before);
+    }
+    manifest.games.B.dsAccepted = manifest.games.W.dsAccepted = true;
+    p.originalRomBytes![0x1e] = 1;
+    await expect(installBattleTypeHud(p)).rejects.toThrow(/revision 0/u);
+    expect(getMoveEffectivenessStatus(project(v)).supported).toBe(moveSupported);
+  });
+  it.each(["letters", "circular", "solid"] as const)("installs %s with native BW1 resources and preserves it after reopening", async variant => {
+    const p = project(v); assets(); const original = new NintendoDSRom(p.originalRomBytes!);
+    await installBattleTypeHud(p, variant);
+    expect(getBattleTypeHudStatus(p)).toMatchObject({ installed: true, compatible: true, iconVariant: variant, canUninstall: true });
+    const exported = new NintendoDSRom(await exportModifiedRom(p)), id = exported.fileId(`patches/TypeIcons${v}.dll`);
+    const oldGraphics = new NARC(original.getFileByName("a/0/1/1")), graphics = new NARC(exported.getFileByName("a/0/1/1"));
+    const changed = oldGraphics.files.flatMap((file, n) => Buffer.from(file).equals(Buffer.from(graphics.files[n])) ? [] : [n]);
+    expect(changed).toEqual([165, 166, 168, 169, 171, 172, 174, 175]);
+    expect(exported.loadArm9Overlays([94]).get(94)!.data).toEqual(original.loadArm9Overlays([94]).get(94)!.data);
+    const reopened = project(v, exported.data);
+    expect(getBattleTypeHudStatus(reopened)).toMatchObject({ installed: true, compatible: true, iconVariant: variant, canUninstall: false });
+    await installBattleTypeHud(reopened, variant);
+    expect(reopened.fileSystem?.replacements[id]).toEqual(dll(v, variant));
+    expect(reopened.fileSystem?.additions?.[`patches/TypeIcons${v}.dll`]).toBeUndefined();
+    uninstallBattleTypeHud(p);
+    const removed = new NintendoDSRom(await exportModifiedRom(p));
+    expect(new NARC(removed.getFileByName("a/0/1/1")).files).toEqual(oldGraphics.files);
+  });
+  it("switches styles in place, recognizes renamed copies and rejects duplicates or overlaps", async () => {
+    const p = project(v); assets(); await installBattleTypeHud(p, "circular");
+    await installBattleTypeHud(p, "solid"); await installBattleTypeHud(p, "letters");
+    expect(Object.keys(p.fileSystem!.additions!).filter(path => path.endsWith(".dll"))).toEqual([`patches/TypeIcons${v}.dll`]);
+    uninstallBattleTypeHud(p); stageCodeInjectionDll(p, "Mine.dll", dll(v, "solid"));
+    expect((await installBattleTypeHud(p, "solid")).path).toBe("patches/Mine.dll");
+    stageCodeInjectionDll(p, "Copy.dll", dll(v));
+    await expect(installBattleTypeHud(p)).rejects.toThrow(/Multiple/u);
+    const q = project(v), rpm = parseRpm(dll(v), { allowedMagics: ["DLXF"] });
+    await installBattleTypeHud(q); uninstallBattleTypeHud(q);
+    rpm.code[0] ^= 1; stageCodeInjectionDll(q, "Foreign.dll", writeRpm(rpm, { ident: "DLXF" }));
+    await expect(installBattleTypeHud(q)).rejects.toThrow(/Foreign.dll/u);
+  });
+  it("rolls back failed PMC installation, altered hooks/resources and failed downloads", async () => {
+    const p = project(v), original = structuredClone(p);
+    assets(); vi.stubGlobal("fetch", vi.fn(async (url: URL) => {
+      if (url.pathname.includes("PMC_")) throw new Error("PMC failed");
+      return new Response(new Uint8Array(readFileSync(url)));
+    }));
+    await expect(installBattleTypeHud(p)).rejects.toThrow(/PMC failed/u); expect(p).toEqual(original);
+    assets(); const rom = new NintendoDSRom(p.originalRomBytes!);
+    rom.arm9OverlayTable = rom.arm9OverlayTable.slice(0, 236 * 32); p.originalRomBytes = rom.save();
+    const before = structuredClone(p);
+    await expect(installBattleTypeHud(p)).rejects.toThrow(/overlay 237/u); expect(p).toEqual(before);
+    const q = project(v), r = new NintendoDSRom(q.originalRomBytes!), ov = r.loadArm9Overlays([94]).get(94)!;
+    q.overlays[94] = ov.data.slice(); q.overlays[94]![manifest.games[v].hooks[0].address - ov.ramAddress] ^= 1;
+    await expect(installBattleTypeHud(q)).rejects.toThrow(/compatibility failed/u);
+    const damaged = project(v), archive = new NARC(r.getFileByName("a/0/1/1")); archive.files[168][80] ^= 1;
+    damaged.fileSystem = { replacements: { [r.fileId("a/0/1/1")]: archive.save() } };
+    const untouched = structuredClone(damaged);
+    await expect(installBattleTypeHud(damaged)).rejects.toThrow(/member 168/u); expect(damaged).toEqual(untouched);
+  });
+});
+describe.each(["B", "W"] as const)("BW1 Move Effectiveness candidate %s", { timeout: 20000 }, v => {
+  beforeEach(() => { manifest.moveGames.B.dsAccepted = manifest.moveGames.W.dsAccepted = true; assets(); });
+  it("requires DS acceptance in both games without affecting icon availability", async () => {
+    expect(moveAcceptance).toEqual({ B: true, W: true });
+    const p = project(v), before = structuredClone(p);
+    const iconsSupported = getBattleTypeHudStatus(p).supported;
+    for (const [b, w] of [[false, false], [true, false], [false, true]]) {
+      manifest.moveGames.B.dsAccepted = b; manifest.moveGames.W.dsAccepted = w;
+      await expect(installMoveEffectiveness(p)).rejects.toThrow(/awaiting DS gameplay/u);
+      expect(p).toEqual(before);
+    }
+    expect(getBattleTypeHudStatus(p).supported).toBe(iconsSupported);
+  });
+  it("installs independently, preserves customized colors on reopen/reinstall and leaves native graphics intact", async () => {
+    const p = project(v), original = new NintendoDSRom(p.originalRomBytes!);
+    const colors = { superEffective: "#00ff00", notVeryEffective: "#0000ff", immune: "#ff00ff" };
+    await installMoveEffectiveness(p, colors);
+    expect(getPmcInstallStatus(p).installed).toBe(true);
+    expect(getMoveEffectivenessStatus(p)).toMatchObject({ compatible: true, installed: true, colors, canUninstall: true });
+    const exported = new NintendoDSRom(await exportModifiedRom(p)), path = `patches/MoveEffectiveness${v}.dll`;
+    const configured = exported.getFileByName(path), reopened = project(v, exported.data);
+    expect(new NARC(exported.getFileByName("a/0/1/1")).files).toEqual(new NARC(original.getFileByName("a/0/1/1")).files);
+    expect(getMoveEffectivenessStatus(reopened)).toMatchObject({ installed: true, compatible: true, colors, canUninstall: false });
+    await installMoveEffectiveness(reopened);
+    expect(reopened.fileSystem?.replacements[exported.fileId(path)]).toEqual(configured);
+    expect(reopened.fileSystem?.additions?.[path]).toBeUndefined();
+    expect(getMoveEffectivenessStatus(reopened).colors).toEqual(colors);
+    uninstallMoveEffectiveness(p);
+    expect(getMoveEffectivenessStatus(p)).toMatchObject({ installed: false, pmcInstalled: true });
+  });
+  it.each(["letters", "circular", "solid"] as const)("coexists with %s icons in either installation order", async variant => {
+    manifest.games.B.dsAccepted = manifest.games.W.dsAccepted = true;
+    for (const movesFirst of [false, true]) {
+      const p = project(v);
+      if (movesFirst) await installMoveEffectiveness(p);
+      await installBattleTypeHud(p, variant);
+      if (!movesFirst) await installMoveEffectiveness(p);
+      expect(getBattleTypeHudStatus(p)).toMatchObject({ compatible: true, installed: true, iconVariant: variant });
+      expect(getMoveEffectivenessStatus(p)).toMatchObject({ compatible: true, installed: true });
+      uninstallBattleTypeHud(p);
+      expect(getMoveEffectivenessStatus(p)).toMatchObject({ compatible: true, installed: true });
+      uninstallMoveEffectiveness(p);
+    }
+  });
+  it("rejects modified readers, foreign or duplicate hooks, invalid settings and failures atomically", async () => {
+    const p = project(v), original = structuredClone(p);
+    vi.stubGlobal("fetch", vi.fn(async (url: URL) => {
+      if (url.pathname.includes("PMC_")) throw new Error("PMC failed");
+      return new Response(new Uint8Array(readFileSync(url)));
+    }));
+    await expect(installMoveEffectiveness(p)).rejects.toThrow(/PMC failed/u); expect(p).toEqual(original);
+    assets();
+    await expect(installMoveEffectiveness(p, { ...DEFAULT_MOVE_HIGHLIGHT_COLORS, immune: "red" })).rejects.toThrow(/valid/u);
+    expect(p).toEqual(original);
+    const sig = manifest.moveGames[v].signatures.find(s => s.name === "IsDsi")!;
+    p.arm9[sig.address - new NintendoDSRom(p.originalRomBytes!).arm9RamAddress] ^= 1;
+    await expect(installMoveEffectiveness(p)).rejects.toThrow(/IsDsi/u);
+    const q = project(v); await installMoveEffectiveness(q);
+    const data = new Uint8Array(readFileSync(new URL(`../assets/codeinjection/MoveEffectiveness${v}.dll`, import.meta.url)));
+    stageCodeInjectionDll(q, "Copy.dll", data);
+    await expect(installMoveEffectiveness(q)).rejects.toThrow(/Multiple/u);
+    const r = project(v); await installMoveEffectiveness(r); uninstallMoveEffectiveness(r);
+    const rpm = parseRpm(data, { allowedMagics: ["DLXF"] }); rpm.code[0] ^= 1;
+    stageCodeInjectionDll(r, "Other.dll", writeRpm(rpm, { ident: "DLXF" }));
+    await expect(installMoveEffectiveness(r)).rejects.toThrow(/Other.dll/u);
+  });
+});
+function project(v: "B" | "W" | "B2" | "W2", bytes?: Uint8Array): ProjectState {
   const profile = manifest.games[v];
+  const bw1 = v === "B" || v === "W";
   if (!bytes) {
     const rom = new NintendoDSRom(new Uint8Array(0x200)); rom.data.set(new TextEncoder().encode(profile.rom_code), 12);
     rom.arm9 = new Uint8Array(0xa0000); rom.arm9RamAddress = 0x02000000; writeU32(rom.data, 0x28, rom.arm9RamAddress); rom.arm7 = new Uint8Array(4);
-    rom.arm9OverlayTable = new Uint8Array(344 * 32); rom.files = Array.from({ length: 345 }, () => new Uint8Array(4));
-    const archive = new NARC(); archive.files = Array.from({ length: 431 }, () => new Uint8Array([0])); archive.files[430] = new TextEncoder().encode("PLTT"); rom.files[344] = archive.save();
+    rom.arm9OverlayTable = new Uint8Array((bw1 ? 237 : 344) * 32); rom.files = Array.from({ length: 345 }, () => new Uint8Array(4));
+    const archive = new NARC(); archive.files = Array.from({ length: 431 }, () => new Uint8Array([0])); archive.files[430] = new TextEncoder().encode("PLTT"); rom.files[344] = bw1
+      ? new Uint8Array(readFileSync(new URL("./fixtures/battle-type-hud/bw1-graphics.narc", import.meta.url))) : archive.save();
     rom.filenames = new Folder({ folders: [["a", new Folder({ folders: [["0", new Folder({ folders: [["1", new Folder({ files: ["1"], firstId: 344 })]] })]] })]] });
-    for (let id = 0; id < 344; id++) { writeU32(rom.arm9OverlayTable, id * 32, id); writeU32(rom.arm9OverlayTable, id * 32 + 24, id); }
-    for (const id of [167, 168]) { rom.files[id] = new Uint8Array(0x40000); writeU32(rom.arm9OverlayTable, id * 32 + 4, id === 168 ? profile.overlay_base : 0x02199000); writeU32(rom.arm9OverlayTable, id * 32 + 8, 0x40000); }
-    for (const s of [...profile.signatures, ...manifest.moveGames[v].signatures, ...profile.hooks.map(h => ({ ...h, segment: 168 })), ...manifest.moveGames[v].hooks.map(h => ({ ...h, segment: 168 }))]) {
-      const base = s.segment === 0 ? 0x02000000 : s.segment === 168 ? profile.overlay_base : 0x02199000;
+    for (let id = 0; id < (bw1 ? 237 : 344); id++) { writeU32(rom.arm9OverlayTable, id * 32, id); writeU32(rom.arm9OverlayTable, id * 32 + 24, id); }
+    const overlay = bw1 ? 94 : 168, logic = bw1 ? 93 : 167, logicBase = bw1 ? 0x021b0000 : 0x02199000;
+    for (const id of [logic, overlay]) { rom.files[id] = new Uint8Array(0x40000); writeU32(rom.arm9OverlayTable, id * 32 + 4, id === overlay ? profile.overlay_base : logicBase); writeU32(rom.arm9OverlayTable, id * 32 + 8, 0x40000); }
+    const moves = manifest.moveGames[v];
+    for (const s of [...profile.signatures, ...(moves?.signatures ?? []), ...profile.hooks.map(h => ({ ...h, segment: overlay })), ...(moves?.hooks.map(h => ({ ...h, segment: overlay })) ?? [])]) {
+      const base = s.segment === 0 ? 0x02000000 : s.segment === overlay ? profile.overlay_base : logicBase;
       (s.segment === 0 ? rom.arm9 : rom.files[s.segment]!).set(Buffer.from(s.bytes, "hex"), s.address - base);
+    }
+    if (bw1) {
+      const delta = v === "B" ? -0x18 : 0;
+      for (const [address, value] of [[0x0200512a, "00f097f9"], [0x02034b94 + delta, "b81101eb"],
+        [0x02034a68 + delta, "181201eb"], [0x02078ec0 + delta, "ed000000"]] as const)
+        rom.arm9.set(Buffer.from(value, "hex"), address - rom.arm9RamAddress);
+      rom.arm9[0x02078d8f + delta - rom.arm9RamAddress] = 0x0a;
     }
     bytes = rom.save({ filenames: rom.filenames });
   }
   const rom = new NintendoDSRom(bytes);
-  return { originalRomBytes: bytes, session: { romName: "fixture", baseRom: "BW2", baseVersion: v, fairy: false, fileIds: {}, blacklist: [] },
+  return { originalRomBytes: bytes, session: { romName: "fixture", baseRom: bw1 ? "BW" : "BW2", baseVersion: v, fairy: false, fileIds: {}, blacklist: [] },
     romInfo: { idCode: rom.idCode, title: "fixture", fileName: "fixture.nds", size: bytes.length }, arm9: rom.arm9,
     overlays: {}, narcs: {}, texts: { banks: {} }, formats: {}, trpokInfo: [], codeInjection: detectPmcInstallFromRom(rom) };
 }

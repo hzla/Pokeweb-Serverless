@@ -1,5 +1,5 @@
-// Read-only BW2 client-state evaluation. Never call server event handlers.
-// Native addresses/condition layouts are checked independently for IREO/IRDO.
+// Read-only native client-state evaluation. Never call server event handlers.
+// BW1 and BW2 addresses and condition layouts have independent retail profiles.
 namespace {
 unsigned abilityOf(void* mon) {
     return ram(mon)?reinterpret_cast<unsigned(*)(void*,unsigned)>(NativeBattleStat)(mon,17):0;
@@ -8,9 +8,9 @@ bool sick(void* mon,unsigned id) {
     return reinterpret_cast<unsigned(*)(void*,unsigned)>(NativeCheckSick)(mon,id)!=0;
 }
 void* moveAttacker(void* biw) {
-    if(field<u32>(biw,0x50)==3) {
-        const unsigned slot=(field<u32>(biw,0x68)>>19)&3;
-        return slot<3?field<void*>(biw,0x330+slot*4):nullptr;
+    if(field<u32>(biw,MoveRule)==3) {
+        const unsigned slot=(field<u32>(biw,MoveState)>>19)&3;
+        return slot<3?field<void*>(biw,MoveRotationMons+slot*4):nullptr;
     }
     return moveTarget(gBattleMoveHud.selectedSlot>>2);
 }
@@ -49,7 +49,7 @@ int moveAffinity(void* biw,unsigned move,unsigned attr,void* target,u16 pair) {
     int b=(pair>>8)==(pair&255)?0:affinityPart(type,pair&255,reveal,atkAbility==113,type==4&&(gravity||rooted||smacked));
     int aff=(a==-8||b==-8)?-8:a+b;
     if(type==4) {
-        // Retail BW2: Iron Ball resolves a remaining Flying type immunity to
+        // Retail Gen V: Iron Ball resolves a remaining Flying type immunity to
         // neutral overall. Gravity/Ingrain/Smack Down flatten it per type first.
         if(aff==-8&&grounded) aff=0;
         if(!grounded&&(defense==26||(itemActive&&item==541)||sick(target,30)||sick(target,32))) return -8;

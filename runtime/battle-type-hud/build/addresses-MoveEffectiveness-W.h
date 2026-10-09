@@ -1,0 +1,35 @@
+// Generated from independently checked retail BW1 native entries.
+#pragma once
+constexpr unsigned NativeIsDsi = 0x02085d54;
+constexpr unsigned NativePPGet = 0x02017e39;
+constexpr unsigned NativeViewSrc = 0x021d5885;
+constexpr unsigned NativeEffectiveTypes = 0x021d581d;
+constexpr unsigned NativeEffectiveTypesBody = 0x021d57c9;
+constexpr unsigned NativeCheckSick = 0x021d62e5;
+constexpr unsigned NativeMoveDraw = 0x02204ce1;
+constexpr unsigned NativeMoveClear = 0x022056d5;
+constexpr unsigned NativeMoveKey = 0x02206161;
+constexpr unsigned NativeCreateScreen = 0x0220272d;
+constexpr unsigned NativeGetMainModule = 0x021f8775;
+constexpr unsigned NativeViewToBattle = 0x021b8ef9;
+constexpr unsigned NativeFrontBattler = 0x021b98cd;
+constexpr unsigned NativeTypeAffinity = 0x021d79bd;
+constexpr unsigned NativeMoveParam = 0x0201bd45;
+constexpr unsigned NativeMoveFlag = 0x0201bed5;
+constexpr unsigned NativeHiddenPower = 0x020187ad;
+constexpr unsigned NativeFlushBitmap = 0x0204534c;
+constexpr unsigned NativeBattleStat = 0x021d59d5;
+constexpr unsigned NativeSickCont = 0x021d6335;
+constexpr unsigned NativeHeldItem = 0x021d5b61;
+constexpr unsigned NativeFieldSim = 0x021ba0ad;
+constexpr unsigned NativeFieldEffect = 0x021efd05;
+constexpr unsigned MoveRule = 0x50;
+constexpr unsigned MoveScreen = 0x58;
+constexpr unsigned MoveState = 0x68;
+constexpr unsigned MovePfd = 0x64;
+constexpr unsigned MoveWindow = 0x228;
+constexpr unsigned MoveBitmap = 0x22c;
+constexpr unsigned MoveSelectedActive = 0x27c;
+constexpr unsigned MoveSelectedSlots = 0x244;
+constexpr unsigned MoveMoveArray = 0x26c;
+constexpr unsigned MoveRotationMons = 0x2a4;

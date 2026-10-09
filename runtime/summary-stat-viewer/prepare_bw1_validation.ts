@@ -2,22 +2,21 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { readU32, writeU32 } from "../../src/nds/binary";
 import { loadOverlayTable } from "../../src/nds/code";
 import { decompressCode } from "../../src/nds/codeCompression";
 import { NARC } from "../../src/nds/narc";
 import { NintendoDSRom } from "../../src/nds/rom";
 import { exportModifiedRom } from "../../src/pokeweb/exportRom";
 import { loadProjectFromRomBytes } from "../../src/pokeweb/loader";
-import { adoptExistingPmcInstall, getPmcInstallStatus, installPmcBytes, loadBundledPmcBytes,
-  stageCodeInjectionDll } from "../../src/pokeweb/pmcModel";
-import { parseRpm, writeRpm } from "../../src/pokeweb/rpm";
+import shippedManifest from "../../src/assets/codeinjection/summaryStatViewerManifest.json";
+import { getSummaryStatViewerStatus, installSummaryStatViewer } from "../../src/pokeweb/summaryStatViewerModel";
+import { parseRpm } from "../../src/pokeweb/rpm";
 
-// This command prepares separately named test ROMs. It neither bundles these
-// candidates nor changes normal installer availability or gameplay acceptance.
-const [inputPath, outputPath] = process.argv.slice(2);
-if (!inputPath || !outputPath || resolve(inputPath) === resolve(outputPath)) {
-  throw new Error("Usage: vite-node runtime/summary-stat-viewer/prepare_bw1_validation.ts INPUT.nds NEW-OUTPUT.nds");
+// Exercise the normal installer on separately named validation ROMs. The
+// temporary acceptance override exists only in this process, never on disk.
+const [inputPath, outputPath, option] = process.argv.slice(2);
+if (!inputPath || !outputPath || resolve(inputPath) === resolve(outputPath) || (option && option !== "--iv-only")) {
+  throw new Error("Usage: vite-node runtime/summary-stat-viewer/prepare_bw1_validation.ts INPUT.nds NEW-OUTPUT.nds [--iv-only]");
 }
 const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const bytes = new Uint8Array(await readFile(inputPath)), sourceHash = digest(bytes);
@@ -26,7 +25,8 @@ const game = rom.idCode === "IRBO" ? "B" : rom.idCode === "IRAO" ? "W" : undefin
 assert(game && rom.data[0x1e] === 0, "Only US BW1 revision 0 is a candidate target.");
 const manifest = JSON.parse(await readFile(new URL("./build/bw1-candidates.json", import.meta.url), "utf8"));
 const profile = manifest.games[game];
-assert(profile && !profile.dsAccepted, "Expected an unreleased BW1 candidate profile.");
+assert(profile, "Expected a BW1 profile.");
+assert.deepEqual(shippedManifest.games[game], profile, "Rebuild and bundle matching candidate profiles before validation.");
 const overlay = loadOverlayTable(rom.arm9OverlayTable, (_id, fileId) => rom.files[fileId], new Set([profile.overlayId])).get(profile.overlayId)!;
 const arm9 = decompressCode(rom.arm9);
 for (const signature of profile.signatures) {
@@ -43,21 +43,39 @@ assert.equal(digest(dll), profile.sha256);
 const rpm = parseRpm(dll, { allowedMagics: ["DLXF"] });
 assert.equal(rpm.metadata.PMCGameID, game);
 assert.equal(rpm.metadata.PMCVersion, manifest.version);
-const config = Buffer.from(rpm.code).indexOf("SSVCFG1\0");
-assert(config >= 0 && readU32(rpm.code, config + 12) === 1);
-writeU32(rpm.code, config + 12, 1); writeU32(rpm.code, config + 16, 0x53535630);
 const project = await loadProjectFromRomBytes(bytes, basename(inputPath), { selectedNarcs: [] });
-adoptExistingPmcInstall(project, bytes);
+assert.equal(getSummaryStatViewerStatus(project).supported, shippedManifest.games.B.dsAccepted && shippedManifest.games.W.dsAccepted);
+const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input) => {
   const name = basename(new URL(String(input), "https://pokeweb.invalid").pathname);
   return new Response(new Uint8Array(await readFile(new URL(`../../src/assets/codeinjection/${name}`, import.meta.url))));
 };
-if (!getPmcInstallStatus(project).installed) installPmcBytes(project, await loadBundledPmcBytes(game), bytes);
-stageCodeInjectionDll(project, profile.fileName, writeRpm(rpm, { ident: "DLXF" }), "patches", bytes);
-const exported = await exportModifiedRom(project), result = new NintendoDSRom(exported, { fileData: "view" });
+const savedAcceptance = { B: shippedManifest.games.B.dsAccepted, W: shippedManifest.games.W.dsAccepted };
+let exported: Uint8Array;
+try {
+  shippedManifest.games.B.dsAccepted = shippedManifest.games.W.dsAccepted = true;
+  const options = { includeEvs: option !== "--iv-only" };
+  const installed = await installSummaryStatViewer(project, options);
+  assert.equal(installed.path, `patches/${profile.fileName}`);
+  assert.deepEqual(getSummaryStatViewerStatus(project).options, options);
+  exported = await exportModifiedRom(project);
+  const reopened = await loadProjectFromRomBytes(exported, basename(outputPath), { selectedNarcs: [] });
+  const status = getSummaryStatViewerStatus(reopened);
+  assert(status.installed && status.compatible && !status.canUninstall);
+  assert.deepEqual(status.options, options, "Settings changed after export/reopen.");
+  const result = new NintendoDSRom(exported, { fileData: "view" }), id = result.fileId(installed.path);
+  await installSummaryStatViewer(reopened, { includeEvs: !options.includeEvs });
+  assert(reopened.fileSystem?.replacements[id], "Reinstall did not update the existing FAT entry.");
+  assert.deepEqual(getSummaryStatViewerStatus(reopened).options, { includeEvs: !options.includeEvs });
+} finally {
+  shippedManifest.games.B.dsAccepted = savedAcceptance.B;
+  shippedManifest.games.W.dsAccepted = savedAcceptance.W;
+  globalThis.fetch = originalFetch;
+}
+const result = new NintendoDSRom(exported!, { fileData: "view" });
 assert.deepEqual(result.loadArm9Overlays([profile.overlayId]).get(profile.overlayId)!.data, overlay.data);
 assert.deepEqual(new NARC(result.getFileByName(profile.graphicsArchive)).files, graphics.files);
 assert.equal(parseRpm(result.getFileByName(`patches/${profile.fileName}`), { allowedMagics: ["DLXF"] }).metadata.PMCGameID, game);
 assert.equal(digest(new Uint8Array(await readFile(inputPath))), sourceHash, "Source ROM changed.");
 await writeFile(outputPath, exported, { flag: "wx" });
-console.log(`${game}: unreleased Summary validation export prepared; gameplay acceptance pending.`);
+console.log(`${game}: separately named Summary validation export prepared; export alone does not certify gameplay.`);

@@ -15,6 +15,7 @@ import ndspy.rom
 import ndspy.narc
 import ndspy.codeCompression
 from background import profile, palette_index, header as background_header
+from generated import write_info_messages
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -45,21 +46,14 @@ def calls(data, base, target):
 
 BUILD.mkdir(exist_ok=True)
 VERSION = "1.5.0"
-messages=json.loads((HERE/'info_messages.json').read_text())
-assert len({key for key,text in messages})==len(messages)
-header=['#pragma once', '#include "runtime.h"', 'enum class InfoMessage : u16 {']
-header += [f'    {key},' for key,text in messages]
-header += ['};',f'constexpr u32 InfoMessageCount={len(messages)};',
-           'struct InfoConfig { u8 magic[8]; u16 version,count; u16 ids[InfoMessageCount][2]; };',
-           'extern "C" { __attribute__((used,section(".learnset_info_config"))) volatile InfoConfig learnsetInfoConfig = {',
-           "    {'L','S','V','I','N','F','1',0},1,InfoMessageCount,{",
-           *['        {0xffff,0},' for _ in messages], '    }}; }']
-(BUILD/'info_messages.generated.h').write_text('\n'.join(header)+'\n')
+write_info_messages(BUILD)
 # PMC's priority-chain array has five entries (0..PMC_PATCH=4). Priority 5
 # writes past it and never reaches the overlay activation chain.
 PATCH_PRIORITY = 4
 assert 0 <= PATCH_PRIORITY <= 4
-manifest={"version":VERSION, "games":{}}
+manifest_path=ASSETS/"learnsetViewerManifest.json"
+previous=json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+manifest={"version":VERSION, "games":{g:p for g,p in previous.get("games",{}).items() if g in ("B","W")}}
 background_rows=None
 for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0x40)]:
     rom=ndspy.rom.NintendoDSRom.fromFile(Path(os.environ.get(f"LEARNSET_{game}_ROM",WORKSPACE/filename)))

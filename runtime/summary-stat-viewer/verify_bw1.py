@@ -63,8 +63,10 @@ def main():
         predicate = arm_branch(arm[site - rom.arm9RamAddress:site - rom.arm9RamAddress + 4], site)
         site = predicate + 68
         scanner = arm_branch(arm[site - rom.arm9RamAddress:site - rom.arm9RamAddress + 4], site)
-        verify(game, 0, 0, {'rom': path, 'addresses': addresses, 'touchScanner': scanner,
-            'hooks': [(e['label'], int(e['address'], 16), int(e['target'], 16)) for e in profile['hooks']]})
+        fixture = {'rom': path, 'addresses': addresses, 'touchScanner': scanner,
+            'hooks': [(e['label'], int(e['address'], 16), int(e['target'], 16)) for e in profile['hooks']]}
+        for extended in (False, True):
+            verify(game, 0, 0, fixture, extended=extended)
 
 
 if __name__ == '__main__':

@@ -32,6 +32,7 @@ for game in ('B2','W2'):
   profile['hooks']=[h for h in full['hooks'] if h['name'].startswith('Move')!=is_icon]
   profile['signatures']=[s for s in full['signatures'] if (s['name'] in icon_names if is_icon else s['name'] not in icon_names or s['name'] in ('IsDsi','PPGet','EffectiveTypes','ViewSrc'))]
   profile['resources']=full['resources'] if is_icon else {}
+  profile.update(overlay_id=168,graphicsArchive='a/0/1/1',revision=0)
   profile['dllSha256']=digest;profile['version']=component_version;profile['builds']=manifest[key].get(game,{}).get('builds',{})
   types=['NULL','VALUE','FUNCTION_ARM','FUNCTION_THM','SECTION']
   build={'codeHex':rpm['code'].hex(),'relocations':rpm['relocations'],'bssSize':rpm['bss'],
@@ -73,7 +74,9 @@ for game in ('B2','W2'):
   profile['builds'][component_version]=build
   manifest[key][game]=profile;(ASSETS/name).write_bytes(data)
 (ASSETS/'battleTypeHudManifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-shutil.copyfile(HERE/'panel-expansion.json',ASSETS/'battleTypeHudPanelExpansion.json')
+panel_changes=json.loads((ASSETS/'battleTypeHudPanelExpansion.json').read_text())
+panel_changes.update(json.loads((HERE/'panel-expansion.json').read_text()))
+(ASSETS/'battleTypeHudPanelExpansion.json').write_text(json.dumps(panel_changes,indent=2)+'\n')
 RUNTIME.mkdir(parents=True,exist_ok=True)
 if HERE!=RUNTIME:
  for path in HERE.iterdir():

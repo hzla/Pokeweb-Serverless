@@ -1,9 +1,17 @@
-# BW2 Summary IV/EV Viewer
+# Summary IV/EV Viewer
 
 Independent PMC companions for English US Black 2 (`IREO`) and White 2
 (`IRDO`), version 1.0.3. Compatible hacks must retain the verified Summary
-hooks, helper entry points, and native title/footer resources. BW1 and other
+hooks, helper entry points, and native title/footer resources. Other
 language/revision profiles are unsupported.
+
+US Black 1 (`IRBO`) and White 1 (`IRAO`), revision 0, have separately built
+companions available through the normal installer. Their profiles use overlay 131 and
+`a/0/7/8`, with explicit ARM/Thumb function addresses and native BW1 title
+letters. Both games passed the recorded DS gameplay and visual checks.
+Bundling preserves acceptance only for the tested native profile and DLL hash.
+Live DSi acceptance remains pending; mode-aware extended RAM handling is retained.
+See the [BW1 release record](../BW1_UI_RELEASE.md).
 
 ## Installation
 
@@ -113,6 +121,24 @@ npm run summarystats:verify-rom -- /path/to/cleanwhite2.nds
 npm run summarystats:verify-rom -- /path/to/cleanblack2.nds
 ```
 
+Build and exercise BW1 companions with:
+
+```sh
+SUMMARY_B_ROM=/path/to/cleanblack.nds \
+SUMMARY_W_ROM=/path/to/cleanwhite.nds \
+npm run summarystats:build-bw1 -- --bundle-candidates
+npm run summarystats:verify-bw1
+npm run summarystats:prepare-bw1 -- /path/to/cleanblack.nds /path/to/new-black-test.nds
+npm run summarystats:prepare-bw1 -- /path/to/cleanwhite.nds /path/to/new-white-test.nds --iv-only
+```
+
+The validation exporter exercises the normal installer with a process-local
+acceptance override, then verifies export/reopen and an in-place settings
+update. It never changes shipped acceptance flags, overwrites the input or
+an existing output, or writes saves. It accepts clean ROMs and recognized PMC
+installations. Rebuilding BW2 preserves the BW1 profiles; a bundle version
+change clears their acceptance flags.
+
 The native harness uses the default workspace input filenames and toolchain
 path from `build.py`; `ARM_TOOLCHAIN_BIN` overrides its toolchain. Build outputs
 go to `src/assets/codeinjection/` along with the versioned compatibility
@@ -123,4 +149,4 @@ The real-ROM verifier exports and reloads in memory by default. An explicit
 refusing to overwrite an existing file. It does not copy or change saves.
 
 See [VALIDATION.md](VALIDATION.md) for verified results, test limitations, and
-the pending user emulator checklist.
+the separate BW1 acceptance evidence and pending BW2 emulator checklist.

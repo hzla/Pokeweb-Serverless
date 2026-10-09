@@ -170,16 +170,19 @@ def graphics(files, bw1=False):
 def main():
     BUILD.mkdir(exist_ok=True)
     manifest_path=ASSETS/'summaryStatViewerManifest.json'
-    previous=[]
+    previous=[];bw1_games={}
     if manifest_path.exists():
         prior=json.loads(manifest_path.read_text())
+        bw1_games={g:p for g,p in prior['games'].items() if g in ('B','W')}
+        if prior['version']!=VERSION:
+            for p in bw1_games.values():p['dsAccepted']=False
         previous=prior.get('previousVersions',[])
         if prior['version']!=VERSION and not any(p['version']==prior['version'] for p in previous):
             previous.append({'version':prior['version'],'games':{g:{
                 'codeFingerprint':p['codeFingerprint'],'bssSize':p['bssSize'],
                 'hooks':[{'module':s['module'],'address':s['address']} for s in p['signatures'] if s['patchSize']]
             } for g,p in prior['games'].items()}})
-    manifest={'version':VERSION,'configMagic':'5353564346473100','previousVersions':previous,'games':{}}
+    manifest={'version':VERSION,'configMagic':'5353564346473100','previousVersions':previous,'games':bw1_games}
     original_graphics=None
     w2_api_bytes={}
     profile=['#pragma once','inline u32 nativeApiAddress(u32 w2) {','#ifdef GAME_B2','switch (w2) {']
@@ -251,7 +254,7 @@ def main():
         code=bytearray(data[code_offset:code_offset+code_size]);p=code.index(b'SSVCFG1\0')
         code[p+12:p+20]=bytes(8);fingerprint=0x811c9dc5
         for value in code:fingerprint=((fingerprint^value)*0x1000193)&0xffffffff
-        manifest['games'][game]={'idCode':bytes(rom.idCode).decode(),'fileName':output.name,
+        manifest['games'][game]={'idCode':bytes(rom.idCode).decode(),'revision':0,'overlayId':207,'graphicsArchive':'a/0/7/7','fileName':output.name,
           'codeFingerprint':f'{fingerprint:08x}','bssSize':struct.unpack_from('<I',data,header+12)[0],
           'sha256':hashlib.sha256(data).hexdigest(),'signatures':signatures,
           'resources':[{'member':n,'sha256':hashlib.sha256(f[n]).hexdigest()} for n in (5,11,13,67,71,77,78,80,131)]}

@@ -1,0 +1,112 @@
+{
+  "checks": [
+    {
+      "game": "B",
+      "module": "TypeIcons",
+      "extendedRam": false,
+      "dllSha256": "5266fbd0a83a3962ee5b50d59cdbf515e6caf4e9bdb4dafbadfde8965ae3149b",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "B",
+      "module": "TypeIcons",
+      "extendedRam": true,
+      "dllSha256": "5266fbd0a83a3962ee5b50d59cdbf515e6caf4e9bdb4dafbadfde8965ae3149b",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "B",
+      "module": "TypeIconsCircular",
+      "extendedRam": false,
+      "dllSha256": "826017222fb9f145782d2842b29ca9103ad99ea7292c414856ff4ae39f9fd1b6",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "B",
+      "module": "TypeIconsCircular",
+      "extendedRam": true,
+      "dllSha256": "826017222fb9f145782d2842b29ca9103ad99ea7292c414856ff4ae39f9fd1b6",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "B",
+      "module": "TypeIconsSolid",
+      "extendedRam": false,
+      "dllSha256": "c43b1a7afc92a29d6107a187d9381dfcd069f1c4a8f1bc0379cd621c5616bb4b",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "B",
+      "module": "TypeIconsSolid",
+      "extendedRam": true,
+      "dllSha256": "c43b1a7afc92a29d6107a187d9381dfcd069f1c4a8f1bc0379cd621c5616bb4b",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "W",
+      "module": "TypeIcons",
+      "extendedRam": false,
+      "dllSha256": "a1d274e4f4ec21d2b8f71cba2c0d38dc4695cc859b250000fa93fd97860b1e02",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "W",
+      "module": "TypeIcons",
+      "extendedRam": true,
+      "dllSha256": "a1d274e4f4ec21d2b8f71cba2c0d38dc4695cc859b250000fa93fd97860b1e02",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "W",
+      "module": "TypeIconsCircular",
+      "extendedRam": false,
+      "dllSha256": "d80f3db5da33ab6500bc5b814c238b48d342c9d420fe0eae6d936e626282fd1c",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "W",
+      "module": "TypeIconsCircular",
+      "extendedRam": true,
+      "dllSha256": "d80f3db5da33ab6500bc5b814c238b48d342c9d420fe0eae6d936e626282fd1c",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "W",
+      "module": "TypeIconsSolid",
+      "extendedRam": false,
+      "dllSha256": "1d0ab6980eee94db98cc86c61fc1c8ff0604046137b85ceceb470be0fd6afc02",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    },
+    {
+      "game": "W",
+      "module": "TypeIconsSolid",
+      "extendedRam": true,
+      "dllSha256": "1d0ab6980eee94db98cc86c61fc1c8ff0604046137b85ceceb470be0fd6afc02",
+      "compiledPassed": true,
+      "dsGameplayAccepted": false,
+      "dsiGameplayAccepted": false
+    }
+  ]
+}

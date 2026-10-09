@@ -6,3 +6,4 @@ build/*
 build/hooks-B2.h
 build/hooks-W2.h
 !build/memory-report.json
+/build/MoveEffectivenessTrace*.dll

@@ -1356,7 +1356,7 @@ async function downloadRom(frostCompatibility = false): Promise<void> {
     }
     exportLinks.forEach((item) => item.classList.add("disabled"));
     const warnings: string[] = [];
-    const bytes = await exportModifiedRom(project, { frostCompatibility, onWarning: (warning) => warnings.push(warning.message) });
+    const bytes = await exportModifiedRom(project, { frostCompatibility, onWarning: (warning) => warnings.push(warning.message), onFrostWarning: (warning) => warnings.push(warning.message) });
     if (bytes.length === 0) throw new Error("Export produced an empty ROM. No file was written.");
     const blob = bytesBlob(bytes, "application/octet-stream");
     await saveActiveProject(project);

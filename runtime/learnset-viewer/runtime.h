@@ -1,9 +1,15 @@
 #pragma once
 #include "logic.h"
 using namespace learnset;
+#include "layout.h"
+#if defined(GAME_B) || defined(GAME_W)
+#include "addresses_bw1.generated.h"
+#endif
 template<class T> inline T& at(void* p, u32 offset) { return *reinterpret_cast<T*>(static_cast<u8*>(p) + offset); }
 template<class F> inline F native(u32 w2, u32 b2) {
-#if defined(GAME_B2)
+#if defined(GAME_B) || defined(GAME_W)
+    (void)b2; return reinterpret_cast<F>(bw1Address(w2));
+#elif defined(GAME_B2)
     (void)w2; return reinterpret_cast<F>(b2);
 #else
     (void)b2; return reinterpret_cast<F>(w2);
@@ -36,6 +42,13 @@ struct ProcTable { Proc init; Proc main; Proc end; };
 using Dispatch = u32 (*)(void*, int*, void*);
 inline void* alloc(u32 heap, u32 size) { return native<void*(*)(u32,u32)>(0x2039dc9,0x2039d9d)(heap,size); }
 inline void release(void* p) { if (p) native<void(*)(void*)>(0x203a279,0x203a24d)(p); }
+inline void releaseNativeAllocation(void* p) {
+#if defined(GAME_B) || defined(GAME_W)
+    if(p) reinterpret_cast<void(*)(void*)>(Bw1DebugFree)(p);
+#else
+    release(p);
+#endif
+}
 inline u32 pokemonGet(void* p, u32 field) { return native<u32(*)(void*,u32,void*)>(0x201cd25,0x201ccf9)(p,field,0); }
 inline ViewIdentity viewIdentity(const Request* request) {
     if(request->view.identity.species)return request->view.identity;
@@ -45,7 +58,7 @@ inline u32 partyCount(void* party) { return party?native<u32(*)(void*)>(0x201fe2
 inline void* partyPokemon(void* party,u32 slot) { return native<void*(*)(void*,u32)>(0x201ff35,0x201ff09)(party,slot); }
 inline bool viewable(void* pokemon) { return pokemon && pokemonGet(pokemon,5) && !pokemonGet(pokemon,0x4c); }
 inline void* message(void* handle, u32 id) { return native<void*(*)(void*,u32)>(0x20489b9,0x204898d)(handle,id); }
-inline void* messageOpen(u32 bank,u32 heap) { return native<void*(*)(u32,u32,u32,u32)>(0x2048789,0x204875d)(0,2,bank,heap); }
+inline void* messageOpen(u32 bank,u32 heap) { return native<void*(*)(u32,u32,u32,u32)>(0x2048789,0x204875d)(0,2,messageBank(bank),heap); }
 inline void messageClose(void* p) { native<void(*)(void*)>(0x2048801,0x20487d5)(p); }
 inline void stringFree(void* p) { native<void(*)(void*)>(0x2048591,0x2048565)(p); }
 inline void* stringCreate(u32 size) { return native<void*(*)(u32,u32)>(0x204855d,0x2048531)(size,79); }

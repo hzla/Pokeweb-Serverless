@@ -108,6 +108,25 @@ describe("donor DSi repair", () => {
     verifyAllDigests(result.bytes);
   });
 
+  it.each(games)("repairs a compacted %s editing copy shorter than the donor's declared NTR span", async (code) => {
+    const donor = makeTwlRom(code), stripped = donor.slice(0, 0x80000);
+    stripped.fill(0, 0x1c0, 0x208);
+    writeU32(stripped, 0x210, 0);
+    stripped.fill(0, 0x220, 0x230);
+    const source = new NintendoDSRom(stripped).save({ allowDamagedDsi: true });
+    expect(source.length).toBeLessThan(readU32(donor, 0x1e0) + readU32(donor, 0x1e4));
+    const before = source.slice(), donorBefore = donor.slice();
+    const result = await repairDsiRom(source, donor);
+    const repaired = new NintendoDSRom(result.bytes), native = new NintendoDSRom(source);
+    expect(repaired.arm9).toEqual(native.arm9);
+    expect(repaired.arm7).toEqual(native.arm7);
+    expect(repaired.files).toEqual(native.files);
+    verifyAllDigests(result.bytes);
+    expect(repaired.save()).toEqual(result.bytes);
+    expect(source).toEqual(before);
+    expect(donor).toEqual(donorBefore);
+  });
+
   it.each(games)("preserves intact %s DSi data through ordinary export and reload", async (code) => {
     const source = makeTwlRom(code), before = source.slice(), warnings: DsiExportWarning[] = [];
     const out = await exportModifiedRom(makeProject(source), { onWarning: (warning) => warnings.push(warning) });

@@ -65,7 +65,11 @@ export async function repairDsiRom(source: Uint8Array, donor: Uint8Array, onProg
   }
 
   await onProgress?.("Restoring DSi programs and encryption metadata…");
-  const sectorAt = align(source.length, 0x200), blockAt = align(sectorAt + sectors.length, 0x200);
+  // The staging header still describes the donor's NTR span. A compacted
+  // or smaller edited input must not place donor tables inside that span.
+  // The final save repacks native files and rebuilds the actual NTR digests.
+  const donorNtrEnd = readU32(donor, 0x1e0) + readU32(donor, 0x1e4);
+  const sectorAt = align(Math.max(source.length, donorNtrEnd), 0x200), blockAt = align(sectorAt + sectors.length, 0x200);
   const regionAt = align(blockAt + blocks.length, 0x80000);
   const length = regionAt + digest.regionSize;
   if (length > 0x7fffffff || regionAt / 0x80000 > 0xffff) throw new Error("The repaired ROM exceeds the supported ROM size.");

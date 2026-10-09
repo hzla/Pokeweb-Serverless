@@ -33,7 +33,7 @@ import { repairNarcBytes } from "./romRepairModel";
 import { repairPokemonIconPaletteAssignmentPlacement } from "./pokemonSpriteModel";
 import { repairAppendedPokemonFormNames } from "./pokemonFormModel";
 import type { ProjectState } from "./projectStore";
-import { exportFrostCompatibleRom } from "./frostCompatibility";
+import { exportFrostCompatibleRom, type FrostCompatibilityWarning } from "./frostCompatibility";
 import { hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
 
 export { materializeProjectEdits } from "./projectMaterialize";
@@ -48,6 +48,7 @@ export type ExportModifiedRomOptions = {
   preserveOriginalLength?: boolean;
   /** Opt-in overlay-first layout for editing Pokeweb Gen V ROMs in Frost. */
   frostCompatibility?: boolean;
+  onFrostWarning?: (warning: FrostCompatibilityWarning) => void;
 };
 
 type PlannedRomAdditions = {
@@ -147,7 +148,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
     minimumLength: options.minimumRomLength,
     preserveOriginalLength: options.preserveOriginalLength,
   });
-  return options.frostCompatibility ? exportFrostCompatibleRom(out, { forDsi: options.forDsi }) : out;
+  return options.frostCompatibility ? exportFrostCompatibleRom(out, { forDsi: options.forDsi, onWarning: options.onFrostWarning }) : out;
 }
 
 function codeInjectionPriorityPaths(project: ProjectState): string[] {

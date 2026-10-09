@@ -10,6 +10,7 @@ const app = path.dirname(here);
 const workspace = path.dirname(app);
 const roots = {
   'w2u-runtime': process.env.W2U_RUNTIME_ROOT || path.join(path.dirname(workspace), 'White2Upgrade-Original-pokeweb'),
+  'w2u-integration': process.env.W2U_INTEGRATION_ROOT || path.join(path.dirname(workspace), 'White2Upgrade-w2-integration'),
   'weather-runtime': process.env.WEATHER_RUNTIME_ROOT || path.join(workspace, 'White2Upgrade'),
   pokeweb: app,
   pmc: process.env.PMC_SOURCE_ROOT || path.join(workspace, 'PMC'),
@@ -31,6 +32,7 @@ if (outputRoot && (outputRoot === app || outputRoot.startsWith(app + path.sep)))
 const only = onlyArgs[0]?.slice('--only='.length);
 const manifestPath = path.join(here, 'manifest.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+manifest.sourceRepositories['w2u-integration'] = 'White2Upgrade-w2-integration';
 manifest.purpose = 'Canonical source provenance and on-demand external export; not a build input or binary-reproducibility claim.';
 for (const patch of manifest.patches) if (patch.status === 'source-copied') patch.status = 'source-available';
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
@@ -47,6 +49,11 @@ const staleSnapshotPaths = [];
 const readAssetManifest = name => JSON.parse(fs.readFileSync(path.join(app, 'src/assets/codeinjection', name), 'utf8'));
 const learnset = readAssetManifest('learnsetViewerManifest.json');
 const hud = readAssetManifest('battleTypeHudManifest.json');
+const summary = readAssetManifest('summaryStatViewerManifest.json');
+const partyMenu = readAssetManifest('menuEvolutionBw1Manifest.json');
+const bw1Status = profiles => profiles.B?.dsAccepted && profiles.W?.dsAccepted
+  ? 'US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending.'
+  : 'US revision-0 BW1 normal installation is disabled pending DS gameplay and visual acceptance in both games; live DSi acceptance remains pending.';
 const following = ['runtime.json', 'black2/runtime.json', 'white2upgrade/runtime.json', 'white2italy/runtime.json']
   .map(name => JSON.parse(fs.readFileSync(path.join(app, 'src/assets/following', name), 'utf8')));
 
@@ -81,6 +88,42 @@ function runtimeFiles(group) {
 }
 const additions = [
   {
+    name: 'bw1-ui-release', title: 'BW1 Graphical/UI release acceptance', runtime: false, artifacts: [],
+    note: 'Shared tested-profile and exact-artifact DS acceptance ledger, bundler guard and verifier. Changed bindings, DLLs or party-menu dependencies require fresh acceptance. This is DS-mode emulator evidence, not live DSi or a general heap-capacity claim.',
+    extra: [
+      file('bw1-ui-release', 'bw1_release.py', 'build-tool', 'runtime/bw1_release.py'),
+      file('bw1-ui-release', 'verify_bw1_release.py', 'test', 'runtime/verify_bw1_release.py'),
+      file('bw1-ui-release', 'bw1-ui-acceptance.json', 'metadata', 'runtime/bw1-ui-acceptance.json'),
+      file('bw1-ui-release', 'BW1_UI_RELEASE.md', 'documentation', 'runtime/BW1_UI_RELEASE.md'),
+    ],
+  },
+  {
+    name: 'battle-counters', title: 'Individual PK5 battle counters and KO moves', runtime: false,
+    artifacts: ['Black1BattleCounters.dll', 'White1BattleCounters.dll', 'Black2UpgradeBattleCounters.dll', 'White2UpgradeBattleCounters.dll'],
+    note: `Shared PK5 counter storage and pending-move format. BW1 runtime 8 adds immediate KO learning through separately verified native overlay-93 profiles; BW2 retains its existing runtime and artifacts. Includes bounded BW1 archive reads and the local memory helper. ${bw1Status(partyMenu.games)} Compiled checks remain separate from gameplay observations.`,
+    extra: [
+      ...['w2u_pk5_battle_counters.cpp', 'w2u_bw1_memory.cpp'].map(name => ({ path: `battle-counters/${name}`, origin: { repository: 'w2u-runtime', path: `src/battle_log/${name}` }, kind: 'source' })),
+      { path: 'battle-counters/include/w2u_bw1_menu_profile.h', origin: { repository: 'w2u-runtime', path: 'include/w2u_bw1_menu_profile.h' }, kind: 'header' },
+      ...['verify_pk5_battle_counters.py', 'verify_bw1_party_menu.py', 'test_ko_move_pending.cpp'].map(name => ({ path: `battle-counters/tests/${name}`, origin: { repository: 'w2u-runtime', path: `tools/${name}` }, kind: 'test' })),
+    ],
+  },
+  {
+    name: 'enhanced-party-menu', title: 'Enhanced Party Menu and Battle Log Integration',
+    artifacts: ['MenuEvolutionB.dll', 'MenuEvolutionW.dll', 'MenuEvolutionB2.dll', 'MenuEvolutionW2.dll'],
+    note: `EVOLVE, RELEARN, post-battle KO evolution and field-script counters, with the BW1 runtime-8 counter dependency. ${bw1Status(partyMenu.games)} Isolated compiled verification covers native PK5 routines, mode-aware pointer fixtures, hooks and cleanup separately from gameplay evidence. Existing BW2 artifacts and dependency contracts are retained.`,
+    extra: [
+      ...['w2u_menu_evolution.cpp', 'w2u_menu_evolution_script_api.cpp', 'w2u_bw1_memory.cpp'].map(name => ({ path: `enhanced-party-menu/${name}`, origin: { repository: 'w2u-runtime', path: `src/battle_log/${name}` }, kind: 'source' })),
+      ...['w2u_bw1_menu_profile.h', 'w2u_menu_evolution_logic.h', 'w2u_menu_relearn_logic.h', 'w2u_menu_evolution_script_api.h', 'w2u_ko_move_pending.h'].map(name => ({ path: `enhanced-party-menu/include/${name}`, origin: { repository: 'w2u-runtime', path: `include/${name}` }, kind: 'source' })),
+      ...['build_bw1_menu_evolution.py', 'verify_bw1_party_menu.py', 'verify_pk5_battle_counters.py', 'test_menu_evolution_logic.cpp', 'test_menu_relearn_logic.cpp', 'test_ko_move_pending.cpp'].map(name => ({ path: `enhanced-party-menu/tools/${name}`, origin: { repository: 'w2u-runtime', path: `tools/${name}` }, kind: name.startsWith('build') ? 'build-tool' : 'test' })),
+      ...['menu_evolution_b2_meta.yml', 'menu_evolution_w2_meta.yml'].map(name => ({ path: `enhanced-party-menu/metadata/${name}`, origin: { repository: 'w2u-runtime', path: `pmc/${name}` }, kind: 'metadata' })),
+      file('enhanced-party-menu', 'integration/menuEvolutionModel.ts', 'source', 'src/pokeweb/menuEvolutionModel.ts'),
+      file('enhanced-party-menu', 'integration/battleLogModel.ts', 'support-only', 'src/pokeweb/battleLogModel.ts'),
+      file('enhanced-party-menu', 'metadata/menuEvolutionBw1Manifest.json', 'metadata', 'src/assets/codeinjection/menuEvolutionBw1Manifest.json'),
+      file('enhanced-party-menu', 'tests/menuEvolutionBw1.test.ts', 'test', 'src/test/menuEvolutionBw1.test.ts'),
+      file('enhanced-party-menu', 'tests/menuEvolutionModel.test.ts', 'test', 'src/test/menuEvolutionModel.test.ts'),
+    ],
+  },
+  {
     name: 'double-battle-fix', title: 'Single-NPC double-battle fix',
     artifacts: ['DoubleBattleFixB.dll', 'DoubleBattleFixB2.dll', 'DoubleBattleFixW2.dll'],
     status: 'partial-source-available',
@@ -102,11 +145,12 @@ const additions = [
   },
   {
     name: 'summary-stat-viewer', title: 'Summary IV/EV viewer',
-    artifacts: ['SummaryStatViewerB2.dll', 'SummaryStatViewerW2.dll'],
-    note: 'Independent B2/W2 native Summary Stats variants and shared footer tab. Canonical source and configuration metadata are recorded; game acceptance remains separate from native checks.',
+    artifacts: ['SummaryStatViewerB2.dll', 'SummaryStatViewerW2.dll', 'SummaryStatViewerB.dll', 'SummaryStatViewerW.dll'],
+    note: `Independent B2/W2 native Summary Stats variants and shared footer tab, plus separately built US revision-0 B/W companions. ${bw1Status(summary.games)} Canonical source and configuration metadata are recorded; compiled and DS gameplay checks remain separate.`,
     extra: [
       file('summary-stat-viewer', 'metadata/summaryStatViewerManifest.json', 'metadata', 'src/assets/codeinjection/summaryStatViewerManifest.json'),
       file('summary-stat-viewer', 'integration/summaryStatViewerModel.ts', 'support-only', 'src/pokeweb/summaryStatViewerModel.ts'),
+      file('summary-stat-viewer', 'tests/summaryStatViewerModel.test.ts', 'test', 'src/test/summaryStatViewerModel.test.ts'),
     ],
   },
   {
@@ -205,23 +249,31 @@ const additions = [
   },
   {
     name: 'learnset-viewer', title: 'Standalone LEARNSET party-menu viewer',
-    artifacts: ['LearnsetMenuB2.dll', 'LearnsetMenuW2.dll', 'LearnsetViewerB2.dll', 'LearnsetViewerW2.dll'],
-    note: `Version ${learnset.version}. Shared party command registration and a bounded Custom UI native-region program, with independent LEARNSET/Custom UI launch switches. PMC-only menu/field and overlay-258 viewer companions; includes the move-list click for successful evolution navigation and summary-page sound for party switching, session-owned evolution graph and icon reuse, species/type header, correct sub-BG palette addressing and no-fade read-only L/R family navigation with virtual species learnsets/info, descendant-first branch browsing, A requirement pages, selected-only native two-pose icon animation, native lower-screen foreground/shadows and matching light upper panels, full-height right-panel left shading with unchanged ability row rules, purple hidden abilities, matching icon transparency, a dark teal selected-sprite frame with brighter title/fin accents unchanged, muted panel border, restored charcoal description body with a dark fin/top strip and no side/bottom borders, four-pixel slate-teal gutter, clipped stats panel, party-position header cue, retail title rails, D-pad party navigation, compact gold base stats, form ability names, cycle-safe three-Pokemon evolution chains, buffered ROM reads, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
+    artifacts: ['LearnsetMenuB2.dll', 'LearnsetMenuW2.dll', 'LearnsetViewerB2.dll', 'LearnsetViewerW2.dll', 'LearnsetMenuB.dll', 'LearnsetMenuW.dll', 'LearnsetViewerB.dll', 'LearnsetViewerW.dll'],
+    note: `BW2 version ${learnset.version}, with separately compiled US revision-0 B/W ${learnset.games.B.version} companions using independent native profiles and overlays 10/91/173. ${bw1Status(learnset.games)} Shared read-only party/family navigation, session-owned graph/icons, native fonts/type resources and private text are retained. The installer validates fingerprints/native bindings/resources, rejects conflicts, commits PMC/text/both DLLs atomically, and preserves configured IDs and edited private text across update/reinstall/export/reopen. Compiled native-mode DS/extended-memory fixtures do not establish live DSi acceptance or native heap capacity. Canonical sources remain in Pokeweb runtime/learnset-viewer.`,
     extra: [
       file('learnset-viewer', 'metadata/learnsetViewerManifest.json', 'metadata', 'src/assets/codeinjection/learnsetViewerManifest.json'),
       file('learnset-viewer', 'integration/learnsetViewerModel.ts', 'support-only', 'src/pokeweb/learnsetViewerModel.ts'),
       file('learnset-viewer', 'tests/learnsetViewerModel.test.ts', 'test', 'src/test/learnsetViewerModel.test.ts'),
+      file('learnset-viewer', 'tests/learnsetViewerBw1.test.ts', 'test', 'src/test/learnsetViewerBw1.test.ts'),
       file('learnset-viewer', 'tests/verify-learnset-viewer-install.ts', 'test', 'scripts/verify-learnset-viewer-install.ts'),
     ],
   },
   {
     name: 'battle-type-hud', title: 'Battle Type Icons and Move Effectiveness Preview',
-    artifacts: ['TypeIconsB2.dll', 'TypeIconsW2.dll', 'TypeIconsCircularB2.dll', 'TypeIconsCircularW2.dll', 'TypeIconsSolidB2.dll', 'TypeIconsSolidW2.dll', 'MoveEffectivenessB2.dll', 'MoveEffectivenessW2.dll'],
-    note: `Independent overlay-168 Type Icons ${hud.games.W2.version}, Circular ${hud.games.W2.variants.circular.version}, Solid ${hud.games.W2.variants.solid.version}, and Move Effectiveness ${hud.moveGames.W2.version} modules, catalog ${hud.version}. Includes generated address/hook headers, panel geometry, and isolated DS/DSi function checks. Canonical source is runtime/battle-type-hud; no emulator captures or build binaries are copied.`,
+    artifacts: ['TypeIconsB2.dll', 'TypeIconsW2.dll', 'TypeIconsCircularB2.dll', 'TypeIconsCircularW2.dll', 'TypeIconsSolidB2.dll', 'TypeIconsSolidW2.dll', 'MoveEffectivenessB2.dll', 'MoveEffectivenessW2.dll',
+      ...['B', 'W'].flatMap(game => ['TypeIcons', 'TypeIconsCircular', 'TypeIconsSolid', 'MoveEffectiveness'].map(module => `${module}${game}.dll`))],
+    note: `Independent overlay-168 Type Icons ${hud.games.W2.version}, Circular ${hud.games.W2.variants.circular.version}, Solid ${hud.games.W2.variants.solid.version}, and Move Effectiveness ${hud.moveGames.W2.version} modules, catalog ${hud.version}. BW1 icons and move preview use overlay 94 and independent native profiles. Icons: ${bw1Status(hud.games)} Move preview: ${bw1Status(hud.moveGames)} Includes generated address/hook headers, reversible panel geometry, and isolated DS/extended-RAM checks. Canonical source is runtime/battle-type-hud; no emulator captures or build binaries are copied.`,
     extra: [
       ...['B2', 'W2'].flatMap(game => [
         file('battle-type-hud', `build/addresses-${game}.h`, 'generated-header'),
         ...['TypeIcons', 'MoveEffectiveness'].map(module => file('battle-type-hud', `build/hooks-${module}-${game}.h`, 'generated-header')),
+      ]),
+      ...['B', 'W'].flatMap(game => [
+        file('battle-type-hud', `build/addresses-${game}.h`, 'generated-header'),
+        file('battle-type-hud', `build/hooks-TypeIcons-${game}.h`, 'generated-header'),
+        file('battle-type-hud', `build/addresses-MoveEffectiveness-${game}.h`, 'generated-header'),
+        file('battle-type-hud', `build/hooks-MoveEffectiveness-${game}.h`, 'generated-header'),
       ]),
       ...['battleTypeHudManifest.json', 'battleTypeHudPanelExpansion.json'].map(name => file('battle-type-hud', `metadata/${name}`, 'metadata', `src/assets/codeinjection/${name}`)),
       ...['battleTypeHudModel', 'battleTypeHudResources'].flatMap(name => [
@@ -276,13 +328,16 @@ for (const [name, origin] of [
   pmcPatch.files.push(file('pmc', `integration/${name}`, 'build-tool', origin));
 pmcPatch.files = pmcPatch.files.filter(entry => entry.path !== 'pmc/integration/inspect-italian-pmc.ts');
 // Shared mode-aware memory helper used by the split sprite runtimes.
-for (const [name, origin, kind] of [
-  ['include/util/main_ram.h', 'include/util/main_ram.h', 'source'],
-  ['include/swan/nds/hw.h', 'include/swan/nds/hw.h', 'source'],
-  ['tests/test_main_ram.py', 'tools/tests/test_main_ram.py', 'test'],
-  ['tests/check_pwan_substitute_runtime.py', 'tools/tests/check_pwan_substitute_runtime.py', 'test'],
-]) if (!manifest.sharedFiles.some(entry => entry.path === `shared/${name}`))
-  manifest.sharedFiles.push({ path: `shared/${name}`, origin: { repository: 'w2u-runtime', path: origin }, kind });
+for (const [name, origin, kind, repository] of [
+  ['include/util/main_ram.h', 'include/util/main_ram.h', 'source', 'w2u-integration'],
+  ['include/swan/nds/hw.h', 'include/swan/nds/hw.h', 'source', 'w2u-integration'],
+  ['tests/test_main_ram.py', 'tools/tests/test_main_ram.py', 'test', 'w2u-integration'],
+  ['tests/check_pwan_substitute_runtime.py', 'tools/tests/check_pwan_substitute_runtime.py', 'test', 'w2u-runtime'],
+]) {
+  const existing = manifest.sharedFiles.find(entry => entry.path === `shared/${name}`);
+  if (existing) existing.origin = { repository, path: origin };
+  else manifest.sharedFiles.push({ path: `shared/${name}`, origin: { repository, path: origin }, kind });
+}
 const artifacts = new Set(manifest.excludedArtifacts.map(name => `codeinjection/${name}`));
 for (const patch of manifest.patches) for (const artifact of patch.artifacts) {
   const location = artifact.name.includes('/') ? artifact.name : `codeinjection/${artifact.name}`;
