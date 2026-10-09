@@ -1,4 +1,7 @@
+import bw1ManifestData from "../assets/codeinjection/menuEvolutionBw1Manifest.json";
 import { readU16 } from "../nds/binary";
+import { decompressCode } from "../nds/codeCompression";
+import { getRomFileBytes } from "./fileSystemModel";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
 import { loadActiveRomBytes } from "./persistence";
@@ -13,8 +16,8 @@ import {
 import type { ProjectState } from "./projectStore";
 import { addTextEntries, commitTextBank, getTextBank, parseTextEntryId } from "./textModel";
 import { ensureKoMoveLearnsetNarc, hasKoMoveLearnset, hydrateKoMoveLearnsetFromRom } from "./koMoveLearnsetModel";
-import { BATTLE_LOG_RUNTIME_VERSION, getBattleLogInstallStatus } from "./battleLogModel";
-import { parseRpm } from "./rpm";
+import { getBattleLogInstallStatus } from "./battleLogModel";
+import { parseRpm, type RpmModule } from "./rpm";
 
 // The US B2/W2 party overlay loads message NARC member 178.  The Japanese
 // source labels this resource as msg_pokelist, but its retail-US member index
@@ -31,7 +34,7 @@ export const MENU_EVOLUTION_TITLE = "Enhanced Party Menu and Battle Log Integrat
 
 // Menu Evolution extends the retail three-operand GetPartyPokeParameter
 // command. These read-only IDs are shared with the runtime public header.
-export const MENU_EVOLUTION_GET_PARTY_PARAMETER_COMMAND = 0x010c;
+export const MENU_EVOLUTION_GET_PARTY_PARAMETER_COMMAND = 0x0110;
 export const MENU_EVOLUTION_COUNTER_PARAMETER_IDS = {
   kos: 0x0400,
   battlesBrought: 0x0401,
@@ -40,13 +43,26 @@ export const MENU_EVOLUTION_COUNTER_PARAMETER_IDS = {
 
 const MENU_EVOLUTION_CONFIG_MAGIC = new Uint8Array([0x4d, 0x45, 0x56, 0x4f, 0x4d, 0x53, 0x47, 0x00]);
 
-type MenuEvolutionVersion = "B2" | "W2";
+type MenuEvolutionVersion = "B" | "W" | "B2" | "W2";
+type Bw1Profile = {
+  idCode: string; revision: number; dsAccepted: boolean; version: string; runtimeVersion: number;
+  messageBankId: number; dllFilename: string; dllPath: string; counterDllPath: string;
+  requiredBattleLogRuntimeVersion: number; sha256: string; codeFingerprint: string; bssSize: number;
+  symbols: Pick<RpmModule["symbols"][number], "address" | "type" | "attributes">[];
+  relocations: { module: string; address: number; type: string; symbol: number }[];
+  hooks: HookSignature[];
+  api: { label: string; entry: number; segment: string; expectedHex: string }[];
+};
+const bw1Profiles = bw1ManifestData.games as Record<"B" | "W", Bw1Profile>;
+const bw1Accepted = () => bw1Profiles.B.dsAccepted && bw1Profiles.W.dsAccepted;
+const isBw1 = (v: string): v is "B" | "W" => v === "B" || v === "W";
 
 type HookSignature = {
   label: string;
   overlayId: number;
   address: number;
   expectedHex: string;
+  patchType?: string;
 };
 
 const MENU_EVOLUTION_LAYOUTS: Record<MenuEvolutionVersion, {
@@ -57,9 +73,15 @@ const MENU_EVOLUTION_LAYOUTS: Record<MenuEvolutionVersion, {
   dllUrl: URL;
   counterDllPath: string;
   hooks: HookSignature[];
+  messageBankId: number;
+  version: string;
+  runtimeVersion: number;
+  requiredBattleLogRuntimeVersion: number;
 }> = {
+  B: { ...bw1Profiles.B, displayName: "Black", dllUrl: new URL("../assets/codeinjection/MenuEvolutionB.dll", import.meta.url) },
+  W: { ...bw1Profiles.W, displayName: "White", dllUrl: new URL("../assets/codeinjection/MenuEvolutionW.dll", import.meta.url) },
   W2: {
-    displayName: "White 2",
+    displayName: "White 2", messageBankId: 178, version: MENU_EVOLUTION_BUNDLED_DLL_VERSION, runtimeVersion: MENU_EVOLUTION_RUNTIME_VERSION, requiredBattleLogRuntimeVersion: 11,
     idCode: "IRDO",
     dllFilename: MENU_EVOLUTION_W2_FILENAME,
     dllPath: MENU_EVOLUTION_W2_PATH,
@@ -83,7 +105,7 @@ const MENU_EVOLUTION_LAYOUTS: Record<MenuEvolutionVersion, {
     ],
   },
   B2: {
-    displayName: "Black 2",
+    displayName: "Black 2", messageBankId: 178, version: MENU_EVOLUTION_BUNDLED_DLL_VERSION, runtimeVersion: MENU_EVOLUTION_RUNTIME_VERSION, requiredBattleLogRuntimeVersion: 11,
     idCode: "IREO",
     dllFilename: MENU_EVOLUTION_B2_FILENAME,
     dllPath: MENU_EVOLUTION_B2_PATH,
@@ -147,7 +169,7 @@ export type MenuEvolutionInstallResult = {
 };
 
 function menuEvolutionLayout(version: string) {
-  return version === "B2" || version === "W2" ? MENU_EVOLUTION_LAYOUTS[version] : undefined;
+  return version === "B" || version === "W" || version === "B2" || version === "W2" ? MENU_EVOLUTION_LAYOUTS[version] : undefined;
 }
 
 export function menuEvolutionDisplayName(version: string): string | undefined {
@@ -179,9 +201,11 @@ export function getMenuEvolutionInstallStatus(project: ProjectState): MenuEvolut
     ? listCodeInjectionDlls(project).find((module) => module.path.toLowerCase() === layout.dllPath.toLowerCase())
     : undefined;
   const upToDate = Boolean(installed && layout
-    && (installedModule?.version === MENU_EVOLUTION_BUNDLED_DLL_VERSION
-      || installedMenuEvolutionVersion(project, layout) === MENU_EVOLUTION_BUNDLED_DLL_VERSION)
-    && hasKoMoveLearnset(project));
+    && (installedModule?.version === layout.version
+      || installedMenuEvolutionVersion(project, layout) === layout.version)
+    && hasKoMoveLearnset(project)
+    && (!isBw1(project.session.baseVersion) || isRecognizedInstalledBw1(project, layout)));
+  const configuredIds = installed && layout ? installedMessageIds(project, layout) : undefined;
   return {
     ...compatibility,
     installed,
@@ -191,15 +215,15 @@ export function getMenuEvolutionInstallStatus(project: ProjectState): MenuEvolut
     dependencyInstalled: hasMenuEvolutionBattleCounterDependency(project),
     canUninstall: installed && canUninstallMenuEvolution(project),
     dllPath: layout?.dllPath,
-    messageEntryId: project.codeInjection?.menuEvolution?.messageEntryId,
-    relearnMessageEntryId: project.codeInjection?.menuEvolution?.relearnMessageEntryId,
+    messageEntryId: configuredIds?.[0] ?? project.codeInjection?.menuEvolution?.messageEntryId,
+    relearnMessageEntryId: configuredIds?.[1] ?? project.codeInjection?.menuEvolution?.relearnMessageEntryId,
   };
 }
 
 export function isKoMoveEditorAvailable(project: ProjectState): boolean {
   const menuStatus = getMenuEvolutionInstallStatus(project);
   if (!menuStatus.upToDate || !menuStatus.dependencyInstalled) return false;
-  return getBattleLogInstallStatus(project).upToDate;
+  return getBattleLogInstallStatus(project).upToDate && getBattleLogInstallStatus(project).bundledRuntimeVersion >= (menuEvolutionLayout(project.session.baseVersion)?.requiredBattleLogRuntimeVersion ?? Infinity);
 }
 
 function installedMenuEvolutionVersion(
@@ -235,16 +259,20 @@ export function detectMenuEvolutionCompatibility(
   romBytes: Uint8Array | undefined = project.originalRomBytes,
 ): MenuEvolutionCompatibilityReport {
   const layout = menuEvolutionLayout(project.session.baseVersion);
-  if (project.session.baseRom !== "BW2" || !layout) {
+  if (!layout || (project.session.baseRom !== "BW2" && project.session.baseRom !== "BW") || (isBw1(project.session.baseVersion) !== (project.session.baseRom === "BW"))) {
     return {
       supported: false,
       compatible: false,
       checked: false,
       passed: 0,
       checks: [],
-      message: `${MENU_EVOLUTION_TITLE} supports US Black 2 and White 2 only.`,
+      message: `${MENU_EVOLUTION_TITLE} supports verified US Black, White, Black 2 and White 2 profiles.`,
     };
   }
+  if (isBw1(project.session.baseVersion) && !bw1Accepted()) return {
+    supported: false, compatible: false, checked: false, passed: 0, checks: [],
+    message: "BW1 Enhanced Party Menu candidates await DS gameplay and visual acceptance in both Black and White.",
+  };
   if (!romBytes) {
     return {
       supported: true,
@@ -269,7 +297,7 @@ export function detectMenuEvolutionCompatibility(
       message: `The source ROM could not be parsed for ${MENU_EVOLUTION_TITLE} compatibility.`,
     };
   }
-  if (rom.idCode !== layout.idCode) {
+  if (rom.idCode !== layout.idCode || (isBw1(project.session.baseVersion) && romBytes[0x1e] !== bw1Profiles[project.session.baseVersion].revision)) {
     return {
       supported: false,
       compatible: false,
@@ -282,11 +310,13 @@ export function detectMenuEvolutionCompatibility(
 
   let overlays: Map<number, { data: Uint8Array; ramAddress: number }>;
   try {
-    overlays = rom.loadArm9Overlays([...new Set(layout.hooks.map((hook) => hook.overlayId))]);
+    const apiOverlays = isBw1(project.session.baseVersion)
+      ? bw1Profiles[project.session.baseVersion].api.filter(api => api.segment !== "ARM9").map(api => Number(api.segment)) : [];
+    overlays = rom.loadArm9Overlays([...new Set([...layout.hooks.map((hook) => hook.overlayId), ...apiOverlays])]);
   } catch {
     overlays = new Map();
   }
-  const checks = layout.hooks.map((signature) => {
+  const checks: MenuEvolutionCompatibilityCheck[] = layout.hooks.map((signature) => {
     const original = overlays.get(signature.overlayId);
     const data = project.overlays[signature.overlayId] ?? original?.data;
     const offset = original ? signature.address - original.ramAddress : -1;
@@ -305,6 +335,36 @@ export function detectMenuEvolutionCompatibility(
         : `Overlay ${signature.overlayId} differs or is missing at ${hexAddress(signature.address)}.`,
     };
   });
+  if (isBw1(project.session.baseVersion)) {
+    const profile = bw1Profiles[project.session.baseVersion];
+    for (const api of profile.api) {
+      const ov = api.segment === "ARM9" ? undefined : overlays.get(Number(api.segment));
+      const data = api.segment === "ARM9" ? (project.arm9.length ? project.arm9 : decompressCode(rom.arm9)) : project.overlays[Number(api.segment)] ?? ov?.data;
+      const offset = (api.entry & ~1) - (api.segment === "ARM9" ? rom.arm9RamAddress : ov?.ramAddress ?? 0);
+      const expected = hexToBytes(api.expectedHex);
+      const matched = Boolean(data && offset >= 0 && bytesEqual(data.subarray(offset, offset + expected.length), expected));
+      checks.push({ label: api.label, overlayId: api.segment === "ARM9" ? 0 : Number(api.segment), address: api.entry & ~1, matched, message: `${api.label} ${matched ? "matches" : "differs from"} the verified native binding.` });
+    }
+    const own = listCodeInjectionDlls(project).filter(m => m.path.toLowerCase() === layout.dllPath.toLowerCase());
+    if (own.length > 1) checks.push({ label: "Duplicate companion", overlayId: 0, address: 0, matched: false, message: "Duplicate Enhanced Party Menu DLL paths." });
+    for (const module of listCodeInjectionDlls(project)) {
+      const bytes = companionBytes(project, rom, module.path);
+      if (!bytes) continue;
+      if (module.path.toLowerCase() === layout.dllPath.toLowerCase()) {
+        const matched = recognizedBw1Dll(bytes, profile);
+        checks.push({ label: "Installed companion", overlayId: 0, address: 0, matched, message: matched ? "Recognized BW1 companion." : "Unrecognized or altered BW1 companion." });
+        continue;
+      }
+      try {
+        const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+        for (const r of rpm.relocations.filter(r => r.target.module !== "base")) {
+          const size = r.target.type === "THUMB_BRANCH" ? 12 : r.target.type === "FULL_COPY" ? rpm.symbols[r.sourceSymbolIndex]?.size ?? 0 : 4;
+          const conflict = profile.hooks.find(h => String(h.overlayId) === r.target.module && h.address < r.target.address + size && r.target.address < h.address + (h.patchType === "THUMB_BRANCH" ? 12 : 4));
+          if (conflict) checks.push({ label: "Conflicting companion", overlayId: conflict.overlayId, address: conflict.address, matched: false, message: `${module.path} overlaps ${conflict.label}.` });
+        }
+      } catch { /* Other non-DLXF files cannot install PMC hooks. */ }
+    }
+  }
   const passed = checks.filter((check) => check.matched).length;
   const compatible = passed === checks.length;
   return {
@@ -320,15 +380,30 @@ export function detectMenuEvolutionCompatibility(
 }
 
 export async function installMenuEvolution(project: ProjectState): Promise<MenuEvolutionInstallResult> {
+  const staged: ProjectState = { ...project, arm9: project.arm9.slice(),
+    overlays: Object.fromEntries(Object.entries(project.overlays).map(([id, bytes]) => [id, bytes?.slice()])),
+    narcs: structuredClone(project.narcs), texts: structuredClone(project.texts),
+    fileSystem: structuredClone(project.fileSystem), codeInjection: structuredClone(project.codeInjection),
+    patches: structuredClone(project.patches), actionChangelog: structuredClone(project.actionChangelog),
+    koMoveLearnsetSource: structuredClone(project.koMoveLearnsetSource) };
+  const result = await installMenuEvolutionStaged(staged);
+  Object.assign(project, { arm9: staged.arm9, arm9Dirty: staged.arm9Dirty, overlays: staged.overlays,
+    narcs: staged.narcs, texts: staged.texts, fileSystem: staged.fileSystem, codeInjection: staged.codeInjection,
+    patches: staged.patches, actionChangelog: staged.actionChangelog, koMoveLearnsetSource: staged.koMoveLearnsetSource });
+  return result;
+}
+async function installMenuEvolutionStaged(project: ProjectState): Promise<MenuEvolutionInstallResult> {
   const layout = menuEvolutionLayout(project.session.baseVersion);
-  if (project.session.baseRom !== "BW2" || !layout) {
-    throw new Error(`${MENU_EVOLUTION_TITLE} supports US Black 2 and White 2 only.`);
+  if (!layout || (project.session.baseRom !== "BW2" && project.session.baseRom !== "BW") || (isBw1(project.session.baseVersion) !== (project.session.baseRom === "BW"))) {
+    throw new Error(`${MENU_EVOLUTION_TITLE} supports verified US Black, White, Black 2 and White 2 profiles.`);
   }
+  if (isBw1(project.session.baseVersion) && !bw1Accepted()) throw new Error("BW1 Enhanced Party Menu candidates await DS gameplay and visual acceptance in both Black and White.");
   if (!hasMenuEvolutionBattleCounterDependency(project)) {
     throw new Error(`Install the battle log first; ${layout.counterDllPath} is required by ${MENU_EVOLUTION_TITLE}.`);
   }
-  if (!getBattleLogInstallStatus(project).upToDate) {
-    throw new Error(`Update the battle log before installing ${MENU_EVOLUTION_TITLE}; immediate KO moves require runtime version ${BATTLE_LOG_RUNTIME_VERSION}.`);
+  const battleLogStatus = getBattleLogInstallStatus(project);
+  if (!battleLogStatus.upToDate || battleLogStatus.bundledRuntimeVersion < layout.requiredBattleLogRuntimeVersion) {
+    throw new Error(`Update the battle log before installing ${MENU_EVOLUTION_TITLE}; immediate KO moves require runtime version ${layout.requiredBattleLogRuntimeVersion}.`);
   }
 
   const romBytes = project.originalRomBytes ?? (await loadActiveRomBytes());
@@ -340,32 +415,44 @@ export async function installMenuEvolution(project: ProjectState): Promise<MenuE
   hydrateKoMoveLearnsetFromRom(project, new NintendoDSRom(romBytes));
   if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
 
-  const messageEntryId = ensureEvolveMessage(project);
-  const relearnMessageEntryId = ensureRelearnMessage(project);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const previous = companionBytes(project, rom, layout.dllPath);
+  const config = previous ? readMessageIds(previous) : undefined;
+  const saved = project.codeInjection?.menuEvolution;
+  const bank = getTextBank(project, "message_texts", layout.messageBankId);
+  const reuse = (id: number | undefined, fallback: () => number) => id !== undefined && bank.some(e => parseTextEntryId(e[0]).block === 0 && parseTextEntryId(e[0]).entry === id) ? id : fallback();
+  const messageEntryId = reuse(config?.[0] ?? (saved?.messageBankId === layout.messageBankId ? saved.messageEntryId : undefined), () => ensureEvolveMessage(project));
+  const relearnMessageEntryId = reuse(config?.[1] ?? (saved?.messageBankId === layout.messageBankId ? saved.relearnMessageEntryId : undefined), () => ensureRelearnMessage(project));
   const response = await fetch(layout.dllUrl);
   if (!response.ok) throw new Error(`Could not load the bundled ${MENU_EVOLUTION_TITLE} DLL (${response.status})`);
-  const configuredDll = configureMenuEvolutionDll(new Uint8Array(await response.arrayBuffer()), messageEntryId, relearnMessageEntryId);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (isBw1(project.session.baseVersion)) {
+    const profile = bw1Profiles[project.session.baseVersion];
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), v => v.toString(16).padStart(2, "0")).join("");
+    if (hash !== profile.sha256 || !recognizedBw1Dll(bytes, profile)) throw new Error("Bundled BW1 Enhanced Party Menu integrity check failed.");
+  }
+  const configuredDll = configureMenuEvolutionDll(bytes, messageEntryId, relearnMessageEntryId);
   stageCodeInjectionDll(project, layout.dllFilename, configuredDll, "patches", romBytes);
   const koLearnset = ensureKoMoveLearnsetNarc(project);
 
   project.codeInjection ??= {};
   project.codeInjection.menuEvolution = {
-    messageBankId: MENU_EVOLUTION_MESSAGE_BANK_ID,
+    messageBankId: layout.messageBankId,
     messageEntryId,
     relearnMessageEntryId,
     koLearnsetPath: koLearnset.path,
-    runtimeVersion: MENU_EVOLUTION_RUNTIME_VERSION,
+    runtimeVersion: layout.runtimeVersion,
   };
   recordGenericChange(
     project,
     "code_injection",
-    `${layout.dllFilename} staged with EVOLVE and RELEARN, post-battle KO evolution, mid-battle KO moves, message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID}, entries ${messageEntryId}/${relearnMessageEntryId}, and ${koLearnset.members} KO learnset members.`,
+    `${layout.dllFilename} staged with EVOLVE and RELEARN, post-battle KO evolution, mid-battle KO moves, message bank ${layout.messageBankId}, entries ${messageEntryId}/${relearnMessageEntryId}, and ${koLearnset.members} KO learnset members.`,
     MENU_EVOLUTION_TITLE,
     { key: "code-injection:menu-evolution" },
   );
   return {
     dllPath: layout.dllPath,
-    messageBankId: MENU_EVOLUTION_MESSAGE_BANK_ID,
+    messageBankId: layout.messageBankId,
     messageEntryId,
     relearnMessageEntryId,
     koLearnsetPath: koLearnset.path,
@@ -375,14 +462,14 @@ export async function installMenuEvolution(project: ProjectState): Promise<MenuE
 
 export function uninstallMenuEvolution(project: ProjectState): void {
   const layout = menuEvolutionLayout(project.session.baseVersion);
-  if (project.session.baseRom !== "BW2" || !layout) {
-    throw new Error(`${MENU_EVOLUTION_TITLE} supports US Black 2 and White 2 only.`);
+  if (!layout || (project.session.baseRom !== "BW2" && project.session.baseRom !== "BW") || (isBw1(project.session.baseVersion) !== (project.session.baseRom === "BW"))) {
+    throw new Error(`${MENU_EVOLUTION_TITLE} supports verified US Black, White, Black 2 and White 2 profiles.`);
   }
   if (!canUninstallMenuEvolution(project)) {
     throw new Error("An enhanced party-menu DLL already built into the loaded ROM cannot be removed by this editor yet.");
   }
   removeStagedCodeInjectionDll(project, layout.dllPath);
-  if (project.codeInjection) delete project.codeInjection.menuEvolution;
+  if (project.codeInjection && !isBw1(project.session.baseVersion)) delete project.codeInjection.menuEvolution;
   recordGenericChange(
     project,
     "code_injection",
@@ -401,32 +488,33 @@ export function ensureRelearnMessage(project: ProjectState): number {
 }
 
 function ensurePartyCommandMessage(project: ProjectState, label: "EVOLVE" | "RELEARN"): number {
-  const bank = getTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID);
+  const bankId = menuEvolutionLayout(project.session.baseVersion)?.messageBankId ?? MENU_EVOLUTION_MESSAGE_BANK_ID;
+  const bank = getTextBank(project, "message_texts", bankId);
   if (bank.length === 0) {
-    throw new Error(`Message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID} is unavailable or empty.`);
+    throw new Error(`Message bank ${bankId} is unavailable or empty.`);
   }
   const existing = bank.find((entry) => parseTextEntryId(entry[0]).block === 0
     && entry[1].trim().toUpperCase() === label);
   if (existing) {
     if (existing[1] !== label) {
       existing[1] = label;
-      commitTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID);
+      commitTextBank(project, "message_texts", bankId);
     }
     return parseTextEntryId(existing[0]).entry;
   }
 
   const nextEntryId = Math.max(...bank.map((entry) => parseTextEntryId(entry[0]).entry)) + 1;
   if (nextEntryId >= 0xffff) {
-    throw new Error(`Message bank ${MENU_EVOLUTION_MESSAGE_BANK_ID} has no available entry ID for ${label}.`);
+    throw new Error(`Message bank ${bankId} has no available entry ID for ${label}.`);
   }
-  addTextEntries(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID, 1);
-  const appended = getTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID)
+  addTextEntries(project, "message_texts", bankId, 1);
+  const appended = getTextBank(project, "message_texts", bankId)
     .filter((entry) => parseTextEntryId(entry[0]).entry === nextEntryId);
   if (appended.length === 0) throw new Error(`The ${label} message entry could not be appended.`);
   appended.forEach((entry) => {
     entry[1] = label;
   });
-  commitTextBank(project, "message_texts", MENU_EVOLUTION_MESSAGE_BANK_ID);
+  commitTextBank(project, "message_texts", bankId);
   return nextEntryId;
 }
 
@@ -488,4 +576,55 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
 
 function hexAddress(address: number): string {
   return `0x${address.toString(16).padStart(8, "0")}`;
+}
+
+function companionBytes(project: ProjectState, rom: NintendoDSRom, path: string): Uint8Array | undefined {
+  const addition = Object.keys(project.fileSystem?.additions ?? {}).find(p => p.toLowerCase() === path.toLowerCase());
+  if (addition) return project.fileSystem?.additions?.[addition];
+  const id = rom.filenames.idOf(path);
+  return id === undefined ? undefined : getRomFileBytes(project, rom, id);
+}
+function isRecognizedInstalledBw1(project: ProjectState, layout: NonNullable<ReturnType<typeof menuEvolutionLayout>>): boolean {
+  if (!isBw1(project.session.baseVersion)) return false;
+  const addition = Object.keys(project.fileSystem?.additions ?? {}).find(path => path.toLowerCase() === layout.dllPath.toLowerCase());
+  if (addition) return recognizedBw1Dll(project.fileSystem!.additions![addition]!, bw1Profiles[project.session.baseVersion]);
+  if (!project.originalRomBytes) return project.codeInjection?.menuEvolution?.runtimeVersion === layout.runtimeVersion;
+  try {
+    const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+    const bytes = companionBytes(project, rom, layout.dllPath);
+    return Boolean(bytes && recognizedBw1Dll(bytes, bw1Profiles[project.session.baseVersion]));
+  } catch { return false; }
+}
+function readMessageIds(bytes: Uint8Array): [number, number] | undefined {
+  const offsets = findAll(bytes, MENU_EVOLUTION_CONFIG_MAGIC);
+  if (offsets.length !== 1) return;
+  const at = offsets[0]!;
+  if (at + 20 > bytes.length || readU16(bytes, at + 8) !== 2) return;
+  const ids: [number, number] = [readU16(bytes, at + 10), readU16(bytes, at + 14)];
+  return ids.every((id, i) => id < 0xffff && (id ^ readU16(bytes, at + 12 + i * 4)) === 0xffff) ? ids : undefined;
+}
+function installedMessageIds(project: ProjectState, layout: NonNullable<ReturnType<typeof menuEvolutionLayout>>): [number, number] | undefined {
+  const addition = Object.keys(project.fileSystem?.additions ?? {}).find(path => path.toLowerCase() === layout.dllPath.toLowerCase());
+  if (addition) return readMessageIds(project.fileSystem!.additions![addition]!);
+  if (!project.originalRomBytes) return;
+  try {
+    const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
+    const bytes = companionBytes(project, rom, layout.dllPath);
+    return bytes ? readMessageIds(bytes) : undefined;
+  } catch { return; }
+}
+function recognizedBw1Dll(bytes: Uint8Array, profile: Bw1Profile): boolean {
+  try {
+    const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
+    if (rpm.metadata.PMCGameID !== (profile.idCode === "IRBO" ? "B" : "W") || rpm.metadata.PMCModulePriority !== 4 || rpm.metadata.PMCVersion !== profile.version || rpm.bssSize !== profile.bssSize) return false;
+    if (rpm.symbols.length !== profile.symbols.length || rpm.symbols.some((s, i) => s.name !== null || s.address !== profile.symbols[i]!.address || s.type !== profile.symbols[i]!.type || s.attributes !== profile.symbols[i]!.attributes)) return false;
+    const actualRelocations = rpm.relocations.map(r => `${r.target.module}:${r.target.address}:${r.target.type}:${r.sourceSymbolIndex}`).sort();
+    const expectedRelocations = profile.relocations.map(r => `${r.module}:${r.address}:${r.type}:${r.symbol}`).sort();
+    if (actualRelocations.length !== expectedRelocations.length || actualRelocations.some((r, i) => r !== expectedRelocations[i])) return false;
+    const markers = findAll(rpm.code, MENU_EVOLUTION_CONFIG_MAGIC); if (markers.length !== 1) return false;
+    const at = markers[0]!; if (readU16(rpm.code, at + 8) !== 2) return false;
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < rpm.code.length; ++i) hash = Math.imul(hash ^ (i >= at + 10 && i < at + 18 ? 0 : rpm.code[i]!), 0x1000193) >>> 0;
+    return hash.toString(16).padStart(8, "0") === profile.codeFingerprint;
+  } catch { return false; }
 }

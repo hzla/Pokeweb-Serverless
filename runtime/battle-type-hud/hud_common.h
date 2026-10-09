@@ -2,7 +2,15 @@
 using u8 = unsigned char;
 using u16 = unsigned short;
 using u32 = unsigned int;
-#ifdef GAME_B2
+#if defined(BW1_MOVE_PROFILE) && defined(GAME_B)
+#include "build/addresses-MoveEffectiveness-B.h"
+#elif defined(BW1_MOVE_PROFILE) && defined(GAME_W)
+#include "build/addresses-MoveEffectiveness-W.h"
+#elif defined(GAME_B)
+#include "build/addresses-B.h"
+#elif defined(GAME_W)
+#include "build/addresses-W.h"
+#elif defined(GAME_B2)
 #include "build/addresses-B2.h"
 #else
 #include "build/addresses-W2.h"

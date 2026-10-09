@@ -7,8 +7,11 @@ import json, struct, subprocess, sys, zlib
 from pathlib import Path
 import ndspy.rom, ndspy.narc, ndspy.codeCompression
 from background import profile, palette_index
+from configure_bw1 import BINDINGS, PROFILES
+EXTRA_BINDINGS={0x201ef49:(0x2019c91,0x2019cad),0x204aa31:(0x20490a8,0x20490c0),0x219b0b9:(0x21b78a1,0x21b78c1),0x219b121:(0x21b7909,0x21b7929),0x202d821:(0x20275f9,0x2027611)}
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE/'build/python'))
+sys.path.insert(0,str(HERE.parent/'summary-stat-viewer/build/python'))
 from elftools.elf.elffile import ELFFile
 from unicorn import Uc, UC_ARCH_ARM, UC_MODE_THUMB, UC_HOOK_CODE
 from unicorn.arm_const import UC_CPU_ARM_946, UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4, UC_ARM_REG_R5, UC_ARM_REG_R6, UC_ARM_REG_R7, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
@@ -73,17 +76,18 @@ def png(path,width,height,pixels):
 
 class Harness:
     def __init__(self,game):
-        self.game=game;self.delta=0 if game=='W2' else 0x2c
-        self.rom=ndspy.rom.NintendoDSRom.fromFile(HERE.parents[2]/('cleanwhite2.nds' if game=='W2' else 'cleanblack2.nds'))
+        self.game=game;self.bw1=game in ('B','W');self.delta=0 if self.bw1 or game=='W2' else 0x2c
+        self.rom=ndspy.rom.NintendoDSRom.fromFile(PROFILES[game]['default'] if self.bw1 else HERE.parents[2]/('cleanwhite2.nds' if game=='W2' else 'cleanblack2.nds'))
         self.font=Font(self.rom)
         self.font_palette=bytes(ndspy.narc.NARC(self.rom.getFileByName('a/0/2/3')).files[5][40:72])
-        self.tutor_files=ndspy.narc.NARC(self.rom.getFileByName('a/1/2/5')).files
-        self.type_files=ndspy.narc.NARC(self.rom.getFileByName('a/0/8/2')).files
+        self.tutor_files=ndspy.narc.NARC(self.rom.getFileByName('a/1/2/4' if self.bw1 else 'a/1/2/5')).files
+        self.type_files=ndspy.narc.NARC(self.rom.getFileByName('a/0/8/3' if self.bw1 else 'a/0/8/2')).files
         self.background_rows=profile(self.tutor_files)
         self.c=Uc(UC_ARCH_ARM,UC_MODE_THUMB);self.c.ctl_set_cpu_model(UC_CPU_ARM_946)
         self.c.mem_map(0x02000000,0x1000000);self.c.mem_map(0x05000000,0x1000)
         self.c.mem_write(self.rom.arm9RamAddress,bytes(ndspy.codeCompression.decompress(self.rom.arm9)))
-        overlay=self.rom.loadArm9Overlays([258])[258]
+        tutor_overlay=173 if self.bw1 else 258
+        overlay=self.rom.loadArm9Overlays([tutor_overlay])[tutor_overlay]
         self.c.mem_write(overlay.ramAddress,bytes(overlay.data))
         linked=HERE/f'build/info-{game}.elf'
         subprocess.run([str(TOOLS/'arm-none-eabi-ld'),'-Ttext','0x02e00000','-Tdata','0x02e80000','-e','LearnsetWindow',str(HERE/f'build/LearnsetViewer{game}.elf'),'-o',str(linked)],check=True,capture_output=True)
@@ -121,7 +125,7 @@ class Harness:
         self.stub(0x2070de0,lambda:(self.opened.pop(self.r(0)),self.ret(1)))
         # Execute actual native actor position/palette/visibility routines.
         # Only the final graphics-transfer boundary is instrumented.
-        self.stubs[0x219b0b8-(0 if game=='W2' else 0x40)]=lambda:(self.type_uploads.append((self.r(0),self.r(1),self.r(2))),self.ret())
+        self.stubs[self.native_address(0x219b0b8)&~1 if self.bw1 else 0x219b0b8-(0 if game=='W2' else 0x40)]=lambda:(self.type_uploads.append((self.r(0),self.r(1),self.r(2))),self.ret())
         self.stub(0x2044cc4,lambda:(self.bg.append((self.r(0),self.r(1))),self.ret()))
         self.stub(0x2048270,lambda:(self.uploads.append(self.r(0)),self.ret()))
         self.stub(0x2048298,lambda:(self.c.mem_write(MAP,struct.pack('<1024H',*[14<<12|i for i in range(1024)])),self.ret()))
@@ -132,9 +136,13 @@ class Harness:
     def reset(self):
         self.files={p:bytes(self.rom.getFileByName(p)) for p in ['a/0/1/6','a/0/1/9','a/0/0/2','a/0/0/7']}
         archive=ndspy.narc.NARC(self.files['a/0/0/2'])
-        self.messages={i:decode_bank(archive.files[i]) for i in [90,64,403,401,487,374]}
+        self.messages={}
+        for i in [90,64,403,401,487,374]:
+            bank=self.bank(i)
+            if bank not in self.messages:self.messages[bank]=decode_bank(archive.files[bank])
+            self.messages[i]=self.messages[bank]
         start=len(self.messages[401]);self.messages[401]+=[t for _,t in MESSAGES]
-        file=bytearray(archive.files[401]);struct.pack_into('<H',file,2,len(self.messages[401]));archive.files[401]=file
+        file=bytearray(archive.files[self.bank(401)]);struct.pack_into('<H',file,2,len(self.messages[401]));archive.files[self.bank(401)]=file
         self.files['a/0/0/2']=bytes(archive.save())
         config=self.symbols['learnsetInfoConfig']
         for i in range(len(MESSAGES)):self.c.mem_write(config+12+4*i,struct.pack('<HH',start+i,(start+i)^65535))
@@ -176,10 +184,16 @@ class Harness:
         out=bytearray()
         while self.c.mem_read(p,1)!=b'\0':out+=self.c.mem_read(p,1);p+=1
         return out.decode()
-    def stub(self,address,function):self.stubs[address-self.delta]=function
+    def bank(self,bank):
+        return {401:204,90:284,64:54,403:286,487:285,374:285}.get(bank,bank) if self.bw1 else bank
+    def native_address(self,address):
+        if not self.bw1:return address
+        pair=BINDINGS.get(address|1) or BINDINGS.get(address) or EXTRA_BINDINGS.get(address|1)
+        return pair[0 if self.game=='B' else 1] if pair else address
+    def stub(self,address,function):self.stubs[self.native_address(address)&~1 if self.bw1 else address-self.delta]=function
     def intercept(self,c,pc,size,_):
-        if pc==0x2020fc0-self.delta:self.iconlookups.append((self.r(0),self.r(1)))
-        if pc==0x204c150-self.delta:self.hidden.append((self.r(0),self.r(1)))
+        if pc==(self.native_address(0x2020fc0)&~1 if self.bw1 else 0x2020fc0-self.delta):self.iconlookups.append((self.r(0),self.r(1)))
+        if pc==(self.native_address(0x204c150)&~1 if self.bw1 else 0x204c150-self.delta):self.hidden.append((self.r(0),self.r(1)))
         if pc==STOP:c.emu_stop()
         elif pc in self.stubs:
             assert c.reg_read(UC_ARM_REG_SP)%8==0,hex(pc)
@@ -187,11 +201,12 @@ class Harness:
     def ret(self,value=0):self.c.reg_write(REGS[0],value);self.c.reg_write(UC_ARM_REG_PC,self.c.reg_read(UC_ARM_REG_LR))
     def call(self,name,*args):
         address=self.symbols.get(name,name)
+        if isinstance(name,int) and self.bw1:address=self.native_address(address)
         for i in range(4):self.c.reg_write(REGS[i],args[i] if i<len(args) else 0)
         for i in range(4,8):self.c.reg_write(REGS[i],0x11110000+i)
         for i,n in enumerate(args[4:]):self.w32(STACK+4*i,n)
         self.c.reg_write(UC_ARM_REG_SP,STACK);self.c.reg_write(UC_ARM_REG_LR,STOP|1)
-        self.c.emu_start(address|1,STOP,count=12000000)
+        self.c.emu_start(address if self.bw1 and isinstance(name,int) else address|1,STOP,count=12000000)
         assert self.c.reg_read(UC_ARM_REG_PC)==STOP,(name,hex(self.c.reg_read(UC_ARM_REG_PC)))
         assert self.c.reg_read(UC_ARM_REG_SP)==STACK
         assert [self.r(i) for i in range(4,8)]==[0x11110000+i for i in range(4,8)]
@@ -406,7 +421,7 @@ class Harness:
             kind,pending=struct.unpack('<II',self.c.mem_read(WORK+0x140+i*8,8))
             if pending:expected.append((0x2302900,0x2302000+i*0x100,34+kind))
         self.type_uploads=[]
-        self.call(0x219b121-(0 if self.game=='W2' else 0x40),WORK)
+        self.call(0x219b121-(0 if self.bw1 or self.game=='W2' else 0x40),WORK)
         assert self.type_uploads==expected, 'Actual native VBlank dispatch must choose each type resource'
         assert all(struct.unpack('<I',self.c.mem_read(WORK+0x144+i*8,4))[0]==0 for i in range(8))
     def check_abilities(self):
@@ -491,8 +506,12 @@ class Harness:
     def retained_info_bytes(self):
         return INFO_BYTES+len(ndspy.narc.NARC(self.files['a/0/1/6']).files)*GRAPH_NODE_BYTES
 
+def rom_name(h,name):
+    # BW1 retail species names use uppercase; preserve them in the renderer.
+    return next((n for n in h.messages[90] if n.casefold()==name.casefold()),name)
+
 reports={}
-for game in ['W2','B2']:
+for game in (['B','W'] if '--bw1' in sys.argv else ['W2','B2']) if __name__=='__main__' else []:
     h=Harness(game)
     if '--custom-ui-only' in sys.argv:
         h.species=30;h.start()
@@ -542,10 +561,10 @@ for game in ['W2','B2']:
         h.reset();h.species=136;evo=ndspy.narc.NARC(h.files['a/0/1/9'])
         evo.files[132]=struct.pack('<3H',4,44,136)+bytes(36)
         h.files['a/0/1/9']=bytes(evo.save());h.c.mem_write(REQUEST+248,struct.pack('<HH',133,0))
-        h.start();assert any(t=='From Eevee: Use Fire Stone.' for x,y,t in h.draws)
+        h.start();assert any(t==f'From {rom_name(h,"Eevee")}: Use Fire Stone.' for x,y,t in h.draws),h.draws
         h.c.mem_write(REQUEST+248,bytes(4));h.draws=[]
         h.call('_Z10infoReloadPvP7Request',WORK,REQUEST)
-        assert any(t=='From Ditto: Level up to Lv. 44.' for x,y,t in h.draws),h.draws
+        assert any(t==f'From {rom_name(h,"Ditto")}: Level up to Lv. 44.' for x,y,t in h.draws),h.draws
         h.end()
         # Warm traversal of the supplied hacked cycle stays bounded and uses
         # the same at-most-three, distinct-icon window as a fresh opening.
@@ -627,7 +646,7 @@ for game in ['W2','B2']:
         def footer():return [t for x,y,t in h.draws if y in (156,172) and t]
         def terminal(source,detail):
             assert any(y==140 and t=='Does not evolve further.' for x,y,t in h.draws),h.draws
-            assert ' '.join(footer())==f'From {source}: {detail}',footer()
+            assert ' '.join(footer())==f'From {rom_name(h,source)}: {detail}',footer()
         for species,source,detail,name in [(136,'Eevee','Use Fire Stone.','flareon-incoming'),
                                            (149,'Dragonair','Level up to Lv. 55.','dragonite-incoming')]:
             h.reset();h.species=species;h.start();terminal(source,detail);h.preview(name)
@@ -666,7 +685,7 @@ for game in ['W2','B2']:
             if page==0:h.preview('incoming-long-requirement')
             h.draws=[];h.keys=1;h.call('_Z9infoInputPv',WORK);assert h.reads==reads
         else:raise AssertionError('Incoming continuation pages failed to wrap')
-        assert ' '.join(parts)=='From Eevee: '+detail,parts
+        assert ' '.join(parts)==f'From {rom_name(h,"Eevee")}: '+detail,parts
         h.end()
         print(game,'last matching incoming method and lossless continuation paging passed',flush=True)
         # Deterministic direct-opening parent, overridden only by a verified
@@ -850,11 +869,11 @@ for game in ['W2','B2']:
     personal=ndspy.narc.NARC(h.files['a/0/1/6']);idx=h.personal_id(479,1)
     record=bytearray(personal.files[idx]);record[24:27]=bytes([1,2,1]);personal.files[idx]=record
     h.files['a/0/1/6']=bytes(personal.save());h.start();h.check_abilities();h.end()
-    # Extended ability names can reside only in bank 374. Unnamed entries get
+    # Extended ability names use BW2 bank 374 / BW1 bank 285. Unnamed entries get
     # a numeric fallback, and long labels stay inside the ability column.
     h.reset();personal=ndspy.narc.NARC(h.files['a/0/1/6']);record=bytearray(personal.files[151])
     record[24:27]=bytes([1,229,250]);personal.files[151]=record;h.files['a/0/1/6']=bytes(personal.save())
-    texts=ndspy.narc.NARC(h.files['a/0/0/2']);header=bytearray(texts.files[374]);struct.pack_into('<H',header,2,230);texts.files[374]=header
+    texts=ndspy.narc.NARC(h.files['a/0/0/2']);header=bytearray(texts.files[h.bank(374)]);struct.pack_into('<H',header,2,230);texts.files[h.bank(374)]=header
     h.files['a/0/0/2']=bytes(texts.save());h.messages[374]+=['']*(230-len(h.messages[374]));h.messages[374][229]='Grassy Surge'
     h.start();h.check_abilities();h.end()
     h.reset();h.messages[487][28]='An Extremely Long Custom Ability Name That Needs Truncation';h.start()
@@ -890,7 +909,7 @@ for game in ['W2','B2']:
         assert h.reads==previous_reads # Same target/continuation pages reuse icons.
     assert any('Method 999' in t for t in seen) and any('KO count' in t for t in seen)
     h.keys=0x200;h.call('_Z9infoInputPv',WORK);h.end()
-    h.reset();icons=ndspy.narc.NARC(h.files['a/0/0/7']);icons.files[8+151*2]=b'bad';h.files['a/0/0/7']=bytes(icons.save());h.start()
+    h.reset();icons=ndspy.narc.NARC(h.files['a/0/0/7']);icons.files[h.call(0x2020fc1-h.delta,151,0,0,0)]=b'bad';h.files['a/0/0/7']=bytes(icons.save());h.start()
     assert any(t=='?' for x,y,t in h.draws);h.end()
     h.reset();h.fail_alloc=True;h.start();h.end()
     h.reset();h.fail_alloc_sizes={5136};h.start()
@@ -899,4 +918,4 @@ for game in ['W2','B2']:
     reports[game]={'peakInstrumentedInfoHeapBytes':max(peaks),'openingIO':opening_io,'menuLifetimeUnchanged':True,'compiledInfoTests':'passed','liveGameTest':False}
     print(game,'compiled info: matching pale stats/inset, dark ability text and purple hidden abilities, selected-only frame/unclipped icons, party cue, charcoal footer/teal fin, ROM data, branching/paging, cycles, failure and cleanup passed',flush=True)
 report='custom-ui-native-verification.json' if '--custom-ui-only' in sys.argv else 'info-cache-verification.json' if '--cache-only' in sys.argv else 'info-header-verification.json' if '--header-only' in sys.argv else 'info-terminal-verification.json' if '--terminal-only' in sys.argv else 'info-navigation-verification.json' if '--navigation-only' in sys.argv else 'info-io.json' if '--io-only' in sys.argv else 'info-layout-verification.json' if '--layout-only' in sys.argv else 'info-verification.json'
-(HERE/'build'/report).write_text(json.dumps(reports,indent=2)+'\n')
+if __name__=='__main__':(HERE/'build'/('bw1-'+report if '--bw1' in sys.argv else report)).write_text(json.dumps(reports,indent=2)+'\n')

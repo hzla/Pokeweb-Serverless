@@ -5,7 +5,8 @@
     "w2u-runtime": "White2Upgrade-Original-pokeweb",
     "weather-runtime": "White2Upgrade",
     "pokeweb": "Pokeweb-Serverless",
-    "pmc": "PMC"
+    "pmc": "PMC",
+    "w2u-integration": "White2Upgrade-w2-integration"
   },
   "excludedArtifacts": [
     "Black2Upgrade.dll"
@@ -90,11 +91,11 @@
       "artifacts": [
         {
           "name": "Black1BattleLog.dll",
-          "sha256": "dda15e52ec37be84615c1e74e1e0f7c41ff6ba8da92c4074f54af0f92184fc83"
+          "sha256": "fb3e13f3c9cd5e71c3fceecf14b0b809fbb34b0e82cf1ad045c503529f50686d"
         },
         {
           "name": "White1BattleLog.dll",
-          "sha256": "10e1a875f26917d610899fe434b586fb459b59c9914e3669f4fbe291ca231e17"
+          "sha256": "c4d49701700a71296a0bd74b9199ea48ea5945c824a54658566829363e0e7921"
         },
         {
           "name": "Black2UpgradeBattleLog.dll",
@@ -115,7 +116,7 @@
             "path": "src/battle_log/w2u_battle_log.cpp"
           },
           "kind": "source",
-          "sha256": "7a85914fcb60df4a6012d7b63b6eb868f209fa41de7346f2af9c4de3a4e7d36b",
+          "sha256": "d3263a73feaa965c021fbdd81a37e164042c67e4f0d903ee7cb0dd51a0ad8abb",
           "normalized": false
         },
         {
@@ -166,11 +167,11 @@
       "artifacts": [
         {
           "name": "Black1BattleCounters.dll",
-          "sha256": "5cc3e519b1fe4d71dc3adb22ddca6690a4a1e60578a0f2d52b1b356869616cd5"
+          "sha256": "75a2d9e21b95072549065fec3739778c3b8d03b20e4dec3fa6d20d3341196ee5"
         },
         {
           "name": "White1BattleCounters.dll",
-          "sha256": "0ebabac8ef960c336d7081a200345bf16acbb2a6a28dba2040b27057d86a43c2"
+          "sha256": "34bd0a7f3f492659c6acfaba59b2ec38b4ec1bfb8f64cc77d912c89ce894dd5c"
         },
         {
           "name": "Black2UpgradeBattleCounters.dll",
@@ -181,7 +182,7 @@
           "sha256": "22a718f120faae09e504d8e7870a67918c368e820783f3dbc7c4a7f806f82833"
         }
       ],
-      "note": "Shared individual-counter implementation; BW2 also handles immediate KO move learning. Uses the shared PK5 and pending-move headers.",
+      "note": "Shared PK5 counter storage and pending-move format. BW1 runtime 8 adds immediate KO learning through separately verified native overlay-93 profiles; BW2 retains its existing runtime and artifacts. Includes bounded BW1 archive reads and the local memory helper. US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending. Compiled checks remain separate from gameplay observations.",
       "status": "source-available",
       "files": [
         {
@@ -191,7 +192,47 @@
             "path": "src/battle_log/w2u_pk5_battle_counters.cpp"
           },
           "kind": "source",
-          "sha256": "237ef6d5244ce0dfff662513bde8b09ff20741a36261bd3852431890182a9fce",
+          "sha256": "12938ff7116786b9bbb0c945ce1358c6007ac184e85464a43490200c12ad0170",
+          "normalized": false
+        },
+        {
+          "path": "battle-counters/w2u_bw1_memory.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_bw1_memory.cpp"
+          },
+          "kind": "source",
+          "sha256": "3008b6cbe3ad0b0cf8a5bcaf3f36a18bec6774715b31dd315a3affb6150bb36b",
+          "normalized": false
+        },
+        {
+          "path": "battle-counters/include/w2u_bw1_menu_profile.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "include/w2u_bw1_menu_profile.h"
+          },
+          "kind": "header",
+          "sha256": "a81262568ded7326ecb9178bfbdf2c64e2890948de471aa2316610b892575cce",
+          "normalized": false
+        },
+        {
+          "path": "battle-counters/tests/verify_pk5_battle_counters.py",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/verify_pk5_battle_counters.py"
+          },
+          "kind": "test",
+          "sha256": "e3b969de8e22f67b071d493abe58b5711020c3e7c2eb1d7cc03b9af3bc038a66",
+          "normalized": false
+        },
+        {
+          "path": "battle-counters/tests/verify_bw1_party_menu.py",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/verify_bw1_party_menu.py"
+          },
+          "kind": "test",
+          "sha256": "d8bcd48ecd928ae3368f1fabb286735a60618b6aa32032223467cfa98e283dd1",
           "normalized": false
         },
         {
@@ -212,11 +253,11 @@
       "artifacts": [
         {
           "name": "Black1BattleLogSummary.dll",
-          "sha256": "635d8c92225c89267c4b9b0b0a9b9f705ff95f390cb991f3586a298a5ad6ee7b"
+          "sha256": "6568f4a8c68edcdca1ee3ff3faadf8e4561a740407bd9b402488af9f5e09d83e"
         },
         {
           "name": "White1BattleLogSummary.dll",
-          "sha256": "9e0ff9251324922cde7a254fb973fba1749c691997443a8fe26964cc5c8ef8ca"
+          "sha256": "c985a07a9eca56f34a88c2460a5ec6a0ec8a981e10cb69756d3714f374219902"
         },
         {
           "name": "Black2UpgradeBattleLogSummary.dll",
@@ -247,6 +288,14 @@
       "title": "Enhanced Party Menu and Battle Log Integration",
       "artifacts": [
         {
+          "name": "MenuEvolutionB.dll",
+          "sha256": "b39be1e935104ea1213c3862543925142fffe398f1cb6e79876c5e2bfb36b620"
+        },
+        {
+          "name": "MenuEvolutionW.dll",
+          "sha256": "917bb44093bb7ad9f9d62104bb6ad4021e39e8f1b22871b4dd4b3365481f08fd"
+        },
+        {
           "name": "MenuEvolutionB2.dll",
           "sha256": "02b4100ff4a8877a770eacf7e2861f0ab11c68cea8ff72a7438c3dce81a568ed"
         },
@@ -255,9 +304,69 @@
           "sha256": "63b09c3309c5fc0aa3aeb5277e61379e4263969d2a25ec64b172dec6ffc3adde"
         }
       ],
-      "note": "EVOLVE, RELEARN, post-battle KO evolution, and field-script counter access. Both C++ translation units belong to this patch. The DLL filenames are intentionally unchanged.",
+      "note": "EVOLVE, RELEARN, post-battle KO evolution and field-script counters, with the BW1 runtime-8 counter dependency. US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending. Isolated compiled verification covers native PK5 routines, mode-aware pointer fixtures, hooks and cleanup separately from gameplay evidence. Existing BW2 artifacts and dependency contracts are retained.",
       "status": "source-available",
       "files": [
+        {
+          "path": "enhanced-party-menu/build_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/enhanced-party-menu/build_bw1.py"
+          },
+          "kind": "build-tool",
+          "sha256": "b2557920ee77bbaff287d754faa30f12cdf37843fd21a6328c3cbb5a1f3664eb",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/bundle_bw1_candidates.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/enhanced-party-menu/bundle_bw1_candidates.py"
+          },
+          "kind": "build-tool",
+          "sha256": "c2a91793c59ac7909949d9cb0f3d7d62c6aed379600ac356c4e08351d81319ad",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/prepare_bw1_validation.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/enhanced-party-menu/prepare_bw1_validation.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "33d8300fe318aef1a8fc98091184dddd2c6fd12b39a9492904becccf0474bf8b",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/enhanced-party-menu/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "6be91a6f5d46d0c470a8b4a6c0492550df698753c23facba5a13a3133f781788",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/VALIDATION.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/enhanced-party-menu/VALIDATION.md"
+          },
+          "kind": "documentation",
+          "sha256": "6a9816b34f0838c1197f0bb6e9ec0ddf8ea85c6d678902e2ca354cffc59cbaf1",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/verify_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/enhanced-party-menu/verify_bw1.py"
+          },
+          "kind": "test",
+          "sha256": "4037816e34d2533d468e01357c73d46d5cb656e8ff74dd062d284afece44496c",
+          "normalized": false
+        },
         {
           "path": "enhanced-party-menu/w2u_menu_evolution.cpp",
           "origin": {
@@ -265,7 +374,7 @@
             "path": "src/battle_log/w2u_menu_evolution.cpp"
           },
           "kind": "source",
-          "sha256": "0f1b584248dfb42a179485042de64d99cbac12ec6e50e1ba3562595a85365a3f",
+          "sha256": "8c8787718fb97ef9ad118951ede5c7da0d36873640bb63ae2aa93b0d019924d3",
           "normalized": false
         },
         {
@@ -275,7 +384,127 @@
             "path": "src/battle_log/w2u_menu_evolution_script_api.cpp"
           },
           "kind": "source",
-          "sha256": "d906e41bd80aefa539e13b746cae8797527b44860c0cdc5c90fdcd54e5f9fb5e",
+          "sha256": "387c3c85e2ea336d1d32bb2ea6c3caccef215e17d2871c4d2ec687bc931a4042",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/w2u_bw1_memory.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "src/battle_log/w2u_bw1_memory.cpp"
+          },
+          "kind": "source",
+          "sha256": "3008b6cbe3ad0b0cf8a5bcaf3f36a18bec6774715b31dd315a3affb6150bb36b",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/include/w2u_bw1_menu_profile.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "include/w2u_bw1_menu_profile.h"
+          },
+          "kind": "source",
+          "sha256": "a81262568ded7326ecb9178bfbdf2c64e2890948de471aa2316610b892575cce",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/include/w2u_menu_evolution_logic.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "include/w2u_menu_evolution_logic.h"
+          },
+          "kind": "source",
+          "sha256": "8d5d3301e17860bfdb9b6472ba984e0ca2fc04308ede162dc26137fb44c82a82",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/include/w2u_menu_relearn_logic.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "include/w2u_menu_relearn_logic.h"
+          },
+          "kind": "source",
+          "sha256": "6112cf8bfdf9ff97e74f8c5ff06747a0942bff4efd89437bd8ad883b35070549",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/include/w2u_menu_evolution_script_api.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "include/w2u_menu_evolution_script_api.h"
+          },
+          "kind": "source",
+          "sha256": "3980864495656dcd63264f21b66f63a718a12d0a98e668d47157f0570d739f1b",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/include/w2u_ko_move_pending.h",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "include/w2u_ko_move_pending.h"
+          },
+          "kind": "source",
+          "sha256": "27cfa28a7c0c4ed6f66e24127316dafdc9dd26ebd0c2039ef5e89b14810e0391",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tools/build_bw1_menu_evolution.py",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/build_bw1_menu_evolution.py"
+          },
+          "kind": "build-tool",
+          "sha256": "aa8c847f77a637eebc6dc84eb5a5cf4104de9744f1195486857fc71591ad8116",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tools/verify_bw1_party_menu.py",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/verify_bw1_party_menu.py"
+          },
+          "kind": "test",
+          "sha256": "d8bcd48ecd928ae3368f1fabb286735a60618b6aa32032223467cfa98e283dd1",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tools/verify_pk5_battle_counters.py",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/verify_pk5_battle_counters.py"
+          },
+          "kind": "test",
+          "sha256": "e3b969de8e22f67b071d493abe58b5711020c3e7c2eb1d7cc03b9af3bc038a66",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tools/test_menu_evolution_logic.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/test_menu_evolution_logic.cpp"
+          },
+          "kind": "test",
+          "sha256": "3075f752f050c046d77520372f5081cd4c5bc089de35fdd3f3800ff57dee80d5",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tools/test_menu_relearn_logic.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/test_menu_relearn_logic.cpp"
+          },
+          "kind": "test",
+          "sha256": "a6e0f82fcb13acecddf29b54bcf8cef5810985c05e0188d7504b4616603e45d2",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tools/test_ko_move_pending.cpp",
+          "origin": {
+            "repository": "w2u-runtime",
+            "path": "tools/test_ko_move_pending.cpp"
+          },
+          "kind": "test",
+          "sha256": "a6072c092c0d5c89237bfffe2a8cb18be31845a8b4cb8eda4023c2d6080eb56e",
           "normalized": false
         },
         {
@@ -299,23 +528,53 @@
           "normalized": false
         },
         {
-          "path": "enhanced-party-menu/tests/test_menu_evolution_logic.cpp",
+          "path": "enhanced-party-menu/integration/menuEvolutionModel.ts",
           "origin": {
-            "repository": "w2u-runtime",
-            "path": "tools/test_menu_evolution_logic.cpp"
+            "repository": "pokeweb",
+            "path": "src/pokeweb/menuEvolutionModel.ts"
           },
-          "kind": "test",
-          "sha256": "3075f752f050c046d77520372f5081cd4c5bc089de35fdd3f3800ff57dee80d5",
+          "kind": "source",
+          "sha256": "e1c53322ba339ba951902565ac1cd736b8e74c45313ad1622724bad764a001cf",
           "normalized": false
         },
         {
-          "path": "enhanced-party-menu/tests/test_menu_relearn_logic.cpp",
+          "path": "enhanced-party-menu/integration/battleLogModel.ts",
           "origin": {
-            "repository": "w2u-runtime",
-            "path": "tools/test_menu_relearn_logic.cpp"
+            "repository": "pokeweb",
+            "path": "src/pokeweb/battleLogModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "206d14799f90e10529e8965846be97305c9578182442989624bbbab4cc103b35",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/metadata/menuEvolutionBw1Manifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/menuEvolutionBw1Manifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "5984e0f70bd6d921168fcfd51dfa1954e3fca32eb52295267cab47ce680f9787",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tests/menuEvolutionBw1.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/menuEvolutionBw1.test.ts"
           },
           "kind": "test",
-          "sha256": "a6e0f82fcb13acecddf29b54bcf8cef5810985c05e0188d7504b4616603e45d2",
+          "sha256": "c1257db0ea6b65d6e531676dba4fa488c29d4b2368d7a3138893a8fe94cbb22c",
+          "normalized": false
+        },
+        {
+          "path": "enhanced-party-menu/tests/menuEvolutionModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/menuEvolutionModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "f1371940b54c3579bde8f2b63bfb37197325e31acedc94beef1d5e4ab7c3dd33",
           "normalized": false
         }
       ]
@@ -363,7 +622,7 @@
             "path": "src/pwan_animation/w2u_battle_anim.cpp"
           },
           "kind": "source",
-          "sha256": "73d628cbba9a01c0d36e0a231c01cdce6fd6031224b73b0a3d894f3aae100e59",
+          "sha256": "c4885f86c03147a90ce44616b5565cd84c3e9f12a59e6c6605faca39b3923e28",
           "normalized": false
         },
         {
@@ -451,7 +710,7 @@
             "path": "src/pwan_animation/w2u_summary_anim.cpp"
           },
           "kind": "source",
-          "sha256": "f83b43465cfff7ff6feaea956afc1fbb04d925235bd5bbab1c1612446b14e080",
+          "sha256": "f0d07389c704e4ff00ab8a20dbdd17b5f9a72ffd9b1d2df3792995c424acb599",
           "normalized": false
         },
         {
@@ -539,7 +798,7 @@
             "path": "src/pwan_animation/w2u_nonbattle_mcss.cpp"
           },
           "kind": "source",
-          "sha256": "43f6a90d36ce836f617ee8b94659dbb7d7e0af412391ebf34d5d30e7ae900132",
+          "sha256": "a9f7339f872d499f9bbd41fd3be922c1ca4927741db197549a98f49f249f7e13",
           "normalized": false
         },
         {
@@ -549,7 +808,7 @@
             "path": "src/pwan_animation/w2u_egg_hatch_anim.cpp"
           },
           "kind": "source",
-          "sha256": "0f0a8ae74bcbbba7e8c49cff1aeb7ff190321f3c4acc59433d859c2e3c7f7eda",
+          "sha256": "51d316e22d4757903a3184d8a8752dee8ebc513ef04275639bb5eab6bff63863",
           "normalized": false
         },
         {
@@ -559,7 +818,7 @@
             "path": "src/pwan_animation/w2u_evolution_anim.cpp"
           },
           "kind": "source",
-          "sha256": "d5d2ddde1afebe3e035e3b367c0dd5098154e3b3996bb10da268e0d4572a0a9c",
+          "sha256": "abbbc88d434b0dd8f8c9be427cd1614722a3a2a20be69c6ff31ed001b4f8bb39",
           "normalized": false
         },
         {
@@ -1433,7 +1692,7 @@
             "path": "src/test/codeInjectionEditor.test.ts"
           },
           "kind": "test",
-          "sha256": "08a8c3e767b0ab6c099bdfd289614188d72945d405575ca7aa988e9679e9b6af",
+          "sha256": "b76a9d4faf43314ef4a1084f5acfe899195a6845d3eb5c45cb13971f5f7d13a7",
           "normalized": false
         },
         {
@@ -1484,9 +1743,25 @@
         {
           "name": "LearnsetViewerW2.dll",
           "sha256": "9eb96af580b2605c90e3d5594cf0d756c0e99dbe5bda8138e2b5a87a15505d19"
+        },
+        {
+          "name": "LearnsetMenuB.dll",
+          "sha256": "d0c5b359f5a8e44422fe9cd4bb1310d33839fb9c89b3bd0ea37dc0d420d89898"
+        },
+        {
+          "name": "LearnsetMenuW.dll",
+          "sha256": "40ed5d424ca0010f0f476d0227f3dcc05793e96f207d6b59ce10dab18fc97bd3"
+        },
+        {
+          "name": "LearnsetViewerB.dll",
+          "sha256": "e39f69ded0bd71d6fe043f28928032eddf928662b18e75efd55fd6ed08816892"
+        },
+        {
+          "name": "LearnsetViewerW.dll",
+          "sha256": "b982e1e98a4f820ed628a30bf919ff582a1856d7d6720ee8a3ba9a052ee12432"
         }
       ],
-      "note": "Version 1.5.0. Shared party command registration and a bounded Custom UI native-region program, with independent LEARNSET/Custom UI launch switches. PMC-only menu/field and overlay-258 viewer companions; includes the move-list click for successful evolution navigation and summary-page sound for party switching, session-owned evolution graph and icon reuse, species/type header, correct sub-BG palette addressing and no-fade read-only L/R family navigation with virtual species learnsets/info, descendant-first branch browsing, A requirement pages, selected-only native two-pose icon animation, native lower-screen foreground/shadows and matching light upper panels, full-height right-panel left shading with unchanged ability row rules, purple hidden abilities, matching icon transparency, a dark teal selected-sprite frame with brighter title/fin accents unchanged, muted panel border, restored charcoal description body with a dark fin/top strip and no side/bottom borders, four-pixel slate-teal gutter, clipped stats panel, party-position header cue, retail title rails, D-pad party navigation, compact gold base stats, form ability names, cycle-safe three-Pokemon evolution chains, buffered ROM reads, buffered background fix, and two-pixel icon/level spacing. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
+      "note": "BW2 version 1.5.0, with separately compiled US revision-0 B/W 0.1.0-bw1-candidate companions using independent native profiles and overlays 10/91/173. US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending. Shared read-only party/family navigation, session-owned graph/icons, native fonts/type resources and private text are retained. The installer validates fingerprints/native bindings/resources, rejects conflicts, commits PMC/text/both DLLs atomically, and preserves configured IDs and edited private text across update/reinstall/export/reopen. Compiled native-mode DS/extended-memory fixtures do not establish live DSi acceptance or native heap capacity. Canonical sources remain in Pokeweb runtime/learnset-viewer.",
       "status": "source-available",
       "files": [
         {
@@ -1500,13 +1775,33 @@
           "normalized": false
         },
         {
+          "path": "learnset-viewer/build_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/build_bw1.py"
+          },
+          "kind": "build-tool",
+          "sha256": "f6ce2babcecf213a3436c9c8e0f22993f80e010ea121690403bbb2e8fbc2d2c5",
+          "normalized": false
+        },
+        {
           "path": "learnset-viewer/build.py",
           "origin": {
             "repository": "pokeweb",
             "path": "runtime/learnset-viewer/build.py"
           },
           "kind": "build-tool",
-          "sha256": "937cf8c7839ca356cdeb8ce5110570991505722c018e278ecbd9fae0d945c22a",
+          "sha256": "29c306678ff5875a11110057cfe5cb809a52543992779cfbe4a57de7133104e2",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/bundle_bw1_candidates.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/bundle_bw1_candidates.py"
+          },
+          "kind": "build-tool",
+          "sha256": "2e67e13ad5af30c25b601b9d614598f4807aae1b77d632ebba8f2202cf393899",
           "normalized": false
         },
         {
@@ -1517,6 +1812,26 @@
           },
           "kind": "source",
           "sha256": "5a0da7a43bf7a31c3a3106c75ab477900713b55b857651ce396b73fcafa2ad16",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/configure_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/configure_bw1.py"
+          },
+          "kind": "build-tool",
+          "sha256": "96303cd37ff1b4d963c593d104085282a95edf3f951a71e973339416d7c93363",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/generated.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/generated.py"
+          },
+          "kind": "build-tool",
+          "sha256": "8f6142f8746f2cab7dc23fddf8db4eceb019072c7efda021ae54481af9631920",
           "normalized": false
         },
         {
@@ -1546,7 +1861,7 @@
             "path": "runtime/learnset-viewer/info.cpp"
           },
           "kind": "source",
-          "sha256": "1cffed5ca5d1cb8f6cf9d38e8940fbf90b34b89dac891f83f4db7f1836a53085",
+          "sha256": "68cf29a892964729cbf3b58af965e3b4fc8b8867c0485242888eceaed10076b3",
           "normalized": false
         },
         {
@@ -1557,6 +1872,26 @@
           },
           "kind": "source",
           "sha256": "f9c9cbca27533a61c979e6dd9bdec55e01469fb776f046a15610285f5fdf0e2d",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/inventory_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/inventory_bw1.py"
+          },
+          "kind": "build-tool",
+          "sha256": "8a59646b76ec493bfebbe56437c300228773a9c0fa46f97c062d73358399d904",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/layout.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/layout.h"
+          },
+          "kind": "source",
+          "sha256": "68629bf6a77a18ae003d3342619c9fb08ea2d528fc9ac47cf93177f9a84be210",
           "normalized": false
         },
         {
@@ -1586,7 +1921,17 @@
             "path": "runtime/learnset-viewer/menu.cpp"
           },
           "kind": "source",
-          "sha256": "971e9e4fd000b470bd0092ddd095551f9cad92bab7c9b5a24fbe6ba2d99d407d",
+          "sha256": "b2e40bd576019d7af434db874dbb5f4253ae3de3963f08a163276290cf5e7a35",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/prepare_bw1_validation.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/prepare_bw1_validation.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "a38206c21b84727e6725c163b3a2d37dfdb68f1c5de53ddef510b4c78b2d50c3",
           "normalized": false
         },
         {
@@ -1600,13 +1945,33 @@
           "normalized": false
         },
         {
+          "path": "learnset-viewer/profile-B.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/profile-B.json"
+          },
+          "kind": "metadata",
+          "sha256": "5323cada29631fcf22a752251ddc36d6e4384dab3f78f54084c468b1202e4c0b",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/profile-W.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/profile-W.json"
+          },
+          "kind": "metadata",
+          "sha256": "244cb288c274d11b0aab6c29a029c129a1c51f6ae6ff4da56da170501b8d890b",
+          "normalized": false
+        },
+        {
           "path": "learnset-viewer/runtime-notes.md",
           "origin": {
             "repository": "pokeweb",
             "path": "runtime/learnset-viewer/README.md"
           },
           "kind": "documentation",
-          "sha256": "0b1c2a6b4a6cc4eed0bf079d3dbfa637107241e6c10ba39216f5054e78476561",
+          "sha256": "f2b976003ad404396cffbc6d93cfeb275384536c375776e693c09dafa75d003d",
           "normalized": false
         },
         {
@@ -1626,7 +1991,7 @@
             "path": "runtime/learnset-viewer/runtime.h"
           },
           "kind": "source",
-          "sha256": "42118a0c015f8b3b4aee572b3c2127a7981ad0d11d053d9969e9143dfab0fd87",
+          "sha256": "f3bcce21f1e304d9c56d047ca3aa1cfd9005ce94de58712094095b2f1baf4321",
           "normalized": false
         },
         {
@@ -1656,7 +2021,17 @@
             "path": "runtime/learnset-viewer/VALIDATION.md"
           },
           "kind": "documentation",
-          "sha256": "aa71699c79dfd3593a9a2b1ba33d17e490fbddc116926c3bdbb77567e67cc654",
+          "sha256": "50f9426fd2ae3c7140b9607c0c13cd4c572d226a1efbce4cc9d63fe733376c1c",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/verify_bw1_memory.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/learnset-viewer/verify_bw1_memory.py"
+          },
+          "kind": "test",
+          "sha256": "458747d67baa9e0acdcbbd5250db0126c0e12c22d0ef8282f47e46224f4d687d",
           "normalized": false
         },
         {
@@ -1686,7 +2061,7 @@
             "path": "runtime/learnset-viewer/verify_info.py"
           },
           "kind": "test",
-          "sha256": "457f7ab38e9f6e06f9ddab9ff067ccbdd255e45e9fc9c55c887c6524e9cf2184",
+          "sha256": "5c80326f2e5d0f0d669f1cab00b74a3143039a9d5190080199a65f86257ddcbb",
           "normalized": false
         },
         {
@@ -1696,7 +2071,7 @@
             "path": "runtime/learnset-viewer/verify_runtime.py"
           },
           "kind": "test",
-          "sha256": "f1b3c10abcf6d43acfeffe1b94720455e85cb26e361d45cb7cef0fb23c15fcf5",
+          "sha256": "4168f062a2936b2de28eb1a916527e4af91019119306f4df16d010b636d8bbce",
           "normalized": false
         },
         {
@@ -1706,7 +2081,7 @@
             "path": "runtime/learnset-viewer/viewer.cpp"
           },
           "kind": "source",
-          "sha256": "0c87726f19dbeac64d7593f6a41ba960afa567a848aea783efbe02e91a223dcf",
+          "sha256": "d7bffb67c82d3793157d9c4306335228abd578360507975c366144369e3d504a",
           "normalized": false
         },
         {
@@ -1716,7 +2091,7 @@
             "path": "src/assets/codeinjection/learnsetViewerManifest.json"
           },
           "kind": "metadata",
-          "sha256": "47208fd1c890e0cb4c77555f0c5cc7c655c44cdc3c417c390415ba787924740b",
+          "sha256": "e17fba8da680dbabed33d0aa2280735e1ea27dedd51e7737a562636dcb6a8520",
           "normalized": false
         },
         {
@@ -1726,7 +2101,7 @@
             "path": "src/pokeweb/learnsetViewerModel.ts"
           },
           "kind": "support-only",
-          "sha256": "7aeb019d02d9fdc81a10b6d224d1547fb797f2c934f4d627e01f63d2de3b6c4c",
+          "sha256": "1c487f24feea067f245a2b3b7c3fb7ad60f6a8ceab0bd532bb3021e71e684296",
           "normalized": false
         },
         {
@@ -1737,6 +2112,16 @@
           },
           "kind": "test",
           "sha256": "03c94cdfad5694c1b574509be34af72e16913d619a0e4ac10f2922b4315aa2b3",
+          "normalized": false
+        },
+        {
+          "path": "learnset-viewer/tests/learnsetViewerBw1.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/learnsetViewerBw1.test.ts"
+          },
+          "kind": "test",
+          "sha256": "360318c7e15e3b64afd36c77aaaea5e13d2f51cc2c0e1a07a90db832ac4ff1b1",
           "normalized": false
         },
         {
@@ -1786,9 +2171,41 @@
         {
           "name": "MoveEffectivenessW2.dll",
           "sha256": "bd9b562a681bc876fe092e4e3f2c2e51512deff4916e69e4edb019e3653d97a6"
+        },
+        {
+          "name": "TypeIconsB.dll",
+          "sha256": "5266fbd0a83a3962ee5b50d59cdbf515e6caf4e9bdb4dafbadfde8965ae3149b"
+        },
+        {
+          "name": "TypeIconsCircularB.dll",
+          "sha256": "826017222fb9f145782d2842b29ca9103ad99ea7292c414856ff4ae39f9fd1b6"
+        },
+        {
+          "name": "TypeIconsSolidB.dll",
+          "sha256": "c43b1a7afc92a29d6107a187d9381dfcd069f1c4a8f1bc0379cd621c5616bb4b"
+        },
+        {
+          "name": "MoveEffectivenessB.dll",
+          "sha256": "f3d3d00679078d8846905da9ff30e2a43d88f2db7fe025c37878dfad31d3765c"
+        },
+        {
+          "name": "TypeIconsW.dll",
+          "sha256": "a1d274e4f4ec21d2b8f71cba2c0d38dc4695cc859b250000fa93fd97860b1e02"
+        },
+        {
+          "name": "TypeIconsCircularW.dll",
+          "sha256": "d80f3db5da33ab6500bc5b814c238b48d342c9d420fe0eae6d936e626282fd1c"
+        },
+        {
+          "name": "TypeIconsSolidW.dll",
+          "sha256": "1d0ab6980eee94db98cc86c61fc1c8ff0604046137b85ceceb470be0fd6afc02"
+        },
+        {
+          "name": "MoveEffectivenessW.dll",
+          "sha256": "f021d83f005b920190446d04bf97cb6cbfb5a5a9b4af5b2cb8a0fe5449a83a5f"
         }
       ],
-      "note": "Independent overlay-168 Type Icons 0.3.18, Circular 0.3.18-circular, Solid 0.3.24-solid, and Move Effectiveness 0.4.1 modules, catalog 0.4.24. Includes generated address/hook headers, panel geometry, and isolated DS/DSi function checks. Canonical source is runtime/battle-type-hud; no emulator captures or build binaries are copied.",
+      "note": "Independent overlay-168 Type Icons 0.3.18, Circular 0.3.18-circular, Solid 0.3.24-solid, and Move Effectiveness 0.4.1 modules, catalog 0.4.24. BW1 icons and move preview use overlay 94 and independent native profiles. Icons: US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending. Move preview: US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending. Includes generated address/hook headers, reversible panel geometry, and isolated DS/extended-RAM checks. Canonical source is runtime/battle-type-hud; no emulator captures or build binaries are copied.",
       "status": "source-available",
       "files": [
         {
@@ -1872,6 +2289,16 @@
           "normalized": false
         },
         {
+          "path": "battle-type-hud/battle_type_hud_bw1.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/battle_type_hud_bw1.cpp"
+          },
+          "kind": "source",
+          "sha256": "8a43604fb19ffc69039f831edcaf56b805968f867988797a7c31c3f993edb958",
+          "normalized": false
+        },
+        {
           "path": "battle-type-hud/battle_type_hud.cpp",
           "origin": {
             "repository": "pokeweb",
@@ -1888,7 +2315,17 @@
             "path": "runtime/battle-type-hud/build.py"
           },
           "kind": "build-tool",
-          "sha256": "77e6463104bc2571a64a006a68fc9fd51f0545f13501a8ad17c5031d1f758f86",
+          "sha256": "7414759d250b753bba87c16210ae5a85b949dbe1e11cac26950bfaa90449c566",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/bundle_bw1_candidates.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/bundle_bw1_candidates.py"
+          },
+          "kind": "build-tool",
+          "sha256": "25fabf8d2928a0bfcb11293a0d3d931d1e9a278087de9b92f523f9344dd809e1",
           "normalized": false
         },
         {
@@ -1922,6 +2359,26 @@
           "normalized": false
         },
         {
+          "path": "battle-type-hud/configure_bw1_moves.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/configure_bw1_moves.py"
+          },
+          "kind": "build-tool",
+          "sha256": "bf99d01b181efed5b71726ef69a99a91277722f8e70fb94865c591239fde9b67",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/configure_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/configure_bw1.py"
+          },
+          "kind": "build-tool",
+          "sha256": "5a8420655380ce19c292249890ca0e3eb8858b6133c3a19f3a2e3633e3914cf2",
+          "normalized": false
+        },
+        {
           "path": "battle-type-hud/configure.py",
           "origin": {
             "repository": "pokeweb",
@@ -1948,7 +2405,7 @@
             "path": "runtime/battle-type-hud/hud_common.h"
           },
           "kind": "source",
-          "sha256": "3e66fe34d803ce49bcbdb82b1372792d8fd54ba984bc68a80eb7cdec5ba5c04f",
+          "sha256": "4fd684e593dacd2bfb7a8a84f902f5ba9ccf930049e58d36728c3ce6d7be27d4",
           "normalized": false
         },
         {
@@ -1998,7 +2455,7 @@
             "path": "runtime/battle-type-hud/move_colors.h"
           },
           "kind": "source",
-          "sha256": "7c74893822dce9580c751983580534038ed672f985931e6f28c357bbbec62d4e",
+          "sha256": "b79993e021e65e59dd4a56d71c8647bc89a7fb02dcee38e80baad3006e5432e2",
           "normalized": false
         },
         {
@@ -2008,7 +2465,7 @@
             "path": "runtime/battle-type-hud/move_effectiveness.cpp"
           },
           "kind": "source",
-          "sha256": "2450c7b575666e6ab16d460c6d6651577edb3ca3fed5e234ce6e0a3f672e8554",
+          "sha256": "39157dcdb317667e74ec127d6a5077a327ded1ccd42994bb49ac9bd8c6d65c32",
           "normalized": false
         },
         {
@@ -2018,7 +2475,17 @@
             "path": "runtime/battle-type-hud/move_immunity.h"
           },
           "kind": "source",
-          "sha256": "22ab15f34957cde6d300683f8f640cdb14ee6e51604da22c72057114a80be1bf",
+          "sha256": "b60d212d6a654059c350bc751c79a6228deffc8771c3401af17be5fb6f1232ec",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/move_layout.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/move_layout.h"
+          },
+          "kind": "source",
+          "sha256": "b17255e9e2f5dfeb096c3e6a991674929e374e7993cc79072e7944c3e7bace3e",
           "normalized": false
         },
         {
@@ -2052,6 +2519,16 @@
           "normalized": false
         },
         {
+          "path": "battle-type-hud/panel_expansion_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/panel_expansion_bw1.py"
+          },
+          "kind": "build-tool",
+          "sha256": "a3afe013d9d0261815956744cd0da49322f12e7d91ef904bc894b84b450e48b7",
+          "normalized": false
+        },
+        {
           "path": "battle-type-hud/panel_expansion.py",
           "origin": {
             "repository": "pokeweb",
@@ -2062,6 +2539,16 @@
           "normalized": false
         },
         {
+          "path": "battle-type-hud/panel-expansion-bw1.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/panel-expansion-bw1.json"
+          },
+          "kind": "metadata",
+          "sha256": "962b6825746316d8e199ef97c9af00014cd04229e30442bd8acb658c071699d4",
+          "normalized": false
+        },
+        {
           "path": "battle-type-hud/panel-expansion.json",
           "origin": {
             "repository": "pokeweb",
@@ -2069,6 +2556,16 @@
           },
           "kind": "metadata",
           "sha256": "95fa93edd482fc17d93e52a9fcacbd04a05021c8ba09659c5f06d1f525cfeaf9",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/prepare_bw1_validation.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/prepare_bw1_validation.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "61966063b1de2a5b3cfef5588d167356236028c0f91fb5eebae64ae51e659d1a",
           "normalized": false
         },
         {
@@ -2092,6 +2589,16 @@
           "normalized": false
         },
         {
+          "path": "battle-type-hud/profile-MoveEffectiveness-B.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-MoveEffectiveness-B.json"
+          },
+          "kind": "metadata",
+          "sha256": "12609a0c54e5a1d4558e0859789c846ac9c13c61732f5e38c2b143fe1da1e26f",
+          "normalized": false
+        },
+        {
           "path": "battle-type-hud/profile-MoveEffectiveness-B2.json",
           "origin": {
             "repository": "pokeweb",
@@ -2099,6 +2606,16 @@
           },
           "kind": "metadata",
           "sha256": "6c9d1f7432c4e0651a1e7804e5511e8a566441befd31ec924fa83c50df97723a",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/profile-MoveEffectiveness-W.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-MoveEffectiveness-W.json"
+          },
+          "kind": "metadata",
+          "sha256": "0c8893d0c3763e3d8391585c2699d9f66c09d1043877ee31cc21252748c52d5c",
           "normalized": false
         },
         {
@@ -2112,6 +2629,16 @@
           "normalized": false
         },
         {
+          "path": "battle-type-hud/profile-TypeIcons-B.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-TypeIcons-B.json"
+          },
+          "kind": "metadata",
+          "sha256": "b5a715f97af7a4d7180bbb5066ae2f3ab3af43525e930a1903b69d82cded7bca",
+          "normalized": false
+        },
+        {
           "path": "battle-type-hud/profile-TypeIcons-B2.json",
           "origin": {
             "repository": "pokeweb",
@@ -2119,6 +2646,16 @@
           },
           "kind": "metadata",
           "sha256": "59d07c15dac9a202b093fc70ad574b238fff10c1418ea4d370bbc3d9393e5d41",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/profile-TypeIcons-W.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/profile-TypeIcons-W.json"
+          },
+          "kind": "metadata",
+          "sha256": "4a038d62e6bf2fd4b6046144758c9d9921a7d3c08fda65ed051b8b8299e63de6",
           "normalized": false
         },
         {
@@ -2158,7 +2695,7 @@
             "path": "runtime/battle-type-hud/README.md"
           },
           "kind": "documentation",
-          "sha256": "0be154e59b8eae2b0fd239087c5f7353cb03d0352c6f38a01a86a068de6c602d",
+          "sha256": "572ea6fec139867e3c8633743898ff1f7deef75211b07b5bedb47744efef920a",
           "normalized": false
         },
         {
@@ -2178,7 +2715,7 @@
             "path": "runtime/battle-type-hud/rpm_read.py"
           },
           "kind": "build-tool",
-          "sha256": "8d5fed7a0c80e9e5a4be5328e7f1daa3487109839ae72e7d470a3226a542d4b6",
+          "sha256": "986e65a16d53d6421783fe103499f1ecb988e10286c67b286336f4c8562bd594",
           "normalized": false
         },
         {
@@ -2188,7 +2725,7 @@
             "path": "runtime/battle-type-hud/sync_bundled.py"
           },
           "kind": "build-tool",
-          "sha256": "75b99b21b37d878f55de564dc855723d11fccfc46da339c0a89d940572e9faaf",
+          "sha256": "8e8daad8b0d97a2dd6c018ab570b8d914d6f7b6183fb1bec159aafbdd9138b5f",
           "normalized": false
         },
         {
@@ -2198,7 +2735,37 @@
             "path": "runtime/battle-type-hud/VALIDATION.md"
           },
           "kind": "documentation",
-          "sha256": "92f3a6aeb0a9639349ebfabd96e20e0864c22d56858074b40f56173876d9ac03",
+          "sha256": "fe9eaed698465fcf0d02866701eebc3e2c20ea41b400ebbcf78befa2cbec21cc",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify_bw1_bindings.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify_bw1_bindings.py"
+          },
+          "kind": "test",
+          "sha256": "2b7ecabee271c56a5e8f553a2828c4a7fe61dbe12472aaf684c4e64ceab1101c",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify_bw1_moves.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify_bw1_moves.py"
+          },
+          "kind": "test",
+          "sha256": "346ab1fd1fb369d2dddc94607b27bcacdf277ef006bff1deffbc67196a55e8a8",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/verify_bw1_renderer.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/verify_bw1_renderer.py"
+          },
+          "kind": "test",
+          "sha256": "77e682130448ffc47ef002a31a9578edfaeb0f420a51057c707a4a4fe5777b0a",
           "normalized": false
         },
         {
@@ -2268,7 +2835,7 @@
             "path": "runtime/battle-type-hud/verify_moves.py"
           },
           "kind": "test",
-          "sha256": "b12cd5deb14aec0d7b26816e604a1a350a83e286284bfe442df308d4dc640eff",
+          "sha256": "16539602736861875f48539437647c3197970727e3b8feb5d49e571ac0234328",
           "normalized": false
         },
         {
@@ -2352,13 +2919,93 @@
           "normalized": false
         },
         {
+          "path": "battle-type-hud/build/addresses-B.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/addresses-B.h"
+          },
+          "kind": "generated-header",
+          "sha256": "baf1875af529a1631c36c6f7a3ec035f904454c1323921d052f3a905126a8139",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/hooks-TypeIcons-B.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/hooks-TypeIcons-B.h"
+          },
+          "kind": "generated-header",
+          "sha256": "ad7e22d07cb31cc062e8af355fb603633155266e15e2fd8224fb628cdb24a908",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/addresses-MoveEffectiveness-B.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/addresses-MoveEffectiveness-B.h"
+          },
+          "kind": "generated-header",
+          "sha256": "034c5c5b8107e39a7c7a4fcf18ccd3f4c0c0ed74647d96718a76c9a4159e5d84",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/hooks-MoveEffectiveness-B.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/hooks-MoveEffectiveness-B.h"
+          },
+          "kind": "generated-header",
+          "sha256": "8cb9e76528fb0e95d29a77e00cbac386b8c4d61d873ce46540018cff25ec0760",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/addresses-W.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/addresses-W.h"
+          },
+          "kind": "generated-header",
+          "sha256": "6cc969601e9a5cd2faa607f136a5d2688bcb529badc343eec42bcb3dfa7e5ac0",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/hooks-TypeIcons-W.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/hooks-TypeIcons-W.h"
+          },
+          "kind": "generated-header",
+          "sha256": "624ca013c377043eeabe1a6f54395b409d020e2445ba88ecebdd578c5258018d",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/addresses-MoveEffectiveness-W.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/addresses-MoveEffectiveness-W.h"
+          },
+          "kind": "generated-header",
+          "sha256": "cf1a35c754b52a12a6b52c0c647d9a5dc385e0ef31e9e02afcca4c6f526c5e4c",
+          "normalized": false
+        },
+        {
+          "path": "battle-type-hud/build/hooks-MoveEffectiveness-W.h",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/battle-type-hud/build/hooks-MoveEffectiveness-W.h"
+          },
+          "kind": "generated-header",
+          "sha256": "b9f8c72c43125b43b1253d0dbeb3b93dddcff9b54f38286acfcaf0e576d5ba10",
+          "normalized": false
+        },
+        {
           "path": "battle-type-hud/metadata/battleTypeHudManifest.json",
           "origin": {
             "repository": "pokeweb",
             "path": "src/assets/codeinjection/battleTypeHudManifest.json"
           },
           "kind": "metadata",
-          "sha256": "bda592ccd1170ac633ff69be7fabe3d8d0d6c3c4a061c2734c57b3a5e6e3d81c",
+          "sha256": "dde09283602bbdd73988f9530f08844cbba8a5c0fb2c7457fb1e1afef2d4f35a",
           "normalized": false
         },
         {
@@ -2368,7 +3015,7 @@
             "path": "src/assets/codeinjection/battleTypeHudPanelExpansion.json"
           },
           "kind": "metadata",
-          "sha256": "95fa93edd482fc17d93e52a9fcacbd04a05021c8ba09659c5f06d1f525cfeaf9",
+          "sha256": "8f352a8e30a246ba50dbfcf7819d503c49c162278781747c9589c347ca61eb7f",
           "normalized": false
         },
         {
@@ -2378,7 +3025,7 @@
             "path": "src/pokeweb/battleTypeHudModel.ts"
           },
           "kind": "support-only",
-          "sha256": "aad02336b6320278803c5e66a895039e8580bb8069840ef96b14938f8ff102d9",
+          "sha256": "c26eda8961e0c85517f2c5313e617c2aa0c5776c58ea2c976c46698ebb78d2fd",
           "normalized": false
         },
         {
@@ -2388,7 +3035,7 @@
             "path": "src/test/battleTypeHudModel.test.ts"
           },
           "kind": "test",
-          "sha256": "8a38ef1ee1b828474c5489229d61d73008ee9f6b53586d51fb95af134abecb3c",
+          "sha256": "42d200776e7f51ef9dec33f3e85a3472d754da23fa2c747358affd104f66cbd7",
           "normalized": false
         },
         {
@@ -2676,7 +3323,7 @@
             "path": "package.json"
           },
           "kind": "build-tool",
-          "sha256": "73a854b99eef2da2b15d8fa22d6867a885b06beab5d654381e1257f7ca296b8e",
+          "sha256": "0617c50ea84a51bcec1cb51a326e7832e715f60eb37b95626b776f7da04ec8f2",
           "normalized": false
         },
         {
@@ -2784,7 +3431,7 @@
             "path": "src/pwan_animation/w2u_trainer_anim.cpp"
           },
           "kind": "source",
-          "sha256": "bf2e949f01a38c33d6625210aa48496b179f28e6e6cd6f5a399b2e9dfb15386d",
+          "sha256": "b085916e49ff1b4ea651673143e199bb699e8f93e8548ef3ae37a216bdef7f91",
           "normalized": false
         },
         {
@@ -2854,7 +3501,7 @@
             "path": "src/pwan_animation/meson.build"
           },
           "kind": "build-tool",
-          "sha256": "a665247c2b8cf36d64347daaf2fd89ee6d13dbe9b1df12171bafd94b8ee2be7a",
+          "sha256": "3b70bcf4156fc21f386985964335e6fb63cdd4313da4c0764826e2c008cda80c",
           "normalized": false
         },
         {
@@ -5054,7 +5701,7 @@
             "path": "src/pokeweb/followingPokemonProject.ts"
           },
           "kind": "support-only",
-          "sha256": "282636d23185914b253c09316d3ec46435608f5be829c32d80bee8cbb5064e69",
+          "sha256": "8d3a3868e9add2c82c0deac36bb5a1df0bceea352cbb9c53f30bdd3ddb9acc08",
           "normalized": false
         },
         {
@@ -5074,7 +5721,7 @@
             "path": "src/test/followingPokemonProject.test.ts"
           },
           "kind": "test",
-          "sha256": "c48dae7d6d6a4e5a2b7483c9efd9a90cb5824734ff0b95cd706866850e56ce70",
+          "sha256": "a50ca2ccb12bc1a584f8133a2083ec7d55bc8b060842e82a06df6179d93e2675",
           "normalized": false
         },
         {
@@ -5677,11 +6324,29 @@
         {
           "name": "SummaryStatViewerW2.dll",
           "sha256": "f32bee5f8650224a4b0309d289b60e5c06cfc5aa3bd1f3664825ed86d62c231a"
+        },
+        {
+          "name": "SummaryStatViewerB.dll",
+          "sha256": "dfd4ebfdf5f90a3a3176c5664d8acd7d097869bedb765a5e237b54a0bca26845"
+        },
+        {
+          "name": "SummaryStatViewerW.dll",
+          "sha256": "8c2d5ccf6171ba0930955cd7321b8c9eb54b50551d2d6536e57216811470c51f"
         }
       ],
-      "note": "Independent B2/W2 native Summary Stats variants and shared footer tab. Canonical source and configuration metadata are recorded; game acceptance remains separate from native checks.",
+      "note": "Independent B2/W2 native Summary Stats variants and shared footer tab, plus separately built US revision-0 B/W companions. US revision-0 BW1 DS gameplay and visual acceptance is recorded for the exact bundled builds; live DSi acceptance remains pending. Canonical source and configuration metadata are recorded; compiled and DS gameplay checks remain separate.",
       "status": "source-available",
       "files": [
+        {
+          "path": "summary-stat-viewer/build_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/build_bw1.py"
+          },
+          "kind": "build-tool",
+          "sha256": "51d80394982b36d2dffe6951ba5bdacde640295364728d12fcac896c217a45e6",
+          "normalized": false
+        },
         {
           "path": "summary-stat-viewer/build.py",
           "origin": {
@@ -5689,7 +6354,37 @@
             "path": "runtime/summary-stat-viewer/build.py"
           },
           "kind": "build-tool",
-          "sha256": "b6b0cdffc5a506524406eb017153a60094976bee3b3aea73b5e35397742a3f2f",
+          "sha256": "0cc7b7b59d44d5dbc9f791f645e5437ea9c151791ebed03a666fe59e7df92720",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/prepare_bw1_validation.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/prepare_bw1_validation.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "fddb527f6af8e1af183f6582b38faeb6e01f40a24870b7756f042ee44303f5e7",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/profile-B.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/profile-B.json"
+          },
+          "kind": "metadata",
+          "sha256": "eae6c9e2f75f4e09f2b315cc0252c1b2bdf724ad1142f23eac11934d88b3ec21",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/profile-W.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/profile-W.json"
+          },
+          "kind": "metadata",
+          "sha256": "a3098540f722fe03b59a21276a7e195860fb564ab46fb96062873ae6eebe62a4",
           "normalized": false
         },
         {
@@ -5699,7 +6394,7 @@
             "path": "runtime/summary-stat-viewer/README.md"
           },
           "kind": "documentation",
-          "sha256": "5a5b1329c6257fa5e4ea80a655ed17c97adb115babcd21d9df64b2bf716038d1",
+          "sha256": "26fa6bd4a8ac0d6fee6ce0d3703a783f8b26ba1b203894fdf7892f99e4a579eb",
           "normalized": false
         },
         {
@@ -5709,7 +6404,7 @@
             "path": "runtime/summary-stat-viewer/runtime.h"
           },
           "kind": "source",
-          "sha256": "90d66cc887723a8d573cfac27b17a4fa788fcd8d656c9c5805ea69ea67338bda",
+          "sha256": "8d0471e60833bd917f77ac2ce2a1305736e5a5ae024ec86721d60bfbeee7b01e",
           "normalized": false
         },
         {
@@ -5719,7 +6414,17 @@
             "path": "runtime/summary-stat-viewer/VALIDATION.md"
           },
           "kind": "documentation",
-          "sha256": "5f9c00eb134332376acf557f08b42b4cf8db12a4076028463a13102cbb3233be",
+          "sha256": "581dff254b195969f9eae797694b9303d9ac83fe78f81c77cd2f57cd7c9fd893",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/verify_bw1.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/summary-stat-viewer/verify_bw1.py"
+          },
+          "kind": "test",
+          "sha256": "34b9efdcf4a4231be0c10dc620b340beac1d33fa2f0b1a5c9fc1318f74b3b110",
           "normalized": false
         },
         {
@@ -5729,7 +6434,7 @@
             "path": "runtime/summary-stat-viewer/verify.py"
           },
           "kind": "test",
-          "sha256": "e6d834e7c01e3b96f697e80814eea74900267cc9196c78d7552bd421ba13445e",
+          "sha256": "db7398bb2d8a56610fd4627cbdcccaa372f8fa84cf3ffe64966da686b8ef023f",
           "normalized": false
         },
         {
@@ -5739,7 +6444,7 @@
             "path": "runtime/summary-stat-viewer/viewer.cpp"
           },
           "kind": "source",
-          "sha256": "b03c832b0fdff6372a180e8ca5a6fff3c9fdadccde845435be791a63311e41ec",
+          "sha256": "02171e57f23eaef7a70ed24e3e66d71a5a2eb52a38ad742ef00a1808ad281e88",
           "normalized": false
         },
         {
@@ -5749,7 +6454,7 @@
             "path": "src/assets/codeinjection/summaryStatViewerManifest.json"
           },
           "kind": "metadata",
-          "sha256": "0503a4309f0b6ef21e2abd2c0673642d8de18129fe14e2baf7469c41f79dc0e5",
+          "sha256": "f68f01c7403aa2e5ad83a004f87ea2451b10ec8be18174b0965f0f5d98c430c0",
           "normalized": false
         },
         {
@@ -5759,7 +6464,66 @@
             "path": "src/pokeweb/summaryStatViewerModel.ts"
           },
           "kind": "support-only",
-          "sha256": "595de890c098a39ebf314061639c9b3428cfa7d1f863184ed4ea87610d27cf9b",
+          "sha256": "e99d5ad23f4abd5bf6645bf3696f985ac667925693e02f5596ae0b441c2d9835",
+          "normalized": false
+        },
+        {
+          "path": "summary-stat-viewer/tests/summaryStatViewerModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/summaryStatViewerModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "0f29d4fa09163de8389a5f250493a9417ea873e03f9bb5cd8b157c4f89446af2",
+          "normalized": false
+        }
+      ]
+    },
+    {
+      "name": "bw1-ui-release",
+      "title": "BW1 Graphical/UI release acceptance",
+      "artifacts": [],
+      "note": "Shared tested-profile and exact-artifact DS acceptance ledger, bundler guard and verifier. Changed bindings, DLLs or party-menu dependencies require fresh acceptance. This is DS-mode emulator evidence, not live DSi or a general heap-capacity claim.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "bw1-ui-release/bw1_release.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bw1_release.py"
+          },
+          "kind": "build-tool",
+          "sha256": "dffc8ee0f4a5555c9ff7d61a073b4292101fff7bf715dcdbe33344ef92301e64",
+          "normalized": false
+        },
+        {
+          "path": "bw1-ui-release/verify_bw1_release.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/verify_bw1_release.py"
+          },
+          "kind": "test",
+          "sha256": "d0c88361f9876b62b9b6dde6ee035eb5d5d6bf1983e9acfe488c52a9c2499059",
+          "normalized": false
+        },
+        {
+          "path": "bw1-ui-release/bw1-ui-acceptance.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/bw1-ui-acceptance.json"
+          },
+          "kind": "metadata",
+          "sha256": "5afd7d1f59e3330a4d0a7dd24124dee64e7abce0262d9bc40d060e8e625ba1a1",
+          "normalized": false
+        },
+        {
+          "path": "bw1-ui-release/BW1_UI_RELEASE.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/BW1_UI_RELEASE.md"
+          },
+          "kind": "documentation",
+          "sha256": "cf7113951c74b7ecb5f9e9d9da98c9b0ca8a6d0741004f9340b75d78dd48aca2",
           "normalized": false
         }
       ]
@@ -5773,7 +6537,7 @@
         "path": "include/w2u_battle.h"
       },
       "kind": "header",
-      "sha256": "c88af9edfea210e77b78696908a9c29cd1073c026a8851bed7fc4fe27b7b049e",
+      "sha256": "08c9944ecb87109e155261dfe5a2fcf9804e2d2ed3ffb7235b7e87e7c0b52078",
       "normalized": false
     },
     {
@@ -5823,7 +6587,7 @@
         "path": "include/w2u_menu_evolution_script_api.h"
       },
       "kind": "header",
-      "sha256": "1dd65ba5aed34511b69ba4615854ecda5dd27109b7f99877f348927af3a9513f",
+      "sha256": "3980864495656dcd63264f21b66f63a718a12d0a98e668d47157f0570d739f1b",
       "normalized": false
     },
     {
@@ -5833,7 +6597,7 @@
         "path": "include/w2u_platform.h"
       },
       "kind": "header",
-      "sha256": "d65a50b99f6bc6025745f73c4bf44c4d4253bc75223e57aa13690fc39920a5b6",
+      "sha256": "668336d69f2df8931e65af558cbfffa1a30417b446dda78a5a3e372fe3545f15",
       "normalized": false
     },
     {
@@ -5863,7 +6627,7 @@
         "path": "include/Items.h"
       },
       "kind": "header",
-      "sha256": "9f8d9cf2797aa4adc75a09989a867f00fb140fee1cc5dbd1892e403b4c6194e8",
+      "sha256": "27ab9850fae56dadabd349ebe44dc64adb30a05b56d7b5702d2acf6ed7ff6ed3",
       "normalized": false
     },
     {
@@ -5943,7 +6707,7 @@
         "path": "pmc/black2upgrade_aliases.json"
       },
       "kind": "metadata",
-      "sha256": "1501e8faafc0890d1cb012820ff48592e369292cc2dce9d13b43c15057deae64",
+      "sha256": "65db5ba65c013c7a393bf6cab1d679469523912a6825468c642e399da5199f9a",
       "normalized": false
     },
     {
@@ -5959,7 +6723,7 @@
     {
       "path": "shared/include/util/main_ram.h",
       "origin": {
-        "repository": "w2u-runtime",
+        "repository": "w2u-integration",
         "path": "include/util/main_ram.h"
       },
       "kind": "source",
@@ -5969,7 +6733,7 @@
     {
       "path": "shared/include/swan/nds/hw.h",
       "origin": {
-        "repository": "w2u-runtime",
+        "repository": "w2u-integration",
         "path": "include/swan/nds/hw.h"
       },
       "kind": "source",
@@ -5979,7 +6743,7 @@
     {
       "path": "shared/tests/test_main_ram.py",
       "origin": {
-        "repository": "w2u-runtime",
+        "repository": "w2u-integration",
         "path": "tools/tests/test_main_ram.py"
       },
       "kind": "test",
@@ -5993,7 +6757,7 @@
         "path": "tools/tests/check_pwan_substitute_runtime.py"
       },
       "kind": "test",
-      "sha256": "371e67d0ac36262be3f72828b41248941baed92ba7e9a62df90b96d94a716530",
+      "sha256": "0785ed46b68f205336b113118a24eea5a4a25075b9e1080b69d390f36f0afee6",
       "normalized": false
     }
   ]

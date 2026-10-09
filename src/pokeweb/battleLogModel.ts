@@ -176,10 +176,10 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: WHITE1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: WHITE1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/White1BattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 7,
+    runtimeVersion: 8,
     runtimeFingerprints: {
-      battle: { length: 2416, fnv1a: 0xda44e297 },
-      counters: { length: 608, fnv1a: 0xe807d97f },
+      battle: { length: 2464, fnv1a: 0x0be4b473 },
+      counters: { length: 1856, fnv1a: 0xeae971a0 },
       summary: { length: 912, fnv1a: 0xfbf182f8 },
     },
     wifiAddress: 0x020097f0,
@@ -191,6 +191,8 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
       { label: "Faint detection", overlayId: 93, address: 0x021c4f84, expectedHex: "f8b582b00f1c041c381c10f067fa061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 93, address: 0x021ca814, expectedHex: "f0b585b0041c039260681f1c02910a9dedf7c0fe04903869" },
       { label: "Individual PK5 counter RPC", overlayId: 93, address: 0x021d5b88, expectedHex: "08b50d21fff722ff002801d1012008bd002008bd38b5051c" },
+      { label: "Zero-EXP KO learning", overlayId: 93, address: 0x021d2abc, expectedHex: "002819d0714a0390301c03a903f086ff" },
+      { label: "Native KO move learning", overlayId: 93, address: 0x021d2d20, expectedHex: "45f610fb30803288002a02d12bb00120" },
       { label: "Summary frag value", overlayId: 131, address: 0x021d80ea, expectedHex: "072100223ff6d9fe0004020c0220009001200190" },
       { label: "Summary frag formatting", overlayId: 131, address: 0x021d8100, expectedHex: "0021052346f65cff412000900120019011208001" },
     ],
@@ -207,10 +209,10 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
     summaryDllFilename: BLACK1_BATTLE_LOG_SUMMARY_DLL_FILENAME,
     summaryDllPath: BLACK1_BATTLE_LOG_SUMMARY_DLL_PATH,
     summaryDllUrl: new URL("../assets/codeinjection/Black1BattleLogSummary.dll", import.meta.url),
-    runtimeVersion: 7,
+    runtimeVersion: 8,
     runtimeFingerprints: {
-      battle: { length: 2416, fnv1a: 0x9027e07a },
-      counters: { length: 608, fnv1a: 0xa57eca34 },
+      battle: { length: 2464, fnv1a: 0xef39b966 },
+      counters: { length: 1856, fnv1a: 0xe4220e12 },
       summary: { length: 912, fnv1a: 0xaf538970 },
     },
     wifiAddress: 0x020097f0,
@@ -222,6 +224,8 @@ const BATTLE_LOG_LAYOUTS: Record<SupportedBattleLogVersion, {
       { label: "Faint detection", overlayId: 93, address: 0x021c4f64, expectedHex: "f8b582b00f1c041c381c10f067fa061c3c482518a85d0028" },
       { label: "Resolved move targets", overlayId: 93, address: 0x021ca7f4, expectedHex: "f0b585b0041c039260681f1c02910a9dedf7c0fe" },
       { label: "Individual PK5 counter RPC", overlayId: 93, address: 0x021d5b68, expectedHex: "08b50d21fff722ff002801d1012008bd002008bd38b5051c" },
+      { label: "Zero-EXP KO learning", overlayId: 93, address: 0x021d2a9c, expectedHex: "002819d0714a0390301c03a903f086ff" },
+      { label: "Native KO move learning", overlayId: 93, address: 0x021d2d00, expectedHex: "45f612fb30803288002a02d12bb00120" },
       { label: "Summary frag value", overlayId: 131, address: 0x021d80ca, expectedHex: "072100223ff6dbfe0004020c0220009001200190" },
       { label: "Summary frag formatting", overlayId: 131, address: 0x021d80e0, expectedHex: "0021052346f65eff412000900120019011208001" },
     ],
@@ -378,14 +382,14 @@ export function detectBattleLogCompatibility(
       message: "The source ROM could not be parsed for battle-log compatibility.",
     };
   }
-  if (rom.idCode !== layout.idCode) {
+  if (rom.idCode !== layout.idCode || (project.session.baseRom === "BW" && rom.data[0x1e] !== 0)) {
     return {
       supported: false,
       compatible: false,
       checked: true,
       passed: 0,
       checks: [],
-      message: `Expected US ${layout.displayName} (${layout.idCode}), but the source ROM is ${rom.idCode || "unknown"}.`,
+      message: `Expected US ${layout.displayName} (${layout.idCode})${project.session.baseRom === "BW" ? " revision 0" : ""}, but the source ROM is ${rom.idCode || "unknown"} revision ${rom.data[0x1e]}.`,
     };
   }
 
@@ -426,22 +430,30 @@ export function detectBattleLogCompatibility(
   // another auto-loaded patch claiming an isolation entry (including a getter
   // import that was replaced in a ROM hack), rather than depending on load order.
   const auditProject = project.originalRomBytes === romBytes ? project : { ...project, originalRomBytes: romBytes };
+  const counterHooks = project.session.baseRom === "BW"
+    ? layout.hooks.filter(region => region.label === "Zero-EXP KO learning" || region.label === "Native KO move learning")
+      .map(region => ({ ...region, expectedHex: region.expectedHex.slice(0, 8) }))
+    : [];
+  const auditRegions = [...guard.hooks, ...guard.imports, guard.daily, ...counterHooks];
   for (const module of listCodeInjectionDlls(auditProject)) {
     if (!/^patches\/[^/]+$/iu.test(module.path) || module.path.toLowerCase() === guard.path.toLowerCase()) continue;
     const bytes = effectiveRomPathBytes(auditProject, module.path);
     if (!bytes) continue;
+    const ownsCounterHooks = module.path.toLowerCase() === layout.counterDllPath.toLowerCase()
+      && matchesRuntimeFingerprint(bytes, layout.runtimeFingerprints.counters);
     try {
       const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
       for (const relocation of rpm.relocations) {
-        if (relocation.target.module !== "ARM9") continue;
         const start = relocation.target.address & ~1;
         const size = relocation.target.type === "FULL_COPY"
           ? rpm.symbols[relocation.sourceSymbolIndex]?.size ?? 0
           : relocation.target.type.endsWith("LINK") ? 4 : 8;
-        for (const region of [...guard.hooks, ...guard.imports, guard.daily]) {
+        for (const region of auditRegions) {
+          if (relocation.target.module !== (region.overlayId === 0 ? "ARM9" : String(region.overlayId))) continue;
+          if (ownsCounterHooks && counterHooks.includes(region)) continue;
           if (start >= region.address + region.expectedHex.length / 2 || start + size <= region.address) continue;
-          checks.push({label: region.label, overlayId: 0, address: start, matched: false,
-            message: `${module.path} also patches ${region.label}; resolve the hook conflict before installing the save guard.`});
+          checks.push({label: region.label, overlayId: region.overlayId, address: start, matched: false,
+            message: `${module.path} also patches ${region.label}; resolve the hook conflict before installing the battle log.`});
         }
       }
     } catch {
@@ -464,6 +476,19 @@ export function detectBattleLogCompatibility(
 }
 
 export async function installBattleLog(project: ProjectState): Promise<BattleLogInstallResult> {
+  const staged: ProjectState = { ...project, arm9: project.arm9.slice(),
+    overlays: Object.fromEntries(Object.entries(project.overlays).map(([id, bytes]) => [id, bytes?.slice()])),
+    narcs: structuredClone(project.narcs), texts: structuredClone(project.texts),
+    fileSystem: structuredClone(project.fileSystem), codeInjection: structuredClone(project.codeInjection),
+    patches: structuredClone(project.patches), actionChangelog: structuredClone(project.actionChangelog) };
+  const result = await installBattleLogStaged(staged);
+  Object.assign(project, { arm9: staged.arm9, arm9Dirty: staged.arm9Dirty, overlays: staged.overlays,
+    narcs: staged.narcs, texts: staged.texts, fileSystem: staged.fileSystem, codeInjection: staged.codeInjection,
+    patches: staged.patches, actionChangelog: staged.actionChangelog });
+  return result;
+}
+
+async function installBattleLogStaged(project: ProjectState): Promise<BattleLogInstallResult> {
   const layout = battleLogLayout(project.session.baseVersion);
   if ((project.session.baseRom !== "BW" && project.session.baseRom !== "BW2") || !layout) {
     throw new Error("The battle log supports US Black, White, Black 2, White 2, and the corresponding Upgrade ROMs.");
@@ -521,7 +546,7 @@ export async function installBattleLog(project: ProjectState): Promise<BattleLog
   recordGenericChange(
     project,
     "code_injection",
-    `Battle-log runtime v${layout.runtimeVersion} staged with${project.session.baseRom === "BW2" ? " immediate KO-counter commits for companion KO moves," : ""} direct-damage-first KO attribution, AI-partner KO attribution, split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, isolated Wi-Fi save blocks 29–31, and the daily Geonet rewrite disabled. Existing damaged records are not repaired.`,
+    `Battle-log runtime v${layout.runtimeVersion} staged with immediate KO-counter commits for companion KO moves, direct-damage-first KO attribution, AI-partner KO attribution, split safe-byte PK5 counters, ${evolutionMembers.length} evolution mappings, a ${BATTLE_LOG_CAPACITY}-record capacity, isolated Wi-Fi save blocks 29–31, and the daily Geonet rewrite disabled. Existing damaged records are not repaired.`,
     "Battle Log",
     { key: "code-injection:battle-log" },
   );
@@ -572,10 +597,9 @@ export function uninstallBattleLog(project: ProjectState): void {
 }
 
 function hasMenuEvolutionCompanion(project: ProjectState): boolean {
-  if (project.codeInjection?.menuEvolution) return true;
   return listCodeInjectionDlls(project).some((module) => {
     const path = module.path.toLowerCase();
-    return path === "patches/menuevolutionb2.dll" || path === "patches/menuevolutionw2.dll";
+    return /^patches\/menuevolution(?:b|w|b2|w2)\.dll$/u.test(path);
   });
 }
 

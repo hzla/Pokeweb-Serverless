@@ -1,0 +1,1446 @@
+{
+  "games": {
+    "B": {
+      "idCode": "IRBO",
+      "revision": 0,
+      "dsAccepted": true,
+      "version": "0.1.0-bw1-candidate",
+      "runtimeVersion": 1,
+      "messageBankId": 157,
+      "counterDllPath": "patches/Black1BattleCounters.dll",
+      "requiredBattleLogRuntimeVersion": 8,
+      "api": [
+        {
+          "label": "Native archive path table",
+          "entry": 34237528,
+          "segment": "ARM9",
+          "mode": "data",
+          "expectedHex": "c06b0a0210650a02506c0a02486c0a02406c0a02386c0a02306c0a02286c0a02206c0a02186c0a02106c0a02086c0a02006c0a02f86b0a02f06b0a02e86b0a02e06b0a02d86b0a02d06b0a02c86b0a0240680a02b86b0a02"
+        },
+        {
+          "label": "kPkmDecryptAddress",
+          "entry": 33652157,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "10b5021c918800248807c00f09d1022008439080101cd28808308021012401f039fe201c10bd000038b5051caa8800249007c00f012811d101290fd102208243"
+        },
+        {
+          "label": "kPkmReEncryptAddress",
+          "entry": 33652197,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "38b5051caa8800249007c00f012811d101290fd102208243281c083080210124aa8001f049fee880281cea880830802101f01cfe201c38bd70b5051c0c1c161c"
+        },
+        {
+          "label": "kPkmCryptoRunAddress",
+          "entry": 33659473,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "0fb4f8b5051c00244e080ad008af381c00f00cf861006a5a641c50406852b442f5d3f8bc08bc04b01847000002680549131c4b43044959180160080c0004000c"
+        },
+        {
+          "label": "kPkmGetBlockAddress",
+          "entry": 33659961,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "3e231b031940490b8b0003490830c918515c40187047c046a4e3090208b5074a5388984202d11288914205d0034a11805080034a01f09af8014808bd70621402"
+        },
+        {
+          "label": "kPokemonGetAddress",
+          "entry": 33652253,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c70bd000070b5051c0c1c161c00f062ff012804d1281c211c321c01f057fa281c"
+        },
+        {
+          "label": "kPersonalDataIdAddress",
+          "entry": 33664981,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "78b58fb0051c15480c1c28180004000c012802d80fb0002078bd114e291c30682ef0c0ea011c30682ef006eb30683c2100aa2ef0f6ea00a8818b002905d008a8"
+        },
+        {
+          "label": "kArcOpenAddress",
+          "entry": 33853684,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "38402de934409fe50050a0e10100a0e12c309fe55010a0e30020a0e300408de5869dffeb0040a0e10510a0e12dffffeb0400a0e11b0000eb0400a0e13880bde8"
+        },
+        {
+          "label": "kArcFreeAddress",
+          "entry": 33854008,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "10402de90040a0e10ebe00eb0400a0e1589dffeb1080bde8f0402de90cd04de20050a0e1be34d5e10170a0e10240a0e1070053e10400008aa4009fe5a4109fe5"
+        },
+        {
+          "label": "kArcReadAddress",
+          "entry": 33854252,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "f0402de90cd04de20050a0e1be34d5e10170a0e10240a0e1070053e10400008a74009fe574109fe574209fe500708de5f4acffebbc14d5e10060a0e30500a0e1"
+        },
+        {
+          "label": "kArcSizeAddress",
+          "entry": 33854420,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "30402de90cd04de20050a0e1be34d5e10140a0e1040053e10400008a48009fe548109fe548209fe500408de5cbacffebbc14d5e10500a0e10020a0e30c1081e2"
+        },
+        {
+          "label": "kArcCountAddress",
+          "entry": 33855004,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "be04d0e11eff2fe138402de90340a0e10250a0e1b831dde114209de5df0200eb14c09de510309de50510a0e10420a0e100c08de50d0000eb3880bde838402de9"
+        },
+        {
+          "label": "kArcInitAddress",
+          "entry": 33853852,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "30402de90cd04de20050a0e30040a0e10520a0e10c10a0e3bc54c4e161be00eb0400a0e14c1084e20220a0e368be00ebbc14d4e10400a0e10520a0e1041081e2"
+        },
+        {
+          "label": "kCreateStringAddress",
+          "entry": 33840832,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "70402de90050a0e10140a0e1ab0000eb1b00d5e5000050e30400951504008012840180100f00001a1a10d5e5002095e5103095e5011182e00c2091e58401a0e1"
+        },
+        {
+          "label": "kCheckFieldMoveAddress",
+          "entry": 35363301,
+          "segment": "91",
+          "mode": "Thumb",
+          "expectedHex": "08b5363100225ef617fa7f2815d831d246280bd82cd2132805d80f283cd321d0132821d038e0392820d035e05b2801d826d031e0642821d02ee0d02807d827d2"
+        },
+        {
+          "label": "kOpenPartyMenuAddress",
+          "entry": 35371769,
+          "segment": "91",
+          "mode": "Thumb",
+          "expectedHex": "30b585b0051c0c1c00f080f828880090217800a80171211c143102910121039120210174182141740d2181740321c174a86879f656ed95218900695800a86bf6"
+        },
+        {
+          "label": "kCreateMenuStringAddress",
+          "entry": 35372441,
+          "segment": "91",
+          "mode": "Thumb",
+          "expectedHex": "38b5051c102a17db132a15dc2632111ca86b00225cf636f8041c2b8800200221cb2289f6beee051c211c8af67ee8041c281c89f61cef08e04d20800004499200"
+        },
+        {
+          "label": "kSelectMenuExitAddress",
+          "entry": 35361133,
+          "segment": "91",
+          "mode": "Thumb",
+          "expectedHex": "f8b58ab00a25041cad0161590a1c63321278012a03d113200ab02073f8bde26b152a00d9cde293187b44db881b041b149f4402018e058e0542007e00c0002a00"
+        },
+        {
+          "label": "kCheckEvolutionAddress",
+          "entry": 33665713,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "f0b593b0019019980f1c19901a98151c1a90381c4c2100221c1c0026fcf7a6fd002802d013b0301cf0bd381c0521321cfcf79cfd0004000c0a90381c0621321c"
+        },
+        {
+          "label": "kCheckLevelUpPokemonAddress",
+          "entry": 35363349,
+          "segment": "92",
+          "mode": "Thumb",
+          "expectedHex": "f0b583b000914968051c081c8c300068012803d0032801d0052834d10868002801d001282fd10098006858f679ff029060f6e8ff00240190002824dd3a350298"
+        },
+        {
+          "label": "kPartyGetCountAddress",
+          "entry": 33663513,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "40687047f8b5071c0025fff7f9ff061c0024002e0ddd381c211c00f079f84c210022fdf7eff9012800d06d1c641cb442f1db281cf8bd0000f8b5051c0026fff7"
+        },
+        {
+          "label": "kPartyGetMemberAddress",
+          "entry": 33663785,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "dc2208304a4380187047000008b5fff7f7ff002802d000f0ebf808bd002008bdf8b5051c0e1cdc204643281c0830141c8019a9210022fdf75df9071c201ca921"
+        },
+        {
+          "label": "kHeapAllocAddress",
+          "entry": 33751192,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "f8432de9b4809fe50070a0e10160a0e1ac009fe5020917e30350e013b810d8e1007007e00450a003010057e10100a023be00c8211f00002a0700a0e1b4feffeb"
+        },
+        {
+          "label": "kHeapFreeAddress",
+          "entry": 33751396,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "f0412de91c6040e2b210d6e1b8709fe5bc4150e1070051e1b0009f150110a013be10c0112600001aa0809fe5b800d8e1000054e10200a023be00c8212000002a"
+        },
+        {
+          "label": "kFsInitAddress",
+          "entry": 34048172,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "0020a0e3231c82e3082080e5042080e5002080e51c2080e5182080e50c1080e5102080e5142080e51eff2fe1f0432de95ddf4de25c608de20080a0e10100a0e1"
+        },
+        {
+          "label": "kFsOpenAddress",
+          "entry": 34049048,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "04c09fe50120a0e31cff2fe1fc89070200c09fe51cff2fe1948a070200c09fe51cff2fe1447f070210402de9ae3b00eb020050e350009f150010a0e308108015"
+        },
+        {
+          "label": "kFsCloseAddress",
+          "entry": 34048640,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "08c09fe50810a0e30120a0e31cff2fe1807d070238402de908d04de20040a0e304108de20050a0e104408de59d0600eb000050e30900001a00108de2101085e5"
+        },
+        {
+          "label": "kProcLinkEventAddress",
+          "entry": 34998241,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "f0b583b00f1c051c3868141c0d2872d800187844c0880004001487441a001c005c0076009a009e00b400cc00ec00080124014e01a201b20196e02069012800d8"
+        },
+        {
+          "label": "kMoveReminderProcDataAddress",
+          "entry": 35357136,
+          "segment": "173",
+          "mode": "data",
+          "expectedHex": "01611b0275611b0251621b02"
+        },
+        {
+          "label": "kGetVMWorkAddress",
+          "entry": 34970345,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "70b50e1c051c301c00f078fd041c301c00f07cfd061c281cb7f616fc021c301c211cfff769fa70bd70b50e1c051c301c00f064fd041c301c00f068fd061c281c"
+        },
+        {
+          "label": "kGetVMWorkValueAddress",
+          "entry": 34970385,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "70b50e1c051c301c00f064fd041c301c00f068fd061c281cb7f602fc021c301c211cfff773fa70bd08b500f053fdb8f631feb8f6c1ff08bd78b581b04b210091"
+        },
+        {
+          "label": "kGetPartyPokemonAddress",
+          "entry": 34976941,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "f8b50d1c161cfff797f8b7f63dfa071cbff6acfa854201d2012401e000240025381c291cbff62afb3060201cf8bd000018b581b0141c00aafff7e2ff012806d1"
+        },
+        {
+          "label": "kGetPartyPokemonValueAddress",
+          "entry": 34976989,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "18b581b0141c00aafff7e2ff012806d10098211c0022bcf693fc01b018bd002001b018bd70b50c1c4c210022051c0026bcf686fc002801d0301c70bd281c3621"
+        },
+        {
+          "label": "kCreateEventAddress",
+          "entry": 33628865,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "f8b582b0051c019337200e1c171c00900b4b0420142101221ef02cea041c266067600020a0603b2000900199044b042001221ef020eae0602561201c02b0f8bd"
+        },
+        {
+          "label": "kEventDataAddress",
+          "entry": 33629417,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "c06870470830704700687047f8b582b00190ad2100916b217d4b090101221ef016e9041cf4f7cafd20601cf0b9f97126b600a0550025b01c25542068f6f796f9"
+        },
+        {
+          "label": "kGameSystemDataAddress",
+          "entry": 33628405,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "c0697047c069014b1847c046a52701028069704781617047006a704701627047006a002801d00120704700207047000030300170704700003030007870470000"
+        },
+        {
+          "label": "kGameDataTrainerAddress",
+          "entry": 33630533,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "08b5fff72dff203008bd0000442224304a4380187047000069218900405870476a218900405870476b218900405870471b210901405870476921090140587047"
+        },
+        {
+          "label": "kGameDataGetPartyAddress",
+          "entry": 33630517,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "6521890040587047672189004058704708b5fff72dff203008bd0000442224304a4380187047000069218900405870476a218900405870476b21890040587047"
+        },
+        {
+          "label": "kQueueProcAddress",
+          "entry": 33628341,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "08b580681ff046e908bd000008b50349034a031cfff7f4ff08bdc046150000009c351d0210b5041c00f072f9002801d0012010bd3134207810bd0000c0687047"
+        }
+      ],
+      "hooks": [
+        {
+          "label": "EVENT",
+          "overlayId": 10,
+          "address": 34998124,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "b1f6a8fd061cb1f6b9fe041c00217422"
+        },
+        {
+          "label": "OPEN",
+          "overlayId": 91,
+          "address": 35357646,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "03f093fb08b0f8bd000008b5817b0029"
+        },
+        {
+          "label": "TEXT",
+          "overlayId": 91,
+          "address": 35372364,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "00f024f8686101984088102809d31328"
+        },
+        {
+          "label": "SELECT",
+          "overlayId": 91,
+          "address": 35360884,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "00f07af838bd000038b5051c06202873"
+        },
+        {
+          "label": "EVOLUTION",
+          "overlayId": 10,
+          "address": 35001810,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "b9f66dfe061c0b480c4b009004201421"
+        },
+        {
+          "label": "RETURN",
+          "overlayId": 10,
+          "address": 35001872,
+          "patchType": "THUMB_BRANCH",
+          "expectedHex": "10b5041ca0690068b0f66cfda06e0328"
+        },
+        {
+          "label": "LEVEL",
+          "overlayId": 92,
+          "address": 35362436,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "00f0c6f96868311c406a61f6cdfa301c"
+        },
+        {
+          "label": "POST_BATTLE",
+          "overlayId": 92,
+          "address": 35363168,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "61f6a6fc0690208f0590608f40106087"
+        },
+        {
+          "label": "SCRIPT",
+          "overlayId": 10,
+          "address": 34980152,
+          "patchType": "THUMB_BRANCH",
+          "expectedHex": "f8b5061c0d1cfdf7d3fc041c301c291c"
+        }
+      ],
+      "segments": {
+        "ARM9": {
+          "address": 33570816,
+          "sha256": "f9cb027e4de3b4388c2ac02ae7e22aee8bf9bd25e9e7325bdf3265fec0370e92"
+        },
+        "10": {
+          "address": 34951520,
+          "sha256": "003fdef42c2584b5448ff223360bf2fecb1a2bf6d36ed63a429fd1033779fda7"
+        },
+        "91": {
+          "address": 35349056,
+          "sha256": "813d39b2dd3fb1fd972f496a686201182d823e32e6a38c2d1452752b72f82f17"
+        },
+        "92": {
+          "address": 35362208,
+          "sha256": "58613fac31d3a9efcdad42255948171cb9b68e21d7c41564f76397d92b7d3158"
+        },
+        "173": {
+          "address": 35348736,
+          "sha256": "25fe454d4f2b4aef73ba7ecf490f5b6e674076d610ec8d4e2c33e0117a6217b9"
+        }
+      },
+      "layout": {
+        "processWork": 116,
+        "takeoverMode": 104,
+        "partyWorkRequest": 640,
+        "partyPokemon": 56,
+        "partyCommand": 60,
+        "partySlot": 44,
+        "messageHandle": 308,
+        "requestMode": 52,
+        "requestSlot": 60,
+        "requestResult": 64,
+        "battleOutcome": 140,
+        "battleParty": 36,
+        "evolutionBits": 58,
+        "battleHeap": 60,
+        "reminderSize": 28,
+        "reminderOverlay": 173
+      },
+      "scriptAllowlist": [
+        5,
+        6,
+        12,
+        109,
+        110,
+        111,
+        112,
+        117,
+        119,
+        153,
+        154,
+        158
+      ],
+      "dllFilename": "MenuEvolutionB.dll",
+      "dllPath": "patches/MenuEvolutionB.dll",
+      "sha256": "b39be1e935104ea1213c3862543925142fffe398f1cb6e79876c5e2bfb36b620",
+      "bytes": 4032,
+      "codeFingerprint": "55edc99f",
+      "bssSize": 44,
+      "symbols": [
+        {
+          "address": 3004,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 2996,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 2988,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 2940,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 2148,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2976,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 2948,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 3004,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 2036,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 508,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2204,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 1928,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 1848,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 0,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 532,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2608,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 1688,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 152,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 60,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 864,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 176,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 1392,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 1624,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2920,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 3030,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 576,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2940,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 3032,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 3028,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 1044,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2496,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        }
+      ],
+      "relocations": [
+        {
+          "address": 52,
+          "symbol": 0,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 124,
+          "symbol": 1,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 128,
+          "symbol": 2,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 1040,
+          "symbol": 3,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 1680,
+          "symbol": 34,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2028,
+          "symbol": 4,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2140,
+          "symbol": 5,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2200,
+          "symbol": 6,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2476,
+          "symbol": 32,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2600,
+          "symbol": 7,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2604,
+          "symbol": 32,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2912,
+          "symbol": 9,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 34998124,
+          "symbol": 27,
+          "module": "10",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35363168,
+          "symbol": 35,
+          "module": "92",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35001872,
+          "symbol": 8,
+          "module": "10",
+          "type": "THUMB_BRANCH"
+        },
+        {
+          "address": 35372364,
+          "symbol": 16,
+          "module": "91",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 34980152,
+          "symbol": 19,
+          "module": "10",
+          "type": "THUMB_BRANCH"
+        },
+        {
+          "address": 35360884,
+          "symbol": 15,
+          "module": "91",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35001810,
+          "symbol": 12,
+          "module": "10",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35357646,
+          "symbol": 20,
+          "module": "91",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35362436,
+          "symbol": 14,
+          "module": "92",
+          "type": "THUMB_BRANCH_LINK"
+        }
+      ],
+      "liveDsiAccepted": false
+    },
+    "W": {
+      "idCode": "IRAO",
+      "revision": 0,
+      "dsAccepted": true,
+      "version": "0.1.0-bw1-candidate",
+      "runtimeVersion": 1,
+      "messageBankId": 157,
+      "counterDllPath": "patches/White1BattleCounters.dll",
+      "requiredBattleLogRuntimeVersion": 8,
+      "api": [
+        {
+          "label": "Native archive path table",
+          "entry": 34237560,
+          "segment": "ARM9",
+          "mode": "data",
+          "expectedHex": "e06b0a0230650a02706c0a02686c0a02606c0a02586c0a02506c0a02486c0a02406c0a02386c0a02306c0a02286c0a02206c0a02186c0a02106c0a02086c0a02006c0a02f86b0a02f06b0a02e86b0a0260680a02d86b0a02"
+        },
+        {
+          "label": "kPkmDecryptAddress",
+          "entry": 33652185,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "10b5021c918800248807c00f09d1022008439080101cd28808308021012401f039fe201c10bd000038b5051caa8800249007c00f012811d101290fd102208243"
+        },
+        {
+          "label": "kPkmReEncryptAddress",
+          "entry": 33652225,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "38b5051caa8800249007c00f012811d101290fd102208243281c083080210124aa8001f049fee880281cea880830802101f01cfe201c38bd70b5051c0c1c161c"
+        },
+        {
+          "label": "kPkmCryptoRunAddress",
+          "entry": 33659501,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "0fb4f8b5051c00244e080ad008af381c00f00cf861006a5a641c50406852b442f5d3f8bc08bc04b01847000002680549131c4b43044959180160080c0004000c"
+        },
+        {
+          "label": "kPkmGetBlockAddress",
+          "entry": 33659989,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "3e231b031940490b8b0003490830c918515c40187047c046bce3090208b5074a5388984202d11288914205d0034a11805080034a01f09af8014808bd90621402"
+        },
+        {
+          "label": "kPokemonGetAddress",
+          "entry": 33652281,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c70bd000070b5051c0c1c161c00f062ff012804d1281c211c321c01f057fa281c"
+        },
+        {
+          "label": "kPersonalDataIdAddress",
+          "entry": 33665009,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "78b58fb0051c15480c1c28180004000c012802d80fb0002078bd114e291c30682ef0beea011c30682ef004eb30683c2100aa2ef0f4ea00a8818b002905d008a8"
+        },
+        {
+          "label": "kArcOpenAddress",
+          "entry": 33853708,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "38402de934409fe50050a0e10100a0e12c309fe55010a0e30020a0e300408de5869dffeb0040a0e10510a0e12dffffeb0400a0e11b0000eb0400a0e13880bde8"
+        },
+        {
+          "label": "kArcFreeAddress",
+          "entry": 33854032,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "10402de90040a0e10ebe00eb0400a0e1589dffeb1080bde8f0402de90cd04de20050a0e1be34d5e10170a0e10240a0e1070053e10400008aa4009fe5a4109fe5"
+        },
+        {
+          "label": "kArcReadAddress",
+          "entry": 33854276,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "f0402de90cd04de20050a0e1be34d5e10170a0e10240a0e1070053e10400008a74009fe574109fe574209fe500708de5f4acffebbc14d5e10060a0e30500a0e1"
+        },
+        {
+          "label": "kArcSizeAddress",
+          "entry": 33854444,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "30402de90cd04de20050a0e1be34d5e10140a0e1040053e10400008a48009fe548109fe548209fe500408de5cbacffebbc14d5e10500a0e10020a0e30c1081e2"
+        },
+        {
+          "label": "kArcCountAddress",
+          "entry": 33855028,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "be04d0e11eff2fe138402de90340a0e10250a0e1b831dde114209de5df0200eb14c09de510309de50510a0e10420a0e100c08de50d0000eb3880bde838402de9"
+        },
+        {
+          "label": "kArcInitAddress",
+          "entry": 33853876,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "30402de90cd04de20050a0e30040a0e10520a0e10c10a0e3bc54c4e161be00eb0400a0e14c1084e20220a0e368be00ebbc14d4e10400a0e10520a0e1041081e2"
+        },
+        {
+          "label": "kCreateStringAddress",
+          "entry": 33840856,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "70402de90050a0e10140a0e1ab0000eb1b00d5e5000050e30400951504008012840180100f00001a1a10d5e5002095e5103095e5011182e00c2091e58401a0e1"
+        },
+        {
+          "label": "kCheckFieldMoveAddress",
+          "entry": 35363333,
+          "segment": "91",
+          "mode": "Thumb",
+          "expectedHex": "08b5363100225ef615fa7f2815d831d246280bd82cd2132805d80f283cd321d0132821d038e0392820d035e05b2801d826d031e0642821d02ee0d02807d827d2"
+        },
+        {
+          "label": "kOpenPartyMenuAddress",
+          "entry": 35371801,
+          "segment": "91",
+          "mode": "Thumb",
+          "expectedHex": "30b585b0051c0c1c00f080f828880090217800a80171211c143102910121039120210174182141740d2181740321c174a86879f652ed95218900695800a86bf6"
+        },
+        {
+          "label": "kCreateMenuStringAddress",
+          "entry": 35372473,
+          "segment": "91",
+          "mode": "Thumb",
+          "expectedHex": "38b5051c102a17db132a15dc2632111ca86b00225cf634f8041c2b8800200221cb2289f6baee051c211c8af67ae8041c281c89f618ef08e04d20800004499200"
+        },
+        {
+          "label": "kSelectMenuExitAddress",
+          "entry": 35361165,
+          "segment": "91",
+          "mode": "Thumb",
+          "expectedHex": "f8b58ab00a25041cad0161590a1c63321278012a03d113200ab02073f8bde26b152a00d9cde293187b44db881b041b149f4402018e058e0542007e00c0002a00"
+        },
+        {
+          "label": "kCheckEvolutionAddress",
+          "entry": 33665741,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "f0b593b0019019980f1c19901a98151c1a90381c4c2100221c1c0026fcf7a6fd002802d013b0301cf0bd381c0521321cfcf79cfd0004000c0a90381c0621321c"
+        },
+        {
+          "label": "kCheckLevelUpPokemonAddress",
+          "entry": 35363381,
+          "segment": "92",
+          "mode": "Thumb",
+          "expectedHex": "f0b583b000914968051c081c8c300068012803d0032801d0052834d10868002801d001282fd10098006858f669ff029060f6e6ff00240190002824dd3a350298"
+        },
+        {
+          "label": "kPartyGetCountAddress",
+          "entry": 33663541,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "40687047f8b5071c0025fff7f9ff061c0024002e0ddd381c211c00f079f84c210022fdf7eff9012800d06d1c641cb442f1db281cf8bd0000f8b5051c0026fff7"
+        },
+        {
+          "label": "kPartyGetMemberAddress",
+          "entry": 33663813,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "dc2208304a4380187047000008b5fff7f7ff002802d000f0ebf808bd002008bdf8b5051c0e1cdc204643281c0830141c8019a9210022fdf75df9071c201ca921"
+        },
+        {
+          "label": "kHeapAllocAddress",
+          "entry": 33751216,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "f8432de9b4809fe50070a0e10160a0e1ac009fe5020917e30350e013b810d8e1007007e00450a003010057e10100a023be00c8211f00002a0700a0e1b4feffeb"
+        },
+        {
+          "label": "kHeapFreeAddress",
+          "entry": 33751420,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "f0412de91c6040e2b210d6e1b8709fe5bc4150e1070051e1b0009f150110a013be10c0112600001aa0809fe5b800d8e1000054e10200a023be00c8212000002a"
+        },
+        {
+          "label": "kFsInitAddress",
+          "entry": 34048196,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "0020a0e3231c82e3082080e5042080e5002080e51c2080e5182080e50c1080e5102080e5142080e51eff2fe1f0432de95ddf4de25c608de20080a0e10100a0e1"
+        },
+        {
+          "label": "kFsOpenAddress",
+          "entry": 34049072,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "04c09fe50120a0e31cff2fe1148a070200c09fe51cff2fe1ac8a070200c09fe51cff2fe15c7f070210402de9ae3b00eb020050e350009f150010a0e308108015"
+        },
+        {
+          "label": "kFsCloseAddress",
+          "entry": 34048664,
+          "segment": "ARM9",
+          "mode": "ARM",
+          "expectedHex": "08c09fe50810a0e30120a0e31cff2fe1987d070238402de908d04de20040a0e304108de20050a0e104408de59d0600eb000050e30900001a00108de2101085e5"
+        },
+        {
+          "label": "kProcLinkEventAddress",
+          "entry": 34998273,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "f0b583b00f1c051c3868141c0d2872d800187844c0880004001487441a001c005c0076009a009e00b400cc00ec00080124014e01a201b20196e02069012800d8"
+        },
+        {
+          "label": "kMoveReminderProcDataAddress",
+          "entry": 35357168,
+          "segment": "173",
+          "mode": "data",
+          "expectedHex": "21611b0295611b0271621b02"
+        },
+        {
+          "label": "kGetVMWorkAddress",
+          "entry": 34970377,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "70b50e1c051c301c00f078fd041c301c00f07cfd061c281cb7f606fc021c301c211cfff769fa70bd70b50e1c051c301c00f064fd041c301c00f068fd061c281c"
+        },
+        {
+          "label": "kGetVMWorkValueAddress",
+          "entry": 34970417,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "70b50e1c051c301c00f064fd041c301c00f068fd061c281cb7f6f2fb021c301c211cfff773fa70bd08b500f053fdb8f621feb8f6b1ff08bd78b581b04b210091"
+        },
+        {
+          "label": "kGetPartyPokemonAddress",
+          "entry": 34976973,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "f8b50d1c161cfff797f8b7f62dfa071cbff6aafa854201d2012401e000240025381c291cbff628fb3060201cf8bd000018b581b0141c00aafff7e2ff012806d1"
+        },
+        {
+          "label": "kGetPartyPokemonValueAddress",
+          "entry": 34977021,
+          "segment": "10",
+          "mode": "Thumb",
+          "expectedHex": "18b581b0141c00aafff7e2ff012806d10098211c0022bcf691fc01b018bd002001b018bd70b50c1c4c210022051c0026bcf684fc002801d0301c70bd281c3621"
+        },
+        {
+          "label": "kCreateEventAddress",
+          "entry": 33628865,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "f8b582b0051c019337200e1c171c00900b4b0420142101221ef038ea041c266067600020a0603b2000900199044b042001221ef02ceae0602561201c02b0f8bd"
+        },
+        {
+          "label": "kEventDataAddress",
+          "entry": 33629417,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "c06870470830704700687047f8b582b00190ad2100916b217d4b090101221ef022e9041cf4f7cafd20601cf0c5f97126b600a0550025b01c25542068f6f796f9"
+        },
+        {
+          "label": "kGameSystemDataAddress",
+          "entry": 33628405,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "c0697047c069014b1847c046a52701028069704781617047006a704701627047006a002801d00120704700207047000030300170704700003030007870470000"
+        },
+        {
+          "label": "kGameDataTrainerAddress",
+          "entry": 33630533,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "08b5fff72dff203008bd0000442224304a4380187047000069218900405870476a218900405870476b218900405870471b210901405870476921090140587047"
+        },
+        {
+          "label": "kGameDataGetPartyAddress",
+          "entry": 33630517,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "6521890040587047672189004058704708b5fff72dff203008bd0000442224304a4380187047000069218900405870476a218900405870476b21890040587047"
+        },
+        {
+          "label": "kQueueProcAddress",
+          "entry": 33628341,
+          "segment": "ARM9",
+          "mode": "Thumb",
+          "expectedHex": "08b580681ff052e908bd000008b50349034a031cfff7f4ff08bdc04615000000b4351d0210b5041c00f072f9002801d0012010bd3134207810bd0000c0687047"
+        }
+      ],
+      "hooks": [
+        {
+          "label": "EVENT",
+          "overlayId": 10,
+          "address": 34998156,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "b1f698fd061cb1f6a9fe041c00217422"
+        },
+        {
+          "label": "OPEN",
+          "overlayId": 91,
+          "address": 35357678,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "03f093fb08b0f8bd000008b5817b0029"
+        },
+        {
+          "label": "TEXT",
+          "overlayId": 91,
+          "address": 35372396,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "00f024f8686101984088102809d31328"
+        },
+        {
+          "label": "SELECT",
+          "overlayId": 91,
+          "address": 35360916,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "00f07af838bd000038b5051c06202873"
+        },
+        {
+          "label": "EVOLUTION",
+          "overlayId": 10,
+          "address": 35001842,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "b9f66bfe061c0b480c4b009004201421"
+        },
+        {
+          "label": "RETURN",
+          "overlayId": 10,
+          "address": 35001904,
+          "patchType": "THUMB_BRANCH",
+          "expectedHex": "10b5041ca0690068b0f65cfda06e0328"
+        },
+        {
+          "label": "LEVEL",
+          "overlayId": 92,
+          "address": 35362468,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "00f0c6f96868311c406a61f6cbfa301c"
+        },
+        {
+          "label": "POST_BATTLE",
+          "overlayId": 92,
+          "address": 35363200,
+          "patchType": "THUMB_BRANCH_LINK",
+          "expectedHex": "61f6a4fc0690208f0590608f40106087"
+        },
+        {
+          "label": "SCRIPT",
+          "overlayId": 10,
+          "address": 34980184,
+          "patchType": "THUMB_BRANCH",
+          "expectedHex": "f8b5061c0d1cfdf7d3fc041c301c291c"
+        }
+      ],
+      "segments": {
+        "ARM9": {
+          "address": 33570816,
+          "sha256": "2d36e7e501fee340e6af419492fb6e0648b8d75e872c718b450c2526dd1a681e"
+        },
+        "10": {
+          "address": 34951552,
+          "sha256": "232353df8f9865a141bd81a254526d503b1e27e27cdea13460353e279bc01b51"
+        },
+        "91": {
+          "address": 35349088,
+          "sha256": "687ee398636c612b1fbdaeb891af3810ce4e46838e56d7803ed3af63c6ef6b80"
+        },
+        "92": {
+          "address": 35362240,
+          "sha256": "9bf1fccb2f11f6b2aaa144f49870d6b72bdf6d61c210068ccacf6eb241ef7061"
+        },
+        "173": {
+          "address": 35348768,
+          "sha256": "fbd4eba75b18d613416750b9d9f1dfb04b1eada945281fdfda3acd636a383b9a"
+        }
+      },
+      "layout": {
+        "processWork": 116,
+        "takeoverMode": 104,
+        "partyWorkRequest": 640,
+        "partyPokemon": 56,
+        "partyCommand": 60,
+        "partySlot": 44,
+        "messageHandle": 308,
+        "requestMode": 52,
+        "requestSlot": 60,
+        "requestResult": 64,
+        "battleOutcome": 140,
+        "battleParty": 36,
+        "evolutionBits": 58,
+        "battleHeap": 60,
+        "reminderSize": 28,
+        "reminderOverlay": 173
+      },
+      "scriptAllowlist": [
+        5,
+        6,
+        12,
+        109,
+        110,
+        111,
+        112,
+        117,
+        119,
+        153,
+        154,
+        158
+      ],
+      "dllFilename": "MenuEvolutionW.dll",
+      "dllPath": "patches/MenuEvolutionW.dll",
+      "sha256": "917bb44093bb7ad9f9d62104bb6ad4021e39e8f1b22871b4dd4b3365481f08fd",
+      "bytes": 4032,
+      "codeFingerprint": "f12c7056",
+      "bssSize": 44,
+      "symbols": [
+        {
+          "address": 3004,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 2996,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 2988,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 2940,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 0
+        },
+        {
+          "address": 2976,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 2948,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 3004,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 1928,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 508,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 1688,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 0,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 1624,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 532,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2608,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 152,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 60,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 864,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 176,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 1848,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 3024,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 1392,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2148,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2036,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2920,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 3030,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 2204,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 576,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 2940,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 3032,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 2496,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        },
+        {
+          "address": 3028,
+          "type": "VALUE",
+          "attributes": 1
+        },
+        {
+          "address": 1044,
+          "type": "FUNCTION_THM",
+          "attributes": 1
+        }
+      ],
+      "relocations": [
+        {
+          "address": 52,
+          "symbol": 0,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 124,
+          "symbol": 1,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 128,
+          "symbol": 2,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 1040,
+          "symbol": 3,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 1680,
+          "symbol": 35,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2028,
+          "symbol": 4,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2140,
+          "symbol": 5,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2200,
+          "symbol": 6,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2476,
+          "symbol": 32,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2600,
+          "symbol": 7,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2604,
+          "symbol": 32,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 2912,
+          "symbol": 8,
+          "module": "base",
+          "type": "OFFSET"
+        },
+        {
+          "address": 35357678,
+          "symbol": 13,
+          "module": "91",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35362468,
+          "symbol": 29,
+          "module": "92",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35363200,
+          "symbol": 33,
+          "module": "92",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35360916,
+          "symbol": 11,
+          "module": "91",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 34980184,
+          "symbol": 17,
+          "module": "10",
+          "type": "THUMB_BRANCH"
+        },
+        {
+          "address": 35001904,
+          "symbol": 25,
+          "module": "10",
+          "type": "THUMB_BRANCH"
+        },
+        {
+          "address": 35372396,
+          "symbol": 22,
+          "module": "91",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 35001842,
+          "symbol": 26,
+          "module": "10",
+          "type": "THUMB_BRANCH_LINK"
+        },
+        {
+          "address": 34998156,
+          "symbol": 15,
+          "module": "10",
+          "type": "THUMB_BRANCH_LINK"
+        }
+      ],
+      "liveDsiAccepted": false
+    }
+  }
+}

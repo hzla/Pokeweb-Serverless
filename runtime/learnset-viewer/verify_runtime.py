@@ -8,8 +8,11 @@ import struct
 import json
 import subprocess
 import sys
+import os
+from configure_bw1 import BINDINGS
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE/"build/python"))
+sys.path.insert(0,str(HERE.parent/"summary-stat-viewer/build/python"))
 from elftools.elf.elffile import ELFFile
 from unicorn import Uc, UC_ARCH_ARM, UC_MODE_THUMB, UC_HOOK_CODE
 from unicorn.arm_const import UC_CPU_ARM_946, UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4, UC_ARM_REG_R5, UC_ARM_REG_R6, UC_ARM_REG_R7, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
@@ -18,7 +21,19 @@ REGS=[UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3,UC_ARM_REG_R4,UC_A
 STOP=0x02008000
 STACK=0x023f0000
 
-for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
+bw1="--bw1" in sys.argv
+for game,ovdelta,delta in ([("B",0,0),("W",0,0)] if bw1 else [("W2",0,0),("B2",0x40,0x2c)]):
+    index=0 if game=='B' else 1
+    def native_address(address):
+        if not bw1:return address
+        pair=BINDINGS.get(address|1) or BINDINGS.get(address)
+        return pair[index]&~1 if pair else address
+    profile=json.loads((HERE/f'profile-{game}.json').read_text()) if bw1 else None
+    def hook_symbol(label,source):
+        h=next(h for h in profile['hooks'] if h['label']==label) if bw1 else None
+        return f"Viewer:THUMB_BRANCH_LINK_{h['overlayId']}_0x{h['address']:x}" if h else f'Viewer:THUMB_BRANCH_LINK_258_0x{source-ovdelta:x}'
+    party_request,party_message,party_command,party_slot=(0x280,0x134,0x3c,0x2c) if bw1 else (0x28c,0x138,0x40,0x30)
+    request_mode,request_slot,request_result=(0x34,0x3c,0x40) if bw1 else (0x44,0x4c,0x50)
     uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map(0x02000000,0x400000)
     symbols={}
     for group,base in [("Menu",0x2300000),("Viewer",0x2310000)]:
@@ -31,7 +46,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
             for symbol in elf.get_section_by_name('.symtab').iter_symbols():
                 if symbol.name and symbol['st_shndx']!='SHN_UNDEF':symbols[group+":"+symbol.name]=symbol['st_value']
     manifest=json.loads((HERE.parents[1]/'src/assets/codeinjection/learnsetViewerManifest.json').read_text())
-    for hook in manifest['games'][game]['hooks']:
+    for hook in (profile if bw1 else manifest['games'][game])['hooks']:
         if hook['label'] in ['MenuCreate','MenuSelect','Dispatch']:
             address=symbols['Menu:Original'+hook['label']]&~1
             assert bytes(uc.mem_read(address,8))==bytes.fromhex(hook['expectedHex'])[:8], 'Trampoline must replay the exact native prologue'
@@ -39,7 +54,9 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     u32=lambda p:struct.unpack("<I",uc.mem_read(p,4))[0]
     w32=lambda p,n:uc.mem_write(p,struct.pack("<I",n))
     u16=lambda p:struct.unpack("<H",uc.mem_read(p,2))[0]
-    stubs={};logs=[];draws=[];freed=[];queue=[];arena=[0x2260000];sounds=[]
+    class Stubs(dict):
+        def __setitem__(self,address,value):super().__setitem__(native_address(address),value)
+    stubs=Stubs();logs=[];draws=[];freed=[];queue=[];arena=[0x2260000];sounds=[]
     def allocate(size):
         p=arena[0];arena[0]=(p+size+7)&~7;return p
     def ret(value=0):uc.reg_write(REGS[0],value);uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
@@ -52,6 +69,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     uc.hook_add(UC_HOOK_CODE,intercept)
     def call(name,args):
         address=symbols.get(name,name)
+        if isinstance(address,int):address=native_address(address)
         for i in range(8):uc.reg_write(REGS[i],args[i] if i<min(len(args),4) else 0x11110000+i)
         for i,value in enumerate(args[4:]):w32(STACK+i*4,value)
         uc.reg_write(UC_ARM_REG_SP,STACK);uc.reg_write(UC_ARM_REG_LR,STOP|1)
@@ -60,24 +78,25 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         assert uc.reg_read(UC_ARM_REG_SP)==STACK
         assert [r(i) for i in range(4,8)]==[0x11110000+i for i in range(4,8)], name
         return r(0)
-    def original(body_size,action):
+    def original(body_size,action,extra_r3=False):
         action()
         sp=uc.reg_read(UC_ARM_REG_SP)
-        saved=struct.unpack("<5I",uc.mem_read(sp+body_size,20))
+        saved=struct.unpack("<6I" if extra_r3 else "<5I",uc.mem_read(sp+body_size,24 if extra_r3 else 20))
+        if extra_r3:saved=saved[1:]
         for i in range(4):uc.reg_write(REGS[4+i],saved[i])
-        uc.reg_write(UC_ARM_REG_SP,sp+body_size+20)
+        uc.reg_write(UC_ARM_REG_SP,sp+body_size+(24 if extra_r3 else 20))
         uc.reg_write(UC_ARM_REG_PC,saved[4])
-    stubs[0x219fca8-ovdelta]=lambda:original(12,lambda:None)
-    stubs[0x219d02c-ovdelta]=lambda:original(68,lambda:logs.append("native-select"))
+    stubs[(native_address(0x219fca0)+8) if bw1 else 0x219fca8-ovdelta]=lambda:original(12,lambda:None)
+    stubs[(native_address(0x219d024)+8) if bw1 else 0x219d02c-ovdelta]=lambda:original(40 if bw1 else 68,lambda:logs.append("native-select"),bw1)
     def dispatch():
         seq=r(7)
         if u32(seq)==12:w32(seq,13)
         elif u32(seq)==11:w32(seq,12)
         uc.reg_write(REGS[0],0)
-    stubs[0x215b554-ovdelta]=lambda:original(12,dispatch)
+    stubs[(native_address(0x215b54c)+8) if bw1 else 0x215b554-ovdelta]=lambda:original(12,dispatch)
     stubs[0x20489b8-delta]=lambda:ret(allocate(32))
     work=0x2200000;menu=0x2201000;items=0x2202000;partydata=0x2203000
-    w32(work+0x28c,partydata);w32(partydata+0x44,0);w32(work+0x138,0x2204000)
+    w32(work+party_request,partydata);w32(partydata+request_mode,0);w32(work+party_message,0x2204000)
     for group in ['Menu','Viewer']:
         config=symbols[group+':learnsetConfig']
         for i,n in enumerate([50,60,61]):uc.mem_write(config+10+i*4,struct.pack('<HH',n,n^65535))
@@ -88,7 +107,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         windows.append([r(i) for i in range(4)]+list(struct.unpack('<3I',uc.mem_read(uc.reg_read(UC_ARM_REG_SP),12))))
         ret(0x2205000)
     stubs[0x20480ec-delta]=window
-    hook=f'Viewer:THUMB_BRANCH_LINK_258_0x{0x2199fe4-ovdelta:x}'
+    hook=hook_symbol('Window',0x2199fe4)
     call(hook,[2,1,0,20,3,15,1]);assert windows[-1]==[2,1,0,20,3,15,1]
     active=symbols['Viewer:_ZN12_GLOBAL__N_16activeE']
     w32(active,0x2206000)
@@ -108,9 +127,9 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
             expected=count<8
             assert uc.mem_read(menu,1)[0]==min(count+int(expected),8)
             if expected:assert u16(menu+2+2*(count-1))==0x4c53 and u16(menu+2+2*count)==6
-    w32(work+0x40,0x4c53);w32(work+0x30,2)
-    call('Menu:LearnsetMenuSelect',[work]);assert u32(partydata+0x50)==0x4c535631 and u32(partydata+0x4c)==2
-    w32(work+0x40,9);call('Menu:LearnsetMenuSelect',[work]);assert logs==['native-select']
+    w32(work+party_command,0x4c53);w32(work+party_slot,2)
+    call('Menu:LearnsetMenuSelect',[work]);assert u32(partydata+request_result)==0x4c535631 and u32(partydata+request_slot)==2
+    w32(work+party_command,9);call('Menu:LearnsetMenuSelect',[work]);assert logs==['native-select']
     # Shared registration preserves native commands and appends CUSTOM UI only
     # after the existing LEARNSET command has claimed a legal slot.
     cfg=symbols['Menu:customUiConfig']
@@ -123,10 +142,11 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         total=min(8,count+2);assert uc.mem_read(menu,1)[0]==total
         assert u16(menu+2+2*(total-1))==6
         assert (0x5057 in [u16(menu+2+2*i) for i in range(total)])==(count<=6)
-    w32(work+0x40,0x5057);call('Menu:LearnsetMenuSelect',[work]);assert u32(partydata+0x50)==0x50575549
+    w32(work+party_command,0x5057);call('Menu:LearnsetMenuSelect',[work]);assert u32(partydata+request_result)==0x50575549
     # Field handoff, tag recognition, missing-viewer fail-closed, and teardown.
     stubs[0x2039dc8-delta]=lambda:ret(allocate(r(1)))
     stubs[0x203a278-delta]=lambda:(freed.append(r(0)),ret())
+    if bw1:stubs[0x20307b0 if game=="B" else 0x20307c8]=lambda:(freed.append(r(0)),ret())
     for address in [0x2016ad8,0x201735c,0x201736c]:stubs[address]=lambda:ret(0x2210000)
     party_count=[6];eggs=set();empty_slots=set();species=[6]*6;forms=[0]*6;keys=[0]
     mon=lambda slot:0x2220000+slot*256
@@ -204,11 +224,11 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
     stubs[0x219a7f0-ovdelta]=lambda:(logs.append('native-row'),ret())
     stubs[0x219a4c4-ovdelta]=lambda:(logs.append('native-fixed-text'),ret())
     for present,custom in [(False,False),(True,False),(True,True)]:
-        table=0x219b9e8-ovdelta
+        table=native_address(0x219b9e8) if bw1 else 0x219b9e8-ovdelta
         callbacks=[symbols['Viewer:LearnsetViewer'+s] for s in ['Init','Main','End']]
-        if not present:callbacks[0]=0x2199901-ovdelta
+        if not present:callbacks[0]=(native_address(0x2199900)|1) if bw1 else 0x2199901-ovdelta
         uc.mem_write(table,struct.pack('<3I',*callbacks))
-        w32(seq,13);w32(partydata+0x50,0x50575549 if custom else 0x4c535631);w32(partydata+0x4c,2)
+        w32(seq,13);w32(partydata+request_result,0x50575549 if custom else 0x4c535631);w32(partydata+request_slot,2)
         call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(seq)==12
         bridge,request=queue[-1];w32(viewerwork,request)
         assert u16(request+32)==3 and u16(request+34)==260
@@ -233,7 +253,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
                     assert label[1:3]==(2,0), 'Two-pixel icon gap must not move the row vertically'
                     assert label[3].startswith(f'{level} - ') and len(label[3])*6<=106 and label[4]==0x3c40
                     if len(name)>20:assert label[3].endswith('...')
-                    assert pp==(0x2254000,120,0,'PP 20',0x440) and ppcalls[-1]==(10,0)
+                    assert pp==(0x2254000,120,0,'PP 20',0x440) and ppcalls[-1]==(10,0), (pp,ppcalls[-1])
             # Four visible rows at a nonzero scroll position, not four copies
             # of the first row; move IDs remain independent from display text.
             uc.mem_write(request+164,struct.pack('<H',6))
@@ -245,7 +265,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
                 assert draws[-1][1:3]==(120,24*pos), 'PP stays in its original column'
                 assert ppcalls[-1]==(12+pos,0)
             before_count=len(draws);call('Viewer:LearnsetDrawLine',[viewerwork,2,4]);assert len(draws)==before_count
-            hook=f'Viewer:THUMB_BRANCH_LINK_258_0x{0x2199f24-ovdelta:x}'
+            hook=hook_symbol('Screen',0x2199f24)
             call(hook,[0x2230000,2,7,24,2048,0,79])
             frame,length,offset,data=transfers[-1];assert (frame,length,offset)==(7,2048,24)
             assert screen_buffers[7][2]==data, 'A later redraw must not restore a blank/old map'
@@ -266,14 +286,14 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
             buffered[0]=True
         assert call(u32(bridge+8),[0x2243000,seq,request,viewerwork])==1
         w32(seq,13);call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert freed.count(request)==1 and u32(seq)==11
-        call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(partydata+0x4c)==2 and u32(seq)==12
+        call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(partydata+request_slot)==2 and u32(seq)==12
         assert bytes(uc.mem_read(0x2220000,220))==saved
     # Party navigation exercises both companions and a complete native End /
     # parent-dispatch / native Init boundary for every change. Request ownership
     # stays in the field; no list still used by the viewer is edited in place.
-    table=0x219b9e8-ovdelta
+    table=native_address(0x219b9e8) if bw1 else 0x219b9e8-ovdelta
     uc.mem_write(table,struct.pack('<3I',*[symbols['Viewer:LearnsetViewer'+s] for s in ['Init','Main','End']]))
-    w32(seq,13);w32(partydata+0x50,0x4c535631);w32(partydata+0x4c,0)
+    w32(seq,13);w32(partydata+request_result,0x4c535631);w32(partydata+request_slot,0)
     call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);bridge,request=queue[-1]
     w32(viewerwork,request);call(u32(bridge),[0x2243000,seq,request,viewerwork])
     saved=bytes(uc.mem_read(mon(0),6*256))
@@ -342,7 +362,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         assert r(1)==79 and 1<=r(0)<=32
         ret(0 if fail[0]=='list' else new_list(r(0)))
     def message_open():
-        assert r(2)==403 and r(3)==79
+        assert r(2)==(286 if bw1 else 403) and r(3)==79
         message_calls[0]=0;ret(0 if fail[0]=='bank' else allocate(16))
     def move_message():
         message_calls[0]+=1
@@ -409,7 +429,7 @@ for game,ovdelta,delta in [("W2",0,0),("B2",0x40,0x2c)]:
         assert len(sounds)==heard, 'No click when there is no other eligible party member'
     call(u32(bridge+8),[0x2243000,seq,request,viewerwork]);w32(seq,13)
     call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert freed.count(request)==1 and u32(seq)==11
-    call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(partydata+0x4c)==1
+    call('Menu:LearnsetDispatch',[0x2205000,seq,eventwork]);assert u32(partydata+request_slot)==1
     assert bytes(uc.mem_read(mon(0),6*256))==saved
     # Both old/mixed request ABIs are rejected before reading the new suffix.
     for version,size in [(1,236),(2,244)]:

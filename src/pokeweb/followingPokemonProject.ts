@@ -213,6 +213,7 @@ export async function checkFollowerCompatibility(project: ProjectState, rom?: Fo
   // A whole-ROM fingerprint changes for harmless text, script, or file-order edits.
   // The binary contract and the archives we actually extend define compatibility.
   const installed = await readFollowerAlphaInstall(project, rom);
+  if (installed?.externalRuntime) return { compatible: false, checks, installation: installed, message: "This follower runtime is managed outside Pokeweb. Its dialogue, gifts and positioning remain editable." };
   const variant = requestedVariant ?? (installed?.variant ?? (installed ? "full" : "base"));
   const mountSite = (id: string) => id.startsWith("mounted-surf-") || id.startsWith("land-mount-") || id.startsWith("land-rider-") || id.startsWith("surf-");
   const hooks = variant === "full" ? binaryContract.hooks : binaryContract.hooks.filter(site => !mountSite(site.id));
@@ -302,7 +303,7 @@ export async function prepareFollowerWorkspace(project: ProjectState, rom?: Foll
   const existing = readFollowerWorkspace(project, rom);
   if (existing) return existing;
   const compatibility = await checkFollowerCompatibility(project, rom);
-  if (!compatibility.compatible) throw new Error(compatibility.message);
+  if (!compatibility.compatible && !compatibility.installation?.externalRuntime) throw new Error(compatibility.message);
   const archive = (path: string) => {
     const id = rom.filenames.idOf(path); if (id === undefined) throw new Error(`Missing ${path}`);
     return getRomFileBytes(project, rom, id);
@@ -376,7 +377,7 @@ export async function updateFollowerPositioning(project: ProjectState, rom: Foll
   const installed = await readFollowerAlphaInstall(project, rom);
   const staged = structuredClone({ ...project, originalRomBytes: undefined }) as ProjectState;
   commitWorkspace(staged, rom, workspace, {}, "Updated follower appearance positioning.");
-  if (installed && !installed.removed && installed.version === runtimeFor(profile).version) {
+  if (installed && !installed.removed && (installed.externalRuntime || installed.version === runtimeFor(profile).version)) {
     const registry = readFollowingFile(project, rom, FOLLOWER_RUNTIME_REGISTRY_PATH);
     const riding = (installed.variant ?? "full") === "full";
     const anchors = riding ? readFollowingFile(project, rom, FOLLOWER_LAND_ANCHORS_PATH) : undefined;
@@ -467,6 +468,10 @@ export async function writeFollowerDialogueRules(project: ProjectState, rules: F
   recordGenericChange(project, "following_pokemon", `${current && !current.removed ? "Updated" : "Staged"} ${rules.length} conditional follower dialogue ${rules.length === 1 ? "rule" : "rules"}.`, "Following Pokémon", { key: "following-dialogues" });
 }
 export async function followerDialogueAnimationsAvailable(project: ProjectState, rom?: FollowerRom): Promise<boolean> {
+  rom ??= await followerRom(project);
+  const receipt = readFollowingFile(project, rom, FOLLOWER_INSTALL_PATH);
+  if (receipt && JSON.parse(new TextDecoder().decode(receipt)).externalRuntime)
+    return (await readFollowerAlphaInstall(project, rom))?.dialogueAnimations === true;
   return runtimeFor(await followerProfile(project, rom)).dialogueAnimations === true;
 }
 
@@ -478,7 +483,8 @@ export const FOLLOWER_EVENTS_DLL_PATH = "patches/PokewebFollowingEventsW2.dll";
 export const FOLLOWER_DLL_B2_PATH = "patches/PokewebFollowingFieldB2.dll";
 export const FOLLOWER_EVENTS_B2_DLL_PATH = "patches/PokewebFollowingEventsB2.dll";
 export const FOLLOWER_RUNTIME_VERSION = stockRuntimeManifest.version;
-export type FollowerAlphaInstall = { schemaVersion: 1 | 2; variant?: FollowerVariant; profile?: FollowerProfile; version: string; dialogueAnimations?: boolean; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string; positioningSha256?: string; optionsTextSha256?: string; optionsOriginalText?: string[] };
+export type FollowerExternalRuntime = { schemaVersion: 1; compatibleVersion: string; label: string; sourceRomSha256: string };
+export type FollowerAlphaInstall = { externalRuntime?: FollowerExternalRuntime; schemaVersion: 1 | 2; variant?: FollowerVariant; profile?: FollowerProfile; version: string; dialogueAnimations?: boolean; enabled: boolean; targetSha256: string; moduleSha256: string; configCrc32: number; removed?: boolean; effectsSha256?: string; interactionsSha256?: string; emotesSha256?: string; dialoguesSha256?: string; itemsSha256?: string; languageSha256?: string; eventsSha256?: string; eventsAbi?: number; coreSha256?: string; coreAbi?: number; optionsModuleSha256?: string; battleModuleSha256?: string; registrySha256?: string; descriptorsSha256?: string; resourcesSha256?: string; surfSha256?: string; surfRegistrySha256?: string; landRiderSha256?: string; landAnchorsSha256?: string; positioningSha256?: string; optionsTextSha256?: string; optionsOriginalText?: string[] };
 const upgradeFieldUrl = new URL("../assets/following/white2upgrade/PokewebFollowingFieldW2.dll", import.meta.url);
 const upgradeEventsUrl = new URL("../assets/following/white2upgrade/PokewebFollowingEventsW2.dll", import.meta.url);
 const upgradeCoreUrl = new URL("../assets/following/white2upgrade/PokewebFollowingCoreW2.dll", import.meta.url);
@@ -626,7 +632,20 @@ export async function readFollowerAlphaInstall(project: ProjectState, rom?: Foll
   const modulePaths = modulePathsFor(profile);
   const dll = readFollowingFile(project, rom, modulePaths.field), config = readFollowingFile(project, rom, FOLLOWER_NATIVE_PATH);
   if ((state.profile ?? "stock") !== profile) throw new Error("Follower installation belongs to a different ROM profile.");
-  const current = !!fingerprint && state.version === runtimeManifest.version && state.moduleSha256 === (state.removed ? await followerRomSha256(removedModule(profile)) : fingerprint.fieldSha256);
+  const external = state.externalRuntime;
+  if (external && (external.schemaVersion !== 1 || external.compatibleVersion !== runtimeManifest.version ||
+      typeof external.label !== "string" || !external.label.trim() || external.label.length > 128 ||
+      !/^[a-f0-9]{64}$/u.test(external.sourceRomSha256) || !/^[a-f0-9]{64}$/u.test(state.moduleSha256) ||
+      state.schemaVersion !== 2 || state.removed || typeof state.version !== "string" || !state.version.trim() || state.version.length > 128 || !dll))
+    throw new Error("Invalid external follower runtime receipt.");
+  if (external && parseRpm(dll!, { allowedMagics: ["DLXF"] }).metadata.PMCGameID !==
+      (profile === "black2" ? "B2" : profile === "white2italy" ? "W2I" : "W2"))
+    throw new Error("External follower module belongs to a different game.");
+  // An explicit external receipt owns its exact field payload. The companion
+  // modules, configuration and editable assets still pass the ordinary checks.
+  // Installation/removal are blocked separately; this grants data editing only.
+  const current = !!fingerprint && (external?.compatibleVersion ?? state.version) === runtimeManifest.version &&
+    (!!external || state.moduleSha256 === (state.removed ? await followerRomSha256(removedModule(profile)) : fingerprint.fieldSha256));
   const removedHash = state.removed ? await followerRomSha256(removedModule(profile)) : undefined;
   const previous = runtimeManifest.previousVersions.find(version => (version.variant ?? "full") === variant && version.version === state.version && (state.removed ? removedHash : version.fieldSha256) === state.moduleSha256);
   const extendedPrevious = !current && previous && "coreSha256" in previous ? previous : undefined;
@@ -802,6 +821,7 @@ export async function installFollowerAlpha(project: ProjectState, rom?: Follower
   const profile = await followerProfile(project, rom), runtimeManifest = runtimeFor(profile), activeInteractions = interactionFor(profile);
   const modulePaths = modulePathsFor(profile);
   const existing = await readFollowerAlphaInstall(project, rom);
+  if (existing?.externalRuntime) throw new Error("External follower runtimes must be installed or updated outside Pokeweb.");
   const variant: FollowerVariant = (options?.riding ?? (existing ? (existing.variant ?? "full") === "full" : false)) ? "full" : "base";
   if (existing && !existing.removed && variant !== (existing.variant ?? "full"))
     throw new Error("Remove the follower runtime before changing the riding option.");
@@ -1031,6 +1051,7 @@ export async function setFollowerAlphaEnabled(project: ProjectState, enabled: bo
   rom ??= await followerRom(project);
   const current = await readFollowerAlphaInstall(project, rom);
   if (!current || current.removed) throw new Error("Install the following runtime first.");
+  if (current.externalRuntime) throw new Error("External follower runtimes are managed outside Pokeweb. Use their in-game setting to toggle followers.");
   if (current.enabled === enabled) return current;
   if (enabled) { const report = await checkFollowerCompatibility(project, rom); if (!report.compatible) throw new Error(report.message); }
   const config = readFollowingFile(project, rom, FOLLOWER_NATIVE_PATH)!.slice();
@@ -1049,6 +1070,7 @@ export async function removeFollowerAlpha(project: ProjectState, rom?: FollowerR
   const profile = await followerProfile(project, rom), runtimeManifest = runtimeFor(profile), modulePaths = modulePathsFor(profile);
   const current = await readFollowerAlphaInstall(project, rom);
   if (!current || current.removed) return;
+  if (current.externalRuntime) throw new Error("External follower runtimes must be removed outside Pokeweb.");
   // Upgrade legacy packages first in private state, so ownership is unambiguous.
   const staged = structuredClone({ ...project, originalRomBytes: undefined }) as ProjectState;
   staged.originalRomBytes = sourceRomBytes;

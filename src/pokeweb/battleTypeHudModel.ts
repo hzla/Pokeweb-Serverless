@@ -1,4 +1,4 @@
-import manifest from "../assets/codeinjection/battleTypeHudManifest.json";
+import manifestData from "../assets/codeinjection/battleTypeHudManifest.json";
 import { readU32, writeU16 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
@@ -13,16 +13,25 @@ import { decompressNitro } from "./pokemonSpriteModel";
 import type { ProjectState } from "./projectStore";
 import { parseRpm, type RpmModule } from "./rpm";
 
-type Version = "B2" | "W2";
+type Version = "B" | "W" | "B2" | "W2";
 type Component = "icons" | "moves";
 export type TypeIconVariant = "letters" | "circular" | "solid";
+type Build = ConfigurableBuild & { codeHex: string; symbols: Pick<RpmModule["symbols"][number], "address" | "type" | "attributes">[];
+  relocations: { module: string; address: number; type: string; symbol: number }[] };
+type HudProfile = { rom_code: string; revision: number; overlay_id: number; overlay_base: number; graphicsArchive: string;
+  dsAccepted?: boolean; version: string; dllSha256: string; builds: Record<string, Build>;
+  variants: Record<TypeIconVariant, { label: string; version: string; dllSha256: string }>;
+  signatures: { name: string; segment: number; address: number; bytes: string }[];
+  hooks: { name: string; address: number; bytes: string }[]; resources: Record<string, string> };
+const manifest = manifestData as unknown as { version: string; games: Record<Version, HudProfile>; moveGames: Partial<Record<Version, HudProfile>> };
+const isVersion = (v: unknown): v is Version => v === "B" || v === "W" || v === "B2" || v === "W2";
 const URLS = {
-  moves: { B2: new URL("../assets/codeinjection/MoveEffectivenessB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/MoveEffectivenessW2.dll", import.meta.url) },
+  moves: { B2: new URL("../assets/codeinjection/MoveEffectivenessB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/MoveEffectivenessW2.dll", import.meta.url), B: new URL("../assets/codeinjection/MoveEffectivenessB.dll", import.meta.url), W: new URL("../assets/codeinjection/MoveEffectivenessW.dll", import.meta.url) } as Partial<Record<Version, URL>>,
 };
 const ICON_URLS = {
-  letters: { B2: new URL("../assets/codeinjection/TypeIconsB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsW2.dll", import.meta.url) },
-  circular: { B2: new URL("../assets/codeinjection/TypeIconsCircularB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsCircularW2.dll", import.meta.url) },
-  solid: { B2: new URL("../assets/codeinjection/TypeIconsSolidB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsSolidW2.dll", import.meta.url) },
+  letters: { B2: new URL("../assets/codeinjection/TypeIconsB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsW2.dll", import.meta.url), B: new URL("../assets/codeinjection/TypeIconsB.dll", import.meta.url), W: new URL("../assets/codeinjection/TypeIconsW.dll", import.meta.url) },
+  circular: { B2: new URL("../assets/codeinjection/TypeIconsCircularB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsCircularW2.dll", import.meta.url), B: new URL("../assets/codeinjection/TypeIconsCircularB.dll", import.meta.url), W: new URL("../assets/codeinjection/TypeIconsCircularW.dll", import.meta.url) },
+  solid: { B2: new URL("../assets/codeinjection/TypeIconsSolidB2.dll", import.meta.url), W2: new URL("../assets/codeinjection/TypeIconsSolidW2.dll", import.meta.url), B: new URL("../assets/codeinjection/TypeIconsSolidB.dll", import.meta.url), W: new URL("../assets/codeinjection/TypeIconsSolidW.dll", import.meta.url) },
 };
 const title = (kind: Component) => kind === "icons" ? "Type Icons" : "Move Effectiveness Preview";
 const profileFor = (v: Version, kind: Component) => kind === "icons" ? manifest.games[v] : manifest.moveGames[v];
@@ -65,7 +74,8 @@ function hookSize(rpm: RpmModule, r: RpmModule["relocations"][number]) {
 }
 function knownBuild(rpm: RpmModule, version: Version, kind: Component): string | undefined {
   if (rpm.metadata.PMCGameID !== version || rpm.symbols.some(s => s.attributes & 2)) return;
-  const builds = profileFor(version, kind).builds;
+  const builds = profileFor(version, kind)?.builds;
+  if (!builds || ((version === "B" || version === "W") && (rpm.metadata.PMCModulePriority !== 3 || rpm.baseAddress !== 0))) return;
   return Object.entries(builds).find(([v, build]) => rpm.metadata.PMCVersion === v && matchesCode(rpm, build)
     && rpm.relocations.length === build.relocations.length && build.relocations.every(r => rpm.relocations.filter(actual => {
       const symbol = rpm.symbols[actual.sourceSymbolIndex]; const expected = build.symbols[r.symbol];
@@ -88,10 +98,14 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
     updateAvailable: false, canUninstall: false, pmcInstalled: getPmcInstallStatus(project).installed,
     message: "Battle HUD supports English Black 2 (IREO) and White 2 (IRDO)." };
   const v = project.session.baseVersion;
-  if (project.session.baseRom !== "BW2" || (v !== "B2" && v !== "W2")) return status;
+  if (!isVersion(v) || project.session.baseRom !== (v === "B" || v === "W" ? "BW" : "BW2")) return status;
   const profile = profileFor(v, kind); let rom: NintendoDSRom | undefined;
   try { if (bytes) rom = new NintendoDSRom(bytes); } catch { return { ...status, message: "Reload the ROM to check Battle HUD compatibility." }; }
-  if ((rom?.idCode ?? project.romInfo.idCode) !== profile.rom_code) return status;
+  if (!profile || (rom?.idCode ?? project.romInfo.idCode) !== profile.rom_code) return status;
+  if (rom && rom.data[0x1e] !== profile.revision) return { ...status, message: "Battle HUD requires English US revision 0." };
+  if ((v === "B" || v === "W") && (!profileFor("B", kind)?.dsAccepted || !profileFor("W", kind)?.dsAccepted)) {
+    return { ...status, message: `BW1 ${title(kind)} is awaiting DS gameplay and visual acceptance in Black and White.` };
+  }
   status.supported = true;
   for (const entry of listCodeInjectionDlls(project)) {
     const added = Object.keys(project.fileSystem?.additions ?? {}).find(p => p.toLowerCase() === entry.path.toLowerCase());
@@ -113,14 +127,14 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
         : build !== profile.version;
       status.canUninstall = !status.legacyCombined && canRemoveStagedCodeInjectionDll(project, entry.path);
       if (kind === "moves" && moveBuild) {
-        const installed = (manifest.moveGames[v].builds as Record<string, ConfigurableBuild>)[moveBuild];
+        const installed = manifest.moveGames[v]?.builds[moveBuild];
         if (installed?.colorOffset !== undefined) status.colors = readColors(rpm.code, installed.colorOffset);
       }
       continue;
     }
     if (iconBuild || moveBuild) continue; // Independently installed companion has disjoint hooks.
-    if (/^(?:BattleTypeHud|TypeIcons|MoveEffectiveness)(?:B2|W2)(?:\.debug)?\.dll$/iu.test(entry.fileName)) return { ...status, message: `Unrecognized Battle HUD build: ${entry.path}.` };
-    if (rpm.relocations.some(r => r.target.module !== "base" && profile.hooks.some(h => r.target.module === "168"
+    if (/^(?:BattleTypeHud|TypeIcons(?:Circular|Solid)?|MoveEffectiveness)(?:B2|W2|B|W)(?:\.debug)?\.dll$/iu.test(entry.fileName)) return { ...status, message: `Unrecognized Battle HUD build: ${entry.path}.` };
+    if (rpm.relocations.some(r => r.target.module !== "base" && profile.hooks.some(h => r.target.module === String(profile.overlay_id)
       && r.target.address < h.address + 4 && r.target.address + hookSize(rpm, r) > h.address))) {
       return { ...status, message: `Battle HUD conflicts with ${entry.path}. A required battle hook is already claimed.` };
     }
@@ -129,8 +143,8 @@ function getStatus(project: ProjectState, kind: Component, bytes = project.origi
     status.checked = true;
     try {
       const overlays = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
-        (_id, fileId) => getRomFileBytes(project, rom!, fileId), new Set([167, 168]));
-      const checks = [...profile.signatures, ...profile.hooks.map(h => ({ ...h, segment: 168 }))];
+        (_id, fileId) => getRomFileBytes(project, rom!, fileId), new Set([...profile.signatures.map(s => s.segment), profile.overlay_id].filter(id => id !== 0)));
+      const checks = [...profile.signatures, ...profile.hooks.map(h => ({ ...h, segment: profile.overlay_id }))];
       for (const s of checks) {
         const overlay = overlays.get(s.segment);
         const base = s.segment === 0 ? rom.arm9RamAddress : overlay?.ramAddress ?? 0;
@@ -158,11 +172,11 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   if (!bytes) throw new Error("Reload the ROM before installing Battle HUD.");
   const status = getStatus(project, kind, bytes);
   if (!status.supported || !status.compatible) throw new Error(status.message);
-  const v = project.session.baseVersion as Version; const profile = profileFor(v, kind);
+  const v = project.session.baseVersion as Version; const profile = profileFor(v, kind)!;
   const panelEdits: { fileId: number; member: number; bytes: Uint8Array }[] = [];
   // Check native assets and the new DLL before staging PMC or changing files.
   if (Object.keys(profile.resources).length) {
-    const rom = new NintendoDSRom(bytes); const id = rom.filenames.idOf("a/0/1/1");
+    const rom = new NintendoDSRom(bytes); const id = rom.filenames.idOf(profile.graphicsArchive);
     if (id === undefined) throw new Error("Battle graphics archive is missing.");
     const archive = new NARC(getRomFileBytes(project, rom, id));
     for (const [member, expected] of Object.entries(profile.resources)) {
@@ -183,7 +197,9 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
   if (await hash(bytes) === "8279bed45bde3d0f9e0309d29d4246fd695a5c5d6fa55346c401c0bbc7043b50") {
     throw new Error("This Cascade build has insufficient PMC space. Use a non-Cascade ROM or the creator's optimized build.");
   }
-  const response = await fetch(kind === "icons" ? ICON_URLS[iconVariant][v] : URLS.moves[v]);
+  const assetUrl = kind === "icons" ? ICON_URLS[iconVariant][v] : URLS.moves[v];
+  if (!assetUrl) throw new Error(`No ${title(kind)} build is available for ${v}.`);
+  const response = await fetch(assetUrl);
   if (!response.ok) throw new Error(`Could not load Battle HUD (${response.status}).`);
   const dll = new Uint8Array(await response.arrayBuffer());
   const expectedVersion = kind === "icons" ? manifest.games[v].variants[iconVariant].version : profile.version;
@@ -198,14 +214,19 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
     selected.forEach((color, i) => writeU16(dll, offset + i * 2, color));
     if (knownBuild(parseRpm(dll, { allowedMagics: ["DLXF"] }), v, kind) !== profile.version) throw new Error("The customized move-preview DLL failed verification.");
   }
-  project.originalRomBytes ??= bytes;
-  if (!getPmcInstallStatus(project).installed) await installBundledPmc(project);
+  const staged: ProjectState = { ...project, originalRomBytes: bytes, arm9: project.arm9.slice(),
+    overlays: Object.fromEntries(Object.entries(project.overlays).map(([id, data]) => [id, data?.slice()])),
+    fileSystem: structuredClone(project.fileSystem), codeInjection: structuredClone(project.codeInjection),
+    patches: structuredClone(project.patches), actionChangelog: structuredClone(project.actionChangelog) };
+  if (!getPmcInstallStatus(staged).installed) await installBundledPmc(staged);
   const name = status.dllPath?.split("/").pop() ?? `${kind === "icons" ? "TypeIcons" : "MoveEffectiveness"}${v}.dll`;
-  const result = stageCodeInjectionDll(project, name, dll, "patches", bytes);
+  const result = stageCodeInjectionDll(staged, name, dll, "patches", bytes);
   const rom = new NintendoDSRom(bytes);
-  for (const edit of panelEdits) replaceNarcFile(project, rom, edit.fileId, edit.member, edit.bytes);
+  for (const edit of panelEdits) replaceNarcFile(staged, rom, edit.fileId, edit.member, edit.bytes);
   const detail = kind === "icons" ? ` (${manifest.games[v].variants[iconVariant].label})` : "";
-  recordGenericChange(project, "code_injection", `${title(kind)}${detail} installed.`, title(kind), { key: `code-injection:${kind}` });
+  recordGenericChange(staged, "code_injection", `${title(kind)}${detail} installed.`, title(kind), { key: `code-injection:${kind}` });
+  Object.assign(project, { originalRomBytes: bytes, arm9: staged.arm9, arm9Dirty: staged.arm9Dirty, overlays: staged.overlays,
+    fileSystem: staged.fileSystem, codeInjection: staged.codeInjection, patches: staged.patches, actionChangelog: staged.actionChangelog });
   return result;
 }
 function uninstallHud(project: ProjectState, kind: Component): void {
@@ -215,10 +236,12 @@ function uninstallHud(project: ProjectState, kind: Component): void {
   // uninstall. Other members of the battle archive are preserved.
   const restored: { member: number; bytes: Uint8Array }[] = [];
   const rom = kind === "icons" && project.originalRomBytes ? new NintendoDSRom(project.originalRomBytes) : undefined;
-  const fileId = rom?.filenames.idOf("a/0/1/1");
+  const profile = profileFor(project.session.baseVersion as Version, kind);
+  const fileId = profile && rom?.filenames.idOf(profile.graphicsArchive);
   if (rom && fileId !== undefined) {
     const archive = new NARC(getRomFileBytes(project, rom, fileId));
-    for (const member of Object.keys(battleTypeHudPanelExpansion) as (keyof typeof battleTypeHudPanelExpansion)[]) {
+    for (const member of Object.keys(profile!.resources) as (keyof typeof battleTypeHudPanelExpansion)[]) {
+      if (!battleTypeHudPanelExpansion[member]) continue;
       const packed = archive.files[Number(member)];
       if (!packed) continue;
       const raw = packed[0] === 0x10 || packed[0] === 0x11 ? decompressNitro(packed) : packed;

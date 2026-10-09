@@ -1,4 +1,9 @@
 #include "runtime.h"
+#ifdef LEARNSET_BW1_TRACE
+extern "C" { __attribute__((used,section(".learnset_trace"))) volatile struct {
+    char magic[8]; u32 words[15];
+} learnsetMenuTrace={{'L','V','T','R','A','C','E','1'},{}}; }
+#endif
 namespace {
 struct MenuItem { void* text; u16 color; u16 pad; u32 cancel; };
 struct MenuWork { u8 count; u8 pad; u16 ids[8]; u16 padding; MenuItem items[8]; };
@@ -6,7 +11,7 @@ static_assert(__builtin_offsetof(MenuWork, items) == 0x14, "US party menu layout
 Request* session;
 void* sessionOwner;
 u32 restoreSlot = 0xffffffff;
-bool isField(void* work) { return work && at<void*>(work,0x28c) && at<u32>(at<void*>(work,0x28c),0x44) == 0; }
+bool isField(void* work) { return work && at<void*>(work,PartyRequestOffset) && at<u32>(at<void*>(work,PartyRequestOffset),RequestModeOffset) == 0; }
 const ProcTable* viewerTable() { return native<const ProcTable*>(0x219b9e8,0x219b9a8); }
 u32 viewerInit(void* proc, int* seq, void* data, void* work) {
     // Fail closed if the companion could not load. Never launch the teaching
@@ -48,7 +53,7 @@ bool launch(u32 slot,bool family=false) {
     // A harmless native row keeps empty/error cursor allocations valid.
     if(!session->list.count)session->ids[0]=1;
     restoreSlot=slot;
-    native<void(*)(void*,u32,const void*,void*)>(0x2016a99,0x2016a99)(session->tutor.gameSystem,258,&callbacks,session);
+    native<void(*)(void*,u32,const void*,void*)>(0x2016a99,0x2016a99)(session->tutor.gameSystem,TutorOverlay,&callbacks,session);
     return true;
 }
 }
@@ -56,32 +61,49 @@ extern "C" void OriginalMenuCreate(void*,void*,u32*);
 extern "C" void OriginalMenuSelect(void*);
 extern "C" u32 OriginalDispatch(void*,int*,void*);
 extern "C" void LearnsetMenuCreate(void* work,void* rawMenu,u32* input) {
+#ifdef LEARNSET_BW1_TRACE
+    learnsetMenuTrace.words[0]=u32(work);learnsetMenuTrace.words[1]=u32(rawMenu);learnsetMenuTrace.words[2]=u32(input);
+    learnsetMenuTrace.words[3]=u32(at<void*>(work,PartyRequestOffset));
+    learnsetMenuTrace.words[4]=at<u32>(at<void*>(work,PartyRequestOffset),RequestModeOffset);
+#endif
     OriginalMenuCreate(work,rawMenu,input);
     MenuWork* menu=static_cast<MenuWork*>(rawMenu);
+#ifdef LEARNSET_BW1_TRACE
+    learnsetMenuTrace.words[5]=menu->count;learnsetMenuTrace.words[6]=menu->count?menu->ids[menu->count-1]:End;
+    learnsetMenuTrace.words[7]=input[0];learnsetMenuTrace.words[8]=isField(work);learnsetMenuTrace.words[9]=canAppend(input,menu->count,isField(work));
+    learnsetMenuTrace.words[10]=0xffffffff;learnsetMenuTrace.words[11]=learnsetConfig.menu;learnsetMenuTrace.words[12]=learnsetConfig.menuXor;learnsetMenuTrace.words[13]=customUiConfig.learnsetEnabled;
+#endif
     if(!canAppend(input,menu->count,isField(work)) || menu->ids[menu->count-1]!=6)return;
     auto append=[&](u16 id,u16 command) {
         if(menu->count>=8)return;
-        void* text=message(at<void*>(work,0x138),id);if(!text)return;
+        void* text=message(at<void*>(work,PartyMessageOffset),id);
+#ifdef LEARNSET_BW1_TRACE
+        learnsetMenuTrace.words[10]=u32(text);
+#endif
+        if(!text)return;
         const u32 index=menu->count-1;
         menu->ids[index+1]=menu->ids[index];menu->items[index+1]=menu->items[index];
         menu->ids[index]=command;menu->items[index]={text,0x39e0,0,0};++menu->count;
     };
     if(customUiConfig.learnsetEnabled && configured(learnsetConfig.menu,learnsetConfig.menuXor))append(learnsetConfig.menu,Command);
     if(customUiConfig.version==1 && customUiConfig.enabled==1 && configured(customUiConfig.menu,customUiConfig.menuXor))append(customUiConfig.menu,CustomCommand);
+#ifdef LEARNSET_BW1_TRACE
+    learnsetMenuTrace.words[14]=menu->count;
+#endif
 }
 extern "C" void LearnsetMenuSelect(void* work) {
-    if (isField(work) && (at<u32>(work,0x40)==Command || (at<u32>(work,0x40)==CustomCommand && customUiConfig.enabled==1))) {
-        void* data=at<void*>(work,0x28c);
+    if (isField(work) && (at<u32>(work,PartyCommandOffset)==Command || (at<u32>(work,PartyCommandOffset)==CustomCommand && customUiConfig.enabled==1))) {
+        void* data=at<void*>(work,PartyRequestOffset);
         at<u8>(work,12)=19;
-        at<u32>(data,0x4c)=at<u32>(work,0x30);
-        at<u32>(data,0x50)=at<u32>(work,0x40)==CustomCommand?CustomTransition:Transition;
+        at<u32>(data,RequestSlotOffset)=at<u32>(work,PartySlotOffset);
+        at<u32>(data,RequestResultOffset)=at<u32>(work,PartyCommandOffset)==CustomCommand?CustomTransition:Transition;
         return;
     }
     OriginalMenuSelect(work);
 }
 extern "C" u32 LearnsetDispatch(void* event,int* seq,void* work) {
     void* partyData=at<void*>(work,0x1c);
-    const bool field=at<u32>(work,4)==0 && partyData && at<u32>(partyData,0x44)==0;
+    const bool field=at<u32>(work,4)==0 && partyData && at<u32>(partyData,RequestModeOffset)==0;
     if (*seq==13 && session && sessionOwner==work) {
         if(!session->viewerStarted && session->nextSlot==BrowseFamily && launch(session->partySlot,true)) {
             *seq=12;return 0;
@@ -96,10 +118,10 @@ extern "C" u32 LearnsetDispatch(void* event,int* seq,void* work) {
         reopen(work,seq);
         return 0;
     }
-    if (*seq==13 && field && (at<u32>(partyData,0x50)==Transition || (at<u32>(partyData,0x50)==CustomTransition && customUiConfig.enabled==1))) {
-        const bool custom=at<u32>(partyData,0x50)==CustomTransition;
-        at<u32>(partyData,0x50)=0;
-        const u32 slot=at<u32>(partyData,0x4c);
+    if (*seq==13 && field && (at<u32>(partyData,RequestResultOffset)==Transition || (at<u32>(partyData,RequestResultOffset)==CustomTransition && customUiConfig.enabled==1))) {
+        const bool custom=at<u32>(partyData,RequestResultOffset)==CustomTransition;
+        at<u32>(partyData,RequestResultOffset)=0;
+        const u32 slot=at<u32>(partyData,RequestSlotOffset);
         void* gs=*at<void**>(work,0x18);
         void* gd=native<void*(*)(void*)>(0x2016ad9,0x2016ad9)(gs);
         void* party=native<void*(*)(void*)>(0x201735d,0x201735d)(gd);
@@ -124,7 +146,7 @@ extern "C" u32 LearnsetDispatch(void* event,int* seq,void* work) {
     const u32 result=OriginalDispatch(event,seq,work);
     if (restoring && *seq==12) {
         void* next=at<void*>(work,0x1c);
-        if(next) at<u32>(next,0x4c)=restoreSlot;
+        if(next) at<u32>(next,RequestSlotOffset)=restoreSlot;
         restoreSlot=0xffffffff; sessionOwner=0;
     }
     return result;
