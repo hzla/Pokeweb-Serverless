@@ -47,6 +47,7 @@ import {
   uninstallTagBattleStabilization,
 } from "../pokeweb/tagBattleStabilizationModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
+import { CGEAR_QUICK_ACTIONS_VERSION, getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
 import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
@@ -112,6 +113,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
+  const quickActionsStatus = getCGearQuickActionsStatus(project);
   const learnsetStatus = getLearnsetViewerStatus(project);
   const summaryStatStatus = getSummaryStatViewerStatus(project);
   const battleHudStatus = getBattleTypeHudStatus(project);
@@ -598,6 +600,28 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="tag-battle-stabilization-note" aria-live="polite"></div>
           </div>
         </section>
+        <section class="code-injection-panel" ${patchVisibility(quickActionsStatus.supported)}>
+          <div class="code-injection-panel__header"><div>
+            <h2>C-Gear Quick Actions</h2>
+            <p>REPEL, PC, BIKE and MAP touch shortcuts. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them and the C-Gear logo to change their inner designs.</p>
+          </div><span class="code-injection-status ${!quickActionsStatus.compatible ? "-error" : quickActionsStatus.enabled ? "-installed" : ""}">
+            ${!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready"}
+          </span></div>
+          <div class="code-injection-facts"><div><span>Games</span><strong>English Black 2 / White 2</strong></div>
+            <div><span>Dependency</span><strong>PMC only</strong></div><div><span>Release</span><strong>${escapeHtml(CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
+          <img src="${new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Button layout: green REPEL on the left, orange PC on the right, magenta BIKE below left and purple MAP below right." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
+          <p>${escapeHtml(quickActionsStatus.message)}</p>
+          <p>REPEL is always shown. BIKE appears with the Bicycle in the bag. MAP appears with the Town Map in the bag and opens the Fly map when an eligible party Pokémon can use Fly, or the standard Town Map otherwise.</p>
+          <label for="cgear-pc-hide-flag">PC hide save flag</label>
+          <input id="cgear-pc-hide-flag" type="text" value="0x${quickActionsStatus.pcHideFlag.toString(16).toUpperCase().padStart(4,"0")}" spellcheck="false" aria-describedby="cgear-pc-hide-help" style="max-width:12rem" />
+          <p id="cgear-pc-hide-help" class="code-injection-note">PC is shown when this flag is clear and hidden when set. Default: 0x05ED (1517), unused in retail. Enter decimal or 0x hexadecimal, then choose Install or Update / Enable. Choose an unused flag for your hack.</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible ? "" : "disabled"}>${quickActionsStatus.installed ? "Update / Enable" : "Install"}</button>
+            <button class="btn -default" id="disable-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible && quickActionsStatus.enabled ? "" : "disabled"}>Disable</button>
+            <button class="btn -default" id="remove-cgear-quick-actions-btn" type="button" ${quickActionsStatus.canRemove ? "" : "disabled"} title="Exported installations can be disabled; only newly staged modules can be removed.">Remove staged patch</button>
+            <div class="code-injection-note" id="cgear-quick-actions-note" aria-live="polite"></div>
+          </div>
+        </section>
         <section class="code-injection-panel" ${patchVisibility(portaPcStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
@@ -959,6 +983,24 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  for (const [id, action] of [
+    ["install", () => installCGearQuickActions(project, {pcHideFlag:Number(root.querySelector<HTMLInputElement>("#cgear-pc-hide-flag")?.value.trim())})],
+    ["disable", () => disableCGearQuickActions(project)],
+    ["remove", () => removeCGearQuickActions(project)],
+  ] as const) {
+    root.querySelector<HTMLButtonElement>(`#${id}-cgear-quick-actions-btn`)?.addEventListener("click", async (event) => {
+      const button = event.currentTarget as HTMLButtonElement;button.disabled = true;
+      const note = root.querySelector<HTMLDivElement>("#cgear-quick-actions-note");
+      try {
+        if (note) note.textContent = "Checking and staging Quick Actions changes…";
+        await action();onDirty();renderCodeInjectionEditor(project, root, onDirty);
+        const updated = root.querySelector<HTMLDivElement>("#cgear-quick-actions-note");
+        if (updated) updated.textContent = "Changes staged. Export a new ROM to use them.";
+      } catch (error) {
+        button.disabled = false;if (note) note.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  }
   const portaPcButton = root.querySelector<HTMLButtonElement>("#install-porta-pc-btn");
   const portaPcNote = root.querySelector<HTMLDivElement>("#porta-pc-note");
   portaPcButton?.addEventListener("click", async () => {
