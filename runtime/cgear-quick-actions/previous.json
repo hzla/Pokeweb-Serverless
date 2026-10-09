@@ -1,0 +1,2518 @@
+[
+  {
+    "version": "0.1.0",
+    "games": {
+      "W2": {
+        "idCode": "IRDO",
+        "revision": 0,
+        "fileName": "CGearQuickActionsW2.dll",
+        "sha256": "9e9f0be50b0d0e9a9ca30a1ef9f61db386074679afee3616a65fff7a3628d9de",
+        "codeFingerprint": "dcaf4254",
+        "bssSize": 264,
+        "signatures": [
+          {
+            "label": "QaInput",
+            "module": "79",
+            "address": 35572096,
+            "expectedHex": "fef788ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaButtonHit",
+            "module": "79",
+            "address": 35567816,
+            "expectedHex": "fff73eff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearUnit",
+            "module": "79",
+            "address": 35571520,
+            "expectedHex": "5ff602fc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelStep",
+            "module": "36",
+            "address": 35136700,
+            "expectedHex": "8bf67cfc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelDepleted",
+            "module": "36",
+            "address": 35261228,
+            "expectedHex": "6df658f9",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearInit",
+            "module": "36",
+            "address": 35453456,
+            "expectedHex": "65851902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearUpdate",
+            "module": "36",
+            "address": 35453460,
+            "expectedHex": "5d861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearEvent",
+            "module": "36",
+            "address": 35453468,
+            "expectedHex": "b5861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearExit",
+            "module": "36",
+            "address": 35453472,
+            "expectedHex": "3d861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaNoGearInit",
+            "module": "36",
+            "address": 35453596,
+            "expectedHex": "c1861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaTownMapReturn",
+            "module": "12",
+            "address": 35048612,
+            "expectedHex": "39c01502",
+            "patchSize": 4
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33576700,
+            "expectedHex": "38b5051c04480c1c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33579604,
+            "expectedHex": "0021014bc9431847",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33588340,
+            "expectedHex": "08b5fff737ff0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33590748,
+            "expectedHex": "014b1b211847c046",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33593536,
+            "expectedHex": "c0797047c1727047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33593624,
+            "expectedHex": "08b52021fdf794fd",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33611192,
+            "expectedHex": "011c2d3109780029",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33611232,
+            "expectedHex": "2d300078002801d1",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647320,
+            "expectedHex": "c0697047c069014b",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647344,
+            "expectedHex": "006a704701627047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647796,
+            "expectedHex": "f8b582b0051c0193",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647976,
+            "expectedHex": "08600069004b1847",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33648344,
+            "expectedHex": "00697047c0687047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33648348,
+            "expectedHex": "c068704708307047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649140,
+            "expectedHex": "4521890040187047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649492,
+            "expectedHex": "1921090140587047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649500,
+            "expectedHex": "6521890040587047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33650084,
+            "expectedHex": "006c704701647047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33650996,
+            "expectedHex": "0068704700687047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33672484,
+            "expectedHex": "70b5051c0c1c161c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33685028,
+            "expectedHex": "40687047f8b5071c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33685300,
+            "expectedHex": "dc2208304a438018",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33791884,
+            "expectedHex": "08b5094908400949",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33791932,
+            "expectedHex": "08b5094908400949",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33792552,
+            "expectedHex": "f8b5061c0d1c171c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33792632,
+            "expectedHex": "10b5041c00f0caf8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33793748,
+            "expectedHex": "011c0a68506b8842",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33803028,
+            "expectedHex": "00210268c9438a42",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33806964,
+            "expectedHex": "08b5fff745fcfff7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33807024,
+            "expectedHex": "38b5051c0c1cfff7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860296,
+            "expectedHex": "30b583b0051c291c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860408,
+            "expectedHex": "10b5041c26f050f9",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860424,
+            "expectedHex": "78b583b0051c4e30",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860664,
+            "expectedHex": "30b583b0051c4e30",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33863912,
+            "expectedHex": "f0b589b0071c2e48",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864120,
+            "expectedHex": "70b52a4c85014326",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864300,
+            "expectedHex": "f8b51c4e84014327",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864652,
+            "expectedHex": "18b583b000240094",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864956,
+            "expectedHex": "78b40d4d011c1820",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865020,
+            "expectedHex": "f8b50d1c5601002a",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865228,
+            "expectedHex": "f8b584b000901e48",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865360,
+            "expectedHex": "10b50c490a684521",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865544,
+            "expectedHex": "f8b582b0061c0192",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865836,
+            "expectedHex": "f8b58cb003901420",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866036,
+            "expectedHex": "10b5041ca068211c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866064,
+            "expectedHex": "036e034ac9071a40",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866092,
+            "expectedHex": "38b582b00c1c111c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33867084,
+            "expectedHex": "036e034ac9071a40",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 34016424,
+            "expectedHex": "2321002209021143",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 34016972,
+            "expectedHex": "014b01221847c046",
+            "patchSize": 0
+          },
+          {
+            "label": "Native graphics system pointer",
+            "module": "ARM9",
+            "address": 33864104,
+            "expectedHex": "7c191402",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34944684,
+            "expectedHex": "38b50d1c141c00210091191c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34968176,
+            "expectedHex": "f8b58ab00c1c051c201c0021",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34968672,
+            "expectedHex": "38b5031c141c0d1c201c191c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34969284,
+            "expectedHex": "10b50421041c00f067fa0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34976968,
+            "expectedHex": "f8b582b0051c0f1c2868a968",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34979896,
+            "expectedHex": "08b583691a69082a0bd14868",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34992116,
+            "expectedHex": "70b5051c081c141cb7f66cfd",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34992164,
+            "expectedHex": "08b5031c101c024adb00d258",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35128576,
+            "expectedHex": "00887047c430006870470000",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35132172,
+            "expectedHex": "4068014b1847c046bd6a0102",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35226604,
+            "expectedHex": "70b540690d1c161ce8f790f8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35226980,
+            "expectedHex": "f8b5051c6869e7f7c7ff041c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227196,
+            "expectedHex": "08b5006a54f0b8fc0148a4f6",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227228,
+            "expectedHex": "f8b5051c0e1c21d06869e7f7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227316,
+            "expectedHex": "021c106a004b184709d01e02",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227328,
+            "expectedHex": "38b5051c0b48a4f6b7fb6869",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35567432,
+            "expectedHex": "f0b58db0071c0024a60001a8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35567764,
+            "expectedHex": "78b581b0041c01f021fd0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35572172,
+            "expectedHex": "10b5041ce4300168002903d0",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35574496,
+            "expectedHex": "0649425c002a01d001207047",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear ring colour layout",
+            "module": "79",
+            "address": 35566564,
+            "expectedHex": "632080002018069012212a1ca8194a43069940018918381812228df6",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear save initialization",
+            "module": "ARM9",
+            "address": 33593488,
+            "expectedHex": "38b5051cfff7faff021c281c002100246ef098ef201c2855641c062cfbdb0c202872152068720920a87238bd",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear save accessors",
+            "module": "ARM9",
+            "address": 33593532,
+            "expectedHex": "c1717047c0797047c1727047c07a704781737047807b70478181704780897047062902d2062a00d242547047062901d300207047405c7047032901da4018027270470000032901db002070474018007a70470000817170478079704708b52021fdf794fd283008bd",
+            "patchSize": 0
+          },
+          {
+            "label": "Options initialization and accessors",
+            "module": "ARM9",
+            "address": 33589696,
+            "expectedHex": "10b5041c002104226ff004ef21880f2081430120014321802288302140028a432280228840218a432280228880218a4322802288054911402180218808432080218803480840208010bdc046fffefffffffbffff00880007000f704703880f22090493430a0c0f21114019430180704700888006800f70470904090c890703883022890e934319430180704700880006c00f70470904090cc90703888022090e934319430180704700884006c00f70470904090cc90703884022490e93431943018070470088c005c00f70470904090cc9070388054ac90d1a40114301800088034bc005c00f0006000e1847fffeffffa58b04020088034bc005c00f0006000e1847c046a58b040200888005c00f70470904090cc9070388024a890d1a40114301807047fffdffff00884005c00f70470904090cc9070388024a490d1a40114301807047",
+            "patchSize": 0
+          }
+        ]
+      },
+      "B2": {
+        "idCode": "IREO",
+        "revision": 0,
+        "fileName": "CGearQuickActionsB2.dll",
+        "sha256": "48390f5ff52f13c66d90271f3ec42a6ea1b07737969aff8eda019e8e03112555",
+        "codeFingerprint": "bb01ceea",
+        "bssSize": 264,
+        "signatures": [
+          {
+            "label": "QaInput",
+            "module": "79",
+            "address": 35572032,
+            "expectedHex": "fef788ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaButtonHit",
+            "module": "79",
+            "address": 35567752,
+            "expectedHex": "fff73eff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearUnit",
+            "module": "79",
+            "address": 35571456,
+            "expectedHex": "5ff60cfc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelStep",
+            "module": "36",
+            "address": 35136636,
+            "expectedHex": "8bf69cfc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelDepleted",
+            "module": "36",
+            "address": 35261164,
+            "expectedHex": "6df678f9",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearInit",
+            "module": "36",
+            "address": 35453404,
+            "expectedHex": "25851902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearUpdate",
+            "module": "36",
+            "address": 35453408,
+            "expectedHex": "1d861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearEvent",
+            "module": "36",
+            "address": 35453416,
+            "expectedHex": "75861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearExit",
+            "module": "36",
+            "address": 35453420,
+            "expectedHex": "fd851902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaNoGearInit",
+            "module": "36",
+            "address": 35453544,
+            "expectedHex": "81861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaTownMapReturn",
+            "module": "12",
+            "address": 35048548,
+            "expectedHex": "f9bf1502",
+            "patchSize": 4
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33576700,
+            "expectedHex": "38b5051c04480c1c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33579604,
+            "expectedHex": "0021014bc9431847",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33588340,
+            "expectedHex": "08b5fff737ff0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33590748,
+            "expectedHex": "014b1b211847c046",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33593536,
+            "expectedHex": "c0797047c1727047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33593624,
+            "expectedHex": "08b52021fdf794fd",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33611192,
+            "expectedHex": "011c2d3109780029",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33611232,
+            "expectedHex": "2d300078002801d1",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647320,
+            "expectedHex": "c0697047c069014b",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647344,
+            "expectedHex": "006a704701627047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647796,
+            "expectedHex": "f8b582b0051c0193",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647976,
+            "expectedHex": "08600069004b1847",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33648344,
+            "expectedHex": "00697047c0687047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33648348,
+            "expectedHex": "c068704708307047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649140,
+            "expectedHex": "4521890040187047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649492,
+            "expectedHex": "1921090140587047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649500,
+            "expectedHex": "6521890040587047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33650084,
+            "expectedHex": "006c704701647047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33650996,
+            "expectedHex": "0068704700687047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33672440,
+            "expectedHex": "70b5051c0c1c161c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33684984,
+            "expectedHex": "40687047f8b5071c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33685256,
+            "expectedHex": "dc2208304a438018",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33791840,
+            "expectedHex": "08b5094908400949",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33791888,
+            "expectedHex": "08b5094908400949",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33792508,
+            "expectedHex": "f8b5061c0d1c171c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33792588,
+            "expectedHex": "10b5041c00f0caf8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33793704,
+            "expectedHex": "011c0a68506b8842",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33802984,
+            "expectedHex": "00210268c9438a42",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33806920,
+            "expectedHex": "08b5fff745fcfff7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33806980,
+            "expectedHex": "38b5051c0c1cfff7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860252,
+            "expectedHex": "30b583b0051c291c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860364,
+            "expectedHex": "10b5041c26f050f9",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860380,
+            "expectedHex": "78b583b0051c4e30",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860620,
+            "expectedHex": "30b583b0051c4e30",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33863868,
+            "expectedHex": "f0b589b0071c2e48",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864076,
+            "expectedHex": "70b52a4c85014326",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864256,
+            "expectedHex": "f8b51c4e84014327",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864608,
+            "expectedHex": "18b583b000240094",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864912,
+            "expectedHex": "78b40d4d011c1820",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864976,
+            "expectedHex": "f8b50d1c5601002a",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865184,
+            "expectedHex": "f8b584b000901e48",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865316,
+            "expectedHex": "10b50c490a684521",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865500,
+            "expectedHex": "f8b582b0061c0192",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865792,
+            "expectedHex": "f8b58cb003901420",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865992,
+            "expectedHex": "10b5041ca068211c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866020,
+            "expectedHex": "036e034ac9071a40",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866048,
+            "expectedHex": "38b582b00c1c111c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33867040,
+            "expectedHex": "036e034ac9071a40",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 34016380,
+            "expectedHex": "2321002209021143",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 34016928,
+            "expectedHex": "014b01221847c046",
+            "patchSize": 0
+          },
+          {
+            "label": "Native graphics system pointer",
+            "module": "ARM9",
+            "address": 33864060,
+            "expectedHex": "3c191402",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34944620,
+            "expectedHex": "38b50d1c141c00210091191c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34968112,
+            "expectedHex": "f8b58ab00c1c051c201c0021",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34968608,
+            "expectedHex": "38b5031c141c0d1c201c191c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34969220,
+            "expectedHex": "10b50421041c00f067fa0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34976904,
+            "expectedHex": "f8b582b0051c0f1c2868a968",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34979832,
+            "expectedHex": "08b583691a69082a0bd14868",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34992052,
+            "expectedHex": "70b5051c081c141cb7f68cfd",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34992100,
+            "expectedHex": "08b5031c101c024adb00d258",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35128512,
+            "expectedHex": "00887047c430006870470000",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35132108,
+            "expectedHex": "4068014b1847c046bd6a0102",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35226540,
+            "expectedHex": "70b540690d1c161ce8f790f8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35226916,
+            "expectedHex": "f8b5051c6869e7f7c7ff041c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227132,
+            "expectedHex": "08b5006a54f0b8fc0148a4f6",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227164,
+            "expectedHex": "f8b5051c0e1c21d06869e7f7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227252,
+            "expectedHex": "021c106a004b1847c9cf1e02",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227264,
+            "expectedHex": "38b5051c0b48a4f6c1fb6869",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35567368,
+            "expectedHex": "f0b58db0071c0024a60001a8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35567700,
+            "expectedHex": "78b581b0041c01f021fd0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35572108,
+            "expectedHex": "10b5041ce4300168002903d0",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35574432,
+            "expectedHex": "0649425c002a01d001207047",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear ring colour layout",
+            "module": "79",
+            "address": 35566500,
+            "expectedHex": "632080002018069012212a1ca8194a43069940018918381812228df6",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear save initialization",
+            "module": "ARM9",
+            "address": 33593488,
+            "expectedHex": "38b5051cfff7faff021c281c002100246ef082ef201c2855641c062cfbdb0c202872152068720920a87238bd",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear save accessors",
+            "module": "ARM9",
+            "address": 33593532,
+            "expectedHex": "c1717047c0797047c1727047c07a704781737047807b70478181704780897047062902d2062a00d242547047062901d300207047405c7047032901da4018027270470000032901db002070474018007a70470000817170478079704708b52021fdf794fd283008bd",
+            "patchSize": 0
+          },
+          {
+            "label": "Options initialization and accessors",
+            "module": "ARM9",
+            "address": 33589696,
+            "expectedHex": "10b5041c002104226ff0eeee21880f2081430120014321802288302140028a432280228840218a432280228880218a4322802288054911402180218808432080218803480840208010bdc046fffefffffffbffff00880007000f704703880f22090493430a0c0f21114019430180704700888006800f70470904090c890703883022890e934319430180704700880006c00f70470904090cc90703888022090e934319430180704700884006c00f70470904090cc90703884022490e93431943018070470088c005c00f70470904090cc9070388054ac90d1a40114301800088034bc005c00f0006000e1847fffeffff798b04020088034bc005c00f0006000e1847c046798b040200888005c00f70470904090cc9070388024a890d1a40114301807047fffdffff00884005c00f70470904090cc9070388024a490d1a40114301807047",
+            "patchSize": 0
+          }
+        ]
+      }
+    },
+    "graphicsFingerprint": "e3a77037"
+  },
+  {
+    "version": "0.1.1",
+    "games": {
+      "W2": {
+        "idCode": "IRDO",
+        "revision": 0,
+        "fileName": "CGearQuickActionsW2.dll",
+        "sha256": "7c12b785730e055849652215cae15817214ab7e8d708abb1866e8113a64d22b2",
+        "codeFingerprint": "8801f0bb",
+        "bssSize": 396,
+        "signatures": [
+          {
+            "label": "QaInput",
+            "module": "79",
+            "address": 35572096,
+            "expectedHex": "fef788ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaButtonHit",
+            "module": "79",
+            "address": 35567816,
+            "expectedHex": "fff73eff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearUnit",
+            "module": "79",
+            "address": 35571520,
+            "expectedHex": "5ff602fc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearEnd",
+            "module": "79",
+            "address": 35573314,
+            "expectedHex": "fff7e1fc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelStep",
+            "module": "36",
+            "address": 35136700,
+            "expectedHex": "8bf67cfc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelDepleted",
+            "module": "36",
+            "address": 35261228,
+            "expectedHex": "6df658f9",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearInit",
+            "module": "36",
+            "address": 35453456,
+            "expectedHex": "65851902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearUpdate",
+            "module": "36",
+            "address": 35453460,
+            "expectedHex": "5d861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearEvent",
+            "module": "36",
+            "address": 35453468,
+            "expectedHex": "b5861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearExit",
+            "module": "36",
+            "address": 35453472,
+            "expectedHex": "3d861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaNoGearInit",
+            "module": "36",
+            "address": 35453596,
+            "expectedHex": "c1861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaTownMapReturn",
+            "module": "12",
+            "address": 35048612,
+            "expectedHex": "39c01502",
+            "patchSize": 4
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33576700,
+            "expectedHex": "38b5051c04480c1c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33579604,
+            "expectedHex": "0021014bc9431847",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33588340,
+            "expectedHex": "08b5fff737ff0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33590748,
+            "expectedHex": "014b1b211847c046",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33593536,
+            "expectedHex": "c0797047c1727047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33593624,
+            "expectedHex": "08b52021fdf794fd",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33611192,
+            "expectedHex": "011c2d3109780029",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33611232,
+            "expectedHex": "2d300078002801d1",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647320,
+            "expectedHex": "c0697047c069014b",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647344,
+            "expectedHex": "006a704701627047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647796,
+            "expectedHex": "f8b582b0051c0193",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647976,
+            "expectedHex": "08600069004b1847",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33648344,
+            "expectedHex": "00697047c0687047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33648348,
+            "expectedHex": "c068704708307047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649140,
+            "expectedHex": "4521890040187047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649492,
+            "expectedHex": "1921090140587047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649500,
+            "expectedHex": "6521890040587047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33650084,
+            "expectedHex": "006c704701647047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33650996,
+            "expectedHex": "0068704700687047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33672484,
+            "expectedHex": "70b5051c0c1c161c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33685028,
+            "expectedHex": "40687047f8b5071c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33685300,
+            "expectedHex": "dc2208304a438018",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33791884,
+            "expectedHex": "08b5094908400949",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33791932,
+            "expectedHex": "08b5094908400949",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33792552,
+            "expectedHex": "f8b5061c0d1c171c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33792632,
+            "expectedHex": "10b5041c00f0caf8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33793748,
+            "expectedHex": "011c0a68506b8842",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33803028,
+            "expectedHex": "00210268c9438a42",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33806964,
+            "expectedHex": "08b5fff745fcfff7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33807024,
+            "expectedHex": "38b5051c0c1cfff7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860296,
+            "expectedHex": "30b583b0051c291c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860408,
+            "expectedHex": "10b5041c26f050f9",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860424,
+            "expectedHex": "78b583b0051c4e30",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860664,
+            "expectedHex": "30b583b0051c4e30",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33863912,
+            "expectedHex": "f0b589b0071c2e48",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864120,
+            "expectedHex": "70b52a4c85014326",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864300,
+            "expectedHex": "f8b51c4e84014327",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864652,
+            "expectedHex": "18b583b000240094",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864956,
+            "expectedHex": "78b40d4d011c1820",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865020,
+            "expectedHex": "f8b50d1c5601002a",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865228,
+            "expectedHex": "f8b584b000901e48",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865360,
+            "expectedHex": "10b50c490a684521",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865544,
+            "expectedHex": "f8b582b0061c0192",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865836,
+            "expectedHex": "f8b58cb003901420",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866036,
+            "expectedHex": "10b5041ca068211c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866064,
+            "expectedHex": "036e034ac9071a40",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866092,
+            "expectedHex": "38b582b00c1c111c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33867084,
+            "expectedHex": "036e034ac9071a40",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 34016424,
+            "expectedHex": "2321002209021143",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 34016972,
+            "expectedHex": "014b01221847c046",
+            "patchSize": 0
+          },
+          {
+            "label": "Native graphics system pointer",
+            "module": "ARM9",
+            "address": 33864104,
+            "expectedHex": "7c191402",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34944684,
+            "expectedHex": "38b50d1c141c00210091191c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34968176,
+            "expectedHex": "f8b58ab00c1c051c201c0021",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34968672,
+            "expectedHex": "38b5031c141c0d1c201c191c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34969284,
+            "expectedHex": "10b50421041c00f067fa0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34976968,
+            "expectedHex": "f8b582b0051c0f1c2868a968",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34979896,
+            "expectedHex": "08b583691a69082a0bd14868",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34992116,
+            "expectedHex": "70b5051c081c141cb7f66cfd",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34992164,
+            "expectedHex": "08b5031c101c024adb00d258",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35128576,
+            "expectedHex": "00887047c430006870470000",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35132172,
+            "expectedHex": "4068014b1847c046bd6a0102",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35226604,
+            "expectedHex": "70b540690d1c161ce8f790f8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35226980,
+            "expectedHex": "f8b5051c6869e7f7c7ff041c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227196,
+            "expectedHex": "08b5006a54f0b8fc0148a4f6",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227228,
+            "expectedHex": "f8b5051c0e1c21d06869e7f7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227316,
+            "expectedHex": "021c106a004b184709d01e02",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227328,
+            "expectedHex": "38b5051c0b48a4f6b7fb6869",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35567432,
+            "expectedHex": "f0b58db0071c0024a60001a8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35567764,
+            "expectedHex": "78b581b0041c01f021fd0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35571720,
+            "expectedHex": "10b5041cfff7ccffa06b5ff6",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35572172,
+            "expectedHex": "10b5041ce4300168002903d0",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35574496,
+            "expectedHex": "0649425c002a01d001207047",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear ring colour layout",
+            "module": "79",
+            "address": 35566564,
+            "expectedHex": "632080002018069012212a1ca8194a43069940018918381812228df6",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear delayed dimming layout",
+            "module": "79",
+            "address": 35574416,
+            "expectedHex": "38b53124051c2401295d00290fd0611c695c4a1c611c6a54695c082907d300f017f8011c281cfdf7a1ff0020285538bd",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear dimming colours",
+            "module": "79",
+            "address": 35575860,
+            "expectedHex": "41042304",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear save initialization",
+            "module": "ARM9",
+            "address": 33593488,
+            "expectedHex": "38b5051cfff7faff021c281c002100246ef098ef201c2855641c062cfbdb0c202872152068720920a87238bd",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear save accessors",
+            "module": "ARM9",
+            "address": 33593532,
+            "expectedHex": "c1717047c0797047c1727047c07a704781737047807b70478181704780897047062902d2062a00d242547047062901d300207047405c7047032901da4018027270470000032901db002070474018007a70470000817170478079704708b52021fdf794fd283008bd",
+            "patchSize": 0
+          },
+          {
+            "label": "Options initialization and accessors",
+            "module": "ARM9",
+            "address": 33589696,
+            "expectedHex": "10b5041c002104226ff004ef21880f2081430120014321802288302140028a432280228840218a432280228880218a4322802288054911402180218808432080218803480840208010bdc046fffefffffffbffff00880007000f704703880f22090493430a0c0f21114019430180704700888006800f70470904090c890703883022890e934319430180704700880006c00f70470904090cc90703888022090e934319430180704700884006c00f70470904090cc90703884022490e93431943018070470088c005c00f70470904090cc9070388054ac90d1a40114301800088034bc005c00f0006000e1847fffeffffa58b04020088034bc005c00f0006000e1847c046a58b040200888005c00f70470904090cc9070388024a890d1a40114301807047fffdffff00884005c00f70470904090cc9070388024a490d1a40114301807047",
+            "patchSize": 0
+          }
+        ]
+      },
+      "B2": {
+        "idCode": "IREO",
+        "revision": 0,
+        "fileName": "CGearQuickActionsB2.dll",
+        "sha256": "e6b09a0dfd002a255d42dffbc82903369ae2e502f0518e9cc62ca297a6dab492",
+        "codeFingerprint": "39eadc78",
+        "bssSize": 396,
+        "signatures": [
+          {
+            "label": "QaInput",
+            "module": "79",
+            "address": 35572032,
+            "expectedHex": "fef788ff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaButtonHit",
+            "module": "79",
+            "address": 35567752,
+            "expectedHex": "fff73eff",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearUnit",
+            "module": "79",
+            "address": 35571456,
+            "expectedHex": "5ff60cfc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaGearEnd",
+            "module": "79",
+            "address": 35573250,
+            "expectedHex": "fff7e1fc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelStep",
+            "module": "36",
+            "address": 35136636,
+            "expectedHex": "8bf69cfc",
+            "patchSize": 4
+          },
+          {
+            "label": "QaRepelDepleted",
+            "module": "36",
+            "address": 35261164,
+            "expectedHex": "6df678f9",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearInit",
+            "module": "36",
+            "address": 35453404,
+            "expectedHex": "25851902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearUpdate",
+            "module": "36",
+            "address": 35453408,
+            "expectedHex": "1d861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearEvent",
+            "module": "36",
+            "address": 35453416,
+            "expectedHex": "75861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaCGearExit",
+            "module": "36",
+            "address": 35453420,
+            "expectedHex": "fd851902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaNoGearInit",
+            "module": "36",
+            "address": 35453544,
+            "expectedHex": "81861902",
+            "patchSize": 4
+          },
+          {
+            "label": "QaTownMapReturn",
+            "module": "12",
+            "address": 35048548,
+            "expectedHex": "f9bf1502",
+            "patchSize": 4
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33576700,
+            "expectedHex": "38b5051c04480c1c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33579604,
+            "expectedHex": "0021014bc9431847",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33588340,
+            "expectedHex": "08b5fff737ff0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33590748,
+            "expectedHex": "014b1b211847c046",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33593536,
+            "expectedHex": "c0797047c1727047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33593624,
+            "expectedHex": "08b52021fdf794fd",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33611192,
+            "expectedHex": "011c2d3109780029",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33611232,
+            "expectedHex": "2d300078002801d1",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647320,
+            "expectedHex": "c0697047c069014b",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647344,
+            "expectedHex": "006a704701627047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647796,
+            "expectedHex": "f8b582b0051c0193",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33647976,
+            "expectedHex": "08600069004b1847",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33648344,
+            "expectedHex": "00697047c0687047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33648348,
+            "expectedHex": "c068704708307047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649140,
+            "expectedHex": "4521890040187047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649492,
+            "expectedHex": "1921090140587047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33649500,
+            "expectedHex": "6521890040587047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33650084,
+            "expectedHex": "006c704701647047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33650996,
+            "expectedHex": "0068704700687047",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33672440,
+            "expectedHex": "70b5051c0c1c161c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33684984,
+            "expectedHex": "40687047f8b5071c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33685256,
+            "expectedHex": "dc2208304a438018",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33791840,
+            "expectedHex": "08b5094908400949",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33791888,
+            "expectedHex": "08b5094908400949",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33792508,
+            "expectedHex": "f8b5061c0d1c171c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33792588,
+            "expectedHex": "10b5041c00f0caf8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33793704,
+            "expectedHex": "011c0a68506b8842",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33802984,
+            "expectedHex": "00210268c9438a42",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33806920,
+            "expectedHex": "08b5fff745fcfff7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33806980,
+            "expectedHex": "38b5051c0c1cfff7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860252,
+            "expectedHex": "30b583b0051c291c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860364,
+            "expectedHex": "10b5041c26f050f9",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860380,
+            "expectedHex": "78b583b0051c4e30",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33860620,
+            "expectedHex": "30b583b0051c4e30",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33863868,
+            "expectedHex": "f0b589b0071c2e48",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864076,
+            "expectedHex": "70b52a4c85014326",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864256,
+            "expectedHex": "f8b51c4e84014327",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864608,
+            "expectedHex": "18b583b000240094",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864912,
+            "expectedHex": "78b40d4d011c1820",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33864976,
+            "expectedHex": "f8b50d1c5601002a",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865184,
+            "expectedHex": "f8b584b000901e48",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865316,
+            "expectedHex": "10b50c490a684521",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865500,
+            "expectedHex": "f8b582b0061c0192",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865792,
+            "expectedHex": "f8b58cb003901420",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33865992,
+            "expectedHex": "10b5041ca068211c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866020,
+            "expectedHex": "036e034ac9071a40",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33866048,
+            "expectedHex": "38b582b00c1c111c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 33867040,
+            "expectedHex": "036e034ac9071a40",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 34016380,
+            "expectedHex": "2321002209021143",
+            "patchSize": 0
+          },
+          {
+            "label": "Native API",
+            "module": "ARM9",
+            "address": 34016928,
+            "expectedHex": "014b01221847c046",
+            "patchSize": 0
+          },
+          {
+            "label": "Native graphics system pointer",
+            "module": "ARM9",
+            "address": 33864060,
+            "expectedHex": "3c191402",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34944620,
+            "expectedHex": "38b50d1c141c00210091191c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34968112,
+            "expectedHex": "f8b58ab00c1c051c201c0021",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34968608,
+            "expectedHex": "38b5031c141c0d1c201c191c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34969220,
+            "expectedHex": "10b50421041c00f067fa0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34976904,
+            "expectedHex": "f8b582b0051c0f1c2868a968",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34979832,
+            "expectedHex": "08b583691a69082a0bd14868",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34992052,
+            "expectedHex": "70b5051c081c141cb7f68cfd",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "12",
+            "address": 34992100,
+            "expectedHex": "08b5031c101c024adb00d258",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35128512,
+            "expectedHex": "00887047c430006870470000",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35132108,
+            "expectedHex": "4068014b1847c046bd6a0102",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35226540,
+            "expectedHex": "70b540690d1c161ce8f790f8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35226916,
+            "expectedHex": "f8b5051c6869e7f7c7ff041c",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227132,
+            "expectedHex": "08b5006a54f0b8fc0148a4f6",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227164,
+            "expectedHex": "f8b5051c0e1c21d06869e7f7",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227252,
+            "expectedHex": "021c106a004b1847c9cf1e02",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "36",
+            "address": 35227264,
+            "expectedHex": "38b5051c0b48a4f6c1fb6869",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35567368,
+            "expectedHex": "f0b58db0071c0024a60001a8",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35567700,
+            "expectedHex": "78b581b0041c01f021fd0028",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35571656,
+            "expectedHex": "10b5041cfff7ccffa06b5ff6",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35572108,
+            "expectedHex": "10b5041ce4300168002903d0",
+            "patchSize": 0
+          },
+          {
+            "label": "Native field ABI",
+            "module": "79",
+            "address": 35574432,
+            "expectedHex": "0649425c002a01d001207047",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear ring colour layout",
+            "module": "79",
+            "address": 35566500,
+            "expectedHex": "632080002018069012212a1ca8194a43069940018918381812228df6",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear delayed dimming layout",
+            "module": "79",
+            "address": 35574352,
+            "expectedHex": "38b53124051c2401295d00290fd0611c695c4a1c611c6a54695c082907d300f017f8011c281cfdf7a1ff0020285538bd",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear dimming colours",
+            "module": "79",
+            "address": 35575796,
+            "expectedHex": "41042304",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear save initialization",
+            "module": "ARM9",
+            "address": 33593488,
+            "expectedHex": "38b5051cfff7faff021c281c002100246ef082ef201c2855641c062cfbdb0c202872152068720920a87238bd",
+            "patchSize": 0
+          },
+          {
+            "label": "C-Gear save accessors",
+            "module": "ARM9",
+            "address": 33593532,
+            "expectedHex": "c1717047c0797047c1727047c07a704781737047807b70478181704780897047062902d2062a00d242547047062901d300207047405c7047032901da4018027270470000032901db002070474018007a70470000817170478079704708b52021fdf794fd283008bd",
+            "patchSize": 0
+          },
+          {
+            "label": "Options initialization and accessors",
+            "module": "ARM9",
+            "address": 33589696,
+            "expectedHex": "10b5041c002104226ff0eeee21880f2081430120014321802288302140028a432280228840218a432280228880218a4322802288054911402180218808432080218803480840208010bdc046fffefffffffbffff00880007000f704703880f22090493430a0c0f21114019430180704700888006800f70470904090c890703883022890e934319430180704700880006c00f70470904090cc90703888022090e934319430180704700884006c00f70470904090cc90703884022490e93431943018070470088c005c00f70470904090cc9070388054ac90d1a40114301800088034bc005c00f0006000e1847fffeffff798b04020088034bc005c00f0006000e1847c046798b040200888005c00f70470904090cc9070388024a890d1a40114301807047fffdffff00884005c00f70470904090cc9070388024a490d1a40114301807047",
+            "patchSize": 0
+          }
+        ]
+      }
+    },
+    "graphicsFingerprint": "e3a77037"
+  }
+]
