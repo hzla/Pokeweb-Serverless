@@ -1,3 +1,4 @@
+import { hydrateCGearButtons } from "./cgearButtonsModel";
 import { hydrateCustomUi } from "./customUiModel";
 import { readU16 } from "../nds/binary";
 import { repairDecompressedArm9CompressionMetadata } from "../nds/arm9ModuleParams";
@@ -114,6 +115,7 @@ export async function loadProjectFromRomBytes(bytes: Uint8Array, fileName = "cac
   if (isGen5BaseRom(version.baseRom)) {
     project.codeInjection = detectPmcInstallFromRom(rom);
     hydrateCustomUi(project, rom);
+    hydrateCGearButtons(project, rom);
     hydrateCascadePersonalSources(project, rom);
     hydrateBattleLogInstallMetadata(project, rom);
     hydratePwanAnimationsFromRom(project, rom);

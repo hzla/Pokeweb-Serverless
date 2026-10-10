@@ -30,6 +30,15 @@ const white2Save = new Uint8Array(readFileSync(new URL("../assets/testbattle/tes
 const white2UpgradeSave = new Uint8Array(readFileSync(new URL("../assets/testbattle/White2Upgrade.dsv", import.meta.url)));
 
 describe("testBattle", () => {
+  it.each(["test.sav","White2Upgrade.dsv","Black2Upgrade.dsv"])("starts %s with C-Gear obtained/enabled and valid checksums in both copies",name=>{
+    const save=new Uint8Array(readFileSync(new URL(`../assets/testbattle/${name}`,import.meta.url)));
+    for(const half of [0,0x26000]){
+      expect(save[half+0x1c02e]).toBe(1);expect(save[half+0x1c02f]).toBe(1);
+      const checksum=crc16Ccitt(save.subarray(half+0x1c000,half+0x1c094));
+      expect(readLe16(save,half+0x1c096)).toBe(checksum);expect(readLe16(save,half+0x25f40)).toBe(checksum);
+      expect(readLe16(save,half+0x25fa2)).toBe(crc16Ccitt(save.subarray(half+0x25f00,half+0x25f94)));
+    }
+  });
   it("uses automatic battle boot only for the audited White 2 executable family", () => {
     const project = makeBw2Project([]);
     project.romInfo.idCode = "IRDO";

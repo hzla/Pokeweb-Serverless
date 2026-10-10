@@ -1,3 +1,6 @@
+import "./styles/cgearButtons.css";
+import { defaults as defaultCGearButtons } from "./cgearButtons/document";
+import { renderCGearButtonsEditor, stopCGearButtonsEditor } from "./ui/cgearButtonsEditor";
 import "./styles/customUi.css";
 import { renderCustomUiEditor, stopCustomUiEditor } from "./ui/customUiEditor";
 import "./styles.css";
@@ -128,6 +131,7 @@ type AppRoute =
   | "moveEffectHandlers"
   | "moveBackgrounds"
   | "titleScreen"
+  | "cgearButtons"
   | "customUi"
   | "battleBackgrounds"
   | "randomizer"
@@ -229,6 +233,7 @@ const APP_ROUTES: AppRoute[] = [
   "moveBackgrounds",
   "titleScreen",
   "customUi",
+  "cgearButtons",
   "battleBackgrounds",
   "randomizer",
   "marts",
@@ -273,6 +278,7 @@ const EDITOR_REQUIREMENTS: Record<
   battleBackgrounds: [],
   titleScreen: [],
   customUi: [],
+  cgearButtons: [],
   randomizer: [],
   marts: ["marts", "mart_counts"],
   grottos: ["grottos", "grotto_odds"],
@@ -540,6 +546,7 @@ function renderApp(): void {
   if (previousContent) stopTrainerImageRendering(previousContent);
   stopTitleScreenEditor();
   stopCustomUiEditor();
+  stopCGearButtonsEditor();
   stopTrainerSpriteEditorPlayback();
   stopPlayerTrainerBackSpritePlayback();
   stopTrainerMusicEditorPlayback();
@@ -899,6 +906,11 @@ function renderApp(): void {
     return;
   }
 
+  if (route === "cgearButtons") {
+    void renderCGearButtonsEditor(project, content, () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); });
+    return;
+  }
+
   if (route === "customUi") {
     void renderCustomUiEditor(project, content, () => { dirty = true; scheduleSave(project!); renderDirtyIndicator(); });
     return;
@@ -1102,6 +1114,7 @@ function renderMoreMenu(): string {
     ["patches", "Patches"],
     ["fileSystem", "File System"],
     ["customUi", "Custom UI"],
+    ["cgearButtons", "C-Gear Buttons"],
   ];
   if (project?.session.baseRom === "BW2") moreRoutes.splice(4, 0, ["titleScreen", "Title Screen"]);
   const active = moreRoutes.some(([moreRoute]) => route === moreRoute);
@@ -2128,6 +2141,7 @@ function loadedNarcNames(currentProject: ProjectState): NarcName[] {
 }
 
 function hasAnyRomChanges(currentProject: ProjectState): boolean {
+  if (currentProject.cgearButtons && JSON.stringify(currentProject.cgearButtons.document) !== JSON.stringify(currentProject.cgearButtons.applied ?? defaultCGearButtons())) return true;
   if (dirty || currentProject.arm9Dirty || currentProject.tms?.dirty) return true;
   if ((currentProject.actionChangelog?.entries.length ?? 0) > 0) return true;
   if (Object.values(currentProject.narcs).some((store) => (store?.dirty.size ?? 0) > 0)) return true;
@@ -2142,6 +2156,7 @@ function hasAnyRomChanges(currentProject: ProjectState): boolean {
 function canVisit(nextRoute: Exclude<AppRoute, "upload" | "debugNarcs" | "grottoOdds">): boolean {
   if (!project) return false;
   if (nextRoute === "changelog") return true;
+  if (nextRoute === "cgearButtons") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "customUi") return hasExportBase;
   if (nextRoute === "titleScreen") return project.session.baseRom === "BW2" && hasExportBase;
   if (nextRoute === "trainerMusic") return isGen5Project(project);

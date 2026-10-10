@@ -20,8 +20,9 @@ from generated import write_info_messages
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 WORKSPACE = REPO.parent
-BUILD = HERE / "build"
-ASSETS = REPO / "src/assets/codeinjection"
+BUILD = Path(os.environ.get("LEARNSET_BUILD_DIR", HERE / "build"))
+ASSETS = Path(os.environ.get("LEARNSET_ASSET_DIR", REPO / "src/assets/codeinjection"))
+SOURCE = Path(os.environ.get("LEARNSET_SOURCE_DIR", HERE))
 TOOLS = Path(os.environ.get("ARM_TOOLCHAIN_BIN", WORKSPACE / "toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin"))
 JAR = Path(os.environ.get("RPM_TOOL_JAR", WORKSPACE / "White2Upgrade/CTRMap.jar"))
 PINS = {
@@ -44,7 +45,8 @@ def calls(data, base, target):
     assert found, hex(target)
     return found
 
-BUILD.mkdir(exist_ok=True)
+BUILD.mkdir(parents=True, exist_ok=True)
+ASSETS.mkdir(parents=True, exist_ok=True)
 VERSION = "1.5.0"
 write_info_messages(BUILD)
 # PMC's priority-chain array has five entries (0..PMC_PATCH=4). Priority 5
@@ -195,13 +197,13 @@ for game,filename,delta in [("W2","cleanwhite2.nds",0),("B2","cleanblack2.nds",0
     for group,asm in [("Menu",menu),("Viewer",viewer)]:
         (BUILD/f"{group}{game}.s").write_text("\n".join(asm)+"\n")
         objects=[]
-        sources=[HERE/f"{group.lower()}.cpp",HERE/"config.cpp",HERE/"memory.cpp"]
-        if group=='Viewer':sources.append(HERE/'info.cpp')
+        sources=[SOURCE/f"{group.lower()}.cpp",SOURCE/"config.cpp",SOURCE/"memory.cpp"]
+        if group=='Viewer':sources.append(SOURCE/'info.cpp')
         for source in sources:
             obj=BUILD/f"{source.stem}{group}{game}.o"; objects.append(obj)
             run(TOOLS/"arm-none-eabi-g++","-std=c++17","-mthumb","-march=armv5t","-mlong-calls","-Os","-Wall","-Wextra","-Werror",
                 "-fno-exceptions","-fno-rtti","-fno-unwind-tables","-fno-asynchronous-unwind-tables","-ffreestanding","-fno-builtin",
-                "-fvisibility=hidden",f"-DGAME_{game}","-I",BUILD,"-I",HERE,"-c",source,"-o",obj)
+                "-fvisibility=hidden",f"-DGAME_{game}","-I",BUILD,"-I",SOURCE,"-c",source,"-o",obj)
         hook=BUILD/f"{group}{game}.o"; objects.append(hook)
         run(TOOLS/"arm-none-eabi-as","-mthumb","-march=armv5t",BUILD/f"{group}{game}.s","-o",hook)
         elf=BUILD/f"Learnset{group}{game}.elf"
