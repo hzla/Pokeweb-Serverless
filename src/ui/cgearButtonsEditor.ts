@@ -9,19 +9,26 @@ import { escapeHtml as esc } from "./dom";
 import { defaultSkins, encodeSkin, skinBytes, MAX_SKINS } from "../cgearButtons/skins";
 import { nativePreview } from "../cgearButtons/nativePreview";
 let generation=0;
+const editorActions=actions.filter(a=>!["gracidea","revealGlass","splicers"].includes(a.id));
 export function stopCGearButtonsEditor(){generation++;}
 export async function renderCGearButtonsEditor(project:ProjectState,root:HTMLElement,onDirty:()=>void){
   const run=++generation;root.innerHTML='<div class="cgear-editor"><h1>C-Gear Buttons</h1><p>Loading native graphics…</p></div>';
   let assets:Assets,baseBytes:Uint8Array;try{const resolved=await resolveButtonAssets(project);assets=resolved.assets;baseBytes=resolved.bytes;}catch(e){root.innerHTML=`<h1>C-Gear Buttons</h1><p>${esc((e as Error).message)}</p>`;return;}if(run!==generation)return;
   const state=ensureCGearButtons(project),history=new EditorHistory(state.document);let selected=state.document.buttons[0]?.id,zoom=3,snap=false,pose=0,design=0,theme=0,gender=0,busy=false,message="",lastArchive:Uint8Array|undefined,lastNativeGraphics:NARC|undefined,lastIndices=new Map<number,number>(),power=true,previewSkin=state.document.skins?.defaultId??0;
   const backgroundCache=new Map<string,ReturnType<typeof nativePreview>>();
+  let hoverPoint:{x:number;y:number}|undefined;
   const doc=()=>history.document;
+  function hoveredControl():number|"skin"|undefined {
+    const p=hoverPoint;if(!p||p.x<0||p.x>=256||p.y<0||p.y>=192)return;
+    if((p.x-208)**2+(p.y-18)**2<=256)return "skin";
+    return [...doc().buttons].reverse().find(b=>(b.x-p.x)**2+(b.y-p.y)**2<=256)?.id;
+  }
   function update(next:Document,before=doc()){if(history.commit(next,before)){state.document=history.document;onDirty();}render();}
   function edit(fn:(b:Button)=>void){const next=structuredClone(doc()),b=next.buttons.find(b=>b.id===selected);if(b){fn(b);update(next);}}
   function render(){
     if(run!==generation)return;state.document=doc();const skins=doc().skins??defaultSkins();if(previewSkin&&!skins.entries.some(s=>s.id===previewSkin))previewSkin=0;const skin=skins.entries.find(s=>s.id===previewSkin);const skinOptions=`<option value="0" ${previewSkin===0?"selected":""}>Original / save-file skin</option>`+skins.entries.map(s=>`<option value="${s.id}" ${previewSkin===s.id?"selected":""}>${esc(s.name)}</option>`).join("");const b=doc().buttons.find(b=>b.id===selected),status=getCGearQuickActionsStatus({...project,originalRomBytes:baseBytes}),result=compile(doc(),assets),diagnostics=result.diagnostics,errors=diagnostics.filter(d=>d.severity==="error");
     if(result.archive){lastArchive=result.archive;lastNativeGraphics=result.nativeGraphics;lastIndices=new Map(doc().buttons.map((b,i)=>[b.id,i]));}
-    const options=actions.map(a=>{const mismatch=a.item&&(assets.itemGroups.get(a.item)!==a.group||(a.alternate&&assets.itemGroups.get(a.alternate)!==(a.id==="splicers"?29:a.group)));const name=a.item?assets.itemNames.get(a.item):undefined;return `<option value="${a.id}" ${b?.action===a.id?"selected":""} ${mismatch?"disabled":""}>${esc(a.name)}${name&&name!==a.name?` · ${esc(name)}`:""}${mismatch?" — incompatible handler":""}</option>`;}).join("");
+    const options=(b&&!editorActions.some(a=>a.id===b.action)?'<option value="" selected disabled>Choose an action</option>':"")+editorActions.map(a=>{const mismatch=a.item&&(assets.itemGroups.get(a.item)!==a.group||(a.alternate&&assets.itemGroups.get(a.alternate)!==(a.id==="splicers"?29:a.group)));const name=a.item?assets.itemNames.get(a.item):undefined;return `<option value="${a.id}" ${b?.action===a.id?"selected":""} ${mismatch?"disabled":""}>${esc(a.name)}${name&&name!==a.name?` · ${esc(name)}`:""}${mismatch?" — incompatible handler":""}</option>`;}).join("");
     root.innerHTML=`<section class="cgear-editor"><header class="cgear-editor__header"><div><h1>C-Gear Buttons</h1><p>Design up to eight native touch shortcuts. Players can rearrange them with the wrench.</p></div><span class="cgear-status ${errors.length?"-error":hasUnappliedButtons(project)?"-pending":""}">${hasUnappliedButtons(project)?"Unapplied changes":state.enabled?"Applied · enabled":"Disabled"}</span></header>
       <div class="cgear-toolbar"><button class="btn" data-op="undo" ${history.canUndo?"":"disabled"}>Undo</button><button class="btn" data-op="redo" ${history.canRedo?"":"disabled"}>Redo</button><label><input type="checkbox" id="cg-snap" ${snap?"checked":""}> 8 px snap</label><label>Zoom <select id="cg-zoom">${[1,2,3,4].map(z=>`<option ${zoom===z?"selected":""}>${z}</option>`).join("")}</select></label><button class="btn -primary" data-op="apply" ${busy||errors.length||!status.compatible?"disabled":""}>${status.installed?(status.updateAvailable?"Update / Apply Changes":state.enabled?"Apply Changes":"Enable in ROM"):"Install / Enable"}</button><button class="btn" data-op="disable" ${busy||!status.enabled||!status.compatible?"disabled":""}>Disable</button><button class="btn cgear-delete" data-op="remove" ${busy||!status.canRemove?"disabled":""}>× Remove staged patch</button></div>
       <p class="cgear-message" aria-live="polite">${esc(message||status.message)}</p><div class="cgear-columns">
@@ -58,10 +65,12 @@ export async function renderCGearButtonsEditor(project:ProjectState,root:HTMLEle
     let drag:{before:Document;x:number;y:number;bx:number;by:number;id:number}|undefined;
     const point=(e:PointerEvent)=>{const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*256/r.width,y:(e.clientY-r.top)*192/r.height};};
     canvas.title="Tap the upper-right circle to preview the next skin. Drag custom buttons to position them.";
-    canvas.onpointerdown=e=>{const p=point(e);if((p.x-208)**2+(p.y-18)**2<=256){void operate("next-skin");return;}const hit=[...doc().buttons].reverse().find(c=>(c.x-p.x)**2+(c.y-p.y)**2<=256);if(!hit)return;selected=hit.id;drag={before:structuredClone(doc()),x:p.x,y:p.y,bx:hit.x,by:hit.y,id:hit.id};canvas.setPointerCapture(e.pointerId);canvas.focus();draw(canvas,lastArchive);};
-    canvas.onpointermove=e=>{if(!drag)return;const p=point(e),c=doc().buttons.find(b=>b.id===drag!.id)!;const step=snap?8:1;c.x=Math.max(16,Math.min(240,Math.round((drag.bx+p.x-drag.x)/step)*step));c.y=Math.max(16,Math.min(176,Math.round((drag.by+p.y-drag.y)/step)*step));const r=compile(doc(),assets);if(r.archive){lastArchive=r.archive;lastNativeGraphics=r.nativeGraphics;lastIndices=new Map(doc().buttons.map((b,i)=>[b.id,i]));}draw(canvas,lastArchive);};
+    canvas.onpointerenter=e=>{hoverPoint=point(e);draw(canvas,lastArchive);};
+    canvas.onpointerleave=()=>{hoverPoint=undefined;draw(canvas,lastArchive);};
+    canvas.onpointerdown=e=>{const p=point(e);hoverPoint=p;if((p.x-208)**2+(p.y-18)**2<=256){void operate("next-skin");return;}const hit=[...doc().buttons].reverse().find(c=>(c.x-p.x)**2+(c.y-p.y)**2<=256);if(!hit)return;selected=hit.id;drag={before:structuredClone(doc()),x:p.x,y:p.y,bx:hit.x,by:hit.y,id:hit.id};canvas.setPointerCapture(e.pointerId);canvas.focus();draw(canvas,lastArchive);};
+    canvas.onpointermove=e=>{const previous=hoveredControl(),p=point(e);hoverPoint=p;if(!drag){if(hoveredControl()!==previous)draw(canvas,lastArchive);return;}const c=doc().buttons.find(b=>b.id===drag!.id)!;const step=snap?8:1;c.x=Math.max(16,Math.min(240,Math.round((drag.bx+p.x-drag.x)/step)*step));c.y=Math.max(16,Math.min(176,Math.round((drag.by+p.y-drag.y)/step)*step));const r=compile(doc(),assets);if(r.archive){lastArchive=r.archive;lastNativeGraphics=r.nativeGraphics;lastIndices=new Map(doc().buttons.map((b,i)=>[b.id,i]));}draw(canvas,lastArchive);};
     canvas.onpointerup=()=>{if(!drag)return;const before=drag.before;drag=undefined;update(structuredClone(doc()),before);root.querySelector<HTMLCanvasElement>("canvas")?.focus();};
-    canvas.onpointercancel=()=>{if(drag){history.document=drag.before;state.document=doc();drag=undefined;render();}};
+    canvas.onpointercancel=()=>{hoverPoint=undefined;if(drag){history.document=drag.before;state.document=doc();drag=undefined;render();}else draw(canvas,lastArchive);};
     canvas.onkeydown=e=>{if(e.key.startsWith("Arrow")){e.preventDefault();const n=e.shiftKey?8:1;edit(b=>{b.x=Math.max(16,Math.min(240,b.x+(e.key==="ArrowRight"?n:e.key==="ArrowLeft"?-n:0)));b.y=Math.max(16,Math.min(176,b.y+(e.key==="ArrowDown"?n:e.key==="ArrowUp"?-n:0)));});root.querySelector<HTMLCanvasElement>("canvas")?.focus();}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();void operate(e.shiftKey?"redo":"undo");}};
   }
   async function operate(op:string){
@@ -85,7 +94,7 @@ export async function renderCGearButtonsEditor(project:ProjectState,root:HTMLEle
     try{const bytes=skin?skinBytes(skin.data):undefined,key=`${theme}:${gender}:${design}:${power}:${!!doc().hideCommunicationButtons}:${bytes?fingerprint(bytes):0}`;let background=backgroundCache.get(key);if(!background){background=nativePreview(assets.native,theme,gender,design,power,bytes,!!doc().hideCommunicationButtons,lastNativeGraphics);backgroundCache.set(key,background);if(backgroundCache.size>8)backgroundCache.delete(backgroundCache.keys().next().value!);}ctx.putImageData(new ImageData(background.pixels as Uint8ClampedArray<ArrayBuffer>,256,192),0,0);}
     catch(e){ctx.fillStyle="#101018";ctx.fillRect(0,0,256,192);message=`Native preview: ${(e as Error).message}`;}
     if(archive)for(let i=0;i<doc().buttons.length;i++){const b=doc().buttons[i];try{if(!lastIndices.has(b.id))continue;const art=preview(archive,lastIndices.get(b.id)??-1,pose,design,theme,gender,assets.native),temp=document.createElement("canvas");temp.width=temp.height=32;temp.getContext("2d")!.putImageData(new ImageData(art.pixels as Uint8ClampedArray<ArrayBuffer>,32,32),0,0);ctx.drawImage(temp,b.x-16,b.y-16);}catch{/* Invalid draft keeps diagnostics rather than discarding edits. */}}
-    const b=doc().buttons.find(b=>b.id===selected);if(b){ctx.strokeStyle="#ffffff";ctx.setLineDash([2,2]);ctx.strokeRect(b.x-16+.5,b.y-16+.5,31,31);ctx.setLineDash([]);}
+    const hovered=hoveredControl(),b=doc().buttons.find(b=>b.id===hovered),center=b??(hovered==="skin"?{x:208,y:18}:undefined);if(center){ctx.strokeStyle="#ffffff";ctx.setLineDash([2,2]);ctx.strokeRect(center.x-16+.5,center.y-16+.5,31,31);ctx.setLineDash([]);}
   }
   render();
 }
