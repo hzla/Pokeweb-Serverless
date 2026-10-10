@@ -11,6 +11,7 @@ import sys
 import os
 from configure_bw1 import BINDINGS
 HERE=Path(__file__).resolve().parent
+BUILD=Path(os.environ.get('LEARNSET_BUILD_DIR',HERE/'build'))
 sys.path.insert(0,str(HERE/"build/python"))
 sys.path.insert(0,str(HERE.parent/"summary-stat-viewer/build/python"))
 from elftools.elf.elffile import ELFFile
@@ -37,7 +38,7 @@ for game,ovdelta,delta in ([("B",0,0),("W",0,0)] if bw1 else [("W2",0,0),("B2",0
     uc=Uc(UC_ARCH_ARM,UC_MODE_THUMB);uc.ctl_set_cpu_model(UC_CPU_ARM_946);uc.mem_map(0x02000000,0x400000)
     symbols={}
     for group,base in [("Menu",0x2300000),("Viewer",0x2310000)]:
-        source=HERE/f"build/Learnset{group}{game}.elf";linked=source.with_suffix(".linked.elf")
+        source=BUILD/f"Learnset{group}{game}.elf";linked=source.with_suffix(".linked.elf")
         subprocess.run([str(TOOLS/"arm-none-eabi-ld"),"-Ttext",hex(base),"-Tdata",hex(base+0x8000),"-e","Learnset"+("MenuCreate" if group=="Menu" else "ViewerInit"),str(source),"-o",str(linked)],check=True,capture_output=True)
         with linked.open("rb") as stream:
             elf=ELFFile(stream)

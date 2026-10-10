@@ -3,13 +3,14 @@
 Runs Thumb code in isolation. Filesystem, allocator, and presentation boundaries
 are instrumented; this is NOT a full game/emulator acceptance test.
 """
-import json, struct, subprocess, sys, zlib
+import json, struct, subprocess, sys, zlib, os
 from pathlib import Path
 import ndspy.rom, ndspy.narc, ndspy.codeCompression
 from background import profile, palette_index
 from configure_bw1 import BINDINGS, PROFILES
 EXTRA_BINDINGS={0x201ef49:(0x2019c91,0x2019cad),0x204aa31:(0x20490a8,0x20490c0),0x219b0b9:(0x21b78a1,0x21b78c1),0x219b121:(0x21b7909,0x21b7929),0x202d821:(0x20275f9,0x2027611)}
 HERE=Path(__file__).resolve().parent
+BUILD=Path(os.environ.get('LEARNSET_BUILD_DIR',HERE/'build'))
 sys.path.insert(0,str(HERE/'build/python'))
 sys.path.insert(0,str(HERE.parent/'summary-stat-viewer/build/python'))
 from elftools.elf.elffile import ELFFile
@@ -89,8 +90,8 @@ class Harness:
         tutor_overlay=173 if self.bw1 else 258
         overlay=self.rom.loadArm9Overlays([tutor_overlay])[tutor_overlay]
         self.c.mem_write(overlay.ramAddress,bytes(overlay.data))
-        linked=HERE/f'build/info-{game}.elf'
-        subprocess.run([str(TOOLS/'arm-none-eabi-ld'),'-Ttext','0x02e00000','-Tdata','0x02e80000','-e','LearnsetWindow',str(HERE/f'build/LearnsetViewer{game}.elf'),'-o',str(linked)],check=True,capture_output=True)
+        linked=BUILD/f'info-{game}.elf'
+        subprocess.run([str(TOOLS/'arm-none-eabi-ld'),'-Ttext','0x02e00000','-Tdata','0x02e80000','-e','LearnsetWindow',str(BUILD/f'LearnsetViewer{game}.elf'),'-o',str(linked)],check=True,capture_output=True)
         with linked.open('rb') as stream:
             elf=ELFFile(stream);self.symbols={s.name:s['st_value'] for s in elf.get_section_by_name('.symtab').iter_symbols() if s.name and s['st_shndx']!='SHN_UNDEF'}
             for section in elf.iter_sections():
@@ -283,7 +284,7 @@ class Harness:
                     if index:
                         color=pal[index];at=((y0+y)*256+x0+x)*3
                         out[at:at+3]=[((color>>shift)&31)*255//31 for shift in (0,5,10)]
-        png(HERE/f'build/info-{self.game}-{name}.png',256,192,out)
+        png(BUILD/f'info-{self.game}-{name}.png',256,192,out)
     def start(self):
         self.draws=[];self.colors=[]
         before=bytes(self.c.mem_read(REQUEST,260))
@@ -918,4 +919,4 @@ for game in (['B','W'] if '--bw1' in sys.argv else ['W2','B2']) if __name__=='__
     reports[game]={'peakInstrumentedInfoHeapBytes':max(peaks),'openingIO':opening_io,'menuLifetimeUnchanged':True,'compiledInfoTests':'passed','liveGameTest':False}
     print(game,'compiled info: matching pale stats/inset, dark ability text and purple hidden abilities, selected-only frame/unclipped icons, party cue, charcoal footer/teal fin, ROM data, branching/paging, cycles, failure and cleanup passed',flush=True)
 report='custom-ui-native-verification.json' if '--custom-ui-only' in sys.argv else 'info-cache-verification.json' if '--cache-only' in sys.argv else 'info-header-verification.json' if '--header-only' in sys.argv else 'info-terminal-verification.json' if '--terminal-only' in sys.argv else 'info-navigation-verification.json' if '--navigation-only' in sys.argv else 'info-io.json' if '--io-only' in sys.argv else 'info-layout-verification.json' if '--layout-only' in sys.argv else 'info-verification.json'
-if __name__=='__main__':(HERE/'build'/('bw1-'+report if '--bw1' in sys.argv else report)).write_text(json.dumps(reports,indent=2)+'\n')
+if __name__=='__main__':(BUILD/('bw1-'+report if '--bw1' in sys.argv else report)).write_text(json.dumps(reports,indent=2)+'\n')

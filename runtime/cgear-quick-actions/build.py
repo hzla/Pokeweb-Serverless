@@ -2,21 +2,20 @@
 import hashlib,json,os,struct,subprocess
 from pathlib import Path
 import ndspy.rom,ndspy.codeCompression
-from graphics import create
 HERE=Path(__file__).resolve().parent;REPO=HERE.parents[1];WS=REPO.parent;BUILD=HERE/'build';ASSETS=REPO/'src/assets/codeinjection'
 TOOLS=Path(os.environ.get('ARM_TOOLCHAIN_BIN',WS/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin'))
-JAR=Path(os.environ.get('RPM_TOOL_JAR',WS/'White2Upgrade/CTRMap.jar'));VERSION='0.1.2'
+JAR=Path(os.environ.get('RPM_TOOL_JAR',WS/'White2Upgrade/CTRMap.jar'));VERSION='0.3.5'
 # Every native import is an explicit US address. No reference source is a build
 # dependency. Verified early getters share addresses; the saved flag helper
 # and the later imported helpers differ by 44.
-APIS=[0x20056fc,0x2006254,0x2008474,0x2008ddc,0x20098c0,0x2009918,0x200ddb8,0x200dde0,
- 0x2016ad8,0x2016af0,0x2016cb4,0x2016d68,0x2016ed8,0x2016edc,0x20171f4,0x2017354,0x201735c,0x2017394,0x20175a4,0x2017934,0x20191d8,
- 0x201cd24,0x201fe24,0x201ff34,0x2039f8c,0x2039fbc,0x203a228,0x203a278,0x203a6d4,0x203cb14,0x203da74,0x203dab0,
+APIS=[0x2042f58,0x20098d0,0x2026e90,0x20450ac,0x204534c,0x2045080,0x2045698,0x2044fbc,0x20056fc,0x2006254,0x2008474,0x2008ddc,0x20098c0,0x2009918,0x200ddb8,0x200dde0,
+ 0x2016ad8,0x2016af0,0x2016cb4,0x2016d68,0x2016ed8,0x2016edc,0x20171f4,0x2017354,0x201735c,0x2017394,0x20175a4,0x20175e4,0x2017934,0x20191d8,
+ 0x201cd24,0x201fe24,0x201ff34,0x2039f8c,0x2039fbc,0x203a228,0x203a278,0x203a6d4,0x203cb14,0x203da74,0x203dab0,0x203df4c,
  0x204aac8,0x204ab38,0x204ab48,0x204ac38,0x204b8e8,0x204b9b8,0x204ba6c,0x204bbcc,0x204bcfc,
- 0x204bd3c,0x204be0c,0x204be90,0x204bf48,0x204c06c,0x204c134,0x204c150,0x204c16c,0x204c54c,0x2070ca8,0x2070ecc]
-NATIVE={12:[0x21536ac,0x2159270,0x2159460,0x21596c4,0x215b4c8,0x215c038,0x215eff4,0x215f024],
- 36:[0x2180500,0x218130c,0x21983ec,0x2198564,0x219863c,0x219865c,0x21986b4,0x21986c0],
- 79:[0x21eb748,0x21eb894,0x21ec808,0x21ec9cc,0x21ed2e0]}
+ 0x204bd3c,0x204be0c,0x204be90,0x204bf48,0x204c06c,0x204c134,0x204c150,0x204c16c,0x204c530,0x204c54c,0x2070ca8,0x2070ecc]
+NATIVE={12:[0x21536ac,0x2159270,0x2159460,0x21596c4,0x2163b78,0x215b4c8,0x215c038,0x215eff4,0x215f024],
+ 36:[0x21804d0,0x21983dc,0x21984ac,0x2180500,0x218130c,0x21983ec,0x2198564,0x219863c,0x219865c,0x21986b4,0x21986c0],
+ 79:[0x21eb730,0x21eb748,0x21eb894,0x21ec808,0x21ec9cc,0x21ed2e0]}
 CALLS=[('QaInput',79,0x21ec980,0x21eb894,''),('QaButtonHit',79,0x21eb8c8,0x21eb748,''),
  ('QaGearUnit',79,0x21ec740,0x204bf48,''),
  ('QaGearEnd',79,0x21ece42,0x21ec808,''),
@@ -40,10 +39,16 @@ def bl_target(b,a):
 def main():
     BUILD.mkdir(exist_ok=True)
     graphics_rom=ndspy.rom.NintendoDSRom.fromFile(os.environ.get('QUICK_ACTIONS_W2_ROM',WS/'cleanwhite2.nds'))
-    create(ASSETS/'cgearQuickActions.narc',BUILD/'buttons.png',graphics_rom)
+    run(REPO/'node_modules/.bin/vite-node',REPO/'scripts/generate-cgear-button-defaults.ts',os.environ.get('QUICK_ACTIONS_W2_ROM',WS/'cleanwhite2.nds'))
     arc=__import__('ndspy.narc',fromlist=['NARC']).NARC((ASSETS/'cgearQuickActions.narc').read_bytes());fnv=0x811c9dc5
-    for b in b''.join(arc.files[1:8]):fnv=((fnv^b)*0x1000193)&0xffffffff
+    for b in b''.join(arc.files[1:12]):fnv=((fnv^b)*0x1000193)&0xffffffff
     manifest={'graphicsFingerprint':f'{fnv:08x}','version':VERSION,'defaultPcHideFlag':1517,'maxSaveFlag':3059,'archivePath':'quick-actions/ui.narc','archiveSha256':hashlib.sha256((ASSETS/'cgearQuickActions.narc').read_bytes()).hexdigest(),'previousVersions':json.loads((HERE/'previous.json').read_text()),'games':{}}
+    script=__import__('ndspy.narc',fromlist=['NARC']).NARC(graphics_rom.files[graphics_rom.filenames.idOf('a/0/5/6')]).files[1244]
+    assert hashlib.sha256(script).hexdigest()=='1e757aa8d2706a809fed4c08309481793820af82c3fbdf55cd614c966b995531'
+    pc_hash=0x811c9dc5
+    for b in script:pc_hash=((pc_hash^b)*0x1000193)&0xffffffff
+    manifest['pcScript']={'archive':'a/0/5/6','member':1244,'length':len(script),'fingerprint':f'{pc_hash:08x}'}
+    (BUILD/'pc.generated.h').write_text(f'#pragma once\nconstexpr u32 PC_SCRIPT_SIZE={len(script)},PC_SCRIPT_HASH=0x{pc_hash:x};\n')
     profiles=['#pragma once','inline u32 nativeAddress(u32 a) {','#ifdef GAME_B2','switch(a) {']
     profiles += [f'case 0x{a:x}: return 0x{a-(0x2c if a>=0x20191d8 else 0):x};' for a in APIS]
     profiles+=['case 0x214197c: return 0x214193c;','default: __builtin_trap();','}','#else','return a;','#endif','}',
@@ -85,6 +90,28 @@ def main():
         assert struct.unpack('<I',signature('Native graphics system pointer','ARM9',0x204b9a8-(44 if game=='B2' else 0),4))[0]==(0x214193c if game=='B2' else 0x214197c)
         for mod,addresses in NATIVE.items():
             for a in addresses:signature('Native field ABI',mod,a-delta,12)
+        signature('Native save request layout',12,0x215c538-delta,80)
+        signature('Native script event/VM ownership layout',12,0x2153864-delta,0x58)
+        signature('Native script VM entry/data layout',12,0x2153bec-delta,0x68)
+        assert signature('Native PC script archive mapping',12,0x216b190-delta,10)==struct.pack('<5H',10090,10099,1244,3,479)
+        pc=__import__('ndspy.narc',fromlist=['NARC']).NARC(rom.files[rom.filenames.idOf('a/0/5/6')]).files[1244]
+        assert pc==script,f'{game} native storage script differs'
+        assert bl_target(signature('Native menu selection sound',36,0x219fe14-delta,4),0x219fe14-delta)==0x2006254
+        assert signature('Native menu selection sound ID',36,0x219fe90-delta,4)==struct.pack('<I',1356)
+        signature('Native save prompt state machine',12,0x2163b78-delta,864)
+        assert signature('Native save message getter',36,0x21804d0-delta,4)==bytes.fromhex('806a7047')
+        assert signature('Native deferred subscreen change',36,0x21984ac-delta,16)[8:14]==bytes.fromhex('60600120a060')
+        signature('Native key-item event dispatch table',12,0x216ce24-delta,48)
+        signature('Native key-item eligibility table',12,0x216ce54-delta,48)
+        signature('C-Gear save block size','ARM9',0x2009890,4)
+        signature('C-Gear decal loader and palette routing',79,0x21eca94-delta,0xc8)
+        signature('C-Gear decal VRAM layout',79,0x21eb6bc-delta,0x70)
+        signature('C-Gear display-only upper-right touch circle',79,0x21eb894-delta,64)
+        assert signature('C-Gear native panel actor layout',79,0x21ebbac-delta,12)==bytes.fromhex('49000d3189004018c06e111c')
+        signature('C-Gear touch control IDs',79,0x21eb748-delta,0x70)
+        assert bl_target(signature('Native selector actor/frame setter',79,0x21ec96e-delta,10)[6:10],0x21ec974-delta)==0x204c530-(44 if game=='B2' else 0)
+        signature('Native selector actor index',79,0x21ec92e-delta,6)
+        assert bl_target(signature('C-Gear network icon position',79,0x21eb56a-delta,4),0x21eb56a-delta)==0x2042f58-(44 if game=='B2' else 0)
         signature('C-Gear ring colour layout',79,0x21eb3e4-delta,28)
         signature('C-Gear delayed dimming layout',79,0x21ed290-delta,48)
         assert signature('C-Gear dimming colours',79,0x21ed834-delta,4)==struct.pack('<HH',0x0441,0x0423)
@@ -100,7 +127,7 @@ def main():
             assert not any(struct.pack('<H',1517) in b for b in arc.files),(game,path,'default PC flag is referenced')
         stem=f'CGearQuickActions{game}';source=BUILD/f'{stem}.s';source.write_text('\n'.join(asm)+'\n')
         run(TOOLS/'arm-none-eabi-g++','-std=c++17','-mthumb','-march=armv5t','-mlong-calls','-Os','-Wall','-Wextra','-Werror',
-            '-fvisibility=hidden','-fno-exceptions','-fno-rtti','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-ffreestanding','-fno-builtin',f'-DGAME_{game}',
+            '-fno-jump-tables','-fvisibility=hidden','-fno-exceptions','-fno-rtti','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-ffreestanding','-fno-builtin',f'-DGAME_{game}',
             '-I',BUILD,'-c',HERE/'quick_actions.cpp','-o',BUILD/f'{stem}.o')
         run(TOOLS/'arm-none-eabi-as','-mthumb','-march=armv5t',source,'-o',BUILD/f'{stem}Hooks.o')
         elf=BUILD/f'{stem}.elf';run(TOOLS/'arm-none-eabi-g++','-nostdlib','-Wl,-r',BUILD/f'{stem}.o',BUILD/f'{stem}Hooks.o','-o',elf)

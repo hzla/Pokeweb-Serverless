@@ -10,6 +10,12 @@ Pokeweb appends or reuses private text in BW2 banks 178/401 and BW1 banks 157/20
 
 ## Build and verify
 
+An experimental [BW2 Ruby port](../ruby-patches/learnset/README.md) implements
+the viewer behavior in typed Ruby and builds separate native candidates. Its
+[authoring guide](../ruby-patches/AUTHORING.md) describes Ruby patch development.
+The bundled release and the separate BW1 implementation continue to use this
+directory's C++ sources.
+
 From the Pokeweb repository root:
 
 ```sh

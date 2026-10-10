@@ -1,0 +1,10 @@
+{
+  "module": "FormEvolution",
+  "version": "1.0.0",
+  "priority": 4,
+  "entry": "apply_evolution_target",
+  "games": {
+    "B2": { "overlay": 284, "hooks": ["0x021e355c", "0x021e4e22"] },
+    "W2": { "overlay": 284, "hooks": ["0x021e359c", "0x021e4e62"] }
+  }
+}

@@ -8,9 +8,11 @@ Use this map to choose a search scope. It describes the current working tree, no
 | ROM parsing, writing, and export | `src/nds/`, `src/pokeweb/loader.ts`, `src/pokeweb/exportRom.ts` | `src/pokeweb/projectMaterialize.ts`, `src/test/` |
 | Project state and browser persistence | `src/pokeweb/projectStore.ts`, `src/pokeweb/persistence.ts` | editor model and project tests |
 | Native code-injection patches | `runtime/<feature>/` | matching installer in `src/pokeweb/`, bundled DLL/RPM in `src/assets/` |
+| Ruby code-injection patches | `runtime/ruby-patches/AUTHORING.md`, `runtime/ruby-patches/learnset/README.md` | typed Ruby compiler, isolated candidates and native verification under `runtime/ruby-patches/` |
 | Battle boot tooling | `runtime/battle-harness/README.md`, `src/pokeweb/battleHarness.ts` | `src/test/battleHarness.test.ts`, `scripts/build-battle-harness.ts`, `scripts/test-battle-harness-headless.py`; mechanic regressions live in the sibling White2Upgrade-Original-pokeweb repository's `tests/battle/` |
 | Following Pokémon | `runtime/following-pokemon/README.md`, `runtime/following-pokemon/build.py` | `src/pokeweb/followingPokemonProject.ts`, `src/test/followingPokemon*.test.ts` |
 | LEARNSET and battle HUD | their `runtime/<feature>/README.md` | `src/assets/codeinjection/` and matching installer tests |
+| C-Gear button editor | `src/cgearButtons/`, `src/ui/cgearButtonsEditor.ts` | `src/pokeweb/cgearButtonsModel.ts`, `src/pokeweb/cgearQuickActionsModel.ts`, `runtime/cgear-quick-actions/README.md` |
 | Asset conversion and visual references | relevant importer under `runtime/` or `scripts/` | `public/images/`, `move-animation-reference/`, `docs/` only as needed |
 | Source provenance | `patch-sources/README.md`, `patch-sources/manifest.json` | canonical origin recorded in the manifest |
 

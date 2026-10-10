@@ -603,6 +603,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         <section class="code-injection-panel" ${patchVisibility(quickActionsStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>C-Gear Quick Actions</h2>
+            <a class="btn -primary" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
             <p>REPEL, PC, BIKE and MAP touch shortcuts. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them and the C-Gear logo to change their inner designs.</p>
           </div><span class="code-injection-status ${!quickActionsStatus.compatible ? "-error" : quickActionsStatus.enabled ? "-installed" : ""}">
             ${!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready"}
@@ -611,10 +612,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div><span>Dependency</span><strong>PMC only</strong></div><div><span>Release</span><strong>${escapeHtml(CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
           <img src="${new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Button layout: green REPEL on the left, orange PC on the right, magenta BIKE below left and purple MAP below right." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
           <p>${escapeHtml(quickActionsStatus.message)}</p>
-          <p>REPEL is always shown. BIKE appears with the Bicycle in the bag. MAP appears with the Town Map in the bag and opens the Fly map when an eligible party Pokémon can use Fly, or the standard Town Map otherwise.</p>
-          <label for="cgear-pc-hide-flag">PC hide save flag</label>
-          <input id="cgear-pc-hide-flag" type="text" value="0x${quickActionsStatus.pcHideFlag.toString(16).toUpperCase().padStart(4,"0")}" spellcheck="false" aria-describedby="cgear-pc-hide-help" style="max-width:12rem" />
-          <p id="cgear-pc-hide-help" class="code-injection-note">PC is shown when this flag is clear and hidden when set. Default: 0x05ED (1517), unused in retail. Enter decimal or 0x hexadecimal, then choose Install or Update / Enable. Choose an unused flag for your hack.</p>
+          <p>Configure up to eight buttons, their labels, colors, starting positions, native key-item actions, and optional save-flag visibility. Changes are applied together from the button editor.</p>
           <div class="code-injection-actions">
             <button class="btn -primary" id="install-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible ? "" : "disabled"}>${quickActionsStatus.installed ? "Update / Enable" : "Install"}</button>
             <button class="btn -default" id="disable-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible && quickActionsStatus.enabled ? "" : "disabled"}>Disable</button>
@@ -984,7 +982,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   });
 
   for (const [id, action] of [
-    ["install", () => installCGearQuickActions(project, {pcHideFlag:Number(root.querySelector<HTMLInputElement>("#cgear-pc-hide-flag")?.value.trim())})],
+    ["install", () => installCGearQuickActions(project)],
     ["disable", () => disableCGearQuickActions(project)],
     ["remove", () => removeCGearQuickActions(project)],
   ] as const) {

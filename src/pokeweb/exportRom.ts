@@ -1,3 +1,4 @@
+import { materializeCGearButtonSource } from "./cgearButtonsModel";
 import { materializeCustomUiSource } from "./customUiModel";
 import { readU32, writeU32 } from "../nds/binary";
 import { setArm9CompressedStaticEnd } from "../nds/arm9ModuleParams";
@@ -66,6 +67,7 @@ export async function exportModifiedRom(project: ProjectState, options: ExportMo
   const repairedLegacyPmcRootFnt = repairLegacyPmcRootFnt(project, rom);
   materializeProjectEdits(project);
   materializeCustomUiSource(project, rom);
+  materializeCGearButtonSource(project, rom);
   repairLegacyMoveAnimationArchives(project);
   repairMoveExpansionOverlayLoadSize(project, rom);
   repairLegacyBw1PmcBootCalls(project, rom);

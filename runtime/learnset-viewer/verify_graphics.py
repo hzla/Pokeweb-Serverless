@@ -10,6 +10,7 @@ import struct
 import subprocess
 import sys
 HERE = Path(__file__).resolve().parent
+BUILD = Path(os.environ.get('LEARNSET_BUILD_DIR', HERE/'build'))
 sys.path.insert(0, str(HERE/'build/python'))
 from elftools.elf.elffile import ELFFile
 from unicorn import Uc, UC_ARCH_ARM, UC_MODE_THUMB, UC_HOOK_CODE
@@ -57,8 +58,8 @@ for game, delta, filename in [('W2', 0, 'cleanwhite2.nds'), ('B2', 0x2c, 'cleanb
     buffer = read32(bg+7*44+8)
     assert read32(bg+7*44+12) == 4096
     assert bytes(c.mem_read(buffer, 4096)) == bytes(4096), 'Expected an empty lower BG buffer'
-    source = HERE/f'build/LearnsetViewer{game}.elf'
-    linked = HERE/f'build/graphics-{game}.elf'
+    source = BUILD/f'LearnsetViewer{game}.elf'
+    linked = BUILD/f'graphics-{game}.elf'
     subprocess.run([str(TOOLS/'arm-none-eabi-ld'), '-Ttext', hex(BASE), '-Tdata', hex(DATA), '-e', 'LearnsetScreen', str(source), '-o', str(linked)], check=True, capture_output=True)
     with linked.open('rb') as stream:
         elf = ELFFile(stream)

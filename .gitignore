@@ -51,3 +51,6 @@ src/test/local/
 !/scripts/verify-summary-stat-viewer-install.ts
 !/scripts/verify-black1-double-battle-fix.ts
 !/scripts/verify-cgear-quick-actions-install.ts
+
+!/scripts/generate-cgear-button-defaults.ts
+!/scripts/verify-cgear-native-graphics.ts

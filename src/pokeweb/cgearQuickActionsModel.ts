@@ -1,3 +1,5 @@
+import { buttonAssets, ensureCGearButtons, hydrateCGearButtons, validateButtonArchive, disableButtonArchive, stageNativeButtonGraphics, restoreNativeButtonGraphics, installedNativeButtonGraphics } from "./cgearButtonsModel";
+import { compile } from "../cgearButtons/compiler";
 import manifest from "../assets/codeinjection/cgearQuickActionsManifest.json";
 import { readU16, readU32, writeU16, writeU32 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
@@ -51,6 +53,7 @@ function bytesAt(p: ProjectState, rom: NintendoDSRom | undefined, path: string):
 }
 function archiveState(bytes: Uint8Array): boolean {
   const arc = new NARC(bytes), h = arc.files[0];
+  if(h && [5,6,7].includes(readU16(h,4)))return validateButtonArchive(bytes);
   const legacy=h?.length===36 && readU16(h,4)===3;
   if (arc.files.length !== 9 || !h || (!legacy && (h.length!==40 || readU16(h,4)!==4)) || readU32(h, 0) !== 0x41475143
     || readU16(h, 6) !== h.length || readU32(h, 8) > 1
@@ -59,7 +62,7 @@ function archiveState(bytes: Uint8Array): boolean {
   const graphicsFingerprint=fingerprint(arc.files.slice(1,8).reduce((a, b) => {
     const joined = new Uint8Array(a.length + b.length);joined.set(a);joined.set(b, a.length);return joined;
   }, new Uint8Array()));
-  if(graphicsFingerprint!==manifest.graphicsFingerprint && !(legacy && manifest.previousVersions.some(p=>p.graphicsFingerprint===graphicsFingerprint)))
+  if(graphicsFingerprint!==manifest.graphicsFingerprint && !manifest.previousVersions.some(p=>p.graphicsFingerprint===graphicsFingerprint))
     throw new Error("Quick Actions graphics have unrecognized modifications.");
   if(arc.files[8].length!==5120 || fingerprint(arc.files[8])!==readU32(h,32).toString(16).padStart(8,'0'))
     throw new Error('Quick Actions pattern data failed its integrity check. Reinstall its private graphics archive.');
@@ -94,7 +97,7 @@ function checkCGearPaletteSpace(project: ProjectState, rom: NintendoDSRom): void
   if(id===undefined) throw new Error("The native C-Gear graphics archive is missing.");
   const arc=new NARC(getRomFileBytes(project,rom,id));
   // Native actor palette offsets may add one for a dim appearance. Banks
-  // 0..6 remain native; custom actors use 7..10; the network icon keeps 15.
+  // 0..6 remain native; custom actors use 7..14; the network icon keeps 15.
   for(const member of [17,29]) {
     const b=arc.files[member];
     if(!b || b.length<48 || String.fromCharCode(...b.subarray(0,4))!=="RECN") throw new Error("Unrecognized native C-Gear cell resources.");
@@ -109,8 +112,8 @@ function checkCGearPaletteSpace(project: ProjectState, rom: NintendoDSRom): void
   }
   for(const member of [14,15]) {
     const b=arc.files[member];
-    if(!b || b.length<392 || b.subarray(40+7*32,40+11*32).some(v=>v!==0))
-      throw new Error("C-Gear palette banks 7–10 are already in use. Restore compatible C-Gear graphics before installing.");
+    if(!b || b.length<392 || b.subarray(40+7*32,40+15*32).some(v=>v!==0))
+      throw new Error("C-Gear palette banks 7–14 are already in use. Restore compatible C-Gear graphics before installing.");
   }
 }
 export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickActionsStatus {
@@ -143,8 +146,9 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
     try {
       state.enabled = archiveState(archive);
       const h=new NARC(archive).files[0];if(h.length===40)state.pcHideFlag=readU16(h,36);
+      if([5,6,7].includes(readU16(h,4))){if(rom)hydrateCGearButtons(project,rom);const pc=ensureCGearButtons(project).document.buttons.find(b=>b.action==="pc");state.pcHideFlag=pc?.flag?.id??1517;}
     } catch (e) {return { ...state, message: String(e instanceof Error ? e.message : e) };}
-    if (!state.installed) return { ...state, message: "An orphan Quick Actions archive is present. Remove it before installing a fresh runtime." };
+    if (!state.installed && (state.enabled || ![5,6,7].includes(readU16(new NARC(archive).files[0],4)))) return { ...state, message: "An orphan Quick Actions archive is present. Remove it before installing a fresh runtime." };
   } else if (state.installed) return { ...state, message: "Quick Actions runtime has no private graphics archive. Restore the archive before updating." };
   if (!rom) return { ...state, message: "Reload the ROM to verify native C-Gear hooks before installation." };
   try {
@@ -164,7 +168,7 @@ export function getCGearQuickActionsStatus(project: ProjectState): CGearQuickAct
   } catch (e) {return { ...state, message: e instanceof Error ? e.message : "Could not read native C-Gear resources. Reload the ROM before installing." };}
   state.compatible = true;
   state.message = state.updateAvailable ? `Quick Actions update ${manifest.version} is available. Choose Update / Enable to install the fixes.`
-    : state.installed ? state.enabled ? "Quick Actions is enabled. The wrench also rearranges the four buttons, including with wireless off."
+    : state.installed ? state.enabled ? "Quick Actions is enabled. The wrench also rearranges custom buttons, including with wireless off."
     : "Quick Actions is disabled. Saved Repel and button positions remain dormant."
     : "Native hooks match. PMC is the only dependency. This is a development build awaiting the full gameplay acceptance checklist.";
   return state;
@@ -187,22 +191,37 @@ export async function installCGearQuickActions(project: ProjectState, options:CG
   if (!romBytes) throw new Error("Reload the ROM before installing Quick Actions.");
   const input = { ...project, originalRomBytes: romBytes }, status = getCGearQuickActionsStatus(input);
   if (!status.supported || !status.compatible) throw new Error(status.message);
-  const pcHideFlag=options.pcHideFlag ?? status.pcHideFlag;validatePCFlag(pcHideFlag);
+  const rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  hydrateCGearButtons(project,rom);
+  const state=structuredClone(ensureCGearButtons(project));
+  if(options.pcHideFlag!==undefined){validatePCFlag(options.pcHideFlag);const pc=state.document.buttons.find(b=>b.action==="pc");if(pc)pc.flag={id:options.pcHideFlag,when:"clear"};}
+  const before=JSON.stringify(project.cgearButtons?.document);
+  state.applied=structuredClone(state.document);state.enabled=true;
+  const compiled=compile(state.document,buttonAssets(project,rom),true,state);
+  if(!compiled.archive)throw new Error(compiled.diagnostics.filter(d=>d.severity==="error").map(d=>d.message).join("\n"));
+  if(state.document.buttons.some(b=>b.action==="pc")) {
+    const p=manifest.pcScript,id=rom.filenames.idOf(p.archive);
+    const script=id===undefined?undefined:new NARC(getRomFileBytes(project,rom,id)).files[p.member];
+    if(!script || script.length!==p.length || fingerprint(script)!==p.fingerprint)
+      throw new Error("The PC storage script has unrecognized changes. Restore a compatible native PC script, or remove PC from the button design before applying.");
+  }
   const v = input.session.baseVersion as Version, profile = manifest.games[v];
   const [dllResponse, archiveResponse] = await Promise.all([fetch(urls[v]), fetch(graphicsUrl)]);
   if (!dllResponse.ok || !archiveResponse.ok) throw new Error("Could not load the bundled Quick Actions files.");
   const [dll, graphics] = await Promise.all([dllResponse.arrayBuffer().then(b => new Uint8Array(b)), archiveResponse.arrayBuffer().then(b => new Uint8Array(b))]);
   if (await hash(dll) !== profile.sha256 || await hash(graphics) !== manifest.archiveSha256
     || !recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !archiveState(graphics)) throw new Error("Quick Actions bundle failed its integrity check.");
-  const staged = cloneInstallState(input), rom = new NintendoDSRom(romBytes, { fileData: "view" });
+  const staged = cloneInstallState(input);
   adoptExistingPmcInstall(staged, romBytes);
   if (!getPmcInstallStatus(staged).installed) installPmcBytes(staged, await loadBundledPmcBytes(v), romBytes);
   const result = stageCodeInjectionDll(staged, status.dllPath?.split("/").pop() ?? profile.fileName, dll, "patches", romBytes);
-  const archive=new NARC(graphics);archive.files[8]=nativePatterns(staged,rom);
-  writeU32(archive.files[0],32,parseInt(fingerprint(archive.files[8]),16));
-  writeU16(archive.files[0],36,pcHideFlag);
-  stageArchive(staged, rom, archive.save());
-  recordGenericChange(staged, "code_injection", `C-Gear Quick Actions enabled: Repel, PC, Bike and Map; PC hide flag ${pcHideFlag}.`, "C-Gear Quick Actions", { key: "code-injection:cgear-quick-actions" });
+  const backup=new NARC(new NARC(compiled.archive).files[14]);
+  const prior=bytesAt(input,rom,manifest.archivePath),priorArc=prior&&new NARC(prior);
+  stageNativeButtonGraphics(staged,rom,backup,compiled.nativeGraphics!,true,priorArc?.files[14]?installedNativeButtonGraphics(prior!):undefined);
+  stageArchive(staged, rom, compiled.archive);
+  recordGenericChange(staged, "code_injection", `C-Gear Buttons applied: ${state.document.buttons.map(b=>b.label).join(", ") || "no buttons"}.`, "C-Gear Buttons", { key: "code-injection:cgear-quick-actions" });
+  if(JSON.stringify(project.cgearButtons?.document)!==before)throw new Error("The button design changed while staging. Apply again.");
+  project.cgearButtons=state;
   Object.assign(project, { originalRomBytes: romBytes, arm9: staged.arm9, arm9Dirty: staged.arm9Dirty,
     overlays: staged.overlays, fileSystem: staged.fileSystem, codeInjection: staged.codeInjection,
     patches: staged.patches, actionChangelog: staged.actionChangelog });
@@ -212,15 +231,19 @@ export function disableCGearQuickActions(project: ProjectState): void {
   const status = getCGearQuickActionsStatus(project);
   if (!status.installed || !status.compatible || !project.originalRomBytes) throw new Error(status.message);
   const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
-  const arc = new NARC(bytesAt(project, rom, manifest.archivePath)!);
-  writeU32(arc.files[0], 8, 0);writeU32(arc.files[0], 12, 0x41475143);
-  stageArchive(project, rom, arc.save());
+  const prior=bytesAt(project,rom,manifest.archivePath)!;
+  restoreNativeButtonGraphics(project,rom,prior);
+  if([5,6,7].includes(readU16(new NARC(prior).files[0],4)))stageArchive(project,rom,disableButtonArchive(prior));
+  else {const arc=new NARC(prior);writeU32(arc.files[0],8,0);writeU32(arc.files[0],12,0x41475143);stageArchive(project,rom,arc.save());}
+  if(project.cgearButtons)project.cgearButtons.enabled=false;
   recordGenericChange(project, "code_injection", "C-Gear Quick Actions disabled; saved preferences remain dormant.", "C-Gear Quick Actions", { key: "code-injection:cgear-quick-actions" });
 }
 export function removeCGearQuickActions(project: ProjectState): void {
   const status = getCGearQuickActionsStatus(project);
   if (!status.canRemove || !status.dllPath) throw new Error("Only a Quick Actions runtime staged in this project can be removed. Use Disable for an exported installation.");
+  if(project.originalRomBytes){const rom=new NintendoDSRom(project.originalRomBytes,{fileData:"view"}),prior=bytesAt(project,rom,manifest.archivePath);if(prior)restoreNativeButtonGraphics(project,rom,prior);}
   removeStagedCodeInjectionDll(project, status.dllPath);
+  if(project.cgearButtons){project.cgearButtons.enabled=false;project.cgearButtons.applied=undefined;}
   if (project.fileSystem?.additions?.[manifest.archivePath]) delete project.fileSystem.additions[manifest.archivePath];
   recordGenericChange(project, "code_injection", "Staged C-Gear Quick Actions removed.", "C-Gear Quick Actions", { key: "code-injection:cgear-quick-actions" });
 }
