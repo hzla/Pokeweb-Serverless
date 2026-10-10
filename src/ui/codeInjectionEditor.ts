@@ -1,3 +1,4 @@
+import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag } from "../pokeweb/partyQuickActionsModel";
 import {
   detectBundledFormEvolutionDll,
   detectBundledDoubleBattleFixDll,
@@ -138,6 +139,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const battleLogStatus = getBattleLogInstallStatus(project);
   const battleLogCanInstall = battleLogStatus.supported && battleLogStatus.compatible;
   const battleLogCanUninstall = battleLogStatus.installed && canUninstallBattleLog(project);
+  const partyTools = getPartyQuickActionsStatus(project);
   const menuEvolutionStatus = getMenuEvolutionInstallStatus(project);
   const menuEvolutionCanInstall = menuEvolutionStatus.supported
     && menuEvolutionStatus.compatible
@@ -443,6 +445,16 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               Uninstall
             </button>
             <div class="code-injection-note" id="menu-evolution-note" aria-live="polite"></div>
+          </div>
+          <div class="code-injection-actions party-toolbar-settings" ${partyTools.supported ? "" : "hidden"}>
+            <p>Party Toolbar: Leveling, Edging, Pre-dmg, Pre-status, Heal Team<br>Press L to access or use Touch screen</p>
+            <div class="party-toolbar-flag">
+              <label for="party-tools-hide-flag">Hide toolbar when save flag is set (optional)</label>
+              <input id="party-tools-hide-flag" type="text" value="${partyTools.hideFlag === null ? "" : `0x${partyTools.hideFlag.toString(16).toUpperCase().padStart(4, "0")}`}" placeholder="None — always available" spellcheck="false" ${partyTools.compatible ? "" : "disabled"}>
+            </div>
+            <button class="btn -primary" id="install-party-tools-btn" type="button" ${partyTools.compatible && partyTools.candyCompatible ? "" : "disabled"}>${partyTools.updateAvailable ? "Update Toolbar" : partyTools.installed ? "Enable / Reinstall Toolbar" : "Install Party Toolbar"}</button>
+            <button class="btn -default" id="disable-party-tools-btn" type="button" ${partyTools.installed && partyTools.enabled && partyTools.compatible ? "" : "disabled"}>Disable Toolbar</button>
+            <div class="party-toolbar-status" id="party-tools-status" aria-live="polite">${escapeHtml(partyTools.message)}</div>
           </div>
         </section>
         ${battleUiCards[0] ?? ""}
@@ -1074,6 +1086,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       const currentNote = root.querySelector<HTMLDivElement>("#battle-log-note") ?? battleLogNote;
       if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
     }
+  });
+
+  root.querySelector<HTMLButtonElement>("#install-party-tools-btn")?.addEventListener("click", async () => {
+    const button = root.querySelector<HTMLButtonElement>("#install-party-tools-btn")!;
+    button.disabled = true;
+    try {
+      const hideFlag = parsePartyToolbarHideFlag(root.querySelector<HTMLInputElement>("#party-tools-hide-flag")?.value ?? "");
+      await installPartyQuickActions(project, { hideFlag }); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+    }
+    catch (error) { button.disabled = false; const note = root.querySelector("#party-tools-status"); if (note) note.textContent = error instanceof Error ? error.message : String(error); }
+  });
+  root.querySelector<HTMLButtonElement>("#disable-party-tools-btn")?.addEventListener("click", () => {
+    try { disablePartyQuickActions(project); onDirty(); renderCodeInjectionEditor(project, root, onDirty); }
+    catch (error) { const note = root.querySelector("#party-tools-status"); if (note) note.textContent = error instanceof Error ? error.message : String(error); }
   });
 
   const menuEvolutionButton = root.querySelector<HTMLButtonElement>("#install-menu-evolution-btn");

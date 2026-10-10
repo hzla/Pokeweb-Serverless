@@ -284,6 +284,16 @@ const additions = [
     ],
   },
   {
+    name: 'party-quick-actions', title: 'Party Menu leveling, healing, HP, XP and status toolbar',
+    artifacts: ['PartyQuickActionsB2.dll', 'PartyQuickActionsW2.dll'],
+    note: 'Independent English revision-0 BW2 PMC toolbar 0.1.5 with nine transparent bottom-bar controls, native Full Restore art with cancellable confirmation before healing non-fainted party members with the potion recovery sound, optional read-only saved-flag gating with native menu fallback, confirmed XP edging and nickname acknowledgement, L/A navigation with the native party movement sound, a one-pixel selector following the native fade, status toggles, required Infinite Candy and in-place migration from 0.1.0/0.1.1/0.1.2/0.1.3/0.1.4. Retail profile, compiled CPU, installer and DS emulator evidence are recorded separately. Native graphics are extracted by the builder; source exports omit ROMs, saves and emulator captures. Hardware and general hack compatibility remain unverified.',
+    extra: [
+      file('party-quick-actions', 'integration/partyQuickActionsModel.ts', 'support-only', 'src/pokeweb/partyQuickActionsModel.ts'),
+      file('party-quick-actions', 'tests/partyQuickActionsModel.test.ts', 'test', 'src/test/partyQuickActionsModel.test.ts'),
+      file('party-quick-actions', 'metadata/partyQuickActionsManifest.json', 'metadata', 'src/assets/codeinjection/partyQuickActionsManifest.json'),
+    ],
+  },
+  {
     name: 'bgm-toggle', title: 'Background-music toggle and streamed replacement',
     artifacts: ['BgmToggleB2.dll', 'BgmToggleW2.dll'],
     note: 'Shared US Black 2 / White 2 runtime 3.0.0 for a volume-mute shortcut and a variable-length table of native SDAT stream replacements. ABI 1 single-track migration, per-track updates/removal, and export/reimport are supported. Uses one guarded 32 KiB native output buffer, 4 KiB low-memory fallback, and native heap rollback. The installer retains its 512 MiB export safety limit. Multi-track gameplay verification is pending; host and archive checks do not certify playback.',
