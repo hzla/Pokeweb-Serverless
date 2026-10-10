@@ -30,12 +30,19 @@ const white2Save = new Uint8Array(readFileSync(new URL("../assets/testbattle/tes
 const white2UpgradeSave = new Uint8Array(readFileSync(new URL("../assets/testbattle/White2Upgrade.dsv", import.meta.url)));
 
 describe("testBattle", () => {
-  it.each(["test.sav","White2Upgrade.dsv","Black2Upgrade.dsv"])("starts %s with C-Gear obtained/enabled and valid checksums in both copies",name=>{
+  it.each(["test.sav","White2Upgrade.dsv","Black2Upgrade.dsv"])("starts %s with C-Gear, Bicycle/Super Rod and valid checksums in both copies",name=>{
     const save=new Uint8Array(readFileSync(new URL(`../assets/testbattle/${name}`,import.meta.url)));
     for(const half of [0,0x26000]){
       expect(save[half+0x1c02e]).toBe(1);expect(save[half+0x1c02f]).toBe(1);
       const checksum=crc16Ccitt(save.subarray(half+0x1c000,half+0x1c094));
       expect(readLe16(save,half+0x1c096)).toBe(checksum);expect(readLe16(save,half+0x25f40)).toBe(checksum);
+      const keyItems=Array.from({length:83},(_,i)=>half+0x18400+310*4+i*4);
+      for(const item of [447,450]){
+        const slots=keyItems.filter(at=>readLe16(save,at)===item);
+        expect(slots).toHaveLength(1);expect(readLe16(save,slots[0]+2)).toBe(1);
+      }
+      const bagChecksum=crc16Ccitt(save.subarray(half+0x18400,half+0x18dec));
+      expect(readLe16(save,half+0x18dee)).toBe(bagChecksum);expect(readLe16(save,half+0x25f32)).toBe(bagChecksum);
       expect(readLe16(save,half+0x25fa2)).toBe(crc16Ccitt(save.subarray(half+0x25f00,half+0x25f94)));
     }
   });
