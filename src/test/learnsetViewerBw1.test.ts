@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,7 +69,8 @@ for (const game of ["B", "W"] as const) describe(`BW1 Learnset ${game}`, () => {
     const resource = fixture(game), rom = new NintendoDSRom(resource.originalRomBytes!);
     resource.fileSystem = { replacements: { [rom.fileId("a/1/2/4")]: new NARC().save() }, additions: {} };
     const before = structuredClone(resource); await expect(installLearnsetViewer(resource)).rejects.toThrow("Unsupported tutor graphics");
-    expect(resource).toEqual(before);
+    // Node compares typed arrays by bytes rather than enumerating the full ROM.
+    deepStrictEqual(structuredClone(resource), before);
     const installed = fixture(game); await installLearnsetViewer(installed);
     const path = learnsetViewerPaths(game)[1];
     installed.codeInjection!.modules!.push({ ...installed.codeInjection!.modules![1] });
@@ -85,7 +87,7 @@ for (const game of ["B", "W"] as const) describe(`BW1 Learnset ${game}`, () => {
   it("rolls back PMC, private text and the first companion if the second cannot stage", async () => {
     const p = fixture(game), before = structuredClone(p), original = pmc.stageCodeInjectionDll;
     vi.spyOn(pmc, "stageCodeInjectionDll").mockImplementationOnce(original).mockImplementationOnce(() => { throw new Error("Second companion failed"); });
-    await expect(installLearnsetViewer(p)).rejects.toThrow("Second companion failed"); expect(p).toEqual(before);
+    await expect(installLearnsetViewer(p)).rejects.toThrow("Second companion failed"); deepStrictEqual(structuredClone(p), before);
   });
 });
 

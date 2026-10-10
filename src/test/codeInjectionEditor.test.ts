@@ -54,7 +54,7 @@ describe("unsupported patch visibility", () => {
   it.each(["B", "W"] as const)("hides unsupported patches on %s while keeping supported patches and PMC visible", version => {
     const html = renderFixture(version);
     const cards = html.match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!;
-    expect(cards).toHaveLength(19);
+    expect(cards).toHaveLength(20);
     for (const card of cards) {
       const opening = card.slice(0, card.indexOf(">"));
       expect(opening).toContain("data-code-injection-supported=");
@@ -62,6 +62,8 @@ describe("unsupported patch visibility", () => {
     }
     expect(cards.find(card => card.includes("<h2>Trainer Battle Log</h2>")))
       .toContain('data-code-injection-supported="true"');
+    expect(cards.find(card => card.includes("<h2>C-Gear Quick Actions</h2>")))
+      .toContain('data-code-injection-supported="false"');
     expect(html.slice(html.indexOf("<aside"), html.indexOf("</aside>")))
       .toContain('id="show-unsupported-patches"');
     expect(html).not.toMatch(/id="show-unsupported-patches" checked/u);
@@ -162,7 +164,7 @@ describe("code-injection patch categories", () => {
     expect(headings(panels[2])).toEqual(["Instant Fast Text", "Background Music Toggle"]);
     expect(headings(panels[3])).toEqual([
       "Infinite Rare Candy", "Hard Level Caps", "Single-NPC Double Battle Fix",
-      "Tag Battle Stabilization", "Porta PC", "Added-Form Evolution Support",
+      "Tag Battle Stabilization", "C-Gear Quick Actions", "Porta PC", "Added-Form Evolution Support",
     ]);
     expect(headings(panels[4])).toEqual(["Walk Through Walls", "Instant Battle Victory"]);
     expect(html).toContain(">Debug Helpers</button>");
@@ -175,7 +177,7 @@ describe("code-injection patch categories", () => {
     expect(html).not.toContain("Prebuilt DLL upload will use the ROM filesystem support added for /patches and /lib.");
     expect(html).not.toContain("Patch DLLs are staged in patches/. Library DLLs are staged in lib/.");
     const actionNotes = [...html.matchAll(/<div class="code-injection-note" id="[^"]+-note" aria-live="polite">([\s\S]*?)<\/div>/g)];
-    expect(actionNotes).toHaveLength(20);
+    expect(actionNotes).toHaveLength(21);
     expect(actionNotes.every((match) => match[1] === "")).toBe(true);
   });
 });

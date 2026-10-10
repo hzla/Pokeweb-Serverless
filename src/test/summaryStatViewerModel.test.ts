@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -157,12 +158,13 @@ describe("Summary installer rollback and compatibility", () => {
     acceptBw1Fixture(); stubAssets(true);
     const p = makeProject(version), original = structuredClone(p);
     await expect(installSummaryStatViewer(p)).rejects.toThrow(/PMC download/u);
-    expect(p).toEqual(original);
+    // Node compares typed arrays by bytes rather than enumerating the full ROM.
+    deepStrictEqual(structuredClone(p), original);
     stubAssets(); const rom = new NintendoDSRom(p.originalRomBytes!);
     rom.arm9OverlayTable = rom.arm9OverlayTable.slice(0, 236 * 32); p.originalRomBytes = rom.save();
     const missingOverlay = structuredClone(p);
     await expect(installSummaryStatViewer(p)).rejects.toThrow(/overlay 237/u);
-    expect(p).toEqual(missingOverlay);
+    deepStrictEqual(structuredClone(p), missingOverlay);
   });
   it.each(["B", "W"] as const)("coexists with the %s Battle Log and counter companions", async version => {
     acceptBw1Fixture(); stubAssets(); const p = makeProject(version); await installSummaryStatViewer(p);
@@ -176,11 +178,11 @@ describe("Summary installer rollback and compatibility", () => {
   it("does not mutate a project if PMC download/staging fails", async () => {
     const p = makeProject("W2"), original = p.arm9.slice();stubAssets(true);
     await expect(installSummaryStatViewer(p)).rejects.toThrow(/PMC download/u);
-    expect(p.codeInjection).toBeUndefined();expect(p.fileSystem).toBeUndefined();expect(p.arm9).toEqual(original);
+    expect(p.codeInjection).toBeUndefined();expect(p.fileSystem).toBeUndefined();deepStrictEqual(p.arm9, original);
     expect(p.actionChangelog).toBeUndefined();
     stubAssets();const rom = new NintendoDSRom(p.originalRomBytes!);rom.arm9OverlayTable = rom.arm9OverlayTable.slice(0, 343 * 32);p.originalRomBytes = rom.save();
     await expect(installSummaryStatViewer(p)).rejects.toThrow(/overlay 344/u);
-    expect(p.codeInjection).toBeUndefined();expect(p.fileSystem).toBeUndefined();expect(p.arm9).toEqual(original);
+    expect(p.codeInjection).toBeUndefined();expect(p.fileSystem).toBeUndefined();deepStrictEqual(p.arm9, original);
   });
   it("rejects unsupported games and languages", async () => {
     const p = makeProject("W2");p.session.baseRom = "BW";p.session.baseVersion = "W";
