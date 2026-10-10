@@ -123,6 +123,13 @@ describe("unsupported patch visibility", () => {
 });
 
 describe("code-injection patch categories", () => {
+  it.each(["B2", "W2"] as const)("shows the concise toolbar description and optional hide flag on %s", version => {
+    const html = renderFixture(version);
+    expect(html).toContain("Party Toolbar: Leveling, Edging, Pre-dmg, Pre-status, Heal Team<br>Press L to access or use Touch screen");
+    expect(html).toContain('id="party-tools-hide-flag" type="text" value=""');
+    expect(html).toContain("Hide toolbar when save flag is set (optional)");
+    expect(html).not.toContain("Full Restore needs no item.");
+  });
   it("enables Black 1 doubles only after PMC is installed and leaves White 1 unavailable", () => {
     const card = (version: "B" | "W", installed: boolean) => renderFixture(version, installed)
       .match(/<section class="code-injection-panel"[^>]*>[\s\S]*?<\/section>/g)!

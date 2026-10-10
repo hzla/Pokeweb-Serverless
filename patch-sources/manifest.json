@@ -6527,6 +6527,154 @@
           "normalized": false
         }
       ]
+    },
+    {
+      "name": "party-quick-actions",
+      "title": "Party Menu leveling, healing, HP, XP and status toolbar",
+      "artifacts": [
+        {
+          "name": "PartyQuickActionsB2.dll",
+          "sha256": "4faab81a2802035ad02a32e6eafc536141d8e139f1f5c3ad6b37b2c9c01098af"
+        },
+        {
+          "name": "PartyQuickActionsW2.dll",
+          "sha256": "1ab90808483f11c0b9922e7f997088313f44bab27e56b7c27fba48fe9bda4a0a"
+        }
+      ],
+      "note": "Independent English revision-0 BW2 PMC toolbar 0.1.4 with nine transparent bottom-bar controls, native Full Restore art for healing non-fainted party members with the potion recovery sound, optional read-only saved-flag gating with native menu fallback, confirmed XP edging and nickname acknowledgement, L/A navigation with the native party movement sound, a one-pixel selector following the native fade, status toggles, required Infinite Candy and in-place migration from 0.1.0/0.1.1/0.1.2/0.1.3. Retail profile, compiled CPU, installer and DS emulator evidence are recorded separately. Native graphics are extracted by the builder; source exports omit ROMs, saves and emulator captures. Hardware and general hack compatibility remain unverified.",
+      "status": "source-available",
+      "files": [
+        {
+          "path": "party-quick-actions/acceptance.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/acceptance.md"
+          },
+          "kind": "documentation",
+          "sha256": "85fea38d8746bc60a60dd2856e9fd45472b4cf67dfe4a867bd027717ad862a8d",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/build.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/build.py"
+          },
+          "kind": "build-tool",
+          "sha256": "54f6dc157d06a5a77cf1081c363fb300d3b1f1b97086aedb975e38ca098e6b13",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/emulator.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/emulator.ts"
+          },
+          "kind": "build-tool",
+          "sha256": "372059b9c5a1ea840af782f9a286f59fb9ca9dc5132c6d5ffab2bf875e7e909b",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/party_tools.cpp",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/party_tools.cpp"
+          },
+          "kind": "source",
+          "sha256": "70789c938696b976b2a1101c4ea192165b861b86cc662010378e3221aceee502",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/previous-0.1.1.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/previous-0.1.1.json"
+          },
+          "kind": "metadata",
+          "sha256": "cc55e99fea5eb7cbe9e4d0845cf9fe4e78e3402dc44f4942aebdaedd81a3514e",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/previous-0.1.2.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/previous-0.1.2.json"
+          },
+          "kind": "metadata",
+          "sha256": "844831738706e96a837aae7e81053d7ebc5ad4465b2993734fe738c73d450e75",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/previous-0.1.3.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/previous-0.1.3.json"
+          },
+          "kind": "metadata",
+          "sha256": "a53d26ab68b32cbde9ed9d420cf94f69deca5c199952f6bb05f799c46ab78b8b",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/previous.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/previous.json"
+          },
+          "kind": "metadata",
+          "sha256": "214cac31b972de6297d790adcfadd3ba14df5c93c223eece74a49c7d51f7ce82",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/runtime-notes.md",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/README.md"
+          },
+          "kind": "documentation",
+          "sha256": "25b877610b3cffa3c3381f0492d177faf4ad3091939aa7c80ad0b5957d71b060",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/verify.py",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "runtime/party-quick-actions/verify.py"
+          },
+          "kind": "test",
+          "sha256": "041492cc1e053cbdfe5ada1a9d5d4b51f5c67e7bbdbc42d425df28fcb7b8934e",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/integration/partyQuickActionsModel.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/pokeweb/partyQuickActionsModel.ts"
+          },
+          "kind": "support-only",
+          "sha256": "d78bc5ff16c48c4f006d20fb788c204d80626d1b1798bbc6efec2017e227d47d",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/tests/partyQuickActionsModel.test.ts",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/test/partyQuickActionsModel.test.ts"
+          },
+          "kind": "test",
+          "sha256": "1b96f07b03446d282de24d8e4d8015ad7a38e807e60db0415682c4bc3878c524",
+          "normalized": false
+        },
+        {
+          "path": "party-quick-actions/metadata/partyQuickActionsManifest.json",
+          "origin": {
+            "repository": "pokeweb",
+            "path": "src/assets/codeinjection/partyQuickActionsManifest.json"
+          },
+          "kind": "metadata",
+          "sha256": "5e8ef872f4c7847bb036e42d616721539420bf415ab908dc2bd897f7aaa4b23d",
+          "normalized": false
+        }
+      ]
     }
   ],
   "sharedFiles": [

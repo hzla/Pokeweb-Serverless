@@ -229,6 +229,33 @@
   margin-top: 18px;
 }
 
+.party-toolbar-settings > p,
+.party-toolbar-flag,
+.party-toolbar-status {
+  flex-basis: 100%;
+}
+
+.party-toolbar-flag {
+  display: grid;
+  font-size: 13px;
+  gap: 6px;
+}
+
+.party-toolbar-flag input {
+  background: #282a36;
+  border: 1px solid #6272a4;
+  border-radius: 4px;
+  color: #f2f2f2;
+  max-width: 100%;
+  padding: 8px 10px;
+  width: 220px;
+}
+
+.party-toolbar-flag input:focus-visible {
+  outline: 2px solid #69d6bd;
+  outline-offset: 2px;
+}
+
 .code-injection-actions .btn.-primary {
   background: #1abc9c;
   color: #101216;
