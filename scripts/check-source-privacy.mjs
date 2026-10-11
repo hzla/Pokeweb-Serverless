@@ -6,6 +6,7 @@ import { readFileSync, lstatSync, readlinkSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { gunzipSync } from 'node:zlib';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -65,6 +66,10 @@ for (const file of files) {
   }
   ++checked;
   if (sensitive(bytes)) violations.push(file);
+  // Compressed shipped assets are still publishable data, not an audit escape.
+  if (file.endsWith('.gz') && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+    if (sensitive(gunzipSync(bytes))) violations.push(file);
+  }
 }
 if (violations.length) {
   console.error(`${staged ? 'Index' : 'Working files'}: private machine information detected in ${violations.length} file(s):`);

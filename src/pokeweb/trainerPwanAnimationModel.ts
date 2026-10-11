@@ -13,7 +13,7 @@ import {
 } from "./pmcModel";
 import type { ProjectState, PwanOverrideSide, TrainerPwanAnimationOverride, TrainerPwanAnimationState } from "./projectStore";
 import { compileGifToPwanAsync } from "./pwanCompilerClient";
-import { pwanFramesPerSecond, pwanPalette, scalePwanFrames, scalePwanTimelineSpeed, shiftPwanFrames, PWAN_MAX_TIMELINE } from "./pwanCompiler";
+import { pwanFramesPerSecond, pwanPalette, pwanVisibleHeight, scalePwanFrames, scalePwanTimelineSpeed, shiftPwanFrames, PWAN_MAX_TIMELINE, type PwanCompileOptions, type PwanCompileResult } from "./pwanCompiler";
 import { buildTrainerPwanCarrierFiles, ensureTrainerSpriteStore } from "./trainerSpriteModel";
 import { detectTrainerPwanCompatibility, trainerPwanCompatibilityFailureSummary } from "./trainerPwanCompatibilityModel";
 import { hydrateW2AnimTrainerTarget, isW2AnimProject } from "./w2animAnimationModel";
@@ -120,19 +120,28 @@ export function uninstallTrainerPwanRuntime(project: ProjectState): void {
   recordGenericChange(project, "code_injection", "Trainer PWAN runtime removed; imported animations were preserved.", "Trainer PWAN Runtime", { key: "trainer-pwan-runtime" });
 }
 
+export type TrainerPwanBuildOptions = { speed?: number; scale?: number; offsetX?: number; offsetY?: number; compileOptions?: PwanCompileOptions };
+
 export async function buildTrainerPwanOverride(
   graphicIndex: number,
   fileName: string,
   gifBytes: Uint8Array,
-  options: { speed?: number; scale?: number; offsetX?: number; offsetY?: number } = {},
+  options: TrainerPwanBuildOptions = {},
 ): Promise<TrainerPwanAnimationOverride> {
   validateGraphicIndex(graphicIndex);
-  const result = await compileGifToPwanAsync(gifBytes);
+  const result = await compileGifToPwanAsync(gifBytes, options.compileOptions);
+  return buildTrainerPwanOverrideFromCompileResult(graphicIndex, fileName, gifBytes, result, options);
+}
+
+export function buildTrainerPwanOverrideFromCompileResult(
+  graphicIndex: number, fileName: string, gifBytes: Uint8Array, result: PwanCompileResult, options: TrainerPwanBuildOptions = {},
+): TrainerPwanAnimationOverride {
+  validateGraphicIndex(graphicIndex);
   const speed = Math.max(0.1, Math.min(4, options.speed ?? 1));
   const scale = Math.max(0.5, Math.min(2, options.scale ?? 1));
   const offsetX = Math.max(-48, Math.min(48, Math.round(options.offsetX ?? 0)));
   const offsetY = Math.max(-48, Math.min(48, Math.round(options.offsetY ?? 0)));
-  let pwanBytes = result.pwanBytes;
+  let pwanBytes: Uint8Array = result.pwanBytes.slice();
   if (scale !== 1) pwanBytes = scalePwanFrames(pwanBytes, scale).pwanBytes;
   if (offsetX !== 0 || offsetY !== 0) pwanBytes = shiftPwanFrames(pwanBytes, offsetX, offsetY).pwanBytes;
   if (speed !== 1) pwanBytes = scalePwanTimelineSpeed(pwanBytes, 1 / speed).pwanBytes;
@@ -142,7 +151,7 @@ export async function buildTrainerPwanOverride(
       sourceFileName: fileName,
       sourceGifBytes: gifBytes.slice(),
       pwanBytes,
-      visibleHeight: result.visibleHeight,
+      visibleHeight: pwanVisibleHeight(pwanBytes),
       frameCount: result.frameCount,
       uniqueFrameCount: result.uniqueFrameCount,
       timelineCount: result.timelineCount,
@@ -155,7 +164,7 @@ export async function buildTrainerPwanOverride(
       outlineThreshold: 48,
       offsetX,
       offsetY,
-      notes: result.warnings,
+      notes: [...result.warnings],
     },
   };
 }

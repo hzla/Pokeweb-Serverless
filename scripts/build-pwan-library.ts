@@ -6,6 +6,7 @@ import { NintendoDSRom } from "../src/nds/rom";
 import { PWAN_ARCHIVE_PATH, parsePwanArchiveBytes, pwanAssetIndex } from "../src/pokeweb/pwanAnimationModel";
 import type { PwanAnimationOverride } from "../src/pokeweb/projectStore";
 import type { PwanLibraryEntry, PwanLibraryManifest } from "../src/pokeweb/pwanLibraryModel";
+import { writeBundledPwanArchive } from './lib/pwan-library-payload';
 
 type BuildPwanLibraryOptions = {
   romPath: string;
@@ -147,9 +148,9 @@ export async function buildPwanLibrary(options: BuildPwanLibraryOptions): Promis
   };
 
   await mkdir(options.outDir, { recursive: true });
-  await writeFile(path.join(options.outDir, "pwan.narc"), libraryArchiveBytes);
+  const distribution = await writeBundledPwanArchive(options.outDir, libraryArchiveBytes);
   await writeJson(path.join(options.outDir, "manifest.json"), manifest);
-  await writeJson(path.join(options.outDir, "build-report.json"), report);
+  await writeJson(path.join(options.outDir, "build-report.json"), {...report, distribution});
   return { manifest, report };
 }
 

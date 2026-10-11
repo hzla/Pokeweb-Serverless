@@ -1,4 +1,6 @@
 import { statSync, readFileSync } from "node:fs";
+import { gzipSync, gunzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { writeU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
@@ -6,11 +8,38 @@ import { buildPwanArchive } from "../pokeweb/pwanAnimationModel";
 import { PWAN_CARRIER_METADATA_OFFSETS, PWAN_FRONT_NCEC_Y, type PwanCarrierTemplate } from "../pokeweb/pwanCarrierPatch";
 import { PWAN_FRAME_BYTES, PWAN_HEIGHT, PWAN_PALETTE_COLORS, PWAN_WIDTH, pwanPalette } from "../pokeweb/pwanCompiler";
 import { compressLz11Literal } from "../pokeweb/pokemonSpriteModel";
-import { importPwanLibraryEntry, importPwanLibraryEntryFromLoadedLibrary, parsePwanLibraryArchive, type PwanLibraryManifest } from "../pokeweb/pwanLibraryModel";
+import { importPwanLibraryEntry, importPwanLibraryEntryFromLoadedLibrary, parsePwanLibraryArchive, decodePwanLibraryPayload, loadPwanLibrary, resetPwanLibraryCacheForTests, type PwanLibraryManifest } from "../pokeweb/pwanLibraryModel";
 import type { NarcStore, ProjectState, PwanAnimationOverride } from "../pokeweb/projectStore";
 
 describe("pwanLibraryModel", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {vi.unstubAllGlobals(); resetPwanLibraryCacheForTests();});
+
+  it('fetches and decodes the compressed library once while preserving archive bytes', async () => {
+    const source = makeOverride(4, makePwanBytes(2), makePwanBytes(3));
+    const bytes = buildPwanArchive([source]);
+    const manifest = makeManifest([makeEntry('4-0-4', 4, 0, 4, true, true)]);
+    manifest.archiveBytes = bytes.length;
+    const compressed = gzipSync(bytes);
+    const fetchMock = vi.fn(async (url: URL) => String(url).endsWith('manifest.json')
+      ? {ok: true, json: async () => manifest}
+      : {ok: true, arrayBuffer: async () => compressed.buffer.slice(compressed.byteOffset, compressed.byteOffset + compressed.byteLength)});
+    vi.stubGlobal('fetch', fetchMock);
+    const library = await loadPwanLibrary();
+    expect(await loadPwanLibrary()).toBe(library);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1]![0])).toContain('pwan.narc.gz');
+    expect(library.overridesByEntryId.get('4-0-4')?.front?.pwanBytes).toEqual(source.front?.pwanBytes);
+    expect(decodePwanLibraryPayload(bytes, bytes.length)).toEqual(bytes);
+  });
+
+  it('rejects truncated or mismatched compressed payloads', () => {
+    const bytes = buildPwanArchive([makeOverride(4, makePwanBytes(2), makePwanBytes(3))]);
+    const compressed = new Uint8Array(gzipSync(bytes));
+    expect(() => decodePwanLibraryPayload(compressed, bytes.length + 1)).toThrow('size mismatch');
+    expect(() => decodePwanLibraryPayload(compressed.subarray(0, 10), bytes.length)).toThrow('size mismatch');
+    expect(() => decodePwanLibraryPayload(bytes.subarray(0, 4), bytes.length)).toThrow('Invalid');
+    expect(() => decodePwanLibraryPayload(bytes, NaN)).toThrow('Invalid');
+  });
 
   it("imports a two-sided library entry and immediately patches static carrier assets", () => {
     const source = makeOverride(4, makePwanBytes(2), makePwanBytes(3));
@@ -110,26 +139,43 @@ describe("pwanLibraryModel", () => {
 
   it("keeps the generated W2U library manifest in sync with the bundled archive", () => {
     const manifest = JSON.parse(readFileSync(new URL("../assets/pwan/library/manifest.json", import.meta.url), "utf8")) as PwanLibraryManifest;
-    const archiveUrl = new URL("../assets/pwan/library/pwan.narc", import.meta.url);
+    const archiveUrl = new URL("../assets/pwan/library/pwan.narc.gz", import.meta.url);
     const archive = statSync(archiveUrl);
-    const loaded = parsePwanLibraryArchive(manifest, new Uint8Array(readFileSync(archiveUrl)));
+    const archiveBytes = decodePwanLibraryPayload(new Uint8Array(readFileSync(archiveUrl)), manifest.archiveBytes);
+    const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+    expect(digest(archiveBytes)).toBe(digest(gunzipSync(readFileSync(archiveUrl))));
+    const loaded = parsePwanLibraryArchive(manifest, archiveBytes);
     const missingCredits = manifest.entries.filter((entry) => entry.credits.trim().length === 0);
 
     expect(manifest.format).toBe("pokeweb-pwan-library-v2");
-    expect(manifest.entryCount).toBe(297);
-    expect(manifest.iconCount).toBe(297);
-    expect(manifest.sideCount).toEqual({ front: 297, back: 283, total: 580 });
-    expect(manifest.entries).toHaveLength(297);
+    expect(manifest.entryCount).toBe(563);
+    expect(manifest.iconCount).toBe(563);
+    expect(manifest.sideCount).toEqual({ front: 563, back: 554, total: 1117 });
+    expect(manifest.entries).toHaveLength(563);
     expect(manifest.entries.every((entry) => entry.icon)).toBe(true);
-    expect(loaded.iconsByEntryId.size).toBe(297);
+    expect(loaded.iconsByEntryId.size).toBe(563);
     const megaCharizardX = manifest.entries.find((entry) => entry.key === "MEGA_CHARIZARD_X");
     const litten = manifest.entries.find((entry) => entry.key === "SPECIES_725");
     expect(megaCharizardX?.icon?.sourceArchiveIndex).toBe(2134);
     expect(litten?.icon?.sourceArchiveIndex).toBe(1910);
     expect(loaded.iconsByEntryId.get(megaCharizardX!.id)?.male).not.toEqual(loaded.iconsByEntryId.get(litten!.id)?.male);
-    expect(manifest.entries.filter((entry) => entry.hasFront !== entry.hasBack)).toHaveLength(14);
+    expect(manifest.entries.filter((entry) => entry.hasFront !== entry.hasBack)).toHaveLength(9);
+    expect(new Set(manifest.entries.map(entry => `${entry.speciesId}:${entry.formIndex}`)).size).toBe(563);
+    expect(manifest.entries.find(entry => entry.speciesId === 718 && entry.formIndex === 1)?.name).toBe('Zygarde 10%');
+    expect(manifest.entries.find(entry => entry.speciesId === 658 && entry.formIndex === 2)?.name).toBe('Ash-Greninja');
     expect(missingCredits).toEqual([]);
-    expect(archive.size).toBe(manifest.archiveBytes);
+    expect(manifest.entries.every(entry => entry.notes?.includes('Gen 5 preset enabled'))).toBe(true);
+    expect(manifest.entries.every(entry => entry.spriteSources?.length === Number(entry.hasFront) + Number(entry.hasBack))).toBe(true);
+    expect(manifest.entries.flatMap(entry => entry.spriteSources ?? []).every(source =>
+      source.credits.length > 0 && source.creditBasis.length > 0 && !source.source.startsWith('/') && !source.source.includes('..'))).toBe(true);
+    expect(megaCharizardX?.spriteSources?.find(source => source.side === 'front')?.credits).toBe('Smogon Sprite Project; hexagonereal');
+    expect(megaCharizardX?.credits).not.toContain('diegotoon20');
+    const report = JSON.parse(readFileSync(new URL('../assets/pwan/library/build-report.json', import.meta.url), 'utf8'));
+    expect(report.refresh).toMatchObject({preset: 'gen5', textureFormat: 'TEX4', visibleColors: 15});
+    expect(report.credits.perSideSources).toBe(true);
+    expect(archiveBytes.length).toBe(manifest.archiveBytes);
+    expect(archive.size).toBe(report.distribution.compressedBytes);
+    expect(report.distribution.encoding).toBe('gzip');
   });
 });
 

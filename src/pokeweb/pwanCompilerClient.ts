@@ -1,4 +1,4 @@
-import { compileGifToPwan, type PwanCompileResult } from "./pwanCompiler";
+import { compileGifToPwan, type PwanCompileOptions, type PwanCompileResult } from "./pwanCompiler";
 
 type CompileResponse = {
   id: number;
@@ -17,13 +17,13 @@ let nextRequestId = 1;
 const pendingCompiles = new Map<number, PendingCompile>();
 const PWAN_COMPILE_TIMEOUT_MS = 60_000;
 
-export function compileGifToPwanAsync(bytes: Uint8Array): Promise<PwanCompileResult> {
-  if (typeof Worker === "undefined") return Promise.resolve().then(() => compileGifToPwan(bytes));
+export function compileGifToPwanAsync(bytes: Uint8Array, options: PwanCompileOptions = {}): Promise<PwanCompileResult> {
+  if (typeof Worker === "undefined") return Promise.resolve().then(() => compileGifToPwan(bytes, options));
   let worker: Worker;
   try {
     worker = getCompilerWorker();
   } catch {
-    return Promise.resolve().then(() => compileGifToPwan(bytes));
+    return Promise.resolve().then(() => compileGifToPwan(bytes, options));
   }
   const id = nextRequestId++;
   return new Promise<PwanCompileResult>((resolve, reject) => {
@@ -32,7 +32,7 @@ export function compileGifToPwanAsync(bytes: Uint8Array): Promise<PwanCompileRes
     }, PWAN_COMPILE_TIMEOUT_MS);
     pendingCompiles.set(id, { resolve, reject, timeout });
     try {
-      worker.postMessage({ id, bytes });
+      worker.postMessage({ id, bytes, options });
     } catch (error) {
       clearTimeout(timeout);
       pendingCompiles.delete(id);

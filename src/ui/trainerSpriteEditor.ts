@@ -16,13 +16,14 @@ import {
 import type { ProjectState, TrainerPwanAnimationOverride } from "../pokeweb/projectStore";
 import { isW2AnimProject } from "../pokeweb/w2animAnimationModel";
 import {
-  buildTrainerPwanOverride,
+  buildTrainerPwanOverrideFromCompileResult,
   findTrainerPwanOverride,
   getTrainerPwanRuntimeStatus,
   removeTrainerPwanOverride,
   upsertTrainerPwanOverride,
 } from "../pokeweb/trainerPwanAnimationModel";
-import { pwanFrameRgbaImage, pwanTimeline } from "../pokeweb/pwanCompiler";
+import { pwanFrameRgbaImage, pwanTimeline, type PwanColorPreset, type PwanCompileResult } from "../pokeweb/pwanCompiler";
+import { installPwanGifImportPreview, renderPwanGifImportPreview } from "./pwanGifImportPreview";
 import { escapeHtml } from "./dom";
 import {
   TRAINER_ANIMATION_TICK_MS,
@@ -53,12 +54,14 @@ const trainerPwanState: {
   trainerClassId?: number;
   source?: { bytes: Uint8Array; fileName: string };
   build?: TrainerPwanAnimationOverride;
+  conversion?: PwanCompileResult;
+  colorPreset: PwanColorPreset;
   speed: number;
   scale: number;
   offsetX: number;
   offsetY: number;
   status: string;
-} = { speed: 1, scale: 1, offsetX: 0, offsetY: 0, status: "Choose a GIF to generate a trainer PWAN preview." };
+} = { colorPreset: "none", speed: 1, scale: 1, offsetX: 0, offsetY: 0, status: "Choose a GIF to generate a trainer PWAN preview." };
 const trainerGifState: {
   trainerClassId?: number;
   source?: { bytes: Uint8Array; fileName: string };
@@ -94,6 +97,7 @@ export async function renderTrainerSpriteEditor(
       trainerPwanState.trainerClassId = trainerClassId;
       trainerPwanState.source = undefined;
       trainerPwanState.build = undefined;
+      trainerPwanState.conversion = undefined;
       trainerPwanState.status = "Choose a GIF to generate a trainer PWAN preview.";
     }
     const pendingBuild = trainerGifState.trainerClassId === trainerClassId ? trainerGifState.build : undefined;
@@ -340,11 +344,12 @@ function renderTrainerPwanImporter(project: ProjectState, trainerClassId: number
     ? `<div class="trainer-gif-shared-warning"><strong>Shared graphic</strong><span>This animation also applies to ${affected.map((id) => escapeHtml(`${trainerClassName(project, id)} (${id})`)).join(", ")}.</span></div>`
     : "";
   return `<section class="sprite-section trainer-gif-section" id="trainer-gif-import-section">
-    <div class="sprite-section-header"><div><h2>Import GIF</h2><span>Compile a 96×96, 16-color ${isW2AnimProject(project) ? "w2anim" : "PWAN"} animation for this front trainer graphic.</span></div>
+    <div class="sprite-section-header"><div><h2>Import GIF</h2><span>Compile a 96×96, 15-color + transparency ${isW2AnimProject(project) ? "w2anim" : "PWAN"} animation for this front trainer graphic.</span></div>
       <div class="sprite-actions -inline">
         <button class="btn -default" id="trainer-pwan-generate" type="button" ${trainerPwanState.source && runtime.supported && runtime.installed ? "" : "disabled"}>Generate Preview</button>
-        <button class="btn -default" id="trainer-pwan-apply" type="button" ${build && runtime.supported && runtime.installed ? "" : "disabled"}>Apply PWAN</button>
-        <button class="btn -default" id="trainer-pwan-remove" type="button" ${current ? "" : "disabled"}>Remove PWAN</button>
+        <button class="btn -default" id="trainer-pwan-apply" type="button" ${build && runtime.supported && runtime.installed ? "" : "disabled"}>Apply GIF</button>
+        <button class="btn -default" id="trainer-pwan-cancel" type="button" ${trainerPwanState.source ? "" : "disabled"}>Cancel Preview</button>
+        <button class="btn -default" id="trainer-pwan-remove" type="button" ${current ? "" : "disabled"}>Remove Override</button>
       </div>
     </div>
     ${renderTrainerImportModeButtons()}
@@ -358,8 +363,9 @@ function renderTrainerPwanImporter(project: ProjectState, trainerClassId: number
       </div>
       <label class="sprite-bundle-drop gif-flipbook-drop trainer-gif-drop" id="trainer-pwan-drop">
         <input id="trainer-pwan-file" type="file" accept="image/gif,.gif" ${runtime.supported && runtime.installed ? "" : "disabled"}>
-        <strong>Trainer PWAN GIF</strong><span>${escapeHtml(trainerPwanState.source?.fileName ?? "Click or drop animation GIF")}</span>
+        <strong>Trainer Animation GIF</strong><span>${escapeHtml(trainerPwanState.source?.fileName ?? "Click or drop animation GIF")}</span>
       </label>
+      ${renderPwanGifImportPreview("trainer", trainerPwanState.colorPreset)}
       <div class="trainer-gif-status ${runtime.supported && runtime.installed ? "" : "-error"}" id="trainer-pwan-status">${escapeHtml(runtime.supported && runtime.installed ? trainerPwanState.status : `${runtime.message} Install it from Code Injection.`)}</div>
       ${(build ?? current) ? `<div class="trainer-gif-report">${animationDetail("Graphic", graphicIndex)}${animationDetail("Frames", (build ?? current)!.animation.uniqueFrameCount)}${animationDetail("Timeline", `${(build ?? current)!.animation.totalTicks} ticks`)}${animationDetail("Storage", current ? "PWAN override active" : "Preview only")}</div>` : ""}
     </div>
@@ -449,18 +455,37 @@ function installTrainerGifImporter(project: ProjectState, root: HTMLElement, tra
 function installTrainerPwanImporter(project: ProjectState, root: HTMLElement, trainerClassId: number, options: TrainerSpriteEditorOptions): void {
   const input = root.querySelector<HTMLInputElement>("#trainer-pwan-file");
   const drop = root.querySelector<HTMLElement>("#trainer-pwan-drop");
-  const read = async (file: File) => {
-    trainerPwanState.source = { bytes: new Uint8Array(await file.arrayBuffer()), fileName: file.name };
-    trainerPwanState.build = undefined;
-    await generateTrainerPwanPreview(project, root, trainerClassId, options);
-  };
+  const session = installPwanGifImportPreview(root, "trainer", {
+    colorPreset: trainerPwanState.colorPreset,
+    source: trainerPwanState.source,
+    result: trainerPwanState.conversion,
+    onChange: (current) => {
+      trainerPwanState.colorPreset = current.colorPreset;
+      trainerPwanState.source = current.source;
+      trainerPwanState.conversion = current.result;
+      trainerPwanState.build = undefined;
+      const apply = root.querySelector<HTMLButtonElement>("#trainer-pwan-apply");
+      if (apply) apply.disabled = true;
+      const generate = root.querySelector<HTMLButtonElement>("#trainer-pwan-generate");
+      if (generate) generate.disabled = !current.ready();
+      const cancel = root.querySelector<HTMLButtonElement>("#trainer-pwan-cancel");
+      if (cancel) cancel.disabled = !current.source && !current.busy;
+      if (current.ready()) void generateTrainerPwanPreview(project, root, trainerClassId, options);
+    },
+  });
+  const read = async (file: File) => { await session.setFile(file); };
   input?.addEventListener("change", async () => { const file = input.files?.[0]; if (file) await read(file); });
   drop?.addEventListener("dragover", (event) => { event.preventDefault(); drop.classList.add("-dragging"); });
   drop?.addEventListener("dragleave", () => drop.classList.remove("-dragging"));
   drop?.addEventListener("drop", async (event) => { event.preventDefault(); drop.classList.remove("-dragging"); const file = event.dataTransfer?.files?.[0]; if (file) await read(file); });
   root.querySelector("#trainer-pwan-generate")?.addEventListener("click", async () => generateTrainerPwanPreview(project, root, trainerClassId, options));
+  root.querySelector("#trainer-pwan-cancel")?.addEventListener("click", async () => {
+    await session.setSource();
+    trainerPwanState.status = "Preview canceled. Existing trainer animation is unchanged.";
+    await renderTrainerSpriteEditor(project, root, trainerClassId, options);
+  });
   root.querySelector("#trainer-pwan-apply")?.addEventListener("click", async () => {
-    if (!trainerPwanState.build) return;
+    if (!trainerPwanState.build || !session.ready()) return;
     upsertTrainerPwanOverride(project, trainerPwanState.build);
     trainerPwanState.status = `PWAN override applied to trainer graphic ${trainerPwanState.build.graphicIndex}.`;
     trainerPwanState.build = undefined;
@@ -477,7 +502,8 @@ function installTrainerPwanImporter(project: ProjectState, root: HTMLElement, tr
 
 async function generateTrainerPwanPreview(project: ProjectState, root: HTMLElement, trainerClassId: number, options: TrainerSpriteEditorOptions): Promise<void> {
   const source = trainerPwanState.source;
-  if (!source) return;
+  const conversion = trainerPwanState.conversion;
+  if (!source || !conversion) return;
   const value = (id: string, fallback: number) => Number(root.querySelector<HTMLInputElement>(id)?.value ?? fallback);
   trainerPwanState.speed = clamp(value("#trainer-pwan-speed", 1), 0.1, 4);
   trainerPwanState.scale = clamp(value("#trainer-pwan-scale", 1), 0.5, 2);
@@ -485,7 +511,7 @@ async function generateTrainerPwanPreview(project: ProjectState, root: HTMLEleme
   trainerPwanState.offsetY = clamp(value("#trainer-pwan-offset-y", 0), -48, 48);
   try {
     trainerPwanState.status = `Compiling ${source.fileName} to PWAN...`;
-    trainerPwanState.build = await buildTrainerPwanOverride(trainerGraphicIndexForClass(project, trainerClassId), source.fileName, source.bytes, trainerPwanState);
+    trainerPwanState.build = buildTrainerPwanOverrideFromCompileResult(trainerGraphicIndexForClass(project, trainerClassId), source.fileName, source.bytes, conversion, trainerPwanState);
     trainerPwanState.status = `Preview ready: ${trainerPwanState.build.animation.uniqueFrameCount} frame(s), ${trainerPwanState.build.animation.totalTicks} ticks.`;
     animationTick = 0;
     await renderTrainerSpriteEditor(project, root, trainerClassId, options);

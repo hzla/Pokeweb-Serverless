@@ -17,7 +17,7 @@ import type { ProjectState, PwanAnimationOverride, PwanAnimationState, PwanOverr
 import { markDirty } from "./projectStore";
 import { loadActiveRomBytes } from "./persistence";
 import { applyPwanCarrierPatch, deriveBackNcecY, loadBundledPwanCarrierTemplate } from "./pwanCarrierPatch";
-import { compileGifToPwan, parsePwanHeader, PWAN_MAX_TIMELINE, pwanFramesPerSecond, pwanPalette, scalePwanTimelineSpeed, shiftPwanFrames, pwanVisibleHeight, validatePwan, type PwanCompileResult } from "./pwanCompiler";
+import { compileGifToPwan, parsePwanHeader, PWAN_MAX_TIMELINE, pwanFramesPerSecond, pwanPalette, scalePwanTimelineSpeed, shiftPwanFrames, pwanVisibleHeight, validatePwan, type PwanCompileOptions, type PwanCompileResult } from "./pwanCompiler";
 import { compileGifToPwanAsync } from "./pwanCompilerClient";
 import { detectPwanRuntimeCompatibility, pwanCompatibilityFailureSummary } from "./pwanCompatibilityModel";
 import { hydrateW2AnimPokemonTarget, isW2AnimProject, materializeW2AnimAnimations } from "./w2animAnimationModel";
@@ -94,11 +94,13 @@ export type PwanOverrideInput = {
   backFileName: string;
   backGifBytes: Uint8Array;
   nativePaletteSource?: PwanPaletteSource;
+  compileOptions?: PwanCompileOptions;
 };
 
 export type PwanOverrideSideInput = {
   fileName: string;
   gifBytes: Uint8Array;
+  compileOptions?: PwanCompileOptions;
 };
 
 export type PwanOverrideSideUpsert = {
@@ -332,8 +334,8 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 export function buildPwanOverride(input: PwanOverrideInput): PwanAnimationOverride {
   validatePwanSpeciesId(input.speciesId);
-  const front = buildPwanOverrideSide({ fileName: input.frontFileName, gifBytes: input.frontGifBytes });
-  const back = buildPwanOverrideSide({ fileName: input.backFileName, gifBytes: input.backGifBytes });
+  const front = buildPwanOverrideSide({ fileName: input.frontFileName, gifBytes: input.frontGifBytes, compileOptions: input.compileOptions });
+  const back = buildPwanOverrideSide({ fileName: input.backFileName, gifBytes: input.backGifBytes, compileOptions: input.compileOptions });
   return normalizePwanOverride({
     speciesId: input.speciesId,
     formIndex: input.formIndex,
@@ -348,8 +350,8 @@ export function buildPwanOverride(input: PwanOverrideInput): PwanAnimationOverri
 export async function buildPwanOverrideAsync(input: PwanOverrideInput): Promise<PwanAnimationOverride> {
   validatePwanSpeciesId(input.speciesId);
   const [front, back] = await Promise.all([
-    buildPwanOverrideSideAsync({ fileName: input.frontFileName, gifBytes: input.frontGifBytes }),
-    buildPwanOverrideSideAsync({ fileName: input.backFileName, gifBytes: input.backGifBytes }),
+    buildPwanOverrideSideAsync({ fileName: input.frontFileName, gifBytes: input.frontGifBytes, compileOptions: input.compileOptions }),
+    buildPwanOverrideSideAsync({ fileName: input.backFileName, gifBytes: input.backGifBytes, compileOptions: input.compileOptions }),
   ]);
   return normalizePwanOverride({
     speciesId: input.speciesId,
@@ -363,24 +365,25 @@ export async function buildPwanOverrideAsync(input: PwanOverrideInput): Promise<
 }
 
 export function buildPwanOverrideSide(input: PwanOverrideSideInput): PwanOverrideSide {
-  return pwanOverrideSideFromCompileResult(input, compileGifToPwan(input.gifBytes));
+  return pwanOverrideSideFromCompileResult(input, compileGifToPwan(input.gifBytes, input.compileOptions));
 }
 
 export async function buildPwanOverrideSideAsync(input: PwanOverrideSideInput): Promise<PwanOverrideSide> {
-  return pwanOverrideSideFromCompileResult(input, await compileGifToPwanAsync(input.gifBytes));
+  return pwanOverrideSideFromCompileResult(input, await compileGifToPwanAsync(input.gifBytes, input.compileOptions));
 }
 
-function pwanOverrideSideFromCompileResult(input: PwanOverrideSideInput, result: PwanCompileResult): PwanOverrideSide {
+/** Apply the exact compiled bytes reviewed in the import preview, without recompiling. */
+export function pwanOverrideSideFromCompileResult(input: PwanOverrideSideInput, result: PwanCompileResult): PwanOverrideSide {
   return {
     sourceFileName: input.fileName,
-    sourceGifBytes: input.gifBytes,
-    pwanBytes: result.pwanBytes,
+    sourceGifBytes: input.gifBytes.slice(),
+    pwanBytes: result.pwanBytes.slice(),
     visibleHeight: result.visibleHeight,
     frameCount: result.frameCount,
     uniqueFrameCount: result.uniqueFrameCount,
     timelineCount: result.timelineCount,
     totalTicks: result.totalTicks,
-    paletteBgr555: result.paletteBgr555,
+    paletteBgr555: result.paletteBgr555.slice(),
     speedScale: 1,
     framesPerSecond: pwanFramesPerSecond(result.pwanBytes),
     scale: 1,
@@ -388,7 +391,7 @@ function pwanOverrideSideFromCompileResult(input: PwanOverrideSideInput, result:
     outlineThreshold: PWAN_DEFAULT_OUTLINE_THRESHOLD,
     offsetX: 0,
     offsetY: 0,
-    notes: result.warnings,
+    notes: [...result.warnings],
   };
 }
 

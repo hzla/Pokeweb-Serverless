@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { NintendoDSRom } from "../nds/rom";
 import { writeU16, writeU32 } from "../nds/binary";
-import { findPwanOverrideForSpecies, getPwanRuntimeStatus, installPwanRuntime, materializePwanAnimations } from "../pokeweb/pwanAnimationModel";
+import { findPwanOverrideForSpecies, getPwanRuntimeStatus, installPwanRuntime, materializePwanAnimations, pwanOverrideSideFromCompileResult, upsertPwanOverrideSide } from "../pokeweb/pwanAnimationModel";
+import { compilePwanAnimationFrames, pwanTimeline } from "../pokeweb/pwanCompiler";
 import { findTrainerPwanOverride, installTrainerPwanRuntime } from "../pokeweb/trainerPwanAnimationModel";
 import type { ProjectState } from "../pokeweb/projectStore";
-import { decodeW2AnimFrame, parseW2Anim } from "../pokeweb/w2animCodec";
+import { decodeW2AnimFrame, parseW2Anim, encodeW2AnimMani, materializeW2AnimArchive, w2animKey } from "../pokeweb/w2animCodec";
 import { hydrateW2AnimFromRom, materializeW2AnimAnimations, w2animEditorToLinear, w2animLinearToEditor } from "../pokeweb/w2animAnimationModel";
 import { streamFixture } from "./w2animFixture";
 
@@ -28,6 +29,16 @@ function projectFixture(): { project: ProjectState; rom: NintendoDSRom } {
 }
 
 describe("w2anim authoring bridge", () => {
+  it.each([152, 192])("imports a %i-step refreshed stream without the old 128-step authoring restriction", (count) => {
+    const { project } = projectFixture(), source = parseW2Anim(project.w2animAnimations!.sourceBytes);
+    const entry = source.entries[0]!, original = source.manis.get(entry.maniOffset)!;
+    const mani = encodeW2AnimMani({frames:[decodeW2AnimFrame(source,original,0)],sequence:Array.from({length:count},()=>({frame:0,duration:3})),normalPalette:original.normalPalette,shinyPalette:original.shinyPalette});
+    project.w2animAnimations!.sourceBytes = materializeW2AnimArchive(source,new Map([[w2animKey(entry),{entry,mani}]]));
+    const side = findPwanOverrideForSpecies(project,1)!.front!;
+    expect(pwanTimeline(side.pwanBytes)).toHaveLength(count);
+    expect(side.totalTicks).toBe(count*3);
+    expect(project.pwanAnimations!.dirty).toBe(false);
+  });
   it("blocks both PWAN installers before any fetch or project mutation", async () => {
     const { project } = projectFixture(), before = structuredClone(project);
     const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
@@ -61,6 +72,23 @@ describe("w2anim authoring bridge", () => {
     expect(mani.sequence).toEqual(original.manis.get(64)!.sequence);
     expect(project.narcs.pokemon_sprites!.dirty).toEqual(new Set([22, 23]));
     expect(project.codeInjection?.modules).toBeUndefined();
+  });
+
+  it.each(["none", "gen5"] as const)("preserves the improved GIF converter's %s palette and pixels through w2anim export", async (colorPreset) => {
+    const { project, rom } = projectFixture();
+    const compiled = compilePwanAnimationFrames([{ index: 0, width: 4, height: 1, delayMs: 200,
+      pixels: Uint8ClampedArray.of(80, 128, 176, 255, 24, 24, 24, 255, 248, 240, 224, 255, 0, 0, 0, 0) }], { colorPreset, includePreview: true });
+    const sideData = pwanOverrideSideFromCompileResult({ fileName: "sprite.gif", gifBytes: Uint8Array.of(1) }, compiled);
+    upsertPwanOverrideSide(project, { speciesId: 1, side: "front", sideData });
+    await materializeW2AnimAnimations(project, rom);
+    const after = parseW2Anim(project.fileSystem!.replacements[7]!);
+    const mani = after.manis.get(after.entries[0]!.maniOffset)!;
+    expect(mani.normalPalette).toEqual(compiled.paletteBgr555);
+    const frameOffset = new DataView(compiled.pwanBytes.buffer).getUint32(36, true);
+    expect(decodeW2AnimFrame(after, mani, 0)).toEqual(w2animEditorToLinear(compiled.pwanBytes.subarray(frameOffset, frameOffset + 4608)));
+    expect(mani.sequence).toEqual(pwanTimeline(compiled.pwanBytes).map((entry) => ({ frame: entry.frameIndex, duration: entry.ticks })));
+    expect(project.codeInjection?.modules).toBeUndefined();
+    expect(Object.keys(project.fileSystem!.additions ?? {})).not.toContain("zz_pokeweb_pwan/pwan.narc");
   });
 
   it("trainer conversion obeys the checkout's eight-row carrier convention", async () => {
