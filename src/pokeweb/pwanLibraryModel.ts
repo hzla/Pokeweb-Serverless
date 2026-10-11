@@ -1,4 +1,6 @@
 import { recordGenericChange } from "./actionChangelog";
+import { gunzipSync } from "fflate";
+import { readU32 } from "../nds/binary";
 import { NARC } from "../nds/narc";
 import {
   buildPwanOverrideSideFromPwanBytes,
@@ -27,6 +29,12 @@ export type PwanLibraryEntry = {
   credits: string;
   creditSource: PwanLibraryCreditSource;
   notes?: string;
+  spriteSources?: Array<{
+    side: 'front' | 'back';
+    source: string;
+    credits: string;
+    creditBasis: string;
+  }>;
   icon?: {
     maleMemberId: number;
     femaleMemberId: number;
@@ -67,7 +75,7 @@ export type ImportPwanLibraryEntryOptions = {
 };
 
 const PWAN_LIBRARY_MANIFEST_URL = new URL("../assets/pwan/library/manifest.json", import.meta.url);
-const PWAN_LIBRARY_ARCHIVE_URL = new URL("../assets/pwan/library/pwan.narc", import.meta.url);
+const PWAN_LIBRARY_ARCHIVE_URL = new URL("../assets/pwan/library/pwan.narc.gz", import.meta.url);
 
 let loadedPwanLibraryPromise: Promise<LoadedPwanLibrary> | undefined;
 
@@ -168,7 +176,19 @@ async function fetchPwanLibrary(): Promise<LoadedPwanLibrary> {
   const manifest = await manifestResponse.json() as PwanLibraryManifest;
   const archiveResponse = await fetch(PWAN_LIBRARY_ARCHIVE_URL);
   if (!archiveResponse.ok) throw new Error(`Could not load PWAN community asset archive (${archiveResponse.status})`);
-  return parsePwanLibraryArchive(manifest, new Uint8Array(await archiveResponse.arrayBuffer()));
+  return parsePwanLibraryArchive(manifest, decodePwanLibraryPayload(new Uint8Array(await archiveResponse.arrayBuffer()), manifest.archiveBytes));
+}
+
+/** Accept raw bytes too: an HTTP server can transparently decode Content-Encoding. */
+export function decodePwanLibraryPayload(payload: Uint8Array, expectedBytes: number): Uint8Array {
+  if (!Number.isSafeInteger(expectedBytes) || expectedBytes < 16) throw new Error('Invalid PWAN library size');
+  let archive = payload;
+  if (payload[0] === 0x1f && payload[1] === 0x8b) {
+    if (payload.length < 18 || readU32(payload, payload.length - 4) !== expectedBytes) throw new Error('Compressed PWAN library size mismatch');
+    archive = gunzipSync(payload, {out: new Uint8Array(expectedBytes)});
+  }
+  if (archive.length !== expectedBytes || new TextDecoder().decode(archive.subarray(0, 4)) !== 'NARC') throw new Error('Invalid PWAN library archive');
+  return archive;
 }
 
 function findLibraryOverride(overrides: PwanAnimationOverride[], entry: PwanLibraryEntry): PwanAnimationOverride | undefined {

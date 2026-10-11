@@ -14,6 +14,8 @@ import {
 import { compileGifToPwan } from "../pokeweb/pwanCompiler";
 import {
   buildTrainerPwanConfig,
+  buildTrainerPwanOverride,
+  buildTrainerPwanOverrideFromCompileResult,
   ensureTrainerPwanAnimationState,
   parseTrainerPwanArchive,
   removeTrainerPwanOverride,
@@ -37,6 +39,17 @@ import { decompressNitro, parsePokemonMultiCells, parseRigCells } from "../pokew
 
 describe("trainerPwanAnimationModel", () => {
   afterEach(() => vi.unstubAllGlobals());
+  it("honors GIF preset options and applies reviewed bytes without mutating the preview", async () => {
+    const gif = new Uint8Array(Buffer.from("R0lGODlhAQABAIABAP///wAAACH5BAEKAAEALAAAAAABAAEAAAICRAEAOw==", "base64"));
+    const options = { compileOptions: { colorPreset: "gen5" as const }, speed: 2, scale: 2, offsetX: 1, offsetY: -1 };
+    const reviewed = compileGifToPwan(gif, options.compileOptions);
+    const original = reviewed.pwanBytes.slice();
+    const expected = buildTrainerPwanOverrideFromCompileResult(17, "sprite.gif", gif, reviewed, options);
+    expect(await buildTrainerPwanOverride(17, "sprite.gif", gif, options)).toEqual(expected);
+    expect(reviewed.pwanBytes).toEqual(original);
+    expect(expected.animation.notes).toContainEqual(expect.stringContaining("Gen 5-inspired"));
+    expect(expected.animation.visibleHeight).toBe(2);
+  });
   it("initializes independent trainer PWAN state", () => {
     const project = {} as ProjectState;
     expect(ensureTrainerPwanAnimationState(project)).toMatchObject({ dirty: false, overrides: [] });

@@ -1,8 +1,9 @@
-import { compileGifToPwan, type PwanCompileResult } from "./pwanCompiler";
+import { compileGifToPwan, type PwanCompileOptions, type PwanCompileResult } from "./pwanCompiler";
 
 type CompileRequest = {
   id: number;
   bytes: Uint8Array;
+  options?: PwanCompileOptions;
 };
 
 type CompileResponse = {
@@ -17,10 +18,10 @@ const scope = globalThis as unknown as {
 };
 
 scope.addEventListener("message", (event) => {
-  const { id, bytes } = event.data;
+  const { id, bytes, options } = event.data;
   try {
-    const result = compileGifToPwan(bytes);
-    scope.postMessage({ id, result }, [result.pwanBytes.buffer, result.paletteBgr555.buffer]);
+    const result = compileGifToPwan(bytes, options);
+    scope.postMessage({ id, result }, [result.pwanBytes.buffer, result.paletteBgr555.buffer, ...(result.previewFrames?.map((frame) => frame.pixels.buffer) ?? [])]);
   } catch (error) {
     scope.postMessage({ id, error: error instanceof Error ? error.message : String(error) });
   }

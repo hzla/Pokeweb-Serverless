@@ -3,7 +3,7 @@ import { NintendoDSRom } from "../nds/rom";
 import { setRomFileReplacement } from "./fileSystemModel";
 import { decompressNitro, resolvePokemonSpriteId } from "./pokemonSpriteModel";
 import { markDirty, type ProjectState, type PwanOverrideSide } from "./projectStore";
-import { parsePwanHeader, pwanPalette, pwanTimeline, pwanFramesPerSecond, pwanVisibleHeight, validatePwan } from "./pwanCompiler";
+import { parsePwanHeader, pwanPalette, pwanTimeline, pwanFramesPerSecond, pwanVisibleHeight, validatePwan, PWAN_MAX_TIMELINE } from "./pwanCompiler";
 import { ensureTrainerSpriteStore } from "./trainerSpriteModel";
 import { decodeW2AnimFrame, encodeW2AnimLz10, encodeW2AnimMani, materializeW2AnimArchive, parseW2Anim,
   W2ANIM_CARRIER, W2ANIM_OWN_PALETTES, W2ANIM_PATH, W2ANIM_TEX4, W2ANIM_TICKS, w2animKey,
@@ -81,7 +81,7 @@ function editable(mani: W2AnimMani): void {
   if (!(mani.flags & W2ANIM_TEX4) || mani.width !== 96 || mani.height !== 96)
     throw new Error("This w2anim stream is preserved but cannot be edited: only 96x96 TEX4 is supported");
   if (!(mani.flags & W2ANIM_TICKS)) throw new Error("Millisecond w2anim timelines are preserved but cannot be edited in the tick-based canvas");
-  if (mani.sequence.length > 128) throw new Error("This w2anim timeline is preserved but exceeds the authoring canvas limit");
+  if (mani.sequence.length > PWAN_MAX_TIMELINE) throw new Error("This w2anim timeline is preserved but exceeds the authoring canvas limit");
 }
 
 function editorSide(project: ProjectState, entry: W2AnimEntry, trainer: boolean): PwanOverrideSide {
