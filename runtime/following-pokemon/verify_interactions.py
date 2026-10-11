@@ -217,6 +217,44 @@ for direction in range(4):
  setup(direction);assert call('fwt_reach',[F,P,A,FIELD])==1
  blocked=1;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
  put(A+72,65536);assert not call('fwt_reach',[F,P,A,FIELD]);put(A+72,0)
+# Purrloin: after a north-to-west turn the follower is one tile east and
+# six units south, still facing north. The old one-third-tile corridor
+# rejected it. Reach follows the native target tile, not opaque sprite width.
+# Exercise all 16 independent player/follower facings, both lateral signs,
+# small/default/authored gaps, and the exact half-tile edge after an L bend.
+cross_facing_cases=0
+for direction in range(4):
+ for follower_face in range(4):
+  for sign in (-1,1):
+   for side_gap in (0,8,12):
+    for sideways in (6,8):
+     setup(direction);half(A+24,follower_face)
+     uc.mem_write(F+1852,bytes([side_gap]*4))
+     # Keep both signs of the exact edge inside the native target grid cell.
+     x=z=10*65536+(8 if sign<0 else 7)*4096
+     dx,dz={0:(0,-65536),1:(0,65536),2:(-65536,0),3:(65536,0)}[direction]
+     cx,cz=x+dx,z+dz
+     ax,az=(cx+sign*sideways*4096,cz) if direction<2 else (cx,cz+sign*sideways*4096)
+     uc.mem_write(P+68,struct.pack('<iii',x,0,z));uc.mem_write(A+68,struct.pack('<iii',ax,0,az))
+     uc.mem_write(A+60,struct.pack('<hhh',ax//65536,0,az//65536))
+     for i,(sx,sz) in enumerate(((ax,az),(cx,cz),(x,z))):
+      uc.mem_write(F+52+i*28,struct.pack('<iiiIIHHBBH',sx,0,sz,1,1,0,0,follower_face,3,1))
+     half(F+1850,3)
+     assert call('fwt_reach',[F,P,A,FIELD])==1,(direction,follower_face,sign,side_gap,sideways)
+     blocked=1;assert not call('fwt_reach',[F,P,A,FIELD]);blocked=0
+     put(A+72,9*4096);assert not call('fwt_reach',[F,P,A,FIELD]);put(A+72,0)
+     # An unrelated cell, a detached trail or an excessive sideways offset
+     # must remain rejected even with a large authored forward gap.
+     half(A+60,30);assert not call('fwt_reach',[F,P,A,FIELD]);half(A+60,ax//65536)
+     put(F+52+12,2);assert not call('fwt_reach',[F,P,A,FIELD]);put(F+52+12,1)
+     if direction<2:
+      put(F+52+28,cx+sign*9*4096);assert not call('fwt_reach',[F,P,A,FIELD]);put(F+52+28,cx)
+      put(A+68,cx+sign*9*4096)
+     else:
+      put(F+52+28+8,cz+sign*9*4096);assert not call('fwt_reach',[F,P,A,FIELD]);put(F+52+28+8,cz)
+      put(A+76,cz+sign*9*4096)
+     assert not call('fwt_reach',[F,P,A,FIELD])
+     cross_facing_cases+=1
 # Wider lateral gap stays talkable from either side without relaxing walls,
 # elevation, native adjacent tiles, or straight connected-trail requirements.
 for direction in (2,3):
@@ -409,7 +447,7 @@ assert u32(addr('FollowingTalkDebug')+16)!=0x8000;call('fwt_cancel');balanced()
 assets.pop(context_path)
 print('Context animations passed: every motion before/after text, legacy text-only, exact window/cry order, grounded hop suppression, prefix/suffix cancellation and safe fallback; native services mocked.')
 call('fwt_unload');setup();fail='data';assert not begin();balanced()
-print(f'Packaged interaction checks passed: ABI, priority veneers, four-direction reach, blocked/elevation rejection, {len(reactions)} randomly selected rules, {CYCLES} simulated conversations, all 9 interruption stages, nested event ownership and resource failures. Native services mocked; no DS game run.')
+print(f'Packaged interaction checks passed: ABI, priority veneers, four-direction reach, {cross_facing_cases} independent-facing corner cases and safety rejections, {len(reactions)} randomly selected rules, {CYCLES} simulated conversations, all 9 interruption stages, nested event ownership and resource failures. Native services mocked; no DS game run.')
 
 if '--state' in sys.argv:
  from verify_terrain_state import state_ram,state_follower,BASE as RAM_BASE

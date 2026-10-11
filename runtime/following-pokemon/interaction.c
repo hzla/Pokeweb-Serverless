@@ -99,16 +99,18 @@ int fwt_reach(FwFollower *f,Actor *p,Actor *a,void *field){
   vx=(front.x-p->world.x)/256;vz=(front.z-p->world.z)/256;
   if(abs32(vx)>512||abs32(vz)>512)return 0;
  }
- /* Match the wider lateral trail, including a rotated rail tangent. The
-    native adjacent-tile/obstruction and connected-corridor checks still apply. */
+ /* A turn leaves a follower partway across its adjacent tile, with a facing
+    independent of the player's. Admit half a tile sideways regardless of
+    sprite width or facing, including a rotated rail tangent. Native target
+    tiles, obstructions and the bounded connected trail still constrain reach. */
  int length=vx*vx+vz*vz,px=x/256,pz=z/256,along=px*vx+pz*vz,lateral=px*vz-pz*vx;
- if(!length||along<length/2||along>length+length/8+gap*length/16||abs32(lateral)>(int)((unsigned)length/3))return 0;
+ if(!length||along<length/2||along>length+length/8+gap*length/16||abs32(lateral)>(int)((unsigned)length/2))return 0;
  /* A bounded connected trail proves both actors occupy the same corridor.
     Use the rail tangent too, so rotated/curved paths retain normal reach. */
  for(unsigned i=0;i<f->trail.count;++i){const FwSample *s=&f->trail.samples[(f->trail.head+i)%FW_TRAIL_CAPACITY];
   if(s->generation!=f->generation||abs32(s->y-a->world.y)>8*4096)return 0;
   int dx=(s->x-p->world.x)/256,dz=(s->z-p->world.z)/256;
-  if(abs32(dx)>512||abs32(dz)>512||abs32(dx*vz-dz*vx)>(int)((unsigned)length/3))return 0;
+  if(abs32(dx)>512||abs32(dz)>512||abs32(dx*vz-dz*vx)>(int)((unsigned)length/2))return 0;
  }
  if(!controller){
   int16_t gx,gy,gz;CALL(0x0219aacd,void(*)(void*,void*,void*,void*))(PTR(field,0x94),&gx,&gy,&gz);

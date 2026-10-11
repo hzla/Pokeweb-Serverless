@@ -20,7 +20,7 @@ VARIANT=os.environ.get('FOLLOWING_VARIANT','full')
 if VARIANT not in ('base','full'):raise ValueError('FOLLOWING_VARIANT must be base or full')
 BUILD=ROOT_BUILD/'base' if VARIANT=='base' else ROOT_BUILD
 os.environ['FOLLOWING_BUILD_DIR']=str(BUILD)
-VERSION='0.7.43-alpha' if UPGRADE else '0.6.49-alpha' if ITALY else '0.6.88-alpha' if PROFILE=='stock' else '0.6.48-alpha'
+VERSION='0.7.43-alpha' if UPGRADE else '0.6.49-alpha' if ITALY else '0.6.89-alpha' if PROFILE=='stock' else '0.6.48-alpha'
 SUFFIX=('B2' if BLACK2 else 'W2I' if ITALY else 'W2')+('Base' if VARIANT=='base' else '')
 CONTRACT=HERE/('black2-contract.json' if BLACK2 else 'italy-contract.json' if ITALY else 'contract.json')
 os.environ['FOLLOWING_MODULE_SUFFIX']=SUFFIX
@@ -187,7 +187,8 @@ def build(rom, publish=False):
     run(os.environ.get('PYTHON','python3'),HERE/'verify_resident_events.py')
     run(os.environ.get('PYTHON','python3'),HERE/'verify_options.py',rom)
     run(os.environ.get('PYTHON','python3'),HERE/'verify_anchor.py')
-    if UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_interactions.py')
+    # Stock full runs these through continuity; base needs its own reach gate.
+    if UPGRADE or (PROFILE=='stock' and VARIANT=='base'): run(os.environ.get('PYTHON','python3'),HERE/'verify_interactions.py')
     if VARIANT=='full' and ITALY: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','white2italy',rom)
     elif VARIANT=='full' and BLACK2: run(os.environ.get('PYTHON','python3'),HERE/'verify_profile_runtime.py','black2',rom)
     elif VARIANT=='full' and not BLACK2 and not ITALY and not UPGRADE: run(os.environ.get('PYTHON','python3'),HERE/'verify_continuity.py',rom)
