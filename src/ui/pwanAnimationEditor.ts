@@ -1,5 +1,6 @@
 import type { ProjectState, PwanAnimationOverride, PwanOverrideSide, PwanPaletteSource } from "../pokeweb/projectStore";
-import { isW2AnimProject } from "../pokeweb/w2animAnimationModel";
+import { isW2AnimProject, w2animArchiveSummary } from "../pokeweb/w2animAnimationModel";
+import { detectAnimationAssets } from "../pokeweb/animationAssetModel";
 import {
   pwanOverrideSideFromCompileResult,
   ensurePwanAnimationState,
@@ -84,6 +85,7 @@ type PwanAnimationEditorOptions = {
 type PwanImportFormOptions = PwanAnimationEditorOptions & {
   title?: string;
   defaultSpeciesId?: number;
+  defaultFormIndex?: number;
   defaultPaletteSource?: PwanPaletteSource;
   showImportStatus?: boolean;
   showPaletteField?: boolean;
@@ -245,7 +247,7 @@ export function installPwanImportFormEvents(project: ProjectState, root: HTMLEle
       const paletteSource = root.querySelector<HTMLInputElement | HTMLSelectElement>("#pwan-palette-source")?.value;
       const nativePaletteSource = (paletteSource ?? "back") as PwanPaletteSource;
       if (!frontPreview || !backPreview) throw new Error("Wait for both GIF previews before saving an override.");
-      const target = resolvePwanSpeciesTarget(project, speciesId);
+      const target = resolvePwanSpeciesTarget(project, speciesId, options.defaultFormIndex ?? 0);
       const override: PwanAnimationOverride = {
         speciesId: target.speciesId,
         formIndex: target.formIndex,
@@ -1748,7 +1750,7 @@ function renderPwanImportForm(project: ProjectState, speciesOptions: string, opt
   const title = options.title ?? "Add Override";
   const defaultSpeciesId = options.defaultSpeciesId ?? 498;
   const defaultPaletteSource = options.defaultPaletteSource ?? "back";
-  const existingOverride = options.showImportStatus ? findPwanOverrideForSpecies(project, defaultSpeciesId) : undefined;
+  const existingOverride = options.showImportStatus ? findPwanOverrideForSpecies(project, defaultSpeciesId, options.defaultFormIndex ?? 0) : undefined;
   const showPaletteField = options.showPaletteField ?? true;
   const showSpeciesField = options.showSpeciesField ?? true;
   const submitLabel = options.submitLabel ?? "Save Override";
@@ -1913,6 +1915,13 @@ function renderSpeciesOptions(project: ProjectState): string {
 }
 
 function renderDetectedArchiveSummary(project: ProjectState): string {
+  const assets = detectAnimationAssets(project);
+  if (assets.w2anim) {
+    const summary = w2animArchiveSummary(project);
+    return `<div class="pwan-archive-summary"><strong>w2anim streams detected</strong>
+      <span>${summary.pokemonSheets} Pokémon sheets · ${summary.trainerSheets} trainer sheets · ${summary.manifests} shared manifests</span>
+      <span>GIF edits export to W2AS, not PWAN.${assets.pwan ? " Legacy PWAN archive also detected; retained unchanged." : ""}</span></div>`;
+  }
   const state = project.pwanAnimations;
   if (state?.loadError) {
     return `<div class="pwan-archive-summary -error"><strong>Archive unreadable</strong><span>${escapeHtml(state.loadError)}</span></div>`;

@@ -13,6 +13,11 @@ static unsigned wrap_narc(unsigned member){
  put32(bad+36,0x464e5442);put32(bad+40,16);put32(bad+44,4);put32(bad+48,0x00010000);
  put32(bad+52,0x46494d47);put32(bad+56,8+member);return size;
 }
+static unsigned make_context(unsigned abi,unsigned before,unsigned after){
+ memset(bad,0,40);put32(bad,0x44435746);put16(bad+4,abi);put16(bad+6,1);put32(bad+8,40);
+ bad[20]=bad[21]=255;bad[26]=100;bad[27]=(unsigned char)before;put32(bad+28,36);put16(bad+32,2);bad[34]=(unsigned char)after;
+ put16(bad+36,'X');put16(bad+38,0xffff);repair(40);return wrap_narc(40);
+}
 static unsigned make_items(unsigned count){
  unsigned floor=16+count*28,size=floor+count*4;memset(bad,0,size);put32(bad,0x49545746);put16(bad+4,1);put16(bad+6,count);put32(bad+8,size);
  for(unsigned i=0;i<count;++i){unsigned char*r=bad+16+i*28;unsigned name=floor+i*4,text=name+2;put16(r+4,i+1);r[6]=(unsigned char)(i%10);r[7]=255;r[8]=255;r[13]=1;put32(r+14,name);put16(r+18,1);put32(r+20,text);put16(r+24,1);put16(bad+name,0xffff);put16(bad+text,0xffff);}
@@ -52,6 +57,16 @@ int main(int argc,char **argv){
  memcpy(bad,bytes,n);bad[d.rules+7]=6;repair(n);assert(!fwr_validate(&x,bad,n));
  memcpy(bad,bytes,n);bad[d.motions+5]=0;repair(n);assert(!fwr_validate(&x,bad,n));
  memcpy(bad,bytes,n);bad[d.bubbles+12]=2;repair(n);assert(!fwr_validate(&x,bad,n));
+ FwrContext ctx;FwrStep step;
+ for(unsigned before=0;before<=12;++before)for(unsigned after=0;after<=12;++after){
+  unsigned size=make_context(2,before,after);assert(fwr_context_validate(&ctx,bad,size));unsigned index=0;
+  if(before){assert(fwr_context_step(&ctx,0,index++,&step)&&step.action==before&&!step.message&&step.cry==1);}
+  assert(fwr_context_step(&ctx,0,index++,&step)&&step.message==1&&!step.action&&!step.cry);
+  if(after){assert(fwr_context_step(&ctx,0,index++,&step)&&step.action==after&&!step.message&&step.cry==1);}
+  assert(!fwr_context_step(&ctx,0,index,&step));assert(!fwr_context_step(&ctx,1,0,&step));
+ }
+ for(unsigned abi=1;abi<=2;++abi){unsigned size=make_context(abi,0,0);assert(fwr_context_validate(&ctx,bad,size));assert(fwr_context_step(&ctx,0,0,&step)&&step.message==1);assert(!fwr_context_step(&ctx,0,1,&step));}
+ for(unsigned i=0;i<4;++i){unsigned size=make_context(i==0?1:i==3?3:2,i==0?2:i==1?13:0,i==2?13:0);assert(!fwr_context_validate(&ctx,bad,size));}
  FwrItems gifts;unsigned gift_size=make_items(125);assert(fwr_items_validate(&gifts,bad,gift_size)&&gifts.ruleCount==125);
  s.pokemon.species=25;s.pokemon.hp=s.pokemon.max_hp=100;s.pokemon.egg=0;s.direction=0;s.zone=0;s.type1=12;s.type2=4;
  FwrItemChoice gift;assert(fwr_item_choose(&gifts,&s,0,&gift)&&gift.rule==0&&gift.slot==0);assert(fwr_item_choose(&gifts,&s,1,&gift)&&gift.rule==1&&gift.slot==1);

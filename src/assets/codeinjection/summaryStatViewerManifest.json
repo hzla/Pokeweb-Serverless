@@ -465,6 +465,9 @@
   "games": {
     "W2": {
       "idCode": "IRDO",
+      "revision": 0,
+      "overlayId": 207,
+      "graphicsArchive": "a/0/7/7",
       "fileName": "SummaryStatViewerW2.dll",
       "codeFingerprint": "1b9acfe7",
       "bssSize": 108,
@@ -925,6 +928,9 @@
     },
     "B2": {
       "idCode": "IREO",
+      "revision": 0,
+      "overlayId": 207,
+      "graphicsArchive": "a/0/7/7",
       "fileName": "SummaryStatViewerB2.dll",
       "codeFingerprint": "26234bad",
       "bssSize": 108,
@@ -1379,6 +1385,880 @@
         },
         {
           "member": 131,
+          "sha256": "e1c158d39344cc4bde047802049b1e679517ecfc7357d4e1fdad747f9536a0fa"
+        }
+      ]
+    },
+    "B": {
+      "idCode": "IRBO",
+      "revision": 0,
+      "overlayId": 131,
+      "graphicsArchive": "a/0/7/8",
+      "dsAccepted": true,
+      "liveDsiAccepted": false,
+      "fileName": "SummaryStatViewerB.dll",
+      "codeFingerprint": "2da9ba6f",
+      "bssSize": 108,
+      "sha256": "dfd4ebfdf5f90a3a3176c5664d8acd7d097869bedb765a5e237b54a0bca26845",
+      "signatures": [
+        {
+          "label": "SummaryInit",
+          "module": "131",
+          "address": 35480922,
+          "expectedHex": "fdf771fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryEnd",
+          "module": "131",
+          "address": 35480966,
+          "expectedHex": "fdf747ff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTick",
+          "module": "131",
+          "address": 35472890,
+          "expectedHex": "47f673ff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryKeys",
+          "module": "131",
+          "address": 35476162,
+          "expectedHex": "00f007f8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTouch",
+          "module": "131",
+          "address": 35476172,
+          "expectedHex": "00f0ecf8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryHit",
+          "module": "131",
+          "address": 35476122,
+          "expectedHex": "60f6b6ec",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlash",
+          "module": "131",
+          "address": 35496238,
+          "expectedHex": "fcf72df8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryHp",
+          "module": "131",
+          "address": 35496212,
+          "expectedHex": "fcf7cef8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryMaxHp",
+          "module": "131",
+          "address": 35496296,
+          "expectedHex": "fcf7a4f8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTitle",
+          "module": "131",
+          "address": 35495598,
+          "expectedHex": "67f610e9",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTitleChars",
+          "module": "131",
+          "address": 35473894,
+          "expectedHex": "74f638ee",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496172,
+          "expectedHex": "3df696fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496350,
+          "expectedHex": "3df63dfe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496444,
+          "expectedHex": "3df60efe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496538,
+          "expectedHex": "3df6dffd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496632,
+          "expectedHex": "3df6b0fd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496726,
+          "expectedHex": "3df681fd",
+          "patchSize": 4
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33863800,
+          "expectedHex": "10402de90040a0e1680084e2ba15c4e1a50600eb0400a0e1310000eb1080bde8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862620,
+          "expectedHex": "602090e5811fa0e10123c2e3a11282e1601080e51eff2fe1600090e58002a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33863840,
+          "expectedHex": "10402de90040a0e1ba25d4e1020051e11080bd08efffffeb0400a0e1260000eb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862952,
+          "expectedHex": "b020d1e1b210d1e1bc20c0e1be10c0e11eff2fe1bc20d0e1be00d0e1b020c1e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33860484,
+          "expectedHex": "08402de928209fe501e0a0e1001092e50c1191e500c381e00f00bce80f00aee8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33863556,
+          "expectedHex": "38402de90140a0e10050a0e10400a0e10110a0e3076000eb0400a0e10210a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862580,
+          "expectedHex": "10402de90040a0e1080094e50410a0e1990500eb680084e24c0700eb0400a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862092,
+          "expectedHex": "70402de90050a0e1990200ebbc00d5e10040a0e3000050e30b0000dae460a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33859796,
+          "expectedHex": "38402de9ec509fe50040a0e1000095e50c0190e5040380e02c0080e252a7ffeb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33859488,
+          "expectedHex": "f8472de91cd04de214319fe50080a0e1000093e50170a0e1413f80e2b411d3e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33860244,
+          "expectedHex": "f8432de920809de50070a0e10160a0e10250a0e10340a0e1000058e30100000a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33861888,
+          "expectedHex": "f8472de904d04de2b4409fe5b4509fe50280a0e10070a0e300a0a0e11860a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862292,
+          "expectedHex": "f0402de92cd04de27c409fe501c0a0e1001094e518e0a0e3105191e5147191e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33863980,
+          "expectedHex": "602090e5811fa0e10224c2e3211382e1601080e51eff2fe1600090e50003a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33579492,
+          "expectedHex": "0021014bc9431847a5610002004b1847a56100020349c0000818034b001d0021",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33670372,
+          "expectedHex": "f8b586b0051c00200490a879401ca8712869002802d106b00120f8bd05a805a9",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33776444,
+          "expectedHex": "08402de9b7fbffebf4ffffeb0880bde838402de90150a0e10240a0e1affbffeb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33774600,
+          "expectedHex": "10402de90040a0e183fdffeb0410a0e1e7ffffeb1080bde810402de90040a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33652252,
+          "expectedHex": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33855064,
+          "expectedHex": "38402de90340a0e10250a0e1b831dde114209de5430300eb14c09de510309de5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33819420,
+          "expectedHex": "08402de92ce09fe52cc0a0e300e09ee590ec2ce01ec0dce500005ce30200001a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33820880,
+          "expectedHex": "30402de91cd04de22cc0a0e3900c0ce0fc009fe5005090e50c0085e01c00d0e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33838960,
+          "expectedHex": "0c0090e51eff2fe10900d0e51eff2fe10310c0e51eff2fe10410c0e51eff2fe1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33831772,
+          "expectedHex": "08402de9b430d0e1b620d0e1b8c0d0e1a331a0e1a221a0e1930202e09c0202e0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35471936,
+          "expectedHex": "f8b5051ca8689722c07b6f4901242883ff20a8760020e8760968920029620421",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35472408,
+          "expectedHex": "38b5051c68685cf646ed298ba868c173281c00f0a9fe281c00f012ff281c00f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35478680,
+          "expectedHex": "10b5041c012100f019faa17e208b814219d0ff290bd0211c88310968201c01f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35476180,
+          "expectedHex": "70b5051c61f630e8802108421dd0281c0121012400f036fc012849d1281c00f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35476648,
+          "expectedHex": "70b5041c616a07293fd849187944c988090409148f440e00280046006c00b400",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35479948,
+          "expectedHex": "70b582b0051c081c141c1e1c6ff6eaea011c06a80288331c00928088221c0190",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35480244,
+          "expectedHex": "78b583b0051c081c141c1e1c6ff656ea011c08a80288331c0092828801920089",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35479764,
+          "expectedHex": "70b5051caa680c1c117b002904d001290cd0022917d070bd1068012c02d141f6",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35496112,
+          "expectedHex": "f0b58db0051c0c1cfbf7f4ff7021002203903df6abfe071c0126f12000968001",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35496112,
+          "expectedHex": "f0b58db0051c0c1cfbf7f4ff7021002203903df6abfe071c0126f120009680010190e16d281c6e221923fcf757f8288844f6c0fd04900398a02100223df696fe021c0096049800210323019644f652ff592000901120019680010290e16d049a281c7723fcf7cef8049844f6f3fd1120009680010190e16d281c75225d23fcf72df8288844f696fd05900398a12100223df66cfe021c0096059800210323019644f628ff792000901120019680010290e16d059a281c7623fcf7a4f8059844f6c9fd3a06281c211c120e331c01f0a8fa00960190616e281c6f22331cfbf7feff288844f667fd06900398a22100223df63dfe021c0096069800210323019644f6f9fe692000901120019680010290616e069a281c7823fcf775f8069844f69afd3a06281c211c120e022301f079fa00960190a16e281c7022331cfbf7cfff288844f638fd07900398a32100223df60efe021c0096079800210323019644f6cafe692000901120019680010290a16e079a281c7923fcf746f8079844f66bfd3a06281c211c120e032301f04afa00960190e16e281c7122331cfbf7a0ff288844f609fd08900398a52100223df6dffd021c0096089800210323019644f69bfe692000901120019680010290e16e089a281c7a23fcf717f8089844f63cfd3a06281c211c120e042301f01bfa00960190216f281c7222331cfbf771ff288844f6dafc09900398a62100223df6b0fd021c0096099800210323019644f66cfe692000901120019680010290216f099a281c7b23fbf7e8ff099844f60dfd3a06281c211c120e052301f0ecf900960190616f281c7322331cfbf742ff288844f6abfc071c0398a42100223df681fd021c0096381c00210323019644f63dfe692000901120019680010290616f281c3a1c7c23fbf7b9ff381c44f6defcf120009680010190a16f281c74220523fbf718ff03980a2100223df65bfd0a902b8800200221b7226bf6e2eb0a990b906bf6a2ed071ca06f6bf6f6e9011c281c00978030006805220190112080010290281c84300068112342f6c0f9381c6bf630ea0b986bf62aec2b8800200221b6226bf6beeb0a990c906bf67eed071ca06f6bf6d2e9011c281c0097803000688435019011208001029028684122331c42f69df9381c6bf60cea0c986bf608ec66600db0f0bdf8b582b00e1cfbf7",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35493696,
+          "expectedHex": "f8b50d1c6a68071c002a0ad1aa68002a07d12a69002a04d12a6a002a01d101f0fbf86868012831d101260024a0002818c06d6bf6feef011c381c8430006842f6a1ff012801d1002604e0601c0006040e072cebd9012e19d10024a0002818c66d301c6bf6c8ed301c6bf6e4ed301c6bf6c0ef68f6dce9601c0006040e072cecd9381c291c00f03efb00206860a868012831d101260824a0002818c06d6bf6c8ef011c381c8430006842f66cff012801d1002604e0601c0006040e0b2cebd9012e19d10824a0002818c66d301c6bf692ed301c6bf6b0ed301c6bf68aef68f6a6e9601c0006040e0b2cecd9381c291c00f05ffb0020a860e86801281cd1281c8c3000686bf696ef011c381c8430006842f639ff00280fd1281c8c300468201c6bf66aed201c6bf686ed201c6bf662ef68f67ee90020e8602869012826d1381c8430006842f617ff01281fd1291c2a310a78281c1821b03051430024401800216c6102f0eaf82a1c2932281c127805212a300170381c291c002301f0d6fd281c9c300068002171f68aed2c612e1c0024b03618226243381c291cb21801f079ff601c0006040e052cf3d3286a012847d1281c28300078411c281c28300170281c28300078c20f4107891a1d20c14150180428686a17da01280bd1281c29300178182048432818b83000680f2171f6a6ef20e0281c293001782a1c18204843b0321018002114e0012809d1281c29300178182048432818b83000681021e6e7281c293001782a1c18204843b0321018012102f083f828352878102801d902203865f8bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35495492,
+          "expectedHex": "f8b586b0071c0e1c04200021002467f68eeba0003018c56d281c6bf66aea281c6bf686ea281c6bf662ec66f6a2ed601c0006040e072cecd9f26b0620111c92680c3166f62cee062067f66eee03200090f06c00210c30019000200290039020200490059005200022202367f610e9052067f65aee301c90300068012171f68cea94363068002171f688ea6624a4003859002171f682ea201d3858002171f67cea06b0f8bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35475232,
+          "expectedHex": "f0bd000070b5051c291c9431096803f0e9fc291c90310968281c04f063fd291c8c310968281c02f053fe291c88310968281c01f059fc0024a00028189830006875f620ef601c0006040e0b2cf4d90c24a00028189830006875f6acec601c0006040e182cf4d91924a00028189830006876f622e8601c0006040e252cf4d9132600243601a0002818805975f694ec601c0006040e112cf5d370bd0000f0b58db06d4b041c0baa082118785b1c1070521c491ef9d1694b09aa082118785b1c1070521c491ef9d10a2107a800258171c571081cf630069074300690081cf630059078300590081cf630049078300490081cf630039078302e1c0390022d06d8201cc8300168201cfc30036805e0201ccc30016801200002235809a8425d07a80280ac22032d00d0a82207a842800ba8425d07a88280a800271807a8009001962088221c9832029006981268205876f612e90599785004980121385876f658ec03980121385876f6aae9681c0006050e082dc3d307a806804680868007a80090019620885d27bf00391c221c3b1c02904439a432683be05961581268e35876f6eae8391c2431605007a8009001962088391c221c3b1c02904439a432683be05961581268e35876f6d6e8391c2831605000252437b0002018c059291c76f670e9701c0006060e022ef4d3a068407b02280fd15e260027b600072d05d0a80020188059391c76f65ce9681c0006050e082df2d3201c01f0d7f800280ad119252d016059002176f64ce90c3d6059002176f646e9211c88310968201c01f05afb211c94310968201c03f0e8fb201c9034216804f06dfc0db0f0bdc046b0bf1d02a0bf1d0270b5051c291c9431096803f037fc291c90310968281c04f01dfd291c88310968281c01f0d3fb5e260024b600a0002818805976f600e9601c0006040e082cf5d366260024b600a0002818805976f6f2e8601c0006040e022cf5d370bd70b582b0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35479220,
+          "expectedHex": "6fff0ce0211c94310968201c03f0fef805e0211c90310968201c04f0f5fca06d032824d800187844c0880004001487440600140022003000211c8c310968201c01f0dafe13e0211c90310968201c03f0e5fe0ce0211c94310968201c03f04cf805e0211c90310968",
+          "patchSize": 0
+        }
+      ],
+      "resources": [
+        {
+          "member": 3,
+          "sha256": "6b48c4e726d0493cc1ef7c7db68ebd58810dda3de8a344c30ab5ea4a798d35c1"
+        },
+        {
+          "member": 9,
+          "sha256": "00f0888c3f0c2cabf4837d6bc9c05b32013337f77de4ce60998ec4c7dc6197a3"
+        },
+        {
+          "member": 11,
+          "sha256": "8d32d0c4a961d07e5212c769a7e38a710b19f07ef35b764d0f6319a9492febca"
+        },
+        {
+          "member": 65,
+          "sha256": "a8da6e3cbfdb997f76c67d4d360b1797b828ee6062099ecb46cfe42df521f738"
+        },
+        {
+          "member": 69,
+          "sha256": "0d07f5950472c8490472894407b8048cff9c85b2e581ea63f756dcd9c65fa182"
+        },
+        {
+          "member": 75,
+          "sha256": "b3d170c6d7bf2e990fc1ac34421ff7b60e61e1a27e828e4f1ac5d65028e18803"
+        },
+        {
+          "member": 76,
+          "sha256": "1d17f7312c9bd4e6302580e25ab099faa737c1a1ead7b482c56e6854596a7bee"
+        },
+        {
+          "member": 78,
+          "sha256": "f997f43098660f0078fe87ef58486097e2dfa687c23080890a71e92f7a61d3be"
+        },
+        {
+          "member": 129,
+          "sha256": "e1c158d39344cc4bde047802049b1e679517ecfc7357d4e1fdad747f9536a0fa"
+        }
+      ]
+    },
+    "W": {
+      "idCode": "IRAO",
+      "revision": 0,
+      "overlayId": 131,
+      "graphicsArchive": "a/0/7/8",
+      "dsAccepted": true,
+      "liveDsiAccepted": false,
+      "fileName": "SummaryStatViewerW.dll",
+      "codeFingerprint": "95ac7648",
+      "bssSize": 108,
+      "sha256": "8c2d5ccf6171ba0930955cd7321b8c9eb54b50551d2d6536e57216811470c51f",
+      "signatures": [
+        {
+          "label": "SummaryInit",
+          "module": "131",
+          "address": 35480954,
+          "expectedHex": "fdf771fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryEnd",
+          "module": "131",
+          "address": 35480998,
+          "expectedHex": "fdf747ff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTick",
+          "module": "131",
+          "address": 35472922,
+          "expectedHex": "47f671ff",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryKeys",
+          "module": "131",
+          "address": 35476194,
+          "expectedHex": "00f007f8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTouch",
+          "module": "131",
+          "address": 35476204,
+          "expectedHex": "00f0ecf8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryHit",
+          "module": "131",
+          "address": 35476154,
+          "expectedHex": "60f6b2ec",
+          "patchSize": 4
+        },
+        {
+          "label": "SummarySlash",
+          "module": "131",
+          "address": 35496270,
+          "expectedHex": "fcf72df8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryHp",
+          "module": "131",
+          "address": 35496244,
+          "expectedHex": "fcf7cef8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryMaxHp",
+          "module": "131",
+          "address": 35496328,
+          "expectedHex": "fcf7a4f8",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTitle",
+          "module": "131",
+          "address": 35495630,
+          "expectedHex": "67f60ce9",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryTitleChars",
+          "module": "131",
+          "address": 35473926,
+          "expectedHex": "74f634ee",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496204,
+          "expectedHex": "3df694fe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496382,
+          "expectedHex": "3df63bfe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496476,
+          "expectedHex": "3df60cfe",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496570,
+          "expectedHex": "3df6ddfd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496664,
+          "expectedHex": "3df6aefd",
+          "patchSize": 4
+        },
+        {
+          "label": "SummaryValue",
+          "module": "131",
+          "address": 35496758,
+          "expectedHex": "3df67ffd",
+          "patchSize": 4
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33863824,
+          "expectedHex": "10402de90040a0e1680084e2ba15c4e1a50600eb0400a0e1310000eb1080bde8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862644,
+          "expectedHex": "602090e5811fa0e10123c2e3a11282e1601080e51eff2fe1600090e58002a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33863864,
+          "expectedHex": "10402de90040a0e1ba25d4e1020051e11080bd08efffffeb0400a0e1260000eb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862976,
+          "expectedHex": "b020d1e1b210d1e1bc20c0e1be10c0e11eff2fe1bc20d0e1be00d0e1b020c1e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33860508,
+          "expectedHex": "08402de928209fe501e0a0e1001092e50c1191e500c381e00f00bce80f00aee8",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33863580,
+          "expectedHex": "38402de90140a0e10050a0e10400a0e10110a0e3076000eb0400a0e10210a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862604,
+          "expectedHex": "10402de90040a0e1080094e50410a0e1990500eb680084e24c0700eb0400a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862116,
+          "expectedHex": "70402de90050a0e1990200ebbc00d5e10040a0e3000050e30b0000dae460a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33859820,
+          "expectedHex": "38402de9ec509fe50040a0e1000095e50c0190e5040380e02c0080e252a7ffeb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33859512,
+          "expectedHex": "f8472de91cd04de214319fe50080a0e1000093e50170a0e1413f80e2b411d3e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33860268,
+          "expectedHex": "f8432de920809de50070a0e10160a0e10250a0e10340a0e1000058e30100000a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33861912,
+          "expectedHex": "f8472de904d04de2b4409fe5b4509fe50280a0e10070a0e300a0a0e11860a0e3",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33862316,
+          "expectedHex": "f0402de92cd04de27c409fe501c0a0e1001094e518e0a0e3105191e5147191e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33864004,
+          "expectedHex": "602090e5811fa0e10224c2e3211382e1601080e51eff2fe1600090e50003a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33579492,
+          "expectedHex": "0021014bc9431847a5610002004b1847a56100020349c0000818034b001d0021",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33670400,
+          "expectedHex": "f8b586b0051c00200490a879401ca8712869002802d106b00120f8bd05a805a9",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33776468,
+          "expectedHex": "08402de9b7fbffebf4ffffeb0880bde838402de90150a0e10240a0e1affbffeb",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33774624,
+          "expectedHex": "10402de90040a0e183fdffeb0410a0e1e7ffffeb1080bde810402de90040a0e1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33652280,
+          "expectedHex": "70b5051c0c1c161c00f074ff281c211c321c00f0c1ff041c281c00f099ff201c",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33855088,
+          "expectedHex": "38402de90340a0e10250a0e1b831dde114209de5430300eb14c09de510309de5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33819444,
+          "expectedHex": "08402de92ce09fe52cc0a0e300e09ee590ec2ce01ec0dce500005ce30200001a",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33820904,
+          "expectedHex": "30402de91cd04de22cc0a0e3900c0ce0fc009fe5005090e50c0085e01c00d0e5",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33838984,
+          "expectedHex": "0c0090e51eff2fe10900d0e51eff2fe10310c0e51eff2fe10410c0e51eff2fe1",
+          "patchSize": 0
+        },
+        {
+          "label": "Native API ABI",
+          "module": "ARM9",
+          "address": 33831796,
+          "expectedHex": "08402de9b430d0e1b620d0e1b8c0d0e1a331a0e1a221a0e1930202e09c0202e0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35471968,
+          "expectedHex": "f8b5051ca8689722c07b6f4901242883ff20a8760020e8760968920029620421",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35472440,
+          "expectedHex": "38b5051c68685cf642ed298ba868c173281c00f0a9fe281c00f012ff281c00f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35478712,
+          "expectedHex": "10b5041c012100f019faa17e208b814219d0ff290bd0211c88310968201c01f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35476212,
+          "expectedHex": "70b5051c61f62ce8802108421dd0281c0121012400f036fc012849d1281c00f0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35476680,
+          "expectedHex": "70b5041c616a07293fd849187944c988090409148f440e00280046006c00b400",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35479980,
+          "expectedHex": "70b582b0051c081c141c1e1c6ff6e6ea011c06a80288331c00928088221c0190",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35480276,
+          "expectedHex": "78b583b0051c081c141c1e1c6ff652ea011c08a80288331c0092828801920089",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35479796,
+          "expectedHex": "70b5051caa680c1c117b002904d001290cd0022917d070bd1068012c02d141f6",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary ABI",
+          "module": "131",
+          "address": 35496144,
+          "expectedHex": "f0b58db0051c0c1cfbf7f4ff7021002203903df6a9fe071c0126f12000968001",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35496144,
+          "expectedHex": "f0b58db0051c0c1cfbf7f4ff7021002203903df6a9fe071c0126f120009680010190e16d281c6e221923fcf757f8288844f6befd04900398a02100223df694fe021c0096049800210323019644f650ff592000901120019680010290e16d049a281c7723fcf7cef8049844f6f1fd1120009680010190e16d281c75225d23fcf72df8288844f694fd05900398a12100223df66afe021c0096059800210323019644f626ff792000901120019680010290e16d059a281c7623fcf7a4f8059844f6c7fd3a06281c211c120e331c01f0a8fa00960190616e281c6f22331cfbf7feff288844f665fd06900398a22100223df63bfe021c0096069800210323019644f6f7fe692000901120019680010290616e069a281c7823fcf775f8069844f698fd3a06281c211c120e022301f079fa00960190a16e281c7022331cfbf7cfff288844f636fd07900398a32100223df60cfe021c0096079800210323019644f6c8fe692000901120019680010290a16e079a281c7923fcf746f8079844f669fd3a06281c211c120e032301f04afa00960190e16e281c7122331cfbf7a0ff288844f607fd08900398a52100223df6ddfd021c0096089800210323019644f699fe692000901120019680010290e16e089a281c7a23fcf717f8089844f63afd3a06281c211c120e042301f01bfa00960190216f281c7222331cfbf771ff288844f6d8fc09900398a62100223df6aefd021c0096099800210323019644f66afe692000901120019680010290216f099a281c7b23fbf7e8ff099844f60bfd3a06281c211c120e052301f0ecf900960190616f281c7322331cfbf742ff288844f6a9fc071c0398a42100223df67ffd021c0096381c00210323019644f63bfe692000901120019680010290616f281c3a1c7c23fbf7b9ff381c44f6dcfcf120009680010190a16f281c74220523fbf718ff03980a2100223df659fd0a902b8800200221b7226bf6deeb0a990b906bf69eed071ca06f6bf6f2e9011c281c00978030006805220190112080010290281c84300068112342f6bef9381c6bf62cea0b986bf626ec2b8800200221b6226bf6baeb0a990c906bf67aed071ca06f6bf6cee9011c281c0097803000688435019011208001029028684122331c42f69bf9381c6bf608ea0c986bf604ec66600db0f0bdf8b582b00e1cfbf7",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35493728,
+          "expectedHex": "f8b50d1c6a68071c002a0ad1aa68002a07d12a69002a04d12a6a002a01d101f0fbf86868012831d101260024a0002818c06d6bf6faef011c381c8430006842f69fff012801d1002604e0601c0006040e072cebd9012e19d10024a0002818c66d301c6bf6c4ed301c6bf6e0ed301c6bf6bcef68f6d8e9601c0006040e072cecd9381c291c00f03efb00206860a868012831d101260824a0002818c06d6bf6c4ef011c381c8430006842f66aff012801d1002604e0601c0006040e0b2cebd9012e19d10824a0002818c66d301c6bf68eed301c6bf6aced301c6bf686ef68f6a2e9601c0006040e0b2cecd9381c291c00f05ffb0020a860e86801281cd1281c8c3000686bf692ef011c381c8430006842f637ff00280fd1281c8c300468201c6bf666ed201c6bf682ed201c6bf65eef68f67ae90020e8602869012826d1381c8430006842f615ff01281fd1291c2a310a78281c1821b03051430024401800216c6102f0eaf82a1c2932281c127805212a300170381c291c002301f0d6fd281c9c300068002171f686ed2c612e1c0024b03618226243381c291cb21801f079ff601c0006040e052cf3d3286a012847d1281c28300078411c281c28300170281c28300078c20f4107891a1d20c14150180428686a17da01280bd1281c29300178182048432818b83000680f2171f6a2ef20e0281c293001782a1c18204843b0321018002114e0012809d1281c29300178182048432818b83000681021e6e7281c293001782a1c18204843b0321018012102f083f828352878102801d902203865f8bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35495524,
+          "expectedHex": "f8b586b0071c0e1c04200021002467f68aeba0003018c56d281c6bf666ea281c6bf682ea281c6bf65eec66f69eed601c0006040e072cecd9f26b0620111c92680c3166f628ee062067f66aee03200090f06c00210c30019000200290039020200490059005200022202367f60ce9052067f656ee301c90300068012171f688ea94363068002171f684ea6624a4003859002171f67eea201d3858002171f678ea06b0f8bd",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35475264,
+          "expectedHex": "f0bd000070b5051c291c9431096803f0e9fc291c90310968281c04f063fd291c8c310968281c02f053fe291c88310968281c01f059fc0024a00028189830006875f61cef601c0006040e0b2cf4d90c24a00028189830006875f6a8ec601c0006040e182cf4d91924a00028189830006876f61ee8601c0006040e252cf4d9132600243601a0002818805975f690ec601c0006040e112cf5d370bd0000f0b58db06d4b041c0baa082118785b1c1070521c491ef9d1694b09aa082118785b1c1070521c491ef9d10a2107a800258171c571081cf630069074300690081cf630059078300590081cf630049078300490081cf630039078302e1c0390022d06d8201cc8300168201cfc30036805e0201ccc30016801200002235809a8425d07a80280ac22032d00d0a82207a842800ba8425d07a88280a800271807a8009001962088221c9832029006981268205876f60ee90599785004980121385876f654ec03980121385876f6a6e9681c0006050e082dc3d307a806804680868007a80090019620885d27bf00391c221c3b1c02904439a432683be05961581268e35876f6e6e8391c2431605007a8009001962088391c221c3b1c02904439a432683be05961581268e35876f6d2e8391c2831605000252437b0002018c059291c76f66ce9701c0006060e022ef4d3a068407b02280fd15e260027b600072d05d0a80020188059391c76f658e9681c0006050e082df2d3201c01f0d7f800280ad119252d016059002176f648e90c3d6059002176f642e9211c88310968201c01f05afb211c94310968201c03f0e8fb201c9034216804f06dfc0db0f0bdc046d0bf1d02c0bf1d0270b5051c291c9431096803f037fc291c90310968281c04f01dfd291c88310968281c01f0d3fb5e260024b600a0002818805976f6fce8601c0006040e082cf5d366260024b600a0002818805976f6eee8601c0006040e022cf5d370bd70b582b0",
+          "patchSize": 0
+        },
+        {
+          "label": "Native Summary layout",
+          "module": "131",
+          "address": 35479252,
+          "expectedHex": "6fff0ce0211c94310968201c03f0fef805e0211c90310968201c04f0f5fca06d032824d800187844c0880004001487440600140022003000211c8c310968201c01f0dafe13e0211c90310968201c03f0e5fe0ce0211c94310968201c03f04cf805e0211c90310968",
+          "patchSize": 0
+        }
+      ],
+      "resources": [
+        {
+          "member": 3,
+          "sha256": "6b48c4e726d0493cc1ef7c7db68ebd58810dda3de8a344c30ab5ea4a798d35c1"
+        },
+        {
+          "member": 9,
+          "sha256": "00f0888c3f0c2cabf4837d6bc9c05b32013337f77de4ce60998ec4c7dc6197a3"
+        },
+        {
+          "member": 11,
+          "sha256": "8d32d0c4a961d07e5212c769a7e38a710b19f07ef35b764d0f6319a9492febca"
+        },
+        {
+          "member": 65,
+          "sha256": "a8da6e3cbfdb997f76c67d4d360b1797b828ee6062099ecb46cfe42df521f738"
+        },
+        {
+          "member": 69,
+          "sha256": "0d07f5950472c8490472894407b8048cff9c85b2e581ea63f756dcd9c65fa182"
+        },
+        {
+          "member": 75,
+          "sha256": "b3d170c6d7bf2e990fc1ac34421ff7b60e61e1a27e828e4f1ac5d65028e18803"
+        },
+        {
+          "member": 76,
+          "sha256": "1d17f7312c9bd4e6302580e25ab099faa737c1a1ead7b482c56e6854596a7bee"
+        },
+        {
+          "member": 78,
+          "sha256": "f997f43098660f0078fe87ef58486097e2dfa687c23080890a71e92f7a61d3be"
+        },
+        {
+          "member": 129,
           "sha256": "e1c158d39344cc4bde047802049b1e679517ecfc7357d4e1fdad747f9536a0fa"
         }
       ]

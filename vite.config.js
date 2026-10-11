@@ -24,6 +24,9 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       include: ["src/test/**/*.test.ts"],
+      // ROM fixtures retain large buffers; bound concurrent memory usage.
+      maxWorkers: 2,
+      minWorkers: 1,
     },
   };
 });

@@ -1,3 +1,4 @@
+import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag } from "../pokeweb/partyQuickActionsModel";
 import {
   detectBundledFormEvolutionDll,
   detectBundledDoubleBattleFixDll,
@@ -47,6 +48,7 @@ import {
   uninstallTagBattleStabilization,
 } from "../pokeweb/tagBattleStabilizationModel";
 import { getPortaPcStatus, installPortaPc, uninstallPortaPc } from "../pokeweb/portaPcModel";
+import { CGEAR_QUICK_ACTIONS_VERSION, getCGearQuickActionsStatus, installCGearQuickActions, disableCGearQuickActions, removeCGearQuickActions } from "../pokeweb/cgearQuickActionsModel";
 import { getLearnsetViewerStatus, installLearnsetViewer, uninstallLearnsetViewer } from "../pokeweb/learnsetViewerModel";
 import { getSummaryStatViewerStatus, installSummaryStatViewer, uninstallSummaryStatViewer, SUMMARY_STAT_VIEWER_VERSION } from "../pokeweb/summaryStatViewerModel";
 import { getInfiniteCandyStatus, installInfiniteCandy } from "../pokeweb/infiniteCandyModel";
@@ -76,9 +78,14 @@ const codeInjectionTabs = [
 ] as const;
 type CodeInjectionTab = (typeof codeInjectionTabs)[number]["id"];
 const activeCodeInjectionTabs = new WeakMap<HTMLElement, CodeInjectionTab>();
+const showUnsupportedCodeInjectionPatches = new WeakMap<ProjectState, boolean>();
 
 export function renderCodeInjectionEditor(project: ProjectState, root: HTMLElement, onDirty: () => void): void {
   const activeTab = activeCodeInjectionTabs.get(root) ?? "infrastructure";
+  const showUnsupported = showUnsupportedCodeInjectionPatches.get(project) ?? project.session.baseRom !== "BW";
+  const patchVisibility = (supported: boolean): string =>
+    `data-code-injection-supported="${supported}"${!supported && !showUnsupported ? " hidden" : ""}`;
+  const emptyCategoryMessage = `<div class="code-injection-empty" data-code-injection-empty hidden>No supported patches in this category. Enable “Show unsupported patches” in the sidebar to view all patches.</div>`;
   const status = getPmcInstallStatus(project);
   const modules = listCodeInjectionDlls(project);
   const formEvolutionStatus = detectBundledFormEvolutionDll(project);
@@ -92,7 +99,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const testingPatchCard = (id: TestingPatchId) => {
     const patch = TESTING_PATCHES[id];
     const state = getTestingPatchStatus(project, id);
-    return `<section class="code-injection-panel">
+    return `<section class="code-injection-panel" ${patchVisibility(state.supported)}>
       <div class="code-injection-panel__header"><div>
         <h2>${escapeHtml(patch.title)}</h2><p>${escapeHtml(patch.description)}</p>
       </div><span class="code-injection-status ${state.installed ? "-installed" : state.compatible ? "" : "-error"}">${state.installed ? "Installed" : state.compatible ? "Ready" : state.supported ? "Incompatible" : "Unsupported"}</span></div>
@@ -107,6 +114,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const tagBattleStatus = getTagBattleStabilizationStatus(project);
   const tagBattleCanInstall = tagBattleStatus.supported && tagBattleStatus.compatible && !tagBattleStatus.installed;
   const portaPcStatus = getPortaPcStatus(project);
+  const quickActionsStatus = getCGearQuickActionsStatus(project);
   const learnsetStatus = getLearnsetViewerStatus(project);
   const summaryStatStatus = getSummaryStatViewerStatus(project);
   const battleHudStatus = getBattleTypeHudStatus(project);
@@ -131,6 +139,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
   const battleLogStatus = getBattleLogInstallStatus(project);
   const battleLogCanInstall = battleLogStatus.supported && battleLogStatus.compatible;
   const battleLogCanUninstall = battleLogStatus.installed && canUninstallBattleLog(project);
+  const partyTools = getPartyQuickActionsStatus(project);
   const menuEvolutionStatus = getMenuEvolutionInstallStatus(project);
   const menuEvolutionCanInstall = menuEvolutionStatus.supported
     && menuEvolutionStatus.compatible
@@ -146,7 +155,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     { id: "move-effectiveness", title: "Move Effectiveness Preview", status: moveEffectivenessStatus,
       description: "Highlights damaging moves as super effective, not very effective, or immune. Includes standard BW2 type immunities, Levitate, Air Balloon, Magnet Rise, and blocking abilities with suppression and bypass checks. Singles and rotation use the opposing Pokémon; doubles and triples color the selected move name while choosing an enemy. Weather Ball, Natural Gift, Judgment and Techno Blast stay neutral. Custom ability and item mechanics need a compatible preview patch." },
   ].map(card => `
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(card.status.supported)}>
           <div class="code-injection-panel__header">
             <div><h2>${card.title}</h2><p>${card.description}</p></div>
             <span class="code-injection-status ${card.status.installed && !card.status.updateAvailable ? "-installed" : card.status.compatible ? "" : "-error"}">
@@ -205,6 +214,10 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     <section class="code-injection-page">
       <aside class="code-injection-sidebar">
         <h1>Code Injection</h1>
+        <label class="code-injection-sidebar__filter">
+          <input type="checkbox" id="show-unsupported-patches" ${showUnsupported ? "checked" : ""} />
+          <span>Show unsupported patches</span>
+        </label>
         <section class="code-injection-panel code-injection-sidebar__runtime">
           <div class="code-injection-panel__header">
             <div>
@@ -252,7 +265,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
           ${codeInjectionTabs.map(tab => `<button class="code-injection-tab ${activeTab === tab.id ? "-active" : ""}" type="button" role="tab" id="code-injection-tab-${tab.id}" aria-controls="code-injection-panel-${tab.id}" aria-selected="${activeTab === tab.id}" tabindex="${activeTab === tab.id ? 0 : -1}" data-code-injection-tab="${tab.id}">${tab.label}</button>`).join("")}
         </div>
         <section class="code-injection-tab-panel" id="code-injection-panel-infrastructure" role="tabpanel" aria-labelledby="code-injection-tab-infrastructure" tabindex="0" ${activeTab === "infrastructure" ? "" : "hidden"}>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(pwanRuntimeStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>PWAN GIF Support</h2>
@@ -280,7 +293,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="pwan-runtime-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(trainerPwanStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Trainer PWAN GIF Support</h2>
@@ -305,7 +318,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="trainer-pwan-runtime-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(weatherRuntimeSupported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Overworld Weather Runtime</h2>
@@ -330,7 +343,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="weather-runtime-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(battleLogStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Trainer Battle Log</h2>
@@ -377,7 +390,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-graphics" role="tabpanel" aria-labelledby="code-injection-tab-graphics" tabindex="0" ${activeTab === "graphics" ? "" : "hidden"}>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(summaryStatStatus.supported)}>
           <div class="code-injection-panel__header"><div>
             <h2>Summary IV/EV Viewer</h2>
             <p>View stored IVs and optional EVs in the native Pokémon Summary using Left/Right or the bar-chart tab. The normal HP bar and other Summary controls are preserved.</p>
@@ -392,7 +405,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="summary-stat-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(menuEvolutionStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>${MENU_EVOLUTION_TITLE}</h2>
@@ -433,9 +446,19 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             </button>
             <div class="code-injection-note" id="menu-evolution-note" aria-live="polite"></div>
           </div>
+          <div class="code-injection-actions party-toolbar-settings" ${partyTools.supported ? "" : "hidden"}>
+            <p>Party Toolbar: Leveling, Edging, Pre-dmg, Pre-status, Heal Team<br>Press L to access or use Touch screen</p>
+            <div class="party-toolbar-flag">
+              <label for="party-tools-hide-flag">Hide toolbar when save flag is set (optional)</label>
+              <input id="party-tools-hide-flag" type="text" value="${partyTools.hideFlag === null ? "" : `0x${partyTools.hideFlag.toString(16).toUpperCase().padStart(4, "0")}`}" placeholder="None — always available" spellcheck="false" ${partyTools.compatible ? "" : "disabled"}>
+            </div>
+            <button class="btn -primary" id="install-party-tools-btn" type="button" ${partyTools.compatible && partyTools.candyCompatible ? "" : "disabled"}>${partyTools.updateAvailable ? "Update Toolbar" : partyTools.installed ? "Enable / Reinstall Toolbar" : "Install Party Toolbar"}</button>
+            <button class="btn -default" id="disable-party-tools-btn" type="button" ${partyTools.installed && partyTools.enabled && partyTools.compatible ? "" : "disabled"}>Disable Toolbar</button>
+            <div class="party-toolbar-status" id="party-tools-status" aria-live="polite">${escapeHtml(partyTools.message)}</div>
+          </div>
         </section>
         ${battleUiCards[0] ?? ""}
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(learnsetStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Learnset Viewer</h2>
@@ -464,7 +487,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-quality-of-life" role="tabpanel" aria-labelledby="code-injection-tab-quality-of-life" tabindex="0" ${activeTab === "quality-of-life" ? "" : "hidden"}>
         ${testingPatchCard("instant-fast-text")}
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(bgmToggleSupported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Background Music Toggle</h2>
@@ -489,7 +512,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
         </section>
         </section>
         <section class="code-injection-tab-panel" id="code-injection-panel-add-ons" role="tabpanel" aria-labelledby="code-injection-tab-add-ons" tabindex="0" ${activeTab === "add-ons" ? "" : "hidden"}>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(infiniteCandyStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Infinite Rare Candy</h2>
@@ -513,7 +536,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-credits">Item behavior adapted from PW2Code by Dararo.</div>
           </div>
         </section>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(levelCapsStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Hard Level Caps</h2>
@@ -537,14 +560,14 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-credits">Adapted from PW2Code by Dararo.</div>
           </div>
         </section>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(doubleBattleFixStatus !== "unsupported")}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Single-NPC Double Battle Fix</h2>
               <p>${
-                project.session.baseRom === "BW2"
-                  ? "Stages the bundled DLXF patch that fixes common-script trainers changed from Singles to Doubles."
-                  : "A BW build of this DLXF patch is not bundled yet."
+                doubleBattleFixStatus !== "unsupported"
+                  ? "Fixes common-script trainers changed from Singles to Doubles. Available for US Black 1 and Black 2 / White 2; install PMC first."
+                  : "A White 1 build of this patch is not bundled yet."
               }</p>
             </div>
             <span class="code-injection-status ${doubleBattleFixStatus === "patched" ? "-installed" : ""}">
@@ -563,7 +586,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <strong>Papaya</strong>
           </div>
         </section>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(tagBattleStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Tag Battle Stabilization</h2>
@@ -589,7 +612,27 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="tag-battle-stabilization-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(quickActionsStatus.supported)}>
+          <div class="code-injection-panel__header"><div>
+            <h2>C-Gear Quick Actions</h2>
+            <a class="btn -primary" href="#cgearButtons" data-route="cgearButtons">Configure Buttons</a>
+            <p>REPEL, PC, BIKE and MAP touch shortcuts. Available after obtaining C-Gear, including with wireless off. Use the wrench to rearrange them and the C-Gear logo to change their inner designs.</p>
+          </div><span class="code-injection-status ${!quickActionsStatus.compatible ? "-error" : quickActionsStatus.enabled ? "-installed" : ""}">
+            ${!quickActionsStatus.supported ? "Unsupported" : !quickActionsStatus.compatible ? "Incompatible" : quickActionsStatus.enabled ? "Enabled" : quickActionsStatus.installed ? "Disabled" : "Ready"}
+          </span></div>
+          <div class="code-injection-facts"><div><span>Games</span><strong>English Black 2 / White 2</strong></div>
+            <div><span>Dependency</span><strong>PMC only</strong></div><div><span>Release</span><strong>${escapeHtml(CGEAR_QUICK_ACTIONS_VERSION)} development</strong></div></div>
+          <img src="${new URL("../assets/codeinjection/cgearQuickActionsPreview.png", import.meta.url).href}" alt="Button layout: green REPEL on the left, orange PC on the right, magenta BIKE below left and purple MAP below right." width="256" height="192" style="max-width:100%;width:384px;height:auto;image-rendering:pixelated" />
+          <p>${escapeHtml(quickActionsStatus.message)}</p>
+          <p>Configure up to eight buttons, their labels, colors, starting positions, native key-item actions, and optional save-flag visibility. Changes are applied together from the button editor.</p>
+          <div class="code-injection-actions">
+            <button class="btn -primary" id="install-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible ? "" : "disabled"}>${quickActionsStatus.installed ? "Update / Enable" : "Install"}</button>
+            <button class="btn -default" id="disable-cgear-quick-actions-btn" type="button" ${quickActionsStatus.compatible && quickActionsStatus.enabled ? "" : "disabled"}>Disable</button>
+            <button class="btn -default" id="remove-cgear-quick-actions-btn" type="button" ${quickActionsStatus.canRemove ? "" : "disabled"} title="Exported installations can be disabled; only newly staged modules can be removed.">Remove staged patch</button>
+            <div class="code-injection-note" id="cgear-quick-actions-note" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="code-injection-panel" ${patchVisibility(portaPcStatus.supported)}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Porta PC</h2>
@@ -615,7 +658,7 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
             <div class="code-injection-note" id="porta-pc-note" aria-live="polite"></div>
           </div>
         </section>
-        <section class="code-injection-panel">
+        <section class="code-injection-panel" ${patchVisibility(formEvolutionStatus !== "unsupported")}>
           <div class="code-injection-panel__header">
             <div>
               <h2>Added-Form Evolution Support</h2>
@@ -649,6 +692,28 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       </main>
     </section>
   `;
+
+  root.querySelectorAll<HTMLElement>(".code-injection-tab-panel").forEach(panel => {
+    panel.insertAdjacentHTML("beforeend", emptyCategoryMessage);
+  });
+  const applyPatchVisibility = (show: boolean): void => {
+    root.querySelectorAll<HTMLElement>("[data-code-injection-supported]").forEach(card => {
+      card.hidden = !show && card.dataset.codeInjectionSupported === "false";
+    });
+    root.querySelectorAll<HTMLElement>(".code-injection-tab-panel").forEach(panel => {
+      const message = panel.querySelector<HTMLElement>("[data-code-injection-empty]");
+      if (message) {
+        message.hidden = Array.from(panel.querySelectorAll<HTMLElement>("[data-code-injection-supported]"))
+          .some(card => !card.hidden);
+      }
+    });
+  };
+  applyPatchVisibility(showUnsupported);
+  const unsupportedToggle = root.querySelector<HTMLInputElement>("#show-unsupported-patches");
+  unsupportedToggle?.addEventListener("change", () => {
+    showUnsupportedCodeInjectionPatches.set(project, unsupportedToggle.checked);
+    applyPatchVisibility(unsupportedToggle.checked);
+  });
 
   const tabButtons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-code-injection-tab]"));
   const selectTab = (tab: CodeInjectionTab, focus = false): void => {
@@ -928,6 +993,24 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     }
   });
 
+  for (const [id, action] of [
+    ["install", () => installCGearQuickActions(project)],
+    ["disable", () => disableCGearQuickActions(project)],
+    ["remove", () => removeCGearQuickActions(project)],
+  ] as const) {
+    root.querySelector<HTMLButtonElement>(`#${id}-cgear-quick-actions-btn`)?.addEventListener("click", async (event) => {
+      const button = event.currentTarget as HTMLButtonElement;button.disabled = true;
+      const note = root.querySelector<HTMLDivElement>("#cgear-quick-actions-note");
+      try {
+        if (note) note.textContent = "Checking and staging Quick Actions changes…";
+        await action();onDirty();renderCodeInjectionEditor(project, root, onDirty);
+        const updated = root.querySelector<HTMLDivElement>("#cgear-quick-actions-note");
+        if (updated) updated.textContent = "Changes staged. Export a new ROM to use them.";
+      } catch (error) {
+        button.disabled = false;if (note) note.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+  }
   const portaPcButton = root.querySelector<HTMLButtonElement>("#install-porta-pc-btn");
   const portaPcNote = root.querySelector<HTMLDivElement>("#porta-pc-note");
   portaPcButton?.addEventListener("click", async () => {
@@ -1003,6 +1086,20 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
       const currentNote = root.querySelector<HTMLDivElement>("#battle-log-note") ?? battleLogNote;
       if (currentNote) currentNote.textContent = error instanceof Error ? error.message : String(error);
     }
+  });
+
+  root.querySelector<HTMLButtonElement>("#install-party-tools-btn")?.addEventListener("click", async () => {
+    const button = root.querySelector<HTMLButtonElement>("#install-party-tools-btn")!;
+    button.disabled = true;
+    try {
+      const hideFlag = parsePartyToolbarHideFlag(root.querySelector<HTMLInputElement>("#party-tools-hide-flag")?.value ?? "");
+      await installPartyQuickActions(project, { hideFlag }); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+    }
+    catch (error) { button.disabled = false; const note = root.querySelector("#party-tools-status"); if (note) note.textContent = error instanceof Error ? error.message : String(error); }
+  });
+  root.querySelector<HTMLButtonElement>("#disable-party-tools-btn")?.addEventListener("click", () => {
+    try { disablePartyQuickActions(project); onDirty(); renderCodeInjectionEditor(project, root, onDirty); }
+    catch (error) { const note = root.querySelector("#party-tools-status"); if (note) note.textContent = error instanceof Error ? error.message : String(error); }
   });
 
   const menuEvolutionButton = root.querySelector<HTMLButtonElement>("#install-menu-evolution-btn");

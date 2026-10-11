@@ -3,6 +3,15 @@ import { type Folder } from "../nds/fnt";
 import { NintendoDSRom, type RomSaveOptions } from "../nds/rom";
 import { detectPmcInstallFromRom, PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
 
+export type FrostCompatibilityWarning = { code: "frost-reader-overflow"; message: string };
+type FrostExportOptions = Pick<RomSaveOptions, "forDsi"> & { onWarning?: (warning: FrostCompatibilityWarning) => void };
+
+/** Frost 5.0.1 caps the tail at 288 MiB before subtracting header[0x1f0]. */
+export function frostReaderOverflowWarning(romLength: number, digestTableOffset: number): FrostCompatibilityWarning | undefined {
+  if (digestTableOffset <= 0 || digestTableOffset > romLength || digestTableOffset <= Math.min(romLength, 0x12000000)) return undefined;
+  return { code: "frost-reader-overflow", message: "This ROM's DSi table offset is beyond Frost 5.0.1's 288 MiB ROM-tail limit. That version will fail to open it with ‘Arithmetic operation resulted in an overflow.’ The exported ROM retains its DSi data and Frost file layout, but requires Frost's large-ROM reader fix to open. See Pokeweb's Frost compatibility documentation for the fix." };
+}
+
 /**
  * Frost ignores the overlay table's file IDs: it treats FAT[0..rowCount) as
  * overlays and subtracts the root FNT firstId when indexing every named file.
@@ -15,8 +24,13 @@ import { detectPmcInstallFromRom, PMC_OVERLAY_RESERVED_SIZE } from "./pmcModel";
  * code with hard-coded NitroFS FAT IDs is deliberately outside this option's
  * compatibility guarantee.
  */
-export function exportFrostCompatibleRom(bytes: Uint8Array, options: Pick<RomSaveOptions, "forDsi"> = {}): Uint8Array {
+export function exportFrostCompatibleRom(bytes: Uint8Array, options: FrostExportOptions = {}): Uint8Array {
   const rom = new NintendoDSRom(bytes);
+  const complete = (output: Uint8Array): Uint8Array => {
+    const warning = frostReaderOverflowWarning(output.length, readU32(output, 0x1f0));
+    if (warning) options.onWarning?.(warning);
+    return output;
+  };
   const retailCount = /^(IRA|IRB)/u.test(rom.idCode) ? 237 : /^(IRD|IRE)/u.test(rom.idCode) ? 344 : undefined;
   const reject = (reason: string): never => {
     throw new Error(`Frost compatibility export only supports Pokeweb's known Gen V filesystem/PMC layout. ${reason} Use normal Export for this ROM.`);
@@ -33,7 +47,7 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: Pick<RomSav
   }
   if (count === retailCount && rom.filenames.firstId === count) {
     validateNamedFiles(rom, count, reject);
-    return bytes; // No injection: the normal export already has Frost's layout.
+    return complete(bytes); // No injection: the normal export already has Frost's layout.
   }
   const pmc = detectPmcInstallFromRom(rom)?.pmc;
   const gameId = { IRA: "W", IRB: "B", IRD: "W2", IRE: "B2" }[rom.idCode.slice(0, 3)];
@@ -70,7 +84,7 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: Pick<RomSav
   writeU32(table, rowOffset + 24, retailCount);
   // An insertion shifts all named paths together, preserving contiguous folder
   // ranges (especially /patches). Never erase the root filenames to fake firstId.
-  return rom.save({
+  return complete(rom.save({
     forDsi: options.forDsi,
     arm9OverlayTable: table,
     ...(alreadyReserved
@@ -78,7 +92,7 @@ export function exportFrostCompatibleRom(bytes: Uint8Array, options: Pick<RomSav
       : { insertedFiles: [{ fileId: retailCount, bytes: image }] }),
     priorityFileIds: [retailCount],
     preserveOriginalLength: true,
-  });
+  }));
 }
 
 function validateNamedFiles(rom: NintendoDSRom, firstId: number, reject: (reason: string) => never): void {

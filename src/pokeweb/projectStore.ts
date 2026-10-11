@@ -352,6 +352,7 @@ export type PatchState = {
 };
 
 export type ProjectState = {
+  cgearButtons?: import("../cgearButtons/document").Project;
   customUi?: import("../customUi/document").Project;
   originalRomBytes?: Uint8Array;
   session: SessionSettings;

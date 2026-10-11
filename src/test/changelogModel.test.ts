@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { BaseVersion, NarcName } from "../pokeweb/constants";
-import { generateChangelogFromProjects, validateSameBaseVersion } from "../pokeweb/changelogModel";
+import { changelogLoadNarcs, generateChangelogFromProjects, validateSameBaseVersion } from "../pokeweb/changelogModel";
+import { PNG } from "pngjs";
+import { changelogIconPng } from "../pokeweb/changelogIconPng";
+import { buildChangelogPdf } from "../pokeweb/changelogPdf";
+import { createChangelogIconExtractor } from "../pokeweb/changelogIcons";
 import { getNarcFormats, type FieldSpec } from "../pokeweb/formats";
 import type { NarcStore, ProjectState } from "../pokeweb/projectStore";
 
@@ -37,22 +41,234 @@ describe("changelogModel", () => {
       }),
     );
 
-    expect(result.text).toContain("Charizard base attack changed from 84 to 95.");
-    expect(result.text).toContain("Charizard now compatible with: TM01 Hone Claws, TM02 Dragon Claw.");
-    expect(result.text).toContain("Charizard removed compatibility with: TM03 Psyshock.");
-    expect(result.text).toContain("Charizard learnset slot 1 changed from Flamethrower at level 10 to Tackle at level 15.");
-    expect(result.text).toContain("Charizard evolution 1 target changed from Charizard to Ivysaur.");
-    expect(result.text).toContain("Flamethrower power changed from 95 to 90.");
-    expect(result.text).toContain("Potion market value changed from 300 to 500.");
-    expect(result.text).toContain("Leader Iris (Trainer 1) money changed from 10 to 20.");
-    expect(result.text).toContain("Leader Iris (Trainer 1) team changed.");
-    expect(result.text).toContain("Old Team: Pokemon 1: Lv 50 Charizard");
-    expect(result.text).toContain("New Team: Pokemon 1: Lv 55 Ivysaur");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Charizard base attack changed from 84 to 95.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Charizard now compatible with: TM01 Hone Claws, TM02 Dragon Claw.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Charizard removed compatibility with: TM03 Psyshock.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Charizard learnset slot 1 changed from Flamethrower at level 10 to Tackle at level 15.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Charizard evolution 1 target changed from Charizard to Ivysaur.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Flamethrower power changed from 95 to 90.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Potion market value changed from 300 to 500.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Leader Iris (Trainer 1) money changed from 10 to 20.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Leader Iris (Trainer 1) team changed.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Old Team: Pokemon 1: Lv 50 Charizard");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("New Team: Pokemon 1: Lv 55 Ivysaur");
     expect(result.entries.find((entry) => entry.domain === "trpok")?.parts?.some((part) => part.changed && part.text === "Ivysaur")).toBe(true);
-    expect(result.text).toContain("Route 4 (1) spring grass slot 0 changed from Charizard to Ivysaur.");
-    expect(result.text).toContain("Stock No Badges item 1 changed from Potion to Super Potion.");
-    expect(result.text).toContain("Floccesy Ranch black common pok 0 changed from Charizard to Ivysaur.");
-    expect(result.text).toContain("Hidden grotto odds rare pok odds 0 changed from 10 to 15.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Route 4 (1) spring grass slot 0 changed from Charizard to Ivysaur.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Stock No Badges item 1 changed from Potion to Super Potion.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Floccesy Ranch black common pok 0 changed from Charizard to Ivysaur.");
+    expect(result.entries.map((entry) => entry.text).join("\n")).toContain("Hidden grotto odds rare pok odds 0 changed from 10 to 15.");
+  });
+
+
+  it("limits comparisons and documents to the selected NARCs", () => {
+    const result = generateChangelogFromProjects(makeProject(), makeProject({ personal: { base_atk: 95 }, move: { power: 90 }, mapFile: new Uint8Array([7]) }), { selectedNarcs: ["moves"] });
+    expect(result.entries.map((entry) => entry.domain)).toEqual(["moves"]);
+    expect(result.summary.domains).toEqual({ moves: 1 });
+    expect(result.documents.map((document) => document.domain)).toEqual(["moves"]);
+    expect(result.documents[0].html).toContain("<h2>Flamethrower</h2>");
+    expect(result.documents[0].subjects[0].fields).toContainEqual(expect.objectContaining({ label: "power", before: "95", after: "90" }));
+    expect(result.text).not.toContain("Charizard");
+    expect(result.text).not.toContain("Map file");
+    expect(generateChangelogFromProjects(makeProject(), makeProject({ move: { power: 90 } }), { selectedNarcs: [] }).entries).toEqual([]);
+  });
+
+  it("loads decoding dependencies without adding them to the chosen output", () => {
+    expect(changelogLoadNarcs({ selectedNarcs: ["trpok"] })).toEqual(expect.arrayContaining(["trpok", "trdata", "personal", "headers", "message_texts", "pokemon_icons"]));
+    expect(changelogLoadNarcs({ selectedNarcs: ["evolutions"] })).toEqual(expect.arrayContaining(["evolutions", "personal", "learnsets", "moves"]));
+    expect(changelogLoadNarcs({ selectedNarcs: ["maps"] })).not.toContain("trpok");
+    expect(changelogLoadNarcs({ selectedNarcs: ["moves"] })).not.toContain("pokemon_icons");
+    expect(changelogLoadNarcs({ selectedNarcs: ["learnsets"] })).toEqual(expect.arrayContaining(["learnsets", "personal", "pokemon_icons"]));
+    const result = generateChangelogFromProjects(makeProject(), makeProject({ trainerPokemon: { level: 55 }, trainer: { money: 20 } }), { selectedNarcs: ["trpok"] });
+    expect(result.documents.map((document) => document.domain)).toEqual(["trainers"]);
+    expect(result.documents[0].narcs).toEqual(["trpok"]);
+    expect(result.entries.every((entry) => entry.domain === "trpok")).toBe(true);
+  });
+
+  it("renders grouped names, aligned trainer fields, and paired tables", () => {
+    const result = generateChangelogFromProjects(makeProject(), makeProject({
+      personal: { base_atk: 95, base_def: 90 }, move: { power: 90, pp: 20 }, trainer: { money: 20 },
+      learnset: { move_id_0: 2, lvl_learned_0: 15 }, trainerPokemon: { level: 55, ivs: 100 },
+      encounter: { spring_grass_slot_0: 2, spring_grass_rate: 30 },
+    }));
+    const document = (domain: NarcName | "trainers" | "pokemon") => result.documents.find((document) => document.domain === domain)!;
+    expect(document("pokemon").html.match(/<h2>Charizard<\/h2>/gu)).toHaveLength(1);
+    expect(document("moves").html.match(/Flamethrower/gu)).toHaveLength(1);
+    expect(document("trainers").subjects[0].fields).toContainEqual(expect.objectContaining({ label: "money", before: "10", after: "20" }));
+    expect(document("pokemon").html).toContain('<span class="changelog-old">Flamethrower</span>');
+    expect(document("pokemon").html).toContain('<mark><strong>Tackle</strong></mark>');
+    expect(document("pokemon").html.match(/width="50%"/gu)).toHaveLength(2);
+    expect(document("encounters").html).toContain("Spring · Grass");
+    expect(document("encounters").html).toContain('Encounter rate: <span class="changelog-old">20</span>');
+    expect(document("encounters").html).toContain('<mark><strong>Ivysaur</strong></mark>');
+    expect(document("encounters").html).not.toContain("Spring · Surf");
+    expect(document("trainers").html).toContain('<th scope="row">IVs</th>');
+    expect(document("trainers").html).toContain('<mark><strong>100</strong></mark>');
+    expect(document("trainers").html).not.toContain("Old Team: Pokemon");
+    expect(document("moves").filename).toBe("pokeweb-changelog-moves.pdf");
+    expect(result.text).not.toContain("<del>");
+    expect(result.text).not.toContain("~~");
+    expect(result.documents.every((document) => !document.html.includes("<del>"))).toBe(true);
+  });
+
+  it("combines every selected subset of personal, learnsets, and evolutions into one Pokemon document", () => {
+    const subsets: NarcName[][] = [
+      ["personal"], ["learnsets"], ["evolutions"], ["personal", "learnsets"],
+      ["personal", "evolutions"], ["learnsets", "evolutions"], ["personal", "learnsets", "evolutions"],
+    ];
+    for (const selectedNarcs of subsets) {
+      const result = generateChangelogFromProjects(makeProject(), makeProject({
+        personal: { base_atk: 95 }, learnset: { move_id_0: 2 }, evolution: { target_0: 2 }, move: { power: 90 },
+      }), { selectedNarcs });
+      expect(result.documents).toHaveLength(1);
+      const document = result.documents[0];
+      expect(document.domain).toBe("pokemon");
+      expect(document.filename).toBe("pokeweb-changelog-pokemon.pdf");
+      expect(document.narcs).toEqual(selectedNarcs);
+      expect(document.subjects).toHaveLength(1);
+      expect(document.subjects[0].title).toBe("Charizard");
+      expect(document.subjects[0].fields.some((field) => field.label === "base attack")).toBe(selectedNarcs.includes("personal"));
+      expect(document.subjects[0].fields.some((field) => field.label === "evolution 1 target")).toBe(selectedNarcs.includes("evolutions"));
+      expect(document.subjects[0].comparisons).toHaveLength(selectedNarcs.includes("learnsets") ? 1 : 0);
+      expect(result.entries.every((entry) => selectedNarcs.includes(entry.domain as NarcName))).toBe(true);
+    }
+  });
+
+  it("consolidates trainer settings and teams under one trainer heading and download", () => {
+    const result = generateChangelogFromProjects(makeProject(), makeProject({
+      trainer: { money: 20 }, trainerPokemon: { species_id: 2, level: 55 }, move: { power: 90 },
+    }), { selectedNarcs: ["trdata", "trpok"] });
+    expect(result.documents).toHaveLength(1);
+    const document = result.documents[0];
+    expect(document.domain).toBe("trainers");
+    expect(document.title).toBe("Trainers");
+    expect(document.narcs).toEqual(["trdata", "trpok"]);
+    expect(document.changes).toBe(2);
+    expect(result.summary.totalChanges).toBe(2);
+    expect(document.filename).toBe("pokeweb-changelog-trainers.pdf");
+    expect(document.html).toContain("<code>trdata</code> + <code>trpok</code>");
+    expect(document.html.match(/<h2>Leader Iris \(Trainer 1\)<\/h2>/gu)).toHaveLength(1);
+    expect(document.subjects[0].fields).toContainEqual(expect.objectContaining({ label: "money", before: "10", after: "20" }));
+    expect(document.html).toContain("<h3>Team</h3>");
+    expect(document.html).toContain("<mark><strong>Ivysaur</strong></mark>");
+    expect(document.html).not.toContain("Flamethrower power");
+  });
+
+  it("leaves unchanged rows plain and shows added or removed learnset rows", () => {
+    const before = makeProject();
+    const after = makeProject();
+    after.narcs.learnsets!.rawFiles[1] = packRows(after.formats.learnsets!, [{ move_id_0: 1, lvl_learned_0: 10, move_id_1: 2, lvl_learned_1: 15 }], 1, true);
+    const added = generateChangelogFromProjects(before, after, { selectedNarcs: ["learnsets"] });
+    expect(added.documents[0].html).toContain('<td>Flamethrower</td>');
+    expect(added.documents[0].html).not.toContain('<span class="changelog-old">Flamethrower</span>');
+    expect(added.documents[0].html).toContain('<mark><strong>Tackle</strong></mark>');
+    const removed = generateChangelogFromProjects(after, before, { selectedNarcs: ["learnsets"] });
+    expect(removed.documents[0].html).toContain('<span class="changelog-old">Tackle</span>');
+  });
+
+  it("escapes ROM names and record text in previews", () => {
+    const before = makeProject();
+    const after = makeProject({ move: { power: 90 } });
+    after.session.romName = '<img src=x onerror=alert(1)>';
+    after.texts.banks.moves![1] = '[Move](javascript:alert(1)) | *test*';
+    const result = generateChangelogFromProjects(before, after, { selectedNarcs: ["moves"] });
+    expect(result.documents[0].html).not.toContain('<img');
+    expect(result.documents[0].html).not.toContain('<a');
+    expect(result.documents[0].html).toContain('&lt;img');
+    expect(result.documents[0].subjects[0].title).toBe(after.texts.banks.moves![1]);
+  });
+
+  it("includes downloadable documents for unchanged and unavailable selections", () => {
+    const result = generateChangelogFromProjects(makeProject(), makeProject(), { selectedNarcs: ["moves", "headers"] });
+    expect(result.documents).toHaveLength(2);
+    expect(result.documents.find((document) => document.domain === "moves")?.html).toContain("No changes detected");
+    expect(result.documents.find((document) => document.domain === "headers")?.html).toContain("not available");
+  });
+
+  it("decorates Pokemon names with one extracted icon across headings and comparison tables", () => {
+    const before = makeProject();
+    const after = makeProject({ personal: { base_atk: 100 }, trainer: { money: 30 }, trainerPokemon: { species_id: 2 }, encounter: { spring_grass_slot_0: 2 }, grotto: { black_common_pok_0: 2 } });
+    addTestIcons(before, 0x001f);
+    addTestIcons(after, 0x7c00);
+    const result = generateChangelogFromProjects(before, after, { selectedNarcs: ["personal", "trdata", "trpok", "encounters", "grottos"] });
+    const personal = result.documents.find((document) => document.domain === "pokemon")!;
+    const icon = personal.subjects[0].icon!;
+    expect([icon.width, icon.height]).toEqual([32, 32]);
+    expect(icon.pixels[0]).toBe(0);
+    expect(icon.pixels[2]).toBeGreaterThan(200);
+    icon.pixels[3] = 0;
+    const png = PNG.sync.read(Buffer.from(changelogIconPng(icon)));
+    expect([...png.data.subarray(0, 4)]).toEqual([...icon.pixels.subarray(0, 4)]);
+    expect(personal.icons).toHaveLength(1);
+    expect(personal.html).toContain('icon"></canvas>Charizard</h2>');
+    expect(personal.html).not.toContain("changelog-subject-icons");
+    expect(result.documents.every((document) => document.icons.length > 0 && !document.iconWarning)).toBe(true);
+    const trainer = result.documents.find((document) => document.domain === "trainers")!.subjects[0].comparisons[0];
+    expect(trainer.beforeIcons[0]).toBe(icon);
+    expect(trainer.afterIcons[0]!.label).toBe("Ivysaur");
+    after.narcs.pokemon_icons!.rawFiles.length = 0;
+    expect(icon.pixels[2]).toBeGreaterThan(200);
+    const pdf = buildChangelogPdf(result.documents);
+    expect(pdf.getNumberOfPages()).toBeGreaterThanOrEqual(result.documents.length);
+    expect(pdf.output()).toContain("/Subtype /Image");
+    expect(pdf.output()).toContain("/Width 32");
+    expect(pdf.output()).toContain("/SMask");
+  });
+
+  it("includes party icons for trainer settings-only changes and reports unavailable icons", () => {
+    const before = makeProject();
+    const after = makeProject({ trainer: { money: 30 } });
+    addTestIcons(before, 0x001f);
+    addTestIcons(after, 0x7c00);
+    const document = generateChangelogFromProjects(before, after, { selectedNarcs: ["trdata", "trpok"] }).documents[0];
+    expect(document.subjects[0].comparisons).toHaveLength(0);
+    expect(document.subjects[0].pokemon).toHaveLength(1);
+    expect(document.subjects[0].pokemon[0].name).toBe("Charizard");
+    expect(document.subjects[0].pokemon[0].icon!.pixels[2]).toBeGreaterThan(200);
+    delete after.narcs.pokemon_icons;
+    const fallback = generateChangelogFromProjects(before, after, { selectedNarcs: ["trdata", "trpok"] }).documents[0];
+    expect(fallback.iconWarning).toBeUndefined();
+    expect(fallback.subjects[0].pokemon[0].icon!.pixels[0]).toBeGreaterThan(200);
+    delete before.narcs.pokemon_icons;
+    const missing = generateChangelogFromProjects(before, after, { selectedNarcs: ["trdata", "trpok"] }).documents[0];
+    expect(missing.iconWarning).toContain("could not be extracted");
+    expect(missing.subjects[0].fields[0].after).toBe("30");
+    expect(missing.subjects[0].pokemon[0].icon).toBeUndefined();
+
+  });
+
+  it("does not report icon differences as changelog changes", () => {
+    const before = makeProject();
+    const after = makeProject();
+    addTestIcons(before, 0x001f);
+    addTestIcons(after, 0x7c00);
+    const result = generateChangelogFromProjects(before, after, { selectedNarcs: ["personal", "trdata", "trpok", "encounters"] });
+    expect(result.summary.totalChanges).toBe(0);
+    expect(result.entries).toHaveLength(0);
+    expect(result.documents.every((document) => document.subjects.length === 0)).toBe(true);
+  });
+
+  it("resolves female icon data, forms, and BW1 archive offsets", () => {
+    const project = makeProject();
+    addTestIcons(project, 0x001f);
+    const female = new Uint8Array(48 + 1024); female.fill(0x11, 48);
+    project.narcs.pokemon_icons!.rawFiles[11] = female;
+    const icons = createChangelogIconExtractor(project, "before");
+    expect(icons.extract({ speciesId: 1, female: true })?.key).toContain("female");
+    expect(icons.extract({ speciesId: 1, form: 7 })).toBeUndefined();
+    project.session.baseRom = "BW";
+    project.session.baseVersion = "W";
+    project.narcs.pokemon_icons!.rawFiles[9] = female;
+    expect(createChangelogIconExtractor(project, "before").extract({ speciesId: 1 })?.pixels[0]).toBeGreaterThan(200);
+  });
+
+  it("keeps paired tables aligned across multiple PDF pages", () => {
+    const result = generateChangelogFromProjects(makeProject(), makeProject({ learnset: { lvl_learned_0: 20 } }), { selectedNarcs: ["learnsets"] });
+    const comparison = result.documents[0].subjects[0].comparisons[0];
+    comparison.before = Array.from({ length: 180 }, (_, index) => [String(index + 1), String(index), "Flamethrower"]);
+    comparison.after = Array.from({ length: 180 }, (_, index) => [String(index + 1), String(index + 1), "Tackle"]);
+    const pdf = buildChangelogPdf(result.documents);
+    expect(pdf.getNumberOfPages()).toBeGreaterThan(3);
+    expect(pdf.output("arraybuffer").byteLength).toBeGreaterThan(1000);
   });
 
   it("reports complex asset files generically", () => {
@@ -286,4 +502,15 @@ function splitRows(data: Uint8Array, count: number): Uint8Array[] {
 
 function writeInt(out: Uint8Array, offset: number, size: number, value: number): void {
   for (let index = 0; index < size; index += 1) out[offset + index] = Math.floor(value / 2 ** (8 * index)) & 0xff;
+}
+
+function addTestIcons(project: ProjectState, color: number): void {
+  const files = Array.from({ length: 14 }, () => new Uint8Array());
+  files[0] = new Uint8Array(40 + 96);
+  writeInt(files[0], 42, 2, color);
+  for (const index of [10, 12]) {
+    files[index] = new Uint8Array(48 + 1024);
+    files[index].fill(0x11, 48);
+  }
+  project.narcs.pokemon_icons = makeStore("pokemon_icons", files, files.length, false);
 }

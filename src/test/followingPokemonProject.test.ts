@@ -8,7 +8,7 @@ import { Folder } from "../nds/fnt";
 import type { ProjectState } from "../pokeweb/projectStore";
 import { stageCodeInjectionDll } from "../pokeweb/pmcModel";
 import { FOLLOWER_MANIFEST_PATH, FOLLOWER_REGISTRY_PATH, readFollowerWorkspace, replaceFollowerAssets, readFollowerAsset, checkFollowerCompatibility, followerModuleHookConflicts, type FollowerAssetWorkspace, type FollowerRom } from "../pokeweb/followingPokemonProject";
-import type { RpmModule } from "../pokeweb/rpm";
+import { parseRpm, writeRpm, type RpmModule } from "../pokeweb/rpm";
 import { deriveFollowerGrounding, encodeFollowerFrames, followerGroundingPixels, followerKey } from "../pokeweb/followingPokemonModel";
 import contract from "../../runtime/following-pokemon/contract.json";
 const bytes=new Uint8Array(readFileSync(new URL("../assets/following/template-32-8.btx",import.meta.url)));
@@ -113,7 +113,7 @@ describe("follower asset transactions",()=>{
   });
 });
 
-import { encodeFollowerNativeConfig, followerRomSha256, readFollowerAlphaInstall, setFollowerAlphaEnabled, updateFollowerPositioning, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_DLL_PATH, FOLLOWER_EVENTS_DLL_PATH, FOLLOWER_CORE_DLL_PATH, FOLLOWER_OPTIONS_DLL_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, FOLLOWER_NATIVE_PATH, FOLLOWER_INSTALL_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH, FOLLOWER_SURF_RESOURCE_PATH, FOLLOWER_SURF_REGISTRY_PATH, FOLLOWER_LAND_RIDER_PATH, FOLLOWER_LAND_ANCHORS_PATH } from "../pokeweb/followingPokemonProject";
+import { encodeFollowerNativeConfig, followerRomSha256, readFollowerAlphaInstall, setFollowerAlphaEnabled, installFollowerAlpha, removeFollowerAlpha, updateFollowerPositioning, readFollowerDialogueRules, writeFollowerDialogueRules, readFollowerItemRules, writeFollowerItemRules, FOLLOWER_DLL_PATH, FOLLOWER_EVENTS_DLL_PATH, FOLLOWER_CORE_DLL_PATH, FOLLOWER_OPTIONS_DLL_PATH, FOLLOWER_RUNTIME_REGISTRY_PATH, FOLLOWER_DESCRIPTOR_PATH, FOLLOWER_RESOURCE_PATH, FOLLOWER_NATIVE_PATH, FOLLOWER_INSTALL_PATH, FOLLOWER_EFFECTS_PATH, FOLLOWER_INTERACTIONS_PATH, FOLLOWER_EMOTES_PATH, FOLLOWER_DIALOGUE_NARC_PATH, FOLLOWER_ITEM_NARC_PATH, FOLLOWER_SURF_RESOURCE_PATH, FOLLOWER_SURF_REGISTRY_PATH, FOLLOWER_LAND_RIDER_PATH, FOLLOWER_LAND_ANCHORS_PATH } from "../pokeweb/followingPokemonProject";
 import { FOLLOWER_POSITIONING_PATH, encodeFollowerPositioningNarc, decodeFollowerPositioningNarc } from "../pokeweb/followingPokemonPositioning";
 import { encodeFollowerRegistry, decodeFollowerRegistry, encodeFollowerLandAnchors, followerCrc32 } from "../pokeweb/followingPokemonModel";
 import runtimeManifest from "../assets/following/runtime.json";
@@ -129,13 +129,22 @@ function nativeConfig() {
 describe("walking alpha ownership",()=>{
   it("stages contextual rules before installation without creating an ownership receipt", async()=>{
     const {project}=fixture();
-    await writeFollowerDialogueRules(project,[{zone:42,type:10,text:"{nickname} likes {location}!"}]);
+    const rules=[{zone:42,type:10,beforeAnimation:2 as const,afterAnimation:5 as const,text:"{nickname} likes {location}!"}];
+    await writeFollowerDialogueRules(project,rules);
     await writeFollowerItemRules(project,[{slot:0,itemId:1,quantity:1,itemName:"Potion",zone:42,text:"{nickname} found a {item}!"}]);
-    expect(await readFollowerDialogueRules(project)).toEqual([{zone:42,type:10,text:"{nickname} likes {location}!"}]);
+    expect(await readFollowerDialogueRules(project)).toEqual(rules);
     expect(await readFollowerItemRules(project)).toEqual([{slot:0,itemId:1,quantity:1,itemName:"Potion",zone:42,text:"{nickname} found a {item}!"}]);
     expect(project.fileSystem!.additions![FOLLOWER_DIALOGUE_NARC_PATH]).toBeDefined();
     expect(project.fileSystem!.additions![FOLLOWER_ITEM_NARC_PATH]).toBeDefined();
     expect(project.fileSystem!.additions![FOLLOWER_INSTALL_PATH]).toBeUndefined();
+  });
+  it("rejects animation rules for an unrebuilt profile before mutating authored data", async()=>{
+    const {project,rom}=fixture();
+    const profileRom=Object.assign(rom,{idCode:"IRDI",revision:0});
+    await writeFollowerDialogueRules(project,[{zone:42,text:"Existing text"}],profileRom);
+    const before=structuredClone(project);
+    await expect(writeFollowerDialogueRules(project,[{zone:42,beforeAnimation:2,text:"New text"}],profileRom)).rejects.toThrow(/not yet included/);
+    expect(project).toEqual(before);
   });
   it("keeps the effect archive byte-identical through ROM export normalization",()=>{
     const effects=new Uint8Array(readFileSync(new URL('../assets/following/hgss-effects.narc',import.meta.url)));
@@ -163,7 +172,7 @@ describe("walking alpha ownership",()=>{
     const anchors=encodeFollowerLandAnchors(decodeFollowerRegistry(registry),resourceArchive.files,registry);
     const positioning=encodeFollowerPositioningNarc(decodeFollowerRegistry(registry),registry,anchors,surfRegistry);
     const dialogues=new Uint8Array(readFileSync(new URL('../assets/following/contextual-dialogues.narc',import.meta.url)));
-    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,optionsModuleSha256:runtimeManifest.optionsModuleSha256,battleModuleSha256:runtimeManifest.battleModuleSha256,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues),surfSha256:await followerRomSha256(surf),surfRegistrySha256:await followerRomSha256(surfRegistry),landRiderSha256:await followerRomSha256(rider),landAnchorsSha256:await followerRomSha256(anchors),positioningSha256:await followerRomSha256(positioning)};
+    const state={schemaVersion:1,version:runtimeManifest.version,enabled:true,dialogueAnimations:true,targetSha256:contract.target.sha256,moduleSha256:runtimeManifest.fieldSha256,eventsSha256:runtimeManifest.eventsSha256,eventsAbi:runtimeManifest.eventsAbi,coreSha256:runtimeManifest.coreSha256,coreAbi:runtimeManifest.coreAbi,optionsModuleSha256:runtimeManifest.optionsModuleSha256,battleModuleSha256:runtimeManifest.battleModuleSha256,configCrc32:followerCrc32(config),registrySha256:await followerRomSha256(registry),descriptorsSha256:await followerRomSha256(descriptor),resourcesSha256:await followerRomSha256(resources),effectsSha256:effectsManifest.sha256,interactionsSha256:interactionManifest.dataSha256,emotesSha256:interactionManifest.emotesSha256,dialoguesSha256:await followerRomSha256(dialogues),surfSha256:await followerRomSha256(surf),surfRegistrySha256:await followerRomSha256(surfRegistry),landRiderSha256:await followerRomSha256(rider),landAnchorsSha256:await followerRomSha256(anchors),positioningSha256:await followerRomSha256(positioning)};
     Object.assign(project.fileSystem!.additions!,{
       [FOLLOWER_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingFieldW2.dll',import.meta.url))),
       [FOLLOWER_EVENTS_DLL_PATH]:new Uint8Array(readFileSync(new URL('../assets/following/PokewebFollowingEventsW2.dll',import.meta.url))),
@@ -187,8 +196,51 @@ describe("walking alpha ownership",()=>{
     expect(updated.registry.entries[0].directionalGaps).toEqual([1,2,3,4]);
     expect(Array.from(decodeFollowerPositioningNarc(project.fileSystem!.additions![FOLLOWER_POSITIONING_PATH],registry,surfRegistry).land.slice(0,4))).toEqual([1,2,3,4]);
     expect((await readFollowerAlphaInstall(project))?.positioningSha256).toBe(await followerRomSha256(project.fileSystem!.additions![FOLLOWER_POSITIONING_PATH]));
-    await writeFollowerDialogueRules(project,[{zone:42,type:10,text:"{nickname} likes {location}!"}]);
-    expect(await readFollowerDialogueRules(project)).toEqual([{zone:42,type:10,text:"{nickname} likes {location}!"}]);
+    const rules=[{zone:42,type:10,beforeAnimation:2 as const,afterAnimation:5 as const,text:"{nickname} likes {location}!"}];
+    const receipt=project.fileSystem!.additions![FOLLOWER_INSTALL_PATH];
+    project.fileSystem!.additions![FOLLOWER_INSTALL_PATH]=new TextEncoder().encode(JSON.stringify({...JSON.parse(new TextDecoder().decode(receipt)),dialogueAnimations:undefined}));
+    const authoredFingerprints=()=>Object.entries(project.fileSystem!.additions!).map(([path,bytes])=>[path,createHash('sha256').update(bytes).digest('hex')]).sort(([a],[b])=>a.localeCompare(b));
+    const beforeAnimation=authoredFingerprints(),beforeChangelog=structuredClone(project.actionChangelog);
+    await expect(writeFollowerDialogueRules(project,rules)).rejects.toThrow(/Update the installed/);
+    expect(authoredFingerprints()).toEqual(beforeAnimation);
+    expect(project.actionChangelog).toEqual(beforeChangelog);
+    project.fileSystem!.additions![FOLLOWER_INSTALL_PATH]=receipt;
+    await writeFollowerDialogueRules(project,rules);
+    expect(await readFollowerDialogueRules(project)).toEqual(rules);
+    expect((await readFollowerAlphaInstall(project))?.dialoguesSha256).toBe(await followerRomSha256(project.fileSystem!.additions![FOLLOWER_DIALOGUE_NARC_PATH]));
+    // A producer-stamped external field remains editable, but every ordinary
+    // companion/asset fingerprint still applies and no installer may replace it.
+    const externalProject=structuredClone(project);
+    const externalModule=parseRpm(externalProject.fileSystem!.additions![FOLLOWER_DLL_PATH],{allowedMagics:["DLXF"]});
+    externalModule.metadata.PMCVersion="test-external";
+    const externalDll=writeRpm(externalModule,{ident:"DLXF"});
+    externalProject.fileSystem!.additions![FOLLOWER_DLL_PATH]=externalDll;
+    const externalState={...JSON.parse(new TextDecoder().decode(externalProject.fileSystem!.additions![FOLLOWER_INSTALL_PATH])),
+      schemaVersion:2,variant:"full",version:"test-external",moduleSha256:await followerRomSha256(externalDll),
+      externalRuntime:{schemaVersion:1,compatibleVersion:runtimeManifest.version,label:"External test",sourceRomSha256:contract.target.sha256}};
+    externalProject.fileSystem!.additions![FOLLOWER_INSTALL_PATH]=new TextEncoder().encode(JSON.stringify(externalState));
+    expect((await readFollowerAlphaInstall(externalProject,rom as unknown as FollowerRom))?.externalRuntime?.label).toBe("External test");
+    const validExternalReceipt=externalProject.fileSystem!.additions![FOLLOWER_INSTALL_PATH];
+    externalProject.fileSystem!.additions![FOLLOWER_INSTALL_PATH]=new TextEncoder().encode(JSON.stringify({...externalState,externalRuntime:{...externalState.externalRuntime,compatibleVersion:"unknown-ABI"}}));
+    await expect(readFollowerAlphaInstall(externalProject,rom as unknown as FollowerRom)).rejects.toThrow(/Invalid external/);
+    externalProject.fileSystem!.additions![FOLLOWER_INSTALL_PATH]=validExternalReceipt;
+    const externalFingerprints=()=>Object.entries(externalProject.fileSystem!.additions!).map(([path,data])=>[path,createHash("sha256").update(data).digest("hex")]);
+    const externalBefore=externalFingerprints();
+    await expect(installFollowerAlpha(externalProject,rom as unknown as FollowerRom)).rejects.toThrow(/outside Pokeweb/);
+    await expect(removeFollowerAlpha(externalProject,rom as unknown as FollowerRom)).rejects.toThrow(/outside Pokeweb/);
+    await expect(setFollowerAlphaEnabled(externalProject,false,rom as unknown as FollowerRom)).rejects.toThrow(/outside Pokeweb/);
+    expect(externalFingerprints()).toEqual(externalBefore);
+    await updateFollowerPositioning(externalProject,rom as unknown as FollowerRom,{landKey:"1:0:0:0",gaps:[2,2,2,2],rider:[[0,0],[0,0],[0,0],[0,0]]});
+    await writeFollowerDialogueRules(externalProject,rules,rom as unknown as FollowerRom);
+    await writeFollowerItemRules(externalProject,[{slot:0,itemId:1,quantity:1,itemName:"Potion",zone:42,text:"External gift"}],rom as unknown as FollowerRom);
+    expect((await readFollowerAlphaInstall(externalProject,rom as unknown as FollowerRom))?.externalRuntime).toEqual(externalState.externalRuntime);
+    expect(externalProject.fileSystem!.additions![FOLLOWER_DLL_PATH]).toEqual(externalDll);
+    expect(readFollowerWorkspace(externalProject,rom as unknown as FollowerRom)!.registry.entries[0].directionalGaps).toEqual([2,2,2,2]);
+    externalProject.fileSystem!.additions![FOLLOWER_DLL_PATH]=externalDll.slice();externalProject.fileSystem!.additions![FOLLOWER_DLL_PATH][32]^=1;
+    await expect(readFollowerAlphaInstall(externalProject,rom as unknown as FollowerRom)).rejects.toThrow(/files have changed/);
+    externalProject.fileSystem!.additions![FOLLOWER_DLL_PATH]=externalDll;
+    externalProject.fileSystem!.additions![FOLLOWER_CORE_DLL_PATH][32]^=1;
+    await expect(readFollowerAlphaInstall(externalProject,rom as unknown as FollowerRom)).rejects.toThrow(/core module has changed/);
     await setFollowerAlphaEnabled(project,false);expect((await readFollowerAlphaInstall(project))?.enabled).toBe(false);
     expect(new DataView(project.fileSystem!.additions![FOLLOWER_NATIVE_PATH].buffer).getUint32(4,true)).toBe(0);
     expect(project.fileSystem!.additions!['unrelated.bin']).toEqual(Uint8Array.of(9));

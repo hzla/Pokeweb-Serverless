@@ -6,9 +6,24 @@ struct MoveHudState {
     u16 disguiseTypes, selectedMove;
     u8 attributes[4];
     u8 selectedSlot, label, paletteInstalled, failure;
+#if defined(BW1_MOVE_PROFILE)
+    u16 moves[4]; // Native rotation menus do not populate the normal move array.
+#endif
+#if defined(BW1_MOVE_TRACE)
+    u32 targetTrace[4]; // Private diagnostic build; never bundled.
+    volatile u8 targetKeyRow[12];
+#endif
 };
 extern "C" { MoveHudState gBattleMoveHud; }
-static_assert(sizeof(MoveHudState)==20, "standalone move state budget");
+static_assert(sizeof(MoveHudState)==
+#if defined(BW1_MOVE_TRACE)
+    56,
+#elif defined(BW1_MOVE_PROFILE)
+    28,
+#else
+    20,
+#endif
+    "standalone move state budget");
 // Dedicated immutable-at-runtime RGB555 table. Volatile prevents the compiler
 // from folding colors into instructions; installers may edit exactly six bytes.
 extern "C" const volatile u16 gMovePreviewColors[3]={0x2b5e,0x62b3,0x211f};
@@ -19,8 +34,8 @@ constexpr unsigned MoveWhite=1, MoveYellow=11, MoveBlue=12, MoveRed=13;
 struct Bitmap { u8* pixels; u16 width,height,format,owner; };
 Bitmap* moveBitmap(void* biw) {
     if(!ram(biw)) return nullptr;
-    auto* bmp=field<Bitmap*>(biw,0x2b0);
-    void* win=field<void*>(biw,0x2ac);
+    auto* bmp=field<Bitmap*>(biw,MoveBitmap);
+    void* win=field<void*>(biw,MoveWindow);
     if(!ram(win)||!ram(bmp)||!ram(bmp->pixels) || bmp->width!=256 || bmp->height!=96
        ||bmp->format!=32||field<void*>(win,12)!=bmp) {fail(7);return nullptr;}
     return bmp;
@@ -36,7 +51,7 @@ void movePixel(Bitmap& b,unsigned x,unsigned y,unsigned c) {
     v=static_cast<u8>((v&~(15u<<s))|(c<<s)); // bitmap is RAM, flushed by native halfword copy
 }
 FadeBank* moveFade(void* biw) {
-    void* p=field<void*>(biw,0x64);
+    void* p=field<void*>(biw,MovePfd);
     if(!ram(p)) return nullptr;
     auto* f=static_cast<FadeBank*>(p)+1; // FADE_SUB_BG
     return ram(f->source)&&ram(f->transfer)&&f->bytes>=444?f:nullptr;
@@ -130,7 +145,7 @@ bool tintMove(Bitmap& bmp,unsigned x,unsigned y,unsigned color) {
 void moveUpdate(void* biw,const u16* moves,int selectedTarget=-1) {
     if(!moveBind(biw)) return;
     Bitmap& bmp=*moveBitmap(biw);
-    const unsigned rule=field<u32>(biw,0x50), screen=field<u32>(biw,0x58);
+    const unsigned rule=field<u32>(biw,MoveRule), screen=field<u32>(biw,MoveScreen);
     bool changed=false;
     if(moves) {
         void* target=(rule==0||rule==3)?moveTarget(rule==0?1:3):nullptr;
@@ -143,7 +158,7 @@ void moveUpdate(void* biw,const u16* moves,int selectedTarget=-1) {
     }
     // Palette refresh has no resource loads; no bitmap transfer on unchanged frames.
     if(!gBattleMoveHud.paletteInstalled) movePalette(biw);
-    if(changed) reinterpret_cast<void(*)(void*)>(NativeFlushBitmap)(field<void*>(biw,0x2ac));
+    if(changed) reinterpret_cast<void(*)(void*)>(NativeFlushBitmap)(field<void*>(biw,MoveWindow));
 }
 }
 static void HudMoveDraw(void* biw,const u16* param) {
@@ -151,9 +166,9 @@ static void HudMoveDraw(void* biw,const u16* param) {
     if(!moveBind(biw)) return;
     auto get=reinterpret_cast<unsigned(*)(unsigned,unsigned)>(NativeMoveParam);
     void* attacker=nullptr;
-    if(field<u32>(biw,0x50)==3) {
-        const unsigned slot=(field<u32>(biw,0x68)>>19)&3;
-        if(slot<3) attacker=field<void*>(biw,0x330+slot*4);
+    if(field<u32>(biw,MoveRule)==3) {
+        const unsigned slot=(field<u32>(biw,MoveState)>>19)&3;
+        if(slot<3) attacker=field<void*>(biw,MoveRotationMons+slot*4);
     } else attacker=moveTarget(reinterpret_cast<const u32*>(param)[4]);
     const bool normalize=abilityOf(attacker)==96;
     // Lower two bits hold the selected move slot, upper bits the attacker's
@@ -162,6 +177,9 @@ static void HudMoveDraw(void* biw,const u16* param) {
     gBattleMoveHud.label=0;
     for(unsigned i=0;i<4;++i) {
         const unsigned move=param[i];
+#if defined(BW1_MOVE_PROFILE)
+        gBattleMoveHud.moves[i]=static_cast<u16>(move);
+#endif
         // Native drawing has already populated the move-data cache for these moves.
         unsigned type=move?get(move,0):0;
         bool damaging=move&&get(move,2);
@@ -185,11 +203,16 @@ static void HudMoveClear(void* biw,unsigned nextScreen) {
     u8 glyph[512];
     auto& s=gBattleMoveHud;
     Bitmap* b=moveBitmap(biw);
-    const unsigned active=field<u32>(biw,0x300);
-    const unsigned slot=active<3?field<u8>(biw,0x2c8+active*8):255;
-    const bool keep=b&&s.input==biw&&nextScreen==3&&field<u32>(biw,0x58)==2&&slot<4;
+    const unsigned active=field<u32>(biw,MoveSelectedActive);
+    const unsigned slot=active<3?field<u8>(biw,MoveSelectedSlots+active*8):255;
+    const bool keep=b&&s.input==biw&&nextScreen==3&&field<u32>(biw,MoveScreen)==2&&slot<4;
     if(keep) {
-        s.selectedSlot=static_cast<u8>((s.selectedSlot&~3u)|slot);s.selectedMove=field<u16>(biw,0x2f0+slot*2);
+        s.selectedSlot=static_cast<u8>((s.selectedSlot&~3u)|slot);
+#if defined(BW1_MOVE_PROFILE)
+        s.selectedMove=s.moves[slot];
+#else
+        s.selectedMove=field<u16>(biw,MoveMoveArray+slot*2);
+#endif
         for(unsigned y=0;y<16;++y) for(unsigned x=0;x<128;x+=4) {
             unsigned packed=0;
             for(unsigned n=0;n<4;++n) {
@@ -206,22 +229,44 @@ static void HudMoveClear(void* biw,unsigned nextScreen) {
     if(keep) {
         for(unsigned y=0;y<16;++y) for(unsigned x=0;x<128;++x)
             movePixel(*b,64+x,y,(glyph[y*32+x/4]>>((x&3)*2))&3);
-        reinterpret_cast<void(*)(void*)>(NativeFlushBitmap)(field<void*>(biw,0x2ac));
+        reinterpret_cast<void(*)(void*)>(NativeFlushBitmap)(field<void*>(biw,MoveWindow));
     }
 }
 static int HudMoveKey(void* biw,void* tp,const signed char* keys,const void* moveTable,int hit,unsigned transformed) {
     const int result=reinterpret_cast<int(*)(void*,void*,const signed char*,const void*,int,unsigned)>(NativeMoveKey)
         (biw,tp,keys,moveTable,hit,transformed);
-    const unsigned screen=field<u32>(biw,0x58);
-    if(screen==2||screen==5) moveUpdate(biw,reinterpret_cast<u16*>(static_cast<u8*>(biw)+0x2f0));
+    const unsigned screen=field<u32>(biw,MoveScreen);
+    if(screen==2||screen==5) moveUpdate(biw,
+#if defined(BW1_MOVE_PROFILE)
+        gBattleMoveHud.moves);
+#else
+        reinterpret_cast<u16*>(static_cast<u8*>(biw)+MoveMoveArray));
+#endif
     else if(screen==3) {
-        const unsigned cursor=(field<u32>(biw,0x68)>>5)&15;
+        const unsigned cursor=(field<u32>(biw,MoveState)>>5)&15;
         // a_button is the actual native target-card index; cursor_pos is a
         // move-specific key-table index, NOT a Pokémon position.
         int target=hit>=0?hit:keys[cursor*12+10];
         unsigned count=0;
-        for(unsigned i=0;i<6;++i) if(keys[cursor*12+i]>=0) ++count;
+        for(unsigned i=0;i<6;++i) if(keys[cursor*12+i]>=0) {
+#if defined(BW1_MOVE_PROFILE)
+            // Retail BW1 repeats a single target ID across several entries.
+            // Four copies of one ID still describe one opponent, not a spread.
+            bool duplicate=false;
+            for(unsigned j=0;j<i;++j)if(keys[cursor*12+j]==keys[cursor*12+i])duplicate=true;
+            if(duplicate)continue;
+#endif
+            ++count;
+        }
         if(hit<0&&count!=1) target=-1; // spread/field confirmation has no single target
+#if defined(BW1_MOVE_TRACE)
+        gBattleMoveHud.targetTrace[0]=static_cast<u32>(hit);
+        gBattleMoveHud.targetTrace[1]=static_cast<u32>(result);
+        gBattleMoveHud.targetTrace[2]=reinterpret_cast<u32>(keys);
+        gBattleMoveHud.targetTrace[3]=cursor|(static_cast<u8>(keys[cursor*12+10])<<8)
+            |(count<<16)|(static_cast<u8>(target)<<24);
+        for(unsigned i=0;i<12;++i)gBattleMoveHud.targetKeyRow[i]=static_cast<u8>(keys[cursor*12+i]);
+#endif
         moveUpdate(biw,nullptr,target);
     }
     return result;

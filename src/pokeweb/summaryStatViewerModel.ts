@@ -3,7 +3,7 @@ import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
-import manifest from "../assets/codeinjection/summaryStatViewerManifest.json";
+import manifestData from "../assets/codeinjection/summaryStatViewerManifest.json";
 import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
@@ -14,15 +14,29 @@ import type { ProjectState } from "./projectStore";
 import { parseRpm, writeRpm, type RpmModule } from "./rpm";
 
 export interface SummaryStatViewerOptions { includeEvs: boolean }
-export const SUMMARY_STAT_VIEWER_VERSION = manifest.version;
+export const SUMMARY_STAT_VIEWER_VERSION = manifestData.version;
 export type SummaryStatViewerStatus = {
   supported: boolean; compatible: boolean; installed: boolean; canUninstall: boolean;
   pmcInstalled: boolean; options: SummaryStatViewerOptions; dllPath?: string; message: string;
   installedVersion?: string; updateAvailable: boolean;
 };
-type Version = "B2" | "W2";
+type Version = "B" | "W" | "B2" | "W2";
+type Signature = { module: string; address: number; expectedHex: string; patchSize: number };
+type SummaryProfile = {
+  idCode: string; revision: number; overlayId: number; graphicsArchive: string; dsAccepted?: boolean;
+  fileName: string; codeFingerprint: string; bssSize: number; sha256: string;
+  signatures: Signature[]; resources: { member: number; sha256: string }[];
+};
+type PreviousProfile = Pick<SummaryProfile, "codeFingerprint" | "bssSize"> & { hooks: Pick<Signature, "module" | "address">[] };
+const manifest = manifestData as {
+  version: string; games: Record<Version, SummaryProfile>;
+  previousVersions: { version: string; games: Partial<Record<Version, PreviousProfile>> }[];
+};
+const isVersion = (version: unknown): version is Version => version === "B" || version === "W" || version === "B2" || version === "W2";
 const urls = { B2: new URL("../assets/codeinjection/SummaryStatViewerB2.dll", import.meta.url),
-  W2: new URL("../assets/codeinjection/SummaryStatViewerW2.dll", import.meta.url) };
+  W2: new URL("../assets/codeinjection/SummaryStatViewerW2.dll", import.meta.url),
+  B: new URL("../assets/codeinjection/SummaryStatViewerB.dll", import.meta.url),
+  W: new URL("../assets/codeinjection/SummaryStatViewerW.dll", import.meta.url) };
 const magic = new Uint8Array([83, 83, 86, 67, 70, 71, 49, 0]);
 const hex = (b: Uint8Array) => Array.from(b, n => n.toString(16).padStart(2, "0")).join("");
 const hash = async (b: Uint8Array) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(b))));
@@ -58,7 +72,7 @@ export function configureSummaryStatViewerDll(bytes: Uint8Array, options: Summar
   if (typeof options.includeEvs !== "boolean") throw new Error("Include EV view must be a boolean.");
   const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });
   const version = rpm.metadata.PMCGameID;
-  if ((version !== "W2" && version !== "B2") || !recognized(rpm, version)) throw new Error("Unrecognized Summary viewer DLL; it cannot be updated safely.");
+  if (!isVersion(version) || !recognized(rpm, version)) throw new Error("Unrecognized Summary viewer DLL; it cannot be updated safely.");
   const at = configOffset(rpm.code), flags = Number(options.includeEvs);
   writeU32(rpm.code, at + 12, flags); writeU32(rpm.code, at + 16, flags ^ 0x53535631);
   return writeRpm(rpm, { ident: "DLXF" });
@@ -74,12 +88,17 @@ export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatVi
     pmcInstalled: getPmcInstallStatus(project).installed, options: { includeEvs: true }, updateAvailable: false,
     message: "Summary IV/EV Viewer supports English US Black 2 (IREO) and White 2 (IRDO)." };
   const v = project.session.baseVersion;
-  if (project.session.baseRom !== "BW2" || (v !== "B2" && v !== "W2")) return state;
+  if (!isVersion(v) || project.session.baseRom !== (v === "B" || v === "W" ? "BW" : "BW2")) return state;
   let rom: NintendoDSRom | undefined;
   try { if (project.originalRomBytes) rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" }); }
   catch { return { ...state, message: "Reload the ROM to check Summary compatibility." }; }
   const profile = manifest.games[v];
-  if ((rom?.idCode ?? project.romInfo.idCode) !== profile.idCode) return state;
+  if (!profile || (rom?.idCode ?? project.romInfo.idCode) !== profile.idCode) return state;
+  if (rom && rom.data[0x1e] !== profile.revision) return { ...state, message: "Summary IV/EV Viewer requires English US revision 0." };
+  // Both BW1 retail games must be accepted before either becomes available.
+  if ((v === "B" || v === "W") && (!manifest.games.B?.dsAccepted || !manifest.games.W?.dsAccepted)) {
+    return { ...state, message: "BW1 Summary IV/EV Viewer is awaiting DS gameplay and visual acceptance in Black and White." };
+  }
   state.supported = true;
   const found: string[] = [];
   for (const entry of listCodeInjectionDlls(project)) {
@@ -95,7 +114,7 @@ export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatVi
           : target.type === "THUMB_BRANCH_SAFESTACK" ? 16 : target.type === "THUMB_BRANCH" ? 12 : 4;
         return profile.signatures.some(s => target.module === s.module && target.address < s.address + s.expectedHex.length / 2 && target.address + size > s.address);
       });
-      if (overlap || /^SummaryStatViewer[WB]2\.dll$/iu.test(entry.fileName)) return { ...state,
+      if (overlap || /^SummaryStatViewer[WB](?:2)?\.dll$/iu.test(entry.fileName)) return { ...state,
         message: `Conflicting Summary code in ${entry.path}. Remove or update that module before installing this viewer.` };
     }
   }
@@ -105,14 +124,14 @@ export function getSummaryStatViewerStatus(project: ProjectState): SummaryStatVi
   if (rom) {
     try {
       const overlay = loadOverlayTable(project.patches?.arm9OverlayTable ?? rom.arm9OverlayTable,
-        (_id, fileId) => getRomFileBytes(project, rom!, fileId), new Set([207])).get(207);
+        (_id, fileId) => getRomFileBytes(project, rom!, fileId), new Set([profile.overlayId])).get(profile.overlayId);
       const arm9 = project.arm9.length ? project.arm9 : decompressCode(rom.arm9);
       for (const signature of profile.signatures) {
         const base = signature.module === "ARM9" ? rom.arm9RamAddress : overlay?.ramAddress;
-        const data = signature.module === "ARM9" ? [arm9] : [overlay?.data, project.overlays[207] ?? overlay?.data];
+        const data = signature.module === "ARM9" ? [arm9] : [overlay?.data, project.overlays[profile.overlayId] ?? overlay?.data];
         const offset = base === undefined ? -1 : signature.address - base;
         if (data.some(d => !d || offset < 0 || hex(d.subarray(offset, offset + signature.expectedHex.length / 2)) !== signature.expectedHex)) {
-          return { ...state, message: `Unrecognized Summary code in ${signature.module === "ARM9" ? "ARM9" : "overlay 207"} at 0x${signature.address.toString(16)}. Restore this hook or use a compatible build.` };
+          return { ...state, message: `Unrecognized Summary code in ${signature.module === "ARM9" ? "ARM9" : `overlay ${profile.overlayId}`} at 0x${signature.address.toString(16)}. Restore this hook or use a compatible build.` };
         }
       }
     } catch { return { ...state, message: "The Summary overlay could not be read. Reload the ROM before installing." }; }
@@ -131,8 +150,8 @@ export async function installSummaryStatViewer(project: ProjectState, options: S
   if (!status.supported || !status.compatible) throw new Error(status.message);
   const v = project.session.baseVersion as Version, profile = manifest.games[v];
   const rom = new NintendoDSRom(romBytes, { fileData: "view" });
-  const fileId = rom.filenames.idOf("a/0/7/7");
-  if (fileId === undefined) throw new Error("Summary graphics archive a/0/7/7 is missing.");
+  const fileId = rom.filenames.idOf(profile.graphicsArchive);
+  if (fileId === undefined) throw new Error(`Summary graphics archive ${profile.graphicsArchive} is missing.`);
   const archive = new NARC(getRomFileBytes(project, rom, fileId));
   for (const resource of profile.resources) {
     const data = archive.files[resource.member];

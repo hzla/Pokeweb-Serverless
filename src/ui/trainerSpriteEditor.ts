@@ -47,6 +47,7 @@ const TRAINER_ANIMATION_CANVAS_HEIGHT = 400;
 
 let playbackHandle: number | undefined;
 let activeTrainerClassId: number | undefined;
+let activeTrainerProjects = new WeakSet<ProjectState>();
 let animationTick = 0;
 let animationPlaying = true;
 let trainerImportMode: "native" | "pwan" = "native";
@@ -85,9 +86,11 @@ export async function renderTrainerSpriteEditor(
   try {
     if (!(await ensureTrainerSpriteStore(project))) throw new Error("Trainer sprite data is not available for this ROM.");
     if (!root.isConnected) return;
-    const nativeAnimation = getTrainerClassSpriteAnimation(project, trainerClassId);
-    if (activeTrainerClassId !== trainerClassId) {
+    if (!activeTrainerProjects.has(project) || activeTrainerClassId !== trainerClassId) {
+      activeTrainerProjects = new WeakSet([project]);
       activeTrainerClassId = trainerClassId;
+      const runtime = getTrainerPwanRuntimeStatus(project);
+      trainerImportMode = runtime.supported && runtime.installed ? "pwan" : "native";
       animationTick = 0;
       animationPlaying = true;
       trainerGifState.trainerClassId = trainerClassId;
@@ -98,13 +101,13 @@ export async function renderTrainerSpriteEditor(
       trainerPwanState.source = undefined;
       trainerPwanState.build = undefined;
       trainerPwanState.conversion = undefined;
-      trainerPwanState.status = "Choose a GIF to generate a trainer PWAN preview.";
+      trainerPwanState.status = `Choose a GIF to generate a trainer ${isW2AnimProject(project) ? "w2anim" : "PWAN"} preview.`;
     }
     const pendingBuild = trainerGifState.trainerClassId === trainerClassId ? trainerGifState.build : undefined;
     const graphicIndex = trainerGraphicIndexForClass(project, trainerClassId);
     const pwanOverride = trainerPwanState.build ?? findTrainerPwanOverride(project, graphicIndex);
     const pwanPreview = trainerImportMode === "pwan" && pwanOverride ? trainerPwanPreview(pwanOverride) : undefined;
-    const animation = pwanPreview?.animation ?? pendingBuild?.animation ?? nativeAnimation;
+    const animation = pwanPreview?.animation ?? pendingBuild?.animation ?? getTrainerClassSpriteAnimation(project, trainerClassId);
     const rigAtlas = pwanPreview?.atlas ?? pendingBuild?.rigAtlas ?? getTrainerClassRigAtlas(project, trainerClassId);
     animationTick = wrapTick(animationTick, animation.totalTicks);
 
@@ -158,7 +161,7 @@ export async function renderTrainerSpriteEditor(
             <div class="animation-controls trainer-animation-details">
               <div class="animation-part-summary">
                 <strong>${escapeHtml(className)}</strong>
-                <span>${pwanPreview ? "PWAN battle-intro animation" : pendingBuild ? "Generated GIF preview · not yet applied" : "Native battle-intro multi-cell animation"}</span>
+                <span>${pwanPreview ? `${isW2AnimProject(project) ? "w2anim" : "PWAN"} battle-intro animation` : pendingBuild ? "Generated GIF preview · not yet applied" : "Native battle-intro multi-cell animation"}</span>
               </div>
               ${animationDetail("Timeline", `${animation.totalTicks} ticks at 60 FPS`)}
               ${animationDetail("Cell sequences", animation.cellSequenceCount)}
@@ -322,15 +325,15 @@ function renderTrainerGifImporter(project: ProjectState, trainerClassId: number,
         <div class="trainer-gif-status" id="trainer-gif-status">${escapeHtml(trainerGifState.status)}</div>
         ${build ? renderTrainerGifReport(project, build) : ""}
       </div>
-      ${renderTrainerImportModeButtons()}
+      ${renderTrainerImportModeButtons(project)}
     </section>
   `;
 }
 
-function renderTrainerImportModeButtons(): string {
+function renderTrainerImportModeButtons(project: ProjectState): string {
   return `<div class="sprite-actions -inline trainer-import-modes" aria-label="Trainer GIF storage mode">
     <button class="btn ${trainerImportMode === "native" ? "-primary" : "-default"}" data-trainer-import-mode="native" type="button">Native Bundle</button>
-    <button class="btn ${trainerImportMode === "pwan" ? "-primary" : "-default"}" data-trainer-import-mode="pwan" type="button">PWAN GIF</button>
+    <button class="btn ${trainerImportMode === "pwan" ? "-primary" : "-default"}" data-trainer-import-mode="pwan" type="button">${isW2AnimProject(project) ? "w2anim" : "PWAN"} GIF</button>
   </div>`;
 }
 
@@ -352,7 +355,7 @@ function renderTrainerPwanImporter(project: ProjectState, trainerClassId: number
         <button class="btn -default" id="trainer-pwan-remove" type="button" ${current ? "" : "disabled"}>Remove Override</button>
       </div>
     </div>
-    ${renderTrainerImportModeButtons()}
+    ${renderTrainerImportModeButtons(project)}
     ${shared}
     <div class="gif-flipbook-panel trainer-gif-panel">
       <div class="trainer-gif-controls">
@@ -367,7 +370,7 @@ function renderTrainerPwanImporter(project: ProjectState, trainerClassId: number
       </label>
       ${renderPwanGifImportPreview("trainer", trainerPwanState.colorPreset)}
       <div class="trainer-gif-status ${runtime.supported && runtime.installed ? "" : "-error"}" id="trainer-pwan-status">${escapeHtml(runtime.supported && runtime.installed ? trainerPwanState.status : `${runtime.message} Install it from Code Injection.`)}</div>
-      ${(build ?? current) ? `<div class="trainer-gif-report">${animationDetail("Graphic", graphicIndex)}${animationDetail("Frames", (build ?? current)!.animation.uniqueFrameCount)}${animationDetail("Timeline", `${(build ?? current)!.animation.totalTicks} ticks`)}${animationDetail("Storage", current ? "PWAN override active" : "Preview only")}</div>` : ""}
+      ${(build ?? current) ? `<div class="trainer-gif-report">${animationDetail("Graphic", graphicIndex)}${animationDetail("Frames", (build ?? current)!.animation.uniqueFrameCount)}${animationDetail("Timeline", `${(build ?? current)!.animation.totalTicks} ticks`)}${animationDetail("Storage", current ? `${isW2AnimProject(project) ? "w2anim" : "PWAN"} override active` : "Preview only")}</div>` : ""}
     </div>
   </section>`;
 }
@@ -487,7 +490,7 @@ function installTrainerPwanImporter(project: ProjectState, root: HTMLElement, tr
   root.querySelector("#trainer-pwan-apply")?.addEventListener("click", async () => {
     if (!trainerPwanState.build || !session.ready()) return;
     upsertTrainerPwanOverride(project, trainerPwanState.build);
-    trainerPwanState.status = `PWAN override applied to trainer graphic ${trainerPwanState.build.graphicIndex}.`;
+    trainerPwanState.status = `${isW2AnimProject(project) ? "w2anim" : "PWAN"} override applied to trainer graphic ${trainerPwanState.build.graphicIndex}.`;
     trainerPwanState.build = undefined;
     options.onDirty?.();
     await renderTrainerSpriteEditor(project, root, trainerClassId, options);
@@ -495,7 +498,7 @@ function installTrainerPwanImporter(project: ProjectState, root: HTMLElement, tr
   root.querySelector("#trainer-pwan-remove")?.addEventListener("click", async () => {
     if (removeTrainerPwanOverride(project, trainerGraphicIndexForClass(project, trainerClassId))) options.onDirty?.();
     trainerPwanState.build = undefined;
-    trainerPwanState.status = "PWAN override removed; the native trainer animation will be used.";
+    trainerPwanState.status = `${isW2AnimProject(project) ? "w2anim" : "PWAN"} override removed; the native trainer animation will be used.`;
     await renderTrainerSpriteEditor(project, root, trainerClassId, options);
   });
 }
@@ -510,7 +513,7 @@ async function generateTrainerPwanPreview(project: ProjectState, root: HTMLEleme
   trainerPwanState.offsetX = clamp(value("#trainer-pwan-offset-x", 0), -48, 48);
   trainerPwanState.offsetY = clamp(value("#trainer-pwan-offset-y", 0), -48, 48);
   try {
-    trainerPwanState.status = `Compiling ${source.fileName} to PWAN...`;
+    trainerPwanState.status = `Compiling ${source.fileName} for ${isW2AnimProject(project) ? "w2anim" : "PWAN"}...`;
     trainerPwanState.build = buildTrainerPwanOverrideFromCompileResult(trainerGraphicIndexForClass(project, trainerClassId), source.fileName, source.bytes, conversion, trainerPwanState);
     trainerPwanState.status = `Preview ready: ${trainerPwanState.build.animation.uniqueFrameCount} frame(s), ${trainerPwanState.build.animation.totalTicks} ticks.`;
     animationTick = 0;

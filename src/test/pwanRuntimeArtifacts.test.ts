@@ -47,6 +47,15 @@ describe("bundled PWAN runtime artifacts", () => {
     }
   });
 
+  it.each(["B2", "W2"] as const)("resolves the native %s mode getter without new module imports", game => {
+    for (const scope of ["Summary", "Battle", "Misc", "Trainer"]) {
+      const rpm = parseRpm(new Uint8Array(readFileSync(assetUrl(`PokewebPwan${scope}${game}.dll`))), { allowedMagics: ["DLXF"] });
+      expect(rpm.symbols.filter(symbol => symbol.attributes & 2)).toEqual([]);
+      expect(rpm.symbols.some(symbol => symbol.attributes & 4 && symbol.type === "FUNCTION_THM"
+        && symbol.address === (game === "B2" ? 0x0207ac8c : 0x0207acb8))).toBe(true);
+    }
+  });
+
   it("limits the Black 2 DLL to the seven verified battle hook sites", () => {
     const bytes = new Uint8Array(readFileSync(assetUrl("PokewebPwanBattleB2.dll")));
     const rpm = parseRpm(bytes, { allowedMagics: ["DLXF"] });

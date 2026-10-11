@@ -69,7 +69,8 @@ import {
   type PokemonFlipbookSamplingStrategy,
 } from "../pokeweb/pokemonFlipbookRig";
 import { PWAN_HEIGHT, PWAN_WIDTH, pwanFramePixels, pwanTimeline } from "../pokeweb/pwanCompiler";
-import { getPwanRuntimeStatus } from "../pokeweb/pwanAnimationModel";
+import { findPwanOverrideForSpecies, getPwanRuntimeStatus } from "../pokeweb/pwanAnimationModel";
+import { w2animPokemonPreviewPalette } from "../pokeweb/w2animAnimationModel";
 import { getPokemonPersonalIds } from "../pokeweb/pokemonModel";
 import { pokemonSpeciesLabel } from "../pokeweb/pokemonLabels";
 import { concatBytes } from "../nds/binary";
@@ -122,6 +123,7 @@ type SpriteEditorState = {
   gifLoopBase?: GifLoopBase;
   lastGifImport?: GifImportSummary;
   speciesId?: number;
+  formIndex?: number;
   spritesExpanded: boolean;
   palettesExpanded: boolean;
   iconsExpanded: boolean;
@@ -330,12 +332,15 @@ export function renderPokemonSpriteEditor(
   options: RenderOptions = {},
 ): void {
   stopAnimationPlayback();
+  // A different ROM or a same-size edited stream must never reuse old pixels.
+  pwanPreviewCache.clear();
   try {
     const forms = getPokemonSpriteFormOptions(project, speciesId);
     const selectedForm = forms.find((form) => form.formIndex === formIndex) ?? forms[0];
     const spriteId = selectedForm.spriteId;
     const iconAddress = resolvePokemonIconAddress(project, speciesId, selectedForm.formIndex, spriteId);
     state.speciesId = speciesId;
+    state.formIndex = selectedForm.formIndex;
     const entry = getPokemonSpriteEntry(project, spriteId);
     const iconAssignment = getPokemonIconPaletteAssignment(project, iconAddress.paletteKey, state.iconVariant);
     state.iconPaletteId = Math.min(2, iconAssignment.paletteId);
@@ -633,6 +638,7 @@ function installSpritePwanImportEvents(project: ProjectState, root: HTMLElement,
     onRefresh: rerender,
     submitLabel: "Import Gif",
     workingLabel: "Importing...",
+    defaultFormIndex: state.formIndex,
   });
 }
 
@@ -2465,6 +2471,7 @@ function isPngBytes(bytes: Uint8Array): boolean {
 }
 
 function drawAllPreviews(project: ProjectState, spriteId: number, root: HTMLElement, highlight?: PaletteHighlight): void {
+  pwanPreviewCache.clear();
   const palettes = {
     normal: readPaletteInputs(root, "normal"),
     shiny: readPaletteInputs(root, "shiny"),
@@ -2594,21 +2601,23 @@ function drawAnimationEditor(project: ProjectState, spriteId: number, root: HTML
 
 function activePwanAnimationPreview(project: ProjectState): PwanPreview | undefined {
   const speciesId = state.speciesId;
-  if (speciesId === undefined) return undefined;
-  const override = project.pwanAnimations?.overrides?.find((entry) => entry.speciesId === speciesId);
+  if (speciesId === undefined || speciesId < 1 || (!project.w2animAnimations && !project.pwanAnimations?.overrides.length)) return undefined;
+  const override = findPwanOverrideForSpecies(project, speciesId, state.formIndex ?? 0);
   if (!override) return undefined;
   const side = override[state.animationSide];
   if (!side) return undefined;
-  const key = `${speciesId}:${state.animationSide}:${side.sourceFileName}:${side.pwanBytes.length}:${side.timelineCount}:${side.totalTicks}`;
+  const key = `${speciesId}:${state.formIndex ?? 0}:${state.animationSide}:${state.previewPaletteKind}:${side.sourceFileName}:${side.pwanBytes.length}:${side.timelineCount}:${side.totalTicks}`;
   const cached = pwanPreviewCache.get(key);
   if (cached) return cached;
   const timeline = pwanTimeline(side.pwanBytes);
   if (timeline.length === 0) return undefined;
   const frameImages = new Map<number, HTMLCanvasElement>();
+  const palette = w2animPokemonPreviewPalette(project, override.speciesId, override.formIndex ?? 0,
+    state.animationSide, side.paletteBgr555, state.previewPaletteKind === "shiny");
   const frames = timeline.map((entry) => {
     let image = frameImages.get(entry.frameIndex);
     if (!image) {
-      image = imageToCanvas(pwanIndexedPixelsToRgba(pwanFramePixels(side.pwanBytes, entry.frameIndex), side.paletteBgr555));
+      image = imageToCanvas(pwanIndexedPixelsToRgba(pwanFramePixels(side.pwanBytes, entry.frameIndex), palette));
       frameImages.set(entry.frameIndex, image);
     }
     return { frameIndex: entry.frameIndex, ticks: Math.max(1, entry.ticks), image };
@@ -3583,6 +3592,7 @@ function renderAnimationGifImporter(project: ProjectState, spriteId: number, spe
   return renderPwanImportPanel(project, {
     title: "Import Gif",
     defaultSpeciesId: speciesId,
+    defaultFormIndex: state.formIndex,
     defaultPaletteSource: "front",
     showImportStatus: true,
     showPaletteField: false,

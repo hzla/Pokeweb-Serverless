@@ -23,8 +23,10 @@ work/
 analysis/
 runtime/form-evolution/build/
 runtime/tag-battle-stabilization/build/
+runtime/double-battle-fix/build/
 runtime/porta-pc/build/
 runtime/battle-harness/build/
+runtime/cgear-quick-actions/build/
 __pycache__/
 
 # Machine-local agent working notes belong outside this repository.
@@ -60,3 +62,8 @@ src/test/local/
 
 # The shipped library is losslessly compressed; keep the raw diagnostic cache local.
 /src/assets/pwan/library/pwan.narc
+!/scripts/verify-black1-double-battle-fix.ts
+!/scripts/verify-cgear-quick-actions-install.ts
+
+!/scripts/generate-cgear-button-defaults.ts
+!/scripts/verify-cgear-native-graphics.ts

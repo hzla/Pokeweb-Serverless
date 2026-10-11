@@ -3668,6 +3668,14 @@
       "expectedHex": "282048431558281cfaf79efe041c281cfaf792ff021c5169201c5118091bebf7b1fd38bd",
       "abi": "Native actor material trim routine resizes its resource at the TEX0 pixel-data offset. Bounds are read from the already loaded private recall resource, never the shared actor material.",
       "status": "Stock ARM9 instructions and shipped TEX0 assets audited; no game emulator run"
+    },
+    {
+      "id": "native-dsi-mode",
+      "segment": "ARM9",
+      "address": 34057400,
+      "expectedHex": "0948c06900280bd108480178032008400121012800d00021034841600121c161014840687047c046c4c4140200400004",
+      "abi": "Thumb; native cached DS/DSi mode query, no allocation.",
+      "status": "Clean retail bytes checked; isolated DS/DSi pointer checks."
     }
   ],
   "eventsAbi": 6,

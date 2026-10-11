@@ -3,7 +3,8 @@ import { digestHmacFromRom, readDsiDigestSource } from "../nds/dsiDigest";
 import { NintendoDSRom } from "../nds/rom";
 import { validateDsRomSections } from "../nds/romValidation";
 
-export type DsiRomRepairResult = { bytes: Uint8Array; game: "Black 2" | "White 2" };
+const REPAIR_GAMES = { IRBO: "Black", IRAO: "White", IREO: "Black 2", IRDO: "White 2" } as const;
+export type DsiRomRepairResult = { bytes: Uint8Array; game: typeof REPAIR_GAMES[keyof typeof REPAIR_GAMES] };
 const align = (value: number, alignment: number) => Math.ceil(value / alignment) * alignment;
 
 /** Recover from a user-supplied donor; no retail ROM or firmware data is bundled. */
@@ -12,14 +13,15 @@ export async function repairDsiRom(source: Uint8Array, donor: Uint8Array, onProg
   validateDsRomSections(source);
   validateDsRomSections(donor);
   const gameCode = readAscii(source, 0x0c, 4);
-  if (!["IREO", "IRDO"].includes(gameCode) || source[0x12] !== 2) {
-    throw new Error("DSi ROM Repair currently supports English Black 2 and White 2 and compatible hacks.");
+  if (!Object.prototype.hasOwnProperty.call(REPAIR_GAMES, gameCode) || source[0x12] !== 2) {
+    throw new Error("DSi ROM Repair supports English Black, White, Black 2, and White 2 and compatible hacks.");
   }
+  const game = REPAIR_GAMES[gameCode as keyof typeof REPAIR_GAMES];
   if (readAscii(donor, 0x0c, 4) !== gameCode || donor[0x12] !== 2 || donor[0x1e] !== source[0x1e]) {
-    throw new Error("The clean ROM must match the damaged ROM's game, language, and revision. Use clean Black 2 for Black 2, or clean White 2 for White 2.");
+    throw new Error(`The clean ROM must match the damaged ROM's game, language, and revision. Use a clean ${game} ROM for this repair.`);
   }
   if ((readU32(source, 0x84) || 0x4000) !== 0x4000 || (readU32(donor, 0x84) || 0x4000) !== 0x4000) {
-    throw new Error("This ROM uses an unrecognized native header layout. DSi repair requires the standard Black 2 / White 2 header so native DS code cannot overlap the restored DSi metadata.");
+    throw new Error("This ROM uses an unrecognized native header layout. DSi repair requires the standard Black / White / Black 2 / White 2 header so native DS code cannot overlap the restored DSi metadata.");
   }
   for (const field of [0x24, 0x28, 0x34, 0x38]) {
     if (readU32(source, field) !== readU32(donor, field)) throw new Error("This hack changes native program addresses. Its compatibility with the clean ROM's DSi programs cannot be verified.");
@@ -63,7 +65,11 @@ export async function repairDsiRom(source: Uint8Array, donor: Uint8Array, onProg
   }
 
   await onProgress?.("Restoring DSi programs and encryption metadata…");
-  const sectorAt = align(source.length, 0x200), blockAt = align(sectorAt + sectors.length, 0x200);
+  // The staging header still describes the donor's NTR span. A compacted
+  // or smaller edited input must not place donor tables inside that span.
+  // The final save repacks native files and rebuilds the actual NTR digests.
+  const donorNtrEnd = readU32(donor, 0x1e0) + readU32(donor, 0x1e4);
+  const sectorAt = align(Math.max(source.length, donorNtrEnd), 0x200), blockAt = align(sectorAt + sectors.length, 0x200);
   const regionAt = align(blockAt + blocks.length, 0x80000);
   const length = regionAt + digest.regionSize;
   if (length > 0x7fffffff || regionAt / 0x80000 > 0xffff) throw new Error("The repaired ROM exceeds the supported ROM size.");
@@ -97,7 +103,7 @@ export async function repairDsiRom(source: Uint8Array, donor: Uint8Array, onProg
   await onProgress?.("Verifying the repaired layout…");
   validateDsRomSections(bytes);
   if (!readDsiDigestSource(bytes)) throw new Error("The repaired DSi integrity tables could not be verified. No ROM was downloaded.");
-  return { bytes, game: gameCode === "IREO" ? "Black 2" : "White 2" };
+  return { bytes, game };
 }
 
 export function dsiRepairedRomFilename(name: string): string {

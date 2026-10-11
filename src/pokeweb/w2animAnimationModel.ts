@@ -31,6 +31,26 @@ function archive(project: ProjectState): W2AnimArchive {
   return value;
 }
 
+export function w2animArchiveSummary(project: ProjectState): { pokemonSheets: number; trainerSheets: number; manifests: number } {
+  const source = archive(project);
+  return { pokemonSheets: source.entries.filter(entry => entry.arc === 4).length,
+    trainerSheets: source.entries.filter(entry => entry.arc === 71).length, manifests: source.manis.size };
+}
+
+/** Own stream palettes take precedence over the native carrier's palette. */
+export function w2animPokemonPreviewPalette(project: ProjectState, speciesId: number, formIndex: number,
+  side: "front" | "back", palette: Uint16Array, shiny: boolean): Uint16Array {
+  if (!shiny || !project.w2animAnimations) return palette;
+  const asset = resolvePokemonSpriteId(project, speciesId, formIndex), source = archive(project);
+  const entry = source.entries.find(value => value.arc === 4 && value.sheetFile === asset * 20 + (side === "front" ? 2 : 11));
+  const mani = entry && source.manis.get(entry.maniOffset);
+  if (mani?.normalPalette && mani.shinyPalette && mani.normalPalette.subarray(1).every((color, n) => color === palette[n + 1]))
+    return mani.shinyPalette;
+  const member = entry?.shinyNclrFile ?? asset * 20 + 19;
+  const normal = nativePalette(project, member - 1), shinyPalette = nativePalette(project, member);
+  return Uint16Array.from(palette, (color, n) => n === 0 ? shinyPalette[0]! : shinyPalette[nearest(color, normal)]!);
+}
+
 /** Validate all manifests and compressed frames before changing project state. */
 export function hydrateW2AnimFromRom(project: ProjectState, rom: NintendoDSRom): boolean {
   const fileId = rom.filenames.idOf(W2ANIM_PATH);

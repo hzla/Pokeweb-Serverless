@@ -8,6 +8,9 @@ import type { ProjectState } from "../pokeweb/projectStore";
 import { decodeW2AnimFrame, parseW2Anim, encodeW2AnimMani, materializeW2AnimArchive, w2animKey } from "../pokeweb/w2animCodec";
 import { hydrateW2AnimFromRom, materializeW2AnimAnimations, w2animEditorToLinear, w2animLinearToEditor } from "../pokeweb/w2animAnimationModel";
 import { streamFixture } from "./w2animFixture";
+import { detectAnimationAssets } from "../pokeweb/animationAssetModel";
+import { loadPokemonBattleSpriteAnimation } from "../pokeweb/pokemonBattleSpriteAnimation";
+import { w2animArchiveSummary, w2animPokemonPreviewPalette } from "../pokeweb/w2animAnimationModel";
 
 function projectFixture(): { project: ProjectState; rom: NintendoDSRom } {
   const bytes = streamFixture();
@@ -29,6 +32,23 @@ function projectFixture(): { project: ProjectState; rom: NintendoDSRom } {
 }
 
 describe("w2anim authoring bridge", () => {
+  it("detects stream assets independently of the PWAN authoring bridge and previews them lazily", () => {
+    const { project } = projectFixture();
+    expect(project.pwanAnimations!.overrides).toEqual([]);
+    expect(detectAnimationAssets(project)).toEqual({ pwan: false, w2anim: true, active: "w2anim" });
+    expect(w2animArchiveSummary(project)).toEqual({ pokemonSheets: 2, trainerSheets: 1, manifests: 2 });
+    const animation = loadPokemonBattleSpriteAnimation(project, 1, "front")!;
+    expect(animation.frameAtTick(0).key).toBe("0");
+    expect(animation.frameAtTick(3).key).toBe("1");
+    expect(animation.frameAtTick(10).key).toBe("0");
+    expect(animation.frameAtTick(15).key).toBe("0");
+    expect(animation.frameAtTick(0).parts[0]!.image.pixels).not.toEqual(animation.frameAtTick(3).parts[0]!.image.pixels);
+    const side = findPwanOverrideForSpecies(project, 1)!.front!;
+    const shiny = w2animPokemonPreviewPalette(project, 1, 0, "front", side.paletteBgr555, true);
+    expect(shiny).toEqual(side.paletteBgr555.map(color => color ^ 31));
+    expect(w2animPokemonPreviewPalette(project, 1, 0, "front", side.paletteBgr555, false)).toBe(side.paletteBgr555);
+    expect(project.pwanAnimations!.dirty).toBe(false);
+  });
   it.each([152, 192])("imports a %i-step refreshed stream without the old 128-step authoring restriction", (count) => {
     const { project } = projectFixture(), source = parseW2Anim(project.w2animAnimations!.sourceBytes);
     const entry = source.entries[0]!, original = source.manis.get(entry.maniOffset)!;

@@ -1,0 +1,165 @@
+{
+  "format": 1,
+  "acceptedOn": "2026-10-08",
+  "scope": "DS-mode gameplay and visual checks in the bundled DS emulator; compiled DS/extended-memory checks are separate. Live DSi acceptance pending.",
+  "evidenceDocument": "BW1_UI_RELEASE.md",
+  "components": {
+    "summary-stat-viewer": {
+      "dsChecks": [
+        "Party/PC/Ribbons/forms/Egg/restricted controls and IV-only options",
+        "Native green/yellow/red/empty HP bars and Shedinja 1/1",
+        "Repeated exit cleanup and same-session menu/battle/menu; read-only party/boxed data"
+      ],
+      "games": {
+        "B": {
+          "idCode": "IRBO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "3fb2ac512143d8ab70ff981b6086b6f258aeec6f24281b436ff1077c587c5928",
+          "artifacts": {
+            "SummaryStatViewerB.dll": "dfd4ebfdf5f90a3a3176c5664d8acd7d097869bedb765a5e237b54a0bca26845"
+          }
+        },
+        "W": {
+          "idCode": "IRAO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "cb23dfe8319d8979bf7599041880e6d75c4e151d722f31f8bdd2e356749aed8b",
+          "artifacts": {
+            "SummaryStatViewerW.dll": "8c2d5ccf6171ba0930955cd7321b8c9eb54b50551d2d6536e57216811470c51f"
+          }
+        }
+      }
+    },
+    "type-icons": {
+      "dsChecks": [
+        "24 complete current-build game/style/battle-format sessions",
+        "Six eight-cycle status/form/wild-field sessions with cleared gauge references",
+        "Six Illusion/Soak/Roost/reveal/restoration sessions"
+      ],
+      "games": {
+        "B": {
+          "idCode": "IRBO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "581b8f083567a26cae7a7ed22543315f9a8b2289514ae3fd8d468bb8de7eb812",
+          "artifacts": {
+            "TypeIconsB.dll": "5266fbd0a83a3962ee5b50d59cdbf515e6caf4e9bdb4dafbadfde8965ae3149b",
+            "TypeIconsCircularB.dll": "826017222fb9f145782d2842b29ca9103ad99ea7292c414856ff4ae39f9fd1b6",
+            "TypeIconsSolidB.dll": "c43b1a7afc92a29d6107a187d9381dfcd069f1c4a8f1bc0379cd621c5616bb4b"
+          }
+        },
+        "W": {
+          "idCode": "IRAO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "d5414fdd4d1afad663dd0bf32ad5ea74cfa08aafc9d705b998f015be796a8f4e",
+          "artifacts": {
+            "TypeIconsW.dll": "a1d274e4f4ec21d2b8f71cba2c0d38dc4695cc859b250000fa93fd97860b1e02",
+            "TypeIconsCircularW.dll": "d80f3db5da33ab6500bc5b814c238b48d342c9d420fe0eae6d936e626282fd1c",
+            "TypeIconsSolidW.dll": "1d0ab6980eee94db98cc86c61fc1c8ff0604046137b85ceceb470be0fd6afc02"
+          }
+        }
+      }
+    },
+    "move-effectiveness": {
+      "dsChecks": [
+        "Independent installation and custom-color export/reopen",
+        "12 custom-color sessions and 12 enemy/ally/spread target sessions",
+        "Native live type changes; compiled mechanics readers and neutral fallbacks"
+      ],
+      "games": {
+        "B": {
+          "idCode": "IRBO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "5680a6e0ba521a8da255e111276af2bb42c62d403527d8218f6fa157e57be0b3",
+          "artifacts": {
+            "MoveEffectivenessB.dll": "f3d3d00679078d8846905da9ff30e2a43d88f2db7fe025c37878dfad31d3765c"
+          }
+        },
+        "W": {
+          "idCode": "IRAO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "dae8c5d6bb045c8d21b632d6dc37d876b50ac2462f16b8106e754f7fe48605d4",
+          "artifacts": {
+            "MoveEffectivenessW.dll": "f021d83f005b920190446d04bf97cb6cbfb5a5a9b4af5b2cb8a0fe5449a83a5f"
+          }
+        }
+      }
+    },
+    "learnset-viewer": {
+      "dsChecks": [
+        "Both companion install orders, eight-row/full six-member menus and eight reopen cycles",
+        "Forms/Egg skip, PP/scroll, selected animation, seven Eevee branches, terminal/empty/truncated data",
+        "Read-only party data, native reminder/tutor and same-session menu/battle/menu"
+      ],
+      "games": {
+        "B": {
+          "idCode": "IRBO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "5a9a1a8f3629279b2fab503d3a970f7a4bb3a9d6351487bc159d29cbff856bf6",
+          "artifacts": {
+            "LearnsetMenuB.dll": "d0c5b359f5a8e44422fe9cd4bb1310d33839fb9c89b3bd0ea37dc0d420d89898",
+            "LearnsetViewerB.dll": "e39f69ded0bd71d6fe043f28928032eddf928662b18e75efd55fd6ed08816892"
+          }
+        },
+        "W": {
+          "idCode": "IRAO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "54d080be578cf8459b145616fa075ecd2dd5ccadb2df9917ec67c29f8520d7f4",
+          "artifacts": {
+            "LearnsetMenuW.dll": "40ed5d424ca0010f0f476d0227f3dcc05793e96f207d6b59ce10dab18fc97bd3",
+            "LearnsetViewerW.dll": "b982e1e98a4f820ed628a30bf919ff582a1856d7d6720ee8a3ba9a052ee12432"
+          }
+        }
+      }
+    },
+    "enhanced-party-menu": {
+      "dsChecks": [
+        "Native EVOLVE/RELEARN, cancellation, level and counter methods, field-script counters",
+        "Immediate level-100 zero-EXP KO learning and post-battle KO evolution; decline/cancellation",
+        "Save/cold reload then retail Heart Scale reminder and ordinary Draco Meteor tutor"
+      ],
+      "games": {
+        "B": {
+          "idCode": "IRBO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "8e56d69821abe096159b35b684afdf9155fa0bba852030b111314b2f3f562fee",
+          "artifacts": {
+            "MenuEvolutionB.dll": "b39be1e935104ea1213c3862543925142fffe398f1cb6e79876c5e2bfb36b620",
+            "Black1BattleLog.dll": "fb3e13f3c9cd5e71c3fceecf14b0b809fbb34b0e82cf1ad045c503529f50686d",
+            "Black1BattleCounters.dll": "75a2d9e21b95072549065fec3739778c3b8d03b20e4dec3fa6d20d3341196ee5",
+            "Black1BattleLogSummary.dll": "6568f4a8c68edcdca1ee3ff3faadf8e4561a740407bd9b402488af9f5e09d83e"
+          }
+        },
+        "W": {
+          "idCode": "IRAO",
+          "revision": 0,
+          "dsAccepted": true,
+          "liveDsiAccepted": false,
+          "nativeProfileSha256": "1f90a8ebbcc169cc6efbe53fca2db466fd0dc5f8e16a4d38371ed6e93a6cad51",
+          "artifacts": {
+            "MenuEvolutionW.dll": "917bb44093bb7ad9f9d62104bb6ad4021e39e8f1b22871b4dd4b3365481f08fd",
+            "White1BattleLog.dll": "c4d49701700a71296a0bd74b9199ea48ea5945c824a54658566829363e0e7921",
+            "White1BattleCounters.dll": "34bd0a7f3f492659c6acfaba59b2ec38b4ec1bfb8f64cc77d912c89ce894dd5c",
+            "White1BattleLogSummary.dll": "c985a07a9eca56f34a88c2460a5ec6a0ec8a981e10cb69756d3714f374219902"
+          }
+        }
+      }
+    }
+  }
+}

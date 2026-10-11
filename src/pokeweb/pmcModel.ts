@@ -3,6 +3,7 @@ import { decompressCode } from "../nds/codeCompression";
 import { cloneFolder, type Folder } from "../nds/fnt";
 import { NintendoDSRom } from "../nds/rom";
 import { recordGenericChange } from "./actionChangelog";
+import { assertBlack1DoubleBattleFixCompatible, assertBlack1DoubleBattleFixDll } from "./doubleBattleFixCompatibility";
 import { addRomFile, getRomFileBytes, setRomFileReplacement } from "./fileSystemModel";
 import { loadActiveRomBytes } from "./persistence";
 import { getStreamedBgmConfigs, type ProjectState } from "./projectStore";
@@ -76,6 +77,7 @@ const GEN5_RETAIL_ROOT_FILES: Record<"BW" | "BW2", { firstId: number; names: str
 const PMC_B2_URL = new URL("../assets/codeinjection/PMC_B2.rpm", import.meta.url);
 const PMC_W2_URL = new URL("../assets/codeinjection/PMC_W2.rpm", import.meta.url);
 const PMC_W2I_URL = new URL("../assets/codeinjection/PMC_W2I.rpm", import.meta.url);
+const DOUBLE_BATTLE_FIX_B_URL = new URL("../assets/codeinjection/DoubleBattleFixB.dll", import.meta.url);
 const DOUBLE_BATTLE_FIX_B2_URL = new URL("../assets/codeinjection/DoubleBattleFixB2.dll", import.meta.url);
 const DOUBLE_BATTLE_FIX_W2_URL = new URL("../assets/codeinjection/DoubleBattleFixW2.dll", import.meta.url);
 const MAIN_MENU_SKIP_B2_URL = new URL("../assets/codeinjection/MainMenuSkipB2.dll", import.meta.url);
@@ -86,7 +88,8 @@ const BGM_TOGGLE_B2_URL = new URL("../assets/codeinjection/BgmToggleB2.dll", imp
 const BGM_TOGGLE_W2_URL = new URL("../assets/codeinjection/BgmToggleW2.dll", import.meta.url);
 const OVERWORLD_WEATHER_RUNTIME_W2_URL = new URL("../assets/codeinjection/PokewebOverworldWeatherW2.dll", import.meta.url);
 
-const DOUBLE_BATTLE_FIX_FILENAMES: Record<"B2" | "W2", string> = {
+const DOUBLE_BATTLE_FIX_FILENAMES: Record<"B" | "B2" | "W2", string> = {
+  B: "DoubleBattleFixB.dll",
   B2: "DoubleBattleFixB2.dll",
   W2: "DoubleBattleFixW2.dll",
 };
@@ -349,19 +352,38 @@ export function installPmcBytes(project: ProjectState, rpmBytes: Uint8Array, rom
 }
 
 export async function stageBundledDoubleBattleFixDll(project: ProjectState): Promise<CodeInjectionDllInstallResult> {
-  if (project.session.baseRom !== "BW2") {
-    throw new Error("The bundled single-NPC double battle fix currently requires the BW2 PMC runtime.");
-  }
-  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") {
+  const version = project.session.baseVersion;
+  if (!((project.session.baseRom === "BW" && version === "B")
+    || (project.session.baseRom === "BW2" && (version === "B2" || version === "W2")))) {
     throw new Error(`No bundled double battle fix is available for ${project.session.baseVersion}.`);
   }
-
-  const url = project.session.baseVersion === "B2" ? DOUBLE_BATTLE_FIX_B2_URL : DOUBLE_BATTLE_FIX_W2_URL;
+  if (!getPmcInstallStatus(project).installed) throw new Error("Install PMC before adding the double battle fix.");
+  const romBytes = project.originalRomBytes ?? (version === "B" ? await loadActiveRomBytes() : undefined);
+  if (version === "B") {
+    if (!romBytes) throw new Error("Reload the ROM before installing the Black 1 double battle fix.");
+    assertBlack1DoubleBattleFixCompatible(project, romBytes);
+  }
+  const url = version === "B" ? DOUBLE_BATTLE_FIX_B_URL
+    : version === "B2" ? DOUBLE_BATTLE_FIX_B2_URL : DOUBLE_BATTLE_FIX_W2_URL;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not load bundled double battle fix (${response.status})`);
 
-  const fileName = DOUBLE_BATTLE_FIX_FILENAMES[project.session.baseVersion];
-  const result = stageCodeInjectionDll(project, fileName, new Uint8Array(await response.arrayBuffer()), "patches");
+  const fileName = DOUBLE_BATTLE_FIX_FILENAMES[version];
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (version === "B") {
+    assertBlack1DoubleBattleFixDll(bytes);
+    const existing = (() => {
+      const rom = new NintendoDSRom(romBytes!, { fileData: "view" });
+      const path = `patches/${fileName}`;
+      const fileId = rom.filenames.idOf(path);
+      return project.fileSystem?.additions?.[path]
+        ?? (fileId === undefined ? undefined : getRomFileBytes(project, rom, fileId));
+    })();
+    if (existing && (existing.length !== bytes.length || existing.some((byte, index) => byte !== bytes[index]))) {
+      throw new Error("An unrecognized DoubleBattleFixB.dll is already present. Remove it before installing the bundled patch.");
+    }
+  }
+  const result = stageCodeInjectionDll(project, fileName, bytes, "patches", romBytes);
   recordGenericChange(project, "code_injection", `${fileName} staged for single-NPC double trainer battles.`, "Double Battle Fix", {
     key: "code-injection:double-battle-fix",
   });
@@ -908,8 +930,8 @@ export function detectBlack2UpgradeDlls(project: ProjectState): boolean {
 }
 
 export function detectBundledDoubleBattleFixDll(project: ProjectState): "patched" | "unpatched" | "unsupported" {
-  if (project.session.baseRom !== "BW2") return "unsupported";
-  if (project.session.baseVersion !== "B2" && project.session.baseVersion !== "W2") return "unsupported";
+  if (!((project.session.baseRom === "BW" && project.session.baseVersion === "B")
+    || (project.session.baseRom === "BW2" && (project.session.baseVersion === "B2" || project.session.baseVersion === "W2")))) return "unsupported";
   const fileName = DOUBLE_BATTLE_FIX_FILENAMES[project.session.baseVersion];
   const path = `patches/${fileName}`;
   return listCodeInjectionDlls(project).some((module) => module.path === path) ? "patched" : "unpatched";
