@@ -12,7 +12,7 @@ import type { RgbaImageData } from "./pokeweb/pokemonSpriteModel";
 import type { ProjectState } from "./pokeweb/projectStore";
 import { installMoveAnimationPreview, type MoveAnimationPreviewController } from "./ui/moveAnimationPreview";
 
-type ViewerMove = { id: number; key: string; name: string; generation: number };
+type ViewerMove = { id: number; key: string; name: string; generation: number; animationId?:number; credits?:string };
 type ViewerPwanSide = { path: string; frames: number; timelineFrames: number; fps: number };
 type ViewerSprite = {
   id: number;
@@ -24,6 +24,7 @@ type ViewerSprite = {
   assetIndex?: number;
   generation: number;
   credits: string;
+  spriteSources?: Array<{side: "front" | "back"; credits: string}>;
   pwanChunk?: string;
   pwan: Partial<Record<"front" | "back", ViewerPwanSide>>;
   native: Partial<Record<"front" | "back", string>>;
@@ -34,6 +35,8 @@ type ViewerManifest = {
   format: string;
   version: number;
   sourceRomSha256: string;
+  pokemonSourceSha256?: string;
+  animationBackend?: "w2anim" | "pwan";
   moves: ViewerMove[];
   sprites: ViewerSprite[];
   archives: Record<"moveAnimations" | "moveSpas" | "moveBackgrounds", ArchiveEntry>;
@@ -74,6 +77,7 @@ const spriteFormat = requiredElement<HTMLElement>("sprite-format");
 const spriteCredit = requiredElement<HTMLElement>("sprite-credit");
 const moveName = requiredElement<HTMLElement>("move-name");
 const moveNumber = requiredElement<HTMLElement>("move-number");
+const moveCredit = requiredElement<HTMLElement>("move-credit");
 const moveStatus = requiredElement<HTMLElement>("move-status");
 const movePreviewHost = requiredElement<HTMLElement>("move-preview-host");
 const battlePokemon = requiredElement<HTMLSelectElement>("battle-pokemon");
@@ -100,7 +104,7 @@ void initialize();
 
 async function initialize(): Promise<void> {
   try {
-    const response = await fetch("./data/viewer-manifest.json");
+    const response = await fetch("./data/viewer-manifest.json", {cache:"no-cache"});
     if (!response.ok) throw new Error(`Animation manifest returned ${response.status}.`);
     manifest = (await response.json()) as ViewerManifest;
     if (manifest.format !== "white2expansion-animation-viewer" || manifest.version !== 3) {
@@ -133,7 +137,7 @@ async function initialize(): Promise<void> {
     showView(activeView, false);
     void renderSprite();
     const pwanCount = manifest.sprites.filter((entry) => Object.keys(entry.pwan).length > 0).length;
-    status.textContent = `${manifest.sprites.length} Gen 6-9 sprite sets (${pwanCount} PWAN) and ${manifest.moves.length} move animations`;
+    status.textContent = `${manifest.sprites.length} sprite sets (${pwanCount} ${manifest.animationBackend ?? "pwan"}) and ${manifest.moves.length} move animations · current integration assets, unverified`;
     if (activeView === "moves") void renderMove(true);
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : String(error);
@@ -237,13 +241,14 @@ async function renderSprite(): Promise<void> {
     : `Pokemon #${sprite.speciesId} / Gen ${sprite.generation}`;
   spriteFormat.textContent = `Loading ${selectedSide}`;
   spriteFormat.classList.remove("is-error");
-  spriteCredit.textContent = sprite.credits ? `Credit: ${sprite.credits}` : "";
+  const credit = sprite.spriteSources?.find(source=>source.side===selectedSide)?.credits ?? sprite.credits;
+  spriteCredit.textContent = credit ? `Credit: ${credit}` : "";
   clearSpriteCanvas();
   try {
     const loaded = await loadSpriteSide(sprite, selectedSide);
     if (requestId !== spriteSerial) return;
     if (loaded.kind === "pwan") {
-      spriteFormat.textContent = `${capitalize(selectedSide)} / PWAN / ${loaded.metadata.timelineFrames} timeline frames / ${formatFps(loaded.metadata.fps)} FPS`;
+      spriteFormat.textContent = `${capitalize(selectedSide)} / ${manifest.animationBackend === "w2anim" ? "w2anim TEX4" : "PWAN"} / ${loaded.metadata.timelineFrames} timeline frames / ${formatFps(loaded.metadata.fps)} FPS`;
       playPwan(loaded.bytes, requestId);
     } else {
       spriteFormat.textContent = `${capitalize(selectedSide)} / Native ROM fallback`;
@@ -265,18 +270,20 @@ async function renderMove(initialPlaying: boolean): Promise<void> {
   if (!move || !sprite) return;
   moveName.textContent = move.name;
   moveNumber.textContent = `Move #${move.id} / Gen ${move.generation}`;
+  moveCredit.textContent = move.credits ? `Credit: ${move.credits}` : "";
   moveStatus.textContent = "Loading ROM animation assets";
   moveStatus.classList.remove("is-error");
   movePreviewHost.innerHTML = '<div class="preview-loading">Building preview</div>';
   try {
     const data = await loadMoveData();
-    const scriptBytes = data.animations.files[move.id];
+    const animationId = move.animationId ?? move.id;
+    const scriptBytes = data.animations.files[animationId];
     if (!scriptBytes) throw new Error(`Move animation ${move.id} is missing from the bundled ROM archive.`);
     const [userSprite, targetSprite] = await Promise.all([
       loadSpriteImage(sprite, "back"),
       loadSpriteImage(sprite, "front"),
     ]);
-    const preview = await buildMoveAnimationPreview(data.project, move.id, decompileMoveAnimationBytes(scriptBytes), {
+    const preview = await buildMoveAnimationPreview(data.project, animationId, decompileMoveAnimationBytes(scriptBytes), {
       phaseIndex,
       loadSpaArchive: async (_project, spaId) => {
         const cached = spaCache.get(spaId);
@@ -546,7 +553,9 @@ function validId(value: string | null, ids: number[]): number | undefined {
 }
 
 function resolveAsset(relativePath: string): string {
-  return new URL(relativePath, window.location.href).href;
+  const url = new URL(relativePath, window.location.href);
+  url.searchParams.set("v", `${manifest.sourceRomSha256.slice(0,12)}-${manifest.pokemonSourceSha256?.slice(0,12) ?? "legacy"}`);
+  return url.href;
 }
 
 function setEmptyListMessage(host: HTMLElement): void {

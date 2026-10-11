@@ -64,6 +64,50 @@ int fwr_head_position(const FwPoint *base,const FwrCamera *camera,int32_t height
   base->y+divide((int64_t)up.y*height,4096),base->z+divide((int64_t)up.z*height,4096)};
  return 1;
 }
+int32_t fwr_box_advance_limit(const FwrPose *body,const FwrCamera *camera,const FwPoint corners[8]){
+ FwPoint view,right,up,ray,relative;
+ int32_t minX=INT32_MAX,maxX=INT32_MIN,minY=INT32_MAX,maxY=INT32_MIN;
+ int32_t minDepth=INT32_MAX,maxDepth=INT32_MIN;
+ if(camera->projection>2||body->sx<=0||body->sy<=0||body->sx>32767||body->sy>32767||
+    !delta(camera->eye,camera->target,&view,1<<27)||!axis(view,&view))return 0;
+ right=(FwPoint){view.z*4096,0,-view.x*4096};
+ if(!axis(right,&right))return 0;
+ up=(FwPoint){view.y*right.z,view.z*right.x-view.x*right.z,-view.y*right.x};
+ if(!axis(up,&up)||!delta(camera->eye,body->position,&ray,1<<27))return 0;
+ int32_t distance=dot(ray,view);
+ if(distance<4*FW_TILE)return 0;
+ for(unsigned i=0;i<8;++i){
+  if(!delta(corners[i],body->position,&relative,16*FW_TILE))return 2*FW_TILE;
+  int32_t depth=dot(relative,view),x=dot(relative,right),y=dot(relative,up);
+  if(camera->projection!=2){
+   if(distance-depth<4*FW_TILE)return 0;
+   x=divide((int64_t)x*distance,distance-depth);y=divide((int64_t)y*distance,distance-depth);
+  }
+  if(x<minX)minX=x;
+  if(x>maxX)maxX=x;
+  if(y<minY)minY=y;
+  if(y>maxY)maxY=y;
+  if(depth<minDepth)minDepth=depth;
+  if(depth>maxDepth)maxDepth=depth;
+ }
+ /* Native sprite geometry spans +/-8*sx and 0..16*sy from its foot anchor.
+  * Empty texture margins can only make this conservative overlap smaller. */
+ if(minX>=body->sx*8||maxX<=-body->sx*8||minY>=body->sy*16||maxY<=0||maxDepth<=0)return 2*FW_TILE;
+ /* A geometric tie gap can collapse to the same native 15-bit Z value at
+  * the field camera distance. Reserve the same four-unit clearance used
+  * for native NPCs; never advance a baseline with less room than that. */
+ return minDepth>FWR_PROP_FOREGROUND_GAP?minDepth-FWR_PROP_FOREGROUND_GAP:0;
+}
+int fwr_cap_advance(const FwrPose *baseline,const FwrPose *adjusted,
+                    const FwrCamera *camera,int32_t limit,FwrPose *out){
+ *out=*adjusted;FwPoint view,relative;
+ if(limit<0||limit>2*FW_TILE||camera->projection>2||
+    !delta(camera->eye,camera->target,&view,1<<27)||!axis(view,&view)||
+    !delta(adjusted->position,baseline->position,&relative,8*FW_TILE))return 0;
+ int32_t advance=dot(relative,view);
+ if(advance<=limit)return 0;
+ return shift_depth(adjusted,camera,view,limit-advance-16,out);
+}
 int fwr_above_shadow(const FwrPose *native,const FwPoint *ground,
                      const FwrCamera *camera,FwrPose *out){
  *out=*native;

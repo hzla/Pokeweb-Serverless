@@ -708,7 +708,7 @@ opcode,name,decision,reason
 0x2C2,RepelRearm,scoped-only,Repel rearm is permitted only for the verified continuation script
 0x2C3,CMD_2C3,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
 0x2C4,CMD_2C4,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
-0x2C5,CMD_2C5,review-needed,Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
+0x2C5,s02C5_RecordRecentActivity,allow-isolated-save-data-write,Audited US handler records one recent activity ID/date in Join Avenue data synchronously; no actor movement or child event
 0x2C6,JoinAvenueStoreStart,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
 0x2C7,JoinAvenueStoreEnd,allow-requested,Explicitly admitted by project decision; existing scene guards still apply. Prior uncertainty: Placeholder name or indirect/context-specific effect needs a verified US handler and child-callback audit
 0x2C8,,unused-null-slot,Stock US dispatch-table pointer is null; no executable standard handler

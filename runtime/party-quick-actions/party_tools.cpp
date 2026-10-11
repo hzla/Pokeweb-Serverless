@@ -1,22 +1,27 @@
-using u8=unsigned char;using u16=unsigned short;using u32=unsigned int;
+using u8=unsigned char;using u16=unsigned short;using u32=unsigned int;using s16=short;
 #include "profiles.generated.h"
 template<class T>T& at(void* p,u32 n){return *reinterpret_cast<T*>(static_cast<u8*>(p)+n);}
 template<class F>F api(u32 a){return reinterpret_cast<F>(nativeAddress(a)|1);}
 template<class F>F ov(u32 a){return reinterpret_cast<F>(overlayAddress(a)|1);}
 constexpr u32 INVALID=0xffffffff;
-struct Session {u32 magic;void* work;void* unit;void* actors[8];u32 chars[8],palette,animation;void* art[8];void* task;u8 held,edge,hp,slot,candy,visible,pressed,error;u16 repeat;u8 dirty,nativePrompt;u16 oldItem;u32 oldMode;void* request;u16 frame[92];u8 frameSaved,frameHidden,hasCandy,nav,navItem,reserved,border,confirm;void* confirmText;u16 colors[48];void* restoreActor;void* restoreArt;u32 restoreChar;} session;
+struct Session {u32 magic;void* work;void* unit;void* actors[8];u32 chars[8],palette,animation;void* art[8];void* task;u8 held,edge,hp,slot,candy,visible,pressed,error;u16 repeat;u8 dirty,nativePrompt;u16 oldItem;u32 oldMode;void* request;u16 frame[92];u8 frameSaved,frameHidden,hasCandy,nav,navItem,reserved,border,confirm;void* confirmText;u16 colors[48];void* restoreActor;void* restoreArt;u32 restoreChar;u32 sectionFlags[5];u16 mask;u8 visibleCount,layoutReady,layoutChanged;} session;
 static_assert(__builtin_offsetof(Session,hp)==122);
 static_assert(__builtin_offsetof(Session,hasCandy)==330);
 static_assert(__builtin_offsetof(Session,confirmText)==336);
 static_assert(__builtin_offsetof(Session,colors)==340);
 static_assert(__builtin_offsetof(Session,restoreActor)==436);
+static_assert(__builtin_offsetof(Session,sectionFlags)==448);
+static_assert(__builtin_offsetof(Session,mask)==468);
 constexpr u32 BUTTONS=9,RESTORE=8;
 void*& actor(u32 i){return i==RESTORE?session.restoreActor:session.actors[i];}
 void*& art(u32 i){return i==RESTORE?session.restoreArt:session.art[i];}
 u32& character(u32 i){return i==RESTORE?session.restoreChar:session.chars[i];}
 u32 order(u32 i){return i==0?0:i==RESTORE?1:i+1;}
 u32 button(u32 position){return position==0?0:position==1?RESTORE:position-1;}
-u32 centerX(u32 i){return 13+20*order(i);}
+bool available(u32 i){return i<BUTTONS&&(session.mask&(1<<i));}
+u32 centerX(u32 i){u32 n=0;for(u32 p=0;p<order(i);p++)if(available(button(p)))n++;return 13+20*n;}
+void navBorder(bool on);
+void confirmClose(void* w,bool accept);
 void* evolutionOwner;
 void* flagRequest;
 void* flagWork;
@@ -71,7 +76,7 @@ void upload(void*,void*){
  }
  for(u32 i=0;i<BUTTONS;i++){
   if(session.dirty&&art(i)){struct Character{u16 h,w;u32 format,mapping,character,size;void* data;}c={0xffff,0xffff,3,16,0,512,art(i)};api<void(*)(u32,const void*)>(0x204ba6c)(character(i),&c);}
-  if(actor(i))api<void(*)(void*,u32)>(0x204c150)(actor(i),session.visible&&(i||session.hasCandy));
+  if(actor(i))api<void(*)(void*,u32)>(0x204c150)(actor(i),session.visible&&available(i));
  }
  session.dirty=0;
 }
@@ -85,13 +90,34 @@ void hpMode(bool active){
 bool configuredOn(void* w,void* c){
  if(!c||at<u32>(c,0)!=0x51415050||at<u32>(c,12)!=1)return false;
  if(at<u32>(c,4)==1)return at<u32>(c,8)==20&&at<u32>(c,16)==(0x51415050^1);
- if(at<u32>(c,4)!=2||at<u32>(c,8)!=24)return false;
- u32 flag=at<u32>(c,16);if(flag>3059||at<u32>(c,20)!=(0x51415050^1^flag))return false;
- if(!flag)return true;
+ u32 version=at<u32>(c,4),size=at<u32>(c,8);
+ if((version!=2||size!=24)&&(version!=3||size!=44))return false;
+ u32 sum=0x51415050^1,flags=version==3?6:1;bool owned=false;
+ for(u32 i=0;i<flags;i++){u32 flag=at<u32>(c,16+i*4);if(flag>3059)return false;sum^=flag;owned|=flag!=0;}
+ if(at<u32>(c,size-4)!=sum)return false;
+ if(!owned)return true;
  // Capture EventWork from GameData while the native field application builds
  // this exact party request. Its lifetime belongs to the native field event.
  // A missing/mismatched owner leaves the vanilla menu available.
- return flagRequest==request(w)&&flagWork&&!api<u32(*)(void*,u16)>(0x20191d8)(flagWork,static_cast<u16>(flag));
+ return flagRequest==request(w)&&flagWork&&(!at<u32>(c,16)||!api<u32(*)(void*,u16)>(0x20191d8)(flagWork,static_cast<u16>(at<u32>(c,16))));
+}
+void refreshLayout(void* w){
+ session.hasCandy=ownsCandy(w);u32 mask=0x1ff;
+ static constexpr u16 sections[5]={1,256,2,4,248};
+ for(u32 i=0;i<5;i++)if(session.sectionFlags[i]&&api<u32(*)(void*,u16)>(0x20191d8)(flagWork,static_cast<u16>(session.sectionFlags[i])))mask&=~sections[i];
+ if(!session.hasCandy)mask&=~1;
+ if(session.layoutReady&&mask==session.mask)return;
+ session.layoutChanged=session.layoutReady;
+ session.mask=mask;session.visibleCount=0;session.layoutReady=1;
+ for(u32 i=0;i<BUTTONS;i++)if(available(i))session.visibleCount++;
+ if(session.hp&&!available(1))hpMode(false);
+ if((session.confirm==1||session.confirm==2)&&!available(2))confirmClose(w,false);
+ if(session.confirm==3&&!available(RESTORE))confirmClose(w,false);
+ if(session.nav&&!available(session.navItem)){
+  navBorder(false);if(!mask)session.nav=0;
+  else{u32 p=order(session.navItem);do{p=p==BUTTONS-1?0:p+1;}while(!available(button(p)));session.navItem=button(p);}
+ }
+ for(u32 i=0;i<BUTTONS;i++)if(actor(i)){const s16 xy[2]={static_cast<s16>(centerX(i)),180};api<void(*)(void*,const s16*,u32)>(0x204c16c)(actor(i),xy,0);}
 }
 bool enabledArchive(void* w){u32 heap=at<u16>(w,0);void* h=api<void*(*)(u32,u32,u32,const char*,u32)>(0x203a228)(heap,80,1,"party-tools",0);if(!h)return false;api<void(*)(void*)>(0x2070ca8)(h);if(!api<u32(*)(void*,const char*)>(0x2070ecc)(h,"rom:/party-tools/ui.narc")){api<void(*)(void*)>(0x203a278)(h);return false;}api<void(*)(void*)>(0x204aac8)(h);void* c=api<void*(*)(void*,u32,u32)>(0x204ab48)(h,0,heap);bool on=configuredOn(w,c);if(c)api<void(*)(void*)>(0x203a278)(c);api<void(*)(void*)>(0x204ab38)(h);return on;}
 bool capacity(u32 heap){void* sys=*reinterpret_cast<void**>(nativeAddress(0x214197c));if(!sys)return false;u32 free=0;void* chars=at<void*>(sys,0x10c);for(u32 i=0;i<at<u16>(sys,0x118);i++)if(at<u32>(chars,i*64+60)&0x80000000)free++;if(free<BUTTONS)return false;void* palettes=at<void*>(sys,0x110);bool pal=false;for(u32 i=0;i<at<u16>(sys,0x11a);i++){u32 size=at<u32>(palettes,i*24+20),start=at<u32>(palettes,i*24+12);if(size&0x80000000)pal=true;else if(start!=INVALID&&start<512&&start+(size?size:32)>416)return false;}void* anim=at<void*>(sys,0x114);bool animation=false;for(u32 i=0;i<at<u16>(sys,0x11c);i++)if(at<u32>(anim,i*20+16))animation=true;return pal&&animation&&api<u32(*)(u32)>(0x2039f8c)(heap)>=18432&&api<u32(*)(u32)>(0x2039fbc)(heap)>=8192;}
@@ -105,7 +131,9 @@ void attach(void* w){
  if(!api<u32(*)(void*,const char*)>(0x2070ecc)(h,"rom:/party-tools/ui.narc")){api<void(*)(void*)>(0x203a278)(h);dispose();return;}
  api<void(*)(void*)>(0x204aac8)(h);
  void* config=api<void*(*)(void*,u32,u32)>(0x204ab48)(h,0,heap);bool on=configuredOn(w,config);
+ if(on&&at<u32>(config,4)==3)for(u32 i=0;i<5;i++)session.sectionFlags[i]=at<u32>(config,20+i*4);
  if(config)api<void(*)(void*)>(0x203a278)(config);
+ if(on)refreshLayout(w);
  if(on&&!capacity(heap))on=false;
  if(on){
   void* colors=api<void*(*)(void*,u32,u32)>(0x204ab48)(h,1,heap);
@@ -124,7 +152,7 @@ void attach(void* w){
  }
  api<void(*)(void*)>(0x204ab38)(h);
  if(on){session.dirty=1;session.task=api<void*(*)(void*,void*,u32)>(0x20056fc)(reinterpret_cast<void*>(upload),nullptr,2);on=session.task;}
- if(!on){dispose();return;}session.error=0;session.hasCandy=ownsCandy(w);blank(w,at<void*>(w,0x154));promptHidden(w,true);hideCancel(w);
+ if(!on){dispose();return;}session.error=0;blank(w,at<void*>(w,0x154));promptHidden(w,true);hideCancel(w);
 }
 void redraw(void* w,u32 slot){void* t=at<void*>(w,0x164+slot*4);void* mon=selected(w,slot);if(!t||!mon)return;u16 hp=get(mon,160);at<u16>(t,6)=at<u16>(t,8)=hp;ov<void(*)(void*,void*)>(0x219f350)(w,t);ov<void(*)(void*,void*,u32)>(0x219f0e0)(w,t,hp?0:6);}
 void candy(void* w,void* mon,u32 slot){
@@ -142,7 +170,7 @@ extern "C" u32 PaEnd(void* w){if(session.work==w){if(session.candy&&(at<u32>(req
 extern "C" void PaPrompt(void* w,void* p,u32 message){if(fallbackWork!=w&&eligible(w)&&message==9&&enabledArchive(w))blank(w,p);else{if(session.work==w)session.nativePrompt=1;promptHidden(w,false);ov<void(*)(void*,void*,u32)>(0x219f880)(w,p,message);}}
 extern "C" void PaSubtract(void* w,u32 item){if(session.work!=w||!session.candy)ov<void(*)(void*,u32)>(0x219e688)(w,item);}
 extern "C" u32 PaTick(void* w){
- if(session.work==w){u32 x=0,y=0;bool down=api<u32(*)(u32*,u32*)>(0x203dab0)(&x,&y);session.edge=down&&!session.held;session.held=down;session.visible=eligible(w)&&at<u8>(w,12)==2&&at<u8>(w,14)==1&&!session.confirm;if(eligible(w))session.hasCandy=ownsCandy(w);
+ if(session.work==w){session.layoutChanged=0;u32 x=0,y=0;bool down=api<u32(*)(u32*,u32*)>(0x203dab0)(&x,&y);session.edge=down&&!session.held;session.held=down;if(eligible(w))refreshLayout(w);session.visible=eligible(w)&&at<u8>(w,12)==2&&at<u8>(w,14)==1&&!session.confirm;
   if(session.candy&&at<u8>(w,12)==2){restoreCandy();at<u32>(request(w),0x50)=0;blank(w,at<void*>(w,0x154));session.visible=1;}
  }
  u32 r=ov<u32(*)(void*)>(0x2199ed0)(w);if(session.work==w){session.visible=eligible(w)&&at<u8>(w,12)==2&&at<u8>(w,14)==1&&!session.confirm;promptHidden(w,eligible(w)&&!session.candy&&!session.confirm&&!session.nativePrompt);hideCancel(w);}return r;
@@ -201,6 +229,7 @@ void fullRestore(void* w){
  api<void(*)(u32)>(0x2006254)(1391);
 }
 void activate(void* w,u32 hit){
+ if(!available(hit))return;
  if(hit==RESTORE){u32 slot=session.hp||session.nav?session.slot:at<u32>(w,0x30);hpMode(false);if(openConfirm(w,slot,"Heal Party? A:Yes B:No",3))sound();return;}
  u32 slot=session.hp||session.nav?session.slot:at<u32>(w,0x30);void* mon=selected(w,slot);if(!mon)return;
  if(hit==0&&!ownsCandy(w))return;
@@ -211,14 +240,14 @@ void activate(void* w,u32 hit){
 }
 extern "C" void PaIdle(void* w){
  if(session.work!=w||(!session.visible&&!session.confirm)||at<u8>(w,14)!=1){ov<void(*)(void*)>(0x219bb48)(w);return;}
+ if(session.layoutChanged){session.repeat=0;return;}
  u32 pressed=api<u32(*)()>(0x203df28)(),held=api<u32(*)()>(0x203df4c)();u32 x=0,y=0;bool down=api<u32(*)(u32*,u32*)>(0x203dab0)(&x,&y);int hit=-1;
- if(down&&y>=168&&y<192)for(u32 i=0;i<BUTTONS;i++)if(x>=centerX(i)-10&&x<centerX(i)+10)hit=i;
- if(hit==0&&!session.hasCandy)hit=-1;
+ if(down&&y>=168&&y<192)for(u32 i=0;i<BUTTONS;i++)if(available(i)&&x>=centerX(i)-10&&x<centerX(i)+10)hit=i;
  // The native Cancel and checkmark sprites are removed; their old touch area
  // cannot become an invisible way to cancel the party screen.
  if(!session.confirm&&down&&y>=168&&y<192&&x>=184&&x<228)return;
  if(session.confirm){at<u32>(w,0x30)=session.slot;if(session.confirm==2){if((pressed&3)||(session.edge&&down&&y>=168&&y<192))confirmClose(w,false);}else if(pressed&2)confirmClose(w,false);else if(pressed&1)confirmClose(w,true);else if(session.edge&&down&&y>=168&&y<192){u32 yes=session.confirm==3?74:54,no=session.confirm==3?106:90;if(x>=yes&&x<no)confirmClose(w,true);else if(x>=no&&x<184)confirmClose(w,false);}return;}
- if(pressed&0x200){hpMode(false);if(session.nav)navExit();else{session.nav=1;session.slot=at<u32>(w,0x30);session.navItem=session.hasCandy?0:RESTORE;navBorder(true);}sound();return;}
+ if(pressed&0x200){hpMode(false);if(session.nav)navExit();else{if(!session.visibleCount)return;session.nav=1;session.slot=at<u32>(w,0x30);u32 p=0;while(!available(button(p)))p++;session.navItem=button(p);navBorder(true);}sound();return;}
  if(session.nav){at<u32>(w,0x30)=session.slot;if(pressed&2){hpMode(false);navExit();sound();return;}navBorder(true);}
  if(session.hp){
   at<u32>(w,0x30)=session.slot;
@@ -236,7 +265,7 @@ extern "C" void PaIdle(void* w){
  if(hit>=0){if(session.edge){if(session.nav){session.navItem=hit;navBorder(true);}activate(w,hit);}return;}
  if(session.nav){
   u32 direction=held&0x30;if(!direction||direction==0x30)session.repeat=0;
-  else{bool step=(pressed&0x30)||session.repeat==0||session.repeat>=16;if(step){do{u32 p=order(session.navItem);p=direction==0x10?(p==BUTTONS-1?0:p+1):(p?p-1:BUTTONS-1);session.navItem=button(p);}while(!session.hasCandy&&session.navItem==0);session.repeat=12;navBorder(true);moveSound();}else session.repeat++;}
+  else{bool step=(pressed&0x30)||session.repeat==0||session.repeat>=16;if(step){do{u32 p=order(session.navItem);p=direction==0x10?(p==BUTTONS-1?0:p+1):(p?p-1:BUTTONS-1);session.navItem=button(p);}while(!available(session.navItem));session.repeat=12;navBorder(true);moveSound();}else session.repeat++;}
   if(pressed&1){activate(w,session.navItem);}
   return;
  }

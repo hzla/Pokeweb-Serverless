@@ -128,6 +128,8 @@ describe("code-injection patch categories", () => {
     expect(html).toContain("Party Toolbar: Leveling, Edging, Pre-dmg, Pre-status, Heal Team<br>Press L to access or use Touch screen");
     expect(html).toContain('id="party-tools-hide-flag" type="text" value=""');
     expect(html).toContain("Hide toolbar when save flag is set (optional)");
+    expect(html).toContain("Hide sections when save flag is set (optional)");
+    for (const id of ["candy", "heal", "hp", "exp", "statuses"]) expect(html).toContain(`id="party-tools-${id}-hide-flag" type="text" value=""`);
     expect(html).not.toContain("Full Restore needs no item.");
   });
   it("enables Black 1 doubles only after PMC is installed and leaves White 1 unavailable", () => {

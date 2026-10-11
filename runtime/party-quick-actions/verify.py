@@ -18,7 +18,7 @@ class Harness:
   self.session=self.symbols['session'];self.functions={};self.touch=None;self.keys=self.pressed=0;self.native=0;self.subtractions=0;self.effects=0;self.redraws=0;self.partyCount=6;self.values={5:501,111:0,8:8000,76:0,158:20,160:10,161:20,157:0};self.alloc=0x02240000;self.owned=set();self.fail=False;self.enabled=True;self.failAt=0;self.allocCount=0;self.heapFree=65536;self.heapLargest=32768;self.vramFail=False;self.charHandles=set();self.palHandles=set();self.animHandles=set();self.uploads=0
   self.put(W,23,2);self.put(W+0x28c,REQ);self.put(REQ,PARTY);self.put(W+0x30,0);self.put(W+12,2,1);self.put(W+14,1,1)
   self.put(W+0x154,PROMPT);self.put(PROMPT+4,WINDOW)
-  self.put(REQ+4,W+0x1400);self.hasCandy=True;self.actorVisibility={};self.put(W+0x1e8,W+0x1500);self.put(W+0x1ec,W+0x1600)
+  self.put(REQ+4,W+0x1400);self.hasCandy=True;self.actorVisibility={};self.actorPositions={};self.put(W+0x1e8,W+0x1500);self.put(W+0x1ec,W+0x1600)
   for at,value in [(2,0),(3,1),(4,21),(7,21),(8,2)]:self.put(WINDOW+at,value,1)
   self.u.mem_write(MAP,struct.pack('<1024H',*range(1,1025)));self.mapUploads=0
   def add(a,f):self.functions[a-(self.delta if a>=0x2150000 else self.armdelta if a>=0x20191d8 else 0)]=f
@@ -26,7 +26,7 @@ class Harness:
   add(0x2199bc8,lambda x:1);add(0x2199ed0,lambda x:0);add(0x2199de8,lambda x:1);add(0x219bb48,self.original)
   self.sounds=[];self.paletteUploads=[];self.printed=[];self.nickname='Oshawott'
   self.members={};self.writes=[]
-  self.hideFlag=0;self.configVersion=2;self.flagReads=[];self.nativePrompts=0
+  self.hideFlag=0;self.sectionFlags=[0]*5;self.configVersion=3;self.flagReads=[];self.nativePrompts=0
   self.flagWork=W+0x3000
   add(0x20191d8,self.flag);add(0x219f880,self.prompt)
   add(0x2017394,lambda x:self.flagWork);add(0x2034c80,lambda x:REQ)
@@ -34,7 +34,7 @@ class Harness:
   add(0x2006254,lambda x:self.sounds.append(x[0]));add(0x2048640,self.text)
   add(0x201fe24,lambda x:self.partyCount);add(0x201ff34,lambda x:MON+x[1]*220);add(0x201cd24,self.get);add(0x201cd48,self.set)
   add(0x201d5e0,lambda x:9261);add(0x204855c,lambda x:self.allocate([x[1],x[0]*2+8]));add(0x2048590,self.free);
-  add(0x2008474,self.ownsCandy);add(0x204c150,self.showActor)
+  add(0x2008474,self.ownsCandy);add(0x204c150,self.showActor);add(0x204c16c,self.positionActor)
   add(0x203df28,lambda x:self.pressed);add(0x203df4c,lambda x:self.keys);add(0x203dab0,self.point)
   add(0x219b30c,self.candy);add(0x219e688,self.subtract);add(0x219f350,self.redraw);add(0x219f290,self.redraw)
   add(0x203a228,self.allocate);add(0x203a278,self.free);add(0x2070ecc,lambda x:1);add(0x204ab48,self.read);add(0x204ab38,self.free)
@@ -50,7 +50,7 @@ class Harness:
   add(0x204be0c,lambda x:self.handle(self.animHandles));add(0x204be90,lambda x:self.release(self.animHandles,x[0]))
   add(0x204b8e8,lambda x:self.handle(self.charHandles));add(0x204b9b8,lambda x:self.release(self.charHandles,x[0]))
   add(0x204bf48,lambda x:self.allocate([0,2400]));add(0x204bfc4,self.free)
-  add(0x204c06c,lambda x:self.allocate([0,228]));add(0x204c134,self.free)
+  add(0x204c06c,self.createActor);add(0x204c134,self.free)
   add(0x20056fc,lambda x:self.allocate([0,32]));add(0x203a6d4,self.free);add(0x204ba6c,self.upload)
   add(0x2045840,lambda x:MAP);add(0x2045ba8,self.queueMap)
   self.archive=ndspy.narc.NARC((BUILD.parents[2]/'src/assets/codeinjection/partyQuickActions.narc').read_bytes())
@@ -68,6 +68,14 @@ class Harness:
   self.flagReads.append(a[1]);return bool(self.val(self.flagWork+0x35e+(a[1]>>3),1)&(1<<(a[1]&7)))
  def ownsCandy(self,a):assert a==[W+0x1400,622,1,23];return self.hasCandy
  def showActor(self,a):self.actorVisibility[a[0]]=bool(a[1])
+ def createActor(self,a):
+  p=self.allocate([0,228]);data=self.val(self.u.reg_read(UC_ARM_REG_SP))
+  if p:self.actorPositions[p]=(self.val(data,2),self.val(data+2,2))
+  return p
+ def positionActor(self,a):
+  assert a[0] in self.actorPositions and a[2]==0
+  self.actorPositions[a[0]]=struct.unpack('<hh',self.u.mem_read(a[1],4))
+ def actor(self,i):return self.val(self.session+(436 if i==8 else 12+i*4))
  def queueMap(self,a):assert a[0]==0;self.mapUploads+=1
  def member(self,p):return self.members.get((p-MON)//220,self.values)
  def set(self,a):self.member(a[0])[a[1]]=a[2];self.writes.append(tuple(a[:3]))
@@ -108,7 +116,9 @@ class Harness:
   assert self.val(a[1]+12)==self.session+340,'queued palette data must remain owned until cleanup'
   self.paletteUploads.append(bytes(self.u.mem_read(self.val(a[1]+12),96)))
  def read(self,a):
-  config=struct.pack('<6I',0x51415050,2,24,int(self.enabled),self.hideFlag,0x51415050^int(self.enabled)^self.hideFlag) if self.configVersion==2 else struct.pack('<5I',0x51415050,1,20,int(self.enabled),0x51415050^int(self.enabled))
+  sum=0x51415050^int(self.enabled)^self.hideFlag
+  for flag in self.sectionFlags:sum^=flag
+  config=struct.pack('<11I',0x51415050,3,44,int(self.enabled),self.hideFlag,*self.sectionFlags,sum) if self.configVersion==3 else struct.pack('<6I',0x51415050,2,24,int(self.enabled),self.hideFlag,0x51415050^int(self.enabled)^self.hideFlag) if self.configVersion==2 else struct.pack('<5I',0x51415050,1,20,int(self.enabled),0x51415050^int(self.enabled))
   data=self.archive.files[a[1]] if a[1] else config
   p=self.allocate([0,len(data)])
   if p:self.u.mem_write(p,bytes(data))
@@ -127,13 +137,17 @@ class Harness:
   for i in range(8):self.put(self.session+44+i*4,0xffffffff)
   self.put(self.session+444,0xffffffff)
  def art(self,i):return self.val(self.session+(440 if i==8 else 84+i*4))
- def frame(self,touch=None,keys=0,pressed=0):
-  # Existing regression inputs name the previous centers. Keep confirmation
-  # YES/NO regions unchanged; toolbar inputs follow the new nine-icon layout.
-  if touch and not self.val(self.session+335,1) and touch[1]==180:
-   old={18:13,40:53,62:73,84:93,106:113,128:133,150:153,172:173}
-   touch=(old.get(touch[0],touch[0]),touch[1])
-  self.touch=touch;self.keys=keys;self.pressed=pressed;self.call('PaTick',W);self.call('PaIdle',W)
+ def frame(self,touch=None,keys=0,pressed=0,raw=False):
+  self.touch=touch;self.keys=keys;self.pressed=pressed;self.call('PaTick',W)
+  # Keep older action-based regression inputs usable as layouts compact.
+  # New layout tests use raw native pixel coordinates.
+  if touch and not raw and not self.val(self.session+335,1) and touch[1]==180:
+   old={18:0,33:8,40:1,62:2,84:3,106:4,128:5,150:6,172:7}
+   if touch[0] in old:
+    i=old[touch[0]];order=[0,8,1,2,3,4,5,6,7];mask=self.val(self.session+468,2)
+    rank=sum(bool(mask&(1<<j))for j in order[:order.index(i)])
+    self.touch=(13+20*rank if mask&(1<<i) else 183,touch[1])
+  self.call('PaIdle',W)
 def main():
  for g in ['W2','B2']:
   h=Harness(g);h.seed();h.frame((40,180));assert h.val(h.session+122,1)==1
@@ -189,7 +203,7 @@ def main():
   h.frame(None,2,2);h.frame(None,0x10,0x10);h.frame(None,1,1);assert h.values[157]==2
   h.frame(None,1,1);assert h.values[157]==0
   h.frame(None,2,2);assert h.val(h.session+331,1)==0
-  h.hasCandy=False;h.frame(None,0x200,0x200);assert h.val(h.session+332,1)==8
+  h.hasCandy=False;h.frame();h.frame(None,0x200,0x200);assert h.val(h.session+332,1)==8
   h.frame(None,0x20,0x20);assert h.val(h.session+332,1)==7
   h.frame(None,0x10,0x10);assert h.val(h.session+332,1)==8
   h.frame(None,0x200,0x200);assert h.val(h.session+331,1)==0;h.hasCandy=True
@@ -256,7 +270,7 @@ def main():
   a.hasCandy=False;a.call('PaInit',W);a.frame();a.call('_Z6uploadPvS_',0,0)
   actors=[a.val(a.session+12+i*4)for i in range(8)]+[a.val(a.session+436)]
   assert not a.actorVisibility[actors[0]] and all(a.actorVisibility[p]for p in actors[1:]),'missing Candy must hide only its actor'
-  before=a.allocCount;a.frame((18,180));assert a.effects==0 and a.allocCount==before
+  before=a.allocCount;a.call('_Z8activatePvj',W,0);assert a.effects==0 and a.allocCount==before
   a.hasCandy=True;a.frame();a.call('_Z6uploadPvS_',0,0);assert a.actorVisibility[actors[0]]
   # A single-pixel border keeps the icons intact. Only the three reserved
   # palette entries follow the native fade; idle frames do not upload art.
@@ -311,7 +325,7 @@ def main():
   # Acceptance targets every non-fainted real party member without an item.
   h=Harness(g);h.seed();h.members={i:{**h.values,160:0 if i%2==0 else i,161:30+i*10,157:i+1,8:8000+i,62:3+i} for i in range(6)}
   h.frame((40,180));assert h.val(h.session+122,1)==1
-  h.frame();before=[p.copy() for p in h.members.values()];h.hasCandy=False;h.put(W+0x30,3);h.frame((33,180))
+  h.frame();before=[p.copy() for p in h.members.values()];h.hasCandy=False;h.frame();h.put(W+0x30,3);h.frame((33,180))
   assert h.val(h.session+122,1)==0 and h.val(h.session+335,1)==3 and h.val(h.session+123,1)==0
   assert h.printed[-1]=='Heal Party? A:Yes B:No' and list(h.members.values())==before and 1391 not in h.sounds
   for _ in range(20):h.frame((33,180))
@@ -347,6 +361,49 @@ def main():
   assert h.val(h.session+335,1)==0 and not h.owned and list(h.members.values())==before,'failed confirmation allocation must not heal or leak'
   h.frame();h.frame((33,180));assert h.val(h.session+335,1)==3
   h.call('PaEnd',W);assert not h.owned,'healing prompt shutdown leaked'
+  # All 32 section combinations compact left, using actual actor positions.
+  h=Harness(g);h.sectionFlags=[0x05ee+i for i in range(5)];h.call('PaRequest',W+0x3400,0,PARTY,23);h.call('PaInit',W)
+  assert h.val(h.session+4)==W
+  order=[0,8,1,2,3,4,5,6,7];groups=[[0],[8],[1],[2],[3,4,5,6,7]]
+  def toggle(index,on):
+   flag=h.sectionFlags[index];p=h.flagWork+0x35e+(flag>>3);bit=1<<(flag&7);value=h.val(p,1)
+   h.put(p,(value|bit)if on else(value&~bit),1)
+  for pattern in range(32):
+   for i in range(5):toggle(i,bool(pattern&(1<<i)))
+   flags=bytes(h.u.mem_read(h.flagWork+0x35e,383));h.frame(raw=True);h.call('_Z6uploadPvS_',0,0)
+   hidden=[button for i,group in enumerate(groups)if pattern&(1<<i)for button in group]
+   shown=[i for i in order if i not in hidden]
+   assert h.val(h.session+470,1)==len(shown) and h.val(h.session+468,2)==sum(1<<i for i in shown)
+   for rank,i in enumerate(shown):assert h.actorPositions[h.actor(i)]==(13+20*rank,180) and h.actorVisibility[h.actor(i)],(pattern,i,'uncompacted actor')
+   for i in hidden:assert not h.actorVisibility[h.actor(i)],(pattern,i,'hidden actor remained visible')
+   before=h.values.copy();effects=h.effects
+   for i in hidden:h.call('_Z8activatePvj',W,i)
+   assert h.values==before and h.effects==effects and not h.val(h.session+335,1),'hidden action remained callable'
+   h.frame(None,0x200,0x200,raw=True)
+   if shown:
+    assert h.val(h.session+331,1)==1 and h.val(h.session+332,1)==shown[0]
+    for i in shown[1:]+shown[:1]:h.frame(None,0x10,0x10,raw=True);assert h.val(h.session+332,1)==i
+    h.frame(None,2,2,raw=True)
+   else:assert not h.val(h.session+331,1),'all-hidden toolbar must not enter navigation'
+   assert bytes(h.u.mem_read(h.flagWork+0x35e,383))==flags,'section actions modified save flags or adjacent bits'
+  for i in range(5):toggle(i,False)
+  h.hasCandy=False;h.frame(raw=True);h.call('_Z6uploadPvS_',0,0)
+  assert h.val(h.session+470,1)==8 and h.actorPositions[h.actor(8)]==(13,180) and h.actorPositions[h.actor(1)]==(33,180),'missing Candy left a gap'
+  h.frame((33,180),raw=True);assert h.val(h.session+122,1)==1,'shifted HP touch target is incorrect'
+  before=h.values.copy();toggle(2,True);h.frame((33,180),0x10,0x10,raw=True)
+  assert not h.val(h.session+122,1) and h.values==before and not h.val(h.session+335,1),'hiding HP failed to exit mode or leaked transition input'
+  h.frame();h.frame((13,180),raw=True);assert h.val(h.session+335,1)==3
+  toggle(1,True);h.frame(None,1,1,raw=True)
+  assert h.val(h.session+335,1)==0 and h.values==before and 1391 not in h.sounds,'hidden Heal confirmation still applied'
+  h.frame();h.frame((13,180),raw=True);assert h.val(h.session+335,1)==1,'shifted EXP touch target is incorrect'
+  toggle(3,True);h.frame(None,1,1,raw=True)
+  assert not h.val(h.session+335,1) and h.values==before,'hidden EXP confirmation still applied'
+  for i in range(5):toggle(i,False)
+  h.frame(raw=True);h.frame(None,0x200,0x200,raw=True);assert h.val(h.session+332,1)==8
+  toggle(1,True);h.frame(raw=True);assert h.val(h.session+332,1)==1,'navigation failed to follow the next visible item'
+  h.call('PaEnd',W);assert not(h.owned or h.charHandles or h.palHandles or h.animHandles),'section toolbar leaked resources'
+  h=Harness(g);h.sectionFlags=[0,0,0,0,3059];h.call('PaInit',W)
+  assert not h.val(h.session+4) and not h.owned and h.nativePrompts,'section flags without request ownership must retain native UI'
   h=Harness(g);h.seed();h.frame((18,180));h.put(REQ+0x50,5);h.call('PaEnd',W)
   field=W+0x1000;h.call('PaPartyReturn',field,REQ);assert h.call('PaEvolutionReturn',field)==4 and h.val(field+4)==0 and h.val(field+12)==0
   prior=ndspy.narc.NARC((BUILD.parents[2]/'src/test/fixtures/party-quick-actions-v0.1.2/partyQuickActions.narc').read_bytes())
@@ -359,5 +416,5 @@ def main():
    return {(x-xmin,y-ymin):c for x,y,c in points}
   assert all(occupied(colors(prior,i))==occupied(colors(a.archive,i)) for i in range(8)),'palette remapping changed native graphics'
   restore=occupied(colors(a.archive,8));assert max(x for x,y in restore)<16 and max(y for x,y in restore)<16,'Full Restore must fit 16px'
-  print(g,'register/stack, HP bounds/repeat/lock, Heal Team confirmation/cancellation/held-input/allocation failure preserving fainted/Egg/all-fainted members and count bounds, native recovery sound, status apply/clear and HP-mode exit, XP confirmation/cancel/level guard and nickname success message, L/A navigation with native move sound and one-pixel native-color fade, fixed icon/HP colors, save-flag gating with native input/prompt fallback and unchanged adjacent bits, fade-frame suppression, held touch, Candy/evolution ownership, nine uploads, repeated allocation/cleanup, palette conflicts and failure paths passed')
+  print(g,'register/stack, HP bounds/repeat/lock, Heal Team confirmation/cancellation/held-input/allocation failure preserving fainted/Egg/all-fainted members and count bounds, native recovery sound, status apply/clear and HP-mode exit, XP confirmation/cancel/level guard and nickname success message, L/A navigation with native move sound and one-pixel native-color fade, fixed icon/HP colors, whole/section save-flag gating across 32 layouts with packed touch targets, hidden-action/nav suppression, live-mode cancellation, native input/prompt fallback and unchanged adjacent bits, fade-frame suppression, held touch, Candy/evolution ownership, nine uploads, repeated allocation/cleanup, palette conflicts and failure paths passed')
 if __name__=='__main__':main()

@@ -133,6 +133,75 @@ static int32_t player_advance_limit(void *system,const Billboard *player,
  }
  return limit;
 }
+#ifdef FW_STOCK
+static int ram_span(const void *pointer,unsigned bytes){
+ uintptr_t at=(uintptr_t)pointer;
+ if((at&3u)||at<0x02000000u||bytes>0x01000000u)return 0;
+ if(at<=0x02400000u-bytes)return 1;
+ return at<=0x03000000u-bytes&&CALL(0x0207acb9,int(*)(void))()!=0;
+}
+/* Audited native mapper/prop-bank layouts. Borrow loaded resources only;
+ * never request a chunk, change a prop, or retain a pointer across draws. */
+static int32_t prop_advance_limit(Actor *owner,const FwrPose *body,const FwrCamera *camera){
+ int32_t limit=2*FW_TILE;
+ void *field=owner&&owner->system?PTR(owner->system,64):0;
+ if(!ram_span(field,0x54))return limit;
+ void *mapper=PTR(field,0x50);
+ if(!ram_span(mapper,0x68))return limit;
+ void *props=PTR(mapper,0x64);
+ if(!ram_span(props,0x1468)||PTR(props,4)!=mapper)return limit;
+ unsigned count=U32(props,0x224);void *bank=PTR(props,0x220);
+ if(!count||count>512||!ram_span(bank,count*8))return limit;
+ FwPoint base=*(FwPoint*)((uint8_t*)mapper+0x54);
+ for(unsigned i=0;i<288;++i){
+  uint8_t *holder=(uint8_t*)props+0x268+i*16;
+  void *chunk=PTR(holder,0),*instance=PTR(holder,12);
+  if(!*(uint16_t*)(holder+10)||!ram_span(chunk,0xdc)||!ram_span(instance,20)||!*(uint16_t*)chunk)continue;
+  unsigned index=U32(instance,0);
+  if(index>=count)continue;
+  void *actor=PTR(bank,index*8);
+  if(!ram_span(actor,12))continue;
+  void *model=PTR(actor,0);
+  if(!ram_span(model,16))continue;
+  void *object=PTR(model,4);
+  if(!ram_span(object,8))continue;
+  void *data=PTR(object,4);
+  if(!ram_span(data,64))continue;
+  int scale=(int32_t)U32(data,56);
+  const int16_t *box=(const int16_t*)((uint8_t*)data+44);
+  if(scale<=0||scale>64*4096||box[3]<=0||box[4]<=0||box[5]<=0)continue;
+  FwPoint local=*(FwPoint*)((uint8_t*)instance+4),origin=*(FwPoint*)((uint8_t*)chunk+4),corners[8];
+  int64_t x=(int64_t)base.x+origin.x+local.x,y=(int64_t)base.y+origin.y+local.y,z=(int64_t)base.z+origin.z+local.z;
+  if(x<INT32_MIN||x>INT32_MAX||y<INT32_MIN||y>INT32_MAX||z<INT32_MIN||z>INT32_MAX)continue;
+  unsigned rotation=*(uint16_t*)((uint8_t*)instance+16),at=(rotation>>4)*4;
+  int sin=*(int16_t*)(uintptr_t)(0x020946e8u+at),cos=*(int16_t*)(uintptr_t)(0x020946eau+at);
+  int valid=1;
+  for(unsigned j=0;j<8;++j){
+   int64_t bx=(int64_t)(box[0]+((j&1)?box[3]:0))*scale/4096;
+   int64_t by=(int64_t)(box[1]+((j&2)?box[4]:0))*scale/4096;
+   int64_t bz=(int64_t)(box[2]+((j&4)?box[5]:0))*scale/4096;
+   int64_t wx=x+(bx*cos+bz*sin)/4096,wy=y+by,wz=z+(-bx*sin+bz*cos)/4096;
+   if(wx<INT32_MIN||wx>INT32_MAX||wy<INT32_MIN||wy>INT32_MAX||wz<INT32_MIN||wz>INT32_MAX){valid=0;break;}
+   corners[j]=(FwPoint){(int32_t)wx,(int32_t)wy,(int32_t)wz};
+  }
+  if(valid){
+   int32_t minX=corners[0].x,maxX=minX,minZ=corners[0].z,maxZ=minZ;
+   for(unsigned j=1;j<8;++j){
+    if(corners[j].x<minX)minX=corners[j].x;
+    if(corners[j].x>maxX)maxX=corners[j].x;
+    if(corners[j].z<minZ)minZ=corners[j].z;
+    if(corners[j].z>maxZ)maxZ=corners[j].z;
+   }
+   /* Reject distant volumes before the perspective projection/divisions.
+    * Only nearby model footprints can cross our bounded depth shifts. */
+   if((int64_t)owner->world.x<minX-2ll*FW_TILE||(int64_t)owner->world.x>maxX+2ll*FW_TILE||
+      (int64_t)owner->world.z<minZ-2ll*FW_TILE||(int64_t)owner->world.z>maxZ+2ll*FW_TILE)continue;
+   int32_t cap=fwr_box_advance_limit(body,camera,corners);if(cap<limit)limit=cap;
+  }
+ }
+ return limit;
+}
+#endif
 void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int sprite_y){
  Billboard *b=0,*p=0;FwrPose original={0},adjusted,playerOriginal={0};FwrResult result={0};int applied=0,changed=0,playerChanged=0,lightingChanged=0;uint16_t originalFlags=0;
  effectPose.actor=effectPose.player=0;
@@ -162,6 +231,9 @@ void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int s
    int64_t y=(int64_t)adjusted.position.y+(int64_t)delta*4096;
    if(delta&&y>=INT32_MIN&&y<=INT32_MAX){adjusted.position.y=(int32_t)y;changed=1;}
    FwrCamera cam={*(FwPoint*)((uint8_t*)camera+32),*(FwPoint*)((uint8_t*)camera+56),U32(camera,0)};
+#ifdef FW_STOCK
+   FwrPose baseline=adjusted;
+#endif
    if(p&&b!=p){
     FwrPose corrected;
     FwPoint world={a->world.x,a->world.y,a->world.z},pw={player->world.x,player->world.y,player->world.z};
@@ -185,6 +257,12 @@ void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int s
      adjusted=corrected;changed=1;
     }
    }
+#ifdef FW_STOCK
+   FwrPose bounded;
+   if(fwr_cap_advance(&baseline,&adjusted,&cam,prop_advance_limit(a,&baseline,&cam),&bounded)){
+    adjusted=bounded;changed=1;
+   }
+#endif
    if(p&&result.policy==-1&&near_player(a,player)){
     /* The shadow clearance runs after the ordinary player/follower ordering
      * decision. It can pull a trailing sprite past the player regardless of
@@ -193,6 +271,10 @@ void fwr_draw(void *system,void *camera,void *light,Actor *a,Actor *player,int s
     FwrPose corrected;
     int32_t finalDepth=result.after;
     int32_t limit=player_advance_limit(system,p,b,result.axis);
+#ifdef FW_STOCK
+    int32_t furniture=prop_advance_limit(player,&playerOriginal,&cam);
+    if(furniture<limit)limit=furniture;
+#endif
     if(fwr_player_in_front(&adjusted,&playerOriginal,&cam,result.axis,FWR_BACK_MARGIN,limit,&corrected,&finalDepth)){
      p->position=corrected.position;p->sx=(int16_t)corrected.sx;p->sy=(int16_t)corrected.sy;
      playerChanged=1;

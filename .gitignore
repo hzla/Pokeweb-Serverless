@@ -57,6 +57,8 @@ src/test/local/
 !/scripts/rank-a3i5-sprite-comparisons.ts
 !/scripts/package-sprite-comparison.py
 !/scripts/promote-pwan-sprite-preset.ts
+!/scripts/sync-white2expansion-progress.ts
+!/scripts/verify-white2expansion-animation-viewer.ts
 !/scripts/pack-pwan-library.ts
 !/scripts/assets/
 
@@ -67,3 +69,8 @@ src/test/local/
 
 !/scripts/generate-cgear-button-defaults.ts
 !/scripts/verify-cgear-native-graphics.ts
+!/scripts/audit-white2-italian-translation.ts
+!/scripts/build-white2-italian-translation.ts
+!/scripts/verify-white2-italian-patches.ts
+!/scripts/audit-white2-translations.ts
+!/scripts/verify-white2-donor-transplant.ts

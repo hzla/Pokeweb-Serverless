@@ -19,17 +19,22 @@ import { INFINITE_CANDY_ITEM_ID, getInfiniteCandyStatus } from "../../src/pokewe
 const input=process.argv[2];if(!input) throw new Error("Pass clean B2/W2 ROM.");
 const scenarioArg=process.argv.indexOf('--scenario');
 const scenario=scenarioArg<0?'hp':process.argv[scenarioArg+1];
+const sectionKeys = ['candy','heal','hp','exp','statuses'] as const;
+const sectionFlags = { candy: 0x0600, heal: 0x0601, hp: 0x0602, exp: 0x0603, statuses: 0x0604 };
+const hiddenArg=process.argv.indexOf('--sections-hidden');
+const hiddenSections=hiddenArg<0?[]:process.argv[hiddenArg+1].split(',').filter(Boolean);
+if(hiddenSections.some(id=>!sectionKeys.includes(id as typeof sectionKeys[number])))throw new Error('Unknown hidden section');
 const hideFlag = process.argv.includes('--flag-configured') || scenario==='hidden' ? 0x05ee : null;
 
 globalThis.fetch=(async(v:RequestInfo|URL)=>new Response(new Uint8Array(await readFile(v instanceof URL?v:new URL(v instanceof Request?v.url:String(v)))))) as typeof fetch;
 const project=await loadProjectFromRomBytes(new Uint8Array(await readFile(input)),"quick-actions.nds",{selectedNarcs:[]});
-const out=new URL(`./build/emulator-${project.session.baseVersion}-${scenario}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--companions")?"-companions":""}${process.argv.includes("--no-candy")?"-no-candy":""}/`,import.meta.url);await mkdir(out,{recursive:true});
+const out=new URL(`./build/emulator-${project.session.baseVersion}-${scenario}${process.argv.includes("--power-on")?"-on":"-off"}${process.argv.includes("--companions")?"-companions":""}${process.argv.includes("--no-candy")?"-no-candy":""}${scenario==="sections"?`-${hiddenSections.join("-")||"none"}`:""}/`,import.meta.url);await mkdir(out,{recursive:true});
 await installCGearQuickActions(project);
 if(process.argv.includes('--companions')) {
  await installBattleLog(project);await installMenuEvolution(project);
  await installLearnsetViewer(project);await installSummaryStatViewer(project);await installPortaPc(project);
 }
-await installPartyQuickActions(project, { hideFlag });
+await installPartyQuickActions(project, { hideFlag, sectionHideFlags: scenario==='sections'?sectionFlags:undefined });
 if(!getPartyQuickActionsStatus(project).compatible)throw new Error('Party toolbar compatibility failed after staging');
 if(!getInfiniteCandyStatus(project).installed)throw new Error('Required Infinite Candy dependency was not installed');
 const downloads=await buildQuickLaunchDownloads(project),romBytes=downloads.romBytes;
@@ -46,7 +51,7 @@ Level: ${scenario==="candy"?16:15}
 Mew
 Level: 20
 - Pound`;
-const testTeam=(process.argv.includes("--six") || scenario==="heal")?team+"\n\nPikachu\nLevel: 15\n- Tackle\n\nEevee\nLevel: 15\n- Tackle\n\nSnivy\nLevel: 15\n- Tackle\n\nTepig\nLevel: 15\n- Tackle":team;
+const testTeam=(process.argv.includes("--six") || (scenario==="heal" || scenario==="sections"))?team+"\n\nPikachu\nLevel: 15\n- Tackle\n\nEevee\nLevel: 15\n- Tackle\n\nSnivy\nLevel: 15\n- Tackle\n\nTepig\nLevel: 15\n- Tackle":team;
 const changed=patchTestBattleSavePlayerParty(saveBytes,project,testTeam);
 const fixture=Buffer.from(changed.buffer,changed.byteOffset,changed.length);
 // Enable obtained status only in the isolated fixture. The original bundled
@@ -70,6 +75,10 @@ for(const half of [0,0x26000]) {
   const bagCrc=crc(fixture.subarray(half+0x18400,half+0x18dec));fixture.writeUInt16LE(bagCrc,half+0x18dee);fixture.writeUInt16LE(bagCrc,half+0x25f32);
   const flag=CGEAR_QUICK_ACTIONS_DEFAULT_PC_HIDE_FLAG,at=half+0x1ff00+0x35e+(flag>>3);
   if(process.argv.includes('--hide-pc'))fixture[at]|=1<<(flag&7);else if(fixtureArg<0)fixture[at]&=~(1<<(flag&7));
+  if(scenario==='sections')for(const id of sectionKeys) {
+    const flag=sectionFlags[id],at=half+0x1ff00+0x35e+(flag>>3);
+    if(hiddenSections.includes(id))fixture[at]|=1<<(flag&7);else fixture[at]&=~(1<<(flag&7));
+  }
   if(hideFlag) {
     const at=half+0x1ff00+0x35e+(hideFlag>>3);
     if(scenario==='hidden')fixture[at]|=1<<(hideFlag&7);else fixture[at]&=~(1<<(hideFlag&7));
@@ -109,6 +118,17 @@ const actions:Record<string,Input[]>={
 actions.heal=[{frame:1250,touch:[53,180]},{frame:1290,touch:[33,180],duration:24},{frame:1330,buttons:64},{frame:1370,touch:[33,180]},{frame:1400,touch:[111,180]},{frame:1450,touch:[33,180]},{frame:1490,touch:[95,180],duration:24},{frame:1570,buttons:1024},...process.argv.includes('--no-candy')?[]:[{frame:1590,buttons:1}],{frame:1610,buttons:128},{frame:1650,buttons:64},{frame:1690,buttons:128},{frame:1730,buttons:128,duration:24},{frame:1780,buttons:64},{frame:1850,buttons:64},{frame:2050,touch:[188,60]}];
 actions.hidden=[{frame:1250,buttons:1024},{frame:1290,touch:[33,180]},{frame:1500,buttons:64},{frame:1700,touch:[188,60]}];
 if(scenario==='nav'&&!process.argv.includes('--no-candy'))actions.nav.push({frame:1270,buttons:1});
+const sectionShown = [0,8,1,2,3,4,5,6,7].filter(i=>!hiddenSections.includes(i===0?'candy':i===8?'heal':i===1?'hp':i===2?'exp':'statuses'));
+actions.sections = sectionShown.length===0
+ ? [{frame:1250,buttons:1024},{frame:1290,touch:[13,180]},{frame:1330,touch:[33,180]},{frame:1600,buttons:64},{frame:1800,touch:[188,60]}]
+ : hiddenSections.includes('heal')
+ ? [{frame:1250,touch:[33,180]},{frame:1290,buttons:2},{frame:1330,touch:[33,180]},{frame:1400,buttons:1024},{frame:1450,buttons:1},{frame:1490,buttons:128},{frame:1530,buttons:64},{frame:1650,touch:[53,180]},{frame:1700,buttons:64},{frame:1900,touch:[188,60]}]
+ : [{frame:1250,touch:[13,180],duration:24},{frame:1290,buttons:64},{frame:1330,touch:[33,180]},{frame:1370,buttons:64},{frame:1400,buttons:1024},{frame:1490,buttons:128},{frame:1530,buttons:64},{frame:1570,buttons:1},{frame:1610,buttons:128},{frame:1650,buttons:64},{frame:1690,buttons:64},{frame:1730,touch:[53,180]},{frame:1770,buttons:64},{frame:1970,touch:[188,60]}];
+// Existing scenarios name the full layout; missing Candy now closes its gap.
+if(process.argv.includes('--no-candy')&&scenario!=='hidden'&&scenario!=='sections')actions[scenario]=actions[scenario].map(v=>{
+ if(v.touch&&v.touch[1]===180&&[33,53,73,93,113,133,153,173].includes(v.touch[0]))return {...v,touch:[v.touch[0]-20,180]};
+ return v;
+});
 const captures=new Set([...Array.from({length:50},(_,i)=>990+i*3),...Array.from({length:40},(_,i)=>1998+i*3),1318,1474,1494,1920,2304,2404,1254,1304,1380,1404,1454,1504,1564,1624,1684,1744,
  ...actions[scenario].flatMap(v=>[v.frame+4,v.frame+(v.duration??4)+4])]);
 if(scenario==='heal')for(const frame of [1318,1540,1760,2190])captures.add(frame);
@@ -142,7 +162,7 @@ for(let frame=0;frame<frames;frame++){
    const pk=Buffer.from(decryptPk5Party(new Uint8Array(m.subarray(pokemon,pokemon+220))));
    const text=m.readUInt32LE(s+336)-0x2000000;
    const members=Array.from({length:m[party+4]},(_,i)=>{const pk=Buffer.from(decryptPk5Party(new Uint8Array(m.subarray(party+8+i*220,party+8+(i+1)*220))));return {hp:pk.readUInt16LE(142),max:pk.readUInt16LE(144),status:pk.readUInt32LE(136),exp:pk.readUInt32LE(16),pp:[...pk.subarray(48,52)]};});
-   trace.push({members,exp:pk.readUInt32LE(16),nav:!!m[s+331],navItem:m[s+332],confirm:!!m[s+335],confirmStage:m[s+335],message:text>=0?m.subarray(text+8,text+8+m.readUInt16LE(text+2)*2).toString('utf16le'):undefined,nativeSelector:m.readUInt16LE(w+0xac),toolbarSelector:m.readUInt16LE(s+390),selectorPhase:m.readUInt16LE(w+0x106),frameHidden:!!m[s+329],species:pk.readUInt16LE(8),hp:pk.readUInt16LE(142),max:pk.readUInt16LE(144),level:pk[140],status:pk.readUInt32LE(136),candyVisible:!!m[s+330],frame,s,w,slot:m.readUInt32LE(w+0x30),fsm:[...m.subarray(w+12,w+16)],mode:m.readUInt32LE(req+0x44),result:m.readUInt32LE(req+0x50),flags:[...m.subarray(s+120,s+128)],pokemon:[...m.subarray(pokemon+0x88,pokemon+0x94)]});}
+   trace.push({sectionMask:m.readUInt16LE(s+468),visibleCount:m[s+470],members,exp:pk.readUInt32LE(16),nav:!!m[s+331],navItem:m[s+332],confirm:!!m[s+335],confirmStage:m[s+335],message:text>=0?m.subarray(text+8,text+8+m.readUInt16LE(text+2)*2).toString('utf16le'):undefined,nativeSelector:m.readUInt16LE(w+0xac),toolbarSelector:m.readUInt16LE(s+390),selectorPhase:m.readUInt16LE(w+0x106),frameHidden:!!m[s+329],species:pk.readUInt16LE(8),hp:pk.readUInt16LE(142),max:pk.readUInt16LE(144),level:pk[140],status:pk.readUInt32LE(136),candyVisible:!!m[s+330],frame,s,w,slot:m.readUInt32LE(w+0x30),fsm:[...m.subarray(w+12,w+16)],mode:m.readUInt32LE(req+0x44),result:m.readUInt32LE(req+0x50),flags:[...m.subarray(s+120,s+128)],pokemon:[...m.subarray(pokemon+0x88,pokemon+0x94)]});}
  }
  if(frame%120===0||captures.has(frame)){const png=new PNG({width:256,height:384}),fb=core._getSymbol(4)>>>0;png.data=Buffer.from(core.HEAPU8.subarray(fb,fb+256*384*4));await writeFile(new URL(`frame-${frame}.png`,out),PNG.sync.write(png));}
 }
@@ -166,6 +186,28 @@ if(scenario==='heal'&&frames>=2300){
  check(!at(1654)?.confirm&&at(1654)?.nav&&at(1654)?.navItem===8,'Keyboard cancel did not restore the selected toolbar item');
  check(at(1694)?.confirmStage===3&&at(1760)?.nav,'Keyboard acceptance did not restore toolbar navigation');
  check(trace.filter(t=>t.fsm[0]===1||t.fsm[0]===19).every(t=>t.frameHidden),'Prompt flashed during heal scenario fade');
+}
+if(scenario==='sections'&&frames>=2300){
+ const at=(f:number)=>trace.find(t=>t.frame===f), before=at(1200), expectedMask=sectionShown.reduce((mask,i)=>mask|(1<<i),0);
+ check(before?.sectionMask===expectedMask&&before.visibleCount===sectionShown.length,'Section flags produced the wrong visible mask/count');
+ check(JSON.stringify(getPartyQuickActionsStatus(project).sectionHideFlags)===JSON.stringify(sectionFlags),'Installer did not preserve section flags');
+ check(trace.every(t=>t.sectionMask===expectedMask),'Section visibility changed during menu interactions');
+ if(!sectionShown.length){
+  for(const f of [1254,1294,1334])check(!at(f)?.nav&&!at(f)?.confirm&&!at(f)?.flags[2]&&JSON.stringify(at(f)?.members)===JSON.stringify(before.members),'All-hidden toolbar still handled a custom action');
+  check(trace.some(t=>t.frame>=1920&&t.fsm[0]===2),'All-hidden toolbar did not return to Party');
+ } else if(hiddenSections.includes('heal')) {
+  check(at(1254)?.flags[2]===1&&at(1294)?.hp===before.hp-1&&!at(1334)?.flags[2],'Shifted HP touch/adjustment failed');
+  check(at(1454)?.navItem===1&&at(1494)?.flags[2]===1,'L/right navigation did not skip hidden Heal/EXP/Statuses');
+  check(!at(1654)?.confirm&&!at(1654)?.flags[2]&&at(1654)?.exp===before.exp,'Unused compacted-bar area still invoked hidden actions');
+  check(trace.some(t=>t.frame>=2040&&t.hp===before.hp-1&&t.fsm[0]===2),'HP edit failed to survive section-layout reopening');
+ } else {
+  check(at(1254)?.confirmStage===3&&at(1254)?.message==='Heal Party? A:Yes B:No'&&!at(1294)?.confirm,'Shifted Heal touch/cancel failed');
+  check(at(1334)?.confirmStage===1&&!at(1374)?.confirm,'Shifted EXP touch/cancel failed');
+  check(at(1404)?.navItem===8&&at(1494)?.confirmStage===3&&!at(1534)?.confirm&&at(1534)?.nav,'L/A failed to select packed Heal');
+  check(at(1574)?.navItem===2&&at(1614)?.confirmStage===1&&!at(1654)?.confirm,'Navigation did not skip HP and Statuses');
+  check(!at(1734)?.confirm&&!at(1734)?.flags[2]&&JSON.stringify(at(1734)?.members)===JSON.stringify(before.members),'Hidden HP/status touch area still invoked an action');
+  check(trace.some(t=>t.frame>=2100&&t.fsm[0]===2),'Packed Heal/EXP menu failed to reopen');
+ }
 }
 if(scenario==='hidden'){
  check(!found,'Set hide flag still allocated the custom toolbar');

@@ -1,0 +1,3105 @@
+{
+  "schemaVersion": 1,
+  "sourceSha256": "3e50aec3db401332175a5d2b5fe2a68ac1a05ec63995dba9d1506b1b51837446",
+  "globalRanges": [
+    {
+      "start": 10885,
+      "end": 10914,
+      "member": 1288,
+      "bank": 432
+    },
+    {
+      "start": 10865,
+      "end": 10884,
+      "member": 1287,
+      "bank": 514
+    },
+    {
+      "start": 10860,
+      "end": 10864,
+      "member": 1286,
+      "bank": 440
+    },
+    {
+      "start": 10850,
+      "end": 10859,
+      "member": 1285,
+      "bank": 407
+    },
+    {
+      "start": 10815,
+      "end": 10834,
+      "member": 1284,
+      "bank": 513
+    },
+    {
+      "start": 10795,
+      "end": 10814,
+      "member": 1283,
+      "bank": 0
+    },
+    {
+      "start": 10785,
+      "end": 10794,
+      "member": 1282,
+      "bank": 413
+    },
+    {
+      "start": 10735,
+      "end": 10784,
+      "member": 1281,
+      "bank": 436
+    },
+    {
+      "start": 10685,
+      "end": 10734,
+      "member": 1280,
+      "bank": 609
+    },
+    {
+      "start": 10675,
+      "end": 10684,
+      "member": 1279,
+      "bank": 669
+    },
+    {
+      "start": 10665,
+      "end": 10674,
+      "member": 1278,
+      "bank": 667
+    },
+    {
+      "start": 10655,
+      "end": 10664,
+      "member": 1277,
+      "bank": 668
+    },
+    {
+      "start": 10635,
+      "end": 10654,
+      "member": 1276,
+      "bank": 441
+    },
+    {
+      "start": 10535,
+      "end": 10634,
+      "member": 1275,
+      "bank": 467
+    },
+    {
+      "start": 10530,
+      "end": 10534,
+      "member": 1274,
+      "bank": 662
+    },
+    {
+      "start": 10520,
+      "end": 10529,
+      "member": 1273,
+      "bank": 208
+    },
+    {
+      "start": 10510,
+      "end": 10519,
+      "member": 1272,
+      "bank": 673
+    },
+    {
+      "start": 10490,
+      "end": 10509,
+      "member": 1271,
+      "bank": 617
+    },
+    {
+      "start": 10480,
+      "end": 10489,
+      "member": 1270,
+      "bank": 1
+    },
+    {
+      "start": 10470,
+      "end": 10479,
+      "member": 1269,
+      "bank": 612
+    },
+    {
+      "start": 10450,
+      "end": 10469,
+      "member": 1268,
+      "bank": 442
+    },
+    {
+      "start": 10445,
+      "end": 10449,
+      "member": 1267,
+      "bank": 481
+    },
+    {
+      "start": 10440,
+      "end": 10444,
+      "member": 1266,
+      "bank": 661
+    },
+    {
+      "start": 10435,
+      "end": 10439,
+      "member": 1265,
+      "bank": 414
+    },
+    {
+      "start": 10405,
+      "end": 10434,
+      "member": 1264,
+      "bank": 409
+    },
+    {
+      "start": 10400,
+      "end": 10404,
+      "member": 1263,
+      "bank": 664
+    },
+    {
+      "start": 10395,
+      "end": 10399,
+      "member": 1262,
+      "bank": 515
+    },
+    {
+      "start": 10390,
+      "end": 10394,
+      "member": 1261,
+      "bank": 480
+    },
+    {
+      "start": 10380,
+      "end": 10389,
+      "member": 1260,
+      "bank": 434
+    },
+    {
+      "start": 10350,
+      "end": 10379,
+      "member": 1259,
+      "bank": 209
+    },
+    {
+      "start": 10330,
+      "end": 10349,
+      "member": 1258,
+      "bank": 10
+    },
+    {
+      "start": 10325,
+      "end": 10329,
+      "member": 1257,
+      "bank": 435
+    },
+    {
+      "start": 10315,
+      "end": 10324,
+      "member": 1256,
+      "bank": 611
+    },
+    {
+      "start": 10310,
+      "end": 10314,
+      "member": 1255,
+      "bank": 438
+    },
+    {
+      "start": 10290,
+      "end": 10309,
+      "member": 1254,
+      "bank": 478
+    },
+    {
+      "start": 10280,
+      "end": 10289,
+      "member": 1253,
+      "bank": 439
+    },
+    {
+      "start": 10270,
+      "end": 10279,
+      "member": 1252,
+      "bank": 404
+    },
+    {
+      "start": 10260,
+      "end": 10269,
+      "member": 1251,
+      "bank": 11
+    },
+    {
+      "start": 10250,
+      "end": 10259,
+      "member": 1250,
+      "bank": 208
+    },
+    {
+      "start": 10200,
+      "end": 10249,
+      "member": 1249,
+      "bank": 205
+    },
+    {
+      "start": 10130,
+      "end": 10149,
+      "member": 1248,
+      "bank": 411
+    },
+    {
+      "start": 10110,
+      "end": 10119,
+      "member": 1247,
+      "bank": 614
+    },
+    {
+      "start": 10105,
+      "end": 10109,
+      "member": 1246,
+      "bank": 675
+    },
+    {
+      "start": 10100,
+      "end": 10104,
+      "member": 1245,
+      "bank": 674
+    },
+    {
+      "start": 10090,
+      "end": 10099,
+      "member": 1244,
+      "bank": 479
+    },
+    {
+      "start": 10000,
+      "end": 10089,
+      "member": 1243,
+      "bank": 433
+    },
+    {
+      "start": 9600,
+      "end": 9699,
+      "member": 1242,
+      "bank": 208
+    },
+    {
+      "start": 8000,
+      "end": 8799,
+      "member": 1241,
+      "bank": 208
+    },
+    {
+      "start": 7000,
+      "end": 7799,
+      "member": 1240,
+      "bank": 437
+    },
+    {
+      "start": 5000,
+      "end": 6999,
+      "member": 1239,
+      "bank": 208
+    },
+    {
+      "start": 3000,
+      "end": 4999,
+      "member": 1239,
+      "bank": 208
+    },
+    {
+      "start": 2800,
+      "end": 2819,
+      "member": 1238,
+      "bank": 437
+    },
+    {
+      "start": 2500,
+      "end": 2799,
+      "member": 1237,
+      "bank": 9
+    },
+    {
+      "start": 2280,
+      "end": 2299,
+      "member": 1236,
+      "bank": 615
+    },
+    {
+      "start": 2260,
+      "end": 2279,
+      "member": 1235,
+      "bank": 511
+    },
+    {
+      "start": 2250,
+      "end": 2259,
+      "member": 1234,
+      "bank": 408
+    },
+    {
+      "start": 2225,
+      "end": 2249,
+      "member": 1233,
+      "bank": 458
+    },
+    {
+      "start": 2200,
+      "end": 2224,
+      "member": 1232,
+      "bank": 616
+    },
+    {
+      "start": 2100,
+      "end": 2199,
+      "member": 1231,
+      "bank": 512
+    },
+    {
+      "start": 2000,
+      "end": 2099,
+      "member": 1230,
+      "bank": 208
+    }
+  ],
+  "zoneOverlays": {
+    "1": 65,
+    "8": 65,
+    "20": 65,
+    "41": 65,
+    "52": 51,
+    "53": 68,
+    "65": 65,
+    "66": 50,
+    "67": 50,
+    "68": 50,
+    "69": 50,
+    "70": 50,
+    "71": 50,
+    "72": 50,
+    "73": 50,
+    "74": 50,
+    "75": 50,
+    "76": 50,
+    "99": 65,
+    "109": 65,
+    "115": 65,
+    "122": 65,
+    "139": 66,
+    "140": 52,
+    "141": 52,
+    "142": 52,
+    "143": 52,
+    "144": 52,
+    "146": 65,
+    "192": 55,
+    "193": 55,
+    "213": 66,
+    "241": 54,
+    "242": 54,
+    "243": 54,
+    "244": 54,
+    "245": 54,
+    "381": 53,
+    "398": 65,
+    "407": 65,
+    "413": 65,
+    "425": 65,
+    "427": 66,
+    "435": 65,
+    "443": 65,
+    "454": 65,
+    "460": 65,
+    "463": 67,
+    "465": 67,
+    "472": 65,
+    "474": 67,
+    "478": 61,
+    "479": 61,
+    "480": 61,
+    "481": 61,
+    "482": 61,
+    "483": 61,
+    "484": 61,
+    "485": 61,
+    "486": 61,
+    "487": 61,
+    "490": 58,
+    "491": 58,
+    "492": 61,
+    "493": 61,
+    "553": 64,
+    "558": 64,
+    "561": 64,
+    "563": 64,
+    "564": 64,
+    "565": 68,
+    "566": 62,
+    "567": 62,
+    "568": 62,
+    "573": 63,
+    "574": 62,
+    "579": 64,
+    "580": 64,
+    "581": 64,
+    "582": 64,
+    "583": 64,
+    "602": 65,
+    "604": 66,
+    "614": 68
+  },
+  "sharedOverlays": {
+    "1231": 65,
+    "1277": 55,
+    "1278": 55,
+    "1279": 55,
+    "1280": 58,
+    "1281": 61,
+    "1284": 62,
+    "1288": 64,
+    "1276": 65
+  },
+  "handlers": {
+    "0": {
+      "address": 34947521,
+      "segment": "overlay/arm9/12"
+    },
+    "1": {
+      "address": 34947525,
+      "segment": "overlay/arm9/12"
+    },
+    "2": {
+      "address": 34947529,
+      "segment": "overlay/arm9/12"
+    },
+    "3": {
+      "address": 34947553,
+      "segment": "overlay/arm9/12"
+    },
+    "4": {
+      "address": 34947589,
+      "segment": "overlay/arm9/12"
+    },
+    "5": {
+      "address": 34947613,
+      "segment": "overlay/arm9/12"
+    },
+    "6": {
+      "address": 34947625,
+      "segment": "overlay/arm9/12"
+    },
+    "7": {
+      "address": 34947649,
+      "segment": "overlay/arm9/12"
+    },
+    "8": {
+      "address": 34947933,
+      "segment": "overlay/arm9/12"
+    },
+    "9": {
+      "address": 34947953,
+      "segment": "overlay/arm9/12"
+    },
+    "10": {
+      "address": 34947973,
+      "segment": "overlay/arm9/12"
+    },
+    "11": {
+      "address": 34948001,
+      "segment": "overlay/arm9/12"
+    },
+    "12": {
+      "address": 34948013,
+      "segment": "overlay/arm9/12"
+    },
+    "13": {
+      "address": 34948045,
+      "segment": "overlay/arm9/12"
+    },
+    "14": {
+      "address": 34948077,
+      "segment": "overlay/arm9/12"
+    },
+    "15": {
+      "address": 34948109,
+      "segment": "overlay/arm9/12"
+    },
+    "16": {
+      "address": 34948145,
+      "segment": "overlay/arm9/12"
+    },
+    "17": {
+      "address": 34948193,
+      "segment": "overlay/arm9/12"
+    },
+    "18": {
+      "address": 34949077,
+      "segment": "overlay/arm9/12"
+    },
+    "19": {
+      "address": 34949109,
+      "segment": "overlay/arm9/12"
+    },
+    "20": {
+      "address": 34947673,
+      "segment": "overlay/arm9/12"
+    },
+    "21": {
+      "address": 34947697,
+      "segment": "overlay/arm9/12"
+    },
+    "22": {
+      "address": 34947725,
+      "segment": "overlay/arm9/12"
+    },
+    "23": {
+      "address": 34947777,
+      "segment": "overlay/arm9/12"
+    },
+    "24": {
+      "address": 34947825,
+      "segment": "overlay/arm9/12"
+    },
+    "25": {
+      "address": 34947865,
+      "segment": "overlay/arm9/12"
+    },
+    "26": {
+      "address": 34947897,
+      "segment": "overlay/arm9/12"
+    },
+    "27": {
+      "address": 34948337,
+      "segment": "overlay/arm9/12"
+    },
+    "28": {
+      "address": 34948429,
+      "segment": "overlay/arm9/12"
+    },
+    "29": {
+      "address": 34948549,
+      "segment": "overlay/arm9/12"
+    },
+    "30": {
+      "address": 34948569,
+      "segment": "overlay/arm9/12"
+    },
+    "31": {
+      "address": 34948593,
+      "segment": "overlay/arm9/12"
+    },
+    "32": {
+      "address": 34948661,
+      "segment": "overlay/arm9/12"
+    },
+    "33": {
+      "address": 34948713,
+      "segment": "overlay/arm9/12"
+    },
+    "34": {
+      "address": 34948745,
+      "segment": "overlay/arm9/12"
+    },
+    "35": {
+      "address": 34948777,
+      "segment": "overlay/arm9/12"
+    },
+    "36": {
+      "address": 34948817,
+      "segment": "overlay/arm9/12"
+    },
+    "37": {
+      "address": 34948857,
+      "segment": "overlay/arm9/12"
+    },
+    "38": {
+      "address": 34948909,
+      "segment": "overlay/arm9/12"
+    },
+    "39": {
+      "address": 34948941,
+      "segment": "overlay/arm9/12"
+    },
+    "40": {
+      "address": 34949141,
+      "segment": "overlay/arm9/12"
+    },
+    "41": {
+      "address": 34949165,
+      "segment": "overlay/arm9/12"
+    },
+    "42": {
+      "address": 34949193,
+      "segment": "overlay/arm9/12"
+    },
+    "43": {
+      "address": 34948973,
+      "segment": "overlay/arm9/12"
+    },
+    "44": {
+      "address": 34949005,
+      "segment": "overlay/arm9/12"
+    },
+    "45": {
+      "address": 34949041,
+      "segment": "overlay/arm9/12"
+    },
+    "46": {
+      "address": 34949221,
+      "segment": "overlay/arm9/12"
+    },
+    "47": {
+      "address": 34949229,
+      "segment": "overlay/arm9/12"
+    },
+    "48": {
+      "address": 34949301,
+      "segment": "overlay/arm9/12"
+    },
+    "49": {
+      "address": 34949365,
+      "segment": "overlay/arm9/12"
+    },
+    "50": {
+      "address": 34949401,
+      "segment": "overlay/arm9/12"
+    },
+    "51": {
+      "address": 35297293,
+      "segment": "overlay/arm9/36"
+    },
+    "52": {
+      "address": 35293009,
+      "segment": "overlay/arm9/36"
+    },
+    "53": {
+      "address": 35293097,
+      "segment": "overlay/arm9/36"
+    },
+    "54": {
+      "address": 35293305,
+      "segment": "overlay/arm9/36"
+    },
+    "55": {
+      "address": 35293185,
+      "segment": "overlay/arm9/36"
+    },
+    "56": {
+      "address": 35296109,
+      "segment": "overlay/arm9/36"
+    },
+    "57": {
+      "address": 35296133,
+      "segment": "overlay/arm9/36"
+    },
+    "58": {
+      "address": 35296157,
+      "segment": "overlay/arm9/36"
+    },
+    "59": {
+      "address": 35296349,
+      "segment": "overlay/arm9/36"
+    },
+    "60": {
+      "address": 35295077,
+      "segment": "overlay/arm9/36"
+    },
+    "61": {
+      "address": 35295153,
+      "segment": "overlay/arm9/36"
+    },
+    "62": {
+      "address": 35295537,
+      "segment": "overlay/arm9/36"
+    },
+    "63": {
+      "address": 35297081,
+      "segment": "overlay/arm9/36"
+    },
+    "64": {
+      "address": 35293329,
+      "segment": "overlay/arm9/36"
+    },
+    "65": {
+      "address": 35293749,
+      "segment": "overlay/arm9/36"
+    },
+    "66": {
+      "address": 35293573,
+      "segment": "overlay/arm9/36"
+    },
+    "67": {
+      "address": 35296565,
+      "segment": "overlay/arm9/36"
+    },
+    "68": {
+      "address": 35296801,
+      "segment": "overlay/arm9/36"
+    },
+    "69": {
+      "address": 35296893,
+      "segment": "overlay/arm9/36"
+    },
+    "70": {
+      "address": 35297057,
+      "segment": "overlay/arm9/36"
+    },
+    "71": {
+      "address": 35292073,
+      "segment": "overlay/arm9/36"
+    },
+    "72": {
+      "address": 35295481,
+      "segment": "overlay/arm9/36"
+    },
+    "73": {
+      "address": 35295525,
+      "segment": "overlay/arm9/36"
+    },
+    "74": {
+      "address": 35296121,
+      "segment": "overlay/arm9/36"
+    },
+    "75": {
+      "address": 35297277,
+      "segment": "overlay/arm9/36"
+    },
+    "76": {
+      "address": 35288933,
+      "segment": "overlay/arm9/36"
+    },
+    "77": {
+      "address": 35289109,
+      "segment": "overlay/arm9/36"
+    },
+    "78": {
+      "address": 35289141,
+      "segment": "overlay/arm9/36"
+    },
+    "79": {
+      "address": 35289125,
+      "segment": "overlay/arm9/36"
+    },
+    "80": {
+      "address": 35289241,
+      "segment": "overlay/arm9/36"
+    },
+    "81": {
+      "address": 35289293,
+      "segment": "overlay/arm9/36"
+    },
+    "82": {
+      "address": 35289469,
+      "segment": "overlay/arm9/36"
+    },
+    "83": {
+      "address": 35289541,
+      "segment": "overlay/arm9/36"
+    },
+    "84": {
+      "address": 35289617,
+      "segment": "overlay/arm9/36"
+    },
+    "85": {
+      "address": 35289693,
+      "segment": "overlay/arm9/36"
+    },
+    "86": {
+      "address": 35289341,
+      "segment": "overlay/arm9/36"
+    },
+    "87": {
+      "address": 35289437,
+      "segment": "overlay/arm9/36"
+    },
+    "88": {
+      "address": 35289453,
+      "segment": "overlay/arm9/36"
+    },
+    "89": {
+      "address": 35289909,
+      "segment": "overlay/arm9/36"
+    },
+    "90": {
+      "address": 35289961,
+      "segment": "overlay/arm9/36"
+    },
+    "91": {
+      "address": 35289765,
+      "segment": "overlay/arm9/36"
+    },
+    "92": {
+      "address": 35289837,
+      "segment": "overlay/arm9/36"
+    },
+    "93": {
+      "address": 34965057,
+      "segment": "overlay/arm9/12"
+    },
+    "94": {
+      "address": 35290009,
+      "segment": "overlay/arm9/36"
+    },
+    "95": {
+      "address": 35290057,
+      "segment": "overlay/arm9/36"
+    },
+    "96": {
+      "address": 35290161,
+      "segment": "overlay/arm9/36"
+    },
+    "97": {
+      "address": 35290245,
+      "segment": "overlay/arm9/36"
+    },
+    "98": {
+      "address": 35290261,
+      "segment": "overlay/arm9/36"
+    },
+    "99": {
+      "address": 35290109,
+      "segment": "overlay/arm9/36"
+    },
+    "100": {
+      "address": 35297589,
+      "segment": "overlay/arm9/36"
+    },
+    "101": {
+      "address": 35299293,
+      "segment": "overlay/arm9/36"
+    },
+    "102": {
+      "address": 35299309,
+      "segment": "overlay/arm9/36"
+    },
+    "103": {
+      "address": 35299417,
+      "segment": "overlay/arm9/36"
+    },
+    "104": {
+      "address": 35299489,
+      "segment": "overlay/arm9/36"
+    },
+    "105": {
+      "address": 35299593,
+      "segment": "overlay/arm9/36"
+    },
+    "106": {
+      "address": 35299997,
+      "segment": "overlay/arm9/36"
+    },
+    "107": {
+      "address": 35299793,
+      "segment": "overlay/arm9/36"
+    },
+    "108": {
+      "address": 35299749,
+      "segment": "overlay/arm9/36"
+    },
+    "109": {
+      "address": 35299901,
+      "segment": "overlay/arm9/36"
+    },
+    "110": {
+      "address": 35299557,
+      "segment": "overlay/arm9/36"
+    },
+    "111": {
+      "address": 35300889,
+      "segment": "overlay/arm9/36"
+    },
+    "112": {
+      "address": 35300757,
+      "segment": "overlay/arm9/36"
+    },
+    "113": {
+      "address": 35302005,
+      "segment": "overlay/arm9/36"
+    },
+    "114": {
+      "address": 35302069,
+      "segment": "overlay/arm9/36"
+    },
+    "115": {
+      "address": 35299365,
+      "segment": "overlay/arm9/36"
+    },
+    "116": {
+      "address": 35300701,
+      "segment": "overlay/arm9/36"
+    },
+    "117": {
+      "address": 35301001,
+      "segment": "overlay/arm9/36"
+    },
+    "118": {
+      "address": 35301069,
+      "segment": "overlay/arm9/36"
+    },
+    "119": {
+      "address": 35301353,
+      "segment": "overlay/arm9/36"
+    },
+    "120": {
+      "address": 35301577,
+      "segment": "overlay/arm9/36"
+    },
+    "121": {
+      "address": 35300045,
+      "segment": "overlay/arm9/36"
+    },
+    "122": {
+      "address": 35302153,
+      "segment": "overlay/arm9/36"
+    },
+    "123": {
+      "address": 35301665,
+      "segment": "overlay/arm9/36"
+    },
+    "124": {
+      "address": 35302233,
+      "segment": "overlay/arm9/36"
+    },
+    "125": {
+      "address": 35302321,
+      "segment": "overlay/arm9/36"
+    },
+    "126": {
+      "address": 35302429,
+      "segment": "overlay/arm9/36"
+    },
+    "127": {
+      "address": 35284817,
+      "segment": "overlay/arm9/36"
+    },
+    "128": {
+      "address": 35284649,
+      "segment": "overlay/arm9/36"
+    },
+    "129": {
+      "address": 35284725,
+      "segment": "overlay/arm9/36"
+    },
+    "130": {
+      "address": 35284893,
+      "segment": "overlay/arm9/36"
+    },
+    "131": {
+      "address": 35284781,
+      "segment": "overlay/arm9/36"
+    },
+    "132": {
+      "address": 35284973,
+      "segment": "overlay/arm9/36"
+    },
+    "133": {
+      "address": 35285021,
+      "segment": "overlay/arm9/36"
+    },
+    "134": {
+      "address": 35285149,
+      "segment": "overlay/arm9/36"
+    },
+    "135": {
+      "address": 35295561,
+      "segment": "overlay/arm9/36"
+    },
+    "136": {
+      "address": 35285265,
+      "segment": "overlay/arm9/36"
+    },
+    "138": {
+      "address": 35285373,
+      "segment": "overlay/arm9/36"
+    },
+    "139": {
+      "address": 35285409,
+      "segment": "overlay/arm9/36"
+    },
+    "140": {
+      "address": 34955365,
+      "segment": "overlay/arm9/12"
+    },
+    "141": {
+      "address": 34955413,
+      "segment": "overlay/arm9/12"
+    },
+    "142": {
+      "address": 35285605,
+      "segment": "overlay/arm9/36"
+    },
+    "143": {
+      "address": 35285477,
+      "segment": "overlay/arm9/36"
+    },
+    "144": {
+      "address": 35285537,
+      "segment": "overlay/arm9/36"
+    },
+    "146": {
+      "address": 35285665,
+      "segment": "overlay/arm9/36"
+    },
+    "147": {
+      "address": 35285729,
+      "segment": "overlay/arm9/36"
+    },
+    "148": {
+      "address": 35285765,
+      "segment": "overlay/arm9/36"
+    },
+    "149": {
+      "address": 34955233,
+      "segment": "overlay/arm9/12"
+    },
+    "150": {
+      "address": 34955273,
+      "segment": "overlay/arm9/12"
+    },
+    "151": {
+      "address": 34955313,
+      "segment": "overlay/arm9/12"
+    },
+    "152": {
+      "address": 35286357,
+      "segment": "overlay/arm9/36"
+    },
+    "155": {
+      "address": 35286629,
+      "segment": "overlay/arm9/36"
+    },
+    "158": {
+      "address": 35286909,
+      "segment": "overlay/arm9/36"
+    },
+    "159": {
+      "address": 35287137,
+      "segment": "overlay/arm9/36"
+    },
+    "160": {
+      "address": 35286693,
+      "segment": "overlay/arm9/36"
+    },
+    "161": {
+      "address": 35287197,
+      "segment": "overlay/arm9/36"
+    },
+    "162": {
+      "address": 35287253,
+      "segment": "overlay/arm9/36"
+    },
+    "163": {
+      "address": 35288065,
+      "segment": "overlay/arm9/36"
+    },
+    "164": {
+      "address": 35288109,
+      "segment": "overlay/arm9/36"
+    },
+    "165": {
+      "address": 35288153,
+      "segment": "overlay/arm9/36"
+    },
+    "166": {
+      "address": 35287609,
+      "segment": "overlay/arm9/36"
+    },
+    "167": {
+      "address": 35287649,
+      "segment": "overlay/arm9/36"
+    },
+    "168": {
+      "address": 35287689,
+      "segment": "overlay/arm9/36"
+    },
+    "169": {
+      "address": 35287705,
+      "segment": "overlay/arm9/36"
+    },
+    "170": {
+      "address": 35287833,
+      "segment": "overlay/arm9/36"
+    },
+    "171": {
+      "address": 35287849,
+      "segment": "overlay/arm9/36"
+    },
+    "172": {
+      "address": 35288049,
+      "segment": "overlay/arm9/36"
+    },
+    "173": {
+      "address": 35292245,
+      "segment": "overlay/arm9/36"
+    },
+    "174": {
+      "address": 35292357,
+      "segment": "overlay/arm9/36"
+    },
+    "175": {
+      "address": 35292605,
+      "segment": "overlay/arm9/36"
+    },
+    "176": {
+      "address": 35292685,
+      "segment": "overlay/arm9/36"
+    },
+    "177": {
+      "address": 35292725,
+      "segment": "overlay/arm9/36"
+    },
+    "178": {
+      "address": 35292481,
+      "segment": "overlay/arm9/36"
+    },
+    "179": {
+      "address": 35304025,
+      "segment": "overlay/arm9/36"
+    },
+    "180": {
+      "address": 35304633,
+      "segment": "overlay/arm9/36"
+    },
+    "181": {
+      "address": 35288301,
+      "segment": "overlay/arm9/36"
+    },
+    "182": {
+      "address": 35288381,
+      "segment": "overlay/arm9/36"
+    },
+    "183": {
+      "address": 35288461,
+      "segment": "overlay/arm9/36"
+    },
+    "184": {
+      "address": 35288541,
+      "segment": "overlay/arm9/36"
+    },
+    "185": {
+      "address": 35288621,
+      "segment": "overlay/arm9/36"
+    },
+    "186": {
+      "address": 35288685,
+      "segment": "overlay/arm9/36"
+    },
+    "187": {
+      "address": 35288721,
+      "segment": "overlay/arm9/36"
+    },
+    "188": {
+      "address": 35317001,
+      "segment": "overlay/arm9/36"
+    },
+    "189": {
+      "address": 35288773,
+      "segment": "overlay/arm9/36"
+    },
+    "190": {
+      "address": 35290981,
+      "segment": "overlay/arm9/36"
+    },
+    "191": {
+      "address": 35291269,
+      "segment": "overlay/arm9/36"
+    },
+    "192": {
+      "address": 35291549,
+      "segment": "overlay/arm9/36"
+    },
+    "193": {
+      "address": 35291085,
+      "segment": "overlay/arm9/36"
+    },
+    "194": {
+      "address": 35290873,
+      "segment": "overlay/arm9/36"
+    },
+    "195": {
+      "address": 35291373,
+      "segment": "overlay/arm9/36"
+    },
+    "196": {
+      "address": 35291421,
+      "segment": "overlay/arm9/36"
+    },
+    "197": {
+      "address": 35095721,
+      "segment": "overlay/arm9/33"
+    },
+    "198": {
+      "address": 35095861,
+      "segment": "overlay/arm9/33"
+    },
+    "199": {
+      "address": 35095941,
+      "segment": "overlay/arm9/33"
+    },
+    "200": {
+      "address": 35095985,
+      "segment": "overlay/arm9/33"
+    },
+    "201": {
+      "address": 34952777,
+      "segment": "overlay/arm9/12"
+    },
+    "202": {
+      "address": 34952825,
+      "segment": "overlay/arm9/12"
+    },
+    "203": {
+      "address": 34952869,
+      "segment": "overlay/arm9/12"
+    },
+    "204": {
+      "address": 34952901,
+      "segment": "overlay/arm9/12"
+    },
+    "205": {
+      "address": 34952961,
+      "segment": "overlay/arm9/12"
+    },
+    "206": {
+      "address": 34952925,
+      "segment": "overlay/arm9/12"
+    },
+    "207": {
+      "address": 34952997,
+      "segment": "overlay/arm9/12"
+    },
+    "208": {
+      "address": 34953033,
+      "segment": "overlay/arm9/12"
+    },
+    "209": {
+      "address": 34953089,
+      "segment": "overlay/arm9/12"
+    },
+    "210": {
+      "address": 34953145,
+      "segment": "overlay/arm9/12"
+    },
+    "211": {
+      "address": 34953505,
+      "segment": "overlay/arm9/12"
+    },
+    "212": {
+      "address": 34953173,
+      "segment": "overlay/arm9/12"
+    },
+    "213": {
+      "address": 34953253,
+      "segment": "overlay/arm9/12"
+    },
+    "214": {
+      "address": 34953297,
+      "segment": "overlay/arm9/12"
+    },
+    "215": {
+      "address": 34953361,
+      "segment": "overlay/arm9/12"
+    },
+    "216": {
+      "address": 34953889,
+      "segment": "overlay/arm9/12"
+    },
+    "217": {
+      "address": 34953529,
+      "segment": "overlay/arm9/12"
+    },
+    "218": {
+      "address": 34953757,
+      "segment": "overlay/arm9/12"
+    },
+    "219": {
+      "address": 34953573,
+      "segment": "overlay/arm9/12"
+    },
+    "220": {
+      "address": 34953653,
+      "segment": "overlay/arm9/12"
+    },
+    "221": {
+      "address": 34954113,
+      "segment": "overlay/arm9/12"
+    },
+    "222": {
+      "address": 34953937,
+      "segment": "overlay/arm9/12"
+    },
+    "223": {
+      "address": 34954025,
+      "segment": "overlay/arm9/12"
+    },
+    "224": {
+      "address": 34952761,
+      "segment": "overlay/arm9/12"
+    },
+    "225": {
+      "address": 34953221,
+      "segment": "overlay/arm9/12"
+    },
+    "226": {
+      "address": 34954469,
+      "segment": "overlay/arm9/12"
+    },
+    "227": {
+      "address": 34954533,
+      "segment": "overlay/arm9/12"
+    },
+    "228": {
+      "address": 34954561,
+      "segment": "overlay/arm9/12"
+    },
+    "229": {
+      "address": 34954609,
+      "segment": "overlay/arm9/12"
+    },
+    "230": {
+      "address": 34954689,
+      "segment": "overlay/arm9/12"
+    },
+    "231": {
+      "address": 34954741,
+      "segment": "overlay/arm9/12"
+    },
+    "232": {
+      "address": 34954773,
+      "segment": "overlay/arm9/12"
+    },
+    "234": {
+      "address": 34954829,
+      "segment": "overlay/arm9/12"
+    },
+    "235": {
+      "address": 34962529,
+      "segment": "overlay/arm9/12"
+    },
+    "236": {
+      "address": 34962565,
+      "segment": "overlay/arm9/12"
+    },
+    "237": {
+      "address": 34962609,
+      "segment": "overlay/arm9/12"
+    },
+    "238": {
+      "address": 34962813,
+      "segment": "overlay/arm9/12"
+    },
+    "239": {
+      "address": 34962849,
+      "segment": "overlay/arm9/12"
+    },
+    "240": {
+      "address": 34962717,
+      "segment": "overlay/arm9/12"
+    },
+    "241": {
+      "address": 34962765,
+      "segment": "overlay/arm9/12"
+    },
+    "242": {
+      "address": 34962885,
+      "segment": "overlay/arm9/12"
+    },
+    "243": {
+      "address": 34962941,
+      "segment": "overlay/arm9/12"
+    },
+    "244": {
+      "address": 34963053,
+      "segment": "overlay/arm9/12"
+    },
+    "245": {
+      "address": 34963101,
+      "segment": "overlay/arm9/12"
+    },
+    "246": {
+      "address": 34963161,
+      "segment": "overlay/arm9/12"
+    },
+    "247": {
+      "address": 34962633,
+      "segment": "overlay/arm9/12"
+    },
+    "248": {
+      "address": 34962997,
+      "segment": "overlay/arm9/12"
+    },
+    "249": {
+      "address": 34960465,
+      "segment": "overlay/arm9/12"
+    },
+    "250": {
+      "address": 34960509,
+      "segment": "overlay/arm9/12"
+    },
+    "251": {
+      "address": 34960553,
+      "segment": "overlay/arm9/12"
+    },
+    "252": {
+      "address": 34956465,
+      "segment": "overlay/arm9/12"
+    },
+    "253": {
+      "address": 34956537,
+      "segment": "overlay/arm9/12"
+    },
+    "254": {
+      "address": 34956693,
+      "segment": "overlay/arm9/12"
+    },
+    "255": {
+      "address": 34956753,
+      "segment": "overlay/arm9/12"
+    },
+    "256": {
+      "address": 35321125,
+      "segment": "overlay/arm9/36"
+    },
+    "257": {
+      "address": 34956137,
+      "segment": "overlay/arm9/12"
+    },
+    "258": {
+      "address": 34956397,
+      "segment": "overlay/arm9/12"
+    },
+    "259": {
+      "address": 34956853,
+      "segment": "overlay/arm9/12"
+    },
+    "260": {
+      "address": 34955953,
+      "segment": "overlay/arm9/12"
+    },
+    "261": {
+      "address": 35321285,
+      "segment": "overlay/arm9/36"
+    },
+    "262": {
+      "address": 35321497,
+      "segment": "overlay/arm9/36"
+    },
+    "263": {
+      "address": 35319349,
+      "segment": "overlay/arm9/36"
+    },
+    "264": {
+      "address": 34958213,
+      "segment": "overlay/arm9/12"
+    },
+    "265": {
+      "address": 35321365,
+      "segment": "overlay/arm9/36"
+    },
+    "266": {
+      "address": 34958285,
+      "segment": "overlay/arm9/12"
+    },
+    "267": {
+      "address": 34958353,
+      "segment": "overlay/arm9/12"
+    },
+    "268": {
+      "address": 34957565,
+      "segment": "overlay/arm9/12"
+    },
+    "269": {
+      "address": 34956789,
+      "segment": "overlay/arm9/12"
+    },
+    "270": {
+      "address": 34957705,
+      "segment": "overlay/arm9/12"
+    },
+    "271": {
+      "address": 34959797,
+      "segment": "overlay/arm9/12"
+    },
+    "272": {
+      "address": 34959389,
+      "segment": "overlay/arm9/12"
+    },
+    "273": {
+      "address": 34959285,
+      "segment": "overlay/arm9/12"
+    },
+    "274": {
+      "address": 34955973,
+      "segment": "overlay/arm9/12"
+    },
+    "275": {
+      "address": 34958601,
+      "segment": "overlay/arm9/12"
+    },
+    "276": {
+      "address": 34956977,
+      "segment": "overlay/arm9/12"
+    },
+    "277": {
+      "address": 34957405,
+      "segment": "overlay/arm9/12"
+    },
+    "278": {
+      "address": 34957473,
+      "segment": "overlay/arm9/12"
+    },
+    "279": {
+      "address": 34958869,
+      "segment": "overlay/arm9/12"
+    },
+    "280": {
+      "address": 34957253,
+      "segment": "overlay/arm9/12"
+    },
+    "281": {
+      "address": 34959105,
+      "segment": "overlay/arm9/12"
+    },
+    "282": {
+      "address": 34959177,
+      "segment": "overlay/arm9/12"
+    },
+    "283": {
+      "address": 34955873,
+      "segment": "overlay/arm9/12"
+    },
+    "284": {
+      "address": 34958945,
+      "segment": "overlay/arm9/12"
+    },
+    "285": {
+      "address": 35319469,
+      "segment": "overlay/arm9/36"
+    },
+    "286": {
+      "address": 35319581,
+      "segment": "overlay/arm9/36"
+    },
+    "287": {
+      "address": 35319713,
+      "segment": "overlay/arm9/36"
+    },
+    "288": {
+      "address": 35322173,
+      "segment": "overlay/arm9/36"
+    },
+    "289": {
+      "address": 34957121,
+      "segment": "overlay/arm9/12"
+    },
+    "290": {
+      "address": 34959461,
+      "segment": "overlay/arm9/12"
+    },
+    "291": {
+      "address": 34959589,
+      "segment": "overlay/arm9/12"
+    },
+    "292": {
+      "address": 35306197,
+      "segment": "overlay/arm9/36"
+    },
+    "293": {
+      "address": 35305341,
+      "segment": "overlay/arm9/36"
+    },
+    "294": {
+      "address": 35305909,
+      "segment": "overlay/arm9/36"
+    },
+    "295": {
+      "address": 35305985,
+      "segment": "overlay/arm9/36"
+    },
+    "296": {
+      "address": 35306085,
+      "segment": "overlay/arm9/36"
+    },
+    "297": {
+      "address": 35306121,
+      "segment": "overlay/arm9/36"
+    },
+    "298": {
+      "address": 35306285,
+      "segment": "overlay/arm9/36"
+    },
+    "299": {
+      "address": 35305685,
+      "segment": "overlay/arm9/36"
+    },
+    "300": {
+      "address": 35306249,
+      "segment": "overlay/arm9/36"
+    },
+    "301": {
+      "address": 35305837,
+      "segment": "overlay/arm9/36"
+    },
+    "302": {
+      "address": 35305769,
+      "segment": "overlay/arm9/36"
+    },
+    "303": {
+      "address": 35305385,
+      "segment": "overlay/arm9/36"
+    },
+    "304": {
+      "address": 35305457,
+      "segment": "overlay/arm9/36"
+    },
+    "305": {
+      "address": 35305513,
+      "segment": "overlay/arm9/36"
+    },
+    "306": {
+      "address": 35305569,
+      "segment": "overlay/arm9/36"
+    },
+    "308": {
+      "address": 35323149,
+      "segment": "overlay/arm9/36"
+    },
+    "310": {
+      "address": 35000865,
+      "segment": "overlay/arm9/12"
+    },
+    "311": {
+      "address": 35286297,
+      "segment": "overlay/arm9/36"
+    },
+    "312": {
+      "address": 34953393,
+      "segment": "overlay/arm9/12"
+    },
+    "313": {
+      "address": 34970721,
+      "segment": "overlay/arm9/12"
+    },
+    "314": {
+      "address": 35314861,
+      "segment": "overlay/arm9/36"
+    },
+    "315": {
+      "address": 34970797,
+      "segment": "overlay/arm9/12"
+    },
+    "316": {
+      "address": 34970817,
+      "segment": "overlay/arm9/12"
+    },
+    "317": {
+      "address": 34970833,
+      "segment": "overlay/arm9/12"
+    },
+    "318": {
+      "address": 34970905,
+      "segment": "overlay/arm9/12"
+    },
+    "319": {
+      "address": 35317613,
+      "segment": "overlay/arm9/36"
+    },
+    "320": {
+      "address": 35317725,
+      "segment": "overlay/arm9/36"
+    },
+    "321": {
+      "address": 35317757,
+      "segment": "overlay/arm9/36"
+    },
+    "322": {
+      "address": 35317781,
+      "segment": "overlay/arm9/36"
+    },
+    "323": {
+      "address": 35317805,
+      "segment": "overlay/arm9/36"
+    },
+    "324": {
+      "address": 35318025,
+      "segment": "overlay/arm9/36"
+    },
+    "325": {
+      "address": 35318125,
+      "segment": "overlay/arm9/36"
+    },
+    "326": {
+      "address": 35317917,
+      "segment": "overlay/arm9/36"
+    },
+    "327": {
+      "address": 35318085,
+      "segment": "overlay/arm9/36"
+    },
+    "328": {
+      "address": 35318169,
+      "segment": "overlay/arm9/36"
+    },
+    "329": {
+      "address": 35306417,
+      "segment": "overlay/arm9/36"
+    },
+    "330": {
+      "address": 34960613,
+      "segment": "overlay/arm9/12"
+    },
+    "331": {
+      "address": 34960649,
+      "segment": "overlay/arm9/12"
+    },
+    "332": {
+      "address": 34960873,
+      "segment": "overlay/arm9/12"
+    },
+    "333": {
+      "address": 35315893,
+      "segment": "overlay/arm9/36"
+    },
+    "334": {
+      "address": 34960933,
+      "segment": "overlay/arm9/12"
+    },
+    "335": {
+      "address": 35315233,
+      "segment": "overlay/arm9/36"
+    },
+    "336": {
+      "address": 34961113,
+      "segment": "overlay/arm9/12"
+    },
+    "337": {
+      "address": 34961729,
+      "segment": "overlay/arm9/12"
+    },
+    "338": {
+      "address": 35315821,
+      "segment": "overlay/arm9/36"
+    },
+    "339": {
+      "address": 34962029,
+      "segment": "overlay/arm9/12"
+    },
+    "340": {
+      "address": 34961649,
+      "segment": "overlay/arm9/12"
+    },
+    "341": {
+      "address": 35316033,
+      "segment": "overlay/arm9/36"
+    },
+    "342": {
+      "address": 35315685,
+      "segment": "overlay/arm9/36"
+    },
+    "343": {
+      "address": 35103217,
+      "segment": "overlay/arm9/33"
+    },
+    "344": {
+      "address": 35103297,
+      "segment": "overlay/arm9/33"
+    },
+    "345": {
+      "address": 35103329,
+      "segment": "overlay/arm9/33"
+    },
+    "346": {
+      "address": 35103389,
+      "segment": "overlay/arm9/33"
+    },
+    "347": {
+      "address": 35314901,
+      "segment": "overlay/arm9/36"
+    },
+    "348": {
+      "address": 35314933,
+      "segment": "overlay/arm9/36"
+    },
+    "349": {
+      "address": 35314965,
+      "segment": "overlay/arm9/36"
+    },
+    "350": {
+      "address": 35315033,
+      "segment": "overlay/arm9/36"
+    },
+    "351": {
+      "address": 34962105,
+      "segment": "overlay/arm9/12"
+    },
+    "352": {
+      "address": 34962125,
+      "segment": "overlay/arm9/12"
+    },
+    "353": {
+      "address": 34962281,
+      "segment": "overlay/arm9/12"
+    },
+    "354": {
+      "address": 35315101,
+      "segment": "overlay/arm9/36"
+    },
+    "355": {
+      "address": 34963717,
+      "segment": "overlay/arm9/12"
+    },
+    "356": {
+      "address": 34964005,
+      "segment": "overlay/arm9/12"
+    },
+    "357": {
+      "address": 34964161,
+      "segment": "overlay/arm9/12"
+    },
+    "358": {
+      "address": 34964881,
+      "segment": "overlay/arm9/12"
+    },
+    "359": {
+      "address": 34965781,
+      "segment": "overlay/arm9/12"
+    },
+    "360": {
+      "address": 34965025,
+      "segment": "overlay/arm9/12"
+    },
+    "361": {
+      "address": 34965657,
+      "segment": "overlay/arm9/12"
+    },
+    "362": {
+      "address": 34965693,
+      "segment": "overlay/arm9/12"
+    },
+    "366": {
+      "address": 34961493,
+      "segment": "overlay/arm9/12"
+    },
+    "368": {
+      "address": 35091253,
+      "segment": "overlay/arm9/33"
+    },
+    "370": {
+      "address": 35091209,
+      "segment": "overlay/arm9/33"
+    },
+    "372": {
+      "address": 35316693,
+      "segment": "overlay/arm9/36"
+    },
+    "373": {
+      "address": 35316893,
+      "segment": "overlay/arm9/36"
+    },
+    "374": {
+      "address": 34955457,
+      "segment": "overlay/arm9/12"
+    },
+    "375": {
+      "address": 34955505,
+      "segment": "overlay/arm9/12"
+    },
+    "376": {
+      "address": 34955549,
+      "segment": "overlay/arm9/12"
+    },
+    "377": {
+      "address": 35316953,
+      "segment": "overlay/arm9/36"
+    },
+    "378": {
+      "address": 35584977,
+      "segment": "unresolved"
+    },
+    "379": {
+      "address": 34962461,
+      "segment": "overlay/arm9/12"
+    },
+    "380": {
+      "address": 35303913,
+      "segment": "overlay/arm9/36"
+    },
+    "381": {
+      "address": 35303969,
+      "segment": "overlay/arm9/36"
+    },
+    "390": {
+      "address": 35303353,
+      "segment": "overlay/arm9/36"
+    },
+    "391": {
+      "address": 35303369,
+      "segment": "overlay/arm9/36"
+    },
+    "396": {
+      "address": 35303113,
+      "segment": "overlay/arm9/36"
+    },
+    "397": {
+      "address": 35303177,
+      "segment": "overlay/arm9/36"
+    },
+    "398": {
+      "address": 35303261,
+      "segment": "overlay/arm9/36"
+    },
+    "399": {
+      "address": 35303493,
+      "segment": "overlay/arm9/36"
+    },
+    "400": {
+      "address": 35303549,
+      "segment": "overlay/arm9/36"
+    },
+    "401": {
+      "address": 35303605,
+      "segment": "overlay/arm9/36"
+    },
+    "407": {
+      "address": 35315745,
+      "segment": "overlay/arm9/36"
+    },
+    "408": {
+      "address": 35418701,
+      "segment": "overlay/arm9/36"
+    },
+    "409": {
+      "address": 35418797,
+      "segment": "overlay/arm9/36"
+    },
+    "410": {
+      "address": 35419921,
+      "segment": "overlay/arm9/36"
+    },
+    "411": {
+      "address": 35397501,
+      "segment": "overlay/arm9/36"
+    },
+    "412": {
+      "address": 35397569,
+      "segment": "overlay/arm9/36"
+    },
+    "413": {
+      "address": 35397637,
+      "segment": "overlay/arm9/36"
+    },
+    "417": {
+      "address": 34998993,
+      "segment": "overlay/arm9/12"
+    },
+    "418": {
+      "address": 34999165,
+      "segment": "overlay/arm9/12"
+    },
+    "419": {
+      "address": 35304249,
+      "segment": "overlay/arm9/36"
+    },
+    "420": {
+      "address": 35304297,
+      "segment": "overlay/arm9/36"
+    },
+    "421": {
+      "address": 35304345,
+      "segment": "overlay/arm9/36"
+    },
+    "422": {
+      "address": 35304393,
+      "segment": "overlay/arm9/36"
+    },
+    "423": {
+      "address": 35304649,
+      "segment": "overlay/arm9/36"
+    },
+    "424": {
+      "address": 35304201,
+      "segment": "overlay/arm9/36"
+    },
+    "426": {
+      "address": 35304121,
+      "segment": "overlay/arm9/36"
+    },
+    "427": {
+      "address": 35304441,
+      "segment": "overlay/arm9/36"
+    },
+    "428": {
+      "address": 35304489,
+      "segment": "overlay/arm9/36"
+    },
+    "429": {
+      "address": 35304537,
+      "segment": "overlay/arm9/36"
+    },
+    "430": {
+      "address": 35304585,
+      "segment": "overlay/arm9/36"
+    },
+    "431": {
+      "address": 35318401,
+      "segment": "overlay/arm9/36"
+    },
+    "432": {
+      "address": 35318477,
+      "segment": "overlay/arm9/36"
+    },
+    "433": {
+      "address": 35401765,
+      "segment": "overlay/arm9/36"
+    },
+    "434": {
+      "address": 35317045,
+      "segment": "overlay/arm9/36"
+    },
+    "435": {
+      "address": 35019153,
+      "segment": "overlay/arm9/12"
+    },
+    "436": {
+      "address": 35321953,
+      "segment": "overlay/arm9/36"
+    },
+    "437": {
+      "address": 35321673,
+      "segment": "overlay/arm9/36"
+    },
+    "449": {
+      "address": 35323453,
+      "segment": "overlay/arm9/36"
+    },
+    "450": {
+      "address": 35323481,
+      "segment": "overlay/arm9/36"
+    },
+    "451": {
+      "address": 35323593,
+      "segment": "overlay/arm9/36"
+    },
+    "452": {
+      "address": 35320133,
+      "segment": "overlay/arm9/36"
+    },
+    "453": {
+      "address": 35320049,
+      "segment": "overlay/arm9/36"
+    },
+    "454": {
+      "address": 34954185,
+      "segment": "overlay/arm9/12"
+    },
+    "455": {
+      "address": 34954213,
+      "segment": "overlay/arm9/12"
+    },
+    "456": {
+      "address": 34954245,
+      "segment": "overlay/arm9/12"
+    },
+    "457": {
+      "address": 34993281,
+      "segment": "overlay/arm9/12"
+    },
+    "458": {
+      "address": 34993413,
+      "segment": "overlay/arm9/12"
+    },
+    "459": {
+      "address": 34993385,
+      "segment": "overlay/arm9/12"
+    },
+    "460": {
+      "address": 35323349,
+      "segment": "overlay/arm9/36"
+    },
+    "461": {
+      "address": 35323189,
+      "segment": "overlay/arm9/36"
+    },
+    "462": {
+      "address": 34999581,
+      "segment": "overlay/arm9/12"
+    },
+    "463": {
+      "address": 34999645,
+      "segment": "overlay/arm9/12"
+    },
+    "464": {
+      "address": 34999709,
+      "segment": "overlay/arm9/12"
+    },
+    "465": {
+      "address": 35320705,
+      "segment": "overlay/arm9/36"
+    },
+    "466": {
+      "address": 35320817,
+      "segment": "overlay/arm9/36"
+    },
+    "467": {
+      "address": 35320753,
+      "segment": "overlay/arm9/36"
+    },
+    "468": {
+      "address": 35320949,
+      "segment": "overlay/arm9/36"
+    },
+    "469": {
+      "address": 34959033,
+      "segment": "overlay/arm9/12"
+    },
+    "470": {
+      "address": 34961301,
+      "segment": "overlay/arm9/12"
+    },
+    "471": {
+      "address": 34954957,
+      "segment": "overlay/arm9/12"
+    },
+    "472": {
+      "address": 34955045,
+      "segment": "overlay/arm9/12"
+    },
+    "473": {
+      "address": 34955133,
+      "segment": "overlay/arm9/12"
+    },
+    "474": {
+      "address": 35000373,
+      "segment": "overlay/arm9/12"
+    },
+    "475": {
+      "address": 35093945,
+      "segment": "overlay/arm9/33"
+    },
+    "476": {
+      "address": 34967605,
+      "segment": "overlay/arm9/12"
+    },
+    "477": {
+      "address": 35401809,
+      "segment": "overlay/arm9/36"
+    },
+    "478": {
+      "address": 35402049,
+      "segment": "overlay/arm9/36"
+    },
+    "479": {
+      "address": 35402133,
+      "segment": "overlay/arm9/36"
+    },
+    "480": {
+      "address": 34971209,
+      "segment": "overlay/arm9/12"
+    },
+    "481": {
+      "address": 34971029,
+      "segment": "overlay/arm9/12"
+    },
+    "482": {
+      "address": 34971069,
+      "segment": "overlay/arm9/12"
+    },
+    "483": {
+      "address": 34971105,
+      "segment": "overlay/arm9/12"
+    },
+    "484": {
+      "address": 34971337,
+      "segment": "overlay/arm9/12"
+    },
+    "485": {
+      "address": 34971545,
+      "segment": "overlay/arm9/12"
+    },
+    "486": {
+      "address": 35013841,
+      "segment": "overlay/arm9/12"
+    },
+    "487": {
+      "address": 35013881,
+      "segment": "overlay/arm9/12"
+    },
+    "488": {
+      "address": 35013913,
+      "segment": "overlay/arm9/12"
+    },
+    "489": {
+      "address": 35013961,
+      "segment": "overlay/arm9/12"
+    },
+    "490": {
+      "address": 35014053,
+      "segment": "overlay/arm9/12"
+    },
+    "491": {
+      "address": 35014121,
+      "segment": "overlay/arm9/12"
+    },
+    "492": {
+      "address": 35014201,
+      "segment": "overlay/arm9/12"
+    },
+    "493": {
+      "address": 35014253,
+      "segment": "overlay/arm9/12"
+    },
+    "494": {
+      "address": 35014301,
+      "segment": "overlay/arm9/12"
+    },
+    "495": {
+      "address": 35014357,
+      "segment": "overlay/arm9/12"
+    },
+    "496": {
+      "address": 35014413,
+      "segment": "overlay/arm9/12"
+    },
+    "497": {
+      "address": 35014477,
+      "segment": "overlay/arm9/12"
+    },
+    "498": {
+      "address": 35014541,
+      "segment": "overlay/arm9/12"
+    },
+    "499": {
+      "address": 35014597,
+      "segment": "overlay/arm9/12"
+    },
+    "500": {
+      "address": 35014661,
+      "segment": "overlay/arm9/12"
+    },
+    "501": {
+      "address": 35014733,
+      "segment": "overlay/arm9/12"
+    },
+    "502": {
+      "address": 35092509,
+      "segment": "overlay/arm9/33"
+    },
+    "503": {
+      "address": 35092613,
+      "segment": "overlay/arm9/33"
+    },
+    "504": {
+      "address": 35092809,
+      "segment": "overlay/arm9/33"
+    },
+    "505": {
+      "address": 35418949,
+      "segment": "overlay/arm9/36"
+    },
+    "506": {
+      "address": 35419157,
+      "segment": "overlay/arm9/36"
+    },
+    "507": {
+      "address": 35323853,
+      "segment": "overlay/arm9/36"
+    },
+    "508": {
+      "address": 35323705,
+      "segment": "overlay/arm9/36"
+    },
+    "509": {
+      "address": 35063073,
+      "segment": "overlay/arm9/27"
+    },
+    "510": {
+      "address": 35063233,
+      "segment": "overlay/arm9/27"
+    },
+    "511": {
+      "address": 35062877,
+      "segment": "overlay/arm9/27"
+    },
+    "512": {
+      "address": 35062929,
+      "segment": "overlay/arm9/27"
+    },
+    "513": {
+      "address": 35063309,
+      "segment": "overlay/arm9/27"
+    },
+    "514": {
+      "address": 35063549,
+      "segment": "overlay/arm9/27"
+    },
+    "515": {
+      "address": 35063629,
+      "segment": "overlay/arm9/27"
+    },
+    "516": {
+      "address": 35063025,
+      "segment": "overlay/arm9/27"
+    },
+    "517": {
+      "address": 35315481,
+      "segment": "overlay/arm9/36"
+    },
+    "518": {
+      "address": 35315549,
+      "segment": "overlay/arm9/36"
+    },
+    "519": {
+      "address": 35290277,
+      "segment": "overlay/arm9/36"
+    },
+    "520": {
+      "address": 35290357,
+      "segment": "overlay/arm9/36"
+    },
+    "521": {
+      "address": 35063441,
+      "segment": "overlay/arm9/27"
+    },
+    "522": {
+      "address": 35063513,
+      "segment": "overlay/arm9/27"
+    },
+    "523": {
+      "address": 35062761,
+      "segment": "overlay/arm9/27"
+    },
+    "524": {
+      "address": 35062813,
+      "segment": "overlay/arm9/27"
+    },
+    "525": {
+      "address": 35018585,
+      "segment": "overlay/arm9/12"
+    },
+    "526": {
+      "address": 35018201,
+      "segment": "overlay/arm9/12"
+    },
+    "527": {
+      "address": 35018381,
+      "segment": "overlay/arm9/12"
+    },
+    "528": {
+      "address": 35018473,
+      "segment": "overlay/arm9/12"
+    },
+    "529": {
+      "address": 35018529,
+      "segment": "overlay/arm9/12"
+    },
+    "530": {
+      "address": 35014777,
+      "segment": "overlay/arm9/12"
+    },
+    "531": {
+      "address": 35015005,
+      "segment": "overlay/arm9/12"
+    },
+    "532": {
+      "address": 35419345,
+      "segment": "overlay/arm9/36"
+    },
+    "533": {
+      "address": 35019017,
+      "segment": "overlay/arm9/12"
+    },
+    "534": {
+      "address": 35419857,
+      "segment": "overlay/arm9/36"
+    },
+    "535": {
+      "address": 35015997,
+      "segment": "overlay/arm9/12"
+    },
+    "536": {
+      "address": 35015849,
+      "segment": "overlay/arm9/12"
+    },
+    "537": {
+      "address": 35015693,
+      "segment": "overlay/arm9/12"
+    },
+    "538": {
+      "address": 35015765,
+      "segment": "overlay/arm9/12"
+    },
+    "539": {
+      "address": 35015561,
+      "segment": "overlay/arm9/12"
+    },
+    "540": {
+      "address": 35015457,
+      "segment": "overlay/arm9/12"
+    },
+    "541": {
+      "address": 35015637,
+      "segment": "overlay/arm9/12"
+    },
+    "542": {
+      "address": 35317149,
+      "segment": "overlay/arm9/36"
+    },
+    "543": {
+      "address": 34955589,
+      "segment": "overlay/arm9/12"
+    },
+    "544": {
+      "address": 34955625,
+      "segment": "overlay/arm9/12"
+    },
+    "545": {
+      "address": 35324357,
+      "segment": "overlay/arm9/36"
+    },
+    "546": {
+      "address": 35324441,
+      "segment": "overlay/arm9/36"
+    },
+    "547": {
+      "address": 35321201,
+      "segment": "overlay/arm9/36"
+    },
+    "548": {
+      "address": 35319817,
+      "segment": "overlay/arm9/36"
+    },
+    "549": {
+      "address": 35322101,
+      "segment": "overlay/arm9/36"
+    },
+    "550": {
+      "address": 35414617,
+      "segment": "overlay/arm9/36"
+    },
+    "551": {
+      "address": 35420157,
+      "segment": "overlay/arm9/36"
+    },
+    "552": {
+      "address": 35420217,
+      "segment": "overlay/arm9/36"
+    },
+    "554": {
+      "address": 35420293,
+      "segment": "overlay/arm9/36"
+    },
+    "555": {
+      "address": 35420937,
+      "segment": "overlay/arm9/36"
+    },
+    "557": {
+      "address": 35397705,
+      "segment": "overlay/arm9/36"
+    },
+    "558": {
+      "address": 35300109,
+      "segment": "overlay/arm9/36"
+    },
+    "559": {
+      "address": 35322253,
+      "segment": "overlay/arm9/36"
+    },
+    "560": {
+      "address": 35296661,
+      "segment": "overlay/arm9/36"
+    },
+    "561": {
+      "address": 35315981,
+      "segment": "overlay/arm9/36"
+    },
+    "562": {
+      "address": 35322397,
+      "segment": "overlay/arm9/36"
+    },
+    "563": {
+      "address": 35429721,
+      "segment": "overlay/arm9/36"
+    },
+    "564": {
+      "address": 35302561,
+      "segment": "overlay/arm9/36"
+    },
+    "565": {
+      "address": 35286429,
+      "segment": "overlay/arm9/36"
+    },
+    "566": {
+      "address": 35324029,
+      "segment": "overlay/arm9/36"
+    },
+    "567": {
+      "address": 35324205,
+      "segment": "overlay/arm9/36"
+    },
+    "568": {
+      "address": 35287017,
+      "segment": "overlay/arm9/36"
+    },
+    "569": {
+      "address": 35301801,
+      "segment": "overlay/arm9/36"
+    },
+    "570": {
+      "address": 35287937,
+      "segment": "overlay/arm9/36"
+    },
+    "571": {
+      "address": 35036253,
+      "segment": "overlay/arm9/12"
+    },
+    "572": {
+      "address": 35036269,
+      "segment": "overlay/arm9/12"
+    },
+    "573": {
+      "address": 35036289,
+      "segment": "overlay/arm9/12"
+    },
+    "574": {
+      "address": 34963221,
+      "segment": "overlay/arm9/12"
+    },
+    "575": {
+      "address": 35306377,
+      "segment": "overlay/arm9/36"
+    },
+    "576": {
+      "address": 35286709,
+      "segment": "overlay/arm9/36"
+    },
+    "577": {
+      "address": 35286789,
+      "segment": "overlay/arm9/36"
+    },
+    "581": {
+      "address": 35286581,
+      "segment": "overlay/arm9/36"
+    },
+    "582": {
+      "address": 35286509,
+      "segment": "overlay/arm9/36"
+    },
+    "583": {
+      "address": 35291681,
+      "segment": "overlay/arm9/36"
+    },
+    "584": {
+      "address": 35301205,
+      "segment": "overlay/arm9/36"
+    },
+    "585": {
+      "address": 34971601,
+      "segment": "overlay/arm9/12"
+    },
+    "586": {
+      "address": 34970961,
+      "segment": "overlay/arm9/12"
+    },
+    "587": {
+      "address": 34970997,
+      "segment": "overlay/arm9/12"
+    },
+    "588": {
+      "address": 35287381,
+      "segment": "overlay/arm9/36"
+    },
+    "589": {
+      "address": 35304009,
+      "segment": "overlay/arm9/36"
+    },
+    "590": {
+      "address": 34956233,
+      "segment": "overlay/arm9/12"
+    },
+    "591": {
+      "address": 35299101,
+      "segment": "overlay/arm9/36"
+    },
+    "592": {
+      "address": 35038589,
+      "segment": "overlay/arm9/12"
+    },
+    "593": {
+      "address": 35038753,
+      "segment": "overlay/arm9/12"
+    },
+    "594": {
+      "address": 35038861,
+      "segment": "overlay/arm9/12"
+    },
+    "595": {
+      "address": 35038897,
+      "segment": "overlay/arm9/12"
+    },
+    "602": {
+      "address": 34962365,
+      "segment": "overlay/arm9/12"
+    },
+    "603": {
+      "address": 35302789,
+      "segment": "overlay/arm9/36"
+    },
+    "604": {
+      "address": 35302809,
+      "segment": "overlay/arm9/36"
+    },
+    "605": {
+      "address": 35302865,
+      "segment": "overlay/arm9/36"
+    },
+    "607": {
+      "address": 35302921,
+      "segment": "overlay/arm9/36"
+    },
+    "610": {
+      "address": 35038949,
+      "segment": "overlay/arm9/12"
+    },
+    "611": {
+      "address": 35039065,
+      "segment": "overlay/arm9/12"
+    },
+    "612": {
+      "address": 35039113,
+      "segment": "overlay/arm9/12"
+    },
+    "613": {
+      "address": 35316173,
+      "segment": "overlay/arm9/36"
+    },
+    "614": {
+      "address": 35039197,
+      "segment": "overlay/arm9/12"
+    },
+    "615": {
+      "address": 35039245,
+      "segment": "overlay/arm9/12"
+    },
+    "616": {
+      "address": 35303049,
+      "segment": "overlay/arm9/36"
+    },
+    "617": {
+      "address": 35303093,
+      "segment": "overlay/arm9/36"
+    },
+    "620": {
+      "address": 35290437,
+      "segment": "overlay/arm9/36"
+    },
+    "621": {
+      "address": 35290489,
+      "segment": "overlay/arm9/36"
+    },
+    "622": {
+      "address": 35421041,
+      "segment": "overlay/arm9/36"
+    },
+    "625": {
+      "address": 35421185,
+      "segment": "overlay/arm9/36"
+    },
+    "626": {
+      "address": 35421321,
+      "segment": "overlay/arm9/36"
+    },
+    "627": {
+      "address": 35421397,
+      "segment": "overlay/arm9/36"
+    },
+    "628": {
+      "address": 35091305,
+      "segment": "overlay/arm9/33"
+    },
+    "629": {
+      "address": 35290693,
+      "segment": "overlay/arm9/36"
+    },
+    "630": {
+      "address": 35090477,
+      "segment": "overlay/arm9/33"
+    },
+    "631": {
+      "address": 35090529,
+      "segment": "overlay/arm9/33"
+    },
+    "632": {
+      "address": 35295353,
+      "segment": "overlay/arm9/36"
+    },
+    "633": {
+      "address": 35090385,
+      "segment": "overlay/arm9/33"
+    },
+    "634": {
+      "address": 35090617,
+      "segment": "overlay/arm9/33"
+    },
+    "635": {
+      "address": 35090705,
+      "segment": "overlay/arm9/33"
+    },
+    "636": {
+      "address": 35090833,
+      "segment": "overlay/arm9/33"
+    },
+    "637": {
+      "address": 35090933,
+      "segment": "overlay/arm9/33"
+    },
+    "638": {
+      "address": 35091033,
+      "segment": "overlay/arm9/33"
+    },
+    "639": {
+      "address": 35091121,
+      "segment": "overlay/arm9/33"
+    },
+    "644": {
+      "address": 35316357,
+      "segment": "overlay/arm9/36"
+    },
+    "645": {
+      "address": 35316597,
+      "segment": "overlay/arm9/36"
+    },
+    "650": {
+      "address": 35291813,
+      "segment": "overlay/arm9/36"
+    },
+    "651": {
+      "address": 35091341,
+      "segment": "overlay/arm9/33"
+    },
+    "654": {
+      "address": 35303401,
+      "segment": "overlay/arm9/36"
+    },
+    "655": {
+      "address": 35316545,
+      "segment": "overlay/arm9/36"
+    },
+    "656": {
+      "address": 35288989,
+      "segment": "overlay/arm9/36"
+    },
+    "657": {
+      "address": 35303797,
+      "segment": "overlay/arm9/36"
+    },
+    "658": {
+      "address": 35303833,
+      "segment": "overlay/arm9/36"
+    },
+    "659": {
+      "address": 35426085,
+      "segment": "overlay/arm9/36"
+    },
+    "660": {
+      "address": 35425545,
+      "segment": "overlay/arm9/36"
+    },
+    "661": {
+      "address": 35425981,
+      "segment": "overlay/arm9/36"
+    },
+    "662": {
+      "address": 35426825,
+      "segment": "overlay/arm9/36"
+    },
+    "663": {
+      "address": 35316785,
+      "segment": "overlay/arm9/36"
+    },
+    "664": {
+      "address": 35290545,
+      "segment": "overlay/arm9/36"
+    },
+    "665": {
+      "address": 35290597,
+      "segment": "overlay/arm9/36"
+    },
+    "666": {
+      "address": 35290645,
+      "segment": "overlay/arm9/36"
+    },
+    "667": {
+      "address": 35290757,
+      "segment": "overlay/arm9/36"
+    },
+    "670": {
+      "address": 35421509,
+      "segment": "overlay/arm9/36"
+    },
+    "671": {
+      "address": 35421453,
+      "segment": "overlay/arm9/36"
+    },
+    "672": {
+      "address": 35421717,
+      "segment": "overlay/arm9/36"
+    },
+    "673": {
+      "address": 35421781,
+      "segment": "overlay/arm9/36"
+    },
+    "674": {
+      "address": 35303865,
+      "segment": "overlay/arm9/36"
+    },
+    "675": {
+      "address": 35303889,
+      "segment": "overlay/arm9/36"
+    },
+    "676": {
+      "address": 34962421,
+      "segment": "overlay/arm9/12"
+    },
+    "677": {
+      "address": 35303637,
+      "segment": "overlay/arm9/36"
+    },
+    "678": {
+      "address": 35303749,
+      "segment": "overlay/arm9/36"
+    },
+    "679": {
+      "address": 35303693,
+      "segment": "overlay/arm9/36"
+    },
+    "680": {
+      "address": 35303765,
+      "segment": "overlay/arm9/36"
+    },
+    "681": {
+      "address": 35303781,
+      "segment": "overlay/arm9/36"
+    },
+    "684": {
+      "address": 35427929,
+      "segment": "overlay/arm9/36"
+    },
+    "686": {
+      "address": 35039341,
+      "segment": "overlay/arm9/12"
+    },
+    "687": {
+      "address": 35039389,
+      "segment": "overlay/arm9/12"
+    },
+    "688": {
+      "address": 35039509,
+      "segment": "overlay/arm9/12"
+    },
+    "689": {
+      "address": 35039445,
+      "segment": "overlay/arm9/12"
+    },
+    "690": {
+      "address": 35039633,
+      "segment": "overlay/arm9/12"
+    },
+    "691": {
+      "address": 35039701,
+      "segment": "overlay/arm9/12"
+    },
+    "692": {
+      "address": 35039769,
+      "segment": "overlay/arm9/12"
+    },
+    "693": {
+      "address": 35039837,
+      "segment": "overlay/arm9/12"
+    },
+    "694": {
+      "address": 35039997,
+      "segment": "overlay/arm9/12"
+    },
+    "695": {
+      "address": 35040113,
+      "segment": "overlay/arm9/12"
+    },
+    "696": {
+      "address": 35040257,
+      "segment": "overlay/arm9/12"
+    },
+    "697": {
+      "address": 35040285,
+      "segment": "overlay/arm9/12"
+    },
+    "698": {
+      "address": 35040313,
+      "segment": "overlay/arm9/12"
+    },
+    "699": {
+      "address": 35303461,
+      "segment": "overlay/arm9/36"
+    },
+    "700": {
+      "address": 35420669,
+      "segment": "overlay/arm9/36"
+    },
+    "701": {
+      "address": 35420733,
+      "segment": "overlay/arm9/36"
+    },
+    "702": {
+      "address": 35301849,
+      "segment": "overlay/arm9/36"
+    },
+    "704": {
+      "address": 35322021,
+      "segment": "overlay/arm9/36"
+    },
+    "706": {
+      "address": 35317381,
+      "segment": "overlay/arm9/36"
+    },
+    "707": {
+      "address": 35039285,
+      "segment": "overlay/arm9/12"
+    },
+    "708": {
+      "address": 35040437,
+      "segment": "overlay/arm9/12"
+    },
+    "709": {
+      "address": 35420277,
+      "segment": "overlay/arm9/36"
+    },
+    "710": {
+      "address": 35040517,
+      "segment": "overlay/arm9/12"
+    },
+    "711": {
+      "address": 35040545,
+      "segment": "overlay/arm9/12"
+    },
+    "714": {
+      "address": 35315617,
+      "segment": "overlay/arm9/36"
+    },
+    "715": {
+      "address": 35040573,
+      "segment": "overlay/arm9/12"
+    },
+    "719": {
+      "address": 35428653,
+      "segment": "overlay/arm9/36"
+    },
+    "720": {
+      "address": 34954265,
+      "segment": "overlay/arm9/12"
+    },
+    "721": {
+      "address": 35428981,
+      "segment": "overlay/arm9/36"
+    },
+    "722": {
+      "address": 34955661,
+      "segment": "overlay/arm9/12"
+    },
+    "723": {
+      "address": 35039005,
+      "segment": "overlay/arm9/12"
+    },
+    "724": {
+      "address": 35288825,
+      "segment": "overlay/arm9/36"
+    },
+    "725": {
+      "address": 35429041,
+      "segment": "overlay/arm9/36"
+    },
+    "727": {
+      "address": 35429093,
+      "segment": "overlay/arm9/36"
+    },
+    "728": {
+      "address": 35429229,
+      "segment": "overlay/arm9/36"
+    },
+    "729": {
+      "address": 35429309,
+      "segment": "overlay/arm9/36"
+    },
+    "730": {
+      "address": 35429409,
+      "segment": "overlay/arm9/36"
+    },
+    "731": {
+      "address": 35429577,
+      "segment": "overlay/arm9/36"
+    },
+    "732": {
+      "address": 35429629,
+      "segment": "overlay/arm9/36"
+    },
+    "733": {
+      "address": 35429173,
+      "segment": "overlay/arm9/36"
+    },
+    "734": {
+      "address": 35429465,
+      "segment": "overlay/arm9/36"
+    },
+    "735": {
+      "address": 35429521,
+      "segment": "overlay/arm9/36"
+    },
+    "737": {
+      "address": 35422185,
+      "segment": "overlay/arm9/36"
+    },
+    "739": {
+      "address": 35040613,
+      "segment": "overlay/arm9/12"
+    },
+    "741": {
+      "address": 35427137,
+      "segment": "overlay/arm9/36"
+    },
+    "742": {
+      "address": 35427357,
+      "segment": "overlay/arm9/36"
+    },
+    "744": {
+      "address": 35304665,
+      "segment": "overlay/arm9/36"
+    },
+    "745": {
+      "address": 35304781,
+      "segment": "overlay/arm9/36"
+    },
+    "746": {
+      "address": 34957937,
+      "segment": "overlay/arm9/12"
+    },
+    "749": {
+      "address": 34954285,
+      "segment": "overlay/arm9/12"
+    },
+    "750": {
+      "address": 34966509,
+      "segment": "overlay/arm9/12"
+    },
+    "751": {
+      "address": 34966557,
+      "segment": "overlay/arm9/12"
+    },
+    "753": {
+      "address": 34954353,
+      "segment": "overlay/arm9/12"
+    },
+    "754": {
+      "address": 34954405,
+      "segment": "overlay/arm9/12"
+    }
+  }
+}

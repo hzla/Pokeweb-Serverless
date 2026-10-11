@@ -89,6 +89,8 @@ def native(u,pc,size,user):
   ret(h.A if not h.u32(h.A)&1 else NPC+256)
  elif pc==CHECK:checks.append(reg(1));ret(1)
  elif pc==0x02008008:observed.append(('unknown-child',h.u32(h.F+24)));ret(37)
+ elif pc==0x02038bf4:
+  observed.append(('recent-activity',reg(0),h.u32(h.F+24)));ret()
  # Rail prediction executes an actual private native cursor layout, with the
  # curve evaluator isolated here. In-game curve/connection acceptance remains
  # in S11; no stock-map geometry or camera is synthesized by this fixture.
@@ -147,6 +149,16 @@ def cleanup(mask):
  return h.call(0x02016cf8,[h.FOREIGN])
 def cleanup_return():
  h.call(0x02016d08,[h.FOREIGN]);h.put(h.GAME+0x18,h.EVENT)
+
+# Trashcan/static-furniture scripts record a recent Join Avenue activity. Run
+# the real VM fetch and exact native command handler: one operand, zero return,
+# no child event, preserved follower and trail. The data update is a spy here;
+# its complete native implementation is pinned in the binary contract.
+snapshot=setup();event();opcode(0x2c5);kept(snapshot)
+uc.mem_write(PROGRAM+2,struct.pack('<H',11));before=len(observed)
+assert h.call(0x021c7874,[VM,ENV])==0
+assert h.u32(VM+32)==PROGRAM+4 and observed[before:]==[('recent-activity',11,h.A)]
+kept(snapshot);finish();kept(snapshot)
 
 # Real menu callback identity, replacement event, and stale/recycled address.
 # UI services are spies; actual packaged guards execute before every callback.

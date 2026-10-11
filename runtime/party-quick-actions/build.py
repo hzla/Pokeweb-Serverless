@@ -3,9 +3,10 @@ import hashlib,json,os,struct,subprocess
 from pathlib import Path
 import ndspy.rom,ndspy.narc,ndspy.codeCompression
 HERE=Path(__file__).resolve().parent;REPO=HERE.parents[1];WS=REPO.parent;BUILD=HERE/'build';ASSETS=REPO/'src/assets/codeinjection'
-TOOLS=WS/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin';JAR=WS/'White2Upgrade/CTRMap.jar';VERSION='0.1.5'
+TOOLS=WS/'toolchains/arm-gnu-toolchain-14.2.rel1-darwin-arm64-arm-none-eabi/bin';JAR=WS/'White2Upgrade/CTRMap.jar';VERSION='0.1.6'
 APIS=[0x20056fc,0x203a6d4,0x2006254,0x2008474,0x201cd24,0x201cd48,0x201d5e0,0x201fe24,0x201ff34,0x2021c70,0x2021ca8,0x2039f8c,0x2039fbc,0x203cb14,0x203a228,0x203a278,0x203da74,0x203dab0,0x203df28,0x203df4c,0x2045840,0x2045ba8,0x2047168,0x2048270,0x2048298,0x2048520,0x204855c,0x2048590,0x2048640,0x204aac8,0x204ab38,0x204ab48,0x204bbcc,0x204bcfc,0x204bd3c,0x204be0c,0x204be90,0x204bf48,0x204bfc4,0x204b8e8,0x204b9b8,0x204ba6c,0x204c06c,0x204c134,0x204c150,0x204c54c,0x2070ca8,0x2070ecc]
 APIS += [0x2017394,0x20191d8,0x2034c80]
+APIS += [0x204c16c]
 CALLS=[('PaRequest',12,0x215b83a,0x2034c80),('PaInit',165,0x2199a7e,0x2199bc8),('PaEnd',165,0x2199ab0,0x2199de8),('PaTick',165,0x2199bb4,0x2199ed0),('PaIdle',165,0x2199f40,0x219bb48),('PaPrompt',165,0x219b24e,0x219f880),('PaSubtract',165,0x219b440,0x219e688)]
 WORDS=[('PaPartyReturn',0x216cbe4,0x215ba0d),('PaEvolutionReturn',0x216ccec,0x215c3e5)]
 NATIVE=[0x2199bc8,0x2199de8,0x2199ed0,0x219bb48,0x219b30c,0x219e688,0x219f880,0x219fac4,0x219f290,0x219f008,0x219f350,0x219eefc,0x219f0e0]
@@ -156,7 +157,7 @@ def main():
   # Resources are separately compared across games, not inferred from offsets.
   graphics=art(r)
   if game=='W2':
-   arc=ndspy.narc.NARC();arc.files=[struct.pack('<6I',0x51415050,2,24,1,0,0x51415050^1),*graphics];archive=bytes(arc.save());(ASSETS/'partyQuickActions.narc').write_bytes(archive);m['archiveSha256']=hashlib.sha256(archive).hexdigest();m['graphicsFingerprints']=[fingerprint(b) for b in graphics]
+   arc=ndspy.narc.NARC();arc.files=[struct.pack('<11I',0x51415050,3,44,1,0,0,0,0,0,0,0x51415050^1),*graphics];archive=bytes(arc.save());(ASSETS/'partyQuickActions.narc').write_bytes(archive);m['archiveSha256']=hashlib.sha256(archive).hexdigest();m['graphicsFingerprints']=[fingerprint(b) for b in graphics]
   else:assert graphics==art(ndspy.rom.NintendoDSRom.fromFile(WS/'cleanwhite2.nds'))
   stem=f'PartyQuickActions{game}';s=BUILD/f'{stem}.s';s.write_text('\n'.join(asm)+'\n')
   run(TOOLS/'arm-none-eabi-g++','-std=c++17','-mthumb','-march=armv5t','-mlong-calls','-Os','-Wall','-Wextra','-Werror','-fno-jump-tables','-fno-exceptions','-fno-rtti','-fno-unwind-tables','-fno-asynchronous-unwind-tables','-ffreestanding','-fno-builtin',f'-DGAME_{game}','-I',BUILD,'-c',HERE/'party_tools.cpp','-o',BUILD/f'{stem}.o')

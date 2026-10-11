@@ -6,6 +6,7 @@ typedef struct { FwPoint eye,target; uint32_t projection; } FwrCamera;
 typedef struct { FwPoint position; int32_t sx,sy; } FwrPose;
 typedef struct { FwPoint axis; int32_t before,after,policy; } FwrResult;
 #define FWR_TIE_MARGIN 512 /* 1/8 world unit; a tile is 16 world units. */
+#define FWR_PROP_FOREGROUND_GAP (4 * 4096) /* Clear native Z-buffer quantization. */
 #define FWR_NATIVE_FOREGROUND_GAP (4 * 4096) /* Retain native NPC/player depth. */
 #define FWR_LARGE 1u
 #define FWR_NORTH 2u
@@ -33,4 +34,10 @@ int fwr_head_position(const FwPoint *base,const FwrCamera *camera,
 int fwr_player_in_front(const FwrPose *follower,const FwrPose *player,
     const FwrCamera *camera,FwPoint axis,int32_t margin,int32_t max_advance,
     FwrPose *output,int32_t *after);
+/* A loaded static model may occlude part of the original sprite. Reserve its
+ * complete projected bounding volume before advancing a camera-facing quad. */
+int32_t fwr_box_advance_limit(const FwrPose *body,const FwrCamera *camera,
+    const FwPoint corners[8]);
+int fwr_cap_advance(const FwrPose *baseline,const FwrPose *adjusted,
+    const FwrCamera *camera,int32_t limit,FwrPose *output);
 #endif

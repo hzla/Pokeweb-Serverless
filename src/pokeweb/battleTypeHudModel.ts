@@ -4,6 +4,7 @@ import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
 import { NARC } from "../nds/narc";
 import { NintendoDSRom } from "../nds/rom";
+import { white2LocalizedAssetVariant } from "./translationAssets";
 import { recordGenericChange } from "./actionChangelog";
 import { getRomFileBytes, replaceNarcFile } from "./fileSystemModel";
 import { battleTypeHudPanelExpansion, transformBattleTypeHudPanel } from "./battleTypeHudResources";
@@ -186,10 +187,13 @@ async function installHud(project: ProjectState, kind: Component, colors?: MoveH
       const digest = await hash(raw);
       const key = member as keyof typeof battleTypeHudPanelExpansion;
       const expansion = battleTypeHudPanelExpansion[key];
-      if (digest !== expected && digest !== expansion?.patchedSha256 && !expansion?.previous.some(v => v.patchedSha256 === digest)) throw new Error(`Unsupported Battle HUD graphics/palette member ${member}.`);
-      if (expansion && digest !== expansion.patchedSha256) {
+      const localized = v === "W2" ? white2LocalizedAssetVariant(profile.graphicsArchive, Number(member), digest) : undefined;
+      const isLocalized = !!localized && (digest === localized.nativeSha256 || digest === localized.expandedSha256);
+      const expandedHash = isLocalized ? localized?.expandedSha256 : expansion?.patchedSha256;
+      if (digest !== expected && digest !== expansion?.patchedSha256 && !expansion?.previous.some(v => v.patchedSha256 === digest) && !isLocalized) throw new Error(`Unsupported Battle HUD graphics/palette member ${member}.`);
+      if (expansion && digest !== expandedHash) {
         const expanded = transformBattleTypeHudPanel(raw, key);
-        if (await hash(expanded) !== expansion.patchedSha256) throw new Error(`Type Icons panel expansion failed verification for member ${member}.`);
+        if (await hash(expanded) !== expandedHash) throw new Error(`Type Icons panel expansion failed verification for member ${member}.`);
         panelEdits.push({ fileId: id, member: Number(member), bytes: expanded });
       }
     }

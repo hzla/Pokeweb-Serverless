@@ -2885,6 +2885,14 @@
       "expectedHex": "f8b50c1c051c201ca5f78afc201ca5f7"
     },
     {
+      "opcode": 709,
+      "name": "s02C5_RecordRecentActivity",
+      "category": "isolated-save-data-write",
+      "handler": 35420277,
+      "segment": "36",
+      "expectedHex": "08b54ef6b7f871f6bbf9002008bd"
+    },
+    {
       "opcode": 710,
       "name": "s02C6_JoinAvenueStoreStart",
       "category": "requested-admission",

@@ -16,9 +16,14 @@ import { parseBattlePlatformVariants } from "../src/pokeweb/battlePlatformModel"
 import { parsePwanArchiveBytes, PWAN_ARCHIVE_PATH, pwanAssetIndex } from "../src/pokeweb/pwanAnimationModel";
 import { parsePwanHeader, pwanFramesPerSecond } from "../src/pokeweb/pwanCompiler";
 import { getPokemonSpriteImage } from "../src/pokeweb/pokemonSpriteModel";
+import { resolvePokemonSpriteId } from "../src/pokeweb/pokemonSpriteModel";
+import { loadProjectFromRomBytes } from "../src/pokeweb/loader";
+import { parseW2Anim, W2ANIM_PATH } from "../src/pokeweb/w2animCodec";
+import { extractRomPwan, readNclrPalette } from "./lib/pwan-sprite-refresh";
+import { readBundledPwanArchive } from "./lib/pwan-library-payload";
 import type { ProjectState, PwanAnimationOverride } from "../src/pokeweb/projectStore";
 
-type TrackerMove = { id: number; key: string; name: string };
+type TrackerMove = { id: number; key: string; name: string; credits?: string; animationId?: number; defaultProgress?: {animation?:boolean} };
 type TrackerPokemon = {
   id: number;
   key: string;
@@ -28,17 +33,8 @@ type TrackerPokemon = {
   form?: number;
   spriteForm?: number;
   credits?: string;
+  spriteSources?: Array<{side: "front" | "back"; credits: string; source: string; creditBasis: string}>;
 };
-
-type MegaPreviewRow = {
-  previewSpecies: number;
-  name: string;
-  key: string;
-  baseSpeciesId: number;
-  form: number;
-};
-
-type MegaPreviewReport = { rows: MegaPreviewRow[] };
 
 type ViewerPwanSide = {
   path: string;
@@ -57,6 +53,7 @@ type ViewerSprite = {
   assetIndex?: number;
   generation: number;
   credits: string;
+  spriteSources?: TrackerPokemon["spriteSources"];
   pwanChunk?: string;
   pwan: Partial<Record<"front" | "back", ViewerPwanSide>>;
   native: Partial<Record<"front" | "back", string>>;
@@ -69,7 +66,6 @@ type BuildSprite = ViewerSprite & {
 };
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
-const w2uRoot = path.resolve(process.argv[2] ?? path.join(repoRoot, "../../White2Upgrade-Original-pokeweb"));
 const trackerRoot = path.resolve(process.argv[3] ?? path.join(repoRoot, "../White2Expansion"));
 const romPath = path.resolve(process.argv[4] ?? path.join(repoRoot, "../../White2Upgrade.nds"));
 const outputRoot = path.join(trackerRoot, "animation-viewer/data");
@@ -85,30 +81,20 @@ const GENERATED_ZIP_MTIME = new Date("1980-01-02T00:00:00.000Z");
 
 async function main(): Promise<void> {
   const romBytes = new Uint8Array(await readFile(romPath));
-  const rom = new NintendoDSRom(romBytes);
+  const rom = new NintendoDSRom(romBytes, {fileData:"view"});
   const moves = JSON.parse(await readFile(path.join(trackerRoot, "data/moves.gen6.json"), "utf8")) as TrackerMove[];
   const pokemon = JSON.parse(await readFile(path.join(trackerRoot, "data/pokemon.gen6.json"), "utf8")) as TrackerPokemon[];
-  const megaPreview = JSON.parse(
-    await readFile(path.join(w2uRoot, "assets/pokeweb_pwan/mega_preview_low_ids_report.json"), "utf8"),
-  ) as MegaPreviewReport;
-  const megaPreviewByKey = new Map(megaPreview.rows.map((entry) => [entry.key, entry]));
-
-  const stagedMoveIds = (await readdir(path.join(w2uRoot, "data/graphics/move_animations")))
-    .map((name) => /^5_0*(\d+)\.bin$/u.exec(name)?.[1])
-    .filter((value): value is string => value !== undefined)
-    .map(Number)
-    .sort((left, right) => left - right);
-  const moveById = new Map(moves.map((move) => [move.id, move]));
-  const moveEntries = stagedMoveIds.flatMap((id) => {
-    const move = moveById.get(id);
-    if (!move) return [];
-    return [{
-      id,
+  const animations = new NARC(rom.getFileByName(MOVE_ANIMATION_PATH));
+  const moveEntries = moves.filter(move => move.defaultProgress?.animation).map(move => {
+    const animationId = move.animationId ?? move.id;
+    if (!animations.files[animationId]?.length) throw new Error(`Missing current-ROM animation for ${move.name}`);
+    return {
+      id:move.id, animationId, credits:move.credits ?? "",
       key: move.key,
       name: move.name,
-      generation: generationForMove(id),
-    }];
-  });
+      generation: generationForMove(move.id),
+    };
+  }).sort((a,b) => a.id-b.id);
 
   await removeEditorOnlyBuildAssets(path.join(trackerRoot, "animation-viewer/assets"));
   await rm(outputRoot, { force: true, recursive: true });
@@ -117,7 +103,16 @@ async function main(): Promise<void> {
   await mkdir(nativeOutput, { recursive: true });
   await mkdir(pwanOutput, { recursive: true });
 
-  const overrides = parsePwanArchiveBytes(rom.getFileByName(PWAN_ARCHIVE_PATH));
+  const streamId = rom.filenames.idOf(W2ANIM_PATH);
+  const streams = streamId === undefined ? undefined : parseW2Anim(rom.files[streamId]!);
+  const streamEntries = new Map(streams?.entries.filter(e=>e.arc===4).map(e=>[e.sheetFile,e]));
+  const libraryRoot = path.join(repoRoot,"src/assets/pwan/library");
+  const library = JSON.parse(await readFile(path.join(libraryRoot,"manifest.json"),"utf8"));
+  const libraryBytes = await readBundledPwanArchive(libraryRoot);
+  const libraryArchive = new NARC(libraryBytes);
+  const libraryEntries = new Map<string, {assetIndex:number}>(library.entries.map((e: any)=>[`${e.speciesId}:${e.formIndex}`,e]));
+  const overrides = streams ? [] : parsePwanArchiveBytes(rom.getFileByName(PWAN_ARCHIVE_PATH));
+  const project = await loadProjectFromRomBytes(romBytes, path.basename(romPath), {selectedNarcs:["personal","pokemon_sprites"]});
   const trackerSprites = [...pokemon].sort((left, right) => {
       const leftSpecies = left.baseSpeciesId ?? left.id;
       const rightSpecies = right.baseSpeciesId ?? right.id;
@@ -129,9 +124,8 @@ async function main(): Promise<void> {
   const sprites: BuildSprite[] = trackerSprites.map((entry) => {
     const speciesId = entry.baseSpeciesId ?? entry.id;
     const formIndex = Number(entry.form ?? 0);
-    const mega = megaPreviewByKey.get(entry.key);
-    const sourceSpeciesId = mega?.previewSpecies ?? speciesId;
-    const sourceFormIndex = mega ? 0 : formIndex;
+    const sourceSpeciesId = speciesId;
+    const sourceFormIndex = formIndex;
     const override = findPwanOverride(overrides, sourceSpeciesId, sourceFormIndex);
     return {
       id: entry.id,
@@ -143,11 +137,12 @@ async function main(): Promise<void> {
       assetIndex: override ? pwanAssetIndex(override) : undefined,
       generation: generationForTracker(entry),
       credits: entry.credits ?? "",
+      spriteSources: entry.spriteSources,
       pwan: {},
       native: {},
       sourceSpeciesId,
       sourceFormIndex,
-      nativeSpriteId: mega?.previewSpecies ?? nativeSpriteId(entry),
+      nativeSpriteId: resolvePokemonSpriteId(project, speciesId, formIndex),
     };
   });
 
@@ -157,9 +152,14 @@ async function main(): Promise<void> {
     const chunkName = `chunk-${String(chunkStart / PWAN_CHUNK_SIZE).padStart(3, "0")}.zip`;
     for (const sprite of chunkSprites) {
       const override = findPwanOverride(overrides, sprite.sourceSpeciesId, sprite.sourceFormIndex);
-      if (!override) continue;
+      const bundled = libraryEntries.get(`${sprite.speciesId}:${sprite.formIndex}`);
+      if (bundled) sprite.assetIndex = bundled.assetIndex;
       for (const side of ["front", "back"] as const) {
-        const pwanBytes = override[side]?.pwanBytes;
+        const stream = streamEntries.get(sprite.nativeSpriteId * 20 + (side === "front" ? 2 : 11));
+        const bundledBytes = bundled && libraryArchive.files[bundled.assetIndex*2+(side==="front"?1:2)];
+        const pwanBytes = bundledBytes?.length ? bundledBytes : streams && stream
+          ? extractRomPwan(streams, stream, readNclrPalette(project.narcs.pokemon_sprites!.rawFiles[sprite.nativeSpriteId * 20 + 18]!))
+          : override?.[side]?.pwanBytes;
         if (!pwanBytes) continue;
         const header = parsePwanHeader(pwanBytes);
         const memberPath = `${sprite.id}/${side}.pwan`;
@@ -217,6 +217,12 @@ async function main(): Promise<void> {
   const manifest = {
     format: "white2expansion-animation-viewer",
     version: 3,
+    generatedAt: new Date().toISOString(),
+    animationBackend: streams ? "w2anim" : "pwan",
+    previewEncoding: "PWAN (lossless browser representation; not the ROM runtime)",
+    pokemonSource: "Current Pokeweb bundled animation library; native ROM fallback for unbundled sides",
+    pokemonSourceSha256: sha256(libraryBytes),
+    moveSource: "Current integration ROM, including particle and background archives",
     sourceRomSha256: sha256(romBytes),
     moves: moveEntries,
     sprites: publishedSprites,
@@ -303,9 +309,21 @@ function fileManifest(pathname: string, resourceId: number, bytes: Uint8Array): 
 }
 
 async function removeEditorOnlyBuildAssets(assetsRoot: string): Promise<void> {
-  for (const entry of await readdir(assetsRoot, { withFileTypes: true })) {
-    if (!entry.isFile() || /\.(?:css|js)$/u.test(entry.name)) continue;
-    await rm(path.join(assetsRoot, entry.name));
+  const files = (await readdir(assetsRoot, {withFileTypes:true})).filter(e=>e.isFile()).map(e=>e.name);
+  const live = new Set<string>();
+  const pending = [await readFile(path.join(assetsRoot,"../index.html"),"utf8")];
+  while (pending.length) {
+    const source = pending.pop()!;
+    for (const match of source.matchAll(/[\w.-]+\.(?:js|css)\b/g)) {
+      const name = match[0];
+      if (!files.includes(name) || live.has(name)) continue;
+      live.add(name);
+      pending.push(await readFile(path.join(assetsRoot,name),"utf8"));
+    }
+  }
+  for (const name of files) {
+    if (/\.(?:css|js)$/u.test(name) && live.has(name)) continue;
+    await rm(path.join(assetsRoot,name));
   }
 }
 
@@ -333,16 +351,6 @@ function generationForTracker(entry: TrackerPokemon): number {
   if (entry.key.includes("GALAR") || entry.key.includes("HISUI")) return 8;
   if (entry.key.includes("PALDEA")) return 9;
   return generationForSpecies(entry.baseSpeciesId ?? entry.id);
-}
-
-function nativeSpriteId(entry: TrackerPokemon): number {
-  if (entry.baseSpeciesId !== undefined) {
-    if (entry.spriteForm === undefined) throw new Error(`${entry.name} is missing its native sprite form index.`);
-    return 724 + entry.spriteForm;
-  }
-  if (entry.id <= 721) return entry.id;
-  if (entry.id <= 809) return 950 + entry.id - 722;
-  return 1200 + entry.id - 810;
 }
 
 function sha256(bytes: Uint8Array): string {

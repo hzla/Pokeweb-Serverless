@@ -58,8 +58,15 @@ function fixture(upgrade = true) {
 
 function compatibleStockFixture(): { project: ProjectState; rom: FollowerRom } {
   const base = 0x02004000;
-  const arm9 = new Uint8Array(0x90000), overlays: Record<number, Uint8Array> = {};
   const sites = [...contract.hooks, ...contract.nativeAdapters];
+  const pmcSites: Array<{ segment?: string; address: number; expectedHex: string }> = [
+    ...bw2PmcContract.profiles.IRDO.hooks, ...bw2PmcContract.profiles.IRDO.imports,
+  ];
+  // Include read-only native tables beyond the old fixed code-only fixture.
+  const arm9End = Math.max(base + 0x90000, ...[...sites, ...pmcSites]
+    .filter(site => !site.segment || site.segment === "ARM9")
+    .map(site => site.address + site.expectedHex.length / 2));
+  const arm9 = new Uint8Array(arm9End - base), overlays: Record<number, Uint8Array> = {};
   const overlayBases = new Map<number, number>();
   for (const site of sites) if (site.segment !== "ARM9") {
     const id = Number(site.segment);
@@ -75,7 +82,7 @@ function compatibleStockFixture(): { project: ProjectState; rom: FollowerRom } {
     data.set(Uint8Array.from(site.expectedHex.match(/../g)!, byte => Number.parseInt(byte, 16)), at);
   };
   for (const site of sites) writeSite(site);
-  for (const site of [...bw2PmcContract.profiles.IRDO.hooks, ...bw2PmcContract.profiles.IRDO.imports]) writeSite(site);
+  for (const site of pmcSites) writeSite(site);
   const descriptor = new NARC(); descriptor.files = [new Uint8Array(4 + 1008 * 28)];
   writeU32(descriptor.files[0], 0, 1008);
   const resources = new NARC(); resources.files = Array.from({ length: 975 }, () => new Uint8Array());

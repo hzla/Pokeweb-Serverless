@@ -171,7 +171,7 @@ type FollowerRuntimeManifest = {
 function runtimeFor(profile: FollowerProfile): FollowerRuntimeManifest { return profile === "white2upgrade" ? upgradeRuntimeManifest : profile === "black2" ? black2RuntimeManifest : profile === "white2italy" ? italyRuntimeManifest : stockRuntimeManifest; }
 function interactionFor(profile: FollowerProfile): typeof interactionManifest { return profile === "white2italy" ? italyInteractionManifest : interactionManifest; }
 function targetFor(profile: FollowerProfile): string { return profile === "white2upgrade" ? upgradeContract.sourceRomSha256 : profile === "black2" ? black2Contract.target.sha256 : profile === "white2italy" ? italyContract.target.sha256 : contract.target.sha256; }
-function binaryContractFor(profile: FollowerProfile): typeof contract { return profile === "black2" ? black2Contract as typeof contract : profile === "white2italy" ? italyContract as typeof contract : contract; }
+function binaryContractFor(profile: FollowerProfile) { return profile === "black2" ? black2Contract : profile === "white2italy" ? italyContract : contract; }
 export function followerModuleHookConflicts(rpm: RpmModule, hooks: readonly { segment: string; address: number; patchBytes: number }[]): boolean {
   for (const relocation of rpm.relocations) {
     const target = relocation.target;

@@ -109,12 +109,17 @@ for (const v of ["B2", "W2"] as const)
             await expect(installPartyQuickActions(p)).rejects.toThrow(/Simulated toolbar staging failure/);
             deepStrictEqual(structuredClone(p), before);
         });
-        for (const prior of ["0.1.0", "0.1.1", "0.1.2", "0.1.3", "0.1.4"]) it(`updates toolbar ${prior} in place after export`, async () => {
+        for (const prior of ["0.1.0", "0.1.1", "0.1.2", "0.1.3", "0.1.4", "0.1.5"]) it(`updates toolbar ${prior} in place after export`, async () => {
             const p = project(v); assets(); await installPartyQuickActions(p);
             const entry = listCodeInjectionDlls(p).find(e => e.fileName.startsWith("PartyQuickActions"))!;
             const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./fixtures/party-quick-actions-v${prior}/${name}`, import.meta.url)));
             p.fileSystem!.additions![entry.path] = fixture(`PartyQuickActions${v}.dll`);
             p.fileSystem!.additions![manifest.archivePath] = fixture("partyQuickActions.narc");
+            if (prior === "0.1.5") {
+                const old = new NARC(p.fileSystem!.additions![manifest.archivePath]);
+                writeU32(old.files[0], 16, 0x05ee); writeU32(old.files[0], 20, 0x51415050 ^ 1 ^ 0x05ee);
+                p.fileSystem!.additions![manifest.archivePath] = old.save();
+            }
             const reopened = project(v, await exportModifiedRom(p));
             expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ installed: true, enabled: true, compatible: true, updateAvailable: true });
             disablePartyQuickActions(reopened);
@@ -123,6 +128,47 @@ for (const v of ["B2", "W2"] as const)
             expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ installed: true, enabled: true, compatible: true, updateAvailable: false, dllPath: entry.path });
             expect(listCodeInjectionDlls(reopened).filter(e => e.fileName.startsWith("PartyQuickActions"))).toHaveLength(1);
             expect(getPartyQuickActionsStatus(project(v, await exportModifiedRom(reopened)))).toMatchObject({ installed: true, compatible: true, updateAvailable: false });
+            expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ hideFlag: prior === "0.1.5" ? 0x05ee : null, sectionHideFlags: { candy: null, heal: null, hp: null, exp: null, statuses: null } });
+        });
+        it("persists all five section flags independently through updates, disable/enable and export", async () => {
+            const p = project(v); assets();
+            const flags = { candy: 1, heal: 0x05ee, hp: 3059, exp: 42, statuses: 0x05ef };
+            await installPartyQuickActions(p, { hideFlag: 0x05ed, sectionHideFlags: flags });
+            expect(getPartyQuickActionsStatus(p)).toMatchObject({ hideFlag: 0x05ed, sectionHideFlags: flags });
+            const archive = new NARC(p.fileSystem!.additions![manifest.archivePath]);
+            expect(archive.files[0]).toHaveLength(44);
+            const reopened = project(v, await exportModifiedRom(p));
+            expect(getPartyQuickActionsStatus(reopened).sectionHideFlags).toEqual(flags);
+            disablePartyQuickActions(reopened);
+            expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ enabled: false, hideFlag: 0x05ed, sectionHideFlags: flags });
+            await installPartyQuickActions(reopened);
+            expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ enabled: true, hideFlag: 0x05ed, sectionHideFlags: flags });
+            await installPartyQuickActions(reopened, { sectionHideFlags: { hp: null } });
+            expect(getPartyQuickActionsStatus(reopened).sectionHideFlags).toEqual({ ...flags, hp: null });
+            const cleared = { candy: null, heal: null, hp: null, exp: null, statuses: null };
+            await installPartyQuickActions(reopened, { hideFlag: null, sectionHideFlags: cleared });
+            expect(getPartyQuickActionsStatus(project(v, await exportModifiedRom(reopened)))).toMatchObject({ hideFlag: null, sectionHideFlags: cleared });
+        });
+        it("rejects invalid section flags atomically and permits sharing a flag between sections", async () => {
+            const p = project(v); assets();
+            await installPartyQuickActions(p, { sectionHideFlags: { candy: 1, hp: 1 } });
+            expect(getPartyQuickActionsStatus(p).sectionHideFlags).toMatchObject({ candy: 1, hp: 1 });
+            const before = structuredClone(p);
+            for (const flag of [0, -1, 3060, 0x4000, 2.5, NaN]) {
+                await expect(installPartyQuickActions(p, { sectionHideFlags: { statuses: flag } })).rejects.toThrow(/saved flag/);
+                deepStrictEqual(structuredClone(p), before);
+            }
+            await expect(installPartyQuickActions(p, { sectionHideFlags: { invalid: 1 } } as never)).rejects.toThrow(/Unknown toolbar section/);
+            deepStrictEqual(structuredClone(p), before);
+        });
+        it("rejects altered section configuration without replacing the installation", async () => {
+            const p = project(v); assets(); await installPartyQuickActions(p, { sectionHideFlags: { heal: 0x05ee } });
+            const archive = new NARC(p.fileSystem!.additions![manifest.archivePath]);
+            writeU32(archive.files[0], 24, 3059);
+            p.fileSystem!.additions![manifest.archivePath] = archive.save();
+            const before = structuredClone(p);
+            await expect(installPartyQuickActions(p)).rejects.toThrow(/Unrecognized Party toolbar archive/);
+            deepStrictEqual(structuredClone(p), before);
         });
         it("installs once, disables, and recovers through export", async () => { const p = project(v); assets(); expect(getPartyQuickActionsStatus(p).compatible).toBe(true); await installPartyQuickActions(p); await installPartyQuickActions(p); expect(listCodeInjectionDlls(p).filter(e => e.fileName.startsWith("PartyQuickActions"))).toHaveLength(1); expect(getPartyQuickActionsStatus(p)).toMatchObject({ installed: true, enabled: true }); disablePartyQuickActions(p); const reopened = project(v, await exportModifiedRom(p)); expect(getPartyQuickActionsStatus(reopened)).toMatchObject({ installed: true, enabled: false, compatible: true }); await installPartyQuickActions(reopened); expect(getPartyQuickActionsStatus(reopened).enabled).toBe(true); });
         it("rejects changed native hooks without staging", async () => { const p = project(v); const s = manifest.games[v].signatures.find(s => s.patchSize)!; const r = new NintendoDSRom(p.originalRomBytes!); const mod = Number(s.module), base = new DataView(r.arm9OverlayTable.buffer).getUint32(mod * 32 + 4, true); p.overlays[mod] = r.files[mod].slice(); p.overlays[mod]![s.address - base] ^= 1; const before = structuredClone(p); assets(); await expect(installPartyQuickActions(p)).rejects.toThrow(/Unrecognized/); deepStrictEqual(structuredClone(p), before); });

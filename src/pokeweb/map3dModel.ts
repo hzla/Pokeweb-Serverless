@@ -1871,7 +1871,7 @@ export function buildNitroTexturePreviews(resources: NitroResources): NitroTextu
       const paletteIndex = paletteIndexByName.get(name);
       return paletteIndex === undefined ? [] : [{ index: paletteIndex, name }];
     });
-    const fallbackPalette = paletteByName.get(texture.name) ?? (resources.palettes.length === 1 ? resources.palettes[0] : undefined);
+    const fallbackPalette = paletteByName.get(texture.name) ?? paletteByName.get(`${texture.name}_pl`) ?? (resources.palettes.length === 1 ? resources.palettes[0] : undefined);
     const palette = paletteNames.map((name) => paletteByName.get(name)).find(Boolean) ?? fallbackPalette;
     return {
       index,

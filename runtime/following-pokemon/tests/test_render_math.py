@@ -28,6 +28,9 @@ class Rendering(unittest.TestCase):
   cls.lib.fwr_player_in_front.argtypes=[c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Camera),Point,c.c_int32,c.c_int32,c.POINTER(Pose),c.POINTER(c.c_int32)]
   cls.lib.fwr_head_position.argtypes=[c.POINTER(Point),c.POINTER(Camera),c.c_int32,c.POINTER(Point)]
   cls.lib.fwr_cover_feet.argtypes=[c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Camera),c.POINTER(Pose)]
+  cls.lib.fwr_box_advance_limit.argtypes=[c.POINTER(Pose),c.POINTER(Camera),c.POINTER(Point)]
+  cls.lib.fwr_box_advance_limit.restype=c.c_int32
+  cls.lib.fwr_cap_advance.argtypes=[c.POINTER(Pose),c.POINTER(Pose),c.POINTER(Camera),c.c_int32,c.POINTER(Pose)]
  @classmethod
  def tearDownClass(cls):cls.tmp.cleanup()
  def run_case(self,world,pose,cam,large=1):
@@ -51,6 +54,58 @@ class Rendering(unittest.TestCase):
        self.assertLess(error,4 if projection==2 else 0.002/256)
        cases+=1
   self.assertEqual(cases,1728)
+ def test_static_model_depth_and_projection(self):
+  for projection in (0,1,2):
+   for yaw in range(0,360,15):
+    angle=math.radians(yaw);pitch=math.radians(52)
+    n=(math.sin(angle)*math.cos(pitch),math.sin(pitch),math.cos(angle)*math.cos(pitch))
+    right=(math.cos(angle),0,-math.sin(angle));up=(n[1]*right[2],n[2]*right[0]-n[0]*right[2],-n[1]*right[0])
+    eye=tuple(int(v*240*4096) for v in n);cam=Camera(Point(*eye),Point(),projection)
+    body=Pose(Point(),8192,8192);candidate=Pose(Point(*(int(v*12*4096) for v in n)),8192,8192)
+    # Build an independent world-space volume in front of the lower sprite.
+    def box(side=0,near=6,far=9):
+     return (Point*8)(*(Point(*(int((right[k]*(side+(8 if i&1 else -8))+up[k]*(8 if i&2 else 0)+n[k]*(far if i&4 else near))*4096) for k in range(3))) for i in range(8)))
+    corners=box();limit=self.lib.fwr_box_advance_limit(c.byref(body),c.byref(cam),corners)
+    self.assertAlmostEqual(limit,2*4096,delta=64)
+    out=Pose();self.assertTrue(self.lib.fwr_cap_advance(c.byref(body),c.byref(candidate),c.byref(cam),limit,c.byref(out)))
+    self.assertLessEqual(dot(xyz(out.position),n),min(dot(xyz(p),n) for p in corners)-4*4096+64)
+    # The depth cap must preserve the already-adjusted image, including size.
+    # Use the production translation first so the input lies on its eye ray.
+    baseline=Pose(Point(),8192,8192)
+    raised=Pose();depth=c.c_int32()
+    follower=Pose(Point(*(int(v*12*4096) for v in n)),8192,8192)
+    normalized=Result();ignored=Pose();origin=Point()
+    self.lib.fwr_correct(c.byref(origin),c.byref(origin),c.byref(baseline),c.byref(origin),c.byref(cam),0,c.byref(ignored),c.byref(normalized))
+    self.lib.fwr_player_in_front(c.byref(follower),c.byref(baseline),c.byref(cam),normalized.axis,512,32*4096,c.byref(raised),c.byref(depth))
+    self.assertTrue(self.lib.fwr_cap_advance(c.byref(baseline),c.byref(raised),c.byref(cam),limit,c.byref(out)))
+    before=project(raised,eye,projection==2);after=project(out,eye,projection==2)
+    error=max(abs(x-y) for a,b in zip(before,after) for x,y in zip(a,b))
+    # Normalizing the axis and applying two fx20.12 translations accumulate
+    # less than 0.005 world units of orthographic drift (1/200 source pixel).
+    self.assertLess(error,20 if projection==2 else 0.004/256)
+    self.assertEqual(self.lib.fwr_box_advance_limit(c.byref(body),c.byref(cam),box(side=64)),32*4096)
+    self.assertEqual(self.lib.fwr_box_advance_limit(c.byref(body),c.byref(cam),box(near=-6,far=-3)),32*4096)
+    self.assertEqual(self.lib.fwr_box_advance_limit(c.byref(body),c.byref(cam),box(near=-1,far=3)),0)
+ def test_furniture_gap_survives_native_depth_quantization(self):
+  # Captured field camera: near=1, far=1024. The old 1/8-unit clearance
+  # collapsed onto the trashcan's Z value, despite passing float geometry.
+  eye=(2195456,1302017,47460865);target=(2195456,689441,46825472)
+  n=[eye[i]-target[i] for i in range(3)];length=math.sqrt(dot(n,n));n=[v/length for v in n]
+  body=Pose(Point(2195456,585395,46825472),8192,8192);cam=Camera(Point(*eye),Point(*target),0)
+  origin=(2195456,589824,46891008)
+  lo=(-7541*4,965*4,-9452*4);extent=(16443*4,13428*4,16200*4)
+  corners=(Point*8)(*(Point(*(origin[k]+lo[k]+(extent[k] if i&(1<<k) else 0) for k in range(3))) for i in range(8)))
+  rear=min(dot(xyz(p),n) for p in corners);eye_depth=dot(eye,n)
+  def z(depth):
+   distance=(eye_depth-depth)/4096
+   return math.trunc((4104*distance-8200)/distance*4)+0x3fff
+  self.assertEqual(z(rear-512),z(rear))
+  limit=self.lib.fwr_box_advance_limit(c.byref(body),c.byref(cam),corners)
+  self.assertAlmostEqual(limit,rear-dot(xyz(body.position),n)-4*4096,delta=64)
+  self.assertGreaterEqual(z(dot(xyz(body.position),n)+limit),z(rear)+2)
+  # Nearby props with insufficient room retain the original sprite depth.
+  shifted=(Point*8)(*(Point(*(xyz(p)[k]-int(n[k]*4*4096) for k in range(3))) for p in corners))
+  self.assertEqual(self.lib.fwr_box_advance_limit(c.byref(body),c.byref(cam),shifted),0)
  def test_reject_bad_camera_and_discontinuities(self):
   for cam in [Camera(Point(),Point(),0),Camera(Point(0,1000000,1000000),Point(),3),Camera(Point(2147483647,0,0),Point(-2147483648,0,0),0)]:
    pose=Pose(Point(65536,6144,0),8192,8192);applied,out,res=self.run_case(Point(65536,0,0),pose,cam)

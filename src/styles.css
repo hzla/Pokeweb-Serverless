@@ -113,6 +113,79 @@ img[src*="pokesprite/"] {
   align-items: start;
 }
 
+.translation-tool [hidden] { display: none; }
+.translation-tool .changelog-file { margin-bottom: 12px; }
+.translation-tool select { background: #44475a; color: #f2f2f2; padding: 8px; border: 1px solid #6272a4; border-radius: 4px; }
+.translation-error { color: #f1a5a5; }
+
+.translation-assets {
+  margin-top: 20px;
+  background: #383a59;
+  border: 1px solid #44475a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.translation-assets summary {
+  cursor: pointer;
+  padding: 18px 24px;
+  font-weight: 500;
+}
+
+.translation-assets summary:hover { background: #44475a; }
+.translation-assets[open] summary { border-bottom: 1px solid #6272a4; }
+.translation-assets summary:focus-visible,
+.translation-assets-scroll:focus-visible { outline: 2px solid #8be9fd; outline-offset: -3px; }
+.translation-assets-scroll { overflow-x: auto; }
+
+.translation-assets-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.translation-assets-table th,
+.translation-assets-table td {
+  padding: 14px 24px;
+  border-bottom: 1px solid #44475a;
+  vertical-align: top;
+}
+
+.translation-assets-table thead { background: #303247; color: #bd93f9; }
+.translation-assets-table tbody th { width: 22%; font-weight: 500; }
+.translation-assets-table td { color: #d6d7e2; }
+.translation-assets-table code { color: #8be9fd; white-space: nowrap; }
+.translation-assets-table tr:last-child > * { border-bottom: 0; }
+
+.translation-graphics { padding: 20px 24px; border-bottom: 1px solid #6272a4; }
+.translation-graphics [hidden] { display: none; }
+.translation-graphics-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.translation-graphics h3 { margin: 0; font-size: 18px; }
+.translation-graphics label { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.translation-graphics select { min-width: 0; max-width: 100%; flex: 1; }
+.translation-graphics select, .translation-graphics input { background: #44475a; color: #f2f2f2; padding: 8px; border: 1px solid #6272a4; border-radius: 4px; }
+#translation-palette-controls:not([hidden]) { display: flex; flex-wrap: wrap; gap: 20px; }
+#translation-palette-controls input { width: 60px; }
+#translation-preview-status, #translation-preview-caption, #translation-preview-warnings { margin-top: 14px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.translation-graphics-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+.translation-graphics-pair figure { margin: 0; min-width: 0; }
+.translation-graphics-pair figcaption { margin-bottom: 8px; color: #bd93f9; }
+.translation-graphic-image { min-height: 80px; padding: 12px; overflow: auto; border: 1px solid #6272a4; border-radius: 4px; background: repeating-conic-gradient(#303247 0% 25%, #383a59 0% 50%) 0 / 16px 16px; }
+.translation-graphic-image canvas { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+#translation-preview-issues summary { padding: 14px 0; border: 0; }
+#translation-preview-issues ul { max-height: 220px; overflow: auto; margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; }
+.translation-differences { margin-top: 18px; }
+.translation-differences > summary { cursor: pointer; line-height: 1.5; }
+.translation-differences .translation-assets-scroll { max-height: 300px; margin-top: 12px; border: 1px solid #6272a4; border-radius: 4px; }
+.translation-differences p { margin: 12px 0; font-size: 14px; }
+@media (max-width: 640px) {
+  .translation-graphics { padding: 18px; }
+  .translation-graphics-pair { grid-template-columns: 1fr; }
+}
+
 .upload-panel {
   background: #383a59;
   border: 1px solid #44475a;

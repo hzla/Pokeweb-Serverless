@@ -3676,6 +3676,48 @@
       "expectedHex": "0948c06900280bd108480178032008400121012800d00021034841600121c161014840687047c046c4c4140200400004",
       "abi": "Thumb; native cached DS/DSi mode query, no allocation.",
       "status": "Clean retail bytes checked; isolated DS/DSi pointer checks."
+    },
+    {
+      "id": "recent-activity-record-handler",
+      "segment": "36",
+      "address": 35420276,
+      "expectedHex": "08b54ef6b7f871f6bbf9002008bd",
+      "abi": "Reads one u16 operand, records recent activity, returns zero synchronously; no field event or actor mutation."
+    },
+    {
+      "id": "recent-activity-update",
+      "segment": "ARM9",
+      "address": 33786868,
+      "expectedHex": "f0b5a1b00090a0484068fff721ff041c00201dad0d90281c0bf034fb281cfdf7cdfb0e90281c44f061fa0c9000250027291c201c50313a1cfef774fa291c061c201c54313a1cfef76dfa0004000c19a9fdf7c2fb19a844f049fa002e00d1381c0c9988420bdd291c201c50310022fef7d9fb291c201c54310022fef7d3fb6d1c042dd5db201c5021002250260025fef749fa002802d1201c311c82e02e1c291c201c5031321cfef73dfa009981420ed1291c201c5031321cfef7b4fb5435201c291c321cfef7aefb01200d9002e06d1c042de4db0d98002840d00325291c201c50310022fef71efa291c071c201c54310022fef717fa0004000c6e1e0b90002f28d1301c0590503005900599201c0022fef708fa54360f90201c311c0022fef701fa0004000c291c0a900f9a201c5031fef778fb291c0a9a201c5431fef772fb0599201c3a1cfef76dfb0b9a201c311cfef768fb6d1e012dc0da20e003256e1c042e1ad2291c201c50310022fef7daf9291c1090201c54310022fef7d3f90004311c070c109a201c5031fef74bfb5436201c311c3a1cfef745fb6d1edfd5201c5021009afef73efb0e9a201c5421fef739fb002002900298032503285dda681e00040714381c0490503004900499201c0022fef7a7f954370990201c391c0022fef7a0f90004000c089028040614301c0390503003900399201c0022fef792f954360790201c311c0022fef78bf90004000c0690089815a9fdf7defa069811a9fdf7dafa15a844f061f9019011a844f05df90999002901d1002101910799002900d100200199814213da0499079a201cfef7e8fa069a201c391cfef7e3fa0399099a201cfef7defa089a201c311cfef7d9fa02986d1e8542a1dc0298401c0290032898db21b0f0bd54181402",
+      "abi": "Reads cached date and updates only the current Join Avenue recent-activity IDs/dates. No field event or actor services."
+    },
+    {
+      "id": "prop-fixed-sine-cosine-table",
+      "segment": "ARM9",
+      "address": 34162408,
+      "expectedHex": "00000010060000100d00001013000010190000101f000010260000102c000010",
+      "abi": "Native fx16 sine/cosine pairs indexed by angle >>4; same table used by native prop rotations."
+    },
+    {
+      "id": "prop-resource-bank-getter",
+      "segment": "36",
+      "address": 35140664,
+      "expectedHex": "2221090140187047",
+      "abi": "Returns prop system+0x220; native bank holds count and eight-byte actor entries."
+    },
+    {
+      "id": "native-g3d-model-object-getter",
+      "segment": "ARM9",
+      "address": 33855540,
+      "expectedHex": "40687047",
+      "abi": "G3DModel+4 is the NNS render object."
+    },
+    {
+      "id": "native-g3d-actor-model-getter",
+      "segment": "ARM9",
+      "address": 33855888,
+      "expectedHex": "00687047",
+      "abi": "G3DActor+0 is its model wrapper."
     }
   ],
   "eventsAbi": 6,
@@ -3693,6 +3735,19 @@
     "cameraEyeOffset": 32,
     "cameraTargetOffset": 56,
     "projectionTypeOffset": 0,
-    "scope": "Temporary owned follower quad only; restore translation and scale after native draw. Unsupported modes forward unchanged."
+    "scope": "Temporary owned follower/player quad corrections and read-only loaded static prop bounds; restore position, scale and lighting after synchronous native drawing. Unsupported modes forward unchanged.",
+    "staticProps": {
+      "fieldMapperOffset": 80,
+      "mapperPropSystemOffset": 100,
+      "mapperBaseOffset": 84,
+      "propBankOffset": 544,
+      "holderArrayOffset": 616,
+      "holderCount": 288,
+      "holderStride": 16,
+      "propInstanceStride": 20,
+      "modelBoxOffset": 44,
+      "modelBoxScaleOffset": 56,
+      "scope": "Read-only loaded native prop boxes; cap both submitted actor depth shifts and restore draw state."
+    }
   }
 }

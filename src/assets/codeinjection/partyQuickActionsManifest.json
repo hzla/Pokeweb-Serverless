@@ -1,13 +1,13 @@
 {
-  "version": "0.1.5",
+  "version": "0.1.6",
   "archivePath": "party-tools/ui.narc",
   "games": {
     "W2": {
       "idCode": "IRDO",
       "fileName": "PartyQuickActionsW2.dll",
-      "sha256": "f1ecb9d6b2971ae8686e761cb2036723936013b40319d86d380cda6fc7d71b16",
-      "codeFingerprint": "c7e327ec",
-      "bssSize": 464,
+      "sha256": "054b8a3f3dcff37cfb5a21ae27a13930097a892278c9377097ca8befac140a70",
+      "codeFingerprint": "8f6db8ef",
+      "bssSize": 492,
       "signatures": [
         {
           "label": "PaRequest",
@@ -430,6 +430,13 @@
           "patchSize": 0
         },
         {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33866092,
+          "expectedHex": "38b582b00c1c111c",
+          "patchSize": 0
+        },
+        {
           "label": "Native palette replacement",
           "module": "ARM9",
           "address": 33865020,
@@ -686,9 +693,9 @@
     "B2": {
       "idCode": "IREO",
       "fileName": "PartyQuickActionsB2.dll",
-      "sha256": "c2bcb2385a4301527815015eb21a8238492fd0627a5e169a40d314a326533471",
-      "codeFingerprint": "85a13060",
-      "bssSize": 464,
+      "sha256": "eb7318758b8d8386b2a588ab60143323a8f8501755c84b39a015cb6a383a1cdc",
+      "codeFingerprint": "e837dea4",
+      "bssSize": 492,
       "signatures": [
         {
           "label": "PaRequest",
@@ -1111,6 +1118,13 @@
           "patchSize": 0
         },
         {
+          "label": "Native API",
+          "module": "ARM9",
+          "address": 33866048,
+          "expectedHex": "38b582b00c1c111c",
+          "patchSize": 0
+        },
+        {
           "label": "Native palette replacement",
           "module": "ARM9",
           "address": 33864976,
@@ -1365,7 +1379,7 @@
       ]
     }
   },
-  "archiveSha256": "372820686b026ec47770bba550426d8181e00fa0468609c5acba87acd59bf9a3",
+  "archiveSha256": "1e233bcb5d041acfd29885867f21c0104a988ceba0db3ec9258c38872764b77b",
   "graphicsFingerprints": [
     "00869def",
     "41739f66",

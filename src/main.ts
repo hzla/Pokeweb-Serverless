@@ -96,6 +96,7 @@ import {
 } from "./ui/changelogView";
 import { escapeHtml } from "./ui/dom";
 import { attachHomeTabs } from "./ui/homeTabs";
+import { attachTranslationCard, renderTranslationCard } from "./ui/translation";
 import { exportChangelogPdf, exportChangelogText, attachChangelogNarcPicker, renderChangelogGenerator, renderGeneratedChangelog, selectedChangelogNarcsFromPicker } from "./ui/changelogGenerator";
 
 type AppRoute =
@@ -1704,6 +1705,7 @@ function renderUpload(root: HTMLElement): void {
         <nav class="home-tabs" role="tablist" aria-label="Homepage tools">
           <button id="home-tab-upload" class="home-tab" type="button" role="tab" aria-selected="true" aria-controls="home-panel-upload" data-home-tab="upload">ROM Upload</button>
           <button id="home-tab-repair" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-repair" tabindex="-1" data-home-tab="repair">Repair</button>
+          <button id="home-tab-translation" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-translation" tabindex="-1" data-home-tab="translation">Translation</button>
           <button id="home-tab-changelog" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-changelog" tabindex="-1" data-home-tab="changelog">Changelog Generator</button>
           <button id="home-tab-ai-use-disclaimer" class="home-tab" type="button" role="tab" aria-selected="false" aria-controls="home-panel-ai-use-disclaimer" tabindex="-1" data-home-tab="ai-use-disclaimer">AI Use Disclaimer</button>
         </nav>
@@ -1751,6 +1753,9 @@ function renderUpload(root: HTMLElement): void {
             <div class="upload-status" id="repair-status"></div>
           </div>
         </section>
+        <section id="home-panel-translation" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-translation" data-home-panel="translation" hidden>
+          ${renderTranslationCard()}
+        </section>
         <section id="home-panel-changelog" class="home-tab-panel" role="tabpanel" aria-labelledby="home-tab-changelog" data-home-panel="changelog" hidden>
           ${renderChangelogGenerator()}
         </section>
@@ -1771,6 +1776,7 @@ function renderUpload(root: HTMLElement): void {
     </section>
   `;
   attachHomeTabs(root);
+  attachTranslationCard(root, (bytes, filename) => downloadBlob(bytesBlob(bytes, "application/octet-stream"), filename));
   attachChangelogNarcPicker(root);
 
   const input = root.querySelector<HTMLInputElement>("#rom-input");

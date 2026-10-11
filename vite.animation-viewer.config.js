@@ -9,7 +9,7 @@ export default defineConfig({
   root: sourceRoot,
   publicDir: false,
   build: {
-    emptyOutDir: true,
+    emptyOutDir: false,
     outDir: outputRoot,
     rollupOptions: {
       input: fileURLToPath(new URL("./animation-viewer/index.html", import.meta.url)),

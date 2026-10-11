@@ -1,4 +1,4 @@
-import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag } from "../pokeweb/partyQuickActionsModel";
+import { getPartyQuickActionsStatus, installPartyQuickActions, disablePartyQuickActions, parsePartyToolbarHideFlag, PARTY_TOOLBAR_SECTIONS } from "../pokeweb/partyQuickActionsModel";
 import {
   detectBundledFormEvolutionDll,
   detectBundledDoubleBattleFixDll,
@@ -452,6 +452,13 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
               <label for="party-tools-hide-flag">Hide toolbar when save flag is set (optional)</label>
               <input id="party-tools-hide-flag" type="text" value="${partyTools.hideFlag === null ? "" : `0x${partyTools.hideFlag.toString(16).toUpperCase().padStart(4, "0")}`}" placeholder="None — always available" spellcheck="false" ${partyTools.compatible ? "" : "disabled"}>
             </div>
+            <fieldset class="party-toolbar-section-flags">
+              <legend>Hide sections when save flag is set (optional)</legend>
+              ${PARTY_TOOLBAR_SECTIONS.map(({ id, label }) => `<div class="party-toolbar-flag">
+                <label for="party-tools-${id}-hide-flag">${label}</label>
+                <input id="party-tools-${id}-hide-flag" type="text" value="${partyTools.sectionHideFlags[id] === null ? "" : `0x${partyTools.sectionHideFlags[id]!.toString(16).toUpperCase().padStart(4, "0")}`}" placeholder="None — always available" spellcheck="false" ${partyTools.compatible ? "" : "disabled"}>
+              </div>`).join("")}
+            </fieldset>
             <button class="btn -primary" id="install-party-tools-btn" type="button" ${partyTools.compatible && partyTools.candyCompatible ? "" : "disabled"}>${partyTools.updateAvailable ? "Update Toolbar" : partyTools.installed ? "Enable / Reinstall Toolbar" : "Install Party Toolbar"}</button>
             <button class="btn -default" id="disable-party-tools-btn" type="button" ${partyTools.installed && partyTools.enabled && partyTools.compatible ? "" : "disabled"}>Disable Toolbar</button>
             <div class="party-toolbar-status" id="party-tools-status" aria-live="polite">${escapeHtml(partyTools.message)}</div>
@@ -1093,7 +1100,11 @@ export function renderCodeInjectionEditor(project: ProjectState, root: HTMLEleme
     button.disabled = true;
     try {
       const hideFlag = parsePartyToolbarHideFlag(root.querySelector<HTMLInputElement>("#party-tools-hide-flag")?.value ?? "");
-      await installPartyQuickActions(project, { hideFlag }); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
+      const sectionHideFlags = Object.fromEntries(PARTY_TOOLBAR_SECTIONS.map(({ id, label }) => {
+        try { return [id, parsePartyToolbarHideFlag(root.querySelector<HTMLInputElement>(`#party-tools-${id}-hide-flag`)?.value ?? "")]; }
+        catch (error) { throw new Error(`${label}: ${(error as Error).message}`); }
+      }));
+      await installPartyQuickActions(project, { hideFlag, sectionHideFlags }); onDirty(); renderCodeInjectionEditor(project, root, onDirty);
     }
     catch (error) { button.disabled = false; const note = root.querySelector("#party-tools-status"); if (note) note.textContent = error instanceof Error ? error.message : String(error); }
   });

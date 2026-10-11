@@ -4,6 +4,7 @@ import previous11 from "../../runtime/party-quick-actions/previous-0.1.1.json";
 import previous12 from "../../runtime/party-quick-actions/previous-0.1.2.json";
 import previous13 from "../../runtime/party-quick-actions/previous-0.1.3.json";
 import previous14 from "../../runtime/party-quick-actions/previous-0.1.4.json";
+import previous15 from "../../runtime/party-quick-actions/previous-0.1.5.json";
 import { readU32, writeU32 } from "../nds/binary";
 import { loadOverlayTable } from "../nds/code";
 import { decompressCode } from "../nds/codeCompression";
@@ -19,7 +20,14 @@ import { parseRpm, type RpmModule } from "./rpm";
 type Version = "B2" | "W2";
 export const PARTY_QUICK_ACTIONS_VERSION = manifest.version;
 export const PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG = 3059;
-export type PartyQuickActionsOptions = { hideFlag?: number | null };
+export const PARTY_TOOLBAR_SECTIONS = [
+  { id: "candy", label: "Candy" }, { id: "heal", label: "Heal" }, { id: "hp", label: "HP" },
+  { id: "exp", label: "EXP" }, { id: "statuses", label: "Statuses" },
+] as const;
+export type PartyToolbarSection = typeof PARTY_TOOLBAR_SECTIONS[number]["id"];
+export type PartyToolbarSectionFlags = Record<PartyToolbarSection, number | null>;
+export type PartyQuickActionsOptions = { hideFlag?: number | null; sectionHideFlags?: Partial<PartyToolbarSectionFlags> };
+const emptySectionFlags = (): PartyToolbarSectionFlags => ({ candy: null, heal: null, hp: null, exp: null, statuses: null });
 export type PartyQuickActionsStatus = {
   supported: boolean;
   compatible: boolean;
@@ -29,12 +37,13 @@ export type PartyQuickActionsStatus = {
   candyInstalled: boolean;
   candyCompatible: boolean;
   hideFlag: number | null;
+  sectionHideFlags: PartyToolbarSectionFlags;
   dllPath?: string;
   message: string;
 };
 const urls = { W2: new URL("../assets/codeinjection/PartyQuickActionsW2.dll", import.meta.url), B2: new URL("../assets/codeinjection/PartyQuickActionsB2.dll", import.meta.url) };
 const archiveUrl = new URL("../assets/codeinjection/partyQuickActions.narc", import.meta.url);
-const bundles = [manifest, previous, previous11, previous12, previous13, previous14];
+const bundles = [manifest, previous, previous11, previous12, previous13, previous14, previous15];
 const hex = (b: Uint8Array) => Array.from(b, n => n.toString(16).padStart(2, "0")).join("");
 const hash = async (b: Uint8Array) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(b))));
 function fingerprint(bytes: Uint8Array) {
@@ -89,21 +98,26 @@ function validateHideFlag(flag: number | null) {
 function configuration(bytes: Uint8Array) {
   const archive = new NARC(bytes), header = archive.files[0];
   const legacy = header?.length === 20 && readU32(header, 4) === 1 && readU32(header, 8) === 20;
-  const current = header?.length === 24 && readU32(header, 4) === 2 && readU32(header, 8) === 24;
-  const flag = current ? readU32(header, 16) : 0;
-  if (!bundles.some(bundle => archive.files.length === bundle.graphicsFingerprints.length + 1) || !header || (!legacy && !current)
-      || readU32(header, 0) !== 0x51415050 || readU32(header, 12) > 1 || flag > PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG
-      || readU32(header, current ? 20 : 16) !== (0x51415050 ^ readU32(header, 12) ^ flag)) {
+  const wholeFlag = header?.length === 24 && readU32(header, 4) === 2 && readU32(header, 8) === 24;
+  const sections = header?.length === 44 && readU32(header, 4) === 3 && readU32(header, 8) === 44;
+  const flag = wholeFlag || sections ? readU32(header, 16) : 0;
+  const sectionHideFlags = emptySectionFlags();
+  if (sections) PARTY_TOOLBAR_SECTIONS.forEach(({ id }, i) => { sectionHideFlags[id] = readU32(header, 20 + i * 4) || null; });
+  const flags = [flag, ...Object.values(sectionHideFlags).map(value => value ?? 0)];
+  const sum = flags.reduce((checksum, value) => checksum ^ value, 0x51415050 ^ (header ? readU32(header, 12) : 0));
+  if (!bundles.some(bundle => archive.files.length === bundle.graphicsFingerprints.length + 1) || !header || (!legacy && !wholeFlag && !sections)
+      || readU32(header, 0) !== 0x51415050 || readU32(header, 12) > 1 || flags.some(value => value > PARTY_QUICK_ACTIONS_MAX_SAVE_FLAG)
+      || readU32(header, sections ? 40 : wholeFlag ? 20 : 16) !== sum) {
     throw new Error("Unrecognized Party toolbar archive. Restore its private graphics archive.");
   }
   if (!bundles.some(bundle => archive.files.length === bundle.graphicsFingerprints.length + 1 && archive.files.slice(1).every((file, index) => fingerprint(file) === bundle.graphicsFingerprints[index]))) {
     throw new Error("Party toolbar graphics are altered or incomplete. Restore the private graphics archive.");
   }
-  return { enabled: !!readU32(header, 12), hideFlag: flag || null };
+  return { enabled: !!readU32(header, 12), hideFlag: flag || null, sectionHideFlags };
 }
 
 export function getPartyQuickActionsStatus(p: ProjectState): PartyQuickActionsStatus {
-  const state: PartyQuickActionsStatus = { supported: false, compatible: false, installed: false, enabled: false, updateAvailable: false, candyInstalled: false, candyCompatible: false, hideFlag: null, message: "Party toolbar supports English Black 2 and White 2 revision 0." };
+  const state: PartyQuickActionsStatus = { supported: false, compatible: false, installed: false, enabled: false, updateAvailable: false, candyInstalled: false, candyCompatible: false, hideFlag: null, sectionHideFlags: emptySectionFlags(), message: "Party toolbar supports English Black 2 and White 2 revision 0." };
   const v = p.session.baseVersion;
   if (p.session.baseRom !== "BW2" || (v !== "B2" && v !== "W2") || !p.originalRomBytes)
     return state;
@@ -180,6 +194,10 @@ function stageArchive(project: ProjectState, rom: NintendoDSRom, bytes: Uint8Arr
 
 export async function installPartyQuickActions(p: ProjectState, options: PartyQuickActionsOptions = {}) {
   if (options.hideFlag !== undefined) validateHideFlag(options.hideFlag);
+  for (const [id, flag] of Object.entries(options.sectionHideFlags ?? {})) {
+    if (!PARTY_TOOLBAR_SECTIONS.some(section => section.id === id)) throw new Error(`Unknown toolbar section: ${id}.`);
+    if (flag !== undefined) validateHideFlag(flag);
+  }
   const romBytes = p.originalRomBytes ?? await loadActiveRomBytes();
   if (!romBytes)
     throw new Error("Reload the ROM before installing the Party toolbar.");
@@ -194,8 +212,13 @@ export async function installPartyQuickActions(p: ProjectState, options: PartyQu
   if (await hash(dll) !== profile.sha256 || await hash(archive) !== manifest.archiveSha256 || !recognized(parseRpm(dll, { allowedMagics: ["DLXF"] }), v) || !configuration(archive).enabled)
     throw new Error("Party toolbar bundle failed its integrity check.");
   const configuredArchive = new NARC(archive), hideFlag = (options.hideFlag === undefined ? s.hideFlag : options.hideFlag) ?? 0;
+  const sectionHideFlags = { ...s.sectionHideFlags };
+  PARTY_TOOLBAR_SECTIONS.forEach(({ id }, i) => {
+    if (options.sectionHideFlags?.[id] !== undefined) sectionHideFlags[id] = options.sectionHideFlags[id]!;
+    writeU32(configuredArchive.files[0], 20 + i * 4, sectionHideFlags[id] ?? 0);
+  });
   writeU32(configuredArchive.files[0], 16, hideFlag);
-  writeU32(configuredArchive.files[0], 20, 0x51415050 ^ 1 ^ hideFlag);
+  writeU32(configuredArchive.files[0], 40, Object.values(sectionHideFlags).reduce<number>((sum, flag) => sum ^ (flag ?? 0), 0x51415050 ^ 1 ^ hideFlag));
   // Commit only after the PMC, module and private archive have all staged successfully.
   const staged: ProjectState = { ...input, arm9: p.arm9.slice(), overlays: Object.fromEntries(Object.entries(p.overlays).map(([id, b]) => [id, b?.slice()])), narcs: structuredClone(p.narcs), texts: structuredClone(p.texts), fileSystem: structuredClone(p.fileSystem), codeInjection: structuredClone(p.codeInjection), patches: structuredClone(p.patches), actionChangelog: structuredClone(p.actionChangelog) };
   adoptExistingPmcInstall(staged, romBytes);
@@ -215,8 +238,9 @@ export function disablePartyQuickActions(project: ProjectState) {
   const rom = new NintendoDSRom(project.originalRomBytes, { fileData: "view" });
   const archive = new NARC(bytesAt(project, rom, manifest.archivePath)!);
   writeU32(archive.files[0], 12, 0);
-  const current = readU32(archive.files[0], 4) === 2;
-  writeU32(archive.files[0], current ? 20 : 16, 0x51415050 ^ (current ? readU32(archive.files[0], 16) : 0));
+  const version = readU32(archive.files[0], 4);
+  const flags = version === 3 ? [16, 20, 24, 28, 32, 36] : version === 2 ? [16] : [];
+  writeU32(archive.files[0], version === 3 ? 40 : version === 2 ? 20 : 16, flags.reduce((sum, offset) => sum ^ readU32(archive.files[0], offset), 0x51415050));
   stageArchive(project, rom, archive.save());
   recordGenericChange(project, "code_injection", "Party toolbar disabled.", "Party Toolbar", { key: "code-injection:party-quick-actions" });
 }
