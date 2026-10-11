@@ -1,6 +1,6 @@
 import type { Folder } from "../nds/fnt";
 
-export const TRANSLATION_VERSION = "0.2.0-alpha";
+export const TRANSLATION_VERSION = "0.3.0-alpha";
 export const TRANSLATION_LOCALES = [
   { id: "italian", language: "Italian", region: "Italy", gameCode: "IRDI" },
   { id: "french", language: "French", region: "France", gameCode: "IRDF" },

@@ -74,7 +74,7 @@ describe("Italian White 2 translation", () => {
   it("provides pinned Italian graphics alternatives only for reviewed members", () => {
     expect(white2ItalianAssetVariant("a/0/1/1", 438)?.expandedSha256).toMatch(/^[\da-f]{64}$/u);
     expect(white2ItalianAssetVariant("a/0/1/1", 430)).toBeUndefined();
-    expect(translationRomFilename("White2.nds")).toBe("White2-Italian-0.2.0-alpha.nds");
+    expect(translationRomFilename("White2.nds")).toBe("White2-Italian-0.3.0-alpha.nds");
   });
 });
 
@@ -172,7 +172,7 @@ describe("Regional donor data transplant", () => {
     const compatiblePlan = await planTranslationTransfers(source, compatibleDonor, profile);
     expect(compatiblePlan.records.find(item => item.path === "a/0/3/4" && item.member === 6)).toMatchObject({ action: "imported", change: "regional-and-hack" });
   });
-  it("moves personal, move, script and trade edits by path, logs every member, and preserves US code", async () => {
+  it("moves gameplay and trade edits, retains invalid scripts and native dependencies, and preserves US code", async () => {
     const files: [string, Uint8Array][] = [
       ["a/0/1/6", narc(recordBytes(64, 1), recordBytes(64, 2)).save()],
       ["a/0/2/1", narc(recordBytes(36, 3), recordBytes(36, 4)).save()],
@@ -202,7 +202,8 @@ describe("Regional donor data transplant", () => {
     expect(new NARC(output.getFileByName("a/0/1/6")).files[1][0]).toBe(99);
     expect(new NARC(output.getFileByName("a/0/2/1")).files[0][3]).toBe(120);
     const scripts = new NARC(output.getFileByName("a/0/5/6"));
-    expect(scripts.files[0][5]).toBe(44); expect(scripts.files[1]).toEqual(new NARC(source.getFileByName("a/0/5/6")).files[1]);
+    expect(scripts.files).toEqual(new NARC(source.getFileByName("a/0/5/6")).files);
+    expect(plan.scriptAudits[0].diagnostics).toContainEqual(expect.objectContaining({ code: "donor-native-dependency", dependency: "arm9" }));
     const trades = new NARC(output.getFileByName("a/1/6/3")); expect(trades.files[0][2]).toBe(11); expect(trades.files[0][88]).toBe(7);
     const messages = new NARC(output.getFileByName("a/0/0/2"));
     expect(decodeGen5TextBank(messages.files[0])[0][1]).toBe("Ciao"); expect(decodeGen5TextBank(messages.files[1])[0][1]).toBe("APPLE");
@@ -217,6 +218,28 @@ describe("Regional donor data transplant", () => {
       expect(item.output?.sha256).toBe(await translationSha256(bytes));
     }
     expect(await translationSha256(source.data)).toBe(inputHash); expect(await translationSha256(donor.data)).toBe(donorHash);
+  });
+  it("audits scripts after text merging and imports compatible stock regional and minor hack changes", async () => {
+    const script = (message: number) => {
+      const bytes = new Uint8Array(14); writeU32(bytes, 0, 2); writeU16(bytes, 4, 0xfd13);
+      writeU16(bytes, 6, 0x34); writeU16(bytes, 8, message); writeU16(bytes, 12, 2); return bytes;
+    };
+    const header = new Uint8Array(48);
+    const files: [string, Uint8Array][] = [["a/0/5/6", narc(script(0)).save()], ["a/0/1/2", narc(header).save()], ["a/0/0/3", narc(bank("One", "Two")).save()]];
+    const source = dataRom(files);
+    const stock = dataRom([["a/0/0/3", narc(bank("Uno", "Due")).save()], ["a/0/1/2", narc(header).save()], ["a/0/5/6", narc(script(1)).save()]], "IRDI");
+    const profile = await baseline(source, stock);
+    const regional = await planTranslationTransfers(source, stock, profile);
+    expect(profile.files.find(file => file.path === "a/0/5/6")!.retainedMembers).toEqual([0]);
+    expect(regional.scriptAudits[0].status).toBe("imported");
+    expect(regional.scriptAudits[0].references[0]).toMatchObject({ bank: 0, messageId: 1, donorText: "Due", outputText: "Due" });
+    const output = new NintendoDSRom(source.save({ files: regional.replacements })); assertTranslationPreservesCode(source, output, regional.replacements);
+    expect(readU16(new NARC(output.getFileByName("a/0/5/6")).files[0], 8)).toBe(1);
+    // An extra entry rejected by text merging must not silently become a script reference.
+    const edited = dataRom([["a/0/0/3", narc(bank("Uno", "Due", "Extra")).save()], ["a/0/1/2", narc(header).save()], ["a/0/5/6", narc(script(2)).save()]], "IRDI");
+    const rejected = await planTranslationTransfers(source, edited, profile);
+    expect(rejected.scriptAudits[0]).toMatchObject({ status: "retained", references: [expect.objectContaining({ messageId: 2, status: "unresolved", donorText: "Extra" })] });
+    expect(rejected.records.find(record => record.path === "a/0/5/6" && record.scope === "member")).toMatchObject({ action: "retained", change: "regional-and-hack" });
   });
   it("records unsupported expansions, broken member bounds and fixed-record size changes without importing them", async () => {
     const original = narc(recordBytes(64, 1)).save(), source = dataRom([["a/0/1/6", original]]);

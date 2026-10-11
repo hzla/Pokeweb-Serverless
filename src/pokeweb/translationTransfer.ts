@@ -233,6 +233,22 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
           return textCache.get(key)!.get(id);
         };
         const headers = archive("output", "a/0/1/2")?.files[0], originalHeaders = archive("source", "a/0/1/2")?.files[0];
+        const bindingCache = new Map<number, { entry: number; slot: number } | undefined>();
+        const slots = (value: string) => [...new Set(Array.from(value.matchAll(/VAR\((\d+),\s*(\d+)(?:,|\))/gu)).filter(match => Number(match[1]) >= 256 && Number(match[1]) < 768).map(match => Number(match[2])))];
+        const addedBankWordSlot = (bank: number) => {
+          if (!bindingCache.has(bank)) {
+            text("source")(bank, 0); text("output")(bank, 0);
+            const before = textCache.get(`source/${bank}`)!, after = textCache.get(`output/${bank}`)!;
+            let binding: { entry: number; slot: number } | undefined;
+            for (const [entry, value] of after) {
+              const original = before.get(entry); if (original === undefined) continue;
+              const existing = slots(original), added = slots(value).find(slot => !existing.includes(slot));
+              if (added !== undefined) { binding = { entry, slot: added }; break; }
+            }
+            bindingCache.set(bank, binding);
+          }
+          return bindingCache.get(bank);
+        };
         const nativeChanges = new Set(records.filter(item => item.change !== "regional" && isTranslationNativeRecord(item)).map(item => item.path));
         const merged = new NARC(); merged.files = us.files.slice(); merged.filenames = incoming.filenames; merged.endiannessOfBeginning = incoming.endiannessOfBeginning;
         const imported: number[] = [];
@@ -241,9 +257,15 @@ export async function planTranslationTransfers(source: NintendoDSRom, donor: Nin
           const unchanged = translationBytesEqual(original, donorBytes);
           if (unchanged && !(member === 1281 && profile.storyBankLimits[436] !== undefined)) continue;
           const { bytes, audit } = auditTranslationScript({ member, original, incoming: donorBytes,
+            locale: profile.locale,
             contexts: translationScriptContexts(member, headers, originalHeaders), sourceText: text("source"), donorText: text("donor"), outputText: text("output"),
             globalEntryCount: member => us.files[member] ? gen5ScriptEntries(us.files[member]).length : undefined,
-            nativeChanges, dataCounts: { items: archive("output", "a/0/2/4")?.files.length ?? 0xffff, moves: archive("output", "a/0/2/1")?.files.length ?? 0xffff, species: archive("output", "a/0/1/6")?.files.length ?? 0xffff } });
+            nativeChanges, addedBankWordSlot, dataCounts: { items: archive("output", "a/0/2/4")?.files.length ?? 0xffff, moves: archive("output", "a/0/2/1")?.files.length ?? 0xffff, species: archive("output", "a/0/1/6")?.files.length ?? 0xffff } });
+          if (member === 1281 && profile.locale !== "korean") {
+            audit.diagnostics.push({ code: "regional-native-text-selection", severity: "warning", offset: 9971, opcode: 1012, bank: 436, dependency: "overlay/arm9/127",
+              reason: "The European helper selects appended negative-floor hints 592–599. The retained US helper uses 512–519; its selection logic is not transplanted." });
+            audit.nativeDependencies.push({ opcode: 1012, segment: "overlay/arm9/127", resolution: "unresolved" });
+          }
           scriptAudits.push(audit);
           if (unchanged) continue;
           const blocked = audit.diagnostics.filter(item => item.severity === "blocked");

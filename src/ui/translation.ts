@@ -18,6 +18,21 @@ export function renderUntransferredDifferences(report: TranslationReport): strin
   </details>`;
 }
 
+export function renderTranslationScriptAudit(report: TranslationReport): string {
+  const scripts = report.scripts;
+  if (!scripts?.audits.length) return "";
+  const blocked = scripts.audits.some(audit => audit.diagnostics.some(item => item.severity === "blocked"));
+  const position = (offset?: number, opcode?: number) => [offset === undefined ? "" : `Byte ${offset}`, opcode === undefined ? "" : `0x${opcode.toString(16).toUpperCase()}`].filter(Boolean).join(" · ");
+  return `<details class="translation-script-audit" ${blocked ? "open" : ""}>
+    <summary>Script compatibility · ${scripts.imported} imported · ${scripts.adapted} adapted · ${scripts.retained} retained</summary>
+    ${scripts.audits.map(audit => `<details class="translation-script-member"><summary>a/0/5/6 · ${audit.member} · ${audit.status} · ${audit.diagnostics.length} diagnostics</summary>
+      ${audit.diagnostics.length ? `<div class="translation-assets-scroll"><table class="translation-assets-table"><thead><tr><th>Check</th><th>Position / dependency</th><th>Reason</th></tr></thead><tbody>${audit.diagnostics.map(item => `<tr${item.severity === "blocked" ? ' class="translation-error"' : ""}><th scope="row">${escape(item.code)} · ${item.severity}</th><td>${escape(position(item.offset, item.opcode))}${item.dependency ? `<br>${escape(item.dependency)}` : ""}${item.bank === undefined ? "" : `<br>Bank ${item.bank}`}${item.messageId === undefined ? "" : ` · entry ${item.messageId}`}${item.variable === undefined ? "" : `<br>Variable 0x${item.variable.toString(16).toUpperCase()}`}</td><td>${escape(item.reason)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      ${audit.references.length ? `<details><summary>Text references · ${audit.references.length}</summary><div class="translation-assets-scroll"><table class="translation-assets-table"><thead><tr><th>Reference</th><th>US text</th><th>Donor text</th><th>Output text</th></tr></thead><tbody>${audit.references.map(item => `<tr><th scope="row">${escape(position(item.offset, item.opcode))}<br>${item.bank === undefined ? "Dynamic bank" : `Bank ${item.bank}`} · ${item.messageId === undefined ? "dynamic entry" : `entry ${item.messageId}`}<br>${item.status}</th><td>${escape(item.sourceText ?? "—")}</td><td>${escape(item.donorText ?? "—")}</td><td>${escape(item.outputText ?? "—")}</td></tr>`).join("")}</tbody></table></div></details>` : ""}
+      ${audit.rewrites.length ? `<ul>${audit.rewrites.map(item => `<li>Byte ${item.offset}: ${item.before} → ${item.after}. ${escape(item.reason)}</li>`).join("")}</ul>` : ""}
+    </details>`).join("")}
+  </details>`;
+}
+
 export function renderTranslationCard(): string {
   return `<section class="upload-panel translation-tool" aria-labelledby="translation-title">
     <h2 id="translation-title">Translation</h2>
@@ -129,7 +144,7 @@ export function attachTranslationCard(root: HTMLElement, download: (bytes: Uint8
       download(result.bytes, translationRomFilename(a.name, result.report.language));
       report = new TextEncoder().encode(JSON.stringify(result.report, null, 2) + "\n"); reportButton.hidden = false;
       reportLanguage = result.report.language;
-      differences.innerHTML = renderUntransferredDifferences(result.report);
+      differences.innerHTML = renderUntransferredDifferences(result.report) + renderTranslationScriptAudit(result.report);
       status.textContent = `${result.report.language} ROM downloaded. ${result.report.replacedFiles} files imported; ${result.report.skippedDonorEdits} donor edits skipped.`;
     } catch (error) {
       status.classList.add("translation-error");

@@ -181,6 +181,12 @@ img[src*="pokesprite/"] {
 .translation-differences > summary { cursor: pointer; line-height: 1.5; }
 .translation-differences .translation-assets-scroll { max-height: 300px; margin-top: 12px; border: 1px solid #6272a4; border-radius: 4px; }
 .translation-differences p { margin: 12px 0; font-size: 14px; }
+.translation-script-audit { margin-top: 18px; }
+.translation-script-audit summary { cursor: pointer; line-height: 1.5; }
+.translation-script-member { margin-top: 12px; border: 1px solid #6272a4; border-radius: 4px; padding: 10px; }
+.translation-script-member > details { margin-top: 10px; }
+.translation-script-member .translation-assets-scroll { max-height: 320px; margin-top: 10px; }
+.translation-script-member .translation-assets-table td { min-width: 150px; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 640px) {
   .translation-graphics { padding: 18px; }
   .translation-graphics-pair { grid-template-columns: 1fr; }

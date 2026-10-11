@@ -20,7 +20,7 @@ export type TranslationReport = {
   retainedAlphabetBanks: number[]; omittedRegionalStoryEntries: number;
   notes: string[];
   records: TranslationRecord[];
-  scripts?: { imported: number; adapted: number; retained: number; unresolvedTextReferences: number; unresolvedNativeDependencies: number; audits: TranslationScriptAudit[] };
+  scripts?: { imported: number; adapted: number; retained: number; unchanged: number; unresolvedTextReferences: number; unresolvedNativeDependencies: number; audits: TranslationScriptAudit[] };
 };
 export type TranslationResult = { bytes: Uint8Array; report: TranslationReport };
 
@@ -126,6 +126,7 @@ export async function translateWhite2(sourceBytes: Uint8Array, donorBytes: Uint8
     scripts: {
       imported: scriptAudits.filter(item => item.status === "imported").length, adapted: scriptAudits.filter(item => item.status === "adapted").length,
       retained: scriptAudits.filter(item => item.status === "retained").length,
+      unchanged: scriptAudits.filter(item => item.status === "unchanged").length,
       unresolvedTextReferences: scriptAudits.reduce((sum, item) => sum + item.references.filter(reference => ["unresolved", "inherited"].includes(reference.status)).length, 0),
       unresolvedNativeDependencies: scriptAudits.reduce((sum, item) => sum + item.diagnostics.filter(diagnostic => diagnostic.code.includes("native") || diagnostic.code.includes("overlay") || diagnostic.code === "word-binding-unresolved").length, 0),
       audits: scriptAudits,
