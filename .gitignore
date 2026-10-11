@@ -48,6 +48,8 @@ src/test/local/
 !/scripts/run-upgrade-battle-tests.py
 !/scripts/verify-summary-stat-viewer-install.ts
 !/scripts/refresh-pwan-assets.ts
+!/scripts/prepare-gmax-megas.ts
+!/scripts/bundle-gmax-megas.ts
 !/scripts/verify-pwan-sprite-refresh.ts
 !/scripts/add-a3i5-sprite-comparisons.ts
 !/scripts/rank-a3i5-sprite-comparisons.ts

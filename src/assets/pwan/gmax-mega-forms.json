@@ -1,0 +1,233 @@
+[
+  {
+    "species": 3,
+    "name": "Venusaur-Mega-G",
+    "form": 2,
+    "sourceForm": 0,
+    "personalId": 1291
+  },
+  {
+    "species": 6,
+    "name": "Charizard-Mega-G",
+    "form": 3,
+    "sourceForm": 0,
+    "personalId": 1294
+  },
+  {
+    "species": 9,
+    "name": "Blastoise-Mega-G",
+    "form": 2,
+    "sourceForm": 0,
+    "personalId": 1296
+  },
+  {
+    "species": 12,
+    "name": "Butterfree-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1297
+  },
+  {
+    "species": 25,
+    "name": "Pikachu-Mega",
+    "form": 7,
+    "sourceForm": 0,
+    "personalId": 1304
+  },
+  {
+    "species": 52,
+    "name": "Meowth-Mega",
+    "form": 3,
+    "sourceForm": 0,
+    "personalId": 1307
+  },
+  {
+    "species": 68,
+    "name": "Machamp-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1308
+  },
+  {
+    "species": 94,
+    "name": "Gengar-Mega-G",
+    "form": 2,
+    "sourceForm": 0,
+    "personalId": 1310
+  },
+  {
+    "species": 99,
+    "name": "Kingler-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1311
+  },
+  {
+    "species": 131,
+    "name": "Lapras-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1312
+  },
+  {
+    "species": 133,
+    "name": "Eevee-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1313
+  },
+  {
+    "species": 143,
+    "name": "Snorlax-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1314
+  },
+  {
+    "species": 569,
+    "name": "Garbodor-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1315
+  },
+  {
+    "species": 809,
+    "name": "Melmetal-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1316
+  },
+  {
+    "species": 812,
+    "name": "Rillaboom-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1317
+  },
+  {
+    "species": 815,
+    "name": "Cinderace-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1318
+  },
+  {
+    "species": 818,
+    "name": "Inteleon-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1319
+  },
+  {
+    "species": 823,
+    "name": "Corviknight-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1320
+  },
+  {
+    "species": 826,
+    "name": "Orbeetle-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1321
+  },
+  {
+    "species": 834,
+    "name": "Drednaw-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1322
+  },
+  {
+    "species": 839,
+    "name": "Coalossal-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1323
+  },
+  {
+    "species": 841,
+    "name": "Flapple-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1324
+  },
+  {
+    "species": 842,
+    "name": "Appletun-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1325
+  },
+  {
+    "species": 849,
+    "name": "Toxtricity-Mega",
+    "form": 2,
+    "sourceForm": 0,
+    "personalId": 1327
+  },
+  {
+    "species": 849,
+    "name": "Toxtricity-Low-Key-Mega",
+    "form": 3,
+    "sourceForm": 1,
+    "personalId": 1328
+  },
+  {
+    "species": 851,
+    "name": "Centiskorch-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1329
+  },
+  {
+    "species": 858,
+    "name": "Hatterene-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1330
+  },
+  {
+    "species": 861,
+    "name": "Grimmsnarl-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1331
+  },
+  {
+    "species": 869,
+    "name": "Alcremie-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1332
+  },
+  {
+    "species": 879,
+    "name": "Copperajah-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1333
+  },
+  {
+    "species": 884,
+    "name": "Duraludon-Mega",
+    "form": 1,
+    "sourceForm": 0,
+    "personalId": 1334
+  },
+  {
+    "species": 892,
+    "name": "Urshifu-Mega",
+    "form": 2,
+    "sourceForm": 0,
+    "personalId": 1336
+  },
+  {
+    "species": 892,
+    "name": "Urshifu-Rapid-Strike-Mega",
+    "form": 3,
+    "sourceForm": 1,
+    "personalId": 1337
+  }
+]

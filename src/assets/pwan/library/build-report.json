@@ -3,14 +3,14 @@
   "sourceRom": "White2Upgrade.nds",
   "iconSourceRom": "White2Upgrade.nds",
   "archivePath": "zz_pokeweb_pwan/pwan.narc",
-  "archiveBytes": 116734600,
-  "entryCount": 563,
+  "archiveBytes": 120504476,
+  "entryCount": 596,
   "sideCount": {
-    "front": 563,
-    "back": 554,
-    "total": 1117
+    "front": 596,
+    "back": 587,
+    "total": 1183
   },
-  "iconCount": 563,
+  "iconCount": 596,
   "missingIcons": [],
   "oneSidedEntries": [
     "36-1-1040",
@@ -56,8 +56,16 @@
   },
   "distribution": {
     "encoding": "gzip",
-    "compressedBytes": 12101752,
-    "archiveBytes": 116734600,
-    "archiveSha256": "699d1d95bc9853133f129a837a1d390597856901a27f65b12a3d7683ed2b2d8d"
+    "compressedBytes": 12648584,
+    "archiveBytes": 120504476,
+    "archiveSha256": "227ea208b1b02a419dabb70443c17e474c4eab7048a4e2b395107a62b92fc825"
+  },
+  "gmaxMegas": {
+    "addedEntries": 33,
+    "existingEntriesPreserved": 563,
+    "existingSpritesAndIconsPreservedByteExactly": true,
+    "preset": "gen5",
+    "stone": "Megite",
+    "statPolicy": "clone-source-form"
   }
 }

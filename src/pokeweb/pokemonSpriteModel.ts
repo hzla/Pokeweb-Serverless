@@ -249,7 +249,8 @@ export function getPokemonSpriteFormOptions(project: ProjectState, speciesId: nu
   const baseLabel = pokemonSpeciesLabel(project, speciesId);
   return Array.from({ length: formCount }, (_, formIndex) => ({
     formIndex,
-    label: formIndex === 0 ? "Base Form" : pokemonFormLabel(baseLabel, formIndex),
+    label: formIndex === 0 ? "Base Form" : pokemonFormLabel(baseLabel, formIndex,
+      Number(record.raw?.form_id ?? 0) > 0 ? project.texts.banks.pokedex?.[Number(record.raw?.form_id) + formIndex - 1] : undefined),
     spriteId: resolvePokemonSpriteId(project, speciesId, formIndex),
   }));
 }
@@ -462,7 +463,7 @@ export function resolvePokemonIconAddress(
     formIndex = formOwner.formIndex;
   }
 
-  if (formIndex > 0 && isW2uDirectMegaIconForm(speciesId, formIndex)) {
+  if (formIndex > 0 && isW2uDirectMegaIconForm(speciesId, formIndex, Number(decodeRecord(project, "personal", speciesId).raw?.form_id ?? 0))) {
     const record = decodeRecord(project, "personal", speciesId);
     const firstFormId = Number(record.raw?.form_id ?? 0);
     const formPersonalId = firstFormId > 0 ? firstFormId + formIndex - 1 : 0;
@@ -487,8 +488,9 @@ export function resolvePokemonIconAddress(
   return { archiveSpriteId: spriteId, paletteKey: formIndex > 0 ? spriteId : speciesId };
 }
 
-export function isW2uDirectMegaIconForm(speciesId: number, formIndex: number): boolean {
+export function isW2uDirectMegaIconForm(speciesId: number, formIndex: number, firstFormId = 0): boolean {
   if (formIndex <= 0) return false;
+  if ([3,6,9,94].includes(speciesId) && firstFormId >= 1290) return false;
   if (speciesId === 6 || speciesId === 150) return formIndex <= 2;
   return formIndex === 1 && W2U_DIRECT_MEGA_ICON_SPECIES.has(speciesId);
 }

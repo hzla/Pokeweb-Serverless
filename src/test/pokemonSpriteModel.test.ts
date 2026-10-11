@@ -155,6 +155,28 @@ describe("pokemonSpriteModel", () => {
     expect(project.arm9Dirty).not.toBe(true);
   });
 
+  it('routes relocated Megas through form sprite icons without taking Gen 8 base icons', () => {
+    const project = makeW2uProject();
+    const personal = project.narcs.personal!;
+    personal.rawFiles.length = 1338;
+    personal.fileCount = 1338;
+    personal.rawFiles[6] = new Uint8Array(packRows(project.formats.personal!, [{ form_id: 1292, num_forms: 4, form: 784 }]));
+    for (const id of [1292, 1293, 1294]) personal.rawFiles[id] = new Uint8Array(packRows(project.formats.personal!, [{ num_forms: 1 }]));
+    project.texts.banks.pokedex![6] = 'Charizard';
+    project.texts.banks.pokedex![1292] = 'Charizard-Mega-X';
+    project.texts.banks.pokedex![1293] = 'Charizard-Mega-Y';
+    project.texts.banks.pokedex![1294] = 'Charizard-Mega-G';
+    const icons = project.narcs.pokemon_icons!.rawFiles;
+    icons.length = 3116;
+    // A valid icon at the old direct address belongs to a Gen 8 base species.
+    icons[2592] = makeIconFile();
+    expect(resolvePokemonIconAddress(project, 6, 1, 1508)).toEqual({ archiveSpriteId: 1508, paletteKey: 1508 });
+    expect(resolvePokemonIconAddress(project, 1292, 0, 1508)).toEqual({ archiveSpriteId: 1508, paletteKey: 1508 });
+    expect(resolvePokemonIconAddress(project, 6, 3, 1510)).toEqual({ archiveSpriteId: 1510, paletteKey: 1510 });
+    expect(resolvePokemonIconAddress(project, 902, 0, 1292)).toEqual({ archiveSpriteId: 1292, paletteKey: 902 });
+    expect(getPokemonSpriteFormOptions(project, 6).map(row => row.label)).toEqual(['Base Form', 'Mega-X', 'Mega-Y', 'Mega-G']);
+  });
+
   it("installs a W2U Mega icon into its direct form-personal archive slot", () => {
     const project = makeW2uProject();
     const icons = project.narcs.pokemon_icons!.rawFiles;

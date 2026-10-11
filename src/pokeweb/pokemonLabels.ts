@@ -27,7 +27,7 @@ export function pokemonSpeciesLabel(project: ProjectState, speciesId: number): s
   const cascadeName = cascadeWhitePersonalName(project, speciesId);
   if (cascadeName) return cascadeName;
   const formOwner = findPokemonPersonalFormOwner(project, speciesId);
-  if (formOwner) return pokemonFormSpeciesLabel(pokemonBaseSpeciesLabel(project, formOwner.speciesId), formOwner.formIndex);
+  if (formOwner) return pokemonFormSpeciesLabel(pokemonBaseSpeciesLabel(project, formOwner.speciesId), formOwner.formIndex, project.texts.banks.pokedex?.[speciesId]);
   return pokemonBaseSpeciesLabel(project, speciesId);
 }
 

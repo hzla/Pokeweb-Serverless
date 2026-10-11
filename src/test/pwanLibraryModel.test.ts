@@ -148,19 +148,19 @@ describe("pwanLibraryModel", () => {
     const missingCredits = manifest.entries.filter((entry) => entry.credits.trim().length === 0);
 
     expect(manifest.format).toBe("pokeweb-pwan-library-v2");
-    expect(manifest.entryCount).toBe(563);
-    expect(manifest.iconCount).toBe(563);
-    expect(manifest.sideCount).toEqual({ front: 563, back: 554, total: 1117 });
-    expect(manifest.entries).toHaveLength(563);
+    expect(manifest.entryCount).toBe(596);
+    expect(manifest.iconCount).toBe(596);
+    expect(manifest.sideCount).toEqual({ front: 596, back: 587, total: 1183 });
+    expect(manifest.entries).toHaveLength(596);
     expect(manifest.entries.every((entry) => entry.icon)).toBe(true);
-    expect(loaded.iconsByEntryId.size).toBe(563);
+    expect(loaded.iconsByEntryId.size).toBe(596);
     const megaCharizardX = manifest.entries.find((entry) => entry.key === "MEGA_CHARIZARD_X");
     const litten = manifest.entries.find((entry) => entry.key === "SPECIES_725");
-    expect(megaCharizardX?.icon?.sourceArchiveIndex).toBe(2134);
+    expect(megaCharizardX?.icon?.sourceArchiveIndex).toBe(3024);
     expect(litten?.icon?.sourceArchiveIndex).toBe(1910);
     expect(loaded.iconsByEntryId.get(megaCharizardX!.id)?.male).not.toEqual(loaded.iconsByEntryId.get(litten!.id)?.male);
     expect(manifest.entries.filter((entry) => entry.hasFront !== entry.hasBack)).toHaveLength(9);
-    expect(new Set(manifest.entries.map(entry => `${entry.speciesId}:${entry.formIndex}`)).size).toBe(563);
+    expect(new Set(manifest.entries.map(entry => `${entry.speciesId}:${entry.formIndex}`)).size).toBe(596);
     expect(manifest.entries.find(entry => entry.speciesId === 718 && entry.formIndex === 1)?.name).toBe('Zygarde 10%');
     expect(manifest.entries.find(entry => entry.speciesId === 658 && entry.formIndex === 2)?.name).toBe('Ash-Greninja');
     expect(missingCredits).toEqual([]);

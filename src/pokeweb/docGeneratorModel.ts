@@ -911,7 +911,7 @@ function addDexFormRelationships(project: ProjectState, out: Record<string, Reco
       const form = out[formName];
       if (!form || formName === baseName) continue;
       form.baseSpecies = baseName;
-      form.forme = pokemonFormLabel(baseName, formIndex);
+      form.forme = pokemonFormLabel(baseName, formIndex, project.texts.banks.pokedex?.[personalId]);
       formNames.push(formName);
     }
 
@@ -950,7 +950,7 @@ function derivedAltFormName(project: ProjectState, id: number): string | undefin
   const baseRecord = safePokemonSummaryRecord(project, reference.baseId);
   if (!baseRecord) return undefined;
   const baseName = fixedPersonalName(project, reference.baseId) ?? directPokemonExportName(project, reference.baseId, baseRecord);
-  return baseName ? pokemonFormSpeciesLabel(baseName, reference.formIndex) : undefined;
+  return baseName ? pokemonFormSpeciesLabel(baseName, reference.formIndex, project.texts.banks.pokedex?.[id]) : undefined;
 }
 
 function derivedFormReferences(project: ProjectState): Map<number, DerivedFormReference> {
@@ -993,10 +993,10 @@ export function trainerPokemonExportName(project: ProjectState, pok: TrainerPoke
   if (gen4FormName) return gen4FormName;
   if (pok.form <= 0 || TRAINER_FORM_ABILITY_EXCLUSIONS.has(baseName)) return baseName;
 
-  const suffix = pokemonFormSuffix(baseName, pok.form);
+  const altPersonalId = trainerAltFormPersonalId(project, pok.speciesId, pok.form);
+  const suffix = pokemonFormSuffix(baseName, pok.form, altPersonalId === undefined ? undefined : project.texts.banks.pokedex?.[altPersonalId]);
   if (suffix) return `${baseName}-${suffix}`;
 
-  const altPersonalId = trainerAltFormPersonalId(project, pok.speciesId, pok.form);
   return altPersonalId === undefined ? baseName : pokemonExportName(project, altPersonalId);
 }
 

@@ -20,4 +20,14 @@ describe("pokemonFormLabels", () => {
     expect(pokemonFormLabel("Missingno", 2)).toBe("Form 2");
     expect(pokemonFormSpeciesLabel("Missingno", 2)).toBe("Missingno Form 2");
   });
+
+  it('uses ROM-authored Mega names without changing vanilla form labels', () => {
+    expect(pokemonFormSpeciesLabel('Charizard',3,'Charizard-Mega-G')).toBe('Charizard-Mega-G');
+    expect(pokemonFormLabel('Meowth',3,'Meowth-Mega')).toBe('Mega');
+    expect(pokemonFormSpeciesLabel('Toxtricity',3,'Toxtricity-Low-Key-Mega')).toBe('Toxtricity-Low-Key-Mega');
+    expect(pokemonFormSpeciesLabel('Urshifu',3,'Urshifu-Rapid-Strike-Mega')).toBe('Urshifu-Rapid-Strike-Mega');
+    expect(pokemonFormSpeciesLabel('Pikachu',7)).toBe('Pikachu-Partner-Cap');
+    expect(pokemonFormSpeciesLabel('Pikachu',7,'Pikachu-Mega')).toBe('Pikachu-Mega');
+    expect(pokemonFormSpeciesLabel('Meowth',1,'Unrelated-Mega')).toBe('Meowth-Alola');
+  });
 });

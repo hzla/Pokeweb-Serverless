@@ -146,17 +146,21 @@ const POKEMON_FORM_LABELS: Record<string, readonly string[]> = {
 
 const NORMALIZED_FORM_LABELS = new Map(Object.entries(POKEMON_FORM_LABELS).map(([species, labels]) => [normalizeSpeciesName(species), labels]));
 
-export function pokemonFormSuffix(baseSpeciesName: string, formIndex: number): string | undefined {
+export function pokemonFormSuffix(baseSpeciesName: string, formIndex: number, authoredName?: string): string | undefined {
   if (!Number.isInteger(formIndex) || formIndex <= 0) return undefined;
+  // Expanded ROMs can author names at their actual form personal indices.
+  // Do not reinterpret vanilla cap/cosmetic forms using a global Mega table.
+  const prefix = `${baseSpeciesName}-`;
+  if (authoredName?.startsWith(prefix) && authoredName.length > prefix.length) return authoredName.slice(prefix.length);
   return NORMALIZED_FORM_LABELS.get(normalizeSpeciesName(baseSpeciesName))?.[formIndex - 1];
 }
 
-export function pokemonFormLabel(baseSpeciesName: string, formIndex: number): string {
-  return pokemonFormSuffix(baseSpeciesName, formIndex) ?? `Form ${formIndex}`;
+export function pokemonFormLabel(baseSpeciesName: string, formIndex: number, authoredName?: string): string {
+  return pokemonFormSuffix(baseSpeciesName, formIndex, authoredName) ?? `Form ${formIndex}`;
 }
 
-export function pokemonFormSpeciesLabel(baseSpeciesName: string, formIndex: number): string {
-  const suffix = pokemonFormSuffix(baseSpeciesName, formIndex);
+export function pokemonFormSpeciesLabel(baseSpeciesName: string, formIndex: number, authoredName?: string): string {
+  const suffix = pokemonFormSuffix(baseSpeciesName, formIndex, authoredName);
   return suffix ? `${baseSpeciesName}-${suffix}` : `${baseSpeciesName} Form ${formIndex}`;
 }
 

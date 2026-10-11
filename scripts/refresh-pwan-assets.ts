@@ -32,6 +32,7 @@ const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('h
 const config = new Uint8Array(await readFile(path.join(upgrade, 'assets/pokeweb_pwan/config.bin')));
 const rows = parseSpriteConfig(config);
 const tracker: Tracker[] = JSON.parse(await readFile(trackerFile, 'utf8'));
+const gmaxMegas = JSON.parse(await readFile(path.join(upgrade,'assets/pokeweb_pwan/gmax_mega_import_report.json'),'utf8').catch(()=>'{}')).forms ?? [];
 const iconReport = JSON.parse(await readFile(path.join(upgrade,'assets/pokeweb_pwan/form_icon_staging_report.json'),'utf8'));
 const essentialFormStems = new Map<string,string>((iconReport.megaSpeciesIcons ?? []).map((r: any) => [r.key, r.sourceStem]));
 const directMegaSpecies = new Set([3,9,15,18,65,80,94,115,127,130,142,181,208,212,214,229,248,254,257,260,282,302,303,306,308,310,319,323,334,354,359,362,373,376,380,381,428,445,448,460,475,531]);
@@ -70,6 +71,8 @@ for (const [priority, group] of SPRITE_PRIORITIES.entries()) {
 }
 
 function describe(row: SpriteRow): {name: string; key: string; kind: string; credits: string; aliases: string[]} {
+  const gmax = gmaxMegas.find((form:any)=>form.species===row.speciesId&&form.form===row.formIndex);
+  if(gmax)return {name:gmax.name,key:`GMAX_MEGA_${gmax.sourceStem}`,kind:'mega form',credits:'Smogon/Sprites Animados Contributors',aliases:[gmax.sourceStem]};
   let match = tracker.find(t => row.formIndex ? t.baseSpeciesId === row.speciesId && t.form === row.formIndex : t.id === row.speciesId && t.kind === 'base species');
   const special: Record<string, [string, string[]]> = {
     '658:2':['Ash-Greninja', ['greninjaash','greninja2']],
@@ -193,7 +196,8 @@ for (const [index,p] of plans.entries()) {
   let paletteKey=p.speciesId;
   if(p.formIndex&&p.formIndex<record[0x20]!&&!(record[0x21]!&128)) {
     const direct=readU16(record,0x1c)?readU16(record,0x1c)+p.formIndex-1:0;
-    const directMega=(p.speciesId===6||p.speciesId===150)?p.formIndex<=2:directMegaSpecies.has(p.speciesId)&&p.formIndex===1;
+    const relocatedMega=[3,6,9,94].includes(p.speciesId)&&readU16(record,0x1c)>=1290;
+    const directMega=!relocatedMega&&((p.speciesId===6||p.speciesId===150)?p.formIndex<=2:directMegaSpecies.has(p.speciesId)&&p.formIndex===1);
     if(directMega&&direct&&icons.files[direct*2+8]?.length){iconIndex=direct*2+8;paletteKey=direct;}
     else{iconIndex=block*2+8;paletteKey=block;}
   }
