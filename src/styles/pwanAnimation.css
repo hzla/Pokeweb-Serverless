@@ -951,6 +951,99 @@
   padding: 8px;
 }
 
+.pwan-conversion {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  color: #eef2fb;
+}
+
+.pwan-side-import > .pwan-conversion,
+.pwan-conversion-actions {
+  grid-column: 1 / -1;
+}
+
+.pwan-conversion-preset {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pwan-conversion select {
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #44475a;
+  border-radius: 4px;
+  background: #282d3b;
+  color: #eef2fb;
+}
+
+.pwan-conversion-images {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pwan-conversion-images figure {
+  margin: 0;
+  min-width: 0;
+}
+
+.pwan-conversion-images figcaption {
+  margin-bottom: 6px;
+  color: #c9c9d3;
+  font-size: 12px;
+}
+
+.pwan-conversion canvas {
+  display: block;
+  width: 192px;
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  border: 1px solid #44475a;
+  background-color: #202431;
+  background-image: conic-gradient(#303647 25%, transparent 0 50%, #303647 0 75%, transparent 0);
+  background-size: 16px 16px;
+}
+
+.pwan-conversion-playback,
+.pwan-conversion-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pwan-conversion-playback label {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  min-width: 90px;
+}
+
+.pwan-conversion-hint,
+.pwan-conversion-status,
+.pwan-conversion-warnings {
+  margin: 0;
+  color: #aeb4c6;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pwan-conversion-status.-error {
+  color: #ff8080;
+}
+
+.pwan-conversion-warnings {
+  padding-left: 18px;
+}
+
+.pwan-conversion [hidden] {
+  display: none;
+}
+
 .pwan-form button,
 .pwan-status {
   grid-column: 1 / -1;

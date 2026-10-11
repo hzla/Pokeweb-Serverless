@@ -149,6 +149,8 @@ npm run black2upgrade:verify-rom
 - File System, Code Injection, and 3D Map tools need access to the original loaded ROM bytes, so reopening an older browser-saved project may require loading the ROM again before those tools are enabled.
 - The app edits local browser/project state until you export. Keep clean backups of your base ROMs and test exported builds in an emulator before treating a patch as release-ready.
 
+See the [workflow guides and references](docs/README.md) for detailed editing instructions and compatibility limits.
+
 ## Credits
 
 All supplied Gen 8 and Gen 9 move animations are by **Log(n)**.

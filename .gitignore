@@ -47,3 +47,14 @@ src/test/local/
 !/scripts/test-battle-harness-headless.py
 !/scripts/run-upgrade-battle-tests.py
 !/scripts/verify-summary-stat-viewer-install.ts
+!/scripts/refresh-pwan-assets.ts
+!/scripts/verify-pwan-sprite-refresh.ts
+!/scripts/add-a3i5-sprite-comparisons.ts
+!/scripts/rank-a3i5-sprite-comparisons.ts
+!/scripts/package-sprite-comparison.py
+!/scripts/promote-pwan-sprite-preset.ts
+!/scripts/pack-pwan-library.ts
+!/scripts/assets/
+
+# The shipped library is losslessly compressed; keep the raw diagnostic cache local.
+/src/assets/pwan/library/pwan.narc

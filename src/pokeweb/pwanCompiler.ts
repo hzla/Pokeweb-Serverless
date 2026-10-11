@@ -15,13 +15,27 @@ export type PwanCompileResult = {
   totalTicks: number;
   paletteBgr555: Uint16Array;
   warnings: string[];
+  conversion: {
+    colorPreset: PwanColorPreset;
+    sourceColorCount: number;
+    visibleColorCount: number;
+    paletteStrategy: PwanPaletteFrames["strategy"];
+  };
+  /** Unadjusted, pixel-resized source frames. Only returned for import previews. */
+  previewFrames?: AnimationAnalysisFrame[];
+};
+
+export type PwanColorPreset = "none" | "gen5";
+export type PwanCompileOptions = {
+  colorPreset?: PwanColorPreset;
+  includePreview?: boolean;
 };
 
 export type PwanPaletteFrames = {
   frames: AnimationAnalysisFrame[];
   palette: RgbColor[];
   quantized: boolean;
-  strategy: "exact" | "anchor-frame" | "closest-merge" | "weighted-median-cut";
+  strategy: "exact" | "closest-merge" | "weighted-median-cut";
   warnings: string[];
 };
 
@@ -64,19 +78,25 @@ const SEGMENTS = [
   { x: 64, y: 64, width: 32, height: 32 },
 ] as const;
 
-export function compileGifToPwan(bytes: Uint8Array): PwanCompileResult {
+export function compileGifToPwan(bytes: Uint8Array, options: PwanCompileOptions = {}): PwanCompileResult {
   const sourceFrames = decodeGifFrames(bytes);
-  if (sourceFrames.length === 0) throw new Error("GIF contains no frames");
-  if (sourceFrames.length > PWAN_MAX_TIMELINE) {
-    throw new Error(`GIF has ${sourceFrames.length} frames; PWAN supports at most ${PWAN_MAX_TIMELINE}`);
-  }
+  return compilePwanAnimationFrames(sourceFrames, options);
+}
 
-  const normalized = sourceFrames.map((frame, index) => normalizeFrameBottomAligned(frame, index));
-  const paletteFrames = preparePwanPaletteFrames(normalized);
+/** Shared by the GIF importer and deterministic conversion tests. Never mutates source frames. */
+export function compilePwanAnimationFrames(sourceFrames: AnimationAnalysisFrame[], options: PwanCompileOptions = {}): PwanCompileResult {
+  const colorPreset = options.colorPreset ?? "none";
+  if (colorPreset !== "none" && colorPreset !== "gen5") throw new Error("Unsupported GIF color preset");
+  if (sourceFrames.length === 0) throw new Error("GIF contains no frames");
+
+  const normalized = normalizePwanSourceFrames(sourceFrames);
+  const adjusted = applyPwanColorPreset(normalized, colorPreset);
+  const paletteFrames = preparePwanPaletteFrames(adjusted);
   const warnings = [...paletteFrames.warnings];
-  if (sourceFrames[0] && (sourceFrames[0].width > 384 || sourceFrames[0].height > 384)) {
-    warnings.push(`Source GIF is ${sourceFrames[0].width}x${sourceFrames[0].height}; it will be scaled into 96x96`);
+  if (sourceFrames[0] && (sourceFrames[0].width > PWAN_WIDTH || sourceFrames[0].height > PWAN_HEIGHT)) {
+    warnings.push(`Source GIF is ${sourceFrames[0].width}x${sourceFrames[0].height}; resized into 96x96 using nearest-neighbor sampling (no blended pixels)`);
   }
+  if (colorPreset === "gen5") warnings.push("Gen 5-inspired color preset applied: +15% saturation and +10% contrast; review the preview for clipped highlights or lost shades");
   const palette = normalizePalette(paletteFrames.palette);
   const compiledFrames = paletteFrames.frames.map((frame) => compilePwanFrame(frame, palette));
   const uniqueFrames: Uint8Array[] = [];
@@ -91,13 +111,16 @@ export function compileGifToPwan(bytes: Uint8Array): PwanCompileResult {
       frameIndexByHash.set(hash, frameIndex);
       uniqueFrames.push(frame);
     }
-    timeline.push({
-      frameIndex,
-      ticks: msToTicks(normalized[index]?.delayMs ?? 100),
-    });
+    const ticks = msToTicks(normalized[index]?.delayMs ?? 100);
+    const previous = timeline.at(-1);
+    // Long GIFs often encode held poses as many identical frames. Consolidate
+    // only exact consecutive output frames, without dropping poses or time.
+    if (sourceFrames.length > PWAN_MAX_TIMELINE && previous?.frameIndex === frameIndex && previous.ticks + ticks <= 0xffff) previous.ticks += ticks;
+    else timeline.push({ frameIndex, ticks });
   });
 
   if (timeline.length > PWAN_MAX_TIMELINE) throw new Error(`PWAN timeline has ${timeline.length} entries; maximum is ${PWAN_MAX_TIMELINE}`);
+  if (timeline.length < sourceFrames.length) warnings.push(`Consecutive identical output frames merged losslessly: ${sourceFrames.length} source frames to ${timeline.length} timeline steps; duration unchanged`);
   const totalTicks = timeline.reduce((sum, entry) => sum + entry.ticks, 0);
   const paletteBgr555 = Uint16Array.from(palette.map(writeBgr555));
   const pwanBytes = encodePwan({ paletteBgr555, timeline, uniqueFrames, totalTicks });
@@ -112,46 +135,51 @@ export function compileGifToPwan(bytes: Uint8Array): PwanCompileResult {
     totalTicks,
     paletteBgr555,
     warnings,
+    conversion: {
+      colorPreset,
+      sourceColorCount: analyzePalette(normalized).opaqueColorCount,
+      visibleColorCount: paletteFrames.palette.length,
+      paletteStrategy: paletteFrames.strategy,
+    },
+    ...(options.includePreview ? { previewFrames: normalized } : {}),
   };
 }
 
 export function preparePwanPaletteFrames(frames: AnimationAnalysisFrame[]): PwanPaletteFrames {
-  const paletteReport = analyzePalette(frames);
-  if (paletteReport.opaqueColorCount <= PWAN_PALETTE_COLORS - 1) {
+  return prepareRgb555PaletteFrames(frames, PWAN_PALETTE_COLORS - 1);
+}
+
+/** Shared color selection, not a PWAN format extension. A3I5 previews use 32 visible slots. */
+export function prepareRgb555PaletteFrames(frames: AnimationAnalysisFrame[], maxColors: number): PwanPaletteFrames {
+  if (!Number.isInteger(maxColors) || maxColors < 2 || maxColors > 32) throw new Error("Invalid RGB555 palette budget");
+  // Select in the actual RGB555 color space: near-identical GIF colors must not
+  // consume separate slots only to collapse to the same hardware color later.
+  const hardwareFrames = mapOpaqueFrameColors(frames, (color) => ({
+    r: (color.r >>> 3) << 3, g: (color.g >>> 3) << 3, b: (color.b >>> 3) << 3,
+  }));
+  const paletteReport = analyzePalette(hardwareFrames);
+  if (paletteReport.opaqueColorCount <= maxColors) {
     return {
-      frames,
+      frames: hardwareFrames,
       palette: paletteReport.colors,
       quantized: false,
       strategy: "exact",
-      warnings: [...paletteReport.warnings],
+      warnings: maxColors === 15 ? [...paletteReport.warnings] : paletteReport.warnings.filter(w => !w.startsWith("Uses ")),
     };
   }
 
-  const anchorPalette = compatibleAnchorPalette(frames, PWAN_PALETTE_COLORS - 1);
-  if (anchorPalette) {
-    return {
-      frames: remapFramesToPalette(frames, anchorPalette.palette),
-      palette: anchorPalette.palette,
-      quantized: true,
-      strategy: "anchor-frame",
-      warnings: [
-        ...paletteReport.warnings,
-        `Animation colors were remapped to frame ${anchorPalette.frameIndex}'s ${anchorPalette.palette.length}-color palette to fit PWAN's 15-color visible palette`,
-      ],
-    };
-  }
-
-  const reduced = reducePaletteColors(frames, PWAN_PALETTE_COLORS - 1);
+  const reduced = reducePaletteColors(hardwareFrames, maxColors);
+  const description = maxColors === 15 ? "PWAN's 15-color visible palette" : `the ${maxColors}-color visible palette`;
   return {
     frames: reduced.frames,
     palette: reduced.palette,
     quantized: true,
     strategy: reduced.strategy,
     warnings: [
-      ...paletteReport.warnings,
+      ...(maxColors === 15 ? paletteReport.warnings : paletteReport.warnings.filter(w => !w.startsWith("Uses "))),
       reduced.strategy === "closest-merge"
-        ? "Opaque colors were reduced by merging the least-visible closest color pairs to fit PWAN's 15-color visible palette"
-        : "Opaque colors were reduced with weighted median-cut quantization to fit PWAN's 15-color visible palette",
+        ? `Opaque colors were reduced by merging the least-visible closest color pairs to fit ${description}`
+        : `Opaque colors were reduced with weighted median-cut source-color selection to fit ${description}`,
     ],
   };
 }
@@ -159,17 +187,36 @@ export function preparePwanPaletteFrames(frames: AnimationAnalysisFrame[]): Pwan
 type CountedColor = RgbColor & {
   count: number;
   key: string;
+  protected?: boolean;
 };
 
-function compatibleAnchorPalette(frames: AnimationAnalysisFrame[], maxColors: number): { frameIndex: number; palette: RgbColor[] } | undefined {
-  const minimumAnchorColors = Math.min(maxColors, Math.max(1, Math.floor(maxColors * 0.75)));
-  let best: { frameIndex: number; palette: RgbColor[] } | undefined;
-  for (const frame of frames) {
-    const report = analyzePalette([frame]);
-    if (report.opaqueColorCount < minimumAnchorColors || report.opaqueColorCount > maxColors) continue;
-    if (!best || report.opaqueColorCount > best.palette.length) best = { frameIndex: frame.index, palette: report.colors };
-  }
-  return best;
+export function applyPwanColorPreset(frames: AnimationAnalysisFrame[], preset: PwanColorPreset): AnimationAnalysisFrame[] {
+  if (preset === "none") return frames;
+  if (preset !== "gen5") throw new Error("Unsupported GIF color preset");
+  return mapOpaqueFrameColors(frames, (color) => {
+    const luma = (color.r * 299 + color.g * 587 + color.b * 114) / 1000;
+    const adjust = (value: number) => clampInt((luma + (value - luma) * 1.15 - 128) * 1.10 + 128, 0, 255);
+    return { r: adjust(color.r), g: adjust(color.g), b: adjust(color.b) };
+  });
+}
+
+function mapOpaqueFrameColors(frames: AnimationAnalysisFrame[], map: (color: RgbColor) => RgbColor): AnimationAnalysisFrame[] {
+  const cache = new Map<string, RgbColor>();
+  return frames.map((frame) => {
+    const pixels = new Uint8ClampedArray(frame.pixels);
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      if ((pixels[offset + 3] ?? 0) < TRANSPARENT_ALPHA_THRESHOLD) {
+        pixels.fill(0, offset, offset + 4);
+        continue;
+      }
+      const color = { r: pixels[offset]!, g: pixels[offset + 1]!, b: pixels[offset + 2]! };
+      const key = colorKey(color);
+      let mapped = cache.get(key);
+      if (!mapped) { mapped = map(color); cache.set(key, mapped); }
+      pixels.set([mapped.r, mapped.g, mapped.b, 255], offset);
+    }
+    return { ...frame, pixels };
+  });
 }
 
 function reducePaletteColors(
@@ -177,10 +224,16 @@ function reducePaletteColors(
   maxColors: number,
 ): { frames: AnimationAnalysisFrame[]; palette: RgbColor[]; strategy: "closest-merge" | "weighted-median-cut" } {
   const colors = countOpaqueColors(frames);
+  // Preserve the darkest linework and brightest highlight. Frequency weighting
+  // is softened so small eyes/accents aren't erased by a large flat body color.
+  const byLuma = [...colors].sort((a, b) => colorLuma(a) - colorLuma(b) || compareRgb(a, b));
+  byLuma[0]!.protected = true;
+  byLuma[byLuma.length - 1]!.protected = true;
   const strategy = colors.length <= CLOSEST_MERGE_COLOR_LIMIT ? "closest-merge" : "weighted-median-cut";
+  const protectedColors = colors.filter((color) => color.protected);
   const palette = strategy === "closest-merge"
     ? reduceColorsByClosestMerges(colors, maxColors)
-    : weightedMedianCutPalette(colors, maxColors);
+    : [...protectedColors, ...weightedMedianCutPalette(colors.filter((color) => !color.protected), maxColors - protectedColors.length)].map(({ r, g, b }) => ({ r, g, b })).sort(compareRgb);
   return {
     frames: remapFramesToPalette(frames, palette),
     palette,
@@ -217,7 +270,9 @@ function weightedMedianCutPalette(colors: CountedColor[], maxColors: number): Rg
     cut = Math.max(1, Math.min(sorted.length - 1, cut));
     buckets.splice(splitIndex, 1, sorted.slice(0, cut), sorted.slice(cut));
   }
-  return buckets.map(weightedAverageColor).sort(compareRgb);
+  // Choose an existing color nearest each bucket's centroid rather than inventing
+  // an averaged shade. This keeps source ramps and avoids another RGB555 collapse.
+  return buckets.map((bucket) => nearestColor(weightedAverageColor(bucket), bucket)).sort(compareRgb);
 }
 
 function bucketColorRange(colors: CountedColor[]): number {
@@ -268,7 +323,7 @@ function reduceColorsByClosestMerges(colors: CountedColor[], maxColors: number):
     if (!pair) break;
     const first = clusters[pair.first]!;
     const second = clusters[pair.second]!;
-    const keep = first.count >= second.count ? first : second;
+    const keep = first.protected ? first : second.protected ? second : first.count >= second.count ? first : second;
     const drop = keep === first ? second : first;
     keep.count += drop.count;
     clusters.splice(clusters.indexOf(drop), 1);
@@ -281,8 +336,11 @@ function closestMergePair(colors: CountedColor[]): { first: number; second: numb
   let best = { first: 0, second: 1, score: Number.POSITIVE_INFINITY, distance: Number.POSITIVE_INFINITY };
   for (let first = 0; first < colors.length; first += 1) {
     for (let second = first + 1; second < colors.length; second += 1) {
-      const distance = colorDistance(colors[first]!, colors[second]!);
-      const score = distance * Math.max(1, Math.min(colors[first]!.count, colors[second]!.count));
+      const a = colors[first]!;
+      const b = colors[second]!;
+      if (a.protected && b.protected) continue;
+      const distance = colorDistance(a, b);
+      const score = distance * (a.protected ? b.count : b.protected ? a.count : Math.min(a.count, b.count));
       if (score < best.score || (score === best.score && distance < best.distance)) best = { first, second, score, distance };
     }
   }
@@ -292,20 +350,22 @@ function closestMergePair(colors: CountedColor[]): { first: number; second: numb
 function countOpaqueColors(frames: AnimationAnalysisFrame[]): CountedColor[] {
   const colors = new Map<string, CountedColor>();
   for (const frame of frames) {
+    const duration = msToTicks(frame.delayMs);
     for (let offset = 0; offset < frame.pixels.length; offset += 4) {
       if ((frame.pixels[offset + 3] ?? 0) < TRANSPARENT_ALPHA_THRESHOLD) continue;
       const color = { r: frame.pixels[offset] ?? 0, g: frame.pixels[offset + 1] ?? 0, b: frame.pixels[offset + 2] ?? 0 };
       const key = colorKey(color);
       const existing = colors.get(key);
-      if (existing) existing.count += 1;
-      else colors.set(key, { ...color, count: 1, key });
+      if (existing) existing.count += duration;
+      else colors.set(key, { ...color, count: duration, key });
     }
   }
-  return [...colors.values()];
+  return [...colors.values()].map((color) => ({ ...color, count: Math.sqrt(color.count) })).sort(compareRgb);
 }
 
 function remapFramesToPalette(frames: AnimationAnalysisFrame[], palette: RgbColor[]): AnimationAnalysisFrame[] {
   if (palette.length === 0) return frames.map((frame) => ({ ...frame, pixels: new Uint8ClampedArray(frame.pixels) }));
+  const cache = new Map<string, RgbColor>();
   return frames.map((frame) => {
     const pixels = new Uint8ClampedArray(frame.pixels);
     for (let offset = 0; offset < pixels.length; offset += 4) {
@@ -313,7 +373,10 @@ function remapFramesToPalette(frames: AnimationAnalysisFrame[], palette: RgbColo
         pixels.fill(0, offset, offset + 4);
         continue;
       }
-      const color = nearestColor({ r: pixels[offset] ?? 0, g: pixels[offset + 1] ?? 0, b: pixels[offset + 2] ?? 0 }, palette);
+      const source = { r: pixels[offset] ?? 0, g: pixels[offset + 1] ?? 0, b: pixels[offset + 2] ?? 0 };
+      const key = colorKey(source);
+      let color = cache.get(key);
+      if (!color) { color = nearestColor(source, palette); cache.set(key, color); }
       pixels[offset] = color.r;
       pixels[offset + 1] = color.g;
       pixels[offset + 2] = color.b;
@@ -567,7 +630,14 @@ export function makeWidePwanPixels(src: number[][]): number[][] {
   return pixels;
 }
 
+export function normalizePwanSourceFrames(frames: AnimationAnalysisFrame[]): AnimationAnalysisFrame[] {
+  return frames.map(normalizeFrameBottomAligned);
+}
+
 function normalizeFrameBottomAligned(frame: AnimationAnalysisFrame, index: number): AnimationAnalysisFrame {
+  if (!Number.isInteger(frame.width) || !Number.isInteger(frame.height) || frame.width <= 0 || frame.height <= 0 || frame.pixels.length !== frame.width * frame.height * 4) {
+    throw new Error("Invalid GIF frame dimensions or pixel data");
+  }
   const bounds = alphaBounds(frame);
   const scale = Math.min(1, PWAN_WIDTH / frame.width, PWAN_HEIGHT / frame.height);
   const scaledWidth = Math.max(1, Math.round(frame.width * scale));
@@ -887,23 +957,12 @@ function writeBgr555(color: RgbColor): number {
 function scaleRgba(src: Uint8ClampedArray, srcWidth: number, srcHeight: number, dstWidth: number, dstHeight: number): Uint8ClampedArray {
   const out = new Uint8ClampedArray(dstWidth * dstHeight * 4);
   for (let y = 0; y < dstHeight; y += 1) {
-    const sy = Math.min(srcHeight - 1, Math.max(0, (y + 0.5) * srcHeight / dstHeight - 0.5));
-    const y0 = Math.floor(sy);
-    const y1 = Math.min(srcHeight - 1, y0 + 1);
-    const fy = sy - y0;
+    const sy = Math.min(srcHeight - 1, Math.floor((y + 0.5) * srcHeight / dstHeight));
     for (let x = 0; x < dstWidth; x += 1) {
-      const sx = Math.min(srcWidth - 1, Math.max(0, (x + 0.5) * srcWidth / dstWidth - 0.5));
-      const x0 = Math.floor(sx);
-      const x1 = Math.min(srcWidth - 1, x0 + 1);
-      const fx = sx - x0;
+      const sx = Math.min(srcWidth - 1, Math.floor((x + 0.5) * srcWidth / dstWidth));
       const dst = (y * dstWidth + x) * 4;
-      for (let channel = 0; channel < 4; channel += 1) {
-        const c00 = src[(y0 * srcWidth + x0) * 4 + channel] ?? 0;
-        const c10 = src[(y0 * srcWidth + x1) * 4 + channel] ?? 0;
-        const c01 = src[(y1 * srcWidth + x0) * 4 + channel] ?? 0;
-        const c11 = src[(y1 * srcWidth + x1) * 4 + channel] ?? 0;
-        out[dst + channel] = Math.round(c00 * (1 - fx) * (1 - fy) + c10 * fx * (1 - fy) + c01 * (1 - fx) * fy + c11 * fx * fy);
-      }
+      const source = (sy * srcWidth + sx) * 4;
+      out.set(src.subarray(source, source + 4), dst);
     }
   }
   return out;
@@ -1056,7 +1115,11 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
 }
 
 function colorDistance(a: RgbColor, b: RgbColor): number {
-  return (a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2;
+  return 2 * (a.r - b.r) ** 2 + 4 * (a.g - b.g) ** 2 + 3 * (a.b - b.b) ** 2;
+}
+
+function colorLuma(color: RgbColor): number {
+  return color.r * 299 + color.g * 587 + color.b * 114;
 }
 
 function clampInt(value: number, min: number, max: number): number {

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprite conversion comparison</title>
+<style>
+:root{color-scheme:dark;font:15px system-ui,sans-serif;background:#11171c;color:#e7eef1;--stage:#253d3b;--zoom:3}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button,select,input{color:inherit;background:#202b33;border:1px solid #42545c;border-radius:7px;padding:8px 12px}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #61d6c0;outline-offset:2px}button[aria-pressed=true]{background:#276251;border-color:#72ceae}header{padding:20px 25px;border-bottom:1px solid #31414b;display:flex;align-items:center;justify-content:space-between;gap:20px}h1{font-size:22px;margin:0 0 5px}h2{font-size:20px;margin:0}h3{font-size:16px;margin:0}p{margin:6px 0;color:#b8c7ce;line-height:1.5}.layout{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:calc(100vh - 92px)}aside{border-right:1px solid #31414b;padding:16px;height:calc(100vh - 93px);position:sticky;top:0;display:flex;flex-direction:column;gap:10px}label{display:grid;gap:5px;font-size:13px;color:#b8c7ce}#list{overflow:auto;display:grid;align-content:start;gap:5px;flex:1}#list button{text-align:left;border-color:transparent;background:transparent;padding:10px;line-height:1.3}#list button.active{background:#254b45;border-color:#5baa91}#list small{display:block;color:#b1bec7;font-size:12px;margin-top:4px}main{padding:24px;min-width:0}.heading{display:flex;justify-content:space-between;gap:20px}.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:20px 0}.toolbar label{display:flex;align-items:center;gap:6px}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{background:#192329;border:1px solid #34454e;border-radius:12px;overflow:hidden}.card h3{padding:15px}.stage{background:var(--stage);min-height:310px;display:grid;place-items:center;overflow:auto;padding:10px}.stage.checker{background-color:#aab2b6;background-image:linear-gradient(45deg,#899498 25%,transparent 25%),linear-gradient(-45deg,#899498 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#899498 75%),linear-gradient(-45deg,transparent 75%,#899498 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0px}canvas{width:calc(96px * var(--zoom));height:calc(96px * var(--zoom));image-rendering:pixelated}#source{max-height:288px;max-width:100%;image-rendering:pixelated}.stats{padding:12px 15px;color:#b8c7ce;font-size:13px;line-height:1.5}.swatches{display:flex;gap:3px;flex-wrap:wrap;margin:9px 0}.swatch{width:17px;height:17px;border-radius:3px;border:1px solid #ffffff35}.downloads{display:flex;gap:14px}a{color:#85dac0}#scrub{width:min(440px,60vw);accent-color:#85dac0}.meta{margin-top:20px;padding:16px;background:#192329;border-radius:10px;overflow-wrap:anywhere}.meta p{font-size:13px}.status{font-size:13px;color:#b8c7ce}#error{color:#ffb6ad}#original{margin-top:18px}#original[hidden]{display:none}.source-stage{display:flex;gap:20px;align-items:center;padding:15px;background:var(--stage);border-radius:10px;margin-top:10px}#counts{font-size:13px}#list-count{font-size:12px;color:#b8c7ce}code{color:#d7dfaa}.footer{font-size:12px;margin-top:20px;color:#a7b9c2}@media(max-width:1100px){:root{--zoom:2}.stage{min-height:215px}.cards{gap:8px}.layout{grid-template-columns:230px 1fr}main{padding:18px}}@media(max-width:750px){header{padding:16px;display:block}.layout{grid-template-columns:1fr}aside{height:230px;position:static;border-right:0;border-bottom:1px solid #31414b}.cards{grid-template-columns:1fr}.stage{min-height:220px}.heading{display:block}.toolbar{gap:8px}.card h3{padding:12px}}
+.toolbar label:has(#format){flex-wrap:wrap;max-width:100%}#format{max-width:100%}@media(max-width:750px){aside{height:375px}}
+</style>
+</head>
+<body>
+<header><div><h1>Sprite conversion comparison</h1><p>15-color output + eligible 32-color A3I5 previews · optional Gen 5 color treatment</p></div><div id="counts"></div></header>
+<div class="layout">
+<aside aria-label="Sprite browser"><label>Search sprites<input id="search" type="search" placeholder="Name, species ID, form, artist"></label><label>View<select id="side"><option value="all">Front + back</option><option value="front">Front</option><option value="back">Back</option></select></label><label>Source<select id="group"><option value="all">All sources</option><option value="preserved">Preserved: no approved source</option></select></label><label>Color eligibility<select id="eligibility"><option value="all">All sprites</option><option value="a3i5">32-color candidates only</option></select></label><div id="list-count"></div><nav id="list" aria-label="Sprites"></nav></aside>
+<main>
+<div class="heading"><div><h2 id="name">Loading sprites…</h2><p id="subtitle"></p></div><div><button id="prev" aria-label="Previous sprite">← Previous</button> <button id="next" aria-label="Next sprite">Next →</button></div></div>
+<div class="toolbar"><button id="play" aria-pressed="true">Pause</button><label>Loop position<input id="scrub" type="range" min="0" max="1000" value="0"></label><span id="position" class="status">0%</span><label>Zoom<select id="zoom"><option value="1">1×</option><option value="2">2×</option><option value="3" selected>3×</option><option value="4">4×</option></select></label><label>Background<select id="background"><option value="battle">Battle green</option><option value="checker">Transparency grid</option><option value="dark">Dark</option><option value="light">Light</option></select></label><button id="show-source" aria-pressed="false">Original GIF</button></div>
+<div class="toolbar"><label>New output format<select id="format"><option value="pwan">15 visible colors · TEX4 / PWAN</option><option value="a3i5">32 visible colors · A3I5 preview</option></select></label><span id="format-note" class="status"></span></div>
+<div id="error" role="alert"></div>
+<div class="cards">
+<section class="card"><h3>Previous ROM output</h3><div class="stage"><canvas id="old" width="96" height="96" aria-label="Previous ROM animation"></canvas></div><div id="old-stats" class="stats"></div></section>
+<section class="card"><h3>New · original colors</h3><div class="stage"><canvas id="new" width="96" height="96" aria-label="New importer animation"></canvas></div><div id="new-stats" class="stats"></div></section>
+<section class="card"><h3>New · Gen 5 preset</h3><div class="stage"><canvas id="gen5" width="96" height="96" aria-label="New importer with Gen 5 color preset"></canvas></div><div id="gen5-stats" class="stats"></div></section>
+</div>
+<div id="original" hidden><h3>Original source GIF</h3><div class="source-stage"><img id="source" alt="Original imported GIF"><p>Unmodified source. The comparison panels use decoded output pixels and synchronized loop positions.</p></div></div>
+<div class="meta"><p id="provenance"></p><p id="details"></p><p id="warnings"></p><p id="aliases"></p></div>
+<p class="footer">The previous column is recovered losslessly from the last ROM’s w2anim streams. It is not recompiled. Source priority changes can also change the artwork. New output uses nearest-neighbor resizing and a whole-animation RGB555 palette. Gen 5 adds 15% saturation and 10% contrast. A3I5 previews are generated only when the original GIF has more than 16 visible colors across its full animation (transparency excluded); RGB555 conversion may merge some shades. Both the preset and A3I5 are comparison-only: the refreshed ROM/library still use ungraded 15-color output. A3I5 downloads contain raw texture texels and metadata, not installable PWAN/w2anim assets. Playback matches loop position across variants, preserving each variant’s own timing.</p>
+</main></div>
+<script src="manifest.js"></script>
+<script>
+(() => {
+ 'use strict';
+ const $=id=>document.getElementById(id), manifest=window.spriteManifest, kinds=['old','new','gen5'];
+ const rows=manifest.sprites.slice().sort((a,b)=>a.name.localeCompare(b.name)||a.side.localeCompare(b.side));
+ const loaded=new Map(), urls=[], canvases=kinds.map(k=>$(k));
+ window.spriteA3i5??={};
+ let filtered=rows, current, variants, requestedFormat='pwan', playing=!matchMedia('(prefers-reduced-motion: reduce)').matches, fraction=0, last=0, request=0, raf;
+ $('counts').textContent=`${manifest.entries} species/forms · ${manifest.importedSides} reimported sides · ${manifest.a3i5?.eligibleSides??0} A3I5 candidates`;
+ $('eligibility').disabled=!manifest.a3i5;
+ for(const group of [...new Set(rows.map(r=>r.group).filter(Boolean))].sort()) {const option=document.createElement('option');option.value=group;option.textContent=group;$('group').append(option);}
+ const decode=base64=>{
+  const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0)), v=new DataView(bytes.buffer), u16=p=>v.getUint16(p,true), u32=p=>v.getUint32(p,true);
+  if(new TextDecoder().decode(bytes.subarray(0,4))!=='PWAN'||u16(4)!==1||u16(6)!==96||u16(8)!==96)throw Error('Invalid comparison PWAN');
+  const count=u16(12), steps=u16(14), paletteAt=u32(28), timelineAt=u32(32), framesAt=u32(36);
+  if(paletteAt+32>bytes.length||timelineAt+steps*4>bytes.length||framesAt+count*4608>bytes.length)throw Error('Truncated comparison PWAN');
+  const palette=Array.from({length:16},(_,n)=>{const c=u16(paletteAt+n*2);return[(c&31)*255/31,(c>>5&31)*255/31,(c>>10&31)*255/31];});
+  const timeline=Array.from({length:steps},(_,n)=>({frame:u16(timelineAt+n*4),ticks:u16(timelineAt+n*4+2)}));
+  if(timeline.some(s=>s.frame>=count||!s.ticks))throw Error('Invalid comparison timeline');
+  return{format:'pwan',bytes,count,palette,timeline,total:timeline.reduce((n,s)=>n+s.ticks,0),framesAt,cache:new Map()};
+ };
+ const decodeA3i5=payload=>{
+  if(payload.format!=='a3i5-sprite-preview-v1'||payload.width!==96||payload.height!==96||payload.stride!==128||payload.frameBytes!==12288||payload.palette.length!==32)throw Error('Invalid A3I5 comparison');
+  const bytes=Uint8Array.from(atob(payload.frames),c=>c.charCodeAt(0)),count=payload.frameCount,timeline=payload.timeline;
+  if(!Number.isInteger(count)||count<1||bytes.length!==count*12288||!timeline.length||timeline.some(s=>!Number.isInteger(s.frame)||s.frame<0||s.frame>=count||!Number.isInteger(s.ticks)||s.ticks<1||s.ticks>65535)||payload.totalTicks!==timeline.reduce((n,s)=>n+s.ticks,0)||payload.palette.some(c=>!Number.isInteger(c)||c<0||c>32767)||!Number.isInteger(payload.visibleColors)||payload.visibleColors<0||payload.visibleColors>32)throw Error('Invalid A3I5 bounds/palette/timing');
+  const palette=payload.palette.map(c=>[(c&31)*255/31,(c>>5&31)*255/31,(c>>10&31)*255/31]);
+  return{format:'a3i5',payload,bytes,count,palette,timeline,total:payload.totalTicks,visibleColors:payload.visibleColors,cache:new Map()};
+ };
+ const image=(value,n)=>{
+  if(value.cache.has(n))return value.cache.get(n);
+  const data=new ImageData(96,96), regions=[[0,0,0,8,8],[2048,64,0,4,8],[3072,0,64,8,4],[4096,64,64,4,4]];
+  if(value.format==='a3i5'){
+   for(let y=0;y<96;y++)for(let x=0;x<96;x++){const b=value.bytes[n*12288+y*128+x],at=(y*96+x)*4;if(b>>5){data.data.set(value.palette[b&31],at);data.data[at+3]=Math.round((b>>5)*255/7);}}
+   value.cache.set(n,data);return data;
+  }
+  for(const[base,x0,y0,tw,th]of regions)for(let ty=0;ty<th;ty++)for(let tx=0;tx<tw;tx++)for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+   const b=value.bytes[value.framesAt+n*4608+base+(ty*tw+tx)*32+y*4+(x>>1)],i=x%2?b>>4:b&15,at=((y0+ty*8+y)*96+x0+tx*8+x)*4;
+   if(i){data.data.set(value.palette[i],at);data.data[at+3]=255;}
+  }
+  value.cache.set(n,data);return data;
+ };
+ function draw(){if(!variants)return; kinds.forEach((kind,n)=>{const value=variants[kind];let tick=fraction*value.total,frame=value.timeline[0].frame;for(const step of value.timeline){frame=step.frame;if(tick<step.ticks)break;tick-=step.ticks;}canvases[n].getContext('2d').putImageData(image(value,frame),0,0);});$('scrub').value=String(Math.round(fraction*1000));$('position').textContent=`${Math.round(fraction*100)}%`;}
+ function tick(time){if(playing&&variants&&last){fraction=(fraction+(time-last)/(variants.new.total/60*1000))%1;draw();}last=time;raf=requestAnimationFrame(tick);}
+ function stats(kind,value){const el=$(kind+'-stats');el.replaceChildren();const text=document.createElement('div');text.textContent=`${value.format==='a3i5'?`A3I5 · ${value.visibleColors}/32 colors`:'TEX4 · 15-color budget'} · ${value.count} unique frames · ${value.timeline.length} steps · ${(value.total/60).toFixed(2)} s · ${(value.bytes.length/1024).toFixed(1)} KiB uncompressed`;el.append(text);const colors=document.createElement('div');colors.className='swatches';(value.format==='a3i5'?value.palette.slice(0,value.visibleColors):value.palette.slice(1)).forEach(color=>{const swatch=document.createElement('span');swatch.className='swatch';swatch.style.background=`rgb(${color.join(',')})`;swatch.title=color.map(Math.round).join(', ');colors.append(swatch);});el.append(colors);const download=document.createElement('a');const url=URL.createObjectURL(value.format==='a3i5'?new Blob([JSON.stringify(value.payload)],{type:'application/json'}):new Blob([value.bytes],{type:'application/octet-stream'}));urls.push(url);download.href=url;download.download=current.id+'-'+kind+(value.format==='a3i5'?'-a3i5.json':'.pwan');download.textContent=value.format==='a3i5'?'Download A3I5 preview data':'Download PWAN';el.append(download);}
+ async function loadPayload(row,mode){const cache=mode==='a3i5'?window.spriteA3i5:window.spriteVariants,key=mode+':'+row.id;if(!cache[row.id]){let promise=loaded.get(key);if(!promise){promise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=(mode==='a3i5'?'a3i5-assets/':'assets/')+row.id+'.js';script.onload=()=>{script.remove();resolve();};script.onerror=()=>{loaded.delete(key);script.remove();reject(Error('Cannot load sprite payload'));};document.body.append(script);});loaded.set(key,promise);}await promise;}return cache[row.id];}
+ async function select(row){
+  current=row;const version=++request;variants=undefined;fraction=0;last=0;urls.splice(0).forEach(URL.revokeObjectURL);canvases.forEach(c=>c.getContext('2d').clearRect(0,0,96,96));kinds.forEach(kind=>$(kind+'-stats').replaceChildren());$('error').textContent='';
+  $('name').textContent=row.name; $('subtitle').textContent=`${row.side} · species ${row.species} / form ${row.form} · asset ${row.asset}`;
+  $('provenance').textContent=row.source?`Source: ${row.source}`:'No approved GIF source found; previous ROM output preserved.';
+  const mode=requestedFormat==='a3i5'&&row.a3i5?.eligible?'a3i5':'pwan';
+  $('format').value=mode;$('format').querySelector('option[value=a3i5]').disabled=!row.a3i5?.eligible;
+  $('format-note').textContent=row.a3i5?.eligible?`Original GIF: ${row.a3i5.sourceColorCount} visible colors · A3I5 available (preview only)`:`Original GIF: ${row.a3i5?.sourceColorCount??'unknown'} visible colors · A3I5 not applicable (requires >16)`;
+  $('details').textContent=`${row.status==='imported'?'Reimported':'Preserved'} · ${row.credits} · timing multiplier ${row.timingScale}× · placement shift ${row.groundShift} px · ${mode==='a3i5'?'up to 32 visible colors with per-pixel alpha (preview only)':'up to 15 visible colors + transparency'}`;
+  $('warnings').textContent=(mode==='a3i5'?'15-color ROM/library import notes: ':'')+row.warnings.join(' · ');$('aliases').textContent=row.aliases.length>1?'Shared by: '+row.aliases.map(a=>a.name).join(', '):'';
+  $('source').removeAttribute('src');if(row.source&&row.status==='imported')$('source').src='sources/'+row.id+'.gif';$('show-source').disabled=!(row.source&&row.status==='imported');
+  for(const button of $('list').children){const active=button.dataset.id===row.id;button.classList.toggle('active',active);button.setAttribute('aria-current',active?'true':'false');}
+  history.replaceState(null,'','#'+encodeURIComponent(row.id));
+  try{
+   const normal=await loadPayload(row,'pwan'),extra=mode==='a3i5'?await loadPayload(row,'a3i5'):undefined;
+   if(version!==request)return;
+   variants={old:decode(normal.old),new:extra?decodeA3i5(extra.new):decode(normal.new),gen5:extra?decodeA3i5(extra.gen5):decode(normal.gen5)};
+   // Bounded raw-payload cache: browsing the full collection must not retain it all.
+   for(const [label,cache] of [['pwan',window.spriteVariants],['a3i5',window.spriteA3i5]]){const cached=Object.keys(cache);for(const id of cached.slice(0,Math.max(0,cached.length-8)))if(id!==row.id){delete cache[id];loaded.delete(label+':'+id);}}
+   kinds.forEach(kind=>stats(kind,variants[kind]));draw();
+  }catch(error){if(version===request)$('error').textContent=String(error);}
+ }
+ function filter(){const q=$('search').value.toLowerCase().trim(), side=$('side').value, group=$('group').value;filtered=rows.filter(r=>($('eligibility').value==='all'||r.a3i5?.eligible)&&(side==='all'||r.side===side)&&(group==='all'||(group==='preserved'?r.status==='preserved':r.group===group))&&[r.name,r.species,r.asset,r.source,...r.aliases.map(a=>a.name)].join(' ').toLowerCase().includes(q));$('list-count').textContent=`${filtered.length} of ${rows.length} sprite sides`;$('list').replaceChildren();for(const row of filtered){const button=document.createElement('button');button.dataset.id=row.id;button.textContent=row.name;const small=document.createElement('small');small.textContent=`${row.side} · #${row.species} · ${row.a3i5?.eligible?'32-color candidate · ':''}${row.status==='preserved'?'preserved':row.group}`;button.append(small);button.classList.toggle('active',current?.id===row.id);button.addEventListener('click',()=>select(row));$('list').append(button);}}
+ const step=delta=>{if(!filtered.length)return;let index=filtered.findIndex(r=>r.id===current?.id);if(index<0)index=delta>0?-1:0;select(filtered[(index+delta+filtered.length)%filtered.length]);};
+ ['search','side','group','eligibility'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',filter));
+ $('format').addEventListener('change',()=>{requestedFormat=$('format').value;if(current)select(current);});
+ $('prev').addEventListener('click',()=>step(-1));$('next').addEventListener('click',()=>step(1));
+ const playLabel=()=>{$('play').textContent=playing?'Pause':'Play';$('play').setAttribute('aria-pressed',String(playing));};playLabel();
+ $('play').addEventListener('click',()=>{playing=!playing;last=0;playLabel();});
+ $('scrub').addEventListener('input',()=>{playing=false;playLabel();fraction=Number($('scrub').value)/1000;draw();});
+ $('zoom').addEventListener('change',()=>document.documentElement.style.setProperty('--zoom',$('zoom').value));
+ $('background').addEventListener('change',()=>{const mode=$('background').value;document.documentElement.style.setProperty('--stage',({battle:'#253d3b',dark:'#11171c',light:'#e3e8e5',checker:'#aab2b6'})[mode]);document.querySelectorAll('.stage').forEach(el=>el.classList.toggle('checker',mode==='checker'));});
+ $('show-source').addEventListener('click',()=>{const open=$('original').hidden;$('original').hidden=!open;$('show-source').setAttribute('aria-pressed',String(open));});
+ document.addEventListener('keydown',event=>{if(/INPUT|SELECT/.test(event.target.tagName))return;if(event.key==='ArrowRight'){event.preventDefault();step(1);}if(event.key==='ArrowLeft'){event.preventDefault();step(-1);}});
+ window.addEventListener('pagehide',()=>{cancelAnimationFrame(raf);urls.forEach(URL.revokeObjectURL);});
+ filter();select(rows.find(r=>r.id===decodeURIComponent(location.hash.slice(1)))??rows[0]);raf=requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
